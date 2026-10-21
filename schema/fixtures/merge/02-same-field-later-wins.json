@@ -1,0 +1,40 @@
+{
+  "description": "Concurrent edits to the same field: the later HLC wins; the node id breaks exact ties",
+  "collection": "tasks",
+  "a": [
+    {
+      "id": "01JBTASK000000000000000001",
+      "title": "From a",
+      "_hlc": { "title": "2026-10-20T16:05:00.000Z-0003-a" }
+    },
+    {
+      "id": "01JBTASK000000000000000002",
+      "title": "Tie from a",
+      "_hlc": { "title": "2026-10-20T16:05:00.000Z-0000-a" }
+    }
+  ],
+  "b": [
+    {
+      "id": "01JBTASK000000000000000001",
+      "title": "From b",
+      "_hlc": { "title": "2026-10-20T16:05:00.000Z-0002-b" }
+    },
+    {
+      "id": "01JBTASK000000000000000002",
+      "title": "Tie from b",
+      "_hlc": { "title": "2026-10-20T16:05:00.000Z-0000-b" }
+    }
+  ],
+  "expected": [
+    {
+      "id": "01JBTASK000000000000000001",
+      "title": "From a",
+      "_hlc": { "title": "2026-10-20T16:05:00.000Z-0003-a" }
+    },
+    {
+      "id": "01JBTASK000000000000000002",
+      "title": "Tie from b",
+      "_hlc": { "title": "2026-10-20T16:05:00.000Z-0000-b" }
+    }
+  ]
+}

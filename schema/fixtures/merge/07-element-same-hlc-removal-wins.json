@@ -1,0 +1,31 @@
+{
+  "description": "Same element, same HLC, different state: removal wins regardless of merge order",
+  "collection": "tasks",
+  "a": [
+    {
+      "id": "01JBTASK000000000000000001",
+      "assignees": {
+        "user:01JBMEMB000000000000000001": { "in": true, "hlc": "2026-10-20T16:00:00.000Z-0000-a" }
+      },
+      "_hlc": {}
+    }
+  ],
+  "b": [
+    {
+      "id": "01JBTASK000000000000000001",
+      "assignees": {
+        "user:01JBMEMB000000000000000001": { "in": false, "hlc": "2026-10-20T16:00:00.000Z-0000-a" }
+      },
+      "_hlc": {}
+    }
+  ],
+  "expected": [
+    {
+      "id": "01JBTASK000000000000000001",
+      "assignees": {
+        "user:01JBMEMB000000000000000001": { "in": false, "hlc": "2026-10-20T16:00:00.000Z-0000-a" }
+      },
+      "_hlc": {}
+    }
+  ]
+}

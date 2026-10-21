@@ -1,0 +1,25 @@
+{
+  "description": "A restore made after a delete wins",
+  "collection": "lists",
+  "a": [
+    {
+      "id": "01JBCAT0000000000000000001",
+      "deletedAt": "2026-10-20T16:05:00.000Z",
+      "_hlc": { "deletedAt": "2026-10-20T16:05:00.000Z-0000-a" }
+    }
+  ],
+  "b": [
+    {
+      "id": "01JBCAT0000000000000000001",
+      "deletedAt": null,
+      "_hlc": { "deletedAt": "2026-10-20T16:09:00.000Z-0001-b" }
+    }
+  ],
+  "expected": [
+    {
+      "id": "01JBCAT0000000000000000001",
+      "deletedAt": null,
+      "_hlc": { "deletedAt": "2026-10-20T16:09:00.000Z-0001-b" }
+    }
+  ]
+}

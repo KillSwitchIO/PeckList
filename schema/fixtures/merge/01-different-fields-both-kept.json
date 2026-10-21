@@ -1,0 +1,37 @@
+{
+  "description": "Concurrent edits to different fields of the same task are both kept",
+  "collection": "tasks",
+  "a": [
+    {
+      "id": "01JBTASK000000000000000001",
+      "title": "Mow the lawn",
+      "priority": 0,
+      "_hlc": {
+        "title": "2026-10-20T16:05:00.000Z-0000-a",
+        "priority": "2026-10-20T16:00:00.000Z-0000-a"
+      }
+    }
+  ],
+  "b": [
+    {
+      "id": "01JBTASK000000000000000001",
+      "title": "Mow lawn",
+      "priority": 3,
+      "_hlc": {
+        "title": "2026-10-20T16:00:00.000Z-0000-a",
+        "priority": "2026-10-20T16:06:00.000Z-0000-b"
+      }
+    }
+  ],
+  "expected": [
+    {
+      "id": "01JBTASK000000000000000001",
+      "title": "Mow the lawn",
+      "priority": 3,
+      "_hlc": {
+        "priority": "2026-10-20T16:06:00.000Z-0000-b",
+        "title": "2026-10-20T16:05:00.000Z-0000-a"
+      }
+    }
+  ]
+}

@@ -1,0 +1,30 @@
+{
+  "description": "Entities that exist on only one side are kept; output is sorted by id",
+  "collection": "tags",
+  "a": [
+    {
+      "id": "01JBTAG0000000000000000002",
+      "name": "work",
+      "_hlc": { "name": "2026-10-20T16:00:00.000Z-0000-a" }
+    }
+  ],
+  "b": [
+    {
+      "id": "01JBTAG0000000000000000001",
+      "name": "home",
+      "_hlc": { "name": "2026-10-20T16:00:00.000Z-0000-b" }
+    }
+  ],
+  "expected": [
+    {
+      "id": "01JBTAG0000000000000000001",
+      "name": "home",
+      "_hlc": { "name": "2026-10-20T16:00:00.000Z-0000-b" }
+    },
+    {
+      "id": "01JBTAG0000000000000000002",
+      "name": "work",
+      "_hlc": { "name": "2026-10-20T16:00:00.000Z-0000-a" }
+    }
+  ]
+}

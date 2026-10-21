@@ -1,0 +1,176 @@
+// Color tokens. One meaning per visual channel (see vault Design Spec). Pastels are used for
+// fills, rings and dots; each token also has an `on` variant for text and icons. In dark mode
+// the roles flip: fills are muted and the pastel itself is used for text and icons.
+
+export interface ColorToken {
+  /** Fill, ring, dot or stripe color */
+  fill: string;
+  /** Text or icon color that reads on the surface */
+  on: string;
+}
+
+export interface ModePalette {
+  background: string;
+  surface: string;
+  surfaceVariant: string;
+  outline: string;
+  text: string;
+  textMuted: string;
+  accent: ColorToken;
+  accentContainer: string;
+  priority: { high: ColorToken; medium: ColorToken; low: ColorToken; none: ColorToken };
+  dateState: { late: string; slipped: string; dueSoon: string };
+  pastels: Record<PastelName, ColorToken>;
+}
+
+export const PASTEL_NAMES = [
+  'rose',
+  'peach',
+  'butter',
+  'lime',
+  'mint',
+  'sage',
+  'aqua',
+  'sky',
+  'periwinkle',
+  'lavender',
+  'mauve',
+  'sand',
+] as const;
+export type PastelName = (typeof PASTEL_NAMES)[number];
+
+const PASTEL_FILLS: Record<PastelName, string> = {
+  rose: '#F2A7B5',
+  peach: '#F7C59F',
+  butter: '#F3E1A0',
+  lime: '#CFE3A3',
+  mint: '#A8DCC0',
+  sage: '#B9CDB0',
+  aqua: '#A3D8DC',
+  sky: '#A7C7E7',
+  periwinkle: '#B5B8EC',
+  lavender: '#CDB4E6',
+  mauve: '#E0B3D3',
+  sand: '#DCCBB5',
+};
+
+// --- color math -----------------------------------------------------------------------
+
+export interface Rgb {
+  r: number;
+  g: number;
+  b: number;
+}
+
+export function hexToRgb(hex: string): Rgb {
+  const match = /^#([0-9a-f]{6})$/i.exec(hex);
+  if (!match) throw new Error(`invalid color: ${hex}`);
+  const value = parseInt(match[1] ?? '', 16);
+  return { r: (value >> 16) & 255, g: (value >> 8) & 255, b: value & 255 };
+}
+
+export function rgbToHex({ r, g, b }: Rgb): string {
+  const part = (n: number) =>
+    Math.round(Math.min(255, Math.max(0, n)))
+      .toString(16)
+      .padStart(2, '0');
+  return `#${part(r)}${part(g)}${part(b)}`.toUpperCase();
+}
+
+/** Mix two colors; `amount` 0 returns `a`, 1 returns `b`. */
+export function mix(a: string, b: string, amount: number): string {
+  const x = hexToRgb(a);
+  const y = hexToRgb(b);
+  return rgbToHex({
+    r: x.r + (y.r - x.r) * amount,
+    g: x.g + (y.g - x.g) * amount,
+    b: x.b + (y.b - x.b) * amount,
+  });
+}
+
+/** WCAG 2.x relative luminance */
+export function luminance(hex: string): number {
+  const { r, g, b } = hexToRgb(hex);
+  const channel = (c: number) => {
+    const s = c / 255;
+    return s <= 0.03928 ? s / 12.92 : ((s + 0.055) / 1.055) ** 2.4;
+  };
+  return 0.2126 * channel(r) + 0.7152 * channel(g) + 0.0722 * channel(b);
+}
+
+/** WCAG 2.x contrast ratio, 1 to 21 */
+export function contrastRatio(a: string, b: string): number {
+  const [hi, lo] = [luminance(a), luminance(b)].sort((x, y) => y - x) as [number, number];
+  return (hi + 0.05) / (lo + 0.05);
+}
+
+/** Darken (towards black) or lighten (towards white) `color` until it reaches `target` contrast on `surface`. */
+export function ensureContrast(color: string, surface: string, target: number): string {
+  if (contrastRatio(color, surface) >= target) return color;
+  const towards = luminance(surface) > 0.5 ? '#000000' : '#FFFFFF';
+  for (let step = 1; step <= 100; step += 1) {
+    const candidate = mix(color, towards, step / 100);
+    if (contrastRatio(candidate, surface) >= target) return candidate;
+  }
+  return towards;
+}
+
+export const WCAG_TEXT = 4.5;
+export const WCAG_UI = 3;
+
+// --- palettes -------------------------------------------------------------------------
+
+function token(fill: string, surface: string, dark: boolean): ColorToken {
+  if (dark) {
+    // Dark mode: muted fill, pastel as the readable foreground.
+    return { fill: mix(fill, '#000000', 0.55), on: ensureContrast(fill, surface, WCAG_TEXT) };
+  }
+  return { fill, on: ensureContrast(fill, surface, WCAG_TEXT) };
+}
+
+function ring(fill: string, surface: string): ColorToken {
+  // Priority rings are UI elements: they need 3:1 against the surface themselves.
+  const visible = ensureContrast(fill, surface, WCAG_UI);
+  return { fill: visible, on: ensureContrast(fill, surface, WCAG_TEXT) };
+}
+
+export function buildPalette(
+  mode: 'light' | 'dark',
+  overrides: Partial<Record<string, string>> = {},
+): ModePalette {
+  const dark = mode === 'dark';
+  const surface = dark ? '#24272A' : '#FFFFFF';
+  const fill = (name: string, fallback: string) => overrides[name] ?? fallback;
+  const pastels = Object.fromEntries(
+    PASTEL_NAMES.map((name) => [name, token(fill(name, PASTEL_FILLS[name]), surface, dark)]),
+  ) as Record<PastelName, ColorToken>;
+  const accentSeed = fill('accent', '#4F8F87');
+  return {
+    background: dark ? '#1B1D1F' : '#FAFAF7',
+    surface,
+    surfaceVariant: dark ? '#2E3236' : '#F1F2EE',
+    outline: dark ? '#41464B' : '#D9DBD6',
+    text: dark ? '#E6E7E4' : '#1F2224',
+    textMuted: dark ? '#A9ADB1' : '#5C6266',
+    accent: {
+      // Light mode: darken the seed just enough for white button text to pass AA.
+      fill: dark
+        ? ensureContrast(mix(accentSeed, '#FFFFFF', 0.35), surface, WCAG_UI)
+        : ensureContrast(accentSeed, '#FFFFFF', WCAG_TEXT),
+      on: dark ? '#0F2E2A' : '#FFFFFF',
+    },
+    accentContainer: dark ? mix(accentSeed, '#000000', 0.45) : fill('accentContainer', '#CDE8E3'),
+    priority: {
+      high: ring(fill('priorityHigh', '#E8837E'), surface),
+      medium: ring(fill('priorityMedium', '#F0B072'), surface),
+      low: ring(fill('priorityLow', '#8FA8E0'), surface),
+      none: ring(fill('priorityNone', '#B8BCC4'), surface),
+    },
+    dateState: {
+      late: ensureContrast(fill('late', '#E8837E'), surface, WCAG_TEXT),
+      slipped: ensureContrast(fill('slipped', '#F0B072'), surface, WCAG_TEXT),
+      dueSoon: ensureContrast(accentSeed, surface, WCAG_TEXT),
+    },
+    pastels,
+  };
+}

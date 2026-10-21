@@ -1,0 +1,676 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://punchlist.app/schema/workspace/1.json",
+  "title": "Punchlist workspace file",
+  "description": "One user's data. In standalone mode this is everything; in server mode it is exactly what the user may see.",
+  "type": "object",
+  "required": ["schemaVersion", "app", "owner", "node", "entities", "sync"],
+  "additionalProperties": false,
+  "properties": {
+    "schemaVersion": {
+      "const": 1
+    },
+    "app": {
+      "type": "object",
+      "required": ["name", "version"],
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "const": "punchlist"
+        },
+        "version": {
+          "type": "string"
+        }
+      }
+    },
+    "owner": {
+      "$ref": "#/$defs/id"
+    },
+    "node": {
+      "$ref": "#/$defs/nodeId"
+    },
+    "entities": {
+      "type": "object",
+      "required": [
+        "users",
+        "folders",
+        "lists",
+        "sections",
+        "tags",
+        "tasks",
+        "groups",
+        "groupMembers",
+        "listMembers",
+        "friendships",
+        "savedFilters",
+        "settings"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "users": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/user"
+          }
+        },
+        "folders": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/folder"
+          }
+        },
+        "lists": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/list"
+          }
+        },
+        "sections": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/section"
+          }
+        },
+        "tags": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/tag"
+          }
+        },
+        "tasks": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/task"
+          }
+        },
+        "groups": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/group"
+          }
+        },
+        "groupMembers": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/groupMember"
+          }
+        },
+        "listMembers": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/listMember"
+          }
+        },
+        "friendships": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/friendship"
+          }
+        },
+        "savedFilters": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/savedFilter"
+          }
+        },
+        "settings": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/settings"
+          }
+        }
+      }
+    },
+    "sync": {
+      "type": "object",
+      "required": ["server", "cursor"],
+      "additionalProperties": false,
+      "properties": {
+        "server": {
+          "type": ["string", "null"]
+        },
+        "cursor": {
+          "type": ["string", "null"]
+        }
+      }
+    }
+  },
+  "$defs": {
+    "id": {
+      "description": "ULID",
+      "type": "string",
+      "pattern": "^[0-9A-HJKMNP-TV-Z]{26}$"
+    },
+    "nodeId": {
+      "description": "Device or server identifier used in HLC timestamps",
+      "type": "string",
+      "pattern": "^[A-Za-z0-9]{1,32}$"
+    },
+    "hlc": {
+      "description": "Hybrid logical clock: ISO wall time, 4-digit counter, node id",
+      "type": "string",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z-\\d{4}-[A-Za-z0-9]{1,32}$"
+    },
+    "dateTime": {
+      "description": "UTC timestamp with milliseconds",
+      "type": "string",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$"
+    },
+    "localDateOrDateTime": {
+      "description": "A date (2026-11-03) or a local date-time without offset (2026-11-03T09:00)",
+      "type": "string",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}(T\\d{2}:\\d{2}(:\\d{2})?)?$"
+    },
+    "color": {
+      "type": "string",
+      "pattern": "^#[0-9A-Fa-f]{6}$"
+    },
+    "orderKey": {
+      "description": "Fractional index key; never ends with '0'",
+      "type": "string",
+      "pattern": "^[0-9A-Za-z]*[1-9A-Za-z]$"
+    },
+    "hlcMap": {
+      "type": "object",
+      "additionalProperties": {
+        "$ref": "#/$defs/hlc"
+      }
+    },
+    "elementSet": {
+      "description": "Per-element last-writer-wins set",
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "required": ["in", "hlc"],
+        "additionalProperties": false,
+        "properties": {
+          "in": {
+            "type": "boolean"
+          },
+          "hlc": {
+            "$ref": "#/$defs/hlc"
+          }
+        }
+      }
+    },
+    "base": {
+      "type": "object",
+      "required": ["id", "createdAt", "createdBy", "deletedAt", "origin", "_hlc"],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/id"
+        },
+        "createdAt": {
+          "$ref": "#/$defs/dateTime"
+        },
+        "createdBy": {
+          "$ref": "#/$defs/id"
+        },
+        "deletedAt": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/dateTime"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "origin": {
+          "type": "string",
+          "minLength": 1
+        },
+        "_hlc": {
+          "$ref": "#/$defs/hlcMap"
+        }
+      }
+    },
+    "user": {
+      "type": "object",
+      "allOf": [
+        {
+          "$ref": "#/$defs/base"
+        }
+      ],
+      "required": ["handle", "displayName", "avatarColor", "homeServer"],
+      "properties": {
+        "handle": {
+          "type": "string",
+          "minLength": 1
+        },
+        "displayName": {
+          "type": "string"
+        },
+        "avatarColor": {
+          "$ref": "#/$defs/color"
+        },
+        "homeServer": {
+          "type": "string"
+        }
+      },
+      "unevaluatedProperties": false
+    },
+    "folder": {
+      "type": "object",
+      "allOf": [
+        {
+          "$ref": "#/$defs/base"
+        }
+      ],
+      "required": ["name", "order"],
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "order": {
+          "$ref": "#/$defs/orderKey"
+        }
+      },
+      "unevaluatedProperties": false
+    },
+    "list": {
+      "type": "object",
+      "allOf": [
+        {
+          "$ref": "#/$defs/base"
+        }
+      ],
+      "required": [
+        "name",
+        "color",
+        "icon",
+        "folderId",
+        "visibility",
+        "archived",
+        "order",
+        "isInbox"
+      ],
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "color": {
+          "$ref": "#/$defs/color"
+        },
+        "icon": {
+          "type": ["string", "null"]
+        },
+        "folderId": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/id"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "visibility": {
+          "enum": ["private", "shared"]
+        },
+        "archived": {
+          "type": "boolean"
+        },
+        "order": {
+          "$ref": "#/$defs/orderKey"
+        },
+        "isInbox": {
+          "type": "boolean"
+        }
+      },
+      "unevaluatedProperties": false
+    },
+    "section": {
+      "type": "object",
+      "allOf": [
+        {
+          "$ref": "#/$defs/base"
+        }
+      ],
+      "required": ["listId", "name", "order"],
+      "properties": {
+        "listId": {
+          "$ref": "#/$defs/id"
+        },
+        "name": {
+          "type": "string"
+        },
+        "order": {
+          "$ref": "#/$defs/orderKey"
+        }
+      },
+      "unevaluatedProperties": false
+    },
+    "tag": {
+      "type": "object",
+      "allOf": [
+        {
+          "$ref": "#/$defs/base"
+        }
+      ],
+      "required": ["name", "color"],
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "color": {
+          "$ref": "#/$defs/color"
+        }
+      },
+      "unevaluatedProperties": false
+    },
+    "schedule": {
+      "type": "object",
+      "required": ["start", "end", "allDay", "timeZone"],
+      "additionalProperties": false,
+      "properties": {
+        "start": {
+          "$ref": "#/$defs/localDateOrDateTime"
+        },
+        "end": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/localDateOrDateTime"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "allDay": {
+          "type": "boolean"
+        },
+        "timeZone": {
+          "type": "string"
+        }
+      }
+    },
+    "due": {
+      "type": "object",
+      "required": ["at", "allDay", "timeZone"],
+      "additionalProperties": false,
+      "properties": {
+        "at": {
+          "$ref": "#/$defs/localDateOrDateTime"
+        },
+        "allDay": {
+          "type": "boolean"
+        },
+        "timeZone": {
+          "type": "string"
+        }
+      }
+    },
+    "task": {
+      "type": "object",
+      "allOf": [
+        {
+          "$ref": "#/$defs/base"
+        }
+      ],
+      "required": [
+        "title",
+        "notes",
+        "listId",
+        "sectionId",
+        "parentId",
+        "order",
+        "status",
+        "completedAt",
+        "completedBy",
+        "priority",
+        "schedule",
+        "due",
+        "tags",
+        "assignees",
+        "blockedBy",
+        "recurrence"
+      ],
+      "properties": {
+        "title": {
+          "type": "string"
+        },
+        "notes": {
+          "type": "string"
+        },
+        "listId": {
+          "$ref": "#/$defs/id"
+        },
+        "sectionId": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/id"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "parentId": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/id"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "order": {
+          "$ref": "#/$defs/orderKey"
+        },
+        "status": {
+          "enum": ["open", "done", "wontdo"]
+        },
+        "completedAt": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/dateTime"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "completedBy": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/id"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "priority": {
+          "enum": [0, 1, 2, 3]
+        },
+        "schedule": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/schedule"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "due": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/due"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "tags": {
+          "$ref": "#/$defs/elementSet"
+        },
+        "assignees": {
+          "type": "object",
+          "$ref": "#/$defs/elementSet",
+          "propertyNames": {
+            "pattern": "^(user|group):[0-9A-HJKMNP-TV-Z]{26}$"
+          }
+        },
+        "blockedBy": {
+          "$ref": "#/$defs/elementSet"
+        },
+        "recurrence": {
+          "type": ["string", "null"]
+        }
+      },
+      "unevaluatedProperties": false
+    },
+    "group": {
+      "type": "object",
+      "allOf": [
+        {
+          "$ref": "#/$defs/base"
+        }
+      ],
+      "required": ["name", "color", "ownerId", "archived"],
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "color": {
+          "$ref": "#/$defs/color"
+        },
+        "ownerId": {
+          "$ref": "#/$defs/id"
+        },
+        "archived": {
+          "type": "boolean"
+        }
+      },
+      "unevaluatedProperties": false
+    },
+    "groupMember": {
+      "type": "object",
+      "allOf": [
+        {
+          "$ref": "#/$defs/base"
+        }
+      ],
+      "required": ["groupId", "userId", "joinedAt", "state"],
+      "properties": {
+        "groupId": {
+          "$ref": "#/$defs/id"
+        },
+        "userId": {
+          "$ref": "#/$defs/id"
+        },
+        "joinedAt": {
+          "$ref": "#/$defs/dateTime"
+        },
+        "state": {
+          "enum": ["invited", "active"]
+        }
+      },
+      "unevaluatedProperties": false
+    },
+    "listMember": {
+      "type": "object",
+      "allOf": [
+        {
+          "$ref": "#/$defs/base"
+        }
+      ],
+      "required": ["listId", "principal", "role"],
+      "properties": {
+        "listId": {
+          "$ref": "#/$defs/id"
+        },
+        "principal": {
+          "type": "string",
+          "pattern": "^(user|group):[0-9A-HJKMNP-TV-Z]{26}$"
+        },
+        "role": {
+          "enum": ["owner", "editor", "viewer"]
+        }
+      },
+      "unevaluatedProperties": false
+    },
+    "friendship": {
+      "type": "object",
+      "allOf": [
+        {
+          "$ref": "#/$defs/base"
+        }
+      ],
+      "required": ["userA", "userB", "state"],
+      "properties": {
+        "userA": {
+          "$ref": "#/$defs/id"
+        },
+        "userB": {
+          "$ref": "#/$defs/id"
+        },
+        "state": {
+          "enum": ["pending", "accepted"]
+        }
+      },
+      "unevaluatedProperties": false
+    },
+    "savedFilter": {
+      "type": "object",
+      "allOf": [
+        {
+          "$ref": "#/$defs/base"
+        }
+      ],
+      "required": ["name", "query", "order"],
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "query": {
+          "type": "object"
+        },
+        "order": {
+          "$ref": "#/$defs/orderKey"
+        }
+      },
+      "unevaluatedProperties": false
+    },
+    "settings": {
+      "type": "object",
+      "allOf": [
+        {
+          "$ref": "#/$defs/base"
+        }
+      ],
+      "required": ["userId", "themeMode", "palette", "pointEventMinutes", "dueSoonDays"],
+      "properties": {
+        "userId": {
+          "$ref": "#/$defs/id"
+        },
+        "themeMode": {
+          "enum": ["light", "dark", "system"]
+        },
+        "palette": {
+          "type": "object",
+          "description": "Overrides keyed by palette slot name",
+          "additionalProperties": {
+            "$ref": "#/$defs/color"
+          }
+        },
+        "pointEventMinutes": {
+          "type": "integer",
+          "minimum": 5,
+          "maximum": 240
+        },
+        "dueSoonDays": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 30
+        }
+      },
+      "unevaluatedProperties": false
+    }
+  }
+}

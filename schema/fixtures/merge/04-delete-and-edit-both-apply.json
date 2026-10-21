@@ -1,0 +1,37 @@
+{
+  "description": "A delete on one side and an edit on the other both apply; the task stays deleted with the new title",
+  "collection": "tasks",
+  "a": [
+    {
+      "id": "01JBTASK000000000000000001",
+      "title": "Old",
+      "deletedAt": "2026-10-20T16:05:00.000Z",
+      "_hlc": {
+        "title": "2026-10-20T16:00:00.000Z-0000-a",
+        "deletedAt": "2026-10-20T16:05:00.000Z-0000-a"
+      }
+    }
+  ],
+  "b": [
+    {
+      "id": "01JBTASK000000000000000001",
+      "title": "New",
+      "deletedAt": null,
+      "_hlc": {
+        "title": "2026-10-20T16:06:00.000Z-0000-b",
+        "deletedAt": "2026-10-20T16:00:00.000Z-0000-a"
+      }
+    }
+  ],
+  "expected": [
+    {
+      "id": "01JBTASK000000000000000001",
+      "title": "New",
+      "deletedAt": "2026-10-20T16:05:00.000Z",
+      "_hlc": {
+        "deletedAt": "2026-10-20T16:05:00.000Z-0000-a",
+        "title": "2026-10-20T16:06:00.000Z-0000-b"
+      }
+    }
+  ]
+}
