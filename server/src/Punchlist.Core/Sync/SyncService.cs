@@ -1,5 +1,6 @@
 using System.Text.Json.Nodes;
 using System.Text.RegularExpressions;
+using Punchlist.Core.Sharing;
 using Punchlist.Core.Storage;
 
 namespace Punchlist.Core.Sync;
@@ -12,7 +13,17 @@ public sealed record SyncRequest(int SchemaVersion, long? Cursor, IReadOnlyList<
 /// <param name="Cursor">Send it back next time.</param>
 /// <param name="More">More changes wait: sync again straight away.</param>
 /// <param name="Revoked">Ids the user lost access to; the client removes them (not a tombstone).</param>
-public sealed record SyncResponse(long Cursor, IReadOnlyList<SyncEntity> Changes, bool More, IReadOnlyList<string> Revoked);
+/// <param name="Rejected">
+/// Pushed changes the user may not make. The client takes the server's copy from
+/// <paramref name="Corrections"/> instead of its own, or drops the entity when there is none.
+/// </param>
+public sealed record SyncResponse(
+    long Cursor,
+    IReadOnlyList<SyncEntity> Changes,
+    bool More,
+    IReadOnlyList<string> Revoked,
+    IReadOnlyList<string> Rejected,
+    IReadOnlyList<SyncEntity> Corrections);
 
 /// <summary>Why a sync was refused; <see cref="Code"/> is what the client switches on.</summary>
 public sealed class SyncRejected(string code, string message, int? serverSchemaVersion = null) : Exception(message)
@@ -25,7 +36,7 @@ public sealed class SyncRejected(string code, string message, int? serverSchemaV
 /// <c>/api/sync</c> (spec: Data Model &amp; Sync): merge what a client pushes into the store with the
 /// same rules as the client, then hand back everything newer than its cursor that it may see.
 /// </summary>
-public sealed partial class SyncService(IEntityStore store, TimeProvider time, IChangeNotifier notifier)
+public sealed partial class SyncService(IEntityStore store, TimeProvider time, IChangeNotifier notifier, SharingState sharing)
 {
     public const int MaxChanges = 5000;
     public const int PageSize = 500;
@@ -49,30 +60,79 @@ public sealed partial class SyncService(IEntityStore store, TimeProvider time, I
         if (changes.Count > MaxChanges) throw new SyncRejected("too_many_changes", $"send at most {MaxChanges} changes at a time");
         var incoming = changes.Select(Validate).ToList();
 
+        var rejected = new List<string>();
+        var corrections = new List<SyncEntity>();
         if (incoming.Count > 0)
         {
-            var written = await store.WriteAsync(userId, incoming, (stored, arrived) => Resolve(userId, stored, arrived), cancellation: cancellation);
-            // Only the owner sees an entity until sharing (0.5); then everyone in its visibility.
-            if (written.Count > 0) notifier.Notify(userId, new ChangeEvent(written[^1].Seq, source));
+            await sharing.Gate.WaitAsync(cancellation);
+            try
+            {
+                var before = sharing.Index;
+                var after = before.Clone();
+                var written = await store.WriteAsync(
+                    userId,
+                    incoming,
+                    (stored, arrived) => Resolve(userId, stored, arrived, before, after, rejected),
+                    plan: entities => SharingState.Plan(before, after, entities),
+                    cancellation: cancellation);
+                sharing.Index = after;
+                foreach (var id in rejected.Distinct())
+                {
+                    if (after.Viewers(id).Contains(userId) && await store.GetAsync(id, cancellation) is { } current)
+                    {
+                        corrections.Add(new SyncEntity(current.Collection, current.Doc));
+                    }
+                }
+                if (written.Count > 0)
+                {
+                    // Everyone who sees a written entity hears about it; their own devices too.
+                    var seq = written[^1].Seq;
+                    var people = written.SelectMany(entity => after.Viewers(entity.Id).Concat(before.Viewers(entity.Id)))
+                        .Append(userId).ToHashSet(StringComparer.Ordinal);
+                    foreach (var person in people) notifier.Notify(person, new ChangeEvent(seq, person == userId ? source : null));
+                }
+            }
+            finally
+            {
+                sharing.Gate.Release();
+            }
         }
         var page = await store.ChangesAsync(userId, Math.Max(request.Cursor ?? 0, 0), PageSize, cancellation);
         return new SyncResponse(
             page.Cursor,
             page.Entities.Select(each => new SyncEntity(each.Collection, each.Doc)).ToList(),
             page.More,
-            []);
+            page.Revoked,
+            rejected.Distinct().ToList(),
+            corrections);
     }
 
-    /// <summary>What to store for one pushed entity, or null to leave things as they are.</summary>
-    private static JsonObject? Resolve(string userId, StoredEntity? stored, IncomingEntity arrived)
+    /// <summary>
+    /// What to store for one pushed entity, or null to leave things as they are. The change is tried
+    /// on <paramref name="after"/> (so later entities in the same push see it, e.g. tasks in a list
+    /// made in the same push); a change the user may not make is undone there and reported.
+    /// </summary>
+    private static JsonObject? Resolve(
+        string userId, StoredEntity? stored, IncomingEntity arrived, SharingIndex before, SharingIndex after, List<string> rejected)
     {
-        if (stored is null) return arrived.Doc;
-        // Someone else's entity, or an id reused in another collection: not this user's to change
-        // (until sharing, 0.5). Silently skipped: saying so would reveal that the id exists.
-        if (stored.OwnerId != userId || stored.Collection != arrived.Collection) return null;
-        var merged = Merge.Entity(stored.Doc, arrived.Doc, WorkspaceSchema.ElementSetFields(arrived.Collection));
+        if (stored is not null && stored.Collection != arrived.Collection)
+        {
+            rejected.Add(arrived.Id);
+            return null;
+        }
+        var merged = stored is null
+            ? arrived.Doc
+            : Merge.Entity(stored.Doc, arrived.Doc, WorkspaceSchema.ElementSetFields(arrived.Collection));
         // Nothing new: keep the seq, so the change feed does not grow on every sync.
-        return JsonNode.DeepEquals(merged, stored.Doc) ? null : merged;
+        if (stored is not null && JsonNode.DeepEquals(merged, stored.Doc)) return null;
+
+        var candidate = new StoredEntity(arrived.Collection, arrived.Id, stored?.OwnerId ?? userId, 0, merged);
+        after.Apply(candidate);
+        if (after.MayWrite(userId, stored, candidate, before)) return merged;
+        if (stored is null) after.Remove(arrived.Id);
+        else after.Apply(stored);
+        rejected.Add(arrived.Id);
+        return null;
     }
 
     private IncomingEntity Validate(SyncEntity change, int index)

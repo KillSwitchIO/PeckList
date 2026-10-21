@@ -32,6 +32,8 @@ public static class ServerApp
         // After the store: its startup (migrations) runs before the admin is made.
         builder.Services.AddPunchlistAuth(settings);
         builder.Services.AddSingleton<IChangeNotifier, InProcessChangeNotifier>();
+        builder.Services.AddSingleton<Punchlist.Core.Sharing.SharingState>();
+        builder.Services.AddHostedService<SharingStartup>();
         builder.Services.AddSingleton<SyncService>();
         builder.Services.AddBackups(settings);
         builder.Services.Configure<ForwardedHeadersOptions>(options =>

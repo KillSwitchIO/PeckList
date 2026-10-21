@@ -54,6 +54,12 @@ public sealed class SharingIndex
         derived = null;
     }
 
+    /// <summary>Forget an entity (undo a tried change that was refused).</summary>
+    public void Remove(string id)
+    {
+        if (byId.Remove(id)) derived = null;
+    }
+
     public bool Contains(string id) => byId.ContainsKey(id);
 
     /// <summary>A copy to try changes on before they are committed.</summary>
@@ -256,6 +262,11 @@ public sealed class SharingIndex
                     (listId is not null && index.ListRole(userId, listId) is "owner" or "editor")
                     || (after.Collection == "tasks" && index.byId.TryGetValue(id, out var task) && index.Assigned(task).Contains(userId));
                 var newList = Field(doc, "listId");
+                // Not in any list: personal, like a tag.
+                if (newList is null && (before is null || Field(before.Doc, "listId") is null))
+                {
+                    return before is null || before.OwnerId == userId;
+                }
                 if (before is null) return CanEditIn(this, newList, after.Id) || (newList is not null && beforeIndex.ListRole(userId, newList) is "owner" or "editor");
                 var oldList = Field(before.Doc, "listId");
                 if (!CanEditIn(beforeIndex, oldList, before.Id)) return false;
@@ -269,7 +280,9 @@ public sealed class SharingIndex
             {
                 var listId = Field(doc, "listId");
                 if (listId is null) return false;
-                if (beforeIndex.ListRole(userId, listId) == "owner") return true;
+                // A list made in this same push has its owner in this index only.
+                var role = beforeIndex.Contains(listId) ? beforeIndex.ListRole(userId, listId) : ListRole(userId, listId);
+                if (role == "owner") return true;
                 // Anyone may leave: delete their own membership, changing nothing else.
                 return before is not null
                     && Field(before.Doc, "principal") == $"user:{userId}"
