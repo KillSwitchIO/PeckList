@@ -141,3 +141,36 @@ describe('task menu', () => {
     );
   });
 });
+
+describe('list names on rows', () => {
+  it('names the list on every row in mixed views, nested rows and loose subtasks too', async () => {
+    const store = testStore();
+    await renderApp('/all', store);
+    const day = today();
+    store.getState().apply((ctx, ws) => {
+      const me = createList(ctx, ws, { name: 'Me', color: '#A7C7E7' });
+      const parent = createTask(ctx, me.workspace, {
+        title: 'Parent',
+        listId: me.list.id,
+        schedule: on(day),
+      });
+      const child = createTask(ctx, parent.workspace, {
+        title: 'Child',
+        listId: me.list.id,
+        parentId: parent.task.id,
+      });
+      return createTask(ctx, child.workspace, {
+        title: 'Later child',
+        listId: me.list.id,
+        parentId: parent.task.id,
+        schedule: on(addDays(day, 3)),
+      }).workspace;
+    });
+    const meta = async (title: string) =>
+      within(await screen.findByRole('button', { name: `Open ${title}` })).getByTestId('task-meta');
+    expect(await meta('Parent')).toHaveTextContent('Me');
+    expect(await meta('Child')).toHaveTextContent('Me');
+    // On its own day: names both its parent and its list.
+    expect(await meta('Later child')).toHaveTextContent('ParentMe');
+  });
+});

@@ -97,8 +97,9 @@ export function TaskTree({
           <TaskRow
             task={row.task}
             depth={row.depth}
-            // Nested rows sit under their parent already; only roots say where they live.
-            showList={showList && row.depth === 0}
+            // Every row names its list in views that mix lists (TickTick style); only roots name
+            // their parent, nested rows sit under it already.
+            showList={showList}
             showParent={row.depth === 0}
             {...(row.hasChildren
               ? {
