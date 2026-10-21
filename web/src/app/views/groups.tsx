@@ -33,8 +33,23 @@ export function CompletedGroup({
   const [all, setAll] = useState(false);
   if (tasks.length === 0) return null;
   const shown = all ? tasks : tasks.slice(0, COMPLETED_PREVIEW);
+  const expanded = all && tasks.length > COMPLETED_PREVIEW;
   return (
-    <GroupSection title={t('group.completed')} count={tasks.length} defaultOpen={defaultOpen}>
+    <GroupSection
+      title={t('group.completed')}
+      count={tasks.length}
+      defaultOpen={defaultOpen}
+      // In the header, so it is easy to reach at the top of a long list.
+      {...(expanded
+        ? {
+            actions: (
+              <Button size="small" onClick={() => setAll(false)}>
+                {t('group.viewLess')}
+              </Button>
+            ),
+          }
+        : {})}
+    >
       <TaskRows tasks={shown} {...(showList === undefined ? {} : { showList })} />
       {!all && tasks.length > COMPLETED_PREVIEW && (
         <Button

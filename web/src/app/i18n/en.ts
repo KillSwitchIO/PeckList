@@ -184,6 +184,7 @@ export const en = {
   'group.todayWithDay': '{weekday}, Today',
   'group.completed': 'Completed',
   'group.viewMore': 'View more',
+  'group.viewLess': 'View less',
   'group.postpone': 'Postpone',
   'group.week': 'Next 7 days',
   'group.later': 'Later',

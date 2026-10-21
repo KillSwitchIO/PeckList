@@ -70,6 +70,11 @@ describe('date-grouped views', () => {
     expect(screen.getAllByRole('checkbox', { name: /^Reopen done/ })).toHaveLength(5);
     await userEvent.click(screen.getByRole('button', { name: 'View more' }));
     expect(screen.getAllByRole('checkbox', { name: /^Reopen done/ })).toHaveLength(6);
+    // View less sits in the Completed header and goes back to five.
+    expect(screen.queryByRole('button', { name: 'View more' })).toBeNull();
+    await userEvent.click(screen.getByRole('button', { name: 'View less' }));
+    expect(screen.getAllByRole('checkbox', { name: /^Reopen done/ })).toHaveLength(5);
+    expect(screen.queryByRole('button', { name: 'View less' })).toBeNull();
   });
 
   it('a list shows only its own tasks, grouped by date with No date', async () => {
