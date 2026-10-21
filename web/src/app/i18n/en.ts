@@ -115,7 +115,7 @@ export const en = {
   'calendar.showYears': 'Pick a year',
   'calendar.goToToday': 'Go to today',
   'date.nextWeek': 'Next week',
-  'date.inThirtyDays': 'In 30 days',
+  'date.nextMonth': 'Next month',
   'date.clear': 'No date',
   'date.modeDate': 'Date',
   'date.modeDuration': 'Duration',

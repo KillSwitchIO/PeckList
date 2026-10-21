@@ -112,25 +112,22 @@ describe('DatePickerPanel', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Today' }));
     await userEvent.click(screen.getByRole('button', { name: 'Tomorrow' }));
     await userEvent.click(screen.getByRole('button', { name: 'Next week' }));
-    await userEvent.click(screen.getByRole('button', { name: 'In 30 days' }));
-    await userEvent.click(screen.getByRole('button', { name: 'Tonight' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Next month' }));
     expect(onApply.mock.calls).toEqual([
       [{ date: TODAY, time: null }],
       [{ date: '2026-10-21', time: null }],
       [{ date: '2026-10-27', time: null }],
-      [{ date: '2026-11-19', time: null }],
-      [{ date: TODAY, time: '18:00' }],
+      [{ date: '2026-11-20', time: null }],
     ]);
   });
 
-  it('shows what each quick pick sets in its corner', () => {
+  it('shows what each quick pick sets under its icon', () => {
     setup();
     expect(screen.getAllByTestId('quick-hint').map((hint) => hint.textContent)).toEqual([
       'Tue',
       'Wed',
       'Oct 27',
-      'Nov 19',
-      '6 PM',
+      'Nov 20',
     ]);
   });
 
@@ -379,12 +376,22 @@ describe('DatePickerPanel durations', () => {
     });
   });
 
-  it('opens a saved span in Duration; switching to Date drops the end', async () => {
+  it('always opens on Date; a new date moves a saved span along', async () => {
     const { onApply } = setup({ date: TODAY, time: null, end: { date: '2026-10-22', time: null } });
-    expect(screen.getByRole('button', { name: 'Duration' })).toHaveAttribute(
-      'aria-pressed',
-      'true',
-    );
+    expect(screen.getByRole('button', { name: 'Date' })).toHaveAttribute('aria-pressed', 'true');
+    await userEvent.click(screen.getByRole('gridcell', { name: /October 25, 2026/ }));
+    await userEvent.click(screen.getByRole('button', { name: 'OK' }));
+    expect(onApply).toHaveBeenCalledWith({
+      date: '2026-10-25',
+      time: null,
+      end: { date: '2026-10-27', time: null },
+    });
+  });
+
+  it('shows a saved span under Duration; switching back to Date drops the end', async () => {
+    const { onApply } = setup({ date: TODAY, time: null, end: { date: '2026-10-22', time: null } });
+    await userEvent.click(screen.getByRole('button', { name: 'Duration' }));
+    expect(screen.getByRole('button', { name: /^End: Thu, Oct 22/ })).toBeInTheDocument();
     await userEvent.click(screen.getByRole('button', { name: 'Date' }));
     await userEvent.click(screen.getByRole('button', { name: 'OK' }));
     expect(onApply).toHaveBeenCalledWith({ date: TODAY, time: null });
@@ -396,6 +403,7 @@ describe('DatePickerPanel durations', () => {
       time: null,
       end: { date: '2026-10-26', time: null },
     });
+    await userEvent.click(screen.getByRole('button', { name: 'Duration' }));
     await userEvent.click(screen.getByRole('button', { name: /^End:/ }));
     await userEvent.click(screen.getByRole('gridcell', { name: /October 23, 2026/ }));
     await userEvent.click(screen.getByRole('button', { name: 'OK' }));

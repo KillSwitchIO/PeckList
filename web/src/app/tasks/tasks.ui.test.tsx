@@ -74,7 +74,7 @@ describe('task details', () => {
     await userEvent.click(within(details).getByRole('button', { name: /^Start date:/ }));
     await userEvent.click(
       within(await screen.findByRole('dialog', { name: 'Start date' })).getByRole('button', {
-        name: 'Tonight',
+        name: 'Today',
       }),
     );
     await userEvent.type(within(details).getByLabelText('Notes'), 'Front and back');
@@ -82,7 +82,7 @@ describe('task details', () => {
 
     const row = screen.getByRole('button', { name: 'Open Mow the lawn' });
     // Rows show only the start date or time; the due date lives in the details and calendar.
-    expect(within(row).getByTestId('task-date')).toHaveTextContent(/^Today 6:00/);
+    expect(within(row).getByTestId('task-date')).toHaveTextContent(/^Today$/);
     expect(row).not.toHaveTextContent('Tomorrow');
     expect(within(details).getByRole('button', { name: 'High' })).toHaveAttribute(
       'aria-pressed',

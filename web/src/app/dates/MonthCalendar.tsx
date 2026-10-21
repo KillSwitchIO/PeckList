@@ -440,7 +440,14 @@ export function MonthCalendar({
                       <Box
                         component="span"
                         aria-hidden
-                        sx={{ fontSize: 9, fontWeight: 700, textTransform: 'uppercase', mb: '1px' }}
+                        sx={{
+                          fontSize: 9,
+                          fontWeight: 700,
+                          textTransform: 'uppercase',
+                          mb: '1px',
+                          // Primary so month starts are quick to spot (white on the filled pick).
+                          color: isSelected ? 'inherit' : 'primary.main',
+                        }}
                       >
                         {monthShort.format(utc(date))}
                       </Box>

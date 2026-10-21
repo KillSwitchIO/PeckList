@@ -1,10 +1,6 @@
 import AccessTimeRounded from '@mui/icons-material/AccessTimeRounded';
-import CalendarTodayOutlined from '@mui/icons-material/CalendarTodayOutlined';
 import ChevronRightRounded from '@mui/icons-material/ChevronRightRounded';
 import CloseRounded from '@mui/icons-material/CloseRounded';
-import NightlightOutlined from '@mui/icons-material/NightlightOutlined';
-import WbSunnyOutlined from '@mui/icons-material/WbSunnyOutlined';
-import WbTwilightOutlined from '@mui/icons-material/WbTwilightOutlined';
 import {
   Box,
   Button,
@@ -22,51 +18,16 @@ import {
   useTheme,
 } from '@mui/material';
 import { useState, type ReactNode } from 'react';
-import { addDays } from '../../core/dates.ts';
+import { addDays, daysBetween, shiftMonths } from '../../core/dates.ts';
 import { formatDay, formatTime } from '../format.ts';
 import { t } from '../i18n/i18n.ts';
-import {
-  addHour,
-  DEFAULT_TIME,
-  EVENING,
-  orderedSpan,
-  type DatePart,
-  type DateValue,
-} from './dateValue.ts';
+import { CalendarIcon, CalendarNextIcon, SunIcon, SunriseIcon } from '../icons/icons.tsx';
+import { addHour, DEFAULT_TIME, orderedSpan, type DatePart, type DateValue } from './dateValue.ts';
 import { MonthCalendar } from './MonthCalendar.tsx';
 import { TimeInput } from './TimeInput.tsx';
 import { TimeWheels } from './TimeWheels.tsx';
 
-/** A calendar icon with "+7" or "+30" on its face. */
-function PlusDaysIcon({ days }: { days: number }) {
-  return (
-    <Box sx={{ position: 'relative', display: 'inline-flex' }}>
-      <CalendarTodayOutlined />
-      <Box
-        component="span"
-        // Centered in the calendar's body: the icon draws it from (4, 10) to (20, 21) of 24.
-        sx={{
-          position: 'absolute',
-          left: 4,
-          width: 16,
-          top: 10,
-          height: 11,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          fontSize: days >= 10 ? 8 : 9,
-          fontWeight: 800,
-          lineHeight: 1,
-          letterSpacing: days >= 10 ? -0.4 : 0,
-        }}
-      >
-        +{days}
-      </Box>
-    </Box>
-  );
-}
-
-/** A compact quick-pick icon with what it sets ("Thu", "Oct 28") tucked in its lower left. */
+/** A compact quick-pick: the icon, with what it sets ("Thu", "Oct 28") centered underneath. */
 function QuickPick({
   label,
   icon,
@@ -82,42 +43,30 @@ function QuickPick({
 }) {
   return (
     <Tooltip title={`${label}: ${hint}`}>
-      <IconButton
+      <ButtonBase
         aria-label={label}
         aria-pressed={active}
         onClick={onClick}
         sx={{
-          position: 'relative',
-          width: 48,
-          height: 44,
+          width: 60,
+          py: 0.5,
+          flexDirection: 'column',
+          gap: 0.25,
           borderRadius: 2,
           color: active ? 'primary.main' : 'text.secondary',
           bgcolor: active ? 'action.selected' : 'transparent',
+          '&:hover': { bgcolor: active ? 'action.selected' : 'action.hover' },
         }}
       >
-        {/* Nudged up and right to leave the lower left to the hint. */}
-        <Box component="span" sx={{ display: 'inline-flex', transform: 'translate(5px, -5px)' }}>
-          {icon}
-        </Box>
+        {icon}
         <Box
           component="span"
           data-testid="quick-hint"
-          sx={{
-            position: 'absolute',
-            left: 2,
-            bottom: 2,
-            px: '3px',
-            borderRadius: 0.75,
-            bgcolor: 'background.paper',
-            fontSize: 9.5,
-            fontWeight: 700,
-            lineHeight: '12px',
-            whiteSpace: 'nowrap',
-          }}
+          sx={{ fontSize: 11, fontWeight: 600, lineHeight: '14px', whiteSpace: 'nowrap' }}
         >
           {hint}
         </Box>
-      </IconButton>
+      </ButtonBase>
     </Tooltip>
   );
 }
@@ -258,9 +207,8 @@ export function DatePickerPanel({
   onApply: (value: DateValue | null) => void;
   onCancel: () => void;
 }) {
-  const [mode, setMode] = useState<'date' | 'duration'>(
-    allowRange && value?.end ? 'duration' : 'date',
-  );
+  // Always opens on Date; a saved span shows under Duration and moves along with a new date.
+  const [mode, setMode] = useState<'date' | 'duration'>('date');
   const [date, setDate] = useState<string | null>(value?.date ?? null);
   const [time, setTime] = useState<string | null>(value?.time ?? null);
   const [end, setEnd] = useState<DatePart | null>(value?.end ?? null);
@@ -281,25 +229,31 @@ export function DatePickerPanel({
   });
   const atNoon = (day: string) => new Date(`${day}T12:00:00Z`);
   const quick = [
-    { label: t('date.today'), icon: <WbSunnyOutlined />, days: 0 },
-    { label: t('date.tomorrow'), icon: <WbTwilightOutlined />, days: 1 },
-    { label: t('date.nextWeek'), icon: <PlusDaysIcon days={7} />, days: 7 },
-    { label: t('date.inThirtyDays'), icon: <PlusDaysIcon days={30} />, days: 30 },
-  ].map((pick) => {
-    const day = addDays(today, pick.days);
-    return {
-      ...pick,
-      hint: pick.days < 2 ? weekdayShort.format(atNoon(day)) : monthDay.format(atNoon(day)),
-      value: { date: day, time: null } as DatePart,
-    };
-  });
-  quick.push({
-    label: t('date.tonight'),
-    icon: <NightlightOutlined />,
-    days: 0,
-    hint: formatTime(EVENING).replace(':00', ''),
-    value: { date: today, time: EVENING },
-  });
+    { label: t('date.today'), icon: <SunIcon />, date: today, weekday: true },
+    {
+      label: t('date.tomorrow'),
+      icon: <SunriseIcon />,
+      date: addDays(today, 1),
+      weekday: true,
+    },
+    {
+      label: t('date.nextWeek'),
+      icon: <CalendarIcon badge="+7" />,
+      date: addDays(today, 7),
+      weekday: false,
+    },
+    {
+      // Same day next month, or the month's last day when it is shorter.
+      label: t('date.nextMonth'),
+      icon: <CalendarNextIcon />,
+      date: shiftMonths(today, 1),
+      weekday: false,
+    },
+  ].map((pick) => ({
+    ...pick,
+    hint: (pick.weekday ? weekdayShort : monthDay).format(atNoon(pick.date)),
+    value: { date: pick.date, time: null } as DatePart,
+  }));
 
   const start: DatePart = { date: date ?? today, time };
   const allDay = time === null;
@@ -334,11 +288,19 @@ export function DatePickerPanel({
     }
   };
 
+  /** A single date from Date mode; a saved span keeps its length and moves along. */
+  const withSpan = (next: DatePart): DateValue => {
+    if (!allowRange || !end || !value) return next;
+    const moved = { date: addDays(end.date, daysBetween(value.date, next.date)), time: end.time };
+    const fixed = orderedSpan(next, moved);
+    return { ...fixed.start, end: fixed.end };
+  };
+
   const apply = () => {
     if (mode === 'duration' && span) {
       onApply({ ...span.start, end: span.end });
     } else if (date) {
-      onApply({ date, time });
+      onApply(withSpan({ date, time }));
     } else {
       onCancel();
     }
@@ -375,7 +337,7 @@ export function DatePickerPanel({
               icon={pick.icon}
               hint={pick.hint}
               active={date === pick.value.date && time === pick.value.time}
-              onClick={() => onApply(pick.value)}
+              onClick={() => onApply(withSpan(pick.value))}
             />
           ))}
         </Box>
