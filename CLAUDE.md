@@ -15,6 +15,10 @@ pnpm build && pnpm e2e
 pnpm lint && pnpm typecheck
 ```
 
+## Dev server gotcha
+
+Vite's file watcher on Windows can miss edits (seen after git branch switches and scripted multi-file edits), leaving the browser on stale code while tests pass. Before reporting a UI change as verified, fetch the module from the dev server (`/src/...`) and check it contains the change; if not, restart with `pnpm --dir web dev --force`.
+
 ## Rules
 
 - Ports and adapters: `web/src/core` must not import UI libraries, adapters or third-party packages (ESLint enforces). New libraries go behind a port in `web/src/ports` with an adapter in `web/src/adapters` and a contract suite.

@@ -120,6 +120,40 @@ describe('DatePickerPanel', () => {
     expect(onApply).toHaveBeenCalledWith({ date: TODAY, time: null });
   });
 
+  it.each([
+    ['09', '09:00', '9:00 AM'],
+    ['22', '22:00', '10:00 PM'],
+    ['2215', '22:15', '10:15 PM'],
+    ['10pm', '22:00', '10:00 PM'],
+  ])('typing %s saves %s and previews %s', async (typed, saved, shown) => {
+    const { onApply } = setup({ date: TODAY, time: null });
+    await userEvent.click(screen.getByRole('button', { name: /Time/ }));
+    await userEvent.type(screen.getByLabelText('Time'), typed);
+    expect(screen.getByText(shown)).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'OK' }));
+    expect(onApply).toHaveBeenCalledWith({ date: TODAY, time: saved });
+  });
+
+  it('flags times it cannot read and keeps the previous time', async () => {
+    const { onApply } = setup({ date: TODAY, time: '08:00' });
+    await userEvent.click(screen.getByRole('button', { name: /Time/ }));
+    const field = screen.getByLabelText('Time');
+    expect(field).toHaveValue('8:00 AM');
+    await userEvent.clear(field);
+    await userEvent.type(field, '25{Enter}');
+    expect(screen.getByText('Try 9, 0930, 21:00 or 9pm')).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'OK' }));
+    expect(onApply).toHaveBeenCalledWith({ date: TODAY, time: '08:00' });
+  });
+
+  it('clearing the time field removes the time', async () => {
+    const { onApply } = setup({ date: TODAY, time: '08:00' });
+    await userEvent.click(screen.getByRole('button', { name: /Time/ }));
+    await userEvent.clear(screen.getByLabelText('Time'));
+    await userEvent.click(screen.getByRole('button', { name: 'OK' }));
+    expect(onApply).toHaveBeenCalledWith({ date: TODAY, time: null });
+  });
+
   it('Clear removes the date', async () => {
     const first = setup({ date: TODAY, time: null });
     await userEvent.click(screen.getByRole('button', { name: 'Clear' }));

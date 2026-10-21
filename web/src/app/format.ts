@@ -22,12 +22,17 @@ export function formatDay(date: string, today: string, locale?: string): string 
   }).format(toDate(date));
 }
 
-export function formatTime(time: string, locale?: string): string {
+/**
+ * Display a 24-hour `HH:mm`. Standard (12-hour) clock by default; a Settings toggle for the
+ * 24-hour clock is planned (PL-025).
+ */
+export function formatTime(time: string, locale?: string, hour12 = true): string {
   const [h, m] = time.split(':').map(Number) as [number, number];
   return new Intl.DateTimeFormat(locale, {
     timeZone: 'UTC',
-    hour: 'numeric',
+    hour: hour12 ? 'numeric' : '2-digit',
     minute: '2-digit',
+    hour12,
   }).format(new Date(Date.UTC(2000, 0, 1, h, m)));
 }
 

@@ -12,7 +12,6 @@ import {
   Divider,
   IconButton,
   Stack,
-  TextField,
   Tooltip,
   Typography,
 } from '@mui/material';
@@ -22,6 +21,7 @@ import { formatTime } from '../format.ts';
 import { t } from '../i18n/i18n.ts';
 import { EVENING, type DateValue } from './dateValue.ts';
 import { MonthCalendar } from './MonthCalendar.tsx';
+import { TimeInput } from './TimeInput.tsx';
 
 function NextWeekIcon() {
   return (
@@ -129,25 +129,14 @@ export function DatePickerPanel({
       <Divider sx={{ my: 1 }} />
 
       {editingTime ? (
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, px: 1, py: 0.5 }}>
-          <AccessTimeRounded fontSize="small" color="action" />
-          <TextField
-            type="time"
-            size="small"
-            value={time ?? ''}
+        <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1, px: 1, pt: 0.5 }}>
+          <AccessTimeRounded fontSize="small" color="action" sx={{ mt: 1 }} />
+          <TimeInput
+            value={time}
             autoFocus
-            fullWidth
-            slotProps={{ htmlInput: { 'aria-label': t('date.time') } }}
-            onClick={(event) => {
-              try {
-                (event.currentTarget as HTMLElement).querySelector('input')?.showPicker();
-              } catch {
-                // picker unavailable: typing still works
-              }
-            }}
-            onChange={(event) => {
-              setTime(event.target.value || null);
-              if (!date) setDate(today);
+            onChange={(next) => {
+              setTime(next);
+              if (next && !date) setDate(today);
             }}
           />
           <IconButton

@@ -75,6 +75,8 @@ export const en = {
   'date.tonight': 'Tonight',
   'date.time': 'Time',
   'date.removeTime': 'Remove time',
+  'time.placeholder': 'e.g. 9, 0930, 22:00, 9pm',
+  'time.invalid': 'Try 9, 0930, 21:00 or 9pm',
   'date.addDate': 'Add date',
   'date.addDue': 'Add due date',
   'calendar.previousMonth': 'Previous month',
