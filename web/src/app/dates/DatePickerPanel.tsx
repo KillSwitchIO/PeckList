@@ -18,7 +18,7 @@ import {
   useTheme,
 } from '@mui/material';
 import { useState, type ReactNode } from 'react';
-import { addDays } from '../../core/dates.ts';
+import { addDays, shiftMonths } from '../../core/dates.ts';
 import { formatTime } from '../format.ts';
 import { t } from '../i18n/i18n.ts';
 import { DEFAULT_TIME, EVENING, type DateValue } from './dateValue.ts';
@@ -47,29 +47,78 @@ function NextWeekIcon() {
   );
 }
 
+function NextMonthIcon() {
+  return (
+    <Box sx={{ position: 'relative', display: 'inline-flex' }}>
+      <CalendarTodayOutlined />
+      <Box
+        component="span"
+        sx={{
+          position: 'absolute',
+          inset: 0,
+          top: 5,
+          fontSize: 9,
+          fontWeight: 700,
+          textAlign: 'center',
+        }}
+      >
+        +1
+      </Box>
+    </Box>
+  );
+}
+
+/** A compact quick-pick icon with what it sets ("Thu", "Oct 28") tucked in its lower left. */
 function QuickPick({
   label,
   icon,
+  hint,
   active,
   onClick,
 }: {
   label: string;
   icon: ReactNode;
+  hint: string;
   active: boolean;
   onClick: () => void;
 }) {
   return (
-    <Tooltip title={label}>
+    <Tooltip title={`${label}: ${hint}`}>
       <IconButton
         aria-label={label}
         aria-pressed={active}
         onClick={onClick}
         sx={{
+          position: 'relative',
+          width: 48,
+          height: 44,
+          borderRadius: 2,
           color: active ? 'primary.main' : 'text.secondary',
           bgcolor: active ? 'action.selected' : 'transparent',
         }}
       >
-        {icon}
+        {/* Nudged up and right to leave the lower left to the hint. */}
+        <Box component="span" sx={{ display: 'inline-flex', transform: 'translate(5px, -5px)' }}>
+          {icon}
+        </Box>
+        <Box
+          component="span"
+          data-testid="quick-hint"
+          sx={{
+            position: 'absolute',
+            left: 2,
+            bottom: 2,
+            px: '3px',
+            borderRadius: 0.75,
+            bgcolor: 'background.paper',
+            fontSize: 9.5,
+            fontWeight: 700,
+            lineHeight: '12px',
+            whiteSpace: 'nowrap',
+          }}
+        >
+          {hint}
+        </Box>
       </IconButton>
     </Tooltip>
   );
@@ -109,33 +158,57 @@ export function DatePickerPanel({
     }
   };
 
+  const weekdayShort = new Intl.DateTimeFormat(undefined, { weekday: 'short', timeZone: 'UTC' });
+  const monthDay = new Intl.DateTimeFormat(undefined, {
+    month: 'short',
+    day: 'numeric',
+    timeZone: 'UTC',
+  });
+  const atNoon = (date: string) => new Date(`${date}T12:00:00Z`);
+  const nextWeek = addDays(today, 7);
+  const nextMonth = shiftMonths(today, 1);
   const quick = [
-    { label: t('date.today'), icon: <WbSunnyOutlined />, value: { date: today, time: null } },
+    {
+      label: t('date.today'),
+      icon: <WbSunnyOutlined />,
+      hint: weekdayShort.format(atNoon(today)),
+      value: { date: today, time: null },
+    },
     {
       label: t('date.tomorrow'),
       icon: <WbTwilightOutlined />,
+      hint: weekdayShort.format(atNoon(addDays(today, 1))),
       value: { date: addDays(today, 1), time: null },
     },
     {
       label: t('date.nextWeek'),
       icon: <NextWeekIcon />,
-      value: { date: addDays(today, 7), time: null },
+      hint: monthDay.format(atNoon(nextWeek)),
+      value: { date: nextWeek, time: null },
+    },
+    {
+      label: t('date.nextMonth'),
+      icon: <NextMonthIcon />,
+      hint: monthDay.format(atNoon(nextMonth)),
+      value: { date: nextMonth, time: null },
     },
     {
       label: t('date.tonight'),
       icon: <NightlightOutlined />,
+      hint: formatTime(EVENING).replace(':00', ''),
       value: { date: today, time: EVENING },
     },
   ];
 
   return (
     <Box sx={{ width: 300, maxWidth: '100%', p: 1.5 }}>
-      <Box sx={{ display: 'flex', justifyContent: 'space-around', mb: 1 }}>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
         {quick.map((pick) => (
           <QuickPick
             key={pick.label}
             label={pick.label}
             icon={pick.icon}
+            hint={pick.hint}
             active={date === pick.value.date && time === pick.value.time}
             onClick={() => onApply(pick.value)}
           />

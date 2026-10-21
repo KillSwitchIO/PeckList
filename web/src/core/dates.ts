@@ -94,6 +94,15 @@ export function addMonths(date: string, offset: number): string {
   return shifted.toISOString().slice(0, 10);
 }
 
+/** The same day `offset` months later, clamped to the month's last day (Jan 31 + 1 = Feb 28). */
+export function shiftMonths(date: string, offset: number): string {
+  const first = addMonths(date, offset);
+  const [y, m] = first.split('-').map(Number) as [number, number];
+  const lastDay = new Date(Date.UTC(y, m, 0)).getUTCDate();
+  const day = Math.min(Number(date.slice(8, 10)), lastDay);
+  return `${first.slice(0, 8)}${String(day).padStart(2, '0')}`;
+}
+
 /** Day of week, 0 = Sunday. */
 export function weekday(date: string): number {
   const [y, m, d] = date.split('-').map(Number) as [number, number, number];

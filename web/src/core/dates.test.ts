@@ -6,6 +6,7 @@ import {
   localDateTimeOf,
   monthGrid,
   monthOf,
+  shiftMonths,
   weekday,
 } from './dates.ts';
 
@@ -40,5 +41,14 @@ describe('instants and wall clocks', () => {
     // Across a daylight-saving change (CST in December).
     expect(instantOf('2026-12-01', '09:00', 'America/Chicago')).toBe('2026-12-01T15:00:00.000Z');
     expect(instantOf('2026-10-21', '00:00', 'Asia/Tokyo')).toBe('2026-10-20T15:00:00.000Z');
+  });
+});
+
+describe('shiftMonths', () => {
+  it('keeps the day, clamped to the end of shorter months', () => {
+    expect(shiftMonths('2026-10-21', 1)).toBe('2026-11-21');
+    expect(shiftMonths('2026-01-31', 1)).toBe('2026-02-28');
+    expect(shiftMonths('2028-01-31', 1)).toBe('2028-02-29');
+    expect(shiftMonths('2026-12-15', 1)).toBe('2027-01-15');
   });
 });

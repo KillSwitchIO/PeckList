@@ -262,13 +262,18 @@ export function setTaskStatus(
   return putEntities(workspace, 'tasks', changed);
 }
 
-/** Set or clear the completion date (an instant). Completing keeps a date set here. */
+/**
+ * Set or clear the completion date (an instant). Completing keeps a date set here. Clearing the
+ * date of a done or won't-do task reopens it.
+ */
 export function setCompletedAt(
   ctx: OpContext,
   workspace: WorkspaceFile,
   id: Id,
   at: DateTime | null,
 ): WorkspaceFile {
+  const task = requireEntity(workspace, 'tasks', id);
+  if (at === null && task.status !== 'open') return setTaskStatus(ctx, workspace, id, 'open');
   return updateTask(ctx, workspace, id, { completedAt: at });
 }
 

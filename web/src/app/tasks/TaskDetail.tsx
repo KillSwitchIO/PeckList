@@ -281,13 +281,16 @@ export function TaskDetail({ taskId, onClose }: { taskId: string; onClose: () =>
                   ? localDateTimeOf(task.completedAt, zone)
                   : localDateTimeOf(new Date().toISOString(), zone)
               ).slice(11, 16);
-              apply((ctx, ws) =>
-                setCompletedAt(
-                  ctx,
-                  ws,
-                  task.id,
-                  value ? instantOf(value.date, value.time ?? keep, zone) : null,
-                ),
+              apply(
+                (ctx, ws) =>
+                  setCompletedAt(
+                    ctx,
+                    ws,
+                    task.id,
+                    value ? instantOf(value.date, value.time ?? keep, zone) : null,
+                  ),
+                // Clearing the date of a closed task reopens it.
+                !value && task.status !== 'open' ? t('undo.reopened') : undefined,
               );
             }}
           />

@@ -71,9 +71,9 @@ describe('task details', () => {
         name: 'Tomorrow',
       }),
     );
-    await userEvent.click(within(details).getByRole('button', { name: /^Date:/ }));
+    await userEvent.click(within(details).getByRole('button', { name: /^Start date:/ }));
     await userEvent.click(
-      within(await screen.findByRole('dialog', { name: 'Date' })).getByRole('button', {
+      within(await screen.findByRole('dialog', { name: 'Start date' })).getByRole('button', {
         name: 'Tonight',
       }),
     );
@@ -129,9 +129,9 @@ describe('task row', () => {
     await addTasks('Water plants');
     await userEvent.click(screen.getByRole('button', { name: 'Open Water plants' }));
     const details = await screen.findByRole('region', { name: 'Task details' });
-    await userEvent.click(within(details).getByRole('button', { name: /^Date:/ }));
+    await userEvent.click(within(details).getByRole('button', { name: /^Start date:/ }));
     await userEvent.click(
-      within(await screen.findByRole('dialog', { name: 'Date' })).getByRole('button', {
+      within(await screen.findByRole('dialog', { name: 'Start date' })).getByRole('button', {
         name: 'Today',
       }),
     );
@@ -325,9 +325,9 @@ describe('completion date', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Open Mow' }));
     const details = await screen.findByRole('region', { name: 'Task details' });
     expect(within(details).getByRole('button', { name: 'Completed: Add completed date' }));
-    await userEvent.click(within(details).getByRole('button', { name: /^Date:/ }));
+    await userEvent.click(within(details).getByRole('button', { name: /^Start date:/ }));
     await userEvent.click(
-      within(await screen.findByRole('dialog', { name: 'Date' })).getByRole('button', {
+      within(await screen.findByRole('dialog', { name: 'Start date' })).getByRole('button', {
         name: 'Tomorrow',
       }),
     );

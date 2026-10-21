@@ -432,4 +432,12 @@ describe('completion date', () => {
     s.ws = toggleTaskDone(s.ctx, s.ws, b.id);
     expect(getEntity(s.ws, 'tasks', b.id)!.completedAt).toBe('2026-09-30T08:00:00.000Z');
   });
+
+  it('clearing the date of a closed task reopens it', () => {
+    const s = setup();
+    const a = s.add('a');
+    s.ws = setTaskStatus(s.ctx, s.ws, a.id, 'done');
+    s.ws = setCompletedAt(s.ctx, s.ws, a.id, null);
+    expect(getEntity(s.ws, 'tasks', a.id)).toMatchObject({ status: 'open', completedAt: null });
+  });
 });

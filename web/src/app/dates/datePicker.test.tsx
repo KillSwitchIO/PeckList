@@ -29,7 +29,32 @@ describe('MonthCalendar', () => {
       'aria-selected',
       'true',
     );
-    expect(screen.getAllByRole('gridcell')).toHaveLength(42);
+    // A run of weeks, not a single month: the selected week sits at the top.
+    expect(screen.getAllByRole('row').length).toBeGreaterThanOrEqual(6);
+  });
+
+  it('zooms out to the months of a year and to years, and back in', async () => {
+    render(
+      <MonthCalendar selected={null} today={TODAY} onSelect={() => undefined} locale="en-US" />,
+    );
+    await userEvent.click(screen.getByRole('button', { name: 'October 2026' }));
+    expect(screen.getByRole('button', { name: 'October 2026' })).toHaveAttribute(
+      'aria-current',
+      'date',
+    );
+    expect(screen.getByText('2026')).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Show next year' }));
+    expect(screen.getByText('2027')).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: '2027' }));
+    expect(screen.getByText('2022 - 2033')).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Show later years' }));
+    expect(screen.getByText('2034 - 2045')).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: '2040' }));
+    await userEvent.click(screen.getByRole('button', { name: 'March 2040' }));
+    expect(screen.getByText('March 2040')).toBeInTheDocument();
+    expect(screen.getByRole('gridcell', { name: 'Thursday, March 1, 2040' })).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Go to today' }));
+    expect(screen.getByText('October 2026')).toBeInTheDocument();
   });
 
   it('pages months, jumps back to today and selects a day', async () => {
@@ -40,10 +65,10 @@ describe('MonthCalendar', () => {
       'aria-current',
       'date',
     );
-    await userEvent.click(screen.getByRole('button', { name: 'Next month' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Show next month' }));
     expect(screen.getByText('November 2026')).toBeInTheDocument();
-    await userEvent.click(screen.getByRole('button', { name: 'Previous month' }));
-    await userEvent.click(screen.getByRole('button', { name: 'Previous month' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Show previous month' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Show previous month' }));
     expect(screen.getByText('September 2026')).toBeInTheDocument();
     await userEvent.click(screen.getByRole('button', { name: 'Go to today' }));
     expect(screen.getByText('October 2026')).toBeInTheDocument();
@@ -62,7 +87,10 @@ describe('MonthCalendar', () => {
     );
     screen.getByRole('gridcell', { name: 'Saturday, October 31, 2026' }).focus();
     await userEvent.keyboard('{ArrowRight}');
-    expect(screen.getByText('November 2026')).toBeInTheDocument();
+    expect(screen.getByRole('gridcell', { name: 'Sunday, November 1, 2026' })).toHaveAttribute(
+      'tabindex',
+      '0',
+    );
     await userEvent.keyboard('{ArrowUp}{ArrowLeft}{ArrowDown}');
     expect(
       screen.getByRole('gridcell', { name: 'Saturday, October 31, 2026' }),
@@ -83,12 +111,25 @@ describe('DatePickerPanel', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Today' }));
     await userEvent.click(screen.getByRole('button', { name: 'Tomorrow' }));
     await userEvent.click(screen.getByRole('button', { name: 'Next week' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Next month' }));
     await userEvent.click(screen.getByRole('button', { name: 'Tonight' }));
     expect(onApply.mock.calls).toEqual([
       [{ date: TODAY, time: null }],
       [{ date: '2026-10-21', time: null }],
       [{ date: '2026-10-27', time: null }],
+      [{ date: '2026-11-20', time: null }],
       [{ date: TODAY, time: '18:00' }],
+    ]);
+  });
+
+  it('shows what each quick pick sets in its corner', () => {
+    setup();
+    expect(screen.getAllByTestId('quick-hint').map((hint) => hint.textContent)).toEqual([
+      'Tue',
+      'Wed',
+      'Oct 27',
+      'Nov 20',
+      '6 PM',
     ]);
   });
 
