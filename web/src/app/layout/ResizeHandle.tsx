@@ -3,7 +3,6 @@ import { useRef, useState } from 'react';
 import { t } from '../i18n/i18n.ts';
 
 const STORAGE_KEY = 'punchlist.detailWidth';
-const STEP = 24;
 
 function readWidth(): number | null {
   try {
@@ -38,7 +37,7 @@ export function useDetailWidth(min: number, max: () => number) {
 }
 
 /**
- * A grip on the panel's left edge: drag to resize, arrow keys to nudge, double-click to reset.
+ * A grip on the panel's left edge: drag to resize, double-click to reset.
  * `current` is the panel's rendered width in pixels.
  */
 export function ResizeHandle({
@@ -58,10 +57,9 @@ export function ResizeHandle({
       role="separator"
       aria-orientation="vertical"
       aria-label={t('task.resizeDetails')}
-      tabIndex={0}
       onPointerDown={(event) => {
         event.preventDefault();
-        event.currentTarget.setPointerCapture(event.pointerId);
+        event.currentTarget.setPointerCapture?.(event.pointerId);
         drag.current = { x: event.clientX, width: current() };
         setActive(true);
       }}
@@ -79,12 +77,6 @@ export function ResizeHandle({
         setActive(false);
       }}
       onDoubleClick={onReset}
-      onKeyDown={(event) => {
-        if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') {
-          event.preventDefault();
-          onResize(current() + (event.key === 'ArrowLeft' ? STEP : -STEP));
-        }
-      }}
       sx={{
         position: 'absolute',
         top: 0,
@@ -94,8 +86,7 @@ export function ResizeHandle({
         zIndex: 1,
         cursor: 'col-resize',
         touchAction: 'none',
-        outline: 'none',
-        // A thin line shows on hover, while dragging and on keyboard focus.
+        // A thin line shows on hover and while dragging.
         '&::after': {
           content: '""',
           position: 'absolute',
@@ -107,7 +98,7 @@ export function ResizeHandle({
           opacity: active ? 1 : 0,
           transition: 'opacity 120ms',
         },
-        '&:hover::after, &:focus-visible::after': { opacity: 1 },
+        '&:hover::after': { opacity: 1 },
       }}
     />
   );

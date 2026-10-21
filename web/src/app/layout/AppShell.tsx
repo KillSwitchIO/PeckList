@@ -42,7 +42,7 @@ import {
 
 const DRAWER_WIDTH = 232;
 // Details get room for notes: about two fifths of the window, within sensible bounds.
-const DETAIL_WIDTH = 'clamp(440px, 40vw, 720px)';
+const DETAIL_WIDTH = 'clamp(440px, 40vw, 960px)';
 // A dragged width stays within these: the panel keeps room for its fields, the list for its rows.
 const DETAIL_MIN = 380;
 const LIST_MIN = 360;
@@ -207,9 +207,8 @@ export function AppShell() {
               px: { xs: 2, sm: 3 },
               py: 2,
               pb: isPhone ? 10 : 2,
-              // Anchored to the left edge (not centered) so the list never shifts when the
-              // details panel opens or closes.
-              maxWidth: 960,
+              // Fills the space between the sidebar and the details panel, so the panel always
+              // sits at the window's right edge (wide and ultrawide screens included).
             }}
           >
             <HeaderSlotContext.Provider value={headerSlot}>

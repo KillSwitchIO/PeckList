@@ -1,4 +1,4 @@
-import { screen, waitFor, within } from '@testing-library/react';
+import { fireEvent, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { inboxList } from '../../core/lists.ts';
@@ -115,8 +115,10 @@ describe('task details', () => {
     await addTasks('Mow');
     await userEvent.click(screen.getByRole('button', { name: 'Open Mow' }));
     const handle = await screen.findByRole('separator', { name: 'Resize details' });
-    handle.focus();
-    await userEvent.keyboard('{ArrowLeft}');
+    // Drag the edge left by 100px: the panel gets wider.
+    fireEvent.pointerDown(handle, { clientX: 900, pointerId: 1 });
+    fireEvent.pointerMove(handle, { clientX: 800, pointerId: 1 });
+    fireEvent.pointerUp(handle, { clientX: 800, pointerId: 1 });
     expect(Number(localStorage.getItem('punchlist.detailWidth'))).toBeGreaterThan(0);
     await userEvent.dblClick(handle);
     expect(localStorage.getItem('punchlist.detailWidth')).toBeNull();
