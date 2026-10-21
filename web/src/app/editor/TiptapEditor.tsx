@@ -19,7 +19,13 @@ import {
   LinkIcon,
   StrikeIcon,
 } from '../icons/icons.tsx';
-import { editorMarkdown, notesExtensions } from './tiptapMarkdown.ts';
+import { editorMarkdown, linkHref, notesExtensions } from './tiptapMarkdown.ts';
+
+/** A check mark as a CSS image, in the given color. */
+function checkMark(color: string): string {
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5" fill="none" stroke="${color}" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+  return `url("data:image/svg+xml,${encodeURIComponent(svg)}")`;
+}
 
 export default function TiptapEditor({ value, onCommit, label, placeholder }: RichTextEditorProps) {
   const theme = useTheme();
@@ -75,10 +81,21 @@ export default function TiptapEditor({ value, onCommit, label, placeholder }: Ri
     editor.commands.setContent(value, { contentType: 'markdown', emitUpdate: false });
   }, [editor, value]);
 
-  // Leaving without a blur (the panel closes) still keeps the edit.
+  // Leaving without a blur still keeps the edit: the panel closes, or the page is hidden or
+  // closed (capture phase, so this runs before the store flushes to disk on the same events).
   useEffect(() => {
     if (!editor) return;
-    return () => commit(editor);
+    const onHide = () => {
+      if (document.visibilityState === 'hidden') commit(editor);
+    };
+    const onPageHide = () => commit(editor);
+    window.addEventListener('visibilitychange', onHide, true);
+    window.addEventListener('pagehide', onPageHide, true);
+    return () => {
+      window.removeEventListener('visibilitychange', onHide, true);
+      window.removeEventListener('pagehide', onPageHide, true);
+      commit(editor);
+    };
   }, [editor]);
 
   return (
@@ -142,12 +159,27 @@ export default function TiptapEditor({ value, onCommit, label, placeholder }: Ri
             gap: 1,
             '& > label': { flex: 'none', mt: '3px', display: 'flex' },
             '& > div': { flex: 1, minWidth: 0 },
+            // Drawn like the task-row checkbox: a rounded square, filled grey with a check.
             '& input': {
+              appearance: 'none',
               m: 0,
               width: 15,
               height: 15,
+              borderRadius: '4px',
+              border: `1.5px solid ${theme.palette.text.secondary}`,
               cursor: 'pointer',
-              accentColor: theme.palette.primary.main,
+              '&:checked': {
+                borderColor: theme.palette.text.disabled,
+                bgcolor: theme.palette.text.disabled,
+                backgroundImage: checkMark(theme.palette.background.paper),
+                backgroundRepeat: 'no-repeat',
+                backgroundPosition: 'center',
+                backgroundSize: '11px',
+              },
+              '&:focus-visible': {
+                outline: `2px solid ${theme.palette.primary.main}`,
+                outlineOffset: 1,
+              },
             },
           },
           '& li[data-checked=true] > div': {
@@ -231,16 +263,16 @@ function SelectionToolbar({ editor }: { editor: Editor }) {
       >
         {linking ? (
           <LinkField
-            initial={editor.getAttributes('link').href ?? ''}
-            onDone={(href) => {
+            onDone={(input) => {
               setLinking(false);
-              if (href === null) {
+              const href = input === null ? null : linkHref(input);
+              if (!href) {
                 chain().run();
-              } else if (href.trim()) {
-                chain().extendMarkRange('link').setLink({ href: href.trim() }).run();
-              } else {
-                chain().extendMarkRange('link').unsetLink().run();
+                return;
               }
+              // A double-click often takes the space after a word; keep it out of the link.
+              const { from, to } = trimmedSelection(editor);
+              chain().setTextSelection({ from, to }).setLink({ href }).setTextSelection(to).run();
             }}
           />
         ) : (
@@ -279,19 +311,22 @@ function SelectionToolbar({ editor }: { editor: Editor }) {
   );
 }
 
+/** The selection without spaces at either end. */
+function trimmedSelection(editor: Editor): { from: number; to: number } {
+  let { from, to } = editor.state.selection;
+  const charAt = (at: number) => editor.state.doc.textBetween(at, at + 1);
+  while (from < to && /\s/.test(charAt(from))) from++;
+  while (to > from && /\s/.test(charAt(to - 1))) to--;
+  return { from, to };
+}
+
 function Divider() {
   return <Box sx={{ width: '1px', alignSelf: 'stretch', my: 0.5, mx: 0.25, bgcolor: 'divider' }} />;
 }
 
 /** The link address, typed in place of the toolbar. Enter applies; Escape cancels. */
-function LinkField({
-  initial,
-  onDone,
-}: {
-  initial: string;
-  onDone: (href: string | null) => void;
-}) {
-  const [href, setHref] = useState(initial);
+function LinkField({ onDone }: { onDone: (href: string | null) => void }) {
+  const [href, setHref] = useState('');
   return (
     <InputBase
       autoFocus

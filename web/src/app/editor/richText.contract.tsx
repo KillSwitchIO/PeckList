@@ -50,6 +50,15 @@ export function describeRichTextContract(name: string, Editor: RichTextEditor) {
       expect(onCommit).toHaveBeenCalledExactlyOnceWith('Buy posts');
     });
 
+    it('commits when the page is hidden mid-edit', async () => {
+      const { onCommit } = setup('');
+      await userEvent.type(await field(), 'Half typed');
+      act(() => {
+        window.dispatchEvent(new Event('pagehide'));
+      });
+      expect(onCommit).toHaveBeenCalledExactlyOnceWith('Half typed');
+    });
+
     it('does not commit when nothing changed', async () => {
       const { onCommit } = setup('2 < 3 & snake_case');
       await userEvent.click(await field());

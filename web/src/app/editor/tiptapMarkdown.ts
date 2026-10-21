@@ -87,6 +87,16 @@ const NotesMarkdown = Markdown.extend({
   },
 });
 
+/**
+ * A typed link address made usable: trimmed, and given https:// when it has no scheme
+ * ("example.com/x"). Empty input gives null.
+ */
+export function linkHref(input: string): string | null {
+  const href = input.trim();
+  if (!href) return null;
+  return /^[a-z][a-z0-9+.-]*:/i.test(href) ? href : `https://${href}`;
+}
+
 /** The notes schema: everyday formatting, links and checklists, read and written as markdown. */
 export function notesExtensions(placeholder?: string): AnyExtension[] {
   return [

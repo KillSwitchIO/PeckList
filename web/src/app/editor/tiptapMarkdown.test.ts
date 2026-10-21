@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { escapeMarkdownText, roundTripMarkdown } from './tiptapMarkdown.ts';
+import { escapeMarkdownText, linkHref, roundTripMarkdown } from './tiptapMarkdown.ts';
 
 describe('notes markdown round trip', () => {
   it.each([
@@ -29,5 +29,14 @@ describe('notes markdown round trip', () => {
       // Parsing the escaped form gives the literal text back.
       expect(roundTripMarkdown(escaped)).toBe(escaped);
     }
+  });
+});
+
+describe('link addresses', () => {
+  it('adds https to a bare address and keeps ones with a scheme', () => {
+    expect(linkHref(' example.com/ladders ')).toBe('https://example.com/ladders');
+    expect(linkHref('http://intranet.test')).toBe('http://intranet.test');
+    expect(linkHref('mailto:me@example.com')).toBe('mailto:me@example.com');
+    expect(linkHref('   ')).toBeNull();
   });
 });
