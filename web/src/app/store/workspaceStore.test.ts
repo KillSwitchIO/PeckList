@@ -5,6 +5,7 @@ import { createUlidGenerator } from '../../adapters/ulid-ids.ts';
 import { getEntity } from '../../core/collections.ts';
 import { inboxList } from '../../core/lists.ts';
 import { CURRENT_SCHEMA_VERSION } from '../../core/migrations.ts';
+import { rekeyOwner } from '../../core/sync.ts';
 import { createTask, toggleTaskDone, updateTask } from '../../core/tasks.ts';
 import type { StorageAdapter } from '../../ports/storage.ts';
 import { deviceId, randomId } from './device.ts';
@@ -158,12 +159,41 @@ describe('workspace store', () => {
       clear: () => Promise.resolve(),
       backup: () => Promise.resolve(),
       loadBackup: () => Promise.resolve(null),
+      loadMeta: () => Promise.resolve(null),
+      saveMeta: () => Promise.resolve(),
     };
     const c = makeStore(failing);
     await c.getState().init();
     expect(c.getState().problem).toEqual({ kind: 'error', message: 'disk' });
     expect(() => c.getState().apply((_, ws) => ws)).toThrow('not ready');
     expect(() => c.getState().context()).toThrow('not ready');
+  });
+});
+
+describe('a device joining an account', () => {
+  it('absorbs data without undo or new clocks, and other tabs follow the new owner', async () => {
+    const storage = createMemoryStorage();
+    const a = makeStore(storage, 'tabA');
+    await a.getState().init();
+    const b = makeStore(storage, 'tabB');
+    await b.getState().init();
+    addTask(a, 'Mow', 'Task added');
+    await a.getState().flush();
+    await b.getState().reloadFromStorage();
+
+    a.getState().absorb((ws) => rekeyOwner(ws, '01JBACCT000000000000000001'));
+    expect(a.getState().workspace!.owner).toBe('01JBACCT000000000000000001');
+    expect(a.getState().undoStack).toEqual([]);
+    expect(a.getState().context().userId).toBe('01JBACCT000000000000000001');
+    await a.getState().flush();
+
+    // The other tab saves its old-owner copy: it must not undo the join...
+    addTask(b, 'Rake');
+    await b.getState().flush();
+    expect(((await storage.load()) as { owner: string }).owner).toBe('01JBACCT000000000000000001');
+    // ...and when it hears about the save, it switches to the account's copy.
+    await b.getState().reloadFromStorage();
+    expect(b.getState().workspace!.owner).toBe('01JBACCT000000000000000001');
   });
 });
 

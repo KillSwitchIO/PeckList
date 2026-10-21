@@ -46,6 +46,7 @@ import {
   SIDEBAR_ITEMS,
   type NavItem,
 } from './navigation.tsx';
+import { SyncButton } from '../sync/SyncButton.tsx';
 
 const DRAWER_WIDTH = 232;
 // Details get room for notes: about two fifths of the window, within sensible bounds.
@@ -273,6 +274,7 @@ export function AppShell() {
               ref={setHeaderSlot}
               sx={{ display: 'flex', alignItems: 'center', gap: 1, flexGrow: 1, minWidth: 0 }}
             />
+            <SyncButton />
             <ThemeToggle />
           </Toolbar>
         </AppBar>

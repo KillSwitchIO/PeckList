@@ -3,13 +3,13 @@ import { BrowserRouter } from 'react-router';
 import { AppProviders } from './providers.tsx';
 import { UpdatePrompt } from './pwa/UpdatePrompt.tsx';
 import { AppRoutes } from './routes.tsx';
-import { createBrowserStore } from './store/browserStore.ts';
+import { createBrowserApp } from './store/browserStore.ts';
 
 export function App() {
-  const [store] = useState(createBrowserStore);
+  const [{ store, sync }] = useState(createBrowserApp);
   return (
     <>
-      <AppProviders store={store}>
+      <AppProviders store={store} sync={sync}>
         <BrowserRouter>
           <AppRoutes />
         </BrowserRouter>

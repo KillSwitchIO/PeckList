@@ -11,6 +11,16 @@ export default defineConfig({
     // Native file events on Windows miss edits (branch switches, scripted edits, the pre-commit
     // hook rewriting files), leaving the browser on stale modules. Polling is reliable there.
     ...(process.platform === 'win32' ? { watch: { usePolling: true, interval: 300 } } : {}),
+    // `PUNCHLIST_SERVER=http://localhost:5000 pnpm dev` talks to a running server; without it the
+    // app runs standalone, as a static PWA does.
+    ...(process.env.PUNCHLIST_SERVER
+      ? {
+          proxy: {
+            '/api': { target: process.env.PUNCHLIST_SERVER, changeOrigin: true },
+            '/auth': { target: process.env.PUNCHLIST_SERVER, changeOrigin: true },
+          },
+        }
+      : {}),
   },
   preview: { port: 6174, strictPort: true },
   plugins: [

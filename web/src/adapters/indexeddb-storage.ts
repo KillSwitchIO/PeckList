@@ -34,5 +34,12 @@ export function createIndexedDbStorage(databaseName = 'punchlist'): StorageAdapt
       const text = (await (await open()).get(STORE, `backup:${name}`)) as string | undefined;
       return text === undefined ? null : (JSON.parse(text) as unknown);
     },
+    async loadMeta(key: string) {
+      const text = (await (await open()).get(STORE, `meta:${key}`)) as string | undefined;
+      return text === undefined ? null : (JSON.parse(text) as unknown);
+    },
+    async saveMeta(key: string, value: unknown) {
+      await (await open()).put(STORE, JSON.stringify(value), `meta:${key}`);
+    },
   };
 }

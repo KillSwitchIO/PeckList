@@ -11,6 +11,7 @@ import { AppProviders } from '../app/providers.tsx';
 import { AppRoutes } from '../app/routes.tsx';
 import { createAppTheme } from '../app/theme/theme.ts';
 import { createWorkspaceStore, type WorkspaceStore } from '../app/store/workspaceStore.ts';
+import type { SyncEngine } from '../app/sync/syncEngine.ts';
 
 export type Viewport = 'phone' | 'tablet' | 'desktop';
 const WIDTH: Record<Viewport, number> = { phone: 390, tablet: 800, desktop: 1400 };
@@ -49,9 +50,13 @@ export function testStore(): WorkspaceStore {
   });
 }
 
-export async function renderApp(path: string, store: WorkspaceStore = testStore()) {
+export async function renderApp(
+  path: string,
+  store: WorkspaceStore = testStore(),
+  sync?: SyncEngine,
+) {
   const result = render(
-    <AppProviders store={store}>
+    <AppProviders store={store} {...(sync ? { sync } : {})}>
       <MemoryRouter initialEntries={[path]}>
         <AppRoutes />
       </MemoryRouter>

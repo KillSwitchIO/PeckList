@@ -466,3 +466,54 @@ export function DueIcon(props: SvgIconProps) {
     </PunchIcon>
   );
 }
+
+/** Synced: a cloud with a check. */
+export function CloudDoneIcon(props: SvgIconProps) {
+  return (
+    <PunchIcon {...props}>
+      <path d="M7 18.5a4.5 4.5 0 0 1-.6-8.96A6 6 0 0 1 18 9.5a4.5 4.5 0 0 1-.5 9z" />
+      <path d="M9.5 13.8l1.8 1.7 3.4-3.5" />
+    </PunchIcon>
+  );
+}
+
+/** Syncing: a cloud with arrows going round. */
+export function CloudSyncIcon(props: SvgIconProps) {
+  return (
+    <PunchIcon {...props}>
+      <path d="M7 18.5a4.5 4.5 0 0 1-.6-8.96A6 6 0 0 1 18 9.5a4.5 4.5 0 0 1-.5 9z" />
+      <path d="M9.6 13.6a2.5 2.5 0 0 1 4.3-1.3M14.4 14.6a2.5 2.5 0 0 1-4.3 1.3M13.9 10.9v1.4h-1.4M10.1 17.1v-1.4h1.4" />
+    </PunchIcon>
+  );
+}
+
+/** Offline: a cloud struck through. */
+export function CloudOffIcon(props: SvgIconProps) {
+  return (
+    <PunchIcon {...props}>
+      <path d="M9.2 6.2A6 6 0 0 1 18 9.5a4.5 4.5 0 0 1 2 8M16.5 18.5H7a4.5 4.5 0 0 1-1.4-8.78" />
+      <path d="M3.5 3.5l17 17" />
+    </PunchIcon>
+  );
+}
+
+/** A sync problem: a cloud with an exclamation mark. */
+export function CloudAlertIcon(props: SvgIconProps) {
+  return (
+    <PunchIcon {...props}>
+      <path d="M7 18.5a4.5 4.5 0 0 1-.6-8.96A6 6 0 0 1 18 9.5a4.5 4.5 0 0 1-.5 9z" />
+      <path d="M12 11v3" />
+      <path d="M12 16.2v.1" />
+    </PunchIcon>
+  );
+}
+
+/** An account: a person. */
+export function AccountIcon(props: SvgIconProps) {
+  return (
+    <PunchIcon {...props}>
+      <circle cx="12" cy="8.5" r="3.5" />
+      <path d="M5 19.5a7 7 0 0 1 14 0" />
+    </PunchIcon>
+  );
+}

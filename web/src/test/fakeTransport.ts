@@ -1,0 +1,100 @@
+// A SyncTransport over the in-memory server, with accounts and a switch to go offline.
+import { CURRENT_SCHEMA_VERSION } from '../core/migrations.ts';
+import { SyncFailure, type Account, type ServerInfo, type SyncTransport } from '../ports/sync.ts';
+import { FakeSyncServer } from './fakeSyncServer.ts';
+
+export interface FakeAccount {
+  account: Account;
+  password: string;
+}
+
+/** Shared by every device in a test: the server and its accounts. */
+export class FakeBackend {
+  readonly server = new FakeSyncServer();
+  readonly accounts = new Map<string, FakeAccount>();
+  schemaVersion = CURRENT_SCHEMA_VERSION;
+
+  addAccount(username: string, password: string, extra: Partial<Account> = {}): Account {
+    const account: Account = {
+      // A valid ULID, one per account.
+      id: `01JBACCT${String(this.accounts.size + 1).padStart(18, '0')}`,
+      username,
+      role: 'user',
+      mustChangePassword: false,
+      authMode: 'local',
+      ...extra,
+    };
+    this.accounts.set(username, { account, password });
+    return account;
+  }
+
+  /** One device's connection (its own session). */
+  device(): FakeTransport {
+    return new FakeTransport(this);
+  }
+}
+
+export class FakeTransport implements SyncTransport {
+  offline = false;
+  session: string | null = null;
+
+  constructor(private readonly backend: FakeBackend) {}
+
+  private check() {
+    if (this.offline) throw new SyncFailure('offline', 'offline');
+  }
+
+  private current(): FakeAccount | null {
+    return this.session ? (this.backend.accounts.get(this.session) ?? null) : null;
+  }
+
+  info(): Promise<ServerInfo | null> {
+    this.check();
+    return Promise.resolve({
+      name: 'punchlist',
+      version: '0.1.0',
+      schemaVersion: this.backend.schemaVersion,
+    });
+  }
+
+  me(): Promise<Account | null> {
+    this.check();
+    return Promise.resolve(this.current()?.account ?? null);
+  }
+
+  login(username: string, password: string) {
+    this.check();
+    const found = this.backend.accounts.get(username);
+    if (!found || found.password !== password) return Promise.resolve({ kind: 'invalid' as const });
+    this.session = username;
+    return Promise.resolve({ kind: 'ok' as const, account: found.account });
+  }
+
+  logout() {
+    this.session = null;
+    return Promise.resolve();
+  }
+
+  changePassword(current: string, next: string) {
+    this.check();
+    const found = this.current();
+    if (!found) throw new SyncFailure('signed-out', 'signed out');
+    if (found.password !== current) return Promise.resolve({ kind: 'wrong-password' as const });
+    if (next.length < 12) return Promise.resolve({ kind: 'too-short' as const });
+    found.password = next;
+    found.account = { ...found.account, mustChangePassword: false };
+    return Promise.resolve({ kind: 'ok' as const, account: found.account });
+  }
+
+  sync(request: Parameters<SyncTransport['sync']>[0]) {
+    this.check();
+    const found = this.current();
+    if (!found) throw new SyncFailure('signed-out', 'signed out');
+    if (found.account.mustChangePassword) throw new SyncFailure('password-change', 'change it');
+    if (request.schemaVersion !== this.backend.schemaVersion) {
+      throw new SyncFailure('schema', 'schema mismatch', this.backend.schemaVersion);
+    }
+    // A copy, as over the wire.
+    return Promise.resolve(this.backend.server.sync(found.account.id, structuredClone(request)));
+  }
+}

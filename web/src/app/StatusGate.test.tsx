@@ -55,6 +55,8 @@ describe('StatusGate', () => {
       clear: () => Promise.resolve(),
       backup: () => Promise.resolve(),
       loadBackup: () => Promise.resolve(null),
+      loadMeta: () => Promise.resolve(null),
+      saveMeta: () => Promise.resolve(),
     };
     const store = createWorkspaceStore({
       storage,

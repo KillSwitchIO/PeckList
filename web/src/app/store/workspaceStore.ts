@@ -48,6 +48,13 @@ export interface WorkspaceState {
   flush(): Promise<void>;
   /** Merge in whatever another tab saved. */
   reloadFromStorage(): Promise<void>;
+  /**
+   * Take in a change that did not happen here (data from the server, a device joining an
+   * account): no undo entry, no new clocks. The workspace may come back under another owner.
+   */
+  absorb(transform: (workspace: WorkspaceFile) => WorkspaceFile): void;
+  /** Replace the workspace outright (signing in as someone else on this device). */
+  reset(workspace: WorkspaceFile): Promise<void>;
   context(): OpContext;
 }
 
@@ -78,6 +85,9 @@ export function createWorkspaceStore(deps: StoreDependencies): WorkspaceStore {
   let timer: ReturnType<typeof setTimeout> | null = null;
   let dirty = false;
   let nextUndoId = 1;
+  // The owner of the copy in storage when this tab last read or wrote it: tells a join made here
+  // (memory moved on) from one made in another tab (storage moved on).
+  let storedOwner: string | null = null;
 
   const makeContext = (userId: string): OpContext => ({
     clock,
@@ -97,11 +107,21 @@ export function createWorkspaceStore(deps: StoreDependencies): WorkspaceStore {
     }
   };
 
-  /** Merge a stored copy into memory, if it is a readable copy of the same workspace. */
+  /**
+   * Merge a stored copy into memory, if it is readable. Copies under different owners never mix:
+   * if this tab changed owner (it joined an account), its copy wins; if another tab did, the
+   * stored copy wins and replaces this one.
+   */
   const mergeStored = (stored: unknown, current: WorkspaceFile): WorkspaceFile => {
     if (stored === null) return current;
     const opened = openDocument(stored, deps.validator);
-    if (opened.kind !== 'ok' || opened.workspace.owner !== current.owner) return current;
+    if (opened.kind !== 'ok') return current;
+    if (opened.workspace.owner !== current.owner) {
+      if (current.owner !== storedOwner) return current;
+      advanceClock(opened.workspace);
+      ctx = makeContext(opened.workspace.owner);
+      return opened.workspace;
+    }
     advanceClock(opened.workspace);
     return mergeWorkspaces(current, opened.workspace);
   };
@@ -114,9 +134,15 @@ export function createWorkspaceStore(deps: StoreDependencies): WorkspaceStore {
       set({ saving: true });
       try {
         await withLock(async () => {
-          const merged = mergeStored(await deps.storage.load(), get().workspace ?? workspace);
+          const current = get().workspace ?? workspace;
+          const merged = mergeStored(await deps.storage.load(), current);
           await deps.storage.save(merged);
-          set({ workspace: merged });
+          storedOwner = merged.owner;
+          if (merged.owner !== current.owner) {
+            set({ workspace: merged, undoStack: [], lastUndoable: null });
+          } else {
+            set({ workspace: merged });
+          }
         });
         deps.notify?.();
       } finally {
@@ -152,6 +178,7 @@ export function createWorkspaceStore(deps: StoreDependencies): WorkspaceStore {
               deps.displayName ? { displayName: deps.displayName } : {},
             );
             set({ status: 'ready', workspace });
+            storedOwner = workspace.owner;
             await persist();
             return;
           }
@@ -159,6 +186,7 @@ export function createWorkspaceStore(deps: StoreDependencies): WorkspaceStore {
           if (opened.kind === 'ok') {
             advanceClock(opened.workspace);
             ctx = makeContext(opened.workspace.owner);
+            storedOwner = opened.workspace.owner;
             set({ status: 'ready', workspace: opened.workspace });
           } else if (opened.kind === 'needs-upgrade') {
             set({ status: 'needs-upgrade', problem: opened });
@@ -227,6 +255,7 @@ export function createWorkspaceStore(deps: StoreDependencies): WorkspaceStore {
             return;
           }
           await deps.storage.save(upgraded.workspace);
+          storedOwner = upgraded.workspace.owner;
           advanceClock(upgraded.workspace);
           ctx = makeContext(upgraded.workspace.owner);
           set({ status: 'ready', workspace: upgraded.workspace, problem: null });
@@ -253,7 +282,43 @@ export function createWorkspaceStore(deps: StoreDependencies): WorkspaceStore {
         const { workspace } = get();
         if (!workspace) return;
         const merged = mergeStored(await deps.storage.load(), workspace);
-        if (merged !== workspace) set({ workspace: merged });
+        if (merged === workspace) return;
+        storedOwner = merged.owner;
+        if (merged.owner !== workspace.owner) {
+          set({ workspace: merged, undoStack: [], lastUndoable: null });
+        } else {
+          set({ workspace: merged });
+        }
+      },
+
+      absorb(transform) {
+        const { workspace } = get();
+        if (!workspace) return;
+        const next = transform(workspace);
+        if (next === workspace) return;
+        advanceClock(next);
+        if (next.owner !== workspace.owner) {
+          ctx = makeContext(next.owner);
+          // Undo entries belong to the old owner's data.
+          set({ workspace: next, undoStack: [], lastUndoable: null });
+        } else {
+          set({ workspace: next });
+        }
+        schedule();
+      },
+
+      async reset(workspace) {
+        if (timer) {
+          clearTimeout(timer);
+          timer = null;
+        }
+        dirty = false;
+        advanceClock(workspace);
+        ctx = makeContext(workspace.owner);
+        set({ status: 'ready', workspace, undoStack: [], lastUndoable: null, problem: null });
+        await withLock(() => deps.storage.save(workspace));
+        storedOwner = workspace.owner;
+        deps.notify?.();
       },
 
       context() {

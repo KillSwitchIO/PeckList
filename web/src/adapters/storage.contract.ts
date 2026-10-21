@@ -53,6 +53,17 @@ export function describeStorageContract(
       expect(await storage.loadBackup('missing')).toBeNull();
     });
 
+    it('keeps device metadata apart from the workspace, surviving a clear', async () => {
+      const storage = await create();
+      const workspace = sampleWorkspace();
+      await storage.save(workspace);
+      expect(await storage.loadMeta('sync')).toBeNull();
+      await storage.saveMeta('sync', { cursor: 7, acks: { T1: 'x' } });
+      await storage.saveMeta('sync', { cursor: 8, acks: {} });
+      expect(await storage.loadMeta('sync')).toEqual({ cursor: 8, acks: {} });
+      expect(await storage.load()).toEqual(workspace);
+    });
+
     it('returns a copy, not a live reference', async () => {
       const storage = await create();
       const workspace = sampleWorkspace();
