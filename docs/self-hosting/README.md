@@ -19,7 +19,7 @@ Then open http://localhost:8080. A compose example is in [compose.yaml](compose.
 - Data lives in `/data`. A named volume works out of the box; a bind-mounted folder must be
   owned by uid 1654, or run the container as your own uid with `user:`.
 - Health: `GET /healthz`. The image's own health check runs
-  `dotnet Punchlist.Server.dll healthcheck`, since there is no curl inside.
+  `punchlist healthcheck`, since there is no curl inside.
 
 ## First start
 
@@ -50,12 +50,40 @@ the same host or Docker network.
 | `DB_PATH`              | `/data/punchlist.db`         | The SQLite file                                           |
 | `DB_CONNECTION_STRING` | -                            | PostgreSQL connection string (Npgsql format)              |
 | `DB_MIGRATE_ON_START`  | `true`                       | Set false when the database user cannot change the schema |
+| `SNAPSHOT_SCHEDULE`    | `daily`                      | `daily`, `hourly` or `off`                                |
+| `SNAPSHOT_DIR`         | `snapshots` by the database  | Where snapshots go                                        |
+| `SNAPSHOT_KEEP`        | `14`                         | How many snapshots to keep                                |
 | `TRUSTED_PROXIES`      | private ranges               | Proxies allowed to set forwarded headers                  |
 | `WEB_ROOT`             | `wwwroot` next to the server | Where the web build is (only for development)             |
 
 Every setting also accepts `NAME_FILE`, a file holding the value (Docker secrets); one trailing
 newline is dropped. Setting both is an error. A bad setting stops the server with a list of what
 to fix. More settings (auth) arrive with the rest of milestone 0.4.
+
+## Backups
+
+The server writes a full backup to `SNAPSHOT_DIR` (default: `snapshots` next to the SQLite file,
+so `/data/snapshots`) on the `SNAPSHOT_SCHEDULE` (`daily` by default, `hourly`, or `off`), keeping
+the newest `SNAPSHOT_KEEP` (14). Each is one readable JSON file holding everything: accounts (with
+password hashes, so keep the files private), tasks and lists, and the keys that sign login cookies.
+
+The `punchlist` command in the container does the rest, while the server runs:
+
+```bash
+docker exec <container> punchlist export /data/backup.json
+docker exec <container> punchlist import /data/backup.json            # into an empty database
+docker exec <container> punchlist import /data/backup.json --replace  # delete what is there first
+docker exec <container> punchlist snapshot
+docker exec <container> punchlist admin reset-password [username]
+docker exec <container> punchlist migrate-db --to postgres --connection "Host=db;Username=...;Password=...;Database=punchlist"
+```
+
+`migrate-db` copies everything into another empty database (SQLite or PostgreSQL); then point
+`DB_PROVIDER` and `DB_PATH` or `DB_CONNECTION_STRING` at it and restart. A restored backup keeps
+sessions and every device's sync position, so nobody has to sign in or resync.
+
+On Windows Git Bash, prefix commands with `MSYS_NO_PATHCONV=1` so `/data/...` paths reach the
+container unchanged.
 
 ## PostgreSQL
 

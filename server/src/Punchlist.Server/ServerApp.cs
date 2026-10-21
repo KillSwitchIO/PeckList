@@ -32,6 +32,7 @@ public static class ServerApp
         // After the store: its startup (migrations) runs before the admin is made.
         builder.Services.AddPunchlistAuth(settings);
         builder.Services.AddSingleton<SyncService>();
+        builder.Services.AddBackups(settings);
         builder.Services.Configure<ForwardedHeadersOptions>(options =>
         {
             options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;

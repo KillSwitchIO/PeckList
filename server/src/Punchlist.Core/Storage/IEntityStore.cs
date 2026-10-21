@@ -48,4 +48,16 @@ public interface IEntityStore
 
     /// <summary>Every entity, in seq order (export, snapshots, moving between databases).</summary>
     IAsyncEnumerable<StoredEntity> AllAsync(CancellationToken cancellation = default);
+
+    /// <summary>Every (user, entity) pair of the visibility index.</summary>
+    IAsyncEnumerable<(string UserId, string EntityId)> VisibilityAsync(CancellationToken cancellation = default);
+
+    /// <summary>
+    /// Load exported entities as they were (owners, seqs, visibility, cursor) into an empty store.
+    /// </summary>
+    Task RestoreAsync(
+        IReadOnlyList<StoredEntity> entities,
+        IReadOnlyList<(string UserId, string EntityId)> visibility,
+        long cursor,
+        CancellationToken cancellation = default);
 }

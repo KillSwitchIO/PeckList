@@ -17,6 +17,9 @@ public sealed class MemoryAccountStore : IAccountStore
 
     public Task<int> CountAsync(CancellationToken cancellation = default) => Task.FromResult(ById.Count);
 
+    public Task<IReadOnlyList<Account>> ListAsync(CancellationToken cancellation = default) =>
+        Task.FromResult<IReadOnlyList<Account>>(ById.Values.OrderBy(each => each.CreatedAt).ToList());
+
     public Task<Account?> FindByIdAsync(string id, CancellationToken cancellation = default) =>
         Task.FromResult(ById.GetValueOrDefault(id));
 

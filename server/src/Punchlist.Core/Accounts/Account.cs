@@ -36,6 +36,10 @@ public sealed record Account
 public interface IAccountStore
 {
     Task<int> CountAsync(CancellationToken cancellation = default);
+
+    /// <summary>Every account, oldest first.</summary>
+    Task<IReadOnlyList<Account>> ListAsync(CancellationToken cancellation = default);
+
     Task<Account?> FindByIdAsync(string id, CancellationToken cancellation = default);
 
     /// <summary>Case-insensitive.</summary>
@@ -54,6 +58,9 @@ public sealed class DuplicateUsernameException(string username) : Exception($"us
 public interface ISecretStore
 {
     Task<IReadOnlyList<(string Name, string Value)>> ListAsync(string kind, CancellationToken cancellation = default);
+
+    /// <summary>Every value of every kind.</summary>
+    Task<IReadOnlyList<(string Kind, string Name, string Value)>> AllAsync(CancellationToken cancellation = default);
 
     /// <summary>Add or replace a value.</summary>
     Task PutAsync(string kind, string name, string value, CancellationToken cancellation = default);

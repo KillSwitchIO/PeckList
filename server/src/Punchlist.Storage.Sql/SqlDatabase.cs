@@ -31,6 +31,28 @@ public abstract class SqlDatabase : IDatabase
         await SqlMigrations.RunAsync(connection, GetType().Assembly, cancellation);
     }
 
+    public async Task<bool> IsEmptyAsync(CancellationToken cancellation = default)
+    {
+        await using var connection = await OpenAsync(cancellation);
+        var rows = await connection.ExecuteScalarAsync<long>(new CommandDefinition(
+            "SELECT (SELECT COUNT(*) FROM entities) + (SELECT COUNT(*) FROM accounts) + (SELECT COUNT(*) FROM server_secrets)",
+            cancellationToken: cancellation));
+        return rows == 0;
+    }
+
+    public async Task WipeAsync(CancellationToken cancellation = default)
+    {
+        await using var connection = await OpenAsync(cancellation);
+        await using var transaction = await BeginWriteAsync(connection, cancellation);
+        foreach (var table in new[] { "visibility", "entities", "accounts", "server_secrets" })
+        {
+            await connection.ExecuteAsync(new CommandDefinition($"DELETE FROM {table}", transaction: transaction, cancellationToken: cancellation));
+        }
+        await connection.ExecuteAsync(new CommandDefinition(
+            "UPDATE counters SET value = 0 WHERE name = 'seq'", transaction: transaction, cancellationToken: cancellation));
+        await transaction.CommitAsync(cancellation);
+    }
+
     public async Task<bool> PingAsync(CancellationToken cancellation = default)
     {
         try

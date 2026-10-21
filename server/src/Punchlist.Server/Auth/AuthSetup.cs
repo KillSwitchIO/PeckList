@@ -7,7 +7,6 @@ using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.DataProtection.KeyManagement;
 using Microsoft.AspNetCore.DataProtection.Repositories;
-using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Options;
 using Punchlist.Core.Accounts;
@@ -30,7 +29,7 @@ public static class AuthSetup
     public static IServiceCollection AddPunchlistAuth(this IServiceCollection services, ServerSettings settings)
     {
         services.AddSingleton(TimeProvider.System);
-        services.AddSingleton<IPasswordHasher, IdentityPasswordHasher>();
+        services.AddSingleton<IPasswordHasher, AspNetPasswordHasher>();
         services.AddSingleton<AccountService>();
         services.AddSingleton<OwnerAccount>();
         services.AddMemoryCache();
@@ -118,21 +117,6 @@ public static class AuthSetup
         {
             context.RejectPrincipal();
             await context.HttpContext.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
-        }
-    }
-
-    private sealed class IdentityPasswordHasher : IPasswordHasher
-    {
-        private readonly PasswordHasher<object> hasher = new();
-        private static readonly object User = new();
-
-        public string Hash(string password) => hasher.HashPassword(User, password);
-
-        public bool Verify(string hash, string password, out bool rehash)
-        {
-            var result = hasher.VerifyHashedPassword(User, hash, password);
-            rehash = result == PasswordVerificationResult.SuccessRehashNeeded;
-            return result != PasswordVerificationResult.Failed;
         }
     }
 

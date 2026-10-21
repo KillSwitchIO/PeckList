@@ -151,6 +151,64 @@ public sealed class SqlEntityStore(SqlDatabase database) : IEntityStore
         }
     }
 
+    public async IAsyncEnumerable<(string UserId, string EntityId)> VisibilityAsync(
+        [EnumeratorCancellation] CancellationToken cancellation = default)
+    {
+        await using var connection = await database.OpenAsync(cancellation);
+        var rows = connection.QueryUnbufferedAsync<(string, string)>(
+            "SELECT user_id, entity_id FROM visibility ORDER BY user_id, entity_id");
+        await foreach (var row in rows.WithCancellation(cancellation))
+        {
+            yield return row;
+        }
+    }
+
+    public async Task RestoreAsync(
+        IReadOnlyList<StoredEntity> entities,
+        IReadOnlyList<(string UserId, string EntityId)> visibility,
+        long cursor,
+        CancellationToken cancellation = default)
+    {
+        await using var connection = await database.OpenAsync(cancellation);
+        await using var transaction = await database.BeginWriteAsync(connection, cancellation);
+        if (await connection.ExecuteScalarAsync<long>(new CommandDefinition(
+                "SELECT COUNT(*) FROM entities", transaction: transaction, cancellationToken: cancellation)) > 0)
+        {
+            throw new InvalidOperationException("the database already holds entities");
+        }
+        foreach (var entity in entities)
+        {
+            await connection.ExecuteAsync(new CommandDefinition(
+                $"""
+                INSERT INTO entities (id, collection, owner_id, seq, hlc, deleted, doc)
+                VALUES (@id, @collection, @owner, @seq, @hlc, @deleted, {database.DocParameter})
+                """,
+                new
+                {
+                    id = entity.Id,
+                    collection = entity.Collection,
+                    owner = entity.OwnerId,
+                    seq = entity.Seq,
+                    hlc = LatestHlc(entity.Doc),
+                    deleted = entity.Doc["deletedAt"] is not null,
+                    doc = entity.Doc.ToJsonString(Json),
+                },
+                transaction,
+                cancellationToken: cancellation));
+        }
+        foreach (var (userId, entityId) in visibility)
+        {
+            await connection.ExecuteAsync(new CommandDefinition(
+                "INSERT INTO visibility (user_id, entity_id) VALUES (@userId, @entityId)",
+                new { userId, entityId },
+                transaction,
+                cancellationToken: cancellation));
+        }
+        await connection.ExecuteAsync(new CommandDefinition(
+            "UPDATE counters SET value = @cursor WHERE name = 'seq'", new { cursor }, transaction, cancellationToken: cancellation));
+        await transaction.CommitAsync(cancellation);
+    }
+
     private string Prefixed(string alias) => DocColumn.Replace("doc", $"{alias}.doc", StringComparison.Ordinal);
 
     /// <summary>The newest HLC among the entity's fields (kept in a column for inspection).</summary>

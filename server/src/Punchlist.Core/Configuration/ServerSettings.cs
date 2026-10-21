@@ -49,6 +49,12 @@ public sealed record ServerSettings
     public bool DbMigrateOnStart { get; init; } = true;
     public Registration Registration { get; init; } = Registration.Invite;
     public SnapshotSchedule SnapshotSchedule { get; init; } = SnapshotSchedule.Daily;
+
+    /// <summary>Where snapshots go: <c>snapshots</c> next to the SQLite file, or <c>/data/snapshots</c>.</summary>
+    public string SnapshotDir { get; init; } = "/data/snapshots";
+
+    /// <summary>How many snapshots to keep.</summary>
+    public int SnapshotKeep { get; init; } = 14;
     public string? TrustedProxies { get; init; }
     public string? WebRoot { get; init; }
 
@@ -111,17 +117,30 @@ public sealed record ServerSettings
             }
         }
 
+        int Count(string name, int fallback, int min)
+        {
+            var raw = Get(name);
+            if (raw is null) return fallback;
+            if (int.TryParse(raw, System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture, out var value) && value >= min) return value;
+            errors.Add($"{name}: '{raw}' is not a whole number of at least {min}");
+            return fallback;
+        }
+
+        var dbPath = Get("DB_PATH") ?? (inContainer ? "/data/punchlist.db" : Path.Combine("data", "punchlist.db"));
         var settings = new ServerSettings
         {
             AuthMode = Choice("AUTH_MODE", AuthMode.Local),
             PublicUrl = publicUrl,
             AdminPassword = Get("ADMIN_PASSWORD"),
             DbProvider = Choice("DB_PROVIDER", DbProvider.Sqlite),
-            DbPath = Get("DB_PATH") ?? (inContainer ? "/data/punchlist.db" : Path.Combine("data", "punchlist.db")),
+            DbPath = dbPath,
             DbConnectionString = Get("DB_CONNECTION_STRING"),
             DbMigrateOnStart = Flag("DB_MIGRATE_ON_START", true),
             Registration = Choice("REGISTRATION", Registration.Invite),
             SnapshotSchedule = Choice("SNAPSHOT_SCHEDULE", SnapshotSchedule.Daily),
+            SnapshotDir = Get("SNAPSHOT_DIR")
+                ?? Path.Combine(Path.GetDirectoryName(dbPath) is { Length: > 0 } folder ? folder : ".", "snapshots"),
+            SnapshotKeep = Count("SNAPSHOT_KEEP", 14, 1),
             TrustedProxies = Get("TRUSTED_PROXIES"),
             WebRoot = Get("WEB_ROOT"),
         };

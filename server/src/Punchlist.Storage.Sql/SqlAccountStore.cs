@@ -19,6 +19,14 @@ public sealed class SqlAccountStore(SqlDatabase database) : IAccountStore
         return await connection.ExecuteScalarAsync<int>(new CommandDefinition("SELECT COUNT(*) FROM accounts", cancellationToken: cancellation));
     }
 
+    public async Task<IReadOnlyList<Account>> ListAsync(CancellationToken cancellation = default)
+    {
+        await using var connection = await database.OpenAsync(cancellation);
+        var rows = await connection.QueryAsync<Row>(new CommandDefinition(
+            $"SELECT {Columns} FROM accounts ORDER BY created_at, id", cancellationToken: cancellation));
+        return rows.Select(row => row.ToAccount()).ToList();
+    }
+
     public Task<Account?> FindByIdAsync(string id, CancellationToken cancellation = default) =>
         FindAsync("id = @value", id, cancellation);
 
@@ -122,6 +130,14 @@ public sealed class SqlSecretStore(SqlDatabase database) : ISecretStore
         await using var connection = await database.OpenAsync(cancellation);
         var rows = await connection.QueryAsync<(string, string)>(new CommandDefinition(
             "SELECT name, value FROM server_secrets WHERE kind = @kind ORDER BY name", new { kind }, cancellationToken: cancellation));
+        return rows.ToList();
+    }
+
+    public async Task<IReadOnlyList<(string Kind, string Name, string Value)>> AllAsync(CancellationToken cancellation = default)
+    {
+        await using var connection = await database.OpenAsync(cancellation);
+        var rows = await connection.QueryAsync<(string, string, string)>(new CommandDefinition(
+            "SELECT kind, name, value FROM server_secrets ORDER BY kind, name", cancellationToken: cancellation));
         return rows.ToList();
     }
 

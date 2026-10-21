@@ -8,4 +8,10 @@ public interface IDatabase
 
     /// <summary>Whether the database answers (health check).</summary>
     Task<bool> PingAsync(CancellationToken cancellation = default);
+
+    /// <summary>Whether it holds no entities, accounts or secrets (import only goes into an empty one).</summary>
+    Task<bool> IsEmptyAsync(CancellationToken cancellation = default);
+
+    /// <summary>Delete every entity, account and secret (import --replace).</summary>
+    Task WipeAsync(CancellationToken cancellation = default);
 }

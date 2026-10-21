@@ -7,6 +7,11 @@ if (args is ["healthcheck", ..])
     return await HealthCheckCommand.RunAsync(Environment.GetEnvironmentVariable("ASPNETCORE_HTTP_PORTS"));
 }
 
+if (args.Length > 0 && Cli.Commands.Contains(args[0]))
+{
+    return await Cli.RunAsync(args, Console.Out, Console.Error, Console.OpenStandardOutput());
+}
+
 WebApplication app;
 try
 {

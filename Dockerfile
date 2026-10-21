@@ -33,11 +33,13 @@ COPY --from=web /src/web/dist wwwroot
 # The chiseled image has no shell to create the volume's folder, so it comes over owned by the
 # image's non-root user (uid 1654, "app").
 COPY --from=server --chown=1654:1654 /data /data
+# `punchlist` is on the PATH for the CLI: docker exec <container> punchlist export ...
 ENV ASPNETCORE_HTTP_PORTS=8080 \
-    DB_PATH=/data/punchlist.db
+    DB_PATH=/data/punchlist.db \
+    PATH=/app:$PATH
 VOLUME /data
 EXPOSE 8080
 USER 1654
 HEALTHCHECK --interval=30s --timeout=10s --start-period=10s --retries=3 \
-    CMD ["dotnet", "Punchlist.Server.dll", "healthcheck"]
-ENTRYPOINT ["dotnet", "Punchlist.Server.dll"]
+    CMD ["punchlist", "healthcheck"]
+ENTRYPOINT ["punchlist"]
