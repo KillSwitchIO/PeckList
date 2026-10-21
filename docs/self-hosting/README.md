@@ -30,9 +30,21 @@ the same host or Docker network.
 
 ## Settings
 
-| Variable          | Default                      | Meaning                                       |
-| ----------------- | ---------------------------- | --------------------------------------------- |
-| `TRUSTED_PROXIES` | private ranges               | Proxies allowed to set forwarded headers      |
-| `WEB_ROOT`        | `wwwroot` next to the server | Where the web build is (only for development) |
+| Variable               | Default                      | Meaning                                                   |
+| ---------------------- | ---------------------------- | --------------------------------------------------------- |
+| `DB_PROVIDER`          | `sqlite`                     | `sqlite` or `postgres` (PostgreSQL 15+)                   |
+| `DB_PATH`              | `/data/punchlist.db`         | The SQLite file                                           |
+| `DB_CONNECTION_STRING` | -                            | PostgreSQL connection string (Npgsql format)              |
+| `DB_MIGRATE_ON_START`  | `true`                       | Set false when the database user cannot change the schema |
+| `TRUSTED_PROXIES`      | private ranges               | Proxies allowed to set forwarded headers                  |
+| `WEB_ROOT`             | `wwwroot` next to the server | Where the web build is (only for development)             |
 
-More settings (database, auth) arrive with the rest of milestone 0.4.
+Every setting also accepts `NAME_FILE`, a file holding the value (Docker secrets); one trailing
+newline is dropped. Setting both is an error. A bad setting stops the server with a list of what
+to fix. More settings (auth) arrive with the rest of milestone 0.4.
+
+## PostgreSQL
+
+[compose.postgres.yaml](compose.postgres.yaml) runs Punchlist with PostgreSQL, passing the
+connection string as a secret file. Writers take a transaction-scoped advisory lock, so a shared
+PostgreSQL server needs nothing special.

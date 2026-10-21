@@ -23,6 +23,7 @@ public static class ServerApp
         builder.Services.AddSingleton(settings);
 
         builder.Services.AddHealthChecks();
+        builder.Services.AddEntityStore(settings);
         builder.Services.Configure<ForwardedHeadersOptions>(options =>
         {
             options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;

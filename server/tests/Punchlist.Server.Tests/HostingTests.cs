@@ -23,10 +23,15 @@ public sealed class ServerFixture : IDisposable
         new WebApplicationFactory<Program>().WithWebHostBuilder(host =>
         {
             host.UseSetting("WEB_ROOT", WebRoot);
+            host.UseSetting("DB_PATH", Path.Combine(WebRoot, "data", $"{Guid.NewGuid():N}.db"));
             foreach (var (key, value) in settings) host.UseSetting(key, value);
         });
 
-    public void Dispose() => Directory.Delete(WebRoot, recursive: true);
+    public void Dispose()
+    {
+        Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools();
+        Directory.Delete(WebRoot, recursive: true);
+    }
 }
 
 public sealed class HostingTests(ServerFixture fixture) : IClassFixture<ServerFixture>

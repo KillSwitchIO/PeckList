@@ -18,6 +18,9 @@ WORKDIR /src
 COPY server/global.json server/Directory.Build.props server/Directory.Packages.props ./
 COPY server/src/Punchlist.Core/Punchlist.Core.csproj src/Punchlist.Core/
 COPY server/src/Punchlist.Server/Punchlist.Server.csproj src/Punchlist.Server/
+COPY server/src/Punchlist.Storage.Sql/Punchlist.Storage.Sql.csproj src/Punchlist.Storage.Sql/
+COPY server/src/Punchlist.Storage.Sqlite/Punchlist.Storage.Sqlite.csproj src/Punchlist.Storage.Sqlite/
+COPY server/src/Punchlist.Storage.Postgres/Punchlist.Storage.Postgres.csproj src/Punchlist.Storage.Postgres/
 RUN dotnet restore src/Punchlist.Server/Punchlist.Server.csproj
 COPY server/src src
 RUN dotnet publish src/Punchlist.Server/Punchlist.Server.csproj -c Release -o /app --no-restore \

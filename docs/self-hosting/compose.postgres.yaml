@@ -1,0 +1,44 @@
+# Punchlist with PostgreSQL 15+ instead of the built-in SQLite.
+# Secrets come from files (every setting also works as NAME_FILE):
+#   mkdir -p secrets && openssl rand -base64 24 > secrets/db_password
+
+services:
+  punchlist:
+    image: punchlist:dev
+    restart: unless-stopped
+    ports:
+      - '8080:8080'
+    environment:
+      DB_PROVIDER: postgres
+      DB_CONNECTION_STRING_FILE: /run/secrets/db_connection
+    secrets:
+      - db_connection
+    depends_on:
+      db:
+        condition: service_healthy
+
+  db:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: punchlist
+      POSTGRES_DB: punchlist
+      POSTGRES_PASSWORD_FILE: /run/secrets/db_password
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    secrets:
+      - db_password
+    healthcheck:
+      test: ['CMD', 'pg_isready', '-U', 'punchlist']
+      interval: 10s
+      retries: 5
+
+secrets:
+  db_password:
+    file: secrets/db_password
+  # One line: Host=db;Username=punchlist;Password=<the same password>;Database=punchlist
+  db_connection:
+    file: secrets/db_connection
+
+volumes:
+  db-data:

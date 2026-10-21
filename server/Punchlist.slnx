@@ -2,9 +2,13 @@
   <Folder Name="/src/">
     <Project Path="src/Punchlist.Core/Punchlist.Core.csproj" />
     <Project Path="src/Punchlist.Server/Punchlist.Server.csproj" />
+    <Project Path="src/Punchlist.Storage.Postgres/Punchlist.Storage.Postgres.csproj" />
+    <Project Path="src/Punchlist.Storage.Sql/Punchlist.Storage.Sql.csproj" />
+    <Project Path="src/Punchlist.Storage.Sqlite/Punchlist.Storage.Sqlite.csproj" />
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/Punchlist.Core.Tests/Punchlist.Core.Tests.csproj" />
     <Project Path="tests/Punchlist.Server.Tests/Punchlist.Server.Tests.csproj" />
+    <Project Path="tests/Punchlist.Storage.Tests/Punchlist.Storage.Tests.csproj" />
   </Folder>
 </Solution>
