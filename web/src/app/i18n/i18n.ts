@@ -10,7 +10,10 @@ export function setLocale(locale: string): void {
 }
 
 export function t(key: MessageKey, params: Record<string, string | number> = {}): string {
-  return active[key].replace(/\{(\w+)\}/g, (match, name: string) =>
+  // A missing string (a catalog behind the code, e.g. a stale dev reload or an incomplete
+  // translation) falls back to English, then to the key, instead of crashing the page.
+  const message = (active[key] as string | undefined) ?? (en[key] as string | undefined) ?? key;
+  return message.replace(/\{(\w+)\}/g, (match, name: string) =>
     name in params ? String(params[name]) : match,
   );
 }
