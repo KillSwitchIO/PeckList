@@ -22,8 +22,8 @@ describe('app shell', () => {
     mockViewport('desktop');
     await renderApp('/today');
     const nav = screen.getAllByRole('navigation')[0]!;
-    await userEvent.click(within(nav).getByText('Inbox'));
-    expect(screen.getByRole('heading', { level: 1, name: 'Inbox' })).toBeInTheDocument();
+    await userEvent.click(within(nav).getByText('Mess Drawer'));
+    expect(screen.getByRole('heading', { level: 1, name: 'Mess Drawer' })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: t('nav.openMenu') })).not.toBeInTheDocument();
   });
 
@@ -76,26 +76,26 @@ describe('stable frame', () => {
     await renderApp('/today');
     const nav = screen.getAllByRole('navigation')[0]!;
     const toggle = screen.getByRole('button', { name: /switch theme/i });
-    await userEvent.click(within(nav).getByText('Inbox'));
-    await screen.findByRole('heading', { level: 1, name: 'Inbox' });
+    await userEvent.click(within(nav).getByText('Mess Drawer'));
+    await screen.findByRole('heading', { level: 1, name: 'Mess Drawer' });
     expect(screen.getAllByRole('navigation')[0]).toBe(nav);
     expect(screen.getByRole('button', { name: /switch theme/i })).toBe(toggle);
   });
 
-  it('lists Today before Inbox in the sidebar and the bottom bar', async () => {
+  it('lists Today before the Mess Drawer in the sidebar and the bottom bar', async () => {
     mockViewport('desktop');
     const desktop = await renderApp('/today');
     const sidebar = within(screen.getAllByRole('navigation')[0]!)
       .getAllByRole('button')
       .map((b) => b.textContent);
-    expect(sidebar.indexOf('Today')).toBeLessThan(sidebar.indexOf('Inbox'));
+    expect(sidebar.indexOf('Today')).toBeLessThan(sidebar.indexOf('Mess Drawer'));
     desktop.unmount();
     mockViewport('phone');
     await renderApp('/today');
     const bottom = within(screen.getByRole('navigation'))
       .getAllByRole('button')
       .map((b) => b.textContent);
-    expect(bottom.slice(0, 2)).toEqual(['Today', 'Inbox']);
+    expect(bottom.slice(0, 2)).toEqual(['Today', 'Mess Drawer']);
   });
 });
 

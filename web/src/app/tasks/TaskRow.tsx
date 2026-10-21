@@ -9,6 +9,7 @@ import type { Priority, Task } from '../../core/types.ts';
 import { formatDay, formatWhen } from '../format.ts';
 import { useToday } from '../hooks/useToday.ts';
 import { t } from '../i18n/i18n.ts';
+import { listName } from '../lists/listName.ts';
 import { useApply, useWorkspace } from '../store/hooks.ts';
 import { useTaskSelection } from './selection.ts';
 
@@ -79,21 +80,6 @@ export function TaskRow({ task, showList = false }: { task: Task; showList?: boo
   const title = task.title || t('task.untitled');
 
   const meta: React.ReactNode[] = [];
-  if (list) {
-    meta.push(
-      <Box
-        key="list"
-        component="span"
-        sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5 }}
-      >
-        <Box
-          component="span"
-          sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: list.color }}
-        />
-        {list.name}
-      </Box>,
-    );
-  }
   if (task.schedule) {
     meta.push(
       <Box key="when" component="span" sx={{ color: task.due ? undefined : dateColor }}>
@@ -110,6 +96,22 @@ export function TaskRow({ task, showList = false }: { task: Task; showList?: boo
       >
         <FlagRounded sx={{ fontSize: 14 }} />
         {t('date.dueOn', { date: formatDay(datePart(task.due.at), today) })}
+      </Box>,
+    );
+  }
+  // Dates come first so they sit in the same place whether or not the list is shown.
+  if (list) {
+    meta.push(
+      <Box
+        key="list"
+        component="span"
+        sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5 }}
+      >
+        <Box
+          component="span"
+          sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: list.color }}
+        />
+        {listName(list)}
       </Box>,
     );
   }

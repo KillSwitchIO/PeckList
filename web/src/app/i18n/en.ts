@@ -1,7 +1,7 @@
 export const en = {
   'app.name': 'Punchlist',
   'nav.today': 'Today',
-  'nav.inbox': 'Inbox',
+  'nav.inbox': 'Mess Drawer',
   'nav.upcoming': 'Next 7 days',
   'nav.calendar': 'Calendar',
   'nav.completed': 'Completed',

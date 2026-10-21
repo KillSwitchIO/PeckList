@@ -116,6 +116,30 @@ describe('task details', () => {
   });
 });
 
+describe('task row', () => {
+  it('puts the date before the list name so it never shifts between views', async () => {
+    await renderApp('/today');
+    await addTasks('Water plants');
+    const meta = screen
+      .getByRole('button', { name: 'Open Water plants' })
+      .querySelector('.MuiTypography-caption');
+    expect(meta?.textContent).toBe('TodayMess Drawer');
+  });
+});
+
+describe('Mess Drawer', () => {
+  it('is the default list everywhere and keeps its name when edited', async () => {
+    await renderApp('/inbox');
+    expect(screen.getByRole('heading', { level: 1, name: 'Mess Drawer' })).toBeInTheDocument();
+    expect(screen.getByRole('textbox', { name: 'Add task to Mess Drawer' })).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'More actions' }));
+    await userEvent.click(await screen.findByRole('menuitem', { name: 'Edit list' }));
+    const dialog = await screen.findByRole('dialog');
+    expect(within(dialog).queryByLabelText('Name')).toBeNull();
+    expect(within(dialog).getByRole('radiogroup', { name: 'Color' })).toBeInTheDocument();
+  });
+});
+
 describe('lists and sections', () => {
   it('creates a list from the sidebar and adds a task to it', async () => {
     await renderApp('/today');
@@ -182,7 +206,9 @@ describe('lists and sections', () => {
     await userEvent.click(
       within(await screen.findByRole('dialog')).getByRole('button', { name: 'Delete' }),
     );
-    expect(await screen.findByRole('heading', { level: 1, name: 'Inbox' })).toBeInTheDocument();
+    expect(
+      await screen.findByRole('heading', { level: 1, name: 'Mess Drawer' }),
+    ).toBeInTheDocument();
     expect(screen.getByText('List deleted')).toBeInTheDocument();
   });
 

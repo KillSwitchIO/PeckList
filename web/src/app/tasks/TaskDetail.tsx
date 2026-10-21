@@ -25,6 +25,7 @@ import { sectionsOf, visibleLists } from '../../core/lists.ts';
 import { deleteTask, moveTask, setTaskStatus, updateTask } from '../../core/tasks.ts';
 import type { Priority, Task } from '../../core/types.ts';
 import { DateProperty } from '../dates/DateProperty.tsx';
+import { listName } from '../lists/listName.ts';
 import { fromDateValue, toDateValue } from '../dates/dateValue.ts';
 import { useToday } from '../hooks/useToday.ts';
 import { t } from '../i18n/i18n.ts';
@@ -260,7 +261,7 @@ export function TaskDetail({ taskId, onClose }: { taskId: string; onClose: () =>
           >
             {lists.map((list) => (
               <MenuItem key={list.id} value={list.id}>
-                {list.name}
+                {listName(list)}
               </MenuItem>
             ))}
           </TextField>

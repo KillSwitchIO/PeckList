@@ -10,6 +10,7 @@ import { formatDay } from '../format.ts';
 import { useNow, useToday } from '../hooks/useToday.ts';
 import { t } from '../i18n/i18n.ts';
 import { Page } from '../layout/Page.tsx';
+import { listName } from '../lists/listName.ts';
 import { useApply, useWorkspace } from '../store/hooks.ts';
 import { AddTaskInput } from '../tasks/AddTaskInput.tsx';
 import { TaskRows } from '../tasks/TaskRow.tsx';
@@ -140,7 +141,7 @@ export function TrashView() {
                   <ListItemText
                     primary={task.title || t('task.untitled')}
                     secondary={[
-                      list?.name,
+                      list && listName(list),
                       t('trash.deletedOn', {
                         date: formatDay(task.deletedAt!.slice(0, 10), today),
                       }),

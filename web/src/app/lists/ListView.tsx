@@ -25,6 +25,7 @@ import { AddTaskInput } from '../tasks/AddTaskInput.tsx';
 import { TaskRows } from '../tasks/TaskRow.tsx';
 import { EmptyState } from '../views/EmptyState.tsx';
 import { ConfirmDialog, ListDialog, NameDialog } from './ListDialog.tsx';
+import { listName } from './listName.ts';
 
 function ListMenu({ list }: { list: List }) {
   const apply = useApply();
@@ -115,7 +116,7 @@ function ListMenu({ list }: { list: List }) {
       {dialog === 'delete' && (
         <ConfirmDialog
           open
-          message={t('list.deleteConfirm', { name: list.name })}
+          message={t('list.deleteConfirm', { name: listName(list) })}
           confirmLabel={t('common.delete')}
           onClose={() => setDialog(null)}
           onConfirm={() => {
@@ -203,8 +204,11 @@ export function ListContents({ list }: { list: List }) {
   const empty = groups.every((group) => group.tasks.length === 0);
 
   return (
-    <Page title={list.name} actions={<ListMenu list={list} />}>
-      <AddTaskInput defaults={{ listId: list.id }} label={t('task.addTo', { list: list.name })} />
+    <Page title={listName(list)} actions={<ListMenu list={list} />}>
+      <AddTaskInput
+        defaults={{ listId: list.id }}
+        label={t('task.addTo', { list: listName(list) })}
+      />
       {empty && groups.length === 1 && <EmptyState title={t('list.empty')} />}
       {groups.map((group) => {
         const section = group.sectionId ? getEntity(workspace, 'sections', group.sectionId) : null;

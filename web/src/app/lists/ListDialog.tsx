@@ -104,12 +104,15 @@ export function ListDialog({
         <DialogTitle>{list ? t('list.edit') : t('list.new')}</DialogTitle>
         <DialogContent>
           <Stack spacing={2} sx={{ pt: 1 }}>
-            <TextField
-              label={t('list.name')}
-              value={name}
-              autoFocus
-              onChange={(event) => setName(event.target.value)}
-            />
+            {/* The Mess Drawer keeps its name; only its color can change. */}
+            {!list?.isInbox && (
+              <TextField
+                label={t('list.name')}
+                value={name}
+                autoFocus
+                onChange={(event) => setName(event.target.value)}
+              />
+            )}
             <Box>
               <Typography variant="caption" color="text.secondary" component="div" sx={{ mb: 1 }}>
                 {t('list.color')}

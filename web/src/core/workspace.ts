@@ -42,7 +42,8 @@ export function createWorkspace(ctx: OpContext, options: NewWorkspaceOptions = {
     ctx.userId,
   );
   const inbox = createEntity<List>(ctx, {
-    name: 'Inbox',
+    // The default list. The UI always shows it by its translated name ("Mess Drawer").
+    name: 'Mess Drawer',
     color: '#B8BCC4',
     icon: 'inbox',
     folderId: null,

@@ -31,7 +31,7 @@ describe('lists', () => {
     const { ctx, ws } = setup();
     let next = createList(ctx, ws, { name: ' Home ', color: '#A8DCC0' }).workspace;
     next = createList(ctx, next, { name: 'Work', color: '#A7C7E7' }).workspace;
-    expect(visibleLists(next).map((list) => list.name)).toEqual(['Inbox', 'Home', 'Work']);
+    expect(visibleLists(next).map((list) => list.name)).toEqual(['Mess Drawer', 'Home', 'Work']);
   });
 
   it('archives, hides and reorders', () => {
@@ -39,9 +39,9 @@ describe('lists', () => {
     const a = createList(ctx, ws, { name: 'A', color: '#A8DCC0' });
     const b = createList(ctx, a.workspace, { name: 'B', color: '#A8DCC0' });
     let next = moveList(ctx, b.workspace, b.list.id, null, a.list.order);
-    expect(visibleLists(next).map((list) => list.name)).toEqual(['Inbox', 'B', 'A']);
+    expect(visibleLists(next).map((list) => list.name)).toEqual(['Mess Drawer', 'B', 'A']);
     next = updateList(ctx, next, a.list.id, { archived: true });
-    expect(visibleLists(next).map((list) => list.name)).toEqual(['Inbox', 'B']);
+    expect(visibleLists(next).map((list) => list.name)).toEqual(['Mess Drawer', 'B']);
     expect(visibleLists(next, true)).toHaveLength(3);
   });
 

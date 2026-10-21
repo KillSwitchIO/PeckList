@@ -12,7 +12,9 @@ describe('smoke', () => {
 
   it('navigates from the sidebar', async () => {
     await browser.url('/today');
-    await $("//nav//*[@role='button' or self::button][.//span[normalize-space()='Inbox']]").click();
-    await expect($('h1')).toHaveText('Inbox');
+    await $(
+      "//nav//*[@role='button' or self::button][.//span[normalize-space()='Mess Drawer']]",
+    ).click();
+    await expect($('h1')).toHaveText('Mess Drawer');
   });
 });

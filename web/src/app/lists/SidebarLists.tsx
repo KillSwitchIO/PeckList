@@ -31,6 +31,7 @@ import type { Folder, List as ListEntity } from '../../core/types.ts';
 import { t } from '../i18n/i18n.ts';
 import { useApply, useWorkspace } from '../store/hooks.ts';
 import { ListDialog, NameDialog } from './ListDialog.tsx';
+import { listName } from './listName.ts';
 
 function ListLink({
   list,
@@ -54,7 +55,7 @@ function ListLink({
       <ListItemIcon sx={{ minWidth: 28 }}>
         <Box sx={{ width: 10, height: 10, borderRadius: '50%', bgcolor: list.color }} />
       </ListItemIcon>
-      <ListItemText primary={list.name} />
+      <ListItemText primary={listName(list)} />
       {count > 0 && (
         <Box component="span" sx={{ typography: 'caption', color: 'text.secondary' }}>
           {count}
