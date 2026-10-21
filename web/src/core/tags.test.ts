@@ -157,12 +157,13 @@ describe('nested tags', () => {
     const tree = tagTree(ws).map(
       (node) => `${'  '.repeat(node.depth)}${node.tag.name}${node.hasChildren ? '/' : ''}`,
     );
+    // Siblings keep the order they were made in (new tags go last).
     expect(tree).toEqual([
-      'home/',
-      '  home/attic',
-      '  home/yard',
       'work/meetings/',
       '  work/meetings/weekly',
+      'home/',
+      '  home/yard',
+      '  home/attic',
     ]);
   });
 

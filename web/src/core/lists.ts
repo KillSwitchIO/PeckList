@@ -128,6 +128,20 @@ export function moveList(
   return updateList(ctx, workspace, id, { order: keyBetween(beforeOrder, afterOrder) });
 }
 
+/** Put lists in this order; the ones not listed keep theirs. */
+export function reorderLists(ctx: OpContext, workspace: WorkspaceFile, ids: Id[]): WorkspaceFile {
+  let previous: string | null = null;
+  let next = workspace;
+  for (const id of ids) {
+    const order = keyBetween(previous, null);
+    previous = order;
+    if (requireEntity(next, 'lists', id).order !== order) {
+      next = updateList(ctx, next, id, { order });
+    }
+  }
+  return next;
+}
+
 // --- sections -------------------------------------------------------------------------
 
 export function sectionsOf(workspace: WorkspaceFile, listId: Id): Section[] {

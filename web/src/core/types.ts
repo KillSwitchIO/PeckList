@@ -63,6 +63,8 @@ export interface Tag extends BaseEntity {
   /** Path, e.g. `home/yard` for nested tags */
   name: string;
   color: string;
+  /** Order among its sibling tags */
+  order: OrderKey;
 }
 
 export interface Schedule {

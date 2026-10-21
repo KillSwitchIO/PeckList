@@ -16,26 +16,38 @@ import {
 import { useState } from 'react';
 import { useLocation } from 'react-router';
 import { openTagCounts } from '../../core/queries.ts';
+import { moveInOrder, pinnedTagId, togglePinned } from '../../core/sidebar.ts';
 import { createTag, leafName, tagTree, type TagNode } from '../../core/tags.ts';
 import { useCollapsedSet, withoutCollapsed } from '../hooks/useCollapsedSet.ts';
 import { t } from '../i18n/i18n.ts';
 import { useApply, useWorkspace } from '../store/hooks.ts';
+import { DragHandleIcon } from '../icons/icons.tsx';
+import { editingRowSx, useSidebarEdit } from '../layout/sidebarEditContext.ts';
+import { useSortableRows } from '../layout/useSortableRows.ts';
+import { PinButton } from '../layout/PinButton.tsx';
 import { tagIconColor } from './tagColors.ts';
 import { TagDialog } from './TagDialog.tsx';
 
 function TagLink({
   node,
+  index,
   count,
   collapsed,
   onToggle,
   onNavigate,
+  sortable,
 }: {
   node: TagNode;
+  index: number;
   count: number;
   collapsed: boolean;
   onToggle: () => void;
   onNavigate: (path: string) => void;
+  sortable: ReturnType<typeof useSortableRows>;
 }) {
+  const edit = useSidebarEdit();
+  const { editing } = edit;
+  const pin = pinnedTagId(node.tag.id);
   const theme = useTheme();
   const { pathname } = useLocation();
   const path = `/tags/${node.tag.id}`;
@@ -55,13 +67,45 @@ function TagLink({
       />
     </IconButton>
   ) : undefined;
+  const pinButton = editing ? (
+    <PinButton
+      pinned={edit.current.layout.order.includes(pin)}
+      name={node.tag.name}
+      onToggle={() =>
+        edit.update((draft) => ({ ...draft, layout: togglePinned(draft.layout, pin) }))
+      }
+    />
+  ) : null;
   return (
-    <ListItem disablePadding secondaryAction={toggle}>
+    <ListItem
+      disablePadding
+      secondaryAction={
+        pinButton || toggle ? (
+          <Box sx={{ display: 'flex', alignItems: 'center' }}>
+            {pinButton}
+            {toggle}
+          </Box>
+        ) : undefined
+      }
+    >
       <ListItemButton
-        selected={pathname === path}
-        onClick={() => onNavigate(path)}
-        sx={{ pl: 2 + node.depth * 2, pr: node.hasChildren ? 6 : 2 }}
+        {...sortable.rowProps(node.tag.id)}
+        selected={!editing && pathname === path}
+        onClick={sortable.click(() => {
+          if (!editing) onNavigate(path);
+        })}
+        sx={{
+          pl: 2 + node.depth * 2,
+          pr: (node.hasChildren ? 6 : 2) + (editing ? 4 : 0),
+          ...editingRowSx(editing, sortable.dragging === node.tag.id, index),
+        }}
       >
+        {editing && (
+          <DragHandleIcon
+            fontSize="small"
+            sx={{ color: 'text.disabled', ml: -1, mr: 0.5, cursor: 'grab' }}
+          />
+        )}
         <ListItemIcon sx={{ minWidth: 28 }}>
           <TagRounded
             sx={{
@@ -71,7 +115,7 @@ function TagLink({
           />
         </ListItemIcon>
         <ListItemText primary={name} />
-        {count > 0 && (
+        {!editing && count > 0 && (
           <Box component="span" sx={{ typography: 'caption', color: 'text.secondary' }}>
             {count}
           </Box>
@@ -88,12 +132,45 @@ export function SidebarTags({ onNavigate }: { onNavigate: (path: string) => void
   const [creating, setCreating] = useState(false);
   const { collapsed, toggle } = useCollapsedSet('punchlist.collapsedTags');
   const counts = openTagCounts(workspace);
+  const edit = useSidebarEdit();
+  // The tree in the order being edited (siblings sort by their place in the draft).
+  const position = new Map(edit.current.tags.map((id, index) => [id, index]));
+  const tree = tagTree({
+    ...workspace,
+    entities: {
+      ...workspace.entities,
+      tags: workspace.entities.tags.map((tag) => ({
+        ...tag,
+        order: String(position.get(tag.id) ?? 99999).padStart(6, '0'),
+      })),
+    },
+  });
   const nodes = withoutCollapsed(
-    tagTree(workspace),
+    tree,
     (node) => node.tag.id,
     (node) => node.parentId,
     collapsed,
   );
+  const sortable = useSortableRows({
+    editing: edit.editing,
+    start: edit.start,
+    // A tag moves among its siblings; its subtags come along.
+    onDrag: (id, y) =>
+      edit.update((draft) => {
+        const parent = tree.find((node) => node.tag.id === id)?.parentId ?? null;
+        const siblings = tree.filter((node) => node.parentId === parent).map((node) => node.tag.id);
+        const index = sortable.slot(
+          siblings.filter((each) => each !== id),
+          y,
+        );
+        const moved = moveInOrder(siblings, id, index);
+        if (moved.join() === siblings.join()) return draft;
+        return {
+          ...draft,
+          tags: [...draft.tags.filter((each) => !siblings.includes(each)), ...moved],
+        };
+      }),
+  });
 
   return (
     <>
@@ -113,10 +190,12 @@ export function SidebarTags({ onNavigate }: { onNavigate: (path: string) => void
           </ListSubheader>
         }
       >
-        {nodes.map((node) => (
+        {nodes.map((node, index) => (
           <TagLink
             key={node.tag.id}
             node={node}
+            index={index}
+            sortable={sortable}
             count={counts.get(node.tag.id) ?? 0}
             collapsed={collapsed.has(node.tag.id)}
             onToggle={() => toggle(node.tag.id)}

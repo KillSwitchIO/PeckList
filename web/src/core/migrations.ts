@@ -1,7 +1,9 @@
 // Schema versions and migrations. `schemaVersion` is an integer; every schema change bumps
 // it and registers a migration from N-1 to N, with fixtures in schema/fixtures/migrations.
 
-export const CURRENT_SCHEMA_VERSION = 3;
+import { keyBetween } from './ordering.ts';
+
+export const CURRENT_SCHEMA_VERSION = 4;
 
 export type Migration = (document: Record<string, unknown>) => Record<string, unknown>;
 
@@ -47,6 +49,32 @@ export const MIGRATIONS: MigrationRegistry = {
           },
         })),
       },
+    };
+  },
+  // 4: tags gain an order; they keep the alphabetical order (by path) they had.
+  4: (document) => {
+    const entities = document.entities as Record<string, unknown[]> | undefined;
+    if (!entities || !Array.isArray(entities.tags)) return document;
+    const tags = entities.tags as { name: string }[];
+    const segments = (name: string) => name.toLowerCase().split('/');
+    const byPath = [...tags].sort((a, b) => {
+      const left = segments(a.name);
+      const right = segments(b.name);
+      for (let i = 0; i < Math.min(left.length, right.length); i++) {
+        const order = left[i]!.localeCompare(right[i]!);
+        if (order !== 0) return order;
+      }
+      return left.length - right.length;
+    });
+    const orders = new Map<object, string>();
+    let previous: string | null = null;
+    for (const tag of byPath) {
+      previous = keyBetween(previous, null);
+      orders.set(tag, previous);
+    }
+    return {
+      ...document,
+      entities: { ...entities, tags: tags.map((tag) => ({ ...tag, order: orders.get(tag) })) },
     };
   },
 };

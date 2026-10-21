@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router';
 import { t } from '../i18n/i18n.ts';
 import { Page } from '../layout/Page.tsx';
 import { SIDEBAR_FOOTER, SIDEBAR_ITEMS } from '../layout/navigation.tsx';
+import { SidebarEditProvider } from '../layout/sidebarEdit.tsx';
 import { SidebarLists } from '../lists/SidebarLists.tsx';
 import { SidebarTags } from '../tags/SidebarTags.tsx';
 
@@ -23,8 +24,10 @@ export function MoreView() {
           </ListItemButton>
         ))}
       </List>
-      <SidebarLists onNavigate={go} />
-      <SidebarTags onNavigate={go} />
+      <SidebarEditProvider>
+        <SidebarLists onNavigate={go} />
+        <SidebarTags onNavigate={go} />
+      </SidebarEditProvider>
     </Page>
   );
 }

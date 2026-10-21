@@ -7,7 +7,7 @@ import type { Tag } from './types.ts';
 describe('createEntity', () => {
   it('fills base fields and stamps every field with one HLC', () => {
     const ctx = testContext();
-    const tag = createEntity<Tag>(ctx, { name: 'home', color: '#A7C7E7' });
+    const tag = createEntity<Tag>(ctx, { name: 'home', color: '#A7C7E7', order: 'V' });
     expect(tag.createdBy).toBe(ctx.userId);
     expect(tag.deletedAt).toBeNull();
     expect(tag.origin).toBe('local');
@@ -19,6 +19,7 @@ describe('createEntity', () => {
       'createdBy',
       'deletedAt',
       'name',
+      'order',
       'origin',
     ]);
   });
@@ -26,7 +27,7 @@ describe('createEntity', () => {
   it('accepts an explicit id', () => {
     const tag = createEntity<Tag>(
       testContext(),
-      { name: 'x', color: '#A7C7E7' },
+      { name: 'x', color: '#A7C7E7', order: 'V' },
       '01TESTFIXED000000000000001',
     );
     expect(tag.id).toBe('01TESTFIXED000000000000001');

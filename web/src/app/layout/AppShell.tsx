@@ -6,6 +6,7 @@ import {
   AppBar,
   BottomNavigation,
   BottomNavigationAction,
+  Button,
   Dialog,
   Box,
   Divider,
@@ -25,6 +26,8 @@ import { useRef, useState } from 'react';
 import { Outlet, useLocation, useNavigate } from 'react-router';
 import { t } from '../i18n/i18n.ts';
 import { HeaderSlotContext } from './headerSlot.ts';
+import { SidebarEditProvider } from './sidebarEdit.tsx';
+import { useSidebarEdit } from './sidebarEditContext.ts';
 import { SidebarViews } from './SidebarViews.tsx';
 import { ResizeHandle } from './ResizeHandle.tsx';
 import { useDetailWidth } from './useDetailWidth.ts';
@@ -94,44 +97,75 @@ function NavList({
   );
 }
 
-function Sidebar({ onNavigate }: { onNavigate: (path: string) => void }) {
-  const { pathname } = useLocation();
-  const all = [...SIDEBAR_ITEMS, ...SIDEBAR_FOOTER];
-  const selected = activeItem(all, pathname);
-  return (
-    <Box
-      component="nav"
-      aria-label={t('app.name')}
-      sx={{
-        display: 'flex',
-        flexDirection: 'column',
-        height: '100%',
-        // Icons lift a whole pixel on hover: a light spring, nothing that pulls the eye. No
-        // scaling, which blurs the strokes.
-        '& .MuiListItemButton-root .MuiListItemIcon-root > *': {
-          transition: 'transform 220ms cubic-bezier(0.34, 1.56, 0.64, 1)',
-        },
-        '& .MuiListItemButton-root:hover .MuiListItemIcon-root > *': {
-          transform: 'translateY(-2px)',
-        },
-        '@media (prefers-reduced-motion: reduce)': {
-          '& .MuiListItemButton-root:hover .MuiListItemIcon-root > *': { transform: 'none' },
-        },
-      }}
-    >
+/** The sidebar's title row; while editing it holds Cancel, Reset and Done instead. */
+function SidebarTitle() {
+  const edit = useSidebarEdit();
+  if (!edit.editing) {
+    return (
       <Toolbar>
         <Typography variant="h2" component="div">
           {t('app.name')}
         </Typography>
       </Toolbar>
-      <SidebarViews selected={selected} onNavigate={onNavigate} />
-      <Divider sx={{ mx: 2 }} />
-      <Box sx={{ flexGrow: 1, overflowY: 'auto' }}>
-        <SidebarLists onNavigate={onNavigate} />
-        <SidebarTags onNavigate={onNavigate} />
+    );
+  }
+  return (
+    <Toolbar
+      role="toolbar"
+      aria-label={t('nav.editSidebar')}
+      sx={{ gap: 1, px: '16px !important' }}
+    >
+      <Button size="small" onClick={edit.cancel}>
+        {t('common.cancel')}
+      </Button>
+      {/* Back to the default views, nothing hidden or pinned; Done still saves it. */}
+      <Button size="small" onClick={edit.reset}>
+        {t('nav.resetSidebar')}
+      </Button>
+      <Box sx={{ flexGrow: 1 }} />
+      <Button size="small" variant="contained" onClick={edit.done}>
+        {t('common.done')}
+      </Button>
+    </Toolbar>
+  );
+}
+
+function Sidebar({ onNavigate }: { onNavigate: (path: string) => void }) {
+  const { pathname } = useLocation();
+  const all = [...SIDEBAR_ITEMS, ...SIDEBAR_FOOTER];
+  const selected = activeItem(all, pathname);
+  return (
+    <SidebarEditProvider>
+      <Box
+        component="nav"
+        aria-label={t('app.name')}
+        sx={{
+          display: 'flex',
+          flexDirection: 'column',
+          height: '100%',
+          // Icons lift a whole pixel on hover: a light spring, nothing that pulls the eye. No
+          // scaling, which blurs the strokes.
+          '& .MuiListItemButton-root .MuiListItemIcon-root > *': {
+            transition: 'transform 220ms cubic-bezier(0.34, 1.56, 0.64, 1)',
+          },
+          '& .MuiListItemButton-root:hover .MuiListItemIcon-root > *': {
+            transform: 'translateY(-2px)',
+          },
+          '@media (prefers-reduced-motion: reduce)': {
+            '& .MuiListItemButton-root:hover .MuiListItemIcon-root > *': { transform: 'none' },
+          },
+        }}
+      >
+        <SidebarTitle />
+        <SidebarViews selected={selected} onNavigate={onNavigate} />
+        <Divider sx={{ mx: 2 }} />
+        <Box sx={{ flexGrow: 1, overflowY: 'auto', overflowX: 'hidden' }}>
+          <SidebarLists onNavigate={onNavigate} />
+          <SidebarTags onNavigate={onNavigate} />
+        </Box>
+        <NavList items={SIDEBAR_FOOTER} selected={selected} onSelect={onNavigate} />
       </Box>
-      <NavList items={SIDEBAR_FOOTER} selected={selected} onSelect={onNavigate} />
-    </Box>
+    </SidebarEditProvider>
   );
 }
 

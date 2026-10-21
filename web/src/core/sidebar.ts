@@ -30,12 +30,21 @@ export function defaultSidebar(): SidebarLayout {
 /** A saved filter's id in the layout. */
 export const filterViewId = (filterId: string) => `filter:${filterId}`;
 
+/** A list or tag pinned among the views. */
+export const pinnedListId = (listId: string) => `list:${listId}`;
+export const pinnedTagId = (tagId: string) => `tag:${tagId}`;
+
 /**
  * The layout made to fit the views that exist: unknown ids go, missing views join the end of the
- * ungrouped ones (just above the group), and there is exactly one group marker.
+ * ungrouped ones (just above the group), and there is exactly one group marker. `pinnable` ids
+ * (lists and tags) stay where they are when present but are never added.
  */
-export function normalizeSidebar(layout: SidebarLayout, views: readonly string[]): SidebarLayout {
-  const known = new Set(views);
+export function normalizeSidebar(
+  layout: SidebarLayout,
+  views: readonly string[],
+  pinnable: readonly string[] = [],
+): SidebarLayout {
+  const known = new Set([...views, ...pinnable]);
   const seen = new Set<string>();
   const order: string[] = [];
   for (const id of layout.order) {
@@ -68,10 +77,28 @@ export function toggleHidden(layout: SidebarLayout, id: string): SidebarLayout {
   return { ...layout, hidden };
 }
 
-/** The saved layout (or the default), fitted to `views`. */
-export function sidebarOf(workspace: WorkspaceFile, views: readonly string[]): SidebarLayout {
+/** Pin (just above the group) or unpin a list or tag. */
+export function togglePinned(layout: SidebarLayout, id: string): SidebarLayout {
+  if (layout.order.includes(id)) {
+    return {
+      ...layout,
+      order: layout.order.filter((each) => each !== id),
+      hidden: layout.hidden.filter((each) => each !== id),
+    };
+  }
+  const order = [...layout.order];
+  order.splice(order.indexOf(GROUP), 0, id);
+  return { ...layout, order };
+}
+
+/** The saved layout (or the default), fitted to `views` and the `pinnable` lists and tags. */
+export function sidebarOf(
+  workspace: WorkspaceFile,
+  views: readonly string[],
+  pinnable: readonly string[] = [],
+): SidebarLayout {
   const saved = workspace.entities.settings[0]?.sidebar ?? defaultSidebar();
-  return normalizeSidebar(saved, views);
+  return normalizeSidebar(saved, views, pinnable);
 }
 
 export function setSidebar(

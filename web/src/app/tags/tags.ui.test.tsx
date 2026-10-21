@@ -264,7 +264,8 @@ describe('tag dialog', () => {
       .getAllByRole('button')
       .map((item) => item.textContent)
       .filter(Boolean);
-    expect(nav).toEqual(['home1', 'test', 'yard1', 'work1']);
+    // New tags go last among their siblings.
+    expect(nav).toEqual(['home1', 'yard1', 'test', 'work1']);
   });
 
   it('offers a path that does not exist yet as a new parent', async () => {

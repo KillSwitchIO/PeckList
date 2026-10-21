@@ -436,3 +436,23 @@ export function MoreIcon(props: SvgIconProps) {
     </PunchIcon>
   );
 }
+
+/** Pin to the top of the sidebar: a pushpin. `filled` when pinned. */
+export function PinIcon({ filled = false, ...props }: SvgIconProps & { filled?: boolean }) {
+  return (
+    <PunchIcon {...props}>
+      <path d="M9 4.5h6l-1 5 3 3v1.5H7V12.5l3-3z" {...(filled ? { fill: 'currentColor' } : {})} />
+      <path d="M12 14v6" />
+    </PunchIcon>
+  );
+}
+
+/** Unpin: a pushpin struck through. */
+export function PinOffIcon(props: SvgIconProps) {
+  return (
+    <PunchIcon {...props}>
+      <path d="M9 4.5h6l-1 5 3 3v1.5H7V12.5l3-3z" />
+      <path d="M12 14v6M4 4l16 16" />
+    </PunchIcon>
+  );
+}

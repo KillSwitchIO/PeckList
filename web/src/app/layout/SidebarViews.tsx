@@ -1,11 +1,11 @@
-// The views at the top of the sidebar, in the order the user set. Drag one (or hold it, or
-// right-click it) to start editing: the views shake, can be dragged into a new order or into the
-// collapsible group, and hidden or shown; Done saves to the user's settings, Cancel drops it.
+// The views at the top of the sidebar, in the order the user set: built-in views, saved
+// filters, and any lists or tags pinned here. In edit mode (see sidebarEdit.tsx) they shake,
+// drag into a new order or into the collapsible More group, and hide (views) or unpin (lists and
+// tags).
 
-import { keyframes } from '@emotion/react';
+import TagRounded from '@mui/icons-material/TagRounded';
 import {
   Box,
-  Button,
   IconButton,
   List,
   ListItemButton,
@@ -13,22 +13,19 @@ import {
   ListItemText,
   Tooltip,
   Typography,
+  useTheme,
 } from '@mui/material';
-import { useRef, useState, type PointerEvent, type ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 import { useLocation, useNavigate } from 'react-router';
+import { getEntity, isLive } from '../../core/collections.ts';
 import { createSavedFilter, savedFiltersOf } from '../../core/savedFilters.ts';
 import {
-  BUILT_IN_VIEWS,
-  defaultSidebar,
-  normalizeSidebar,
   filterViewId,
   GROUP,
   moveInOrder,
-  setSidebar,
-  sidebarOf,
   toggleHidden,
+  togglePinned,
 } from '../../core/sidebar.ts';
-import type { SidebarLayout } from '../../core/types.ts';
 import { t } from '../i18n/i18n.ts';
 import {
   ChevronDownIcon,
@@ -37,34 +34,48 @@ import {
   EyeIcon,
   EyeOffIcon,
   FilterIcon,
+  PinOffIcon,
   PlusIcon,
 } from '../icons/icons.tsx';
 import { FilterDialog } from '../filters/FilterDialog.tsx';
+import { listName } from '../lists/listName.ts';
 import { useApply, useWorkspace } from '../store/hooks.ts';
+import { tagIconColor } from '../tags/tagColors.ts';
 import { VIEW_ITEMS } from './navigation.tsx';
+import { editingRowSx, useSidebarEdit } from './sidebarEditContext.ts';
+import { useSortableRows } from './useSortableRows.ts';
 
-const HOLD_MS = 500;
-
-/** A view in the sidebar: built-in ones and the user's saved filters. */
+/** A row in the views section. */
 interface ViewItem {
   path: string;
-  name: string;
+  name: ReactNode;
+  /** Plain name, for accessible labels. */
+  label: string;
   icon: ReactNode;
+  pinned: boolean;
 }
-const DRAG_PX = 6;
 
-const wiggle = keyframes`
-  from { transform: rotate(-0.3deg); }
-  to { transform: rotate(0.3deg); }
-`;
-
-interface Gesture {
-  id: string;
-  x: number;
-  y: number;
-  touch: boolean;
-  timer: ReturnType<typeof setTimeout> | null;
-  dragging: boolean;
+/**
+ * A path that keeps its end when it doesn't fit: `home/garden/beds` becomes `…den/beds`. (Right
+ * to left puts the ellipsis at the start; the marks keep the text itself left to right.)
+ */
+export function PathText({ path }: { path: string }) {
+  return (
+    <Box
+      component="span"
+      title={path}
+      sx={{
+        display: 'block',
+        direction: 'rtl',
+        textAlign: 'left',
+        overflow: 'hidden',
+        textOverflow: 'ellipsis',
+        whiteSpace: 'nowrap',
+      }}
+    >
+      {`‎${path}‎`}
+    </Box>
+  );
 }
 
 export function SidebarViews({
@@ -76,97 +87,79 @@ export function SidebarViews({
 }) {
   const workspace = useWorkspace();
   const apply = useApply();
+  const theme = useTheme();
   const navigate = useNavigate();
   const { pathname } = useLocation();
-  const filters = savedFiltersOf(workspace);
-  // Built-in views, then the user's saved filters.
+  const edit = useSidebarEdit();
+  const { editing } = edit;
+  const layout = edit.current.layout;
+  const [creating, setCreating] = useState(false);
+
+  // Built-in views, saved filters, then pinned lists and tags.
   const items: Record<string, ViewItem> = {};
   for (const [id, item] of Object.entries(VIEW_ITEMS)) {
-    items[id] = { path: item.path, name: t(item.label), icon: item.icon };
+    const name = t(item.label);
+    items[id] = { path: item.path, name, label: name, icon: item.icon, pinned: false };
   }
-  for (const filter of filters) {
+  for (const filter of savedFiltersOf(workspace)) {
     items[filterViewId(filter.id)] = {
       path: `/filters/${filter.id}`,
       name: filter.name,
+      label: filter.name,
       icon: <FilterIcon />,
+      pinned: false,
     };
   }
-  const views = [...BUILT_IN_VIEWS, ...filters.map((filter) => filterViewId(filter.id))];
-  const saved = sidebarOf(workspace, views);
-  const [creating, setCreating] = useState(false);
-  // Editing works on a copy; Done saves it.
-  const [draft, setDraft] = useState<SidebarLayout | null>(null);
-  const [dragging, setDragging] = useState<string | null>(null);
-  const editing = draft !== null;
-  const layout = draft ?? saved;
-  const rows = useRef(new Map<string, HTMLElement>());
-  const gesture = useRef<Gesture | null>(null);
-  // A drag or hold ends in a click; that click must not open the view.
-  const swallowClick = useRef(false);
-
-  const startEditing = () => setDraft((current) => current ?? saved);
-  const done = () => {
-    if (draft) apply((ctx, ws) => setSidebar(ctx, ws, draft), t('undo.sidebar'));
-    setDraft(null);
-  };
-  const cancel = () => setDraft(null);
-
-  const endGesture = () => {
-    const current = gesture.current;
-    if (current?.timer) clearTimeout(current.timer);
-    gesture.current = null;
-    setDragging(null);
-  };
-
-  const pointerDown = (id: string) => (event: PointerEvent<HTMLElement>) => {
-    if (event.button !== 0) return;
-    const touch = event.pointerType === 'touch';
-    const current: Gesture = {
-      id,
-      x: event.clientX,
-      y: event.clientY,
-      touch,
-      dragging: false,
-      timer: setTimeout(() => {
-        // Held still: start editing.
-        current.timer = null;
-        swallowClick.current = true;
-        startEditing();
-      }, HOLD_MS),
-    };
-    gesture.current = current;
-  };
-
-  const pointerMove = (event: PointerEvent<HTMLElement>) => {
-    const current = gesture.current;
-    if (!current) return;
-    if (!current.dragging) {
-      if (Math.hypot(event.clientX - current.x, event.clientY - current.y) < DRAG_PX) return;
-      // A finger moving before editing is a scroll, not a drag.
-      if (current.touch && !editing) {
-        endGesture();
-        return;
-      }
-      if (current.timer) clearTimeout(current.timer);
-      current.timer = null;
-      current.dragging = true;
-      swallowClick.current = true;
-      event.currentTarget.setPointerCapture?.(event.pointerId);
-      startEditing();
-      setDragging(current.id);
+  for (const id of layout.order) {
+    const [kind, entityId = ''] = id.split(':');
+    if (kind === 'list') {
+      const list = getEntity(workspace, 'lists', entityId);
+      if (!list || !isLive(list)) continue;
+      items[id] = {
+        path: `/lists/${list.id}`,
+        name: listName(list),
+        label: listName(list),
+        icon: (
+          <Box
+            sx={{ width: 10, height: 10, mx: '7px', borderRadius: '50%', bgcolor: list.color }}
+          />
+        ),
+        pinned: true,
+      };
+    } else if (kind === 'tag') {
+      const tag = getEntity(workspace, 'tags', entityId);
+      if (!tag || !isLive(tag)) continue;
+      items[id] = {
+        path: `/tags/${tag.id}`,
+        // The whole path, so a pinned tag says where it lives.
+        name: <PathText path={tag.name} />,
+        label: tag.name,
+        icon: (
+          <TagRounded
+            sx={{ fontSize: 18, color: tagIconColor(tag.color, theme.palette.background.default) }}
+          />
+        ),
+        pinned: true,
+      };
     }
-    // Drop position: past every row whose middle is above the pointer.
-    setDraft((before) => {
-      const base = before ?? saved;
-      const others = base.order.filter((id) => id !== current.id);
-      const index = others.filter((id) => {
-        const box = rows.current.get(id)?.getBoundingClientRect();
-        return box !== undefined && box.top + box.height / 2 < event.clientY;
-      }).length;
-      const order = moveInOrder(base.order, current.id, index);
-      return order.join() === base.order.join() ? base : { ...base, order };
-    });
-  };
+  }
+
+  const sortable = useSortableRows({
+    editing,
+    start: edit.start,
+    onDrag: (id, y) =>
+      edit.update((draft) => {
+        const order = draft.layout.order;
+        const index = sortable.slot(
+          order.filter((each) => each !== id),
+          y,
+        );
+        const next = moveInOrder(order, id, index);
+        return next.join() === order.join()
+          ? draft
+          : { ...draft, layout: { ...draft.layout, order: next } };
+      }),
+  });
 
   const groupAt = layout.order.indexOf(GROUP);
   const grouped = layout.order.slice(groupAt + 1);
@@ -180,43 +173,15 @@ export function SidebarViews({
     return (
       <ListItemButton
         key={id}
-        ref={(element: HTMLElement | null) => {
-          if (element) rows.current.set(id, element);
-          else rows.current.delete(id);
-        }}
+        {...sortable.rowProps(id)}
         selected={!editing && (selected === item.path || pathname === item.path)}
-        onPointerDown={pointerDown(id)}
-        onPointerMove={pointerMove}
-        onPointerUp={endGesture}
-        onPointerCancel={endGesture}
-        onContextMenu={(event) => {
-          event.preventDefault();
-          startEditing();
-        }}
-        onClick={() => {
-          if (swallowClick.current) {
-            swallowClick.current = false;
-            return;
-          }
+        onClick={sortable.click(() => {
           if (!editing) onNavigate(item.path);
-        }}
+        })}
         sx={{
           pl: inGroup ? 3 : 2,
-          userSelect: 'none',
-          // While editing, a finger drags instead of scrolling.
-          touchAction: editing ? 'none' : 'pan-y',
           opacity: hidden ? 0.45 : 1,
-          ...(editing &&
-            dragging !== id && {
-              animation: `${wiggle} 0.24s ${(index % 3) * 0.06}s ease-in-out infinite alternate`,
-            }),
-          ...(dragging === id && {
-            bgcolor: 'action.selected',
-            boxShadow: 3,
-            zIndex: 1,
-            cursor: 'grabbing',
-          }),
-          '@media (prefers-reduced-motion: reduce)': { animation: 'none' },
+          ...editingRowSx(editing, sortable.dragging === id, index),
         }}
       >
         {editing && (
@@ -226,61 +191,45 @@ export function SidebarViews({
           />
         )}
         <ListItemIcon sx={{ minWidth: 40 }}>{item.icon}</ListItemIcon>
-        <ListItemText primary={item.name} />
-        {editing && (
-          <Tooltip title={hidden ? t('nav.showView') : t('nav.hideView')}>
-            <IconButton
-              size="small"
-              edge="end"
-              aria-label={t(hidden ? 'nav.showNamed' : 'nav.hideNamed', { name: item.name })}
-              onPointerDown={(event) => event.stopPropagation()}
-              onClick={(event) => {
-                event.stopPropagation();
-                setDraft((before) => toggleHidden(before ?? saved, id));
-              }}
-            >
-              {hidden ? <EyeOffIcon fontSize="small" /> : <EyeIcon fontSize="small" />}
-            </IconButton>
-          </Tooltip>
-        )}
+        <ListItemText primary={item.name} sx={{ minWidth: 0 }} />
+        {editing &&
+          (item.pinned ? (
+            <Tooltip title={t('nav.unpin')}>
+              <IconButton
+                size="small"
+                edge="end"
+                aria-label={t('nav.unpinNamed', { name: item.label })}
+                onPointerDown={(event) => event.stopPropagation()}
+                onClick={(event) => {
+                  event.stopPropagation();
+                  edit.update((draft) => ({ ...draft, layout: togglePinned(draft.layout, id) }));
+                }}
+              >
+                <PinOffIcon fontSize="small" />
+              </IconButton>
+            </Tooltip>
+          ) : (
+            <Tooltip title={hidden ? t('nav.showView') : t('nav.hideView')}>
+              <IconButton
+                size="small"
+                edge="end"
+                aria-label={t(hidden ? 'nav.showNamed' : 'nav.hideNamed', { name: item.label })}
+                onPointerDown={(event) => event.stopPropagation()}
+                onClick={(event) => {
+                  event.stopPropagation();
+                  edit.update((draft) => ({ ...draft, layout: toggleHidden(draft.layout, id) }));
+                }}
+              >
+                {hidden ? <EyeOffIcon fontSize="small" /> : <EyeIcon fontSize="small" />}
+              </IconButton>
+            </Tooltip>
+          ))}
       </ListItemButton>
     );
   };
 
   return (
-    <Box sx={{ position: 'relative' }}>
-      {editing && (
-        // Laid over the sidebar's title bar, so the views don't move as editing starts.
-        <Box
-          role="toolbar"
-          aria-label={t('nav.editSidebar')}
-          sx={{
-            position: 'absolute',
-            left: 0,
-            right: 0,
-            bottom: '100%',
-            height: 64,
-            zIndex: 2,
-            display: 'flex',
-            alignItems: 'center',
-            gap: 1,
-            px: 2,
-            bgcolor: (theme) => theme.punchlist.surfaceVariant,
-          }}
-        >
-          <Button size="small" onClick={cancel}>
-            {t('common.cancel')}
-          </Button>
-          {/* Back to the default order, nothing hidden; Done still saves it. */}
-          <Button size="small" onClick={() => setDraft(normalizeSidebar(defaultSidebar(), views))}>
-            {t('nav.resetSidebar')}
-          </Button>
-          <Box sx={{ flexGrow: 1 }} />
-          <Button size="small" variant="contained" onClick={done}>
-            {t('common.done')}
-          </Button>
-        </Box>
-      )}
+    <Box>
       <List dense>
         {layout.order.map((id, index) => {
           if (id === GROUP) {
@@ -288,15 +237,10 @@ export function SidebarViews({
             return (
               <ListItemButton
                 key={GROUP}
-                ref={(element: HTMLElement | null) => {
-                  if (element) rows.current.set(GROUP, element);
-                  else rows.current.delete(GROUP);
-                }}
+                ref={sortable.rowProps(GROUP).ref}
                 aria-expanded={groupOpen}
                 disabled={editing}
-                onClick={() =>
-                  apply((ctx, ws) => setSidebar(ctx, ws, { ...saved, groupOpen: !saved.groupOpen }))
-                }
+                onClick={() => edit.saveLayout({ ...layout, groupOpen: !layout.groupOpen })}
                 sx={{
                   py: 0.25,
                   minHeight: 32,
@@ -348,12 +292,10 @@ export function SidebarViews({
             }, t('undo.filterCreated'));
             setCreating(false);
             // The new filter joins the layout being edited, above the group.
-            setDraft((before) => {
-              if (!before) return before;
-              const at = before.order.indexOf(GROUP);
-              const order = [...before.order];
-              order.splice(at, 0, filterViewId(id));
-              return { ...before, order };
+            edit.update((draft) => {
+              const order = [...draft.layout.order];
+              order.splice(order.indexOf(GROUP), 0, filterViewId(id));
+              return { ...draft, layout: { ...draft.layout, order } };
             });
             void navigate(`/filters/${id}`);
           }}

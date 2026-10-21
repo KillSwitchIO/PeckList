@@ -1,7 +1,8 @@
 import { fireEvent, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { mockViewport, renderApp } from '../test/renderApp.tsx';
+import { createTag } from '../core/tags.ts';
+import { mockViewport, renderApp, testStore } from '../test/renderApp.tsx';
 import { setLocale, t } from './i18n/i18n.ts';
 import { activeItem, SIDEBAR_ITEMS } from './layout/navigation.tsx';
 
@@ -86,6 +87,25 @@ describe('app shell', () => {
     expect(await screen.findByRole('heading', { level: 1, name: 'Urgent' })).toBeInTheDocument();
     await userEvent.click(within(nav).getByRole('button', { name: 'Done' }));
     expect(within(nav).getByText('Urgent')).toBeInTheDocument();
+  });
+
+  it('pins a nested tag to the top with its whole path, then unpins it', async () => {
+    mockViewport('desktop');
+    const store = testStore();
+    await renderApp('/today', store);
+    store.getState().apply((ctx, ws) => createTag(ctx, ws, 'home/yard').workspace);
+    const nav = screen.getAllByRole('navigation')[0]!;
+    fireEvent.contextMenu(within(nav).getByText('Today'));
+    await userEvent.click(within(nav).getByRole('button', { name: 'Pin home/yard' }));
+    await userEvent.click(within(nav).getByRole('button', { name: 'Done' }));
+    // Shown in both places: pinned at the top (full path) and in the tag tree.
+    expect(within(nav).getByTitle('home/yard')).toBeInTheDocument();
+    expect(within(nav).getByText('yard')).toBeInTheDocument();
+
+    fireEvent.contextMenu(within(nav).getByText('Today'));
+    await userEvent.click(within(nav).getAllByRole('button', { name: 'Unpin home/yard' })[0]!);
+    await userEvent.click(within(nav).getByRole('button', { name: 'Done' }));
+    expect(within(nav).queryByTitle('home/yard')).toBeNull();
   });
 
   it('cycles the theme mode and remembers it', async () => {

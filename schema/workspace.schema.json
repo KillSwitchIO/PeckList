@@ -8,7 +8,7 @@
   "additionalProperties": false,
   "properties": {
     "schemaVersion": {
-      "const": 3
+      "const": 4
     },
     "app": {
       "type": "object",
@@ -348,7 +348,7 @@
           "$ref": "#/$defs/base"
         }
       ],
-      "required": ["name", "color"],
+      "required": ["name", "color", "order"],
       "properties": {
         "name": {
           "type": "string",
@@ -356,6 +356,10 @@
         },
         "color": {
           "$ref": "#/$defs/color"
+        },
+        "order": {
+          "$ref": "#/$defs/orderKey",
+          "description": "Order among sibling tags (the tree comes from the names)"
         }
       },
       "unevaluatedProperties": false
