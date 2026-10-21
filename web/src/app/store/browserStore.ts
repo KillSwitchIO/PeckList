@@ -19,17 +19,19 @@ export function createBrowserApp(): { store: WorkspaceStore; sync: SyncEngine } 
   const channel = typeof BroadcastChannel === 'undefined' ? null : new BroadcastChannel(CHANNEL);
   void navigator.storage?.persist?.();
   const storage = createIndexedDbStorage();
+  const node = tabNodeId();
   const store = createWorkspaceStore({
     storage,
     validator: createAjvValidator(),
     ids: createUlidGenerator(),
-    node: tabNodeId(),
+    node,
     withLock: lock('punchlist-save'),
     notify: () => channel?.postMessage('saved'),
   });
   // The server that served this page, if it is a Punchlist server (a static host is not).
   const sync = createSyncEngine({
-    transport: createHttpSync(),
+    transport: createHttpSync('', undefined, node),
+    device: node,
     workspace: store,
     storage,
     withLock: lock('punchlist-sync'),

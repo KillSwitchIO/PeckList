@@ -1,5 +1,6 @@
 import type {
   Account,
+  ChangeEvent,
   LoginOutcome,
   PasswordOutcome,
   ServerInfo,
@@ -23,13 +24,18 @@ interface ErrorBody {
 export function createHttpSync(
   base = '',
   fetcher: typeof fetch = (...args) => fetch(...args),
+  /** This device (tab), sent with each sync so the server's change events can name it. */
+  device: string | null = null,
 ): SyncTransport {
   const call = async (path: string, init?: { method?: string; body?: unknown }) => {
     try {
       return await fetcher(`${base}${path}`, {
         method: init?.method ?? 'GET',
         credentials: 'same-origin',
-        headers: init?.body === undefined ? {} : { 'Content-Type': 'application/json' },
+        headers: {
+          ...(init?.body === undefined ? {} : { 'Content-Type': 'application/json' }),
+          ...(device ? { 'X-Punchlist-Device': device } : {}),
+        },
         body: init?.body === undefined ? null : JSON.stringify(init.body),
       });
     } catch (error) {
@@ -110,6 +116,20 @@ export function createHttpSync(
       const response = await call('/api/sync', { method: 'POST', body: request });
       if (!response.ok) return fail(response);
       return (await response.json()) as SyncResponse;
+    },
+
+    events(onChange) {
+      // Server-Sent Events; the browser reconnects by itself after a drop.
+      if (typeof EventSource === 'undefined') return () => undefined;
+      const source = new EventSource(`${base}/api/events`, { withCredentials: true });
+      source.addEventListener('changed', (event) => {
+        try {
+          onChange(JSON.parse((event as MessageEvent<string>).data) as ChangeEvent);
+        } catch {
+          // A malformed event: the next timer sync catches up anyway.
+        }
+      });
+      return () => source.close();
     },
   };
 }

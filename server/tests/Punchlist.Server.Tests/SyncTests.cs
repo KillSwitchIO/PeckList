@@ -143,6 +143,36 @@ public sealed class SyncTests(ServerFixture fixture) : IClassFixture<ServerFixtu
     }
 
     [Fact]
+    public async Task Tells_the_other_devices_when_something_changes()
+    {
+        var laptop = await SignedIn();
+        var phone = await SignedIn();
+        using var events = await phone.GetAsync("/api/events", HttpCompletionOption.ResponseHeadersRead, Token);
+        Assert.Equal("text/event-stream", events.Content.Headers.ContentType?.MediaType);
+        using var reader = new StreamReader(await events.Content.ReadAsStreamAsync(Token));
+        Assert.Equal(": connected", await reader.ReadLineAsync(Token));
+
+        var request = new HttpRequestMessage(HttpMethod.Post, "/api/sync")
+        {
+            Content = JsonContent.Create(new
+            {
+                schemaVersion = WorkspaceSchema.CurrentVersion,
+                cursor = (long?)null,
+                changes = new[] { new { collection = "tasks", entity = Task("T1", "Mow") } },
+            }),
+        };
+        request.Headers.Add(SyncEndpoints.DeviceHeader, "laptop1");
+        (await laptop.SendAsync(request, Token)).EnsureSuccessStatusCode();
+
+        string? line;
+        do line = await reader.ReadLineAsync(Token); while (line is "" or null || line.StartsWith(':'));
+        Assert.Equal("event: changed", line);
+        var data = JsonNode.Parse((await reader.ReadLineAsync(Token))!["data: ".Length..])!;
+        Assert.Equal("laptop1", (string?)data["source"]);
+        Assert.Equal(1, (long?)data["cursor"]);
+    }
+
+    [Fact]
     public async Task Refuses_another_schema_version()
     {
         var client = await SignedIn();

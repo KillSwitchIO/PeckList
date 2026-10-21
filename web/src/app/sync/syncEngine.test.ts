@@ -1,3 +1,4 @@
+import { waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it } from 'vitest';
 import { createAjvValidator } from '../../adapters/ajv-validator.ts';
 import { createMemoryStorage } from '../../adapters/memory-storage.ts';
@@ -28,8 +29,10 @@ async function device(backend: FakeBackend, node: string) {
   });
   await store.getState().init();
   const transport = backend.device();
+  transport.device = node;
   const engine = createSyncEngine({
     transport,
+    device: node,
     workspace: store,
     storage,
     debounceMs: 60_000,
@@ -128,6 +131,26 @@ describe('sync engine', () => {
     expect(
       laptop.store.getState().workspace!.entities.tasks.find((task) => task.id === mow),
     ).toEqual(onPhone);
+  });
+
+  it("another device's change arrives at once, not on the next timer", async () => {
+    const backend = new FakeBackend();
+    backend.addAccount('ben', 'correct horse battery');
+    const laptop = await device(backend, 'laptop');
+    const phone = await device(backend, 'phone');
+    await laptop.engine.getState().start();
+    await laptop.engine.getState().signIn('ben', 'correct horse battery');
+    await phone.engine.getState().start();
+    await phone.engine.getState().signIn('ben', 'correct horse battery');
+    // The phone's sign-in pushed its profile, which the laptop hears about and pulls: let it settle.
+    await new Promise((resolve) => setTimeout(resolve, 400));
+    const before = backend.server.calls;
+
+    addTask(laptop.store, 'Rake');
+    await laptop.engine.getState().syncNow();
+    await waitFor(() => expect(titles(phone.store)).toEqual(['Rake']));
+    // The laptop skipped its own event: one sync for the push, one for the phone's pull.
+    expect(backend.server.calls - before).toBe(2);
   });
 
   it('pushes only what changed', async () => {

@@ -1,6 +1,12 @@
 // A SyncTransport over the in-memory server, with accounts and a switch to go offline.
 import { CURRENT_SCHEMA_VERSION } from '../core/migrations.ts';
-import { SyncFailure, type Account, type ServerInfo, type SyncTransport } from '../ports/sync.ts';
+import {
+  SyncFailure,
+  type Account,
+  type ChangeEvent,
+  type ServerInfo,
+  type SyncTransport,
+} from '../ports/sync.ts';
 import { FakeSyncServer } from './fakeSyncServer.ts';
 
 export interface FakeAccount {
@@ -13,6 +19,8 @@ export class FakeBackend {
   readonly server = new FakeSyncServer();
   readonly accounts = new Map<string, FakeAccount>();
   schemaVersion = CURRENT_SCHEMA_VERSION;
+  /** Event listeners of every device, by account username. */
+  readonly listeners = new Set<{ username: string; onChange: (change: ChangeEvent) => void }>();
 
   addAccount(username: string, password: string, extra: Partial<Account> = {}): Account {
     const account: Account = {
@@ -38,7 +46,18 @@ export class FakeTransport implements SyncTransport {
   offline = false;
   session: string | null = null;
 
+  /** This device's id, sent with its syncs. */
+  device: string | null = null;
+
   constructor(private readonly backend: FakeBackend) {}
+
+  events(onChange: (change: ChangeEvent) => void) {
+    const listener = { username: this.session ?? '', onChange };
+    this.backend.listeners.add(listener);
+    return () => {
+      this.backend.listeners.delete(listener);
+    };
+  }
 
   private check() {
     if (this.offline) throw new SyncFailure('offline', 'offline');
@@ -95,6 +114,17 @@ export class FakeTransport implements SyncTransport {
       throw new SyncFailure('schema', 'schema mismatch', this.backend.schemaVersion);
     }
     // A copy, as over the wire.
-    return Promise.resolve(this.backend.server.sync(found.account.id, structuredClone(request)));
+    const before = this.backend.server.calls;
+    const seqBefore = Math.max(0, ...[...this.backend.server.rows.values()].map((row) => row.seq));
+    const response = this.backend.server.sync(found.account.id, structuredClone(request));
+    const seqAfter = Math.max(0, ...[...this.backend.server.rows.values()].map((row) => row.seq));
+    if (seqAfter > seqBefore && this.backend.server.calls > before) {
+      for (const listener of this.backend.listeners) {
+        if (listener.username === found.account.username) {
+          listener.onChange({ cursor: seqAfter, source: this.device });
+        }
+      }
+    }
+    return Promise.resolve(response);
   }
 }

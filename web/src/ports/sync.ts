@@ -22,6 +22,13 @@ export interface SyncRequest {
   changes: SyncChange[];
 }
 
+/** The server says the user's data changed (another device synced). */
+export interface ChangeEvent {
+  cursor: number;
+  /** The device that made the change, so a device can skip its own. */
+  source: string | null;
+}
+
 export interface SyncResponse {
   cursor: number;
   changes: SyncChange[];
@@ -67,4 +74,9 @@ export interface SyncTransport {
   logout(): Promise<void>;
   changePassword(current: string, next: string): Promise<PasswordOutcome>;
   sync(request: SyncRequest): Promise<SyncResponse>;
+  /**
+   * Hear about changes as they happen (optional: without it the app syncs on its timer). Returns
+   * a function that stops listening. Reconnecting after a drop is the transport's job.
+   */
+  events?(onChange: (change: ChangeEvent) => void): () => void;
 }

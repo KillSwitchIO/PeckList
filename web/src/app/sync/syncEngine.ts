@@ -67,6 +67,8 @@ export interface SyncMeta {
 
 export interface SyncEngineDependencies {
   transport: SyncTransport;
+  /** This device's id as the transport sends it; its own change events are skipped. */
+  device?: string;
   workspace: WorkspaceStore;
   storage: StorageAdapter;
   now?: () => number;
@@ -97,6 +99,8 @@ export function createSyncEngine(deps: SyncEngineDependencies): SyncEngine {
   let debounce: ReturnType<typeof setTimeout> | null = null;
   let interval: ReturnType<typeof setInterval> | null = null;
   let unsubscribe: (() => void) | null = null;
+  let closeEvents: (() => void) | null = null;
+  let eventDebounce: ReturnType<typeof setTimeout> | null = null;
   // Changes this engine makes itself must not schedule another sync.
   let absorbing = false;
 
@@ -168,6 +172,7 @@ export function createSyncEngine(deps: SyncEngineDependencies): SyncEngine {
             set({ status: 'offline' });
             return;
           case 'signed-out':
+            closeEventStream();
             set({ phase: 'signed-out', status: 'idle', account: null });
             return;
           case 'password-change':
@@ -225,6 +230,7 @@ export function createSyncEngine(deps: SyncEngineDependencies): SyncEngine {
         }
       });
       set({ status: 'idle', lastSynced: now(), error: null });
+      if (!closeEvents) openEvents();
     };
 
     const syncNow = async (): Promise<void> => {
@@ -249,12 +255,29 @@ export function createSyncEngine(deps: SyncEngineDependencies): SyncEngine {
       return running;
     };
 
+    /** Sync as soon as another device changes something (when the server can say so). */
+    const openEvents = () => {
+      closeEvents?.();
+      closeEvents =
+        transport.events?.((change) => {
+          if (change.source !== null && change.source === deps.device) return;
+          if (eventDebounce) clearTimeout(eventDebounce);
+          eventDebounce = setTimeout(() => void syncNow(), 250);
+        }) ?? null;
+    };
+    const closeEventStream = () => {
+      closeEvents?.();
+      closeEvents = null;
+      if (eventDebounce) clearTimeout(eventDebounce);
+    };
+
     const enter = async (account: Account) => {
       if (account.mustChangePassword) {
         set({ phase: 'password-change', account });
         return;
       }
       set({ phase: 'ready', account, status: 'idle' });
+      openEvents();
       await syncNow();
     };
 
@@ -333,6 +356,7 @@ export function createSyncEngine(deps: SyncEngineDependencies): SyncEngine {
           .syncNow()
           .catch(() => undefined);
         await transport.logout().catch(() => undefined);
+        closeEventStream();
         set({ phase: 'signed-out', account: null, status: 'idle' });
       },
 
@@ -345,6 +369,7 @@ export function createSyncEngine(deps: SyncEngineDependencies): SyncEngine {
       syncNow,
 
       stop() {
+        closeEventStream();
         unsubscribe?.();
         unsubscribe = null;
         if (debounce) clearTimeout(debounce);

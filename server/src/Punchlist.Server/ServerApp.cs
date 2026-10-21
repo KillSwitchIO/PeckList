@@ -31,6 +31,7 @@ public static class ServerApp
         builder.Services.AddEntityStore(settings);
         // After the store: its startup (migrations) runs before the admin is made.
         builder.Services.AddPunchlistAuth(settings);
+        builder.Services.AddSingleton<IChangeNotifier, InProcessChangeNotifier>();
         builder.Services.AddSingleton<SyncService>();
         builder.Services.AddBackups(settings);
         builder.Services.Configure<ForwardedHeadersOptions>(options =>

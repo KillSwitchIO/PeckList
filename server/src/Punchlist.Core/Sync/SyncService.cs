@@ -25,7 +25,7 @@ public sealed class SyncRejected(string code, string message, int? serverSchemaV
 /// <c>/api/sync</c> (spec: Data Model &amp; Sync): merge what a client pushes into the store with the
 /// same rules as the client, then hand back everything newer than its cursor that it may see.
 /// </summary>
-public sealed partial class SyncService(IEntityStore store, TimeProvider time)
+public sealed partial class SyncService(IEntityStore store, TimeProvider time, IChangeNotifier notifier)
 {
     public const int MaxChanges = 5000;
     public const int PageSize = 500;
@@ -36,7 +36,8 @@ public sealed partial class SyncService(IEntityStore store, TimeProvider time)
     [GeneratedRegex("^[0-9A-Za-z_-]{1,64}$")]
     private static partial Regex IdPattern();
 
-    public async Task<SyncResponse> SyncAsync(string userId, SyncRequest request, CancellationToken cancellation = default)
+    /// <param name="source">The pushing device, passed on to the user's other devices' change events.</param>
+    public async Task<SyncResponse> SyncAsync(string userId, SyncRequest request, string? source = null, CancellationToken cancellation = default)
     {
         if (request.SchemaVersion != WorkspaceSchema.CurrentVersion)
         {
@@ -50,7 +51,9 @@ public sealed partial class SyncService(IEntityStore store, TimeProvider time)
 
         if (incoming.Count > 0)
         {
-            await store.WriteAsync(userId, incoming, (stored, arrived) => Resolve(userId, stored, arrived), cancellation);
+            var written = await store.WriteAsync(userId, incoming, (stored, arrived) => Resolve(userId, stored, arrived), cancellation);
+            // Only the owner sees an entity until sharing (0.5); then everyone in its visibility.
+            if (written.Count > 0) notifier.Notify(userId, new ChangeEvent(written[^1].Seq, source));
         }
         var page = await store.ChangesAsync(userId, Math.Max(request.Cursor ?? 0, 0), PageSize, cancellation);
         return new SyncResponse(
