@@ -1,5 +1,7 @@
 // Render the whole app (routes, store, theme) for UI tests.
+import { ThemeProvider } from '@mui/material/styles';
 import { render, screen } from '@testing-library/react';
+import type { ReactElement, ReactNode } from 'react';
 import { MemoryRouter } from 'react-router';
 import { vi } from 'vitest';
 import { createAjvValidator } from '../adapters/ajv-validator.ts';
@@ -7,6 +9,7 @@ import { createMemoryStorage } from '../adapters/memory-storage.ts';
 import { createUlidGenerator } from '../adapters/ulid-ids.ts';
 import { AppProviders } from '../app/providers.tsx';
 import { AppRoutes } from '../app/routes.tsx';
+import { createAppTheme } from '../app/theme/theme.ts';
 import { createWorkspaceStore, type WorkspaceStore } from '../app/store/workspaceStore.ts';
 
 export type Viewport = 'phone' | 'tablet' | 'desktop';
@@ -56,4 +59,14 @@ export async function renderApp(path: string, store: WorkspaceStore = testStore(
   );
   await screen.findByRole('heading', { level: 1 });
   return { ...result, store };
+}
+
+/** Render a component with the app theme (components read Punchlist's color tokens from it). */
+export function renderThemed(ui: ReactElement) {
+  const theme = createAppTheme('light');
+  return render(ui, {
+    wrapper: ({ children }: { children: ReactNode }) => (
+      <ThemeProvider theme={theme}>{children}</ThemeProvider>
+    ),
+  });
 }

@@ -18,6 +18,8 @@ export interface ModePalette {
   textMuted: string;
   accent: ColorToken;
   accentContainer: string;
+  /** Text and icons on accentContainer (today, the current pick) */
+  onAccentContainer: string;
   priority: { high: ColorToken; medium: ColorToken; low: ColorToken; none: ColorToken };
   dateState: { late: string; slipped: string; dueSoon: string };
   pastels: Record<PastelName, ColorToken>;
@@ -160,6 +162,13 @@ export function buildPalette(
       on: dark ? '#0F2E2A' : '#FFFFFF',
     },
     accentContainer: dark ? mix(accentSeed, '#000000', 0.45) : fill('accentContainer', '#CDE8E3'),
+    onAccentContainer: dark
+      ? ensureContrast(mix(accentSeed, '#FFFFFF', 0.5), mix(accentSeed, '#000000', 0.45), WCAG_TEXT)
+      : ensureContrast(
+          mix(accentSeed, '#000000', 0.25),
+          fill('accentContainer', '#CDE8E3'),
+          WCAG_TEXT,
+        ),
     priority: {
       high: ring(fill('priorityHigh', '#E8837E'), surface),
       medium: ring(fill('priorityMedium', '#F0B072'), surface),

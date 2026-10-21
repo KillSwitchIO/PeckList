@@ -1,7 +1,7 @@
-import { render, screen, within } from '@testing-library/react';
+import { screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { mockViewport } from '../../test/renderApp.tsx';
+import { mockViewport, renderThemed as render } from '../../test/renderApp.tsx';
 import { formatSpan } from '../format.ts';
 import { DatePickerPanel } from './DatePickerPanel.tsx';
 import { DateProperty } from './DateProperty.tsx';

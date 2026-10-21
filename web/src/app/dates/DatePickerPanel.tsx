@@ -60,9 +60,13 @@ function QuickPick({
           flexDirection: 'column',
           gap: 0.25,
           borderRadius: 2,
-          color: active ? 'primary.main' : 'text.secondary',
-          bgcolor: active ? 'action.selected' : 'transparent',
-          '&:hover': { bgcolor: active ? 'action.selected' : 'action.hover' },
+          color: (theme) =>
+            active ? theme.punchlist.onAccentContainer : theme.palette.text.secondary,
+          bgcolor: (theme) => (active ? theme.punchlist.accentContainer : 'transparent'),
+          '&:hover': {
+            bgcolor: (theme) =>
+              active ? theme.punchlist.accentContainer : theme.palette.action.hover,
+          },
         }}
       >
         {icon}

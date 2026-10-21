@@ -225,9 +225,26 @@ function PickButton({
         borderRadius: 999,
         typography: 'body2',
         fontWeight: current || selected ? 600 : 400,
-        color: selected ? 'primary.contrastText' : current ? 'primary.main' : 'text.primary',
-        bgcolor: selected ? 'primary.main' : 'transparent',
-        '&:hover': { bgcolor: selected ? 'primary.main' : 'action.hover' },
+        color: (theme) =>
+          selected
+            ? theme.palette.primary.contrastText
+            : current
+              ? theme.punchlist.onAccentContainer
+              : theme.palette.text.primary,
+        bgcolor: (theme) =>
+          selected
+            ? theme.palette.primary.main
+            : current
+              ? theme.punchlist.accentContainer
+              : 'transparent',
+        '&:hover': {
+          bgcolor: (theme) =>
+            selected
+              ? theme.palette.primary.main
+              : current
+                ? theme.punchlist.accentContainer
+                : theme.palette.action.hover,
+        },
       }}
     >
       {text}
@@ -498,7 +515,12 @@ export function MonthCalendar({
             '&:focus-visible': { outline: `2px solid ${theme.palette.primary.main}` },
           },
           '& [data-muted]': { color: theme.palette.text.secondary },
-          '& [data-today]': { color: theme.palette.primary.main, fontWeight: 600 },
+          // Today: a soft accent fill, clear in light and dark (the selection stays solid).
+          '& [data-today], & [data-today]:hover': {
+            background: theme.punchlist.accentContainer,
+            color: theme.punchlist.onAccentContainer,
+            fontWeight: 700,
+          },
           '& [data-inside]': { background: theme.palette.action.selected, borderRadius: '8px' },
           '& [data-selected], & [data-selected]:hover': {
             background: theme.palette.primary.main,

@@ -108,3 +108,10 @@ describe('color families', () => {
     expect(findFamilyColor('#123456')).toBeNull();
   });
 });
+
+describe.each(['light', 'dark'] as const)('%s accent container', (mode) => {
+  it('keeps today and the current pick readable', () => {
+    const p = buildPalette(mode);
+    expect(contrastRatio(p.onAccentContainer, p.accentContainer)).toBeGreaterThanOrEqual(WCAG_TEXT);
+  });
+});
