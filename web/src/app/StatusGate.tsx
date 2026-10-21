@@ -7,6 +7,7 @@ import { useStoreState } from './store/hooks.ts';
 export function StatusGate({ children }: { children: ReactNode }) {
   const status = useStoreState((state) => state.status);
   const problem = useStoreState((state) => state.problem);
+  const upgrade = useStoreState((state) => state.upgrade);
 
   if (status === 'ready') return <>{children}</>;
   if (status === 'loading') {
@@ -44,6 +45,10 @@ export function StatusGate({ children }: { children: ReactNode }) {
           status === 'needs-app-update' ? (
             <Button color="inherit" onClick={() => window.location.reload()}>
               {t('pwa.reload')}
+            </Button>
+          ) : status === 'needs-upgrade' ? (
+            <Button color="inherit" onClick={() => void upgrade()}>
+              {t('status.needsUpgrade.action')}
             </Button>
           ) : undefined
         }

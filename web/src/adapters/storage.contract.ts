@@ -40,6 +40,19 @@ export function describeStorageContract(
       expect(await storage.load()).toBeNull();
     });
 
+    it('keeps backups apart from the workspace', async () => {
+      const storage = await create();
+      const workspace = sampleWorkspace();
+      await storage.save(workspace);
+      await storage.backup('workspace.v1.bak.json', { schemaVersion: 1, note: 'old' });
+      expect(await storage.load()).toEqual(workspace);
+      expect(await storage.loadBackup('workspace.v1.bak.json')).toEqual({
+        schemaVersion: 1,
+        note: 'old',
+      });
+      expect(await storage.loadBackup('missing')).toBeNull();
+    });
+
     it('returns a copy, not a live reference', async () => {
       const storage = await create();
       const workspace = sampleWorkspace();

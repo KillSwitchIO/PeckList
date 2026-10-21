@@ -11,4 +11,8 @@ export interface StorageAdapter {
   load(): Promise<unknown>;
   save(workspace: WorkspaceFile): Promise<void>;
   clear(): Promise<void>;
+  /** Keep a copy of a document under a name (before an upgrade), apart from the workspace. */
+  backup(name: string, document: unknown): Promise<void>;
+  /** A copy kept by `backup`, or null. */
+  loadBackup(name: string): Promise<unknown>;
 }

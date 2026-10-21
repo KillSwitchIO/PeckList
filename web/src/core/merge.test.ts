@@ -86,7 +86,9 @@ describe('mergeWorkspaces', () => {
     expect(() => mergeWorkspaces(base, { ...base, owner: 'someone-else' })).toThrow(
       'different owners',
     );
-    expect(() => mergeWorkspaces(base, { ...base, schemaVersion: 2 })).toThrow('schema versions');
+    expect(() => mergeWorkspaces(base, { ...base, schemaVersion: base.schemaVersion + 1 })).toThrow(
+      'schema versions',
+    );
   });
 });
 

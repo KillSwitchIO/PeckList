@@ -8,7 +8,7 @@
   "additionalProperties": false,
   "properties": {
     "schemaVersion": {
-      "const": 1
+      "const": 2
     },
     "app": {
       "type": "object",
@@ -425,7 +425,8 @@
         "tags",
         "assignees",
         "blockedBy",
-        "recurrence"
+        "recurrence",
+        "progress"
       ],
       "properties": {
         "title": {
@@ -521,6 +522,12 @@
         },
         "recurrence": {
           "type": ["string", "null"]
+        },
+        "progress": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 100,
+          "multipleOf": 10
         }
       },
       "unevaluatedProperties": false

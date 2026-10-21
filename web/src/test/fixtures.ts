@@ -72,6 +72,7 @@ export function sampleTask(
     assignees: {},
     blockedBy: {},
     recurrence: null,
+    progress: 0,
   });
 }
 

@@ -4,6 +4,7 @@ import { createMemoryStorage } from '../../adapters/memory-storage.ts';
 import { createUlidGenerator } from '../../adapters/ulid-ids.ts';
 import { getEntity } from '../../core/collections.ts';
 import { inboxList } from '../../core/lists.ts';
+import { CURRENT_SCHEMA_VERSION } from '../../core/migrations.ts';
 import { createTask, toggleTaskDone, updateTask } from '../../core/tasks.ts';
 import type { StorageAdapter } from '../../ports/storage.ts';
 import { deviceId, randomId } from './device.ts';
@@ -145,7 +146,7 @@ describe('workspace store', () => {
     expect(a.getState().status).toBe('needs-app-update');
 
     const broken = createMemoryStorage();
-    await broken.save({ schemaVersion: 1 } as never);
+    await broken.save({ schemaVersion: CURRENT_SCHEMA_VERSION } as never);
     const b = makeStore(broken);
     await b.getState().init();
     expect(b.getState().status).toBe('error');
@@ -155,12 +156,41 @@ describe('workspace store', () => {
       load: () => Promise.reject(new Error('disk')),
       save: () => Promise.resolve(),
       clear: () => Promise.resolve(),
+      backup: () => Promise.resolve(),
+      loadBackup: () => Promise.resolve(null),
     };
     const c = makeStore(failing);
     await c.getState().init();
     expect(c.getState().problem).toEqual({ kind: 'error', message: 'disk' });
     expect(() => c.getState().apply((_, ws) => ws)).toThrow('not ready');
     expect(() => c.getState().context()).toThrow('not ready');
+  });
+});
+
+describe('upgrading stored data', () => {
+  it('backs up an older workspace, then upgrades and opens it', async () => {
+    const storage = createMemoryStorage();
+    const fresh = makeStore(createMemoryStorage());
+    await fresh.getState().init();
+    const current = fresh.getState().workspace!;
+    const legacy = structuredClone(current) as unknown as {
+      schemaVersion: number;
+      entities: { tasks: Record<string, unknown>[] };
+    };
+    legacy.schemaVersion = 1;
+    for (const task of legacy.entities.tasks) delete task.progress;
+    await storage.save(legacy as never);
+
+    const store = makeStore(storage);
+    await store.getState().init();
+    expect(store.getState().status).toBe('needs-upgrade');
+    await store.getState().upgrade();
+    expect(store.getState().status).toBe('ready');
+    expect(store.getState().workspace!.schemaVersion).toBe(CURRENT_SCHEMA_VERSION);
+    expect(await storage.loadBackup('workspace.v1.bak.json')).toEqual(legacy);
+    expect((await storage.load()) as { schemaVersion: number }).toMatchObject({
+      schemaVersion: CURRENT_SCHEMA_VERSION,
+    });
   });
 });
 

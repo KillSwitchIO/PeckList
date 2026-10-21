@@ -5,7 +5,8 @@
 import { createStore, type StoreApi } from 'zustand/vanilla';
 import { maxHlc } from '../../core/collections.ts';
 import { HlcClock } from '../../core/hlc.ts';
-import { openDocument, type OpenResult } from '../../core/io.ts';
+import { openDocument, upgradeDocument, type OpenResult } from '../../core/io.ts';
+import { backupName } from '../../core/migrations.ts';
 import { mergeWorkspaces } from '../../core/merge.ts';
 import type { OpContext } from '../../core/ops.ts';
 import type { WorkspaceFile } from '../../core/types.ts';
@@ -37,6 +38,8 @@ export interface WorkspaceState {
   saving: boolean;
 
   init(): Promise<void>;
+  /** Back up the stored data, then upgrade it to this app's schema (status needs-upgrade). */
+  upgrade(): Promise<void>;
   /** Run an operation. With a label it becomes undoable ("Task completed"). */
   apply(operation: Operation, label?: string): void;
   undo(id?: number): void;
@@ -211,6 +214,31 @@ export function createWorkspaceStore(deps: StoreDependencies): WorkspaceStore {
 
       dismissUndo() {
         set({ lastUndoable: null });
+      },
+
+      async upgrade() {
+        const { status, problem } = get();
+        if (status !== 'needs-upgrade' || problem?.kind !== 'needs-upgrade') return;
+        try {
+          await deps.storage.backup(backupName('workspace', problem.from), problem.document);
+          const upgraded = upgradeDocument(problem.document, deps.validator);
+          if (upgraded.kind !== 'ok') {
+            set({ status: 'error', problem: upgraded });
+            return;
+          }
+          await deps.storage.save(upgraded.workspace);
+          advanceClock(upgraded.workspace);
+          ctx = makeContext(upgraded.workspace.owner);
+          set({ status: 'ready', workspace: upgraded.workspace, problem: null });
+        } catch (error) {
+          set({
+            status: 'error',
+            problem: {
+              kind: 'error',
+              message: error instanceof Error ? error.message : String(error),
+            },
+          });
+        }
       },
 
       async flush() {

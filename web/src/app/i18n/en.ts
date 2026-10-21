@@ -31,7 +31,8 @@ export const en = {
     'Your data uses schema {file}; this app supports up to {app}. Update the app to open it. Nothing has been changed.',
   'status.needsUpgrade.title': 'Your data needs an upgrade',
   'status.needsUpgrade.body':
-    'Your data uses schema {from}; this app uses {to}. The upgrade flow (with a backup) arrives in a later version. Nothing has been changed.',
+    'Your data uses schema {from}; this app uses {to}. Upgrading keeps a backup of your current data first. Nothing changes until you upgrade.',
+  'status.needsUpgrade.action': 'Back up and upgrade',
   'status.error.title': 'Punchlist could not open your data',
   'notFound.title': 'Page not found',
   'common.cancel': 'Cancel',

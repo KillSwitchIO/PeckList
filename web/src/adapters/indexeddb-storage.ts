@@ -27,5 +27,12 @@ export function createIndexedDbStorage(databaseName = 'punchlist'): StorageAdapt
     async clear() {
       await (await open()).delete(STORE, KEY);
     },
+    async backup(name: string, document: unknown) {
+      await (await open()).put(STORE, JSON.stringify(document), `backup:${name}`);
+    },
+    async loadBackup(name: string) {
+      const text = (await (await open()).get(STORE, `backup:${name}`)) as string | undefined;
+      return text === undefined ? null : (JSON.parse(text) as unknown);
+    },
   };
 }

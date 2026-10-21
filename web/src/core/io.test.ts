@@ -1,3 +1,4 @@
+import { CURRENT_SCHEMA_VERSION } from './migrations.ts';
 import { describe, expect, it } from 'vitest';
 import { createAjvValidator } from '../adapters/ajv-validator.ts';
 import { sampleWorkspace } from '../test/fixtures.ts';
@@ -29,12 +30,13 @@ describe('openDocument', () => {
   });
 
   it('refuses newer files and asks to upgrade older ones', () => {
-    expect(openDocument({ schemaVersion: 2 }, validator)).toEqual({
+    const newer = CURRENT_SCHEMA_VERSION + 1;
+    expect(openDocument({ schemaVersion: newer }, validator)).toEqual({
       kind: 'needs-app-update',
-      fileVersion: 2,
-      supported: 1,
+      fileVersion: newer,
+      supported: CURRENT_SCHEMA_VERSION,
     });
-    expect(openDocument({ schemaVersion: 1 }, validator, 2).kind).toBe('needs-upgrade');
+    expect(openDocument({ schemaVersion: 1 }, validator).kind).toBe('needs-upgrade');
     expect(openDocument({}, validator).kind).toBe('invalid');
   });
 });
@@ -50,13 +52,15 @@ describe('upgradeDocument', () => {
     expect(upgradeDocument(old, validator).kind).toBe('invalid');
   });
 
-  it('runs a registered migration to the current version', () => {
+  it('upgrades a version 1 workspace: tasks gain progress 0', () => {
     const workspace = sampleWorkspace();
-    const legacy = { ...structuredClone(workspace), schemaVersion: 1 } as unknown as Record<
-      string,
-      unknown
-    >;
-    const result = upgradeDocument(legacy, validator, 1, {});
+    const legacy = structuredClone(workspace) as unknown as {
+      schemaVersion: number;
+      entities: { tasks: Record<string, unknown>[] };
+    };
+    legacy.schemaVersion = 1;
+    for (const task of legacy.entities.tasks) delete task.progress;
+    const result = upgradeDocument(legacy as unknown as Record<string, unknown>, validator);
     expect(result).toEqual({ kind: 'ok', workspace });
   });
 });

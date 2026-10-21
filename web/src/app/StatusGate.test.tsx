@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { createAjvValidator } from '../adapters/ajv-validator.ts';
 import { createMemoryStorage } from '../adapters/memory-storage.ts';
 import { createUlidGenerator } from '../adapters/ulid-ids.ts';
+import { CURRENT_SCHEMA_VERSION } from '../core/migrations.ts';
 import type { StorageAdapter } from '../ports/storage.ts';
 import { AppProviders } from './providers.tsx';
 import { createWorkspaceStore } from './store/workspaceStore.ts';
@@ -34,13 +35,15 @@ describe('StatusGate', () => {
     expect(
       await screen.findByText('This data needs a newer version of Punchlist'),
     ).toBeInTheDocument();
-    expect(screen.getByText(/schema 7; this app supports up to 1/)).toBeInTheDocument();
+    expect(
+      screen.getByText(new RegExp(`schema 7; this app supports up to ${CURRENT_SCHEMA_VERSION}`)),
+    ).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Update' })).toBeInTheDocument();
     expect(screen.queryByText('app content')).not.toBeInTheDocument();
   });
 
   it('explains invalid data', async () => {
-    await renderWith({ schemaVersion: 1 });
+    await renderWith({ schemaVersion: CURRENT_SCHEMA_VERSION });
     expect(await screen.findByText('Punchlist could not open your data')).toBeInTheDocument();
   });
 
@@ -50,6 +53,8 @@ describe('StatusGate', () => {
       load: () => Promise.reject(new Error('disk full')),
       save: () => Promise.resolve(),
       clear: () => Promise.resolve(),
+      backup: () => Promise.resolve(),
+      loadBackup: () => Promise.resolve(null),
     };
     const store = createWorkspaceStore({
       storage,

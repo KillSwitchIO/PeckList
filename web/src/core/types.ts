@@ -99,6 +99,8 @@ export interface Task extends BaseEntity {
   assignees: ElementSet;
   blockedBy: ElementSet;
   recurrence: string | null;
+  /** Percent done, 0 to 100 in steps of 10. 0 means no progress is shown. */
+  progress: number;
 }
 
 export interface Group extends BaseEntity {

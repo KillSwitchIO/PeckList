@@ -221,6 +221,7 @@ export function createTask(
     assignees: {},
     blockedBy: {},
     recurrence: null,
+    progress: 0,
   });
   return { workspace: putEntity(workspace, 'tasks', task), task };
 }
@@ -233,6 +234,20 @@ export function updateTask(
 ): WorkspaceFile {
   const task = requireEntity(workspace, 'tasks', id);
   return putEntity(workspace, 'tasks', updateEntity(ctx, task, patch));
+}
+
+/** Progress steps: 0 (none) to 100 percent, by 10. */
+export const PROGRESS_STEPS = [0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100] as const;
+
+/** Set how far along a task is, rounded to the nearest 10 percent (0 clears it). */
+export function setTaskProgress(
+  ctx: OpContext,
+  workspace: WorkspaceFile,
+  id: Id,
+  percent: number,
+): WorkspaceFile {
+  const progress = Math.min(100, Math.max(0, Math.round(percent / 10) * 10));
+  return updateTask(ctx, workspace, id, { progress });
 }
 
 /**

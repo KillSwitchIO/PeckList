@@ -1,14 +1,27 @@
 // Schema versions and migrations. `schemaVersion` is an integer; every schema change bumps
 // it and registers a migration from N-1 to N, with fixtures in schema/fixtures/migrations.
 
-export const CURRENT_SCHEMA_VERSION = 1;
+export const CURRENT_SCHEMA_VERSION = 2;
 
 export type Migration = (document: Record<string, unknown>) => Record<string, unknown>;
 
 /** Migration registry: key N migrates a version N-1 document to version N. */
 export type MigrationRegistry = Readonly<Record<number, Migration>>;
 
-export const MIGRATIONS: MigrationRegistry = {};
+export const MIGRATIONS: MigrationRegistry = {
+  // 2: tasks gain `progress` (percent done, 0 = none).
+  2: (document) => {
+    const entities = document.entities as Record<string, unknown[]> | undefined;
+    if (!entities || !Array.isArray(entities.tasks)) return document;
+    return {
+      ...document,
+      entities: {
+        ...entities,
+        tasks: entities.tasks.map((task) => ({ ...(task as object), progress: 0 })),
+      },
+    };
+  },
+};
 
 export type VersionCheck =
   | { kind: 'open'; version: number }
