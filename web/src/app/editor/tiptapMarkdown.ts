@@ -2,7 +2,7 @@
 // the serializer here escapes only what would otherwise turn into formatting: a note typed as
 // plain text ("2 < 3 & snake_case") comes back exactly as it went in.
 
-import { Editor, type AnyExtension } from '@tiptap/core';
+import { Editor, Extension, InputRule, type AnyExtension } from '@tiptap/core';
 import { TaskItem, TaskList } from '@tiptap/extension-list';
 import { Placeholder } from '@tiptap/extensions';
 import { Markdown, type MarkdownManager } from '@tiptap/markdown';
@@ -88,6 +88,34 @@ const NotesMarkdown = Markdown.extend({
 });
 
 /**
+ * `- [ ] ` typed the markdown way: "- " starts a bullet, then "[ ] " (or "[x] ") at the start of
+ * the bullet turns that list into a checklist. (TipTap only converts "[ ] " in a plain line.)
+ */
+const BulletToChecklist = Extension.create({
+  name: 'bulletToChecklist',
+  addInputRules() {
+    return [
+      new InputRule({
+        find: /^\s*\[([ x]?)\]\s$/,
+        handler: ({ state, range, match, chain }) => {
+          const { $from } = state.selection;
+          const inBullet =
+            $from.depth >= 2 &&
+            $from.node(-1).type.name === 'listItem' &&
+            $from.node(-2).type.name === 'bulletList';
+          if (!inBullet) return null;
+          chain()
+            .deleteRange(range)
+            .toggleTaskList()
+            .updateAttributes('taskItem', { checked: match[1] === 'x' })
+            .run();
+        },
+      }),
+    ];
+  },
+});
+
+/**
  * A typed link address made usable: trimmed, and given https:// when it has no scheme
  * ("example.com/x"). Empty input gives null.
  */
@@ -108,6 +136,7 @@ export function notesExtensions(placeholder?: string): AnyExtension[] {
     }),
     TaskList,
     TaskItem.configure({ nested: true }),
+    BulletToChecklist,
     NotesMarkdown,
     ...(placeholder ? [Placeholder.configure({ placeholder })] : []),
   ];

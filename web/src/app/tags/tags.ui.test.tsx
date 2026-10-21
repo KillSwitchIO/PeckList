@@ -130,7 +130,7 @@ describe('tag picker', () => {
     await renderSeeded('/inbox');
     await userEvent.click(screen.getByRole('button', { name: 'Open Call vet' }));
     const details = await screen.findByRole('region', { name: 'Task details' });
-    await userEvent.click(within(details).getByRole('button', { name: 'Tags: Add tags' }));
+    await userEvent.click(within(details).getByRole('button', { name: 'Add tags' }));
     const picker = screen.getByRole('dialog', { name: 'Tags' });
 
     await userEvent.click(within(picker).getByRole('checkbox', { name: 'work' }));
@@ -151,14 +151,25 @@ describe('tag picker', () => {
 
     const row = screen.getByRole('button', { name: 'Open Call vet' });
     expect(within(row).getByTestId('task-tags')).toHaveTextContent('petswork');
-    expect(within(details).getByRole('button', { name: 'Tags: pets, work' })).toBeInTheDocument();
+    expect(within(details).getByRole('button', { name: 'Open tag pets' })).toBeInTheDocument();
+    expect(within(details).getByRole('button', { name: 'Open tag work' })).toBeInTheDocument();
+
+    // The x on a pill removes the tag; clicking a pill opens the tag's view.
+    await userEvent.keyboard('{Escape}');
+    // The x shows on hover, which jsdom can't apply: skip the pointer-events check.
+    await userEvent
+      .setup({ pointerEventsCheck: 0 })
+      .click(within(details).getByRole('button', { name: 'Remove tag pets' }));
+    expect(within(details).queryByRole('button', { name: 'Open tag pets' })).toBeNull();
+    await userEvent.click(within(details).getByRole('button', { name: 'Open tag work' }));
+    expect(await screen.findByRole('heading', { level: 1, name: 'work' })).toBeInTheDocument();
   });
 
   it('shows at most two chips on a row', async () => {
     await renderSeeded('/inbox');
     await userEvent.click(screen.getByRole('button', { name: 'Open Mow lawn' }));
     const details = await screen.findByRole('region', { name: 'Task details' });
-    await userEvent.click(within(details).getByRole('button', { name: /^Tags:/ }));
+    await userEvent.click(within(details).getByRole('button', { name: 'Add tags' }));
     const picker = screen.getByRole('dialog', { name: 'Tags' });
     await userEvent.click(within(picker).getByRole('checkbox', { name: 'home' }));
     await userEvent.click(within(picker).getByRole('checkbox', { name: 'work' }));

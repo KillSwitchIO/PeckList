@@ -240,3 +240,21 @@ export function TrayIcon(props: SvgIconProps) {
     </PunchIcon>
   );
 }
+
+/** Add: a plus. */
+export function PlusIcon(props: SvgIconProps) {
+  return (
+    <PunchIcon {...props}>
+      <path strokeWidth={2.25} d="M12 5v14M5 12h14" />
+    </PunchIcon>
+  );
+}
+
+/** Remove or close: an x. */
+export function CloseIcon(props: SvgIconProps) {
+  return (
+    <PunchIcon {...props}>
+      <path strokeWidth={2.25} d="M6.5 6.5l11 11M17.5 6.5l-11 11" />
+    </PunchIcon>
+  );
+}

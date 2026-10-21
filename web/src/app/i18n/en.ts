@@ -168,6 +168,8 @@ export const en = {
   'undo.tagDeleted': 'Tag deleted',
   'task.tags': 'Tags',
   'task.addTags': 'Add tags',
+  'tag.open': 'Open tag {name}',
+  'tag.remove': 'Remove tag {name}',
   'tag.new': 'New tag',
   'tag.edit': 'Edit tag',
   'tag.delete': 'Delete tag',

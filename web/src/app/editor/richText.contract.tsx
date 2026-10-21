@@ -75,6 +75,15 @@ export function describeRichTextContract(name: string, Editor: RichTextEditor) {
       expect(onCommit).toHaveBeenCalledExactlyOnceWith('- [ ] posts');
     });
 
+    it('turns "- [ ] " typed the markdown way into a checklist line', async () => {
+      const { onCommit } = setup('');
+      const editor = await field();
+      await userEvent.type(editor, '- [[x] done');
+      expect(editor.querySelector('input[type=checkbox]')).toBeChecked();
+      await userEvent.click(screen.getByRole('button', { name: 'Elsewhere' }));
+      expect(onCommit).toHaveBeenCalledExactlyOnceWith('- [x] done');
+    });
+
     it('takes outside changes', async () => {
       const { setValue } = setup('Before');
       const editor = await field();

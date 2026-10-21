@@ -282,7 +282,6 @@ export function TaskDetail({
           </Box>
           <TagsProperty task={task} />
         </Box>
-        <SubtaskEditor task={task} />
         <NotesEditor
           key={task.id}
           label={t('task.notes')}
@@ -290,6 +289,7 @@ export function TaskDetail({
           value={task.notes}
           onCommit={(notes) => apply((ctx, ws) => updateTask(ctx, ws, task.id, { notes }))}
         />
+        <SubtaskEditor task={task} />
       </Stack>
       <DetailFooter task={task} />
     </Box>

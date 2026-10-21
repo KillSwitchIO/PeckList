@@ -3,15 +3,19 @@ import CheckRounded from '@mui/icons-material/CheckRounded';
 import TagRounded from '@mui/icons-material/TagRounded';
 import {
   Box,
+  ButtonBase,
+  IconButton,
   InputBase,
   List,
   ListItemButton,
   ListItemIcon,
   ListItemText,
+  Tooltip,
   Typography,
   useTheme,
 } from '@mui/material';
 import { useState } from 'react';
+import { useNavigate } from 'react-router';
 import { members } from '../../core/ops.ts';
 import {
   createTag,
@@ -25,8 +29,9 @@ import { setTaskTag } from '../../core/tasks.ts';
 import type { Task } from '../../core/types.ts';
 import { t } from '../i18n/i18n.ts';
 import { useApply, useWorkspace } from '../store/hooks.ts';
-import { PropertyRow, PropertySheet } from '../tasks/PropertyRow.tsx';
-import { TagChips } from './TagChip.tsx';
+import { CloseIcon, PlusIcon } from '../icons/icons.tsx';
+import { PropertySheet } from '../tasks/PropertyRow.tsx';
+import { TagChip } from './TagChip.tsx';
 import { tagIconColor } from './tagColors.ts';
 
 /** Search box over the tag tree; tap to toggle, Enter to pick the match or create the tag. */
@@ -116,26 +121,95 @@ function TagPicker({ task }: { task: Task }) {
   );
 }
 
-/** "Tags" row in the task details: the task's chips, opening the picker. */
+/**
+ * "Tags" row in the task details: the task's tags as pills (click one to open that tag; hover for
+ * an x that removes it) and a round + that opens the picker.
+ */
 export function TagsProperty({ task }: { task: Task }) {
   const workspace = useWorkspace();
+  const apply = useApply();
+  const navigate = useNavigate();
   const [anchor, setAnchor] = useState<HTMLElement | null>(null);
   const tags = tagsOfTask(workspace, task);
   const label = t('task.tags');
   return (
     <>
-      <PropertyRow
-        label={label}
-        icon={<TagRounded fontSize="small" />}
-        ariaValue={tags.length ? tags.map((tag) => tag.name).join(', ') : t('task.addTags')}
-        onClick={setAnchor}
+      <Box
+        role="group"
+        aria-label={label}
+        sx={{ display: 'flex', alignItems: 'flex-start', gap: 1.5, px: 1, py: 0.75 }}
       >
-        {tags.length ? (
-          <TagChips tags={tags} />
-        ) : (
-          <Typography color="text.disabled">{t('task.addTags')}</Typography>
-        )}
-      </PropertyRow>
+        <Box sx={{ display: 'flex', color: 'text.secondary', py: '3px' }}>
+          <TagRounded fontSize="small" />
+        </Box>
+        <Typography color="text.secondary" sx={{ width: 84, flexShrink: 0, lineHeight: '26px' }}>
+          {label}
+        </Typography>
+        <Box
+          sx={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 0.75, minWidth: 0 }}
+        >
+          {tags.map((tag) => (
+            <Box
+              key={tag.id}
+              sx={{
+                position: 'relative',
+                display: 'inline-flex',
+                '& .remove': { opacity: 0, pointerEvents: 'none' },
+                '&:hover .remove, &:focus-within .remove': { opacity: 1, pointerEvents: 'auto' },
+                // No hover on touch screens: keep the x showing.
+                '@media (hover: none)': { '& .remove': { opacity: 1, pointerEvents: 'auto' } },
+              }}
+            >
+              <ButtonBase
+                aria-label={t('tag.open', { name: tag.name })}
+                onClick={() => void navigate(`/tags/${tag.id}`)}
+                sx={{ borderRadius: '10px' }}
+              >
+                <TagChip tag={tag} size="medium" />
+              </ButtonBase>
+              <IconButton
+                className="remove"
+                aria-label={t('tag.remove', { name: tag.name })}
+                onClick={() => apply((ctx, ws) => setTaskTag(ctx, ws, task.id, tag.id, false))}
+                sx={{
+                  position: 'absolute',
+                  top: -7,
+                  right: -7,
+                  p: 0,
+                  width: 16,
+                  height: 16,
+                  bgcolor: 'background.paper',
+                  border: 1,
+                  borderColor: 'divider',
+                  color: 'text.secondary',
+                  transition: 'opacity 120ms',
+                  '&:hover': { bgcolor: 'background.paper', color: 'text.primary' },
+                }}
+              >
+                <CloseIcon sx={{ fontSize: 10 }} />
+              </IconButton>
+            </Box>
+          ))}
+          <Tooltip title={t('task.addTags')}>
+            <IconButton
+              aria-label={t('task.addTags')}
+              aria-haspopup="dialog"
+              onClick={(event) => setAnchor(event.currentTarget)}
+              sx={{
+                width: 24,
+                height: 24,
+                p: 0,
+                border: 1,
+                borderColor: 'divider',
+                color: 'text.secondary',
+                '&:hover': { color: 'primary.main', borderColor: 'primary.main' },
+              }}
+            >
+              <PlusIcon sx={{ fontSize: 14 }} />
+            </IconButton>
+          </Tooltip>
+        </Box>
+      </Box>
       <PropertySheet label={label} anchor={anchor} onClose={() => setAnchor(null)}>
         {anchor && <TagPicker task={task} />}
       </PropertySheet>

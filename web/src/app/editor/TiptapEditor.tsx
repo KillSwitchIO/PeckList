@@ -157,11 +157,20 @@ export default function TiptapEditor({ value, onCommit, label, placeholder }: Ri
             display: 'flex',
             alignItems: 'flex-start',
             gap: 1,
-            '& > label': { flex: 'none', mt: '3px', display: 'flex' },
+            my: 0.25,
+            // The box is centered on the first line of text: the label is one line tall.
+            '& > label': {
+              flex: 'none',
+              display: 'flex',
+              alignItems: 'center',
+              height: `${theme.typography.body2.lineHeight}em`,
+            },
             '& > div': { flex: 1, minWidth: 0 },
+            '& > div > p': { my: 0 },
             // Drawn like the task-row checkbox: a rounded square, filled grey with a check.
             '& input': {
               appearance: 'none',
+              boxSizing: 'border-box',
               m: 0,
               width: 15,
               height: 15,
