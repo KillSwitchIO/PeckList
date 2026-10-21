@@ -2,7 +2,7 @@ import ChevronLeftRounded from '@mui/icons-material/ChevronLeftRounded';
 import ChevronRightRounded from '@mui/icons-material/ChevronRightRounded';
 import RadioButtonUncheckedRounded from '@mui/icons-material/RadioButtonUncheckedRounded';
 import { Box, ButtonBase, IconButton, Tooltip, Typography } from '@mui/material';
-import { useLayoutEffect, useRef, useState, type ReactNode } from 'react';
+import { memo, useCallback, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { addDays, addMonths, daysBetween, monthOf } from '../../core/dates.ts';
 import { t } from '../i18n/i18n.ts';
 
@@ -12,7 +12,7 @@ const ROW = 38;
 /** Weeks in view at once. */
 const VISIBLE = 6;
 /** Rows rendered around the view (the rest of the years are empty space). */
-const BUFFER = 2;
+const BUFFER = 6;
 /** A Sunday far back; the week grid counts rows from here. */
 const ORIGIN_SUNDAY = '1900-01-07';
 const LAST_DAY = '2199-12-31';
@@ -32,6 +32,97 @@ function weekdayLabels(locale: string | undefined, weekStartsOn: number): string
 }
 
 type Level = 'days' | 'months' | 'years';
+
+interface Formats {
+  monthTitle: Intl.DateTimeFormat;
+  monthShort: Intl.DateTimeFormat;
+  dayLabel: Intl.DateTimeFormat;
+}
+
+// Formatters are costly to build; make them once per locale, not on every scroll frame.
+const formatCache = new Map<string, Formats>();
+function formatsFor(locale: string | undefined): Formats {
+  const key = locale ?? '';
+  let formats = formatCache.get(key);
+  if (!formats) {
+    formats = {
+      monthTitle: new Intl.DateTimeFormat(locale, {
+        month: 'long',
+        year: 'numeric',
+        timeZone: 'UTC',
+      }),
+      monthShort: new Intl.DateTimeFormat(locale, { month: 'short', timeZone: 'UTC' }),
+      dayLabel: new Intl.DateTimeFormat(locale, { dateStyle: 'full', timeZone: 'UTC' }),
+    };
+    formatCache.set(key, formats);
+  }
+  return formats;
+}
+
+/**
+ * One week of day cells: plain buttons styled once from the grid, memoized, so scrolling only
+ * re-renders rows whose look changes.
+ */
+const WeekRow = memo(function WeekRow({
+  row,
+  firstDay,
+  shownMonth,
+  selected,
+  today,
+  focused,
+  rangeStart,
+  rangeEnd,
+  formats,
+  onPick,
+}: {
+  row: number;
+  firstDay: string;
+  shownMonth: string;
+  selected: string | null;
+  today: string;
+  focused: string;
+  rangeStart: string | null;
+  rangeEnd: string | null;
+  formats: Formats;
+  onPick: (date: string) => void;
+}) {
+  return (
+    <div role="row" className="week" style={{ transform: `translateY(${row * ROW}px)` }}>
+      {Array.from({ length: 7 }, (_, col) => {
+        const date = addDays(firstDay, col);
+        const isEnd = date === rangeStart || date === rangeEnd;
+        const isSelected = date === selected || isEnd;
+        const inside =
+          rangeStart !== null && rangeEnd !== null && date > rangeStart && date < rangeEnd;
+        return (
+          <button
+            key={date}
+            type="button"
+            role="gridcell"
+            data-date={date}
+            data-selected={isSelected || undefined}
+            data-today={date === today || undefined}
+            data-inside={inside || undefined}
+            data-muted={monthOf(date) !== shownMonth || undefined}
+            tabIndex={date === focused ? 0 : -1}
+            aria-selected={isSelected}
+            aria-current={date === today ? 'date' : undefined}
+            aria-label={formats.dayLabel.format(utc(date))}
+            onClick={() => onPick(date)}
+          >
+            {/* The 1st of each month names the month, so scrolling stays oriented. */}
+            {date.endsWith('-01') && (
+              <span className="month" aria-hidden>
+                {formats.monthShort.format(utc(date))}
+              </span>
+            )}
+            {Number(date.slice(8))}
+          </button>
+        );
+      })}
+    </div>
+  );
+});
 
 function Header({
   title,
@@ -194,13 +285,18 @@ export function MonthCalendar({
     element.scrollTop = topRow * ROW;
   }, [topRow, level]);
 
-  const monthTitle = new Intl.DateTimeFormat(locale, {
-    month: 'long',
-    year: 'numeric',
-    timeZone: 'UTC',
+  const formats = formatsFor(locale);
+  const { monthTitle, monthShort } = formats;
+  const frame = useRef<number | null>(null);
+  // Stable for the memoized rows.
+  const selectRef = useRef(onSelect);
+  useLayoutEffect(() => {
+    selectRef.current = onSelect;
   });
-  const monthShort = new Intl.DateTimeFormat(locale, { month: 'short', timeZone: 'UTC' });
-  const dayLabel = new Intl.DateTimeFormat(locale, { dateStyle: 'full', timeZone: 'UTC' });
+  const pick = useCallback((date: string) => {
+    setFocused(date);
+    selectRef.current(date);
+  }, []);
   // The month the top week reaches into: the title changes once a month's 1st is on top.
   const shownMonth = `${monthOf(dateAt(topRow, 6))}-01`;
   const title = monthTitle.format(utc(shownMonth));
@@ -337,11 +433,17 @@ export function MonthCalendar({
         role="grid"
         aria-label={title}
         onScroll={(event) => {
-          const next = Math.round(event.currentTarget.scrollTop / ROW);
-          if (next !== topRow) {
-            fromScroll.current = true;
-            setTopRow(next);
-          }
+          // At most one update per frame while scrolling.
+          const element = event.currentTarget;
+          if (frame.current !== null) return;
+          frame.current = requestAnimationFrame(() => {
+            frame.current = null;
+            const next = Math.round(element.scrollTop / ROW);
+            if (next !== topRow) {
+              fromScroll.current = true;
+              setTopRow(next);
+            }
+          });
         }}
         onKeyDown={(event) => {
           const steps: Record<string, number> = {
@@ -356,107 +458,79 @@ export function MonthCalendar({
             moveFocus(addDays(focused, step));
           }
         }}
-        sx={{
+        sx={(theme) => ({
           position: 'relative',
           height: VISIBLE * ROW,
           overflowY: 'auto',
           overscrollBehavior: 'contain',
-          scrollSnapType: 'y mandatory',
+          // Gentle snapping: settles on a week without fighting the wheel or trackpad.
+          scrollSnapType: 'y proximity',
           scrollbarWidth: 'none',
           '&::-webkit-scrollbar': { display: 'none' },
-        }}
+          '& .week': {
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            right: 0,
+            height: ROW,
+            display: 'grid',
+            gridTemplateColumns: `repeat(7, ${DAY}px)`,
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            scrollSnapAlign: 'start',
+          },
+          '& [role=gridcell]': {
+            ...theme.typography.body2,
+            width: DAY,
+            height: DAY,
+            padding: 0,
+            border: 0,
+            borderRadius: '50%',
+            background: 'transparent',
+            cursor: 'pointer',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            lineHeight: 1,
+            color: theme.palette.text.primary,
+            '&:hover': { background: theme.palette.action.hover },
+            '&:focus-visible': { outline: `2px solid ${theme.palette.primary.main}` },
+          },
+          '& [data-muted]': { color: theme.palette.text.secondary },
+          '& [data-today]': { color: theme.palette.primary.main, fontWeight: 600 },
+          '& [data-inside]': { background: theme.palette.action.selected, borderRadius: '8px' },
+          '& [data-selected], & [data-selected]:hover': {
+            background: theme.palette.primary.main,
+            color: theme.palette.primary.contrastText,
+            fontWeight: 600,
+          },
+          '& .month': {
+            fontSize: 9,
+            fontWeight: 700,
+            textTransform: 'uppercase',
+            marginBottom: '1px',
+            // Primary so month starts are quick to spot (white on the filled pick).
+            color: theme.palette.primary.main,
+          },
+          '& [data-selected] .month': { color: 'inherit' },
+        })}
       >
         <Box sx={{ position: 'relative', height: totalRows * ROW }}>
           {rows.map((row) => (
-            <Box
+            <WeekRow
               key={row}
-              role="row"
-              sx={{
-                position: 'absolute',
-                top: row * ROW,
-                left: 0,
-                right: 0,
-                height: ROW,
-                display: 'grid',
-                gridTemplateColumns: `repeat(7, ${DAY}px)`,
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                scrollSnapAlign: 'start',
-              }}
-            >
-              {Array.from({ length: 7 }, (_, col) => {
-                const date = dateAt(row, col);
-                const inShownMonth = monthOf(date) === monthOf(shownMonth);
-                const isEnd = range !== undefined && (date === range.start || date === range.end);
-                const isSelected = date === selected || isEnd;
-                const inside = range !== undefined && date > range.start && date < range.end;
-                const isToday = date === today;
-                const firstOfMonth = date.endsWith('-01');
-                return (
-                  <ButtonBase
-                    key={date}
-                    role="gridcell"
-                    data-date={date}
-                    tabIndex={date === focused ? 0 : -1}
-                    aria-selected={isSelected}
-                    aria-current={isToday ? 'date' : undefined}
-                    aria-label={dayLabel.format(utc(date))}
-                    onClick={() => {
-                      setFocused(date);
-                      onSelect(date);
-                    }}
-                    sx={{
-                      width: DAY,
-                      height: DAY,
-                      borderRadius: '50%',
-                      flexDirection: 'column',
-                      lineHeight: 1,
-                      typography: 'body2',
-                      fontWeight: isToday || isSelected ? 600 : 400,
-                      color: isSelected
-                        ? 'primary.contrastText'
-                        : isToday
-                          ? 'primary.main'
-                          : inShownMonth
-                            ? 'text.primary'
-                            : 'text.secondary',
-                      bgcolor: isSelected
-                        ? 'primary.main'
-                        : inside
-                          ? 'action.selected'
-                          : 'transparent',
-                      // Days inside a span join into a band.
-                      ...(inside ? { borderRadius: 1 } : {}),
-                      '&:hover': { bgcolor: isSelected ? 'primary.main' : 'action.hover' },
-                      '&.Mui-focusVisible': {
-                        outline: 2,
-                        outlineColor: 'primary.main',
-                        outlineStyle: 'solid',
-                      },
-                    }}
-                  >
-                    {/* The 1st of each month names the month, so scrolling stays oriented. */}
-                    {firstOfMonth && (
-                      <Box
-                        component="span"
-                        aria-hidden
-                        sx={{
-                          fontSize: 9,
-                          fontWeight: 700,
-                          textTransform: 'uppercase',
-                          mb: '1px',
-                          // Primary so month starts are quick to spot (white on the filled pick).
-                          color: isSelected ? 'inherit' : 'primary.main',
-                        }}
-                      >
-                        {monthShort.format(utc(date))}
-                      </Box>
-                    )}
-                    {Number(date.slice(8))}
-                  </ButtonBase>
-                );
-              })}
-            </Box>
+              row={row}
+              firstDay={dateAt(row, 0)}
+              shownMonth={monthOf(shownMonth)}
+              selected={selected}
+              today={today}
+              focused={focused}
+              rangeStart={range?.start ?? null}
+              rangeEnd={range?.end ?? null}
+              formats={formats}
+              onPick={pick}
+            />
           ))}
         </Box>
       </Box>

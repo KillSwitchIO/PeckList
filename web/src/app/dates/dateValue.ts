@@ -1,4 +1,4 @@
-import { joinDateTime } from '../../core/dates.ts';
+import { addDays, daysBetween, joinDateTime } from '../../core/dates.ts';
 
 /** A date with an optional `HH:mm` time. */
 export interface DatePart {
@@ -16,6 +16,28 @@ export function addHour(time: string): string {
   const [h, m] = time.split(':').map(Number) as [number, number];
   if (h >= 23) return '23:59';
   return `${String(h + 1).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+}
+
+const EPOCH = '2000-01-01';
+
+function minutesOf(part: DatePart): number {
+  const [h, m] = (part.time ?? '00:00').split(':').map(Number) as [number, number];
+  return daysBetween(EPOCH, part.date) * 1440 + h * 60 + m;
+}
+
+/**
+ * Where a span's end goes when its start moves to `nextStart`: the same length later, so moving
+ * a span (by quick pick, calendar or start time) never shortens or clears it.
+ */
+export function keepLength(start: DatePart, end: DatePart, nextStart: DatePart): DatePart {
+  const target = minutesOf(nextStart) + (minutesOf(end) - minutesOf(start));
+  const days = Math.floor(target / 1440);
+  const rest = target - days * 1440;
+  const time =
+    end.time === null && nextStart.time === null
+      ? null
+      : `${String(Math.floor(rest / 60)).padStart(2, '0')}:${String(rest % 60).padStart(2, '0')}`;
+  return { date: addDays(EPOCH, days), time };
 }
 
 /**

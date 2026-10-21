@@ -18,11 +18,18 @@ import {
   useTheme,
 } from '@mui/material';
 import { useState, type ReactNode } from 'react';
-import { addDays, daysBetween, shiftMonths } from '../../core/dates.ts';
+import { addDays, shiftMonths } from '../../core/dates.ts';
 import { formatDay, formatTime } from '../format.ts';
 import { t } from '../i18n/i18n.ts';
 import { CalendarIcon, CalendarNextIcon, SunIcon, SunriseIcon } from '../icons/icons.tsx';
-import { addHour, DEFAULT_TIME, orderedSpan, type DatePart, type DateValue } from './dateValue.ts';
+import {
+  addHour,
+  DEFAULT_TIME,
+  keepLength,
+  orderedSpan,
+  type DatePart,
+  type DateValue,
+} from './dateValue.ts';
 import { MonthCalendar } from './MonthCalendar.tsx';
 import { TimeInput } from './TimeInput.tsx';
 import { TimeWheels } from './TimeWheels.tsx';
@@ -157,14 +164,14 @@ function SpanField({
   today: string;
   onClick: () => void;
 }) {
-  const text = [formatDay(value.date, today), !allDay && value.time ? formatTime(value.time) : null]
-    .filter(Boolean)
-    .join(' ');
+  const day = formatDay(value.date, today);
+  const time = !allDay && value.time ? formatTime(value.time) : null;
+  // Date and time on their own lines so neither gets cut off.
   return (
     <ButtonBase
       onClick={onClick}
       aria-pressed={active}
-      aria-label={`${label}: ${text}`}
+      aria-label={`${label}: ${[day, time].filter(Boolean).join(' ')}`}
       sx={{
         flex: 1,
         minWidth: 0,
@@ -181,8 +188,11 @@ function SpanField({
       <Typography variant="caption" color={active ? 'primary.main' : 'text.secondary'}>
         {label}
       </Typography>
-      <Typography variant="body2" noWrap sx={{ fontWeight: 600, maxWidth: '100%' }}>
-        {text}
+      <Typography variant="body2" sx={{ fontWeight: 600, lineHeight: 1.3 }}>
+        {day}
+      </Typography>
+      <Typography variant="body2" color="text.secondary" sx={{ lineHeight: 1.3 }}>
+        {time ?? t('date.allDay')}
       </Typography>
     </ButtonBase>
   );
@@ -252,7 +262,8 @@ export function DatePickerPanel({
   ].map((pick) => ({
     ...pick,
     hint: (pick.weekday ? weekdayShort : monthDay).format(atNoon(pick.date)),
-    value: { date: pick.date, time: null } as DatePart,
+    // A quick pick changes the day only; a time (and a span) stays as it is.
+    value: { date: pick.date, time } as DatePart,
   }));
 
   const start: DatePart = { date: date ?? today, time };
@@ -279,8 +290,7 @@ export function DatePickerPanel({
     if (mode === 'date' || active === 'start') {
       setDate(day);
       if (mode === 'duration') {
-        // Keep the end at or after the new start, then move on to picking the end.
-        if (end && end.date < day) setEnd({ ...end, date: day });
+        // Start and End are set independently; move on to picking the end.
         setActive('end');
       }
     } else {
@@ -288,11 +298,10 @@ export function DatePickerPanel({
     }
   };
 
-  /** A single date from Date mode; a saved span keeps its length and moves along. */
+  /** A date from Date mode; a saved span keeps its length and times and moves along. */
   const withSpan = (next: DatePart): DateValue => {
     if (!allowRange || !end || !value) return next;
-    const moved = { date: addDays(end.date, daysBetween(value.date, next.date)), time: end.time };
-    const fixed = orderedSpan(next, moved);
+    const fixed = orderedSpan(next, keepLength(value, end, next));
     return { ...fixed.start, end: fixed.end };
   };
 
@@ -336,7 +345,7 @@ export function DatePickerPanel({
               label={pick.label}
               icon={pick.icon}
               hint={pick.hint}
-              active={date === pick.value.date && time === pick.value.time}
+              active={date === pick.value.date}
               onClick={() => onApply(withSpan(pick.value))}
             />
           ))}
@@ -406,6 +415,7 @@ export function DatePickerPanel({
             touch={touch}
             defaultTime={active === 'start' ? DEFAULT_TIME : addHour(time ?? DEFAULT_TIME)}
             onChange={(next) => {
+              // Each field keeps its own time; changing one never moves the other.
               if (active === 'start') setTime(next);
               else setEnd({ date: end?.date ?? start.date, time: next });
             }}

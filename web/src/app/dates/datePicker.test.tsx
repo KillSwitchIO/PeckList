@@ -5,7 +5,7 @@ import { mockViewport } from '../../test/renderApp.tsx';
 import { formatSpan } from '../format.ts';
 import { DatePickerPanel } from './DatePickerPanel.tsx';
 import { DateProperty } from './DateProperty.tsx';
-import { fromDateValue, toDateValue, type DateValue } from './dateValue.ts';
+import { fromDateValue, keepLength, toDateValue, type DateValue } from './dateValue.ts';
 import { MonthCalendar } from './MonthCalendar.tsx';
 
 const TODAY = '2026-10-20';
@@ -129,6 +129,12 @@ describe('DatePickerPanel', () => {
       'Oct 27',
       'Nov 20',
     ]);
+  });
+
+  it('a quick pick changes the day and keeps the time', async () => {
+    const { onApply } = setup({ date: TODAY, time: '09:00' });
+    await userEvent.click(screen.getByRole('button', { name: 'Tomorrow' }));
+    expect(onApply).toHaveBeenCalledWith({ date: '2026-10-21', time: '09:00' });
   });
 
   it('highlights the quick pick matching the current value', () => {
@@ -397,6 +403,44 @@ describe('DatePickerPanel durations', () => {
     expect(onApply).toHaveBeenCalledWith({ date: TODAY, time: null });
   });
 
+  it('a quick pick moves a timed span to the new day, keeping its times', async () => {
+    const { onApply } = setup({
+      date: TODAY,
+      time: '09:00',
+      end: { date: TODAY, time: '11:00' },
+    });
+    await userEvent.click(screen.getByRole('button', { name: 'Tomorrow' }));
+    expect(onApply).toHaveBeenCalledWith({
+      date: '2026-10-21',
+      time: '09:00',
+      end: { date: '2026-10-21', time: '11:00' },
+    });
+  });
+
+  it('setting one field never moves the other', async () => {
+    const { onApply } = setup({
+      date: TODAY,
+      time: '09:00',
+      end: { date: TODAY, time: '10:00' },
+    });
+    await userEvent.click(screen.getByRole('button', { name: 'Duration' }));
+    await userEvent.click(screen.getByRole('button', { name: /^End:/ }));
+    await userEvent.click(screen.getByRole('button', { name: /^Time/ }));
+    await userEvent.clear(screen.getByLabelText('Time'));
+    await userEvent.type(screen.getByLabelText('Time'), '1022');
+    await userEvent.click(screen.getByRole('button', { name: /^Start:/ }));
+    await userEvent.click(screen.getByRole('button', { name: /^Time/ }));
+    await userEvent.clear(screen.getByLabelText('Time'));
+    await userEvent.type(screen.getByLabelText('Time'), '0800');
+    expect(screen.getByRole('button', { name: 'End: Today 10:22 AM' })).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'OK' }));
+    expect(onApply).toHaveBeenCalledWith({
+      date: TODAY,
+      time: '08:00',
+      end: { date: TODAY, time: '10:22' },
+    });
+  });
+
   it('swaps an end picked before the start', async () => {
     const { onApply } = setup({
       date: '2026-10-25',
@@ -489,5 +533,28 @@ describe('spans', () => {
       time: '09:00',
       end: { date: '2026-10-20', time: '10:00' },
     });
+  });
+});
+
+describe('keeping a span', () => {
+  it('moves the end the same distance as the start', () => {
+    const start = { date: '2026-10-20', time: '09:00' };
+    const end = { date: '2026-10-20', time: '11:30' };
+    expect(keepLength(start, end, { date: '2026-10-21', time: '09:00' })).toEqual({
+      date: '2026-10-21',
+      time: '11:30',
+    });
+    // Past midnight, and all-day spans in days.
+    expect(keepLength(start, end, { date: '2026-10-20', time: '23:00' })).toEqual({
+      date: '2026-10-21',
+      time: '01:30',
+    });
+    expect(
+      keepLength(
+        { date: '2026-10-20', time: null },
+        { date: '2026-10-22', time: null },
+        { date: '2026-10-30', time: null },
+      ),
+    ).toEqual({ date: '2026-11-01', time: null });
   });
 });
