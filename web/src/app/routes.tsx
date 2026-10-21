@@ -3,6 +3,7 @@ import { t } from './i18n/i18n.ts';
 import { AppShell } from './layout/AppShell.tsx';
 import { Page } from './layout/Page.tsx';
 import { InboxView, ListView } from './lists/ListView.tsx';
+import { FilterView } from './filters/FilterView.tsx';
 import { TagView } from './tags/TagView.tsx';
 import { EmptyState } from './views/EmptyState.tsx';
 import { MoreView } from './views/MoreView.tsx';
@@ -37,6 +38,7 @@ export function AppRoutes() {
         <Route path="/all" element={<AllView />} />
         <Route path="/lists/:listId" element={<ListView />} />
         <Route path="/tags/:tagId" element={<TagView />} />
+        <Route path="/filters/:filterId" element={<FilterView />} />
         <Route path="/completed" element={<CompletedView />} />
         <Route path="/trash" element={<TrashView />} />
         <Route path="/more" element={<MoreView />} />

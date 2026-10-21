@@ -400,3 +400,39 @@ export function ChevronRightIcon(props: SvgIconProps) {
     </PunchIcon>
   );
 }
+
+/** A saved filter: a funnel. */
+export function FilterIcon(props: SvgIconProps) {
+  return (
+    <PunchIcon {...props}>
+      <path d="M4 5.5h16l-6.2 7.3v5.4l-3.6 1.8v-7.2z" />
+    </PunchIcon>
+  );
+}
+
+/** Edit: a pencil. */
+export function EditIcon(props: SvgIconProps) {
+  return (
+    <PunchIcon {...props}>
+      <path d="M14.5 5.5l4 4M4.5 19.5l1-4.5L16 4.5a1.4 1.4 0 0 1 2 0l1.5 1.5a1.4 1.4 0 0 1 0 2L9 18.5z" />
+    </PunchIcon>
+  );
+}
+
+/** Delete: a bin. */
+export function DeleteIcon(props: SvgIconProps) {
+  return (
+    <PunchIcon {...props}>
+      <path d="M4.5 7h15M10 7V5h4v2M6.5 7l.8 11.2A2 2 0 0 0 9.3 20h5.4a2 2 0 0 0 2-1.8L17.5 7M10 11v5M14 11v5" />
+    </PunchIcon>
+  );
+}
+
+/** More actions: three dots. */
+export function MoreIcon(props: SvgIconProps) {
+  return (
+    <PunchIcon {...props}>
+      <path strokeWidth={2.8} d="M6 12h.01M12 12h.01M18 12h.01" />
+    </PunchIcon>
+  );
+}

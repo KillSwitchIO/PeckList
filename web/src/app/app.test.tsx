@@ -67,6 +67,21 @@ describe('app shell', () => {
     expect(within(nav).queryByRole('toolbar', { name: 'Edit sidebar' })).toBeNull();
   });
 
+  it('makes a saved filter from sidebar editing and opens it', async () => {
+    mockViewport('desktop');
+    await renderApp('/today');
+    const nav = screen.getAllByRole('navigation')[0]!;
+    fireEvent.contextMenu(within(nav).getByText('All'));
+    await userEvent.click(within(nav).getByRole('button', { name: 'New filter' }));
+    const dialog = await screen.findByRole('dialog', { name: 'New filter' });
+    await userEvent.type(within(dialog).getByLabelText('Name'), 'Urgent');
+    await userEvent.click(within(dialog).getByRole('button', { name: 'High' }));
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Create filter' }));
+    expect(await screen.findByRole('heading', { level: 1, name: 'Urgent' })).toBeInTheDocument();
+    await userEvent.click(within(nav).getByRole('button', { name: 'Done' }));
+    expect(within(nav).getByText('Urgent')).toBeInTheDocument();
+  });
+
   it('cycles the theme mode and remembers it', async () => {
     mockViewport('desktop', true);
     await renderApp('/today');

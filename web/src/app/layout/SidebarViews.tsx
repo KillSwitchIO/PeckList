@@ -14,9 +14,12 @@ import {
   Tooltip,
   Typography,
 } from '@mui/material';
-import { useRef, useState, type PointerEvent } from 'react';
+import { useRef, useState, type PointerEvent, type ReactNode } from 'react';
+import { useLocation, useNavigate } from 'react-router';
+import { createSavedFilter, savedFiltersOf } from '../../core/savedFilters.ts';
 import {
   BUILT_IN_VIEWS,
+  filterViewId,
   GROUP,
   moveInOrder,
   setSidebar,
@@ -31,11 +34,21 @@ import {
   DragHandleIcon,
   EyeIcon,
   EyeOffIcon,
+  FilterIcon,
+  PlusIcon,
 } from '../icons/icons.tsx';
+import { FilterDialog } from '../filters/FilterDialog.tsx';
 import { useApply, useWorkspace } from '../store/hooks.ts';
-import { VIEW_ITEMS, type NavItem } from './navigation.tsx';
+import { VIEW_ITEMS } from './navigation.tsx';
 
 const HOLD_MS = 500;
+
+/** A view in the sidebar: built-in ones and the user's saved filters. */
+interface ViewItem {
+  path: string;
+  name: string;
+  icon: ReactNode;
+}
 const DRAG_PX = 6;
 
 const wiggle = keyframes`
@@ -61,7 +74,24 @@ export function SidebarViews({
 }) {
   const workspace = useWorkspace();
   const apply = useApply();
-  const saved = sidebarOf(workspace, BUILT_IN_VIEWS);
+  const navigate = useNavigate();
+  const { pathname } = useLocation();
+  const filters = savedFiltersOf(workspace);
+  // Built-in views, then the user's saved filters.
+  const items: Record<string, ViewItem> = {};
+  for (const [id, item] of Object.entries(VIEW_ITEMS)) {
+    items[id] = { path: item.path, name: t(item.label), icon: item.icon };
+  }
+  for (const filter of filters) {
+    items[filterViewId(filter.id)] = {
+      path: `/filters/${filter.id}`,
+      name: filter.name,
+      icon: <FilterIcon />,
+    };
+  }
+  const views = [...BUILT_IN_VIEWS, ...filters.map((filter) => filterViewId(filter.id))];
+  const saved = sidebarOf(workspace, views);
+  const [creating, setCreating] = useState(false);
   // Editing works on a copy; Done saves it.
   const [draft, setDraft] = useState<SidebarLayout | null>(null);
   const [dragging, setDragging] = useState<string | null>(null);
@@ -140,7 +170,7 @@ export function SidebarViews({
   const grouped = layout.order.slice(groupAt + 1);
   const groupOpen = editing || layout.groupOpen;
 
-  const row = (item: NavItem, id: string, index: number) => {
+  const row = (item: ViewItem, id: string, index: number) => {
     const hidden = layout.hidden.includes(id);
     if (hidden && !editing) return null;
     const inGroup = index > groupAt;
@@ -152,7 +182,7 @@ export function SidebarViews({
           if (element) rows.current.set(id, element);
           else rows.current.delete(id);
         }}
-        selected={!editing && selected === item.path}
+        selected={!editing && (selected === item.path || pathname === item.path)}
         onPointerDown={pointerDown(id)}
         onPointerMove={pointerMove}
         onPointerUp={endGesture}
@@ -194,13 +224,13 @@ export function SidebarViews({
           />
         )}
         <ListItemIcon sx={{ minWidth: 40 }}>{item.icon}</ListItemIcon>
-        <ListItemText primary={t(item.label)} />
+        <ListItemText primary={item.name} />
         {editing && (
           <Tooltip title={hidden ? t('nav.showView') : t('nav.hideView')}>
             <IconButton
               size="small"
               edge="end"
-              aria-label={t(hidden ? 'nav.showNamed' : 'nav.hideNamed', { name: t(item.label) })}
+              aria-label={t(hidden ? 'nav.showNamed' : 'nav.hideNamed', { name: item.name })}
               onPointerDown={(event) => event.stopPropagation()}
               onClick={(event) => {
                 event.stopPropagation();
@@ -288,10 +318,41 @@ export function SidebarViews({
               </ListItemButton>
             );
           }
-          const item = VIEW_ITEMS[id];
+          const item = items[id];
           return item ? row(item, id, index) : null;
         })}
+        {editing && (
+          <ListItemButton onClick={() => setCreating(true)} sx={{ color: 'text.secondary' }}>
+            <ListItemIcon sx={{ minWidth: 40, color: 'inherit' }}>
+              <PlusIcon fontSize="small" />
+            </ListItemIcon>
+            <ListItemText primary={t('filter.new')} />
+          </ListItemButton>
+        )}
       </List>
+      {creating && (
+        <FilterDialog
+          onClose={() => setCreating(false)}
+          onSave={(name, filter) => {
+            let id = '';
+            apply((ctx, ws) => {
+              const made = createSavedFilter(ctx, ws, name, filter);
+              id = made.filter.id;
+              return made.workspace;
+            }, t('undo.filterCreated'));
+            setCreating(false);
+            // The new filter joins the layout being edited, above the group.
+            setDraft((before) => {
+              if (!before) return before;
+              const at = before.order.indexOf(GROUP);
+              const order = [...before.order];
+              order.splice(at, 0, filterViewId(id));
+              return { ...before, order };
+            });
+            void navigate(`/filters/${id}`);
+          }}
+        />
+      )}
     </Box>
   );
 }
