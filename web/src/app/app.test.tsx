@@ -65,6 +65,12 @@ describe('app shell', () => {
     await userEvent.click(within(nav).getByRole('button', { name: 'Cancel' }));
     expect(within(nav).queryByText('Calendar')).toBeNull();
     expect(within(nav).queryByRole('toolbar', { name: 'Edit sidebar' })).toBeNull();
+
+    // Reset brings back the default layout (Calendar shown) once saved.
+    fireEvent.contextMenu(within(nav).getByText('Today'));
+    await userEvent.click(within(nav).getByRole('button', { name: 'Reset' }));
+    await userEvent.click(within(nav).getByRole('button', { name: 'Done' }));
+    expect(within(nav).getByText('Calendar')).toBeInTheDocument();
   });
 
   it('makes a saved filter from sidebar editing and opens it', async () => {

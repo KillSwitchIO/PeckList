@@ -32,6 +32,7 @@ export const en = {
   'filter.empty': 'Nothing matches this filter.',
   'filter.notFound': 'This filter no longer exists.',
   'nav.editSidebar': 'Edit sidebar',
+  'nav.resetSidebar': 'Reset',
   'nav.hideView': 'Hide',
   'nav.showView': 'Show',
   'nav.hideNamed': 'Hide {name}',

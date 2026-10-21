@@ -19,6 +19,8 @@ import { useLocation, useNavigate } from 'react-router';
 import { createSavedFilter, savedFiltersOf } from '../../core/savedFilters.ts';
 import {
   BUILT_IN_VIEWS,
+  defaultSidebar,
+  normalizeSidebar,
   filterViewId,
   GROUP,
   moveInOrder,
@@ -52,8 +54,8 @@ interface ViewItem {
 const DRAG_PX = 6;
 
 const wiggle = keyframes`
-  from { transform: rotate(-0.7deg); }
-  to { transform: rotate(0.7deg); }
+  from { transform: rotate(-0.3deg); }
+  to { transform: rotate(0.3deg); }
 `;
 
 interface Gesture {
@@ -268,6 +270,10 @@ export function SidebarViews({
         >
           <Button size="small" onClick={cancel}>
             {t('common.cancel')}
+          </Button>
+          {/* Back to the default order, nothing hidden; Done still saves it. */}
+          <Button size="small" onClick={() => setDraft(normalizeSidebar(defaultSidebar(), views))}>
+            {t('nav.resetSidebar')}
           </Button>
           <Box sx={{ flexGrow: 1 }} />
           <Button size="small" variant="contained" onClick={done}>

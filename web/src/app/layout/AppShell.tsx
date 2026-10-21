@@ -106,12 +106,13 @@ function Sidebar({ onNavigate }: { onNavigate: (path: string) => void }) {
         display: 'flex',
         flexDirection: 'column',
         height: '100%',
-        // Icons lift a little on hover: a light spring, nothing that pulls the eye.
+        // Icons lift a whole pixel on hover: a light spring, nothing that pulls the eye. No
+        // scaling, which blurs the strokes.
         '& .MuiListItemButton-root .MuiListItemIcon-root > *': {
           transition: 'transform 220ms cubic-bezier(0.34, 1.56, 0.64, 1)',
         },
         '& .MuiListItemButton-root:hover .MuiListItemIcon-root > *': {
-          transform: 'translateY(-1px) scale(1.12)',
+          transform: 'translateY(-2px)',
         },
         '@media (prefers-reduced-motion: reduce)': {
           '& .MuiListItemButton-root:hover .MuiListItemIcon-root > *': { transform: 'none' },

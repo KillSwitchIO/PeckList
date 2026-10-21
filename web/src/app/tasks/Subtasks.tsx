@@ -36,6 +36,10 @@ import {
 import type { Task } from '../../core/types.ts';
 import { t } from '../i18n/i18n.ts';
 import { useApply, useWorkspace } from '../store/hooks.ts';
+import { useLongPress } from '../hooks/useLongPress.ts';
+import { ProgressRing } from './ProgressRing.tsx';
+import { useRowDate } from './rowDate.ts';
+import { TaskMenu, type TaskMenuAnchor } from './TaskMenu.tsx';
 import { PriorityCheckbox } from './TaskRow.tsx';
 import { useTaskSelection } from './selection.ts';
 
@@ -208,8 +212,16 @@ function SubtaskLine({
   };
   const done = task.status !== 'open';
   const title = task.title || t('task.untitled');
+  const date = useRowDate(task);
+  const [menu, setMenu] = useState<TaskMenuAnchor | null>(null);
+  const longPress = useLongPress((position) => setMenu({ position }));
   return (
     <Box
+      onContextMenu={(event) => {
+        event.preventDefault();
+        setMenu({ position: { top: event.clientY, left: event.clientX } });
+      }}
+      {...longPress}
       sx={{
         display: 'flex',
         alignItems: 'center',
@@ -230,6 +242,25 @@ function SubtaskLine({
         inputProps={{ id: inputId(task.id), 'aria-label': t('task.subtaskTitle') }}
         sx={{ color: done ? 'text.disabled' : 'text.primary', typography: 'body1' }}
       />
+      {/* Like the list rows: the start date (or the completion day) on the right. */}
+      {(task.progress > 0 && !done) || date.text ? (
+        <Box
+          component="span"
+          data-testid="subtask-date"
+          sx={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 0.75,
+            flexShrink: 0,
+            typography: 'body2',
+            color: date.color,
+            whiteSpace: 'nowrap',
+          }}
+        >
+          {task.progress > 0 && !done && <ProgressRing value={task.progress} />}
+          {date.text}
+        </Box>
+      ) : null}
       <IconButton
         className="subtask-open"
         size="small"
@@ -239,6 +270,7 @@ function SubtaskLine({
       >
         <ChevronRightRounded fontSize="small" />
       </IconButton>
+      <TaskMenu task={task} anchor={menu} onClose={() => setMenu(null)} showOpen />
     </Box>
   );
 }

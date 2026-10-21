@@ -5,20 +5,18 @@ import SubdirectoryArrowRightRounded from '@mui/icons-material/SubdirectoryArrow
 import { Box, ButtonBase, IconButton, Typography, useMediaQuery, useTheme } from '@mui/material';
 import { useState } from 'react';
 import { getEntity } from '../../core/collections.ts';
-import { localTimeZone, todayIn } from '../../core/dates.ts';
-import { startState, subtaskProgress } from '../../core/queries.ts';
+import { subtaskProgress } from '../../core/queries.ts';
 import { tagsOfTask } from '../../core/tags.ts';
 import { toggleTaskDone } from '../../core/tasks.ts';
 import type { Priority, Task } from '../../core/types.ts';
-import { formatDay, formatWhen } from '../format.ts';
 import { useLongPress } from '../hooks/useLongPress.ts';
-import { useToday } from '../hooks/useToday.ts';
 import { t } from '../i18n/i18n.ts';
 import { listName } from '../lists/listName.ts';
 import { useApply, useWorkspace } from '../store/hooks.ts';
 import { TagChips } from '../tags/TagChip.tsx';
 import { useTaskSelection } from './selection.ts';
 import { ProgressRing } from './ProgressRing.tsx';
+import { useRowDate } from './rowDate.ts';
 import { TaskMenu, type TaskMenuAnchor } from './TaskMenu.tsx';
 
 const PRIORITY_KEY = { 0: 'none', 1: 'low', 2: 'medium', 3: 'high' } as const satisfies Record<
@@ -95,7 +93,6 @@ export function TaskRow({
   expander?: RowExpander;
 }) {
   const workspace = useWorkspace();
-  const today = useToday();
   const theme = useTheme();
   const { selectedId, open } = useTaskSelection();
   const list = getEntity(workspace, 'lists', task.listId);
@@ -109,21 +106,8 @@ export function TaskRow({
   const [menu, setMenu] = useState<TaskMenuAnchor | null>(null);
   const longPress = useLongPress((position) => setMenu({ position }));
 
-  const start = task.schedule?.start;
   // Closed tasks show when they were completed instead of when they start.
-  const completedDay =
-    done && task.completedAt ? todayIn(localTimeZone(), Date.parse(task.completedAt)) : null;
-  const dateText = completedDay
-    ? formatDay(completedDay, today)
-    : start
-      ? formatWhen(start, today)
-      : null;
-  const state = startState(task, today);
-  const dateColor = done
-    ? 'text.disabled'
-    : state === 'overdue'
-      ? theme.punchlist.dateState.late
-      : theme.punchlist.dateState.dueSoon;
+  const { text: dateText, color: dateColor, completedDay } = useRowDate(task);
 
   return (
     <Box
