@@ -15,7 +15,9 @@ import {
   ListItemText,
   Menu,
   MenuItem,
+  Slider,
   Typography,
+  Divider,
 } from '@mui/material';
 import { useState } from 'react';
 import { getEntity } from '../../core/collections.ts';
@@ -26,7 +28,7 @@ import {
   deleteTask,
   detachTask,
   nestUnder,
-  PROGRESS_STEPS,
+  setCompletedAt,
   setTaskProgress,
   setTaskStatus,
 } from '../../core/tasks.ts';
@@ -35,13 +37,10 @@ import { useToday } from '../hooks/useToday.ts';
 import { t } from '../i18n/i18n.ts';
 import { listName } from '../lists/listName.ts';
 import { useApply, useWorkspace } from '../store/hooks.ts';
-import {
-  CheckIcon,
-  ChevronLeftIcon,
-  ProgressIcon,
-  ReopenIcon,
-  WontDoIcon,
-} from '../icons/icons.tsx';
+import { localTimeZone } from '../../core/dates.ts';
+import { DatePickerPanel } from '../dates/DatePickerPanel.tsx';
+import { CalendarCheckIcon, ReopenIcon, WontDoIcon } from '../icons/icons.tsx';
+import { completionInstant } from './completion.ts';
 import { ProgressRing } from './ProgressRing.tsx';
 import { useTaskSelection } from './selection.ts';
 
@@ -159,12 +158,16 @@ export function TaskMenu({
   const apply = useApply();
   const { selectedId, open, close } = useTaskSelection();
   const [nesting, setNesting] = useState(false);
-  // The menu swaps to a list of progress steps, then back.
-  const [view, setView] = useState<'main' | 'progress'>('main');
-  const closeMenu = () => {
-    onClose();
-    setView('main');
-  };
+  const today = useToday();
+  const [completing, setCompleting] = useState(false);
+  // The slider moves the ring as it is dragged and saves when let go.
+  const [draft, setDraft] = useState(task.progress);
+  const [synced, setSynced] = useState(task.progress);
+  if (task.progress !== synced) {
+    setSynced(task.progress);
+    setDraft(task.progress);
+  }
+  const closeMenu = onClose;
   const run = (action: () => void) => () => {
     closeMenu();
     action();
@@ -175,43 +178,21 @@ export function TaskMenu({
       : { anchorEl: anchor?.element ?? null };
   return (
     <>
-      <Menu
-        open={anchor !== null && view === 'progress'}
-        onClose={closeMenu}
-        {...placement}
-        slotProps={{ paper: { sx: { minWidth: 200 } } }}
-      >
-        <MenuItem onClick={() => setView('main')} sx={{ color: 'text.secondary' }}>
-          <ListItemIcon>
-            <ChevronLeftIcon fontSize="small" />
-          </ListItemIcon>
-          {t('task.progress')}
-        </MenuItem>
-        {PROGRESS_STEPS.map((step) => (
-          <MenuItem
-            key={step}
-            selected={step === task.progress}
-            onClick={run(() => apply((ctx, ws) => setTaskProgress(ctx, ws, task.id, step)))}
-          >
-            <ListItemIcon>
-              <ProgressRing value={step} size={16} decorative />
-            </ListItemIcon>
-            <ListItemText>
-              {step === 0 ? t('task.progressNone') : t('task.progressValue', { percent: step })}
-            </ListItemText>
-            {step === task.progress && (
-              <CheckIcon fontSize="small" sx={{ ml: 2, color: 'primary.main' }} />
-            )}
-          </MenuItem>
-        ))}
-      </Menu>
-      <Menu open={anchor !== null && view === 'main'} onClose={closeMenu} {...placement}>
+      <Menu open={anchor !== null} onClose={closeMenu} {...placement}>
         {showOpen && (
           <MenuItem onClick={run(() => open(task.id))}>
             <ListItemIcon>
               <OpenInNewRounded fontSize="small" />
             </ListItemIcon>
             {t('task.openAction')}
+          </MenuItem>
+        )}
+        {task.status === 'open' && (
+          <MenuItem onClick={run(() => setCompleting(true))}>
+            <ListItemIcon>
+              <CalendarCheckIcon fontSize="small" />
+            </ListItemIcon>
+            {t('task.completeOn')}
           </MenuItem>
         )}
         {task.status === 'open' ? (
@@ -237,15 +218,39 @@ export function TaskMenu({
             {t('task.reopenAction')}
           </MenuItem>
         )}
-        <MenuItem onClick={() => setView('progress')}>
-          <ListItemIcon>
-            <ProgressIcon fontSize="small" />
-          </ListItemIcon>
-          <ListItemText>{t('task.progress')}</ListItemText>
-          <Typography variant="body2" color="text.secondary" sx={{ ml: 2 }}>
-            {task.progress ? t('task.progressValue', { percent: task.progress }) : ''}
+        <Box
+          role="group"
+          aria-label={t('task.progress')}
+          // Arrow keys move the slider, not the menu's focus (Escape still closes the menu).
+          onKeyDown={(event) => {
+            if (event.key !== 'Escape' && event.key !== 'Tab') event.stopPropagation();
+          }}
+          sx={{ display: 'flex', alignItems: 'center', gap: 1.5, px: 2, py: 0.5, minWidth: 260 }}
+        >
+          <ProgressRing value={draft} size={20} decorative />
+          <Slider
+            size="small"
+            value={draft}
+            min={0}
+            max={100}
+            step={10}
+            marks
+            aria-label={t('task.progress')}
+            getAriaValueText={(value) => t('task.progressValue', { percent: value })}
+            onChange={(_, value) => setDraft(value as number)}
+            onChangeCommitted={(_, value) => {
+              const percent = value as number;
+              if (percent !== task.progress) {
+                apply((ctx, ws) => setTaskProgress(ctx, ws, task.id, percent));
+              }
+            }}
+            sx={{ flexGrow: 1 }}
+          />
+          <Typography variant="body2" color="text.secondary" sx={{ width: 36, textAlign: 'right' }}>
+            {t('task.progressValue', { percent: draft })}
           </Typography>
-        </MenuItem>
+        </Box>
+        <Divider />
         <MenuItem onClick={run(() => setNesting(true))}>
           <ListItemIcon>
             <AccountTreeOutlined fontSize="small" />
@@ -277,6 +282,29 @@ export function TaskMenu({
         </MenuItem>
       </Menu>
       {nesting && <NestUnderDialog task={task} onClose={() => setNesting(false)} />}
+      {/* Completing on a chosen date asks for the date first. */}
+      <Dialog
+        open={completing}
+        onClose={() => setCompleting(false)}
+        slotProps={{ paper: { 'aria-label': t('task.completeOn'), sx: { borderRadius: 3 } } }}
+      >
+        {completing && (
+          <DatePickerPanel
+            value={{ date: today, time: null }}
+            today={today}
+            onApply={(value) => {
+              setCompleting(false);
+              if (!value) return;
+              apply(
+                (ctx, ws) =>
+                  setCompletedAt(ctx, ws, task.id, completionInstant(task, value, localTimeZone())),
+                t('undo.completed'),
+              );
+            }}
+            onCancel={() => setCompleting(false)}
+          />
+        )}
+      </Dialog>
     </>
   );
 }

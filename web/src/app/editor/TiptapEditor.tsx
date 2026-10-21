@@ -1,11 +1,23 @@
 // The RichTextEditor adapter for TipTap: formats as you type (`**bold**`, `- list`, `# heading`,
-// `[ ] ` checklist) and hands back plain markdown. A small toolbar floats over a selection on
-// larger screens; phones get none.
+// `[ ] ` checklist) and hands back plain markdown. While the box has focus it grows and shows a
+// formatting toolbar; "/" opens a menu of blocks for anyone who doesn't know markdown.
 
-import { Box, IconButton, InputBase, Paper, Tooltip, useMediaQuery, useTheme } from '@mui/material';
+import {
+  Box,
+  IconButton,
+  InputBase,
+  ListItemIcon,
+  ListItemText,
+  MenuItem,
+  MenuList,
+  Paper,
+  Popper,
+  Tooltip,
+  useTheme,
+} from '@mui/material';
 import type { Editor } from '@tiptap/core';
 import { EditorContent, useEditor, useEditorState } from '@tiptap/react';
-import { BubbleMenu } from '@tiptap/react/menus';
+import type { SuggestionProps } from '@tiptap/suggestion';
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import type { RichTextEditorProps } from '../../ports/richText.ts';
 import { t } from '../i18n/i18n.ts';
@@ -14,12 +26,46 @@ import {
   BulletListIcon,
   ChecklistIcon,
   CodeIcon,
+  DividerIcon,
   HeadingIcon,
   ItalicIcon,
   LinkIcon,
+  NumberedListIcon,
+  QuoteIcon,
   StrikeIcon,
 } from '../icons/icons.tsx';
+import {
+  createSlashMenuBridge,
+  slashCommandsExtension,
+  type SlashCommand,
+  type SlashCommandId,
+  type SlashMenuHandlers,
+} from './slashCommands.ts';
 import { editorMarkdown, linkHref, notesExtensions } from './tiptapMarkdown.ts';
+
+const SLASH_ICONS: Record<SlashCommandId, ReactNode> = {
+  heading1: <HeadingIcon fontSize="small" />,
+  heading2: <HeadingIcon fontSize="small" />,
+  heading3: <HeadingIcon fontSize="small" />,
+  bulletList: <BulletListIcon fontSize="small" />,
+  orderedList: <NumberedListIcon fontSize="small" />,
+  checklist: <ChecklistIcon fontSize="small" />,
+  quote: <QuoteIcon fontSize="small" />,
+  codeBlock: <CodeIcon fontSize="small" />,
+  divider: <DividerIcon fontSize="small" />,
+};
+const slashName = (id: SlashCommandId) => t(`editor.slash.${id}`);
+
+/** Height of the box at rest, and while typing (it grows to give the text room). */
+const REST_HEIGHT = 96;
+const OPEN_HEIGHT = 'min(55vh, 520px)';
+
+interface SlashMenu {
+  items: SlashCommand[];
+  index: number;
+  rect: (() => DOMRect | null) | null;
+  choose: (command: SlashCommand) => void;
+}
 
 /** A check mark as a CSS image, in the given color. */
 function checkMark(color: string): string {
@@ -29,7 +75,42 @@ function checkMark(color: string): string {
 
 export default function TiptapEditor({ value, onCommit, label, placeholder }: RichTextEditorProps) {
   const theme = useTheme();
-  const phone = useMediaQuery(theme.breakpoints.down('sm'), { noSsr: true });
+  // Focus anywhere in the box (the text, the toolbar, the link field) opens it up.
+  const [open, setOpen] = useState(false);
+  const [slash, setSlash] = useState<SlashMenu | null>(null);
+  const slashRef = useRef<SlashMenu | null>(null);
+  const [bridge] = useState(createSlashMenuBridge);
+  const menuHandlers: SlashMenuHandlers = {
+    open: (props) => setSlash(fromSuggestion(props, 0)),
+    update: (props) => setSlash(fromSuggestion(props, 0)),
+    keyDown: ({ event }) => {
+      const menu = slashRef.current;
+      if (!menu) return false;
+      if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+        const step = event.key === 'ArrowDown' ? 1 : -1;
+        const count = Math.max(menu.items.length, 1);
+        setSlash({ ...menu, index: (menu.index + step + count) % count });
+        return true;
+      }
+      if (event.key === 'Enter' || event.key === 'Tab') {
+        const command = menu.items[menu.index];
+        if (!command) return false;
+        menu.choose(command);
+        return true;
+      }
+      if (event.key === 'Escape') {
+        setSlash(null);
+        return true;
+      }
+      return false;
+    },
+    close: () => setSlash(null),
+  };
+  // The editor's "/" hook reads these on each key, so they always see the current menu.
+  useLayoutEffect(() => {
+    slashRef.current = slash;
+    bridge.set(menuHandlers);
+  });
   // The markdown the editor shows, and whether the user changed it since.
   const shown = useRef(value);
   const dirty = useRef(false);
@@ -39,7 +120,7 @@ export default function TiptapEditor({ value, onCommit, label, placeholder }: Ri
   });
 
   const editor = useEditor({
-    extensions: notesExtensions(placeholder),
+    extensions: [...notesExtensions(placeholder), slashCommandsExtension(bridge, slashName)],
     content: value,
     contentType: 'markdown',
     editorProps: {
@@ -100,16 +181,26 @@ export default function TiptapEditor({ value, onCommit, label, placeholder }: Ri
 
   return (
     <Box
+      onFocus={() => setOpen(true)}
+      onBlur={(event) => {
+        if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setOpen(false);
+      }}
       sx={{
         position: 'relative',
+        display: 'flex',
+        flexDirection: 'column',
         borderRadius: 1,
         border: 1,
         borderColor: 'divider',
         px: 1.5,
         py: 1,
-        minHeight: 96,
+        minHeight: open ? OPEN_HEIGHT : REST_HEIGHT,
         cursor: 'text',
-        transition: theme.transitions.create('border-color'),
+        transition: theme.transitions.create(['border-color', 'min-height'], {
+          duration: theme.transitions.duration.shorter,
+        }),
+        '& > .content': { flexGrow: 1, display: 'flex', flexDirection: 'column' },
+        '& > .content > div': { flexGrow: 1, display: 'flex', flexDirection: 'column' },
         '&:hover': { borderColor: 'text.secondary' },
         '&:focus-within': {
           borderColor: 'primary.main',
@@ -118,6 +209,7 @@ export default function TiptapEditor({ value, onCommit, label, placeholder }: Ri
         '& .tiptap': {
           ...theme.typography.body2,
           outline: 'none',
+          flexGrow: 1,
           minHeight: 78,
           wordBreak: 'break-word',
           // First-of-type (not first-child, which is unsafe for server rendering); margins collapse,
@@ -214,14 +306,55 @@ export default function TiptapEditor({ value, onCommit, label, placeholder }: Ri
         }
       }}
     >
-      <EditorContent editor={editor} />
-      {editor && !phone && <SelectionToolbar editor={editor} />}
+      {editor && open && <FormatToolbar editor={editor} />}
+      <EditorContent editor={editor} className="content" />
+      {slash && (
+        <Popper
+          open
+          placement="bottom-start"
+          anchorEl={{ getBoundingClientRect: () => slash.rect?.() ?? new DOMRect() }}
+          sx={{ zIndex: theme.zIndex.modal + 1 }}
+        >
+          <Paper
+            elevation={6}
+            sx={{ borderRadius: 2, maxHeight: 320, overflowY: 'auto', minWidth: 220 }}
+          >
+            <MenuList dense aria-label={t('editor.slash.menu')}>
+              {slash.items.length === 0 ? (
+                <MenuItem disabled>{t('editor.slash.none')}</MenuItem>
+              ) : (
+                slash.items.map((command, index) => (
+                  <MenuItem
+                    key={command.id}
+                    selected={index === slash.index}
+                    // Keep focus in the text.
+                    onMouseDown={(event) => event.preventDefault()}
+                    onClick={() => slash.choose(command)}
+                  >
+                    <ListItemIcon>{SLASH_ICONS[command.id]}</ListItemIcon>
+                    <ListItemText>{slashName(command.id)}</ListItemText>
+                  </MenuItem>
+                ))
+              )}
+            </MenuList>
+          </Paper>
+        </Popper>
+      )}
     </Box>
   );
 }
 
-/** The floating toolbar over a text selection. */
-function SelectionToolbar({ editor }: { editor: Editor }) {
+function fromSuggestion(props: SuggestionProps<SlashCommand>, index: number): SlashMenu {
+  return {
+    items: props.items,
+    index,
+    rect: props.clientRect ?? null,
+    choose: (command) => props.command(command),
+  };
+}
+
+/** Formatting buttons along the top of the box while it has focus. */
+function FormatToolbar({ editor }: { editor: Editor }) {
   const [linking, setLinking] = useState(false);
   const active = useEditorState({
     editor,
@@ -232,93 +365,120 @@ function SelectionToolbar({ editor }: { editor: Editor }) {
       code: editor.isActive('code'),
       heading: editor.isActive('heading'),
       bulletList: editor.isActive('bulletList'),
+      orderedList: editor.isActive('orderedList'),
       taskList: editor.isActive('taskList'),
       link: editor.isActive('link'),
+      hasSelection: !editor.state.selection.empty,
     }),
   });
 
-  const button = (key: keyof typeof active, name: string, icon: ReactNode, run: () => void) => (
+  const button = (
+    key: Exclude<keyof typeof active, 'hasSelection'>,
+    name: string,
+    icon: ReactNode,
+    run: () => void,
+    disabled = false,
+  ) => (
     <Tooltip key={key} title={name} describeChild>
-      <IconButton
-        size="small"
-        aria-label={name}
-        aria-pressed={active[key]}
-        // Keep the selection: act without taking focus from the text.
-        onMouseDown={(event) => event.preventDefault()}
-        onClick={run}
-        sx={{
-          borderRadius: 1,
-          color: active[key] ? 'primary.main' : 'text.secondary',
-          bgcolor: active[key] ? 'action.selected' : undefined,
-        }}
-      >
-        {icon}
-      </IconButton>
+      <span>
+        <IconButton
+          size="small"
+          aria-label={name}
+          aria-pressed={active[key]}
+          disabled={disabled}
+          // Keep the selection: act without taking focus from the text.
+          onMouseDown={(event) => event.preventDefault()}
+          onClick={run}
+          sx={{
+            borderRadius: 1,
+            color: active[key] ? 'primary.main' : 'text.secondary',
+            bgcolor: active[key] ? 'action.selected' : undefined,
+          }}
+        >
+          {icon}
+        </IconButton>
+      </span>
     </Tooltip>
   );
   const chain = () => editor.chain().focus();
 
   return (
-    <BubbleMenu
-      editor={editor}
-      options={{ placement: 'top', offset: 8 }}
-      shouldShow={({ editor, from, to }) =>
-        linking || (editor.isFocused && from !== to && !editor.isActive('codeBlock'))
-      }
+    <Box
+      role="toolbar"
+      aria-label={t('editor.formatting')}
+      sx={{
+        display: 'flex',
+        flexWrap: 'wrap',
+        alignItems: 'center',
+        gap: 0.25,
+        mx: -0.75,
+        mt: -0.5,
+        mb: 0.75,
+        pb: 0.5,
+        borderBottom: 1,
+        borderColor: 'divider',
+        cursor: 'default',
+      }}
     >
-      <Paper
-        elevation={4}
-        role="toolbar"
-        aria-label={t('editor.formatting')}
-        sx={{ display: 'flex', alignItems: 'center', gap: 0.25, p: 0.5, borderRadius: 2 }}
-      >
-        {linking ? (
-          <LinkField
-            onDone={(input) => {
-              setLinking(false);
-              const href = input === null ? null : linkHref(input);
-              if (!href) {
-                chain().run();
-                return;
-              }
-              // A double-click often takes the space after a word; keep it out of the link.
-              const { from, to } = trimmedSelection(editor);
-              chain().setTextSelection({ from, to }).setLink({ href }).setTextSelection(to).run();
-            }}
-          />
-        ) : (
-          <>
-            {button('bold', t('editor.bold'), <BoldIcon fontSize="small" />, () =>
-              chain().toggleBold().run(),
-            )}
-            {button('italic', t('editor.italic'), <ItalicIcon fontSize="small" />, () =>
-              chain().toggleItalic().run(),
-            )}
-            {button('strike', t('editor.strike'), <StrikeIcon fontSize="small" />, () =>
-              chain().toggleStrike().run(),
-            )}
-            {button('code', t('editor.code'), <CodeIcon fontSize="small" />, () =>
-              chain().toggleCode().run(),
-            )}
-            <Divider />
-            {button('heading', t('editor.heading'), <HeadingIcon fontSize="small" />, () =>
-              chain().toggleHeading({ level: 2 }).run(),
-            )}
-            {button('bulletList', t('editor.bulletList'), <BulletListIcon fontSize="small" />, () =>
-              chain().toggleBulletList().run(),
-            )}
-            {button('taskList', t('editor.checklist'), <ChecklistIcon fontSize="small" />, () =>
-              chain().toggleTaskList().run(),
-            )}
-            <Divider />
-            {button('link', t('editor.link'), <LinkIcon fontSize="small" />, () => {
+      {linking ? (
+        <LinkField
+          onDone={(input) => {
+            setLinking(false);
+            const href = input === null ? null : linkHref(input);
+            if (!href) {
+              chain().run();
+              return;
+            }
+            // A double-click often takes the space after a word; keep it out of the link.
+            const { from, to } = trimmedSelection(editor);
+            chain().setTextSelection({ from, to }).setLink({ href }).setTextSelection(to).run();
+          }}
+        />
+      ) : (
+        <>
+          {button('bold', t('editor.bold'), <BoldIcon fontSize="small" />, () =>
+            chain().toggleBold().run(),
+          )}
+          {button('italic', t('editor.italic'), <ItalicIcon fontSize="small" />, () =>
+            chain().toggleItalic().run(),
+          )}
+          {button('strike', t('editor.strike'), <StrikeIcon fontSize="small" />, () =>
+            chain().toggleStrike().run(),
+          )}
+          {button('code', t('editor.code'), <CodeIcon fontSize="small" />, () =>
+            chain().toggleCode().run(),
+          )}
+          <Divider />
+          {button('heading', t('editor.heading'), <HeadingIcon fontSize="small" />, () =>
+            chain().toggleHeading({ level: 2 }).run(),
+          )}
+          {button('bulletList', t('editor.bulletList'), <BulletListIcon fontSize="small" />, () =>
+            chain().toggleBulletList().run(),
+          )}
+          {button(
+            'orderedList',
+            t('editor.slash.orderedList'),
+            <NumberedListIcon fontSize="small" />,
+            () => chain().toggleOrderedList().run(),
+          )}
+          {button('taskList', t('editor.checklist'), <ChecklistIcon fontSize="small" />, () =>
+            chain().toggleTaskList().run(),
+          )}
+          <Divider />
+          {button(
+            'link',
+            t('editor.link'),
+            <LinkIcon fontSize="small" />,
+            () => {
               if (active.link) chain().extendMarkRange('link').unsetLink().run();
               else setLinking(true);
-            })}
-          </>
-        )}
-      </Paper>
-    </BubbleMenu>
+            },
+            // A new link needs selected text to go on.
+            !active.link && !active.hasSelection,
+          )}
+        </>
+      )}
+    </Box>
   );
 }
 

@@ -122,10 +122,10 @@ function TagPicker({ task }: { task: Task }) {
 }
 
 /**
- * "Tags" row in the task details: the task's tags as pills (click one to open that tag; hover for
- * an x that removes it) and a round + that opens the picker.
+ * A task's tags as pills, for the details' bottom bar: click one to open that tag, hover for an x
+ * that removes it, and a round + opens the picker. Past `max` pills, "+N" opens the picker too.
  */
-export function TagsProperty({ task }: { task: Task }) {
+export function TaskTagPills({ task, max = 2 }: { task: Task; max?: number }) {
   const workspace = useWorkspace();
   const apply = useApply();
   const navigate = useNavigate();
@@ -137,18 +137,10 @@ export function TagsProperty({ task }: { task: Task }) {
       <Box
         role="group"
         aria-label={label}
-        sx={{ display: 'flex', alignItems: 'flex-start', gap: 1.5, px: 1, py: 0.75 }}
+        sx={{ display: 'flex', alignItems: 'center', gap: 0.75, minWidth: 0 }}
       >
-        <Box sx={{ display: 'flex', color: 'text.secondary', py: '3px' }}>
-          <TagRounded fontSize="small" />
-        </Box>
-        <Typography color="text.secondary" sx={{ width: 84, flexShrink: 0, lineHeight: '26px' }}>
-          {label}
-        </Typography>
-        <Box
-          sx={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 0.75, minWidth: 0 }}
-        >
-          {tags.map((tag) => (
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, minWidth: 0 }}>
+          {tags.slice(0, max).map((tag) => (
             <Box
               key={tag.id}
               sx={{
@@ -165,7 +157,7 @@ export function TagsProperty({ task }: { task: Task }) {
                 onClick={() => void navigate(`/tags/${tag.id}`)}
                 sx={{ borderRadius: '10px' }}
               >
-                <TagChip tag={tag} size="medium" />
+                <TagChip tag={tag} />
               </ButtonBase>
               <IconButton
                 className="remove"
@@ -190,14 +182,23 @@ export function TagsProperty({ task }: { task: Task }) {
               </IconButton>
             </Box>
           ))}
+          {tags.length > max && (
+            <ButtonBase
+              aria-label={t('task.moreTags', { count: tags.length - max })}
+              onClick={(event) => setAnchor(event.currentTarget)}
+              sx={{ typography: 'caption', color: 'text.secondary', borderRadius: 1, px: 0.5 }}
+            >
+              {t('tag.more', { count: tags.length - max })}
+            </ButtonBase>
+          )}
           <Tooltip title={t('task.addTags')}>
             <IconButton
               aria-label={t('task.addTags')}
               aria-haspopup="dialog"
               onClick={(event) => setAnchor(event.currentTarget)}
               sx={{
-                width: 24,
-                height: 24,
+                width: 22,
+                height: 22,
                 p: 0,
                 border: 1,
                 borderColor: 'divider',

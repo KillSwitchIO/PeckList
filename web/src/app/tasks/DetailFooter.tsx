@@ -13,6 +13,7 @@ import {
   useTheme,
 } from '@mui/material';
 import { useState } from 'react';
+import { localDateTimeOf, localTimeZone } from '../../core/dates.ts';
 import { sectionsOf, visibleLists } from '../../core/lists.ts';
 import { moveTask, updateTask } from '../../core/tasks.ts';
 import type { List, Priority, Task } from '../../core/types.ts';
@@ -20,6 +21,7 @@ import { t } from '../i18n/i18n.ts';
 import { CheckIcon, ChevronUpIcon, FlagIcon, TrayIcon } from '../icons/icons.tsx';
 import { listName } from '../lists/listName.ts';
 import { useApply, useWorkspace } from '../store/hooks.ts';
+import { TaskTagPills } from '../tags/TaskTags.tsx';
 
 const PRIORITIES: Priority[] = [3, 2, 1, 0];
 const PRIORITY_KEY = { 0: 'none', 1: 'low', 2: 'medium', 3: 'high' } as const;
@@ -45,10 +47,36 @@ export function DetailFooter({ task }: { task: Task }) {
         flexShrink: 0,
       }}
     >
-      <ListPicker task={task} />
-      <Box sx={{ flexGrow: 1 }} />
+      {/* List and tags take the room; the created date and priority sit on the right. */}
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, minWidth: 0, flexGrow: 1 }}>
+        <ListPicker task={task} />
+        <TaskTagPills task={task} />
+      </Box>
+      <CreatedDate task={task} />
       <PriorityPicker task={task} />
     </Box>
+  );
+}
+
+/** When the task was made, short: `YYYYMMDD HH:MM` in local time. */
+function CreatedDate({ task }: { task: Task }) {
+  const local = localDateTimeOf(task.createdAt, localTimeZone());
+  const short = `${local.slice(0, 10).replaceAll('-', '')} ${local.slice(11, 16)}`;
+  return (
+    <Tooltip title={t('task.created')}>
+      <Box
+        component="span"
+        aria-label={t('task.createdOn', { date: short })}
+        sx={{
+          typography: 'caption',
+          color: 'text.disabled',
+          whiteSpace: 'nowrap',
+          fontVariantNumeric: 'tabular-nums',
+        }}
+      >
+        {short}
+      </Box>
+    </Tooltip>
   );
 }
 

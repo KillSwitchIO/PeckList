@@ -159,19 +159,34 @@ describe('task details', () => {
     expect(screen.getByText('Task deleted')).toBeInTheDocument();
   });
 
-  it('sets progress from the right-click menu; rows show a ring by the date', async () => {
+  it('sets progress with the slider in the right-click menu; rows show a ring by the date', async () => {
     await renderApp('/inbox');
     await addTasks('Paint fence');
     const row = screen.getByRole('button', { name: 'Open Paint fence' });
     fireEvent.contextMenu(row);
-    await userEvent.click(await screen.findByRole('menuitem', { name: /^Progress/ }));
-    await userEvent.click(await screen.findByRole('menuitem', { name: '40%' }));
+    const slider = await screen.findByRole('slider', { name: 'Progress' });
+    slider.focus();
+    await userEvent.keyboard('{ArrowRight}{ArrowRight}{ArrowRight}{ArrowRight}');
+    expect(slider).toHaveAttribute('aria-valuetext', '40%');
+    await userEvent.keyboard('{Escape}');
+    await waitFor(() => expect(screen.queryByRole('menu')).toBeNull());
     expect(within(row).getByRole('img', { name: '40%' })).toBeInTheDocument();
-    // None clears it.
+    // Back to 0 clears it.
     fireEvent.contextMenu(row);
-    await userEvent.click(await screen.findByRole('menuitem', { name: /^Progress/ }));
-    await userEvent.click(await screen.findByRole('menuitem', { name: 'None' }));
-    expect(within(row).queryByRole('img', { name: '40%' })).toBeNull();
+    (await screen.findByRole('slider', { name: 'Progress' })).focus();
+    await userEvent.keyboard('{Home}{Escape}');
+    await waitFor(() => expect(screen.queryByRole('menu')).toBeNull());
+    expect(within(row).queryByRole('img')).toBeNull();
+  });
+
+  it('opens the task menu from the header checkbox and shows when the task was made', async () => {
+    await renderApp('/inbox');
+    await addTasks('Mow');
+    await userEvent.click(screen.getByRole('button', { name: 'Open Mow' }));
+    const details = await screen.findByRole('region', { name: 'Task details' });
+    expect(within(details).getByLabelText(/^Created \d{8} \d{2}:\d{2}$/)).toBeInTheDocument();
+    fireEvent.contextMenu(within(details).getByRole('checkbox', { name: 'Complete Mow' }));
+    expect(await screen.findByRole('menuitem', { name: "Won't do" })).toBeInTheDocument();
   });
 
   it('explains when the opened task no longer exists', async () => {
@@ -390,7 +405,8 @@ describe('completion date', () => {
     // A start date of tomorrow, then complete: the row shows the completion day instead.
     await userEvent.click(screen.getByRole('button', { name: 'Open Mow' }));
     const details = await screen.findByRole('region', { name: 'Task details' });
-    expect(within(details).getByRole('button', { name: 'Completed: Add completed date' }));
+    // An open task has no Completed field.
+    expect(within(details).queryByRole('button', { name: /^Completed:/ })).toBeNull();
     await userEvent.click(within(details).getByRole('button', { name: /^Start date:/ }));
     await userEvent.click(
       within(await screen.findByRole('dialog', { name: 'Start date' })).getByRole('button', {
@@ -414,16 +430,18 @@ describe('completion date', () => {
     ).toHaveTextContent('Tomorrow');
   });
 
-  it('setting a completion date on an open task marks it done', async () => {
+  it('completes on a chosen date from the right-click menu', async () => {
     await renderApp('/inbox');
     await addTasks('Rake');
     await userEvent.click(screen.getByRole('button', { name: 'Open Rake' }));
     const details = await screen.findByRole('region', { name: 'Task details' });
-    await userEvent.click(within(details).getByRole('button', { name: /^Completed:/ }));
+    fireEvent.contextMenu(screen.getByRole('button', { name: 'Open Rake' }));
+    await userEvent.click(await screen.findByRole('menuitem', { name: 'Complete on date...' }));
     await userEvent.click(
-      within(await screen.findByRole('dialog', { name: 'Completed' })).getByRole('button', {
-        name: 'Tomorrow',
-      }),
+      within(await screen.findByRole('dialog', { name: 'Complete on date...' })).getByRole(
+        'button',
+        { name: 'Tomorrow' },
+      ),
     );
     // Done right away, dated as picked, with undo.
     expect(within(details).getByRole('checkbox', { name: 'Reopen Rake' })).toBeInTheDocument();

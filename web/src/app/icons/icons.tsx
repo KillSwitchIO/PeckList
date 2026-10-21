@@ -297,3 +297,59 @@ export function ChevronLeftIcon(props: SvgIconProps) {
     </PunchIcon>
   );
 }
+
+/** Complete on a date: a calendar page with a check. */
+export function CalendarCheckIcon(props: SvgIconProps) {
+  return (
+    <PunchIcon {...props}>
+      <rect x="4" y="5" width="16" height="15" rx="3" />
+      <path d="M4 9.5h16M9 14.5l2 2 4-4" />
+    </PunchIcon>
+  );
+}
+
+/** Numbered list: 1 2 3 beside three lines. */
+export function NumberedListIcon(props: SvgIconProps) {
+  return (
+    <PunchIcon {...props}>
+      <path d="M10 6.5h10M10 12h10M10 17.5h10" />
+      <g
+        fill="currentColor"
+        stroke="none"
+        fontSize={6.5}
+        fontWeight={800}
+        fontFamily="system-ui, sans-serif"
+        textAnchor="middle"
+      >
+        <text x="5" y="8.8">
+          1
+        </text>
+        <text x="5" y="14.3">
+          2
+        </text>
+        <text x="5" y="19.8">
+          3
+        </text>
+      </g>
+    </PunchIcon>
+  );
+}
+
+/** Quote: two quotation marks. */
+export function QuoteIcon(props: SvgIconProps) {
+  return (
+    <PunchIcon {...props}>
+      <path d="M5 17.5c2.4-1 3.5-3.1 3.5-6.2V7H5v4.3h3.5M14 17.5c2.4-1 3.5-3.1 3.5-6.2V7H14v4.3h3.5" />
+    </PunchIcon>
+  );
+}
+
+/** Divider: a line between two faint ones. */
+export function DividerIcon(props: SvgIconProps) {
+  return (
+    <PunchIcon {...props}>
+      <path d="M4 12h16" />
+      <path d="M7 6.5h10M7 17.5h10" strokeOpacity={0.45} />
+    </PunchIcon>
+  );
+}

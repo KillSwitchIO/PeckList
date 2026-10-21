@@ -16,15 +16,15 @@ import {
 } from '@mui/material';
 import { useState } from 'react';
 import { getEntity, isLive } from '../../core/collections.ts';
-import { instantOf, localDateTimeOf, localTimeZone } from '../../core/dates.ts';
+import { localDateTimeOf, localTimeZone } from '../../core/dates.ts';
 import { dateState } from '../../core/queries.ts';
 import { deleteTask, setCompletedAt, updateTask } from '../../core/tasks.ts';
 import { DateProperty } from '../dates/DateProperty.tsx';
 import { NotesEditor } from '../editor/NotesEditor.tsx';
-import { TagsProperty } from '../tags/TagsProperty.tsx';
 import { CollapseIcon, ExpandIcon } from '../icons/icons.tsx';
 import { useLongPress } from '../hooks/useLongPress.ts';
 import { CompleteCheckbox } from './CompleteCheckbox.tsx';
+import { completionInstant } from './completion.ts';
 import { DetailFooter } from './DetailFooter.tsx';
 import { ParentTrail, SubtaskEditor } from './Subtasks.tsx';
 import { TaskMenu, type TaskMenuAnchor } from './TaskMenu.tsx';
@@ -125,7 +125,7 @@ export function TaskDetail({
       sx={{ height: '100%', display: 'flex', flexDirection: 'column', minHeight: 0 }}
     >
       <Toolbar disableGutters sx={{ gap: 1, px: 2, flexShrink: 0 }}>
-        <CompleteCheckbox task={task} />
+        <CompleteCheckbox task={task} onMenu={(position) => setMenu({ position })} />
         <DateProperty
           label={t('task.date')}
           inline
@@ -208,61 +208,46 @@ export function TaskDetail({
           />
         </Box>
         <Box>
-          <Box
-            sx={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))' }}
-          >
-            <DateProperty
-              label={t('task.due')}
-              compact
-              icon={<FlagOutlined fontSize="small" />}
-              value={toDateValue(task.due?.at)}
-              today={today}
-              placeholder={t('date.addDue')}
-              {...(dueColor ? { valueColor: dueColor } : {})}
-              onChange={(value) =>
-                apply((ctx, ws) =>
-                  updateTask(ctx, ws, task.id, {
-                    due: value
-                      ? { at: fromDateValue(value), allDay: value.time === null, timeZone: zone }
-                      : null,
-                  }),
-                )
-              }
-            />
+          <DateProperty
+            label={t('task.due')}
+            icon={<FlagOutlined fontSize="small" />}
+            value={toDateValue(task.due?.at)}
+            today={today}
+            placeholder={t('date.addDue')}
+            {...(dueColor ? { valueColor: dueColor } : {})}
+            onChange={(value) =>
+              apply((ctx, ws) =>
+                updateTask(ctx, ws, task.id, {
+                  due: value
+                    ? { at: fromDateValue(value), allDay: value.time === null, timeZone: zone }
+                    : null,
+                }),
+              )
+            }
+          />
+          {/* Only a done or won't-do task has a completion date (open ones: the task menu). */}
+          {task.status !== 'open' && (
             <DateProperty
               label={t('task.completedDate')}
-              compact
               icon={<TaskAltRounded fontSize="small" />}
               value={task.completedAt ? toDateValue(localDateTimeOf(task.completedAt, zone)) : null}
               today={today}
               placeholder={t('date.addCompleted')}
-              onChange={(value) => {
-                // A date without a time keeps the time it had (or now's time).
-                const keep = (
-                  task.completedAt
-                    ? localDateTimeOf(task.completedAt, zone)
-                    : localDateTimeOf(new Date().toISOString(), zone)
-                ).slice(11, 16);
+              onChange={(value) =>
                 apply(
                   (ctx, ws) =>
                     setCompletedAt(
                       ctx,
                       ws,
                       task.id,
-                      value ? instantOf(value.date, value.time ?? keep, zone) : null,
+                      value ? completionInstant(task, value, zone) : null,
                     ),
-                  // Clearing the date of a closed task reopens it; setting one on an open
-                  // task completes it.
-                  !value && task.status !== 'open'
-                    ? t('undo.reopened')
-                    : value && task.status === 'open'
-                      ? t('undo.completed')
-                      : undefined,
-                );
-              }}
+                  // Clearing the date reopens the task.
+                  value ? undefined : t('undo.reopened'),
+                )
+              }
             />
-          </Box>
-          <TagsProperty task={task} />
+          )}
         </Box>
         <NotesEditor
           key={task.id}

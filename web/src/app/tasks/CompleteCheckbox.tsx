@@ -6,6 +6,7 @@ import { Box, ButtonBase, useTheme } from '@mui/material';
 import { useState } from 'react';
 import { setTaskStatus } from '../../core/tasks.ts';
 import type { Task } from '../../core/types.ts';
+import { useLongPress } from '../hooks/useLongPress.ts';
 import { t } from '../i18n/i18n.ts';
 import { useApply } from '../store/hooks.ts';
 
@@ -32,17 +33,29 @@ const burst = keyframes`
   100% { transform: rotate(var(--angle)) translateY(-17px) scale(0.3); opacity: 0; }
 `;
 
-export function CompleteCheckbox({ task }: { task: Task }) {
+export function CompleteCheckbox({
+  task,
+  onMenu,
+}: {
+  task: Task;
+  /** Right-click or long-press: open the task menu at this point. */
+  onMenu: (position: { top: number; left: number }) => void;
+}) {
   const theme = useTheme();
   const apply = useApply();
   // Animate only a completion made here, not a task that was already done.
   const [celebrating, setCelebrating] = useState(false);
+  const longPress = useLongPress(onMenu);
   const done = task.status === 'done';
   const closed = task.status !== 'open';
   const ring =
     task.priority === 0
       ? theme.palette.text.secondary
       : theme.punchlist.priority[PRIORITY_KEY[task.priority]].fill;
+  // Everything takes the priority's color: the box, the fill, the check's contrast and the
+  // burst. No priority uses the accent.
+  const tone = task.priority === 0 ? theme.palette.primary.main : ring;
+  const onTone = theme.palette.getContrastText(tone);
   const title = task.title || t('task.untitled');
 
   return (
@@ -50,6 +63,11 @@ export function CompleteCheckbox({ task }: { task: Task }) {
       role="checkbox"
       aria-checked={closed}
       aria-label={closed ? t('task.reopen', { title }) : t('task.complete', { title })}
+      onContextMenu={(event) => {
+        event.preventDefault();
+        onMenu({ top: event.clientY, left: event.clientX });
+      }}
+      {...longPress}
       onClick={() => {
         if (closed) {
           setCelebrating(false);
@@ -65,7 +83,7 @@ export function CompleteCheckbox({ task }: { task: Task }) {
         height: 36,
         borderRadius: '50%',
         flexShrink: 0,
-        '&:hover .box': { borderColor: closed ? undefined : theme.palette.primary.main },
+        '&:hover .box': { borderColor: closed ? undefined : tone },
         '@media (prefers-reduced-motion: reduce)': {
           '& *': { animation: 'none !important' },
         },
@@ -78,7 +96,7 @@ export function CompleteCheckbox({ task }: { task: Task }) {
           width: SIZE,
           height: SIZE,
           borderRadius: '6px',
-          border: `2px solid ${closed ? (done ? theme.palette.primary.main : theme.palette.text.disabled) : ring}`,
+          border: `2px solid ${closed ? (done ? tone : theme.palette.text.disabled) : ring}`,
           overflow: 'hidden',
           transition: 'border-color 150ms',
           animation: celebrating && done ? `${pop} 380ms ease-out` : 'none',
@@ -89,7 +107,7 @@ export function CompleteCheckbox({ task }: { task: Task }) {
             sx={{
               position: 'absolute',
               inset: 0,
-              bgcolor: done ? 'primary.main' : 'text.disabled',
+              bgcolor: done ? tone : 'text.disabled',
               borderRadius: '3px',
               animation: celebrating && done ? `${fill} 220ms ease-out` : 'none',
             }}
@@ -105,7 +123,7 @@ export function CompleteCheckbox({ task }: { task: Task }) {
               <path
                 d="M6 12.5l4 4L18 8"
                 fill="none"
-                stroke={theme.palette.primary.contrastText}
+                stroke={onTone}
                 strokeWidth={3}
                 strokeLinecap="round"
                 strokeLinejoin="round"
@@ -142,7 +160,7 @@ export function CompleteCheckbox({ task }: { task: Task }) {
                 ml: '-2.5px',
                 mt: '-2.5px',
                 borderRadius: '50%',
-                bgcolor: index % 2 ? 'primary.main' : ring,
+                bgcolor: tone,
                 animation: `${burst} 520ms 120ms ease-out both`,
               }}
             />
