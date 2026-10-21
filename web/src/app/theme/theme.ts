@@ -35,6 +35,10 @@ export function createAppTheme(
       h2: { fontSize: '1.25rem', fontWeight: 600 },
     },
     components: {
+      // Sentence-case labels read calmer than MUI's default all caps.
+      MuiButton: { styleOverrides: { root: { textTransform: 'none', fontWeight: 600 } } },
+      MuiToggleButton: { styleOverrides: { root: { textTransform: 'none' } } },
+      MuiTab: { styleOverrides: { root: { textTransform: 'none' } } },
       MuiAppBar: {
         defaultProps: { elevation: 0, color: 'inherit' },
         styleOverrides: {

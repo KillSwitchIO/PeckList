@@ -59,12 +59,24 @@ describe('task details', () => {
     await userEvent.clear(title);
     await userEvent.type(title, 'Mow the lawn{Enter}');
     await userEvent.click(within(details).getByRole('button', { name: 'High' }));
-    await userEvent.type(within(details).getByLabelText('Due'), '2026-10-22');
+    await userEvent.click(within(details).getByRole('button', { name: /^Due:/ }));
+    await userEvent.click(
+      within(await screen.findByRole('dialog', { name: 'Due' })).getByRole('button', {
+        name: 'Tomorrow',
+      }),
+    );
+    await userEvent.click(within(details).getByRole('button', { name: /^Date:/ }));
+    await userEvent.click(
+      within(await screen.findByRole('dialog', { name: 'Date' })).getByRole('button', {
+        name: 'Tonight',
+      }),
+    );
     await userEvent.type(within(details).getByLabelText('Notes'), 'Front and back');
     await userEvent.click(within(details).getByLabelText('Title'));
 
     const row = screen.getByRole('button', { name: 'Open Mow the lawn' });
-    expect(row).toHaveTextContent(/Due/);
+    expect(row).toHaveTextContent(/Due Tomorrow/);
+    expect(row).toHaveTextContent(/Today 6:00/);
     expect(within(details).getByRole('button', { name: 'High' })).toHaveAttribute(
       'aria-pressed',
       'true',

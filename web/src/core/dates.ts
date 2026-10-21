@@ -46,3 +46,37 @@ export function daysBetween(from: string, to: string): number {
   };
   return Math.round((toUtc(to) - toUtc(from)) / 86_400_000);
 }
+
+/** `YYYY-MM` of a date. */
+export function monthOf(date: string): string {
+  return date.slice(0, 7);
+}
+
+/** First day of the month `offset` months after the month of `date`. */
+export function addMonths(date: string, offset: number): string {
+  const [y, m] = date.split('-').map(Number) as [number, number];
+  const shifted = new Date(Date.UTC(y, m - 1 + offset, 1));
+  return shifted.toISOString().slice(0, 10);
+}
+
+/** Day of week, 0 = Sunday. */
+export function weekday(date: string): number {
+  const [y, m, d] = date.split('-').map(Number) as [number, number, number];
+  return new Date(Date.UTC(y, m - 1, d)).getUTCDay();
+}
+
+/**
+ * The 42 dates (6 weeks) shown for a month, starting on `weekStartsOn` (0 = Sunday).
+ * `month` is any date in the month.
+ */
+export function monthGrid(month: string, weekStartsOn = 0): string[] {
+  const first = `${monthOf(month)}-01`;
+  const lead = (weekday(first) - weekStartsOn + 7) % 7;
+  const start = addDays(first, -lead);
+  return Array.from({ length: 42 }, (_, index) => addDays(start, index));
+}
+
+/** Combine a date and an optional `HH:mm` time into a local date or date-time. */
+export function joinDateTime(date: string, time: string | null): LocalDateOrDateTime {
+  return time ? `${date}T${time}` : date;
+}

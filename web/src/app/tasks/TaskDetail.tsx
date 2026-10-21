@@ -1,5 +1,7 @@
+import CalendarMonthOutlined from '@mui/icons-material/CalendarMonthOutlined';
 import CloseRounded from '@mui/icons-material/CloseRounded';
 import DeleteOutlineRounded from '@mui/icons-material/DeleteOutlineRounded';
+import FlagOutlined from '@mui/icons-material/FlagOutlined';
 import FlagRounded from '@mui/icons-material/FlagRounded';
 import {
   Box,
@@ -17,14 +19,16 @@ import {
 } from '@mui/material';
 import { useState } from 'react';
 import { getEntity, isLive } from '../../core/collections.ts';
-import { datePart, localTimeZone } from '../../core/dates.ts';
+import { localTimeZone } from '../../core/dates.ts';
+import { dateState } from '../../core/queries.ts';
 import { sectionsOf, visibleLists } from '../../core/lists.ts';
 import { deleteTask, moveTask, setTaskStatus, updateTask } from '../../core/tasks.ts';
 import type { Priority, Task } from '../../core/types.ts';
+import { DateProperty } from '../dates/DateProperty.tsx';
+import { fromDateValue, toDateValue } from '../dates/dateValue.ts';
 import { useToday } from '../hooks/useToday.ts';
 import { t } from '../i18n/i18n.ts';
 import { useApply, useWorkspace } from '../store/hooks.ts';
-import { DateField } from './DateField.tsx';
 
 const PRIORITIES: Priority[] = [0, 1, 2, 3];
 const PRIORITY_KEY = { 0: 'none', 1: 'low', 2: 'medium', 3: 'high' } as const;
@@ -109,6 +113,7 @@ export function TaskDetail({ taskId, onClose }: { taskId: string; onClose: () =>
   const workspace = useWorkspace();
   const apply = useApply();
   const today = useToday();
+  const theme = useTheme();
   const task = getEntity(workspace, 'tasks', taskId);
 
   if (!task || !isLive(task)) {
@@ -127,8 +132,18 @@ export function TaskDetail({ taskId, onClose }: { taskId: string; onClose: () =>
   const lists = visibleLists(workspace);
   const sections = sectionsOf(workspace, task.listId);
   const zone = localTimeZone();
-  const scheduleDate = task.schedule ? datePart(task.schedule.start) : '';
-  const dueDate = task.due ? datePart(task.due.at) : '';
+  const state = dateState(task, today, workspace.entities.settings[0]?.dueSoonDays ?? 2);
+  const colors = theme.punchlist.dateState;
+  // Color the row that causes the state: the due date when there is one, else the schedule.
+  const dueColor = task.due
+    ? state === 'late'
+      ? colors.late
+      : state === 'dueSoon'
+        ? colors.dueSoon
+        : undefined
+    : undefined;
+  const scheduleColor =
+    state === 'slipped' ? colors.slipped : state === 'late' && !task.due ? colors.late : undefined;
 
   return (
     <Box component="section" aria-label={t('task.details')} sx={{ p: 2, pt: 0 }}>
@@ -190,34 +205,47 @@ export function TaskDetail({ taskId, onClose }: { taskId: string; onClose: () =>
           }
         />
         <PriorityPicker task={task} />
-        <Stack direction="row" spacing={2}>
-          <DateField
+        <Box>
+          <DateProperty
             label={t('task.date')}
-            value={scheduleDate}
+            icon={<CalendarMonthOutlined fontSize="small" />}
+            value={toDateValue(task.schedule?.start)}
             today={today}
+            placeholder={t('date.addDate')}
+            {...(scheduleColor ? { valueColor: scheduleColor } : {})}
             onChange={(value) =>
               apply((ctx, ws) =>
                 updateTask(ctx, ws, task.id, {
                   schedule: value
-                    ? { start: value, end: null, allDay: true, timeZone: zone }
+                    ? {
+                        start: fromDateValue(value),
+                        end: null,
+                        allDay: value.time === null,
+                        timeZone: zone,
+                      }
                     : null,
                 }),
               )
             }
           />
-          <DateField
+          <DateProperty
             label={t('task.due')}
-            value={dueDate}
+            icon={<FlagOutlined fontSize="small" />}
+            value={toDateValue(task.due?.at)}
             today={today}
+            placeholder={t('date.addDue')}
+            {...(dueColor ? { valueColor: dueColor } : {})}
             onChange={(value) =>
               apply((ctx, ws) =>
                 updateTask(ctx, ws, task.id, {
-                  due: value ? { at: value, allDay: true, timeZone: zone } : null,
+                  due: value
+                    ? { at: fromDateValue(value), allDay: value.time === null, timeZone: zone }
+                    : null,
                 }),
               )
             }
           />
-        </Stack>
+        </Box>
         <Stack direction="row" spacing={2}>
           <TextField
             select
