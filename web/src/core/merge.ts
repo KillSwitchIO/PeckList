@@ -15,9 +15,28 @@ import {
 
 const RESERVED = new Set(['id', '_hlc']);
 
-/** Deterministic tie-break when two writes carry the same HLC but different values. */
+/**
+ * JSON with object keys sorted (by UTF-16 code units), so a value serializes the same whatever
+ * order its keys arrived in. A database may reorder keys (PostgreSQL jsonb does).
+ */
+export function canonicalJson(value: unknown): string {
+  if (Array.isArray(value)) return `[${value.map(canonicalJson).join(',')}]`;
+  if (value !== null && typeof value === 'object') {
+    const record = value as Record<string, unknown>;
+    const keys = Object.keys(record)
+      .filter((key) => record[key] !== undefined)
+      .sort();
+    return `{${keys.map((key) => `${JSON.stringify(key)}:${canonicalJson(record[key])}`).join(',')}}`;
+  }
+  return JSON.stringify(value) ?? 'null';
+}
+
+/**
+ * Deterministic tie-break when two writes carry the same HLC but different values: the larger
+ * canonical JSON wins. The server compares the same way (schema/fixtures/merge/08).
+ */
 function tieBreak(a: unknown, b: unknown): unknown {
-  return JSON.stringify(a) >= JSON.stringify(b) ? a : b;
+  return canonicalJson(a) >= canonicalJson(b) ? a : b;
 }
 
 export function mergeElementSets(a: ElementSet | undefined, b: ElementSet | undefined): ElementSet {
