@@ -84,7 +84,7 @@ describe('task details', () => {
 
     const row = screen.getByRole('button', { name: 'Open Mow the lawn' });
     // Rows show only the start date or time; the due date lives in the details and calendar.
-    expect(within(row).getByTestId('task-date')).toHaveTextContent(/^Today$/);
+    expect(within(row.parentElement!).getByTestId('task-date')).toHaveTextContent(/^Today$/);
     expect(row).not.toHaveTextContent('Tomorrow');
     expect(within(details).getByRole('button', { name: 'Priority: High' })).toBeInTheDocument();
     expect(within(details).getByRole('textbox', { name: 'Notes' })).toHaveTextContent(
@@ -170,13 +170,13 @@ describe('task details', () => {
     expect(slider).toHaveAttribute('aria-valuetext', '40%');
     await userEvent.keyboard('{Escape}');
     await waitFor(() => expect(screen.queryByRole('menu')).toBeNull());
-    expect(within(row).getByRole('img', { name: '40%' })).toBeInTheDocument();
+    expect(within(row.parentElement!).getByRole('img', { name: '40%' })).toBeInTheDocument();
     // Back to 0 clears it.
     fireEvent.contextMenu(row);
     (await screen.findByRole('slider', { name: 'Progress' })).focus();
     await userEvent.keyboard('{Home}{Escape}');
     await waitFor(() => expect(screen.queryByRole('menu')).toBeNull());
-    expect(within(row).queryByRole('img')).toBeNull();
+    expect(within(row.parentElement!).queryByRole('img')).toBeNull();
   });
 
   it('opens the task menu from the header checkbox and shows when the task was made', async () => {
@@ -223,8 +223,27 @@ describe('task details', () => {
       }),
     );
     const row = screen.getByRole('button', { name: 'Open Concrete' });
-    expect(within(row).getByTestId('task-date')).toHaveTextContent('Tomorrow');
-    expect(within(row).getByRole('img', { name: 'Due Tomorrow' })).toBeInTheDocument();
+    expect(within(row.parentElement!).getByTestId('task-date')).toHaveTextContent('Tomorrow');
+    expect(
+      within(row.parentElement!).getByRole('img', { name: 'Due Tomorrow' }),
+    ).toBeInTheDocument();
+  });
+
+  it('clicking a row date edits it without opening the task', async () => {
+    await renderApp('/inbox');
+    await addTasks('Paint');
+    const row = screen.getByRole('button', { name: 'Open Paint' }).parentElement!;
+    // Undated: the date spot adds a start date.
+    await userEvent.click(within(row).getByRole('button', { name: 'Add date' }));
+    await userEvent.click(
+      within(await screen.findByRole('dialog', { name: 'Start date' })).getByRole('button', {
+        name: 'Tomorrow',
+      }),
+    );
+    // It moves to the Tomorrow group, so find the row again.
+    const moved = screen.getByRole('button', { name: 'Open Paint' }).parentElement!;
+    expect(within(moved).getByTestId('task-date')).toHaveTextContent('Tomorrow');
+    expect(screen.queryByRole('region', { name: 'Task details' })).toBeNull();
   });
 
   it('explains when the opened task no longer exists', async () => {
@@ -256,12 +275,12 @@ describe('task row', () => {
       }),
     );
     const inList = screen.getByRole('button', { name: 'Open Water plants' });
-    expect(within(inList).getByTestId('task-date')).toHaveTextContent('Today');
+    expect(within(inList.parentElement!).getByTestId('task-date')).toHaveTextContent('Today');
 
     await userEvent.click(within(screen.getAllByRole('navigation')[0]!).getByText('Today'));
     const inToday = await screen.findByRole('button', { name: 'Open Water plants' });
     // Same full date in every view, and no list name for the Mess Drawer.
-    expect(within(inToday).getByTestId('task-date')).toHaveTextContent('Today');
+    expect(within(inToday.parentElement!).getByTestId('task-date')).toHaveTextContent('Today');
     expect(within(inToday).getByTestId('task-meta')).not.toHaveTextContent('Mess Drawer');
   });
 });
@@ -456,7 +475,7 @@ describe('completion date', () => {
     );
     await userEvent.click(within(details).getByRole('checkbox', { name: 'Complete Mow' }));
     const row = screen.getByRole('button', { name: 'Open Mow' });
-    expect(within(row).getByTestId('task-date')).toHaveTextContent('Today');
+    expect(within(row.parentElement!).getByTestId('task-date')).toHaveTextContent('Today');
     expect(within(details).getByRole('button', { name: /^Completed: Today \d/ }));
 
     // Change it from the details.
@@ -467,7 +486,9 @@ describe('completion date', () => {
       }),
     );
     expect(
-      within(screen.getByRole('button', { name: 'Open Mow' })).getByTestId('task-date'),
+      within(screen.getByRole('button', { name: 'Open Mow' }).parentElement!).getByTestId(
+        'task-date',
+      ),
     ).toHaveTextContent('Tomorrow');
   });
 
@@ -488,7 +509,9 @@ describe('completion date', () => {
     expect(within(details).getByRole('checkbox', { name: 'Reopen Rake' })).toBeInTheDocument();
     expect(screen.getByText('Task completed')).toBeInTheDocument();
     expect(
-      within(screen.getByRole('button', { name: 'Open Rake' })).getByTestId('task-date'),
+      within(screen.getByRole('button', { name: 'Open Rake' }).parentElement!).getByTestId(
+        'task-date',
+      ),
     ).toHaveTextContent('Tomorrow');
   });
 });

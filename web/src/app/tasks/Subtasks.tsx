@@ -37,9 +37,7 @@ import type { Task } from '../../core/types.ts';
 import { t } from '../i18n/i18n.ts';
 import { useApply, useWorkspace } from '../store/hooks.ts';
 import { useLongPress } from '../hooks/useLongPress.ts';
-import { DueIcon } from '../icons/icons.tsx';
-import { ProgressRing } from './ProgressRing.tsx';
-import { useRowDate } from './rowDate.ts';
+import { DateButton } from './DateButton.tsx';
 import { TaskMenu, type TaskMenuAnchor } from './TaskMenu.tsx';
 import { PriorityCheckbox } from './TaskRow.tsx';
 import { useTaskSelection } from './selection.ts';
@@ -213,7 +211,6 @@ function SubtaskLine({
   };
   const done = task.status !== 'open';
   const title = task.title || t('task.untitled');
-  const date = useRowDate(task);
   const [menu, setMenu] = useState<TaskMenuAnchor | null>(null);
   const longPress = useLongPress((position) => setMenu({ position }));
   return (
@@ -244,35 +241,7 @@ function SubtaskLine({
         sx={{ color: done ? 'text.disabled' : 'text.primary', typography: 'body1' }}
       />
       {/* Like the list rows: the start date (or the completion day) on the right. */}
-      {(task.progress > 0 && !done) || date.text ? (
-        <Box
-          component="span"
-          data-testid="subtask-date"
-          sx={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: 0.75,
-            flexShrink: 0,
-            typography: 'body2',
-            color: date.color,
-            whiteSpace: 'nowrap',
-          }}
-        >
-          {task.progress > 0 && !done && <ProgressRing value={task.progress} />}
-          {date.due && !date.completedDay && (
-            <Box
-              component="span"
-              role="img"
-              aria-label={t('task.dueOn', { date: date.due })}
-              title={t('task.dueOn', { date: date.due })}
-              sx={{ display: 'inline-flex', fontSize: 15, opacity: date.showsDue ? 1 : 0.7 }}
-            >
-              <DueIcon sx={{ fontSize: 15 }} />
-            </Box>
-          )}
-          {date.text}
-        </Box>
-      ) : null}
+      <DateButton task={task} width="auto" testId="subtask-date" />
       <IconButton
         className="subtask-open"
         size="small"

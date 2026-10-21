@@ -15,9 +15,8 @@ import { listName } from '../lists/listName.ts';
 import { useApply, useWorkspace } from '../store/hooks.ts';
 import { TagChips } from '../tags/TagChip.tsx';
 import { useTaskSelection } from './selection.ts';
-import { CloseIcon, DueIcon } from '../icons/icons.tsx';
-import { ProgressRing } from './ProgressRing.tsx';
-import { useRowDate } from './rowDate.ts';
+import { CloseIcon } from '../icons/icons.tsx';
+import { DateButton } from './DateButton.tsx';
 import { TaskMenu, type TaskMenuAnchor } from './TaskMenu.tsx';
 
 const PRIORITY_KEY = { 0: 'none', 1: 'low', 2: 'medium', 3: 'high' } as const satisfies Record<
@@ -110,7 +109,6 @@ export function TaskRow({
   const longPress = useLongPress((position) => setMenu({ position }));
 
   // Closed tasks show when they were completed instead of when they start.
-  const { text: dateText, color: dateColor, completedDay, showsDue, due } = useRowDate(task);
 
   return (
     <Box
@@ -251,46 +249,9 @@ export function TaskRow({
               {listName(list)}
             </Box>
           )}
-          <Box
-            component="span"
-            data-testid="task-date"
-            {...(completedDay ? { title: t('task.completedOn', { date: dateText ?? '' }) } : {})}
-            sx={{
-              width: DATE_COLUMN,
-              flexShrink: 0,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'flex-end',
-              gap: 0.75,
-              color: dateColor,
-            }}
-          >
-            {task.progress > 0 && task.status === 'open' && <ProgressRing value={task.progress} />}
-            {due && !completedDay && (
-              <Box
-                component="span"
-                role="img"
-                aria-label={t('task.dueOn', { date: due })}
-                title={t('task.dueOn', { date: due })}
-                sx={{
-                  display: 'inline-flex',
-                  fontSize: 15,
-                  flexShrink: 0,
-                  opacity: showsDue ? 1 : 0.7,
-                }}
-              >
-                <DueIcon sx={{ fontSize: 15 }} />
-              </Box>
-            )}
-            <Box
-              component="span"
-              sx={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}
-            >
-              {dateText}
-            </Box>
-          </Box>
         </Box>
       </ButtonBase>
+      <DateButton task={task} width={DATE_COLUMN} />
       <TaskMenu task={task} anchor={menu} onClose={() => setMenu(null)} showOpen />
     </Box>
   );

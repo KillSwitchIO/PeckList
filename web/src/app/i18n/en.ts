@@ -119,6 +119,7 @@ export const en = {
   'task.due': 'Due',
   'task.markedWontDo': "Marked won't do",
   'task.dueOn': 'Due {date}',
+  'task.editDate': '{what}: {date}',
   'task.completedDate': 'Completed',
   'task.completedOn': 'Completed {date}',
   'task.complete': 'Complete {title}',
