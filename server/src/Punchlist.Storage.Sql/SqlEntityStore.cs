@@ -43,6 +43,7 @@ public sealed class SqlEntityStore(SqlDatabase database) : IEntityStore
         string ownerId,
         IReadOnlyList<IncomingEntity> incoming,
         Func<StoredEntity?, IncomingEntity, JsonObject?> resolve,
+        Func<IReadOnlyList<StoredEntity>, VisibilityPlan>? plan = null,
         CancellationToken cancellation = default)
     {
         if (incoming.Count == 0) return [];
@@ -109,35 +110,121 @@ public sealed class SqlEntityStore(SqlDatabase database) : IEntityStore
                 },
                 transaction,
                 cancellationToken: cancellation));
-            await connection.ExecuteAsync(new CommandDefinition(
-                "INSERT INTO visibility (user_id, entity_id) VALUES (@owner, @id) ON CONFLICT DO NOTHING",
-                new { owner, id = entity.Id },
-                transaction,
-                cancellationToken: cancellation));
             result.Add(new StoredEntity(entity.Collection, entity.Id, owner, seq, doc));
         }
-        await transaction.CommitAsync(cancellation);
         // Several writes to one id in a batch: report each id once, at its final state.
-        return result.GroupBy(each => each.Id).Select(group => group.Last()).OrderBy(each => each.Seq).ToList();
+        var final = result.GroupBy(each => each.Id).Select(group => group.Last()).OrderBy(each => each.Seq).ToList();
+        var access = plan?.Invoke(final)
+            ?? new VisibilityPlan(final.Select(each => (each.OwnerId, each.Id)).ToList(), []);
+        await ApplyPlanAsync(connection, transaction, access, final.Select(each => each.Id).ToHashSet(StringComparer.Ordinal), cancellation);
+        await transaction.CommitAsync(cancellation);
+        return final;
+    }
+
+    public async Task ApplyVisibilityAsync(VisibilityPlan plan, CancellationToken cancellation = default)
+    {
+        if (plan.Grants.Count == 0 && plan.Revokes.Count == 0) return;
+        await using var connection = await database.OpenAsync(cancellation);
+        await using var transaction = await database.BeginWriteAsync(connection, cancellation);
+        await ApplyPlanAsync(connection, transaction, plan, new HashSet<string>(), cancellation);
+        await transaction.CommitAsync(cancellation);
+    }
+
+    /// <summary>
+    /// Grants and revocations. One for an entity written in this same batch rides on the entity's
+    /// own seq; any other takes a seq of its own, so it lands in the feed in order. Ones that
+    /// change nothing (already visible, never visible) are skipped.
+    /// </summary>
+    private static async Task ApplyPlanAsync(
+        DbConnection connection,
+        DbTransaction transaction,
+        VisibilityPlan plan,
+        IReadOnlySet<string> written,
+        CancellationToken cancellation)
+    {
+        async Task<bool> Visible(string userId, string entityId) =>
+            await connection.ExecuteScalarAsync<long>(new CommandDefinition(
+                "SELECT COUNT(*) FROM visibility WHERE user_id = @userId AND entity_id = @entityId",
+                new { userId, entityId }, transaction, cancellationToken: cancellation)) > 0;
+
+        var revokes = new List<(string, string)>();
+        foreach (var (userId, entityId) in plan.Revokes.Distinct())
+        {
+            if (await Visible(userId, entityId)) revokes.Add((userId, entityId));
+        }
+        var grants = new List<(string UserId, string EntityId, bool Own)>();
+        foreach (var (userId, entityId) in plan.Grants.Distinct())
+        {
+            if (!await Visible(userId, entityId)) grants.Add((userId, entityId, written.Contains(entityId)));
+        }
+        var count = revokes.Count + grants.Count(grant => !grant.Own);
+        var seq = 0L;
+        if (count > 0)
+        {
+            var last = await connection.ExecuteScalarAsync<long>(new CommandDefinition(
+                "UPDATE counters SET value = value + @count WHERE name = 'seq' RETURNING value",
+                new { count }, transaction, cancellationToken: cancellation));
+            seq = last - count;
+        }
+        foreach (var (userId, entityId) in revokes)
+        {
+            seq++;
+            await connection.ExecuteAsync(new CommandDefinition(
+                "DELETE FROM visibility WHERE user_id = @userId AND entity_id = @entityId",
+                new { userId, entityId }, transaction, cancellationToken: cancellation));
+            await connection.ExecuteAsync(new CommandDefinition(
+                """
+                INSERT INTO revocations (user_id, entity_id, seq) VALUES (@userId, @entityId, @seq)
+                ON CONFLICT (user_id, entity_id) DO UPDATE SET seq = excluded.seq
+                """,
+                new { userId, entityId, seq }, transaction, cancellationToken: cancellation));
+        }
+        foreach (var (userId, entityId, own) in grants)
+        {
+            // Written in this batch: its own new seq already puts it in the feed.
+            var granted = own ? 0 : ++seq;
+            await connection.ExecuteAsync(new CommandDefinition(
+                "INSERT INTO visibility (user_id, entity_id, granted_seq) VALUES (@userId, @entityId, @granted)",
+                new { userId, entityId, granted }, transaction, cancellationToken: cancellation));
+            await connection.ExecuteAsync(new CommandDefinition(
+                "DELETE FROM revocations WHERE user_id = @userId AND entity_id = @entityId",
+                new { userId, entityId }, transaction, cancellationToken: cancellation));
+        }
     }
 
     public async Task<ChangePage> ChangesAsync(string userId, long after, int limit, CancellationToken cancellation = default)
     {
         ArgumentOutOfRangeException.ThrowIfLessThan(limit, 1);
         await using var connection = await database.OpenAsync(cancellation);
-        var rows = (await connection.QueryAsync<Row>(new CommandDefinition(
+        // Entities changed after the cursor, or granted to this user after it (feed position: the
+        // later of the two), and revocations after it; merged in seq order.
+        var position = database.Greatest("e.seq", "v.granted_seq");
+        // Plain columns (a computed one has no type in SQLite); the feed position is the later one.
+        var rows = (await connection.QueryAsync<FeedRow>(new CommandDefinition(
             $"""
-            SELECT e.collection, e.id, e.owner_id AS ownerId, e.seq, {Prefixed("e")} AS doc
+            SELECT e.collection, e.id, e.owner_id AS ownerId, e.seq, v.granted_seq AS grantedSeq, {Prefixed("e")} AS doc
             FROM entities e JOIN visibility v ON v.entity_id = e.id
-            WHERE v.user_id = @userId AND e.seq > @after
-            ORDER BY e.seq
+            WHERE v.user_id = @userId AND (e.seq > @after OR v.granted_seq > @after)
+            ORDER BY {position}
             LIMIT @take
             """,
             new { userId, after, take = limit + 1 },
-            cancellationToken: cancellation))).ToList();
-        var more = rows.Count > limit;
-        var page = rows.Take(limit).Select(row => row.ToEntity()).ToList();
-        return new ChangePage(page, page.Count > 0 ? page[^1].Seq : after, more);
+            cancellationToken: cancellation))).Select(row =>
+            {
+                var at = Math.Max(row.Seq, row.GrantedSeq);
+                return (Seq: at, Entity: (StoredEntity?)(new Row(row.Collection, row.Id, row.OwnerId, at, row.Doc).ToEntity()), Revoked: (string?)null);
+            });
+        var revoked = (await connection.QueryAsync<(string EntityId, long Seq)>(new CommandDefinition(
+            "SELECT entity_id, seq FROM revocations WHERE user_id = @userId AND seq > @after ORDER BY seq LIMIT @take",
+            new { userId, after, take = limit + 1 },
+            cancellationToken: cancellation))).Select(row => (row.Seq, Entity: (StoredEntity?)null, Revoked: (string?)row.EntityId));
+        var merged = rows.Concat(revoked).OrderBy(item => item.Seq).ToList();
+        var page = merged.Take(limit).ToList();
+        return new ChangePage(
+            page.Where(item => item.Entity is not null).Select(item => item.Entity!).ToList(),
+            page.Count > 0 ? page[^1].Seq : after,
+            merged.Count > limit,
+            page.Where(item => item.Revoked is not null).Select(item => item.Revoked!).ToList());
     }
 
     public async IAsyncEnumerable<StoredEntity> AllAsync([EnumeratorCancellation] CancellationToken cancellation = default)
@@ -157,6 +244,7 @@ public sealed class SqlEntityStore(SqlDatabase database) : IEntityStore
         await using var connection = await database.OpenAsync(cancellation);
         var rows = connection.QueryUnbufferedAsync<(string, string)>(
             "SELECT user_id, entity_id FROM visibility ORDER BY user_id, entity_id");
+        // (Revocations are not exported: a restored server re-derives access and devices resync.)
         await foreach (var row in rows.WithCancellation(cancellation))
         {
             yield return row;
@@ -225,6 +313,8 @@ public sealed class SqlEntityStore(SqlDatabase database) : IEntityStore
         }
         return latest;
     }
+
+    private sealed record FeedRow(string Collection, string Id, string OwnerId, long Seq, long GrantedSeq, string Doc);
 
     private sealed record Row(string Collection, string Id, string OwnerId, long Seq, string Doc)
     {

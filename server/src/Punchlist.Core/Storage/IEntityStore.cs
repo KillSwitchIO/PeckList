@@ -13,10 +13,25 @@ public sealed record IncomingEntity(string Collection, JsonObject Doc)
     public string Id => (string?)Doc["id"] ?? throw new ArgumentException("entity without an id");
 }
 
-/// <summary>A page of the change feed: what changed after a cursor, oldest first.</summary>
-/// <param name="Cursor">Pass this back to get the next page (the last entity's seq, or the input cursor).</param>
+/// <summary>
+/// A page of the change feed: what changed after a cursor, oldest first. An entity the user just
+/// gained access to comes again (its <c>Seq</c> is then when access was granted); ids they lost
+/// access to come as <see cref="Revoked"/>.
+/// </summary>
+/// <param name="Cursor">Pass this back to get the next page (the last item's seq, or the input cursor).</param>
 /// <param name="More">Whether more changes wait after this page.</param>
-public sealed record ChangePage(IReadOnlyList<StoredEntity> Entities, long Cursor, bool More);
+public sealed record ChangePage(IReadOnlyList<StoredEntity> Entities, long Cursor, bool More, IReadOnlyList<string> Revoked)
+{
+    public ChangePage(IReadOnlyList<StoredEntity> entities, long cursor, bool more) : this(entities, cursor, more, []) { }
+}
+
+/// <summary>Who gains and who loses sight of which entities, applied with a write.</summary>
+public sealed record VisibilityPlan(
+    IReadOnlyList<(string UserId, string EntityId)> Grants,
+    IReadOnlyList<(string UserId, string EntityId)> Revokes)
+{
+    public static readonly VisibilityPlan None = new([], []);
+}
 
 /// <summary>
 /// Server storage (ADR-0004): each row holds one entity's JSON; a visibility index says who may
@@ -34,14 +49,20 @@ public interface IEntityStore
     /// Write entities for <paramref name="ownerId"/> in one transaction. For each, <paramref name="resolve"/>
     /// gets what is stored (null when new) and what arrived, and returns the JSON to store, or null to
     /// leave it as it is. Each stored entity gets the next seq, in input order. A new entity is owned by
-    /// and visible to <paramref name="ownerId"/>; an existing one keeps its owner.
+    /// <paramref name="ownerId"/>; an existing one keeps its owner. <paramref name="plan"/> then says who
+    /// gains or loses sight of what (each grant and revocation takes a seq too); without one, a new
+    /// entity becomes visible to its owner.
     /// </summary>
     /// <returns>The entities written (with their new seq).</returns>
     Task<IReadOnlyList<StoredEntity>> WriteAsync(
         string ownerId,
         IReadOnlyList<IncomingEntity> incoming,
         Func<StoredEntity?, IncomingEntity, JsonObject?> resolve,
+        Func<IReadOnlyList<StoredEntity>, VisibilityPlan>? plan = null,
         CancellationToken cancellation = default);
+
+    /// <summary>Apply access changes on their own (reconciling at startup).</summary>
+    Task ApplyVisibilityAsync(VisibilityPlan plan, CancellationToken cancellation = default);
 
     /// <summary>Entities <paramref name="userId"/> may see, changed after <paramref name="after"/>, oldest first.</summary>
     Task<ChangePage> ChangesAsync(string userId, long after, int limit, CancellationToken cancellation = default);

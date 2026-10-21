@@ -51,7 +51,7 @@ public sealed partial class SyncService(IEntityStore store, TimeProvider time, I
 
         if (incoming.Count > 0)
         {
-            var written = await store.WriteAsync(userId, incoming, (stored, arrived) => Resolve(userId, stored, arrived), cancellation);
+            var written = await store.WriteAsync(userId, incoming, (stored, arrived) => Resolve(userId, stored, arrived), cancellation: cancellation);
             // Only the owner sees an entity until sharing (0.5); then everyone in its visibility.
             if (written.Count > 0) notifier.Notify(userId, new ChangeEvent(written[^1].Seq, source));
         }

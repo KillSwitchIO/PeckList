@@ -24,6 +24,9 @@ public abstract class SqlDatabase : IDatabase
     /// <summary>The condition matching <c>id</c> against the list parameter <c>@ids</c>.</summary>
     public virtual string IdInList => "id IN @ids";
 
+    /// <summary>The larger of two values.</summary>
+    public virtual string Greatest(string a, string b) => $"MAX({a}, {b})";
+
     /// <summary>Runs the dialect's embedded migrations (its own assembly's <c>Migrations/*.sql</c>).</summary>
     public async Task MigrateAsync(CancellationToken cancellation = default)
     {
@@ -44,7 +47,7 @@ public abstract class SqlDatabase : IDatabase
     {
         await using var connection = await OpenAsync(cancellation);
         await using var transaction = await BeginWriteAsync(connection, cancellation);
-        foreach (var table in new[] { "visibility", "entities", "accounts", "server_secrets" })
+        foreach (var table in new[] { "visibility", "revocations", "entities", "accounts", "server_secrets" })
         {
             await connection.ExecuteAsync(new CommandDefinition($"DELETE FROM {table}", transaction: transaction, cancellationToken: cancellation));
         }

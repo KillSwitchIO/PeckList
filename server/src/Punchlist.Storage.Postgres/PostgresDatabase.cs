@@ -37,6 +37,8 @@ public sealed class PostgresDatabase(string connectionString) : SqlDatabase, IAs
     // Npgsql sends a list as one array parameter.
     public override string IdInList => "id = ANY(@ids)";
 
+    public override string Greatest(string a, string b) => $"GREATEST({a}, {b})";
+
     public override async Task<DbConnection> OpenAsync(CancellationToken cancellation) =>
         await dataSource.OpenConnectionAsync(cancellation);
 

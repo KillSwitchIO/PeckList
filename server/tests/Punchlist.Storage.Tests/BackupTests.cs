@@ -49,9 +49,9 @@ public sealed class BackupTests(SqliteFiles files, PostgresServer postgres) : IC
             ["_hlc"] = new JsonObject { ["title"] = "2026-10-21T10:00:00.000Z-0000-dev1" },
         });
         JsonObject Take(StoredEntity? _, IncomingEntity incoming) => (JsonObject)incoming.Doc.DeepClone();
-        await store.WriteAsync("01JBACCT000000000000000001", [Task("T1", "Mow"), Task("T2", "Rake")], Take, Token);
-        await store.WriteAsync("01JBACCT000000000000000002", [Task("T3", "Paint")], Take, Token);
-        await store.WriteAsync("01JBACCT000000000000000001", [Task("T1", "Mow again"), Task("T2", "Rake", "2026-10-21T11:00:00.000Z")], Take, Token);
+        await store.WriteAsync("01JBACCT000000000000000001", [Task("T1", "Mow"), Task("T2", "Rake")], Take, cancellation: Token);
+        await store.WriteAsync("01JBACCT000000000000000002", [Task("T3", "Paint")], Take, cancellation: Token);
+        await store.WriteAsync("01JBACCT000000000000000001", [Task("T1", "Mow again"), Task("T2", "Rake", "2026-10-21T11:00:00.000Z")], Take, cancellation: Token);
         await new SqlSecretStore(database).PutAsync("dataprotection", "key-1", "<key/>", Token);
     }
 
@@ -80,7 +80,7 @@ public sealed class BackupTests(SqliteFiles files, PostgresServer postgres) : IC
         // It keeps working: the next write continues after the restored cursor.
         var written = await new SqlEntityStore(target).WriteAsync("01JBACCT000000000000000002",
             [new IncomingEntity("tasks", new JsonObject { ["id"] = "T4", ["_hlc"] = new JsonObject() })],
-            (_, incoming) => incoming.Doc, Token);
+            (_, incoming) => incoming.Doc, cancellation: Token);
         Assert.Equal(6, written.Single().Seq);
         var samSees = await new SqlEntityStore(target).ChangesAsync("01JBACCT000000000000000002", 0, 10, Token);
         Assert.Equal(["T3", "T4"], samSees.Entities.Select(each => each.Id));
