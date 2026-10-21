@@ -2,6 +2,7 @@ using System.Reflection;
 using Microsoft.AspNetCore.HttpOverrides;
 using Punchlist.Core;
 using Punchlist.Core.Configuration;
+using Punchlist.Core.Sync;
 using Punchlist.Server.Auth;
 
 namespace Punchlist.Server;
@@ -30,6 +31,7 @@ public static class ServerApp
         builder.Services.AddEntityStore(settings);
         // After the store: its startup (migrations) runs before the admin is made.
         builder.Services.AddPunchlistAuth(settings);
+        builder.Services.AddSingleton<SyncService>();
         builder.Services.Configure<ForwardedHeadersOptions>(options =>
         {
             options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
@@ -52,6 +54,7 @@ public static class ServerApp
         app.MapHealthChecks("/healthz");
         app.MapGet("/api/info", () => new ServerInfo("punchlist", Version, WorkspaceSchema.CurrentVersion));
         app.MapAuth();
+        app.MapGroup("/api").RequireAuthorization().RequirePasswordChanged().MapSync();
 
         var webRoot = settings.WebRoot ?? Path.Combine(AppContext.BaseDirectory, "wwwroot");
         app.UseStaticSite(webRoot, app.Logger);

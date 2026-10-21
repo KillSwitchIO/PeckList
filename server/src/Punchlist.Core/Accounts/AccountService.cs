@@ -129,6 +129,21 @@ public sealed class AccountService(IAccountStore store, IPasswordHasher hasher, 
         return admin;
     }
 
+    /// <summary>A new account that logs in with <paramref name=password/> (admin UI, tests).</summary>
+    /// <exception cref="DuplicateUsernameException">The username is taken.</exception>
+    public async Task<Account> CreateUserAsync(
+        string username, string password, Role role = Role.User, bool mustChangePassword = true, CancellationToken cancellation = default)
+    {
+        if (password.Length < MinPasswordLength) throw new ArgumentException($"passwords need at least {MinPasswordLength} characters");
+        var account = NewAccount(username.Trim(), role) with
+        {
+            PasswordHash = hasher.Hash(password),
+            MustChangePassword = mustChangePassword,
+        };
+        await store.CreateAsync(account, cancellation);
+        return account with { Username = account.Username.ToLowerInvariant() };
+    }
+
     /// <summary>Give an account a new generated password it must change on login (CLI: admin reset-password).</summary>
     public async Task<string> ResetPasswordAsync(string username, CancellationToken cancellation = default)
     {
