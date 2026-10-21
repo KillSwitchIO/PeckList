@@ -4,6 +4,7 @@ import DeleteOutlineRounded from '@mui/icons-material/DeleteOutlineRounded';
 import FlagOutlined from '@mui/icons-material/FlagOutlined';
 import FlagRounded from '@mui/icons-material/FlagRounded';
 import MoreHorizRounded from '@mui/icons-material/MoreHorizRounded';
+import TaskAltRounded from '@mui/icons-material/TaskAltRounded';
 import {
   Box,
   Button,
@@ -20,10 +21,16 @@ import {
 } from '@mui/material';
 import { useState } from 'react';
 import { getEntity, isLive } from '../../core/collections.ts';
-import { localTimeZone } from '../../core/dates.ts';
+import { instantOf, localDateTimeOf, localTimeZone } from '../../core/dates.ts';
 import { dateState } from '../../core/queries.ts';
 import { sectionsOf, visibleLists } from '../../core/lists.ts';
-import { deleteTask, moveTask, setTaskStatus, updateTask } from '../../core/tasks.ts';
+import {
+  deleteTask,
+  moveTask,
+  setCompletedAt,
+  setTaskStatus,
+  updateTask,
+} from '../../core/tasks.ts';
 import type { Priority, Task } from '../../core/types.ts';
 import { DateProperty } from '../dates/DateProperty.tsx';
 import { listName } from '../lists/listName.ts';
@@ -260,6 +267,29 @@ export function TaskDetail({ taskId, onClose }: { taskId: string; onClose: () =>
                 }),
               )
             }
+          />
+          <DateProperty
+            label={t('task.completedDate')}
+            icon={<TaskAltRounded fontSize="small" />}
+            value={task.completedAt ? toDateValue(localDateTimeOf(task.completedAt, zone)) : null}
+            today={today}
+            placeholder={t('date.addCompleted')}
+            onChange={(value) => {
+              // A date without a time keeps the time it had (or now's time).
+              const keep = (
+                task.completedAt
+                  ? localDateTimeOf(task.completedAt, zone)
+                  : localDateTimeOf(new Date().toISOString(), zone)
+              ).slice(11, 16);
+              apply((ctx, ws) =>
+                setCompletedAt(
+                  ctx,
+                  ws,
+                  task.id,
+                  value ? instantOf(value.date, value.time ?? keep, zone) : null,
+                ),
+              );
+            }}
           />
           <TagsProperty task={task} />
         </Box>

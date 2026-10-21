@@ -316,3 +316,52 @@ describe('phone', () => {
     expect(await screen.findByRole('heading', { level: 1, name: 'Trash' })).toBeInTheDocument();
   });
 });
+
+describe('completion date', () => {
+  it('rows show when a task was completed; details let you change or clear it', async () => {
+    await renderApp('/inbox');
+    await addTasks('Mow', 'Rake');
+    // A start date of tomorrow, then complete: the row shows the completion day instead.
+    await userEvent.click(screen.getByRole('button', { name: 'Open Mow' }));
+    const details = await screen.findByRole('region', { name: 'Task details' });
+    expect(within(details).getByRole('button', { name: 'Completed: Add completed date' }));
+    await userEvent.click(within(details).getByRole('button', { name: /^Date:/ }));
+    await userEvent.click(
+      within(await screen.findByRole('dialog', { name: 'Date' })).getByRole('button', {
+        name: 'Tomorrow',
+      }),
+    );
+    await userEvent.click(screen.getByRole('checkbox', { name: 'Complete Mow' }));
+    const row = screen.getByRole('button', { name: 'Open Mow' });
+    expect(within(row).getByTestId('task-date')).toHaveTextContent('Today');
+    expect(within(details).getByRole('button', { name: /^Completed: Today \d/ }));
+
+    // Change it from the details.
+    await userEvent.click(within(details).getByRole('button', { name: /^Completed:/ }));
+    await userEvent.click(
+      within(await screen.findByRole('dialog', { name: 'Completed' })).getByRole('button', {
+        name: 'Tomorrow',
+      }),
+    );
+    expect(
+      within(screen.getByRole('button', { name: 'Open Mow' })).getByTestId('task-date'),
+    ).toHaveTextContent('Tomorrow');
+  });
+
+  it('keeps a completion date set ahead of time', async () => {
+    await renderApp('/inbox');
+    await addTasks('Rake');
+    await userEvent.click(screen.getByRole('button', { name: 'Open Rake' }));
+    const details = await screen.findByRole('region', { name: 'Task details' });
+    await userEvent.click(within(details).getByRole('button', { name: /^Completed:/ }));
+    await userEvent.click(
+      within(await screen.findByRole('dialog', { name: 'Completed' })).getByRole('button', {
+        name: 'Tomorrow',
+      }),
+    );
+    await userEvent.click(within(details).getByRole('button', { name: 'Complete' }));
+    expect(
+      within(screen.getByRole('button', { name: 'Open Rake' })).getByTestId('task-date'),
+    ).toHaveTextContent('Tomorrow');
+  });
+});

@@ -17,6 +17,41 @@ export function todayIn(timeZone: string, now: number): string {
   return `${get('year')}-${get('month')}-${get('day')}`;
 }
 
+/** An instant's wall-clock date and time in `timeZone`, as `YYYY-MM-DDTHH:mm`. */
+export function localDateTimeOf(instant: string, timeZone: string): string {
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    hourCycle: 'h23',
+  }).formatToParts(new Date(Date.parse(instant)));
+  const get = (type: string) => parts.find((part) => part.type === type)?.value ?? '';
+  return `${get('year')}-${get('month')}-${get('day')}T${get('hour')}:${get('minute')}`;
+}
+
+/**
+ * The UTC instant (ISO, milliseconds) when the wall clock in `timeZone` shows `date` `time`.
+ * In a skipped hour (daylight saving starts) it lands just after the gap.
+ */
+export function instantOf(date: string, time: string, timeZone: string): string {
+  const [y, mo, d] = date.split('-').map(Number) as [number, number, number];
+  const [h, mi] = time.split(':').map(Number) as [number, number];
+  const wanted = Date.UTC(y, mo - 1, d, h, mi);
+  // Guess, then correct by the zone's offset at the guess (twice covers offset changes).
+  let guess = wanted;
+  for (let i = 0; i < 2; i += 1) {
+    const shown = localDateTimeOf(new Date(guess).toISOString(), timeZone);
+    const [sd, st] = shown.split('T') as [string, string];
+    const [sy, smo, sdd] = sd.split('-').map(Number) as [number, number, number];
+    const [sh, smi] = st.split(':').map(Number) as [number, number];
+    guess += wanted - Date.UTC(sy, smo - 1, sdd, sh, smi);
+  }
+  return new Date(guess).toISOString();
+}
+
 export function localTimeZone(): string {
   return Intl.DateTimeFormat().resolvedOptions().timeZone;
 }

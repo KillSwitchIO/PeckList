@@ -43,7 +43,7 @@ export function PropertyRow({
       }}
     >
       <Box sx={{ display: 'flex', color: iconColor }}>{icon}</Box>
-      <Typography color="text.secondary" sx={{ width: 64, flexShrink: 0, textAlign: 'left' }}>
+      <Typography color="text.secondary" sx={{ width: 84, flexShrink: 0, textAlign: 'left' }}>
         {label}
       </Typography>
       <Box sx={{ flexGrow: 1, minWidth: 0, textAlign: 'left' }}>{children}</Box>

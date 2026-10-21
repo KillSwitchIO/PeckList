@@ -14,7 +14,16 @@ import {
   type OpContext,
   type Patch,
 } from './ops.ts';
-import type { Due, Id, Priority, Schedule, Task, TaskStatus, WorkspaceFile } from './types.ts';
+import type {
+  DateTime,
+  Due,
+  Id,
+  Priority,
+  Schedule,
+  Task,
+  TaskStatus,
+  WorkspaceFile,
+} from './types.ts';
 
 export interface TaskInput {
   title: string;
@@ -226,7 +235,10 @@ export function updateTask(
   return putEntity(workspace, 'tasks', updateEntity(ctx, task, patch));
 }
 
-/** Set a task's status. Completing a task also completes its open subtasks. */
+/**
+ * Set a task's status. Completing a task also completes its open subtasks and stamps the
+ * completion date, unless one is already set (users can set it themselves). Reopening clears it.
+ */
 export function setTaskStatus(
   ctx: OpContext,
   workspace: WorkspaceFile,
@@ -238,8 +250,8 @@ export function setTaskStatus(
   const stamp = (target: Task, next: TaskStatus) =>
     updateEntity(ctx, target, {
       status: next,
-      completedAt: next === 'open' ? null : isoNow(ctx),
-      completedBy: next === 'open' ? null : ctx.userId,
+      completedAt: next === 'open' ? null : (target.completedAt ?? isoNow(ctx)),
+      completedBy: next === 'open' ? null : (target.completedBy ?? ctx.userId),
     });
   const changed = [stamp(task, status)];
   if (closing) {
@@ -248,6 +260,16 @@ export function setTaskStatus(
     }
   }
   return putEntities(workspace, 'tasks', changed);
+}
+
+/** Set or clear the completion date (an instant). Completing keeps a date set here. */
+export function setCompletedAt(
+  ctx: OpContext,
+  workspace: WorkspaceFile,
+  id: Id,
+  at: DateTime | null,
+): WorkspaceFile {
+  return updateTask(ctx, workspace, id, { completedAt: at });
 }
 
 export function toggleTaskDone(ctx: OpContext, workspace: WorkspaceFile, id: Id): WorkspaceFile {

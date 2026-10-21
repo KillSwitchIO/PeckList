@@ -19,6 +19,7 @@ import {
   outdentTask,
   rescheduleTo,
   restoreTask,
+  setCompletedAt,
   setTaskStatus,
   setTaskTag,
   siblings,
@@ -410,5 +411,25 @@ describe('nesting any task under another', () => {
     }
     expect(canNestUnder(s.ws, a.id, deepest.id)).toBe(false);
     expect(() => nestUnder(s.ctx, s.ws, a.id, a.id)).toThrow('cannot nest');
+  });
+});
+
+describe('completion date', () => {
+  it('stamps on completion only when empty, keeps a user-set date, clears on reopen', () => {
+    const s = setup();
+    const a = s.add('a');
+    s.ws = setTaskStatus(s.ctx, s.ws, a.id, 'done');
+    const stamped = getEntity(s.ws, 'tasks', a.id)!.completedAt;
+    expect(stamped).toMatch(/Z$/);
+    s.ws = setCompletedAt(s.ctx, s.ws, a.id, '2026-10-01T12:00:00.000Z');
+    s.ws = setTaskStatus(s.ctx, s.ws, a.id, 'wontdo');
+    expect(getEntity(s.ws, 'tasks', a.id)!.completedAt).toBe('2026-10-01T12:00:00.000Z');
+    s.ws = setTaskStatus(s.ctx, s.ws, a.id, 'open');
+    expect(getEntity(s.ws, 'tasks', a.id)).toMatchObject({ completedAt: null, completedBy: null });
+    // Set ahead of time on an open task: completing keeps it.
+    const b = s.add('b');
+    s.ws = setCompletedAt(s.ctx, s.ws, b.id, '2026-09-30T08:00:00.000Z');
+    s.ws = toggleTaskDone(s.ctx, s.ws, b.id);
+    expect(getEntity(s.ws, 'tasks', b.id)!.completedAt).toBe('2026-09-30T08:00:00.000Z');
   });
 });

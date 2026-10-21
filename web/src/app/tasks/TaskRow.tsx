@@ -5,11 +5,12 @@ import SubdirectoryArrowRightRounded from '@mui/icons-material/SubdirectoryArrow
 import { Box, ButtonBase, IconButton, Typography, useMediaQuery, useTheme } from '@mui/material';
 import { useState } from 'react';
 import { getEntity } from '../../core/collections.ts';
+import { localTimeZone, todayIn } from '../../core/dates.ts';
 import { startState, subtaskProgress } from '../../core/queries.ts';
 import { tagsOfTask } from '../../core/tags.ts';
 import { toggleTaskDone } from '../../core/tasks.ts';
 import type { Priority, Task } from '../../core/types.ts';
-import { formatWhen } from '../format.ts';
+import { formatDay, formatWhen } from '../format.ts';
 import { useToday } from '../hooks/useToday.ts';
 import { t } from '../i18n/i18n.ts';
 import { listName } from '../lists/listName.ts';
@@ -106,7 +107,14 @@ export function TaskRow({
   const [menu, setMenu] = useState<TaskMenuAnchor | null>(null);
 
   const start = task.schedule?.start;
-  const dateText = start ? formatWhen(start, today) : null;
+  // Closed tasks show when they were completed instead of when they start.
+  const completedDay =
+    done && task.completedAt ? todayIn(localTimeZone(), Date.parse(task.completedAt)) : null;
+  const dateText = completedDay
+    ? formatDay(completedDay, today)
+    : start
+      ? formatWhen(start, today)
+      : null;
   const state = startState(task, today);
   const dateColor = done
     ? 'text.disabled'
@@ -248,6 +256,7 @@ export function TaskRow({
           <Box
             component="span"
             data-testid="task-date"
+            {...(completedDay ? { title: t('task.completedOn', { date: dateText ?? '' }) } : {})}
             sx={{
               width: DATE_COLUMN,
               flexShrink: 0,

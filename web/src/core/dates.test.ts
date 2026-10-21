@@ -1,5 +1,13 @@
 import { describe, expect, it } from 'vitest';
-import { addMonths, joinDateTime, monthGrid, monthOf, weekday } from './dates.ts';
+import {
+  addMonths,
+  instantOf,
+  joinDateTime,
+  localDateTimeOf,
+  monthGrid,
+  monthOf,
+  weekday,
+} from './dates.ts';
 
 describe('calendar helpers', () => {
   it('shifts months across years and finds weekdays', () => {
@@ -21,5 +29,16 @@ describe('calendar helpers', () => {
   it('joins dates and times', () => {
     expect(joinDateTime('2026-07-21', '09:30')).toBe('2026-07-21T09:30');
     expect(joinDateTime('2026-07-21', null)).toBe('2026-07-21');
+  });
+});
+
+describe('instants and wall clocks', () => {
+  it('shows an instant in a time zone and converts back', () => {
+    expect(localDateTimeOf('2026-10-21T15:30:00.000Z', 'America/Chicago')).toBe('2026-10-21T10:30');
+    expect(localDateTimeOf('2026-10-21T15:30:00.000Z', 'UTC')).toBe('2026-10-21T15:30');
+    expect(instantOf('2026-10-21', '10:30', 'America/Chicago')).toBe('2026-10-21T15:30:00.000Z');
+    // Across a daylight-saving change (CST in December).
+    expect(instantOf('2026-12-01', '09:00', 'America/Chicago')).toBe('2026-12-01T15:00:00.000Z');
+    expect(instantOf('2026-10-21', '00:00', 'Asia/Tokyo')).toBe('2026-10-20T15:00:00.000Z');
   });
 });
