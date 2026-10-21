@@ -15,6 +15,7 @@ import {
   Tooltip,
   Typography,
   useMediaQuery,
+  useTheme,
 } from '@mui/material';
 import { useState, type ReactNode } from 'react';
 import { addDays } from '../../core/dates.ts';
@@ -92,8 +93,13 @@ export function DatePickerPanel({
   const [date, setDate] = useState<string | null>(value?.date ?? null);
   const [time, setTime] = useState<string | null>(value?.time ?? null);
   const [editingTime, setEditingTime] = useState(false);
-  // Touch screens get hour / minute / AM-PM wheels; mouse and keyboard get the typed field.
-  const touch = useMediaQuery('(pointer: coarse)', { noSsr: true });
+  // Phones, tablets and anything with a touch screen get hour / minute / AM-PM wheels;
+  // large mouse-and-keyboard screens get the typed field. (Many tablets report a fine
+  // pointer, especially with a keyboard attached, so screen size counts too.)
+  const theme = useTheme();
+  const anyTouch = useMediaQuery('(any-pointer: coarse)', { noSsr: true });
+  const smallScreen = useMediaQuery(theme.breakpoints.down('lg'), { noSsr: true });
+  const touch = anyTouch || smallScreen;
   const startEditingTime = () => {
     setEditingTime(true);
     if (touch && !time) {

@@ -171,7 +171,7 @@ describe('DatePickerPanel', () => {
 describe('time wheels on touch screens', () => {
   function touchScreen() {
     vi.stubGlobal('matchMedia', (query: string) => ({
-      matches: query.includes('pointer: coarse'),
+      matches: query.includes('any-pointer: coarse'),
       media: query,
       onchange: null,
       addEventListener: () => undefined,
@@ -204,6 +204,35 @@ describe('time wheels on touch screens', () => {
     ).toHaveTextContent('AM');
     await userEvent.click(screen.getByRole('button', { name: 'OK' }));
     expect(onApply).toHaveBeenCalledWith({ date: TODAY, time: '09:00' });
+  });
+
+  it('tablets get the wheels even without a touch pointer', async () => {
+    mockViewport('tablet');
+    render(
+      <DatePickerPanel
+        value={null}
+        today={TODAY}
+        onApply={() => undefined}
+        onCancel={() => undefined}
+      />,
+    );
+    await userEvent.click(screen.getByRole('button', { name: /Time/ }));
+    expect(screen.getByRole('listbox', { name: 'Hour' })).toBeInTheDocument();
+  });
+
+  it('large desktop screens keep the typed field', async () => {
+    mockViewport('desktop');
+    render(
+      <DatePickerPanel
+        value={null}
+        today={TODAY}
+        onApply={() => undefined}
+        onCancel={() => undefined}
+      />,
+    );
+    await userEvent.click(screen.getByRole('button', { name: /Time/ }));
+    expect(screen.getByLabelText('Time')).toBeInTheDocument();
+    expect(screen.queryByRole('listbox', { name: 'Hour' })).toBeNull();
   });
 
   it('tapping and arrow keys change the time; 12 AM and PM convert correctly', async () => {
