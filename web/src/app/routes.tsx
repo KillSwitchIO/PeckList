@@ -1,6 +1,7 @@
 import { Navigate, Route, Routes, useLocation } from 'react-router';
 import { t } from './i18n/i18n.ts';
 import { AppShell } from './layout/AppShell.tsx';
+import { Page } from './layout/Page.tsx';
 import { InboxView, ListView } from './lists/ListView.tsx';
 import { EmptyState } from './views/EmptyState.tsx';
 import { MoreView } from './views/MoreView.tsx';
@@ -9,18 +10,18 @@ import { CompletedView, TodayView, TrashView, UpcomingView } from './views/TaskV
 /** Views that arrive in a later milestone. */
 function ComingSoon({ title, milestone }: { title: string; milestone: string }) {
   return (
-    <AppShell title={title}>
+    <Page title={title}>
       <EmptyState title={t('empty.generic')} hint={t('empty.comingSoon', { milestone })} />
-    </AppShell>
+    </Page>
   );
 }
 
 function NotFound() {
   const { pathname } = useLocation();
   return (
-    <AppShell title={t('notFound.title')}>
+    <Page title={t('notFound.title')}>
       <EmptyState title={t('notFound.title')} hint={pathname} />
-    </AppShell>
+    </Page>
   );
 }
 
@@ -28,17 +29,25 @@ export function AppRoutes() {
   return (
     <Routes>
       <Route path="/" element={<Navigate to="/today" replace />} />
-      <Route path="/today" element={<TodayView />} />
-      <Route path="/inbox" element={<InboxView />} />
-      <Route path="/upcoming" element={<UpcomingView />} />
-      <Route path="/lists/:listId" element={<ListView />} />
-      <Route path="/completed" element={<CompletedView />} />
-      <Route path="/trash" element={<TrashView />} />
-      <Route path="/more" element={<MoreView />} />
-      <Route path="/calendar" element={<ComingSoon title={t('nav.calendar')} milestone="0.3" />} />
-      <Route path="/search" element={<ComingSoon title={t('nav.search')} milestone="0.2" />} />
-      <Route path="/settings" element={<ComingSoon title={t('nav.settings')} milestone="0.2" />} />
-      <Route path="*" element={<NotFound />} />
+      <Route element={<AppShell />}>
+        <Route path="/today" element={<TodayView />} />
+        <Route path="/inbox" element={<InboxView />} />
+        <Route path="/upcoming" element={<UpcomingView />} />
+        <Route path="/lists/:listId" element={<ListView />} />
+        <Route path="/completed" element={<CompletedView />} />
+        <Route path="/trash" element={<TrashView />} />
+        <Route path="/more" element={<MoreView />} />
+        <Route
+          path="/calendar"
+          element={<ComingSoon title={t('nav.calendar')} milestone="0.3" />}
+        />
+        <Route path="/search" element={<ComingSoon title={t('nav.search')} milestone="0.2" />} />
+        <Route
+          path="/settings"
+          element={<ComingSoon title={t('nav.settings')} milestone="0.2" />}
+        />
+        <Route path="*" element={<NotFound />} />
+      </Route>
     </Routes>
   );
 }

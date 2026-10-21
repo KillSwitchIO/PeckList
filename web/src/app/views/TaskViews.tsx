@@ -9,7 +9,7 @@ import { restoreTask } from '../../core/tasks.ts';
 import { formatDay } from '../format.ts';
 import { useNow, useToday } from '../hooks/useToday.ts';
 import { t } from '../i18n/i18n.ts';
-import { AppShell } from '../layout/AppShell.tsx';
+import { Page } from '../layout/Page.tsx';
 import { useApply, useWorkspace } from '../store/hooks.ts';
 import { AddTaskInput } from '../tasks/AddTaskInput.tsx';
 import { TaskRows } from '../tasks/TaskRow.tsx';
@@ -38,7 +38,7 @@ export function TodayView() {
   });
   const current = tasks.filter((task) => !overdue.includes(task));
   return (
-    <AppShell title={t('nav.today')}>
+    <Page title={t('nav.today')}>
       <AddTaskInput
         defaults={{
           listId: inboxList(workspace).id,
@@ -61,7 +61,7 @@ export function TodayView() {
           <TaskRows tasks={current} showList />
         </>
       )}
-    </AppShell>
+    </Page>
   );
 }
 
@@ -70,7 +70,7 @@ export function UpcomingView() {
   const today = useToday();
   const groups = upcomingTasks(workspace, today);
   return (
-    <AppShell title={t('nav.upcoming')}>
+    <Page title={t('nav.upcoming')}>
       {groups.length === 0 ? (
         <EmptyState title={t('upcoming.empty')} />
       ) : (
@@ -81,7 +81,7 @@ export function UpcomingView() {
           </Box>
         ))
       )}
-    </AppShell>
+    </Page>
   );
 }
 
@@ -89,13 +89,13 @@ export function CompletedView() {
   const workspace = useWorkspace();
   const tasks = completedTasks(workspace);
   return (
-    <AppShell title={t('nav.completed')}>
+    <Page title={t('nav.completed')}>
       {tasks.length === 0 ? (
         <EmptyState title={t('completed.empty')} />
       ) : (
         <TaskRows tasks={tasks} showList />
       )}
-    </AppShell>
+    </Page>
   );
 }
 
@@ -106,7 +106,7 @@ export function TrashView() {
   const now = useNow();
   const tasks = trashedTasks(workspace, now);
   return (
-    <AppShell title={t('nav.trash')}>
+    <Page title={t('nav.trash')}>
       {tasks.length === 0 ? (
         <EmptyState
           title={t('trash.empty')}
@@ -154,6 +154,6 @@ export function TrashView() {
           </List>
         </>
       )}
-    </AppShell>
+    </Page>
   );
 }

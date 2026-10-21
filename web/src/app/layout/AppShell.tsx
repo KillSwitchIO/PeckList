@@ -20,9 +20,10 @@ import {
   useMediaQuery,
   useTheme,
 } from '@mui/material';
-import { useState, type ReactNode } from 'react';
-import { useLocation, useNavigate } from 'react-router';
+import { useState } from 'react';
+import { Outlet, useLocation, useNavigate } from 'react-router';
 import { t } from '../i18n/i18n.ts';
+import { HeaderSlotContext } from './headerSlot.ts';
 import { SidebarLists } from '../lists/SidebarLists.tsx';
 import { useTaskSelection } from '../tasks/selection.ts';
 import { TaskDetail } from '../tasks/TaskDetail.tsx';
@@ -111,17 +112,10 @@ function Sidebar({ onNavigate }: { onNavigate: (path: string) => void }) {
 
 /**
  * Responsive frame: permanent sidebar on desktop, temporary drawer on tablet,
- * bottom navigation on phones (vault: Design Spec, Layout).
+ * bottom navigation on phones (vault: Design Spec, Layout). Mounted once as a layout route;
+ * pages render into it with <Page>, so navigation never rebuilds the frame.
  */
-export function AppShell({
-  title,
-  actions,
-  children,
-}: {
-  title: string;
-  actions?: ReactNode;
-  children: ReactNode;
-}) {
+export function AppShell() {
   const theme = useTheme();
   const isPhone = useMediaQuery(theme.breakpoints.down('sm'), { noSsr: true });
   const isDesktop = useMediaQuery(theme.breakpoints.up('lg'), { noSsr: true });
@@ -129,6 +123,7 @@ export function AppShell({
   const navigate = useNavigate();
   const { pathname } = useLocation();
   const { selectedId, close } = useTaskSelection();
+  const [headerSlot, setHeaderSlot] = useState<HTMLElement | null>(null);
 
   const go = (path: string) => {
     setDrawerOpen(false);
@@ -173,10 +168,10 @@ export function AppShell({
                 <MenuRounded />
               </IconButton>
             )}
-            <Typography variant="h1" component="h1" sx={{ flexGrow: 1 }} noWrap>
-              {title}
-            </Typography>
-            {actions}
+            <Box
+              ref={setHeaderSlot}
+              sx={{ display: 'flex', alignItems: 'center', gap: 1, flexGrow: 1, minWidth: 0 }}
+            />
             <ThemeToggle />
           </Toolbar>
         </AppBar>
@@ -194,7 +189,9 @@ export function AppShell({
               mx: 'auto',
             }}
           >
-            {children}
+            <HeaderSlotContext.Provider value={headerSlot}>
+              <Outlet />
+            </HeaderSlotContext.Provider>
           </Box>
           {isDesktop && detail && (
             <Box

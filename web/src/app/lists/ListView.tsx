@@ -19,7 +19,7 @@ import {
 import { completedTasks, listTasks } from '../../core/queries.ts';
 import type { List, Section } from '../../core/types.ts';
 import { t } from '../i18n/i18n.ts';
-import { AppShell } from '../layout/AppShell.tsx';
+import { Page } from '../layout/Page.tsx';
 import { useApply, useWorkspace } from '../store/hooks.ts';
 import { AddTaskInput } from '../tasks/AddTaskInput.tsx';
 import { TaskRows } from '../tasks/TaskRow.tsx';
@@ -34,7 +34,7 @@ function ListMenu({ list }: { list: List }) {
   const close = () => setAnchor(null);
   return (
     <>
-      <Tooltip title={t('common.more')}>
+      <Tooltip title={t('common.more')} disableFocusListener>
         <IconButton
           aria-label={t('common.more')}
           onClick={(event) => setAnchor(event.currentTarget)}
@@ -203,7 +203,7 @@ export function ListContents({ list }: { list: List }) {
   const empty = groups.every((group) => group.tasks.length === 0);
 
   return (
-    <AppShell title={list.name} actions={<ListMenu list={list} />}>
+    <Page title={list.name} actions={<ListMenu list={list} />}>
       <AddTaskInput defaults={{ listId: list.id }} label={t('task.addTo', { list: list.name })} />
       {empty && groups.length === 1 && <EmptyState title={t('list.empty')} />}
       {groups.map((group) => {
@@ -228,7 +228,7 @@ export function ListContents({ list }: { list: List }) {
           {showCompleted && <TaskRows tasks={completed} />}
         </Box>
       )}
-    </AppShell>
+    </Page>
   );
 }
 
@@ -238,9 +238,9 @@ export function ListView() {
   const list = listId ? getEntity(workspace, 'lists', listId) : undefined;
   if (!list || !isLive(list)) {
     return (
-      <AppShell title={t('nav.lists')}>
+      <Page title={t('nav.lists')}>
         <EmptyState title={t('list.notFound')} />
-      </AppShell>
+      </Page>
     );
   }
   return <ListContents key={list.id} list={list} />;

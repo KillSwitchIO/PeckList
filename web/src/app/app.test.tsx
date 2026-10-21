@@ -70,6 +70,35 @@ describe('app shell', () => {
   });
 });
 
+describe('stable frame', () => {
+  it('keeps the same sidebar and header when switching views', async () => {
+    mockViewport('desktop');
+    await renderApp('/today');
+    const nav = screen.getAllByRole('navigation')[0]!;
+    const toggle = screen.getByRole('button', { name: /switch theme/i });
+    await userEvent.click(within(nav).getByText('Inbox'));
+    await screen.findByRole('heading', { level: 1, name: 'Inbox' });
+    expect(screen.getAllByRole('navigation')[0]).toBe(nav);
+    expect(screen.getByRole('button', { name: /switch theme/i })).toBe(toggle);
+  });
+
+  it('lists Today before Inbox in the sidebar and the bottom bar', async () => {
+    mockViewport('desktop');
+    const desktop = await renderApp('/today');
+    const sidebar = within(screen.getAllByRole('navigation')[0]!)
+      .getAllByRole('button')
+      .map((b) => b.textContent);
+    expect(sidebar.indexOf('Today')).toBeLessThan(sidebar.indexOf('Inbox'));
+    desktop.unmount();
+    mockViewport('phone');
+    await renderApp('/today');
+    const bottom = within(screen.getByRole('navigation'))
+      .getAllByRole('button')
+      .map((b) => b.textContent);
+    expect(bottom.slice(0, 2)).toEqual(['Today', 'Inbox']);
+  });
+});
+
 describe('navigation helpers', () => {
   it('matches nested paths to their nav item', () => {
     expect(activeItem(SIDEBAR_ITEMS, '/inbox/123')).toBe('/inbox');

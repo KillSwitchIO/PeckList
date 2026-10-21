@@ -16,10 +16,10 @@ export interface NavItem {
   icon: ReactElement;
 }
 
-/** Smart views shown in the desktop sidebar */
+/** Smart views shown in the sidebar. Keep the order of the first items in step with BOTTOM_ITEMS. */
 export const SIDEBAR_ITEMS: NavItem[] = [
-  { path: '/inbox', label: 'nav.inbox', icon: <InboxRounded /> },
   { path: '/today', label: 'nav.today', icon: <TodayRounded /> },
+  { path: '/inbox', label: 'nav.inbox', icon: <InboxRounded /> },
   { path: '/upcoming', label: 'nav.upcoming', icon: <DateRangeRounded /> },
   { path: '/calendar', label: 'nav.calendar', icon: <CalendarMonthRounded /> },
   { path: '/completed', label: 'nav.completed', icon: <TaskAltRounded /> },

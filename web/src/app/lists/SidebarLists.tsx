@@ -142,7 +142,7 @@ export function SidebarLists({ onNavigate }: { onNavigate: (path: string) => voi
             sx={{ bgcolor: 'transparent', display: 'flex', alignItems: 'center', pr: 1 }}
           >
             <Box sx={{ flexGrow: 1 }}>{t('nav.lists')}</Box>
-            <Tooltip title={t('list.newFolder')}>
+            <Tooltip title={t('list.newFolder')} disableFocusListener>
               <IconButton
                 size="small"
                 aria-label={t('list.newFolder')}
@@ -151,7 +151,7 @@ export function SidebarLists({ onNavigate }: { onNavigate: (path: string) => voi
                 <CreateNewFolderRounded fontSize="small" />
               </IconButton>
             </Tooltip>
-            <Tooltip title={t('list.new')}>
+            <Tooltip title={t('list.new')} disableFocusListener>
               <IconButton
                 size="small"
                 aria-label={t('list.new')}
