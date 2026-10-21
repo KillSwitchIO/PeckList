@@ -1,26 +1,28 @@
+using Punchlist.Core.Accounts;
 using Punchlist.Core.Storage;
 using Punchlist.Storage.Postgres;
+using Punchlist.Storage.Sql;
 using Punchlist.Storage.Sqlite;
 using Testcontainers.PostgreSql;
 
 namespace Punchlist.Storage.Tests;
 
-public sealed class SqliteEntityStoreTests : EntityStoreContract
+/// <summary>Fresh SQLite databases in a temp folder, deleted afterwards.</summary>
+public sealed class SqliteFiles : IDisposable
 {
     private readonly string folder = Directory.CreateTempSubdirectory("punchlist-sqlite-").FullName;
 
-    protected override async Task<IEntityStore> CreateStoreAsync()
+    public async Task<SqlDatabase> NewDatabaseAsync()
     {
-        var store = new SqliteEntityStore(Path.Combine(folder, "nested", "punchlist.db"));
-        await store.MigrateAsync(TestContext.Current.CancellationToken);
-        return store;
+        var database = new SqliteDatabase(Path.Combine(folder, "nested", $"{Guid.NewGuid():N}.db"));
+        await database.MigrateAsync(TestContext.Current.CancellationToken);
+        return database;
     }
 
-    public override ValueTask DisposeAsync()
+    public void Dispose()
     {
         Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools();
         Directory.Delete(folder, recursive: true);
-        return ValueTask.CompletedTask;
     }
 }
 
@@ -34,28 +36,50 @@ public sealed class PostgresServer : IAsyncLifetime
 
     public async ValueTask DisposeAsync() => await container.DisposeAsync();
 
-    /// <summary>A connection string to a new, empty database.</summary>
-    public async Task<string> NewDatabaseAsync()
+    /// <summary>A new, empty, migrated database.</summary>
+    public async Task<SqlDatabase> NewDatabaseAsync()
     {
         var name = $"test{Interlocked.Increment(ref databases)}";
         await container.ExecScriptAsync($"CREATE DATABASE {name}");
-        return new Npgsql.NpgsqlConnectionStringBuilder(container.GetConnectionString()) { Database = name }.ToString();
+        var connection = new Npgsql.NpgsqlConnectionStringBuilder(container.GetConnectionString()) { Database = name }.ToString();
+        var database = new PostgresDatabase(connection);
+        await database.MigrateAsync(TestContext.Current.CancellationToken);
+        return database;
+    }
+}
+
+public sealed class SqliteEntityStoreTests(SqliteFiles files) : EntityStoreContract, IClassFixture<SqliteFiles>
+{
+    protected override async Task<(IDatabase, IEntityStore)> CreateAsync()
+    {
+        var database = await files.NewDatabaseAsync();
+        return (database, new SqlEntityStore(database));
     }
 }
 
 public sealed class PostgresEntityStoreTests(PostgresServer server) : EntityStoreContract, IClassFixture<PostgresServer>
 {
-    private PostgresEntityStore? store;
-
-    protected override async Task<IEntityStore> CreateStoreAsync()
+    protected override async Task<(IDatabase, IEntityStore)> CreateAsync()
     {
-        store = new PostgresEntityStore(await server.NewDatabaseAsync());
-        await store.MigrateAsync(TestContext.Current.CancellationToken);
-        return store;
+        var database = await server.NewDatabaseAsync();
+        return (database, new SqlEntityStore(database));
     }
+}
 
-    public override async ValueTask DisposeAsync()
+public sealed class SqliteAccountStoreTests(SqliteFiles files) : AccountStoreContract, IClassFixture<SqliteFiles>
+{
+    protected override async Task<(IAccountStore, ISecretStore)> CreateAsync()
     {
-        if (store is not null) await store.DisposeAsync();
+        var database = await files.NewDatabaseAsync();
+        return (new SqlAccountStore(database), new SqlSecretStore(database));
+    }
+}
+
+public sealed class PostgresAccountStoreTests(PostgresServer server) : AccountStoreContract, IClassFixture<PostgresServer>
+{
+    protected override async Task<(IAccountStore, ISecretStore)> CreateAsync()
+    {
+        var database = await server.NewDatabaseAsync();
+        return (new SqlAccountStore(database), new SqlSecretStore(database));
     }
 }

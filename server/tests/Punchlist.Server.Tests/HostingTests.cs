@@ -23,9 +23,12 @@ public sealed class ServerFixture : IDisposable
         new WebApplicationFactory<Program>().WithWebHostBuilder(host =>
         {
             host.UseSetting("WEB_ROOT", WebRoot);
-            host.UseSetting("DB_PATH", Path.Combine(WebRoot, "data", $"{Guid.NewGuid():N}.db"));
+            host.UseSetting("DB_PATH", NewDbPath());
             foreach (var (key, value) in settings) host.UseSetting(key, value);
         });
+
+    /// <summary>A fresh SQLite file for one server.</summary>
+    public string NewDbPath() => Path.Combine(WebRoot, "data", $"{Guid.NewGuid():N}.db");
 
     public void Dispose()
     {

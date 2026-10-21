@@ -25,9 +25,6 @@ public sealed record ChangePage(IReadOnlyList<StoredEntity> Entities, long Curso
 /// </summary>
 public interface IEntityStore
 {
-    /// <summary>Create or upgrade the database schema.</summary>
-    Task MigrateAsync(CancellationToken cancellation = default);
-
     /// <summary>The newest seq (0 when empty).</summary>
     Task<long> CursorAsync(CancellationToken cancellation = default);
 
@@ -51,7 +48,4 @@ public interface IEntityStore
 
     /// <summary>Every entity, in seq order (export, snapshots, moving between databases).</summary>
     IAsyncEnumerable<StoredEntity> AllAsync(CancellationToken cancellation = default);
-
-    /// <summary>Whether the database answers (health check).</summary>
-    Task<bool> PingAsync(CancellationToken cancellation = default);
 }

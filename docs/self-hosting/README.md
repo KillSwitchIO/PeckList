@@ -21,6 +21,18 @@ Then open http://localhost:8080. A compose example is in [compose.yaml](compose.
 - Health: `GET /healthz`. The image's own health check runs
   `dotnet Punchlist.Server.dll healthcheck`, since there is no curl inside.
 
+## First start
+
+With the default `AUTH_MODE=local`, the first start creates the `admin` account and prints its
+generated password once in the logs (`docker logs <container>`). Log in and change it; the API
+refuses everything else until you do. Set `ADMIN_PASSWORD` (or `ADMIN_PASSWORD_FILE`) to choose
+it instead. `AUTH_MODE=none` skips logins entirely: anyone who can reach the server has full access,
+so keep it to a trusted network.
+
+Five wrong passwords lock an account for 15 minutes, and each address gets ten login attempts a
+minute. Sessions are HttpOnly cookies that last 30 days of use; changing a password ends the other
+sessions.
+
 ## Behind a reverse proxy
 
 The server reads `X-Forwarded-For` and `X-Forwarded-Proto` from trusted proxies only.
@@ -32,6 +44,8 @@ the same host or Docker network.
 
 | Variable               | Default                      | Meaning                                                   |
 | ---------------------- | ---------------------------- | --------------------------------------------------------- |
+| `AUTH_MODE`            | `local`                      | `local` (accounts) or `none` (no login, one user)         |
+| `ADMIN_PASSWORD`       | generated                    | The first admin password (12+ characters)                 |
 | `DB_PROVIDER`          | `sqlite`                     | `sqlite` or `postgres` (PostgreSQL 15+)                   |
 | `DB_PATH`              | `/data/punchlist.db`         | The SQLite file                                           |
 | `DB_CONNECTION_STRING` | -                            | PostgreSQL connection string (Npgsql format)              |

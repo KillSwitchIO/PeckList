@@ -7,11 +7,12 @@ namespace Punchlist.Storage.Tests;
 public abstract class EntityStoreContract : IAsyncLifetime
 {
     protected IEntityStore Store { get; private set; } = null!;
+    protected IDatabase Database { get; private set; } = null!;
 
-    /// <summary>A fresh, empty, migrated store.</summary>
-    protected abstract Task<IEntityStore> CreateStoreAsync();
+    /// <summary>A fresh, empty, migrated database and its entity store.</summary>
+    protected abstract Task<(IDatabase Database, IEntityStore Store)> CreateAsync();
 
-    public async ValueTask InitializeAsync() => Store = await CreateStoreAsync();
+    public async ValueTask InitializeAsync() => (Database, Store) = await CreateAsync();
 
     public virtual ValueTask DisposeAsync() => ValueTask.CompletedTask;
 
@@ -37,14 +38,14 @@ public abstract class EntityStoreContract : IAsyncLifetime
         Assert.Empty(page.Entities);
         Assert.Equal(0, page.Cursor);
         Assert.False(page.More);
-        Assert.True(await Store.PingAsync(Token));
+        Assert.True(await Database.PingAsync(Token));
     }
 
     [Fact]
     public async Task Migrating_twice_changes_nothing()
     {
         await Store.WriteAsync("u1", [Task("T1", "Mow")], TakeIncoming, Token);
-        await Store.MigrateAsync(Token);
+        await Database.MigrateAsync(Token);
         Assert.Equal("Mow", (string?)(await Store.GetAsync("T1", Token))!.Doc["title"]);
     }
 

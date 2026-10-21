@@ -1,7 +1,9 @@
 using Microsoft.Extensions.Diagnostics.HealthChecks;
+using Punchlist.Core.Accounts;
 using Punchlist.Core.Configuration;
 using Punchlist.Core.Storage;
 using Punchlist.Storage.Postgres;
+using Punchlist.Storage.Sql;
 using Punchlist.Storage.Sqlite;
 
 namespace Punchlist.Server;
@@ -11,18 +13,22 @@ public static class Storage
 {
     public static IServiceCollection AddEntityStore(this IServiceCollection services, ServerSettings settings)
     {
-        services.AddSingleton<IEntityStore>(_ => settings.DbProvider switch
+        services.AddSingleton<SqlDatabase>(_ => settings.DbProvider switch
         {
-            DbProvider.Postgres => new PostgresEntityStore(settings.DbConnectionString!),
-            _ => new SqliteEntityStore(settings.DbPath),
+            DbProvider.Postgres => new PostgresDatabase(settings.DbConnectionString!),
+            _ => new SqliteDatabase(settings.DbPath),
         });
+        services.AddSingleton<IDatabase>(provider => provider.GetRequiredService<SqlDatabase>());
+        services.AddSingleton<IEntityStore, SqlEntityStore>();
+        services.AddSingleton<IAccountStore, SqlAccountStore>();
+        services.AddSingleton<ISecretStore, SqlSecretStore>();
         services.AddHostedService<DatabaseStartup>();
         services.AddHealthChecks().AddCheck<DatabaseHealthCheck>("database");
         return services;
     }
 
     /// <summary>Runs migrations before the server takes requests (unless DB_MIGRATE_ON_START=false).</summary>
-    private sealed class DatabaseStartup(IEntityStore store, ServerSettings settings, ILogger<DatabaseStartup> logger)
+    private sealed class DatabaseStartup(IDatabase store, ServerSettings settings, ILogger<DatabaseStartup> logger)
         : IHostedService
     {
         public async Task StartAsync(CancellationToken cancellation)
@@ -39,7 +45,7 @@ public static class Storage
         public Task StopAsync(CancellationToken cancellation) => Task.CompletedTask;
     }
 
-    private sealed class DatabaseHealthCheck(IEntityStore store) : IHealthCheck
+    private sealed class DatabaseHealthCheck(IDatabase store) : IHealthCheck
     {
         public async Task<HealthCheckResult> CheckHealthAsync(HealthCheckContext context, CancellationToken cancellation) =>
             await store.PingAsync(cancellation)

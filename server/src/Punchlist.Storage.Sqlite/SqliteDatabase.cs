@@ -5,14 +5,14 @@ using Punchlist.Storage.Sql;
 namespace Punchlist.Storage.Sqlite;
 
 /// <summary>
-/// The default store: one SQLite file (<c>DB_PATH</c>). WAL lets readers continue while a sync
+/// The default database: one SQLite file (<c>DB_PATH</c>). WAL lets readers continue while a sync
 /// writes; writers queue on SQLite's single write lock.
 /// </summary>
-public sealed class SqliteEntityStore : SqlEntityStore
+public sealed class SqliteDatabase : SqlDatabase
 {
     private readonly string connectionString;
 
-    public SqliteEntityStore(string path)
+    public SqliteDatabase(string path)
     {
         var folder = Path.GetDirectoryName(Path.GetFullPath(path));
         if (folder is not null) Directory.CreateDirectory(folder);
@@ -25,7 +25,7 @@ public sealed class SqliteEntityStore : SqlEntityStore
         }.ToString();
     }
 
-    protected override async Task<DbConnection> OpenAsync(CancellationToken cancellation)
+    public override async Task<DbConnection> OpenAsync(CancellationToken cancellation)
     {
         var connection = new SqliteConnection(connectionString);
         await connection.OpenAsync(cancellation);
@@ -37,6 +37,6 @@ public sealed class SqliteEntityStore : SqlEntityStore
     }
 
     // Not deferred (BEGIN IMMEDIATE): take the write lock now, before reading what to merge with.
-    protected override Task<DbTransaction> BeginWriteAsync(DbConnection connection, CancellationToken cancellation) =>
+    public override Task<DbTransaction> BeginWriteAsync(DbConnection connection, CancellationToken cancellation) =>
         Task.FromResult<DbTransaction>(((SqliteConnection)connection).BeginTransaction(deferred: false));
 }

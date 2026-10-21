@@ -1,0 +1,156 @@
+namespace Punchlist.Core.Accounts;
+
+/// <summary>Hashes and checks passwords (the server uses ASP.NET Core Identity's PBKDF2 hasher).</summary>
+public interface IPasswordHasher
+{
+    string Hash(string password);
+
+    /// <summary>Whether <paramref name="password"/> matches; <paramref name="rehash"/> is set when the hash should be upgraded.</summary>
+    bool Verify(string hash, string password, out bool rehash);
+}
+
+public abstract record LoginResult
+{
+    public sealed record Success(Account Account) : LoginResult;
+
+    /// <summary>Unknown user or wrong password (never says which).</summary>
+    public sealed record Invalid : LoginResult;
+
+    public sealed record Locked(DateTimeOffset Until) : LoginResult;
+}
+
+public enum PasswordChange
+{
+    Changed,
+    WrongPassword,
+    TooShort,
+    Unchanged,
+}
+
+/// <summary>Logins, lockout, password changes and the first admin (spec: Accounts &amp; Admin).</summary>
+public sealed class AccountService(IAccountStore store, IPasswordHasher hasher, TimeProvider time)
+{
+    public const string AdminUsername = "admin";
+    public const int MinPasswordLength = 12;
+    public const int MaxFailedLogins = 5;
+    public static readonly TimeSpan LockoutTime = TimeSpan.FromMinutes(15);
+
+    /// <summary>Verified against when the user does not exist, so timing does not reveal usernames.</summary>
+    private readonly Lazy<string> decoy = new(() => hasher.Hash(Ids.NewPassword()));
+
+    public async Task<LoginResult> LoginAsync(string username, string password, CancellationToken cancellation = default)
+    {
+        var account = await store.FindByUsernameAsync(username.Trim(), cancellation);
+        if (account?.PasswordHash is null || account.Disabled)
+        {
+            hasher.Verify(decoy.Value, password, out _);
+            return new LoginResult.Invalid();
+        }
+        var now = time.GetUtcNow();
+        if (account.LockedUntil > now) return new LoginResult.Locked(account.LockedUntil.Value);
+
+        if (!hasher.Verify(account.PasswordHash, password, out var rehash))
+        {
+            var failures = account.FailedLogins + 1;
+            var locked = failures >= MaxFailedLogins;
+            await store.UpdateAsync(account with
+            {
+                FailedLogins = locked ? 0 : failures,
+                LockedUntil = locked ? now + LockoutTime : null,
+            }, cancellation);
+            return locked ? new LoginResult.Locked(now + LockoutTime) : new LoginResult.Invalid();
+        }
+        var updated = account with
+        {
+            FailedLogins = 0,
+            LockedUntil = null,
+            PasswordHash = rehash ? hasher.Hash(password) : account.PasswordHash,
+        };
+        if (updated != account) await store.UpdateAsync(updated, cancellation);
+        return new LoginResult.Success(updated);
+    }
+
+    /// <summary>Change a password. Success gives a new security stamp, ending the account's other sessions.</summary>
+    public async Task<(PasswordChange Result, Account? Account)> ChangePasswordAsync(
+        string id, string current, string next, CancellationToken cancellation = default)
+    {
+        var account = await store.FindByIdAsync(id, cancellation) ?? throw new KeyNotFoundException($"no account {id}");
+        if (account.PasswordHash is null || !hasher.Verify(account.PasswordHash, current, out _)) return (PasswordChange.WrongPassword, null);
+        if (next.Length < MinPasswordLength) return (PasswordChange.TooShort, null);
+        if (next == current) return (PasswordChange.Unchanged, null);
+        var updated = account with
+        {
+            PasswordHash = hasher.Hash(next),
+            MustChangePassword = false,
+            SecurityStamp = Ids.NewUlid(time),
+        };
+        await store.UpdateAsync(updated, cancellation);
+        return (PasswordChange.Changed, updated);
+    }
+
+    /// <summary>
+    /// Make sure the admin exists and can log in. Returns the password to show once when one was
+    /// generated, else null. <paramref name="configuredPassword"/> (ADMIN_PASSWORD) is used instead
+    /// of generating one, and needs no change on first login.
+    /// </summary>
+    public async Task<string?> EnsureAdminAsync(string? configuredPassword, CancellationToken cancellation = default)
+    {
+        var admin = await store.FindByUsernameAsync(AdminUsername, cancellation);
+        if (admin?.PasswordHash is not null) return null;
+        var password = configuredPassword ?? Ids.NewPassword();
+        if (admin is null)
+        {
+            await store.CreateAsync(NewAccount(AdminUsername, Role.Admin) with
+            {
+                PasswordHash = hasher.Hash(password),
+                MustChangePassword = configuredPassword is null,
+            }, cancellation);
+        }
+        else
+        {
+            // Made while AUTH_MODE was none: give it a password now.
+            await store.UpdateAsync(admin with
+            {
+                PasswordHash = hasher.Hash(password),
+                MustChangePassword = configuredPassword is null,
+                SecurityStamp = Ids.NewUlid(time),
+            }, cancellation);
+        }
+        return configuredPassword is null ? password : null;
+    }
+
+    /// <summary>The one account used when AUTH_MODE is none: the admin, made without a password if missing.</summary>
+    public async Task<Account> EnsureOwnerAsync(CancellationToken cancellation = default)
+    {
+        var admin = await store.FindByUsernameAsync(AdminUsername, cancellation);
+        if (admin is not null) return admin;
+        admin = NewAccount(AdminUsername, Role.Admin);
+        await store.CreateAsync(admin, cancellation);
+        return admin;
+    }
+
+    /// <summary>Give an account a new generated password it must change on login (CLI: admin reset-password).</summary>
+    public async Task<string> ResetPasswordAsync(string username, CancellationToken cancellation = default)
+    {
+        var account = await store.FindByUsernameAsync(username, cancellation) ?? throw new KeyNotFoundException($"no user '{username}'");
+        var password = Ids.NewPassword();
+        await store.UpdateAsync(account with
+        {
+            PasswordHash = hasher.Hash(password),
+            MustChangePassword = true,
+            FailedLogins = 0,
+            LockedUntil = null,
+            SecurityStamp = Ids.NewUlid(time),
+        }, cancellation);
+        return password;
+    }
+
+    private Account NewAccount(string username, Role role) => new()
+    {
+        Id = Ids.NewUlid(time),
+        Username = username,
+        Role = role,
+        SecurityStamp = Ids.NewUlid(time),
+        CreatedAt = time.GetUtcNow(),
+    };
+}

@@ -9,7 +9,7 @@ namespace Punchlist.Storage.Postgres;
 /// transaction-scoped advisory lock: a plain sequence can commit out of order, and a client whose
 /// cursor passed a gap would never see the late change.
 /// </summary>
-public sealed class PostgresEntityStore(string connectionString) : SqlEntityStore, IAsyncDisposable
+public sealed class PostgresDatabase(string connectionString) : SqlDatabase, IAsyncDisposable
 {
     /// <summary>Arbitrary, fixed key for the write lock ("PLST").</summary>
     private const long WriteLock = 0x504C5354;
@@ -30,17 +30,17 @@ public sealed class PostgresEntityStore(string connectionString) : SqlEntityStor
         return builder.ConnectionString;
     }
 
-    protected override string DocParameter => "CAST(@doc AS jsonb)";
+    public override string DocParameter => "CAST(@doc AS jsonb)";
 
-    protected override string DocColumn => "doc::text";
+    public override string DocColumn => "doc::text";
 
     // Npgsql sends a list as one array parameter.
-    protected override string IdInList => "id = ANY(@ids)";
+    public override string IdInList => "id = ANY(@ids)";
 
-    protected override async Task<DbConnection> OpenAsync(CancellationToken cancellation) =>
+    public override async Task<DbConnection> OpenAsync(CancellationToken cancellation) =>
         await dataSource.OpenConnectionAsync(cancellation);
 
-    protected override async Task<DbTransaction> BeginWriteAsync(DbConnection connection, CancellationToken cancellation)
+    public override async Task<DbTransaction> BeginWriteAsync(DbConnection connection, CancellationToken cancellation)
     {
         var transaction = await connection.BeginTransactionAsync(cancellation);
         await using var command = connection.CreateCommand();

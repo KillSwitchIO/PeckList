@@ -9,12 +9,10 @@ using Punchlist.Core.Storage;
 namespace Punchlist.Storage.Sql;
 
 /// <summary>
-/// The store logic shared by the SQL databases. A dialect supplies connections, the write lock and
-/// how JSON goes in and out; the tables are the same everywhere:
-/// <c>entities(id, collection, owner_id, seq, hlc, deleted, doc)</c>, <c>visibility(user_id, entity_id)</c>
-/// and a <c>counters</c> row holding the last seq.
+/// Entities in a SQL database: <c>entities(id, collection, owner_id, seq, hlc, deleted, doc)</c>,
+/// <c>visibility(user_id, entity_id)</c> and a <c>counters</c> row holding the last seq.
 /// </summary>
-public abstract class SqlEntityStore : IEntityStore
+public sealed class SqlEntityStore(SqlDatabase database) : IEntityStore
 {
     /// <summary>Keeps non-ASCII text readable in the stored JSON.</summary>
     public static readonly JsonSerializerOptions Json = new() { Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping };
@@ -22,36 +20,18 @@ public abstract class SqlEntityStore : IEntityStore
     /// <summary>How many ids go into one <c>IN (...)</c> (SQLite allows 999 parameters).</summary>
     private const int Chunk = 400;
 
-    protected abstract Task<DbConnection> OpenAsync(CancellationToken cancellation);
-
-    /// <summary>Begin a transaction that holds the database's single write lock until it ends.</summary>
-    protected abstract Task<DbTransaction> BeginWriteAsync(DbConnection connection, CancellationToken cancellation);
-
-    /// <summary>The SQL expression for the JSON parameter <c>@doc</c> (a cast on databases with a JSON type).</summary>
-    protected virtual string DocParameter => "@doc";
-
-    /// <summary>The SQL expression that reads the <c>doc</c> column back as text.</summary>
-    protected virtual string DocColumn => "doc";
-
-    /// <summary>The condition matching <c>id</c> against the list parameter <c>@ids</c>.</summary>
-    protected virtual string IdInList => "id IN @ids";
-
-    public async Task MigrateAsync(CancellationToken cancellation = default)
-    {
-        await using var connection = await OpenAsync(cancellation);
-        await SqlMigrations.RunAsync(connection, GetType().Assembly, cancellation);
-    }
+    private string DocColumn => database.DocColumn;
 
     public async Task<long> CursorAsync(CancellationToken cancellation = default)
     {
-        await using var connection = await OpenAsync(cancellation);
+        await using var connection = await database.OpenAsync(cancellation);
         return await connection.ExecuteScalarAsync<long>(
             new CommandDefinition("SELECT value FROM counters WHERE name = 'seq'", cancellationToken: cancellation));
     }
 
     public async Task<StoredEntity?> GetAsync(string id, CancellationToken cancellation = default)
     {
-        await using var connection = await OpenAsync(cancellation);
+        await using var connection = await database.OpenAsync(cancellation);
         var row = await connection.QuerySingleOrDefaultAsync<Row>(new CommandDefinition(
             $"SELECT collection, id, owner_id AS ownerId, seq, {DocColumn} AS doc FROM entities WHERE id = @id",
             new { id },
@@ -66,14 +46,14 @@ public abstract class SqlEntityStore : IEntityStore
         CancellationToken cancellation = default)
     {
         if (incoming.Count == 0) return [];
-        await using var connection = await OpenAsync(cancellation);
-        await using var transaction = await BeginWriteAsync(connection, cancellation);
+        await using var connection = await database.OpenAsync(cancellation);
+        await using var transaction = await database.BeginWriteAsync(connection, cancellation);
 
         var existing = new Dictionary<string, StoredEntity>();
         foreach (var ids in incoming.Select(each => each.Id).Distinct().Chunk(Chunk))
         {
             var rows = await connection.QueryAsync<Row>(new CommandDefinition(
-                $"SELECT collection, id, owner_id AS ownerId, seq, {DocColumn} AS doc FROM entities WHERE {IdInList}",
+                $"SELECT collection, id, owner_id AS ownerId, seq, {DocColumn} AS doc FROM entities WHERE {database.IdInList}",
                 new { ids },
                 transaction,
                 cancellationToken: cancellation));
@@ -113,7 +93,7 @@ public abstract class SqlEntityStore : IEntityStore
             await connection.ExecuteAsync(new CommandDefinition(
                 $"""
                 INSERT INTO entities (id, collection, owner_id, seq, hlc, deleted, doc)
-                VALUES (@id, @collection, @owner, @seq, @hlc, @deleted, {DocParameter})
+                VALUES (@id, @collection, @owner, @seq, @hlc, @deleted, {database.DocParameter})
                 ON CONFLICT (id) DO UPDATE SET
                     seq = excluded.seq, hlc = excluded.hlc, deleted = excluded.deleted, doc = excluded.doc
                 """,
@@ -144,7 +124,7 @@ public abstract class SqlEntityStore : IEntityStore
     public async Task<ChangePage> ChangesAsync(string userId, long after, int limit, CancellationToken cancellation = default)
     {
         ArgumentOutOfRangeException.ThrowIfLessThan(limit, 1);
-        await using var connection = await OpenAsync(cancellation);
+        await using var connection = await database.OpenAsync(cancellation);
         var rows = (await connection.QueryAsync<Row>(new CommandDefinition(
             $"""
             SELECT e.collection, e.id, e.owner_id AS ownerId, e.seq, {Prefixed("e")} AS doc
@@ -162,25 +142,12 @@ public abstract class SqlEntityStore : IEntityStore
 
     public async IAsyncEnumerable<StoredEntity> AllAsync([EnumeratorCancellation] CancellationToken cancellation = default)
     {
-        await using var connection = await OpenAsync(cancellation);
+        await using var connection = await database.OpenAsync(cancellation);
         var rows = connection.QueryUnbufferedAsync<Row>(
             $"SELECT collection, id, owner_id AS ownerId, seq, {DocColumn} AS doc FROM entities ORDER BY seq");
         await foreach (var row in rows.WithCancellation(cancellation))
         {
             yield return row.ToEntity();
-        }
-    }
-
-    public async Task<bool> PingAsync(CancellationToken cancellation = default)
-    {
-        try
-        {
-            await using var connection = await OpenAsync(cancellation);
-            return await connection.ExecuteScalarAsync<int>(new CommandDefinition("SELECT 1", cancellationToken: cancellation)) == 1;
-        }
-        catch (DbException)
-        {
-            return false;
         }
     }
 

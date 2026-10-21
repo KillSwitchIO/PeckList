@@ -2,6 +2,7 @@ using System.Reflection;
 using Microsoft.AspNetCore.HttpOverrides;
 using Punchlist.Core;
 using Punchlist.Core.Configuration;
+using Punchlist.Server.Auth;
 
 namespace Punchlist.Server;
 
@@ -16,6 +17,9 @@ public static class ServerApp
     {
         var builder = WebApplication.CreateBuilder(args);
         var config = builder.Configuration;
+        // Cookie keys sit in the database next to the data they protect; ASP.NET warns that they are
+        // not encrypted at rest on every start, which only alarms self-hosters.
+        builder.Logging.AddFilter("Microsoft.AspNetCore.DataProtection.KeyManagement.XmlKeyManager", LogLevel.Error);
         // Configuration holds the environment variables (and test overrides); NAME_FILE works too.
         var settings = ServerSettings.Read(
             new FileAwareSecretSource(key => config[key]),
@@ -24,6 +28,8 @@ public static class ServerApp
 
         builder.Services.AddHealthChecks();
         builder.Services.AddEntityStore(settings);
+        // After the store: its startup (migrations) runs before the admin is made.
+        builder.Services.AddPunchlistAuth(settings);
         builder.Services.Configure<ForwardedHeadersOptions>(options =>
         {
             options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
@@ -39,9 +45,13 @@ public static class ServerApp
 
         var app = builder.Build();
         app.UseForwardedHeaders();
+        app.UseAuthentication();
+        app.UseAuthorization();
+        app.UseRateLimiter();
 
         app.MapHealthChecks("/healthz");
         app.MapGet("/api/info", () => new ServerInfo("punchlist", Version, WorkspaceSchema.CurrentVersion));
+        app.MapAuth();
 
         var webRoot = settings.WebRoot ?? Path.Combine(AppContext.BaseDirectory, "wwwroot");
         app.UseStaticSite(webRoot, app.Logger);
