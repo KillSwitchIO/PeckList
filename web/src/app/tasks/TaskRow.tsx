@@ -79,27 +79,29 @@ export function TaskRow({ task, showList = false }: { task: Task; showList?: boo
   const done = task.status !== 'open';
   const title = task.title || t('task.untitled');
 
-  const meta: React.ReactNode[] = [];
+  // Dates sit at the right edge of the row (TickTick style) so they line up and scan easily.
+  const dates: React.ReactNode[] = [];
   if (task.schedule) {
-    meta.push(
-      <Box key="when" component="span" sx={{ color: task.due ? undefined : dateColor }}>
+    dates.push(
+      <Box key="when" component="span" sx={{ color: task.due ? 'text.secondary' : dateColor }}>
         {formatWhen(task.schedule.start, today)}
       </Box>,
     );
   }
   if (task.due) {
-    meta.push(
+    dates.push(
       <Box
         key="due"
         component="span"
         sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.25, color: dateColor }}
       >
-        <FlagRounded sx={{ fontSize: 14 }} />
-        {t('date.dueOn', { date: formatDay(datePart(task.due.at), today) })}
+        <FlagRounded sx={{ fontSize: 14 }} aria-label={t('task.due')} />
+        {formatDay(datePart(task.due.at), today)}
       </Box>,
     );
   }
-  // Dates come first so they sit in the same place whether or not the list is shown.
+
+  const meta: React.ReactNode[] = [];
   if (list) {
     meta.push(
       <Box
@@ -140,14 +142,16 @@ export function TaskRow({ task, showList = false }: { task: Task; showList?: boo
         aria-label={t('task.open', { title })}
         sx={{
           flexGrow: 1,
+          display: 'flex',
+          alignItems: 'flex-start',
           justifyContent: 'flex-start',
           textAlign: 'left',
           py: 0.75,
-          pr: 1,
+          pr: 1.5,
           borderRadius: 2,
         }}
       >
-        <Box sx={{ minWidth: 0 }}>
+        <Box sx={{ minWidth: 0, flexGrow: 1 }}>
           <Typography
             sx={{
               textDecoration: done ? 'line-through' : 'none',
@@ -167,6 +171,23 @@ export function TaskRow({ task, showList = false }: { task: Task; showList?: boo
             </Typography>
           )}
         </Box>
+        {dates.length > 0 && (
+          <Typography
+            component="div"
+            variant="body2"
+            data-testid="task-dates"
+            sx={{
+              display: 'flex',
+              flexShrink: 0,
+              columnGap: 1.5,
+              pl: 1.5,
+              pt: '2px',
+              whiteSpace: 'nowrap',
+            }}
+          >
+            {dates}
+          </Typography>
+        )}
       </ButtonBase>
     </Box>
   );

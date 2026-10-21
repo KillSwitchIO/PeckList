@@ -75,7 +75,7 @@ describe('task details', () => {
     await userEvent.click(within(details).getByLabelText('Title'));
 
     const row = screen.getByRole('button', { name: 'Open Mow the lawn' });
-    expect(row).toHaveTextContent(/Due Tomorrow/);
+    expect(within(row).getByTestId('task-dates')).toHaveTextContent('Tomorrow');
     expect(row).toHaveTextContent(/Today 6:00/);
     expect(within(details).getByRole('button', { name: 'High' })).toHaveAttribute(
       'aria-pressed',
@@ -117,13 +117,12 @@ describe('task details', () => {
 });
 
 describe('task row', () => {
-  it('puts the date before the list name so it never shifts between views', async () => {
+  it('shows dates at the right edge and the list name under the title', async () => {
     await renderApp('/today');
     await addTasks('Water plants');
-    const meta = screen
-      .getByRole('button', { name: 'Open Water plants' })
-      .querySelector('.MuiTypography-caption');
-    expect(meta?.textContent).toBe('TodayMess Drawer');
+    const row = screen.getByRole('button', { name: 'Open Water plants' });
+    expect(within(row).getByTestId('task-dates')).toHaveTextContent('Today');
+    expect(row.querySelector('.MuiTypography-caption')?.textContent).toBe('Mess Drawer');
   });
 });
 

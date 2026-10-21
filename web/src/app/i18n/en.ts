@@ -82,7 +82,6 @@ export const en = {
   'calendar.goToToday': 'Go to today',
   'date.nextWeek': 'Next week',
   'date.clear': 'Clear',
-  'date.dueOn': 'Due {date}',
   'list.new': 'New list',
   'list.name': 'Name',
   'list.color': 'Color',
