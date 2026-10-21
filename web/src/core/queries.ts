@@ -1,7 +1,7 @@
 // Read-side queries: smart views, list contents, date states.
 
 import { isLive } from './collections.ts';
-import { addDays, datePart, daysBetween } from './dates.ts';
+import { addDays, datePart, daysBetween, todayIn } from './dates.ts';
 import { compareOrderKeys } from './ordering.ts';
 import type { Id, Task, WorkspaceFile } from './types.ts';
 
@@ -22,13 +22,20 @@ export function dateState(task: Task, today: string, dueSoonDays: number): DateS
   return 'normal';
 }
 
-/** The first date a task is relevant on: the earlier of schedule start and due date. */
-export function relevantDate(task: Task): string | null {
-  const dates = [
-    task.schedule && datePart(task.schedule.start),
-    task.due && datePart(task.due.at),
-  ].filter((date): date is string => Boolean(date));
-  return dates.length ? dates.sort()[0]! : null;
+/**
+ * The date a task belongs to in lists and smart views: its start date. Due dates are shown in
+ * the task details and on the calendar, not in lists (Ben, 2026-10-20).
+ */
+export function startDate(task: Task): string | null {
+  return task.schedule ? datePart(task.schedule.start) : null;
+}
+
+/** Whether the start date shown on a row is overdue, today, later, or absent. */
+export function startState(task: Task, today: string): 'overdue' | 'today' | 'later' | 'none' {
+  const date = startDate(task);
+  if (!date) return 'none';
+  if (task.status === 'open' && date < today) return 'overdue';
+  return date === today ? 'today' : 'later';
 }
 
 function openTopLevel(workspace: WorkspaceFile): Task[] {
@@ -42,22 +49,45 @@ function openTopLevel(workspace: WorkspaceFile): Task[] {
   );
 }
 
+/** By start (date, then time; all-day before timed), then priority, then manual order. */
 function byDateThenOrder(a: Task, b: Task): number {
-  const left = relevantDate(a) ?? '9999-99-99';
-  const right = relevantDate(b) ?? '9999-99-99';
+  const left = a.schedule?.start ?? '9999-99-99';
+  const right = b.schedule?.start ?? '9999-99-99';
   if (left !== right) return left < right ? -1 : 1;
   if (a.priority !== b.priority) return b.priority - a.priority;
   return compareOrderKeys(a.order, b.order);
 }
 
-/** Open tasks that are scheduled or due today or earlier (overdue included). */
+/** Open tasks starting today or earlier (overdue included). */
 export function todayTasks(workspace: WorkspaceFile, today: string): Task[] {
   return openTopLevel(workspace)
     .filter((task) => {
-      const date = relevantDate(task);
+      const date = startDate(task);
       return date !== null && date <= today;
     })
     .sort(byDateThenOrder);
+}
+
+/** Today view groups: overdue (started before today) and today. */
+export function todayGroups(
+  workspace: WorkspaceFile,
+  today: string,
+): { overdue: Task[]; today: Task[] } {
+  const tasks = todayTasks(workspace, today);
+  return {
+    overdue: tasks.filter((task) => startDate(task)! < today),
+    today: tasks.filter((task) => startDate(task) === today),
+  };
+}
+
+/** Top-level tasks completed on `today` in `timeZone`, most recent first. */
+export function completedOn(workspace: WorkspaceFile, today: string, timeZone: string): Task[] {
+  return completedTasks(workspace).filter(
+    (task) =>
+      task.parentId === null &&
+      task.completedAt !== null &&
+      todayIn(timeZone, Date.parse(task.completedAt)) === today,
+  );
 }
 
 /** Open tasks relevant from tomorrow through the next `days` days, grouped by date. */
@@ -69,7 +99,7 @@ export function upcomingTasks(
   const last = addDays(today, days);
   const groups = new Map<string, Task[]>();
   for (const task of openTopLevel(workspace).sort(byDateThenOrder)) {
-    const date = relevantDate(task);
+    const date = startDate(task);
     if (date && date > today && date <= last) {
       groups.set(date, [...(groups.get(date) ?? []), task]);
     }

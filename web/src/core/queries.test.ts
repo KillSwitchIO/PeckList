@@ -6,7 +6,10 @@ import {
   dateState,
   listTasks,
   openCounts,
-  relevantDate,
+  completedOn,
+  startDate,
+  startState,
+  todayGroups,
   subtaskProgress,
   todayTasks,
   trashedTasks,
@@ -72,22 +75,23 @@ describe('dateState', () => {
 });
 
 describe('smart views', () => {
-  it('Today includes due or scheduled today and overdue, sorted by date then priority', () => {
+  it('Today includes tasks starting today and overdue, sorted by start then priority', () => {
     const s = setup();
     s.add('future', { schedule: at('2026-10-22') });
-    s.add('due today', { due: due(TODAY) });
+    s.add('due today only', { due: due(TODAY) });
     s.add('overdue', { schedule: at('2026-10-10T08:00') });
+    s.add('today', { schedule: at(TODAY) });
     s.add('urgent today', { schedule: at(TODAY), priority: 3 });
     s.add('no date');
-    expect(titles(todayTasks(s.ws, TODAY))).toEqual(['overdue', 'urgent today', 'due today']);
+    expect(titles(todayTasks(s.ws, TODAY))).toEqual(['overdue', 'urgent today', 'today']);
   });
 
   it('Next 7 days groups by date and excludes today and later', () => {
     const s = setup();
     s.add('tomorrow', { schedule: at('2026-10-21') });
-    s.add('in a week', { due: due('2026-10-27') });
-    s.add('too late', { due: due('2026-10-28') });
-    s.add('today', { due: due(TODAY) });
+    s.add('in a week', { schedule: at('2026-10-27') });
+    s.add('too late', { schedule: at('2026-10-28') });
+    s.add('today', { schedule: at(TODAY) });
     expect(upcomingTasks(s.ws, TODAY).map((g) => [g.date, titles(g.tasks)])).toEqual([
       ['2026-10-21', ['tomorrow']],
       ['2026-10-27', ['in a week']],
@@ -98,12 +102,12 @@ describe('smart views', () => {
     const s = setup();
     const { workspace, list } = createList(s.ctx, s.ws, { name: 'Gone', color: '#A8DCC0' });
     s.ws = workspace;
-    s.add('in deleted list', { listId: list.id, due: due(TODAY) });
+    s.add('in deleted list', { listId: list.id, schedule: at(TODAY) });
     s.ws = deleteList(s.ctx, s.ws, list.id);
-    const done = s.add('done', { due: due(TODAY) });
+    const done = s.add('done', { schedule: at(TODAY) });
     s.ws = toggleTaskDone(s.ctx, s.ws, done.id);
-    const parent = s.add('parent', { due: due(TODAY) });
-    s.add('child', { parentId: parent.id, due: due(TODAY) });
+    const parent = s.add('parent', { schedule: at(TODAY) });
+    s.add('child', { parentId: parent.id, schedule: at(TODAY) });
     expect(titles(todayTasks(s.ws, TODAY))).toEqual(['parent']);
   });
 
@@ -155,10 +159,42 @@ describe('list contents', () => {
     expect(openCounts(s.ws).get(s.inbox)).toBe(1);
   });
 
-  it('relevant date is the earliest of schedule and due', () => {
+  it('uses the start date only; due dates do not place tasks in lists', () => {
     const s = setup();
     const task = s.add('x', { schedule: at('2026-10-25T10:00'), due: due('2026-10-23') });
-    expect(relevantDate(task)).toBe('2026-10-23');
-    expect(relevantDate(s.add('none'))).toBeNull();
+    expect(startDate(task)).toBe('2026-10-25');
+    expect(startDate(s.add('none', { due: due(TODAY) }))).toBeNull();
+    expect(todayTasks(s.ws, TODAY)).toEqual([]);
+  });
+
+  it('start state: overdue, today, later, none', () => {
+    const s = setup();
+    expect(startState(s.add('a', { schedule: at('2026-10-19') }), TODAY)).toBe('overdue');
+    expect(startState(s.add('b', { schedule: at('2026-10-20T08:00') }), TODAY)).toBe('today');
+    expect(startState(s.add('c', { schedule: at('2026-10-21') }), TODAY)).toBe('later');
+    expect(startState(s.add('d'), TODAY)).toBe('none');
+  });
+
+  it('splits Today into overdue and today, ordered by time', () => {
+    const s = setup();
+    s.add('late', { schedule: at('2026-10-18') });
+    s.add('evening', { schedule: at('2026-10-20T20:00') });
+    s.add('morning', { schedule: at('2026-10-20T08:00') });
+    s.add('all day', { schedule: at(TODAY) });
+    const groups = todayGroups(s.ws, TODAY);
+    expect(titles(groups.overdue)).toEqual(['late']);
+    expect(titles(groups.today)).toEqual(['all day', 'morning', 'evening']);
+  });
+
+  it('finds tasks completed today in the local time zone', () => {
+    const s = setup();
+    const a = s.add('a');
+    const b = s.add('b');
+    s.ctx.now = () => Date.UTC(2026, 9, 20, 15);
+    s.ws = toggleTaskDone(s.ctx, s.ws, a.id);
+    s.ctx.now = () => Date.UTC(2026, 9, 21, 3); // still Oct 20 in Chicago
+    s.ws = toggleTaskDone(s.ctx, s.ws, b.id);
+    expect(titles(completedOn(s.ws, TODAY, TZ))).toEqual(['b', 'a']);
+    expect(titles(completedOn(s.ws, TODAY, 'UTC'))).toEqual(['a']);
   });
 });

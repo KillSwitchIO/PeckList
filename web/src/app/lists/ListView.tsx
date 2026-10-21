@@ -4,7 +4,7 @@ import DeleteOutlineRounded from '@mui/icons-material/DeleteOutlineRounded';
 import EditRounded from '@mui/icons-material/EditRounded';
 import MoreVertRounded from '@mui/icons-material/MoreVertRounded';
 import PlaylistAddRounded from '@mui/icons-material/PlaylistAddRounded';
-import { Box, Button, IconButton, Menu, MenuItem, Tooltip, Typography } from '@mui/material';
+import { IconButton, Menu, MenuItem, Tooltip } from '@mui/material';
 import { useState } from 'react';
 import { useNavigate, useParams } from 'react-router';
 import { getEntity, isLive } from '../../core/collections.ts';
@@ -24,6 +24,8 @@ import { useApply, useWorkspace } from '../store/hooks.ts';
 import { AddTaskInput } from '../tasks/AddTaskInput.tsx';
 import { TaskRows } from '../tasks/TaskRow.tsx';
 import { EmptyState } from '../views/EmptyState.tsx';
+import { GroupSection } from '../views/GroupSection.tsx';
+import { CompletedGroup } from '../views/TaskViews.tsx';
 import { ConfirmDialog, ListDialog, NameDialog } from './ListDialog.tsx';
 import { listName } from './listName.ts';
 
@@ -130,25 +132,12 @@ function ListMenu({ list }: { list: List }) {
   );
 }
 
-function SectionHeader({ section, onAdd }: { section: Section; onAdd: () => void }) {
+function SectionActions({ section, onAdd }: { section: Section; onAdd: () => void }) {
   const apply = useApply();
   const [anchor, setAnchor] = useState<HTMLElement | null>(null);
   const [renaming, setRenaming] = useState(false);
   return (
-    <Box
-      sx={{
-        display: 'flex',
-        alignItems: 'center',
-        mt: 2,
-        mb: 0.5,
-        pl: 1,
-        borderBottom: 1,
-        borderColor: 'divider',
-      }}
-    >
-      <Typography variant="subtitle1" component="h2" sx={{ fontWeight: 600, flexGrow: 1 }}>
-        {section.name}
-      </Typography>
+    <>
       <IconButton size="small" aria-label={`${t('task.add')}: ${section.name}`} onClick={onAdd}>
         <AddRounded fontSize="small" />
       </IconButton>
@@ -191,14 +180,13 @@ function SectionHeader({ section, onAdd }: { section: Section; onAdd: () => void
           }}
         />
       )}
-    </Box>
+    </>
   );
 }
 
 export function ListContents({ list }: { list: List }) {
   const workspace = useWorkspace();
   const [addingTo, setAddingTo] = useState<string | null>(null);
-  const [showCompleted, setShowCompleted] = useState(false);
   const groups = listTasks(workspace, list.id);
   const completed = completedTasks(workspace, list.id).filter((task) => task.parentId === null);
   const empty = groups.every((group) => group.tasks.length === 0);
@@ -209,29 +197,27 @@ export function ListContents({ list }: { list: List }) {
         defaults={{ listId: list.id }}
         label={t('task.addTo', { list: listName(list) })}
       />
-      {empty && groups.length === 1 && <EmptyState title={t('list.empty')} />}
+      {empty && groups.length === 1 && completed.length === 0 && (
+        <EmptyState title={t('list.empty')} />
+      )}
       {groups.map((group) => {
         const section = group.sectionId ? getEntity(workspace, 'sections', group.sectionId) : null;
+        if (!section) return <TaskRows key="none" tasks={group.tasks} />;
         return (
-          <Box key={group.sectionId ?? 'none'}>
-            {section && <SectionHeader section={section} onAdd={() => setAddingTo(section.id)} />}
-            {section && addingTo === section.id && (
+          <GroupSection
+            key={section.id}
+            title={section.name}
+            count={group.tasks.length}
+            actions={<SectionActions section={section} onAdd={() => setAddingTo(section.id)} />}
+          >
+            {addingTo === section.id && (
               <AddTaskInput defaults={{ listId: list.id, sectionId: section.id }} autoFocus />
             )}
             <TaskRows tasks={group.tasks} />
-          </Box>
+          </GroupSection>
         );
       })}
-      {completed.length > 0 && (
-        <Box sx={{ mt: 2 }}>
-          <Button size="small" onClick={() => setShowCompleted((value) => !value)}>
-            {showCompleted
-              ? t('list.hideCompleted')
-              : t('list.showCompleted', { count: completed.length })}
-          </Button>
-          {showCompleted && <TaskRows tasks={completed} />}
-        </Box>
-      )}
+      <CompletedGroup tasks={completed} defaultOpen={false} />
     </Page>
   );
 }

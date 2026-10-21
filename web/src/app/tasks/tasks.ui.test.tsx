@@ -41,9 +41,11 @@ describe('tasks in a list', () => {
     await renderApp('/inbox');
     await addTasks('Mow the lawn');
     await userEvent.click(screen.getByRole('checkbox', { name: 'Complete Mow the lawn' }));
-    await userEvent.click(screen.getByRole('button', { name: 'Show completed (1)' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Completed 1' }));
     await userEvent.click(screen.getByRole('checkbox', { name: 'Reopen Mow the lawn' }));
-    expect(screen.queryByRole('button', { name: /show completed/i })).not.toBeInTheDocument();
+    await waitFor(() =>
+      expect(screen.queryByRole('button', { name: /^Completed \d/ })).not.toBeInTheDocument(),
+    );
     expect(screen.getByRole('checkbox', { name: 'Complete Mow the lawn' })).toBeInTheDocument();
   });
 });
@@ -75,8 +77,9 @@ describe('task details', () => {
     await userEvent.click(within(details).getByLabelText('Title'));
 
     const row = screen.getByRole('button', { name: 'Open Mow the lawn' });
-    expect(within(row).getByTestId('task-dates')).toHaveTextContent('Tomorrow');
-    expect(row).toHaveTextContent(/Today 6:00/);
+    // Rows show only the start date or time; the due date lives in the details and calendar.
+    expect(within(row).getByTestId('task-date')).toHaveTextContent(/^Today 6:00/);
+    expect(row).not.toHaveTextContent('Tomorrow');
     expect(within(details).getByRole('button', { name: 'High' })).toHaveAttribute(
       'aria-pressed',
       'true',
@@ -117,12 +120,24 @@ describe('task details', () => {
 });
 
 describe('task row', () => {
-  it('shows dates at the right edge and the list name under the title', async () => {
-    await renderApp('/today');
+  it('shows the list name and start date on the right; Today shows only times', async () => {
+    await renderApp('/inbox');
     await addTasks('Water plants');
-    const row = screen.getByRole('button', { name: 'Open Water plants' });
-    expect(within(row).getByTestId('task-dates')).toHaveTextContent('Today');
-    expect(row.querySelector('.MuiTypography-caption')?.textContent).toBe('Mess Drawer');
+    await userEvent.click(screen.getByRole('button', { name: 'Open Water plants' }));
+    const details = await screen.findByRole('region', { name: 'Task details' });
+    await userEvent.click(within(details).getByRole('button', { name: /^Date:/ }));
+    await userEvent.click(
+      within(await screen.findByRole('dialog', { name: 'Date' })).getByRole('button', {
+        name: 'Today',
+      }),
+    );
+    const inList = screen.getByRole('button', { name: 'Open Water plants' });
+    expect(within(inList).getByTestId('task-date')).toHaveTextContent('Today');
+
+    await userEvent.click(within(screen.getAllByRole('navigation')[0]!).getByText('Today'));
+    const inToday = await screen.findByRole('button', { name: 'Open Water plants' });
+    expect(within(inToday).getByTestId('task-meta')).toHaveTextContent('Mess Drawer');
+    expect(within(inToday).queryByTestId('task-date')).toBeNull();
   });
 });
 
@@ -161,7 +176,7 @@ describe('lists and sections', () => {
       within(await screen.findByRole('dialog')).getByLabelText('Section name'),
       'Yard{Enter}',
     );
-    expect(await screen.findByRole('heading', { level: 2, name: 'Yard' })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { level: 2, name: /^Yard/ })).toBeInTheDocument();
 
     await userEvent.click(screen.getByRole('button', { name: 'Add task: Yard' }));
     const inputs = screen.getAllByRole('textbox', { name: /add task/i });
@@ -173,12 +188,12 @@ describe('lists and sections', () => {
     const rename = within(await screen.findByRole('dialog')).getByLabelText('Section name');
     await userEvent.clear(rename);
     await userEvent.type(rename, 'Garden{Enter}');
-    expect(await screen.findByRole('heading', { level: 2, name: 'Garden' })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { level: 2, name: /^Garden/ })).toBeInTheDocument();
 
     await userEvent.click(screen.getByRole('button', { name: 'More actions: Garden' }));
     await userEvent.click(await screen.findByRole('menuitem', { name: 'Delete section' }));
     await waitFor(() =>
-      expect(screen.queryByRole('heading', { level: 2, name: 'Garden' })).not.toBeInTheDocument(),
+      expect(screen.queryByRole('heading', { level: 2, name: /^Garden/ })).not.toBeInTheDocument(),
     );
     expect(screen.getByRole('button', { name: 'Open Rake leaves' })).toBeInTheDocument();
   });
@@ -226,11 +241,11 @@ describe('smart views', () => {
         createTask(ctx, ws, {
           title: 'Old chore',
           listId: inboxList(ws).id,
-          due: { at: '2020-01-01', allDay: true, timeZone: 'UTC' },
+          schedule: { start: '2020-01-01', end: null, allDay: true, timeZone: 'UTC' },
         }).workspace,
     );
     await addTasks('Water plants');
-    expect(await screen.findByRole('heading', { level: 2, name: 'Overdue' })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { level: 2, name: /^Overdue/ })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Open Water plants' })).toBeInTheDocument();
   });
 

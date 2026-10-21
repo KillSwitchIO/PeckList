@@ -93,8 +93,6 @@ export const en = {
   'list.addSection': 'Add section',
   'list.sectionName': 'Section name',
   'list.deleteSection': 'Delete section',
-  'list.showCompleted': 'Show completed ({count})',
-  'list.hideCompleted': 'Hide completed',
   'list.empty': 'No tasks here. Add one above.',
   'list.notFound': 'This list no longer exists.',
   'upcoming.empty': 'Nothing planned for the next 7 days.',
@@ -111,6 +109,12 @@ export const en = {
   'undo.listArchived': 'List archived',
   'undo.sectionDeleted': 'Section deleted',
   'more.title': 'More',
+  'group.overdue': 'Overdue',
+  'group.todayWithDay': '{weekday}, Today',
+  'group.completed': 'Completed',
+  'group.viewMore': 'View more',
+  'group.postpone': 'Postpone',
+  'undo.postponed': 'Moved to today',
 } as const;
 
 export type MessageKey = keyof typeof en;

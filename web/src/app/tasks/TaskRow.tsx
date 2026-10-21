@@ -1,12 +1,12 @@
 import CheckRounded from '@mui/icons-material/CheckRounded';
-import FlagRounded from '@mui/icons-material/FlagRounded';
+import ChecklistRounded from '@mui/icons-material/ChecklistRounded';
 import { Box, ButtonBase, IconButton, Typography, useTheme } from '@mui/material';
 import { getEntity } from '../../core/collections.ts';
-import { datePart } from '../../core/dates.ts';
-import { dateState, subtaskProgress, type DateState } from '../../core/queries.ts';
+import { timePart } from '../../core/dates.ts';
+import { startState, subtaskProgress } from '../../core/queries.ts';
 import { toggleTaskDone } from '../../core/tasks.ts';
 import type { Priority, Task } from '../../core/types.ts';
-import { formatDay, formatWhen } from '../format.ts';
+import { formatTime, formatWhen } from '../format.ts';
 import { useToday } from '../hooks/useToday.ts';
 import { t } from '../i18n/i18n.ts';
 import { listName } from '../lists/listName.ts';
@@ -18,6 +18,7 @@ const PRIORITY_KEY = { 0: 'none', 1: 'low', 2: 'medium', 3: 'high' } as const sa
   string
 >;
 
+/** Rounded-square checkbox; its border carries the priority color. */
 export function PriorityCheckbox({ task }: { task: Task }) {
   const theme = useTheme();
   const apply = useApply();
@@ -41,99 +42,84 @@ export function PriorityCheckbox({ task }: { task: Task }) {
     >
       <Box
         sx={{
-          width: 20,
-          height: 20,
-          borderRadius: '50%',
-          border: `2px solid ${ring}`,
-          bgcolor: done ? ring : 'transparent',
+          width: 16,
+          height: 16,
+          borderRadius: '4px',
+          border: `1.5px solid ${done ? theme.palette.text.disabled : ring}`,
+          bgcolor: done ? theme.palette.text.disabled : 'transparent',
           display: 'grid',
           placeItems: 'center',
           color: theme.palette.background.paper,
-          transition: 'background-color 150ms',
-          '@media (prefers-reduced-motion: reduce)': { transition: 'none' },
         }}
       >
-        {done && <CheckRounded sx={{ fontSize: 14 }} />}
+        {done && <CheckRounded sx={{ fontSize: 12 }} />}
       </Box>
     </IconButton>
   );
 }
 
-function useDateColor(state: DateState): string {
-  const p = useTheme().punchlist;
-  if (state === 'late') return p.dateState.late;
-  if (state === 'slipped') return p.dateState.slipped;
-  if (state === 'dueSoon') return p.dateState.dueSoon;
-  return p.textMuted;
-}
+/**
+ * How the start date reads on the right of a row. In views already grouped by day only the
+ * time is shown (nothing for all-day tasks).
+ */
+export type RowDateFormat = 'full' | 'time';
 
-export function TaskRow({ task, showList = false }: { task: Task; showList?: boolean }) {
+export function TaskRow({
+  task,
+  showList = false,
+  dateFormat = 'full',
+}: {
+  task: Task;
+  showList?: boolean;
+  dateFormat?: RowDateFormat;
+}) {
   const workspace = useWorkspace();
   const today = useToday();
+  const theme = useTheme();
   const { selectedId, open } = useTaskSelection();
-  const dueSoonDays = workspace.entities.settings[0]?.dueSoonDays ?? 2;
-  const state = dateState(task, today, dueSoonDays);
-  const dateColor = useDateColor(state);
-  const list = showList ? getEntity(workspace, 'lists', task.listId) : undefined;
+  const list = getEntity(workspace, 'lists', task.listId);
   const progress = subtaskProgress(workspace, task.id);
   const done = task.status !== 'open';
   const title = task.title || t('task.untitled');
+  const selected = selectedId === task.id;
 
-  // Dates sit at the right edge of the row (TickTick style) so they line up and scan easily.
-  const dates: React.ReactNode[] = [];
-  if (task.schedule) {
-    dates.push(
-      <Box key="when" component="span" sx={{ color: task.due ? 'text.secondary' : dateColor }}>
-        {formatWhen(task.schedule.start, today)}
-      </Box>,
-    );
-  }
-  if (task.due) {
-    dates.push(
-      <Box
-        key="due"
-        component="span"
-        sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.25, color: dateColor }}
-      >
-        <FlagRounded sx={{ fontSize: 14 }} aria-label={t('task.due')} />
-        {formatDay(datePart(task.due.at), today)}
-      </Box>,
-    );
-  }
-
-  const meta: React.ReactNode[] = [];
-  if (list) {
-    meta.push(
-      <Box
-        key="list"
-        component="span"
-        sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5 }}
-      >
-        <Box
-          component="span"
-          sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: list.color }}
-        />
-        {listName(list)}
-      </Box>,
-    );
-  }
-  if (progress.total > 0) {
-    meta.push(
-      <span key="subtasks">
-        {t('task.subtasks', { done: progress.done, total: progress.total })}
-      </span>,
-    );
-  }
+  const start = task.schedule?.start;
+  const time = start ? timePart(start) : null;
+  const dateText = !start
+    ? null
+    : dateFormat === 'time'
+      ? time && formatTime(time)
+      : formatWhen(start, today);
+  const state = startState(task, today);
+  const dateColor = done
+    ? 'text.disabled'
+    : state === 'overdue'
+      ? theme.punchlist.dateState.late
+      : theme.punchlist.dateState.dueSoon;
 
   return (
     <Box
       sx={{
+        position: 'relative',
         display: 'flex',
-        alignItems: 'flex-start',
-        gap: 0.5,
-        borderRadius: 2,
-        bgcolor: selectedId === task.id ? 'action.selected' : 'transparent',
-        '&:hover': { bgcolor: selectedId === task.id ? 'action.selected' : 'action.hover' },
+        alignItems: 'center',
+        minHeight: 40,
+        pl: 0.5,
+        borderBottom: 1,
+        borderColor: 'divider',
+        bgcolor: selected ? 'action.selected' : 'transparent',
+        '&:hover': { bgcolor: selected ? 'action.selected' : 'action.hover' },
+        // List color as a thin stripe on the left edge.
+        '&::before': {
+          content: '""',
+          position: 'absolute',
+          left: 0,
+          top: 4,
+          bottom: 4,
+          width: 3,
+          borderRadius: 2,
+          bgcolor: list?.color ?? 'transparent',
+        },
       }}
     >
       <PriorityCheckbox task={task} />
@@ -142,63 +128,83 @@ export function TaskRow({ task, showList = false }: { task: Task; showList?: boo
         aria-label={t('task.open', { title })}
         sx={{
           flexGrow: 1,
+          minWidth: 0,
           display: 'flex',
-          alignItems: 'flex-start',
-          justifyContent: 'flex-start',
-          textAlign: 'left',
-          py: 0.75,
+          alignItems: 'center',
+          gap: 1.5,
+          py: 1,
           pr: 1.5,
-          borderRadius: 2,
+          textAlign: 'left',
         }}
       >
-        <Box sx={{ minWidth: 0, flexGrow: 1 }}>
-          <Typography
-            sx={{
-              textDecoration: done ? 'line-through' : 'none',
-              color: done ? 'text.secondary' : 'text.primary',
-              overflowWrap: 'anywhere',
-            }}
-          >
-            {title}
-          </Typography>
-          {meta.length > 0 && (
-            <Typography
-              component="div"
-              variant="caption"
-              sx={{ display: 'flex', flexWrap: 'wrap', columnGap: 1.5, color: 'text.secondary' }}
+        <Typography
+          noWrap
+          sx={{ flexGrow: 1, minWidth: 0, color: done ? 'text.disabled' : 'text.primary' }}
+        >
+          {title}
+        </Typography>
+        <Box
+          data-testid="task-meta"
+          sx={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 1.25,
+            flexShrink: 0,
+            typography: 'body2',
+          }}
+        >
+          {progress.total > 0 && (
+            <Box
+              component="span"
+              sx={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 0.25,
+                color: 'text.secondary',
+              }}
             >
-              {meta}
-            </Typography>
+              <ChecklistRounded sx={{ fontSize: 16 }} />
+              {t('task.subtasks', { done: progress.done, total: progress.total })}
+            </Box>
+          )}
+          {showList && list && (
+            <Box component="span" sx={{ color: 'text.secondary' }}>
+              {listName(list)}
+            </Box>
+          )}
+          {dateText && (
+            <Box
+              component="span"
+              data-testid="task-date"
+              sx={{ color: dateColor, whiteSpace: 'nowrap' }}
+            >
+              {dateText}
+            </Box>
           )}
         </Box>
-        {dates.length > 0 && (
-          <Typography
-            component="div"
-            variant="body2"
-            data-testid="task-dates"
-            sx={{
-              display: 'flex',
-              flexShrink: 0,
-              columnGap: 1.5,
-              pl: 1.5,
-              pt: '2px',
-              whiteSpace: 'nowrap',
-            }}
-          >
-            {dates}
-          </Typography>
-        )}
       </ButtonBase>
     </Box>
   );
 }
 
-export function TaskRows({ tasks, showList }: { tasks: Task[]; showList?: boolean }) {
+export function TaskRows({
+  tasks,
+  showList,
+  dateFormat,
+}: {
+  tasks: Task[];
+  showList?: boolean;
+  dateFormat?: RowDateFormat;
+}) {
   return (
     <Box component="ul" sx={{ listStyle: 'none', m: 0, p: 0 }}>
       {tasks.map((task) => (
         <li key={task.id}>
-          <TaskRow task={task} {...(showList === undefined ? {} : { showList })} />
+          <TaskRow
+            task={task}
+            {...(showList === undefined ? {} : { showList })}
+            {...(dateFormat === undefined ? {} : { dateFormat })}
+          />
         </li>
       ))}
     </Box>

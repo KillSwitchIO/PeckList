@@ -8,6 +8,7 @@ import {
   deleteTask,
   descendants,
   moveTask,
+  rescheduleTo,
   restoreTask,
   setTaskStatus,
   setTaskTag,
@@ -235,5 +236,26 @@ describe('moveTask', () => {
       deletedAt: '2026-10-20T00:00:00.000Z',
     });
     expect(titles(siblings(s.ws, s.inbox, null, null))).toEqual(['b']);
+  });
+});
+
+describe('rescheduleTo', () => {
+  it('moves the start date, keeping time and range length; ignores undated tasks', () => {
+    const s = setup();
+    const timed = s.add('timed', {
+      schedule: {
+        start: '2026-10-10T09:30',
+        end: '2026-10-12T11:00',
+        allDay: false,
+        timeZone: 'UTC',
+      },
+    });
+    const undated = s.add('undated');
+    s.ws = rescheduleTo(s.ctx, s.ws, [timed.id, undated.id], '2026-10-20');
+    expect(getEntity(s.ws, 'tasks', timed.id)?.schedule).toMatchObject({
+      start: '2026-10-20T09:30',
+      end: '2026-10-22T11:00',
+    });
+    expect(getEntity(s.ws, 'tasks', undated.id)?.schedule).toBeNull();
   });
 });

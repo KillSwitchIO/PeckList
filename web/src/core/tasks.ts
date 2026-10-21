@@ -1,6 +1,7 @@
 // Task operations. Each takes a workspace and returns a new one; every write is HLC-stamped.
 
 import { getEntity, isLive, putEntities, putEntity, requireEntity } from './collections.ts';
+import { addDays, datePart, daysBetween } from './dates.ts';
 import { compareOrderKeys, keyBetween } from './ordering.ts';
 import {
   createEntity,
@@ -236,4 +237,27 @@ export function setTaskTag(
   const task = requireEntity(workspace, 'tasks', id);
   const tags = setElement(ctx, task.tags, tagId, present);
   return tags === task.tags ? workspace : putEntity(workspace, 'tasks', { ...task, tags });
+}
+
+/** Move tasks to start on `date`, keeping each task's time of day and range length. */
+export function rescheduleTo(
+  ctx: OpContext,
+  workspace: WorkspaceFile,
+  ids: Id[],
+  date: string,
+): WorkspaceFile {
+  const changed = ids.map((id) => {
+    const task = requireEntity(workspace, 'tasks', id);
+    if (!task.schedule) return task;
+    const shift = daysBetween(datePart(task.schedule.start), date);
+    const move = (value: string) => addDays(datePart(value), shift) + value.slice(10);
+    return updateEntity(ctx, task, {
+      schedule: {
+        ...task.schedule,
+        start: move(task.schedule.start),
+        end: task.schedule.end ? move(task.schedule.end) : null,
+      },
+    });
+  });
+  return putEntities(workspace, 'tasks', changed);
 }
