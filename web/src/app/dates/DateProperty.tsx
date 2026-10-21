@@ -1,6 +1,6 @@
 import { Typography } from '@mui/material';
 import { useState, type ReactNode } from 'react';
-import { formatWhen } from '../format.ts';
+import { formatSpan, formatWhen } from '../format.ts';
 import { PropertyRow, PropertySheet } from '../tasks/PropertyRow.tsx';
 import { DatePickerPanel } from './DatePickerPanel.tsx';
 import { fromDateValue, type DateValue } from './dateValue.ts';
@@ -13,6 +13,7 @@ export function DateProperty({
   today,
   placeholder,
   valueColor,
+  allowRange = false,
   onChange,
 }: {
   label: string;
@@ -21,6 +22,8 @@ export function DateProperty({
   today: string;
   placeholder: string;
   valueColor?: string;
+  /** Offer Duration (a start and an end) next to a single date */
+  allowRange?: boolean;
   onChange: (value: DateValue | null) => void;
 }) {
   const [anchor, setAnchor] = useState<HTMLElement | null>(null);
@@ -29,7 +32,11 @@ export function DateProperty({
     onChange(next);
     close();
   };
-  const display = value ? formatWhen(fromDateValue(value), today) : placeholder;
+  const display = value
+    ? value.end
+      ? formatSpan(fromDateValue(value), fromDateValue(value.end), today)
+      : formatWhen(fromDateValue(value), today)
+    : placeholder;
 
   return (
     <>
@@ -45,7 +52,15 @@ export function DateProperty({
         </Typography>
       </PropertyRow>
       <PropertySheet label={label} anchor={anchor} onClose={close}>
-        {anchor && <DatePickerPanel value={value} today={today} onApply={apply} onCancel={close} />}
+        {anchor && (
+          <DatePickerPanel
+            allowRange={allowRange}
+            value={value}
+            today={today}
+            onApply={apply}
+            onCancel={close}
+          />
+        )}
       </PropertySheet>
     </>
   );

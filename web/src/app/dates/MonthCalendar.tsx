@@ -155,12 +155,15 @@ export function MonthCalendar({
   onSelect,
   weekStartsOn = 0,
   locale,
+  range,
 }: {
   selected: string | null;
   today: string;
   onSelect: (date: string) => void;
   weekStartsOn?: number;
   locale?: string;
+  /** A span to shade: its ends are filled, the days between tinted */
+  range?: { start: string; end: string };
 }) {
   const origin = addDays(ORIGIN_SUNDAY, weekStartsOn);
   const rowOf = (date: string) => Math.floor(daysBetween(origin, date) / 7);
@@ -384,7 +387,9 @@ export function MonthCalendar({
               {Array.from({ length: 7 }, (_, col) => {
                 const date = dateAt(row, col);
                 const inShownMonth = monthOf(date) === monthOf(shownMonth);
-                const isSelected = date === selected;
+                const isEnd = range !== undefined && (date === range.start || date === range.end);
+                const isSelected = date === selected || isEnd;
+                const inside = range !== undefined && date > range.start && date < range.end;
                 const isToday = date === today;
                 const firstOfMonth = date.endsWith('-01');
                 return (
@@ -415,7 +420,13 @@ export function MonthCalendar({
                           : inShownMonth
                             ? 'text.primary'
                             : 'text.secondary',
-                      bgcolor: isSelected ? 'primary.main' : 'transparent',
+                      bgcolor: isSelected
+                        ? 'primary.main'
+                        : inside
+                          ? 'action.selected'
+                          : 'transparent',
+                      // Days inside a span join into a band.
+                      ...(inside ? { borderRadius: 1 } : {}),
                       '&:hover': { bgcolor: isSelected ? 'primary.main' : 'action.hover' },
                       '&.Mui-focusVisible': {
                         outline: 2,

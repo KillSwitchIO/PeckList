@@ -10,23 +10,35 @@ import {
   Button,
   ButtonBase,
   Divider,
+  FormControlLabel,
   IconButton,
   Stack,
+  Switch,
+  ToggleButton,
+  ToggleButtonGroup,
   Tooltip,
   Typography,
   useMediaQuery,
   useTheme,
 } from '@mui/material';
 import { useState, type ReactNode } from 'react';
-import { addDays, shiftMonths } from '../../core/dates.ts';
-import { formatTime } from '../format.ts';
+import { addDays } from '../../core/dates.ts';
+import { formatDay, formatTime } from '../format.ts';
 import { t } from '../i18n/i18n.ts';
-import { DEFAULT_TIME, EVENING, type DateValue } from './dateValue.ts';
+import {
+  addHour,
+  DEFAULT_TIME,
+  EVENING,
+  orderedSpan,
+  type DatePart,
+  type DateValue,
+} from './dateValue.ts';
 import { MonthCalendar } from './MonthCalendar.tsx';
 import { TimeInput } from './TimeInput.tsx';
 import { TimeWheels } from './TimeWheels.tsx';
 
-function NextWeekIcon() {
+/** A calendar icon with "+7" or "+30" on its face. */
+function PlusDaysIcon({ days }: { days: number }) {
   return (
     <Box sx={{ position: 'relative', display: 'inline-flex' }}>
       <CalendarTodayOutlined />
@@ -35,34 +47,14 @@ function NextWeekIcon() {
         sx={{
           position: 'absolute',
           inset: 0,
-          top: 5,
-          fontSize: 9,
-          fontWeight: 700,
+          top: 6,
+          fontSize: days >= 10 ? 8.5 : 9.5,
+          fontWeight: 800,
+          letterSpacing: -0.3,
           textAlign: 'center',
         }}
       >
-        +7
-      </Box>
-    </Box>
-  );
-}
-
-function NextMonthIcon() {
-  return (
-    <Box sx={{ position: 'relative', display: 'inline-flex' }}>
-      <CalendarTodayOutlined />
-      <Box
-        component="span"
-        sx={{
-          position: 'absolute',
-          inset: 0,
-          top: 5,
-          fontSize: 9,
-          fontWeight: 700,
-          textAlign: 'center',
-        }}
-      >
-        +1
+        +{days}
       </Box>
     </Box>
   );
@@ -124,24 +116,149 @@ function QuickPick({
   );
 }
 
+/** "Time ........ 9:00 AM >" that opens a typed field (mouse) or wheels (touch). */
+function TimeRow({
+  time,
+  touch,
+  onChange,
+  onRemove,
+  defaultTime = DEFAULT_TIME,
+}: {
+  time: string | null;
+  touch: boolean;
+  onChange: (time: string | null) => void;
+  onRemove: () => void;
+  defaultTime?: string;
+}) {
+  const [editing, setEditing] = useState(false);
+  if (!editing) {
+    return (
+      <ButtonBase
+        onClick={() => {
+          setEditing(true);
+          // Wheels always show a value, so start from one rather than "no time".
+          if (touch && !time) onChange(defaultTime);
+        }}
+        sx={{
+          width: '100%',
+          display: 'flex',
+          gap: 1.5,
+          px: 1,
+          py: 1,
+          borderRadius: 2,
+          '&:hover': { bgcolor: 'action.hover' },
+        }}
+      >
+        <AccessTimeRounded fontSize="small" color="action" />
+        <Typography sx={{ flexGrow: 1, textAlign: 'left' }}>{t('date.time')}</Typography>
+        {time && (
+          <Typography color="text.secondary" variant="body2">
+            {formatTime(time)}
+          </Typography>
+        )}
+        <ChevronRightRounded fontSize="small" color="action" />
+      </ButtonBase>
+    );
+  }
+  return (
+    <Box
+      sx={{ display: 'flex', alignItems: touch ? 'center' : 'flex-start', gap: 1, px: 1, pt: 0.5 }}
+    >
+      <AccessTimeRounded fontSize="small" color="action" sx={{ mt: 1 }} />
+      {touch ? (
+        <Box sx={{ flexGrow: 1 }}>
+          <TimeWheels value={time} onChange={onChange} />
+        </Box>
+      ) : (
+        <TimeInput value={time} autoFocus onChange={onChange} />
+      )}
+      <IconButton
+        size="small"
+        aria-label={t('date.removeTime')}
+        onClick={() => {
+          setEditing(false);
+          onRemove();
+        }}
+      >
+        <CloseRounded fontSize="small" />
+      </IconButton>
+    </Box>
+  );
+}
+
+/** "Start  Wed, Oct 21  9:00 AM" field in Duration mode; the active one takes calendar picks. */
+function SpanField({
+  label,
+  value,
+  allDay,
+  active,
+  today,
+  onClick,
+}: {
+  label: string;
+  value: DatePart;
+  allDay: boolean;
+  active: boolean;
+  today: string;
+  onClick: () => void;
+}) {
+  const text = [formatDay(value.date, today), !allDay && value.time ? formatTime(value.time) : null]
+    .filter(Boolean)
+    .join(' ');
+  return (
+    <ButtonBase
+      onClick={onClick}
+      aria-pressed={active}
+      aria-label={`${label}: ${text}`}
+      sx={{
+        flex: 1,
+        minWidth: 0,
+        flexDirection: 'column',
+        alignItems: 'flex-start',
+        px: 1.25,
+        py: 0.75,
+        borderRadius: 2,
+        border: 1.5,
+        borderColor: active ? 'primary.main' : 'divider',
+        textAlign: 'left',
+      }}
+    >
+      <Typography variant="caption" color={active ? 'primary.main' : 'text.secondary'}>
+        {label}
+      </Typography>
+      <Typography variant="body2" noWrap sx={{ fontWeight: 600, maxWidth: '100%' }}>
+        {text}
+      </Typography>
+    </ButtonBase>
+  );
+}
+
 /**
- * The date picker body: quick picks, a month calendar, an optional time, Clear and OK.
- * Quick picks apply immediately; calendar and time changes apply on OK.
+ * The date picker body. Date mode: quick picks, the calendar, an optional time. Duration mode
+ * (when `allowRange`, TickTick style): Start and End fields, the span shaded on the calendar, an
+ * All day switch and a time for the active field. Quick picks apply at once; the rest on OK.
+ * "No date" clears.
  */
 export function DatePickerPanel({
   value,
   today,
+  allowRange = false,
   onApply,
   onCancel,
 }: {
   value: DateValue | null;
   today: string;
+  allowRange?: boolean;
   onApply: (value: DateValue | null) => void;
   onCancel: () => void;
 }) {
+  const [mode, setMode] = useState<'date' | 'duration'>(
+    allowRange && value?.end ? 'duration' : 'date',
+  );
   const [date, setDate] = useState<string | null>(value?.date ?? null);
   const [time, setTime] = useState<string | null>(value?.time ?? null);
-  const [editingTime, setEditingTime] = useState(false);
+  const [end, setEnd] = useState<DatePart | null>(value?.end ?? null);
+  const [active, setActive] = useState<'start' | 'end'>('start');
   // Phones, tablets and anything with a touch screen get hour / minute / AM-PM wheels;
   // large mouse-and-keyboard screens get the typed field. (Many tablets report a fine
   // pointer, especially with a keyboard attached, so screen size counts too.)
@@ -149,14 +266,6 @@ export function DatePickerPanel({
   const anyTouch = useMediaQuery('(any-pointer: coarse)', { noSsr: true });
   const smallScreen = useMediaQuery(theme.breakpoints.down('lg'), { noSsr: true });
   const touch = anyTouch || smallScreen;
-  const startEditingTime = () => {
-    setEditingTime(true);
-    if (touch && !time) {
-      // Wheels always show a value, so start from it rather than "no time".
-      setTime(DEFAULT_TIME);
-      if (!date) setDate(today);
-    }
-  };
 
   const weekdayShort = new Intl.DateTimeFormat(undefined, { weekday: 'short', timeZone: 'UTC' });
   const monthDay = new Intl.DateTimeFormat(undefined, {
@@ -164,131 +273,184 @@ export function DatePickerPanel({
     day: 'numeric',
     timeZone: 'UTC',
   });
-  const atNoon = (date: string) => new Date(`${date}T12:00:00Z`);
-  const nextWeek = addDays(today, 7);
-  const nextMonth = shiftMonths(today, 1);
+  const atNoon = (day: string) => new Date(`${day}T12:00:00Z`);
   const quick = [
-    {
-      label: t('date.today'),
-      icon: <WbSunnyOutlined />,
-      hint: weekdayShort.format(atNoon(today)),
-      value: { date: today, time: null },
-    },
-    {
-      label: t('date.tomorrow'),
-      icon: <WbTwilightOutlined />,
-      hint: weekdayShort.format(atNoon(addDays(today, 1))),
-      value: { date: addDays(today, 1), time: null },
-    },
-    {
-      label: t('date.nextWeek'),
-      icon: <NextWeekIcon />,
-      hint: monthDay.format(atNoon(nextWeek)),
-      value: { date: nextWeek, time: null },
-    },
-    {
-      label: t('date.nextMonth'),
-      icon: <NextMonthIcon />,
-      hint: monthDay.format(atNoon(nextMonth)),
-      value: { date: nextMonth, time: null },
-    },
-    {
-      label: t('date.tonight'),
-      icon: <NightlightOutlined />,
-      hint: formatTime(EVENING).replace(':00', ''),
-      value: { date: today, time: EVENING },
-    },
-  ];
+    { label: t('date.today'), icon: <WbSunnyOutlined />, days: 0 },
+    { label: t('date.tomorrow'), icon: <WbTwilightOutlined />, days: 1 },
+    { label: t('date.nextWeek'), icon: <PlusDaysIcon days={7} />, days: 7 },
+    { label: t('date.inThirtyDays'), icon: <PlusDaysIcon days={30} />, days: 30 },
+  ].map((pick) => {
+    const day = addDays(today, pick.days);
+    return {
+      ...pick,
+      hint: pick.days < 2 ? weekdayShort.format(atNoon(day)) : monthDay.format(atNoon(day)),
+      value: { date: day, time: null } as DatePart,
+    };
+  });
+  quick.push({
+    label: t('date.tonight'),
+    icon: <NightlightOutlined />,
+    days: 0,
+    hint: formatTime(EVENING).replace(':00', ''),
+    value: { date: today, time: EVENING },
+  });
+
+  const start: DatePart = { date: date ?? today, time };
+  const allDay = time === null;
+  const span = end ? orderedSpan(start, end) : null;
+
+  const enterDuration = () => {
+    setMode('duration');
+    setActive('start');
+    if (!date) setDate(today);
+    if (!end) setEnd({ date: date ?? today, time: time ? addHour(time) : null });
+  };
+  const toggleAllDay = (next: boolean) => {
+    if (next) {
+      setTime(null);
+      setEnd((current) => (current ? { ...current, time: null } : current));
+    } else {
+      const startTime = time ?? DEFAULT_TIME;
+      setTime(startTime);
+      setEnd((current) => ({ date: current?.date ?? start.date, time: addHour(startTime) }));
+    }
+  };
+  const pickDay = (day: string) => {
+    if (mode === 'date' || active === 'start') {
+      setDate(day);
+      if (mode === 'duration') {
+        // Keep the end at or after the new start, then move on to picking the end.
+        if (end && end.date < day) setEnd({ ...end, date: day });
+        setActive('end');
+      }
+    } else {
+      setEnd({ date: day, time: end?.time ?? null });
+    }
+  };
+
+  const apply = () => {
+    if (mode === 'duration' && span) {
+      onApply({ ...span.start, end: span.end });
+    } else if (date) {
+      onApply({ date, time });
+    } else {
+      onCancel();
+    }
+  };
 
   return (
     <Box sx={{ width: 300, maxWidth: '100%', p: 1.5 }}>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
-        {quick.map((pick) => (
-          <QuickPick
-            key={pick.label}
-            label={pick.label}
-            icon={pick.icon}
-            hint={pick.hint}
-            active={date === pick.value.date && time === pick.value.time}
-            onClick={() => onApply(pick.value)}
-          />
-        ))}
-      </Box>
+      {allowRange && (
+        <ToggleButtonGroup
+          exclusive
+          fullWidth
+          size="small"
+          value={mode}
+          onChange={(_, next: 'date' | 'duration' | null) => {
+            if (next === 'duration') enterDuration();
+            else if (next === 'date') {
+              setMode('date');
+              setEnd(null);
+            }
+          }}
+          sx={{ mb: 1 }}
+        >
+          <ToggleButton value="date">{t('date.modeDate')}</ToggleButton>
+          <ToggleButton value="duration">{t('date.modeDuration')}</ToggleButton>
+        </ToggleButtonGroup>
+      )}
 
-      <MonthCalendar selected={date} today={today} onSelect={setDate} />
+      {mode === 'date' ? (
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
+          {quick.map((pick) => (
+            <QuickPick
+              key={pick.label}
+              label={pick.label}
+              icon={pick.icon}
+              hint={pick.hint}
+              active={date === pick.value.date && time === pick.value.time}
+              onClick={() => onApply(pick.value)}
+            />
+          ))}
+        </Box>
+      ) : (
+        <Stack direction="row" spacing={1} sx={{ mb: 1 }}>
+          <SpanField
+            label={t('date.start')}
+            value={start}
+            allDay={allDay}
+            active={active === 'start'}
+            today={today}
+            onClick={() => setActive('start')}
+          />
+          <SpanField
+            label={t('date.end')}
+            value={end ?? start}
+            allDay={allDay}
+            active={active === 'end'}
+            today={today}
+            onClick={() => setActive('end')}
+          />
+        </Stack>
+      )}
+
+      <MonthCalendar
+        selected={mode === 'duration' && active === 'end' ? (end?.date ?? start.date) : date}
+        today={today}
+        onSelect={pickDay}
+        {...(mode === 'duration' && span
+          ? { range: { start: span.start.date, end: span.end.date } }
+          : {})}
+      />
 
       <Divider sx={{ my: 1 }} />
 
-      {editingTime ? (
-        <Box
-          sx={{
-            display: 'flex',
-            alignItems: touch ? 'center' : 'flex-start',
-            gap: 1,
-            px: 1,
-            pt: 0.5,
-          }}
-        >
-          <AccessTimeRounded fontSize="small" color="action" sx={{ mt: 1 }} />
-          {touch ? (
-            <Box sx={{ flexGrow: 1 }}>
-              <TimeWheels value={time} onChange={setTime} />
-            </Box>
-          ) : (
-            <TimeInput
-              value={time}
-              autoFocus
-              onChange={(next) => {
-                setTime(next);
-                if (next && !date) setDate(today);
-              }}
+      {mode === 'duration' && (
+        <FormControlLabel
+          control={
+            <Switch
+              size="small"
+              checked={allDay}
+              onChange={(event) => toggleAllDay(event.target.checked)}
             />
-          )}
-          <IconButton
-            size="small"
-            aria-label={t('date.removeTime')}
-            onClick={() => {
-              setTime(null);
-              setEditingTime(false);
-            }}
-          >
-            <CloseRounded fontSize="small" />
-          </IconButton>
-        </Box>
-      ) : (
-        <ButtonBase
-          onClick={startEditingTime}
-          sx={{
-            width: '100%',
-            display: 'flex',
-            gap: 1.5,
-            px: 1,
-            py: 1,
-            borderRadius: 2,
-            '&:hover': { bgcolor: 'action.hover' },
+          }
+          label={t('date.allDay')}
+          sx={{ mx: 0, px: 1, width: '100%', justifyContent: 'space-between' }}
+          labelPlacement="start"
+        />
+      )}
+
+      {mode === 'date' ? (
+        <TimeRow
+          time={time}
+          touch={touch}
+          onChange={(next) => {
+            setTime(next);
+            if (next && !date) setDate(today);
           }}
-        >
-          <AccessTimeRounded fontSize="small" color="action" />
-          <Typography sx={{ flexGrow: 1, textAlign: 'left' }}>{t('date.time')}</Typography>
-          {time && (
-            <Typography color="text.secondary" variant="body2">
-              {formatTime(time)}
-            </Typography>
-          )}
-          <ChevronRightRounded fontSize="small" color="action" />
-        </ButtonBase>
+          onRemove={() => setTime(null)}
+        />
+      ) : (
+        !allDay && (
+          <TimeRow
+            key={active}
+            time={active === 'start' ? time : (end?.time ?? null)}
+            touch={touch}
+            defaultTime={active === 'start' ? DEFAULT_TIME : addHour(time ?? DEFAULT_TIME)}
+            onChange={(next) => {
+              if (active === 'start') setTime(next);
+              else setEnd({ date: end?.date ?? start.date, time: next });
+            }}
+            onRemove={() => toggleAllDay(true)}
+          />
+        )
       )}
 
       <Stack direction="row" spacing={1} sx={{ mt: 1.5 }}>
         <Button fullWidth variant="outlined" onClick={() => onApply(null)}>
           {t('date.clear')}
         </Button>
-        <Button
-          fullWidth
-          variant="contained"
-          disableElevation
-          onClick={() => (date ? onApply({ date, time }) : onCancel())}
-        >
+        <Button fullWidth variant="contained" disableElevation onClick={apply}>
           {t('common.ok')}
         </Button>
       </Stack>

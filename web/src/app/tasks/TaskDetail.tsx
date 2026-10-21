@@ -232,9 +232,10 @@ export function TaskDetail({ taskId, onClose }: { taskId: string; onClose: () =>
           <DateProperty
             label={t('task.date')}
             icon={<CalendarMonthOutlined fontSize="small" />}
-            value={toDateValue(task.schedule?.start)}
+            value={toDateValue(task.schedule?.start, task.schedule?.end)}
             today={today}
             placeholder={t('date.addDate')}
+            allowRange
             {...(scheduleColor ? { valueColor: scheduleColor } : {})}
             onChange={(value) =>
               apply((ctx, ws) =>
@@ -242,7 +243,7 @@ export function TaskDetail({ taskId, onClose }: { taskId: string; onClose: () =>
                   schedule: value
                     ? {
                         start: fromDateValue(value),
-                        end: null,
+                        end: value.end ? fromDateValue(value.end) : null,
                         allDay: value.time === null,
                         timeZone: zone,
                       }

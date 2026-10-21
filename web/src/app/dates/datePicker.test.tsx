@@ -2,9 +2,10 @@ import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { mockViewport } from '../../test/renderApp.tsx';
+import { formatSpan } from '../format.ts';
 import { DatePickerPanel } from './DatePickerPanel.tsx';
 import { DateProperty } from './DateProperty.tsx';
-import { fromDateValue, toDateValue } from './dateValue.ts';
+import { fromDateValue, toDateValue, type DateValue } from './dateValue.ts';
 import { MonthCalendar } from './MonthCalendar.tsx';
 
 const TODAY = '2026-10-20';
@@ -111,13 +112,13 @@ describe('DatePickerPanel', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Today' }));
     await userEvent.click(screen.getByRole('button', { name: 'Tomorrow' }));
     await userEvent.click(screen.getByRole('button', { name: 'Next week' }));
-    await userEvent.click(screen.getByRole('button', { name: 'Next month' }));
+    await userEvent.click(screen.getByRole('button', { name: 'In 30 days' }));
     await userEvent.click(screen.getByRole('button', { name: 'Tonight' }));
     expect(onApply.mock.calls).toEqual([
       [{ date: TODAY, time: null }],
       [{ date: '2026-10-21', time: null }],
       [{ date: '2026-10-27', time: null }],
-      [{ date: '2026-11-20', time: null }],
+      [{ date: '2026-11-19', time: null }],
       [{ date: TODAY, time: '18:00' }],
     ]);
   });
@@ -128,7 +129,7 @@ describe('DatePickerPanel', () => {
       'Tue',
       'Wed',
       'Oct 27',
-      'Nov 20',
+      'Nov 19',
       '6 PM',
     ]);
   });
@@ -195,9 +196,9 @@ describe('DatePickerPanel', () => {
     expect(onApply).toHaveBeenCalledWith({ date: TODAY, time: null });
   });
 
-  it('Clear removes the date', async () => {
+  it('No date removes the date', async () => {
     const first = setup({ date: TODAY, time: null });
-    await userEvent.click(screen.getByRole('button', { name: 'Clear' }));
+    await userEvent.click(screen.getByRole('button', { name: 'No date' }));
     expect(first.onApply).toHaveBeenCalledWith(null);
   });
 
@@ -324,6 +325,88 @@ describe('time wheels on touch screens', () => {
   });
 });
 
+describe('DatePickerPanel durations', () => {
+  function setup(value: DateValue | null = null) {
+    const onApply = vi.fn();
+    render(
+      <DatePickerPanel
+        value={value}
+        today={TODAY}
+        allowRange
+        onApply={onApply}
+        onCancel={() => undefined}
+      />,
+    );
+    return { onApply };
+  }
+
+  it('turns a timed date into a span with an hour by default, then sets the end', async () => {
+    const { onApply } = setup({ date: TODAY, time: '09:00' });
+    await userEvent.click(screen.getByRole('button', { name: 'Duration' }));
+    expect(screen.getByRole('button', { name: 'Start: Today 9:00 AM' })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    );
+    expect(screen.getByRole('button', { name: 'End: Today 10:00 AM' })).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: /^End:/ }));
+    await userEvent.click(screen.getByRole('gridcell', { name: /October 22, 2026/ }));
+    await userEvent.click(screen.getByRole('button', { name: 'OK' }));
+    expect(onApply).toHaveBeenCalledWith({
+      date: TODAY,
+      time: '09:00',
+      end: { date: '2026-10-22', time: '10:00' },
+    });
+  });
+
+  it('picks an all-day span start then end, shading the days between', async () => {
+    const { onApply } = setup();
+    await userEvent.click(screen.getByRole('button', { name: 'Duration' }));
+    expect(screen.getByRole('switch', { name: 'All day' })).toBeChecked();
+    await userEvent.click(screen.getByRole('gridcell', { name: /October 21, 2026/ }));
+    // Picking the start moves on to the end.
+    expect(screen.getByRole('button', { name: /^End:/ })).toHaveAttribute('aria-pressed', 'true');
+    await userEvent.click(screen.getByRole('gridcell', { name: /October 23, 2026/ }));
+    for (const day of [21, 23]) {
+      expect(
+        screen.getByRole('gridcell', { name: new RegExp(`October ${day}, 2026`) }),
+      ).toHaveAttribute('aria-selected', 'true');
+    }
+    await userEvent.click(screen.getByRole('button', { name: 'OK' }));
+    expect(onApply).toHaveBeenCalledWith({
+      date: '2026-10-21',
+      time: null,
+      end: { date: '2026-10-23', time: null },
+    });
+  });
+
+  it('opens a saved span in Duration; switching to Date drops the end', async () => {
+    const { onApply } = setup({ date: TODAY, time: null, end: { date: '2026-10-22', time: null } });
+    expect(screen.getByRole('button', { name: 'Duration' })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    );
+    await userEvent.click(screen.getByRole('button', { name: 'Date' }));
+    await userEvent.click(screen.getByRole('button', { name: 'OK' }));
+    expect(onApply).toHaveBeenCalledWith({ date: TODAY, time: null });
+  });
+
+  it('swaps an end picked before the start', async () => {
+    const { onApply } = setup({
+      date: '2026-10-25',
+      time: null,
+      end: { date: '2026-10-26', time: null },
+    });
+    await userEvent.click(screen.getByRole('button', { name: /^End:/ }));
+    await userEvent.click(screen.getByRole('gridcell', { name: /October 23, 2026/ }));
+    await userEvent.click(screen.getByRole('button', { name: 'OK' }));
+    expect(onApply).toHaveBeenCalledWith({
+      date: '2026-10-23',
+      time: null,
+      end: { date: '2026-10-25', time: null },
+    });
+  });
+});
+
 describe('DateProperty', () => {
   it('shows a placeholder, opens the picker and reports the choice', async () => {
     const onChange = vi.fn();
@@ -381,5 +464,22 @@ describe('date values', () => {
     expect(toDateValue('2026-10-20')).toEqual({ date: '2026-10-20', time: null });
     expect(toDateValue(undefined)).toBeNull();
     expect(fromDateValue({ date: '2026-10-20', time: null })).toBe('2026-10-20');
+  });
+});
+
+describe('spans', () => {
+  it('format a span for display', () => {
+    expect(formatSpan('2026-10-20T09:00', '2026-10-20T11:00', TODAY, 'en-US')).toBe(
+      'Today 9:00 AM - 11:00 AM',
+    );
+    expect(formatSpan('2026-10-20', '2026-10-22', TODAY, 'en-US')).toBe('Today - Thu, Oct 22');
+  });
+
+  it('read a stored start and end back as a span', () => {
+    expect(toDateValue('2026-10-20T09:00', '2026-10-20T10:00')).toEqual({
+      date: '2026-10-20',
+      time: '09:00',
+      end: { date: '2026-10-20', time: '10:00' },
+    });
   });
 });

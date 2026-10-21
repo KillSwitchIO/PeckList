@@ -42,3 +42,16 @@ export function formatWhen(value: string, today: string, locale?: string): strin
   const time = timePart(value);
   return time ? `${day} ${formatTime(time, locale)}` : day;
 }
+
+/**
+ * A time span for display: "Today 9:00 AM - 11:00 AM" on one day, "Today - Thu, Oct 22" all day
+ * over several days, "Today 9:00 AM - Thu, Oct 22 5:00 PM" otherwise.
+ */
+export function formatSpan(start: string, end: string, today: string, locale?: string): string {
+  const startText = formatWhen(start, today, locale);
+  const endTime = timePart(end);
+  if (datePart(start) === datePart(end)) {
+    return endTime ? `${startText} - ${formatTime(endTime, locale)}` : startText;
+  }
+  return `${startText} - ${formatWhen(end, today, locale)}`;
+}
