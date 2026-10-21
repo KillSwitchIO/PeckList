@@ -258,3 +258,42 @@ export function CloseIcon(props: SvgIconProps) {
     </PunchIcon>
   );
 }
+
+/** Won't do: a circle struck through. */
+export function WontDoIcon(props: SvgIconProps) {
+  return (
+    <PunchIcon {...props}>
+      <circle cx="12" cy="12" r="8" />
+      <path d="M6.4 6.4l11.2 11.2" />
+    </PunchIcon>
+  );
+}
+
+/** Reopen: an arrow turning back. */
+export function ReopenIcon(props: SvgIconProps) {
+  return (
+    <PunchIcon {...props}>
+      <path d="M4.5 12a7.5 7.5 0 1 0 2.2-5.3L4.5 9" />
+      <path d="M4.5 4.5V9H9" />
+    </PunchIcon>
+  );
+}
+
+/** Progress: a ring with a filled quarter. */
+export function ProgressIcon(props: SvgIconProps) {
+  return (
+    <PunchIcon {...props}>
+      <circle cx="12" cy="12" r="8" />
+      <path d="M12 4a8 8 0 0 1 8 8h-8z" fill="currentColor" />
+    </PunchIcon>
+  );
+}
+
+/** Back: a chevron pointing left. */
+export function ChevronLeftIcon(props: SvgIconProps) {
+  return (
+    <PunchIcon {...props}>
+      <path d="M14.5 7l-5 5 5 5" />
+    </PunchIcon>
+  );
+}

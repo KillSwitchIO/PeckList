@@ -11,12 +11,14 @@ import { tagsOfTask } from '../../core/tags.ts';
 import { toggleTaskDone } from '../../core/tasks.ts';
 import type { Priority, Task } from '../../core/types.ts';
 import { formatDay, formatWhen } from '../format.ts';
+import { useLongPress } from '../hooks/useLongPress.ts';
 import { useToday } from '../hooks/useToday.ts';
 import { t } from '../i18n/i18n.ts';
 import { listName } from '../lists/listName.ts';
 import { useApply, useWorkspace } from '../store/hooks.ts';
 import { TagChips } from '../tags/TagChip.tsx';
 import { useTaskSelection } from './selection.ts';
+import { ProgressRing } from './ProgressRing.tsx';
 import { TaskMenu, type TaskMenuAnchor } from './TaskMenu.tsx';
 
 const PRIORITY_KEY = { 0: 'none', 1: 'low', 2: 'medium', 3: 'high' } as const satisfies Record<
@@ -105,6 +107,7 @@ export function TaskRow({
   const title = task.title || t('task.untitled');
   const selected = selectedId === task.id;
   const [menu, setMenu] = useState<TaskMenuAnchor | null>(null);
+  const longPress = useLongPress((position) => setMenu({ position }));
 
   const start = task.schedule?.start;
   // Closed tasks show when they were completed instead of when they start.
@@ -128,6 +131,7 @@ export function TaskRow({
         event.preventDefault();
         setMenu({ position: { top: event.clientY, left: event.clientX } });
       }}
+      {...longPress}
       sx={{
         position: 'relative',
         display: 'flex',
@@ -260,14 +264,20 @@ export function TaskRow({
             sx={{
               width: DATE_COLUMN,
               flexShrink: 0,
-              textAlign: 'right',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'flex-end',
+              gap: 0.75,
               color: dateColor,
-              whiteSpace: 'nowrap',
-              overflow: 'hidden',
-              textOverflow: 'ellipsis',
             }}
           >
-            {dateText}
+            {task.progress > 0 && task.status === 'open' && <ProgressRing value={task.progress} />}
+            <Box
+              component="span"
+              sx={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}
+            >
+              {dateText}
+            </Box>
           </Box>
         </Box>
       </ButtonBase>

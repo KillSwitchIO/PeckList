@@ -15,6 +15,7 @@ export function DateProperty({
   valueColor,
   allowRange = false,
   compact = false,
+  inline = false,
   onChange,
 }: {
   label: string;
@@ -27,6 +28,8 @@ export function DateProperty({
   allowRange?: boolean;
   /** Half-width row (see PropertyRow); empty, it shows just its label. */
   compact?: boolean;
+  /** Icon and value only (see PropertyRow); empty, it shows the placeholder. */
+  inline?: boolean;
   onChange: (value: DateValue | null) => void;
 }) {
   const [anchor, setAnchor] = useState<HTMLElement | null>(null);
@@ -49,6 +52,7 @@ export function DateProperty({
         ariaValue={display}
         iconColor={value ? (valueColor ?? 'text.secondary') : 'text.secondary'}
         compact={compact}
+        inline={inline}
         onClick={setAnchor}
       >
         {(value || !compact) && (

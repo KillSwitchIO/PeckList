@@ -6,7 +6,6 @@ import MoreHorizRounded from '@mui/icons-material/MoreHorizRounded';
 import TaskAltRounded from '@mui/icons-material/TaskAltRounded';
 import {
   Box,
-  Button,
   IconButton,
   Stack,
   TextField,
@@ -19,11 +18,13 @@ import { useState } from 'react';
 import { getEntity, isLive } from '../../core/collections.ts';
 import { instantOf, localDateTimeOf, localTimeZone } from '../../core/dates.ts';
 import { dateState } from '../../core/queries.ts';
-import { deleteTask, setCompletedAt, setTaskStatus, updateTask } from '../../core/tasks.ts';
+import { deleteTask, setCompletedAt, updateTask } from '../../core/tasks.ts';
 import { DateProperty } from '../dates/DateProperty.tsx';
 import { NotesEditor } from '../editor/NotesEditor.tsx';
 import { TagsProperty } from '../tags/TagsProperty.tsx';
 import { CollapseIcon, ExpandIcon } from '../icons/icons.tsx';
+import { useLongPress } from '../hooks/useLongPress.ts';
+import { CompleteCheckbox } from './CompleteCheckbox.tsx';
 import { DetailFooter } from './DetailFooter.tsx';
 import { ParentTrail, SubtaskEditor } from './Subtasks.tsx';
 import { TaskMenu, type TaskMenuAnchor } from './TaskMenu.tsx';
@@ -88,6 +89,7 @@ export function TaskDetail({
   const theme = useTheme();
   const task = getEntity(workspace, 'tasks', taskId);
   const [menu, setMenu] = useState<TaskMenuAnchor | null>(null);
+  const titleLongPress = useLongPress((position) => setMenu({ position }));
 
   if (!task || !isLive(task)) {
     return (
@@ -123,37 +125,31 @@ export function TaskDetail({
       sx={{ height: '100%', display: 'flex', flexDirection: 'column', minHeight: 0 }}
     >
       <Toolbar disableGutters sx={{ gap: 1, px: 2, flexShrink: 0 }}>
-        {task.status === 'open' ? (
-          <>
-            <Button
-              variant="contained"
-              size="small"
-              onClick={() =>
-                apply((ctx, ws) => setTaskStatus(ctx, ws, task.id, 'done'), t('undo.completed'))
-              }
-            >
-              {t('task.markDone')}
-            </Button>
-            <Button
-              size="small"
-              onClick={() =>
-                apply((ctx, ws) => setTaskStatus(ctx, ws, task.id, 'wontdo'), t('undo.wontDo'))
-              }
-            >
-              {t('task.markWontDo')}
-            </Button>
-          </>
-        ) : (
-          <Button
-            variant="outlined"
-            size="small"
-            onClick={() =>
-              apply((ctx, ws) => setTaskStatus(ctx, ws, task.id, 'open'), t('undo.reopened'))
-            }
-          >
-            {t('task.reopenAction')}
-          </Button>
-        )}
+        <CompleteCheckbox task={task} />
+        <DateProperty
+          label={t('task.date')}
+          inline
+          icon={<CalendarMonthOutlined fontSize="small" />}
+          value={toDateValue(task.schedule?.start, task.schedule?.end)}
+          today={today}
+          placeholder={t('task.date')}
+          allowRange
+          {...(scheduleColor ? { valueColor: scheduleColor } : {})}
+          onChange={(value) =>
+            apply((ctx, ws) =>
+              updateTask(ctx, ws, task.id, {
+                schedule: value
+                  ? {
+                      start: fromDateValue(value),
+                      end: value.end ? fromDateValue(value.end) : null,
+                      allDay: value.time === null,
+                      timeZone: zone,
+                    }
+                  : null,
+              }),
+            )
+          }
+        />
         <Box sx={{ flexGrow: 1 }} />
         <Tooltip title={t('task.actions')}>
           <IconButton
@@ -195,37 +191,23 @@ export function TaskDetail({
         sx={{ flexGrow: 1, minHeight: 0, overflowY: 'auto', px: 2, pb: 2, pt: 0.5 }}
       >
         <ParentTrail task={task} />
-        <CommitField
-          label={t('task.title')}
-          value={task.title}
-          onCommit={(title) =>
-            apply((ctx, ws) => updateTask(ctx, ws, task.id, { title: title.trim() }))
-          }
-        />
-        <Box>
-          <DateProperty
-            label={t('task.date')}
-            icon={<CalendarMonthOutlined fontSize="small" />}
-            value={toDateValue(task.schedule?.start, task.schedule?.end)}
-            today={today}
-            placeholder={t('date.addDate')}
-            allowRange
-            {...(scheduleColor ? { valueColor: scheduleColor } : {})}
-            onChange={(value) =>
-              apply((ctx, ws) =>
-                updateTask(ctx, ws, task.id, {
-                  schedule: value
-                    ? {
-                        start: fromDateValue(value),
-                        end: value.end ? fromDateValue(value.end) : null,
-                        allDay: value.time === null,
-                        timeZone: zone,
-                      }
-                    : null,
-                }),
-              )
+        {/* Right-click or long-press the title for Won't do, Progress and the other actions. */}
+        <Box
+          onContextMenu={(event) => {
+            event.preventDefault();
+            setMenu({ position: { top: event.clientY, left: event.clientX } });
+          }}
+          {...titleLongPress}
+        >
+          <CommitField
+            label={t('task.title')}
+            value={task.title}
+            onCommit={(title) =>
+              apply((ctx, ws) => updateTask(ctx, ws, task.id, { title: title.trim() }))
             }
           />
+        </Box>
+        <Box>
           <Box
             sx={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))' }}
           >

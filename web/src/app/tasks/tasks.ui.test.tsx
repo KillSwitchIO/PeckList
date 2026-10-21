@@ -145,15 +145,33 @@ describe('task details', () => {
     await addTasks('Mow');
     await userEvent.click(screen.getByRole('button', { name: 'Open Mow' }));
     const details = await screen.findByRole('region', { name: 'Task details' });
-    await userEvent.click(within(details).getByRole('button', { name: "Won't do" }));
+    // Won't do lives in the title's right-click menu.
+    fireEvent.contextMenu(within(details).getByLabelText('Title'));
+    await userEvent.click(await screen.findByRole('menuitem', { name: "Won't do" }));
     expect(screen.getByText("Marked won't do")).toBeInTheDocument();
-    await userEvent.click(within(details).getByRole('button', { name: 'Reopen' }));
-    await userEvent.click(within(details).getByRole('button', { name: 'Complete' }));
-    await userEvent.click(within(details).getByRole('button', { name: 'Reopen' }));
+    // The header checkbox reopens, completes and reopens again.
+    await userEvent.click(within(details).getByRole('checkbox', { name: 'Reopen Mow' }));
+    await userEvent.click(within(details).getByRole('checkbox', { name: 'Complete Mow' }));
+    await userEvent.click(within(details).getByRole('checkbox', { name: 'Reopen Mow' }));
     await userEvent.click(within(details).getByRole('button', { name: 'Delete task' }));
     expect(screen.queryByRole('region', { name: 'Task details' })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Open Mow' })).not.toBeInTheDocument();
     expect(screen.getByText('Task deleted')).toBeInTheDocument();
+  });
+
+  it('sets progress from the right-click menu; rows show a ring by the date', async () => {
+    await renderApp('/inbox');
+    await addTasks('Paint fence');
+    const row = screen.getByRole('button', { name: 'Open Paint fence' });
+    fireEvent.contextMenu(row);
+    await userEvent.click(await screen.findByRole('menuitem', { name: /^Progress/ }));
+    await userEvent.click(await screen.findByRole('menuitem', { name: '40%' }));
+    expect(within(row).getByRole('img', { name: '40%' })).toBeInTheDocument();
+    // None clears it.
+    fireEvent.contextMenu(row);
+    await userEvent.click(await screen.findByRole('menuitem', { name: /^Progress/ }));
+    await userEvent.click(await screen.findByRole('menuitem', { name: 'None' }));
+    expect(within(row).queryByRole('img', { name: '40%' })).toBeNull();
   });
 
   it('explains when the opened task no longer exists', async () => {
@@ -379,7 +397,7 @@ describe('completion date', () => {
         name: 'Tomorrow',
       }),
     );
-    await userEvent.click(screen.getByRole('checkbox', { name: 'Complete Mow' }));
+    await userEvent.click(within(details).getByRole('checkbox', { name: 'Complete Mow' }));
     const row = screen.getByRole('button', { name: 'Open Mow' });
     expect(within(row).getByTestId('task-date')).toHaveTextContent('Today');
     expect(within(details).getByRole('button', { name: /^Completed: Today \d/ }));
@@ -408,7 +426,7 @@ describe('completion date', () => {
       }),
     );
     // Done right away, dated as picked, with undo.
-    expect(screen.getByRole('checkbox', { name: 'Reopen Rake' })).toBeInTheDocument();
+    expect(within(details).getByRole('checkbox', { name: 'Reopen Rake' })).toBeInTheDocument();
     expect(screen.getByText('Task completed')).toBeInTheDocument();
     expect(
       within(screen.getByRole('button', { name: 'Open Rake' })).getByTestId('task-date'),

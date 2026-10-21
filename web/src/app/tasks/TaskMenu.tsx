@@ -20,12 +20,29 @@ import {
 import { useState } from 'react';
 import { getEntity } from '../../core/collections.ts';
 import { ALL_TASKS, filterTasks } from '../../core/filters.ts';
-import { ancestors, canNestUnder, deleteTask, detachTask, nestUnder } from '../../core/tasks.ts';
+import {
+  ancestors,
+  canNestUnder,
+  deleteTask,
+  detachTask,
+  nestUnder,
+  PROGRESS_STEPS,
+  setTaskProgress,
+  setTaskStatus,
+} from '../../core/tasks.ts';
 import type { Task } from '../../core/types.ts';
 import { useToday } from '../hooks/useToday.ts';
 import { t } from '../i18n/i18n.ts';
 import { listName } from '../lists/listName.ts';
 import { useApply, useWorkspace } from '../store/hooks.ts';
+import {
+  CheckIcon,
+  ChevronLeftIcon,
+  ProgressIcon,
+  ReopenIcon,
+  WontDoIcon,
+} from '../icons/icons.tsx';
+import { ProgressRing } from './ProgressRing.tsx';
 import { useTaskSelection } from './selection.ts';
 
 const MAX_RESULTS = 50;
@@ -124,8 +141,8 @@ function NestUnderDialog({ task, onClose }: { task: Task; onClose: () => void })
 export type TaskMenuAnchor = { element: HTMLElement } | { position: { top: number; left: number } };
 
 /**
- * Actions on one task: from a row's right-click and the details' actions button.
- * (Long-press on touch comes with drag and drop, PL-014.)
+ * Actions on one task: from a row's right-click (or long-press), the details title's right-click
+ * (or long-press) and the details' actions button.
  */
 export function TaskMenu({
   task,
@@ -142,8 +159,14 @@ export function TaskMenu({
   const apply = useApply();
   const { selectedId, open, close } = useTaskSelection();
   const [nesting, setNesting] = useState(false);
-  const run = (action: () => void) => () => {
+  // The menu swaps to a list of progress steps, then back.
+  const [view, setView] = useState<'main' | 'progress'>('main');
+  const closeMenu = () => {
     onClose();
+    setView('main');
+  };
+  const run = (action: () => void) => () => {
+    closeMenu();
     action();
   };
   const placement =
@@ -152,7 +175,37 @@ export function TaskMenu({
       : { anchorEl: anchor?.element ?? null };
   return (
     <>
-      <Menu open={anchor !== null} onClose={onClose} {...placement}>
+      <Menu
+        open={anchor !== null && view === 'progress'}
+        onClose={closeMenu}
+        {...placement}
+        slotProps={{ paper: { sx: { minWidth: 200 } } }}
+      >
+        <MenuItem onClick={() => setView('main')} sx={{ color: 'text.secondary' }}>
+          <ListItemIcon>
+            <ChevronLeftIcon fontSize="small" />
+          </ListItemIcon>
+          {t('task.progress')}
+        </MenuItem>
+        {PROGRESS_STEPS.map((step) => (
+          <MenuItem
+            key={step}
+            selected={step === task.progress}
+            onClick={run(() => apply((ctx, ws) => setTaskProgress(ctx, ws, task.id, step)))}
+          >
+            <ListItemIcon>
+              <ProgressRing value={step} size={16} decorative />
+            </ListItemIcon>
+            <ListItemText>
+              {step === 0 ? t('task.progressNone') : t('task.progressValue', { percent: step })}
+            </ListItemText>
+            {step === task.progress && (
+              <CheckIcon fontSize="small" sx={{ ml: 2, color: 'primary.main' }} />
+            )}
+          </MenuItem>
+        ))}
+      </Menu>
+      <Menu open={anchor !== null && view === 'main'} onClose={closeMenu} {...placement}>
         {showOpen && (
           <MenuItem onClick={run(() => open(task.id))}>
             <ListItemIcon>
@@ -161,6 +214,38 @@ export function TaskMenu({
             {t('task.openAction')}
           </MenuItem>
         )}
+        {task.status === 'open' ? (
+          <MenuItem
+            onClick={run(() =>
+              apply((ctx, ws) => setTaskStatus(ctx, ws, task.id, 'wontdo'), t('undo.wontDo')),
+            )}
+          >
+            <ListItemIcon>
+              <WontDoIcon fontSize="small" />
+            </ListItemIcon>
+            {t('task.markWontDo')}
+          </MenuItem>
+        ) : (
+          <MenuItem
+            onClick={run(() =>
+              apply((ctx, ws) => setTaskStatus(ctx, ws, task.id, 'open'), t('undo.reopened')),
+            )}
+          >
+            <ListItemIcon>
+              <ReopenIcon fontSize="small" />
+            </ListItemIcon>
+            {t('task.reopenAction')}
+          </MenuItem>
+        )}
+        <MenuItem onClick={() => setView('progress')}>
+          <ListItemIcon>
+            <ProgressIcon fontSize="small" />
+          </ListItemIcon>
+          <ListItemText>{t('task.progress')}</ListItemText>
+          <Typography variant="body2" color="text.secondary" sx={{ ml: 2 }}>
+            {task.progress ? t('task.progressValue', { percent: task.progress }) : ''}
+          </Typography>
+        </MenuItem>
         <MenuItem onClick={run(() => setNesting(true))}>
           <ListItemIcon>
             <AccountTreeOutlined fontSize="small" />

@@ -120,7 +120,9 @@ export default function TiptapEditor({ value, onCommit, label, placeholder }: Ri
           outline: 'none',
           minHeight: 78,
           wordBreak: 'break-word',
-          '& > :first-child': { mt: 0 },
+          // First-of-type (not first-child, which is unsafe for server rendering); margins collapse,
+          // so clearing the top of later blocks of a type changes nothing.
+          '& > :first-of-type': { mt: 0 },
           '& > :last-child': { mb: 0 },
           '& p': { my: 0.75 },
           '& h1': { ...theme.typography.h6, my: 1 },
