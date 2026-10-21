@@ -120,7 +120,7 @@ describe('task details', () => {
 });
 
 describe('task row', () => {
-  it('shows the list name and start date on the right; Today shows only times', async () => {
+  it('shows the full start date in every view and no list for the Mess Drawer', async () => {
     await renderApp('/inbox');
     await addTasks('Water plants');
     await userEvent.click(screen.getByRole('button', { name: 'Open Water plants' }));
@@ -136,8 +136,9 @@ describe('task row', () => {
 
     await userEvent.click(within(screen.getAllByRole('navigation')[0]!).getByText('Today'));
     const inToday = await screen.findByRole('button', { name: 'Open Water plants' });
-    expect(within(inToday).getByTestId('task-meta')).toHaveTextContent('Mess Drawer');
-    expect(within(inToday).queryByTestId('task-date')).toBeNull();
+    // Same full date in every view, and no list name for the Mess Drawer.
+    expect(within(inToday).getByTestId('task-date')).toHaveTextContent('Today');
+    expect(within(inToday).getByTestId('task-meta')).not.toHaveTextContent('Mess Drawer');
   });
 });
 
@@ -278,6 +279,23 @@ describe('smart views', () => {
     expect(await screen.findByText('Soon')).toBeInTheDocument();
     await userEvent.click(screen.getByRole('button', { name: 'Restore' }));
     expect(await screen.findByText('The trash is empty.')).toBeInTheDocument();
+  });
+
+  it('Next 7 days also shows overdue and today', async () => {
+    const store = testStore();
+    await renderApp('/upcoming', store);
+    store.getState().apply(
+      (ctx, ws) =>
+        createTask(ctx, ws, {
+          title: 'Old chore',
+          listId: inboxList(ws).id,
+          schedule: { start: '2020-01-01', end: null, allDay: true, timeZone: 'UTC' },
+        }).workspace,
+    );
+    await addTasks('Water plants');
+    expect(await screen.findByRole('heading', { level: 2, name: /^Overdue/ })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { level: 2, name: /Today/ })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Open Water plants' })).toBeInTheDocument();
   });
 
   it('Completed and Trash start empty', async () => {

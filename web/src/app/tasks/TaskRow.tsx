@@ -2,11 +2,10 @@ import CheckRounded from '@mui/icons-material/CheckRounded';
 import ChecklistRounded from '@mui/icons-material/ChecklistRounded';
 import { Box, ButtonBase, IconButton, Typography, useTheme } from '@mui/material';
 import { getEntity } from '../../core/collections.ts';
-import { timePart } from '../../core/dates.ts';
 import { startState, subtaskProgress } from '../../core/queries.ts';
 import { toggleTaskDone } from '../../core/tasks.ts';
 import type { Priority, Task } from '../../core/types.ts';
-import { formatTime, formatWhen } from '../format.ts';
+import { formatWhen } from '../format.ts';
 import { useToday } from '../hooks/useToday.ts';
 import { t } from '../i18n/i18n.ts';
 import { listName } from '../lists/listName.ts';
@@ -58,21 +57,10 @@ export function PriorityCheckbox({ task }: { task: Task }) {
   );
 }
 
-/**
- * How the start date reads on the right of a row. In views already grouped by day only the
- * time is shown (nothing for all-day tasks).
- */
-export type RowDateFormat = 'full' | 'time';
+/** Width of the date column, so every date starts at the same place in every view. */
+const DATE_COLUMN = '10rem';
 
-export function TaskRow({
-  task,
-  showList = false,
-  dateFormat = 'full',
-}: {
-  task: Task;
-  showList?: boolean;
-  dateFormat?: RowDateFormat;
-}) {
+export function TaskRow({ task, showList = false }: { task: Task; showList?: boolean }) {
   const workspace = useWorkspace();
   const today = useToday();
   const theme = useTheme();
@@ -84,12 +72,7 @@ export function TaskRow({
   const selected = selectedId === task.id;
 
   const start = task.schedule?.start;
-  const time = start ? timePart(start) : null;
-  const dateText = !start
-    ? null
-    : dateFormat === 'time'
-      ? time && formatTime(time)
-      : formatWhen(start, today);
+  const dateText = start ? formatWhen(start, today) : null;
   const state = startState(task, today);
   const dateColor = done
     ? 'text.disabled'
@@ -167,44 +150,39 @@ export function TaskRow({
               {t('task.subtasks', { done: progress.done, total: progress.total })}
             </Box>
           )}
-          {showList && list && (
+          {/* The Mess Drawer is "no list", so its tasks show none. */}
+          {showList && list && !list.isInbox && (
             <Box component="span" sx={{ color: 'text.secondary' }}>
               {listName(list)}
             </Box>
           )}
-          {dateText && (
-            <Box
-              component="span"
-              data-testid="task-date"
-              sx={{ color: dateColor, whiteSpace: 'nowrap' }}
-            >
-              {dateText}
-            </Box>
-          )}
+          <Box
+            component="span"
+            data-testid="task-date"
+            sx={{
+              width: DATE_COLUMN,
+              flexShrink: 0,
+              textAlign: 'left',
+              color: dateColor,
+              whiteSpace: 'nowrap',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+            }}
+          >
+            {dateText}
+          </Box>
         </Box>
       </ButtonBase>
     </Box>
   );
 }
 
-export function TaskRows({
-  tasks,
-  showList,
-  dateFormat,
-}: {
-  tasks: Task[];
-  showList?: boolean;
-  dateFormat?: RowDateFormat;
-}) {
+export function TaskRows({ tasks, showList }: { tasks: Task[]; showList?: boolean }) {
   return (
     <Box component="ul" sx={{ listStyle: 'none', m: 0, p: 0 }}>
       {tasks.map((task) => (
         <li key={task.id}>
-          <TaskRow
-            task={task}
-            {...(showList === undefined ? {} : { showList })}
-            {...(dateFormat === undefined ? {} : { dateFormat })}
-          />
+          <TaskRow task={task} {...(showList === undefined ? {} : { showList })} />
         </li>
       ))}
     </Box>

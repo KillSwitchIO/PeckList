@@ -21,7 +21,7 @@ import { Page } from '../layout/Page.tsx';
 import { listName } from '../lists/listName.ts';
 import { useApply, useWorkspace } from '../store/hooks.ts';
 import { AddTaskInput } from '../tasks/AddTaskInput.tsx';
-import { TaskRows, type RowDateFormat } from '../tasks/TaskRow.tsx';
+import { TaskRows } from '../tasks/TaskRow.tsx';
 import { EmptyState } from './EmptyState.tsx';
 import { GroupSection } from './GroupSection.tsx';
 
@@ -39,12 +39,10 @@ const COMPLETED_PREVIEW = 5;
 export function CompletedGroup({
   tasks,
   showList,
-  dateFormat,
   defaultOpen = true,
 }: {
   tasks: Task[];
   showList?: boolean;
-  dateFormat?: RowDateFormat;
   defaultOpen?: boolean;
 }) {
   const [all, setAll] = useState(false);
@@ -52,11 +50,7 @@ export function CompletedGroup({
   const shown = all ? tasks : tasks.slice(0, COMPLETED_PREVIEW);
   return (
     <GroupSection title={t('group.completed')} count={tasks.length} defaultOpen={defaultOpen}>
-      <TaskRows
-        tasks={shown}
-        {...(showList === undefined ? {} : { showList })}
-        {...(dateFormat === undefined ? {} : { dateFormat })}
-      />
+      <TaskRows tasks={shown} {...(showList === undefined ? {} : { showList })} />
       {!all && tasks.length > COMPLETED_PREVIEW && (
         <Button
           size="small"
@@ -71,25 +65,13 @@ export function CompletedGroup({
   );
 }
 
-export function TodayView() {
+/** Overdue (with Postpone) and today's groups, shared by Today and Next 7 days. */
+function OverdueAndToday({ today }: { today: string }) {
   const workspace = useWorkspace();
   const apply = useApply();
-  const today = useToday();
-  const zone = localTimeZone();
   const groups = todayGroups(workspace, today);
-  const done = completedOn(workspace, today, zone);
-  const empty = groups.overdue.length === 0 && groups.today.length === 0;
   return (
-    <Page title={t('nav.today')}>
-      <AddTaskInput
-        defaults={{
-          listId: inboxList(workspace).id,
-          schedule: { start: today, end: null, allDay: true, timeZone: zone },
-        }}
-      />
-      {empty && done.length === 0 && (
-        <EmptyState title={t('empty.today')} hint={t('empty.today.hint')} />
-      )}
+    <>
       {groups.overdue.length > 0 && (
         <GroupSection
           title={t('group.overdue')}
@@ -122,33 +104,63 @@ export function TodayView() {
           title={t('group.todayWithDay', { weekday: weekdayName(today) })}
           count={groups.today.length}
         >
-          <TaskRows tasks={groups.today} showList dateFormat="time" />
+          <TaskRows tasks={groups.today} showList />
         </GroupSection>
       )}
-      <CompletedGroup tasks={done} showList dateFormat="time" />
+    </>
+  );
+}
+
+function AddForToday({ today }: { today: string }) {
+  const workspace = useWorkspace();
+  return (
+    <AddTaskInput
+      defaults={{
+        listId: inboxList(workspace).id,
+        schedule: { start: today, end: null, allDay: true, timeZone: localTimeZone() },
+      }}
+    />
+  );
+}
+
+/** Today: a focused copy of Next 7 days with only overdue, today and what got done today. */
+export function TodayView() {
+  const workspace = useWorkspace();
+  const today = useToday();
+  const groups = todayGroups(workspace, today);
+  const done = completedOn(workspace, today, localTimeZone());
+  const empty = groups.overdue.length === 0 && groups.today.length === 0 && done.length === 0;
+  return (
+    <Page title={t('nav.today')}>
+      <AddForToday today={today} />
+      {empty && <EmptyState title={t('empty.today')} hint={t('empty.today.hint')} />}
+      <OverdueAndToday today={today} />
+      <CompletedGroup tasks={done} showList />
     </Page>
   );
 }
 
+/** Next 7 days: overdue and today first, then one group per day. */
 export function UpcomingView() {
   const workspace = useWorkspace();
   const today = useToday();
   const groups = upcomingTasks(workspace, today);
+  const current = todayGroups(workspace, today);
+  const empty = groups.length === 0 && current.overdue.length === 0 && current.today.length === 0;
   return (
     <Page title={t('nav.upcoming')}>
-      {groups.length === 0 ? (
-        <EmptyState title={t('upcoming.empty')} />
-      ) : (
-        groups.map((group) => (
-          <GroupSection
-            key={group.date}
-            title={`${weekdayName(group.date)}, ${formatDay(group.date, today)}`}
-            count={group.tasks.length}
-          >
-            <TaskRows tasks={group.tasks} showList dateFormat="time" />
-          </GroupSection>
-        ))
-      )}
+      <AddForToday today={today} />
+      {empty && <EmptyState title={t('upcoming.empty')} />}
+      <OverdueAndToday today={today} />
+      {groups.map((group) => (
+        <GroupSection
+          key={group.date}
+          title={`${weekdayName(group.date)}, ${formatDay(group.date, today)}`}
+          count={group.tasks.length}
+        >
+          <TaskRows tasks={group.tasks} showList />
+        </GroupSection>
+      ))}
     </Page>
   );
 }
