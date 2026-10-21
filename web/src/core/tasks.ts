@@ -1,0 +1,239 @@
+// Task operations. Each takes a workspace and returns a new one; every write is HLC-stamped.
+
+import { getEntity, isLive, putEntities, putEntity, requireEntity } from './collections.ts';
+import { compareOrderKeys, keyBetween } from './ordering.ts';
+import {
+  createEntity,
+  isoNow,
+  restore,
+  setElement,
+  softDelete,
+  updateEntity,
+  type OpContext,
+  type Patch,
+} from './ops.ts';
+import type { Due, Id, Priority, Schedule, Task, TaskStatus, WorkspaceFile } from './types.ts';
+
+export interface TaskInput {
+  title: string;
+  listId: Id;
+  sectionId?: Id | null;
+  parentId?: Id | null;
+  notes?: string;
+  priority?: Priority;
+  schedule?: Schedule | null;
+  due?: Due | null;
+  tags?: Id[];
+}
+
+/** Live siblings in display order: same list, section and parent. */
+export function siblings(
+  workspace: WorkspaceFile,
+  listId: Id,
+  sectionId: Id | null,
+  parentId: Id | null,
+): Task[] {
+  return workspace.entities.tasks
+    .filter(
+      (task) =>
+        isLive(task) &&
+        task.listId === listId &&
+        (parentId
+          ? task.parentId === parentId
+          : task.parentId === null && task.sectionId === sectionId),
+    )
+    .sort((a, b) => compareOrderKeys(a.order, b.order));
+}
+
+/** All live descendants of a task, depth first. */
+export function descendants(workspace: WorkspaceFile, id: Id, includeDeleted = false): Task[] {
+  const result: Task[] = [];
+  const visit = (parentId: Id) => {
+    for (const task of workspace.entities.tasks) {
+      if (task.parentId === parentId && (includeDeleted || isLive(task))) {
+        result.push(task);
+        visit(task.id);
+      }
+    }
+  };
+  visit(id);
+  return result;
+}
+
+function lastOrder(tasks: Task[]): string | null {
+  return tasks.length ? tasks[tasks.length - 1]!.order : null;
+}
+
+export function createTask(
+  ctx: OpContext,
+  workspace: WorkspaceFile,
+  input: TaskInput,
+): { workspace: WorkspaceFile; task: Task } {
+  const parent = input.parentId ? requireEntity(workspace, 'tasks', input.parentId) : null;
+  const listId = parent?.listId ?? input.listId;
+  const sectionId = parent ? parent.sectionId : (input.sectionId ?? null);
+  const parentId = parent?.id ?? null;
+  let tags = {};
+  for (const tag of input.tags ?? []) tags = setElement(ctx, tags, tag, true);
+  const task = createEntity<Task>(ctx, {
+    title: input.title.trim(),
+    notes: input.notes ?? '',
+    listId,
+    sectionId,
+    parentId,
+    order: keyBetween(lastOrder(siblings(workspace, listId, sectionId, parentId)), null),
+    status: 'open',
+    completedAt: null,
+    completedBy: null,
+    priority: input.priority ?? 0,
+    schedule: input.schedule ?? null,
+    due: input.due ?? null,
+    tags,
+    assignees: {},
+    blockedBy: {},
+    recurrence: null,
+  });
+  return { workspace: putEntity(workspace, 'tasks', task), task };
+}
+
+export function updateTask(
+  ctx: OpContext,
+  workspace: WorkspaceFile,
+  id: Id,
+  patch: Patch<Task>,
+): WorkspaceFile {
+  const task = requireEntity(workspace, 'tasks', id);
+  return putEntity(workspace, 'tasks', updateEntity(ctx, task, patch));
+}
+
+/** Set a task's status. Completing a task also completes its open subtasks. */
+export function setTaskStatus(
+  ctx: OpContext,
+  workspace: WorkspaceFile,
+  id: Id,
+  status: TaskStatus,
+): WorkspaceFile {
+  const task = requireEntity(workspace, 'tasks', id);
+  const closing = status !== 'open';
+  const stamp = (target: Task, next: TaskStatus) =>
+    updateEntity(ctx, target, {
+      status: next,
+      completedAt: next === 'open' ? null : isoNow(ctx),
+      completedBy: next === 'open' ? null : ctx.userId,
+    });
+  const changed = [stamp(task, status)];
+  if (closing) {
+    for (const child of descendants(workspace, id)) {
+      if (child.status === 'open') changed.push(stamp(child, status));
+    }
+  }
+  return putEntities(workspace, 'tasks', changed);
+}
+
+export function toggleTaskDone(ctx: OpContext, workspace: WorkspaceFile, id: Id): WorkspaceFile {
+  const task = requireEntity(workspace, 'tasks', id);
+  return setTaskStatus(ctx, workspace, id, task.status === 'open' ? 'done' : 'open');
+}
+
+/** Move to the trash with all subtasks. */
+export function deleteTask(ctx: OpContext, workspace: WorkspaceFile, id: Id): WorkspaceFile {
+  const task = requireEntity(workspace, 'tasks', id);
+  const all = [task, ...descendants(workspace, id)];
+  const at = isoNow(ctx);
+  return putEntities(
+    workspace,
+    'tasks',
+    all.map((target) => softDelete(ctx, target, at)),
+  );
+}
+
+/** Restore from the trash, with the subtasks that were deleted together with it. */
+export function restoreTask(ctx: OpContext, workspace: WorkspaceFile, id: Id): WorkspaceFile {
+  const task = requireEntity(workspace, 'tasks', id);
+  if (task.deletedAt === null) return workspace;
+  const together = descendants(workspace, id, true).filter(
+    (child) => child.deletedAt === task.deletedAt,
+  );
+  let next = putEntities(
+    workspace,
+    'tasks',
+    [task, ...together].map((target) => restore(ctx, target)),
+  );
+  // A restored subtask whose parent is still in the trash moves to the top level.
+  if (task.parentId) {
+    const parent = getEntity(next, 'tasks', task.parentId);
+    if (!parent || !isLive(parent)) next = updateTask(ctx, next, id, { parentId: null });
+  }
+  return next;
+}
+
+export interface MoveTarget {
+  listId: Id;
+  sectionId?: Id | null;
+  parentId?: Id | null;
+  /** Place directly before this sibling; null or omitted with `afterId` omitted means the end. */
+  beforeId?: Id | null;
+  afterId?: Id | null;
+}
+
+/** Move a task (and its subtree) to a new list, section, parent and position. */
+export function moveTask(
+  ctx: OpContext,
+  workspace: WorkspaceFile,
+  id: Id,
+  target: MoveTarget,
+): WorkspaceFile {
+  const task = requireEntity(workspace, 'tasks', id);
+  const parentId = target.parentId ?? null;
+  if (
+    parentId === id ||
+    (parentId && descendants(workspace, id).some((child) => child.id === parentId))
+  ) {
+    throw new Error('cannot move a task inside itself');
+  }
+  const parent = parentId ? requireEntity(workspace, 'tasks', parentId) : null;
+  const listId = parent?.listId ?? target.listId;
+  const sectionId = parent ? parent.sectionId : (target.sectionId ?? null);
+  const peers = siblings(workspace, listId, sectionId, parentId).filter((peer) => peer.id !== id);
+
+  let before: string | null;
+  let after: string | null;
+  if (target.beforeId) {
+    const index = peers.findIndex((peer) => peer.id === target.beforeId);
+    if (index < 0) throw new Error(`sibling ${target.beforeId} not found`);
+    after = peers[index]!.order;
+    before = index > 0 ? peers[index - 1]!.order : null;
+  } else if (target.afterId) {
+    const index = peers.findIndex((peer) => peer.id === target.afterId);
+    if (index < 0) throw new Error(`sibling ${target.afterId} not found`);
+    before = peers[index]!.order;
+    after = index < peers.length - 1 ? peers[index + 1]!.order : null;
+  } else {
+    before = lastOrder(peers);
+    after = null;
+  }
+
+  const moved = updateEntity(ctx, task, {
+    listId,
+    sectionId,
+    parentId,
+    order: keyBetween(before, after),
+  });
+  // Subtasks always follow their root task's list and section.
+  const subtree = descendants(workspace, id).map((child) =>
+    updateEntity(ctx, child, { listId, sectionId }),
+  );
+  return putEntities(workspace, 'tasks', [moved, ...subtree]);
+}
+
+export function setTaskTag(
+  ctx: OpContext,
+  workspace: WorkspaceFile,
+  id: Id,
+  tagId: Id,
+  present: boolean,
+): WorkspaceFile {
+  const task = requireEntity(workspace, 'tasks', id);
+  const tags = setElement(ctx, task.tags, tagId, present);
+  return tags === task.tags ? workspace : putEntity(workspace, 'tasks', { ...task, tags });
+}

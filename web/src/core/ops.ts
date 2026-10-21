@@ -60,9 +60,17 @@ export function updateEntity<T extends BaseEntity>(ctx: OpContext, entity: T, pa
   return next as unknown as T;
 }
 
-export function softDelete<T extends BaseEntity>(ctx: OpContext, entity: T): T {
+/**
+ * Move an entity to the trash. Pass one `at` for every entity deleted by the same operation:
+ * restore uses the shared timestamp to bring back exactly what was deleted together.
+ */
+export function softDelete<T extends BaseEntity>(
+  ctx: OpContext,
+  entity: T,
+  at: DateTime = isoNow(ctx),
+): T {
   if (entity.deletedAt !== null) return entity;
-  const patch: Patch<BaseEntity> = { deletedAt: isoNow(ctx) };
+  const patch: Patch<BaseEntity> = { deletedAt: at };
   return updateEntity(ctx, entity, patch as Patch<T>);
 }
 

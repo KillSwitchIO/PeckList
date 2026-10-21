@@ -1,4 +1,8 @@
 import { render, screen, within } from '@testing-library/react';
+import { createAjvValidator } from '../adapters/ajv-validator.ts';
+import { createMemoryStorage } from '../adapters/memory-storage.ts';
+import { createUlidGenerator } from '../adapters/ulid-ids.ts';
+import { createWorkspaceStore } from './store/workspaceStore.ts';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -35,14 +39,25 @@ function mockViewport(viewport: Viewport, prefersDark = false) {
   });
 }
 
-function renderAt(path: string) {
-  return render(
-    <AppProviders>
+function testStore() {
+  return createWorkspaceStore({
+    storage: createMemoryStorage(),
+    validator: createAjvValidator(),
+    ids: createUlidGenerator(),
+    node: 'test',
+  });
+}
+
+async function renderAt(path: string, store = testStore()) {
+  const result = render(
+    <AppProviders store={store}>
       <MemoryRouter initialEntries={[path]}>
         <AppRoutes />
       </MemoryRouter>
     </AppProviders>,
   );
+  await screen.findByRole('heading', { level: 1 });
+  return result;
 }
 
 beforeEach(() => {
@@ -51,16 +66,16 @@ beforeEach(() => {
 });
 
 describe('app shell', () => {
-  it('redirects / to Today and shows the empty state', () => {
+  it('redirects / to Today and shows the empty state', async () => {
     mockViewport('desktop');
-    renderAt('/');
+    await renderAt('/');
     expect(screen.getByRole('heading', { level: 1, name: 'Today' })).toBeInTheDocument();
     expect(screen.getByText('All punched out.')).toBeInTheDocument();
   });
 
   it('shows the permanent sidebar on desktop and navigates', async () => {
     mockViewport('desktop');
-    renderAt('/today');
+    await renderAt('/today');
     const nav = screen.getAllByRole('navigation')[0]!;
     await userEvent.click(within(nav).getByText('Inbox'));
     expect(screen.getByRole('heading', { level: 1, name: 'Inbox' })).toBeInTheDocument();
@@ -69,7 +84,7 @@ describe('app shell', () => {
 
   it('uses bottom navigation on phones', async () => {
     mockViewport('phone');
-    renderAt('/today');
+    await renderAt('/today');
     expect(screen.queryByRole('button', { name: t('nav.openMenu') })).not.toBeInTheDocument();
     await userEvent.click(screen.getByRole('button', { name: 'Calendar' }));
     expect(screen.getByRole('heading', { level: 1, name: 'Calendar' })).toBeInTheDocument();
@@ -78,7 +93,7 @@ describe('app shell', () => {
 
   it('opens a drawer from the menu button on tablets', async () => {
     mockViewport('tablet');
-    renderAt('/today');
+    await renderAt('/today');
     await userEvent.click(screen.getByRole('button', { name: t('nav.openMenu') }));
     await userEvent.click(await screen.findByText('Trash'));
     // The drawer hides the page from assistive tech until its exit transition ends.
@@ -87,7 +102,7 @@ describe('app shell', () => {
 
   it('cycles the theme mode and remembers it', async () => {
     mockViewport('desktop', true);
-    renderAt('/today');
+    await renderAt('/today');
     const toggle = screen.getByRole('button', { name: /switch theme \(currently system\)/i });
     await userEvent.click(toggle);
     expect(screen.getByRole('button', { name: /currently light/i })).toBeInTheDocument();
@@ -96,16 +111,16 @@ describe('app shell', () => {
     expect(screen.getByRole('button', { name: /currently dark/i })).toBeInTheDocument();
   });
 
-  it('restores a stored theme mode', () => {
+  it('restores a stored theme mode', async () => {
     mockViewport('desktop');
     localStorage.setItem('punchlist.themeMode', 'dark');
-    renderAt('/today');
+    await renderAt('/today');
     expect(screen.getByRole('button', { name: /currently dark/i })).toBeInTheDocument();
   });
 
-  it('shows a not-found page', () => {
+  it('shows a not-found page', async () => {
     mockViewport('desktop');
-    renderAt('/nope');
+    await renderAt('/nope');
     expect(screen.getByRole('heading', { level: 1, name: 'Page not found' })).toBeInTheDocument();
   });
 });

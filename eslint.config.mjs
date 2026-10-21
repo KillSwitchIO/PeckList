@@ -9,6 +9,11 @@ export default tseslint.config(
   js.configs.recommended,
   ...tseslint.configs.strict,
   {
+    // noUncheckedIndexedAccess makes every index access optional; a `!` after an explicit
+    // bounds check is the clearest way to say "this exists".
+    rules: { '@typescript-eslint/no-non-null-assertion': 'off' },
+  },
+  {
     files: ['web/src/**/*.{ts,tsx}'],
     languageOptions: { globals: globals.browser },
     plugins: { 'react-hooks': reactHooks, 'react-refresh': reactRefresh },
@@ -42,11 +47,6 @@ export default tseslint.config(
         },
       ],
     },
-  },
-  {
-    // Tests may assert on indexed access directly.
-    files: ['web/src/**/*.test.{ts,tsx}', 'web/src/test/**', 'web/src/**/*.contract.ts'],
-    rules: { '@typescript-eslint/no-non-null-assertion': 'off' },
   },
   {
     files: ['**/*.{mjs,ts}'],
