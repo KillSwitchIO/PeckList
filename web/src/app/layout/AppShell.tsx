@@ -14,7 +14,6 @@ import {
   ListItemButton,
   ListItemIcon,
   ListItemText,
-  ListSubheader,
   Toolbar,
   Tooltip,
   Typography,
@@ -24,6 +23,10 @@ import {
 import { useState, type ReactNode } from 'react';
 import { useLocation, useNavigate } from 'react-router';
 import { t } from '../i18n/i18n.ts';
+import { SidebarLists } from '../lists/SidebarLists.tsx';
+import { useTaskSelection } from '../tasks/selection.ts';
+import { TaskDetail } from '../tasks/TaskDetail.tsx';
+import { UndoToast } from '../tasks/UndoToast.tsx';
 import { useThemeMode } from '../theme/themeMode.ts';
 import {
   activeItem,
@@ -34,6 +37,7 @@ import {
 } from './navigation.tsx';
 
 const DRAWER_WIDTH = 272;
+const DETAIL_WIDTH = 420;
 
 function ThemeToggle() {
   const { mode, cycleMode } = useThemeMode();
@@ -97,15 +101,9 @@ function Sidebar({ onNavigate }: { onNavigate: (path: string) => void }) {
       </Toolbar>
       <NavList items={SIDEBAR_ITEMS} selected={selected} onSelect={onNavigate} />
       <Divider sx={{ mx: 2 }} />
-      <List
-        dense
-        subheader={<ListSubheader sx={{ bgcolor: 'transparent' }}>{t('nav.lists')}</ListSubheader>}
-      />
-      <List
-        dense
-        subheader={<ListSubheader sx={{ bgcolor: 'transparent' }}>{t('nav.tags')}</ListSubheader>}
-      />
-      <Box sx={{ flexGrow: 1 }} />
+      <Box sx={{ flexGrow: 1, overflowY: 'auto' }}>
+        <SidebarLists onNavigate={onNavigate} />
+      </Box>
       <NavList items={SIDEBAR_FOOTER} selected={selected} onSelect={onNavigate} />
     </Box>
   );
@@ -115,18 +113,31 @@ function Sidebar({ onNavigate }: { onNavigate: (path: string) => void }) {
  * Responsive frame: permanent sidebar on desktop, temporary drawer on tablet,
  * bottom navigation on phones (vault: Design Spec, Layout).
  */
-export function AppShell({ title, children }: { title: string; children: ReactNode }) {
+export function AppShell({
+  title,
+  actions,
+  children,
+}: {
+  title: string;
+  actions?: ReactNode;
+  children: ReactNode;
+}) {
   const theme = useTheme();
   const isPhone = useMediaQuery(theme.breakpoints.down('sm'), { noSsr: true });
   const isDesktop = useMediaQuery(theme.breakpoints.up('lg'), { noSsr: true });
   const [drawerOpen, setDrawerOpen] = useState(false);
   const navigate = useNavigate();
   const { pathname } = useLocation();
+  const { selectedId, close } = useTaskSelection();
 
   const go = (path: string) => {
     setDrawerOpen(false);
     void navigate(path);
   };
+
+  const detail = selectedId ? (
+    <TaskDetail key={selectedId} taskId={selectedId} onClose={close} />
+  ) : null;
 
   return (
     <Box sx={{ display: 'flex', minHeight: '100dvh' }}>
@@ -162,19 +173,68 @@ export function AppShell({ title, children }: { title: string; children: ReactNo
                 <MenuRounded />
               </IconButton>
             )}
-            <Typography variant="h1" component="h1" sx={{ flexGrow: 1 }}>
+            <Typography variant="h1" component="h1" sx={{ flexGrow: 1 }} noWrap>
               {title}
             </Typography>
+            {actions}
             <ThemeToggle />
           </Toolbar>
         </AppBar>
 
-        <Box
-          component="main"
-          sx={{ flexGrow: 1, px: { xs: 2, sm: 3 }, py: 2, pb: isPhone ? 10 : 2 }}
-        >
-          {children}
+        <Box sx={{ flexGrow: 1, display: 'flex', minHeight: 0 }}>
+          <Box
+            component="main"
+            sx={{
+              flexGrow: 1,
+              minWidth: 0,
+              px: { xs: 2, sm: 3 },
+              py: 2,
+              pb: isPhone ? 10 : 2,
+              maxWidth: 960,
+              mx: 'auto',
+            }}
+          >
+            {children}
+          </Box>
+          {isDesktop && detail && (
+            <Box
+              component="aside"
+              sx={{
+                width: DETAIL_WIDTH,
+                flexShrink: 0,
+                borderLeft: 1,
+                borderColor: 'divider',
+                bgcolor: 'background.paper',
+                position: 'sticky',
+                top: 64,
+                alignSelf: 'flex-start',
+                maxHeight: 'calc(100dvh - 64px)',
+                overflowY: 'auto',
+              }}
+            >
+              {detail}
+            </Box>
+          )}
         </Box>
+
+        {!isDesktop && (
+          <Drawer
+            anchor={isPhone ? 'bottom' : 'right'}
+            open={detail !== null}
+            onClose={close}
+            slotProps={{
+              paper: {
+                sx: isPhone
+                  ? { height: '92dvh', borderTopLeftRadius: 16, borderTopRightRadius: 16 }
+                  : { width: DETAIL_WIDTH },
+              },
+            }}
+          >
+            {detail}
+          </Drawer>
+        )}
+
+        <UndoToast bottomOffset={isPhone ? 56 : 0} />
 
         {isPhone && (
           <BottomNavigation

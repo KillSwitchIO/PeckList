@@ -1,34 +1,26 @@
-import type { ReactNode } from 'react';
 import { Navigate, Route, Routes, useLocation } from 'react-router';
 import { t } from './i18n/i18n.ts';
 import { AppShell } from './layout/AppShell.tsx';
+import { InboxView, ListView } from './lists/ListView.tsx';
 import { EmptyState } from './views/EmptyState.tsx';
-import { VIEW_ROUTES, type ViewRoute } from './viewRoutes.ts';
+import { MoreView } from './views/MoreView.tsx';
+import { CompletedView, TodayView, TrashView, UpcomingView } from './views/TaskViews.tsx';
 
-function Placeholder({ route }: { route: ViewRoute }) {
-  return route.empty ? (
-    <EmptyState
-      title={t(route.empty.title)}
-      {...(route.empty.hint ? { hint: t(route.empty.hint) } : {})}
-    />
-  ) : (
-    <EmptyState
-      title={t('empty.generic')}
-      hint={t('empty.comingSoon', { milestone: route.milestone })}
-    />
+/** Views that arrive in a later milestone. */
+function ComingSoon({ title, milestone }: { title: string; milestone: string }) {
+  return (
+    <AppShell title={title}>
+      <EmptyState title={t('empty.generic')} hint={t('empty.comingSoon', { milestone })} />
+    </AppShell>
   );
-}
-
-function Screen({ title, children }: { title: string; children: ReactNode }) {
-  return <AppShell title={title}>{children}</AppShell>;
 }
 
 function NotFound() {
   const { pathname } = useLocation();
   return (
-    <Screen title={t('notFound.title')}>
+    <AppShell title={t('notFound.title')}>
       <EmptyState title={t('notFound.title')} hint={pathname} />
-    </Screen>
+    </AppShell>
   );
 }
 
@@ -36,17 +28,16 @@ export function AppRoutes() {
   return (
     <Routes>
       <Route path="/" element={<Navigate to="/today" replace />} />
-      {VIEW_ROUTES.map((route) => (
-        <Route
-          key={route.path}
-          path={route.path}
-          element={
-            <Screen title={t(route.title)}>
-              <Placeholder route={route} />
-            </Screen>
-          }
-        />
-      ))}
+      <Route path="/today" element={<TodayView />} />
+      <Route path="/inbox" element={<InboxView />} />
+      <Route path="/upcoming" element={<UpcomingView />} />
+      <Route path="/lists/:listId" element={<ListView />} />
+      <Route path="/completed" element={<CompletedView />} />
+      <Route path="/trash" element={<TrashView />} />
+      <Route path="/more" element={<MoreView />} />
+      <Route path="/calendar" element={<ComingSoon title={t('nav.calendar')} milestone="0.3" />} />
+      <Route path="/search" element={<ComingSoon title={t('nav.search')} milestone="0.2" />} />
+      <Route path="/settings" element={<ComingSoon title={t('nav.settings')} milestone="0.2" />} />
       <Route path="*" element={<NotFound />} />
     </Routes>
   );
