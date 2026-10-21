@@ -1,4 +1,4 @@
-// Tags. Names are paths: `home/yard` is nested under `home`.
+// Tags. Names are lowercase paths: `home/yard` is nested under `home`.
 
 import { isLive, putEntities, putEntity, requireEntity } from './collections.ts';
 import {
@@ -10,12 +10,13 @@ import {
   updateEntity,
   type OpContext,
 } from './ops.ts';
+import { COLOR_FAMILIES, findFamilyColor } from './palette.ts';
 import type { Id, Tag, Task, WorkspaceFile } from './types.ts';
 
 export function normalizeTagName(name: string): string {
   return name
     .split('/')
-    .map((part) => part.trim().replace(/\s+/g, '-'))
+    .map((part) => part.trim().toLowerCase().replace(/\s+/g, '-'))
     .filter(Boolean)
     .join('/');
 }
@@ -23,6 +24,12 @@ export function normalizeTagName(name: string): string {
 /** Last path segment: `home/yard` -> `yard`. */
 export function leafName(name: string): string {
   return name.slice(name.lastIndexOf('/') + 1);
+}
+
+/** Everything before the last segment: `home/yard` -> `home`; '' at the top level. */
+export function parentTagPath(name: string): string {
+  const cut = name.lastIndexOf('/');
+  return cut < 0 ? '' : name.slice(0, cut);
 }
 
 /** Whether `name` is `ancestor` or nested anywhere under it (case-insensitive). */
@@ -47,35 +54,75 @@ export function tagAncestry(name: string): string[] {
   return parts.map((_, index) => parts.slice(0, index + 1).join('/'));
 }
 
-/** Create the missing parents of `name` (all but the last segment) in `color`. */
+/**
+ * Default color for a new tag named `name`, never one another tag already has (while any are left):
+ * - nested under a tag with a family color: the next colors of that family after the parent's,
+ *   skipping colors in use (parent R, first child O, second child Y);
+ * - top level, or a parent with a custom color: the first unused color, family by family.
+ * `reserve` holds colors about to be used by the same operation.
+ */
+export function suggestTagColor(
+  workspace: WorkspaceFile,
+  name: string,
+  reserve: readonly string[] = [],
+): string {
+  const tags = visibleTags(workspace);
+  const used = new Set([...tags.map((tag) => tag.color), ...reserve].map((c) => c.toUpperCase()));
+  const parentPath = parentTagPath(normalizeTagName(name));
+  const parent = parentPath ? findTagByName(workspace, parentPath) : undefined;
+  const spot = parent ? findFamilyColor(parent.color) : null;
+  if (parent && spot) {
+    const colors = spot.family.colors;
+    const after = colors.map((_, k) => colors[(spot.index + 1 + k) % colors.length]!.hex);
+    const nearby = new Set(
+      [parent, ...tags.filter((tag) => parentTagPath(tag.name) === parent.name)].map((tag) =>
+        tag.color.toUpperCase(),
+      ),
+    );
+    return (
+      after.find((hex) => !used.has(hex)) ?? after.find((hex) => !nearby.has(hex)) ?? after[0]!
+    );
+  }
+  const all = COLOR_FAMILIES.flatMap((item) => item.colors.map((color) => color.hex));
+  return all.find((hex) => !used.has(hex)) ?? all[tags.length % all.length]!;
+}
+
+/** Create the missing parents of `name` (all but the last segment), each with a suggested color. */
 function ensureParents(
   ctx: OpContext,
   workspace: WorkspaceFile,
   name: string,
-  color: string,
+  reserve: readonly string[],
 ): WorkspaceFile {
   let next = workspace;
   for (const path of tagAncestry(name).slice(0, -1)) {
     if (!findTagByName(next, path)) {
+      const color = suggestTagColor(next, path, reserve);
       next = putEntity(next, 'tags', createEntity<Tag>(ctx, { name: path, color }));
     }
   }
   return next;
 }
 
-/** Create a tag (and any missing parents). Returns the existing tag when the name is taken. */
+/**
+ * Create a tag (and any missing parents). Returns the existing tag when the name is taken.
+ * Without a color, the tag gets the suggested one (see suggestTagColor).
+ */
 export function createTag(
   ctx: OpContext,
   workspace: WorkspaceFile,
   name: string,
-  color: string,
+  color?: string,
 ): { workspace: WorkspaceFile; tag: Tag } {
   const normalized = normalizeTagName(name);
   if (!normalized) throw new Error('tag name is empty');
   const existing = findTagByName(workspace, normalized);
   if (existing) return { workspace, tag: existing };
-  const withParents = ensureParents(ctx, workspace, normalized, color);
-  const tag = createEntity<Tag>(ctx, { name: normalized, color });
+  const withParents = ensureParents(ctx, workspace, normalized, color ? [color] : []);
+  const tag = createEntity<Tag>(ctx, {
+    name: normalized,
+    color: color ?? suggestTagColor(withParents, normalized),
+  });
   return { workspace: putEntity(withParents, 'tags', tag), tag };
 }
 
@@ -119,7 +166,7 @@ export function updateTag(
     }),
   );
   const moved = putEntities(workspace, 'tags', renamed);
-  return ensureParents(ctx, moved, name, patch.color ?? tag.color);
+  return ensureParents(ctx, moved, name, [patch.color ?? tag.color]);
 }
 
 /** Delete a tag and the tags nested under it, removing them from every task. */

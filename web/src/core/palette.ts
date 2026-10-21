@@ -187,3 +187,85 @@ export function chipColors(color: string, mode: 'light' | 'dark'): { bg: string;
   const bg = mix(color, '#FFFFFF', 0.45);
   return { bg, fg: ensureContrast(mix(color, '#000000', 0.55), bg, WCAG_TEXT) };
 }
+
+// --- color families for lists and tags ------------------------------------------------
+
+export interface ColorFamily {
+  id: 'pastel' | 'muted' | 'earthy' | 'classic' | 'vivid';
+  /** Nine colors in spectrum order (red, orange, yellow, lime, green, teal, blue, violet, pink) */
+  colors: { id: string; hex: string }[];
+}
+
+const family = (id: ColorFamily['id'], hexes: string[]): ColorFamily => ({
+  id,
+  colors: hexes.map((hex, index) => ({ id: `${id}-${index + 1}`, hex })),
+});
+
+/** Families users can keep their tags in: soft, dusty, earthy, classic or bright. */
+export const COLOR_FAMILIES: ColorFamily[] = [
+  family('pastel', [
+    '#F2A7B5',
+    '#F7C59F',
+    '#F3E1A0',
+    '#CFE3A3',
+    '#A8DCC0',
+    '#A3D8DC',
+    '#A7C7E7',
+    '#CDB4E6',
+    '#E0B3D3',
+  ]),
+  family('muted', [
+    '#C98B8B',
+    '#D4A373',
+    '#CDB86E',
+    '#A7B27A',
+    '#8FAE95',
+    '#7FAAA8',
+    '#8BA3C2',
+    '#A592B8',
+    '#BE8FA8',
+  ]),
+  family('earthy', [
+    '#B5654A',
+    '#C98B3C',
+    '#B9A046',
+    '#7E8F4E',
+    '#5E8C6A',
+    '#4F8A8B',
+    '#4F6D8F',
+    '#7A6390',
+    '#A0566E',
+  ]),
+  family('classic', [
+    '#E25C5C',
+    '#F0913A',
+    '#F2C94C',
+    '#A8C94A',
+    '#4CB782',
+    '#3BB0B5',
+    '#4A90D9',
+    '#8E6CD8',
+    '#D965A8',
+  ]),
+  family('vivid', [
+    '#FF3B30',
+    '#FF8A00',
+    '#FFCC00',
+    '#9BE000',
+    '#00C46A',
+    '#00BFC8',
+    '#2F7BFF',
+    '#8A4DFF',
+    '#FF3D9A',
+  ]),
+];
+
+/** The family and position of a color, or null for a custom color. */
+export function findFamilyColor(hex: string): { family: ColorFamily; index: number } | null {
+  const wanted = hex.toUpperCase();
+  for (const item of COLOR_FAMILIES) {
+    const index = item.colors.findIndex((color) => color.hex === wanted);
+    if (index >= 0) return { family: item, index };
+  }
+  return null;
+}

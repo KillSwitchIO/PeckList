@@ -161,7 +161,7 @@ describe('lists and sections', () => {
     await userEvent.click(screen.getByRole('button', { name: 'New list' }));
     const dialog = await screen.findByRole('dialog');
     await userEvent.type(within(dialog).getByLabelText('Name'), 'Home');
-    await userEvent.click(within(dialog).getByRole('radio', { name: 'mint' }));
+    await userEvent.click(within(dialog).getByRole('radio', { name: 'Pastel green' }));
     await userEvent.click(within(dialog).getByRole('button', { name: 'Create' }));
     expect(await screen.findByRole('heading', { level: 1, name: 'Home' })).toBeInTheDocument();
     await addTasks('Fix gate');

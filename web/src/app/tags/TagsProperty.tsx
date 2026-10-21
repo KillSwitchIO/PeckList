@@ -1,7 +1,6 @@
 import AddRounded from '@mui/icons-material/AddRounded';
 import CheckRounded from '@mui/icons-material/CheckRounded';
-import LocalOfferOutlined from '@mui/icons-material/LocalOfferOutlined';
-import LocalOfferRounded from '@mui/icons-material/LocalOfferRounded';
+import TagRounded from '@mui/icons-material/TagRounded';
 import {
   Box,
   InputBase,
@@ -28,7 +27,7 @@ import { t } from '../i18n/i18n.ts';
 import { useApply, useWorkspace } from '../store/hooks.ts';
 import { PropertyRow, PropertySheet } from '../tasks/PropertyRow.tsx';
 import { TagChips } from './TagChip.tsx';
-import { nextTagColor, tagIconColor } from './tagColors.ts';
+import { tagIconColor } from './tagColors.ts';
 
 /** Search box over the tag tree; tap to toggle, Enter to pick the match or create the tag. */
 function TagPicker({ task }: { task: Task }) {
@@ -47,7 +46,7 @@ function TagPicker({ task }: { task: Task }) {
     apply((ctx, ws) => setTaskTag(ctx, ws, task.id, tagId, !selected.has(tagId)));
   const create = () => {
     apply((ctx, ws) => {
-      const result = createTag(ctx, ws, wanted, nextTagColor(ws));
+      const result = createTag(ctx, ws, wanted);
       return setTaskTag(ctx, result.workspace, task.id, result.tag.id, true);
     });
     setQuery('');
@@ -87,9 +86,9 @@ function TagPicker({ task }: { task: Task }) {
               sx={{ pl: 2 + (wanted ? 0 : node.depth * 2) }}
             >
               <ListItemIcon sx={{ minWidth: 28 }}>
-                <LocalOfferRounded
+                <TagRounded
                   sx={{
-                    fontSize: 14,
+                    fontSize: 16,
                     color: tagIconColor(node.tag.color, theme.palette.background.default),
                   }}
                 />
@@ -127,7 +126,7 @@ export function TagsProperty({ task }: { task: Task }) {
     <>
       <PropertyRow
         label={label}
-        icon={<LocalOfferOutlined fontSize="small" />}
+        icon={<TagRounded fontSize="small" />}
         ariaValue={tags.length ? tags.map((tag) => tag.name).join(', ') : t('task.addTags')}
         onClick={setAnchor}
       >

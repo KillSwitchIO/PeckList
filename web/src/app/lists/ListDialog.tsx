@@ -1,4 +1,3 @@
-import CheckRounded from '@mui/icons-material/CheckRounded';
 import {
   Box,
   Button,
@@ -9,11 +8,11 @@ import {
   Stack,
   TextField,
   Typography,
-  useTheme,
 } from '@mui/material';
 import { useState } from 'react';
-import { buildPalette, PASTEL_NAMES } from '../../core/palette.ts';
+import { buildPalette } from '../../core/palette.ts';
 import type { List } from '../../core/types.ts';
+import { ColorPicker } from '../colors/ColorPicker.tsx';
 import { t } from '../i18n/i18n.ts';
 
 const LIGHT = buildPalette('light');
@@ -21,54 +20,6 @@ const LIGHT = buildPalette('light');
 export interface ListFormValue {
   name: string;
   color: string;
-}
-
-/** Pick one of the pastel slots. Stores the fill color so the list keeps it if the palette changes later. */
-export function ColorSwatches({
-  value,
-  onChange,
-}: {
-  value: string;
-  onChange: (color: string) => void;
-}) {
-  const theme = useTheme();
-  return (
-    <Box
-      role="radiogroup"
-      aria-label={t('list.color')}
-      sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}
-    >
-      {PASTEL_NAMES.map((name) => {
-        // Always store the light-mode fill; it reads as a dot or stripe in both modes.
-        const color = LIGHT.pastels[name].fill;
-        const selected = value.toUpperCase() === color.toUpperCase();
-        return (
-          <Box
-            key={name}
-            component="button"
-            type="button"
-            role="radio"
-            aria-checked={selected}
-            aria-label={name}
-            onClick={() => onChange(color)}
-            sx={{
-              width: 32,
-              height: 32,
-              borderRadius: '50%',
-              border: `2px solid ${selected ? theme.palette.text.primary : 'transparent'}`,
-              bgcolor: color,
-              cursor: 'pointer',
-              display: 'grid',
-              placeItems: 'center',
-              color: theme.palette.text.primary,
-            }}
-          >
-            {selected && <CheckRounded fontSize="small" />}
-          </Box>
-        );
-      })}
-    </Box>
-  );
 }
 
 export function ListDialog({
@@ -110,7 +61,7 @@ export function ListDialog({
               <Typography variant="caption" color="text.secondary" component="div" sx={{ mb: 1 }}>
                 {t('list.color')}
               </Typography>
-              <ColorSwatches value={color} onChange={setColor} />
+              <ColorPicker value={color} onChange={setColor} />
             </Box>
           </Stack>
         </DialogContent>

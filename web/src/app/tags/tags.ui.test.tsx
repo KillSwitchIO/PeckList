@@ -181,3 +181,74 @@ describe('tags on phones', () => {
     );
   });
 });
+
+describe('tag dialog', () => {
+  const open = async () => {
+    await userEvent.click(screen.getByRole('button', { name: 'New tag' }));
+    return screen.getByRole('dialog');
+  };
+  const checked = (dialog: HTMLElement) =>
+    within(dialog)
+      .getAllByRole('radio')
+      .find((radio) => radio.getAttribute('aria-checked') === 'true')
+      ?.getAttribute('aria-label');
+
+  it('nests when a path is typed, and keeps names lowercase', async () => {
+    await renderSeeded('/today');
+    const dialog = await open();
+    const name = within(dialog).getByLabelText('Name');
+    await userEvent.type(name, 'Home/Test');
+    expect(name).toHaveValue('test');
+    expect(within(dialog).getByRole('combobox', { name: 'Nest under' })).toHaveTextContent('home');
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Create' }));
+    expect(await screen.findByRole('heading', { level: 1, name: 'test' })).toBeInTheDocument();
+    // Icon-only buttons (New tag, the collapse toggle) have no text.
+    const nav = within(tagNav())
+      .getAllByRole('button')
+      .map((item) => item.textContent)
+      .filter(Boolean);
+    expect(nav).toEqual(['home1', 'test', 'yard1', 'work1']);
+  });
+
+  it('offers a path that does not exist yet as a new parent', async () => {
+    const { store } = await renderSeeded('/today');
+    const dialog = await open();
+    await userEvent.type(within(dialog).getByLabelText('Name'), 'cars/oil');
+    expect(within(dialog).getByRole('combobox', { name: 'Nest under' })).toHaveTextContent(
+      'cars (new)',
+    );
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Create' }));
+    await screen.findByRole('heading', { level: 1, name: 'oil' });
+    const ws = store.getState().workspace!;
+    const colors = ['cars', 'cars/oil'].map((path) => findTagByName(ws, path)!.color);
+    expect(new Set(colors).size).toBe(2);
+  });
+
+  it('suggests an unused color, the next in the family for nested tags', async () => {
+    // Seed: home pastel red, home/yard pastel green, work pastel blue.
+    await renderSeeded('/today');
+    const dialog = await open();
+    expect(checked(dialog)).toBe('Pastel orange');
+    await userEvent.type(within(dialog).getByLabelText('Name'), 'work/');
+    expect(checked(dialog)).toBe('Pastel violet');
+    // A pick sticks even when the parent changes.
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Vivid' }));
+    await userEvent.click(within(dialog).getByRole('radio', { name: 'Vivid red' }));
+    await userEvent.type(within(dialog).getByLabelText('Name'), 'x/');
+    expect(checked(dialog)).toBe('Vivid red');
+  });
+
+  it('takes any custom color', async () => {
+    const { store } = await renderSeeded('/today');
+    const dialog = await open();
+    await userEvent.type(within(dialog).getByLabelText('Name'), 'night');
+    await userEvent.click(within(dialog).getByRole('radio', { name: 'Custom color' }));
+    const hex = within(dialog).getByRole('textbox', { name: 'Hex color' });
+    await userEvent.clear(hex);
+    await userEvent.type(hex, '123abc');
+    expect(checked(dialog)).toBe('Custom color');
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Create' }));
+    await screen.findByRole('heading', { level: 1, name: 'night' });
+    expect(findTagByName(store.getState().workspace!, 'night')!.color).toBe('#123ABC');
+  });
+});

@@ -1,6 +1,6 @@
 import AddRounded from '@mui/icons-material/AddRounded';
 import ChevronRightRounded from '@mui/icons-material/ChevronRightRounded';
-import LocalOfferRounded from '@mui/icons-material/LocalOfferRounded';
+import TagRounded from '@mui/icons-material/TagRounded';
 import {
   Box,
   IconButton,
@@ -95,9 +95,9 @@ function TagLink({
         sx={{ pl: 2 + node.depth * 2, pr: node.hasChildren ? 6 : 2 }}
       >
         <ListItemIcon sx={{ minWidth: 28 }}>
-          <LocalOfferRounded
+          <TagRounded
             sx={{
-              fontSize: 14,
+              fontSize: 16,
               color: tagIconColor(node.tag.color, theme.palette.background.default),
             }}
           />

@@ -4,6 +4,7 @@ import { getEntity, maxHlc } from './collections.ts';
 import { addDays, datePart, daysBetween, timePart, todayIn } from './dates.ts';
 import { inboxList } from './lists.ts';
 import { members } from './ops.ts';
+import { COLOR_FAMILIES } from './palette.ts';
 import { completedTagTasks, openTagCounts, tagTasks } from './queries.ts';
 import {
   createTag,
@@ -12,6 +13,8 @@ import {
   isUnder,
   leafName,
   normalizeTagName,
+  parentTagPath,
+  suggestTagColor,
   tagAncestry,
   tagsOfTask,
   tagTree,
@@ -34,7 +37,9 @@ describe('tags', () => {
     const again = createTag(ctx, first.workspace, 'work', '#F2A7B5');
     expect(again.tag.id).toBe(first.tag.id);
     const other = createTag(ctx, again.workspace, 'errands', '#F2A7B5');
-    expect(visibleTags(other.workspace).map((tag) => tag.name)).toEqual(['errands', 'Work']);
+    // Names are stored lowercase.
+    expect(visibleTags(other.workspace).map((tag) => tag.name)).toEqual(['errands', 'work']);
+    expect(normalizeTagName('Home/Front Yard')).toBe('home/front-yard');
     expect(findTagByName(other.workspace, 'WORK')?.id).toBe(first.tag.id);
     expect(() => createTag(ctx, other.workspace, ' / ', '#F2A7B5')).toThrow('empty');
   });
@@ -57,18 +62,47 @@ describe('tags', () => {
   });
 });
 
+const PASTEL = COLOR_FAMILIES[0]!.colors.map((color) => color.hex);
+const VIVID = COLOR_FAMILIES[4]!.colors.map((color) => color.hex);
+
 describe('nested tags', () => {
   const names = (ws: Parameters<typeof visibleTags>[0]) => visibleTags(ws).map((tag) => tag.name);
 
-  it('creates missing parents with the same color', () => {
+  it('creates missing parents, each with its own suggested color', () => {
     const ctx = testContext();
     const { workspace, tag } = createTag(ctx, createWorkspace(ctx), 'home/yard/edge', '#A8DCC0');
     expect(tag.name).toBe('home/yard/edge');
     expect(names(workspace)).toEqual(['home', 'home/yard', 'home/yard/edge']);
-    expect(findTagByName(workspace, 'home')?.color).toBe('#A8DCC0');
+    expect(visibleTags(workspace).map((t) => t.color)).toEqual([PASTEL[0], PASTEL[1], '#A8DCC0']);
+    expect(parentTagPath('home/yard/edge')).toBe('home/yard');
+    expect(parentTagPath('home')).toBe('');
     expect(leafName(tag.name)).toBe('edge');
     expect(isUnder('home/yard', 'HOME')).toBe(true);
     expect(isUnder('homework', 'home')).toBe(false);
+  });
+
+  it('suggests a color no tag has; nested tags take the next ones in the parent family', () => {
+    const ctx = testContext();
+    let ws = createWorkspace(ctx);
+    const add = (name: string, color?: string) => {
+      ws = createTag(ctx, ws, name, color).workspace;
+      return findTagByName(ws, name)!.color;
+    };
+    // ROYGBIV: home R, home/test O, home/test2 Y.
+    expect(add('home')).toBe(PASTEL[0]);
+    expect(add('home/test')).toBe(PASTEL[1]);
+    expect(add('home/test2')).toBe(PASTEL[2]);
+    // Top level: the first color nobody has.
+    expect(add('work')).toBe(PASTEL[3]);
+    // A child of `work` (pastel 4) takes the next free one after it.
+    expect(add('work/meetings')).toBe(PASTEL[4]);
+    // Parent in another family: children follow that family, wrapping around its end.
+    expect(add('garden', VIVID[8])).toBe(VIVID[8]);
+    expect(add('garden/beds')).toBe(VIVID[0]);
+    // Parent with a custom color: skip the family logic, first unused color.
+    expect(add('cars', '#123456')).toBe('#123456');
+    expect(add('cars/oil')).toBe(PASTEL[5]);
+    expect(suggestTagColor(ws, 'new', [PASTEL[6]!])).toBe(PASTEL[7]);
   });
 
   it('moves nested tags with a rename and refuses taken names or self-nesting', () => {

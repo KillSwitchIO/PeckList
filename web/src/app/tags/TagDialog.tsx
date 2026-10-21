@@ -11,22 +11,24 @@ import {
   Typography,
 } from '@mui/material';
 import { useState } from 'react';
-import { isUnder, leafName, normalizeTagName, tagNameTaken, tagTree } from '../../core/tags.ts';
+import {
+  isUnder,
+  leafName,
+  normalizeTagName,
+  parentTagPath,
+  suggestTagColor,
+  tagNameTaken,
+  tagTree,
+} from '../../core/tags.ts';
 import type { Tag } from '../../core/types.ts';
 import { t } from '../i18n/i18n.ts';
-import { ColorSwatches } from '../lists/ListDialog.tsx';
+import { ColorPicker } from '../colors/ColorPicker.tsx';
 import { useWorkspace } from '../store/hooks.ts';
-import { nextTagColor } from './tagColors.ts';
 
 export interface TagFormValue {
   /** Full path, parent included */
   name: string;
   color: string;
-}
-
-function parentPath(name: string): string {
-  const cut = name.lastIndexOf('/');
-  return cut < 0 ? '' : name.slice(0, cut);
 }
 
 /** Create or edit a tag: name, where it nests, color. */
@@ -41,15 +43,31 @@ export function TagDialog({
 }) {
   const workspace = useWorkspace();
   const [name, setName] = useState(tag ? leafName(tag.name) : '');
-  const [parent, setParent] = useState(tag ? parentPath(tag.name) : '');
-  const [color, setColor] = useState(() => tag?.color ?? nextTagColor(workspace));
+  const [parent, setParent] = useState(tag ? parentTagPath(tag.name) : '');
+  // Until the user picks a color, follow the suggestion for wherever the tag will nest.
+  const [picked, setPicked] = useState<string | null>(tag?.color ?? null);
+  const color = picked ?? suggestTagColor(workspace, parent ? `${parent}/new` : 'new');
 
   // A tag cannot nest under itself or its own children.
   const parents = tagTree(workspace).filter((node) => !tag || !isUnder(node.tag.name, tag.name));
   const leaf = normalizeTagName(name.replaceAll('/', ' '));
   const full = parent ? `${parent}/${leaf}` : leaf;
   const taken = leaf.length > 0 && tagNameTaken(workspace, full, tag?.id);
-  const valid = leaf.length > 0 && !taken;
+  const selfNest = tag !== undefined && parent !== '' && isUnder(parent, tag.name);
+  const valid = leaf.length > 0 && !taken && !selfNest;
+  const error = taken ? t('tag.taken') : selfNest ? t('tag.selfNest') : undefined;
+
+  // Typing a path nests it: "home/test" moves "home" into Nest under and keeps "test" here.
+  const typeName = (text: string) => {
+    const lower = text.toLowerCase();
+    const cut = lower.lastIndexOf('/');
+    if (cut < 0) {
+      setName(lower);
+      return;
+    }
+    setParent(normalizeTagName([parent, lower.slice(0, cut)].filter(Boolean).join('/')));
+    setName(lower.slice(cut + 1));
+  };
 
   return (
     <Dialog open onClose={onClose} fullWidth maxWidth="xs">
@@ -66,9 +84,9 @@ export function TagDialog({
               label={t('tag.name')}
               value={name}
               autoFocus
-              error={taken}
-              helperText={taken ? t('tag.taken') : undefined}
-              onChange={(event) => setName(event.target.value)}
+              error={error !== undefined}
+              helperText={error}
+              onChange={(event) => typeName(event.target.value)}
             />
             <TextField
               select
@@ -80,7 +98,7 @@ export function TagDialog({
               <MenuItem value="">{t('tag.noParent')}</MenuItem>
               {/* A parent path with no tag of its own (after an import) stays selectable. */}
               {parent && !parents.some((node) => node.tag.name === parent) && (
-                <MenuItem value={parent}>{parent}</MenuItem>
+                <MenuItem value={parent}>{t('tag.newParent', { path: parent })}</MenuItem>
               )}
               {parents.map((node) => (
                 <MenuItem key={node.tag.id} value={node.tag.name} sx={{ pl: 2 + node.depth * 2 }}>
@@ -92,7 +110,7 @@ export function TagDialog({
               <Typography variant="caption" color="text.secondary" component="div" sx={{ mb: 1 }}>
                 {t('list.color')}
               </Typography>
-              <ColorSwatches value={color} onChange={setColor} />
+              <ColorPicker value={color} onChange={setPicked} />
             </Box>
           </Stack>
         </DialogContent>

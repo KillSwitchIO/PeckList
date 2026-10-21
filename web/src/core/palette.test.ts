@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest';
 import {
   buildPalette,
   chipColors,
+  COLOR_FAMILIES,
+  findFamilyColor,
   contrastRatio,
   ensureContrast,
   hexToRgb,
@@ -84,9 +86,25 @@ describe('overrides', () => {
 describe('chip colors', () => {
   it.each(['light', 'dark'] as const)('keep tag chip text readable in %s mode', (mode) => {
     const light = buildPalette('light');
-    for (const name of PASTEL_NAMES) {
-      const { bg, fg } = chipColors(light.pastels[name].fill, mode);
-      expect(contrastRatio(fg, bg), name).toBeGreaterThanOrEqual(WCAG_TEXT);
+    const fills = [
+      ...PASTEL_NAMES.map((name) => light.pastels[name].fill),
+      ...COLOR_FAMILIES.flatMap((family) => family.colors.map((color) => color.hex)),
+      '#000000',
+      '#FFFFFF',
+    ];
+    for (const fill of fills) {
+      const { bg, fg } = chipColors(fill, mode);
+      expect(contrastRatio(fg, bg), fill).toBeGreaterThanOrEqual(WCAG_TEXT);
     }
+  });
+});
+
+describe('color families', () => {
+  it('have nine distinct colors each and find a color back', () => {
+    const all = COLOR_FAMILIES.flatMap((family) => family.colors.map((color) => color.hex));
+    expect(COLOR_FAMILIES.every((family) => family.colors.length === 9)).toBe(true);
+    expect(new Set(all).size).toBe(all.length);
+    expect(findFamilyColor('#ff3b30')).toMatchObject({ family: { id: 'vivid' }, index: 0 });
+    expect(findFamilyColor('#123456')).toBeNull();
   });
 });
