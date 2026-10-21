@@ -1,0 +1,10 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Punchlist.Core/Punchlist.Core.csproj" />
+    <Project Path="src/Punchlist.Server/Punchlist.Server.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Punchlist.Core.Tests/Punchlist.Core.Tests.csproj" />
+    <Project Path="tests/Punchlist.Server.Tests/Punchlist.Server.Tests.csproj" />
+  </Folder>
+</Solution>

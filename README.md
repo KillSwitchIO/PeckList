@@ -20,7 +20,7 @@ A self-hostable, offline-first task and calendar app. Runs standalone in the bro
 | `schema/` | JSON Schema for the workspace file and shared test fixtures |
 | `e2e/`    | WebdriverIO end-to-end tests (system-installed browsers)    |
 | `docs/`   | Schema, migrations and (later) self-hosting docs            |
-| `server/` | ASP.NET Core server (milestone 0.4)                         |
+| `server/` | ASP.NET Core server (milestone 0.4): `src/`, `tests/`       |
 
 ## Development
 
@@ -35,6 +35,19 @@ pnpm e2e            # builds nothing: run `pnpm build` first; starts vite previe
 pnpm lint
 pnpm typecheck
 ```
+
+### Server
+
+Requires the .NET 10 SDK (`mise install` sets it up from `mise.toml`).
+
+```bash
+cd server
+dotnet test                         # unit and integration tests
+dotnet run --project src/Punchlist.Server   # http://localhost:5000, API only unless WEB_ROOT points at web/dist
+docker build -t punchlist:dev .     # from the repo root: the one-container image
+```
+
+Self-hosting notes: [docs/self-hosting](docs/self-hosting/README.md).
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for the branching model, commit conventions and testing approach.
 

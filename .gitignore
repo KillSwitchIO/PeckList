@@ -19,6 +19,6 @@ e2e/screenshots/
 .DS_Store
 Thumbs.db
 
-# server (later)
+# server
 bin/
 obj/
