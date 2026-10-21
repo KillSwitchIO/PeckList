@@ -4,6 +4,7 @@ import { compareHlc } from './hlc.ts';
 import { setElement } from './ops.ts';
 import {
   acknowledge,
+  applyRejections,
   entityClock,
   joinAccount,
   mergeRemote,
@@ -110,6 +111,23 @@ describe('mergeRemote', () => {
   it('returns the same workspace when there is nothing to do', () => {
     const workspace = sampleWorkspace();
     expect(mergeRemote(workspace, [], [])).toBe(workspace);
+  });
+});
+
+describe('applyRejections', () => {
+  it('takes the server copy as is, or drops what has none', () => {
+    const ctx = testContext();
+    const workspace = sampleWorkspace(ctx);
+    const [first, second] = workspace.entities.tasks;
+    const edited = updateTask(ctx, workspace, first!.id, { title: 'Not allowed' });
+    const result = applyRejections(
+      edited,
+      [first!.id, second!.id],
+      [{ collection: 'tasks', entity: first! }],
+    );
+    expect(result.entities.tasks.map((task) => task.title)).toEqual(['Mow lawn']);
+    // Nothing refused: the same workspace.
+    expect(applyRejections(edited, [], [])).toBe(edited);
   });
 });
 

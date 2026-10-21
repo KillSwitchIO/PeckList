@@ -153,6 +153,31 @@ describe('sync engine', () => {
     expect(backend.server.calls - before).toBe(2);
   });
 
+  it('takes the server copy back when a change is refused', async () => {
+    const backend = new FakeBackend();
+    backend.addAccount('ben', 'correct horse battery');
+    const { engine, store } = await device(backend, 'dev1');
+    const id = addTask(store, 'Mow');
+    await engine.getState().start();
+    await engine.getState().signIn('ben', 'correct horse battery');
+
+    backend.server.refuse.add(id);
+    store.getState().apply((ctx, ws) => updateTask(ctx, ws, id, { title: 'Not allowed' }));
+    await engine.getState().syncNow();
+    expect(titles(store)).toEqual(['Mow']);
+    // It stays put: nothing is pushed again.
+    const calls = backend.server.calls;
+    await engine.getState().syncNow();
+    expect(backend.server.calls).toBe(calls + 1);
+    expect(titles(store)).toEqual(['Mow']);
+
+    // A refused new entity the user may not see leaves the device.
+    const other = addTask(store, 'Sneaky');
+    backend.server.refuse.add(other);
+    await engine.getState().syncNow();
+    expect(titles(store)).toEqual(['Mow']);
+  });
+
   it('pushes only what changed', async () => {
     const backend = new FakeBackend();
     backend.addAccount('ben', 'correct horse battery');

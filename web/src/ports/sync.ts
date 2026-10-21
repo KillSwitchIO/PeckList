@@ -34,6 +34,10 @@ export interface SyncResponse {
   changes: SyncChange[];
   more: boolean;
   revoked: string[];
+  /** Pushed changes the server refused (the user may not make them). Absent from older servers. */
+  rejected?: string[];
+  /** The server's copies of refused entities the user may see: they replace the device's own. */
+  corrections?: SyncChange[];
 }
 
 export type LoginOutcome =

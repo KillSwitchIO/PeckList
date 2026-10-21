@@ -109,6 +109,37 @@ export function mergeRemote(
 }
 
 /**
+ * Undo changes the server refused: a refused entity becomes the server's copy (`corrections`,
+ * taken as is, not merged, since the device's own newer clocks would win a merge), or leaves the
+ * device when the server sent none (the user may not see it).
+ */
+export function applyRejections(
+  workspace: WorkspaceFile,
+  rejected: readonly string[],
+  corrections: readonly SyncChange[],
+): WorkspaceFile {
+  if (rejected.length === 0) return workspace;
+  const refused = new Set(rejected);
+  const replacement = new Map(
+    corrections
+      .filter((change) => refused.has(change.entity.id))
+      .map((change) => [change.entity.id, change]),
+  );
+  const entities = { ...workspace.entities } as Record<CollectionName, BaseEntity[]>;
+  for (const collection of COLLECTIONS) {
+    const current = entities[collection];
+    if (!current.some((entity) => refused.has(entity.id))) continue;
+    entities[collection] = current.flatMap((entity) => {
+      if (!refused.has(entity.id)) return [entity];
+      const correction = replacement.get(entity.id);
+      return correction && correction.collection === collection ? [correction.entity] : [];
+    });
+  }
+  // A correction for an entity the device did not have (it was made and refused here) stays out.
+  return { ...workspace, entities: entities as unknown as Entities };
+}
+
+/**
  * The same workspace under another owner id: every field equal to the old id (createdBy,
  * completedBy, settings.userId, ...), `user:<id>` assignees, and the user's own profile entity.
  * Used once, when a device's local data joins a server account; the rewritten entities have

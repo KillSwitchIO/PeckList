@@ -51,8 +51,13 @@ export interface WorkspaceState {
   /**
    * Take in a change that did not happen here (data from the server, a device joining an
    * account): no undo entry, no new clocks. The workspace may come back under another owner.
+   * `authoritative` ids replace what storage holds on the next save instead of merging with it
+   * (the server refused a change: the copy in storage must not bring it back).
    */
-  absorb(transform: (workspace: WorkspaceFile) => WorkspaceFile): void;
+  absorb(
+    transform: (workspace: WorkspaceFile) => WorkspaceFile,
+    authoritative?: readonly string[],
+  ): void;
   /** Replace the workspace outright (signing in as someone else on this device). */
   reset(workspace: WorkspaceFile): Promise<void>;
   context(): OpContext;
@@ -88,6 +93,33 @@ export function createWorkspaceStore(deps: StoreDependencies): WorkspaceStore {
   // The owner of the copy in storage when this tab last read or wrote it: tells a join made here
   // (memory moved on) from one made in another tab (storage moved on).
   let storedOwner: string | null = null;
+  // Ids whose in-memory copy (or absence) must win over storage on the next save.
+  const authoritative = new Set<string>();
+
+  /** `merged` with the authoritative ids taken from `memory` (or dropped where memory has none). */
+  const pin = (merged: WorkspaceFile, memory: WorkspaceFile): WorkspaceFile => {
+    if (authoritative.size === 0) return merged;
+    const entities = { ...merged.entities } as Record<string, { id: string }[]>;
+    for (const collection of Object.keys(entities)) {
+      const mine = new Map(
+        (memory.entities as unknown as Record<string, { id: string }[]>)
+          [collection]!.filter((entity) => authoritative.has(entity.id))
+          .map((entity) => [entity.id, entity]),
+      );
+      entities[collection] = entities[collection]!.flatMap((entity) =>
+        authoritative.has(entity.id)
+          ? mine.has(entity.id)
+            ? [mine.get(entity.id)!]
+            : []
+          : [entity],
+      );
+      for (const [id, entity] of mine) {
+        if (!entities[collection]!.some((each) => each.id === id))
+          entities[collection]!.push(entity);
+      }
+    }
+    return { ...merged, entities: entities as unknown as WorkspaceFile['entities'] };
+  };
 
   const makeContext = (userId: string): OpContext => ({
     clock,
@@ -135,8 +167,9 @@ export function createWorkspaceStore(deps: StoreDependencies): WorkspaceStore {
       try {
         await withLock(async () => {
           const current = get().workspace ?? workspace;
-          const merged = mergeStored(await deps.storage.load(), current);
+          const merged = pin(mergeStored(await deps.storage.load(), current), current);
           await deps.storage.save(merged);
+          authoritative.clear();
           storedOwner = merged.owner;
           if (merged.owner !== current.owner) {
             set({ workspace: merged, undoStack: [], lastUndoable: null });
@@ -291,11 +324,12 @@ export function createWorkspaceStore(deps: StoreDependencies): WorkspaceStore {
         }
       },
 
-      absorb(transform) {
+      absorb(transform, ids = []) {
         const { workspace } = get();
         if (!workspace) return;
         const next = transform(workspace);
         if (next === workspace) return;
+        for (const id of ids) authoritative.add(id);
         advanceClock(next);
         if (next.owner !== workspace.owner) {
           ctx = makeContext(next.owner);

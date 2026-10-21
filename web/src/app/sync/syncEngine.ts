@@ -7,6 +7,7 @@ import { createStore, type StoreApi } from 'zustand/vanilla';
 import { CURRENT_SCHEMA_VERSION } from '../../core/migrations.ts';
 import {
   acknowledge,
+  applyRejections,
   joinAccount,
   mergeRemote,
   pendingChanges,
@@ -113,10 +114,13 @@ export function createSyncEngine(deps: SyncEngineDependencies): SyncEngine {
     };
   };
 
-  const absorb = (transform: (local: WorkspaceFile) => WorkspaceFile) => {
+  const absorb = (
+    transform: (local: WorkspaceFile) => WorkspaceFile,
+    authoritative?: readonly string[],
+  ) => {
     absorbing = true;
     try {
-      workspace.getState().absorb(transform);
+      workspace.getState().absorb(transform, authoritative);
     } finally {
       absorbing = false;
     }
@@ -220,7 +224,16 @@ export function createSyncEngine(deps: SyncEngineDependencies): SyncEngine {
               ([id]) => !revoked.has(id),
             ),
           );
-          absorb((local) => mergeRemote(local, response.changes, response.revoked));
+          absorb(
+            (local) =>
+              applyRejections(
+                mergeRemote(local, response.changes, response.revoked),
+                response.rejected ?? [],
+                response.corrections ?? [],
+              ),
+            // Refused and revoked entities must not come back from this device's stored copy.
+            [...(response.rejected ?? []), ...response.revoked],
+          );
           await storage.saveMeta(META, {
             account: account.id,
             cursor: response.cursor,

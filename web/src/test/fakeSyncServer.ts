@@ -19,13 +19,20 @@ export class FakeSyncServer {
   readonly rows = new Map<string, Row>();
   pageSize = 500;
   calls = 0;
+  /** Ids whose changes this server refuses (standing in for sharing rules). */
+  readonly refuse = new Set<string>();
 
   sync(userId: string, request: SyncRequest): SyncResponse {
     this.calls += 1;
     if (request.schemaVersion !== CURRENT_SCHEMA_VERSION) {
       throw new Error('schema_mismatch');
     }
+    const rejected: string[] = [];
     for (const change of request.changes) {
+      if (this.refuse.has(change.entity.id)) {
+        rejected.push(change.entity.id);
+        continue;
+      }
       const row = this.rows.get(change.entity.id);
       if (row && (row.owner !== userId || row.change.collection !== change.collection)) continue;
       const entity: BaseEntity = row
@@ -48,6 +55,11 @@ export class FakeSyncServer {
       changes: page.map((row) => structuredClone(row.change)),
       more: newer.length > page.length,
       revoked: [],
+      rejected,
+      corrections: rejected.flatMap((id) => {
+        const row = this.rows.get(id);
+        return row && row.owner === userId ? [structuredClone(row.change)] : [];
+      }),
     };
   }
 
