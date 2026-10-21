@@ -22,14 +22,7 @@ import { addDays, shiftMonths } from '../../core/dates.ts';
 import { formatDay, formatTime } from '../format.ts';
 import { t } from '../i18n/i18n.ts';
 import { CalendarIcon, CalendarNextIcon, SunIcon, SunriseIcon } from '../icons/icons.tsx';
-import {
-  addHour,
-  DEFAULT_TIME,
-  keepLength,
-  orderedSpan,
-  type DatePart,
-  type DateValue,
-} from './dateValue.ts';
+import { addHour, DEFAULT_TIME, orderedSpan, type DatePart, type DateValue } from './dateValue.ts';
 import { MonthCalendar } from './MonthCalendar.tsx';
 import { TimeInput } from './TimeInput.tsx';
 import { TimeWheels } from './TimeWheels.tsx';
@@ -221,8 +214,10 @@ export function DatePickerPanel({
   onApply: (value: DateValue | null) => void;
   onCancel: () => void;
 }) {
-  // Always opens on Date; a saved span shows under Duration and moves along with a new date.
-  const [mode, setMode] = useState<'date' | 'duration'>('date');
+  // A task with a span opens on Duration; anything else on Date.
+  const [mode, setMode] = useState<'date' | 'duration'>(
+    allowRange && value?.end ? 'duration' : 'date',
+  );
   const [date, setDate] = useState<string | null>(value?.date ?? null);
   const [time, setTime] = useState<string | null>(value?.time ?? null);
   const [end, setEnd] = useState<DatePart | null>(value?.end ?? null);
@@ -302,18 +297,11 @@ export function DatePickerPanel({
     }
   };
 
-  /** A date from Date mode; a saved span keeps its length and times and moves along. */
-  const withSpan = (next: DatePart): DateValue => {
-    if (!allowRange || !end || !value) return next;
-    const fixed = orderedSpan(next, keepLength(value, end, next));
-    return { ...fixed.start, end: fixed.end };
-  };
-
   const apply = () => {
     if (mode === 'duration' && span) {
       onApply({ ...span.start, end: span.end });
     } else if (date) {
-      onApply(withSpan({ date, time }));
+      onApply({ date, time });
     } else {
       onCancel();
     }
@@ -350,7 +338,7 @@ export function DatePickerPanel({
               icon={pick.icon}
               hint={pick.hint}
               active={date === pick.value.date}
-              onClick={() => onApply(withSpan(pick.value))}
+              onClick={() => onApply(pick.value)}
             />
           ))}
         </Box>

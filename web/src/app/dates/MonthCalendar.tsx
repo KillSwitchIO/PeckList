@@ -94,6 +94,16 @@ const WeekRow = memo(function WeekRow({
         const isSelected = date === selected || isEnd;
         const inside =
           rangeStart !== null && rangeEnd !== null && date > rangeStart && date < rangeEnd;
+        // Month outline: a thin line where the day above or to the left is in another month,
+        // plus the outer sides, so each month reads as its own box.
+        const month = monthOf(date);
+        const edges = [
+          monthOf(addDays(date, -7)) !== month ? 'inset 0 1px 0 var(--month-line)' : null,
+          col === 0 || monthOf(addDays(date, -1)) !== month
+            ? 'inset 1px 0 0 var(--month-line)'
+            : null,
+          col === 6 ? 'inset -1px 0 0 var(--month-line)' : null,
+        ].filter(Boolean);
         return (
           <button
             key={date}
@@ -109,14 +119,17 @@ const WeekRow = memo(function WeekRow({
             aria-current={date === today ? 'date' : undefined}
             aria-label={formats.dayLabel.format(utc(date))}
             onClick={() => onPick(date)}
+            {...(edges.length ? { style: { boxShadow: edges.join(', ') } } : {})}
           >
-            {/* The 1st of each month names the month, so scrolling stays oriented. */}
-            {date.endsWith('-01') && (
-              <span className="month" aria-hidden>
-                {formats.monthShort.format(utc(date))}
-              </span>
-            )}
-            {Number(date.slice(8))}
+            <span className="dot">
+              {/* The 1st of each month names the month, so scrolling stays oriented. */}
+              {date.endsWith('-01') && (
+                <span className="month" aria-hidden>
+                  {formats.monthShort.format(utc(date))}
+                </span>
+              )}
+              {Number(date.slice(8))}
+            </span>
           </button>
         );
       })}
@@ -425,13 +438,7 @@ export function MonthCalendar({
         onToday={goToToday}
       />
 
-      <Box
-        sx={{
-          display: 'grid',
-          gridTemplateColumns: `repeat(7, ${DAY}px)`,
-          justifyContent: 'space-between',
-        }}
-      >
+      <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)' }}>
         {weekdayLabels(locale, weekStartsOn).map((label, index) => (
           <Typography
             key={index}
@@ -484,6 +491,7 @@ export function MonthCalendar({
           scrollSnapType: 'y proximity',
           scrollbarWidth: 'none',
           '&::-webkit-scrollbar': { display: 'none' },
+          '--month-line': theme.palette.divider,
           '& .week': {
             position: 'absolute',
             top: 0,
@@ -491,38 +499,46 @@ export function MonthCalendar({
             right: 0,
             height: ROW,
             display: 'grid',
-            gridTemplateColumns: `repeat(7, ${DAY}px)`,
-            justifyContent: 'space-between',
-            alignItems: 'center',
+            gridTemplateColumns: 'repeat(7, 1fr)',
             scrollSnapAlign: 'start',
           },
           '& [role=gridcell]': {
             ...theme.typography.body2,
-            width: DAY,
-            height: DAY,
             padding: 0,
             border: 0,
-            borderRadius: '50%',
             background: 'transparent',
             cursor: 'pointer',
+            display: 'grid',
+            placeItems: 'center',
+            color: theme.palette.text.primary,
+            outline: 'none',
+          },
+          '& .dot': {
+            width: DAY - 2,
+            height: DAY - 2,
+            borderRadius: '50%',
             display: 'flex',
             flexDirection: 'column',
             alignItems: 'center',
             justifyContent: 'center',
             lineHeight: 1,
-            color: theme.palette.text.primary,
-            '&:hover': { background: theme.palette.action.hover },
-            '&:focus-visible': { outline: `2px solid ${theme.palette.primary.main}` },
+          },
+          '& [role=gridcell]:hover .dot': { background: theme.palette.action.hover },
+          '& [role=gridcell]:focus-visible .dot': {
+            outline: `2px solid ${theme.palette.primary.main}`,
           },
           '& [data-muted]': { color: theme.palette.text.secondary },
           // Today: a soft accent fill, clear in light and dark (the selection stays solid).
-          '& [data-today], & [data-today]:hover': {
+          '& [data-today] .dot, & [data-today]:hover .dot': {
             background: theme.punchlist.accentContainer,
             color: theme.punchlist.onAccentContainer,
             fontWeight: 700,
           },
-          '& [data-inside]': { background: theme.palette.action.selected, borderRadius: '8px' },
-          '& [data-selected], & [data-selected]:hover': {
+          '& [data-inside] .dot': {
+            background: theme.palette.action.selected,
+            borderRadius: '8px',
+          },
+          '& [data-selected] .dot, & [data-selected]:hover .dot': {
             background: theme.palette.primary.main,
             color: theme.palette.primary.contrastText,
             fontWeight: 600,
