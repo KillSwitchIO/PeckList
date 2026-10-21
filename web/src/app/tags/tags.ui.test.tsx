@@ -193,13 +193,59 @@ describe('tag dialog', () => {
       .find((radio) => radio.getAttribute('aria-checked') === 'true')
       ?.getAttribute('aria-label');
 
+  const nestUnder = (dialog: HTMLElement) =>
+    within(dialog).getByRole('combobox', { name: 'Nest under' });
+
+  it('keeps a typed path whole until Name loses focus, then fills Nest under', async () => {
+    await renderSeeded('/today');
+    const dialog = await open();
+    const name = within(dialog).getByLabelText('Name');
+    await userEvent.type(name, 'Home/Test/Deep');
+    // Nothing jumps while typing: lowercase path stays, Nest under is greyed out and blank.
+    expect(name).toHaveValue('home/test/deep');
+    expect(nestUnder(dialog)).toHaveAttribute('aria-disabled', 'true');
+    expect(nestUnder(dialog)).not.toHaveTextContent('home');
+    expect(within(dialog).getByTestId('tag-preview')).toHaveTextContent('#home/test/deep');
+    await userEvent.tab();
+    expect(name).toHaveValue('deep');
+    expect(nestUnder(dialog)).toHaveTextContent('home/test (new)');
+    // Back in Name, the whole path shows again.
+    await userEvent.click(name);
+    expect(name).toHaveValue('home/test/deep');
+  });
+
+  it('drops down matching tags to arrow through and take with Tab', async () => {
+    await renderSeeded('/today');
+    const dialog = await open();
+    const name = within(dialog).getByLabelText('Name');
+    await userEvent.type(name, 'ya');
+    const list = screen.getByRole('listbox');
+    expect(
+      within(list)
+        .getAllByRole('option')
+        .map((item) => item.textContent),
+    ).toEqual(['#home/yard']);
+    await userEvent.keyboard('{ArrowDown}{Tab}');
+    expect(name).toHaveValue('home/yard/');
+    expect(name).toHaveFocus();
+    await userEvent.keyboard('edge');
+    expect(within(dialog).getByTestId('tag-preview')).toHaveTextContent('#home/yard/edge');
+    // Escape closes the list but not the dialog.
+    await userEvent.clear(name);
+    await userEvent.type(name, 'wo');
+    await userEvent.keyboard('{Escape}');
+    expect(screen.queryByRole('listbox')).not.toBeInTheDocument();
+    expect(screen.getByRole('dialog')).toBeInTheDocument();
+  });
+
   it('nests when a path is typed, and keeps names lowercase', async () => {
     await renderSeeded('/today');
     const dialog = await open();
     const name = within(dialog).getByLabelText('Name');
     await userEvent.type(name, 'Home/Test');
+    await userEvent.tab();
     expect(name).toHaveValue('test');
-    expect(within(dialog).getByRole('combobox', { name: 'Nest under' })).toHaveTextContent('home');
+    expect(nestUnder(dialog)).toHaveTextContent('home');
     await userEvent.click(within(dialog).getByRole('button', { name: 'Create' }));
     expect(await screen.findByRole('heading', { level: 1, name: 'test' })).toBeInTheDocument();
     // Icon-only buttons (New tag, the collapse toggle) have no text.
@@ -214,9 +260,8 @@ describe('tag dialog', () => {
     const { store } = await renderSeeded('/today');
     const dialog = await open();
     await userEvent.type(within(dialog).getByLabelText('Name'), 'cars/oil');
-    expect(within(dialog).getByRole('combobox', { name: 'Nest under' })).toHaveTextContent(
-      'cars (new)',
-    );
+    await userEvent.tab();
+    expect(nestUnder(dialog)).toHaveTextContent('cars (new)');
     await userEvent.click(within(dialog).getByRole('button', { name: 'Create' }));
     await screen.findByRole('heading', { level: 1, name: 'oil' });
     const ws = store.getState().workspace!;

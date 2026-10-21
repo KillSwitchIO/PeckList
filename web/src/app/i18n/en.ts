@@ -136,6 +136,7 @@ export const en = {
   'tag.collapse': 'Hide tags in {name}',
   'tag.more': '+{count}',
   'tag.newParent': '{path} (new)',
+  'tag.preview': 'Will be saved as {path}',
   'tag.selfNest': 'A tag cannot nest under itself',
   'color.families': 'Color family',
   'color.family.pastel': 'Pastel',
