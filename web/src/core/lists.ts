@@ -1,4 +1,4 @@
-// Lists, folders and sections.
+// Lists and sections. (Folders were dropped on 2026-10-20: organization is lists + tags.)
 
 import { isLive, putEntities, putEntity, requireEntity } from './collections.ts';
 import { compareOrderKeys, keyBetween } from './ordering.ts';
@@ -11,7 +11,7 @@ import {
   type OpContext,
   type Patch,
 } from './ops.ts';
-import type { Folder, Id, List, Section, WorkspaceFile } from './types.ts';
+import type { Id, List, Section, WorkspaceFile } from './types.ts';
 
 function byOrder<T extends { order: string }>(items: T[]): T[] {
   return [...items].sort((a, b) => compareOrderKeys(a.order, b.order));
@@ -40,7 +40,6 @@ export interface ListInput {
   name: string;
   color: string;
   icon?: string | null;
-  folderId?: Id | null;
 }
 
 export function createList(
@@ -52,7 +51,7 @@ export function createList(
     name: input.name.trim(),
     color: input.color,
     icon: input.icon ?? null,
-    folderId: input.folderId ?? null,
+    folderId: null, // deprecated field, kept until the next schema change
     visibility: 'private',
     archived: false,
     order: endKey(workspace.entities.lists.filter(isLive)),
@@ -171,45 +170,5 @@ export function deleteSection(ctx: OpContext, workspace: WorkspaceFile, id: Id):
     next,
     'tasks',
     tasks.map((task) => updateEntity(ctx, task, { sectionId: null })),
-  );
-}
-
-// --- folders --------------------------------------------------------------------------
-
-export function visibleFolders(workspace: WorkspaceFile): Folder[] {
-  return byOrder(workspace.entities.folders.filter(isLive));
-}
-
-export function createFolder(
-  ctx: OpContext,
-  workspace: WorkspaceFile,
-  name: string,
-): { workspace: WorkspaceFile; folder: Folder } {
-  const folder = createEntity<Folder>(ctx, {
-    name: name.trim(),
-    order: endKey(visibleFolders(workspace)),
-  });
-  return { workspace: putEntity(workspace, 'folders', folder), folder };
-}
-
-export function renameFolder(
-  ctx: OpContext,
-  workspace: WorkspaceFile,
-  id: Id,
-  name: string,
-): WorkspaceFile {
-  const folder = requireEntity(workspace, 'folders', id);
-  return putEntity(workspace, 'folders', updateEntity(ctx, folder, { name: name.trim() }));
-}
-
-/** Delete a folder; its lists move out to the top level. */
-export function deleteFolder(ctx: OpContext, workspace: WorkspaceFile, id: Id): WorkspaceFile {
-  const folder = requireEntity(workspace, 'folders', id);
-  const lists = workspace.entities.lists.filter((list) => list.folderId === id && isLive(list));
-  const next = putEntity(workspace, 'folders', softDelete(ctx, folder));
-  return putEntities(
-    next,
-    'lists',
-    lists.map((list) => updateEntity(ctx, list, { folderId: null })),
   );
 }

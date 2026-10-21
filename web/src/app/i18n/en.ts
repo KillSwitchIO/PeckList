@@ -84,11 +84,8 @@ export const en = {
   'date.clear': 'Clear',
   'date.dueOn': 'Due {date}',
   'list.new': 'New list',
-  'list.newFolder': 'New folder',
   'list.name': 'Name',
   'list.color': 'Color',
-  'list.folder': 'Folder',
-  'list.noFolder': 'No folder',
   'list.edit': 'Edit list',
   'list.archive': 'Archive list',
   'list.delete': 'Delete list',
@@ -101,8 +98,6 @@ export const en = {
   'list.hideCompleted': 'Hide completed',
   'list.empty': 'No tasks here. Add one above.',
   'list.notFound': 'This list no longer exists.',
-  'folder.name': 'Folder name',
-  'folder.delete': 'Delete folder',
   'upcoming.empty': 'Nothing planned for the next 7 days.',
   'completed.empty': 'Nothing completed yet.',
   'trash.empty': 'The trash is empty.',
@@ -116,7 +111,6 @@ export const en = {
   'undo.listDeleted': 'List deleted',
   'undo.listArchived': 'List archived',
   'undo.sectionDeleted': 'Section deleted',
-  'undo.folderDeleted': 'Folder deleted',
   'more.title': 'More',
 } as const;
 

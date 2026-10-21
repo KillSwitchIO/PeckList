@@ -212,23 +212,6 @@ describe('lists and sections', () => {
     expect(screen.getByText('List deleted')).toBeInTheDocument();
   });
 
-  it('creates, renames and deletes folders', async () => {
-    await renderApp('/today');
-    await userEvent.click(screen.getByRole('button', { name: 'New folder' }));
-    await userEvent.type(
-      within(await screen.findByRole('dialog')).getByLabelText('Folder name'),
-      'Personal{Enter}',
-    );
-    await userEvent.click(await screen.findByRole('button', { name: 'More actions: Personal' }));
-    await userEvent.click(await screen.findByRole('menuitem', { name: 'Rename' }));
-    const field = within(await screen.findByRole('dialog')).getByLabelText('Folder name');
-    await userEvent.clear(field);
-    await userEvent.type(field, 'Life{Enter}');
-    await userEvent.click(await screen.findByRole('button', { name: 'More actions: Life' }));
-    await userEvent.click(await screen.findByRole('menuitem', { name: 'Delete folder' }));
-    await waitFor(() => expect(screen.queryByText('Life')).not.toBeInTheDocument());
-  });
-
   it('shows a message for unknown lists', async () => {
     await renderApp('/lists/01NOPE00000000000000000000');
     expect(screen.getByText('This list no longer exists.')).toBeInTheDocument();

@@ -6,25 +6,21 @@ import {
   DialogActions,
   DialogContent,
   DialogTitle,
-  MenuItem,
   Stack,
   TextField,
   Typography,
   useTheme,
 } from '@mui/material';
 import { useState } from 'react';
-import { visibleFolders } from '../../core/lists.ts';
 import { buildPalette, PASTEL_NAMES } from '../../core/palette.ts';
 import type { List } from '../../core/types.ts';
 import { t } from '../i18n/i18n.ts';
-import { useWorkspace } from '../store/hooks.ts';
 
 const LIGHT = buildPalette('light');
 
 export interface ListFormValue {
   name: string;
   color: string;
-  folderId: string | null;
 }
 
 /** Pick one of the pastel slots. Stores the fill color so the list keeps it if the palette changes later. */
@@ -86,11 +82,8 @@ export function ListDialog({
   onClose: () => void;
   onSubmit: (value: ListFormValue) => void;
 }) {
-  const workspace = useWorkspace();
-  const folders = visibleFolders(workspace);
   const [name, setName] = useState(list?.name ?? '');
   const [color, setColor] = useState(list?.color ?? LIGHT.pastels.sky.fill);
-  const [folderId, setFolderId] = useState<string | null>(list?.folderId ?? null);
   const valid = name.trim().length > 0;
 
   return (
@@ -98,7 +91,7 @@ export function ListDialog({
       <form
         onSubmit={(event) => {
           event.preventDefault();
-          if (valid) onSubmit({ name: name.trim(), color, folderId });
+          if (valid) onSubmit({ name: name.trim(), color });
         }}
       >
         <DialogTitle>{list ? t('list.edit') : t('list.new')}</DialogTitle>
@@ -119,21 +112,6 @@ export function ListDialog({
               </Typography>
               <ColorSwatches value={color} onChange={setColor} />
             </Box>
-            {!list?.isInbox && (
-              <TextField
-                select
-                label={t('list.folder')}
-                value={folderId ?? ''}
-                onChange={(event) => setFolderId(event.target.value || null)}
-              >
-                <MenuItem value="">{t('list.noFolder')}</MenuItem>
-                {folders.map((folder) => (
-                  <MenuItem key={folder.id} value={folder.id}>
-                    {folder.name}
-                  </MenuItem>
-                ))}
-              </TextField>
-            )}
           </Stack>
         </DialogContent>
         <DialogActions>
@@ -147,7 +125,7 @@ export function ListDialog({
   );
 }
 
-/** One-field dialog for names (folders, sections). */
+/** One-field dialog for names (sections). */
 export function NameDialog({
   open,
   title,

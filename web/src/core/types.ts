@@ -35,6 +35,7 @@ export interface User extends BaseEntity {
   homeServer: string;
 }
 
+/** @deprecated Folders were dropped (lists + tags only); removed at the next schema change. */
 export interface Folder extends BaseEntity {
   name: string;
   order: OrderKey;
@@ -44,6 +45,7 @@ export interface List extends BaseEntity {
   name: string;
   color: string;
   icon: string | null;
+  /** @deprecated always null; see Folder */
   folderId: Id | null;
   visibility: 'private' | 'shared';
   archived: boolean;

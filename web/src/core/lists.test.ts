@@ -2,20 +2,16 @@ import { describe, expect, it } from 'vitest';
 import { testContext } from '../test/fixtures.ts';
 import { getEntity } from './collections.ts';
 import {
-  createFolder,
   createList,
   createSection,
-  deleteFolder,
   deleteList,
   deleteSection,
   inboxList,
   moveList,
-  renameFolder,
   renameSection,
   restoreList,
   sectionsOf,
   updateList,
-  visibleFolders,
   visibleLists,
 } from './lists.ts';
 import { createTask } from './tasks.ts';
@@ -96,22 +92,5 @@ describe('sections', () => {
   it('requires an existing list', () => {
     const { ctx, ws } = setup();
     expect(() => createSection(ctx, ws, 'missing', 'x')).toThrow('not found');
-  });
-});
-
-describe('folders', () => {
-  it('creates, renames and deletes; lists move to the top level', () => {
-    const { ctx, ws } = setup();
-    const { workspace, folder } = createFolder(ctx, ws, 'Personal');
-    const { workspace: withList, list } = createList(ctx, workspace, {
-      name: 'Home',
-      color: '#A8DCC0',
-      folderId: folder.id,
-    });
-    let next = renameFolder(ctx, withList, folder.id, 'Life');
-    expect(visibleFolders(next)[0]?.name).toBe('Life');
-    next = deleteFolder(ctx, next, folder.id);
-    expect(visibleFolders(next)).toEqual([]);
-    expect(getEntity(next, 'lists', list.id)?.folderId).toBeNull();
   });
 });
