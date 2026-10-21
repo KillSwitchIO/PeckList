@@ -1,6 +1,7 @@
 using System.Reflection;
 using Microsoft.AspNetCore.HttpOverrides;
 using Punchlist.Core;
+using Punchlist.Core.Configuration;
 
 namespace Punchlist.Server;
 
@@ -15,6 +16,11 @@ public static class ServerApp
     {
         var builder = WebApplication.CreateBuilder(args);
         var config = builder.Configuration;
+        // Configuration holds the environment variables (and test overrides); NAME_FILE works too.
+        var settings = ServerSettings.Read(
+            new FileAwareSecretSource(key => config[key]),
+            inContainer: config["DOTNET_RUNNING_IN_CONTAINER"] == "true");
+        builder.Services.AddSingleton(settings);
 
         builder.Services.AddHealthChecks();
         builder.Services.Configure<ForwardedHeadersOptions>(options =>
@@ -24,7 +30,7 @@ public static class ServerApp
             options.ForwardLimit = null;
             options.KnownIPNetworks.Clear();
             options.KnownProxies.Clear();
-            foreach (var network in ProxyTrust.Parse(config["TRUSTED_PROXIES"]))
+            foreach (var network in ProxyTrust.Parse(settings.TrustedProxies))
             {
                 options.KnownIPNetworks.Add(network);
             }
@@ -36,7 +42,7 @@ public static class ServerApp
         app.MapHealthChecks("/healthz");
         app.MapGet("/api/info", () => new ServerInfo("punchlist", Version, WorkspaceSchema.CurrentVersion));
 
-        var webRoot = config["WEB_ROOT"] ?? Path.Combine(AppContext.BaseDirectory, "wwwroot");
+        var webRoot = settings.WebRoot ?? Path.Combine(AppContext.BaseDirectory, "wwwroot");
         app.UseStaticSite(webRoot, app.Logger);
         return app;
     }

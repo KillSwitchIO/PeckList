@@ -22,6 +22,8 @@ cd server && dotnet test     # xUnit v3 on Microsoft.Testing.Platform (opted in 
 docker build -t punchlist:dev .   # repo root; chiseled, non-root (uid 1654), /data volume
 ```
 
+If a test run fails with "An Application Control policy has blocked this file", Windows Smart App Control refused the freshly built test .exe (xUnit v3 needs one); it is intermittent, so rerun.
+
 ## Dev server gotcha
 
 Vite's native file watcher on Windows missed edits (git branch switches, scripted multi-file edits, and the pre-commit hook, which briefly rewrites staged files), leaving the browser on stale code while tests pass. `vite.config.ts` now polls on Windows; a server started before that change needs one restart. Still, before reporting a UI change as verified, fetch the module from the dev server (`/src/...`) after committing and check it contains the change; if not, restart with `pnpm --dir web dev --force`. String catalog edits hot-apply (`i18n.ts` accepts `en.ts`); still check the browser console for errors.
