@@ -27,6 +27,7 @@ import type { Priority, Task } from '../../core/types.ts';
 import { DateProperty } from '../dates/DateProperty.tsx';
 import { listName } from '../lists/listName.ts';
 import { TagsProperty } from '../tags/TagsProperty.tsx';
+import { ParentTrail, SubtaskEditor } from './Subtasks.tsx';
 import { fromDateValue, toDateValue } from '../dates/dateValue.ts';
 import { useToday } from '../hooks/useToday.ts';
 import { t } from '../i18n/i18n.ts';
@@ -199,6 +200,7 @@ export function TaskDetail({ taskId, onClose }: { taskId: string; onClose: () =>
       </Toolbar>
 
       <Stack spacing={2}>
+        <ParentTrail task={task} />
         <CommitField
           label={t('task.title')}
           value={task.title}
@@ -291,6 +293,7 @@ export function TaskDetail({ taskId, onClose }: { taskId: string; onClose: () =>
             </TextField>
           )}
         </Stack>
+        <SubtaskEditor task={task} />
         <CommitField
           label={t('task.notes')}
           value={task.notes}

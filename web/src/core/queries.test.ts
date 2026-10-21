@@ -98,7 +98,7 @@ describe('smart views', () => {
     ]);
   });
 
-  it('hides done, deleted, subtasks and tasks of deleted lists', () => {
+  it('hides done, deleted and tasks of deleted lists; dated subtasks follow their parent', () => {
     const s = setup();
     const { workspace, list } = createList(s.ctx, s.ws, { name: 'Gone', color: '#A8DCC0' });
     s.ws = workspace;
@@ -108,7 +108,7 @@ describe('smart views', () => {
     s.ws = toggleTaskDone(s.ctx, s.ws, done.id);
     const parent = s.add('parent', { schedule: at(TODAY) });
     s.add('child', { parentId: parent.id, schedule: at(TODAY) });
-    expect(titles(todayTasks(s.ws, TODAY))).toEqual(['parent']);
+    expect(titles(todayTasks(s.ws, TODAY))).toEqual(['parent', 'child']);
   });
 
   it('Completed lists most recent first and can filter by list', () => {

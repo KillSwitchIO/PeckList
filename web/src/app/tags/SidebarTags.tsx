@@ -17,43 +17,11 @@ import { useState } from 'react';
 import { useLocation } from 'react-router';
 import { openTagCounts } from '../../core/queries.ts';
 import { createTag, leafName, tagTree, type TagNode } from '../../core/tags.ts';
-import type { Id } from '../../core/types.ts';
+import { useCollapsedSet, withoutCollapsed } from '../hooks/useCollapsedSet.ts';
 import { t } from '../i18n/i18n.ts';
 import { useApply, useWorkspace } from '../store/hooks.ts';
 import { tagIconColor } from './tagColors.ts';
 import { TagDialog } from './TagDialog.tsx';
-
-const COLLAPSED_KEY = 'punchlist.collapsedTags';
-
-// Which parent tags are collapsed is a per-browser convenience; it is fine to lose it.
-function loadCollapsed(): Set<Id> {
-  try {
-    const raw = localStorage.getItem(COLLAPSED_KEY);
-    return new Set(raw ? (JSON.parse(raw) as Id[]) : []);
-  } catch {
-    return new Set();
-  }
-}
-
-function saveCollapsed(ids: Set<Id>) {
-  try {
-    localStorage.setItem(COLLAPSED_KEY, JSON.stringify([...ids]));
-  } catch {
-    // storage unavailable (private window); keep the in-memory state only
-  }
-}
-
-/** Hide nodes under a collapsed parent. */
-function visibleNodes(nodes: TagNode[], collapsed: Set<Id>): TagNode[] {
-  const hidden = new Set<Id>();
-  return nodes.filter((node) => {
-    if (node.parentId && (hidden.has(node.parentId) || collapsed.has(node.parentId))) {
-      hidden.add(node.tag.id);
-      return false;
-    }
-    return true;
-  });
-}
 
 function TagLink({
   node,
@@ -118,17 +86,14 @@ export function SidebarTags({ onNavigate }: { onNavigate: (path: string) => void
   const workspace = useWorkspace();
   const apply = useApply();
   const [creating, setCreating] = useState(false);
-  const [collapsed, setCollapsed] = useState(loadCollapsed);
+  const { collapsed, toggle } = useCollapsedSet('punchlist.collapsedTags');
   const counts = openTagCounts(workspace);
-  const nodes = visibleNodes(tagTree(workspace), collapsed);
-
-  const toggle = (id: Id) =>
-    setCollapsed((current) => {
-      const next = new Set(current);
-      if (!next.delete(id)) next.add(id);
-      saveCollapsed(next);
-      return next;
-    });
+  const nodes = withoutCollapsed(
+    tagTree(workspace),
+    (node) => node.tag.id,
+    (node) => node.parentId,
+    collapsed,
+  );
 
   return (
     <>

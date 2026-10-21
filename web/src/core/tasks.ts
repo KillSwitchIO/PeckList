@@ -25,7 +25,12 @@ export interface TaskInput {
   schedule?: Schedule | null;
   due?: Due | null;
   tags?: Id[];
+  /** Place directly after this sibling instead of at the end */
+  afterId?: Id | null;
 }
+
+/** Subtask levels below a top-level task (R-TASK-03 asks for at least 3). */
+export const MAX_SUBTASK_DEPTH = 5;
 
 /** Live siblings in display order: same list, section and parent. */
 export function siblings(
@@ -65,6 +70,72 @@ function lastOrder(tasks: Task[]): string | null {
   return tasks.length ? tasks[tasks.length - 1]!.order : null;
 }
 
+/** Live ancestors, top-level task first, direct parent last. */
+export function ancestors(workspace: WorkspaceFile, id: Id): Task[] {
+  const chain: Task[] = [];
+  let current = getEntity(workspace, 'tasks', id);
+  const seen = new Set<Id>();
+  while (current?.parentId && !seen.has(current.parentId)) {
+    seen.add(current.parentId);
+    const parent = getEntity(workspace, 'tasks', current.parentId);
+    if (!parent || !isLive(parent)) break;
+    chain.unshift(parent);
+    current = parent;
+  }
+  return chain;
+}
+
+/** How many levels below the top a task sits: 0 for a top-level task. */
+export function taskDepth(workspace: WorkspaceFile, id: Id): number {
+  return ancestors(workspace, id).length;
+}
+
+/** Levels of live subtasks under a task: 0 without subtasks. */
+function subtreeHeight(workspace: WorkspaceFile, id: Id): number {
+  let height = 0;
+  for (const child of workspace.entities.tasks) {
+    if (child.parentId === id && isLive(child)) {
+      height = Math.max(height, 1 + subtreeHeight(workspace, child.id));
+    }
+  }
+  return height;
+}
+
+/** The sibling just above a task, which an indent would nest it under. */
+function previousSibling(workspace: WorkspaceFile, task: Task): Task | undefined {
+  const peers = siblings(workspace, task.listId, task.sectionId, task.parentId);
+  const index = peers.findIndex((peer) => peer.id === task.id);
+  return index > 0 ? peers[index - 1] : undefined;
+}
+
+export function canIndent(workspace: WorkspaceFile, id: Id): boolean {
+  const task = requireEntity(workspace, 'tasks', id);
+  const above = previousSibling(workspace, task);
+  if (!above) return false;
+  return taskDepth(workspace, above.id) + 1 + subtreeHeight(workspace, id) <= MAX_SUBTASK_DEPTH;
+}
+
+/** Nest a task (with its subtasks) under the sibling above it, as that sibling's last subtask. */
+export function indentTask(ctx: OpContext, workspace: WorkspaceFile, id: Id): WorkspaceFile {
+  if (!canIndent(workspace, id)) return workspace;
+  const task = requireEntity(workspace, 'tasks', id);
+  const above = previousSibling(workspace, task)!;
+  return moveTask(ctx, workspace, id, { listId: task.listId, parentId: above.id });
+}
+
+/** Move a subtask up a level, directly after its old parent. */
+export function outdentTask(ctx: OpContext, workspace: WorkspaceFile, id: Id): WorkspaceFile {
+  const task = requireEntity(workspace, 'tasks', id);
+  if (!task.parentId) return workspace;
+  const parent = requireEntity(workspace, 'tasks', task.parentId);
+  return moveTask(ctx, workspace, id, {
+    listId: parent.listId,
+    sectionId: parent.sectionId,
+    parentId: parent.parentId,
+    afterId: parent.id,
+  });
+}
+
 export function createTask(
   ctx: OpContext,
   workspace: WorkspaceFile,
@@ -74,6 +145,15 @@ export function createTask(
   const listId = parent?.listId ?? input.listId;
   const sectionId = parent ? parent.sectionId : (input.sectionId ?? null);
   const parentId = parent?.id ?? null;
+  if (parent && taskDepth(workspace, parent.id) + 1 > MAX_SUBTASK_DEPTH) {
+    throw new Error('subtasks are nested too deep');
+  }
+  const peers = siblings(workspace, listId, sectionId, parentId);
+  const afterIndex = input.afterId ? peers.findIndex((peer) => peer.id === input.afterId) : -1;
+  const order =
+    afterIndex >= 0
+      ? keyBetween(peers[afterIndex]!.order, peers[afterIndex + 1]?.order ?? null)
+      : keyBetween(lastOrder(peers), null);
   let tags = {};
   for (const tag of input.tags ?? []) tags = setElement(ctx, tags, tag, true);
   const task = createEntity<Task>(ctx, {
@@ -82,7 +162,7 @@ export function createTask(
     listId,
     sectionId,
     parentId,
-    order: keyBetween(lastOrder(siblings(workspace, listId, sectionId, parentId)), null),
+    order,
     status: 'open',
     completedAt: null,
     completedBy: null,

@@ -32,8 +32,19 @@ export function TagChip({ tag }: { tag: Tag }) {
   );
 }
 
-/** Tag pills in a row; past `max`, a muted "+N" stands in for the rest. */
-export function TagChips({ tags, max }: { tags: Tag[]; max?: number }) {
+/**
+ * Tag pills in a row; past `max`, a muted "+N" stands in for the rest. Rows pass
+ * `wrap={false}` so pills stay on one line (clipped) instead of stacking in a narrow cell.
+ */
+export function TagChips({
+  tags,
+  max,
+  wrap = true,
+}: {
+  tags: Tag[];
+  max?: number;
+  wrap?: boolean;
+}) {
   if (tags.length === 0) return null;
   const shown = max === undefined ? tags : tags.slice(0, max);
   const hidden = tags.length - shown.length;
@@ -41,7 +52,15 @@ export function TagChips({ tags, max }: { tags: Tag[]; max?: number }) {
     <Box
       component="span"
       data-testid="task-tags"
-      sx={{ display: 'inline-flex', flexWrap: 'wrap', alignItems: 'center', gap: 0.5 }}
+      sx={{
+        display: 'flex',
+        flexWrap: wrap ? 'wrap' : 'nowrap',
+        alignItems: 'center',
+        gap: 0.5,
+        maxWidth: '100%',
+        overflow: wrap ? 'visible' : 'hidden',
+        '& > *': { flexShrink: 0 },
+      }}
     >
       {shown.map((tag) => (
         <TagChip key={tag.id} tag={tag} />

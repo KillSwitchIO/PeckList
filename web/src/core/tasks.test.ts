@@ -3,16 +3,23 @@ import { testContext } from '../test/fixtures.ts';
 import { getEntity, putEntity } from './collections.ts';
 import { createSection, inboxList } from './lists.ts';
 import { members } from './ops.ts';
+import { subtaskTree, todayTasks } from './queries.ts';
 import {
+  ancestors,
+  canIndent,
   createTask,
   deleteTask,
   descendants,
+  indentTask,
+  MAX_SUBTASK_DEPTH,
   moveTask,
+  outdentTask,
   rescheduleTo,
   restoreTask,
   setTaskStatus,
   setTaskTag,
   siblings,
+  taskDepth,
   toggleTaskDone,
   updateTask,
 } from './tasks.ts';
@@ -257,5 +264,92 @@ describe('rescheduleTo', () => {
       end: '2026-10-22T11:00',
     });
     expect(getEntity(s.ws, 'tasks', undated.id)?.schedule).toBeNull();
+  });
+});
+
+describe('subtasks', () => {
+  /** Titles with two-space indentation per level, from the top level down. */
+  const outline = (s: ReturnType<typeof setup>) => {
+    const lines: string[] = [];
+    const walk = (parentId: string | null, depth: number) => {
+      for (const task of s.ws.entities.tasks
+        .filter((item) => item.parentId === parentId && item.deletedAt === null)
+        .sort((a, b) => (a.order < b.order ? -1 : 1))) {
+        lines.push(`${'  '.repeat(depth)}${task.title}`);
+        walk(task.id, depth + 1);
+      }
+    };
+    walk(null, 0);
+    return lines;
+  };
+
+  it('inserts right after a sibling', () => {
+    const s = setup();
+    const a = s.add('a');
+    s.add('c');
+    s.add('b', { afterId: a.id });
+    expect(outline(s)).toEqual(['a', 'b', 'c']);
+  });
+
+  it('indents under the sibling above and outdents back after the parent', () => {
+    const s = setup();
+    s.add('a');
+    const b = s.add('b');
+    const c = s.add('c');
+    s.add('d');
+    s.ws = indentTask(s.ctx, s.ws, b.id);
+    s.ws = indentTask(s.ctx, s.ws, c.id);
+    // With b nested, a is the sibling above c: c nests under a, after b.
+    expect(outline(s)).toEqual(['a', '  b', '  c', 'd']);
+    s.ws = indentTask(s.ctx, s.ws, c.id);
+    expect(outline(s)).toEqual(['a', '  b', '    c', 'd']);
+    expect(taskDepth(s.ws, c.id)).toBe(2);
+    expect(titles(ancestors(s.ws, c.id))).toEqual(['a', 'b']);
+    s.ws = outdentTask(s.ctx, s.ws, b.id);
+    expect(outline(s)).toEqual(['a', 'b', '  c', 'd']);
+  });
+
+  it('does nothing without a sibling above or a parent', () => {
+    const s = setup();
+    const a = s.add('a');
+    expect(canIndent(s.ws, a.id)).toBe(false);
+    expect(indentTask(s.ctx, s.ws, a.id)).toBe(s.ws);
+    expect(outdentTask(s.ctx, s.ws, a.id)).toBe(s.ws);
+  });
+
+  it(`stops at ${MAX_SUBTASK_DEPTH} levels`, () => {
+    const s = setup();
+    let parent = s.add('top');
+    for (let level = 1; level <= MAX_SUBTASK_DEPTH; level += 1) {
+      parent = s.add(`level ${level}`, { parentId: parent.id });
+    }
+    expect(() => s.add('too deep', { parentId: parent.id })).toThrow('too deep');
+    const sibling = s.add('sibling', { parentId: parent.parentId });
+    expect(canIndent(s.ws, sibling.id)).toBe(false);
+  });
+
+  it('flattens the subtree, optionally open only', () => {
+    const s = setup();
+    const root = s.add('root');
+    const a = s.add('a', { parentId: root.id });
+    s.add('a1', { parentId: a.id });
+    const b = s.add('b', { parentId: root.id });
+    s.ws = setTaskStatus(s.ctx, s.ws, b.id, 'done');
+    const tree = (openOnly: boolean) =>
+      subtaskTree(s.ws, root.id, { openOnly }).map(
+        (node) => `${node.depth}:${node.task.title}${node.hasChildren ? '+' : ''}`,
+      );
+    expect(tree(false)).toEqual(['0:a+', '1:a1', '0:b']);
+    expect(tree(true)).toEqual(['0:a+', '1:a1']);
+  });
+
+  it('shows dated subtasks in Today on their own', () => {
+    const s = setup();
+    const parent = s.add('parent');
+    s.add('child', {
+      parentId: parent.id,
+      schedule: { start: '2026-10-21', end: null, allDay: true, timeZone: 'UTC' },
+    });
+    expect(titles(todayTasks(s.ws, '2026-10-21'))).toEqual(['child']);
   });
 });

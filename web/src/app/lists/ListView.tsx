@@ -22,7 +22,7 @@ import { t } from '../i18n/i18n.ts';
 import { Page } from '../layout/Page.tsx';
 import { useApply, useWorkspace } from '../store/hooks.ts';
 import { AddTaskInput } from '../tasks/AddTaskInput.tsx';
-import { TaskRows } from '../tasks/TaskRow.tsx';
+import { TaskTree } from '../tasks/TaskTree.tsx';
 import { EmptyState } from '../views/EmptyState.tsx';
 import { GroupSection } from '../views/GroupSection.tsx';
 import { CompletedGroup } from '../views/TaskViews.tsx';
@@ -202,7 +202,7 @@ export function ListContents({ list }: { list: List }) {
       )}
       {groups.map((group) => {
         const section = group.sectionId ? getEntity(workspace, 'sections', group.sectionId) : null;
-        if (!section) return <TaskRows key="none" tasks={group.tasks} />;
+        if (!section) return <TaskTree key="none" tasks={group.tasks} />;
         return (
           <GroupSection
             key={section.id}
@@ -213,7 +213,7 @@ export function ListContents({ list }: { list: List }) {
             {addingTo === section.id && (
               <AddTaskInput defaults={{ listId: list.id, sectionId: section.id }} autoFocus />
             )}
-            <TaskRows tasks={group.tasks} />
+            <TaskTree tasks={group.tasks} />
           </GroupSection>
         );
       })}

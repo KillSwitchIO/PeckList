@@ -1,5 +1,7 @@
 import CheckRounded from '@mui/icons-material/CheckRounded';
 import ChecklistRounded from '@mui/icons-material/ChecklistRounded';
+import ChevronRightRounded from '@mui/icons-material/ChevronRightRounded';
+import SubdirectoryArrowRightRounded from '@mui/icons-material/SubdirectoryArrowRightRounded';
 import { Box, ButtonBase, IconButton, Typography, useMediaQuery, useTheme } from '@mui/material';
 import { getEntity } from '../../core/collections.ts';
 import { startState, subtaskProgress } from '../../core/queries.ts';
@@ -62,12 +64,34 @@ export function PriorityCheckbox({ task }: { task: Task }) {
 /** Fixed date column, right-aligned: dates sit flush right and list names line up in every view. */
 const DATE_COLUMN = '10rem';
 
-export function TaskRow({ task, showList = false }: { task: Task; showList?: boolean }) {
+/** Indent per subtask level in list trees. */
+const INDENT = 24;
+
+export interface RowExpander {
+  open: boolean;
+  onToggle: () => void;
+}
+
+export function TaskRow({
+  task,
+  showList = false,
+  depth = 0,
+  expander,
+}: {
+  task: Task;
+  /** Show where the task lives: its list, or its parent task for a subtask */
+  showList?: boolean;
+  /** Subtask level in a list tree (indents the row) */
+  depth?: number;
+  /** Chevron to show or hide this task's subtasks */
+  expander?: RowExpander;
+}) {
   const workspace = useWorkspace();
   const today = useToday();
   const theme = useTheme();
   const { selectedId, open } = useTaskSelection();
   const list = getEntity(workspace, 'lists', task.listId);
+  const parent = task.parentId ? getEntity(workspace, 'tasks', task.parentId) : undefined;
   const progress = subtaskProgress(workspace, task.id);
   const tags = tagsOfTask(workspace, task);
   const isPhone = useMediaQuery(theme.breakpoints.down('sm'), { noSsr: true });
@@ -91,7 +115,7 @@ export function TaskRow({ task, showList = false }: { task: Task; showList?: boo
         display: 'flex',
         alignItems: 'center',
         minHeight: 40,
-        pl: 0.5,
+        pl: `${4 + depth * INDENT}px`,
         borderBottom: 1,
         borderColor: 'divider',
         bgcolor: selected ? 'action.selected' : 'transparent',
@@ -109,6 +133,33 @@ export function TaskRow({ task, showList = false }: { task: Task; showList?: boo
         },
       }}
     >
+      {expander && (
+        // Sits just left of the checkbox: in the page gutter for top-level tasks.
+        <IconButton
+          size="small"
+          aria-expanded={expander.open}
+          aria-label={
+            expander.open ? t('task.hideSubtasks', { title }) : t('task.showSubtasks', { title })
+          }
+          onClick={expander.onToggle}
+          sx={{
+            position: 'absolute',
+            left: depth * INDENT - 20,
+            top: '50%',
+            transform: 'translateY(-50%)',
+            p: 0.25,
+            color: 'text.secondary',
+          }}
+        >
+          <ChevronRightRounded
+            sx={{
+              fontSize: 18,
+              transform: expander.open ? 'rotate(90deg)' : 'none',
+              transition: 'transform 120ms',
+            }}
+          />
+        </IconButton>
+      )}
       <PriorityCheckbox task={task} />
       <ButtonBase
         onClick={() => open(task.id)}
@@ -129,7 +180,7 @@ export function TaskRow({ task, showList = false }: { task: Task; showList?: boo
             {title}
           </Typography>
           {/* Phones have no room beside the title: tags go on a second line. */}
-          {isPhone && <TagChips tags={tags} max={3} />}
+          {isPhone && <TagChips tags={tags} max={3} wrap={false} />}
         </Box>
         <Box
           data-testid="task-meta"
@@ -141,7 +192,7 @@ export function TaskRow({ task, showList = false }: { task: Task; showList?: boo
             typography: 'body2',
           }}
         >
-          {!isPhone && <TagChips tags={tags} max={2} />}
+          {!isPhone && <TagChips tags={tags} max={2} wrap={false} />}
           {progress.total > 0 && (
             <Box
               component="span"
@@ -156,8 +207,30 @@ export function TaskRow({ task, showList = false }: { task: Task; showList?: boo
               {t('task.subtasks', { done: progress.done, total: progress.total })}
             </Box>
           )}
+          {/* A subtask on its own (date and tag views) names its parent. */}
+          {showList && parent && (
+            <Box
+              component="span"
+              title={t('task.subtaskOf', { title: parent.title || t('task.untitled') })}
+              sx={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 0.25,
+                maxWidth: '12rem',
+                color: 'text.secondary',
+              }}
+            >
+              <SubdirectoryArrowRightRounded sx={{ fontSize: 16 }} />
+              <Box
+                component="span"
+                sx={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+              >
+                {parent.title || t('task.untitled')}
+              </Box>
+            </Box>
+          )}
           {/* The Mess Drawer is "no list", so its tasks show none. */}
-          {showList && list && !list.isInbox && (
+          {showList && !parent && list && !list.isInbox && (
             <Box component="span" sx={{ color: 'text.secondary' }}>
               {listName(list)}
             </Box>

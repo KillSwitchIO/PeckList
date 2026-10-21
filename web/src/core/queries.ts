@@ -51,23 +51,55 @@ function openTopLevel(workspace: WorkspaceFile): Task[] {
   );
 }
 
-/** By start (date, then time; all-day before timed), then priority, then manual order. */
-function byDateThenOrder(a: Task, b: Task): number {
-  const left = a.schedule?.start ?? '9999-99-99';
-  const right = b.schedule?.start ?? '9999-99-99';
-  if (left !== right) return left < right ? -1 : 1;
-  if (a.priority !== b.priority) return b.priority - a.priority;
-  return compareOrderKeys(a.order, b.order);
+/**
+ * Open tasks at any level. Date and tag views use these: a subtask with its own date or tag
+ * shows up there by itself (the row names its parent).
+ */
+function openAnyLevel(workspace: WorkspaceFile): Task[] {
+  const liveLists = new Set(workspace.entities.lists.filter(isLive).map((list) => list.id));
+  return workspace.entities.tasks.filter(
+    (task) => isLive(task) && task.status === 'open' && liveLists.has(task.listId),
+  );
+}
+
+/**
+ * By start (date, then time; all-day before timed), then priority, then manual order in the
+ * task tree (a parent before its subtasks, subtasks in their own order).
+ */
+function byDateThenOrder(workspace: WorkspaceFile): (a: Task, b: Task) => number {
+  const byId = new Map(workspace.entities.tasks.map((task) => [task.id, task]));
+  const paths = new Map<Id, string[]>();
+  const path = (task: Task): string[] => {
+    const known = paths.get(task.id);
+    if (known) return known;
+    const parent = task.parentId ? byId.get(task.parentId) : undefined;
+    const result = [...(parent ? path(parent) : []), task.order];
+    paths.set(task.id, result);
+    return result;
+  };
+  return (a, b) => {
+    const left = a.schedule?.start ?? '9999-99-99';
+    const right = b.schedule?.start ?? '9999-99-99';
+    if (left !== right) return left < right ? -1 : 1;
+    if (a.priority !== b.priority) return b.priority - a.priority;
+    const x = path(a);
+    const y = path(b);
+    for (let i = 0; i < Math.min(x.length, y.length); i += 1) {
+      const order = compareOrderKeys(x[i]!, y[i]!);
+      if (order !== 0) return order;
+    }
+    return x.length - y.length;
+  };
 }
 
 /** Open tasks starting today or earlier (overdue included). */
 export function todayTasks(workspace: WorkspaceFile, today: string): Task[] {
-  return openTopLevel(workspace)
+  return openAnyLevel(workspace)
     .filter((task) => {
       const date = startDate(task);
       return date !== null && date <= today;
     })
-    .sort(byDateThenOrder);
+    .sort(byDateThenOrder(workspace));
 }
 
 /** Today view groups: overdue (started before today) and today. */
@@ -100,7 +132,7 @@ export function upcomingTasks(
 ): { date: string; tasks: Task[] }[] {
   const last = addDays(today, days);
   const groups = new Map<string, Task[]>();
-  for (const task of openTopLevel(workspace).sort(byDateThenOrder)) {
+  for (const task of openAnyLevel(workspace).sort(byDateThenOrder(workspace))) {
     const date = startDate(task);
     if (date && date > today && date <= last) {
       groups.set(date, [...(groups.get(date) ?? []), task]);
@@ -186,27 +218,54 @@ function hasAnyTag(task: Task, ids: Set<Id>): boolean {
   return members(task.tags).some((id) => ids.has(id));
 }
 
-/** Open top-level tasks carrying a tag (or one nested under it), by start date. */
+/** Open tasks (any level) carrying a tag or one nested under it, by start date. */
 export function tagTasks(workspace: WorkspaceFile, tagId: Id): Task[] {
   const ids = tagScope(workspace, tagId);
-  return openTopLevel(workspace)
+  return openAnyLevel(workspace)
     .filter((task) => hasAnyTag(task, ids))
-    .sort(byDateThenOrder);
+    .sort(byDateThenOrder(workspace));
 }
 
-/** Completed top-level tasks carrying a tag (or one nested under it), most recent first. */
+/** Completed tasks (any level) carrying a tag or one nested under it, most recent first. */
 export function completedTagTasks(workspace: WorkspaceFile, tagId: Id): Task[] {
   const ids = tagScope(workspace, tagId);
-  return completedTasks(workspace).filter((task) => task.parentId === null && hasAnyTag(task, ids));
+  return completedTasks(workspace).filter((task) => hasAnyTag(task, ids));
 }
 
-/** Open top-level task count per tag, nested tags included (matches the tag's view). */
+/** Open task count per tag, nested tags and subtasks included (matches the tag's view). */
 export function openTagCounts(workspace: WorkspaceFile): Map<Id, number> {
   const counts = new Map<Id, number>();
-  const tasks = openTopLevel(workspace);
+  const tasks = openAnyLevel(workspace);
   for (const tag of visibleTags(workspace)) {
     const ids = tagScope(workspace, tag.id);
     counts.set(tag.id, tasks.filter((task) => hasAnyTag(task, ids)).length);
   }
   return counts;
+}
+
+export interface SubtaskNode {
+  task: Task;
+  /** 0 for a direct subtask of the root */
+  depth: number;
+  hasChildren: boolean;
+}
+
+/** A task's subtasks as a flattened tree in display order. */
+export function subtaskTree(
+  workspace: WorkspaceFile,
+  rootId: Id,
+  options: { openOnly?: boolean } = {},
+): SubtaskNode[] {
+  const out: SubtaskNode[] = [];
+  const children = (parentId: Id) =>
+    subtasksOf(workspace, parentId).filter((task) => !options.openOnly || task.status === 'open');
+  const walk = (parentId: Id, depth: number) => {
+    for (const task of children(parentId)) {
+      const below = children(task.id);
+      out.push({ task, depth, hasChildren: below.length > 0 });
+      walk(task.id, depth + 1);
+    }
+  };
+  walk(rootId, 0);
+  return out;
 }
