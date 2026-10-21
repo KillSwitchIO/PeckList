@@ -426,11 +426,15 @@ describe('completion date', () => {
     expect(getEntity(s.ws, 'tasks', a.id)!.completedAt).toBe('2026-10-01T12:00:00.000Z');
     s.ws = setTaskStatus(s.ctx, s.ws, a.id, 'open');
     expect(getEntity(s.ws, 'tasks', a.id)).toMatchObject({ completedAt: null, completedBy: null });
-    // Set ahead of time on an open task: completing keeps it.
+    // Setting a date on an open task completes it on that date, subtasks included.
     const b = s.add('b');
+    const child = s.add('child', { parentId: b.id });
     s.ws = setCompletedAt(s.ctx, s.ws, b.id, '2026-09-30T08:00:00.000Z');
-    s.ws = toggleTaskDone(s.ctx, s.ws, b.id);
-    expect(getEntity(s.ws, 'tasks', b.id)!.completedAt).toBe('2026-09-30T08:00:00.000Z');
+    expect(getEntity(s.ws, 'tasks', b.id)).toMatchObject({
+      status: 'done',
+      completedAt: '2026-09-30T08:00:00.000Z',
+    });
+    expect(getEntity(s.ws, 'tasks', child.id)!.status).toBe('done');
   });
 
   it('clearing the date of a closed task reopens it', () => {

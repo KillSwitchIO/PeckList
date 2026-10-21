@@ -53,13 +53,10 @@ function QuickPick({
           flexDirection: 'column',
           gap: 0.25,
           borderRadius: 2,
-          color: (theme) =>
-            active ? theme.punchlist.onAccentContainer : theme.palette.text.secondary,
-          bgcolor: (theme) => (active ? theme.punchlist.accentContainer : 'transparent'),
-          '&:hover': {
-            bgcolor: (theme) =>
-              active ? theme.punchlist.accentContainer : theme.palette.action.hover,
-          },
+          // The pick matching the chosen date looks like the chosen day in the calendar.
+          color: active ? 'primary.contrastText' : 'text.secondary',
+          bgcolor: active ? 'primary.main' : 'transparent',
+          '&:hover': { bgcolor: active ? 'primary.main' : 'action.hover' },
         }}
       >
         {icon}

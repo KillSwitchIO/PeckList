@@ -263,8 +263,8 @@ export function setTaskStatus(
 }
 
 /**
- * Set or clear the completion date (an instant). Completing keeps a date set here. Clearing the
- * date of a done or won't-do task reopens it.
+ * Set or clear the completion date (an instant). Setting it on an open task completes the task
+ * (with its open subtasks) on that date; clearing it on a done or won't-do task reopens it.
  */
 export function setCompletedAt(
   ctx: OpContext,
@@ -274,7 +274,9 @@ export function setCompletedAt(
 ): WorkspaceFile {
   const task = requireEntity(workspace, 'tasks', id);
   if (at === null && task.status !== 'open') return setTaskStatus(ctx, workspace, id, 'open');
-  return updateTask(ctx, workspace, id, { completedAt: at });
+  const dated = updateTask(ctx, workspace, id, { completedAt: at });
+  // Completing keeps the date just set (it only fills an empty one).
+  return at !== null && task.status === 'open' ? setTaskStatus(ctx, dated, id, 'done') : dated;
 }
 
 export function toggleTaskDone(ctx: OpContext, workspace: WorkspaceFile, id: Id): WorkspaceFile {

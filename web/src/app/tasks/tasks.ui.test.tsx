@@ -348,7 +348,7 @@ describe('completion date', () => {
     ).toHaveTextContent('Tomorrow');
   });
 
-  it('keeps a completion date set ahead of time', async () => {
+  it('setting a completion date on an open task marks it done', async () => {
     await renderApp('/inbox');
     await addTasks('Rake');
     await userEvent.click(screen.getByRole('button', { name: 'Open Rake' }));
@@ -359,7 +359,9 @@ describe('completion date', () => {
         name: 'Tomorrow',
       }),
     );
-    await userEvent.click(within(details).getByRole('button', { name: 'Complete' }));
+    // Done right away, dated as picked, with undo.
+    expect(screen.getByRole('checkbox', { name: 'Reopen Rake' })).toBeInTheDocument();
+    expect(screen.getByText('Task completed')).toBeInTheDocument();
     expect(
       within(screen.getByRole('button', { name: 'Open Rake' })).getByTestId('task-date'),
     ).toHaveTextContent('Tomorrow');

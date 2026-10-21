@@ -4,6 +4,7 @@ import RadioButtonUncheckedRounded from '@mui/icons-material/RadioButtonUnchecke
 import { Box, ButtonBase, IconButton, Tooltip, Typography } from '@mui/material';
 import { memo, useCallback, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { addDays, addMonths, daysBetween, monthOf } from '../../core/dates.ts';
+import { mix } from '../../core/palette.ts';
 import { t } from '../i18n/i18n.ts';
 
 const DAY = 36;
@@ -491,7 +492,11 @@ export function MonthCalendar({
           scrollSnapType: 'y proximity',
           scrollbarWidth: 'none',
           '&::-webkit-scrollbar': { display: 'none' },
-          '--month-line': theme.palette.divider,
+          // The divider reads well on white but disappears on dark paper: lift it there.
+          '--month-line':
+            theme.palette.mode === 'dark'
+              ? mix(theme.punchlist.outline, theme.punchlist.textMuted, 0.4)
+              : theme.palette.divider,
           '& .week': {
             position: 'absolute',
             top: 0,

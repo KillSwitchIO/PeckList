@@ -290,8 +290,13 @@ export function TaskDetail({ taskId, onClose }: { taskId: string; onClose: () =>
                     task.id,
                     value ? instantOf(value.date, value.time ?? keep, zone) : null,
                   ),
-                // Clearing the date of a closed task reopens it.
-                !value && task.status !== 'open' ? t('undo.reopened') : undefined,
+                // Clearing the date of a closed task reopens it; setting one on an open
+                // task completes it.
+                !value && task.status !== 'open'
+                  ? t('undo.reopened')
+                  : value && task.status === 'open'
+                    ? t('undo.completed')
+                    : undefined,
               );
             }}
           />
