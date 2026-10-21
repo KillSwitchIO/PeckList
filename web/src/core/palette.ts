@@ -174,3 +174,16 @@ export function buildPalette(
     pastels,
   };
 }
+
+/**
+ * Soft pill colors for a user-chosen fill (tag chips): a tinted background with text that
+ * passes AA on it, in either mode.
+ */
+export function chipColors(color: string, mode: 'light' | 'dark'): { bg: string; fg: string } {
+  if (mode === 'dark') {
+    const bg = mix(color, '#24272A', 0.78);
+    return { bg, fg: ensureContrast(color, bg, WCAG_TEXT) };
+  }
+  const bg = mix(color, '#FFFFFF', 0.45);
+  return { bg, fg: ensureContrast(mix(color, '#000000', 0.55), bg, WCAG_TEXT) };
+}

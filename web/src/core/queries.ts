@@ -2,7 +2,9 @@
 
 import { isLive } from './collections.ts';
 import { addDays, datePart, daysBetween, todayIn } from './dates.ts';
+import { members } from './ops.ts';
 import { compareOrderKeys } from './ordering.ts';
+import { tagWithDescendants, visibleTags } from './tags.ts';
 import type { Id, Task, WorkspaceFile } from './types.ts';
 
 export const TRASH_DAYS = 30;
@@ -172,5 +174,39 @@ export function openCounts(workspace: WorkspaceFile): Map<Id, number> {
   const counts = new Map<Id, number>();
   for (const task of openTopLevel(workspace))
     counts.set(task.listId, (counts.get(task.listId) ?? 0) + 1);
+  return counts;
+}
+
+/** Ids of a tag and the tags nested under it: a parent tag's view includes its children. */
+function tagScope(workspace: WorkspaceFile, tagId: Id): Set<Id> {
+  return new Set(tagWithDescendants(workspace, tagId).map((tag) => tag.id));
+}
+
+function hasAnyTag(task: Task, ids: Set<Id>): boolean {
+  return members(task.tags).some((id) => ids.has(id));
+}
+
+/** Open top-level tasks carrying a tag (or one nested under it), by start date. */
+export function tagTasks(workspace: WorkspaceFile, tagId: Id): Task[] {
+  const ids = tagScope(workspace, tagId);
+  return openTopLevel(workspace)
+    .filter((task) => hasAnyTag(task, ids))
+    .sort(byDateThenOrder);
+}
+
+/** Completed top-level tasks carrying a tag (or one nested under it), most recent first. */
+export function completedTagTasks(workspace: WorkspaceFile, tagId: Id): Task[] {
+  const ids = tagScope(workspace, tagId);
+  return completedTasks(workspace).filter((task) => task.parentId === null && hasAnyTag(task, ids));
+}
+
+/** Open top-level task count per tag, nested tags included (matches the tag's view). */
+export function openTagCounts(workspace: WorkspaceFile): Map<Id, number> {
+  const counts = new Map<Id, number>();
+  const tasks = openTopLevel(workspace);
+  for (const tag of visibleTags(workspace)) {
+    const ids = tagScope(workspace, tag.id);
+    counts.set(tag.id, tasks.filter((task) => hasAnyTag(task, ids)).length);
+  }
   return counts;
 }

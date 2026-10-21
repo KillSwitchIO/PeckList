@@ -1,0 +1,116 @@
+import DeleteOutlineRounded from '@mui/icons-material/DeleteOutlineRounded';
+import EditRounded from '@mui/icons-material/EditRounded';
+import MoreVertRounded from '@mui/icons-material/MoreVertRounded';
+import { IconButton, Menu, MenuItem, Tooltip } from '@mui/material';
+import { useState } from 'react';
+import { useNavigate, useParams } from 'react-router';
+import { getEntity, isLive } from '../../core/collections.ts';
+import { inboxList } from '../../core/lists.ts';
+import { completedTagTasks, tagTasks } from '../../core/queries.ts';
+import { deleteTag, leafName, updateTag } from '../../core/tags.ts';
+import type { Tag } from '../../core/types.ts';
+import { t } from '../i18n/i18n.ts';
+import { Page } from '../layout/Page.tsx';
+import { ConfirmDialog } from '../lists/ListDialog.tsx';
+import { useApply, useWorkspace } from '../store/hooks.ts';
+import { AddTaskInput } from '../tasks/AddTaskInput.tsx';
+import { TaskRows } from '../tasks/TaskRow.tsx';
+import { EmptyState } from '../views/EmptyState.tsx';
+import { CompletedGroup } from '../views/TaskViews.tsx';
+import { TagDialog } from './TagDialog.tsx';
+
+function TagMenu({ tag }: { tag: Tag }) {
+  const apply = useApply();
+  const navigate = useNavigate();
+  const [anchor, setAnchor] = useState<HTMLElement | null>(null);
+  const [dialog, setDialog] = useState<'edit' | 'delete' | null>(null);
+  const close = () => setAnchor(null);
+  return (
+    <>
+      <Tooltip title={t('common.more')} disableFocusListener>
+        <IconButton
+          aria-label={t('common.more')}
+          onClick={(event) => setAnchor(event.currentTarget)}
+        >
+          <MoreVertRounded />
+        </IconButton>
+      </Tooltip>
+      <Menu anchorEl={anchor} open={anchor !== null} onClose={close}>
+        <MenuItem
+          onClick={() => {
+            close();
+            setDialog('edit');
+          }}
+        >
+          <EditRounded fontSize="small" sx={{ mr: 1 }} />
+          {t('tag.edit')}
+        </MenuItem>
+        <MenuItem
+          onClick={() => {
+            close();
+            setDialog('delete');
+          }}
+        >
+          <DeleteOutlineRounded fontSize="small" sx={{ mr: 1 }} />
+          {t('tag.delete')}
+        </MenuItem>
+      </Menu>
+      {dialog === 'edit' && (
+        <TagDialog
+          tag={tag}
+          onClose={() => setDialog(null)}
+          onSubmit={(value) => {
+            apply((ctx, ws) => updateTag(ctx, ws, tag.id, value));
+            setDialog(null);
+          }}
+        />
+      )}
+      {dialog === 'delete' && (
+        <ConfirmDialog
+          open
+          message={t('tag.deleteConfirm', { name: tag.name })}
+          confirmLabel={t('common.delete')}
+          onClose={() => setDialog(null)}
+          onConfirm={() => {
+            setDialog(null);
+            apply((ctx, ws) => deleteTag(ctx, ws, tag.id), t('undo.tagDeleted'));
+            void navigate('/today');
+          }}
+        />
+      )}
+    </>
+  );
+}
+
+/** Every open task carrying the tag or one nested under it, across lists. */
+function TagContents({ tag }: { tag: Tag }) {
+  const workspace = useWorkspace();
+  const tasks = tagTasks(workspace, tag.id);
+  const completed = completedTagTasks(workspace, tag.id);
+  const name = leafName(tag.name);
+  return (
+    <Page title={name} actions={<TagMenu tag={tag} />}>
+      <AddTaskInput
+        defaults={{ listId: inboxList(workspace).id, tags: [tag.id] }}
+        label={t('tag.addTo', { tag: name })}
+      />
+      {tasks.length === 0 && completed.length === 0 && <EmptyState title={t('tag.empty')} />}
+      <TaskRows tasks={tasks} showList />
+      <CompletedGroup tasks={completed} showList defaultOpen={false} />
+    </Page>
+  );
+}
+
+export function TagView() {
+  const workspace = useWorkspace();
+  const { tagId } = useParams();
+  const tag = tagId ? getEntity(workspace, 'tags', tagId) : undefined;
+  if (!tag || !isLive(tag)) {
+    return (
+      <Page title={t('nav.tags')}>
+        <EmptyState title={t('tag.notFound')} />
+      </Page>
+    );
+  }
+  return <TagContents key={tag.id} tag={tag} />;
+}

@@ -25,6 +25,7 @@ import { Outlet, useLocation, useNavigate } from 'react-router';
 import { t } from '../i18n/i18n.ts';
 import { HeaderSlotContext } from './headerSlot.ts';
 import { SidebarLists } from '../lists/SidebarLists.tsx';
+import { SidebarTags } from '../tags/SidebarTags.tsx';
 import { useTaskSelection } from '../tasks/selection.ts';
 import { TaskDetail } from '../tasks/TaskDetail.tsx';
 import { UndoToast } from '../tasks/UndoToast.tsx';
@@ -104,6 +105,7 @@ function Sidebar({ onNavigate }: { onNavigate: (path: string) => void }) {
       <Divider sx={{ mx: 2 }} />
       <Box sx={{ flexGrow: 1, overflowY: 'auto' }}>
         <SidebarLists onNavigate={onNavigate} />
+        <SidebarTags onNavigate={onNavigate} />
       </Box>
       <NavList items={SIDEBAR_FOOTER} selected={selected} onSelect={onNavigate} />
     </Box>

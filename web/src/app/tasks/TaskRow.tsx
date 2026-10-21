@@ -1,8 +1,9 @@
 import CheckRounded from '@mui/icons-material/CheckRounded';
 import ChecklistRounded from '@mui/icons-material/ChecklistRounded';
-import { Box, ButtonBase, IconButton, Typography, useTheme } from '@mui/material';
+import { Box, ButtonBase, IconButton, Typography, useMediaQuery, useTheme } from '@mui/material';
 import { getEntity } from '../../core/collections.ts';
 import { startState, subtaskProgress } from '../../core/queries.ts';
+import { tagsOfTask } from '../../core/tags.ts';
 import { toggleTaskDone } from '../../core/tasks.ts';
 import type { Priority, Task } from '../../core/types.ts';
 import { formatWhen } from '../format.ts';
@@ -10,6 +11,7 @@ import { useToday } from '../hooks/useToday.ts';
 import { t } from '../i18n/i18n.ts';
 import { listName } from '../lists/listName.ts';
 import { useApply, useWorkspace } from '../store/hooks.ts';
+import { TagChips } from '../tags/TagChip.tsx';
 import { useTaskSelection } from './selection.ts';
 
 const PRIORITY_KEY = { 0: 'none', 1: 'low', 2: 'medium', 3: 'high' } as const satisfies Record<
@@ -67,6 +69,8 @@ export function TaskRow({ task, showList = false }: { task: Task; showList?: boo
   const { selectedId, open } = useTaskSelection();
   const list = getEntity(workspace, 'lists', task.listId);
   const progress = subtaskProgress(workspace, task.id);
+  const tags = tagsOfTask(workspace, task);
+  const isPhone = useMediaQuery(theme.breakpoints.down('sm'), { noSsr: true });
   const done = task.status !== 'open';
   const title = task.title || t('task.untitled');
   const selected = selectedId === task.id;
@@ -120,12 +124,13 @@ export function TaskRow({ task, showList = false }: { task: Task; showList?: boo
           textAlign: 'left',
         }}
       >
-        <Typography
-          noWrap
-          sx={{ flexGrow: 1, minWidth: 0, color: done ? 'text.disabled' : 'text.primary' }}
-        >
-          {title}
-        </Typography>
+        <Box sx={{ flexGrow: 1, minWidth: 0 }}>
+          <Typography noWrap sx={{ color: done ? 'text.disabled' : 'text.primary' }}>
+            {title}
+          </Typography>
+          {/* Phones have no room beside the title: tags go on a second line. */}
+          {isPhone && <TagChips tags={tags} max={3} />}
+        </Box>
         <Box
           data-testid="task-meta"
           sx={{
@@ -136,6 +141,7 @@ export function TaskRow({ task, showList = false }: { task: Task; showList?: boo
             typography: 'body2',
           }}
         >
+          {!isPhone && <TagChips tags={tags} max={2} />}
           {progress.total > 0 && (
             <Box
               component="span"

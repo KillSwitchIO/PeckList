@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   buildPalette,
+  chipColors,
   contrastRatio,
   ensureContrast,
   hexToRgb,
@@ -77,5 +78,15 @@ describe('overrides', () => {
     expect(p.pastels.rose.fill).toBe('#FFEEEE');
     expect(contrastRatio(p.pastels.rose.on, p.surface)).toBeGreaterThanOrEqual(WCAG_TEXT);
     expect(contrastRatio(p.accent.on, p.accent.fill)).toBeGreaterThanOrEqual(WCAG_TEXT);
+  });
+});
+
+describe('chip colors', () => {
+  it.each(['light', 'dark'] as const)('keep tag chip text readable in %s mode', (mode) => {
+    const light = buildPalette('light');
+    for (const name of PASTEL_NAMES) {
+      const { bg, fg } = chipColors(light.pastels[name].fill, mode);
+      expect(contrastRatio(fg, bg), name).toBeGreaterThanOrEqual(WCAG_TEXT);
+    }
   });
 });

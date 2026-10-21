@@ -4,6 +4,7 @@ import { t } from '../i18n/i18n.ts';
 import { Page } from '../layout/Page.tsx';
 import { SIDEBAR_FOOTER, SIDEBAR_ITEMS } from '../layout/navigation.tsx';
 import { SidebarLists } from '../lists/SidebarLists.tsx';
+import { SidebarTags } from '../tags/SidebarTags.tsx';
 
 /** Phone-only hub for everything the bottom navigation has no room for. */
 export function MoreView() {
@@ -23,6 +24,7 @@ export function MoreView() {
         ))}
       </List>
       <SidebarLists onNavigate={go} />
+      <SidebarTags onNavigate={go} />
     </Page>
   );
 }
