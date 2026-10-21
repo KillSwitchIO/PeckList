@@ -129,6 +129,13 @@ export default function TiptapEditor({ value, onCommit, label, placeholder }: Ri
         'aria-multiline': 'true',
         role: 'textbox',
       },
+      // Escape leaves the notes (saving them); the next Escape closes the details. ProseMirror
+      // would otherwise take it to select the parent block. An open slash menu closes first.
+      handleKeyDown: (view, event) => {
+        if (event.key !== 'Escape' || slashRef.current) return false;
+        view.dom.blur();
+        return true;
+      },
       // Links edit like text; Ctrl or Cmd + click opens one.
       handleClick: (_view, _pos, event) => {
         const link = (event.target as HTMLElement).closest('a');

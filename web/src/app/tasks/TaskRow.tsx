@@ -1,4 +1,3 @@
-import CheckRounded from '@mui/icons-material/CheckRounded';
 import ChecklistRounded from '@mui/icons-material/ChecklistRounded';
 import ChevronRightRounded from '@mui/icons-material/ChevronRightRounded';
 import SubdirectoryArrowRightRounded from '@mui/icons-material/SubdirectoryArrowRightRounded';
@@ -15,7 +14,7 @@ import { listName } from '../lists/listName.ts';
 import { useApply, useWorkspace } from '../store/hooks.ts';
 import { TagChips } from '../tags/TagChip.tsx';
 import { useTaskSelection } from './selection.ts';
-import { CloseIcon } from '../icons/icons.tsx';
+import { CHECK_PATH, CROSS_PATH } from './closedMarks.ts';
 import { DateButton } from './DateButton.tsx';
 import { TaskMenu, type TaskMenuAnchor } from './TaskMenu.tsx';
 
@@ -59,8 +58,18 @@ export function PriorityCheckbox({ task }: { task: Task }) {
           color: theme.palette.background.paper,
         }}
       >
-        {task.status === 'done' && <CheckRounded sx={{ fontSize: 12 }} />}
-        {task.status === 'wontdo' && <CloseIcon sx={{ fontSize: 11 }} />}
+        {done && (
+          <Box component="svg" viewBox="0 0 24 24" aria-hidden sx={{ width: 14, height: 14 }}>
+            <path
+              d={task.status === 'done' ? CHECK_PATH : CROSS_PATH}
+              fill="none"
+              stroke="currentColor"
+              strokeWidth={3}
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </Box>
+        )}
       </Box>
     </IconButton>
   );
@@ -171,6 +180,8 @@ export function TaskRow({
       <ButtonBase
         onClick={() => open(task.id)}
         aria-label={t('task.open', { title })}
+        // No ripple: it spread over the row after the details had opened and read as lag.
+        disableRipple
         sx={{
           flexGrow: 1,
           minWidth: 0,

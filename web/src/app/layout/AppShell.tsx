@@ -115,13 +115,17 @@ function SidebarTitle() {
     <Toolbar
       role="toolbar"
       aria-label={t('nav.editSidebar')}
-      sx={{ gap: 1, px: '16px !important' }}
+      sx={{
+        gap: 0.5,
+        px: '8px !important',
+        '& .MuiButton-root': { minWidth: 0, px: 1, whiteSpace: 'nowrap' },
+      }}
     >
-      <Button size="small" onClick={edit.cancel}>
+      <Button size="small" color="inherit" onClick={edit.cancel}>
         {t('common.cancel')}
       </Button>
       {/* Back to the default views, nothing hidden or pinned; Done still saves it. */}
-      <Button size="small" onClick={edit.reset}>
+      <Button size="small" color="inherit" onClick={edit.reset}>
         {t('nav.resetSidebar')}
       </Button>
       <Box sx={{ flexGrow: 1 }} />
@@ -134,7 +138,7 @@ function SidebarTitle() {
           <PlusIcon fontSize="small" />
         </IconButton>
       </Tooltip>
-      <Button size="small" variant="contained" onClick={edit.done}>
+      <Button size="small" variant="contained" disableElevation onClick={edit.done}>
         {t('common.done')}
       </Button>
     </Toolbar>

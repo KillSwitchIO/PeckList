@@ -9,6 +9,7 @@ import type { Task } from '../../core/types.ts';
 import { useLongPress } from '../hooks/useLongPress.ts';
 import { t } from '../i18n/i18n.ts';
 import { useApply } from '../store/hooks.ts';
+import { CHECK_PATH, CROSS_PATH } from './closedMarks.ts';
 
 const PRIORITY_KEY = { 0: 'none', 1: 'low', 2: 'medium', 3: 'high' } as const;
 const SIZE = 22;
@@ -121,7 +122,7 @@ export function CompleteCheckbox({
           >
             {done ? (
               <path
-                d="M6 12.5l4 4L18 8"
+                d={CHECK_PATH}
                 fill="none"
                 stroke={onTone}
                 strokeWidth={3}
@@ -135,7 +136,7 @@ export function CompleteCheckbox({
             ) : (
               // Won't do: an x.
               <path
-                d="M8 8l8 8M16 8l-8 8"
+                d={CROSS_PATH}
                 stroke={theme.palette.background.paper}
                 strokeWidth={3}
                 strokeLinecap="round"

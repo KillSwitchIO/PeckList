@@ -43,7 +43,7 @@ function TagLink({
   onToggle,
   onNavigate,
   sortable,
-  nestTarget,
+  dropParent,
 }: {
   node: TagNode;
   index: number;
@@ -52,8 +52,8 @@ function TagLink({
   onToggle: () => void;
   onNavigate: (path: string) => void;
   sortable: ReturnType<typeof useSortableRows>;
-  /** Dropping now would nest the dragged tag under this one. */
-  nestTarget: boolean;
+  /** The dragged tag sits under this one: it lands here. */
+  dropParent: boolean;
 }) {
   const edit = useSidebarEdit();
   const { editing } = edit;
@@ -108,7 +108,7 @@ function TagLink({
           pl: 2 + node.depth * 2,
           pr: (node.hasChildren ? 6 : 2) + (editing ? 4 : 0),
           ...editingRowSx(editing, sortable.dragging === node.tag.id, index),
-          ...(nestTarget && {
+          ...(dropParent && {
             bgcolor: 'action.selected',
             outline: `2px solid ${theme.palette.primary.main}`,
             outlineOffset: -2,
@@ -129,7 +129,7 @@ function TagLink({
             }}
           />
         </ListItemIcon>
-        <ListItemText primary={name} />
+        <ListItemText primary={name} slotProps={{ primary: { noWrap: true } }} />
         {!editing && count > 0 && (
           <Box component="span" sx={{ typography: 'caption', color: 'text.secondary' }}>
             {count}
@@ -167,7 +167,6 @@ export function SidebarTags({ onNavigate }: { onNavigate: (path: string) => void
     });
   };
   const tree = treeOf(edit.current);
-  const [nestTarget, setNestTarget] = useState<string | null>(null);
 
   /** The draft with `id` moved under `parent` (null: top level), or null if it can't go there. */
   const reparent = (draft: SidebarDraft, id: string, parent: string | null) => {
@@ -197,9 +196,9 @@ export function SidebarTags({ onNavigate }: { onNavigate: (path: string) => void
   const sortable = useSortableRows({
     editing: edit.editing,
     start: edit.start,
-    // Over the middle of another tag: dropping nests under it. Near a row's top or bottom
-    // edge: the tag goes before or after that row, at its level (so under its parent). A tag's
-    // subtags always come along.
+    // Over the middle of another tag: the tag moves right under it, indented as its first
+    // child, so the row shows where it lands. Near a row's top or bottom edge: the tag goes
+    // before or after that row, at its level (so under its parent). Subtags always come along.
     onDrag: (id, y) => {
       const draft = edit.current;
       const dragged = tree.find((node) => node.tag.id === id);
@@ -208,17 +207,18 @@ export function SidebarTags({ onNavigate }: { onNavigate: (path: string) => void
         const box = sortable.box(node.tag.id);
         return node.tag.id !== id && box !== undefined && y >= box.top && y < box.bottom;
       });
-      if (!over || isUnder(over.tag.name, dragged.tag.name)) {
-        setNestTarget(null);
-        return;
-      }
+      if (!over || isUnder(over.tag.name, dragged.tag.name)) return;
       const box = sortable.box(over.tag.id)!;
       const zone = (y - box.top) / box.height;
       if (zone > 0.3 && zone < 0.7) {
-        setNestTarget(over.tag.id);
+        if (dragged.parentId === over.tag.id) return;
+        const nested = reparent(draft, id, over.tag.id);
+        if (!nested) return;
+        // A folded parent opens, so the moved tag stays in sight.
+        if (collapsed.has(over.tag.id)) toggle(over.tag.id);
+        edit.update(() => place(nested, id, over.tag.id, 0));
         return;
       }
-      setNestTarget(null);
       const moved = over.parentId === dragged.parentId ? draft : reparent(draft, id, over.parentId);
       if (!moved) return;
       const siblings = treeOf(moved)
@@ -228,17 +228,8 @@ export function SidebarTags({ onNavigate }: { onNavigate: (path: string) => void
       const next = place(moved, id, over.parentId, index);
       if (next.tags.join() !== draft.tags.join() || moved !== draft) edit.update(() => next);
     },
-    onDrop: (id) => {
-      if (nestTarget) {
-        const moved = reparent(edit.current, id, nestTarget);
-        if (moved) {
-          const children = treeOf(moved).filter((node) => node.parentId === nestTarget).length;
-          edit.update(() => place(moved, id, nestTarget, children));
-        }
-      }
-      setNestTarget(null);
-    },
   });
+  const dropParent = tree.find((node) => node.tag.id === sortable.dragging)?.parentId ?? null;
 
   return (
     <>
@@ -271,7 +262,7 @@ export function SidebarTags({ onNavigate }: { onNavigate: (path: string) => void
               node={node}
               index={index}
               sortable={sortable}
-              nestTarget={nestTarget === node.tag.id}
+              dropParent={dropParent === node.tag.id}
               count={counts.get(node.tag.id) ?? 0}
               collapsed={collapsed.has(node.tag.id)}
               onToggle={() => toggle(node.tag.id)}

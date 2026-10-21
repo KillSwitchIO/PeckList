@@ -65,7 +65,7 @@ describe('date-grouped views', () => {
     expect(headings[0]).toMatch(/^Overdue/);
     expect(headings[1]).toMatch(/Today/);
     expect(headings[2]).toMatch(/Tomorrow/);
-    expect(headings.slice(3)).toEqual(['Next 7 days1', 'Later1', 'No date2', 'Completed6']);
+    expect(headings.slice(3)).toEqual(['Next 7 days1', 'Later1', 'No date2', 'Closed6']);
     // Only the last five completed, then View more.
     expect(screen.getAllByRole('checkbox', { name: /^Reopen done/ })).toHaveLength(5);
     await userEvent.click(screen.getByRole('button', { name: 'View more' }));
@@ -106,7 +106,7 @@ describe('date-grouped views', () => {
     await userEvent.click(screen.getByRole('button', { name: 'More actions' }));
     await userEvent.click(screen.getByRole('menuitem', { name: 'Group by section' }));
     expect(groupHeadings()).not.toContain('No date1');
-    expect(groupHeadings()).toContain('Completed6');
+    expect(groupHeadings()).toContain('Closed6');
     await userEvent.click(screen.getByRole('button', { name: 'More actions' }));
     await userEvent.click(screen.getByRole('menuitem', { name: 'Group by date' }));
     expect(groupHeadings()).toContain('No date1');

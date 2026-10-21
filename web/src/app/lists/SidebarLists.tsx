@@ -102,7 +102,7 @@ export function SidebarLists({ onNavigate }: { onNavigate: (path: string) => voi
                 <ListItemIcon sx={{ minWidth: 28 }}>
                   <Box sx={{ width: 10, height: 10, borderRadius: '50%', bgcolor: list.color }} />
                 </ListItemIcon>
-                <ListItemText primary={listName(list)} />
+                <ListItemText primary={listName(list)} slotProps={{ primary: { noWrap: true } }} />
                 {editing ? (
                   <PinButton
                     pinned={edit.current.layout.order.includes(pin)}

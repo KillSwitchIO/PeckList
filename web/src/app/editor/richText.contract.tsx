@@ -59,6 +59,24 @@ export function describeRichTextContract(name: string, Editor: RichTextEditor) {
       expect(onCommit).toHaveBeenCalledExactlyOnceWith('Half typed');
     });
 
+    it('Escape leaves the notes and commits them', async () => {
+      const { onCommit } = setup('');
+      const editor = await field();
+      await userEvent.type(editor, 'Buy posts');
+      const escape = new KeyboardEvent('keydown', {
+        key: 'Escape',
+        bubbles: true,
+        cancelable: true,
+      });
+      act(() => {
+        editor.dispatchEvent(escape);
+      });
+      expect(editor).not.toHaveFocus();
+      expect(onCommit).toHaveBeenCalledExactlyOnceWith('Buy posts');
+      // Handled here, so a details panel around it stays open until the next Escape.
+      expect(escape.defaultPrevented).toBe(true);
+    });
+
     it('does not commit when nothing changed', async () => {
       const { onCommit } = setup('2 < 3 & snake_case');
       await userEvent.click(await field());

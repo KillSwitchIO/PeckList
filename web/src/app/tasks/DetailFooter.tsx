@@ -48,7 +48,7 @@ export function DetailFooter({ task }: { task: Task }) {
       }}
     >
       {/* List and tags take the room; the created date and priority sit on the right. */}
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, minWidth: 0, flexGrow: 1, mr: 3 }}>
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, minWidth: 0, flexGrow: 1, mr: 2 }}>
         <ListPicker task={task} />
         <TaskTagPills task={task} />
       </Box>

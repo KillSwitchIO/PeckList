@@ -45,7 +45,7 @@ describe('tasks in a list', () => {
     await renderApp('/inbox');
     await addTasks('Mow the lawn');
     await userEvent.click(screen.getByRole('checkbox', { name: 'Complete Mow the lawn' }));
-    expect(screen.getByRole('button', { name: 'Completed 1' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Closed 1' })).toBeInTheDocument();
     await userEvent.click(screen.getByRole('checkbox', { name: 'Reopen Mow the lawn' }));
     await waitFor(() =>
       expect(screen.queryByRole('button', { name: /^Completed \d/ })).not.toBeInTheDocument(),
@@ -411,7 +411,7 @@ describe('smart views', () => {
     // Completed and Trash sit in the "More" group, closed at first.
     const nav = screen.getAllByRole('navigation')[0]!;
     await userEvent.click(within(nav).getByRole('button', { name: /^More/ }));
-    await userEvent.click(within(nav).getByText('Completed'));
+    await userEvent.click(within(nav).getByText('Closed'));
     expect(await screen.findByRole('button', { name: 'Open Soon' })).toBeInTheDocument();
 
     await userEvent.click(screen.getByRole('button', { name: 'Open Soon' }));
