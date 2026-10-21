@@ -3,7 +3,8 @@ import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { inboxList } from '../../core/lists.ts';
 import { todayIn } from '../../core/dates.ts';
-import { createTask } from '../../core/tasks.ts';
+import { createTag } from '../../core/tags.ts';
+import { createTask, setTaskTag } from '../../core/tasks.ts';
 import { mockViewport, renderApp, testStore } from '../../test/renderApp.tsx';
 
 beforeEach(() => {
@@ -147,7 +148,7 @@ describe('subtasks in the details', () => {
       within(trail)
         .getAllByRole('button')
         .map((item) => item.textContent),
-    ).toEqual(['Plan trip', 'Book flights']);
+    ).toEqual(['Plan trip', 'Book flights', '1', '']);
     await userEvent.click(within(trail).getByRole('button', { name: 'Plan trip' }));
     await waitFor(() =>
       expect(
@@ -157,7 +158,109 @@ describe('subtasks in the details', () => {
   });
 });
 
+describe('subtask layers in the details', () => {
+  async function openDetails(title: string) {
+    await userEvent.click(
+      within(screen.getByRole('main')).getByRole('button', { name: `Open ${title}` }),
+    );
+    return screen.findByRole('region', { name: 'Task details' });
+  }
+
+  it('switches between sibling subtasks', async () => {
+    await renderTree();
+    const details = await openDetails('Pack');
+    await userEvent.click(within(details).getByRole('button', { name: '2 subtasks of Plan trip' }));
+    const switcher = screen.getByRole('dialog', { name: 'Subtasks of Plan trip' });
+    expect(
+      within(switcher)
+        .getAllByRole('button')
+        .map((item) => item.textContent),
+    ).toEqual(['Book flights', 'Pack']);
+    await userEvent.click(within(switcher).getByRole('button', { name: 'Book flights' }));
+    await waitFor(() =>
+      expect(
+        within(screen.getByRole('region', { name: 'Task details' })).getByLabelText('Title'),
+      ).toHaveValue('Book flights'),
+    );
+  });
+
+  it('removes a subtask from its parent, with undo', async () => {
+    await renderTree();
+    const details = await openDetails('Compare prices');
+    await userEvent.click(within(details).getByRole('button', { name: 'Remove from parent' }));
+    expect(within(details).queryByRole('navigation', { name: 'Parent tasks' })).toBeNull();
+    // Now a top-level task right after its old top task.
+    expect(rowTitles()).toEqual([
+      'Open Plan trip',
+      'Open Book flights',
+      'Open Pack',
+      'Open Compare prices',
+    ]);
+    await userEvent.click(screen.getByRole('button', { name: 'Undo' }));
+    await waitFor(() =>
+      expect(rowTitles()).toEqual([
+        'Open Plan trip',
+        'Open Book flights',
+        'Open Compare prices',
+        'Open Pack',
+      ]),
+    );
+  });
+
+  it('gives a new subtask the parent tags', async () => {
+    const { store } = await renderTree();
+    store.getState().apply((ctx, ws) => {
+      const created = createTag(ctx, ws, 'travel', '#A7C7E7');
+      const trip = ws.entities.tasks.find((task) => task.title === 'Plan trip')!;
+      return setTaskTag(ctx, created.workspace, trip.id, created.tag.id, true);
+    });
+    const details = await openDetails('Plan trip');
+    await userEvent.type(
+      within(details).getByRole('textbox', { name: 'Add subtask' }),
+      'Passports{Enter}',
+    );
+    const passports = store
+      .getState()
+      .workspace!.entities.tasks.find((task) => task.title === 'Passports')!;
+    expect(Object.keys(passports.tags)).toHaveLength(1);
+  });
+});
+
 describe('subtasks in date views', () => {
+  it('nests subtasks under their parent in Today; a dated one nests when it is on the same day', async () => {
+    const store = testStore();
+    await renderApp('/today', store);
+    const today = todayIn(Intl.DateTimeFormat().resolvedOptions().timeZone, Date.now());
+    const at = (start: string) => ({ start, end: null, allDay: false, timeZone: 'UTC' });
+    store.getState().apply((ctx, ws) => {
+      const listId = inboxList(ws).id;
+      const home = createTask(ctx, ws, {
+        title: 'Home today',
+        listId,
+        schedule: at(`${today}T10:00`),
+      });
+      const dated = createTask(ctx, home.workspace, {
+        title: 'Dated child',
+        listId,
+        parentId: home.task.id,
+        // All-day sorts before 10:00: it still nests under its parent.
+        schedule: { start: today, end: null, allDay: true, timeZone: 'UTC' },
+      });
+      return createTask(ctx, dated.workspace, {
+        title: 'Undated child',
+        listId,
+        parentId: home.task.id,
+      }).workspace;
+    });
+    await screen.findByRole('button', { name: 'Open Home today' });
+    expect(rowTitles()).toEqual(['Open Home today', 'Open Dated child', 'Open Undated child']);
+    // Nested rows do not repeat the parent name.
+    expect(
+      within(screen.getByRole('button', { name: 'Open Dated child' })).getByTestId('task-meta'),
+    ).not.toHaveTextContent('Home today');
+    expect(screen.getByRole('button', { name: 'Hide subtasks of Home today' })).toBeInTheDocument();
+  });
+
   it('shows a dated subtask in Today with its parent named', async () => {
     const store = testStore();
     await renderApp('/today', store);

@@ -1,14 +1,32 @@
 import AddRounded from '@mui/icons-material/AddRounded';
+import AccountTreeOutlined from '@mui/icons-material/AccountTreeOutlined';
+import CheckCircleRounded from '@mui/icons-material/CheckCircleRounded';
+import CheckRounded from '@mui/icons-material/CheckRounded';
 import ChevronRightRounded from '@mui/icons-material/ChevronRightRounded';
-import { Box, ButtonBase, IconButton, InputBase, Typography } from '@mui/material';
+import ExpandMoreRounded from '@mui/icons-material/ExpandMoreRounded';
+import LinkOffRounded from '@mui/icons-material/LinkOffRounded';
+import RadioButtonUncheckedRounded from '@mui/icons-material/RadioButtonUncheckedRounded';
+import {
+  Box,
+  ButtonBase,
+  IconButton,
+  InputBase,
+  List,
+  ListItemButton,
+  ListItemText,
+  Popover,
+  Tooltip,
+  Typography,
+} from '@mui/material';
 import { useState, type KeyboardEvent } from 'react';
 import { flushSync } from 'react-dom';
-import { subtaskProgress, subtaskTree, type SubtaskNode } from '../../core/queries.ts';
+import { subtaskProgress, subtasksOf, subtaskTree, type SubtaskNode } from '../../core/queries.ts';
 import {
   ancestors,
   canIndent,
   createTask,
   deleteTask,
+  detachTask,
   indentTask,
   MAX_SUBTASK_DEPTH,
   outdentTask,
@@ -32,40 +50,128 @@ function focusInput(id: string) {
   }
 }
 
-/** "Parent › Child ›" above the title of a subtask; each step opens that task. */
+const chipSx = {
+  display: 'inline-flex',
+  alignItems: 'center',
+  gap: 0.75,
+  height: 28,
+  px: 1,
+  border: 1,
+  borderColor: 'divider',
+  borderRadius: 1.5,
+  typography: 'body2',
+  color: 'text.secondary',
+  '&:hover': { color: 'text.primary', bgcolor: 'action.hover' },
+} as const;
+
+function StatusDot({ task }: { task: Task }) {
+  return task.status === 'open' ? (
+    <RadioButtonUncheckedRounded sx={{ fontSize: 14 }} />
+  ) : (
+    <CheckCircleRounded sx={{ fontSize: 14 }} />
+  );
+}
+
+/**
+ * The layers above a subtask, Todoist style: a chip per parent (opens it), a switcher listing
+ * the parent's subtasks, and "Remove from parent" (makes it a top-level task).
+ */
 export function ParentTrail({ task }: { task: Task }) {
   const workspace = useWorkspace();
+  const apply = useApply();
   const { open } = useTaskSelection();
+  const [anchor, setAnchor] = useState<HTMLElement | null>(null);
   const chain = ancestors(workspace, task.id);
-  if (chain.length === 0) return null;
+  const parent = chain[chain.length - 1];
+  if (!parent) return null;
+  const parentTitle = parent.title || t('task.untitled');
+  const siblings = subtasksOf(workspace, parent.id);
   return (
     <Box
       component="nav"
       aria-label={t('task.parents')}
-      sx={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 0.25, mb: -1 }}
+      sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: -0.5 }}
     >
-      {chain.map((parent) => (
-        <Box key={parent.id} sx={{ display: 'inline-flex', alignItems: 'center', minWidth: 0 }}>
-          <ButtonBase
-            onClick={() => open(parent.id)}
-            sx={{
-              px: 0.5,
-              borderRadius: 1,
-              typography: 'body2',
-              color: 'text.secondary',
-              maxWidth: '14rem',
-              overflow: 'hidden',
-              textOverflow: 'ellipsis',
-              whiteSpace: 'nowrap',
-              display: 'block',
-              '&:hover': { color: 'text.primary', bgcolor: 'action.hover' },
-            }}
-          >
-            {parent.title || t('task.untitled')}
-          </ButtonBase>
-          <ChevronRightRounded sx={{ fontSize: 16, color: 'text.disabled' }} />
-        </Box>
-      ))}
+      <Box sx={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 0.5, minWidth: 0 }}>
+        {chain.map((item, index) => (
+          <Box key={item.id} sx={{ display: 'inline-flex', alignItems: 'center', minWidth: 0 }}>
+            {index > 0 && <ChevronRightRounded sx={{ fontSize: 16, color: 'text.disabled' }} />}
+            <ButtonBase onClick={() => open(item.id)} sx={{ ...chipSx, minWidth: 0 }}>
+              <StatusDot task={item} />
+              <Box
+                component="span"
+                sx={{
+                  maxWidth: '10rem',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  whiteSpace: 'nowrap',
+                }}
+              >
+                {item.title || t('task.untitled')}
+              </Box>
+            </ButtonBase>
+          </Box>
+        ))}
+        <ButtonBase
+          aria-haspopup="dialog"
+          aria-label={t('task.siblingSwitch', { title: parentTitle, count: siblings.length })}
+          onClick={(event) => setAnchor(event.currentTarget)}
+          sx={chipSx}
+        >
+          <AccountTreeOutlined sx={{ fontSize: 14 }} />
+          {siblings.length}
+          <ExpandMoreRounded sx={{ fontSize: 16, ml: -0.5 }} />
+        </ButtonBase>
+      </Box>
+      <Box sx={{ flexGrow: 1 }} />
+      <Tooltip title={t('task.detach')}>
+        <IconButton
+          size="small"
+          aria-label={t('task.detach')}
+          onClick={() => apply((ctx, ws) => detachTask(ctx, ws, task.id), t('undo.detached'))}
+        >
+          <LinkOffRounded fontSize="small" />
+        </IconButton>
+      </Tooltip>
+      <Popover
+        open={anchor !== null}
+        anchorEl={anchor}
+        onClose={() => setAnchor(null)}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
+        slotProps={{
+          paper: {
+            role: 'dialog',
+            'aria-label': t('task.siblings', { title: parentTitle }),
+            sx: { borderRadius: 3, minWidth: 240, maxWidth: 340, py: 1 },
+          },
+        }}
+      >
+        <Typography variant="subtitle2" sx={{ px: 2, pb: 0.5 }}>
+          {t('task.siblings', { title: parentTitle })}
+        </Typography>
+        <List dense disablePadding>
+          {siblings.map((sibling) => (
+            <ListItemButton
+              key={sibling.id}
+              selected={sibling.id === task.id}
+              onClick={() => {
+                setAnchor(null);
+                open(sibling.id);
+              }}
+              sx={{ gap: 1.25 }}
+            >
+              <Box sx={{ display: 'flex', color: 'text.secondary' }}>
+                <StatusDot task={sibling} />
+              </Box>
+              <ListItemText
+                primary={sibling.title || t('task.untitled')}
+                slotProps={{ primary: { noWrap: true } }}
+              />
+              {sibling.id === task.id && <CheckRounded fontSize="small" color="primary" />}
+            </ListItemButton>
+          ))}
+        </List>
+      </Popover>
     </Box>
   );
 }

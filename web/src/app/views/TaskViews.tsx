@@ -8,6 +8,7 @@ import { inboxList } from '../../core/lists.ts';
 import {
   completedOn,
   completedTasks,
+  startDate,
   todayGroups,
   trashedTasks,
   upcomingTasks,
@@ -22,6 +23,7 @@ import { listName } from '../lists/listName.ts';
 import { useApply, useWorkspace } from '../store/hooks.ts';
 import { AddTaskInput } from '../tasks/AddTaskInput.tsx';
 import { TaskRows } from '../tasks/TaskRow.tsx';
+import { TaskTree } from '../tasks/TaskTree.tsx';
 import { EmptyState } from './EmptyState.tsx';
 import { GroupSection } from './GroupSection.tsx';
 
@@ -34,6 +36,9 @@ function weekdayName(date: string): string {
 }
 
 const COMPLETED_PREVIEW = 5;
+
+/** In date views a subtask with its own start date sits on that date, not under its parent. */
+const hasOwnDate = (task: Task) => startDate(task) !== null;
 
 /** Completed group: the first few tasks, then "View more". */
 export function CompletedGroup({
@@ -96,7 +101,7 @@ function OverdueAndToday({ today }: { today: string }) {
             </Button>
           }
         >
-          <TaskRows tasks={groups.overdue} showList />
+          <TaskTree tasks={groups.overdue} showList ownPlace={hasOwnDate} />
         </GroupSection>
       )}
       {groups.today.length > 0 && (
@@ -104,7 +109,7 @@ function OverdueAndToday({ today }: { today: string }) {
           title={t('group.todayWithDay', { weekday: weekdayName(today) })}
           count={groups.today.length}
         >
-          <TaskRows tasks={groups.today} showList />
+          <TaskTree tasks={groups.today} showList ownPlace={hasOwnDate} />
         </GroupSection>
       )}
     </>
@@ -158,7 +163,7 @@ export function UpcomingView() {
           title={`${weekdayName(group.date)}, ${formatDay(group.date, today)}`}
           count={group.tasks.length}
         >
-          <TaskRows tasks={group.tasks} showList />
+          <TaskTree tasks={group.tasks} showList ownPlace={hasOwnDate} />
         </GroupSection>
       ))}
     </Page>

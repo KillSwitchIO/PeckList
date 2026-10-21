@@ -6,6 +6,7 @@ import { compareOrderKeys, keyBetween } from './ordering.ts';
 import {
   createEntity,
   isoNow,
+  members,
   restore,
   setElement,
   softDelete,
@@ -123,6 +124,19 @@ export function indentTask(ctx: OpContext, workspace: WorkspaceFile, id: Id): Wo
   return moveTask(ctx, workspace, id, { listId: task.listId, parentId: above.id });
 }
 
+/** Take a subtask out of its parents: it becomes a top-level task right after its old top task. */
+export function detachTask(ctx: OpContext, workspace: WorkspaceFile, id: Id): WorkspaceFile {
+  requireEntity(workspace, 'tasks', id);
+  const top = ancestors(workspace, id)[0];
+  if (!top) return workspace;
+  return moveTask(ctx, workspace, id, {
+    listId: top.listId,
+    sectionId: top.sectionId,
+    parentId: null,
+    afterId: top.id,
+  });
+}
+
 /** Move a subtask up a level, directly after its old parent. */
 export function outdentTask(ctx: OpContext, workspace: WorkspaceFile, id: Id): WorkspaceFile {
   const task = requireEntity(workspace, 'tasks', id);
@@ -155,7 +169,9 @@ export function createTask(
       ? keyBetween(peers[afterIndex]!.order, peers[afterIndex + 1]?.order ?? null)
       : keyBetween(lastOrder(peers), null);
   let tags = {};
-  for (const tag of input.tags ?? []) tags = setElement(ctx, tags, tag, true);
+  // A subtask starts with its parent's tags (its list and section come from the parent too).
+  const tagIds = new Set([...(input.tags ?? []), ...(parent ? members(parent.tags) : [])]);
+  for (const tag of tagIds) tags = setElement(ctx, tags, tag, true);
   const task = createEntity<Task>(ctx, {
     title: input.title.trim(),
     notes: input.notes ?? '',
@@ -294,15 +310,24 @@ export function moveTask(
     after = null;
   }
 
-  const moved = updateEntity(ctx, task, {
-    listId,
-    sectionId,
-    parentId,
-    order: keyBetween(before, after),
-  });
+  // Nesting under a new parent adds the parent's tags, as if created there.
+  const inherit = (target: Task): Task => {
+    if (!parent || parent.id === task.parentId) return target;
+    let tags = target.tags;
+    for (const tag of members(parent.tags)) tags = setElement(ctx, tags, tag, true);
+    return tags === target.tags ? target : { ...target, tags };
+  };
+  const moved = inherit(
+    updateEntity(ctx, task, {
+      listId,
+      sectionId,
+      parentId,
+      order: keyBetween(before, after),
+    }),
+  );
   // Subtasks always follow their root task's list and section.
   const subtree = descendants(workspace, id).map((child) =>
-    updateEntity(ctx, child, { listId, sectionId }),
+    inherit(updateEntity(ctx, child, { listId, sectionId })),
   );
   return putEntities(workspace, 'tasks', [moved, ...subtree]);
 }

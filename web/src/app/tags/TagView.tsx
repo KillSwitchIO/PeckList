@@ -14,7 +14,7 @@ import { Page } from '../layout/Page.tsx';
 import { ConfirmDialog } from '../lists/ListDialog.tsx';
 import { useApply, useWorkspace } from '../store/hooks.ts';
 import { AddTaskInput } from '../tasks/AddTaskInput.tsx';
-import { TaskRows } from '../tasks/TaskRow.tsx';
+import { TaskTree } from '../tasks/TaskTree.tsx';
 import { EmptyState } from '../views/EmptyState.tsx';
 import { CompletedGroup } from '../views/TaskViews.tsx';
 import { TagDialog } from './TagDialog.tsx';
@@ -95,7 +95,7 @@ function TagContents({ tag }: { tag: Tag }) {
         label={t('tag.addTo', { tag: name })}
       />
       {tasks.length === 0 && completed.length === 0 && <EmptyState title={t('tag.empty')} />}
-      <TaskRows tasks={tasks} showList />
+      <TaskTree tasks={tasks} showList />
       <CompletedGroup tasks={completed} showList defaultOpen={false} />
     </Page>
   );

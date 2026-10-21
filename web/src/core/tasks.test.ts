@@ -10,6 +10,7 @@ import {
   createTask,
   deleteTask,
   descendants,
+  detachTask,
   indentTask,
   MAX_SUBTASK_DEPTH,
   moveTask,
@@ -351,5 +352,30 @@ describe('subtasks', () => {
       schedule: { start: '2026-10-21', end: null, allDay: true, timeZone: 'UTC' },
     });
     expect(titles(todayTasks(s.ws, '2026-10-21'))).toEqual(['child']);
+  });
+});
+
+describe('subtask inheritance and detaching', () => {
+  it('gives new and newly nested subtasks the parent tags', () => {
+    const s = setup();
+    const parent = s.add('parent', { tags: ['home'] });
+    const child = s.add('child', { parentId: parent.id, tags: ['urgent'] });
+    expect(members(getEntity(s.ws, 'tasks', child.id)!.tags).sort()).toEqual(['home', 'urgent']);
+    const loose = s.add('loose');
+    const looseChild = s.add('loose child', { parentId: loose.id });
+    s.ws = moveTask(s.ctx, s.ws, loose.id, { listId: s.inbox, parentId: parent.id });
+    expect(members(getEntity(s.ws, 'tasks', loose.id)!.tags)).toEqual(['home']);
+    expect(members(getEntity(s.ws, 'tasks', looseChild.id)!.tags)).toEqual(['home']);
+  });
+
+  it('detaches a subtask to the top level, right after its top task', () => {
+    const s = setup();
+    const top = s.add('top');
+    const mid = s.add('mid', { parentId: top.id });
+    const deep = s.add('deep', { parentId: mid.id });
+    s.add('next');
+    s.ws = detachTask(s.ctx, s.ws, deep.id);
+    expect(titles(siblings(s.ws, s.inbox, null, null))).toEqual(['top', 'deep', 'next']);
+    expect(detachTask(s.ctx, s.ws, top.id)).toBe(s.ws);
   });
 });
