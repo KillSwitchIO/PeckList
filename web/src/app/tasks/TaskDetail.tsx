@@ -21,8 +21,10 @@ import { datePart, localTimeZone } from '../../core/dates.ts';
 import { sectionsOf, visibleLists } from '../../core/lists.ts';
 import { deleteTask, moveTask, setTaskStatus, updateTask } from '../../core/tasks.ts';
 import type { Priority, Task } from '../../core/types.ts';
+import { useToday } from '../hooks/useToday.ts';
 import { t } from '../i18n/i18n.ts';
 import { useApply, useWorkspace } from '../store/hooks.ts';
+import { DateField } from './DateField.tsx';
 
 const PRIORITIES: Priority[] = [0, 1, 2, 3];
 const PRIORITY_KEY = { 0: 'none', 1: 'low', 2: 'medium', 3: 'high' } as const;
@@ -106,6 +108,7 @@ function PriorityPicker({ task }: { task: Task }) {
 export function TaskDetail({ taskId, onClose }: { taskId: string; onClose: () => void }) {
   const workspace = useWorkspace();
   const apply = useApply();
+  const today = useToday();
   const task = getEntity(workspace, 'tasks', taskId);
 
   if (!task || !isLive(task)) {
@@ -188,37 +191,31 @@ export function TaskDetail({ taskId, onClose }: { taskId: string; onClose: () =>
         />
         <PriorityPicker task={task} />
         <Stack direction="row" spacing={2}>
-          <TextField
+          <DateField
             label={t('task.date')}
-            type="date"
             value={scheduleDate}
-            fullWidth
-            slotProps={{ inputLabel: { shrink: true } }}
-            onChange={(event) => {
-              const value = event.target.value;
+            today={today}
+            onChange={(value) =>
               apply((ctx, ws) =>
                 updateTask(ctx, ws, task.id, {
                   schedule: value
                     ? { start: value, end: null, allDay: true, timeZone: zone }
                     : null,
                 }),
-              );
-            }}
+              )
+            }
           />
-          <TextField
+          <DateField
             label={t('task.due')}
-            type="date"
             value={dueDate}
-            fullWidth
-            slotProps={{ inputLabel: { shrink: true } }}
-            onChange={(event) => {
-              const value = event.target.value;
+            today={today}
+            onChange={(value) =>
               apply((ctx, ws) =>
                 updateTask(ctx, ws, task.id, {
                   due: value ? { at: value, allDay: true, timeZone: zone } : null,
                 }),
-              );
-            }}
+              )
+            }
           />
         </Stack>
         <Stack direction="row" spacing={2}>
