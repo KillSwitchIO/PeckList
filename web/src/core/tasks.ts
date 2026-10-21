@@ -239,7 +239,10 @@ export function updateTask(
 /** Progress steps: 0 (none) to 100 percent, by 10. */
 export const PROGRESS_STEPS = [0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100] as const;
 
-/** Set how far along a task is, rounded to the nearest 10 percent (0 clears it). */
+/**
+ * Set how far along a task is, rounded to the nearest 10 percent (0 clears it). Reaching 100
+ * completes an open task.
+ */
 export function setTaskProgress(
   ctx: OpContext,
   workspace: WorkspaceFile,
@@ -247,7 +250,10 @@ export function setTaskProgress(
   percent: number,
 ): WorkspaceFile {
   const progress = Math.min(100, Math.max(0, Math.round(percent / 10) * 10));
-  return updateTask(ctx, workspace, id, { progress });
+  const updated = updateTask(ctx, workspace, id, { progress });
+  return progress === 100 && requireEntity(updated, 'tasks', id).status === 'open'
+    ? setTaskStatus(ctx, updated, id, 'done')
+    : updated;
 }
 
 /**

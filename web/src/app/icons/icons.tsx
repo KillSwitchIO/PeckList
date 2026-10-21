@@ -353,3 +353,50 @@ export function DividerIcon(props: SvgIconProps) {
     </PunchIcon>
   );
 }
+
+/** Shown: an open eye. */
+export function EyeIcon(props: SvgIconProps) {
+  return (
+    <PunchIcon {...props}>
+      <path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12z" />
+      <circle cx="12" cy="12" r="3" />
+    </PunchIcon>
+  );
+}
+
+/** Hidden: an eye struck through. */
+export function EyeOffIcon(props: SvgIconProps) {
+  return (
+    <PunchIcon {...props}>
+      <path d="M9.9 5.8A9.6 9.6 0 0 1 12 5.5c6 0 9.5 6.5 9.5 6.5a17 17 0 0 1-2.6 3.4M6.6 6.6C3.9 8.3 2.5 12 2.5 12S6 18.5 12 18.5c1.9 0 3.5-.6 4.9-1.4" />
+      <path d="M9.9 9.9a3 3 0 0 0 4.2 4.2M4 4l16 16" />
+    </PunchIcon>
+  );
+}
+
+/** Drag to reorder: two columns of dots. */
+export function DragHandleIcon(props: SvgIconProps) {
+  return (
+    <PunchIcon {...props}>
+      <path strokeWidth={2.6} d="M9 6h.01M15 6h.01M9 12h.01M15 12h.01M9 18h.01M15 18h.01" />
+    </PunchIcon>
+  );
+}
+
+/** A small chevron pointing down (a group that is open). */
+export function ChevronDownIcon(props: SvgIconProps) {
+  return (
+    <PunchIcon {...props}>
+      <path d="M7 9.5l5 5 5-5" />
+    </PunchIcon>
+  );
+}
+
+/** A small chevron pointing right (a group that is closed). */
+export function ChevronRightIcon(props: SvgIconProps) {
+  return (
+    <PunchIcon {...props}>
+      <path d="M9.5 7l5 5-5 5" />
+    </PunchIcon>
+  );
+}

@@ -136,12 +136,20 @@ export interface SavedFilter extends BaseEntity {
   order: OrderKey;
 }
 
+export interface SidebarLayout {
+  /** Every view once, plus the `@group` marker: views after it sit in the collapsible group. */
+  order: string[];
+  hidden: string[];
+  groupOpen: boolean;
+}
+
 export interface Settings extends BaseEntity {
   userId: Id;
   themeMode: 'light' | 'dark' | 'system';
   palette: Record<string, string>;
   pointEventMinutes: number;
   dueSoonDays: number;
+  sidebar: SidebarLayout;
 }
 
 export interface EntityMap {

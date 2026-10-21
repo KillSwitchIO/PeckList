@@ -351,7 +351,10 @@ describe('smart views', () => {
     expect(await screen.findByRole('button', { name: 'Open Soon' })).toBeInTheDocument();
 
     await userEvent.click(screen.getByRole('checkbox', { name: 'Complete Soon' }));
-    await userEvent.click(within(screen.getAllByRole('navigation')[0]!).getByText('Completed'));
+    // Completed and Trash sit in the "More" group, closed at first.
+    const nav = screen.getAllByRole('navigation')[0]!;
+    await userEvent.click(within(nav).getByRole('button', { name: /^More/ }));
+    await userEvent.click(within(nav).getByText('Completed'));
     expect(await screen.findByRole('button', { name: 'Open Soon' })).toBeInTheDocument();
 
     await userEvent.click(screen.getByRole('button', { name: 'Open Soon' }));

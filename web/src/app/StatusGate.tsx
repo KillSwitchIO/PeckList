@@ -47,7 +47,7 @@ export function StatusGate({ children }: { children: ReactNode }) {
               {t('pwa.reload')}
             </Button>
           ) : status === 'needs-upgrade' ? (
-            <Button color="inherit" onClick={() => void upgrade()}>
+            <Button color="inherit" onClick={() => void upgrade()} sx={{ whiteSpace: 'nowrap' }}>
               {t('status.needsUpgrade.action')}
             </Button>
           ) : undefined

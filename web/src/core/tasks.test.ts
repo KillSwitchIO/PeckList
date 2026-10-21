@@ -26,6 +26,7 @@ import {
   taskDepth,
   toggleTaskDone,
   updateTask,
+  setTaskProgress,
 } from './tasks.ts';
 import type { WorkspaceFile } from './types.ts';
 import { createWorkspace } from './workspace.ts';
@@ -443,5 +444,16 @@ describe('completion date', () => {
     s.ws = setTaskStatus(s.ctx, s.ws, a.id, 'done');
     s.ws = setCompletedAt(s.ctx, s.ws, a.id, null);
     expect(getEntity(s.ws, 'tasks', a.id)).toMatchObject({ status: 'open', completedAt: null });
+  });
+});
+
+describe('progress', () => {
+  it('rounds to 10s, and 100% completes an open task', () => {
+    const s = setup();
+    const task = s.add('paint');
+    s.ws = setTaskProgress(s.ctx, s.ws, task.id, 43);
+    expect(getEntity(s.ws, 'tasks', task.id)).toMatchObject({ progress: 40, status: 'open' });
+    s.ws = setTaskProgress(s.ctx, s.ws, task.id, 100);
+    expect(getEntity(s.ws, 'tasks', task.id)).toMatchObject({ progress: 100, status: 'done' });
   });
 });

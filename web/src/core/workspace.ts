@@ -1,5 +1,6 @@
 // Creating and reading workspace documents.
 
+import { defaultSidebar } from './sidebar.ts';
 import { CURRENT_SCHEMA_VERSION } from './migrations.ts';
 import { keyBetween } from './ordering.ts';
 import { createEntity, type OpContext } from './ops.ts';
@@ -58,6 +59,7 @@ export function createWorkspace(ctx: OpContext, options: NewWorkspaceOptions = {
     palette: {},
     pointEventMinutes: 30,
     dueSoonDays: 2,
+    sidebar: defaultSidebar(),
   });
   const entities = emptyEntities();
   entities.users.push(user);

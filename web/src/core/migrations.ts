@@ -1,7 +1,7 @@
 // Schema versions and migrations. `schemaVersion` is an integer; every schema change bumps
 // it and registers a migration from N-1 to N, with fixtures in schema/fixtures/migrations.
 
-export const CURRENT_SCHEMA_VERSION = 2;
+export const CURRENT_SCHEMA_VERSION = 3;
 
 export type Migration = (document: Record<string, unknown>) => Record<string, unknown>;
 
@@ -18,6 +18,34 @@ export const MIGRATIONS: MigrationRegistry = {
       entities: {
         ...entities,
         tasks: entities.tasks.map((task) => ({ ...(task as object), progress: 0 })),
+      },
+    };
+  },
+  // 3: settings gain the sidebar layout (the default one).
+  3: (document) => {
+    const entities = document.entities as Record<string, unknown[]> | undefined;
+    if (!entities || !Array.isArray(entities.settings)) return document;
+    return {
+      ...document,
+      entities: {
+        ...entities,
+        settings: entities.settings.map((settings) => ({
+          ...(settings as object),
+          sidebar: {
+            order: [
+              'today',
+              'inbox',
+              'upcoming',
+              'all',
+              'calendar',
+              '@group',
+              'completed',
+              'trash',
+            ],
+            hidden: [],
+            groupOpen: false,
+          },
+        })),
       },
     };
   },

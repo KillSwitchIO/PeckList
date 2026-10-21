@@ -241,7 +241,11 @@ export function TaskMenu({
             onChangeCommitted={(_, value) => {
               const percent = value as number;
               if (percent !== task.progress) {
-                apply((ctx, ws) => setTaskProgress(ctx, ws, task.id, percent));
+                // 100% completes the task (with undo).
+                apply(
+                  (ctx, ws) => setTaskProgress(ctx, ws, task.id, percent),
+                  percent === 100 && task.status === 'open' ? t('undo.completed') : undefined,
+                );
               }
             }}
             sx={{ flexGrow: 1 }}

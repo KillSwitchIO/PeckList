@@ -17,7 +17,7 @@ export interface NavItem {
   icon: ReactElement;
 }
 
-/** Smart views shown in the sidebar. Keep the order of the first items in step with BOTTOM_ITEMS. */
+/** Smart views shown in the sidebar (their default order; users can reorder them). */
 export const SIDEBAR_ITEMS: NavItem[] = [
   { path: '/today', label: 'nav.today', icon: <TodayRounded /> },
   { path: '/inbox', label: 'nav.inbox', icon: <InboxRounded /> },
@@ -27,6 +27,11 @@ export const SIDEBAR_ITEMS: NavItem[] = [
   { path: '/completed', label: 'nav.completed', icon: <TaskAltRounded /> },
   { path: '/trash', label: 'nav.trash', icon: <DeleteOutlineRounded /> },
 ];
+
+/** The sidebar views by id (see core/sidebar.ts). */
+export const VIEW_ITEMS: Record<string, NavItem> = Object.fromEntries(
+  SIDEBAR_ITEMS.map((item) => [item.path.slice(1), item]),
+);
 
 export const SIDEBAR_FOOTER: NavItem[] = [
   { path: '/search', label: 'nav.search', icon: <SearchRounded /> },

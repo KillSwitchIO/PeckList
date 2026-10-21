@@ -1,4 +1,4 @@
-import { screen, within } from '@testing-library/react';
+import { fireEvent, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { mockViewport, renderApp } from '../test/renderApp.tsx';
@@ -40,9 +40,31 @@ describe('app shell', () => {
     mockViewport('tablet');
     await renderApp('/today');
     await userEvent.click(screen.getByRole('button', { name: t('nav.openMenu') }));
+    // Trash sits in the collapsed "More" group.
+    await userEvent.click(await screen.findByRole('button', { name: /^More/ }));
     await userEvent.click(await screen.findByText('Trash'));
     // The drawer hides the page from assistive tech until its exit transition ends.
     expect(await screen.findByRole('heading', { level: 1, name: 'Trash' })).toBeInTheDocument();
+  });
+
+  it('edits the sidebar: hide a view, Done saves, Cancel drops', async () => {
+    mockViewport('desktop');
+    await renderApp('/today');
+    const nav = screen.getAllByRole('navigation')[0]!;
+    // Right-click (like a hold or a drag) starts editing.
+    fireEvent.contextMenu(within(nav).getByText('Calendar'));
+    const bar = within(nav).getByRole('toolbar', { name: 'Edit sidebar' });
+    await userEvent.click(within(nav).getByRole('button', { name: 'Hide Calendar' }));
+    await userEvent.click(within(bar).getByRole('button', { name: 'Done' }));
+    expect(within(nav).queryByText('Calendar')).toBeNull();
+    expect(screen.getByText('Sidebar updated')).toBeInTheDocument();
+
+    // Show it again, then cancel: it stays hidden.
+    fireEvent.contextMenu(within(nav).getByText('Today'));
+    await userEvent.click(within(nav).getByRole('button', { name: 'Show Calendar' }));
+    await userEvent.click(within(nav).getByRole('button', { name: 'Cancel' }));
+    expect(within(nav).queryByText('Calendar')).toBeNull();
+    expect(within(nav).queryByRole('toolbar', { name: 'Edit sidebar' })).toBeNull();
   });
 
   it('cycles the theme mode and remembers it', async () => {

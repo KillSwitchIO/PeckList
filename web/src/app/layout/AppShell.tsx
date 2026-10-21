@@ -25,6 +25,7 @@ import { useRef, useState } from 'react';
 import { Outlet, useLocation, useNavigate } from 'react-router';
 import { t } from '../i18n/i18n.ts';
 import { HeaderSlotContext } from './headerSlot.ts';
+import { SidebarViews } from './SidebarViews.tsx';
 import { ResizeHandle } from './ResizeHandle.tsx';
 import { useDetailWidth } from './useDetailWidth.ts';
 import { SidebarLists } from '../lists/SidebarLists.tsx';
@@ -101,14 +102,28 @@ function Sidebar({ onNavigate }: { onNavigate: (path: string) => void }) {
     <Box
       component="nav"
       aria-label={t('app.name')}
-      sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}
+      sx={{
+        display: 'flex',
+        flexDirection: 'column',
+        height: '100%',
+        // Icons lift a little on hover: a light spring, nothing that pulls the eye.
+        '& .MuiListItemButton-root .MuiListItemIcon-root > *': {
+          transition: 'transform 220ms cubic-bezier(0.34, 1.56, 0.64, 1)',
+        },
+        '& .MuiListItemButton-root:hover .MuiListItemIcon-root > *': {
+          transform: 'translateY(-1px) scale(1.12)',
+        },
+        '@media (prefers-reduced-motion: reduce)': {
+          '& .MuiListItemButton-root:hover .MuiListItemIcon-root > *': { transform: 'none' },
+        },
+      }}
     >
       <Toolbar>
         <Typography variant="h2" component="div">
           {t('app.name')}
         </Typography>
       </Toolbar>
-      <NavList items={SIDEBAR_ITEMS} selected={selected} onSelect={onNavigate} />
+      <SidebarViews selected={selected} onNavigate={onNavigate} />
       <Divider sx={{ mx: 2 }} />
       <Box sx={{ flexGrow: 1, overflowY: 'auto' }}>
         <SidebarLists onNavigate={onNavigate} />

@@ -8,7 +8,7 @@
   "additionalProperties": false,
   "properties": {
     "schemaVersion": {
-      "const": 2
+      "const": 3
     },
     "app": {
       "type": "object",
@@ -651,7 +651,7 @@
           "$ref": "#/$defs/base"
         }
       ],
-      "required": ["userId", "themeMode", "palette", "pointEventMinutes", "dueSoonDays"],
+      "required": ["userId", "themeMode", "palette", "pointEventMinutes", "dueSoonDays", "sidebar"],
       "properties": {
         "userId": {
           "$ref": "#/$defs/id"
@@ -675,6 +675,17 @@
           "type": "integer",
           "minimum": 0,
           "maximum": 30
+        },
+        "sidebar": {
+          "type": "object",
+          "description": "Sidebar layout: view order (with an @group marker; views after it are grouped), hidden views, whether the group is open",
+          "required": ["order", "hidden", "groupOpen"],
+          "additionalProperties": false,
+          "properties": {
+            "order": { "type": "array", "items": { "type": "string" } },
+            "hidden": { "type": "array", "items": { "type": "string" } },
+            "groupOpen": { "type": "boolean" }
+          }
         }
       },
       "unevaluatedProperties": false
