@@ -43,11 +43,16 @@ describe('tags in the sidebar', () => {
       within(nav)
         .getAllByRole('button')
         .map((item) => item.getAttribute('aria-label') ?? item.textContent),
-    ).toEqual(['New tag', 'home1', 'Hide tags in home', 'yard1', 'work1']);
+    ).toEqual(['Tags', 'New tag', 'home1', 'Hide tags in home', 'yard1', 'work1']);
     await userEvent.click(within(nav).getByRole('button', { name: 'Hide tags in home' }));
     expect(within(nav).queryByText('yard')).not.toBeInTheDocument();
     await userEvent.click(within(nav).getByRole('button', { name: 'Show tags in home' }));
     expect(within(nav).getByText('yard')).toBeInTheDocument();
+    // The Tags heading folds the whole section.
+    await userEvent.click(within(nav).getByRole('button', { name: 'Tags' }));
+    expect(within(nav).queryByText('home')).not.toBeInTheDocument();
+    await userEvent.click(within(nav).getByRole('button', { name: 'Tags' }));
+    expect(within(nav).getByText('home')).toBeInTheDocument();
   });
 
   it('creates a nested tag and opens its view', async () => {
@@ -264,7 +269,7 @@ describe('tag dialog', () => {
       .map((item) => item.textContent)
       .filter(Boolean);
     // New tags go last among their siblings.
-    expect(nav).toEqual(['home1', 'yard1', 'test', 'work1']);
+    expect(nav).toEqual(['Tags', 'home1', 'yard1', 'test', 'work1']);
   });
 
   it('offers a path that does not exist yet as a new parent', async () => {
