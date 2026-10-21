@@ -168,6 +168,92 @@ describe('DatePickerPanel', () => {
   });
 });
 
+describe('time wheels on touch screens', () => {
+  function touchScreen() {
+    vi.stubGlobal('matchMedia', (query: string) => ({
+      matches: query.includes('pointer: coarse'),
+      media: query,
+      onchange: null,
+      addEventListener: () => undefined,
+      removeEventListener: () => undefined,
+      addListener: () => undefined,
+      removeListener: () => undefined,
+      dispatchEvent: () => false,
+    }));
+  }
+
+  it('shows hour, minute and AM/PM wheels starting at 9:00 AM', async () => {
+    touchScreen();
+    const onApply = vi.fn();
+    render(
+      <DatePickerPanel value={null} today={TODAY} onApply={onApply} onCancel={() => undefined} />,
+    );
+    await userEvent.click(screen.getByRole('button', { name: /Time/ }));
+    expect(screen.queryByLabelText('Time')).toBeNull();
+    const hour = screen.getByRole('listbox', { name: 'Hour' });
+    expect(within(hour).getByRole('option', { selected: true })).toHaveTextContent('9');
+    expect(
+      within(screen.getByRole('listbox', { name: 'Minute' })).getByRole('option', {
+        selected: true,
+      }),
+    ).toHaveTextContent('00');
+    expect(
+      within(screen.getByRole('listbox', { name: 'AM or PM' })).getByRole('option', {
+        selected: true,
+      }),
+    ).toHaveTextContent('AM');
+    await userEvent.click(screen.getByRole('button', { name: 'OK' }));
+    expect(onApply).toHaveBeenCalledWith({ date: TODAY, time: '09:00' });
+  });
+
+  it('tapping and arrow keys change the time; 12 AM and PM convert correctly', async () => {
+    touchScreen();
+    const onApply = vi.fn();
+    render(
+      <DatePickerPanel
+        value={{ date: TODAY, time: '08:00' }}
+        today={TODAY}
+        onApply={onApply}
+        onCancel={() => undefined}
+      />,
+    );
+    await userEvent.click(screen.getByRole('button', { name: /Time/ }));
+    await userEvent.click(
+      within(screen.getByRole('listbox', { name: 'Hour' })).getByRole('option', { name: '10' }),
+    );
+    await userEvent.click(
+      within(screen.getByRole('listbox', { name: 'AM or PM' })).getByRole('option', { name: 'PM' }),
+    );
+    const minute = screen.getByRole('listbox', { name: 'Minute' });
+    minute.focus();
+    await userEvent.keyboard('{ArrowDown}{ArrowDown}{ArrowUp}');
+    await userEvent.click(screen.getByRole('button', { name: 'OK' }));
+    expect(onApply).toHaveBeenLastCalledWith({ date: TODAY, time: '22:01' });
+  });
+
+  it('12 on the wheel is noon or midnight', async () => {
+    touchScreen();
+    const onApply = vi.fn();
+    render(
+      <DatePickerPanel
+        value={{ date: TODAY, time: '00:30' }}
+        today={TODAY}
+        onApply={onApply}
+        onCancel={() => undefined}
+      />,
+    );
+    await userEvent.click(screen.getByRole('button', { name: /Time/ }));
+    expect(
+      within(screen.getByRole('listbox', { name: 'Hour' })).getByRole('option', { selected: true }),
+    ).toHaveTextContent('12');
+    await userEvent.click(
+      within(screen.getByRole('listbox', { name: 'AM or PM' })).getByRole('option', { name: 'PM' }),
+    );
+    await userEvent.click(screen.getByRole('button', { name: 'OK' }));
+    expect(onApply).toHaveBeenLastCalledWith({ date: TODAY, time: '12:30' });
+  });
+});
+
 describe('DateProperty', () => {
   it('shows a placeholder, opens the picker and reports the choice', async () => {
     const onChange = vi.fn();

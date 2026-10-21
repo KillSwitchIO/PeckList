@@ -6,6 +6,9 @@ export interface DateValue {
   time: string | null;
 }
 
+/** Time the wheels start from when a task has no time yet. */
+export const DEFAULT_TIME = '09:00';
+
 /** Time used by the "Tonight" shortcut. */
 export const EVENING = '18:00';
 

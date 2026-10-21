@@ -14,14 +14,16 @@ import {
   Stack,
   Tooltip,
   Typography,
+  useMediaQuery,
 } from '@mui/material';
 import { useState, type ReactNode } from 'react';
 import { addDays } from '../../core/dates.ts';
 import { formatTime } from '../format.ts';
 import { t } from '../i18n/i18n.ts';
-import { EVENING, type DateValue } from './dateValue.ts';
+import { DEFAULT_TIME, EVENING, type DateValue } from './dateValue.ts';
 import { MonthCalendar } from './MonthCalendar.tsx';
 import { TimeInput } from './TimeInput.tsx';
+import { TimeWheels } from './TimeWheels.tsx';
 
 function NextWeekIcon() {
   return (
@@ -90,6 +92,16 @@ export function DatePickerPanel({
   const [date, setDate] = useState<string | null>(value?.date ?? null);
   const [time, setTime] = useState<string | null>(value?.time ?? null);
   const [editingTime, setEditingTime] = useState(false);
+  // Touch screens get hour / minute / AM-PM wheels; mouse and keyboard get the typed field.
+  const touch = useMediaQuery('(pointer: coarse)', { noSsr: true });
+  const startEditingTime = () => {
+    setEditingTime(true);
+    if (touch && !time) {
+      // Wheels always show a value, so start from it rather than "no time".
+      setTime(DEFAULT_TIME);
+      if (!date) setDate(today);
+    }
+  };
 
   const quick = [
     { label: t('date.today'), icon: <WbSunnyOutlined />, value: { date: today, time: null } },
@@ -129,16 +141,30 @@ export function DatePickerPanel({
       <Divider sx={{ my: 1 }} />
 
       {editingTime ? (
-        <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1, px: 1, pt: 0.5 }}>
+        <Box
+          sx={{
+            display: 'flex',
+            alignItems: touch ? 'center' : 'flex-start',
+            gap: 1,
+            px: 1,
+            pt: 0.5,
+          }}
+        >
           <AccessTimeRounded fontSize="small" color="action" sx={{ mt: 1 }} />
-          <TimeInput
-            value={time}
-            autoFocus
-            onChange={(next) => {
-              setTime(next);
-              if (next && !date) setDate(today);
-            }}
-          />
+          {touch ? (
+            <Box sx={{ flexGrow: 1 }}>
+              <TimeWheels value={time} onChange={setTime} />
+            </Box>
+          ) : (
+            <TimeInput
+              value={time}
+              autoFocus
+              onChange={(next) => {
+                setTime(next);
+                if (next && !date) setDate(today);
+              }}
+            />
+          )}
           <IconButton
             size="small"
             aria-label={t('date.removeTime')}
@@ -152,7 +178,7 @@ export function DatePickerPanel({
         </Box>
       ) : (
         <ButtonBase
-          onClick={() => setEditingTime(true)}
+          onClick={startEditingTime}
           sx={{
             width: '100%',
             display: 'flex',

@@ -57,7 +57,7 @@ export function PriorityCheckbox({ task }: { task: Task }) {
   );
 }
 
-/** Width of the date column, so every date starts at the same place in every view. */
+/** Fixed date column, right-aligned: dates sit flush right and list names line up in every view. */
 const DATE_COLUMN = '10rem';
 
 export function TaskRow({ task, showList = false }: { task: Task; showList?: boolean }) {
@@ -162,7 +162,7 @@ export function TaskRow({ task, showList = false }: { task: Task; showList?: boo
             sx={{
               width: DATE_COLUMN,
               flexShrink: 0,
-              textAlign: 'left',
+              textAlign: 'right',
               color: dateColor,
               whiteSpace: 'nowrap',
               overflow: 'hidden',
