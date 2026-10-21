@@ -44,14 +44,20 @@ function PlusDaysIcon({ days }: { days: number }) {
       <CalendarTodayOutlined />
       <Box
         component="span"
+        // Centered in the calendar's body: the icon draws it from (4, 10) to (20, 21) of 24.
         sx={{
           position: 'absolute',
-          inset: 0,
-          top: 6,
-          fontSize: days >= 10 ? 8.5 : 9.5,
+          left: 4,
+          width: 16,
+          top: 10,
+          height: 11,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          fontSize: days >= 10 ? 8 : 9,
           fontWeight: 800,
-          letterSpacing: -0.3,
-          textAlign: 'center',
+          lineHeight: 1,
+          letterSpacing: days >= 10 ? -0.4 : 0,
         }}
       >
         +{days}
