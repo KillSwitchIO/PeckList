@@ -179,3 +179,64 @@ export function LinkIcon(props: SvgIconProps) {
     </PunchIcon>
   );
 }
+
+// Panels and pickers.
+
+/** Full screen: arrows out to two corners. */
+export function ExpandIcon(props: SvgIconProps) {
+  return (
+    <PunchIcon {...props}>
+      <path d="M14 4h6v6M20 4l-6.5 6.5M10 20H4v-6M4 20l6.5-6.5" />
+    </PunchIcon>
+  );
+}
+
+/** Leave full screen: arrows in from two corners. */
+export function CollapseIcon(props: SvgIconProps) {
+  return (
+    <PunchIcon {...props}>
+      <path d="M20 4l-6 6M14 5v5h5M4 20l6-6M10 19v-5H5" />
+    </PunchIcon>
+  );
+}
+
+/** Priority: a flag on a pole. `filled` fills the cloth (a priority is set). */
+export function FlagIcon({ filled = false, ...props }: SvgIconProps & { filled?: boolean }) {
+  return (
+    <PunchIcon {...props}>
+      <path d="M5.5 21V4" />
+      <path
+        d="M5.5 4.5c2.8-1.6 5.2 1.6 8 0s4.2-.9 5 -.4v8.6c-.8-.5-2.2-1.2-5 .4s-5.2-1.6-8 0"
+        {...(filled ? { fill: 'currentColor' } : {})}
+      />
+    </PunchIcon>
+  );
+}
+
+/** A small chevron pointing up (a menu that opens upward). */
+export function ChevronUpIcon(props: SvgIconProps) {
+  return (
+    <PunchIcon {...props}>
+      <path d="M7 14.5l5-5 5 5" />
+    </PunchIcon>
+  );
+}
+
+/** A check mark (the chosen item in a menu). */
+export function CheckIcon(props: SvgIconProps) {
+  return (
+    <PunchIcon {...props}>
+      <path d="M5 12.5l4.5 4.5L19 7.5" />
+    </PunchIcon>
+  );
+}
+
+/** Mess Drawer: an inbox tray. */
+export function TrayIcon(props: SvgIconProps) {
+  return (
+    <PunchIcon {...props}>
+      <path d="M4 13.5l2.1-6.6A2.5 2.5 0 0 1 8.5 5h7a2.5 2.5 0 0 1 2.4 1.9l2.1 6.6V17a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2z" />
+      <path d="M4 13.5h4.2l1.3 2h5l1.3-2H20" />
+    </PunchIcon>
+  );
+}

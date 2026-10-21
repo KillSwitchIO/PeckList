@@ -2,18 +2,14 @@ import CalendarMonthOutlined from '@mui/icons-material/CalendarMonthOutlined';
 import CloseRounded from '@mui/icons-material/CloseRounded';
 import DeleteOutlineRounded from '@mui/icons-material/DeleteOutlineRounded';
 import FlagOutlined from '@mui/icons-material/FlagOutlined';
-import FlagRounded from '@mui/icons-material/FlagRounded';
 import MoreHorizRounded from '@mui/icons-material/MoreHorizRounded';
 import TaskAltRounded from '@mui/icons-material/TaskAltRounded';
 import {
   Box,
   Button,
   IconButton,
-  MenuItem,
   Stack,
   TextField,
-  ToggleButton,
-  ToggleButtonGroup,
   Toolbar,
   Tooltip,
   Typography,
@@ -23,28 +19,18 @@ import { useState } from 'react';
 import { getEntity, isLive } from '../../core/collections.ts';
 import { instantOf, localDateTimeOf, localTimeZone } from '../../core/dates.ts';
 import { dateState } from '../../core/queries.ts';
-import { sectionsOf, visibleLists } from '../../core/lists.ts';
-import {
-  deleteTask,
-  moveTask,
-  setCompletedAt,
-  setTaskStatus,
-  updateTask,
-} from '../../core/tasks.ts';
-import type { Priority, Task } from '../../core/types.ts';
+import { deleteTask, setCompletedAt, setTaskStatus, updateTask } from '../../core/tasks.ts';
 import { DateProperty } from '../dates/DateProperty.tsx';
 import { NotesEditor } from '../editor/NotesEditor.tsx';
-import { listName } from '../lists/listName.ts';
 import { TagsProperty } from '../tags/TagsProperty.tsx';
+import { CollapseIcon, ExpandIcon } from '../icons/icons.tsx';
+import { DetailFooter } from './DetailFooter.tsx';
 import { ParentTrail, SubtaskEditor } from './Subtasks.tsx';
 import { TaskMenu, type TaskMenuAnchor } from './TaskMenu.tsx';
 import { fromDateValue, toDateValue } from '../dates/dateValue.ts';
 import { useToday } from '../hooks/useToday.ts';
 import { t } from '../i18n/i18n.ts';
 import { useApply, useWorkspace } from '../store/hooks.ts';
-
-const PRIORITIES: Priority[] = [0, 1, 2, 3];
-const PRIORITY_KEY = { 0: 'none', 1: 'low', 2: 'medium', 3: 'high' } as const;
 
 /** A text field that edits locally and commits on blur or Enter. */
 function CommitField({
@@ -83,42 +69,19 @@ function CommitField({
   );
 }
 
-function PriorityPicker({ task }: { task: Task }) {
-  const apply = useApply();
-  const theme = useTheme();
-  return (
-    <Box>
-      <Typography variant="caption" color="text.secondary" component="div" sx={{ mb: 0.5 }}>
-        {t('task.priority')}
-      </Typography>
-      <ToggleButtonGroup
-        exclusive
-        size="small"
-        value={task.priority}
-        aria-label={t('task.priority')}
-        onChange={(_, value: Priority | null) => {
-          if (value !== null) apply((ctx, ws) => updateTask(ctx, ws, task.id, { priority: value }));
-        }}
-      >
-        {PRIORITIES.map((priority) => (
-          <ToggleButton
-            key={priority}
-            value={priority}
-            aria-label={t(`priority.${priority}`)}
-            sx={{ gap: 0.5, px: 1.25 }}
-          >
-            <FlagRounded
-              sx={{ fontSize: 16, color: theme.punchlist.priority[PRIORITY_KEY[priority]].fill }}
-            />
-            {t(`priority.${priority}`)}
-          </ToggleButton>
-        ))}
-      </ToggleButtonGroup>
-    </Box>
-  );
-}
-
-export function TaskDetail({ taskId, onClose }: { taskId: string; onClose: () => void }) {
+export function TaskDetail({
+  taskId,
+  onClose,
+  expanded = false,
+  onToggleExpanded,
+}: {
+  taskId: string;
+  onClose: () => void;
+  /** Shown in the large full-screen view. */
+  expanded?: boolean;
+  /** Switch between the side panel and full screen; no button when absent. */
+  onToggleExpanded?: () => void;
+}) {
   const workspace = useWorkspace();
   const apply = useApply();
   const today = useToday();
@@ -139,8 +102,6 @@ export function TaskDetail({ taskId, onClose }: { taskId: string; onClose: () =>
     );
   }
 
-  const lists = visibleLists(workspace);
-  const sections = sectionsOf(workspace, task.listId);
   const zone = localTimeZone();
   const state = dateState(task, today, workspace.entities.settings[0]?.dueSoonDays ?? 2);
   const colors = theme.punchlist.dateState;
@@ -156,8 +117,12 @@ export function TaskDetail({ taskId, onClose }: { taskId: string; onClose: () =>
     state === 'slipped' ? colors.slipped : state === 'late' && !task.due ? colors.late : undefined;
 
   return (
-    <Box component="section" aria-label={t('task.details')} sx={{ p: 2, pt: 0 }}>
-      <Toolbar disableGutters sx={{ gap: 1 }}>
+    <Box
+      component="section"
+      aria-label={t('task.details')}
+      sx={{ height: '100%', display: 'flex', flexDirection: 'column', minHeight: 0 }}
+    >
+      <Toolbar disableGutters sx={{ gap: 1, px: 2, flexShrink: 0 }}>
         {task.status === 'open' ? (
           <>
             <Button
@@ -199,6 +164,16 @@ export function TaskDetail({ taskId, onClose }: { taskId: string; onClose: () =>
           </IconButton>
         </Tooltip>
         <TaskMenu task={task} anchor={menu} onClose={() => setMenu(null)} />
+        {onToggleExpanded && (
+          <Tooltip title={expanded ? t('task.exitFullScreen') : t('task.fullScreen')}>
+            <IconButton
+              aria-label={expanded ? t('task.exitFullScreen') : t('task.fullScreen')}
+              onClick={onToggleExpanded}
+            >
+              {expanded ? <CollapseIcon fontSize="small" /> : <ExpandIcon fontSize="small" />}
+            </IconButton>
+          </Tooltip>
+        )}
         <Tooltip title={t('task.delete')}>
           <IconButton
             aria-label={t('task.delete')}
@@ -215,7 +190,10 @@ export function TaskDetail({ taskId, onClose }: { taskId: string; onClose: () =>
         </IconButton>
       </Toolbar>
 
-      <Stack spacing={2}>
+      <Stack
+        spacing={2}
+        sx={{ flexGrow: 1, minHeight: 0, overflowY: 'auto', px: 2, pb: 2, pt: 0.5 }}
+      >
         <ParentTrail task={task} />
         <CommitField
           label={t('task.title')}
@@ -224,7 +202,6 @@ export function TaskDetail({ taskId, onClose }: { taskId: string; onClose: () =>
             apply((ctx, ws) => updateTask(ctx, ws, task.id, { title: title.trim() }))
           }
         />
-        <PriorityPicker task={task} />
         <Box>
           <DateProperty
             label={t('task.date')}
@@ -249,98 +226,62 @@ export function TaskDetail({ taskId, onClose }: { taskId: string; onClose: () =>
               )
             }
           />
-          <DateProperty
-            label={t('task.due')}
-            icon={<FlagOutlined fontSize="small" />}
-            value={toDateValue(task.due?.at)}
-            today={today}
-            placeholder={t('date.addDue')}
-            {...(dueColor ? { valueColor: dueColor } : {})}
-            onChange={(value) =>
-              apply((ctx, ws) =>
-                updateTask(ctx, ws, task.id, {
-                  due: value
-                    ? { at: fromDateValue(value), allDay: value.time === null, timeZone: zone }
-                    : null,
-                }),
-              )
-            }
-          />
-          <DateProperty
-            label={t('task.completedDate')}
-            icon={<TaskAltRounded fontSize="small" />}
-            value={task.completedAt ? toDateValue(localDateTimeOf(task.completedAt, zone)) : null}
-            today={today}
-            placeholder={t('date.addCompleted')}
-            onChange={(value) => {
-              // A date without a time keeps the time it had (or now's time).
-              const keep = (
-                task.completedAt
-                  ? localDateTimeOf(task.completedAt, zone)
-                  : localDateTimeOf(new Date().toISOString(), zone)
-              ).slice(11, 16);
-              apply(
-                (ctx, ws) =>
-                  setCompletedAt(
-                    ctx,
-                    ws,
-                    task.id,
-                    value ? instantOf(value.date, value.time ?? keep, zone) : null,
-                  ),
-                // Clearing the date of a closed task reopens it; setting one on an open
-                // task completes it.
-                !value && task.status !== 'open'
-                  ? t('undo.reopened')
-                  : value && task.status === 'open'
-                    ? t('undo.completed')
-                    : undefined,
-              );
-            }}
-          />
-          <TagsProperty task={task} />
-        </Box>
-        <Stack direction="row" spacing={2}>
-          <TextField
-            select
-            label={t('task.list')}
-            value={task.listId}
-            fullWidth
-            onChange={(event) =>
-              apply((ctx, ws) =>
-                moveTask(ctx, ws, task.id, { listId: event.target.value, sectionId: null }),
-              )
-            }
+          <Box
+            sx={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))' }}
           >
-            {lists.map((list) => (
-              <MenuItem key={list.id} value={list.id}>
-                {listName(list)}
-              </MenuItem>
-            ))}
-          </TextField>
-          {task.parentId === null && (
-            <TextField
-              select
-              label={t('task.section')}
-              value={task.sectionId ?? ''}
-              fullWidth
-              onChange={(event) =>
+            <DateProperty
+              label={t('task.due')}
+              compact
+              icon={<FlagOutlined fontSize="small" />}
+              value={toDateValue(task.due?.at)}
+              today={today}
+              placeholder={t('date.addDue')}
+              {...(dueColor ? { valueColor: dueColor } : {})}
+              onChange={(value) =>
                 apply((ctx, ws) =>
-                  moveTask(ctx, ws, task.id, {
-                    listId: task.listId,
-                    sectionId: event.target.value || null,
+                  updateTask(ctx, ws, task.id, {
+                    due: value
+                      ? { at: fromDateValue(value), allDay: value.time === null, timeZone: zone }
+                      : null,
                   }),
                 )
               }
-            >
-              <MenuItem value="">{t('task.noSection')}</MenuItem>
-              {sections.map((section) => (
-                <MenuItem key={section.id} value={section.id}>
-                  {section.name}
-                </MenuItem>
-              ))}
-            </TextField>
-          )}
-        </Stack>
+            />
+            <DateProperty
+              label={t('task.completedDate')}
+              compact
+              icon={<TaskAltRounded fontSize="small" />}
+              value={task.completedAt ? toDateValue(localDateTimeOf(task.completedAt, zone)) : null}
+              today={today}
+              placeholder={t('date.addCompleted')}
+              onChange={(value) => {
+                // A date without a time keeps the time it had (or now's time).
+                const keep = (
+                  task.completedAt
+                    ? localDateTimeOf(task.completedAt, zone)
+                    : localDateTimeOf(new Date().toISOString(), zone)
+                ).slice(11, 16);
+                apply(
+                  (ctx, ws) =>
+                    setCompletedAt(
+                      ctx,
+                      ws,
+                      task.id,
+                      value ? instantOf(value.date, value.time ?? keep, zone) : null,
+                    ),
+                  // Clearing the date of a closed task reopens it; setting one on an open
+                  // task completes it.
+                  !value && task.status !== 'open'
+                    ? t('undo.reopened')
+                    : value && task.status === 'open'
+                      ? t('undo.completed')
+                      : undefined,
+                );
+              }}
+            />
+          </Box>
+          <TagsProperty task={task} />
+        </Box>
         <SubtaskEditor task={task} />
         <NotesEditor
           key={task.id}
@@ -350,6 +291,7 @@ export function TaskDetail({ taskId, onClose }: { taskId: string; onClose: () =>
           onCommit={(notes) => apply((ctx, ws) => updateTask(ctx, ws, task.id, { notes }))}
         />
       </Stack>
+      <DetailFooter task={task} />
     </Box>
   );
 }

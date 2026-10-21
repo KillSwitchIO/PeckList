@@ -48,7 +48,6 @@ export function ListDialog({
         <DialogTitle>{list ? t('list.edit') : t('list.new')}</DialogTitle>
         <DialogContent>
           <Stack spacing={2} sx={{ pt: 1 }}>
-            {/* The Mess Drawer keeps its name; only its color can change. */}
             {!list?.isInbox && (
               <TextField
                 label={t('list.name')}

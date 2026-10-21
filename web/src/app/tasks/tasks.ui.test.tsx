@@ -64,7 +64,8 @@ describe('task details', () => {
     const title = within(details).getByLabelText('Title');
     await userEvent.clear(title);
     await userEvent.type(title, 'Mow the lawn{Enter}');
-    await userEvent.click(within(details).getByRole('button', { name: 'High' }));
+    await userEvent.click(within(details).getByRole('button', { name: 'Priority: None' }));
+    await userEvent.click(await screen.findByRole('menuitem', { name: 'High' }));
     await userEvent.click(within(details).getByRole('button', { name: /^Due:/ }));
     await userEvent.click(
       within(await screen.findByRole('dialog', { name: 'Due' })).getByRole('button', {
@@ -85,13 +86,56 @@ describe('task details', () => {
     // Rows show only the start date or time; the due date lives in the details and calendar.
     expect(within(row).getByTestId('task-date')).toHaveTextContent(/^Today$/);
     expect(row).not.toHaveTextContent('Tomorrow');
-    expect(within(details).getByRole('button', { name: 'High' })).toHaveAttribute(
-      'aria-pressed',
-      'true',
-    );
+    expect(within(details).getByRole('button', { name: 'Priority: High' })).toBeInTheDocument();
     expect(within(details).getByRole('textbox', { name: 'Notes' })).toHaveTextContent(
       'Front and back',
     );
+  });
+
+  it('moves a task to a list section from the footer menu', async () => {
+    await renderApp('/inbox');
+    await userEvent.click(screen.getByRole('button', { name: 'More actions' }));
+    await userEvent.click(await screen.findByRole('menuitem', { name: 'Add section' }));
+    await userEvent.type(
+      within(await screen.findByRole('dialog')).getByLabelText('Section name'),
+      'Yard{Enter}',
+    );
+    await addTasks('Rake');
+    await userEvent.click(screen.getByRole('button', { name: 'Open Rake' }));
+    const details = await screen.findByRole('region', { name: 'Task details' });
+    await userEvent.click(within(details).getByRole('button', { name: 'List: Mess Drawer' }));
+    await userEvent.click(await screen.findByRole('menuitem', { name: 'Yard' }));
+    expect(
+      within(details).getByRole('button', { name: 'List: Mess Drawer / Yard' }),
+    ).toBeInTheDocument();
+  });
+
+  it('resizes the details panel and remembers the width', async () => {
+    await renderApp('/inbox');
+    await addTasks('Mow');
+    await userEvent.click(screen.getByRole('button', { name: 'Open Mow' }));
+    const handle = await screen.findByRole('separator', { name: 'Resize details' });
+    handle.focus();
+    await userEvent.keyboard('{ArrowLeft}');
+    expect(Number(localStorage.getItem('punchlist.detailWidth'))).toBeGreaterThan(0);
+    await userEvent.dblClick(handle);
+    expect(localStorage.getItem('punchlist.detailWidth')).toBeNull();
+  });
+
+  it('opens details full screen and back', async () => {
+    await renderApp('/inbox');
+    await addTasks('Mow');
+    await userEvent.click(screen.getByRole('button', { name: 'Open Mow' }));
+    await userEvent.click(
+      within(await screen.findByRole('region', { name: 'Task details' })).getByRole('button', {
+        name: 'Full screen',
+      }),
+    );
+    const dialog = await screen.findByRole('dialog');
+    expect(within(dialog).getByRole('region', { name: 'Task details' })).toBeInTheDocument();
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Exit full screen' }));
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+    expect(screen.getByRole('region', { name: 'Task details' })).toBeInTheDocument();
   });
 
   it("marks won't do, reopens, deletes and closes", async () => {
@@ -150,15 +194,14 @@ describe('task row', () => {
 });
 
 describe('Mess Drawer', () => {
-  it('is the default list everywhere and keeps its name when edited', async () => {
+  it('is the default list everywhere, with a fixed name and no color', async () => {
     await renderApp('/inbox');
     expect(screen.getByRole('heading', { level: 1, name: 'Mess Drawer' })).toBeInTheDocument();
     expect(screen.getByRole('textbox', { name: 'Add task to Mess Drawer' })).toBeInTheDocument();
     await userEvent.click(screen.getByRole('button', { name: 'More actions' }));
-    await userEvent.click(await screen.findByRole('menuitem', { name: 'Edit list' }));
-    const dialog = await screen.findByRole('dialog');
-    expect(within(dialog).queryByLabelText('Name')).toBeNull();
-    expect(within(dialog).getByRole('radiogroup', { name: 'Color' })).toBeInTheDocument();
+    // Nothing to edit: no Edit list, Archive or Delete.
+    expect(await screen.findByRole('menuitem', { name: 'Add section' })).toBeInTheDocument();
+    expect(screen.queryByRole('menuitem', { name: 'Edit list' })).toBeNull();
   });
 });
 

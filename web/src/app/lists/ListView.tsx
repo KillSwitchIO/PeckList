@@ -79,15 +79,18 @@ function ListMenu({
           </MenuItem>
         ))}
         <Divider />
-        <MenuItem
-          onClick={() => {
-            close();
-            setDialog('edit');
-          }}
-        >
-          <EditRounded fontSize="small" sx={{ mr: 1 }} />
-          {t('list.edit')}
-        </MenuItem>
+        {/* The Mess Drawer has a fixed name and no color: nothing to edit. */}
+        {!list.isInbox && (
+          <MenuItem
+            onClick={() => {
+              close();
+              setDialog('edit');
+            }}
+          >
+            <EditRounded fontSize="small" sx={{ mr: 1 }} />
+            {t('list.edit')}
+          </MenuItem>
+        )}
         <MenuItem
           onClick={() => {
             close();

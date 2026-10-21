@@ -15,6 +15,7 @@ export function PropertyRow({
   icon,
   ariaValue,
   iconColor = 'text.secondary',
+  compact = false,
   onClick,
   children,
 }: {
@@ -23,6 +24,8 @@ export function PropertyRow({
   /** Text read out after the label, e.g. "Date: Tomorrow" */
   ariaValue: string;
   iconColor?: string;
+  /** Half-width: the label takes only the room it needs and the value truncates. */
+  compact?: boolean;
   onClick: (anchor: HTMLElement) => void;
   children: ReactNode;
 }) {
@@ -43,10 +46,24 @@ export function PropertyRow({
       }}
     >
       <Box sx={{ display: 'flex', color: iconColor }}>{icon}</Box>
-      <Typography color="text.secondary" sx={{ width: 84, flexShrink: 0, textAlign: 'left' }}>
+      <Typography
+        color="text.secondary"
+        sx={{ width: compact ? 'auto' : 84, flexShrink: 0, textAlign: 'left' }}
+      >
         {label}
       </Typography>
-      <Box sx={{ flexGrow: 1, minWidth: 0, textAlign: 'left' }}>{children}</Box>
+      <Box
+        sx={{
+          flexGrow: 1,
+          minWidth: 0,
+          textAlign: 'left',
+          ...(compact && {
+            '& > *': { overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
+          }),
+        }}
+      >
+        {children}
+      </Box>
     </ButtonBase>
   );
 }

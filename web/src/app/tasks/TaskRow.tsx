@@ -138,7 +138,7 @@ export function TaskRow({
         borderColor: 'divider',
         bgcolor: selected ? 'action.selected' : 'transparent',
         '&:hover': { bgcolor: selected ? 'action.selected' : 'action.hover' },
-        // List color as a thin stripe on the left edge.
+        // List color as a thin stripe on the left edge (the Mess Drawer has no color).
         '&::before': {
           content: '""',
           position: 'absolute',
@@ -147,7 +147,7 @@ export function TaskRow({
           bottom: 4,
           width: 3,
           borderRadius: 2,
-          bgcolor: list?.color ?? 'transparent',
+          bgcolor: list && !list.isInbox ? list.color : 'transparent',
         },
       }}
     >

@@ -6,6 +6,7 @@ import {
   AppBar,
   BottomNavigation,
   BottomNavigationAction,
+  Dialog,
   Box,
   Divider,
   Drawer,
@@ -20,10 +21,11 @@ import {
   useMediaQuery,
   useTheme,
 } from '@mui/material';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { Outlet, useLocation, useNavigate } from 'react-router';
 import { t } from '../i18n/i18n.ts';
 import { HeaderSlotContext } from './headerSlot.ts';
+import { ResizeHandle, useDetailWidth } from './ResizeHandle.tsx';
 import { SidebarLists } from '../lists/SidebarLists.tsx';
 import { SidebarTags } from '../tags/SidebarTags.tsx';
 import { useTaskSelection } from '../tasks/selection.ts';
@@ -38,8 +40,12 @@ import {
   type NavItem,
 } from './navigation.tsx';
 
-const DRAWER_WIDTH = 272;
-const DETAIL_WIDTH = 420;
+const DRAWER_WIDTH = 232;
+// Details get room for notes: about two fifths of the window, within sensible bounds.
+const DETAIL_WIDTH = 'clamp(440px, 40vw, 720px)';
+// A dragged width stays within these: the panel keeps room for its fields, the list for its rows.
+const DETAIL_MIN = 380;
+const LIST_MIN = 360;
 
 function ThemeToggle() {
   const { mode, cycleMode } = useThemeMode();
@@ -126,6 +132,14 @@ export function AppShell() {
   const { pathname } = useLocation();
   const { selectedId, close } = useTaskSelection();
   const [headerSlot, setHeaderSlot] = useState<HTMLElement | null>(null);
+  // Details in the large full-screen view instead of the side panel (resets with the task).
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+  const expanded = selectedId !== null && expandedId === selectedId;
+  const aside = useRef<HTMLElement | null>(null);
+  const [detailWidth, setDetailWidth] = useDetailWidth(
+    DETAIL_MIN,
+    () => window.innerWidth - DRAWER_WIDTH - LIST_MIN,
+  );
 
   const go = (path: string) => {
     setDrawerOpen(false);
@@ -133,7 +147,13 @@ export function AppShell() {
   };
 
   const detail = selectedId ? (
-    <TaskDetail key={selectedId} taskId={selectedId} onClose={close} />
+    <TaskDetail
+      key={selectedId}
+      taskId={selectedId}
+      onClose={close}
+      expanded={expanded}
+      {...(isPhone ? {} : { onToggleExpanded: () => setExpandedId(expanded ? null : selectedId) })}
+    />
   ) : null;
 
   return (
@@ -196,11 +216,15 @@ export function AppShell() {
               <Outlet />
             </HeaderSlotContext.Provider>
           </Box>
-          {isDesktop && detail && (
+          {isDesktop && detail && !expanded && (
             <Box
               component="aside"
+              ref={aside}
               sx={{
-                width: DETAIL_WIDTH,
+                width:
+                  detailWidth === null
+                    ? DETAIL_WIDTH
+                    : `clamp(${DETAIL_MIN}px, ${detailWidth}px, calc(100vw - ${DRAWER_WIDTH + LIST_MIN}px))`,
                 flexShrink: 0,
                 borderLeft: 1,
                 borderColor: 'divider',
@@ -208,29 +232,44 @@ export function AppShell() {
                 position: 'sticky',
                 top: 64,
                 alignSelf: 'flex-start',
-                maxHeight: 'calc(100dvh - 64px)',
-                overflowY: 'auto',
+                // Full height, so the list and priority bar sits at the bottom.
+                height: 'calc(100dvh - 64px)',
               }}
             >
+              <ResizeHandle
+                current={() => aside.current?.getBoundingClientRect().width ?? DETAIL_MIN}
+                onResize={setDetailWidth}
+                onReset={() => setDetailWidth(null)}
+              />
               {detail}
             </Box>
           )}
         </Box>
 
+        <Dialog
+          open={detail !== null && expanded}
+          onClose={() => setExpandedId(null)}
+          fullWidth
+          maxWidth="md"
+          slotProps={{ paper: { sx: { height: '88dvh', backgroundImage: 'none' } } }}
+        >
+          {expanded && detail}
+        </Dialog>
+
         {!isDesktop && (
           <Drawer
             anchor={isPhone ? 'bottom' : 'right'}
-            open={detail !== null}
+            open={detail !== null && !expanded}
             onClose={close}
             slotProps={{
               paper: {
                 sx: isPhone
                   ? { height: '92dvh', borderTopLeftRadius: 16, borderTopRightRadius: 16 }
-                  : { width: DETAIL_WIDTH },
+                  : { width: 'min(560px, 92vw)' },
               },
             }}
           >
-            {detail}
+            {!expanded && detail}
           </Drawer>
         )}
 
