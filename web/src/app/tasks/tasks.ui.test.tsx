@@ -77,7 +77,8 @@ describe('task details', () => {
         name: 'Today',
       }),
     );
-    await userEvent.type(within(details).getByLabelText('Notes'), 'Front and back');
+    const notes = await within(details).findByRole('textbox', { name: 'Notes' });
+    await userEvent.type(notes, 'Front and back');
     await userEvent.click(within(details).getByLabelText('Title'));
 
     const row = screen.getByRole('button', { name: 'Open Mow the lawn' });
@@ -88,7 +89,9 @@ describe('task details', () => {
       'aria-pressed',
       'true',
     );
-    expect(within(details).getByLabelText('Notes')).toHaveValue('Front and back');
+    expect(within(details).getByRole('textbox', { name: 'Notes' })).toHaveTextContent(
+      'Front and back',
+    );
   });
 
   it("marks won't do, reopens, deletes and closes", async () => {

@@ -95,3 +95,87 @@ export function CalendarNextIcon(props: SvgIconProps) {
     </PunchIcon>
   );
 }
+
+// Text formatting, for the notes toolbar.
+
+/** Bold: a heavy B. */
+export function BoldIcon(props: SvgIconProps) {
+  return (
+    <PunchIcon {...props}>
+      <path
+        strokeWidth={2.4}
+        d="M7.5 5H13a3.5 3.5 0 0 1 0 7H7.5zM7.5 12H14a3.5 3.5 0 0 1 0 7H7.5z"
+      />
+    </PunchIcon>
+  );
+}
+
+/** Italic: a slanted stem between two serifs. */
+export function ItalicIcon(props: SvgIconProps) {
+  return (
+    <PunchIcon {...props}>
+      <path d="M10.5 5H17M7 19h6.5M14 5l-4 14" />
+    </PunchIcon>
+  );
+}
+
+/** Strikethrough: an S crossed by a line. */
+export function StrikeIcon(props: SvgIconProps) {
+  return (
+    <PunchIcon {...props}>
+      <path d="M4 12h16" />
+      <path d="M16.5 7.5C16 6 14.4 5 12 5 9.4 5 7.6 6.3 7.6 8.2c0 1.4.9 2.3 2.4 2.9" />
+      <path d="M15.6 14.4c.6.5.9 1.1.9 1.9 0 1.6-1.9 2.7-4.5 2.7-2.5 0-4.2-.9-4.8-2.5" />
+    </PunchIcon>
+  );
+}
+
+/** Inline code: angle brackets. */
+export function CodeIcon(props: SvgIconProps) {
+  return (
+    <PunchIcon {...props}>
+      <path d="M9 7l-5 5 5 5M15 7l5 5-5 5" />
+    </PunchIcon>
+  );
+}
+
+/** Heading: an H. */
+export function HeadingIcon(props: SvgIconProps) {
+  return (
+    <PunchIcon {...props}>
+      <path d="M6.5 5v14M17.5 5v14M6.5 12h11" />
+    </PunchIcon>
+  );
+}
+
+/** Bulleted list: three dots and three lines. */
+export function BulletListIcon(props: SvgIconProps) {
+  return (
+    <PunchIcon {...props}>
+      <path d="M10 6.5h10M10 12h10M10 17.5h10" />
+      <path strokeWidth={2.6} d="M5 6.5h.01M5 12h.01M5 17.5h.01" />
+    </PunchIcon>
+  );
+}
+
+/** Checklist: a ticked box and an empty one, each with a line. */
+export function ChecklistIcon(props: SvgIconProps) {
+  return (
+    <PunchIcon {...props}>
+      <rect x="3.5" y="4" width="6" height="6" rx="1.5" />
+      <path d="M5 7.1l1.2 1.2 2-2.3" />
+      <rect x="3.5" y="14" width="6" height="6" rx="1.5" />
+      <path d="M13 7h7M13 17h7" />
+    </PunchIcon>
+  );
+}
+
+/** Link: two chain links. */
+export function LinkIcon(props: SvgIconProps) {
+  return (
+    <PunchIcon {...props}>
+      <path d="M10 13.5a4 4 0 0 0 5.7.4l2.9-2.9a4 4 0 0 0-5.7-5.7l-1.1 1.1" />
+      <path d="M14 10.5a4 4 0 0 0-5.7-.4l-2.9 2.9a4 4 0 0 0 5.7 5.7l1.1-1.1" />
+    </PunchIcon>
+  );
+}

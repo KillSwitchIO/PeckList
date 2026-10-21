@@ -33,6 +33,7 @@ import {
 } from '../../core/tasks.ts';
 import type { Priority, Task } from '../../core/types.ts';
 import { DateProperty } from '../dates/DateProperty.tsx';
+import { NotesEditor } from '../editor/NotesEditor.tsx';
 import { listName } from '../lists/listName.ts';
 import { TagsProperty } from '../tags/TagsProperty.tsx';
 import { ParentTrail, SubtaskEditor } from './Subtasks.tsx';
@@ -50,12 +51,10 @@ function CommitField({
   label,
   value,
   onCommit,
-  multiline = false,
 }: {
   label: string;
   value: string;
   onCommit: (value: string) => void;
-  multiline?: boolean;
 }) {
   const [draft, setDraft] = useState(value);
   const [synced, setSynced] = useState(value);
@@ -72,12 +71,10 @@ function CommitField({
       label={label}
       value={draft}
       fullWidth
-      multiline={multiline}
-      minRows={multiline ? 4 : undefined}
       onChange={(event) => setDraft(event.target.value)}
       onBlur={commit}
       onKeyDown={(event) => {
-        if (!multiline && event.key === 'Enter') {
+        if (event.key === 'Enter') {
           event.preventDefault();
           commit();
         }
@@ -345,10 +342,11 @@ export function TaskDetail({ taskId, onClose }: { taskId: string; onClose: () =>
           )}
         </Stack>
         <SubtaskEditor task={task} />
-        <CommitField
+        <NotesEditor
+          key={task.id}
           label={t('task.notes')}
+          placeholder={t('task.notesPlaceholder')}
           value={task.notes}
-          multiline
           onCommit={(notes) => apply((ctx, ws) => updateTask(ctx, ws, task.id, { notes }))}
         />
       </Stack>
