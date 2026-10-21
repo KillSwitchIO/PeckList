@@ -29,6 +29,7 @@ import { t } from '../i18n/i18n.ts';
 import { HeaderSlotContext } from './headerSlot.ts';
 import { SidebarEditProvider } from './sidebarEdit.tsx';
 import { useSidebarEdit } from './sidebarEditContext.ts';
+import { PlusIcon } from '../icons/icons.tsx';
 import { SidebarViews } from './SidebarViews.tsx';
 import { ResizeHandle } from './ResizeHandle.tsx';
 import { useDetailWidth } from './useDetailWidth.ts';
@@ -124,6 +125,15 @@ function SidebarTitle() {
         {t('nav.resetSidebar')}
       </Button>
       <Box sx={{ flexGrow: 1 }} />
+      <Tooltip title={t('filter.new')}>
+        <IconButton
+          size="small"
+          aria-label={t('filter.new')}
+          onClick={() => edit.setCreatingFilter(true)}
+        >
+          <PlusIcon fontSize="small" />
+        </IconButton>
+      </Tooltip>
       <Button size="small" variant="contained" onClick={edit.done}>
         {t('common.done')}
       </Button>

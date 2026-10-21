@@ -11,6 +11,9 @@ interface Gesture {
   touch: boolean;
   timer: ReturnType<typeof setTimeout> | null;
   dragging: boolean;
+  /** The row's section and where it sat when the press began. */
+  section: Element | null;
+  sectionTop: number;
 }
 
 /**
@@ -23,10 +26,13 @@ export function useSortableRows({
   editing,
   start,
   onDrag,
+  onDrop,
 }: {
   editing: boolean;
   start: () => void;
   onDrag: (id: Id, y: number) => void;
+  /** A drag ended (the pointer let go). */
+  onDrop?: (id: Id) => void;
 }) {
   const rows = useRef(new Map<string, HTMLElement>());
   const gesture = useRef<Gesture | null>(null);
@@ -35,6 +41,7 @@ export function useSortableRows({
 
   const end = () => {
     const current = gesture.current;
+    if (current?.dragging) onDrop?.(current.id);
     if (current?.timer) clearTimeout(current.timer);
     gesture.current = null;
     setDragging(null);
@@ -53,6 +60,8 @@ export function useSortableRows({
         y: event.clientY,
         touch: event.pointerType === 'touch',
         dragging: false,
+        section: event.currentTarget.closest('ul'),
+        sectionTop: event.currentTarget.closest('ul')?.getBoundingClientRect().top ?? 0,
         timer: setTimeout(() => {
           current.timer = null;
           swallowClick.current = true;
@@ -78,7 +87,11 @@ export function useSortableRows({
         start();
         setDragging(current.id);
       }
-      onDrag(current.id, event.clientY);
+      // Starting to edit can move this section (rows appear above it). Measure the pointer
+      // against the rows as they were when the press began, so the drop lands where aimed.
+      const shift =
+        (current.section?.getBoundingClientRect().top ?? current.sectionTop) - current.sectionTop;
+      onDrag(current.id, event.clientY + shift);
     },
     onPointerUp: end,
     onPointerCancel: end,
@@ -104,5 +117,8 @@ export function useSortableRows({
       return box !== undefined && box.top + box.height / 2 < y;
     }).length;
 
-  return { rowProps, click, slot, dragging };
+  /** A row's box on screen, if it is showing. */
+  const box = (id: string) => rows.current.get(id)?.getBoundingClientRect();
+
+  return { rowProps, click, slot, box, dragging };
 }

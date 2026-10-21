@@ -197,6 +197,35 @@ export function updateTag(
   return ensureParents(ctx, moved, name, [patch.color ?? tag.color]);
 }
 
+/**
+ * The names tags get when `id` moves under `parentId` (null: the top level), its subtags with
+ * it: a map of id to new name, empty when nothing changes, null when the move can't be made (into
+ * itself, or onto a name another tag has).
+ */
+export function moveTagNames(
+  tags: readonly Pick<Tag, 'id' | 'name'>[],
+  id: Id,
+  parentId: Id | null,
+): Map<Id, string> | null {
+  const byId = new Map(tags.map((tag) => [tag.id, tag]));
+  const tag = byId.get(id);
+  const parent = parentId === null ? null : byId.get(parentId);
+  if (!tag || parent === undefined) return null;
+  if (parent && isUnder(parent.name, tag.name)) return null;
+  const name = (parent ? `${parent.name}/` : '') + leafName(tag.name);
+  if (name.toLowerCase() === tag.name.toLowerCase()) return new Map();
+  const moving = tags.filter((other) => isUnder(other.name, tag.name));
+  const movingIds = new Set(moving.map((other) => other.id));
+  const renamed = new Map(
+    moving.map((other) => [other.id, name + other.name.slice(tag.name.length)]),
+  );
+  const taken = new Set(
+    tags.filter((other) => !movingIds.has(other.id)).map((other) => other.name.toLowerCase()),
+  );
+  for (const next of renamed.values()) if (taken.has(next.toLowerCase())) return null;
+  return renamed;
+}
+
 /** Delete a tag and the tags nested under it, removing them from every task. */
 export function deleteTag(ctx: OpContext, workspace: WorkspaceFile, id: Id): WorkspaceFile {
   const doomed = tagWithDescendants(workspace, id);

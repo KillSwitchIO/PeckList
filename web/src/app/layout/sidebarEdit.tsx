@@ -16,7 +16,7 @@ import {
   setSidebar,
   sidebarOf,
 } from '../../core/sidebar.ts';
-import { reorderTags, tagTree } from '../../core/tags.ts';
+import { reorderTags, tagTree, updateTag } from '../../core/tags.ts';
 import type { SidebarLayout } from '../../core/types.ts';
 import { t } from '../i18n/i18n.ts';
 import { useApply, useWorkspace } from '../store/hooks.ts';
@@ -36,8 +36,14 @@ export function SidebarEditProvider({ children }: { children: ReactNode }) {
     .map((list) => list.id);
   const tags = tagTree(workspace).map((node) => node.tag.id);
   const pinnable = [...lists.map(pinnedListId), ...tags.map(pinnedTagId)];
-  const saved: SidebarDraft = { layout: sidebarOf(workspace, views, pinnable), lists, tags };
+  const saved: SidebarDraft = {
+    layout: sidebarOf(workspace, views, pinnable),
+    lists,
+    tags,
+    tagNames: {},
+  };
   const [draft, setDraft] = useState<SidebarDraft | null>(null);
+  const [creatingFilter, setCreatingFilter] = useState(false);
   const editing = draft !== null;
   // Escape leaves editing without saving (unless a dialog is open, which closes first).
   useEffect(() => {
@@ -65,6 +71,15 @@ export function SidebarEditProvider({ children }: { children: ReactNode }) {
       if (draft) {
         apply((ctx, ws) => {
           let next = setSidebar(ctx, ws, draft.layout);
+          // Moved tags: parents first (renaming a tag renames its subtags too).
+          const depth = (id: string) =>
+            ws.entities.tags.find((tag) => tag.id === id)?.name.split('/').length ?? 0;
+          for (const [id, name] of Object.entries(draft.tagNames).sort(
+            ([a], [b]) => depth(a) - depth(b),
+          )) {
+            const tag = next.entities.tags.find((each) => each.id === id);
+            if (tag && tag.name !== name) next = updateTag(ctx, next, id, { name });
+          }
           if (!same(draft.lists, saved.lists)) next = reorderLists(ctx, next, draft.lists);
           if (!same(draft.tags, saved.tags)) next = reorderTags(ctx, next, draft.tags);
           return next;
@@ -73,6 +88,8 @@ export function SidebarEditProvider({ children }: { children: ReactNode }) {
       setDraft(null);
     },
     saveLayout: (layout: SidebarLayout) => apply((ctx, ws) => setSidebar(ctx, ws, layout)),
+    creatingFilter,
+    setCreatingFilter,
   };
   return <SidebarEditContext.Provider value={value}>{children}</SidebarEditContext.Provider>;
 }

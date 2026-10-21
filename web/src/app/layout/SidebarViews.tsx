@@ -15,7 +15,7 @@ import {
   Typography,
   useTheme,
 } from '@mui/material';
-import { useState, type ReactNode } from 'react';
+import type { ReactNode } from 'react';
 import { useLocation, useNavigate } from 'react-router';
 import { getEntity, isLive } from '../../core/collections.ts';
 import { createSavedFilter, savedFiltersOf } from '../../core/savedFilters.ts';
@@ -35,7 +35,6 @@ import {
   EyeOffIcon,
   FilterIcon,
   PinOffIcon,
-  PlusIcon,
 } from '../icons/icons.tsx';
 import { FilterDialog } from '../filters/FilterDialog.tsx';
 import { listName } from '../lists/listName.ts';
@@ -93,7 +92,6 @@ export function SidebarViews({
   const edit = useSidebarEdit();
   const { editing } = edit;
   const layout = edit.current.layout;
-  const [creating, setCreating] = useState(false);
 
   // Built-in views, saved filters, then pinned lists and tags.
   const items: Record<string, ViewItem> = {};
@@ -163,7 +161,7 @@ export function SidebarViews({
 
   const groupAt = layout.order.indexOf(GROUP);
   const grouped = layout.order.slice(groupAt + 1);
-  const groupOpen = editing || layout.groupOpen;
+  const groupOpen = layout.groupOpen;
 
   const row = (item: ViewItem, id: string, index: number) => {
     const hidden = layout.hidden.includes(id);
@@ -239,14 +237,18 @@ export function SidebarViews({
                 key={GROUP}
                 ref={sortable.rowProps(GROUP).ref}
                 aria-expanded={groupOpen}
-                disabled={editing}
-                onClick={() => edit.saveLayout({ ...layout, groupOpen: !layout.groupOpen })}
+                onClick={() =>
+                  editing
+                    ? edit.update((draft) => ({
+                        ...draft,
+                        layout: { ...draft.layout, groupOpen: !draft.layout.groupOpen },
+                      }))
+                    : edit.saveLayout({ ...layout, groupOpen: !layout.groupOpen })
+                }
                 sx={{
                   py: 0.25,
                   minHeight: 32,
                   color: 'text.secondary',
-                  '&.Mui-disabled': { opacity: 1 },
-                  ...(editing && { borderTop: 1, borderColor: 'divider', mt: 0.5 }),
                 }}
               >
                 <ListItemIcon sx={{ minWidth: 40, color: 'inherit' }}>
@@ -271,18 +273,10 @@ export function SidebarViews({
           const item = items[id];
           return item ? row(item, id, index) : null;
         })}
-        {editing && (
-          <ListItemButton onClick={() => setCreating(true)} sx={{ color: 'text.secondary' }}>
-            <ListItemIcon sx={{ minWidth: 40, color: 'inherit' }}>
-              <PlusIcon fontSize="small" />
-            </ListItemIcon>
-            <ListItemText primary={t('filter.new')} />
-          </ListItemButton>
-        )}
       </List>
-      {creating && (
+      {edit.creatingFilter && (
         <FilterDialog
-          onClose={() => setCreating(false)}
+          onClose={() => edit.setCreatingFilter(false)}
           onSave={(name, filter) => {
             let id = '';
             apply((ctx, ws) => {
@@ -290,7 +284,7 @@ export function SidebarViews({
               id = made.filter.id;
               return made.workspace;
             }, t('undo.filterCreated'));
-            setCreating(false);
+            edit.setCreatingFilter(false);
             // The new filter joins the layout being edited, above the group.
             edit.update((draft) => {
               const order = [...draft.layout.order];

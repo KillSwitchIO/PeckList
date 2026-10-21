@@ -8,6 +8,8 @@ export interface SidebarDraft {
   lists: Id[];
   /** Tag ids in order (only the order among siblings matters). */
   tags: Id[];
+  /** New names of tags moved under another parent (their subtags included). */
+  tagNames: Record<Id, string>;
 }
 
 export interface SidebarEdit {
@@ -23,6 +25,9 @@ export interface SidebarEdit {
   done: () => void;
   /** Save a layout change right away (opening or closing the More group). */
   saveLayout: (layout: SidebarLayout) => void;
+  /** The New filter dialog (opened from the edit bar). */
+  creatingFilter: boolean;
+  setCreatingFilter: (open: boolean) => void;
 }
 
 export const SidebarEditContext = createContext<SidebarEdit | null>(null);
