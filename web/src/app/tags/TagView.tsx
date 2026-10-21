@@ -6,7 +6,6 @@ import { useState } from 'react';
 import { useNavigate, useParams } from 'react-router';
 import { getEntity, isLive } from '../../core/collections.ts';
 import { inboxList } from '../../core/lists.ts';
-import { completedTagTasks, tagTasks } from '../../core/queries.ts';
 import { deleteTag, leafName, updateTag } from '../../core/tags.ts';
 import type { Tag } from '../../core/types.ts';
 import { t } from '../i18n/i18n.ts';
@@ -14,9 +13,8 @@ import { Page } from '../layout/Page.tsx';
 import { ConfirmDialog } from '../lists/ListDialog.tsx';
 import { useApply, useWorkspace } from '../store/hooks.ts';
 import { AddTaskInput } from '../tasks/AddTaskInput.tsx';
-import { TaskTree } from '../tasks/TaskTree.tsx';
 import { EmptyState } from '../views/EmptyState.tsx';
-import { CompletedGroup } from '../views/TaskViews.tsx';
+import { DateGroupedTasks } from '../views/groups.tsx';
 import { TagDialog } from './TagDialog.tsx';
 
 function TagMenu({ tag }: { tag: Tag }) {
@@ -85,8 +83,6 @@ function TagMenu({ tag }: { tag: Tag }) {
 /** Every open task carrying the tag or one nested under it, across lists. */
 function TagContents({ tag }: { tag: Tag }) {
   const workspace = useWorkspace();
-  const tasks = tagTasks(workspace, tag.id);
-  const completed = completedTagTasks(workspace, tag.id);
   const name = leafName(tag.name);
   return (
     <Page title={name} actions={<TagMenu tag={tag} />}>
@@ -94,9 +90,7 @@ function TagContents({ tag }: { tag: Tag }) {
         defaults={{ listId: inboxList(workspace).id, tags: [tag.id] }}
         label={t('tag.addTo', { tag: name })}
       />
-      {tasks.length === 0 && completed.length === 0 && <EmptyState title={t('tag.empty')} />}
-      <TaskTree tasks={tasks} showList />
-      <CompletedGroup tasks={completed} showList defaultOpen={false} />
+      <DateGroupedTasks filter={{ tags: [tag.id] }} showList emptyTitle={t('tag.empty')} />
     </Page>
   );
 }

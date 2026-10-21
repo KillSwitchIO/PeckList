@@ -1,20 +1,18 @@
 import DeleteOutlineRounded from '@mui/icons-material/DeleteOutlineRounded';
 import RestoreRounded from '@mui/icons-material/RestoreRounded';
 import { Button, List, ListItem, ListItemText, Typography } from '@mui/material';
-import { useState } from 'react';
 import { getEntity } from '../../core/collections.ts';
 import { localTimeZone } from '../../core/dates.ts';
 import { inboxList } from '../../core/lists.ts';
 import {
   completedOn,
   completedTasks,
-  startDate,
   todayGroups,
   trashedTasks,
   upcomingTasks,
 } from '../../core/queries.ts';
-import { rescheduleTo, restoreTask } from '../../core/tasks.ts';
-import type { Task } from '../../core/types.ts';
+import { ALL_TASKS } from '../../core/filters.ts';
+import { restoreTask } from '../../core/tasks.ts';
 import { formatDay } from '../format.ts';
 import { useNow, useToday } from '../hooks/useToday.ts';
 import { t } from '../i18n/i18n.ts';
@@ -26,54 +24,12 @@ import { TaskRows } from '../tasks/TaskRow.tsx';
 import { TaskTree } from '../tasks/TaskTree.tsx';
 import { EmptyState } from './EmptyState.tsx';
 import { GroupSection } from './GroupSection.tsx';
-
-/** Long weekday name of a local date, e.g. "Tuesday". */
-function weekdayName(date: string): string {
-  const [y, m, d] = date.split('-').map(Number) as [number, number, number];
-  return new Intl.DateTimeFormat(undefined, { weekday: 'long', timeZone: 'UTC' }).format(
-    new Date(Date.UTC(y, m - 1, d, 12)),
-  );
-}
-
-const COMPLETED_PREVIEW = 5;
-
-/** In date views a subtask with its own start date sits on that date, not under its parent. */
-const hasOwnDate = (task: Task) => startDate(task) !== null;
-
-/** Completed group: the first few tasks, then "View more". */
-export function CompletedGroup({
-  tasks,
-  showList,
-  defaultOpen = true,
-}: {
-  tasks: Task[];
-  showList?: boolean;
-  defaultOpen?: boolean;
-}) {
-  const [all, setAll] = useState(false);
-  if (tasks.length === 0) return null;
-  const shown = all ? tasks : tasks.slice(0, COMPLETED_PREVIEW);
-  return (
-    <GroupSection title={t('group.completed')} count={tasks.length} defaultOpen={defaultOpen}>
-      <TaskRows tasks={shown} {...(showList === undefined ? {} : { showList })} />
-      {!all && tasks.length > COMPLETED_PREVIEW && (
-        <Button
-          size="small"
-          color="inherit"
-          sx={{ mt: 0.5, color: 'text.secondary' }}
-          onClick={() => setAll(true)}
-        >
-          {t('group.viewMore')}
-        </Button>
-      )}
-    </GroupSection>
-  );
-}
+import { dayTitle, hasOwnDate, weekdayName } from './dayLabels.ts';
+import { CompletedGroup, DateGroupedTasks, PostponeButton } from './groups.tsx';
 
 /** Overdue (with Postpone) and today's groups, shared by Today and Next 7 days. */
 function OverdueAndToday({ today }: { today: string }) {
   const workspace = useWorkspace();
-  const apply = useApply();
   const groups = todayGroups(workspace, today);
   return (
     <>
@@ -81,25 +37,7 @@ function OverdueAndToday({ today }: { today: string }) {
         <GroupSection
           title={t('group.overdue')}
           count={groups.overdue.length}
-          actions={
-            <Button
-              size="small"
-              onClick={() =>
-                apply(
-                  (ctx, ws) =>
-                    rescheduleTo(
-                      ctx,
-                      ws,
-                      groups.overdue.map((task) => task.id),
-                      today,
-                    ),
-                  t('undo.postponed'),
-                )
-              }
-            >
-              {t('group.postpone')}
-            </Button>
-          }
+          actions={<PostponeButton tasks={groups.overdue} today={today} />}
         >
           <TaskTree tasks={groups.overdue} showList ownPlace={hasOwnDate} />
         </GroupSection>
@@ -160,12 +98,23 @@ export function UpcomingView() {
       {groups.map((group) => (
         <GroupSection
           key={group.date}
-          title={`${weekdayName(group.date)}, ${formatDay(group.date, today)}`}
+          title={dayTitle(group.date, today)}
           count={group.tasks.length}
         >
           <TaskTree tasks={group.tasks} showList ownPlace={hasOwnDate} />
         </GroupSection>
       ))}
+    </Page>
+  );
+}
+
+/** All: no filter at all. Every open task in date groups, then Completed. */
+export function AllView() {
+  const workspace = useWorkspace();
+  return (
+    <Page title={t('nav.all')}>
+      <AddTaskInput defaults={{ listId: inboxList(workspace).id }} />
+      <DateGroupedTasks filter={ALL_TASKS} showList emptyTitle={t('all.empty')} />
     </Page>
   );
 }

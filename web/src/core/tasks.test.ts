@@ -7,6 +7,7 @@ import { subtaskTree, todayTasks } from './queries.ts';
 import {
   ancestors,
   canIndent,
+  canNestUnder,
   createTask,
   deleteTask,
   descendants,
@@ -14,6 +15,7 @@ import {
   indentTask,
   MAX_SUBTASK_DEPTH,
   moveTask,
+  nestUnder,
   outdentTask,
   rescheduleTo,
   restoreTask,
@@ -377,5 +379,36 @@ describe('subtask inheritance and detaching', () => {
     s.ws = detachTask(s.ctx, s.ws, deep.id);
     expect(titles(siblings(s.ws, s.inbox, null, null))).toEqual(['top', 'deep', 'next']);
     expect(detachTask(s.ctx, s.ws, top.id)).toBe(s.ws);
+  });
+});
+
+describe('nesting any task under another', () => {
+  it('moves a task with its subtasks under another task, in that task list', () => {
+    const s = setup();
+    const target = s.add('target', { tags: ['home'] });
+    const other = s.add('other');
+    const child = s.add('child', { parentId: other.id });
+    expect(canNestUnder(s.ws, other.id, target.id)).toBe(true);
+    s.ws = nestUnder(s.ctx, s.ws, other.id, target.id);
+    expect(getEntity(s.ws, 'tasks', other.id)).toMatchObject({ parentId: target.id });
+    expect(members(getEntity(s.ws, 'tasks', child.id)!.tags)).toEqual(['home']);
+  });
+
+  it('refuses itself, its own subtasks, its current parent, closed tasks and too deep', () => {
+    const s = setup();
+    const a = s.add('a');
+    const b = s.add('b', { parentId: a.id });
+    const done = s.add('done');
+    s.ws = setTaskStatus(s.ctx, s.ws, done.id, 'done');
+    expect(canNestUnder(s.ws, a.id, a.id)).toBe(false);
+    expect(canNestUnder(s.ws, a.id, b.id)).toBe(false);
+    expect(canNestUnder(s.ws, b.id, a.id)).toBe(false);
+    expect(canNestUnder(s.ws, a.id, done.id)).toBe(false);
+    let deepest = s.add('top');
+    for (let level = 1; level <= MAX_SUBTASK_DEPTH; level += 1) {
+      deepest = s.add(`level ${level}`, { parentId: deepest.id });
+    }
+    expect(canNestUnder(s.ws, a.id, deepest.id)).toBe(false);
+    expect(() => nestUnder(s.ctx, s.ws, a.id, a.id)).toThrow('cannot nest');
   });
 });

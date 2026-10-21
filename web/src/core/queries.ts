@@ -1,13 +1,25 @@
 // Read-side queries: smart views, list contents, date states.
 
 import { isLive } from './collections.ts';
-import { addDays, datePart, daysBetween, todayIn } from './dates.ts';
-import { members } from './ops.ts';
+import { datePart, daysBetween, todayIn } from './dates.ts';
+import {
+  ALL_TASKS,
+  compileFilter,
+  filterClosedTasks,
+  filterTasks,
+  groupByDay,
+  startDate,
+  type TaskFilter,
+} from './filters.ts';
 import { compareOrderKeys } from './ordering.ts';
-import { tagWithDescendants, visibleTags } from './tags.ts';
+import { visibleTags } from './tags.ts';
 import type { Id, Task, WorkspaceFile } from './types.ts';
 
 export const TRASH_DAYS = 30;
+
+/** Built-in date views. Neither shows undated tasks. */
+export const TODAY_FILTER: TaskFilter = { start: { to: 0 } };
+export const NEXT_7_DAYS_FILTER: TaskFilter = { start: { to: 7 } };
 
 export type DateState = 'late' | 'slipped' | 'dueSoon' | 'normal' | 'none';
 
@@ -24,13 +36,9 @@ export function dateState(task: Task, today: string, dueSoonDays: number): DateS
   return 'normal';
 }
 
-/**
- * The date a task belongs to in lists and smart views: its start date. Due dates are shown in
- * the task details and on the calendar, not in lists (Ben, 2026-10-20).
- */
-export function startDate(task: Task): string | null {
-  return task.schedule ? datePart(task.schedule.start) : null;
-}
+// The date a task belongs to in views is its start date (filters.ts); due dates show in the
+// task details and on the calendar, not in lists (Ben, 2026-10-20).
+export { startDate } from './filters.ts';
 
 /** Whether the start date shown on a row is overdue, today, later, or absent. */
 export function startState(task: Task, today: string): 'overdue' | 'today' | 'later' | 'none' {
@@ -51,55 +59,9 @@ function openTopLevel(workspace: WorkspaceFile): Task[] {
   );
 }
 
-/**
- * Open tasks at any level. Date and tag views use these: a subtask with its own date or tag
- * shows up there by itself (the row names its parent).
- */
-function openAnyLevel(workspace: WorkspaceFile): Task[] {
-  const liveLists = new Set(workspace.entities.lists.filter(isLive).map((list) => list.id));
-  return workspace.entities.tasks.filter(
-    (task) => isLive(task) && task.status === 'open' && liveLists.has(task.listId),
-  );
-}
-
-/**
- * By start (date, then time; all-day before timed), then priority, then manual order in the
- * task tree (a parent before its subtasks, subtasks in their own order).
- */
-function byDateThenOrder(workspace: WorkspaceFile): (a: Task, b: Task) => number {
-  const byId = new Map(workspace.entities.tasks.map((task) => [task.id, task]));
-  const paths = new Map<Id, string[]>();
-  const path = (task: Task): string[] => {
-    const known = paths.get(task.id);
-    if (known) return known;
-    const parent = task.parentId ? byId.get(task.parentId) : undefined;
-    const result = [...(parent ? path(parent) : []), task.order];
-    paths.set(task.id, result);
-    return result;
-  };
-  return (a, b) => {
-    const left = a.schedule?.start ?? '9999-99-99';
-    const right = b.schedule?.start ?? '9999-99-99';
-    if (left !== right) return left < right ? -1 : 1;
-    if (a.priority !== b.priority) return b.priority - a.priority;
-    const x = path(a);
-    const y = path(b);
-    for (let i = 0; i < Math.min(x.length, y.length); i += 1) {
-      const order = compareOrderKeys(x[i]!, y[i]!);
-      if (order !== 0) return order;
-    }
-    return x.length - y.length;
-  };
-}
-
 /** Open tasks starting today or earlier (overdue included). */
 export function todayTasks(workspace: WorkspaceFile, today: string): Task[] {
-  return openAnyLevel(workspace)
-    .filter((task) => {
-      const date = startDate(task);
-      return date !== null && date <= today;
-    })
-    .sort(byDateThenOrder(workspace));
+  return filterTasks(workspace, TODAY_FILTER, today);
 }
 
 /** Today view groups: overdue (started before today) and today. */
@@ -130,15 +92,7 @@ export function upcomingTasks(
   today: string,
   days = 7,
 ): { date: string; tasks: Task[] }[] {
-  const last = addDays(today, days);
-  const groups = new Map<string, Task[]>();
-  for (const task of openAnyLevel(workspace).sort(byDateThenOrder(workspace))) {
-    const date = startDate(task);
-    if (date && date > today && date <= last) {
-      groups.set(date, [...(groups.get(date) ?? []), task]);
-    }
-  }
-  return [...groups.entries()].map(([date, tasks]) => ({ date, tasks }));
+  return groupByDay(filterTasks(workspace, { start: { from: 1, to: days } }, today));
 }
 
 /** Open top-level tasks of a list, grouped by section (null section first). */
@@ -209,36 +163,24 @@ export function openCounts(workspace: WorkspaceFile): Map<Id, number> {
   return counts;
 }
 
-/** Ids of a tag and the tags nested under it: a parent tag's view includes its children. */
-function tagScope(workspace: WorkspaceFile, tagId: Id): Set<Id> {
-  return new Set(tagWithDescendants(workspace, tagId).map((tag) => tag.id));
-}
-
-function hasAnyTag(task: Task, ids: Set<Id>): boolean {
-  return members(task.tags).some((id) => ids.has(id));
-}
-
 /** Open tasks (any level) carrying a tag or one nested under it, by start date. */
 export function tagTasks(workspace: WorkspaceFile, tagId: Id): Task[] {
-  const ids = tagScope(workspace, tagId);
-  return openAnyLevel(workspace)
-    .filter((task) => hasAnyTag(task, ids))
-    .sort(byDateThenOrder(workspace));
+  // `today` only matters for start windows, which a tag filter has none of.
+  return filterTasks(workspace, { tags: [tagId] }, '');
 }
 
-/** Completed tasks (any level) carrying a tag or one nested under it, most recent first. */
+/** Closed tasks carrying a tag or one nested under it, most recent first (see filterClosedTasks). */
 export function completedTagTasks(workspace: WorkspaceFile, tagId: Id): Task[] {
-  const ids = tagScope(workspace, tagId);
-  return completedTasks(workspace).filter((task) => hasAnyTag(task, ids));
+  return filterClosedTasks(workspace, { tags: [tagId] }, '');
 }
 
 /** Open task count per tag, nested tags and subtasks included (matches the tag's view). */
 export function openTagCounts(workspace: WorkspaceFile): Map<Id, number> {
   const counts = new Map<Id, number>();
-  const tasks = openAnyLevel(workspace);
+  const open = filterTasks(workspace, ALL_TASKS, '');
   for (const tag of visibleTags(workspace)) {
-    const ids = tagScope(workspace, tag.id);
-    counts.set(tag.id, tasks.filter((task) => hasAnyTag(task, ids)).length);
+    const matches = compileFilter(workspace, { tags: [tag.id] }, '');
+    counts.set(tag.id, open.filter(matches).length);
   }
   return counts;
 }

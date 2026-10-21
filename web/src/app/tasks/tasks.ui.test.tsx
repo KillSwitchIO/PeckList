@@ -31,17 +31,21 @@ describe('tasks in a list', () => {
     await renderApp('/inbox');
     await addTasks('Mow the lawn');
     await userEvent.click(screen.getByRole('checkbox', { name: 'Complete Mow the lawn' }));
-    expect(screen.queryByRole('button', { name: 'Open Mow the lawn' })).not.toBeInTheDocument();
+    // It moves down to Completed.
+    expect(screen.queryByRole('checkbox', { name: 'Complete Mow the lawn' })).toBeNull();
+    expect(screen.getByRole('checkbox', { name: 'Reopen Mow the lawn' })).toBeInTheDocument();
     expect(screen.getByText('Task completed')).toBeInTheDocument();
     await userEvent.click(screen.getByRole('button', { name: 'Undo' }));
-    expect(await screen.findByRole('button', { name: 'Open Mow the lawn' })).toBeInTheDocument();
+    expect(
+      await screen.findByRole('checkbox', { name: 'Complete Mow the lawn' }),
+    ).toBeInTheDocument();
   });
 
-  it('shows completed tasks on request and can reopen them', async () => {
+  it('shows completed tasks in a Completed group and can reopen them', async () => {
     await renderApp('/inbox');
     await addTasks('Mow the lawn');
     await userEvent.click(screen.getByRole('checkbox', { name: 'Complete Mow the lawn' }));
-    await userEvent.click(screen.getByRole('button', { name: 'Completed 1' }));
+    expect(screen.getByRole('button', { name: 'Completed 1' })).toBeInTheDocument();
     await userEvent.click(screen.getByRole('checkbox', { name: 'Reopen Mow the lawn' }));
     await waitFor(() =>
       expect(screen.queryByRole('button', { name: /^Completed \d/ })).not.toBeInTheDocument(),

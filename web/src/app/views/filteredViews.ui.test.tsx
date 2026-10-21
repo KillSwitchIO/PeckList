@@ -1,0 +1,143 @@
+import { fireEvent, screen, waitFor, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { addDays, localTimeZone, todayIn } from '../../core/dates.ts';
+import { createList, inboxList } from '../../core/lists.ts';
+import { createTag } from '../../core/tags.ts';
+import { createTask, setTaskStatus } from '../../core/tasks.ts';
+import type { Schedule } from '../../core/types.ts';
+import { mockViewport, renderApp, testStore } from '../../test/renderApp.tsx';
+
+beforeEach(() => {
+  localStorage.clear();
+  vi.unstubAllGlobals();
+  mockViewport('desktop');
+});
+
+const today = () => todayIn(localTimeZone(), Date.now());
+const on = (date: string): Schedule => ({ start: date, end: null, allDay: true, timeZone: 'UTC' });
+
+/**
+ * Mess Drawer: overdue, today, tomorrow, in 4 days, in 30 days, undated, 6 completed.
+ * List "Work": one undated task. Tag "home" on "today" and "undated".
+ */
+async function renderSeeded(path: string) {
+  const store = testStore();
+  const result = await renderApp(path, store);
+  const day = today();
+  store.getState().apply((ctx, ws) => {
+    const inbox = inboxList(ws).id;
+    const work = createList(ctx, ws, { name: 'Work', color: '#A7C7E7' });
+    const tag = createTag(ctx, work.workspace, 'home', '#A8DCC0');
+    let next = tag.workspace;
+    const add = (title: string, extra: Partial<Parameters<typeof createTask>[2]> = {}) => {
+      const created = createTask(ctx, next, { title, listId: inbox, ...extra });
+      next = created.workspace;
+      return created.task;
+    };
+    add('overdue', { schedule: on(addDays(day, -2)) });
+    add('today', { schedule: on(day), tags: [tag.tag.id] });
+    add('tomorrow', { schedule: on(addDays(day, 1)) });
+    add('in four days', { schedule: on(addDays(day, 4)) });
+    add('next month', { schedule: on(addDays(day, 30)) });
+    add('undated', { tags: [tag.tag.id] });
+    add('work thing', { listId: work.list.id });
+    for (let i = 1; i <= 6; i += 1) {
+      const done = add(`done ${i}`);
+      next = setTaskStatus(ctx, next, done.id, 'done');
+    }
+    return next;
+  });
+  await waitFor(() =>
+    expect(screen.getAllByRole('heading', { level: 2 }).length).toBeGreaterThan(0),
+  );
+  return result;
+}
+
+const groupHeadings = () =>
+  screen.getAllByRole('heading', { level: 2 }).map((heading) => heading.textContent);
+
+describe('date-grouped views', () => {
+  it('All shows every open task in date groups, then Completed with View more', async () => {
+    await renderSeeded('/all');
+    await screen.findByRole('button', { name: 'Open work thing' });
+    const headings = groupHeadings();
+    expect(headings[0]).toMatch(/^Overdue/);
+    expect(headings[1]).toMatch(/Today/);
+    expect(headings[2]).toMatch(/Tomorrow/);
+    expect(headings.slice(3)).toEqual(['Next 7 days1', 'Later1', 'No date2', 'Completed6']);
+    // Only the last five completed, then View more.
+    expect(screen.getAllByRole('checkbox', { name: /^Reopen done/ })).toHaveLength(5);
+    await userEvent.click(screen.getByRole('button', { name: 'View more' }));
+    expect(screen.getAllByRole('checkbox', { name: /^Reopen done/ })).toHaveLength(6);
+  });
+
+  it('a list shows only its own tasks, grouped by date with No date', async () => {
+    await renderSeeded('/inbox');
+    await screen.findByRole('button', { name: 'Open undated' });
+    expect(screen.queryByRole('button', { name: 'Open work thing' })).toBeNull();
+    expect(groupHeadings()).toContain('No date1');
+  });
+
+  it('a tag shows its tasks grouped by date', async () => {
+    await renderSeeded('/today');
+    await userEvent.click(within(screen.getByRole('list', { name: 'Tags' })).getByText('home'));
+    await screen.findByRole('heading', { level: 1, name: 'home' });
+    const headings = groupHeadings();
+    expect(headings[0]).toMatch(/Today1$/);
+    expect(headings[1]).toBe('No date1');
+  });
+
+  it('Today and Next 7 days leave undated tasks out', async () => {
+    await renderSeeded('/upcoming');
+    await screen.findByRole('button', { name: 'Open in four days' });
+    expect(screen.queryByRole('button', { name: 'Open undated' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Open next month' })).toBeNull();
+  });
+
+  it('a list can switch to section grouping, and adding a section switches to it', async () => {
+    await renderSeeded('/inbox');
+    await screen.findByRole('button', { name: 'Open undated' });
+    await userEvent.click(screen.getByRole('button', { name: 'More actions' }));
+    await userEvent.click(screen.getByRole('menuitem', { name: 'Group by section' }));
+    expect(groupHeadings()).not.toContain('No date1');
+    expect(groupHeadings()).toContain('Completed6');
+    await userEvent.click(screen.getByRole('button', { name: 'More actions' }));
+    await userEvent.click(screen.getByRole('menuitem', { name: 'Group by date' }));
+    expect(groupHeadings()).toContain('No date1');
+  });
+});
+
+describe('task menu', () => {
+  it('makes a task a subtask of another from the right-click menu', async () => {
+    await renderSeeded('/inbox');
+    const row = await screen.findByRole('button', { name: 'Open tomorrow' });
+    fireEvent.contextMenu(row);
+    await userEvent.click(screen.getByRole('menuitem', { name: 'Make subtask of...' }));
+    const dialog = screen.getByRole('dialog', { name: 'Make "tomorrow" a subtask of' });
+    await userEvent.type(within(dialog).getByRole('textbox', { name: 'Search tasks' }), 'undat');
+    await userEvent.click(within(dialog).getByRole('button', { name: /^undated/ }));
+    expect(screen.getByText('Moved under undated')).toBeInTheDocument();
+    // tomorrow keeps its own date, so it stays in Tomorrow and names its parent.
+    const moved = screen.getByRole('button', { name: 'Open tomorrow' });
+    expect(within(moved).getByTestId('task-meta')).toHaveTextContent('undated');
+  });
+
+  it('offers the same actions from the details panel', async () => {
+    await renderSeeded('/inbox');
+    await userEvent.click(await screen.findByRole('button', { name: 'Open next month' }));
+    const details = await screen.findByRole('region', { name: 'Task details' });
+    await userEvent.click(within(details).getByRole('button', { name: 'Task actions' }));
+    await userEvent.click(screen.getByRole('menuitem', { name: 'Make subtask of...' }));
+    const dialog = screen.getByRole('dialog', { name: 'Make "next month" a subtask of' });
+    await userEvent.type(
+      within(dialog).getByRole('textbox', { name: 'Search tasks' }),
+      'undated{Enter}',
+    );
+    await waitFor(() =>
+      expect(within(details).getByRole('navigation', { name: 'Parent tasks' })).toHaveTextContent(
+        'undated',
+      ),
+    );
+  });
+});

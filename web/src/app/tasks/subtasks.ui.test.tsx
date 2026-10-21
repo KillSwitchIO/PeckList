@@ -65,10 +65,11 @@ describe('subtasks in a list', () => {
     expect(rowTitles()).toEqual(['Open Plan trip', 'Open Book flights', 'Open Pack']);
   });
 
-  it('hides a completed subtask from the list and counts it on the parent', async () => {
+  it('moves a completed subtask to Completed and counts it on the parent', async () => {
     await renderTree();
     await userEvent.click(screen.getByRole('checkbox', { name: 'Complete Pack' }));
-    expect(rowTitles()).not.toContain('Open Pack');
+    expect(screen.queryByRole('checkbox', { name: 'Complete Pack' })).toBeNull();
+    expect(screen.getByRole('checkbox', { name: 'Reopen Pack' })).toBeInTheDocument();
     expect(within(screen.getByRole('button', { name: 'Open Plan trip' })).getByText('1/2'));
   });
 });

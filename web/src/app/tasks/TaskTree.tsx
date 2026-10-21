@@ -99,6 +99,7 @@ export function TaskTree({
             depth={row.depth}
             // Nested rows sit under their parent already; only roots say where they live.
             showList={showList && row.depth === 0}
+            showParent={row.depth === 0}
             {...(row.hasChildren
               ? {
                   expander: {

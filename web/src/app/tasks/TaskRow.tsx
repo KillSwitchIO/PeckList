@@ -3,6 +3,7 @@ import ChecklistRounded from '@mui/icons-material/ChecklistRounded';
 import ChevronRightRounded from '@mui/icons-material/ChevronRightRounded';
 import SubdirectoryArrowRightRounded from '@mui/icons-material/SubdirectoryArrowRightRounded';
 import { Box, ButtonBase, IconButton, Typography, useMediaQuery, useTheme } from '@mui/material';
+import { useState } from 'react';
 import { getEntity } from '../../core/collections.ts';
 import { startState, subtaskProgress } from '../../core/queries.ts';
 import { tagsOfTask } from '../../core/tags.ts';
@@ -15,6 +16,7 @@ import { listName } from '../lists/listName.ts';
 import { useApply, useWorkspace } from '../store/hooks.ts';
 import { TagChips } from '../tags/TagChip.tsx';
 import { useTaskSelection } from './selection.ts';
+import { TaskMenu, type TaskMenuAnchor } from './TaskMenu.tsx';
 
 const PRIORITY_KEY = { 0: 'none', 1: 'low', 2: 'medium', 3: 'high' } as const satisfies Record<
   Priority,
@@ -75,12 +77,15 @@ export interface RowExpander {
 export function TaskRow({
   task,
   showList = false,
+  showParent = true,
   depth = 0,
   expander,
 }: {
   task: Task;
-  /** Show where the task lives: its list, or its parent task for a subtask */
+  /** Show the task's list (views that mix lists) */
   showList?: boolean;
+  /** Name the parent of a subtask (off for rows nested under that parent) */
+  showParent?: boolean;
   /** Subtask level in a list tree (indents the row) */
   depth?: number;
   /** Chevron to show or hide this task's subtasks */
@@ -98,6 +103,7 @@ export function TaskRow({
   const done = task.status !== 'open';
   const title = task.title || t('task.untitled');
   const selected = selectedId === task.id;
+  const [menu, setMenu] = useState<TaskMenuAnchor | null>(null);
 
   const start = task.schedule?.start;
   const dateText = start ? formatWhen(start, today) : null;
@@ -110,6 +116,10 @@ export function TaskRow({
 
   return (
     <Box
+      onContextMenu={(event) => {
+        event.preventDefault();
+        setMenu({ position: { top: event.clientY, left: event.clientX } });
+      }}
       sx={{
         position: 'relative',
         display: 'flex',
@@ -207,8 +217,8 @@ export function TaskRow({
               {t('task.subtasks', { done: progress.done, total: progress.total })}
             </Box>
           )}
-          {/* A subtask on its own (date and tag views) names its parent. */}
-          {showList && parent && (
+          {/* A subtask shown away from its parent names it. */}
+          {showParent && parent && (
             <Box
               component="span"
               title={t('task.subtaskOf', { title: parent.title || t('task.untitled') })}
@@ -230,7 +240,7 @@ export function TaskRow({
             </Box>
           )}
           {/* The Mess Drawer is "no list", so its tasks show none. */}
-          {showList && !parent && list && !list.isInbox && (
+          {showList && !(showParent && parent) && list && !list.isInbox && (
             <Box component="span" sx={{ color: 'text.secondary' }}>
               {listName(list)}
             </Box>
@@ -252,6 +262,7 @@ export function TaskRow({
           </Box>
         </Box>
       </ButtonBase>
+      <TaskMenu task={task} anchor={menu} onClose={() => setMenu(null)} showOpen />
     </Box>
   );
 }

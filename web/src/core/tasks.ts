@@ -124,6 +124,29 @@ export function indentTask(ctx: OpContext, workspace: WorkspaceFile, id: Id): Wo
   return moveTask(ctx, workspace, id, { listId: task.listId, parentId: above.id });
 }
 
+/** Whether a task (with its subtasks) can become a subtask of `parentId`. */
+export function canNestUnder(workspace: WorkspaceFile, id: Id, parentId: Id): boolean {
+  if (id === parentId) return false;
+  const parent = getEntity(workspace, 'tasks', parentId);
+  const task = getEntity(workspace, 'tasks', id);
+  if (!parent || !task || !isLive(parent) || parent.status !== 'open') return false;
+  if (task.parentId === parentId) return false;
+  if (descendants(workspace, id).some((child) => child.id === parentId)) return false;
+  return taskDepth(workspace, parentId) + 1 + subtreeHeight(workspace, id) <= MAX_SUBTASK_DEPTH;
+}
+
+/** Make a task (with its subtasks) the last subtask of another task, in that task's list. */
+export function nestUnder(
+  ctx: OpContext,
+  workspace: WorkspaceFile,
+  id: Id,
+  parentId: Id,
+): WorkspaceFile {
+  if (!canNestUnder(workspace, id, parentId)) throw new Error('cannot nest the task there');
+  const parent = requireEntity(workspace, 'tasks', parentId);
+  return moveTask(ctx, workspace, id, { listId: parent.listId, parentId });
+}
+
 /** Take a subtask out of its parents: it becomes a top-level task right after its old top task. */
 export function detachTask(ctx: OpContext, workspace: WorkspaceFile, id: Id): WorkspaceFile {
   requireEntity(workspace, 'tasks', id);

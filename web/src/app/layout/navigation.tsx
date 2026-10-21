@@ -2,6 +2,7 @@ import CalendarMonthRounded from '@mui/icons-material/CalendarMonthRounded';
 import DateRangeRounded from '@mui/icons-material/DateRangeRounded';
 import DeleteOutlineRounded from '@mui/icons-material/DeleteOutlineRounded';
 import InboxRounded from '@mui/icons-material/InboxRounded';
+import LayersRounded from '@mui/icons-material/LayersRounded';
 import MoreHorizRounded from '@mui/icons-material/MoreHorizRounded';
 import SearchRounded from '@mui/icons-material/SearchRounded';
 import SettingsRounded from '@mui/icons-material/SettingsRounded';
@@ -21,6 +22,7 @@ export const SIDEBAR_ITEMS: NavItem[] = [
   { path: '/today', label: 'nav.today', icon: <TodayRounded /> },
   { path: '/inbox', label: 'nav.inbox', icon: <InboxRounded /> },
   { path: '/upcoming', label: 'nav.upcoming', icon: <DateRangeRounded /> },
+  { path: '/all', label: 'nav.all', icon: <LayersRounded /> },
   { path: '/calendar', label: 'nav.calendar', icon: <CalendarMonthRounded /> },
   { path: '/completed', label: 'nav.completed', icon: <TaskAltRounded /> },
   { path: '/trash', label: 'nav.trash', icon: <DeleteOutlineRounded /> },

@@ -3,6 +3,7 @@ import CloseRounded from '@mui/icons-material/CloseRounded';
 import DeleteOutlineRounded from '@mui/icons-material/DeleteOutlineRounded';
 import FlagOutlined from '@mui/icons-material/FlagOutlined';
 import FlagRounded from '@mui/icons-material/FlagRounded';
+import MoreHorizRounded from '@mui/icons-material/MoreHorizRounded';
 import {
   Box,
   Button,
@@ -28,6 +29,7 @@ import { DateProperty } from '../dates/DateProperty.tsx';
 import { listName } from '../lists/listName.ts';
 import { TagsProperty } from '../tags/TagsProperty.tsx';
 import { ParentTrail, SubtaskEditor } from './Subtasks.tsx';
+import { TaskMenu, type TaskMenuAnchor } from './TaskMenu.tsx';
 import { fromDateValue, toDateValue } from '../dates/dateValue.ts';
 import { useToday } from '../hooks/useToday.ts';
 import { t } from '../i18n/i18n.ts';
@@ -118,6 +120,7 @@ export function TaskDetail({ taskId, onClose }: { taskId: string; onClose: () =>
   const today = useToday();
   const theme = useTheme();
   const task = getEntity(workspace, 'tasks', taskId);
+  const [menu, setMenu] = useState<TaskMenuAnchor | null>(null);
 
   if (!task || !isLive(task)) {
     return (
@@ -183,6 +186,15 @@ export function TaskDetail({ taskId, onClose }: { taskId: string; onClose: () =>
           </Button>
         )}
         <Box sx={{ flexGrow: 1 }} />
+        <Tooltip title={t('task.actions')}>
+          <IconButton
+            aria-label={t('task.actions')}
+            onClick={(event) => setMenu({ element: event.currentTarget })}
+          >
+            <MoreHorizRounded />
+          </IconButton>
+        </Tooltip>
+        <TaskMenu task={task} anchor={menu} onClose={() => setMenu(null)} />
         <Tooltip title={t('task.delete')}>
           <IconButton
             aria-label={t('task.delete')}

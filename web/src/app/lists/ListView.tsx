@@ -1,10 +1,13 @@
 import AddRounded from '@mui/icons-material/AddRounded';
 import ArchiveRounded from '@mui/icons-material/ArchiveRounded';
+import CheckRounded from '@mui/icons-material/CheckRounded';
 import DeleteOutlineRounded from '@mui/icons-material/DeleteOutlineRounded';
 import EditRounded from '@mui/icons-material/EditRounded';
+import EventRounded from '@mui/icons-material/EventRounded';
 import MoreVertRounded from '@mui/icons-material/MoreVertRounded';
 import PlaylistAddRounded from '@mui/icons-material/PlaylistAddRounded';
-import { IconButton, Menu, MenuItem, Tooltip } from '@mui/material';
+import ViewAgendaOutlined from '@mui/icons-material/ViewAgendaOutlined';
+import { Divider, IconButton, Menu, MenuItem, Tooltip } from '@mui/material';
 import { useState } from 'react';
 import { useNavigate, useParams } from 'react-router';
 import { getEntity, isLive } from '../../core/collections.ts';
@@ -16,7 +19,8 @@ import {
   renameSection,
   updateList,
 } from '../../core/lists.ts';
-import { completedTasks, listTasks } from '../../core/queries.ts';
+import { filterClosedTasks } from '../../core/filters.ts';
+import { listTasks } from '../../core/queries.ts';
 import type { List, Section } from '../../core/types.ts';
 import { t } from '../i18n/i18n.ts';
 import { Page } from '../layout/Page.tsx';
@@ -25,11 +29,21 @@ import { AddTaskInput } from '../tasks/AddTaskInput.tsx';
 import { TaskTree } from '../tasks/TaskTree.tsx';
 import { EmptyState } from '../views/EmptyState.tsx';
 import { GroupSection } from '../views/GroupSection.tsx';
-import { CompletedGroup } from '../views/TaskViews.tsx';
+import { CompletedGroup, DateGroupedTasks } from '../views/groups.tsx';
+import { useToday } from '../hooks/useToday.ts';
+import { useListGrouping, type ListGrouping } from './listGrouping.ts';
 import { ConfirmDialog, ListDialog, NameDialog } from './ListDialog.tsx';
 import { listName } from './listName.ts';
 
-function ListMenu({ list }: { list: List }) {
+function ListMenu({
+  list,
+  grouping,
+  onGrouping,
+}: {
+  list: List;
+  grouping: ListGrouping;
+  onGrouping: (next: ListGrouping) => void;
+}) {
   const apply = useApply();
   const navigate = useNavigate();
   const [anchor, setAnchor] = useState<HTMLElement | null>(null);
@@ -46,6 +60,25 @@ function ListMenu({ list }: { list: List }) {
         </IconButton>
       </Tooltip>
       <Menu anchorEl={anchor} open={anchor !== null} onClose={close}>
+        {(['date', 'section'] as const).map((mode) => (
+          <MenuItem
+            key={mode}
+            selected={grouping === mode}
+            onClick={() => {
+              close();
+              onGrouping(mode);
+            }}
+          >
+            {mode === 'date' ? (
+              <EventRounded fontSize="small" sx={{ mr: 1 }} />
+            ) : (
+              <ViewAgendaOutlined fontSize="small" sx={{ mr: 1 }} />
+            )}
+            {mode === 'date' ? t('list.groupByDate') : t('list.groupBySection')}
+            {grouping === mode && <CheckRounded fontSize="small" sx={{ ml: 'auto', pl: 1 }} />}
+          </MenuItem>
+        ))}
+        <Divider />
         <MenuItem
           onClick={() => {
             close();
@@ -112,6 +145,8 @@ function ListMenu({ list }: { list: List }) {
           onSubmit={(name) => {
             apply((ctx, ws) => createSection(ctx, ws, list.id, name).workspace);
             setDialog(null);
+            // A new section only shows when grouping by section.
+            onGrouping('section');
           }}
         />
       )}
@@ -186,17 +221,34 @@ function SectionActions({ section, onAdd }: { section: Section; onAdd: () => voi
 
 export function ListContents({ list }: { list: List }) {
   const workspace = useWorkspace();
+  const today = useToday();
   const [addingTo, setAddingTo] = useState<string | null>(null);
   const groups = listTasks(workspace, list.id);
-  const completed = completedTasks(workspace, list.id).filter((task) => task.parentId === null);
+  const [grouping, setGrouping] = useListGrouping(list.id, groups.length > 1);
+  const filter = { lists: [list.id] };
+  const completed = filterClosedTasks(workspace, filter, today);
   const empty = groups.every((group) => group.tasks.length === 0);
 
+  const header = (
+    <AddTaskInput
+      defaults={{ listId: list.id }}
+      label={t('task.addTo', { list: listName(list) })}
+    />
+  );
+  const actions = <ListMenu list={list} grouping={grouping} onGrouping={setGrouping} />;
+
+  if (grouping === 'date') {
+    return (
+      <Page title={listName(list)} actions={actions}>
+        {header}
+        <DateGroupedTasks filter={filter} emptyTitle={t('list.empty')} />
+      </Page>
+    );
+  }
+
   return (
-    <Page title={listName(list)} actions={<ListMenu list={list} />}>
-      <AddTaskInput
-        defaults={{ listId: list.id }}
-        label={t('task.addTo', { list: listName(list) })}
-      />
+    <Page title={listName(list)} actions={actions}>
+      {header}
       {empty && groups.length === 1 && completed.length === 0 && (
         <EmptyState title={t('list.empty')} />
       )}
@@ -217,7 +269,7 @@ export function ListContents({ list }: { list: List }) {
           </GroupSection>
         );
       })}
-      <CompletedGroup tasks={completed} defaultOpen={false} />
+      <CompletedGroup tasks={completed} />
     </Page>
   );
 }

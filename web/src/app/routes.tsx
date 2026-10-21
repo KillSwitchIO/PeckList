@@ -6,7 +6,7 @@ import { InboxView, ListView } from './lists/ListView.tsx';
 import { TagView } from './tags/TagView.tsx';
 import { EmptyState } from './views/EmptyState.tsx';
 import { MoreView } from './views/MoreView.tsx';
-import { CompletedView, TodayView, TrashView, UpcomingView } from './views/TaskViews.tsx';
+import { AllView, CompletedView, TodayView, TrashView, UpcomingView } from './views/TaskViews.tsx';
 
 /** Views that arrive in a later milestone. */
 function ComingSoon({ title, milestone }: { title: string; milestone: string }) {
@@ -34,6 +34,7 @@ export function AppRoutes() {
         <Route path="/today" element={<TodayView />} />
         <Route path="/inbox" element={<InboxView />} />
         <Route path="/upcoming" element={<UpcomingView />} />
+        <Route path="/all" element={<AllView />} />
         <Route path="/lists/:listId" element={<ListView />} />
         <Route path="/tags/:tagId" element={<TagView />} />
         <Route path="/completed" element={<CompletedView />} />
