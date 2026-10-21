@@ -155,7 +155,6 @@ describe('tag picker', () => {
     expect(within(details).getByRole('button', { name: 'Open tag work' })).toBeInTheDocument();
 
     // The x on a pill removes the tag; clicking a pill opens the tag's view.
-    await userEvent.keyboard('{Escape}');
     // The x shows on hover, which jsdom can't apply: skip the pointer-events check.
     await userEvent
       .setup({ pointerEventsCheck: 0 })

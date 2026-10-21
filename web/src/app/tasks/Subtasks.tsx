@@ -37,6 +37,7 @@ import type { Task } from '../../core/types.ts';
 import { t } from '../i18n/i18n.ts';
 import { useApply, useWorkspace } from '../store/hooks.ts';
 import { useLongPress } from '../hooks/useLongPress.ts';
+import { DueIcon } from '../icons/icons.tsx';
 import { ProgressRing } from './ProgressRing.tsx';
 import { useRowDate } from './rowDate.ts';
 import { TaskMenu, type TaskMenuAnchor } from './TaskMenu.tsx';
@@ -258,6 +259,17 @@ function SubtaskLine({
           }}
         >
           {task.progress > 0 && !done && <ProgressRing value={task.progress} />}
+          {date.due && !date.completedDay && (
+            <Box
+              component="span"
+              role="img"
+              aria-label={t('task.dueOn', { date: date.due })}
+              title={t('task.dueOn', { date: date.due })}
+              sx={{ display: 'inline-flex', fontSize: 15, opacity: date.showsDue ? 1 : 0.7 }}
+            >
+              <DueIcon sx={{ fontSize: 15 }} />
+            </Box>
+          )}
           {date.text}
         </Box>
       ) : null}

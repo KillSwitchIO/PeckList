@@ -2,7 +2,8 @@
 // the lists' order and the tags' order. Any section can start editing (a drag, a hold or a
 // right-click); Done saves everything in one undoable step, Cancel drops it.
 
-import { useState, type ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
+import { popupOpen } from '../hooks/keys.ts';
 import { reorderLists, visibleLists } from '../../core/lists.ts';
 import { savedFiltersOf } from '../../core/savedFilters.ts';
 import {
@@ -37,9 +38,19 @@ export function SidebarEditProvider({ children }: { children: ReactNode }) {
   const pinnable = [...lists.map(pinnedListId), ...tags.map(pinnedTagId)];
   const saved: SidebarDraft = { layout: sidebarOf(workspace, views, pinnable), lists, tags };
   const [draft, setDraft] = useState<SidebarDraft | null>(null);
+  const editing = draft !== null;
+  // Escape leaves editing without saving (unless a dialog is open, which closes first).
+  useEffect(() => {
+    if (!editing) return;
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape' && !event.defaultPrevented && !popupOpen()) setDraft(null);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [editing]);
 
   const value: SidebarEdit = {
-    editing: draft !== null,
+    editing,
     current: draft ?? saved,
     views,
     start: () => setDraft((before) => before ?? saved),

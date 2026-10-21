@@ -16,6 +16,7 @@ import {
   Typography,
   useTheme,
 } from '@mui/material';
+import { submitOnShiftEnter } from '../hooks/keys.ts';
 import { useState, type ReactNode } from 'react';
 import type { TaskFilter } from '../../core/filters.ts';
 import { visibleLists } from '../../core/lists.ts';
@@ -79,6 +80,7 @@ export function FilterDialog({
   return (
     <Dialog open onClose={onClose} fullWidth maxWidth="sm">
       <form
+        onKeyDown={submitOnShiftEnter}
         onSubmit={(event) => {
           event.preventDefault();
           save();

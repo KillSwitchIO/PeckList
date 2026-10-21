@@ -117,6 +117,7 @@ export const en = {
   'task.noSection': 'No section',
   'task.date': 'Start date',
   'task.due': 'Due',
+  'task.dueOn': 'Due {date}',
   'task.completedDate': 'Completed',
   'task.completedOn': 'Completed {date}',
   'task.complete': 'Complete {title}',

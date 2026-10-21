@@ -1,4 +1,5 @@
 import BrightnessAutoRounded from '@mui/icons-material/BrightnessAutoRounded';
+import { popupOpen } from '../hooks/keys.ts';
 import DarkModeRounded from '@mui/icons-material/DarkModeRounded';
 import LightModeRounded from '@mui/icons-material/LightModeRounded';
 import MenuRounded from '@mui/icons-material/MenuRounded';
@@ -22,7 +23,7 @@ import {
   useMediaQuery,
   useTheme,
 } from '@mui/material';
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Outlet, useLocation, useNavigate } from 'react-router';
 import { t } from '../i18n/i18n.ts';
 import { HeaderSlotContext } from './headerSlot.ts';
@@ -191,6 +192,19 @@ export function AppShell() {
     DETAIL_MIN,
     () => window.innerWidth - DRAWER_WIDTH - LIST_MIN,
   );
+
+  // Escape closes the task details, unless a dialog, menu or picker takes it first.
+  useEffect(() => {
+    if (!selectedId) return;
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape' || event.defaultPrevented || popupOpen()) return;
+      // Let a field being edited save itself (it commits on blur).
+      if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
+      close();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [selectedId, close]);
 
   const go = (path: string) => {
     setDrawerOpen(false);

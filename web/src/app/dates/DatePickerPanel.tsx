@@ -1,4 +1,5 @@
 import AccessTimeRounded from '@mui/icons-material/AccessTimeRounded';
+import { onShiftEnter } from '../hooks/keys.ts';
 import ChevronRightRounded from '@mui/icons-material/ChevronRightRounded';
 import CloseRounded from '@mui/icons-material/CloseRounded';
 import {
@@ -305,7 +306,7 @@ export function DatePickerPanel({
   };
 
   return (
-    <Box sx={{ width: 300, maxWidth: '100%', p: 1.5 }}>
+    <Box sx={{ width: 300, maxWidth: '100%', p: 1.5 }} onKeyDown={onShiftEnter(apply)}>
       {allowRange && (
         <ToggleButtonGroup
           exclusive

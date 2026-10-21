@@ -15,6 +15,7 @@ import { listName } from '../lists/listName.ts';
 import { useApply, useWorkspace } from '../store/hooks.ts';
 import { TagChips } from '../tags/TagChip.tsx';
 import { useTaskSelection } from './selection.ts';
+import { DueIcon } from '../icons/icons.tsx';
 import { ProgressRing } from './ProgressRing.tsx';
 import { useRowDate } from './rowDate.ts';
 import { TaskMenu, type TaskMenuAnchor } from './TaskMenu.tsx';
@@ -107,7 +108,7 @@ export function TaskRow({
   const longPress = useLongPress((position) => setMenu({ position }));
 
   // Closed tasks show when they were completed instead of when they start.
-  const { text: dateText, color: dateColor, completedDay } = useRowDate(task);
+  const { text: dateText, color: dateColor, completedDay, showsDue, due } = useRowDate(task);
 
   return (
     <Box
@@ -256,6 +257,22 @@ export function TaskRow({
             }}
           >
             {task.progress > 0 && task.status === 'open' && <ProgressRing value={task.progress} />}
+            {due && !completedDay && (
+              <Box
+                component="span"
+                role="img"
+                aria-label={t('task.dueOn', { date: due })}
+                title={t('task.dueOn', { date: due })}
+                sx={{
+                  display: 'inline-flex',
+                  fontSize: 15,
+                  flexShrink: 0,
+                  opacity: showsDue ? 1 : 0.7,
+                }}
+              >
+                <DueIcon sx={{ fontSize: 15 }} />
+              </Box>
+            )}
             <Box
               component="span"
               sx={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}

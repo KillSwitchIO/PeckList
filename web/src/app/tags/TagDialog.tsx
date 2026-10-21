@@ -13,6 +13,7 @@ import {
   Typography,
   useTheme,
 } from '@mui/material';
+import { submitOnShiftEnter } from '../hooks/keys.ts';
 import { useState } from 'react';
 import { chipColors } from '../../core/palette.ts';
 import {
@@ -116,6 +117,7 @@ export function TagDialog({
   return (
     <Dialog open onClose={onClose} fullWidth maxWidth="xs">
       <form
+        onKeyDown={submitOnShiftEnter}
         onSubmit={(event) => {
           event.preventDefault();
           if (valid) onSubmit({ name: full, color });

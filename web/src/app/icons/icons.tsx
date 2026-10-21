@@ -456,3 +456,13 @@ export function PinOffIcon(props: SvgIconProps) {
     </PunchIcon>
   );
 }
+
+/** Due: an hourglass (a deadline; the flag means priority). */
+export function DueIcon(props: SvgIconProps) {
+  return (
+    <PunchIcon {...props}>
+      <path d="M7 3.5h10M7 20.5h10" />
+      <path d="M8 3.5v2c0 2.6 4 4.2 4 6.5 0-2.3 4-3.9 4-6.5v-2M8 20.5v-2c0-2.6 4-4.2 4-6.5 0 2.3 4 3.9 4 6.5v2" />
+    </PunchIcon>
+  );
+}

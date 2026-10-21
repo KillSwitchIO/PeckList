@@ -14,7 +14,7 @@ import {
   Typography,
   useTheme,
 } from '@mui/material';
-import { useState } from 'react';
+import { useLayoutEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router';
 import { members } from '../../core/ops.ts';
 import {
@@ -31,6 +31,7 @@ import { t } from '../i18n/i18n.ts';
 import { useApply, useWorkspace } from '../store/hooks.ts';
 import { CloseIcon, PlusIcon } from '../icons/icons.tsx';
 import { PropertySheet } from '../tasks/PropertyRow.tsx';
+import { GAP, PLUS, pillsThatFit } from './pillsFit.ts';
 import { TagChip } from './TagChip.tsx';
 import { tagIconColor } from './tagColors.ts';
 
@@ -122,24 +123,64 @@ function TagPicker({ task }: { task: Task }) {
 }
 
 /**
- * A task's tags as pills, for the details' bottom bar: click one to open that tag, hover for an x
- * that removes it, and a round + opens the picker. Past `max` pills, "+N" opens the picker too.
+ * A task's tags as pills, for the details' bottom bar: as many as fit, then "+N". Click one to
+ * open that tag, hover for an x that removes it; the round + (or "+N") opens the picker.
  */
-export function TaskTagPills({ task, max = 2 }: { task: Task; max?: number }) {
+export function TaskTagPills({ task }: { task: Task }) {
   const workspace = useWorkspace();
   const apply = useApply();
   const navigate = useNavigate();
   const [anchor, setAnchor] = useState<HTMLElement | null>(null);
   const tags = tagsOfTask(workspace, task);
   const label = t('task.tags');
+  // Measure each pill once (in a hidden row) and the room the bar gives us.
+  const group = useRef<HTMLDivElement | null>(null);
+  const ruler = useRef<HTMLDivElement | null>(null);
+  const [room, setRoom] = useState(Infinity);
+  const [widths, setWidths] = useState<number[]>([]);
+  const key = tags.map((tag) => tag.id + tag.name).join();
+  useLayoutEffect(() => {
+    const measured = [...(ruler.current?.children ?? [])].map(
+      (child) => child.getBoundingClientRect().width,
+    );
+    setWidths(measured);
+  }, [key]);
+  useLayoutEffect(() => {
+    const element = group.current;
+    if (!element || typeof ResizeObserver === 'undefined') return;
+    const observer = new ResizeObserver(() => {
+      const width = element.getBoundingClientRect().width;
+      setRoom(width > 0 ? width : Infinity);
+    });
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, []);
+  const max = widths.length === tags.length ? pillsThatFit(widths, room) : tags.length;
   return (
     <>
       <Box
+        ref={ruler}
+        aria-hidden
+        sx={{
+          position: 'absolute',
+          visibility: 'hidden',
+          pointerEvents: 'none',
+          display: 'flex',
+          height: 0,
+          overflow: 'hidden',
+        }}
+      >
+        {tags.map((tag) => (
+          <TagChip key={tag.id} tag={tag} />
+        ))}
+      </Box>
+      <Box
+        ref={group}
         role="group"
         aria-label={label}
-        sx={{ display: 'flex', alignItems: 'center', gap: 0.75, minWidth: 0 }}
+        sx={{ display: 'flex', alignItems: 'center', gap: 0.75, minWidth: 0, flexGrow: 1 }}
       >
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, minWidth: 0 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: `${GAP}px`, minWidth: 0 }}>
           {tags.slice(0, max).map((tag) => (
             <Box
               key={tag.id}
@@ -197,8 +238,9 @@ export function TaskTagPills({ task, max = 2 }: { task: Task; max?: number }) {
               aria-haspopup="dialog"
               onClick={(event) => setAnchor(event.currentTarget)}
               sx={{
-                width: 22,
-                height: 22,
+                width: PLUS,
+                height: PLUS,
+                flexShrink: 0,
                 p: 0,
                 border: 1,
                 borderColor: 'divider',

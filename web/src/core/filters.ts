@@ -32,7 +32,7 @@ export interface TaskFilter {
 /** No conditions: the All view. */
 export const ALL_TASKS: TaskFilter = {};
 
-/** The start date a task belongs to in views (due dates live in details and the calendar). */
+/** The start date a task belongs to in views (due dates show on rows but don't place tasks). */
 export function startDate(task: Task): string | null {
   return task.schedule ? datePart(task.schedule.start) : null;
 }

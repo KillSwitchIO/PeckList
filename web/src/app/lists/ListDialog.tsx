@@ -9,6 +9,7 @@ import {
   TextField,
   Typography,
 } from '@mui/material';
+import { submitOnShiftEnter } from '../hooks/keys.ts';
 import { useState } from 'react';
 import { buildPalette } from '../../core/palette.ts';
 import type { List } from '../../core/types.ts';
@@ -40,6 +41,7 @@ export function ListDialog({
   return (
     <Dialog open={open} onClose={onClose} fullWidth maxWidth="xs">
       <form
+        onKeyDown={submitOnShiftEnter}
         onSubmit={(event) => {
           event.preventDefault();
           if (valid) onSubmit({ name: name.trim(), color });
@@ -97,6 +99,7 @@ export function NameDialog({
   return (
     <Dialog open={open} onClose={onClose} fullWidth maxWidth="xs">
       <form
+        onKeyDown={submitOnShiftEnter}
         onSubmit={(event) => {
           event.preventDefault();
           if (name.trim()) onSubmit(name.trim());

@@ -189,6 +189,44 @@ describe('task details', () => {
     expect(await screen.findByRole('menuitem', { name: "Won't do" })).toBeInTheDocument();
   });
 
+  it('Escape closes the details (a picker first, then the panel)', async () => {
+    await renderApp('/inbox');
+    await addTasks('Mow');
+    await userEvent.click(screen.getByRole('button', { name: 'Open Mow' }));
+    const details = await screen.findByRole('region', { name: 'Task details' });
+    await userEvent.click(within(details).getByRole('button', { name: /^Start date:/ }));
+    await screen.findByRole('dialog', { name: 'Start date' });
+    await userEvent.keyboard('{Escape}');
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    expect(screen.getByRole('region', { name: 'Task details' })).toBeInTheDocument();
+    await userEvent.keyboard('{Escape}');
+    expect(screen.queryByRole('region', { name: 'Task details' })).toBeNull();
+  });
+
+  it('Shift+Return confirms a dialog', async () => {
+    await renderApp('/today');
+    await userEvent.click(screen.getByRole('button', { name: 'New list' }));
+    const dialog = await screen.findByRole('dialog');
+    await userEvent.type(within(dialog).getByLabelText('Name'), 'Garage{Shift>}{Enter}{/Shift}');
+    expect(await screen.findByRole('heading', { level: 1, name: 'Garage' })).toBeInTheDocument();
+  });
+
+  it('shows a due date on the row when there is no start date', async () => {
+    await renderApp('/inbox');
+    await addTasks('Concrete');
+    await userEvent.click(screen.getByRole('button', { name: 'Open Concrete' }));
+    const details = await screen.findByRole('region', { name: 'Task details' });
+    await userEvent.click(within(details).getByRole('button', { name: /^Due:/ }));
+    await userEvent.click(
+      within(await screen.findByRole('dialog', { name: 'Due' })).getByRole('button', {
+        name: 'Tomorrow',
+      }),
+    );
+    const row = screen.getByRole('button', { name: 'Open Concrete' });
+    expect(within(row).getByTestId('task-date')).toHaveTextContent('Tomorrow');
+    expect(within(row).getByRole('img', { name: 'Due Tomorrow' })).toBeInTheDocument();
+  });
+
   it('explains when the opened task no longer exists', async () => {
     await renderApp('/inbox?task=01NOPE00000000000000000000');
     expect(screen.getByText('This task no longer exists.')).toBeInTheDocument();

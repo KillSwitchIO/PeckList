@@ -1,7 +1,6 @@
 import CalendarMonthOutlined from '@mui/icons-material/CalendarMonthOutlined';
 import CloseRounded from '@mui/icons-material/CloseRounded';
 import DeleteOutlineRounded from '@mui/icons-material/DeleteOutlineRounded';
-import FlagOutlined from '@mui/icons-material/FlagOutlined';
 import MoreHorizRounded from '@mui/icons-material/MoreHorizRounded';
 import TaskAltRounded from '@mui/icons-material/TaskAltRounded';
 import {
@@ -21,7 +20,7 @@ import { dateState } from '../../core/queries.ts';
 import { deleteTask, setCompletedAt, updateTask } from '../../core/tasks.ts';
 import { DateProperty } from '../dates/DateProperty.tsx';
 import { NotesEditor } from '../editor/NotesEditor.tsx';
-import { CollapseIcon, ExpandIcon } from '../icons/icons.tsx';
+import { CollapseIcon, DueIcon, ExpandIcon } from '../icons/icons.tsx';
 import { useLongPress } from '../hooks/useLongPress.ts';
 import { CompleteCheckbox } from './CompleteCheckbox.tsx';
 import { completionInstant } from './completion.ts';
@@ -210,7 +209,7 @@ export function TaskDetail({
         <Box>
           <DateProperty
             label={t('task.due')}
-            icon={<FlagOutlined fontSize="small" />}
+            icon={<DueIcon fontSize="small" />}
             value={toDateValue(task.due?.at)}
             today={today}
             placeholder={t('date.addDue')}
