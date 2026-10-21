@@ -133,9 +133,9 @@ export function CompleteCheckbox({
                 }}
               />
             ) : (
-              // Won't do: a dash.
+              // Won't do: an x.
               <path
-                d="M7 12h10"
+                d="M8 8l8 8M16 8l-8 8"
                 stroke={theme.palette.background.paper}
                 strokeWidth={3}
                 strokeLinecap="round"

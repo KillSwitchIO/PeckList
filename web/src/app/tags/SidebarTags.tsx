@@ -9,7 +9,6 @@ import {
   ListItemButton,
   ListItemIcon,
   ListItemText,
-  ListSubheader,
   Tooltip,
   useTheme,
 } from '@mui/material';
@@ -23,6 +22,7 @@ import { t } from '../i18n/i18n.ts';
 import { useApply, useWorkspace } from '../store/hooks.ts';
 import { DragHandleIcon } from '../icons/icons.tsx';
 import { editingRowSx, useSidebarEdit } from '../layout/sidebarEditContext.ts';
+import { SectionHeader } from '../layout/SectionHeader.tsx';
 import { useSortableRows } from '../layout/useSortableRows.ts';
 import { PinButton } from '../layout/PinButton.tsx';
 import { tagIconColor } from './tagColors.ts';
@@ -130,6 +130,8 @@ export function SidebarTags({ onNavigate }: { onNavigate: (path: string) => void
   const workspace = useWorkspace();
   const apply = useApply();
   const [creating, setCreating] = useState(false);
+  // Folded sections are remembered on this device.
+  const { collapsed: folded, toggle: fold } = useCollapsedSet('punchlist.foldedSections');
   const { collapsed, toggle } = useCollapsedSet('punchlist.collapsedTags');
   const counts = openTagCounts(workspace);
   const edit = useSidebarEdit();
@@ -178,30 +180,37 @@ export function SidebarTags({ onNavigate }: { onNavigate: (path: string) => void
         dense
         aria-label={t('nav.tags')}
         subheader={
-          <ListSubheader
-            sx={{ bgcolor: 'transparent', display: 'flex', alignItems: 'center', pr: 1 }}
-          >
-            <Box sx={{ flexGrow: 1 }}>{t('nav.tags')}</Box>
-            <Tooltip title={t('tag.new')} disableFocusListener>
-              <IconButton size="small" aria-label={t('tag.new')} onClick={() => setCreating(true)}>
-                <AddRounded fontSize="small" />
-              </IconButton>
-            </Tooltip>
-          </ListSubheader>
+          <SectionHeader
+            title={t('nav.tags')}
+            open={!folded.has('tags')}
+            onToggle={() => fold('tags')}
+            actions={
+              <Tooltip title={t('tag.new')} disableFocusListener>
+                <IconButton
+                  size="small"
+                  aria-label={t('tag.new')}
+                  onClick={() => setCreating(true)}
+                >
+                  <AddRounded fontSize="small" />
+                </IconButton>
+              </Tooltip>
+            }
+          />
         }
       >
-        {nodes.map((node, index) => (
-          <TagLink
-            key={node.tag.id}
-            node={node}
-            index={index}
-            sortable={sortable}
-            count={counts.get(node.tag.id) ?? 0}
-            collapsed={collapsed.has(node.tag.id)}
-            onToggle={() => toggle(node.tag.id)}
-            onNavigate={onNavigate}
-          />
-        ))}
+        {!folded.has('tags') &&
+          nodes.map((node, index) => (
+            <TagLink
+              key={node.tag.id}
+              node={node}
+              index={index}
+              sortable={sortable}
+              count={counts.get(node.tag.id) ?? 0}
+              collapsed={collapsed.has(node.tag.id)}
+              onToggle={() => toggle(node.tag.id)}
+              onNavigate={onNavigate}
+            />
+          ))}
       </List>
       {creating && (
         <TagDialog

@@ -15,7 +15,7 @@ import { listName } from '../lists/listName.ts';
 import { useApply, useWorkspace } from '../store/hooks.ts';
 import { TagChips } from '../tags/TagChip.tsx';
 import { useTaskSelection } from './selection.ts';
-import { DueIcon } from '../icons/icons.tsx';
+import { CloseIcon, DueIcon } from '../icons/icons.tsx';
 import { ProgressRing } from './ProgressRing.tsx';
 import { useRowDate } from './rowDate.ts';
 import { TaskMenu, type TaskMenuAnchor } from './TaskMenu.tsx';
@@ -38,6 +38,7 @@ export function PriorityCheckbox({ task }: { task: Task }) {
       role="checkbox"
       aria-checked={done}
       aria-label={done ? t('task.reopen', { title }) : t('task.complete', { title })}
+      {...(task.status === 'wontdo' ? { title: t('task.markedWontDo') } : {})}
       onClick={(event) => {
         event.stopPropagation();
         apply(
@@ -59,7 +60,8 @@ export function PriorityCheckbox({ task }: { task: Task }) {
           color: theme.palette.background.paper,
         }}
       >
-        {done && <CheckRounded sx={{ fontSize: 12 }} />}
+        {task.status === 'done' && <CheckRounded sx={{ fontSize: 12 }} />}
+        {task.status === 'wontdo' && <CloseIcon sx={{ fontSize: 11 }} />}
       </Box>
     </IconButton>
   );
@@ -183,7 +185,14 @@ export function TaskRow({
         }}
       >
         <Box sx={{ flexGrow: 1, minWidth: 0 }}>
-          <Typography noWrap sx={{ color: done ? 'text.disabled' : 'text.primary' }}>
+          <Typography
+            noWrap
+            sx={{
+              color: done ? 'text.disabled' : 'text.primary',
+              // Won't do reads as dropped, not finished.
+              textDecoration: task.status === 'wontdo' ? 'line-through' : 'none',
+            }}
+          >
             {title}
           </Typography>
           {/* Phones have no room beside the title: tags go on a second line. */}

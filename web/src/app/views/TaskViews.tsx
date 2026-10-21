@@ -1,3 +1,4 @@
+import { groupClosed } from './closedGroups.ts';
 import DeleteOutlineRounded from '@mui/icons-material/DeleteOutlineRounded';
 import RestoreRounded from '@mui/icons-material/RestoreRounded';
 import { Button, List, ListItem, ListItemText, Typography } from '@mui/material';
@@ -121,13 +122,22 @@ export function AllView() {
 
 export function CompletedView() {
   const workspace = useWorkspace();
+  const today = useToday();
   const tasks = completedTasks(workspace);
   return (
     <Page title={t('nav.completed')}>
       {tasks.length === 0 ? (
         <EmptyState title={t('completed.empty')} />
       ) : (
-        <TaskRows tasks={tasks} showList />
+        groupClosed(tasks, today).map((group) => (
+          <GroupSection
+            key={group.key}
+            title={group.title || t('group.noDate')}
+            count={group.tasks.length}
+          >
+            <TaskRows tasks={group.tasks} showList />
+          </GroupSection>
+        ))
       )}
     </Page>
   );
