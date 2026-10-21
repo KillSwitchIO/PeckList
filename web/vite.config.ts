@@ -5,7 +5,13 @@ import { VitePWA } from 'vite-plugin-pwa';
 
 export default defineConfig({
   // Vite's default 5173 often falls inside a port range Windows reserves for Hyper-V/WSL.
-  server: { port: 6173, strictPort: true },
+  server: {
+    port: 6173,
+    strictPort: true,
+    // Native file events on Windows miss edits (branch switches, scripted edits, the pre-commit
+    // hook rewriting files), leaving the browser on stale modules. Polling is reliable there.
+    ...(process.platform === 'win32' ? { watch: { usePolling: true, interval: 300 } } : {}),
+  },
   preview: { port: 6174, strictPort: true },
   plugins: [
     react(),

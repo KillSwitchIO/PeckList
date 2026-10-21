@@ -17,7 +17,7 @@ pnpm lint && pnpm typecheck
 
 ## Dev server gotcha
 
-Vite's file watcher on Windows can miss edits (seen after git branch switches and scripted multi-file edits), leaving the browser on stale code while tests pass. Before reporting a UI change as verified, fetch the module from the dev server (`/src/...`) and check it contains the change; if not, restart with `pnpm --dir web dev --force`. The server serving new code is not enough: an open tab can keep an older module (seen with `i18n/en.ts`, which page-reloads while components hot-update). After string catalog changes, tell Ben to hard refresh, and check the browser console for errors.
+Vite's native file watcher on Windows missed edits (git branch switches, scripted multi-file edits, and the pre-commit hook, which briefly rewrites staged files), leaving the browser on stale code while tests pass. `vite.config.ts` now polls on Windows; a server started before that change needs one restart. Still, before reporting a UI change as verified, fetch the module from the dev server (`/src/...`) after committing and check it contains the change; if not, restart with `pnpm --dir web dev --force`. String catalog edits hot-apply (`i18n.ts` accepts `en.ts`); still check the browser console for errors.
 
 ## Rules
 
