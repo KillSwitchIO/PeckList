@@ -114,6 +114,26 @@ public sealed class CliTests : IDisposable
     }
 
     [Fact]
+    public async Task Adds_users_who_must_change_their_password()
+    {
+        var settings = Settings();
+        var accounts = await MakeAdminAsync(settings);
+        var (code, output, _, _) = await Run(settings, "admin", "add-user", "Sam");
+        Assert.Equal(0, code);
+        Assert.StartsWith("Added sam (user). Password: ", output);
+        var password = output.Split('\n')[0].Split("Password: ")[1].Trim();
+        var login = Assert.IsType<Core.Accounts.LoginResult.Success>(await accounts.LoginAsync("sam", password, TestContext.Current.CancellationToken));
+        Assert.True(login.Account.MustChangePassword);
+
+        var admin = await Run(settings, "admin", "add-user", "--admin", "jo");
+        Assert.StartsWith("Added jo (admin)", admin.Output);
+        var taken = await Run(settings, "admin", "add-user", "SAM");
+        Assert.Equal(1, taken.Code);
+        Assert.Contains("taken", taken.Errors);
+        Assert.Contains("needs a username", (await Run(settings, "admin", "add-user")).Errors);
+    }
+
+    [Fact]
     public async Task Migrate_db_needs_a_target()
     {
         var (code, _, errors, _) = await Run(Settings(), "migrate-db", "--to", "sqlite");

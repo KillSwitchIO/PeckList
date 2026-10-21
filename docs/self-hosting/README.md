@@ -75,6 +75,7 @@ docker exec <container> punchlist import /data/backup.json            # into an 
 docker exec <container> punchlist import /data/backup.json --replace  # delete what is there first
 docker exec <container> punchlist snapshot
 docker exec <container> punchlist admin reset-password [username]
+docker exec <container> punchlist admin add-user <username> [--admin]   # prints a password to change at first login
 docker exec <container> punchlist migrate-db --to postgres --connection "Host=db;Username=...;Password=...;Database=punchlist"
 ```
 

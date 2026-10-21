@@ -26,6 +26,8 @@ public static class Cli
                                         Copy everything into another, empty database.
           snapshot                      Take a snapshot now (into SNAPSHOT_DIR).
           admin reset-password [user]   Give an account (default: admin) a new password to change at login.
+          admin add-user <user> [--admin]
+                                        Add an account; its generated password must be changed at first login.
           healthcheck                   Exit 0 when the running server answers /healthz.
 
         Settings come from the same environment variables as the server.
@@ -78,6 +80,18 @@ public static class Cli
                     await output.WriteLineAsync($"Snapshot written to {await snapshots.TakeAsync(ServerApp.Version)}");
                     return 0;
                 }
+                case "admin" when args.Length > 1 && args[1] == "add-user":
+                {
+                    var username = args.Skip(2).FirstOrDefault(arg => !arg.StartsWith("--", StringComparison.Ordinal));
+                    if (username is null) return await Fail(errors, "admin add-user needs a username: punchlist admin add-user <user> [--admin]");
+                    var accounts = new AccountService(new SqlAccountStore(database), new AspNetPasswordHasher(), TimeProvider.System);
+                    var password = Core.Ids.NewPassword();
+                    var role = args.Contains("--admin") ? Role.Admin : Role.User;
+                    await accounts.CreateUserAsync(username, password, role);
+                    await output.WriteLineAsync($"Added {username.Trim().ToLowerInvariant()} ({role.ToString().ToLowerInvariant()}). Password: {password}");
+                    await output.WriteLineAsync("It must be changed at the first login.");
+                    return 0;
+                }
                 case "admin" when args.Length > 1 && args[1] == "reset-password":
                 {
                     var username = args.Length > 2 ? args[2] : AccountService.AdminUsername;
@@ -91,7 +105,8 @@ public static class Cli
                     return await Fail(errors, $"unknown command '{string.Join(' ', args)}'\n\n{Usage}");
             }
         }
-        catch (Exception error) when (error is SettingsException or BackupException or IOException or UnauthorizedAccessException or KeyNotFoundException or ArgumentException)
+        catch (Exception error) when (error is SettingsException or BackupException or IOException or UnauthorizedAccessException
+            or KeyNotFoundException or ArgumentException or DuplicateUsernameException)
         {
             return await Fail(errors, error.Message);
         }
