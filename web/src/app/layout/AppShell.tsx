@@ -185,8 +185,9 @@ export function AppShell() {
               px: { xs: 2, sm: 3 },
               py: 2,
               pb: isPhone ? 10 : 2,
+              // Anchored to the left edge (not centered) so the list never shifts when the
+              // details panel opens or closes.
               maxWidth: 960,
-              mx: 'auto',
             }}
           >
             <HeaderSlotContext.Provider value={headerSlot}>
