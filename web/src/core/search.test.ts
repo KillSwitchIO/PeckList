@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { testContext } from '../test/fixtures.ts';
+import { sampleTask, testContext } from '../test/fixtures.ts';
 import { putEntity } from './collections.ts';
 import { createList, deleteList, inboxList } from './lists.ts';
 import { queryTerms, searchTasks, type SearchHit } from './search.ts';
@@ -95,9 +95,13 @@ describe('search', () => {
   it('answers within 100 ms over 5,000 tasks', () => {
     const s = setup();
     const words = ['paint', 'fence', 'garden', 'call', 'email', 'review', 'invoice', 'shed'];
-    for (let i = 0; i < 5000; i += 1) {
-      s.add(`${words[i % 8]} task ${i}`, `notes about ${words[(i * 3) % 8]} number ${i}`);
-    }
+    // Built in one go (adding one by one is quadratic and only slows the test down).
+    const listId = inboxList(s.ws).id;
+    const tasks = Array.from({ length: 5000 }, (_, i) => ({
+      ...sampleTask(s.ctx, listId, `${words[i % 8]} task ${i}`),
+      notes: `notes about ${words[(i * 3) % 8]} number ${i}`,
+    }));
+    s.ws = { ...s.ws, entities: { ...s.ws.entities, tasks } };
     searchTasks(s.ws, 'warm up');
     const started = performance.now();
     const hits = searchTasks(s.ws, 'garden invoice');
