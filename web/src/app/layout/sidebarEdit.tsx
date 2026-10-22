@@ -8,6 +8,7 @@ import { reorderLists, visibleLists } from '../../core/lists.ts';
 import { savedFiltersOf } from '../../core/savedFilters.ts';
 import {
   BUILT_IN_VIEWS,
+  SHARED_VIEWS,
   defaultSidebar,
   filterViewId,
   normalizeSidebar,
@@ -20,6 +21,7 @@ import { reorderTags, tagTree, updateTag } from '../../core/tags.ts';
 import type { SidebarLayout } from '../../core/types.ts';
 import { t } from '../i18n/i18n.ts';
 import { useApply, useWorkspace } from '../store/hooks.ts';
+import { useSyncState } from '../sync/syncContext.ts';
 import { SidebarEditContext, type SidebarDraft, type SidebarEdit } from './sidebarEditContext.ts';
 
 const same = (a: readonly string[], b: readonly string[]) => a.join() === b.join();
@@ -27,8 +29,11 @@ const same = (a: readonly string[], b: readonly string[]) => a.join() === b.join
 export function SidebarEditProvider({ children }: { children: ReactNode }) {
   const workspace = useWorkspace();
   const apply = useApply();
+  const phase = useSyncState((state) => state.phase);
+  const authMode = useSyncState((state) => state.account?.authMode);
   const views = [
     ...BUILT_IN_VIEWS,
+    ...(phase === 'ready' && authMode === 'local' ? SHARED_VIEWS : []),
     ...savedFiltersOf(workspace).map((filter) => filterViewId(filter.id)),
   ];
   const lists = visibleLists(workspace)

@@ -19,7 +19,7 @@ import { useNow, useToday } from '../hooks/useToday.ts';
 import { t } from '../i18n/i18n.ts';
 import { Page } from '../layout/Page.tsx';
 import { listName } from '../lists/listName.ts';
-import { useApply, useWorkspace } from '../store/hooks.ts';
+import { useApply, useStoreState, useWorkspace } from '../store/hooks.ts';
 import { AddTaskInput } from '../tasks/AddTaskInput.tsx';
 import { TaskRows } from '../tasks/TaskRow.tsx';
 import { TaskTree } from '../tasks/TaskTree.tsx';
@@ -116,6 +116,16 @@ export function AllView() {
     <Page title={t('nav.all')}>
       <AddTaskInput defaults={{ listId: inboxList(workspace).id }} />
       <DateGroupedTasks filter={ALL_TASKS} showList emptyTitle={t('all.empty')} />
+    </Page>
+  );
+}
+
+/** Open tasks assigned to me, directly or through a group (servers only). */
+export function AssignedView() {
+  const me = useStoreState((state) => state.context().userId);
+  return (
+    <Page title={t('nav.assigned')}>
+      <DateGroupedTasks filter={{ assignedTo: me }} showList emptyTitle={t('assigned.empty')} />
     </Page>
   );
 }

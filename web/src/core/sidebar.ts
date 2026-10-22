@@ -19,6 +19,9 @@ export const BUILT_IN_VIEWS = [
   'trash',
 ] as const;
 
+/** Views that need a server with accounts; the sidebar offers them only then. */
+export const SHARED_VIEWS = ['assigned'] as const;
+
 export function defaultSidebar(): SidebarLayout {
   return {
     order: ['today', 'inbox', 'upcoming', 'all', 'calendar', GROUP, 'completed', 'trash'],

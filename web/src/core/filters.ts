@@ -27,6 +27,8 @@ export interface TaskFilter {
   dated?: boolean;
   /** Any of these priorities */
   priorities?: Priority[];
+  /** Assigned to this user, directly or through a group they are an active member of */
+  assignedTo?: Id;
 }
 
 /** No conditions: the All view. */
@@ -55,7 +57,22 @@ export function compileFilter(
   const from = filter.start?.from === undefined ? null : addDays(today, filter.start.from);
   const to = filter.start?.to === undefined ? null : addDays(today, filter.start.to);
   const priorities = filter.priorities ? new Set(filter.priorities) : null;
+  const assignees = filter.assignedTo
+    ? new Set([
+        `user:${filter.assignedTo}`,
+        ...workspace.entities.groupMembers
+          .filter(
+            (member) =>
+              member.deletedAt === null &&
+              member.userId === filter.assignedTo &&
+              member.state === 'active',
+          )
+          .map((member) => `group:${member.groupId}`),
+      ])
+    : null;
   return (task) => {
+    if (assignees && !members(task.assignees).some((principal) => assignees.has(principal)))
+      return false;
     if (lists && !lists.has(task.listId)) return false;
     if (tags && !members(task.tags).some((id) => tags.has(id))) return false;
     if (priorities && !priorities.has(task.priority)) return false;

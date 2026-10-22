@@ -10,6 +10,7 @@ import TaskAltRounded from '@mui/icons-material/TaskAltRounded';
 import TodayRounded from '@mui/icons-material/TodayRounded';
 import type { ReactElement } from 'react';
 import type { MessageKey } from '../i18n/i18n.ts';
+import { AssignedIcon } from '../icons/icons.tsx';
 
 export interface NavItem {
   path: string;
@@ -28,9 +29,14 @@ export const SIDEBAR_ITEMS: NavItem[] = [
   { path: '/trash', label: 'nav.trash', icon: <DeleteOutlineRounded /> },
 ];
 
+/** Views that need a server with accounts (core/sidebar.ts SHARED_VIEWS). */
+export const SHARED_ITEMS: NavItem[] = [
+  { path: '/assigned', label: 'nav.assigned', icon: <AssignedIcon /> },
+];
+
 /** The sidebar views by id (see core/sidebar.ts). */
 export const VIEW_ITEMS: Record<string, NavItem> = Object.fromEntries(
-  SIDEBAR_ITEMS.map((item) => [item.path.slice(1), item]),
+  [...SIDEBAR_ITEMS, ...SHARED_ITEMS].map((item) => [item.path.slice(1), item]),
 );
 
 export const SIDEBAR_FOOTER: NavItem[] = [

@@ -550,3 +550,14 @@ export function CopyIcon(props: SvgIconProps) {
     </PunchIcon>
   );
 }
+
+/** Assigned to me: a person with a check. */
+export function AssignedIcon(props: SvgIconProps) {
+  return (
+    <PunchIcon {...props}>
+      <circle cx="10" cy="8.5" r="3.5" />
+      <path d="M3.5 19.5a6.5 6.5 0 0 1 10.6-5" />
+      <path d="M15.5 17.5l2 2 3.5-4" />
+    </PunchIcon>
+  );
+}

@@ -9,7 +9,14 @@ import { FriendsPage } from './friends/FriendsPage.tsx';
 import { TagView } from './tags/TagView.tsx';
 import { EmptyState } from './views/EmptyState.tsx';
 import { MoreView } from './views/MoreView.tsx';
-import { AllView, CompletedView, TodayView, TrashView, UpcomingView } from './views/TaskViews.tsx';
+import {
+  AllView,
+  AssignedView,
+  CompletedView,
+  TodayView,
+  TrashView,
+  UpcomingView,
+} from './views/TaskViews.tsx';
 
 /** Views that arrive in a later milestone. */
 function ComingSoon({ title, milestone }: { title: string; milestone: string }) {
@@ -45,6 +52,7 @@ export function AppRoutes() {
         <Route path="/trash" element={<TrashView />} />
         <Route path="/more" element={<MoreView />} />
         <Route path="/friends" element={<FriendsPage />} />
+        <Route path="/assigned" element={<AssignedView />} />
         <Route path="/f/:code" element={<FriendLinkPage />} />
         <Route
           path="/calendar"
