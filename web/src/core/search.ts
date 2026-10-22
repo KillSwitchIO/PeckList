@@ -113,7 +113,8 @@ export function searchTasks(workspace: WorkspaceFile, query: string, limit = 200
   const terms = queryTerms(query);
   if (terms.length === 0) return [];
   const tagNames = new Map(workspace.entities.tags.map((tag) => [tag.id, fold(tag.name).text]));
-  const listed = inLiveList(workspace);
+  // Search finds archived lists' tasks too.
+  const listed = inLiveList(workspace, 'all');
   const scored: { hit: SearchHit; score: number }[] = [];
   for (const task of workspace.entities.tasks) {
     if (!isLive(task) || !listed(task)) continue;

@@ -1,5 +1,6 @@
 import AddRounded from '@mui/icons-material/AddRounded';
 import ArchiveRounded from '@mui/icons-material/ArchiveRounded';
+import UnarchiveRounded from '@mui/icons-material/UnarchiveRounded';
 import CheckRounded from '@mui/icons-material/CheckRounded';
 import DeleteOutlineRounded from '@mui/icons-material/DeleteOutlineRounded';
 import EditRounded from '@mui/icons-material/EditRounded';
@@ -7,7 +8,16 @@ import EventRounded from '@mui/icons-material/EventRounded';
 import MoreVertRounded from '@mui/icons-material/MoreVertRounded';
 import PlaylistAddRounded from '@mui/icons-material/PlaylistAddRounded';
 import ViewAgendaOutlined from '@mui/icons-material/ViewAgendaOutlined';
-import { Divider, IconButton, Menu, MenuItem, Tooltip, Typography } from '@mui/material';
+import {
+  Alert,
+  Button,
+  Divider,
+  IconButton,
+  Menu,
+  MenuItem,
+  Tooltip,
+  Typography,
+} from '@mui/material';
 import { useState } from 'react';
 import { useNavigate, useParams } from 'react-router';
 import { getEntity, isLive } from '../../core/collections.ts';
@@ -141,6 +151,10 @@ function ListMenu({
           <MenuItem
             onClick={() => {
               close();
+              if (list.archived) {
+                apply((ctx, ws) => updateList(ctx, ws, list.id, { archived: false }));
+                return;
+              }
               apply(
                 (ctx, ws) => updateList(ctx, ws, list.id, { archived: true }),
                 t('undo.listArchived'),
@@ -148,8 +162,12 @@ function ListMenu({
               void navigate('/inbox');
             }}
           >
-            <ArchiveRounded fontSize="small" sx={{ mr: 1 }} />
-            {t('list.archive')}
+            {list.archived ? (
+              <UnarchiveRounded fontSize="small" sx={{ mr: 1 }} />
+            ) : (
+              <ArchiveRounded fontSize="small" sx={{ mr: 1 }} />
+            )}
+            {list.archived ? t('list.unarchive') : t('list.archive')}
           </MenuItem>
         )}
         {owner && !list.isInbox && (
@@ -262,6 +280,7 @@ function SectionActions({ section, onAdd }: { section: Section; onAdd: () => voi
 
 export function ListContents({ list }: { list: List }) {
   const workspace = useWorkspace();
+  const apply = useApply();
   const today = useToday();
   const me = useStoreState((state) => state.context().userId);
   const role = myRole(workspace, me, list.id);
@@ -273,6 +292,30 @@ export function ListContents({ list }: { list: List }) {
   const completed = filterClosedTasks(workspace, filter, today);
   const empty = groups.every((group) => group.tasks.length === 0);
 
+  const archivedBar = list.archived && (
+    <Alert
+      severity="info"
+      variant="outlined"
+      icon={<ArchiveRounded fontSize="small" />}
+      sx={{ mb: 1.5, alignItems: 'center' }}
+      {...(role === 'owner'
+        ? {
+            action: (
+              <Button
+                size="small"
+                onClick={() =>
+                  apply((ctx, ws) => updateList(ctx, ws, list.id, { archived: false }))
+                }
+              >
+                {t('list.unarchive')}
+              </Button>
+            ),
+          }
+        : {})}
+    >
+      {t('list.archivedNote')}
+    </Alert>
+  );
   const header = canEdit ? (
     <AddTaskInput
       defaults={{ listId: list.id }}
@@ -288,6 +331,7 @@ export function ListContents({ list }: { list: List }) {
   if (grouping === 'date') {
     return (
       <Page title={listName(list)} actions={actions}>
+        {archivedBar}
         {header}
         <DateGroupedTasks filter={filter} emptyTitle={t('list.empty')} />
       </Page>
@@ -296,6 +340,7 @@ export function ListContents({ list }: { list: List }) {
 
   return (
     <Page title={listName(list)} actions={actions}>
+      {archivedBar}
       {header}
       {empty && groups.length === 1 && completed.length === 0 && (
         <EmptyState title={t('list.empty')} />

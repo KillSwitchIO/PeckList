@@ -132,6 +132,20 @@ describe('filter engine', () => {
     expect(filterTasks(missing, { sharedWith: s.ctx.userId }, TODAY)).toHaveLength(3);
   });
 
+  it("keeps an archived list's tasks out of views but on its own page", () => {
+    const s = setup();
+    const work = s.ws.entities.lists.find((list) => list.id === s.work)!;
+    const archived = putEntity(s.ws, 'lists', { ...work, archived: true });
+    expect(filterTasks(archived, ALL_TASKS, TODAY).map((task) => task.title)).not.toContain(
+      'tomorrow',
+    );
+    expect(filterTasks(archived, { lists: [s.work] }, TODAY).map((task) => task.title)).toEqual([
+      'tomorrow',
+      'undated',
+      'undated child',
+    ]);
+  });
+
   it('lists closed tasks without the subtasks closed along with their parent', () => {
     const s = setup();
     s.ws = setTaskStatus(s.ctx, s.ws, s.undated.id, 'done');

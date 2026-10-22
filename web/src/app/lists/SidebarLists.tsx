@@ -1,4 +1,5 @@
 import AddRounded from '@mui/icons-material/AddRounded';
+import ArchiveOutlined from '@mui/icons-material/ArchiveOutlined';
 import {
   Box,
   IconButton,
@@ -11,7 +12,7 @@ import {
 import { useState } from 'react';
 import { useLocation } from 'react-router';
 import { getEntity } from '../../core/collections.ts';
-import { createList } from '../../core/lists.ts';
+import { createList, visibleLists } from '../../core/lists.ts';
 import { openCounts } from '../../core/queries.ts';
 import { moveInOrder, pinnedListId, togglePinned } from '../../core/sidebar.ts';
 import type { List as ListEntity } from '../../core/types.ts';
@@ -40,6 +41,9 @@ export function SidebarLists({ onNavigate }: { onNavigate: (path: string) => voi
   const lists = edit.current.lists
     .map((id) => getEntity(workspace, 'lists', id))
     .filter((list): list is ListEntity => list !== undefined);
+  // Archived lists wait in a group at the end, closed until opened (remembered on this device).
+  const archived = visibleLists(workspace, true).filter((list) => list.archived);
+  const showArchived = folded.has('archived-open');
   const sortable = useSortableRows({
     editing,
     start: edit.start,
@@ -124,6 +128,51 @@ export function SidebarLists({ onNavigate }: { onNavigate: (path: string) => voi
               </ListItemButton>
             );
           })}
+        {!folded.has('lists') && !editing && archived.length > 0 && (
+          <>
+            <ListItemButton
+              aria-expanded={showArchived}
+              onClick={() => fold('archived-open')}
+              sx={{ color: 'text.secondary' }}
+            >
+              <ListItemIcon sx={{ minWidth: 28, color: 'inherit' }}>
+                <ArchiveOutlined sx={{ fontSize: 16 }} />
+              </ListItemIcon>
+              <ListItemText primary={t('list.archived')} />
+              <Box component="span" sx={{ typography: 'caption' }}>
+                {archived.length}
+              </Box>
+            </ListItemButton>
+            {showArchived &&
+              archived.map((list) => {
+                const path = `/lists/${list.id}`;
+                return (
+                  <ListItemButton
+                    key={list.id}
+                    selected={pathname === path}
+                    onClick={() => onNavigate(path)}
+                    sx={{ pl: 4, color: 'text.secondary' }}
+                  >
+                    <ListItemIcon sx={{ minWidth: 28 }}>
+                      <Box
+                        sx={{
+                          width: 10,
+                          height: 10,
+                          borderRadius: '50%',
+                          bgcolor: list.color,
+                          opacity: 0.6,
+                        }}
+                      />
+                    </ListItemIcon>
+                    <ListItemText
+                      primary={listName(list)}
+                      slotProps={{ primary: { noWrap: true } }}
+                    />
+                  </ListItemButton>
+                );
+              })}
+          </>
+        )}
       </List>
       {creating && (
         <ListDialog
