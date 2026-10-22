@@ -9,10 +9,11 @@ import { openDocument, upgradeDocument, type OpenResult } from '../../core/io.ts
 import { backupName } from '../../core/migrations.ts';
 import { mergeWorkspaces } from '../../core/merge.ts';
 import type { OpContext } from '../../core/ops.ts';
-import type { WorkspaceFile } from '../../core/types.ts';
+import { COLLECTIONS, type WorkspaceFile } from '../../core/types.ts';
 import { revertChange } from '../../core/undo.ts';
-import { createWorkspace } from '../../core/workspace.ts';
+import { createWorkspace, emptyEntities } from '../../core/workspace.ts';
 import type { IdGenerator } from '../../ports/ids.ts';
+import type { Journal } from '../../ports/journal.ts';
 import type { StorageAdapter } from '../../ports/storage.ts';
 import type { SchemaValidator } from '../../ports/validator.ts';
 
@@ -46,6 +47,11 @@ export interface WorkspaceState {
   dismissUndo(): void;
   /** Persist now (also called on page hide). */
   flush(): Promise<void>;
+  /**
+   * Write unsaved changes to the journal, synchronously: the page is going away and an
+   * asynchronous save would not finish. The next start (or save) merges them back in.
+   */
+  journal(): void;
   /** Merge in whatever another tab saved. */
   reloadFromStorage(): Promise<void>;
   /**
@@ -74,6 +80,8 @@ export interface StoreDependencies {
   withLock?: <T>(run: () => Promise<T>) => Promise<T>;
   /** Tell other tabs a save happened. */
   notify?: () => void;
+  /** Where unsaved changes go when the page is closing (see `journal()`). */
+  journal?: Journal;
   displayName?: string;
 }
 
@@ -95,6 +103,30 @@ export function createWorkspaceStore(deps: StoreDependencies): WorkspaceStore {
   let storedOwner: string | null = null;
   // Ids whose in-memory copy (or absence) must win over storage on the next save.
   const authoritative = new Set<string>();
+  // The workspace as last read from or written to storage: what the journal is measured against.
+  let saved: WorkspaceFile | null = null;
+
+  /** `workspace` with the journal's changes merged in (same owner and schema only). */
+  const withJournal = (workspace: WorkspaceFile): WorkspaceFile => {
+    const text = deps.journal?.read();
+    if (!text) return workspace;
+    try {
+      const entry = JSON.parse(text) as {
+        owner: string;
+        schemaVersion: number;
+        entities: Partial<WorkspaceFile['entities']>;
+      };
+      if (entry.owner !== workspace.owner || entry.schemaVersion !== workspace.schemaVersion) {
+        return workspace;
+      }
+      return mergeWorkspaces(workspace, {
+        ...workspace,
+        entities: { ...emptyEntities(), ...entry.entities },
+      });
+    } catch {
+      return workspace;
+    }
+  };
 
   /** `merged` with the authoritative ids taken from `memory` (or dropped where memory has none). */
   const pin = (merged: WorkspaceFile, memory: WorkspaceFile): WorkspaceFile => {
@@ -167,8 +199,11 @@ export function createWorkspaceStore(deps: StoreDependencies): WorkspaceStore {
       try {
         await withLock(async () => {
           const current = get().workspace ?? workspace;
-          const merged = pin(mergeStored(await deps.storage.load(), current), current);
+          // A journal left by a page that closed (this tab's or another's) goes in too.
+          const merged = withJournal(pin(mergeStored(await deps.storage.load(), current), current));
           await deps.storage.save(merged);
+          deps.journal?.clear();
+          saved = merged;
           authoritative.clear();
           storedOwner = merged.owner;
           if (merged.owner !== current.owner) {
@@ -220,7 +255,12 @@ export function createWorkspaceStore(deps: StoreDependencies): WorkspaceStore {
             advanceClock(opened.workspace);
             ctx = makeContext(opened.workspace.owner);
             storedOwner = opened.workspace.owner;
-            set({ status: 'ready', workspace: opened.workspace });
+            saved = opened.workspace;
+            // Changes the page could not save before it closed.
+            const recovered = withJournal(opened.workspace);
+            if (recovered !== opened.workspace) advanceClock(recovered);
+            set({ status: 'ready', workspace: recovered });
+            if (recovered !== opened.workspace) schedule();
           } else if (opened.kind === 'needs-upgrade') {
             set({ status: 'needs-upgrade', problem: opened });
           } else if (opened.kind === 'needs-app-update') {
@@ -301,6 +341,29 @@ export function createWorkspaceStore(deps: StoreDependencies): WorkspaceStore {
             },
           });
         }
+      },
+
+      journal() {
+        const { workspace } = get();
+        if (!deps.journal || !workspace || workspace === saved) return;
+        // Only what changed since the last save: entities are never changed in place.
+        const before = saved;
+        const entities: Record<string, unknown[]> = {};
+        for (const collection of COLLECTIONS) {
+          const old = new Set<unknown>(before?.entities[collection] ?? []);
+          const changed = (workspace.entities[collection] as unknown[]).filter(
+            (entity) => !old.has(entity),
+          );
+          if (changed.length > 0) entities[collection] = changed;
+        }
+        if (Object.keys(entities).length === 0) return;
+        deps.journal.write(
+          JSON.stringify({
+            owner: workspace.owner,
+            schemaVersion: workspace.schemaVersion,
+            entities,
+          }),
+        );
       },
 
       async flush() {

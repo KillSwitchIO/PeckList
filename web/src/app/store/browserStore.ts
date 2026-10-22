@@ -2,6 +2,7 @@
 import { createAjvValidator } from '../../adapters/ajv-validator.ts';
 import { createHttpSync } from '../../adapters/http-sync.ts';
 import { createIndexedDbStorage } from '../../adapters/indexeddb-storage.ts';
+import { createLocalJournal } from '../../adapters/local-journal.ts';
 import { createUlidGenerator } from '../../adapters/ulid-ids.ts';
 import { createSyncEngine, type SyncEngine } from '../sync/syncEngine.ts';
 import { tabNodeId } from './device.ts';
@@ -27,6 +28,7 @@ export function createBrowserApp(): { store: WorkspaceStore; sync: SyncEngine } 
     node,
     withLock: lock('punchlist-save'),
     notify: () => channel?.postMessage('saved'),
+    journal: createLocalJournal(),
   });
   // The server that served this page, if it is a Punchlist server (a static host is not).
   const sync = createSyncEngine({

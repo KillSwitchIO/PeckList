@@ -7,20 +7,38 @@ import { inboxList } from '../../core/lists.ts';
 import { CURRENT_SCHEMA_VERSION } from '../../core/migrations.ts';
 import { rekeyOwner } from '../../core/sync.ts';
 import { createTask, toggleTaskDone, updateTask } from '../../core/tasks.ts';
+import type { Journal } from '../../ports/journal.ts';
 import type { StorageAdapter } from '../../ports/storage.ts';
 import { deviceId, randomId } from './device.ts';
 import { createWorkspaceStore } from './workspaceStore.ts';
 
 const validator = createAjvValidator();
 
-function makeStore(storage: StorageAdapter, node = 'tabA') {
+function makeStore(storage: StorageAdapter, node = 'tabA', journal?: Journal) {
   return createWorkspaceStore({
     storage,
     validator,
     ids: createUlidGenerator(),
     node,
     saveDelayMs: 100,
+    ...(journal ? { journal } : {}),
   });
+}
+
+/** A journal in memory, like localStorage: written at once, survives the "page". */
+function memoryJournal(): Journal & { text: string | null } {
+  return {
+    text: null,
+    write(text) {
+      this.text = text;
+    },
+    read() {
+      return this.text;
+    },
+    clear() {
+      this.text = null;
+    },
+  };
 }
 
 function addTask(store: ReturnType<typeof makeStore>, title: string, label?: string) {
@@ -236,5 +254,68 @@ describe('device ids', () => {
     expect(deviceId(storage)).toBe(first);
     expect(deviceId(null)).toMatch(/^[A-Za-z0-9]{8}$/);
     expect(randomId(4, () => 0)).toBe('AAAA');
+  });
+
+  describe('closing the page before a save finishes', () => {
+    it('keeps the change through the journal', async () => {
+      const storage = createMemoryStorage();
+      const journal = memoryJournal();
+      const store = makeStore(storage, 'tabA', journal);
+      await store.getState().init();
+      const id = addTask(store, 'Delete me later');
+      await store.getState().flush();
+      store.getState().apply((ctx, ws) => updateTask(ctx, ws, id, { title: 'Renamed' }));
+      // The page goes away: only the synchronous journal write happens.
+      store.getState().journal();
+      expect(JSON.parse(journal.text!).entities.tasks).toHaveLength(1);
+
+      const reopened = makeStore(storage, 'tabA2', journal);
+      await reopened.getState().init();
+      expect(getEntity(reopened.getState().workspace!, 'tasks', id)?.title).toBe('Renamed');
+      // Saved for real, then the journal goes.
+      await vi.advanceTimersByTimeAsync(150);
+      expect(journal.text).toBeNull();
+      const stored = (await storage.load()) as { entities: { tasks: { title: string }[] } };
+      expect(stored.entities.tasks.map((task) => task.title)).toEqual(['Renamed']);
+    });
+
+    it('writes nothing when everything is saved', async () => {
+      const journal = memoryJournal();
+      const store = makeStore(createMemoryStorage(), 'tabA', journal);
+      await store.getState().init();
+      store.getState().journal();
+      expect(journal.text).toBeNull();
+    });
+
+    it("another tab's save takes the journal in instead of losing it", async () => {
+      const storage = createMemoryStorage();
+      const journal = memoryJournal();
+      const closing = makeStore(storage, 'tabA', journal);
+      await closing.getState().init();
+      const open = makeStore(storage, 'tabB', journal);
+      await open.getState().init();
+      const id = addTask(closing, 'From the closing tab');
+      closing.getState().journal();
+
+      addTask(open, 'From the open tab');
+      await open.getState().flush();
+      expect(journal.text).toBeNull();
+      const stored = (await storage.load()) as { entities: { tasks: { id: string }[] } };
+      expect(stored.entities.tasks.map((task) => task.id)).toContain(id);
+    });
+
+    it('ignores a journal left by another account', async () => {
+      const journal = memoryJournal();
+      journal.write(
+        JSON.stringify({
+          owner: 'someone-else',
+          schemaVersion: CURRENT_SCHEMA_VERSION,
+          entities: {},
+        }),
+      );
+      const store = makeStore(createMemoryStorage(), 'tabA', journal);
+      await store.getState().init();
+      expect(store.getState().status).toBe('ready');
+    });
   });
 });
