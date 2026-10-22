@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { createAjvValidator } from '../adapters/ajv-validator.ts';
 import { sampleTask, testContext } from '../test/fixtures.ts';
 import { putEntity } from './collections.ts';
 import { acceptGroupInvite, createGroup, inviteToGroup } from './groups.ts';
@@ -175,6 +176,8 @@ describe('invite on assign', () => {
     expect(assigneesOf(getTask(next, task.id))).toEqual([invite]);
     expect(friendsOf(next, BEN).map((friend) => friend.state)).toEqual(['outgoing']);
     expect(describePrincipal(next, invite).pending).toBe(true);
+    // The invite key is part of the file format (a device must be able to open it again).
+    expect(createAjvValidator().validate(next).errors).toEqual([]);
     // Waiting on Sam: nothing is assigned to Sam yet.
     expect(assignedTo(next, SAM)).toEqual([]);
 

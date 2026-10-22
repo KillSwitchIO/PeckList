@@ -518,7 +518,7 @@
           "type": "object",
           "$ref": "#/$defs/elementSet",
           "propertyNames": {
-            "pattern": "^(user|group):[0-9A-HJKMNP-TV-Z]{26}$"
+            "pattern": "^((user|group):[0-9A-HJKMNP-TV-Z]{26}|invite:[0-9A-HJKMNP-TV-Z]{26}:[0-9A-HJKMNP-TV-Z]{26})$"
           }
         },
         "blockedBy": {
