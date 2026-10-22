@@ -9,6 +9,7 @@ public static class Backups
     public static IServiceCollection AddBackups(this IServiceCollection services, ServerSettings settings)
     {
         services.AddSingleton<BackupService>();
+        services.AddSingleton<UserBackups>();
         services.AddSingleton(provider => new Snapshots(
             provider.GetRequiredService<BackupService>(), settings.SnapshotDir, settings.SnapshotKeep, provider.GetRequiredService<TimeProvider>()));
         if (settings.SnapshotSchedule != SnapshotSchedule.Off) services.AddHostedService<SnapshotScheduler>();
