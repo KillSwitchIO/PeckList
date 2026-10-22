@@ -15,6 +15,8 @@ import { AvatarStack } from '../friends/AvatarStack.tsx';
 import { listName } from '../lists/listName.ts';
 import { useApply, useWorkspace } from '../store/hooks.ts';
 import { TaskReadOnly, useCanEditTask, useReadOnly } from './readOnly.ts';
+import { useTaskDrag } from './drag/dragContext.ts';
+import { keyboardMove } from '../../core/taskDrag.ts';
 import { TagChips } from '../tags/TagChip.tsx';
 import { useTaskSelection } from './selection.ts';
 import { CHECK_PATH, CROSS_PATH } from './closedMarks.ts';
@@ -97,6 +99,7 @@ export function TaskRow({
   showParent = true,
   depth = 0,
   expander,
+  draggable = false,
 }: {
   task: Task;
   /** Show the task's list (views that mix lists) */
@@ -107,6 +110,8 @@ export function TaskRow({
   depth?: number;
   /** Chevron to show or hide this task's subtasks */
   expander?: RowExpander;
+  /** In a list that can be reordered: drag it, or Alt+arrows from the keyboard */
+  draggable?: boolean;
 }) {
   const workspace = useWorkspace();
   const theme = useTheme();
@@ -123,6 +128,18 @@ export function TaskRow({
   const [menu, setMenu] = useState<TaskMenuAnchor | null>(null);
   const longPress = useLongPress((position) => setMenu({ position }));
   const canEdit = useCanEditTask(task);
+  const apply = useApply();
+  const drag = useTaskDrag();
+  const dragging = draggable && canEdit && drag !== null;
+  const gesture = dragging ? drag.gesture(task, depth, (position) => setMenu({ position })) : null;
+  const dimmed = drag?.dimmed.has(task.id) ?? false;
+  // Keyboard moves: Alt+Up/Down among its siblings, Alt+Right/Left to nest and outdent.
+  const keyMove = (key: string): boolean => {
+    const move = keyboardMove(key);
+    if (!move) return false;
+    apply((ctx, ws) => move(ctx, ws, task.id), t('undo.moved'));
+    return true;
+  };
 
   // Closed tasks show when they were completed instead of when they start.
 
@@ -133,13 +150,15 @@ export function TaskRow({
           event.preventDefault();
           setMenu({ position: { top: event.clientY, left: event.clientX } });
         }}
-        {...longPress}
+        // A draggable row's own gesture covers the touch long-press (menu, or drag on moving).
+        {...(gesture ? {} : longPress)}
         sx={{
           position: 'relative',
           display: 'flex',
           alignItems: 'center',
           minHeight: 40,
           pl: `${4 + depth * INDENT}px`,
+          opacity: dimmed ? 0.4 : 1,
           borderBottom: 1,
           borderColor: 'divider',
           bgcolor: selected ? 'action.selected' : 'transparent',
@@ -187,6 +206,15 @@ export function TaskRow({
         <PriorityCheckbox task={task} />
         <ButtonBase
           onClick={() => open(task.id)}
+          {...(gesture ?? {})}
+          {...(dragging
+            ? {
+                onKeyDown: (event: React.KeyboardEvent) => {
+                  if (!event.altKey || event.ctrlKey || event.metaKey) return;
+                  if (keyMove(event.key)) event.preventDefault();
+                },
+              }
+            : {})}
           aria-label={t('task.open', { title })}
           // No ripple: it spread over the row after the details had opened and read as lag.
           disableRipple

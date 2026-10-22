@@ -101,7 +101,7 @@ export function taskDepth(workspace: WorkspaceFile, id: Id): number {
 }
 
 /** Levels of live subtasks under a task: 0 without subtasks. */
-function subtreeHeight(workspace: WorkspaceFile, id: Id): number {
+export function subtreeHeight(workspace: WorkspaceFile, id: Id): number {
   let height = 0;
   for (const child of workspace.entities.tasks) {
     if (child.parentId === id && isLive(child)) {

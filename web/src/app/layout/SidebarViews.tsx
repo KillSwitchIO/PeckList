@@ -19,6 +19,7 @@ import type { ReactNode } from 'react';
 import { useLocation, useNavigate } from 'react-router';
 import { getEntity, isLive } from '../../core/collections.ts';
 import { filterTasks } from '../../core/filters.ts';
+import { inboxList } from '../../core/lists.ts';
 import { createSavedFilter, filterOf, savedFiltersOf } from '../../core/savedFilters.ts';
 import { useToday } from '../hooks/useToday.ts';
 import {
@@ -56,6 +57,8 @@ interface ViewItem {
   pinned: boolean;
   /** Open tasks it holds (saved filters) */
   count?: number;
+  /** A list a dragged task can be dropped on (the Mess Drawer, pinned lists) */
+  dropList?: string;
 }
 
 /**
@@ -104,6 +107,7 @@ export function SidebarViews({
     const name = t(item.label);
     items[id] = { path: item.path, name, label: name, icon: item.icon, pinned: false };
   }
+  items.inbox = { ...items.inbox!, dropList: inboxList(workspace).id };
   for (const filter of savedFiltersOf(workspace)) {
     items[filterViewId(filter.id)] = {
       path: `/filters/${filter.id}`,
@@ -120,6 +124,7 @@ export function SidebarViews({
       const list = getEntity(workspace, 'lists', entityId);
       if (!list || !isLive(list)) continue;
       items[id] = {
+        dropList: list.id,
         path: `/lists/${list.id}`,
         name: listName(list),
         label: listName(list),
@@ -182,7 +187,13 @@ export function SidebarViews({
         onClick={sortable.click(() => {
           if (!editing) onNavigate(item.path);
         })}
+        // The Mess Drawer and pinned lists take a dragged task too.
+        {...(item.dropList ? { 'data-drop-list': item.dropList } : {})}
         sx={{
+          '&.drop-hover': {
+            bgcolor: 'action.selected',
+            boxShadow: `inset 0 0 0 2px ${theme.palette.primary.main}`,
+          },
           pl: inGroup ? 3 : 2,
           opacity: hidden ? 0.45 : 1,
           ...editingRowSx(editing, sortable.dragging === id, index),

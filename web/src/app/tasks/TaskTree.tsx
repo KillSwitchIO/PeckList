@@ -50,10 +50,13 @@ export function TaskTree({
   tasks,
   showList = false,
   ownPlace = () => false,
+  dragZone,
 }: {
   tasks: Task[];
   showList?: boolean;
   ownPlace?: (task: Task) => boolean;
+  /** Rows can be dragged here (a list's own page, one zone per section) */
+  dragZone?: { listId: string; sectionId: string | null };
 }) {
   const workspace = useWorkspace();
   const { collapsed, toggle } = useCollapsedSet('punchlist.collapsedTasks');
@@ -91,12 +94,26 @@ export function TaskTree({
   );
 
   return (
-    <Box component="ul" sx={{ listStyle: 'none', m: 0, p: 0 }}>
+    <Box
+      component="ul"
+      sx={{ listStyle: 'none', m: 0, p: 0 }}
+      {...(dragZone
+        ? {
+            'data-drag-zone': '',
+            'data-list': dragZone.listId,
+            'data-section': dragZone.sectionId ?? '',
+          }
+        : {})}
+    >
       {visible.map((row) => (
-        <li key={row.task.id}>
+        <li
+          key={row.task.id}
+          {...(dragZone ? { 'data-drag-row': row.task.id, 'data-depth': row.depth } : {})}
+        >
           <TaskRow
             task={row.task}
             depth={row.depth}
+            draggable={dragZone !== undefined}
             // Every row names its list in views that mix lists (TickTick style); only roots name
             // their parent, nested rows sit under it already.
             showList={showList}

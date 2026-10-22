@@ -376,6 +376,8 @@ export const en = {
   'undo.restored': 'Task restored',
   'undo.listDeleted': 'List deleted',
   'undo.listArchived': 'List archived',
+  'undo.moved': 'Task moved',
+  'undo.movedTo': 'Moved to {list}',
   'list.unarchive': 'Unarchive',
   'list.archived': 'Archived',
   'list.archivedNote': 'This list is archived: its tasks stay out of your other views.',

@@ -36,6 +36,7 @@ import { t } from '../i18n/i18n.ts';
 import { Page } from '../layout/Page.tsx';
 import { useApply, useStoreState, useWorkspace } from '../store/hooks.ts';
 import { AddTaskInput } from '../tasks/AddTaskInput.tsx';
+import { TaskDragProvider } from '../tasks/drag/TaskDrag.tsx';
 import { TaskTree } from '../tasks/TaskTree.tsx';
 import { EmptyState } from '../views/EmptyState.tsx';
 import { GroupSection } from '../views/GroupSection.tsx';
@@ -338,16 +339,16 @@ export function ListContents({ list }: { list: List }) {
     );
   }
 
-  return (
-    <Page title={listName(list)} actions={actions}>
-      {archivedBar}
-      {header}
+  const zone = (sectionId: string | null) =>
+    canEdit ? { dragZone: { listId: list.id, sectionId } } : {};
+  const content = (
+    <>
       {empty && groups.length === 1 && completed.length === 0 && (
         <EmptyState title={t('list.empty')} />
       )}
       {groups.map((group) => {
         const section = group.sectionId ? getEntity(workspace, 'sections', group.sectionId) : null;
-        if (!section) return <TaskTree key="none" tasks={group.tasks} />;
+        if (!section) return <TaskTree key="none" tasks={group.tasks} {...zone(null)} />;
         return (
           <GroupSection
             key={section.id}
@@ -364,10 +365,18 @@ export function ListContents({ list }: { list: List }) {
             {addingTo === section.id && (
               <AddTaskInput defaults={{ listId: list.id, sectionId: section.id }} autoFocus />
             )}
-            <TaskTree tasks={group.tasks} />
+            <TaskTree tasks={group.tasks} {...zone(section.id)} />
           </GroupSection>
         );
       })}
+    </>
+  );
+
+  return (
+    <Page title={listName(list)} actions={actions}>
+      {archivedBar}
+      {header}
+      {canEdit ? <TaskDragProvider>{content}</TaskDragProvider> : content}
       <CompletedGroup tasks={completed} />
     </Page>
   );

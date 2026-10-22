@@ -95,7 +95,15 @@ export function SidebarLists({ onNavigate }: { onNavigate: (path: string) => voi
                 onClick={sortable.click(() => {
                   if (!editing) onNavigate(path);
                 })}
-                sx={editingRowSx(editing, sortable.dragging === list.id, index)}
+                // A task dragged out of a list can be dropped here to move it.
+                data-drop-list={list.id}
+                sx={{
+                  ...editingRowSx(editing, sortable.dragging === list.id, index),
+                  '&.drop-hover': {
+                    bgcolor: 'action.selected',
+                    boxShadow: (theme) => `inset 0 0 0 2px ${theme.palette.primary.main}`,
+                  },
+                }}
               >
                 {editing && (
                   <DragHandleIcon
