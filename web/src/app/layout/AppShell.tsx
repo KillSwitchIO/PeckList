@@ -1,5 +1,5 @@
 import BrightnessAutoRounded from '@mui/icons-material/BrightnessAutoRounded';
-import { popupOpen } from '../hooks/keys.ts';
+import { popupOpen, typing } from '../hooks/keys.ts';
 import DarkModeRounded from '@mui/icons-material/DarkModeRounded';
 import LightModeRounded from '@mui/icons-material/LightModeRounded';
 import MenuRounded from '@mui/icons-material/MenuRounded';
@@ -220,6 +220,18 @@ export function AppShell() {
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [selectedId, close]);
+
+  // "/" jumps to search from anywhere but a text field (spec: Keyboard shortcuts).
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key !== '/' || event.ctrlKey || event.metaKey || event.altKey) return;
+      if (event.defaultPrevented || typing() || popupOpen()) return;
+      event.preventDefault();
+      void navigate('/search');
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [navigate]);
 
   const go = (path: string) => {
     setDrawerOpen(false);

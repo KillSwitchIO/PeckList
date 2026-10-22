@@ -19,6 +19,18 @@ export function onShiftEnter(action: () => void) {
   };
 }
 
+/** Whether the user is typing: a text field, an editor, or a select has focus. */
+export function typing(): boolean {
+  const active = document.activeElement;
+  if (!(active instanceof HTMLElement)) return false;
+  return (
+    active.isContentEditable ||
+    active instanceof HTMLInputElement ||
+    active instanceof HTMLTextAreaElement ||
+    active instanceof HTMLSelectElement
+  );
+}
+
 /** Whether a dialog, menu, popover or sheet is open (they handle Escape themselves). */
 export function popupOpen(): boolean {
   return document.querySelector('.MuiModal-root:not(.MuiModal-hidden)') !== null;

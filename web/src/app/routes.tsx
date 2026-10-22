@@ -9,6 +9,7 @@ import { FriendsPage } from './friends/FriendsPage.tsx';
 import { TagView } from './tags/TagView.tsx';
 import { EmptyState } from './views/EmptyState.tsx';
 import { MoreView } from './views/MoreView.tsx';
+import { SearchView } from './search/SearchView.tsx';
 import {
   AllView,
   AssignedView,
@@ -60,7 +61,7 @@ export function AppRoutes() {
           path="/calendar"
           element={<ComingSoon title={t('nav.calendar')} milestone="0.3" />}
         />
-        <Route path="/search" element={<ComingSoon title={t('nav.search')} milestone="0.2" />} />
+        <Route path="/search" element={<SearchView />} />
         <Route
           path="/settings"
           element={<ComingSoon title={t('nav.settings')} milestone="0.2" />}
