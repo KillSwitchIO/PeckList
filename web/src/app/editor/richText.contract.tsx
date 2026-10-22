@@ -102,6 +102,23 @@ export function describeRichTextContract(name: string, Editor: RichTextEditor) {
       expect(onCommit).toHaveBeenCalledExactlyOnceWith('- [x] done');
     });
 
+    it('read-only shows the text and takes no typing', async () => {
+      const onCommit = vi.fn();
+      renderThemed(
+        <>
+          <Editor label="Notes" value="Keep **out**" readOnly onCommit={onCommit} />
+          <button type="button">Elsewhere</button>
+        </>,
+      );
+      const editor = await field();
+      expect(editor).toHaveTextContent('Keep out');
+      expect(editor).toHaveAttribute('aria-readonly', 'true');
+      await userEvent.type(editor, 'more');
+      await userEvent.click(screen.getByRole('button', { name: 'Elsewhere' }));
+      expect(editor).toHaveTextContent('Keep out');
+      expect(onCommit).not.toHaveBeenCalled();
+    });
+
     it('takes outside changes', async () => {
       const { setValue } = setup('Before');
       const editor = await field();

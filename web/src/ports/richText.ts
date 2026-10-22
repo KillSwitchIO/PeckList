@@ -12,6 +12,8 @@ export interface RichTextEditorProps {
   label: string;
   /** Shown while the text is empty. */
   placeholder?: string;
+  /** Show the text without letting it change. */
+  readOnly?: boolean;
 }
 
 /**

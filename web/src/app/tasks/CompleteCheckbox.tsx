@@ -9,6 +9,7 @@ import type { Task } from '../../core/types.ts';
 import { useLongPress } from '../hooks/useLongPress.ts';
 import { t } from '../i18n/i18n.ts';
 import { useApply } from '../store/hooks.ts';
+import { useReadOnly } from './readOnly.ts';
 import { CHECK_PATH, CROSS_PATH } from './closedMarks.ts';
 
 const PRIORITY_KEY = { 0: 'none', 1: 'low', 2: 'medium', 3: 'high' } as const;
@@ -44,6 +45,7 @@ export function CompleteCheckbox({
 }) {
   const theme = useTheme();
   const apply = useApply();
+  const readOnly = useReadOnly();
   // Animate only a completion made here, not a task that was already done.
   const [celebrating, setCelebrating] = useState(false);
   const longPress = useLongPress(onMenu);
@@ -64,6 +66,7 @@ export function CompleteCheckbox({
       role="checkbox"
       aria-checked={closed}
       aria-label={closed ? t('task.reopen', { title }) : t('task.complete', { title })}
+      disabled={readOnly}
       onContextMenu={(event) => {
         event.preventDefault();
         onMenu({ top: event.clientY, left: event.clientX });

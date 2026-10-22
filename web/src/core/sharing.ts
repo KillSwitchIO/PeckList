@@ -115,8 +115,36 @@ export function roleOn(workspace: WorkspaceFile, me: Id, listId: Id): Role | nul
 }
 
 export function canEditList(workspace: WorkspaceFile, me: Id, listId: Id): boolean {
-  const role = roleOn(workspace, me, listId);
+  const role = myRole(workspace, me, listId);
   return role === 'owner' || role === 'editor';
+}
+
+/**
+ * My role on a list on this device. A list that is not shared is mine (only its owner gets it),
+ * which also covers lists made before signing in; a list this device does not have is nobody's.
+ */
+export function myRole(workspace: WorkspaceFile, me: Id, listId: Id): Role | null {
+  const list = getEntity(workspace, 'lists', listId);
+  if (!list) return null;
+  return list.visibility === 'shared' ? roleOn(workspace, me, listId) : 'owner';
+}
+
+/** Whether I may change a task: its list lets me edit, or it is assigned to me (as the server rules). */
+export function canEditTask(workspace: WorkspaceFile, me: Id, task: Task): boolean {
+  return (
+    canEditList(workspace, me, task.listId) ||
+    principalsOf(workspace, me).some((principal) => assigneesOf(task).includes(principal))
+  );
+}
+
+/** Me and the groups I am an active member of, as principals. */
+function principalsOf(workspace: WorkspaceFile, me: Id): string[] {
+  return [
+    `user:${me}`,
+    ...workspace.entities.groupMembers
+      .filter((member) => isLive(member) && member.userId === me && member.state === 'active')
+      .map((member) => `group:${member.groupId}`),
+  ];
 }
 
 /** Whether a list is shared with anyone (the sidebar marks it). */
@@ -243,12 +271,7 @@ export function assigneeCandidates(workspace: WorkspaceFile, me: Id, task: Task)
 
 /** Open tasks assigned to me, directly or through a group I am in. */
 export function assignedTo(workspace: WorkspaceFile, me: Id): Task[] {
-  const mine = new Set([
-    `user:${me}`,
-    ...workspace.entities.groupMembers
-      .filter((member) => isLive(member) && member.userId === me && member.state === 'active')
-      .map((member) => `group:${member.groupId}`),
-  ]);
+  const mine = new Set(principalsOf(workspace, me));
   return workspace.entities.tasks.filter(
     (task) =>
       isLive(task) &&

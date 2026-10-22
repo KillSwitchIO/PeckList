@@ -22,6 +22,7 @@ import { t } from '../i18n/i18n.ts';
 import { CheckIcon, ChevronUpIcon, FlagIcon, TrayIcon } from '../icons/icons.tsx';
 import { listName } from '../lists/listName.ts';
 import { useApply, useWorkspace } from '../store/hooks.ts';
+import { useReadOnly } from './readOnly.ts';
 import { TaskTagPills } from '../tags/TaskTags.tsx';
 
 const PRIORITIES: Priority[] = [3, 2, 1, 0];
@@ -107,6 +108,7 @@ function ListPicker({ task }: { task: Task }) {
   const workspace = useWorkspace();
   const apply = useApply();
   const [anchor, setAnchor] = useState<HTMLElement | null>(null);
+  const readOnly = useReadOnly();
   const lists = visibleLists(workspace);
   const list = lists.find((each) => each.id === task.listId);
   const currentSection = sectionsOf(workspace, task.listId).find(
@@ -140,6 +142,7 @@ function ListPicker({ task }: { task: Task }) {
       <ButtonBase
         aria-label={t('task.listValue', { list: current })}
         aria-haspopup="menu"
+        disabled={readOnly}
         onClick={(event) => setAnchor(event.currentTarget)}
         sx={{
           gap: 1,
@@ -159,7 +162,7 @@ function ListPicker({ task }: { task: Task }) {
         >
           {current}
         </Box>
-        <ChevronUpIcon sx={{ fontSize: 16 }} />
+        {!readOnly && <ChevronUpIcon sx={{ fontSize: 16 }} />}
       </ButtonBase>
       <Menu
         anchorEl={anchor}
@@ -203,6 +206,7 @@ function PriorityPicker({ task }: { task: Task }) {
   const theme = useTheme();
   const apply = useApply();
   const [anchor, setAnchor] = useState<HTMLElement | null>(null);
+  const readOnly = useReadOnly();
   const color = (priority: Priority) =>
     priority === 0
       ? theme.palette.text.secondary
@@ -215,8 +219,9 @@ function PriorityPicker({ task }: { task: Task }) {
         <IconButton
           aria-label={name}
           aria-haspopup="menu"
+          disabled={readOnly}
           onClick={(event) => setAnchor(event.currentTarget)}
-          sx={{ color: color(task.priority) }}
+          sx={{ color: color(task.priority), '&.Mui-disabled': { color: color(task.priority) } }}
         >
           <FlagIcon fontSize="small" filled={task.priority !== 0} />
         </IconButton>

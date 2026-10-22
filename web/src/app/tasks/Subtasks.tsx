@@ -36,6 +36,7 @@ import {
 import type { Task } from '../../core/types.ts';
 import { t } from '../i18n/i18n.ts';
 import { useApply, useWorkspace } from '../store/hooks.ts';
+import { TaskReadOnly, useCanEditTask, useReadOnly } from './readOnly.ts';
 import { useLongPress } from '../hooks/useLongPress.ts';
 import { DateButton } from './DateButton.tsx';
 import { TaskMenu, type TaskMenuAnchor } from './TaskMenu.tsx';
@@ -83,6 +84,7 @@ export function ParentTrail({ task }: { task: Task }) {
   const workspace = useWorkspace();
   const apply = useApply();
   const { open } = useTaskSelection();
+  const readOnly = useReadOnly();
   const [anchor, setAnchor] = useState<HTMLElement | null>(null);
   const chain = ancestors(workspace, task.id);
   const parent = chain[chain.length - 1];
@@ -127,15 +129,17 @@ export function ParentTrail({ task }: { task: Task }) {
         </ButtonBase>
       </Box>
       <Box sx={{ flexGrow: 1 }} />
-      <Tooltip title={t('task.detach')}>
-        <IconButton
-          size="small"
-          aria-label={t('task.detach')}
-          onClick={() => apply((ctx, ws) => detachTask(ctx, ws, task.id), t('undo.detached'))}
-        >
-          <LinkOffRounded fontSize="small" />
-        </IconButton>
-      </Tooltip>
+      {!readOnly && (
+        <Tooltip title={t('task.detach')}>
+          <IconButton
+            size="small"
+            aria-label={t('task.detach')}
+            onClick={() => apply((ctx, ws) => detachTask(ctx, ws, task.id), t('undo.detached'))}
+          >
+            <LinkOffRounded fontSize="small" />
+          </IconButton>
+        </Tooltip>
+      )}
       <Popover
         open={anchor !== null}
         anchorEl={anchor}
@@ -213,46 +217,52 @@ function SubtaskLine({
   const title = task.title || t('task.untitled');
   const [menu, setMenu] = useState<TaskMenuAnchor | null>(null);
   const longPress = useLongPress((position) => setMenu({ position }));
+  const readOnly = !useCanEditTask(task);
   return (
-    <Box
-      onContextMenu={(event) => {
-        event.preventDefault();
-        setMenu({ position: { top: event.clientY, left: event.clientX } });
-      }}
-      {...longPress}
-      sx={{
-        display: 'flex',
-        alignItems: 'center',
-        gap: 0.5,
-        pl: `${node.depth * 24}px`,
-        borderRadius: 1.5,
-        '&:hover .subtask-open, &:focus-within .subtask-open': { opacity: 1 },
-      }}
-    >
-      <PriorityCheckbox task={task} />
-      <InputBase
-        fullWidth
-        value={draft}
-        placeholder={t('task.untitled')}
-        onChange={(event) => setDraft(event.target.value)}
-        onBlur={leave}
-        onKeyDown={(event) => onKeyDown(event as KeyboardEvent<HTMLInputElement>, draft, commit)}
-        inputProps={{ id: inputId(task.id), 'aria-label': t('task.subtaskTitle') }}
-        sx={{ color: done ? 'text.disabled' : 'text.primary', typography: 'body1' }}
-      />
-      {/* Like the list rows: the start date (or the completion day) on the right. */}
-      <DateButton task={task} width="auto" testId="subtask-date" />
-      <IconButton
-        className="subtask-open"
-        size="small"
-        aria-label={t('task.open', { title })}
-        onClick={() => open(task.id)}
-        sx={{ opacity: { xs: 1, md: 0 }, transition: 'opacity 120ms' }}
+    <TaskReadOnly value={readOnly}>
+      <Box
+        onContextMenu={(event) => {
+          event.preventDefault();
+          setMenu({ position: { top: event.clientY, left: event.clientX } });
+        }}
+        {...longPress}
+        sx={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 0.5,
+          pl: `${node.depth * 24}px`,
+          borderRadius: 1.5,
+          '&:hover .subtask-open, &:focus-within .subtask-open': { opacity: 1 },
+        }}
       >
-        <ChevronRightRounded fontSize="small" />
-      </IconButton>
-      <TaskMenu task={task} anchor={menu} onClose={() => setMenu(null)} showOpen />
-    </Box>
+        <PriorityCheckbox task={task} />
+        <InputBase
+          fullWidth
+          value={draft}
+          placeholder={t('task.untitled')}
+          readOnly={readOnly}
+          onChange={(event) => setDraft(event.target.value)}
+          onBlur={leave}
+          onKeyDown={(event) => {
+            if (!readOnly) onKeyDown(event as KeyboardEvent<HTMLInputElement>, draft, commit);
+          }}
+          inputProps={{ id: inputId(task.id), 'aria-label': t('task.subtaskTitle') }}
+          sx={{ color: done ? 'text.disabled' : 'text.primary', typography: 'body1' }}
+        />
+        {/* Like the list rows: the start date (or the completion day) on the right. */}
+        <DateButton task={task} width="auto" testId="subtask-date" />
+        <IconButton
+          className="subtask-open"
+          size="small"
+          aria-label={t('task.open', { title })}
+          onClick={() => open(task.id)}
+          sx={{ opacity: { xs: 1, md: 0 }, transition: 'opacity 120ms' }}
+        >
+          <ChevronRightRounded fontSize="small" />
+        </IconButton>
+        <TaskMenu task={task} anchor={menu} onClose={() => setMenu(null)} showOpen />
+      </Box>
+    </TaskReadOnly>
   );
 }
 
@@ -264,10 +274,11 @@ export function SubtaskEditor({ task }: { task: Task }) {
   const workspace = useWorkspace();
   const apply = useApply();
   const [draft, setDraft] = useState('');
+  const readOnly = useReadOnly();
   const nodes = subtaskTree(workspace, task.id);
   const progress = subtaskProgress(workspace, task.id);
-  // Direct subtasks of a task at the deepest level cannot exist.
-  const canHaveSubtasks = taskDepth(workspace, task.id) < MAX_SUBTASK_DEPTH;
+  // Direct subtasks of a task at the deepest level cannot exist; a task I only view gets none.
+  const canHaveSubtasks = !readOnly && taskDepth(workspace, task.id) < MAX_SUBTASK_DEPTH;
   if (!canHaveSubtasks && nodes.length === 0) return null;
 
   // Run a change and render it now, so focus can move to rows that just appeared.

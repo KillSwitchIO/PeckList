@@ -8,6 +8,7 @@ import {
   assigneeCandidates,
   assignedTo,
   canEditList,
+  canEditTask,
   endFriendship,
   friendsOf,
   isShared,
@@ -123,6 +124,33 @@ describe('list sharing', () => {
     const withGroup: WorkspaceFile = putEntity(workspace, 'groupMembers', member);
     const shared = shareList(ben, withGroup, list.id, 'group:01JBGR0000000000000000000G', 'viewer');
     expect(roleOn(shared, SAM, list.id)).toBe('viewer');
+  });
+});
+
+describe('editing tasks', () => {
+  it('follows the list role, or an assignment', () => {
+    const { ben, workspace, list } = benWorld();
+    const task = sampleTask(ben, list.id, 'Fix fence');
+    let next = putEntity(workspace, 'tasks', task);
+    // A list that is not shared is mine on this device.
+    expect(canEditTask(next, BEN, task)).toBe(true);
+    next = shareList(ben, next, list.id, `user:${SAM}`, 'editor');
+    next = shareList(ben, next, list.id, `user:${JO}`, 'viewer');
+    expect(canEditTask(next, SAM, task)).toBe(true);
+    expect(canEditTask(next, JO, task)).toBe(false);
+    next = setAssignee(ben, next, task.id, `user:${JO}`, true);
+    expect(canEditTask(next, JO, getTask(next, task.id))).toBe(true);
+
+    // Assigned from a list this device does not have.
+    const withoutList: WorkspaceFile = {
+      ...next,
+      entities: {
+        ...next.entities,
+        lists: next.entities.lists.filter((each) => each.id !== list.id),
+      },
+    };
+    expect(canEditTask(withoutList, JO, getTask(next, task.id))).toBe(true);
+    expect(canEditTask(withoutList, SAM, getTask(next, task.id))).toBe(false);
   });
 });
 

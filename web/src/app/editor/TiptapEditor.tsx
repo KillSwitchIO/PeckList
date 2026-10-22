@@ -73,7 +73,13 @@ function checkMark(color: string): string {
   return `url("data:image/svg+xml,${encodeURIComponent(svg)}")`;
 }
 
-export default function TiptapEditor({ value, onCommit, label, placeholder }: RichTextEditorProps) {
+export default function TiptapEditor({
+  value,
+  onCommit,
+  label,
+  placeholder,
+  readOnly = false,
+}: RichTextEditorProps) {
   const theme = useTheme();
   // Focus anywhere in the box (the text, the toolbar, the link field) opens it up.
   const [open, setOpen] = useState(false);
@@ -123,10 +129,12 @@ export default function TiptapEditor({ value, onCommit, label, placeholder }: Ri
     extensions: [...notesExtensions(placeholder), slashCommandsExtension(bridge, slashName)],
     content: value,
     contentType: 'markdown',
+    editable: !readOnly,
     editorProps: {
       attributes: {
         'aria-label': label,
         'aria-multiline': 'true',
+        'aria-readonly': String(readOnly),
         role: 'textbox',
       },
       // Escape leaves the notes (saving them); the next Escape closes the details. ProseMirror

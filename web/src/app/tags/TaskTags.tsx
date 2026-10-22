@@ -29,6 +29,7 @@ import { setTaskTag } from '../../core/tasks.ts';
 import type { Task } from '../../core/types.ts';
 import { t } from '../i18n/i18n.ts';
 import { useApply, useWorkspace } from '../store/hooks.ts';
+import { useReadOnly } from '../tasks/readOnly.ts';
 import { CloseIcon, PlusIcon } from '../icons/icons.tsx';
 import { PropertySheet } from '../tasks/PropertyRow.tsx';
 import { GAP, PLUS, pillsThatFit } from './pillsFit.ts';
@@ -131,6 +132,7 @@ export function TaskTagPills({ task }: { task: Task }) {
   const apply = useApply();
   const navigate = useNavigate();
   const [anchor, setAnchor] = useState<HTMLElement | null>(null);
+  const readOnly = useReadOnly();
   const tags = tagsOfTask(workspace, task);
   const label = t('task.tags');
   // Measure each pill once (in a hidden row) and the room the bar gives us.
@@ -200,57 +202,62 @@ export function TaskTagPills({ task }: { task: Task }) {
               >
                 <TagChip tag={tag} />
               </ButtonBase>
-              <IconButton
-                className="remove"
-                aria-label={t('tag.remove', { name: tag.name })}
-                onClick={() => apply((ctx, ws) => setTaskTag(ctx, ws, task.id, tag.id, false))}
-                sx={{
-                  position: 'absolute',
-                  top: -7,
-                  right: -7,
-                  p: 0,
-                  width: 16,
-                  height: 16,
-                  bgcolor: 'background.paper',
-                  border: 1,
-                  borderColor: 'divider',
-                  color: 'text.secondary',
-                  transition: 'opacity 120ms',
-                  '&:hover': { bgcolor: 'background.paper', color: 'text.primary' },
-                }}
-              >
-                <CloseIcon sx={{ fontSize: 10 }} />
-              </IconButton>
+              {!readOnly && (
+                <IconButton
+                  className="remove"
+                  aria-label={t('tag.remove', { name: tag.name })}
+                  onClick={() => apply((ctx, ws) => setTaskTag(ctx, ws, task.id, tag.id, false))}
+                  sx={{
+                    position: 'absolute',
+                    top: -7,
+                    right: -7,
+                    p: 0,
+                    width: 16,
+                    height: 16,
+                    bgcolor: 'background.paper',
+                    border: 1,
+                    borderColor: 'divider',
+                    color: 'text.secondary',
+                    transition: 'opacity 120ms',
+                    '&:hover': { bgcolor: 'background.paper', color: 'text.primary' },
+                  }}
+                >
+                  <CloseIcon sx={{ fontSize: 10 }} />
+                </IconButton>
+              )}
             </Box>
           ))}
           {tags.length > max && (
             <ButtonBase
               aria-label={t('task.moreTags', { count: tags.length - max })}
+              disabled={readOnly}
               onClick={(event) => setAnchor(event.currentTarget)}
               sx={{ typography: 'caption', color: 'text.secondary', borderRadius: 1, px: 0.5 }}
             >
               {t('tag.more', { count: tags.length - max })}
             </ButtonBase>
           )}
-          <Tooltip title={t('task.addTags')}>
-            <IconButton
-              aria-label={t('task.addTags')}
-              aria-haspopup="dialog"
-              onClick={(event) => setAnchor(event.currentTarget)}
-              sx={{
-                width: PLUS,
-                height: PLUS,
-                flexShrink: 0,
-                p: 0,
-                border: 1,
-                borderColor: 'divider',
-                color: 'text.secondary',
-                '&:hover': { color: 'primary.main', borderColor: 'primary.main' },
-              }}
-            >
-              <PlusIcon sx={{ fontSize: 14 }} />
-            </IconButton>
-          </Tooltip>
+          {!readOnly && (
+            <Tooltip title={t('task.addTags')}>
+              <IconButton
+                aria-label={t('task.addTags')}
+                aria-haspopup="dialog"
+                onClick={(event) => setAnchor(event.currentTarget)}
+                sx={{
+                  width: PLUS,
+                  height: PLUS,
+                  flexShrink: 0,
+                  p: 0,
+                  border: 1,
+                  borderColor: 'divider',
+                  color: 'text.secondary',
+                  '&:hover': { color: 'primary.main', borderColor: 'primary.main' },
+                }}
+              >
+                <PlusIcon sx={{ fontSize: 14 }} />
+              </IconButton>
+            </Tooltip>
+          )}
         </Box>
       </Box>
       <PropertySheet label={label} anchor={anchor} onClose={() => setAnchor(null)}>

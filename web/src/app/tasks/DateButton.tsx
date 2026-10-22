@@ -13,6 +13,7 @@ import { useToday } from '../hooks/useToday.ts';
 import { t } from '../i18n/i18n.ts';
 import { CalendarIcon, DueIcon } from '../icons/icons.tsx';
 import { useApply } from '../store/hooks.ts';
+import { useReadOnly } from './readOnly.ts';
 import { completionInstant } from './completion.ts';
 import { ProgressRing } from './ProgressRing.tsx';
 import { PropertySheet } from './PropertyRow.tsx';
@@ -31,6 +32,7 @@ export function DateButton({
 }) {
   const apply = useApply();
   const today = useToday();
+  const readOnly = useReadOnly();
   const { text, color, completedDay, showsDue, due } = useRowDate(task);
   const [anchor, setAnchor] = useState<HTMLElement | null>(null);
   const zone = localTimeZone();
@@ -88,6 +90,7 @@ export function DateButton({
         data-testid={testId}
         aria-label={text ? t('task.editDate', { what: label, date: text }) : t('date.addDate')}
         aria-haspopup="dialog"
+        disabled={readOnly}
         {...(completedDay ? { title: t('task.completedOn', { date: text ?? '' }) } : {})}
         // Only the date: the row behind it stays as it is.
         onClick={(event: MouseEvent<HTMLElement>) => {

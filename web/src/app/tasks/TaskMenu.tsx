@@ -37,6 +37,7 @@ import { useToday } from '../hooks/useToday.ts';
 import { t } from '../i18n/i18n.ts';
 import { listName } from '../lists/listName.ts';
 import { useApply, useWorkspace } from '../store/hooks.ts';
+import { useReadOnly } from './readOnly.ts';
 import { localTimeZone } from '../../core/dates.ts';
 import { DatePickerPanel } from '../dates/DatePickerPanel.tsx';
 import { CalendarCheckIcon, ReopenIcon, WontDoIcon } from '../icons/icons.tsx';
@@ -167,6 +168,7 @@ export function TaskMenu({
     setSynced(task.progress);
     setDraft(task.progress);
   }
+  const readOnly = useReadOnly();
   const closeMenu = onClose;
   const run = (action: () => void) => () => {
     closeMenu();
@@ -176,6 +178,19 @@ export function TaskMenu({
     anchor && 'position' in anchor
       ? { anchorReference: 'anchorPosition' as const, anchorPosition: anchor.position }
       : { anchorEl: anchor?.element ?? null };
+  // On a task I can only view, the one thing to do is open it.
+  if (readOnly) {
+    return (
+      <Menu open={anchor !== null && showOpen} onClose={closeMenu} {...placement}>
+        <MenuItem onClick={run(() => open(task.id))}>
+          <ListItemIcon>
+            <OpenInNewRounded fontSize="small" />
+          </ListItemIcon>
+          {t('task.openAction')}
+        </MenuItem>
+      </Menu>
+    );
+  }
   return (
     <>
       <Menu open={anchor !== null} onClose={closeMenu} {...placement}>

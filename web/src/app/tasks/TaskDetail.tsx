@@ -30,7 +30,9 @@ import { TaskMenu, type TaskMenuAnchor } from './TaskMenu.tsx';
 import { fromDateValue, toDateValue } from '../dates/dateValue.ts';
 import { useToday } from '../hooks/useToday.ts';
 import { t } from '../i18n/i18n.ts';
-import { useApply, useWorkspace } from '../store/hooks.ts';
+import { useApply, useStoreState, useWorkspace } from '../store/hooks.ts';
+import { canEditTask } from '../../core/sharing.ts';
+import { TaskReadOnly } from './readOnly.ts';
 import { useSyncState } from '../sync/syncContext.ts';
 import { AssigneeProperty } from './AssigneeProperty.tsx';
 
@@ -39,10 +41,12 @@ function CommitField({
   label,
   value,
   onCommit,
+  readOnly = false,
 }: {
   label: string;
   value: string;
   onCommit: (value: string) => void;
+  readOnly?: boolean;
 }) {
   const [draft, setDraft] = useState(value);
   const [synced, setSynced] = useState(value);
@@ -59,6 +63,7 @@ function CommitField({
       label={label}
       value={draft}
       fullWidth
+      slotProps={{ htmlInput: { readOnly } }}
       onChange={(event) => setDraft(event.target.value)}
       onBlur={commit}
       onKeyDown={(event) => {
@@ -95,6 +100,7 @@ export function TaskDetail({
   const authMode = useSyncState((state) => state.account?.authMode);
   // Assigning needs other people: a server with accounts.
   const canAssign = phase === 'ready' && authMode === 'local';
+  const me = useStoreState((state) => state.context().userId);
 
   if (!task || !isLive(task)) {
     return (
@@ -122,149 +128,166 @@ export function TaskDetail({
     : undefined;
   const scheduleColor =
     state === 'slipped' ? colors.slipped : state === 'late' && !task.due ? colors.late : undefined;
+  // A task on a list I can only view: everything shows, nothing changes.
+  const readOnly = !canEditTask(workspace, me, task);
 
   return (
-    <Box
-      component="section"
-      aria-label={t('task.details')}
-      sx={{ height: '100%', display: 'flex', flexDirection: 'column', minHeight: 0 }}
-    >
-      <Toolbar disableGutters sx={{ gap: 1, px: 2, flexShrink: 0 }}>
-        <CompleteCheckbox task={task} onMenu={(position) => setMenu({ position })} />
-        <DateProperty
-          label={t('task.date')}
-          inline
-          icon={<CalendarMonthOutlined fontSize="small" />}
-          value={toDateValue(task.schedule?.start, task.schedule?.end)}
-          today={today}
-          placeholder={t('task.date')}
-          allowRange
-          {...(scheduleColor ? { valueColor: scheduleColor } : {})}
-          onChange={(value) =>
-            apply((ctx, ws) =>
-              updateTask(ctx, ws, task.id, {
-                schedule: value
-                  ? {
-                      start: fromDateValue(value),
-                      end: value.end ? fromDateValue(value.end) : null,
-                      allDay: value.time === null,
-                      timeZone: zone,
-                    }
-                  : null,
-              }),
-            )
-          }
-        />
-        <Box sx={{ flexGrow: 1 }} />
-        <Tooltip title={t('task.actions')}>
-          <IconButton
-            aria-label={t('task.actions')}
-            onClick={(event) => setMenu({ element: event.currentTarget })}
-          >
-            <MoreHorizRounded />
-          </IconButton>
-        </Tooltip>
-        <TaskMenu task={task} anchor={menu} onClose={() => setMenu(null)} />
-        {onToggleExpanded && (
-          <Tooltip title={expanded ? t('task.exitFullScreen') : t('task.fullScreen')}>
-            <IconButton
-              aria-label={expanded ? t('task.exitFullScreen') : t('task.fullScreen')}
-              onClick={onToggleExpanded}
-            >
-              {expanded ? <CollapseIcon fontSize="small" /> : <ExpandIcon fontSize="small" />}
-            </IconButton>
-          </Tooltip>
-        )}
-        <Tooltip title={t('task.delete')}>
-          <IconButton
-            aria-label={t('task.delete')}
-            onClick={() => {
-              apply((ctx, ws) => deleteTask(ctx, ws, task.id), t('undo.deleted'));
-              onClose();
-            }}
-          >
-            <DeleteOutlineRounded />
-          </IconButton>
-        </Tooltip>
-        <IconButton aria-label={t('common.close')} onClick={onClose}>
-          <CloseRounded />
-        </IconButton>
-      </Toolbar>
-
-      <Stack
-        spacing={2}
-        sx={{ flexGrow: 1, minHeight: 0, overflowY: 'auto', px: 2, pb: 2, pt: 0.5 }}
+    <TaskReadOnly value={readOnly}>
+      <Box
+        component="section"
+        aria-label={t('task.details')}
+        sx={{ height: '100%', display: 'flex', flexDirection: 'column', minHeight: 0 }}
       >
-        <ParentTrail task={task} />
-        {/* Right-click or long-press the title for Won't do, Progress and the other actions. */}
-        <Box
-          onContextMenu={(event) => {
-            event.preventDefault();
-            setMenu({ position: { top: event.clientY, left: event.clientX } });
-          }}
-          {...titleLongPress}
-        >
-          <CommitField
-            label={t('task.title')}
-            value={task.title}
-            onCommit={(title) =>
-              apply((ctx, ws) => updateTask(ctx, ws, task.id, { title: title.trim() }))
-            }
-          />
-        </Box>
-        <Box>
+        <Toolbar disableGutters sx={{ gap: 1, px: 2, flexShrink: 0 }}>
+          <CompleteCheckbox task={task} onMenu={(position) => setMenu({ position })} />
           <DateProperty
-            label={t('task.due')}
-            icon={<DueIcon fontSize="small" />}
-            value={toDateValue(task.due?.at)}
+            label={t('task.date')}
+            inline
+            icon={<CalendarMonthOutlined fontSize="small" />}
+            value={toDateValue(task.schedule?.start, task.schedule?.end)}
             today={today}
-            placeholder={t('date.addDue')}
-            {...(dueColor ? { valueColor: dueColor } : {})}
+            placeholder={t('task.date')}
+            allowRange
+            {...(scheduleColor ? { valueColor: scheduleColor } : {})}
             onChange={(value) =>
               apply((ctx, ws) =>
                 updateTask(ctx, ws, task.id, {
-                  due: value
-                    ? { at: fromDateValue(value), allDay: value.time === null, timeZone: zone }
+                  schedule: value
+                    ? {
+                        start: fromDateValue(value),
+                        end: value.end ? fromDateValue(value.end) : null,
+                        allDay: value.time === null,
+                        timeZone: zone,
+                      }
                     : null,
                 }),
               )
             }
           />
-          {/* Only a done or won't-do task has a completion date (open ones: the task menu). */}
-          {task.status !== 'open' && (
-            <DateProperty
-              label={t('task.completedDate')}
-              icon={<TaskAltRounded fontSize="small" />}
-              value={task.completedAt ? toDateValue(localDateTimeOf(task.completedAt, zone)) : null}
-              today={today}
-              placeholder={t('date.addCompleted')}
-              onChange={(value) =>
-                apply(
-                  (ctx, ws) =>
-                    setCompletedAt(
-                      ctx,
-                      ws,
-                      task.id,
-                      value ? completionInstant(task, value, zone) : null,
-                    ),
-                  // Clearing the date reopens the task.
-                  value ? undefined : t('undo.reopened'),
-                )
+          <Box sx={{ flexGrow: 1 }} />
+          {!readOnly && (
+            <Tooltip title={t('task.actions')}>
+              <IconButton
+                aria-label={t('task.actions')}
+                onClick={(event) => setMenu({ element: event.currentTarget })}
+              >
+                <MoreHorizRounded />
+              </IconButton>
+            </Tooltip>
+          )}
+          <TaskMenu task={task} anchor={menu} onClose={() => setMenu(null)} />
+          {onToggleExpanded && (
+            <Tooltip title={expanded ? t('task.exitFullScreen') : t('task.fullScreen')}>
+              <IconButton
+                aria-label={expanded ? t('task.exitFullScreen') : t('task.fullScreen')}
+                onClick={onToggleExpanded}
+              >
+                {expanded ? <CollapseIcon fontSize="small" /> : <ExpandIcon fontSize="small" />}
+              </IconButton>
+            </Tooltip>
+          )}
+          {!readOnly && (
+            <Tooltip title={t('task.delete')}>
+              <IconButton
+                aria-label={t('task.delete')}
+                onClick={() => {
+                  apply((ctx, ws) => deleteTask(ctx, ws, task.id), t('undo.deleted'));
+                  onClose();
+                }}
+              >
+                <DeleteOutlineRounded />
+              </IconButton>
+            </Tooltip>
+          )}
+          <IconButton aria-label={t('common.close')} onClick={onClose}>
+            <CloseRounded />
+          </IconButton>
+        </Toolbar>
+
+        <Stack
+          spacing={2}
+          sx={{ flexGrow: 1, minHeight: 0, overflowY: 'auto', px: 2, pb: 2, pt: 0.5 }}
+        >
+          <ParentTrail task={task} />
+          {/* Right-click or long-press the title for Won't do, Progress and the other actions. */}
+          <Box
+            onContextMenu={(event) => {
+              event.preventDefault();
+              setMenu({ position: { top: event.clientY, left: event.clientX } });
+            }}
+            {...titleLongPress}
+          >
+            <CommitField
+              label={t('task.title')}
+              value={task.title}
+              readOnly={readOnly}
+              onCommit={(title) =>
+                apply((ctx, ws) => updateTask(ctx, ws, task.id, { title: title.trim() }))
               }
             />
+          </Box>
+          <Box>
+            {/* Looking only: empty fields have nothing to show. */}
+            {(!readOnly || task.due) && (
+              <DateProperty
+                label={t('task.due')}
+                icon={<DueIcon fontSize="small" />}
+                value={toDateValue(task.due?.at)}
+                today={today}
+                placeholder={t('date.addDue')}
+                {...(dueColor ? { valueColor: dueColor } : {})}
+                onChange={(value) =>
+                  apply((ctx, ws) =>
+                    updateTask(ctx, ws, task.id, {
+                      due: value
+                        ? { at: fromDateValue(value), allDay: value.time === null, timeZone: zone }
+                        : null,
+                    }),
+                  )
+                }
+              />
+            )}
+            {/* Only a done or won't-do task has a completion date (open ones: the task menu). */}
+            {task.status !== 'open' && (
+              <DateProperty
+                label={t('task.completedDate')}
+                icon={<TaskAltRounded fontSize="small" />}
+                value={
+                  task.completedAt ? toDateValue(localDateTimeOf(task.completedAt, zone)) : null
+                }
+                today={today}
+                placeholder={t('date.addCompleted')}
+                onChange={(value) =>
+                  apply(
+                    (ctx, ws) =>
+                      setCompletedAt(
+                        ctx,
+                        ws,
+                        task.id,
+                        value ? completionInstant(task, value, zone) : null,
+                      ),
+                    // Clearing the date reopens the task.
+                    value ? undefined : t('undo.reopened'),
+                  )
+                }
+              />
+            )}
+            {canAssign && <AssigneeProperty task={task} />}
+          </Box>
+          {(!readOnly || task.notes) && (
+            <NotesEditor
+              key={task.id}
+              label={t('task.notes')}
+              placeholder={t('task.notesPlaceholder')}
+              value={task.notes}
+              readOnly={readOnly}
+              onCommit={(notes) => apply((ctx, ws) => updateTask(ctx, ws, task.id, { notes }))}
+            />
           )}
-          {canAssign && <AssigneeProperty task={task} />}
-        </Box>
-        <NotesEditor
-          key={task.id}
-          label={t('task.notes')}
-          placeholder={t('task.notesPlaceholder')}
-          value={task.notes}
-          onCommit={(notes) => apply((ctx, ws) => updateTask(ctx, ws, task.id, { notes }))}
-        />
-        <SubtaskEditor task={task} />
-      </Stack>
-      <DetailFooter task={task} />
-    </Box>
+          <SubtaskEditor task={task} />
+        </Stack>
+        <DetailFooter task={task} />
+      </Box>
+    </TaskReadOnly>
   );
 }

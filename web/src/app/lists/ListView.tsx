@@ -7,7 +7,7 @@ import EventRounded from '@mui/icons-material/EventRounded';
 import MoreVertRounded from '@mui/icons-material/MoreVertRounded';
 import PlaylistAddRounded from '@mui/icons-material/PlaylistAddRounded';
 import ViewAgendaOutlined from '@mui/icons-material/ViewAgendaOutlined';
-import { Divider, IconButton, Menu, MenuItem, Tooltip } from '@mui/material';
+import { Divider, IconButton, Menu, MenuItem, Tooltip, Typography } from '@mui/material';
 import { useState } from 'react';
 import { useNavigate, useParams } from 'react-router';
 import { getEntity, isLive } from '../../core/collections.ts';
@@ -24,7 +24,7 @@ import { listTasks } from '../../core/queries.ts';
 import type { List, Section } from '../../core/types.ts';
 import { t } from '../i18n/i18n.ts';
 import { Page } from '../layout/Page.tsx';
-import { useApply, useWorkspace } from '../store/hooks.ts';
+import { useApply, useStoreState, useWorkspace } from '../store/hooks.ts';
 import { AddTaskInput } from '../tasks/AddTaskInput.tsx';
 import { TaskTree } from '../tasks/TaskTree.tsx';
 import { EmptyState } from '../views/EmptyState.tsx';
@@ -34,17 +34,20 @@ import { useToday } from '../hooks/useToday.ts';
 import { useListGrouping, type ListGrouping } from './listGrouping.ts';
 import { ConfirmDialog, ListDialog, NameDialog } from './ListDialog.tsx';
 import { ShareDialog } from './ShareDialog.tsx';
-import { listMembersOf } from '../../core/sharing.ts';
+import { listMembersOf, myRole, type Role } from '../../core/sharing.ts';
 import { ShareIcon } from '../icons/icons.tsx';
 import { useSyncState } from '../sync/syncContext.ts';
 import { listName } from './listName.ts';
 
 function ListMenu({
   list,
+  role,
   grouping,
   onGrouping,
 }: {
   list: List;
+  /** My role on the list: only its owner changes it; editors add sections too. */
+  role: Role | null;
   grouping: ListGrouping;
   onGrouping: (next: ListGrouping) => void;
 }) {
@@ -59,6 +62,8 @@ function ListMenu({
   // Sharing needs a server with accounts; the Mess Drawer is never shared.
   const canShare = phase === 'ready' && authMode === 'local' && !list.isInbox;
   const shared = listMembersOf(workspace, list.id).length;
+  const owner = role === 'owner';
+  const editor = owner || role === 'editor';
   return (
     <>
       {canShare && (
@@ -108,9 +113,9 @@ function ListMenu({
             {grouping === mode && <CheckRounded fontSize="small" sx={{ ml: 'auto', pl: 1 }} />}
           </MenuItem>
         ))}
-        <Divider />
+        {editor && <Divider />}
         {/* The Mess Drawer has a fixed name and no color: nothing to edit. */}
-        {!list.isInbox && (
+        {owner && !list.isInbox && (
           <MenuItem
             onClick={() => {
               close();
@@ -121,16 +126,18 @@ function ListMenu({
             {t('list.edit')}
           </MenuItem>
         )}
-        <MenuItem
-          onClick={() => {
-            close();
-            setDialog('section');
-          }}
-        >
-          <PlaylistAddRounded fontSize="small" sx={{ mr: 1 }} />
-          {t('list.addSection')}
-        </MenuItem>
-        {!list.isInbox && (
+        {editor && (
+          <MenuItem
+            onClick={() => {
+              close();
+              setDialog('section');
+            }}
+          >
+            <PlaylistAddRounded fontSize="small" sx={{ mr: 1 }} />
+            {t('list.addSection')}
+          </MenuItem>
+        )}
+        {owner && !list.isInbox && (
           <MenuItem
             onClick={() => {
               close();
@@ -145,7 +152,7 @@ function ListMenu({
             {t('list.archive')}
           </MenuItem>
         )}
-        {!list.isInbox && (
+        {owner && !list.isInbox && (
           <MenuItem
             onClick={() => {
               close();
@@ -256,6 +263,9 @@ function SectionActions({ section, onAdd }: { section: Section; onAdd: () => voi
 export function ListContents({ list }: { list: List }) {
   const workspace = useWorkspace();
   const today = useToday();
+  const me = useStoreState((state) => state.context().userId);
+  const role = myRole(workspace, me, list.id);
+  const canEdit = role === 'owner' || role === 'editor';
   const [addingTo, setAddingTo] = useState<string | null>(null);
   const groups = listTasks(workspace, list.id);
   const [grouping, setGrouping] = useListGrouping(list.id, groups.length > 1);
@@ -263,13 +273,17 @@ export function ListContents({ list }: { list: List }) {
   const completed = filterClosedTasks(workspace, filter, today);
   const empty = groups.every((group) => group.tasks.length === 0);
 
-  const header = (
+  const header = canEdit ? (
     <AddTaskInput
       defaults={{ listId: list.id }}
       label={t('task.addTo', { list: listName(list) })}
     />
+  ) : (
+    <Typography variant="body2" color="text.secondary" sx={{ px: 1, pb: 1 }}>
+      {t('share.viewerNote')}
+    </Typography>
   );
-  const actions = <ListMenu list={list} grouping={grouping} onGrouping={setGrouping} />;
+  const actions = <ListMenu list={list} role={role} grouping={grouping} onGrouping={setGrouping} />;
 
   if (grouping === 'date') {
     return (
@@ -294,7 +308,13 @@ export function ListContents({ list }: { list: List }) {
             key={section.id}
             title={section.name}
             count={group.tasks.length}
-            actions={<SectionActions section={section} onAdd={() => setAddingTo(section.id)} />}
+            {...(canEdit
+              ? {
+                  actions: (
+                    <SectionActions section={section} onAdd={() => setAddingTo(section.id)} />
+                  ),
+                }
+              : {})}
           >
             {addingTo === section.id && (
               <AddTaskInput defaults={{ listId: list.id, sectionId: section.id }} autoFocus />

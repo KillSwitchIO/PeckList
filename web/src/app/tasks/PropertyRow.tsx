@@ -8,6 +8,7 @@ import {
   useTheme,
 } from '@mui/material';
 import type { ReactNode } from 'react';
+import { useReadOnly } from './readOnly.ts';
 
 /** A task property row in the details panel: "icon  Label ........ value". */
 export function PropertyRow({
@@ -32,8 +33,11 @@ export function PropertyRow({
   onClick: (anchor: HTMLElement) => void;
   children: ReactNode;
 }) {
+  // Shown, not changed, on a task I can only view.
+  const readOnly = useReadOnly();
   return (
     <ButtonBase
+      disabled={readOnly}
       onClick={(event) => onClick(event.currentTarget)}
       aria-haspopup="dialog"
       aria-label={`${label}: ${ariaValue}`}

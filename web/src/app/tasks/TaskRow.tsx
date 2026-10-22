@@ -12,6 +12,7 @@ import { useLongPress } from '../hooks/useLongPress.ts';
 import { t } from '../i18n/i18n.ts';
 import { listName } from '../lists/listName.ts';
 import { useApply, useWorkspace } from '../store/hooks.ts';
+import { TaskReadOnly, useCanEditTask, useReadOnly } from './readOnly.ts';
 import { TagChips } from '../tags/TagChip.tsx';
 import { useTaskSelection } from './selection.ts';
 import { CHECK_PATH, CROSS_PATH } from './closedMarks.ts';
@@ -27,6 +28,7 @@ const PRIORITY_KEY = { 0: 'none', 1: 'low', 2: 'medium', 3: 'high' } as const sa
 export function PriorityCheckbox({ task }: { task: Task }) {
   const theme = useTheme();
   const apply = useApply();
+  const readOnly = useReadOnly();
   const ring = theme.punchlist.priority[PRIORITY_KEY[task.priority]].fill;
   const done = task.status !== 'open';
   const title = task.title || t('task.untitled');
@@ -37,6 +39,7 @@ export function PriorityCheckbox({ task }: { task: Task }) {
       aria-checked={done}
       aria-label={done ? t('task.reopen', { title }) : t('task.complete', { title })}
       {...(task.status === 'wontdo' ? { title: t('task.markedWontDo') } : {})}
+      disabled={readOnly}
       onClick={(event) => {
         event.stopPropagation();
         apply(
@@ -116,155 +119,158 @@ export function TaskRow({
   const selected = selectedId === task.id;
   const [menu, setMenu] = useState<TaskMenuAnchor | null>(null);
   const longPress = useLongPress((position) => setMenu({ position }));
+  const canEdit = useCanEditTask(task);
 
   // Closed tasks show when they were completed instead of when they start.
 
   return (
-    <Box
-      onContextMenu={(event) => {
-        event.preventDefault();
-        setMenu({ position: { top: event.clientY, left: event.clientX } });
-      }}
-      {...longPress}
-      sx={{
-        position: 'relative',
-        display: 'flex',
-        alignItems: 'center',
-        minHeight: 40,
-        pl: `${4 + depth * INDENT}px`,
-        borderBottom: 1,
-        borderColor: 'divider',
-        bgcolor: selected ? 'action.selected' : 'transparent',
-        '&:hover': { bgcolor: selected ? 'action.selected' : 'action.hover' },
-        // List color as a thin stripe on the left edge (the Mess Drawer has no color).
-        '&::before': {
-          content: '""',
-          position: 'absolute',
-          left: 0,
-          top: 4,
-          bottom: 4,
-          width: 3,
-          borderRadius: 2,
-          bgcolor: list && !list.isInbox ? list.color : 'transparent',
-        },
-      }}
-    >
-      {expander && (
-        // Sits just left of the checkbox: in the page gutter for top-level tasks.
-        <IconButton
-          size="small"
-          aria-expanded={expander.open}
-          aria-label={
-            expander.open ? t('task.hideSubtasks', { title }) : t('task.showSubtasks', { title })
-          }
-          onClick={expander.onToggle}
-          sx={{
-            position: 'absolute',
-            left: depth * INDENT - 20,
-            top: '50%',
-            transform: 'translateY(-50%)',
-            p: 0.25,
-            color: 'text.secondary',
-          }}
-        >
-          <ChevronRightRounded
-            sx={{
-              fontSize: 18,
-              transform: expander.open ? 'rotate(90deg)' : 'none',
-              transition: 'transform 120ms',
-            }}
-          />
-        </IconButton>
-      )}
-      <PriorityCheckbox task={task} />
-      <ButtonBase
-        onClick={() => open(task.id)}
-        aria-label={t('task.open', { title })}
-        // No ripple: it spread over the row after the details had opened and read as lag.
-        disableRipple
+    <TaskReadOnly value={!canEdit}>
+      <Box
+        onContextMenu={(event) => {
+          event.preventDefault();
+          setMenu({ position: { top: event.clientY, left: event.clientX } });
+        }}
+        {...longPress}
         sx={{
-          flexGrow: 1,
-          minWidth: 0,
+          position: 'relative',
           display: 'flex',
           alignItems: 'center',
-          gap: 1.5,
-          py: 1,
-          pr: 1.5,
-          textAlign: 'left',
+          minHeight: 40,
+          pl: `${4 + depth * INDENT}px`,
+          borderBottom: 1,
+          borderColor: 'divider',
+          bgcolor: selected ? 'action.selected' : 'transparent',
+          '&:hover': { bgcolor: selected ? 'action.selected' : 'action.hover' },
+          // List color as a thin stripe on the left edge (the Mess Drawer has no color).
+          '&::before': {
+            content: '""',
+            position: 'absolute',
+            left: 0,
+            top: 4,
+            bottom: 4,
+            width: 3,
+            borderRadius: 2,
+            bgcolor: list && !list.isInbox ? list.color : 'transparent',
+          },
         }}
       >
-        <Box sx={{ flexGrow: 1, minWidth: 0 }}>
-          <Typography
-            noWrap
+        {expander && (
+          // Sits just left of the checkbox: in the page gutter for top-level tasks.
+          <IconButton
+            size="small"
+            aria-expanded={expander.open}
+            aria-label={
+              expander.open ? t('task.hideSubtasks', { title }) : t('task.showSubtasks', { title })
+            }
+            onClick={expander.onToggle}
             sx={{
-              color: done ? 'text.disabled' : 'text.primary',
-              // Won't do reads as dropped, not finished.
-              textDecoration: task.status === 'wontdo' ? 'line-through' : 'none',
+              position: 'absolute',
+              left: depth * INDENT - 20,
+              top: '50%',
+              transform: 'translateY(-50%)',
+              p: 0.25,
+              color: 'text.secondary',
             }}
           >
-            {title}
-          </Typography>
-          {/* Phones have no room beside the title: tags go on a second line. */}
-          {isPhone && <TagChips tags={tags} max={3} wrap={false} />}
-        </Box>
-        <Box
-          data-testid="task-meta"
+            <ChevronRightRounded
+              sx={{
+                fontSize: 18,
+                transform: expander.open ? 'rotate(90deg)' : 'none',
+                transition: 'transform 120ms',
+              }}
+            />
+          </IconButton>
+        )}
+        <PriorityCheckbox task={task} />
+        <ButtonBase
+          onClick={() => open(task.id)}
+          aria-label={t('task.open', { title })}
+          // No ripple: it spread over the row after the details had opened and read as lag.
+          disableRipple
           sx={{
+            flexGrow: 1,
+            minWidth: 0,
             display: 'flex',
             alignItems: 'center',
-            gap: 1.25,
-            flexShrink: 0,
-            typography: 'body2',
+            gap: 1.5,
+            py: 1,
+            pr: 1.5,
+            textAlign: 'left',
           }}
         >
-          {!isPhone && <TagChips tags={tags} max={2} wrap={false} />}
-          {progress.total > 0 && (
-            <Box
-              component="span"
+          <Box sx={{ flexGrow: 1, minWidth: 0 }}>
+            <Typography
+              noWrap
               sx={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: 0.25,
-                color: 'text.secondary',
+                color: done ? 'text.disabled' : 'text.primary',
+                // Won't do reads as dropped, not finished.
+                textDecoration: task.status === 'wontdo' ? 'line-through' : 'none',
               }}
             >
-              <ChecklistRounded sx={{ fontSize: 16 }} />
-              {t('task.subtasks', { done: progress.done, total: progress.total })}
-            </Box>
-          )}
-          {/* A subtask shown away from its parent names it. */}
-          {showParent && parent && (
-            <Box
-              component="span"
-              title={t('task.subtaskOf', { title: parent.title || t('task.untitled') })}
-              sx={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: 0.25,
-                maxWidth: '12rem',
-                color: 'text.secondary',
-              }}
-            >
-              <SubdirectoryArrowRightRounded sx={{ fontSize: 16 }} />
+              {title}
+            </Typography>
+            {/* Phones have no room beside the title: tags go on a second line. */}
+            {isPhone && <TagChips tags={tags} max={3} wrap={false} />}
+          </Box>
+          <Box
+            data-testid="task-meta"
+            sx={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 1.25,
+              flexShrink: 0,
+              typography: 'body2',
+            }}
+          >
+            {!isPhone && <TagChips tags={tags} max={2} wrap={false} />}
+            {progress.total > 0 && (
               <Box
                 component="span"
-                sx={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+                sx={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 0.25,
+                  color: 'text.secondary',
+                }}
               >
-                {parent.title || t('task.untitled')}
+                <ChecklistRounded sx={{ fontSize: 16 }} />
+                {t('task.subtasks', { done: progress.done, total: progress.total })}
               </Box>
-            </Box>
-          )}
-          {/* The Mess Drawer is "no list", so its tasks show none. */}
-          {showList && list && !list.isInbox && (
-            <Box component="span" sx={{ color: 'text.secondary' }}>
-              {listName(list)}
-            </Box>
-          )}
-        </Box>
-      </ButtonBase>
-      <DateButton task={task} width={DATE_COLUMN} />
-      <TaskMenu task={task} anchor={menu} onClose={() => setMenu(null)} showOpen />
-    </Box>
+            )}
+            {/* A subtask shown away from its parent names it. */}
+            {showParent && parent && (
+              <Box
+                component="span"
+                title={t('task.subtaskOf', { title: parent.title || t('task.untitled') })}
+                sx={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 0.25,
+                  maxWidth: '12rem',
+                  color: 'text.secondary',
+                }}
+              >
+                <SubdirectoryArrowRightRounded sx={{ fontSize: 16 }} />
+                <Box
+                  component="span"
+                  sx={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+                >
+                  {parent.title || t('task.untitled')}
+                </Box>
+              </Box>
+            )}
+            {/* The Mess Drawer is "no list", so its tasks show none. */}
+            {showList && list && !list.isInbox && (
+              <Box component="span" sx={{ color: 'text.secondary' }}>
+                {listName(list)}
+              </Box>
+            )}
+          </Box>
+        </ButtonBase>
+        <DateButton task={task} width={DATE_COLUMN} />
+        <TaskMenu task={task} anchor={menu} onClose={() => setMenu(null)} showOpen />
+      </Box>
+    </TaskReadOnly>
   );
 }
 
