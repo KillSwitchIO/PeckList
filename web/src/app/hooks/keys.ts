@@ -25,6 +25,8 @@ export function typing(): boolean {
   if (!(active instanceof HTMLElement)) return false;
   return (
     active.isContentEditable ||
+    // (jsdom and some embedded views lack isContentEditable)
+    active.closest('[contenteditable]:not([contenteditable="false"])') !== null ||
     active instanceof HTMLInputElement ||
     active instanceof HTMLTextAreaElement ||
     active instanceof HTMLSelectElement

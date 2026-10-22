@@ -1,5 +1,7 @@
 import BrightnessAutoRounded from '@mui/icons-material/BrightnessAutoRounded';
-import { popupOpen, typing } from '../hooks/keys.ts';
+import { popupOpen } from '../hooks/keys.ts';
+import { ShortcutsDialog } from '../shortcuts/ShortcutsDialog.tsx';
+import { useShortcuts } from '../shortcuts/useShortcuts.ts';
 import DarkModeRounded from '@mui/icons-material/DarkModeRounded';
 import LightModeRounded from '@mui/icons-material/LightModeRounded';
 import MenuRounded from '@mui/icons-material/MenuRounded';
@@ -236,17 +238,8 @@ export function AppShell() {
     return () => window.clearInterval(timer);
   }, [apply]);
 
-  // "/" jumps to search from anywhere but a text field (spec: Keyboard shortcuts).
-  useEffect(() => {
-    const onKey = (event: KeyboardEvent) => {
-      if (event.key !== '/' || event.ctrlKey || event.metaKey || event.altKey) return;
-      if (event.defaultPrevented || typing() || popupOpen()) return;
-      event.preventDefault();
-      void navigate('/search');
-    };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [navigate]);
+  // Keyboard shortcuts everywhere ("?" lists them).
+  const shortcuts = useShortcuts();
 
   const go = (path: string) => {
     setDrawerOpen(false);
@@ -381,6 +374,7 @@ export function AppShell() {
         )}
 
         <UndoToast bottomOffset={isPhone ? 56 : 0} />
+        <ShortcutsDialog open={shortcuts.helpOpen} onClose={shortcuts.closeHelp} />
 
         {isPhone && (
           <BottomNavigation

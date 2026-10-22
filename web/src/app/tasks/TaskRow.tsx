@@ -216,6 +216,8 @@ export function TaskRow({
               }
             : {})}
           aria-label={t('task.open', { title })}
+          // J / K (keyboard shortcuts) step through the rows that carry this.
+          data-task-row={task.id}
           // No ripple: it spread over the row after the details had opened and read as lag.
           disableRipple
           sx={{

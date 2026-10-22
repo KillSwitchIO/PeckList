@@ -51,9 +51,13 @@ export function AddTaskInput({
           if (event.key === 'Enter') {
             event.preventDefault();
             submit();
+          } else if (event.key === 'Escape' && title === '') {
+            // Leave the field, so the keyboard shortcuts work again.
+            event.currentTarget.blur();
           }
         }}
-        inputProps={{ 'aria-label': label }}
+        // Q (keyboard shortcuts) focuses the first one on the page.
+        inputProps={{ 'aria-label': label, 'data-add-task': '' }}
         sx={{ color: 'text.primary' }}
       />
     </Box>
