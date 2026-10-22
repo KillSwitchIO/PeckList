@@ -37,4 +37,21 @@ describe('settings: colors', () => {
       'Default',
     );
   });
+
+  it('theme and dates settings save to the workspace', async () => {
+    const store = testStore();
+    await renderApp('/settings', store);
+    const settings = () => store.getState().workspace!.entities.settings[0]!;
+    const theme = await screen.findByRole('group', { name: 'Theme' });
+    await userEvent.click(within(theme).getByRole('button', { name: 'Dark' }));
+    expect(settings().themeMode).toBe('dark');
+    expect(localStorage.getItem('punchlist.themeMode')).toBe('dark');
+
+    await userEvent.click(screen.getByRole('combobox', { name: 'Due soon' }));
+    await userEvent.click(await screen.findByRole('option', { name: '5 days before' }));
+    expect(settings().dueSoonDays).toBe(5);
+    await userEvent.click(screen.getByRole('combobox', { name: 'Calendar length' }));
+    await userEvent.click(await screen.findByRole('option', { name: '1 hour' }));
+    expect(settings().pointEventMinutes).toBe(60);
+  });
 });

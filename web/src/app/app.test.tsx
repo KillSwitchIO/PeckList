@@ -119,11 +119,13 @@ describe('app shell', () => {
     expect(screen.getByRole('button', { name: /currently dark/i })).toBeInTheDocument();
   });
 
-  it('restores a stored theme mode', async () => {
+  it('carries a theme mode picked in this browser into the synced settings', async () => {
     mockViewport('desktop');
     localStorage.setItem('punchlist.themeMode', 'dark');
-    await renderApp('/today');
-    expect(screen.getByRole('button', { name: /currently dark/i })).toBeInTheDocument();
+    const store = testStore();
+    await renderApp('/today', store);
+    expect(await screen.findByRole('button', { name: /currently dark/i })).toBeInTheDocument();
+    expect(store.getState().workspace!.entities.settings[0]!.themeMode).toBe('dark');
   });
 
   it('shows a not-found page', async () => {

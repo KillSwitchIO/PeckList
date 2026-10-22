@@ -1,5 +1,17 @@
 import WarningAmberRounded from '@mui/icons-material/WarningAmberRounded';
-import { Box, Button, ButtonBase, Popover, Typography, useTheme } from '@mui/material';
+import {
+  Box,
+  Button,
+  ButtonBase,
+  MenuItem,
+  Popover,
+  Stack,
+  TextField,
+  ToggleButton,
+  ToggleButtonGroup,
+  Typography,
+  useTheme,
+} from '@mui/material';
 import { useState, type ReactNode } from 'react';
 import { PALETTE_DEFAULTS, type PaletteSlot } from '../../core/palette.ts';
 import {
@@ -10,7 +22,14 @@ import {
   setPaletteColor,
   tooFaint,
 } from '../../core/paletteSettings.ts';
+import {
+  DUE_SOON_CHOICES,
+  POINT_EVENT_CHOICES,
+  updateSettings,
+  type SettingsPatch,
+} from '../../core/settings.ts';
 import { ColorPicker } from '../colors/ColorPicker.tsx';
+import { THEME_MODE_ORDER, useThemeMode, type ThemeMode } from '../theme/themeMode.ts';
 import { t } from '../i18n/i18n.ts';
 import { Page } from '../layout/Page.tsx';
 import { useApply, useWorkspace } from '../store/hooks.ts';
@@ -193,6 +212,31 @@ function SlotRow({ slot }: { slot: PaletteSlot }) {
   );
 }
 
+/** A setting as a row: its name (and a hint) on the left, the control on the right. */
+function SettingRow({
+  label,
+  hint,
+  children,
+}: {
+  label: string;
+  hint?: string;
+  children: ReactNode;
+}) {
+  return (
+    <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, px: 1, py: 1 }}>
+      <Box sx={{ flexGrow: 1, minWidth: 0 }}>
+        <Typography>{label}</Typography>
+        {hint && (
+          <Typography variant="caption" color="text.secondary">
+            {hint}
+          </Typography>
+        )}
+      </Box>
+      {children}
+    </Box>
+  );
+}
+
 /**
  * Settings (spec: PL-025). Colors (PL-018) come first: every slot shows live across the app as
  * it changes and syncs with the user's settings; Reset brings back the defaults.
@@ -201,30 +245,92 @@ export function SettingsPage() {
   const workspace = useWorkspace();
   const apply = useApply();
   const changed = Object.keys(paletteOverrides(workspace)).length > 0;
+  const settings = workspace.entities.settings[0];
+  const { mode, setMode } = useThemeMode();
+  const change = (patch: SettingsPatch) => apply((ctx, ws) => updateSettings(ctx, ws, patch));
   return (
     <Page title={t('nav.settings')}>
-      <Section
-        title={t('settings.colors')}
-        hint={t('settings.colorsHint')}
-        action={
-          <Button
-            size="small"
-            disabled={!changed}
-            onClick={() => apply((ctx, ws) => resetPalette(ctx, ws), t('undo.colorsReset'))}
-          >
-            {t('palette.reset')}
-          </Button>
-        }
-      >
-        <Preview />
-        <Box role="list" aria-label={t('settings.colors')}>
-          {PALETTE_SLOTS.map(({ slot }) => (
-            <Box role="listitem" key={slot}>
-              <SlotRow slot={slot} />
-            </Box>
-          ))}
-        </Box>
-      </Section>
+      <Stack spacing={4}>
+        <Section title={t('settings.appearance')}>
+          <SettingRow label={t('settings.theme')}>
+            <ToggleButtonGroup
+              exclusive
+              size="small"
+              value={mode}
+              aria-label={t('settings.theme')}
+              onChange={(_, next: ThemeMode | null) => next && setMode(next)}
+            >
+              {THEME_MODE_ORDER.map((each) => (
+                <ToggleButton key={each} value={each}>
+                  {t(`settings.theme.${each}`)}
+                </ToggleButton>
+              ))}
+            </ToggleButtonGroup>
+          </SettingRow>
+        </Section>
+        <Section title={t('settings.dates')}>
+          <SettingRow label={t('settings.dueSoon')} hint={t('settings.dueSoonHint')}>
+            <TextField
+              select
+              size="small"
+              value={settings?.dueSoonDays ?? 2}
+              onChange={(event) => change({ dueSoonDays: Number(event.target.value) })}
+              slotProps={{ htmlInput: { 'aria-label': t('settings.dueSoon') } }}
+            >
+              {DUE_SOON_CHOICES.map((days) => (
+                <MenuItem key={days} value={days}>
+                  {days === 0
+                    ? t('settings.dueSoon.off')
+                    : days === 1
+                      ? t('settings.dueSoon.one')
+                      : t('settings.dueSoon.days', { days })}
+                </MenuItem>
+              ))}
+            </TextField>
+          </SettingRow>
+          <SettingRow label={t('settings.pointEvent')} hint={t('settings.pointEventHint')}>
+            <TextField
+              select
+              size="small"
+              value={settings?.pointEventMinutes ?? 30}
+              onChange={(event) => change({ pointEventMinutes: Number(event.target.value) })}
+              slotProps={{ htmlInput: { 'aria-label': t('settings.pointEvent') } }}
+            >
+              {POINT_EVENT_CHOICES.map((minutes) => (
+                <MenuItem key={minutes} value={minutes}>
+                  {minutes < 60
+                    ? t('settings.minutes', { minutes })
+                    : minutes === 60
+                      ? t('settings.oneHour')
+                      : t('settings.hours', { hours: minutes / 60 })}
+                </MenuItem>
+              ))}
+            </TextField>
+          </SettingRow>
+        </Section>
+        <Section
+          title={t('settings.colors')}
+          hint={t('settings.colorsHint')}
+          action={
+            <Button
+              size="small"
+              disabled={!changed}
+              onClick={() => apply((ctx, ws) => resetPalette(ctx, ws), t('undo.colorsReset'))}
+            >
+              {t('palette.reset')}
+            </Button>
+          }
+        >
+          <Preview />
+          <Box role="list" aria-label={t('settings.colors')}>
+            {PALETTE_SLOTS.map(({ slot }) => (
+              <Box role="listitem" key={slot}>
+                <SlotRow slot={slot} />
+              </Box>
+            ))}
+          </Box>
+        </Section>
+      </Stack>
     </Page>
   );
 }
