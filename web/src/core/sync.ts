@@ -176,7 +176,7 @@ export function rekeyOwner(workspace: WorkspaceFile, to: string): WorkspaceFile 
 
 /**
  * A device's own workspace joining an account that already has data on the server: the device
- * keeps its tasks, but the account's Mess Drawer and settings win. Tasks and sections in the
+ * keeps its tasks, but the account's Mess Drawer, settings and profile win. Tasks and sections in the
  * device's Mess Drawer move to the account's; the device's duplicate Mess Drawer and settings are
  * dropped (they never reached the server). `server` is everything the account had.
  */
@@ -209,6 +209,17 @@ export function joinAccount(
         tasks: workspace.entities.tasks.map((task) =>
           moved.has(task.listId) ? { ...task, listId: accountInbox.id } : task,
         ),
+      },
+    };
+  }
+  // The account's profile (the server writes it with the real handle) beats the device's
+  // placeholder ("Me", me@local), however recently the placeholder was stamped.
+  if (serverOf('users').some((user) => user.id === accountId)) {
+    workspace = {
+      ...workspace,
+      entities: {
+        ...workspace.entities,
+        users: workspace.entities.users.filter((user) => user.id !== accountId),
       },
     };
   }

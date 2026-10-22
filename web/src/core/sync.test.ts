@@ -183,4 +183,14 @@ describe('joining an account', () => {
     expect(new Set(joined.entities.tasks.map((task) => task.listId))).toEqual(new Set([inbox.id]));
     expect(joined.entities.users.map((user) => user.id)).toEqual([ACCOUNT]);
   });
+
+  it("the account's profile replaces the device's placeholder, even a newer one", () => {
+    const server = testContext('srv', Date.UTC(2026, 9, 19), ACCOUNT);
+    const profile = createWorkspace(server, { displayName: 'Ben', handle: 'ben@tasks.example' })
+      .entities.users[0]!;
+    // The device's workspace is made later: its placeholder carries newer clocks.
+    const device = createWorkspace(testContext('dev1', Date.UTC(2026, 9, 21)));
+    const joined = joinAccount(device, ACCOUNT, [{ collection: 'users', entity: profile }]);
+    expect(joined.entities.users).toEqual([profile]);
+  });
 });
