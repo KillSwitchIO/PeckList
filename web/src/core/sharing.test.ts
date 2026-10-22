@@ -13,6 +13,8 @@ import {
   canClaim,
   canEditTask,
   claimTask,
+  describePrincipal,
+  inviteAndAssign,
   endFriendship,
   friendsOf,
   isShared,
@@ -161,6 +163,24 @@ describe('assignee choices', () => {
     // Assigning one member directly needs no dibs.
     next = setAssignee(ben, next, task.id, `user:${kim}`, true);
     expect(assignedTo(next, kim).map((each) => each.title)).toEqual(['Take out bins']);
+  });
+});
+
+describe('invite on assign', () => {
+  it('assigns friends at once and invites anyone else', () => {
+    const { ben, workspace, list } = benWorld();
+    const task = sampleTask(ben, list.id, 'Paint fence');
+    let next = inviteAndAssign(ben, putEntity(workspace, 'tasks', task), task.id, SAM);
+    const invite = `invite:${SAM}:${BEN}`;
+    expect(assigneesOf(getTask(next, task.id))).toEqual([invite]);
+    expect(friendsOf(next, BEN).map((friend) => friend.state)).toEqual(['outgoing']);
+    expect(describePrincipal(next, invite).pending).toBe(true);
+    // Waiting on Sam: nothing is assigned to Sam yet.
+    expect(assignedTo(next, SAM)).toEqual([]);
+
+    next = acceptFriendship(as(SAM), next, next.entities.friendships[0]!.id);
+    next = inviteAndAssign(ben, next, task.id, SAM);
+    expect(assigneesOf(getTask(next, task.id))).toContain(`user:${SAM}`);
   });
 });
 

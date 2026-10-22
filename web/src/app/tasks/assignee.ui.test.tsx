@@ -1,4 +1,4 @@
-import { screen, within } from '@testing-library/react';
+import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { createMemoryStorage } from '../../adapters/memory-storage.ts';
@@ -31,8 +31,8 @@ async function setup(
   let listId = '';
   let taskId = '';
   let sync;
+  const backend = new FakeBackend();
   if (!standalone) {
-    const backend = new FakeBackend();
     backend.addAccount('ben', 'correct horse battery');
     sync = createSyncEngine({
       transport: Object.assign(backend.device(), { session: 'ben' }),
@@ -68,7 +68,7 @@ async function setup(
   await renderApp(`/lists/${listId}`, store, sync);
   await userEvent.click(await screen.findByRole('button', { name: 'Open Fix fence' }));
   const task = () => store.getState().workspace!.entities.tasks.find((each) => each.id === taskId)!;
-  return { task };
+  return { task, backend, me: () => store.getState().context().userId };
 }
 
 describe('assigning a task', () => {
@@ -136,6 +136,28 @@ describe('assigning a task', () => {
     await userEvent.click(await screen.findByRole('button', { name: 'Open Water beans' }));
     const details = await screen.findByRole('region', { name: 'Task details' });
     expect(within(details).getByText("Someone else's list")).toBeInTheDocument();
+  });
+
+  it('invites someone by username: a friend request, and the task waits for them', async () => {
+    const { task, backend, me } = await setup();
+    const kim = backend.addAccount('kim', 'kims own password');
+    const details = await screen.findByRole('region', { name: 'Task details' });
+    await userEvent.click(within(details).getByRole('button', { name: 'Assigned: Nobody' }));
+    const picker = await screen.findByRole('dialog', { name: 'Assign to' });
+    const search = within(picker).getByRole('textbox', { name: 'Search or invite by username' });
+
+    // Typing narrows the list; an unknown name is not found.
+    await userEvent.type(search, 'nobody');
+    expect(within(picker).queryByRole('menuitemcheckbox')).toBeNull();
+    await userEvent.click(within(picker).getByRole('button', { name: /Invite "nobody"/ }));
+    expect(await within(picker).findByText('Nobody here goes by that name.')).toBeInTheDocument();
+
+    await userEvent.clear(search);
+    await userEvent.type(search, 'kim{Enter}');
+    await waitFor(() => expect(assigneesOf(task())).toEqual([`invite:${kim.id}:${me()}`]));
+    expect(
+      await within(picker).findByRole('menuitemcheckbox', { name: /\(invited\)/ }),
+    ).toHaveAttribute('aria-checked', 'true');
   });
 
   it('dibs takes a group chore for me', async () => {

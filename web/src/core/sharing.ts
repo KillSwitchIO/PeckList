@@ -229,6 +229,8 @@ export interface Assignee {
   user: User | null;
   name: string;
   color: string;
+  /** Invited (`invite:` principal): assigned once they accept the friend request */
+  pending?: boolean;
 }
 
 const NO_COLOR = '#B8BCC4';
@@ -245,8 +247,34 @@ export function describePrincipal(workspace: WorkspaceFile, principal: string): 
       color: group?.color ?? NO_COLOR,
     };
   }
+  if (principal.startsWith('invite:')) {
+    const userId = id.split(':')[0]!;
+    const user = getEntity(workspace, 'users', userId) ?? null;
+    const name = nameOf(user, userId);
+    return { principal, user, name, color: user?.avatarColor ?? NO_COLOR, pending: true };
+  }
   const user = getEntity(workspace, 'users', id) ?? null;
   return { principal, user, name: nameOf(user, id), color: user?.avatarColor ?? NO_COLOR };
+}
+
+/**
+ * Invite on assign (spec: Friends): assign a task to someone found by name. A friend is assigned
+ * at once; anyone else gets a friend request, and the task waits as `invite:<them>:<me>` until
+ * they accept (the server then makes it theirs, or drops it if they decline).
+ */
+export function inviteAndAssign(
+  ctx: OpContext,
+  workspace: WorkspaceFile,
+  taskId: Id,
+  userId: Id,
+): WorkspaceFile {
+  if (userId === ctx.userId) return setAssignee(ctx, workspace, taskId, `user:${userId}`, true);
+  const friend = friendsOf(workspace, ctx.userId).find((each) => each.userId === userId);
+  if (friend?.state === 'accepted') {
+    return setAssignee(ctx, workspace, taskId, `user:${userId}`, true);
+  }
+  const asked = sendFriendRequest(ctx, workspace, userId);
+  return setAssignee(ctx, asked, taskId, `invite:${userId}:${ctx.userId}`, true);
 }
 
 /** A choice in the assignee picker; group members sit under their group (`depth` 1). */
