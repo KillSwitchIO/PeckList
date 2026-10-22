@@ -30,18 +30,22 @@ import {
   type DateChoice,
   type DueChoice,
 } from '../../core/savedFilters.ts';
+import { groupsOf } from '../../core/groups.ts';
+import { friendsOf, nameOf } from '../../core/sharing.ts';
 import { tagTree } from '../../core/tags.ts';
 import type { Priority } from '../../core/types.ts';
 import { t } from '../i18n/i18n.ts';
 import { FlagIcon } from '../icons/icons.tsx';
 import { listName } from '../lists/listName.ts';
-import { useWorkspace } from '../store/hooks.ts';
+import { useStoreState, useWorkspace } from '../store/hooks.ts';
 import { TagChip } from '../tags/TagChip.tsx';
 
 const PRIORITIES: Priority[] = [3, 2, 1, 0];
 const PRIORITY_KEY = { 0: 'none', 1: 'low', 2: 'medium', 3: 'high' } as const;
 const DATE_ORDER: DateChoice[] = ['any', 'overdue', 'today', 'week', 'later', 'undated'];
 const DUE_ORDER: DueChoice[] = ['any', 'overdue', 'today', 'week', 'later', 'none'];
+const STATES = ['late', 'slipped', 'dueSoon'] as const;
+type State = (typeof STATES)[number];
 
 function toggle<T>(values: T[], value: T): T[] {
   return values.includes(value) ? values.filter((each) => each !== value) : [...values, value];
@@ -77,6 +81,23 @@ export function FilterDialog({
   const [priorities, setPriorities] = useState<Priority[]>(initial?.filter.priorities ?? []);
   const [due, setDue] = useState<DueChoice>(initial ? dueChoiceOf(initial.filter) : 'any');
   const [closed, setClosed] = useState(initial?.filter.closed !== false);
+  const [states, setStates] = useState<State[]>(initial?.filter.states ?? []);
+  const [assignees, setAssignees] = useState<string[]>(initial?.filter.assignees ?? []);
+  const me = useStoreState((state) => state.context().userId);
+  // Who tasks can be assigned to: me, nobody, and the friends and groups I share with.
+  const people = [
+    { value: 'me', label: t('filter.assignees.me') },
+    { value: 'none', label: t('filter.assignees.none') },
+    ...friendsOf(workspace, me)
+      .filter((friend) => friend.state === 'accepted')
+      .map((friend) => ({
+        value: `user:${friend.userId}`,
+        label: nameOf(friend.user, friend.userId),
+      })),
+    ...groupsOf(workspace, me)
+      .filter((view) => view.mine?.state === 'active')
+      .map((view) => ({ value: `group:${view.group.id}`, label: view.group.name })),
+  ];
   const valid = name.trim() !== '';
 
   const save = () => {
@@ -88,6 +109,8 @@ export function FilterDialog({
       ...DATE_CHOICES[date],
       ...DUE_CHOICES[due],
       ...(closed ? {} : { closed: false }),
+      ...(states.length ? { states } : {}),
+      ...(assignees.length ? { assignees } : {}),
     });
   };
 
@@ -213,6 +236,36 @@ export function FilterDialog({
                     color={priorities.includes(priority) ? 'primary' : 'default'}
                     aria-pressed={priorities.includes(priority)}
                     onClick={() => setPriorities(toggle(priorities, priority))}
+                  />
+                ))}
+              </Box>
+            </Part>
+            <Part label={t('filter.states')}>
+              <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.75 }}>
+                {STATES.map((state) => (
+                  <Chip
+                    key={state}
+                    size="small"
+                    label={t(`filter.state.${state}`)}
+                    variant={states.includes(state) ? 'filled' : 'outlined'}
+                    color={states.includes(state) ? 'primary' : 'default'}
+                    aria-pressed={states.includes(state)}
+                    onClick={() => setStates(toggle(states, state))}
+                  />
+                ))}
+              </Box>
+            </Part>
+            <Part label={t('filter.assignees')}>
+              <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.75 }}>
+                {people.map((person) => (
+                  <Chip
+                    key={person.value}
+                    size="small"
+                    label={person.label}
+                    variant={assignees.includes(person.value) ? 'filled' : 'outlined'}
+                    color={assignees.includes(person.value) ? 'primary' : 'default'}
+                    aria-pressed={assignees.includes(person.value)}
+                    onClick={() => setAssignees(toggle(assignees, person.value))}
                   />
                 ))}
               </Box>

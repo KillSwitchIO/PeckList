@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { addDays, localTimeZone, todayIn } from '../../core/dates.ts';
 import { inboxList } from '../../core/lists.ts';
 import { createSavedFilter, DUE_CHOICES, filterOf } from '../../core/savedFilters.ts';
+import { setAssignee } from '../../core/sharing.ts';
 import { createTask, setTaskStatus } from '../../core/tasks.ts';
 import { mockViewport, renderApp, testStore } from '../../test/renderApp.tsx';
 
@@ -50,5 +51,45 @@ describe('saved filters', () => {
     await waitFor(() => expect(screen.queryByText('Old bill')).toBeNull());
     const saved = store.getState().workspace!.entities.savedFilters[0]!;
     expect(filterOf(saved)).toEqual({ due: { to: -1 }, closed: false });
+  });
+
+  it('narrows by date state and by who a task is assigned to', async () => {
+    const store = testStore();
+    await renderApp('/today', store);
+    const today = todayIn(localTimeZone(), Date.now());
+    store.getState().apply((ctx, ws) => {
+      const listId = inboxList(ws).id;
+      const due = (days: number) => ({
+        at: addDays(today, days),
+        allDay: true,
+        timeZone: localTimeZone(),
+      });
+      let next = createTask(ctx, ws, { title: 'Late one', listId, due: due(-1) }).workspace;
+      next = createTask(ctx, next, { title: 'Soon one', listId, due: due(1) }).workspace;
+      const mine = createTask(ctx, next, { title: 'Mine', listId, due: due(1) });
+      next = setAssignee(ctx, mine.workspace, mine.task.id, `user:${ctx.userId}`, true);
+      return createSavedFilter(ctx, next, 'Watch', {}).workspace;
+    });
+    const nav = screen.getAllByRole('navigation')[0]!;
+    await userEvent.click(await within(nav).findByRole('button', { name: /Watch/ }));
+    await userEvent.click(screen.getByRole('button', { name: 'More actions' }));
+    await userEvent.click(await screen.findByRole('menuitem', { name: 'Edit filter' }));
+    let dialog = await screen.findByRole('dialog');
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Due soon' }));
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Save' }));
+    await waitFor(() => expect(screen.queryByRole('button', { name: 'Open Late one' })).toBeNull());
+    expect(screen.getByRole('button', { name: 'Open Soon one' })).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole('button', { name: 'More actions' }));
+    await userEvent.click(await screen.findByRole('menuitem', { name: 'Edit filter' }));
+    dialog = await screen.findByRole('dialog');
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Me' }));
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Save' }));
+    await waitFor(() => expect(screen.queryByRole('button', { name: 'Open Soon one' })).toBeNull());
+    expect(screen.getByRole('button', { name: 'Open Mine' })).toBeInTheDocument();
+    expect(filterOf(store.getState().workspace!.entities.savedFilters[0]!)).toEqual({
+      states: ['dueSoon'],
+      assignees: ['me'],
+    });
   });
 });

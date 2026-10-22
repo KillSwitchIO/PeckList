@@ -1,7 +1,7 @@
 // Read-side queries: smart views, list contents, date states.
 
 import { isLive } from './collections.ts';
-import { datePart, daysBetween, todayIn } from './dates.ts';
+import { todayIn } from './dates.ts';
 import {
   ALL_TASKS,
   compileFilter,
@@ -22,20 +22,7 @@ export const TRASH_DAYS = 30;
 export const TODAY_FILTER: TaskFilter = { start: { to: 0 } };
 export const NEXT_7_DAYS_FILTER: TaskFilter = { start: { to: 7 } };
 
-export type DateState = 'late' | 'slipped' | 'dueSoon' | 'normal' | 'none';
-
-/** Date state per the Design Spec: late beats slipped beats due soon. */
-export function dateState(task: Task, today: string, dueSoonDays: number): DateState {
-  const due = task.due ? datePart(task.due.at) : null;
-  const scheduleEnd = task.schedule ? datePart(task.schedule.end ?? task.schedule.start) : null;
-  if (!due && !scheduleEnd) return 'none';
-  if (task.status !== 'open') return 'normal';
-  if (due && due < today) return 'late';
-  if (!due && scheduleEnd && scheduleEnd < today) return 'late';
-  if (due && scheduleEnd && scheduleEnd < today) return 'slipped';
-  if (due && daysBetween(today, due) <= dueSoonDays) return 'dueSoon';
-  return 'normal';
-}
+export { dateState, type DateState } from './dateState.ts';
 
 // The date a task belongs to in views is its start date (filters.ts); due dates show in the
 // task details and on the calendar, not in lists (Ben, 2026-10-20).

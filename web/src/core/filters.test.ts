@@ -12,6 +12,7 @@ import { putEntity } from './collections.ts';
 import { createList, inboxList } from './lists.ts';
 import { softDelete } from './ops.ts';
 import { createTag } from './tags.ts';
+import { setAssignee } from './sharing.ts';
 import { createTask, setTaskStatus } from './tasks.ts';
 import type { Schedule, WorkspaceFile } from './types.ts';
 import { createWorkspace } from './workspace.ts';
@@ -185,5 +186,68 @@ describe('filter engine', () => {
     const groups = groupByDate(s.ws, filterTasks(s.ws, ALL_TASKS, TODAY), TODAY);
     const tomorrow = groups.find((group) => group.key === 'tomorrow')!;
     expect(tomorrow.tasks.map((task) => task.title)).toEqual(['tomorrow', 'prep']);
+  });
+});
+
+describe('assignee and date-state conditions', () => {
+  it('finds tasks assigned to me (directly or through a group), to someone, or to nobody', () => {
+    const s = setup();
+    const me = s.ctx.userId;
+    const sam = '01JBSAM0000000000000000002';
+    const group = '01JBGRP0000000000000000003';
+    s.ws = setAssignee(s.ctx, s.ws, s.overdue.id, `user:${me}`, true);
+    const later = s.ws.entities.tasks.find((task) => task.title === 'later')!;
+    s.ws = setAssignee(s.ctx, s.ws, later.id, `user:${sam}`, true);
+    const tomorrow = s.ws.entities.tasks.find((task) => task.title === 'tomorrow')!;
+    s.ws = setAssignee(s.ctx, s.ws, tomorrow.id, `group:${group}`, true);
+    expect(titles(s, { assignees: ['me'] })).toEqual(['overdue']);
+    expect(titles(s, { assignees: [`user:${sam}`] })).toEqual(['later']);
+    expect(titles(s, { assignees: [`user:${sam}`, `group:${group}`] })).toEqual([
+      'tomorrow',
+      'later',
+    ]);
+    expect(titles(s, { assignees: ['none'], dated: true })).toEqual(['today', 'in a week']);
+    // Through a group I am an active member of.
+    s.ws = putEntity(s.ws, 'groupMembers', {
+      id: '01JBMEM0000000000000000004',
+      groupId: group,
+      userId: me,
+      joinedAt: '2026-10-20T10:00:00.000Z',
+      state: 'active',
+      createdAt: '2026-10-20T10:00:00.000Z',
+      createdBy: me,
+      deletedAt: null,
+      origin: 'test',
+      _hlc: {},
+    } as unknown as Parameters<typeof putEntity<'groupMembers'>>[2]);
+    expect(titles(s, { assignees: ['me'] })).toEqual(['overdue', 'tomorrow']);
+  });
+
+  it('finds late, slipped and due-soon tasks', () => {
+    const s = setup();
+    const due = (at: string) => ({ at, allDay: true, timeZone: 'UTC' });
+    s.ws = createTask(s.ctx, s.ws, {
+      title: 'due yesterday',
+      listId: s.inbox,
+      due: due('2026-10-20'),
+    }).workspace;
+    s.ws = createTask(s.ctx, s.ws, {
+      title: 'slipped',
+      listId: s.inbox,
+      schedule: on('2026-10-19'),
+      due: due('2026-10-30'),
+    }).workspace;
+    s.ws = createTask(s.ctx, s.ws, {
+      title: 'due tomorrow',
+      listId: s.inbox,
+      due: due('2026-10-22'),
+    }).workspace;
+    expect(titles(s, { states: ['late'] }).sort()).toEqual(['due yesterday', 'overdue']);
+    expect(titles(s, { states: ['slipped'] })).toEqual(['slipped']);
+    expect(titles(s, { states: ['dueSoon'] })).toEqual(['due tomorrow']);
+    expect(titles(s, { states: ['slipped', 'dueSoon'] }).sort()).toEqual([
+      'due tomorrow',
+      'slipped',
+    ]);
   });
 });

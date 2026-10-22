@@ -3,6 +3,7 @@
 // `savedFilters[].query`, so keep it plain JSON and add fields rather than changing them.
 
 import { isLive } from './collections.ts';
+import { dateState } from './dateState.ts';
 import { addDays, datePart, daysBetween } from './dates.ts';
 import { members } from './ops.ts';
 import { compareOrderKeys } from './ordering.ts';
@@ -37,6 +38,13 @@ export interface TaskFilter {
   hasDue?: boolean;
   /** false: leave closed tasks out (no Closed group) */
   closed?: boolean;
+  /**
+   * Assigned to any of: `me` (the workspace's user, directly or through a group), `none` (no
+   * one), `user:<id>` or `group:<id>`.
+   */
+  assignees?: string[];
+  /** In any of these date states (Late, Slipped, Due soon; spec: Design Spec, Date states). */
+  states?: ('late' | 'slipped' | 'dueSoon')[];
 }
 
 /** No conditions: the All view. */
@@ -81,6 +89,17 @@ export function compileFilter(
       ])
     : null;
   const listById = new Map(workspace.entities.lists.map((list) => [list.id, list]));
+  const me = workspace.entities.settings[0]?.userId;
+  const myGroups = new Set(
+    workspace.entities.groupMembers
+      .filter(
+        (member) => member.deletedAt === null && member.userId === me && member.state === 'active',
+      )
+      .map((member) => `group:${member.groupId}`),
+  );
+  const wanted = filter.assignees?.length ? new Set(filter.assignees) : null;
+  const states = filter.states?.length ? new Set<string>(filter.states) : null;
+  const dueSoonDays = workspace.entities.settings[0]?.dueSoonDays ?? 2;
   return (task) => {
     if (filter.sharedWith) {
       const list = listById.get(task.listId);
@@ -98,6 +117,16 @@ export function compileFilter(
       if (from && date < from) return false;
       if (to && date > to) return false;
     }
+    if (wanted) {
+      const on = members(task.assignees);
+      const match =
+        (wanted.has('none') && on.length === 0) ||
+        (wanted.has('me') &&
+          on.some((principal) => principal === `user:${me}` || myGroups.has(principal))) ||
+        on.some((principal) => wanted.has(principal));
+      if (!match) return false;
+    }
+    if (states && !states.has(dateState(task, today, dueSoonDays))) return false;
     const due = task.due ? datePart(task.due.at) : null;
     if (filter.hasDue !== undefined && (due !== null) !== filter.hasDue) return false;
     if (filter.due) {
