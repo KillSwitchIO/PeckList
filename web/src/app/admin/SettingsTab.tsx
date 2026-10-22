@@ -60,6 +60,7 @@ const PROVIDER_LABELS: Record<string, MessageKey> = {
   USERNAME_CLAIM: 'serverSettings.provider.USERNAME_CLAIM',
   REQUIRED_GROUPS: 'serverSettings.provider.REQUIRED_GROUPS',
   AUTO_CREATE: 'serverSettings.provider.AUTO_CREATE',
+  LINK_BY_EMAIL: 'serverSettings.provider.LINK_BY_EMAIL',
   ROLE_MAP: 'serverSettings.provider.ROLE_MAP',
   GROUP_MAP: 'serverSettings.provider.GROUP_MAP',
   SESSION_HOURS: 'serverSettings.provider.SESSION_HOURS',

@@ -282,4 +282,22 @@ public sealed class OidcTests(ServerFixture fixture) : IClassFixture<ServerFixtu
         // Password sessions keep their 30 days.
         Assert.Equal(HttpStatusCode.OK, (await ben.GetAsync("/auth/me", Token)).StatusCode);
     }
+
+    [Fact]
+    public async Task An_admin_links_a_provider_account_by_hand_and_that_person_signs_in_to_it()
+    {
+        using var server = Server();
+        var admin = Browser(server);
+        (await admin.PostAsJsonAsync("/auth/login", new { username = "admin", password = AdminPassword }, Token)).EnsureSuccessStatusCode();
+        var sam = await server.Services.GetRequiredService<AccountService>().CreateUserAsync("sam", "a long enough password", cancellation: Token);
+
+        Assert.Equal(HttpStatusCode.BadRequest,
+            (await admin.PostAsJsonAsync($"/api/admin/users/{sam.Id}/identities", new { provider = "nope", subject = "kim-subject" }, Token)).StatusCode);
+        Assert.Equal(HttpStatusCode.NoContent,
+            (await admin.PostAsJsonAsync($"/api/admin/users/{sam.Id}/identities", new { provider = "fake", subject = "kim-subject" }, Token)).StatusCode);
+
+        var browser = Browser(server);
+        Assert.Equal("/", await SignIn(browser, Kim()));
+        Assert.Equal("sam", (await browser.GetFromJsonAsync<Me>("/auth/me", Token))!.Username);
+    }
 }

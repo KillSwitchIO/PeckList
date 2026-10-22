@@ -156,6 +156,7 @@ public static class OidcSetup
             Username = Claim(provider.UsernameClaim),
             DisplayName = Claim("name"),
             Email = Claim("email"),
+            EmailVerified = string.Equals(Claim("email_verified"), "true", StringComparison.OrdinalIgnoreCase),
             Groups = claims.FindAll(provider.GroupsClaim).Select(claim => claim.Value).Distinct().ToList(),
         };
         note.On(null, identity.Username ?? subject);
@@ -178,6 +179,7 @@ public static class OidcSetup
                 note.Actor(success.Account).On(null, null).Anonymous = false;
                 note.Outcome = AuditOutcome.Ok;
                 if (success.Created) note.Detail = $"{provider.Name}, new account";
+                else if (success.JoinedBy is { } joined) note.Detail = $"{provider.Name}, joined the account by {joined}";
                 context.Principal = AuthSetup.Principal(success.Account, CookieAuthenticationDefaults.AuthenticationScheme);
                 context.Properties!.IsPersistent = true;
                 if (provider.SessionLength is { } length)

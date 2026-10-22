@@ -102,6 +102,14 @@ Anyone can link a provider account to their Punchlist account under **Settings >
 unlink one as long as another way to sign in remains. A provider account linked to someone else
 cannot be linked again.
 
+Admins can link one by hand: **Admin > Users > Link a provider account** takes the provider and
+the account's subject (its `sub` claim), and **Admin > Sign-in > Link to an account** joins a
+waiting sign-in to an existing person instead of making a new account.
+
+`OIDC_<NAME>_LINK_BY_EMAIL=true` lets a first sign-in whose email the provider marks verified join
+the one account that another provider already gave that email. It is off by default: a provider
+that does not truly check emails would let someone take an account over.
+
 To move everyone from one provider to another (say `pocket` to `keycloak`) without losing
 accounts:
 

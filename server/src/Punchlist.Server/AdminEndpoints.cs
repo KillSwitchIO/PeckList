@@ -23,6 +23,8 @@ public sealed record AdminUser(
 
 public sealed record NewUserRequest(string? Username, string? Role);
 
+public sealed record LinkRequest(string? Provider, string? Subject);
+
 public sealed record NewUser(string Id, string Username, string Role, string Password);
 
 public sealed record DisabledRequest(bool Disabled);
@@ -209,6 +211,23 @@ public static class AdminEndpoints
                 var stranded = !await signIn.CanSignInAsync((await accounts.FindByIdAsync(id, cancellation))!, cancellation);
                 return Results.Ok(new UnbindResult(1, stranded ? [account.Username] : []));
             }, cancellation)).RequirePermission(Permission.ManageUsers).Audited("admin.identity-unlinked");
+
+        // Attach a provider account by hand: its subject, or a waiting sign-in's.
+        admin.MapPost("/users/{id}/identities", async (
+            string id, LinkRequest request, ClaimsPrincipal user, ExternalSignIn signIn, IAccountStore accounts, ServerSettings settings,
+            HttpContext context, CancellationToken cancellation) =>
+            await OnAccountAsync(id, user, accounts, async _ =>
+            {
+                var subject = request.Subject?.Trim() ?? "";
+                context.Audit().Detail = request.Provider;
+                if (settings.OidcProviders.All(provider => provider.Name != request.Provider) || subject.Length == 0)
+                {
+                    return Results.BadRequest(new AdminError("invalid", "a configured provider and the account's subject"));
+                }
+                return await signIn.LinkByAdminAsync(request.Provider!, subject, id, cancellation) == LinkResult.Linked
+                    ? Results.NoContent()
+                    : Results.Conflict(new AdminError("taken", "that provider account is linked to someone else"));
+            }, cancellation)).RequirePermission(Permission.ManageUsers).Audited("admin.identity-linked");
 
         admin.MapGet("/providers", async (ServerSettings settings, ExternalSignIn signIn, IIdentityStore identities, CancellationToken cancellation) =>
         {

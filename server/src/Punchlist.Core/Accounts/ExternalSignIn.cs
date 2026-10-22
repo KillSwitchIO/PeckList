@@ -14,12 +14,17 @@ public sealed record ExternalIdentity
 
     public string? DisplayName { get; init; }
     public string? Email { get; init; }
+
+    /// <summary>The provider vouches for the email (<c>email_verified</c>).</summary>
+    public bool EmailVerified { get; init; }
+
     public IReadOnlyList<string> Groups { get; init; } = [];
 }
 
 public abstract record ExternalSignInResult
 {
-    public sealed record Success(Account Account, bool Created) : ExternalSignInResult;
+    /// <summary><paramref name="JoinedBy"/>: <c>migration</c> or <c>email</c> when this sign-in joined an existing account.</summary>
+    public sealed record Success(Account Account, bool Created, string? JoinedBy = null) : ExternalSignInResult;
 
     /// <summary>In none of the provider's required groups: no account, nothing stored.</summary>
     public sealed record NotAllowed : ExternalSignInResult;
@@ -78,6 +83,7 @@ public sealed class ExternalSignIn(
         var link = await identities.FindAsync(provider.Name, identity.Subject, cancellation);
         var account = link is null ? null : await accounts.FindByIdAsync(link.AccountId, cancellation);
         var created = false;
+        string? joinedBy = null;
         if (account is null && link is not null)
         {
             await identities.UnlinkAsync(provider.Name, identity.Subject, cancellation);
@@ -86,6 +92,12 @@ public sealed class ExternalSignIn(
         if (account is null && await MigrationMatchAsync(provider, identity, cancellation) is { } matched)
         {
             account = matched;
+            joinedBy = "migration";
+        }
+        else if (account is null && await EmailMatchAsync(provider, identity, cancellation) is { } byEmail)
+        {
+            account = byEmail;
+            joinedBy = "email";
         }
         else if (account is null)
         {
@@ -117,7 +129,7 @@ public sealed class ExternalSignIn(
 
         account = await ApplyRoleMapAsync(provider, identity, account, cancellation);
         await ApplyGroupMapAsync(provider, identity, account, cancellation);
-        return new ExternalSignInResult.Success(account, created);
+        return new ExternalSignInResult.Success(account, created, joinedBy);
     }
 
     /// <summary>
@@ -214,6 +226,50 @@ public sealed class ExternalSignIn(
         if (account is null || (await IdentitiesOfAsync(account.Id, cancellation)).Any(each => each.Provider == provider.Name)) return null;
         await AttachAsync(provider, identity, account.Id, cancellation);
         return account;
+    }
+
+    /// <summary>
+    /// With <c>LINK_BY_EMAIL</c> on (off by default: a provider that does not truly check emails
+    /// would let anyone take an account over): a first sign-in whose verified email matches the
+    /// email another provider gave for exactly one account joins that account.
+    /// </summary>
+    private async Task<Account?> EmailMatchAsync(OidcProviderSettings provider, ExternalIdentity identity, CancellationToken cancellation)
+    {
+        if (!provider.LinkByEmail || !identity.EmailVerified || string.IsNullOrWhiteSpace(identity.Email)) return null;
+        var owners = (await identities.ListAsync(cancellation))
+            .Where(each => each.Provider != provider.Name && string.Equals(each.Email, identity.Email, StringComparison.OrdinalIgnoreCase))
+            .Select(each => each.AccountId)
+            .Distinct()
+            .ToList();
+        if (owners.Count != 1) return null;
+        var account = await accounts.FindByIdAsync(owners[0], cancellation);
+        if (account is null || (await IdentitiesOfAsync(account.Id, cancellation)).Any(each => each.Provider == provider.Name)) return null;
+        await AttachAsync(provider, identity, account.Id, cancellation);
+        return account;
+    }
+
+    /// <summary>
+    /// An admin attaches a provider account to someone by hand (spec: Linking), by the provider's
+    /// subject; a waiting sign-in with that subject is settled by it.
+    /// </summary>
+    public async Task<LinkResult> LinkByAdminAsync(string provider, string subject, string accountId, CancellationToken cancellation = default)
+    {
+        var existing = await identities.FindAsync(provider, subject, cancellation);
+        if (existing is not null) return existing.AccountId == accountId ? LinkResult.Linked : LinkResult.Taken;
+        var waiting = (await identities.ListPendingAsync(cancellation))
+            .FirstOrDefault(each => each.Provider == provider && each.Subject == subject);
+        var now = time.GetUtcNow();
+        await identities.LinkAsync(new LinkedIdentity
+        {
+            Provider = provider,
+            Subject = subject,
+            AccountId = accountId,
+            Email = waiting?.Email,
+            LinkedAt = now,
+            LastUsedAt = now,
+        }, cancellation);
+        await identities.RemovePendingAsync(provider, subject, cancellation);
+        return LinkResult.Linked;
     }
 
     private async Task AttachAsync(OidcProviderSettings provider, ExternalIdentity identity, string accountId, CancellationToken cancellation)

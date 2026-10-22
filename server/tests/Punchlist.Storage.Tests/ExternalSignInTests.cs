@@ -261,4 +261,52 @@ public sealed class ExternalSignInTests(SqliteFiles files) : IClassFixture<Sqlit
     [InlineData("a-very-long-username-that-goes-on-and-on", null, "a-very-long-username-that-goes-o")]
     public void Usernames_come_from_the_claims(string? username, string? email, string expected) =>
         Assert.Equal(expected, ExternalSignIn.UsernameBase(new ExternalIdentity { Subject = "s", Username = username, Email = email }));
+
+    [Fact]
+    public async Task A_verified_email_joins_the_one_account_another_provider_gave_it_only_when_asked()
+    {
+        var kim = await SignedIn(Pocket(), Kim());
+        var elsewhere = Kim() with { Username = "kim2", EmailVerified = true };
+        var keycloak = Pocket() with { Name = "keycloak", DisplayName = "Keycloak" };
+
+        // Off by default: a new account.
+        var separate = await SignedIn(keycloak, elsewhere with { Subject = "kc-kim" });
+        Assert.NotEqual(kim.Id, separate.Id);
+        await identities.UnlinkAsync("keycloak", "kc-kim", Token);
+
+        // On and verified: joins Kim (case does not matter), and says so.
+        var result = Assert.IsType<ExternalSignInResult.Success>(await signIn.SignInAsync(
+            keycloak with { Name = "zitadel", LinkByEmail = true }, elsewhere with { Subject = "zi-kim", Email = "KIM@example.com" }, Token));
+        Assert.Equal((kim.Id, false, "email"), (result.Account.Id, result.Created, result.JoinedBy));
+
+        // On, but the email is not vouched for: a new account.
+        var unverified = await SignedIn(keycloak with { Name = "authelia", LinkByEmail = true }, elsewhere with { Subject = "au-kim", EmailVerified = false });
+        Assert.NotEqual(kim.Id, unverified.Id);
+    }
+
+    [Fact]
+    public async Task An_email_two_accounts_share_joins_neither()
+    {
+        var kim = await SignedIn(Pocket(), Kim());
+        var other = await SignedIn(Pocket(), Kim() with { Subject = "sub-kim-2", Username = "kim-two" });
+        Assert.NotEqual(kim.Id, other.Id);
+        var joined = await SignedIn(Pocket() with { Name = "keycloak", LinkByEmail = true }, Kim() with { Subject = "kc", Username = "kc", EmailVerified = true });
+        Assert.NotEqual(kim.Id, joined.Id);
+        Assert.NotEqual(other.Id, joined.Id);
+    }
+
+    [Fact]
+    public async Task An_admin_links_a_provider_account_by_hand_settling_a_waiting_sign_in()
+    {
+        var sam = await accountService.CreateUserAsync("sam", "a long enough password", cancellation: Token);
+        Assert.IsType<ExternalSignInResult.Pending>(await signIn.SignInAsync(Pocket(autoCreate: false), Kim(), Token));
+        Assert.Equal(LinkResult.Linked, await signIn.LinkByAdminAsync("pocket", "sub-kim", sam.Id, Token));
+        Assert.Empty(await identities.ListPendingAsync(Token));
+        Assert.Equal(("kim@example.com", sam.Id), ((await identities.FindAsync("pocket", "sub-kim", Token))!.Email, (await identities.FindAsync("pocket", "sub-kim", Token))!.AccountId));
+        // Kim now signs in as Sam's account; the same link again is fine, someone else's is not.
+        Assert.Equal(sam.Id, (await SignedIn(Pocket(autoCreate: false), Kim())).Id);
+        Assert.Equal(LinkResult.Linked, await signIn.LinkByAdminAsync("pocket", "sub-kim", sam.Id, Token));
+        var other = await accountService.CreateUserAsync("lee", "a long enough password", cancellation: Token);
+        Assert.Equal(LinkResult.Taken, await signIn.LinkByAdminAsync("pocket", "sub-kim", other.Id, Token));
+    }
 }

@@ -22,6 +22,7 @@ import { MoreIcon, PlusIcon } from '../icons/icons.tsx';
 import { useSyncState } from '../sync/syncContext.ts';
 import { ConfirmDialog, SecretDialog } from './AdminDialogs.tsx';
 import { DeleteUserDialog } from './DeleteUserDialog.tsx';
+import { LinkIdentityDialog } from './LinkIdentityDialog.tsx';
 import { FriendsDialog } from './FriendsDialog.tsx';
 import { HandOverDialog } from './HandOverDialog.tsx';
 import { SetupCard } from './SetupCard.tsx';
@@ -143,6 +144,7 @@ export function UsersTab({ api }: { api: AdminApi }) {
   const [friendsOf, setFriendsOf] = useState<AdminUser | null>(null);
   const [handingOver, setHandingOver] = useState<AdminUser | null>(null);
   const [deleting, setDeleting] = useState<AdminUser | null>(null);
+  const [linking, setLinking] = useState<AdminUser | null>(null);
   const [viewing, setViewing] = useState<AdminUser | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
 
@@ -349,6 +351,15 @@ export function UsersTab({ api }: { api: AdminApi }) {
                 {target.disabled ? t('admin.users.turnOn') : t('admin.users.turnOff')}
               </MenuItem>
             ),
+            <MenuItem
+              key="link-provider"
+              onClick={() => {
+                setMenu(null);
+                setLinking(target);
+              }}
+            >
+              {t('admin.link.menu')}
+            </MenuItem>,
             target.id !== me && (
               <MenuItem
                 key="delete"
@@ -433,6 +444,17 @@ export function UsersTab({ api }: { api: AdminApi }) {
           user={friendsOf}
           users={users ?? []}
           onClose={() => setFriendsOf(null)}
+        />
+      )}
+      {linking && (
+        <LinkIdentityDialog
+          api={api}
+          user={linking}
+          onClose={() => setLinking(null)}
+          onLinked={(name) => {
+            setNotice(t('admin.link.done', { name }));
+            reload();
+          }}
         />
       )}
       {deleting && (

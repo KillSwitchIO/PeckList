@@ -44,6 +44,7 @@ function memoryAdmin(benId: string) {
     backups: [] as { name: string; taken: string; size: number }[],
     restores: [] as { source: unknown; username: string | null }[],
     deleted: [] as string[],
+    linked: [] as string[],
     handedOver: [] as { from: string; to: string; ids: string[] }[],
     window: null as string | null,
     pending: [
@@ -355,6 +356,13 @@ function memoryAdmin(benId: string) {
       );
       return ok('2026-10-29T12:00:00Z');
     },
+    linkIdentity: (id, provider, subject) => {
+      if (subject === 'someone-elses')
+        return Promise.resolve({ ok: false as const, reason: 'linked-elsewhere' as const });
+      state.linked.push(`${id}:${provider}:${subject}`);
+      state.pending = state.pending.filter((each) => each.subject !== subject);
+      return ok(undefined);
+    },
     restoreAccount: (id) => {
       state.users = state.users.map((each) =>
         each.id === id ? { ...each, disabled: false, deletedAt: null, removedAt: null } : each,
@@ -616,6 +624,37 @@ describe('admin', () => {
       await screen.findByText(/The server is restarting to restore the backup/),
     ).toBeInTheDocument();
     expect(state.restores.map((each) => each.username)).toEqual([null, 'sam', 'everyone']);
+  });
+
+  it('links a provider account by hand, to a person or from a waiting sign-in', async () => {
+    const { state } = await adminApp('superadmin');
+    const list = await screen.findByRole('list', { name: 'Users' });
+    const sam = await within(list).findByRole('listitem', { name: 'sam' });
+    await userEvent.click(within(sam).getByRole('button', { name: 'Actions for sam' }));
+    await userEvent.click(await screen.findByRole('menuitem', { name: 'Link a provider account' }));
+    let dialog = await screen.findByRole('dialog', { name: 'Link a provider account to sam' });
+    await userEvent.type(within(dialog).getByLabelText(/Subject/), 'someone-elses');
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Link' }));
+    expect(
+      await within(dialog).findByText('That provider account is linked to someone else.'),
+    ).toBeInTheDocument();
+    await userEvent.clear(within(dialog).getByLabelText(/Subject/));
+    await userEvent.type(within(dialog).getByLabelText(/Subject/), 'sam-at-pocket');
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Link' }));
+    expect(await screen.findByText('Linked to sam.')).toBeInTheDocument();
+    expect(state.linked).toEqual(['U2:pocket:sam-at-pocket']);
+
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    await userEvent.click(screen.getByRole('tab', { name: 'Sign-in' }));
+    const waiting = await screen.findByRole('region', { name: 'Waiting to be let in' });
+    await userEvent.click(
+      await within(waiting).findByRole('button', { name: 'Link to an account' }),
+    );
+    dialog = await screen.findByRole('dialog', { name: 'Link kim to an existing account' });
+    await userEvent.click(within(dialog).getByRole('combobox', { name: 'Person' }));
+    await userEvent.click(await screen.findByRole('option', { name: 'sam' }));
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Link' }));
+    await waitFor(() => expect(state.linked).toContain('U2:pocket:kim-sub'));
   });
 
   it('deletes an account after offering the hand-over, and restores it within the grace period', async () => {

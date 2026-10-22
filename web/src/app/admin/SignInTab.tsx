@@ -1,11 +1,12 @@
 import { Alert, Box, Button, Typography } from '@mui/material';
 import { useState, type ReactNode } from 'react';
-import type { AdminApi } from '../../ports/admin.ts';
+import type { AdminApi, PendingSignIn } from '../../ports/admin.ts';
 import { localDateTimeOf, localTimeZone } from '../../core/dates.ts';
 import { formatWhen } from '../format.ts';
 import { useToday } from '../hooks/useToday.ts';
 import { t } from '../i18n/i18n.ts';
 import { ConfirmDialog } from './AdminDialogs.tsx';
+import { LinkIdentityDialog } from './LinkIdentityDialog.tsx';
 import { useLoaded } from './useAdmin.ts';
 
 /** How long a migration window opened here stays open. */
@@ -36,6 +37,7 @@ export function SignInTab({ api }: { api: AdminApi }) {
   const pending = useLoaded(api.pending);
   const [notice, setNotice] = useState<string | null>(null);
   const [unbinding, setUnbinding] = useState<{ name: string; displayName: string } | null>(null);
+  const [linking, setLinking] = useState<PendingSignIn | null>(null);
   const when = (iso: string) => formatWhen(localDateTimeOf(iso, localTimeZone()), today);
 
   return (
@@ -119,6 +121,9 @@ export function SignInTab({ api }: { api: AdminApi }) {
               >
                 {t('admin.signIn.approve')}
               </Button>
+              <Button size="small" onClick={() => setLinking(each)}>
+                {t('admin.link.toAccount')}
+              </Button>
               <Button
                 size="small"
                 onClick={() => void api.dismiss(each.provider, each.subject).then(pending.reload)}
@@ -135,6 +140,17 @@ export function SignInTab({ api }: { api: AdminApi }) {
         </Box>
       </Box>
 
+      {linking && (
+        <LinkIdentityDialog
+          api={api}
+          waiting={linking}
+          onClose={() => setLinking(null)}
+          onLinked={(name) => {
+            setNotice(t('admin.link.done', { name }));
+            pending.reload();
+          }}
+        />
+      )}
       <ConfirmDialog
         confirm={
           unbinding && {

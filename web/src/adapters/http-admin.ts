@@ -34,6 +34,7 @@ const REFUSALS: Record<string, AdminRefusal> = {
   admins_only_by_super_admins: 'admins-only',
   not_allowed: 'not-allowed',
   reason_required: 'reason-required',
+  taken: 'linked-elsewhere',
 };
 
 /** `/api/admin` over fetch, with the session cookie (same origin). */
@@ -133,6 +134,8 @@ export function createHttpAdmin(
         await call(`/users/${segment(id)}`, 'DELETE'),
         async (response) => ((await response.json()) as { removedAt: string }).removedAt,
       ),
+    linkIdentity: async (id, provider, subject) =>
+      result(await call(`/users/${segment(id)}/identities`, 'POST', { provider, subject }), none),
     restoreAccount: async (id) => result(await call(`/users/${segment(id)}/restore`, 'POST'), none),
     resetPassword: async (id) =>
       result(

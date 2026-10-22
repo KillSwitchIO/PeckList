@@ -37,6 +37,9 @@ public sealed partial record OidcProviderSettings
     /// <summary>Make an account on a first sign-in; otherwise it waits for an admin.</summary>
     public bool AutoCreate { get; init; }
 
+    /// <summary>A first sign-in with a verified email joins the one account another provider gave that email. Off by default.</summary>
+    public bool LinkByEmail { get; init; }
+
     /// <summary>Provider group to role; the highest match wins. Empty leaves roles to admins.</summary>
     public IReadOnlyDictionary<string, Role> RoleMap { get; init; } = new Dictionary<string, Role>();
 
@@ -100,21 +103,22 @@ public sealed partial record OidcProviderSettings
             {
                 foreach (var (group, serverGroup) in Pairs(rawGroupMap, prefix + "GROUP_MAP", errors)) groupMap[group] = serverGroup;
             }
-            var autoCreate = false;
-            if (Value("AUTO_CREATE") is { } rawAuto)
+            bool Flag(string name)
             {
-                switch (rawAuto.Trim().ToLowerInvariant())
+                if (Value(name) is not { } raw) return false;
+                switch (raw.Trim().ToLowerInvariant())
                 {
                     case "true" or "1" or "yes" or "on":
-                        autoCreate = true;
-                        break;
+                        return true;
                     case "false" or "0" or "no" or "off":
-                        break;
+                        return false;
                     default:
-                        errors.Add($"{prefix}AUTO_CREATE: '{rawAuto}' is not true or false");
-                        break;
+                        errors.Add($"{prefix}{name}: '{raw}' is not true or false");
+                        return false;
                 }
             }
+            var autoCreate = Flag("AUTO_CREATE");
+            var linkByEmail = Flag("LINK_BY_EMAIL");
             TimeSpan? sessionLength = TimeSpan.FromHours(12);
             if (Value("SESSION_HOURS") is { } rawHours)
             {
@@ -142,6 +146,7 @@ public sealed partial record OidcProviderSettings
                 UsernameClaim = Value("USERNAME_CLAIM") ?? "preferred_username",
                 RequiredGroups = Split(Value("REQUIRED_GROUPS")),
                 AutoCreate = autoCreate,
+                LinkByEmail = linkByEmail,
                 SessionLength = sessionLength,
                 RoleMap = roleMap,
                 GroupMap = groupMap,

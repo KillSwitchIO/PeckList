@@ -199,7 +199,8 @@ export type AdminRefusal =
   | 'taken'
   | 'invalid'
   | 'too-short'
-  | 'admins-only';
+  | 'admins-only'
+  | 'linked-elsewhere';
 
 export type AdminResult<T = void> = { ok: true; value: T } | { ok: false; reason: AdminRefusal };
 
@@ -214,6 +215,8 @@ export interface AdminApi {
   setDisabled(id: string, disabled: boolean): Promise<AdminResult>;
   /** Delete: off at once, removed for good after the grace period (returns when). */
   deleteUser(id: string): Promise<AdminResult<string>>;
+  /** Attach a provider account (by its subject) to someone; a waiting sign-in with it is settled. */
+  linkIdentity(id: string, provider: string, subject: string): Promise<AdminResult>;
   /** Take a deletion back within the grace period. */
   restoreAccount(id: string): Promise<AdminResult>;
   /** A generated password the person must change; shown once. */

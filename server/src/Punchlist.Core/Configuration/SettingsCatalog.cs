@@ -89,6 +89,7 @@ public static class SettingsCatalog
             new(prefix + "USERNAME_CLAIM", group, SettingKind.Text, "preferred_username"),
             new(prefix + "REQUIRED_GROUPS", group, SettingKind.List),
             new(prefix + "AUTO_CREATE", group, SettingKind.Flag, "false"),
+            new(prefix + "LINK_BY_EMAIL", group, SettingKind.Flag, "false"),
             new(prefix + "ROLE_MAP", group, SettingKind.List),
             new(prefix + "GROUP_MAP", group, SettingKind.List),
             new(prefix + "SESSION_HOURS", group, SettingKind.Number, "12"),
