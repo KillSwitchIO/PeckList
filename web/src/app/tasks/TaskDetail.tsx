@@ -31,6 +31,8 @@ import { fromDateValue, toDateValue } from '../dates/dateValue.ts';
 import { useToday } from '../hooks/useToday.ts';
 import { t } from '../i18n/i18n.ts';
 import { useApply, useWorkspace } from '../store/hooks.ts';
+import { useSyncState } from '../sync/syncContext.ts';
+import { AssigneeProperty } from './AssigneeProperty.tsx';
 
 /** A text field that edits locally and commits on blur or Enter. */
 function CommitField({
@@ -89,6 +91,10 @@ export function TaskDetail({
   const task = getEntity(workspace, 'tasks', taskId);
   const [menu, setMenu] = useState<TaskMenuAnchor | null>(null);
   const titleLongPress = useLongPress((position) => setMenu({ position }));
+  const phase = useSyncState((state) => state.phase);
+  const authMode = useSyncState((state) => state.account?.authMode);
+  // Assigning needs other people: a server with accounts.
+  const canAssign = phase === 'ready' && authMode === 'local';
 
   if (!task || !isLive(task)) {
     return (
@@ -247,6 +253,7 @@ export function TaskDetail({
               }
             />
           )}
+          {canAssign && <AssigneeProperty task={task} />}
         </Box>
         <NotesEditor
           key={task.id}

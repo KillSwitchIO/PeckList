@@ -195,6 +195,52 @@ export function assigneesOf(task: Task): string[] {
   return members(task.assignees);
 }
 
+export interface Assignee {
+  principal: string;
+  /** The person's profile (null for a group or someone not synced yet) */
+  user: User | null;
+  name: string;
+  color: string;
+}
+
+const NO_COLOR = '#B8BCC4';
+
+/** A principal as the app shows it: a person's name and color, or a group's. */
+export function describePrincipal(workspace: WorkspaceFile, principal: string): Assignee {
+  const id = principal.slice(principal.indexOf(':') + 1);
+  if (principal.startsWith('group:')) {
+    const group = getEntity(workspace, 'groups', id);
+    return {
+      principal,
+      user: null,
+      name: group?.name ?? nameOf(null, id),
+      color: group?.color ?? NO_COLOR,
+    };
+  }
+  const user = getEntity(workspace, 'users', id) ?? null;
+  return { principal, user, name: nameOf(user, id), color: user?.avatarColor ?? NO_COLOR };
+}
+
+/**
+ * Who a task may be assigned to: me, my friends, and the people on its list (its owner and
+ * members), plus anyone already assigned. Me first, then by name.
+ */
+export function assigneeCandidates(workspace: WorkspaceFile, me: Id, task: Task): Assignee[] {
+  const principals = new Set<string>();
+  const list = getEntity(workspace, 'lists', task.listId);
+  if (list) principals.add(`user:${list.createdBy}`);
+  for (const member of listMembersOf(workspace, task.listId)) principals.add(member.principal);
+  for (const friend of friendsOf(workspace, me)) {
+    if (friend.state === 'accepted') principals.add(`user:${friend.userId}`);
+  }
+  for (const principal of assigneesOf(task)) principals.add(principal);
+  principals.delete(`user:${me}`);
+  const others = [...principals]
+    .map((principal) => describePrincipal(workspace, principal))
+    .sort((a, b) => a.name.localeCompare(b.name));
+  return [describePrincipal(workspace, `user:${me}`), ...others];
+}
+
 /** Open tasks assigned to me, directly or through a group I am in. */
 export function assignedTo(workspace: WorkspaceFile, me: Id): Task[] {
   const mine = new Set([

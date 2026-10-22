@@ -5,6 +5,7 @@ import { createList } from './lists.ts';
 import { createEntity } from './ops.ts';
 import {
   acceptFriendship,
+  assigneeCandidates,
   assignedTo,
   canEditList,
   endFriendship,
@@ -21,6 +22,9 @@ import {
 } from './sharing.ts';
 import type { GroupMember, User, WorkspaceFile } from './types.ts';
 import { createWorkspace } from './workspace.ts';
+
+const getTask = (workspace: WorkspaceFile, id: string) =>
+  workspace.entities.tasks.find((task) => task.id === id)!;
 
 const BEN = '01JBBEN0000000000000000001';
 const SAM = '01JBSAM0000000000000000002';
@@ -134,5 +138,44 @@ describe('assignment', () => {
     expect(sharedWithMe(next, BEN)).toEqual([]);
     next = setAssignee(ben, next, task.id, `user:${SAM}`, false);
     expect(assignedTo(next, SAM)).toEqual([]);
+  });
+
+  it('offers me, my friends, the people on the list and anyone already assigned', () => {
+    const { ben, workspace, list } = benWorld();
+    const task = sampleTask(ben, list.id, 'Fix fence');
+    let next = putEntity(workspace, 'tasks', task);
+    next = putEntity(
+      next,
+      'users',
+      createEntity<User>(
+        ben,
+        { handle: 'sam', displayName: 'Sam', avatarColor: '#F4B6C2', homeServer: 'local' },
+        SAM,
+      ),
+    );
+    // Only me while nobody else is around.
+    expect(assigneeCandidates(next, BEN, task).map((each) => each.principal)).toEqual([
+      `user:${BEN}`,
+    ]);
+    next = sendFriendRequest(ben, next, SAM);
+    // A request someone has not accepted does not count.
+    expect(assigneeCandidates(next, BEN, task)).toHaveLength(1);
+    next = acceptFriendship(as(SAM), next, next.entities.friendships[0]!.id);
+    next = shareList(ben, next, list.id, `user:${JO}`, 'editor');
+    next = setAssignee(ben, next, task.id, 'group:01JBGR0000000000000000000G', true);
+    const candidates = assigneeCandidates(next, BEN, getTask(next, task.id));
+    expect(candidates.map((each) => each.principal)).toEqual([
+      `user:${BEN}`,
+      // Groups and people without a profile show a short id until they sync.
+      'group:01JBGR0000000000000000000G',
+      `user:${JO}`,
+      `user:${SAM}`,
+    ]);
+    expect(candidates.find((each) => each.principal === `user:${SAM}`)!.name).toBe('Sam');
+
+    // On Jo's side, the list's owner is offered too.
+    expect(
+      assigneeCandidates(next, JO, getTask(next, task.id)).map((each) => each.principal),
+    ).toContain(`user:${BEN}`);
   });
 });

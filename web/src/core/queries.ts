@@ -8,6 +8,7 @@ import {
   filterClosedTasks,
   filterTasks,
   groupByDay,
+  inLiveList,
   startDate,
   type TaskFilter,
 } from './filters.ts';
@@ -49,13 +50,9 @@ export function startState(task: Task, today: string): 'overdue' | 'today' | 'la
 }
 
 function openTopLevel(workspace: WorkspaceFile): Task[] {
-  const liveLists = new Set(workspace.entities.lists.filter(isLive).map((list) => list.id));
+  const listed = inLiveList(workspace);
   return workspace.entities.tasks.filter(
-    (task) =>
-      isLive(task) &&
-      task.status === 'open' &&
-      task.parentId === null &&
-      liveLists.has(task.listId),
+    (task) => isLive(task) && task.status === 'open' && task.parentId === null && listed(task),
   );
 }
 

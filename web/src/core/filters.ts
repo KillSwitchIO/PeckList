@@ -117,9 +117,13 @@ export function byDateThenOrder(workspace: WorkspaceFile): (a: Task, b: Task) =>
   };
 }
 
-function inLiveList(workspace: WorkspaceFile): (task: Task) => boolean {
-  const live = new Set(workspace.entities.lists.filter(isLive).map((list) => list.id));
-  return (task) => live.has(task.listId);
+/** Whether a task's list is still around (a list this device never had counts: see below). */
+export function inLiveList(workspace: WorkspaceFile): (task: Task) => boolean {
+  // A list this device does not have is someone else's: a task assigned from it still shows.
+  const gone = new Set(
+    workspace.entities.lists.filter((list) => !isLive(list)).map((list) => list.id),
+  );
+  return (task) => !gone.has(task.listId);
 }
 
 /** Open tasks at any level matching the filter, by start date then manual order. */

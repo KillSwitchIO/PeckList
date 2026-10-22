@@ -8,7 +8,9 @@ import {
   groupByDate,
   type TaskFilter,
 } from './filters.ts';
+import { putEntity } from './collections.ts';
 import { createList, inboxList } from './lists.ts';
+import { softDelete } from './ops.ts';
 import { createTag } from './tags.ts';
 import { createTask, setTaskStatus } from './tasks.ts';
 import type { Schedule, WorkspaceFile } from './types.ts';
@@ -96,6 +98,21 @@ describe('filter engine', () => {
       'tomorrow',
     ]);
     expect(titles(s, { priorities: [3], start: { to: 0 } })).toEqual(['overdue']);
+  });
+
+  it('hides tasks of a deleted list, but not of a list this device never had', () => {
+    const s = setup();
+    const work = s.ws.entities.lists.find((list) => list.id === s.work)!;
+    const deleted = putEntity(s.ws, 'lists', softDelete(s.ctx, work));
+    expect(filterTasks(deleted, ALL_TASKS, TODAY).map((task) => task.title)).not.toContain(
+      'tomorrow',
+    );
+    // Assigned from someone else's list: the task came without it.
+    const unknown = {
+      ...s.ws,
+      entities: { ...s.ws.entities, lists: s.ws.entities.lists.filter((list) => list !== work) },
+    };
+    expect(filterTasks(unknown, ALL_TASKS, TODAY).map((task) => task.title)).toContain('tomorrow');
   });
 
   it('lists closed tasks without the subtasks closed along with their parent', () => {

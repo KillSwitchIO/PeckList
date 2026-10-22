@@ -1,0 +1,136 @@
+import { screen, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { createMemoryStorage } from '../../adapters/memory-storage.ts';
+import { putEntity } from '../../core/collections.ts';
+import { createList } from '../../core/lists.ts';
+import { createEntity } from '../../core/ops.ts';
+import { assigneesOf, setAssignee } from '../../core/sharing.ts';
+import { createTask } from '../../core/tasks.ts';
+import type { Friendship, User } from '../../core/types.ts';
+import { FakeBackend } from '../../test/fakeTransport.ts';
+import { mockViewport, renderApp, testStore } from '../../test/renderApp.tsx';
+import { createSyncEngine } from '../sync/syncEngine.ts';
+
+const SAM = '01JBSAM0000000000000000002';
+
+beforeEach(() => {
+  localStorage.clear();
+  vi.unstubAllGlobals();
+  mockViewport('desktop');
+});
+
+/** A list with "Fix fence" and a friend, Sam; with a server unless `standalone`. */
+async function setup(standalone = false) {
+  const store = testStore();
+  await store.getState().init();
+  let listId = '';
+  let taskId = '';
+  let sync;
+  if (!standalone) {
+    const backend = new FakeBackend();
+    backend.addAccount('ben', 'correct horse battery');
+    sync = createSyncEngine({
+      transport: Object.assign(backend.device(), { session: 'ben' }),
+      workspace: store,
+      storage: createMemoryStorage(),
+      debounceMs: 60_000,
+      intervalMs: 600_000,
+    });
+    await sync.getState().start();
+  }
+  store.getState().apply((ctx, ws) => {
+    const { workspace, list } = createList(ctx, ws, { name: 'Garden', color: '#CFE3A3' });
+    listId = list.id;
+    const created = createTask(ctx, workspace, { title: 'Fix fence', listId });
+    taskId = created.task.id;
+    const sam = createEntity<User>(
+      ctx,
+      { handle: 'sam', displayName: 'Sam', avatarColor: '#F4B6C2', homeServer: 'local' },
+      SAM,
+    );
+    const friendship = createEntity<Friendship>(ctx, {
+      userA: ctx.userId,
+      userB: SAM,
+      state: 'accepted',
+    });
+    return putEntity(putEntity(created.workspace, 'users', sam), 'friendships', friendship);
+  });
+  await store.getState().flush();
+  await renderApp(`/lists/${listId}`, store, sync);
+  await userEvent.click(await screen.findByRole('button', { name: 'Open Fix fence' }));
+  const task = () => store.getState().workspace!.entities.tasks.find((each) => each.id === taskId)!;
+  return { task };
+}
+
+describe('assigning a task', () => {
+  it('assigns friends and me from the details panel', async () => {
+    const { task } = await setup();
+    const details = await screen.findByRole('region', { name: 'Task details' });
+    await userEvent.click(within(details).getByRole('button', { name: 'Assigned: Nobody' }));
+    const picker = await screen.findByRole('dialog', { name: 'Assign to' });
+    const items = within(picker).getAllByRole('menuitemcheckbox');
+    expect(items).toHaveLength(2);
+    expect(items[0]).toHaveAccessibleName(/^Me\b/);
+    expect(items[1]).toHaveAccessibleName(/^Sam\b/);
+
+    await userEvent.click(within(picker).getByRole('menuitemcheckbox', { name: /Sam/ }));
+    expect(assigneesOf(task())).toEqual([`user:${SAM}`]);
+    expect(within(picker).getByRole('menuitemcheckbox', { name: /Sam/ })).toHaveAttribute(
+      'aria-checked',
+      'true',
+    );
+    await userEvent.click(within(picker).getByRole('menuitemcheckbox', { name: /^Me\b/ }));
+    expect(assigneesOf(task())).toHaveLength(2);
+    await userEvent.keyboard('{Escape}');
+    expect(
+      within(details).getByRole('button', { name: /^Assigned: (Sam|Me) and 1 more$/ }),
+    ).toBeInTheDocument();
+
+    // Taking Sam off leaves just me.
+    await userEvent.click(within(details).getByRole('button', { name: /^Assigned:/ }));
+    await userEvent.click(
+      within(await screen.findByRole('dialog', { name: 'Assign to' })).getByRole(
+        'menuitemcheckbox',
+        { name: /Sam/ },
+      ),
+    );
+    await userEvent.keyboard('{Escape}');
+    expect(within(details).getByRole('button', { name: 'Assigned: Me' })).toBeInTheDocument();
+  });
+
+  it("shows a task assigned from someone else's list", async () => {
+    const store = testStore();
+    await store.getState().init();
+    store.getState().apply((ctx, ws) => {
+      const { workspace, list } = createList(ctx, ws, { name: 'Theirs', color: '#CFE3A3' });
+      const created = createTask(ctx, workspace, { title: 'Water beans', listId: list.id });
+      const assigned = setAssignee(
+        ctx,
+        created.workspace,
+        created.task.id,
+        `user:${ctx.userId}`,
+        true,
+      );
+      // As it arrives from the server: the task without its list.
+      return {
+        ...assigned,
+        entities: {
+          ...assigned.entities,
+          lists: assigned.entities.lists.filter((each) => each.id !== list.id),
+        },
+      };
+    });
+    await store.getState().flush();
+    await renderApp('/assigned', store);
+    await userEvent.click(await screen.findByRole('button', { name: 'Open Water beans' }));
+    const details = await screen.findByRole('region', { name: 'Task details' });
+    expect(within(details).getByText("Someone else's list")).toBeInTheDocument();
+  });
+
+  it('is not offered without a server', async () => {
+    await setup(true);
+    const details = await screen.findByRole('region', { name: 'Task details' });
+    expect(within(details).queryByRole('button', { name: /^Assigned:/ })).toBeNull();
+  });
+});

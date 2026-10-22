@@ -13,6 +13,7 @@ import {
   useTheme,
 } from '@mui/material';
 import { useState } from 'react';
+import { getEntity } from '../../core/collections.ts';
 import { localDateTimeOf, localTimeZone } from '../../core/dates.ts';
 import { sectionsOf, visibleLists } from '../../core/lists.ts';
 import { moveTask, updateTask } from '../../core/tasks.ts';
@@ -120,6 +121,19 @@ function ListPicker({ task }: { task: Task }) {
       apply((ctx, ws) => moveTask(ctx, ws, task.id, { listId, sectionId }));
     }
   };
+
+  // Assigned from a list this device does not have: it stays where its owner put it.
+  if (!getEntity(workspace, 'lists', task.listId)) {
+    return (
+      <Box
+        component="span"
+        aria-label={t('task.listValue', { list: t('task.otherList') })}
+        sx={{ px: 1, py: 0.75, typography: 'body2', color: 'text.secondary' }}
+      >
+        {t('task.otherList')}
+      </Box>
+    );
+  }
 
   return (
     <>
