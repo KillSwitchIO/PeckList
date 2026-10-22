@@ -1,0 +1,59 @@
+import { screen, waitFor, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { inboxList } from '../../core/lists.ts';
+import { createTask, deleteTask } from '../../core/tasks.ts';
+import { isPurged } from '../../core/trash.ts';
+import { mockViewport, renderApp, testStore } from '../../test/renderApp.tsx';
+
+beforeEach(() => {
+  localStorage.clear();
+  vi.unstubAllGlobals();
+  mockViewport('desktop');
+});
+
+/** The trash with "Old receipt" and "Spare key" in it. */
+async function trashWithTwo() {
+  const store = testStore();
+  await renderApp('/trash', store);
+  store.getState().apply((ctx, ws) => {
+    let next = ws;
+    for (const title of ['Old receipt', 'Spare key']) {
+      const made = createTask(ctx, next, { title, listId: inboxList(next).id });
+      next = deleteTask(ctx, made.workspace, made.task.id);
+    }
+    return next;
+  });
+  const tasks = () => store.getState().workspace!.entities.tasks;
+  return { tasks };
+}
+
+describe('trash', () => {
+  it('deletes one task forever after asking', async () => {
+    const { tasks } = await trashWithTwo();
+    await userEvent.click(
+      await screen.findByRole('button', { name: 'Delete Old receipt forever' }),
+    );
+    const dialog = await screen.findByRole('dialog');
+    expect(within(dialog).getByText(/cannot be undone/)).toBeInTheDocument();
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Delete forever' }));
+    await waitFor(() => expect(screen.queryByText('Old receipt')).toBeNull());
+    expect(screen.getByText('Spare key')).toBeInTheDocument();
+    expect(
+      tasks()
+        .filter(isPurged)
+        .map((task) => task.title),
+    ).toEqual(['']);
+  });
+
+  it('empties the trash', async () => {
+    const { tasks } = await trashWithTwo();
+    await userEvent.click(await screen.findByRole('button', { name: 'Empty trash' }));
+    const dialog = await screen.findByRole('dialog');
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Empty trash' }));
+    expect(await screen.findByText('The trash is empty.')).toBeInTheDocument();
+    expect(tasks().every(isPurged)).toBe(true);
+    // Nothing left to empty: the button goes.
+    expect(screen.queryByRole('button', { name: 'Empty trash' })).toBeNull();
+  });
+});

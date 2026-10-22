@@ -26,6 +26,9 @@ import {
 import { useEffect, useRef, useState } from 'react';
 import { Outlet, useLocation, useNavigate } from 'react-router';
 import { t } from '../i18n/i18n.ts';
+import { purgeExpired } from '../../core/trash.ts';
+import { useApply } from '../store/hooks.ts';
+
 import { HeaderSlotContext } from './headerSlot.ts';
 import { SidebarEditProvider } from './sidebarEdit.tsx';
 import { useSidebarEdit } from './sidebarEditContext.ts';
@@ -47,6 +50,9 @@ import {
   type NavItem,
 } from './navigation.tsx';
 import { SyncButton } from '../sync/SyncButton.tsx';
+
+/** How often the trash is checked for things to erase. */
+const PURGE_EVERY_MS = 6 * 3_600_000;
 
 const DRAWER_WIDTH = 232;
 // Details get room for notes: about two fifths of the window, within sensible bounds.
@@ -220,6 +226,15 @@ export function AppShell() {
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [selectedId, close]);
+
+  // Things in the trash for more than 30 days are erased: at start, then every few hours.
+  const apply = useApply();
+  useEffect(() => {
+    const purge = () => apply((ctx, ws) => purgeExpired(ctx, ws, Date.now()));
+    purge();
+    const timer = window.setInterval(purge, PURGE_EVERY_MS);
+    return () => window.clearInterval(timer);
+  }, [apply]);
 
   // "/" jumps to search from anywhere but a text field (spec: Keyboard shortcuts).
   useEffect(() => {

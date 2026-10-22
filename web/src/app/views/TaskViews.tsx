@@ -1,7 +1,18 @@
 import { groupClosed } from './closedGroups.ts';
 import DeleteOutlineRounded from '@mui/icons-material/DeleteOutlineRounded';
+import DeleteForeverOutlined from '@mui/icons-material/DeleteForeverOutlined';
 import RestoreRounded from '@mui/icons-material/RestoreRounded';
-import { Button, List, ListItem, ListItemText, Typography } from '@mui/material';
+import {
+  Box,
+  Button,
+  IconButton,
+  List,
+  ListItem,
+  ListItemText,
+  Tooltip,
+  Typography,
+} from '@mui/material';
+import { useState } from 'react';
 import { getEntity } from '../../core/collections.ts';
 import { localTimeZone } from '../../core/dates.ts';
 import { inboxList } from '../../core/lists.ts';
@@ -14,6 +25,9 @@ import {
 } from '../../core/queries.ts';
 import { ALL_TASKS } from '../../core/filters.ts';
 import { restoreTask } from '../../core/tasks.ts';
+import { emptyTrash, purgeTask } from '../../core/trash.ts';
+import type { Task } from '../../core/types.ts';
+import { ConfirmDialog } from '../lists/ListDialog.tsx';
 import { formatDay } from '../format.ts';
 import { useNow, useToday } from '../hooks/useToday.ts';
 import { t } from '../i18n/i18n.ts';
@@ -169,8 +183,21 @@ export function TrashView() {
   const today = useToday();
   const now = useNow();
   const tasks = trashedTasks(workspace, now);
+  // Deleting forever cannot be undone, so it asks first.
+  const [confirm, setConfirm] = useState<'all' | Task | null>(null);
   return (
-    <Page title={t('nav.trash')}>
+    <Page
+      title={t('nav.trash')}
+      {...(tasks.length > 0
+        ? {
+            actions: (
+              <Button color="error" onClick={() => setConfirm('all')}>
+                {t('trash.emptyAction')}
+              </Button>
+            ),
+          }
+        : {})}
+    >
       {tasks.length === 0 ? (
         <EmptyState
           title={t('trash.empty')}
@@ -190,15 +217,28 @@ export function TrashView() {
                   key={task.id}
                   divider
                   secondaryAction={
-                    <Button
-                      size="small"
-                      startIcon={<RestoreRounded />}
-                      onClick={() =>
-                        apply((ctx, ws) => restoreTask(ctx, ws, task.id), t('undo.restored'))
-                      }
-                    >
-                      {t('task.restore')}
-                    </Button>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                      <Button
+                        size="small"
+                        startIcon={<RestoreRounded />}
+                        onClick={() =>
+                          apply((ctx, ws) => restoreTask(ctx, ws, task.id), t('undo.restored'))
+                        }
+                      >
+                        {t('task.restore')}
+                      </Button>
+                      <Tooltip title={t('trash.deleteForever')}>
+                        <IconButton
+                          size="small"
+                          aria-label={t('trash.deleteForeverOf', {
+                            title: task.title || t('task.untitled'),
+                          })}
+                          onClick={() => setConfirm(task)}
+                        >
+                          <DeleteForeverOutlined fontSize="small" />
+                        </IconButton>
+                      </Tooltip>
+                    </Box>
                   }
                 >
                   <ListItemText
@@ -217,6 +257,24 @@ export function TrashView() {
             })}
           </List>
         </>
+      )}
+      {confirm && (
+        <ConfirmDialog
+          open
+          message={
+            confirm === 'all'
+              ? t('trash.emptyConfirm')
+              : t('trash.deleteForeverConfirm', { title: confirm.title || t('task.untitled') })
+          }
+          confirmLabel={confirm === 'all' ? t('trash.emptyAction') : t('trash.deleteForever')}
+          onClose={() => setConfirm(null)}
+          onConfirm={() => {
+            apply((ctx, ws) =>
+              confirm === 'all' ? emptyTrash(ctx, ws) : purgeTask(ctx, ws, confirm.id),
+            );
+            setConfirm(null);
+          }}
+        />
       )}
     </Page>
   );
