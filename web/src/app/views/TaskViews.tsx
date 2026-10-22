@@ -130,6 +130,16 @@ export function AssignedView() {
   );
 }
 
+/** Open tasks others shared with me: their lists, or assigned to me from lists I cannot see. */
+export function SharedView() {
+  const me = useStoreState((state) => state.context().userId);
+  return (
+    <Page title={t('nav.shared')}>
+      <DateGroupedTasks filter={{ sharedWith: me }} showList emptyTitle={t('shared.empty')} />
+    </Page>
+  );
+}
+
 export function CompletedView() {
   const workspace = useWorkspace();
   const today = useToday();

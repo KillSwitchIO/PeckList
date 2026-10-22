@@ -29,6 +29,8 @@ export interface TaskFilter {
   priorities?: Priority[];
   /** Assigned to this user, directly or through a group they are an active member of */
   assignedTo?: Id;
+  /** Shared with this user: in a list someone else owns, or assigned from a list they cannot see */
+  sharedWith?: Id;
 }
 
 /** No conditions: the All view. */
@@ -70,7 +72,12 @@ export function compileFilter(
           .map((member) => `group:${member.groupId}`),
       ])
     : null;
+  const listById = new Map(workspace.entities.lists.map((list) => [list.id, list]));
   return (task) => {
+    if (filter.sharedWith) {
+      const list = listById.get(task.listId);
+      if (list && list.createdBy === filter.sharedWith) return false;
+    }
     if (assignees && !members(task.assignees).some((principal) => assignees.has(principal)))
       return false;
     if (lists && !lists.has(task.listId)) return false;

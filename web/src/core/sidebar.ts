@@ -20,7 +20,7 @@ export const BUILT_IN_VIEWS = [
 ] as const;
 
 /** Views that need a server with accounts; the sidebar offers them only then. */
-export const SHARED_VIEWS = ['assigned'] as const;
+export const SHARED_VIEWS = ['assigned', 'shared'] as const;
 
 export function defaultSidebar(): SidebarLayout {
   return {

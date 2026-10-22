@@ -7,6 +7,8 @@ export const en = {
   'nav.calendar': 'Calendar',
   'nav.completed': 'Closed',
   'nav.assigned': 'Assigned to me',
+  'nav.shared': 'Shared with me',
+  'shared.empty': 'Nothing is shared with you yet.',
   'assigned.empty': 'Nothing is assigned to you.',
   'assignee.label': 'Assigned',
   'assignee.none': 'Nobody',

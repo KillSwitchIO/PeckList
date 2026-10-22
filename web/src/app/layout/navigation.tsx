@@ -10,7 +10,7 @@ import TaskAltRounded from '@mui/icons-material/TaskAltRounded';
 import TodayRounded from '@mui/icons-material/TodayRounded';
 import type { ReactElement } from 'react';
 import type { MessageKey } from '../i18n/i18n.ts';
-import { AssignedIcon } from '../icons/icons.tsx';
+import { AssignedIcon, PeopleIcon } from '../icons/icons.tsx';
 
 export interface NavItem {
   path: string;
@@ -32,6 +32,7 @@ export const SIDEBAR_ITEMS: NavItem[] = [
 /** Views that need a server with accounts (core/sidebar.ts SHARED_VIEWS). */
 export const SHARED_ITEMS: NavItem[] = [
   { path: '/assigned', label: 'nav.assigned', icon: <AssignedIcon /> },
+  { path: '/shared', label: 'nav.shared', icon: <PeopleIcon /> },
 ];
 
 /** The sidebar views by id (see core/sidebar.ts). */

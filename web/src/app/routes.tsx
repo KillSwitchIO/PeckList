@@ -12,6 +12,7 @@ import { MoreView } from './views/MoreView.tsx';
 import {
   AllView,
   AssignedView,
+  SharedView,
   CompletedView,
   TodayView,
   TrashView,
@@ -53,6 +54,7 @@ export function AppRoutes() {
         <Route path="/more" element={<MoreView />} />
         <Route path="/friends" element={<FriendsPage />} />
         <Route path="/assigned" element={<AssignedView />} />
+        <Route path="/shared" element={<SharedView />} />
         <Route path="/f/:code" element={<FriendLinkPage />} />
         <Route
           path="/calendar"

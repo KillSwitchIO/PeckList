@@ -115,6 +115,23 @@ describe('filter engine', () => {
     expect(filterTasks(unknown, ALL_TASKS, TODAY).map((task) => task.title)).toContain('tomorrow');
   });
 
+  it('shared with me: tasks in lists others own, or from lists I do not have', () => {
+    const s = setup();
+    expect(titles(s, { sharedWith: s.ctx.userId })).toEqual([]);
+    const work = s.ws.entities.lists.find((list) => list.id === s.work)!;
+    const theirs = putEntity(s.ws, 'lists', { ...work, createdBy: 'someone-else' });
+    expect(filterTasks(theirs, { sharedWith: s.ctx.userId }, TODAY).map((t) => t.title)).toEqual([
+      'tomorrow',
+      'undated',
+      'undated child',
+    ]);
+    const missing = {
+      ...s.ws,
+      entities: { ...s.ws.entities, lists: s.ws.entities.lists.filter((list) => list !== work) },
+    };
+    expect(filterTasks(missing, { sharedWith: s.ctx.userId }, TODAY)).toHaveLength(3);
+  });
+
   it('lists closed tasks without the subtasks closed along with their parent', () => {
     const s = setup();
     s.ws = setTaskStatus(s.ctx, s.ws, s.undated.id, 'done');
