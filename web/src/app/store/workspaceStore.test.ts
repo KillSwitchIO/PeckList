@@ -256,6 +256,39 @@ describe('device ids', () => {
     expect(randomId(4, () => 0)).toBe('AAAA');
   });
 
+  it('keeps a change made while a save is waiting on storage', async () => {
+    const memory = createMemoryStorage();
+    let release: () => void = () => undefined;
+    let slow = false;
+    // A storage whose reads can be held open, like a busy IndexedDB.
+    const storage: StorageAdapter = {
+      ...memory,
+      load: async () => {
+        if (slow) await new Promise<void>((resolve) => (release = resolve));
+        return memory.load();
+      },
+    };
+    const store = makeStore(storage);
+    await store.getState().init();
+    const first = addTask(store, 'First');
+    slow = true;
+    const saving = store.getState().flush();
+    // The save is waiting on storage; a change comes in now.
+    const second = addTask(store, 'Second');
+    release();
+    await saving;
+    const titles = () =>
+      store
+        .getState()
+        .workspace!.entities.tasks.map((task) => task.title)
+        .sort();
+    expect(titles()).toEqual(['First', 'Second']);
+    slow = false;
+    await vi.advanceTimersByTimeAsync(150);
+    const stored = (await memory.load()) as { entities: { tasks: { id: string }[] } };
+    expect(stored.entities.tasks.map((task) => task.id).sort()).toEqual([first, second].sort());
+  });
+
   describe('closing the page before a save finishes', () => {
     it('keeps the change through the journal', async () => {
       const storage = createMemoryStorage();

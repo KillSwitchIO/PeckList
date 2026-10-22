@@ -209,7 +209,15 @@ export function createWorkspaceStore(deps: StoreDependencies): WorkspaceStore {
           if (merged.owner !== current.owner) {
             set({ workspace: merged, undoStack: [], lastUndoable: null });
           } else {
-            set({ workspace: merged });
+            // A change made while this save waited on storage is newer than `current`: keep it
+            // (it has its own save coming), rather than putting the saved copy over it.
+            const latest = get().workspace;
+            set({
+              workspace:
+                latest && latest !== current && latest.owner === merged.owner
+                  ? mergeWorkspaces(merged, latest)
+                  : merged,
+            });
           }
         });
         deps.notify?.();
