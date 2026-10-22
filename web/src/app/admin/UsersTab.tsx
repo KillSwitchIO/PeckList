@@ -21,6 +21,7 @@ import { t } from '../i18n/i18n.ts';
 import { MoreIcon, PlusIcon } from '../icons/icons.tsx';
 import { useSyncState } from '../sync/syncContext.ts';
 import { ConfirmDialog, SecretDialog } from './AdminDialogs.tsx';
+import { DeleteUserDialog } from './DeleteUserDialog.tsx';
 import { FriendsDialog } from './FriendsDialog.tsx';
 import { HandOverDialog } from './HandOverDialog.tsx';
 import { SetupCard } from './SetupCard.tsx';
@@ -31,6 +32,13 @@ const ROLES: AccountRole[] = ['user', 'admin', 'superadmin'];
 
 /** One line under the name: role, how they sign in, and anything that needs attention. */
 function describe(user: AdminUser): string {
+  if (user.removedAt) {
+    const day = new Date(user.removedAt).toLocaleDateString(undefined, {
+      month: 'short',
+      day: 'numeric',
+    });
+    return `${t(`admin.role.${user.role}`)} · ${t('admin.users.deleted', { date: day })}`;
+  }
   const parts = [t(`admin.role.${user.role}`)];
   if (user.hasPassword) parts.push(t('admin.users.password'));
   parts.push(...user.providers);
@@ -134,6 +142,7 @@ export function UsersTab({ api }: { api: AdminApi }) {
   const [identities, setIdentities] = useState<AdminIdentity[]>([]);
   const [friendsOf, setFriendsOf] = useState<AdminUser | null>(null);
   const [handingOver, setHandingOver] = useState<AdminUser | null>(null);
+  const [deleting, setDeleting] = useState<AdminUser | null>(null);
   const [viewing, setViewing] = useState<AdminUser | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
 
@@ -276,8 +285,14 @@ export function UsersTab({ api }: { api: AdminApi }) {
             </MenuItem>
           )}
         {target && !canTouch && <MenuItem disabled>{t('admin.refused.admins-only')}</MenuItem>}
+        {target && canTouch && target.deletedAt && (
+          <MenuItem onClick={() => void act(() => api.restoreAccount(target.id))}>
+            {t('admin.users.restore')}
+          </MenuItem>
+        )}
         {target &&
-          canTouch && [
+          canTouch &&
+          !target.deletedAt && [
             <MenuItem
               key="password"
               onClick={() =>
@@ -332,6 +347,18 @@ export function UsersTab({ api }: { api: AdminApi }) {
                 }}
               >
                 {target.disabled ? t('admin.users.turnOn') : t('admin.users.turnOff')}
+              </MenuItem>
+            ),
+            target.id !== me && (
+              <MenuItem
+                key="delete"
+                onClick={() => {
+                  setMenu(null);
+                  setDeleting(target);
+                }}
+                sx={{ color: 'error.main' }}
+              >
+                {t('admin.users.deleteMenu')}
               </MenuItem>
             ),
             superAdmin && <Divider key="roles" />,
@@ -406,6 +433,26 @@ export function UsersTab({ api }: { api: AdminApi }) {
           user={friendsOf}
           users={users ?? []}
           onClose={() => setFriendsOf(null)}
+        />
+      )}
+      {deleting && (
+        <DeleteUserDialog
+          api={api}
+          user={deleting}
+          onClose={() => setDeleting(null)}
+          onHandOver={() => {
+            setHandingOver(deleting);
+            setDeleting(null);
+          }}
+          onDelete={() => {
+            const user = deleting;
+            setDeleting(null);
+            void act(async () => {
+              const result = await api.deleteUser(user.id);
+              if (result.ok) setNotice(t('admin.users.deletedNotice', { name: user.username }));
+              return result.ok ? { ok: true as const } : result;
+            });
+          }}
         />
       )}
       <ConfirmDialog confirm={confirm} onClose={() => setConfirm(null)} />

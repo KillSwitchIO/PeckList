@@ -43,6 +43,7 @@ function memoryAdmin(benId: string) {
     setupDone: true,
     backups: [] as { name: string; taken: string; size: number }[],
     restores: [] as { source: unknown; username: string | null }[],
+    deleted: [] as string[],
     handedOver: [] as { from: string; to: string; ids: string[] }[],
     window: null as string | null,
     pending: [
@@ -340,6 +341,26 @@ function memoryAdmin(benId: string) {
       );
       return Promise.resolve({ entries, more: false });
     },
+    deleteUser: (id) => {
+      state.deleted.push(id);
+      state.users = state.users.map((each) =>
+        each.id === id
+          ? {
+              ...each,
+              disabled: true,
+              deletedAt: '2026-10-22T12:00:00Z',
+              removedAt: '2026-10-29T12:00:00Z',
+            }
+          : each,
+      );
+      return ok('2026-10-29T12:00:00Z');
+    },
+    restoreAccount: (id) => {
+      state.users = state.users.map((each) =>
+        each.id === id ? { ...each, disabled: false, deletedAt: null, removedAt: null } : each,
+      );
+      return ok(undefined);
+    },
     setup: () => Promise.resolve({ done: state.setupDone }),
     finishSetup: () => {
       state.setupDone = true;
@@ -595,6 +616,28 @@ describe('admin', () => {
       await screen.findByText(/The server is restarting to restore the backup/),
     ).toBeInTheDocument();
     expect(state.restores.map((each) => each.username)).toEqual([null, 'sam', 'everyone']);
+  });
+
+  it('deletes an account after offering the hand-over, and restores it within the grace period', async () => {
+    const { state } = await adminApp('superadmin');
+    const list = await screen.findByRole('list', { name: 'Users' });
+    const sam = await within(list).findByRole('listitem', { name: 'sam' });
+    await userEvent.click(within(sam).getByRole('button', { name: 'Actions for sam' }));
+    await userEvent.click(await screen.findByRole('menuitem', { name: 'Delete account' }));
+    const dialog = await screen.findByRole('dialog', { name: "Delete sam's account?" });
+    expect(
+      await within(dialog).findByText(/owns 2 lists or groups shared with others/),
+    ).toBeInTheDocument();
+    expect(within(dialog).getByRole('button', { name: 'Hand over first' })).toBeInTheDocument();
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Delete' }));
+    expect(state.deleted).toEqual(['U2']);
+    expect(await within(list).findByText(/Deleted, removed for good/)).toBeInTheDocument();
+
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    await userEvent.click(within(sam).getByRole('button', { name: 'Actions for sam' }));
+    expect(screen.queryByRole('menuitem', { name: 'Delete account' })).toBeNull();
+    await userEvent.click(await screen.findByRole('menuitem', { name: 'Restore account' }));
+    await waitFor(() => expect(within(list).queryByText(/Deleted, removed for good/)).toBeNull());
   });
 
   it('walks a new server through setup: address, a provider, who can join, then a restart', async () => {

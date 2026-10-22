@@ -79,6 +79,9 @@ public sealed record ServerSettings
     /// <summary>OIDC providers (<c>OIDC_PROVIDERS</c>); empty without OIDC.</summary>
     public IReadOnlyList<OidcProviderSettings> OidcProviders { get; init; } = [];
 
+    /// <summary>Days a deleted account can be restored before it is removed for good (<c>ACCOUNT_DELETE_GRACE_DAYS</c>).</summary>
+    public int AccountDeleteGraceDays { get; init; } = 7;
+
     /// <summary>Days the event log keeps entries (<c>AUDIT_RETENTION_DAYS</c>).</summary>
     public int AuditRetentionDays { get; init; } = 90;
 
@@ -185,6 +188,7 @@ public sealed record ServerSettings
             WebRoot = Get("WEB_ROOT"),
             OidcProviders = OidcProviderSettings.ReadAll(Get, errors),
             LocalLoginHidden = Choice("LOCAL_LOGIN", LocalLogin.Shown) == LocalLogin.Hidden,
+            AccountDeleteGraceDays = Count("ACCOUNT_DELETE_GRACE_DAYS", 7, 0),
             AuditRetentionDays = Count("AUDIT_RETENTION_DAYS", 90, 1),
             AccessLogRetentionDays = Count("ACCESS_LOG_RETENTION_DAYS", 14, 1),
             AuditArchive = Flag("AUDIT_ARCHIVE", false),

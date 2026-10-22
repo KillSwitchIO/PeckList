@@ -40,6 +40,11 @@ The `admin` account is the server's super admin. Roles are `user`, `admin` (mana
 groups, settings, backups, logs and stats) and `superadmin` (all of that, plus managing admins).
 There is always at least one active super admin.
 
+Deleting an account (Admin > Users) turns it off at once and ends its sessions; it is removed for
+good after `ACCOUNT_DELETE_GRACE_DAYS` (default 7), together with everything the person owns, and
+can be restored until then. Hand lists or groups they share with others to someone else first;
+the delete dialog offers it.
+
 Five wrong passwords lock an account for 15 minutes, and each address gets ten login attempts a
 minute. Sessions are HttpOnly cookies that last 30 days of use; changing a password ends the other
 sessions.

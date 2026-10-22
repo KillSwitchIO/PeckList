@@ -11,7 +11,7 @@ public sealed class SqlAccountStore(SqlDatabase database) : IAccountStore
     private const string Columns =
         "id, username, password_hash AS passwordHash, role, must_change_password AS mustChangePassword, " +
         "failed_logins AS failedLogins, locked_until AS lockedUntil, security_stamp AS securityStamp, " +
-        "disabled, created_at AS createdAt, friend_code AS friendCode";
+        "disabled, created_at AS createdAt, friend_code AS friendCode, deleted_at AS deletedAt";
 
     public async Task<int> CountAsync(CancellationToken cancellation = default)
     {
@@ -52,9 +52,9 @@ public sealed class SqlAccountStore(SqlDatabase database) : IAccountStore
             await connection.ExecuteAsync(new CommandDefinition(
                 """
                 INSERT INTO accounts (id, username, password_hash, role, must_change_password, failed_logins,
-                    locked_until, security_stamp, disabled, created_at, friend_code)
+                    locked_until, security_stamp, disabled, created_at, friend_code, deleted_at)
                 VALUES (@Id, @Username, @PasswordHash, @Role, @MustChangePassword, @FailedLogins,
-                    @LockedUntil, @SecurityStamp, @Disabled, @CreatedAt, @FriendCode)
+                    @LockedUntil, @SecurityStamp, @Disabled, @CreatedAt, @FriendCode, @DeletedAt)
                 """,
                 Row.From(account),
                 cancellationToken: cancellation));
@@ -74,12 +74,18 @@ public sealed class SqlAccountStore(SqlDatabase database) : IAccountStore
             UPDATE accounts SET username = @Username, password_hash = @PasswordHash, role = @Role,
                 must_change_password = @MustChangePassword, failed_logins = @FailedLogins,
                 locked_until = @LockedUntil, security_stamp = @SecurityStamp, disabled = @Disabled,
-                friend_code = @FriendCode
+                friend_code = @FriendCode, deleted_at = @DeletedAt
             WHERE id = @Id
             """,
             Row.From(account),
             cancellationToken: cancellation));
         if (changed == 0) throw new KeyNotFoundException($"no account {account.Id}");
+    }
+
+    public async Task<bool> DeleteAsync(string id, CancellationToken cancellation = default)
+    {
+        await using var connection = await database.OpenAsync(cancellation);
+        return await connection.ExecuteAsync(new CommandDefinition("DELETE FROM accounts WHERE id = @id", new { id }, cancellationToken: cancellation)) > 0;
     }
 
     /// <summary>The table's shape: text times and 0/1 flags, the same on every database.</summary>
@@ -96,6 +102,7 @@ public sealed class SqlAccountStore(SqlDatabase database) : IAccountStore
         public long Disabled { get; set; }
         public string CreatedAt { get; set; } = "";
         public string? FriendCode { get; set; }
+        public string? DeletedAt { get; set; }
 
         public static Row From(Account account) => new()
         {
@@ -110,6 +117,7 @@ public sealed class SqlAccountStore(SqlDatabase database) : IAccountStore
             Disabled = account.Disabled ? 1 : 0,
             CreatedAt = account.CreatedAt.ToString("O", CultureInfo.InvariantCulture),
             FriendCode = account.FriendCode,
+            DeletedAt = account.DeletedAt?.ToString("O", CultureInfo.InvariantCulture),
         };
 
         public Account ToAccount() => new()
@@ -125,6 +133,7 @@ public sealed class SqlAccountStore(SqlDatabase database) : IAccountStore
             Disabled = Disabled != 0,
             CreatedAt = DateTimeOffset.Parse(CreatedAt, CultureInfo.InvariantCulture),
             FriendCode = FriendCode,
+            DeletedAt = DeletedAt is null ? null : DateTimeOffset.Parse(DeletedAt, CultureInfo.InvariantCulture),
         };
     }
 }

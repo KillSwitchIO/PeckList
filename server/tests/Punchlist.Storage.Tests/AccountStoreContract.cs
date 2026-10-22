@@ -42,6 +42,18 @@ public abstract class AccountStoreContract : IAsyncLifetime
     }
 
     [Fact]
+    public async Task Keeps_when_an_account_was_deleted_and_removes_it_for_good()
+    {
+        var deleted = Sample() with { Username = "ben", DeletedAt = new DateTimeOffset(2026, 10, 22, 8, 0, 0, TimeSpan.Zero), Disabled = true };
+        await Accounts.CreateAsync(Sample(), Token);
+        await Accounts.UpdateAsync(deleted, Token);
+        Assert.Equal(deleted, await Accounts.FindByIdAsync("U1", Token));
+        Assert.True(await Accounts.DeleteAsync("U1", Token));
+        Assert.False(await Accounts.DeleteAsync("U1", Token));
+        Assert.Null(await Accounts.FindByIdAsync("U1", Token));
+    }
+
+    [Fact]
     public async Task Usernames_are_unique_ignoring_case()
     {
         await Accounts.CreateAsync(Sample(), Token);

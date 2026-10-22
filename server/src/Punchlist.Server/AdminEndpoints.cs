@@ -17,7 +17,9 @@ public sealed record AdminUser(
     IReadOnlyList<string> Groups,
     bool HasPassword,
     bool MustChangePassword,
-    IReadOnlyList<string> Providers);
+    IReadOnlyList<string> Providers,
+    DateTimeOffset? DeletedAt = null,
+    DateTimeOffset? RemovedAt = null);
 
 public sealed record NewUserRequest(string? Username, string? Role);
 
@@ -63,7 +65,8 @@ public static class AdminEndpoints
 {
     public static RouteGroupBuilder MapAdmin(this RouteGroupBuilder admin)
     {
-        admin.MapGet("/users", async (IAccountStore accounts, ServerGroupService groups, IIdentityStore identities, CancellationToken cancellation) =>
+        admin.MapGet("/users", async (
+            IAccountStore accounts, ServerGroupService groups, IIdentityStore identities, AccountRemoval removal, CancellationToken cancellation) =>
         {
             var all = await accounts.ListAsync(cancellation);
             var views = await groups.ListAsync(cancellation);
@@ -77,8 +80,39 @@ public static class AdminEndpoints
                 views.Where(view => view.Members.Any(member => member.AccountId == account.Id)).Select(view => view.Group.Id).ToList(),
                 account.PasswordHash is not null,
                 account.MustChangePassword,
-                links.Where(link => link.AccountId == account.Id).Select(link => link.Provider).Distinct().ToList()));
+                links.Where(link => link.AccountId == account.Id).Select(link => link.Provider).Distinct().ToList(),
+                account.DeletedAt,
+                account.DeletedAt is null ? null : removal.RemovedAt(account)));
         }).RequirePermission(Permission.ManageUsers);
+
+        // Delete: turned off at once, removed for good after the grace period, restorable until then.
+        admin.MapDelete("/users/{id}", async (
+            string id, ClaimsPrincipal user, IAccountStore store, AccountService accounts, IMemoryCache cache, AccountRemoval removal,
+            CancellationToken cancellation) =>
+            await OnAccountAsync(id, user, store, async account =>
+            {
+                if (account.Id == user.UserId()) return Results.Conflict(new AdminError("self", "you cannot delete your own account"));
+                try
+                {
+                    var deleted = await accounts.DeleteAsync(id, cancellation);
+                    AuthSetup.ForgetStamp(cache, id);
+                    return Results.Ok(new { RemovedAt = removal.RemovedAt(deleted) });
+                }
+                catch (LastSuperAdminException error)
+                {
+                    return Results.Conflict(new AdminError("last_super_admin", error.Message));
+                }
+            }, cancellation)).RequirePermission(Permission.ManageUsers).Audited("admin.user-deleted");
+
+        admin.MapPost("/users/{id}/restore", async (
+            string id, ClaimsPrincipal user, IAccountStore store, AccountService accounts, IMemoryCache cache, CancellationToken cancellation) =>
+            await OnAccountAsync(id, user, store, async account =>
+            {
+                if (account.DeletedAt is null) return Results.Conflict(new AdminError("not_deleted"));
+                await accounts.RestoreAsync(id, cancellation);
+                AuthSetup.ForgetStamp(cache, id);
+                return Results.NoContent();
+            }, cancellation)).RequirePermission(Permission.ManageUsers).Audited("admin.user-restored");
 
         admin.MapPost("/users", async (NewUserRequest request, ClaimsPrincipal user, AccountService accounts, HttpContext context, CancellationToken cancellation) =>
         {
@@ -109,6 +143,7 @@ public static class AdminEndpoints
             await OnAccountAsync(id, user, store, async account =>
             {
                 if (!request.Disabled) context.Audit().Type = "admin.user-enabled";
+                if (account.DeletedAt is not null) return Results.Conflict(new AdminError("deleted", "restore the account instead"));
                 if (account.Id == user.UserId() && request.Disabled) return Results.Conflict(new AdminError("self", "you cannot turn off your own account"));
                 try
                 {

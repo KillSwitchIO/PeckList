@@ -31,6 +31,9 @@ public sealed record Account
     public required string SecurityStamp { get; init; }
 
     public bool Disabled { get; init; }
+
+    /// <summary>When an admin deleted it: turned off at once, removed for good after the grace period, restorable until then.</summary>
+    public DateTimeOffset? DeletedAt { get; init; }
     public required DateTimeOffset CreatedAt { get; init; }
 
     /// <summary>The code in this account's friend link (<c>/f/7QM4K2XP</c>); null until first asked for.</summary>
@@ -57,6 +60,9 @@ public interface IAccountStore
 
     /// <summary>Replace the stored account with this one (same id).</summary>
     Task UpdateAsync(Account account, CancellationToken cancellation = default);
+
+    /// <summary>Remove the account row for good (after its grace period); false when it was not there.</summary>
+    Task<bool> DeleteAsync(string id, CancellationToken cancellation = default);
 }
 
 public sealed class DuplicateUsernameException(string username) : Exception($"username '{username}' is taken");

@@ -355,6 +355,20 @@ export const en = {
   'admin.friends.add': 'Make friends with',
   'admin.users.signInLink': 'Sign-in link',
   'admin.users.turnOff': 'Turn off',
+  'admin.users.deleteMenu': 'Delete account',
+  'admin.users.deleteTitle': "Delete {name}'s account?",
+  'admin.users.deleteText':
+    '{name} is turned off now and removed for good after the grace period (7 days unless the server says otherwise), with everything they own. Until then you can restore the account.',
+  'admin.users.deleteShared':
+    '{name} owns {count} lists or groups shared with others. Hand them over first to keep them for those people.',
+  'admin.users.deleteSharedOne':
+    '{name} owns a list or group shared with others. Hand it over first to keep it for those people.',
+  'admin.users.handOverFirst': 'Hand over first',
+  'admin.users.delete': 'Delete',
+  'admin.users.deleted': 'Deleted, removed for good {date}',
+  'admin.users.deletedNotice':
+    "{name}'s account is deleted. You can restore it until it is removed for good.",
+  'admin.users.restore': 'Restore account',
   'admin.users.turnOn': 'Turn on',
   'admin.users.turnOffTitle': 'Turn off {name}?',
   'admin.users.turnOffText':

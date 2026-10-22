@@ -175,6 +175,41 @@ public sealed class AccountService(IAccountStore store, IPasswordHasher hasher, 
     }
 
     /// <summary>
+    /// Delete an account (spec: Users, delete with grace period and restore): it is turned off at
+    /// once, its sessions end, and it is removed for good when the grace period is over.
+    /// </summary>
+    /// <exception cref="LastSuperAdminException">It is the last active super admin.</exception>
+    public async Task<Account> DeleteAsync(string id, CancellationToken cancellation = default)
+    {
+        var account = await store.FindByIdAsync(id, cancellation) ?? throw new KeyNotFoundException($"no account {id}");
+        if (account.DeletedAt is not null) return account;
+        if (account.Role == Role.SuperAdmin && !account.Disabled)
+        {
+            var others = (await store.ListAsync(cancellation))
+                .Count(each => each.Id != id && each.Role == Role.SuperAdmin && !each.Disabled);
+            if (others == 0) throw new LastSuperAdminException();
+        }
+        var updated = account with
+        {
+            DeletedAt = time.GetUtcNow(),
+            Disabled = true,
+            SecurityStamp = Ids.NewUlid(time),
+        };
+        await store.UpdateAsync(updated, cancellation);
+        return updated;
+    }
+
+    /// <summary>Take back a deletion within the grace period: the account works again.</summary>
+    public async Task<Account> RestoreAsync(string id, CancellationToken cancellation = default)
+    {
+        var account = await store.FindByIdAsync(id, cancellation) ?? throw new KeyNotFoundException($"no account {id}");
+        if (account.DeletedAt is null) return account;
+        var updated = account with { DeletedAt = null, Disabled = false, FailedLogins = 0, LockedUntil = null };
+        await store.UpdateAsync(updated, cancellation);
+        return updated;
+    }
+
+    /// <summary>
     /// Give an account a role. Sessions continue; the new role applies from the next request.
     /// </summary>
     /// <exception cref="LastSuperAdminException">It is the last active super admin and would lose the role.</exception>

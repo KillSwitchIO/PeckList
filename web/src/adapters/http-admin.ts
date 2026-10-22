@@ -128,6 +128,12 @@ export function createHttpAdmin(
       result(await call(`/users/${segment(id)}/role`, 'PUT', { role }), none),
     setDisabled: async (id, disabled) =>
       result(await call(`/users/${segment(id)}/disabled`, 'PUT', { disabled }), none),
+    deleteUser: async (id) =>
+      result(
+        await call(`/users/${segment(id)}`, 'DELETE'),
+        async (response) => ((await response.json()) as { removedAt: string }).removedAt,
+      ),
+    restoreAccount: async (id) => result(await call(`/users/${segment(id)}/restore`, 'POST'), none),
     resetPassword: async (id) =>
       result(
         await call(`/users/${segment(id)}/password`, 'POST', {}),

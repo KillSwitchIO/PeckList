@@ -69,6 +69,8 @@ public static partial class ServerApp
         builder.Services.AddSingleton<Audit.AuditLog>();
         builder.Services.AddHostedService(provider => provider.GetRequiredService<Audit.AuditLog>());
         builder.Services.AddHostedService<Audit.AuditRetention>();
+        builder.Services.AddSingleton<AccountRemoval>();
+        builder.Services.AddHostedService(provider => provider.GetRequiredService<AccountRemoval>());
         builder.Services.Configure<ForwardedHeadersOptions>(options =>
         {
             options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;

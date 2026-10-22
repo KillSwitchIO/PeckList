@@ -15,6 +15,9 @@ export interface AdminUser {
   mustChangePassword: boolean;
   /** Identity providers linked to the account. */
   providers: string[];
+  /** When an admin deleted it; it is removed for good at `removedAt` unless restored. */
+  deletedAt?: string | null;
+  removedAt?: string | null;
 }
 
 export interface AdminIdentity {
@@ -209,6 +212,10 @@ export interface AdminApi {
   ): Promise<AdminResult<{ id: string; password: string }>>;
   setRole(id: string, role: AccountRole): Promise<AdminResult>;
   setDisabled(id: string, disabled: boolean): Promise<AdminResult>;
+  /** Delete: off at once, removed for good after the grace period (returns when). */
+  deleteUser(id: string): Promise<AdminResult<string>>;
+  /** Take a deletion back within the grace period. */
+  restoreAccount(id: string): Promise<AdminResult>;
   /** A generated password the person must change; shown once. */
   resetPassword(id: string): Promise<AdminResult<string>>;
   loginLink(id: string): Promise<AdminResult<{ url: string; expires: string }>>;

@@ -31,6 +31,7 @@ public static class SettingsCatalog
     [
         new("PUBLIC_URL", "general", SettingKind.Url),
         new("REGISTRATION", "general", SettingKind.Choice, "invite", ["open", "invite", "closed"]),
+        new("ACCOUNT_DELETE_GRACE_DAYS", "general", SettingKind.Number, "7"),
         new("LOCAL_LOGIN", "sign-in", SettingKind.Choice, "shown", ["shown", "hidden"]),
         new("OIDC_PROVIDERS", "sign-in", SettingKind.List),
         new("BACKUP_SCHEDULE", "backups", SettingKind.Choice, "daily", ["off", "hourly", "daily", "weekly"]),

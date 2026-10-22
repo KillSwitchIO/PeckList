@@ -52,6 +52,7 @@ public sealed class StatsServiceTests
         public Task CreateAsync(Account account, CancellationToken cancellation = default) => throw new NotSupportedException();
         public Task UpdateAsync(Account account, CancellationToken cancellation = default) => throw new NotSupportedException();
         public Task<int> CountAsync(CancellationToken cancellation = default) => throw new NotSupportedException();
+        public Task<bool> DeleteAsync(string id, CancellationToken cancellation = default) => throw new NotSupportedException();
         public Task<Account?> FindByFriendCodeAsync(string code, CancellationToken cancellation = default) => throw new NotSupportedException();
     }
 

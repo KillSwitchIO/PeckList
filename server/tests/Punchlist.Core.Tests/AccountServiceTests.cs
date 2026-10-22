@@ -42,6 +42,8 @@ public sealed class MemoryAccountStore : IAccountStore
         ById[account.Id] = account;
         return Task.CompletedTask;
     }
+
+    public Task<bool> DeleteAsync(string id, CancellationToken cancellation = default) => Task.FromResult(ById.Remove(id));
 }
 
 /// <summary>"Hashes" by prefixing; flags old-style hashes for an upgrade.</summary>

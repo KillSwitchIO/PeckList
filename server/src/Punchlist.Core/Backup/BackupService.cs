@@ -67,6 +67,8 @@ public sealed class BackupService(
             json.WriteString("createdAt", account.CreatedAt.ToString("O", CultureInfo.InvariantCulture));
             if (account.FriendCode is null) json.WriteNull("friendCode");
             else json.WriteString("friendCode", account.FriendCode);
+            // Only when set: backups from before account deletion read the same.
+            if (account.DeletedAt is { } deleted) json.WriteString("deletedAt", deleted.ToString("O", CultureInfo.InvariantCulture));
             json.WriteEndObject();
         }
         json.WriteEndArray();
@@ -332,6 +334,7 @@ public sealed class BackupService(
             Disabled = (bool?)item["disabled"] ?? false,
             CreatedAt = Time("createdAt"),
             FriendCode = (string?)item["friendCode"],
+            DeletedAt = item["deletedAt"] is null ? null : Time("deletedAt"),
         };
     }
 }
