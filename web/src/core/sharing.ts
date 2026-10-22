@@ -249,31 +249,61 @@ export function describePrincipal(workspace: WorkspaceFile, principal: string): 
   return { principal, user, name: nameOf(user, id), color: user?.avatarColor ?? NO_COLOR };
 }
 
+/** A choice in the assignee picker; group members sit under their group (`depth` 1). */
+export interface AssigneeOption extends Assignee {
+  depth: 0 | 1;
+}
+
 /**
- * Who a task may be assigned to: me, my friends, and the people on its list (its owner and
- * members), plus anyone already assigned. Me first, then by name.
+ * Who a task may be assigned to, in picker order: me; each of my groups followed by its active
+ * members (assign the chore to the group, or straight to one person in it); then my friends, the
+ * people on its list (its owner and members) and anyone already assigned, by name. Each person
+ * shows once.
  */
-export function assigneeCandidates(workspace: WorkspaceFile, me: Id, task: Task): Assignee[] {
-  const principals = new Set<string>();
+export function assigneeCandidates(workspace: WorkspaceFile, me: Id, task: Task): AssigneeOption[] {
+  const byName = (a: Assignee, b: Assignee) => a.name.localeCompare(b.name);
+  const shown = new Set<string>([`user:${me}`]);
+  const options: AssigneeOption[] = [{ ...describePrincipal(workspace, `user:${me}`), depth: 0 }];
+
+  const groups = principalsOf(workspace, me)
+    .filter((principal) => principal.startsWith('group:'))
+    .map((principal) => getEntity(workspace, 'groups', principal.slice(6)))
+    .filter((group) => group !== undefined && isLive(group) && !group.archived)
+    .map((group) => describePrincipal(workspace, `group:${group!.id}`))
+    .sort(byName);
+  for (const group of groups) {
+    shown.add(group.principal);
+    options.push({ ...group, depth: 0 });
+    const members = workspace.entities.groupMembers
+      .filter(
+        (member) =>
+          isLive(member) &&
+          member.groupId === group.principal.slice(6) &&
+          member.state === 'active' &&
+          member.userId !== me,
+      )
+      .map((member) => describePrincipal(workspace, `user:${member.userId}`))
+      .sort(byName);
+    for (const member of members) {
+      if (shown.has(member.principal)) continue;
+      shown.add(member.principal);
+      options.push({ ...member, depth: 1 });
+    }
+  }
+
+  const others = new Set<string>();
   const list = getEntity(workspace, 'lists', task.listId);
-  if (list) principals.add(`user:${list.createdBy}`);
-  for (const member of listMembersOf(workspace, task.listId)) principals.add(member.principal);
+  if (list) others.add(`user:${list.createdBy}`);
+  for (const member of listMembersOf(workspace, task.listId)) others.add(member.principal);
   for (const friend of friendsOf(workspace, me)) {
-    if (friend.state === 'accepted') principals.add(`user:${friend.userId}`);
+    if (friend.state === 'accepted') others.add(`user:${friend.userId}`);
   }
-  // My groups (a chore for whoever gets to it first).
-  for (const principal of principalsOf(workspace, me)) {
-    const group = principal.startsWith('group:')
-      ? getEntity(workspace, 'groups', principal.slice(6))
-      : undefined;
-    if (group && isLive(group) && !group.archived) principals.add(principal);
-  }
-  for (const principal of assigneesOf(task)) principals.add(principal);
-  principals.delete(`user:${me}`);
-  const others = [...principals]
+  for (const principal of assigneesOf(task)) others.add(principal);
+  const rest = [...others]
+    .filter((principal) => !shown.has(principal))
     .map((principal) => describePrincipal(workspace, principal))
-    .sort((a, b) => a.name.localeCompare(b.name));
-  return [describePrincipal(workspace, `user:${me}`), ...others];
+    .sort(byName);
+  return [...options, ...rest.map((each) => ({ ...each, depth: 0 as const }))];
 }
 
 /**

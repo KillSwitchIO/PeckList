@@ -105,13 +105,19 @@ export function AssigneeProperty({ task }: { task: Task }) {
                     apply((ctx, ws) => setAssignee(ctx, ws, task.id, each.principal, !on));
                     void syncNow();
                   }}
+                  // A group's members sit under it: assign the group, or one of them.
+                  sx={{ pl: each.depth === 1 ? 5 : 2 }}
                 >
-                  <ListItemIcon sx={{ minWidth: 40 }}>
-                    <Avatar name={each.name} color={each.color} size={28} />
+                  <ListItemIcon sx={{ minWidth: each.depth === 1 ? 34 : 40 }}>
+                    <Avatar name={each.name} color={each.color} size={each.depth === 1 ? 24 : 28} />
                   </ListItemIcon>
                   <ListItemText
                     primary={label(each.principal, each.name)}
-                    secondary={each.user?.handle}
+                    secondary={
+                      each.principal.startsWith('group:')
+                        ? t('assignee.groupHint')
+                        : each.user?.handle
+                    }
                   />
                   <CheckIcon
                     fontSize="small"

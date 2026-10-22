@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { sampleTask, testContext } from '../test/fixtures.ts';
 import { putEntity } from './collections.ts';
+import { acceptGroupInvite, createGroup, inviteToGroup } from './groups.ts';
 import { createList } from './lists.ts';
 import { createEntity } from './ops.ts';
 import {
@@ -127,6 +128,39 @@ describe('list sharing', () => {
     const withGroup: WorkspaceFile = putEntity(workspace, 'groupMembers', member);
     const shared = shareList(ben, withGroup, list.id, 'group:01JBGR0000000000000000000G', 'viewer');
     expect(roleOn(shared, SAM, list.id)).toBe('viewer');
+  });
+});
+
+describe('assignee choices', () => {
+  it('lists my groups with their members under them, each person once', () => {
+    const { ben, workspace, list } = benWorld();
+    const task = sampleTask(ben, list.id, 'Take out bins');
+    const kim = '01JBK1M0000000000000000003';
+    const { workspace: grouped, group } = createGroup(ben, putEntity(workspace, 'tasks', task), {
+      name: 'Household',
+      color: '#A7C7E7',
+    });
+    let next = grouped;
+    for (const userId of [kim, SAM]) {
+      next = inviteToGroup(ben, next, group.id, userId);
+      const invite = next.entities.groupMembers.find((member) => member.userId === userId)!;
+      next = acceptGroupInvite(as(userId), next, invite.id);
+    }
+    // Sam is also a friend, but shows once: under the group.
+    next = sendFriendRequest(ben, next, SAM);
+    next = acceptFriendship(as(SAM), next, next.entities.friendships[0]!.id);
+    next = shareList(ben, next, list.id, `user:${JO}`, 'editor');
+    const options = assigneeCandidates(next, BEN, task);
+    expect(options.map((each) => [each.principal, each.depth])).toEqual([
+      [`user:${BEN}`, 0],
+      [`group:${group.id}`, 0],
+      [`user:${kim}`, 1],
+      [`user:${SAM}`, 1],
+      [`user:${JO}`, 0],
+    ]);
+    // Assigning one member directly needs no dibs.
+    next = setAssignee(ben, next, task.id, `user:${kim}`, true);
+    expect(assignedTo(next, kim).map((each) => each.title)).toEqual(['Take out bins']);
   });
 });
 

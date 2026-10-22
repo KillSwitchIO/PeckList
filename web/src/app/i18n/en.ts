@@ -11,6 +11,7 @@ export const en = {
   'assignee.label': 'Assigned',
   'assignee.none': 'Nobody',
   'assignee.dibs': 'Dibs',
+  'assignee.groupHint': 'Anyone in it can call dibs',
   'assignee.row': 'Assigned to {names}',
   'assignee.title': 'Assign to',
   'assignee.me': 'Me',
