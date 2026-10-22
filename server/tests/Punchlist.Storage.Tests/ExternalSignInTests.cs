@@ -1,0 +1,175 @@
+using Punchlist.Core.Accounts;
+using Punchlist.Core.Configuration;
+using Punchlist.Storage.Sql;
+
+namespace Punchlist.Storage.Tests;
+
+/// <summary>The OIDC sign-in rules on a real database (spec: Accounts &amp; Admin, OIDC).</summary>
+public sealed class ExternalSignInTests(SqliteFiles files) : IClassFixture<SqliteFiles>, IAsyncLifetime
+{
+    private static CancellationToken Token => TestContext.Current.CancellationToken;
+
+    private SqlAccountStore accounts = null!;
+    private SqlIdentityStore identities = null!;
+    private SqlServerGroupStore groups = null!;
+    private AccountService accountService = null!;
+    private ExternalSignIn signIn = null!;
+
+    public async ValueTask InitializeAsync()
+    {
+        var database = await files.NewDatabaseAsync();
+        accounts = new SqlAccountStore(database);
+        identities = new SqlIdentityStore(database);
+        groups = new SqlServerGroupStore(database);
+        accountService = new AccountService(accounts, new NoHasher(), TimeProvider.System);
+        signIn = new ExternalSignIn(accounts, accountService, identities, groups, TimeProvider.System);
+    }
+
+    public ValueTask DisposeAsync() => ValueTask.CompletedTask;
+
+    private sealed class NoHasher : IPasswordHasher
+    {
+        public string Hash(string password) => password;
+
+        public bool Verify(string hash, string password, out bool rehash)
+        {
+            rehash = false;
+            return hash == password;
+        }
+    }
+
+    private static OidcProviderSettings Pocket(bool autoCreate = true) => new()
+    {
+        Name = "pocket",
+        DisplayName = "Pocket ID",
+        Authority = new Uri("https://id.example.com"),
+        ClientId = "punchlist",
+        Scopes = ["openid"],
+        AutoCreate = autoCreate,
+    };
+
+    private static ExternalIdentity Kim(params string[] groups) => new()
+    {
+        Subject = "sub-kim",
+        Username = "Kim.Lee",
+        DisplayName = "Kim Lee",
+        Email = "kim@example.com",
+        Groups = groups,
+    };
+
+    private async Task<Account> SignedIn(OidcProviderSettings provider, ExternalIdentity identity) =>
+        Assert.IsType<ExternalSignInResult.Success>(await signIn.SignInAsync(provider, identity, Token)).Account;
+
+    [Fact]
+    public async Task Required_groups_keep_others_out_without_storing_anything()
+    {
+        var provider = Pocket() with { RequiredGroups = ["punchlist", "family"] };
+        Assert.IsType<ExternalSignInResult.NotAllowed>(await signIn.SignInAsync(provider, Kim("gaming"), Token));
+        Assert.Equal(0, await accounts.CountAsync(Token));
+        Assert.Empty(await identities.ListPendingAsync(Token));
+
+        var kim = await SignedIn(provider, Kim("FAMILY"));
+        Assert.Equal("kim.lee", kim.Username);
+        // Taken out of the group later: the next sign-in is refused.
+        Assert.IsType<ExternalSignInResult.NotAllowed>(await signIn.SignInAsync(provider, Kim(), Token));
+    }
+
+    [Fact]
+    public async Task Auto_create_makes_and_links_an_account_once()
+    {
+        var first = Assert.IsType<ExternalSignInResult.Success>(await signIn.SignInAsync(Pocket(), Kim(), Token));
+        Assert.True(first.Created);
+        Assert.Null(first.Account.PasswordHash);
+        Assert.Equal(Role.User, first.Account.Role);
+        var again = Assert.IsType<ExternalSignInResult.Success>(await signIn.SignInAsync(Pocket(), Kim() with { Username = "renamed" }, Token));
+        Assert.False(again.Created);
+        Assert.Equal(first.Account.Id, again.Account.Id);
+        Assert.Equal(first.Account.Id, (await identities.FindAsync("pocket", "sub-kim", Token))!.AccountId);
+    }
+
+    [Fact]
+    public async Task A_taken_username_gets_a_number_and_never_the_existing_account()
+    {
+        var local = await accountService.CreateUserAsync("kim.lee", "correct horse battery", cancellation: Token);
+        var kim = await SignedIn(Pocket(), Kim());
+        Assert.NotEqual(local.Id, kim.Id);
+        Assert.Equal("kim.lee2", kim.Username);
+    }
+
+    [Fact]
+    public async Task Without_auto_create_they_wait_for_an_admin()
+    {
+        Assert.IsType<ExternalSignInResult.Pending>(await signIn.SignInAsync(Pocket(autoCreate: false), Kim("family"), Token));
+        Assert.IsType<ExternalSignInResult.Pending>(await signIn.SignInAsync(Pocket(autoCreate: false), Kim("family"), Token));
+        var waiting = Assert.Single(await identities.ListPendingAsync(Token));
+        Assert.Equal("kim.lee", waiting.Username);
+        Assert.Equal("Kim Lee", waiting.DisplayName);
+        Assert.Equal(["family"], waiting.Groups);
+        Assert.Equal(0, await accounts.CountAsync(Token));
+
+        var approved = await signIn.ApproveAsync(Pocket(autoCreate: false), "sub-kim", Token);
+        Assert.Equal("kim.lee", approved!.Username);
+        Assert.Empty(await identities.ListPendingAsync(Token));
+        Assert.Null(await signIn.ApproveAsync(Pocket(autoCreate: false), "sub-kim", Token));
+        Assert.Equal(approved.Id, (await SignedIn(Pocket(autoCreate: false), Kim("family"))).Id);
+    }
+
+    [Fact]
+    public async Task A_disabled_account_stays_out()
+    {
+        var kim = await SignedIn(Pocket(), Kim());
+        await accounts.UpdateAsync(kim with { Disabled = true }, Token);
+        Assert.IsType<ExternalSignInResult.Disabled>(await signIn.SignInAsync(Pocket(), Kim(), Token));
+    }
+
+    [Fact]
+    public async Task Roles_follow_the_role_map_at_every_sign_in()
+    {
+        var provider = Pocket() with
+        {
+            RoleMap = new Dictionary<string, Role>(StringComparer.OrdinalIgnoreCase) { ["pl-admins"] = Role.Admin, ["pl-owners"] = Role.SuperAdmin },
+        };
+        Assert.Equal(Role.Admin, (await SignedIn(provider, Kim("family", "PL-Admins"))).Role);
+        Assert.Equal(Role.SuperAdmin, (await SignedIn(provider, Kim("pl-admins", "pl-owners"))).Role);
+        // Kim is the only super admin: losing the group does not lock the server out.
+        Assert.Equal(Role.SuperAdmin, (await SignedIn(provider, Kim("family"))).Role);
+
+        var other = await accountService.CreateUserAsync("ann", "correct horse battery", Role.SuperAdmin, cancellation: Token);
+        Assert.Equal(Role.User, (await SignedIn(provider, Kim("family"))).Role);
+        Assert.Equal(Role.SuperAdmin, (await accounts.FindByIdAsync(other.Id, Token))!.Role);
+    }
+
+    [Fact]
+    public async Task Group_maps_keep_the_providers_memberships_in_step_and_leave_manual_ones()
+    {
+        var provider = Pocket() with
+        {
+            GroupMap = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase) { ["family"] = "Family", ["chores"] = "Family" },
+        };
+        var kim = await SignedIn(provider, Kim("family", "gaming"));
+        var family = (await groups.FindByNameAsync("Family", Token))!;
+        var manual = new ServerGroup { Id = "G-MANUAL", Name = "Neighbors", CreatedAt = DateTimeOffset.UtcNow };
+        await groups.CreateAsync(manual, Token);
+        await groups.AddMembershipAsync(new(manual.Id, kim.Id, MembershipSource.Manual), Token);
+        Assert.Equal(
+            [new("G-MANUAL", kim.Id, "manual"), new(family.Id, kim.Id, "oidc:pocket")],
+            (await groups.MembershipsAsync(Token)).OrderBy(each => each.Source).ToList());
+
+        await SignedIn(provider, Kim("gaming"));
+        Assert.Equal([new GroupMembership("G-MANUAL", kim.Id, "manual")], await groups.MembershipsAsync(Token));
+
+        // GROUP_MAP=* mirrors every provider group by name.
+        await SignedIn(Pocket() with { MirrorGroups = true }, Kim("gaming", "Family"));
+        Assert.Equal(["Family", "gaming", "Neighbors"], (await groups.ListAsync(Token)).Select(group => group.Name));
+    }
+
+    [Theory]
+    [InlineData("Kim.Lee", null, "kim.lee")]
+    [InlineData("kim@example.com", null, "kim")]
+    [InlineData(null, "Zoë.O'Neil@example.com", "zoe.oneil")]
+    [InlineData("  ", "---@x", "user")]
+    [InlineData("ÆSIR_Łukasz", null, "aesir_lukasz")]
+    [InlineData("a-very-long-username-that-goes-on-and-on", null, "a-very-long-username-that-goes-o")]
+    public void Usernames_come_from_the_claims(string? username, string? email, string expected) =>
+        Assert.Equal(expected, ExternalSignIn.UsernameBase(new ExternalIdentity { Subject = "s", Username = username, Email = email }));
+}

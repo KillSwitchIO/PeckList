@@ -1,6 +1,6 @@
-import { screen, waitFor, within } from '@testing-library/react';
+import { cleanup, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createMemoryStorage } from '../../adapters/memory-storage.ts';
 import { FakeBackend } from '../../test/fakeTransport.ts';
 import { mockViewport, renderApp, testStore } from '../../test/renderApp.tsx';
@@ -26,6 +26,57 @@ async function serverApp(backend: FakeBackend, signedInAs: string | null = null)
   const result = await renderApp('/today', store, sync);
   return { ...result, sync, transport };
 }
+
+describe('signing in with an identity provider', () => {
+  afterEach(() => window.history.replaceState(null, '', '/'));
+
+  it('offers each provider beside the password form', async () => {
+    const backend = new FakeBackend();
+    backend.signIn = {
+      providers: [{ name: 'pocket', displayName: 'Pocket ID' }],
+      localLogin: true,
+    };
+    window.history.replaceState(null, '', '/lists/abc');
+    await serverApp(backend);
+    const pocket = await screen.findByRole('link', { name: 'Continue with Pocket ID' });
+    // Back to where the person was once the provider is done.
+    expect(pocket).toHaveAttribute('href', '/auth/oidc/pocket/login?returnUrl=%2Flists%2Fabc');
+    expect(screen.getByText('or')).toBeInTheDocument();
+    expect(screen.getByLabelText(/Username/)).toBeInTheDocument();
+  });
+
+  it('hides the password form when the server says so, unless the address asks for it', async () => {
+    const backend = new FakeBackend();
+    backend.signIn = {
+      providers: [{ name: 'pocket', displayName: 'Pocket ID' }],
+      localLogin: false,
+    };
+    await serverApp(backend);
+    await screen.findByRole('link', { name: 'Continue with Pocket ID' });
+    expect(screen.queryByLabelText(/Username/)).toBeNull();
+    cleanup();
+
+    window.history.replaceState(null, '', '/login?local');
+    await serverApp(backend);
+    expect(await screen.findByLabelText(/Username/)).toBeInTheDocument();
+  });
+
+  it('explains why a provider sign-in came back, once', async () => {
+    const backend = new FakeBackend();
+    backend.signIn = {
+      providers: [{ name: 'pocket', displayName: 'Pocket ID' }],
+      localLogin: false,
+    };
+    window.history.replaceState(null, '', '/login?error=oidc_not_allowed');
+    await serverApp(backend);
+    expect(
+      await screen.findByText(
+        'Your account is not allowed on this server. Ask the admin to add you to the right group.',
+      ),
+    ).toBeInTheDocument();
+    expect(window.location.pathname + window.location.search).toBe('/');
+  });
+});
 
 describe('signing in to a server', () => {
   it('asks for a login, explains a wrong one, then opens the app', async () => {

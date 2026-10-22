@@ -90,6 +90,30 @@ describe('HTTP sync transport', () => {
     expect(calls[0]!.init.credentials).toBe('same-origin');
   });
 
+  it('lists the identity providers with the address that starts each', async () => {
+    const { fetcher, calls } = fakeFetch(
+      {
+        status: 200,
+        body: { providers: [{ name: 'pocket', displayName: 'Pocket ID' }], localLogin: false },
+      },
+      { status: 200, body: '<!doctype html>', type: 'text/html' },
+    );
+    const http = createHttpSync('', fetcher);
+    expect(await http.signInOptions?.('/lists/a b')).toEqual({
+      providers: [
+        {
+          name: 'pocket',
+          displayName: 'Pocket ID',
+          url: '/auth/oidc/pocket/login?returnUrl=%2Flists%2Fa%20b',
+        },
+      ],
+      localLogin: false,
+    });
+    expect(calls[0]?.url).toBe('/auth/providers');
+    // A server from before OIDC answers with the app's page: passwords only.
+    expect(await http.signInOptions?.('/')).toEqual({ providers: [], localLogin: true });
+  });
+
   it('turns password answers into outcomes', async () => {
     const { fetcher } = fakeFetch(
       { status: 200, body: account },

@@ -37,14 +37,18 @@ public sealed class Friends(AccountService accounts, IAccountStore store, SyncSe
     public string HandleOf(Account account) => Host is null ? account.Username : $"{account.Username}@{Host}";
 
     /// <summary>Write the account's profile entity if it has none yet (devices then sync and edit it).</summary>
-    public async Task EnsureProfileAsync(Account account, CancellationToken cancellation = default)
+    public Task EnsureProfileAsync(Account account, CancellationToken cancellation = default) =>
+        EnsureProfileAsync(account, null, cancellation);
+
+    /// <summary>The account's profile, written once; <paramref name="displayName"/> (from an identity provider) instead of the username.</summary>
+    public async Task EnsureProfileAsync(Account account, string? displayName, CancellationToken cancellation = default)
     {
         if (sharing.Index.Contains(account.Id)) return;
         var stamp = clock.Next();
         var fields = new JsonObject
         {
             ["handle"] = HandleOf(account),
-            ["displayName"] = account.Username,
+            ["displayName"] = string.IsNullOrWhiteSpace(displayName) ? account.Username : displayName.Trim(),
             ["avatarColor"] = AvatarColor(account.Id),
             ["homeServer"] = Host ?? "local",
         };

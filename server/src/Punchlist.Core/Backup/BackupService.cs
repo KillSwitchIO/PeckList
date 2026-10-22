@@ -21,7 +21,8 @@ public sealed record BackupSummary(int Accounts, int Entities, long Cursor);
 /// like the database: it holds password hashes.
 /// </summary>
 public sealed class BackupService(
-    IDatabase database, IEntityStore entities, IAccountStore accounts, IServerGroupStore groups, ISecretStore secrets, TimeProvider time)
+    IDatabase database, IEntityStore entities, IAccountStore accounts, IServerGroupStore groups, IIdentityStore identities,
+    ISecretStore secrets, TimeProvider time)
 {
     public const string Format = "punchlist-server-backup";
     public const int FormatVersion = 1;
@@ -96,7 +97,7 @@ public sealed class BackupService(
         }
         json.WriteEndArray();
 
-        // Added after the format's first release: readers treat both lists as optional.
+        // Added after the format's first release: readers treat these lists as optional.
         json.WriteStartArray("serverGroups");
         foreach (var group in await groups.ListAsync(cancellation))
         {
@@ -115,6 +116,39 @@ public sealed class BackupService(
             json.WriteString("groupId", membership.GroupId);
             json.WriteString("accountId", membership.AccountId);
             json.WriteString("source", membership.Source);
+            json.WriteEndObject();
+        }
+        json.WriteEndArray();
+        json.WriteStartArray("identities");
+        foreach (var identity in await identities.ListAsync(cancellation))
+        {
+            json.WriteStartObject();
+            json.WriteString("provider", identity.Provider);
+            json.WriteString("subject", identity.Subject);
+            json.WriteString("accountId", identity.AccountId);
+            if (identity.Email is null) json.WriteNull("email");
+            else json.WriteString("email", identity.Email);
+            json.WriteString("linkedAt", identity.LinkedAt.ToString("O", CultureInfo.InvariantCulture));
+            json.WriteString("lastUsedAt", identity.LastUsedAt.ToString("O", CultureInfo.InvariantCulture));
+            json.WriteEndObject();
+        }
+        json.WriteEndArray();
+        json.WriteStartArray("pendingSignIns");
+        foreach (var pending in await identities.ListPendingAsync(cancellation))
+        {
+            json.WriteStartObject();
+            json.WriteString("provider", pending.Provider);
+            json.WriteString("subject", pending.Subject);
+            json.WriteString("username", pending.Username);
+            if (pending.DisplayName is null) json.WriteNull("displayName");
+            else json.WriteString("displayName", pending.DisplayName);
+            if (pending.Email is null) json.WriteNull("email");
+            else json.WriteString("email", pending.Email);
+            json.WriteStartArray("groups");
+            foreach (var group in pending.Groups) json.WriteStringValue(group);
+            json.WriteEndArray();
+            json.WriteString("firstSeen", pending.FirstSeen.ToString("O", CultureInfo.InvariantCulture));
+            json.WriteString("lastSeen", pending.LastSeen.ToString("O", CultureInfo.InvariantCulture));
             json.WriteEndObject();
         }
         json.WriteEndArray();
@@ -203,6 +237,36 @@ public sealed class BackupService(
             var item = node.AsObject();
             await groups.AddMembershipAsync(
                 new GroupMembership(Required(item, "groupId"), Required(item, "accountId"), Required(item, "source")), cancellation);
+        }
+
+        DateTimeOffset Time(JsonObject item, string name) => DateTimeOffset.Parse(Required(item, name), CultureInfo.InvariantCulture);
+        foreach (var node in OptionalArray(root, "identities"))
+        {
+            var item = node.AsObject();
+            await identities.LinkAsync(new LinkedIdentity
+            {
+                Provider = Required(item, "provider"),
+                Subject = Required(item, "subject"),
+                AccountId = Required(item, "accountId"),
+                Email = (string?)item["email"],
+                LinkedAt = Time(item, "linkedAt"),
+                LastUsedAt = Time(item, "lastUsedAt"),
+            }, cancellation);
+        }
+        foreach (var node in OptionalArray(root, "pendingSignIns"))
+        {
+            var item = node.AsObject();
+            await identities.PutPendingAsync(new PendingSignIn
+            {
+                Provider = Required(item, "provider"),
+                Subject = Required(item, "subject"),
+                Username = Required(item, "username"),
+                DisplayName = (string?)item["displayName"],
+                Email = (string?)item["email"],
+                Groups = (item["groups"] as JsonArray ?? []).Select(group => (string?)group ?? "").ToList(),
+                FirstSeen = Time(item, "firstSeen"),
+                LastSeen = Time(item, "lastSeen"),
+            }, cancellation);
         }
 
         foreach (var node in Array(root, "secrets"))

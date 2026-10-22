@@ -22,6 +22,12 @@ public enum Registration
     Closed,
 }
 
+public enum LocalLogin
+{
+    Shown,
+    Hidden,
+}
+
 public enum SnapshotSchedule
 {
     Off,
@@ -57,6 +63,12 @@ public sealed record ServerSettings
     public int SnapshotKeep { get; init; } = 14;
     public string? TrustedProxies { get; init; }
     public string? WebRoot { get; init; }
+
+    /// <summary>OIDC providers (<c>OIDC_PROVIDERS</c>); empty without OIDC.</summary>
+    public IReadOnlyList<OidcProviderSettings> OidcProviders { get; init; } = [];
+
+    /// <summary><c>LOCAL_LOGIN=hidden</c> hides the password form once a provider works (<c>/login?local</c> still shows it).</summary>
+    public bool LocalLoginHidden { get; init; }
 
     /// <summary>
     /// Read and check every setting. All problems are reported at once, so a broken config is
@@ -143,7 +155,17 @@ public sealed record ServerSettings
             SnapshotKeep = Count("SNAPSHOT_KEEP", 14, 1),
             TrustedProxies = Get("TRUSTED_PROXIES"),
             WebRoot = Get("WEB_ROOT"),
+            OidcProviders = OidcProviderSettings.ReadAll(Get, errors),
+            LocalLoginHidden = Choice("LOCAL_LOGIN", LocalLogin.Shown) == LocalLogin.Hidden,
         };
+        if (settings.OidcProviders.Count > 0 && settings.AuthMode == AuthMode.None)
+        {
+            errors.Add("OIDC_PROVIDERS needs AUTH_MODE=local (AUTH_MODE=none has no sign-in)");
+        }
+        if (settings.LocalLoginHidden && settings.OidcProviders.Count == 0)
+        {
+            errors.Add("LOCAL_LOGIN=hidden needs an OIDC provider (OIDC_PROVIDERS), or nobody could sign in");
+        }
         if (settings.DbProvider == DbProvider.Postgres && settings.DbConnectionString is null)
         {
             errors.Add("DB_CONNECTION_STRING is required when DB_PROVIDER is postgres");

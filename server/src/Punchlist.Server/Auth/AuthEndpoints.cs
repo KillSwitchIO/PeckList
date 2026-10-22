@@ -25,6 +25,7 @@ public static class AuthEndpoints
         var auth = app.MapGroup("/auth");
 
         auth.MapGet("/me", (ClaimsPrincipal user) => Results.Ok(MeOf(user, mode))).RequireAuthorization();
+        auth.MapOidc(settings);
 
         if (settings.AuthMode == AuthMode.None)
         {

@@ -1,3 +1,4 @@
+using Punchlist.Core.Accounts;
 using Punchlist.Core.Configuration;
 
 namespace Punchlist.Core.Tests;
@@ -98,5 +99,78 @@ public sealed class ServerSettingsTests
         Assert.Contains("SNAPSHOT_SCHEDULE: '2' is not one of off, hourly, daily", error.Message);
         Assert.Contains("DB_PATH_FILE: cannot read /missing", error.Message);
         Assert.Contains("ADMIN_PASSWORD must be at least 12 characters", error.Message);
+    }
+
+    [Fact]
+    public void Reads_oidc_providers_from_their_blocks()
+    {
+        var settings = Read(new()
+        {
+            ["OIDC_PROVIDERS"] = "pocket, Home-SSO",
+            ["OIDC_POCKET_AUTHORITY"] = "https://id.example.com/",
+            ["OIDC_POCKET_CLIENT_ID"] = "punchlist",
+            ["OIDC_POCKET_CLIENT_SECRET"] = "s3cret",
+            ["OIDC_POCKET_REQUIRED_GROUPS"] = "punchlist, family",
+            ["OIDC_POCKET_AUTO_CREATE"] = "yes",
+            ["OIDC_POCKET_ROLE_MAP"] = "punchlist-admins=admin, owners=super-admin",
+            ["OIDC_POCKET_GROUP_MAP"] = "family=Family",
+            ["OIDC_HOME_SSO_AUTHORITY"] = "http://keycloak:8080/realms/home",
+            ["OIDC_HOME_SSO_CLIENT_ID"] = "pl",
+            ["OIDC_HOME_SSO_DISPLAY_NAME"] = "Home login",
+            ["OIDC_HOME_SSO_GROUP_MAP"] = "*",
+            ["OIDC_HOME_SSO_SCOPES"] = "profile email",
+            ["LOCAL_LOGIN"] = "hidden",
+        });
+        Assert.True(settings.LocalLoginHidden);
+        var pocket = settings.OidcProviders[0];
+        Assert.Equal(("pocket", "Pocket", "https://id.example.com/"), (pocket.Name, pocket.DisplayName, pocket.Authority.ToString()));
+        Assert.Equal("s3cret", pocket.ClientSecret);
+        Assert.Equal(["punchlist", "family"], pocket.RequiredGroups);
+        Assert.True(pocket.AutoCreate);
+        Assert.Equal(Role.Admin, pocket.RoleMap["PUNCHLIST-ADMINS"]);
+        Assert.Equal(Role.SuperAdmin, pocket.RoleMap["owners"]);
+        Assert.Equal("Family", pocket.GroupMap["family"]);
+        Assert.Equal(["openid", "profile", "email", "groups"], pocket.Scopes);
+
+        var home = settings.OidcProviders[1];
+        Assert.Equal(("home-sso", "Home login"), (home.Name, home.DisplayName));
+        Assert.True(home.MirrorGroups);
+        Assert.False(home.AutoCreate);
+        Assert.Null(home.ClientSecret);
+        Assert.Equal(["openid", "profile", "email"], home.Scopes);
+    }
+
+    [Fact]
+    public void Oidc_problems_are_reported_together()
+    {
+        var error = Assert.Throws<SettingsException>(() => Read(new()
+        {
+            ["OIDC_PROVIDERS"] = "pocket,bad_name,pocket",
+            ["OIDC_POCKET_AUTHORITY"] = "id.example.com",
+            ["OIDC_POCKET_ROLE_MAP"] = "admins=owner,broken",
+            ["OIDC_POCKET_AUTO_CREATE"] = "sometimes",
+        }));
+        Assert.Contains("'bad_name' is not a provider name", error.Message);
+        Assert.Contains("'pocket' is listed twice", error.Message);
+        Assert.Contains("OIDC_POCKET_AUTHORITY: 'id.example.com' is not an http or https address", error.Message);
+        Assert.Contains("OIDC_POCKET_CLIENT_ID is required", error.Message);
+        Assert.Contains("'owner' is not one of user, admin, superadmin", error.Message);
+        Assert.Contains("'broken' is not group=value", error.Message);
+        Assert.Contains("OIDC_POCKET_AUTO_CREATE: 'sometimes' is not true or false", error.Message);
+    }
+
+    [Fact]
+    public void Oidc_needs_logins_and_hiding_the_password_form_needs_a_provider()
+    {
+        var error = Assert.Throws<SettingsException>(() => Read(new()
+        {
+            ["AUTH_MODE"] = "none",
+            ["OIDC_PROVIDERS"] = "pocket",
+            ["OIDC_POCKET_AUTHORITY"] = "https://id.example.com",
+            ["OIDC_POCKET_CLIENT_ID"] = "punchlist",
+        }));
+        Assert.Contains("OIDC_PROVIDERS needs AUTH_MODE=local", error.Message);
+        Assert.Contains("LOCAL_LOGIN=hidden needs an OIDC provider",
+            Assert.Throws<SettingsException>(() => Read(new() { ["LOCAL_LOGIN"] = "hidden" })).Message);
     }
 }

@@ -31,6 +31,7 @@ public static class AuthSetup
         services.AddSingleton(TimeProvider.System);
         services.AddSingleton<IPasswordHasher, AspNetPasswordHasher>();
         services.AddSingleton<AccountService>();
+        services.AddSingleton<ExternalSignIn>();
         services.AddSingleton<OwnerAccount>();
         services.AddMemoryCache();
         services.AddHostedService<AccountStartup>();
@@ -48,8 +49,8 @@ public static class AuthSetup
         }
         else
         {
-            services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
-                .AddCookie(options =>
+            var authentication = services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme);
+            authentication.AddCookie(options =>
                 {
                     options.Cookie.Name = "punchlist_session";
                     options.Cookie.HttpOnly = true;
@@ -62,6 +63,7 @@ public static class AuthSetup
                     options.Events.OnRedirectToAccessDenied = context => Status(context, StatusCodes.Status403Forbidden);
                     options.Events.OnValidatePrincipal = ValidateStampAsync;
                 });
+            services.AddOidc(settings, authentication);
         }
         services.AddAuthorization(options =>
         {

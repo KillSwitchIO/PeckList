@@ -204,6 +204,15 @@ public sealed class AccountService(IAccountStore store, IPasswordHasher hasher, 
         return account with { Username = account.Username.ToLowerInvariant() };
     }
 
+    /// <summary>An account that signs in through an identity provider only.</summary>
+    /// <exception cref="DuplicateUsernameException">The username is taken.</exception>
+    public async Task<Account> CreateWithoutPasswordAsync(string username, CancellationToken cancellation = default)
+    {
+        var account = NewAccount(username.Trim().ToLowerInvariant(), Role.User);
+        await store.CreateAsync(account, cancellation);
+        return account;
+    }
+
     /// <summary>Give an account a new generated password it must change on login (CLI: admin reset-password).</summary>
     public async Task<string> ResetPasswordAsync(string username, CancellationToken cancellation = default)
     {

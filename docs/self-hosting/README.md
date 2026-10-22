@@ -37,6 +37,61 @@ Five wrong passwords lock an account for 15 minutes, and each address gets ten l
 minute. Sessions are HttpOnly cookies that last 30 days of use; changing a password ends the other
 sessions.
 
+## Sign in with OIDC
+
+Any OpenID Connect provider works: Pocket ID, Authelia, Authentik, Keycloak, Zitadel, Entra ID,
+Google and others, several at once. List them in `OIDC_PROVIDERS` and give each a block of
+`OIDC_<NAME>_*` settings (the name in capitals, dashes as underscores). Register this redirect URI
+with the provider:
+
+```text
+https://tasks.example.com/auth/oidc/<name>/callback
+```
+
+Set `PUBLIC_URL` to that `https://tasks.example.com` so the address never depends on how a
+request came in. The sign-in page then shows a "Continue with ..." button per provider.
+
+```yaml
+environment:
+  PUBLIC_URL: https://tasks.example.com
+  OIDC_PROVIDERS: pocket
+  OIDC_POCKET_AUTHORITY: https://id.example.com
+  OIDC_POCKET_CLIENT_ID: punchlist
+  OIDC_POCKET_CLIENT_SECRET_FILE: /run/secrets/pocket_secret
+  OIDC_POCKET_DISPLAY_NAME: Pocket ID
+  OIDC_POCKET_REQUIRED_GROUPS: punchlist
+  OIDC_POCKET_AUTO_CREATE: 'true'
+  OIDC_POCKET_ROLE_MAP: punchlist-admins=admin
+  OIDC_POCKET_GROUP_MAP: family=Family
+```
+
+| Variable (per provider)       | Default                             | Meaning                                                                                                                   |
+| ----------------------------- | ----------------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
+| `OIDC_<NAME>_AUTHORITY`       | required                            | The issuer URL (where `/.well-known/openid-configuration` lives)                                                          |
+| `OIDC_<NAME>_CLIENT_ID`       | required                            | The client registered for Punchlist                                                                                       |
+| `OIDC_<NAME>_CLIENT_SECRET`   | none (public client)                | The client secret; PKCE is always used                                                                                    |
+| `OIDC_<NAME>_DISPLAY_NAME`    | the name                            | The button label                                                                                                          |
+| `OIDC_<NAME>_SCOPES`          | `openid profile email` (+ `groups`) | `groups` is added when any group setting is used; set this when the provider has no `groups` scope                        |
+| `OIDC_<NAME>_GROUPS_CLAIM`    | `groups`                            | The claim holding group names                                                                                             |
+| `OIDC_<NAME>_USERNAME_CLAIM`  | `preferred_username`                | Where new accounts get their username (else the email's first part)                                                       |
+| `OIDC_<NAME>_REQUIRED_GROUPS` | none (everyone)                     | Comma list; signing in needs at least one of them. Checked at every sign-in                                               |
+| `OIDC_<NAME>_AUTO_CREATE`     | `false`                             | Make an account on a first sign-in. Off: people wait for an admin to approve them                                         |
+| `OIDC_<NAME>_ROLE_MAP`        | none                                | `group=role,...` with roles `user`, `admin`, `superadmin`; the highest match wins at every sign-in, no match means `user` |
+| `OIDC_<NAME>_GROUP_MAP`       | none                                | `group=Server group,...`, or `*` to mirror every provider group as a server group of the same name                        |
+| `LOCAL_LOGIN`                 | `shown`                             | `hidden` hides the password form; `/login?local` still shows it                                                           |
+
+A new account never takes over an existing one with the same username: it gets a number after
+the name instead. A role map never removes the last super admin. People waiting for approval are
+listed at `GET /api/admin/pending-signins` (the admin screens come in 0.6), and
+`POST /api/admin/pending-signins/<provider>/<subject>/approve` lets one in.
+
+Provider notes:
+
+- **Pocket ID, Authelia, Authentik**: send `groups` with the `groups` scope; nothing else to set.
+- **Keycloak**: has no `groups` scope. Add a "Group Membership" mapper (full path off) to the
+  client's dedicated scope and set `OIDC_<NAME>_SCOPES=openid profile email`.
+- **Entra ID**: the groups claim holds group ids, not names; map those ids.
+
 ## Behind a reverse proxy
 
 The server reads `X-Forwarded-For` and `X-Forwarded-Proto` from trusted proxies only.
@@ -62,7 +117,7 @@ the same host or Docker network.
 
 Every setting also accepts `NAME_FILE`, a file holding the value (Docker secrets); one trailing
 newline is dropped. Setting both is an error. A bad setting stops the server with a list of what
-to fix. More settings (auth) arrive with the rest of milestone 0.4.
+to fix. OIDC settings are in [Sign in with OIDC](#sign-in-with-oidc).
 
 ## Backups
 

@@ -11,7 +11,7 @@ export interface ServerInfo {
 export interface Account {
   id: string;
   username: string;
-  role: 'admin' | 'user';
+  role: 'superadmin' | 'admin' | 'user';
   mustChangePassword: boolean;
   authMode: 'local' | 'none';
 }
@@ -38,6 +38,14 @@ export interface SyncResponse {
   rejected?: string[];
   /** The server's copies of refused entities the user may see: they replace the device's own. */
   corrections?: SyncChange[];
+}
+
+/** Ways to sign in on this server (`/auth/providers`). */
+export interface SignInOptions {
+  /** Identity providers, each with the address that starts its sign-in. */
+  providers: { name: string; displayName: string; url: string }[];
+  /** False when the server hides the password form (`/login?local` still shows it). */
+  localLogin: boolean;
 }
 
 export type LoginOutcome =
@@ -99,6 +107,8 @@ export interface SyncTransport {
   info(): Promise<ServerInfo | null>;
   /** The signed-in account, or null when not signed in. */
   me(): Promise<Account | null>;
+  /** Identity providers and whether the password form shows (optional: older servers have none). */
+  signInOptions?(returnUrl: string): Promise<SignInOptions>;
   login(username: string, password: string): Promise<LoginOutcome>;
   logout(): Promise<void>;
   changePassword(current: string, next: string): Promise<PasswordOutcome>;

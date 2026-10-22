@@ -157,7 +157,7 @@ public static class Cli
         SqlDatabase database = provider == DbProvider.Postgres ? new PostgresDatabase(connection!) : new SqliteDatabase(path);
         if (migrate) await database.MigrateAsync();
         var backup = new BackupService(database, new SqlEntityStore(database), new SqlAccountStore(database),
-            new SqlServerGroupStore(database), new SqlSecretStore(database), TimeProvider.System);
+            new SqlServerGroupStore(database), new SqlIdentityStore(database), new SqlSecretStore(database), TimeProvider.System);
         return (database, backup);
     }
 

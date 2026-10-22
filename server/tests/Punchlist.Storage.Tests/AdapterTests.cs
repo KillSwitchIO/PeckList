@@ -93,3 +93,13 @@ public sealed class PostgresServerGroupStoreTests(PostgresServer server) : Serve
 {
     protected override async Task<IServerGroupStore> CreateAsync() => new SqlServerGroupStore(await server.NewDatabaseAsync());
 }
+
+public sealed class SqliteIdentityStoreTests(SqliteFiles files) : IdentityStoreContract, IClassFixture<SqliteFiles>
+{
+    protected override async Task<IIdentityStore> CreateAsync() => new SqlIdentityStore(await files.NewDatabaseAsync());
+}
+
+public sealed class PostgresIdentityStoreTests(PostgresServer server) : IdentityStoreContract, IClassFixture<PostgresServer>
+{
+    protected override async Task<IIdentityStore> CreateAsync() => new SqlIdentityStore(await server.NewDatabaseAsync());
+}

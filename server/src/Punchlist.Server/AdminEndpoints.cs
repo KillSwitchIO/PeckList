@@ -1,5 +1,6 @@
 using Microsoft.Extensions.Caching.Memory;
 using Punchlist.Core.Accounts;
+using Punchlist.Core.Configuration;
 using Punchlist.Server.Auth;
 
 namespace Punchlist.Server;
@@ -56,6 +57,22 @@ public static class AdminEndpoints
                 return Results.Conflict(new AdminError("last_super_admin", error.Message));
             }
         }).RequirePermission(Permission.ManageAdmins);
+
+        admin.MapGet("/pending-signins", async (IIdentityStore identities, CancellationToken cancellation) =>
+            await identities.ListPendingAsync(cancellation)).RequirePermission(Permission.ManageUsers);
+
+        admin.MapPost("/pending-signins/{provider}/{subject}/approve", async (
+            string provider, string subject, ServerSettings settings, ExternalSignIn signIn, CancellationToken cancellation) =>
+        {
+            if (settings.OidcProviders.FirstOrDefault(each => each.Name == provider) is not { } found) return Results.NotFound();
+            return await signIn.ApproveAsync(found, subject, cancellation) is { } account
+                ? Results.Ok(new { account.Id, account.Username, Role = account.Role.Name() })
+                : Results.NotFound();
+        }).RequirePermission(Permission.ManageUsers);
+
+        admin.MapDelete("/pending-signins/{provider}/{subject}", async (string provider, string subject, IIdentityStore identities, CancellationToken cancellation) =>
+            await identities.RemovePendingAsync(provider, subject, cancellation) ? Results.NoContent() : Results.NotFound())
+            .RequirePermission(Permission.ManageUsers);
 
         admin.MapGet("/groups", async (ServerGroupService groups, CancellationToken cancellation) =>
             (await groups.ListAsync(cancellation)).Select(View)).RequirePermission(Permission.ManageGroups);

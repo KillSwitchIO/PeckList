@@ -38,7 +38,7 @@ public abstract class SqlDatabase : IDatabase
     {
         await using var connection = await OpenAsync(cancellation);
         var rows = await connection.ExecuteScalarAsync<long>(new CommandDefinition(
-            "SELECT (SELECT COUNT(*) FROM entities) + (SELECT COUNT(*) FROM accounts) + (SELECT COUNT(*) FROM server_secrets) + (SELECT COUNT(*) FROM server_groups)",
+            "SELECT (SELECT COUNT(*) FROM entities) + (SELECT COUNT(*) FROM accounts) + (SELECT COUNT(*) FROM server_secrets) + (SELECT COUNT(*) FROM server_groups) + (SELECT COUNT(*) FROM identities)",
             cancellationToken: cancellation));
         return rows == 0;
     }
@@ -47,7 +47,7 @@ public abstract class SqlDatabase : IDatabase
     {
         await using var connection = await OpenAsync(cancellation);
         await using var transaction = await BeginWriteAsync(connection, cancellation);
-        foreach (var table in new[] { "visibility", "revocations", "entities", "server_group_members", "server_groups", "accounts", "server_secrets" })
+        foreach (var table in new[] { "visibility", "revocations", "entities", "server_group_members", "server_groups", "identities", "pending_signins", "accounts", "server_secrets" })
         {
             await connection.ExecuteAsync(new CommandDefinition($"DELETE FROM {table}", transaction: transaction, cancellationToken: cancellation));
         }

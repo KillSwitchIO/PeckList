@@ -86,6 +86,26 @@ export function createHttpSync(
       return (await response.json()) as Account;
     },
 
+    async signInOptions(returnUrl) {
+      const response = await call('/auth/providers');
+      // Servers from before OIDC (a 404, or the app's index.html): passwords only.
+      if (response.status === 404 || !response.headers.get('content-type')?.includes('json')) {
+        return { providers: [], localLogin: true };
+      }
+      if (!response.ok) return fail(response);
+      const options = (await response.json()) as {
+        providers: { name: string; displayName: string }[];
+        localLogin: boolean;
+      };
+      return {
+        localLogin: options.localLogin,
+        providers: options.providers.map((provider) => ({
+          ...provider,
+          url: `${base}/auth/oidc/${encodeURIComponent(provider.name)}/login?returnUrl=${encodeURIComponent(returnUrl)}`,
+        })),
+      };
+    },
+
     async login(username, password): Promise<LoginOutcome> {
       const response = await call('/auth/login', { method: 'POST', body: { username, password } });
       if (response.ok) return { kind: 'ok', account: (await response.json()) as Account };

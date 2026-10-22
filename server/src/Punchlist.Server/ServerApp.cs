@@ -63,6 +63,12 @@ public static class ServerApp
         });
 
         var app = builder.Build();
+        if (settings.OidcProviders.Count > 0 && settings.PublicUrl is null)
+        {
+            app.Logger.LogWarning(
+                "OIDC is on without PUBLIC_URL: sign-in callbacks use the address each request came in on. " +
+                "Set PUBLIC_URL so it always matches the redirect URI registered with the provider.");
+        }
         app.UseForwardedHeaders();
         app.UseAuthentication();
         app.UseAuthorization();

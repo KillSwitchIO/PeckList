@@ -20,6 +20,11 @@ export interface FakeAccount {
 export class FakeBackend {
   readonly server = new FakeSyncServer();
   readonly accounts = new Map<string, FakeAccount>();
+  /** What `/auth/providers` answers. */
+  signIn: { providers: { name: string; displayName: string }[]; localLogin: boolean } = {
+    providers: [],
+    localLogin: true,
+  };
   schemaVersion = CURRENT_SCHEMA_VERSION;
   /** Event listeners of every device, by account username. */
   readonly listeners = new Set<{ username: string; onChange: (change: ChangeEvent) => void }>();
@@ -116,6 +121,18 @@ export class FakeTransport implements SyncTransport {
   me(): Promise<Account | null> {
     this.check();
     return Promise.resolve(this.current()?.account ?? null);
+  }
+
+  signInOptions(returnUrl: string) {
+    this.check();
+    const { providers, localLogin } = this.backend.signIn;
+    return Promise.resolve({
+      localLogin,
+      providers: providers.map((provider) => ({
+        ...provider,
+        url: `/auth/oidc/${provider.name}/login?returnUrl=${encodeURIComponent(returnUrl)}`,
+      })),
+    });
   }
 
   login(username: string, password: string) {

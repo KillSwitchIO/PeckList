@@ -150,6 +150,14 @@ export const en = {
   'auth.invalid': 'That username and password do not match.',
   'auth.locked': 'Too many tries. This account is locked until {time}.',
   'auth.tooMany': 'Too many tries from here. Wait a minute and try again.',
+  'auth.with': 'Continue with {name}',
+  'auth.or': 'or',
+  'auth.oidc.oidc_not_allowed':
+    'Your account is not allowed on this server. Ask the admin to add you to the right group.',
+  'auth.oidc.oidc_pending':
+    'Your account is waiting for the admin to let you in. Try again once they have.',
+  'auth.oidc.oidc_disabled': 'This account is turned off. Ask the admin.',
+  'auth.oidc.oidc_failed': 'Signing in did not finish. Try again.',
   'auth.offline': 'The server cannot be reached. Check your connection and try again.',
   'auth.changeTitle': 'Choose a new password',
   'auth.changeSubtitle': 'Your current password was given to you; pick your own before you go on.',

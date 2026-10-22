@@ -19,9 +19,9 @@ public sealed class BackupTests(SqliteFiles files, PostgresServer postgres) : IC
     }
 
     private static BackupService Backup(SqlDatabase database) =>
-        new(database, new SqlEntityStore(database), new SqlAccountStore(database), new SqlServerGroupStore(database), new SqlSecretStore(database), new Clock());
+        new(database, new SqlEntityStore(database), new SqlAccountStore(database), new SqlServerGroupStore(database), new SqlIdentityStore(database), new SqlSecretStore(database), new Clock());
 
-    /// <summary>Two users, some tasks (one rewritten, one deleted), a group, a secret.</summary>
+    /// <summary>Two users, some tasks (one rewritten, one deleted), a group, a linked identity, a waiting sign-in, a secret.</summary>
     private static async Task FillAsync(SqlDatabase database)
     {
         var accounts = new SqlAccountStore(database);
@@ -63,6 +63,25 @@ public sealed class BackupTests(SqliteFiles files, PostgresServer postgres) : IC
         }, Token);
         await groups.AddMembershipAsync(new("01JBGRP0000000000000000001", "01JBACCT000000000000000001", MembershipSource.Manual), Token);
         await groups.AddMembershipAsync(new("01JBGRP0000000000000000001", "01JBACCT000000000000000002", MembershipSource.Oidc("pocket")), Token);
+        var identities = new SqlIdentityStore(database);
+        await identities.LinkAsync(new LinkedIdentity
+        {
+            Provider = "pocket",
+            Subject = "sub-sam",
+            AccountId = "01JBACCT000000000000000002",
+            Email = "sam@example.com",
+            LinkedAt = new DateTimeOffset(2026, 10, 3, 8, 0, 0, TimeSpan.Zero),
+            LastUsedAt = new DateTimeOffset(2026, 10, 4, 8, 0, 0, TimeSpan.Zero),
+        }, Token);
+        await identities.PutPendingAsync(new PendingSignIn
+        {
+            Provider = "pocket",
+            Subject = "sub-kim",
+            Username = "kim",
+            Groups = ["family"],
+            FirstSeen = new DateTimeOffset(2026, 10, 5, 8, 0, 0, TimeSpan.Zero),
+            LastSeen = new DateTimeOffset(2026, 10, 5, 8, 0, 0, TimeSpan.Zero),
+        }, Token);
     }
 
     private static async Task<string> ExportAsync(SqlDatabase database)
@@ -135,6 +154,8 @@ public sealed class BackupTests(SqliteFiles files, PostgresServer postgres) : IC
         var old = JsonNode.Parse(await ExportAsync(source))!.AsObject();
         old.Remove("serverGroups");
         old.Remove("groupMemberships");
+        old.Remove("identities");
+        old.Remove("pendingSignIns");
 
         var target = await files.NewDatabaseAsync();
         Assert.Equal(new BackupSummary(2, 3, 5), await ImportAsync(target, old.ToJsonString()));
