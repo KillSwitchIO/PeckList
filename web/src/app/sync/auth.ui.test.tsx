@@ -6,6 +6,12 @@ import { FakeBackend } from '../../test/fakeTransport.ts';
 import { mockViewport, renderApp, testStore } from '../../test/renderApp.tsx';
 import { createSyncEngine } from './syncEngine.ts';
 
+const leaveFor = vi.hoisted(() => vi.fn());
+vi.mock('./signInWith.ts', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('./signInWith.ts')>()),
+  leaveFor,
+}));
+
 beforeEach(() => {
   localStorage.clear();
   vi.unstubAllGlobals();
@@ -59,6 +65,37 @@ describe('signing in with an identity provider', () => {
     window.history.replaceState(null, '', '/login?local');
     await serverApp(backend);
     expect(await screen.findByLabelText(/Username/)).toBeInTheDocument();
+  });
+
+  it('when a provider session runs out, goes straight back through that provider', async () => {
+    const backend = new FakeBackend();
+    backend.signIn = {
+      providers: [{ name: 'pocket', displayName: 'Pocket ID' }],
+      localLogin: true,
+    };
+    localStorage.setItem('punchlist.signInWith', 'pocket');
+    leaveFor.mockClear();
+    window.history.replaceState(null, '', '/today');
+    await serverApp(backend);
+    expect(await screen.findByText('Continuing with Pocket ID')).toBeInTheDocument();
+    expect(leaveFor).toHaveBeenCalledWith('/auth/oidc/pocket/login?returnUrl=%2Ftoday');
+  });
+
+  it('a refused sign-in forgets the provider instead of looping', async () => {
+    const backend = new FakeBackend();
+    backend.signIn = {
+      providers: [{ name: 'pocket', displayName: 'Pocket ID' }],
+      localLogin: true,
+    };
+    localStorage.setItem('punchlist.signInWith', 'pocket');
+    leaveFor.mockClear();
+    window.history.replaceState(null, '', '/login?error=oidc_not_allowed');
+    await serverApp(backend);
+    expect(
+      await screen.findByRole('link', { name: 'Continue with Pocket ID' }),
+    ).toBeInTheDocument();
+    expect(leaveFor).not.toHaveBeenCalled();
+    expect(localStorage.getItem('punchlist.signInWith')).toBeNull();
   });
 
   it('explains why a provider sign-in came back, once', async () => {

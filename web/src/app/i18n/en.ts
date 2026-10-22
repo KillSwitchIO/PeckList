@@ -164,6 +164,7 @@ export const en = {
   'auth.locked': 'Too many tries. This account is locked until {time}.',
   'auth.tooMany': 'Too many tries from here. Wait a minute and try again.',
   'auth.with': 'Continue with {name}',
+  'auth.continuing': 'Continuing with {name}',
   'auth.or': 'or',
   'auth.oidc.oidc_not_allowed':
     'Your account is not allowed on this server. Ask the admin to add you to the right group.',

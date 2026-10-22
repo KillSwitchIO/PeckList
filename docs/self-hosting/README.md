@@ -65,20 +65,21 @@ environment:
   OIDC_POCKET_GROUP_MAP: family=Family
 ```
 
-| Variable (per provider)       | Default                             | Meaning                                                                                                                   |
-| ----------------------------- | ----------------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
-| `OIDC_<NAME>_AUTHORITY`       | required                            | The issuer URL (where `/.well-known/openid-configuration` lives)                                                          |
-| `OIDC_<NAME>_CLIENT_ID`       | required                            | The client registered for Punchlist                                                                                       |
-| `OIDC_<NAME>_CLIENT_SECRET`   | none (public client)                | The client secret; PKCE is always used                                                                                    |
-| `OIDC_<NAME>_DISPLAY_NAME`    | the name                            | The button label                                                                                                          |
-| `OIDC_<NAME>_SCOPES`          | `openid profile email` (+ `groups`) | `groups` is added when any group setting is used; set this when the provider has no `groups` scope                        |
-| `OIDC_<NAME>_GROUPS_CLAIM`    | `groups`                            | The claim holding group names                                                                                             |
-| `OIDC_<NAME>_USERNAME_CLAIM`  | `preferred_username`                | Where new accounts get their username (else the email's first part)                                                       |
-| `OIDC_<NAME>_REQUIRED_GROUPS` | none (everyone)                     | Comma list; signing in needs at least one of them. Checked at every sign-in                                               |
-| `OIDC_<NAME>_AUTO_CREATE`     | `false`                             | Make an account on a first sign-in. Off: people wait for an admin to approve them                                         |
-| `OIDC_<NAME>_ROLE_MAP`        | none                                | `group=role,...` with roles `user`, `admin`, `superadmin`; the highest match wins at every sign-in, no match means `user` |
-| `OIDC_<NAME>_GROUP_MAP`       | none                                | `group=Server group,...`, or `*` to mirror every provider group as a server group of the same name                        |
-| `LOCAL_LOGIN`                 | `shown`                             | `hidden` hides the password form; `/login?local` still shows it                                                           |
+| Variable (per provider)       | Default                             | Meaning                                                                                                                                                                              |
+| ----------------------------- | ----------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `OIDC_<NAME>_AUTHORITY`       | required                            | The issuer URL (where `/.well-known/openid-configuration` lives)                                                                                                                     |
+| `OIDC_<NAME>_CLIENT_ID`       | required                            | The client registered for Punchlist                                                                                                                                                  |
+| `OIDC_<NAME>_CLIENT_SECRET`   | none (public client)                | The client secret; PKCE is always used                                                                                                                                               |
+| `OIDC_<NAME>_DISPLAY_NAME`    | the name                            | The button label                                                                                                                                                                     |
+| `OIDC_<NAME>_SCOPES`          | `openid profile email` (+ `groups`) | `groups` is added when any group setting is used; set this when the provider has no `groups` scope                                                                                   |
+| `OIDC_<NAME>_GROUPS_CLAIM`    | `groups`                            | The claim holding group names                                                                                                                                                        |
+| `OIDC_<NAME>_USERNAME_CLAIM`  | `preferred_username`                | Where new accounts get their username (else the email's first part)                                                                                                                  |
+| `OIDC_<NAME>_REQUIRED_GROUPS` | none (everyone)                     | Comma list; signing in needs at least one of them. Checked at every sign-in                                                                                                          |
+| `OIDC_<NAME>_AUTO_CREATE`     | `false`                             | Make an account on a first sign-in. Off: people wait for an admin to approve them                                                                                                    |
+| `OIDC_<NAME>_ROLE_MAP`        | none                                | `group=role,...` with roles `user`, `admin`, `superadmin`; the highest match wins at every sign-in, no match means `user`                                                            |
+| `OIDC_<NAME>_GROUP_MAP`       | none                                | `group=Server group,...`, or `*` to mirror every provider group as a server group of the same name                                                                                   |
+| `OIDC_<NAME>_SESSION_HOURS`   | `12`                                | How long a session from this provider lasts; then the app goes back through the provider by itself, which checks the required groups and mappings again. `0`: 30 days like passwords |
+| `LOCAL_LOGIN`                 | `shown`                             | `hidden` hides the password form; `/login?local` still shows it                                                                                                                      |
 
 A new account never takes over an existing one with the same username: it gets a number after
 the name instead. A role map never removes the last super admin. People waiting for approval are

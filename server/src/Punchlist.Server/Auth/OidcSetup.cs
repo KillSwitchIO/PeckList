@@ -163,6 +163,15 @@ public static class OidcSetup
                     success.Account.Username, provider.Name, success.Created ? " (new account)" : "");
                 context.Principal = AuthSetup.Principal(success.Account, CookieAuthenticationDefaults.AuthenticationScheme);
                 context.Properties!.IsPersistent = true;
+                if (provider.SessionLength is { } length)
+                {
+                    // A fixed end, not sliding: then the person goes through the provider again, which
+                    // re-checks the required groups and mappings (instant while their provider session lives).
+                    var now = services.GetRequiredService<TimeProvider>().GetUtcNow();
+                    context.Properties.IssuedUtc = now;
+                    context.Properties.ExpiresUtc = now + length;
+                    context.Properties.AllowRefresh = false;
+                }
                 break;
             case ExternalSignInResult.NotAllowed:
                 logger.LogWarning("Sign-in with {Provider} refused for {Subject}: in none of the required groups", provider.Name, subject);

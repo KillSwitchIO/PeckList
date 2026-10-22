@@ -256,4 +256,30 @@ public sealed class OidcTests(ServerFixture fixture) : IClassFixture<ServerFixtu
         Assert.Null((await admin.GetFromJsonAsync<AdminProvider[]>("/api/admin/providers", Token))![0].MigrationWindowUntil);
         Assert.Equal(HttpStatusCode.BadRequest, (await admin.PutAsJsonAsync("/api/admin/providers/fake/migration-window", new { hours = 0 }, Token)).StatusCode);
     }
+
+    private sealed class MovableClock(DateTimeOffset start) : TimeProvider
+    {
+        public DateTimeOffset Now { get; set; } = start;
+
+        public override DateTimeOffset GetUtcNow() => Now;
+    }
+
+    [Fact]
+    public async Task A_provider_session_ends_on_time_so_the_provider_checks_again()
+    {
+        var clock = new MovableClock(DateTimeOffset.UtcNow);
+        using var server = Server(("OIDC_FAKE_AUTO_CREATE", "true"), ("OIDC_FAKE_SESSION_HOURS", "12"))
+            .WithWebHostBuilder(host => host.ConfigureTestServices(services => services.AddSingleton<TimeProvider>(clock)));
+        var kim = Browser(server);
+        await SignIn(kim, Kim());
+        var (ben, _) = await PasswordUser(server, "ben");
+
+        clock.Now += TimeSpan.FromHours(11);
+        Assert.Equal(HttpStatusCode.OK, (await kim.GetAsync("/auth/me", Token)).StatusCode);
+        // Using it does not stretch it.
+        clock.Now += TimeSpan.FromHours(2);
+        Assert.Equal(HttpStatusCode.Unauthorized, (await kim.GetAsync("/auth/me", Token)).StatusCode);
+        // Password sessions keep their 30 days.
+        Assert.Equal(HttpStatusCode.OK, (await ben.GetAsync("/auth/me", Token)).StatusCode);
+    }
 }

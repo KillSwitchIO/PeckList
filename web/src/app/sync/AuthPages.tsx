@@ -2,6 +2,7 @@ import { Alert, Box, Button, Divider, Paper, TextField, Typography } from '@mui/
 import { useEffect, useState, type FormEvent, type ReactNode } from 'react';
 import { SyncFailure, type SignInOptions } from '../../ports/sync.ts';
 import { t } from '../i18n/i18n.ts';
+import { leaveFor, rememberedProvider, rememberProvider } from './signInWith.ts';
 import { useSyncState } from './syncContext.ts';
 
 /** The page a server shows before the app: sign in, or replace a given password. */
@@ -79,6 +80,8 @@ function takeSignInError(): string | null {
   const error = new URLSearchParams(window.location.search).get('error');
   if (error === null) return null;
   window.history.replaceState(window.history.state, '', '/');
+  // Refused: do not send them straight back to the same provider.
+  rememberProvider(null);
   return isOidcError(error) ? t(`auth.oidc.${error}`) : null;
 }
 
@@ -104,6 +107,8 @@ function SignIn() {
   // `/login?local` always shows the password form, for the admin when it is hidden.
   const [forceLocal] = useState(() => new URLSearchParams(window.location.search).has('local'));
   const [problem, setProblem] = useState<string | null>(takeSignInError);
+  // Read after the error: a refused sign-in has forgotten it.
+  const [remembered] = useState(rememberedProvider);
 
   useEffect(() => {
     let live = true;
@@ -118,12 +123,18 @@ function SignIn() {
 
   const providers = options?.providers ?? [];
   const showForm = options !== null && (options.localLogin || forceLocal);
+  // Signed in with a provider before and its session ran out: straight back through it.
+  const continueWith = forceLocal ? undefined : providers.find((each) => each.name === remembered);
+  useEffect(() => {
+    if (continueWith) leaveFor(continueWith.url);
+  }, [continueWith]);
 
   const submit = async (event: FormEvent) => {
     event.preventDefault();
     setBusy(true);
     setProblem(null);
     try {
+      rememberProvider(null);
       const outcome = await signIn(username, password);
       if (outcome.kind === 'invalid') setProblem(t('auth.invalid'));
       else if (outcome.kind === 'locked')
@@ -136,6 +147,17 @@ function SignIn() {
     }
   };
 
+  if (continueWith) {
+    return (
+      <Card
+        title={t('auth.title')}
+        subtitle={t('auth.continuing', { name: continueWith.displayName })}
+      >
+        {null}
+      </Card>
+    );
+  }
+
   return (
     <Card title={t('auth.title')} subtitle={t('auth.subtitle')}>
       {providers.length > 0 && (
@@ -146,6 +168,7 @@ function SignIn() {
               variant="outlined"
               size="large"
               href={provider.url}
+              onClick={() => rememberProvider(provider.name)}
               sx={{ textTransform: 'none' }}
             >
               {t('auth.with', { name: provider.displayName })}

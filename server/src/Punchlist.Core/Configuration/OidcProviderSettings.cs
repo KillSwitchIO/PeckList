@@ -28,6 +28,12 @@ public sealed partial record OidcProviderSettings
     /// <summary>Signing in needs at least one of these groups; empty lets everyone in.</summary>
     public IReadOnlyList<string> RequiredGroups { get; init; } = [];
 
+    /// <summary>
+    /// How long a session from this provider lasts before the person goes through the provider
+    /// again (which re-checks the required groups and mappings). Null: as long as a password session.
+    /// </summary>
+    public TimeSpan? SessionLength { get; init; } = TimeSpan.FromHours(12);
+
     /// <summary>Make an account on a first sign-in; otherwise it waits for an admin.</summary>
     public bool AutoCreate { get; init; }
 
@@ -109,6 +115,19 @@ public sealed partial record OidcProviderSettings
                         break;
                 }
             }
+            TimeSpan? sessionLength = TimeSpan.FromHours(12);
+            if (Value("SESSION_HOURS") is { } rawHours)
+            {
+                if (!double.TryParse(rawHours, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var hours)
+                    || hours < 0 || hours > 24 * 30)
+                {
+                    errors.Add($"{prefix}SESSION_HOURS: '{rawHours}' is not a number of hours from 0 to 720");
+                }
+                else
+                {
+                    sessionLength = hours == 0 ? null : TimeSpan.FromHours(hours);
+                }
+            }
             if (authority is null || clientId is null) continue;
 
             var provider = new OidcProviderSettings
@@ -123,6 +142,7 @@ public sealed partial record OidcProviderSettings
                 UsernameClaim = Value("USERNAME_CLAIM") ?? "preferred_username",
                 RequiredGroups = Split(Value("REQUIRED_GROUPS")),
                 AutoCreate = autoCreate,
+                SessionLength = sessionLength,
                 RoleMap = roleMap,
                 GroupMap = groupMap,
                 MirrorGroups = mirror,

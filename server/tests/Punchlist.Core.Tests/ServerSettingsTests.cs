@@ -114,6 +114,7 @@ public sealed class ServerSettingsTests
             ["OIDC_POCKET_AUTO_CREATE"] = "yes",
             ["OIDC_POCKET_ROLE_MAP"] = "punchlist-admins=admin, owners=super-admin",
             ["OIDC_POCKET_GROUP_MAP"] = "family=Family",
+            ["OIDC_POCKET_SESSION_HOURS"] = "0",
             ["OIDC_HOME_SSO_AUTHORITY"] = "http://keycloak:8080/realms/home",
             ["OIDC_HOME_SSO_CLIENT_ID"] = "pl",
             ["OIDC_HOME_SSO_DISPLAY_NAME"] = "Home login",
@@ -131,6 +132,7 @@ public sealed class ServerSettingsTests
         Assert.Equal(Role.SuperAdmin, pocket.RoleMap["owners"]);
         Assert.Equal("Family", pocket.GroupMap["family"]);
         Assert.Equal(["openid", "profile", "email", "groups"], pocket.Scopes);
+        Assert.Null(pocket.SessionLength);
 
         var home = settings.OidcProviders[1];
         Assert.Equal(("home-sso", "Home login"), (home.Name, home.DisplayName));
@@ -138,6 +140,7 @@ public sealed class ServerSettingsTests
         Assert.False(home.AutoCreate);
         Assert.Null(home.ClientSecret);
         Assert.Equal(["openid", "profile", "email"], home.Scopes);
+        Assert.Equal(TimeSpan.FromHours(12), home.SessionLength);
     }
 
     [Fact]
@@ -149,7 +152,9 @@ public sealed class ServerSettingsTests
             ["OIDC_POCKET_AUTHORITY"] = "id.example.com",
             ["OIDC_POCKET_ROLE_MAP"] = "admins=owner,broken",
             ["OIDC_POCKET_AUTO_CREATE"] = "sometimes",
+            ["OIDC_POCKET_SESSION_HOURS"] = "-1",
         }));
+        Assert.Contains("OIDC_POCKET_SESSION_HOURS: '-1' is not a number of hours from 0 to 720", error.Message);
         Assert.Contains("'bad_name' is not a provider name", error.Message);
         Assert.Contains("'pocket' is listed twice", error.Message);
         Assert.Contains("OIDC_POCKET_AUTHORITY: 'id.example.com' is not an http or https address", error.Message);
