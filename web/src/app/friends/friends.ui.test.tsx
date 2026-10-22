@@ -36,6 +36,12 @@ describe('friends page', () => {
     await signedIn('/friends', backend);
     expect(await screen.findByDisplayValue('https://punchlist.test/f/BEN')).toBeInTheDocument();
     expect(screen.getByText(/No friends yet/)).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'QR code' }));
+    expect(
+      await screen.findByRole('img', { name: 'QR code for https://punchlist.test/f/BEN' }),
+    ).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Done' }));
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
 
     const add = screen.getByRole('region', { name: 'Add a friend' });
     await userEvent.type(within(add).getByLabelText('Their exact username'), 'nobody{Enter}');

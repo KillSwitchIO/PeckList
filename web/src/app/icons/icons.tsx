@@ -561,3 +561,15 @@ export function AssignedIcon(props: SvgIconProps) {
     </PunchIcon>
   );
 }
+
+/** A QR code: three finder squares and a few modules. */
+export function QrIcon(props: SvgIconProps) {
+  return (
+    <PunchIcon {...props}>
+      <rect x="4" y="4" width="6" height="6" rx="1" />
+      <rect x="14" y="4" width="6" height="6" rx="1" />
+      <rect x="4" y="14" width="6" height="6" rx="1" />
+      <path d="M14 14h2.5v2.5M20 14v.01M14 20h.01M17.5 20H20v-3" />
+    </PunchIcon>
+  );
+}

@@ -129,6 +129,9 @@ export const en = {
   'friends.linkHint':
     'Anyone who opens it and accepts becomes your friend. Make a new one to retire this one.',
   'friends.copy': 'Copy link',
+  'friends.qr': 'QR code',
+  'friends.qrOf': 'QR code for {link}',
+  'friends.qrHint': 'Have them scan it with their phone camera, then sign in and accept.',
   'friends.copied': 'Link copied',
   'friends.newLink': 'New link',
   'friends.add': 'Add a friend',

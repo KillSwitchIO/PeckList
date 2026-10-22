@@ -2,6 +2,10 @@ import {
   Alert,
   Box,
   Button,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
   Divider,
   List,
   ListItem,
@@ -21,13 +25,14 @@ import {
 } from '../../core/sharing.ts';
 import type { ProfilePreview } from '../../ports/sync.ts';
 import { t } from '../i18n/i18n.ts';
-import { CopyIcon } from '../icons/icons.tsx';
+import { CopyIcon, QrIcon } from '../icons/icons.tsx';
 import { Page } from '../layout/Page.tsx';
 import { ConfirmDialog } from '../lists/ListDialog.tsx';
 import { useApply, useStoreState, useWorkspace } from '../store/hooks.ts';
 import { useSyncState } from '../sync/syncContext.ts';
 import { Avatar } from './Avatar.tsx';
 import { Groups } from './Groups.tsx';
+import { QrCode } from './QrCode.tsx';
 
 /**
  * Friends (spec: Sharing & Permissions): your friend link to share, adding someone by exact
@@ -71,6 +76,7 @@ function YourLink() {
   const friends = useSyncState((state) => state.transport.friends)!;
   const [link, setLink] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  const [showQr, setShowQr] = useState(false);
   useEffect(() => {
     let live = true;
     void friends
@@ -103,6 +109,14 @@ function YourLink() {
         >
           {t('friends.copy')}
         </Button>
+        <Button
+          variant="outlined"
+          startIcon={<QrIcon />}
+          disabled={!link}
+          onClick={() => setShowQr(true)}
+        >
+          {t('friends.qr')}
+        </Button>
         <Button onClick={() => void friends.code(true).then((code) => setLink(code.link))}>
           {t('friends.newLink')}
         </Button>
@@ -110,6 +124,20 @@ function YourLink() {
       <Typography variant="caption" color="text.secondary">
         {t('friends.linkHint')}
       </Typography>
+      {link && (
+        <Dialog open={showQr} onClose={() => setShowQr(false)}>
+          <DialogTitle>{t('friends.yourLink')}</DialogTitle>
+          <DialogContent sx={{ display: 'grid', justifyItems: 'center', gap: 2 }}>
+            <QrCode text={link} label={t('friends.qrOf', { link })} />
+            <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center' }}>
+              {t('friends.qrHint')}
+            </Typography>
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => setShowQr(false)}>{t('common.done')}</Button>
+          </DialogActions>
+        </Dialog>
+      )}
       <Snackbar
         open={copied}
         autoHideDuration={2000}
