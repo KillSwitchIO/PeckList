@@ -82,9 +82,7 @@ environment:
 | `LOCAL_LOGIN`                 | `shown`                             | `hidden` hides the password form; `/login?local` still shows it                                                                                                                      |
 
 A new account never takes over an existing one with the same username: it gets a number after
-the name instead. A role map never removes the last super admin. People waiting for approval are
-listed at `GET /api/admin/pending-signins` (the admin screens come in 0.6), and
-`POST /api/admin/pending-signins/<provider>/<subject>/approve` lets one in.
+the name instead. A role map never removes the last super admin. People waiting for approval are listed under **Admin > Sign-in**, where an admin lets them in (or `POST /api/admin/pending-signins/<provider>/<subject>/approve`).
 
 ### Linking accounts and moving providers
 
