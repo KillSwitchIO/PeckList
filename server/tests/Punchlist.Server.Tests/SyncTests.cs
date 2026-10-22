@@ -165,10 +165,13 @@ public sealed class SyncTests(ServerFixture fixture) : IClassFixture<ServerFixtu
         request.Headers.Add(SyncEndpoints.DeviceHeader, "laptop1");
         (await laptop.SendAsync(request, Token)).EnsureSuccessStatusCode();
 
+        // A missing event must fail the test, not hang the run.
+        using var patience = CancellationTokenSource.CreateLinkedTokenSource(Token);
+        patience.CancelAfter(TimeSpan.FromSeconds(10));
         string? line;
-        do line = await reader.ReadLineAsync(Token); while (line is "" or null || line.StartsWith(':'));
+        do line = await reader.ReadLineAsync(patience.Token); while (line is "" or null || line.StartsWith(':'));
         Assert.Equal("event: changed", line);
-        var data = JsonNode.Parse((await reader.ReadLineAsync(Token))!["data: ".Length..])!;
+        var data = JsonNode.Parse((await reader.ReadLineAsync(patience.Token))!["data: ".Length..])!;
         Assert.Equal("laptop1", (string?)data["source"]);
         Assert.True((long?)data["cursor"] > 0);
     }

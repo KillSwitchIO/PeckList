@@ -51,26 +51,33 @@ public static class SyncEndpoints
         response.Headers.CacheControl = "no-cache";
         // nginx and friends would buffer the stream otherwise.
         response.Headers["X-Accel-Buffering"] = "no";
-        await response.WriteAsync(": connected\n\n", cancellation);
-        await response.Body.FlushAsync(cancellation);
-
-        await using var events = notifier.SubscribeAsync(user.UserId(), cancellation).GetAsyncEnumerator(cancellation);
-        var next = events.MoveNextAsync().AsTask();
+        // Subscribe before saying the stream is open: a change made right after the client hears
+        // "connected" must not slip through.
+        using var subscription = notifier.Subscribe(user.UserId());
         try
         {
+            await response.WriteAsync(": connected\n\n", cancellation);
+            await response.Body.FlushAsync(cancellation);
             while (!cancellation.IsCancellationRequested)
             {
-                var finished = await Task.WhenAny(next, Task.Delay(Heartbeat, cancellation));
-                if (finished == next)
+                using var heartbeat = CancellationTokenSource.CreateLinkedTokenSource(cancellation);
+                heartbeat.CancelAfter(Heartbeat);
+                bool ready;
+                try
                 {
-                    if (!await next) break;
-                    var data = JsonSerializer.Serialize(events.Current, JsonSerializerOptions.Web);
-                    await response.WriteAsync($"event: changed\ndata: {data}\n\n", cancellation);
-                    next = events.MoveNextAsync().AsTask();
+                    ready = await subscription.Events.WaitToReadAsync(heartbeat.Token);
                 }
-                else
+                catch (OperationCanceledException) when (!cancellation.IsCancellationRequested)
                 {
                     await response.WriteAsync(": ping\n\n", cancellation);
+                    await response.Body.FlushAsync(cancellation);
+                    continue;
+                }
+                if (!ready) break;
+                while (subscription.Events.TryRead(out var change))
+                {
+                    var data = JsonSerializer.Serialize(change, JsonSerializerOptions.Web);
+                    await response.WriteAsync($"event: changed\ndata: {data}\n\n", cancellation);
                 }
                 await response.Body.FlushAsync(cancellation);
             }
@@ -78,11 +85,6 @@ public static class SyncEndpoints
         catch (OperationCanceledException)
         {
             // The client went away.
-        }
-        finally
-        {
-            // Let the pending read finish (it ends with the request) before the subscription goes.
-            await next.ContinueWith(_ => { }, TaskScheduler.Default);
         }
     }
 }
