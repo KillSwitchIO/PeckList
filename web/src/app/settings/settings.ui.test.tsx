@@ -1,7 +1,9 @@
 import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { inboxList } from '../../core/lists.ts';
 import { paletteOverrides } from '../../core/paletteSettings.ts';
+import { createTask } from '../../core/tasks.ts';
 import { mockViewport, renderApp, testStore } from '../../test/renderApp.tsx';
 
 beforeEach(() => {
@@ -53,5 +55,36 @@ describe('settings: colors', () => {
     await userEvent.click(screen.getByRole('combobox', { name: 'Calendar length' }));
     await userEvent.click(await screen.findByRole('option', { name: '1 hour' }));
     expect(settings().pointEventMinutes).toBe(60);
+  });
+
+  it('24-hour clock and Monday weeks show everywhere at once', async () => {
+    const store = testStore();
+    await store.getState().init();
+    store.getState().apply(
+      (ctx, ws) =>
+        createTask(ctx, ws, {
+          title: 'Standup',
+          listId: inboxList(ws).id,
+          schedule: { start: '2030-01-07T14:30', end: null, allDay: false, timeZone: 'UTC' },
+        }).workspace,
+    );
+    await store.getState().flush();
+    await renderApp('/settings', store);
+    const clock = await screen.findByRole('group', { name: 'Clock' });
+    await userEvent.click(within(clock).getByRole('button', { name: '13:00' }));
+    expect(store.getState().workspace!.entities.settings[0]!.clockFormat).toBe('24h');
+    const week = screen.getByRole('group', { name: 'Week starts on' });
+    await userEvent.click(within(week).getByRole('button', { name: 'Monday' }));
+    expect(store.getState().workspace!.entities.settings[0]!.weekStart).toBe(1);
+
+    await userEvent.click(within(screen.getAllByRole('navigation')[0]!).getByText('All'));
+    expect(await screen.findByText(/14:30/)).toBeInTheDocument();
+    expect(screen.queryByText(/2:30 PM/)).toBeNull();
+
+    // The date picker's month starts on Monday.
+    await userEvent.click(screen.getByTestId('task-date'));
+    const picker = await screen.findByRole('dialog');
+    const days = within(within(picker).getAllByRole('grid')[0]!).getAllByRole('gridcell');
+    expect(days[0]).toHaveAccessibleName(/^Monday/);
   });
 });

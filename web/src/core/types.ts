@@ -151,6 +151,10 @@ export interface Settings extends BaseEntity {
   palette: Record<string, string>;
   pointEventMinutes: number;
   dueSoonDays: number;
+  /** Times on a 12-hour (default) or 24-hour clock */
+  clockFormat?: '12h' | '24h';
+  /** First day of the week in calendars: 0 Sunday (default), 1 Monday */
+  weekStart?: 0 | 1;
   sidebar: SidebarLayout;
 }
 

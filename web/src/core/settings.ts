@@ -6,7 +6,7 @@ import type { Settings, WorkspaceFile } from './types.ts';
 
 /** Fields a user changes from the Settings page. */
 export type SettingsPatch = Partial<
-  Pick<Settings, 'themeMode' | 'pointEventMinutes' | 'dueSoonDays'>
+  Pick<Settings, 'themeMode' | 'pointEventMinutes' | 'dueSoonDays' | 'clockFormat' | 'weekStart'>
 >;
 
 /** Change some settings; values that are already set leave the workspace as it is. */

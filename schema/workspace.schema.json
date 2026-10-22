@@ -8,7 +8,7 @@
   "additionalProperties": false,
   "properties": {
     "schemaVersion": {
-      "const": 4
+      "const": 5
     },
     "app": {
       "type": "object",
@@ -679,6 +679,14 @@
           "type": "integer",
           "minimum": 0,
           "maximum": 30
+        },
+        "clockFormat": {
+          "description": "Times show on a 12-hour (default) or 24-hour clock",
+          "enum": ["12h", "24h"]
+        },
+        "weekStart": {
+          "description": "The first day of the week in calendars: 0 Sunday (default), 1 Monday",
+          "enum": [0, 1]
         },
         "sidebar": {
           "type": "object",

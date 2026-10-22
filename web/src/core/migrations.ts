@@ -3,7 +3,7 @@
 
 import { keyBetween } from './ordering.ts';
 
-export const CURRENT_SCHEMA_VERSION = 4;
+export const CURRENT_SCHEMA_VERSION = 5;
 
 export type Migration = (document: Record<string, unknown>) => Record<string, unknown>;
 
@@ -77,6 +77,10 @@ export const MIGRATIONS: MigrationRegistry = {
       entities: { ...entities, tags: tags.map((tag) => ({ ...tag, order: orders.get(tag) })) },
     };
   },
+  // 5: settings may hold clockFormat and weekStart. Both are optional (a missing one means the
+  // default: 12-hour clock, Sunday), so documents change only in version; older apps must not
+  // open version 5 files, which may carry them.
+  5: (document) => document,
 };
 
 export type VersionCheck =

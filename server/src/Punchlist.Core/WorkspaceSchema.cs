@@ -4,7 +4,7 @@ namespace Punchlist.Core;
 public static class WorkspaceSchema
 {
     /// <summary>Must match <c>CURRENT_SCHEMA_VERSION</c> in web/src/core/migrations.ts.</summary>
-    public const int CurrentVersion = 4;
+    public const int CurrentVersion = 5;
 
     /// <summary>The entity collections, as in <c>COLLECTIONS</c> (web/src/core/types.ts).</summary>
     public static readonly IReadOnlyList<string> Collections =

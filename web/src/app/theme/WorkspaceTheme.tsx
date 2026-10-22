@@ -3,6 +3,7 @@ import { useEffect, useMemo, type ReactNode } from 'react';
 import { paletteOverrides } from '../../core/paletteSettings.ts';
 import { updateSettings } from '../../core/settings.ts';
 import { useApply, useWorkspace } from '../store/hooks.ts';
+import { setDisplayPreferences } from '../format.ts';
 import { createAppTheme } from './theme.ts';
 import {
   nextThemeMode,
@@ -22,13 +23,18 @@ export function WorkspaceTheme({ children }: { children: ReactNode }) {
   const workspace = useWorkspace();
   const apply = useApply();
   const prefersDark = useMediaQuery('(prefers-color-scheme: dark)', { noSsr: true });
-  const mode = workspace.entities.settings[0]?.themeMode ?? 'system';
+  const settings = workspace.entities.settings[0];
+  const mode = settings?.themeMode ?? 'system';
+  // Clock and week start for every date shown below (set before they render).
+  setDisplayPreferences(settings ?? {});
+  const display = `${settings?.clockFormat ?? '12h'}/${settings?.weekStart ?? 0}`;
   const resolved = mode === 'system' ? (prefersDark ? 'dark' : 'light') : mode;
   const overrides = paletteOverrides(workspace);
   const key = JSON.stringify(overrides);
+  // A new theme object when the clock changes too, so everything showing a time renders again.
   const theme = useMemo(
-    () => createAppTheme(resolved, JSON.parse(key) as Record<string, string>),
-    [resolved, key],
+    () => ({ ...createAppTheme(resolved, JSON.parse(key) as Record<string, string>), display }),
+    [resolved, key, display],
   );
   // A light or dark choice made in this browser before settings synced comes along, once.
   useEffect(() => {

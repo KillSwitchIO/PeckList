@@ -20,7 +20,7 @@ import {
 } from '@mui/material';
 import { useState, type ReactNode } from 'react';
 import { addDays, shiftMonths } from '../../core/dates.ts';
-import { formatDay, formatTime } from '../format.ts';
+import { formatDay, formatTime, weekStart } from '../format.ts';
 import { t } from '../i18n/i18n.ts';
 import { CalendarIcon, CalendarNextIcon, SunIcon, SunriseIcon } from '../icons/icons.tsx';
 import { addHour, DEFAULT_TIME, orderedSpan, type DatePart, type DateValue } from './dateValue.ts';
@@ -362,6 +362,7 @@ export function DatePickerPanel({
       )}
 
       <MonthCalendar
+        weekStartsOn={weekStart()}
         selected={mode === 'duration' && active === 'end' ? (end?.date ?? start.date) : date}
         today={today}
         onSelect={pickDay}

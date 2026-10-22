@@ -269,6 +269,30 @@ export function SettingsPage() {
           </SettingRow>
         </Section>
         <Section title={t('settings.dates')}>
+          <SettingRow label={t('settings.clock')}>
+            <ToggleButtonGroup
+              exclusive
+              size="small"
+              value={settings?.clockFormat ?? '12h'}
+              aria-label={t('settings.clock')}
+              onChange={(_, next: '12h' | '24h' | null) => next && change({ clockFormat: next })}
+            >
+              <ToggleButton value="12h">{t('settings.clock.12h')}</ToggleButton>
+              <ToggleButton value="24h">{t('settings.clock.24h')}</ToggleButton>
+            </ToggleButtonGroup>
+          </SettingRow>
+          <SettingRow label={t('settings.weekStart')}>
+            <ToggleButtonGroup
+              exclusive
+              size="small"
+              value={settings?.weekStart ?? 0}
+              aria-label={t('settings.weekStart')}
+              onChange={(_, next: 0 | 1 | null) => next !== null && change({ weekStart: next })}
+            >
+              <ToggleButton value={0}>{t('settings.weekStart.sunday')}</ToggleButton>
+              <ToggleButton value={1}>{t('settings.weekStart.monday')}</ToggleButton>
+            </ToggleButtonGroup>
+          </SettingRow>
           <SettingRow label={t('settings.dueSoon')} hint={t('settings.dueSoonHint')}>
             <TextField
               select
