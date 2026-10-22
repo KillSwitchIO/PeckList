@@ -118,6 +118,15 @@ describe('HTTP admin', () => {
     });
   });
 
+  it('reads how the log outputs are doing and where the debug dump downloads from', async () => {
+    const view = { level: 'information', overrides: {}, outputs: [] };
+    const { fetcher, calls } = fakeFetch({ status: 200, body: view });
+    const admin = createHttpAdmin('https://pl.home', fetcher);
+    expect(await admin.logging()).toEqual(view);
+    expect(calls[0]?.url).toBe('https://pl.home/api/admin/logging');
+    expect(admin.debugDumpUrl()).toBe('https://pl.home/api/admin/debug-dump');
+  });
+
   it('restores from a file or a backup on the server, saying why one will not do', async () => {
     const forms: FormData[] = [];
     const replies = [

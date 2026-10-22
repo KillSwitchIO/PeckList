@@ -149,8 +149,8 @@ the same host or Docker network.
 
 Every setting also accepts `NAME_FILE`, a file holding the value (Docker secrets); one trailing
 newline is dropped. Setting both is an error. A bad setting stops the server with a list of what
-to fix. OIDC settings are in [Sign in with OIDC](#sign-in-with-oidc). `LOG_LEVEL` takes `trace`,
-`debug`, `information` (default), `warning`, `error` or `critical`.
+to fix. OIDC settings are in [Sign in with OIDC](#sign-in-with-oidc), logging in
+[Logs](#logs).
 
 ### Three places for settings
 
@@ -201,6 +201,72 @@ sessions and every device's sync position, so nobody has to sign in or resync.
 
 On Windows Git Bash, prefix commands with `MSYS_NO_PATHCONV=1` so `/data/...` paths reach the
 container unchanged.
+
+## Logs
+
+Every log entry has the same fields everywhere: UTC time, level, category, message, event id,
+request id, trace id and the user's id when there is one. Passwords, cookies, tokens, secrets and
+task content are never logged; a test runs the whole server at `trace` and checks.
+
+| Variable              | Default                | Meaning                                                                   |
+| --------------------- | ---------------------- | ------------------------------------------------------------------------- |
+| `LOG_LEVEL`           | `information`          | `trace`, `debug`, `information`, `warning`, `error` or `critical`         |
+| `LOG_LEVEL_OVERRIDES` | -                      | Per category and those under it: `Punchlist.Sync=debug,Microsoft=warning` |
+| `LOG_FORMAT`          | `text`                 | Console output: readable `text` or `json` (one object per line)           |
+| `LOG_FILES`           | `true`                 | Also write JSON lines to `LOG_DIR`                                        |
+| `LOG_DIR`             | `logs` by the database | `/data/logs` in the image (environment only)                              |
+| `LOG_FILE_MAX_MB`     | `50`                   | A file rolls at midnight UTC or at this size; earlier files are gzipped   |
+| `LOG_FILE_KEEP_DAYS`  | `14`                   | Archives older than this are deleted                                      |
+
+`Microsoft.AspNetCore` and `System.Net.Http.HttpClient` start at `warning` (they log every request
+otherwise); an override changes that. Levels and log servers saved in **Admin > Settings** apply at
+once, no restart. **Admin > Logs** shows each output, whether it keeps up, and how many entries it
+dropped.
+
+### Sending logs to a log server
+
+Set one or more of these. A log server that is down never holds up Punchlist: each has its own
+queue of up to 10,000 entries, retried with growing waits, and what does not fit is dropped and
+counted on **Admin > Logs**.
+
+| Stack                                                          | Settings                                                                                                                                                              |
+| -------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| OpenTelemetry (Grafana Alloy, OTel Collector, SigNoz, Elastic) | `LOG_OTLP_ENDPOINT=http://alloy:4318` (OTLP/HTTP, JSON), `LOG_OTLP_HEADERS=Authorization=Basic%20...`                                                                 |
+| Grafana Loki                                                   | `LOG_LOKI_URL=http://loki:3100`, optional `LOG_LOKI_USERNAME`, `LOG_LOKI_PASSWORD`, `LOG_LOKI_TENANT`                                                                 |
+| Graylog                                                        | `LOG_GELF_ADDRESS=udp://graylog:12201` (or `tcp://...`, or `http://graylog:12201` for a GELF HTTP input)                                                              |
+| Elasticsearch / OpenSearch (ELK)                               | `LOG_ELASTIC_URL=https://es:9200`, `LOG_ELASTIC_API_KEY` or `LOG_ELASTIC_USERNAME` and `LOG_ELASTIC_PASSWORD`, `LOG_ELASTIC_INDEX` (default `logs-punchlist-default`) |
+| Syslog (rsyslog, syslog-ng, Vector)                            | `LOG_SYSLOG_ADDRESS=udp://rsyslog:514` or `tcp://rsyslog:514` (RFC 5424, facility local0)                                                                             |
+
+Grafana and Loki: Loki gets the labels `service_name="punchlist"`, `host` and `level`, and each
+line is the JSON entry, so a query reads every field:
+
+```logql
+{service_name="punchlist"} | json | level="error"
+{service_name="punchlist"} | json | userId="01M5JR..." | line_format "{{.message}}"
+```
+
+Elasticsearch: entries use ECS names (`@timestamp`, `log.level`, `log.logger`, `trace.id`,
+`user.id`, `http.request.id`), and the default index lands in the built-in `logs-*-*` data stream,
+so Kibana's Discover and Logs apps show them without a mapping. OpenSearch creates the index on
+first write.
+
+Graylog: add a GELF UDP (or TCP, or HTTP) input on port 12201. Fields arrive as `_category`,
+`_request_id`, `_trace_id`, `_user_id` and the message's own values as `_prop_<name>`.
+
+Already tailing files or Docker logs with Promtail, Alloy, Filebeat or Fluent Bit? Set
+`LOG_FORMAT=json` and point it at `docker logs`, or at `/data/logs/*.log` (JSON lines either way).
+
+### Debug dump
+
+**Admin > Logs > Download debug dump**, or from the container:
+
+```bash
+docker exec <container> punchlist debug-dump /data/debug.zip
+```
+
+The zip holds recent logs, every setting with where it comes from (secrets shown as `********`),
+versions, database row counts and health. It never holds task content, password hashes or keys,
+so it can go with a bug report.
 
 ## PostgreSQL
 

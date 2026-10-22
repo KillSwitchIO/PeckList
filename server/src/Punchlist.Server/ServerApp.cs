@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.HttpOverrides;
 using Punchlist.Core;
 using Punchlist.Core.Configuration;
 using Punchlist.Server.Auth;
+using Punchlist.Server.Logging;
 using Punchlist.Core.Sync;
 
 namespace Punchlist.Server;
@@ -18,9 +19,6 @@ public static partial class ServerApp
     {
         var builder = WebApplication.CreateBuilder(args);
         var config = builder.Configuration;
-        // Cookie keys sit in the database next to the data they protect; ASP.NET warns that they are
-        // not encrypted at rest on every start, which only alarms self-hosters.
-        builder.Logging.AddFilter("Microsoft.AspNetCore.DataProtection.KeyManagement.XmlKeyManager", LogLevel.Error);
         // Configuration holds the environment variables (and test overrides); NAME_FILE works too.
         // Then CONFIG_FILE, then values saved on the admin settings page (spec: Server settings).
         var loaded = SettingsLoader.Load(
@@ -29,7 +27,17 @@ public static partial class ServerApp
         var settings = loaded.Settings;
         builder.Services.AddSingleton(loaded);
         builder.Services.AddSingleton(settings);
-        builder.Logging.SetMinimumLevel(Enum.Parse<LogLevel>(settings.LogLevel.ToString()));
+
+        // One provider for every log output (spec: Logging); its levels decide what is written.
+        var logging = new LogPipeline(settings.Logging);
+        logging.Redaction.AddSecrets([
+            settings.AdminPassword, settings.DbConnectionString, config["CONFIG_KEY"],
+            .. settings.OidcProviders.Select(provider => provider.ClientSecret),
+        ]);
+        builder.Logging.ClearProviders();
+        builder.Logging.SetMinimumLevel(LogLevel.Trace);
+        builder.Services.AddSingleton(logging);
+        builder.Services.AddSingleton<ILoggerProvider>(_ => logging);
 
         builder.Services.AddHealthChecks();
         builder.Services.AddEntityStore(settings);
@@ -78,9 +86,11 @@ public static partial class ServerApp
                 "OIDC is on without PUBLIC_URL: sign-in callbacks use the address each request came in on. " +
                 "Set PUBLIC_URL so it always matches the redirect URI registered with the provider.");
         }
+        LogPipeline.UseLogContext(app, user: false);
         app.UseForwardedHeaders();
         app.UseAuthentication();
         app.UseImpersonation();
+        LogPipeline.UseLogContext(app, user: true);
         app.UseAuthorization();
         app.UseRateLimiter();
 
@@ -88,7 +98,7 @@ public static partial class ServerApp
         app.MapGet("/api/info", () => new ServerInfo("punchlist", Version, WorkspaceSchema.CurrentVersion));
         app.MapAuth();
         app.MapGroup("/api").RequireAuthorization().RequirePasswordChanged().EnsureProfiles().MapSync().MapFriends().MapAccount();
-        app.MapGroup("/api/admin").RequireAuthorization().RequirePasswordChanged().MapAdmin().MapSettings().MapBackups();
+        app.MapGroup("/api/admin").RequireAuthorization().RequirePasswordChanged().MapAdmin().MapSettings().MapBackups().MapLogging();
 
         var webRoot = settings.WebRoot ?? Path.Combine(AppContext.BaseDirectory, "wwwroot");
         app.UseStaticSite(webRoot, app.Logger);

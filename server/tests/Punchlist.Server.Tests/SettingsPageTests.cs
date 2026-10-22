@@ -121,7 +121,7 @@ public sealed class SettingsPageTests(ServerFixture fixture) : IClassFixture<Ser
         await File.WriteAllTextAsync(file, $"REGISTRATION=closed\nLOG_LEVEL={ConfigCipher.FromText(key).Encrypt("warning")}\n", Token);
         using var server = Server(fixture.NewDbPath(), ("CONFIG_FILE", file), ("CONFIG_KEY", key));
         var settings = server.Services.GetRequiredService<ServerSettings>();
-        Assert.Equal((Registration.Closed, LogLevelSetting.Warning), (settings.Registration, settings.LogLevel));
+        Assert.Equal((Registration.Closed, LogLevelSetting.Warning), (settings.Registration, settings.Logging.Level));
         var view = (await (await Admin(server)).GetFromJsonAsync<SettingsView>("/api/admin/settings", Token))!;
         Assert.Equal(("file", true), (Find(view, "REGISTRATION").Source, Find(view, "REGISTRATION").Locked));
     }

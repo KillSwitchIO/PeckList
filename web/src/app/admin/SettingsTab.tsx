@@ -14,6 +14,25 @@ const LABELS: Record<string, MessageKey> = {
   SNAPSHOT_KEEP: 'serverSettings.SNAPSHOT_KEEP',
   TRUSTED_PROXIES: 'serverSettings.TRUSTED_PROXIES',
   LOG_LEVEL: 'serverSettings.LOG_LEVEL',
+  LOG_LEVEL_OVERRIDES: 'serverSettings.LOG_LEVEL_OVERRIDES',
+  LOG_FORMAT: 'serverSettings.LOG_FORMAT',
+  LOG_FILES: 'serverSettings.LOG_FILES',
+  LOG_FILE_MAX_MB: 'serverSettings.LOG_FILE_MAX_MB',
+  LOG_FILE_KEEP_DAYS: 'serverSettings.LOG_FILE_KEEP_DAYS',
+  LOG_OTLP_ENDPOINT: 'serverSettings.LOG_OTLP_ENDPOINT',
+  LOG_OTLP_HEADERS: 'serverSettings.LOG_OTLP_HEADERS',
+  LOG_LOKI_URL: 'serverSettings.LOG_LOKI_URL',
+  LOG_LOKI_USERNAME: 'serverSettings.LOG_LOKI_USERNAME',
+  LOG_LOKI_PASSWORD: 'serverSettings.LOG_LOKI_PASSWORD',
+  LOG_LOKI_TENANT: 'serverSettings.LOG_LOKI_TENANT',
+  LOG_GELF_ADDRESS: 'serverSettings.LOG_GELF_ADDRESS',
+  LOG_ELASTIC_URL: 'serverSettings.LOG_ELASTIC_URL',
+  LOG_ELASTIC_INDEX: 'serverSettings.LOG_ELASTIC_INDEX',
+  LOG_ELASTIC_USERNAME: 'serverSettings.LOG_ELASTIC_USERNAME',
+  LOG_ELASTIC_PASSWORD: 'serverSettings.LOG_ELASTIC_PASSWORD',
+  LOG_ELASTIC_API_KEY: 'serverSettings.LOG_ELASTIC_API_KEY',
+  LOG_SYSLOG_ADDRESS: 'serverSettings.LOG_SYSLOG_ADDRESS',
+  LOG_DIR: 'serverSettings.LOG_DIR',
   AUTH_MODE: 'serverSettings.AUTH_MODE',
   ADMIN_PASSWORD: 'serverSettings.ADMIN_PASSWORD',
   DB_PROVIDER: 'serverSettings.DB_PROVIDER',
@@ -48,6 +67,7 @@ const GROUPS: Record<string, MessageKey> = {
   backups: 'serverSettings.group.backups',
   network: 'serverSettings.group.network',
   logging: 'serverSettings.group.logging',
+  'log-shipping': 'serverSettings.group.log-shipping',
   environment: 'serverSettings.group.environment',
 };
 
@@ -135,7 +155,8 @@ function SettingControl({
 
 /**
  * Admin > Settings (spec: Server settings): every setting, where it comes from, and the ones the
- * environment or config file decide shown greyed out. Saved values apply after a restart.
+ * environment or config file decide shown greyed out. Logging applies when saved; the rest after
+ * a restart.
  */
 export function SettingsTab({ api }: { api: AdminApi }) {
   const { data, reload } = useLoaded(api.settings);

@@ -1,6 +1,7 @@
 using Punchlist.Core.Accounts;
 using Punchlist.Core.Configuration;
 using Punchlist.Server.Auth;
+using Punchlist.Server.Logging;
 
 namespace Punchlist.Server;
 
@@ -13,7 +14,8 @@ public sealed record SettingView(
     string? Value,
     string Source,
     bool Locked,
-    bool Saved);
+    bool Saved,
+    bool Live);
 
 public sealed record SettingsView(IReadOnlyList<SettingView> Settings, bool PendingRestart, string? Problem);
 
@@ -35,7 +37,8 @@ public static class SettingsEndpoints
             View(loaded, await SettingsLoader.ReadPageAsync(secrets, cancellation)))
             .RequirePermission(Permission.ManageSettings);
 
-        admin.MapPut("/settings", async (SettingsChange change, LoadedSettings loaded, Core.Accounts.ISecretStore secrets, CancellationToken cancellation) =>
+        admin.MapPut("/settings", async (
+            SettingsChange change, LoadedSettings loaded, Core.Accounts.ISecretStore secrets, LogPipeline logging, CancellationToken cancellation) =>
         {
             var saved = await SettingsLoader.ReadPageAsync(secrets, cancellation);
             var page = new Dictionary<string, string>(saved, StringComparer.Ordinal);
@@ -56,9 +59,10 @@ public static class SettingsEndpoints
                     return Results.Conflict(new AdminError("locked", $"{key} is set outside this page"));
                 }
             }
+            ServerSettings next;
             try
             {
-                ServerSettings.Read(layers, loaded.InContainer);
+                next = ServerSettings.Read(layers, loaded.InContainer);
             }
             catch (SettingsException error)
             {
@@ -66,6 +70,8 @@ public static class SettingsEndpoints
             }
             await SettingsLoader.SavePageAsync(secrets, values,
                 key => SettingsCatalog.Find(layers, key)?.Kind == SettingKind.Secret, cancellation);
+            // Logging applies at once; the rest at the next restart.
+            if (values.Keys.Any(key => SettingsCatalog.Find(layers, key)?.Live == true)) logging.Apply(next.Logging);
             return Results.Ok(View(loaded, page));
         }).RequirePermission(Permission.ManageSettings);
 
@@ -107,10 +113,13 @@ public static class SettingsEndpoints
                 value,
                 source.ToString().ToLowerInvariant(),
                 definition.EnvironmentOnly || source is SettingSource.Environment or SettingSource.File,
-                saved.ContainsKey(definition.Key)));
+                saved.ContainsKey(definition.Key),
+                definition.Live));
         }
-        var pending = saved.Count != loaded.PageAtStart.Count
-            || saved.Any(pair => !loaded.PageAtStart.TryGetValue(pair.Key, out var before) || before != pair.Value);
+        // Settings that apply while running never wait for a restart.
+        bool Live(string key) => SettingsCatalog.Find(layers, key)?.Live == true;
+        var pending = saved.Keys.Union(loaded.PageAtStart.Keys).Where(key => !Live(key)).Any(key =>
+            saved.TryGetValue(key, out var now) != loaded.PageAtStart.TryGetValue(key, out var before) || now != before);
         return new SettingsView(list, pending, loaded.PageProblem);
     }
 }

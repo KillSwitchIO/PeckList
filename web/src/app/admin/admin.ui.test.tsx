@@ -56,6 +56,18 @@ function memoryAdmin(benId: string) {
     ] as PendingSignIn[],
   };
   const ok = <T,>(value: T) => Promise.resolve({ ok: true as const, value });
+  const output = (name: string, destination: string, healthy: boolean) => ({
+    name,
+    destination,
+    healthy,
+    sent: healthy ? 120 : 0,
+    dropped: healthy ? 0 : 35,
+    failures: healthy ? 0 : 4,
+    queued: 0,
+    lastSent: null,
+    lastFailure: null,
+    lastError: healthy ? null : 'HttpRequestException: Connection refused (loki:3100)',
+  });
   const settingsView = () => ({
     pendingRestart: Object.keys(state.page).length > 0,
     problem: null,
@@ -70,6 +82,7 @@ function memoryAdmin(benId: string) {
         source: state.page.REGISTRATION ? ('page' as const) : ('default' as const),
         locked: false,
         saved: Boolean(state.page.REGISTRATION),
+        live: false,
       },
       {
         key: 'SNAPSHOT_KEEP',
@@ -81,6 +94,7 @@ function memoryAdmin(benId: string) {
         source: 'environment' as const,
         locked: true,
         saved: false,
+        live: false,
       },
       {
         key: 'DB_CONNECTION_STRING',
@@ -92,6 +106,7 @@ function memoryAdmin(benId: string) {
         source: 'environment' as const,
         locked: true,
         saved: false,
+        live: false,
       },
     ],
   });
@@ -228,6 +243,16 @@ function memoryAdmin(benId: string) {
       state.restarted = true;
       return Promise.resolve();
     },
+    logging: () =>
+      Promise.resolve({
+        level: 'information',
+        overrides: {},
+        outputs: [
+          output('console', 'standard output', true),
+          output('loki', 'http://loki:3100/loki/api/v1/push', false),
+        ],
+      }),
+    debugDumpUrl: () => '/api/admin/debug-dump',
     providers: () =>
       Promise.resolve([
         { name: 'pocket', displayName: 'Pocket ID', linked: 2, migrationWindowUntil: state.window },
@@ -454,6 +479,24 @@ describe('admin', () => {
       await screen.findByText(/The server is restarting to restore the backup/),
     ).toBeInTheDocument();
     expect(state.restores.map((each) => each.username)).toEqual([null, 'sam', 'everyone']);
+  });
+
+  it('shows where logs go, which output is failing, and offers the debug dump', async () => {
+    await adminApp('superadmin', '/admin/logs');
+    const outputs = await screen.findByRole('region', { name: 'Where logs go' });
+    expect(await within(outputs).findByText('Writing information and above.')).toBeInTheDocument();
+    expect(within(outputs).getByRole('listitem', { name: 'Console' })).toHaveTextContent(
+      'Keeping up · 120 sent, 0 dropped',
+    );
+    const loki = within(outputs).getByRole('listitem', { name: 'Loki' });
+    expect(loki).toHaveTextContent('Failing · 0 sent, 35 dropped');
+    expect(loki).toHaveTextContent('Connection refused (loki:3100)');
+    expect(screen.getByRole('link', { name: 'Download debug dump' })).toHaveAttribute(
+      'href',
+      '/api/admin/debug-dump',
+    );
+    await userEvent.click(within(outputs).getByRole('link', { name: /Change levels/ }));
+    expect(await screen.findByRole('region', { name: 'General' })).toBeInTheDocument();
   });
 
   it('makes a group and fills it', async () => {

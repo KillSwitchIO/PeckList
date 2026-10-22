@@ -5,6 +5,7 @@ using Punchlist.Core.Storage;
 using Punchlist.Storage.Postgres;
 using Punchlist.Storage.Sql;
 using Punchlist.Storage.Sqlite;
+using Punchlist.Server.Logging;
 
 namespace Punchlist.Server;
 
@@ -14,7 +15,7 @@ namespace Punchlist.Server;
 /// </summary>
 public static class Cli
 {
-    public static readonly string[] Commands = ["export", "import", "migrate-db", "snapshot", "admin", "oidc", "config", "help", "--help", "-h"];
+    public static readonly string[] Commands = ["export", "import", "migrate-db", "snapshot", "admin", "oidc", "config", "debug-dump", "help", "--help", "-h"];
 
     public const string Usage = """
         Usage: punchlist <command>
@@ -39,6 +40,8 @@ public static class Cli
           config encrypt [value]        Print the value (or standard input) encrypted with CONFIG_KEY,
                                         for the environment or CONFIG_FILE: enc:v1:...
           config show                   Every setting with where it comes from (secrets hidden).
+          debug-dump [file]             Write a zip for bug reports: recent logs, settings (secrets
+                                        hidden), versions and database counts (stdout without a file).
           healthcheck                   Exit 0 when the running server answers /healthz.
 
         Settings come from the same environment variables as the server.
@@ -90,6 +93,25 @@ public static class Cli
                 }
                 case "migrate-db":
                     return await MigrateAsync(args, backup, output, errors);
+                case "debug-dump":
+                {
+                    var loaded = SettingsLoader.Load(environment, inContainer);
+                    var dump = new DebugDump(loaded.Layers, settings, database, inContainer, TimeProvider.System)
+                    {
+                        Snapshots = new Snapshots(backup, settings.SnapshotDir, settings.SnapshotKeep, TimeProvider.System),
+                        MadeBy = "cli",
+                    };
+                    if (args.Length > 1)
+                    {
+                        await using (var file = File.Create(args[1])) await dump.WriteAsync(file);
+                        await errors.WriteLineAsync($"Debug dump written to {args[1]}.");
+                    }
+                    else
+                    {
+                        await dump.WriteAsync(standardOutput);
+                    }
+                    return 0;
+                }
                 case "snapshot":
                 {
                     var snapshots = new Snapshots(backup, settings.SnapshotDir, settings.SnapshotKeep, TimeProvider.System);

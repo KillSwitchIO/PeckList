@@ -12,6 +12,12 @@ public interface IDatabase
     /// <summary>Whether it holds no entities, accounts or secrets (import only goes into an empty one).</summary>
     Task<bool> IsEmptyAsync(CancellationToken cancellation = default);
 
+    /// <summary>
+    /// Row counts for the debug dump and server stats: <c>accounts</c>, <c>identities</c>,
+    /// <c>server_groups</c> and so on, then <c>entities.&lt;collection&gt;</c> and <c>deleted.&lt;collection&gt;</c>.
+    /// </summary>
+    Task<IReadOnlyDictionary<string, long>> CountRowsAsync(CancellationToken cancellation = default);
+
     /// <summary>Delete every entity, account and secret (import --replace).</summary>
     Task WipeAsync(CancellationToken cancellation = default);
 }

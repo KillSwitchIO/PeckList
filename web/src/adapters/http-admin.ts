@@ -10,6 +10,7 @@ import type {
   AdminResult,
   AdminUser,
   BackupFile,
+  LoggingView,
   RestoreSource,
   UserRestoreResult,
   PendingSignIn,
@@ -208,6 +209,8 @@ export function createHttpAdmin(
     restart: async () => {
       await call('/restart', 'POST');
     },
+    logging: async () => json<LoggingView>(await call('/logging')),
+    debugDumpUrl: () => `${base}/api/admin/debug-dump`,
     providers: async () => json<AdminProvider[]>(await call('/providers')),
     unbindAll: async (provider) =>
       json<{ unbound: number; stranded: string[] }>(

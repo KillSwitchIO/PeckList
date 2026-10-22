@@ -43,6 +43,24 @@ public abstract class SqlDatabase : IDatabase
         return rows == 0;
     }
 
+    public async Task<IReadOnlyDictionary<string, long>> CountRowsAsync(CancellationToken cancellation = default)
+    {
+        await using var connection = await OpenAsync(cancellation);
+        var counts = new SortedDictionary<string, long>(StringComparer.Ordinal);
+        foreach (var table in new[] { "accounts", "identities", "pending_signins", "server_groups", "server_group_members" })
+        {
+            counts[table] = Convert.ToInt64(await connection.ExecuteScalarAsync(new CommandDefinition($"SELECT COUNT(*) FROM {table}", cancellationToken: cancellation)));
+        }
+        await using var reader = await connection.ExecuteReaderAsync(new CommandDefinition(
+            "SELECT collection, deleted, COUNT(*) FROM entities GROUP BY collection, deleted", cancellationToken: cancellation));
+        while (await reader.ReadAsync(cancellation))
+        {
+            var deleted = Convert.ToBoolean(reader.GetValue(1));
+            counts[(deleted ? "deleted." : "entities.") + reader.GetString(0)] = Convert.ToInt64(reader.GetValue(2));
+        }
+        return counts;
+    }
+
     public async Task WipeAsync(CancellationToken cancellation = default)
     {
         await using var connection = await OpenAsync(cancellation);

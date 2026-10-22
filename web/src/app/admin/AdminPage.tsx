@@ -4,18 +4,19 @@ import { t } from '../i18n/i18n.ts';
 import { Page } from '../layout/Page.tsx';
 import { BackupsTab } from './BackupsTab.tsx';
 import { GroupsTab } from './GroupsTab.tsx';
+import { LogsTab } from './LogsTab.tsx';
 import { SettingsTab } from './SettingsTab.tsx';
 import { SignInTab } from './SignInTab.tsx';
 import { UsersTab } from './UsersTab.tsx';
 import { useAdminApi } from './useAdmin.ts';
 
-const TABS = ['users', 'groups', 'sign-in', 'backups', 'settings'] as const;
+const TABS = ['users', 'groups', 'sign-in', 'backups', 'logs', 'settings'] as const;
 type AdminTab = (typeof TABS)[number];
 const isTab = (value: string | undefined): value is AdminTab => TABS.some((each) => each === value);
 
 /**
- * The admin area (spec: PL-034 Admin UI): users, server groups and sign-in. Settings, backups,
- * logs and stats join as their features land. The server checks every action too; this page only
+ * The admin area (spec: PL-034 Admin UI): users, server groups, sign-in, backups, logs and
+ * settings. Stats join when that feature lands. The server checks every action too; this page only
  * shows for admins.
  */
 export function AdminPage() {
@@ -53,6 +54,7 @@ export function AdminPage() {
       {tab === 'groups' && <GroupsTab api={api} />}
       {tab === 'sign-in' && <SignInTab api={api} />}
       {tab === 'backups' && <BackupsTab api={api} />}
+      {tab === 'logs' && <LogsTab api={api} />}
       {tab === 'settings' && <SettingsTab api={api} />}
     </Page>
   );

@@ -78,8 +78,8 @@ public sealed record ServerSettings
     /// <summary>OIDC providers (<c>OIDC_PROVIDERS</c>); empty without OIDC.</summary>
     public IReadOnlyList<OidcProviderSettings> OidcProviders { get; init; } = [];
 
-    /// <summary>The least important log messages written: <c>LOG_LEVEL</c>.</summary>
-    public LogLevelSetting LogLevel { get; init; } = LogLevelSetting.Information;
+    /// <summary>Levels, format, files and shipping targets (<c>LOG_*</c>).</summary>
+    public LoggingSettings Logging { get; init; } = new();
 
     /// <summary><c>LOCAL_LOGIN=hidden</c> hides the password form once a provider works (<c>/login?local</c> still shows it).</summary>
     public bool LocalLoginHidden { get; init; }
@@ -171,7 +171,7 @@ public sealed record ServerSettings
             WebRoot = Get("WEB_ROOT"),
             OidcProviders = OidcProviderSettings.ReadAll(Get, errors),
             LocalLoginHidden = Choice("LOCAL_LOGIN", LocalLogin.Shown) == LocalLogin.Hidden,
-            LogLevel = Choice("LOG_LEVEL", LogLevelSetting.Information),
+            Logging = LoggingSettings.Read(Get, Path.Combine(Path.GetDirectoryName(dbPath) is { Length: > 0 } dir ? dir : ".", "logs"), errors),
         };
         if (settings.OidcProviders.Count > 0 && settings.AuthMode == AuthMode.None)
         {

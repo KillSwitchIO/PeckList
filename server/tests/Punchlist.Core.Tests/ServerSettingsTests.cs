@@ -178,4 +178,52 @@ public sealed class ServerSettingsTests
         Assert.Contains("LOCAL_LOGIN=hidden needs an OIDC provider",
             Assert.Throws<SettingsException>(() => Read(new() { ["LOCAL_LOGIN"] = "hidden" })).Message);
     }
+
+    [Fact]
+    public void Reads_logging_levels_files_and_shipping_targets()
+    {
+        var defaults = Read([]).Logging;
+        Assert.Equal((LogLevelSetting.Information, LogFormat.Text, true, "/data/logs", 50, 14), (defaults.Level, defaults.Format, defaults.Files, defaults.Dir, defaults.FileMaxMegabytes, defaults.FileKeepDays));
+        Assert.Null(defaults.LokiUrl);
+
+        var logging = Read(new()
+        {
+            ["LOG_LEVEL"] = "Debug",
+            ["LOG_LEVEL_OVERRIDES"] = "Microsoft.AspNetCore=Warning, Punchlist.Sync=trace",
+            ["LOG_FORMAT"] = "JSON",
+            ["LOG_FILES"] = "off",
+            ["LOG_OTLP_ENDPOINT"] = "http://alloy:4318",
+            ["LOG_OTLP_HEADERS"] = "Authorization=Basic%20YWJj,X-Org=home",
+            ["LOG_LOKI_URL"] = "https://loki.home",
+            ["LOG_GELF_ADDRESS"] = "udp://graylog",
+            ["LOG_SYSLOG_ADDRESS"] = "tcp://rsyslog:6514",
+            ["LOG_ELASTIC_URL"] = "https://es:9200",
+        }).Logging;
+        Assert.Equal(LogLevelSetting.Debug, logging.Level);
+        Assert.Equal(LogLevelSetting.Trace, logging.Overrides["Punchlist.Sync"]);
+        Assert.Equal((LogFormat.Json, false), (logging.Format, logging.Files));
+        Assert.Equal("Basic YWJj", logging.OtlpHeaders["Authorization"]);
+        Assert.Equal(new LogAddress("udp", "graylog", 12201), logging.Gelf);
+        Assert.Equal(new LogAddress("tcp", "rsyslog", 6514), logging.Syslog);
+        Assert.Equal("logs-punchlist-default", logging.ElasticIndex);
+    }
+
+    [Fact]
+    public void Logging_problems_are_reported_together()
+    {
+        var error = Assert.Throws<SettingsException>(() => Read(new()
+        {
+            ["LOG_LEVEL_OVERRIDES"] = "Punchlist.Sync",
+            ["LOG_FORMAT"] = "xml",
+            ["LOG_LOKI_URL"] = "loki:3100",
+            ["LOG_GELF_ADDRESS"] = "graylog",
+            ["LOG_SYSLOG_ADDRESS"] = "http://rsyslog",
+            ["LOG_ELASTIC_INDEX"] = "Logs Punchlist",
+            ["LOG_FILE_KEEP_DAYS"] = "0",
+        }));
+        foreach (var name in new[] { "LOG_LEVEL_OVERRIDES", "LOG_FORMAT", "LOG_LOKI_URL", "LOG_GELF_ADDRESS", "LOG_SYSLOG_ADDRESS", "LOG_ELASTIC_INDEX", "LOG_FILE_KEEP_DAYS" })
+        {
+            Assert.Contains(name + ":", error.Message);
+        }
+    }
 }

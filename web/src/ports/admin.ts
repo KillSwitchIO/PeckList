@@ -81,6 +81,8 @@ export interface ServerSetting {
   locked: boolean;
   /** A value is saved on the page (it may be overridden). */
   saved: boolean;
+  /** Applies as soon as it is saved (logging), not at the next restart. */
+  live: boolean;
 }
 
 export interface ServerSettingsView {
@@ -89,6 +91,29 @@ export interface ServerSettingsView {
   pendingRestart: boolean;
   /** Why the saved values were set aside at the last start, if they were. */
   problem: string | null;
+}
+
+/** One place the server's logs go, and how it is keeping up (spec: Logging). */
+export interface LogOutput {
+  /** console, file, otlp, loki, gelf, elastic or syslog */
+  name: string;
+  /** Where it sends, without passwords. */
+  destination: string;
+  healthy: boolean;
+  sent: number;
+  /** Entries lost while the output was down or behind. */
+  dropped: number;
+  failures: number;
+  queued: number;
+  lastSent: string | null;
+  lastFailure: string | null;
+  lastError: string | null;
+}
+
+export interface LoggingView {
+  level: string;
+  overrides: Record<string, string>;
+  outputs: LogOutput[];
 }
 
 /** A scheduled backup on the server. */
@@ -185,6 +210,10 @@ export interface AdminApi {
   ): Promise<{ ok: true; value: ServerSettingsView } | { ok: false; message: string }>;
   /** Stop the server so it starts again with the saved values (needs a restart policy). */
   restart(): Promise<void>;
+
+  logging(): Promise<LoggingView>;
+  /** Downloads a zip of recent logs, settings (secrets hidden), versions and counts. */
+  debugDumpUrl(): string;
 
   providers(): Promise<AdminProvider[]>;
   unbindAll(provider: string): Promise<{ unbound: number; stranded: string[] }>;
