@@ -1,8 +1,18 @@
-import { Box, List, ListItemButton, ListItemIcon, ListItemText, Typography } from '@mui/material';
+import {
+  Box,
+  Button,
+  List,
+  ListItemButton,
+  ListItemIcon,
+  ListItemText,
+  Typography,
+} from '@mui/material';
 import { useState } from 'react';
 import {
   assigneeCandidates,
   assigneesOf,
+  canClaim,
+  claimTask,
   describePrincipal,
   setAssignee,
 } from '../../core/sharing.ts';
@@ -14,6 +24,7 @@ import { AssignedIcon, CheckIcon } from '../icons/icons.tsx';
 import { useApply, useStoreState, useWorkspace } from '../store/hooks.ts';
 import { useSyncState } from '../sync/syncContext.ts';
 import { PropertyRow, PropertySheet } from './PropertyRow.tsx';
+import { useReadOnly } from './readOnly.ts';
 
 /**
  * The "Assigned" row in task details (spec: Sharing & Permissions, Assignment): who the task is
@@ -25,6 +36,7 @@ export function AssigneeProperty({ task }: { task: Task }) {
   const me = useStoreState((state) => state.context().userId);
   const syncNow = useSyncState((state) => state.syncNow);
   const [anchor, setAnchor] = useState<HTMLElement | null>(null);
+  const readOnly = useReadOnly();
 
   const assigned = assigneesOf(task).map((principal) => describePrincipal(workspace, principal));
   const label = (principal: string, name: string) =>
@@ -40,22 +52,42 @@ export function AssigneeProperty({ task }: { task: Task }) {
           });
   const chosen = new Set(assigned.map((each) => each.principal));
   const candidates = anchor ? assigneeCandidates(workspace, me, task) : [];
+  const claimable = !readOnly && canClaim(workspace, me, task);
 
   return (
     <>
-      <PropertyRow
-        label={t('assignee.label')}
-        icon={<AssignedIcon fontSize="small" />}
-        ariaValue={display}
-        onClick={setAnchor}
-      >
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, minWidth: 0 }}>
-          {assigned.length > 0 && <AvatarStack people={assigned} size={22} />}
-          <Typography noWrap sx={{ color: assigned.length > 0 ? 'text.primary' : 'text.disabled' }}>
-            {display}
-          </Typography>
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+        <Box sx={{ flexGrow: 1, minWidth: 0 }}>
+          <PropertyRow
+            label={t('assignee.label')}
+            icon={<AssignedIcon fontSize="small" />}
+            ariaValue={display}
+            onClick={setAnchor}
+          >
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, minWidth: 0 }}>
+              {assigned.length > 0 && <AvatarStack people={assigned} size={22} />}
+              <Typography
+                noWrap
+                sx={{ color: assigned.length > 0 ? 'text.primary' : 'text.disabled' }}
+              >
+                {display}
+              </Typography>
+            </Box>
+          </PropertyRow>
         </Box>
-      </PropertyRow>
+        {/* A group chore: whoever takes it puts their name on it. */}
+        {claimable && (
+          <Button
+            size="small"
+            onClick={() => {
+              apply((ctx, ws) => claimTask(ctx, ws, task.id));
+              void syncNow();
+            }}
+          >
+            {t('assignee.dibs')}
+          </Button>
+        )}
+      </Box>
       <PropertySheet label={t('assignee.title')} anchor={anchor} onClose={() => setAnchor(null)}>
         <Box sx={{ width: { xs: '100%', sm: 280 }, py: 1 }}>
           <Typography variant="subtitle2" color="text.secondary" sx={{ px: 2, pb: 0.5 }}>

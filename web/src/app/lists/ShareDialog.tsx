@@ -17,7 +17,9 @@ import {
 } from '@mui/material';
 import { useState } from 'react';
 import { useNavigate } from 'react-router';
+import { activeGroupsOf } from '../../core/groups.ts';
 import {
+  describePrincipal,
   friendsOf,
   listMembersOf,
   makePrivate,
@@ -54,16 +56,28 @@ export function ShareDialog({ list, onClose }: { list: List; onClose: () => void
 
   const owner = roleOn(workspace, me, list.id) === 'owner';
   const users = new Map(workspace.entities.users.map((user) => [user.id, user]));
-  const members = listMembersOf(workspace, list.id).filter((member) =>
-    member.principal.startsWith('user:'),
-  );
-  const memberIds = new Set(members.map((member) => member.principal.slice(5)));
+  const members = listMembersOf(workspace, list.id);
+  const memberPrincipals = new Set(members.map((member) => member.principal));
+  // Friends and my groups not on the list yet, as principals.
   const friends = friendsOf(workspace, me).filter(
     (friend) =>
       friend.state === 'accepted' &&
-      !memberIds.has(friend.userId) &&
+      !memberPrincipals.has(`user:${friend.userId}`) &&
       friend.userId !== list.createdBy,
   );
+  const groups = activeGroupsOf(workspace, me).filter(
+    (group) => !memberPrincipals.has(`group:${group.id}`),
+  );
+  const choices = [
+    ...friends.map((friend) => ({
+      principal: `user:${friend.userId}`,
+      name: nameOf(friend.user, friend.userId),
+    })),
+    ...groups.map((group) => ({
+      principal: `group:${group.id}`,
+      name: t('share.groupOption', { name: group.name }),
+    })),
+  ];
   const mine = members.find((member) => member.principal === `user:${me}`);
   const name = listName(list);
   const change = (operation: Parameters<typeof apply>[0]) => {
@@ -74,7 +88,17 @@ export function ShareDialog({ list, onClose }: { list: List; onClose: () => void
   const person = (userId: string) => {
     const user = users.get(userId);
     const label = nameOf(user, userId);
-    return { label: userId === me ? t('share.you', { name: label }) : label, user, plain: label };
+    return {
+      label: userId === me ? t('share.you', { name: label }) : label,
+      plain: label,
+      color: user?.avatarColor ?? '#B8BCC4',
+      detail: user?.handle,
+    };
+  };
+  const principal = (value: string) => {
+    if (value.startsWith('user:')) return person(value.slice(5));
+    const shown = describePrincipal(workspace, value);
+    return { label: shown.name, plain: shown.name, color: shown.color, detail: t('share.group') };
   };
   const creator = person(list.createdBy);
 
@@ -93,12 +117,12 @@ export function ShareDialog({ list, onClose }: { list: List; onClose: () => void
               }
             >
               <Box sx={{ mr: 1.5 }}>
-                <Avatar name={creator.plain} color={creator.user?.avatarColor ?? '#B8BCC4'} />
+                <Avatar name={creator.plain} color={creator.color} />
               </Box>
-              <ListItemText primary={creator.label} secondary={creator.user?.handle} />
+              <ListItemText primary={creator.label} secondary={creator.detail} />
             </ListItem>
             {members.map((member) => {
-              const shown = person(member.principal.slice(5));
+              const shown = principal(member.principal);
               return (
                 <ListItem
                   key={member.id}
@@ -150,9 +174,9 @@ export function ShareDialog({ list, onClose }: { list: List; onClose: () => void
                   }
                 >
                   <Box sx={{ mr: 1.5 }}>
-                    <Avatar name={shown.plain} color={shown.user?.avatarColor ?? '#B8BCC4'} />
+                    <Avatar name={shown.plain} color={shown.color} />
                   </Box>
-                  <ListItemText primary={shown.label} secondary={shown.user?.handle} />
+                  <ListItemText primary={shown.label} secondary={shown.detail} />
                 </ListItem>
               );
             })}
@@ -166,7 +190,7 @@ export function ShareDialog({ list, onClose }: { list: List; onClose: () => void
           {owner && (
             <>
               <Divider sx={{ my: 2 }} />
-              {friends.length === 0 ? (
+              {choices.length === 0 ? (
                 <Typography variant="body2" color="text.secondary">
                   {friendsOf(workspace, me).some((friend) => friend.state === 'accepted')
                     ? t('share.allIn')
@@ -182,9 +206,9 @@ export function ShareDialog({ list, onClose }: { list: List; onClose: () => void
                     onChange={(event) => setAdding(event.target.value)}
                     sx={{ flexGrow: 1 }}
                   >
-                    {friends.map((friend) => (
-                      <MenuItem key={friend.userId} value={friend.userId}>
-                        {nameOf(friend.user, friend.userId)}
+                    {choices.map((choice) => (
+                      <MenuItem key={choice.principal} value={choice.principal}>
+                        {choice.name}
                       </MenuItem>
                     ))}
                   </TextField>
@@ -208,7 +232,7 @@ export function ShareDialog({ list, onClose }: { list: List; onClose: () => void
                     disableElevation
                     disabled={adding === ''}
                     onClick={() => {
-                      change((ctx, ws) => shareList(ctx, ws, list.id, `user:${adding}`, role));
+                      change((ctx, ws) => shareList(ctx, ws, list.id, adding, role));
                       setAdding('');
                     }}
                   >

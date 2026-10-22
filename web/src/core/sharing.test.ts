@@ -5,10 +5,13 @@ import { createList } from './lists.ts';
 import { createEntity } from './ops.ts';
 import {
   acceptFriendship,
+  assigneesOf,
   assigneeCandidates,
   assignedTo,
   canEditList,
+  canClaim,
   canEditTask,
+  claimTask,
   endFriendship,
   friendsOf,
   isShared,
@@ -124,6 +127,30 @@ describe('list sharing', () => {
     const withGroup: WorkspaceFile = putEntity(workspace, 'groupMembers', member);
     const shared = shareList(ben, withGroup, list.id, 'group:01JBGR0000000000000000000G', 'viewer');
     expect(roleOn(shared, SAM, list.id)).toBe('viewer');
+  });
+});
+
+describe('dibs', () => {
+  it('a group member takes a group task for themselves', () => {
+    const { ben, workspace, list } = benWorld();
+    const task = sampleTask(ben, list.id, 'Take out bins');
+    const group = '01JBGR0000000000000000000G';
+    const member = createEntity<GroupMember>(ben, {
+      groupId: group,
+      userId: SAM,
+      joinedAt: new Date().toISOString(),
+      state: 'active',
+    });
+    let next = putEntity(putEntity(workspace, 'tasks', task), 'groupMembers', member);
+    next = setAssignee(ben, next, task.id, `group:${group}`, true);
+    expect(canClaim(next, SAM, getTask(next, task.id))).toBe(true);
+    // Not in the group: nothing to claim.
+    expect(canClaim(next, JO, getTask(next, task.id))).toBe(false);
+    expect(claimTask(as(JO), next, task.id)).toBe(next);
+
+    next = claimTask(as(SAM), next, task.id);
+    expect(assigneesOf(getTask(next, task.id))).toEqual([`user:${SAM}`]);
+    expect(canClaim(next, SAM, getTask(next, task.id))).toBe(false);
   });
 });
 

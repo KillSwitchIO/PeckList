@@ -7,7 +7,8 @@ import { createList } from '../../core/lists.ts';
 import { createEntity } from '../../core/ops.ts';
 import { assigneesOf, setAssignee } from '../../core/sharing.ts';
 import { createTask } from '../../core/tasks.ts';
-import type { Friendship, User } from '../../core/types.ts';
+import type { OpContext } from '../../core/ops.ts';
+import type { Friendship, GroupMember, User, WorkspaceFile } from '../../core/types.ts';
 import { FakeBackend } from '../../test/fakeTransport.ts';
 import { mockViewport, renderApp, testStore } from '../../test/renderApp.tsx';
 import { createSyncEngine } from '../sync/syncEngine.ts';
@@ -21,7 +22,10 @@ beforeEach(() => {
 });
 
 /** A list with "Fix fence" and a friend, Sam; with a server unless `standalone`. */
-async function setup(standalone = false) {
+async function setup(
+  standalone = false,
+  extra: (ctx: OpContext, ws: WorkspaceFile, taskId: string) => WorkspaceFile = (_, ws) => ws,
+) {
   const store = testStore();
   await store.getState().init();
   let listId = '';
@@ -54,7 +58,11 @@ async function setup(standalone = false) {
       userB: SAM,
       state: 'accepted',
     });
-    return putEntity(putEntity(created.workspace, 'users', sam), 'friendships', friendship);
+    return extra(
+      ctx,
+      putEntity(putEntity(created.workspace, 'users', sam), 'friendships', friendship),
+      taskId,
+    );
   });
   await store.getState().flush();
   await renderApp(`/lists/${listId}`, store, sync);
@@ -128,6 +136,30 @@ describe('assigning a task', () => {
     await userEvent.click(await screen.findByRole('button', { name: 'Open Water beans' }));
     const details = await screen.findByRole('region', { name: 'Task details' });
     expect(within(details).getByText("Someone else's list")).toBeInTheDocument();
+  });
+
+  it('dibs takes a group chore for me', async () => {
+    const group = '01JBGR0000000000000000000G';
+    const { task } = await setup(false, (ctx, ws, taskId) => {
+      const member = createEntity<GroupMember>(ctx, {
+        groupId: group,
+        userId: ctx.userId,
+        joinedAt: new Date().toISOString(),
+        state: 'active',
+      });
+      return setAssignee(
+        ctx,
+        putEntity(ws, 'groupMembers', member),
+        taskId,
+        `group:${group}`,
+        true,
+      );
+    });
+    const details = await screen.findByRole('region', { name: 'Task details' });
+    await userEvent.click(within(details).getByRole('button', { name: 'Dibs' }));
+    expect(assigneesOf(task())).toEqual([`user:${task().createdBy}`]);
+    expect(within(details).queryByRole('button', { name: 'Dibs' })).toBeNull();
+    expect(within(details).getByRole('button', { name: 'Assigned: Me' })).toBeInTheDocument();
   });
 
   it('is not offered without a server', async () => {

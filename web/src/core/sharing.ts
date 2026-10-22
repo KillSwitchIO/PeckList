@@ -261,12 +261,44 @@ export function assigneeCandidates(workspace: WorkspaceFile, me: Id, task: Task)
   for (const friend of friendsOf(workspace, me)) {
     if (friend.state === 'accepted') principals.add(`user:${friend.userId}`);
   }
+  // My groups (a chore for whoever gets to it first).
+  for (const principal of principalsOf(workspace, me)) {
+    const group = principal.startsWith('group:')
+      ? getEntity(workspace, 'groups', principal.slice(6))
+      : undefined;
+    if (group && isLive(group) && !group.archived) principals.add(principal);
+  }
   for (const principal of assigneesOf(task)) principals.add(principal);
   principals.delete(`user:${me}`);
   const others = [...principals]
     .map((principal) => describePrincipal(workspace, principal))
     .sort((a, b) => a.name.localeCompare(b.name));
   return [describePrincipal(workspace, `user:${me}`), ...others];
+}
+
+/**
+ * Dibs (spec: Group-assigned tasks): take a task assigned to a group I am in for myself. The
+ * group comes off and I go on, so the group sees who took it.
+ */
+export function claimTask(ctx: OpContext, workspace: WorkspaceFile, taskId: Id): WorkspaceFile {
+  const task = getEntity(workspace, 'tasks', taskId);
+  if (!task) return workspace;
+  const mine = new Set(principalsOf(workspace, ctx.userId));
+  const groups = assigneesOf(task).filter(
+    (principal) => principal.startsWith('group:') && mine.has(principal),
+  );
+  if (groups.length === 0) return workspace;
+  let next = workspace;
+  for (const principal of groups) next = setAssignee(ctx, next, taskId, principal, false);
+  return setAssignee(ctx, next, taskId, `user:${ctx.userId}`, true);
+}
+
+/** Whether a task is assigned to a group I am in (and so open for dibs). */
+export function canClaim(workspace: WorkspaceFile, me: Id, task: Task): boolean {
+  const mine = new Set(principalsOf(workspace, me));
+  return assigneesOf(task).some(
+    (principal) => principal.startsWith('group:') && mine.has(principal),
+  );
 }
 
 /** Open tasks assigned to me, directly or through a group I am in. */

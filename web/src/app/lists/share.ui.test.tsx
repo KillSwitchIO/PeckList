@@ -3,6 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { createMemoryStorage } from '../../adapters/memory-storage.ts';
 import { putEntity } from '../../core/collections.ts';
+import { createGroup } from '../../core/groups.ts';
 import { createList } from '../../core/lists.ts';
 import { createEntity } from '../../core/ops.ts';
 import { listMembersOf } from '../../core/sharing.ts';
@@ -47,7 +48,8 @@ async function setup() {
       userB: SAM,
       state: 'accepted',
     });
-    return putEntity(putEntity(workspace, 'users', sam), 'friendships', friendship);
+    const withGroup = createGroup(ctx, workspace, { name: 'Household', color: '#A7C7E7' });
+    return putEntity(putEntity(withGroup.workspace, 'users', sam), 'friendships', friendship);
   });
   // Saved before the app opens the store again on mount.
   await store.getState().flush();
@@ -66,14 +68,20 @@ describe('sharing a list', () => {
     await userEvent.click(await screen.findByRole('option', { name: 'Sam' }));
     await userEvent.click(within(dialog).getByRole('button', { name: 'Add' }));
     expect(within(dialog).getByText('Sam')).toBeInTheDocument();
+    // My groups are offered too.
+    await userEvent.click(within(dialog).getByLabelText('Add a friend'));
+    await userEvent.click(await screen.findByRole('option', { name: 'Household (group)' }));
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Add' }));
+    expect(within(dialog).getByText('Household')).toBeInTheDocument();
+    expect(within(dialog).getByText('Group')).toBeInTheDocument();
     expect(within(dialog).getByText('All your friends are on this list.')).toBeInTheDocument();
     const ws = () => store.getState().workspace!;
-    expect(listMembersOf(ws(), listId).map((member) => member.role)).toEqual(['editor']);
+    expect(listMembersOf(ws(), listId).map((member) => member.role)).toEqual(['editor', 'editor']);
     expect(ws().entities.lists.find((list) => list.id === listId)!.visibility).toBe('shared');
 
     await userEvent.click(within(dialog).getByRole('combobox', { name: 'Role of Sam' }));
     await userEvent.click(await screen.findByRole('option', { name: 'Can view' }));
-    expect(listMembersOf(ws(), listId).map((member) => member.role)).toEqual(['viewer']);
+    expect(listMembersOf(ws(), listId).map((member) => member.role)).toEqual(['viewer', 'editor']);
 
     await userEvent.click(within(dialog).getByRole('button', { name: 'Make private' }));
     const confirm = await screen.findByText(/Everyone else loses it/);
