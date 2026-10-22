@@ -4,9 +4,11 @@ import {
   SyncFailure,
   type Account,
   type ChangeEvent,
+  type AccountApi,
   type FriendsApi,
   type ProfilePreview,
   type ServerInfo,
+  type SignInMethods,
   type SyncTransport,
 } from '../ports/sync.ts';
 import { FakeSyncServer } from './fakeSyncServer.ts';
@@ -20,6 +22,8 @@ export interface FakeAccount {
 export class FakeBackend {
   readonly server = new FakeSyncServer();
   readonly accounts = new Map<string, FakeAccount>();
+  /** Each account's linked provider accounts, by username. */
+  readonly identities = new Map<string, SignInMethods['identities']>();
   /** What `/auth/providers` answers. */
   signIn: { providers: { name: string; displayName: string }[]; localLogin: boolean } = {
     providers: [],
@@ -70,6 +74,34 @@ export class FakeTransport implements SyncTransport {
       friendship: null,
     };
   }
+
+  /** An empty password stands for an account that signs in only through a provider. */
+  readonly account: AccountApi = {
+    signInMethods: () => {
+      const found = this.current();
+      if (!found) return Promise.reject(new SyncFailure('signed-out', 'signed out'));
+      const linked = this.backend.identities.get(found.account.username) ?? [];
+      return Promise.resolve({
+        password: found.password !== '',
+        identities: linked,
+        canLink: this.backend.signIn.providers
+          .filter((provider) => !linked.some((each) => each.provider === provider.name))
+          .map((provider) => ({ ...provider, url: `/auth/oidc/${provider.name}/link` })),
+      });
+    },
+    unlink: (provider, subject) => {
+      const found = this.current();
+      if (!found) return Promise.reject(new SyncFailure('signed-out', 'signed out'));
+      const linked = this.backend.identities.get(found.account.username) ?? [];
+      if (found.password === '' && linked.length <= 1)
+        return Promise.resolve('last-way-in' as const);
+      this.backend.identities.set(
+        found.account.username,
+        linked.filter((each) => each.provider !== provider || each.subject !== subject),
+      );
+      return Promise.resolve('ok' as const);
+    },
+  };
 
   /** Friend codes are the username in capitals here; accepting only records the request. */
   readonly accepted: string[] = [];

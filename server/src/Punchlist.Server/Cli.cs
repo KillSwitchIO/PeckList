@@ -14,7 +14,7 @@ namespace Punchlist.Server;
 /// </summary>
 public static class Cli
 {
-    public static readonly string[] Commands = ["export", "import", "migrate-db", "snapshot", "admin", "help", "--help", "-h"];
+    public static readonly string[] Commands = ["export", "import", "migrate-db", "snapshot", "admin", "oidc", "help", "--help", "-h"];
 
     public const string Usage = """
         Usage: punchlist <command>
@@ -29,6 +29,12 @@ public static class Cli
           admin add-user <user> [--admin]
                                         Add an account; its generated password must be changed at first login.
           admin set-role <user> <role>  Make an account a user, admin or superadmin.
+          admin login-link <user>       Print a one-time sign-in link (24 hours).
+          oidc unlink <user> [provider] Detach a user's provider accounts (all, or one provider's).
+          oidc unbind-all <provider>    Detach every account from a provider (moving to another).
+          oidc migration-window <provider> <hours|close>
+                                        Until it closes, a first sign-in through the provider joins
+                                        the account with the same username.
           healthcheck                   Exit 0 when the running server answers /healthz.
 
         Settings come from the same environment variables as the server.
@@ -106,6 +112,19 @@ public static class Cli
                     await output.WriteLineAsync($"{account.Username} is now {role.Name()}. It applies from their next request.");
                     return 0;
                 }
+                case "admin" when args.Length > 1 && args[1] == "login-link":
+                {
+                    if (args.Length < 3) return await Fail(errors, "admin login-link needs a user: punchlist admin login-link <user>");
+                    var store = new SqlAccountStore(database);
+                    var account = await store.FindByUsernameAsync(args[2]) ?? throw new KeyNotFoundException($"no user '{args[2]}'");
+                    var (token, expires) = await new LoginLinks(new SqlSecretStore(database), store, TimeProvider.System).CreateAsync(account.Id);
+                    var origin = settings.PublicUrl?.ToString().TrimEnd('/') ?? "<server address>";
+                    await output.WriteLineAsync($"{origin}/auth/link/{token}");
+                    await output.WriteLineAsync($"Signs {account.Username} in once, until {expires:yyyy-MM-dd HH:mm} UTC.");
+                    return 0;
+                }
+                case "oidc":
+                    return await OidcAsync(args, database, output, errors);
                 case "admin" when args.Length > 1 && args[1] == "reset-password":
                 {
                     var username = args.Length > 2 ? args[2] : AccountService.AdminUsername;
@@ -123,6 +142,60 @@ public static class Cli
             or KeyNotFoundException or ArgumentException or DuplicateUsernameException or LastSuperAdminException)
         {
             return await Fail(errors, error.Message);
+        }
+    }
+
+    private static async Task<int> OidcAsync(string[] args, SqlDatabase database, TextWriter output, TextWriter errors)
+    {
+        var store = new SqlAccountStore(database);
+        var signIn = new ExternalSignIn(store, new AccountService(store, new AspNetPasswordHasher(), TimeProvider.System),
+            new SqlIdentityStore(database), new SqlServerGroupStore(database), new SqlSecretStore(database), TimeProvider.System);
+        switch (args.Length > 1 ? args[1] : "")
+        {
+            case "unlink" when args.Length > 2:
+            {
+                var account = await store.FindByUsernameAsync(args[2]) ?? throw new KeyNotFoundException($"no user '{args[2]}'");
+                var gone = 0;
+                foreach (var identity in await signIn.IdentitiesOfAsync(account.Id))
+                {
+                    if (args.Length > 3 && identity.Provider != args[3]) continue;
+                    await signIn.UnlinkAsync(account.Id, identity.Provider, identity.Subject, selfService: false);
+                    gone++;
+                }
+                await output.WriteLineAsync($"Detached {gone} provider account(s) from {account.Username}.");
+                if (!await signIn.CanSignInAsync((await store.FindByIdAsync(account.Id))!))
+                {
+                    await output.WriteLineAsync($"{account.Username} has no way to sign in now: give them a link with punchlist admin login-link {account.Username}");
+                }
+                return 0;
+            }
+            case "unbind-all" when args.Length > 2:
+            {
+                var (unbound, stranded) = await signIn.UnbindProviderAsync(args[2]);
+                await output.WriteLineAsync($"Detached {unbound} account(s) from {args[2]}.");
+                if (stranded.Count > 0)
+                {
+                    await output.WriteLineAsync($"No way to sign in now: {string.Join(", ", stranded)}. Open a migration window on the new provider, or give them login links.");
+                }
+                return 0;
+            }
+            case "migration-window" when args.Length > 3:
+                if (args[3] == "close")
+                {
+                    await signIn.CloseMigrationWindowAsync(args[2]);
+                    await output.WriteLineAsync($"Migration window for {args[2]} closed.");
+                    return 0;
+                }
+                if (!double.TryParse(args[3], System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var hours)
+                    || hours <= 0 || hours > 24 * 30)
+                {
+                    return await Fail(errors, "the window needs a number of hours (up to 720) or close");
+                }
+                var until = await signIn.OpenMigrationWindowAsync(args[2], TimeSpan.FromHours(hours));
+                await output.WriteLineAsync($"Until {until:yyyy-MM-dd HH:mm} UTC, a first sign-in through {args[2]} joins the account with the same username.");
+                return 0;
+            default:
+                return await Fail(errors, $"unknown oidc command\n\n{Usage}");
         }
     }
 

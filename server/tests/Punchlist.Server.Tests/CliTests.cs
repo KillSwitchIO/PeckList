@@ -152,6 +152,46 @@ public sealed class CliTests : IDisposable
     }
 
     [Fact]
+    public async Task Oidc_commands_unbind_open_windows_and_hand_out_links()
+    {
+        var token = TestContext.Current.CancellationToken;
+        var settings = Settings() with { PublicUrl = new Uri("https://tasks.example.com") };
+        await MakeAdminAsync(settings);
+        var database = new Punchlist.Storage.Sqlite.SqliteDatabase(settings.DbPath);
+        var store = new Punchlist.Storage.Sql.SqlAccountStore(database);
+        var kim = await new Core.Accounts.AccountService(store, new AspNetPasswordHasher(), TimeProvider.System).CreateWithoutPasswordAsync("kim", token);
+        var identities = new Punchlist.Storage.Sql.SqlIdentityStore(database);
+        await identities.LinkAsync(new Core.Accounts.LinkedIdentity
+        {
+            Provider = "pocket",
+            Subject = "kim-sub",
+            AccountId = kim.Id,
+            LinkedAt = DateTimeOffset.UtcNow,
+            LastUsedAt = DateTimeOffset.UtcNow,
+        }, token);
+
+        var unbound = await Run(settings, "oidc", "unbind-all", "pocket");
+        Assert.Equal(0, unbound.Code);
+        Assert.Contains("Detached 1 account(s) from pocket.", unbound.Output);
+        Assert.Contains("No way to sign in now: kim.", unbound.Output);
+        Assert.Empty(await identities.ListAsync(token));
+
+        var window = await Run(settings, "oidc", "migration-window", "keycloak", "12");
+        Assert.Equal(0, window.Code);
+        Assert.Contains("joins the account with the same username", window.Output);
+        Assert.Contains("closed", (await Run(settings, "oidc", "migration-window", "keycloak", "close")).Output);
+        Assert.Contains("hours", (await Run(settings, "oidc", "migration-window", "keycloak", "soon")).Errors);
+
+        var link = await Run(settings, "admin", "login-link", "kim");
+        Assert.Equal(0, link.Code);
+        Assert.StartsWith("https://tasks.example.com/auth/link/", link.Output);
+        var redeemed = await new Core.Accounts.LoginLinks(new Punchlist.Storage.Sql.SqlSecretStore(database), store, TimeProvider.System)
+            .RedeemAsync(link.Output.Split(Environment.NewLine)[0].Trim().Split("/auth/link/")[1], token);
+        Assert.Equal(kim.Id, redeemed?.Id);
+        Assert.Contains("unknown oidc command", (await Run(settings, "oidc", "nope")).Errors);
+    }
+
+    [Fact]
     public async Task Migrate_db_needs_a_target()
     {
         var (code, _, errors, _) = await Run(Settings(), "migrate-db", "--to", "sqlite");

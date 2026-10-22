@@ -70,6 +70,28 @@ export interface ProfilePreview {
   friendship: 'accepted' | 'pending' | null;
 }
 
+/** How the signed-in account can sign in (`/api/account/sign-in`). */
+export interface SignInMethods {
+  password: boolean;
+  identities: {
+    provider: string;
+    displayName: string;
+    subject: string;
+    email: string | null;
+    linkedAt: string;
+    lastUsedAt: string;
+  }[];
+  /** Providers not linked yet, each with the address that starts linking it. */
+  canLink: { name: string; displayName: string; url: string }[];
+}
+
+/** The signed-in user's own account (servers with accounts). */
+export interface AccountApi {
+  signInMethods(): Promise<SignInMethods>;
+  /** `last-way-in` when it is the account's only way to sign in, so it stays. */
+  unlink(provider: string, subject: string): Promise<'ok' | 'last-way-in'>;
+}
+
 /** Friend links and lookups (servers only). */
 export interface FriendsApi {
   /** This account's friend link; `rotate` makes a new one and retires the old. */
@@ -119,4 +141,5 @@ export interface SyncTransport {
    */
   events?(onChange: (change: ChangeEvent) => void): () => void;
   friends?: FriendsApi;
+  account?: AccountApi;
 }

@@ -85,6 +85,39 @@ the name instead. A role map never removes the last super admin. People waiting 
 listed at `GET /api/admin/pending-signins` (the admin screens come in 0.6), and
 `POST /api/admin/pending-signins/<provider>/<subject>/approve` lets one in.
 
+### Linking accounts and moving providers
+
+Anyone can link a provider account to their Punchlist account under **Settings > Sign-in**, and
+unlink one as long as another way to sign in remains. A provider account linked to someone else
+cannot be linked again.
+
+To move everyone from one provider to another (say `pocket` to `keycloak`) without losing
+accounts:
+
+```bash
+# 1. Add the new provider to OIDC_PROVIDERS and restart.
+# 2. For a day, a first sign-in through keycloak joins the account with the same username.
+docker exec <container> punchlist oidc migration-window keycloak 24
+# 3. Detach everyone from the old provider (accounts and data stay).
+docker exec <container> punchlist oidc unbind-all pocket
+# 4. People sign in with the new provider. Then close the window and remove the old provider.
+docker exec <container> punchlist oidc migration-window keycloak close
+```
+
+A migration window never joins an account that already has a link to that provider, and it
+matches usernames only, so make sure both providers hand out the same usernames.
+
+Someone left with no way to sign in (no password, nothing linked) gets a one-time link that
+works for 24 hours:
+
+```bash
+docker exec <container> punchlist admin login-link kim
+docker exec <container> punchlist oidc unlink kim [provider]
+```
+
+The same actions are in the admin API: `/api/admin/providers`, `.../unbind-all`,
+`.../migration-window`, `/api/admin/users/<id>/identities` and `/api/admin/users/<id>/login-link`.
+
 Provider notes:
 
 - **Pocket ID, Authelia, Authentik**: send `groups` with the `groups` scope; nothing else to set.

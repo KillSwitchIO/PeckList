@@ -5,6 +5,7 @@ import type {
   LoginOutcome,
   PasswordOutcome,
   ServerInfo,
+  SignInMethods,
   SyncRequest,
   SyncResponse,
   SyncTransport,
@@ -137,6 +138,23 @@ export function createHttpSync(
       const response = await call('/api/sync', { method: 'POST', body: request });
       if (!response.ok) return fail(response);
       return (await response.json()) as SyncResponse;
+    },
+
+    account: {
+      async signInMethods() {
+        const response = await call('/api/account/sign-in');
+        if (!response.ok) return fail(response);
+        return (await response.json()) as SignInMethods;
+      },
+      async unlink(provider, subject) {
+        const response = await call(
+          `/api/account/identities/${encodeURIComponent(provider)}/${encodeURIComponent(subject)}`,
+          { method: 'DELETE' },
+        );
+        if (response.status === 409) return 'last-way-in';
+        if (!response.ok && response.status !== 404) return fail(response);
+        return 'ok';
+      },
     },
 
     friends: {

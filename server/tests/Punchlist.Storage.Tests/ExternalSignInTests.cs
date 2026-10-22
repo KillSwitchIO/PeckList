@@ -12,6 +12,7 @@ public sealed class ExternalSignInTests(SqliteFiles files) : IClassFixture<Sqlit
     private SqlAccountStore accounts = null!;
     private SqlIdentityStore identities = null!;
     private SqlServerGroupStore groups = null!;
+    private SqlSecretStore secrets = null!;
     private AccountService accountService = null!;
     private ExternalSignIn signIn = null!;
 
@@ -21,8 +22,9 @@ public sealed class ExternalSignInTests(SqliteFiles files) : IClassFixture<Sqlit
         accounts = new SqlAccountStore(database);
         identities = new SqlIdentityStore(database);
         groups = new SqlServerGroupStore(database);
+        secrets = new SqlSecretStore(database);
         accountService = new AccountService(accounts, new NoHasher(), TimeProvider.System);
-        signIn = new ExternalSignIn(accounts, accountService, identities, groups, TimeProvider.System);
+        signIn = new ExternalSignIn(accounts, accountService, identities, groups, secrets, TimeProvider.System);
     }
 
     public ValueTask DisposeAsync() => ValueTask.CompletedTask;
@@ -161,6 +163,93 @@ public sealed class ExternalSignInTests(SqliteFiles files) : IClassFixture<Sqlit
         // GROUP_MAP=* mirrors every provider group by name.
         await SignedIn(Pocket() with { MirrorGroups = true }, Kim("gaming", "Family"));
         Assert.Equal(["Family", "gaming", "Neighbors"], (await groups.ListAsync(Token)).Select(group => group.Name));
+    }
+
+    [Fact]
+    public async Task Linking_attaches_a_provider_account_to_the_signed_in_user()
+    {
+        var ben = await accountService.CreateUserAsync("ben", "correct horse battery", cancellation: Token);
+        Assert.Equal(LinkResult.Linked, await signIn.LinkAsync(Pocket(), Kim(), ben.Id, Token));
+        Assert.Equal(LinkResult.Linked, await signIn.LinkAsync(Pocket(), Kim(), ben.Id, Token));
+        Assert.Equal(ben.Id, (await SignedIn(Pocket(autoCreate: false), Kim())).Id);
+
+        var sam = await accountService.CreateUserAsync("sam", "correct horse battery", cancellation: Token);
+        Assert.Equal(LinkResult.Taken, await signIn.LinkAsync(Pocket(), Kim(), sam.Id, Token));
+        var strict = Pocket() with { RequiredGroups = ["punchlist"] };
+        Assert.Equal(LinkResult.NotAllowed, await signIn.LinkAsync(strict, Kim() with { Subject = "other" }, sam.Id, Token));
+    }
+
+    [Fact]
+    public async Task People_cannot_unlink_their_last_way_in_but_admins_can()
+    {
+        var kim = await SignedIn(Pocket(), Kim());
+        Assert.Equal(UnlinkResult.LastWayIn, await signIn.UnlinkAsync(kim.Id, "pocket", "sub-kim", selfService: true, Token));
+        await signIn.LinkAsync(Pocket() with { Name = "keycloak" }, Kim(), kim.Id, Token);
+        Assert.Equal(UnlinkResult.Unlinked, await signIn.UnlinkAsync(kim.Id, "pocket", "sub-kim", selfService: true, Token));
+        Assert.Equal(UnlinkResult.NotFound, await signIn.UnlinkAsync(kim.Id, "pocket", "sub-kim", selfService: true, Token));
+
+        Assert.Equal(UnlinkResult.Unlinked, await signIn.UnlinkAsync(kim.Id, "keycloak", "sub-kim", selfService: false, Token));
+        Assert.False(await signIn.CanSignInAsync(kim, Token));
+    }
+
+    [Fact]
+    public async Task Moving_providers_keeps_everyone_in_their_own_account()
+    {
+        var oldIdp = Pocket();
+        var newIdp = Pocket() with { Name = "keycloak" };
+        var kim = await SignedIn(oldIdp, Kim());
+        var ben = await accountService.CreateUserAsync("ben", "correct horse battery", cancellation: Token);
+        await signIn.LinkAsync(oldIdp, Kim() with { Subject = "sub-ben", Username = "ben" }, ben.Id, Token);
+
+        await signIn.OpenMigrationWindowAsync("keycloak", TimeSpan.FromHours(2), Token);
+        var (unbound, stranded) = await signIn.UnbindProviderAsync("pocket", Token);
+        Assert.Equal(2, unbound);
+        Assert.Equal(["kim.lee"], stranded);
+
+        // The new provider has its own subjects; the username finds the old account.
+        Assert.Equal(kim.Id, (await SignedIn(newIdp, Kim() with { Subject = "kc-kim" })).Id);
+        Assert.Equal(ben.Id, (await SignedIn(newIdp, Kim() with { Subject = "kc-ben", Username = "ben" })).Id);
+        Assert.NotNull(await signIn.MigrationWindowAsync("keycloak", Token));
+
+        // Closed: a newcomer with a taken name gets their own account again.
+        await signIn.CloseMigrationWindowAsync("keycloak", Token);
+        Assert.Null(await signIn.MigrationWindowAsync("keycloak", Token));
+        var stranger = await SignedIn(newIdp, Kim() with { Subject = "kc-other", Username = "ben" });
+        Assert.NotEqual(ben.Id, stranger.Id);
+    }
+
+    [Fact]
+    public async Task A_migration_window_never_takes_an_account_already_linked_to_that_provider()
+    {
+        var kim = await SignedIn(Pocket(), Kim());
+        await signIn.OpenMigrationWindowAsync("pocket", TimeSpan.FromHours(1), Token);
+        var impostor = await SignedIn(Pocket(), Kim() with { Subject = "someone-else" });
+        Assert.NotEqual(kim.Id, impostor.Id);
+    }
+
+    [Fact]
+    public async Task One_time_links_work_once_and_not_after_they_expire()
+    {
+        var clock = new MovableClock();
+        var links = new LoginLinks(secrets, accounts, clock);
+        var ben = await accountService.CreateUserAsync("ben", "correct horse battery", cancellation: Token);
+        var (token, expires) = await links.CreateAsync(ben.Id, cancellation: Token);
+        Assert.Equal(clock.Now + LoginLinks.DefaultLifetime, expires);
+        Assert.Equal(ben.Id, (await links.RedeemAsync(token, Token))?.Id);
+        Assert.Null(await links.RedeemAsync(token, Token));
+
+        var (late, _) = await links.CreateAsync(ben.Id, TimeSpan.FromMinutes(5), Token);
+        clock.Now += TimeSpan.FromMinutes(6);
+        Assert.Null(await links.RedeemAsync(late, Token));
+        Assert.Null(await links.RedeemAsync("made-up", Token));
+        await Assert.ThrowsAsync<KeyNotFoundException>(() => links.CreateAsync("nobody", cancellation: Token));
+    }
+
+    private sealed class MovableClock : TimeProvider
+    {
+        public DateTimeOffset Now { get; set; } = new(2026, 10, 22, 9, 0, 0, TimeSpan.Zero);
+
+        public override DateTimeOffset GetUtcNow() => Now;
     }
 
     [Theory]

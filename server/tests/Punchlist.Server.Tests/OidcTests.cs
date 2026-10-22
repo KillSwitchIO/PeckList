@@ -147,4 +147,113 @@ public sealed class OidcTests(ServerFixture fixture) : IClassFixture<ServerFixtu
         var back = await browser.GetAsync("/auth/oidc/fake/callback?error=access_denied&state=nonsense", Token);
         Assert.Equal("/login?error=oidc_failed", back.Headers.Location!.ToString());
     }
+
+    private static async Task<(HttpClient Browser, string Id)> PasswordUser(WebApplicationFactory<Program> server, string username)
+    {
+        const string password = "a long enough password";
+        var account = await server.Services.GetRequiredService<AccountService>()
+            .CreateUserAsync(username, password, mustChangePassword: false, cancellation: Token);
+        var browser = Browser(server);
+        (await browser.PostAsJsonAsync("/auth/login", new { username, password }, Token)).EnsureSuccessStatusCode();
+        return (browser, account.Id);
+    }
+
+    [Fact]
+    public async Task A_signed_in_user_links_a_provider_and_then_signs_in_with_it()
+    {
+        using var server = Server();
+        var (ben, benId) = await PasswordUser(server, "ben");
+        var before = await ben.GetFromJsonAsync<SignInMethods>("/api/account/sign-in", Token);
+        Assert.True(before!.Password);
+        Assert.Equal(["fake"], before.CanLink.Select(option => option.Name));
+
+        var start = await ben.GetAsync(before.CanLink[0].Url, Token);
+        var back = await ben.GetAsync(provider.Authorize(start.Headers.Location!, Kim()), Token);
+        Assert.Equal("/settings?link=linked", back.Headers.Location!.ToString());
+        var after = await ben.GetFromJsonAsync<SignInMethods>("/api/account/sign-in", Token);
+        Assert.Equal(("fake", "Fake ID", "kim@example.com"), (after!.Identities[0].Provider, after.Identities[0].DisplayName, after.Identities[0].Email));
+        Assert.Empty(after.CanLink);
+
+        // Auto-create is off, yet the linked provider account signs straight in to ben.
+        var phone = Browser(server);
+        Assert.Equal("/", await SignIn(phone, Kim()));
+        Assert.Equal(benId, (await phone.GetFromJsonAsync<Me>("/auth/me", Token))!.Id);
+
+        // Ben has a password, so unlinking is fine.
+        Assert.Equal(HttpStatusCode.NoContent, (await ben.DeleteAsync("/api/account/identities/fake/kim-subject", Token)).StatusCode);
+    }
+
+    [Fact]
+    public async Task A_link_finishes_only_for_the_person_who_started_it()
+    {
+        using var server = Server();
+        var (ben, _) = await PasswordUser(server, "ben");
+        var start = await ben.GetAsync("/auth/oidc/fake/link", Token);
+        // Someone else signs in on this browser before the provider answers.
+        const string password = "a long enough password";
+        await server.Services.GetRequiredService<AccountService>().CreateUserAsync("sam", password, mustChangePassword: false, cancellation: Token);
+        (await ben.PostAsJsonAsync("/auth/login", new { username = "sam", password }, Token)).EnsureSuccessStatusCode();
+        var back = await ben.GetAsync(provider.Authorize(start.Headers.Location!, Kim()), Token);
+        Assert.Equal("/settings?link=failed", back.Headers.Location!.ToString());
+        Assert.Empty((await ben.GetFromJsonAsync<SignInMethods>("/api/account/sign-in", Token))!.Identities);
+    }
+
+    [Fact]
+    public async Task Linking_needs_a_session_and_a_provider_account_nobody_else_has()
+    {
+        using var server = Server(("OIDC_FAKE_AUTO_CREATE", "true"));
+        Assert.Equal(HttpStatusCode.Unauthorized, (await Browser(server).GetAsync("/auth/oidc/fake/link", Token)).StatusCode);
+        await SignIn(Browser(server), Kim());
+
+        var (ben, _) = await PasswordUser(server, "ben");
+        var start = await ben.GetAsync("/auth/oidc/fake/link", Token);
+        var back = await ben.GetAsync(provider.Authorize(start.Headers.Location!, Kim()), Token);
+        Assert.Equal("/settings?link=taken", back.Headers.Location!.ToString());
+    }
+
+    [Fact]
+    public async Task Someone_left_with_no_way_in_gets_a_one_time_link()
+    {
+        using var server = Server(("OIDC_FAKE_AUTO_CREATE", "true"));
+        var kim = Browser(server);
+        await SignIn(kim, Kim());
+        var kimId = (await kim.GetFromJsonAsync<Me>("/auth/me", Token))!.Id;
+        Assert.Equal(HttpStatusCode.Conflict, (await kim.DeleteAsync("/api/account/identities/fake/kim-subject", Token)).StatusCode);
+
+        var admin = Browser(server);
+        (await admin.PostAsJsonAsync("/auth/login", new { username = "admin", password = AdminPassword }, Token)).EnsureSuccessStatusCode();
+        var unbound = await (await admin.PostAsync("/api/admin/providers/fake/unbind-all", null, Token)).Content.ReadFromJsonAsync<UnbindResult>(Token);
+        Assert.Equal(1, unbound!.Unbound);
+        Assert.Equal(["kim"], unbound.Stranded);
+
+        var link = await (await admin.PostAsync($"/api/admin/users/{kimId}/login-link", null, Token)).Content.ReadFromJsonAsync<LoginLinkView>(Token);
+        var path = new Uri(link!.Url).PathAndQuery;
+        var phone = Browser(server);
+        Assert.Equal("/settings", (await phone.GetAsync(path, Token)).Headers.Location!.ToString());
+        Assert.Equal(kimId, (await phone.GetFromJsonAsync<Me>("/auth/me", Token))!.Id);
+        Assert.Equal("/login?error=link_expired", (await Browser(server).GetAsync(path, Token)).Headers.Location!.ToString());
+    }
+
+    [Fact]
+    public async Task Admins_open_and_close_a_migration_window()
+    {
+        using var server = Server();
+        var admin = Browser(server);
+        (await admin.PostAsJsonAsync("/auth/login", new { username = "admin", password = AdminPassword }, Token)).EnsureSuccessStatusCode();
+        Assert.Equal(HttpStatusCode.OK, (await admin.PutAsJsonAsync("/api/admin/providers/fake/migration-window", new { hours = 2 }, Token)).StatusCode);
+        var providers = await admin.GetFromJsonAsync<AdminProvider[]>("/api/admin/providers", Token);
+        Assert.NotNull(Assert.Single(providers!).MigrationWindowUntil);
+
+        // Ben's password account, and the new provider says "ben": they meet.
+        var (_, benId) = await PasswordUser(server, "ben");
+        var phone = Browser(server);
+        var claims = Kim();
+        claims["preferred_username"] = "ben";
+        Assert.Equal("/", await SignIn(phone, claims));
+        Assert.Equal(benId, (await phone.GetFromJsonAsync<Me>("/auth/me", Token))!.Id);
+
+        Assert.Equal(HttpStatusCode.NoContent, (await admin.DeleteAsync("/api/admin/providers/fake/migration-window", Token)).StatusCode);
+        Assert.Null((await admin.GetFromJsonAsync<AdminProvider[]>("/api/admin/providers", Token))![0].MigrationWindowUntil);
+        Assert.Equal(HttpStatusCode.BadRequest, (await admin.PutAsJsonAsync("/api/admin/providers/fake/migration-window", new { hours = 0 }, Token)).StatusCode);
+    }
 }

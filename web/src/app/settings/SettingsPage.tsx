@@ -12,7 +12,7 @@ import {
   Typography,
   useTheme,
 } from '@mui/material';
-import { useState, type ReactNode } from 'react';
+import { useState } from 'react';
 import { PALETTE_DEFAULTS, type PaletteSlot } from '../../core/palette.ts';
 import {
   PALETTE_SLOTS,
@@ -32,36 +32,9 @@ import { ColorPicker } from '../colors/ColorPicker.tsx';
 import { THEME_MODE_ORDER, useThemeMode, type ThemeMode } from '../theme/themeMode.ts';
 import { t } from '../i18n/i18n.ts';
 import { Page } from '../layout/Page.tsx';
+import { Section, SettingRow } from './settingsLayout.tsx';
+import { SignInSection } from './SignInSection.tsx';
 import { useApply, useWorkspace } from '../store/hooks.ts';
-
-function Section({
-  title,
-  hint,
-  action,
-  children,
-}: {
-  title: string;
-  hint?: string;
-  action?: ReactNode;
-  children: ReactNode;
-}) {
-  return (
-    <Box component="section" aria-label={title} sx={{ maxWidth: 640 }}>
-      <Box sx={{ display: 'flex', alignItems: 'center', mb: 0.5 }}>
-        <Typography variant="subtitle2" color="text.secondary" sx={{ flexGrow: 1 }}>
-          {title}
-        </Typography>
-        {action}
-      </Box>
-      {hint && (
-        <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
-          {hint}
-        </Typography>
-      )}
-      {children}
-    </Box>
-  );
-}
 
 /** A small live sample of the colors as the theme shows them now. */
 function Preview() {
@@ -212,31 +185,6 @@ function SlotRow({ slot }: { slot: PaletteSlot }) {
   );
 }
 
-/** A setting as a row: its name (and a hint) on the left, the control on the right. */
-function SettingRow({
-  label,
-  hint,
-  children,
-}: {
-  label: string;
-  hint?: string;
-  children: ReactNode;
-}) {
-  return (
-    <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, px: 1, py: 1 }}>
-      <Box sx={{ flexGrow: 1, minWidth: 0 }}>
-        <Typography>{label}</Typography>
-        {hint && (
-          <Typography variant="caption" color="text.secondary">
-            {hint}
-          </Typography>
-        )}
-      </Box>
-      {children}
-    </Box>
-  );
-}
-
 /**
  * Settings (spec: PL-025). Colors (PL-018) come first: every slot shows live across the app as
  * it changes and syncs with the user's settings; Reset brings back the defaults.
@@ -251,6 +199,7 @@ export function SettingsPage() {
   return (
     <Page title={t('nav.settings')}>
       <Stack spacing={4}>
+        <SignInSection />
         <Section title={t('settings.appearance')}>
           <SettingRow label={t('settings.theme')}>
             <ToggleButtonGroup

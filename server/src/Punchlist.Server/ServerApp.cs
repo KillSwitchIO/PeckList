@@ -8,7 +8,7 @@ using Punchlist.Server.Auth;
 namespace Punchlist.Server;
 
 /// <summary>Composition root: services, middleware and endpoints of the one container.</summary>
-public static class ServerApp
+public static partial class ServerApp
 {
     public static string Version { get; } =
         typeof(ServerApp).Assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion.Split('+')[0]
@@ -77,13 +77,21 @@ public static class ServerApp
         app.MapHealthChecks("/healthz");
         app.MapGet("/api/info", () => new ServerInfo("punchlist", Version, WorkspaceSchema.CurrentVersion));
         app.MapAuth();
-        app.MapGroup("/api").RequireAuthorization().RequirePasswordChanged().EnsureProfiles().MapSync().MapFriends();
+        app.MapGroup("/api").RequireAuthorization().RequirePasswordChanged().EnsureProfiles().MapSync().MapFriends().MapAccount();
         app.MapGroup("/api/admin").RequireAuthorization().RequirePasswordChanged().MapAdmin();
 
         var webRoot = settings.WebRoot ?? Path.Combine(AppContext.BaseDirectory, "wwwroot");
         app.UseStaticSite(webRoot, app.Logger);
         return app;
     }
+}
+
+public static partial class ServerApp
+{
+    /// <summary>This server's address for links people open: PUBLIC_URL, else the request's own.</summary>
+    public static string Origin(HttpContext context) =>
+        context.RequestServices.GetRequiredService<ServerSettings>().PublicUrl?.ToString().TrimEnd('/')
+        ?? $"{context.Request.Scheme}://{context.Request.Host}";
 }
 
 /// <summary>What clients check before syncing: which app and schema version this server runs.</summary>

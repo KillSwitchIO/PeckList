@@ -59,7 +59,13 @@ function problemOf(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
 
-const OIDC_ERRORS = ['oidc_not_allowed', 'oidc_pending', 'oidc_disabled', 'oidc_failed'] as const;
+const OIDC_ERRORS = [
+  'oidc_not_allowed',
+  'oidc_pending',
+  'oidc_disabled',
+  'oidc_failed',
+  'link_expired',
+] as const;
 type OidcError = (typeof OIDC_ERRORS)[number];
 const isOidcError = (error: string | null): error is OidcError =>
   OIDC_ERRORS.some((each) => each === error);

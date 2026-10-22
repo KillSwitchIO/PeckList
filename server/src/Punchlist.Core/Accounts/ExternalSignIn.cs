@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Text;
 using Punchlist.Core.Configuration;
 
@@ -35,27 +36,59 @@ public abstract record ExternalSignInResult
 /// making the account, then the provider's role and group mappings. The web flow itself lives in
 /// the server; this part runs the same for any provider and is tested without one.
 /// </summary>
+public enum LinkResult
+{
+    Linked,
+
+    /// <summary>That provider account belongs to another user.</summary>
+    Taken,
+
+    /// <summary>In none of the provider's required groups.</summary>
+    NotAllowed,
+}
+
+public enum UnlinkResult
+{
+    Unlinked,
+    NotFound,
+
+    /// <summary>Self-service only: it is the account's last way to sign in.</summary>
+    LastWayIn,
+}
+
 public sealed class ExternalSignIn(
-    IAccountStore accounts, AccountService accountService, IIdentityStore identities, IServerGroupStore groups, TimeProvider time)
+    IAccountStore accounts,
+    AccountService accountService,
+    IIdentityStore identities,
+    IServerGroupStore groups,
+    ISecretStore secrets,
+    TimeProvider time)
 {
     public const int MaxUsernameLength = 32;
+
+    /// <summary>Where migration windows are kept: one value per provider, the time it closes.</summary>
+    public const string MigrationWindowKind = "oidc-migration";
 
     public async Task<ExternalSignInResult> SignInAsync(
         OidcProviderSettings provider, ExternalIdentity identity, CancellationToken cancellation = default)
     {
-        if (provider.RequiredGroups.Count > 0
-            && !identity.Groups.Any(group => provider.RequiredGroups.Contains(group, StringComparer.OrdinalIgnoreCase)))
-        {
-            return new ExternalSignInResult.NotAllowed();
-        }
+        if (!Allowed(provider, identity)) return new ExternalSignInResult.NotAllowed();
 
         var now = time.GetUtcNow();
         var link = await identities.FindAsync(provider.Name, identity.Subject, cancellation);
         var account = link is null ? null : await accounts.FindByIdAsync(link.AccountId, cancellation);
         var created = false;
-        if (account is null)
+        if (account is null && link is not null)
         {
-            if (link is not null) await identities.UnlinkAsync(provider.Name, identity.Subject, cancellation);
+            await identities.UnlinkAsync(provider.Name, identity.Subject, cancellation);
+            link = null;
+        }
+        if (account is null && await MigrationMatchAsync(provider, identity, cancellation) is { } matched)
+        {
+            account = matched;
+        }
+        else if (account is null)
+        {
             if (!provider.AutoCreate)
             {
                 var waiting = (await identities.ListPendingAsync(cancellation))
@@ -76,9 +109,9 @@ public sealed class ExternalSignIn(
             account = await CreateAsync(provider, identity, UsernameBase(identity), cancellation);
             created = true;
         }
-        else
+        else if (link is not null)
         {
-            await identities.UpdateAsync(link! with { Email = identity.Email, LastUsedAt = now }, cancellation);
+            await identities.UpdateAsync(link with { Email = identity.Email, LastUsedAt = now }, cancellation);
         }
         if (account.Disabled) return new ExternalSignInResult.Disabled();
 
@@ -86,6 +119,121 @@ public sealed class ExternalSignIn(
         await ApplyGroupMapAsync(provider, identity, account, cancellation);
         return new ExternalSignInResult.Success(account, created);
     }
+
+    /// <summary>
+    /// Attach a provider account to someone already signed in (their profile, spec: Linking). The
+    /// provider's access check still applies.
+    /// </summary>
+    public async Task<LinkResult> LinkAsync(
+        OidcProviderSettings provider, ExternalIdentity identity, string accountId, CancellationToken cancellation = default)
+    {
+        if (!Allowed(provider, identity)) return LinkResult.NotAllowed;
+        var existing = await identities.FindAsync(provider.Name, identity.Subject, cancellation);
+        if (existing is not null) return existing.AccountId == accountId ? LinkResult.Linked : LinkResult.Taken;
+        await AttachAsync(provider, identity, accountId, cancellation);
+        return LinkResult.Linked;
+    }
+
+    /// <summary>The account's linked provider accounts.</summary>
+    public async Task<IReadOnlyList<LinkedIdentity>> IdentitiesOfAsync(string accountId, CancellationToken cancellation = default) =>
+        (await identities.ListAsync(cancellation)).Where(identity => identity.AccountId == accountId).ToList();
+
+    /// <summary>
+    /// Detach one provider account. <paramref name="selfService"/> refuses to take an account's last
+    /// way to sign in; an admin may, and then hands out a one-time sign-in link.
+    /// </summary>
+    public async Task<UnlinkResult> UnlinkAsync(
+        string accountId, string provider, string subject, bool selfService, CancellationToken cancellation = default)
+    {
+        var link = await identities.FindAsync(provider, subject, cancellation);
+        if (link is null || link.AccountId != accountId) return UnlinkResult.NotFound;
+        if (selfService && !await HasOtherWayInAsync(accountId, link, cancellation)) return UnlinkResult.LastWayIn;
+        await identities.UnlinkAsync(provider, subject, cancellation);
+        return UnlinkResult.Unlinked;
+    }
+
+    /// <summary>
+    /// Unbind every account from a provider (moving to another one). Accounts and data stay.
+    /// Returns how many links went and the usernames left with no way to sign in.
+    /// </summary>
+    public async Task<(int Unbound, IReadOnlyList<string> Stranded)> UnbindProviderAsync(string provider, CancellationToken cancellation = default)
+    {
+        var bound = (await identities.ListAsync(cancellation)).Where(identity => identity.Provider == provider).ToList();
+        var count = await identities.UnlinkProviderAsync(provider, cancellation);
+        var stranded = new List<string>();
+        foreach (var accountId in bound.Select(identity => identity.AccountId).Distinct())
+        {
+            if (await accounts.FindByIdAsync(accountId, cancellation) is { } account && !await CanSignInAsync(account, cancellation))
+            {
+                stranded.Add(account.Username);
+            }
+        }
+        return (count, stranded);
+    }
+
+    /// <summary>Whether the account has a password or any linked provider account.</summary>
+    public async Task<bool> CanSignInAsync(Account account, CancellationToken cancellation = default) =>
+        account.PasswordHash is not null || (await IdentitiesOfAsync(account.Id, cancellation)).Count > 0;
+
+    private async Task<bool> HasOtherWayInAsync(string accountId, LinkedIdentity leaving, CancellationToken cancellation)
+    {
+        var account = await accounts.FindByIdAsync(accountId, cancellation);
+        if (account?.PasswordHash is not null) return true;
+        return (await IdentitiesOfAsync(accountId, cancellation))
+            .Any(identity => identity.Provider != leaving.Provider || identity.Subject != leaving.Subject);
+    }
+
+    /// <summary>
+    /// Open a migration window: until it closes, a first sign-in through <paramref name="provider"/>
+    /// attaches to the account with the same username that has no account of that provider yet.
+    /// </summary>
+    public async Task<DateTimeOffset> OpenMigrationWindowAsync(string provider, TimeSpan length, CancellationToken cancellation = default)
+    {
+        var until = time.GetUtcNow() + length;
+        await secrets.PutAsync(MigrationWindowKind, provider, until.ToString("O", CultureInfo.InvariantCulture), cancellation);
+        return until;
+    }
+
+    public Task CloseMigrationWindowAsync(string provider, CancellationToken cancellation = default) =>
+        secrets.PutAsync(MigrationWindowKind, provider, "", cancellation);
+
+    /// <summary>When the provider's migration window closes, or null when none is open.</summary>
+    public async Task<DateTimeOffset?> MigrationWindowAsync(string provider, CancellationToken cancellation = default)
+    {
+        var value = (await secrets.ListAsync(MigrationWindowKind, cancellation)).FirstOrDefault(each => each.Name == provider).Value;
+        return DateTimeOffset.TryParse(value, CultureInfo.InvariantCulture, DateTimeStyles.None, out var until) && until > time.GetUtcNow()
+            ? until
+            : null;
+    }
+
+    /// <summary>During a migration window: the same-named account with no link to this provider yet, now linked.</summary>
+    private async Task<Account?> MigrationMatchAsync(OidcProviderSettings provider, ExternalIdentity identity, CancellationToken cancellation)
+    {
+        if (await MigrationWindowAsync(provider.Name, cancellation) is null) return null;
+        var account = await accounts.FindByUsernameAsync(UsernameBase(identity), cancellation);
+        if (account is null || (await IdentitiesOfAsync(account.Id, cancellation)).Any(each => each.Provider == provider.Name)) return null;
+        await AttachAsync(provider, identity, account.Id, cancellation);
+        return account;
+    }
+
+    private async Task AttachAsync(OidcProviderSettings provider, ExternalIdentity identity, string accountId, CancellationToken cancellation)
+    {
+        var now = time.GetUtcNow();
+        await identities.LinkAsync(new LinkedIdentity
+        {
+            Provider = provider.Name,
+            Subject = identity.Subject,
+            AccountId = accountId,
+            Email = identity.Email,
+            LinkedAt = now,
+            LastUsedAt = now,
+        }, cancellation);
+        await identities.RemovePendingAsync(provider.Name, identity.Subject, cancellation);
+    }
+
+    private static bool Allowed(OidcProviderSettings provider, ExternalIdentity identity) =>
+        provider.RequiredGroups.Count == 0
+        || identity.Groups.Any(group => provider.RequiredGroups.Contains(group, StringComparer.OrdinalIgnoreCase));
 
     /// <summary>
     /// An admin lets a waiting sign-in in: the account is made and linked, so their next sign-in
@@ -115,17 +263,7 @@ public sealed class ExternalSignIn(
         OidcProviderSettings provider, ExternalIdentity identity, string wanted, CancellationToken cancellation)
     {
         var account = await accountService.CreateWithoutPasswordAsync(await FreeUsernameAsync(wanted, cancellation), cancellation);
-        var now = time.GetUtcNow();
-        await identities.LinkAsync(new LinkedIdentity
-        {
-            Provider = provider.Name,
-            Subject = identity.Subject,
-            AccountId = account.Id,
-            Email = identity.Email,
-            LinkedAt = now,
-            LastUsedAt = now,
-        }, cancellation);
-        await identities.RemovePendingAsync(provider.Name, identity.Subject, cancellation);
+        await AttachAsync(provider, identity, account.Id, cancellation);
         return account;
     }
 
@@ -220,7 +358,7 @@ public sealed class ExternalSignIn(
         if (await accounts.FindByUsernameAsync(wanted, cancellation) is null) return wanted;
         for (var number = 2; ; number++)
         {
-            var suffix = number.ToString(System.Globalization.CultureInfo.InvariantCulture);
+            var suffix = number.ToString(CultureInfo.InvariantCulture);
             var candidate = (wanted.Length + suffix.Length > MaxUsernameLength ? wanted[..(MaxUsernameLength - suffix.Length)] : wanted) + suffix;
             if (await accounts.FindByUsernameAsync(candidate, cancellation) is null) return candidate;
         }

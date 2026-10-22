@@ -17,6 +17,14 @@ public sealed record AdminGroup(string Id, string Name, bool OfferedForSharing, 
 
 public sealed record AdminError(string Error, string? Message = null);
 
+public sealed record AdminProvider(string Name, string DisplayName, int Linked, DateTimeOffset? MigrationWindowUntil);
+
+public sealed record UnbindResult(int Unbound, IReadOnlyList<string> Stranded);
+
+public sealed record WindowRequest(double? Hours);
+
+public sealed record LoginLinkView(string Url, DateTimeOffset Expires);
+
 /// <summary>
 /// <c>/api/admin</c>: users and server groups (spec: Accounts &amp; Admin). Every endpoint names the
 /// permission it needs; a test checks that none is left without one.
@@ -57,6 +65,67 @@ public static class AdminEndpoints
                 return Results.Conflict(new AdminError("last_super_admin", error.Message));
             }
         }).RequirePermission(Permission.ManageAdmins);
+
+        // Linked provider accounts and moving between providers (spec: Linking and provider migration).
+        admin.MapGet("/users/{id}/identities", async (string id, ExternalSignIn signIn, ServerSettings settings, CancellationToken cancellation) =>
+            (await signIn.IdentitiesOfAsync(id, cancellation)).Select(identity => AccountEndpoints.View(identity, settings)))
+            .RequirePermission(Permission.ManageUsers);
+
+        admin.MapDelete("/users/{id}/identities/{provider}/{subject}", async (
+            string id, string provider, string subject, ExternalSignIn signIn, IAccountStore accounts, CancellationToken cancellation) =>
+        {
+            if (await signIn.UnlinkAsync(id, provider, subject, selfService: false, cancellation) != UnlinkResult.Unlinked) return Results.NotFound();
+            var account = await accounts.FindByIdAsync(id, cancellation);
+            var stranded = account is not null && !await signIn.CanSignInAsync(account, cancellation);
+            return Results.Ok(new UnbindResult(1, stranded ? [account!.Username] : []));
+        }).RequirePermission(Permission.ManageUsers);
+
+        admin.MapGet("/providers", async (ServerSettings settings, ExternalSignIn signIn, IIdentityStore identities, CancellationToken cancellation) =>
+        {
+            var linked = await identities.ListAsync(cancellation);
+            var list = new List<AdminProvider>();
+            foreach (var provider in settings.OidcProviders)
+            {
+                list.Add(new AdminProvider(provider.Name, provider.DisplayName, linked.Count(each => each.Provider == provider.Name),
+                    await signIn.MigrationWindowAsync(provider.Name, cancellation)));
+            }
+            return list;
+        }).RequirePermission(Permission.ManageUsers);
+
+        // Unbinding works for providers no longer configured too: that is how their links are cleared.
+        admin.MapPost("/providers/{name}/unbind-all", async (string name, ExternalSignIn signIn, CancellationToken cancellation) =>
+        {
+            var (unbound, stranded) = await signIn.UnbindProviderAsync(name, cancellation);
+            return Results.Ok(new UnbindResult(unbound, stranded));
+        }).RequirePermission(Permission.ManageUsers);
+
+        admin.MapPut("/providers/{name}/migration-window", async (
+            string name, WindowRequest request, ServerSettings settings, ExternalSignIn signIn, CancellationToken cancellation) =>
+        {
+            if (settings.OidcProviders.All(provider => provider.Name != name)) return Results.NotFound();
+            var hours = request.Hours ?? 24;
+            if (hours is <= 0 or > 24 * 30) return Results.BadRequest(new AdminError("invalid_hours", "between a minute and 30 days"));
+            return Results.Ok(new { Until = await signIn.OpenMigrationWindowAsync(name, TimeSpan.FromHours(hours), cancellation) });
+        }).RequirePermission(Permission.ManageUsers);
+
+        admin.MapDelete("/providers/{name}/migration-window", async (string name, ExternalSignIn signIn, CancellationToken cancellation) =>
+        {
+            await signIn.CloseMigrationWindowAsync(name, cancellation);
+            return Results.NoContent();
+        }).RequirePermission(Permission.ManageUsers);
+
+        admin.MapPost("/users/{id}/login-link", async (string id, LoginLinks links, HttpContext context, CancellationToken cancellation) =>
+        {
+            try
+            {
+                var (token, expires) = await links.CreateAsync(id, cancellation: cancellation);
+                return Results.Ok(new LoginLinkView($"{ServerApp.Origin(context)}/auth/link/{token}", expires));
+            }
+            catch (KeyNotFoundException)
+            {
+                return Results.NotFound();
+            }
+        }).RequirePermission(Permission.ManageUsers);
 
         admin.MapGet("/pending-signins", async (IIdentityStore identities, CancellationToken cancellation) =>
             await identities.ListPendingAsync(cancellation)).RequirePermission(Permission.ManageUsers);

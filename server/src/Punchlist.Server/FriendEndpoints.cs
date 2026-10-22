@@ -40,9 +40,7 @@ public static class FriendEndpoints
 
     private static FriendCode Code(HttpContext context, string code)
     {
-        var settings = context.RequestServices.GetRequiredService<ServerSettings>();
-        var origin = settings.PublicUrl?.ToString().TrimEnd('/') ?? $"{context.Request.Scheme}://{context.Request.Host}";
-        return new FriendCode(code, $"{origin}/f/{code}");
+        return new FriendCode(code, $"{ServerApp.Origin(context)}/f/{code}");
     }
 
     /// <summary>The account's profile is written on its first sync (cheap after that: the index has it).</summary>

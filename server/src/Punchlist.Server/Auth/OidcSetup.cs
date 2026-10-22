@@ -25,6 +25,12 @@ public static class OidcSetup
 
     public static string CallbackPath(string provider) => $"/auth/oidc/{provider}/callback";
 
+    /// <summary>Set on a challenge that links a provider account to the signed-in user instead of signing in.</summary>
+    private const string LinkAccountItem = "punchlist.link_account";
+
+    /// <summary>Where linking reports back: the settings page, with <c>?link=</c> saying how it went.</summary>
+    private const string LinkReturn = "/settings";
+
     public static IServiceCollection AddOidc(this IServiceCollection services, ServerSettings settings, AuthenticationBuilder authentication)
     {
         foreach (var provider in settings.OidcProviders)
@@ -97,6 +103,25 @@ public static class OidcSetup
                 : "/";
             return Results.Challenge(new AuthenticationProperties { RedirectUri = back, IsPersistent = true }, [Scheme(name)]);
         });
+
+        // Link a provider account to the signed-in user (their settings page).
+        auth.MapGet("/oidc/{name}/link", (string name, ClaimsPrincipal user) =>
+        {
+            if (settings.OidcProviders.All(provider => provider.Name != name)) return Results.NotFound();
+            var properties = new AuthenticationProperties { RedirectUri = LinkReturn };
+            properties.Items[LinkAccountItem] = user.UserId();
+            return Results.Challenge(properties, [Scheme(name)]);
+        }).RequireAuthorization();
+
+        // A one-time sign-in link from an admin.
+        auth.MapGet("/link/{token}", async (string token, LoginLinks links, HttpContext context) =>
+        {
+            if (await links.RedeemAsync(token, context.RequestAborted) is not { } account) return Results.Redirect("/login?error=link_expired");
+            await context.SignInAsync(CookieAuthenticationDefaults.AuthenticationScheme,
+                AuthSetup.Principal(account, CookieAuthenticationDefaults.AuthenticationScheme),
+                new AuthenticationProperties { IsPersistent = true });
+            return Results.Redirect(LinkReturn);
+        });
     }
 
     private static async Task SignInAsync(TicketReceivedContext context, OidcProviderSettings provider)
@@ -120,6 +145,11 @@ public static class OidcSetup
             Email = Claim("email"),
             Groups = claims.FindAll(provider.GroupsClaim).Select(claim => claim.Value).Distinct().ToList(),
         };
+        if (context.Properties?.Items.TryGetValue(LinkAccountItem, out var linkTo) == true && linkTo is not null)
+        {
+            await LinkAsync(context, provider, identity, linkTo);
+            return;
+        }
         var result = await services.GetRequiredService<ExternalSignIn>().SignInAsync(provider, identity, context.HttpContext.RequestAborted);
         switch (result)
         {
@@ -146,6 +176,34 @@ public static class OidcSetup
                 Redirect(context, "oidc_disabled");
                 break;
         }
+    }
+
+    /// <summary>
+    /// The link flow's return: only for the same person who started it (the session cookie still
+    /// names them), so a forged callback cannot attach someone else's provider account.
+    /// </summary>
+    private static async Task LinkAsync(TicketReceivedContext context, OidcProviderSettings provider, ExternalIdentity identity, string accountId)
+    {
+        context.HandleResponse();
+        // The callback runs before the session cookie is read for this request: read it here.
+        var session = await context.HttpContext.AuthenticateAsync(CookieAuthenticationDefaults.AuthenticationScheme);
+        var current = session.Principal;
+        if (current?.Identity?.IsAuthenticated != true || current.UserId() != accountId)
+        {
+            context.Response.Redirect($"{LinkReturn}?link=failed");
+            return;
+        }
+        var result = await context.HttpContext.RequestServices.GetRequiredService<ExternalSignIn>()
+            .LinkAsync(provider, identity, accountId, context.HttpContext.RequestAborted);
+        var outcome = result switch
+        {
+            LinkResult.Linked => "linked",
+            LinkResult.Taken => "taken",
+            _ => "not_allowed",
+        };
+        context.HttpContext.RequestServices.GetRequiredService<ILoggerFactory>().CreateLogger("Punchlist.Oidc")
+            .LogInformation("Linking {Provider} to {Account}: {Outcome}", provider.Name, accountId, outcome);
+        context.Response.Redirect($"{LinkReturn}?link={outcome}");
     }
 
     private static void Redirect(TicketReceivedContext context, string error)
