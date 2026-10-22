@@ -1,4 +1,5 @@
 import type { SyncChange } from '../core/sync.ts';
+import type { AdminApi } from './admin.ts';
 
 /** What `/api/info` says about the server. */
 export interface ServerInfo {
@@ -142,4 +143,6 @@ export interface SyncTransport {
   events?(onChange: (change: ChangeEvent) => void): () => void;
   friends?: FriendsApi;
   account?: AccountApi;
+  /** Admin actions; the server refuses them for anyone without the permission. */
+  admin?: AdminApi;
 }

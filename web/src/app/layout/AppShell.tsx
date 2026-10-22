@@ -44,14 +44,9 @@ import { useTaskSelection } from '../tasks/selection.ts';
 import { TaskDetail } from '../tasks/TaskDetail.tsx';
 import { UndoToast } from '../tasks/UndoToast.tsx';
 import { useThemeMode } from '../theme/themeMode.ts';
-import {
-  activeItem,
-  BOTTOM_ITEMS,
-  SIDEBAR_FOOTER,
-  SIDEBAR_ITEMS,
-  type NavItem,
-} from './navigation.tsx';
+import { activeItem, BOTTOM_ITEMS, SIDEBAR_ITEMS, type NavItem } from './navigation.tsx';
 import { SyncButton } from '../sync/SyncButton.tsx';
+import { useFooterItems } from './useFooterItems.ts';
 
 /** How often the trash is checked for things to erase. */
 const PURGE_EVERY_MS = 6 * 3_600_000;
@@ -156,7 +151,8 @@ function SidebarTitle() {
 
 function Sidebar({ onNavigate }: { onNavigate: (path: string) => void }) {
   const { pathname } = useLocation();
-  const all = [...SIDEBAR_ITEMS, ...SIDEBAR_FOOTER];
+  const footer = useFooterItems();
+  const all = [...SIDEBAR_ITEMS, ...footer];
   const selected = activeItem(all, pathname);
   return (
     <SidebarEditProvider>
@@ -187,7 +183,7 @@ function Sidebar({ onNavigate }: { onNavigate: (path: string) => void }) {
           <SidebarLists onNavigate={onNavigate} />
           <SidebarTags onNavigate={onNavigate} />
         </Box>
-        <NavList items={SIDEBAR_FOOTER} selected={selected} onSelect={onNavigate} />
+        <NavList items={footer} selected={selected} onSelect={onNavigate} />
       </Box>
     </SidebarEditProvider>
   );

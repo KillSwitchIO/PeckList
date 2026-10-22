@@ -141,7 +141,9 @@ export function Groups({ title }: { title: string }) {
                     secondary={
                       active === 1
                         ? t('group.oneMember')
-                        : t('group.members', { count: Math.max(active, 1) })
+                        : Math.max(active, 1) === 1
+                          ? t('group.membersOne')
+                          : t('group.members', { count: active })
                     }
                   />
                 </ListItemButton>

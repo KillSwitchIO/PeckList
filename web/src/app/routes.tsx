@@ -11,6 +11,7 @@ import { EmptyState } from './views/EmptyState.tsx';
 import { MoreView } from './views/MoreView.tsx';
 import { SearchView } from './search/SearchView.tsx';
 import { SettingsPage } from './settings/SettingsPage.tsx';
+import { AdminPage } from './admin/AdminPage.tsx';
 import {
   AllView,
   AssignedView,
@@ -64,6 +65,8 @@ export function AppRoutes() {
         />
         <Route path="/search" element={<SearchView />} />
         <Route path="/settings" element={<SettingsPage />} />
+        <Route path="/admin" element={<AdminPage />} />
+        <Route path="/admin/:tab" element={<AdminPage />} />
         <Route path="*" element={<NotFound />} />
       </Route>
     </Routes>

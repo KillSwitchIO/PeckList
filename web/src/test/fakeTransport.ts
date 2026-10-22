@@ -11,6 +11,7 @@ import {
   type SignInMethods,
   type SyncTransport,
 } from '../ports/sync.ts';
+import type { AdminApi } from '../ports/admin.ts';
 import { FakeSyncServer } from './fakeSyncServer.ts';
 
 export interface FakeAccount {
@@ -76,6 +77,9 @@ export class FakeTransport implements SyncTransport {
   }
 
   /** An empty password stands for an account that signs in only through a provider. */
+  /** Admin actions; tests that need them put a stand-in here. */
+  admin?: AdminApi;
+
   readonly account: AccountApi = {
     signInMethods: () => {
       const found = this.current();

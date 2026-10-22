@@ -11,6 +11,7 @@ import type {
   SyncTransport,
 } from '../ports/sync.ts';
 import { SyncFailure } from '../ports/sync.ts';
+import { createHttpAdmin } from './http-admin.ts';
 
 interface ErrorBody {
   error?: string;
@@ -139,6 +140,8 @@ export function createHttpSync(
       if (!response.ok) return fail(response);
       return (await response.json()) as SyncResponse;
     },
+
+    admin: createHttpAdmin(base, fetcher),
 
     account: {
       async signInMethods() {

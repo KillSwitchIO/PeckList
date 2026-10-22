@@ -10,7 +10,7 @@ import TaskAltRounded from '@mui/icons-material/TaskAltRounded';
 import TodayRounded from '@mui/icons-material/TodayRounded';
 import type { ReactElement } from 'react';
 import type { MessageKey } from '../i18n/i18n.ts';
-import { AssignedIcon, PeopleIcon } from '../icons/icons.tsx';
+import { AssignedIcon, PeopleIcon, ShieldIcon } from '../icons/icons.tsx';
 
 export interface NavItem {
   path: string;
@@ -44,6 +44,9 @@ export const SIDEBAR_FOOTER: NavItem[] = [
   { path: '/search', label: 'nav.search', icon: <SearchRounded /> },
   { path: '/settings', label: 'nav.settings', icon: <SettingsRounded /> },
 ];
+
+/** The admin area, in the footer for admins on a server. */
+export const ADMIN_ITEM: NavItem = { path: '/admin', label: 'nav.admin', icon: <ShieldIcon /> };
 
 /** Bottom navigation on phones */
 export const BOTTOM_ITEMS: NavItem[] = [

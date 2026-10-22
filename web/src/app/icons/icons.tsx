@@ -573,3 +573,13 @@ export function QrIcon(props: SvgIconProps) {
     </PunchIcon>
   );
 }
+
+/** Admin: a shield with a check. */
+export function ShieldIcon(props: SvgIconProps) {
+  return (
+    <PunchIcon {...props}>
+      <path d="M12 3.5 5 6.2v5.3c0 4.3 2.9 7.8 7 9 4.1-1.2 7-4.7 7-9V6.2Z" />
+      <path d="m9 12 2.2 2.2L15.2 10" />
+    </PunchIcon>
+  );
+}
