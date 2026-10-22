@@ -1,0 +1,95 @@
+import { describe, expect, it, vi } from 'vitest';
+import { SyncFailure } from '../ports/sync.ts';
+import { createHttpAdmin } from './http-admin.ts';
+
+type Reply = { status: number; body?: unknown };
+
+/** A fetch that answers from a script and remembers what it was asked. */
+function fakeFetch(...replies: Reply[]) {
+  const calls: { url: string; method: string; body: unknown }[] = [];
+  const fetcher = vi.fn((url: string, init: RequestInit) => {
+    calls.push({
+      url,
+      method: init.method ?? 'GET',
+      body: typeof init.body === 'string' ? JSON.parse(init.body) : null,
+    });
+    const reply = replies.shift() ?? { status: 500 };
+    return Promise.resolve(
+      new Response(
+        reply.status === 204 || reply.body === undefined ? null : JSON.stringify(reply.body),
+        {
+          status: reply.status,
+          headers: { 'content-type': 'application/json' },
+        },
+      ),
+    );
+  });
+  return { fetcher: fetcher as unknown as typeof fetch, calls };
+}
+
+describe('HTTP admin', () => {
+  it('turns refusals the admin can act on into reasons', async () => {
+    const { fetcher } = fakeFetch(
+      { status: 409, body: { error: 'last_super_admin' } },
+      { status: 409, body: { error: 'self' } },
+      { status: 409, body: { error: 'username_taken' } },
+      { status: 400, body: { error: 'invalid_username' } },
+      { status: 403 },
+      { status: 400, body: { error: 'too_short' } },
+    );
+    const admin = createHttpAdmin('', fetcher);
+    expect(await admin.setRole('U1', 'user')).toEqual({ ok: false, reason: 'last-super-admin' });
+    expect(await admin.setDisabled('U1', true)).toEqual({ ok: false, reason: 'self' });
+    expect(await admin.addUser('sam', 'user')).toEqual({ ok: false, reason: 'taken' });
+    expect(await admin.addUser('Sam Q', 'user')).toEqual({ ok: false, reason: 'invalid' });
+    // A plain 403: the caller may not touch that account.
+    expect(await admin.resetPassword('U9')).toEqual({ ok: false, reason: 'admins-only' });
+    expect(await admin.updateGroup('G1', { name: 'x' })).toEqual({
+      ok: false,
+      reason: 'too-short',
+    });
+  });
+
+  it('answers with what the server made', async () => {
+    const { fetcher, calls } = fakeFetch(
+      { status: 201, body: { id: 'U3', username: 'zoe', role: 'user', password: 'secret' } },
+      { status: 200, body: { password: 'reset' } },
+      { status: 200, body: { unbound: 1, stranded: ['kim'] } },
+    );
+    const admin = createHttpAdmin('/base', fetcher);
+    expect(await admin.addUser('zoe', 'admin')).toEqual({
+      ok: true,
+      value: { id: 'U3', password: 'secret' },
+    });
+    expect(calls[0]).toEqual({
+      url: '/base/api/admin/users',
+      method: 'POST',
+      body: { username: 'zoe', role: 'admin' },
+    });
+    expect(await admin.resetPassword('U3')).toEqual({ ok: true, value: 'reset' });
+    // Provider subjects can hold any character.
+    expect(await admin.unlink('U3', 'auth0', 'auth0|42/x')).toEqual({
+      ok: true,
+      value: { stranded: true },
+    });
+    expect(calls[2]?.url).toBe('/base/api/admin/users/U3/identities/auth0/auth0%7C42%2Fx');
+    expect(calls[2]?.method).toBe('DELETE');
+  });
+
+  it('a lost session or a broken server is a failure, not a refusal', async () => {
+    const { fetcher } = fakeFetch(
+      { status: 401 },
+      { status: 500 },
+      { status: 409, body: { error: 'something_new' } },
+    );
+    const admin = createHttpAdmin('', fetcher);
+    await expect(admin.users()).rejects.toMatchObject({ kind: 'signed-out' });
+    await expect(admin.groups()).rejects.toBeInstanceOf(SyncFailure);
+    await expect(admin.setRole('U1', 'admin')).rejects.toMatchObject({ kind: 'server' });
+  });
+
+  it('is offline when nothing answers', async () => {
+    const admin = createHttpAdmin('', () => Promise.reject(new Error('down')));
+    await expect(admin.providers()).rejects.toMatchObject({ kind: 'offline' });
+  });
+});
