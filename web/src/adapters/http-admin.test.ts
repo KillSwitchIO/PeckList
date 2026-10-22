@@ -88,6 +88,36 @@ describe('HTTP admin', () => {
     await expect(admin.setRole('U1', 'admin')).rejects.toMatchObject({ kind: 'server' });
   });
 
+  it('a settings change the server will not take comes back with its reason', async () => {
+    const view = { settings: [], pendingRestart: true, problem: null };
+    const { fetcher, calls } = fakeFetch(
+      {
+        status: 400,
+        body: {
+          error: 'invalid',
+          message: "SNAPSHOT_KEEP: '0' is not a whole number of at least 1",
+        },
+      },
+      { status: 409, body: { error: 'locked', message: 'DB_PATH is set outside this page' } },
+      { status: 200, body: view },
+    );
+    const admin = createHttpAdmin('', fetcher);
+    expect(await admin.saveSettings({ SNAPSHOT_KEEP: '0' })).toEqual({
+      ok: false,
+      message: "SNAPSHOT_KEEP: '0' is not a whole number of at least 1",
+    });
+    expect(await admin.saveSettings({ DB_PATH: '/x' })).toEqual({
+      ok: false,
+      message: 'DB_PATH is set outside this page',
+    });
+    expect(await admin.saveSettings({ REGISTRATION: 'open' })).toEqual({ ok: true, value: view });
+    expect(calls[2]).toEqual({
+      url: '/api/admin/settings',
+      method: 'PUT',
+      body: { values: { REGISTRATION: 'open' } },
+    });
+  });
+
   it('is offline when nothing answers', async () => {
     const admin = createHttpAdmin('', () => Promise.reject(new Error('down')));
     await expect(admin.providers()).rejects.toMatchObject({ kind: 'offline' });

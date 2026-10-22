@@ -36,6 +36,8 @@ function memoryAdmin(benId: string) {
     users: [user(benId, 'ben', 'superadmin'), user('U2', 'sam')],
     groups: [] as AdminGroup[],
     friendships: [] as [string, string][],
+    page: {} as Record<string, string>,
+    restarted: false,
     handedOver: [] as { from: string; to: string; ids: string[] }[],
     window: null as string | null,
     pending: [
@@ -52,6 +54,45 @@ function memoryAdmin(benId: string) {
     ] as PendingSignIn[],
   };
   const ok = <T,>(value: T) => Promise.resolve({ ok: true as const, value });
+  const settingsView = () => ({
+    pendingRestart: Object.keys(state.page).length > 0,
+    problem: null,
+    settings: [
+      {
+        key: 'REGISTRATION',
+        group: 'general',
+        kind: 'choice' as const,
+        choices: ['open', 'invite', 'closed'],
+        default: 'invite',
+        value: state.page.REGISTRATION ?? null,
+        source: state.page.REGISTRATION ? ('page' as const) : ('default' as const),
+        locked: false,
+        saved: Boolean(state.page.REGISTRATION),
+      },
+      {
+        key: 'SNAPSHOT_KEEP',
+        group: 'backups',
+        kind: 'number' as const,
+        choices: null,
+        default: '14',
+        value: '5',
+        source: 'environment' as const,
+        locked: true,
+        saved: false,
+      },
+      {
+        key: 'DB_CONNECTION_STRING',
+        group: 'environment',
+        kind: 'secret' as const,
+        choices: null,
+        default: null,
+        value: '********',
+        source: 'environment' as const,
+        locked: true,
+        saved: false,
+      },
+    ],
+  });
   const api: AdminApi = {
     users: () => Promise.resolve(state.users.map((each) => ({ ...each }))),
     addUser: (username, role) => {
@@ -134,6 +175,21 @@ function memoryAdmin(benId: string) {
       group.members = member
         ? [...group.members, { accountId, sources: ['manual'] }]
         : group.members.filter((each) => each.accountId !== accountId);
+      return Promise.resolve();
+    },
+    settings: () => Promise.resolve(settingsView()),
+    saveSettings: (values) => {
+      if (values.REGISTRATION === 'maybe') {
+        return Promise.resolve({
+          ok: false as const,
+          message: "REGISTRATION: 'maybe' is not one of open, invite, closed",
+        });
+      }
+      Object.assign(state.page, values);
+      return Promise.resolve({ ok: true as const, value: settingsView() });
+    },
+    restart: () => {
+      state.restarted = true;
       return Promise.resolve();
     },
     providers: () =>
@@ -298,6 +354,28 @@ describe('admin', () => {
     await screen.findByRole('menuitem', { name: 'Reset password' });
     expect(screen.queryByRole('menuitem', { name: /View as/ })).toBeNull();
     open.mockRestore();
+  });
+
+  it("changes server settings, leaves the environment's alone, and restarts to apply them", async () => {
+    const { state } = await adminApp('superadmin', '/admin/settings');
+    const general = await screen.findByRole('region', { name: 'General' });
+    expect(within(general).getByText('REGISTRATION · default: invite')).toBeInTheDocument();
+    const backups = screen.getByRole('region', { name: 'Backups' });
+    const kept = within(backups).getByRole('spinbutton', { name: 'Backups kept' });
+    expect(kept).toBeDisabled();
+    expect(kept).toHaveValue(5);
+    expect(within(backups).getByText('SNAPSHOT_KEEP · set by the environment')).toBeInTheDocument();
+    // Environment-only settings come last, secrets never shown.
+    const environment = screen.getByRole('region', { name: 'Set in the environment only' });
+    expect(within(environment).getByLabelText('Database connection')).toHaveValue('');
+
+    await userEvent.click(within(general).getByRole('combobox', { name: 'Who can join' }));
+    await userEvent.click(await screen.findByRole('option', { name: 'open' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Save' }));
+    expect(await within(general).findByText('REGISTRATION · saved here')).toBeInTheDocument();
+    expect(state.page).toEqual({ REGISTRATION: 'open' });
+    await userEvent.click(screen.getByRole('button', { name: 'Restart now' }));
+    expect(state.restarted).toBe(true);
   });
 
   it('makes a group and fills it', async () => {

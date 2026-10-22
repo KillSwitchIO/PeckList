@@ -66,6 +66,31 @@ export interface PendingSignIn {
   lastSeen: string;
 }
 
+/** One server setting as the settings page shows it (spec: Server settings). */
+export interface ServerSetting {
+  key: string;
+  /** general, sign-in, backups, network, logging, environment, or provider:<name> */
+  group: string;
+  kind: 'text' | 'url' | 'choice' | 'number' | 'flag' | 'list' | 'secret';
+  choices: string[] | null;
+  default: string | null;
+  /** The value in force; secrets show as asterisks when set. */
+  value: string | null;
+  source: 'environment' | 'file' | 'page' | 'default';
+  /** Set outside the page (or only settable there): shown, not editable. */
+  locked: boolean;
+  /** A value is saved on the page (it may be overridden). */
+  saved: boolean;
+}
+
+export interface ServerSettingsView {
+  settings: ServerSetting[];
+  /** Saved values differ from those the server started with. */
+  pendingRestart: boolean;
+  /** Why the saved values were set aside at the last start, if they were. */
+  problem: string | null;
+}
+
 /** Why an admin action was refused, when the person can do something about it. */
 export type AdminRefusal =
   | 'not-allowed'
@@ -120,6 +145,14 @@ export interface AdminApi {
   deleteGroup(id: string): Promise<void>;
   /** Add or remove a member by hand (members from a provider stay). */
   setMember(groupId: string, accountId: string, member: boolean): Promise<void>;
+
+  settings(): Promise<ServerSettingsView>;
+  /** Save page values (empty to clear); refused with the server's message when one does not work. */
+  saveSettings(
+    values: Record<string, string>,
+  ): Promise<{ ok: true; value: ServerSettingsView } | { ok: false; message: string }>;
+  /** Stop the server so it starts again with the saved values (needs a restart policy). */
+  restart(): Promise<void>;
 
   providers(): Promise<AdminProvider[]>;
   unbindAll(provider: string): Promise<{ unbound: number; stranded: string[] }>;

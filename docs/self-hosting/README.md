@@ -149,7 +149,31 @@ the same host or Docker network.
 
 Every setting also accepts `NAME_FILE`, a file holding the value (Docker secrets); one trailing
 newline is dropped. Setting both is an error. A bad setting stops the server with a list of what
-to fix. OIDC settings are in [Sign in with OIDC](#sign-in-with-oidc).
+to fix. OIDC settings are in [Sign in with OIDC](#sign-in-with-oidc). `LOG_LEVEL` takes `trace`,
+`debug`, `information` (default), `warning`, `error` or `critical`.
+
+### Three places for settings
+
+1. **Environment** (or `NAME_FILE`): always wins.
+2. **`CONFIG_FILE`**: a file of `NAME=value` lines (the Docker env-file format, `#` comments
+   allowed), for those who keep settings in one file.
+3. **Admin > Settings** in the app: what an admin saves there. Anything set in 1 or 2 shows greyed
+   out with its source; the database, auth mode, admin password and the config file itself are
+   environment only. Saved values apply after a restart: **Restart now** stops the server, and the
+   `restart: unless-stopped` policy in the compose examples brings it back. A saved value that stops
+   working never keeps the server down; it starts without them and says why on that page.
+
+Values can be encrypted so a compose file or env file holds nothing readable:
+
+```bash
+docker exec <container> punchlist config key            # make a key; keep it in a Docker secret
+docker exec -e CONFIG_KEY=... <container> punchlist config encrypt 'the secret'   # prints enc:v1:...
+docker exec <container> punchlist config show           # every setting and where it comes from
+```
+
+Give the server the key as `CONFIG_KEY_FILE=/run/secrets/punchlist_key`, then use the `enc:v1:...`
+text anywhere a value goes (`OIDC_POCKET_CLIENT_SECRET=enc:v1:...`). Secrets saved on the settings
+page are encrypted in the database and never shown again.
 
 ## Backups
 

@@ -10,6 +10,7 @@ import type {
   AdminResult,
   AdminUser,
   PendingSignIn,
+  ServerSettingsView,
 } from '../ports/admin.ts';
 import { SyncFailure } from '../ports/sync.ts';
 
@@ -149,6 +150,19 @@ export function createHttpAdmin(
       if (!response.ok) throw new SyncFailure('server', `server error ${response.status}`);
     },
 
+    settings: async () => json<ServerSettingsView>(await call('/settings')),
+    saveSettings: async (values) => {
+      const response = await call('/settings', 'PUT', { values });
+      if (response.ok) return { ok: true, value: (await response.json()) as ServerSettingsView };
+      if (response.status === 400 || response.status === 409) {
+        const body = (await response.json()) as { message?: string };
+        return { ok: false, message: body.message ?? `server error ${response.status}` };
+      }
+      throw new SyncFailure('server', `server error ${response.status}`);
+    },
+    restart: async () => {
+      await call('/restart', 'POST');
+    },
     providers: async () => json<AdminProvider[]>(await call('/providers')),
     unbindAll: async (provider) =>
       json<{ unbound: number; stranded: string[] }>(
