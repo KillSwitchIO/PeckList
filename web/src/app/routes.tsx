@@ -10,6 +10,7 @@ import { TagView } from './tags/TagView.tsx';
 import { EmptyState } from './views/EmptyState.tsx';
 import { MoreView } from './views/MoreView.tsx';
 import { SearchView } from './search/SearchView.tsx';
+import { SettingsPage } from './settings/SettingsPage.tsx';
 import {
   AllView,
   AssignedView,
@@ -62,10 +63,7 @@ export function AppRoutes() {
           element={<ComingSoon title={t('nav.calendar')} milestone="0.3" />}
         />
         <Route path="/search" element={<SearchView />} />
-        <Route
-          path="/settings"
-          element={<ComingSoon title={t('nav.settings')} milestone="0.2" />}
-        />
+        <Route path="/settings" element={<SettingsPage />} />
         <Route path="*" element={<NotFound />} />
       </Route>
     </Routes>

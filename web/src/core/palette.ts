@@ -136,17 +136,34 @@ function ring(fill: string, surface: string): ColorToken {
   return { fill: visible, on: ensureContrast(fill, surface, WCAG_TEXT) };
 }
 
+/** The colors a user can change (the palette editor's slots) and what each starts as. */
+export const PALETTE_DEFAULTS = {
+  accent: '#4F8F87',
+  accentContainer: '#CDE8E3',
+  priorityHigh: '#E8837E',
+  priorityMedium: '#F0B072',
+  priorityLow: '#8FA8E0',
+  priorityNone: '#B8BCC4',
+  late: '#E8837E',
+  slipped: '#F0B072',
+} as const;
+
+export type PaletteSlot = keyof typeof PALETTE_DEFAULTS;
+
+export const LIGHT_SURFACE = '#FFFFFF';
+export const DARK_SURFACE = '#24272A';
+
 export function buildPalette(
   mode: 'light' | 'dark',
   overrides: Partial<Record<string, string>> = {},
 ): ModePalette {
   const dark = mode === 'dark';
-  const surface = dark ? '#24272A' : '#FFFFFF';
+  const surface = dark ? DARK_SURFACE : LIGHT_SURFACE;
   const fill = (name: string, fallback: string) => overrides[name] ?? fallback;
   const pastels = Object.fromEntries(
     PASTEL_NAMES.map((name) => [name, token(fill(name, PASTEL_FILLS[name]), surface, dark)]),
   ) as Record<PastelName, ColorToken>;
-  const accentSeed = fill('accent', '#4F8F87');
+  const accentSeed = fill('accent', PALETTE_DEFAULTS.accent);
   return {
     background: dark ? '#1B1D1F' : '#FAFAF7',
     surface,
@@ -161,23 +178,25 @@ export function buildPalette(
         : ensureContrast(accentSeed, '#FFFFFF', WCAG_TEXT),
       on: dark ? '#0F2E2A' : '#FFFFFF',
     },
-    accentContainer: dark ? mix(accentSeed, '#000000', 0.45) : fill('accentContainer', '#CDE8E3'),
+    accentContainer: dark
+      ? mix(accentSeed, '#000000', 0.45)
+      : fill('accentContainer', PALETTE_DEFAULTS.accentContainer),
     onAccentContainer: dark
       ? ensureContrast(mix(accentSeed, '#FFFFFF', 0.5), mix(accentSeed, '#000000', 0.45), WCAG_TEXT)
       : ensureContrast(
           mix(accentSeed, '#000000', 0.25),
-          fill('accentContainer', '#CDE8E3'),
+          fill('accentContainer', PALETTE_DEFAULTS.accentContainer),
           WCAG_TEXT,
         ),
     priority: {
-      high: ring(fill('priorityHigh', '#E8837E'), surface),
-      medium: ring(fill('priorityMedium', '#F0B072'), surface),
-      low: ring(fill('priorityLow', '#8FA8E0'), surface),
-      none: ring(fill('priorityNone', '#B8BCC4'), surface),
+      high: ring(fill('priorityHigh', PALETTE_DEFAULTS.priorityHigh), surface),
+      medium: ring(fill('priorityMedium', PALETTE_DEFAULTS.priorityMedium), surface),
+      low: ring(fill('priorityLow', PALETTE_DEFAULTS.priorityLow), surface),
+      none: ring(fill('priorityNone', PALETTE_DEFAULTS.priorityNone), surface),
     },
     dateState: {
-      late: ensureContrast(fill('late', '#E8837E'), surface, WCAG_TEXT),
-      slipped: ensureContrast(fill('slipped', '#F0B072'), surface, WCAG_TEXT),
+      late: ensureContrast(fill('late', PALETTE_DEFAULTS.late), surface, WCAG_TEXT),
+      slipped: ensureContrast(fill('slipped', PALETTE_DEFAULTS.slipped), surface, WCAG_TEXT),
       dueSoon: ensureContrast(accentSeed, surface, WCAG_TEXT),
     },
     pastels,

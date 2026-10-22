@@ -6,6 +6,7 @@ import { standaloneSync } from './sync/syncContext.ts';
 import type { SyncEngine } from './sync/syncEngine.ts';
 import { SyncProvider } from './sync/SyncProvider.tsx';
 import { ThemeModeProvider } from './theme/ThemeModeProvider.tsx';
+import { WorkspaceTheme } from './theme/WorkspaceTheme.tsx';
 
 /**
  * Providers shared by the real app and tests. Without a `sync` engine the app runs standalone
@@ -25,7 +26,9 @@ export function AppProviders({
     <ThemeModeProvider>
       <StoreProvider store={store}>
         <StatusGate>
-          <SyncProvider engine={engine}>{children}</SyncProvider>
+          <WorkspaceTheme>
+            <SyncProvider engine={engine}>{children}</SyncProvider>
+          </WorkspaceTheme>
         </StatusGate>
       </StoreProvider>
     </ThemeModeProvider>
