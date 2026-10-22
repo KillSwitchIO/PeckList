@@ -7,6 +7,7 @@ import { GroupsTab } from './GroupsTab.tsx';
 import { LogsTab } from './LogsTab.tsx';
 import { StatsTab } from './StatsTab.tsx';
 import { SettingsTab } from './SettingsTab.tsx';
+import { SetupWizard } from './SetupWizard.tsx';
 import { SignInTab } from './SignInTab.tsx';
 import { UsersTab } from './UsersTab.tsx';
 import { useAdminApi } from './useAdmin.ts';
@@ -29,6 +30,13 @@ export function AdminPage() {
     return (
       <Page title={t('admin.title')}>
         <Typography color="text.secondary">{t('admin.notAllowed')}</Typography>
+      </Page>
+    );
+  }
+  if (params.tab === 'setup') {
+    return (
+      <Page title={t('admin.title')}>
+        <SetupWizard api={api} />
       </Page>
     );
   }

@@ -125,4 +125,35 @@ public sealed class SettingsPageTests(ServerFixture fixture) : IClassFixture<Ser
         var view = (await (await Admin(server)).GetFromJsonAsync<SettingsView>("/api/admin/settings", Token))!;
         Assert.Equal(("file", true), (Find(view, "REGISTRATION").Source, Find(view, "REGISTRATION").Locked));
     }
+
+    [Fact]
+    public async Task The_first_run_wizard_saves_a_provider_in_one_go_and_remembers_it_is_done()
+    {
+        using var server = Server(fixture.NewDbPath());
+        var admin = await Admin(server);
+        Assert.False((await admin.GetFromJsonAsync<SetupState>("/api/admin/setup", Token))!.Done);
+
+        // What the wizard sends: the address, a new provider's block, who can join.
+        var saved = await admin.PutAsJsonAsync("/api/admin/settings", new
+        {
+            values = new Dictionary<string, string?>
+            {
+                ["PUBLIC_URL"] = "https://tasks.example.com",
+                ["OIDC_PROVIDERS"] = "pocket",
+                ["OIDC_POCKET_AUTHORITY"] = "https://id.example.com",
+                ["OIDC_POCKET_CLIENT_ID"] = "punchlist",
+                ["OIDC_POCKET_CLIENT_SECRET"] = "wizard-secret-31f",
+                ["OIDC_POCKET_DISPLAY_NAME"] = "Pocket ID",
+                ["OIDC_POCKET_AUTO_CREATE"] = "true",
+                ["REGISTRATION"] = "closed",
+            },
+        }, Token);
+        Assert.Equal(HttpStatusCode.OK, saved.StatusCode);
+        var view = (await saved.Content.ReadFromJsonAsync<SettingsView>(Token))!;
+        Assert.True(view.PendingRestart);
+        Assert.Equal((SettingsEndpoints.Hidden, "page"), (Find(view, "OIDC_POCKET_CLIENT_SECRET").Value, Find(view, "OIDC_POCKET_CLIENT_SECRET").Source));
+
+        (await admin.PutAsJsonAsync("/api/admin/setup", new { done = true }, Token)).EnsureSuccessStatusCode();
+        Assert.True((await admin.GetFromJsonAsync<SetupState>("/api/admin/setup", Token))!.Done);
+    }
 }

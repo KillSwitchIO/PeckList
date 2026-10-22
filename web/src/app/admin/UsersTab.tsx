@@ -23,6 +23,7 @@ import { useSyncState } from '../sync/syncContext.ts';
 import { ConfirmDialog, SecretDialog } from './AdminDialogs.tsx';
 import { FriendsDialog } from './FriendsDialog.tsx';
 import { HandOverDialog } from './HandOverDialog.tsx';
+import { SetupCard } from './SetupCard.tsx';
 import { ViewAsDialog } from './ViewAsDialog.tsx';
 import { refusalText, useIsSuperAdmin, useLoaded } from './useAdmin.ts';
 
@@ -159,6 +160,7 @@ export function UsersTab({ api }: { api: AdminApi }) {
 
   return (
     <Box sx={{ maxWidth: 720 }}>
+      <SetupCard api={api} />
       <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', mb: 1.5 }}>
         <InputBase
           placeholder={t('admin.users.search')}

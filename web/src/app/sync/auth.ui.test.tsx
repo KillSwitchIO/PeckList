@@ -152,6 +152,32 @@ describe('signing in to a server', () => {
     expect(await screen.findByRole('heading', { level: 1, name: 'Today' })).toBeInTheDocument();
   });
 
+  it('the first super admin goes on to set up the server once their password is chosen', async () => {
+    window.history.replaceState(null, '', '/today');
+    const backend = new FakeBackend();
+    backend.addAccount('admin', 'generated password', {
+      mustChangePassword: true,
+      role: 'superadmin',
+    });
+    await serverApp(backend);
+    await userEvent.type(await screen.findByLabelText(/Username/), 'admin');
+    await userEvent.type(screen.getByLabelText(/^Password/), 'generated password{Enter}');
+    await screen.findByRole('heading', { name: 'Choose a new password' });
+
+    // A wrong current password leaves the address alone.
+    await userEvent.type(screen.getByLabelText(/Current password/), 'not it');
+    await userEvent.type(screen.getByLabelText(/New password/), 'a brand new password{Enter}');
+    expect(
+      await screen.findByText(/current password/i, { selector: '.MuiAlert-message' }),
+    ).toBeInTheDocument();
+    expect(window.location.pathname).toBe('/today');
+
+    await userEvent.clear(screen.getByLabelText(/Current password/));
+    await userEvent.type(screen.getByLabelText(/Current password/), 'generated password{Enter}');
+    await waitFor(() => expect(window.location.pathname).toBe('/admin/setup'));
+    window.history.replaceState(null, '', '/');
+  });
+
   it('the cloud shows who is signed in, and signs out', async () => {
     const backend = new FakeBackend();
     backend.addAccount('ben', 'correct horse battery');

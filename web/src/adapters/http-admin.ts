@@ -225,6 +225,11 @@ export function createHttpAdmin(
     debugDumpUrl: () => `${base}/api/admin/debug-dump`,
     audit: async (query) => json<AuditPage>(await call(`/audit?${auditParams(query)}`)),
     stats: async () => json<ServerStats>(await call('/stats')),
+    setup: async () => json<{ done: boolean }>(await call('/setup')),
+    finishSetup: async () => {
+      const response = await call('/setup', 'PUT', { done: true });
+      if (!response.ok) throw new SyncFailure('server', `server error ${response.status}`);
+    },
     auditCsvUrl: (query) => `${base}/api/admin/audit.csv?${auditParams(query)}`,
     providers: async () => json<AdminProvider[]>(await call('/providers')),
     unbindAll: async (provider) =>

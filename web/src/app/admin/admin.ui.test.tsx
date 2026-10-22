@@ -40,6 +40,7 @@ function memoryAdmin(benId: string) {
     friendships: [] as [string, string][],
     page: {} as Record<string, string>,
     restarted: false,
+    setupDone: true,
     backups: [] as { name: string; taken: string; size: number }[],
     restores: [] as { source: unknown; username: string | null }[],
     handedOver: [] as { from: string; to: string; ids: string[] }[],
@@ -339,6 +340,11 @@ function memoryAdmin(benId: string) {
       );
       return Promise.resolve({ entries, more: false });
     },
+    setup: () => Promise.resolve({ done: state.setupDone }),
+    finishSetup: () => {
+      state.setupDone = true;
+      return Promise.resolve();
+    },
     stats: () =>
       Promise.resolve({
         computed: '2026-10-22T12:00:00Z',
@@ -381,12 +387,17 @@ function memoryAdmin(benId: string) {
   return { api, state, auditQueries };
 }
 
-async function adminApp(role: AccountRole, path = '/admin') {
+async function adminApp(
+  role: AccountRole,
+  path = '/admin',
+  options: { setupDone?: boolean; path?: string } = {},
+) {
   const backend = new FakeBackend();
   const ben = backend.addAccount('ben', 'correct horse battery', { role });
   const transport = backend.device();
   transport.session = 'ben';
   const admin = memoryAdmin(ben.id);
+  if (options.setupDone !== undefined) admin.state.setupDone = options.setupDone;
   transport.admin = admin.api;
   const store = testStore();
   const sync = createSyncEngine({
@@ -396,7 +407,7 @@ async function adminApp(role: AccountRole, path = '/admin') {
     debounceMs: 60_000,
     intervalMs: 600_000,
   });
-  await renderApp(path, store, sync);
+  await renderApp(options.path ?? path, store, sync);
   return admin;
 }
 
@@ -584,6 +595,62 @@ describe('admin', () => {
       await screen.findByText(/The server is restarting to restore the backup/),
     ).toBeInTheDocument();
     expect(state.restores.map((each) => each.username)).toEqual([null, 'sam', 'everyone']);
+  });
+
+  it('walks a new server through setup: address, a provider, who can join, then a restart', async () => {
+    const { state } = await adminApp('superadmin', '/admin', {
+      setupDone: false,
+      path: '/admin/setup',
+    });
+    const wizard = await screen.findByRole('region', { name: 'Set up your server' });
+    expect(within(wizard).getByText('Step 1 of 3: Public address')).toBeInTheDocument();
+    const address = within(wizard).getByLabelText('Public address');
+    await userEvent.clear(address);
+    await userEvent.type(address, 'https://tasks.example.com');
+    await userEvent.click(within(wizard).getByRole('button', { name: 'Next' }));
+
+    expect(
+      await within(wizard).findByText('Step 2 of 3: Sign-in with a provider'),
+    ).toBeInTheDocument();
+    expect(within(wizard).getByRole('button', { name: 'Next' })).toBeDisabled();
+    await userEvent.type(
+      within(wizard).getByLabelText('Provider name on the sign-in button'),
+      'Pocket ID',
+    );
+    await userEvent.type(within(wizard).getByLabelText('Issuer address'), 'https://id.example.com');
+    await userEvent.type(within(wizard).getByLabelText('Client ID'), 'punchlist');
+    expect(
+      within(wizard).getByText(
+        'Register this callback address with the provider: https://tasks.example.com/auth/oidc/pocket-id/callback',
+      ),
+    ).toBeInTheDocument();
+    await userEvent.click(within(wizard).getByRole('button', { name: 'Next' }));
+
+    expect(await within(wizard).findByText('Step 3 of 3: Who can join')).toBeInTheDocument();
+    await userEvent.click(within(wizard).getByLabelText(/^Closed/));
+    await userEvent.click(within(wizard).getByRole('button', { name: 'Finish' }));
+
+    expect(await screen.findByText('Your server is set up')).toBeInTheDocument();
+    expect(state.page).toEqual({
+      PUBLIC_URL: 'https://tasks.example.com',
+      OIDC_PROVIDERS: 'pocket-id',
+      OIDC_POCKET_ID_AUTHORITY: 'https://id.example.com',
+      OIDC_POCKET_ID_CLIENT_ID: 'punchlist',
+      OIDC_POCKET_ID_DISPLAY_NAME: 'Pocket ID',
+      OIDC_POCKET_ID_AUTO_CREATE: 'true',
+      REGISTRATION: 'closed',
+    });
+    expect(state.setupDone).toBe(true);
+    await userEvent.click(screen.getByRole('button', { name: 'Restart now' }));
+    expect(state.restarted).toBe(true);
+  });
+
+  it('offers setup on the admin page until it is dismissed, and a set-up server skips the wizard', async () => {
+    const { state } = await adminApp('admin', '/admin', { setupDone: false });
+    expect(await screen.findByText('Finish setting up this server')).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Dismiss' }));
+    expect(screen.queryByText('Finish setting up this server')).toBeNull();
+    expect(state.setupDone).toBe(true);
   });
 
   it('shows server totals, closed tasks per month and a sortable row per person', async () => {

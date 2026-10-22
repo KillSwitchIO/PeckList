@@ -225,6 +225,8 @@ function SignIn() {
 
 function ChangePassword() {
   const changePassword = useSyncState((state) => state.changePassword);
+  // The generated first password: once a super admin has chosen theirs, the setup wizard comes next.
+  const superAdmin = useSyncState((state) => state.account?.role === 'superadmin');
   const [current, setCurrent] = useState('');
   const [next, setNext] = useState('');
   const [busy, setBusy] = useState(false);
@@ -235,7 +237,12 @@ function ChangePassword() {
     setBusy(true);
     setProblem(null);
     try {
+      const before = window.location.pathname + window.location.search;
+      // The router starts once this page goes away: it opens at the wizard (which steps aside when
+      // the server is already set up).
+      if (superAdmin) window.history.replaceState(null, '', '/admin/setup');
       const outcome = await changePassword(current, next);
+      if (outcome.kind !== 'ok' && superAdmin) window.history.replaceState(null, '', before);
       if (outcome.kind === 'wrong-password') setProblem(t('auth.wrongPassword'));
       else if (outcome.kind === 'too-short') setProblem(t('auth.tooShort'));
       else if (outcome.kind === 'unchanged') setProblem(t('auth.unchanged'));

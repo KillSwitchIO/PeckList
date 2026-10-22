@@ -269,6 +269,10 @@ export interface AdminApi {
   debugDumpUrl(): string;
   /** The access or event log, newest first. */
   audit(query: AuditQuery): Promise<AuditPage>;
+  /** Whether the first-run wizard is finished (or was waved away). */
+  setup(): Promise<{ done: boolean }>;
+  /** Mark the first setup finished: the wizard stops offering itself. */
+  finishSetup(): Promise<void>;
   /** Server totals and a row per person (spec: Server stats). */
   stats(): Promise<ServerStats>;
   /** Downloads the filtered log as CSV, oldest first. */

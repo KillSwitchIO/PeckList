@@ -29,6 +29,13 @@ refuses everything else until you do. Set `ADMIN_PASSWORD` (or `ADMIN_PASSWORD_F
 it instead. `AUTH_MODE=none` skips logins entirely: anyone who can reach the server has full access,
 so keep it to a trusted network.
 
+Once the password is changed, a short setup opens: the public address (prefilled with the one you
+opened the page at), an identity provider if you want one (it shows the callback address to
+register with the provider), and who can join. Each step is saved as you go, so **Not now** loses
+nothing; **Admin** offers to finish it until you do, or until you dismiss it. Anything the
+environment already sets shows as it is and is skipped. Some choices apply after a restart, which
+the last step offers.
+
 The `admin` account is the server's super admin. Roles are `user`, `admin` (manages users,
 groups, settings, backups, logs and stats) and `superadmin` (all of that, plus managing admins).
 There is always at least one active super admin.
