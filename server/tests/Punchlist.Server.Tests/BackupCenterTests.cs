@@ -18,8 +18,19 @@ public sealed class BackupCenterTests(ServerFixture fixture) : IClassFixture<Ser
 
     private static CancellationToken Token => TestContext.Current.CancellationToken;
 
-    private WebApplicationFactory<Program> Server() =>
-        fixture.Factory(("ADMIN_PASSWORD", AdminPassword), ("DB_PATH", fixture.NewDbPath()), ("SNAPSHOT_SCHEDULE", "off"));
+    /// <summary>A server with its own database and backup folder (tests run side by side).</summary>
+    private WebApplicationFactory<Program> Server(string? db = null)
+    {
+        db ??= fixture.NewDbPath();
+        return fixture.Factory(("ADMIN_PASSWORD", AdminPassword), ("DB_PATH", db), ("SNAPSHOT_SCHEDULE", "off"),
+            ("SNAPSHOT_DIR", Path.ChangeExtension(db, ".backups")));
+    }
+
+    private static async Task<string> EpochOf(HttpClient client)
+    {
+        var response = await client.PostAsJsonAsync("/api/sync", new { schemaVersion = WorkspaceSchema.CurrentVersion, cursor = (long?)null }, Token);
+        return (await response.Content.ReadFromJsonAsync<SyncResponse>(Token))!.Epoch!;
+    }
 
     private static async Task<HttpClient> LogIn(WebApplicationFactory<Program> server, string username, string password)
     {
@@ -153,5 +164,34 @@ public sealed class BackupCenterTests(ServerFixture fixture) : IClassFixture<Ser
         var held = await Sync(sam2);
         Assert.Equal("Mow", (string?)held["T1"]["title"]);
         Assert.DoesNotContain("M1", held.Keys);
+    }
+
+    [Fact]
+    public async Task The_whole_server_comes_back_from_a_backup_at_a_restart_and_devices_start_over()
+    {
+        var db = fixture.NewDbPath();
+        string name, before;
+        using (var server = Server(db))
+        {
+            var admin = await LogIn(server, "admin", AdminPassword);
+            var (sam, _) = await NewUser(server, "sam");
+            await Sync(sam, ("lists", Entity("L1", new JsonObject { ["name"] = "Chores", ["visibility"] = "private" })), Task("T1", "L1", "Mow"));
+            before = await EpochOf(sam);
+            Assert.Equal(before, await EpochOf(sam));
+            name = (string)(await (await admin.PostAsync("/api/admin/backups", null, Token)).Content.ReadFromJsonAsync<JsonObject>(Token))!["name"]!;
+            // After the backup: a task the restore will take away.
+            await Sync(sam, Task("T2", "L1", "After the backup"));
+
+            using var bad = new MultipartFormDataContent { { new ByteArrayContent("{}"u8.ToArray()), "file", "x.json" } };
+            Assert.Equal(HttpStatusCode.BadRequest, (await admin.PostAsync("/api/admin/restore", bad, Token)).StatusCode);
+            using var form = new MultipartFormDataContent { { new StringContent(name), "backup" } };
+            Assert.Equal(HttpStatusCode.Accepted, (await admin.PostAsync("/api/admin/restore", form, Token)).StatusCode);
+        }
+        using var restarted = Server(db);
+        var samAgain = await LogIn(restarted, "sam", Password);
+        var held = await Sync(samAgain);
+        Assert.Equal("Mow", (string?)held["T1"]["title"]);
+        Assert.DoesNotContain("T2", held.Keys);
+        Assert.NotEqual(before, await EpochOf(samAgain));
     }
 }

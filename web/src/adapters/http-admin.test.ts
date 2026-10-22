@@ -118,6 +118,45 @@ describe('HTTP admin', () => {
     });
   });
 
+  it('restores from a file or a backup on the server, saying why one will not do', async () => {
+    const forms: FormData[] = [];
+    const replies = [
+      new Response(
+        JSON.stringify({ username: 'sam', created: true, restored: 3, removed: 0, dropped: 1 }),
+        {
+          status: 200,
+          headers: { 'content-type': 'application/json' },
+        },
+      ),
+      new Response(JSON.stringify({ error: 'bad_backup', message: 'not a Punchlist backup' }), {
+        status: 400,
+        headers: { 'content-type': 'application/json' },
+      }),
+      new Response(null, { status: 202 }),
+    ];
+    const fetcher = ((_: string, init: RequestInit) => {
+      forms.push(init.body as FormData);
+      return Promise.resolve(replies.shift()!);
+    }) as unknown as typeof fetch;
+    const admin = createHttpAdmin('', fetcher);
+    const file = new File(['{}'], 'sam.json', { type: 'application/json' });
+    expect(await admin.restoreUser({ file })).toEqual({
+      ok: true,
+      value: { username: 'sam', created: true, restored: 3, removed: 0, dropped: 1 },
+    });
+    expect((forms[0]!.get('file') as File).name).toBe('sam.json');
+    expect(await admin.restoreUser({ backup: 'punchlist-1.json' }, 'kim')).toEqual({
+      ok: false,
+      message: 'not a Punchlist backup',
+    });
+    expect([forms[1]!.get('backup'), forms[1]!.get('username')]).toEqual([
+      'punchlist-1.json',
+      'kim',
+    ]);
+    expect(await admin.restoreServer({ backup: 'punchlist-1.json' })).toEqual({ ok: true });
+    expect(admin.userExportUrl('U 1')).toBe('/api/admin/users/U%201/export');
+  });
+
   it('is offline when nothing answers', async () => {
     const admin = createHttpAdmin('', () => Promise.reject(new Error('down')));
     await expect(admin.providers()).rejects.toMatchObject({ kind: 'offline' });

@@ -80,6 +80,34 @@ public static class BackupEndpoints
             }
         }).RequirePermission(Permission.ManageBackups).DisableAntiforgery();
 
+        // The whole server back as a backup had it: checked now, restored at a restart (a safety
+        // backup first). Devices notice the new epoch and start over from what the server has.
+        admin.MapPost("/restore", async (
+            HttpRequest request, PendingRestore pending, Snapshots snapshots, ClaimsPrincipal user, ILoggerFactory logs,
+            IHostApplicationLifetime lifetime, CancellationToken cancellation) =>
+        {
+            var form = await request.ReadFormAsync(cancellation);
+            Stream input;
+            if (form.Files["file"] is { } file) input = file.OpenReadStream();
+            else if (form["backup"].FirstOrDefault() is { } name && Find(snapshots, name) is { } path) input = File.OpenRead(path);
+            else return Results.BadRequest(new AdminError("no_backup", "upload a backup file or pick one on the server"));
+            await using (input)
+            {
+                try
+                {
+                    await pending.ParkAsync(input, cancellation);
+                }
+                catch (BackupException error)
+                {
+                    return Results.BadRequest(new AdminError("bad_backup", error.Message));
+                }
+            }
+            var safety = await snapshots.TakeAsync(ServerApp.Version, cancellation);
+            Log(logs, "{Admin} is restoring the whole server; safety backup {Name}; restarting", user, Path.GetFileName(safety));
+            _ = Task.Delay(500).ContinueWith(_ => lifetime.StopApplication(), TaskScheduler.Default);
+            return Results.Accepted(value: new { Safety = Path.GetFileName(safety) });
+        }).RequirePermission(Permission.ManageBackups).DisableAntiforgery();
+
         return admin;
     }
 

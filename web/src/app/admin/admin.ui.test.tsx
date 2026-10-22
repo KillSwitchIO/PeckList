@@ -38,6 +38,8 @@ function memoryAdmin(benId: string) {
     friendships: [] as [string, string][],
     page: {} as Record<string, string>,
     restarted: false,
+    backups: [] as { name: string; taken: string; size: number }[],
+    restores: [] as { source: unknown; username: string | null }[],
     handedOver: [] as { from: string; to: string; ids: string[] }[],
     window: null as string | null,
     pending: [
@@ -176,6 +178,40 @@ function memoryAdmin(benId: string) {
         ? [...group.members, { accountId, sources: ['manual'] }]
         : group.members.filter((each) => each.accountId !== accountId);
       return Promise.resolve();
+    },
+    backups: () => Promise.resolve([...state.backups]),
+    backUpNow: () => {
+      state.backups.unshift({
+        name: 'punchlist-20261022-120000.json',
+        taken: '2026-10-22T12:00:00Z',
+        size: 2048,
+      });
+      return Promise.resolve('punchlist-20261022-120000.json');
+    },
+    backupUrl: (name) => `/api/admin/backups/${name}`,
+    exportUrl: () => '/api/admin/export',
+    userExportUrl: (id) => `/api/admin/users/${id}/export`,
+    restoreUser: (source, username) => {
+      state.restores.push({ source, username: username ?? null });
+      return !username && 'backup' in source
+        ? Promise.resolve({
+            ok: false as const,
+            message: 'say whose data to restore from this server backup',
+          })
+        : Promise.resolve({
+            ok: true as const,
+            value: {
+              username: username ?? 'sam',
+              created: false,
+              restored: 12,
+              removed: 1,
+              dropped: 0,
+            },
+          });
+    },
+    restoreServer: (source) => {
+      state.restores.push({ source, username: 'everyone' });
+      return Promise.resolve({ ok: true as const });
     },
     settings: () => Promise.resolve(settingsView()),
     saveSettings: (values) => {
@@ -376,6 +412,48 @@ describe('admin', () => {
     expect(state.page).toEqual({ REGISTRATION: 'open' });
     await userEvent.click(screen.getByRole('button', { name: 'Restart now' }));
     expect(state.restarted).toBe(true);
+  });
+
+  it('backs up, restores one person or the whole server, and exports', async () => {
+    const { state } = await adminApp('superadmin', '/admin/backups');
+    const scheduled = await screen.findByRole('region', { name: 'Backups on the server' });
+    expect(await within(scheduled).findByText('No backups yet.')).toBeInTheDocument();
+    await userEvent.click(within(scheduled).getByRole('button', { name: 'Back up now' }));
+    const row = await within(scheduled).findByRole('listitem', {
+      name: 'punchlist-20261022-120000.json',
+    });
+    expect(within(row).getByRole('link', { name: 'Download' })).toHaveAttribute(
+      'href',
+      '/api/admin/backups/punchlist-20261022-120000.json',
+    );
+    expect(screen.getByRole('link', { name: 'Download the whole server' })).toHaveAttribute(
+      'href',
+      '/api/admin/export',
+    );
+
+    // One person from a whole-server backup needs a name.
+    await userEvent.click(within(row).getByRole('button', { name: 'Restore' }));
+    let dialog = await screen.findByRole('dialog');
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Restore' }));
+    expect(
+      await within(dialog).findByText('say whose data to restore from this server backup'),
+    ).toBeInTheDocument();
+    await userEvent.type(within(dialog).getByLabelText('Whose data'), 'sam');
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Restore' }));
+    expect(
+      await screen.findByText(/sam is back as the backup had them: 12 things restored, 1 removed/),
+    ).toBeInTheDocument();
+
+    // The whole server.
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    await userEvent.click(within(row).getByRole('button', { name: 'Restore' }));
+    dialog = await screen.findByRole('dialog');
+    await userEvent.click(within(dialog).getByLabelText('The whole server'));
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Restore' }));
+    expect(
+      await screen.findByText(/The server is restarting to restore the backup/),
+    ).toBeInTheDocument();
+    expect(state.restores.map((each) => each.username)).toEqual([null, 'sam', 'everyone']);
   });
 
   it('makes a group and fills it', async () => {

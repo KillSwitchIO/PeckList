@@ -66,6 +66,8 @@ export interface SyncMeta {
   account: string | null;
   cursor: number;
   acks: Acks;
+  /** The server data's epoch last seen (null before one was seen). */
+  epoch?: string | null;
 }
 
 export interface SyncEngineDependencies {
@@ -113,6 +115,7 @@ export function createSyncEngine(deps: SyncEngineDependencies): SyncEngine {
       account: stored?.account ?? null,
       cursor: stored?.cursor ?? 0,
       acks: stored?.acks ?? {},
+      epoch: stored?.epoch ?? null,
     };
   };
 
@@ -130,9 +133,14 @@ export function createSyncEngine(deps: SyncEngineDependencies): SyncEngine {
 
   const engine = createStore<SyncState>()((set, get) => {
     /** Pull every page from the start, pushing nothing (linking a device to an account). */
-    const pullAll = async (): Promise<{ changes: SyncChange[]; cursor: number }> => {
+    const pullAll = async (): Promise<{
+      changes: SyncChange[];
+      cursor: number;
+      epoch: string | null;
+    }> => {
       const changes: SyncChange[] = [];
       let cursor = 0;
+      let epoch: string | null = null;
       for (let round = 0; round < MAX_ROUNDS * 10; round += 1) {
         const page = await transport.sync({
           schemaVersion: CURRENT_SCHEMA_VERSION,
@@ -141,9 +149,23 @@ export function createSyncEngine(deps: SyncEngineDependencies): SyncEngine {
         });
         changes.push(...page.changes);
         cursor = page.cursor;
+        epoch = page.epoch ?? null;
         if (!page.more) break;
       }
-      return { changes, cursor };
+      return { changes, cursor, epoch };
+    };
+
+    /** Replace this device's copy with what the account has on the server now. */
+    const startOver = async (account: Account) => {
+      const { changes, cursor, epoch } = await pullAll();
+      const fresh = createWorkspace(workspace.getState().context());
+      await workspace.getState().reset(joinAccount(fresh, account.id, changes));
+      await storage.saveMeta(META, {
+        account: account.id,
+        cursor,
+        acks: acknowledge({}, changes),
+        epoch,
+      } satisfies SyncMeta);
     };
 
     /**
@@ -154,20 +176,19 @@ export function createSyncEngine(deps: SyncEngineDependencies): SyncEngine {
       const meta = await loadMeta();
       if (meta.account === account.id) return;
       await workspace.getState().flush();
-      const { changes, cursor } = await pullAll();
-      const current = workspace.getState().workspace;
-      if (!current) return;
-      if (meta.account === null) {
-        absorb((local) => joinAccount(local, account.id, changes));
-      } else {
+      if (!workspace.getState().workspace) return;
+      if (meta.account !== null) {
         // Someone else's data must not mix into this account.
-        const fresh = createWorkspace(workspace.getState().context());
-        await workspace.getState().reset(joinAccount(fresh, account.id, changes));
+        await startOver(account);
+        return;
       }
+      const { changes, cursor, epoch } = await pullAll();
+      absorb((local) => joinAccount(local, account.id, changes));
       await storage.saveMeta(META, {
         account: account.id,
         cursor,
         acks: acknowledge({}, changes),
+        epoch,
       } satisfies SyncMeta);
     };
 
@@ -220,6 +241,12 @@ export function createSyncEngine(deps: SyncEngineDependencies): SyncEngine {
             cursor: meta.cursor,
             changes: batch,
           });
+          // The server's data was restored from a backup: this device's pending changes went
+          // with this request; now it starts over from what the server has.
+          if (response.epoch && meta.epoch && response.epoch !== meta.epoch) {
+            await startOver(account);
+            break;
+          }
           const revoked = new Set(response.revoked);
           const acks = Object.fromEntries(
             Object.entries(acknowledge(acknowledge(meta.acks, batch), response.changes)).filter(
@@ -240,6 +267,7 @@ export function createSyncEngine(deps: SyncEngineDependencies): SyncEngine {
             account: account.id,
             cursor: response.cursor,
             acks,
+            epoch: response.epoch ?? meta.epoch ?? null,
           } satisfies SyncMeta);
           if (!response.more && pending.length <= BATCH) break;
         }

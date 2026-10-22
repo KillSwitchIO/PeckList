@@ -91,6 +91,24 @@ export interface ServerSettingsView {
   problem: string | null;
 }
 
+/** A scheduled backup on the server. */
+export interface BackupFile {
+  name: string;
+  taken: string;
+  size: number;
+}
+
+/** Where a restore reads from: an uploaded file or a backup already on the server. */
+export type RestoreSource = { file: File } | { backup: string };
+
+export interface UserRestoreResult {
+  username: string;
+  created: boolean;
+  restored: number;
+  removed: number;
+  dropped: number;
+}
+
 /** Why an admin action was refused, when the person can do something about it. */
 export type AdminRefusal =
   | 'not-allowed'
@@ -145,6 +163,20 @@ export interface AdminApi {
   deleteGroup(id: string): Promise<void>;
   /** Add or remove a member by hand (members from a provider stay). */
   setMember(groupId: string, accountId: string, member: boolean): Promise<void>;
+
+  backups(): Promise<BackupFile[]>;
+  backUpNow(): Promise<string>;
+  /** Addresses that download (the session cookie goes along). */
+  backupUrl(name: string): string;
+  exportUrl(): string;
+  userExportUrl(id: string): string;
+  /** Put one person back as a backup had them (`username` picks them from a whole-server backup). */
+  restoreUser(
+    source: RestoreSource,
+    username?: string,
+  ): Promise<{ ok: true; value: UserRestoreResult } | { ok: false; message: string }>;
+  /** Restore the whole server: checked now, done at a restart. */
+  restoreServer(source: RestoreSource): Promise<{ ok: true } | { ok: false; message: string }>;
 
   settings(): Promise<ServerSettingsView>;
   /** Save page values (empty to clear); refused with the server's message when one does not work. */

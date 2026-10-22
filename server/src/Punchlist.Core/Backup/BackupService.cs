@@ -185,13 +185,7 @@ public sealed class BackupService(
         {
             throw new BackupException($"not a JSON file: {error.Message}");
         }
-        if ((string?)root["format"] != Format) throw new BackupException("not a Punchlist server backup (no \"format\": \"" + Format + "\")");
-        if ((int?)root["formatVersion"] != FormatVersion) throw new BackupException($"backup format {(int?)root["formatVersion"]} is not supported (this server reads {FormatVersion})");
-        var schema = (int?)root["schemaVersion"];
-        if (schema != WorkspaceSchema.CurrentVersion)
-        {
-            throw new BackupException($"the backup holds schema {schema}; this server speaks {WorkspaceSchema.CurrentVersion}. Use the matching Punchlist version.");
-        }
+        Check(root);
         if (!await database.IsEmptyAsync(cancellation))
         {
             if (!replace) throw new BackupException("the database is not empty; import into a new one, or pass --replace to delete what is there first");
@@ -274,7 +268,41 @@ public sealed class BackupService(
             var item = node.AsObject();
             await secrets.PutAsync(Required(item, "kind"), Required(item, "name"), Required(item, "value"), cancellation);
         }
+        // Devices synced against the data this replaced: a new epoch makes them start over. A
+        // backup without one gets a fresh one at the first sync, which differs from theirs too.
+        if (Array(root, "secrets").Any(node => (string?)node["kind"] == Sync.ServerEpoch.Kind && (string?)node["name"] == Sync.ServerEpoch.Name))
+        {
+            await Sync.ServerEpoch.RenewAsync(secrets, cancellation);
+        }
         return new BackupSummary(accountList.Count, stored.Count, cursor);
+    }
+
+    /// <summary>Whether a file is a server backup this server can restore, without restoring it.</summary>
+    /// <exception cref="BackupException">It is not, and why.</exception>
+    public static async Task CheckAsync(Stream input, CancellationToken cancellation = default)
+    {
+        JsonObject root;
+        try
+        {
+            root = (await JsonNode.ParseAsync(input, cancellationToken: cancellation))?.AsObject()
+                ?? throw new BackupException("the file is empty");
+        }
+        catch (JsonException error)
+        {
+            throw new BackupException($"not a JSON file: {error.Message}");
+        }
+        Check(root);
+    }
+
+    private static void Check(JsonObject root)
+    {
+        if ((string?)root["format"] != Format) throw new BackupException("not a Punchlist server backup (no \"format\": \"" + Format + "\")");
+        if ((int?)root["formatVersion"] != FormatVersion) throw new BackupException($"backup format {(int?)root["formatVersion"]} is not supported (this server reads {FormatVersion})");
+        var schema = (int?)root["schemaVersion"];
+        if (schema != WorkspaceSchema.CurrentVersion)
+        {
+            throw new BackupException($"the backup holds schema {schema}; this server speaks {WorkspaceSchema.CurrentVersion}. Use the matching Punchlist version.");
+        }
     }
 
     private static IEnumerable<JsonNode> Array(JsonObject root, string name) =>

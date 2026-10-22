@@ -249,6 +249,16 @@ export function UsersTab({ api }: { api: AdminApi }) {
             {t('admin.users.handOver')}
           </MenuItem>
         )}
+        {target && (
+          <MenuItem
+            component="a"
+            href={api.userExportUrl(target.id)}
+            download
+            onClick={() => setMenu(null)}
+          >
+            {t('admin.users.export')}
+          </MenuItem>
+        )}
         {target &&
           superAdmin &&
           target.id !== me &&

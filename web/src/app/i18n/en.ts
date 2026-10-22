@@ -32,6 +32,35 @@ export const en = {
   'admin.tab.groups': 'Groups',
   'admin.tab.sign-in': 'Sign-in',
   'admin.tab.settings': 'Settings',
+  'admin.tab.backups': 'Backups',
+  'admin.users.export': 'Export their data',
+  'admin.backups.scheduled': 'Backups on the server',
+  'admin.backups.hint':
+    'Taken on the backup schedule (Settings). Each holds the whole server, password hashes included: keep downloads private.',
+  'admin.backups.now': 'Back up now',
+  'admin.backups.none': 'No backups yet.',
+  'admin.backups.download': 'Download',
+  'admin.backups.restore': 'Restore',
+  'admin.backups.exportTitle': 'Export and restore',
+  'admin.backups.exportServer': 'Download the whole server',
+  'admin.backups.fromFile': 'Restore from a file',
+  'admin.backups.exportHint':
+    'To export one person, use Export their data in their menu under Users.',
+  'admin.backups.restoreTitle': 'Restore from {name}',
+  'admin.backups.onePerson': 'One person',
+  'admin.backups.wholeServer': 'The whole server',
+  'admin.backups.username': 'Whose data',
+  'admin.backups.usernameHint':
+    'Their username in the backup. Not needed for a backup of one person.',
+  'admin.backups.wholeServerHint':
+    'Everything goes back to how the backup had it, for everyone. A backup of today is taken first, the server restarts, and devices start over from the restored data.',
+  'admin.backups.serverRestoring':
+    'The server is restarting to restore the backup. Reload in a moment.',
+  'admin.backups.reload': 'Reload',
+  'admin.backups.personRestored':
+    '{name} is back as the backup had them: {restored} things restored, {removed} removed, {dropped} left out (links to people not on this server).',
+  'admin.backups.personCreated':
+    '{name} was added from the backup: {restored} things restored, {dropped} left out (links to people not on this server).',
   'serverSettings.group.general': 'General',
   'serverSettings.group.sign-in': 'Sign-in',
   'serverSettings.group.backups': 'Backups',

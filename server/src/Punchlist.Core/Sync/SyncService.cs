@@ -23,7 +23,8 @@ public sealed record SyncResponse(
     bool More,
     IReadOnlyList<string> Revoked,
     IReadOnlyList<string> Rejected,
-    IReadOnlyList<SyncEntity> Corrections);
+    IReadOnlyList<SyncEntity> Corrections,
+    string? Epoch = null);
 
 /// <summary>Why a sync was refused; <see cref="Code"/> is what the client switches on.</summary>
 public sealed class SyncRejected(string code, string message, int? serverSchemaVersion = null) : Exception(message)

@@ -2,13 +2,14 @@ import { Box, Tab, Tabs, Typography } from '@mui/material';
 import { useNavigate, useParams } from 'react-router';
 import { t } from '../i18n/i18n.ts';
 import { Page } from '../layout/Page.tsx';
+import { BackupsTab } from './BackupsTab.tsx';
 import { GroupsTab } from './GroupsTab.tsx';
 import { SettingsTab } from './SettingsTab.tsx';
 import { SignInTab } from './SignInTab.tsx';
 import { UsersTab } from './UsersTab.tsx';
 import { useAdminApi } from './useAdmin.ts';
 
-const TABS = ['users', 'groups', 'sign-in', 'settings'] as const;
+const TABS = ['users', 'groups', 'sign-in', 'backups', 'settings'] as const;
 type AdminTab = (typeof TABS)[number];
 const isTab = (value: string | undefined): value is AdminTab => TABS.some((each) => each === value);
 
@@ -51,6 +52,7 @@ export function AdminPage() {
       {tab === 'users' && <UsersTab api={api} />}
       {tab === 'groups' && <GroupsTab api={api} />}
       {tab === 'sign-in' && <SignInTab api={api} />}
+      {tab === 'backups' && <BackupsTab api={api} />}
       {tab === 'settings' && <SettingsTab api={api} />}
     </Page>
   );

@@ -9,6 +9,9 @@ import type {
   AdminRefusal,
   AdminResult,
   AdminUser,
+  BackupFile,
+  RestoreSource,
+  UserRestoreResult,
   PendingSignIn,
   ServerSettingsView,
 } from '../ports/admin.ts';
@@ -72,6 +75,33 @@ export function createHttpAdmin(
     throw new SyncFailure('server', `server error ${response.status}`);
   };
   const none = () => Promise.resolve();
+  /** A restore's form: the file or the backup's name, and whose data when it matters. */
+  const upload = async (path: string, source: RestoreSource, username?: string) => {
+    const form = new FormData();
+    if ('file' in source) form.append('file', source.file);
+    else form.append('backup', source.backup);
+    if (username) form.append('username', username);
+    try {
+      const response = await fetcher(`${base}/api/admin${path}`, {
+        method: 'POST',
+        credentials: 'same-origin',
+        body: form,
+      });
+      if (response.status === 401) throw new SyncFailure('signed-out', 'not signed in');
+      return response;
+    } catch (error) {
+      if (error instanceof SyncFailure) throw error;
+      throw new SyncFailure('offline', error instanceof Error ? error.message : String(error));
+    }
+  };
+  /** The server's explanation of a refused restore. */
+  const reason = async (response: Response): Promise<string> => {
+    if (response.status !== 400) throw new SyncFailure('server', `server error ${response.status}`);
+    return (
+      ((await response.json()) as { message?: string }).message ??
+      'not a backup this server can use'
+    );
+  };
   const segment = encodeURIComponent;
 
   return {
@@ -150,6 +180,21 @@ export function createHttpAdmin(
       if (!response.ok) throw new SyncFailure('server', `server error ${response.status}`);
     },
 
+    backups: async () => json<BackupFile[]>(await call('/backups')),
+    backUpNow: async () => (await json<{ name: string }>(await call('/backups', 'POST'))).name,
+    backupUrl: (name) => `${base}/api/admin/backups/${segment(name)}`,
+    exportUrl: () => `${base}/api/admin/export`,
+    userExportUrl: (id) => `${base}/api/admin/users/${segment(id)}/export`,
+    restoreUser: async (source, username) => {
+      const response = await upload('/users/restore', source, username);
+      if (response.ok) return { ok: true, value: (await response.json()) as UserRestoreResult };
+      return { ok: false, message: await reason(response) };
+    },
+    restoreServer: async (source) => {
+      const response = await upload('/restore', source);
+      if (response.ok) return { ok: true };
+      return { ok: false, message: await reason(response) };
+    },
     settings: async () => json<ServerSettingsView>(await call('/settings')),
     saveSettings: async (values) => {
       const response = await call('/settings', 'PUT', { values });

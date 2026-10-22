@@ -36,7 +36,9 @@ public static class SyncEndpoints
                     // A friend request just accepted (or declined) settles assignments waiting on it.
                     await invites.SettleAsync(cancellation);
                 }
-                return Results.Ok(response);
+                // Which life of the data this is: devices start over when it changes (a restore).
+                var epoch = await context.RequestServices.GetRequiredService<ServerEpoch>().GetAsync(cancellation);
+                return Results.Ok(response with { Epoch = epoch });
             }
             catch (SyncRejected rejected)
             {

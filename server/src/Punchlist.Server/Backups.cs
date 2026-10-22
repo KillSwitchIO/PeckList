@@ -10,6 +10,8 @@ public static class Backups
     {
         services.AddSingleton<BackupService>();
         services.AddSingleton<UserBackups>();
+        services.AddSingleton<PendingRestore>();
+        services.AddSingleton<Core.Sync.ServerEpoch>();
         services.AddSingleton(provider => new Snapshots(
             provider.GetRequiredService<BackupService>(), settings.SnapshotDir, settings.SnapshotKeep, provider.GetRequiredService<TimeProvider>()));
         if (settings.SnapshotSchedule != SnapshotSchedule.Off) services.AddHostedService<SnapshotScheduler>();

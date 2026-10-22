@@ -23,6 +23,8 @@ export interface FakeAccount {
 export class FakeBackend {
   readonly server = new FakeSyncServer();
   readonly accounts = new Map<string, FakeAccount>();
+  /** What sync responses say about the server data's life; change it to act out a restore. */
+  epoch: string | null = 'epoch-1';
   /** Each account's linked provider accounts, by username. */
   readonly identities = new Map<string, SignInMethods['identities']>();
   /** What `/auth/providers` answers. */
@@ -215,6 +217,6 @@ export class FakeTransport implements SyncTransport {
         }
       }
     }
-    return Promise.resolve(response);
+    return Promise.resolve({ ...response, epoch: this.backend.epoch });
   }
 }

@@ -39,6 +39,11 @@ export interface SyncResponse {
   rejected?: string[];
   /** The server's copies of refused entities the user may see: they replace the device's own. */
   corrections?: SyncChange[];
+  /**
+   * Which life of the server's data this is; it changes when a backup is restored over it, and a
+   * device then starts over from what the server has. Absent from older servers.
+   */
+  epoch?: string | null;
 }
 
 /** Ways to sign in on this server (`/auth/providers`). */

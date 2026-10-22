@@ -214,6 +214,36 @@ describe('sync engine', () => {
     ).toBe(false);
   });
 
+  it('after the server is restored from a backup, devices start over from what it has', async () => {
+    const backend = new FakeBackend();
+    backend.addAccount('ben', 'correct horse battery');
+    const { engine, store } = await device(backend, 'dev1');
+    await engine.getState().start();
+    await engine.getState().signIn('ben', 'correct horse battery');
+    addTask(store, 'Kept');
+    await engine.getState().syncNow();
+    // The backup is taken here.
+    const backup = new Map(backend.server.rows);
+    addTask(store, 'After the backup');
+    await engine.getState().syncNow();
+    expect(titles(store)).toEqual(['After the backup', 'Kept']);
+
+    // The admin restores it: the server forgets the later task and its data gets a new epoch.
+    backend.server.rows.clear();
+    for (const [id, row] of backup) backend.server.rows.set(id, row);
+    backend.epoch = 'epoch-2';
+    await engine.getState().syncNow();
+    expect(titles(store)).toEqual(['Kept']);
+    // And carries on normally.
+    addTask(store, 'New');
+    await engine.getState().syncNow();
+    expect(
+      [...backend.server.rows.values()].map(
+        (row) => (row.change.entity as { title?: string }).title,
+      ),
+    ).toContain('New');
+  });
+
   it('a password that must change comes first', async () => {
     const backend = new FakeBackend();
     backend.addAccount('admin', 'generated password', { mustChangePassword: true, role: 'admin' });

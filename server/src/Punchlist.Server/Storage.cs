@@ -30,18 +30,22 @@ public static class Storage
     }
 
     /// <summary>Runs migrations before the server takes requests (unless DB_MIGRATE_ON_START=false).</summary>
-    private sealed class DatabaseStartup(IDatabase store, ServerSettings settings, ILogger<DatabaseStartup> logger)
+    private sealed class DatabaseStartup(IDatabase store, ServerSettings settings, IServiceProvider services, ILogger<DatabaseStartup> logger)
         : IHostedService
     {
         public async Task StartAsync(CancellationToken cancellation)
         {
-            if (!settings.DbMigrateOnStart)
+            if (settings.DbMigrateOnStart)
+            {
+                await store.MigrateAsync(cancellation);
+                logger.LogInformation("Database ready ({Provider})", settings.DbProvider);
+            }
+            else
             {
                 logger.LogInformation("DB_MIGRATE_ON_START is false: not migrating the database");
-                return;
             }
-            await store.MigrateAsync(cancellation);
-            logger.LogInformation("Database ready ({Provider})", settings.DbProvider);
+            // A restore chosen on the admin page runs now, before anything loads the data.
+            if (services.GetService<PendingRestore>() is { } restore) await restore.ApplyAsync(cancellation);
         }
 
         public Task StopAsync(CancellationToken cancellation) => Task.CompletedTask;
