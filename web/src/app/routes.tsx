@@ -1,5 +1,6 @@
 import { Navigate, Route, Routes, useLocation } from 'react-router';
 import { t } from './i18n/i18n.ts';
+import { CalendarPage } from './calendar/CalendarPage.tsx';
 import { AppShell } from './layout/AppShell.tsx';
 import { Page } from './layout/Page.tsx';
 import { InboxView, ListView } from './lists/ListView.tsx';
@@ -21,15 +22,6 @@ import {
   TrashView,
   UpcomingView,
 } from './views/TaskViews.tsx';
-
-/** Views that arrive in a later milestone. */
-function ComingSoon({ title, milestone }: { title: string; milestone: string }) {
-  return (
-    <Page title={title}>
-      <EmptyState title={t('empty.generic')} hint={t('empty.comingSoon', { milestone })} />
-    </Page>
-  );
-}
 
 function NotFound() {
   const { pathname } = useLocation();
@@ -59,10 +51,7 @@ export function AppRoutes() {
         <Route path="/assigned" element={<AssignedView />} />
         <Route path="/shared" element={<SharedView />} />
         <Route path="/f/:code" element={<FriendLinkPage />} />
-        <Route
-          path="/calendar"
-          element={<ComingSoon title={t('nav.calendar')} milestone="0.3" />}
-        />
+        <Route path="/calendar" element={<CalendarPage />} />
         <Route path="/search" element={<SearchView />} />
         <Route path="/settings" element={<SettingsPage />} />
         <Route path="/admin" element={<AdminPage />} />

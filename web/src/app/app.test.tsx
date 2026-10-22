@@ -34,7 +34,8 @@ describe('app shell', () => {
     expect(screen.queryByRole('button', { name: t('nav.openMenu') })).not.toBeInTheDocument();
     await userEvent.click(screen.getByRole('button', { name: 'Calendar' }));
     expect(screen.getByRole('heading', { level: 1, name: 'Calendar' })).toBeInTheDocument();
-    expect(screen.getByText('This view arrives in milestone 0.3.')).toBeInTheDocument();
+    // On a phone the unscheduled tasks wait in a drawer.
+    expect(screen.getByRole('button', { name: 'Unscheduled' })).toBeInTheDocument();
   });
 
   it('opens a drawer from the menu button on tablets', async () => {
