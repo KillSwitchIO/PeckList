@@ -127,6 +127,19 @@ describe('HTTP admin', () => {
     expect(admin.debugDumpUrl()).toBe('https://pl.home/api/admin/debug-dump');
   });
 
+  it('asks for the access and event log with only the filters that are set', async () => {
+    const { fetcher, calls } = fakeFetch({ status: 200, body: { entries: [], more: false } });
+    const admin = createHttpAdmin('', fetcher);
+    expect(await admin.audit({ kind: 'event', outcome: 'failed', text: '', limit: 50 })).toEqual({
+      entries: [],
+      more: false,
+    });
+    expect(calls[0]?.url).toBe('/api/admin/audit?kind=event&outcome=failed&limit=50');
+    expect(admin.auditCsvUrl({ kind: 'access', user: 'sam smith' })).toBe(
+      '/api/admin/audit.csv?kind=access&user=sam+smith',
+    );
+  });
+
   it('restores from a file or a backup on the server, saying why one will not do', async () => {
     const forms: FormData[] = [];
     const replies = [

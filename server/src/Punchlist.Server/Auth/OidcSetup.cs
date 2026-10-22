@@ -1,3 +1,5 @@
+using Punchlist.Server.Audit;
+using Punchlist.Core.Audit;
 using System.Security.Claims;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
@@ -73,8 +75,10 @@ public static class OidcSetup
                 options.Events.OnTicketReceived = context => SignInAsync(context, provider);
                 options.Events.OnRemoteFailure = context =>
                 {
-                    context.HttpContext.RequestServices.GetRequiredService<ILoggerFactory>().CreateLogger("Punchlist.Oidc")
-                        .LogWarning("Sign-in with {Provider} failed: {Error}", provider.Name, context.Failure?.Message);
+                    var note = context.HttpContext.Audit();
+                    note.Type = "auth.oidc-sign-in";
+                    note.Outcome = AuditOutcome.Failed;
+                    note.Detail = $"{provider.Name}: {context.Failure?.Message}";
                     context.HandleResponse();
                     context.Response.Redirect("/login?error=oidc_failed");
                     return Task.CompletedTask;
@@ -116,25 +120,34 @@ public static class OidcSetup
         // A one-time sign-in link from an admin.
         auth.MapGet("/link/{token}", async (string token, LoginLinks links, HttpContext context) =>
         {
-            if (await links.RedeemAsync(token, context.RequestAborted) is not { } account) return Results.Redirect("/login?error=link_expired");
+            if (await links.RedeemAsync(token, context.RequestAborted) is not { } account)
+            {
+                context.Audit().Outcome = AuditOutcome.Failed;
+                return Results.Redirect("/login?error=link_expired");
+            }
+            context.Audit().Actor(account);
             await context.SignInAsync(CookieAuthenticationDefaults.AuthenticationScheme,
                 AuthSetup.Principal(account, CookieAuthenticationDefaults.AuthenticationScheme),
                 new AuthenticationProperties { IsPersistent = true });
             return Results.Redirect(LinkReturn);
-        });
+        }).Audited("auth.login-link-used", targetRoute: null);
     }
 
     private static async Task SignInAsync(TicketReceivedContext context, OidcProviderSettings provider)
     {
         var services = context.HttpContext.RequestServices;
-        var logger = services.GetRequiredService<ILoggerFactory>().CreateLogger("Punchlist.Oidc");
+        var note = context.HttpContext.Audit();
+        note.Type = "auth.oidc-sign-in";
+        note.Detail = provider.Name;
+        note.Anonymous = true;
         var claims = context.Principal!;
         string? Claim(string type) => claims.FindFirst(type)?.Value is { Length: > 0 } value ? value : null;
         var subject = Claim("sub");
         if (subject is null)
         {
             Redirect(context, "oidc_failed");
-            logger.LogWarning("Sign-in with {Provider} sent no subject", provider.Name);
+            note.Outcome = AuditOutcome.Failed;
+            note.Detail = $"{provider.Name}: no subject";
             return;
         }
         var identity = new ExternalIdentity
@@ -145,8 +158,11 @@ public static class OidcSetup
             Email = Claim("email"),
             Groups = claims.FindAll(provider.GroupsClaim).Select(claim => claim.Value).Distinct().ToList(),
         };
+        note.On(null, identity.Username ?? subject);
         if (context.Properties?.Items.TryGetValue(LinkAccountItem, out var linkTo) == true && linkTo is not null)
         {
+            note.Type = "auth.oidc-linked";
+            note.Anonymous = false;
             await LinkAsync(context, provider, identity, linkTo);
             return;
         }
@@ -159,8 +175,9 @@ public static class OidcSetup
                     await services.GetRequiredService<Friends>().EnsureProfileAsync(
                         success.Account, identity.DisplayName, context.HttpContext.RequestAborted);
                 }
-                logger.LogInformation("{Username} signed in with {Provider}{Created}",
-                    success.Account.Username, provider.Name, success.Created ? " (new account)" : "");
+                note.Actor(success.Account).On(null, null).Anonymous = false;
+                note.Outcome = AuditOutcome.Ok;
+                if (success.Created) note.Detail = $"{provider.Name}, new account";
                 context.Principal = AuthSetup.Principal(success.Account, CookieAuthenticationDefaults.AuthenticationScheme);
                 context.Properties!.IsPersistent = true;
                 if (provider.SessionLength is { } length)
@@ -174,14 +191,18 @@ public static class OidcSetup
                 }
                 break;
             case ExternalSignInResult.NotAllowed:
-                logger.LogWarning("Sign-in with {Provider} refused for {Subject}: in none of the required groups", provider.Name, subject);
+                note.Outcome = AuditOutcome.Denied;
+                note.Detail = $"{provider.Name}: in none of the required groups";
                 Redirect(context, "oidc_not_allowed");
                 break;
             case ExternalSignInResult.Pending:
-                logger.LogInformation("Sign-in with {Provider} for {Subject} waits for an admin (auto-create is off)", provider.Name, subject);
+                note.Outcome = AuditOutcome.Pending;
+                note.Detail = $"{provider.Name}: waits for an admin";
                 Redirect(context, "oidc_pending");
                 break;
             default:
+                note.Outcome = AuditOutcome.Denied;
+                note.Detail = $"{provider.Name}: account turned off";
                 Redirect(context, "oidc_disabled");
                 break;
         }
@@ -197,11 +218,15 @@ public static class OidcSetup
         // The callback runs before the session cookie is read for this request: read it here.
         var session = await context.HttpContext.AuthenticateAsync(CookieAuthenticationDefaults.AuthenticationScheme);
         var current = session.Principal;
+        var note = context.HttpContext.Audit();
         if (current?.Identity?.IsAuthenticated != true || current.UserId() != accountId)
         {
+            note.Outcome = AuditOutcome.Denied;
             context.Response.Redirect($"{LinkReturn}?link=failed");
             return;
         }
+        note.ActorId = current.UserId();
+        note.ActorName = current.FindFirstValue(ClaimTypes.Name);
         var result = await context.HttpContext.RequestServices.GetRequiredService<ExternalSignIn>()
             .LinkAsync(provider, identity, accountId, context.HttpContext.RequestAborted);
         var outcome = result switch
@@ -210,8 +235,8 @@ public static class OidcSetup
             LinkResult.Taken => "taken",
             _ => "not_allowed",
         };
-        context.HttpContext.RequestServices.GetRequiredService<ILoggerFactory>().CreateLogger("Punchlist.Oidc")
-            .LogInformation("Linking {Provider} to {Account}: {Outcome}", provider.Name, accountId, outcome);
+        note.Outcome = result == LinkResult.Linked ? AuditOutcome.Ok : AuditOutcome.Refused;
+        note.Detail = $"{provider.Name}: {outcome}";
         context.Response.Redirect($"{LinkReturn}?link={outcome}");
     }
 

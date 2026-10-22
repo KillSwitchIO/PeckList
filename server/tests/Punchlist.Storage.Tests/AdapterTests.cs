@@ -1,3 +1,4 @@
+using Punchlist.Core.Audit;
 using Punchlist.Core.Accounts;
 using Punchlist.Core.Storage;
 using Punchlist.Storage.Postgres;
@@ -102,4 +103,14 @@ public sealed class SqliteIdentityStoreTests(SqliteFiles files) : IdentityStoreC
 public sealed class PostgresIdentityStoreTests(PostgresServer server) : IdentityStoreContract, IClassFixture<PostgresServer>
 {
     protected override async Task<IIdentityStore> CreateAsync() => new SqlIdentityStore(await server.NewDatabaseAsync());
+}
+
+public sealed class SqliteAuditStoreTests(SqliteFiles files) : AuditStoreContract, IClassFixture<SqliteFiles>
+{
+    protected override async Task<IAuditStore> CreateAsync() => new SqlAuditStore(await files.NewDatabaseAsync());
+}
+
+public sealed class PostgresAuditStoreTests(PostgresServer server) : AuditStoreContract, IClassFixture<PostgresServer>
+{
+    protected override async Task<IAuditStore> CreateAsync() => new SqlAuditStore(await server.NewDatabaseAsync());
 }

@@ -1,3 +1,4 @@
+using Punchlist.Server.Audit;
 using System.Security.Claims;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Punchlist.Core.Accounts;
@@ -67,14 +68,12 @@ public static class ImpersonationSetup
 
     /// <summary><c>DELETE /auth/impersonation</c>: end the one this tab holds.</summary>
     public static void MapImpersonation(this RouteGroupBuilder auth) =>
-        auth.MapDelete("/impersonation", async (HttpContext context, Impersonations impersonations, ILoggerFactory logs) =>
+        auth.MapDelete("/impersonation", async (HttpContext context, Impersonations impersonations) =>
         {
             if (context.Request.Headers[Header].FirstOrDefault() is { Length: > 0 } token)
             {
                 await impersonations.EndAsync(token, context.RequestAborted);
-                logs.CreateLogger("Punchlist.Impersonation").LogWarning(
-                    "{Admin} stopped viewing as {User}", context.User.Impersonator(), context.User.FindFirstValue(ClaimTypes.Name));
             }
             return Results.NoContent();
-        });
+        }).Audited("impersonation.ended", targetRoute: null);
 }

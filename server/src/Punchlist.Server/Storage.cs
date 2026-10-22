@@ -23,6 +23,7 @@ public static class Storage
         services.AddSingleton<IAccountStore, SqlAccountStore>();
         services.AddSingleton<IServerGroupStore, SqlServerGroupStore>();
         services.AddSingleton<IIdentityStore, SqlIdentityStore>();
+        services.AddSingleton<Core.Audit.IAuditStore, SqlAuditStore>();
         services.AddSingleton<ISecretStore, SqlSecretStore>();
         services.AddHostedService<DatabaseStartup>();
         services.AddHealthChecks().AddCheck<DatabaseHealthCheck>("database");

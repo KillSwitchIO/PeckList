@@ -7,6 +7,8 @@ import type {
   AdminApi,
   AdminGroup,
   AdminUser,
+  AuditEntry,
+  AuditQuery,
   PendingSignIn,
 } from '../../ports/admin.ts';
 import { FakeBackend } from '../../test/fakeTransport.ts';
@@ -56,6 +58,54 @@ function memoryAdmin(benId: string) {
     ] as PendingSignIn[],
   };
   const ok = <T,>(value: T) => Promise.resolve({ ok: true as const, value });
+  const entry = (fields: Partial<AuditEntry> & Pick<AuditEntry, 'id' | 'type'>): AuditEntry => ({
+    time: '2026-10-22T09:00:00Z',
+    kind: 'event',
+    outcome: 'ok',
+    actorId: null,
+    actorName: null,
+    impersonatorId: null,
+    impersonatorName: null,
+    targetId: null,
+    targetName: null,
+    ip: '192.168.1.20',
+    device: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) Gecko/20100101 Firefox/131.0',
+    method: null,
+    route: null,
+    status: null,
+    durationMs: null,
+    requestId: '0HN1',
+    detail: null,
+    ...fields,
+  });
+  const audit = [
+    entry({
+      id: 'A3',
+      type: 'admin.role-changed',
+      actorName: 'ben',
+      targetName: 'sam',
+      detail: 'role admin',
+    }),
+    entry({
+      id: 'A2',
+      type: 'auth.sign-in',
+      outcome: 'failed',
+      targetName: 'sam',
+      ip: '203.0.113.9',
+    }),
+    entry({ id: 'A1', type: 'auth.sign-in', actorName: 'ben', impersonatorName: null }),
+    entry({
+      id: 'R1',
+      kind: 'access',
+      type: 'request',
+      actorName: 'ben',
+      method: 'POST',
+      route: '/api/sync',
+      status: 200,
+      durationMs: 23,
+    }),
+  ];
+  const auditQueries: AuditQuery[] = [];
   const output = (name: string, destination: string, healthy: boolean) => ({
     name,
     destination,
@@ -253,6 +303,19 @@ function memoryAdmin(benId: string) {
         ],
       }),
     debugDumpUrl: () => '/api/admin/debug-dump',
+    audit: (query) => {
+      auditQueries.push(query);
+      const entries = audit.filter(
+        (each) =>
+          each.kind === query.kind &&
+          (!query.outcome || each.outcome === query.outcome) &&
+          (!query.type || each.type.startsWith(query.type)) &&
+          (!query.text || JSON.stringify(each).includes(query.text)),
+      );
+      return Promise.resolve({ entries, more: false });
+    },
+    auditCsvUrl: (query) =>
+      `/api/admin/audit.csv?kind=${query.kind}&outcome=${query.outcome ?? ''}`,
     providers: () =>
       Promise.resolve([
         { name: 'pocket', displayName: 'Pocket ID', linked: 2, migrationWindowUntil: state.window },
@@ -273,7 +336,7 @@ function memoryAdmin(benId: string) {
     },
     dismiss: () => Promise.resolve(),
   };
-  return { api, state };
+  return { api, state, auditQueries };
 }
 
 async function adminApp(role: AccountRole, path = '/admin') {
@@ -481,8 +544,41 @@ describe('admin', () => {
     expect(state.restores.map((each) => each.username)).toEqual([null, 'sam', 'everyone']);
   });
 
+  it('shows what people did, filters it, opens an entry and lists requests', async () => {
+    const { auditQueries } = await adminApp('superadmin', '/admin/logs');
+    const events = await screen.findByRole('list', { name: 'Events' });
+    expect(
+      await within(events).findByRole('listitem', { name: "ben changed sam's role" }),
+    ).toHaveTextContent('role admin');
+    const failed = within(events).getByRole('listitem', { name: 'sam signed in' });
+    expect(failed).toHaveTextContent('sam signed in · Failed');
+    expect(failed).toHaveTextContent('203.0.113.9 · Firefox on Windows');
+
+    await userEvent.click(screen.getByRole('combobox', { name: 'Outcome' }));
+    await userEvent.click(await screen.findByRole('option', { name: 'Failed' }));
+    await waitFor(() => expect(within(events).getAllByRole('listitem')).toHaveLength(1));
+    expect(auditQueries.at(-1)).toMatchObject({ kind: 'event', outcome: 'failed' });
+    expect(screen.getByRole('link', { name: 'Download CSV' })).toHaveAttribute(
+      'href',
+      '/api/admin/audit.csv?kind=event&outcome=failed',
+    );
+    await userEvent.click(within(events).getByRole('button', { name: /sam signed in/ }));
+    expect(within(events).getByText('Request id')).toBeInTheDocument();
+    expect(within(events).getByText('auth.sign-in')).toBeInTheDocument();
+
+    await userEvent.type(screen.getByRole('searchbox', { name: 'Search' }), 'nobody');
+    expect(await within(events).findByText('Nothing here.')).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole('button', { name: 'Requests' }));
+    const requests = await screen.findByRole('list', { name: 'Requests' });
+    expect(
+      await within(requests).findByRole('listitem', { name: 'POST /api/sync 200' }),
+    ).toHaveTextContent('ben · 23 ms');
+  });
+
   it('shows where logs go, which output is failing, and offers the debug dump', async () => {
     await adminApp('superadmin', '/admin/logs');
+    await userEvent.click(await screen.findByRole('button', { name: 'Outputs' }));
     const outputs = await screen.findByRole('region', { name: 'Where logs go' });
     expect(await within(outputs).findByText('Writing information and above.')).toBeInTheDocument();
     expect(within(outputs).getByRole('listitem', { name: 'Console' })).toHaveTextContent(

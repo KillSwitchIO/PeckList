@@ -1,3 +1,4 @@
+using Punchlist.Server.Audit;
 using System.Security.Claims;
 using Punchlist.Core.Accounts;
 using Punchlist.Core.Configuration;
@@ -32,13 +33,16 @@ public static class AccountEndpoints
         });
 
         api.MapDelete("/account/identities/{provider}/{subject}", async (
-            string provider, string subject, ClaimsPrincipal user, ExternalSignIn signIn, CancellationToken cancellation) =>
-            await signIn.UnlinkAsync(user.UserId(), provider, subject, selfService: true, cancellation) switch
+            string provider, string subject, ClaimsPrincipal user, ExternalSignIn signIn, HttpContext context, CancellationToken cancellation) =>
+        {
+            context.Audit().Detail = provider;
+            return await signIn.UnlinkAsync(user.UserId(), provider, subject, selfService: true, cancellation) switch
             {
                 UnlinkResult.Unlinked => Results.NoContent(),
                 UnlinkResult.LastWayIn => Results.Conflict(new AdminError("last_way_in", "this is your only way to sign in")),
                 _ => Results.NotFound(),
-            });
+            };
+        }).Audited("account.identity-unlinked", targetRoute: null);
 
         return api;
     }

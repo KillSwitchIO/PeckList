@@ -116,6 +116,58 @@ export interface LoggingView {
   outputs: LogOutput[];
 }
 
+export type AuditKind = 'event' | 'access';
+
+/** One entry of the access or event log (spec: Access and event log). */
+export interface AuditEntry {
+  id: string;
+  time: string;
+  kind: AuditKind;
+  /** auth.sign-in, admin.role-changed, ...; "request" for access entries */
+  type: string;
+  /** ok, failed, denied, refused, locked, throttled, pending or error */
+  outcome: string;
+  actorId: string | null;
+  actorName: string | null;
+  /** The admin viewing the app as the actor, when one was. */
+  impersonatorId: string | null;
+  impersonatorName: string | null;
+  targetId: string | null;
+  targetName: string | null;
+  ip: string | null;
+  /** The User-Agent. */
+  device: string | null;
+  method: string | null;
+  /** The route template, never the query string. */
+  route: string | null;
+  status: number | null;
+  durationMs: number | null;
+  requestId: string | null;
+  detail: string | null;
+}
+
+export interface AuditQuery {
+  kind: AuditKind;
+  /** Matches type, people, IP, route and detail. */
+  text?: string | undefined;
+  /** A name or id: as the actor, the target or the impersonator. */
+  user?: string | undefined;
+  /** An exact type or a prefix ending in a dot ("auth."). */
+  type?: string | undefined;
+  outcome?: string | undefined;
+  ip?: string | undefined;
+  /** ISO times; `to` is exclusive. */
+  from?: string | undefined;
+  to?: string | undefined;
+  offset?: number | undefined;
+  limit?: number | undefined;
+}
+
+export interface AuditPage {
+  entries: AuditEntry[];
+  more: boolean;
+}
+
 /** A scheduled backup on the server. */
 export interface BackupFile {
   name: string;
@@ -214,6 +266,10 @@ export interface AdminApi {
   logging(): Promise<LoggingView>;
   /** Downloads a zip of recent logs, settings (secrets hidden), versions and counts. */
   debugDumpUrl(): string;
+  /** The access or event log, newest first. */
+  audit(query: AuditQuery): Promise<AuditPage>;
+  /** Downloads the filtered log as CSV, oldest first. */
+  auditCsvUrl(query: AuditQuery): string;
 
   providers(): Promise<AdminProvider[]>;
   unbindAll(provider: string): Promise<{ unbound: number; stranded: string[] }>;

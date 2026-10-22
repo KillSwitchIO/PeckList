@@ -256,6 +256,34 @@ Graylog: add a GELF UDP (or TCP, or HTTP) input on port 12201. Fields arrive as 
 Already tailing files or Docker logs with Promtail, Alloy, Filebeat or Fluent Bit? Set
 `LOG_FORMAT=json` and point it at `docker logs`, or at `/data/logs/*.log` (JSON lines either way).
 
+### Access and event log
+
+**Admin > Logs** keeps two logs in the database, apart from your data and never in backups:
+
+- **Events**: sign-ins (and failed ones, lockouts, provider sign-ins and links), password changes
+  and resets, accounts added, turned off or on, role and group changes, provider unlinks and
+  migration windows, viewing the app as someone (start and end), friendships set up by an admin,
+  settings saved (which ones, never their values), restarts, backups, exports, restores and debug
+  dumps.
+- **Requests**: every API and sign-in request, with the route template (never the query string or
+  the body), the answer, how long it took, the person, IP address and device.
+
+Each entry says who, the admin viewing the app as them if there was one, what, about whom, how it
+ended, from where and when. Search, filter by area, outcome, person, IP and dates, open an entry for
+its details, and download the filtered set as CSV. Entries also go to the logs (categories
+`Punchlist.Audit` and `Punchlist.Access`), so they reach a log server too;
+`LOG_LEVEL_OVERRIDES=Punchlist.Access=Warning` keeps requests out of the console.
+
+| Variable                    | Default                 | Meaning                                                         |
+| --------------------------- | ----------------------- | --------------------------------------------------------------- |
+| `AUDIT_RETENTION_DAYS`      | `90`                    | Days events are kept                                            |
+| `ACCESS_LOG_RETENTION_DAYS` | `14`                    | Days requests are kept                                          |
+| `AUDIT_ARCHIVE`             | `false`                 | Write entries to gzipped JSON lines before they are removed     |
+| `AUDIT_ARCHIVE_DIR`         | `audit` by the database | Where archives go: `audit-<kind>-<time>.jsonl.gz` (environment) |
+
+Old entries are removed every hour. Behind a reverse proxy, set `TRUSTED_PROXIES` so the log shows
+people's own addresses rather than the proxy's.
+
 ### Debug dump
 
 **Admin > Logs > Download debug dump**, or from the container:

@@ -24,6 +24,9 @@ public abstract class SqlDatabase : IDatabase
     /// <summary>The condition matching <c>id</c> against the list parameter <c>@ids</c>.</summary>
     public virtual string IdInList => "id IN @ids";
 
+    /// <summary>LIKE that ignores case (SQLite's does already).</summary>
+    public virtual string CaseInsensitiveLike => "LIKE";
+
     /// <summary>The larger of two values.</summary>
     public virtual string Greatest(string a, string b) => $"MAX({a}, {b})";
 
@@ -47,7 +50,7 @@ public abstract class SqlDatabase : IDatabase
     {
         await using var connection = await OpenAsync(cancellation);
         var counts = new SortedDictionary<string, long>(StringComparer.Ordinal);
-        foreach (var table in new[] { "accounts", "identities", "pending_signins", "server_groups", "server_group_members" })
+        foreach (var table in new[] { "accounts", "identities", "pending_signins", "server_groups", "server_group_members", "audit_entries" })
         {
             counts[table] = Convert.ToInt64(await connection.ExecuteScalarAsync(new CommandDefinition($"SELECT COUNT(*) FROM {table}", cancellationToken: cancellation)));
         }

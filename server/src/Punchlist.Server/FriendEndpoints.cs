@@ -1,3 +1,4 @@
+using Punchlist.Server.Audit;
 using System.Security.Claims;
 using Punchlist.Core.Accounts;
 using Punchlist.Core.Configuration;
@@ -20,7 +21,8 @@ public static class FriendEndpoints
 
         // A new code: links shared before stop working.
         api.MapPost("/friends/code", async (ClaimsPrincipal user, Friends friends, HttpContext context, CancellationToken cancellation) =>
-            Code(context, await friends.CodeAsync(user.UserId(), rotate: true, cancellation)));
+            Code(context, await friends.CodeAsync(user.UserId(), rotate: true, cancellation)))
+            .Audited("sharing.friend-link-renewed", targetRoute: null);
 
         api.MapGet("/friends/link/{code}", async (string code, ClaimsPrincipal user, Friends friends, CancellationToken cancellation) =>
             await friends.PreviewByCodeAsync(user.UserId(), code, cancellation) is { } preview ? Results.Ok(preview) : Results.NotFound());
@@ -30,7 +32,7 @@ public static class FriendEndpoints
             if (await friends.AcceptLinkAsync(user.UserId(), code, cancellation) is not { } id) return Results.NotFound();
             await invites.SettleAsync(cancellation);
             return Results.Ok(new FriendshipAccepted(id));
-        });
+        }).Audited("sharing.friend-added", targetRoute: null);
 
         api.MapGet("/users/lookup", async (string q, ClaimsPrincipal user, Friends friends, CancellationToken cancellation) =>
             await friends.LookupAsync(user.UserId(), q, cancellation) is { } preview ? Results.Ok(preview) : Results.NotFound());

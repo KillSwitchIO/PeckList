@@ -1,9 +1,9 @@
 using System.Globalization;
-using System.Security.Claims;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Punchlist.Core.Accounts;
 using Punchlist.Core.Backup;
 using Punchlist.Core.Storage;
+using Punchlist.Server.Audit;
 using Punchlist.Server.Auth;
 using Punchlist.Server.Logging;
 
@@ -24,7 +24,7 @@ public static class LoggingEndpoints
 
         admin.MapGet("/debug-dump", async (
             HttpContext context, LoadedSettings loaded, ISecretStore secrets, IDatabase database, LogPipeline pipeline,
-            HealthCheckService health, Snapshots snapshots, TimeProvider time, ClaimsPrincipal user, ILoggerFactory logs) =>
+            HealthCheckService health, Snapshots snapshots, TimeProvider time) =>
         {
             var cancellation = context.RequestAborted;
             var layers = loaded.Layers.WithPage(await SettingsLoader.ReadPageAsync(secrets, cancellation));
@@ -38,10 +38,9 @@ public static class LoggingEndpoints
             var file = new FileStream(Path.GetTempFileName(), FileMode.Create, FileAccess.ReadWrite, FileShare.None, 81920, FileOptions.DeleteOnClose);
             await dump.WriteAsync(file, cancellation);
             file.Position = 0;
-            logs.CreateLogger("Punchlist.Logging").LogWarning("{Admin} downloaded a debug dump", user.FindFirstValue(ClaimTypes.Name));
             var name = $"punchlist-debug-{time.GetUtcNow().ToString("yyyyMMdd-HHmmss", CultureInfo.InvariantCulture)}.zip";
             return Results.File(file, "application/zip", name);
-        }).RequirePermission(Permission.ViewLogs);
+        }).RequirePermission(Permission.ViewLogs).Audited("logs.debug-dump", targetRoute: null);
 
         return admin;
     }

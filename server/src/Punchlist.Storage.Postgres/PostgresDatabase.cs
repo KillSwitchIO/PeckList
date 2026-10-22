@@ -39,6 +39,8 @@ public sealed class PostgresDatabase(string connectionString) : SqlDatabase, IAs
 
     public override string Greatest(string a, string b) => $"GREATEST({a}, {b})";
 
+    public override string CaseInsensitiveLike => "ILIKE";
+
     public override async Task<DbConnection> OpenAsync(CancellationToken cancellation) =>
         await dataSource.OpenConnectionAsync(cancellation);
 

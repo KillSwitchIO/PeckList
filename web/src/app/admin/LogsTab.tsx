@@ -1,8 +1,10 @@
-import { Box, Button, Link, Typography } from '@mui/material';
+import { Box, Button, Link, ToggleButton, ToggleButtonGroup, Typography } from '@mui/material';
+import { useState } from 'react';
 import { Link as RouterLink } from 'react-router';
 import type { AdminApi, LogOutput } from '../../ports/admin.ts';
 import type { MessageKey } from '../i18n/en.ts';
 import { t } from '../i18n/i18n.ts';
+import { AuditView } from './AuditView.tsx';
 import { useLoaded } from './useAdmin.ts';
 
 const OUTPUTS: Record<string, MessageKey> = {
@@ -59,14 +61,11 @@ function OutputRow({ output }: { output: LogOutput }) {
   );
 }
 
-/**
- * Admin > Logs (spec: Logging): where the server's logs go and whether each output keeps up, and
- * the debug dump for bug reports. Levels and outputs are set on the Settings tab.
- */
-export function LogsTab({ api }: { api: AdminApi }) {
+/** Where the server's logs go and whether each output keeps up, and the debug dump. */
+function OutputsView({ api }: { api: AdminApi }) {
   const { data, reload } = useLoaded(api.logging);
   return (
-    <Box sx={{ maxWidth: 720, display: 'grid', gap: 3, pb: 10 }}>
+    <Box sx={{ display: 'grid', gap: 3 }}>
       <Box component="section" aria-label={t('admin.logs.outputs')}>
         <Box sx={{ display: 'flex', alignItems: 'center', mb: 0.5 }}>
           <Typography variant="subtitle2" color="text.secondary" sx={{ flexGrow: 1 }}>
@@ -102,6 +101,43 @@ export function LogsTab({ api }: { api: AdminApi }) {
           {t('admin.logs.dump')}
         </Button>
       </Box>
+    </Box>
+  );
+}
+
+type LogsView = 'event' | 'access' | 'outputs';
+
+/**
+ * Admin > Logs (spec: Logging, Access and event log): what people did, every request, and where
+ * the server's logs go. Levels and log servers are set on the Settings tab.
+ */
+export function LogsTab({ api }: { api: AdminApi }) {
+  const [view, setView] = useState<LogsView>('event');
+  return (
+    <Box sx={{ maxWidth: 720, display: 'grid', gap: 2, pb: 10 }}>
+      <ToggleButtonGroup
+        exclusive
+        size="small"
+        value={view}
+        onChange={(_, next: LogsView | null) => next && setView(next)}
+        aria-label={t('admin.logs.view')}
+        sx={{ justifySelf: 'start' }}
+      >
+        <ToggleButton value="event" sx={{ textTransform: 'none', px: 2 }}>
+          {t('audit.events')}
+        </ToggleButton>
+        <ToggleButton value="access" sx={{ textTransform: 'none', px: 2 }}>
+          {t('audit.requests')}
+        </ToggleButton>
+        <ToggleButton value="outputs" sx={{ textTransform: 'none', px: 2 }}>
+          {t('admin.logs.outputsTab')}
+        </ToggleButton>
+      </ToggleButtonGroup>
+      {view === 'outputs' ? (
+        <OutputsView api={api} />
+      ) : (
+        <AuditView key={view} api={api} kind={view} />
+      )}
     </Box>
   );
 }

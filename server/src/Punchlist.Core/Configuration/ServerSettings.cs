@@ -78,6 +78,18 @@ public sealed record ServerSettings
     /// <summary>OIDC providers (<c>OIDC_PROVIDERS</c>); empty without OIDC.</summary>
     public IReadOnlyList<OidcProviderSettings> OidcProviders { get; init; } = [];
 
+    /// <summary>Days the event log keeps entries (<c>AUDIT_RETENTION_DAYS</c>).</summary>
+    public int AuditRetentionDays { get; init; } = 90;
+
+    /// <summary>Days the access log keeps entries (<c>ACCESS_LOG_RETENTION_DAYS</c>).</summary>
+    public int AccessLogRetentionDays { get; init; } = 14;
+
+    /// <summary>Write pruned entries to gzipped JSON lines first (<c>AUDIT_ARCHIVE</c>).</summary>
+    public bool AuditArchive { get; init; }
+
+    /// <summary>Where archives go: <c>audit</c> next to the SQLite file.</summary>
+    public string AuditArchiveDir { get; init; } = "/data/audit";
+
     /// <summary>Levels, format, files and shipping targets (<c>LOG_*</c>).</summary>
     public LoggingSettings Logging { get; init; } = new();
 
@@ -171,6 +183,11 @@ public sealed record ServerSettings
             WebRoot = Get("WEB_ROOT"),
             OidcProviders = OidcProviderSettings.ReadAll(Get, errors),
             LocalLoginHidden = Choice("LOCAL_LOGIN", LocalLogin.Shown) == LocalLogin.Hidden,
+            AuditRetentionDays = Count("AUDIT_RETENTION_DAYS", 90, 1),
+            AccessLogRetentionDays = Count("ACCESS_LOG_RETENTION_DAYS", 14, 1),
+            AuditArchive = Flag("AUDIT_ARCHIVE", false),
+            AuditArchiveDir = Get("AUDIT_ARCHIVE_DIR")
+                ?? Path.Combine(Path.GetDirectoryName(dbPath) is { Length: > 0 } auditDir ? auditDir : ".", "audit"),
             Logging = LoggingSettings.Read(Get, Path.Combine(Path.GetDirectoryName(dbPath) is { Length: > 0 } dir ? dir : ".", "logs"), errors),
         };
         if (settings.OidcProviders.Count > 0 && settings.AuthMode == AuthMode.None)

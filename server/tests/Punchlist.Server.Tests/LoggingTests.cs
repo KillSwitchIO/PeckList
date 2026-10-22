@@ -108,8 +108,9 @@ public sealed class LoggingTests(ServerFixture fixture) : IClassFixture<ServerFi
         var admin = await LogIn(server, "admin", AdminPassword);
         await admin.PostAsync("/api/admin/backups", null, Token);
         var pipeline = server.Services.GetRequiredService<LogPipeline>();
-        var entry = pipeline.Recent().Last(record => record.Category == "Punchlist.Backups");
-        Assert.Equal("admin took a backup: " + entry.Properties!.Single(p => p.Key == "Name").Value, entry.Message);
+        // The event log's entry for it, as it goes to the logs.
+        var entry = pipeline.Recent().Last(record => record.Category == "Punchlist.Audit");
+        Assert.StartsWith("backup.taken ok by admin on punchlist-", entry.Message);
         Assert.NotNull(entry.RequestId);
         Assert.Matches("^[0-9a-f]{32}$", entry.TraceId);
         var adminId = (await server.Services.GetRequiredService<IAccountStore>().FindByUsernameAsync("admin", Token))!.Id;

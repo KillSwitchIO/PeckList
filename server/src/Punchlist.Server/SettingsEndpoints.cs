@@ -1,5 +1,6 @@
 using Punchlist.Core.Accounts;
 using Punchlist.Core.Configuration;
+using Punchlist.Server.Audit;
 using Punchlist.Server.Auth;
 using Punchlist.Server.Logging;
 
@@ -38,12 +39,15 @@ public static class SettingsEndpoints
             .RequirePermission(Permission.ManageSettings);
 
         admin.MapPut("/settings", async (
-            SettingsChange change, LoadedSettings loaded, Core.Accounts.ISecretStore secrets, LogPipeline logging, CancellationToken cancellation) =>
+            SettingsChange change, LoadedSettings loaded, Core.Accounts.ISecretStore secrets, LogPipeline logging, HttpContext context,
+            CancellationToken cancellation) =>
         {
             var saved = await SettingsLoader.ReadPageAsync(secrets, cancellation);
             var page = new Dictionary<string, string>(saved, StringComparer.Ordinal);
             // A secret sent back as shown means "unchanged".
             var values = (change.Values ?? []).Where(pair => pair.Value != Hidden).ToDictionary(pair => pair.Key, pair => pair.Value);
+            // Which settings, never their values.
+            context.Audit().Detail = string.Join(", ", values.Keys.Order(StringComparer.Ordinal));
             foreach (var (key, value) in values)
             {
                 if (string.IsNullOrWhiteSpace(value)) page.Remove(key);
@@ -73,16 +77,15 @@ public static class SettingsEndpoints
             // Logging applies at once; the rest at the next restart.
             if (values.Keys.Any(key => SettingsCatalog.Find(layers, key)?.Live == true)) logging.Apply(next.Logging);
             return Results.Ok(View(loaded, page));
-        }).RequirePermission(Permission.ManageSettings);
+        }).RequirePermission(Permission.ManageSettings).Audited("settings.saved", targetRoute: null);
 
         // Stops the server; a container with a restart policy (restart: unless-stopped) comes back
         // with the saved values.
-        admin.MapPost("/restart", (IHostApplicationLifetime lifetime, ILoggerFactory logs) =>
+        admin.MapPost("/restart", (IHostApplicationLifetime lifetime) =>
         {
-            logs.CreateLogger("Punchlist.Settings").LogWarning("Restarting to apply saved settings");
             _ = Task.Delay(500).ContinueWith(_ => lifetime.StopApplication(), TaskScheduler.Default);
             return Results.Accepted();
-        }).RequirePermission(Permission.ManageSettings);
+        }).RequirePermission(Permission.ManageSettings).Audited("server.restart", targetRoute: null);
 
         return admin;
     }

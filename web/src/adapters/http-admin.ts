@@ -9,6 +9,8 @@ import type {
   AdminRefusal,
   AdminResult,
   AdminUser,
+  AuditPage,
+  AuditQuery,
   BackupFile,
   LoggingView,
   RestoreSource,
@@ -34,6 +36,15 @@ const REFUSALS: Record<string, AdminRefusal> = {
 };
 
 /** `/api/admin` over fetch, with the session cookie (same origin). */
+/** The query string for an audit query: only the filters that are set. */
+function auditParams(query: AuditQuery): string {
+  const params = new URLSearchParams();
+  for (const [key, value] of Object.entries(query)) {
+    if (value !== undefined && value !== '') params.set(key, String(value));
+  }
+  return params.toString();
+}
+
 export function createHttpAdmin(
   base = '',
   fetcher: typeof fetch = (...args) => fetch(...args),
@@ -211,6 +222,8 @@ export function createHttpAdmin(
     },
     logging: async () => json<LoggingView>(await call('/logging')),
     debugDumpUrl: () => `${base}/api/admin/debug-dump`,
+    audit: async (query) => json<AuditPage>(await call(`/audit?${auditParams(query)}`)),
+    auditCsvUrl: (query) => `${base}/api/admin/audit.csv?${auditParams(query)}`,
     providers: async () => json<AdminProvider[]>(await call('/providers')),
     unbindAll: async (provider) =>
       json<{ unbound: number; stranded: string[] }>(

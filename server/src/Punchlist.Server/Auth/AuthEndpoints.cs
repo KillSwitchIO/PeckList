@@ -1,3 +1,4 @@
+using Punchlist.Server.Audit;
 using System.Security.Claims;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
@@ -40,9 +41,12 @@ public static class AuthEndpoints
 
         auth.MapPost("/login", async (LoginRequest request, AccountService accounts, HttpContext context) =>
         {
+            var tried = (request.Username ?? "").Trim();
+            context.Audit().On(null, tried.Length > 100 ? tried[..100] : tried).Anonymous = true;
             switch (await accounts.LoginAsync(request.Username ?? "", request.Password ?? "", context.RequestAborted))
             {
                 case LoginResult.Success success:
+                    context.Audit().Actor(success.Account).On(null, null).Anonymous = false;
                     var principal = AuthSetup.Principal(success.Account, CookieAuthenticationDefaults.AuthenticationScheme);
                     await context.SignInAsync(CookieAuthenticationDefaults.AuthenticationScheme, principal,
                         new AuthenticationProperties { IsPersistent = true });
@@ -52,13 +56,13 @@ public static class AuthEndpoints
                 default:
                     return Results.Json(new AuthError("invalid"), statusCode: StatusCodes.Status401Unauthorized);
             }
-        }).RequireRateLimiting(AuthSetup.LoginRateLimit);
+        }).RequireRateLimiting(AuthSetup.LoginRateLimit).Audited("auth.sign-in", targetRoute: null);
 
         auth.MapPost("/logout", async (HttpContext context) =>
         {
             await context.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
             return Results.NoContent();
-        });
+        }).Audited("auth.sign-out", targetRoute: null);
 
         auth.MapPost("/password", async (PasswordRequest request, ClaimsPrincipal user, AccountService accounts, IMemoryCache cache, HttpContext context) =>
         {
@@ -79,7 +83,7 @@ public static class AuthEndpoints
             await context.SignInAsync(CookieAuthenticationDefaults.AuthenticationScheme, principal,
                 new AuthenticationProperties { IsPersistent = true });
             return Results.Ok(MeOf(principal, mode));
-        }).RequireAuthorization().RequireRateLimiting(AuthSetup.LoginRateLimit);
+        }).RequireAuthorization().RequireRateLimiting(AuthSetup.LoginRateLimit).Audited("auth.password-changed", targetRoute: null);
     }
 
     /// <summary>

@@ -35,13 +35,34 @@ public sealed class ServerFixture : IDisposable
     public void Dispose()
     {
         Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools();
-        Directory.Delete(WebRoot, recursive: true);
+        // A server a test left running may still be writing for a moment.
+        for (var attempt = 1; ; attempt++)
+        {
+            try
+            {
+                Directory.Delete(WebRoot, recursive: true);
+                return;
+            }
+            catch (IOException) when (attempt < 5)
+            {
+                Thread.Sleep(200);
+            }
+        }
     }
 }
 
-public sealed class HostingTests(ServerFixture fixture) : IClassFixture<ServerFixture>
+public sealed class HostingTests : IClassFixture<ServerFixture>, IDisposable
 {
-    private readonly HttpClient client = fixture.Factory().CreateClient();
+    private readonly WebApplicationFactory<Program> server;
+    private readonly HttpClient client;
+
+    public HostingTests(ServerFixture fixture)
+    {
+        server = fixture.Factory();
+        client = server.CreateClient();
+    }
+
+    public void Dispose() => server.Dispose();
 
     [Fact]
     public async Task Healthz_answers()

@@ -33,6 +33,10 @@ const LABELS: Record<string, MessageKey> = {
   LOG_ELASTIC_API_KEY: 'serverSettings.LOG_ELASTIC_API_KEY',
   LOG_SYSLOG_ADDRESS: 'serverSettings.LOG_SYSLOG_ADDRESS',
   LOG_DIR: 'serverSettings.LOG_DIR',
+  AUDIT_RETENTION_DAYS: 'serverSettings.AUDIT_RETENTION_DAYS',
+  ACCESS_LOG_RETENTION_DAYS: 'serverSettings.ACCESS_LOG_RETENTION_DAYS',
+  AUDIT_ARCHIVE: 'serverSettings.AUDIT_ARCHIVE',
+  AUDIT_ARCHIVE_DIR: 'serverSettings.AUDIT_ARCHIVE_DIR',
   AUTH_MODE: 'serverSettings.AUTH_MODE',
   ADMIN_PASSWORD: 'serverSettings.ADMIN_PASSWORD',
   DB_PROVIDER: 'serverSettings.DB_PROVIDER',
@@ -68,6 +72,7 @@ const GROUPS: Record<string, MessageKey> = {
   network: 'serverSettings.group.network',
   logging: 'serverSettings.group.logging',
   'log-shipping': 'serverSettings.group.log-shipping',
+  audit: 'serverSettings.group.audit',
   environment: 'serverSettings.group.environment',
 };
 

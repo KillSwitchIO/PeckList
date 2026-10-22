@@ -8,7 +8,7 @@ namespace Punchlist.Server;
 /// checked and parked next to the backups, the server restarts, and the restore runs at the start,
 /// before anything is loaded from the database, so nothing in memory holds the old data.
 /// </summary>
-public sealed class PendingRestore(BackupService backup, ServerSettings settings, ILogger<PendingRestore> logger)
+public sealed class PendingRestore(BackupService backup, ServerSettings settings, Audit.AuditLog audit, ILogger<PendingRestore> logger)
 {
     private string File => Path.Combine(settings.SnapshotDir, "restore-pending.json");
 
@@ -45,6 +45,7 @@ public sealed class PendingRestore(BackupService backup, ServerSettings settings
         {
             var summary = await backup.ImportAsync(input, replace: true, cancellation);
             logger.LogWarning("Restored the server from a backup: {Accounts} accounts, {Entities} entities", summary.Accounts, summary.Entities);
+            audit.RecordSystem("backup.server-restored", detail: $"{summary.Accounts} accounts, {summary.Entities} entities");
         }
         System.IO.File.Delete(File);
     }

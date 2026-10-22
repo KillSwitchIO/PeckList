@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.HttpOverrides;
 using Punchlist.Core;
 using Punchlist.Core.Configuration;
 using Punchlist.Server.Auth;
+using Punchlist.Server.Audit;
 using Punchlist.Server.Logging;
 using Punchlist.Core.Sync;
 
@@ -62,6 +63,9 @@ public static partial class ServerApp
         builder.Services.AddSingleton<Punchlist.Core.Sharing.Ownership>();
         builder.Services.AddSingleton<Punchlist.Core.Accounts.ServerGroupService>();
         builder.Services.AddBackups(settings);
+        builder.Services.AddSingleton<Audit.AuditLog>();
+        builder.Services.AddHostedService(provider => provider.GetRequiredService<Audit.AuditLog>());
+        builder.Services.AddHostedService<Audit.AuditRetention>();
         builder.Services.Configure<ForwardedHeadersOptions>(options =>
         {
             options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
@@ -87,6 +91,8 @@ public static partial class ServerApp
                 "Set PUBLIC_URL so it always matches the redirect URI registered with the provider.");
         }
         LogPipeline.UseLogContext(app, user: false);
+        // Times every request; who made it is known by the time it is recorded.
+        Audit.AuditLog.UseAuditLog(app);
         app.UseForwardedHeaders();
         app.UseAuthentication();
         app.UseImpersonation();
@@ -98,7 +104,7 @@ public static partial class ServerApp
         app.MapGet("/api/info", () => new ServerInfo("punchlist", Version, WorkspaceSchema.CurrentVersion));
         app.MapAuth();
         app.MapGroup("/api").RequireAuthorization().RequirePasswordChanged().EnsureProfiles().MapSync().MapFriends().MapAccount();
-        app.MapGroup("/api/admin").RequireAuthorization().RequirePasswordChanged().MapAdmin().MapSettings().MapBackups().MapLogging();
+        app.MapGroup("/api/admin").RequireAuthorization().RequirePasswordChanged().MapAdmin().MapSettings().MapBackups().MapLogging().MapAudit();
 
         var webRoot = settings.WebRoot ?? Path.Combine(AppContext.BaseDirectory, "wwwroot");
         app.UseStaticSite(webRoot, app.Logger);
