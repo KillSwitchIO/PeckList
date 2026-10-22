@@ -124,3 +124,17 @@ export function monthGrid(month: string, weekStartsOn = 0): string[] {
 export function joinDateTime(date: string, time: string | null): LocalDateOrDateTime {
   return time ? `${date}T${time}` : date;
 }
+
+/**
+ * A wall-clock value from one time zone as the wall clock in another shows the same moment. A
+ * date without a time (all day) is the same date everywhere and stays as it is.
+ */
+export function shiftZone(
+  value: LocalDateOrDateTime,
+  from: string,
+  to: string,
+): LocalDateOrDateTime {
+  const time = timePart(value);
+  if (time === null || from === to) return value;
+  return localDateTimeOf(instantOf(datePart(value), time, from), to);
+}

@@ -1,3 +1,4 @@
+import { localTimeZone } from '../../core/dates.ts';
 import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -65,7 +66,12 @@ describe('settings: colors', () => {
         createTask(ctx, ws, {
           title: 'Standup',
           listId: inboxList(ws).id,
-          schedule: { start: '2030-01-07T14:30', end: null, allDay: false, timeZone: 'UTC' },
+          schedule: {
+            start: '2030-01-07T14:30',
+            end: null,
+            allDay: false,
+            timeZone: localTimeZone(),
+          },
         }).workspace,
     );
     await store.getState().flush();
