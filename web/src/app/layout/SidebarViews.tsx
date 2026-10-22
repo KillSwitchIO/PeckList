@@ -18,7 +18,9 @@ import {
 import type { ReactNode } from 'react';
 import { useLocation, useNavigate } from 'react-router';
 import { getEntity, isLive } from '../../core/collections.ts';
-import { createSavedFilter, savedFiltersOf } from '../../core/savedFilters.ts';
+import { filterTasks } from '../../core/filters.ts';
+import { createSavedFilter, filterOf, savedFiltersOf } from '../../core/savedFilters.ts';
+import { useToday } from '../hooks/useToday.ts';
 import {
   filterViewId,
   GROUP,
@@ -52,6 +54,8 @@ interface ViewItem {
   label: string;
   icon: ReactNode;
   pinned: boolean;
+  /** Open tasks it holds (saved filters) */
+  count?: number;
 }
 
 /**
@@ -85,6 +89,7 @@ export function SidebarViews({
   onNavigate: (path: string) => void;
 }) {
   const workspace = useWorkspace();
+  const today = useToday();
   const apply = useApply();
   const theme = useTheme();
   const navigate = useNavigate();
@@ -106,6 +111,7 @@ export function SidebarViews({
       label: filter.name,
       icon: <FilterIcon />,
       pinned: false,
+      count: filterTasks(workspace, filterOf(filter), today).length,
     };
   }
   for (const id of layout.order) {
@@ -190,6 +196,11 @@ export function SidebarViews({
         )}
         <ListItemIcon sx={{ minWidth: 40 }}>{item.icon}</ListItemIcon>
         <ListItemText primary={item.name} sx={{ minWidth: 0 }} />
+        {!editing && item.count !== undefined && item.count > 0 && (
+          <Box component="span" sx={{ typography: 'caption', color: 'text.secondary' }}>
+            {item.count}
+          </Box>
+        )}
         {editing &&
           (item.pinned ? (
             <Tooltip title={t('nav.unpin')}>

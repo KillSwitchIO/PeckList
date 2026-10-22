@@ -65,6 +65,27 @@ export const DATE_CHOICES = {
 
 export type DateChoice = keyof typeof DATE_CHOICES;
 
+/** The due-date choices a filter offers, as TaskFilter fields. */
+export const DUE_CHOICES = {
+  any: {},
+  overdue: { due: { to: -1 } },
+  today: { due: { to: 0 } },
+  week: { due: { to: 7 } },
+  later: { due: { from: 8 } },
+  none: { hasDue: false },
+} as const satisfies Record<string, TaskFilter>;
+
+export type DueChoice = keyof typeof DUE_CHOICES;
+
+/** Which due choice a filter's fields match (anything else reads as "any"). */
+export function dueChoiceOf(filter: TaskFilter): DueChoice {
+  const key = JSON.stringify({ due: filter.due, hasDue: filter.hasDue });
+  for (const [choice, fields] of Object.entries(DUE_CHOICES) as [DueChoice, TaskFilter][]) {
+    if (JSON.stringify({ due: fields.due, hasDue: fields.hasDue }) === key) return choice;
+  }
+  return 'any';
+}
+
 /** Which date choice a filter's fields match (anything else reads as "any"). */
 export function dateChoiceOf(filter: TaskFilter): DateChoice {
   const key = JSON.stringify({ start: filter.start, dated: filter.dated });

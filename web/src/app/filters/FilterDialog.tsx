@@ -7,9 +7,11 @@ import {
   Chip,
   Dialog,
   DialogActions,
+  FormControlLabel,
   DialogContent,
   DialogTitle,
   Stack,
+  Switch,
   TextField,
   ToggleButton,
   ToggleButtonGroup,
@@ -20,7 +22,14 @@ import { submitOnShiftEnter } from '../hooks/keys.ts';
 import { useState, type ReactNode } from 'react';
 import type { TaskFilter } from '../../core/filters.ts';
 import { visibleLists } from '../../core/lists.ts';
-import { DATE_CHOICES, dateChoiceOf, type DateChoice } from '../../core/savedFilters.ts';
+import {
+  DATE_CHOICES,
+  dateChoiceOf,
+  DUE_CHOICES,
+  dueChoiceOf,
+  type DateChoice,
+  type DueChoice,
+} from '../../core/savedFilters.ts';
 import { tagTree } from '../../core/tags.ts';
 import type { Priority } from '../../core/types.ts';
 import { t } from '../i18n/i18n.ts';
@@ -32,6 +41,7 @@ import { TagChip } from '../tags/TagChip.tsx';
 const PRIORITIES: Priority[] = [3, 2, 1, 0];
 const PRIORITY_KEY = { 0: 'none', 1: 'low', 2: 'medium', 3: 'high' } as const;
 const DATE_ORDER: DateChoice[] = ['any', 'overdue', 'today', 'week', 'later', 'undated'];
+const DUE_ORDER: DueChoice[] = ['any', 'overdue', 'today', 'week', 'later', 'none'];
 
 function toggle<T>(values: T[], value: T): T[] {
   return values.includes(value) ? values.filter((each) => each !== value) : [...values, value];
@@ -65,6 +75,8 @@ export function FilterDialog({
   const [tags, setTags] = useState<string[]>(initial?.filter.tags ?? []);
   const [date, setDate] = useState<DateChoice>(initial ? dateChoiceOf(initial.filter) : 'any');
   const [priorities, setPriorities] = useState<Priority[]>(initial?.filter.priorities ?? []);
+  const [due, setDue] = useState<DueChoice>(initial ? dueChoiceOf(initial.filter) : 'any');
+  const [closed, setClosed] = useState(initial?.filter.closed !== false);
   const valid = name.trim() !== '';
 
   const save = () => {
@@ -74,6 +86,8 @@ export function FilterDialog({
       ...(tags.length ? { tags } : {}),
       ...(priorities.length ? { priorities } : {}),
       ...DATE_CHOICES[date],
+      ...DUE_CHOICES[due],
+      ...(closed ? {} : { closed: false }),
     });
   };
 
@@ -159,6 +173,22 @@ export function FilterDialog({
                 ))}
               </ToggleButtonGroup>
             </Part>
+            <Part label={t('filter.due')}>
+              <ToggleButtonGroup
+                exclusive
+                size="small"
+                value={due}
+                aria-label={t('filter.due')}
+                onChange={(_, value: DueChoice | null) => value && setDue(value)}
+                sx={{ flexWrap: 'wrap' }}
+              >
+                {DUE_ORDER.map((choice) => (
+                  <ToggleButton key={choice} value={choice}>
+                    {t(`filter.due.${choice}`)}
+                  </ToggleButton>
+                ))}
+              </ToggleButtonGroup>
+            </Part>
             <Part label={t('task.priority')}>
               <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.75 }}>
                 {PRIORITIES.map((priority) => (
@@ -187,6 +217,12 @@ export function FilterDialog({
                 ))}
               </Box>
             </Part>
+            <FormControlLabel
+              control={
+                <Switch checked={closed} onChange={(event) => setClosed(event.target.checked)} />
+              }
+              label={t('filter.closed')}
+            />
           </Stack>
         </DialogContent>
         <DialogActions>

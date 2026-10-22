@@ -31,6 +31,12 @@ export interface TaskFilter {
   assignedTo?: Id;
   /** Shared with this user: in a list someone else owns, or assigned from a list they cannot see */
   sharedWith?: Id;
+  /** Due date window in days from today, like `start` (tasks without a due date never match) */
+  due?: { from?: number; to?: number };
+  /** Only tasks with (true) or without (false) a due date */
+  hasDue?: boolean;
+  /** false: leave closed tasks out (no Closed group) */
+  closed?: boolean;
 }
 
 /** No conditions: the All view. */
@@ -58,6 +64,8 @@ export function compileFilter(
     : null;
   const from = filter.start?.from === undefined ? null : addDays(today, filter.start.from);
   const to = filter.start?.to === undefined ? null : addDays(today, filter.start.to);
+  const dueFrom = filter.due?.from === undefined ? null : addDays(today, filter.due.from);
+  const dueTo = filter.due?.to === undefined ? null : addDays(today, filter.due.to);
   const priorities = filter.priorities ? new Set(filter.priorities) : null;
   const assignees = filter.assignedTo
     ? new Set([
@@ -89,6 +97,13 @@ export function compileFilter(
       if (!date) return false;
       if (from && date < from) return false;
       if (to && date > to) return false;
+    }
+    const due = task.due ? datePart(task.due.at) : null;
+    if (filter.hasDue !== undefined && (due !== null) !== filter.hasDue) return false;
+    if (filter.due) {
+      if (!due) return false;
+      if (dueFrom && due < dueFrom) return false;
+      if (dueTo && due > dueTo) return false;
     }
     return true;
   };
@@ -160,6 +175,7 @@ export function filterClosedTasks(
   filter: TaskFilter,
   today: string,
 ): Task[] {
+  if (filter.closed === false) return [];
   const matches = compileFilter(workspace, filter, today);
   const listed = inLiveList(workspace, filter.lists ?? []);
   const byId = new Map(workspace.entities.tasks.map((task) => [task.id, task]));
