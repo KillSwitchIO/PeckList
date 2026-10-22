@@ -45,6 +45,7 @@ public static class ServerApp
         });
         builder.Services.AddHostedService<SharingStartup>();
         builder.Services.AddSingleton<SyncService>();
+        builder.Services.AddSingleton<Punchlist.Core.Sharing.Groups>();
         builder.Services.AddBackups(settings);
         builder.Services.Configure<ForwardedHeadersOptions>(options =>
         {

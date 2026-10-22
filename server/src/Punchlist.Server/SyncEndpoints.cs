@@ -1,5 +1,6 @@
 using System.Security.Claims;
 using System.Text.Json;
+using Punchlist.Core.Sharing;
 using Punchlist.Core.Sync;
 using Punchlist.Server.Auth;
 
@@ -16,12 +17,15 @@ public static class SyncEndpoints
     /// </summary>
     public static RouteGroupBuilder MapSync(this RouteGroupBuilder api)
     {
-        api.MapPost("/sync", async (SyncRequest request, ClaimsPrincipal user, SyncService sync, HttpContext context, CancellationToken cancellation) =>
+        api.MapPost("/sync", async (SyncRequest request, ClaimsPrincipal user, SyncService sync, Groups groups, HttpContext context, CancellationToken cancellation) =>
         {
             try
             {
                 var source = context.Request.Headers[DeviceHeader].FirstOrDefault();
-                return Results.Ok(await sync.SyncAsync(user.UserId(), request, source, cancellation));
+                var response = await sync.SyncAsync(user.UserId(), request, source, cancellation);
+                // An owner who just left hands the group on; everyone concerned hears of it.
+                if (request.Changes is { Count: > 0 }) await groups.SettleAsync(cancellation);
+                return Results.Ok(response);
             }
             catch (SyncRejected rejected)
             {

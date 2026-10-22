@@ -159,4 +159,56 @@ public sealed class SharingTests(ServerFixture fixture) : IClassFixture<ServerFi
         await kim.SyncAsync();
         Assert.DoesNotContain("T1", kim.Seen.Keys);
     }
+
+    private static (string, JsonObject) GroupMember(string id, string group, string user, string joinedAt, string state, bool left = false) =>
+        ("groupMembers", Entity(id, new JsonObject
+        {
+            ["groupId"] = group,
+            ["userId"] = user,
+            ["joinedAt"] = joinedAt,
+            ["state"] = state,
+            ["deletedAt"] = left ? "2026-10-21T12:00:00.000Z" : null,
+        }));
+
+    [Fact]
+    public async Task A_group_passes_to_its_longest_standing_member_and_is_archived_when_empty()
+    {
+        var ben = await SignIn("ben5");
+        var sam = await SignIn("sam5");
+        var jo = await SignIn("jo5");
+        var group = ("groups", Entity("G1", new JsonObject { ["name"] = "Household", ["color"] = "#A7C7E7", ["ownerId"] = ben.UserId, ["archived"] = false }));
+        var assigned = Task("T1", "L1", "Take out bins");
+        assigned.Item2["assignees"] = new JsonObject
+        {
+            ["group:G1"] = new JsonObject { ["in"] = true, ["hlc"] = "2026-10-21T11:00:00.000Z-0000-dev1" },
+        };
+        await ben.SyncAsync(
+            group,
+            GroupMember("GB", "G1", ben.UserId, "2026-10-21T09:00:00.000Z", "active"),
+            GroupMember("GJ", "G1", jo.UserId, "2026-10-21T09:05:00.000Z", "invited"),
+            GroupMember("GS", "G1", sam.UserId, "2026-10-21T09:10:00.000Z", "invited"),
+            List("L1", "private"),
+            assigned);
+        // Jo was invited first, so Jo stands longest once both accept.
+        await sam.SyncAsync(GroupMember("GS", "G1", sam.UserId, "2026-10-21T09:10:00.000Z", "active"));
+        await jo.SyncAsync(GroupMember("GJ", "G1", jo.UserId, "2026-10-21T09:05:00.000Z", "active"));
+        await sam.SyncAsync();
+        Assert.Contains("T1", sam.Seen.Keys);
+
+        // Ben leaves: Jo owns the group now.
+        await ben.SyncAsync(GroupMember("GB", "G1", ben.UserId, "2026-10-21T09:00:00.000Z", "active", left: true));
+        await sam.SyncAsync();
+        Assert.Equal(jo.UserId, (string?)sam.Seen["G1"]["ownerId"]);
+
+        // Then Jo and Sam leave: archived, and the task is no longer the group's.
+        await jo.SyncAsync(GroupMember("GJ", "G1", jo.UserId, "2026-10-21T09:05:00.000Z", "active", left: true));
+        await sam.SyncAsync();
+        Assert.Equal(sam.UserId, (string?)sam.Seen["G1"]["ownerId"]);
+        await sam.SyncAsync(GroupMember("GS", "G1", sam.UserId, "2026-10-21T09:10:00.000Z", "active", left: true));
+        await ben.SyncAsync();
+        Assert.True((bool?)ben.Seen["G1"]["archived"]);
+        Assert.False((bool?)ben.Seen["T1"]["assignees"]!["group:G1"]!["in"]);
+        await sam.SyncAsync();
+        Assert.DoesNotContain("T1", sam.Seen.Keys);
+    }
 }

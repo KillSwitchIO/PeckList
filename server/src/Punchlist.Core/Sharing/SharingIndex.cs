@@ -93,7 +93,8 @@ public sealed class SharingIndex
         var people = new HashSet<string>(StringComparer.Ordinal);
         if (byId.TryGetValue(groupId, out var group) && group.Collection == "groups" && !group.Deleted)
         {
-            if (group.Get("ownerId") is { } owner) people.Add(owner);
+            // An archived group has nobody left; its last owner keeps only the group itself.
+            if (group.Get("ownerId") is { } owner && !Archived(group)) people.Add(owner);
         }
         else
         {
@@ -252,6 +253,39 @@ public sealed class SharingIndex
     public HashSet<string> VisibleTo(string userId) =>
         byId.Keys.Where(id => Viewers(id).Contains(userId)).ToHashSet(StringComparer.Ordinal);
 
+    private static bool Archived(Facts group) => group.Doc["archived"] is JsonValue value && value.TryGetValue<bool>(out var archived) && archived;
+
+    // Succession ---------------------------------------------------------------------------------
+
+    /// <summary>
+    /// Groups whose owner has left (their membership is deleted and none is active), and what
+    /// happens to each: the longest-standing active member takes over, or with nobody left the
+    /// group is archived and the tasks assigned to it lose that assignee.
+    /// </summary>
+    public IReadOnlyList<GroupSuccession> PendingSuccessions()
+    {
+        var pending = new List<GroupSuccession>();
+        foreach (var group in D.Groups)
+        {
+            if (Archived(group) || group.Get("ownerId") is not { } owner) continue;
+            var rows = byId.Values.Where(each => each.Collection == "groupMembers" && each.Get("groupId") == group.Id).ToList();
+            var ownerRows = rows.Where(each => each.Get("userId") == owner).ToList();
+            // An owner who never had a membership is a member by ownership: nothing to do.
+            if (ownerRows.Count == 0 || ownerRows.Any(each => !each.Deleted && each.Get("state") == "active")) continue;
+            var heir = rows
+                .Where(each => !each.Deleted && each.Get("state") == "active" && each.Get("userId") != owner)
+                .OrderBy(each => each.Get("joinedAt"), StringComparer.Ordinal)
+                .ThenBy(each => each.Id, StringComparer.Ordinal)
+                .Select(each => each.Get("userId"))
+                .FirstOrDefault();
+            var assigned = heir is null
+                ? Live("tasks").Where(task => task.SetMembers("assignees").Contains($"group:{group.Id}")).Select(task => (task.Id, task.Doc)).ToList()
+                : [];
+            pending.Add(new GroupSuccession(group.Id, group.Doc, heir, assigned));
+        }
+        return pending;
+    }
+
     // Permissions --------------------------------------------------------------------------------
 
     /// <summary>
@@ -337,3 +371,10 @@ public sealed class SharingIndex
         }
     }
 }
+
+/// <summary>A group whose owner left: its new owner, or null to archive it (with the tasks assigned to it).</summary>
+public sealed record GroupSuccession(
+    string GroupId,
+    JsonObject Group,
+    string? NewOwner,
+    IReadOnlyList<(string Id, JsonObject Doc)> AssignedTasks);
