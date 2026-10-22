@@ -1,0 +1,222 @@
+// Sharing as the app sees it (spec: Sharing & Permissions): friends, list members and roles,
+// assignment. The server has the final say (it refuses what a user may not do and sends its copy
+// back); these helpers follow the same rules so the app only offers what will stick.
+
+import { getEntity, isLive, putEntity } from './collections.ts';
+import {
+  createEntity,
+  members,
+  setElement,
+  softDelete,
+  updateEntity,
+  type OpContext,
+} from './ops.ts';
+import type { Friendship, Id, List, ListMember, Task, User, WorkspaceFile } from './types.ts';
+
+export type Role = ListMember['role'];
+
+const RANK: Record<Role, number> = { owner: 3, editor: 2, viewer: 1 };
+
+// People ----------------------------------------------------------------------------------------
+
+export interface Friend {
+  user: User | null;
+  userId: Id;
+  friendship: Friendship;
+  /** `accepted`; `incoming` (they asked me); `outgoing` (I asked them). */
+  state: 'accepted' | 'incoming' | 'outgoing';
+}
+
+/** Friends and open requests, people with a profile first, by name. */
+export function friendsOf(workspace: WorkspaceFile, me: Id): Friend[] {
+  const users = new Map(workspace.entities.users.map((user) => [user.id, user]));
+  return workspace.entities.friendships
+    .filter(isLive)
+    .filter((friendship) => friendship.userA === me || friendship.userB === me)
+    .map((friendship): Friend => {
+      const other = friendship.userA === me ? friendship.userB : friendship.userA;
+      const state =
+        friendship.state === 'accepted'
+          ? 'accepted'
+          : friendship.userB === me
+            ? 'incoming'
+            : 'outgoing';
+      return { user: users.get(other) ?? null, userId: other, friendship, state };
+    })
+    .sort((a, b) => nameOf(a.user, a.userId).localeCompare(nameOf(b.user, b.userId)));
+}
+
+/** A person's name to show: display name, else handle, else a short id. */
+export function nameOf(user: User | null | undefined, id: Id): string {
+  return user?.displayName || user?.handle || `${id.slice(0, 6)}…`;
+}
+
+/** Ask someone to be friends (from a lookup). Nothing happens if a live friendship exists. */
+export function sendFriendRequest(
+  ctx: OpContext,
+  workspace: WorkspaceFile,
+  other: Id,
+): WorkspaceFile {
+  const existing = workspace.entities.friendships.find(
+    (each) =>
+      isLive(each) &&
+      ((each.userA === ctx.userId && each.userB === other) ||
+        (each.userA === other && each.userB === ctx.userId)),
+  );
+  if (existing || other === ctx.userId) return workspace;
+  const friendship = createEntity<Friendship>(ctx, {
+    userA: ctx.userId,
+    userB: other,
+    state: 'pending',
+  });
+  return putEntity(workspace, 'friendships', friendship);
+}
+
+export function acceptFriendship(ctx: OpContext, workspace: WorkspaceFile, id: Id): WorkspaceFile {
+  const friendship = getEntity(workspace, 'friendships', id);
+  if (!friendship || friendship.userB !== ctx.userId || friendship.state === 'accepted')
+    return workspace;
+  return putEntity(workspace, 'friendships', updateEntity(ctx, friendship, { state: 'accepted' }));
+}
+
+/** Decline a request, take one back, or unfriend. */
+export function endFriendship(ctx: OpContext, workspace: WorkspaceFile, id: Id): WorkspaceFile {
+  const friendship = getEntity(workspace, 'friendships', id);
+  if (!friendship) return workspace;
+  return putEntity(workspace, 'friendships', softDelete(ctx, friendship));
+}
+
+// Lists -----------------------------------------------------------------------------------------
+
+/** Live members of a list. */
+export function listMembersOf(workspace: WorkspaceFile, listId: Id): ListMember[] {
+  return workspace.entities.listMembers.filter(
+    (member) => isLive(member) && member.listId === listId,
+  );
+}
+
+/** A user's role on a list (null: none): its creator owns it; members get their best role. */
+export function roleOn(workspace: WorkspaceFile, me: Id, listId: Id): Role | null {
+  const list = getEntity(workspace, 'lists', listId);
+  if (!list) return null;
+  if (list.createdBy === me) return 'owner';
+  if (list.visibility !== 'shared') return null;
+  const groups = new Set(
+    workspace.entities.groupMembers
+      .filter((member) => isLive(member) && member.userId === me && member.state === 'active')
+      .map((member) => `group:${member.groupId}`),
+  );
+  let best: Role | null = null;
+  for (const member of listMembersOf(workspace, listId)) {
+    if (member.principal !== `user:${me}` && !groups.has(member.principal)) continue;
+    if (best === null || RANK[member.role] > RANK[best]) best = member.role;
+  }
+  return best;
+}
+
+export function canEditList(workspace: WorkspaceFile, me: Id, listId: Id): boolean {
+  const role = roleOn(workspace, me, listId);
+  return role === 'owner' || role === 'editor';
+}
+
+/** Whether a list is shared with anyone (the sidebar marks it). */
+export function isShared(workspace: WorkspaceFile, list: List): boolean {
+  return list.visibility === 'shared' && listMembersOf(workspace, list.id).length > 0;
+}
+
+/**
+ * Share a list with someone (`user:<id>` or `group:<id>`) in a role: the list becomes shared and
+ * the member is added, or their role changes. Owners only; the Mess Drawer stays private.
+ */
+export function shareList(
+  ctx: OpContext,
+  workspace: WorkspaceFile,
+  listId: Id,
+  principal: string,
+  role: Role,
+): WorkspaceFile {
+  const list = getEntity(workspace, 'lists', listId);
+  if (!list || list.isInbox || roleOn(workspace, ctx.userId, listId) !== 'owner') return workspace;
+  let next = workspace;
+  if (list.visibility !== 'shared') {
+    next = putEntity(next, 'lists', updateEntity(ctx, list, { visibility: 'shared' }));
+  }
+  const existing = listMembersOf(next, listId).find((member) => member.principal === principal);
+  const member = existing
+    ? updateEntity(ctx, existing, { role })
+    : createEntity<ListMember>(ctx, { listId, principal, role });
+  return putEntity(next, 'listMembers', member);
+}
+
+/** Take someone off a list (owners), or leave it yourself. */
+export function removeMember(
+  ctx: OpContext,
+  workspace: WorkspaceFile,
+  memberId: Id,
+): WorkspaceFile {
+  const member = getEntity(workspace, 'listMembers', memberId);
+  if (!member) return workspace;
+  const own = member.principal === `user:${ctx.userId}`;
+  if (!own && roleOn(workspace, ctx.userId, member.listId) !== 'owner') return workspace;
+  return putEntity(workspace, 'listMembers', softDelete(ctx, member));
+}
+
+/** Make a shared list private again: every member loses it. */
+export function makePrivate(ctx: OpContext, workspace: WorkspaceFile, listId: Id): WorkspaceFile {
+  const list = getEntity(workspace, 'lists', listId);
+  if (!list || roleOn(workspace, ctx.userId, listId) !== 'owner') return workspace;
+  const at = new Date(ctx.now()).toISOString();
+  let next = putEntity(workspace, 'lists', updateEntity(ctx, list, { visibility: 'private' }));
+  for (const member of listMembersOf(next, listId)) {
+    next = putEntity(next, 'listMembers', softDelete(ctx, member, at));
+  }
+  return next;
+}
+
+// Tasks -----------------------------------------------------------------------------------------
+
+/** Assign a task to someone (`user:<id>` or `group:<id>`) or take the assignment off. */
+export function setAssignee(
+  ctx: OpContext,
+  workspace: WorkspaceFile,
+  taskId: Id,
+  principal: string,
+  assigned: boolean,
+): WorkspaceFile {
+  const task = getEntity(workspace, 'tasks', taskId);
+  if (!task) return workspace;
+  const assignees = setElement(ctx, task.assignees, principal, assigned);
+  if (assignees === task.assignees) return workspace;
+  return putEntity(workspace, 'tasks', updateEntity(ctx, task, { assignees }));
+}
+
+/** Who a task is assigned to: `user:<id>` and `group:<id>` principals. */
+export function assigneesOf(task: Task): string[] {
+  return members(task.assignees);
+}
+
+/** Open tasks assigned to me, directly or through a group I am in. */
+export function assignedTo(workspace: WorkspaceFile, me: Id): Task[] {
+  const mine = new Set([
+    `user:${me}`,
+    ...workspace.entities.groupMembers
+      .filter((member) => isLive(member) && member.userId === me && member.state === 'active')
+      .map((member) => `group:${member.groupId}`),
+  ]);
+  return workspace.entities.tasks.filter(
+    (task) =>
+      isLive(task) &&
+      task.status === 'open' &&
+      assigneesOf(task).some((principal) => mine.has(principal)),
+  );
+}
+
+/** Tasks I can see only because someone shared them: in lists I do not own, or assigned from elsewhere. */
+export function sharedWithMe(workspace: WorkspaceFile, me: Id): Task[] {
+  const mineLists = new Set(
+    workspace.entities.lists.filter((list) => list.createdBy === me).map((list) => list.id),
+  );
+  return workspace.entities.tasks.filter(
+    (task) => isLive(task) && task.status === 'open' && !mineLists.has(task.listId),
+  );
+}

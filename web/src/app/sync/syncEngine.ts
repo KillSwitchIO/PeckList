@@ -40,6 +40,8 @@ export type SyncPhase = 'standalone' | 'checking' | 'signed-out' | 'password-cha
 export type SyncStatus = 'idle' | 'syncing' | 'offline' | 'error' | 'app-update' | 'server-behind';
 
 export interface SyncState {
+  /** The server connection, for friend links and lookups (unused without a server). */
+  readonly transport: SyncTransport;
   phase: SyncPhase;
   status: SyncStatus;
   account: Account | null;
@@ -314,6 +316,7 @@ export function createSyncEngine(deps: SyncEngineDependencies): SyncEngine {
     };
 
     return {
+      transport,
       phase: 'checking',
       status: 'idle',
       account: null,

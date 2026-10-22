@@ -4,6 +4,8 @@ import {
   SyncFailure,
   type Account,
   type ChangeEvent,
+  type FriendsApi,
+  type ProfilePreview,
   type ServerInfo,
   type SyncTransport,
 } from '../ports/sync.ts';
@@ -50,6 +52,41 @@ export class FakeTransport implements SyncTransport {
   device: string | null = null;
 
   constructor(private readonly backend: FakeBackend) {}
+
+  private previewOf(found: FakeAccount): ProfilePreview {
+    return {
+      userId: found.account.id,
+      username: found.account.username,
+      displayName: found.account.username,
+      handle: found.account.username,
+      avatarColor: '#A7C7E7',
+      memberSince: '2026-10-01T08:00:00.000Z',
+      self: found.account.username === this.session,
+      friendship: null,
+    };
+  }
+
+  /** Friend codes are the username in capitals here; accepting only records the request. */
+  readonly accepted: string[] = [];
+  readonly friends: FriendsApi = {
+    code: () =>
+      Promise.resolve({
+        code: (this.session ?? '').toUpperCase(),
+        link: `https://punchlist.test/f/${(this.session ?? '').toUpperCase()}`,
+      }),
+    preview: (code) => {
+      const found = this.backend.accounts.get(code.toLowerCase());
+      return Promise.resolve(found ? this.previewOf(found) : null);
+    },
+    accept: (code) => {
+      this.accepted.push(code);
+      return Promise.resolve(this.backend.accounts.has(code.toLowerCase()) ? 'F-ACCEPTED' : null);
+    },
+    lookup: (query) => {
+      const found = this.backend.accounts.get(query.toLowerCase());
+      return Promise.resolve(found ? this.previewOf(found) : null);
+    },
+  };
 
   events(onChange: (change: ChangeEvent) => void) {
     const listener = { username: this.session ?? '', onChange };

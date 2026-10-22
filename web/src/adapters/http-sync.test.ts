@@ -148,6 +148,40 @@ describe('HTTP sync transport', () => {
     expect(calls.map((call) => call.url)).toEqual(['/auth/logout', '/auth/logout']);
   });
 
+  it('handles friend links and lookups', async () => {
+    const preview = {
+      userId: 'U2',
+      username: 'sam',
+      displayName: 'Sam',
+      handle: 'sam',
+      avatarColor: '#F4B6C2',
+      memberSince: '2026-10-01T08:00:00Z',
+      self: false,
+      friendship: null,
+    };
+    const { fetcher, calls } = fakeFetch(
+      { status: 200, body: { code: '7QM4-K2XP', link: 'https://x/f/7QM4-K2XP' } },
+      { status: 200, body: { code: 'AAAA-BBBB', link: 'https://x/f/AAAA-BBBB' } },
+      { status: 200, body: preview },
+      { status: 404 },
+      { status: 200, body: { friendshipId: 'F1' } },
+      { status: 404 },
+      { status: 200, body: preview },
+      { status: 404 },
+    );
+    const friends = createHttpSync('', fetcher).friends!;
+    expect((await friends.code()).code).toBe('7QM4-K2XP');
+    expect((await friends.code(true)).code).toBe('AAAA-BBBB');
+    expect(calls[1]!.init.method).toBe('POST');
+    expect(await friends.preview('7QM4-K2XP')).toEqual(preview);
+    expect(await friends.preview('gone')).toBeNull();
+    expect(await friends.accept('7QM4-K2XP')).toBe('F1');
+    expect(await friends.accept('gone')).toBeNull();
+    expect((await friends.lookup('sam'))?.username).toBe('sam');
+    expect(await friends.lookup('nobody')).toBeNull();
+    expect(calls[6]!.url).toBe('/api/users/lookup?q=sam');
+  });
+
   it('listens for changes over Server-Sent Events', () => {
     const listeners = new Map<string, (event: MessageEvent<string>) => void>();
     const close = vi.fn();

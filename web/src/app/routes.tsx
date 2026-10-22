@@ -4,6 +4,8 @@ import { AppShell } from './layout/AppShell.tsx';
 import { Page } from './layout/Page.tsx';
 import { InboxView, ListView } from './lists/ListView.tsx';
 import { FilterView } from './filters/FilterView.tsx';
+import { FriendLinkPage } from './friends/FriendLinkPage.tsx';
+import { FriendsPage } from './friends/FriendsPage.tsx';
 import { TagView } from './tags/TagView.tsx';
 import { EmptyState } from './views/EmptyState.tsx';
 import { MoreView } from './views/MoreView.tsx';
@@ -42,6 +44,8 @@ export function AppRoutes() {
         <Route path="/completed" element={<CompletedView />} />
         <Route path="/trash" element={<TrashView />} />
         <Route path="/more" element={<MoreView />} />
+        <Route path="/friends" element={<FriendsPage />} />
+        <Route path="/f/:code" element={<FriendLinkPage />} />
         <Route
           path="/calendar"
           element={<ComingSoon title={t('nav.calendar')} milestone="0.3" />}

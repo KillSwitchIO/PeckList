@@ -1,6 +1,7 @@
 import type {
   Account,
   ChangeEvent,
+  ProfilePreview,
   LoginOutcome,
   PasswordOutcome,
   ServerInfo,
@@ -116,6 +117,34 @@ export function createHttpSync(
       const response = await call('/api/sync', { method: 'POST', body: request });
       if (!response.ok) return fail(response);
       return (await response.json()) as SyncResponse;
+    },
+
+    friends: {
+      async code(rotate = false) {
+        const response = await call('/api/friends/code', rotate ? { method: 'POST' } : undefined);
+        if (!response.ok) return fail(response);
+        return (await response.json()) as { code: string; link: string };
+      },
+      async preview(code) {
+        const response = await call(`/api/friends/link/${encodeURIComponent(code)}`);
+        if (response.status === 404) return null;
+        if (!response.ok) return fail(response);
+        return (await response.json()) as ProfilePreview;
+      },
+      async accept(code) {
+        const response = await call(`/api/friends/link/${encodeURIComponent(code)}`, {
+          method: 'POST',
+        });
+        if (response.status === 404) return null;
+        if (!response.ok) return fail(response);
+        return ((await response.json()) as { friendshipId: string }).friendshipId;
+      },
+      async lookup(query) {
+        const response = await call(`/api/users/lookup?q=${encodeURIComponent(query)}`);
+        if (response.status === 404) return null;
+        if (!response.ok) return fail(response);
+        return (await response.json()) as ProfilePreview;
+      },
     },
 
     events(onChange) {

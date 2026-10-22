@@ -49,6 +49,31 @@ export type LoginOutcome =
 export type PasswordOutcome =
   { kind: 'ok'; account: Account } | { kind: 'wrong-password' | 'too-short' | 'unchanged' };
 
+/** Who someone is, before becoming friends (a friend link or a lookup). */
+export interface ProfilePreview {
+  userId: string;
+  username: string;
+  displayName: string;
+  handle: string;
+  avatarColor: string;
+  memberSince: string;
+  /** The viewer's own link. */
+  self: boolean;
+  friendship: 'accepted' | 'pending' | null;
+}
+
+/** Friend links and lookups (servers only). */
+export interface FriendsApi {
+  /** This account's friend link; `rotate` makes a new one and retires the old. */
+  code(rotate?: boolean): Promise<{ code: string; link: string }>;
+  /** Who a link belongs to, or null for an unknown or retired code. */
+  preview(code: string): Promise<ProfilePreview | null>;
+  /** Accept a link: friends at once. Returns the friendship id, or null when the code leads nowhere. */
+  accept(code: string): Promise<string | null>;
+  /** Someone by exact username or handle, or null. */
+  lookup(query: string): Promise<ProfilePreview | null>;
+}
+
 /**
  * Why a request failed: `offline` (no answer), `signed-out` (401), `password-change` (must change
  * the password first), `schema` (the server speaks another schema version), `rejected` (the
@@ -83,4 +108,5 @@ export interface SyncTransport {
    * a function that stops listening. Reconnecting after a drop is the transport's job.
    */
   events?(onChange: (change: ChangeEvent) => void): () => void;
+  friends?: FriendsApi;
 }

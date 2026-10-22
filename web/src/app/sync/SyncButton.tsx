@@ -18,11 +18,13 @@ import {
 } from '@mui/material';
 import { keyframes } from '@emotion/react';
 import { useState, type FormEvent } from 'react';
+import { useNavigate } from 'react-router';
 import { submitOnShiftEnter } from '../hooks/keys.ts';
 import { t } from '../i18n/i18n.ts';
 import {
   AccountIcon,
   CloudAlertIcon,
+  PeopleIcon,
   CloudDoneIcon,
   CloudOffIcon,
   CloudSyncIcon,
@@ -49,6 +51,7 @@ export function SyncButton() {
   const signOut = useSyncState((state) => state.signOut);
   const [anchor, setAnchor] = useState<HTMLElement | null>(null);
   const [changing, setChanging] = useState(false);
+  const navigate = useNavigate();
   if (phase !== 'ready') return null;
 
   const summary = syncSummary({ status, lastSynced, error });
@@ -113,6 +116,19 @@ export function SyncButton() {
           </ListItemIcon>
           <ListItemText>{t('sync.now')}</ListItemText>
         </MenuItem>
+        {local && (
+          <MenuItem
+            onClick={() => {
+              setAnchor(null);
+              void navigate('/friends');
+            }}
+          >
+            <ListItemIcon>
+              <PeopleIcon fontSize="small" />
+            </ListItemIcon>
+            <ListItemText>{t('sync.friends')}</ListItemText>
+          </MenuItem>
+        )}
         {local && (
           <MenuItem
             onClick={() => {

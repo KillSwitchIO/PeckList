@@ -517,3 +517,36 @@ export function AccountIcon(props: SvgIconProps) {
     </PunchIcon>
   );
 }
+
+/** Friends: two people. */
+export function PeopleIcon(props: SvgIconProps) {
+  return (
+    <PunchIcon {...props}>
+      <circle cx="9" cy="8.5" r="3" />
+      <path d="M3.5 19a5.5 5.5 0 0 1 11 0" />
+      <circle cx="16.5" cy="9.5" r="2.5" />
+      <path d="M15.5 14.1a4.5 4.5 0 0 1 5 4.4" />
+    </PunchIcon>
+  );
+}
+
+/** Share: a person with a plus. */
+export function ShareIcon(props: SvgIconProps) {
+  return (
+    <PunchIcon {...props}>
+      <circle cx="10" cy="8.5" r="3.5" />
+      <path d="M3.5 19.5a6.5 6.5 0 0 1 11.2-4.5" />
+      <path d="M18.5 14v6M15.5 17h6" />
+    </PunchIcon>
+  );
+}
+
+/** Copy: two sheets. */
+export function CopyIcon(props: SvgIconProps) {
+  return (
+    <PunchIcon {...props}>
+      <rect x="8.5" y="8.5" width="11" height="11" rx="2" />
+      <path d="M15.5 8.5V6a1.5 1.5 0 0 0-1.5-1.5H6A1.5 1.5 0 0 0 4.5 6v8A1.5 1.5 0 0 0 6 15.5h2.5" />
+    </PunchIcon>
+  );
+}

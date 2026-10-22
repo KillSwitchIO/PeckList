@@ -1,0 +1,138 @@
+import { describe, expect, it } from 'vitest';
+import { sampleTask, testContext } from '../test/fixtures.ts';
+import { putEntity } from './collections.ts';
+import { createList } from './lists.ts';
+import { createEntity } from './ops.ts';
+import {
+  acceptFriendship,
+  assignedTo,
+  canEditList,
+  endFriendship,
+  friendsOf,
+  isShared,
+  listMembersOf,
+  makePrivate,
+  removeMember,
+  roleOn,
+  sendFriendRequest,
+  setAssignee,
+  shareList,
+  sharedWithMe,
+} from './sharing.ts';
+import type { GroupMember, User, WorkspaceFile } from './types.ts';
+import { createWorkspace } from './workspace.ts';
+
+const BEN = '01JBBEN0000000000000000001';
+const SAM = '01JBSAM0000000000000000002';
+const JO = '01JBJ00000000000000000000J';
+
+function benWorld() {
+  const ben = testContext('ben', undefined, BEN);
+  const { workspace, list } = createList(ben, createWorkspace(ben), {
+    name: 'Garden',
+    color: '#CFE3A3',
+  });
+  return { ben, workspace, list };
+}
+
+/** The same data as Sam's device would hold it, with Sam's clock. */
+const as = (userId: string) => testContext(userId.slice(4, 7).toLowerCase(), undefined, userId);
+
+describe('friends', () => {
+  it('sends, accepts and ends a friendship', () => {
+    const ben = testContext('ben', undefined, BEN);
+    let workspace = sendFriendRequest(ben, createWorkspace(ben), SAM);
+    expect(sendFriendRequest(ben, workspace, SAM)).toBe(workspace);
+    expect(sendFriendRequest(ben, workspace, BEN)).toBe(workspace);
+    expect(friendsOf(workspace, BEN).map((friend) => friend.state)).toEqual(['outgoing']);
+    expect(friendsOf(workspace, SAM).map((friend) => friend.state)).toEqual(['incoming']);
+
+    const id = workspace.entities.friendships[0]!.id;
+    // Only the asked side accepts.
+    expect(acceptFriendship(ben, workspace, id)).toBe(workspace);
+    workspace = acceptFriendship(as(SAM), workspace, id);
+    expect(friendsOf(workspace, BEN)[0]!.state).toBe('accepted');
+
+    const sam = createEntity<User>(
+      ben,
+      { handle: 'sam', displayName: 'Sam', avatarColor: '#F4B6C2', homeServer: 'local' },
+      SAM,
+    );
+    expect(friendsOf(putEntity(workspace, 'users', sam), BEN)[0]!.user?.displayName).toBe('Sam');
+
+    expect(friendsOf(endFriendship(as(SAM), workspace, id), BEN)).toEqual([]);
+  });
+});
+
+describe('list sharing', () => {
+  it('shares a list in roles that decide who may edit', () => {
+    const { ben, workspace, list } = benWorld();
+    expect(roleOn(workspace, BEN, list.id)).toBe('owner');
+    expect(isShared(workspace, list)).toBe(false);
+
+    let shared = shareList(ben, workspace, list.id, `user:${SAM}`, 'editor');
+    shared = shareList(ben, shared, list.id, `user:${JO}`, 'viewer');
+    const garden = shared.entities.lists.find((each) => each.id === list.id)!;
+    expect(garden.visibility).toBe('shared');
+    expect(isShared(shared, garden)).toBe(true);
+    expect(roleOn(shared, SAM, list.id)).toBe('editor');
+    expect(canEditList(shared, SAM, list.id)).toBe(true);
+    expect(canEditList(shared, JO, list.id)).toBe(false);
+
+    // A new role replaces the old one; no second membership.
+    const promoted = shareList(ben, shared, list.id, `user:${JO}`, 'editor');
+    expect(listMembersOf(promoted, list.id)).toHaveLength(2);
+    expect(roleOn(promoted, JO, list.id)).toBe('editor');
+    // Only owners share.
+    expect(shareList(as(SAM), shared, list.id, `user:${JO}`, 'owner')).toBe(shared);
+  });
+
+  it('the Mess Drawer is never shared', () => {
+    const { ben, workspace } = benWorld();
+    const inbox = workspace.entities.lists.find((list) => list.isInbox)!;
+    expect(shareList(ben, workspace, inbox.id, `user:${SAM}`, 'editor')).toBe(workspace);
+  });
+
+  it('members leave or are removed; making it private removes everyone', () => {
+    const { ben, workspace, list } = benWorld();
+    let shared = shareList(ben, workspace, list.id, `user:${SAM}`, 'editor');
+    shared = shareList(ben, shared, list.id, `user:${JO}`, 'editor');
+    const [samMember, joMember] = listMembersOf(shared, list.id);
+    // Sam may leave, but not remove Jo.
+    expect(removeMember(as(SAM), shared, joMember!.id)).toBe(shared);
+    const left = removeMember(as(SAM), shared, samMember!.id);
+    expect(roleOn(left, SAM, list.id)).toBeNull();
+
+    const closed = makePrivate(ben, shared, list.id);
+    expect(listMembersOf(closed, list.id)).toEqual([]);
+    expect(closed.entities.lists.find((each) => each.id === list.id)!.visibility).toBe('private');
+  });
+
+  it('groups count for the people in them', () => {
+    const { ben, workspace, list } = benWorld();
+    const member = createEntity<GroupMember>(ben, {
+      groupId: '01JBGR0000000000000000000G',
+      userId: SAM,
+      joinedAt: new Date().toISOString(),
+      state: 'active',
+    });
+    const withGroup: WorkspaceFile = putEntity(workspace, 'groupMembers', member);
+    const shared = shareList(ben, withGroup, list.id, 'group:01JBGR0000000000000000000G', 'viewer');
+    expect(roleOn(shared, SAM, list.id)).toBe('viewer');
+  });
+});
+
+describe('assignment', () => {
+  it('assigns and lists what is assigned to me', () => {
+    const { ben, workspace, list } = benWorld();
+    const task = sampleTask(ben, list.id, 'Fix fence');
+    let next = putEntity(workspace, 'tasks', task);
+    next = setAssignee(ben, next, task.id, `user:${SAM}`, true);
+    expect(assignedTo(next, SAM).map((each) => each.title)).toEqual(['Fix fence']);
+    expect(assignedTo(next, BEN)).toEqual([]);
+    expect(sharedWithMe(next, SAM).map((each) => each.title)).toEqual(['Fix fence']);
+    expect(sharedWithMe(next, BEN)).toEqual([]);
+    next = setAssignee(ben, next, task.id, `user:${SAM}`, false);
+    expect(assignedTo(next, SAM)).toEqual([]);
+  });
+});

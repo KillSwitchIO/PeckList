@@ -100,11 +100,11 @@ export function createWorkspaceStore(deps: StoreDependencies): WorkspaceStore {
   const pin = (merged: WorkspaceFile, memory: WorkspaceFile): WorkspaceFile => {
     if (authoritative.size === 0) return merged;
     const entities = { ...merged.entities } as Record<string, { id: string }[]>;
+    const remembered = memory.entities as unknown as Record<string, { id: string }[]>;
     for (const collection of Object.keys(entities)) {
+      const ours = remembered[collection] ?? [];
       const mine = new Map(
-        (memory.entities as unknown as Record<string, { id: string }[]>)
-          [collection]!.filter((entity) => authoritative.has(entity.id))
-          .map((entity) => [entity.id, entity]),
+        ours.filter((entity) => authoritative.has(entity.id)).map((entity) => [entity.id, entity]),
       );
       entities[collection] = entities[collection]!.flatMap((entity) =>
         authoritative.has(entity.id)
