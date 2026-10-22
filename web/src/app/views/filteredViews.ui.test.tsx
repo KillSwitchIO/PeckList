@@ -128,6 +128,19 @@ describe('task menu', () => {
     expect(within(moved).getByTestId('task-meta')).toHaveTextContent('undated');
   });
 
+  it('moves a task to another list from the menu (also the long-press menu on touch)', async () => {
+    await renderSeeded('/inbox');
+    const row = await screen.findByRole('button', { name: 'Open tomorrow' });
+    fireEvent.contextMenu(row);
+    await userEvent.click(screen.getByRole('menuitem', { name: 'Move to list...' }));
+    const dialog = screen.getByRole('dialog', { name: 'Move "tomorrow" to' });
+    // The list it is on is not offered.
+    expect(within(dialog).queryByRole('button', { name: 'Mess Drawer' })).toBeNull();
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Work' }));
+    expect(screen.getByText('Moved to Work')).toBeInTheDocument();
+    await waitFor(() => expect(screen.queryByRole('button', { name: 'Open tomorrow' })).toBeNull());
+  });
+
   it('offers the same actions from the details panel', async () => {
     await renderSeeded('/inbox');
     await userEvent.click(await screen.findByRole('button', { name: 'Open next month' }));

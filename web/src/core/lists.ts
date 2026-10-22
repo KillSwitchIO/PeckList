@@ -175,6 +175,31 @@ export function renameSection(
   return putEntity(workspace, 'sections', updateEntity(ctx, section, { name: name.trim() }));
 }
 
+/**
+ * Move a section to just before `beforeId` (null: after the last one). Only its own order key
+ * changes, so the move syncs as one small change.
+ */
+export function moveSection(
+  ctx: OpContext,
+  workspace: WorkspaceFile,
+  id: Id,
+  beforeId: Id | null,
+): WorkspaceFile {
+  const section = requireEntity(workspace, 'sections', id);
+  const others = sectionsOf(workspace, section.listId).filter((each) => each.id !== id);
+  const index =
+    beforeId === null ? others.length : others.findIndex((each) => each.id === beforeId);
+  if (index < 0) throw new Error(`section ${beforeId} not found`);
+  const before = index > 0 ? others[index - 1]!.order : null;
+  const after = index < others.length ? others[index]!.order : null;
+  if (before === null && after === null) return workspace;
+  return putEntity(
+    workspace,
+    'sections',
+    updateEntity(ctx, section, { order: keyBetween(before, after) }),
+  );
+}
+
 /** Delete a section; its tasks stay in the list without a section. */
 export function deleteSection(ctx: OpContext, workspace: WorkspaceFile, id: Id): WorkspaceFile {
   const section = requireEntity(workspace, 'sections', id);

@@ -10,7 +10,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } fro
 import { createPortal } from 'react-dom';
 import { getEntity } from '../../../core/collections.ts';
 import { projectDrop, type Drop, type DragRow } from '../../../core/taskDrag.ts';
-import { descendants, moveTask } from '../../../core/tasks.ts';
+import { canNestUnder, descendants, moveTask } from '../../../core/tasks.ts';
 import type { Id, Task } from '../../../core/types.ts';
 import { t } from '../../i18n/i18n.ts';
 import { listName } from '../../lists/listName.ts';
@@ -19,6 +19,8 @@ import { DRAG_INDENT, DragContext, type DragApi } from './dragContext.ts';
 
 const START_PX = 6;
 const HOLD_MS = 450;
+/** The middle of a row (this share of its height off each edge) drops onto it: a subtask. */
+const ONTO_EDGE = 0.3;
 
 interface Line {
   top: number;
@@ -73,8 +75,9 @@ export function TaskDragProvider({ children }: { children: ReactNode }) {
   const root = useRef<HTMLDivElement | null>(null);
   const [active, setActive] = useState<Active | null>(null);
   const [line, setLine] = useState<Line | null>(null);
+  const [onto, setOnto] = useState<DOMRect | null>(null);
   const [pointer, setPointer] = useState<{ x: number; y: number } | null>(null);
-  const drop = useRef<(Drop & { listId: Id; sectionId: Id | null }) | null>(null);
+  const drop = useRef<(Drop & { listId: Id; sectionId: Id | null; onto?: Id }) | null>(null);
   const hoverList = useRef<HTMLElement | null>(null);
   const swallowClick = useRef(false);
   // Latest workspace for the window listeners.
@@ -96,12 +99,36 @@ export function TaskDragProvider({ children }: { children: ReactNode }) {
     setHover(target ?? null);
     if (target || !root.current) {
       setLine(null);
+      setOnto(null);
       drop.current = null;
       return;
     }
     const zone = zoneAt(root.current, y);
     if (!zone) return;
     const rows = zoneRows(zone, current.hidden);
+    // Over the middle of a row that can take it: onto that task, as its last subtask.
+    const over = rows.find(
+      (row) =>
+        y >= row.box.top + row.box.height * ONTO_EDGE &&
+        y <= row.box.bottom - row.box.height * ONTO_EDGE,
+    );
+    if (over && canNestUnder(latest.current, current.id, over.id)) {
+      drop.current = {
+        depth: over.depth + 1,
+        target: {
+          listId: zone.dataset.list!,
+          sectionId: zone.dataset.section || null,
+          parentId: over.id,
+        },
+        listId: zone.dataset.list!,
+        sectionId: zone.dataset.section || null,
+        onto: over.id,
+      };
+      setLine(null);
+      setOnto(over.box);
+      return;
+    }
+    setOnto(null);
     const index = rows.filter((row) => row.box.top + row.box.height / 2 < y).length;
     const listId = zone.dataset.list!;
     const sectionId = zone.dataset.section || null;
@@ -133,6 +160,7 @@ export function TaskDragProvider({ children }: { children: ReactNode }) {
       setHover(null);
       setActive(null);
       setLine(null);
+      setOnto(null);
       setPointer(null);
       const landing = drop.current;
       drop.current = null;
@@ -142,6 +170,12 @@ export function TaskDragProvider({ children }: { children: ReactNode }) {
         apply(
           (ctx, ws) => moveTask(ctx, ws, current.id, { listId: listTarget, parentId: null }),
           t('undo.movedTo', { list: list ? listName(list) : '' }),
+        );
+      } else if (landing?.onto) {
+        const parent = getEntity(latest.current, 'tasks', landing.onto);
+        apply(
+          (ctx, ws) => moveTask(ctx, ws, current.id, landing.target),
+          t('undo.nested', { title: parent?.title || t('task.untitled') }),
         );
       } else if (landing) {
         apply((ctx, ws) => moveTask(ctx, ws, current.id, landing.target), t('undo.moved'));
@@ -256,6 +290,24 @@ export function TaskDragProvider({ children }: { children: ReactNode }) {
       {active &&
         createPortal(
           <>
+            {onto && (
+              <Box
+                data-testid="drop-onto"
+                aria-hidden
+                sx={{
+                  position: 'fixed',
+                  top: onto.top,
+                  left: onto.left,
+                  width: onto.width,
+                  height: onto.height,
+                  border: 2,
+                  borderColor: 'primary.main',
+                  borderRadius: 2,
+                  pointerEvents: 'none',
+                  zIndex: (theme) => theme.zIndex.tooltip,
+                }}
+              />
+            )}
             {line && (
               <Box
                 data-testid="drop-line"

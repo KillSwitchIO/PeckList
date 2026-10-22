@@ -1,5 +1,6 @@
 import AccountTreeOutlined from '@mui/icons-material/AccountTreeOutlined';
 import DeleteOutlineRounded from '@mui/icons-material/DeleteOutlineRounded';
+import DriveFileMoveOutlined from '@mui/icons-material/DriveFileMoveOutlined';
 import LinkOffRounded from '@mui/icons-material/LinkOffRounded';
 import OpenInNewRounded from '@mui/icons-material/OpenInNewRounded';
 import SearchRounded from '@mui/icons-material/SearchRounded';
@@ -31,12 +32,15 @@ import {
   setCompletedAt,
   setTaskProgress,
   setTaskStatus,
+  moveTask,
 } from '../../core/tasks.ts';
+import { visibleLists } from '../../core/lists.ts';
+import { canEditList } from '../../core/sharing.ts';
 import type { Task } from '../../core/types.ts';
 import { useToday } from '../hooks/useToday.ts';
 import { t } from '../i18n/i18n.ts';
 import { listName } from '../lists/listName.ts';
-import { useApply, useWorkspace } from '../store/hooks.ts';
+import { useApply, useStoreState, useWorkspace } from '../store/hooks.ts';
 import { useReadOnly } from './readOnly.ts';
 import { localTimeZone } from '../../core/dates.ts';
 import { DatePickerPanel } from '../dates/DatePickerPanel.tsx';
@@ -138,6 +142,95 @@ function NestUnderDialog({ task, onClose }: { task: Task; onClose: () => void })
   );
 }
 
+/** Pick a list to move a task (and its subtasks) to; only lists I may add to are offered. */
+function MoveToListDialog({ task, onClose }: { task: Task; onClose: () => void }) {
+  const workspace = useWorkspace();
+  const apply = useApply();
+  const me = useStoreState((state) => state.context().userId);
+  const [query, setQuery] = useState('');
+  const wanted = query.trim().toLowerCase();
+  const lists = visibleLists(workspace)
+    .filter((list) => list.id !== task.listId && canEditList(workspace, me, list.id))
+    .filter((list) => !wanted || listName(list).toLowerCase().includes(wanted));
+  const title = task.title || t('task.untitled');
+
+  const choose = (listId: string, name: string) => {
+    apply(
+      (ctx, ws) => moveTask(ctx, ws, task.id, { listId, parentId: null }),
+      t('undo.movedTo', { list: name }),
+    );
+    onClose();
+  };
+
+  return (
+    <Dialog open onClose={onClose} fullWidth maxWidth="xs">
+      <DialogTitle sx={{ pb: 1 }}>{t('task.moveToTitle', { title })}</DialogTitle>
+      <DialogContent sx={{ px: 1, pb: 1 }}>
+        <Box
+          sx={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 1,
+            mx: 1,
+            mb: 1,
+            px: 1.5,
+            py: 0.5,
+            borderRadius: 2,
+            bgcolor: 'action.hover',
+            color: 'text.secondary',
+          }}
+        >
+          <SearchRounded fontSize="small" />
+          <InputBase
+            autoFocus
+            fullWidth
+            value={query}
+            placeholder={t('task.moveSearch')}
+            inputProps={{ 'aria-label': t('task.moveSearch') }}
+            onChange={(event) => setQuery(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter' && lists[0]) {
+                event.preventDefault();
+                choose(lists[0].id, listName(lists[0]));
+              }
+            }}
+            sx={{ color: 'text.primary' }}
+          />
+        </Box>
+        {lists.length === 0 ? (
+          <Typography color="text.secondary" sx={{ px: 2, py: 1 }}>
+            {t('task.moveNone')}
+          </Typography>
+        ) : (
+          <List dense sx={{ maxHeight: 360, overflowY: 'auto' }} aria-label={t('task.moveTo')}>
+            {lists.map((list) => (
+              <ListItemButton
+                key={list.id}
+                onClick={() => choose(list.id, listName(list))}
+                sx={{ borderRadius: 2 }}
+              >
+                <Box
+                  component="span"
+                  aria-hidden
+                  sx={{
+                    width: 10,
+                    height: 10,
+                    borderRadius: '50%',
+                    bgcolor: list.color,
+                    mr: 1.5,
+                    flexShrink: 0,
+                  }}
+                />
+                <ListItemText primary={listName(list)} slotProps={{ primary: { noWrap: true } }} />
+              </ListItemButton>
+            ))}
+          </List>
+        )}
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 export type TaskMenuAnchor = { element: HTMLElement } | { position: { top: number; left: number } };
 
 /**
@@ -159,6 +252,7 @@ export function TaskMenu({
   const apply = useApply();
   const { selectedId, open, close } = useTaskSelection();
   const [nesting, setNesting] = useState(false);
+  const [moving, setMoving] = useState(false);
   const today = useToday();
   const [completing, setCompleting] = useState(false);
   // The slider moves the ring as it is dragged and saves when let go.
@@ -270,6 +364,12 @@ export function TaskMenu({
           </Typography>
         </Box>
         <Divider />
+        <MenuItem onClick={run(() => setMoving(true))}>
+          <ListItemIcon>
+            <DriveFileMoveOutlined fontSize="small" />
+          </ListItemIcon>
+          {t('task.moveTo')}
+        </MenuItem>
         <MenuItem onClick={run(() => setNesting(true))}>
           <ListItemIcon>
             <AccountTreeOutlined fontSize="small" />
@@ -301,6 +401,7 @@ export function TaskMenu({
         </MenuItem>
       </Menu>
       {nesting && <NestUnderDialog task={task} onClose={() => setNesting(false)} />}
+      {moving && <MoveToListDialog task={task} onClose={() => setMoving(false)} />}
       {/* Completing on a chosen date asks for the date first. */}
       <Dialog
         open={completing}

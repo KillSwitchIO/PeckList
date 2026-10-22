@@ -26,6 +26,7 @@ import {
   deleteList,
   deleteSection,
   inboxList,
+  moveSection,
   renameSection,
   updateList,
 } from '../../core/lists.ts';
@@ -40,6 +41,7 @@ import { TaskDragProvider } from '../tasks/drag/TaskDrag.tsx';
 import { TaskTree } from '../tasks/TaskTree.tsx';
 import { EmptyState } from '../views/EmptyState.tsx';
 import { GroupSection } from '../views/GroupSection.tsx';
+import { useSectionDrag } from './sectionDrag.tsx';
 import { CompletedGroup, DateGroupedTasks } from '../views/groups.tsx';
 import { useToday } from '../hooks/useToday.ts';
 import { useListGrouping, type ListGrouping } from './listGrouping.ts';
@@ -227,7 +229,16 @@ function ListMenu({
   );
 }
 
-function SectionActions({ section, onAdd }: { section: Section; onAdd: () => void }) {
+function SectionActions({
+  section,
+  onAdd,
+  onMove,
+}: {
+  section: Section;
+  onAdd: () => void;
+  /** Move one place up or down; absent at that end. */
+  onMove: { up?: () => void; down?: () => void };
+}) {
   const apply = useApply();
   const [anchor, setAnchor] = useState<HTMLElement | null>(null);
   const [renaming, setRenaming] = useState(false);
@@ -252,6 +263,26 @@ function SectionActions({ section, onAdd }: { section: Section; onAdd: () => voi
         >
           {t('common.rename')}
         </MenuItem>
+        {onMove.up && (
+          <MenuItem
+            onClick={() => {
+              setAnchor(null);
+              onMove.up?.();
+            }}
+          >
+            {t('list.sectionUp')}
+          </MenuItem>
+        )}
+        {onMove.down && (
+          <MenuItem
+            onClick={() => {
+              setAnchor(null);
+              onMove.down?.();
+            }}
+          >
+            {t('list.sectionDown')}
+          </MenuItem>
+        )}
         <MenuItem
           onClick={() => {
             setAnchor(null);
@@ -289,6 +320,10 @@ export function ListContents({ list }: { list: List }) {
   const [addingTo, setAddingTo] = useState<string | null>(null);
   const groups = listTasks(workspace, list.id);
   const [grouping, setGrouping] = useListGrouping(list.id, groups.length > 1);
+  const moveTo = (id: string, beforeId: string | null) =>
+    apply((ctx, ws) => moveSection(ctx, ws, id, beforeId), t('undo.sectionMoved'));
+  const sectionDrag = useSectionDrag(moveTo);
+  const sectionIds = groups.flatMap((group) => (group.sectionId ? [group.sectionId] : []));
   const filter = { lists: [list.id] };
   const completed = filterClosedTasks(workspace, filter, today);
   const empty = groups.every((group) => group.tasks.length === 0);
@@ -356,8 +391,21 @@ export function ListContents({ list }: { list: List }) {
             count={group.tasks.length}
             {...(canEdit
               ? {
+                  headerProps: sectionDrag.headerProps(section.id),
                   actions: (
-                    <SectionActions section={section} onAdd={() => setAddingTo(section.id)} />
+                    <SectionActions
+                      section={section}
+                      onAdd={() => setAddingTo(section.id)}
+                      onMove={(() => {
+                        const at = sectionIds.indexOf(section.id);
+                        return {
+                          ...(at > 0 ? { up: () => moveTo(section.id, sectionIds[at - 1]!) } : {}),
+                          ...(at < sectionIds.length - 1
+                            ? { down: () => moveTo(section.id, sectionIds[at + 2] ?? null) }
+                            : {}),
+                        };
+                      })()}
+                    />
                   ),
                 }
               : {})}
@@ -369,6 +417,7 @@ export function ListContents({ list }: { list: List }) {
           </GroupSection>
         );
       })}
+      {sectionDrag.overlay}
     </>
   );
 

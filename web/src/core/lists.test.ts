@@ -8,6 +8,7 @@ import {
   deleteSection,
   inboxList,
   moveList,
+  moveSection,
   renameSection,
   restoreList,
   sectionsOf,
@@ -92,5 +93,27 @@ describe('sections', () => {
   it('requires an existing list', () => {
     const { ctx, ws } = setup();
     expect(() => createSection(ctx, ws, 'missing', 'x')).toThrow('not found');
+  });
+
+  it('moves a section before another or to the end, changing only its own order', () => {
+    const { ctx, ws } = setup();
+    const inbox = inboxList(ws).id;
+    let next = ws;
+    const ids: Record<string, string> = {};
+    for (const name of ['A', 'B', 'C']) {
+      const made = createSection(ctx, next, inbox, name);
+      next = made.workspace;
+      ids[name] = made.section.id;
+    }
+    const names = (w: typeof next) => sectionsOf(w, inbox).map((s) => s.name);
+    const moved = moveSection(ctx, next, ids.C!, ids.A!);
+    expect(names(moved)).toEqual(['C', 'A', 'B']);
+    const changed = moved.entities.sections.filter(
+      (s) => s !== next.entities.sections.find((o) => o.id === s.id),
+    );
+    expect(changed.map((s) => s.name)).toEqual(['C']);
+    expect(names(moveSection(ctx, moved, ids.C!, null))).toEqual(['A', 'B', 'C']);
+    expect(names(moveSection(ctx, moved, ids.A!, ids.B!))).toEqual(['C', 'A', 'B']);
+    expect(() => moveSection(ctx, moved, ids.A!, 'missing')).toThrow('not found');
   });
 });
