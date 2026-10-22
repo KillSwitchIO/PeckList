@@ -149,6 +149,32 @@ public sealed class AccountService(IAccountStore store, IPasswordHasher hasher, 
     }
 
     /// <summary>
+    /// Turn an account off or back on. Off: no sign-in by any means, and its sessions end; its data,
+    /// shares and assignments stay.
+    /// </summary>
+    /// <exception cref="LastSuperAdminException">It is the last active super admin.</exception>
+    public async Task<Account> SetDisabledAsync(string id, bool disabled, CancellationToken cancellation = default)
+    {
+        var account = await store.FindByIdAsync(id, cancellation) ?? throw new KeyNotFoundException($"no account {id}");
+        if (account.Disabled == disabled) return account;
+        if (disabled && account.Role == Role.SuperAdmin)
+        {
+            var others = (await store.ListAsync(cancellation))
+                .Count(each => each.Id != id && each.Role == Role.SuperAdmin && !each.Disabled);
+            if (others == 0) throw new LastSuperAdminException();
+        }
+        var updated = account with
+        {
+            Disabled = disabled,
+            SecurityStamp = disabled ? Ids.NewUlid(time) : account.SecurityStamp,
+            FailedLogins = 0,
+            LockedUntil = null,
+        };
+        await store.UpdateAsync(updated, cancellation);
+        return updated;
+    }
+
+    /// <summary>
     /// Give an account a role. Sessions continue; the new role applies from the next request.
     /// </summary>
     /// <exception cref="LastSuperAdminException">It is the last active super admin and would lose the role.</exception>
@@ -217,7 +243,22 @@ public sealed class AccountService(IAccountStore store, IPasswordHasher hasher, 
     public async Task<string> ResetPasswordAsync(string username, CancellationToken cancellation = default)
     {
         var account = await store.FindByUsernameAsync(username, cancellation) ?? throw new KeyNotFoundException($"no user '{username}'");
-        var password = Ids.NewPassword();
+        return await SetPasswordAsync(account.Id, null, cancellation);
+    }
+
+    /// <summary>
+    /// An admin sets a password (or has one generated) that must be changed at the next sign-in. The
+    /// account is unlocked and its sessions end. Returns the password, to show once.
+    /// </summary>
+    /// <exception cref="ArgumentException">A typed password is too short.</exception>
+    public async Task<string> SetPasswordAsync(string id, string? password, CancellationToken cancellation = default)
+    {
+        if (password is not null && password.Length < MinPasswordLength)
+        {
+            throw new ArgumentException($"passwords need at least {MinPasswordLength} characters");
+        }
+        var account = await store.FindByIdAsync(id, cancellation) ?? throw new KeyNotFoundException($"no account {id}");
+        password ??= Ids.NewPassword();
         await store.UpdateAsync(account with
         {
             PasswordHash = hasher.Hash(password),

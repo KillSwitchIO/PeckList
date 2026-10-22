@@ -132,4 +132,59 @@ public sealed partial class AdminTests(ServerFixture fixture) : IClassFixture<Se
         Assert.Equal(HttpStatusCode.NoContent, (await root.DeleteAsync($"/api/admin/groups/{family.Id}", Token)).StatusCode);
         Assert.Equal(HttpStatusCode.NotFound, (await root.DeleteAsync($"/api/admin/groups/{family.Id}", Token)).StatusCode);
     }
+
+    [Fact]
+    public async Task Admins_add_people_who_choose_their_own_password_first()
+    {
+        var (ann, _) = await SignIn("ann", Role.Admin);
+        var made = await ann.PostAsJsonAsync("/api/admin/users", new { username = "zoe" }, Token);
+        Assert.Equal(HttpStatusCode.Created, made.StatusCode);
+        var zoe = (await made.Content.ReadFromJsonAsync<NewUser>(Token))!;
+        Assert.Equal(("zoe", "user"), (zoe.Username, zoe.Role));
+        var zoeClient = await LogIn("zoe", zoe.Password);
+        Assert.True((await zoeClient.GetFromJsonAsync<Me>("/auth/me", Token))!.MustChangePassword);
+
+        Assert.Equal(HttpStatusCode.Conflict, (await ann.PostAsJsonAsync("/api/admin/users", new { username = "ZOE" }, Token)).StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest, (await ann.PostAsJsonAsync("/api/admin/users", new { username = "Zoe Q" }, Token)).StatusCode);
+        // Only super admins make admins.
+        Assert.Equal(HttpStatusCode.Forbidden, (await ann.PostAsJsonAsync("/api/admin/users", new { username = "max", role = "admin" }, Token)).StatusCode);
+    }
+
+    [Fact]
+    public async Task Turning_an_account_off_ends_its_sessions_until_it_is_back_on()
+    {
+        var root = await LogIn("admin", AdminPassword);
+        var (sam, samId) = await SignIn("sam");
+        Assert.Equal(HttpStatusCode.NoContent, (await root.PutAsJsonAsync($"/api/admin/users/{samId}/disabled", new { disabled = true }, Token)).StatusCode);
+        Assert.Equal(HttpStatusCode.Unauthorized, (await sam.GetAsync("/auth/me", Token)).StatusCode);
+        var again = await factory.CreateClient().PostAsJsonAsync("/auth/login", new { username = "sam", password = "a long enough password" }, Token);
+        Assert.Equal(HttpStatusCode.Unauthorized, again.StatusCode);
+        var users = await root.GetFromJsonAsync<AdminUser[]>("/api/admin/users", Token);
+        Assert.True(users!.Single(user => user.Id == samId).Disabled);
+
+        Assert.Equal(HttpStatusCode.NoContent, (await root.PutAsJsonAsync($"/api/admin/users/{samId}/disabled", new { disabled = false }, Token)).StatusCode);
+        await LogIn("sam", "a long enough password");
+
+        var rootId = users!.Single(user => user.Username == "admin").Id;
+        Assert.Equal(HttpStatusCode.Conflict, (await root.PutAsJsonAsync($"/api/admin/users/{rootId}/disabled", new { disabled = true }, Token)).StatusCode);
+    }
+
+    [Fact]
+    public async Task A_reset_password_must_be_changed_and_admins_leave_other_admins_alone()
+    {
+        var (ann, _) = await SignIn("ann", Role.Admin);
+        var (sam, samId) = await SignIn("sam");
+        var reset = await ann.PostAsJsonAsync($"/api/admin/users/{samId}/password", new { }, Token);
+        var password = (await reset.Content.ReadFromJsonAsync<PasswordReset>(Token))!.Password;
+        Assert.Equal(HttpStatusCode.Unauthorized, (await sam.GetAsync("/auth/me", Token)).StatusCode);
+        Assert.True((await (await LogIn("sam", password)).GetFromJsonAsync<Me>("/auth/me", Token))!.MustChangePassword);
+        Assert.Equal(HttpStatusCode.BadRequest, (await ann.PostAsJsonAsync($"/api/admin/users/{samId}/password", new { password = "short" }, Token)).StatusCode);
+
+        var users = await ann.GetFromJsonAsync<AdminUser[]>("/api/admin/users", Token);
+        var rootId = users!.Single(user => user.Username == "admin").Id;
+        Assert.Equal(HttpStatusCode.Forbidden, (await ann.PostAsJsonAsync($"/api/admin/users/{rootId}/password", new { }, Token)).StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, (await ann.PutAsJsonAsync($"/api/admin/users/{rootId}/disabled", new { disabled = true }, Token)).StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, (await ann.PostAsync($"/api/admin/users/{rootId}/login-link", null, Token)).StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, (await ann.PostAsJsonAsync("/api/admin/users/nobody/password", new { }, Token)).StatusCode);
+    }
 }

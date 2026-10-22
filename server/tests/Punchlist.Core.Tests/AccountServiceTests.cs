@@ -277,6 +277,43 @@ public sealed class RoleTests
     }
 }
 
+public sealed class DisableTests
+{
+    private readonly MemoryAccountStore store = new();
+    private readonly AccountService accounts;
+
+    public DisableTests() => accounts = new AccountService(store, new FakeHasher(), new TestClock(new DateTimeOffset(2026, 10, 22, 9, 0, 0, TimeSpan.Zero)));
+
+    private static CancellationToken Token => TestContext.Current.CancellationToken;
+
+    [Fact]
+    public async Task Turning_off_ends_sessions_and_never_the_last_super_admin()
+    {
+        var root = await accounts.CreateUserAsync("root", "correct horse battery", Role.SuperAdmin, cancellation: Token);
+        var sam = await accounts.CreateUserAsync("sam", "correct horse battery", cancellation: Token);
+        var off = await accounts.SetDisabledAsync(sam.Id, true, Token);
+        Assert.True(off.Disabled);
+        Assert.NotEqual(sam.SecurityStamp, off.SecurityStamp);
+        Assert.IsType<LoginResult.Invalid>(await accounts.LoginAsync("sam", "correct horse battery", Token));
+        Assert.False((await accounts.SetDisabledAsync(sam.Id, false, Token)).Disabled);
+        Assert.IsType<LoginResult.Success>(await accounts.LoginAsync("sam", "correct horse battery", Token));
+
+        await Assert.ThrowsAsync<LastSuperAdminException>(() => accounts.SetDisabledAsync(root.Id, true, Token));
+    }
+
+    [Fact]
+    public async Task An_admin_reset_password_must_be_changed()
+    {
+        var sam = await accounts.CreateUserAsync("sam", "correct horse battery", mustChangePassword: false, cancellation: Token);
+        var given = await accounts.SetPasswordAsync(sam.Id, "a typed new password", Token);
+        Assert.Equal("a typed new password", given);
+        var login = Assert.IsType<LoginResult.Success>(await accounts.LoginAsync("sam", given, Token));
+        Assert.True(login.Account.MustChangePassword);
+        Assert.Equal(20, (await accounts.SetPasswordAsync(sam.Id, null, Token)).Length);
+        await Assert.ThrowsAsync<ArgumentException>(() => accounts.SetPasswordAsync(sam.Id, "short", Token));
+    }
+}
+
 public sealed class IdsTests
 {
     [Fact]
