@@ -128,7 +128,7 @@ public sealed partial class SyncService(IEntityStore store, TimeProvider time, I
                         ? arrived.Doc
                         : Merge.Entity(stored.Doc, arrived.Doc, WorkspaceSchema.ElementSetFields(arrived.Collection));
                     if (stored is not null && JsonNode.DeepEquals(merged, stored.Doc)) return null;
-                    after.Apply(new StoredEntity(arrived.Collection, arrived.Id, stored?.OwnerId ?? ownerId, 0, merged));
+                    after.Apply(new StoredEntity(arrived.Collection, arrived.Id, arrived.Owner ?? stored?.OwnerId ?? ownerId, 0, merged));
                     return merged;
                 },
                 plan: written => SharingState.Plan(before, after, written),

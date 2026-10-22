@@ -5,6 +5,7 @@ import type {
   AdminGroup,
   AdminIdentity,
   AdminProvider,
+  AdminShare,
   AdminRefusal,
   AdminResult,
   AdminUser,
@@ -114,6 +115,14 @@ export function createHttpAdmin(
         throw new SyncFailure('server', `server error ${response.status}`);
       }
     },
+
+    shared: async (id) => json<AdminShare[]>(await call(`/users/${segment(id)}/shared`)),
+    handOver: async (from, to, ids) =>
+      (
+        await json<{ moved: number }>(
+          await call(`/users/${segment(from)}/hand-over`, 'POST', ids ? { to, ids } : { to }),
+        )
+      ).moved,
 
     groups: async () => json<AdminGroup[]>(await call('/groups')),
     addGroup: async (name, offeredForSharing) =>

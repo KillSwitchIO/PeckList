@@ -106,7 +106,7 @@ public sealed class Friends(AccountService accounts, IAccountStore store, SyncSe
         var ended = Merge.Entity((JsonObject)found.Doc.DeepClone(), new JsonObject
         {
             ["id"] = found.Id,
-            ["deletedAt"] = DateTimeOffset.UtcNow.ToString("yyyy-MM-ddTHH:mm:ss.fffZ", System.Globalization.CultureInfo.InvariantCulture),
+            ["deletedAt"] = clock.Now(),
             ["_hlc"] = new JsonObject { ["deletedAt"] = stamp },
         }, []);
         await sync.WriteAsServerAsync((string?)found.Doc["userA"] ?? a, [new IncomingEntity("friendships", ended)], cancellation);

@@ -50,6 +50,10 @@ public sealed record AdminFriend(string UserId, string Username, string State);
 
 public sealed record FriendshipRequest(string? UserA, string? UserB);
 
+public sealed record AdminShare(string Kind, string Id, string Name, int People);
+
+public sealed record HandOverRequest(string? To, IReadOnlyList<string>? Ids);
+
 /// <summary>
 /// <c>/api/admin</c>: users and server groups (spec: Accounts &amp; Admin). Every endpoint names the
 /// permission it needs; a test checks that none is left without one.
@@ -230,6 +234,21 @@ public static class AdminEndpoints
             if (!await friends.EndFriendshipAsync(a, b, cancellation)) return Results.NotFound();
             await invites.SettleAsync(cancellation);
             return Results.NoContent();
+        }).RequirePermission(Permission.ManageUsers);
+
+        // Shared lists and groups someone owns, and handing them to another person.
+        admin.MapGet("/users/{id}/shared", (string id, Ownership ownership) =>
+            ownership.SharedBy(id).Select(share => new AdminShare(share.Kind, share.Id, share.Name, share.People)))
+            .RequirePermission(Permission.ManageUsers);
+
+        admin.MapPost("/users/{id}/hand-over", async (string id, HandOverRequest request, Ownership ownership, IAccountStore accounts, CancellationToken cancellation) =>
+        {
+            if (await accounts.FindByIdAsync(id, cancellation) is null || request.To is null
+                || await accounts.FindByIdAsync(request.To, cancellation) is null)
+            {
+                return Results.NotFound();
+            }
+            return Results.Ok(new { Moved = await ownership.HandOverAsync(id, request.To, request.Ids, cancellation) });
         }).RequirePermission(Permission.ManageUsers);
 
         admin.MapGet("/pending-signins", async (IIdentityStore identities, CancellationToken cancellation) =>

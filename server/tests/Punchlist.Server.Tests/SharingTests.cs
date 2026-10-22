@@ -1,3 +1,4 @@
+using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json.Nodes;
 using Microsoft.AspNetCore.Mvc.Testing;
@@ -262,5 +263,44 @@ public sealed class SharingTests(ServerFixture fixture) : IClassFixture<ServerFi
         Assert.Null(ben.Seen["T2"]["assignees"]![$"user:{kim.UserId}"]);
         await kim.SyncAsync();
         Assert.DoesNotContain("T2", kim.Seen.Keys);
+    }
+
+    [Fact]
+    public async Task An_admin_hands_shared_lists_and_groups_to_someone_else()
+    {
+        var ben = await SignIn("ben9");
+        var sam = await SignIn("sam9");
+        await ben.SyncAsync(
+            List("L1", "shared"), Member("M1", "L1", sam.UserId, "editor"), Task("T1", "L1", "Mow"),
+            List("L2", "private"), Task("T2", "L2", "Diary"),
+            ("groups", Entity("G1", new JsonObject { ["name"] = "Household", ["color"] = "#A7C7E7", ["ownerId"] = ben.UserId, ["archived"] = false })),
+            GroupMember("GS", "G1", sam.UserId, "2026-10-21T09:10:00.000Z", "active"));
+
+        var admin = factory.CreateClient();
+        (await admin.PostAsJsonAsync("/auth/login", new { username = "admin", password = "correct horse battery" }, Token)).EnsureSuccessStatusCode();
+        // Only what others share in: the private list is nobody's business.
+        var shared = await admin.GetFromJsonAsync<AdminShare[]>($"/api/admin/users/{ben.UserId}/shared", Token);
+        Assert.Equal([new AdminShare("list", "L1", "L1", 2), new AdminShare("group", "G1", "Household", 2)], shared!);
+
+        var handed = await admin.PostAsJsonAsync($"/api/admin/users/{ben.UserId}/hand-over", new { to = sam.UserId }, Token);
+        Assert.Equal(HttpStatusCode.OK, handed.StatusCode);
+        Assert.Empty((await admin.GetFromJsonAsync<AdminShare[]>($"/api/admin/users/{ben.UserId}/shared", Token))!);
+
+        await sam.SyncAsync();
+        Assert.Equal(sam.UserId, (string?)sam.Seen["L1"]["ownerId"]);
+        Assert.Equal(sam.UserId, (string?)sam.Seen["G1"]["ownerId"]);
+        Assert.DoesNotContain("L2", sam.Seen.Keys);
+
+        // Ben stays in as an editor and keeps working on the list.
+        await ben.SyncAsync();
+        Assert.Contains(ben.Seen.Values, each => (string?)each["listId"] == "L1" && (string?)each["principal"] == $"user:{ben.UserId}" && (string?)each["role"] == "editor");
+        Assert.Empty((await ben.SyncAsync(Task("T1", "L1", "Mow the lawn"))).Rejected);
+        Assert.Contains(ben.Seen.Values, each => (string?)each["groupId"] == "G1" && (string?)each["userId"] == ben.UserId && (string?)each["state"] == "active");
+
+        // Sam owns it now: making it private is Sam's call, and Ben no longer can.
+        Assert.NotEmpty((await ben.SyncAsync(List("L1", "private"))).Rejected);
+        await sam.SyncAsync(List("L1", "private"));
+        await ben.SyncAsync();
+        Assert.DoesNotContain("T1", ben.Seen.Keys);
     }
 }

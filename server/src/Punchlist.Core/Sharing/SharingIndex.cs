@@ -90,6 +90,31 @@ public sealed class SharingIndex
         return found;
     }
 
+    /// <summary>
+    /// What a user owns that others share in: shared lists and live groups, with how many people
+    /// are in each (spec: Account management, ownership).
+    /// </summary>
+    public IReadOnlyList<OwnedShare> SharedOwnedBy(string userId)
+    {
+        var found = new List<OwnedShare>();
+        foreach (var list in D.SharedLists.Where(each => each.Owner == userId))
+        {
+            found.Add(new OwnedShare("list", list.Id, list.Get("name") ?? "", ListPeople(list.Id).Count(), list.Doc));
+        }
+        foreach (var group in D.Groups.Where(each => each.Get("ownerId") == userId && !Archived(each)))
+        {
+            found.Add(new OwnedShare("group", group.Id, group.Get("name") ?? "", GroupPeople(group.Id, withInvited: false).Count, group.Doc));
+        }
+        return found;
+    }
+
+    /// <summary>A user's membership row in a group, if any (deleted ones too).</summary>
+    public (string Id, JsonObject Doc)? GroupMembership(string groupId, string userId) =>
+        byId.Values
+            .Where(each => each.Collection == "groupMembers" && each.Get("groupId") == groupId && each.Get("userId") == userId)
+            .Select(each => ((string, JsonObject)?)(each.Id, each.Doc))
+            .FirstOrDefault();
+
     /// <summary>A copy to try changes on before they are committed.</summary>
     public SharingIndex Clone()
     {
@@ -421,4 +446,7 @@ public sealed record GroupSuccession(
     IReadOnlyList<(string Id, JsonObject Doc)> AssignedTasks);
 
 /// <summary>An invite assignment to settle: replaced by <paramref name="Assignee"/>, or dropped when null.</summary>
+/// <summary>A shared list or a group someone owns.</summary>
+public sealed record OwnedShare(string Kind, string Id, string Name, int People, JsonObject Doc);
+
 public sealed record InviteSettlement(string TaskId, JsonObject Task, string Invite, string? Assignee);

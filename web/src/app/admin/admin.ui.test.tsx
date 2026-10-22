@@ -36,6 +36,7 @@ function memoryAdmin(benId: string) {
     users: [user(benId, 'ben', 'superadmin'), user('U2', 'sam')],
     groups: [] as AdminGroup[],
     friendships: [] as [string, string][],
+    handedOver: [] as { from: string; to: string; ids: string[] }[],
     window: null as string | null,
     pending: [
       {
@@ -94,6 +95,15 @@ function memoryAdmin(benId: string) {
         (pair) => !(pair.includes(a) && pair.includes(b)),
       );
       return Promise.resolve();
+    },
+    shared: () =>
+      Promise.resolve([
+        { kind: 'list' as const, id: 'L1', name: 'Chores', people: 3 },
+        { kind: 'group' as const, id: 'G9', name: 'Household', people: 4 },
+      ]),
+    handOver: (from, to, ids) => {
+      state.handedOver.push({ from, to, ids: ids ?? [] });
+      return Promise.resolve(ids?.length ?? 0);
     },
     groups: () =>
       Promise.resolve(state.groups.map((each) => ({ ...each, members: [...each.members] }))),
@@ -246,6 +256,21 @@ describe('admin', () => {
     expect(state.friendships).toHaveLength(1);
     await userEvent.click(within(dialog).getByRole('button', { name: 'End friendship with ben' }));
     expect(await within(dialog).findByText('No friends yet.')).toBeInTheDocument();
+  });
+
+  it("hands someone's shared lists to another person", async () => {
+    const { state } = await adminApp('superadmin');
+    const list = await screen.findByRole('list', { name: 'Users' });
+    await userEvent.click(await within(list).findByRole('button', { name: 'Actions for sam' }));
+    await userEvent.click(await screen.findByRole('menuitem', { name: 'Hand over shared lists' }));
+    const dialog = await screen.findByRole('dialog', { name: "Hand over sam's shared lists" });
+    await userEvent.click(await within(dialog).findByRole('checkbox', { name: /Household/ }));
+    expect(within(dialog).getByRole('button', { name: 'Hand over' })).toBeDisabled();
+    await userEvent.click(within(dialog).getByLabelText('New owner'));
+    await userEvent.click(await screen.findByRole('option', { name: 'ben' }));
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Hand over' }));
+    expect(await screen.findByText('Handed over 1.')).toBeInTheDocument();
+    expect(state.handedOver).toEqual([{ from: 'U2', to: expect.any(String), ids: ['L1'] }]);
   });
 
   it('makes a group and fills it', async () => {

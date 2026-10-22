@@ -40,6 +40,14 @@ export interface AdminFriend {
   state: 'accepted' | 'pending';
 }
 
+/** A shared list or group someone owns. */
+export interface AdminShare {
+  kind: 'list' | 'group';
+  id: string;
+  name: string;
+  people: number;
+}
+
 export interface AdminProvider {
   name: string;
   displayName: string;
@@ -88,6 +96,11 @@ export interface AdminApi {
   /** Make two people friends, as if one accepted the other's link. */
   makeFriends(a: string, b: string): Promise<void>;
   endFriendship(a: string, b: string): Promise<void>;
+
+  /** Shared lists and groups the account owns (private lists are not listed). */
+  shared(id: string): Promise<AdminShare[]>;
+  /** Hand them (or only `ids`) to another account; returns how many moved. */
+  handOver(from: string, to: string, ids?: string[]): Promise<number>;
 
   groups(): Promise<AdminGroup[]>;
   addGroup(name: string, offeredForSharing: boolean): Promise<AdminResult>;

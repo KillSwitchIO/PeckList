@@ -22,6 +22,7 @@ import { MoreIcon, PlusIcon } from '../icons/icons.tsx';
 import { useSyncState } from '../sync/syncContext.ts';
 import { ConfirmDialog, SecretDialog } from './AdminDialogs.tsx';
 import { FriendsDialog } from './FriendsDialog.tsx';
+import { HandOverDialog } from './HandOverDialog.tsx';
 import { refusalText, useIsSuperAdmin, useLoaded } from './useAdmin.ts';
 
 const ROLES: AccountRole[] = ['user', 'admin', 'superadmin'];
@@ -130,6 +131,8 @@ export function UsersTab({ api }: { api: AdminApi }) {
   const [menu, setMenu] = useState<{ anchor: HTMLElement; user: AdminUser } | null>(null);
   const [identities, setIdentities] = useState<AdminIdentity[]>([]);
   const [friendsOf, setFriendsOf] = useState<AdminUser | null>(null);
+  const [handingOver, setHandingOver] = useState<AdminUser | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
 
   const openMenu = (anchor: HTMLElement, user: AdminUser) => {
     setMenu({ anchor, user });
@@ -174,6 +177,16 @@ export function UsersTab({ api }: { api: AdminApi }) {
           onClose={() => setProblem(null)}
         >
           {problem}
+        </Alert>
+      )}
+      {notice && (
+        <Alert
+          severity="success"
+          variant="outlined"
+          sx={{ mb: 1.5 }}
+          onClose={() => setNotice(null)}
+        >
+          {notice}
         </Alert>
       )}
       <Box role="list" aria-label={t('admin.tab.users')}>
@@ -222,6 +235,16 @@ export function UsersTab({ api }: { api: AdminApi }) {
             }}
           >
             {t('admin.users.friends')}
+          </MenuItem>
+        )}
+        {target && (
+          <MenuItem
+            onClick={() => {
+              setMenu(null);
+              setHandingOver(target);
+            }}
+          >
+            {t('admin.users.handOver')}
           </MenuItem>
         )}
         {target && !canTouch && <MenuItem disabled>{t('admin.refused.admins-only')}</MenuItem>}
@@ -339,6 +362,15 @@ export function UsersTab({ api }: { api: AdminApi }) {
         }}
       />
       <SecretDialog secret={secret} onClose={() => setSecret(null)} />
+      {handingOver && (
+        <HandOverDialog
+          api={api}
+          user={handingOver}
+          users={users ?? []}
+          onClose={() => setHandingOver(null)}
+          onDone={(moved) => setNotice(t('admin.handOver.done', { count: moved }))}
+        />
+      )}
       {friendsOf && (
         <FriendsDialog
           api={api}

@@ -11,6 +11,12 @@ public sealed record StoredEntity(string Collection, string Id, string OwnerId, 
 public sealed record IncomingEntity(string Collection, JsonObject Doc)
 {
     public string Id => (string?)Doc["id"] ?? throw new ArgumentException("entity without an id");
+
+    /// <summary>
+    /// Give the entity a new owner (server code only: an admin handing a list over). Otherwise an
+    /// entity keeps the owner it was created with.
+    /// </summary>
+    public string? Owner { get; init; }
 }
 
 /// <summary>

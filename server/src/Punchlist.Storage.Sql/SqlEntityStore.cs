@@ -68,7 +68,7 @@ public sealed class SqlEntityStore(SqlDatabase database) : IEntityStore
             existing.TryGetValue(entity.Id, out var stored);
             var doc = resolve(stored, entity);
             if (doc is null) continue;
-            var owner = stored?.OwnerId ?? ownerId;
+            var owner = entity.Owner ?? stored?.OwnerId ?? ownerId;
             var collection = stored?.Collection ?? entity.Collection;
             var written = new StoredEntity(collection, entity.Id, owner, 0, doc);
             // A later entry for the same id builds on this one.
@@ -96,7 +96,8 @@ public sealed class SqlEntityStore(SqlDatabase database) : IEntityStore
                 INSERT INTO entities (id, collection, owner_id, seq, hlc, deleted, doc)
                 VALUES (@id, @collection, @owner, @seq, @hlc, @deleted, {database.DocParameter})
                 ON CONFLICT (id) DO UPDATE SET
-                    seq = excluded.seq, hlc = excluded.hlc, deleted = excluded.deleted, doc = excluded.doc
+                    owner_id = excluded.owner_id, seq = excluded.seq, hlc = excluded.hlc,
+                    deleted = excluded.deleted, doc = excluded.doc
                 """,
                 new
                 {

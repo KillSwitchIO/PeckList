@@ -47,6 +47,7 @@ public static partial class ServerApp
         builder.Services.AddSingleton<SyncService>();
         builder.Services.AddSingleton<Punchlist.Core.Sharing.Groups>();
         builder.Services.AddSingleton<Punchlist.Core.Sharing.Invites>();
+        builder.Services.AddSingleton<Punchlist.Core.Sharing.Ownership>();
         builder.Services.AddSingleton<Punchlist.Core.Accounts.ServerGroupService>();
         builder.Services.AddBackups(settings);
         builder.Services.Configure<ForwardedHeadersOptions>(options =>

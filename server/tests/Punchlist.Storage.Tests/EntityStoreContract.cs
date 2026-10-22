@@ -280,4 +280,18 @@ public abstract class EntityStoreContract : IAsyncLifetime
         Assert.Equal(80, seen.Count);
         Assert.Equal(80, await Store.CursorAsync(Token));
     }
+
+    [Fact]
+    public async Task Gives_an_entity_a_new_owner_only_when_asked()
+    {
+        var store = Store;
+        JsonObject Take(StoredEntity? _, IncomingEntity incoming) => (JsonObject)incoming.Doc.DeepClone();
+        await store.WriteAsync("U1", [new IncomingEntity("lists", new JsonObject { ["id"] = "L1", ["_hlc"] = new JsonObject() })], Take, cancellation: Token);
+        // Another user's write keeps the owner.
+        await store.WriteAsync("U2", [new IncomingEntity("lists", new JsonObject { ["id"] = "L1", ["name"] = "x", ["_hlc"] = new JsonObject() })], Take, cancellation: Token);
+        Assert.Equal("U1", (await store.GetAsync("L1", Token))!.OwnerId);
+
+        await store.WriteAsync("U1", [new IncomingEntity("lists", new JsonObject { ["id"] = "L1", ["_hlc"] = new JsonObject() }) { Owner = "U2" }], Take, cancellation: Token);
+        Assert.Equal("U2", (await store.GetAsync("L1", Token))!.OwnerId);
+    }
 }
