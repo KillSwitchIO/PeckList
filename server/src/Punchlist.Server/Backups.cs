@@ -26,7 +26,12 @@ public static class Backups
 
         protected override async Task ExecuteAsync(CancellationToken stopping)
         {
-            var period = settings.SnapshotSchedule == SnapshotSchedule.Hourly ? TimeSpan.FromHours(1) : TimeSpan.FromDays(1);
+            var period = settings.SnapshotSchedule switch
+            {
+                SnapshotSchedule.Hourly => TimeSpan.FromHours(1),
+                SnapshotSchedule.Weekly => TimeSpan.FromDays(7),
+                _ => TimeSpan.FromDays(1),
+            };
             // Let startup (migrations, the first admin) finish first.
             await Task.Delay(TimeSpan.FromSeconds(30), time, stopping).ConfigureAwait(ConfigureAwaitOptions.SuppressThrowing);
             while (!stopping.IsCancellationRequested)

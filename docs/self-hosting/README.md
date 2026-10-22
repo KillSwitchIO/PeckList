@@ -140,19 +140,19 @@ the same host or Docker network.
 
 ## Settings
 
-| Variable               | Default                      | Meaning                                                   |
-| ---------------------- | ---------------------------- | --------------------------------------------------------- |
-| `AUTH_MODE`            | `local`                      | `local` (accounts) or `none` (no login, one user)         |
-| `ADMIN_PASSWORD`       | generated                    | The first admin password (12+ characters)                 |
-| `DB_PROVIDER`          | `sqlite`                     | `sqlite` or `postgres` (PostgreSQL 15+)                   |
-| `DB_PATH`              | `/data/punchlist.db`         | The SQLite file                                           |
-| `DB_CONNECTION_STRING` | -                            | PostgreSQL connection string (Npgsql format)              |
-| `DB_MIGRATE_ON_START`  | `true`                       | Set false when the database user cannot change the schema |
-| `SNAPSHOT_SCHEDULE`    | `daily`                      | `daily`, `hourly` or `off`                                |
-| `SNAPSHOT_DIR`         | `snapshots` by the database  | Where snapshots go                                        |
-| `SNAPSHOT_KEEP`        | `14`                         | How many snapshots to keep                                |
-| `TRUSTED_PROXIES`      | private ranges               | Proxies allowed to set forwarded headers                  |
-| `WEB_ROOT`             | `wwwroot` next to the server | Where the web build is (only for development)             |
+| Variable               | Default                      | Meaning                                                                |
+| ---------------------- | ---------------------------- | ---------------------------------------------------------------------- |
+| `AUTH_MODE`            | `local`                      | `local` (accounts) or `none` (no login, one user)                      |
+| `ADMIN_PASSWORD`       | generated                    | The first admin password (12+ characters)                              |
+| `DB_PROVIDER`          | `sqlite`                     | `sqlite` or `postgres` (PostgreSQL 15+)                                |
+| `DB_PATH`              | `/data/punchlist.db`         | The SQLite file                                                        |
+| `DB_CONNECTION_STRING` | -                            | PostgreSQL connection string (Npgsql format)                           |
+| `DB_MIGRATE_ON_START`  | `true`                       | Set false when the database user cannot change the schema              |
+| `BACKUP_SCHEDULE`      | `daily`                      | `daily`, `hourly`, `weekly` or `off` (`SNAPSHOT_SCHEDULE` still works) |
+| `SNAPSHOT_DIR`         | `snapshots` by the database  | Where snapshots go                                                     |
+| `SNAPSHOT_KEEP`        | `14`                         | How many snapshots to keep                                             |
+| `TRUSTED_PROXIES`      | private ranges               | Proxies allowed to set forwarded headers                               |
+| `WEB_ROOT`             | `wwwroot` next to the server | Where the web build is (only for development)                          |
 
 Every setting also accepts `NAME_FILE`, a file holding the value (Docker secrets); one trailing
 newline is dropped. Setting both is an error. A bad setting stops the server with a list of what
@@ -185,7 +185,7 @@ page are encrypted in the database and never shown again.
 ## Backups
 
 The server writes a full backup to `SNAPSHOT_DIR` (default: `snapshots` next to the SQLite file,
-so `/data/snapshots`) on the `SNAPSHOT_SCHEDULE` (`daily` by default, `hourly`, or `off`), keeping
+so `/data/snapshots`) on the `BACKUP_SCHEDULE` (`daily` by default, `hourly`, `weekly`, or `off`), keeping
 the newest `SNAPSHOT_KEEP` (14). Each is one readable JSON file holding everything: accounts (with
 password hashes, so keep the files private), tasks and lists, and the keys that sign login cookies.
 
@@ -196,6 +196,8 @@ docker exec <container> punchlist export /data/backup.json
 docker exec <container> punchlist import /data/backup.json            # into an empty database
 docker exec <container> punchlist import /data/backup.json --replace  # delete what is there first
 docker exec <container> punchlist snapshot
+docker exec <container> punchlist export --user sam /data/sam.json        # one person's data
+docker exec <container> punchlist import --user /data/sam.json            # put them back as it had them; then restart
 docker exec <container> punchlist admin reset-password [username]
 docker exec <container> punchlist admin add-user <username> [--admin]   # prints a password to change at first login
 docker exec <container> punchlist admin set-role <username> <user|admin|superadmin>

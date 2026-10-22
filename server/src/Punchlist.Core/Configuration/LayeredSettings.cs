@@ -22,15 +22,31 @@ public sealed class LayeredSettings(
 {
     public IReadOnlyDictionary<string, string> Page => page;
 
+    /// <summary>Settings that were renamed: the old name still works, in each layer, after the new one.</summary>
+    public static readonly IReadOnlyDictionary<string, string> OldNames = new Dictionary<string, string>
+    {
+        ["BACKUP_SCHEDULE"] = "SNAPSHOT_SCHEDULE",
+    };
+
     public string? Get(string name) => Explain(name).Value;
 
     /// <summary>The value (decrypted) and which layer gave it.</summary>
     /// <exception cref="SettingsException">An encrypted value without the key that opens it.</exception>
     public (string? Value, SettingSource Source) Explain(string name)
     {
-        if (environment.Get(name) is { } fromEnvironment) return (Open(fromEnvironment, name), SettingSource.Environment);
-        if (file.TryGetValue(name, out var fromFile) && fromFile.Length > 0) return (Open(fromFile, name), SettingSource.File);
-        if (page.TryGetValue(name, out var fromPage) && fromPage.Length > 0) return (Open(fromPage, name), SettingSource.Page);
+        string[] names = OldNames.TryGetValue(name, out var old) ? [name, old] : [name];
+        foreach (var each in names)
+        {
+            if (environment.Get(each) is { } fromEnvironment) return (Open(fromEnvironment, each), SettingSource.Environment);
+        }
+        foreach (var each in names)
+        {
+            if (file.TryGetValue(each, out var fromFile) && fromFile.Length > 0) return (Open(fromFile, each), SettingSource.File);
+        }
+        foreach (var each in names)
+        {
+            if (page.TryGetValue(each, out var fromPage) && fromPage.Length > 0) return (Open(fromPage, each), SettingSource.Page);
+        }
         return (null, SettingSource.Default);
     }
 

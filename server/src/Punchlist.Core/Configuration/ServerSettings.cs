@@ -44,6 +44,7 @@ public enum SnapshotSchedule
     Off,
     Hourly,
     Daily,
+    Weekly,
 }
 
 /// <summary>
@@ -175,7 +176,8 @@ public sealed record ServerSettings
             DbConnectionString = Get("DB_CONNECTION_STRING"),
             DbMigrateOnStart = Flag("DB_MIGRATE_ON_START", true),
             Registration = Choice("REGISTRATION", Registration.Invite),
-            SnapshotSchedule = Choice("SNAPSHOT_SCHEDULE", SnapshotSchedule.Daily),
+            // BACKUP_SCHEDULE; the old SNAPSHOT_SCHEDULE still works (and LayeredSettings.OldNames for the page).
+            SnapshotSchedule = Choice(Get("BACKUP_SCHEDULE") is not null ? "BACKUP_SCHEDULE" : "SNAPSHOT_SCHEDULE", SnapshotSchedule.Daily),
             SnapshotDir = Get("SNAPSHOT_DIR")
                 ?? Path.Combine(Path.GetDirectoryName(dbPath) is { Length: > 0 } folder ? folder : ".", "snapshots"),
             SnapshotKeep = Count("SNAPSHOT_KEEP", 14, 1),

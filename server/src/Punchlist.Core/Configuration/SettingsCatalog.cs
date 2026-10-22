@@ -33,7 +33,7 @@ public static class SettingsCatalog
         new("REGISTRATION", "general", SettingKind.Choice, "invite", ["open", "invite", "closed"]),
         new("LOCAL_LOGIN", "sign-in", SettingKind.Choice, "shown", ["shown", "hidden"]),
         new("OIDC_PROVIDERS", "sign-in", SettingKind.List),
-        new("SNAPSHOT_SCHEDULE", "backups", SettingKind.Choice, "daily", ["off", "hourly", "daily"]),
+        new("BACKUP_SCHEDULE", "backups", SettingKind.Choice, "daily", ["off", "hourly", "daily", "weekly"]),
         new("SNAPSHOT_KEEP", "backups", SettingKind.Number, "14"),
         new("TRUSTED_PROXIES", "network", SettingKind.List, "loopback and private ranges"),
         new("LOG_LEVEL", "logging", SettingKind.Choice, "information", ["trace", "debug", "information", "warning", "error", "critical"], Live: true),

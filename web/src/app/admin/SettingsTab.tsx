@@ -10,7 +10,7 @@ const LABELS: Record<string, MessageKey> = {
   REGISTRATION: 'serverSettings.REGISTRATION',
   LOCAL_LOGIN: 'serverSettings.LOCAL_LOGIN',
   OIDC_PROVIDERS: 'serverSettings.OIDC_PROVIDERS',
-  SNAPSHOT_SCHEDULE: 'serverSettings.SNAPSHOT_SCHEDULE',
+  BACKUP_SCHEDULE: 'serverSettings.SNAPSHOT_SCHEDULE',
   SNAPSHOT_KEEP: 'serverSettings.SNAPSHOT_KEEP',
   TRUSTED_PROXIES: 'serverSettings.TRUSTED_PROXIES',
   LOG_LEVEL: 'serverSettings.LOG_LEVEL',

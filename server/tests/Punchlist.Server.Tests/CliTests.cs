@@ -231,4 +231,27 @@ public sealed class CliTests : IDisposable
         Assert.Equal(0, copy.Code);
         Assert.Contains("Copied 0 accounts", copy.Output);
     }
+
+    [Fact]
+    public async Task Exports_and_restores_one_person()
+    {
+        var settings = Settings();
+        await MakeAdminAsync(settings);
+        Assert.Equal(0, (await Run(settings, "admin", "add-user", "sam")).Code);
+
+        var file = Path.Combine(folder, "sam.json");
+        var export = await Run(settings, "export", "--user", "sam", file);
+        Assert.Equal(0, export.Code);
+        Assert.Contains("Exported sam", export.Errors);
+        Assert.Contains(UserBackups.Format, await File.ReadAllTextAsync(file, TestContext.Current.CancellationToken));
+        Assert.Contains(UserBackups.Format, (await Run(settings, "export", "--user", "sam")).Stdout);
+
+        var restore = await Run(settings, "import", "--user", file);
+        Assert.Equal(0, restore.Code);
+        Assert.Contains("sam restored", restore.Output);
+        Assert.Contains("Restart the server", restore.Output);
+
+        Assert.Contains("no user 'nobody'", (await Run(settings, "export", "--user", "nobody")).Errors);
+        Assert.Equal(1, (await Run(settings, "import", "--user")).Code);
+    }
 }

@@ -21,7 +21,10 @@ public static class Cli
         Usage: punchlist <command>
 
           export [file]                 Write a full backup as JSON (to stdout without a file).
+          export --user <user> [file]   Write one person's data (to stdout without a file).
           import <file> [--replace]     Load a backup into an empty database (--replace: delete what is there first).
+          import --user <file> [user]   Put one person back as a backup had them (from a whole-server
+                                        backup, say who). Restart the server afterwards.
           migrate-db --to sqlite --path <file>
           migrate-db --to postgres --connection <connection string>
                                         Copy everything into another, empty database.
@@ -67,6 +70,9 @@ public static class Cli
             var (database, backup) = await OpenAsync(settings.DbProvider, settings.DbPath, settings.DbConnectionString, settings.DbMigrateOnStart);
             switch (command)
             {
+                case "export" when args.Contains("--user"):
+                case "import" when args.Contains("--user"):
+                    return await UserBackupAsync(command, [.. args.Skip(1).Where(arg => arg != "--user")], database, output, errors, standardOutput);
                 case "export":
                 {
                     BackupSummary summary;
@@ -299,6 +305,45 @@ public static class Cli
         var backup = new BackupService(database, new SqlEntityStore(database), new SqlAccountStore(database),
             new SqlServerGroupStore(database), new SqlIdentityStore(database), new SqlSecretStore(database), TimeProvider.System);
         return (database, backup);
+    }
+
+    /// <summary>One person's data: <c>export --user &lt;user&gt; [file]</c>, <c>import --user &lt;file&gt; [user]</c>.</summary>
+    private static async Task<int> UserBackupAsync(
+        string command, string[] rest, SqlDatabase database, TextWriter output, TextWriter errors, Stream standardOutput)
+    {
+        var accounts = new SqlAccountStore(database);
+        var entities = new SqlEntityStore(database);
+        var sharing = new Core.Sharing.SharingState();
+        await sharing.LoadAsync(entities, (await accounts.ListAsync()).Select(account => account.Id));
+        var sync = new Core.Sync.SyncService(entities, TimeProvider.System, new Core.Sync.InProcessChangeNotifier(), sharing);
+        var users = new UserBackups(entities, accounts, new SqlIdentityStore(database), sync, new Core.Sync.ServerClock(TimeProvider.System), TimeProvider.System);
+        if (command == "export")
+        {
+            if (rest.Length == 0) return await Fail(errors, "export --user needs a username: punchlist export --user <user> [file]");
+            var account = await accounts.FindByUsernameAsync(rest[0]) ?? throw new KeyNotFoundException($"no user '{rest[0]}'");
+            int count;
+            if (rest.Length > 1)
+            {
+                await using var file = File.Create(rest[1]);
+                count = await users.ExportAsync(account.Id, file, ServerApp.Version);
+            }
+            else
+            {
+                count = await users.ExportAsync(account.Id, standardOutput, ServerApp.Version);
+            }
+            await errors.WriteLineAsync($"Exported {account.Username}: {count} entities.");
+            return 0;
+        }
+        if (rest.Length == 0) return await Fail(errors, "import --user needs a file: punchlist import --user <file> [user]");
+        await using (var file = File.OpenRead(rest[0]))
+        {
+            var result = await users.RestoreAsync(file, rest.Length > 1 ? rest[1] : null);
+            await output.WriteLineAsync(
+                $"{result.Username} {(result.Created ? "added" : "restored")}: {result.Restored} restored, {result.Removed} removed, {result.Dropped} left out.");
+        }
+        // The running server keeps who-sees-what in memory: it reads it again at its next start.
+        await output.WriteLineAsync("Restart the server so it picks up the change.");
+        return 0;
     }
 
     private static async Task<int> Fail(TextWriter errors, string message)

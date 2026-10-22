@@ -226,4 +226,14 @@ public sealed class ServerSettingsTests
             Assert.Contains(name + ":", error.Message);
         }
     }
+
+    [Fact]
+    public void Backup_schedule_takes_weekly_and_the_old_snapshot_name_still_works()
+    {
+        Assert.Equal(SnapshotSchedule.Weekly, Read(new() { ["BACKUP_SCHEDULE"] = "weekly" }).SnapshotSchedule);
+        Assert.Equal(SnapshotSchedule.Hourly, Read(new() { ["SNAPSHOT_SCHEDULE"] = "hourly" }).SnapshotSchedule);
+        Assert.Equal(SnapshotSchedule.Off, Read(new() { ["BACKUP_SCHEDULE"] = "off", ["SNAPSHOT_SCHEDULE"] = "hourly" }).SnapshotSchedule);
+        var layers = new LayeredSettings(Source(new() { ["SNAPSHOT_SCHEDULE"] = "hourly" }), new Dictionary<string, string>(), new Dictionary<string, string>(), null);
+        Assert.Equal(("hourly", SettingSource.Environment), layers.Explain("BACKUP_SCHEDULE"));
+    }
 }
