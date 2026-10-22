@@ -10,6 +10,7 @@ export const en = {
   'assigned.empty': 'Nothing is assigned to you.',
   'assignee.label': 'Assigned',
   'assignee.none': 'Nobody',
+  'assignee.row': 'Assigned to {names}',
   'assignee.title': 'Assign to',
   'assignee.me': 'Me',
   'assignee.and': '{first} and {count} more',

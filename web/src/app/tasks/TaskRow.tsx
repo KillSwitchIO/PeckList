@@ -5,11 +5,13 @@ import { Box, ButtonBase, IconButton, Typography, useMediaQuery, useTheme } from
 import { useState } from 'react';
 import { getEntity } from '../../core/collections.ts';
 import { subtaskProgress } from '../../core/queries.ts';
+import { assigneesOf, describePrincipal } from '../../core/sharing.ts';
 import { tagsOfTask } from '../../core/tags.ts';
 import { toggleTaskDone } from '../../core/tasks.ts';
 import type { Priority, Task } from '../../core/types.ts';
 import { useLongPress } from '../hooks/useLongPress.ts';
 import { t } from '../i18n/i18n.ts';
+import { AvatarStack } from '../friends/AvatarStack.tsx';
 import { listName } from '../lists/listName.ts';
 import { useApply, useWorkspace } from '../store/hooks.ts';
 import { TaskReadOnly, useCanEditTask, useReadOnly } from './readOnly.ts';
@@ -113,6 +115,7 @@ export function TaskRow({
   const parent = task.parentId ? getEntity(workspace, 'tasks', task.parentId) : undefined;
   const progress = subtaskProgress(workspace, task.id);
   const tags = tagsOfTask(workspace, task);
+  const assigned = assigneesOf(task).map((principal) => describePrincipal(workspace, principal));
   const isPhone = useMediaQuery(theme.breakpoints.down('sm'), { noSsr: true });
   const done = task.status !== 'open';
   const title = task.title || t('task.untitled');
@@ -223,6 +226,19 @@ export function TaskRow({
             }}
           >
             {!isPhone && <TagChips tags={tags} max={2} wrap={false} />}
+            {assigned.length > 0 && (
+              <Box
+                component="span"
+                role="img"
+                aria-label={t('assignee.row', {
+                  names: assigned.map((each) => each.name).join(', '),
+                })}
+                title={t('assignee.row', { names: assigned.map((each) => each.name).join(', ') })}
+                sx={{ display: 'inline-flex' }}
+              >
+                <AvatarStack people={assigned} size={18} max={2} />
+              </Box>
+            )}
             {progress.total > 0 && (
               <Box
                 component="span"

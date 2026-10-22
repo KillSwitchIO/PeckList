@@ -86,6 +86,8 @@ describe('assigning a task', () => {
     expect(
       within(details).getByRole('button', { name: /^Assigned: (Sam|Me) and 1 more$/ }),
     ).toBeInTheDocument();
+    // The row in the list shows who it is for.
+    expect(screen.getByRole('img', { name: /^Assigned to .*Sam/ })).toBeInTheDocument();
 
     // Taking Sam off leaves just me.
     await userEvent.click(within(details).getByRole('button', { name: /^Assigned:/ }));

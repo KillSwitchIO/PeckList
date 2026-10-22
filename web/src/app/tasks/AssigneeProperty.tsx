@@ -8,6 +8,7 @@ import {
 } from '../../core/sharing.ts';
 import type { Task } from '../../core/types.ts';
 import { Avatar } from '../friends/Avatar.tsx';
+import { AvatarStack } from '../friends/AvatarStack.tsx';
 import { t } from '../i18n/i18n.ts';
 import { AssignedIcon, CheckIcon } from '../icons/icons.tsx';
 import { useApply, useStoreState, useWorkspace } from '../store/hooks.ts';
@@ -49,21 +50,7 @@ export function AssigneeProperty({ task }: { task: Task }) {
         onClick={setAnchor}
       >
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, minWidth: 0 }}>
-          {assigned.length > 0 && (
-            <Box sx={{ display: 'flex', '& > * + *': { ml: -0.75 } }}>
-              {assigned.slice(0, 3).map((each) => (
-                <Box
-                  key={each.principal}
-                  sx={{
-                    borderRadius: '50%',
-                    boxShadow: (theme) => `0 0 0 2px ${theme.palette.background.paper}`,
-                  }}
-                >
-                  <Avatar name={each.name} color={each.color} size={22} />
-                </Box>
-              ))}
-            </Box>
-          )}
+          {assigned.length > 0 && <AvatarStack people={assigned} size={22} />}
           <Typography noWrap sx={{ color: assigned.length > 0 ? 'text.primary' : 'text.disabled' }}>
             {display}
           </Typography>
