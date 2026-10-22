@@ -1,3 +1,4 @@
+import type { UserStats } from '../ports/stats.ts';
 import type {
   Account,
   ChangeEvent,
@@ -157,6 +158,11 @@ export function createHttpSync(
         if (response.status === 409) return 'last-way-in';
         if (!response.ok && response.status !== 404) return fail(response);
         return 'ok';
+      },
+      async stats() {
+        const response = await call('/api/account/stats');
+        if (!response.ok) return fail(response);
+        return (await response.json()) as UserStats;
       },
     },
 

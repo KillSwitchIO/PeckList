@@ -41,6 +41,8 @@ public sealed class PostgresDatabase(string connectionString) : SqlDatabase, IAs
 
     public override string CaseInsensitiveLike => "ILIKE";
 
+    public override string JsonText(string field) => $"doc->>'{field}'";
+
     public override async Task<DbConnection> OpenAsync(CancellationToken cancellation) =>
         await dataSource.OpenConnectionAsync(cancellation);
 

@@ -34,6 +34,7 @@ import { t } from '../i18n/i18n.ts';
 import { Page } from '../layout/Page.tsx';
 import { Section, SettingRow } from './settingsLayout.tsx';
 import { SignInSection } from './SignInSection.tsx';
+import { StatsSection } from './StatsSection.tsx';
 import { useApply, useWorkspace } from '../store/hooks.ts';
 
 /** A small live sample of the colors as the theme shows them now. */
@@ -200,6 +201,7 @@ export function SettingsPage() {
     <Page title={t('nav.settings')}>
       <Stack spacing={4}>
         <SignInSection />
+        <StatsSection />
         <Section title={t('settings.appearance')}>
           <SettingRow label={t('settings.theme')}>
             <ToggleButtonGroup

@@ -24,6 +24,9 @@ public abstract class SqlDatabase : IDatabase
     /// <summary>The condition matching <c>id</c> against the list parameter <c>@ids</c>.</summary>
     public virtual string IdInList => "id IN @ids";
 
+    /// <summary>A top-level field of <c>doc</c> as text (null when missing or JSON null).</summary>
+    public virtual string JsonText(string field) => $"CAST(json_extract(doc, '$.{field}') AS TEXT)";
+
     /// <summary>LIKE that ignores case (SQLite's does already).</summary>
     public virtual string CaseInsensitiveLike => "LIKE";
 

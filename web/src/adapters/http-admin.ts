@@ -18,6 +18,7 @@ import type {
   PendingSignIn,
   ServerSettingsView,
 } from '../ports/admin.ts';
+import type { ServerStats } from '../ports/stats.ts';
 import { SyncFailure } from '../ports/sync.ts';
 
 /** The server's error names, as the app reads them. */
@@ -223,6 +224,7 @@ export function createHttpAdmin(
     logging: async () => json<LoggingView>(await call('/logging')),
     debugDumpUrl: () => `${base}/api/admin/debug-dump`,
     audit: async (query) => json<AuditPage>(await call(`/audit?${auditParams(query)}`)),
+    stats: async () => json<ServerStats>(await call('/stats')),
     auditCsvUrl: (query) => `${base}/api/admin/audit.csv?${auditParams(query)}`,
     providers: async () => json<AdminProvider[]>(await call('/providers')),
     unbindAll: async (provider) =>

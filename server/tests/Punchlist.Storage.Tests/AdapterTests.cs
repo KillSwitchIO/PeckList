@@ -114,3 +114,13 @@ public sealed class PostgresAuditStoreTests(PostgresServer server) : AuditStoreC
 {
     protected override async Task<IAuditStore> CreateAsync() => new SqlAuditStore(await server.NewDatabaseAsync());
 }
+
+public sealed class SqliteStatsSourceTests(SqliteFiles files) : StatsSourceContract, IClassFixture<SqliteFiles>
+{
+    protected override async Task<SqlDatabase> CreateAsync() => await files.NewDatabaseAsync();
+}
+
+public sealed class PostgresStatsSourceTests(PostgresServer server) : StatsSourceContract, IClassFixture<PostgresServer>
+{
+    protected override async Task<SqlDatabase> CreateAsync() => await server.NewDatabaseAsync();
+}

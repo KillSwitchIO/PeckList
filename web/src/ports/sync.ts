@@ -1,3 +1,4 @@
+import type { UserStats } from './stats.ts';
 import type { SyncChange } from '../core/sync.ts';
 import type { AdminApi } from './admin.ts';
 
@@ -96,6 +97,8 @@ export interface AccountApi {
   signInMethods(): Promise<SignInMethods>;
   /** `last-way-in` when it is the account's only way to sign in, so it stays. */
   unlink(provider: string, subject: string): Promise<'ok' | 'last-way-in'>;
+  /** This account's own numbers, the same as on the admin's stats page. */
+  stats(): Promise<UserStats>;
 }
 
 /** Friend links and lookups (servers only). */

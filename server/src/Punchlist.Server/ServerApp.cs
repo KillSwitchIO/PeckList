@@ -63,6 +63,9 @@ public static partial class ServerApp
         builder.Services.AddSingleton<Punchlist.Core.Sharing.Ownership>();
         builder.Services.AddSingleton<Punchlist.Core.Accounts.ServerGroupService>();
         builder.Services.AddBackups(settings);
+        builder.Services.AddSingleton(provider => new Core.Stats.StatsService(
+            provider.GetRequiredService<Core.Stats.IStatsSource>(), provider.GetRequiredService<Core.Accounts.IAccountStore>(),
+            provider.GetRequiredService<TimeProvider>()));
         builder.Services.AddSingleton<Audit.AuditLog>();
         builder.Services.AddHostedService(provider => provider.GetRequiredService<Audit.AuditLog>());
         builder.Services.AddHostedService<Audit.AuditRetention>();
@@ -104,7 +107,7 @@ public static partial class ServerApp
         app.MapGet("/api/info", () => new ServerInfo("punchlist", Version, WorkspaceSchema.CurrentVersion));
         app.MapAuth();
         app.MapGroup("/api").RequireAuthorization().RequirePasswordChanged().EnsureProfiles().MapSync().MapFriends().MapAccount();
-        app.MapGroup("/api/admin").RequireAuthorization().RequirePasswordChanged().MapAdmin().MapSettings().MapBackups().MapLogging().MapAudit();
+        app.MapGroup("/api/admin").RequireAuthorization().RequirePasswordChanged().MapAdmin().MapSettings().MapBackups().MapLogging().MapAudit().MapStats();
 
         var webRoot = settings.WebRoot ?? Path.Combine(AppContext.BaseDirectory, "wwwroot");
         app.UseStaticSite(webRoot, app.Logger);

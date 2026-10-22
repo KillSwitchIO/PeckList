@@ -32,6 +32,10 @@ public static class AccountEndpoints
                     .ToList()));
         });
 
+        // The person's own numbers, the same as on the admin's stats page (spec: Server stats).
+        api.MapGet("/account/stats", async (ClaimsPrincipal user, Core.Stats.StatsService stats, CancellationToken cancellation) =>
+            await stats.ForAsync(user.UserId(), cancellation) is { } mine ? Results.Ok(mine) : Results.NotFound());
+
         api.MapDelete("/account/identities/{provider}/{subject}", async (
             string provider, string subject, ClaimsPrincipal user, ExternalSignIn signIn, HttpContext context, CancellationToken cancellation) =>
         {

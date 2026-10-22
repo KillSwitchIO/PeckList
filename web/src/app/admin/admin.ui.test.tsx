@@ -106,6 +106,31 @@ function memoryAdmin(benId: string) {
     }),
   ];
   const auditQueries: AuditQuery[] = [];
+  const months = (last: number) =>
+    Array.from({ length: 12 }, (_, index) => ({
+      month: `${index < 2 ? 2025 : 2026}-${String(((index + 10) % 12) + 1).padStart(2, '0')}`,
+      closed: index === 11 ? last : index,
+    }));
+  const personStats = (
+    id: string,
+    username: string,
+    open: number,
+    closed: number,
+    lastActive: string | null,
+  ) => ({
+    id,
+    username,
+    openTasks: open,
+    closedTasks: closed,
+    closedThisMonth: 1,
+    createdTasks: open + closed,
+    lists: 3,
+    sharedLists: 1,
+    storageBytes: 1536,
+    devices: 2,
+    lastActive,
+    closedByMonth: months(1),
+  });
   const output = (name: string, destination: string, healthy: boolean) => ({
     name,
     destination,
@@ -314,6 +339,23 @@ function memoryAdmin(benId: string) {
       );
       return Promise.resolve({ entries, more: false });
     },
+    stats: () =>
+      Promise.resolve({
+        computed: '2026-10-22T12:00:00Z',
+        timeZone: 'Europe/Berlin',
+        users: 2,
+        openTasks: 12,
+        closedTasks: 40,
+        closedThisMonth: 5,
+        lists: 6,
+        sharedLists: 2,
+        storageBytes: 3 * 1024 * 1024,
+        closedByMonth: months(3),
+        people: [
+          personStats('U2', 'sam', 2, 30, null),
+          personStats(benId, 'ben', 10, 10, '2026-10-22T09:00:00Z'),
+        ],
+      }),
     auditCsvUrl: (query) =>
       `/api/admin/audit.csv?kind=${query.kind}&outcome=${query.outcome ?? ''}`,
     providers: () =>
@@ -542,6 +584,32 @@ describe('admin', () => {
       await screen.findByText(/The server is restarting to restore the backup/),
     ).toBeInTheDocument();
     expect(state.restores.map((each) => each.username)).toEqual([null, 'sam', 'everyone']);
+  });
+
+  it('shows server totals, closed tasks per month and a sortable row per person', async () => {
+    await adminApp('superadmin', '/admin/stats');
+    const totals = await screen.findByRole('region', { name: 'Server totals' });
+    expect(within(totals).getByRole('group', { name: 'Open tasks' })).toHaveTextContent('12');
+    expect(within(totals).getByRole('group', { name: 'Storage' })).toHaveTextContent('3.0 MB');
+    expect(screen.getByText('Months in Europe/Berlin time')).toBeInTheDocument();
+    expect(screen.getAllByRole('listitem', { name: /closed$/ }).length).toBe(12);
+
+    const table = screen.getByRole('table', { name: 'By person' });
+    const names = () =>
+      within(table)
+        .getAllByRole('row')
+        .slice(1)
+        .map((row) => within(row).getAllByRole('cell')[0]?.textContent);
+    // Most open tasks first.
+    expect(names()).toEqual(['ben', 'sam']);
+    await userEvent.click(within(table).getByRole('button', { name: 'Closed tasks' }));
+    expect(names()).toEqual(['sam', 'ben']);
+    await userEvent.click(within(table).getByRole('button', { name: 'Closed tasks' }));
+    expect(names()).toEqual(['ben', 'sam']);
+    expect(within(table).getAllByRole('row')[2]).toHaveTextContent('Not lately');
+
+    await userEvent.click(within(table).getByRole('cell', { name: 'sam' }));
+    expect(screen.getByRole('list', { name: 'Closed per month by sam' })).toBeInTheDocument();
   });
 
   it('shows what people did, filters it, opens an entry and lists requests', async () => {

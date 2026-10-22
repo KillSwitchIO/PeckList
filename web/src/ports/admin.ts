@@ -1,4 +1,5 @@
 // What admins manage on a server (spec: Accounts & Admin, Admin UI). Adapter: HTTP to /api/admin.
+import type { ServerStats } from './stats.ts';
 
 export type AccountRole = 'superadmin' | 'admin' | 'user';
 
@@ -268,6 +269,8 @@ export interface AdminApi {
   debugDumpUrl(): string;
   /** The access or event log, newest first. */
   audit(query: AuditQuery): Promise<AuditPage>;
+  /** Server totals and a row per person (spec: Server stats). */
+  stats(): Promise<ServerStats>;
   /** Downloads the filtered log as CSV, oldest first. */
   auditCsvUrl(query: AuditQuery): string;
 

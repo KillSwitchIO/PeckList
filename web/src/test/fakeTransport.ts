@@ -1,4 +1,5 @@
 // A SyncTransport over the in-memory server, with accounts and a switch to go offline.
+import type { UserStats } from '../ports/stats.ts';
 import { CURRENT_SCHEMA_VERSION } from '../core/migrations.ts';
 import {
   SyncFailure,
@@ -23,6 +24,34 @@ export interface FakeAccount {
 export class FakeBackend {
   readonly server = new FakeSyncServer();
   readonly accounts = new Map<string, FakeAccount>();
+
+  /** An account's numbers as the server would count them: its live tasks by status. */
+  stats(id: string, username: string): UserStats {
+    const tasks = [...this.server.rows.values()]
+      .filter((row) => row.change.collection === 'tasks')
+      .map(
+        (row) =>
+          row.change.entity as { status?: string; deletedAt?: string | null; createdBy?: string },
+      )
+      .filter((task) => !task.deletedAt);
+    const closed = tasks.filter(
+      (task) => task.status === 'done' || task.status === 'wontdo',
+    ).length;
+    return {
+      id,
+      username,
+      openTasks: tasks.length - closed,
+      closedTasks: closed,
+      closedThisMonth: closed,
+      createdTasks: tasks.filter((task) => task.createdBy === id).length,
+      lists: 0,
+      sharedLists: 0,
+      storageBytes: 0,
+      devices: 1,
+      lastActive: null,
+      closedByMonth: [{ month: '2026-10', closed }],
+    };
+  }
   /** What sync responses say about the server data's life; change it to act out a restore. */
   epoch: string | null = 'epoch-1';
   /** Each account's linked provider accounts, by username. */
@@ -106,6 +135,11 @@ export class FakeTransport implements SyncTransport {
         linked.filter((each) => each.provider !== provider || each.subject !== subject),
       );
       return Promise.resolve('ok' as const);
+    },
+    stats: () => {
+      const found = this.current();
+      if (!found) return Promise.reject(new SyncFailure('signed-out', 'signed out'));
+      return Promise.resolve(this.backend.stats(found.account.id, found.account.username));
     },
   };
 

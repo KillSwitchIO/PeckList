@@ -296,6 +296,19 @@ The zip holds recent logs, every setting with where it comes from (secrets shown
 versions, database row counts and health. It never holds task content, password hashes or keys,
 so it can go with a bug report.
 
+## Server stats
+
+**Admin > Stats** shows server totals (people, open and closed tasks, closed this month, lists,
+shared lists, storage), closed tasks per month for the last 12 months, and a row per person that
+sorts by any column: open, closed (done or won't do) all time and this month, tasks made, lists,
+shared lists, storage, devices that synced in the last 30 days, and when they were last active
+(from the access and event log, so within its retention). Clicking a person shows their months.
+Everyone sees their own numbers under **Settings > Your stats**.
+
+Only counts, never titles or other content. Months follow the server's time zone: set `TZ` (for
+example `TZ=Europe/Berlin`) on the container. The numbers are worked out again after any sync
+changes data, or every five minutes.
+
 ## PostgreSQL
 
 [compose.postgres.yaml](compose.postgres.yaml) runs Punchlist with PostgreSQL, passing the
