@@ -24,6 +24,7 @@ import {
   groupMembersOf,
   groupsOf,
   inviteToGroup,
+  isServerGroup,
   memberName,
   removeFromGroup,
   transferGroup,
@@ -138,13 +139,16 @@ export function Groups({ title }: { title: string }) {
                   </Box>
                   <ListItemText
                     primary={view.group.name}
-                    secondary={
+                    secondary={[
+                      isServerGroup(view.group) ? t('group.server') : null,
                       active === 1
                         ? t('group.oneMember')
                         : Math.max(active, 1) === 1
                           ? t('group.membersOne')
-                          : t('group.members', { count: active })
-                    }
+                          : t('group.members', { count: active }),
+                    ]
+                      .filter(Boolean)
+                      .join(' · ')}
                   />
                 </ListItemButton>
               </Box>
@@ -213,6 +217,11 @@ function GroupDialog({ view, onClose }: { view: GroupView; onClose: () => void }
           )}
         </DialogTitle>
         <DialogContent>
+          {isServerGroup(group) && (
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
+              {t('group.serverHint')}
+            </Typography>
+          )}
           <List dense disablePadding aria-label={t('group.membersOf', { name: group.name })}>
             {members.map((member) => {
               const name = memberName(workspace, member);
@@ -319,7 +328,7 @@ function GroupDialog({ view, onClose }: { view: GroupView; onClose: () => void }
           )}
         </DialogContent>
         <DialogActions sx={{ justifyContent: 'space-between' }}>
-          {mine ? (
+          {mine && !isServerGroup(group) ? (
             <Button color="error" onClick={() => setConfirm('leave')}>
               {t('group.leave')}
             </Button>

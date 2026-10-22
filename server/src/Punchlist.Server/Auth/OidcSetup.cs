@@ -177,6 +177,8 @@ public static class OidcSetup
                         success.Account, identity.DisplayName, context.HttpContext.RequestAborted);
                 }
                 note.Actor(success.Account).On(null, null).Anonymous = false;
+                // The provider's groups may have changed this person's server groups.
+                await services.GetRequiredService<ServerGroupProjection>().ProjectAsync(context.HttpContext.RequestAborted);
                 note.Outcome = AuditOutcome.Ok;
                 if (success.Created) note.Detail = $"{provider.Name}, new account";
                 else if (success.JoinedBy is { } joined) note.Detail = $"{provider.Name}, joined the account by {joined}";

@@ -1,3 +1,4 @@
+using Punchlist.Core.Sharing;
 using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json.Nodes;
@@ -86,6 +87,61 @@ public sealed class SharingTests(ServerFixture fixture) : IClassFixture<ServerFi
                 [$"user:{assignee}"] = new JsonObject { ["in"] = true, ["hlc"] = "2026-10-21T11:00:00.000Z-0000-dev1" },
             },
         }));
+
+    [Fact]
+    public async Task A_server_group_offered_for_sharing_is_a_group_members_share_with_but_cannot_leave()
+    {
+        var sam = await SignIn("sam");
+        var kim = await SignIn("kim");
+        var lee = await SignIn("lee");
+        var admin = factory.CreateClient();
+        (await admin.PostAsJsonAsync("/auth/login", new { username = "admin", password = "correct horse battery" }, Token)).EnsureSuccessStatusCode();
+        var made = await admin.PostAsJsonAsync("/api/admin/groups", new { name = "Family", offeredForSharing = true }, Token);
+        var groupId = (string)(await made.Content.ReadFromJsonAsync<JsonObject>(Token))!["id"]!;
+        (await admin.PutAsync($"/api/admin/groups/{groupId}/members/{sam.UserId}", null, Token)).EnsureSuccessStatusCode();
+        (await admin.PutAsync($"/api/admin/groups/{groupId}/members/{kim.UserId}", null, Token)).EnsureSuccessStatusCode();
+
+        // Its members see it like a group someone made, owned by the server.
+        await sam.SyncAsync();
+        Assert.Equal(("Family", ServerGroupProjection.Owner), ((string?)sam.Seen[groupId]["name"], (string?)sam.Seen[groupId]["ownerId"]));
+        var samRow = sam.Seen.Values.Single(each => (string?)each["groupId"] == groupId && (string?)each["userId"] == sam.UserId);
+        await lee.SyncAsync();
+        Assert.False(lee.Seen.ContainsKey(groupId));
+
+        // Sam shares a list with it: Kim works on it, Lee does not see it.
+        await sam.SyncAsync(
+            List("L1", "shared"),
+            ("listMembers", Entity("M1", new JsonObject { ["listId"] = "L1", ["principal"] = $"group:{groupId}", ["role"] = "editor" })),
+            Task("T1", "L1", "Plan the trip"));
+        await kim.SyncAsync();
+        Assert.True(kim.Seen.ContainsKey("T1"));
+        await lee.SyncAsync();
+        Assert.False(lee.Seen.ContainsKey("T1"));
+
+        // Nobody leaves a server group in the app.
+        var soon = DateTime.UtcNow.AddSeconds(5).ToString("yyyy-MM-ddTHH:mm:ss.fffZ", System.Globalization.CultureInfo.InvariantCulture);
+        var leave = new JsonObject
+        {
+            ["id"] = (string)samRow["id"]!,
+            ["deletedAt"] = soon,
+            ["_hlc"] = new JsonObject { ["deletedAt"] = soon + "-0000-dev1" },
+        };
+        var left = await sam.SyncAsync(("groupMembers", leave));
+        Assert.Contains((string)samRow["id"]!, left.Rejected);
+
+        // The admin takes Kim out: Kim loses the list.
+        (await admin.DeleteAsync($"/api/admin/groups/{groupId}/members/{kim.UserId}", Token)).EnsureSuccessStatusCode();
+        await kim.SyncAsync();
+        Assert.False(kim.Seen.ContainsKey("T1"));
+
+        // Renamed, it follows; taken off sharing, it goes.
+        (await admin.PatchAsJsonAsync($"/api/admin/groups/{groupId}", new { name = "Household" }, Token)).EnsureSuccessStatusCode();
+        await sam.SyncAsync();
+        Assert.Equal("Household", (string?)sam.Seen[groupId]["name"]);
+        (await admin.PatchAsJsonAsync($"/api/admin/groups/{groupId}", new { offeredForSharing = false }, Token)).EnsureSuccessStatusCode();
+        await sam.SyncAsync();
+        Assert.True(!sam.Seen.TryGetValue(groupId, out var gone) || gone["deletedAt"] is not null);
+    }
 
     [Fact]
     public async Task A_shared_list_is_worked_on_together_and_leaves_when_made_private()

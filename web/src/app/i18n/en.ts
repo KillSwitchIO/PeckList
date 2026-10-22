@@ -631,6 +631,9 @@ export const en = {
   'group.invite': 'Invite a friend',
   'group.inviteButton': 'Invite',
   'group.leave': 'Leave group',
+  'group.server': 'Server group',
+  'group.serverHint':
+    'A group the server admins set up. Share lists with it and assign tasks to it like any group; admins decide who is in it.',
   'group.leaveConfirm': 'Leave {name}?',
   'group.leaveOwnerConfirm': 'Leave {name}? {heir} becomes its owner.',
   'group.leaveLastConfirm': 'Leave {name}? Nobody is left in it, so it is archived.',

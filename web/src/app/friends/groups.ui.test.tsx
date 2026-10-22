@@ -3,7 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { createMemoryStorage } from '../../adapters/memory-storage.ts';
 import { putEntity } from '../../core/collections.ts';
-import { groupsOf } from '../../core/groups.ts';
+import { groupsOf, SERVER_GROUP_OWNER } from '../../core/groups.ts';
 import { createEntity } from '../../core/ops.ts';
 import type { Friendship, Group, GroupMember, User, WorkspaceFile } from '../../core/types.ts';
 import type { OpContext } from '../../core/ops.ts';
@@ -81,6 +81,31 @@ describe('groups', () => {
       }),
     );
     await waitFor(() => expect(groupsOf(ws(), me())[0]?.mine ?? null).toBeNull());
+  });
+
+  it('a server group shows as one, and nobody leaves it from the app', async () => {
+    await setup((ctx, workspace) => {
+      const group = createEntity<Group>(ctx, {
+        name: 'Household',
+        color: '#6B7280',
+        ownerId: SERVER_GROUP_OWNER,
+        archived: false,
+      });
+      const mine = createEntity<GroupMember>(ctx, {
+        groupId: group.id,
+        userId: ctx.userId,
+        joinedAt: new Date().toISOString(),
+        state: 'active',
+      });
+      return putEntity(putEntity(workspace, 'groups', group), 'groupMembers', mine);
+    });
+    const section = await screen.findByRole('region', { name: 'Groups' });
+    expect(await within(section).findByText(/Server group/)).toBeInTheDocument();
+    await userEvent.click(within(section).getByText('Household'));
+    const dialog = await screen.findByRole('dialog');
+    expect(within(dialog).getByText(/admins decide who is in it/)).toBeInTheDocument();
+    expect(within(dialog).queryByRole('button', { name: 'Leave group' })).toBeNull();
+    expect(within(dialog).queryByRole('button', { name: 'Rename' })).toBeNull();
   });
 
   it('joins a group someone invited me to', async () => {

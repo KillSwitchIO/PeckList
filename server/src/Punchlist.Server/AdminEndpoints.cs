@@ -104,7 +104,7 @@ public static class AdminEndpoints
                 {
                     return Results.Conflict(new AdminError("last_super_admin", error.Message));
                 }
-            }, cancellation)).RequirePermission(Permission.ManageUsers).Audited("admin.user-deleted");
+            }, cancellation)).RequirePermission(Permission.ManageUsers).ProjectsServerGroups().Audited("admin.user-deleted");
 
         admin.MapPost("/users/{id}/restore", async (
             string id, ClaimsPrincipal user, IAccountStore store, AccountService accounts, IMemoryCache cache, CancellationToken cancellation) =>
@@ -114,7 +114,7 @@ public static class AdminEndpoints
                 await accounts.RestoreAsync(id, cancellation);
                 AuthSetup.ForgetStamp(cache, id);
                 return Results.NoContent();
-            }, cancellation)).RequirePermission(Permission.ManageUsers).Audited("admin.user-restored");
+            }, cancellation)).RequirePermission(Permission.ManageUsers).ProjectsServerGroups().Audited("admin.user-restored");
 
         admin.MapPost("/users", async (NewUserRequest request, ClaimsPrincipal user, AccountService accounts, HttpContext context, CancellationToken cancellation) =>
         {
@@ -355,7 +355,7 @@ public static class AdminEndpoints
             if (await signIn.ApproveAsync(found, subject, cancellation) is not { } account) return Results.NotFound();
             context.Audit().On(account.Id, account.Username);
             return Results.Ok(new { account.Id, account.Username, Role = account.Role.Name() });
-        }).RequirePermission(Permission.ManageUsers).Audited("admin.pending-approved", targetRoute: null);
+        }).RequirePermission(Permission.ManageUsers).ProjectsServerGroups().Audited("admin.pending-approved", targetRoute: null);
 
         admin.MapDelete("/pending-signins/{provider}/{subject}", async (string provider, string subject, IIdentityStore identities, HttpContext context, CancellationToken cancellation) =>
         {
@@ -375,7 +375,7 @@ public static class AdminEndpoints
                 var group = await groups.CreateAsync(request.Name ?? "", request.OfferedForSharing ?? false, cancellation);
                 context.Audit().On(group.Id, group.Name);
                 return Results.Created($"/api/admin/groups/{group.Id}", View(new ServerGroupView(group, [])));
-            })).RequirePermission(Permission.ManageGroups).Audited("admin.group-created", targetRoute: null);
+            })).RequirePermission(Permission.ManageGroups).ProjectsServerGroups().Audited("admin.group-created", targetRoute: null);
 
         admin.MapPatch("/groups/{id}", async (string id, GroupRequest request, ServerGroupService groups, HttpContext context, CancellationToken cancellation) =>
             await GroupResult(async () =>
@@ -387,7 +387,7 @@ public static class AdminEndpoints
                 }.OfType<string>());
                 await groups.UpdateAsync(id, request.Name, request.OfferedForSharing, cancellation);
                 return Results.Ok((await groups.ListAsync(cancellation)).Where(view => view.Group.Id == id).Select(View).Single());
-            })).RequirePermission(Permission.ManageGroups).Audited("admin.group-changed", "id", AuditTarget.Group);
+            })).RequirePermission(Permission.ManageGroups).ProjectsServerGroups().Audited("admin.group-changed", "id", AuditTarget.Group);
 
         admin.MapDelete("/groups/{id}", async (string id, ServerGroupService groups, IServerGroupStore store, HttpContext context, CancellationToken cancellation) =>
         {
@@ -395,7 +395,7 @@ public static class AdminEndpoints
             context.Audit().On(id, (await store.FindAsync(id, cancellation))?.Name);
             return await groups.DeleteAsync(id, cancellation) ? Results.NoContent() : Results.NotFound();
         })
-            .RequirePermission(Permission.ManageGroups).Audited("admin.group-deleted", "id", AuditTarget.Group);
+            .RequirePermission(Permission.ManageGroups).ProjectsServerGroups().Audited("admin.group-deleted", "id", AuditTarget.Group);
 
         // Members added by hand; ones from an identity provider come and go with its sign-ins.
         admin.MapPut("/groups/{id}/members/{accountId}", (
@@ -405,7 +405,7 @@ public static class AdminEndpoints
                 context.Audit().Detail = (await store.FindAsync(id, cancellation))?.Name ?? id;
                 await groups.SetManualMemberAsync(id, accountId, member: true, cancellation);
                 return Results.NoContent();
-            })).RequirePermission(Permission.ManageGroups).Audited("admin.group-member-added", "accountId");
+            })).RequirePermission(Permission.ManageGroups).ProjectsServerGroups().Audited("admin.group-member-added", "accountId");
 
         admin.MapDelete("/groups/{id}/members/{accountId}", (
             string id, string accountId, ServerGroupService groups, IServerGroupStore store, HttpContext context, CancellationToken cancellation) =>
@@ -414,7 +414,7 @@ public static class AdminEndpoints
                 context.Audit().Detail = (await store.FindAsync(id, cancellation))?.Name ?? id;
                 await groups.SetManualMemberAsync(id, accountId, member: false, cancellation);
                 return Results.NoContent();
-            })).RequirePermission(Permission.ManageGroups).Audited("admin.group-member-removed", "accountId");
+            })).RequirePermission(Permission.ManageGroups).ProjectsServerGroups().Audited("admin.group-member-removed", "accountId");
 
         return admin;
     }
@@ -423,6 +423,15 @@ public static class AdminEndpoints
     /// Run an action on someone else's account: 404 when there is none, and 403 when it is an admin's
     /// and the caller may not manage admins (spec: only super admins act on admins).
     /// </summary>
+    /// <summary>After a change to server groups, their members or accounts: the app's copies follow.</summary>
+    private static RouteHandlerBuilder ProjectsServerGroups(this RouteHandlerBuilder builder) =>
+        builder.AddEndpointFilter(async (context, next) =>
+        {
+            var result = await next(context);
+            await context.HttpContext.RequestServices.GetRequiredService<ServerGroupProjection>().ProjectAsync(context.HttpContext.RequestAborted);
+            return result;
+        });
+
     private static async Task<IResult> OnAccountAsync(
         string id, ClaimsPrincipal user, IAccountStore accounts, Func<Account, Task<IResult>> action, CancellationToken cancellation)
     {

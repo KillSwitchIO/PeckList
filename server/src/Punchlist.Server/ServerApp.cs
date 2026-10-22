@@ -62,6 +62,7 @@ public static partial class ServerApp
         builder.Services.AddSingleton<Punchlist.Core.Sharing.Invites>();
         builder.Services.AddSingleton<Punchlist.Core.Sharing.Ownership>();
         builder.Services.AddSingleton<Punchlist.Core.Accounts.ServerGroupService>();
+        builder.Services.AddSingleton<Punchlist.Core.Sharing.ServerGroupProjection>();
         builder.Services.AddBackups(settings);
         builder.Services.AddSingleton(provider => new Core.Stats.StatsService(
             provider.GetRequiredService<Core.Stats.IStatsSource>(), provider.GetRequiredService<Core.Accounts.IAccountStore>(),

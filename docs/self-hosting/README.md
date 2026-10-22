@@ -40,6 +40,11 @@ The `admin` account is the server's super admin. Roles are `user`, `admin` (mana
 groups, settings, backups, logs and stats) and `superadmin` (all of that, plus managing admins).
 There is always at least one active super admin.
 
+**Server groups** (Admin > Groups) are made by admins and filled by hand or from a provider's
+groups (`OIDC_<NAME>_GROUP_MAP`). Turn on **Offered for sharing** and the group appears in its
+members' apps like a group they made: they can share lists with it and assign tasks to it, but only
+admins change who is in it, and nobody leaves it from the app.
+
 Deleting an account (Admin > Users) turns it off at once and ends its sessions; it is removed for
 good after `ACCOUNT_DELETE_GRACE_DAYS` (default 7), together with everything the person owns, and
 can be restored until then. Hand lists or groups they share with others to someone else first;

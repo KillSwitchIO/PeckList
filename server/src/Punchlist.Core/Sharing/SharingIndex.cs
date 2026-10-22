@@ -62,6 +62,17 @@ public sealed class SharingIndex
 
     public bool Contains(string id) => byId.ContainsKey(id);
 
+    /// <summary>An entity's stored document, deleted or not.</summary>
+    public JsonObject? DocOf(string id) => byId.TryGetValue(id, out var facts) ? facts.Doc : null;
+
+    /// <summary>The live groups an owner has (the server's own, for <see cref="ServerGroupProjection"/>).</summary>
+    public IReadOnlyList<(string Id, JsonObject Doc)> GroupsOwnedBy(string owner) =>
+        [.. byId.Values.Where(each => each.Collection == "groups" && !each.Deleted && each.Get("ownerId") == owner).Select(each => (each.Id, each.Doc))];
+
+    /// <summary>Every membership row of a group, left ones too.</summary>
+    public IReadOnlyList<(string Id, JsonObject Doc)> MembershipRowsOf(string groupId) =>
+        [.. byId.Values.Where(each => each.Collection == "groupMembers" && each.Get("groupId") == groupId).Select(each => (each.Id, each.Doc))];
+
     /// <summary>The friendship between two people in either direction, deleted ones too.</summary>
     public (string Id, JsonObject Doc)? FriendshipBetween(string a, string b)
     {
@@ -413,6 +424,8 @@ public sealed class SharingIndex
                 var groupOwner = groupId is not null && beforeIndex.byId.TryGetValue(groupId, out var group) ? group.Get("ownerId") : null;
                 // A brand-new group's members arrive with it: its owner is in this index already.
                 groupOwner ??= groupId is not null && byId.TryGetValue(groupId, out var newGroup) ? newGroup.Get("ownerId") : null;
+                // A server group's memberships are the server's: nobody leaves or changes them in the app.
+                if (groupOwner == ServerGroupProjection.Owner) return false;
                 if (groupOwner == userId) return before is null ? Field(doc, "state") is "invited" or "active" : true;
                 // The invited accept (invited -> active) or leave; nothing else.
                 return before is not null

@@ -17,6 +17,15 @@ export interface GroupView {
   members: GroupMember[];
 }
 
+/**
+ * The owner of server groups: groups an admin made on the server and offered for sharing. People
+ * share with them and assign to them like any group, but only admins change their members.
+ */
+export const SERVER_GROUP_OWNER = '00000000000000000000SERVER';
+
+export const isServerGroup = (group: { ownerId: string }): boolean =>
+  group.ownerId === SERVER_GROUP_OWNER;
+
 /** Live memberships of a group, active ones first, each by when they joined. */
 export function groupMembersOf(workspace: WorkspaceFile, groupId: Id): GroupMember[] {
   return workspace.entities.groupMembers

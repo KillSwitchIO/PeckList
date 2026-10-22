@@ -22,6 +22,7 @@ public sealed class AccountRemoval(
     Friends friends,
     Groups groups,
     Invites invites,
+    ServerGroupProjection serverGroupProjection,
     IIdentityStore identities,
     IServerGroupStore serverGroups,
     ServerClock clock,
@@ -90,6 +91,7 @@ public sealed class AccountRemoval(
         await sharing.LoadAsync(entities, (await accounts.ListAsync(cancellation)).Select(each => each.Id), cancellation);
         await groups.SettleAsync(cancellation);
         await invites.SettleAsync(cancellation);
+        await serverGroupProjection.ProjectAsync(cancellation);
         audit.RecordSystem("admin.user-removed", detail: $"{account.Username}, {writes.Count} things deleted");
         logger.LogWarning("Removed the deleted account {Username} for good ({Count} things deleted)", account.Username, writes.Count);
     }
