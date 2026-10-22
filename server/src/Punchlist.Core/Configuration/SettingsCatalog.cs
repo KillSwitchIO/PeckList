@@ -1,0 +1,84 @@
+namespace Punchlist.Core.Configuration;
+
+public enum SettingKind
+{
+    Text,
+    Url,
+    Choice,
+    Number,
+    Flag,
+    List,
+    Secret,
+}
+
+/// <summary>
+/// One setting as the admin settings page shows it. <see cref="EnvironmentOnly"/> settings are
+/// needed before the database opens (or guard it), so they are shown but never saved from the page.
+/// </summary>
+public sealed record SettingDefinition(
+    string Key,
+    string Group,
+    SettingKind Kind,
+    string? Default = null,
+    IReadOnlyList<string>? Choices = null,
+    bool EnvironmentOnly = false);
+
+/// <summary>Every setting the server reads (spec: Accounts &amp; Admin, Configuration reference).</summary>
+public static class SettingsCatalog
+{
+    public static readonly IReadOnlyList<SettingDefinition> Fixed =
+    [
+        new("PUBLIC_URL", "general", SettingKind.Url),
+        new("REGISTRATION", "general", SettingKind.Choice, "invite", ["open", "invite", "closed"]),
+        new("LOCAL_LOGIN", "sign-in", SettingKind.Choice, "shown", ["shown", "hidden"]),
+        new("OIDC_PROVIDERS", "sign-in", SettingKind.List),
+        new("SNAPSHOT_SCHEDULE", "backups", SettingKind.Choice, "daily", ["off", "hourly", "daily"]),
+        new("SNAPSHOT_KEEP", "backups", SettingKind.Number, "14"),
+        new("TRUSTED_PROXIES", "network", SettingKind.List, "loopback and private ranges"),
+        new("LOG_LEVEL", "logging", SettingKind.Choice, "information", ["trace", "debug", "information", "warning", "error", "critical"]),
+        new("AUTH_MODE", "environment", SettingKind.Choice, "local", ["none", "local"], EnvironmentOnly: true),
+        new("ADMIN_PASSWORD", "environment", SettingKind.Secret, EnvironmentOnly: true),
+        new("DB_PROVIDER", "environment", SettingKind.Choice, "sqlite", ["sqlite", "postgres"], EnvironmentOnly: true),
+        new("DB_PATH", "environment", SettingKind.Text, "/data/punchlist.db", EnvironmentOnly: true),
+        new("DB_CONNECTION_STRING", "environment", SettingKind.Secret, EnvironmentOnly: true),
+        new("DB_MIGRATE_ON_START", "environment", SettingKind.Flag, "true", EnvironmentOnly: true),
+        new("SNAPSHOT_DIR", "environment", SettingKind.Text, "snapshots next to the database", EnvironmentOnly: true),
+        new("WEB_ROOT", "environment", SettingKind.Text, EnvironmentOnly: true),
+        new("CONFIG_FILE", "environment", SettingKind.Text, EnvironmentOnly: true),
+        new("CONFIG_KEY", "environment", SettingKind.Secret, EnvironmentOnly: true),
+    ];
+
+    /// <summary>The settings of one identity provider named in <c>OIDC_PROVIDERS</c>.</summary>
+    public static IReadOnlyList<SettingDefinition> ForProvider(string name)
+    {
+        var prefix = $"OIDC_{name.ToUpperInvariant().Replace('-', '_')}_";
+        var group = $"provider:{name}";
+        return
+        [
+            new(prefix + "AUTHORITY", group, SettingKind.Url),
+            new(prefix + "CLIENT_ID", group, SettingKind.Text),
+            new(prefix + "CLIENT_SECRET", group, SettingKind.Secret),
+            new(prefix + "DISPLAY_NAME", group, SettingKind.Text),
+            new(prefix + "SCOPES", group, SettingKind.List, "openid profile email (+ groups)"),
+            new(prefix + "GROUPS_CLAIM", group, SettingKind.Text, "groups"),
+            new(prefix + "USERNAME_CLAIM", group, SettingKind.Text, "preferred_username"),
+            new(prefix + "REQUIRED_GROUPS", group, SettingKind.List),
+            new(prefix + "AUTO_CREATE", group, SettingKind.Flag, "false"),
+            new(prefix + "ROLE_MAP", group, SettingKind.List),
+            new(prefix + "GROUP_MAP", group, SettingKind.List),
+            new(prefix + "SESSION_HOURS", group, SettingKind.Number, "12"),
+        ];
+    }
+
+    /// <summary>The fixed settings plus those of each provider the layers name.</summary>
+    public static IReadOnlyList<SettingDefinition> For(ISecretSource source)
+    {
+        var providers = (source.Get("OIDC_PROVIDERS") ?? "")
+            .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Select(name => name.ToLowerInvariant())
+            .Distinct();
+        return [.. Fixed, .. providers.SelectMany(ForProvider)];
+    }
+
+    public static SettingDefinition? Find(ISecretSource source, string key) => For(source).FirstOrDefault(each => each.Key == key);
+}

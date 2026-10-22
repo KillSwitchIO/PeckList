@@ -22,10 +22,14 @@ public static partial class ServerApp
         // not encrypted at rest on every start, which only alarms self-hosters.
         builder.Logging.AddFilter("Microsoft.AspNetCore.DataProtection.KeyManagement.XmlKeyManager", LogLevel.Error);
         // Configuration holds the environment variables (and test overrides); NAME_FILE works too.
-        var settings = ServerSettings.Read(
+        // Then CONFIG_FILE, then values saved on the admin settings page (spec: Server settings).
+        var loaded = SettingsLoader.Load(
             new FileAwareSecretSource(key => config[key]),
             inContainer: config["DOTNET_RUNNING_IN_CONTAINER"] == "true");
+        var settings = loaded.Settings;
+        builder.Services.AddSingleton(loaded);
         builder.Services.AddSingleton(settings);
+        builder.Logging.SetMinimumLevel(Enum.Parse<LogLevel>(settings.LogLevel.ToString()));
 
         builder.Services.AddHealthChecks();
         builder.Services.AddEntityStore(settings);
@@ -64,6 +68,10 @@ public static partial class ServerApp
         });
 
         var app = builder.Build();
+        if (loaded.PageProblem is { } problem)
+        {
+            app.Logger.LogError("Settings saved on the admin page were not used: {Problem}", problem);
+        }
         if (settings.OidcProviders.Count > 0 && settings.PublicUrl is null)
         {
             app.Logger.LogWarning(
@@ -80,7 +88,7 @@ public static partial class ServerApp
         app.MapGet("/api/info", () => new ServerInfo("punchlist", Version, WorkspaceSchema.CurrentVersion));
         app.MapAuth();
         app.MapGroup("/api").RequireAuthorization().RequirePasswordChanged().EnsureProfiles().MapSync().MapFriends().MapAccount();
-        app.MapGroup("/api/admin").RequireAuthorization().RequirePasswordChanged().MapAdmin();
+        app.MapGroup("/api/admin").RequireAuthorization().RequirePasswordChanged().MapAdmin().MapSettings();
 
         var webRoot = settings.WebRoot ?? Path.Combine(AppContext.BaseDirectory, "wwwroot");
         app.UseStaticSite(webRoot, app.Logger);

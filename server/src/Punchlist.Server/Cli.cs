@@ -14,7 +14,7 @@ namespace Punchlist.Server;
 /// </summary>
 public static class Cli
 {
-    public static readonly string[] Commands = ["export", "import", "migrate-db", "snapshot", "admin", "oidc", "help", "--help", "-h"];
+    public static readonly string[] Commands = ["export", "import", "migrate-db", "snapshot", "admin", "oidc", "config", "help", "--help", "-h"];
 
     public const string Usage = """
         Usage: punchlist <command>
@@ -35,12 +35,18 @@ public static class Cli
           oidc migration-window <provider> <hours|close>
                                         Until it closes, a first sign-in through the provider joins
                                         the account with the same username.
+          config key                    Print a new CONFIG_KEY for encrypted values.
+          config encrypt [value]        Print the value (or standard input) encrypted with CONFIG_KEY,
+                                        for the environment or CONFIG_FILE: enc:v1:...
+          config show                   Every setting with where it comes from (secrets hidden).
           healthcheck                   Exit 0 when the running server answers /healthz.
 
         Settings come from the same environment variables as the server.
         """;
 
-    public static async Task<int> RunAsync(string[] args, TextWriter output, TextWriter errors, Stream standardOutput, ServerSettings? settings = null)
+    public static async Task<int> RunAsync(
+        string[] args, TextWriter output, TextWriter errors, Stream standardOutput, ServerSettings? settings = null,
+        ISecretSource? environment = null, TextReader? input = null)
     {
         var command = args.Length > 0 ? args[0] : "help";
         if (command is "help" or "--help" or "-h")
@@ -48,10 +54,13 @@ public static class Cli
             await output.WriteLineAsync(Usage);
             return 0;
         }
+        environment ??= FileAwareSecretSource.FromEnvironment();
+        var inContainer = Environment.GetEnvironmentVariable("DOTNET_RUNNING_IN_CONTAINER") == "true";
         try
         {
-            settings ??= ServerSettings.Read(FileAwareSecretSource.FromEnvironment(),
-                Environment.GetEnvironmentVariable("DOTNET_RUNNING_IN_CONTAINER") == "true");
+            // These work before (and without) a working configuration.
+            if (command == "config") return await ConfigAsync(args, environment, inContainer, output, errors, input ?? Console.In);
+            settings ??= SettingsLoader.Load(environment, inContainer).Settings;
             var (database, backup) = await OpenAsync(settings.DbProvider, settings.DbPath, settings.DbConnectionString, settings.DbMigrateOnStart);
             switch (command)
             {
@@ -142,6 +151,42 @@ public static class Cli
             or KeyNotFoundException or ArgumentException or DuplicateUsernameException or LastSuperAdminException)
         {
             return await Fail(errors, error.Message);
+        }
+    }
+
+    private static async Task<int> ConfigAsync(
+        string[] args, ISecretSource environment, bool inContainer, TextWriter output, TextWriter errors, TextReader input)
+    {
+        switch (args.Length > 1 ? args[1] : "")
+        {
+            case "key":
+                await output.WriteLineAsync(ConfigCipher.NewKeyText());
+                await errors.WriteLineAsync("Keep it in a Docker secret and point CONFIG_KEY_FILE at it.");
+                return 0;
+            case "encrypt":
+            {
+                if (environment.Get("CONFIG_KEY") is not { } key) return await Fail(errors, "config encrypt needs CONFIG_KEY (or CONFIG_KEY_FILE)");
+                var value = args.Length > 2 ? args[2] : (await input.ReadToEndAsync()).TrimEnd('\r', '\n');
+                if (value.Length == 0) return await Fail(errors, "config encrypt needs a value: punchlist config encrypt <value>");
+                await output.WriteLineAsync(ConfigCipher.FromText(key).Encrypt(value));
+                return 0;
+            }
+            case "show":
+            {
+                var loaded = SettingsLoader.Load(environment, inContainer);
+                var layers = loaded.Layers;
+                foreach (var definition in SettingsCatalog.For(layers))
+                {
+                    var (value, source) = layers.Explain(definition.Key);
+                    var shown = value is null ? $"(default: {definition.Default ?? "none"})"
+                        : definition.Kind == SettingKind.Secret ? SettingsEndpoints.Hidden : value;
+                    await output.WriteLineAsync($"{definition.Key,-28} {shown}  [{source.ToString().ToLowerInvariant()}]");
+                }
+                if (loaded.PageProblem is { } problem) await output.WriteLineAsync($"Page values not used: {problem}");
+                return 0;
+            }
+            default:
+                return await Fail(errors, $"unknown config command\n\n{Usage}");
         }
     }
 

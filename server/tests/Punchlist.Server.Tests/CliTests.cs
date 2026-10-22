@@ -192,6 +192,35 @@ public sealed class CliTests : IDisposable
     }
 
     [Fact]
+    public async Task Config_makes_keys_encrypts_values_and_shows_where_settings_come_from()
+    {
+        async Task<(int Code, string Output, string Errors)> Config(Dictionary<string, string> env, params string[] args)
+        {
+            var output = new StringWriter();
+            var errors = new StringWriter();
+            var code = await Cli.RunAsync(args, output, errors, Stream.Null, null,
+                new FileAwareSecretSource(name => env.GetValueOrDefault(name)), new StringReader("from stdin" + Environment.NewLine));
+            return (code, output.ToString(), errors.ToString());
+        }
+        var (code, key, _) = await Config([], "config", "key");
+        Assert.Equal(0, code);
+        var cipher = ConfigCipher.FromText(key.Trim());
+
+        var env = new Dictionary<string, string> { ["CONFIG_KEY"] = key.Trim(), ["DB_PATH"] = Path.Combine(folder, "show.db"), ["REGISTRATION"] = "open" };
+        var sealedArg = (await Config(env, "config", "encrypt", "s3cret")).Output.Trim();
+        Assert.Equal("s3cret", cipher.Decrypt(sealedArg, "x"));
+        Assert.Equal("from stdin", cipher.Decrypt((await Config(env, "config", "encrypt")).Output.Trim(), "x"));
+        Assert.Contains("needs CONFIG_KEY", (await Config([], "config", "encrypt", "x")).Errors);
+
+        env["ADMIN_PASSWORD"] = cipher.Encrypt("an encrypted admin password");
+        var shown = (await Config(env, "config", "show")).Output;
+        Assert.Matches(@"REGISTRATION\s+open\s+\[environment\]", shown);
+        Assert.Matches(@"ADMIN_PASSWORD\s+\*+\s+\[environment\]", shown);
+        Assert.DoesNotContain("an encrypted admin password", shown);
+        Assert.Matches(@"LOG_LEVEL\s+\(default: information\)", shown);
+    }
+
+    [Fact]
     public async Task Migrate_db_needs_a_target()
     {
         var (code, _, errors, _) = await Run(Settings(), "migrate-db", "--to", "sqlite");
