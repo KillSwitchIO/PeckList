@@ -144,6 +144,24 @@ public sealed class SyncTests(ServerFixture fixture) : IClassFixture<ServerFixtu
     }
 
     [Fact]
+    public async Task A_stopping_server_ends_event_streams_at_once()
+    {
+        using var server = fixture.Factory(("ADMIN_PASSWORD", Password));
+        var client = server.CreateClient();
+        (await client.PostAsJsonAsync("/auth/login", new { username = "admin", password = Password }, Token)).EnsureSuccessStatusCode();
+        using var events = await client.GetAsync("/api/events", HttpCompletionOption.ResponseHeadersRead, Token);
+        using var reader = new StreamReader(await events.Content.ReadAsStreamAsync(Token));
+        Assert.Equal(": connected", await reader.ReadLineAsync(Token));
+
+        // A restart to apply settings or restore a backup must not wait out the shutdown timeout.
+        server.Services.GetRequiredService<Microsoft.Extensions.Hosting.IHostApplicationLifetime>().StopApplication();
+        using var patience = CancellationTokenSource.CreateLinkedTokenSource(Token);
+        patience.CancelAfter(TimeSpan.FromSeconds(5));
+        string? line;
+        do line = await reader.ReadLineAsync(patience.Token); while (line is not null);
+    }
+
+    [Fact]
     public async Task Tells_the_other_devices_when_something_changes()
     {
         var laptop = await SignedIn();

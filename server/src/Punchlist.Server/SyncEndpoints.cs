@@ -61,8 +61,13 @@ public static class SyncEndpoints
     /// <c>GET /api/events</c>: Server-Sent Events. <c>event: changed</c> with <c>{cursor, source}</c>
     /// whenever the user's data changes; a comment line every 25 s keeps proxies from closing it.
     /// </summary>
-    private static async Task StreamEventsAsync(ClaimsPrincipal user, IChangeNotifier notifier, HttpContext context, CancellationToken cancellation)
+    private static async Task StreamEventsAsync(
+        ClaimsPrincipal user, IChangeNotifier notifier, HttpContext context, IHostApplicationLifetime lifetime, CancellationToken requestAborted)
     {
+        // A stopping server (a restart to apply settings or restore a backup) ends the stream at once
+        // instead of waiting out the shutdown timeout; clients reconnect on their own.
+        using var ending = CancellationTokenSource.CreateLinkedTokenSource(requestAborted, lifetime.ApplicationStopping);
+        var cancellation = ending.Token;
         var response = context.Response;
         response.ContentType = "text/event-stream";
         response.Headers.CacheControl = "no-cache";
