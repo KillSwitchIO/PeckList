@@ -1,11 +1,78 @@
 import AddRounded from '@mui/icons-material/AddRounded';
-import { Box, InputBase } from '@mui/material';
-import { useState } from 'react';
+import { Box, Chip, InputBase } from '@mui/material';
+import { useState, type ReactElement } from 'react';
+import { localTimeZone } from '../../core/dates.ts';
+import {
+  createFromQuickAdd,
+  parseQuickAdd,
+  type QuickAdd,
+  type Token,
+} from '../../core/quickAdd.ts';
+import { assigneeCandidates } from '../../core/sharing.ts';
 import { createTask, type TaskInput } from '../../core/tasks.ts';
+import type { Task } from '../../core/types.ts';
+import type { DateParser, ParsedMoment } from '../../ports/dateParser.ts';
+import { formatSpan, formatWhen } from '../format.ts';
+import { useToday } from '../hooks/useToday.ts';
 import { t } from '../i18n/i18n.ts';
-import { useApply } from '../store/hooks.ts';
+import { AssignedIcon, CalendarIcon, CloseIcon, DueIcon, FlagIcon } from '../icons/icons.tsx';
+import { listName } from '../lists/listName.ts';
+import { useApply, useStoreState, useWorkspace } from '../store/hooks.ts';
+import { useSyncState } from '../sync/syncContext.ts';
 
-/** Soft, filled task entry bar. Natural-language parsing arrives with quick add (PL-022). */
+// The date parser loads on first use, keeping it out of the app's first load.
+let parserPromise: Promise<DateParser> | null = null;
+function loadParser(): Promise<DateParser> {
+  parserPromise ??= import('../../adapters/chrono-date-parser.ts').then((module) =>
+    module.createChronoDateParser(),
+  );
+  return parserPromise;
+}
+
+const asValue = (moment: ParsedMoment) =>
+  moment.time ? `${moment.date}T${moment.time}` : moment.date;
+
+/** What a chip says and shows for one recognised piece of the text. */
+function chipFor(
+  token: Token,
+  parsed: QuickAdd,
+  today: string,
+  names: { list: (id: string) => string; person: (text: string) => string },
+): { label: string; icon?: ReactElement } {
+  switch (token.kind) {
+    case 'date': {
+      const { start, end } = parsed.schedule!;
+      return {
+        label: end
+          ? formatSpan(asValue(start), asValue(end), today)
+          : formatWhen(asValue(start), today),
+        icon: <CalendarIcon />,
+      };
+    }
+    case 'due':
+      return {
+        label: t('quickAdd.due', { date: formatWhen(asValue(parsed.due!), today) }),
+        icon: <DueIcon />,
+      };
+    case 'priority':
+      return {
+        label: t(`priority.${parsed.priority ?? 0}`),
+        icon: <FlagIcon filled={parsed.priority !== 0} />,
+      };
+    case 'list':
+      return { label: names.list(parsed.listId!) };
+    case 'tag':
+      return { label: token.text };
+    case 'person':
+      return { label: names.person(token.text), icon: <AssignedIcon /> };
+  }
+}
+
+/**
+ * Soft, filled task entry bar with quick add (PL-022): type "Call mom tomorrow 3pm #family
+ * !high" and chips show what will be set before Enter saves it. A chip's x keeps those words
+ * in the title instead.
+ */
 export function AddTaskInput({
   defaults,
   label = t('task.add'),
@@ -16,50 +83,118 @@ export function AddTaskInput({
   autoFocus?: boolean;
 }) {
   const apply = useApply();
+  const workspace = useWorkspace();
+  const today = useToday();
+  const me = useStoreState((state) => state.context().userId);
+  const phase = useSyncState((state) => state.phase);
+  const authMode = useSyncState((state) => state.account?.authMode);
   const [title, setTitle] = useState('');
+  const [parser, setParser] = useState<DateParser | null>(null);
+  const [ignore, setIgnore] = useState<ReadonlySet<string>>(new Set());
+
+  // @ names the people the assignee picker offers (servers with accounts only).
+  const people =
+    phase === 'ready' && authMode === 'local'
+      ? assigneeCandidates(workspace, me, { listId: defaults.listId, assignees: {} } as Task)
+      : [];
+  const parsed =
+    parser && title.trim()
+      ? parseQuickAdd(title, { workspace, parser, reference: new Date(), people, ignore })
+      : null;
+  const quick = parsed !== null && parsed.tokens.length > 0 && parsed.title !== '';
 
   const submit = () => {
     const trimmed = title.trim();
     if (!trimmed) return;
-    apply((ctx, ws) => createTask(ctx, ws, { ...defaults, title: trimmed }).workspace);
+    if (quick) {
+      apply((ctx, ws) => createFromQuickAdd(ctx, ws, parsed, defaults, localTimeZone()).workspace);
+    } else {
+      apply((ctx, ws) => createTask(ctx, ws, { ...defaults, title: trimmed }).workspace);
+    }
     setTitle('');
+    setIgnore(new Set());
+  };
+
+  const names = {
+    list: (id: string) => {
+      const list = workspace.entities.lists.find((each) => each.id === id);
+      return list ? listName(list) : '';
+    },
+    person: (text: string) => {
+      const wanted = text.slice(1).toLowerCase();
+      const found = people.find(
+        (each) =>
+          each.name.toLowerCase() === wanted ||
+          each.user?.handle.toLowerCase().split('@')[0] === wanted,
+      );
+      return found?.name ?? text;
+    },
   };
 
   return (
-    <Box
-      sx={{
-        display: 'flex',
-        alignItems: 'center',
-        gap: 1,
-        px: 1.5,
-        py: 0.75,
-        mb: 1,
-        borderRadius: 2,
-        bgcolor: 'action.hover',
-        color: 'text.secondary',
-        '&:focus-within': { bgcolor: 'action.selected' },
-      }}
-    >
-      <AddRounded fontSize="small" />
-      <InputBase
-        fullWidth
-        placeholder={label}
-        value={title}
-        autoFocus={autoFocus}
-        onChange={(event) => setTitle(event.target.value)}
-        onKeyDown={(event) => {
-          if (event.key === 'Enter') {
-            event.preventDefault();
-            submit();
-          } else if (event.key === 'Escape' && title === '') {
-            // Leave the field, so the keyboard shortcuts work again.
-            event.currentTarget.blur();
-          }
+    <Box sx={{ mb: 1 }}>
+      <Box
+        sx={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 1,
+          px: 1.5,
+          py: 0.75,
+          borderRadius: 2,
+          bgcolor: 'action.hover',
+          color: 'text.secondary',
+          '&:focus-within': { bgcolor: 'action.selected' },
         }}
-        // Q (keyboard shortcuts) focuses the first one on the page.
-        inputProps={{ 'aria-label': label, 'data-add-task': '' }}
-        sx={{ color: 'text.primary' }}
-      />
+      >
+        <AddRounded fontSize="small" />
+        <InputBase
+          fullWidth
+          placeholder={label}
+          value={title}
+          autoFocus={autoFocus}
+          onFocus={() => void loadParser().then(setParser)}
+          onChange={(event) => setTitle(event.target.value)}
+          onKeyDown={(event) => {
+            if (event.key === 'Enter') {
+              event.preventDefault();
+              submit();
+            } else if (event.key === 'Escape' && title === '') {
+              // Leave the field, so the keyboard shortcuts work again.
+              event.currentTarget.blur();
+            }
+          }}
+          // Q (keyboard shortcuts) focuses the first one on the page.
+          inputProps={{ 'aria-label': label, 'data-add-task': '' }}
+          sx={{ color: 'text.primary' }}
+        />
+        {quick && (
+          <Box
+            role="list"
+            aria-label={t('quickAdd.recognised')}
+            // In the bar, right of the text: nothing below moves while typing.
+            sx={{ display: 'flex', gap: 0.5, flexShrink: 0, maxWidth: '60%', overflow: 'hidden' }}
+          >
+            {parsed.tokens.map((token) => {
+              const chip = chipFor(token, parsed, today, names);
+              return (
+                <Chip
+                  key={`${token.kind}:${token.start}`}
+                  role="listitem"
+                  size="small"
+                  variant="outlined"
+                  color="primary"
+                  label={chip.label}
+                  {...(chip.icon ? { icon: chip.icon } : {})}
+                  onDelete={() => setIgnore(new Set([...ignore, token.text]))}
+                  deleteIcon={
+                    <CloseIcon aria-label={t('quickAdd.keepAsText', { text: token.text })} />
+                  }
+                />
+              );
+            })}
+          </Box>
+        )}
+      </Box>
     </Box>
   );
 }

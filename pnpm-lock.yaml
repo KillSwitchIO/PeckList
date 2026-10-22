@@ -113,6 +113,9 @@ importers:
       ajv:
         specifier: 8.20.0
         version: 8.20.0
+      chrono-node:
+        specifier: 2.9.2
+        version: 2.9.2
       idb:
         specifier: 8.0.4
         version: 8.0.4
@@ -2436,6 +2439,10 @@ packages:
   chokidar@5.0.0:
     resolution: {integrity: sha512-TQMmc3w+5AxjpL8iIiwebF73dRDF4fBIieAqGn9RGCWaEVwQ6Fb2cGe31Yns0RRIzii5goJ1Y7xbMwo1TxMplw==}
     engines: {node: '>= 20.19.0'}
+
+  chrono-node@2.9.2:
+    resolution: {integrity: sha512-cr3oMnpUSmbab+xl0ODKRRJJrskZ1Lz5pEGj5Y82uz80kSNV520F6QAuHr468xk1mpwa8IqV1xjDn1E6LCkOsA==}
+    engines: {node: ^12.20.0 || ^14.13.1 || >=16.0.0}
 
   ci-info@4.4.0:
     resolution: {integrity: sha512-77PSwercCZU2Fc4sX94eF8k8Pxte6JAwL4/ICZLFjJLqegs7kCuAsqqj/70NQF6TvDpgFjkubQB2FW2ZZddvQg==}
@@ -7167,6 +7174,8 @@ snapshots:
   chokidar@5.0.0:
     dependencies:
       readdirp: 5.1.1
+
+  chrono-node@2.9.2: {}
 
   ci-info@4.4.0: {}
 
