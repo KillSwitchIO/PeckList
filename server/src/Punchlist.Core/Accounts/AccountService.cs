@@ -95,12 +95,19 @@ public sealed class AccountService(IAccountStore store, IPasswordHasher hasher, 
     /// </summary>
     public async Task<string?> EnsureAdminAsync(string? configuredPassword, CancellationToken cancellation = default)
     {
+        var password = await EnsureAdminPasswordAsync(configuredPassword, cancellation);
+        await EnsureSuperAdminAsync(cancellation);
+        return password;
+    }
+
+    private async Task<string?> EnsureAdminPasswordAsync(string? configuredPassword, CancellationToken cancellation)
+    {
         var admin = await store.FindByUsernameAsync(AdminUsername, cancellation);
         if (admin?.PasswordHash is not null) return null;
         var password = configuredPassword ?? Ids.NewPassword();
         if (admin is null)
         {
-            await store.CreateAsync(NewAccount(AdminUsername, Role.Admin) with
+            await store.CreateAsync(NewAccount(AdminUsername, Role.SuperAdmin) with
             {
                 PasswordHash = hasher.Hash(password),
                 MustChangePassword = configuredPassword is null,
@@ -123,10 +130,41 @@ public sealed class AccountService(IAccountStore store, IPasswordHasher hasher, 
     public async Task<Account> EnsureOwnerAsync(CancellationToken cancellation = default)
     {
         var admin = await store.FindByUsernameAsync(AdminUsername, cancellation);
-        if (admin is not null) return admin;
-        admin = NewAccount(AdminUsername, Role.Admin);
-        await store.CreateAsync(admin, cancellation);
-        return admin;
+        if (admin is null) await store.CreateAsync(NewAccount(AdminUsername, Role.SuperAdmin), cancellation);
+        await EnsureSuperAdminAsync(cancellation);
+        return (await store.FindByUsernameAsync(AdminUsername, cancellation))!;
+    }
+
+    /// <summary>
+    /// There is always an active super admin. Servers from before roles had only admins: the
+    /// bootstrap admin (else the oldest admin) is promoted.
+    /// </summary>
+    public async Task EnsureSuperAdminAsync(CancellationToken cancellation = default)
+    {
+        var all = await store.ListAsync(cancellation);
+        if (all.Any(account => account.Role == Role.SuperAdmin && !account.Disabled)) return;
+        var pick = all.FirstOrDefault(account => account.Username == AdminUsername && !account.Disabled)
+            ?? all.FirstOrDefault(account => account.Role == Role.Admin && !account.Disabled);
+        if (pick is not null) await store.UpdateAsync(pick with { Role = Role.SuperAdmin }, cancellation);
+    }
+
+    /// <summary>
+    /// Give an account a role. Sessions continue; the new role applies from the next request.
+    /// </summary>
+    /// <exception cref="LastSuperAdminException">It is the last active super admin and would lose the role.</exception>
+    public async Task<Account> SetRoleAsync(string id, Role role, CancellationToken cancellation = default)
+    {
+        var account = await store.FindByIdAsync(id, cancellation) ?? throw new KeyNotFoundException($"no account {id}");
+        if (account.Role == role) return account;
+        if (account.Role == Role.SuperAdmin && !account.Disabled)
+        {
+            var others = (await store.ListAsync(cancellation))
+                .Count(each => each.Id != id && each.Role == Role.SuperAdmin && !each.Disabled);
+            if (others == 0) throw new LastSuperAdminException();
+        }
+        var updated = account with { Role = role };
+        await store.UpdateAsync(updated, cancellation);
+        return updated;
     }
 
     /// <summary>

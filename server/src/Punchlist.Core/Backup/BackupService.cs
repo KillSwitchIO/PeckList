@@ -16,11 +16,12 @@ public sealed record BackupSummary(int Accounts, int Entities, long Cursor);
 /// <summary>
 /// The whole server as one JSON document (spec: Data Model &amp; Sync, "export, import and migrate-db
 /// go through the JSON format"): accounts with their password hashes, every entity with its owner
-/// and seq, the visibility index, the cursor and the server's own secrets (cookie keys). Restoring
+/// and seq, the visibility index, the cursor, server groups and the server's own secrets (cookie keys). Restoring
 /// it gives an identical database, so sessions and device cursors keep working. Treat the file
 /// like the database: it holds password hashes.
 /// </summary>
-public sealed class BackupService(IDatabase database, IEntityStore entities, IAccountStore accounts, ISecretStore secrets, TimeProvider time)
+public sealed class BackupService(
+    IDatabase database, IEntityStore entities, IAccountStore accounts, IServerGroupStore groups, ISecretStore secrets, TimeProvider time)
 {
     public const string Format = "punchlist-server-backup";
     public const int FormatVersion = 1;
@@ -95,6 +96,29 @@ public sealed class BackupService(IDatabase database, IEntityStore entities, IAc
         }
         json.WriteEndArray();
 
+        // Added after the format's first release: readers treat both lists as optional.
+        json.WriteStartArray("serverGroups");
+        foreach (var group in await groups.ListAsync(cancellation))
+        {
+            json.WriteStartObject();
+            json.WriteString("id", group.Id);
+            json.WriteString("name", group.Name);
+            json.WriteBoolean("offeredForSharing", group.OfferedForSharing);
+            json.WriteString("createdAt", group.CreatedAt.ToString("O", CultureInfo.InvariantCulture));
+            json.WriteEndObject();
+        }
+        json.WriteEndArray();
+        json.WriteStartArray("groupMemberships");
+        foreach (var membership in await groups.MembershipsAsync(cancellation))
+        {
+            json.WriteStartObject();
+            json.WriteString("groupId", membership.GroupId);
+            json.WriteString("accountId", membership.AccountId);
+            json.WriteString("source", membership.Source);
+            json.WriteEndObject();
+        }
+        json.WriteEndArray();
+
         json.WriteStartArray("secrets");
         foreach (var (kind, name, value) in await secrets.AllAsync(cancellation))
         {
@@ -163,6 +187,24 @@ public sealed class BackupService(IDatabase database, IEntityStore entities, IAc
         var cursor = (long?)root["cursor"] ?? stored.Select(entity => entity.Seq).DefaultIfEmpty(0).Max();
         await entities.RestoreAsync(stored, visibility, cursor, cancellation);
 
+        foreach (var node in OptionalArray(root, "serverGroups"))
+        {
+            var item = node.AsObject();
+            await groups.CreateAsync(new ServerGroup
+            {
+                Id = Required(item, "id"),
+                Name = Required(item, "name"),
+                OfferedForSharing = (bool?)item["offeredForSharing"] ?? false,
+                CreatedAt = DateTimeOffset.Parse(Required(item, "createdAt"), CultureInfo.InvariantCulture),
+            }, cancellation);
+        }
+        foreach (var node in OptionalArray(root, "groupMemberships"))
+        {
+            var item = node.AsObject();
+            await groups.AddMembershipAsync(
+                new GroupMembership(Required(item, "groupId"), Required(item, "accountId"), Required(item, "source")), cancellation);
+        }
+
         foreach (var node in Array(root, "secrets"))
         {
             var item = node.AsObject();
@@ -174,6 +216,9 @@ public sealed class BackupService(IDatabase database, IEntityStore entities, IAc
     private static IEnumerable<JsonNode> Array(JsonObject root, string name) =>
         (root[name] as JsonArray ?? throw new BackupException($"the backup has no \"{name}\" list")).Select(node =>
             node ?? throw new BackupException($"an empty item in \"{name}\""));
+
+    private static IEnumerable<JsonNode> OptionalArray(JsonObject root, string name) =>
+        root[name] is null ? [] : Array(root, name);
 
     private static string Required(JsonObject item, string name) =>
         (string?)item[name] ?? throw new BackupException($"an item without \"{name}\"");

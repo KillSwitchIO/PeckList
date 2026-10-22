@@ -21,6 +21,7 @@ public static class Storage
         services.AddSingleton<IDatabase>(provider => provider.GetRequiredService<SqlDatabase>());
         services.AddSingleton<IEntityStore, SqlEntityStore>();
         services.AddSingleton<IAccountStore, SqlAccountStore>();
+        services.AddSingleton<IServerGroupStore, SqlServerGroupStore>();
         services.AddSingleton<ISecretStore, SqlSecretStore>();
         services.AddHostedService<DatabaseStartup>();
         services.AddHealthChecks().AddCheck<DatabaseHealthCheck>("database");

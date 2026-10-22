@@ -35,7 +35,7 @@ public sealed class AuthTests(ServerFixture fixture) : IClassFixture<ServerFixtu
 
         var me = await client.GetFromJsonAsync<Me>("/auth/me", Token);
         Assert.Equal("admin", me!.Username);
-        Assert.Equal("admin", me.Role);
+        Assert.Equal("superadmin", me.Role);
         Assert.Equal("local", me.AuthMode);
         Assert.False(me.MustChangePassword);
 

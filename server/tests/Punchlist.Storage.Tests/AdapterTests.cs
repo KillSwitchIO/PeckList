@@ -83,3 +83,13 @@ public sealed class PostgresAccountStoreTests(PostgresServer server) : AccountSt
         return (new SqlAccountStore(database), new SqlSecretStore(database));
     }
 }
+
+public sealed class SqliteServerGroupStoreTests(SqliteFiles files) : ServerGroupStoreContract, IClassFixture<SqliteFiles>
+{
+    protected override async Task<IServerGroupStore> CreateAsync() => new SqlServerGroupStore(await files.NewDatabaseAsync());
+}
+
+public sealed class PostgresServerGroupStoreTests(PostgresServer server) : ServerGroupStoreContract, IClassFixture<PostgresServer>
+{
+    protected override async Task<IServerGroupStore> CreateAsync() => new SqlServerGroupStore(await server.NewDatabaseAsync());
+}

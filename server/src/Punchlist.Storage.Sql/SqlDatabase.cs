@@ -5,7 +5,7 @@ using Punchlist.Core.Storage;
 namespace Punchlist.Storage.Sql;
 
 /// <summary>
-/// One SQL database and how to talk to it. The stores (entities, accounts, secrets) share it;
+/// One SQL database and how to talk to it. The stores (entities, accounts, groups, secrets) share it;
 /// a dialect supplies connections, the write lock and how JSON goes in and out.
 /// </summary>
 public abstract class SqlDatabase : IDatabase
@@ -38,7 +38,7 @@ public abstract class SqlDatabase : IDatabase
     {
         await using var connection = await OpenAsync(cancellation);
         var rows = await connection.ExecuteScalarAsync<long>(new CommandDefinition(
-            "SELECT (SELECT COUNT(*) FROM entities) + (SELECT COUNT(*) FROM accounts) + (SELECT COUNT(*) FROM server_secrets)",
+            "SELECT (SELECT COUNT(*) FROM entities) + (SELECT COUNT(*) FROM accounts) + (SELECT COUNT(*) FROM server_secrets) + (SELECT COUNT(*) FROM server_groups)",
             cancellationToken: cancellation));
         return rows == 0;
     }
@@ -47,7 +47,7 @@ public abstract class SqlDatabase : IDatabase
     {
         await using var connection = await OpenAsync(cancellation);
         await using var transaction = await BeginWriteAsync(connection, cancellation);
-        foreach (var table in new[] { "visibility", "revocations", "entities", "accounts", "server_secrets" })
+        foreach (var table in new[] { "visibility", "revocations", "entities", "server_group_members", "server_groups", "accounts", "server_secrets" })
         {
             await connection.ExecuteAsync(new CommandDefinition($"DELETE FROM {table}", transaction: transaction, cancellationToken: cancellation));
         }

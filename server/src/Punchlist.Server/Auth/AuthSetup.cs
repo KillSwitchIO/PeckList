@@ -63,7 +63,15 @@ public static class AuthSetup
                     options.Events.OnValidatePrincipal = ValidateStampAsync;
                 });
         }
-        services.AddAuthorization();
+        services.AddAuthorization(options =>
+        {
+            foreach (var permission in Enum.GetValues<Permission>())
+            {
+                options.AddPolicy(PolicyName(permission), policy => policy
+                    .RequireAuthenticatedUser()
+                    .RequireAssertion(context => context.User.AccountRole().Can(permission)));
+            }
+        });
         services.AddRateLimiter(options =>
         {
             options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
@@ -79,7 +87,7 @@ public static class AuthSetup
     [
         new Claim(ClaimTypes.NameIdentifier, account.Id),
         new Claim(ClaimTypes.Name, account.Username),
-        new Claim(ClaimTypes.Role, account.Role.ToString().ToLowerInvariant()),
+        new Claim(ClaimTypes.Role, account.Role.Name()),
         new Claim(StampClaim, account.SecurityStamp),
         new Claim(MustChangeClaim, account.MustChangePassword ? "true" : "false"),
     ], scheme));
@@ -89,7 +97,17 @@ public static class AuthSetup
 
     public static bool MustChangePassword(this ClaimsPrincipal user) => user.FindFirstValue(MustChangeClaim) == "true";
 
-    /// <summary>Forget the cached stamp, e.g. right after this process changed it.</summary>
+    public static Role AccountRole(this ClaimsPrincipal user) =>
+        Roles.TryParse(user.FindFirstValue(ClaimTypes.Role), out var role) ? role : Role.User;
+
+    public static string PolicyName(Permission permission) => $"permission:{permission}";
+
+    /// <summary>Only callers whose role has <paramref name="permission"/> (spec: Accounts &amp; Admin, Roles).</summary>
+    public static TBuilder RequirePermission<TBuilder>(this TBuilder builder, Permission permission)
+        where TBuilder : IEndpointConventionBuilder =>
+        builder.RequireAuthorization(PolicyName(permission)).WithMetadata(new RequiresPermission(permission));
+
+    /// <summary>Forget the cached stamp and role, e.g. right after this process changed them.</summary>
     public static void ForgetStamp(IMemoryCache cache, string accountId) => cache.Remove(StampKey(accountId));
 
     private static string StampKey(string accountId) => $"stamp:{accountId}";
@@ -100,7 +118,10 @@ public static class AuthSetup
         return Task.CompletedTask;
     }
 
-    /// <summary>End the session when the account is gone, disabled or its stamp changed (checked at most every 30 s).</summary>
+    /// <summary>
+    /// End the session when the account is gone, disabled or its stamp changed, and pick up a new
+    /// role without ending it (checked at most every 30 s).
+    /// </summary>
     private static async Task ValidateStampAsync(CookieValidatePrincipalContext context)
     {
         var id = context.Principal?.FindFirstValue(ClaimTypes.NameIdentifier);
@@ -111,14 +132,25 @@ public static class AuthSetup
         {
             entry.AbsoluteExpirationRelativeToNow = TimeSpan.FromSeconds(30);
             var account = await accounts.FindByIdAsync(id, context.HttpContext.RequestAborted);
-            return account is null || account.Disabled ? null : account.SecurityStamp;
+            return account is null || account.Disabled ? null : new SessionCheck(account.SecurityStamp, account.Role.Name());
         });
-        if (current is null || current != stamp)
+        if (current is null || current.Stamp != stamp)
         {
             context.RejectPrincipal();
             await context.HttpContext.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
+            return;
+        }
+        var principal = context.Principal!;
+        if (principal.FindFirstValue(ClaimTypes.Role) != current.Role)
+        {
+            var claims = principal.Claims.Where(claim => claim.Type != ClaimTypes.Role)
+                .Append(new Claim(ClaimTypes.Role, current.Role));
+            context.ReplacePrincipal(new ClaimsPrincipal(new ClaimsIdentity(claims, context.Scheme.Name)));
+            context.ShouldRenew = true;
         }
     }
+
+    private sealed record SessionCheck(string Stamp, string Role);
 
     /// <summary>Data protection keys in the <c>server_secrets</c> table.</summary>
     private sealed class SecretStoreXmlRepository(Core.Accounts.ISecretStore secrets) : IXmlRepository
@@ -179,3 +211,6 @@ public static class AuthSetup
         public Task StopAsync(CancellationToken cancellation) => Task.CompletedTask;
     }
 }
+
+/// <summary>Endpoint metadata naming the permission it needs (lets tests check every admin endpoint has one).</summary>
+public sealed record RequiresPermission(Permission Permission);

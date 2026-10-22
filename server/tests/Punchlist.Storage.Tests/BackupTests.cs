@@ -19,9 +19,9 @@ public sealed class BackupTests(SqliteFiles files, PostgresServer postgres) : IC
     }
 
     private static BackupService Backup(SqlDatabase database) =>
-        new(database, new SqlEntityStore(database), new SqlAccountStore(database), new SqlSecretStore(database), new Clock());
+        new(database, new SqlEntityStore(database), new SqlAccountStore(database), new SqlServerGroupStore(database), new SqlSecretStore(database), new Clock());
 
-    /// <summary>Two users, some tasks (one rewritten, one deleted), a secret.</summary>
+    /// <summary>Two users, some tasks (one rewritten, one deleted), a group, a secret.</summary>
     private static async Task FillAsync(SqlDatabase database)
     {
         var accounts = new SqlAccountStore(database);
@@ -53,6 +53,16 @@ public sealed class BackupTests(SqliteFiles files, PostgresServer postgres) : IC
         await store.WriteAsync("01JBACCT000000000000000002", [Task("T3", "Paint")], Take, cancellation: Token);
         await store.WriteAsync("01JBACCT000000000000000001", [Task("T1", "Mow again"), Task("T2", "Rake", "2026-10-21T11:00:00.000Z")], Take, cancellation: Token);
         await new SqlSecretStore(database).PutAsync("dataprotection", "key-1", "<key/>", Token);
+        var groups = new SqlServerGroupStore(database);
+        await groups.CreateAsync(new ServerGroup
+        {
+            Id = "01JBGRP0000000000000000001",
+            Name = "Family",
+            OfferedForSharing = true,
+            CreatedAt = new DateTimeOffset(2026, 10, 2, 8, 0, 0, TimeSpan.Zero),
+        }, Token);
+        await groups.AddMembershipAsync(new("01JBGRP0000000000000000001", "01JBACCT000000000000000001", MembershipSource.Manual), Token);
+        await groups.AddMembershipAsync(new("01JBGRP0000000000000000001", "01JBACCT000000000000000002", MembershipSource.Oidc("pocket")), Token);
     }
 
     private static async Task<string> ExportAsync(SqlDatabase database)
@@ -115,6 +125,20 @@ public sealed class BackupTests(SqliteFiles files, PostgresServer postgres) : IC
 
         await ImportAsync(source, exported, replace: true);
         Assert.Equal(exported, await ExportAsync(source));
+    }
+
+    [Fact]
+    public async Task Reads_backups_from_before_server_groups()
+    {
+        var source = await files.NewDatabaseAsync();
+        await FillAsync(source);
+        var old = JsonNode.Parse(await ExportAsync(source))!.AsObject();
+        old.Remove("serverGroups");
+        old.Remove("groupMemberships");
+
+        var target = await files.NewDatabaseAsync();
+        Assert.Equal(new BackupSummary(2, 3, 5), await ImportAsync(target, old.ToJsonString()));
+        Assert.Empty(await new SqlServerGroupStore(target).ListAsync(Token));
     }
 
     [Theory]

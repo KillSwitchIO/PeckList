@@ -1,9 +1,11 @@
 namespace Punchlist.Core.Accounts;
 
+/// <summary>Stored and sent lowercase (<c>superadmin</c>); see <see cref="Roles"/> for what each may do.</summary>
 public enum Role
 {
     User,
     Admin,
+    SuperAdmin,
 }
 
 /// <summary>

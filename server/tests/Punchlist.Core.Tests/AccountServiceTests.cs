@@ -78,7 +78,7 @@ public sealed class AccountServiceTests
         var password = await accounts.EnsureAdminAsync(null, Token);
         Assert.NotNull(password);
         Assert.Equal(20, password.Length);
-        Assert.Equal(Role.Admin, Admin.Role);
+        Assert.Equal(Role.SuperAdmin, Admin.Role);
         Assert.True(Admin.MustChangePassword);
         Assert.Equal(26, Admin.Id.Length);
 
@@ -190,6 +190,90 @@ public sealed class AccountServiceTests
         Assert.True(Admin.MustChangePassword);
         Assert.IsType<LoginResult.Success>(await accounts.LoginAsync("admin", password, Token));
         await Assert.ThrowsAsync<KeyNotFoundException>(() => accounts.ResetPasswordAsync("nobody", Token));
+    }
+}
+
+public sealed class RoleTests
+{
+    private readonly MemoryAccountStore store = new();
+    private readonly TestClock clock = new(new DateTimeOffset(2026, 10, 22, 8, 0, 0, TimeSpan.Zero));
+    private readonly AccountService accounts;
+
+    public RoleTests() => accounts = new AccountService(store, new FakeHasher(), clock);
+
+    private static CancellationToken Token => TestContext.Current.CancellationToken;
+
+    private async Task<Account> AddAsync(string username, Role role)
+    {
+        clock.Now = clock.Now.AddMinutes(1);
+        return await accounts.CreateUserAsync(username, "correct horse battery", role, cancellation: Token);
+    }
+
+    [Fact]
+    public void Each_role_has_a_fixed_set_of_permissions()
+    {
+        Assert.Empty(Roles.PermissionsOf(Role.User));
+        Assert.True(Role.Admin.Can(Permission.ManageUsers));
+        Assert.True(Role.Admin.Can(Permission.ManageSettings));
+        Assert.False(Role.Admin.Can(Permission.ManageAdmins));
+        Assert.False(Role.Admin.Can(Permission.Impersonate));
+        Assert.Equal(Enum.GetValues<Permission>(), Roles.PermissionsOf(Role.SuperAdmin).Order());
+    }
+
+    [Theory]
+    [InlineData("superadmin", Role.SuperAdmin)]
+    [InlineData("Super-Admin", Role.SuperAdmin)]
+    [InlineData("super_admin", Role.SuperAdmin)]
+    [InlineData("ADMIN", Role.Admin)]
+    [InlineData("user", Role.User)]
+    public void Roles_read_as_typed(string text, Role expected)
+    {
+        Assert.True(Roles.TryParse(text, out var role));
+        Assert.Equal(expected, role);
+        Assert.Equal(expected, Enum.Parse<Role>(role.Name(), ignoreCase: true));
+    }
+
+    [Theory]
+    [InlineData("owner")]
+    [InlineData("2")]
+    [InlineData("")]
+    [InlineData(null)]
+    public void Unknown_roles_are_refused(string? text) => Assert.False(Roles.TryParse(text, out _));
+
+    [Fact]
+    public async Task Servers_from_before_roles_get_their_admin_as_super_admin()
+    {
+        await AddAsync("ann", Role.Admin);
+        await AddAsync("admin", Role.Admin);
+        await accounts.EnsureAdminAsync(null, Token);
+        Assert.Equal(Role.SuperAdmin, (await store.FindByUsernameAsync("admin", Token))!.Role);
+        Assert.Equal(Role.Admin, (await store.FindByUsernameAsync("ann", Token))!.Role);
+    }
+
+    [Fact]
+    public async Task Without_the_bootstrap_admin_the_oldest_admin_is_promoted()
+    {
+        await AddAsync("sam", Role.User);
+        await AddAsync("ann", Role.Admin);
+        await AddAsync("bob", Role.Admin);
+        await accounts.EnsureSuperAdminAsync(Token);
+        Assert.Equal(Role.SuperAdmin, (await store.FindByUsernameAsync("ann", Token))!.Role);
+        Assert.Equal(Role.Admin, (await store.FindByUsernameAsync("bob", Token))!.Role);
+    }
+
+    [Fact]
+    public async Task The_last_super_admin_keeps_the_role()
+    {
+        var first = await AddAsync("ann", Role.SuperAdmin);
+        var sam = await AddAsync("sam", Role.User);
+        await Assert.ThrowsAsync<LastSuperAdminException>(() => accounts.SetRoleAsync(first.Id, Role.Admin, Token));
+
+        await accounts.SetRoleAsync(sam.Id, Role.SuperAdmin, Token);
+        Assert.Equal(Role.Admin, (await accounts.SetRoleAsync(first.Id, Role.Admin, Token)).Role);
+        // A disabled super admin does not count.
+        await store.UpdateAsync((await store.FindByIdAsync(first.Id, Token))! with { Role = Role.SuperAdmin, Disabled = true }, Token);
+        await Assert.ThrowsAsync<LastSuperAdminException>(() => accounts.SetRoleAsync(sam.Id, Role.User, Token));
+        await Assert.ThrowsAsync<KeyNotFoundException>(() => accounts.SetRoleAsync("nobody", Role.User, Token));
     }
 }
 

@@ -47,6 +47,7 @@ public static class ServerApp
         builder.Services.AddSingleton<SyncService>();
         builder.Services.AddSingleton<Punchlist.Core.Sharing.Groups>();
         builder.Services.AddSingleton<Punchlist.Core.Sharing.Invites>();
+        builder.Services.AddSingleton<Punchlist.Core.Accounts.ServerGroupService>();
         builder.Services.AddBackups(settings);
         builder.Services.Configure<ForwardedHeadersOptions>(options =>
         {
@@ -71,6 +72,7 @@ public static class ServerApp
         app.MapGet("/api/info", () => new ServerInfo("punchlist", Version, WorkspaceSchema.CurrentVersion));
         app.MapAuth();
         app.MapGroup("/api").RequireAuthorization().RequirePasswordChanged().EnsureProfiles().MapSync().MapFriends();
+        app.MapGroup("/api/admin").RequireAuthorization().RequirePasswordChanged().MapAdmin();
 
         var webRoot = settings.WebRoot ?? Path.Combine(AppContext.BaseDirectory, "wwwroot");
         app.UseStaticSite(webRoot, app.Logger);

@@ -29,6 +29,10 @@ refuses everything else until you do. Set `ADMIN_PASSWORD` (or `ADMIN_PASSWORD_F
 it instead. `AUTH_MODE=none` skips logins entirely: anyone who can reach the server has full access,
 so keep it to a trusted network.
 
+The `admin` account is the server's super admin. Roles are `user`, `admin` (manages users,
+groups, settings, backups, logs and stats) and `superadmin` (all of that, plus managing admins).
+There is always at least one active super admin.
+
 Five wrong passwords lock an account for 15 minutes, and each address gets ten login attempts a
 minute. Sessions are HttpOnly cookies that last 30 days of use; changing a password ends the other
 sessions.
@@ -76,6 +80,7 @@ docker exec <container> punchlist import /data/backup.json --replace  # delete w
 docker exec <container> punchlist snapshot
 docker exec <container> punchlist admin reset-password [username]
 docker exec <container> punchlist admin add-user <username> [--admin]   # prints a password to change at first login
+docker exec <container> punchlist admin set-role <username> <user|admin|superadmin>
 docker exec <container> punchlist migrate-db --to postgres --connection "Host=db;Username=...;Password=...;Database=punchlist"
 ```
 

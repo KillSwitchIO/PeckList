@@ -134,6 +134,24 @@ public sealed class CliTests : IDisposable
     }
 
     [Fact]
+    public async Task Set_role_changes_a_role_but_never_the_last_super_admin()
+    {
+        var settings = Settings();
+        await MakeAdminAsync(settings);
+        await Run(settings, "admin", "add-user", "sam");
+        var promoted = await Run(settings, "admin", "set-role", "Sam", "super-admin");
+        Assert.Equal(0, promoted.Code);
+        Assert.StartsWith("sam is now superadmin.", promoted.Output);
+
+        Assert.Equal(0, (await Run(settings, "admin", "set-role", "admin", "user")).Code);
+        var refused = await Run(settings, "admin", "set-role", "sam", "admin");
+        Assert.Equal(1, refused.Code);
+        Assert.Contains("at least one active super admin", refused.Errors);
+        Assert.Contains("needs a user and a role", (await Run(settings, "admin", "set-role", "sam", "owner")).Errors);
+        Assert.Contains("no user", (await Run(settings, "admin", "set-role", "nobody", "user")).Errors);
+    }
+
+    [Fact]
     public async Task Migrate_db_needs_a_target()
     {
         var (code, _, errors, _) = await Run(Settings(), "migrate-db", "--to", "sqlite");

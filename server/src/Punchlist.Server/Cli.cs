@@ -28,6 +28,7 @@ public static class Cli
           admin reset-password [user]   Give an account (default: admin) a new password to change at login.
           admin add-user <user> [--admin]
                                         Add an account; its generated password must be changed at first login.
+          admin set-role <user> <role>  Make an account a user, admin or superadmin.
           healthcheck                   Exit 0 when the running server answers /healthz.
 
         Settings come from the same environment variables as the server.
@@ -88,8 +89,21 @@ public static class Cli
                     var password = Core.Ids.NewPassword();
                     var role = args.Contains("--admin") ? Role.Admin : Role.User;
                     await accounts.CreateUserAsync(username, password, role);
-                    await output.WriteLineAsync($"Added {username.Trim().ToLowerInvariant()} ({role.ToString().ToLowerInvariant()}). Password: {password}");
+                    await output.WriteLineAsync($"Added {username.Trim().ToLowerInvariant()} ({role.Name()}). Password: {password}");
                     await output.WriteLineAsync("It must be changed at the first login.");
+                    return 0;
+                }
+                case "admin" when args.Length > 1 && args[1] == "set-role":
+                {
+                    if (args.Length < 4 || !Roles.TryParse(args[3], out var role))
+                    {
+                        return await Fail(errors, "admin set-role needs a user and a role: punchlist admin set-role <user> <user|admin|superadmin>");
+                    }
+                    var store = new SqlAccountStore(database);
+                    var account = await store.FindByUsernameAsync(args[2]) ?? throw new KeyNotFoundException($"no user '{args[2]}'");
+                    var accounts = new AccountService(store, new AspNetPasswordHasher(), TimeProvider.System);
+                    await accounts.SetRoleAsync(account.Id, role);
+                    await output.WriteLineAsync($"{account.Username} is now {role.Name()}. It applies from their next request.");
                     return 0;
                 }
                 case "admin" when args.Length > 1 && args[1] == "reset-password":
@@ -106,7 +120,7 @@ public static class Cli
             }
         }
         catch (Exception error) when (error is SettingsException or BackupException or IOException or UnauthorizedAccessException
-            or KeyNotFoundException or ArgumentException or DuplicateUsernameException)
+            or KeyNotFoundException or ArgumentException or DuplicateUsernameException or LastSuperAdminException)
         {
             return await Fail(errors, error.Message);
         }
@@ -142,7 +156,8 @@ public static class Cli
     {
         SqlDatabase database = provider == DbProvider.Postgres ? new PostgresDatabase(connection!) : new SqliteDatabase(path);
         if (migrate) await database.MigrateAsync();
-        var backup = new BackupService(database, new SqlEntityStore(database), new SqlAccountStore(database), new SqlSecretStore(database), TimeProvider.System);
+        var backup = new BackupService(database, new SqlEntityStore(database), new SqlAccountStore(database),
+            new SqlServerGroupStore(database), new SqlSecretStore(database), TimeProvider.System);
         return (database, backup);
     }
 
