@@ -2,8 +2,8 @@ using System.Reflection;
 using Microsoft.AspNetCore.HttpOverrides;
 using Punchlist.Core;
 using Punchlist.Core.Configuration;
-using Punchlist.Core.Sync;
 using Punchlist.Server.Auth;
+using Punchlist.Core.Sync;
 
 namespace Punchlist.Server;
 
@@ -72,6 +72,7 @@ public static partial class ServerApp
         }
         app.UseForwardedHeaders();
         app.UseAuthentication();
+        app.UseImpersonation();
         app.UseAuthorization();
         app.UseRateLimiter();
 

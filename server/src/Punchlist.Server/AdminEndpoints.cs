@@ -251,6 +251,29 @@ public static class AdminEndpoints
             return Results.Ok(new { Moved = await ownership.HandOverAsync(id, request.To, request.Ids, cancellation) });
         }).RequirePermission(Permission.ManageUsers);
 
+        // View the app as someone (super admins; spec: Account management, impersonation).
+        admin.MapPost("/users/{id}/impersonate", async (
+            string id, ImpersonationRequest request, ClaimsPrincipal user, Impersonations impersonations, IAccountStore accounts,
+            ILoggerFactory logs, CancellationToken cancellation) =>
+        {
+            try
+            {
+                if (await impersonations.StartAsync(user.UserId(), id, request.Reason ?? "", cancellation) is not { } started)
+                {
+                    return Results.Json(new AdminError("not_allowed", "not yourself, nor a super admin, nor a turned-off account"),
+                        statusCode: StatusCodes.Status409Conflict);
+                }
+                logs.CreateLogger("Punchlist.Impersonation").LogWarning(
+                    "{Admin} started viewing as {Target}: {Reason}", user.FindFirstValue(ClaimTypes.Name),
+                    (await accounts.FindByIdAsync(id, cancellation))?.Username ?? id, started.View.Reason);
+                return Results.Ok(new ImpersonationStart(started.Token, started.View.Expires));
+            }
+            catch (ArgumentException error)
+            {
+                return Results.BadRequest(new AdminError("reason_required", error.Message));
+            }
+        }).RequirePermission(Permission.Impersonate);
+
         admin.MapGet("/pending-signins", async (IIdentityStore identities, CancellationToken cancellation) =>
             await identities.ListPendingAsync(cancellation)).RequirePermission(Permission.ManageUsers);
 

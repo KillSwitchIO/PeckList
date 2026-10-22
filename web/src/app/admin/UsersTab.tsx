@@ -23,6 +23,7 @@ import { useSyncState } from '../sync/syncContext.ts';
 import { ConfirmDialog, SecretDialog } from './AdminDialogs.tsx';
 import { FriendsDialog } from './FriendsDialog.tsx';
 import { HandOverDialog } from './HandOverDialog.tsx';
+import { ViewAsDialog } from './ViewAsDialog.tsx';
 import { refusalText, useIsSuperAdmin, useLoaded } from './useAdmin.ts';
 
 const ROLES: AccountRole[] = ['user', 'admin', 'superadmin'];
@@ -132,6 +133,7 @@ export function UsersTab({ api }: { api: AdminApi }) {
   const [identities, setIdentities] = useState<AdminIdentity[]>([]);
   const [friendsOf, setFriendsOf] = useState<AdminUser | null>(null);
   const [handingOver, setHandingOver] = useState<AdminUser | null>(null);
+  const [viewing, setViewing] = useState<AdminUser | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
 
   const openMenu = (anchor: HTMLElement, user: AdminUser) => {
@@ -247,6 +249,20 @@ export function UsersTab({ api }: { api: AdminApi }) {
             {t('admin.users.handOver')}
           </MenuItem>
         )}
+        {target &&
+          superAdmin &&
+          target.id !== me &&
+          target.role !== 'superadmin' &&
+          !target.disabled && (
+            <MenuItem
+              onClick={() => {
+                setMenu(null);
+                setViewing(target);
+              }}
+            >
+              {t('admin.users.viewAs', { name: target.username })}
+            </MenuItem>
+          )}
         {target && !canTouch && <MenuItem disabled>{t('admin.refused.admins-only')}</MenuItem>}
         {target &&
           canTouch && [
@@ -362,6 +378,7 @@ export function UsersTab({ api }: { api: AdminApi }) {
         }}
       />
       <SecretDialog secret={secret} onClose={() => setSecret(null)} />
+      {viewing && <ViewAsDialog api={api} user={viewing} onClose={() => setViewing(null)} />}
       {handingOver && (
         <HandOverDialog
           api={api}

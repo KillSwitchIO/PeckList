@@ -68,7 +68,14 @@ export interface PendingSignIn {
 
 /** Why an admin action was refused, when the person can do something about it. */
 export type AdminRefusal =
-  'last-super-admin' | 'self' | 'taken' | 'invalid' | 'too-short' | 'admins-only';
+  | 'not-allowed'
+  | 'reason-required'
+  | 'last-super-admin'
+  | 'self'
+  | 'taken'
+  | 'invalid'
+  | 'too-short'
+  | 'admins-only';
 
 export type AdminResult<T = void> = { ok: true; value: T } | { ok: false; reason: AdminRefusal };
 
@@ -85,6 +92,8 @@ export interface AdminApi {
   resetPassword(id: string): Promise<AdminResult<string>>;
   loginLink(id: string): Promise<AdminResult<{ url: string; expires: string }>>;
   identities(id: string): Promise<AdminIdentity[]>;
+  /** Start viewing the app as someone (super admins); the token goes to a new tab only. */
+  impersonate(id: string, reason: string): Promise<AdminResult<{ token: string; expires: string }>>;
   /** `stranded`: the account has no way to sign in left. */
   unlink(
     id: string,

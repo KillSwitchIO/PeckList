@@ -207,4 +207,72 @@ public sealed partial class AdminTests(ServerFixture fixture) : IClassFixture<Se
         Assert.Equal(HttpStatusCode.NotFound, (await root.DeleteAsync($"/api/admin/friendships/{kimId}/{samId}", Token)).StatusCode);
         Assert.Equal(HttpStatusCode.NotFound, (await root.PostAsJsonAsync("/api/admin/friendships", new { userA = samId, userB = samId }, Token)).StatusCode);
     }
+
+    private static async Task<HttpResponseMessage> Viewing(HttpClient client, string token, HttpMethod method, string path, object? body = null)
+    {
+        using var request = new HttpRequestMessage(method, path);
+        request.Headers.Add(ImpersonationSetup.Header, token);
+        if (body is not null) request.Content = JsonContent.Create(body);
+        return await client.SendAsync(request, Token);
+    }
+
+    private static async Task<string> StartViewing(HttpClient root, string userId)
+    {
+        var started = await root.PostAsJsonAsync($"/api/admin/users/{userId}/impersonate", new { reason = "Sam asked for help" }, Token);
+        Assert.Equal(HttpStatusCode.OK, started.StatusCode);
+        return (await started.Content.ReadFromJsonAsync<ImpersonationStart>(Token))!.Token;
+    }
+
+    [Fact]
+    public async Task A_super_admin_views_as_someone_in_one_tab_only()
+    {
+        var root = await LogIn("admin", AdminPassword);
+        var (sam, samId) = await SignIn("sam");
+        var list = new System.Text.Json.Nodes.JsonObject
+        {
+            ["id"] = "L-SAM",
+            ["name"] = "Sam's chores",
+            ["deletedAt"] = null,
+            ["_hlc"] = new System.Text.Json.Nodes.JsonObject { ["name"] = "2026-10-22T10:00:00.000Z-0000-dev1" },
+        };
+        (await sam.PostAsJsonAsync("/api/sync", new { schemaVersion = Core.WorkspaceSchema.CurrentVersion, cursor = (long?)null, changes = new[] { new { collection = "lists", entity = list } } }, Token)).EnsureSuccessStatusCode();
+
+        var token = await StartViewing(root, samId);
+        var me = await (await Viewing(root, token, HttpMethod.Get, "/auth/me")).Content.ReadFromJsonAsync<Me>(Token);
+        Assert.Equal(("sam", "admin", "Sam asked for help"), (me!.Username, me.Impersonation!.By, me.Impersonation.Reason));
+        // The same browser without the header is still the admin.
+        Assert.Equal("admin", (await root.GetFromJsonAsync<Me>("/auth/me", Token))!.Username);
+
+        var synced = await Viewing(root, token, HttpMethod.Post, "/api/sync", new { schemaVersion = Core.WorkspaceSchema.CurrentVersion, cursor = (long?)null });
+        Assert.Contains("Sam's chores", await synced.Content.ReadAsStringAsync(Token));
+
+        // Accounts are out of bounds while viewing.
+        Assert.Equal(HttpStatusCode.Forbidden, (await Viewing(root, token, HttpMethod.Get, "/api/admin/users")).StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, (await Viewing(root, token, HttpMethod.Post, "/auth/password", new { current = "x", next = "y" })).StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, (await Viewing(root, token, HttpMethod.Get, "/api/account/sign-in")).StatusCode);
+
+        Assert.Equal(HttpStatusCode.NoContent, (await Viewing(root, token, HttpMethod.Delete, "/auth/impersonation")).StatusCode);
+        Assert.Equal(HttpStatusCode.Unauthorized, (await Viewing(root, token, HttpMethod.Get, "/auth/me")).StatusCode);
+        Assert.Equal(HttpStatusCode.OK, (await root.GetAsync("/auth/me", Token)).StatusCode);
+    }
+
+    [Fact]
+    public async Task Only_super_admins_view_as_others_and_never_as_one_another()
+    {
+        var root = await LogIn("admin", AdminPassword);
+        var (ann, _) = await SignIn("ann", Role.Admin);
+        var (_, samId) = await SignIn("sam");
+        var (_, otherRootId) = await SignIn("root2", Role.SuperAdmin);
+        Assert.Equal(HttpStatusCode.Forbidden,
+            (await ann.PostAsJsonAsync($"/api/admin/users/{samId}/impersonate", new { reason = "curious" }, Token)).StatusCode);
+        Assert.Equal(HttpStatusCode.Conflict,
+            (await root.PostAsJsonAsync($"/api/admin/users/{otherRootId}/impersonate", new { reason = "curious" }, Token)).StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest,
+            (await root.PostAsJsonAsync($"/api/admin/users/{samId}/impersonate", new { reason = " " }, Token)).StatusCode);
+
+        // A token only works with the session of the admin who started it.
+        var token = await StartViewing(root, samId);
+        Assert.Equal(HttpStatusCode.Unauthorized, (await Viewing(ann, token, HttpMethod.Get, "/auth/me")).StatusCode);
+        Assert.Equal(HttpStatusCode.OK, (await Viewing(root, token, HttpMethod.Get, "/auth/me")).StatusCode);
+    }
 }

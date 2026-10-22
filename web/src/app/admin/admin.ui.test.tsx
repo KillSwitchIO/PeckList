@@ -75,6 +75,10 @@ function memoryAdmin(benId: string) {
     resetPassword: () => ok('reset-secret-2'),
     loginLink: () => ok({ url: 'https://tasks.example.com/auth/link/abc', expires: '' }),
     identities: () => Promise.resolve([]),
+    impersonate: (_, reason) =>
+      reason.trim().length < 3
+        ? Promise.resolve({ ok: false as const, reason: 'reason-required' as const })
+        : ok({ token: 'view-token', expires: '' }),
     unlink: () => ok({ stranded: false }),
     friends: (id) =>
       Promise.resolve(
@@ -271,6 +275,29 @@ describe('admin', () => {
     await userEvent.click(within(dialog).getByRole('button', { name: 'Hand over' }));
     expect(await screen.findByText('Handed over 1.')).toBeInTheDocument();
     expect(state.handedOver).toEqual([{ from: 'U2', to: expect.any(String), ids: ['L1'] }]);
+  });
+
+  it('a super admin opens a tab viewing the app as someone, saying why', async () => {
+    const open = vi.spyOn(window, 'open').mockReturnValue(null);
+    await adminApp('superadmin');
+    const list = await screen.findByRole('list', { name: 'Users' });
+    await userEvent.click(await within(list).findByRole('button', { name: 'Actions for sam' }));
+    await userEvent.click(await screen.findByRole('menuitem', { name: 'View as sam' }));
+    const dialog = await screen.findByRole('dialog', { name: 'View the app as sam' });
+    await userEvent.type(within(dialog).getByLabelText(/Why/), 'ok');
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Open' }));
+    expect(await within(dialog).findByText('Say why, in a few words.')).toBeInTheDocument();
+    await userEvent.type(within(dialog).getByLabelText(/Why/), ' then, sam asked');
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Open' }));
+    await waitFor(() =>
+      expect(open).toHaveBeenCalledWith('/today#view-as=view-token&name=sam', '_blank'),
+    );
+    // Not for oneself.
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    await userEvent.click(within(list).getByRole('button', { name: 'Actions for ben' }));
+    await screen.findByRole('menuitem', { name: 'Reset password' });
+    expect(screen.queryByRole('menuitem', { name: /View as/ })).toBeNull();
+    open.mockRestore();
   });
 
   it('makes a group and fills it', async () => {

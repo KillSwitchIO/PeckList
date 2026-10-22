@@ -23,6 +23,12 @@ public static class SyncEndpoints
             {
                 var source = context.Request.Headers[DeviceHeader].FirstOrDefault();
                 var response = await sync.SyncAsync(user.UserId(), request, source, cancellation);
+                if (user.Impersonator() is { } admin && request.Changes is { Count: > 0 })
+                {
+                    // Every write made while viewing as someone is on record (spec: impersonation).
+                    context.RequestServices.GetRequiredService<ILoggerFactory>().CreateLogger("Punchlist.Impersonation").LogWarning(
+                        "{Admin} as {User} wrote {Count} change(s)", admin, user.FindFirstValue(ClaimTypes.Name), request.Changes.Count);
+                }
                 // An owner who just left hands the group on; everyone concerned hears of it.
                 if (request.Changes is { Count: > 0 })
                 {

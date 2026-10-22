@@ -7,7 +7,10 @@ using Punchlist.Core.Configuration;
 
 namespace Punchlist.Server.Auth;
 
-public sealed record Me(string Id, string Username, string Role, bool MustChangePassword, string AuthMode);
+public sealed record Me(string Id, string Username, string Role, bool MustChangePassword, string AuthMode, ViewingAs? Impersonation = null);
+
+/// <summary>Set while a super admin views the app as this user: who, why, until when.</summary>
+public sealed record ViewingAs(string By, string Reason, DateTimeOffset Until);
 
 public sealed record LoginRequest(string Username, string Password);
 
@@ -26,6 +29,7 @@ public static class AuthEndpoints
 
         auth.MapGet("/me", (ClaimsPrincipal user) => Results.Ok(MeOf(user, mode))).RequireAuthorization();
         auth.MapOidc(settings);
+        auth.MapImpersonation();
 
         if (settings.AuthMode == AuthMode.None)
         {
@@ -93,5 +97,9 @@ public static class AuthEndpoints
         user.FindFirstValue(ClaimTypes.Name) ?? "",
         user.FindFirstValue(ClaimTypes.Role) ?? "user",
         user.MustChangePassword(),
-        mode);
+        mode,
+        user.Impersonator() is { } by
+            ? new ViewingAs(by, user.FindFirstValue(ImpersonationSetup.ReasonClaim) ?? "",
+                DateTimeOffset.Parse(user.FindFirstValue(ImpersonationSetup.UntilClaim)!, System.Globalization.CultureInfo.InvariantCulture))
+            : null);
 }

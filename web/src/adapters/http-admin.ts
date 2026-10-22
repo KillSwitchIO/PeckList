@@ -24,6 +24,8 @@ const REFUSALS: Record<string, AdminRefusal> = {
   invalid_role: 'invalid',
   too_short: 'too-short',
   admins_only_by_super_admins: 'admins-only',
+  not_allowed: 'not-allowed',
+  reason_required: 'reason-required',
 };
 
 /** `/api/admin` over fetch, with the session cookie (same origin). */
@@ -91,6 +93,11 @@ export function createHttpAdmin(
       result(
         await call(`/users/${segment(id)}/login-link`, 'POST'),
         async (response) => (await response.json()) as { url: string; expires: string },
+      ),
+    impersonate: async (id, reason) =>
+      result(
+        await call(`/users/${segment(id)}/impersonate`, 'POST', { reason }),
+        async (response) => (await response.json()) as { token: string; expires: string },
       ),
     identities: async (id) => json<AdminIdentity[]>(await call(`/users/${segment(id)}/identities`)),
     unlink: async (id, provider, subject) =>
