@@ -83,6 +83,40 @@ public sealed class Friends(AccountService accounts, IAccountStore store, SyncSe
         var owner = await accounts.FindByFriendCodeAsync(code, cancellation);
         var viewer = await store.FindByIdAsync(viewerId, cancellation);
         if (owner is null || owner.Disabled || viewer is null || owner.Id == viewerId) return null;
+        return await BefriendAsync(owner, viewer, cancellation);
+    }
+
+    /// <summary>
+    /// An admin makes two people friends (spec: Account management), as if one had accepted the
+    /// other's link. Null when either is missing or they are the same person.
+    /// </summary>
+    public async Task<string?> MakeFriendsAsync(string a, string b, CancellationToken cancellation = default)
+    {
+        var first = await store.FindByIdAsync(a, cancellation);
+        var second = await store.FindByIdAsync(b, cancellation);
+        if (first is null || second is null || a == b) return null;
+        return await BefriendAsync(first, second, cancellation);
+    }
+
+    /// <summary>An admin ends a friendship. False when there was none.</summary>
+    public async Task<bool> EndFriendshipAsync(string a, string b, CancellationToken cancellation = default)
+    {
+        if (sharing.Index.FriendshipBetween(a, b) is not { } found || found.Doc["deletedAt"] is not null) return false;
+        var stamp = clock.Next();
+        var ended = Merge.Entity((JsonObject)found.Doc.DeepClone(), new JsonObject
+        {
+            ["id"] = found.Id,
+            ["deletedAt"] = DateTimeOffset.UtcNow.ToString("yyyy-MM-ddTHH:mm:ss.fffZ", System.Globalization.CultureInfo.InvariantCulture),
+            ["_hlc"] = new JsonObject { ["deletedAt"] = stamp },
+        }, []);
+        await sync.WriteAsServerAsync((string?)found.Doc["userA"] ?? a, [new IncomingEntity("friendships", ended)], cancellation);
+        return true;
+    }
+
+    /// <summary>The friendship between the two, accepted: an earlier request or ended one comes back.</summary>
+    private async Task<string> BefriendAsync(Account owner, Account viewer, CancellationToken cancellation)
+    {
+        var viewerId = viewer.Id;
         await EnsureProfileAsync(owner, cancellation);
         await EnsureProfileAsync(viewer, cancellation);
 

@@ -1,6 +1,7 @@
 import type {
   AccountRole,
   AdminApi,
+  AdminFriend,
   AdminGroup,
   AdminIdentity,
   AdminProvider,
@@ -101,6 +102,18 @@ export function createHttpAdmin(
           stranded: ((await response.json()) as { stranded: string[] }).stranded.length > 0,
         }),
       ),
+
+    friends: async (id) => json<AdminFriend[]>(await call(`/users/${segment(id)}/friends`)),
+    makeFriends: async (a, b) => {
+      const response = await call('/friendships', 'POST', { userA: a, userB: b });
+      if (!response.ok) throw new SyncFailure('server', `server error ${response.status}`);
+    },
+    endFriendship: async (a, b) => {
+      const response = await call(`/friendships/${segment(a)}/${segment(b)}`, 'DELETE');
+      if (!response.ok && response.status !== 404) {
+        throw new SyncFailure('server', `server error ${response.status}`);
+      }
+    },
 
     groups: async () => json<AdminGroup[]>(await call('/groups')),
     addGroup: async (name, offeredForSharing) =>

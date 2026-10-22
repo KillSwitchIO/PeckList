@@ -21,6 +21,7 @@ import { t } from '../i18n/i18n.ts';
 import { MoreIcon, PlusIcon } from '../icons/icons.tsx';
 import { useSyncState } from '../sync/syncContext.ts';
 import { ConfirmDialog, SecretDialog } from './AdminDialogs.tsx';
+import { FriendsDialog } from './FriendsDialog.tsx';
 import { refusalText, useIsSuperAdmin, useLoaded } from './useAdmin.ts';
 
 const ROLES: AccountRole[] = ['user', 'admin', 'superadmin'];
@@ -128,6 +129,7 @@ export function UsersTab({ api }: { api: AdminApi }) {
   } | null>(null);
   const [menu, setMenu] = useState<{ anchor: HTMLElement; user: AdminUser } | null>(null);
   const [identities, setIdentities] = useState<AdminIdentity[]>([]);
+  const [friendsOf, setFriendsOf] = useState<AdminUser | null>(null);
 
   const openMenu = (anchor: HTMLElement, user: AdminUser) => {
     setMenu({ anchor, user });
@@ -212,6 +214,16 @@ export function UsersTab({ api }: { api: AdminApi }) {
       </Box>
 
       <Menu anchorEl={menu?.anchor} open={menu !== null} onClose={() => setMenu(null)}>
+        {target && (
+          <MenuItem
+            onClick={() => {
+              setMenu(null);
+              setFriendsOf(target);
+            }}
+          >
+            {t('admin.users.friends')}
+          </MenuItem>
+        )}
         {target && !canTouch && <MenuItem disabled>{t('admin.refused.admins-only')}</MenuItem>}
         {target &&
           canTouch && [
@@ -327,6 +339,14 @@ export function UsersTab({ api }: { api: AdminApi }) {
         }}
       />
       <SecretDialog secret={secret} onClose={() => setSecret(null)} />
+      {friendsOf && (
+        <FriendsDialog
+          api={api}
+          user={friendsOf}
+          users={users ?? []}
+          onClose={() => setFriendsOf(null)}
+        />
+      )}
       <ConfirmDialog confirm={confirm} onClose={() => setConfirm(null)} />
     </Box>
   );

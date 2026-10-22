@@ -75,6 +75,21 @@ public sealed class SharingIndex
         return null;
     }
 
+    /// <summary>A user's live friendships (not ended): the other person and the state.</summary>
+    public IReadOnlyList<(string Id, string Other, string State)> FriendshipsOf(string userId)
+    {
+        var found = new List<(string, string, string)>();
+        foreach (var facts in byId.Values)
+        {
+            if (facts.Collection != "friendships" || facts.Doc["deletedAt"] is not null) continue;
+            var userA = facts.Get("userA");
+            var userB = facts.Get("userB");
+            var other = userA == userId ? userB : userB == userId ? userA : null;
+            if (other is not null) found.Add((facts.Id, other, facts.Get("state") ?? "pending"));
+        }
+        return found;
+    }
+
     /// <summary>A copy to try changes on before they are committed.</summary>
     public SharingIndex Clone()
     {

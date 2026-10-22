@@ -187,4 +187,24 @@ public sealed partial class AdminTests(ServerFixture fixture) : IClassFixture<Se
         Assert.Equal(HttpStatusCode.Forbidden, (await ann.PostAsync($"/api/admin/users/{rootId}/login-link", null, Token)).StatusCode);
         Assert.Equal(HttpStatusCode.NotFound, (await ann.PostAsJsonAsync("/api/admin/users/nobody/password", new { }, Token)).StatusCode);
     }
+
+    [Fact]
+    public async Task Admins_make_and_end_friendships()
+    {
+        var root = await LogIn("admin", AdminPassword);
+        var (sam, samId) = await SignIn("sam");
+        var (_, kimId) = await SignIn("kim");
+        var made = await root.PostAsJsonAsync("/api/admin/friendships", new { userA = samId, userB = kimId }, Token);
+        Assert.Equal(HttpStatusCode.OK, made.StatusCode);
+        var friends = await root.GetFromJsonAsync<AdminFriend[]>($"/api/admin/users/{samId}/friends", Token);
+        Assert.Equal([new AdminFriend(kimId, "kim", "accepted")], friends!);
+        // Sam's devices get it on the next sync.
+        var pulled = await sam.PostAsJsonAsync("/api/sync", new { schemaVersion = Core.WorkspaceSchema.CurrentVersion, cursor = (long?)null }, Token);
+        Assert.Contains(kimId, await pulled.Content.ReadAsStringAsync(Token));
+
+        Assert.Equal(HttpStatusCode.NoContent, (await root.DeleteAsync($"/api/admin/friendships/{kimId}/{samId}", Token)).StatusCode);
+        Assert.Empty((await root.GetFromJsonAsync<AdminFriend[]>($"/api/admin/users/{samId}/friends", Token))!);
+        Assert.Equal(HttpStatusCode.NotFound, (await root.DeleteAsync($"/api/admin/friendships/{kimId}/{samId}", Token)).StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, (await root.PostAsJsonAsync("/api/admin/friendships", new { userA = samId, userB = samId }, Token)).StatusCode);
+    }
 }

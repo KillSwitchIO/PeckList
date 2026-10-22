@@ -34,6 +34,12 @@ export interface AdminGroup {
   members: { accountId: string; sources: string[] }[];
 }
 
+export interface AdminFriend {
+  userId: string;
+  username: string;
+  state: 'accepted' | 'pending';
+}
+
 export interface AdminProvider {
   name: string;
   displayName: string;
@@ -77,6 +83,11 @@ export interface AdminApi {
     provider: string,
     subject: string,
   ): Promise<AdminResult<{ stranded: boolean }>>;
+
+  friends(id: string): Promise<AdminFriend[]>;
+  /** Make two people friends, as if one accepted the other's link. */
+  makeFriends(a: string, b: string): Promise<void>;
+  endFriendship(a: string, b: string): Promise<void>;
 
   groups(): Promise<AdminGroup[]>;
   addGroup(name: string, offeredForSharing: boolean): Promise<AdminResult>;

@@ -2,6 +2,7 @@ using System.Security.Claims;
 using Microsoft.Extensions.Caching.Memory;
 using Punchlist.Core.Accounts;
 using Punchlist.Core.Configuration;
+using Punchlist.Core.Sharing;
 using Punchlist.Server.Auth;
 
 namespace Punchlist.Server;
@@ -44,6 +45,10 @@ public sealed record UnbindResult(int Unbound, IReadOnlyList<string> Stranded);
 public sealed record WindowRequest(double? Hours);
 
 public sealed record LoginLinkView(string Url, DateTimeOffset Expires);
+
+public sealed record AdminFriend(string UserId, string Username, string State);
+
+public sealed record FriendshipRequest(string? UserA, string? UserB);
 
 /// <summary>
 /// <c>/api/admin</c>: users and server groups (spec: Accounts &amp; Admin). Every endpoint names the
@@ -200,6 +205,32 @@ public static class AdminEndpoints
                 var (token, expires) = await links.CreateAsync(id, cancellation: cancellation);
                 return Results.Ok(new LoginLinkView($"{ServerApp.Origin(context)}/auth/link/{token}", expires));
             }, cancellation)).RequirePermission(Permission.ManageUsers);
+
+        // Friendships admins set up or end for people (spec: Account management).
+        admin.MapGet("/users/{id}/friends", async (string id, SharingState sharing, IAccountStore accounts, CancellationToken cancellation) =>
+        {
+            var all = (await accounts.ListAsync(cancellation)).ToDictionary(account => account.Id);
+            return sharing.Index.FriendshipsOf(id)
+                .Where(each => all.ContainsKey(each.Other))
+                .Select(each => new AdminFriend(each.Other, all[each.Other].Username, each.State))
+                .OrderBy(friend => friend.Username)
+                .ToList();
+        }).RequirePermission(Permission.ManageUsers);
+
+        // Pending task invites between the two settle as they would after a friend link.
+        admin.MapPost("/friendships", async (FriendshipRequest request, Friends friends, Invites invites, CancellationToken cancellation) =>
+        {
+            if (await friends.MakeFriendsAsync(request.UserA ?? "", request.UserB ?? "", cancellation) is not { } id) return Results.NotFound();
+            await invites.SettleAsync(cancellation);
+            return Results.Ok(new { Id = id });
+        }).RequirePermission(Permission.ManageUsers);
+
+        admin.MapDelete("/friendships/{a}/{b}", async (string a, string b, Friends friends, Invites invites, CancellationToken cancellation) =>
+        {
+            if (!await friends.EndFriendshipAsync(a, b, cancellation)) return Results.NotFound();
+            await invites.SettleAsync(cancellation);
+            return Results.NoContent();
+        }).RequirePermission(Permission.ManageUsers);
 
         admin.MapGet("/pending-signins", async (IIdentityStore identities, CancellationToken cancellation) =>
             await identities.ListPendingAsync(cancellation)).RequirePermission(Permission.ManageUsers);

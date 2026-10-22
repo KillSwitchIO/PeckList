@@ -35,6 +35,7 @@ function memoryAdmin(benId: string) {
   const state = {
     users: [user(benId, 'ben', 'superadmin'), user('U2', 'sam')],
     groups: [] as AdminGroup[],
+    friendships: [] as [string, string][],
     window: null as string | null,
     pending: [
       {
@@ -74,6 +75,26 @@ function memoryAdmin(benId: string) {
     loginLink: () => ok({ url: 'https://tasks.example.com/auth/link/abc', expires: '' }),
     identities: () => Promise.resolve([]),
     unlink: () => ok({ stranded: false }),
+    friends: (id) =>
+      Promise.resolve(
+        state.friendships
+          .filter((pair) => pair.includes(id))
+          .map((pair) => {
+            const other = pair.find((each) => each !== id)!;
+            const found = state.users.find((each) => each.id === other)!;
+            return { userId: other, username: found.username, state: 'accepted' as const };
+          }),
+      ),
+    makeFriends: (a, b) => {
+      state.friendships.push([a, b]);
+      return Promise.resolve();
+    },
+    endFriendship: (a, b) => {
+      state.friendships = state.friendships.filter(
+        (pair) => !(pair.includes(a) && pair.includes(b)),
+      );
+      return Promise.resolve();
+    },
     groups: () =>
       Promise.resolve(state.groups.map((each) => ({ ...each, members: [...each.members] }))),
     addGroup: (name, offeredForSharing) => {
@@ -210,6 +231,21 @@ describe('admin', () => {
       await screen.findByText("Only a super admin can change an admin's account."),
     ).toBeInTheDocument();
     expect(screen.queryByRole('menuitem', { name: 'Reset password' })).toBeNull();
+  });
+
+  it('sets up and ends friendships for people', async () => {
+    const { state } = await adminApp('superadmin');
+    const list = await screen.findByRole('list', { name: 'Users' });
+    await userEvent.click(await within(list).findByRole('button', { name: 'Actions for sam' }));
+    await userEvent.click(await screen.findByRole('menuitem', { name: 'Friends' }));
+    const dialog = await screen.findByRole('dialog', { name: "sam's friends" });
+    expect(await within(dialog).findByText('No friends yet.')).toBeInTheDocument();
+    await userEvent.click(within(dialog).getByLabelText('Make friends with'));
+    await userEvent.click(await screen.findByRole('option', { name: 'ben' }));
+    expect(await within(dialog).findByText('ben')).toBeInTheDocument();
+    expect(state.friendships).toHaveLength(1);
+    await userEvent.click(within(dialog).getByRole('button', { name: 'End friendship with ben' }));
+    expect(await within(dialog).findByText('No friends yet.')).toBeInTheDocument();
   });
 
   it('makes a group and fills it', async () => {
