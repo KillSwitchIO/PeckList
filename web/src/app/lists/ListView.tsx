@@ -33,6 +33,10 @@ import { CompletedGroup, DateGroupedTasks } from '../views/groups.tsx';
 import { useToday } from '../hooks/useToday.ts';
 import { useListGrouping, type ListGrouping } from './listGrouping.ts';
 import { ConfirmDialog, ListDialog, NameDialog } from './ListDialog.tsx';
+import { ShareDialog } from './ShareDialog.tsx';
+import { listMembersOf } from '../../core/sharing.ts';
+import { ShareIcon } from '../icons/icons.tsx';
+import { useSyncState } from '../sync/syncContext.ts';
 import { listName } from './listName.ts';
 
 function ListMenu({
@@ -47,10 +51,36 @@ function ListMenu({
   const apply = useApply();
   const navigate = useNavigate();
   const [anchor, setAnchor] = useState<HTMLElement | null>(null);
-  const [dialog, setDialog] = useState<'edit' | 'section' | 'delete' | null>(null);
+  const [dialog, setDialog] = useState<'edit' | 'section' | 'delete' | 'share' | null>(null);
   const close = () => setAnchor(null);
+  const workspace = useWorkspace();
+  const phase = useSyncState((state) => state.phase);
+  const authMode = useSyncState((state) => state.account?.authMode);
+  // Sharing needs a server with accounts; the Mess Drawer is never shared.
+  const canShare = phase === 'ready' && authMode === 'local' && !list.isInbox;
+  const shared = listMembersOf(workspace, list.id).length;
   return (
     <>
+      {canShare && (
+        <Tooltip
+          title={
+            shared === 0
+              ? t('share.button')
+              : shared === 1
+                ? t('share.sharedOne')
+                : t('share.sharedMany', { count: shared })
+          }
+          disableFocusListener
+        >
+          <IconButton
+            aria-label={t('share.button')}
+            onClick={() => setDialog('share')}
+            sx={{ color: shared > 0 ? 'primary.main' : undefined }}
+          >
+            <ShareIcon />
+          </IconButton>
+        </Tooltip>
+      )}
       <Tooltip title={t('common.more')} disableFocusListener>
         <IconButton
           aria-label={t('common.more')}
@@ -127,6 +157,7 @@ function ListMenu({
           </MenuItem>
         )}
       </Menu>
+      {dialog === 'share' && <ShareDialog list={list} onClose={() => setDialog(null)} />}
       {dialog === 'edit' && (
         <ListDialog
           open
