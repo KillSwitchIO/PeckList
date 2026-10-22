@@ -30,6 +30,9 @@ public sealed record Account
 
     public bool Disabled { get; init; }
     public required DateTimeOffset CreatedAt { get; init; }
+
+    /// <summary>The code in this account's friend link (<c>/f/7QM4K2XP</c>); null until first asked for.</summary>
+    public string? FriendCode { get; init; }
 }
 
 /// <summary>Logins (never synced). Every adapter passes the same contract suite.</summary>
@@ -44,6 +47,8 @@ public interface IAccountStore
 
     /// <summary>Case-insensitive.</summary>
     Task<Account?> FindByUsernameAsync(string username, CancellationToken cancellation = default);
+
+    Task<Account?> FindByFriendCodeAsync(string code, CancellationToken cancellation = default);
 
     /// <exception cref="DuplicateUsernameException">The username is taken.</exception>
     Task CreateAsync(Account account, CancellationToken cancellation = default);

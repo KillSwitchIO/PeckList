@@ -33,6 +33,16 @@ public static class ServerApp
         builder.Services.AddPunchlistAuth(settings);
         builder.Services.AddSingleton<IChangeNotifier, InProcessChangeNotifier>();
         builder.Services.AddSingleton<Punchlist.Core.Sharing.SharingState>();
+        builder.Services.AddSingleton<ServerClock>();
+        builder.Services.AddSingleton(provider => new Punchlist.Core.Sharing.Friends(
+            provider.GetRequiredService<Punchlist.Core.Accounts.AccountService>(),
+            provider.GetRequiredService<Punchlist.Core.Accounts.IAccountStore>(),
+            provider.GetRequiredService<SyncService>(),
+            provider.GetRequiredService<Punchlist.Core.Sharing.SharingState>(),
+            provider.GetRequiredService<ServerClock>())
+        {
+            Host = settings.PublicUrl?.Host,
+        });
         builder.Services.AddHostedService<SharingStartup>();
         builder.Services.AddSingleton<SyncService>();
         builder.Services.AddBackups(settings);
@@ -58,7 +68,7 @@ public static class ServerApp
         app.MapHealthChecks("/healthz");
         app.MapGet("/api/info", () => new ServerInfo("punchlist", Version, WorkspaceSchema.CurrentVersion));
         app.MapAuth();
-        app.MapGroup("/api").RequireAuthorization().RequirePasswordChanged().MapSync();
+        app.MapGroup("/api").RequireAuthorization().RequirePasswordChanged().EnsureProfiles().MapSync().MapFriends();
 
         var webRoot = settings.WebRoot ?? Path.Combine(AppContext.BaseDirectory, "wwwroot");
         app.UseStaticSite(webRoot, app.Logger);

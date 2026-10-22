@@ -129,6 +129,28 @@ public sealed class AccountService(IAccountStore store, IPasswordHasher hasher, 
         return admin;
     }
 
+    /// <summary>
+    /// The account's friend code, made on first use: 8 characters without look-alikes, shown as
+    /// <c>7QM4-K2XP</c>. <paramref name="rotate"/> replaces it, so old links stop working.
+    /// </summary>
+    public async Task<string> FriendCodeAsync(string id, bool rotate = false, CancellationToken cancellation = default)
+    {
+        var account = await store.FindByIdAsync(id, cancellation) ?? throw new KeyNotFoundException($"no account {id}");
+        if (account.FriendCode is not null && !rotate) return account.FriendCode;
+        const string alphabet = "23456789ABCDEFGHJKMNPQRSTUVWXYZ";
+        for (var attempt = 0; ; attempt++)
+        {
+            var code = System.Security.Cryptography.RandomNumberGenerator.GetString(alphabet, 8);
+            if (await store.FindByFriendCodeAsync(code, cancellation) is not null && attempt < 10) continue;
+            await store.UpdateAsync(account with { FriendCode = code }, cancellation);
+            return code;
+        }
+    }
+
+    /// <summary>The account behind a friend code as typed or linked (any case, with or without the dash).</summary>
+    public Task<Account?> FindByFriendCodeAsync(string code, CancellationToken cancellation = default) =>
+        store.FindByFriendCodeAsync(code.Replace("-", "", StringComparison.Ordinal).Trim().ToUpperInvariant(), cancellation);
+
     /// <summary>A new account that logs in with <paramref name=password/> (admin UI, tests).</summary>
     /// <exception cref="DuplicateUsernameException">The username is taken.</exception>
     public async Task<Account> CreateUserAsync(

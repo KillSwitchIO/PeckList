@@ -63,6 +63,8 @@ public sealed class BackupService(IDatabase database, IEntityStore entities, IAc
             json.WriteString("securityStamp", account.SecurityStamp);
             json.WriteBoolean("disabled", account.Disabled);
             json.WriteString("createdAt", account.CreatedAt.ToString("O", CultureInfo.InvariantCulture));
+            if (account.FriendCode is null) json.WriteNull("friendCode");
+            else json.WriteString("friendCode", account.FriendCode);
             json.WriteEndObject();
         }
         json.WriteEndArray();
@@ -192,6 +194,7 @@ public sealed class BackupService(IDatabase database, IEntityStore entities, IAc
             SecurityStamp = Required(item, "securityStamp"),
             Disabled = (bool?)item["disabled"] ?? false,
             CreatedAt = Time("createdAt"),
+            FriendCode = (string?)item["friendCode"],
         };
     }
 }

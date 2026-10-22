@@ -62,6 +62,19 @@ public sealed class SharingIndex
 
     public bool Contains(string id) => byId.ContainsKey(id);
 
+    /// <summary>The friendship between two people in either direction, deleted ones too.</summary>
+    public (string Id, JsonObject Doc)? FriendshipBetween(string a, string b)
+    {
+        foreach (var facts in byId.Values)
+        {
+            if (facts.Collection != "friendships") continue;
+            var userA = facts.Get("userA");
+            var userB = facts.Get("userB");
+            if ((userA == a && userB == b) || (userA == b && userB == a)) return (facts.Id, facts.Doc);
+        }
+        return null;
+    }
+
     /// <summary>A copy to try changes on before they are committed.</summary>
     public SharingIndex Clone()
     {

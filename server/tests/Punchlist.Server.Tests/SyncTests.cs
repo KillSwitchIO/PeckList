@@ -122,7 +122,7 @@ public sealed class SyncTests(ServerFixture fixture) : IClassFixture<ServerFixtu
 
         await Sync(admin, null, Task("T1", "Admin's task"));
         var samView = await Sync(sam, null, Task("T1", "Taken over", "2026-10-21T11:00:00.000Z-0000-dev9"), Task("T2", "Sam's task"));
-        Assert.Equal(["T2"], samView.Changes.Select(change => (string?)change.Entity["id"]));
+        Assert.Equal(["T2"], samView.Changes.Where(change => change.Collection == "tasks").Select(change => (string?)change.Entity["id"]));
 
         var adminView = await Sync(admin, null);
         Assert.Equal("Admin's task", Title(adminView, "T1"));
@@ -139,7 +139,8 @@ public sealed class SyncTests(ServerFixture fixture) : IClassFixture<ServerFixtu
         Assert.Equal(SyncService.PageSize, first.Changes.Count);
         var second = await Sync(client, first.Cursor);
         Assert.False(second.More);
-        Assert.Equal(20, second.Changes.Count);
+        // The account's profile (written on its first sync) is in the feed too.
+        Assert.Equal(21, second.Changes.Count);
     }
 
     [Fact]
@@ -169,7 +170,7 @@ public sealed class SyncTests(ServerFixture fixture) : IClassFixture<ServerFixtu
         Assert.Equal("event: changed", line);
         var data = JsonNode.Parse((await reader.ReadLineAsync(Token))!["data: ".Length..])!;
         Assert.Equal("laptop1", (string?)data["source"]);
-        Assert.Equal(1, (long?)data["cursor"]);
+        Assert.True((long?)data["cursor"] > 0);
     }
 
     [Fact]

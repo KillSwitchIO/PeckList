@@ -11,7 +11,7 @@ public sealed class SqlAccountStore(SqlDatabase database) : IAccountStore
     private const string Columns =
         "id, username, password_hash AS passwordHash, role, must_change_password AS mustChangePassword, " +
         "failed_logins AS failedLogins, locked_until AS lockedUntil, security_stamp AS securityStamp, " +
-        "disabled, created_at AS createdAt";
+        "disabled, created_at AS createdAt, friend_code AS friendCode";
 
     public async Task<int> CountAsync(CancellationToken cancellation = default)
     {
@@ -33,6 +33,9 @@ public sealed class SqlAccountStore(SqlDatabase database) : IAccountStore
     public Task<Account?> FindByUsernameAsync(string username, CancellationToken cancellation = default) =>
         FindAsync("username = @value", username.ToLowerInvariant(), cancellation);
 
+    public Task<Account?> FindByFriendCodeAsync(string code, CancellationToken cancellation = default) =>
+        FindAsync("friend_code = @value", code, cancellation);
+
     private async Task<Account?> FindAsync(string where, string value, CancellationToken cancellation)
     {
         await using var connection = await database.OpenAsync(cancellation);
@@ -49,9 +52,9 @@ public sealed class SqlAccountStore(SqlDatabase database) : IAccountStore
             await connection.ExecuteAsync(new CommandDefinition(
                 """
                 INSERT INTO accounts (id, username, password_hash, role, must_change_password, failed_logins,
-                    locked_until, security_stamp, disabled, created_at)
+                    locked_until, security_stamp, disabled, created_at, friend_code)
                 VALUES (@Id, @Username, @PasswordHash, @Role, @MustChangePassword, @FailedLogins,
-                    @LockedUntil, @SecurityStamp, @Disabled, @CreatedAt)
+                    @LockedUntil, @SecurityStamp, @Disabled, @CreatedAt, @FriendCode)
                 """,
                 Row.From(account),
                 cancellationToken: cancellation));
@@ -70,7 +73,8 @@ public sealed class SqlAccountStore(SqlDatabase database) : IAccountStore
             """
             UPDATE accounts SET username = @Username, password_hash = @PasswordHash, role = @Role,
                 must_change_password = @MustChangePassword, failed_logins = @FailedLogins,
-                locked_until = @LockedUntil, security_stamp = @SecurityStamp, disabled = @Disabled
+                locked_until = @LockedUntil, security_stamp = @SecurityStamp, disabled = @Disabled,
+                friend_code = @FriendCode
             WHERE id = @Id
             """,
             Row.From(account),
@@ -91,6 +95,7 @@ public sealed class SqlAccountStore(SqlDatabase database) : IAccountStore
         public string SecurityStamp { get; set; } = "";
         public long Disabled { get; set; }
         public string CreatedAt { get; set; } = "";
+        public string? FriendCode { get; set; }
 
         public static Row From(Account account) => new()
         {
@@ -104,6 +109,7 @@ public sealed class SqlAccountStore(SqlDatabase database) : IAccountStore
             SecurityStamp = account.SecurityStamp,
             Disabled = account.Disabled ? 1 : 0,
             CreatedAt = account.CreatedAt.ToString("O", CultureInfo.InvariantCulture),
+            FriendCode = account.FriendCode,
         };
 
         public Account ToAccount() => new()
@@ -118,6 +124,7 @@ public sealed class SqlAccountStore(SqlDatabase database) : IAccountStore
             SecurityStamp = SecurityStamp,
             Disabled = Disabled != 0,
             CreatedAt = DateTimeOffset.Parse(CreatedAt, CultureInfo.InvariantCulture),
+            FriendCode = FriendCode,
         };
     }
 }

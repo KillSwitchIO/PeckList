@@ -1,0 +1,139 @@
+using System.Text.Json.Nodes;
+using Punchlist.Core.Accounts;
+using Punchlist.Core.Storage;
+using Punchlist.Core.Sync;
+
+namespace Punchlist.Core.Sharing;
+
+/// <summary>
+/// What a person sees before becoming friends (spec: Sharing &amp; Permissions, Friends): who it is,
+/// how long they have been here, and whether they are friends already.
+/// </summary>
+/// <param name="Friendship">"accepted", "pending", or null.</param>
+public sealed record ProfilePreview(
+    string UserId,
+    string Username,
+    string DisplayName,
+    string Handle,
+    string AvatarColor,
+    DateTimeOffset MemberSince,
+    bool Self,
+    string? Friendship);
+
+/// <summary>
+/// Friends: every account's profile entity, friend codes and links, accepting a link, and looking
+/// someone up by exact username or handle (no browsing the directory).
+/// </summary>
+public sealed class Friends(AccountService accounts, IAccountStore store, SyncService sync, SharingState sharing, ServerClock clock)
+{
+    private static readonly string[] AvatarColors = ["#A7C7E7", "#F4B6C2", "#CFE3A3", "#F7D59C", "#C9B6E4", "#9ED9CC", "#F2C1A0", "#B8C4D9"];
+
+    /// <summary>The server's host for handles (<c>name@host</c>); null keeps bare usernames until <c>PUBLIC_URL</c> is set.</summary>
+    public string? Host { get; init; }
+
+    /// <summary>A color per person, the same on every start (string hash codes are not).</summary>
+    private static string AvatarColor(string id) => AvatarColors[id.Aggregate(0, (hash, c) => (hash * 31 + c) & 0x7FFFFFFF) % AvatarColors.Length];
+
+    public string HandleOf(Account account) => Host is null ? account.Username : $"{account.Username}@{Host}";
+
+    /// <summary>Write the account's profile entity if it has none yet (devices then sync and edit it).</summary>
+    public async Task EnsureProfileAsync(Account account, CancellationToken cancellation = default)
+    {
+        if (sharing.Index.Contains(account.Id)) return;
+        var stamp = clock.Next();
+        var fields = new JsonObject
+        {
+            ["handle"] = HandleOf(account),
+            ["displayName"] = account.Username,
+            ["avatarColor"] = AvatarColor(account.Id),
+            ["homeServer"] = Host ?? "local",
+        };
+        await sync.WriteAsServerAsync(account.Id, [new IncomingEntity("users", Entity(account.Id, account.Id, stamp, fields))], cancellation);
+    }
+
+    public async Task<string> CodeAsync(string userId, bool rotate = false, CancellationToken cancellation = default) =>
+        Format(await accounts.FriendCodeAsync(userId, rotate, cancellation));
+
+    /// <summary><c>7QM4K2XP</c> as people read it: <c>7QM4-K2XP</c>.</summary>
+    public static string Format(string code) => code.Length == 8 ? $"{code[..4]}-{code[4..]}" : code;
+
+    public async Task<ProfilePreview?> PreviewByCodeAsync(string viewerId, string code, CancellationToken cancellation = default) =>
+        await accounts.FindByFriendCodeAsync(code, cancellation) is { Disabled: false } account ? Preview(viewerId, account) : null;
+
+    /// <summary>Someone by exact username or handle on this server.</summary>
+    public async Task<ProfilePreview?> LookupAsync(string viewerId, string query, CancellationToken cancellation = default)
+    {
+        var name = query.Trim().TrimStart('@');
+        if (Host is not null && name.EndsWith($"@{Host}", StringComparison.OrdinalIgnoreCase)) name = name[..^(Host.Length + 1)];
+        if (name.Length == 0 || name.Contains('@')) return null;
+        return await store.FindByUsernameAsync(name, cancellation) is { Disabled: false } account ? Preview(viewerId, account) : null;
+    }
+
+    /// <summary>
+    /// Accept a friend link: the link's owner offered it, so the friendship starts accepted. An
+    /// earlier request or an ended friendship between them comes back as accepted.
+    /// </summary>
+    /// <returns>The friendship's id, or null when the code is unknown or the viewer's own.</returns>
+    public async Task<string?> AcceptLinkAsync(string viewerId, string code, CancellationToken cancellation = default)
+    {
+        var owner = await accounts.FindByFriendCodeAsync(code, cancellation);
+        var viewer = await store.FindByIdAsync(viewerId, cancellation);
+        if (owner is null || owner.Disabled || viewer is null || owner.Id == viewerId) return null;
+        await EnsureProfileAsync(owner, cancellation);
+        await EnsureProfileAsync(viewer, cancellation);
+
+        var stamp = clock.Next();
+        var existing = sharing.Index.FriendshipBetween(owner.Id, viewerId);
+        JsonObject doc;
+        if (existing is { } found)
+        {
+            doc = new JsonObject
+            {
+                ["id"] = found.Id,
+                ["state"] = "accepted",
+                ["deletedAt"] = null,
+                ["_hlc"] = new JsonObject { ["state"] = stamp, ["deletedAt"] = stamp },
+            };
+            // Merge keeps the rest; the stamped fields win.
+            doc = Merge.Entity((JsonObject)found.Doc.DeepClone(), doc, []);
+        }
+        else
+        {
+            doc = Entity(Ids.NewUlid(), viewerId, stamp, new JsonObject
+            {
+                ["userA"] = owner.Id,
+                ["userB"] = viewerId,
+                ["state"] = "accepted",
+            });
+        }
+        await sync.WriteAsServerAsync(owner.Id, [new IncomingEntity("friendships", doc)], cancellation);
+        return (string)doc["id"]!;
+    }
+
+    private ProfilePreview Preview(string viewerId, Account account)
+    {
+        var friendship = sharing.Index.FriendshipBetween(viewerId, account.Id);
+        var state = friendship is { } found && found.Doc["deletedAt"] is null ? (string?)found.Doc["state"] : null;
+        return new ProfilePreview(account.Id, account.Username, account.Username, HandleOf(account),
+            AvatarColor(account.Id),
+            account.CreatedAt, account.Id == viewerId, state);
+    }
+
+    /// <summary>A whole entity as the workspace schema wants it, every field stamped.</summary>
+    private JsonObject Entity(string id, string createdBy, string stamp, JsonObject fields)
+    {
+        var entity = new JsonObject
+        {
+            ["id"] = id,
+            ["createdAt"] = clock.Now(),
+            ["createdBy"] = createdBy,
+            ["deletedAt"] = null,
+            ["origin"] = Host ?? "local",
+        };
+        foreach (var (field, value) in fields) entity[field] = value?.DeepClone();
+        var clocks = new JsonObject();
+        foreach (var (field, _) in entity) if (field != "id") clocks[field] = stamp;
+        entity["_hlc"] = clocks;
+        return entity;
+    }
+}

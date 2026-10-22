@@ -26,6 +26,9 @@ public sealed class MemoryAccountStore : IAccountStore
     public Task<Account?> FindByUsernameAsync(string username, CancellationToken cancellation = default) =>
         Task.FromResult(ById.Values.FirstOrDefault(each => each.Username == username.ToLowerInvariant()));
 
+    public Task<Account?> FindByFriendCodeAsync(string code, CancellationToken cancellation = default) =>
+        Task.FromResult(ById.Values.FirstOrDefault(each => each.FriendCode == code));
+
     public Task CreateAsync(Account account, CancellationToken cancellation = default)
     {
         if (ById.Values.Any(each => each.Username == account.Username.ToLowerInvariant())) throw new DuplicateUsernameException(account.Username);

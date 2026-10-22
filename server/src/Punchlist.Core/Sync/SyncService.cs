@@ -108,6 +108,49 @@ public sealed partial class SyncService(IEntityStore store, TimeProvider time, I
     }
 
     /// <summary>
+    /// Changes the server makes itself (a profile, a friendship accepted from a link): merged like
+    /// any change, with no permission check, access updated and everyone concerned told.
+    /// </summary>
+    public async Task<IReadOnlyList<StoredEntity>> WriteAsServerAsync(
+        string ownerId, IReadOnlyList<IncomingEntity> entities, CancellationToken cancellation = default)
+    {
+        await sharing.Gate.WaitAsync(cancellation);
+        try
+        {
+            var before = sharing.Index;
+            var after = before.Clone();
+            var written = await store.WriteAsync(
+                ownerId,
+                entities,
+                (stored, arrived) =>
+                {
+                    var merged = stored is null
+                        ? arrived.Doc
+                        : Merge.Entity(stored.Doc, arrived.Doc, WorkspaceSchema.ElementSetFields(arrived.Collection));
+                    if (stored is not null && JsonNode.DeepEquals(merged, stored.Doc)) return null;
+                    after.Apply(new StoredEntity(arrived.Collection, arrived.Id, stored?.OwnerId ?? ownerId, 0, merged));
+                    return merged;
+                },
+                plan: written => SharingState.Plan(before, after, written),
+                cancellation: cancellation);
+            sharing.Index = after;
+            if (written.Count > 0)
+            {
+                var seq = written[^1].Seq;
+                foreach (var person in written.SelectMany(entity => after.Viewers(entity.Id)).ToHashSet(StringComparer.Ordinal))
+                {
+                    notifier.Notify(person, new ChangeEvent(seq, null));
+                }
+            }
+            return written;
+        }
+        finally
+        {
+            sharing.Gate.Release();
+        }
+    }
+
+    /// <summary>
     /// What to store for one pushed entity, or null to leave things as they are. The change is tried
     /// on <paramref name="after"/> (so later entities in the same push see it, e.g. tasks in a list
     /// made in the same push); a change the user may not make is undone there and reported.
