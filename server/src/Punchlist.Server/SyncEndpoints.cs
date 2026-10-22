@@ -17,14 +17,19 @@ public static class SyncEndpoints
     /// </summary>
     public static RouteGroupBuilder MapSync(this RouteGroupBuilder api)
     {
-        api.MapPost("/sync", async (SyncRequest request, ClaimsPrincipal user, SyncService sync, Groups groups, HttpContext context, CancellationToken cancellation) =>
+        api.MapPost("/sync", async (SyncRequest request, ClaimsPrincipal user, SyncService sync, Groups groups, Invites invites, HttpContext context, CancellationToken cancellation) =>
         {
             try
             {
                 var source = context.Request.Headers[DeviceHeader].FirstOrDefault();
                 var response = await sync.SyncAsync(user.UserId(), request, source, cancellation);
                 // An owner who just left hands the group on; everyone concerned hears of it.
-                if (request.Changes is { Count: > 0 }) await groups.SettleAsync(cancellation);
+                if (request.Changes is { Count: > 0 })
+                {
+                    await groups.SettleAsync(cancellation);
+                    // A friend request just accepted (or declined) settles assignments waiting on it.
+                    await invites.SettleAsync(cancellation);
+                }
                 return Results.Ok(response);
             }
             catch (SyncRejected rejected)

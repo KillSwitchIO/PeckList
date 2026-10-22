@@ -211,4 +211,56 @@ public sealed class SharingTests(ServerFixture fixture) : IClassFixture<ServerFi
         await sam.SyncAsync();
         Assert.DoesNotContain("T1", sam.Seen.Keys);
     }
+
+    private static (string, JsonObject) Friendship(string id, string a, string b, string state, bool ended = false) =>
+        ("friendships", Entity(id, new JsonObject
+        {
+            ["userA"] = a,
+            ["userB"] = b,
+            ["state"] = state,
+            ["deletedAt"] = ended ? "2026-10-21T12:00:00.000Z" : null,
+        }));
+
+    private static (string, JsonObject) Invited(string id, string list, string title, string user, string inviter)
+    {
+        var task = Task(id, list, title);
+        task.Item2["assignees"] = new JsonObject
+        {
+            [$"invite:{user}:{inviter}"] = new JsonObject { ["in"] = true, ["hlc"] = "2026-10-21T11:00:00.000Z-0000-dev1" },
+        };
+        return task;
+    }
+
+    [Fact]
+    public async Task An_invite_assignment_waits_for_the_friend_request()
+    {
+        var ben = await SignIn("ben6");
+        var sam = await SignIn("sam6");
+        var kim = await SignIn("kim6");
+        await ben.SyncAsync(
+            List("L1", "private"),
+            Friendship("F1", ben.UserId, sam.UserId, "pending"),
+            Invited("T1", "L1", "Paint fence", sam.UserId, ben.UserId),
+            Friendship("F2", ben.UserId, kim.UserId, "pending"),
+            Invited("T2", "L1", "Mow", kim.UserId, ben.UserId));
+        // Not friends yet: the task stays Ben's.
+        await sam.SyncAsync();
+        Assert.DoesNotContain("T1", sam.Seen.Keys);
+
+        // Sam accepts: the invite becomes the assignment.
+        await sam.SyncAsync(Friendship("F1", ben.UserId, sam.UserId, "accepted"));
+        await sam.SyncAsync();
+        Assert.Contains("T1", sam.Seen.Keys);
+        var assignees = sam.Seen["T1"]["assignees"]!;
+        Assert.True((bool?)assignees[$"user:{sam.UserId}"]!["in"]);
+        Assert.False((bool?)assignees[$"invite:{sam.UserId}:{ben.UserId}"]!["in"]);
+
+        // Kim declines: the invite goes, nothing reaches Kim.
+        await kim.SyncAsync(Friendship("F2", ben.UserId, kim.UserId, "pending", ended: true));
+        await ben.SyncAsync();
+        Assert.False((bool?)ben.Seen["T2"]["assignees"]![$"invite:{kim.UserId}:{ben.UserId}"]!["in"]);
+        Assert.Null(ben.Seen["T2"]["assignees"]![$"user:{kim.UserId}"]);
+        await kim.SyncAsync();
+        Assert.DoesNotContain("T2", kim.Seen.Keys);
+    }
 }

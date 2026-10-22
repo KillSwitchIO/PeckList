@@ -25,10 +25,12 @@ public static class FriendEndpoints
         api.MapGet("/friends/link/{code}", async (string code, ClaimsPrincipal user, Friends friends, CancellationToken cancellation) =>
             await friends.PreviewByCodeAsync(user.UserId(), code, cancellation) is { } preview ? Results.Ok(preview) : Results.NotFound());
 
-        api.MapPost("/friends/link/{code}", async (string code, ClaimsPrincipal user, Friends friends, CancellationToken cancellation) =>
-            await friends.AcceptLinkAsync(user.UserId(), code, cancellation) is { } id
-                ? Results.Ok(new FriendshipAccepted(id))
-                : Results.NotFound());
+        api.MapPost("/friends/link/{code}", async (string code, ClaimsPrincipal user, Friends friends, Invites invites, CancellationToken cancellation) =>
+        {
+            if (await friends.AcceptLinkAsync(user.UserId(), code, cancellation) is not { } id) return Results.NotFound();
+            await invites.SettleAsync(cancellation);
+            return Results.Ok(new FriendshipAccepted(id));
+        });
 
         api.MapGet("/users/lookup", async (string q, ClaimsPrincipal user, Friends friends, CancellationToken cancellation) =>
             await friends.LookupAsync(user.UserId(), q, cancellation) is { } preview ? Results.Ok(preview) : Results.NotFound());

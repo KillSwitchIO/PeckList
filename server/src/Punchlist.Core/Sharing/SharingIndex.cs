@@ -286,6 +286,32 @@ public sealed class SharingIndex
         return pending;
     }
 
+    // Invites -------------------------------------------------------------------------------------
+
+    /// <summary>
+    /// Assignments waiting on a friend request (<c>invite:&lt;user&gt;:&lt;inviter&gt;</c>, spec: Friends,
+    /// invite on assign) that can now be settled: accepted, the invite becomes <c>user:&lt;user&gt;</c>;
+    /// declined or taken back (no live friendship), it goes. Pending ones wait.
+    /// </summary>
+    public IReadOnlyList<InviteSettlement> PendingInvites()
+    {
+        var settled = new List<InviteSettlement>();
+        foreach (var task in Live("tasks"))
+        {
+            foreach (var key in task.SetMembers("assignees"))
+            {
+                if (!key.StartsWith("invite:", StringComparison.Ordinal)) continue;
+                var parts = key.Split(':');
+                if (parts.Length != 3) continue;
+                var friendship = FriendshipBetween(parts[1], parts[2]);
+                var live = friendship is { } found && found.Doc["deletedAt"] is null;
+                var accepted = live && (string?)friendship!.Value.Doc["state"] == "accepted";
+                if (accepted || !live) settled.Add(new InviteSettlement(task.Id, task.Doc, key, accepted ? $"user:{parts[1]}" : null));
+            }
+        }
+        return settled;
+    }
+
     // Permissions --------------------------------------------------------------------------------
 
     /// <summary>
@@ -378,3 +404,6 @@ public sealed record GroupSuccession(
     JsonObject Group,
     string? NewOwner,
     IReadOnlyList<(string Id, JsonObject Doc)> AssignedTasks);
+
+/// <summary>An invite assignment to settle: replaced by <paramref name="Assignee"/>, or dropped when null.</summary>
+public sealed record InviteSettlement(string TaskId, JsonObject Task, string Invite, string? Assignee);
