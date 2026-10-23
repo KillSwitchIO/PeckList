@@ -1056,6 +1056,7 @@ export const en = {
   'list.sort.created': 'Newest first',
   'list.noPriority': 'No priority',
   'list.noTags': 'No tags',
+  'tasks.showMore': 'Show {count} more',
   'undo.postponed': 'Moved to today',
 } as const;
 

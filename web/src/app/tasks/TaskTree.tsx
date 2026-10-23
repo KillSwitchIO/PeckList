@@ -1,5 +1,7 @@
-import { Box } from '@mui/material';
+import { Box, Button } from '@mui/material';
+import { useState } from 'react';
 import { subtaskTree } from '../../core/queries.ts';
+import { t } from '../i18n/i18n.ts';
 import type { Task, WorkspaceFile } from '../../core/types.ts';
 import { getEntity } from '../../core/collections.ts';
 import { useCollapsedSet, withoutCollapsed } from '../hooks/useCollapsedSet.ts';
@@ -36,6 +38,10 @@ function nestsUnderAncestor(
   }
   return false;
 }
+
+/** Rows drawn at first, and how many more each "Show more" adds. */
+export const ROW_PAGE = 200;
+const MORE_ROWS = 500;
 
 /**
  * Tasks with their open subtasks indented underneath. Parents get a chevron to hide or show
@@ -92,6 +98,10 @@ export function TaskTree({
     (row) => row.parentId,
     collapsed,
   );
+  // Thousands of rows take seconds to draw: the first ones now, more on asking.
+  const [limit, setLimit] = useState(ROW_PAGE);
+  const shown = visible.length > limit ? visible.slice(0, limit) : visible;
+  const hidden = visible.length - shown.length;
 
   return (
     <Box
@@ -105,7 +115,7 @@ export function TaskTree({
           }
         : {})}
     >
-      {visible.map((row) => (
+      {shown.map((row) => (
         <li
           key={row.task.id}
           {...(dragZone ? { 'data-drag-row': row.task.id, 'data-depth': row.depth } : {})}
@@ -129,6 +139,17 @@ export function TaskTree({
           />
         </li>
       ))}
+      {hidden > 0 && (
+        <li>
+          <Button
+            size="small"
+            onClick={() => setLimit((current) => current + MORE_ROWS)}
+            sx={{ my: 0.5, ml: 0.5, textTransform: 'none' }}
+          >
+            {t('tasks.showMore', { count: Math.min(hidden, MORE_ROWS) })}
+          </Button>
+        </li>
+      )}
     </Box>
   );
 }

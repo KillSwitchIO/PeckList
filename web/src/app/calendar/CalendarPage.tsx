@@ -42,6 +42,9 @@ function savedMode(): CalendarMode {
   }
 }
 
+/** How many unscheduled tasks show at first (and more on asking). */
+const UNSCHEDULED_PAGE = 100;
+
 /** Open tasks with no date, to drag onto the calendar. */
 function Unscheduled({
   onRef,
@@ -52,6 +55,7 @@ function Unscheduled({
 }) {
   const workspace = useWorkspace();
   const tasks = unscheduledTasks(workspace);
+  const [limit, setLimit] = useState(UNSCHEDULED_PAGE);
   return (
     <Box sx={{ width: 260, p: 1.5, overflowY: 'auto', height: '100%' }}>
       <Typography variant="subtitle2" color="text.secondary">
@@ -61,7 +65,7 @@ function Unscheduled({
         {t('calendar.unscheduledHint')}
       </Typography>
       <Box ref={onRef} role="list" aria-label={t('calendar.unscheduled')}>
-        {tasks.map((task) => (
+        {tasks.slice(0, limit).map((task) => (
           <Box
             key={task.id}
             role="listitem"
@@ -90,6 +94,15 @@ function Unscheduled({
           <Typography variant="body2" color="text.secondary">
             {t('calendar.allScheduled')}
           </Typography>
+        )}
+        {tasks.length > limit && (
+          <Button
+            size="small"
+            onClick={() => setLimit((current) => current + UNSCHEDULED_PAGE)}
+            sx={{ textTransform: 'none' }}
+          >
+            {t('tasks.showMore', { count: Math.min(tasks.length - limit, UNSCHEDULED_PAGE) })}
+          </Button>
         )}
       </Box>
     </Box>

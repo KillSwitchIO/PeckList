@@ -1,4 +1,4 @@
-import { fireEvent, screen, waitFor, within } from '@testing-library/react';
+import { act, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { addDays, localTimeZone, todayIn } from '../../core/dates.ts';
@@ -232,5 +232,29 @@ describe('list names on rows', () => {
     expect(await meta('Child')).toHaveTextContent('Me');
     // On its own day: names both its parent and its list.
     expect(await meta('Later child')).toHaveTextContent('ParentMe');
+  });
+});
+
+describe('long lists', () => {
+  it('draws the first 200 rows and more on asking', async () => {
+    const store = testStore();
+    await renderApp('/inbox', store);
+    act(() =>
+      store.getState().apply((ctx, ws) => {
+        let next = ws;
+        for (let i = 0; i < 230; i += 1) {
+          next = createTask(ctx, next, {
+            title: `Task ${i}`,
+            listId: inboxList(next).id,
+          }).workspace;
+        }
+        return next;
+      }),
+    );
+    const rows = () => document.querySelectorAll('main [data-task-row]').length;
+    await waitFor(() => expect(rows()).toBe(200));
+    await userEvent.click(screen.getByRole('button', { name: 'Show 30 more' }));
+    expect(rows()).toBe(230);
+    expect(screen.queryByRole('button', { name: /^Show \d+ more$/ })).toBeNull();
   });
 });

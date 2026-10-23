@@ -104,10 +104,29 @@ export function listTasks(
 }
 
 /** Live subtasks of a task in order (any status). */
+/** Live tasks by parent, each in order: built once per tasks array (workspaces are immutable). */
+const childrenCache = new WeakMap<readonly Task[], { length: number; byParent: Map<Id, Task[]> }>();
+
+function childrenByParent(tasks: readonly Task[]): Map<Id, Task[]> {
+  let cached = childrenCache.get(tasks);
+  if (!cached || cached.length !== tasks.length) {
+    const byParent = new Map<Id, Task[]>();
+    for (const task of tasks) {
+      if (!isLive(task) || task.parentId === null) continue;
+      const siblings = byParent.get(task.parentId);
+      if (siblings) siblings.push(task);
+      else byParent.set(task.parentId, [task]);
+    }
+    for (const siblings of byParent.values())
+      siblings.sort((a, b) => compareOrderKeys(a.order, b.order));
+    cached = { length: tasks.length, byParent };
+    childrenCache.set(tasks, cached);
+  }
+  return cached.byParent;
+}
+
 export function subtasksOf(workspace: WorkspaceFile, parentId: Id): Task[] {
-  return workspace.entities.tasks
-    .filter((task) => isLive(task) && task.parentId === parentId)
-    .sort((a, b) => compareOrderKeys(a.order, b.order));
+  return [...(childrenByParent(workspace.entities.tasks).get(parentId) ?? [])];
 }
 
 export function subtaskProgress(
