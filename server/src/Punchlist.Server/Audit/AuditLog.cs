@@ -114,10 +114,27 @@ public sealed class AuditLog : BackgroundService
 
     public long Dropped => Interlocked.Read(ref dropped);
 
+    private readonly Lock idGate = new();
+    private string? lastId;
+
+    /// <summary>
+    /// Ids in the order things happened: entries sort by time then id, and a request made just after
+    /// another (the same millisecond) must not sort before it.
+    /// </summary>
+    private string NextId()
+    {
+        lock (idGate) return lastId = Ids.NewUlidAfter(lastId, time);
+    }
+
+    /// <summary>When a request began, and the ids its entries will have (taken then, so they sort in that order).</summary>
+    internal readonly record struct RequestStart(long Timestamp, DateTimeOffset At, string AccessId, string EventId);
+
+    internal RequestStart Begin() => new(Stopwatch.GetTimestamp(), time.GetUtcNow(), NextId(), NextId());
+
     /// <summary>An event that happened outside a request (at startup, on a schedule).</summary>
     public void RecordSystem(string type, string outcome = AuditOutcome.Ok, string? detail = null) => Record(new AuditEntry
     {
-        Id = Ids.NewUlid(time),
+        Id = NextId(),
         Time = time.GetUtcNow(),
         Kind = AuditKind.Event,
         Type = type,
@@ -215,7 +232,7 @@ public sealed class AuditLog : BackgroundService
     }
 
     /// <summary>The entries one request makes: an access entry, and an event when the endpoint is one.</summary>
-    internal async Task RecordRequestAsync(HttpContext context, int status, long startedAt)
+    internal async Task RecordRequestAsync(HttpContext context, int status, RequestStart started)
     {
         var note = context.Features.Get<AuditNote>() ?? new AuditNote();
         var endpoint = context.GetEndpoint();
@@ -225,11 +242,10 @@ public sealed class AuditLog : BackgroundService
         if (route?.RawText?.Contains("{*path", StringComparison.Ordinal) == true) route = null;
         var path = context.Request.Path.Value ?? "";
         var user = context.User;
-        var now = time.GetUtcNow();
         var common = new AuditEntry
         {
             Id = "",
-            Time = now,
+            Time = started.At,
             Kind = AuditKind.Access,
             Type = "request",
             Outcome = AuditOutcome.Of(status),
@@ -244,7 +260,7 @@ public sealed class AuditLog : BackgroundService
             Method = context.Request.Method,
             Route = route is not null ? Template(route) : path,
             Status = status,
-            DurationMs = (int)Math.Min(int.MaxValue, Stopwatch.GetElapsedTime(startedAt).TotalMilliseconds),
+            DurationMs = (int)Math.Min(int.MaxValue, Stopwatch.GetElapsedTime(started.Timestamp).TotalMilliseconds),
             RequestId = context.TraceIdentifier,
         };
 
@@ -253,7 +269,7 @@ public sealed class AuditLog : BackgroundService
             ? path.StartsWith("/api/", StringComparison.Ordinal) || path.StartsWith("/auth/", StringComparison.Ordinal)
                 || path.StartsWith("/signin-", StringComparison.Ordinal) || path.StartsWith("/signout-", StringComparison.Ordinal)
             : route.RawText != "/healthz";
-        if (isApp) Record(common with { Id = Ids.NewUlid(time) });
+        if (isApp) Record(common with { Id = started.AccessId });
 
         var type = note.Type ?? metadata?.Type;
         if (type is null) return;
@@ -272,7 +288,7 @@ public sealed class AuditLog : BackgroundService
         }
         Record(common with
         {
-            Id = Ids.NewUlid(time),
+            Id = started.EventId,
             Kind = AuditKind.Event,
             Type = type,
             Outcome = note.Outcome ?? common.Outcome,
@@ -298,7 +314,7 @@ public sealed class AuditLog : BackgroundService
         var audit = app.ApplicationServices.GetRequiredService<AuditLog>();
         app.Use(async (context, next) =>
         {
-            var started = Stopwatch.GetTimestamp();
+            var started = audit.Begin();
             context.Audit();
             var status = 500;
             try

@@ -327,4 +327,20 @@ public sealed class IdsTests
         Assert.True(string.CompareOrdinal(early, late) < 0);
         Assert.NotEqual(Ids.NewUlid(), Ids.NewUlid());
     }
+
+    [Fact]
+    public void Ulids_made_after_another_sort_after_it_even_in_the_same_millisecond()
+    {
+        var clock = new TestClock(new DateTimeOffset(2026, 10, 21, 12, 0, 0, TimeSpan.Zero));
+        string? last = null;
+        for (var each = 0; each < 1000; each++)
+        {
+            var next = Ids.NewUlidAfter(last, clock);
+            Assert.True(last is null || string.CompareOrdinal(last, next) < 0, $"{next} after {last}");
+            last = next;
+        }
+        // The next one up carries like any number.
+        var time = Ids.NewUlid(clock)[..10];
+        Assert.Equal(time + "ZZZZZZZZZZZZZZZ0", Ids.NewUlidAfter(time + "ZZZZZZZZZZZZZZYZ", clock));
+    }
 }

@@ -29,6 +29,28 @@ public static class Ids
         return new string(chars);
     }
 
+    /// <summary>
+    /// A new ULID that sorts after <paramref name="after"/>: the next one up when the clock has not
+    /// moved past it (same millisecond, or a clock that stepped back).
+    /// </summary>
+    public static string NewUlidAfter(string? after, TimeProvider? time = null)
+    {
+        var id = NewUlid(time);
+        if (after is null || string.CompareOrdinal(id, after) > 0) return id;
+        var chars = after.ToCharArray();
+        for (var index = chars.Length - 1; index >= 0; index--)
+        {
+            var digit = Alphabet.IndexOf(chars[index], StringComparison.Ordinal);
+            if (digit < Alphabet.Length - 1)
+            {
+                chars[index] = Alphabet[digit + 1];
+                return new string(chars);
+            }
+            chars[index] = Alphabet[0];
+        }
+        throw new OverflowException("no ULID sorts after the last one");
+    }
+
     /// <summary>A random password of <paramref name="length"/> characters with no look-alikes (no 0/O, 1/I/L).</summary>
     public static string NewPassword(int length = 20)
     {
