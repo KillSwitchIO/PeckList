@@ -27,7 +27,14 @@ their start; the due date is the deadline.
 
 - **Add**: the field at the top of a list, or press ++q++ anywhere. Type it all in one line:
   see [quick add](quick-add-and-shortcuts.md).
-- **Open**: click a task for its details panel; it can be widened or made full screen.
+- **Open**: click a task for its details panel; it can be widened or made full screen. The
+  expand button at the end of the add field opens a new task straight in the full view, filled
+  with what you typed. At the bottom: when the task was made and last changed. On a phone,
+  comments and those dates wait behind a bar at the bottom that slides a panel up.
+- **Notes**: always ready to type in, with no edit mode. Checklist boxes tick with one tap, without
+  starting to edit. The small button in their bottom right opens the full editor, with a
+  formatting toolbar.
+- **Assigned**: a task you add to a shared list starts assigned to you.
 - **Complete**: the circle on the left, or ++space++. **Won't do** is in the task's menu.
 - **Move**: drag it up or down; drag it right to make it a subtask, left to undo that; drop it on
   the middle of another task to nest it there; drop it on a list in the sidebar to move it. Or use

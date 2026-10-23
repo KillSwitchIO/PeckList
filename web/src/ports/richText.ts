@@ -14,6 +14,11 @@ export interface RichTextEditorProps {
   placeholder?: string;
   /** Show the text without letting it change. */
   readOnly?: boolean;
+  /**
+   * The full editor (a dialog): formatting toolbar and room to write. Otherwise the text sits
+   * inline, always editable, with no toolbar and no change of size on focus.
+   */
+  expanded?: boolean;
 }
 
 /**

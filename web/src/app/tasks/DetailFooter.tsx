@@ -14,7 +14,6 @@ import {
 } from '@mui/material';
 import { useState } from 'react';
 import { getEntity } from '../../core/collections.ts';
-import { localDateTimeOf, localTimeZone } from '../../core/dates.ts';
 import { visibleLists } from '../../core/lists.ts';
 import { moveTask, updateTask } from '../../core/tasks.ts';
 import type { List, Priority, Task } from '../../core/types.ts';
@@ -50,36 +49,13 @@ export function DetailFooter({ task }: { task: Task }) {
         flexShrink: 0,
       }}
     >
-      {/* List and tags take the room; the created date and priority sit on the right. */}
+      {/* List and tags take the room; priority sits on the right. */}
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, minWidth: 0, flexGrow: 1, mr: 2 }}>
         <ListPicker task={task} />
         <TaskTagPills task={task} />
       </Box>
-      <CreatedDate task={task} />
       <PriorityPicker task={task} />
     </Box>
-  );
-}
-
-/** When the task was made, short: `YYYYMMDD HH:MM` in local time. */
-function CreatedDate({ task }: { task: Task }) {
-  const local = localDateTimeOf(task.createdAt, localTimeZone());
-  const short = `${local.slice(0, 10).replaceAll('-', '')} ${local.slice(11, 16)}`;
-  return (
-    <Tooltip title={t('task.created')}>
-      <Box
-        component="span"
-        aria-label={t('task.createdOn', { date: short })}
-        sx={{
-          typography: 'caption',
-          color: 'text.disabled',
-          whiteSpace: 'nowrap',
-          fontVariantNumeric: 'tabular-nums',
-        }}
-      >
-        {short}
-      </Box>
-    </Tooltip>
   );
 }
 

@@ -205,6 +205,8 @@ export function createFromQuickAdd(
   if (parsed.due) {
     input.due = { at: asValue(parsed.due), allDay: parsed.due.time === null, timeZone };
   }
+  // People named with @ take the place of the default assignee.
+  if (parsed.assignees.length > 0) delete input.assignees;
   const made = createTask(ctx, next, input);
   next = made.workspace;
   for (const principal of parsed.assignees) {

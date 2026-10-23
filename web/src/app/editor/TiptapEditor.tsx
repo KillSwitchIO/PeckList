@@ -1,6 +1,7 @@
 // The RichTextEditor adapter for TipTap: formats as you type (`**bold**`, `- list`, `# heading`,
-// `[ ] ` checklist) and hands back plain markdown. While the box has focus it grows and shows a
-// formatting toolbar; "/" opens a menu of blocks for anyone who doesn't know markdown.
+// `[ ] ` checklist) and hands back plain markdown; "/" opens a menu of blocks for anyone who
+// doesn't know markdown. Inline it is always editable and never changes size (no edit mode, PL-016);
+// checklist boxes tick without taking focus. Expanded (the full editor) it shows a toolbar.
 
 import {
   Box,
@@ -56,9 +57,9 @@ const SLASH_ICONS: Record<SlashCommandId, ReactNode> = {
 };
 const slashName = (id: SlashCommandId) => t(`editor.slash.${id}`);
 
-/** Height of the box at rest, and while typing (it grows to give the text room). */
-const REST_HEIGHT = 96;
-const OPEN_HEIGHT = 'min(55vh, 520px)';
+/** Height of the inline notes, and of the full editor. */
+const INLINE_HEIGHT = 72;
+const EXPANDED_HEIGHT = '60vh';
 
 interface SlashMenu {
   items: SlashCommand[];
@@ -79,10 +80,10 @@ export default function TiptapEditor({
   label,
   placeholder,
   readOnly = false,
+  expanded = false,
 }: RichTextEditorProps) {
   const theme = useTheme();
-  // Focus anywhere in the box (the text, the toolbar, the link field) opens it up.
-  const [open, setOpen] = useState(false);
+  const box = useRef<HTMLDivElement | null>(null);
   const [slash, setSlash] = useState<SlashMenu | null>(null);
   const slashRef = useRef<SlashMenu | null>(null);
   const [bridge] = useState(createSlashMenuBridge);
@@ -154,8 +155,10 @@ export default function TiptapEditor({
         return false;
       },
     },
-    onUpdate: () => {
+    onUpdate: ({ editor }) => {
       dirty.current = true;
+      // A box ticked without focus (no blur will follow): keep it now.
+      if (!editor.isFocused) commit(editor);
     },
     onBlur: ({ editor }) => commit(editor),
   });
@@ -194,38 +197,66 @@ export default function TiptapEditor({
     };
   }, [editor]);
 
+  // Checklist boxes tick without the editor taking focus: no caret, no keyboard on a phone, and
+  // the text stays where it is. TipTap's own handler would focus the editor, so this runs first.
+  useEffect(() => {
+    const element = box.current;
+    if (!editor || !element) return;
+    const isCheckbox = (target: EventTarget | null): target is HTMLInputElement =>
+      target instanceof HTMLInputElement &&
+      target.type === 'checkbox' &&
+      target.closest('ul[data-type=taskList] > li') !== null;
+    const onMouseDown = (event: MouseEvent) => {
+      if (isCheckbox(event.target)) event.preventDefault();
+    };
+    // The box toggles itself; the change stops here, before TipTap's own listener (which focuses).
+    const onChange = (event: Event) => {
+      if (!isCheckbox(event.target) || !editor.isEditable) return;
+      event.stopPropagation();
+      const checked = event.target.checked;
+      const { view } = editor;
+      const $at = view.state.doc.resolve(view.posAtDOM(event.target, 0));
+      for (let depth = $at.depth; depth > 0; depth--) {
+        const node = $at.node(depth);
+        if (node.type.name !== 'taskItem') continue;
+        view.dispatch(
+          view.state.tr.setNodeMarkup($at.before(depth), undefined, { ...node.attrs, checked }),
+        );
+        return;
+      }
+    };
+    element.addEventListener('mousedown', onMouseDown, true);
+    element.addEventListener('change', onChange, true);
+    return () => {
+      element.removeEventListener('mousedown', onMouseDown, true);
+      element.removeEventListener('change', onChange, true);
+    };
+  }, [editor]);
+
   return (
     <Box
-      onFocus={() => setOpen(true)}
-      onBlur={(event) => {
-        if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setOpen(false);
-      }}
+      ref={box}
       sx={{
         position: 'relative',
         display: 'flex',
         flexDirection: 'column',
         borderRadius: 1,
-        border: 1,
-        borderColor: 'divider',
-        px: 1.5,
-        py: 1,
-        minHeight: open ? OPEN_HEIGHT : REST_HEIGHT,
+        px: expanded ? 0 : 1,
+        py: expanded ? 0 : 0.75,
+        mx: expanded ? 0 : -1,
+        minHeight: expanded ? EXPANDED_HEIGHT : INLINE_HEIGHT,
         cursor: 'text',
-        transition: theme.transitions.create(['border-color', 'min-height'], {
+        transition: theme.transitions.create('background-color', {
           duration: theme.transitions.duration.shorter,
         }),
         '& > .content': { flexGrow: 1, display: 'flex', flexDirection: 'column' },
         '& > .content > div': { flexGrow: 1, display: 'flex', flexDirection: 'column' },
-        '&:hover': { borderColor: 'text.secondary' },
-        '&:focus-within': {
-          borderColor: 'primary.main',
-          boxShadow: `inset 0 0 0 1px ${theme.palette.primary.main}`,
-        },
+        ...(expanded || readOnly ? {} : { '&:hover': { bgcolor: 'action.hover' } }),
         '& .tiptap': {
           ...theme.typography.body2,
           outline: 'none',
           flexGrow: 1,
-          minHeight: 78,
+          minHeight: expanded ? 0 : INLINE_HEIGHT - 12,
           wordBreak: 'break-word',
           // First-of-type (not first-child, which is unsafe for server rendering); margins collapse,
           // so clearing the top of later blocks of a type changes nothing.
@@ -321,7 +352,7 @@ export default function TiptapEditor({
         }
       }}
     >
-      {editor && open && <FormatToolbar editor={editor} />}
+      {editor && expanded && !readOnly && <FormatToolbar editor={editor} />}
       <EditorContent editor={editor} className="content" />
       {slash && (
         <Popper

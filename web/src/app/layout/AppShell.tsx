@@ -45,6 +45,7 @@ import { SidebarLists } from '../lists/SidebarLists.tsx';
 import { SidebarTags } from '../tags/SidebarTags.tsx';
 import { useTaskSelection } from '../tasks/selection.ts';
 import { TaskDetail } from '../tasks/TaskDetail.tsx';
+import { settleDraft } from '../tasks/drafts.ts';
 import { UndoToast } from '../tasks/UndoToast.tsx';
 import { ProfileButton } from './ProfileButton.tsx';
 import { APP_VERSION_LABEL, CHANGELOG_URL } from './appVersion.ts';
@@ -210,6 +211,20 @@ function Sidebar({ onNavigate }: { onNavigate: (path: string) => void }) {
   );
 }
 
+/**
+ * An Escape something inside already used (the notes leave editing on the first one): the panel
+ * or dialog around it stays open until the next one, as on desktop.
+ */
+function handledInside(event: unknown, reason: string): boolean {
+  return (
+    reason === 'escapeKeyDown' &&
+    typeof event === 'object' &&
+    event !== null &&
+    'defaultPrevented' in event &&
+    event.defaultPrevented === true
+  );
+}
+
 /** Pages without tasks to add, where the phone's + button stays away. */
 const NO_ADD_BUTTON = ['/settings', '/admin', '/friends', '/f/', '/search'];
 
@@ -228,11 +243,11 @@ export function AppShell() {
   const drawerWidth = sidebarShown ? DRAWER_WIDTH : 0;
   const navigate = useNavigate();
   const { pathname } = useLocation();
-  const { selectedId, close } = useTaskSelection();
+  const { selectedId, close, full, leaveFull } = useTaskSelection();
   const [headerSlot, setHeaderSlot] = useState<HTMLElement | null>(null);
   // Details in the large full-screen view instead of the side panel (resets with the task).
   const [expandedId, setExpandedId] = useState<string | null>(null);
-  const expanded = selectedId !== null && expandedId === selectedId;
+  const expanded = selectedId !== null && (expandedId === selectedId || full);
   const aside = useRef<HTMLElement | null>(null);
   const [detailWidth, setDetailWidth] = useDetailWidth(
     DETAIL_MIN,
@@ -276,6 +291,14 @@ export function AppShell() {
     apply((ctx, ws) => flattenSections(ctx, ws, (listId) => canEditList(ws, ctx.userId, listId)));
   }, [hasSections, apply]);
 
+  // A blank task from the quick add bar's expand button goes again once it is closed still empty.
+  const shownTask = useRef(selectedId);
+  useEffect(() => {
+    const previous = shownTask.current;
+    shownTask.current = selectedId;
+    if (previous && previous !== selectedId) apply((ctx, ws) => settleDraft(ctx, ws, previous));
+  }, [selectedId, apply]);
+
   // Keyboard shortcuts everywhere ("?" lists them).
   const shortcuts = useShortcuts();
   // Pages start over when the time zone changes, so every date is worked out again in it.
@@ -292,7 +315,14 @@ export function AppShell() {
       taskId={selectedId}
       onClose={close}
       expanded={expanded}
-      {...(isPhone ? {} : { onToggleExpanded: () => setExpandedId(expanded ? null : selectedId) })}
+      {...(isPhone
+        ? {}
+        : {
+            onToggleExpanded: () => {
+              if (expanded && full) leaveFull();
+              setExpandedId(expanded ? null : selectedId);
+            },
+          })}
     />
   ) : null;
 
@@ -403,7 +433,11 @@ export function AppShell() {
 
         <Dialog
           open={detail !== null && expanded}
-          onClose={() => setExpandedId(null)}
+          onClose={(event, reason) => {
+            if (handledInside(event, reason)) return;
+            if (full) leaveFull();
+            setExpandedId(null);
+          }}
           fullWidth
           maxWidth="md"
           slotProps={{ paper: { sx: { height: '88dvh', backgroundImage: 'none' } } }}
@@ -415,7 +449,9 @@ export function AppShell() {
           <Drawer
             anchor={isPhone ? 'bottom' : 'right'}
             open={detail !== null && !expanded}
-            onClose={close}
+            onClose={(event, reason) => {
+              if (!handledInside(event, reason)) close();
+            }}
             slotProps={{
               paper: {
                 sx: isPhone

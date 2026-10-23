@@ -1,5 +1,6 @@
+import OpenInFullRounded from '@mui/icons-material/OpenInFullRounded';
 import AddRounded from '@mui/icons-material/AddRounded';
-import { Box, Chip, InputBase } from '@mui/material';
+import { Box, Chip, IconButton, InputBase, Tooltip } from '@mui/material';
 import { useState, type ReactElement } from 'react';
 import { localTimeZone } from '../../core/dates.ts';
 import {
@@ -10,7 +11,7 @@ import {
 } from '../../core/quickAdd.ts';
 import { assigneeCandidates } from '../../core/sharing.ts';
 import { createTask, type TaskInput } from '../../core/tasks.ts';
-import type { Task } from '../../core/types.ts';
+import type { Task, WorkspaceFile } from '../../core/types.ts';
 import type { DateParser, ParsedMoment } from '../../ports/dateParser.ts';
 import { formatSpan, formatWhen } from '../format.ts';
 import { useToday } from '../hooks/useToday.ts';
@@ -18,6 +19,9 @@ import { t } from '../i18n/i18n.ts';
 import { AssignedIcon, CalendarIcon, CloseIcon, DueIcon, FlagIcon } from '../icons/icons.tsx';
 import { listName } from '../lists/listName.ts';
 import { useApply, useStoreState, useWorkspace } from '../store/hooks.ts';
+import { newTaskAssignees } from './newTaskAssignees.ts';
+import { useTaskSelection } from './selection.ts';
+import { markDraft } from './drafts.ts';
 import { useSyncState } from '../sync/syncContext.ts';
 
 // The date parser loads on first use, keeping it out of the app's first load.
@@ -103,16 +107,47 @@ export function AddTaskInput({
       : null;
   const quick = parsed !== null && parsed.tokens.length > 0 && parsed.title !== '';
 
-  const submit = () => {
+  /** Make the task from what is typed; returns its id. `blank` allows an empty title. */
+  const make = (blank = false): string | null => {
     const trimmed = title.trim();
-    if (!trimmed) return;
+    if (!trimmed && !blank) return null;
+    let id: string | null = null;
+    const accounts = phase === 'ready' && authMode === 'local';
+    const withAssignee = (ws: WorkspaceFile, listId: string) => ({
+      ...defaults,
+      assignees: defaults.assignees ?? newTaskAssignees(ws, listId, me, accounts),
+    });
     if (quick) {
-      apply((ctx, ws) => createFromQuickAdd(ctx, ws, parsed, defaults, localTimeZone()).workspace);
+      apply((ctx, ws) => {
+        const made = createFromQuickAdd(
+          ctx,
+          ws,
+          parsed,
+          withAssignee(ws, parsed.listId ?? defaults.listId),
+          localTimeZone(),
+        );
+        id = made.id;
+        return made.workspace;
+      });
     } else {
-      apply((ctx, ws) => createTask(ctx, ws, { ...defaults, title: trimmed }).workspace);
+      apply((ctx, ws) => {
+        const made = createTask(ctx, ws, { ...withAssignee(ws, defaults.listId), title: trimmed });
+        id = made.task.id;
+        return made.workspace;
+      });
     }
     setTitle('');
     setIgnore(new Set());
+    return id;
+  };
+  const submit = () => void make();
+  const { open } = useTaskSelection();
+  // The full task form: what is typed so far becomes the task, opened full screen.
+  const expand = () => {
+    const id = make(true);
+    if (!id) return;
+    if (title.trim() === '') markDraft(id);
+    open(id, { full: true });
   };
 
   const names = {
@@ -194,6 +229,16 @@ export function AddTaskInput({
             })}
           </Box>
         )}
+        <Tooltip title={t('quickAdd.expand')}>
+          <IconButton
+            size="small"
+            aria-label={t('quickAdd.expand')}
+            onClick={expand}
+            sx={{ color: 'text.secondary', flexShrink: 0, my: -0.5 }}
+          >
+            <OpenInFullRounded sx={{ fontSize: 16 }} />
+          </IconButton>
+        </Tooltip>
       </Box>
     </Box>
   );

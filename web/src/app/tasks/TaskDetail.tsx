@@ -11,6 +11,7 @@ import {
   Toolbar,
   Tooltip,
   Typography,
+  useMediaQuery,
   useTheme,
 } from '@mui/material';
 import { useState } from 'react';
@@ -27,6 +28,7 @@ import { completionInstant } from './completion.ts';
 import { DetailFooter } from './DetailFooter.tsx';
 import { ParentTrail, SubtaskEditor } from './Subtasks.tsx';
 import { Comments } from './Comments.tsx';
+import { PhoneTaskMore, TaskDates } from './TaskInfo.tsx';
 import { TaskMenu, type TaskMenuAnchor } from './TaskMenu.tsx';
 import { fromDateValue, toDateValue } from '../dates/dateValue.ts';
 import { useToday } from '../hooks/useToday.ts';
@@ -94,6 +96,7 @@ export function TaskDetail({
   const apply = useApply();
   const today = useToday();
   const theme = useTheme();
+  const phone = useMediaQuery(theme.breakpoints.down('sm'), { noSsr: true });
   const task = getEntity(workspace, 'tasks', taskId);
   const [menu, setMenu] = useState<TaskMenuAnchor | null>(null);
   const titleLongPress = useLongPress((position) => setMenu({ position }));
@@ -278,6 +281,7 @@ export function TaskDetail({
           {(!readOnly || task.notes) && (
             <NotesEditor
               key={task.id}
+              title={task.title}
               label={t('task.notes')}
               placeholder={t('task.notesPlaceholder')}
               value={task.notes}
@@ -286,8 +290,10 @@ export function TaskDetail({
             />
           )}
           <SubtaskEditor task={task} />
-          <Comments task={task} />
+          {!phone && <Comments task={task} />}
+          {!phone && <TaskDates task={task} />}
         </Stack>
+        {phone && <PhoneTaskMore task={task} />}
         <DetailFooter task={task} />
       </Box>
     </TaskReadOnly>

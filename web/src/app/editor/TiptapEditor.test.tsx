@@ -25,17 +25,27 @@ describe('TipTap notes extras', () => {
     expect(onCommit).toHaveBeenCalledExactlyOnceWith('- [ ] paint');
   });
 
-  it('shows the formatting toolbar while the box has focus', async () => {
-    renderThemed(
-      <>
-        <TiptapEditor label="Notes" value="" onCommit={() => undefined} />
-        <button type="button">Elsewhere</button>
-      </>,
+  it('has no edit mode inline: no toolbar on focus; the full editor has one', async () => {
+    const { unmount } = renderThemed(
+      <TiptapEditor label="Notes" value="" onCommit={() => undefined} />,
     );
-    expect(screen.queryByRole('toolbar', { name: 'Formatting' })).toBeNull();
     await userEvent.click(await screen.findByRole('textbox', { name: 'Notes' }));
-    expect(screen.getByRole('toolbar', { name: 'Formatting' })).toBeInTheDocument();
-    await userEvent.click(screen.getByRole('button', { name: 'Elsewhere' }));
     expect(screen.queryByRole('toolbar', { name: 'Formatting' })).toBeNull();
+    unmount();
+    renderThemed(<TiptapEditor label="Notes" value="" onCommit={() => undefined} expanded />);
+    await screen.findByRole('textbox', { name: 'Notes' });
+    expect(screen.getByRole('toolbar', { name: 'Formatting' })).toBeInTheDocument();
+  });
+
+  it('ticks a checklist box without taking focus, and keeps it at once', async () => {
+    const onCommit = vi.fn();
+    renderThemed(
+      <TiptapEditor label="Notes" value={'- [ ] milk\n- [ ] eggs'} onCommit={onCommit} />,
+    );
+    const editor = await screen.findByRole('textbox', { name: 'Notes' });
+    const boxes = await screen.findAllByRole('checkbox');
+    await userEvent.click(boxes[1]!);
+    expect(onCommit).toHaveBeenCalledExactlyOnceWith('- [ ] milk\n- [x] eggs');
+    expect(editor).not.toHaveFocus();
   });
 });

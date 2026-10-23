@@ -95,6 +95,79 @@ describe('task details', () => {
     );
   });
 
+  it('on a phone keeps comments and dates in a panel that slides up', async () => {
+    mockViewport('phone');
+    await renderApp('/inbox');
+    await addTasks('Call the plumber');
+    await userEvent.click(screen.getByRole('button', { name: 'Open Call the plumber' }));
+    expect(screen.queryByTestId('task-dates')).toBeNull();
+    await userEvent.click(await screen.findByRole('button', { name: 'Comments and dates' }));
+    const panel = await screen.findByRole('dialog', { name: 'Comments and dates' });
+    expect(within(panel).getByTestId('task-dates')).toHaveTextContent(/^Created Today/);
+  });
+
+  it('expands the quick add bar into the full task form, filled with what was typed', async () => {
+    const store = testStore();
+    await renderApp('/inbox', store);
+    const bar = screen.getByRole('textbox', { name: 'Add task to Mess Drawer' });
+    await userEvent.type(bar, 'Buy paint !high');
+    await userEvent.click(screen.getByRole('button', { name: 'Expand into the task form' }));
+    const form = await screen.findByRole('dialog');
+    expect(within(form).getByLabelText('Title')).toHaveValue('Buy paint');
+    expect(within(form).getByRole('button', { name: 'Priority: High' })).toBeInTheDocument();
+    expect(bar).toHaveValue('');
+    await userEvent.keyboard('{Escape}');
+    await userEvent.keyboard('{Escape}');
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+
+    // Opened empty and closed empty: no "Untitled" task is left, not even in the trash.
+    await userEvent.click(screen.getByRole('button', { name: 'Expand into the task form' }));
+    await screen.findByRole('dialog');
+    const count = () =>
+      store.getState().workspace!.entities.tasks.filter((task) => task.title === '').length;
+    expect(count()).toBe(1);
+    await userEvent.keyboard('{Escape}');
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    await userEvent.keyboard('{Escape}');
+    await waitFor(() => expect(screen.queryByRole('region', { name: 'Task details' })).toBeNull());
+    await waitFor(() =>
+      expect(
+        store
+          .getState()
+          .workspace!.entities.tasks.filter((task) => task.title === '' && task.deletedAt === null),
+      ).toHaveLength(0),
+    );
+    expect(screen.queryByRole('button', { name: /^Open $/ })).toBeNull();
+  });
+
+  it('on a tablet the first Escape leaves the notes and the second closes the details', async () => {
+    mockViewport('tablet');
+    await renderApp('/inbox');
+    await addTasks('Plan the trip');
+    await userEvent.click(screen.getByRole('button', { name: 'Open Plan the trip' }));
+    const details = await screen.findByRole('region', { name: 'Task details' });
+    await userEvent.click(await within(details).findByRole('textbox', { name: 'Notes' }));
+    await userEvent.keyboard('{Escape}');
+    expect(screen.getByRole('region', { name: 'Task details' })).toBeInTheDocument();
+    await userEvent.keyboard('{Escape}');
+    await waitFor(() => expect(screen.queryByRole('region', { name: 'Task details' })).toBeNull());
+  });
+
+  it('opens the notes in the full editor, with the formatting toolbar, and keeps what was typed', async () => {
+    await renderApp('/inbox');
+    await addTasks('Shopping');
+    await userEvent.click(screen.getByRole('button', { name: 'Open Shopping' }));
+    const details = await screen.findByRole('region', { name: 'Task details' });
+    await within(details).findByRole('textbox', { name: 'Notes' });
+    await userEvent.click(within(details).getByRole('button', { name: 'Full editor' }));
+    const full = await screen.findByRole('dialog', { name: 'Shopping' });
+    expect(within(full).getByRole('toolbar', { name: 'Formatting' })).toBeInTheDocument();
+    await userEvent.type(await within(full).findByRole('textbox', { name: 'Notes' }), 'Milk');
+    await userEvent.click(within(full).getByRole('button', { name: 'Done' }));
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    expect(within(details).getByRole('textbox', { name: 'Notes' })).toHaveTextContent('Milk');
+  });
+
   it('resizes the details panel and remembers the width', async () => {
     await renderApp('/inbox');
     await addTasks('Mow');
@@ -169,7 +242,10 @@ describe('task details', () => {
     await addTasks('Mow');
     await userEvent.click(screen.getByRole('button', { name: 'Open Mow' }));
     const details = await screen.findByRole('region', { name: 'Task details' });
-    expect(within(details).getByLabelText(/^Created \d{8} \d{2}:\d{2}$/)).toBeInTheDocument();
+    // Made and changed just now: one date, formatted like every other date.
+    expect(within(details).getByTestId('task-dates')).toHaveTextContent(
+      /^Created Today \d{1,2}:\d{2}/,
+    );
     fireEvent.contextMenu(within(details).getByRole('checkbox', { name: 'Complete Mow' }));
     expect(await screen.findByRole('menuitem', { name: "Won't do" })).toBeInTheDocument();
   });

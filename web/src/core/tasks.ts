@@ -29,6 +29,8 @@ export interface TaskInput {
   title: string;
   listId: Id;
   parentId?: Id | null;
+  /** `user:<id>` / `group:<id>` principals to assign it to from the start. */
+  assignees?: string[];
   notes?: string;
   priority?: Priority;
   schedule?: Schedule | null;
@@ -207,7 +209,10 @@ export function createTask(
     schedule: input.schedule ?? null,
     due: input.due ?? null,
     tags,
-    assignees: {},
+    assignees: (input.assignees ?? []).reduce(
+      (set, principal) => setElement(ctx, set, principal, true),
+      {} as Task['assignees'],
+    ),
     blockedBy: {},
     recurrence: null,
     progress: 0,
@@ -425,4 +430,17 @@ export function rescheduleTo(
     });
   });
   return putEntities(workspace, 'tasks', changed);
+}
+
+/**
+ * When a task (or any entity) last changed: the newest of its field clocks, which start with the
+ * time of the write. Falls back to when it was made.
+ */
+export function lastChangedAt(entity: { createdAt: string; _hlc: Record<string, string> }): string {
+  let latest = entity.createdAt;
+  for (const clock of Object.values(entity._hlc)) {
+    const at = clock.slice(0, 24);
+    if (at > latest) latest = at;
+  }
+  return latest;
 }
