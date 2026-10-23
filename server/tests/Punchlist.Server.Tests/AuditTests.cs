@@ -192,7 +192,7 @@ public sealed class AuditTests(ServerFixture fixture) : IClassFixture<ServerFixt
             };
             await store.AppendAsync([Old(AuditKind.Event, 100), Old(AuditKind.Event, 30), Old(AuditKind.Access, 20), Old(AuditKind.Access, 1)], Token);
             var settings = new ServerSettings { AuditArchive = true, AuditArchiveDir = Path.Combine(dir, "archive") };
-            var retention = new AuditRetention(store, settings, new ManualTime(now), Microsoft.Extensions.Logging.Abstractions.NullLogger<AuditRetention>.Instance);
+            var retention = new AuditRetention(store, new LiveSettings(settings), new ManualTime(now), Microsoft.Extensions.Logging.Abstractions.NullLogger<AuditRetention>.Instance);
 
             Assert.Equal(2, await retention.PruneAsync(Token));
             Assert.Single((await store.QueryAsync(new AuditQuery(), Token)).Entries);

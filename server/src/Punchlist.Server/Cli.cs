@@ -111,7 +111,7 @@ public static class Cli
                     var loaded = SettingsLoader.Load(environment, inContainer);
                     var dump = new DebugDump(loaded.Layers, settings, database, inContainer, TimeProvider.System)
                     {
-                        Snapshots = new Snapshots(backup, settings.SnapshotDir, settings.SnapshotKeep, TimeProvider.System),
+                        Snapshots = new Snapshots(backup, settings.SnapshotDir, () => settings.SnapshotKeep, TimeProvider.System),
                         MadeBy = "cli",
                     };
                     if (args.Length > 1)
@@ -127,7 +127,7 @@ public static class Cli
                 }
                 case "snapshot":
                 {
-                    var snapshots = new Snapshots(backup, settings.SnapshotDir, settings.SnapshotKeep, TimeProvider.System);
+                    var snapshots = new Snapshots(backup, settings.SnapshotDir, () => settings.SnapshotKeep, TimeProvider.System);
                     await output.WriteLineAsync($"Snapshot written to {await snapshots.TakeAsync(ServerApp.Version)}");
                     return 0;
                 }

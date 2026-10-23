@@ -85,7 +85,7 @@ public static class AuditEndpoints
 /// Keeps the log to its retention (spec: events 90 days, requests 14): checks every hour, and with
 /// <c>AUDIT_ARCHIVE</c> writes what it removes to gzipped JSON lines in <c>AUDIT_ARCHIVE_DIR</c> first.
 /// </summary>
-public sealed class AuditRetention(IAuditStore store, ServerSettings settings, TimeProvider time, ILogger<AuditRetention> logger)
+public sealed class AuditRetention(IAuditStore store, LiveSettings live, TimeProvider time, ILogger<AuditRetention> logger)
     : BackgroundService
 {
     private static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web);
@@ -111,6 +111,7 @@ public sealed class AuditRetention(IAuditStore store, ServerSettings settings, T
     public async Task<int> PruneAsync(CancellationToken cancellation = default)
     {
         var removed = 0;
+        var settings = live.Current;
         foreach (var (kind, days) in new[] { (AuditKind.Event, settings.AuditRetentionDays), (AuditKind.Access, settings.AccessLogRetentionDays) })
         {
             var cutoff = time.GetUtcNow().AddDays(-days);
@@ -125,8 +126,8 @@ public sealed class AuditRetention(IAuditStore store, ServerSettings settings, T
     {
         var first = await store.OlderAsync(kind, cutoff, 1, cancellation);
         if (first.Count == 0) return 0;
-        Directory.CreateDirectory(settings.AuditArchiveDir);
-        var path = Path.Combine(settings.AuditArchiveDir,
+        Directory.CreateDirectory(live.Current.AuditArchiveDir);
+        var path = Path.Combine(live.Current.AuditArchiveDir,
             $"audit-{kind}-{time.GetUtcNow().ToString("yyyyMMdd-HHmmss", CultureInfo.InvariantCulture)}.jsonl.gz");
         var total = 0;
         await using (var file = File.Create(path))

@@ -34,6 +34,7 @@ public static partial class ServerApp
         var settings = loaded.Settings;
         builder.Services.AddSingleton(loaded);
         builder.Services.AddSingleton(settings);
+        builder.Services.AddSingleton(new LiveSettings(settings));
 
         // One provider for every log output (spec: Logging); its levels decide what is written.
         var logging = new LogPipeline(settings.Logging);

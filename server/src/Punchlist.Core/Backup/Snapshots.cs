@@ -7,7 +7,7 @@ namespace Punchlist.Core.Backup;
 /// <c>punchlist-YYYYMMDD-HHMMSS.json</c> in one folder, the newest <c>keep</c> kept. A file appears
 /// only once complete (written aside, then renamed), so a crash never leaves half a backup.
 /// </summary>
-public sealed class Snapshots(BackupService backup, string folder, int keep, TimeProvider time)
+public sealed class Snapshots(BackupService backup, string folder, Func<int> keep, TimeProvider time)
 {
     private const string Prefix = "punchlist-";
     private const string Stamp = "yyyyMMdd-HHmmss";
@@ -52,7 +52,7 @@ public sealed class Snapshots(BackupService backup, string folder, int keep, Tim
 
     private void Prune()
     {
-        foreach (var (path, _) in List().Skip(Math.Max(keep, 1))) File.Delete(path);
+        foreach (var (path, _) in List().Skip(Math.Max(keep(), 1))) File.Delete(path);
         // Leftovers of a snapshot interrupted mid-write.
         foreach (var partial in Directory.GetFiles(Folder, $"{Prefix}*.json.partial")) File.Delete(partial);
     }

@@ -24,22 +24,24 @@ public abstract record SignUpResult
 /// (admins add people). Identity providers keep their own switch (<c>OIDC_&lt;NAME&gt;_AUTO_CREATE</c>);
 /// an invite link also lets a provider's new sign-in in when that switch is off.
 /// </summary>
-public sealed class SelfSignUp(AccountService accounts, SignupInvites invites, ServerSettings settings)
+public sealed class SelfSignUp(AccountService accounts, SignupInvites invites, LiveSettings live)
 {
-    public Registration Policy => settings.Registration;
+    private ServerSettings Settings => live.Current;
+
+    public Registration Policy => Settings.Registration;
 
     /// <summary>Whether invite links work at all: not while sign-up is closed.</summary>
-    public bool InvitesWork => settings.AuthMode == AuthMode.Local && settings.Registration != Registration.Closed;
+    public bool InvitesWork => Settings.AuthMode == AuthMode.Local && Settings.Registration != Registration.Closed;
 
     /// <summary>Whether this server offers a password sign-up form: open, or with an invite.</summary>
-    public bool PasswordSignUp => InvitesWork && !settings.LocalLoginHidden;
+    public bool PasswordSignUp => InvitesWork && !Settings.LocalLoginHidden;
 
     public async Task<SignUpResult> SignUpAsync(string username, string password, string? invite, CancellationToken cancellation = default)
     {
         if (!InvitesWork) return SignUpResult.Closed;
-        if (settings.LocalLoginHidden) return SignUpResult.PasswordsHidden;
+        if (Settings.LocalLoginHidden) return SignUpResult.PasswordsHidden;
         var hasInvite = !string.IsNullOrWhiteSpace(invite);
-        if (!hasInvite && settings.Registration != Registration.Open) return SignUpResult.InviteNeeded;
+        if (!hasInvite && Settings.Registration != Registration.Open) return SignUpResult.InviteNeeded;
         username = username.Trim().ToLowerInvariant();
         if (!AccountService.IsValidUsername(username)) return SignUpResult.InvalidUsername;
         if (password.Length < AccountService.MinPasswordLength) return SignUpResult.TooShort;

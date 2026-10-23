@@ -27,12 +27,12 @@ public sealed class AccountRemoval(
     IServerGroupStore serverGroups,
     ServerClock clock,
     AuditLog audit,
-    ServerSettings settings,
+    LiveSettings live,
     TimeProvider time,
     ILogger<AccountRemoval> logger) : BackgroundService
 {
     /// <summary>When a deleted account goes for good.</summary>
-    public DateTimeOffset RemovedAt(Account account) => account.DeletedAt!.Value.AddDays(settings.AccountDeleteGraceDays);
+    public DateTimeOffset RemovedAt(Account account) => account.DeletedAt!.Value.AddDays(live.Current.AccountDeleteGraceDays);
 
     protected override async Task ExecuteAsync(CancellationToken stopping)
     {

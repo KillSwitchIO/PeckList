@@ -12,34 +12,40 @@ public static class Backups
         services.AddSingleton<UserBackups>();
         services.AddSingleton<PendingRestore>();
         services.AddSingleton<Core.Sync.ServerEpoch>();
-        services.AddSingleton(provider => new Snapshots(
-            provider.GetRequiredService<BackupService>(), settings.SnapshotDir, settings.SnapshotKeep, provider.GetRequiredService<TimeProvider>()));
-        if (settings.SnapshotSchedule != SnapshotSchedule.Off) services.AddHostedService<SnapshotScheduler>();
+        services.AddSingleton(provider =>
+        {
+            var live = provider.GetRequiredService<LiveSettings>();
+            return new Snapshots(provider.GetRequiredService<BackupService>(), settings.SnapshotDir, () => live.Current.SnapshotKeep,
+                provider.GetRequiredService<TimeProvider>());
+        });
+        // Always running: the schedule can change (or be turned off) while the server runs.
+        services.AddHostedService<SnapshotScheduler>();
         return services;
     }
 
     /// <summary>Takes a snapshot whenever the newest one is older than the schedule's period.</summary>
-    private sealed class SnapshotScheduler(Snapshots snapshots, ServerSettings settings, TimeProvider time, ILogger<SnapshotScheduler> logger)
+    private sealed class SnapshotScheduler(Snapshots snapshots, LiveSettings live, TimeProvider time, ILogger<SnapshotScheduler> logger)
         : BackgroundService
     {
         private static readonly TimeSpan CheckEvery = TimeSpan.FromMinutes(5);
 
         protected override async Task ExecuteAsync(CancellationToken stopping)
         {
-            var period = settings.SnapshotSchedule switch
-            {
-                SnapshotSchedule.Hourly => TimeSpan.FromHours(1),
-                SnapshotSchedule.Weekly => TimeSpan.FromDays(7),
-                _ => TimeSpan.FromDays(1),
-            };
             // Let startup (migrations, the first admin) finish first.
             await Task.Delay(TimeSpan.FromSeconds(30), time, stopping).ConfigureAwait(ConfigureAwaitOptions.SuppressThrowing);
             while (!stopping.IsCancellationRequested)
             {
                 try
                 {
+                    TimeSpan? period = live.Current.SnapshotSchedule switch
+                    {
+                        SnapshotSchedule.Off => null,
+                        SnapshotSchedule.Hourly => TimeSpan.FromHours(1),
+                        SnapshotSchedule.Weekly => TimeSpan.FromDays(7),
+                        _ => TimeSpan.FromDays(1),
+                    };
                     var latest = snapshots.Latest();
-                    if (latest is null || time.GetUtcNow() - latest >= period)
+                    if (period is not null && (latest is null || time.GetUtcNow() - latest >= period))
                     {
                         var path = await snapshots.TakeAsync(ServerApp.Version, stopping);
                         logger.LogInformation("Snapshot written to {Path}", path);

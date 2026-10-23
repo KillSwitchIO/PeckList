@@ -35,7 +35,7 @@ public sealed class SelfSignUpTests
 
     private SelfSignUp SignUp(Registration registration, bool localLoginHidden = false, AuthMode mode = AuthMode.Local) =>
         new(new AccountService(accounts, new FakeHasher(), clock), invites,
-            new ServerSettings { Registration = registration, LocalLoginHidden = localLoginHidden, AuthMode = mode });
+            new LiveSettings(new ServerSettings { Registration = registration, LocalLoginHidden = localLoginHidden, AuthMode = mode }));
 
     [Fact]
     public async Task Registration_decides_who_may_sign_up_without_an_invite()

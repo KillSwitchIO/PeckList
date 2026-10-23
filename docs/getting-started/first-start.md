@@ -34,7 +34,8 @@ nothing; **Admin** offers to finish it until you do or dismiss it.
    people an admin adds (`closed`). See [adding people](../guides/users-and-roles.md#adding-people).
 
 Anything the environment or the [settings file](../configuration/config-file.md) already sets shows
-as it is and is skipped. Some choices apply after a restart, which the last step offers.
+as it is and is skipped. The address and a new provider apply after a restart, which the last
+step offers; who can join applies at once.
 
 ## Without logins
 

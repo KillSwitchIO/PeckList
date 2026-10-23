@@ -39,7 +39,8 @@ public static class SettingsEndpoints
             .RequirePermission(Permission.ManageSettings);
 
         admin.MapPut("/settings", async (
-            SettingsChange change, LoadedSettings loaded, Core.Accounts.ISecretStore secrets, LogPipeline logging, HttpContext context,
+            SettingsChange change, LoadedSettings loaded, Core.Accounts.ISecretStore secrets, LogPipeline logging, LiveSettings live,
+            HttpContext context,
             CancellationToken cancellation) =>
         {
             var saved = await SettingsLoader.ReadPageAsync(secrets, cancellation);
@@ -74,8 +75,12 @@ public static class SettingsEndpoints
             }
             await SettingsLoader.SavePageAsync(secrets, values,
                 key => SettingsCatalog.Find(layers, key)?.Kind == SettingKind.Secret, cancellation);
-            // Logging applies at once; the rest at the next restart.
-            if (values.Keys.Any(key => SettingsCatalog.Find(layers, key)?.Live == true)) logging.Apply(next.Logging);
+            // Live settings apply at once; the rest at the next restart.
+            if (values.Keys.Any(key => SettingsCatalog.Find(layers, key)?.Live == true))
+            {
+                live.Apply(next);
+                logging.Apply(next.Logging);
+            }
             return Results.Ok(View(loaded, page));
         }).RequirePermission(Permission.ManageSettings).Audited("settings.saved", targetRoute: null);
 

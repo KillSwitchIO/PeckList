@@ -21,7 +21,10 @@ The full list is in [all settings](reference.md).
 
 ## When a change applies
 
-- **Logging** settings (`LOG_*`, including log servers) saved on the page apply at once.
+- These settings saved on the page apply at once: logging (`LOG_*`, including log servers), who
+  can join (`REGISTRATION`), local sign-in (`LOCAL_LOGIN`), the backup schedule and how many to
+  keep, how long the access and event log is kept (and archiving it), and the grace period for
+  deleted accounts. The [reference](reference.md) marks them **live**.
 - **Everything else** applies at the next start. The settings page says so and offers
   **Restart now**, which stops the server; Docker's `restart:` policy, systemd's `Restart=` or the
   Windows service's recovery settings bring it back. Started by hand, it stays stopped.

@@ -18,7 +18,7 @@ uses the address each request came in on. **Default:** none. **Where:** any.
 ### `ACCOUNT_DELETE_GRACE_DAYS`
 
 Days a deleted account can still be restored. After that, the account and everything it owns are
-removed for good. `0` removes at the next hourly check. **Default:** `7`. **Where:** any.
+removed for good. `0` removes at the next hourly check. **Default:** `7`. **Where:** any, live.
 
 ### `REGISTRATION`
 
@@ -31,7 +31,7 @@ Who may make their own account with a username and password:
 Single sign-on keeps its own switch, [`OIDC_<NAME>_AUTO_CREATE`](#sign-in). An invite link
 also lets a new provider account in when that switch is off. With [`LOCAL_LOGIN`](#local_login)
 `hidden`, people sign up only through a provider. Admins can always add accounts. **Default:**
-`invite`. **Where:** any. See [adding people](../guides/users-and-roles.md#adding-people).
+`invite`. **Where:** any, live. See [adding people](../guides/users-and-roles.md#adding-people).
 
 ### `TZ`
 
@@ -56,7 +56,7 @@ generated. **Where:** env.
 
 `shown` or `hidden`. `hidden` takes the username and password form off the sign-in page when
 everyone uses single sign-on; `/login?local` still shows it, for admins. Needs at least one
-provider. **Default:** `shown`. **Where:** any.
+provider. **Default:** `shown`. **Where:** any, live.
 
 ### `OIDC_PROVIDERS`
 
@@ -89,11 +89,11 @@ and dashes; each gets the settings below with its name in capitals and dashes as
 ### `BACKUP_SCHEDULE`
 
 How often the server writes a full snapshot: `off`, `hourly`, `daily` or `weekly`. The older name
-`SNAPSHOT_SCHEDULE` still works. **Default:** `daily`. **Where:** any.
+`SNAPSHOT_SCHEDULE` still works. **Default:** `daily`. **Where:** any, live.
 
 ### `SNAPSHOT_KEEP`
 
-How many snapshots to keep; older ones are deleted. At least 1. **Default:** `14`. **Where:** any.
+How many snapshots to keep; older ones are deleted. At least 1. **Default:** `14`. **Where:** any, live.
 
 ### `SNAPSHOT_DIR`
 
@@ -203,16 +203,16 @@ All are live.
 
 ### `AUDIT_RETENTION_DAYS`
 
-Days the event log keeps entries (sign-ins, admin actions, ...). **Default:** `90`. **Where:** any.
+Days the event log keeps entries (sign-ins, admin actions, ...). **Default:** `90`. **Where:** any, live.
 
 ### `ACCESS_LOG_RETENTION_DAYS`
 
-Days the request log keeps entries. **Default:** `14`. **Where:** any.
+Days the request log keeps entries. **Default:** `14`. **Where:** any, live.
 
 ### `AUDIT_ARCHIVE`
 
 Before old entries are removed, write them to gzipped JSON lines in `AUDIT_ARCHIVE_DIR`.
-**Default:** `false`. **Where:** any.
+**Default:** `false`. **Where:** any, live.
 
 ### `AUDIT_ARCHIVE_DIR`
 

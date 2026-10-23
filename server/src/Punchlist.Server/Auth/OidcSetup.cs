@@ -111,9 +111,9 @@ public static class OidcSetup
     /// </summary>
     public static void MapOidc(this RouteGroupBuilder auth, ServerSettings settings)
     {
-        auth.MapGet("/providers", (SelfSignUp signUp) => new SignInOptions(
+        auth.MapGet("/providers", (SelfSignUp signUp, LiveSettings live) => new SignInOptions(
             settings.OidcProviders.Select(provider => new SignInProvider(provider.Name, provider.DisplayName)).ToList(),
-            !settings.LocalLoginHidden,
+            !live.Current.LocalLoginHidden,
             signUp.InvitesWork ? signUp.Policy.ToString().ToLowerInvariant() : "closed"));
 
         auth.MapGet("/oidc/{name}/login", (string name, string? returnUrl, string? invite) =>

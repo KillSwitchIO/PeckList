@@ -46,9 +46,9 @@ public sealed class SettingsPageTests(ServerFixture fixture) : IClassFixture<Ser
         using (var server = Server(db, ("SNAPSHOT_KEEP", "5")))
         {
             var admin = await Admin(server);
-            var saved = await admin.PutAsJsonAsync("/api/admin/settings", new { values = new Dictionary<string, string?> { ["REGISTRATION"] = "open" } }, Token);
+            var saved = await admin.PutAsJsonAsync("/api/admin/settings", new { values = new Dictionary<string, string?> { ["PUBLIC_URL"] = "https://tasks.example.com" } }, Token);
             var view = (await saved.Content.ReadFromJsonAsync<SettingsView>(Token))!;
-            Assert.Equal(("open", "page", true), (Find(view, "REGISTRATION").Value, Find(view, "REGISTRATION").Source, Find(view, "REGISTRATION").Saved));
+            Assert.Equal(("https://tasks.example.com", "page", true), (Find(view, "PUBLIC_URL").Value, Find(view, "PUBLIC_URL").Source, Find(view, "PUBLIC_URL").Saved));
             Assert.True(view.PendingRestart);
 
             var bad = await admin.PutAsJsonAsync("/api/admin/settings", new { values = new Dictionary<string, string?> { ["REGISTRATION"] = "maybe" } }, Token);
@@ -61,7 +61,7 @@ public sealed class SettingsPageTests(ServerFixture fixture) : IClassFixture<Ser
         }
         using (var restarted = Server(db, ("SNAPSHOT_KEEP", "5")))
         {
-            Assert.Equal(Registration.Open, restarted.Services.GetRequiredService<ServerSettings>().Registration);
+            Assert.Equal(new Uri("https://tasks.example.com"), restarted.Services.GetRequiredService<ServerSettings>().PublicUrl);
             var view = (await (await Admin(restarted)).GetFromJsonAsync<SettingsView>("/api/admin/settings", Token))!;
             Assert.False(view.PendingRestart);
         }
@@ -124,6 +124,30 @@ public sealed class SettingsPageTests(ServerFixture fixture) : IClassFixture<Ser
         Assert.Equal((Registration.Closed, LogLevelSetting.Warning), (settings.Registration, settings.Logging.Level));
         var view = (await (await Admin(server)).GetFromJsonAsync<SettingsView>("/api/admin/settings", Token))!;
         Assert.Equal(("file", true), (Find(view, "REGISTRATION").Source, Find(view, "REGISTRATION").Locked));
+    }
+
+    [Fact]
+    public async Task Who_can_join_sign_in_and_retention_apply_as_soon_as_they_are_saved()
+    {
+        using var server = Server(fixture.NewDbPath());
+        var admin = await Admin(server);
+        var stranger = server.CreateClient();
+        Assert.Equal("invite", (await stranger.GetFromJsonAsync<Auth.SignInOptions>("/auth/providers", Token))!.Registration);
+
+        var saved = await admin.PutAsJsonAsync("/api/admin/settings", new
+        {
+            values = new Dictionary<string, string?> { ["REGISTRATION"] = "open", ["AUDIT_RETENTION_DAYS"] = "30", ["SNAPSHOT_KEEP"] = "3" },
+        }, Token);
+        Assert.False((await saved.Content.ReadFromJsonAsync<SettingsView>(Token))!.PendingRestart);
+        Assert.Equal("open", (await stranger.GetFromJsonAsync<Auth.SignInOptions>("/auth/providers", Token))!.Registration);
+        var joined = await stranger.PostAsJsonAsync("/auth/signup", new { username = "sam", password = "a long enough password" }, Token);
+        Assert.Equal(HttpStatusCode.OK, joined.StatusCode);
+        var live = server.Services.GetRequiredService<LiveSettings>().Current;
+        Assert.Equal((30, 3), (live.AuditRetentionDays, live.SnapshotKeep));
+
+        // Taken back from the page: the default (invite only) is back at once.
+        await admin.PutAsJsonAsync("/api/admin/settings", new { values = new Dictionary<string, string?> { ["REGISTRATION"] = "" } }, Token);
+        Assert.Equal("invite", (await stranger.GetFromJsonAsync<Auth.SignInOptions>("/auth/providers", Token))!.Registration);
     }
 
     [Fact]
