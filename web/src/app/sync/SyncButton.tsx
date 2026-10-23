@@ -18,20 +18,17 @@ import {
 } from '@mui/material';
 import { keyframes } from '@emotion/react';
 import { useState, type FormEvent } from 'react';
-import { useNavigate } from 'react-router';
 import { submitOnShiftEnter } from '../hooks/keys.ts';
 import { t } from '../i18n/i18n.ts';
 import {
   AccountIcon,
   CloudAlertIcon,
-  PeopleIcon,
   CloudDoneIcon,
   CloudOffIcon,
   CloudSyncIcon,
 } from '../icons/icons.tsx';
 import { useSyncState } from './syncContext.ts';
 import { syncSummary } from './syncSummary.ts';
-import { leaveFor, rememberProvider } from './signInWith.ts';
 
 const pulse = keyframes`
   from { opacity: 1; }
@@ -39,8 +36,8 @@ const pulse = keyframes`
 `;
 
 /**
- * The top bar's sync and account button: a cloud that says how syncing stands, opening a menu to
- * sync now, change the password or sign out. Hidden without a server.
+ * The top bar's sync button: a cloud that says how syncing stands, opening a menu to sync now.
+ * Hidden without a server. The account's own things live in the profile menu (ProfileButton).
  */
 export function SyncButton() {
   const phase = useSyncState((state) => state.phase);
@@ -49,10 +46,7 @@ export function SyncButton() {
   const error = useSyncState((state) => state.error);
   const account = useSyncState((state) => state.account);
   const syncNow = useSyncState((state) => state.syncNow);
-  const signOut = useSyncState((state) => state.signOut);
   const [anchor, setAnchor] = useState<HTMLElement | null>(null);
-  const [changing, setChanging] = useState(false);
-  const navigate = useNavigate();
   if (phase !== 'ready') return null;
 
   const summary = syncSummary({ status, lastSynced, error });
@@ -117,48 +111,13 @@ export function SyncButton() {
           </ListItemIcon>
           <ListItemText>{t('sync.now')}</ListItemText>
         </MenuItem>
-        {local && (
-          <MenuItem
-            onClick={() => {
-              setAnchor(null);
-              void navigate('/friends');
-            }}
-          >
-            <ListItemIcon>
-              <PeopleIcon fontSize="small" />
-            </ListItemIcon>
-            <ListItemText>{t('sync.friends')}</ListItemText>
-          </MenuItem>
-        )}
-        {local && (
-          <MenuItem
-            onClick={() => {
-              setAnchor(null);
-              setChanging(true);
-            }}
-          >
-            <ListItemText inset>{t('sync.changePassword')}</ListItemText>
-          </MenuItem>
-        )}
-        {local && (
-          <MenuItem
-            onClick={() => {
-              setAnchor(null);
-              // Signing out on purpose: the sign-in page waits instead of going back to a provider.
-              rememberProvider(null);
-              void signOut().then((redirect) => redirect && leaveFor(redirect));
-            }}
-          >
-            <ListItemText inset>{t('sync.signOut')}</ListItemText>
-          </MenuItem>
-        )}
       </Menu>
-      {changing && <ChangePasswordDialog onClose={() => setChanging(false)} />}
     </>
   );
 }
 
-function ChangePasswordDialog({ onClose }: { onClose: () => void }) {
+/** Change the account's password (from the profile menu). */
+export function ChangePasswordDialog({ onClose }: { onClose: () => void }) {
   const changePassword = useSyncState((state) => state.changePassword);
   const [current, setCurrent] = useState('');
   const [next, setNext] = useState('');

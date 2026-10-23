@@ -157,6 +157,8 @@ export interface Settings extends BaseEntity {
   clockFormat?: '12h' | '24h';
   /** First day of the week in calendars: 0 Sunday (default), 1 Monday */
   weekStart?: 0 | 1;
+  /** IANA time zone the person picked; null or absent: the server's, else the device's (schema 8) */
+  timeZone?: string | null;
   sidebar: SidebarLayout;
 }
 

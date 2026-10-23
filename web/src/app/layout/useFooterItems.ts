@@ -1,7 +1,6 @@
-import { useAdminApi } from '../admin/useAdmin.ts';
-import { ADMIN_ITEM, SIDEBAR_FOOTER, type NavItem } from './navigation.tsx';
+import { SIDEBAR_FOOTER, type NavItem } from './navigation.tsx';
 
-/** The sidebar footer: Search and Settings, with Admin first for admins on a server. */
+/** The sidebar footer: Search. Settings and Admin moved to the profile menu (spec: PL-086). */
 export function useFooterItems(): NavItem[] {
-  return useAdminApi() ? [ADMIN_ITEM, ...SIDEBAR_FOOTER] : SIDEBAR_FOOTER;
+  return SIDEBAR_FOOTER;
 }

@@ -119,7 +119,7 @@ public static partial class ServerApp
         app.UseRateLimiter();
 
         app.MapHealthChecks("/healthz");
-        app.MapGet("/api/info", () => new ServerInfo("punchlist", Version, WorkspaceSchema.CurrentVersion));
+        app.MapGet("/api/info", () => new ServerInfo("punchlist", Version, WorkspaceSchema.CurrentVersion, TimeZoneInfo.Local.Id));
         app.MapAuth();
         app.MapGroup("/api").RequireAuthorization().RequirePasswordChanged().EnsureProfiles().MapSync().MapFriends().MapAccount().MapAttachments();
         app.MapGroup("/api/admin").RequireAuthorization().RequirePasswordChanged().MapAdmin().MapSettings().MapBackups().MapLogging().MapAudit().MapStats().MapSetup();
@@ -139,4 +139,5 @@ public static partial class ServerApp
 }
 
 /// <summary>What clients check before syncing: which app and schema version this server runs.</summary>
-public sealed record ServerInfo(string Name, string Version, int SchemaVersion);
+/// <summary><paramref name="TimeZone"/>: the server's (<c>TZ</c>), the default for people who pick none.</summary>
+public sealed record ServerInfo(string Name, string Version, int SchemaVersion, string? TimeZone = null);

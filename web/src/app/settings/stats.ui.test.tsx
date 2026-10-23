@@ -11,7 +11,7 @@ beforeEach(() => {
   mockViewport('desktop');
 });
 
-describe('settings: your stats', () => {
+describe('your stats', () => {
   it('shows the account its own numbers, as the server counts them', async () => {
     const backend = new FakeBackend();
     backend.addAccount('ben', 'correct horse battery');
@@ -25,10 +25,18 @@ describe('settings: your stats', () => {
       debounceMs: 60_000,
       intervalMs: 600_000,
     });
-    await renderApp('/settings', store, sync);
-    const section = await screen.findByRole('region', { name: 'Your stats' });
+    await renderApp('/stats', store, sync);
+    await screen.findByRole('heading', { level: 1, name: 'Your stats' });
+    const section = await screen.findByRole('main');
     expect(within(section).getByRole('group', { name: 'Open tasks' })).toHaveTextContent('0');
     expect(within(section).getByRole('group', { name: 'Closed this month' })).toBeInTheDocument();
     expect(within(section).getByRole('list', { name: 'Closed per month' })).toBeInTheDocument();
+  });
+
+  it('without an account says where stats come from', async () => {
+    await renderApp('/stats');
+    expect(
+      await screen.findByText('Stats come from the server: sign in to an account to see them.'),
+    ).toBeInTheDocument();
   });
 });

@@ -1,9 +1,6 @@
-import BrightnessAutoRounded from '@mui/icons-material/BrightnessAutoRounded';
 import { popupOpen } from '../hooks/keys.ts';
 import { ShortcutsDialog } from '../shortcuts/ShortcutsDialog.tsx';
 import { useShortcuts } from '../shortcuts/useShortcuts.ts';
-import DarkModeRounded from '@mui/icons-material/DarkModeRounded';
-import LightModeRounded from '@mui/icons-material/LightModeRounded';
 import MenuRounded from '@mui/icons-material/MenuRounded';
 import {
   AppBar,
@@ -46,7 +43,8 @@ import { SidebarTags } from '../tags/SidebarTags.tsx';
 import { useTaskSelection } from '../tasks/selection.ts';
 import { TaskDetail } from '../tasks/TaskDetail.tsx';
 import { UndoToast } from '../tasks/UndoToast.tsx';
-import { useThemeMode } from '../theme/themeMode.ts';
+import { ProfileButton } from './ProfileButton.tsx';
+import { useAppliedTimeZone } from './useAppliedTimeZone.ts';
 import { activeItem, BOTTOM_ITEMS, SIDEBAR_ITEMS, type NavItem } from './navigation.tsx';
 import { SyncButton } from '../sync/SyncButton.tsx';
 import { useFooterItems } from './useFooterItems.ts';
@@ -60,26 +58,6 @@ const DETAIL_WIDTH = 'clamp(440px, 40vw, 960px)';
 // A dragged width stays within these: the panel keeps room for its fields, the list for its rows.
 const DETAIL_MIN = 380;
 const LIST_MIN = 360;
-
-function ThemeToggle() {
-  const { mode, cycleMode } = useThemeMode();
-  const icon =
-    mode === 'light' ? (
-      <LightModeRounded />
-    ) : mode === 'dark' ? (
-      <DarkModeRounded />
-    ) : (
-      <BrightnessAutoRounded />
-    );
-  const label = t('theme.toggle', { mode: t(`theme.${mode}`) });
-  return (
-    <Tooltip title={label}>
-      <IconButton onClick={cycleMode} aria-label={label}>
-        {icon}
-      </IconButton>
-    </Tooltip>
-  );
-}
 
 function NavList({
   items,
@@ -242,6 +220,8 @@ export function AppShell() {
 
   // Keyboard shortcuts everywhere ("?" lists them).
   const shortcuts = useShortcuts();
+  // Pages start over when the time zone changes, so every date is worked out again in it.
+  const timeZone = useAppliedTimeZone();
 
   const go = (path: string) => {
     setDrawerOpen(false);
@@ -297,13 +277,14 @@ export function AppShell() {
               sx={{ display: 'flex', alignItems: 'center', gap: 1, flexGrow: 1, minWidth: 0 }}
             />
             <SyncButton />
-            <ThemeToggle />
+            <ProfileButton onShortcuts={shortcuts.openHelp} />
           </Toolbar>
         </AppBar>
 
         <Box sx={{ flexGrow: 1, display: 'flex', minHeight: 0 }}>
           <Box
             component="main"
+            key={timeZone}
             sx={{
               flexGrow: 1,
               minWidth: 0,

@@ -12,6 +12,7 @@ import { EmptyState } from './views/EmptyState.tsx';
 import { MoreView } from './views/MoreView.tsx';
 import { SearchView } from './search/SearchView.tsx';
 import { SettingsPage } from './settings/SettingsPage.tsx';
+import { StatsPage } from './settings/StatsSection.tsx';
 import { AdminPage } from './admin/AdminPage.tsx';
 import { useSyncState } from './sync/syncContext.ts';
 import {
@@ -67,6 +68,7 @@ export function AppRoutes() {
         <Route path="/calendar" element={<CalendarPage />} />
         <Route path="/search" element={<SearchView />} />
         <Route path="/settings" element={<SettingsPage />} />
+        <Route path="/stats" element={<StatsPage />} />
         <Route path="/admin" element={<AdminPage />} />
         <Route path="/admin/:tab" element={<AdminPage />} />
         <Route path="*" element={<NotFound />} />

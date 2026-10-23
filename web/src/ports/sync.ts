@@ -7,6 +7,8 @@ export interface ServerInfo {
   name: string;
   version: string;
   schemaVersion: number;
+  /** The server's time zone, the default for people who pick none (older servers: absent). */
+  timeZone?: string | null;
 }
 
 /** The signed-in account (`/auth/me`). */

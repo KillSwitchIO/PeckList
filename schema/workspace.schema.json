@@ -743,6 +743,12 @@
           "description": "The first day of the week in calendars: 0 Sunday (default), 1 Monday",
           "enum": [0, 1]
         },
+        "timeZone": {
+          "description": "The person's time zone (an IANA name such as Europe/Berlin); null or absent: the server's, else the device's",
+          "type": ["string", "null"],
+          "minLength": 1,
+          "maxLength": 64
+        },
         "sidebar": {
           "type": "object",
           "description": "Sidebar layout: view order (with an @group marker; views after it are grouped), hidden views, whether the group is open",

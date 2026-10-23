@@ -23,6 +23,7 @@ import {
   type LoginOutcome,
   type SignUpOutcome,
   type PasswordOutcome,
+  type ServerInfo,
   type SyncTransport,
 } from '../../ports/sync.ts';
 import type { WorkspaceStore } from '../store/workspaceStore.ts';
@@ -46,6 +47,8 @@ export interface SyncState {
   phase: SyncPhase;
   status: SyncStatus;
   account: Account | null;
+  /** What the server said about itself at start (its version and time zone); null without one. */
+  server: ServerInfo | null;
   /** When the last sync finished (ms since epoch). */
   lastSynced: number | null;
   /** What went wrong last, when status is error. */
@@ -380,6 +383,7 @@ export function createSyncEngine(deps: SyncEngineDependencies): SyncEngine {
       phase: 'checking',
       status: 'idle',
       account: null,
+      server: null,
       lastSynced: null,
       error: null,
       notice: null,
@@ -395,6 +399,7 @@ export function createSyncEngine(deps: SyncEngineDependencies): SyncEngine {
             set({ phase: 'standalone' });
             return;
           }
+          set({ server: info });
           if (info.schemaVersion !== CURRENT_SCHEMA_VERSION) {
             // Keep working locally; the indicator says why nothing syncs.
             set({

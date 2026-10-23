@@ -145,3 +145,29 @@ describe('settings: your data', () => {
     expect(await within(data).findByText(/is not a Punchlist export/)).toBeInTheDocument();
   });
 });
+
+describe('settings: time zone', () => {
+  it('follows the device until a zone is picked, then works in that one', async () => {
+    const store = testStore();
+    await renderApp('/settings', store);
+    const zone = await screen.findByRole('combobox', { name: 'Time zone' });
+    expect(zone).toHaveValue(`This device's (${localTimeZone().replaceAll('_', ' ')})`);
+
+    await userEvent.clear(zone);
+    await userEvent.type(zone, 'Pacific/Kiri');
+    await userEvent.click(await screen.findByRole('option', { name: 'Pacific/Kiritimati' }));
+    await waitFor(() =>
+      expect(store.getState().workspace!.entities.settings[0]!.timeZone).toBe('Pacific/Kiritimati'),
+    );
+    expect(localTimeZone()).toBe('Pacific/Kiritimati');
+
+    // Back to the default: the setting clears and the device's zone returns.
+    await userEvent.clear(screen.getByRole('combobox', { name: 'Time zone' }));
+    await userEvent.type(screen.getByRole('combobox', { name: 'Time zone' }), 'This device');
+    await userEvent.click(await screen.findByRole('option', { name: /^This device's/ }));
+    await waitFor(() =>
+      expect(store.getState().workspace!.entities.settings[0]!.timeZone).toBeNull(),
+    );
+    expect(localTimeZone()).toBe(Intl.DateTimeFormat().resolvedOptions().timeZone);
+  });
+});

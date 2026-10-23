@@ -545,9 +545,9 @@ async function adminApp(
 describe('admin', () => {
   it('is only for admins', async () => {
     await adminApp('user', '/today');
-    const nav = screen.getAllByRole('navigation')[0]!;
-    await within(nav).findByText('Settings');
-    expect(within(nav).queryByText('Admin')).toBeNull();
+    await userEvent.click(await screen.findByRole('button', { name: /^Account: / }));
+    expect(await screen.findByRole('menuitem', { name: 'Settings' })).toBeInTheDocument();
+    expect(screen.queryByRole('menuitem', { name: 'Admin' })).toBeNull();
   });
 
   it('turns plain users away at the address too', async () => {
@@ -637,8 +637,9 @@ describe('admin', () => {
 
   it('an admin leaves admin accounts to super admins', async () => {
     await adminApp('admin');
-    const nav = screen.getAllByRole('navigation')[0]!;
-    expect(within(nav).getByText('Admin')).toBeInTheDocument();
+    await userEvent.click(await screen.findByRole('button', { name: /^Account: / }));
+    expect(await screen.findByRole('menuitem', { name: 'Admin' })).toBeInTheDocument();
+    await userEvent.keyboard('{Escape}');
     const list = await screen.findByRole('list', { name: 'Users' });
     await userEvent.click(await within(list).findByRole('button', { name: 'Actions for ben' }));
     expect(

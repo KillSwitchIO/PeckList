@@ -183,23 +183,38 @@ describe('signing in to a server', () => {
     backend.addAccount('ben', 'correct horse battery');
     backend.signOutRedirect = 'https://id.example.com/logout?client_id=punchlist';
     await serverApp(backend, 'ben');
-    await userEvent.click(await screen.findByRole('button', { name: /^Sync and account/ }));
-    await userEvent.click(await screen.findByRole('menuitem', { name: 'Sign out' }));
+    await userEvent.click(await screen.findByRole('button', { name: /^Account: / }));
+    await userEvent.click(await screen.findByRole('menuitem', { name: 'Log out' }));
     await waitFor(() =>
       expect(leaveFor).toHaveBeenCalledWith('https://id.example.com/logout?client_id=punchlist'),
     );
   });
 
-  it('the cloud shows who is signed in, and signs out', async () => {
+  it('the cloud says how syncing stands; the profile menu logs out', async () => {
     const backend = new FakeBackend();
     backend.addAccount('ben', 'correct horse battery');
     // Already signed in: straight to the app, then the first sync.
     await serverApp(backend, 'ben');
-    const cloud = await screen.findByRole('button', { name: /^Sync and account: Synced/ });
+    const cloud = await screen.findByRole('button', { name: /^Sync: Synced/ });
     await userEvent.click(cloud);
+    const syncMenu = await screen.findByRole('menu');
+    expect(within(syncMenu).getByText('Signed in as ben')).toBeInTheDocument();
+    expect(within(syncMenu).queryByRole('menuitem', { name: 'Log out' })).toBeNull();
+    await userEvent.keyboard('{Escape}');
+
+    await userEvent.click(screen.getByRole('button', { name: /^Account: / }));
     const menu = await screen.findByRole('menu');
-    expect(within(menu).getByText('Signed in as ben')).toBeInTheDocument();
-    await userEvent.click(within(menu).getByRole('menuitem', { name: 'Sign out' }));
+    expect(within(menu).getByText('@ben')).toBeInTheDocument();
+    expect(within(menu).getByRole('menuitem', { name: 'Settings' })).toBeInTheDocument();
+    expect(within(menu).getByRole('menuitem', { name: 'Stats' })).toBeInTheDocument();
+    expect(within(menu).getByRole('menuitem', { name: 'Friends and groups' })).toBeInTheDocument();
+    await userEvent.click(within(menu).getByRole('menuitem', { name: 'Keyboard shortcuts' }));
+    expect(await screen.findByRole('dialog', { name: /shortcuts/i })).toBeInTheDocument();
+    await userEvent.keyboard('{Escape}');
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+
+    await userEvent.click(screen.getByRole('button', { name: /^Account: / }));
+    await userEvent.click(await screen.findByRole('menuitem', { name: 'Log out' }));
     expect(
       await screen.findByRole('heading', { name: 'Sign in to Punchlist' }),
     ).toBeInTheDocument();
@@ -207,9 +222,7 @@ describe('signing in to a server', () => {
 
   it('shows no cloud without a server', async () => {
     await renderApp('/today');
-    await waitFor(() =>
-      expect(screen.queryByRole('button', { name: /Sync and account/ })).toBeNull(),
-    );
+    await waitFor(() => expect(screen.queryByRole('button', { name: /^Sync/ })).toBeNull());
   });
 });
 

@@ -35,7 +35,7 @@ import { Page } from '../layout/Page.tsx';
 import { DataSection } from './DataSection.tsx';
 import { Section, SettingRow } from './settingsLayout.tsx';
 import { SignInSection } from './SignInSection.tsx';
-import { StatsSection } from './StatsSection.tsx';
+import { TimeZoneSetting } from './TimeZoneSetting.tsx';
 import { useApply, useWorkspace } from '../store/hooks.ts';
 
 /** A small live sample of the colors as the theme shows them now. */
@@ -202,7 +202,6 @@ export function SettingsPage() {
     <Page title={t('nav.settings')}>
       <Stack spacing={4}>
         <SignInSection />
-        <StatsSection />
         <Section title={t('settings.appearance')}>
           <SettingRow label={t('settings.theme')}>
             <ToggleButtonGroup
@@ -221,6 +220,10 @@ export function SettingsPage() {
           </SettingRow>
         </Section>
         <Section title={t('settings.dates')}>
+          <TimeZoneSetting
+            value={settings?.timeZone ?? null}
+            onChange={(timeZone) => change({ timeZone })}
+          />
           <SettingRow label={t('settings.clock')}>
             <ToggleButtonGroup
               exclusive

@@ -52,8 +52,34 @@ export function instantOf(date: string, time: string, timeZone: string): string 
   return new Date(guess).toISOString();
 }
 
-export function localTimeZone(): string {
+let chosenTimeZone: string | null = null;
+
+/**
+ * Use `zone` as "local" from now on: the person's own setting, else the server's (spec: PL-086).
+ * Null goes back to the device's. A name the browser does not know is ignored.
+ */
+export function setTimeZone(zone: string | null): void {
+  chosenTimeZone = zone && isTimeZone(zone) ? zone : null;
+}
+
+/** Whether the browser knows `zone` as an IANA time zone. */
+export function isTimeZone(zone: string): boolean {
+  try {
+    new Intl.DateTimeFormat('en', { timeZone: zone });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/** The device's own time zone. */
+export function deviceTimeZone(): string {
   return Intl.DateTimeFormat().resolvedOptions().timeZone;
+}
+
+/** The time zone "today" and every wall-clock time are in: chosen, else the device's. */
+export function localTimeZone(): string {
+  return chosenTimeZone ?? deviceTimeZone();
 }
 
 /** The date part of a local date or date-time. */

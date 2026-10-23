@@ -3,11 +3,15 @@ import { useEffect, useState } from 'react';
 import type { UserStats } from '../../ports/stats.ts';
 import { MonthBars, StatCard } from '../admin/statsParts.tsx';
 import { t } from '../i18n/i18n.ts';
+import { Page } from '../layout/Page.tsx';
 import { useSyncState } from '../sync/syncContext.ts';
-import { Section } from './settingsLayout.tsx';
+import { EmptyState } from '../views/EmptyState.tsx';
 
-/** "Your stats" (spec: Server stats): the same numbers an admin sees for this account. Servers with accounts only. */
-export function StatsSection() {
+/**
+ * "Your stats" (spec: Server stats, PL-084), from the profile menu: the same numbers an admin sees
+ * for this account. Servers with accounts only.
+ */
+export function StatsPage() {
   const transport = useSyncState((state) => state.transport);
   const hasAccounts = useSyncState(
     (state) => state.phase === 'ready' && state.account?.authMode === 'local',
@@ -27,7 +31,14 @@ export function StatsSection() {
     };
   }, [api]);
 
-  if (!stats) return null;
+  if (!api) {
+    return (
+      <Page title={t('stats.yours')}>
+        <EmptyState title={t('stats.needsServer')} />
+      </Page>
+    );
+  }
+  if (!stats) return <Page title={t('stats.yours')}>{null}</Page>;
   const cards: [string, number][] = [
     [t('stats.open'), stats.openTasks],
     [t('stats.closed'), stats.closedTasks],
@@ -37,7 +48,7 @@ export function StatsSection() {
     [t('stats.sharedLists'), stats.sharedLists],
   ];
   return (
-    <Section title={t('stats.yours')}>
+    <Page title={t('stats.yours')}>
       <Box
         sx={{
           display: 'grid',
@@ -53,6 +64,6 @@ export function StatsSection() {
       <Box sx={{ px: 1 }}>
         <MonthBars months={stats.closedByMonth} label={t('stats.byMonth')} />
       </Box>
-    </Section>
+    </Page>
   );
 }

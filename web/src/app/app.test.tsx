@@ -126,15 +126,21 @@ describe('app shell', () => {
     expect(within(nav).queryByTitle('home/yard')).toBeNull();
   });
 
-  it('cycles the theme mode and remembers it', async () => {
+  it('picks the theme in settings and remembers it, with no theme button in the top bar', async () => {
     mockViewport('desktop', true);
-    await renderApp('/today');
-    const toggle = screen.getByRole('button', { name: /switch theme \(currently system\)/i });
-    await userEvent.click(toggle);
-    expect(screen.getByRole('button', { name: /currently light/i })).toBeInTheDocument();
+    await renderApp('/settings');
+    expect(screen.queryByRole('button', { name: /switch theme/i })).not.toBeInTheDocument();
+    const theme = screen.getByRole('group', { name: 'Theme' });
+    expect(within(theme).getByRole('button', { name: 'System' })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    );
+    await userEvent.click(within(theme).getByRole('button', { name: 'Light' }));
     expect(localStorage.getItem('punchlist.themeMode')).toBe('light');
-    await userEvent.click(screen.getByRole('button', { name: /currently light/i }));
-    expect(screen.getByRole('button', { name: /currently dark/i })).toBeInTheDocument();
+    expect(within(theme).getByRole('button', { name: 'Light' })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    );
   });
 
   it('carries a theme mode picked in this browser into the synced settings', async () => {
@@ -142,8 +148,9 @@ describe('app shell', () => {
     localStorage.setItem('punchlist.themeMode', 'dark');
     const store = testStore();
     await renderApp('/today', store);
-    expect(await screen.findByRole('button', { name: /currently dark/i })).toBeInTheDocument();
-    expect(store.getState().workspace!.entities.settings[0]!.themeMode).toBe('dark');
+    await waitFor(() =>
+      expect(store.getState().workspace!.entities.settings[0]!.themeMode).toBe('dark'),
+    );
   });
 
   it('shows a not-found page', async () => {
@@ -158,11 +165,11 @@ describe('stable frame', () => {
     mockViewport('desktop');
     await renderApp('/today');
     const nav = screen.getAllByRole('navigation')[0]!;
-    const toggle = screen.getByRole('button', { name: /switch theme/i });
+    const profile = screen.getByRole('button', { name: /account/i });
     await userEvent.click(within(nav).getByText('Mess Drawer'));
     await screen.findByRole('heading', { level: 1, name: 'Mess Drawer' });
     expect(screen.getAllByRole('navigation')[0]).toBe(nav);
-    expect(screen.getByRole('button', { name: /switch theme/i })).toBe(toggle);
+    expect(screen.getByRole('button', { name: /account/i })).toBe(profile);
   });
 
   it('lists Today before the Mess Drawer in the sidebar and the bottom bar', async () => {

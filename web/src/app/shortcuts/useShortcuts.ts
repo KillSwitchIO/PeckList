@@ -17,10 +17,10 @@ const SEQUENCE_MS = 1200;
 const taskRows = () => [...document.querySelectorAll<HTMLElement>('main [data-task-row]')];
 
 /**
- * The app's keyboard shortcuts (see shortcuts.ts). Returns whether the "?" list is open and a
- * way to close it.
+ * The app's keyboard shortcuts (see shortcuts.ts). Returns whether the "?" list is open, and ways
+ * to open (the profile menu) and close it.
  */
-export function useShortcuts(): { helpOpen: boolean; closeHelp: () => void } {
+export function useShortcuts(): { helpOpen: boolean; openHelp: () => void; closeHelp: () => void } {
   const navigate = useNavigate();
   const store = useWorkspaceStore();
   const { selectedId, open, close } = useTaskSelection();
@@ -130,5 +130,5 @@ export function useShortcuts(): { helpOpen: boolean; closeHelp: () => void } {
     return () => window.removeEventListener('keydown', onKey);
   }, [navigate, store]);
 
-  return { helpOpen, closeHelp: () => setHelpOpen(false) };
+  return { helpOpen, openHelp: () => setHelpOpen(true), closeHelp: () => setHelpOpen(false) };
 }
