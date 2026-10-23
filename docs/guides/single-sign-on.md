@@ -40,7 +40,8 @@ Every `OIDC_<NAME>_*` setting is in [all settings](../configuration/reference.md
 | `LOCAL_LOGIN=hidden`                                        | Hide the password form; `/login?local` still shows it, for an admin.                                          |
 
 A new account never takes over an existing one with the same username: it gets a number after the
-name. Usernames come from `preferred_username` (`OIDC_<NAME>_USERNAME_CLAIM`), else the email.
+name, unless you turn on [username linking](#linking-accounts). Usernames come from
+`preferred_username` (`OIDC_<NAME>_USERNAME_CLAIM`), else the email.
 
 ## Signing out
 
@@ -66,9 +67,40 @@ long as another way to sign in remains. An admin can link one by hand (**Admin >
 provider account**, with the provider and the account's `sub`), or join a waiting sign-in to an
 existing person (**Admin > Sign-in > Link to an account**).
 
-`OIDC_<NAME>_LINK_BY_EMAIL=true` lets a first sign-in join the one account that already has the same
-email, when the provider marks the email verified. It is off by default: a provider that does not
-truly verify emails would let someone take over an account.
+A first sign-in can also find its account by itself. Punchlist tries these in order, and the first
+that matches wins:
+
+1. **A mapping.** `OIDC_<NAME>_USER_MAP=ben=bendimit,kim.lee=kim` sends the provider user on the
+   left to the Punchlist account on the right, every time. Admins add more on **Admin > Sign-in >
+   Mappings** (the setting wins when both name the same provider user). A mapping also moves a link:
+   someone already linked to another account lands in the mapped one at their next sign-in.
+2. **A migration window**, while one is open (see [moving to another provider](#moving-to-another-provider)).
+3. **The same username**, with `OIDC_<NAME>_LINK_BY_USERNAME`:
+   - `true` joins the account named like the provider's username, if that account has no link to
+     this provider yet, and only when it is a plain user account.
+   - `all` joins admin accounts too. Use it only when people cannot change their own username at
+     the provider: Pocket ID, for one, lets them by default, which would let anyone sign in as an
+     admin by renaming themselves. Map admins with `USER_MAP` instead.
+4. **The same verified email**, with `OIDC_<NAME>_LINK_BY_EMAIL=true`: the one account that already
+   has that email from another provider. Off by default: a provider that does not truly verify
+   emails would let someone take over an account.
+5. Otherwise a new account (`AUTO_CREATE`) or a wait for an admin.
+
+Linking, mapping and moving only change which account a provider account signs into. Tasks, lists
+and shares never move from one account to another; an account that lost its link keeps everything
+and can be deleted or handed over from **Admin > Users**.
+
+**Admin > Sign-in** (shown when at least one provider is set) lists every account with the provider
+accounts that sign into it: the provider, the username it sent, and when it was last used. From
+there an admin maps a provider username to an account, moves a provider account to another
+account, or unlinks it. Every change goes into the event log.
+
+### Provider icons
+
+People who signed in through a provider see its icon on their profile picture. Punchlist uses
+`OIDC_<NAME>_ICON` (an `https` address or a file in the container), else the provider's own
+`/favicon.ico`, and keeps a copy for a day, so browsers never load it from the provider. Without an
+image there, no icon shows.
 
 ## Moving to another provider
 

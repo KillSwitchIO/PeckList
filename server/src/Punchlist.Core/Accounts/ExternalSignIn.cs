@@ -23,7 +23,11 @@ public sealed record ExternalIdentity
 
 public abstract record ExternalSignInResult
 {
-    /// <summary><paramref name="JoinedBy"/>: <c>migration</c> or <c>email</c> when this sign-in joined an existing account.</summary>
+    /// <summary>
+    /// <paramref name="JoinedBy"/> when this sign-in joined an existing account: <c>mapping</c>,
+    /// <c>migration</c>, <c>username</c> or <c>email</c>; <c>remap</c> when a mapping moved the link
+    /// from another account.
+    /// </summary>
     public sealed record Success(Account Account, bool Created, string? JoinedBy = null) : ExternalSignInResult;
 
     /// <summary>In none of the provider's required groups: no account, nothing stored.</summary>
@@ -89,10 +93,32 @@ public sealed class ExternalSignIn(
             await identities.UnlinkAsync(provider.Name, identity.Subject, cancellation);
             link = null;
         }
-        if (account is null && await MigrationMatchAsync(provider, identity, cancellation) is { } matched)
+        if (await MappedAccountAsync(provider, identity, cancellation) is { } mapped && mapped.Id != account?.Id)
+        {
+            // An admin said where this provider user belongs. Only the link moves; whatever the
+            // other account owns stays with it.
+            if (link is not null)
+            {
+                await identities.UpdateAsync(
+                    link with { AccountId = mapped.Id, Email = identity.Email, Username = identity.Username, LastUsedAt = now }, cancellation);
+                joinedBy = "remap";
+            }
+            else
+            {
+                await AttachAsync(provider, identity, mapped.Id, cancellation);
+                joinedBy = "mapping";
+            }
+            account = mapped;
+        }
+        else if (account is null && await MigrationMatchAsync(provider, identity, cancellation) is { } matched)
         {
             account = matched;
             joinedBy = "migration";
+        }
+        else if (account is null && await UsernameMatchAsync(provider, identity, cancellation) is { } byUsername)
+        {
+            account = byUsername;
+            joinedBy = "username";
         }
         else if (account is null && await EmailMatchAsync(provider, identity, cancellation) is { } byEmail)
         {
@@ -123,7 +149,7 @@ public sealed class ExternalSignIn(
         }
         else if (link is not null)
         {
-            await identities.UpdateAsync(link with { Email = identity.Email, LastUsedAt = now }, cancellation);
+            await identities.UpdateAsync(link with { Email = identity.Email, Username = identity.Username, LastUsedAt = now }, cancellation);
         }
         if (account.Disabled) return new ExternalSignInResult.Disabled();
 
@@ -229,6 +255,64 @@ public sealed class ExternalSignIn(
     }
 
     /// <summary>
+    /// The account a mapping sends this provider user to: <c>USER_MAP</c> from the settings first,
+    /// then the mappings admins saved. Matches the username claim as sent and as a new account's
+    /// username would be made from it, ignoring case. Null when unmapped or the account is gone.
+    /// </summary>
+    public async Task<Account?> MappedAccountAsync(OidcProviderSettings provider, ExternalIdentity identity, CancellationToken cancellation = default)
+    {
+        var names = new[] { identity.Username?.Trim().ToLowerInvariant(), UsernameBase(identity) }
+            .Where(name => !string.IsNullOrEmpty(name))
+            .Select(name => name!)
+            .Distinct()
+            .ToList();
+        foreach (var name in names)
+        {
+            if (provider.UserMap.TryGetValue(name, out var target)
+                && await accounts.FindByUsernameAsync(target, cancellation) is { DeletedAt: null } account)
+            {
+                return account;
+            }
+        }
+        var saved = (await identities.ListMappingsAsync(cancellation))
+            .Where(each => each.Provider == provider.Name && names.Contains(each.ProviderUsername))
+            .ToList();
+        foreach (var mapping in saved)
+        {
+            if (await accounts.FindByIdAsync(mapping.AccountId, cancellation) is { DeletedAt: null } account) return account;
+        }
+        return null;
+    }
+
+    /// <summary>
+    /// With <c>LINK_BY_USERNAME</c> on: the account named like the provider's username, when it has
+    /// no link to this provider yet. <c>true</c> never joins an admin: many providers let people
+    /// change their own username, which would hand them an admin account.
+    /// </summary>
+    private async Task<Account?> UsernameMatchAsync(OidcProviderSettings provider, ExternalIdentity identity, CancellationToken cancellation)
+    {
+        if (provider.LinkByUsername == UsernameLinking.Off) return null;
+        var account = await accounts.FindByUsernameAsync(UsernameBase(identity), cancellation);
+        if (account is null || account.DeletedAt is not null) return null;
+        if (provider.LinkByUsername == UsernameLinking.Users && account.Role != Role.User) return null;
+        if ((await IdentitiesOfAsync(account.Id, cancellation)).Any(each => each.Provider == provider.Name)) return null;
+        await AttachAsync(provider, identity, account.Id, cancellation);
+        return account;
+    }
+
+    /// <summary>
+    /// Move a provider account's link to another account (an admin remapping). Nothing the old
+    /// account owns moves with it. False when there is no such link.
+    /// </summary>
+    public async Task<bool> MoveLinkAsync(string provider, string subject, string accountId, CancellationToken cancellation = default)
+    {
+        var link = await identities.FindAsync(provider, subject, cancellation);
+        if (link is null) return false;
+        if (link.AccountId != accountId) await identities.UpdateAsync(link with { AccountId = accountId }, cancellation);
+        return true;
+    }
+
+    /// <summary>
     /// With <c>LINK_BY_EMAIL</c> on (off by default: a provider that does not truly check emails
     /// would let anyone take an account over): a first sign-in whose verified email matches the
     /// email another provider gave for exactly one account joins that account.
@@ -265,6 +349,7 @@ public sealed class ExternalSignIn(
             Subject = subject,
             AccountId = accountId,
             Email = waiting?.Email,
+            Username = waiting?.Username,
             LinkedAt = now,
             LastUsedAt = now,
         }, cancellation);
@@ -281,6 +366,7 @@ public sealed class ExternalSignIn(
             Subject = identity.Subject,
             AccountId = accountId,
             Email = identity.Email,
+            Username = identity.Username,
             LinkedAt = now,
             LastUsedAt = now,
         }, cancellation);

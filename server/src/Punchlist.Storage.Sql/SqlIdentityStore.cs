@@ -10,7 +10,7 @@ namespace Punchlist.Storage.Sql;
 public sealed class SqlIdentityStore(SqlDatabase database) : IIdentityStore
 {
     private const string Columns =
-        "provider, subject, account_id AS accountId, email, linked_at AS linkedAt, last_used_at AS lastUsedAt";
+        "provider, subject, account_id AS accountId, email, username, linked_at AS linkedAt, last_used_at AS lastUsedAt";
 
     private const string PendingColumns =
         "provider, subject, username, display_name AS displayName, email, groups_json AS groupsJson, " +
@@ -40,8 +40,8 @@ public sealed class SqlIdentityStore(SqlDatabase database) : IIdentityStore
         {
             await connection.ExecuteAsync(new CommandDefinition(
                 """
-                INSERT INTO identities (provider, subject, account_id, email, linked_at, last_used_at)
-                VALUES (@Provider, @Subject, @AccountId, @Email, @LinkedAt, @LastUsedAt)
+                INSERT INTO identities (provider, subject, account_id, email, username, linked_at, last_used_at)
+                VALUES (@Provider, @Subject, @AccountId, @Email, @Username, @LinkedAt, @LastUsedAt)
                 """,
                 Row.From(identity),
                 cancellationToken: cancellation));
@@ -58,7 +58,7 @@ public sealed class SqlIdentityStore(SqlDatabase database) : IIdentityStore
         await using var connection = await database.OpenAsync(cancellation);
         var changed = await connection.ExecuteAsync(new CommandDefinition(
             """
-            UPDATE identities SET account_id = @AccountId, email = @Email, last_used_at = @LastUsedAt
+            UPDATE identities SET account_id = @AccountId, email = @Email, username = @Username, last_used_at = @LastUsedAt
             WHERE provider = @Provider AND subject = @Subject
             """,
             Row.From(identity),
@@ -112,6 +112,55 @@ public sealed class SqlIdentityStore(SqlDatabase database) : IIdentityStore
             new { provider, subject }, cancellationToken: cancellation)) > 0;
     }
 
+    public async Task<IReadOnlyList<IdentityMapping>> ListMappingsAsync(CancellationToken cancellation = default)
+    {
+        await using var connection = await database.OpenAsync(cancellation);
+        var rows = await connection.QueryAsync<MappingRow>(new CommandDefinition(
+            """
+            SELECT provider, provider_username AS providerUsername, account_id AS accountId, created_at AS createdAt
+            FROM identity_mappings ORDER BY provider, provider_username
+            """,
+            cancellationToken: cancellation));
+        return rows.Select(row => new IdentityMapping
+        {
+            Provider = row.Provider,
+            ProviderUsername = row.ProviderUsername,
+            AccountId = row.AccountId,
+            CreatedAt = Time(row.CreatedAt),
+        }).ToList();
+    }
+
+    public async Task PutMappingAsync(IdentityMapping mapping, CancellationToken cancellation = default)
+    {
+        var row = new MappingRow
+        {
+            Provider = mapping.Provider,
+            ProviderUsername = mapping.ProviderUsername.ToLowerInvariant(),
+            AccountId = mapping.AccountId,
+            CreatedAt = Time(mapping.CreatedAt),
+        };
+        await using var connection = await database.OpenAsync(cancellation);
+        await using var transaction = await database.BeginWriteAsync(connection, cancellation);
+        await connection.ExecuteAsync(new CommandDefinition(
+            "DELETE FROM identity_mappings WHERE provider = @Provider AND provider_username = @ProviderUsername",
+            row, transaction, cancellationToken: cancellation));
+        await connection.ExecuteAsync(new CommandDefinition(
+            """
+            INSERT INTO identity_mappings (provider, provider_username, account_id, created_at)
+            VALUES (@Provider, @ProviderUsername, @AccountId, @CreatedAt)
+            """,
+            row, transaction, cancellationToken: cancellation));
+        await transaction.CommitAsync(cancellation);
+    }
+
+    public async Task<bool> RemoveMappingAsync(string provider, string providerUsername, CancellationToken cancellation = default)
+    {
+        await using var connection = await database.OpenAsync(cancellation);
+        return await connection.ExecuteAsync(new CommandDefinition(
+            "DELETE FROM identity_mappings WHERE provider = @provider AND provider_username = @username",
+            new { provider, username = providerUsername.ToLowerInvariant() }, cancellationToken: cancellation)) > 0;
+    }
+
     private static string Time(DateTimeOffset value) => value.ToString("O", CultureInfo.InvariantCulture);
 
     private static DateTimeOffset Time(string value) => DateTimeOffset.Parse(value, CultureInfo.InvariantCulture);
@@ -122,6 +171,7 @@ public sealed class SqlIdentityStore(SqlDatabase database) : IIdentityStore
         public string Subject { get; set; } = "";
         public string AccountId { get; set; } = "";
         public string? Email { get; set; }
+        public string? Username { get; set; }
         public string LinkedAt { get; set; } = "";
         public string LastUsedAt { get; set; } = "";
 
@@ -131,6 +181,7 @@ public sealed class SqlIdentityStore(SqlDatabase database) : IIdentityStore
             Subject = identity.Subject,
             AccountId = identity.AccountId,
             Email = identity.Email,
+            Username = identity.Username,
             LinkedAt = Time(identity.LinkedAt),
             LastUsedAt = Time(identity.LastUsedAt),
         };
@@ -141,9 +192,18 @@ public sealed class SqlIdentityStore(SqlDatabase database) : IIdentityStore
             Subject = Subject,
             AccountId = AccountId,
             Email = Email,
+            Username = Username,
             LinkedAt = Time(LinkedAt),
             LastUsedAt = Time(LastUsedAt),
         };
+    }
+
+    private sealed class MappingRow
+    {
+        public string Provider { get; set; } = "";
+        public string ProviderUsername { get; set; } = "";
+        public string AccountId { get; set; } = "";
+        public string CreatedAt { get; set; } = "";
     }
 
     private sealed class PendingRow

@@ -82,6 +82,10 @@ public sealed class AccountRemoval(
         {
             await identities.UnlinkAsync(identity.Provider, identity.Subject, cancellation);
         }
+        foreach (var mapping in (await identities.ListMappingsAsync(cancellation)).Where(each => each.AccountId == account.Id))
+        {
+            await identities.RemoveMappingAsync(mapping.Provider, mapping.ProviderUsername, cancellation);
+        }
         foreach (var membership in (await serverGroups.MembershipsAsync(cancellation)).Where(each => each.AccountId == account.Id))
         {
             await serverGroups.RemoveMembershipAsync(membership, cancellation);

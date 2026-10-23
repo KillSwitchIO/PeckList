@@ -13,6 +13,9 @@ public sealed record LinkedIdentity
     /// <summary>As the provider last sent it, for admins telling identities apart.</summary>
     public string? Email { get; init; }
 
+    /// <summary>The provider's username claim at the last sign-in (null for links made before it was kept).</summary>
+    public string? Username { get; init; }
+
     public required DateTimeOffset LinkedAt { get; init; }
     public required DateTimeOffset LastUsedAt { get; init; }
 }
@@ -37,6 +40,21 @@ public sealed record PendingSignIn
     public override int GetHashCode() => HashCode.Combine(Provider, Subject);
 }
 
+/// <summary>
+/// An admin's mapping: whoever signs in through <see cref="Provider"/> with this username lands in
+/// <see cref="AccountId"/>, even when linked elsewhere (spec: Accounts &amp; Admin, Linking).
+/// </summary>
+public sealed record IdentityMapping
+{
+    public required string Provider { get; init; }
+
+    /// <summary>Lowercase; matched without regard to case.</summary>
+    public required string ProviderUsername { get; init; }
+
+    public required string AccountId { get; init; }
+    public required DateTimeOffset CreatedAt { get; init; }
+}
+
 /// <summary>Linked identities and pending sign-ins (never synced). Every adapter passes the same contract suite.</summary>
 public interface IIdentityStore
 {
@@ -48,7 +66,7 @@ public interface IIdentityStore
     /// <exception cref="IdentityTakenException">That provider subject is linked already.</exception>
     Task LinkAsync(LinkedIdentity identity, CancellationToken cancellation = default);
 
-    /// <summary>Replace a link's email and last use (same provider and subject).</summary>
+    /// <summary>Replace a link's account, email, username and last use (same provider and subject).</summary>
     Task UpdateAsync(LinkedIdentity identity, CancellationToken cancellation = default);
 
     /// <summary>False when there was no such link.</summary>
@@ -64,6 +82,14 @@ public interface IIdentityStore
     Task PutPendingAsync(PendingSignIn pending, CancellationToken cancellation = default);
 
     Task<bool> RemovePendingAsync(string provider, string subject, CancellationToken cancellation = default);
+
+    /// <summary>By provider then username.</summary>
+    Task<IReadOnlyList<IdentityMapping>> ListMappingsAsync(CancellationToken cancellation = default);
+
+    /// <summary>Add or replace (same provider and username, ignoring case; stored lowercase).</summary>
+    Task PutMappingAsync(IdentityMapping mapping, CancellationToken cancellation = default);
+
+    Task<bool> RemoveMappingAsync(string provider, string providerUsername, CancellationToken cancellation = default);
 }
 
 public sealed class IdentityTakenException(string provider, string subject)

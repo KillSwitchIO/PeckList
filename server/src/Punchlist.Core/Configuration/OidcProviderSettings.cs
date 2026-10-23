@@ -3,6 +3,18 @@ using Punchlist.Core.Accounts;
 
 namespace Punchlist.Core.Configuration;
 
+/// <summary><c>OIDC_&lt;NAME&gt;_LINK_BY_USERNAME</c>: which accounts a first sign-in may join by username.</summary>
+public enum UsernameLinking
+{
+    Off,
+
+    /// <summary><c>true</c>: plain users only. Admins need a mapping, since many providers let people rename themselves.</summary>
+    Users,
+
+    /// <summary><c>all</c>: admins too, for providers where only admins set usernames.</summary>
+    All,
+}
+
 /// <summary>
 /// One OIDC provider (spec: Accounts &amp; Admin, OIDC). Listed in <c>OIDC_PROVIDERS</c> and set by
 /// an <c>OIDC_&lt;NAME&gt;_*</c> block each, e.g. <c>OIDC_POCKET_AUTHORITY</c> for <c>pocket</c>.
@@ -46,6 +58,20 @@ public sealed partial record OidcProviderSettings
 
     /// <summary>A first sign-in with a verified email joins the one account another provider gave that email. Off by default.</summary>
     public bool LinkByEmail { get; init; }
+
+    /// <summary>A first sign-in joins the same-named account with no link to this provider yet. Off by default.</summary>
+    public UsernameLinking LinkByUsername { get; init; }
+
+    /// <summary>
+    /// Provider username (lowercase) to Punchlist username: that provider user always signs into
+    /// that account, and an existing link elsewhere moves there. Admins add more on the OIDC page.
+    /// </summary>
+    public IReadOnlyDictionary<string, string> UserMap { get; init; } = new Dictionary<string, string>();
+
+    /// <summary>
+    /// The provider's icon: an http(s) address or a file. Null: the provider's own <c>/favicon.ico</c>.
+    /// </summary>
+    public string? Icon { get; init; }
 
     /// <summary>Provider group to role; the highest match wins. Empty leaves roles to admins.</summary>
     public IReadOnlyDictionary<string, Role> RoleMap { get; init; } = new Dictionary<string, Role>();
@@ -124,6 +150,29 @@ public sealed partial record OidcProviderSettings
                         return false;
                 }
             }
+            var linkByUsername = UsernameLinking.Off;
+            if (Value("LINK_BY_USERNAME") is { } rawLinking)
+            {
+                switch (rawLinking.Trim().ToLowerInvariant())
+                {
+                    case "all":
+                        linkByUsername = UsernameLinking.All;
+                        break;
+                    case "true" or "1" or "yes" or "on":
+                        linkByUsername = UsernameLinking.Users;
+                        break;
+                    case "false" or "0" or "no" or "off":
+                        break;
+                    default:
+                        errors.Add($"{prefix}LINK_BY_USERNAME: '{rawLinking}' is not true, false or all");
+                        break;
+                }
+            }
+            var userMap = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            foreach (var (providerUser, account) in Pairs(Value("USER_MAP"), prefix + "USER_MAP", errors, "provideruser=punchlistuser"))
+            {
+                userMap[providerUser.ToLowerInvariant()] = account.ToLowerInvariant();
+            }
             var autoCreate = Flag("AUTO_CREATE");
             var linkByEmail = Flag("LINK_BY_EMAIL");
             var signOut = Flag("SIGN_OUT");
@@ -155,6 +204,9 @@ public sealed partial record OidcProviderSettings
                 RequiredGroups = Split(Value("REQUIRED_GROUPS")),
                 AutoCreate = autoCreate,
                 LinkByEmail = linkByEmail,
+                LinkByUsername = linkByUsername,
+                UserMap = userMap,
+                Icon = Value("ICON") is { Length: > 0 } icon ? icon.Trim() : null,
                 SignOut = signOut,
                 SessionLength = sessionLength,
                 RoleMap = roleMap,
@@ -175,14 +227,14 @@ public sealed partial record OidcProviderSettings
         (raw ?? "").Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
 
     /// <summary><c>a=b,c=d</c>; the left side may not be empty.</summary>
-    private static IEnumerable<(string Key, string Value)> Pairs(string? raw, string name, List<string> errors)
+    private static IEnumerable<(string Key, string Value)> Pairs(string? raw, string name, List<string> errors, string shape = "group=value")
     {
         foreach (var item in Split(raw))
         {
             var at = item.IndexOf('=');
             if (at <= 0 || at == item.Length - 1)
             {
-                errors.Add($"{name}: '{item}' is not group=value");
+                errors.Add($"{name}: '{item}' is not {shape}");
                 continue;
             }
             yield return (item[..at].Trim(), item[(at + 1)..].Trim());

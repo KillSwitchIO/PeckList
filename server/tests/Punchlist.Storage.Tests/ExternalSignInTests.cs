@@ -309,4 +309,74 @@ public sealed class ExternalSignInTests(SqliteFiles files) : IClassFixture<Sqlit
         var other = await accountService.CreateUserAsync("lee", "a long enough password", cancellation: Token);
         Assert.Equal(LinkResult.Taken, await signIn.LinkByAdminAsync("pocket", "sub-kim", other.Id, Token));
     }
+
+    [Fact]
+    public async Task A_matching_username_joins_a_plain_users_account_only_when_asked()
+    {
+        var kim = await accountService.CreateUserAsync("kim.lee", "correct horse battery", cancellation: Token);
+        // Off by default: the same name gets a new account.
+        Assert.NotEqual(kim.Id, (await SignedIn(Pocket(), Kim() with { Subject = "first" })).Id);
+
+        var keycloak = Pocket() with { Name = "keycloak", LinkByUsername = UsernameLinking.Users };
+        var result = Assert.IsType<ExternalSignInResult.Success>(await signIn.SignInAsync(keycloak, Kim(), Token));
+        Assert.Equal((kim.Id, "username"), (result.Account.Id, result.JoinedBy));
+        Assert.Equal("Kim.Lee", (await identities.FindAsync("keycloak", "sub-kim", Token))!.Username);
+        // Already linked to that provider: a second provider account with the name gets its own.
+        Assert.NotEqual(kim.Id, (await SignedIn(keycloak, Kim() with { Subject = "other" })).Id);
+    }
+
+    [Fact]
+    public async Task A_matching_username_joins_an_admin_only_with_all()
+    {
+        var admin = await accountService.CreateUserAsync("kim.lee", "correct horse battery", cancellation: Token);
+        await accountService.SetRoleAsync(admin.Id, Role.Admin, Token);
+        var users = Pocket() with { LinkByUsername = UsernameLinking.Users };
+        Assert.NotEqual(admin.Id, (await SignedIn(users, Kim() with { Subject = "renamed-themselves" })).Id);
+
+        var everyone = Pocket() with { Name = "keycloak", LinkByUsername = UsernameLinking.All };
+        Assert.Equal(admin.Id, (await SignedIn(everyone, Kim())).Id);
+    }
+
+    [Fact]
+    public async Task A_user_map_joins_and_remaps_without_moving_anything()
+    {
+        var ben = await accountService.CreateUserAsync("bendimit", "correct horse battery", cancellation: Token);
+        await accountService.SetRoleAsync(ben.Id, Role.SuperAdmin, Token);
+        var benAtPocket = Kim() with { Subject = "sub-ben", Username = "Ben" };
+
+        // Signed in before the mapping existed: an account of its own.
+        var stray = await SignedIn(Pocket(), benAtPocket);
+        Assert.NotEqual(ben.Id, stray.Id);
+
+        var mapped = Pocket() with { UserMap = new Dictionary<string, string> { ["ben"] = "bendimit" } };
+        var result = Assert.IsType<ExternalSignInResult.Success>(await signIn.SignInAsync(mapped, benAtPocket, Token));
+        Assert.Equal((ben.Id, "remap"), (result.Account.Id, result.JoinedBy));
+        Assert.Equal(ben.Id, (await identities.FindAsync("pocket", "sub-ben", Token))!.AccountId);
+        // The stray account is left as it was, only without the link.
+        Assert.NotNull(await accounts.FindByIdAsync(stray.Id, Token));
+        Assert.Empty(await signIn.IdentitiesOfAsync(stray.Id, Token));
+
+        // From then on a plain sign-in.
+        Assert.Null(Assert.IsType<ExternalSignInResult.Success>(await signIn.SignInAsync(mapped, benAtPocket, Token)).JoinedBy);
+    }
+
+    [Fact]
+    public async Task Saved_mappings_work_like_the_setting_and_the_setting_wins()
+    {
+        var kim = await accountService.CreateUserAsync("kimberly", "correct horse battery", cancellation: Token);
+        var other = await accountService.CreateUserAsync("someone", "correct horse battery", cancellation: Token);
+        await identities.PutMappingAsync(new IdentityMapping
+        {
+            Provider = "pocket", ProviderUsername = "kim.lee", AccountId = kim.Id, CreatedAt = DateTimeOffset.UtcNow,
+        }, Token);
+        var result = Assert.IsType<ExternalSignInResult.Success>(await signIn.SignInAsync(Pocket(), Kim(), Token));
+        Assert.Equal((kim.Id, "mapping"), (result.Account.Id, result.JoinedBy));
+
+        var overridden = Pocket() with { UserMap = new Dictionary<string, string> { ["kim.lee"] = "someone" } };
+        Assert.Equal(other.Id, (await SignedIn(overridden, Kim())).Id);
+
+        // A mapping to an account that is gone is ignored.
+        var gone = Pocket() with { UserMap = new Dictionary<string, string> { ["newbie"] = "nobody" } };
+        Assert.Equal("newbie", (await SignedIn(gone, Kim() with { Subject = "sub-new", Username = "newbie" })).Username);
+    }
 }

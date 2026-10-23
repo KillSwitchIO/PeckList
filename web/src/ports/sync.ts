@@ -16,6 +16,10 @@ export interface Account {
   role: 'superadmin' | 'admin' | 'user';
   mustChangePassword: boolean;
   authMode: 'local' | 'none';
+  /** The identity provider this session came through, if any. */
+  provider?: string | null;
+  /** Where the server serves that provider's icon (it answers 404 when there is none). */
+  providerIcon?: string | null;
 }
 
 export interface SyncRequest {
@@ -50,7 +54,7 @@ export interface SyncResponse {
 /** Ways to sign in on this server (`/auth/providers`). */
 export interface SignInOptions {
   /** Identity providers, each with the address that starts its sign-in. */
-  providers: { name: string; displayName: string; url: string }[];
+  providers: { name: string; displayName: string; url: string; icon?: string }[];
   /** False when the server hides the password form (`/login?local` still shows it). */
   localLogin: boolean;
   /** Who may make an account: anyone, people with an invite link, or nobody (older servers: closed). */

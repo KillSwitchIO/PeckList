@@ -20,6 +20,12 @@ public sealed class FakeOidcProvider : HttpMessageHandler
     private readonly RsaSecurityKey key = new(RSA.Create(2048)) { KeyId = "test-key" };
     private readonly Dictionary<string, (Dictionary<string, object> Claims, string Nonce)> codes = [];
 
+    /// <summary>What <c>/favicon.ico</c> answers with; null: 404.</summary>
+    public (byte[] Bytes, string Type)? Favicon { get; set; }
+
+    /// <summary>The home page, <c>/</c>; null: 404. Its icon link may point at <c>/img/icon.png</c>, which answers a PNG.</summary>
+    public string? HomePage { get; set; }
+
     /// <summary>The <c>redirect_uri</c> the last code exchange sent (it must match the authorize request's).</summary>
     public string? LastTokenRedirectUri { get; private set; }
 
@@ -67,6 +73,18 @@ public sealed class FakeOidcProvider : HttpMessageHandler
                         },
                     },
                 });
+            case "/favicon.ico" when Favicon is { } favicon:
+                return new HttpResponseMessage(HttpStatusCode.OK)
+                {
+                    Content = new ByteArrayContent(favicon.Bytes) { Headers = { ContentType = new(favicon.Type) } },
+                };
+            case "/" when HomePage is { } page:
+                return new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent(page, System.Text.Encoding.UTF8, "text/html") };
+            case "/img/icon.png":
+                return new HttpResponseMessage(HttpStatusCode.OK)
+                {
+                    Content = new ByteArrayContent([0x89, 0x50, 0x4e, 0x47]) { Headers = { ContentType = new("image/png") } },
+                };
             case "/token":
                 var form = QueryHelpers.ParseQuery(await request.Content!.ReadAsStringAsync(cancellationToken));
                 LastTokenRedirectUri = form["redirect_uri"].ToString();

@@ -8,7 +8,9 @@ using Punchlist.Core.Configuration;
 
 namespace Punchlist.Server.Auth;
 
-public sealed record Me(string Id, string Username, string Role, bool MustChangePassword, string AuthMode, ViewingAs? Impersonation = null);
+/// <summary><paramref name="Provider"/>: the identity provider this session came through, if any.</summary>
+public sealed record Me(
+    string Id, string Username, string Role, bool MustChangePassword, string AuthMode, ViewingAs? Impersonation = null, string? Provider = null);
 
 /// <summary>Set while a super admin views the app as this user: who, why, until when.</summary>
 public sealed record ViewingAs(string By, string Reason, DateTimeOffset Until);
@@ -150,5 +152,6 @@ public static class AuthEndpoints
         user.Impersonator() is { } by
             ? new ViewingAs(by, user.FindFirstValue(ImpersonationSetup.ReasonClaim) ?? "",
                 DateTimeOffset.Parse(user.FindFirstValue(ImpersonationSetup.UntilClaim)!, System.Globalization.CultureInfo.InvariantCulture))
-            : null);
+            : null,
+        user.FindFirstValue(OidcSetup.ProviderClaim));
 }

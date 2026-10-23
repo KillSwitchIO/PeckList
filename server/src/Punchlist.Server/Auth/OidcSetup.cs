@@ -11,7 +11,8 @@ using Punchlist.Core.Sharing;
 
 namespace Punchlist.Server.Auth;
 
-public sealed record SignInProvider(string Name, string DisplayName);
+/// <summary><paramref name="Icon"/>: where the server serves the provider's icon (404 when it has none).</summary>
+public sealed record SignInProvider(string Name, string DisplayName, string Icon);
 
 /// <summary><paramref name="Registration"/>: who may make an account here (<c>open</c>, <c>invite</c>, <c>closed</c>).</summary>
 public sealed record SignInOptions(IReadOnlyList<SignInProvider> Providers, bool LocalLogin, string Registration = "closed");
@@ -33,6 +34,9 @@ public static class OidcSetup
 
     /// <summary>On a session from a provider that ends its own session too: which provider (with the ID token kept).</summary>
     public const string ProviderItem = "punchlist.provider";
+
+    /// <summary>On sessions a provider signed in: its name, for the provider badge on the avatar.</summary>
+    public const string ProviderClaim = "punchlist:provider";
 
     /// <summary>Set on a sign-in started from an invite link: a new provider account may come in on it.</summary>
     private const string InviteItem = "punchlist.invite";
@@ -109,12 +113,24 @@ public static class OidcSetup
     /// <summary>
     /// <c>/auth/providers</c> (who can sign you in) and <c>/auth/oidc/&lt;name&gt;/login</c> (start).
     /// </summary>
+    public static string IconPath(string provider) => $"/auth/providers/{Uri.EscapeDataString(provider)}/icon";
+
     public static void MapOidc(this RouteGroupBuilder auth, ServerSettings settings)
     {
         auth.MapGet("/providers", (SelfSignUp signUp, LiveSettings live) => new SignInOptions(
-            settings.OidcProviders.Select(provider => new SignInProvider(provider.Name, provider.DisplayName)).ToList(),
+            settings.OidcProviders.Select(provider => new SignInProvider(provider.Name, provider.DisplayName, IconPath(provider.Name))).ToList(),
             !live.Current.LocalLoginHidden,
             signUp.InvitesWork ? signUp.Policy.ToString().ToLowerInvariant() : "closed"));
+
+        auth.MapGet("/providers/{name}/icon", async (string name, ProviderIcons icons, HttpContext context, CancellationToken cancellation) =>
+        {
+            if (await icons.GetAsync(name, cancellation) is not { } icon) return Results.NotFound();
+            context.Response.Headers.CacheControl = "public, max-age=86400";
+            context.Response.Headers.XContentTypeOptions = "nosniff";
+            // An SVG icon may carry script: never let it run, even opened on its own.
+            context.Response.Headers.ContentSecurityPolicy = "sandbox; default-src 'none'; style-src 'unsafe-inline'";
+            return Results.File(icon.Bytes, icon.ContentType);
+        });
 
         auth.MapGet("/oidc/{name}/login", (string name, string? returnUrl, string? invite) =>
         {
@@ -246,8 +262,11 @@ public static class OidcSetup
                 await services.GetRequiredService<ServerGroupProjection>().ProjectAsync(context.HttpContext.RequestAborted);
                 note.Outcome = AuditOutcome.Ok;
                 if (success.Created) note.Detail = success.JoinedBy == "invite" ? $"{provider.Name}, new account from an invite" : $"{provider.Name}, new account";
+                else if (success.JoinedBy == "remap") note.Detail = $"{provider.Name}, moved here from another account by a mapping";
                 else if (success.JoinedBy is { } joined) note.Detail = $"{provider.Name}, joined the account by {joined}";
-                context.Principal = AuthSetup.Principal(success.Account, CookieAuthenticationDefaults.AuthenticationScheme);
+                var principal = AuthSetup.Principal(success.Account, CookieAuthenticationDefaults.AuthenticationScheme);
+                ((ClaimsIdentity)principal.Identity!).AddClaim(new Claim(ProviderClaim, provider.Name));
+                context.Principal = principal;
                 context.Properties!.IsPersistent = true;
                 if (provider.SessionLength is { } length)
                 {

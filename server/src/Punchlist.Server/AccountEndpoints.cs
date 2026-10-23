@@ -6,7 +6,8 @@ using Punchlist.Server.Auth;
 
 namespace Punchlist.Server;
 
-public sealed record IdentityView(string Provider, string DisplayName, string Subject, string? Email, DateTimeOffset LinkedAt, DateTimeOffset LastUsedAt);
+public sealed record IdentityView(
+    string Provider, string DisplayName, string Subject, string? Email, DateTimeOffset LinkedAt, DateTimeOffset LastUsedAt, string? Username = null);
 
 public sealed record LinkOption(string Name, string DisplayName, string Url);
 
@@ -57,5 +58,6 @@ public static class AccountEndpoints
         identity.Subject,
         identity.Email,
         identity.LinkedAt,
-        identity.LastUsedAt);
+        identity.LastUsedAt,
+        identity.Username);
 }

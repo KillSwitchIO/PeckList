@@ -135,6 +135,21 @@ function useSignInOptions(invite?: string): SignInOptions | null {
   return options;
 }
 
+/** A provider's icon on its button; gone when the provider has none. */
+function ProviderIcon({ src }: { src: string }) {
+  const [failed, setFailed] = useState(false);
+  if (failed) return null;
+  return (
+    <Box
+      component="img"
+      src={src}
+      alt=""
+      onError={() => setFailed(true)}
+      sx={{ width: 20, height: 20, objectFit: 'contain' }}
+    />
+  );
+}
+
 /** One "Continue with ..." button per identity provider. */
 function ProviderButtons({
   providers,
@@ -150,6 +165,7 @@ function ProviderButtons({
       size="large"
       href={provider.url}
       onClick={() => onPick?.(provider.name)}
+      startIcon={provider.icon ? <ProviderIcon src={provider.icon} /> : undefined}
       sx={{ textTransform: 'none' }}
     >
       {t('auth.with', { name: provider.displayName })}

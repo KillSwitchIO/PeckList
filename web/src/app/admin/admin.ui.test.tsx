@@ -10,6 +10,7 @@ import type {
   AdminUser,
   AuditEntry,
   AuditQuery,
+  OidcMapping,
   PendingSignIn,
 } from '../../ports/admin.ts';
 import { FakeBackend } from '../../test/fakeTransport.ts';
@@ -48,6 +49,20 @@ function memoryAdmin(benId: string) {
     linked: [] as string[],
     handedOver: [] as { from: string; to: string; ids: string[] }[],
     window: null as string | null,
+    /** Provider accounts: who they sign into. */
+    identities: [
+      { provider: 'pocket', subject: 'kim-sub-1', username: 'kim', accountId: 'U2' },
+    ] as { provider: string; subject: string; username: string; accountId: string }[],
+    mappings: [
+      {
+        provider: 'pocket',
+        providerUsername: 'boss',
+        accountId: benId,
+        accountUsername: 'ben',
+        source: 'settings',
+        createdAt: null,
+      },
+    ] as OidcMapping[],
     registration: 'invite' as 'open' | 'invite' | 'closed',
     invites: [] as AdminInvite[],
     pending: [
@@ -438,6 +453,66 @@ function memoryAdmin(benId: string) {
       return Promise.resolve();
     },
     dismiss: () => Promise.resolve(),
+    oidc: () =>
+      Promise.resolve({
+        providers: [
+          {
+            name: 'pocket',
+            displayName: 'Pocket ID',
+            linkByUsername: 'true' as const,
+            autoCreate: true,
+            linkByEmail: false,
+            migrationWindowUntil: null,
+          },
+        ],
+        accounts: state.users.map((each) => ({
+          id: each.id,
+          username: each.username,
+          role: each.role,
+          disabled: each.disabled,
+          identities: state.identities
+            .filter((identity) => identity.accountId === each.id)
+            .map((identity) => ({
+              provider: identity.provider,
+              displayName: 'Pocket ID',
+              subject: identity.subject,
+              email: null,
+              username: identity.username,
+              linkedAt: '2026-10-22T08:00:00Z',
+              lastUsedAt: '2026-10-22T08:00:00Z',
+            })),
+        })),
+        mappings: state.mappings.map((each) => ({ ...each })),
+      }),
+    saveMapping: (provider, providerUsername, accountId) => {
+      if (
+        state.mappings.some(
+          (each) => each.source === 'settings' && each.providerUsername === providerUsername,
+        )
+      ) {
+        return Promise.resolve({ ok: false, reason: 'set-by-settings' });
+      }
+      state.mappings.push({
+        provider,
+        providerUsername: providerUsername.toLowerCase(),
+        accountId,
+        accountUsername: state.users.find((each) => each.id === accountId)?.username ?? accountId,
+        source: 'admin',
+        createdAt: '2026-10-22T09:00:00Z',
+      });
+      return Promise.resolve({ ok: true, value: undefined });
+    },
+    removeMapping: (_, providerUsername) => {
+      state.mappings = state.mappings.filter((each) => each.providerUsername !== providerUsername);
+      return Promise.resolve({ ok: true, value: undefined });
+    },
+    moveIdentity: (_, subject, accountId) => {
+      const identity = state.identities.find((each) => each.subject === subject)!;
+      const from = identity.accountId;
+      identity.accountId = accountId;
+      const stranded = state.identities.some((each) => each.accountId === from) ? [] : ['sam'];
+      return Promise.resolve({ ok: true, value: { stranded } });
+    },
   };
   return { api, state, auditQueries };
 }
@@ -899,7 +974,7 @@ describe('admin', () => {
   it('opens a migration window and lets a waiting person in', async () => {
     const { state } = await adminApp('superadmin', '/admin/sign-in');
     const providers = await screen.findByRole('region', { name: 'Identity providers' });
-    expect(await within(providers).findByText('2 linked')).toBeInTheDocument();
+    expect(await within(providers).findByText(/^2 linked/)).toBeInTheDocument();
     await userEvent.click(within(providers).getByRole('button', { name: 'Open migration window' }));
     expect(await within(providers).findByText(/Migration window open until/)).toBeInTheDocument();
 
@@ -913,5 +988,55 @@ describe('admin', () => {
       within(await screen.findByRole('dialog')).getByRole('button', { name: 'Unbind all' }),
     );
     expect(await screen.findByText(/No way to sign in now: kim/)).toBeInTheDocument();
+  });
+
+  it('shows who signs in with which provider account and maps, moves and unlinks them', async () => {
+    const { state } = await adminApp('superadmin', '/admin/sign-in');
+    const providers = await screen.findByRole('region', { name: 'Identity providers' });
+    expect(await within(providers).findByText(/Joins plain users by username/)).toBeInTheDocument();
+
+    const accounts = await screen.findByRole('region', {
+      name: 'Accounts and their provider accounts',
+    });
+    const sam = await within(accounts).findByRole('listitem', { name: 'sam' });
+    expect(within(sam).getByText(/Pocket ID: kim/)).toBeInTheDocument();
+    // Accounts without one show only when asked.
+    expect(within(accounts).queryByRole('listitem', { name: 'ben' })).not.toBeInTheDocument();
+    await userEvent.click(
+      within(accounts).getByLabelText('Show accounts without a provider account'),
+    );
+    expect(within(accounts).getByRole('listitem', { name: 'ben' })).toBeInTheDocument();
+
+    // Move kim's provider account to ben: sam has no way in left.
+    await userEvent.click(within(sam).getByRole('button', { name: 'Move' }));
+    const move = await screen.findByRole('dialog');
+    await userEvent.click(within(move).getByLabelText('Signs into'));
+    await userEvent.click(await screen.findByRole('option', { name: 'ben' }));
+    await userEvent.click(within(move).getByRole('button', { name: 'Move' }));
+    expect(await screen.findByText(/sam has no way to sign in now/)).toBeInTheDocument();
+    expect(state.identities[0]?.accountId).not.toBe('U2');
+
+    // The settings' mapping is read-only; a new one can be added and removed.
+    const mappings = screen.getByRole('region', { name: 'Mappings' });
+    const boss = within(mappings).getByRole('listitem', { name: 'Pocket ID: boss → ben' });
+    expect(within(boss).getByText('From the server settings')).toBeInTheDocument();
+    expect(within(boss).queryByRole('button', { name: 'Remove' })).not.toBeInTheDocument();
+    await userEvent.click(within(mappings).getByRole('button', { name: 'Add mapping' }));
+    const map = await screen.findByRole('dialog');
+    await userEvent.type(within(map).getByLabelText('Username at the provider'), 'Sammy');
+    await userEvent.click(within(map).getByLabelText('Signs into'));
+    await userEvent.click(await screen.findByRole('option', { name: 'sam' }));
+    await userEvent.click(within(map).getByRole('button', { name: 'Save mapping' }));
+    const sammy = await within(mappings).findByRole('listitem', { name: 'Pocket ID: sammy → sam' });
+    await userEvent.click(within(sammy).getByRole('button', { name: 'Remove' }));
+    await waitFor(() => expect(state.mappings).toHaveLength(1));
+
+    // Unlink, after a confirmation.
+    const ben = within(accounts).getByRole('listitem', { name: 'ben' });
+    await userEvent.click(within(ben).getByRole('button', { name: 'Unlink' }));
+    await userEvent.click(
+      within(await screen.findByRole('dialog')).getByRole('button', { name: 'Unlink' }),
+    );
+    expect(await screen.findByText('Unlinked.')).toBeInTheDocument();
   });
 });

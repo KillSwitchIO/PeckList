@@ -72,6 +72,8 @@ export function createHttpSync(
     throw new SyncFailure('server', body.message ?? `server error ${response.status}`);
   };
 
+  const providerIcon = (name: string) => `${base}/auth/providers/${encodeURIComponent(name)}/icon`;
+
   return {
     async info() {
       const response = await call('/api/info');
@@ -87,7 +89,10 @@ export function createHttpSync(
       const response = await call('/auth/me');
       if (response.status === 401) return null;
       if (!response.ok) return fail(response);
-      return (await response.json()) as Account;
+      const account = (await response.json()) as Account;
+      return account.provider
+        ? { ...account, providerIcon: providerIcon(account.provider) }
+        : account;
     },
 
     async signInOptions(returnUrl, invite) {
@@ -98,7 +103,7 @@ export function createHttpSync(
       }
       if (!response.ok) return fail(response);
       const options = (await response.json()) as {
-        providers: { name: string; displayName: string }[];
+        providers: { name: string; displayName: string; icon?: string }[];
         localLogin: boolean;
         registration?: 'open' | 'invite' | 'closed';
       };
@@ -108,6 +113,7 @@ export function createHttpSync(
         registration: options.registration ?? 'closed',
         providers: options.providers.map((provider) => ({
           ...provider,
+          ...(provider.icon ? { icon: `${base}${provider.icon}` } : {}),
           url: `${base}/auth/oidc/${encodeURIComponent(provider.name)}/login?returnUrl=${encodeURIComponent(returnUrl)}${withInvite}`,
         })),
       };

@@ -390,6 +390,8 @@ export const en = {
   'admin.users.signInLink': 'Sign-in link',
   'admin.users.turnOff': 'Turn off',
   'admin.refused.linked-elsewhere': 'That provider account is linked to someone else.',
+  'admin.refused.set-by-settings':
+    'The server settings (OIDC_..._USER_MAP) make this mapping; change it there.',
   'admin.refused.registration-closed':
     'Sign-up is closed on this server, so invite links do not work. Change "Who can join" under Settings first.',
   'admin.invites.invite': 'Invite',
@@ -503,6 +505,44 @@ export const en = {
   'admin.signIn.nobodyWaiting': 'Nobody is waiting.',
   'admin.signIn.approve': 'Let in',
   'admin.signIn.dismiss': 'Dismiss',
+  'admin.signIn.byUsername': 'Joins accounts by username',
+  'admin.signIn.byUsernameUsers': 'Joins plain users by username',
+  'admin.signIn.accounts': 'Accounts and their provider accounts',
+  'admin.signIn.accountsHint':
+    'Which provider account signs into which account. Moving or unlinking never moves tasks or lists.',
+  'admin.signIn.notLinked': 'No provider account',
+  'admin.signIn.identity': '{provider}: {name}',
+  'admin.signIn.lastUsed': 'last used {time}',
+  'admin.signIn.move': 'Move',
+  'admin.signIn.unlink': 'Unlink',
+  'admin.signIn.map': 'Map',
+  'admin.signIn.showAll': 'Show accounts without a provider account',
+  'admin.signIn.mappings': 'Mappings',
+  'admin.signIn.mappingsHint':
+    'A provider username that always signs into the same account, even one linked elsewhere.',
+  'admin.signIn.noMappings': 'No mappings.',
+  'admin.signIn.addMapping': 'Add mapping',
+  'admin.signIn.fromSettings': 'From the server settings',
+  'admin.signIn.mappingTo': '{provider}: {from} → {to}',
+  'admin.signIn.missingAccount': '{name} (no such account)',
+  'admin.signIn.remove': 'Remove',
+  'admin.signIn.moved': 'Moved. {name} has no way to sign in now; give them a sign-in link.',
+  'admin.signIn.movedOk': 'Moved.',
+  'admin.signIn.unlinked': 'Unlinked.',
+  'admin.signIn.unlinkedStranded':
+    'Unlinked. {name} has no way to sign in now; give them a sign-in link.',
+  'admin.signIn.unlinkTitle': 'Unlink {identity}?',
+  'admin.signIn.unlinkText':
+    'Their next sign-in through the provider is treated as a first one. The account and its data stay.',
+  'admin.map.title': 'Map a provider username',
+  'admin.map.text':
+    'From their next sign-in, this provider user lands in the account you pick. Nothing moves between accounts.',
+  'admin.map.providerUsername': 'Username at the provider',
+  'admin.map.account': 'Signs into',
+  'admin.map.save': 'Save mapping',
+  'admin.move.title': 'Move {identity}',
+  'admin.move.text':
+    'It signs into the account you pick from now on. The tasks and lists of {name} stay where they are.',
   'settings.signIn': 'Sign-in',
   'settings.signIn.password': 'Password',
   'settings.signIn.passwordOn': 'Your username and password',

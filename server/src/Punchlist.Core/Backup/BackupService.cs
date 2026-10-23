@@ -130,8 +130,21 @@ public sealed class BackupService(
             json.WriteString("accountId", identity.AccountId);
             if (identity.Email is null) json.WriteNull("email");
             else json.WriteString("email", identity.Email);
+            if (identity.Username is null) json.WriteNull("username");
+            else json.WriteString("username", identity.Username);
             json.WriteString("linkedAt", identity.LinkedAt.ToString("O", CultureInfo.InvariantCulture));
             json.WriteString("lastUsedAt", identity.LastUsedAt.ToString("O", CultureInfo.InvariantCulture));
+            json.WriteEndObject();
+        }
+        json.WriteEndArray();
+        json.WriteStartArray("identityMappings");
+        foreach (var mapping in await identities.ListMappingsAsync(cancellation))
+        {
+            json.WriteStartObject();
+            json.WriteString("provider", mapping.Provider);
+            json.WriteString("providerUsername", mapping.ProviderUsername);
+            json.WriteString("accountId", mapping.AccountId);
+            json.WriteString("createdAt", mapping.CreatedAt.ToString("O", CultureInfo.InvariantCulture));
             json.WriteEndObject();
         }
         json.WriteEndArray();
@@ -245,8 +258,20 @@ public sealed class BackupService(
                 Subject = Required(item, "subject"),
                 AccountId = Required(item, "accountId"),
                 Email = (string?)item["email"],
+                Username = (string?)item["username"],
                 LinkedAt = Time(item, "linkedAt"),
                 LastUsedAt = Time(item, "lastUsedAt"),
+            }, cancellation);
+        }
+        foreach (var node in OptionalArray(root, "identityMappings"))
+        {
+            var item = node.AsObject();
+            await identities.PutMappingAsync(new IdentityMapping
+            {
+                Provider = Required(item, "provider"),
+                ProviderUsername = Required(item, "providerUsername"),
+                AccountId = Required(item, "accountId"),
+                CreatedAt = Time(item, "createdAt"),
             }, cancellation);
         }
         foreach (var node in OptionalArray(root, "pendingSignIns"))

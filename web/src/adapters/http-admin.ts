@@ -17,6 +17,7 @@ import type {
   LoggingView,
   RestoreSource,
   UserRestoreResult,
+  OidcOverview,
   PendingSignIn,
   ServerSettingsView,
 } from '../ports/admin.ts';
@@ -38,6 +39,7 @@ const REFUSALS: Record<string, AdminRefusal> = {
   reason_required: 'reason-required',
   taken: 'linked-elsewhere',
   registration_closed: 'registration-closed',
+  set_by_settings: 'set-by-settings',
 };
 
 /** `/api/admin` over fetch, with the session cookie (same origin). */
@@ -256,6 +258,26 @@ export function createHttpAdmin(
     },
     auditCsvUrl: (query) => `${base}/api/admin/audit.csv?${auditParams(query)}`,
     providers: async () => json<AdminProvider[]>(await call('/providers')),
+    oidc: async () => json<OidcOverview>(await call('/oidc')),
+    saveMapping: async (provider, providerUsername, accountId) =>
+      result(await call('/oidc/mappings', 'PUT', { provider, providerUsername, accountId }), none),
+    removeMapping: async (provider, providerUsername) => {
+      const response = await call(
+        `/oidc/mappings/${segment(provider)}/${segment(providerUsername)}`,
+        'DELETE',
+      );
+      if (response.status === 404) return { ok: true, value: undefined };
+      return result(response, none);
+    },
+    moveIdentity: async (provider, subject, accountId) =>
+      result(
+        await call(`/oidc/identities/${segment(provider)}/${segment(subject)}/account`, 'PUT', {
+          accountId,
+        }),
+        async (response) => ({
+          stranded: ((await response.json()) as { stranded: string[] }).stranded,
+        }),
+      ),
     unbindAll: async (provider) =>
       json<{ unbound: number; stranded: string[] }>(
         await call(`/providers/${segment(provider)}/unbind-all`, 'POST'),

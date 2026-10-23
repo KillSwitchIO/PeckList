@@ -23,6 +23,7 @@ public abstract class IdentityStoreContract : IAsyncLifetime
         Subject = subject,
         AccountId = account,
         Email = $"{subject}@example.com",
+        Username = $"name-{subject}",
         LinkedAt = Monday,
         LastUsedAt = Monday,
     };
@@ -36,7 +37,7 @@ public abstract class IdentityStoreContract : IAsyncLifetime
         Assert.Null(await Identities.FindAsync("pocket", "s2", Token));
         await Assert.ThrowsAsync<IdentityTakenException>(() => Identities.LinkAsync(Link("pocket", "s1", "U3"), Token));
 
-        var later = Link("pocket", "s1", "U1") with { Email = null, LastUsedAt = Monday.AddDays(1) };
+        var later = Link("pocket", "s1", "U1") with { AccountId = "U9", Email = null, Username = "renamed", LastUsedAt = Monday.AddDays(1) };
         await Identities.UpdateAsync(later, Token);
         Assert.Equal(later, await Identities.FindAsync("pocket", "s1", Token));
         await Assert.ThrowsAsync<KeyNotFoundException>(() => Identities.UpdateAsync(Link("pocket", "nobody", "U1"), Token));
@@ -76,5 +77,20 @@ public abstract class IdentityStoreContract : IAsyncLifetime
         Assert.True(await Identities.RemovePendingAsync("pocket", "s9", Token));
         Assert.False(await Identities.RemovePendingAsync("pocket", "s9", Token));
         Assert.Empty(await Identities.ListPendingAsync(Token));
+    }
+
+    [Fact]
+    public async Task Keeps_one_mapping_per_provider_username_whatever_its_case()
+    {
+        var kim = new IdentityMapping { Provider = "pocket", ProviderUsername = "Kim", AccountId = "U1", CreatedAt = Monday };
+        await Identities.PutMappingAsync(kim, Token);
+        await Identities.PutMappingAsync(kim with { ProviderUsername = "kim", AccountId = "U2" }, Token);
+        await Identities.PutMappingAsync(kim with { Provider = "keycloak" }, Token);
+        Assert.Equal(
+            [("keycloak", "kim", "U1"), ("pocket", "kim", "U2")],
+            (await Identities.ListMappingsAsync(Token)).Select(each => (each.Provider, each.ProviderUsername, each.AccountId)));
+        Assert.True(await Identities.RemoveMappingAsync("pocket", "KIM", Token));
+        Assert.False(await Identities.RemoveMappingAsync("pocket", "kim", Token));
+        Assert.Single(await Identities.ListMappingsAsync(Token));
     }
 }

@@ -10,11 +10,13 @@ import { SettingsTab } from './SettingsTab.tsx';
 import { SetupWizard } from './SetupWizard.tsx';
 import { SignInTab } from './SignInTab.tsx';
 import { UsersTab } from './UsersTab.tsx';
-import { useAdminApi } from './useAdmin.ts';
+import { useAdminApi, useLoaded } from './useAdmin.ts';
+import type { AdminProvider } from '../../ports/admin.ts';
 
 const TABS = ['users', 'groups', 'sign-in', 'backups', 'logs', 'stats', 'settings'] as const;
 type AdminTab = (typeof TABS)[number];
 const isTab = (value: string | undefined): value is AdminTab => TABS.some((each) => each === value);
+const NO_PROVIDERS = (): Promise<AdminProvider[]> => Promise.resolve([]);
 
 /**
  * The admin area (spec: PL-034 Admin UI): users, server groups, sign-in, backups, logs, stats and
@@ -25,6 +27,9 @@ export function AdminPage() {
   const api = useAdminApi();
   const params = useParams();
   const navigate = useNavigate();
+  // Sign-in is about identity providers: without one there is nothing on it.
+  const providers = useLoaded(api?.providers ?? NO_PROVIDERS);
+  const tabs = TABS.filter((each) => each !== 'sign-in' || (providers.data?.length ?? 0) > 0);
   const tab: AdminTab = isTab(params.tab) ? params.tab : 'users';
   if (!api) {
     return (
@@ -44,12 +49,12 @@ export function AdminPage() {
     <Page title={t('admin.title')}>
       <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 2, maxWidth: 720 }}>
         <Tabs
-          value={tab}
+          value={tabs.includes(tab) ? tab : false}
           onChange={(_, next: AdminTab) =>
             void navigate(next === 'users' ? '/admin' : `/admin/${next}`)
           }
         >
-          {TABS.map((each) => (
+          {tabs.map((each) => (
             <Tab
               key={each}
               value={each}

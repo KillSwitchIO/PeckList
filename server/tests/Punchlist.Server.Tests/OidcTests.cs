@@ -60,7 +60,7 @@ public sealed class OidcTests(ServerFixture fixture) : IClassFixture<ServerFixtu
     {
         using var server = Server(("LOCAL_LOGIN", "hidden"));
         var options = await Browser(server).GetFromJsonAsync<SignInOptions>("/auth/providers", Token);
-        Assert.Equal([new SignInProvider("fake", "Fake ID")], options!.Providers);
+        Assert.Equal([new SignInProvider("fake", "Fake ID", "/auth/providers/fake/icon")], options!.Providers);
         Assert.False(options.LocalLogin);
         Assert.Equal(HttpStatusCode.NotFound, (await Browser(server).GetAsync("/auth/oidc/nope/login", Token)).StatusCode);
     }
@@ -354,4 +354,92 @@ public sealed class OidcTests(ServerFixture fixture) : IClassFixture<ServerFixtu
         Assert.Equal("/", await SignIn(browser, Kim()));
         Assert.Equal("sam", (await browser.GetFromJsonAsync<Me>("/auth/me", Token))!.Username);
     }
+
+    [Fact]
+    public async Task The_session_knows_its_provider_and_the_server_serves_the_providers_icon()
+    {
+        using var server = Server(("OIDC_FAKE_AUTO_CREATE", "true"));
+        var browser = Browser(server);
+        Assert.Equal(HttpStatusCode.NotFound, (await browser.GetAsync("/auth/providers/fake/icon", Token)).StatusCode);
+
+        await SignIn(browser, Kim());
+        Assert.Equal("fake", (await browser.GetFromJsonAsync<Me>("/auth/me", Token))!.Provider);
+        var admin = Browser(server);
+        (await admin.PostAsJsonAsync("/auth/login", new { username = "admin", password = AdminPassword }, Token)).EnsureSuccessStatusCode();
+        Assert.Null((await admin.GetFromJsonAsync<Me>("/auth/me", Token))!.Provider);
+
+        // A miss is remembered for an hour, so a fresh server sees the icon the provider now has.
+        // Servers often call an .ico a plain octet stream: its first bytes say what it is.
+        provider.Favicon = ([0, 0, 1, 0], "application/octet-stream");
+        using var later = Server();
+        var icon = await Browser(later).GetAsync("/auth/providers/fake/icon", Token);
+        Assert.Equal(HttpStatusCode.OK, icon.StatusCode);
+        Assert.Equal("image/x-icon", icon.Content.Headers.ContentType!.MediaType);
+        Assert.Equal([0, 0, 1, 0], await icon.Content.ReadAsByteArrayAsync(Token));
+        Assert.Contains("sandbox", icon.Headers.GetValues("Content-Security-Policy").Single());
+
+        // A web page where the icon should be is no icon...
+        provider.Favicon = ("<html></html>"u8.ToArray(), "text/html");
+        using var html = Server();
+        Assert.Equal(HttpStatusCode.NotFound, (await Browser(html).GetAsync("/auth/providers/fake/icon", Token)).StatusCode);
+
+        // ...but the icon the home page links to is.
+        provider.HomePage = "<html><head><link rel=\"apple-touch-icon\" href=\"/nope.png\"><link href='img/icon.png' rel='icon' /></head></html>";
+        using var linked = Server();
+        var png = await Browser(linked).GetAsync("/auth/providers/fake/icon", Token);
+        Assert.Equal("image/png", png.Content.Headers.ContentType!.MediaType);
+    }
+
+    [Fact]
+    public void Icon_links_come_plain_icons_first()
+    {
+        Assert.Equal(
+            ["/api/application-images/favicon", "/img/static-logo-512.png"],
+            ProviderIcons.IconLinks(
+                "<link rel=\"apple-touch-icon\" href=\"/img/static-logo-512.png\" />" +
+                "<link rel=\"stylesheet\" href=\"/app.css\">" +
+                "<link rel=\"icon\" href=\"/api/application-images/favicon\" />"));
+        Assert.Equal(["resources/x/favicon.ico"], ProviderIcons.IconLinks("<LINK REL=\"shortcut icon\" HREF=resources/x/favicon.ico>"));
+    }
+
+    [Fact]
+    public async Task Admins_see_who_is_paired_with_what_and_map_remap_and_unmap()
+    {
+        using var server = Server(("OIDC_FAKE_AUTO_CREATE", "true"), ("OIDC_FAKE_USER_MAP", "Boss=admin"));
+        var admin = Browser(server);
+        (await admin.PostAsJsonAsync("/auth/login", new { username = "admin", password = AdminPassword }, Token)).EnsureSuccessStatusCode();
+        var accounts = server.Services.GetRequiredService<AccountService>();
+        var kimberly = await accounts.CreateUserAsync("kimberly", "a long enough password", cancellation: Token);
+
+        // Kim signs in before anyone set things up: a new account "kim".
+        await SignIn(Browser(server), Kim());
+        var overview = await admin.GetFromJsonAsync<OidcOverview>("/api/admin/oidc", Token);
+        Assert.Equal("fake", Assert.Single(overview!.Providers).Name);
+        var kim = overview.Accounts.Single(account => account.Username == "kim");
+        Assert.Equal(("kim-subject", "kim"), (Assert.Single(kim.Identities).Subject, kim.Identities[0].Username));
+        Assert.Equal(("boss", "admin", "settings"), Assert.Single(overview.Mappings) is var boss ? (boss.ProviderUsername, boss.AccountUsername, boss.Source) : default);
+
+        // Remap by hand: the provider account now signs into kimberly; kim keeps everything.
+        var moved = await admin.PutAsJsonAsync("/api/admin/oidc/identities/fake/kim-subject/account", new { accountId = kimberly.Id }, Token);
+        Assert.Equal(["kim"], (await moved.Content.ReadFromJsonAsync<UnbindResult>(Token))!.Stranded);
+        var browser = Browser(server);
+        await SignIn(browser, Kim());
+        Assert.Equal("kimberly", (await browser.GetFromJsonAsync<Me>("/auth/me", Token))!.Username);
+
+        // A saved mapping; one the settings make cannot be changed here.
+        Assert.Equal(HttpStatusCode.NoContent, (await admin.PutAsJsonAsync("/api/admin/oidc/mappings",
+            new { provider = "fake", providerUsername = "Sam", accountId = kimberly.Id }, Token)).StatusCode);
+        Assert.Equal(HttpStatusCode.Conflict, (await admin.PutAsJsonAsync("/api/admin/oidc/mappings",
+            new { provider = "fake", providerUsername = "boss", accountId = kimberly.Id }, Token)).StatusCode);
+        Assert.Equal(HttpStatusCode.Conflict, (await admin.DeleteAsync("/api/admin/oidc/mappings/fake/boss", Token)).StatusCode);
+        overview = await admin.GetFromJsonAsync<OidcOverview>("/api/admin/oidc", Token);
+        Assert.Contains(overview!.Mappings, mapping => mapping is { ProviderUsername: "sam", AccountUsername: "kimberly", Source: "admin" });
+        Assert.Equal(HttpStatusCode.NoContent, (await admin.DeleteAsync("/api/admin/oidc/mappings/fake/sam", Token)).StatusCode);
+
+        // Unmap: the existing unlink.
+        Assert.Equal(HttpStatusCode.OK, (await admin.DeleteAsync($"/api/admin/users/{kimberly.Id}/identities/fake/kim-subject", Token)).StatusCode);
+        overview = await admin.GetFromJsonAsync<OidcOverview>("/api/admin/oidc", Token);
+        Assert.All(overview!.Accounts, account => Assert.Empty(account.Identities));
+    }
 }
+

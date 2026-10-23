@@ -27,6 +27,41 @@ export interface AdminIdentity {
   email: string | null;
   linkedAt: string;
   lastUsedAt: string;
+  /** The provider's username at the last sign-in (null for links made before it was kept). */
+  username?: string | null;
+}
+
+/** The OIDC page (spec: Accounts & Admin, Linking): who is paired with which provider account. */
+export interface OidcOverview {
+  providers: {
+    name: string;
+    displayName: string;
+    /** `false`, `true` (plain users) or `all`. */
+    linkByUsername: 'false' | 'true' | 'all';
+    autoCreate: boolean;
+    linkByEmail: boolean;
+    migrationWindowUntil: string | null;
+  }[];
+  accounts: {
+    id: string;
+    username: string;
+    role: AccountRole;
+    disabled: boolean;
+    identities: AdminIdentity[];
+  }[];
+  mappings: OidcMapping[];
+}
+
+/** A provider username that always signs into one account. */
+export interface OidcMapping {
+  provider: string;
+  providerUsername: string;
+  /** Null when the setting names an account that does not exist. */
+  accountId: string | null;
+  accountUsername: string;
+  /** `settings`: OIDC_<NAME>_USER_MAP, changed there only. */
+  source: 'settings' | 'admin';
+  createdAt: string | null;
 }
 
 export interface AdminGroup {
@@ -222,7 +257,8 @@ export type AdminRefusal =
   | 'too-short'
   | 'admins-only'
   | 'linked-elsewhere'
-  | 'registration-closed';
+  | 'registration-closed'
+  | 'set-by-settings';
 
 export type AdminResult<T = void> = { ok: true; value: T } | { ok: false; reason: AdminRefusal };
 
@@ -320,6 +356,16 @@ export interface AdminApi {
   auditCsvUrl(query: AuditQuery): string;
 
   providers(): Promise<AdminProvider[]>;
+  oidc(): Promise<OidcOverview>;
+  /** Whoever signs in through `provider` as `providerUsername` lands in the account from then on. */
+  saveMapping(provider: string, providerUsername: string, accountId: string): Promise<AdminResult>;
+  removeMapping(provider: string, providerUsername: string): Promise<AdminResult>;
+  /** Remap: the provider account signs into `accountId`; nothing the old account owns moves. */
+  moveIdentity(
+    provider: string,
+    subject: string,
+    accountId: string,
+  ): Promise<AdminResult<{ stranded: string[] }>>;
   unbindAll(provider: string): Promise<{ unbound: number; stranded: string[] }>;
   openMigrationWindow(provider: string, hours: number): Promise<string>;
   closeMigrationWindow(provider: string): Promise<void>;

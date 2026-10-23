@@ -45,6 +45,21 @@ public sealed record AdminError(string Error, string? Message = null);
 
 public sealed record AdminProvider(string Name, string DisplayName, int Linked, DateTimeOffset? MigrationWindowUntil);
 
+/// <summary>The OIDC page (spec: Accounts &amp; Admin, Linking): providers, who is paired with what, mappings.</summary>
+public sealed record OidcOverview(IReadOnlyList<OidcProviderView> Providers, IReadOnlyList<OidcAccount> Accounts, IReadOnlyList<OidcMappingView> Mappings);
+
+public sealed record OidcProviderView(string Name, string DisplayName, string LinkByUsername, bool AutoCreate, bool LinkByEmail, DateTimeOffset? MigrationWindowUntil);
+
+public sealed record OidcAccount(string Id, string Username, string Role, bool Disabled, IReadOnlyList<IdentityView> Identities);
+
+/// <summary><paramref name="Source"/>: <c>settings</c> (USER_MAP, read-only here) or <c>admin</c>.</summary>
+public sealed record OidcMappingView(
+    string Provider, string ProviderUsername, string? AccountId, string AccountUsername, string Source, DateTimeOffset? CreatedAt);
+
+public sealed record MappingRequest(string? Provider, string? ProviderUsername, string? AccountId);
+
+public sealed record MoveRequest(string? AccountId);
+
 public sealed record UnbindResult(int Unbound, IReadOnlyList<string> Stranded);
 
 public sealed record WindowRequest(double? Hours);
@@ -275,6 +290,103 @@ public static class AdminEndpoints
             await signIn.CloseMigrationWindowAsync(name, cancellation);
             return Results.NoContent();
         }).RequirePermission(Permission.ManageUsers).Audited("admin.migration-window-closed", "name", AuditTarget.Name);
+
+        // The OIDC page: who is paired with which provider account, and the mappings (spec: Linking).
+        admin.MapGet("/oidc", async (
+            ServerSettings settings, ExternalSignIn signIn, IIdentityStore identities, IAccountStore accounts, CancellationToken cancellation) =>
+        {
+            var all = (await accounts.ListAsync(cancellation)).Where(account => account.DeletedAt is null).ToList();
+            var byId = all.ToDictionary(account => account.Id);
+            var byName = all.ToDictionary(account => account.Username, StringComparer.OrdinalIgnoreCase);
+            var links = (await identities.ListAsync(cancellation)).ToLookup(identity => identity.AccountId);
+            var providers = new List<OidcProviderView>();
+            foreach (var provider in settings.OidcProviders)
+            {
+                providers.Add(new OidcProviderView(provider.Name, provider.DisplayName,
+                    provider.LinkByUsername switch { UsernameLinking.All => "all", UsernameLinking.Users => "true", _ => "false" },
+                    provider.AutoCreate, provider.LinkByEmail, await signIn.MigrationWindowAsync(provider.Name, cancellation)));
+            }
+            var mappings = new List<OidcMappingView>();
+            foreach (var provider in settings.OidcProviders)
+            {
+                foreach (var (providerUser, target) in provider.UserMap.OrderBy(pair => pair.Key, StringComparer.Ordinal))
+                {
+                    mappings.Add(new OidcMappingView(provider.Name, providerUser, byName.GetValueOrDefault(target)?.Id, target, "settings", null));
+                }
+            }
+            foreach (var mapping in await identities.ListMappingsAsync(cancellation))
+            {
+                var shadowed = settings.OidcProviders.Any(provider => provider.Name == mapping.Provider && provider.UserMap.ContainsKey(mapping.ProviderUsername));
+                if (shadowed) continue;
+                mappings.Add(new OidcMappingView(mapping.Provider, mapping.ProviderUsername, mapping.AccountId,
+                    byId.GetValueOrDefault(mapping.AccountId)?.Username ?? mapping.AccountId, "admin", mapping.CreatedAt));
+            }
+            return new OidcOverview(
+                providers,
+                all.OrderBy(account => account.Username, StringComparer.Ordinal)
+                    .Select(account => new OidcAccount(account.Id, account.Username, account.Role.Name(), account.Disabled,
+                        links[account.Id].Select(identity => AccountEndpoints.View(identity, settings)).ToList()))
+                    .ToList(),
+                mappings);
+        }).RequirePermission(Permission.ManageUsers);
+
+        // Map a provider username to an account: their next sign-in lands there, even when linked elsewhere.
+        admin.MapPut("/oidc/mappings", async (
+            MappingRequest request, ClaimsPrincipal user, ServerSettings settings, IIdentityStore identities, IAccountStore accounts,
+            TimeProvider time, HttpContext context, CancellationToken cancellation) =>
+        {
+            var name = request.ProviderUsername?.Trim().ToLowerInvariant() ?? "";
+            context.Audit().Detail = $"{request.Provider}: {name}";
+            if (settings.OidcProviders.FirstOrDefault(each => each.Name == request.Provider) is not { } provider
+                || name.Length is 0 or > 255 || string.IsNullOrEmpty(request.AccountId))
+            {
+                return Results.BadRequest(new AdminError("invalid", "a configured provider, a provider username and an account"));
+            }
+            if (provider.UserMap.ContainsKey(name))
+            {
+                return Results.Conflict(new AdminError("set_by_settings", $"OIDC_..._USER_MAP already maps {name}"));
+            }
+            return await OnAccountAsync(request.AccountId, user, accounts, async account =>
+            {
+                context.Audit().Detail = $"{provider.Name}: {name} to {account.Username}";
+                await identities.PutMappingAsync(new IdentityMapping
+                {
+                    Provider = provider.Name,
+                    ProviderUsername = name,
+                    AccountId = account.Id,
+                    CreatedAt = time.GetUtcNow(),
+                }, cancellation);
+                return Results.NoContent();
+            }, cancellation);
+        }).RequirePermission(Permission.ManageUsers).Audited("admin.oidc-mapping-saved", targetRoute: null);
+
+        admin.MapDelete("/oidc/mappings/{provider}/{providerUsername}", async (
+            string provider, string providerUsername, ServerSettings settings, IIdentityStore identities, HttpContext context,
+            CancellationToken cancellation) =>
+        {
+            context.Audit().Detail = $"{provider}: {providerUsername}";
+            if (settings.OidcProviders.Any(each => each.Name == provider && each.UserMap.ContainsKey(providerUsername.ToLowerInvariant())))
+            {
+                return Results.Conflict(new AdminError("set_by_settings", "change OIDC_..._USER_MAP to remove this one"));
+            }
+            return await identities.RemoveMappingAsync(provider, providerUsername, cancellation) ? Results.NoContent() : Results.NotFound();
+        }).RequirePermission(Permission.ManageUsers).Audited("admin.oidc-mapping-removed", targetRoute: null);
+
+        // Remap: the provider account signs into another account from now on. Nothing the old account owns moves.
+        admin.MapPut("/oidc/identities/{provider}/{subject}/account", async (
+            string provider, string subject, MoveRequest request, ClaimsPrincipal user, ExternalSignIn signIn, IIdentityStore identities,
+            IAccountStore accounts, HttpContext context, CancellationToken cancellation) =>
+        {
+            if (await identities.FindAsync(provider, subject, cancellation) is not { } link) return Results.NotFound();
+            return await OnAccountAsync(link.AccountId, user, accounts, from =>
+                OnAccountAsync(request.AccountId ?? "", user, accounts, async to =>
+                {
+                    context.Audit().Detail = $"{provider} {link.Username ?? subject}: {from.Username} to {to.Username}";
+                    await signIn.MoveLinkAsync(provider, subject, to.Id, cancellation);
+                    var stranded = !await signIn.CanSignInAsync(from, cancellation);
+                    return Results.Ok(new UnbindResult(1, stranded ? [from.Username] : []));
+                }, cancellation), cancellation);
+        }).RequirePermission(Permission.ManageUsers).Audited("admin.identity-moved", targetRoute: null);
 
         admin.MapPost("/users/{id}/login-link", async (
             string id, ClaimsPrincipal user, IAccountStore accounts, LoginLinks links, HttpContext context, CancellationToken cancellation) =>

@@ -53,7 +53,7 @@ public abstract class SqlDatabase : IDatabase
     {
         await using var connection = await OpenAsync(cancellation);
         var counts = new SortedDictionary<string, long>(StringComparer.Ordinal);
-        foreach (var table in new[] { "accounts", "identities", "pending_signins", "server_groups", "server_group_members", "audit_entries" })
+        foreach (var table in new[] { "accounts", "identities", "identity_mappings", "pending_signins", "server_groups", "server_group_members", "audit_entries" })
         {
             counts[table] = Convert.ToInt64(await connection.ExecuteScalarAsync(new CommandDefinition($"SELECT COUNT(*) FROM {table}", cancellationToken: cancellation)));
         }
@@ -71,7 +71,7 @@ public abstract class SqlDatabase : IDatabase
     {
         await using var connection = await OpenAsync(cancellation);
         await using var transaction = await BeginWriteAsync(connection, cancellation);
-        foreach (var table in new[] { "visibility", "revocations", "entities", "server_group_members", "server_groups", "identities", "pending_signins", "accounts", "server_secrets" })
+        foreach (var table in new[] { "visibility", "revocations", "entities", "server_group_members", "server_groups", "identities", "identity_mappings", "pending_signins", "accounts", "server_secrets" })
         {
             await connection.ExecuteAsync(new CommandDefinition($"DELETE FROM {table}", transaction: transaction, cancellationToken: cancellation));
         }
