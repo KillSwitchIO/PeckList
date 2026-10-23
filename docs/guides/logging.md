@@ -58,8 +58,9 @@ Kibana's Discover and Logs show them without a mapping. OpenSearch creates the i
 - **Events**: sign-ins (and failed ones, lockouts, provider sign-ins and links), password changes
   and resets, accounts added, turned off or on, role and group changes, provider unlinks and
   migration windows, viewing the app as someone (start and end), friendships set by an admin,
-  settings saved (which ones, never their values), restarts, backups, exports, restores and debug
-  dumps.
+  sign-ups and invite links, sharing (a list shared or made private, people added to or taken off a
+  list or a group, roles changed), settings saved (which ones, never their values), restarts,
+  backups (scheduled ones too, and failed ones), exports, restores and debug dumps.
 - **Requests**: every API and sign-in request, with the route (never the query string or body), the
   answer, how long it took, the person, address and device.
 

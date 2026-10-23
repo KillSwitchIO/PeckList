@@ -143,6 +143,33 @@ public sealed class AuditLog : BackgroundService
         Detail = detail,
     });
 
+    /// <summary>
+    /// An event a request causes besides its own (one sync can share a list and add three people):
+    /// where it came from is the request's.
+    /// </summary>
+    public void RecordEvent(
+        HttpContext? context, string type, string? actorId, string? actorName, string? targetId, string? targetName, string? detail,
+        string? impersonatorId = null, string? impersonatorName = null) => Record(new AuditEntry
+    {
+        Id = NextId(),
+        Time = time.GetUtcNow(),
+        Kind = AuditKind.Event,
+        Type = type,
+        Outcome = AuditOutcome.Ok,
+        ActorId = actorId,
+        ActorName = actorName,
+        ImpersonatorId = impersonatorId,
+        ImpersonatorName = impersonatorName,
+        TargetId = targetId,
+        TargetName = targetName,
+        Detail = detail,
+        Ip = context is null ? null : Address(context.Connection.RemoteIpAddress),
+        Device = context?.Request.Headers.UserAgent.ToString() is { Length: > 0 } agent
+            ? agent.Length > DeviceLength ? agent[..DeviceLength] : agent
+            : null,
+        RequestId = context?.TraceIdentifier,
+    });
+
     public void Record(AuditEntry entry)
     {
         // Notes come from requests and providers: the same masking as the logs.

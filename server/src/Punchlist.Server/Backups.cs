@@ -24,7 +24,7 @@ public static class Backups
     }
 
     /// <summary>Takes a snapshot whenever the newest one is older than the schedule's period.</summary>
-    private sealed class SnapshotScheduler(Snapshots snapshots, LiveSettings live, TimeProvider time, ILogger<SnapshotScheduler> logger)
+    private sealed class SnapshotScheduler(Snapshots snapshots, LiveSettings live, Audit.AuditLog audit, TimeProvider time, ILogger<SnapshotScheduler> logger)
         : BackgroundService
     {
         private static readonly TimeSpan CheckEvery = TimeSpan.FromMinutes(5);
@@ -49,11 +49,13 @@ public static class Backups
                     {
                         var path = await snapshots.TakeAsync(ServerApp.Version, stopping);
                         logger.LogInformation("Snapshot written to {Path}", path);
+                        audit.RecordSystem("backup.scheduled", detail: Path.GetFileName(path));
                     }
                 }
                 catch (Exception error) when (error is not OperationCanceledException)
                 {
                     logger.LogError(error, "Snapshot failed; trying again in {Minutes} minutes", CheckEvery.TotalMinutes);
+                    audit.RecordSystem("backup.scheduled", Core.Audit.AuditOutcome.Failed, error.Message);
                 }
                 await Task.Delay(CheckEvery, time, stopping).ConfigureAwait(ConfigureAwaitOptions.SuppressThrowing);
             }

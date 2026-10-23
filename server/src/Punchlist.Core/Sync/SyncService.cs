@@ -37,7 +37,8 @@ public sealed class SyncRejected(string code, string message, int? serverSchemaV
 /// <c>/api/sync</c> (spec: Data Model &amp; Sync): merge what a client pushes into the store with the
 /// same rules as the client, then hand back everything newer than its cursor that it may see.
 /// </summary>
-public sealed partial class SyncService(IEntityStore store, TimeProvider time, IChangeNotifier notifier, SharingState sharing)
+public sealed partial class SyncService(
+    IEntityStore store, TimeProvider time, IChangeNotifier notifier, SharingState sharing, ISharingChangeSink? sharingChanges = null)
 {
     public const int MaxChanges = 5000;
     public const int PageSize = 500;
@@ -63,6 +64,7 @@ public sealed partial class SyncService(IEntityStore store, TimeProvider time, I
 
         var rejected = new List<string>();
         var corrections = new List<SyncEntity>();
+        var shared = new List<SharingChange>();
         if (incoming.Count > 0)
         {
             await sharing.Gate.WaitAsync(cancellation);
@@ -73,7 +75,15 @@ public sealed partial class SyncService(IEntityStore store, TimeProvider time, I
                 var written = await store.WriteAsync(
                     userId,
                     incoming,
-                    (stored, arrived) => Resolve(userId, stored, arrived, before, after, rejected),
+                    (stored, arrived) =>
+                    {
+                        var merged = Resolve(userId, stored, arrived, before, after, rejected);
+                        if (merged is not null && SharingChanges.Watched(arrived.Collection))
+                        {
+                            shared.Add(new SharingChange(arrived.Collection, arrived.Id, stored?.Doc, merged));
+                        }
+                        return merged;
+                    },
                     plan: entities => SharingState.Plan(before, after, entities),
                     cancellation: cancellation);
                 sharing.Index = after;
@@ -97,6 +107,7 @@ public sealed partial class SyncService(IEntityStore store, TimeProvider time, I
             {
                 sharing.Gate.Release();
             }
+            if (shared.Count > 0 && sharingChanges is not null) await sharingChanges.ChangedAsync(userId, shared, cancellation);
         }
         var page = await store.ChangesAsync(userId, Math.Max(request.Cursor ?? 0, 0), PageSize, cancellation);
         return new SyncResponse(

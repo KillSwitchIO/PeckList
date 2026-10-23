@@ -64,6 +64,8 @@ public static partial class ServerApp
             Host = settings.PublicUrl?.Host,
         });
         builder.Services.AddHostedService<SharingStartup>();
+        builder.Services.AddHttpContextAccessor();
+        builder.Services.AddSingleton<ISharingChangeSink, Audit.SharingAudit>();
         builder.Services.AddSingleton<SyncService>();
         builder.Services.AddSingleton<Punchlist.Core.Sharing.Groups>();
         builder.Services.AddSingleton<Punchlist.Core.Sharing.Invites>();

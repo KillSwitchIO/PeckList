@@ -168,6 +168,33 @@ public sealed class SharingTests(ServerFixture fixture) : IClassFixture<ServerFi
     }
 
     [Fact]
+    public async Task Sharing_through_sync_is_in_the_event_log()
+    {
+        var ben = await SignIn("ben");
+        var sam = await SignIn("sam");
+        await ben.SyncAsync(List("L1", "shared"), Member("O1", "L1", ben.UserId, "owner"), Member("M1", "L1", sam.UserId, "editor"));
+        await ben.SyncAsync(Member("M1", "L1", sam.UserId, "viewer"));
+        var gone = Member("M1", "L1", sam.UserId, "viewer");
+        gone.Item2["deletedAt"] = "2026-10-21T12:00:00.000Z";
+        await ben.SyncAsync(gone);
+        await ben.SyncAsync(List("L1", "private"));
+
+        await System.Threading.Tasks.Task.Delay(100, Token);
+        await factory.Services.GetRequiredService<Audit.AuditLog>().FlushAsync(Token);
+        var events = (await factory.Services.GetRequiredService<Core.Audit.IAuditStore>()
+                .QueryAsync(new Core.Audit.AuditQuery { Ascending = true, Type = "sharing." }, Token)).Entries
+            .Select(entry => $"{entry.Type} by {entry.ActorName} on {entry.TargetName}: {entry.Detail}")
+            .ToList();
+        Assert.Equal([
+            "sharing.list-shared by ben on L1: ",
+            "sharing.member-added by ben on sam: L1 as editor",
+            "sharing.member-role-changed by ben on sam: L1: editor to viewer",
+            "sharing.member-removed by ben on sam: L1",
+            "sharing.list-unshared by ben on L1: ",
+        ], events);
+    }
+
+    [Fact]
     public async Task A_viewer_cannot_edit_and_gets_the_server_copy_back()
     {
         var ben = await SignIn("ben2");
