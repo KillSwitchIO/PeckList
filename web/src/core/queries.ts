@@ -79,28 +79,11 @@ export function upcomingTasks(
   return groupByDay(filterTasks(workspace, { start: { from: 1, to: days } }, today));
 }
 
-/** Open top-level tasks of a list, grouped by section (null section first). */
-export function listTasks(
-  workspace: WorkspaceFile,
-  listId: Id,
-): { sectionId: Id | null; tasks: Task[] }[] {
-  const tasks = openTopLevel(workspace).filter((task) => task.listId === listId);
-  const sections = workspace.entities.sections
-    .filter((section) => section.listId === listId && isLive(section))
+/** Open top-level tasks of a list, in the list's own order. */
+export function listTasks(workspace: WorkspaceFile, listId: Id): Task[] {
+  return openTopLevel(workspace)
+    .filter((task) => task.listId === listId)
     .sort((a, b) => compareOrderKeys(a.order, b.order));
-  const inSection = (sectionId: Id | null) =>
-    tasks
-      .filter((task) => task.sectionId === sectionId)
-      .sort((a, b) => compareOrderKeys(a.order, b.order));
-  const known = new Set(sections.map((section) => section.id));
-  const orphaned = tasks.filter((task) => task.sectionId !== null && !known.has(task.sectionId));
-  return [
-    {
-      sectionId: null,
-      tasks: [...inSection(null), ...orphaned.sort((a, b) => compareOrderKeys(a.order, b.order))],
-    },
-    ...sections.map((section) => ({ sectionId: section.id, tasks: inSection(section.id) })),
-  ];
 }
 
 /** Live subtasks of a task in order (any status). */

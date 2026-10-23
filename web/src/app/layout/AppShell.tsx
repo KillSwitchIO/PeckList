@@ -30,7 +30,9 @@ import { t } from '../i18n/i18n.ts';
 import { focusAddTask } from '../tasks/focusAddTask.ts';
 import { SyncNoticeToast } from '../sync/SyncNoticeToast.tsx';
 import { purgeExpired } from '../../core/trash.ts';
-import { useApply } from '../store/hooks.ts';
+import { flattenSections } from '../../core/lists.ts';
+import { canEditList } from '../../core/sharing.ts';
+import { useApply, useStoreState } from '../store/hooks.ts';
 
 import { HeaderSlotContext } from './headerSlot.ts';
 import { SidebarEditProvider } from './sidebarEdit.tsx';
@@ -258,6 +260,21 @@ export function AppShell() {
     const timer = window.setInterval(purge, PURGE_EVERY_MS);
     return () => window.clearInterval(timer);
   }, [apply]);
+
+  // Sections were dropped (PL-011): what old data has, or an older app on another device still
+  // syncs in, folds into its lists. Lists this person may not change stay as they are.
+  const hasSections = useStoreState(
+    (state) =>
+      state.workspace !== null &&
+      (state.workspace.entities.sections.some((section) => section.deletedAt === null) ||
+        state.workspace.entities.tasks.some(
+          (task) => task.sectionId !== null && task.deletedAt === null,
+        )),
+  );
+  useEffect(() => {
+    if (!hasSections) return;
+    apply((ctx, ws) => flattenSections(ctx, ws, (listId) => canEditList(ws, ctx.userId, listId)));
+  }, [hasSections, apply]);
 
   // Keyboard shortcuts everywhere ("?" lists them).
   const shortcuts = useShortcuts();

@@ -118,7 +118,7 @@ export function AddTaskInput({
   const names = {
     list: (id: string) => {
       const list = workspace.entities.lists.find((each) => each.id === id);
-      return list ? listName(list) : '';
+      return list ? listName(list, workspace) : '';
     },
     person: (text: string) => {
       const wanted = text.slice(1).toLowerCase();

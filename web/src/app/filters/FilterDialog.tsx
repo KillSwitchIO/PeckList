@@ -137,7 +137,7 @@ export function FilterDialog({
                 {visibleLists(workspace).map((list) => (
                   <Chip
                     key={list.id}
-                    label={listName(list)}
+                    label={listName(list, workspace)}
                     size="small"
                     variant={lists.includes(list.id) ? 'filled' : 'outlined'}
                     color={lists.includes(list.id) ? 'primary' : 'default'}

@@ -1,4 +1,4 @@
-// The bar along the bottom of task details: the list (and section) on the left, priority on the
+// The bar along the bottom of task details: the list on the left, priority on the
 // right. Both open upward, TickTick style, so the details above stay compact.
 
 import {
@@ -15,7 +15,7 @@ import {
 import { useState } from 'react';
 import { getEntity } from '../../core/collections.ts';
 import { localDateTimeOf, localTimeZone } from '../../core/dates.ts';
-import { sectionsOf, visibleLists } from '../../core/lists.ts';
+import { visibleLists } from '../../core/lists.ts';
 import { moveTask, updateTask } from '../../core/tasks.ts';
 import type { List, Priority, Task } from '../../core/types.ts';
 import { t } from '../i18n/i18n.ts';
@@ -103,17 +103,10 @@ function ListPicker({ task }: { task: Task }) {
   const readOnly = useReadOnly();
   const lists = visibleLists(workspace);
   const list = lists.find((each) => each.id === task.listId);
-  const currentSection = sectionsOf(workspace, task.listId).find(
-    (each) => each.id === task.sectionId,
-  );
-  // Subtasks sit wherever their parent sits, so they pick a list only.
-  const withSections = task.parentId === null;
-  const current = [list ? listName(list) : '', currentSection?.name].filter(Boolean).join(' / ');
-  const move = (listId: string, sectionId: string | null) => {
+  const current = list ? listName(list, workspace) : '';
+  const move = (listId: string) => {
     setAnchor(null);
-    if (listId !== task.listId || sectionId !== task.sectionId) {
-      apply((ctx, ws) => moveTask(ctx, ws, task.id, { listId, sectionId }));
-    }
+    if (listId !== task.listId) apply((ctx, ws) => moveTask(ctx, ws, task.id, { listId }));
   };
 
   // Assigned from a list this device does not have: it stays where its owner put it.
@@ -163,32 +156,15 @@ function ListPicker({ task }: { task: Task }) {
         {...UPWARD}
         slotProps={{ paper: { sx: { maxHeight: 420, minWidth: 220 } } }}
       >
-        {lists.flatMap((each) => [
-          <MenuItem
-            key={each.id}
-            selected={each.id === task.listId && (!withSections || task.sectionId === null)}
-            onClick={() => move(each.id, null)}
-          >
+        {lists.map((each) => (
+          <MenuItem key={each.id} selected={each.id === task.listId} onClick={() => move(each.id)}>
             <ListItemIcon>
               <ListMark list={each} />
             </ListItemIcon>
-            <ListItemText>{listName(each)}</ListItemText>
-            <Check on={each.id === task.listId && (!withSections || task.sectionId === null)} />
-          </MenuItem>,
-          ...(withSections ? sectionsOf(workspace, each.id) : []).map((section) => (
-            <MenuItem
-              key={section.id}
-              selected={section.id === task.sectionId}
-              onClick={() => move(each.id, section.id)}
-              sx={{ pl: 6.5 }}
-            >
-              <ListItemText slotProps={{ primary: { color: 'text.secondary' } }}>
-                {section.name}
-              </ListItemText>
-              <Check on={section.id === task.sectionId} />
-            </MenuItem>
-          )),
-        ])}
+            <ListItemText>{listName(each, workspace)}</ListItemText>
+            <Check on={each.id === task.listId} />
+          </MenuItem>
+        ))}
       </Menu>
     </>
   );

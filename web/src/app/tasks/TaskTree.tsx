@@ -61,8 +61,8 @@ export function TaskTree({
   tasks: Task[];
   showList?: boolean;
   ownPlace?: (task: Task) => boolean;
-  /** Rows can be dragged here (a list's own page, one zone per section) */
-  dragZone?: { listId: string; sectionId: string | null };
+  /** Rows can be dragged here (a list's own page, in its own order) */
+  dragZone?: { listId: string };
 }) {
   const workspace = useWorkspace();
   const { collapsed, toggle } = useCollapsedSet('punchlist.collapsedTasks');
@@ -111,7 +111,6 @@ export function TaskTree({
         ? {
             'data-drag-zone': '',
             'data-list': dragZone.listId,
-            'data-section': dragZone.sectionId ?? '',
           }
         : {})}
     >

@@ -51,7 +51,7 @@ describe('projectDrop', () => {
   it('keeps the depth between what the rows around allow', () => {
     const s = setup();
     const at = (index: number, depth: number) =>
-      projectDrop(s.ws(), s.x, s.listId, null, s.rows, index, depth);
+      projectDrop(s.ws(), s.x, s.listId, s.rows, index, depth);
     // Top: nothing to nest under.
     expect(at(0, 3).depth).toBe(0);
     // Under A: top level or A's child; under C: anything from 0 to 3, but D (below) is top
@@ -66,19 +66,19 @@ describe('projectDrop', () => {
   it('turns the slot into parent and neighbours that moveTask understands', () => {
     const s = setup();
     // Below C, one level in: C's first child.
-    let drop = projectDrop(s.ws(), s.x, s.listId, null, s.rows, 3, 3);
+    let drop = projectDrop(s.ws(), s.x, s.listId, s.rows, 3, 3);
     expect(drop.target).toMatchObject({ parentId: s.c });
     s.set(moveTask(s.ctx, s.ws(), s.x, drop.target));
     expect(titlesUnder(s.ws(), s.c)).toEqual(['X']);
 
     // Below C at depth 1: B's sibling, right after B.
-    drop = projectDrop(s.ws(), s.x, s.listId, null, s.rows, 3, 1);
+    drop = projectDrop(s.ws(), s.x, s.listId, s.rows, 3, 1);
     expect(drop.target).toMatchObject({ parentId: s.a, afterId: s.b });
     s.set(moveTask(s.ctx, s.ws(), s.x, drop.target));
     expect(titlesUnder(s.ws(), s.a)).toEqual(['B', 'X']);
 
     // Above A at the top: before A.
-    drop = projectDrop(s.ws(), s.x, s.listId, null, s.rows, 0, 0);
+    drop = projectDrop(s.ws(), s.x, s.listId, s.rows, 0, 0);
     expect(drop.target).toMatchObject({ parentId: null, beforeId: s.a });
     s.set(moveTask(s.ctx, s.ws(), s.x, drop.target));
     expect(titlesUnder(s.ws(), null)).toEqual(['X', 'A', 'D']);
@@ -100,7 +100,7 @@ describe('projectDrop', () => {
       top = child.task.id;
     }
     // Already MAX - 1 levels below T: it can go one level in at most.
-    expect(projectDrop(s.ws(), tall.task.id, s.listId, null, s.rows, 3, 3).depth).toBe(1);
+    expect(projectDrop(s.ws(), tall.task.id, s.listId, s.rows, 3, 3).depth).toBe(1);
   });
 });
 

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { testContext } from '../test/fixtures.ts';
 import { getEntity, putEntity } from './collections.ts';
-import { createSection, inboxList } from './lists.ts';
+import { createList, inboxList } from './lists.ts';
 import { members } from './ops.ts';
 import { subtaskTree, todayTasks } from './queries.ts';
 import {
@@ -60,7 +60,7 @@ describe('createTask', () => {
     const s = setup();
     s.add('  first ');
     s.add('second');
-    const order = siblings(s.ws, s.inbox, null, null);
+    const order = siblings(s.ws, s.inbox, null);
     expect(titles(order)).toEqual(['first', 'second']);
     expect(order[0]).toMatchObject({
       status: 'open',
@@ -70,13 +70,11 @@ describe('createTask', () => {
     });
   });
 
-  it('creates subtasks in the parent list and section', () => {
+  it('creates subtasks in the parent list', () => {
     const s = setup();
-    const { workspace, section } = createSection(s.ctx, s.ws, s.inbox, 'Yard');
-    s.ws = workspace;
-    const parent = s.add('Mow', { sectionId: section.id });
-    const child = s.add('Edge', { parentId: parent.id, listId: 'ignored', sectionId: null });
-    expect(child).toMatchObject({ listId: s.inbox, sectionId: section.id, parentId: parent.id });
+    const parent = s.add('Mow');
+    const child = s.add('Edge', { parentId: parent.id, listId: 'ignored' });
+    expect(child).toMatchObject({ listId: s.inbox, sectionId: null, parentId: parent.id });
   });
 
   it('applies initial tags', () => {
@@ -187,13 +185,13 @@ describe('moveTask', () => {
     const b = s.add('b');
     const c = s.add('c');
     s.ws = moveTask(s.ctx, s.ws, c.id, { listId: s.inbox, beforeId: a.id });
-    expect(titles(siblings(s.ws, s.inbox, null, null))).toEqual(['c', 'a', 'b']);
+    expect(titles(siblings(s.ws, s.inbox, null))).toEqual(['c', 'a', 'b']);
     s.ws = moveTask(s.ctx, s.ws, c.id, { listId: s.inbox, afterId: b.id });
-    expect(titles(siblings(s.ws, s.inbox, null, null))).toEqual(['a', 'b', 'c']);
+    expect(titles(siblings(s.ws, s.inbox, null))).toEqual(['a', 'b', 'c']);
     s.ws = moveTask(s.ctx, s.ws, a.id, { listId: s.inbox, afterId: b.id });
-    expect(titles(siblings(s.ws, s.inbox, null, null))).toEqual(['b', 'a', 'c']);
+    expect(titles(siblings(s.ws, s.inbox, null))).toEqual(['b', 'a', 'c']);
     s.ws = moveTask(s.ctx, s.ws, a.id, { listId: s.inbox });
-    expect(titles(siblings(s.ws, s.inbox, null, null))).toEqual(['b', 'c', 'a']);
+    expect(titles(siblings(s.ws, s.inbox, null))).toEqual(['b', 'c', 'a']);
   });
 
   it('only rewrites the moved task and its subtree', () => {
@@ -205,19 +203,19 @@ describe('moveTask', () => {
     expect(getEntity(s.ws, 'tasks', a.id)).toBe(getEntity(before, 'tasks', a.id));
   });
 
-  it('nests under a parent and carries subtasks to another section', () => {
+  it('nests under a parent and carries subtasks to another list', () => {
     const s = setup();
-    const { workspace, section } = createSection(s.ctx, s.ws, s.inbox, 'Later');
-    s.ws = workspace;
     const parent = s.add('Parent');
     const child = s.add('Child', { parentId: parent.id });
     const other = s.add('Other');
-    s.ws = moveTask(s.ctx, s.ws, parent.id, { listId: s.inbox, sectionId: section.id });
-    expect(getEntity(s.ws, 'tasks', child.id)?.sectionId).toBe(section.id);
+    const later = createList(s.ctx, s.ws, { name: 'Later', color: '#CFE3A3' });
+    s.ws = moveTask(s.ctx, later.workspace, parent.id, { listId: later.list.id });
+    expect(getEntity(s.ws, 'tasks', child.id)?.listId).toBe(later.list.id);
     s.ws = moveTask(s.ctx, s.ws, other.id, { listId: s.inbox, parentId: parent.id });
     expect(getEntity(s.ws, 'tasks', other.id)).toMatchObject({
       parentId: parent.id,
-      sectionId: section.id,
+      listId: later.list.id,
+      sectionId: null,
     });
   });
 
@@ -247,7 +245,7 @@ describe('moveTask', () => {
       ...getEntity(s.ws, 'tasks', a.id)!,
       deletedAt: '2026-10-20T00:00:00.000Z',
     });
-    expect(titles(siblings(s.ws, s.inbox, null, null))).toEqual(['b']);
+    expect(titles(siblings(s.ws, s.inbox, null))).toEqual(['b']);
   });
 });
 
@@ -379,7 +377,7 @@ describe('subtask inheritance and detaching', () => {
     const deep = s.add('deep', { parentId: mid.id });
     s.add('next');
     s.ws = detachTask(s.ctx, s.ws, deep.id);
-    expect(titles(siblings(s.ws, s.inbox, null, null))).toEqual(['top', 'deep', 'next']);
+    expect(titles(siblings(s.ws, s.inbox, null))).toEqual(['top', 'deep', 'next']);
     expect(detachTask(s.ctx, s.ws, top.id)).toBe(s.ws);
   });
 });

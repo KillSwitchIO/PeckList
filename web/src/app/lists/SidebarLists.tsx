@@ -115,11 +115,14 @@ export function SidebarLists({ onNavigate }: { onNavigate: (path: string) => voi
                 <ListItemIcon sx={{ minWidth: 28 }}>
                   <ListMark list={list} />
                 </ListItemIcon>
-                <ListItemText primary={listName(list)} slotProps={{ primary: { noWrap: true } }} />
+                <ListItemText
+                  primary={listName(list, workspace)}
+                  slotProps={{ primary: { noWrap: true } }}
+                />
                 {editing ? (
                   <PinButton
                     pinned={edit.current.layout.order.includes(pin)}
-                    name={listName(list)}
+                    name={listName(list, workspace)}
                     onToggle={() =>
                       edit.update((draft) => ({
                         ...draft,
@@ -166,7 +169,7 @@ export function SidebarLists({ onNavigate }: { onNavigate: (path: string) => voi
                       <ListMark list={list} faded />
                     </ListItemIcon>
                     <ListItemText
-                      primary={listName(list)}
+                      primary={listName(list, workspace)}
                       slotProps={{ primary: { noWrap: true } }}
                     />
                   </ListItemButton>

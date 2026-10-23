@@ -6,16 +6,11 @@ import { members } from './ops.ts';
 import { compareOrderKeys } from './ordering.ts';
 import type { Id, Priority, Task, WorkspaceFile } from './types.ts';
 
-export type ListGrouping = 'date' | 'section' | 'priority' | 'tag' | 'none';
+/** `none` is the list's own order, the one tasks are dragged in. (Sections were dropped: PL-011.) */
+export type ListGrouping = 'date' | 'priority' | 'tag' | 'none';
 export type ListSort = 'manual' | 'date' | 'priority' | 'title' | 'created';
 
-export const LIST_GROUPINGS: readonly ListGrouping[] = [
-  'date',
-  'section',
-  'priority',
-  'tag',
-  'none',
-];
+export const LIST_GROUPINGS: readonly ListGrouping[] = ['date', 'priority', 'tag', 'none'];
 export const LIST_SORTS: readonly ListSort[] = ['manual', 'date', 'priority', 'title', 'created'];
 
 /** The day a task is placed on for sorting: its start, else its due date; null when undated. */

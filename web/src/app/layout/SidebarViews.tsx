@@ -127,8 +127,8 @@ export function SidebarViews({
       items[id] = {
         dropList: list.id,
         path: `/lists/${list.id}`,
-        name: listName(list),
-        label: listName(list),
+        name: listName(list, workspace),
+        label: listName(list, workspace),
         icon: <ListMark list={list} sx={{ mx: list.icon ? '3px' : '7px' }} />,
         pinned: true,
       };

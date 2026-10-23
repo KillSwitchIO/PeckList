@@ -28,7 +28,7 @@ export interface Drop {
 }
 
 /**
- * The drop for `activeId` into `rows` (one section's visible rows, without the dragged task and
+ * The drop for `activeId` into `rows` (the list's visible rows, without the dragged task and
  * its subtasks) at slot `index` (0 is above the first row), wanting `depth`. The depth is kept
  * between what the neighbours allow: at most one deeper than the row above (and within the
  * nesting limit), at least as deep as the row below, so the rows below keep their parents.
@@ -37,7 +37,6 @@ export function projectDrop(
   workspace: WorkspaceFile,
   activeId: Id,
   listId: Id,
-  sectionId: Id | null,
   rows: readonly DragRow[],
   index: number,
   depth: number,
@@ -71,7 +70,7 @@ export function projectDrop(
       break;
     }
   }
-  const target: MoveTarget = { listId, sectionId, parentId };
+  const target: MoveTarget = { listId, parentId };
   // Right after its sibling above; else before the row below if that is a sibling (the rows
   // below are never deeper than the drop); else it is the only one here: the end.
   if (afterId) target.afterId = afterId;
@@ -85,14 +84,13 @@ type Move = (ctx: OpContext, workspace: WorkspaceFile, id: Id) => WorkspaceFile;
 function step(offset: -1 | 1): Move {
   return (ctx, workspace, id) => {
     const task = requireEntity(workspace, 'tasks', id);
-    const peers = siblings(workspace, task.listId, task.sectionId, task.parentId);
+    const peers = siblings(workspace, task.listId, task.parentId);
     const index = peers.findIndex((peer) => peer.id === id);
     const other = peers[index + offset];
     if (!other) return workspace;
     const place = offset < 0 ? { beforeId: other.id } : { afterId: other.id };
     return moveTask(ctx, workspace, id, {
       listId: task.listId,
-      sectionId: task.sectionId,
       parentId: task.parentId,
       ...place,
     });

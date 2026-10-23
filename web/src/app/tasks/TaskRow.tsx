@@ -308,7 +308,7 @@ export function TaskRow({
             {/* The Mess Drawer is "no list", so its tasks show none. */}
             {showList && list && !list.isInbox && (
               <Box component="span" sx={{ color: 'text.secondary' }}>
-                {listName(list)}
+                {listName(list, workspace)}
               </Box>
             )}
           </Box>

@@ -244,7 +244,7 @@ export function TrashView() {
                   <ListItemText
                     primary={task.title || t('task.untitled')}
                     secondary={[
-                      list && listName(list),
+                      list && listName(list, workspace),
                       t('trash.deletedOn', {
                         date: formatDay(task.deletedAt!.slice(0, 10), today),
                       }),

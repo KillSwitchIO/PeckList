@@ -1,7 +1,7 @@
-// Lists and sections. (Folders were dropped on 2026-10-20: organization is lists + tags.)
+// Lists. (Folders were dropped on 2026-10-20 and sections on 2026-10-23: organization is lists + tags.)
 
 import { isLive, putEntities, putEntity, requireEntity } from './collections.ts';
-import { compareOrderKeys, keyBetween } from './ordering.ts';
+import { compareOrderKeys, keyBetween, keysBetween } from './ordering.ts';
 import {
   createEntity,
   isoNow,
@@ -142,72 +142,66 @@ export function reorderLists(ctx: OpContext, workspace: WorkspaceFile, ids: Id[]
   return next;
 }
 
-// --- sections -------------------------------------------------------------------------
+// --- sections (dropped: PL-011) --------------------------------------------------------
 
-export function sectionsOf(workspace: WorkspaceFile, listId: Id): Section[] {
+/** A list's live sections, in order: only what old data still has, for flattenSections. */
+function sectionsOf(workspace: WorkspaceFile, listId: Id): Section[] {
   return byOrder(
     workspace.entities.sections.filter((section) => section.listId === listId && isLive(section)),
   );
 }
 
-export function createSection(
-  ctx: OpContext,
-  workspace: WorkspaceFile,
-  listId: Id,
-  name: string,
-): { workspace: WorkspaceFile; section: Section } {
-  requireEntity(workspace, 'lists', listId);
-  const section = createEntity<Section>(ctx, {
-    listId,
-    name: name.trim(),
-    order: endKey(sectionsOf(workspace, listId)),
-  });
-  return { workspace: putEntity(workspace, 'sections', section), section };
-}
-
-export function renameSection(
-  ctx: OpContext,
-  workspace: WorkspaceFile,
-  id: Id,
-  name: string,
-): WorkspaceFile {
-  const section = requireEntity(workspace, 'sections', id);
-  return putEntity(workspace, 'sections', updateEntity(ctx, section, { name: name.trim() }));
-}
-
 /**
- * Move a section to just before `beforeId` (null: after the last one). Only its own order key
- * changes, so the move syncs as one small change.
+ * Sections were dropped (Ben, 2026-10-23: they served no purpose). This folds what old data still
+ * has into plain lists, once, on lists the person may change (`mayEdit`): the top-level tasks
+ * keep the order they showed in (tasks without a section first, then each section's), every task
+ * loses its section, and the sections go to the trash. Section names are only headings and go
+ * with them. Nothing to do returns the same workspace.
  */
-export function moveSection(
+export function flattenSections(
   ctx: OpContext,
   workspace: WorkspaceFile,
-  id: Id,
-  beforeId: Id | null,
+  mayEdit: (listId: Id) => boolean,
 ): WorkspaceFile {
-  const section = requireEntity(workspace, 'sections', id);
-  const others = sectionsOf(workspace, section.listId).filter((each) => each.id !== id);
-  const index =
-    beforeId === null ? others.length : others.findIndex((each) => each.id === beforeId);
-  if (index < 0) throw new Error(`section ${beforeId} not found`);
-  const before = index > 0 ? others[index - 1]!.order : null;
-  const after = index < others.length ? others[index]!.order : null;
-  if (before === null && after === null) return workspace;
-  return putEntity(
-    workspace,
-    'sections',
-    updateEntity(ctx, section, { order: keyBetween(before, after) }),
-  );
-}
-
-/** Delete a section; its tasks stay in the list without a section. */
-export function deleteSection(ctx: OpContext, workspace: WorkspaceFile, id: Id): WorkspaceFile {
-  const section = requireEntity(workspace, 'sections', id);
-  const tasks = workspace.entities.tasks.filter((task) => task.sectionId === id && isLive(task));
-  const next = putEntity(workspace, 'sections', softDelete(ctx, section));
-  return putEntities(
-    next,
-    'tasks',
-    tasks.map((task) => updateEntity(ctx, task, { sectionId: null })),
-  );
+  const lists = new Set<Id>();
+  for (const section of workspace.entities.sections) {
+    if (isLive(section)) lists.add(section.listId);
+  }
+  for (const task of workspace.entities.tasks) {
+    if (task.sectionId !== null && isLive(task)) lists.add(task.listId);
+  }
+  let next = workspace;
+  for (const listId of lists) {
+    if (!mayEdit(listId)) continue;
+    const sections = sectionsOf(next, listId);
+    const rank = new Map(sections.map((section, index) => [section.id, index + 1]));
+    const live = next.entities.tasks.filter((task) => task.listId === listId && isLive(task));
+    const top = live
+      .filter((task) => task.parentId === null)
+      .sort(
+        (a, b) =>
+          (a.sectionId ? (rank.get(a.sectionId) ?? 0) : 0) -
+            (b.sectionId ? (rank.get(b.sectionId) ?? 0) : 0) || compareOrderKeys(a.order, b.order),
+      );
+    const keys = keysBetween(null, null, top.length);
+    const order = new Map(top.map((task, index) => [task.id, keys[index]!]));
+    // Re-keyed only when sections had tasks; otherwise the order is already right.
+    const reorder = top.some((task) => task.sectionId !== null && rank.has(task.sectionId));
+    const changed = live
+      .filter((task) => task.sectionId !== null || (reorder && order.has(task.id)))
+      .map((task) =>
+        updateEntity(ctx, task, {
+          sectionId: null,
+          ...(reorder && order.has(task.id) ? { order: order.get(task.id)! } : {}),
+        }),
+      );
+    const at = isoNow(ctx);
+    next = putEntities(next, 'tasks', changed);
+    next = putEntities(
+      next,
+      'sections',
+      sections.map((section) => softDelete(ctx, section, at)),
+    );
+  }
+  return next;
 }

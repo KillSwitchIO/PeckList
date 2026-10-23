@@ -85,7 +85,7 @@ function ResultRow({ hit }: { hit: SearchHit }) {
             </Typography>
             {list && !list.isInbox && (
               <Typography variant="body2" color="text.secondary" noWrap sx={{ flexShrink: 0 }}>
-                {listName(list)}
+                {listName(list, workspace)}
               </Typography>
             )}
           </Box>

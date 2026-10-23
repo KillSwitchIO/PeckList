@@ -79,7 +79,7 @@ export function ShareDialog({ list, onClose }: { list: List; onClose: () => void
     })),
   ];
   const mine = members.find((member) => member.principal === `user:${me}`);
-  const name = listName(list);
+  const name = listName(list, workspace);
   const change = (operation: Parameters<typeof apply>[0]) => {
     apply(operation);
     void syncNow();

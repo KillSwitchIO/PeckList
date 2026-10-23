@@ -64,9 +64,9 @@ describe('dragging tasks', () => {
   it('reorders a list and nests a task by dropping it onto another', async () => {
     await browser.url('/inbox');
     await addTasks(['Wash', 'Dry', 'Fold']);
-    // Manual order: group by section.
-    await $("//button[@aria-label='More actions']").click();
-    await $("//*[@role='menuitem'][normalize-space()='Group by section']").click();
+    // The list's own order: no grouping.
+    await $("//button[@aria-label='Sort and group']").click();
+    await $("//*[@role='menuitem'][normalize-space()='None']").click();
     // The menu's backdrop takes pointer presses until it has faded out.
     await $("//*[@role='menu']").waitForExist({ reverse: true });
     await expect($('[data-drag-zone]')).toBeDisplayed();

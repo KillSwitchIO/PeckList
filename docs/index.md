@@ -13,7 +13,7 @@ serves the app and keeps everyone's data, in SQLite or PostgreSQL.
 
 ## What it does
 
-- **Tasks** with subtasks, sections, nested tags, priorities, start and due dates, times and time
+- **Tasks** with subtasks, nested tags, priorities, start and due dates, times and time
   spans, rich notes and checklists. Type a whole task in one line:
   `Call the vet tomorrow 3pm #pets !high`.
 - **Views**: Today, Next 7 days, All, Closed, Assigned to me, Shared with me, saved filters,

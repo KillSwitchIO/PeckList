@@ -12,7 +12,7 @@
 | **Assigned to me** / **Shared with me** | Tasks others gave you, and lists shared with you.               |
 | **Closed**                              | Done and won't-do tasks.                                        |
 | **Trash**                               | Deleted tasks and lists, restorable for 30 days.                |
-| **Lists**, **Tags**, **Filters**        | Your own lists (with sections), nested tags, and saved filters. |
+| **Lists**, **Tags**, **Filters**        | Your own lists, nested tags, and saved filters.                 |
 
 **Edit sidebar** pins and hides views. The menu button at the top left folds the sidebar away
 and back (each device remembers it). At the bottom, a small month shows a dot on days with open
@@ -40,12 +40,16 @@ their start; the due date is the deadline.
   who may change the task may comment (a list's viewers only read). You edit or delete your own;
   a list's owner may delete any on it.
 
-## Lists and sections
+## Lists
 
-Lists hold tasks; sections split a list into parts (drag a section's header to reorder, or use its
-menu). The sort-and-group button next to a list's name groups it (by date, section, priority or
-tag) and sorts it; the **...** menu edits, archives or deletes it. Lists can be shared: see
-[sharing](sharing.md).
+Lists hold tasks. The sort-and-group button next to a list's name groups it (by date, priority or
+tag, or **None** for the list's own order, the one you drag tasks in) and sorts it; the **...**
+menu edits, archives or deletes it. A list shared with a group shows the group after its name
+("Groceries - Household") for everyone, so it never looks like someone's own list of the same name.
+Lists can be shared: see [sharing](sharing.md).
+
+Lists used to have sections. They are gone: a list that had them keeps its tasks in the order they
+showed in (tasks outside a section first), and the section names go.
 
 ## Tags
 

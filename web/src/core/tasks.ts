@@ -28,7 +28,6 @@ import type {
 export interface TaskInput {
   title: string;
   listId: Id;
-  sectionId?: Id | null;
   parentId?: Id | null;
   notes?: string;
   priority?: Priority;
@@ -42,21 +41,14 @@ export interface TaskInput {
 /** Subtask levels below a top-level task (R-TASK-03 asks for at least 3). */
 export const MAX_SUBTASK_DEPTH = 5;
 
-/** Live siblings in display order: same list, section and parent. */
-export function siblings(
-  workspace: WorkspaceFile,
-  listId: Id,
-  sectionId: Id | null,
-  parentId: Id | null,
-): Task[] {
+/** Live siblings in display order: same list and parent. (Sections were dropped: PL-011.) */
+export function siblings(workspace: WorkspaceFile, listId: Id, parentId: Id | null): Task[] {
   return workspace.entities.tasks
     .filter(
       (task) =>
         isLive(task) &&
         task.listId === listId &&
-        (parentId
-          ? task.parentId === parentId
-          : task.parentId === null && task.sectionId === sectionId),
+        (parentId ? task.parentId === parentId : task.parentId === null),
     )
     .sort((a, b) => compareOrderKeys(a.order, b.order));
 }
@@ -113,7 +105,7 @@ export function subtreeHeight(workspace: WorkspaceFile, id: Id): number {
 
 /** The sibling just above a task, which an indent would nest it under. */
 function previousSibling(workspace: WorkspaceFile, task: Task): Task | undefined {
-  const peers = siblings(workspace, task.listId, task.sectionId, task.parentId);
+  const peers = siblings(workspace, task.listId, task.parentId);
   const index = peers.findIndex((peer) => peer.id === task.id);
   return index > 0 ? peers[index - 1] : undefined;
 }
@@ -163,7 +155,6 @@ export function detachTask(ctx: OpContext, workspace: WorkspaceFile, id: Id): Wo
   if (!top) return workspace;
   return moveTask(ctx, workspace, id, {
     listId: top.listId,
-    sectionId: top.sectionId,
     parentId: null,
     afterId: top.id,
   });
@@ -176,7 +167,6 @@ export function outdentTask(ctx: OpContext, workspace: WorkspaceFile, id: Id): W
   const parent = requireEntity(workspace, 'tasks', task.parentId);
   return moveTask(ctx, workspace, id, {
     listId: parent.listId,
-    sectionId: parent.sectionId,
     parentId: parent.parentId,
     afterId: parent.id,
   });
@@ -189,26 +179,25 @@ export function createTask(
 ): { workspace: WorkspaceFile; task: Task } {
   const parent = input.parentId ? requireEntity(workspace, 'tasks', input.parentId) : null;
   const listId = parent?.listId ?? input.listId;
-  const sectionId = parent ? parent.sectionId : (input.sectionId ?? null);
   const parentId = parent?.id ?? null;
   if (parent && taskDepth(workspace, parent.id) + 1 > MAX_SUBTASK_DEPTH) {
     throw new Error('subtasks are nested too deep');
   }
-  const peers = siblings(workspace, listId, sectionId, parentId);
+  const peers = siblings(workspace, listId, parentId);
   const afterIndex = input.afterId ? peers.findIndex((peer) => peer.id === input.afterId) : -1;
   const order =
     afterIndex >= 0
       ? keyBetween(peers[afterIndex]!.order, peers[afterIndex + 1]?.order ?? null)
       : keyBetween(lastOrder(peers), null);
   let tags = {};
-  // A subtask starts with its parent's tags (its list and section come from the parent too).
+  // A subtask starts with its parent's tags (its list comes from the parent too).
   const tagIds = new Set([...(input.tags ?? []), ...(parent ? members(parent.tags) : [])]);
   for (const tag of tagIds) tags = setElement(ctx, tags, tag, true);
   const task = createEntity<Task>(ctx, {
     title: input.title.trim(),
     notes: input.notes ?? '',
     listId,
-    sectionId,
+    sectionId: null,
     parentId,
     order,
     status: 'open',
@@ -339,14 +328,13 @@ export function restoreTask(ctx: OpContext, workspace: WorkspaceFile, id: Id): W
 
 export interface MoveTarget {
   listId: Id;
-  sectionId?: Id | null;
   parentId?: Id | null;
   /** Place directly before this sibling; null or omitted with `afterId` omitted means the end. */
   beforeId?: Id | null;
   afterId?: Id | null;
 }
 
-/** Move a task (and its subtree) to a new list, section, parent and position. */
+/** Move a task (and its subtree) to a new list, parent and position. */
 export function moveTask(
   ctx: OpContext,
   workspace: WorkspaceFile,
@@ -363,8 +351,7 @@ export function moveTask(
   }
   const parent = parentId ? requireEntity(workspace, 'tasks', parentId) : null;
   const listId = parent?.listId ?? target.listId;
-  const sectionId = parent ? parent.sectionId : (target.sectionId ?? null);
-  const peers = siblings(workspace, listId, sectionId, parentId).filter((peer) => peer.id !== id);
+  const peers = siblings(workspace, listId, parentId).filter((peer) => peer.id !== id);
 
   let before: string | null;
   let after: string | null;
@@ -393,14 +380,14 @@ export function moveTask(
   const moved = inherit(
     updateEntity(ctx, task, {
       listId,
-      sectionId,
+      sectionId: null,
       parentId,
       order: keyBetween(before, after),
     }),
   );
-  // Subtasks always follow their root task's list and section.
+  // Subtasks always follow their root task's list.
   const subtree = descendants(workspace, id).map((child) =>
-    inherit(updateEntity(ctx, child, { listId, sectionId })),
+    inherit(updateEntity(ctx, child, { listId, sectionId: null })),
   );
   return putEntities(workspace, 'tasks', [moved, ...subtree]);
 }

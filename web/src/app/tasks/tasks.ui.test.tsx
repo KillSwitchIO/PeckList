@@ -1,8 +1,11 @@
 import { fireEvent, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { putEntity } from '../../core/collections.ts';
 import { inboxList } from '../../core/lists.ts';
+import { createEntity, updateEntity } from '../../core/ops.ts';
 import { createTask } from '../../core/tasks.ts';
+import type { Section } from '../../core/types.ts';
 import { mockViewport, renderApp, testStore } from '../../test/renderApp.tsx';
 
 beforeEach(() => {
@@ -90,24 +93,6 @@ describe('task details', () => {
     expect(within(details).getByRole('textbox', { name: 'Notes' })).toHaveTextContent(
       'Front and back',
     );
-  });
-
-  it('moves a task to a list section from the footer menu', async () => {
-    await renderApp('/inbox');
-    await userEvent.click(screen.getByRole('button', { name: 'More actions' }));
-    await userEvent.click(await screen.findByRole('menuitem', { name: 'Add section' }));
-    await userEvent.type(
-      within(await screen.findByRole('dialog')).getByLabelText('Section name'),
-      'Yard{Enter}',
-    );
-    await addTasks('Rake');
-    await userEvent.click(screen.getByRole('button', { name: 'Open Rake' }));
-    const details = await screen.findByRole('region', { name: 'Task details' });
-    await userEvent.click(within(details).getByRole('button', { name: 'List: Mess Drawer' }));
-    await userEvent.click(await screen.findByRole('menuitem', { name: 'Yard' }));
-    expect(
-      within(details).getByRole('button', { name: 'List: Mess Drawer / Yard' }),
-    ).toBeInTheDocument();
   });
 
   it('resizes the details panel and remembers the width', async () => {
@@ -290,10 +275,8 @@ describe('Mess Drawer', () => {
     await renderApp('/inbox');
     expect(screen.getByRole('heading', { level: 1, name: 'Mess Drawer' })).toBeInTheDocument();
     expect(screen.getByRole('textbox', { name: 'Add task to Mess Drawer' })).toBeInTheDocument();
-    await userEvent.click(screen.getByRole('button', { name: 'More actions' }));
-    // Nothing to edit: no Edit list, Archive or Delete.
-    expect(await screen.findByRole('menuitem', { name: 'Add section' })).toBeInTheDocument();
-    expect(screen.queryByRole('menuitem', { name: 'Edit list' })).toBeNull();
+    // Nothing to edit, archive or delete: no list menu at all.
+    expect(screen.queryByRole('button', { name: 'More actions' })).toBeNull();
   });
 });
 
@@ -343,34 +326,51 @@ describe('lists and sections', () => {
     );
   });
 
-  it('adds, renames and deletes a section', async () => {
-    await renderApp('/inbox');
-    await userEvent.click(screen.getByRole('button', { name: 'More actions' }));
-    await userEvent.click(await screen.findByRole('menuitem', { name: 'Add section' }));
-    await userEvent.type(
-      within(await screen.findByRole('dialog')).getByLabelText('Section name'),
-      'Yard{Enter}',
+  it('has no sections: ones in old data fold into their list, in the order they showed', async () => {
+    const store = testStore();
+    await store.getState().init();
+    store.getState().apply((ctx, ws) => {
+      const inbox = inboxList(ws).id;
+      const section = createEntity<Section>(ctx, { listId: inbox, name: 'Yard', order: 'm' });
+      let next = putEntity(ws, 'sections', section);
+      const rake = createTask(ctx, next, { title: 'Rake', listId: inbox });
+      next = putEntity(
+        rake.workspace,
+        'tasks',
+        updateEntity(ctx, rake.task, { sectionId: section.id, order: 'a' }),
+      );
+      // Old data: a task outside any section, ordered on its own (after Rake's key).
+      const loose = createTask(ctx, next, { title: 'Loose', listId: inbox });
+      return putEntity(loose.workspace, 'tasks', updateEntity(ctx, loose.task, { order: 'z' }));
+    });
+    await store.getState().flush();
+    localStorage.setItem(
+      'punchlist.listGrouping',
+      JSON.stringify({ [inboxList(store.getState().workspace!).id]: 'section' }),
     );
-    expect(await screen.findByRole('heading', { level: 2, name: /^Yard/ })).toBeInTheDocument();
-
-    await userEvent.click(screen.getByRole('button', { name: 'Add task: Yard' }));
-    const inputs = screen.getAllByRole('textbox', { name: /add task/i });
-    await userEvent.type(inputs[inputs.length - 1]!, 'Rake leaves{Enter}');
-    expect(screen.getByRole('button', { name: 'Open Rake leaves' })).toBeInTheDocument();
-
-    await userEvent.click(screen.getByRole('button', { name: 'More actions: Yard' }));
-    await userEvent.click(await screen.findByRole('menuitem', { name: 'Rename' }));
-    const rename = within(await screen.findByRole('dialog')).getByLabelText('Section name');
-    await userEvent.clear(rename);
-    await userEvent.type(rename, 'Garden{Enter}');
-    expect(await screen.findByRole('heading', { level: 2, name: /^Garden/ })).toBeInTheDocument();
-
-    await userEvent.click(screen.getByRole('button', { name: 'More actions: Garden' }));
-    await userEvent.click(await screen.findByRole('menuitem', { name: 'Delete section' }));
+    await renderApp('/inbox', store);
     await waitFor(() =>
-      expect(screen.queryByRole('heading', { level: 2, name: /^Garden/ })).not.toBeInTheDocument(),
+      expect(
+        store
+          .getState()
+          .workspace!.entities.sections.every((section) => section.deletedAt !== null),
+      ).toBe(true),
     );
-    expect(screen.getByRole('button', { name: 'Open Rake leaves' })).toBeInTheDocument();
+    expect(
+      store.getState().workspace!.entities.tasks.every((task) => task.sectionId === null),
+    ).toBe(true);
+    await screen.findByRole('button', { name: 'Open Rake' });
+    expect(screen.queryByRole('heading', { level: 2, name: /^Yard/ })).toBeNull();
+    const titles = screen
+      .getAllByRole('button', { name: /^Open / })
+      .map((row) => row.getAttribute('aria-label'));
+    expect(titles).toEqual(['Open Loose', 'Open Rake']);
+    // A list grouped by section before now shows its own order.
+    await userEvent.click(screen.getByRole('button', { name: 'Sort and group' }));
+    expect(await screen.findByRole('menuitem', { name: 'Group by none' })).toHaveClass(
+      'Mui-selected',
+    );
+    expect(screen.queryByRole('menuitem', { name: 'Group by section' })).toBeNull();
   });
 
   it('edits, archives and deletes lists', async () => {

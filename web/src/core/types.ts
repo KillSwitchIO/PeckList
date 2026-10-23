@@ -53,6 +53,7 @@ export interface List extends BaseEntity {
   isInbox: boolean;
 }
 
+/** @deprecated Sections were dropped (PL-011); old ones fold into their list (flattenSections). */
 export interface Section extends BaseEntity {
   listId: Id;
   name: string;
@@ -87,6 +88,7 @@ export interface Task extends BaseEntity {
   title: string;
   notes: string;
   listId: Id;
+  /** @deprecated Always null now (sections were dropped, PL-011); old data still has values. */
   sectionId: Id | null;
   parentId: Id | null;
   order: OrderKey;

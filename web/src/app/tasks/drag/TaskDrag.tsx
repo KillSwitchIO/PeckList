@@ -2,7 +2,7 @@
 // shifts): the task and its subtasks dim, a line shows where it will land, indented to the depth
 // it will take ("kicked over" under its new parent), and a small label follows the pointer.
 // Drop zones and rows are found through data attributes, so rows need no registering:
-// `data-drag-zone` on each section's list (with `data-list` and `data-section`), `data-drag-row`
+// `data-drag-zone` on the list's rows (with `data-list`), `data-drag-row`
 // and `data-depth` on each row, `data-drop-list` on sidebar lists that take a dropped task.
 
 import { Box, Paper, Typography } from '@mui/material';
@@ -66,7 +66,7 @@ function zoneAt(root: Element, y: number): HTMLElement | null {
 }
 
 /**
- * Lets the task rows inside drag: up and down to reorder (across sections), right to nest under
+ * Lets the task rows inside drag: up and down to reorder, right to nest under
  * the task above, left to outdent, or onto a list in the sidebar to move it there.
  */
 export function TaskDragProvider({ children }: { children: ReactNode }) {
@@ -77,7 +77,7 @@ export function TaskDragProvider({ children }: { children: ReactNode }) {
   const [line, setLine] = useState<Line | null>(null);
   const [onto, setOnto] = useState<DOMRect | null>(null);
   const [pointer, setPointer] = useState<{ x: number; y: number } | null>(null);
-  const drop = useRef<(Drop & { listId: Id; sectionId: Id | null; onto?: Id }) | null>(null);
+  const drop = useRef<(Drop & { listId: Id; onto?: Id }) | null>(null);
   const hoverList = useRef<HTMLElement | null>(null);
   const swallowClick = useRef(false);
   // Latest workspace for the window listeners.
@@ -117,11 +117,9 @@ export function TaskDragProvider({ children }: { children: ReactNode }) {
         depth: over.depth + 1,
         target: {
           listId: zone.dataset.list!,
-          sectionId: zone.dataset.section || null,
           parentId: over.id,
         },
         listId: zone.dataset.list!,
-        sectionId: zone.dataset.section || null,
         onto: over.id,
       };
       setLine(null);
@@ -131,18 +129,16 @@ export function TaskDragProvider({ children }: { children: ReactNode }) {
     setOnto(null);
     const index = rows.filter((row) => row.box.top + row.box.height / 2 < y).length;
     const listId = zone.dataset.list!;
-    const sectionId = zone.dataset.section || null;
     const wanted = current.depth + Math.round((x - current.x) / DRAG_INDENT);
     const projected = projectDrop(
       latest.current,
       current.id,
       listId,
-      sectionId,
       rows.map((row): DragRow => ({ id: row.id, depth: row.depth })),
       index,
       wanted,
     );
-    drop.current = { ...projected, listId, sectionId };
+    drop.current = { ...projected, listId };
     const zoneBox = zone.getBoundingClientRect();
     const top =
       index < rows.length
@@ -169,7 +165,7 @@ export function TaskDragProvider({ children }: { children: ReactNode }) {
         const list = getEntity(latest.current, 'lists', listTarget);
         apply(
           (ctx, ws) => moveTask(ctx, ws, current.id, { listId: listTarget, parentId: null }),
-          t('undo.movedTo', { list: list ? listName(list) : '' }),
+          t('undo.movedTo', { list: list ? listName(list, latest.current) : '' }),
         );
       } else if (landing?.onto) {
         const parent = getEntity(latest.current, 'tasks', landing.onto);

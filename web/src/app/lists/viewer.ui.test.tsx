@@ -73,10 +73,8 @@ describe('a list I can only view', () => {
     await samsList('editor');
     expect(await screen.findByRole('textbox', { name: /Add task/ })).toBeInTheDocument();
     expect(screen.getByRole('checkbox', { name: 'Complete Fix fence' })).toBeEnabled();
-    await userEvent.click(screen.getByRole('button', { name: 'More actions' }));
-    const menu = await screen.findByRole('menu');
-    expect(within(menu).getByText('Add section')).toBeInTheDocument();
-    expect(within(menu).queryByText('Edit list')).toBeNull();
-    expect(within(menu).queryByText('Delete list')).toBeNull();
+    // The list itself is the owner's: no edit, archive or delete.
+    expect(screen.queryByRole('button', { name: 'More actions' })).toBeNull();
+    expect(screen.getByRole('button', { name: 'Sort and group' })).toBeInTheDocument();
   });
 });

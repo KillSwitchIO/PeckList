@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { testContext } from '../test/fixtures.ts';
-import { createList, createSection, deleteList, inboxList } from './lists.ts';
+import { createList, deleteList, inboxList } from './lists.ts';
 import {
   completedTasks,
   dateState,
@@ -136,17 +136,12 @@ describe('smart views', () => {
 });
 
 describe('list contents', () => {
-  it('groups open top-level tasks by section, unsectioned first', () => {
+  it("lists open top-level tasks in the list's own order", () => {
     const s = setup();
-    const { workspace, section } = createSection(s.ctx, s.ws, s.inbox, 'Later');
-    s.ws = workspace;
-    s.add('loose');
-    s.add('sectioned', { sectionId: section.id });
-    s.add('orphan', { sectionId: '01TESTGHOST000000000000001' });
-    expect(listTasks(s.ws, s.inbox).map((g) => [g.sectionId, titles(g.tasks)])).toEqual([
-      [null, ['loose', 'orphan']],
-      [section.id, ['sectioned']],
-    ]);
+    const first = s.add('first');
+    s.add('second');
+    s.add('child', { parentId: first.id });
+    expect(titles(listTasks(s.ws, s.inbox))).toEqual(['first', 'second']);
   });
 
   it('counts subtask progress and open tasks per list', () => {

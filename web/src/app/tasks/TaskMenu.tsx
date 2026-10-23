@@ -117,7 +117,7 @@ function NestUnderDialog({ task, onClose }: { task: Task; onClose: () => void })
             {candidates.map((other) => {
               const list = getEntity(workspace, 'lists', other.listId);
               const where = [
-                list ? listName(list) : null,
+                list ? listName(list, workspace) : null,
                 ...ancestors(workspace, other.id).map((item) => item.title || t('task.untitled')),
               ]
                 .filter(Boolean)
@@ -152,7 +152,7 @@ function MoveToListDialog({ task, onClose }: { task: Task; onClose: () => void }
   const wanted = query.trim().toLowerCase();
   const lists = visibleLists(workspace)
     .filter((list) => list.id !== task.listId && canEditList(workspace, me, list.id))
-    .filter((list) => !wanted || listName(list).toLowerCase().includes(wanted));
+    .filter((list) => !wanted || listName(list, workspace).toLowerCase().includes(wanted));
   const title = task.title || t('task.untitled');
 
   const choose = (listId: string, name: string) => {
@@ -192,7 +192,7 @@ function MoveToListDialog({ task, onClose }: { task: Task; onClose: () => void }
             onKeyDown={(event) => {
               if (event.key === 'Enter' && lists[0]) {
                 event.preventDefault();
-                choose(lists[0].id, listName(lists[0]));
+                choose(lists[0].id, listName(lists[0], workspace));
               }
             }}
             sx={{ color: 'text.primary' }}
@@ -207,11 +207,14 @@ function MoveToListDialog({ task, onClose }: { task: Task; onClose: () => void }
             {lists.map((list) => (
               <ListItemButton
                 key={list.id}
-                onClick={() => choose(list.id, listName(list))}
+                onClick={() => choose(list.id, listName(list, workspace))}
                 sx={{ borderRadius: 2 }}
               >
                 <ListMark list={list} sx={{ mr: 1.5 }} />
-                <ListItemText primary={listName(list)} slotProps={{ primary: { noWrap: true } }} />
+                <ListItemText
+                  primary={listName(list, workspace)}
+                  slotProps={{ primary: { noWrap: true } }}
+                />
               </ListItemButton>
             ))}
           </List>

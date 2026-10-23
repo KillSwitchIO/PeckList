@@ -99,18 +99,6 @@ describe('date-grouped views', () => {
     expect(screen.queryByRole('button', { name: 'Open undated' })).toBeNull();
     expect(screen.queryByRole('button', { name: 'Open next month' })).toBeNull();
   });
-
-  it('a list can switch to section grouping, and adding a section switches to it', async () => {
-    await renderSeeded('/inbox');
-    await screen.findByRole('button', { name: 'Open undated' });
-    await userEvent.click(screen.getByRole('button', { name: 'Sort and group' }));
-    await userEvent.click(screen.getByRole('menuitem', { name: 'Group by section' }));
-    expect(groupHeadings()).not.toContain('No date1');
-    expect(groupHeadings()).toContain('Closed6');
-    await userEvent.click(screen.getByRole('button', { name: 'Sort and group' }));
-    await userEvent.click(screen.getByRole('menuitem', { name: 'Group by date' }));
-    expect(groupHeadings()).toContain('No date1');
-  });
 });
 
 describe('list sort and group options', () => {

@@ -15,13 +15,18 @@ const KEY = 'punchlist.listGrouping';
 function load(): Record<string, ListViewChoice> {
   try {
     const raw = localStorage.getItem(KEY);
-    const stored = raw ? (JSON.parse(raw) as Record<string, ListViewChoice | ListGrouping>) : {};
-    // Older choices were just the grouping.
+    const stored = raw ? (JSON.parse(raw) as Record<string, ListViewChoice | string>) : {};
+    // Older choices were just the grouping; grouping by section became the list's own order.
     return Object.fromEntries(
-      Object.entries(stored).map(([id, value]) => [
-        id,
-        typeof value === 'string' ? { group: value } : value,
-      ]),
+      Object.entries(stored).map(([id, value]) => {
+        const choice = (typeof value === 'string' ? { group: value } : value) as {
+          group?: string;
+          sort?: ListSort;
+        };
+        const group =
+          choice.group === 'section' ? 'none' : (choice.group as ListGrouping | undefined);
+        return [id, { ...(group ? { group } : {}), ...(choice.sort ? { sort: choice.sort } : {}) }];
+      }),
     );
   } catch {
     return {};
@@ -35,11 +40,8 @@ export interface ListViewSettings {
   setSort: (next: ListSort) => void;
 }
 
-/**
- * A list's grouping and sort. Grouping: by date unless it has sections, then by section, until the
- * person picks. Sort: the list's own order.
- */
-export function useListView(listId: string, hasSections: boolean): ListViewSettings {
+/** A list's grouping and sort: by date and the list's own order until the person picks. */
+export function useListView(listId: string): ListViewSettings {
   const [picked, setPicked] = useState<ListViewChoice>(() => load()[listId] ?? {});
   const save = (next: ListViewChoice) => {
     setPicked(next);
@@ -50,7 +52,7 @@ export function useListView(listId: string, hasSections: boolean): ListViewSetti
     }
   };
   return {
-    grouping: picked.group ?? (hasSections ? 'section' : 'date'),
+    grouping: picked.group ?? 'date',
     sort: picked.sort ?? 'manual',
     setGrouping: (group) => save({ ...picked, group }),
     setSort: (sort) => save({ ...picked, sort }),

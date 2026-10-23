@@ -3,19 +3,18 @@ import { testContext } from '../test/fixtures.ts';
 import { getEntity } from './collections.ts';
 import {
   createList,
-  createSection,
   deleteList,
-  deleteSection,
+  flattenSections,
   inboxList,
   moveList,
-  moveSection,
-  renameSection,
   restoreList,
-  sectionsOf,
   updateList,
   visibleLists,
 } from './lists.ts';
+import { createEntity, updateEntity } from './ops.ts';
 import { createTask } from './tasks.ts';
+import type { Section, WorkspaceFile } from './types.ts';
+import { putEntity } from './collections.ts';
 import { createWorkspace } from './workspace.ts';
 
 function setup() {
@@ -52,17 +51,19 @@ describe('lists', () => {
   it('deletes a list with its sections and tasks, and restores them together', () => {
     const { ctx, ws } = setup();
     const { workspace, list } = createList(ctx, ws, { name: 'Home', color: '#A8DCC0' });
-    const withSection = createSection(ctx, workspace, list.id, 'Yard');
+    const withSection = oldSection(ctx, workspace, list.id, 'Yard', 'm');
     const { workspace: withTask, task } = createTask(ctx, withSection.workspace, {
       title: 'Mow',
       listId: list.id,
     });
     let next = deleteList(ctx, withTask, list.id);
     expect(getEntity(next, 'tasks', task.id)?.deletedAt).not.toBeNull();
-    expect(sectionsOf(next, list.id)).toEqual([]);
+    const liveSections = (w: WorkspaceFile) =>
+      w.entities.sections.filter((s) => s.deletedAt === null);
+    expect(liveSections(next)).toEqual([]);
     next = restoreList(ctx, next, list.id);
     expect(getEntity(next, 'tasks', task.id)?.deletedAt).toBeNull();
-    expect(sectionsOf(next, list.id)).toHaveLength(1);
+    expect(liveSections(next)).toHaveLength(1);
     expect(restoreList(ctx, next, list.id)).toBe(next);
   });
 
@@ -72,48 +73,62 @@ describe('lists', () => {
   });
 });
 
-describe('sections', () => {
-  it('creates, renames and deletes; tasks fall back to no section', () => {
+/** A section as data from before sections were dropped. */
+function oldSection(
+  ctx: ReturnType<typeof setup>['ctx'],
+  ws: WorkspaceFile,
+  listId: string,
+  name: string,
+  order: string,
+) {
+  const section = createEntity<Section>(ctx, { listId, name, order });
+  return { workspace: putEntity(ws, 'sections', section), section };
+}
+
+describe('flattenSections (sections were dropped)', () => {
+  it('folds sections into the list, keeping the order they showed in', () => {
     const { ctx, ws } = setup();
     const inbox = inboxList(ws).id;
-    const one = createSection(ctx, ws, inbox, 'One');
-    const two = createSection(ctx, one.workspace, inbox, 'Two');
-    let next = renameSection(ctx, two.workspace, one.section.id, ' First ');
-    expect(sectionsOf(next, inbox).map((s) => s.name)).toEqual(['First', 'Two']);
-    const { workspace, task } = createTask(ctx, next, {
-      title: 'x',
+    const second = oldSection(ctx, ws, inbox, 'Second', 'm');
+    const first = oldSection(ctx, second.workspace, inbox, 'First', 'c');
+    let next = first.workspace;
+    const add = (title: string, sectionId: string | null, order: string) => {
+      const made = createTask(ctx, next, { title, listId: inbox });
+      next = putEntity(next, 'tasks', updateEntity(ctx, made.task, { sectionId, order }));
+      return made.task.id;
+    };
+    add('in second', second.section.id, 'a');
+    add('loose', null, 'z');
+    add('in first, later', first.section.id, 'q');
+    add('in first', first.section.id, 'b');
+    const sub = createTask(ctx, next, {
+      title: 'sub',
       listId: inbox,
-      sectionId: one.section.id,
+      parentId: next.entities.tasks[0]!.id,
     });
-    next = deleteSection(ctx, workspace, one.section.id);
-    expect(getEntity(next, 'tasks', task.id)?.sectionId).toBeNull();
-    expect(sectionsOf(next, inbox).map((s) => s.name)).toEqual(['Two']);
+    next = putEntity(
+      sub.workspace,
+      'tasks',
+      updateEntity(ctx, sub.task, { sectionId: second.section.id }),
+    );
+
+    const flat = flattenSections(ctx, next, () => true);
+    const top = flat.entities.tasks
+      .filter((task) => task.parentId === null)
+      .sort((a, b) => (a.order < b.order ? -1 : 1))
+      .map((task) => task.title);
+    expect(top).toEqual(['loose', 'in first', 'in first, later', 'in second']);
+    expect(flat.entities.tasks.every((task) => task.sectionId === null)).toBe(true);
+    expect(flat.entities.sections.every((section) => section.deletedAt !== null)).toBe(true);
+    // Once is enough.
+    expect(flattenSections(ctx, flat, () => true)).toBe(flat);
   });
 
-  it('requires an existing list', () => {
-    const { ctx, ws } = setup();
-    expect(() => createSection(ctx, ws, 'missing', 'x')).toThrow('not found');
-  });
-
-  it('moves a section before another or to the end, changing only its own order', () => {
+  it('leaves lists the person may not change, and does nothing without sections', () => {
     const { ctx, ws } = setup();
     const inbox = inboxList(ws).id;
-    let next = ws;
-    const ids: Record<string, string> = {};
-    for (const name of ['A', 'B', 'C']) {
-      const made = createSection(ctx, next, inbox, name);
-      next = made.workspace;
-      ids[name] = made.section.id;
-    }
-    const names = (w: typeof next) => sectionsOf(w, inbox).map((s) => s.name);
-    const moved = moveSection(ctx, next, ids.C!, ids.A!);
-    expect(names(moved)).toEqual(['C', 'A', 'B']);
-    const changed = moved.entities.sections.filter(
-      (s) => s !== next.entities.sections.find((o) => o.id === s.id),
-    );
-    expect(changed.map((s) => s.name)).toEqual(['C']);
-    expect(names(moveSection(ctx, moved, ids.C!, null))).toEqual(['A', 'B', 'C']);
-    expect(names(moveSection(ctx, moved, ids.A!, ids.B!))).toEqual(['C', 'A', 'B']);
-    expect(() => moveSection(ctx, moved, ids.A!, 'missing')).toThrow('not found');
+    expect(flattenSections(ctx, ws, () => true)).toBe(ws);
+    const { workspace } = oldSection(ctx, ws, inbox, 'Theirs', 'm');
+    expect(flattenSections(ctx, workspace, () => false)).toBe(workspace);
   });
 });

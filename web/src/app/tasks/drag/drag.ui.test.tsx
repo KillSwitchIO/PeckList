@@ -1,7 +1,7 @@
 import { fireEvent, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { createList, createSection, inboxList } from '../../../core/lists.ts';
+import { createList, inboxList } from '../../../core/lists.ts';
 import { createTask } from '../../../core/tasks.ts';
 import type { WorkspaceFile } from '../../../core/types.ts';
 import { mockViewport, renderApp, testStore } from '../../../test/renderApp.tsx';
@@ -49,7 +49,7 @@ async function chores() {
     return next;
   });
   await store.getState().flush();
-  localStorage.setItem('punchlist.listGrouping', JSON.stringify({ [listId]: 'section' }));
+  localStorage.setItem('punchlist.listGrouping', JSON.stringify({ [listId]: 'none' }));
   await renderApp(`/lists/${listId}`, store);
   await screen.findByRole('button', { name: 'Open Fold' });
   const outline = () => {
@@ -148,70 +148,5 @@ describe('dragging tasks in a list', () => {
     expect(outline()).toEqual(['Wash', 'Fold', 'Dry']);
     await userEvent.keyboard('{Alt>}{ArrowRight}{/Alt}');
     expect(outline()).toEqual(['Wash', '  Fold', 'Dry']);
-  });
-});
-
-describe('reordering sections', () => {
-  async function withSections() {
-    const store = testStore();
-    await store.getState().init();
-    let listId = '';
-    store.getState().apply((ctx, ws) => {
-      const made = createList(ctx, ws, { name: 'Trip', color: '#CFE3A3' });
-      listId = made.list.id;
-      let next = made.workspace;
-      for (const name of ['Before', 'During', 'After'])
-        next = createSection(ctx, next, listId, name).workspace;
-      return next;
-    });
-    await store.getState().flush();
-    localStorage.setItem('punchlist.listGrouping', JSON.stringify({ [listId]: 'section' }));
-    await renderApp(`/lists/${listId}`, store);
-    await screen.findByRole('heading', { name: /After/ });
-    const order = () =>
-      screen
-        .getAllByRole('heading', { level: 2 })
-        .map((heading) => heading.textContent?.replace(/\d+$/, ''));
-    return { order };
-  }
-
-  it('moves a section up or down from its menu', async () => {
-    const { order } = await withSections();
-    await userEvent.click(screen.getByRole('button', { name: 'More actions: After' }));
-    await userEvent.click(await screen.findByRole('menuitem', { name: 'Move up' }));
-    await waitFor(() => expect(order()).toEqual(['Before', 'After', 'During']));
-    await userEvent.click(screen.getByRole('button', { name: 'More actions: Before' }));
-    expect(screen.queryByRole('menuitem', { name: 'Move up' })).toBeNull();
-    await userEvent.click(await screen.findByRole('menuitem', { name: 'Move down' }));
-    await waitFor(() => expect(order()).toEqual(['After', 'Before', 'During']));
-  });
-
-  it('drags a section by its header with the mouse', async () => {
-    const { order } = await withSections();
-    // Headers stack 50 px apart from y = 100 in document order.
-    vi.spyOn(Element.prototype, 'getBoundingClientRect').mockImplementation(function (
-      this: Element,
-    ) {
-      const heads = [...document.querySelectorAll('[data-section-head]')];
-      const at = heads.indexOf(this);
-      const top = at >= 0 ? 100 + at * 50 : 0;
-      return {
-        top,
-        bottom: top + 30,
-        left: 240,
-        right: 840,
-        height: 30,
-        width: 600,
-        x: 240,
-        y: top,
-      } as DOMRect;
-    });
-    const head = document.querySelectorAll('[data-section-head]')[2]!;
-    fireEvent.pointerDown(head, { button: 0, clientX: 300, clientY: 215, pointerType: 'mouse' });
-    fireEvent.pointerMove(window, { clientX: 300, clientY: 200 });
-    fireEvent.pointerMove(window, { clientX: 300, clientY: 105 });
-    expect(screen.getByTestId('section-drop-line')).toBeInTheDocument();
-    fireEvent.pointerUp(window);
-    await waitFor(() => expect(order()).toEqual(['After', 'Before', 'During']));
   });
 });
