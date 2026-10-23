@@ -10,6 +10,7 @@ import {
   type ProfilePreview,
   type ServerInfo,
   type SignInMethods,
+  type SignUpOutcome,
   type SyncTransport,
 } from '../ports/sync.ts';
 import type { AdminApi } from '../ports/admin.ts';
@@ -57,10 +58,16 @@ export class FakeBackend {
   /** Each account's linked provider accounts, by username. */
   readonly identities = new Map<string, SignInMethods['identities']>();
   /** What `/auth/providers` answers. */
-  signIn: { providers: { name: string; displayName: string }[]; localLogin: boolean } = {
+  signIn: {
+    providers: { name: string; displayName: string }[];
+    localLogin: boolean;
+    registration?: 'open' | 'invite' | 'closed';
+  } = {
     providers: [],
     localLogin: true,
   };
+  /** Invite links that still work: token to the uses left. */
+  readonly invites = new Map<string, number>();
   schemaVersion = CURRENT_SCHEMA_VERSION;
   /** Event listeners of every device, by account username. */
   readonly listeners = new Set<{ username: string; onChange: (change: ChangeEvent) => void }>();
@@ -195,16 +202,45 @@ export class FakeTransport implements SyncTransport {
     return Promise.resolve(this.current()?.account ?? null);
   }
 
-  signInOptions(returnUrl: string) {
+  signInOptions(returnUrl: string, invite?: string) {
     this.check();
-    const { providers, localLogin } = this.backend.signIn;
+    const { providers, localLogin, registration } = this.backend.signIn;
+    const withInvite = invite ? `&invite=${encodeURIComponent(invite)}` : '';
     return Promise.resolve({
       localLogin,
+      registration: registration ?? 'closed',
       providers: providers.map((provider) => ({
         ...provider,
-        url: `/auth/oidc/${provider.name}/login?returnUrl=${encodeURIComponent(returnUrl)}`,
+        url: `/auth/oidc/${provider.name}/login?returnUrl=${encodeURIComponent(returnUrl)}${withInvite}`,
       })),
     });
+  }
+
+  checkInvite(token: string) {
+    this.check();
+    const works = (this.backend.invites.get(token) ?? 0) > 0;
+    return Promise.resolve(works ? { expires: '2026-10-30T08:00:00Z' } : null);
+  }
+
+  signUp(username: string, password: string, invite?: string): Promise<SignUpOutcome> {
+    this.check();
+    const registration = this.backend.signIn.registration ?? 'closed';
+    if (registration === 'closed') return Promise.resolve({ kind: 'closed' });
+    if (!invite && registration !== 'open') return Promise.resolve({ kind: 'closed' });
+    const name = username.trim().toLowerCase();
+    if (!/^[a-z0-9]([a-z0-9._-]*[a-z0-9])?$/.test(name)) {
+      return Promise.resolve({ kind: 'invalid-username' });
+    }
+    if (password.length < 12) return Promise.resolve({ kind: 'too-short' });
+    if (this.backend.accounts.has(name)) return Promise.resolve({ kind: 'username-taken' });
+    if (invite) {
+      const left = this.backend.invites.get(invite) ?? 0;
+      if (left < 1) return Promise.resolve({ kind: 'invite-invalid' });
+      this.backend.invites.set(invite, left - 1);
+    }
+    const account = this.backend.addAccount(name, password);
+    this.session = name;
+    return Promise.resolve({ kind: 'ok', account });
   }
 
   login(username: string, password: string) {

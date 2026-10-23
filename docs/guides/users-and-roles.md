@@ -25,6 +25,7 @@ With single sign-on, `OIDC_<NAME>_ROLE_MAP` sets roles from the provider's group
 
 ## Adding people
 
+- **Admin > Users > Invite**: an invite link people use to make their own account (below).
 - **Admin > Users > Add user**: a username and a role. Punchlist shows a generated password to hand
   over; it must be changed at the first sign-in.
 - From the command line: `punchlist admin add-user kim [--admin]` prints the password.
@@ -32,7 +33,33 @@ With single sign-on, `OIDC_<NAME>_ROLE_MAP` sets roles from the provider's group
   Without it, the person waits under **Admin > Sign-in** until an admin approves them (or joins them
   to an existing account).
 
-Self sign-up (`REGISTRATION`) is not built yet.
+### Self sign-up and invite links
+
+[`REGISTRATION`](../configuration/reference.md#registration) (or **Admin > Settings > Who can join**)
+decides who may make their own account:
+
+| Value              | Who can sign up                                                                     |
+| ------------------ | ----------------------------------------------------------------------------------- |
+| `open`             | Anyone who reaches the server: **Create an account** shows on the sign-in page.     |
+| `invite` (default) | Only people with an invite link. The sign-in page shows no sign-up.                 |
+| `closed`           | Nobody. Only admins add people, and invite links stop working until this changes.   |
+
+An **invite link** comes from **Admin > Users > Invite**: who it is for (a note only admins see),
+how long it lasts (1, 7 or 30 days) and how many people may use it (1, 5, 25 or any number). The
+link, `https://tasks.example.com/join/...`, is shown once with a Copy button; only a hash of it is
+kept, so make a new one if it is lost. Opening it shows **Create your account**: a username
+(lowercase letters, digits, dots, dashes and underscores) and a password of at least 12
+characters. The new account is a plain user, signed in at once, with no password change.
+
+Invites that still work are listed under the people, with how many uses are left, until when, and
+who joined with them. The **x** withdraws one; accounts made with it stay. Used-up and expired
+invites drop off the list.
+
+With single sign-on, the invite page also offers **Continue with** each provider. A new provider
+account that would otherwise wait for approval (`AUTO_CREATE` off) comes in on the invite and uses
+it up. With `LOCAL_LOGIN=hidden` the invite page offers only the providers.
+
+Every sign-up, invite made and invite withdrawn is in the [event log](logging.md#access-and-event-log).
 
 ## Managing an account
 

@@ -190,6 +190,27 @@ export interface UserRestoreResult {
   dropped: number;
 }
 
+/** An invite link for self sign-up; its address is shown only when it is made. */
+export interface AdminInvite {
+  id: string;
+  /** Who it is for, as the admin wrote it. */
+  note: string | null;
+  createdBy: string;
+  createdAt: string;
+  expires: string;
+  /** How many accounts it may make; null for any number until it expires. */
+  maxUses: number | null;
+  uses: number;
+  /** Usernames of the accounts it made. */
+  usedBy: string[];
+}
+
+export interface InviteList {
+  /** `closed` makes no invites, and those already made stop working. */
+  registration: 'open' | 'invite' | 'closed';
+  invites: AdminInvite[];
+}
+
 /** Why an admin action was refused, when the person can do something about it. */
 export type AdminRefusal =
   | 'not-allowed'
@@ -200,7 +221,8 @@ export type AdminRefusal =
   | 'invalid'
   | 'too-short'
   | 'admins-only'
-  | 'linked-elsewhere';
+  | 'linked-elsewhere'
+  | 'registration-closed';
 
 export type AdminResult<T = void> = { ok: true; value: T } | { ok: false; reason: AdminRefusal };
 
@@ -222,6 +244,15 @@ export interface AdminApi {
   /** A generated password the person must change; shown once. */
   resetPassword(id: string): Promise<AdminResult<string>>;
   loginLink(id: string): Promise<AdminResult<{ url: string; expires: string }>>;
+  /** Invite links that still work, and whether sign-up takes them. */
+  invites(): Promise<InviteList>;
+  /** A new invite link: lasts `days`, for `uses` people (null: any number). */
+  createInvite(invite: {
+    days: number;
+    uses: number | null;
+    note: string;
+  }): Promise<AdminResult<{ url: string; invite: AdminInvite }>>;
+  revokeInvite(id: string): Promise<void>;
   identities(id: string): Promise<AdminIdentity[]>;
   /** Start viewing the app as someone (super admins); the token goes to a new tab only. */
   impersonate(id: string, reason: string): Promise<AdminResult<{ token: string; expires: string }>>;

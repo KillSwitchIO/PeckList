@@ -18,13 +18,15 @@ import {
 import { useState, type FormEvent } from 'react';
 import type { AccountRole, AdminApi, AdminIdentity, AdminUser } from '../../ports/admin.ts';
 import { t } from '../i18n/i18n.ts';
-import { MoreIcon, PlusIcon } from '../icons/icons.tsx';
+import { LinkIcon, MoreIcon, PlusIcon } from '../icons/icons.tsx';
 import { useSyncState } from '../sync/syncContext.ts';
 import { ConfirmDialog, SecretDialog } from './AdminDialogs.tsx';
 import { DeleteUserDialog } from './DeleteUserDialog.tsx';
 import { LinkIdentityDialog } from './LinkIdentityDialog.tsx';
 import { FriendsDialog } from './FriendsDialog.tsx';
 import { HandOverDialog } from './HandOverDialog.tsx';
+import { InviteDialog, InvitesList } from './InvitesSection.tsx';
+import { describeInvite, inviteReach } from './inviteText.ts';
 import { SetupCard } from './SetupCard.tsx';
 import { ViewAsDialog } from './ViewAsDialog.tsx';
 import { refusalText, useIsSuperAdmin, useLoaded } from './useAdmin.ts';
@@ -129,6 +131,8 @@ export function UsersTab({ api }: { api: AdminApi }) {
   const superAdmin = useIsSuperAdmin();
   const me = useSyncState((state) => state.account?.id);
   const { data: users, reload } = useLoaded(api.users);
+  const { data: invites, reload: reloadInvites } = useLoaded(api.invites);
+  const [inviting, setInviting] = useState(false);
   const [query, setQuery] = useState('');
   const [adding, setAdding] = useState(false);
   const [problem, setProblem] = useState<string | null>(null);
@@ -180,6 +184,9 @@ export function UsersTab({ api }: { api: AdminApi }) {
           inputProps={{ 'aria-label': t('admin.users.search') }}
           sx={{ flexGrow: 1, px: 1.5, py: 0.5, borderRadius: 2, bgcolor: 'action.hover' }}
         />
+        <Button startIcon={<LinkIcon />} onClick={() => setInviting(true)}>
+          {t('admin.invites.invite')}
+        </Button>
         <Button startIcon={<PlusIcon />} onClick={() => setAdding(true)}>
           {t('admin.users.add')}
         </Button>
@@ -240,6 +247,18 @@ export function UsersTab({ api }: { api: AdminApi }) {
           </Box>
         ))}
       </Box>
+
+      <InvitesList
+        invites={invites?.invites ?? []}
+        onRevoke={(invite) =>
+          setConfirm({
+            title: t('admin.invites.revokeTitle'),
+            text: t('admin.invites.revokeText', { what: describeInvite(invite) }),
+            action: t('admin.invites.revokeAction'),
+            run: () => void api.revokeInvite(invite.id).then(reloadInvites),
+          })
+        }
+      />
 
       <Menu anchorEl={menu?.anchor} open={menu !== null} onClose={() => setMenu(null)}>
         {target && (
@@ -424,6 +443,20 @@ export function UsersTab({ api }: { api: AdminApi }) {
             title: t('admin.users.addedPassword', { name }),
             value: password,
             hint: t('admin.users.newPasswordHint'),
+          });
+        }}
+      />
+      <InviteDialog
+        api={api}
+        open={inviting}
+        registration={invites?.registration}
+        onClose={() => setInviting(false)}
+        onCreated={(url, invite) => {
+          reloadInvites();
+          setSecret({
+            title: t('admin.invites.linkTitle'),
+            value: url,
+            hint: t('admin.invites.linkHint', { reach: inviteReach(invite) }),
           });
         }}
       />

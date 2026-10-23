@@ -200,3 +200,79 @@ describe('signing in to a server', () => {
     );
   });
 });
+
+describe('making an account', () => {
+  afterEach(() => window.history.replaceState(null, '', '/'));
+
+  it('an open server offers sign-up from the sign-in page and opens the app after', async () => {
+    const backend = new FakeBackend();
+    backend.signIn = { providers: [], localLogin: true, registration: 'open' };
+    backend.addAccount('ben', 'correct horse battery');
+    await serverApp(backend);
+    await userEvent.click(await screen.findByRole('button', { name: 'Create an account' }));
+    expect(window.location.pathname).toBe('/signup');
+    expect(await screen.findByRole('heading', { name: 'Create your account' })).toBeInTheDocument();
+
+    await userEvent.type(screen.getByLabelText(/Username/), 'ben');
+    await userEvent.type(screen.getByLabelText(/^Password/), 'a long enough password');
+    await userEvent.click(screen.getByRole('button', { name: 'Create account' }));
+    expect(await screen.findByText('That username is taken. Try another.')).toBeInTheDocument();
+    expect(window.location.pathname).toBe('/signup');
+
+    await userEvent.clear(screen.getByLabelText(/Username/));
+    await userEvent.type(screen.getByLabelText(/Username/), 'Sam{Enter}');
+    expect(await screen.findByRole('heading', { level: 1, name: 'Today' })).toBeInTheDocument();
+    expect(backend.accounts.get('sam')?.password).toBe('a long enough password');
+  });
+
+  it('an invite-only server shows no sign-up link, and /signup says to ask for an invite', async () => {
+    const backend = new FakeBackend();
+    backend.signIn = { providers: [], localLogin: true, registration: 'invite' };
+    await serverApp(backend);
+    await screen.findByRole('heading', { name: 'Sign in to Punchlist' });
+    expect(screen.queryByRole('button', { name: 'Create an account' })).toBeNull();
+    cleanup();
+
+    window.history.replaceState(null, '', '/signup');
+    await serverApp(backend);
+    expect(await screen.findByText(/by invite only/)).toBeInTheDocument();
+    expect(screen.queryByLabelText(/Username/)).toBeNull();
+    await userEvent.click(screen.getByRole('button', { name: 'Sign in' }));
+    expect(
+      await screen.findByRole('heading', { name: 'Sign in to Punchlist' }),
+    ).toBeInTheDocument();
+  });
+
+  it('an invite link lets someone in once, with a password or through a provider', async () => {
+    const backend = new FakeBackend();
+    backend.signIn = {
+      providers: [{ name: 'pocket', displayName: 'Pocket ID' }],
+      localLogin: true,
+      registration: 'invite',
+    };
+    backend.invites.set('tok-1', 1);
+    window.history.replaceState(null, '', '/join/tok-1');
+    await serverApp(backend);
+    expect(
+      await screen.findByText('You were invited to this server. Pick a username and password.'),
+    ).toBeInTheDocument();
+    // A new provider account may come in on the invite too.
+    expect(screen.getByRole('link', { name: 'Continue with Pocket ID' })).toHaveAttribute(
+      'href',
+      '/auth/oidc/pocket/login?returnUrl=%2Fjoin%2Ftok-1&invite=tok-1',
+    );
+    await userEvent.type(screen.getByLabelText(/Username/), 'kim');
+    await userEvent.type(screen.getByLabelText(/^Password/), 'a long enough password{Enter}');
+    expect(await screen.findByRole('heading', { level: 1, name: 'Today' })).toBeInTheDocument();
+    // The address leaves the invite behind.
+    expect(window.location.pathname).toBe('/');
+    cleanup();
+
+    window.history.replaceState(null, '', '/join/tok-1');
+    await serverApp(backend);
+    expect(
+      await screen.findByRole('heading', { name: 'This invite has run out' }),
+    ).toBeInTheDocument();
+    expect(screen.queryByLabelText(/Username/)).toBeNull();
+  });
+});

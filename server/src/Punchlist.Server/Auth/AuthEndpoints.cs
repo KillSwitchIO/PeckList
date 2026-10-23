@@ -19,6 +19,11 @@ public sealed record PasswordRequest(string Current, string Next);
 
 public sealed record AuthError(string Error, DateTimeOffset? Until = null);
 
+public sealed record SignUpRequest(string? Username, string? Password, string? Invite);
+
+/// <summary>An invite link that still works: until when.</summary>
+public sealed record InviteCheck(DateTimeOffset Expires);
+
 /// <summary><c>/auth</c>: who am I, log in, log out, change password.</summary>
 public static class AuthEndpoints
 {
@@ -57,6 +62,38 @@ public static class AuthEndpoints
                     return Results.Json(new AuthError("invalid"), statusCode: StatusCodes.Status401Unauthorized);
             }
         }).RequireRateLimiting(AuthSetup.LoginRateLimit).Audited("auth.sign-in", targetRoute: null);
+
+        // Self sign-up (spec: Registration): open to anyone, or with an invite link.
+        auth.MapGet("/invites/{token}", async (string token, SelfSignUp signUp, SignupInvites invites, CancellationToken cancellation) =>
+            signUp.InvitesWork && await invites.FindAsync(token, cancellation) is { } invite
+                ? Results.Ok(new InviteCheck(invite.Expires))
+                : Results.NotFound(new AuthError("invite_invalid")))
+            .RequireRateLimiting(AuthSetup.LoginRateLimit);
+
+        auth.MapPost("/signup", async (SignUpRequest request, SelfSignUp signUp, HttpContext context) =>
+        {
+            var wanted = (request.Username ?? "").Trim();
+            context.Audit().On(null, wanted.Length > 100 ? wanted[..100] : wanted).Anonymous = true;
+            var hasInvite = !string.IsNullOrWhiteSpace(request.Invite);
+            context.Audit().Detail = hasInvite ? "with an invite" : "open sign-up";
+            var result = await signUp.SignUpAsync(request.Username ?? "", request.Password ?? "", request.Invite, context.RequestAborted);
+            if (result is not SignUpResult.Success success)
+            {
+                var refused = (SignUpResult.Refused)result;
+                var status = refused.Error switch
+                {
+                    "registration_closed" or "invite_required" or "local_login_hidden" => StatusCodes.Status403Forbidden,
+                    "username_taken" => StatusCodes.Status409Conflict,
+                    _ => StatusCodes.Status400BadRequest,
+                };
+                return Results.Json(new AuthError(refused.Error), statusCode: status);
+            }
+            context.Audit().Actor(success.Account).On(success.Account.Id, success.Account.Username).Anonymous = false;
+            var principal = AuthSetup.Principal(success.Account, CookieAuthenticationDefaults.AuthenticationScheme);
+            await context.SignInAsync(CookieAuthenticationDefaults.AuthenticationScheme, principal,
+                new AuthenticationProperties { IsPersistent = true });
+            return Results.Ok(MeOf(principal, mode));
+        }).RequireRateLimiting(AuthSetup.LoginRateLimit).Audited("auth.signed-up", targetRoute: null);
 
         auth.MapPost("/logout", async (HttpContext context) =>
         {

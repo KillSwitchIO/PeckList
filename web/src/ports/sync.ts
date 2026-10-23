@@ -53,7 +53,23 @@ export interface SignInOptions {
   providers: { name: string; displayName: string; url: string }[];
   /** False when the server hides the password form (`/login?local` still shows it). */
   localLogin: boolean;
+  /** Who may make an account: anyone, people with an invite link, or nobody (older servers: closed). */
+  registration?: Registration;
 }
+
+export type Registration = 'open' | 'invite' | 'closed';
+
+export type SignUpOutcome =
+  | { kind: 'ok'; account: Account }
+  | {
+      kind:
+        | 'username-taken'
+        | 'invalid-username'
+        | 'too-short'
+        | 'invite-invalid'
+        | 'closed'
+        | 'too-many';
+    };
 
 export type LoginOutcome =
   | { kind: 'ok'; account: Account }
@@ -139,8 +155,13 @@ export interface SyncTransport {
   /** The signed-in account, or null when not signed in. */
   me(): Promise<Account | null>;
   /** Identity providers and whether the password form shows (optional: older servers have none). */
-  signInOptions?(returnUrl: string): Promise<SignInOptions>;
+  /** With `invite`, the providers' addresses carry it, so a new provider account may come in on it. */
+  signInOptions?(returnUrl: string, invite?: string): Promise<SignInOptions>;
   login(username: string, password: string): Promise<LoginOutcome>;
+  /** Make an account and sign in (optional: older servers have no sign-up). */
+  signUp?(username: string, password: string, invite?: string): Promise<SignUpOutcome>;
+  /** When an invite link stops working, or null when it already has (used, revoked, expired). */
+  checkInvite?(token: string): Promise<{ expires: string } | null>;
   logout(): Promise<void>;
   changePassword(current: string, next: string): Promise<PasswordOutcome>;
   sync(request: SyncRequest): Promise<SyncResponse>;

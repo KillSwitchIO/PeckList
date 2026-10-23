@@ -35,6 +35,11 @@ public sealed class AccountService(IAccountStore store, IPasswordHasher hasher, 
     public const int MaxFailedLogins = 5;
     public static readonly TimeSpan LockoutTime = TimeSpan.FromMinutes(15);
 
+    /// <summary>Lowercase letters, digits, dots, dashes and underscores, up to 32, not starting or ending with a mark.</summary>
+    public static bool IsValidUsername(string username) =>
+        username.Length is > 0 and <= ExternalSignIn.MaxUsernameLength
+        && ExternalSignIn.UsernameBase(new ExternalIdentity { Subject = "", Username = username }) == username;
+
     /// <summary>Verified against when the user does not exist, so timing does not reveal usernames.</summary>
     private readonly Lazy<string> decoy = new(() => hasher.Hash(Ids.NewPassword()));
 

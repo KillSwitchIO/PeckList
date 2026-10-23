@@ -22,9 +22,16 @@ removed for good. `0` removes at the next hourly check. **Default:** `7`. **Wher
 
 ### `REGISTRATION`
 
-Who may make their own account: `open`, `invite` or `closed`. **Saved for self sign-up, which is not
-built yet**: today accounts are added by an admin or by single sign-on with `AUTO_CREATE`.
-**Default:** `invite`. **Where:** any.
+Who may make their own account with a username and password:
+
+- `open`: anyone who can reach the server, from **Create an account** on the sign-in page.
+- `invite`: only people with an invite link an admin made (**Admin > Users > Invite**).
+- `closed`: nobody; admins add people. Invite links stop working.
+
+Single sign-on keeps its own switch, [`OIDC_<NAME>_AUTO_CREATE`](#sign-in). An invite link
+also lets a new provider account in when that switch is off. With [`LOCAL_LOGIN`](#local_login)
+`hidden`, people sign up only through a provider. Admins can always add accounts. **Default:**
+`invite`. **Where:** any. See [adding people](../guides/users-and-roles.md#adding-people).
 
 ### `TZ`
 

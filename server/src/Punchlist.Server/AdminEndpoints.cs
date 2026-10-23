@@ -59,6 +59,17 @@ public sealed record AdminShare(string Kind, string Id, string Name, int People)
 
 public sealed record HandOverRequest(string? To, IReadOnlyList<string>? Ids);
 
+/// <summary>A new invite: lasts <paramref name="Days"/> (7), for <paramref name="Uses"/> people (1; null for any number).</summary>
+public sealed record InviteRequest(double? Days, int? Uses, string? Note, bool AnyNumber = false);
+
+public sealed record AdminInvite(
+    string Id, string? Note, string CreatedBy, DateTimeOffset CreatedAt, DateTimeOffset Expires, int? MaxUses, int Uses, IReadOnlyList<string> UsedBy);
+
+/// <summary>A just-made invite: its link is shown this once.</summary>
+public sealed record NewInvite(string Url, AdminInvite Invite);
+
+public sealed record InviteList(string Registration, IReadOnlyList<AdminInvite> Invites);
+
 /// <summary>
 /// <c>/api/admin</c>: users and server groups (spec: Accounts &amp; Admin). Every endpoint names the
 /// permission it needs; a test checks that none is left without one.
@@ -122,7 +133,7 @@ public static class AdminEndpoints
             if (request.Role is not null && !Roles.TryParse(request.Role, out role)) return Results.BadRequest(new AdminError("invalid_role"));
             if (role != Role.User && !user.AccountRole().Can(Permission.ManageAdmins)) return Results.Forbid();
             var username = (request.Username ?? "").Trim().ToLowerInvariant();
-            if (username.Length is 0 or > ExternalSignIn.MaxUsernameLength || ExternalSignIn.UsernameBase(new ExternalIdentity { Subject = "", Username = username }) != username)
+            if (!AccountService.IsValidUsername(username))
             {
                 return Results.BadRequest(new AdminError("invalid_username", "lowercase letters, digits, dots, dashes and underscores"));
             }
@@ -344,6 +355,42 @@ public static class AdminEndpoints
             }
         }).RequirePermission(Permission.Impersonate).Audited("impersonation.started");
 
+        // Invite links for self sign-up (spec: Registration).
+        admin.MapGet("/invites", async (SelfSignUp signUp, SignupInvites invites, IAccountStore accounts, CancellationToken cancellation) =>
+        {
+            var names = (await accounts.ListAsync(cancellation)).ToDictionary(account => account.Id, account => account.Username);
+            return new InviteList(signUp.InvitesWork ? signUp.Policy.ToString().ToLowerInvariant() : "closed",
+                (await invites.ListAsync(cancellation)).Select(invite => View(invite, names)).ToList());
+        }).RequirePermission(Permission.ManageUsers);
+
+        admin.MapPost("/invites", async (
+            InviteRequest request, ClaimsPrincipal user, SelfSignUp signUp, SignupInvites invites, IAccountStore accounts, HttpContext context,
+            CancellationToken cancellation) =>
+        {
+            context.Audit().On(null, request.Note);
+            if (!signUp.InvitesWork) return Results.Conflict(new AdminError("registration_closed", "sign-up is closed (REGISTRATION=closed)"));
+            try
+            {
+                var (token, invite) = await invites.CreateAsync(user.UserId(), TimeSpan.FromDays(request.Days ?? 7),
+                    request.AnyNumber ? null : request.Uses ?? 1, request.Note, cancellation);
+                context.Audit().On(invite.Id, invite.Note).Detail =
+                    $"{(invite.MaxUses is { } most ? $"{most} {(most == 1 ? "person" : "people")}" : "any number of people")} until {invite.Expires:yyyy-MM-dd HH:mm}Z";
+                var names = (await accounts.ListAsync(cancellation)).ToDictionary(account => account.Id, account => account.Username);
+                return Results.Ok(new NewInvite($"{ServerApp.Origin(context)}/join/{token}", View(invite, names)));
+            }
+            catch (ArgumentException error)
+            {
+                return Results.BadRequest(new AdminError("invalid", error.Message));
+            }
+        }).RequirePermission(Permission.ManageUsers).Audited("admin.invite-created", targetRoute: null);
+
+        admin.MapDelete("/invites/{id}", async (string id, SignupInvites invites, HttpContext context, CancellationToken cancellation) =>
+        {
+            if (await invites.RevokeAsync(id, cancellation) is not { } invite) return Results.NotFound();
+            context.Audit().On(invite.Id, invite.Note);
+            return Results.NoContent();
+        }).RequirePermission(Permission.ManageUsers).Audited("admin.invite-revoked", targetRoute: null);
+
         admin.MapGet("/pending-signins", async (IIdentityStore identities, CancellationToken cancellation) =>
             await identities.ListPendingAsync(cancellation)).RequirePermission(Permission.ManageUsers);
 
@@ -442,6 +489,10 @@ public static class AdminEndpoints
         }
         return await action(account);
     }
+
+    private static AdminInvite View(SignupInvite invite, IReadOnlyDictionary<string, string> names) => new(
+        invite.Id, invite.Note, names.GetValueOrDefault(invite.CreatedBy, invite.CreatedBy), invite.CreatedAt, invite.Expires,
+        invite.MaxUses, invite.Uses, invite.UsedBy.Select(id => names.GetValueOrDefault(id, id)).ToList());
 
     private static AdminGroup View(ServerGroupView view) => new(
         view.Group.Id,

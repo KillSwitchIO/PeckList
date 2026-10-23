@@ -13,6 +13,7 @@ import { MoreView } from './views/MoreView.tsx';
 import { SearchView } from './search/SearchView.tsx';
 import { SettingsPage } from './settings/SettingsPage.tsx';
 import { AdminPage } from './admin/AdminPage.tsx';
+import { useSyncState } from './sync/syncContext.ts';
 import {
   AllView,
   AssignedView,
@@ -32,10 +33,22 @@ function NotFound() {
   );
 }
 
+/**
+ * A sign-in, sign-up or invite address opened by someone already in: on to the app. Not while the
+ * server is still being asked, since the sign-in pages need the address (an invite, an error).
+ */
+function SignedInAlready() {
+  const phase = useSyncState((state) => state.phase);
+  return phase === 'checking' ? null : <Navigate to="/today" replace />;
+}
+
 export function AppRoutes() {
   return (
     <Routes>
       <Route path="/" element={<Navigate to="/today" replace />} />
+      <Route path="/login" element={<SignedInAlready />} />
+      <Route path="/signup" element={<SignedInAlready />} />
+      <Route path="/join/:token" element={<SignedInAlready />} />
       <Route element={<AppShell />}>
         <Route path="/today" element={<TodayView />} />
         <Route path="/inbox" element={<InboxView />} />

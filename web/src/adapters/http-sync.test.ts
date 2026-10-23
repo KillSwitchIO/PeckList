@@ -108,10 +108,39 @@ describe('HTTP sync transport', () => {
         },
       ],
       localLogin: false,
+      registration: 'closed',
     });
     expect(calls[0]?.url).toBe('/auth/providers');
     // A server from before OIDC answers with the app's page: passwords only.
     expect(await http.signInOptions?.('/')).toEqual({ providers: [], localLogin: true });
+  });
+
+  it('signs up and reads invites, turning refusals into outcomes', async () => {
+    const { fetcher, calls } = fakeFetch(
+      { status: 200, body: account },
+      { status: 409, body: { error: 'username_taken' } },
+      { status: 400, body: { error: 'invalid_username' } },
+      { status: 400, body: { error: 'invite_invalid' } },
+      { status: 403, body: { error: 'invite_required' } },
+      { status: 429, body: {} },
+      { status: 200, body: { expires: '2026-10-30T08:00:00Z' } },
+      { status: 404, body: { error: 'invite_invalid' } },
+    );
+    const http = createHttpSync('', fetcher);
+    expect((await http.signUp!('sam', 'a long enough password', 'tok')).kind).toBe('ok');
+    expect(calls[0]).toMatchObject({ url: '/auth/signup', init: { method: 'POST' } });
+    const outcomes = [];
+    for (let each = 0; each < 5; each++) outcomes.push((await http.signUp!('sam', 'x')).kind);
+    expect(outcomes).toEqual([
+      'username-taken',
+      'invalid-username',
+      'invite-invalid',
+      'closed',
+      'too-many',
+    ]);
+    expect(await http.checkInvite!('a/b')).toEqual({ expires: '2026-10-30T08:00:00Z' });
+    expect(calls.at(-1)?.url).toBe('/auth/invites/a%2Fb');
+    expect(await http.checkInvite!('gone')).toBeNull();
   });
 
   it('turns password answers into outcomes', async () => {

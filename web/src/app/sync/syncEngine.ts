@@ -21,6 +21,7 @@ import {
   SyncFailure,
   type Account,
   type LoginOutcome,
+  type SignUpOutcome,
   type PasswordOutcome,
   type SyncTransport,
 } from '../../ports/sync.ts';
@@ -52,6 +53,8 @@ export interface SyncState {
 
   start(): Promise<void>;
   signIn(username: string, password: string): Promise<LoginOutcome>;
+  /** Make an account (open sign-up, or with an invite link) and sign in to it. */
+  signUp(username: string, password: string, invite?: string): Promise<SignUpOutcome>;
   signOut(): Promise<void>;
   changePassword(current: string, next: string): Promise<PasswordOutcome>;
   /** Sync now (push, then pull until caught up). Resolves when done or failed. */
@@ -391,6 +394,13 @@ export function createSyncEngine(deps: SyncEngineDependencies): SyncEngine {
 
       async signIn(username, password) {
         const outcome = await transport.login(username, password);
+        if (outcome.kind === 'ok') await enter(outcome.account);
+        return outcome;
+      },
+
+      async signUp(username, password, invite) {
+        if (!transport.signUp) return { kind: 'closed' };
+        const outcome = await transport.signUp(username, password, invite);
         if (outcome.kind === 'ok') await enter(outcome.account);
         return outcome;
       },

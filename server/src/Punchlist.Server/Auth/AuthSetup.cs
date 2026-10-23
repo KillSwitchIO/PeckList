@@ -33,6 +33,8 @@ public static class AuthSetup
         services.AddSingleton<AccountService>();
         services.AddSingleton<ExternalSignIn>();
         services.AddSingleton<LoginLinks>();
+        services.AddSingleton<SignupInvites>();
+        services.AddSingleton<SelfSignUp>();
         services.AddSingleton<Impersonations>();
         services.AddSingleton<OwnerAccount>();
         services.AddMemoryCache();

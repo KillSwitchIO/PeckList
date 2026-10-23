@@ -4,6 +4,8 @@ import type {
   AdminFriend,
   AdminGroup,
   AdminIdentity,
+  AdminInvite,
+  InviteList,
   AdminProvider,
   AdminShare,
   AdminRefusal,
@@ -35,6 +37,7 @@ const REFUSALS: Record<string, AdminRefusal> = {
   not_allowed: 'not-allowed',
   reason_required: 'reason-required',
   taken: 'linked-elsewhere',
+  registration_closed: 'registration-closed',
 };
 
 /** `/api/admin` over fetch, with the session cookie (same origin). */
@@ -147,6 +150,18 @@ export function createHttpAdmin(
         await call(`/users/${segment(id)}/login-link`, 'POST'),
         async (response) => (await response.json()) as { url: string; expires: string },
       ),
+    invites: async () => json<InviteList>(await call('/invites')),
+    createInvite: async ({ days, uses, note }) =>
+      result(
+        await call('/invites', 'POST', { days, uses, anyNumber: uses === null, note }),
+        async (response) => (await response.json()) as { url: string; invite: AdminInvite },
+      ),
+    revokeInvite: async (id) => {
+      const response = await call(`/invites/${segment(id)}`, 'DELETE');
+      if (!response.ok && response.status !== 404) {
+        throw new SyncFailure('server', `server error ${response.status}`);
+      }
+    },
     impersonate: async (id, reason) =>
       result(
         await call(`/users/${segment(id)}/impersonate`, 'POST', { reason }),

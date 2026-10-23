@@ -13,7 +13,8 @@ namespace Punchlist.Server.Auth;
 
 public sealed record SignInProvider(string Name, string DisplayName);
 
-public sealed record SignInOptions(IReadOnlyList<SignInProvider> Providers, bool LocalLogin);
+/// <summary><paramref name="Registration"/>: who may make an account here (<c>open</c>, <c>invite</c>, <c>closed</c>).</summary>
+public sealed record SignInOptions(IReadOnlyList<SignInProvider> Providers, bool LocalLogin, string Registration = "closed");
 
 /// <summary>
 /// OIDC sign-in (spec: Accounts &amp; Admin, OIDC). The server runs the code flow with PKCE and keeps
@@ -29,6 +30,9 @@ public static class OidcSetup
 
     /// <summary>Set on a challenge that links a provider account to the signed-in user instead of signing in.</summary>
     private const string LinkAccountItem = "punchlist.link_account";
+
+    /// <summary>Set on a sign-in started from an invite link: a new provider account may come in on it.</summary>
+    private const string InviteItem = "punchlist.invite";
 
     /// <summary>Where linking reports back: the settings page, with <c>?link=</c> saying how it went.</summary>
     private const string LinkReturn = "/settings";
@@ -93,11 +97,12 @@ public static class OidcSetup
     /// </summary>
     public static void MapOidc(this RouteGroupBuilder auth, ServerSettings settings)
     {
-        auth.MapGet("/providers", () => new SignInOptions(
+        auth.MapGet("/providers", (SelfSignUp signUp) => new SignInOptions(
             settings.OidcProviders.Select(provider => new SignInProvider(provider.Name, provider.DisplayName)).ToList(),
-            !settings.LocalLoginHidden));
+            !settings.LocalLoginHidden,
+            signUp.InvitesWork ? signUp.Policy.ToString().ToLowerInvariant() : "closed"));
 
-        auth.MapGet("/oidc/{name}/login", (string name, string? returnUrl) =>
+        auth.MapGet("/oidc/{name}/login", (string name, string? returnUrl, string? invite) =>
         {
             if (settings.OidcProviders.All(provider => provider.Name != name)) return Results.NotFound();
             // Only back into this app: a path, never another site.
@@ -105,7 +110,9 @@ public static class OidcSetup
                 && !returnUrl.StartsWith("/\\", StringComparison.Ordinal)
                 ? returnUrl
                 : "/";
-            return Results.Challenge(new AuthenticationProperties { RedirectUri = back, IsPersistent = true }, [Scheme(name)]);
+            var properties = new AuthenticationProperties { RedirectUri = back, IsPersistent = true };
+            if (!string.IsNullOrWhiteSpace(invite)) properties.Items[InviteItem] = invite.Trim();
+            return Results.Challenge(properties, [Scheme(name)]);
         });
 
         // Link a provider account to the signed-in user (their settings page).
@@ -167,7 +174,19 @@ public static class OidcSetup
             await LinkAsync(context, provider, identity, linkTo);
             return;
         }
-        var result = await services.GetRequiredService<ExternalSignIn>().SignInAsync(provider, identity, context.HttpContext.RequestAborted);
+        var signIn = services.GetRequiredService<ExternalSignIn>();
+        var result = await signIn.SignInAsync(provider, identity, context.HttpContext.RequestAborted);
+        if (result is ExternalSignInResult.Pending
+            && context.Properties?.Items.TryGetValue(InviteItem, out var invite) == true && invite is not null
+            && services.GetRequiredService<SelfSignUp>().InvitesWork)
+        {
+            // Came from an invite link: the invite stands in for an admin's approval.
+            var made = await services.GetRequiredService<SignupInvites>().UseAsync(invite,
+                async () => await signIn.ApproveAsync(provider, subject, context.HttpContext.RequestAborted)
+                    ?? throw new InvalidOperationException("the sign-in stopped waiting"),
+                account => account.Id, context.HttpContext.RequestAborted);
+            if (made is not null) result = new ExternalSignInResult.Success(made, Created: true, JoinedBy: "invite");
+        }
         switch (result)
         {
             case ExternalSignInResult.Success success:
@@ -180,7 +199,7 @@ public static class OidcSetup
                 // The provider's groups may have changed this person's server groups.
                 await services.GetRequiredService<ServerGroupProjection>().ProjectAsync(context.HttpContext.RequestAborted);
                 note.Outcome = AuditOutcome.Ok;
-                if (success.Created) note.Detail = $"{provider.Name}, new account";
+                if (success.Created) note.Detail = success.JoinedBy == "invite" ? $"{provider.Name}, new account from an invite" : $"{provider.Name}, new account";
                 else if (success.JoinedBy is { } joined) note.Detail = $"{provider.Name}, joined the account by {joined}";
                 context.Principal = AuthSetup.Principal(success.Account, CookieAuthenticationDefaults.AuthenticationScheme);
                 context.Properties!.IsPersistent = true;

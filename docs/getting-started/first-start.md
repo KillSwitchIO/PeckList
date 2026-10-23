@@ -30,8 +30,8 @@ nothing; **Admin** offers to finish it until you do or dismiss it.
    single sign-on and for links the server makes. Set it to the HTTPS address once you have one.
 2. **Sign-in**: optionally an identity provider. The step shows the callback address to register
    with the provider. See [single sign-on](../guides/single-sign-on.md).
-3. **Who can join**: saved for self sign-up (not built yet; today an admin adds accounts, or single
-   sign-on creates them).
+3. **Who can join**: anyone (`open`), people with an invite link (`invite`, the default) or only
+   people an admin adds (`closed`). See [adding people](../guides/users-and-roles.md#adding-people).
 
 Anything the environment or the [settings file](../configuration/config-file.md) already sets shows
 as it is and is skipped. Some choices apply after a restart, which the last step offers.

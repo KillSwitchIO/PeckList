@@ -7,6 +7,7 @@ import type {
   PasswordOutcome,
   ServerInfo,
   SignInMethods,
+  SignUpOutcome,
   SyncRequest,
   SyncResponse,
   SyncTransport,
@@ -89,7 +90,7 @@ export function createHttpSync(
       return (await response.json()) as Account;
     },
 
-    async signInOptions(returnUrl) {
+    async signInOptions(returnUrl, invite) {
       const response = await call('/auth/providers');
       // Servers from before OIDC (a 404, or the app's index.html): passwords only.
       if (response.status === 404 || !response.headers.get('content-type')?.includes('json')) {
@@ -99,12 +100,15 @@ export function createHttpSync(
       const options = (await response.json()) as {
         providers: { name: string; displayName: string }[];
         localLogin: boolean;
+        registration?: 'open' | 'invite' | 'closed';
       };
+      const withInvite = invite ? `&invite=${encodeURIComponent(invite)}` : '';
       return {
         localLogin: options.localLogin,
+        registration: options.registration ?? 'closed',
         providers: options.providers.map((provider) => ({
           ...provider,
-          url: `${base}/auth/oidc/${encodeURIComponent(provider.name)}/login?returnUrl=${encodeURIComponent(returnUrl)}`,
+          url: `${base}/auth/oidc/${encodeURIComponent(provider.name)}/login?returnUrl=${encodeURIComponent(returnUrl)}${withInvite}`,
         })),
       };
     },
@@ -117,6 +121,42 @@ export function createHttpSync(
         return { kind: 'locked', until: (await errorOf(response)).until ?? '' };
       if (response.status === 429) return { kind: 'too-many' };
       return fail(response);
+    },
+
+    async signUp(username, password, invite): Promise<SignUpOutcome> {
+      const response = await call('/auth/signup', {
+        method: 'POST',
+        body: { username, password, invite: invite ?? null },
+      });
+      if (response.ok) return { kind: 'ok', account: (await response.json()) as Account };
+      if (response.status === 429) return { kind: 'too-many' };
+      const { error } = await errorOf(response);
+      switch (error) {
+        case 'username_taken':
+          return { kind: 'username-taken' };
+        case 'invalid_username':
+          return { kind: 'invalid-username' };
+        case 'too_short':
+          return { kind: 'too-short' };
+        case 'invite_invalid':
+          return { kind: 'invite-invalid' };
+        case 'registration_closed':
+        case 'invite_required':
+        case 'local_login_hidden':
+          return { kind: 'closed' };
+        default:
+          // Servers from before sign-up answer 404 (or the app's index.html for the POST).
+          if (response.status === 404 || response.status === 405) return { kind: 'closed' };
+          return fail(response);
+      }
+    },
+
+    async checkInvite(token) {
+      const response = await call(`/auth/invites/${encodeURIComponent(token)}`);
+      if (response.status === 404) return null;
+      if (!response.ok) return fail(response);
+      if (!response.headers.get('content-type')?.includes('json')) return null;
+      return (await response.json()) as { expires: string };
     },
 
     async logout() {

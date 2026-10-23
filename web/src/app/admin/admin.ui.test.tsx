@@ -6,6 +6,7 @@ import type {
   AccountRole,
   AdminApi,
   AdminGroup,
+  AdminInvite,
   AdminUser,
   AuditEntry,
   AuditQuery,
@@ -47,6 +48,8 @@ function memoryAdmin(benId: string) {
     linked: [] as string[],
     handedOver: [] as { from: string; to: string; ids: string[] }[],
     window: null as string | null,
+    registration: 'invite' as 'open' | 'invite' | 'closed',
+    invites: [] as AdminInvite[],
     pending: [
       {
         provider: 'pocket',
@@ -210,6 +213,29 @@ function memoryAdmin(benId: string) {
     },
     resetPassword: () => ok('reset-secret-2'),
     loginLink: () => ok({ url: 'https://tasks.example.com/auth/link/abc', expires: '' }),
+    invites: () =>
+      Promise.resolve({ registration: state.registration, invites: [...state.invites] }),
+    createInvite: ({ days, uses, note }) => {
+      if (state.registration === 'closed') {
+        return Promise.resolve({ ok: false as const, reason: 'registration-closed' as const });
+      }
+      const invite: AdminInvite = {
+        id: `I${state.invites.length + 1}`,
+        note: note || null,
+        createdBy: 'ben',
+        createdAt: '2026-10-23T08:00:00Z',
+        expires: new Date(Date.UTC(2026, 9, 23 + days, 8)).toISOString(),
+        maxUses: uses,
+        uses: 0,
+        usedBy: [],
+      };
+      state.invites.unshift(invite);
+      return ok({ url: `https://tasks.example.com/join/token-${invite.id}`, invite });
+    },
+    revokeInvite: (id) => {
+      state.invites = state.invites.filter((each) => each.id !== id);
+      return Promise.resolve();
+    },
     identities: () => Promise.resolve([]),
     impersonate: (_, reason) =>
       reason.trim().length < 3
@@ -419,7 +445,7 @@ function memoryAdmin(benId: string) {
 async function adminApp(
   role: AccountRole,
   path = '/admin',
-  options: { setupDone?: boolean; path?: string } = {},
+  options: { setupDone?: boolean; path?: string; registration?: 'open' | 'invite' | 'closed' } = {},
 ) {
   const backend = new FakeBackend();
   const ben = backend.addAccount('ben', 'correct horse battery', { role });
@@ -427,6 +453,7 @@ async function adminApp(
   transport.session = 'ben';
   const admin = memoryAdmin(ben.id);
   if (options.setupDone !== undefined) admin.state.setupDone = options.setupDone;
+  if (options.registration) admin.state.registration = options.registration;
   transport.admin = admin.api;
   const store = testStore();
   const sync = createSyncEngine({
@@ -495,6 +522,42 @@ describe('admin', () => {
     await userEvent.click(within(list).getByRole('button', { name: 'Actions for ben' }));
     expect(await screen.findByRole('menuitem', { name: 'Reset password' })).toBeInTheDocument();
     expect(screen.queryByRole('menuitem', { name: 'Turn off' })).toBeNull();
+  });
+
+  it('makes invite links that are shown once, lists them and withdraws them', async () => {
+    const { state } = await adminApp('admin');
+    await screen.findByRole('list', { name: 'Users' });
+    await userEvent.click(screen.getByRole('button', { name: 'Invite' }));
+    const make = await screen.findByRole('dialog', { name: 'Invite people' });
+    await userEvent.type(within(make).getByLabelText('Who it is for'), 'The Lees');
+    await userEvent.click(within(make).getByLabelText('Can be used by'));
+    await userEvent.click(await screen.findByRole('option', { name: '5 people' }));
+    await userEvent.click(within(make).getByRole('button', { name: 'Create link' }));
+
+    const shown = await screen.findByRole('dialog', { name: 'Invite link' });
+    expect(shown).toHaveTextContent('https://tasks.example.com/join/token-I1');
+    expect(shown).toHaveTextContent('It works for 5 people until Oct 30');
+    await userEvent.click(within(shown).getByRole('button', { name: 'Done' }));
+    expect(state.invites[0]).toMatchObject({ note: 'The Lees', maxUses: 5 });
+
+    const invites = await screen.findByRole('list', { name: 'Invite links' });
+    expect(within(invites).getByRole('listitem', { name: 'The Lees' })).toHaveTextContent(
+      '0 of 5 used',
+    );
+    await userEvent.click(within(invites).getByRole('button', { name: 'Withdraw The Lees' }));
+    const confirm = await screen.findByRole('dialog', { name: 'Withdraw this invite link?' });
+    await userEvent.click(within(confirm).getByRole('button', { name: 'Withdraw' }));
+    await waitFor(() => expect(screen.queryByRole('list', { name: 'Invite links' })).toBeNull());
+    expect(state.invites).toEqual([]);
+  });
+
+  it('says invite links do not work while sign-up is closed', async () => {
+    await adminApp('admin', '/admin', { registration: 'closed' });
+    await screen.findByRole('list', { name: 'Users' });
+    await userEvent.click(screen.getByRole('button', { name: 'Invite' }));
+    const make = await screen.findByRole('dialog', { name: 'Invite people' });
+    expect(make).toHaveTextContent('Sign-up is closed on this server');
+    expect(within(make).getByRole('button', { name: 'Create link' })).toBeDisabled();
   });
 
   it('an admin leaves admin accounts to super admins', async () => {

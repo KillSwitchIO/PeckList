@@ -35,6 +35,13 @@ does. Every admin route needs the matching [role](../guides/users-and-roles.md#r
 | `POST /auth/password`         | `{"current","next"}`                                                             |
 | `GET /auth/oidc/{name}/login` | Starts a single sign-on; the provider calls back to `/auth/oidc/{name}/callback` |
 | `GET /auth/link/{token}`      | A one-time sign-in link                                                          |
+| `POST /auth/signup`           | `{"username","password","invite"}`; makes the account and signs in (see below)   |
+| `GET /auth/invites/{token}`   | `200 {"expires"}` while an invite link works, else `404`                         |
+
+`/auth/providers` also says who may sign up (`registration`: `open`, `invite` or `closed`). A
+refused sign-up answers `403` (`registration_closed`, `invite_required`, `local_login_hidden`),
+`409 username_taken` or `400` (`invalid_username`, `too_short`, `invite_invalid`). Sign-up shares
+the sign-in rate limit.
 
 ## The app
 
@@ -49,6 +56,7 @@ does. Every admin route needs the matching [role](../guides/users-and-roles.md#r
 
 | Area     | Routes                                                                                                                                                                                                                            |
 | -------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Invites  | `GET/POST /invites`, `DELETE /invites/{id}`                                                                                                                                                                                       |
 | Users    | `GET/POST /users`, `DELETE /users/{id}`, `POST /users/{id}/restore`, `PUT /users/{id}/disabled`, `PUT /users/{id}/role`, `POST /users/{id}/password`, `POST /users/{id}/login-link`, `POST /users/{id}/impersonate`               |
 | Sign-in  | `GET/POST/DELETE /users/{id}/identities...`, `GET /providers`, `POST /providers/{name}/unbind-all`, `PUT/DELETE /providers/{name}/migration-window`, `GET /pending-signins`, `POST /pending-signins/{provider}/{subject}/approve` |
 | Sharing  | `GET /users/{id}/friends`, `POST /friendships`, `DELETE /friendships/{a}/{b}`, `GET /users/{id}/shared`, `POST /users/{id}/hand-over`                                                                                             |

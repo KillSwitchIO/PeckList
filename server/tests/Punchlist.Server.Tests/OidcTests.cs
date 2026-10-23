@@ -45,9 +45,10 @@ public sealed class OidcTests(ServerFixture fixture) : IClassFixture<ServerFixtu
     };
 
     /// <summary>Start at the app, go through the provider, and come back: where the server sends the browser last.</summary>
-    private async Task<string> SignIn(HttpClient browser, Dictionary<string, object> claims, string returnUrl = "/")
+    private async Task<string> SignIn(HttpClient browser, Dictionary<string, object> claims, string returnUrl = "/", string? invite = null)
     {
-        var start = await browser.GetAsync($"/auth/oidc/fake/login?returnUrl={Uri.EscapeDataString(returnUrl)}", Token);
+        var start = await browser.GetAsync(
+            $"/auth/oidc/fake/login?returnUrl={Uri.EscapeDataString(returnUrl)}{(invite is null ? "" : $"&invite={Uri.EscapeDataString(invite)}")}", Token);
         Assert.Equal(HttpStatusCode.Redirect, start.StatusCode);
         var back = await browser.GetAsync(provider.Authorize(start.Headers.Location!, claims), Token);
         Assert.Equal(HttpStatusCode.Redirect, back.StatusCode);
@@ -111,6 +112,28 @@ public sealed class OidcTests(ServerFixture fixture) : IClassFixture<ServerFixtu
         Assert.Equal("/", await SignIn(kim, Kim("pl-admins")));
         Assert.Equal("admin", (await kim.GetFromJsonAsync<Me>("/auth/me", Token))!.Role);
         Assert.Empty((await admin.GetFromJsonAsync<PendingSignIn[]>("/api/admin/pending-signins", Token))!);
+    }
+
+    [Fact]
+    public async Task Without_auto_create_an_invite_link_lets_them_in_once()
+    {
+        using var server = Server();
+        var admin = Browser(server);
+        (await admin.PostAsJsonAsync("/auth/login", new { username = "admin", password = AdminPassword }, Token)).EnsureSuccessStatusCode();
+        var invite = (await (await admin.PostAsJsonAsync("/api/admin/invites", new { note = "Kim" }, Token))
+            .Content.ReadFromJsonAsync<NewInvite>(Token))!;
+        var token = invite.Url[(invite.Url.LastIndexOf('/') + 1)..];
+
+        var kim = Browser(server);
+        Assert.Equal("/", await SignIn(kim, Kim(), invite: token));
+        Assert.Equal("kim", (await kim.GetFromJsonAsync<Me>("/auth/me", Token))!.Username);
+        Assert.Equal(["kim"], (await admin.GetFromJsonAsync<AdminUser[]>("/api/admin/users", Token))!
+            .Where(user => user.Providers.Contains("fake")).Select(user => user.Username));
+        Assert.Empty((await admin.GetFromJsonAsync<PendingSignIn[]>("/api/admin/pending-signins", Token))!);
+
+        // The invite is spent: the next newcomer waits for an admin as usual.
+        var lee = new Dictionary<string, object>(Kim()) { ["sub"] = "lee-subject", ["preferred_username"] = "lee" };
+        Assert.Equal("/login?error=oidc_pending", await SignIn(Browser(server), lee, invite: token));
     }
 
     [Theory]
