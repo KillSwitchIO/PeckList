@@ -32,6 +32,7 @@ import { ColorPicker } from '../colors/ColorPicker.tsx';
 import { THEME_MODE_ORDER, useThemeMode, type ThemeMode } from '../theme/themeMode.ts';
 import { t } from '../i18n/i18n.ts';
 import { Page } from '../layout/Page.tsx';
+import { DataSection } from './DataSection.tsx';
 import { Section, SettingRow } from './settingsLayout.tsx';
 import { SignInSection } from './SignInSection.tsx';
 import { StatsSection } from './StatsSection.tsx';
@@ -305,6 +306,7 @@ export function SettingsPage() {
             ))}
           </Box>
         </Section>
+        <DataSection />
       </Stack>
     </Page>
   );

@@ -94,3 +94,54 @@ describe('settings: colors', () => {
     expect(days[0]).toHaveAccessibleName(/^Monday/);
   });
 });
+
+describe('settings: your data', () => {
+  it('downloads everything as JSON and imports a file, adding what is new', async () => {
+    const store = testStore();
+    await renderApp('/settings', store);
+    const data = await screen.findByRole('region', { name: 'Your data' });
+
+    const blobs: Blob[] = [];
+    vi.stubGlobal('URL', {
+      ...URL,
+      createObjectURL: (blob: Blob) => {
+        blobs.push(blob);
+        return 'blob:punchlist';
+      },
+      revokeObjectURL: () => undefined,
+    });
+    const click = vi
+      .spyOn(HTMLAnchorElement.prototype, 'click')
+      .mockImplementation(() => undefined);
+    await userEvent.click(within(data).getByRole('button', { name: 'Download a copy' }));
+    expect(click).toHaveBeenCalled();
+    const exported = JSON.parse(await blobs[0]!.text()) as {
+      owner: string;
+      entities: { tasks: { title: string }[] };
+    };
+    expect(exported.owner).toBe(store.getState().workspace!.owner);
+
+    // The same file with one more task: only that one is new.
+    const state = store.getState();
+    const withExtra = createTask(state.context(), state.workspace!, {
+      title: 'From the file',
+      listId: inboxList(state.workspace!)!.id,
+    }).workspace;
+    const file = new File([JSON.stringify(withExtra)], 'punchlist.json', {
+      type: 'application/json',
+    });
+    await userEvent.upload(within(data).getByLabelText('Import a file'), file);
+    expect(
+      await within(data).findByText('Imported: 1 new tasks, 0 new lists and 0 new tags.'),
+    ).toBeInTheDocument();
+    expect(store.getState().workspace!.entities.tasks.map((task) => task.title)).toContain(
+      'From the file',
+    );
+
+    await userEvent.upload(
+      within(data).getByLabelText('Import a file'),
+      new File(['not json'], 'notes.txt', { type: 'application/json' }),
+    );
+    expect(await within(data).findByText(/is not a Punchlist export/)).toBeInTheDocument();
+  });
+});

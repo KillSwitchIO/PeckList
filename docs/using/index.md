@@ -53,4 +53,4 @@ day views, onto a time. Drag a scheduled task to move it, pull its bottom edge t
 **Settings** (bottom of the sidebar, or ++g++ ++s++): appearance (light, dark or system theme, and
 colors), dates (12 or 24-hour clock, the first day of the week, when a due date counts as soon, how
 long a task with only a start time shows on the calendar), sign-in methods and linked accounts, your
-password, and **Your stats**.
+password, **Your stats**, and **Your data** ([download or import a copy](apps-and-sync.md#your-data-as-a-file)).

@@ -5,7 +5,13 @@
 import { createStore, type StoreApi } from 'zustand/vanilla';
 import { maxHlc } from '../../core/collections.ts';
 import { HlcClock } from '../../core/hlc.ts';
-import { openDocument, upgradeDocument, type OpenResult } from '../../core/io.ts';
+import {
+  importCounts,
+  importWorkspace,
+  openDocument,
+  upgradeDocument,
+  type OpenResult,
+} from '../../core/io.ts';
 import { backupName } from '../../core/migrations.ts';
 import { mergeWorkspaces } from '../../core/merge.ts';
 import type { OpContext } from '../../core/ops.ts';
@@ -25,6 +31,11 @@ export interface UndoEntry {
   before: WorkspaceFile;
   after: WorkspaceFile;
 }
+
+export type ImportOutcome =
+  | { kind: 'ok'; tasks: number; lists: number; tags: number }
+  | { kind: 'newer'; fileVersion: number }
+  | { kind: 'invalid'; errors: string[] };
 
 export type StoreStatus = 'loading' | 'ready' | 'needs-upgrade' | 'needs-app-update' | 'error';
 
@@ -66,6 +77,11 @@ export interface WorkspaceState {
   ): void;
   /** Replace the workspace outright (signing in as someone else on this device). */
   reset(workspace: WorkspaceFile): Promise<void>;
+  /**
+   * Bring in an exported file (parsed JSON): checked against the schema, upgraded when older, and
+   * merged into this device's data as one undoable change.
+   */
+  importDocument(document: unknown, label: string): ImportOutcome;
   context(): OpContext;
 }
 
@@ -424,6 +440,24 @@ export function createWorkspaceStore(deps: StoreDependencies): WorkspaceStore {
         await withLock(() => deps.storage.save(workspace));
         storedOwner = workspace.owner;
         deps.notify?.();
+      },
+
+      importDocument(document, label) {
+        let opened = openDocument(document, deps.validator);
+        if (opened.kind === 'needs-upgrade')
+          opened = upgradeDocument(opened.document, deps.validator);
+        if (opened.kind === 'needs-app-update')
+          return { kind: 'newer', fileVersion: opened.fileVersion };
+        if (opened.kind !== 'ok') {
+          return { kind: 'invalid', errors: opened.kind === 'invalid' ? opened.errors : [] };
+        }
+        const before = get().workspace;
+        if (!before) throw new Error('workspace is not ready');
+        const after = importWorkspace(before, opened.workspace);
+        // The file's clocks may be ahead of this device's: later edits here must still win.
+        advanceClock(after);
+        get().apply(() => after, label);
+        return { kind: 'ok', ...importCounts(before, after) };
       },
 
       context() {

@@ -1,8 +1,9 @@
 import { CURRENT_SCHEMA_VERSION } from './migrations.ts';
 import { describe, expect, it } from 'vitest';
 import { createAjvValidator } from '../adapters/ajv-validator.ts';
-import { sampleWorkspace } from '../test/fixtures.ts';
-import { openDocument, parseJson, upgradeDocument } from './io.ts';
+import { sampleTask, sampleWorkspace, T0, testContext } from '../test/fixtures.ts';
+import { importCounts, importWorkspace, openDocument, parseJson, upgradeDocument } from './io.ts';
+import { updateEntity } from './ops.ts';
 import { serializeWorkspace } from './workspace.ts';
 
 const validator = createAjvValidator();
@@ -62,5 +63,38 @@ describe('upgradeDocument', () => {
     for (const task of legacy.entities.tasks) delete task.progress;
     const result = upgradeDocument(legacy as unknown as Record<string, unknown>, validator);
     expect(result).toEqual({ kind: 'ok', workspace });
+  });
+});
+
+describe('importWorkspace', () => {
+  it('merges an older copy of the same data without losing newer edits here', () => {
+    const ctx = testContext();
+    const here = sampleWorkspace(ctx);
+    const exported = structuredClone(here);
+    const task = here.entities.tasks[0]!;
+    here.entities.tasks[0] = updateEntity(ctx, task, { title: 'Mow the lawn' });
+    const extra = sampleTask(ctx, here.entities.lists[0]!.id, 'Only in the file');
+    exported.entities.tasks.push(extra);
+
+    const merged = importWorkspace(here, exported);
+    expect(merged.entities.tasks.find((each) => each.id === task.id)?.title).toBe('Mow the lawn');
+    expect(merged.entities.tasks.map((each) => each.title)).toContain('Only in the file');
+    expect(importCounts(here, merged)).toEqual({ tasks: 1, lists: 0, tags: 0 });
+  });
+
+  it("takes in another person's file as this owner's, its Mess Drawer tasks moving into this one", () => {
+    const here = sampleWorkspace(testContext('dev1'));
+    const theirs = sampleWorkspace(testContext('dev2', T0, '01TESTMEMBER00000000000002'));
+    const merged = importWorkspace(here, theirs);
+    const inboxes = merged.entities.lists.filter((list) => list.isInbox && list.deletedAt === null);
+    expect(inboxes).toHaveLength(1);
+    expect(merged.owner).toBe(here.owner);
+    expect(merged.entities.tasks).toHaveLength(4);
+    expect(new Set(merged.entities.tasks.map((each) => each.listId))).toEqual(
+      new Set([here.entities.lists[0]!.id]),
+    );
+    expect(merged.entities.tasks.every((each) => each.createdBy === here.owner)).toBe(true);
+    expect(merged.entities.settings).toHaveLength(here.entities.settings.length);
+    expect(openDocument(JSON.parse(serializeWorkspace(merged)), validator).kind).toBe('ok');
   });
 });
