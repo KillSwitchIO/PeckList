@@ -1,3 +1,5 @@
+import { isPinned, setPinned } from '../../core/tasks.ts';
+import { PinIcon, PinOffIcon } from '../icons/icons.tsx';
 import AccountTreeOutlined from '@mui/icons-material/AccountTreeOutlined';
 import DeleteOutlineRounded from '@mui/icons-material/DeleteOutlineRounded';
 import DriveFileMoveOutlined from '@mui/icons-material/DriveFileMoveOutlined';
@@ -287,6 +289,21 @@ export function TaskMenu({
               <OpenInNewRounded fontSize="small" />
             </ListItemIcon>
             {t('task.openAction')}
+          </MenuItem>
+        )}
+        {task.status === 'open' && task.parentId === null && (
+          <MenuItem
+            onClick={run(() =>
+              apply(
+                (ctx, ws) => setPinned(ctx, ws, task.id, !isPinned(task)),
+                isPinned(task) ? t('undo.unpinned') : t('undo.pinned'),
+              ),
+            )}
+          >
+            <ListItemIcon>
+              {isPinned(task) ? <PinOffIcon fontSize="small" /> : <PinIcon fontSize="small" />}
+            </ListItemIcon>
+            {isPinned(task) ? t('task.unpin') : t('task.pin')}
           </MenuItem>
         )}
         {task.status === 'open' && (

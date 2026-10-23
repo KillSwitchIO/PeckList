@@ -546,6 +546,17 @@
           "minimum": 0,
           "maximum": 100,
           "multipleOf": 10
+        },
+        "pinnedAt": {
+          "description": "When it was pinned to the top of its views; null or absent: not pinned (schema 8)",
+          "oneOf": [
+            {
+              "$ref": "#/$defs/dateTime"
+            },
+            {
+              "type": "null"
+            }
+          ]
         }
       },
       "unevaluatedProperties": false

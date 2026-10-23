@@ -105,6 +105,8 @@ export interface Task extends BaseEntity {
   recurrence: string | null;
   /** Percent done, 0 to 100 in steps of 10. 0 means no progress is shown. */
   progress: number;
+  /** When it was pinned to the top of its views; null or absent: not pinned (schema 8). */
+  pinnedAt?: DateTime | null;
 }
 
 export interface Group extends BaseEntity {

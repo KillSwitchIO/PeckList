@@ -44,6 +44,8 @@ their start; the due date is the deadline.
   the middle of another task to nest it there; drop it on a list in the sidebar to move it. Or use
   **Move to list...** in its menu, or ++alt+arrow-up++ / ++alt+arrow-down++ /
   ++alt+arrow-right++ / ++alt+arrow-left++.
+- **Pin**: **Pin to the top** in a task's menu (or the pin in its details) keeps it in a **Pinned**
+  group at the top of every view it shows in. Completing it lets go of the pin.
 - **Undo**: every change shows an **Undo** button for a few seconds.
 - **Comment**: at the bottom of a task's details. Comments take a little Markdown (`**bold**`,
   `*italic*`, `` `code` ``, `[links](https://...)`) and **@name** for the people on the task (type

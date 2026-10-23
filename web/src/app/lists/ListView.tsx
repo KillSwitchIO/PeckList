@@ -36,7 +36,8 @@ import { TaskDragProvider } from '../tasks/drag/TaskDrag.tsx';
 import { TaskTree } from '../tasks/TaskTree.tsx';
 import { EmptyState } from '../views/EmptyState.tsx';
 import { GroupSection } from '../views/GroupSection.tsx';
-import { CompletedGroup, DateGroupedTasks } from '../views/groups.tsx';
+import { CompletedGroup, DateGroupedTasks, PinnedGroup } from '../views/groups.tsx';
+import { pinnedFirst } from '../../core/tasks.ts';
 import { useToday } from '../hooks/useToday.ts';
 import { useListView, type ListViewSettings } from './listGrouping.ts';
 import { ConfirmDialog, ListDialog } from './ListDialog.tsx';
@@ -232,7 +233,7 @@ export function ListContents({ list }: { list: List }) {
   const me = useStoreState((state) => state.context().userId);
   const role = myRole(workspace, me, list.id);
   const canEdit = role === 'owner' || role === 'editor';
-  const tasks = listTasks(workspace, list.id);
+  const { pinned, rest: tasks } = pinnedFirst(listTasks(workspace, list.id));
   const view = useListView(list.id);
   const { grouping, sort } = view;
   const filter = { lists: [list.id] };
@@ -301,7 +302,10 @@ export function ListContents({ list }: { list: List }) {
       <Page title={listName(list, workspace)} actions={actions}>
         {archivedBar}
         {header}
-        {open.length === 0 && completed.length === 0 && <EmptyState title={t('list.empty')} />}
+        {open.length === 0 && pinned.length === 0 && completed.length === 0 && (
+          <EmptyState title={t('list.empty')} />
+        )}
+        <PinnedGroup tasks={pinned} />
         {grouped.map((group) => (
           <GroupSection key={group.key} title={group.title} count={group.tasks.length}>
             <TaskTree tasks={group.tasks} />
@@ -317,7 +321,10 @@ export function ListContents({ list }: { list: List }) {
   const shown = sort === 'manual' ? tasks : sortTasks(tasks, sort);
   const content = (
     <>
-      {tasks.length === 0 && completed.length === 0 && <EmptyState title={t('list.empty')} />}
+      {tasks.length === 0 && pinned.length === 0 && completed.length === 0 && (
+        <EmptyState title={t('list.empty')} />
+      )}
+      <PinnedGroup tasks={pinned} />
       {shown.length > 0 && (
         <TaskTree tasks={shown} {...(draggable ? { dragZone: { listId: list.id } } : {})} />
       )}

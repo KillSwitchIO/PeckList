@@ -184,6 +184,28 @@ describe('task details', () => {
     ).toBeInTheDocument();
   });
 
+  it('pins a task to the top of its list and of All, and completing it unpins it', async () => {
+    await renderApp('/inbox');
+    await addTasks('First', 'Second', 'Third');
+    fireEvent.contextMenu(screen.getByRole('button', { name: 'Open Third' }));
+    await userEvent.click(await screen.findByRole('menuitem', { name: 'Pin to the top' }));
+    const pinned = await screen.findByRole('heading', { level: 2, name: /^Pinned/ });
+    const group = pinned.closest('section')!;
+    expect(within(group).getByRole('button', { name: 'Open Third' })).toBeInTheDocument();
+
+    const nav = screen.getAllByRole('navigation')[0]!;
+    await userEvent.click(within(nav).getByRole('button', { name: /^All/ }));
+    const inAll = (await screen.findByRole('heading', { level: 2, name: /^Pinned/ })).closest(
+      'section',
+    )!;
+    expect(within(inAll).getByRole('button', { name: 'Open Third' })).toBeInTheDocument();
+
+    await userEvent.click(within(inAll).getByRole('checkbox', { name: 'Complete Third' }));
+    await waitFor(() =>
+      expect(screen.queryByRole('heading', { level: 2, name: /^Pinned/ })).toBeNull(),
+    );
+  });
+
   it('opens the notes in the full editor, with the formatting toolbar, and keeps what was typed', async () => {
     await renderApp('/inbox');
     await addTasks('Shopping');

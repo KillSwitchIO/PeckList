@@ -20,10 +20,10 @@ import { useState } from 'react';
 import { getEntity, isLive } from '../../core/collections.ts';
 import { localDateTimeOf, localTimeZone } from '../../core/dates.ts';
 import { dateState } from '../../core/queries.ts';
-import { deleteTask, setCompletedAt, updateTask } from '../../core/tasks.ts';
+import { deleteTask, isPinned, setCompletedAt, setPinned, updateTask } from '../../core/tasks.ts';
 import { DateProperty } from '../dates/DateProperty.tsx';
 import { NotesEditor } from '../editor/NotesEditor.tsx';
-import { CollapseIcon, DueIcon, ExpandIcon } from '../icons/icons.tsx';
+import { CollapseIcon, DueIcon, ExpandIcon, PinIcon } from '../icons/icons.tsx';
 import { useLongPress } from '../hooks/useLongPress.ts';
 import { CompleteCheckbox } from './CompleteCheckbox.tsx';
 import { completionInstant } from './completion.ts';
@@ -198,6 +198,18 @@ export function TaskDetail({
             }
           />
           <Box sx={{ flexGrow: 1 }} />
+          {!readOnly && task.parentId === null && task.status === 'open' && (
+            <Tooltip title={isPinned(task) ? t('task.unpin') : t('task.pin')}>
+              <IconButton
+                aria-label={isPinned(task) ? t('task.unpin') : t('task.pin')}
+                aria-pressed={isPinned(task)}
+                onClick={() => apply((ctx, ws) => setPinned(ctx, ws, task.id, !isPinned(task)))}
+                sx={{ color: isPinned(task) ? 'primary.main' : undefined }}
+              >
+                <PinIcon fontSize="small" filled={isPinned(task)} />
+              </IconButton>
+            </Tooltip>
+          )}
           {!readOnly && attach.allowed && (
             <Tooltip title={t('files.attach')}>
               <IconButton aria-label={t('files.attach')} onClick={attach.pick}>

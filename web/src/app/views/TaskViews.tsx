@@ -1,3 +1,4 @@
+import { pinnedFirst } from '../../core/tasks.ts';
 import { groupClosed } from './closedGroups.ts';
 import DeleteOutlineRounded from '@mui/icons-material/DeleteOutlineRounded';
 import DeleteForeverOutlined from '@mui/icons-material/DeleteForeverOutlined';
@@ -40,12 +41,14 @@ import { TaskTree } from '../tasks/TaskTree.tsx';
 import { EmptyState } from './EmptyState.tsx';
 import { GroupSection } from './GroupSection.tsx';
 import { dayTitle, hasOwnDate, weekdayName } from './dayLabels.ts';
-import { CompletedGroup, DateGroupedTasks, PostponeButton } from './groups.tsx';
+import { CompletedGroup, DateGroupedTasks, PinnedGroup, PostponeButton } from './groups.tsx';
 
 /** Overdue (with Postpone) and today's groups, shared by Today and Next 7 days. */
+/** Overdue and today, without the pinned tasks (they head the view, in Pinned). */
 function OverdueAndToday({ today }: { today: string }) {
   const workspace = useWorkspace();
-  const groups = todayGroups(workspace, today);
+  const all = todayGroups(workspace, today);
+  const groups = { overdue: pinnedFirst(all.overdue).rest, today: pinnedFirst(all.today).rest };
   return (
     <>
       {groups.overdue.length > 0 && (
@@ -92,6 +95,7 @@ export function TodayView() {
     <Page title={t('nav.today')}>
       <AddForToday today={today} />
       {empty && <EmptyState title={t('empty.today')} hint={t('empty.today.hint')} />}
+      <PinnedGroup tasks={pinnedFirst([...groups.overdue, ...groups.today]).pinned} showList />
       <OverdueAndToday today={today} />
       <CompletedGroup tasks={done} showList />
     </Page>
@@ -109,16 +113,27 @@ export function UpcomingView() {
     <Page title={t('nav.upcoming')}>
       <AddForToday today={today} />
       {empty && <EmptyState title={t('upcoming.empty')} />}
+      <PinnedGroup
+        tasks={
+          pinnedFirst([
+            ...current.overdue,
+            ...current.today,
+            ...groups.flatMap((group) => group.tasks),
+          ]).pinned
+        }
+        showList
+      />
       <OverdueAndToday today={today} />
-      {groups.map((group) => (
-        <GroupSection
-          key={group.date}
-          title={dayTitle(group.date, today)}
-          count={group.tasks.length}
-        >
-          <TaskTree tasks={group.tasks} showList ownPlace={hasOwnDate} />
-        </GroupSection>
-      ))}
+      {groups.map((group) => {
+        const tasks = pinnedFirst(group.tasks).rest;
+        return (
+          tasks.length > 0 && (
+            <GroupSection key={group.date} title={dayTitle(group.date, today)} count={tasks.length}>
+              <TaskTree tasks={tasks} showList ownPlace={hasOwnDate} />
+            </GroupSection>
+          )
+        );
+      })}
     </Page>
   );
 }

@@ -267,6 +267,8 @@ export function setTaskStatus(
       status: next,
       completedAt: next === 'open' ? null : (target.completedAt ?? isoNow(ctx)),
       completedBy: next === 'open' ? null : (target.completedBy ?? ctx.userId),
+      // Done is done: a pinned task lets go of the top (reopening does not pin it again).
+      ...(next !== 'open' && target.pinnedAt ? { pinnedAt: null } : {}),
     });
   const changed = [stamp(task, status)];
   if (closing) {
@@ -443,4 +445,36 @@ export function lastChangedAt(entity: { createdAt: string; _hlc: Record<string, 
     if (at > latest) latest = at;
   }
   return latest;
+}
+
+/** Whether a task shows in its views' Pinned group: an open top-level task someone pinned. */
+export function isPinned(task: Task): boolean {
+  return Boolean(task.pinnedAt) && task.status === 'open' && task.parentId === null;
+}
+
+/** Pin a top-level task to the top of its views, or let it go (spec: PL-089). */
+export function setPinned(
+  ctx: OpContext,
+  workspace: WorkspaceFile,
+  id: Id,
+  pinned: boolean,
+): WorkspaceFile {
+  const task = requireEntity(workspace, 'tasks', id);
+  if (pinned === isPinned(task) || (pinned && task.parentId !== null)) return workspace;
+  return putEntity(
+    workspace,
+    'tasks',
+    updateEntity(ctx, task, { pinnedAt: pinned ? isoNow(ctx) : null }),
+  );
+}
+
+/** A view's tasks split: the pinned ones (oldest pin first) and the rest, in their order. */
+export function pinnedFirst(tasks: readonly Task[]): { pinned: Task[]; rest: Task[] } {
+  const pinned = tasks
+    .filter(isPinned)
+    .sort((a, b) => (a.pinnedAt ?? '').localeCompare(b.pinnedAt ?? ''));
+  return {
+    pinned,
+    rest: pinned.length === 0 ? [...tasks] : tasks.filter((task) => !isPinned(task)),
+  };
 }
