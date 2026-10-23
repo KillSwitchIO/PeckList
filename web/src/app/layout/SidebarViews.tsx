@@ -41,6 +41,7 @@ import {
 } from '../icons/icons.tsx';
 import { FilterDialog } from '../filters/FilterDialog.tsx';
 import { listName } from '../lists/listName.ts';
+import { ListMark } from '../lists/ListMark.tsx';
 import { useApply, useWorkspace } from '../store/hooks.ts';
 import { tagIconColor } from '../tags/tagColors.ts';
 import { VIEW_ITEMS } from './navigation.tsx';
@@ -128,11 +129,7 @@ export function SidebarViews({
         path: `/lists/${list.id}`,
         name: listName(list),
         label: listName(list),
-        icon: (
-          <Box
-            sx={{ width: 10, height: 10, mx: '7px', borderRadius: '50%', bgcolor: list.color }}
-          />
-        ),
+        icon: <ListMark list={list} sx={{ mx: list.icon ? '3px' : '7px' }} />,
         pinned: true,
       };
     } else if (kind === 'tag') {

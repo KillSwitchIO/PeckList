@@ -311,6 +311,38 @@ describe('lists and sections', () => {
     expect(within(nav).getByRole('button', { name: /Home\s*1/ })).toBeInTheDocument();
   });
 
+  it('gives a list an icon, shown where its color dot was', async () => {
+    await renderApp('/today');
+    await userEvent.click(screen.getByRole('button', { name: 'New list' }));
+    const dialog = await screen.findByRole('dialog');
+    await userEvent.type(within(dialog).getByLabelText('Name'), 'Groceries');
+    await userEvent.click(within(dialog).getByRole('radio', { name: '🛒' }));
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Create' }));
+    const nav = screen.getAllByRole('navigation')[0]!;
+    // The icon is decoration: the button is still named by the list.
+    expect(await within(nav).findByRole('button', { name: /^Groceries/ })).toHaveTextContent('🛒');
+
+    // Any emoji can be typed instead; only its first character is kept.
+    await userEvent.click(screen.getByRole('button', { name: 'More actions' }));
+    await userEvent.click(await screen.findByRole('menuitem', { name: 'Edit list' }));
+    const edit = await screen.findByRole('dialog');
+    await userEvent.type(within(edit).getByLabelText('Or type any emoji'), '🥕🥦');
+    expect(within(edit).getByLabelText('Or type any emoji')).toHaveValue('🥕');
+    await userEvent.click(within(edit).getByRole('button', { name: 'Save' }));
+    await waitFor(() =>
+      expect(within(nav).getByRole('button', { name: /^Groceries/ })).toHaveTextContent('🥕'),
+    );
+
+    await userEvent.click(screen.getByRole('button', { name: 'More actions' }));
+    await userEvent.click(await screen.findByRole('menuitem', { name: 'Edit list' }));
+    const again = await screen.findByRole('dialog');
+    await userEvent.click(within(again).getByRole('radio', { name: 'No icon' }));
+    await userEvent.click(within(again).getByRole('button', { name: 'Save' }));
+    await waitFor(() =>
+      expect(within(nav).getByRole('button', { name: /^Groceries/ })).not.toHaveTextContent('🥕'),
+    );
+  });
+
   it('adds, renames and deletes a section', async () => {
     await renderApp('/inbox');
     await userEvent.click(screen.getByRole('button', { name: 'More actions' }));

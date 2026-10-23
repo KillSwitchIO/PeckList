@@ -14,6 +14,7 @@ import { useState } from 'react';
 import { buildPalette } from '../../core/palette.ts';
 import type { List } from '../../core/types.ts';
 import { ColorPicker } from '../colors/ColorPicker.tsx';
+import { IconPicker } from './IconPicker.tsx';
 import { t } from '../i18n/i18n.ts';
 
 const LIGHT = buildPalette('light');
@@ -21,6 +22,7 @@ const LIGHT = buildPalette('light');
 export interface ListFormValue {
   name: string;
   color: string;
+  icon: string | null;
 }
 
 export function ListDialog({
@@ -36,6 +38,7 @@ export function ListDialog({
 }) {
   const [name, setName] = useState(list?.name ?? '');
   const [color, setColor] = useState(list?.color ?? LIGHT.pastels.sky.fill);
+  const [icon, setIcon] = useState<string | null>(list?.icon ?? null);
   const valid = name.trim().length > 0;
 
   return (
@@ -44,7 +47,7 @@ export function ListDialog({
         onKeyDown={submitOnShiftEnter}
         onSubmit={(event) => {
           event.preventDefault();
-          if (valid) onSubmit({ name: name.trim(), color });
+          if (valid) onSubmit({ name: name.trim(), color, icon });
         }}
       >
         <DialogTitle>{list ? t('list.edit') : t('list.new')}</DialogTitle>
@@ -63,6 +66,12 @@ export function ListDialog({
                 {t('list.color')}
               </Typography>
               <ColorPicker value={color} onChange={setColor} />
+            </Box>
+            <Box>
+              <Typography variant="caption" color="text.secondary" component="div" sx={{ mb: 1 }}>
+                {t('list.icon')}
+              </Typography>
+              <IconPicker value={icon} onChange={setIcon} />
             </Box>
           </Stack>
         </DialogContent>

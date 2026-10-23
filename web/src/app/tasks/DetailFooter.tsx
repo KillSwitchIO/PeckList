@@ -21,6 +21,7 @@ import type { List, Priority, Task } from '../../core/types.ts';
 import { t } from '../i18n/i18n.ts';
 import { CheckIcon, ChevronUpIcon, FlagIcon, TrayIcon } from '../icons/icons.tsx';
 import { listName } from '../lists/listName.ts';
+import { ListMark as ListIconOrDot } from '../lists/ListMark.tsx';
 import { useApply, useWorkspace } from '../store/hooks.ts';
 import { useReadOnly } from './readOnly.ts';
 import { TaskTagPills } from '../tags/TaskTags.tsx';
@@ -86,21 +87,12 @@ function Check({ on }: { on: boolean }) {
   return on ? <CheckIcon fontSize="small" sx={{ ml: 2, color: 'primary.main' }} /> : null;
 }
 
-/** A list's color dot; the Mess Drawer has no color and shows its tray instead. */
+/** A list's icon or color dot; the Mess Drawer has no color and shows its tray instead. */
 function ListMark({ list }: { list: List }) {
   return list.isInbox ? (
     <TrayIcon sx={{ fontSize: 16, flexShrink: 0 }} />
   ) : (
-    <Box
-      sx={{
-        width: 10,
-        height: 10,
-        mx: '3px',
-        borderRadius: '50%',
-        flexShrink: 0,
-        bgcolor: list.color,
-      }}
-    />
+    <ListIconOrDot list={list} sx={{ mx: list.icon ? 0 : '3px' }} />
   );
 }
 

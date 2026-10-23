@@ -40,6 +40,7 @@ import type { Task } from '../../core/types.ts';
 import { useToday } from '../hooks/useToday.ts';
 import { t } from '../i18n/i18n.ts';
 import { listName } from '../lists/listName.ts';
+import { ListMark } from '../lists/ListMark.tsx';
 import { useApply, useStoreState, useWorkspace } from '../store/hooks.ts';
 import { useReadOnly } from './readOnly.ts';
 import { localTimeZone } from '../../core/dates.ts';
@@ -209,18 +210,7 @@ function MoveToListDialog({ task, onClose }: { task: Task; onClose: () => void }
                 onClick={() => choose(list.id, listName(list))}
                 sx={{ borderRadius: 2 }}
               >
-                <Box
-                  component="span"
-                  aria-hidden
-                  sx={{
-                    width: 10,
-                    height: 10,
-                    borderRadius: '50%',
-                    bgcolor: list.color,
-                    mr: 1.5,
-                    flexShrink: 0,
-                  }}
-                />
+                <ListMark list={list} sx={{ mr: 1.5 }} />
                 <ListItemText primary={listName(list)} slotProps={{ primary: { noWrap: true } }} />
               </ListItemButton>
             ))}

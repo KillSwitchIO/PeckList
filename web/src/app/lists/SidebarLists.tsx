@@ -26,6 +26,7 @@ import { useSortableRows } from '../layout/useSortableRows.ts';
 import { useApply, useWorkspace } from '../store/hooks.ts';
 import { ListDialog } from './ListDialog.tsx';
 import { listName } from './listName.ts';
+import { ListMark } from './ListMark.tsx';
 
 /** Lists in the sidebar with a create button. The Mess Drawer lives under smart views. */
 export function SidebarLists({ onNavigate }: { onNavigate: (path: string) => void }) {
@@ -112,7 +113,7 @@ export function SidebarLists({ onNavigate }: { onNavigate: (path: string) => voi
                   />
                 )}
                 <ListItemIcon sx={{ minWidth: 28 }}>
-                  <Box sx={{ width: 10, height: 10, borderRadius: '50%', bgcolor: list.color }} />
+                  <ListMark list={list} />
                 </ListItemIcon>
                 <ListItemText primary={listName(list)} slotProps={{ primary: { noWrap: true } }} />
                 {editing ? (
@@ -162,15 +163,7 @@ export function SidebarLists({ onNavigate }: { onNavigate: (path: string) => voi
                     sx={{ pl: 4, color: 'text.secondary' }}
                   >
                     <ListItemIcon sx={{ minWidth: 28 }}>
-                      <Box
-                        sx={{
-                          width: 10,
-                          height: 10,
-                          borderRadius: '50%',
-                          bgcolor: list.color,
-                          opacity: 0.6,
-                        }}
-                      />
+                      <ListMark list={list} faded />
                     </ListItemIcon>
                     <ListItemText
                       primary={listName(list)}
