@@ -130,6 +130,8 @@ export interface Friendship extends BaseEntity {
   userA: Id;
   userB: Id;
   state: 'pending' | 'accepted';
+  /** The admin who made it, by their username then (schema 6); absent when the two made it. */
+  madeBy?: { id: Id; name: string } | null;
 }
 
 export interface SavedFilter extends BaseEntity {

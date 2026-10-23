@@ -236,7 +236,15 @@ function Person({ friend, children }: { friend: Friend; children: React.ReactNod
       <Box sx={{ mr: 1.5 }}>
         <Avatar name={name} color={friend.user?.avatarColor ?? '#B8BCC4'} />
       </Box>
-      <ListItemText primary={name} secondary={friend.user?.handle} />
+      <ListItemText
+        primary={name}
+        secondary={[
+          friend.user?.handle,
+          friend.friendship.madeBy && t('friends.madeBy', { name: friend.friendship.madeBy.name }),
+        ]
+          .filter(Boolean)
+          .join(' · ')}
+      />
     </ListItem>
   );
 }

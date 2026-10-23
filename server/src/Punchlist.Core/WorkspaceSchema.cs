@@ -4,7 +4,13 @@ namespace Punchlist.Core;
 public static class WorkspaceSchema
 {
     /// <summary>Must match <c>CURRENT_SCHEMA_VERSION</c> in web/src/core/migrations.ts.</summary>
-    public const int CurrentVersion = 5;
+    public const int CurrentVersion = 6;
+
+    /// <summary>
+    /// Older versions whose data this build reads as it is: their migrations only allowed new optional
+    /// fields (5 to 6: friendships' <c>madeBy</c>). Backups from them restore without a migration.
+    /// </summary>
+    public static bool Readable(int? version) => version is 5 or CurrentVersion;
 
     /// <summary>The entity collections, as in <c>COLLECTIONS</c> (web/src/core/types.ts).</summary>
     public static readonly IReadOnlyList<string> Collections =

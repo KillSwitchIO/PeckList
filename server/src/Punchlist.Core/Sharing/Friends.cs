@@ -83,19 +83,20 @@ public sealed class Friends(AccountService accounts, IAccountStore store, SyncSe
         var owner = await accounts.FindByFriendCodeAsync(code, cancellation);
         var viewer = await store.FindByIdAsync(viewerId, cancellation);
         if (owner is null || owner.Disabled || viewer is null || owner.Id == viewerId) return null;
-        return await BefriendAsync(owner, viewer, cancellation);
+        return await BefriendAsync(owner, viewer, null, cancellation);
     }
 
     /// <summary>
     /// An admin makes two people friends (spec: Account management), as if one had accepted the
     /// other's link. Null when either is missing or they are the same person.
     /// </summary>
-    public async Task<string?> MakeFriendsAsync(string a, string b, CancellationToken cancellation = default)
+    /// <param name="admin">Who made it: both people see their name on the friendship.</param>
+    public async Task<string?> MakeFriendsAsync(string a, string b, Account? admin = null, CancellationToken cancellation = default)
     {
         var first = await store.FindByIdAsync(a, cancellation);
         var second = await store.FindByIdAsync(b, cancellation);
         if (first is null || second is null || a == b) return null;
-        return await BefriendAsync(first, second, cancellation);
+        return await BefriendAsync(first, second, admin, cancellation);
     }
 
     /// <summary>An admin ends a friendship. False when there was none.</summary>
@@ -113,9 +114,13 @@ public sealed class Friends(AccountService accounts, IAccountStore store, SyncSe
         return true;
     }
 
-    /// <summary>The friendship between the two, accepted: an earlier request or ended one comes back.</summary>
-    private async Task<string> BefriendAsync(Account owner, Account viewer, CancellationToken cancellation)
+    /// <summary>
+    /// The friendship between the two, accepted: an earlier request or ended one comes back. It says
+    /// which admin made it (<c>madeBy</c>), or, made by the two themselves, nothing.
+    /// </summary>
+    private async Task<string> BefriendAsync(Account owner, Account viewer, Account? admin, CancellationToken cancellation)
     {
+        JsonNode? madeBy = admin is null ? null : new JsonObject { ["id"] = admin.Id, ["name"] = admin.Username };
         var viewerId = viewer.Id;
         await EnsureProfileAsync(owner, cancellation);
         await EnsureProfileAsync(viewer, cancellation);
@@ -130,19 +135,22 @@ public sealed class Friends(AccountService accounts, IAccountStore store, SyncSe
                 ["id"] = found.Id,
                 ["state"] = "accepted",
                 ["deletedAt"] = null,
-                ["_hlc"] = new JsonObject { ["state"] = stamp, ["deletedAt"] = stamp },
+                ["madeBy"] = madeBy,
+                ["_hlc"] = new JsonObject { ["state"] = stamp, ["deletedAt"] = stamp, ["madeBy"] = stamp },
             };
             // Merge keeps the rest; the stamped fields win.
             doc = Merge.Entity((JsonObject)found.Doc.DeepClone(), doc, []);
         }
         else
         {
-            doc = Entity(Ids.NewUlid(), viewerId, stamp, new JsonObject
+            var fields = new JsonObject
             {
                 ["userA"] = owner.Id,
                 ["userB"] = viewerId,
                 ["state"] = "accepted",
-            });
+            };
+            if (madeBy is not null) fields["madeBy"] = madeBy;
+            doc = Entity(Ids.NewUlid(), viewerId, stamp, fields);
         }
         await sync.WriteAsServerAsync(owner.Id, [new IncomingEntity("friendships", doc)], cancellation);
         return (string)doc["id"]!;

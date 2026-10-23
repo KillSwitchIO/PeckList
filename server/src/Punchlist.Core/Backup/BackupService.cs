@@ -301,7 +301,7 @@ public sealed class BackupService(
         if ((string?)root["format"] != Format) throw new BackupException("not a Punchlist server backup (no \"format\": \"" + Format + "\")");
         if ((int?)root["formatVersion"] != FormatVersion) throw new BackupException($"backup format {(int?)root["formatVersion"]} is not supported (this server reads {FormatVersion})");
         var schema = (int?)root["schemaVersion"];
-        if (schema != WorkspaceSchema.CurrentVersion)
+        if (!WorkspaceSchema.Readable(schema))
         {
             throw new BackupException($"the backup holds schema {schema}; this server speaks {WorkspaceSchema.CurrentVersion}. Use the matching Punchlist version.");
         }

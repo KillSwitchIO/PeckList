@@ -738,6 +738,7 @@ export const en = {
   'friends.list': 'Your friends',
   'friends.none': 'No friends yet. Share your link or add someone by username.',
   'friends.unfriend': 'Unfriend',
+  'friends.madeBy': 'Made by {name}',
   'friends.unfriendConfirm': 'Stop being friends with {name}?',
   'friends.needsServer':
     'Friends need a Punchlist server. On this device, Punchlist runs on its own.',

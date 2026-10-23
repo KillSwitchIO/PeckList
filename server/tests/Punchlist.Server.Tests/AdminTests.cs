@@ -193,7 +193,7 @@ public sealed partial class AdminTests(ServerFixture fixture) : IClassFixture<Se
     {
         var root = await LogIn("admin", AdminPassword);
         var (sam, samId) = await SignIn("sam");
-        var (_, kimId) = await SignIn("kim");
+        var (kim, kimId) = await SignIn("kim");
         var made = await root.PostAsJsonAsync("/api/admin/friendships", new { userA = samId, userB = kimId }, Token);
         Assert.Equal(HttpStatusCode.OK, made.StatusCode);
         var friends = await root.GetFromJsonAsync<AdminFriend[]>($"/api/admin/users/{samId}/friends", Token);
@@ -201,11 +201,35 @@ public sealed partial class AdminTests(ServerFixture fixture) : IClassFixture<Se
         // Sam's devices get it on the next sync.
         var pulled = await sam.PostAsJsonAsync("/api/sync", new { schemaVersion = Core.WorkspaceSchema.CurrentVersion, cursor = (long?)null }, Token);
         Assert.Contains(kimId, await pulled.Content.ReadAsStringAsync(Token));
+        // Both see which admin made it.
+        var adminId = (await root.GetFromJsonAsync<Me>("/auth/me", Token))!.Id;
+        var friendship = await FriendshipOf(sam);
+        Assert.Equal(adminId, (string?)friendship["madeBy"]?["id"]);
+        Assert.Equal("admin", (string?)friendship["madeBy"]?["name"]);
+        Assert.Equal("admin", (string?)(await FriendshipOf(kim))["madeBy"]?["name"]);
 
         Assert.Equal(HttpStatusCode.NoContent, (await root.DeleteAsync($"/api/admin/friendships/{kimId}/{samId}", Token)).StatusCode);
         Assert.Empty((await root.GetFromJsonAsync<AdminFriend[]>($"/api/admin/users/{samId}/friends", Token))!);
         Assert.Equal(HttpStatusCode.NotFound, (await root.DeleteAsync($"/api/admin/friendships/{kimId}/{samId}", Token)).StatusCode);
         Assert.Equal(HttpStatusCode.NotFound, (await root.PostAsJsonAsync("/api/admin/friendships", new { userA = samId, userB = samId }, Token)).StatusCode);
+
+        // Made again by the two themselves: no admin's name on it any more.
+        var code = (await kim.GetFromJsonAsync<System.Text.Json.Nodes.JsonObject>("/api/friends/code", Token))!["code"]!.ToString();
+        (await sam.PostAsync($"/api/friends/link/{code}", null, Token)).EnsureSuccessStatusCode();
+        var again = await FriendshipOf(sam);
+        Assert.Null(again["deletedAt"]);
+        Assert.Null(again["madeBy"]);
+    }
+
+    /// <summary>The one friendship the account's devices hold, from a full pull.</summary>
+    private static async Task<System.Text.Json.Nodes.JsonObject> FriendshipOf(HttpClient client)
+    {
+        var pulled = await client.PostAsJsonAsync("/api/sync", new { schemaVersion = Core.WorkspaceSchema.CurrentVersion, cursor = (long?)null }, Token);
+        var page = (await pulled.Content.ReadFromJsonAsync<System.Text.Json.Nodes.JsonObject>(Token))!;
+        return page["changes"]!.AsArray()
+            .Where(change => (string?)change!["collection"] == "friendships")
+            .Select(change => change!["entity"]!.AsObject())
+            .Single();
     }
 
     private static async Task<HttpResponseMessage> Viewing(HttpClient client, string token, HttpMethod method, string path, object? body = null)

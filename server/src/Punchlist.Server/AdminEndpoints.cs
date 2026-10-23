@@ -297,12 +297,14 @@ public static class AdminEndpoints
 
         // Pending task invites between the two settle as they would after a friend link.
         admin.MapPost("/friendships", async (
-            FriendshipRequest request, Friends friends, Invites invites, IAccountStore accounts, HttpContext context, CancellationToken cancellation) =>
+            FriendshipRequest request, ClaimsPrincipal user, Friends friends, Invites invites, IAccountStore accounts, HttpContext context,
+            CancellationToken cancellation) =>
         {
             var first = await accounts.FindByIdAsync(request.UserA ?? "", cancellation);
             context.Audit().On(request.UserA, first?.Username).Detail =
                 $"with {(await accounts.FindByIdAsync(request.UserB ?? "", cancellation))?.Username ?? request.UserB}";
-            if (await friends.MakeFriendsAsync(request.UserA ?? "", request.UserB ?? "", cancellation) is not { } id) return Results.NotFound();
+            var madeBy = await accounts.FindByIdAsync(user.UserId(), cancellation);
+            if (await friends.MakeFriendsAsync(request.UserA ?? "", request.UserB ?? "", madeBy, cancellation) is not { } id) return Results.NotFound();
             await invites.SettleAsync(cancellation);
             return Results.Ok(new { Id = id });
         }).RequirePermission(Permission.ManageUsers).Audited("admin.friends-made", targetRoute: null);

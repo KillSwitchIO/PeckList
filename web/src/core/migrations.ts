@@ -3,7 +3,7 @@
 
 import { keyBetween } from './ordering.ts';
 
-export const CURRENT_SCHEMA_VERSION = 5;
+export const CURRENT_SCHEMA_VERSION = 6;
 
 export type Migration = (document: Record<string, unknown>) => Record<string, unknown>;
 
@@ -81,6 +81,9 @@ export const MIGRATIONS: MigrationRegistry = {
   // default: 12-hour clock, Sunday), so documents change only in version; older apps must not
   // open version 5 files, which may carry them.
   5: (document) => document,
+  // 6: friendships may hold madeBy (the admin who made it, with their name). Optional, so
+  // documents change only in version.
+  6: (document) => document,
 };
 
 export type VersionCheck =

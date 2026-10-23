@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { createMemoryStorage } from '../../adapters/memory-storage.ts';
 import { FakeBackend } from '../../test/fakeTransport.ts';
 import { mockViewport, renderApp, testStore } from '../../test/renderApp.tsx';
+import { CURRENT_SCHEMA_VERSION } from '../../core/migrations.ts';
 import { createSyncEngine } from '../sync/syncEngine.ts';
 
 beforeEach(() => {
@@ -54,6 +55,53 @@ describe('friends page', () => {
     // The request shows as waiting.
     const requests = await screen.findByRole('region', { name: 'Requests' });
     expect(within(requests).getByText('Waiting for them')).toBeInTheDocument();
+  });
+
+  it('says which admin made a friendship', async () => {
+    const backend = new FakeBackend();
+    const ben = backend.addAccount('ben', 'correct horse battery');
+    const stamp = '2026-10-23T08:00:00.000Z-0000-server';
+    const entity = (id: string, fields: Record<string, unknown>) => ({
+      id,
+      createdAt: '2026-10-23T08:00:00.000Z',
+      createdBy: ben.id,
+      deletedAt: null,
+      origin: 'local',
+      ...fields,
+      _hlc: Object.fromEntries(
+        ['createdAt', 'createdBy', 'deletedAt', 'origin', ...Object.keys(fields)].map((key) => [
+          key,
+          stamp,
+        ]),
+      ),
+    });
+    backend.server.sync(ben.id, {
+      schemaVersion: CURRENT_SCHEMA_VERSION,
+      cursor: null,
+      changes: [
+        {
+          collection: 'users',
+          entity: entity('01JBSAM0000000000000000001', {
+            handle: 'sam@punchlist.test',
+            displayName: 'Sam',
+            avatarColor: '#A7C7E7',
+            homeServer: 'punchlist.test',
+          }),
+        },
+        {
+          collection: 'friendships',
+          entity: entity('01JBFRIEND0000000000000001', {
+            userA: ben.id,
+            userB: '01JBSAM0000000000000000001',
+            state: 'accepted',
+            madeBy: { id: '01JBADMIN00000000000000001', name: 'kim' },
+          }),
+        },
+      ],
+    });
+    await signedIn('/friends', backend);
+    const list = await screen.findByRole('region', { name: 'Your friends' });
+    expect(await within(list).findByText('sam@punchlist.test · Made by kim')).toBeInTheDocument();
   });
 
   it('says friends need a server when there is none', async () => {

@@ -92,7 +92,7 @@ public sealed class UserBackups(
             throw new BackupException($"not a JSON file: {error.Message}");
         }
         var schema = (int?)root["schemaVersion"];
-        if (schema != WorkspaceSchema.CurrentVersion)
+        if (!WorkspaceSchema.Readable(schema))
         {
             throw new BackupException($"the backup holds schema {schema}; this server speaks {WorkspaceSchema.CurrentVersion}");
         }
