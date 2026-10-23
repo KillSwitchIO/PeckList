@@ -1,0 +1,166 @@
+{
+  "schemaVersion": 6,
+  "app": {
+    "name": "punchlist",
+    "version": "0.1.0"
+  },
+  "owner": "01TESTMEMBER00000000000001",
+  "node": "dev1",
+  "entities": {
+    "users": [
+      {
+        "id": "01TESTMEMBER00000000000001",
+        "createdAt": "2026-10-20T16:15:00.001Z",
+        "createdBy": "01TESTMEMBER00000000000001",
+        "deletedAt": null,
+        "origin": "local",
+        "handle": "me@local",
+        "displayName": "Me",
+        "avatarColor": "#A7C7E7",
+        "homeServer": "local",
+        "_hlc": {
+          "createdAt": "2026-10-20T16:15:00.001Z-0000-dev1",
+          "createdBy": "2026-10-20T16:15:00.001Z-0000-dev1",
+          "deletedAt": "2026-10-20T16:15:00.001Z-0000-dev1",
+          "origin": "2026-10-20T16:15:00.001Z-0000-dev1",
+          "handle": "2026-10-20T16:15:00.001Z-0000-dev1",
+          "displayName": "2026-10-20T16:15:00.001Z-0000-dev1",
+          "avatarColor": "2026-10-20T16:15:00.001Z-0000-dev1",
+          "homeServer": "2026-10-20T16:15:00.001Z-0000-dev1"
+        }
+      }
+    ],
+    "folders": [],
+    "lists": [
+      {
+        "id": "01DEV100000000000000000001",
+        "createdAt": "2026-10-20T16:15:00.002Z",
+        "createdBy": "01TESTMEMBER00000000000001",
+        "deletedAt": null,
+        "origin": "local",
+        "name": "Mess Drawer",
+        "color": "#B8BCC4",
+        "icon": "inbox",
+        "folderId": null,
+        "visibility": "private",
+        "archived": false,
+        "order": "V",
+        "isInbox": true,
+        "_hlc": {
+          "createdAt": "2026-10-20T16:15:00.002Z-0000-dev1",
+          "createdBy": "2026-10-20T16:15:00.002Z-0000-dev1",
+          "deletedAt": "2026-10-20T16:15:00.002Z-0000-dev1",
+          "origin": "2026-10-20T16:15:00.002Z-0000-dev1",
+          "name": "2026-10-20T16:15:00.002Z-0000-dev1",
+          "color": "2026-10-20T16:15:00.002Z-0000-dev1",
+          "icon": "2026-10-20T16:15:00.002Z-0000-dev1",
+          "folderId": "2026-10-20T16:15:00.002Z-0000-dev1",
+          "visibility": "2026-10-20T16:15:00.002Z-0000-dev1",
+          "archived": "2026-10-20T16:15:00.002Z-0000-dev1",
+          "order": "2026-10-20T16:15:00.002Z-0000-dev1",
+          "isInbox": "2026-10-20T16:15:00.002Z-0000-dev1"
+        }
+      }
+    ],
+    "sections": [],
+    "tags": [],
+    "tasks": [
+      {
+        "id": "01DEV10000000000000000000J",
+        "createdAt": "2026-10-20T16:15:00.024Z",
+        "createdBy": "01TESTMEMBER00000000000001",
+        "deletedAt": null,
+        "origin": "local",
+        "title": "Too urgent",
+        "notes": "",
+        "listId": "01DEV100000000000000000001",
+        "sectionId": null,
+        "parentId": null,
+        "order": "V",
+        "status": "open",
+        "completedAt": null,
+        "completedBy": null,
+        "priority": 7,
+        "schedule": null,
+        "due": null,
+        "tags": {},
+        "assignees": {},
+        "blockedBy": {},
+        "recurrence": null,
+        "progress": 0,
+        "_hlc": {
+          "createdAt": "2026-10-20T16:15:00.024Z-0000-dev1",
+          "createdBy": "2026-10-20T16:15:00.024Z-0000-dev1",
+          "deletedAt": "2026-10-20T16:15:00.024Z-0000-dev1",
+          "origin": "2026-10-20T16:15:00.024Z-0000-dev1",
+          "title": "2026-10-20T16:15:00.024Z-0000-dev1",
+          "notes": "2026-10-20T16:15:00.024Z-0000-dev1",
+          "listId": "2026-10-20T16:15:00.024Z-0000-dev1",
+          "sectionId": "2026-10-20T16:15:00.024Z-0000-dev1",
+          "parentId": "2026-10-20T16:15:00.024Z-0000-dev1",
+          "order": "2026-10-20T16:15:00.024Z-0000-dev1",
+          "status": "2026-10-20T16:15:00.024Z-0000-dev1",
+          "completedAt": "2026-10-20T16:15:00.024Z-0000-dev1",
+          "completedBy": "2026-10-20T16:15:00.024Z-0000-dev1",
+          "priority": "2026-10-20T16:15:00.024Z-0000-dev1",
+          "schedule": "2026-10-20T16:15:00.024Z-0000-dev1",
+          "due": "2026-10-20T16:15:00.024Z-0000-dev1",
+          "tags": "2026-10-20T16:15:00.024Z-0000-dev1",
+          "assignees": "2026-10-20T16:15:00.024Z-0000-dev1",
+          "blockedBy": "2026-10-20T16:15:00.024Z-0000-dev1",
+          "recurrence": "2026-10-20T16:15:00.024Z-0000-dev1",
+          "progress": "2026-10-20T16:15:00.024Z-0000-dev1"
+        }
+      }
+    ],
+    "groups": [],
+    "groupMembers": [],
+    "listMembers": [],
+    "friendships": [],
+    "savedFilters": [],
+    "settings": [
+      {
+        "id": "01DEV100000000000000000002",
+        "createdAt": "2026-10-20T16:15:00.003Z",
+        "createdBy": "01TESTMEMBER00000000000001",
+        "deletedAt": null,
+        "origin": "local",
+        "userId": "01TESTMEMBER00000000000001",
+        "themeMode": "system",
+        "palette": {},
+        "pointEventMinutes": 30,
+        "dueSoonDays": 2,
+        "sidebar": {
+          "order": [
+            "today",
+            "inbox",
+            "upcoming",
+            "all",
+            "calendar",
+            "@group",
+            "completed",
+            "trash"
+          ],
+          "hidden": [],
+          "groupOpen": false
+        },
+        "_hlc": {
+          "createdAt": "2026-10-20T16:15:00.003Z-0000-dev1",
+          "createdBy": "2026-10-20T16:15:00.003Z-0000-dev1",
+          "deletedAt": "2026-10-20T16:15:00.003Z-0000-dev1",
+          "origin": "2026-10-20T16:15:00.003Z-0000-dev1",
+          "userId": "2026-10-20T16:15:00.003Z-0000-dev1",
+          "themeMode": "2026-10-20T16:15:00.003Z-0000-dev1",
+          "palette": "2026-10-20T16:15:00.003Z-0000-dev1",
+          "pointEventMinutes": "2026-10-20T16:15:00.003Z-0000-dev1",
+          "dueSoonDays": "2026-10-20T16:15:00.003Z-0000-dev1",
+          "sidebar": "2026-10-20T16:15:00.003Z-0000-dev1"
+        }
+      }
+    ]
+  },
+  "sync": {
+    "server": null,
+    "cursor": null
+  }
+}

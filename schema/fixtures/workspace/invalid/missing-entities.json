@@ -1,0 +1,13 @@
+{
+  "schemaVersion": 6,
+  "app": {
+    "name": "punchlist",
+    "version": "0.1.0"
+  },
+  "owner": "01TESTMEMBER00000000000001",
+  "node": "dev1",
+  "sync": {
+    "server": null,
+    "cursor": null
+  }
+}
