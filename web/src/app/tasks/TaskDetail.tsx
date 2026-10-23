@@ -2,6 +2,8 @@ import CalendarMonthOutlined from '@mui/icons-material/CalendarMonthOutlined';
 import CloseRounded from '@mui/icons-material/CloseRounded';
 import DeleteOutlineRounded from '@mui/icons-material/DeleteOutlineRounded';
 import MoreHorizRounded from '@mui/icons-material/MoreHorizRounded';
+import AttachFileRounded from '@mui/icons-material/AttachFileRounded';
+import { AttachmentList, useAttachFiles } from '../attachments/Attachments.tsx';
 import TaskAltRounded from '@mui/icons-material/TaskAltRounded';
 import {
   Box,
@@ -105,6 +107,8 @@ export function TaskDetail({
   // Assigning needs other people: a server with accounts.
   const canAssign = phase === 'ready' && authMode === 'local';
   const me = useStoreState((state) => state.context().userId);
+  const attach = useAttachFiles(task && isLive(task) ? task : undefined);
+  const [dropping, setDropping] = useState(false);
 
   if (!task || !isLive(task)) {
     return (
@@ -140,8 +144,33 @@ export function TaskDetail({
       <Box
         component="section"
         aria-label={t('task.details')}
-        sx={{ height: '100%', display: 'flex', flexDirection: 'column', minHeight: 0 }}
+        // Files dropped anywhere on the details attach to the task.
+        onDragOver={(event) => {
+          if (!attach.allowed || readOnly || !event.dataTransfer.types.includes('Files')) return;
+          event.preventDefault();
+          setDropping(true);
+        }}
+        onDragLeave={(event) => {
+          if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setDropping(false);
+        }}
+        onDrop={(event) => {
+          if (!attach.allowed || readOnly || event.dataTransfer.files.length === 0) return;
+          event.preventDefault();
+          setDropping(false);
+          void attach.add(Array.from(event.dataTransfer.files));
+        }}
+        sx={{
+          height: '100%',
+          display: 'flex',
+          flexDirection: 'column',
+          minHeight: 0,
+          outline: dropping ? 2 : 0,
+          outlineColor: 'primary.main',
+          outlineStyle: 'dashed',
+          outlineOffset: -4,
+        }}
       >
+        {attach.input}
         <Toolbar disableGutters sx={{ gap: 1, px: 2, flexShrink: 0 }}>
           <CompleteCheckbox task={task} onMenu={(position) => setMenu({ position })} />
           <DateProperty
@@ -169,6 +198,13 @@ export function TaskDetail({
             }
           />
           <Box sx={{ flexGrow: 1 }} />
+          {!readOnly && attach.allowed && (
+            <Tooltip title={t('files.attach')}>
+              <IconButton aria-label={t('files.attach')} onClick={attach.pick}>
+                <AttachFileRounded fontSize="small" />
+              </IconButton>
+            </Tooltip>
+          )}
           {!readOnly && (
             <Tooltip title={t('task.actions')}>
               <IconButton
@@ -289,6 +325,11 @@ export function TaskDetail({
               onCommit={(notes) => apply((ctx, ws) => updateTask(ctx, ws, task.id, { notes }))}
             />
           )}
+          <AttachmentList
+            task={task}
+            problem={attach.problem}
+            onDismissProblem={attach.clearProblem}
+          />
           <SubtaskEditor task={task} />
           {!phone && <Comments task={task} />}
           {!phone && <TaskDates task={task} />}

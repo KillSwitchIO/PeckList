@@ -9,6 +9,20 @@ export interface ServerInfo {
   schemaVersion: number;
   /** The server's time zone, the default for people who pick none (older servers: absent). */
   timeZone?: string | null;
+  /** The largest file the server takes, in megabytes (older servers: absent). */
+  attachmentMaxMb?: number | null;
+}
+
+/** What became of a file sent to the server. */
+export type UploadOutcome = 'stored' | 'too-large' | 'refused';
+
+/** Attached files on the server, by the SHA-256 of their bytes (spec: PL-051). */
+export interface FileApi {
+  /** Whether the server holds the file already. */
+  has(sha256: string): Promise<boolean>;
+  upload(sha256: string, file: Blob): Promise<UploadOutcome>;
+  /** The file, or null when the server has none this person may see. */
+  download(sha256: string): Promise<Blob | null>;
 }
 
 /** The signed-in account (`/auth/me`). */
@@ -182,6 +196,8 @@ export interface SyncTransport {
   events?(onChange: (change: ChangeEvent) => void): () => void;
   friends?: FriendsApi;
   account?: AccountApi;
+  /** Attached files (optional: older servers keep none). */
+  files?: FileApi;
   /** Admin actions; the server refuses them for anyone without the permission. */
   admin?: AdminApi;
 }

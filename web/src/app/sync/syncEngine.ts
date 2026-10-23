@@ -14,7 +14,9 @@ import {
   type Acks,
   type SyncChange,
 } from '../../core/sync.ts';
-import type { WorkspaceFile } from '../../core/types.ts';
+import type { Attachment, WorkspaceFile } from '../../core/types.ts';
+import { createMemoryBlobs } from '../../adapters/memory-blobs.ts';
+import type { BlobStore } from '../../ports/blobs.ts';
 import { createWorkspace } from '../../core/workspace.ts';
 import type { StorageAdapter } from '../../ports/storage.ts';
 import {
@@ -44,6 +46,8 @@ export type SyncStatus = 'idle' | 'syncing' | 'offline' | 'error' | 'app-update'
 export interface SyncState {
   /** The server connection, for friend links and lookups (unused without a server). */
   readonly transport: SyncTransport;
+  /** This device's attached files, by SHA-256. */
+  readonly blobs: BlobStore;
   phase: SyncPhase;
   status: SyncStatus;
   account: Account | null;
@@ -78,6 +82,8 @@ export interface SyncNotice {
   refused: number;
   /** Names of shared lists that are no longer this account's to see. */
   lostLists: string[];
+  /** Files the server would not take (too large): they stay on this device only. */
+  filesKept?: string[];
 }
 
 /** Device-local sync progress, kept under storage metadata `sync`. */
@@ -96,6 +102,8 @@ export interface SyncEngineDependencies {
   device?: string;
   workspace: WorkspaceStore;
   storage: StorageAdapter;
+  /** Where this device keeps attached files (memory when absent). */
+  blobs?: BlobStore;
   now?: () => number;
   /** One sync at a time across tabs (Web Locks). Defaults to running directly. */
   withLock?: <T>(run: () => Promise<T>) => Promise<T>;
@@ -118,6 +126,7 @@ export function createSyncEngine(deps: SyncEngineDependencies): SyncEngine {
   const withLock = deps.withLock ?? ((run) => run());
   const debounceMs = deps.debounceMs ?? 1500;
   const intervalMs = deps.intervalMs ?? 30_000;
+  const blobs = deps.blobs ?? createMemoryBlobs();
   const { transport, workspace, storage } = deps;
   let running: Promise<void> | null = null;
   let again = false;
@@ -242,6 +251,60 @@ export function createSyncEngine(deps: SyncEngineDependencies): SyncEngine {
       set({ status: 'error', error: error instanceof Error ? error.message : String(error) });
     };
 
+    // Files the server has (or refused), so each is asked about once per session.
+    const onServer = new Set<string>();
+    const refusedFiles = new Set<string>();
+    /**
+     * The batch, with each new attachment's file sent first, so no device ever learns of a file
+     * the server cannot hand out. One the server refuses (too large) stays out of the batch and
+     * on this device only; the person is told once.
+     */
+    const withFiles = async (batch: SyncChange[]): Promise<SyncChange[]> => {
+      const files = transport.files;
+      if (!files) return batch;
+      const kept: SyncChange[] = [];
+      const tooLarge: string[] = [];
+      for (const change of batch) {
+        const attachment =
+          change.collection === 'attachments' ? (change.entity as Attachment) : null;
+        if (!attachment || attachment.deletedAt !== null || onServer.has(attachment.sha256)) {
+          kept.push(change);
+          continue;
+        }
+        if (refusedFiles.has(attachment.sha256)) continue;
+        if (await files.has(attachment.sha256)) {
+          onServer.add(attachment.sha256);
+          kept.push(change);
+          continue;
+        }
+        const blob = await blobs.get(attachment.sha256);
+        // Not here (renamed on this device, added on another): the server judges.
+        if (!blob) {
+          kept.push(change);
+          continue;
+        }
+        const outcome = await files.upload(attachment.sha256, blob);
+        if (outcome === 'stored') {
+          onServer.add(attachment.sha256);
+          kept.push(change);
+        } else {
+          refusedFiles.add(attachment.sha256);
+          tooLarge.push(attachment.name);
+        }
+      }
+      if (tooLarge.length > 0) {
+        const before = get().notice;
+        set({
+          notice: {
+            refused: before?.refused ?? 0,
+            lostLists: before?.lostLists ?? [],
+            filesKept: [...(before?.filesKept ?? []), ...tooLarge],
+          },
+        });
+      }
+      return kept;
+    };
+
     /** One sync: push batches and pull pages until both sides are caught up. */
     const cycle = async () => {
       set({ status: 'syncing' });
@@ -255,7 +318,7 @@ export function createSyncEngine(deps: SyncEngineDependencies): SyncEngine {
           if (!current) return;
           const meta = await loadMeta();
           const pending = pendingChanges(current, meta.acks);
-          const batch = pending.slice(0, BATCH);
+          const batch = await withFiles(pending.slice(0, BATCH));
           const response = await transport.sync({
             schemaVersion: CURRENT_SCHEMA_VERSION,
             cursor: meta.cursor,
@@ -380,6 +443,7 @@ export function createSyncEngine(deps: SyncEngineDependencies): SyncEngine {
 
     return {
       transport,
+      blobs,
       phase: 'checking',
       status: 'idle',
       account: null,

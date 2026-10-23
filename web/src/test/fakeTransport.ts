@@ -6,6 +6,7 @@ import {
   type Account,
   type ChangeEvent,
   type AccountApi,
+  type FileApi,
   type FriendsApi,
   type ProfilePreview,
   type ServerInfo,
@@ -24,6 +25,10 @@ export interface FakeAccount {
 /** Shared by every device in a test: the server and its accounts. */
 export class FakeBackend {
   readonly server = new FakeSyncServer();
+  /** Files the server holds, by SHA-256. */
+  readonly files = new Map<string, Blob>();
+  /** The largest file it takes, in bytes. */
+  maxFileBytes = 25 * 1024 * 1024;
   readonly accounts = new Map<string, FakeAccount>();
 
   /** An account's numbers as the server would count them: its live tasks by status. */
@@ -117,6 +122,20 @@ export class FakeTransport implements SyncTransport {
   }
 
   /** An empty password stands for an account that signs in only through a provider. */
+  readonly files: FileApi = {
+    has: (sha256) => {
+      if (this.offline) return Promise.reject(new SyncFailure('offline', 'offline'));
+      return Promise.resolve(this.backend.files.has(sha256));
+    },
+    upload: (sha256, file) => {
+      if (this.offline) return Promise.reject(new SyncFailure('offline', 'offline'));
+      if (file.size > this.backend.maxFileBytes) return Promise.resolve('too-large' as const);
+      this.backend.files.set(sha256, file);
+      return Promise.resolve('stored' as const);
+    },
+    download: (sha256) => Promise.resolve(this.backend.files.get(sha256) ?? null),
+  };
+
   /** Admin actions; tests that need them put a stand-in here. */
   admin?: AdminApi;
 

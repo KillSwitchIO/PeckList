@@ -153,6 +153,37 @@ describe('task details', () => {
     await waitFor(() => expect(screen.queryByRole('region', { name: 'Task details' })).toBeNull());
   });
 
+  it('attaches files to a task, shows pictures as thumbnails, and removes them with undo', async () => {
+    const store = testStore();
+    await renderApp('/inbox', store);
+    await addTasks('Fix the gate');
+    await userEvent.click(screen.getByRole('button', { name: 'Open Fix the gate' }));
+    const details = await screen.findByRole('region', { name: 'Task details' });
+    await userEvent.upload(within(details).getByTestId('attach-input'), [
+      new File(['hinge'], 'hinge.png', { type: 'image/png' }),
+      new File(['quote'], 'quote.pdf', { type: 'application/pdf' }),
+    ]);
+    const files = await within(details).findByRole('region', { name: 'Files' });
+    await within(files).findByRole('listitem', { name: 'quote.pdf, 5 B' });
+    const picture = within(files).getByRole('listitem', { name: 'hinge.png, 5 B' });
+    await waitFor(() => expect(picture.querySelector('img')).toHaveAttribute('src', 'blob:test'));
+    // Kept under the SHA-256 of their bytes: "hinge" hashes to this.
+    const stored = store.getState().workspace!.entities.attachments;
+    expect(stored.map((each) => each.name)).toEqual(['hinge.png', 'quote.pdf']);
+    expect(stored[0]!.sha256).toBe(
+      '7706c3c94d5f9b598a2bc7385eb7c51aba74f4eed2aa467bfcb2c611a0897fa2',
+    );
+
+    await userEvent.click(within(files).getByRole('button', { name: 'Remove quote.pdf' }));
+    await waitFor(() =>
+      expect(within(files).queryByRole('listitem', { name: /^quote\.pdf/ })).toBeNull(),
+    );
+    await userEvent.click(await screen.findByRole('button', { name: 'Undo' }));
+    expect(
+      await within(files).findByRole('listitem', { name: 'quote.pdf, 5 B' }),
+    ).toBeInTheDocument();
+  });
+
   it('opens the notes in the full editor, with the formatting toolbar, and keeps what was typed', async () => {
     await renderApp('/inbox');
     await addTasks('Shopping');

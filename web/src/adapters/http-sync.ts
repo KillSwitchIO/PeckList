@@ -47,6 +47,22 @@ export function createHttpSync(
       throw new SyncFailure('offline', error instanceof Error ? error.message : String(error));
     }
   };
+  /** A file's own request: raw bytes, not JSON. */
+  const fileCall = async (sha256: string, method: string, body?: Blob) => {
+    try {
+      return await fetcher(`${base}/api/attachments/${encodeURIComponent(sha256)}`, {
+        method,
+        credentials: 'same-origin',
+        headers: {
+          ...(body ? { 'Content-Type': 'application/octet-stream' } : {}),
+          ...(device ? { 'X-Punchlist-Device': device } : {}),
+        },
+        body: body ?? null,
+      });
+    } catch (error) {
+      throw new SyncFailure('offline', error instanceof Error ? error.message : String(error));
+    }
+  };
   const errorOf = async (response: Response): Promise<ErrorBody> => {
     try {
       return (await response.json()) as ErrorBody;
@@ -83,6 +99,28 @@ export function createHttpSync(
       if (!response.headers.get('content-type')?.includes('json')) return null;
       const info = (await response.json()) as ServerInfo;
       return info.name === 'punchlist' ? info : null;
+    },
+
+    files: {
+      async has(sha256) {
+        const response = await fileCall(sha256, 'HEAD');
+        if (response.status === 404) return false;
+        if (!response.ok) return fail(response);
+        return true;
+      },
+      async upload(sha256, file) {
+        const response = await fileCall(sha256, 'PUT', file);
+        if (response.ok) return 'stored';
+        if (response.status === 413) return 'too-large';
+        if (response.status === 400 || response.status === 403) return 'refused';
+        return fail(response);
+      },
+      async download(sha256) {
+        const response = await fileCall(sha256, 'GET');
+        if (response.status === 404) return null;
+        if (!response.ok) return fail(response);
+        return response.blob();
+      },
     },
 
     async me() {

@@ -19,5 +19,13 @@ export function noticeText(notice: SyncNotice): string {
         : t('sync.notice.refused', { count: notice.refused }),
     );
   }
+  const [file, ...moreFiles] = notice.filesKept ?? [];
+  if (file !== undefined) {
+    parts.push(
+      moreFiles.length === 0
+        ? t('sync.notice.fileKept', { name: file })
+        : t('sync.notice.filesKept', { name: file, count: moreFiles.length }),
+    );
+  }
   return parts.join(' ');
 }

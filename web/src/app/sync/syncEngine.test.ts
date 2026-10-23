@@ -3,6 +3,8 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { createAjvValidator } from '../../adapters/ajv-validator.ts';
 import { createMemoryStorage } from '../../adapters/memory-storage.ts';
 import { createUlidGenerator } from '../../adapters/ulid-ids.ts';
+import { addAttachment } from '../../core/attachments.ts';
+import { sha256Hex } from '../../core/sha256.ts';
 import { createTask, updateTask } from '../../core/tasks.ts';
 import type { WorkspaceFile } from '../../core/types.ts';
 import { FakeBackend } from '../../test/fakeTransport.ts';
@@ -88,6 +90,56 @@ describe('sync engine', () => {
     expect(store.getState().workspace!.owner).toBe(ben.id);
     const onServer = [...backend.server.rows.values()].map((row) => row.change.entity);
     expect(onServer.some((entity) => (entity as { title?: string }).title === 'Mow')).toBe(true);
+  });
+
+  it('sends a file before the attachment that names it, and keeps a too-large one on the device', async () => {
+    const backend = new FakeBackend();
+    backend.addAccount('ben', 'correct horse battery');
+    backend.maxFileBytes = 5;
+    const laptop = await device(backend, 'laptop');
+    const phone = await device(backend, 'phone');
+    for (const each of [laptop, phone]) {
+      await each.engine.getState().start();
+      await each.engine.getState().signIn('ben', 'correct horse battery');
+    }
+    const task = addTask(laptop.store, 'Paint the fence');
+    const attach = async (name: string, text: string) => {
+      const bytes = new TextEncoder().encode(text);
+      const sha256 = sha256Hex(bytes);
+      await laptop.engine.getState().blobs.put(sha256, new Blob([bytes], { type: 'text/plain' }));
+      laptop.store
+        .getState()
+        .apply(
+          (ctx, ws) =>
+            addAttachment(ctx, ws, {
+              taskId: task,
+              name,
+              size: bytes.length,
+              mime: 'text/plain',
+              sha256,
+            }).workspace,
+        );
+      return sha256;
+    };
+    const small = await attach('colour.txt', 'red');
+    const big = await attach('swatches.txt', 'far too many bytes');
+    await laptop.engine.getState().syncNow();
+
+    expect(backend.files.has(small)).toBe(true);
+    expect(backend.files.has(big)).toBe(false);
+    expect(laptop.engine.getState().notice?.filesKept).toEqual(['swatches.txt']);
+
+    // The phone learns only of the file it can fetch.
+    await phone.engine.getState().syncNow();
+    const names = phone.store
+      .getState()
+      .workspace!.entities.attachments.map((attachment) => attachment.name);
+    expect(names).toEqual(['colour.txt']);
+    expect(await (await phone.transport.files.download(small))!.text()).toBe('red');
+    // Asked again, the laptop does not tell twice.
+    laptop.engine.getState().dismissNotice();
+    await laptop.engine.getState().syncNow();
+    expect(laptop.engine.getState().notice).toBeNull();
   });
 
   it('two devices converge, including edits made offline', async () => {

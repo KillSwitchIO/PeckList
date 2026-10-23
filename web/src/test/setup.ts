@@ -17,3 +17,9 @@ if (typeof document !== 'undefined') {
   Range.prototype.getClientRects ??= emptyRects;
   Element.prototype.getClientRects ??= emptyRects;
 }
+
+// Object URLs for attachment thumbnails: jsdom has none, and Node's own takes only Node's Blobs.
+if (typeof URL !== 'undefined') {
+  URL.createObjectURL = () => 'blob:test';
+  URL.revokeObjectURL = () => undefined;
+}

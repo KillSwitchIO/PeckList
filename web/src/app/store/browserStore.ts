@@ -1,6 +1,7 @@
 // Composition root for the browser: wires the real adapters into the store and the sync engine.
 import { createAjvValidator } from '../../adapters/ajv-validator.ts';
 import { createHttpSync } from '../../adapters/http-sync.ts';
+import { createIndexedDbBlobs } from '../../adapters/indexeddb-blobs.ts';
 import { createIndexedDbStorage } from '../../adapters/indexeddb-storage.ts';
 import { createLocalJournal } from '../../adapters/local-journal.ts';
 import { createMemoryStorage } from '../../adapters/memory-storage.ts';
@@ -44,6 +45,7 @@ export function createBrowserApp(): {
     device: node,
     workspace: store,
     storage,
+    blobs: createIndexedDbBlobs(),
     withLock: lock('punchlist-sync'),
   });
   return { store, sync, viewAs: null };
