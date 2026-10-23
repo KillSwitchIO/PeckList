@@ -61,7 +61,7 @@ public sealed class LogShippingTests
         TraceId: "4bf92f3577b34da6a3ce929d0e0e4736",
         SpanId: "00f067aa0ba902b7",
         UserId: "u-1",
-        Properties: [new("Admin", "Ben"), new("Name", "b1"), new("Count", 3)]);
+        Properties: [new("Admin", "Ben"), new("Name", "b1"), new("Count", 3), new("Detail", "")]);
 
     [Fact]
     public async Task Otlp_posts_resource_logs_as_json_with_the_headers()
@@ -83,6 +83,7 @@ public sealed class LogShippingTests
         Assert.Equal("Ben took a backup: b1", (string?)first["body"]!["stringValue"]);
         Assert.Equal("4bf92f3577b34da6a3ce929d0e0e4736", (string?)first["traceId"]);
         Assert.Contains(first["attributes"]!.AsArray(), a => (string?)a!["key"] == "Count" && (string?)a["value"]!["intValue"] == "3");
+        Assert.DoesNotContain(first["attributes"]!.AsArray(), a => (string?)a!["key"] == "Detail");
         Assert.Equal(17, (int)scope["logRecords"]![1]!["severityNumber"]!);
     }
 
@@ -126,6 +127,7 @@ public sealed class LogShippingTests
         Assert.Equal(("info", "Punchlist.Backups"), ((string?)doc["log"]!["level"], (string?)doc["log"]!["logger"]));
         Assert.Equal(("u-1", "4bf92f3577b34da6a3ce929d0e0e4736"), ((string?)doc["user"]!["id"], (string?)doc["trace"]!["id"]));
         Assert.Equal("3", (string?)doc["labels"]!["Count"]);
+        Assert.Null(doc["labels"]!["Detail"]);
 
         var refusing = new FakeReceiver(answer: """{"errors":true,"items":[{"create":{"status":400,"error":{"type":"mapper_parsing_exception","reason":"bad field"}}}]}""");
         await using var refused = new ElasticSink(new Uri("https://es:9200"), "logs", null, null, null, Source, refusing);

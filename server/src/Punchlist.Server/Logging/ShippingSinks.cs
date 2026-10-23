@@ -164,7 +164,8 @@ public sealed class OtlpSink(Uri endpoint, IReadOnlyDictionary<string, string> h
         if (record.RequestId is not null) Attribute(json, "request.id", record.RequestId);
         if (record.UserId is not null) Attribute(json, "user.id", record.UserId);
         if (record.Exception is not null) Attribute(json, "exception.stacktrace", record.Exception);
-        foreach (var (name, value) in record.Properties ?? []) Attribute(json, name, value);
+        // An empty value says nothing (no impersonator, no detail): left out, as Graylog does.
+        foreach (var (name, value) in record.Properties ?? []) if (value is not "") Attribute(json, name, value);
         json.WriteEndArray();
         if (record.TraceId is not null) json.WriteString("traceId", record.TraceId);
         if (record.SpanId is not null) json.WriteString("spanId", record.SpanId);
@@ -359,7 +360,7 @@ public sealed class ElasticSink(
             foreach (var (name, value) in record.Properties ?? [])
             {
                 var key = name.Replace('.', '_');
-                if (seen.Add(key)) json.WriteString(key, LogTemplate.Format(value, null));
+                if (value is not "" && seen.Add(key)) json.WriteString(key, LogTemplate.Format(value, null));
             }
             json.WriteEndObject();
         }
