@@ -1,0 +1,24 @@
+# Punchlist with SQLite (the default): one container, data in a named volume.
+#   docker compose up -d
+#   docker compose logs punchlist      # the first admin password is printed here, once
+# Then open http://localhost:8080. Docs: docs/install/docker-compose.md
+
+services:
+  punchlist:
+    image: registry.gitlab.com/killswitch10/punchlist:latest
+    container_name: punchlist
+    restart: unless-stopped
+    ports:
+      - '8080:8080'
+    volumes:
+      - punchlist-data:/data
+    environment:
+      # Months in stats and "today" on the server follow this time zone.
+      TZ: Etc/UTC
+      # The address people open, once it is behind a reverse proxy with HTTPS.
+      # PUBLIC_URL: https://tasks.example.com
+      # Choose the first admin password instead of reading it from the logs (12+ characters).
+      # ADMIN_PASSWORD_FILE: /run/secrets/admin_password
+
+volumes:
+  punchlist-data:

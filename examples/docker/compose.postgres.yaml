@@ -1,0 +1,52 @@
+# Punchlist with PostgreSQL 15+ instead of the built-in SQLite.
+# Secrets come from files (every setting also works as NAME_FILE). Make them first:
+#   mkdir -p secrets
+#   openssl rand -hex 24 > secrets/db_password
+#   printf 'Host=db;Username=punchlist;Password=%s;Database=punchlist' "$(cat secrets/db_password)" > secrets/db_connection
+#   docker compose -f compose.postgres.yaml up -d
+
+services:
+  punchlist:
+    image: registry.gitlab.com/killswitch10/punchlist:latest
+    container_name: punchlist
+    restart: unless-stopped
+    ports:
+      - '8080:8080'
+    environment:
+      TZ: Etc/UTC
+      DB_PROVIDER: postgres
+      DB_CONNECTION_STRING_FILE: /run/secrets/db_connection
+    secrets:
+      - db_connection
+    volumes:
+      # Snapshots, logs and audit archives still go to /data.
+      - punchlist-data:/data
+    depends_on:
+      db:
+        condition: service_healthy
+
+  db:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: punchlist
+      POSTGRES_DB: punchlist
+      POSTGRES_PASSWORD_FILE: /run/secrets/db_password
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    secrets:
+      - db_password
+    healthcheck:
+      test: ['CMD', 'pg_isready', '-U', 'punchlist']
+      interval: 10s
+      retries: 5
+
+secrets:
+  db_password:
+    file: secrets/db_password
+  db_connection:
+    file: secrets/db_connection
+
+volumes:
+  punchlist-data:
+  db-data:

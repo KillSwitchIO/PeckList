@@ -1,0 +1,43 @@
+# systemd unit for the native Linux download. install.sh puts it in place; by hand:
+#   sudo cp punchlist.service /etc/systemd/system/ && sudo systemctl daemon-reload
+#   sudo systemctl enable --now punchlist
+#   journalctl -u punchlist          # the first admin password is printed here, once
+# Settings: /etc/punchlist/punchlist.conf (CONFIG_FILE). Docs: docs/install/linux.md
+
+[Unit]
+Description=Punchlist tasks and calendar
+Documentation=https://gitlab.com/killswitch10/punchlist/-/tree/main/docs
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+# The server tells systemd when it is ready (and when it stops).
+Type=notify
+User=punchlist
+Group=punchlist
+WorkingDirectory=/var/lib/punchlist
+ExecStart=/opt/punchlist/punchlist
+Restart=on-failure
+RestartSec=5
+
+Environment=ASPNETCORE_HTTP_PORTS=8080
+Environment=DB_PATH=/var/lib/punchlist/punchlist.db
+Environment=CONFIG_FILE=/etc/punchlist/punchlist.conf
+# Logs go to the journal; the JSON log files stay off unless you want both.
+Environment=LOG_FILES=false
+
+# Hardening: the server only writes its own data folder.
+NoNewPrivileges=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectSystem=strict
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+LockPersonality=true
+ReadWritePaths=/var/lib/punchlist
+
+[Install]
+WantedBy=multi-user.target

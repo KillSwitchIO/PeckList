@@ -1,0 +1,32 @@
+# Punchlist behind Caddy with automatic HTTPS (Let's Encrypt).
+# Point a DNS name at this machine, open ports 80 and 443, put the name in Caddyfile and below, then:
+#   docker compose -f compose.caddy.yaml up -d
+# Only Caddy is published; Punchlist is reachable on the compose network alone.
+
+services:
+  punchlist:
+    image: registry.gitlab.com/killswitch10/punchlist:latest
+    container_name: punchlist
+    restart: unless-stopped
+    volumes:
+      - punchlist-data:/data
+    environment:
+      TZ: Etc/UTC
+      PUBLIC_URL: https://tasks.example.com
+
+  caddy:
+    image: caddy:2
+    restart: unless-stopped
+    ports:
+      - '80:80'
+      - '443:443'
+      - '443:443/udp'
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+
+volumes:
+  punchlist-data:
+  caddy-data:
+  caddy-config:

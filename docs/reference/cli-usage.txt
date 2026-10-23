@@ -1,0 +1,33 @@
+Usage: punchlist <command>
+
+  export [file]                 Write a full backup as JSON (to stdout without a file).
+  export --user <user> [file]   Write one person's data (to stdout without a file).
+  import <file> [--replace]     Load a backup into an empty database (--replace: delete what is there first).
+  import --user <file> [user]   Put one person back as a backup had them (from a whole-server
+                                backup, say who). Restart the server afterwards.
+  migrate-db --to sqlite --path <file>
+  migrate-db --to postgres --connection <connection string>
+                                Copy everything into another, empty database.
+  upgrade-db                    Apply database schema upgrades and exit (for servers
+                                running with DB_MIGRATE_ON_START=false).
+  snapshot                      Take a snapshot now (into SNAPSHOT_DIR).
+  admin reset-password [user]   Give an account (default: admin) a new password to change at login.
+  admin add-user <user> [--admin]
+                                Add an account; its generated password must be changed at first login.
+  admin set-role <user> <role>  Make an account a user, admin or superadmin.
+  admin login-link <user>       Print a one-time sign-in link (24 hours).
+  oidc unlink <user> [provider] Detach a user's provider accounts (all, or one provider's).
+  oidc unbind-all <provider>    Detach every account from a provider (moving to another).
+  oidc migration-window <provider> <hours|close>
+                                Until it closes, a first sign-in through the provider joins
+                                the account with the same username.
+  config key                    Print a new CONFIG_KEY for encrypted values.
+  config encrypt [value]        Print the value (or standard input) encrypted with CONFIG_KEY,
+                                for the environment or CONFIG_FILE: enc:v1:...
+  config show                   Every setting with where it comes from (secrets hidden).
+  debug-dump [file]             Write a zip for bug reports: recent logs, settings (secrets
+                                hidden), versions and database counts (stdout without a file).
+  healthcheck                   Exit 0 when the running server answers /healthz.
+  --version                     Print the version and build.
+
+Settings come from the same environment variables as the server.

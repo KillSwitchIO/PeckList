@@ -1,0 +1,38 @@
+# Punchlist with single sign-on through an OpenID Connect provider (Pocket ID here; any works).
+# Register this redirect URI with the provider:  https://tasks.example.com/auth/oidc/pocket/callback
+# Put the client secret in a file first:  mkdir -p secrets && echo 'the-secret' > secrets/oidc_secret
+# Docs: docs/guides/single-sign-on.md
+
+services:
+  punchlist:
+    image: registry.gitlab.com/killswitch10/punchlist:latest
+    container_name: punchlist
+    restart: unless-stopped
+    ports:
+      - '8080:8080'
+    volumes:
+      - punchlist-data:/data
+    environment:
+      TZ: Etc/UTC
+      PUBLIC_URL: https://tasks.example.com
+      OIDC_PROVIDERS: pocket
+      OIDC_POCKET_AUTHORITY: https://id.example.com
+      OIDC_POCKET_CLIENT_ID: punchlist
+      OIDC_POCKET_CLIENT_SECRET_FILE: /run/secrets/oidc_secret
+      OIDC_POCKET_DISPLAY_NAME: Pocket ID
+      # Only members of this group may sign in; new ones get an account by themselves.
+      OIDC_POCKET_REQUIRED_GROUPS: punchlist
+      OIDC_POCKET_AUTO_CREATE: 'true'
+      # Members of punchlist-admins become admins at every sign-in.
+      OIDC_POCKET_ROLE_MAP: punchlist-admins=admin
+      # Hide the password form (an admin can still use /login?local).
+      # LOCAL_LOGIN: hidden
+    secrets:
+      - oidc_secret
+
+secrets:
+  oidc_secret:
+    file: secrets/oidc_secret
+
+volumes:
+  punchlist-data:

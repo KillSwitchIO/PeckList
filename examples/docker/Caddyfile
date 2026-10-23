@@ -1,0 +1,8 @@
+# Used by compose.caddy.yaml. Replace the name with yours.
+tasks.example.com {
+	encode zstd gzip
+	reverse_proxy punchlist:8080 {
+		# Live updates arrive over a long-lived event stream; send each event at once.
+		flush_interval -1
+	}
+}

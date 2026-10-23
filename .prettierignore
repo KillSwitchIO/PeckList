@@ -4,3 +4,5 @@ dev-dist
 coverage
 pnpm-lock.yaml
 CHANGELOG.md
+# MkDocs syntax (admonitions, tabs) needs indentation Prettier would remove.
+docs/**/*.md
