@@ -3,7 +3,7 @@
 
 import { keyBetween } from './ordering.ts';
 
-export const CURRENT_SCHEMA_VERSION = 7;
+export const CURRENT_SCHEMA_VERSION = 8;
 
 export type Migration = (document: Record<string, unknown>) => Record<string, unknown>;
 
@@ -89,6 +89,12 @@ export const MIGRATIONS: MigrationRegistry = {
     const entities = document.entities as Record<string, unknown[]> | undefined;
     if (!entities) return document;
     return { ...document, entities: { ...entities, comments: entities.comments ?? [] } };
+  },
+  // 8: files on tasks, a new collection (empty to start with).
+  8: (document) => {
+    const entities = document.entities as Record<string, unknown[]> | undefined;
+    if (!entities) return document;
+    return { ...document, entities: { ...entities, attachments: entities.attachments ?? [] } };
   },
 };
 

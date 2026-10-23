@@ -169,6 +169,17 @@ export interface Comment extends BaseEntity {
   editedAt: DateTime | null;
 }
 
+/** A file on a task (schema 8): its description; the file is stored by its sha256. */
+export interface Attachment extends BaseEntity {
+  taskId: Id;
+  name: string;
+  /** Bytes */
+  size: number;
+  mime: string;
+  /** Lowercase hex; also the file's key in every blob store */
+  sha256: string;
+}
+
 export interface EntityMap {
   users: User;
   folders: Folder;
@@ -183,6 +194,7 @@ export interface EntityMap {
   savedFilters: SavedFilter;
   settings: Settings;
   comments: Comment;
+  attachments: Attachment;
 }
 
 export type CollectionName = keyof EntityMap;
@@ -203,6 +215,7 @@ export const COLLECTIONS: readonly CollectionName[] = [
   'savedFilters',
   'settings',
   'comments',
+  'attachments',
 ];
 
 /** Fields that merge per element instead of as a whole value */
@@ -220,6 +233,7 @@ export const ELEMENT_SET_FIELDS: { readonly [K in CollectionName]: readonly stri
   savedFilters: [],
   settings: [],
   comments: [],
+  attachments: [],
 };
 
 export interface WorkspaceFile {

@@ -24,7 +24,7 @@ public static class ImpersonationSetup
     public const string UntilClaim = "impersonation_until";
 
     /// <summary>Paths an impersonated request may reach: the app's data and who's who, nothing about accounts.</summary>
-    private static readonly string[] Allowed = ["/api/sync", "/api/friends", "/api/users/lookup", "/api/info", "/auth/me", "/auth/impersonation"];
+    private static readonly string[] Allowed = ["/api/sync", "/api/attachments", "/api/friends", "/api/users/lookup", "/api/info", "/auth/me", "/auth/impersonation"];
 
     public static IApplicationBuilder UseImpersonation(this IApplicationBuilder app) =>
         app.Use(async (context, next) =>

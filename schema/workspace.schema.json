@@ -8,7 +8,7 @@
   "additionalProperties": false,
   "properties": {
     "schemaVersion": {
-      "const": 7
+      "const": 8
     },
     "app": {
       "type": "object",
@@ -44,7 +44,8 @@
         "friendships",
         "savedFilters",
         "settings",
-        "comments"
+        "comments",
+        "attachments"
       ],
       "additionalProperties": false,
       "properties": {
@@ -124,6 +125,12 @@
           "type": "array",
           "items": {
             "$ref": "#/$defs/comment"
+          }
+        },
+        "attachments": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/attachment"
           }
         }
       }
@@ -610,6 +617,20 @@
         "role": {
           "enum": ["owner", "editor", "viewer"]
         }
+      },
+      "unevaluatedProperties": false
+    },
+    "attachment": {
+      "description": "A file on a task. Only its description is here; the file is stored by its sha256 (on the server and on each device). createdBy is who added it.",
+      "type": "object",
+      "allOf": [{ "$ref": "#/$defs/base" }],
+      "required": ["taskId", "name", "size", "mime", "sha256"],
+      "properties": {
+        "taskId": { "$ref": "#/$defs/id" },
+        "name": { "type": "string", "minLength": 1, "maxLength": 255 },
+        "size": { "type": "integer", "minimum": 0 },
+        "mime": { "type": "string", "maxLength": 255 },
+        "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" }
       },
       "unevaluatedProperties": false
     },

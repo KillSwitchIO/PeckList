@@ -20,6 +20,7 @@ public sealed class LiveSettings(ServerSettings start)
             Registration = next.Registration,
             LocalLoginHidden = next.LocalLoginHidden,
             AccountDeleteGraceDays = next.AccountDeleteGraceDays,
+            AttachmentMaxMb = next.AttachmentMaxMb,
             SnapshotSchedule = next.SnapshotSchedule,
             SnapshotKeep = next.SnapshotKeep,
             AuditRetentionDays = next.AuditRetentionDays,

@@ -23,6 +23,7 @@ export function emptyEntities(): Entities {
     savedFilters: [],
     settings: [],
     comments: [],
+    attachments: [],
   };
 }
 

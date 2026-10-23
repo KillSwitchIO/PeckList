@@ -122,6 +122,19 @@ The PostgreSQL connection string, in [Npgsql's format](https://www.npgsql.org/do
 Upgrade the database schema when a newer version starts. Turn off when the database user may not
 change the schema, and run the upgrade yourself. **Default:** `true`. **Where:** env.
 
+## Files
+
+### `ATTACHMENT_MAX_MB`
+
+The largest file someone may attach to a task, in megabytes. Bigger uploads are refused and stay
+on the device that added them. **Default:** `25`. **Where:** any, live.
+
+### `ATTACHMENT_DIR`
+
+Where attached files are kept, one file per content hash. Back this folder up with the database.
+Files no task uses any more are removed 30 days after the last task let go of them.
+**Default:** `attachments` next to the SQLite file (`/data/attachments` in the image). **Where:** env.
+
 ## Network
 
 ### `TRUSTED_PROXIES`

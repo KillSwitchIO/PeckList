@@ -246,8 +246,9 @@ public sealed class SharingIndex
                 viewers.UnionWith(Assigned(entity));
                 break;
             case "comments":
-                // Whoever sees the task sees its comments; a comment on a task gone from the index
-                // stays its author's.
+            case "attachments":
+                // Whoever sees the task sees its comments and files; one on a task gone from the
+                // index stays its author's.
                 if (entity.Get("taskId") is { } commented && byId.ContainsKey(commented)) viewers.UnionWith(Viewers(commented));
                 else viewers.Add(entity.Owner);
                 break;
@@ -305,6 +306,23 @@ public sealed class SharingIndex
         people.Remove(userId);
         return people;
     }
+
+    /// <summary>Whether the user sees a live attachment with these bytes (so may download them).</summary>
+    public bool SeesFile(string userId, string sha256) =>
+        Live("attachments").Any(each => each.Get("sha256") == sha256 && Viewers(each.Id).Contains(userId));
+
+    /// <summary>
+    /// File hashes still wanted: live attachments, and deleted ones newer than <paramref name="keepDeletedSince"/>
+    /// (they can still be restored from the trash or undone).
+    /// </summary>
+    public HashSet<string> WantedFiles(DateTimeOffset keepDeletedSince) =>
+        byId.Values
+            .Where(each => each.Collection == "attachments"
+                && (!each.Deleted || (DateTimeOffset.TryParse(each.Get("deletedAt"), System.Globalization.CultureInfo.InvariantCulture,
+                    System.Globalization.DateTimeStyles.AssumeUniversal, out var at) && at >= keepDeletedSince)))
+            .Select(each => each.Get("sha256"))
+            .OfType<string>()
+            .ToHashSet(StringComparer.Ordinal);
 
     /// <summary>Every entity id the user may see.</summary>
     public HashSet<string> VisibleTo(string userId) =>
@@ -423,6 +441,17 @@ public sealed class SharingIndex
                 var listId = beforeIndex.byId.TryGetValue(taskId, out var task) ? task.Get("listId") : null;
                 return listId is not null && beforeIndex.ListRole(userId, listId) == "owner"
                     && doc["deletedAt"] is not null && !Changed("body");
+            }
+            case "attachments":
+            {
+                var taskId = Field(doc, "taskId");
+                if (taskId is null || (before is not null && (Changed("taskId") || Changed("sha256") || Changed("size")))) return false;
+                if (before is null) return after.OwnerId == userId && MayEditTask(beforeIndex.Contains(taskId) ? beforeIndex : this, userId, taskId);
+                // Who added it renames or removes it; the list's owner may remove it.
+                if (before.OwnerId == userId) return true;
+                var listId = beforeIndex.byId.TryGetValue(taskId, out var task) ? task.Get("listId") : null;
+                return listId is not null && beforeIndex.ListRole(userId, listId) == "owner"
+                    && doc["deletedAt"] is not null && !Changed("name");
             }
             case "lists":
                 // Only owners change a list; a new list is the writer's own.

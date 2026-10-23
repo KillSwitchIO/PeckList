@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 7,
+  "schemaVersion": 8,
   "app": {
     "name": "punchlist",
     "version": "0.1.0"
@@ -600,6 +600,31 @@
           "taskId": "2026-10-20T16:30:00.000Z-0000-dev1",
           "body": "2026-10-20T16:30:00.000Z-0000-dev1",
           "editedAt": "2026-10-20T16:30:00.000Z-0000-dev1"
+        }
+      }
+    ],
+    "attachments": [
+      {
+        "id": "01DEV1000000000000000000A1",
+        "createdAt": "2026-10-20T16:31:00.000Z",
+        "createdBy": "01TESTMEMBER00000000000001",
+        "deletedAt": null,
+        "origin": "local",
+        "taskId": "01DEV10000000000000000000E",
+        "name": "itinerary.pdf",
+        "size": 48213,
+        "mime": "application/pdf",
+        "sha256": "9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08",
+        "_hlc": {
+          "createdAt": "2026-10-20T16:31:00.000Z-0000-dev1",
+          "createdBy": "2026-10-20T16:31:00.000Z-0000-dev1",
+          "deletedAt": "2026-10-20T16:31:00.000Z-0000-dev1",
+          "origin": "2026-10-20T16:31:00.000Z-0000-dev1",
+          "taskId": "2026-10-20T16:31:00.000Z-0000-dev1",
+          "name": "2026-10-20T16:31:00.000Z-0000-dev1",
+          "size": "2026-10-20T16:31:00.000Z-0000-dev1",
+          "mime": "2026-10-20T16:31:00.000Z-0000-dev1",
+          "sha256": "2026-10-20T16:31:00.000Z-0000-dev1"
         }
       }
     ]

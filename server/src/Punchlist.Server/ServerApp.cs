@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.HttpOverrides;
 using Punchlist.Core;
 using Punchlist.Core.Configuration;
 using Punchlist.Server.Auth;
+using Punchlist.Server.Attachments;
 using Punchlist.Server.Audit;
 using Punchlist.Server.Logging;
 using Punchlist.Core.Sync;
@@ -67,6 +68,8 @@ public static partial class ServerApp
         builder.Services.AddHttpContextAccessor();
         builder.Services.AddSingleton<ISharingChangeSink, Audit.SharingAudit>();
         builder.Services.AddSingleton<SyncService>();
+        builder.Services.AddSingleton<Punchlist.Core.Attachments.IAttachmentStore>(new Attachments.FileAttachmentStore(settings.AttachmentDir));
+        builder.Services.AddHostedService<Attachments.AttachmentCleanup>();
         builder.Services.AddSingleton<Punchlist.Core.Sharing.Groups>();
         builder.Services.AddSingleton<Punchlist.Core.Sharing.Invites>();
         builder.Services.AddSingleton<Punchlist.Core.Sharing.Ownership>();
@@ -118,7 +121,7 @@ public static partial class ServerApp
         app.MapHealthChecks("/healthz");
         app.MapGet("/api/info", () => new ServerInfo("punchlist", Version, WorkspaceSchema.CurrentVersion));
         app.MapAuth();
-        app.MapGroup("/api").RequireAuthorization().RequirePasswordChanged().EnsureProfiles().MapSync().MapFriends().MapAccount();
+        app.MapGroup("/api").RequireAuthorization().RequirePasswordChanged().EnsureProfiles().MapSync().MapFriends().MapAccount().MapAttachments();
         app.MapGroup("/api/admin").RequireAuthorization().RequirePasswordChanged().MapAdmin().MapSettings().MapBackups().MapLogging().MapAudit().MapStats().MapSetup();
 
         var webRoot = settings.WebRoot ?? Path.Combine(AppContext.BaseDirectory, "wwwroot");

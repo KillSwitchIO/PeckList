@@ -91,6 +91,12 @@ public sealed record ServerSettings
     /// <summary>Write pruned entries to gzipped JSON lines first (<c>AUDIT_ARCHIVE</c>).</summary>
     public bool AuditArchive { get; init; }
 
+    /// <summary>Where attachment files go: <c>attachments</c> next to the SQLite file.</summary>
+    public string AttachmentDir { get; init; } = "/data/attachments";
+
+    /// <summary>The largest file people may attach, in megabytes (<c>ATTACHMENT_MAX_MB</c>).</summary>
+    public int AttachmentMaxMb { get; init; } = 25;
+
     /// <summary>Where archives go: <c>audit</c> next to the SQLite file.</summary>
     public string AuditArchiveDir { get; init; } = "/data/audit";
 
@@ -192,6 +198,9 @@ public sealed record ServerSettings
             AuditRetentionDays = Count("AUDIT_RETENTION_DAYS", 90, 1),
             AccessLogRetentionDays = Count("ACCESS_LOG_RETENTION_DAYS", 14, 1),
             AuditArchive = Flag("AUDIT_ARCHIVE", false),
+            AttachmentDir = Get("ATTACHMENT_DIR")
+                ?? Path.Combine(Path.GetDirectoryName(dbPath) is { Length: > 0 } attachmentDir ? attachmentDir : ".", "attachments"),
+            AttachmentMaxMb = Count("ATTACHMENT_MAX_MB", 25, 1),
             AuditArchiveDir = Get("AUDIT_ARCHIVE_DIR")
                 ?? Path.Combine(Path.GetDirectoryName(dbPath) is { Length: > 0 } auditDir ? auditDir : ".", "audit"),
             Logging = LoggingSettings.Read(Get, Path.Combine(Path.GetDirectoryName(dbPath) is { Length: > 0 } dir ? dir : ".", "logs"), errors),
