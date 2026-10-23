@@ -9,7 +9,6 @@ import PlaylistAddRounded from '@mui/icons-material/PlaylistAddRounded';
 import {
   Alert,
   Button,
-  Divider,
   IconButton,
   ListSubheader,
   Menu,
@@ -54,7 +53,7 @@ import { useListView, type ListViewSettings } from './listGrouping.ts';
 import { ConfirmDialog, ListDialog, NameDialog } from './ListDialog.tsx';
 import { ShareDialog } from './ShareDialog.tsx';
 import { listMembersOf, myRole, type Role } from '../../core/sharing.ts';
-import { ShareIcon } from '../icons/icons.tsx';
+import { ShareIcon, SortGroupIcon } from '../icons/icons.tsx';
 import { useSyncState } from '../sync/syncContext.ts';
 import { listName } from './listName.ts';
 
@@ -71,8 +70,10 @@ function ListMenu({
   const apply = useApply();
   const navigate = useNavigate();
   const [anchor, setAnchor] = useState<HTMLElement | null>(null);
+  const [sortAnchor, setSortAnchor] = useState<HTMLElement | null>(null);
   const [dialog, setDialog] = useState<'edit' | 'section' | 'delete' | 'share' | null>(null);
   const close = () => setAnchor(null);
+  const closeSort = () => setSortAnchor(null);
   const workspace = useWorkspace();
   const phase = useSyncState((state) => state.phase);
   const authMode = useSyncState((state) => state.account?.authMode);
@@ -103,15 +104,25 @@ function ListMenu({
           </IconButton>
         </Tooltip>
       )}
-      <Tooltip title={t('common.more')} disableFocusListener>
+      <Tooltip title={t('list.sortAndGroup')} disableFocusListener>
         <IconButton
-          aria-label={t('common.more')}
-          onClick={(event) => setAnchor(event.currentTarget)}
+          aria-label={t('list.sortAndGroup')}
+          onClick={(event) => setSortAnchor(event.currentTarget)}
         >
-          <MoreVertRounded />
+          <SortGroupIcon />
         </IconButton>
       </Tooltip>
-      <Menu anchorEl={anchor} open={anchor !== null} onClose={close}>
+      {(editor || (owner && !list.isInbox)) && (
+        <Tooltip title={t('common.more')} disableFocusListener>
+          <IconButton
+            aria-label={t('common.more')}
+            onClick={(event) => setAnchor(event.currentTarget)}
+          >
+            <MoreVertRounded />
+          </IconButton>
+        </Tooltip>
+      )}
+      <Menu anchorEl={sortAnchor} open={sortAnchor !== null} onClose={closeSort}>
         <ListSubheader sx={{ lineHeight: '32px', bgcolor: 'transparent' }}>
           {t('list.groupBy')}
         </ListSubheader>
@@ -122,7 +133,7 @@ function ListMenu({
             aria-label={t('list.groupByOption', { name: t(`list.group.${mode}`).toLowerCase() })}
             selected={view.grouping === mode}
             onClick={() => {
-              close();
+              closeSort();
               view.setGrouping(mode);
             }}
           >
@@ -140,7 +151,7 @@ function ListMenu({
             aria-label={t('list.sortByOption', { name: t(`list.sort.${mode}`).toLowerCase() })}
             selected={view.sort === mode}
             onClick={() => {
-              close();
+              closeSort();
               view.setSort(mode);
             }}
           >
@@ -148,7 +159,8 @@ function ListMenu({
             {view.sort === mode && <CheckRounded fontSize="small" sx={{ ml: 'auto', pl: 1 }} />}
           </MenuItem>
         ))}
-        {editor && <Divider />}
+      </Menu>
+      <Menu anchorEl={anchor} open={anchor !== null} onClose={close}>
         {/* The Mess Drawer has a fixed name and no color: nothing to edit. */}
         {owner && !list.isInbox && (
           <MenuItem

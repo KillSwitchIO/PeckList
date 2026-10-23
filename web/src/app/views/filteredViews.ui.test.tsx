@@ -103,11 +103,11 @@ describe('date-grouped views', () => {
   it('a list can switch to section grouping, and adding a section switches to it', async () => {
     await renderSeeded('/inbox');
     await screen.findByRole('button', { name: 'Open undated' });
-    await userEvent.click(screen.getByRole('button', { name: 'More actions' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Sort and group' }));
     await userEvent.click(screen.getByRole('menuitem', { name: 'Group by section' }));
     expect(groupHeadings()).not.toContain('No date1');
     expect(groupHeadings()).toContain('Closed6');
-    await userEvent.click(screen.getByRole('button', { name: 'More actions' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Sort and group' }));
     await userEvent.click(screen.getByRole('menuitem', { name: 'Group by date' }));
     expect(groupHeadings()).toContain('No date1');
   });
@@ -117,13 +117,13 @@ describe('list sort and group options', () => {
   it('groups a list by tag or not at all, and sorts by title', async () => {
     await renderSeeded('/inbox');
     await screen.findByRole('button', { name: 'Open undated' });
-    await userEvent.click(screen.getByRole('button', { name: 'More actions' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Sort and group' }));
     await userEvent.click(screen.getByRole('menuitem', { name: 'Group by tag' }));
     expect(groupHeadings()).toEqual(expect.arrayContaining(['home2', 'No tags4']));
 
-    await userEvent.click(screen.getByRole('button', { name: 'More actions' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Sort and group' }));
     await userEvent.click(screen.getByRole('menuitem', { name: 'Group by none' }));
-    await userEvent.click(screen.getByRole('button', { name: 'More actions' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Sort and group' }));
     await userEvent.click(screen.getByRole('menuitem', { name: 'Sort by title' }));
     const titles = screen
       .getAllByRole('button', { name: /^Open / })
@@ -142,14 +142,14 @@ describe('list sort and group options', () => {
     const nav = screen.getAllByRole('navigation')[0]!;
     await userEvent.click(within(nav).getByRole('button', { name: /^Today/ }));
     await userEvent.click(within(nav).getByRole('button', { name: /^Mess Drawer/ }));
-    await userEvent.click(await screen.findByRole('button', { name: 'More actions' }));
+    await userEvent.click(await screen.findByRole('button', { name: 'Sort and group' }));
     expect(screen.getByRole('menuitem', { name: 'Sort by title' })).toHaveClass('Mui-selected');
   });
 
   it('groups by priority, high first', async () => {
     await renderSeeded('/inbox');
     await screen.findByRole('button', { name: 'Open undated' });
-    await userEvent.click(screen.getByRole('button', { name: 'More actions' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Sort and group' }));
     await userEvent.click(screen.getByRole('menuitem', { name: 'Group by priority' }));
     expect(groupHeadings()).toContain('No priority6');
   });

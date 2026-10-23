@@ -189,6 +189,41 @@ describe('stable frame', () => {
   });
 });
 
+describe('sidebar frame', () => {
+  it('folds the sidebar away and back, and remembers it', async () => {
+    mockViewport('desktop');
+    const first = await renderApp('/today');
+    expect(screen.getByRole('navigation', { name: 'Punchlist' })).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Hide the sidebar' }));
+    expect(screen.queryByRole('navigation', { name: 'Punchlist' })).toBeNull();
+    first.unmount();
+
+    await renderApp('/today');
+    expect(screen.queryByRole('navigation', { name: 'Punchlist' })).toBeNull();
+    await userEvent.click(screen.getByRole('button', { name: 'Show the sidebar' }));
+    expect(screen.getByRole('navigation', { name: 'Punchlist' })).toBeInTheDocument();
+  });
+
+  it('opens a day of the mini calendar in the calendar, and shows the version', async () => {
+    mockViewport('desktop');
+    await renderApp('/today');
+    const mini = screen.getByRole('region', { name: 'Mini calendar' });
+    const days = within(mini).getAllByRole('gridcell');
+    expect(days).toHaveLength(42);
+    const today = within(mini).getByRole('gridcell', { current: 'date' });
+    await userEvent.click(within(mini).getByRole('button', { name: 'Next month' }));
+    expect(within(mini).queryByRole('gridcell', { current: 'date' })).toBeNull();
+    await userEvent.click(within(mini).getByRole('button', { name: 'Back to this month' }));
+    await userEvent.click(within(mini).getByRole('gridcell', { current: 'date' }));
+    expect(await screen.findByRole('button', { name: 'Day', pressed: true })).toBeInTheDocument();
+    expect(today).toBeTruthy();
+
+    expect(
+      screen.getByRole('link', { name: /^Punchlist v\d+\.\d+\.\d+.*: what changed$/ }),
+    ).toHaveAttribute('href', 'https://gitlab.com/killswitch10/punchlist/-/blob/main/CHANGELOG.md');
+  });
+});
+
 describe('navigation helpers', () => {
   it('matches nested paths to their nav item', () => {
     expect(activeItem(SIDEBAR_ITEMS, '/inbox/123')).toBe('/inbox');

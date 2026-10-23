@@ -2,8 +2,19 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import { VitePWA } from 'vite-plugin-pwa';
+import pkg from './package.json' with { type: 'json' };
+
+// The version the app shows under its menu: what a release or CI build stamps (the Dockerfile's
+// VERSION), else package.json's. A plain dev stamp falls back too.
+const stamped = process.env.PUNCHLIST_VERSION;
+const version = stamped && !stamped.startsWith('0.0.0') ? stamped : pkg.version;
+const revision = (process.env.PUNCHLIST_REVISION ?? '').slice(0, 7);
 
 export default defineConfig({
+  define: {
+    __APP_VERSION__: JSON.stringify(version),
+    __APP_REVISION__: JSON.stringify(/^[0-9a-f]{7}$/.test(revision) ? revision : ''),
+  },
   // Vite's default 5173 often falls inside a port range Windows reserves for Hyper-V/WSL.
   server: {
     port: 6173,

@@ -9,6 +9,7 @@ import {
   Button,
   Dialog,
   Box,
+  Link,
   Divider,
   Drawer,
   Fab,
@@ -44,6 +45,8 @@ import { useTaskSelection } from '../tasks/selection.ts';
 import { TaskDetail } from '../tasks/TaskDetail.tsx';
 import { UndoToast } from '../tasks/UndoToast.tsx';
 import { ProfileButton } from './ProfileButton.tsx';
+import { APP_VERSION_LABEL, CHANGELOG_URL } from './appVersion.ts';
+import { MiniCalendar } from './MiniCalendar.tsx';
 import { useAppliedTimeZone } from './useAppliedTimeZone.ts';
 import { activeItem, BOTTOM_ITEMS, SIDEBAR_ITEMS, type NavItem } from './navigation.tsx';
 import { SyncButton } from '../sync/SyncButton.tsx';
@@ -53,6 +56,28 @@ import { useFooterItems } from './useFooterItems.ts';
 const PURGE_EVERY_MS = 6 * 3_600_000;
 
 const DRAWER_WIDTH = 232;
+const COLLAPSED_KEY = 'punchlist.sidebarCollapsed';
+
+/** Whether the desktop sidebar is folded away (per device). */
+function useSidebarCollapsed(): [boolean, (collapsed: boolean) => void] {
+  const [collapsed, setCollapsed] = useState(() => {
+    try {
+      return localStorage.getItem(COLLAPSED_KEY) === 'true';
+    } catch {
+      return false;
+    }
+  });
+  const set = (next: boolean) => {
+    setCollapsed(next);
+    try {
+      if (next) localStorage.setItem(COLLAPSED_KEY, 'true');
+      else localStorage.removeItem(COLLAPSED_KEY);
+    } catch {
+      // Private windows: it stays as it is until the page reloads.
+    }
+  };
+  return [collapsed, set];
+}
 // Details get room for notes: about two fifths of the window, within sensible bounds.
 const DETAIL_WIDTH = 'clamp(440px, 40vw, 960px)';
 // A dragged width stays within these: the panel keeps room for its fields, the list for its rows.
@@ -165,6 +190,19 @@ function Sidebar({ onNavigate }: { onNavigate: (path: string) => void }) {
           <SidebarTags onNavigate={onNavigate} />
         </Box>
         <NavList items={footer} selected={selected} onSelect={onNavigate} />
+        <MiniCalendar onPick={(date) => onNavigate(`/calendar?view=day&date=${date}`)} />
+        <Link
+          href={CHANGELOG_URL}
+          target="_blank"
+          rel="noreferrer"
+          variant="caption"
+          color="text.disabled"
+          underline="hover"
+          aria-label={t('app.versionLink', { version: APP_VERSION_LABEL })}
+          sx={{ px: 2.5, pb: 1, alignSelf: 'flex-start', fontSize: 11 }}
+        >
+          {APP_VERSION_LABEL}
+        </Link>
       </Box>
     </SidebarEditProvider>
   );
@@ -183,6 +221,9 @@ export function AppShell() {
   const isPhone = useMediaQuery(theme.breakpoints.down('sm'), { noSsr: true });
   const isDesktop = useMediaQuery(theme.breakpoints.up('lg'), { noSsr: true });
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [collapsed, setCollapsed] = useSidebarCollapsed();
+  const sidebarShown = isDesktop && !collapsed;
+  const drawerWidth = sidebarShown ? DRAWER_WIDTH : 0;
   const navigate = useNavigate();
   const { pathname } = useLocation();
   const { selectedId, close } = useTaskSelection();
@@ -193,7 +234,7 @@ export function AppShell() {
   const aside = useRef<HTMLElement | null>(null);
   const [detailWidth, setDetailWidth] = useDetailWidth(
     DETAIL_MIN,
-    () => window.innerWidth - DRAWER_WIDTH - LIST_MIN,
+    () => window.innerWidth - drawerWidth - LIST_MIN,
   );
 
   // Escape closes the task details, unless a dialog, menu or picker takes it first.
@@ -240,7 +281,7 @@ export function AppShell() {
 
   return (
     <Box sx={{ display: 'flex', minHeight: '100dvh' }}>
-      {isDesktop ? (
+      {sidebarShown ? (
         <Drawer
           variant="permanent"
           sx={{ width: DRAWER_WIDTH, flexShrink: 0, '& .MuiDrawer-paper': { width: DRAWER_WIDTH } }}
@@ -248,7 +289,8 @@ export function AppShell() {
           <Sidebar onNavigate={go} />
         </Drawer>
       ) : (
-        !isPhone && (
+        !isPhone &&
+        !isDesktop && (
           <Drawer
             variant="temporary"
             open={drawerOpen}
@@ -263,14 +305,27 @@ export function AppShell() {
       <Box sx={{ flexGrow: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
         <AppBar position="sticky">
           <Toolbar sx={{ gap: 1 }}>
-            {!isDesktop && !isPhone && (
-              <IconButton
-                edge="start"
-                aria-label={t('nav.openMenu')}
-                onClick={() => setDrawerOpen(true)}
+            {!isPhone && (
+              <Tooltip
+                title={
+                  isDesktop
+                    ? t(collapsed ? 'nav.showSidebar' : 'nav.hideSidebar')
+                    : t('nav.openMenu')
+                }
               >
-                <MenuRounded />
-              </IconButton>
+                <IconButton
+                  edge="start"
+                  aria-label={
+                    isDesktop
+                      ? t(collapsed ? 'nav.showSidebar' : 'nav.hideSidebar')
+                      : t('nav.openMenu')
+                  }
+                  aria-expanded={isDesktop ? !collapsed : drawerOpen}
+                  onClick={() => (isDesktop ? setCollapsed(!collapsed) : setDrawerOpen(true))}
+                >
+                  <MenuRounded />
+                </IconButton>
+              </Tooltip>
             )}
             <Box
               ref={setHeaderSlot}
@@ -307,7 +362,7 @@ export function AppShell() {
                 width:
                   detailWidth === null
                     ? DETAIL_WIDTH
-                    : `clamp(${DETAIL_MIN}px, ${detailWidth}px, calc(100vw - ${DRAWER_WIDTH + LIST_MIN}px))`,
+                    : `clamp(${DETAIL_MIN}px, ${detailWidth}px, calc(100vw - ${drawerWidth + LIST_MIN}px))`,
                 flexShrink: 0,
                 borderLeft: 1,
                 borderColor: 'divider',

@@ -10,6 +10,7 @@ import {
   useTheme,
 } from '@mui/material';
 import { useMemo, useState } from 'react';
+import { useSearchParams } from 'react-router';
 import {
   calendarItems,
   droppedSchedule,
@@ -40,6 +41,16 @@ function savedMode(): CalendarMode {
   } catch {
     return 'month';
   }
+}
+
+/** A day and view the address asks for (`?view=day&date=2026-10-23`, from the mini calendar). */
+function askedFor(params: URLSearchParams): { date: string | null; mode: CalendarMode | null } {
+  const date = params.get('date');
+  const view = params.get('view');
+  return {
+    date: date && /^\d{4}-\d{2}-\d{2}$/.test(date) ? date : null,
+    mode: MODES.find((mode) => mode === view) ?? null,
+  };
 }
 
 /** How many unscheduled tasks show at first (and more on asking). */
@@ -124,8 +135,17 @@ export function CalendarPage() {
   const today = useToday(zone);
   const settings = workspace.entities.settings[0];
   const weekStart = settings?.weekStart ?? 0;
-  const [mode, setMode] = useState<CalendarMode>(savedMode);
-  const [date, setDate] = useState(today);
+  const [params] = useSearchParams();
+  const asked = askedFor(params);
+  const [mode, setMode] = useState<CalendarMode>(() => asked.mode ?? savedMode());
+  const [date, setDate] = useState(() => asked.date ?? today);
+  // Asked again while already here (another day picked in the mini calendar): go there.
+  const [seen, setSeen] = useState(params.toString());
+  if (params.toString() !== seen) {
+    setSeen(params.toString());
+    if (asked.date) setDate(asked.date);
+    if (asked.mode) setMode(asked.mode);
+  }
   const [range, setRange] = useState<{ from: string; to: string } | null>(null);
   const [source, setSource] = useState<HTMLElement | null>(null);
   const [drawer, setDrawer] = useState(false);

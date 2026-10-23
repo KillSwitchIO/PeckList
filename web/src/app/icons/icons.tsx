@@ -410,6 +410,16 @@ export function FilterIcon(props: SvgIconProps) {
   );
 }
 
+/** Sort and group: rows getting shorter beside an up-and-down arrow. */
+export function SortGroupIcon(props: SvgIconProps) {
+  return (
+    <PunchIcon {...props}>
+      <path d="M4 6.5h9M4 12h6.5M4 17.5h4" />
+      <path d="M17.5 5v14M14.5 16l3 3 3-3M14.5 8l3-3 3 3" />
+    </PunchIcon>
+  );
+}
+
 /** Edit: a pencil. */
 export function EditIcon(props: SvgIconProps) {
   return (

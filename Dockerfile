@@ -22,7 +22,9 @@ COPY e2e/package.json e2e/
 RUN pnpm install --frozen-lockfile --filter "@punchlist/web..."
 COPY schema schema
 COPY web web
-RUN pnpm --filter @punchlist/web build
+ARG VERSION
+ARG REVISION
+RUN PUNCHLIST_VERSION="$VERSION" PUNCHLIST_REVISION="$REVISION" pnpm --filter @punchlist/web build
 
 FROM --platform=$BUILDPLATFORM mcr.microsoft.com/dotnet/sdk:10.0 AS server
 ARG TARGETARCH
