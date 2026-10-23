@@ -39,7 +39,10 @@ public sealed class DebugDump(LayeredSettings layers, ServerSettings settings, I
         {
             App = "punchlist",
             ServerApp.Version,
+            Build = ServerApp.FullVersion,
             SchemaVersion = WorkspaceSchema.CurrentVersion,
+            // TZ, as the server understood it (UTC when the zone is unknown).
+            TimeZone = TimeZoneInfo.Local.Id,
             Runtime = RuntimeInformation.FrameworkDescription,
             Os = RuntimeInformation.OSDescription,
             Architecture = RuntimeInformation.ProcessArchitecture.ToString(),

@@ -15,7 +15,7 @@ namespace Punchlist.Server;
 /// </summary>
 public static class Cli
 {
-    public static readonly string[] Commands = ["export", "import", "migrate-db", "snapshot", "admin", "oidc", "config", "debug-dump", "help", "--help", "-h"];
+    public static readonly string[] Commands = ["export", "import", "migrate-db", "upgrade-db", "snapshot", "admin", "oidc", "config", "debug-dump", "help", "--help", "-h"];
 
     public const string Usage = """
         Usage: punchlist <command>
@@ -28,6 +28,8 @@ public static class Cli
           migrate-db --to sqlite --path <file>
           migrate-db --to postgres --connection <connection string>
                                         Copy everything into another, empty database.
+          upgrade-db                    Apply database schema upgrades and exit (for servers
+                                        running with DB_MIGRATE_ON_START=false).
           snapshot                      Take a snapshot now (into SNAPSHOT_DIR).
           admin reset-password [user]   Give an account (default: admin) a new password to change at login.
           admin add-user <user> [--admin]
@@ -46,6 +48,7 @@ public static class Cli
           debug-dump [file]             Write a zip for bug reports: recent logs, settings (secrets
                                         hidden), versions and database counts (stdout without a file).
           healthcheck                   Exit 0 when the running server answers /healthz.
+          --version                     Print the version and build.
 
         Settings come from the same environment variables as the server.
         """;
@@ -67,9 +70,13 @@ public static class Cli
             // These work before (and without) a working configuration.
             if (command == "config") return await ConfigAsync(args, environment, inContainer, output, errors, input ?? Console.In);
             settings ??= SettingsLoader.Load(environment, inContainer).Settings;
-            var (database, backup) = await OpenAsync(settings.DbProvider, settings.DbPath, settings.DbConnectionString, settings.DbMigrateOnStart);
+            var (database, backup) = await OpenAsync(
+                settings.DbProvider, settings.DbPath, settings.DbConnectionString, settings.DbMigrateOnStart || command == "upgrade-db");
             switch (command)
             {
+                case "upgrade-db":
+                    await output.WriteLineAsync($"The {settings.DbProvider.ToString().ToLowerInvariant()} database is up to date for Punchlist {ServerApp.Version}.");
+                    return 0;
                 case "export" when args.Contains("--user"):
                 case "import" when args.Contains("--user"):
                     return await UserBackupAsync(command, [.. args.Skip(1).Where(arg => arg != "--user")], database, output, errors, standardOutput);

@@ -1,3 +1,4 @@
+using Microsoft.Extensions.Hosting.WindowsServices;
 using Punchlist.Core.Configuration;
 using Punchlist.Server;
 
@@ -7,9 +8,22 @@ if (args is ["healthcheck", ..])
     return await HealthCheckCommand.RunAsync(Environment.GetEnvironmentVariable("ASPNETCORE_HTTP_PORTS"));
 }
 
+if (args is ["--version" or "version", ..])
+{
+    Console.WriteLine($"punchlist {ServerApp.FullVersion}");
+    return 0;
+}
+
 if (args.Length > 0 && Cli.Commands.Contains(args[0]))
 {
     return await Cli.RunAsync(args, Console.Out, Console.Error, Console.OpenStandardOutput());
+}
+
+// A Windows service starts in C:\Windows\System32; relative paths (the default ./data, a relative
+// CONFIG_FILE) mean the folder the server is installed in.
+if (WindowsServiceHelpers.IsWindowsService())
+{
+    Directory.SetCurrentDirectory(AppContext.BaseDirectory);
 }
 
 WebApplication app;

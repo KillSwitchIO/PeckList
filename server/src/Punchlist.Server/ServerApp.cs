@@ -12,13 +12,19 @@ namespace Punchlist.Server;
 /// <summary>Composition root: services, middleware and endpoints of the one container.</summary>
 public static partial class ServerApp
 {
-    public static string Version { get; } =
-        typeof(ServerApp).Assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion.Split('+')[0]
-        ?? "0.0.0";
+    /// <summary>The version with its build metadata: the commit it was built from in a release build.</summary>
+    public static string FullVersion { get; } =
+        typeof(ServerApp).Assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion ?? "0.0.0";
+
+    public static string Version { get; } = FullVersion.Split('+')[0];
 
     public static WebApplication Build(string[] args)
     {
         var builder = WebApplication.CreateBuilder(args);
+        // Both do nothing unless the server runs under that service manager: a Windows service
+        // (start/stop and the event log's lifetime messages), or a systemd Type=notify unit.
+        builder.Host.UseWindowsService(options => options.ServiceName = "Punchlist");
+        builder.Host.UseSystemd();
         var config = builder.Configuration;
         // Configuration holds the environment variables (and test overrides); NAME_FILE works too.
         // Then CONFIG_FILE, then values saved on the admin settings page (spec: Server settings).

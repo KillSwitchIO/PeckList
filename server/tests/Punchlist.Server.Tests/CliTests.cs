@@ -47,6 +47,20 @@ public sealed class CliTests : IDisposable
     }
 
     [Fact]
+    public async Task Upgrade_db_brings_the_schema_up_to_date_even_when_start_up_may_not()
+    {
+        var settings = Settings() with { DbMigrateOnStart = false };
+        var (code, output, _, _) = await Run(settings, "upgrade-db");
+        Assert.Equal(0, code);
+        Assert.Contains("database is up to date", output);
+        await using var connection = new Microsoft.Data.Sqlite.SqliteConnection($"Data Source={settings.DbPath}");
+        await connection.OpenAsync(TestContext.Current.CancellationToken);
+        await using var command = connection.CreateCommand();
+        command.CommandText = "SELECT COUNT(*) FROM schema_migrations";
+        Assert.True((long)(await command.ExecuteScalarAsync(TestContext.Current.CancellationToken))! > 0);
+    }
+
+    [Fact]
     public async Task Exports_imports_and_snapshots()
     {
         var settings = Settings();
