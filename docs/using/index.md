@@ -14,7 +14,10 @@
 | **Trash**                               | Deleted tasks and lists, restorable for 30 days.                |
 | **Lists**, **Tags**, **Filters**        | Your own lists (with sections), nested tags, and saved filters. |
 
-**Edit sidebar** pins and hides views. On a phone the main views sit in the bottom bar.
+**Edit sidebar** pins and hides views. The menu button at the top left folds the sidebar away
+and back (each device remembers it). At the bottom, a small month shows a dot on days with open
+tasks; click a day to open it in the calendar. Under it is the app's version, which links to what
+changed. On a phone the main views sit in the bottom bar.
 
 ## Tasks
 
@@ -40,7 +43,8 @@ their start; the due date is the deadline.
 ## Lists and sections
 
 Lists hold tasks; sections split a list into parts (drag a section's header to reorder, or use its
-menu). A list's **...** menu groups it by section or by date. Lists can be shared: see
+menu). The sort-and-group button next to a list's name groups it (by date, section, priority or
+tag) and sorts it; the **...** menu edits, archives or deletes it. Lists can be shared: see
 [sharing](sharing.md).
 
 ## Tags
