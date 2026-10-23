@@ -1,4 +1,4 @@
-import { fireEvent, screen, within } from '@testing-library/react';
+import { fireEvent, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { createTag } from '../core/tags.ts';
@@ -36,6 +36,23 @@ describe('app shell', () => {
     expect(screen.getByRole('heading', { level: 1, name: 'Calendar' })).toBeInTheDocument();
     // On a phone the unscheduled tasks wait in a drawer.
     expect(screen.getByRole('button', { name: 'Unscheduled' })).toBeInTheDocument();
+  });
+
+  it('gives phones a + button that opens the add-task field', async () => {
+    mockViewport('phone');
+    await renderApp('/today');
+    await userEvent.click(screen.getByRole('button', { name: 'Add a task' }));
+    expect(document.activeElement).toBe(document.querySelector('input[data-add-task]'));
+
+    // A page without an add field: on to the Inbox's.
+    await userEvent.click(screen.getByRole('button', { name: 'Calendar' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Add a task' }));
+    expect(
+      await screen.findByRole('heading', { level: 1, name: 'Mess Drawer' }),
+    ).toBeInTheDocument();
+    await waitFor(() =>
+      expect(document.activeElement).toBe(document.querySelector('input[data-add-task]')),
+    );
   });
 
   it('opens a drawer from the menu button on tablets', async () => {

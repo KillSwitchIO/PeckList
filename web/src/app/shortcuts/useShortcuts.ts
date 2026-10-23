@@ -6,6 +6,7 @@ import { deleteTask, toggleTaskDone } from '../../core/tasks.ts';
 import { popupOpen, typing } from '../hooks/keys.ts';
 import { t } from '../i18n/i18n.ts';
 import { useWorkspaceStore } from '../store/hooks.ts';
+import { focusAddTask } from '../tasks/focusAddTask.ts';
 import { useTaskSelection } from '../tasks/selection.ts';
 import { matchShortcut, type ShortcutAction } from './shortcuts.ts';
 
@@ -14,13 +15,6 @@ const SEQUENCE_MS = 1200;
 
 /** Task rows on the page, in order (their open buttons carry `data-task-row`). */
 const taskRows = () => [...document.querySelectorAll<HTMLElement>('main [data-task-row]')];
-
-/** Focus the first add-task field, if the page has one. */
-const focusAddTask = () => {
-  const field = document.querySelector<HTMLInputElement>('input[data-add-task]');
-  field?.focus();
-  return field !== null;
-};
 
 /**
  * The app's keyboard shortcuts (see shortcuts.ts). Returns whether the "?" list is open and a

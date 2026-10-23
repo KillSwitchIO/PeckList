@@ -14,6 +14,7 @@ import {
   Box,
   Divider,
   Drawer,
+  Fab,
   IconButton,
   List,
   ListItemButton,
@@ -28,6 +29,7 @@ import {
 import { useEffect, useRef, useState } from 'react';
 import { Outlet, useLocation, useNavigate } from 'react-router';
 import { t } from '../i18n/i18n.ts';
+import { focusAddTask } from '../tasks/focusAddTask.ts';
 import { purgeExpired } from '../../core/trash.ts';
 import { useApply } from '../store/hooks.ts';
 
@@ -188,6 +190,9 @@ function Sidebar({ onNavigate }: { onNavigate: (path: string) => void }) {
     </SidebarEditProvider>
   );
 }
+
+/** Pages without tasks to add, where the phone's + button stays away. */
+const NO_ADD_BUTTON = ['/settings', '/admin', '/friends', '/f/', '/search'];
 
 /**
  * Responsive frame: permanent sidebar on desktop, temporary drawer on tablet,
@@ -367,6 +372,27 @@ export function AppShell() {
           >
             {!expanded && detail}
           </Drawer>
+        )}
+
+        {isPhone && detail === null && !NO_ADD_BUTTON.some((path) => pathname.startsWith(path)) && (
+          <Fab
+            color="primary"
+            aria-label={t('shortcut.addTask')}
+            onClick={() => {
+              // There is no Q key on a phone: the page's add field, else the Inbox's.
+              if (focusAddTask()) return;
+              go('/inbox');
+              setTimeout(focusAddTask, 0);
+            }}
+            sx={{
+              position: 'fixed',
+              right: 16,
+              bottom: 'calc(56px + 16px + env(safe-area-inset-bottom))',
+              zIndex: (theme) => theme.zIndex.appBar,
+            }}
+          >
+            <PlusIcon />
+          </Fab>
         )}
 
         <UndoToast bottomOffset={isPhone ? 56 : 0} />
