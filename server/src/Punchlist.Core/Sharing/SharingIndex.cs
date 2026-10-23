@@ -245,6 +245,12 @@ public sealed class SharingIndex
                 }
                 viewers.UnionWith(Assigned(entity));
                 break;
+            case "comments":
+                // Whoever sees the task sees its comments; a comment on a task gone from the index
+                // stays its author's.
+                if (entity.Get("taskId") is { } commented && byId.ContainsKey(commented)) viewers.UnionWith(Viewers(commented));
+                else viewers.Add(entity.Owner);
+                break;
             case "listMembers":
                 viewers.UnionWith(entity.Get("listId") is { } memberList ? ListPeople(memberList) : []);
                 if (entity.Get("principal") is { } principal) viewers.UnionWith(PeopleOf(principal));
@@ -365,6 +371,14 @@ public sealed class SharingIndex
 
     // Permissions --------------------------------------------------------------------------------
 
+    /// <summary>Whether the user may change the task: owner or editor on its list, assigned to it, or its creator when it has no list.</summary>
+    private static bool MayEditTask(SharingIndex index, string userId, string taskId)
+    {
+        if (!index.byId.TryGetValue(taskId, out var task)) return false;
+        if (task.Get("listId") is { } listId) return index.ListRole(userId, listId) is "owner" or "editor" || index.Assigned(task).Contains(userId);
+        return task.Owner == userId || index.Assigned(task).Contains(userId);
+    }
+
     /// <summary>
     /// Whether <paramref name="userId"/> may write <paramref name="after"/> over <paramref name="before"/>
     /// (null: a new entity). <paramref name="after"/> must already be applied to this index (try changes
@@ -396,6 +410,19 @@ public sealed class SharingIndex
                 if (!CanEditIn(beforeIndex, oldList, before.Id)) return false;
                 // Moving needs the destination too.
                 return oldList == newList || (newList is not null && ListRole(userId, newList) is "owner" or "editor");
+            }
+            case "comments":
+            {
+                var taskId = Field(doc, "taskId");
+                if (taskId is null || (before is not null && Changed("taskId"))) return false;
+                // Writing on a task needs the right to change it: owners, editors, assignees.
+                // A task made in the same push is in this index only.
+                if (before is null) return after.OwnerId == userId && MayEditTask(beforeIndex.Contains(taskId) ? beforeIndex : this, userId, taskId);
+                // The author changes or deletes it; the list's owner may delete it.
+                if (before.OwnerId == userId) return true;
+                var listId = beforeIndex.byId.TryGetValue(taskId, out var task) ? task.Get("listId") : null;
+                return listId is not null && beforeIndex.ListRole(userId, listId) == "owner"
+                    && doc["deletedAt"] is not null && !Changed("body");
             }
             case "lists":
                 // Only owners change a list; a new list is the writer's own.

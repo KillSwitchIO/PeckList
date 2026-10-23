@@ -160,6 +160,15 @@ export interface Settings extends BaseEntity {
   sidebar: SidebarLayout;
 }
 
+/** A comment on a task (schema 7). `createdBy` is its author. */
+export interface Comment extends BaseEntity {
+  taskId: Id;
+  /** Markdown */
+  body: string;
+  /** When the author last changed it; null when never */
+  editedAt: DateTime | null;
+}
+
 export interface EntityMap {
   users: User;
   folders: Folder;
@@ -173,6 +182,7 @@ export interface EntityMap {
   friendships: Friendship;
   savedFilters: SavedFilter;
   settings: Settings;
+  comments: Comment;
 }
 
 export type CollectionName = keyof EntityMap;
@@ -192,6 +202,7 @@ export const COLLECTIONS: readonly CollectionName[] = [
   'friendships',
   'savedFilters',
   'settings',
+  'comments',
 ];
 
 /** Fields that merge per element instead of as a whole value */
@@ -208,6 +219,7 @@ export const ELEMENT_SET_FIELDS: { readonly [K in CollectionName]: readonly stri
   friendships: [],
   savedFilters: [],
   settings: [],
+  comments: [],
 };
 
 export interface WorkspaceFile {

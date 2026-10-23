@@ -26,6 +26,7 @@ import { CompleteCheckbox } from './CompleteCheckbox.tsx';
 import { completionInstant } from './completion.ts';
 import { DetailFooter } from './DetailFooter.tsx';
 import { ParentTrail, SubtaskEditor } from './Subtasks.tsx';
+import { Comments } from './Comments.tsx';
 import { TaskMenu, type TaskMenuAnchor } from './TaskMenu.tsx';
 import { fromDateValue, toDateValue } from '../dates/dateValue.ts';
 import { useToday } from '../hooks/useToday.ts';
@@ -285,6 +286,7 @@ export function TaskDetail({
             />
           )}
           <SubtaskEditor task={task} />
+          <Comments task={task} />
         </Stack>
         <DetailFooter task={task} />
       </Box>

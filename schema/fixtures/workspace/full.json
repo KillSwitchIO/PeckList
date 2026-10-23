@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 6,
+  "schemaVersion": 7,
   "app": {
     "name": "punchlist",
     "version": "0.1.0"
@@ -579,6 +579,27 @@
           "pointEventMinutes": "2026-10-20T16:15:00.003Z-0000-dev1",
           "dueSoonDays": "2026-10-20T16:15:00.003Z-0000-dev1",
           "sidebar": "2026-10-20T16:15:00.003Z-0000-dev1"
+        }
+      }
+    ],
+    "comments": [
+      {
+        "id": "01DEV1000000000000000000C1",
+        "createdAt": "2026-10-20T16:30:00.000Z",
+        "createdBy": "01TESTMEMBER00000000000001",
+        "deletedAt": null,
+        "origin": "local",
+        "taskId": "01DEV10000000000000000000E",
+        "body": "Booked the **hotel**, @sam can you do the car?",
+        "editedAt": null,
+        "_hlc": {
+          "createdAt": "2026-10-20T16:30:00.000Z-0000-dev1",
+          "createdBy": "2026-10-20T16:30:00.000Z-0000-dev1",
+          "deletedAt": "2026-10-20T16:30:00.000Z-0000-dev1",
+          "origin": "2026-10-20T16:30:00.000Z-0000-dev1",
+          "taskId": "2026-10-20T16:30:00.000Z-0000-dev1",
+          "body": "2026-10-20T16:30:00.000Z-0000-dev1",
+          "editedAt": "2026-10-20T16:30:00.000Z-0000-dev1"
         }
       }
     ]

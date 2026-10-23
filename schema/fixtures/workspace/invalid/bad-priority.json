@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 6,
+  "schemaVersion": 7,
   "app": {
     "name": "punchlist",
     "version": "0.1.0"
@@ -157,7 +157,8 @@
           "sidebar": "2026-10-20T16:15:00.003Z-0000-dev1"
         }
       }
-    ]
+    ],
+    "comments": []
   },
   "sync": {
     "server": null,

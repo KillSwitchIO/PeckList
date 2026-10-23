@@ -167,6 +167,48 @@ public sealed class SharingTests(ServerFixture fixture) : IClassFixture<ServerFi
         Assert.Contains("T1", revoked.Revoked);
     }
 
+    private static (string, JsonObject) Comment(string id, string task, string body, bool deleted = false) =>
+        ("comments", Entity(id, new JsonObject
+        {
+            ["taskId"] = task,
+            ["body"] = body,
+            ["editedAt"] = null,
+            ["deletedAt"] = deleted ? "2026-10-21T12:00:00.000Z" : null,
+        }));
+
+    [Fact]
+    public async Task Comments_follow_their_task_and_only_their_author_changes_them()
+    {
+        var ben = await SignIn("ben");
+        var sam = await SignIn("sam");
+        var kim = await SignIn("kim");
+        await ben.SyncAsync(List("L1", "shared"), Member("O1", "L1", ben.UserId, "owner"), Member("M1", "L1", sam.UserId, "editor"),
+            Member("M2", "L1", kim.UserId, "viewer"), Task("T1", "L1", "Paint the shed"), Comment("C1", "T1", "Blue?"));
+
+        // Editors comment; everyone on the list sees it.
+        Assert.Empty((await sam.SyncAsync(Comment("C2", "T1", "Green, @ben"))).Rejected);
+        await kim.SyncAsync();
+        Assert.Equal("Green, @ben", (string?)kim.Seen["C2"]["body"]);
+        Assert.Contains("C1", kim.Seen.Keys);
+
+        // Viewers read only; nobody edits another's comment.
+        Assert.Equal(["C3"], (await kim.SyncAsync(Comment("C3", "T1", "Red"))).Rejected);
+        Assert.Equal(["C2"], (await kim.SyncAsync(Comment("C2", "T1", "Red"))).Rejected);
+        Assert.Equal(["C2"], (await ben.SyncAsync(Comment("C2", "T1", "Purple"))).Rejected);
+        // The author edits; the list's owner may delete it.
+        Assert.Empty((await sam.SyncAsync(Comment("C2", "T1", "Green, or grey"))).Rejected);
+        Assert.Empty((await ben.SyncAsync(Comment("C2", "T1", "Green, or grey", deleted: true))).Rejected);
+
+        // A comment pushed with its brand-new task is fine.
+        Assert.Empty((await sam.SyncAsync(Task("T2", "L1", "Buy brushes"), Comment("C4", "T2", "Two of them"))).Rejected);
+
+        // Made private: the comments leave with the tasks.
+        await ben.SyncAsync(List("L1", "private"));
+        var gone = await sam.SyncAsync();
+        Assert.Contains("C1", gone.Revoked);
+        Assert.DoesNotContain("C4", sam.Seen.Keys);
+    }
+
     [Fact]
     public async Task Sharing_through_sync_is_in_the_event_log()
     {

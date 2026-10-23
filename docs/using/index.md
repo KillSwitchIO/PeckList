@@ -31,6 +31,11 @@ their start; the due date is the deadline.
   **Move to list...** in its menu, or ++alt+arrow-up++ / ++alt+arrow-down++ /
   ++alt+arrow-right++ / ++alt+arrow-left++.
 - **Undo**: every change shows an **Undo** button for a few seconds.
+- **Comment**: at the bottom of a task's details. Comments take a little Markdown (`**bold**`,
+  `*italic*`, `` `code` ``, `[links](https://...)`) and **@name** for the people on the task (type
+  `@` for suggestions). ++ctrl+enter++ posts. Everyone who sees the task sees its comments; people
+  who may change the task may comment (a list's viewers only read). You edit or delete your own;
+  a list's owner may delete any on it.
 
 ## Lists and sections
 

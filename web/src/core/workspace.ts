@@ -22,6 +22,7 @@ export function emptyEntities(): Entities {
     friendships: [],
     savedFilters: [],
     settings: [],
+    comments: [],
   };
 }
 

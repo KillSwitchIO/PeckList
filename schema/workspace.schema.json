@@ -8,7 +8,7 @@
   "additionalProperties": false,
   "properties": {
     "schemaVersion": {
-      "const": 6
+      "const": 7
     },
     "app": {
       "type": "object",
@@ -43,7 +43,8 @@
         "listMembers",
         "friendships",
         "savedFilters",
-        "settings"
+        "settings",
+        "comments"
       ],
       "additionalProperties": false,
       "properties": {
@@ -117,6 +118,12 @@
           "type": "array",
           "items": {
             "$ref": "#/$defs/settings"
+          }
+        },
+        "comments": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/comment"
           }
         }
       }
@@ -603,6 +610,18 @@
         "role": {
           "enum": ["owner", "editor", "viewer"]
         }
+      },
+      "unevaluatedProperties": false
+    },
+    "comment": {
+      "description": "A comment on a task (markdown). createdBy is its author; editedAt is set when the author changes it.",
+      "type": "object",
+      "allOf": [{ "$ref": "#/$defs/base" }],
+      "required": ["taskId", "body", "editedAt"],
+      "properties": {
+        "taskId": { "$ref": "#/$defs/id" },
+        "body": { "type": "string", "minLength": 1, "maxLength": 20000 },
+        "editedAt": { "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/dateTime" }] }
       },
       "unevaluatedProperties": false
     },

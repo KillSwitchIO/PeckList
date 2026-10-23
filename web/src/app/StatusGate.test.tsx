@@ -31,12 +31,15 @@ describe('StatusGate', () => {
   });
 
   it('refuses data from a newer version and offers an update', async () => {
-    await renderWith({ schemaVersion: 7 });
+    const newer = CURRENT_SCHEMA_VERSION + 1;
+    await renderWith({ schemaVersion: newer });
     expect(
       await screen.findByText('This data needs a newer version of Punchlist'),
     ).toBeInTheDocument();
     expect(
-      screen.getByText(new RegExp(`schema 7; this app supports up to ${CURRENT_SCHEMA_VERSION}`)),
+      screen.getByText(
+        new RegExp(`schema ${newer}; this app supports up to ${CURRENT_SCHEMA_VERSION}`),
+      ),
     ).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Update' })).toBeInTheDocument();
     expect(screen.queryByText('app content')).not.toBeInTheDocument();

@@ -3,7 +3,7 @@
 
 import { keyBetween } from './ordering.ts';
 
-export const CURRENT_SCHEMA_VERSION = 6;
+export const CURRENT_SCHEMA_VERSION = 7;
 
 export type Migration = (document: Record<string, unknown>) => Record<string, unknown>;
 
@@ -84,6 +84,12 @@ export const MIGRATIONS: MigrationRegistry = {
   // 6: friendships may hold madeBy (the admin who made it, with their name). Optional, so
   // documents change only in version.
   6: (document) => document,
+  // 7: comments on tasks, a new collection (empty to start with).
+  7: (document) => {
+    const entities = document.entities as Record<string, unknown[]> | undefined;
+    if (!entities) return document;
+    return { ...document, entities: { ...entities, comments: entities.comments ?? [] } };
+  },
 };
 
 export type VersionCheck =
