@@ -1,0 +1,264 @@
+# Punchlist CI/CD
+#
+#   merge requests   check, test (web, server, e2e), image build (not pushed), docs build
+#   main             the same, then the :edge image and the docs site (GitLab Pages)
+#   tags v1.2.3+...  the same, then release images (:1.2.3, :1.2, :latest), native downloads,
+#                    and the GitLab release with notes from CHANGELOG.md
+#
+# Jobs run on the runner tagged RUNNER_TAG (a self-hosted Docker runner with the host's Docker
+# socket, for image builds and the PostgreSQL tests). To use GitLab's shared runners instead, set the
+# CI/CD variable RUNNER_TAG=saas-linux-medium-amd64. Releasing: docs/development/releasing.md
+
+stages:
+  - check
+  - test
+  - build
+  - publish
+  - release
+
+variables:
+  RUNNER_TAG: homelab
+  # Same images as the Dockerfile, so CI builds what the image builds.
+  NODE_IMAGE: node:24-bookworm-slim
+  DOTNET_IMAGE: mcr.microsoft.com/dotnet/sdk:10.0
+  DOCKER_IMAGE: docker:29
+  IMAGE: $CI_REGISTRY_IMAGE
+  # pnpm and NuGet caches inside the project folder, so GitLab can cache them.
+  PNPM_STORE_DIR: $CI_PROJECT_DIR/.pnpm-store
+  NUGET_PACKAGES: $CI_PROJECT_DIR/.nuget
+  SKIP_INSTALL_SIMPLE_GIT_HOOKS: '1'
+  COREPACK_ENABLE_DOWNLOAD_PROMPT: '0'
+  DOTNET_CLI_TELEMETRY_OPTOUT: '1'
+  DOTNET_NOLOGO: '1'
+
+workflow:
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    # A branch with an open merge request runs as the merge request, not twice.
+    - if: $CI_COMMIT_BRANCH && $CI_OPEN_MERGE_REQUESTS
+      when: never
+    - if: $CI_COMMIT_TAG =~ /^v\d+\.\d+\.\d+/
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+    # Run pipeline from the UI, on any branch.
+    - if: $CI_PIPELINE_SOURCE == "web"
+
+default:
+  tags:
+    - $RUNNER_TAG
+  interruptible: true
+
+.on-tag: &on-tag
+  if: $CI_COMMIT_TAG
+
+.on-main: &on-main
+  if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+
+.node:
+  image: $NODE_IMAGE
+  cache:
+    key:
+      files: [pnpm-lock.yaml]
+    paths: [.pnpm-store]
+  before_script:
+    - corepack enable
+    - pnpm config set store-dir "$PNPM_STORE_DIR"
+    - pnpm install --frozen-lockfile
+
+# --- check -----------------------------------------------------------------------------------
+
+lint:
+  extends: .node
+  stage: check
+  script:
+    - pnpm lint
+    - pnpm format:check
+    - pnpm typecheck
+    - pnpm check:version
+    - pnpm check:docs
+    - pnpm test:scripts
+
+# --- test ------------------------------------------------------------------------------------
+
+web-test:
+  extends: .node
+  stage: test
+  needs: []
+  script:
+    - pnpm --filter @punchlist/web exec vitest run --coverage
+      --reporter=default --reporter=junit --outputFile.junit=junit.xml
+      --coverage.reporter=text-summary --coverage.reporter=cobertura
+  coverage: '/^Lines\s*:\s*(\d+(?:\.\d+)?)%/'
+  artifacts:
+    when: always
+    reports:
+      junit: web/junit.xml
+      coverage_report:
+        coverage_format: cobertura
+        path: web/coverage/cobertura-coverage.xml
+
+server-test:
+  image: $DOTNET_IMAGE
+  stage: test
+  needs: []
+  cache:
+    key:
+      files: [server/Directory.Packages.props]
+    paths: [.nuget]
+  variables:
+    # The PostgreSQL tests start a container through the host's Docker socket.
+    TESTCONTAINERS_RYUK_DISABLED: 'true'
+  script:
+    - cd server
+    - dotnet test --configuration Release
+
+e2e:
+  extends: .node
+  image: node:24-bookworm
+  stage: test
+  needs: []
+  variables:
+    E2E_BROWSERS: chrome,firefox
+    CHROME_BIN: /usr/bin/chromium
+    CHROMEDRIVER_BIN: /usr/bin/chromedriver
+    FIREFOX_BIN: /usr/bin/firefox-esr
+  before_script:
+    # Debian's Chromium (with its matching driver) and Firefox ESR; geckodriver is fetched.
+    - apt-get update -qq
+    - apt-get install -y -qq --no-install-recommends chromium chromium-driver firefox-esr > /dev/null
+    - corepack enable
+    - pnpm config set store-dir "$PNPM_STORE_DIR"
+    - pnpm install --frozen-lockfile
+  script:
+    - pnpm build
+    - pnpm e2e
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - *on-main
+    - if: $CI_PIPELINE_SOURCE == "web"
+
+docs:
+  image: python:3.13-slim
+  stage: test
+  needs: []
+  script:
+    - pip install --quiet --no-cache-dir -r docs/requirements.txt
+    - mkdocs build --strict --site-dir site
+  artifacts:
+    paths: [site]
+    expire_in: 1 week
+
+# --- build -----------------------------------------------------------------------------------
+
+# Builds the image for amd64 and arm64. Merge requests only check that it builds; main pushes
+# :edge, a tag pushes the release tags. Uses the host's Docker through its socket.
+container-image:
+  image: $DOCKER_IMAGE
+  stage: build
+  needs: [lint, web-test, server-test]
+  variables:
+    PLATFORMS: linux/amd64,linux/arm64
+  before_script:
+    - echo "$CI_REGISTRY_PASSWORD" | docker login "$CI_REGISTRY" -u "$CI_REGISTRY_USER" --password-stdin
+    - docker buildx create --name punchlist-ci --driver docker-container --use 2>/dev/null || docker buildx use punchlist-ci
+  script:
+    - |
+      set -eu
+      CREATED=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+      VERSION=$(sed -n 's:.*<Version>\(.*\)</Version>.*:\1:p' server/Directory.Build.props)
+      TAGS=""
+      PUSH=false
+      if [ -n "${CI_COMMIT_TAG:-}" ]; then
+        VERSION=$(echo "$CI_COMMIT_TAG" | sed 's/^v//; s/+.*//')
+        TAGS="-t $IMAGE:$VERSION"
+        case "$VERSION" in
+          *-*) ;;  # a pre-release gets its exact tag only
+          *) MINOR=$(echo "$VERSION" | cut -d. -f1,2)
+             TAGS="$TAGS -t $IMAGE:$MINOR -t $IMAGE:latest" ;;
+        esac
+        PUSH=true
+      elif [ "${CI_COMMIT_BRANCH:-}" = "$CI_DEFAULT_BRANCH" ]; then
+        VERSION="$VERSION-edge.$CI_COMMIT_SHORT_SHA"
+        TAGS="-t $IMAGE:edge -t $IMAGE:sha-$CI_COMMIT_SHORT_SHA"
+        PUSH=true
+      else
+        VERSION="$VERSION-dev.$CI_COMMIT_SHORT_SHA"
+        TAGS="-t $IMAGE:mr-${CI_MERGE_REQUEST_IID:-0}"
+      fi
+      CACHE_TO=""
+      if [ "$PUSH" = true ]; then CACHE_TO="--cache-to type=registry,ref=$IMAGE:buildcache,mode=max"; fi
+      echo "Building $VERSION ($TAGS), push: $PUSH"
+      docker buildx build --platform "$PLATFORMS" \
+        --build-arg VERSION="$VERSION" --build-arg REVISION="$CI_COMMIT_SHA" --build-arg CREATED="$CREATED" \
+        --cache-from type=registry,ref="$IMAGE:buildcache" $CACHE_TO \
+        --sbom=true --provenance=mode=min \
+        $TAGS --push="$PUSH" .
+
+# The web app for the native downloads (the image builds its own).
+web-build:
+  extends: .node
+  stage: build
+  needs: [lint, web-test]
+  script:
+    - pnpm build
+  artifacts:
+    paths: [web/dist]
+    expire_in: 1 day
+  rules:
+    - *on-tag
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+      when: manual
+      allow_failure: true
+
+# Native downloads (tags, or by hand from main): self-contained Linux and Windows builds.
+packages:
+  image: $DOTNET_IMAGE
+  stage: build
+  needs: [web-build, server-test]
+  cache:
+    key:
+      files: [server/Directory.Packages.props]
+    paths: [.nuget]
+  script:
+    - apt-get update -qq && apt-get install -y -qq --no-install-recommends zip > /dev/null
+    - |
+      if [ -n "${CI_COMMIT_TAG:-}" ]; then
+        VERSION=$(echo "$CI_COMMIT_TAG" | sed 's/^v//; s/+.*//')
+      else
+        VERSION="$(sed -n 's:.*<Version>\(.*\)</Version>.*:\1:p' server/Directory.Build.props)-edge.$CI_COMMIT_SHORT_SHA"
+      fi
+      REVISION=$CI_COMMIT_SHA bash scripts/package.sh "$VERSION"
+  artifacts:
+    paths: [dist]
+    expire_in: 30 days
+  rules:
+    - *on-tag
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+      when: manual
+      allow_failure: true
+
+# --- publish ---------------------------------------------------------------------------------
+
+# The docs site, from main.
+pages:
+  image: busybox
+  stage: publish
+  needs: [docs]
+  script:
+    - mv site public
+  artifacts:
+    paths: [public]
+  rules:
+    - *on-main
+
+# --- release ---------------------------------------------------------------------------------
+
+release:
+  image: $NODE_IMAGE
+  stage: release
+  needs: [container-image, packages]
+  interruptible: false
+  script:
+    - node scripts/check-version.mjs
+    - node scripts/ci/publish-release.mjs dist
+  rules:
+    - *on-tag

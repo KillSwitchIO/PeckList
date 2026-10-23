@@ -22,3 +22,8 @@ Thumbs.db
 # server
 bin/
 obj/
+
+# Docs site build and CI caches (release downloads land in dist/, above)
+site/
+.pnpm-store/
+.nuget/
