@@ -1,4 +1,5 @@
 import { Button } from '@mui/material';
+import { sortTasks, type ListSort } from '../../core/listView.ts';
 import { useState } from 'react';
 import {
   filterClosedTasks,
@@ -114,10 +115,13 @@ export function DateGroupedTasks({
   filter,
   showList = false,
   emptyTitle,
+  sort = 'manual',
 }: {
   filter: TaskFilter;
   showList?: boolean;
   emptyTitle: string;
+  /** Within each date group; `manual` keeps the usual (time, priority, then own order). */
+  sort?: ListSort;
 }) {
   const workspace = useWorkspace();
   const today = useToday();
@@ -135,7 +139,11 @@ export function DateGroupedTasks({
             ? { actions: <PostponeButton tasks={group.tasks} today={today} /> }
             : {})}
         >
-          <TaskTree tasks={group.tasks} showList={showList} ownPlace={hasOwnDate} />
+          <TaskTree
+            tasks={sort === 'manual' ? group.tasks : sortTasks(group.tasks, sort)}
+            showList={showList}
+            ownPlace={hasOwnDate}
+          />
         </GroupSection>
       ))}
       <CompletedGroup tasks={closed} showList={showList} />

@@ -113,6 +113,48 @@ describe('date-grouped views', () => {
   });
 });
 
+describe('list sort and group options', () => {
+  it('groups a list by tag or not at all, and sorts by title', async () => {
+    await renderSeeded('/inbox');
+    await screen.findByRole('button', { name: 'Open undated' });
+    await userEvent.click(screen.getByRole('button', { name: 'More actions' }));
+    await userEvent.click(screen.getByRole('menuitem', { name: 'Group by tag' }));
+    expect(groupHeadings()).toEqual(expect.arrayContaining(['home2', 'No tags4']));
+
+    await userEvent.click(screen.getByRole('button', { name: 'More actions' }));
+    await userEvent.click(screen.getByRole('menuitem', { name: 'Group by none' }));
+    await userEvent.click(screen.getByRole('button', { name: 'More actions' }));
+    await userEvent.click(screen.getByRole('menuitem', { name: 'Sort by title' }));
+    const titles = screen
+      .getAllByRole('button', { name: /^Open / })
+      .map((row) => row.getAttribute('aria-label')!.slice(5))
+      .filter((title) => !title.startsWith('done'));
+    expect(titles).toEqual([
+      'in four days',
+      'next month',
+      'overdue',
+      'today',
+      'tomorrow',
+      'undated',
+    ]);
+
+    // Remembered for the list.
+    const nav = screen.getAllByRole('navigation')[0]!;
+    await userEvent.click(within(nav).getByRole('button', { name: /^Today/ }));
+    await userEvent.click(within(nav).getByRole('button', { name: /^Mess Drawer/ }));
+    await userEvent.click(await screen.findByRole('button', { name: 'More actions' }));
+    expect(screen.getByRole('menuitem', { name: 'Sort by title' })).toHaveClass('Mui-selected');
+  });
+
+  it('groups by priority, high first', async () => {
+    await renderSeeded('/inbox');
+    await screen.findByRole('button', { name: 'Open undated' });
+    await userEvent.click(screen.getByRole('button', { name: 'More actions' }));
+    await userEvent.click(screen.getByRole('menuitem', { name: 'Group by priority' }));
+    expect(groupHeadings()).toContain('No priority6');
+  });
+});
+
 describe('task menu', () => {
   it('makes a task a subtask of another from the right-click menu', async () => {
     await renderSeeded('/inbox');

@@ -4,15 +4,14 @@ import UnarchiveRounded from '@mui/icons-material/UnarchiveRounded';
 import CheckRounded from '@mui/icons-material/CheckRounded';
 import DeleteOutlineRounded from '@mui/icons-material/DeleteOutlineRounded';
 import EditRounded from '@mui/icons-material/EditRounded';
-import EventRounded from '@mui/icons-material/EventRounded';
 import MoreVertRounded from '@mui/icons-material/MoreVertRounded';
 import PlaylistAddRounded from '@mui/icons-material/PlaylistAddRounded';
-import ViewAgendaOutlined from '@mui/icons-material/ViewAgendaOutlined';
 import {
   Alert,
   Button,
   Divider,
   IconButton,
+  ListSubheader,
   Menu,
   MenuItem,
   Tooltip,
@@ -32,6 +31,13 @@ import {
 } from '../../core/lists.ts';
 import { filterClosedTasks } from '../../core/filters.ts';
 import { listTasks } from '../../core/queries.ts';
+import {
+  groupByPriority,
+  groupByTag,
+  LIST_GROUPINGS,
+  LIST_SORTS,
+  sortTasks,
+} from '../../core/listView.ts';
 import type { List, Section } from '../../core/types.ts';
 import { t } from '../i18n/i18n.ts';
 import { Page } from '../layout/Page.tsx';
@@ -44,7 +50,7 @@ import { GroupSection } from '../views/GroupSection.tsx';
 import { useSectionDrag } from './sectionDrag.tsx';
 import { CompletedGroup, DateGroupedTasks } from '../views/groups.tsx';
 import { useToday } from '../hooks/useToday.ts';
-import { useListGrouping, type ListGrouping } from './listGrouping.ts';
+import { useListView, type ListViewSettings } from './listGrouping.ts';
 import { ConfirmDialog, ListDialog, NameDialog } from './ListDialog.tsx';
 import { ShareDialog } from './ShareDialog.tsx';
 import { listMembersOf, myRole, type Role } from '../../core/sharing.ts';
@@ -55,14 +61,12 @@ import { listName } from './listName.ts';
 function ListMenu({
   list,
   role,
-  grouping,
-  onGrouping,
+  view,
 }: {
   list: List;
   /** My role on the list: only its owner changes it; editors add sections too. */
   role: Role | null;
-  grouping: ListGrouping;
-  onGrouping: (next: ListGrouping) => void;
+  view: ListViewSettings;
 }) {
   const apply = useApply();
   const navigate = useNavigate();
@@ -108,22 +112,40 @@ function ListMenu({
         </IconButton>
       </Tooltip>
       <Menu anchorEl={anchor} open={anchor !== null} onClose={close}>
-        {(['date', 'section'] as const).map((mode) => (
+        <ListSubheader sx={{ lineHeight: '32px', bgcolor: 'transparent' }}>
+          {t('list.groupBy')}
+        </ListSubheader>
+        {LIST_GROUPINGS.map((mode) => (
           <MenuItem
-            key={mode}
-            selected={grouping === mode}
+            key={`group-${mode}`}
+            dense
+            aria-label={t('list.groupByOption', { name: t(`list.group.${mode}`).toLowerCase() })}
+            selected={view.grouping === mode}
             onClick={() => {
               close();
-              onGrouping(mode);
+              view.setGrouping(mode);
             }}
           >
-            {mode === 'date' ? (
-              <EventRounded fontSize="small" sx={{ mr: 1 }} />
-            ) : (
-              <ViewAgendaOutlined fontSize="small" sx={{ mr: 1 }} />
-            )}
-            {mode === 'date' ? t('list.groupByDate') : t('list.groupBySection')}
-            {grouping === mode && <CheckRounded fontSize="small" sx={{ ml: 'auto', pl: 1 }} />}
+            {t(`list.group.${mode}`)}
+            {view.grouping === mode && <CheckRounded fontSize="small" sx={{ ml: 'auto', pl: 1 }} />}
+          </MenuItem>
+        ))}
+        <ListSubheader sx={{ lineHeight: '32px', bgcolor: 'transparent' }}>
+          {t('list.sortBy')}
+        </ListSubheader>
+        {LIST_SORTS.map((mode) => (
+          <MenuItem
+            key={`sort-${mode}`}
+            dense
+            aria-label={t('list.sortByOption', { name: t(`list.sort.${mode}`).toLowerCase() })}
+            selected={view.sort === mode}
+            onClick={() => {
+              close();
+              view.setSort(mode);
+            }}
+          >
+            {t(`list.sort.${mode}`)}
+            {view.sort === mode && <CheckRounded fontSize="small" sx={{ ml: 'auto', pl: 1 }} />}
           </MenuItem>
         ))}
         {editor && <Divider />}
@@ -208,7 +230,7 @@ function ListMenu({
             apply((ctx, ws) => createSection(ctx, ws, list.id, name).workspace);
             setDialog(null);
             // A new section only shows when grouping by section.
-            onGrouping('section');
+            view.setGrouping('section');
           }}
         />
       )}
@@ -319,7 +341,8 @@ export function ListContents({ list }: { list: List }) {
   const canEdit = role === 'owner' || role === 'editor';
   const [addingTo, setAddingTo] = useState<string | null>(null);
   const groups = listTasks(workspace, list.id);
-  const [grouping, setGrouping] = useListGrouping(list.id, groups.length > 1);
+  const view = useListView(list.id, groups.length > 1);
+  const { grouping, sort } = view;
   const moveTo = (id: string, beforeId: string | null) =>
     apply((ctx, ws) => moveSection(ctx, ws, id, beforeId), t('undo.sectionMoved'));
   const sectionDrag = useSectionDrag(moveTo);
@@ -362,26 +385,68 @@ export function ListContents({ list }: { list: List }) {
       {t('share.viewerNote')}
     </Typography>
   );
-  const actions = <ListMenu list={list} role={role} grouping={grouping} onGrouping={setGrouping} />;
+  const actions = <ListMenu list={list} role={role} view={view} />;
 
   if (grouping === 'date') {
     return (
       <Page title={listName(list)} actions={actions}>
         {archivedBar}
         {header}
-        <DateGroupedTasks filter={filter} emptyTitle={t('list.empty')} />
+        <DateGroupedTasks filter={filter} emptyTitle={t('list.empty')} sort={sort} />
       </Page>
     );
   }
 
+  if (grouping !== 'section') {
+    // Groups the list's own order does not make: no dragging here.
+    const open = sortTasks(
+      groups.flatMap((group) => group.tasks),
+      sort,
+    );
+    const grouped =
+      grouping === 'priority'
+        ? groupByPriority(open).map((group) => ({
+            ...group,
+            title: group.priority ? t(`priority.${group.priority}`) : t('list.noPriority'),
+          }))
+        : grouping === 'tag'
+          ? groupByTag(workspace, open).map((group) => ({
+              ...group,
+              title: group.name ?? t('list.noTags'),
+            }))
+          : null;
+    return (
+      <Page title={listName(list)} actions={actions}>
+        {archivedBar}
+        {header}
+        {open.length === 0 && completed.length === 0 && <EmptyState title={t('list.empty')} />}
+        {grouped
+          ? grouped.map((group) => (
+              <GroupSection key={group.key} title={group.title} count={group.tasks.length}>
+                <TaskTree tasks={group.tasks} />
+              </GroupSection>
+            ))
+          : open.length > 0 && <TaskTree tasks={open} />}
+        <CompletedGroup tasks={completed} />
+      </Page>
+    );
+  }
+
+  // Dragging follows the list's own order: only when sorted by it.
+  const draggable = canEdit && sort === 'manual';
+  const shown =
+    sort === 'manual'
+      ? groups
+      : groups.map((group) => ({ ...group, tasks: sortTasks(group.tasks, sort) }));
+
   const zone = (sectionId: string | null) =>
-    canEdit ? { dragZone: { listId: list.id, sectionId } } : {};
+    draggable ? { dragZone: { listId: list.id, sectionId } } : {};
   const content = (
     <>
       {empty && groups.length === 1 && completed.length === 0 && (
         <EmptyState title={t('list.empty')} />
       )}
-      {groups.map((group) => {
+      {shown.map((group) => {
         const section = group.sectionId ? getEntity(workspace, 'sections', group.sectionId) : null;
         if (!section) return <TaskTree key="none" tasks={group.tasks} {...zone(null)} />;
         return (
@@ -425,7 +490,7 @@ export function ListContents({ list }: { list: List }) {
     <Page title={listName(list)} actions={actions}>
       {archivedBar}
       {header}
-      {canEdit ? <TaskDragProvider>{content}</TaskDragProvider> : content}
+      {draggable ? <TaskDragProvider>{content}</TaskDragProvider> : content}
       <CompletedGroup tasks={completed} />
     </Page>
   );
