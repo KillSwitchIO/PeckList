@@ -1,0 +1,164 @@
+import { $, $$, browser, expect } from '@wdio/globals';
+
+// Real pointer drags in real browsers (PL-014 and PL-021 acceptance). XPath and CSS only, as in
+// smoke.e2e.ts.
+
+/** Add tasks through the page's add field. */
+async function addTasks(titles: string[]) {
+  const input = $("//input[starts-with(@placeholder, 'Add task')]");
+  for (const title of titles) {
+    await input.click();
+    await input.setValue(title);
+    await browser.keys('Enter');
+    await expect($(`//*[@aria-label='Open ${title}']`)).toBeExisting();
+  }
+}
+
+/**
+ * Press, travel in steps (drags start after a few pixels), let go. Task rows read sideways travel
+ * as indent, so the pointer keeps its column unless `across` aims it at the target's middle.
+ */
+async function drag(
+  from: WebdriverIO.Element,
+  to: WebdriverIO.Element,
+  offset: { y?: number; across?: boolean } = {},
+) {
+  const start = await from.getLocation();
+  const size = await from.getSize();
+  const end = await to.getLocation();
+  const endSize = await to.getSize();
+  const x0 = Math.round(start.x + Math.min(40, size.width / 2));
+  const y0 = Math.round(start.y + size.height / 2);
+  const x1 = offset.across ? Math.round(end.x + endSize.width / 2) : x0;
+  const y1 = Math.round(end.y + endSize.height / 2 + (offset.y ?? 0));
+  const steps = 8;
+  const pointer = browser
+    .action('pointer', { parameters: { pointerType: 'mouse' } })
+    .move({ x: x0, y: y0 })
+    .down();
+  for (let i = 1; i <= steps; i += 1) {
+    pointer.move({
+      x: Math.round(x0 + ((x1 - x0) * i) / steps),
+      y: Math.round(y0 + ((y1 - y0) * i) / steps),
+      duration: 40,
+    });
+  }
+  await pointer.pause(100).up().perform();
+}
+
+const row = (title: string) => $(`//*[@aria-label='Open ${title}']/ancestor::*[@data-drag-row][1]`);
+
+async function rowTitles(): Promise<string[]> {
+  const rows = await $$('[data-drag-row]');
+  const titles: string[] = [];
+  for (const each of rows) {
+    const label = await each.$("[aria-label^='Open ']").getAttribute('aria-label');
+    titles.push(
+      `${'  '.repeat(Number(await each.getAttribute('data-depth')))}${(label ?? '').replace(/^Open /, '')}`,
+    );
+  }
+  return titles;
+}
+
+describe('dragging tasks', () => {
+  it('reorders a list and nests a task by dropping it onto another', async () => {
+    await browser.url('/inbox');
+    await addTasks(['Wash', 'Dry', 'Fold']);
+    // Manual order: group by section.
+    await $("//button[@aria-label='More actions']").click();
+    await $("//*[@role='menuitem'][normalize-space()='Group by section']").click();
+    // The menu's backdrop takes pointer presses until it has faded out.
+    await $("//*[@role='menu']").waitForExist({ reverse: true });
+    await expect($('[data-drag-zone]')).toBeDisplayed();
+    await expect(row('Fold')).toBeDisplayed();
+
+    // Fold to the top: drop on the upper edge of the first row.
+    const first = await $$('[data-drag-row]')[0]!;
+    await drag(await row('Fold'), first, { y: -(await first.getSize()).height / 2 + 2 });
+    await browser.waitUntil(async () => (await rowTitles())[0] === 'Fold', {
+      timeout: 5000,
+      timeoutMsg: `Fold never reached the top: ${JSON.stringify(await rowTitles())}`,
+    });
+
+    // Dry onto the middle of Wash: Dry becomes Wash's subtask.
+    await drag(await row('Dry'), await row('Wash'));
+    await browser.waitUntil(async () => (await rowTitles()).includes('  Dry'), {
+      timeout: 5000,
+      timeoutMsg: `Dry never nested: ${JSON.stringify(await rowTitles())}`,
+    });
+    await expect(await rowTitles()).toEqual(['Fold', 'Wash', '  Dry']);
+  });
+});
+
+describe('dragging on the calendar', () => {
+  it('drags a task in, moves it to a time, and resizes it', async () => {
+    await browser.url('/inbox');
+    await addTasks(['Calendar probe']);
+    await browser.url('/calendar');
+    const waiting = $(
+      "//*[@role='list'][@aria-label='Unscheduled']//*[@data-task-id][@data-title='Calendar probe']",
+    );
+    await expect(waiting).toBeDisplayed();
+
+    // Onto today in the month view (the week view opens on today's week).
+    const today = await $('td.fc-daygrid-day.fc-day-today');
+    const date = await today.getAttribute('data-date');
+    await drag(await waiting, today, { across: true });
+    await expect($(`td[data-date='${date}'] .fc-event.pl-schedule`)).toBeDisplayed();
+
+    // In the week view, from the all-day row onto 10:00.
+    await $("//button[normalize-space()='Week']").click();
+    const allDay = await $('.fc-event.pl-schedule');
+    await expect(allDay).toBeDisplayed();
+    const column = await $(`td.fc-timegrid-col[data-date='${date}']`);
+    const ten = await $("td.fc-timegrid-slot-lane[data-time='10:00:00']");
+    const start = await allDay.getLocation();
+    const size = await allDay.getSize();
+    const columnBox = await column.getLocation();
+    const columnSize = await column.getSize();
+    const tenBox = await ten.getLocation();
+    await browser
+      .action('pointer', { parameters: { pointerType: 'mouse' } })
+      .move({ x: Math.round(start.x + size.width / 2), y: Math.round(start.y + size.height / 2) })
+      .down()
+      .move({
+        x: Math.round(start.x + size.width / 2),
+        y: Math.round(start.y + size.height / 2 + 8),
+        duration: 50,
+      })
+      .move({
+        x: Math.round(columnBox.x + columnSize.width / 2),
+        y: Math.round(tenBox.y + 4),
+        duration: 250,
+      })
+      .pause(100)
+      .up()
+      .perform();
+    const timed = $('.fc-timegrid-event.pl-schedule');
+    await browser.waitUntil(
+      async () => (await timed.isExisting()) && (await timed.getText()).includes('10'),
+      {
+        timeout: 5000,
+      },
+    );
+
+    // Pull its bottom edge down an hour: a longer block.
+    const box = await timed.getLocation();
+    const height = (await timed.getSize()).height;
+    const hour =
+      (await $("td.fc-timegrid-slot-lane[data-time='11:00:00']").getLocation()).y - tenBox.y;
+    await timed.moveTo();
+    await browser
+      .action('pointer', { parameters: { pointerType: 'mouse' } })
+      .move({ x: Math.round(box.x + 20), y: Math.round(box.y + height - 2) })
+      .down()
+      .move({ x: Math.round(box.x + 20), y: Math.round(box.y + height + hour / 2), duration: 100 })
+      .move({ x: Math.round(box.x + 20), y: Math.round(box.y + height + hour), duration: 100 })
+      .pause(100)
+      .up()
+      .perform();
+    await browser.waitUntil(async () => (await timed.getSize()).height > height + hour / 2, {
+      timeout: 5000,
+    });
+  });
+});
