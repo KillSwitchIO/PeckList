@@ -24,8 +24,9 @@ Then open http://localhost:8080. A compose example is in [compose.yaml](compose.
 ## First start
 
 With the default `AUTH_MODE=local`, the first start creates the `admin` account and prints its
-generated password once in the logs (`docker logs <container>`). Log in and change it; the API
-refuses everything else until you do. Set `ADMIN_PASSWORD` (or `ADMIN_PASSWORD_FILE`) to choose
+generated password once on the console (`docker logs <container>`). It goes to the console only,
+never to log files or a log server. Log in and change it; the API refuses everything else until you
+do. Missed it? `docker exec <container> punchlist admin reset-password` prints a new one. Set `ADMIN_PASSWORD` (or `ADMIN_PASSWORD_FILE`) to choose
 it instead. `AUTH_MODE=none` skips logins entirely: anyone who can reach the server has full access,
 so keep it to a trusted network.
 

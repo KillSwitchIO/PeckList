@@ -102,6 +102,24 @@ public sealed class LoggingTests(ServerFixture fixture) : IClassFixture<ServerFi
     }
 
     [Fact]
+    public async Task The_generated_admin_password_is_printed_to_the_console_once_and_never_logged()
+    {
+        var console = new StringWriter();
+        using var server = fixture.Factory(("LOG_LEVEL", "trace"))
+            .WithWebHostBuilder(host => host.ConfigureTestServices(services => services.AddSingleton(new StartupConsole(console))));
+        var client = server.CreateClient();
+
+        var password = System.Text.RegularExpressions.Regex.Match(console.ToString(), @"password: (\S+)").Groups[1].Value;
+        Assert.True(password.Length >= 12, "the banner shows the generated password");
+        Assert.Contains("username: admin", console.ToString());
+        (await client.PostAsJsonAsync("/auth/login", new { username = "admin", password }, Token)).EnsureSuccessStatusCode();
+
+        var logged = server.Services.GetRequiredService<LogPipeline>().Recent();
+        Assert.Contains(logged, record => record.Message.StartsWith("Admin account admin created", StringComparison.Ordinal));
+        Assert.DoesNotContain(logged, record => record.Message.Contains(password, StringComparison.Ordinal));
+    }
+
+    [Fact]
     public async Task Entries_written_in_a_request_carry_the_request_trace_and_user()
     {
         using var server = fixture.Factory(("ADMIN_PASSWORD", AdminPassword), ("LOG_LEVEL_OVERRIDES", "Punchlist=Debug"));

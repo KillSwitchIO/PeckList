@@ -36,6 +36,7 @@ public static class AuthSetup
         services.AddSingleton<Impersonations>();
         services.AddSingleton<OwnerAccount>();
         services.AddMemoryCache();
+        services.AddSingleton(new StartupConsole(Console.Out));
         services.AddHostedService<AccountStartup>();
 
         // Cookie keys live in the database: restarts and new containers keep sessions valid, and a
@@ -187,7 +188,8 @@ public static class AuthSetup
 
     /// <summary>After migrations: the admin (local) or the owner (none).</summary>
     private sealed class AccountStartup(
-        AccountService accounts, ServerSettings settings, OwnerAccount owner, ILogger<AccountStartup> logger) : IHostedService
+        AccountService accounts, ServerSettings settings, OwnerAccount owner, StartupConsole console, ILogger<AccountStartup> logger)
+        : IHostedService
     {
         public async Task StartAsync(CancellationToken cancellation)
         {
@@ -200,19 +202,41 @@ public static class AuthSetup
             var password = await accounts.EnsureAdminAsync(settings.AdminPassword, cancellation);
             if (password is not null)
             {
-                // Shown once, on purpose (spec: Accounts & Admin, Default admin).
-                logger.LogWarning(
+                // Shown once, on purpose (spec: Accounts & Admin, Default admin). Straight to the
+                // console: `docker logs` shows it, but log files and log servers never get the
+                // password (the log pipeline would only mask it anyway).
+                console.Write(
                     "\n============================================================\n" +
                     "  Punchlist admin account created\n" +
-                    "    username: {Username}\n" +
-                    "    password: {Password}\n" +
+                    $"    username: {AccountService.AdminUsername}\n" +
+                    $"    password: {password}\n" +
                     "  Log in and change it. This is shown only once.\n" +
-                    "============================================================",
-                    AccountService.AdminUsername, password);
+                    "============================================================\n");
+                logger.LogWarning(
+                    "Admin account {Username} created; its password was printed once to the console (docker logs). It must be changed at the first login.",
+                    AccountService.AdminUsername);
             }
         }
 
         public Task StopAsync(CancellationToken cancellation) => Task.CompletedTask;
+    }
+}
+
+/// <summary>
+/// The process's own console, for the one thing that must reach the operator but never a log: the
+/// generated first admin password.
+/// </summary>
+public sealed class StartupConsole(TextWriter writer)
+{
+    private readonly Lock gate = new();
+
+    public void Write(string text)
+    {
+        lock (gate)
+        {
+            writer.Write(text);
+            writer.Flush();
+        }
     }
 }
 
