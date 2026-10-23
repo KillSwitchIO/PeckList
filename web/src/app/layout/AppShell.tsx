@@ -30,6 +30,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Outlet, useLocation, useNavigate } from 'react-router';
 import { t } from '../i18n/i18n.ts';
 import { focusAddTask } from '../tasks/focusAddTask.ts';
+import { SyncNoticeToast } from '../sync/SyncNoticeToast.tsx';
 import { purgeExpired } from '../../core/trash.ts';
 import { useApply } from '../store/hooks.ts';
 
@@ -395,7 +396,9 @@ export function AppShell() {
           </Fab>
         )}
 
-        <UndoToast bottomOffset={isPhone ? 56 : 0} />
+        {/* On a phone, above the bottom navigation and the + button. */}
+        <UndoToast bottomOffset={isPhone ? 56 + 72 : 0} />
+        <SyncNoticeToast />
         <ShortcutsDialog open={shortcuts.helpOpen} onClose={shortcuts.closeHelp} />
 
         {isPhone && (

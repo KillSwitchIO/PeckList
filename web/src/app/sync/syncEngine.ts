@@ -50,6 +50,11 @@ export interface SyncState {
   lastSynced: number | null;
   /** What went wrong last, when status is error. */
   error: string | null;
+  /**
+   * What the server took back since the person last looked: changes it refused (undone here) and
+   * shared lists this account lost. Null when there is nothing to say.
+   */
+  notice: SyncNotice | null;
 
   start(): Promise<void>;
   signIn(username: string, password: string): Promise<LoginOutcome>;
@@ -62,6 +67,14 @@ export interface SyncState {
   syncNow(): Promise<void>;
   /** Stop timers and listeners. */
   stop(): void;
+  dismissNotice(): void;
+}
+
+export interface SyncNotice {
+  /** How many of this device's changes the server refused. */
+  refused: number;
+  /** Names of shared lists that are no longer this account's to see. */
+  lostLists: string[];
 }
 
 /** Device-local sync progress, kept under storage metadata `sync`. */
@@ -257,16 +270,31 @@ export function createSyncEngine(deps: SyncEngineDependencies): SyncEngine {
               ([id]) => !revoked.has(id),
             ),
           );
+          const lost: string[] = [];
           absorb(
-            (local) =>
-              applyRejections(
+            (local) => {
+              for (const list of local.entities.lists) {
+                if (revoked.has(list.id) && list.deletedAt === null) lost.push(list.name);
+              }
+              return applyRejections(
                 mergeRemote(local, response.changes, response.revoked),
                 response.rejected ?? [],
                 response.corrections ?? [],
-              ),
+              );
+            },
             // Refused and revoked entities must not come back from this device's stored copy.
             [...(response.rejected ?? []), ...response.revoked],
           );
+          const refused = response.rejected?.length ?? 0;
+          if (refused > 0 || lost.length > 0) {
+            const before = get().notice;
+            set({
+              notice: {
+                refused: (before?.refused ?? 0) + refused,
+                lostLists: [...(before?.lostLists ?? []), ...lost],
+              },
+            });
+          }
           await storage.saveMeta(META, {
             account: account.id,
             cursor: response.cursor,
@@ -354,6 +382,11 @@ export function createSyncEngine(deps: SyncEngineDependencies): SyncEngine {
       account: null,
       lastSynced: null,
       error: null,
+      notice: null,
+
+      dismissNotice() {
+        set({ notice: null });
+      },
 
       async start() {
         try {

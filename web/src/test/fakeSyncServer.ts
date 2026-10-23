@@ -21,6 +21,8 @@ export class FakeSyncServer {
   calls = 0;
   /** Ids whose changes this server refuses (standing in for sharing rules). */
   readonly refuse = new Set<string>();
+  /** Ids the next response says the account may no longer see (a list unshared). */
+  revokeNext: string[] = [];
 
   sync(userId: string, request: SyncRequest): SyncResponse {
     this.calls += 1;
@@ -54,7 +56,7 @@ export class FakeSyncServer {
       cursor: page.at(-1)?.seq ?? request.cursor ?? 0,
       changes: page.map((row) => structuredClone(row.change)),
       more: newer.length > page.length,
-      revoked: [],
+      revoked: this.revokeNext.splice(0),
       rejected,
       corrections: rejected.flatMap((id) => {
         const row = this.rows.get(id);
