@@ -22,7 +22,7 @@ does. Every admin route needs the matching [role](../guides/users-and-roles.md#r
 | Route                 |                                                          |
 | --------------------- | -------------------------------------------------------- |
 | `GET /healthz`        | `200 Healthy` or `503`                                   |
-| `GET /api/info`       | Name, version and schema version                         |
+| `GET /api/info`       | Name, version, schema version and time zone              |
 | `GET /auth/providers` | The single sign-on providers offered on the sign-in page |
 
 ## Signing in

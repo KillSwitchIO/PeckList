@@ -50,5 +50,5 @@ Signed in to a server, what an import adds syncs like anything else. Server admi
 
 ## Signing out
 
-**Sign out** is in the account menu (the sync button). It sends any changes still waiting first,
-then signs out.
+**Log out** is in the profile menu (your picture in the top right). It sends any changes still
+waiting first, then signs out. The cloud next to it shows how syncing stands and syncs now.

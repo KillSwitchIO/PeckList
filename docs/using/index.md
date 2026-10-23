@@ -53,9 +53,19 @@ in a tag's menu; subtasks inherit their parent's tags.
 Month, week and day views. Drag a task from **Unscheduled** onto a day (all day) or, in the week and
 day views, onto a time. Drag a scheduled task to move it, pull its bottom edge to make it longer.
 
+## Your profile menu
+
+Your profile picture in the top right (your initials, with a small icon of the sign-in provider
+when you signed in through one) opens a menu with **Settings**, **Admin** (admins only), **Stats**
+(your own numbers, as the server counts them), **Friends and groups**, **Keyboard shortcuts**,
+**Change password** and **Log out**.
+
 ## Settings
 
-**Settings** (bottom of the sidebar, or ++g++ ++s++): appearance (light, dark or system theme, and
-colors), dates (12 or 24-hour clock, the first day of the week, when a due date counts as soon, how
-long a task with only a start time shows on the calendar), sign-in methods and linked accounts, your
-password, **Your stats**, and **Your data** ([download or import a copy](apps-and-sync.md#your-data-as-a-file)).
+**Settings** (the profile menu, or ++g++ ++s++): appearance (light, dark or system theme, and
+colors), dates (your time zone, 12 or 24-hour clock, the first day of the week, when a due date
+counts as soon, how long a task with only a start time shows on the calendar), sign-in methods and
+linked accounts, and **Your data** ([download or import a copy](apps-and-sync.md#your-data-as-a-file)).
+
+**Time zone**: "today", due dates and the calendar follow it. It starts out as the server's time
+zone (`TZ`), or your device's without a server; pick another one if you live somewhere else.

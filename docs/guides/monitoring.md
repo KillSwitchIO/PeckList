@@ -23,7 +23,7 @@ shows the container's health; Compose's `depends_on: condition: service_healthy`
 
 Only counts, never titles or other content. Months follow the server's time zone (`TZ`). The
 numbers are worked out again after a sync changes data, or every five minutes. Everyone sees their
-own numbers under **Settings > Your stats**.
+own numbers under **Stats** in their profile menu.
 
 ## Logs and alerts
 

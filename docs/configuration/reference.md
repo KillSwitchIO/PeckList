@@ -36,7 +36,8 @@ also lets a new provider account in when that switch is off. With [`LOCAL_LOGIN`
 ### `TZ`
 
 The server's time zone (an IANA name such as `Europe/Berlin`), used for months in stats and for
-the server's own "today". People's apps use their device's time zone. **Default:** UTC in the
+the server's own "today". It is also the time zone people's apps start out in; each person can
+pick their own under **Settings**. **Default:** UTC in the
 image, the system's elsewhere. **Where:** env.
 
 ## Sign-in
