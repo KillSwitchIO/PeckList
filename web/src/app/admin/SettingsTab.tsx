@@ -64,6 +64,7 @@ const PROVIDER_LABELS: Record<string, MessageKey> = {
   ROLE_MAP: 'serverSettings.provider.ROLE_MAP',
   GROUP_MAP: 'serverSettings.provider.GROUP_MAP',
   SESSION_HOURS: 'serverSettings.provider.SESSION_HOURS',
+  SIGN_OUT: 'serverSettings.provider.SIGN_OUT',
 };
 
 const GROUPS: Record<string, MessageKey> = {

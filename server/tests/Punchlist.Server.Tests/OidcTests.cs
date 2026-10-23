@@ -115,6 +115,37 @@ public sealed class OidcTests(ServerFixture fixture) : IClassFixture<ServerFixtu
     }
 
     [Fact]
+    public async Task Signing_out_ends_the_provider_session_too_when_asked()
+    {
+        using var server = Server(("OIDC_FAKE_AUTO_CREATE", "true"), ("OIDC_FAKE_SIGN_OUT", "true"));
+        var kim = Browser(server);
+        Assert.Equal("/", await SignIn(kim, Kim()));
+        var answer = await kim.PostAsync("/auth/logout", null, Token);
+        Assert.Equal(HttpStatusCode.OK, answer.StatusCode);
+        var next = new Uri((await answer.Content.ReadFromJsonAsync<SignOutResult>(Token))!.Redirect);
+        Assert.Equal($"{FakeOidcProvider.Authority}/logout", next.GetLeftPart(UriPartial.Path));
+        var query = Microsoft.AspNetCore.WebUtilities.QueryHelpers.ParseQuery(next.Query);
+        Assert.Equal(FakeOidcProvider.ClientId, query["client_id"].ToString());
+        Assert.Equal("http://localhost/login", query["post_logout_redirect_uri"].ToString());
+        Assert.Equal(3, query["id_token_hint"].ToString().Split('.').Length);
+        Assert.Equal(HttpStatusCode.Unauthorized, (await kim.GetAsync("/auth/me", Token)).StatusCode);
+    }
+
+    [Fact]
+    public async Task Signing_out_leaves_the_provider_alone_by_default_and_for_passwords()
+    {
+        using var server = Server(("OIDC_FAKE_AUTO_CREATE", "true"));
+        var kim = Browser(server);
+        await SignIn(kim, Kim());
+        Assert.Equal(HttpStatusCode.NoContent, (await kim.PostAsync("/auth/logout", null, Token)).StatusCode);
+
+        using var asking = Server(("OIDC_FAKE_SIGN_OUT", "true"));
+        var admin = Browser(asking);
+        (await admin.PostAsJsonAsync("/auth/login", new { username = "admin", password = AdminPassword }, Token)).EnsureSuccessStatusCode();
+        Assert.Equal(HttpStatusCode.NoContent, (await admin.PostAsync("/auth/logout", null, Token)).StatusCode);
+    }
+
+    [Fact]
     public async Task Without_auto_create_an_invite_link_lets_them_in_once()
     {
         using var server = Server();

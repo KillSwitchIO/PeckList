@@ -55,7 +55,8 @@ export interface SyncState {
   signIn(username: string, password: string): Promise<LoginOutcome>;
   /** Make an account (open sign-up, or with an invite link) and sign in to it. */
   signUp(username: string, password: string, invite?: string): Promise<SignUpOutcome>;
-  signOut(): Promise<void>;
+  /** Sign out; resolves to the provider's end-session address when that session should end too. */
+  signOut(): Promise<string | null>;
   changePassword(current: string, next: string): Promise<PasswordOutcome>;
   /** Sync now (push, then pull until caught up). Resolves when done or failed. */
   syncNow(): Promise<void>;
@@ -409,9 +410,10 @@ export function createSyncEngine(deps: SyncEngineDependencies): SyncEngine {
         await get()
           .syncNow()
           .catch(() => undefined);
-        await transport.logout().catch(() => undefined);
+        const answer = await transport.logout().catch(() => undefined);
         closeEventStream();
         set({ phase: 'signed-out', account: null, status: 'idle' });
+        return answer?.redirect ?? null;
       },
 
       async changePassword(current, next) {

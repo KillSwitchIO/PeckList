@@ -93,6 +93,7 @@ public static class SettingsCatalog
             new(prefix + "ROLE_MAP", group, SettingKind.List),
             new(prefix + "GROUP_MAP", group, SettingKind.List),
             new(prefix + "SESSION_HOURS", group, SettingKind.Number, "12"),
+            new(prefix + "SIGN_OUT", group, SettingKind.Flag, "false"),
         ];
     }
 

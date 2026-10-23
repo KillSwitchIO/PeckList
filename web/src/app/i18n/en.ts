@@ -317,6 +317,7 @@ export const en = {
   'serverSettings.provider.ROLE_MAP': 'Groups to roles',
   'serverSettings.provider.GROUP_MAP': 'Groups to server groups',
   'serverSettings.provider.SESSION_HOURS': 'Session hours',
+  'serverSettings.provider.SIGN_OUT': 'Signing out also signs out of the provider',
   'admin.copy': 'Copy',
   'admin.copied': 'Copied',
   'admin.done': 'Done',

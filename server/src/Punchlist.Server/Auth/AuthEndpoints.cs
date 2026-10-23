@@ -19,6 +19,9 @@ public sealed record PasswordRequest(string Current, string Next);
 
 public sealed record AuthError(string Error, DateTimeOffset? Until = null);
 
+/// <summary>After signing out: the provider's end-session address, to end that session too.</summary>
+public sealed record SignOutResult(string Redirect);
+
 public sealed record SignUpRequest(string? Username, string? Password, string? Invite);
 
 /// <summary>An invite link that still works: until when.</summary>
@@ -95,10 +98,15 @@ public static class AuthEndpoints
             return Results.Ok(MeOf(principal, mode));
         }).RequireRateLimiting(AuthSetup.LoginRateLimit).Audited("auth.signed-up", targetRoute: null);
 
+        // A session from a provider that ends its own session too: the answer says where to go next.
         auth.MapPost("/logout", async (HttpContext context) =>
         {
+            var session = await context.AuthenticateAsync(CookieAuthenticationDefaults.AuthenticationScheme);
+            var next = await OidcSetup.ProviderSignOutUrlAsync(context, session.Properties);
             await context.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
-            return Results.NoContent();
+            if (next is null) return Results.NoContent();
+            context.Audit().Detail = $"and from {session.Properties!.Items[OidcSetup.ProviderItem]}";
+            return Results.Ok(new SignOutResult(next));
         }).Audited("auth.sign-out", targetRoute: null);
 
         auth.MapPost("/password", async (PasswordRequest request, ClaimsPrincipal user, AccountService accounts, IMemoryCache cache, HttpContext context) =>

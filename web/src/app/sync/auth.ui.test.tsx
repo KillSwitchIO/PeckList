@@ -178,6 +178,18 @@ describe('signing in to a server', () => {
     window.history.replaceState(null, '', '/');
   });
 
+  it('signing out of a provider session goes on to end it at the provider', async () => {
+    const backend = new FakeBackend();
+    backend.addAccount('ben', 'correct horse battery');
+    backend.signOutRedirect = 'https://id.example.com/logout?client_id=punchlist';
+    await serverApp(backend, 'ben');
+    await userEvent.click(await screen.findByRole('button', { name: /^Sync and account/ }));
+    await userEvent.click(await screen.findByRole('menuitem', { name: 'Sign out' }));
+    await waitFor(() =>
+      expect(leaveFor).toHaveBeenCalledWith('https://id.example.com/logout?client_id=punchlist'),
+    );
+  });
+
   it('the cloud shows who is signed in, and signs out', async () => {
     const backend = new FakeBackend();
     backend.addAccount('ben', 'correct horse battery');

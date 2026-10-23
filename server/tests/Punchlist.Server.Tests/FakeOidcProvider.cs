@@ -44,6 +44,7 @@ public sealed class FakeOidcProvider : HttpMessageHandler
                     ["issuer"] = Authority,
                     ["authorization_endpoint"] = $"{Authority}/authorize",
                     ["token_endpoint"] = $"{Authority}/token",
+                    ["end_session_endpoint"] = $"{Authority}/logout",
                     ["jwks_uri"] = $"{Authority}/jwks",
                     ["response_types_supported"] = new[] { "code" },
                     ["subject_types_supported"] = new[] { "public" },

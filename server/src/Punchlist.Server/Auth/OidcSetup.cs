@@ -31,6 +31,9 @@ public static class OidcSetup
     /// <summary>Set on a challenge that links a provider account to the signed-in user instead of signing in.</summary>
     private const string LinkAccountItem = "punchlist.link_account";
 
+    /// <summary>On a session from a provider that ends its own session too: which provider (with the ID token kept).</summary>
+    public const string ProviderItem = "punchlist.provider";
+
     /// <summary>Set on a sign-in started from an invite link: a new provider account may come in on it.</summary>
     private const string InviteItem = "punchlist.invite";
 
@@ -73,6 +76,17 @@ public static class OidcSetup
                     {
                         // The handler keeps this for the code exchange, which must send the same address.
                         context.ProtocolMessage.RedirectUri = publicUrl.ToString().TrimEnd('/') + CallbackPath(provider.Name);
+                    }
+                    return Task.CompletedTask;
+                };
+                options.Events.OnTokenValidated = context =>
+                {
+                    // Kept only when signing out ends the provider session: the end-session request names it.
+                    if (provider.SignOut
+                        && (context.TokenEndpointResponse?.IdToken ?? context.ProtocolMessage?.IdToken) is { Length: > 0 } idToken)
+                    {
+                        context.Properties!.StoreTokens([new AuthenticationToken { Name = "id_token", Value = idToken }]);
+                        context.Properties!.Items[ProviderItem] = provider.Name;
                     }
                     return Task.CompletedTask;
                 };
@@ -138,6 +152,38 @@ public static class OidcSetup
                 new AuthenticationProperties { IsPersistent = true });
             return Results.Redirect(LinkReturn);
         }).Audited("auth.login-link-used", targetRoute: null);
+    }
+
+    /// <summary>
+    /// Where to send the browser to end the provider session as well (RP-initiated logout), for a
+    /// session from a provider with <c>SIGN_OUT</c> on whose discovery names an end-session endpoint;
+    /// else null. The provider sends the browser back to <c>/login</c>.
+    /// </summary>
+    public static async Task<string?> ProviderSignOutUrlAsync(HttpContext context, AuthenticationProperties? session)
+    {
+        if (session?.Items.TryGetValue(ProviderItem, out var name) != true || name is null) return null;
+        var settings = context.RequestServices.GetRequiredService<ServerSettings>();
+        if (settings.OidcProviders.FirstOrDefault(each => each.Name == name) is not { SignOut: true } provider) return null;
+        if (session.GetTokenValue("id_token") is not { Length: > 0 } idToken) return null;
+        var options = context.RequestServices.GetRequiredService<Microsoft.Extensions.Options.IOptionsMonitor<OpenIdConnectOptions>>().Get(Scheme(name));
+        try
+        {
+            var configuration = await options.ConfigurationManager!.GetConfigurationAsync(context.RequestAborted);
+            if (string.IsNullOrEmpty(configuration.EndSessionEndpoint)) return null;
+            return Microsoft.AspNetCore.WebUtilities.QueryHelpers.AddQueryString(configuration.EndSessionEndpoint, new Dictionary<string, string?>
+            {
+                ["id_token_hint"] = idToken,
+                ["client_id"] = provider.ClientId,
+                ["post_logout_redirect_uri"] = $"{ServerApp.Origin(context)}/login",
+            });
+        }
+        catch (Exception error) when (error is HttpRequestException or InvalidOperationException or IOException)
+        {
+            // The provider cannot be reached: signing out of Punchlist still works.
+            context.RequestServices.GetRequiredService<ILoggerFactory>().CreateLogger("Punchlist.Auth")
+                .LogWarning("Could not end the {Provider} session: {Message}", name, error.Message);
+            return null;
+        }
     }
 
     private static async Task SignInAsync(TicketReceivedContext context, OidcProviderSettings provider)

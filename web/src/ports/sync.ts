@@ -162,7 +162,11 @@ export interface SyncTransport {
   signUp?(username: string, password: string, invite?: string): Promise<SignUpOutcome>;
   /** When an invite link stops working, or null when it already has (used, revoked, expired). */
   checkInvite?(token: string): Promise<{ expires: string } | null>;
-  logout(): Promise<void>;
+  /**
+   * End the session. A session from a provider set to sign out there too answers with the
+   * provider's end-session address, for the browser to go to next.
+   */
+  logout(): Promise<{ redirect: string } | undefined>;
   changePassword(current: string, next: string): Promise<PasswordOutcome>;
   sync(request: SyncRequest): Promise<SyncResponse>;
   /**

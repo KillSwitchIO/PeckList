@@ -22,7 +22,7 @@ export const NO_SERVER: SyncTransport = {
   info: () => Promise.resolve(null),
   me: () => Promise.resolve(null),
   login: () => Promise.resolve({ kind: 'invalid' }),
-  logout: () => Promise.resolve(),
+  logout: () => Promise.resolve(undefined),
   changePassword: () => Promise.resolve({ kind: 'wrong-password' }),
   sync: () => Promise.reject(new Error('no server')),
 };

@@ -42,6 +42,23 @@ Every `OIDC_<NAME>_*` setting is in [all settings](../configuration/reference.md
 A new account never takes over an existing one with the same username: it gets a number after the
 name. Usernames come from `preferred_username` (`OIDC_<NAME>_USERNAME_CLAIM`), else the email.
 
+## Signing out
+
+Signing out of Punchlist ends the Punchlist session only: the provider still knows the person, so
+**Continue with** signs them straight back in. On a shared computer that is not what you want. With
+`OIDC_<NAME>_SIGN_OUT=true`, signing out also ends the provider session (OpenID Connect
+RP-initiated logout), and the provider sends the browser back to the sign-in page.
+
+For that, the provider must:
+
+- advertise an `end_session_endpoint` in its discovery document (Authentik, Keycloak, Pocket ID,
+  Zitadel, Authelia and Entra ID do), and
+- accept `<PUBLIC_URL>/login` as a post-logout redirect URI. Add it next to the callback address in
+  the client's settings (Keycloak: **Valid post logout redirect URIs**; Authentik: the provider's
+  redirect URIs).
+
+If the provider cannot be reached, Punchlist still signs out and only its own session ends.
+
 ## Linking accounts
 
 People link a provider to their existing account under **Settings > Sign-in**, and unlink it as

@@ -162,6 +162,11 @@ export function createHttpSync(
     async logout() {
       const response = await call('/auth/logout', { method: 'POST' });
       if (!response.ok && response.status !== 401) await fail(response);
+      if (response.status === 200 && response.headers.get('content-type')?.includes('json')) {
+        const { redirect } = (await response.json()) as { redirect?: string };
+        if (redirect) return { redirect };
+      }
+      return undefined;
     },
 
     async changePassword(current, next): Promise<PasswordOutcome> {

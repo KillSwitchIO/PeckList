@@ -37,6 +37,13 @@ public sealed partial record OidcProviderSettings
     /// <summary>Make an account on a first sign-in; otherwise it waits for an admin.</summary>
     public bool AutoCreate { get; init; }
 
+    /// <summary>
+    /// Signing out of Punchlist also ends the provider session (RP-initiated logout), when the
+    /// provider advertises an <c>end_session_endpoint</c>. Off by default: the provider must accept
+    /// <c>&lt;PUBLIC_URL&gt;/login</c> as a post-logout redirect.
+    /// </summary>
+    public bool SignOut { get; init; }
+
     /// <summary>A first sign-in with a verified email joins the one account another provider gave that email. Off by default.</summary>
     public bool LinkByEmail { get; init; }
 
@@ -119,6 +126,7 @@ public sealed partial record OidcProviderSettings
             }
             var autoCreate = Flag("AUTO_CREATE");
             var linkByEmail = Flag("LINK_BY_EMAIL");
+            var signOut = Flag("SIGN_OUT");
             TimeSpan? sessionLength = TimeSpan.FromHours(12);
             if (Value("SESSION_HOURS") is { } rawHours)
             {
@@ -147,6 +155,7 @@ public sealed partial record OidcProviderSettings
                 RequiredGroups = Split(Value("REQUIRED_GROUPS")),
                 AutoCreate = autoCreate,
                 LinkByEmail = linkByEmail,
+                SignOut = signOut,
                 SessionLength = sessionLength,
                 RoleMap = roleMap,
                 GroupMap = groupMap,

@@ -31,7 +31,7 @@ import {
 } from '../icons/icons.tsx';
 import { useSyncState } from './syncContext.ts';
 import { syncSummary } from './syncSummary.ts';
-import { rememberProvider } from './signInWith.ts';
+import { leaveFor, rememberProvider } from './signInWith.ts';
 
 const pulse = keyframes`
   from { opacity: 1; }
@@ -146,7 +146,7 @@ export function SyncButton() {
               setAnchor(null);
               // Signing out on purpose: the sign-in page waits instead of going back to a provider.
               rememberProvider(null);
-              void signOut();
+              void signOut().then((redirect) => redirect && leaveFor(redirect));
             }}
           >
             <ListItemText inset>{t('sync.signOut')}</ListItemText>

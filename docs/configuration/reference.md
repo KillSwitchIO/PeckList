@@ -81,6 +81,7 @@ and dashes; each gets the settings below with its name in capitals and dashes as
 | `OIDC_<NAME>_LINK_BY_EMAIL`   | `false`                             | Join a first sign-in to the one existing account with the same **verified** email.                                                  |
 | `OIDC_<NAME>_ROLE_MAP`        | none                                | `group=role,...` with roles `user`, `admin`, `superadmin`. The highest match wins at every sign-in; no match means `user`.          |
 | `OIDC_<NAME>_GROUP_MAP`       | none                                | `group=Server group,...`, or `*` to mirror every provider group as a server group.                                                  |
+| `OIDC_<NAME>_SIGN_OUT`        | `false`                             | Signing out of Punchlist also ends the provider session. Register `<PUBLIC_URL>/login` as a post-logout redirect URI first.         |
 | `OIDC_<NAME>_SESSION_HOURS`   | `12`                                | How long a session from this provider lasts (0 to 720) before the app goes back through the provider. `0`: 30 days, like passwords. |
 
 ## Backups

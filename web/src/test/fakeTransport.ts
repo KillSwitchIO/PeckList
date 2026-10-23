@@ -66,6 +66,8 @@ export class FakeBackend {
     providers: [],
     localLogin: true,
   };
+  /** Where signing out sends the browser next (a provider's end-session address), if anywhere. */
+  signOutRedirect: string | null = null;
   /** Invite links that still work: token to the uses left. */
   readonly invites = new Map<string, number>();
   schemaVersion = CURRENT_SCHEMA_VERSION;
@@ -253,7 +255,8 @@ export class FakeTransport implements SyncTransport {
 
   logout() {
     this.session = null;
-    return Promise.resolve();
+    const redirect = this.backend.signOutRedirect;
+    return Promise.resolve(redirect ? { redirect } : undefined);
   }
 
   changePassword(current: string, next: string) {
