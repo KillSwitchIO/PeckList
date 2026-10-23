@@ -4,7 +4,8 @@
   "type": "module",
   "scripts": {
     "test": "wdio run ./wdio.conf.ts",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test:server": "wdio run ./wdio.server.conf.ts"
   },
   "devDependencies": {
     "@types/mocha": "10.0.10",

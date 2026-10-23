@@ -33,6 +33,8 @@ pnpm test              # unit and component tests (Vitest)
 pnpm test:coverage     # with the coverage safety net
 pnpm lint && pnpm typecheck
 pnpm build && pnpm e2e # end-to-end, against a production build
+# two devices through a real server (any running image, its ADMIN_PASSWORD given):
+E2E_BASE_URL=http://localhost:6183 E2E_ADMIN_PASSWORD=... pnpm e2e:server
 ```
 
 ## Server

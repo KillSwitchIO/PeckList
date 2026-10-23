@@ -1,7 +1,8 @@
 # Punchlist CI/CD
 #
 #   merge requests   check, test (web, server, e2e), image build (not pushed), docs build
-#   main             the same, then the :edge image and the docs site (GitLab Pages)
+#   main             the same, then the :edge image, two devices syncing through it (e2e-server)
+#                    and the docs site (GitLab Pages)
 #   tags v1.2.3+...  the same, then release images (:1.2.3, :1.2, :latest), native downloads,
 #                    and the GitLab release with notes from CHANGELOG.md
 #
@@ -208,6 +209,34 @@ web-build:
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
       when: manual
       allow_failure: true
+
+# Two devices against the image main just pushed (server-specs): sync, live updates between them.
+e2e-server:
+  extends: .node
+  image: node:24-bookworm
+  stage: publish
+  needs: [container-image]
+  services:
+    - name: $IMAGE:sha-$CI_COMMIT_SHORT_SHA
+      alias: punchlist
+  variables:
+    # Services get the job's variables: this is the test server's admin password, nothing real.
+    ADMIN_PASSWORD: e2e-admin-password-ci
+    E2E_ADMIN_PASSWORD: e2e-admin-password-ci
+    E2E_BASE_URL: http://punchlist:8080
+    E2E_BROWSERS: chrome
+    CHROME_BIN: /usr/bin/chromium
+    CHROMEDRIVER_BIN: /usr/bin/chromedriver
+  before_script:
+    - apt-get update -qq
+    - apt-get install -y -qq --no-install-recommends chromium chromium-driver > /dev/null
+    - corepack enable
+    - pnpm config set store-dir "$PNPM_STORE_DIR"
+    - pnpm install --frozen-lockfile
+  script:
+    - pnpm e2e:server
+  rules:
+    - *on-main
 
 # Native downloads (tags, or by hand from main): self-contained Linux and Windows builds.
 packages:

@@ -14,6 +14,7 @@
     "test:coverage": "pnpm --filter @punchlist/web test:coverage",
     "test:browser": "pnpm --filter @punchlist/web test:browser",
     "e2e": "pnpm --filter @punchlist/e2e test",
+    "e2e:server": "pnpm --filter @punchlist/e2e test:server",
     "lint": "eslint .",
     "typecheck": "pnpm -r typecheck",
     "format": "prettier --write .",
