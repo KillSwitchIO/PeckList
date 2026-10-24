@@ -34,7 +34,7 @@ export function ThemeModeProvider({ children }: { children: ReactNode }) {
   return (
     <ThemeModeContext.Provider value={value}>
       <ThemeProvider theme={theme}>
-        <CssBaseline />
+        <CssBaseline enableColorScheme />
         {children}
       </ThemeProvider>
     </ThemeModeContext.Provider>

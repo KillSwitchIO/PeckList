@@ -1,4 +1,4 @@
-import { ThemeProvider, useMediaQuery } from '@mui/material';
+import { CssBaseline, ThemeProvider, useMediaQuery } from '@mui/material';
 import { useEffect, useMemo, type ReactNode } from 'react';
 import { effectivePalette } from '../../core/paletteSettings.ts';
 import { updateSettings } from '../../core/settings.ts';
@@ -52,7 +52,12 @@ export function WorkspaceTheme({ children }: { children: ReactNode }) {
 
   return (
     <ThemeModeContext.Provider value={value}>
-      <ThemeProvider theme={theme}>{children}</ThemeProvider>
+      <ThemeProvider theme={theme}>
+        {/* The page itself (background, text, scrollbars) follows this theme too, not only the
+            components: without it the page kept the mode it opened with until a reload. */}
+        <CssBaseline enableColorScheme />
+        {children}
+      </ThemeProvider>
     </ThemeModeContext.Provider>
   );
 }

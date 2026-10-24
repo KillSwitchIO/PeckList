@@ -235,3 +235,17 @@ describe('palette presets', () => {
     expect(screen.getByRole('button', { name: 'Change Accent, now #3A7CA5' })).toBeInTheDocument();
   });
 });
+
+describe('theme mode', () => {
+  it('switches the whole page at once, not only the components', async () => {
+    await renderApp('/settings');
+    const page = () => getComputedStyle(document.body).backgroundColor;
+    await userEvent.click(screen.getByRole('button', { name: 'Light' }));
+    const light = page();
+    await userEvent.click(screen.getByRole('button', { name: 'Dark' }));
+    await waitFor(() => expect(page()).not.toBe(light));
+    expect(page()).toBe('rgb(27, 29, 31)');
+    await userEvent.click(screen.getByRole('button', { name: 'Light' }));
+    await waitFor(() => expect(page()).toBe(light));
+  });
+});

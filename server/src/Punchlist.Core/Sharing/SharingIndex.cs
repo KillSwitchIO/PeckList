@@ -65,6 +65,10 @@ public sealed class SharingIndex
     /// <summary>An entity's stored document, deleted or not.</summary>
     public JsonObject? DocOf(string id) => byId.TryGetValue(id, out var facts) ? facts.Doc : null;
 
+    /// <summary>Every live entity of a collection: its id, owner and document (the reminder sender reads tasks).</summary>
+    public IReadOnlyList<(string Id, string Owner, JsonObject Doc)> LiveOf(string collection) =>
+        [.. Live(collection).Select(each => (each.Id, each.Owner, each.Doc))];
+
     /// <summary>The live groups an owner has (the server's own, for <see cref="ServerGroupProjection"/>).</summary>
     public IReadOnlyList<(string Id, JsonObject Doc)> GroupsOwnedBy(string owner) =>
         [.. byId.Values.Where(each => each.Collection == "groups" && !each.Deleted && each.Get("ownerId") == owner).Select(each => (each.Id, each.Doc))];

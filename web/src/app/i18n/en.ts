@@ -990,6 +990,13 @@ export const en = {
   'task.restore': 'Restore',
   'task.open': 'Open {title}',
   'notifications.title': 'Notifications',
+  'notifications.settings': 'Notifications',
+  'notifications.push': 'Notify me when Punchlist is closed',
+  'notifications.pushHint':
+    'Reminders, mentions, assignments and shares on this device, through your browser or phone. Each device turns it on for itself.',
+  'notifications.pushUnsupported':
+    'This browser cannot take notifications with Punchlist closed. On iPhone and iPad, add Punchlist to your Home Screen and turn it on there.',
+  'notifications.pushFailed': 'That did not work. Try again in a moment.',
   'notifications.clearAll': 'Clear all',
   'notifications.clear': 'Clear',
   'notifications.clearOne': 'Clear: {text}',

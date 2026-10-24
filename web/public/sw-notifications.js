@@ -11,3 +11,23 @@ self.addEventListener('notificationclick', (event) => {
     }),
   );
 });
+
+// A push from the server (a reminder, an assignment, a mention): show it. The same tag as the
+// app's own reminder replaces it rather than showing twice.
+self.addEventListener('push', (event) => {
+  let payload = {};
+  try {
+    payload = event.data ? event.data.json() : {};
+  } catch {
+    payload = { title: 'Punchlist', body: event.data ? event.data.text() : '' };
+  }
+  event.waitUntil(
+    self.registration.showNotification(payload.title || 'Punchlist', {
+      body: payload.body || '',
+      tag: payload.tag,
+      data: { url: payload.url || '/today' },
+      icon: '/icon.svg',
+      badge: '/icon.svg',
+    }),
+  );
+});

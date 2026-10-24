@@ -171,6 +171,18 @@ export interface NotificationsApi {
   clear(ids: string[] | null): Promise<void>;
 }
 
+/** Web Push on the server (spec: PL-061): its key, and this browser's subscription. */
+export interface PushApi {
+  /** The server's VAPID public key (base64url). */
+  key(): Promise<string>;
+  /** Save this browser's subscription (`PushSubscription.toJSON()`). */
+  subscribe(subscription: {
+    endpoint: string;
+    keys: { p256dh: string; auth: string };
+  }): Promise<void>;
+  unsubscribe(endpoint: string): Promise<void>;
+}
+
 /**
  * Why a request failed: `offline` (no answer), `signed-out` (401), `password-change` (must change
  * the password first), `schema` (the server speaks another schema version), `rejected` (the
@@ -219,6 +231,8 @@ export interface SyncTransport {
   friends?: FriendsApi;
   /** Notifications (optional: older servers keep none). */
   notifications?: NotificationsApi;
+  /** Web Push (optional: older servers send none). */
+  push?: PushApi;
   account?: AccountApi;
   /** Attached files (optional: older servers keep none). */
   files?: FileApi;

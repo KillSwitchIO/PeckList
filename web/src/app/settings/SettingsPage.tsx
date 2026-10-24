@@ -35,6 +35,7 @@ import { t } from '../i18n/i18n.ts';
 import { Page } from '../layout/Page.tsx';
 import { DataSection } from './DataSection.tsx';
 import { NewTaskSection } from './NewTaskSection.tsx';
+import { NotificationSettings } from './NotificationSettings.tsx';
 import { PresetPicker } from './PresetPicker.tsx';
 import { Section, SettingRow } from './settingsLayout.tsx';
 import { SignInSection } from './SignInSection.tsx';
@@ -291,6 +292,7 @@ export function SettingsPage() {
           </SettingRow>
         </Section>
         <NewTaskSection />
+        <NotificationSettings />
         <Section
           title={t('settings.colors')}
           hint={t('settings.colorsHint')}
