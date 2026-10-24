@@ -107,6 +107,17 @@ describe('completing a repeating task', () => {
     expect(copies.map((each) => each.completedAt).sort()).toContain('2026-10-30T15:00:00.000Z');
   });
 
+  it('keeps its clock time across daylight saving changes', () => {
+    const s = setup();
+    // Chicago falls back on Nov 1 2026 and springs forward on Mar 14 2027.
+    const fall = s.add('Meds', { schedule: at('2026-10-31T21:00') }, 'FREQ=DAILY');
+    s.ws = toggleTaskDone(s.ctx, s.ws, fall);
+    expect(s.get(fall).schedule?.start).toBe('2026-11-01T21:00');
+    const spring = s.add('Walk', { schedule: at('2027-03-13T09:00') }, 'FREQ=DAILY');
+    s.ws = toggleTaskDone(s.ctx, s.ws, spring);
+    expect(s.get(spring).schedule?.start).toBe('2027-03-14T09:00');
+  });
+
   it('does nothing special without a date or a rule', () => {
     const s = setup();
     const id = s.add('Loose', {}, 'FREQ=DAILY');
