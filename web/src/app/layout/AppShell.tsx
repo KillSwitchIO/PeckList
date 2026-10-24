@@ -55,6 +55,7 @@ import { dayPath } from '../views/dayLabels.ts';
 import { useAppliedTimeZone } from './useAppliedTimeZone.ts';
 import { activeItem, SIDEBAR_ITEMS, type NavItem } from './navigation.tsx';
 import { useBottomTabs } from './bottomTabs.tsx';
+import { TwoLineRowsContext, useNarrow } from './rowLayout.ts';
 import { SyncButton } from '../sync/SyncButton.tsx';
 import { useFooterItems } from './useFooterItems.ts';
 
@@ -161,9 +162,10 @@ function Sidebar({ onNavigate }: { onNavigate: (path: string) => void }) {
         }}
       >
         <SidebarTitle />
-        <SidebarViews selected={selected} onNavigate={onNavigate} />
-        <Divider sx={{ mx: 2 }} />
-        <Box sx={{ flexGrow: 1, overflowY: 'auto', overflowX: 'hidden' }}>
+        {/* Views, lists and tags scroll as one, so a short window still shows the lists. */}
+        <Box sx={{ flexGrow: 1, minHeight: 0, overflowY: 'auto', overflowX: 'hidden' }}>
+          <SidebarViews selected={selected} onNavigate={onNavigate} />
+          <Divider sx={{ mx: 2 }} />
           <SidebarLists onNavigate={onNavigate} />
           <SidebarTags onNavigate={onNavigate} />
         </Box>
@@ -201,8 +203,9 @@ function handledInside(event: unknown, reason: string): boolean {
 }
 
 /** Pages without tasks to add, where the phone's + button stays away. */
-// Due dates has no add field, and its bulk bar sits where the button would.
-const NO_ADD_BUTTON = ['/settings', '/admin', '/friends', '/f/', '/search', '/due'];
+// Due dates has no add field, and its bulk bar sits where the button would; on More it
+// covered the rows being edited.
+const NO_ADD_BUTTON = ['/settings', '/admin', '/friends', '/f/', '/search', '/due', '/more'];
 
 /**
  * Responsive frame: permanent sidebar on desktop, temporary drawer on tablet,
@@ -213,6 +216,8 @@ export function AppShell() {
   const theme = useTheme();
   const isPhone = useMediaQuery(theme.breakpoints.down('sm'), { noSsr: true });
   const bottomTabs = useBottomTabs();
+  const [mainElement, setMainElement] = useState<HTMLElement | null>(null);
+  const narrowMain = useNarrow(mainElement);
   const isDesktop = useMediaQuery(theme.breakpoints.up('lg'), { noSsr: true });
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [collapsed, setCollapsed] = useSidebarCollapsed();
@@ -364,6 +369,7 @@ export function AppShell() {
           <Box
             component="main"
             key={timeZone}
+            ref={setMainElement}
             sx={{
               flexGrow: 1,
               minWidth: 0,
@@ -375,7 +381,9 @@ export function AppShell() {
             }}
           >
             <HeaderSlotContext.Provider value={headerSlot}>
-              <Outlet />
+              <TwoLineRowsContext.Provider value={isPhone || narrowMain}>
+                <Outlet />
+              </TwoLineRowsContext.Provider>
             </HeaderSlotContext.Provider>
           </Box>
           {isDesktop && detail && !expanded && (

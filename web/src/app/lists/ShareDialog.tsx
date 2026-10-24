@@ -109,75 +109,82 @@ export function ShareDialog({ list, onClose }: { list: List; onClose: () => void
         <DialogTitle>{t('share.title', { name })}</DialogTitle>
         <DialogContent>
           <MuiList dense disablePadding aria-label={t('share.title', { name })}>
-            <ListItem
-              disableGutters
-              secondaryAction={
-                <Typography variant="body2" color="text.secondary">
-                  {t('share.owner')}
-                </Typography>
-              }
-            >
+            <ListItem disableGutters>
               <Box sx={{ mr: 1.5 }}>
                 <Avatar name={creator.plain} color={creator.color} />
               </Box>
-              <ListItemText primary={creator.label} secondary={creator.detail} />
+              <ListItemText
+                primary={creator.label}
+                secondary={creator.detail}
+                slotProps={{ secondary: { noWrap: true } }}
+                sx={{ minWidth: 0 }}
+              />
+              <Typography variant="body2" color="text.secondary" sx={{ flexShrink: 0, ml: 1 }}>
+                {t('share.owner')}
+              </Typography>
             </ListItem>
             {members.map((member) => {
               const shown = principal(member.principal);
               return (
-                <ListItem
-                  key={member.id}
-                  disableGutters
-                  secondaryAction={
-                    owner ? (
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                        <TextField
-                          select
-                          size="small"
-                          variant="standard"
-                          value={member.role}
-                          onChange={(event) =>
-                            change((ctx, ws) =>
-                              shareList(
-                                ctx,
-                                ws,
-                                list.id,
-                                member.principal,
-                                event.target.value as Role,
-                              ),
-                            )
-                          }
-                          slotProps={{
-                            htmlInput: { 'aria-label': t('share.roleOf', { name: shown.plain }) },
-                          }}
-                        >
-                          {ROLES.map((each) => (
-                            <MenuItem key={each} value={each}>
-                              {t(`share.role.${each}`)}
-                            </MenuItem>
-                          ))}
-                        </TextField>
-                        <Tooltip title={t('share.remove', { name: shown.plain })}>
-                          <IconButton
-                            size="small"
-                            aria-label={t('share.remove', { name: shown.plain })}
-                            onClick={() => change((ctx, ws) => removeMember(ctx, ws, member.id))}
-                          >
-                            <CloseIcon fontSize="small" />
-                          </IconButton>
-                        </Tooltip>
-                      </Box>
-                    ) : (
-                      <Typography variant="body2" color="text.secondary">
-                        {t(`share.role.${member.role}`)}
-                      </Typography>
-                    )
-                  }
-                >
+                <ListItem key={member.id} disableGutters>
                   <Box sx={{ mr: 1.5 }}>
                     <Avatar name={shown.plain} color={shown.color} />
                   </Box>
-                  <ListItemText primary={shown.label} secondary={shown.detail} />
+                  <ListItemText
+                    primary={shown.label}
+                    secondary={shown.detail}
+                    slotProps={{ secondary: { noWrap: true } }}
+                    sx={{ minWidth: 0 }}
+                  />
+                  {owner ? (
+                    <Box
+                      sx={{ display: 'flex', alignItems: 'center', gap: 0.5, flexShrink: 0, ml: 1 }}
+                    >
+                      <TextField
+                        select
+                        size="small"
+                        variant="standard"
+                        value={member.role}
+                        onChange={(event) =>
+                          change((ctx, ws) =>
+                            shareList(
+                              ctx,
+                              ws,
+                              list.id,
+                              member.principal,
+                              event.target.value as Role,
+                            ),
+                          )
+                        }
+                        slotProps={{
+                          htmlInput: { 'aria-label': t('share.roleOf', { name: shown.plain }) },
+                        }}
+                      >
+                        {ROLES.map((each) => (
+                          <MenuItem key={each} value={each}>
+                            {t(`share.role.${each}`)}
+                          </MenuItem>
+                        ))}
+                      </TextField>
+                      <Tooltip title={t('share.remove', { name: shown.plain })}>
+                        <IconButton
+                          size="small"
+                          aria-label={t('share.remove', { name: shown.plain })}
+                          onClick={() => change((ctx, ws) => removeMember(ctx, ws, member.id))}
+                        >
+                          <CloseIcon fontSize="small" />
+                        </IconButton>
+                      </Tooltip>
+                    </Box>
+                  ) : (
+                    <Typography
+                      variant="body2"
+                      color="text.secondary"
+                      sx={{ flexShrink: 0, ml: 1 }}
+                    >
+                      {t(`share.role.${member.role}`)}
+                    </Typography>
+                  )}
                 </ListItem>
               );
             })}
@@ -198,14 +205,14 @@ export function ShareDialog({ list, onClose }: { list: List; onClose: () => void
                     : t('share.noFriends')}
                 </Typography>
               ) : (
-                <Box sx={{ display: 'flex', gap: 1, alignItems: 'flex-end' }}>
+                <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, alignItems: 'flex-end' }}>
                   <TextField
                     select
                     size="small"
                     label={t('share.add')}
                     value={adding}
                     onChange={(event) => setAdding(event.target.value)}
-                    sx={{ flexGrow: 1 }}
+                    sx={{ flex: '1 1 12rem' }}
                   >
                     {choices.map((choice) => (
                       <MenuItem key={choice.principal} value={choice.principal}>

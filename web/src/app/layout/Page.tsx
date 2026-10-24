@@ -22,7 +22,13 @@ export function Page({
       {slot &&
         createPortal(
           <>
-            <Typography variant="h1" component="h1" sx={{ flexGrow: 1 }} noWrap>
+            {/* A little smaller on phones, where header buttons share the row. */}
+            <Typography
+              variant="h1"
+              component="h1"
+              sx={{ flexGrow: 1, fontSize: { xs: '1.25rem', sm: '1.5rem' } }}
+              noWrap
+            >
               {title}
             </Typography>
             {actions}

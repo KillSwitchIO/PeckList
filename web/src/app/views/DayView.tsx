@@ -1,4 +1,4 @@
-import { IconButton, Tooltip } from '@mui/material';
+import { IconButton, Tooltip, useMediaQuery, useTheme } from '@mui/material';
 import { Navigate, useNavigate, useParams } from 'react-router';
 import { VIEW_GROUPINGS } from '../../core/listView.ts';
 import { addDays, localTimeZone } from '../../core/dates.ts';
@@ -28,6 +28,8 @@ export function DayView() {
   const workspace = useWorkspace();
   const navigate = useNavigate();
   const view = useListView('view:day');
+  const theme = useTheme();
+  const phone = useMediaQuery(theme.breakpoints.down('sm'), { noSsr: true });
   if (!DATE.test(date) || Number.isNaN(Date.parse(`${date}T00:00:00Z`))) {
     return (
       <Page title={t('day.title')}>
@@ -36,17 +38,25 @@ export function DayView() {
     );
   }
   if (date === today) return <Navigate to="/today" replace />;
-  const title = dayHeading(date, today);
+  const title = dayHeading(date, today, phone);
   const step = (days: number) => void navigate(dayPath(addDays(date, days), today));
   const actions = (
     <>
       <Tooltip title={t('day.previous')} disableFocusListener>
-        <IconButton aria-label={t('day.previous')} onClick={() => step(-1)}>
+        <IconButton
+          aria-label={t('day.previous')}
+          size={phone ? 'small' : 'medium'}
+          onClick={() => step(-1)}
+        >
           <ChevronLeftIcon />
         </IconButton>
       </Tooltip>
       <Tooltip title={t('day.next')} disableFocusListener>
-        <IconButton aria-label={t('day.next')} onClick={() => step(1)}>
+        <IconButton
+          aria-label={t('day.next')}
+          size={phone ? 'small' : 'medium'}
+          onClick={() => step(1)}
+        >
           <ChevronRightIcon />
         </IconButton>
       </Tooltip>
@@ -61,7 +71,7 @@ export function DayView() {
           listId: inboxList(workspace).id,
           schedule: { start: date, end: null, allDay: true, timeZone: localTimeZone() },
         }}
-        label={t('day.addTo', { day: title })}
+        label={t('day.addTo', { day: dayHeading(date, today) })}
       />
       <GroupedTasks
         tasks={dayTasks(workspace, date, today)}

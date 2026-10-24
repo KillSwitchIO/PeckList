@@ -3,7 +3,17 @@ import UnarchiveRounded from '@mui/icons-material/UnarchiveRounded';
 import DeleteOutlineRounded from '@mui/icons-material/DeleteOutlineRounded';
 import EditRounded from '@mui/icons-material/EditRounded';
 import MoreVertRounded from '@mui/icons-material/MoreVertRounded';
-import { Alert, Button, IconButton, Menu, MenuItem, Tooltip, Typography } from '@mui/material';
+import {
+  Alert,
+  Button,
+  IconButton,
+  Menu,
+  MenuItem,
+  Tooltip,
+  Typography,
+  useMediaQuery,
+  useTheme,
+} from '@mui/material';
 import { useState } from 'react';
 import { useNavigate, useParams } from 'react-router';
 import { getEntity, isLive } from '../../core/collections.ts';
@@ -54,9 +64,14 @@ function ListMenu({
   const canShare = phase === 'ready' && authMode === 'local' && !list.isInbox;
   const shared = listMembersOf(workspace, list.id).length;
   const owner = role === 'owner';
+  const theme = useTheme();
+  const phone = useMediaQuery(theme.breakpoints.down('sm'), { noSsr: true });
+  // Phones have room for the list's name or a row of buttons: Share joins the menu there.
+  const menu = owner && !list.isInbox;
+  const shareInMenu = canShare && phone && menu;
   return (
     <>
-      {canShare && (
+      {canShare && !shareInMenu && (
         <Tooltip
           title={
             shared === 0
@@ -88,6 +103,17 @@ function ListMenu({
         </Tooltip>
       )}
       <Menu anchorEl={anchor} open={anchor !== null} onClose={close}>
+        {shareInMenu && (
+          <MenuItem
+            onClick={() => {
+              close();
+              setDialog('share');
+            }}
+          >
+            <ShareIcon fontSize="small" sx={{ mr: 1 }} />
+            {t('share.button')}
+          </MenuItem>
+        )}
         {/* The Mess Drawer has a fixed name and no color: nothing to edit. */}
         {owner && !list.isInbox && (
           <MenuItem

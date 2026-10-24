@@ -172,7 +172,8 @@ export function TaskDetail({
         }}
       >
         {attach.input}
-        <Toolbar disableGutters sx={{ gap: 1, px: 2, flexShrink: 0 }}>
+        {/* Phones keep the date readable: pin and delete are in the ... menu there. */}
+        <Toolbar disableGutters sx={{ gap: phone ? 0.25 : 1, px: phone ? 1.5 : 2, flexShrink: 0 }}>
           <CompleteCheckbox task={task} onMenu={(position) => setMenu({ position })} />
           <DateProperty
             label={t('task.date')}
@@ -199,7 +200,7 @@ export function TaskDetail({
             }
           />
           <Box sx={{ flexGrow: 1 }} />
-          {!readOnly && task.parentId === null && task.status === 'open' && (
+          {!readOnly && !phone && task.parentId === null && task.status === 'open' && (
             <Tooltip title={isPinned(task) ? t('task.unpin') : t('task.pin')}>
               <IconButton
                 aria-label={isPinned(task) ? t('task.unpin') : t('task.pin')}
@@ -239,7 +240,7 @@ export function TaskDetail({
               </IconButton>
             </Tooltip>
           )}
-          {!readOnly && (
+          {!readOnly && !phone && (
             <Tooltip title={t('task.delete')}>
               <IconButton
                 aria-label={t('task.delete')}

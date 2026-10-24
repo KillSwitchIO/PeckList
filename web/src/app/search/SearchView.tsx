@@ -12,6 +12,7 @@ import { DateButton } from '../tasks/DateButton.tsx';
 import { TaskReadOnly, useCanEditTask } from '../tasks/readOnly.ts';
 import { useTaskSelection } from '../tasks/selection.ts';
 import { PriorityCheckbox } from '../tasks/TaskRow.tsx';
+import { useTwoLineRows } from '../layout/rowLayout.ts';
 import { EmptyState } from '../views/EmptyState.tsx';
 import { GroupSection } from '../views/GroupSection.tsx';
 
@@ -50,6 +51,8 @@ function ResultRow({ hit }: { hit: SearchHit }) {
   const list = getEntity(workspace, 'lists', task.listId);
   const title = task.title || t('task.untitled');
   const selected = selectedId === task.id;
+  const twoLine = useTwoLineRows();
+  const listLabel = list && !list.isInbox ? listName(list, workspace) : null;
   return (
     <TaskReadOnly value={!canEdit}>
       <Box
@@ -57,6 +60,7 @@ function ResultRow({ hit }: { hit: SearchHit }) {
         sx={{
           display: 'flex',
           alignItems: 'flex-start',
+          flexWrap: 'wrap',
           borderBottom: 1,
           borderColor: 'divider',
           bgcolor: selected ? 'action.selected' : 'transparent',
@@ -74,18 +78,20 @@ function ResultRow({ hit }: { hit: SearchHit }) {
         >
           <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 1.5 }}>
             <Typography
-              noWrap
+              noWrap={!twoLine}
               sx={{
                 flexGrow: 1,
+                minWidth: 0,
                 color: task.status === 'open' ? 'text.primary' : 'text.disabled',
                 textDecoration: task.status === 'wontdo' ? 'line-through' : 'none',
+                overflowWrap: 'anywhere',
               }}
             >
               <Highlighted text={title} ranges={task.title ? hit.title : []} />
             </Typography>
-            {list && !list.isInbox && (
+            {!twoLine && listLabel && (
               <Typography variant="body2" color="text.secondary" noWrap sx={{ flexShrink: 0 }}>
-                {listName(list, workspace)}
+                {listLabel}
               </Typography>
             )}
           </Box>
@@ -95,9 +101,31 @@ function ResultRow({ hit }: { hit: SearchHit }) {
             </Typography>
           )}
         </ButtonBase>
-        <Box sx={{ alignSelf: 'stretch', display: 'flex' }}>
-          <DateButton task={task} width="7rem" />
-        </Box>
+        {/* Narrow: the date and list go under the title, like the other task rows. */}
+        {!twoLine && (
+          <Box sx={{ alignSelf: 'stretch', display: 'flex' }}>
+            <DateButton task={task} width="7rem" />
+          </Box>
+        )}
+        {twoLine && (listLabel || task.schedule || task.due || task.completedAt) && (
+          <Box
+            sx={{
+              flexBasis: '100%',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 1.25,
+              pl: 6,
+              pb: 1,
+              mt: -0.75,
+              typography: 'body2',
+              fontSize: '0.8125rem',
+              color: 'text.secondary',
+            }}
+          >
+            <DateButton task={task} width="auto" compact />
+            {listLabel && <span>{listLabel}</span>}
+          </Box>
+        )}
       </Box>
     </TaskReadOnly>
   );

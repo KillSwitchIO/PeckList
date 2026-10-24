@@ -31,7 +31,10 @@ export function Section({
   );
 }
 
-/** A setting as a row: its name (and a hint) on the left, the control on the right. */
+/**
+ * A setting as a row: its name (and a hint) on the left, the control on the right. When both do
+ * not fit (phones), the control moves under the name instead of squeezing its value.
+ */
 export function SettingRow({
   label,
   hint,
@@ -42,8 +45,18 @@ export function SettingRow({
   children?: ReactNode;
 }) {
   return (
-    <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, px: 1, py: 1 }}>
-      <Box sx={{ flexGrow: 1, minWidth: 0 }}>
+    <Box
+      sx={{
+        display: 'flex',
+        flexWrap: 'wrap',
+        alignItems: 'center',
+        columnGap: 2,
+        rowGap: 1,
+        px: 1,
+        py: 1,
+      }}
+    >
+      <Box sx={{ flex: '1 1 10rem', minWidth: 0 }}>
         <Typography>{label}</Typography>
         {hint && (
           <Typography variant="caption" color="text.secondary">
@@ -51,7 +64,7 @@ export function SettingRow({
           </Typography>
         )}
       </Box>
-      {children}
+      {children && <Box sx={{ flexShrink: 0, maxWidth: '100%' }}>{children}</Box>}
     </Box>
   );
 }

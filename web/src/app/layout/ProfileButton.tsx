@@ -13,6 +13,8 @@ import {
   MenuItem,
   Tooltip,
   Typography,
+  useMediaQuery,
+  useTheme,
 } from '@mui/material';
 import { useEffect, useState, type ReactNode } from 'react';
 import { useNavigate } from 'react-router';
@@ -62,6 +64,9 @@ export function ProfileButton({ onShortcuts }: { onShortcuts: () => void }) {
   const navigate = useNavigate();
   const [anchor, setAnchor] = useState<HTMLElement | null>(null);
   const [changing, setChanging] = useState(false);
+  const theme = useTheme();
+  // Phones have no keyboard to take shortcuts.
+  const phone = useMediaQuery(theme.breakpoints.down('sm'), { noSsr: true });
   const local = account?.authMode === 'local';
   const me = useStoreState((state) =>
     account ? state.workspace?.entities.users.find((user) => user.id === account.id) : undefined,
@@ -163,7 +168,7 @@ export function ProfileButton({ onShortcuts }: { onShortcuts: () => void }) {
             <PeopleIcon fontSize="small" />,
             () => void navigate('/friends'),
           )}
-        {item(t('profile.shortcuts'), <KeyboardRounded fontSize="small" />, onShortcuts)}
+        {!phone && item(t('profile.shortcuts'), <KeyboardRounded fontSize="small" />, onShortcuts)}
         {local && <Divider />}
         {local &&
           item(t('sync.changePassword'), <KeyRounded fontSize="small" />, () => setChanging(true))}
