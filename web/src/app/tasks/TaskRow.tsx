@@ -1,7 +1,15 @@
 import ChecklistRounded from '@mui/icons-material/ChecklistRounded';
 import ChevronRightRounded from '@mui/icons-material/ChevronRightRounded';
 import SubdirectoryArrowRightRounded from '@mui/icons-material/SubdirectoryArrowRightRounded';
-import { Box, ButtonBase, IconButton, Typography, useMediaQuery, useTheme } from '@mui/material';
+import {
+  Box,
+  ButtonBase,
+  Checkbox,
+  IconButton,
+  Typography,
+  useMediaQuery,
+  useTheme,
+} from '@mui/material';
 import { useState } from 'react';
 import { getEntity } from '../../core/collections.ts';
 import { subtaskProgress } from '../../core/queries.ts';
@@ -94,6 +102,12 @@ export interface RowExpander {
   onToggle: () => void;
 }
 
+/** Picking rows for a bulk change: the row toggles instead of opening. */
+export interface RowSelection {
+  selected: boolean;
+  onToggle: () => void;
+}
+
 export function TaskRow({
   task,
   showList = false,
@@ -101,6 +115,9 @@ export function TaskRow({
   depth = 0,
   expander,
   draggable = false,
+  dueFirst = false,
+  select,
+  onHold,
 }: {
   task: Task;
   /** Show the task's list (views that mix lists) */
@@ -113,6 +130,12 @@ export function TaskRow({
   expander?: RowExpander;
   /** In a list that can be reordered: drag it, or Alt+arrows from the keyboard */
   draggable?: boolean;
+  /** Show (and edit) the due date on the right even when the task has a start (Due dates view) */
+  dueFirst?: boolean;
+  /** Selecting rows: a checkbox replaces the priority one, and the row toggles */
+  select?: RowSelection;
+  /** A touch hold does this instead of opening the menu (starting a selection) */
+  onHold?: () => void;
 }) {
   const workspace = useWorkspace();
   const theme = useTheme();
@@ -123,12 +146,12 @@ export function TaskRow({
   const tags = tagsOfTask(workspace, task);
   const assigned = assigneesOf(task).map((principal) => describePrincipal(workspace, principal));
   const isPhone = useMediaQuery(theme.breakpoints.down('sm'), { noSsr: true });
-  const { text: dateText } = useRowDate(task);
+  const { text: dateText } = useRowDate(task, dueFirst);
   const done = task.status !== 'open';
   const title = task.title || t('task.untitled');
   const selected = selectedId === task.id;
   const [menu, setMenu] = useState<TaskMenuAnchor | null>(null);
-  const longPress = useLongPress((position) => setMenu({ position }));
+  const longPress = useLongPress((position) => (onHold ? onHold() : setMenu({ position })));
   const canEdit = useCanEditTask(task);
   const apply = useApply();
   const drag = useTaskDrag();
@@ -207,7 +230,7 @@ export function TaskRow({
     (showParent && parent !== undefined) ||
     showsList;
   const openButton = {
-    onClick: () => open(task.id),
+    onClick: () => (select ? select.onToggle() : open(task.id)),
     ...(gesture ?? {}),
     ...(dragging
       ? {
@@ -223,6 +246,18 @@ export function TaskRow({
     // No ripple: it spread over the row after the details had opened and read as lag.
     disableRipple: true,
   };
+  const checkbox = select ? (
+    <Checkbox
+      size="small"
+      checked={select.selected}
+      onChange={select.onToggle}
+      onClick={(event) => event.stopPropagation()}
+      slotProps={{ input: { 'aria-label': t('task.select', { title }) } }}
+      sx={{ p: 0.75 }}
+    />
+  ) : (
+    <PriorityCheckbox task={task} />
+  );
   const titleText = (
     <Typography
       noWrap={!isPhone}
@@ -264,7 +299,7 @@ export function TaskRow({
           opacity: dimmed ? 0.4 : 1,
           borderBottom: 1,
           borderColor: 'divider',
-          bgcolor: selected ? 'action.selected' : 'transparent',
+          bgcolor: selected || select?.selected ? 'action.selected' : 'transparent',
           '&:hover': { bgcolor: selected ? 'action.selected' : 'action.hover' },
           // List color as a thin stripe on the left edge (the Mess Drawer has no color).
           '&::before': {
@@ -307,9 +342,7 @@ export function TaskRow({
         )}
         {isPhone ? (
           <>
-            <Box sx={{ pt: 0.5 }}>
-              <PriorityCheckbox task={task} />
-            </Box>
+            <Box sx={{ pt: 0.5 }}>{checkbox}</Box>
             <Box sx={{ flexGrow: 1, minWidth: 0, py: 1, pr: 1.5 }}>
               <ButtonBase
                 {...openButton}
@@ -322,7 +355,7 @@ export function TaskRow({
                 <Box
                   data-testid="task-meta"
                   // Tapping the details opens the task too (the title button is the one to focus).
-                  onClick={() => open(task.id)}
+                  onClick={() => (select ? select.onToggle() : open(task.id))}
                   sx={{
                     display: 'flex',
                     alignItems: 'center',
@@ -335,7 +368,7 @@ export function TaskRow({
                     color: 'text.secondary',
                   }}
                 >
-                  <DateButton task={task} width="auto" compact />
+                  <DateButton task={task} width="auto" compact dueFirst={dueFirst} />
                   {showsList && <Box component="span">{listName(list, workspace)}</Box>}
                   <TagChips tags={tags} max={3} wrap={false} />
                   {details}
@@ -345,7 +378,7 @@ export function TaskRow({
           </>
         ) : (
           <>
-            <PriorityCheckbox task={task} />
+            {checkbox}
             <ButtonBase
               {...openButton}
               sx={{
@@ -380,7 +413,7 @@ export function TaskRow({
                 )}
               </Box>
             </ButtonBase>
-            <DateButton task={task} width={DATE_COLUMN} />
+            <DateButton task={task} width={DATE_COLUMN} dueFirst={dueFirst} />
           </>
         )}
         <TaskMenu task={task} anchor={menu} onClose={() => setMenu(null)} showOpen />

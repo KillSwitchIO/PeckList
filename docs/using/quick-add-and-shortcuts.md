@@ -35,7 +35,8 @@ stay clear of the browser's own.
 | ++question++                             | Show the shortcuts                               |
 | ++g++ then ++t++                         | Go to Today                                      |
 | ++g++ then ++i++                         | Go to the Mess Drawer                            |
-| ++g++ then ++n++                         | Go to Next 7 days                                |
+| ++g++ then ++n++                         | Go to Upcoming                                   |
+| ++g++ then ++d++                         | Go to Due dates                                  |
 | ++g++ then ++a++                         | Go to All                                        |
 | ++g++ then ++c++                         | Go to Calendar                                   |
 | ++g++ then ++s++                         | Go to Settings                                   |

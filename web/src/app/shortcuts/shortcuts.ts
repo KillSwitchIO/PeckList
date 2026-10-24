@@ -69,6 +69,13 @@ export const SHORTCUTS: readonly Shortcut[] = [
     action: { kind: 'go', path: '/upcoming' },
   },
   {
+    keys: ['g', 'd'],
+    label: 'G D',
+    description: 'nav.due',
+    group: 'go',
+    action: { kind: 'go', path: '/due' },
+  },
+  {
     keys: ['g', 'a'],
     label: 'G A',
     description: 'nav.all',
