@@ -17,3 +17,23 @@ export function dayTitle(date: string, today: string): string {
 
 /** In date groups a subtask with its own start date sits on that date, not under its parent. */
 export const hasOwnDate = (task: Task) => startDate(task) !== null;
+
+/** Where a day opens: Today for today, else its own page (spec: PL-090). */
+export function dayPath(date: string, today: string): string {
+  return date === today ? '/today' : `/day/${date}`;
+}
+
+/**
+ * A day page's heading: "Monday, October 26", with the year only when it is not this year's
+ * (Ben, 2026-10-23: the year is noise for this year's dates).
+ */
+export function dayHeading(date: string, today: string): string {
+  const [year, month, day] = date.split('-').map(Number);
+  return new Intl.DateTimeFormat(undefined, {
+    weekday: 'long',
+    month: 'long',
+    day: 'numeric',
+    ...(date.slice(0, 4) === today.slice(0, 4) ? {} : { year: 'numeric' }),
+    timeZone: 'UTC',
+  }).format(Date.UTC(year!, month! - 1, day!));
+}

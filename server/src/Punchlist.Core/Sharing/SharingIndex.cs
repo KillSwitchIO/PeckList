@@ -69,6 +69,19 @@ public sealed class SharingIndex
     public IReadOnlyList<(string Id, JsonObject Doc)> GroupsOwnedBy(string owner) =>
         [.. byId.Values.Where(each => each.Collection == "groups" && !each.Deleted && each.Get("ownerId") == owner).Select(each => (each.Id, each.Doc))];
 
+    /// <summary>
+    /// Names of the groups people made that a user is in (owner or active member), for admins;
+    /// archived ones and the server's own (see <see cref="ServerGroupProjection"/>) are left out.
+    /// </summary>
+    public IReadOnlyList<string> GroupNamesOf(string userId) =>
+        [.. byId.Values
+            .Where(each => each.Collection == "groups" && !each.Deleted && !Archived(each)
+                && each.Get("ownerId") != ServerGroupProjection.Owner
+                && GroupPeople(each.Id, withInvited: false).Contains(userId))
+            .Select(each => each.Get("name") ?? "")
+            .Where(name => name.Length > 0)
+            .Order(StringComparer.OrdinalIgnoreCase)];
+
     /// <summary>Every membership row of a group, left ones too.</summary>
     public IReadOnlyList<(string Id, JsonObject Doc)> MembershipRowsOf(string groupId) =>
         [.. byId.Values.Where(each => each.Collection == "groupMembers" && each.Get("groupId") == groupId).Select(each => (each.Id, each.Doc))];

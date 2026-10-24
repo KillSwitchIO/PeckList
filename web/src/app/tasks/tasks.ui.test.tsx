@@ -455,6 +455,21 @@ describe('lists and sections', () => {
     );
   });
 
+  it('gives a list a line icon in its color instead of an emoji', async () => {
+    await renderApp('/today');
+    await userEvent.click(screen.getByRole('button', { name: 'New list' }));
+    const dialog = await screen.findByRole('dialog');
+    await userEvent.type(within(dialog).getByLabelText('Name'), 'Work');
+    await userEvent.click(within(dialog).getByRole('radio', { name: 'work icon' }));
+    expect(within(dialog).getByRole('radio', { name: 'work icon' })).toBeChecked();
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Create' }));
+    const nav = screen.getAllByRole('navigation')[0]!;
+    const row = await within(nav).findByRole('button', { name: /^Work/ });
+    expect(row.querySelector('svg[data-testid="WorkOutlineRoundedIcon"]')).not.toBeNull();
+    // The stored name is never shown as text.
+    expect(row).not.toHaveTextContent('symbol:');
+  });
+
   it('has no sections: ones in old data fold into their list, in the order they showed', async () => {
     const store = testStore();
     await store.getState().init();

@@ -6,11 +6,16 @@ import { members } from './ops.ts';
 import { compareOrderKeys } from './ordering.ts';
 import type { Id, Priority, Task, WorkspaceFile } from './types.ts';
 
-/** `none` is the list's own order, the one tasks are dragged in. (Sections were dropped: PL-011.) */
-export type ListGrouping = 'date' | 'priority' | 'tag' | 'none';
+/**
+ * `none` is the list's own order, the one tasks are dragged in. (Sections were dropped: PL-011.)
+ * `list` is for views that mix lists (Today, All, a tag...).
+ */
+export type ListGrouping = 'date' | 'priority' | 'tag' | 'list' | 'none';
 export type ListSort = 'manual' | 'date' | 'priority' | 'title' | 'created';
 
 export const LIST_GROUPINGS: readonly ListGrouping[] = ['date', 'priority', 'tag', 'none'];
+/** What views across lists offer: a list's groupings plus one group per list. */
+export const VIEW_GROUPINGS: readonly ListGrouping[] = ['date', 'priority', 'tag', 'list', 'none'];
 export const LIST_SORTS: readonly ListSort[] = ['manual', 'date', 'priority', 'title', 'created'];
 
 /** The day a task is placed on for sorting: its start, else its due date; null when undated. */
@@ -54,6 +59,8 @@ export interface TaskGroup {
   /** The tag's name; priorities are named by the app. */
   name?: string;
   priority?: Priority;
+  /** For a list group: the list, so its shown name can be worked out (the Mess Drawer's is translated). */
+  listId?: Id;
   tasks: Task[];
 }
 
@@ -80,4 +87,17 @@ export function groupByTag(workspace: WorkspaceFile, tasks: readonly Task[]): Ta
   });
   const untagged = tasks.filter((task) => !members(task.tags).some((id) => known.has(id)));
   return untagged.length === 0 ? groups : [...groups, { key: 'tag:none', tasks: untagged }];
+}
+
+/** One group per list, in the lists' own order (the Mess Drawer first). */
+export function groupByList(workspace: WorkspaceFile, tasks: readonly Task[]): TaskGroup[] {
+  const lists = workspace.entities.lists
+    .filter((list) => isLive(list))
+    .sort((a, b) => Number(b.isInbox) - Number(a.isInbox) || compareOrderKeys(a.order, b.order));
+  return lists.flatMap((list) => {
+    const found = tasks.filter((task) => task.listId === list.id);
+    return found.length === 0
+      ? []
+      : [{ key: `list:${list.id}`, name: list.name, listId: list.id, tasks: found }];
+  });
 }

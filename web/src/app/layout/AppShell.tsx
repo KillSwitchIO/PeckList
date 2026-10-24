@@ -50,6 +50,8 @@ import { UndoToast } from '../tasks/UndoToast.tsx';
 import { ProfileButton } from './ProfileButton.tsx';
 import { APP_VERSION_LABEL, CHANGELOG_URL } from './appVersion.ts';
 import { MiniCalendar } from './MiniCalendar.tsx';
+import { useToday } from '../hooks/useToday.ts';
+import { dayPath } from '../views/dayLabels.ts';
 import { useAppliedTimeZone } from './useAppliedTimeZone.ts';
 import { activeItem, BOTTOM_ITEMS, SIDEBAR_ITEMS, type NavItem } from './navigation.tsx';
 import { SyncButton } from '../sync/SyncButton.tsx';
@@ -163,6 +165,9 @@ function Sidebar({ onNavigate }: { onNavigate: (path: string) => void }) {
   const footer = useFooterItems();
   const all = [...SIDEBAR_ITEMS, ...footer];
   const selected = activeItem(all, pathname);
+  const today = useToday();
+  const openDay =
+    /^\/day\/(\d{4}-\d{2}-\d{2})$/.exec(pathname)?.[1] ?? (pathname === '/today' ? today : null);
   return (
     <SidebarEditProvider>
       <Box
@@ -193,7 +198,7 @@ function Sidebar({ onNavigate }: { onNavigate: (path: string) => void }) {
           <SidebarTags onNavigate={onNavigate} />
         </Box>
         <NavList items={footer} selected={selected} onSelect={onNavigate} />
-        <MiniCalendar onPick={(date) => onNavigate(`/calendar?view=day&date=${date}`)} />
+        <MiniCalendar selected={openDay} onPick={(date) => onNavigate(dayPath(date, today))} />
         <Link
           href={CHANGELOG_URL}
           target="_blank"

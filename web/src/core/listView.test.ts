@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { sampleTask, sampleWorkspace, testContext } from '../test/fixtures.ts';
-import { groupByPriority, groupByTag, sortTasks } from './listView.ts';
+import { groupByList, groupByPriority, groupByTag, sortTasks } from './listView.ts';
+import { createList } from './lists.ts';
 import { setElement } from './ops.ts';
 import type { Priority, Task } from './types.ts';
 
@@ -61,6 +62,21 @@ describe('grouping', () => {
       [3, ['Apple 10', 'cherry']],
       [1, ['banana']],
       [0, ['apple 9']],
+    ]);
+  });
+
+  it('groups by list, the Mess Drawer first, then in the lists order', () => {
+    const { ctx, workspace, list } = tasks();
+    const later = createList(ctx, workspace, { name: 'Later', color: '#A7C7E7' });
+    const work = createList(ctx, later.workspace, { name: 'Work', color: '#A7C7E7' });
+    list[0]!.listId = work.list.id;
+    list[1]!.listId = later.list.id;
+    expect(
+      groupByList(work.workspace, list).map((group) => [group.name, titlesOf(group.tasks)]),
+    ).toEqual([
+      ['Mess Drawer', ['apple 9', 'cherry']],
+      ['Later', ['Apple 10']],
+      ['Work', ['banana']],
     ]);
   });
 

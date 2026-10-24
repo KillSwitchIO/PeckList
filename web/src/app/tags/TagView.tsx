@@ -14,7 +14,10 @@ import { ConfirmDialog } from '../lists/ListDialog.tsx';
 import { useApply, useWorkspace } from '../store/hooks.ts';
 import { AddTaskInput } from '../tasks/AddTaskInput.tsx';
 import { EmptyState } from '../views/EmptyState.tsx';
-import { DateGroupedTasks } from '../views/groups.tsx';
+import { FilteredTasks } from '../views/groups.tsx';
+import { SortGroupButton } from '../views/SortGroupButton.tsx';
+import { useListView } from '../lists/listGrouping.ts';
+import { VIEW_GROUPINGS } from '../../core/listView.ts';
 import { TagDialog } from './TagDialog.tsx';
 
 function TagMenu({ tag }: { tag: Tag }) {
@@ -82,15 +85,24 @@ function TagMenu({ tag }: { tag: Tag }) {
 
 /** Every open task carrying the tag or one nested under it, across lists. */
 function TagContents({ tag }: { tag: Tag }) {
+  const view = useListView(`tag:${tag.id}`);
   const workspace = useWorkspace();
   const name = leafName(tag.name);
   return (
-    <Page title={name} actions={<TagMenu tag={tag} />}>
+    <Page
+      title={name}
+      actions={
+        <>
+          <SortGroupButton view={view} groupings={VIEW_GROUPINGS} />
+          <TagMenu tag={tag} />
+        </>
+      }
+    >
       <AddTaskInput
         defaults={{ listId: inboxList(workspace).id, tags: [tag.id] }}
         label={t('tag.addTo', { tag: name })}
       />
-      <DateGroupedTasks filter={{ tags: [tag.id] }} showList emptyTitle={t('tag.empty')} />
+      <FilteredTasks filter={{ tags: [tag.id] }} view={view} showList emptyTitle={t('tag.empty')} />
     </Page>
   );
 }

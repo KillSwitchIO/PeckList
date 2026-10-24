@@ -1,7 +1,9 @@
 import { fireEvent, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { addDays, localTimeZone, todayIn } from '../core/dates.ts';
 import { createTag } from '../core/tags.ts';
+import { dayHeading } from './views/dayLabels.ts';
 import { mockViewport, renderApp, testStore } from '../test/renderApp.tsx';
 import { setLocale, t } from './i18n/i18n.ts';
 import { activeItem, SIDEBAR_ITEMS } from './layout/navigation.tsx';
@@ -204,23 +206,71 @@ describe('sidebar frame', () => {
     expect(screen.getByRole('navigation', { name: 'Punchlist' })).toBeInTheDocument();
   });
 
-  it('opens a day of the mini calendar in the calendar, and shows the version', async () => {
+  it("opens a day of the mini calendar as that day's list, and shows the version", async () => {
     mockViewport('desktop');
-    await renderApp('/today');
+    await renderApp('/calendar');
     const mini = screen.getByRole('region', { name: 'Mini calendar' });
-    const days = within(mini).getAllByRole('gridcell');
-    expect(days).toHaveLength(42);
-    const today = within(mini).getByRole('gridcell', { current: 'date' });
+    expect(within(mini).getAllByRole('gridcell')).toHaveLength(42);
     await userEvent.click(within(mini).getByRole('button', { name: 'Next month' }));
     expect(within(mini).queryByRole('gridcell', { current: 'date' })).toBeNull();
     await userEvent.click(within(mini).getByRole('button', { name: 'Back to this month' }));
+    // Today opens Today.
     await userEvent.click(within(mini).getByRole('gridcell', { current: 'date' }));
-    expect(await screen.findByRole('button', { name: 'Day', pressed: true })).toBeInTheDocument();
-    expect(today).toBeTruthy();
+    expect(await screen.findByRole('heading', { level: 1, name: 'Today' })).toBeInTheDocument();
+
+    // Another day opens its own list; a task added there lands on that day.
+    const now = todayIn(localTimeZone(), Date.now());
+    const tomorrow = addDays(now, 1);
+    await userEvent.click(within(mini).getByRole('gridcell', { name: `Open ${tomorrow}` }));
+    const title = dayHeading(tomorrow, now);
+    expect(await screen.findByRole('heading', { level: 1, name: title })).toBeInTheDocument();
+    expect(within(mini).getByRole('gridcell', { name: `Open ${tomorrow}` })).toHaveAttribute(
+      'aria-selected',
+      'true',
+    );
+    expect(screen.getByText('Nothing on this day')).toBeInTheDocument();
+    const add = screen.getByPlaceholderText(`Add a task to ${title}`);
+    await userEvent.type(add, 'Pick up the cake{Enter}');
+    expect(
+      await screen.findByRole('button', { name: 'Open Pick up the cake' }),
+    ).toBeInTheDocument();
+    expect(
+      within(mini).getByRole('gridcell', { name: `Open ${tomorrow} (has tasks)` }),
+    ).toBeInTheDocument();
+
+    // The arrows step a day, and back onto today is Today.
+    await userEvent.click(screen.getByRole('button', { name: 'Next day' }));
+    expect(
+      await screen.findByRole('heading', { level: 1, name: dayHeading(addDays(now, 2), now) }),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Open Pick up the cake' })).toBeNull();
+    await userEvent.click(screen.getByRole('button', { name: 'Previous day' }));
+    await userEvent.click(await screen.findByRole('button', { name: 'Previous day' }));
+    expect(await screen.findByRole('heading', { level: 1, name: 'Today' })).toBeInTheDocument();
 
     expect(
       screen.getByRole('link', { name: /^Punchlist v\d+\.\d+\.\d+.*: what changed$/ }),
     ).toHaveAttribute('href', 'https://gitlab.com/killswitch10/punchlist/-/blob/main/CHANGELOG.md');
+  });
+
+  it('folds the mini calendar down to this week, and remembers it', async () => {
+    mockViewport('desktop');
+    const first = await renderApp('/today');
+    const mini = screen.getByRole('region', { name: 'Mini calendar' });
+    await userEvent.click(within(mini).getByRole('button', { name: 'Show only this week' }));
+    expect(within(mini).getAllByRole('gridcell')).toHaveLength(7);
+    expect(within(mini).getByRole('gridcell', { current: 'date' })).toBeInTheDocument();
+    await userEvent.click(within(mini).getByRole('button', { name: 'Next week' }));
+    expect(within(mini).queryByRole('gridcell', { current: 'date' })).toBeNull();
+    await userEvent.click(within(mini).getByRole('button', { name: 'Back to this week' }));
+    expect(within(mini).getByRole('gridcell', { current: 'date' })).toBeInTheDocument();
+    first.unmount();
+
+    await renderApp('/today');
+    const again = screen.getByRole('region', { name: 'Mini calendar' });
+    expect(within(again).getAllByRole('gridcell')).toHaveLength(7);
+    await userEvent.click(within(again).getByRole('button', { name: 'Show the whole month' }));
+    expect(within(again).getAllByRole('gridcell')).toHaveLength(42);
   });
 });
 

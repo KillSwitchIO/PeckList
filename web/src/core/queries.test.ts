@@ -12,6 +12,7 @@ import {
   todayGroups,
   subtaskProgress,
   todayTasks,
+  dayTasks,
   trashedTasks,
   upcomingTasks,
 } from './queries.ts';
@@ -84,6 +85,17 @@ describe('smart views', () => {
     s.add('urgent today', { schedule: at(TODAY), priority: 3 });
     s.add('no date');
     expect(titles(todayTasks(s.ws, TODAY))).toEqual(['overdue', 'urgent today', 'today']);
+  });
+
+  it('a day holds the open tasks starting on it, by time, past days and future ones alike', () => {
+    const s = setup();
+    s.add('day before', { schedule: at('2026-10-24') });
+    s.add('afternoon', { schedule: at('2026-10-25T15:00') });
+    s.add('all day', { schedule: at('2026-10-25') });
+    s.add('due only', { due: due('2026-10-25') });
+    s.add('long ago', { schedule: at('2026-10-02') });
+    expect(titles(dayTasks(s.ws, '2026-10-25', TODAY))).toEqual(['all day', 'afternoon']);
+    expect(titles(dayTasks(s.ws, '2026-10-02', TODAY))).toEqual(['long ago']);
   });
 
   it('Next 7 days groups by date and excludes today and later', () => {

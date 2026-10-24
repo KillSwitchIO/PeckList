@@ -1,5 +1,6 @@
 using System.Net;
 using System.Net.Http.Json;
+using System.Text.Json.Nodes;
 using System.Text.RegularExpressions;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.Routing;
@@ -33,6 +34,31 @@ public sealed partial class AdminTests(ServerFixture fixture) : IClassFixture<Se
         var account = await factory.Services.GetRequiredService<AccountService>()
             .CreateUserAsync(username, password, role, mustChangePassword: false, cancellation: Token);
         return (await LogIn(username, password), account.Id);
+    }
+
+    [Fact]
+    public async Task Admins_see_the_groups_people_made_that_each_user_is_in()
+    {
+        var admin = await LogIn("admin", AdminPassword);
+        var (sam, samId) = await SignIn("sam");
+        var (_, kimId) = await SignIn("kim");
+        const string clock = "2026-10-22T10:00:00.000Z-0000-dev1";
+        var group = new JsonObject
+        {
+            ["id"] = "G1", ["createdAt"] = "2026-10-22T10:00:00.000Z", ["createdBy"] = samId, ["deletedAt"] = null, ["origin"] = "local",
+            ["name"] = "Game night", ["color"] = "#A7C7E7", ["ownerId"] = samId, ["archived"] = false,
+        };
+        group["_hlc"] = new JsonObject(group.Where(pair => pair.Key != "id").Select(pair => KeyValuePair.Create(pair.Key, (JsonNode?)clock)));
+        (await sam.PostAsJsonAsync("/api/sync", new
+        {
+            schemaVersion = Core.WorkspaceSchema.CurrentVersion,
+            cursor = (long?)null,
+            changes = new[] { new { collection = "groups", entity = group } },
+        }, Token)).EnsureSuccessStatusCode();
+
+        var users = (await admin.GetFromJsonAsync<AdminUser[]>("/api/admin/users", Token))!;
+        Assert.Equal(["Game night"], users.Single(user => user.Id == samId).PeopleGroups);
+        Assert.Empty(users.Single(user => user.Id == kimId).PeopleGroups!);
     }
 
     private IReadOnlyList<RouteEndpoint> AdminEndpoints()

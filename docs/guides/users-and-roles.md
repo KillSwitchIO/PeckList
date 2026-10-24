@@ -89,9 +89,13 @@ account, and it ends when the admin signs out.
 ### Deleting an account
 
 Deleting turns the account off at once and ends its sessions. It is removed for good, with
-everything the person owns, after `ACCOUNT_DELETE_GRACE_DAYS` (default 7), and can be restored
-until then (**Restore account**). If they own lists or groups shared with others, hand those over
-first; the delete dialog offers it.
+everything the person owns, after `ACCOUNT_DELETE_GRACE_DAYS` (default 7). Until then the
+account's row shows two buttons: **Restore** takes the deletion back, and **Delete now** removes it
+for good at once (it asks first), which also frees the username. If they own lists or groups shared
+with others, hand those over first; the delete dialog offers it.
+
+Under each user, **Groups** lists the server groups they are in and the groups people made that
+they own or belong to.
 
 ## Server groups
 

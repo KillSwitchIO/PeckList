@@ -1,9 +1,12 @@
-import { Box, type SxProps, type Theme } from '@mui/material';
+import { Box, useTheme, type SxProps, type Theme } from '@mui/material';
+import { createElement } from 'react';
+import { ensureContrast, WCAG_UI } from '../../core/palette.ts';
 import type { List } from '../../core/types.ts';
+import { symbolOf } from './listSymbols.ts';
 
 /**
- * How a list is marked beside its name: its icon (an emoji) when it has one, else its color as a
- * dot. `faded` for lists shown dimmed (archived).
+ * How a list is marked beside its name: its line icon in its color, or its emoji, when it has one;
+ * else its color as a dot. `faded` for lists shown dimmed (archived).
  */
 export function ListMark({
   list,
@@ -14,6 +17,24 @@ export function ListMark({
   faded?: boolean;
   sx?: SxProps<Theme>;
 }) {
+  const theme = useTheme();
+  const Symbol = symbolOf(list.icon);
+  if (Symbol) {
+    // createElement: the icon is looked up by name, not a component made during render.
+    return createElement(Symbol, {
+      'aria-hidden': true,
+      sx: [
+        {
+          fontSize: 18,
+          // Pastel list colors are faint on a light page: deepened until they read as an icon.
+          color: ensureContrast(list.color, theme.palette.background.paper, WCAG_UI),
+          opacity: faded ? 0.6 : 1,
+          flexShrink: 0,
+        },
+        ...(Array.isArray(sx) ? sx : [sx]),
+      ],
+    });
+  }
   if (list.icon) {
     return (
       <Box

@@ -38,23 +38,41 @@ export interface ListViewSettings {
   sort: ListSort;
   setGrouping: (next: ListGrouping) => void;
   setSort: (next: ListSort) => void;
+  /** Whether the grouping and sort are the view's own defaults. */
+  isDefault: boolean;
+  /** Back to the view's defaults. */
+  reset: () => void;
 }
 
-/** A list's grouping and sort: by date and the list's own order until the person picks. */
-export function useListView(listId: string): ListViewSettings {
-  const [picked, setPicked] = useState<ListViewChoice>(() => load()[listId] ?? {});
+/**
+ * A list's or a view's grouping and sort, by its id (a list id, or `view:today` and the like): by
+ * date and the own order until the person picks.
+ */
+export function useListView(id: string): ListViewSettings {
+  // Kept with its id: a page that moves to another list or filter reads that one's choice.
+  const [held, setHeld] = useState<{ id: string; choice: ListViewChoice }>(() => ({
+    id,
+    choice: load()[id] ?? {},
+  }));
+  const picked = held.id === id ? held.choice : (load()[id] ?? {});
   const save = (next: ListViewChoice) => {
-    setPicked(next);
+    setHeld({ id, choice: next });
     try {
-      localStorage.setItem(KEY, JSON.stringify({ ...load(), [listId]: next }));
+      const others = Object.entries(load()).filter(([key]) => key !== id);
+      const kept = next.group === undefined && next.sort === undefined ? [] : [[id, next]];
+      localStorage.setItem(KEY, JSON.stringify(Object.fromEntries([...others, ...kept])));
     } catch {
       // storage unavailable; keep the in-memory choice only
     }
   };
+  const grouping = picked.group ?? 'date';
+  const sort = picked.sort ?? 'manual';
   return {
-    grouping: picked.group ?? 'date',
-    sort: picked.sort ?? 'manual',
+    grouping,
+    sort,
     setGrouping: (group) => save({ ...picked, group }),
     setSort: (sort) => save({ ...picked, sort }),
+    isDefault: grouping === 'date' && sort === 'manual',
+    reset: () => save({}),
   };
 }

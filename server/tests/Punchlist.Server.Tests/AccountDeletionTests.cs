@@ -65,6 +65,27 @@ public sealed class AccountDeletionTests(ServerFixture fixture) : IClassFixture<
     }
 
     [Fact]
+    public async Task An_admin_removes_a_deleted_account_now_without_waiting_out_the_grace_period()
+    {
+        using var server = fixture.Factory(("ADMIN_PASSWORD", AdminPassword));
+        var admin = await LogIn(server, "admin", AdminPassword);
+        var (_, samId) = await NewUser(server, "sam");
+
+        // Only a deleted account can go now.
+        Assert.Equal(HttpStatusCode.Conflict, (await admin.PostAsync($"/api/admin/users/{samId}/remove-now", null, Token)).StatusCode);
+        (await admin.DeleteAsync($"/api/admin/users/{samId}", Token)).EnsureSuccessStatusCode();
+        Assert.Equal(HttpStatusCode.NoContent, (await admin.PostAsync($"/api/admin/users/{samId}/remove-now", null, Token)).StatusCode);
+
+        Assert.Null(await server.Services.GetRequiredService<IAccountStore>().FindByIdAsync(samId, Token));
+        Assert.Equal(HttpStatusCode.NotFound, (await admin.PostAsync($"/api/admin/users/{samId}/remove-now", null, Token)).StatusCode);
+        // The name is free again.
+        await NewUser(server, "sam");
+        await server.Services.GetRequiredService<AuditLog>().FlushAsync(Token);
+        var events = (await server.Services.GetRequiredService<IAuditStore>().QueryAsync(new AuditQuery { Ascending = true }, Token)).Entries;
+        Assert.Contains(events, entry => entry.Type == "admin.user-removed-now");
+    }
+
+    [Fact]
     public async Task After_the_grace_period_the_account_and_everything_it_owns_go_and_friends_hear_of_it()
     {
         using var server = fixture.Factory(("ADMIN_PASSWORD", AdminPassword), ("ACCOUNT_DELETE_GRACE_DAYS", "0"));

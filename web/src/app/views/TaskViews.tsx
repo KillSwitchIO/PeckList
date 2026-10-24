@@ -41,14 +41,26 @@ import { TaskTree } from '../tasks/TaskTree.tsx';
 import { EmptyState } from './EmptyState.tsx';
 import { GroupSection } from './GroupSection.tsx';
 import { dayTitle, hasOwnDate, weekdayName } from './dayLabels.ts';
-import { CompletedGroup, DateGroupedTasks, PinnedGroup, PostponeButton } from './groups.tsx';
+import {
+  CompletedGroup,
+  FilteredTasks,
+  GroupedTasks,
+  PinnedGroup,
+  PostponeButton,
+} from './groups.tsx';
+import { SortGroupButton } from './SortGroupButton.tsx';
+import { useListView } from '../lists/listGrouping.ts';
+import { sortTasks, VIEW_GROUPINGS, type ListSort } from '../../core/listView.ts';
 
 /** Overdue (with Postpone) and today's groups, shared by Today and Next 7 days. */
 /** Overdue and today, without the pinned tasks (they head the view, in Pinned). */
-function OverdueAndToday({ today }: { today: string }) {
+function OverdueAndToday({ today, sort }: { today: string; sort: ListSort }) {
   const workspace = useWorkspace();
   const all = todayGroups(workspace, today);
-  const groups = { overdue: pinnedFirst(all.overdue).rest, today: pinnedFirst(all.today).rest };
+  const groups = {
+    overdue: ordered(pinnedFirst(all.overdue).rest, sort),
+    today: ordered(pinnedFirst(all.today).rest, sort),
+  };
   return (
     <>
       {groups.overdue.length > 0 && (
@@ -84,20 +96,42 @@ function AddForToday({ today }: { today: string }) {
   );
 }
 
+/** Within a date group: as is, or in the order the person picked. */
+function ordered(tasks: Task[], sort: ListSort): Task[] {
+  return sort === 'manual' ? tasks : sortTasks(tasks, sort);
+}
+
 /** Today: a focused copy of Next 7 days with only overdue, today and what got done today. */
 export function TodayView() {
   const workspace = useWorkspace();
   const today = useToday();
+  const view = useListView('view:today');
   const groups = todayGroups(workspace, today);
   const done = completedOn(workspace, today, localTimeZone());
   const empty = groups.overdue.length === 0 && groups.today.length === 0 && done.length === 0;
   return (
-    <Page title={t('nav.today')}>
+    <Page
+      title={t('nav.today')}
+      actions={<SortGroupButton view={view} groupings={VIEW_GROUPINGS} />}
+    >
       <AddForToday today={today} />
-      {empty && <EmptyState title={t('empty.today')} hint={t('empty.today.hint')} />}
-      <PinnedGroup tasks={pinnedFirst([...groups.overdue, ...groups.today]).pinned} showList />
-      <OverdueAndToday today={today} />
-      <CompletedGroup tasks={done} showList />
+      {view.grouping === 'date' ? (
+        <>
+          {empty && <EmptyState title={t('empty.today')} hint={t('empty.today.hint')} />}
+          <PinnedGroup tasks={pinnedFirst([...groups.overdue, ...groups.today]).pinned} showList />
+          <OverdueAndToday today={today} sort={view.sort} />
+          <CompletedGroup tasks={done} showList />
+        </>
+      ) : (
+        <GroupedTasks
+          tasks={[...groups.overdue, ...groups.today]}
+          closed={done}
+          grouping={view.grouping}
+          sort={view.sort}
+          showList
+          emptyTitle={t('empty.today')}
+        />
+      )}
     </Page>
   );
 }
@@ -106,11 +140,28 @@ export function TodayView() {
 export function UpcomingView() {
   const workspace = useWorkspace();
   const today = useToday();
+  const view = useListView('view:upcoming');
   const groups = upcomingTasks(workspace, today);
   const current = todayGroups(workspace, today);
   const empty = groups.length === 0 && current.overdue.length === 0 && current.today.length === 0;
+  const actions = <SortGroupButton view={view} groupings={VIEW_GROUPINGS} />;
+  if (view.grouping !== 'date') {
+    return (
+      <Page title={t('nav.upcoming')} actions={actions}>
+        <AddForToday today={today} />
+        <GroupedTasks
+          tasks={[...current.overdue, ...current.today, ...groups.flatMap((group) => group.tasks)]}
+          closed={[]}
+          grouping={view.grouping}
+          sort={view.sort}
+          showList
+          emptyTitle={t('upcoming.empty')}
+        />
+      </Page>
+    );
+  }
   return (
-    <Page title={t('nav.upcoming')}>
+    <Page title={t('nav.upcoming')} actions={actions}>
       <AddForToday today={today} />
       {empty && <EmptyState title={t('upcoming.empty')} />}
       <PinnedGroup
@@ -123,9 +174,9 @@ export function UpcomingView() {
         }
         showList
       />
-      <OverdueAndToday today={today} />
+      <OverdueAndToday today={today} sort={view.sort} />
       {groups.map((group) => {
-        const tasks = pinnedFirst(group.tasks).rest;
+        const tasks = ordered(pinnedFirst(group.tasks).rest, view.sort);
         return (
           tasks.length > 0 && (
             <GroupSection key={group.date} title={dayTitle(group.date, today)} count={tasks.length}>
@@ -141,10 +192,11 @@ export function UpcomingView() {
 /** All: no filter at all. Every open task in date groups, then Completed. */
 export function AllView() {
   const workspace = useWorkspace();
+  const view = useListView('view:all');
   return (
-    <Page title={t('nav.all')}>
+    <Page title={t('nav.all')} actions={<SortGroupButton view={view} groupings={VIEW_GROUPINGS} />}>
       <AddTaskInput defaults={{ listId: inboxList(workspace).id }} />
-      <DateGroupedTasks filter={ALL_TASKS} showList emptyTitle={t('all.empty')} />
+      <FilteredTasks filter={ALL_TASKS} view={view} showList emptyTitle={t('all.empty')} />
     </Page>
   );
 }
@@ -152,9 +204,18 @@ export function AllView() {
 /** Open tasks assigned to me, directly or through a group (servers only). */
 export function AssignedView() {
   const me = useStoreState((state) => state.context().userId);
+  const view = useListView('view:assigned');
   return (
-    <Page title={t('nav.assigned')}>
-      <DateGroupedTasks filter={{ assignedTo: me }} showList emptyTitle={t('assigned.empty')} />
+    <Page
+      title={t('nav.assigned')}
+      actions={<SortGroupButton view={view} groupings={VIEW_GROUPINGS} />}
+    >
+      <FilteredTasks
+        filter={{ assignedTo: me }}
+        view={view}
+        showList
+        emptyTitle={t('assigned.empty')}
+      />
     </Page>
   );
 }
@@ -162,9 +223,18 @@ export function AssignedView() {
 /** Open tasks others shared with me: their lists, or assigned to me from lists I cannot see. */
 export function SharedView() {
   const me = useStoreState((state) => state.context().userId);
+  const view = useListView('view:shared');
   return (
-    <Page title={t('nav.shared')}>
-      <DateGroupedTasks filter={{ sharedWith: me }} showList emptyTitle={t('shared.empty')} />
+    <Page
+      title={t('nav.shared')}
+      actions={<SortGroupButton view={view} groupings={VIEW_GROUPINGS} />}
+    >
+      <FilteredTasks
+        filter={{ sharedWith: me }}
+        view={view}
+        showList
+        emptyTitle={t('shared.empty')}
+      />
     </Page>
   );
 }

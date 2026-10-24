@@ -9,8 +9,10 @@ export interface AdminUser {
   role: AccountRole;
   disabled: boolean;
   createdAt: string;
-  /** Server groups the account is in. */
+  /** Server groups the account is in (ids). */
   groups: string[];
+  /** Names of the groups people made that the account is in (owner or member). */
+  peopleGroups?: string[];
   hasPassword: boolean;
   mustChangePassword: boolean;
   /** Identity providers linked to the account. */
@@ -277,6 +279,8 @@ export interface AdminApi {
   linkIdentity(id: string, provider: string, subject: string): Promise<AdminResult>;
   /** Take a deletion back within the grace period. */
   restoreAccount(id: string): Promise<AdminResult>;
+  /** Remove a deleted account for good now, without waiting out the grace period. */
+  removeNow(id: string): Promise<AdminResult>;
   /** A generated password the person must change; shown once. */
   resetPassword(id: string): Promise<AdminResult<string>>;
   loginLink(id: string): Promise<AdminResult<{ url: string; expires: string }>>;

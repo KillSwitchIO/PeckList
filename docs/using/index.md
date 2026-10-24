@@ -16,7 +16,10 @@
 
 **Edit sidebar** pins and hides views. The menu button at the top left folds the sidebar away
 and back (each device remembers it). At the bottom, a small month shows a dot on days with open
-tasks; click a day to open it in the calendar. Under it is the app's version, which links to what
+tasks; click a day to open that day's tasks as a list, like Today but for any day (today itself
+opens Today). The day page adds new tasks to that day, shows what got done that day, and its arrows
+step a day. The arrow at the top right of the small month folds it down to just one week (and
+back), and each device remembers which. Under it is the app's version, which links to what
 changed. On a phone the main views sit in the bottom bar.
 
 ## Tasks
@@ -57,7 +60,14 @@ their start; the due date is the deadline.
 
 Lists hold tasks. The sort-and-group button next to a list's name groups it (by date, priority or
 tag, or **None** for the list's own order, the one you drag tasks in) and sorts it; the **...**
-menu edits, archives or deletes it. A list shared with a group shows the group after its name
+menu edits, archives or deletes it. The built-in views (Today, Next 7 days, All, Assigned to me,
+Shared with me) and every tag and saved filter have the same button, plus **List** to group by
+list. Each list and view keeps its own choice on this device, and the button turns colored while
+it differs from the default; **Restore defaults** at the bottom of its menu goes back.
+
+A list is marked in the sidebar by its color as a dot until you give it an icon: **Edit list**
+(or the new-list dialog) offers line icons drawn in the list's color, common emoji, or any emoji
+typed in. A list shared with a group shows the group after its name
 ("Groceries - Household") for everyone, so it never looks like someone's own list of the same name.
 Lists can be shared: see [sharing](sharing.md).
 

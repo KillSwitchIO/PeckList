@@ -19,7 +19,8 @@ public sealed record AdminUser(
     bool MustChangePassword,
     IReadOnlyList<string> Providers,
     DateTimeOffset? DeletedAt = null,
-    DateTimeOffset? RemovedAt = null);
+    DateTimeOffset? RemovedAt = null,
+    IReadOnlyList<string>? PeopleGroups = null);
 
 public sealed record NewUserRequest(string? Username, string? Role);
 
@@ -94,8 +95,10 @@ public static class AdminEndpoints
     public static RouteGroupBuilder MapAdmin(this RouteGroupBuilder admin)
     {
         admin.MapGet("/users", async (
-            IAccountStore accounts, ServerGroupService groups, IIdentityStore identities, AccountRemoval removal, CancellationToken cancellation) =>
+            IAccountStore accounts, ServerGroupService groups, IIdentityStore identities, AccountRemoval removal, SharingState sharing,
+            CancellationToken cancellation) =>
         {
+            var index = sharing.Index;
             var all = await accounts.ListAsync(cancellation);
             var views = await groups.ListAsync(cancellation);
             var links = await identities.ListAsync(cancellation);
@@ -110,7 +113,8 @@ public static class AdminEndpoints
                 account.MustChangePassword,
                 links.Where(link => link.AccountId == account.Id).Select(link => link.Provider).Distinct().ToList(),
                 account.DeletedAt,
-                account.DeletedAt is null ? null : removal.RemovedAt(account)));
+                account.DeletedAt is null ? null : removal.RemovedAt(account),
+                index.GroupNamesOf(account.Id)));
         }).RequirePermission(Permission.ManageUsers);
 
         // Delete: turned off at once, removed for good after the grace period, restorable until then.
@@ -141,6 +145,16 @@ public static class AdminEndpoints
                 AuthSetup.ForgetStamp(cache, id);
                 return Results.NoContent();
             }, cancellation)).RequirePermission(Permission.ManageUsers).ProjectsServerGroups().Audited("admin.user-restored");
+
+        // Delete now: a deleted account goes for good without waiting out its grace period.
+        admin.MapPost("/users/{id}/remove-now", async (
+            string id, ClaimsPrincipal user, IAccountStore store, AccountRemoval removal, CancellationToken cancellation) =>
+            await OnAccountAsync(id, user, store, async account =>
+            {
+                if (account.DeletedAt is null) return Results.Conflict(new AdminError("not_deleted"));
+                await removal.RemoveNowAsync(id, cancellation);
+                return Results.NoContent();
+            }, cancellation)).RequirePermission(Permission.ManageUsers).Audited("admin.user-removed-now");
 
         admin.MapPost("/users", async (NewUserRequest request, ClaimsPrincipal user, AccountService accounts, HttpContext context, CancellationToken cancellation) =>
         {
