@@ -241,6 +241,12 @@ export function RepeatProperty({ task }: { task: Task }) {
                 fullWidth
                 value={draft.days}
                 onChange={(_, value: number[]) => set({ days: value })}
+                sx={{
+                  '& .Mui-selected, & .Mui-selected:hover': {
+                    bgcolor: 'primary.main',
+                    color: 'primary.contrastText',
+                  },
+                }}
               >
                 {days.map((day) => (
                   <ToggleButton key={day} value={day} aria-label={weekdayName(day)}>
