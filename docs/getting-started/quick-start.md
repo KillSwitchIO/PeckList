@@ -3,7 +3,7 @@
 The fastest way to see Punchlist: one container, data in a Docker volume.
 
 ```bash
-docker run -d --name punchlist -p 8080:8080 -v punchlist-data:/data \
+docker run -d --name punchlist -p 8080:8080 -v punchlist-data:/data -v punchlist-files:/files \
   registry.gitlab.com/killswitch10/punchlist:latest
 docker logs punchlist
 ```

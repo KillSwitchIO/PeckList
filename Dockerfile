@@ -43,7 +43,7 @@ COPY server/src src
 RUN if [ "$VERSION" = "0.0.0-dev" ]; then STAMP=""; else STAMP="-p:Version=$VERSION"; fi \
     && dotnet publish src/Punchlist.Server/Punchlist.Server.csproj -c Release -a $TARGETARCH --self-contained false \
        -o /app --no-restore $STAMP -p:SourceRevisionId=$REVISION \
-    && mkdir -p /data && chown 1654:1654 /data
+    && mkdir -p /data /files && chown 1654:1654 /data /files
 
 FROM mcr.microsoft.com/dotnet/aspnet:10.0-noble-chiseled
 ARG VERSION
@@ -63,14 +63,17 @@ COPY --from=web /src/web/dist wwwroot
 # The chiseled base has no time zone data, so TZ would silently mean UTC. The files are the same
 # on every architecture.
 COPY --from=server /usr/share/zoneinfo /usr/share/zoneinfo
-# The chiseled image has no shell to create the volume's folder, so it comes over owned by the
-# image's non-root user (uid 1654, "app").
+# The chiseled image has no shell to create the volumes' folders, so they come over owned by the
+# image's non-root user (uid 1654, "app"). Attached files get their own volume, so the bigger
+# folder can live on other storage than the database.
 COPY --from=server --chown=1654:1654 /data /data
+COPY --from=server --chown=1654:1654 /files /files
 # `punchlist` is on the PATH for the CLI: docker exec <container> punchlist export ...
 ENV ASPNETCORE_HTTP_PORTS=8080 \
     DB_PATH=/data/punchlist.db \
+    ATTACHMENT_DIR=/files \
     PATH=/app:$PATH
-VOLUME /data
+VOLUME /data /files
 EXPOSE 8080
 USER 1654
 HEALTHCHECK --interval=30s --timeout=10s --start-period=10s --retries=3 \

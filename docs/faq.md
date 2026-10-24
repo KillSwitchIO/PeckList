@@ -26,7 +26,8 @@ The web app's own HTTP API is usable, but it is not a stable, versioned public A
 [HTTP API](reference/http-api.md).
 
 **Where is my data?**
-In the database (`/data/punchlist.db` in the image), its snapshots in `/data/snapshots`, and on
+In the database (`/data/punchlist.db` in the image), its snapshots in `/data/snapshots`, attached
+files in `/files`, and on
 each device's browser storage. Nothing is sent anywhere else: no telemetry, no external services
 unless you configure single sign-on or log shipping.
 

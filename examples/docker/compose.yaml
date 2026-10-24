@@ -12,6 +12,8 @@ services:
       - '8080:8080'
     volumes:
       - punchlist-data:/data
+      # Attached files, apart from the database.
+      - punchlist-files:/files
     environment:
       # Months in stats and "today" on the server follow this time zone.
       TZ: Etc/UTC
@@ -22,3 +24,4 @@ services:
 
 volumes:
   punchlist-data:
+  punchlist-files:

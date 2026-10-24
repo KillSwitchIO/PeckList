@@ -136,8 +136,10 @@ on the device that added them. **Default:** `25`. **Where:** any, live.
 ### `ATTACHMENT_DIR`
 
 Where attached files are kept, one file per content hash. Back this folder up with the database.
-Files no task uses any more are removed 30 days after the last task let go of them.
-**Default:** `attachments` next to the SQLite file (`/data/attachments` in the image). **Where:** env.
+Files no task uses any more are removed 30 days after the last task let go of them. It is the
+folder that grows, so it can sit on other storage than the database: the image keeps it in its own
+volume, `/files`. **Default:** `attachments` next to the SQLite file; `/files` in the image.
+**Where:** env.
 
 ## Network
 

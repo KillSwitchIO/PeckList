@@ -22,8 +22,9 @@ next.
 
 !!! note "Data in a folder instead of a volume"
     [`compose.bind-mount.yaml`](https://gitlab.com/killswitch10/punchlist/-/blob/main/examples/docker/compose.bind-mount.yaml)
-    keeps the data in `./data`. The folder must belong to uid 1654 (`sudo chown 1654:1654 data`),
-    or run the container as your own user with `user:`.
+    keeps the data in `./data` and attached files in `./files` (point that one at bigger storage if
+    you like). Both folders must belong to uid 1654 (`sudo chown 1654:1654 data files`), or run the
+    container as your own user with `user:`.
 
 ## With HTTPS (Caddy)
 

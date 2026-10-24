@@ -24,6 +24,7 @@ Every image runs on `linux/amd64` and `linux/arm64` (a Raspberry Pi 4 or 5 with 
 docker run -d --name punchlist --restart unless-stopped \
   -p 8080:8080 \
   -v punchlist-data:/data \
+  -v punchlist-files:/files \
   -e TZ=Europe/Berlin \
   registry.gitlab.com/killswitch10/punchlist:latest
 ```
@@ -34,7 +35,7 @@ For anything longer-lived, use [Docker Compose](docker-compose.md).
 To keep settings in a file, pass an env file:
 
 ```bash
-docker run -d --name punchlist -p 8080:8080 -v punchlist-data:/data \
+docker run -d --name punchlist -p 8080:8080 -v punchlist-data:/data -v punchlist-files:/files \
   --env-file punchlist.env registry.gitlab.com/killswitch10/punchlist:latest
 ```
 
@@ -48,8 +49,11 @@ docker run -d --name punchlist -p 8080:8080 -v punchlist-data:/data \
 - A chiseled .NET base: no shell, no package manager, nothing to log into. Runs as uid **1654**
   (the image's `app` user), never root.
 - Listens on port **8080** (`ASPNETCORE_HTTP_PORTS`).
-- Keeps everything in **`/data`**: the SQLite database, snapshots (`/data/snapshots`), log files
+- Keeps its data in **`/data`**: the SQLite database, snapshots (`/data/snapshots`), log files
   (`/data/logs`) and audit archives (`/data/audit`). Mount a volume there.
+- Keeps attached files in **`/files`** (`ATTACHMENT_DIR`), apart from the database, since that is the
+  folder that grows. Mount a volume there too, on bigger or slower storage if you like; without
+  one, Docker makes an anonymous volume that is easy to lose when the container is recreated.
 - A health check that runs `punchlist healthcheck` (there is no curl inside); `docker ps` shows
   `healthy` once the server answers.
 - The `punchlist` command for maintenance, run with `docker exec`: see the
@@ -61,7 +65,7 @@ A **named volume** (`-v punchlist-data:/data`) works as is. A **bind mount** of 
 be writable by uid 1654:
 
 ```bash
-mkdir -p ./data && sudo chown 1654:1654 ./data
+mkdir -p ./data ./files && sudo chown 1654:1654 ./data ./files
 ```
 
 or run the container as your own user (who then owns the folder): `--user 1000:1000`.

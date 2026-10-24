@@ -91,7 +91,7 @@ public sealed record ServerSettings
     /// <summary>Write pruned entries to gzipped JSON lines first (<c>AUDIT_ARCHIVE</c>).</summary>
     public bool AuditArchive { get; init; }
 
-    /// <summary>Where attachment files go: <c>attachments</c> next to the SQLite file.</summary>
+    /// <summary>Where attachment files go (<c>ATTACHMENT_DIR</c>): <c>attachments</c> next to the SQLite file, <c>/files</c> in the image.</summary>
     public string AttachmentDir { get; init; } = "/data/attachments";
 
     /// <summary>The largest file people may attach, in megabytes (<c>ATTACHMENT_MAX_MB</c>).</summary>

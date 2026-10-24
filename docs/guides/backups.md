@@ -15,6 +15,10 @@ They also sit next to the database, so they protect against mistakes, not agains
 Copy them elsewhere: include `/data` (or just `/data/snapshots`) in your machine's backup tool
 (restic, borg, Kopia, Duplicati, ...).
 
+Snapshots hold tasks, not the files attached to them. Those live in `ATTACHMENT_DIR` (`/files` in
+the image, its own volume), named by their content hash: back that folder up too. Files never
+change once written, so an incremental backup tool copies each one once.
+
 ## Admin > Backups
 
 - **Take a backup now**, and download any snapshot.

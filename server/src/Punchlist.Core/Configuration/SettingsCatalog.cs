@@ -67,7 +67,7 @@ public static class SettingsCatalog
         new("DB_CONNECTION_STRING", "environment", SettingKind.Secret, EnvironmentOnly: true),
         new("DB_MIGRATE_ON_START", "environment", SettingKind.Flag, "true", EnvironmentOnly: true),
         new("SNAPSHOT_DIR", "environment", SettingKind.Text, "snapshots next to the database", EnvironmentOnly: true),
-        new("ATTACHMENT_DIR", "environment", SettingKind.Text, "attachments next to the database", EnvironmentOnly: true),
+        new("ATTACHMENT_DIR", "environment", SettingKind.Text, "attachments next to the database (/files in the image)", EnvironmentOnly: true),
         new("AUDIT_ARCHIVE_DIR", "environment", SettingKind.Text, "audit next to the database", EnvironmentOnly: true),
         new("LOG_DIR", "environment", SettingKind.Text, "logs next to the database", EnvironmentOnly: true),
         new("WEB_ROOT", "environment", SettingKind.Text, EnvironmentOnly: true),

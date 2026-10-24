@@ -12,6 +12,8 @@ services:
       - '8080:8080'
     volumes:
       - punchlist-data:/data
+      # Attached files, apart from the database.
+      - punchlist-files:/files
     environment:
       TZ: Etc/UTC
       PUBLIC_URL: https://tasks.example.com
@@ -36,3 +38,4 @@ secrets:
 
 volumes:
   punchlist-data:
+  punchlist-files:
