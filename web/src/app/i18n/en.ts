@@ -708,6 +708,7 @@ export const en = {
   'empty.today.hint': 'Nothing left for today. Add a task with Q.',
   'empty.generic': 'Nothing here yet.',
   'empty.comingSoon': 'This view arrives in milestone {milestone}.',
+  'pwa.later': 'Later',
   'pwa.updateAvailable': 'A new version of Punchlist is available.',
   'pwa.reload': 'Update',
   'pwa.offlineReady': 'Punchlist is ready to work offline.',
@@ -768,7 +769,7 @@ export const en = {
   'sync.syncing': 'Syncing',
   'sync.offline': 'Offline. Changes are kept on this device and sync when you are back.',
   'sync.error': 'Sync failed: {message}',
-  'sync.appUpdate': 'The server runs a newer Punchlist. Update the app to sync.',
+  'sync.appUpdate': 'Punchlist was updated on the server. Update this app to keep syncing.',
   'sync.serverBehind':
     'The server runs an older Punchlist. Changes stay on this device until it is updated.',
   'sync.signedInAs': 'Signed in as {name}',

@@ -121,6 +121,27 @@ const MAX_ROUNDS = 50;
 
 export type SyncEngine = StoreApi<SyncState>;
 
+/**
+ * Lists `me` left on this device (node): their own membership, or their membership of a group
+ * the list is shared with, was ended here. Losing those is no news to them.
+ */
+export function leftHere(workspace: WorkspaceFile, me: string, node: string): Set<string> {
+  const here = (entity: { deletedAt: string | null; _hlc: Record<string, string> }) =>
+    entity.deletedAt !== null && (entity._hlc.deletedAt ?? '').endsWith(`-${node}`);
+  const left = new Set<string>();
+  const groupsLeft = new Set<string>();
+  for (const member of workspace.entities.groupMembers) {
+    if (member.userId === me && here(member)) groupsLeft.add(member.groupId);
+  }
+  for (const member of workspace.entities.listMembers) {
+    if (member.principal === `user:${me}` && here(member)) left.add(member.listId);
+    if (member.principal.startsWith('group:') && groupsLeft.has(member.principal.slice(6))) {
+      left.add(member.listId);
+    }
+  }
+  return left;
+}
+
 export function createSyncEngine(deps: SyncEngineDependencies): SyncEngine {
   const now = deps.now ?? Date.now;
   const withLock = deps.withLock ?? ((run) => run());
@@ -339,8 +360,12 @@ export function createSyncEngine(deps: SyncEngineDependencies): SyncEngine {
           const lost: string[] = [];
           absorb(
             (local) => {
+              // Lists this person left here, or whose group they left here, go without a word.
+              const left = leftHere(local, account.id, workspace.getState().context().clock.node);
               for (const list of local.entities.lists) {
-                if (revoked.has(list.id) && list.deletedAt === null) lost.push(list.name);
+                if (revoked.has(list.id) && list.deletedAt === null && !left.has(list.id)) {
+                  lost.push(list.name);
+                }
               }
               return applyRejections(
                 mergeRemote(local, response.changes, response.revoked),
