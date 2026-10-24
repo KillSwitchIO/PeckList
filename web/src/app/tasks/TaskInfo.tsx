@@ -1,5 +1,5 @@
 import ExpandLessRounded from '@mui/icons-material/ExpandLessRounded';
-import { Box, ButtonBase, Drawer, Typography } from '@mui/material';
+import { Box, ButtonBase, Typography } from '@mui/material';
 import { useState } from 'react';
 import { commentsOf } from '../../core/comments.ts';
 import { localDateTimeOf, localTimeZone } from '../../core/dates.ts';
@@ -10,6 +10,7 @@ import { useToday } from '../hooks/useToday.ts';
 import { t } from '../i18n/i18n.ts';
 import { useWorkspace } from '../store/hooks.ts';
 import { Comments } from './Comments.tsx';
+import { BottomSheet } from '../layout/BottomSheet.tsx';
 
 /** "Created Thu, Oct 22 9:00 AM · Updated Today 2:15 PM" (spec: PL-088). */
 export function TaskDates({ task }: { task: Task }) {
@@ -70,27 +71,19 @@ export function PhoneTaskMore({ task }: { task: Task }) {
           {label}
         </Box>
       </ButtonBase>
-      <Drawer
-        anchor="bottom"
+      <BottomSheet
         open={open}
         onClose={() => setOpen(false)}
-        slotProps={{
-          paper: {
-            role: 'dialog',
-            'aria-label': t('task.moreTitle'),
-            sx: { maxHeight: '75dvh', borderTopLeftRadius: 16, borderTopRightRadius: 16, p: 2 },
-          },
-        }}
+        label={t('task.moreTitle')}
+        paperSx={{ maxHeight: '75dvh', px: 2, pb: 'calc(16px + env(safe-area-inset-bottom))' }}
       >
-        <Box
-          aria-hidden
-          sx={{ width: 36, height: 4, borderRadius: 2, bgcolor: 'divider', mx: 'auto', mb: 1.5 }}
-        />
-        <TaskDates task={task} />
+        <Box sx={{ mt: 1 }}>
+          <TaskDates task={task} />
+        </Box>
         <Box sx={{ mt: 2 }}>
           <Comments task={task} />
         </Box>
-      </Drawer>
+      </BottomSheet>
     </>
   );
 }

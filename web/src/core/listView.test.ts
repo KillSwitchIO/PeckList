@@ -53,6 +53,29 @@ describe('sortTasks', () => {
       'banana',
     ]);
   });
+
+  it('turns the chosen order around, ties and undated tasks kept in place', () => {
+    const { list } = tasks();
+    expect(titlesOf(sortTasks(list, 'date', true))).toEqual([
+      'banana',
+      'cherry',
+      'apple 9',
+      'Apple 10',
+    ]);
+    expect(titlesOf(sortTasks(list, 'title', true))).toEqual([
+      'cherry',
+      'banana',
+      'Apple 10',
+      'apple 9',
+    ]);
+    // Low priority first; the same priority still by date.
+    expect(titlesOf(sortTasks(list, 'priority', true))).toEqual([
+      'apple 9',
+      'banana',
+      'cherry',
+      'Apple 10',
+    ]);
+  });
 });
 
 describe('grouping', () => {

@@ -175,7 +175,10 @@ export function TaskDetail({
       >
         {attach.input}
         {/* Phones keep the date readable: pin and delete are in the ... menu there. */}
-        <Toolbar disableGutters sx={{ gap: phone ? 0.25 : 1, px: phone ? 1.5 : 2, flexShrink: 0 }}>
+        <Toolbar
+          disableGutters
+          sx={{ gap: phone ? 0.25 : 0.5, px: phone ? 1.5 : 2, flexShrink: 0 }}
+        >
           <CompleteCheckbox task={task} onMenu={(position) => setMenu({ position })} />
           <DateProperty
             label={t('task.date')}

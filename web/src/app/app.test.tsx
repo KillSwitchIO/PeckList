@@ -44,7 +44,7 @@ describe('app shell', () => {
     mockViewport('phone');
     await renderApp('/today');
     await userEvent.click(screen.getByRole('button', { name: 'Add a task' }));
-    expect(document.activeElement).toBe(document.querySelector('input[data-add-task]'));
+    expect(document.activeElement).toBe(document.querySelector('[data-add-task]'));
 
     // A page without an add field: on to the Inbox's.
     await userEvent.click(screen.getByRole('button', { name: 'Calendar' }));
@@ -53,7 +53,7 @@ describe('app shell', () => {
       await screen.findByRole('heading', { level: 1, name: 'Mess Drawer' }),
     ).toBeInTheDocument();
     await waitFor(() =>
-      expect(document.activeElement).toBe(document.querySelector('input[data-add-task]')),
+      expect(document.activeElement).toBe(document.querySelector('[data-add-task]')),
     );
   });
 
@@ -251,6 +251,23 @@ describe('sidebar frame', () => {
     expect(
       screen.getByRole('link', { name: /^Punchlist v\d+\.\d+\.\d+.*: what changed$/ }),
     ).toHaveAttribute('href', 'https://gitlab.com/killswitch10/punchlist/-/blob/main/CHANGELOG.md');
+  });
+
+  it('zooms the mini calendar out to months and years from its title', async () => {
+    mockViewport('desktop');
+    await renderApp('/today');
+    const mini = screen.getByRole('region', { name: 'Mini calendar' });
+    const now = todayIn(localTimeZone(), Date.now());
+    const year = Number(now.slice(0, 4));
+    await userEvent.click(within(mini).getByRole('button', { name: /: pick a month$/ }));
+    await userEvent.click(within(mini).getByRole('button', { name: `${year}: pick a year` }));
+    await userEvent.click(within(mini).getByRole('button', { name: 'Later years' }));
+    await userEvent.click(within(mini).getByRole('button', { name: String(year + 12) }));
+    await userEvent.click(within(mini).getByRole('button', { name: `March ${year + 12}` }));
+    expect(within(mini).getByRole('grid', { name: `March ${year + 12}` })).toBeVisible();
+    expect(within(mini).getByRole('gridcell', { name: `Open ${year + 12}-03-01` })).toBeVisible();
+    await userEvent.click(within(mini).getByRole('button', { name: 'Back to this month' }));
+    expect(within(mini).getByRole('gridcell', { current: 'date' })).toBeVisible();
   });
 
   it('folds the mini calendar down to this week, and remembers it', async () => {

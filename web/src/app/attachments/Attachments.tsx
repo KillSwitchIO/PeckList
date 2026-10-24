@@ -26,7 +26,9 @@ function FileTile({
   onRemove: (() => void) | null;
 }) {
   const picture = isPicture(attachment.mime);
-  const url = useFileUrl(attachment.sha256, attachment.mime, picture);
+  const url = useFileUrl(attachment.sha256, attachment.mime, picture, true);
+  // A picture still loading keeps a plain tile, so nothing jumps when it arrives.
+  const loading = picture && url === null;
   const label = `${attachment.name}, ${formatBytes(attachment.size)}`;
   return (
     <Box role="listitem" aria-label={label} sx={{ position: 'relative' }}>
@@ -45,16 +47,18 @@ function FileTile({
           alignItems: 'center',
           justifyContent: 'center',
           gap: 0.5,
-          p: picture && url && url !== 'missing' ? 0 : 1,
+          p: picture && url !== 'missing' ? 0 : 1,
           bgcolor: 'action.hover',
         }}
       >
-        {picture && url && url !== 'missing' ? (
+        {loading ? null : picture && url && url !== 'missing' ? (
           <Box
             component="img"
             src={url}
             alt=""
-            sx={{ width: '100%', height: '100%', objectFit: 'cover' }}
+            decoding="async"
+            draggable={false}
+            sx={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
           />
         ) : (
           <>
@@ -113,6 +117,7 @@ function PictureView({ attachment, onClose }: { attachment: Attachment; onClose:
           component="img"
           src={url}
           alt={attachment.name}
+          decoding="async"
           sx={{ display: 'block', maxWidth: '100%', maxHeight: '85dvh' }}
         />
       )}

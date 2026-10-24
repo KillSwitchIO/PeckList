@@ -223,6 +223,28 @@ describe('dibs', () => {
     expect(assigneesOf(getTask(next, task.id))).toEqual([`user:${SAM}`]);
     expect(canClaim(next, SAM, getTask(next, task.id))).toBe(false);
   });
+
+  it('assigning a member takes the task off the group; someone outside it leaves the group on', () => {
+    const { ben, workspace, list } = benWorld();
+    const task = sampleTask(ben, list.id, 'Mow the lawn');
+    const group = '01JBGR0000000000000000000G';
+    const member = createEntity<GroupMember>(ben, {
+      groupId: group,
+      userId: SAM,
+      joinedAt: new Date().toISOString(),
+      state: 'active',
+    });
+    let next = putEntity(putEntity(workspace, 'tasks', task), 'groupMembers', member);
+    next = setAssignee(ben, next, task.id, `group:${group}`, true);
+    next = setAssignee(ben, next, task.id, `user:${JO}`, true);
+    expect(assigneesOf(getTask(next, task.id)).sort()).toEqual(
+      [`group:${group}`, `user:${JO}`].sort(),
+    );
+    next = setAssignee(ben, next, task.id, `user:${SAM}`, true);
+    expect(assigneesOf(getTask(next, task.id)).sort()).toEqual(
+      [`user:${JO}`, `user:${SAM}`].sort(),
+    );
+  });
 });
 
 describe('editing tasks', () => {

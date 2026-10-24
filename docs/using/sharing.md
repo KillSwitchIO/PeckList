@@ -44,6 +44,8 @@ and offline edits merge when the device reconnects.
 
 In a shared list, give a task to someone (or a group) from its details, or type `@name` in
 [quick add](quick-add-and-shortcuts.md). **Assigned to me** collects everything given to you.
+A task given to a group is anyone's in it: **Dibs** takes it, and so does assigning one of its
+members. Either way the group comes off, so everyone sees who has it.
 
 ## What you share
 

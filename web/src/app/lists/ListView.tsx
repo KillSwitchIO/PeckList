@@ -20,7 +20,14 @@ import { getEntity, isLive } from '../../core/collections.ts';
 import { deleteList, inboxList, updateList } from '../../core/lists.ts';
 import { filterClosedTasks } from '../../core/filters.ts';
 import { listTasks } from '../../core/queries.ts';
-import { groupByPriority, groupByTag, LIST_GROUPINGS, sortTasks } from '../../core/listView.ts';
+import {
+  groupByPriority,
+  groupByTag,
+  inOrder,
+  LIST_GROUPINGS,
+  orderTasks,
+  sortTasks,
+} from '../../core/listView.ts';
 import type { List } from '../../core/types.ts';
 import { t } from '../i18n/i18n.ts';
 import { Page } from '../layout/Page.tsx';
@@ -245,15 +252,21 @@ export function ListContents({ list }: { list: List }) {
       <Page title={listName(list, workspace)} actions={actions}>
         {archivedBar}
         {header}
-        <DateGroupedTasks filter={filter} emptyTitle={t('list.empty')} sort={sort} />
+        <DateGroupedTasks
+          filter={filter}
+          emptyTitle={t('list.empty')}
+          sort={sort}
+          reversed={view.sortReversed}
+          groupsReversed={view.groupReversed}
+        />
       </Page>
     );
   }
 
   if (grouping === 'priority' || grouping === 'tag') {
     // Groups the list's own order does not make: no dragging here.
-    const open = sortTasks(tasks, sort);
-    const grouped =
+    const open = sortTasks(tasks, sort, view.sortReversed);
+    const byKind =
       grouping === 'priority'
         ? groupByPriority(open).map((group) => ({
             ...group,
@@ -263,6 +276,7 @@ export function ListContents({ list }: { list: List }) {
             ...group,
             title: group.name ?? t('list.noTags'),
           }));
+    const grouped = inOrder(byKind, view.groupReversed);
     return (
       <Page title={listName(list, workspace)} actions={actions}>
         {archivedBar}
@@ -272,7 +286,12 @@ export function ListContents({ list }: { list: List }) {
         )}
         <PinnedGroup tasks={pinned} />
         {grouped.map((group) => (
-          <GroupSection key={group.key} title={group.title} count={group.tasks.length}>
+          <GroupSection
+            key={group.key}
+            groupKey={group.key}
+            title={group.title}
+            count={group.tasks.length}
+          >
             <TaskTree tasks={group.tasks} />
           </GroupSection>
         ))}
@@ -283,7 +302,7 @@ export function ListContents({ list }: { list: List }) {
 
   // The list's own order: tasks are dragged in it, when sorted by it.
   const draggable = canEdit && sort === 'manual';
-  const shown = sort === 'manual' ? tasks : sortTasks(tasks, sort);
+  const shown = orderTasks(tasks, sort, view.sortReversed);
   const content = (
     <>
       {tasks.length === 0 && pinned.length === 0 && completed.length === 0 && (

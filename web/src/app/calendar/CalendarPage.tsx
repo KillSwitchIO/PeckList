@@ -1,7 +1,6 @@
 import {
   Box,
   Button,
-  Drawer,
   IconButton,
   ToggleButton,
   ToggleButtonGroup,
@@ -30,9 +29,10 @@ import { useApply, useStoreState, useWorkspace } from '../store/hooks.ts';
 import { useTaskSelection } from '../tasks/selection.ts';
 import { calendarTitle } from './calendarTitle.ts';
 import { FullCalendarView } from './FullCalendarView.tsx';
+import { BottomSheet } from '../layout/BottomSheet.tsx';
 
 const MODE_KEY = 'punchlist.calendar.mode';
-const MODES: CalendarMode[] = ['month', 'week', 'day'];
+const MODES: CalendarMode[] = ['month', 'week', 'threeDays', 'day'];
 
 function savedMode(): CalendarMode {
   try {
@@ -176,7 +176,7 @@ export function CalendarPage() {
     setDate(
       mode === 'month'
         ? shiftMonths(date, direction)
-        : addDays(date, direction * (mode === 'week' ? 7 : 1)),
+        : addDays(date, direction * { week: 7, threeDays: 3, day: 1 }[mode]),
     );
 
   const schedule = (taskId: string, next: Schedule) =>
@@ -266,9 +266,9 @@ export function CalendarPage() {
         </Box>
       </Box>
       {phone && (
-        <Drawer anchor="bottom" open={drawer} onClose={() => setDrawer(false)} keepMounted>
+        <BottomSheet open={drawer} onClose={() => setDrawer(false)} keepMounted>
           <Box sx={{ maxHeight: '50dvh' }}>{panel}</Box>
-        </Drawer>
+        </BottomSheet>
       )}
     </Page>
   );

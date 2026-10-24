@@ -34,6 +34,7 @@ import { THEME_MODE_ORDER, useThemeMode, type ThemeMode } from '../theme/themeMo
 import { t } from '../i18n/i18n.ts';
 import { Page } from '../layout/Page.tsx';
 import { DataSection } from './DataSection.tsx';
+import { DateFormatSetting } from './DateFormatSetting.tsx';
 import { NewTaskSection } from './NewTaskSection.tsx';
 import { NotificationSettings } from './NotificationSettings.tsx';
 import { PresetPicker } from './PresetPicker.tsx';
@@ -227,6 +228,10 @@ export function SettingsPage() {
           <TimeZoneSetting
             value={settings?.timeZone ?? null}
             onChange={(timeZone) => change({ timeZone })}
+          />
+          <DateFormatSetting
+            value={settings?.dateFormat ?? null}
+            onChange={(dateFormat) => change({ dateFormat })}
           />
           <SettingRow label={t('settings.clock')}>
             <ToggleButtonGroup

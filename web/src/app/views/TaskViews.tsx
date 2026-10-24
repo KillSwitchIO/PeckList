@@ -50,38 +50,39 @@ import {
 } from './groups.tsx';
 import { SortGroupButton } from './SortGroupButton.tsx';
 import { AgendaView } from './AgendaView.tsx';
-import { useListView } from '../lists/listGrouping.ts';
-import { sortTasks, VIEW_GROUPINGS, type ListSort } from '../../core/listView.ts';
+import { useListView, type ListViewSettings } from '../lists/listGrouping.ts';
+import { inOrder, orderTasks, VIEW_GROUPINGS } from '../../core/listView.ts';
 
 /** Overdue and today, without the pinned tasks (they head the view, in Pinned). */
-function OverdueAndToday({ today, sort }: { today: string; sort: ListSort }) {
+function OverdueAndToday({ today, view }: { today: string; view: ListViewSettings }) {
   const workspace = useWorkspace();
   const all = todayGroups(workspace, today);
   const groups = {
-    overdue: ordered(pinnedFirst(all.overdue).rest, sort),
-    today: ordered(pinnedFirst(all.today).rest, sort),
+    overdue: orderTasks(pinnedFirst(all.overdue).rest, view.sort, view.sortReversed),
+    today: orderTasks(pinnedFirst(all.today).rest, view.sort, view.sortReversed),
   };
-  return (
-    <>
-      {groups.overdue.length > 0 && (
-        <GroupSection
-          title={t('group.overdue')}
-          count={groups.overdue.length}
-          actions={<PostponeButton tasks={groups.overdue} today={today} />}
-        >
-          <TaskTree tasks={groups.overdue} showList ownPlace={hasOwnDate} />
-        </GroupSection>
-      )}
-      {groups.today.length > 0 && (
-        <GroupSection
-          title={t('group.todayWithDay', { weekday: weekdayName(today) })}
-          count={groups.today.length}
-        >
-          <TaskTree tasks={groups.today} showList ownPlace={hasOwnDate} />
-        </GroupSection>
-      )}
-    </>
+  const overdue = groups.overdue.length > 0 && (
+    <GroupSection
+      key="overdue"
+      groupKey="overdue"
+      title={t('group.overdue')}
+      count={groups.overdue.length}
+      actions={<PostponeButton tasks={groups.overdue} today={today} />}
+    >
+      <TaskTree tasks={groups.overdue} showList ownPlace={hasOwnDate} />
+    </GroupSection>
   );
+  const todays = groups.today.length > 0 && (
+    <GroupSection
+      key="today"
+      groupKey="today"
+      title={t('group.todayWithDay', { weekday: weekdayName(today) })}
+      count={groups.today.length}
+    >
+      <TaskTree tasks={groups.today} showList ownPlace={hasOwnDate} />
+    </GroupSection>
+  );
+  return <>{inOrder([overdue, todays], view.groupReversed)}</>;
 }
 
 function AddForToday({ today }: { today: string }) {
@@ -94,11 +95,6 @@ function AddForToday({ today }: { today: string }) {
       }}
     />
   );
-}
-
-/** Within a date group: as is, or in the order the person picked. */
-function ordered(tasks: Task[], sort: ListSort): Task[] {
-  return sort === 'manual' ? tasks : sortTasks(tasks, sort);
 }
 
 /** Today: a focused copy of Next 7 days with only overdue, today and what got done today. */
@@ -119,7 +115,7 @@ export function TodayView() {
         <>
           {empty && <EmptyState title={t('empty.today')} hint={t('empty.today.hint')} />}
           <PinnedGroup tasks={pinnedFirst([...groups.overdue, ...groups.today]).pinned} showList />
-          <OverdueAndToday today={today} sort={view.sort} />
+          <OverdueAndToday today={today} view={view} />
           <CompletedGroup tasks={done} showList />
         </>
       ) : (
@@ -128,6 +124,8 @@ export function TodayView() {
           closed={done}
           grouping={view.grouping}
           sort={view.sort}
+          reversed={view.sortReversed}
+          groupsReversed={view.groupReversed}
           showList
           emptyTitle={t('empty.today')}
         />
@@ -144,8 +142,10 @@ export function UpcomingView() {
   const workspace = useWorkspace();
   const today = useToday();
   const view = useListView('view:upcoming');
-  const actions = <SortGroupButton view={view} groupings={VIEW_GROUPINGS} />;
-  if (view.grouping === 'date') return <AgendaView sort={view.sort} actions={actions} />;
+  const actions = <SortGroupButton view={view} groupings={VIEW_GROUPINGS} fixed={['date']} />;
+  if (view.grouping === 'date') {
+    return <AgendaView sort={view.sort} reversed={view.sortReversed} actions={actions} />;
+  }
   const groups = upcomingTasks(workspace, today);
   const current = todayGroups(workspace, today);
   return (
@@ -156,6 +156,8 @@ export function UpcomingView() {
         closed={[]}
         grouping={view.grouping}
         sort={view.sort}
+        reversed={view.sortReversed}
+        groupsReversed={view.groupReversed}
         showList
         emptyTitle={t('upcoming.empty')}
       />
@@ -225,6 +227,7 @@ export function CompletedView() {
         groupClosed(tasks, today).map((group) => (
           <GroupSection
             key={group.key}
+            groupKey={`closed:${group.key}`}
             title={group.title || t('group.noDate')}
             count={group.tasks.length}
           >

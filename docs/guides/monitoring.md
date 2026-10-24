@@ -5,7 +5,7 @@
 | Check                   | Answers                                                                                  |
 | ----------------------- | ---------------------------------------------------------------------------------------- |
 | `GET /healthz`          | `200 Healthy` when the server and its database work; `503` otherwise. No sign-in needed. |
-| `GET /api/info`         | `{"name":"punchlist","version":"0.2.0","schemaVersion":12}`. No sign-in needed.          |
+| `GET /api/info`         | `{"name":"punchlist","version":"0.2.0","schemaVersion":13}`. No sign-in needed.          |
 | `punchlist healthcheck` | Exit code 0 when the running server answers `/healthz` (the image's own health check).   |
 
 Point Uptime Kuma, Gatus, Healthchecks or your monitoring at `/healthz`. In Docker, `docker ps`

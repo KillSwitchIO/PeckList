@@ -60,7 +60,7 @@ export function DayView() {
           <ChevronRightIcon />
         </IconButton>
       </Tooltip>
-      <SortGroupButton view={view} groupings={VIEW_GROUPINGS} />
+      <SortGroupButton view={view} groupings={VIEW_GROUPINGS} fixed={['date']} />
     </>
   );
   return (
@@ -79,6 +79,8 @@ export function DayView() {
         // One day is one date group: by date is the day's tasks in a single run.
         grouping={view.grouping === 'date' ? 'none' : view.grouping}
         sort={view.sort}
+        reversed={view.sortReversed}
+        groupsReversed={view.groupReversed}
         showList
         emptyTitle={t('day.empty')}
       />

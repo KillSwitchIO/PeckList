@@ -189,9 +189,6 @@ export function AddTaskInput({
     <Box sx={{ mb: 1 }}>
       <Box
         sx={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: 1,
           px: 1.5,
           py: 0.75,
           borderRadius: 2,
@@ -200,33 +197,48 @@ export function AddTaskInput({
           '&:focus-within': { bgcolor: 'action.selected' },
         }}
       >
-        <AddRounded fontSize="small" />
-        <InputBase
-          fullWidth
-          placeholder={label}
-          value={title}
-          autoFocus={autoFocus}
-          onFocus={() => void loadParser().then(setParser)}
-          onChange={(event) => setTitle(event.target.value)}
-          onKeyDown={(event) => {
-            if (event.key === 'Enter') {
-              event.preventDefault();
-              submit();
-            } else if (event.key === 'Escape' && title === '') {
-              // Leave the field, so the keyboard shortcuts work again.
-              event.currentTarget.blur();
-            }
-          }}
-          // Q (keyboard shortcuts) focuses the first one on the page.
-          inputProps={{ 'aria-label': label, 'data-add-task': '' }}
-          sx={{ color: 'text.primary' }}
-        />
+        <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1 }}>
+          <AddRounded fontSize="small" sx={{ mt: 0.25 }} />
+          {/* Wraps and grows with the text, so a long line stays easy to read and fix. */}
+          <InputBase
+            fullWidth
+            multiline
+            placeholder={label}
+            value={title}
+            autoFocus={autoFocus}
+            onFocus={() => void loadParser().then(setParser)}
+            // A title is one line: a pasted line break becomes a space.
+            onChange={(event) => setTitle(event.target.value.replace(/\s*[\r\n]+\s*/g, ' '))}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter') {
+                event.preventDefault();
+                submit();
+              } else if (event.key === 'Escape' && title === '') {
+                // Leave the field, so the keyboard shortcuts work again.
+                event.currentTarget.blur();
+              }
+            }}
+            // Q (keyboard shortcuts) focuses the first one on the page.
+            inputProps={{ 'aria-label': label, 'data-add-task': '' }}
+            sx={{ color: 'text.primary', p: 0 }}
+          />
+          <Tooltip title={t('quickAdd.expand')}>
+            <IconButton
+              size="small"
+              aria-label={t('quickAdd.expand')}
+              onClick={expand}
+              sx={{ color: 'text.secondary', flexShrink: 0, my: -0.25 }}
+            >
+              <OpenInFullRounded sx={{ fontSize: 16 }} />
+            </IconButton>
+          </Tooltip>
+        </Box>
         {quick && (
           <Box
             role="list"
             aria-label={t('quickAdd.recognised')}
-            // In the bar, right of the text: nothing below moves while typing.
-            sx={{ display: 'flex', gap: 0.5, flexShrink: 0, maxWidth: '60%', overflow: 'hidden' }}
+            // On their own line under the text, wrapping as needed, each easy to take off.
+            sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, mt: 0.75, pl: 3.5 }}
           >
             {parsed.tokens.map((token) => {
               const chip = chipFor(token, parsed, today, names);
@@ -243,21 +255,12 @@ export function AddTaskInput({
                   deleteIcon={
                     <CloseIcon aria-label={t('quickAdd.keepAsText', { text: token.text })} />
                   }
+                  sx={{ maxWidth: '100%' }}
                 />
               );
             })}
           </Box>
         )}
-        <Tooltip title={t('quickAdd.expand')}>
-          <IconButton
-            size="small"
-            aria-label={t('quickAdd.expand')}
-            onClick={expand}
-            sx={{ color: 'text.secondary', flexShrink: 0, my: -0.5 }}
-          >
-            <OpenInFullRounded sx={{ fontSize: 16 }} />
-          </IconButton>
-        </Tooltip>
       </Box>
     </Box>
   );

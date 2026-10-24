@@ -1,5 +1,6 @@
 // Locale-aware display of local dates and times.
 import { addDays, datePart, timePart } from '../core/dates.ts';
+import { DATE_FORMAT_AUTO, formatDatePattern, isDatePattern } from '../core/dateFormat.ts';
 import { t } from './i18n/i18n.ts';
 
 function toDate(date: string): Date {
@@ -7,11 +8,15 @@ function toDate(date: string): Date {
   return new Date(Date.UTC(y, m - 1, d, 12));
 }
 
-/** "Today", "Tomorrow", "Yesterday", "Thu, Oct 22" or "Oct 22, 2027" for other years. */
+/**
+ * "Today", "Tomorrow", "Yesterday", "Thu, Oct 22" or "Oct 22, 2027" for other years; other days
+ * in the user's own date format when they picked one (Settings > Dates).
+ */
 export function formatDay(date: string, today: string, locale?: string): string {
   if (date === today) return t('date.today');
   if (date === addDays(today, 1)) return t('date.tomorrow');
   if (date === addDays(today, -1)) return t('date.yesterday');
+  if (display.dateFormat) return formatDatePattern(date, display.dateFormat, locale);
   const sameYear = date.slice(0, 4) === today.slice(0, 4);
   return new Intl.DateTimeFormat(locale, {
     timeZone: 'UTC',
@@ -34,14 +39,18 @@ export function formatMonth(month: string, today: string, locale?: string): stri
 
 // How the user likes dates shown (Settings, PL-025): set from the open workspace's settings
 // (WorkspaceTheme) before anything renders, like the locale.
-const display = { clock24: false, weekStart: 0 as 0 | 1 };
+const display = { clock24: false, weekStart: 0 as 0 | 1, dateFormat: null as string | null };
 
 export function setDisplayPreferences(settings: {
   clockFormat?: '12h' | '24h' | undefined;
   weekStart?: 0 | 1 | undefined;
+  dateFormat?: string | undefined;
 }) {
   display.clock24 = settings.clockFormat === '24h';
   display.weekStart = settings.weekStart ?? 0;
+  const pattern = settings.dateFormat;
+  display.dateFormat =
+    pattern && pattern !== DATE_FORMAT_AUTO && isDatePattern(pattern) ? pattern : null;
 }
 
 /** Whether times show on a 24-hour clock. */

@@ -6,10 +6,10 @@ when it can. One small server (a Docker container, or a native program on Linux 
 serves the app and keeps everyone's data, in SQLite or PostgreSQL.
 
 !!! warning "Early days"
-    Punchlist is before 1.0. It is in daily use, but a minor version may still change things;
-    every change you need to act on is listed under **Breaking changes** in the
-    [changelog](https://gitlab.com/killswitch10/punchlist/-/blob/main/CHANGELOG.md).
-    Keep [backups](guides/backups.md).
+Punchlist is before 1.0. It is in daily use, but a minor version may still change things;
+every change you need to act on is listed under **Breaking changes** in the
+[changelog](https://gitlab.com/killswitch10/punchlist/-/blob/main/CHANGELOG.md).
+Keep [backups](guides/backups.md).
 
 ## What it does
 
@@ -17,7 +17,7 @@ serves the app and keeps everyone's data, in SQLite or PostgreSQL.
   spans, rich notes and checklists. Type a whole task in one line:
   `Call the vet tomorrow 3pm #pets !high`.
 - **Views**: Today, Upcoming, Due dates, All, Closed, Assigned to me, Shared with me, saved filters,
-  search, and a calendar (month, week, day) to drag tasks in, move them and stretch them.
+  search, and a calendar (month, week, 3 days, day) to drag tasks in, move them and stretch them.
 - **Offline first**: an installable web app (PWA) that keeps working without a connection and
   merges changes from every device without conflicts.
 - **Sharing**: friends, groups and shared lists; assign tasks to people or groups.

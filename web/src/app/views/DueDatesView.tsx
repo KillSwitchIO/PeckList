@@ -81,6 +81,7 @@ export function DueDatesView() {
         return (
           <GroupSection
             key={group.key}
+            groupKey={`due:${group.key}`}
             title={t(GROUP_TITLE[group.key])}
             count={group.tasks.length}
             actions={

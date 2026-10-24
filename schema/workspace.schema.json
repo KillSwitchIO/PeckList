@@ -8,7 +8,7 @@
   "additionalProperties": false,
   "properties": {
     "schemaVersion": {
-      "const": 12
+      "const": 13
     },
     "app": {
       "type": "object",
@@ -797,6 +797,12 @@
             "hidden": { "type": "array", "items": { "type": "string" } },
             "groupOpen": { "type": "boolean" }
           }
+        },
+        "dateFormat": {
+          "description": "How dates show (schema 13): a pattern of tokens (YYYY, YY, MMMM, MMM, MM, M, DD, D, dddd, ddd; text in [brackets] as is), e.g. YYYY-MM-DD. \"auto\" or absent: the language's own.",
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 40
         },
         "palettePreset": {
           "description": "The named palette the colors start from (schema 11); palette holds changes on top. Absent or unknown: punchlist.",

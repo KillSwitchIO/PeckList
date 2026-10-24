@@ -218,7 +218,17 @@ export function setAssignee(
 ): WorkspaceFile {
   const task = getEntity(workspace, 'tasks', taskId);
   if (!task) return workspace;
-  const assignees = setElement(ctx, task.assignees, principal, assigned);
+  let assignees = setElement(ctx, task.assignees, principal, assigned);
+  // A person put on a group's task takes it from the group: the group comes off, so it shows
+  // who has it (spec: Group-assigned tasks).
+  if (assigned && principal.startsWith('user:')) {
+    const theirs = new Set(principalsOf(workspace, principal.slice('user:'.length)));
+    for (const each of members(assignees)) {
+      if (each.startsWith('group:') && theirs.has(each)) {
+        assignees = setElement(ctx, assignees, each, false);
+      }
+    }
+  }
   if (assignees === task.assignees) return workspace;
   return putEntity(workspace, 'tasks', updateEntity(ctx, task, { assignees }));
 }

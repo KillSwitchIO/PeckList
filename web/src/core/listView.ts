@@ -34,8 +34,11 @@ const byDate = (a: Task, b: Task) => {
 };
 const titles = new Intl.Collator(undefined, { sensitivity: 'base', numeric: true });
 
-/** The tasks in the chosen order (a new array). Ties keep the list's own order. */
-export function sortTasks(tasks: readonly Task[], sort: ListSort): Task[] {
+/**
+ * The tasks in the chosen order (a new array). Ties keep the list's own order. `reversed` turns
+ * the chosen order around (latest date first, A to Z becomes Z to A); ties still keep it.
+ */
+export function sortTasks(tasks: readonly Task[], sort: ListSort, reversed = false): Task[] {
   const compare: ((a: Task, b: Task) => number)[] = {
     manual: [byOrder],
     date: [byDate, byPriority, byOrder],
@@ -44,13 +47,30 @@ export function sortTasks(tasks: readonly Task[], sort: ListSort): Task[] {
     // Newest first.
     created: [(a: Task, b: Task) => b.createdAt.localeCompare(a.createdAt), byOrder],
   }[sort];
+  // Undated tasks stay last either way round.
+  const undatedLast = (a: Task, b: Task) =>
+    Number(sortDate(a) === null) - Number(sortDate(b) === null);
   return [...tasks].sort((a, b) => {
-    for (const each of compare) {
+    if (sort === 'date' && reversed) {
+      const undated = undatedLast(a, b);
+      if (undated !== 0) return undated;
+    }
+    for (const [index, each] of compare.entries()) {
       const order = each(a, b);
-      if (order !== 0) return order;
+      if (order !== 0) return reversed && index === 0 ? -order : order;
     }
     return 0;
   });
+}
+
+/** The tasks as a view shows them: as they come for the own order, else sorted. */
+export function orderTasks(tasks: Task[], sort: ListSort, reversed = false): Task[] {
+  return sort === 'manual' ? tasks : sortTasks(tasks, sort, reversed);
+}
+
+/** Groups in their order, or the other way round. */
+export function inOrder<T>(groups: T[], reversed = false): T[] {
+  return reversed ? [...groups].reverse() : groups;
 }
 
 export interface TaskGroup {
