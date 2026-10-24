@@ -153,6 +153,8 @@ describe('task details', () => {
     await waitFor(() => expect(notes).toHaveFocus());
     await userEvent.keyboard('{Escape}');
     expect(screen.getByRole('region', { name: 'Task details' })).toBeInTheDocument();
+    // Likewise the editor lets go of focus a beat later; the next Escape is for the details.
+    await waitFor(() => expect(notes).not.toHaveFocus());
     await userEvent.keyboard('{Escape}');
     await waitFor(() => expect(screen.queryByRole('region', { name: 'Task details' })).toBeNull());
   });
