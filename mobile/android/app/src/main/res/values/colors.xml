@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- The web app's background (web/src/core/palette.ts), light and dark. -->
+    <color name="launch_background">#FAFAF7</color>
+</resources>

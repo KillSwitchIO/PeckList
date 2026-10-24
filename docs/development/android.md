@@ -14,6 +14,16 @@ app (ADR-0017 in the project notes). There is no second copy of the UI.
 - **`PunchlistShell` plugin** (`ShellPlugin.java`, used through `web/src/adapters/capacitor-shell.ts`):
   `info`, `checkServer`, `connect`, `disconnect`. The web build a server ships can be older or
   newer than the shell, so methods are only ever added and `info().api` says which exist.
+- **Back button**: `MainActivity` asks the web app first (`window.punchlistBack()`,
+  `web/src/app/native/back.ts`): it closes the topmost menu, dialog or sheet, else steps back in
+  the app's history. With nothing left, the app moves to the background. A server's web build too
+  old to answer gets the WebView's own history instead.
+- **Server unreachable on a cold start** (nothing cached by the service worker yet, or a proxy
+  answering 502/503/504): `ShellWebViewClient` shows a page at the server's origin with **Try
+  again** and **Use another server**. Once the app has loaded, its service worker serves it offline.
+- **Icon and launch screen**: vector drawables drawn from `web/public/icon.svg` (adaptive icon
+  with a monochrome layer for themed icons, and a legacy one for Android 7); the launch screen
+  uses the web app's background colors, light and dark.
 - **Provider sign-in**: the plugin catches the WebView's move to `/auth/oidc/<name>/login` and
   opens `/auth/app/handoff` in a Custom Tab instead, with a PKCE challenge. The server signs the
   tab in through the provider, asks the person to confirm, and sends the tab to
@@ -85,6 +95,5 @@ provider must be reachable at the same address from the server and from the emul
 
 ## Not done yet
 
-The app icon and splash, native notifications, a native storage adapter, an error
-page when the server cannot be reached on a cold start, and linking a provider account from
-Settings (that flow still runs inside the WebView).
+Native notifications, a native storage adapter, and linking a provider account from Settings
+(that flow still runs inside the WebView).

@@ -4,4 +4,9 @@
     <string name="title_activity_main">Punchlist</string>
     <string name="package_name">com.killswitch10.punchlist</string>
     <string name="custom_url_scheme">com.killswitch10.punchlist</string>
+    <!-- The page shown when the server cannot be reached on a start with nothing cached (ShellWebViewClient). -->
+    <string name="offline_title">"Can't reach your server"</string>
+    <string name="offline_body">Punchlist could not reach %1$s. Check your connection, or whether the server is running.</string>
+    <string name="offline_retry">Try again</string>
+    <string name="offline_other">Use another server</string>
 </resources>

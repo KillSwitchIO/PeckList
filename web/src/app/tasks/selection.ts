@@ -1,9 +1,16 @@
 import { useCallback } from 'react';
-import { useSearchParams } from 'react-router';
+import { useLocation, useNavigate, useSearchParams } from 'react-router';
+
+/** Set on the history entry that opening a task added, so closing it can go back over it. */
+const OPENED = 'punchlistOpenedTask';
 
 /**
  * The open task lives in the URL (`?task=<id>`) so it survives reloads and back navigation;
  * `&full=1` opens it in the large full-screen view (the quick add bar's expand button).
+ *
+ * Opening a task from the list adds one history entry; switching to another task replaces it, and
+ * closing goes back over it. So Back (the browser's, or Android's) closes the task, and closing
+ * with x or Escape leaves no entry behind that a later Back would reopen.
  */
 export function useTaskSelection(): {
   selectedId: string | null;
@@ -15,37 +22,54 @@ export function useTaskSelection(): {
   leaveFull: () => void;
 } {
   const [params, setParams] = useSearchParams();
+  const navigate = useNavigate();
+  const location = useLocation();
   const selectedId = params.get('task');
   const full = params.get('full') === '1';
+  const openedHere = (location.state as Record<string, unknown> | null)?.[OPENED] === true;
   const open = useCallback(
     (id: string, options?: { full?: boolean }) =>
-      setParams((current) => {
-        const next = new URLSearchParams(current);
-        next.set('task', id);
-        if (options?.full) next.set('full', '1');
-        else next.delete('full');
-        return next;
-      }),
-    [setParams],
+      setParams(
+        (current) => {
+          const next = new URLSearchParams(current);
+          next.set('task', id);
+          if (options?.full) next.set('full', '1');
+          else next.delete('full');
+          return next;
+        },
+        selectedId === null
+          ? { state: { [OPENED]: true } }
+          : { replace: true, state: openedHere ? { [OPENED]: true } : null },
+      ),
+    [setParams, selectedId, openedHere],
   );
-  const close = useCallback(
-    () =>
-      setParams((current) => {
+  const close = useCallback(() => {
+    if (openedHere) {
+      void navigate(-1);
+      return;
+    }
+    // Opened by an address (a link, a reload): nothing of ours to go back over.
+    setParams(
+      (current) => {
         const next = new URLSearchParams(current);
         next.delete('task');
         next.delete('full');
         return next;
-      }),
-    [setParams],
-  );
+      },
+      { replace: true },
+    );
+  }, [setParams, navigate, openedHere]);
   const leaveFull = useCallback(
     () =>
-      setParams((current) => {
-        const next = new URLSearchParams(current);
-        next.delete('full');
-        return next;
-      }),
-    [setParams],
+      setParams(
+        (current) => {
+          const next = new URLSearchParams(current);
+          next.delete('full');
+          return next;
+        },
+        { replace: true, state: openedHere ? { [OPENED]: true } : null },
+      ),
+    [setParams, openedHere],
   );
   return { selectedId, full, open, close, leaveFull };
 }

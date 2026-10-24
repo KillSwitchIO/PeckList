@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { BrowserRouter } from 'react-router';
 import { NativeFirstRun } from './native/FirstRun.tsx';
-import { forgetServiceWorker, isBundledApp } from './native/shell.ts';
+import { installBackHandler } from './native/back.ts';
+import { forgetServiceWorker, isBundledApp, nativeShell } from './native/shell.ts';
 import { AppProviders } from './providers.tsx';
 import { UpdatePrompt } from './pwa/UpdatePrompt.tsx';
 import { AppRoutes } from './routes.tsx';
@@ -11,6 +12,7 @@ import { ViewAsBanner } from './sync/ViewAsBanner.tsx';
 
 const bundled = isBundledApp();
 if (bundled) forgetServiceWorker();
+if (nativeShell()) installBackHandler();
 
 export function App() {
   const [{ store, sync, viewAs }] = useState(createBrowserApp);
