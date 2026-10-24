@@ -1,6 +1,7 @@
 // The date on the right of a task row. Clicking it edits that date in place (the start date, the
 // due date when that is what shows, or the completion date of a closed task) without opening the
-// task. An undated row shows a faint calendar on hover for adding a start date.
+// task. An undated row shows a faint calendar on hover for adding a start date. Phones put a
+// compact one first on the line under the title, and show none for an undated task.
 
 import { Box, ButtonBase } from '@mui/material';
 import { useState, type MouseEvent } from 'react';
@@ -25,10 +26,13 @@ export function DateButton({
   task,
   width,
   testId = 'task-date',
+  compact = false,
 }: {
   task: Task;
   width: string;
   testId?: string;
+  /** Inline with other details, left-aligned, smaller (phone rows). */
+  compact?: boolean;
 }) {
   const apply = useApply();
   const today = useToday();
@@ -84,6 +88,8 @@ export function DateButton({
     }
   };
 
+  if (compact && !text && !(task.progress > 0 && task.status === 'open')) return null;
+
   return (
     <>
       <ButtonBase
@@ -104,10 +110,11 @@ export function DateButton({
           alignSelf: 'stretch',
           display: 'flex',
           alignItems: 'center',
-          justifyContent: 'flex-end',
-          gap: 0.75,
-          pr: 1.5,
+          justifyContent: compact ? 'flex-start' : 'flex-end',
+          gap: compact ? 0.5 : 0.75,
+          pr: compact ? 0 : 1.5,
           typography: 'body2',
+          ...(compact ? { fontSize: 'inherit', minWidth: 0 } : {}),
           color,
           borderRadius: 1,
           '&:hover .add-date': { opacity: 1 },

@@ -22,6 +22,16 @@ export function formatDay(date: string, today: string, locale?: string): string 
   }).format(toDate(date));
 }
 
+/** "October" for a month of this year, "October 2027" for other years. `month` is `YYYY-MM`. */
+export function formatMonth(month: string, today: string, locale?: string): string {
+  const [y, m] = month.split('-').map(Number) as [number, number];
+  return new Intl.DateTimeFormat(locale, {
+    timeZone: 'UTC',
+    month: 'long',
+    year: month.slice(0, 4) === today.slice(0, 4) ? undefined : 'numeric',
+  }).format(new Date(Date.UTC(y, m - 1, 15)));
+}
+
 // How the user likes dates shown (Settings, PL-025): set from the open workspace's settings
 // (WorkspaceTheme) before anything renders, like the locale.
 const display = { clock24: false, weekStart: 0 as 0 | 1 };

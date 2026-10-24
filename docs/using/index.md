@@ -20,7 +20,11 @@ tasks; click a day to open that day's tasks as a list, like Today but for any da
 opens Today). The day page adds new tasks to that day, shows what got done that day, and its arrows
 step a day. The arrow at the top right of the small month folds it down to just one week (and
 back), and each device remembers which. Under it is the app's version, which links to what
-changed. On a phone the main views sit in the bottom bar.
+changed. On a phone the main views sit in the bottom bar, and **More** holds the rest of the
+sidebar: the views, saved filters, lists and tags. Its pencil (or holding a row) edits it just
+like **Edit sidebar** on a computer, and the changes apply on every device.
+
+Dates leave the year off when it is this year: "Thu, Oct 22", "October", but "Jan 4, 2027".
 
 ## Tasks
 
@@ -33,7 +37,8 @@ their start; the due date is the deadline.
 - **Open**: click a task for its details panel; it can be widened or made full screen. The
   expand button at the end of the add field opens a new task straight in the full view, filled
   with what you typed. At the bottom: when the task was made and last changed. On a phone,
-  comments and those dates wait behind a bar at the bottom that slides a panel up.
+  comments and those dates wait behind a bar at the bottom that slides a panel up. Phone rows put
+  the title on its own line, with the date, list and tags under it.
 - **Notes**: always ready to type in, with no edit mode. Checklist boxes tick with one tap, without
   starting to edit. The small button in their bottom right opens the full editor, with a
   formatting toolbar.

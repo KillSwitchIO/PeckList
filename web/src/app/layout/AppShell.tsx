@@ -6,7 +6,6 @@ import {
   AppBar,
   BottomNavigation,
   BottomNavigationAction,
-  Button,
   Dialog,
   Box,
   Link,
@@ -38,6 +37,7 @@ import { HeaderSlotContext } from './headerSlot.ts';
 import { SidebarEditProvider } from './sidebarEdit.tsx';
 import { useSidebarEdit } from './sidebarEditContext.ts';
 import { PlusIcon } from '../icons/icons.tsx';
+import { SidebarEditBar } from './SidebarEditBar.tsx';
 import { SidebarViews } from './SidebarViews.tsx';
 import { ResizeHandle } from './ResizeHandle.tsx';
 import { useDetailWidth } from './useDetailWidth.ts';
@@ -126,38 +126,7 @@ function SidebarTitle() {
       </Toolbar>
     );
   }
-  return (
-    <Toolbar
-      role="toolbar"
-      aria-label={t('nav.editSidebar')}
-      sx={{
-        gap: 0.5,
-        px: '8px !important',
-        '& .MuiButton-root': { minWidth: 0, px: 1, whiteSpace: 'nowrap' },
-      }}
-    >
-      <Button size="small" color="inherit" onClick={edit.cancel}>
-        {t('common.cancel')}
-      </Button>
-      {/* Back to the default views, nothing hidden or pinned; Done still saves it. */}
-      <Button size="small" color="inherit" onClick={edit.reset}>
-        {t('nav.resetSidebar')}
-      </Button>
-      <Box sx={{ flexGrow: 1 }} />
-      <Tooltip title={t('filter.new')}>
-        <IconButton
-          size="small"
-          aria-label={t('filter.new')}
-          onClick={() => edit.setCreatingFilter(true)}
-        >
-          <PlusIcon fontSize="small" />
-        </IconButton>
-      </Tooltip>
-      <Button size="small" variant="contained" disableElevation onClick={edit.done}>
-        {t('common.done')}
-      </Button>
-    </Toolbar>
-  );
+  return <SidebarEditBar />;
 }
 
 function Sidebar({ onNavigate }: { onNavigate: (path: string) => void }) {
@@ -482,7 +451,7 @@ export function AppShell() {
             sx={{
               position: 'fixed',
               right: 16,
-              bottom: 'calc(56px + 16px + env(safe-area-inset-bottom))',
+              bottom: 'calc(52px + 16px + env(safe-area-inset-bottom))',
               zIndex: (theme) => theme.zIndex.appBar,
             }}
           >
@@ -491,7 +460,7 @@ export function AppShell() {
         )}
 
         {/* On a phone, above the bottom navigation and the + button. */}
-        <UndoToast bottomOffset={isPhone ? 56 + 72 : 0} />
+        <UndoToast bottomOffset={isPhone ? 52 + 72 : 0} />
         <SyncNoticeToast />
         <ShortcutsDialog open={shortcuts.helpOpen} onClose={shortcuts.closeHelp} />
 

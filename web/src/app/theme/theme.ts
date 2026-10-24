@@ -62,7 +62,31 @@ export function createAppTheme(
       },
       MuiBottomNavigation: {
         styleOverrides: {
-          root: { backgroundColor: p.surfaceVariant, borderTop: `1px solid ${p.outline}` },
+          root: {
+            backgroundColor: p.surfaceVariant,
+            borderTop: `1px solid ${p.outline}`,
+            height: 52,
+          },
+        },
+      },
+      // Compact phone tabs: a small label that stays one line and does not grow when selected.
+      MuiBottomNavigationAction: {
+        styleOverrides: {
+          root: {
+            minWidth: 0,
+            padding: '0 4px',
+            gap: 2,
+            '& .MuiSvgIcon-root': { fontSize: 22 },
+          },
+          label: {
+            fontSize: '0.6875rem',
+            lineHeight: 1.2,
+            maxWidth: '100%',
+            whiteSpace: 'nowrap',
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            '&.Mui-selected': { fontSize: '0.6875rem', fontWeight: 600 },
+          },
         },
       },
     },

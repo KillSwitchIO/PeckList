@@ -25,7 +25,7 @@ describe('MonthCalendar', () => {
         locale="en-US"
       />,
     );
-    expect(screen.getByText('July 2026')).toBeInTheDocument();
+    expect(screen.getByText('July')).toBeInTheDocument();
     expect(screen.getByRole('gridcell', { name: 'Tuesday, July 21, 2026' })).toHaveAttribute(
       'aria-selected',
       'true',
@@ -38,7 +38,7 @@ describe('MonthCalendar', () => {
     render(
       <MonthCalendar selected={null} today={TODAY} onSelect={() => undefined} locale="en-US" />,
     );
-    await userEvent.click(screen.getByRole('button', { name: 'October 2026' }));
+    await userEvent.click(screen.getByRole('button', { name: 'October' }));
     expect(screen.getByRole('button', { name: 'October 2026' })).toHaveAttribute(
       'aria-current',
       'date',
@@ -55,24 +55,24 @@ describe('MonthCalendar', () => {
     expect(screen.getByText('March 2040')).toBeInTheDocument();
     expect(screen.getByRole('gridcell', { name: 'Thursday, March 1, 2040' })).toBeInTheDocument();
     await userEvent.click(screen.getByRole('button', { name: 'Go to today' }));
-    expect(screen.getByText('October 2026')).toBeInTheDocument();
+    expect(screen.getByText('October')).toBeInTheDocument();
   });
 
   it('pages months, jumps back to today and selects a day', async () => {
     const onSelect = vi.fn();
     render(<MonthCalendar selected={null} today={TODAY} onSelect={onSelect} locale="en-US" />);
-    expect(screen.getByText('October 2026')).toBeInTheDocument();
+    expect(screen.getByText('October')).toBeInTheDocument();
     expect(screen.getByRole('gridcell', { name: 'Tuesday, October 20, 2026' })).toHaveAttribute(
       'aria-current',
       'date',
     );
     await userEvent.click(screen.getByRole('button', { name: 'Show next month' }));
-    expect(screen.getByText('November 2026')).toBeInTheDocument();
+    expect(screen.getByText('November')).toBeInTheDocument();
     await userEvent.click(screen.getByRole('button', { name: 'Show previous month' }));
     await userEvent.click(screen.getByRole('button', { name: 'Show previous month' }));
-    expect(screen.getByText('September 2026')).toBeInTheDocument();
+    expect(screen.getByText('September')).toBeInTheDocument();
     await userEvent.click(screen.getByRole('button', { name: 'Go to today' }));
-    expect(screen.getByText('October 2026')).toBeInTheDocument();
+    expect(screen.getByText('October')).toBeInTheDocument();
     await userEvent.click(screen.getByRole('gridcell', { name: 'Friday, October 30, 2026' }));
     expect(onSelect).toHaveBeenCalledWith('2026-10-30');
   });

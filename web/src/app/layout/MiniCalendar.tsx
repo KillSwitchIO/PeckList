@@ -93,7 +93,7 @@ export function MiniCalendar({
           sx={{ borderRadius: 1, px: 0.5, mr: 'auto' }}
         >
           <Typography variant="caption" sx={{ fontWeight: 600 }}>
-            {monthTitle(shownMonth)}
+            {monthTitle(shownMonth, today)}
           </Typography>
         </ButtonBase>
         <IconButton
@@ -130,7 +130,7 @@ export function MiniCalendar({
       </Box>
       <Box
         role="grid"
-        aria-label={monthTitle(shownMonth)}
+        aria-label={monthTitle(shownMonth, today)}
         sx={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', textAlign: 'center' }}
       >
         {weekdayInitials(weekStart).map((letter, index) => (

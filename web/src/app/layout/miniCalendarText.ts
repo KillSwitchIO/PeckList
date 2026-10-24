@@ -1,11 +1,8 @@
-/** "October 2026" for `2026-10`. */
-export function monthTitle(month: string): string {
-  const [year, number] = month.split('-').map(Number);
-  return new Intl.DateTimeFormat(undefined, {
-    month: 'long',
-    year: 'numeric',
-    timeZone: 'UTC',
-  }).format(Date.UTC(year!, number! - 1, 1));
+import { formatMonth } from '../format.ts';
+
+/** "October" for `2026-10` this year, "October 2027" in other years. */
+export function monthTitle(month: string, today: string): string {
+  return formatMonth(month, today);
 }
 
 /** The weekdays' first letters, starting on `weekStart` (0 Sunday). */

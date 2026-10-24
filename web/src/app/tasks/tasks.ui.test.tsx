@@ -632,6 +632,18 @@ describe('phone', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Trash' }));
     expect(await screen.findByRole('heading', { level: 1, name: 'Trash' })).toBeInTheDocument();
   });
+
+  it('More is edited like the desktop sidebar: hide a view, then Done', async () => {
+    mockViewport('phone');
+    await renderApp('/more');
+    await userEvent.click(screen.getByRole('button', { name: 'Edit sidebar' }));
+    const bar = screen.getByRole('toolbar', { name: 'Edit sidebar' });
+    await userEvent.click(screen.getByRole('button', { name: 'Hide All' }));
+    await userEvent.click(within(bar).getByRole('button', { name: 'Done' }));
+    expect(screen.queryByRole('toolbar', { name: 'Edit sidebar' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'All' })).toBeNull();
+    expect(screen.getByRole('button', { name: 'Next 7 days' })).toBeInTheDocument();
+  });
 });
 
 describe('completion date', () => {

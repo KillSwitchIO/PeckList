@@ -21,6 +21,7 @@ import { TagChips } from '../tags/TagChip.tsx';
 import { useTaskSelection } from './selection.ts';
 import { CHECK_PATH, CROSS_PATH } from './closedMarks.ts';
 import { DateButton } from './DateButton.tsx';
+import { useRowDate } from './rowDate.ts';
 import { TaskMenu, type TaskMenuAnchor } from './TaskMenu.tsx';
 
 const PRIORITY_KEY = { 0: 'none', 1: 'low', 2: 'medium', 3: 'high' } as const satisfies Record<
@@ -122,6 +123,7 @@ export function TaskRow({
   const tags = tagsOfTask(workspace, task);
   const assigned = assigneesOf(task).map((principal) => describePrincipal(workspace, principal));
   const isPhone = useMediaQuery(theme.breakpoints.down('sm'), { noSsr: true });
+  const { text: dateText } = useRowDate(task);
   const done = task.status !== 'open';
   const title = task.title || t('task.untitled');
   const selected = selectedId === task.id;
@@ -141,7 +143,108 @@ export function TaskRow({
     return true;
   };
 
-  // Closed tasks show when they were completed instead of when they start.
+  // Who, how far along, whose subtask, which list: beside the title, or under it on phones.
+  const details = (
+    <>
+      {assigned.length > 0 && (
+        <Box
+          component="span"
+          role="img"
+          aria-label={t('assignee.row', {
+            names: assigned.map((each) => each.name).join(', '),
+          })}
+          title={t('assignee.row', { names: assigned.map((each) => each.name).join(', ') })}
+          sx={{ display: 'inline-flex' }}
+        >
+          <AvatarStack people={assigned} size={18} max={2} />
+        </Box>
+      )}
+      {progress.total > 0 && (
+        <Box
+          component="span"
+          sx={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: 0.25,
+            color: 'text.secondary',
+          }}
+        >
+          <ChecklistRounded sx={{ fontSize: 16 }} />
+          {t('task.subtasks', { done: progress.done, total: progress.total })}
+        </Box>
+      )}
+      {/* A subtask shown away from its parent names it. */}
+      {showParent && parent && (
+        <Box
+          component="span"
+          title={t('task.subtaskOf', { title: parent.title || t('task.untitled') })}
+          sx={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: 0.25,
+            maxWidth: '12rem',
+            color: 'text.secondary',
+          }}
+        >
+          <SubdirectoryArrowRightRounded sx={{ fontSize: 16 }} />
+          <Box
+            component="span"
+            sx={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+          >
+            {parent.title || t('task.untitled')}
+          </Box>
+        </Box>
+      )}
+    </>
+  );
+  const showsList = showList && list && !list.isInbox;
+  const hasDetails =
+    dateText !== null ||
+    task.progress > 0 ||
+    tags.length > 0 ||
+    assigned.length > 0 ||
+    progress.total > 0 ||
+    (showParent && parent !== undefined) ||
+    showsList;
+  const openButton = {
+    onClick: () => open(task.id),
+    ...(gesture ?? {}),
+    ...(dragging
+      ? {
+          onKeyDown: (event: React.KeyboardEvent) => {
+            if (!event.altKey || event.ctrlKey || event.metaKey) return;
+            if (keyMove(event.key)) event.preventDefault();
+          },
+        }
+      : {}),
+    'aria-label': t('task.open', { title }),
+    // J / K (keyboard shortcuts) step through the rows that carry this.
+    'data-task-row': task.id,
+    // No ripple: it spread over the row after the details had opened and read as lag.
+    disableRipple: true,
+  };
+  const titleText = (
+    <Typography
+      noWrap={!isPhone}
+      sx={{
+        color: done ? 'text.disabled' : 'text.primary',
+        // Won't do reads as dropped, not finished.
+        textDecoration: task.status === 'wontdo' ? 'line-through' : 'none',
+        // Phones give the title the whole width and up to two lines.
+        ...(isPhone
+          ? {
+              display: '-webkit-box',
+              WebkitLineClamp: 2,
+              WebkitBoxOrient: 'vertical',
+              overflow: 'hidden',
+              overflowWrap: 'anywhere',
+            }
+          : {}),
+      }}
+    >
+      {title}
+    </Typography>
+  );
 
   return (
     <TaskReadOnly value={!canEdit}>
@@ -155,7 +258,7 @@ export function TaskRow({
         sx={{
           position: 'relative',
           display: 'flex',
-          alignItems: 'center',
+          alignItems: isPhone ? 'flex-start' : 'center',
           minHeight: 40,
           pl: `${4 + depth * INDENT}px`,
           opacity: dimmed ? 0.4 : 1,
@@ -188,8 +291,7 @@ export function TaskRow({
             sx={{
               position: 'absolute',
               left: depth * INDENT - 20,
-              top: '50%',
-              transform: 'translateY(-50%)',
+              ...(isPhone ? { top: 8 } : { top: '50%', transform: 'translateY(-50%)' }),
               p: 0.25,
               color: 'text.secondary',
             }}
@@ -203,117 +305,84 @@ export function TaskRow({
             />
           </IconButton>
         )}
-        <PriorityCheckbox task={task} />
-        <ButtonBase
-          onClick={() => open(task.id)}
-          {...(gesture ?? {})}
-          {...(dragging
-            ? {
-                onKeyDown: (event: React.KeyboardEvent) => {
-                  if (!event.altKey || event.ctrlKey || event.metaKey) return;
-                  if (keyMove(event.key)) event.preventDefault();
-                },
-              }
-            : {})}
-          aria-label={t('task.open', { title })}
-          // J / K (keyboard shortcuts) step through the rows that carry this.
-          data-task-row={task.id}
-          // No ripple: it spread over the row after the details had opened and read as lag.
-          disableRipple
-          sx={{
-            flexGrow: 1,
-            minWidth: 0,
-            display: 'flex',
-            alignItems: 'center',
-            gap: 1.5,
-            py: 1,
-            pr: 1.5,
-            textAlign: 'left',
-          }}
-        >
-          <Box sx={{ flexGrow: 1, minWidth: 0 }}>
-            <Typography
-              noWrap
+        {isPhone ? (
+          <>
+            <Box sx={{ pt: 0.5 }}>
+              <PriorityCheckbox task={task} />
+            </Box>
+            <Box sx={{ flexGrow: 1, minWidth: 0, py: 1, pr: 1.5 }}>
+              <ButtonBase
+                {...openButton}
+                sx={{ display: 'block', width: '100%', textAlign: 'left' }}
+              >
+                {titleText}
+              </ButtonBase>
+              {/* Phones have no room beside the title: the rest goes on a line under it. */}
+              {hasDetails && (
+                <Box
+                  data-testid="task-meta"
+                  // Tapping the details opens the task too (the title button is the one to focus).
+                  onClick={() => open(task.id)}
+                  sx={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    flexWrap: 'wrap',
+                    columnGap: 1.25,
+                    rowGap: 0.25,
+                    mt: 0.25,
+                    typography: 'body2',
+                    fontSize: '0.8125rem',
+                    color: 'text.secondary',
+                  }}
+                >
+                  <DateButton task={task} width="auto" compact />
+                  {showsList && <Box component="span">{listName(list, workspace)}</Box>}
+                  <TagChips tags={tags} max={3} wrap={false} />
+                  {details}
+                </Box>
+              )}
+            </Box>
+          </>
+        ) : (
+          <>
+            <PriorityCheckbox task={task} />
+            <ButtonBase
+              {...openButton}
               sx={{
-                color: done ? 'text.disabled' : 'text.primary',
-                // Won't do reads as dropped, not finished.
-                textDecoration: task.status === 'wontdo' ? 'line-through' : 'none',
+                flexGrow: 1,
+                minWidth: 0,
+                display: 'flex',
+                alignItems: 'center',
+                gap: 1.5,
+                py: 1,
+                pr: 1.5,
+                textAlign: 'left',
               }}
             >
-              {title}
-            </Typography>
-            {/* Phones have no room beside the title: tags go on a second line. */}
-            {isPhone && <TagChips tags={tags} max={3} wrap={false} />}
-          </Box>
-          <Box
-            data-testid="task-meta"
-            sx={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 1.25,
-              flexShrink: 0,
-              typography: 'body2',
-            }}
-          >
-            {!isPhone && <TagChips tags={tags} max={2} wrap={false} />}
-            {assigned.length > 0 && (
+              <Box sx={{ flexGrow: 1, minWidth: 0 }}>{titleText}</Box>
               <Box
-                component="span"
-                role="img"
-                aria-label={t('assignee.row', {
-                  names: assigned.map((each) => each.name).join(', '),
-                })}
-                title={t('assignee.row', { names: assigned.map((each) => each.name).join(', ') })}
-                sx={{ display: 'inline-flex' }}
-              >
-                <AvatarStack people={assigned} size={18} max={2} />
-              </Box>
-            )}
-            {progress.total > 0 && (
-              <Box
-                component="span"
+                data-testid="task-meta"
                 sx={{
-                  display: 'inline-flex',
+                  display: 'flex',
                   alignItems: 'center',
-                  gap: 0.25,
-                  color: 'text.secondary',
+                  gap: 1.25,
+                  flexShrink: 0,
+                  typography: 'body2',
                 }}
               >
-                <ChecklistRounded sx={{ fontSize: 16 }} />
-                {t('task.subtasks', { done: progress.done, total: progress.total })}
+                <TagChips tags={tags} max={2} wrap={false} />
+                {details}
+                {/* The Mess Drawer is "no list", so its tasks show none. */}
+                {showsList && (
+                  <Box component="span" sx={{ color: 'text.secondary' }}>
+                    {listName(list, workspace)}
+                  </Box>
+                )}
               </Box>
-            )}
-            {/* A subtask shown away from its parent names it. */}
-            {showParent && parent && (
-              <Box
-                component="span"
-                title={t('task.subtaskOf', { title: parent.title || t('task.untitled') })}
-                sx={{
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: 0.25,
-                  maxWidth: '12rem',
-                  color: 'text.secondary',
-                }}
-              >
-                <SubdirectoryArrowRightRounded sx={{ fontSize: 16 }} />
-                <Box
-                  component="span"
-                  sx={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
-                >
-                  {parent.title || t('task.untitled')}
-                </Box>
-              </Box>
-            )}
-            {/* The Mess Drawer is "no list", so its tasks show none. */}
-            {showList && list && !list.isInbox && (
-              <Box component="span" sx={{ color: 'text.secondary' }}>
-                {listName(list, workspace)}
-              </Box>
-            )}
-          </Box>
-        </ButtonBase>
-        <DateButton task={task} width={DATE_COLUMN} />
+            </ButtonBase>
+            <DateButton task={task} width={DATE_COLUMN} />
+          </>
+        )}
         <TaskMenu task={task} anchor={menu} onClose={() => setMenu(null)} showOpen />
       </Box>
     </TaskReadOnly>

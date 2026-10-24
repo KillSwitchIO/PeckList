@@ -221,7 +221,7 @@ export function CalendarPage() {
             <ChevronRightIcon fontSize="small" />
           </IconButton>
           <Typography component="h2" sx={{ fontWeight: 600, flexGrow: 1 }} aria-live="polite">
-            {calendarTitle(mode, date, weekStart)}
+            {calendarTitle(mode, date, weekStart, today)}
           </Typography>
           <ToggleButtonGroup
             exclusive
