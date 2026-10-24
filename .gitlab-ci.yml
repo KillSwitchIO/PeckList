@@ -3,7 +3,8 @@
 #   merge requests   check, test (web, server, e2e), image build (not pushed), docs build
 #   main             the same, then the :edge image, two devices syncing through it (e2e-server)
 #                    and the docs site (GitLab Pages)
-#   by hand          android-apk: the Android app's debug APK (merge requests, main)
+#   by hand          android-apk: the Android app's debug APK (merge requests, main);
+#                    android-release: the signed APK (main; automatic on tags, attached to the release)
 #   tags v1.2.3+...  the same, then release images (:1.2.3, :1.2, :latest), native downloads,
 #                    and the GitLab release with notes from CHANGELOG.md
 #
@@ -220,9 +221,9 @@ web-build:
       when: manual
       allow_failure: true
 
-# The Android app's debug APK (mobile/, ADR-0017), by hand on merge requests and main. JDK 21 from
-# Debian; the Android SDK from Google, cached with Gradle's downloads.
-android-apk:
+# The Android app (mobile/, ADR-0017). JDK 21 from Debian; the Android SDK from Google, cached with
+# Gradle's downloads.
+.android:
   extends: .node
   image: node:24-trixie
   stage: build
@@ -244,6 +245,10 @@ android-apk:
     - corepack enable
     - pnpm config set store-dir "$PNPM_STORE_DIR"
     - pnpm install --frozen-lockfile
+
+# Debug APK, by hand on merge requests and main: for trying a branch on a phone.
+android-apk:
+  extends: .android
   script:
     - pnpm --filter @punchlist/mobile apk
     - pnpm --filter @punchlist/mobile test:android
@@ -258,6 +263,44 @@ android-apk:
       when: manual
       allow_failure: true
     - if: $CI_PIPELINE_SOURCE == "web"
+      when: manual
+      allow_failure: true
+
+# Signed release APK: on tags (attached to the release), by hand on main. The key comes from the
+# protected variables ANDROID_KEYSTORE_BASE64, ANDROID_KEYSTORE_PASSWORD and ANDROID_KEY_ALIAS, so
+# only main and v* tags can sign (docs/development/android.md). The version code is the pipeline
+# number, which only grows.
+android-release:
+  extends: .android
+  script:
+    - |
+      set -eu
+      if [ -n "${CI_COMMIT_TAG:-}" ]; then
+        VERSION=$(echo "$CI_COMMIT_TAG" | sed 's/^v//; s/+.*//')
+      else
+        VERSION="$(sed -n 's:.*<Version>\(.*\)</Version>.*:\1:p' server/Directory.Build.props)-edge.$CI_COMMIT_SHORT_SHA"
+      fi
+      export PUNCHLIST_VERSION="$VERSION" PUNCHLIST_VERSION_CODE="$CI_PIPELINE_IID" PUNCHLIST_REVISION="$CI_COMMIT_SHA"
+      export ANDROID_KEYSTORE_FILE="$CI_PROJECT_DIR/release-key.p12"
+      echo "$ANDROID_KEYSTORE_BASE64" | base64 -d > "$ANDROID_KEYSTORE_FILE"
+      pnpm --filter @punchlist/web build
+      cd mobile
+      pnpm exec cap sync android
+      node scripts/gradle.mjs assembleRelease testDebugUnitTest
+      cd ..
+      APK=mobile/android/app/build/outputs/apk/release/app-release.apk
+      "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --print-certs "$APK" | grep -E 'DN|SHA-256'
+      mkdir -p dist-android
+      cp "$APK" dist-android/punchlist-android.apk
+      echo "Built punchlist-android.apk $VERSION (code $PUNCHLIST_VERSION_CODE)"
+  after_script:
+    - rm -f "$CI_PROJECT_DIR/release-key.p12"
+  artifacts:
+    paths: [dist-android]
+    expire_in: 30 days
+  rules:
+    - *on-tag
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
       when: manual
       allow_failure: true
 
@@ -331,10 +374,13 @@ pages:
 release:
   image: $NODE_IMAGE
   stage: release
-  needs: [container-image, packages]
+  needs: [container-image, packages, android-release]
   interruptible: false
   script:
     - node scripts/check-version.mjs
+    # The signed APK joins the native downloads and their checksums.
+    - cp dist-android/punchlist-android.apk dist/
+    - (cd dist && sha256sum punchlist-android.apk >> SHA256SUMS)
     - node scripts/ci/publish-release.mjs dist
   rules:
     - *on-tag

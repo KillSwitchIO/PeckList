@@ -67,7 +67,9 @@ The tag pipeline then:
 2. Builds and pushes the release images for amd64 and arm64.
 3. Builds the native downloads (`punchlist-linux-x64.tar.gz`, `punchlist-linux-arm64.tar.gz`,
    `punchlist-win-x64.zip`) and `SHA256SUMS`.
-4. Uploads them to the package registry and creates the release, with the changelog section as its
+4. Builds the signed Android app, `punchlist-android.apk`, and adds it to the downloads and
+   `SHA256SUMS` ([Android app](android.md#release-signing)).
+5. Uploads them to the package registry and creates the release, with the changelog section as its
    notes, the downloads as assets, and the image.
 
 Re-running the `release` job updates the release instead of failing. The newest release's files are
@@ -80,3 +82,4 @@ always at `https://gitlab.com/killswitch10/punchlist/-/releases/permalink/latest
 - [ ] Schema changes have a note in `docs/migrations/`.
 - [ ] After the tag pipeline: the release page, `docker pull ...:X.Y.Z`, and a native download's
       `punchlist --version`.
+- [ ] The APK installs over the previous release on a phone (same signing key, higher version code).

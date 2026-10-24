@@ -37,7 +37,7 @@ async function call(method, url, body) {
 
 // 1. The downloads, as a generic package named after the version.
 const files = readdirSync(dir).filter(
-  (file) => /^punchlist-.+\.(tar\.gz|zip)$/.test(file) || file === 'SHA256SUMS',
+  (file) => /^punchlist-.+\.(tar\.gz|zip|apk)$/.test(file) || file === 'SHA256SUMS',
 );
 if (files.length === 0) throw new Error(`nothing to publish in ${dir}`);
 const links = [];
@@ -68,7 +68,7 @@ const description = `${notes}
 docker pull ${image}:${version}
 \`\`\`
 
-Native downloads for Linux and Windows are below; check them against \`SHA256SUMS\`. The newest
+Native downloads for Linux and Windows, and the Android app (\`punchlist-android.apk\`), are below; check them against \`SHA256SUMS\`. The newest
 release's files are always at \`${projectUrl}/-/releases/permalink/latest/downloads/<file>\`. Setup, upgrade
 steps and every setting are in the [documentation](${projectUrl}/-/tree/main/docs).${
   prerelease

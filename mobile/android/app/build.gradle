@@ -1,5 +1,12 @@
 apply plugin: 'com.android.application'
 
+// Release signing (docs/development/android.md): the key and its password come from the
+// environment (CI variables), never the repo. Without ANDROID_KEYSTORE_FILE a release build is
+// unsigned. Version name and code come from CI too: the code is the pipeline number, which only
+// grows, so every CI build installs over the one before.
+def releaseKeystore = System.getenv('ANDROID_KEYSTORE_FILE')
+def keystorePassword = System.getenv('ANDROID_KEYSTORE_PASSWORD')
+
 android {
     namespace = "com.killswitch10.punchlist"
     compileSdk = rootProject.ext.compileSdkVersion
@@ -7,8 +14,8 @@ android {
         applicationId "com.killswitch10.punchlist"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 1
-        versionName "0.1.0"
+        versionCode((System.getenv('PUNCHLIST_VERSION_CODE') ?: '1') as Integer)
+        versionName System.getenv('PUNCHLIST_VERSION') ?: '0.1.0'
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
              // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.
@@ -16,8 +23,20 @@ android {
             ignoreAssetsPattern = '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
         }
     }
+    signingConfigs {
+        release {
+            if (releaseKeystore) {
+                storeFile file(releaseKeystore)
+                storeType 'pkcs12'
+                storePassword keystorePassword
+                keyAlias System.getenv('ANDROID_KEY_ALIAS') ?: 'punchlist'
+                keyPassword System.getenv('ANDROID_KEY_PASSWORD') ?: keystorePassword
+            }
+        }
+    }
     buildTypes {
         release {
+            if (releaseKeystore) signingConfig signingConfigs.release
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
         }

@@ -37,7 +37,45 @@ That builds the web app, copies it into the Android project (`cap sync`) and bui
 cd mobile/android && ./gradlew testDebugUnitTest
 ```
 
-CI builds the debug APK in the `android-apk` job (manual on main and merge requests).
+CI builds the debug APK in the `android-apk` job (manual on main and merge requests), and the
+signed release APK in `android-release` (automatic on tags, manual on main).
+
+## Release signing
+
+Android only installs an update signed with the same key as the installed app, so the release key
+must never change or be lost. Debug and release builds have different keys: a phone with the debug
+build needs it uninstalled before the release one goes on.
+
+| Where | What |
+| --- | --- |
+| GitLab, project CI/CD variables | `ANDROID_KEYSTORE_BASE64` (the PKCS12 keystore, base64; protected, masked), `ANDROID_KEYSTORE_PASSWORD` (protected, masked), `ANDROID_KEY_ALIAS` (`punchlist`, protected) |
+| GitLab, protected tags | `v*`, so tag pipelines get the protected variables (only `main` and `v*` tags can sign) |
+| A password manager | The keystore file and its password: the copy to restore from |
+
+The key: RSA 4096, alias `punchlist`, `CN=Punchlist, O=killswitch10`, valid 100 years,
+certificate SHA-256 `18:C8:C5:CE:EE:2E:8C:5D:DD:2E:BE:E6:7A:F8:B6:AA:E5:88:0C:65:65:2D:0C:56:81:85:15:88:4F:3B:BD:CA`.
+A PKCS12 keystore has one password for the store and the key.
+
+`mobile/android/app/build.gradle` signs a release build when `ANDROID_KEYSTORE_FILE` is set, with
+`ANDROID_KEYSTORE_PASSWORD` and `ANDROID_KEY_ALIAS` (and `ANDROID_KEY_PASSWORD` if it ever differs).
+`PUNCHLIST_VERSION` sets the version name and `PUNCHLIST_VERSION_CODE` the version code; CI uses
+the pipeline number, which only grows. A signed build by hand:
+
+```bash
+export ANDROID_KEYSTORE_FILE=/path/to/punchlist-release.p12 ANDROID_KEYSTORE_PASSWORD=...
+PUNCHLIST_VERSION=0.2.0 PUNCHLIST_VERSION_CODE=1000 pnpm --filter @punchlist/mobile exec node scripts/gradle.mjs assembleRelease
+apksigner verify --print-certs mobile/android/app/build/outputs/apk/release/app-release.apk
+```
+
+A new key (only if the old one is lost, and every install must then be removed first):
+
+```bash
+keytool -genkeypair -keystore punchlist-release.p12 -storetype PKCS12 -alias punchlist \
+  -keyalg RSA -keysize 4096 -validity 36500 -dname "CN=Punchlist, O=killswitch10"
+base64 -w0 punchlist-release.p12   # the value of ANDROID_KEYSTORE_BASE64
+```
+
+If the app goes on Google Play, enrol in Play App Signing with this key as the upload key.
 
 ## Trying it against a local server
 
@@ -47,6 +85,6 @@ provider must be reachable at the same address from the server and from the emul
 
 ## Not done yet
 
-Release signing, the app icon and splash, native notifications, a native storage adapter, an error
+The app icon and splash, native notifications, a native storage adapter, an error
 page when the server cannot be reached on a cold start, and linking a provider account from
 Settings (that flow still runs inside the WebView).
