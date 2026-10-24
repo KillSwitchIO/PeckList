@@ -105,3 +105,4 @@ nav:
       - Developing: development/index.md
       - CI and runners: development/ci.md
       - Releasing: development/releasing.md
+      - Android app: development/android.md

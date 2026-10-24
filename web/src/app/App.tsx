@@ -1,11 +1,16 @@
 import { useState } from 'react';
 import { BrowserRouter } from 'react-router';
+import { NativeFirstRun } from './native/FirstRun.tsx';
+import { forgetServiceWorker, isBundledApp } from './native/shell.ts';
 import { AppProviders } from './providers.tsx';
 import { UpdatePrompt } from './pwa/UpdatePrompt.tsx';
 import { AppRoutes } from './routes.tsx';
 import { createBrowserApp } from './store/browserStore.ts';
 import { ViewAsContext } from './store/viewAs.ts';
 import { ViewAsBanner } from './sync/ViewAsBanner.tsx';
+
+const bundled = isBundledApp();
+if (bundled) forgetServiceWorker();
 
 export function App() {
   const [{ store, sync, viewAs }] = useState(createBrowserApp);
@@ -14,9 +19,10 @@ export function App() {
       <AppProviders store={store} sync={sync}>
         <BrowserRouter>
           <AppRoutes />
+          <NativeFirstRun />
         </BrowserRouter>
         {viewAs && <ViewAsBanner view={viewAs} />}
-        <UpdatePrompt />
+        {!bundled && <UpdatePrompt />}
       </AppProviders>
     </ViewAsContext.Provider>
   );

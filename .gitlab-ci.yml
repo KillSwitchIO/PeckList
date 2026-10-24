@@ -3,6 +3,7 @@
 #   merge requests   check, test (web, server, e2e), image build (not pushed), docs build
 #   main             the same, then the :edge image, two devices syncing through it (e2e-server)
 #                    and the docs site (GitLab Pages)
+#   by hand          android-apk: the Android app's debug APK (merge requests, main)
 #   tags v1.2.3+...  the same, then release images (:1.2.3, :1.2, :latest), native downloads,
 #                    and the GitLab release with notes from CHANGELOG.md
 #
@@ -216,6 +217,47 @@ web-build:
   rules:
     - *on-tag
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+      when: manual
+      allow_failure: true
+
+# The Android app's debug APK (mobile/, ADR-0017), by hand on merge requests and main. JDK 21 from
+# Debian; the Android SDK from Google, cached with Gradle's downloads.
+android-apk:
+  extends: .node
+  image: node:24-trixie
+  stage: build
+  needs: [lint, web-test]
+  variables:
+    ANDROID_HOME: $CI_PROJECT_DIR/.android-sdk
+    GRADLE_USER_HOME: $CI_PROJECT_DIR/.gradle
+  cache:
+    - key:
+        files: [pnpm-lock.yaml]
+      paths: [.pnpm-store]
+    - key:
+        files: [mobile/android/variables.gradle, mobile/android/build.gradle]
+      paths: [.android-sdk, .gradle]
+  before_script:
+    - apt-get update -qq
+    - apt-get install -y -qq --no-install-recommends openjdk-21-jdk-headless unzip > /dev/null
+    - sh scripts/ci/android-sdk.sh
+    - corepack enable
+    - pnpm config set store-dir "$PNPM_STORE_DIR"
+    - pnpm install --frozen-lockfile
+  script:
+    - pnpm --filter @punchlist/mobile apk
+    - pnpm --filter @punchlist/mobile test:android
+  artifacts:
+    paths: [mobile/android/app/build/outputs/apk/debug/app-debug.apk]
+    expire_in: 30 days
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+      when: manual
+      allow_failure: true
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+      when: manual
+      allow_failure: true
+    - if: $CI_PIPELINE_SOURCE == "web"
       when: manual
       allow_failure: true
 

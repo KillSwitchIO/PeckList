@@ -1,4 +1,4 @@
-import { Navigate, Route, Routes, useLocation } from 'react-router';
+import { Navigate, Route, Routes, useLocation, useNavigate } from 'react-router';
 import { t } from './i18n/i18n.ts';
 import { CalendarPage } from './calendar/CalendarPage.tsx';
 import { DayView } from './views/DayView.tsx';
@@ -27,6 +27,8 @@ import {
 } from './views/TaskViews.tsx';
 import { DueDatesView } from './views/DueDatesView.tsx';
 import { NotificationsPage } from './notifications/NotificationsPage.tsx';
+import { ConnectPage } from './native/ConnectPage.tsx';
+import { useShellInfo } from './native/shell.ts';
 
 function NotFound() {
   const { pathname } = useLocation();
@@ -46,6 +48,17 @@ function SignedInAlready() {
   return phase === 'checking' ? null : <Navigate to="/today" replace />;
 }
 
+/** The Android app's connect page (ADR-0017); back to Settings when on a server, else Today. */
+function ConnectRoute() {
+  const navigate = useNavigate();
+  const { info } = useShellInfo();
+  return (
+    <ConnectPage
+      onBack={() => void navigate(info?.server ? '/settings' : '/today', { replace: true })}
+    />
+  );
+}
+
 export function AppRoutes() {
   return (
     <Routes>
@@ -53,6 +66,7 @@ export function AppRoutes() {
       <Route path="/login" element={<SignedInAlready />} />
       <Route path="/signup" element={<SignedInAlready />} />
       <Route path="/join/:token" element={<SignedInAlready />} />
+      <Route path="/connect" element={<ConnectRoute />} />
       <Route element={<AppShell />}>
         <Route path="/today" element={<TodayView />} />
         <Route path="/inbox" element={<InboxView />} />

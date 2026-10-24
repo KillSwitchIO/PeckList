@@ -12,6 +12,30 @@ home screen or start menu, and works offline. Installing needs HTTPS (or `localh
 | Windows, macOS, Linux (Chrome, Edge)     | The install icon in the address bar, or menu > **Install Punchlist** |
 | Firefox desktop                          | No install; use it in a tab (it still works offline once loaded)     |
 
+## The Android app
+
+The Android app (in development: build it yourself for now, see
+[the Android app](../development/android.md)) is the same Punchlist in a native shell. On first
+start it asks for your server's address, or runs on the phone alone:
+
+- **Connect**: type the address (`tasks.example.com`, or `192.168.1.20:8080` at home). The app
+  checks that a Punchlist server answers there, then runs that server's own copy of the app, so
+  the app and server never disagree about versions. An address without `https://` is tried with
+  HTTPS first, then plain HTTP, which it warns about before using.
+- **Use on this device only**: no account and no sync, like the web app without a server.
+
+**Settings > Server** shows where the app is connected, and **Change** or **Disconnect** moves it.
+Disconnecting leaves your tasks on the server. The sign-in page has **Use another** for a wrong
+address.
+
+Signing in with a provider (single sign-on) opens it in a browser tab, so passkeys and saved
+logins work. After signing in there, tap **Continue** on the "Open Punchlist on this device?"
+page; the tab closes and the app is signed in. Seeing that page without having just tapped a
+sign-in button in the app means something else asked for it: close the tab.
+
+Servers with a certificate from your own CA work once that CA is installed on the phone
+(Settings > Security > Encryption & credentials > Install a certificate).
+
 ## Offline
 
 Each device keeps a full copy of everything its person can see, so the app works without a

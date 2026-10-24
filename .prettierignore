@@ -6,3 +6,5 @@ pnpm-lock.yaml
 CHANGELOG.md
 # MkDocs syntax (admonitions, tabs) needs indentation Prettier would remove.
 docs/**/*.md
+# Native Android project: Gradle and Android Studio own its formatting.
+mobile/android
