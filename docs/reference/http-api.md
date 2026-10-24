@@ -51,6 +51,7 @@ the sign-in rate limit.
 | `GET /api/events`                                    | Server-sent events: something changed, sync now |
 | `GET /api/account/sign-in`, `GET /api/account/stats` | Your sign-in methods, your stats                |
 | `/api/friends/...`, `GET /api/users/lookup`          | Friend links and requests, finding people       |
+| `GET /api/notifications`, `POST .../read`, `.../clear` | Your notifications; mark read or clear (`{"ids": [...]}`, or `null` for all) |
 
 ## Admin (`/api/admin`)
 

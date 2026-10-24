@@ -5,6 +5,7 @@ import { formatTime } from '../format.ts';
 import { t } from '../i18n/i18n.ts';
 import { useStoreState, useWorkspace } from '../store/hooks.ts';
 import { notifier } from './notifier.ts';
+import { logReminder } from './reminderLog.ts';
 
 /** How late a reminder may still fire (the app was closed or asleep at the time). */
 const GRACE_MS = 15 * 60_000;
@@ -49,6 +50,7 @@ export function ReminderScheduler({ now = Date.now }: { now?: () => number }) {
     let timer: ReturnType<typeof setTimeout> | null = null;
     const fire = (due: DueReminder) => {
       markFired(due.key, now());
+      logReminder({ id: due.key, taskId: due.taskId, at: due.at });
       void notifier().show({
         title: due.title || t('task.untitled'),
         body: t('reminder.body', { time: formatTime(clock(due.at)) }),

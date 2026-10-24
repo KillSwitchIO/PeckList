@@ -3,6 +3,7 @@ import type {
   Account,
   ChangeEvent,
   ProfilePreview,
+  ServerNotification,
   LoginOutcome,
   PasswordOutcome,
   ServerInfo,
@@ -280,6 +281,22 @@ export function createHttpSync(
         if (response.status === 404) return null;
         if (!response.ok) return fail(response);
         return (await response.json()) as ProfilePreview;
+      },
+    },
+
+    notifications: {
+      async list() {
+        const response = await call('/api/notifications');
+        if (!response.ok) return fail(response);
+        return (await response.json()) as { items: ServerNotification[]; unread: number };
+      },
+      async read(ids) {
+        const response = await call('/api/notifications/read', { method: 'POST', body: { ids } });
+        if (!response.ok) return fail(response);
+      },
+      async clear(ids) {
+        const response = await call('/api/notifications/clear', { method: 'POST', body: { ids } });
+        if (!response.ok) return fail(response);
       },
     },
 

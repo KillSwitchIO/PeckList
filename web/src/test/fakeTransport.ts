@@ -8,6 +8,8 @@ import {
   type AccountApi,
   type FileApi,
   type FriendsApi,
+  type NotificationsApi,
+  type ServerNotification,
   type ProfilePreview,
   type ServerInfo,
   type SignInMethods,
@@ -76,6 +78,8 @@ export class FakeBackend {
   /** Invite links that still work: token to the uses left. */
   readonly invites = new Map<string, number>();
   schemaVersion = CURRENT_SCHEMA_VERSION;
+  /** Each account's notifications, by username, newest first (tests add them). */
+  readonly notifications = new Map<string, ServerNotification[]>();
   /** Event listeners of every device, by account username. */
   readonly listeners = new Set<{ username: string; onChange: (change: ChangeEvent) => void }>();
 
@@ -168,6 +172,30 @@ export class FakeTransport implements SyncTransport {
       const found = this.current();
       if (!found) return Promise.reject(new SyncFailure('signed-out', 'signed out'));
       return Promise.resolve(this.backend.stats(found.account.id, found.account.username));
+    },
+  };
+
+  readonly notifications: NotificationsApi = {
+    list: () => {
+      const mine = this.backend.notifications.get(this.session ?? '') ?? [];
+      return Promise.resolve({
+        items: mine.map((each) => ({ ...each })),
+        unread: mine.filter((each) => !each.read).length,
+      });
+    },
+    read: (ids) => {
+      for (const each of this.backend.notifications.get(this.session ?? '') ?? []) {
+        if (ids === null || ids.includes(each.id)) each.read = true;
+      }
+      return Promise.resolve();
+    },
+    clear: (ids) => {
+      const mine = this.backend.notifications.get(this.session ?? '') ?? [];
+      this.backend.notifications.set(
+        this.session ?? '',
+        ids === null ? [] : mine.filter((each) => !ids.includes(each.id)),
+      );
+      return Promise.resolve();
     },
   };
 

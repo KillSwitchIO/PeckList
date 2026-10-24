@@ -26,6 +26,7 @@ import {
   UpcomingView,
 } from './views/TaskViews.tsx';
 import { DueDatesView } from './views/DueDatesView.tsx';
+import { NotificationsPage } from './notifications/NotificationsPage.tsx';
 
 function NotFound() {
   const { pathname } = useLocation();
@@ -57,6 +58,7 @@ export function AppRoutes() {
         <Route path="/inbox" element={<InboxView />} />
         <Route path="/upcoming" element={<UpcomingView />} />
         <Route path="/due" element={<DueDatesView />} />
+        <Route path="/notifications" element={<NotificationsPage />} />
         <Route path="/all" element={<AllView />} />
         <Route path="/lists/:listId" element={<ListView />} />
         <Route path="/tags/:tagId" element={<TagView />} />

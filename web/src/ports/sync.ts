@@ -149,6 +149,28 @@ export interface FriendsApi {
   lookup(query: string): Promise<ProfilePreview | null>;
 }
 
+/** One of my notifications on the server (spec: PL-061): ids only, the app names them. */
+export interface ServerNotification {
+  id: string;
+  kind: 'assigned' | 'shared' | 'mentioned' | 'reminder';
+  /** ISO time */
+  at: string;
+  actorId: string | null;
+  taskId: string | null;
+  listId: string | null;
+  commentId: string | null;
+  read: boolean;
+}
+
+export interface NotificationsApi {
+  /** My latest notifications, newest first, and how many are unread. */
+  list(): Promise<{ items: ServerNotification[]; unread: number }>;
+  /** Mark some (null: all) read. */
+  read(ids: string[] | null): Promise<void>;
+  /** Clear some (null: all). */
+  clear(ids: string[] | null): Promise<void>;
+}
+
 /**
  * Why a request failed: `offline` (no answer), `signed-out` (401), `password-change` (must change
  * the password first), `schema` (the server speaks another schema version), `rejected` (the
@@ -195,6 +217,8 @@ export interface SyncTransport {
    */
   events?(onChange: (change: ChangeEvent) => void): () => void;
   friends?: FriendsApi;
+  /** Notifications (optional: older servers keep none). */
+  notifications?: NotificationsApi;
   account?: AccountApi;
   /** Attached files (optional: older servers keep none). */
   files?: FileApi;
