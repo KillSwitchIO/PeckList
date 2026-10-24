@@ -28,6 +28,7 @@ import { Outlet, useLocation, useNavigate } from 'react-router';
 import { t } from '../i18n/i18n.ts';
 import { focusAddTask } from '../tasks/focusAddTask.ts';
 import { SyncNoticeToast } from '../sync/SyncNoticeToast.tsx';
+import { ReminderScheduler } from '../reminders/ReminderScheduler.tsx';
 import { purgeExpired } from '../../core/trash.ts';
 import { flattenSections } from '../../core/lists.ts';
 import { canEditList } from '../../core/sharing.ts';
@@ -473,6 +474,7 @@ export function AppShell() {
         {/* On a phone, above the bottom navigation and the + button. */}
         <UndoToast bottomOffset={isPhone ? 52 + 72 : 0} />
         <SyncNoticeToast />
+        <ReminderScheduler />
         <ShortcutsDialog open={shortcuts.helpOpen} onClose={shortcuts.closeHelp} />
 
         {isPhone && (

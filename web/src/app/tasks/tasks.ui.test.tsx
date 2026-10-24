@@ -156,7 +156,10 @@ describe('task details', () => {
     // Likewise the editor lets go of focus a beat later; the next Escape is for the details.
     await waitFor(() => expect(notes).not.toHaveFocus());
     await userEvent.keyboard('{Escape}');
-    await waitFor(() => expect(screen.queryByRole('region', { name: 'Task details' })).toBeNull());
+    // Its closing transition runs on timers, slow under the coverage run.
+    await waitFor(() => expect(screen.queryByRole('region', { name: 'Task details' })).toBeNull(), {
+      timeout: 3000,
+    });
   });
 
   it('attaches files to a task, shows pictures as thumbnails, and removes them with undo', async () => {

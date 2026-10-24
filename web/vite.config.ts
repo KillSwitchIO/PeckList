@@ -44,6 +44,8 @@ export default defineConfig({
         // Page loads of the server's own paths go to the network, never the app shell: signing in
         // with a provider and its return to the callback are page loads (src/serverPaths.ts).
         navigateFallbackDenylist: serverPathPatterns,
+        // Reminders: a click on a notification opens its task (public/sw-notifications.js).
+        importScripts: ['sw-notifications.js'],
       },
       manifest: {
         name: 'Punchlist',

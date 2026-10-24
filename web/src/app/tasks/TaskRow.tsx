@@ -1,4 +1,5 @@
 import ChecklistRounded from '@mui/icons-material/ChecklistRounded';
+import NotificationsNoneRounded from '@mui/icons-material/NotificationsNoneRounded';
 import ChevronRightRounded from '@mui/icons-material/ChevronRightRounded';
 import SubdirectoryArrowRightRounded from '@mui/icons-material/SubdirectoryArrowRightRounded';
 import { Box, ButtonBase, Checkbox, IconButton, Typography, useTheme } from '@mui/material';
@@ -162,6 +163,17 @@ export function TaskRow({
   // Who, how far along, whose subtask, which list: beside the title, or under it on phones.
   const details = (
     <>
+      {task.status === 'open' && (task.reminders?.length ?? 0) > 0 && (
+        <Box
+          component="span"
+          role="img"
+          aria-label={t('reminder.has')}
+          title={t('reminder.has')}
+          sx={{ display: 'inline-flex', color: 'text.secondary' }}
+        >
+          <NotificationsNoneRounded sx={{ fontSize: 15 }} />
+        </Box>
+      )}
       {assigned.length > 0 && (
         <Box
           component="span"

@@ -55,6 +55,13 @@ their start; the due date is the deadline.
   with what you typed. At the bottom: when the task was made and last changed. On a phone,
   comments and those dates wait behind a bar at the bottom that slides a panel up. Phone rows put
   the title on its own line, with the date, list and tags under it.
+- **Reminders**: in a task's details, **Reminders** offers on time, 5 or 30 minutes, an hour or a
+  day before (an all-day task: on the day at 9:00, a day, two days or a week before), and any
+  number of set times. The first one asks your browser for permission to show notifications.
+  Reminders go to the people the task is assigned to, or to whoever made it when nobody is.
+  Today they appear while Punchlist is open or running in the background (offline too); a click
+  opens the task. A small bell on the row shows a task has reminders. **Settings > New tasks** can
+  give new tasks a reminder.
 - **Notes**: always ready to type in, with no edit mode. Checklist boxes tick with one tap, without
   starting to edit. The small button in their bottom right opens the full editor, with a
   formatting toolbar.

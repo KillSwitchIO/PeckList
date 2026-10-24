@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 11,
+  "schemaVersion": 12,
   "app": {
     "name": "punchlist",
     "version": "0.1.0"
@@ -284,6 +284,7 @@
         "assignees": {},
         "blockedBy": {},
         "recurrence": null,
+        "reminders": [{ "before": 30 }, { "at": "2026-10-21T08:00" }],
         "progress": 0,
         "_hlc": {
           "createdAt": "2026-10-20T16:15:00.020Z-0000-dev1",
@@ -306,7 +307,8 @@
           "assignees": "2026-10-20T16:15:00.020Z-0000-dev1",
           "blockedBy": "2026-10-20T16:15:00.020Z-0000-dev1",
           "recurrence": "2026-10-20T16:15:00.020Z-0000-dev1",
-          "progress": "2026-10-20T16:15:00.020Z-0000-dev1"
+          "progress": "2026-10-20T16:15:00.020Z-0000-dev1",
+          "reminders": "2026-10-20T16:15:00.020Z-0000-dev1"
         }
       },
       {

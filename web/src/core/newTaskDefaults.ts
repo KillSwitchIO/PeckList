@@ -52,6 +52,10 @@ export function withNewTaskDefaults(
       timeZone: options.timeZone,
     };
   }
+  // They wait for a date if the task has none (core/reminders counts from it).
+  if (next.reminders === undefined && defaults.reminders?.length) {
+    next.reminders = defaults.reminders;
+  }
   return next;
 }
 

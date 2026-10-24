@@ -3,7 +3,7 @@
 
 import { keyBetween } from './ordering.ts';
 
-export const CURRENT_SCHEMA_VERSION = 11;
+export const CURRENT_SCHEMA_VERSION = 12;
 
 export type Migration = (document: Record<string, unknown>) => Record<string, unknown>;
 
@@ -106,6 +106,9 @@ export const MIGRATIONS: MigrationRegistry = {
   // 11: settings may name a palette preset (palettePreset). Optional (missing: the Punchlist
   // colors), so documents change only in version.
   11: (document) => document,
+  // 12: tasks may hold reminders, and new task defaults a reminder default. Optional (missing:
+  // none), so documents change only in version.
+  12: (document) => document,
 };
 
 export type VersionCheck =
