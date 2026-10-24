@@ -5,50 +5,23 @@
 import { describe, expect, it } from 'vitest';
 import { addComment, commentsOf } from '../core/comments.ts';
 import { createGroup, inviteToGroup, acceptGroupInvite } from '../core/groups.ts';
-import { createList } from '../core/lists.ts';
-import {
-  acceptFriendship,
-  makePrivate,
-  sendFriendRequest,
-  setAssignee,
-  shareList,
-} from '../core/sharing.ts';
+import { makePrivate, setAssignee } from '../core/sharing.ts';
 import { createTask, updateTask } from '../core/tasks.ts';
-import { admin, enabled, fresh, settle, signIn, type Person } from './harness.ts';
+import {
+  admin,
+  befriend,
+  enabled,
+  fresh,
+  settle,
+  sharedList,
+  signIn,
+  type Person,
+} from './harness.ts';
 
 const task = (person: Person, id: string) =>
   person.ws().entities.tasks.find((each) => each.id === id);
 const list = (person: Person, id: string) =>
   person.ws().entities.lists.find((each) => each.id === id);
-
-async function befriend(a: Person, b: Person) {
-  await a.act((ctx, ws) => sendFriendRequest(ctx, ws, b.id));
-  await settle(a, b);
-  const request = b
-    .ws()
-    .entities.friendships.find((each) => each.deletedAt === null && each.state === 'pending');
-  expect(request, `${b.name} sees ${a.name}'s request`).toBeDefined();
-  await b.act((ctx, ws) => acceptFriendship(ctx, ws, request!.id));
-  await settle(a, b);
-}
-
-/** A list `owner` shares with `others` (role each), holding one task; returns their ids. */
-async function sharedList(owner: Person, others: [Person, 'editor' | 'viewer'][], name: string) {
-  let listId = '';
-  let taskId = '';
-  await owner.act((ctx, ws) => {
-    const made = createList(ctx, ws, { name, color: '#CFE3A3' });
-    listId = made.list.id;
-    let next = made.workspace;
-    for (const [person, role] of others)
-      next = shareList(ctx, next, listId, `user:${person.id}`, role);
-    const added = createTask(ctx, next, { title: `${name} task`, listId });
-    taskId = added.task.id;
-    return added.workspace;
-  });
-  await settle(owner, ...others.map(([person]) => person));
-  return { listId, taskId };
-}
 
 describe.skipIf(!enabled)('what the server changes or refuses', () => {
   it('an admin hands one person’s lists and groups to another, and everyone’s data stays valid', async () => {

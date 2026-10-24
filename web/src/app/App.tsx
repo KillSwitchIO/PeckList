@@ -16,8 +16,8 @@ export function App() {
           <AppRoutes />
         </BrowserRouter>
         {viewAs && <ViewAsBanner view={viewAs} />}
+        <UpdatePrompt />
       </AppProviders>
-      <UpdatePrompt />
     </ViewAsContext.Provider>
   );
 }

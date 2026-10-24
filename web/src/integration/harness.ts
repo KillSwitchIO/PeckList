@@ -8,7 +8,10 @@ import { createMemoryStorage } from '../adapters/memory-storage.ts';
 import { createUlidGenerator } from '../adapters/ulid-ids.ts';
 import { createSyncEngine, type SyncEngine } from '../app/sync/syncEngine.ts';
 import { createWorkspaceStore, type WorkspaceStore } from '../app/store/workspaceStore.ts';
+import { createList } from '../core/lists.ts';
 import type { OpContext } from '../core/ops.ts';
+import { acceptFriendship, sendFriendRequest, shareList } from '../core/sharing.ts';
+import { createTask } from '../core/tasks.ts';
 import type { WorkspaceFile } from '../core/types.ts';
 import type { SyncTransport } from '../ports/sync.ts';
 
@@ -167,4 +170,37 @@ export async function admin() {
 /** A name nobody has used on this server yet. */
 export function fresh(base: string) {
   return `${base}${Date.now().toString(36)}${Math.floor(Math.random() * 1000)}`;
+}
+
+export async function befriend(a: Person, b: Person) {
+  await a.act((ctx, ws) => sendFriendRequest(ctx, ws, b.id));
+  await settle(a, b);
+  const request = b
+    .ws()
+    .entities.friendships.find((each) => each.deletedAt === null && each.state === 'pending');
+  expect(request, `${b.name} sees ${a.name}'s request`).toBeDefined();
+  await b.act((ctx, ws) => acceptFriendship(ctx, ws, request!.id));
+  await settle(a, b);
+}
+
+/** A list `owner` shares with `others` (role each), holding one task; returns their ids. */
+export async function sharedList(
+  owner: Person,
+  others: [Person, 'editor' | 'viewer'][],
+  name: string,
+) {
+  let listId = '';
+  let taskId = '';
+  await owner.act((ctx, ws) => {
+    const made = createList(ctx, ws, { name, color: '#CFE3A3' });
+    listId = made.list.id;
+    let next = made.workspace;
+    for (const [person, role] of others)
+      next = shareList(ctx, next, listId, `user:${person.id}`, role);
+    const added = createTask(ctx, next, { title: `${name} task`, listId });
+    taskId = added.task.id;
+    return added.workspace;
+  });
+  await settle(owner, ...others.map(([person]) => person));
+  return { listId, taskId };
 }
