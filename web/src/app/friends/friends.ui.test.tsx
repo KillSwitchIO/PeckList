@@ -90,11 +90,11 @@ describe('friends page', () => {
         },
         {
           collection: 'friendships',
-          entity: entity('01JBFRIEND0000000000000001', {
+          entity: entity('01JBFR1END0000000000000001', {
             userA: ben.id,
             userB: '01JBSAM0000000000000000001',
             state: 'accepted',
-            madeBy: { id: '01JBADMIN00000000000000001', name: 'kim' },
+            madeBy: { id: '01JBADM1N00000000000000001', name: 'kim' },
           }),
         },
       ],
