@@ -865,6 +865,13 @@ export const en = {
   'friends.list': 'Your friends',
   'friends.none': 'No friends yet. Share your link or add someone by username.',
   'friends.unfriend': 'Unfriend',
+  'whatYouShare.title': 'What you share',
+  'whatYouShare.none':
+    'Nothing yet. Share a list from its Share button, or assign a task to a friend.',
+  'whatYouShare.assigned': 'Assigned',
+  'whatYouShare.stopList': 'Stop sharing {list} with {name}',
+  'whatYouShare.stopTask': 'Unassign {name} from {task}',
+  'undo.stoppedSharing': 'Stopped sharing',
   'friends.madeBy': 'Made by {name}',
   'friends.unfriendConfirm': 'Stop being friends with {name}?',
   'friends.needsServer':
