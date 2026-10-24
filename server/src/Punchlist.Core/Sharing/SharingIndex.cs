@@ -176,7 +176,7 @@ public sealed class SharingIndex
     }
 
     /// <summary>Users behind a principal: <c>user:&lt;id&gt;</c> or <c>group:&lt;id&gt;</c> (active members).</summary>
-    private IEnumerable<string> PeopleOf(string principal) =>
+    public IEnumerable<string> PeopleOf(string principal) =>
         principal.StartsWith("user:", StringComparison.Ordinal) ? [principal[5..]]
         : principal.StartsWith("group:", StringComparison.Ordinal) ? GroupPeople(principal[6..], withInvited: false)
         : [];

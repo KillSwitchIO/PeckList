@@ -1,9 +1,11 @@
 import BarChartRounded from '@mui/icons-material/BarChartRounded';
 import KeyRounded from '@mui/icons-material/KeyRounded';
 import KeyboardRounded from '@mui/icons-material/KeyboardRounded';
+import NotificationsNoneRounded from '@mui/icons-material/NotificationsNoneRounded';
 import LogoutRounded from '@mui/icons-material/LogoutRounded';
 import SettingsRounded from '@mui/icons-material/SettingsRounded';
 import {
+  Badge,
   Box,
   Divider,
   IconButton,
@@ -19,6 +21,7 @@ import {
 import { useEffect, useState, type ReactNode } from 'react';
 import { useNavigate } from 'react-router';
 import { useAdminApi } from '../admin/useAdmin.ts';
+import { useNotifications } from '../notifications/notificationsContext.ts';
 import { Avatar } from '../friends/Avatar.tsx';
 import { t } from '../i18n/i18n.ts';
 import { AccountIcon, PeopleIcon, ShieldIcon } from '../icons/icons.tsx';
@@ -107,7 +110,9 @@ export function ProfileButton({ onShortcuts }: { onShortcuts: () => void }) {
     </MenuItem>
   );
 
-  const label = name ? t('profile.menuFor', { name }) : t('profile.menu');
+  const { unread } = useNotifications();
+  const named = name ? t('profile.menuFor', { name }) : t('profile.menu');
+  const label = unread > 0 ? t('profile.menuUnread', { menu: named, count: unread }) : named;
   return (
     <>
       <Tooltip title={label}>
@@ -117,7 +122,16 @@ export function ProfileButton({ onShortcuts }: { onShortcuts: () => void }) {
           onClick={(event) => setAnchor(event.currentTarget)}
           sx={{ p: 0.5 }}
         >
-          {picture(32)}
+          {/* Unread notifications: a dot on the picture. */}
+          <Badge
+            color="error"
+            variant="dot"
+            invisible={unread === 0}
+            overlap="circular"
+            sx={{ '& .MuiBadge-dot': { width: 10, height: 10, borderRadius: '50%' } }}
+          >
+            {picture(32)}
+          </Badge>
         </IconButton>
       </Tooltip>
       <Menu
@@ -149,6 +163,22 @@ export function ProfileButton({ onShortcuts }: { onShortcuts: () => void }) {
           </Box>
         )}
         {name && <Divider />}
+        <MenuItem
+          onClick={() => {
+            close();
+            void navigate('/notifications');
+          }}
+        >
+          <ListItemIcon>
+            <NotificationsNoneRounded fontSize="small" />
+          </ListItemIcon>
+          <ListItemText>{t('notifications.title')}</ListItemText>
+          {unread > 0 && (
+            <Typography variant="body2" color="error.main" sx={{ fontWeight: 600, ml: 2 }}>
+              {unread}
+            </Typography>
+          )}
+        </MenuItem>
         {item(
           t('nav.settings'),
           <SettingsRounded fontSize="small" />,

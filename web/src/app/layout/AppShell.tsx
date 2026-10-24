@@ -29,6 +29,7 @@ import { t } from '../i18n/i18n.ts';
 import { focusAddTask } from '../tasks/focusAddTask.ts';
 import { SyncNoticeToast } from '../sync/SyncNoticeToast.tsx';
 import { ReminderScheduler } from '../reminders/ReminderScheduler.tsx';
+import { NotificationsProvider } from '../notifications/NotificationsProvider.tsx';
 import { purgeExpired } from '../../core/trash.ts';
 import { flattenSections } from '../../core/lists.ts';
 import { canEditList } from '../../core/sharing.ts';
@@ -213,7 +214,7 @@ const NO_ADD_BUTTON = ['/settings', '/admin', '/friends', '/f/', '/search', '/du
  * bottom navigation on phones (vault: Design Spec, Layout). Mounted once as a layout route;
  * pages render into it with <Page>, so navigation never rebuilds the frame.
  */
-export function AppShell() {
+function AppFrame() {
   const theme = useTheme();
   const isPhone = useMediaQuery(theme.breakpoints.down('sm'), { noSsr: true });
   const bottomTabs = useBottomTabs();
@@ -504,5 +505,14 @@ export function AppShell() {
         )}
       </Box>
     </Box>
+  );
+}
+
+/** The frame, with my notifications at hand for the profile button and the notifications page. */
+export function AppShell() {
+  return (
+    <NotificationsProvider>
+      <AppFrame />
+    </NotificationsProvider>
   );
 }

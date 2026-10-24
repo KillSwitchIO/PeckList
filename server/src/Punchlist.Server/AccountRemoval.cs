@@ -27,6 +27,7 @@ public sealed class AccountRemoval(
     IServerGroupStore serverGroups,
     ServerClock clock,
     AuditLog audit,
+    Core.Notifications.INotificationStore notifications,
     LiveSettings live,
     TimeProvider time,
     ILogger<AccountRemoval> logger) : BackgroundService
@@ -120,6 +121,7 @@ public sealed class AccountRemoval(
         {
             await serverGroups.RemoveMembershipAsync(membership, cancellation);
         }
+        await notifications.DeleteAsync(account.Id, null, cancellation);
         await accounts.DeleteAsync(account.Id, cancellation);
         // Who sees what, groups whose owner left, and invites are worked out again without them.
         await sharing.LoadAsync(entities, (await accounts.ListAsync(cancellation)).Select(each => each.Id), cancellation);

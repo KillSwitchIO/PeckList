@@ -1,5 +1,6 @@
 using System.Text.Json.Nodes;
 using System.Text.RegularExpressions;
+using Punchlist.Core.Notifications;
 using Punchlist.Core.Sharing;
 using Punchlist.Core.Storage;
 
@@ -38,7 +39,12 @@ public sealed class SyncRejected(string code, string message, int? serverSchemaV
 /// same rules as the client, then hand back everything newer than its cursor that it may see.
 /// </summary>
 public sealed partial class SyncService(
-    IEntityStore store, TimeProvider time, IChangeNotifier notifier, SharingState sharing, ISharingChangeSink? sharingChanges = null)
+    IEntityStore store,
+    TimeProvider time,
+    IChangeNotifier notifier,
+    SharingState sharing,
+    ISharingChangeSink? sharingChanges = null,
+    INotificationSink? notifications = null)
 {
     public const int MaxChanges = 5000;
     public const int PageSize = 500;
@@ -65,6 +71,7 @@ public sealed partial class SyncService(
         var rejected = new List<string>();
         var corrections = new List<SyncEntity>();
         var shared = new List<SharingChange>();
+        var notable = new List<NotableChange>();
         if (incoming.Count > 0)
         {
             await sharing.Gate.WaitAsync(cancellation);
@@ -81,6 +88,10 @@ public sealed partial class SyncService(
                         if (merged is not null && SharingChanges.Watched(arrived.Collection))
                         {
                             shared.Add(new SharingChange(arrived.Collection, arrived.Id, stored?.Doc, merged));
+                        }
+                        if (merged is not null && NotificationRules.Watched(arrived.Collection))
+                        {
+                            notable.Add(new NotableChange(arrived.Collection, arrived.Id, stored?.Doc, merged));
                         }
                         return merged;
                     },
@@ -108,6 +119,7 @@ public sealed partial class SyncService(
                 sharing.Gate.Release();
             }
             if (shared.Count > 0 && sharingChanges is not null) await sharingChanges.ChangedAsync(userId, shared, cancellation);
+            if (notable.Count > 0 && notifications is not null) await notifications.ChangedAsync(userId, notable, cancellation);
         }
         var page = await store.ChangesAsync(userId, Math.Max(request.Cursor ?? 0, 0), PageSize, cancellation);
         return new SyncResponse(

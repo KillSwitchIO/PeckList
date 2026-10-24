@@ -23,6 +23,10 @@ public sealed class SharingTests(ServerFixture fixture) : IClassFixture<ServerFi
     private sealed class Device(HttpClient client, string userId)
     {
         public string UserId { get; } = userId;
+        public HttpClient Client => client;
+
+        public async Task<NotificationFeed> NotificationsAsync() =>
+            (await client.GetFromJsonAsync<NotificationFeed>("/api/notifications", Token))!;
         public long? Cursor { get; private set; }
         public Dictionary<string, JsonObject> Seen { get; } = [];
 
@@ -87,6 +91,52 @@ public sealed class SharingTests(ServerFixture fixture) : IClassFixture<ServerFi
                 [$"user:{assignee}"] = new JsonObject { ["in"] = true, ["hlc"] = "2026-10-21T11:00:00.000Z-0000-dev1" },
             },
         }));
+
+    [Fact]
+    public async Task Assigning_and_sharing_notify_the_other_person_who_can_read_and_clear_them()
+    {
+        var ben = await SignIn("ben-n");
+        var sam = await SignIn("sam-n");
+        await ben.SyncAsync(List("NL1", "shared"), Member("NM1", "NL1", sam.UserId, "editor"), Task("NT1", "NL1", "Mow", sam.UserId));
+
+        var feed = await sam.NotificationsAsync();
+        Assert.Equal(2, feed.Unread);
+        Assert.Contains(feed.Items, each => each.Kind == "shared" && each.ListId == "NL1" && each.ActorId == ben.UserId);
+        Assert.Contains(feed.Items, each => each.Kind == "assigned" && each.TaskId == "NT1" && each.ListId == "NL1");
+        // Nobody hears about their own doing.
+        Assert.Empty((await ben.NotificationsAsync()).Items);
+        // The same assignment pushed again is no news.
+        await ben.SyncAsync(Task("NT1", "NL1", "Mow the lawn", sam.UserId));
+        Assert.Equal(2, (await sam.NotificationsAsync()).Items.Count);
+
+        var assigned = feed.Items.Single(each => each.Kind == "assigned").Id;
+        (await sam.Client.PostAsJsonAsync("/api/notifications/read", new { ids = new[] { assigned } }, Token)).EnsureSuccessStatusCode();
+        feed = await sam.NotificationsAsync();
+        Assert.Equal(1, feed.Unread);
+        Assert.True(feed.Items.Single(each => each.Id == assigned).Read);
+        (await sam.Client.PostAsJsonAsync("/api/notifications/clear", new { ids = (string[]?)null }, Token)).EnsureSuccessStatusCode();
+        Assert.Empty((await sam.NotificationsAsync()).Items);
+    }
+
+    [Fact]
+    public async Task An_at_mention_notifies_people_who_can_see_the_task_only()
+    {
+        var ben = await SignIn("ben-m");
+        var sam = await SignIn("sam-m");
+        var lee = await SignIn("lee-m");
+        await ben.SyncAsync(List("ML1", "shared"), Member("MM1", "ML1", sam.UserId, "editor"), Task("MT1", "ML1", "Paint"));
+        await sam.SyncAsync(("comments", Entity("MC1", new JsonObject
+        {
+            ["taskId"] = "MT1",
+            ["body"] = "Which color, @ben-m? Ask @lee-m too",
+            ["editedAt"] = null,
+        })));
+
+        var mention = Assert.Single((await ben.NotificationsAsync()).Items, each => each.Kind == "mentioned");
+        Assert.Equal(("MT1", "MC1", sam.UserId), (mention.TaskId, mention.CommentId, mention.ActorId));
+        // Lee cannot see the task, so the mention tells them nothing (and shows nothing of it).
+        Assert.Empty((await lee.NotificationsAsync()).Items);
+    }
 
     [Fact]
     public async Task A_server_group_offered_for_sharing_is_a_group_members_share_with_but_cannot_leave()

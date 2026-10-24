@@ -115,9 +115,14 @@ day views, onto a time. Drag a scheduled task to move it, pull its bottom edge t
 ## Your profile menu
 
 Your profile picture in the top right (your initials, with a small icon of the sign-in provider
-when you signed in through one) opens a menu with **Settings**, **Admin** (admins only), **Stats**
-(your own numbers, as the server counts them), **Friends and groups**, **Keyboard shortcuts**,
-**Change password** and **Log out**.
+when you signed in through one) opens a menu with **Notifications**, **Settings**, **Admin**
+(admins only), **Stats** (your own numbers, as the server counts them), **Friends and groups**,
+**Keyboard shortcuts**, **Change password** and **Log out**.
+
+**Notifications** lists reminders, @mentions, tasks someone assigned you and lists someone shared
+with you, newest first; a red dot on your picture means some are new. A click opens the task or
+list, the cross clears one and **Clear all** clears the rest. Opening the page marks them read.
+The server keeps them for 90 days; reminders that fired on this device stay on it.
 
 ## Settings
 
