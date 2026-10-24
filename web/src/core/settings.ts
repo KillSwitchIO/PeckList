@@ -8,7 +8,13 @@ import type { Settings, WorkspaceFile } from './types.ts';
 export type SettingsPatch = Partial<
   Pick<
     Settings,
-    'themeMode' | 'pointEventMinutes' | 'dueSoonDays' | 'clockFormat' | 'weekStart' | 'timeZone'
+    | 'themeMode'
+    | 'pointEventMinutes'
+    | 'dueSoonDays'
+    | 'clockFormat'
+    | 'weekStart'
+    | 'timeZone'
+    | 'newTask'
   >
 >;
 

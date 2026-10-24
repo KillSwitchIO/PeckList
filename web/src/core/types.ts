@@ -168,6 +168,21 @@ export interface Settings extends BaseEntity {
   sidebar: SidebarLayout;
   /** The phone bottom bar's tabs before More, in order; absent: the default ones (schema 9) */
   bottomBar?: string[];
+  /** What a new task starts with when where it is added says nothing (schema 10, PL-092) */
+  newTask?: NewTaskDefaults;
+}
+
+/** The person's defaults for new tasks; each absent field keeps the built-in behavior. */
+export interface NewTaskDefaults {
+  /** List for tasks added outside a list; null or absent: the Mess Drawer */
+  listId?: Id | null;
+  priority?: Priority;
+  /** Start date for tasks added where no date applies */
+  date?: 'none' | 'today' | 'tomorrow' | 'nextWeek';
+  /** Time on that date (HH:mm); null or absent: all day */
+  time?: string | null;
+  /** Assign tasks I add to shared lists to me (absent: yes) */
+  assignSelf?: boolean;
 }
 
 /** A comment on a task (schema 7). `createdBy` is its author. */

@@ -229,6 +229,7 @@ export function ListContents({ list }: { list: List }) {
   );
   const header = canEdit ? (
     <AddTaskInput
+      inList
       defaults={{ listId: list.id }}
       label={t('task.addTo', { list: listName(list, workspace) })}
     />

@@ -33,6 +33,7 @@ import { THEME_MODE_ORDER, useThemeMode, type ThemeMode } from '../theme/themeMo
 import { t } from '../i18n/i18n.ts';
 import { Page } from '../layout/Page.tsx';
 import { DataSection } from './DataSection.tsx';
+import { NewTaskSection } from './NewTaskSection.tsx';
 import { Section, SettingRow } from './settingsLayout.tsx';
 import { SignInSection } from './SignInSection.tsx';
 import { TimeZoneSetting } from './TimeZoneSetting.tsx';
@@ -287,6 +288,7 @@ export function SettingsPage() {
             </TextField>
           </SettingRow>
         </Section>
+        <NewTaskSection />
         <Section
           title={t('settings.colors')}
           hint={t('settings.colorsHint')}

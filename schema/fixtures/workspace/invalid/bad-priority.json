@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 9,
+  "schemaVersion": 10,
   "app": {
     "name": "punchlist",
     "version": "0.1.0"

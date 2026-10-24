@@ -5,6 +5,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { inboxList } from '../../core/lists.ts';
 import { paletteOverrides } from '../../core/paletteSettings.ts';
 import { createTask } from '../../core/tasks.ts';
+import { createList } from '../../core/lists.ts';
 import { mockViewport, renderApp, testStore } from '../../test/renderApp.tsx';
 
 beforeEach(() => {
@@ -169,5 +170,54 @@ describe('settings: time zone', () => {
       expect(store.getState().workspace!.entities.settings[0]!.timeZone).toBeNull(),
     );
     expect(localTimeZone()).toBe(Intl.DateTimeFormat().resolvedOptions().timeZone);
+  });
+});
+
+describe('new task defaults', () => {
+  it('fill what the place leaves open: the list and date outside a list, priority everywhere', async () => {
+    const store = testStore();
+    await renderApp('/settings', store);
+    let garden = '';
+    store.getState().apply((ctx, ws) => {
+      const made = createList(ctx, ws, { name: 'Garden', color: '#CFE3A3' });
+      garden = made.list.id;
+      return made.workspace;
+    });
+    const section = await screen.findByRole('region', { name: 'New tasks' });
+    const pick = async (label: string, option: string) => {
+      await userEvent.click(within(section).getByRole('combobox', { name: label }));
+      await userEvent.click(await screen.findByRole('option', { name: option }));
+    };
+    await pick('List', 'Garden');
+    await pick('Priority', 'High');
+    await pick('Date', 'Tomorrow');
+
+    const tasks = () => store.getState().workspace!.entities.tasks;
+    const typeInto = async (title: string) => {
+      const field = screen.getByRole('textbox', { name: /^Add task/ });
+      await userEvent.type(field, `${title}{Enter}`);
+    };
+
+    // All: no list, no date of its own.
+    await userEvent.click(screen.getByRole('button', { name: 'All' }));
+    await typeInto('Rake');
+    // Today: its date wins, the default list and priority still apply.
+    await userEvent.click(screen.getByRole('button', { name: 'Today' }));
+    await typeInto('Water');
+    // The Mess Drawer's own page keeps its list.
+    await userEvent.click(screen.getByRole('button', { name: 'Mess Drawer' }));
+    await typeInto('Call vet');
+
+    const tomorrow = new Date(Date.now() + 86_400_000).toLocaleDateString('en-CA', {
+      timeZone: localTimeZone(),
+    });
+    const today = new Date().toLocaleDateString('en-CA', { timeZone: localTimeZone() });
+    const byTitle = (title: string) => tasks().find((task) => task.title === title)!;
+    expect(byTitle('Rake')).toMatchObject({ listId: garden, priority: 3 });
+    expect(byTitle('Rake').schedule?.start).toBe(tomorrow);
+    expect(byTitle('Water')).toMatchObject({ listId: garden, priority: 3 });
+    expect(byTitle('Water').schedule?.start).toBe(today);
+    const inbox = inboxList(store.getState().workspace!).id;
+    expect(byTitle('Call vet')).toMatchObject({ listId: inbox, priority: 3 });
   });
 });
