@@ -1,5 +1,6 @@
 import { daysBetween, localTimeZone, todayIn } from '../../core/dates.ts';
 import type { Task } from '../../core/types.ts';
+import { formatMonth } from '../format.ts';
 import { dayTitle } from './dayLabels.ts';
 
 export interface ClosedGroup {
@@ -15,14 +16,9 @@ export function closedDay(task: Task, zone = localTimeZone()): string | null {
 
 /**
  * Closed tasks (newest first) grouped by when they closed: each of the last seven days on its own
- * ("Wednesday, Today"), older ones by month ("September 2026"), undated last.
+ * ("Wednesday, Today"), older ones by month ("September", or "September 2025" in other years), undated last.
  */
 export function groupClosed(tasks: Task[], today: string, zone = localTimeZone()): ClosedGroup[] {
-  const month = new Intl.DateTimeFormat(undefined, {
-    month: 'long',
-    year: 'numeric',
-    timeZone: 'UTC',
-  });
   const groups = new Map<string, ClosedGroup>();
   for (const task of tasks) {
     const day = closedDay(task, zone);
@@ -33,8 +29,7 @@ export function groupClosed(tasks: Task[], today: string, zone = localTimeZone()
       title = dayTitle(day, today);
     } else if (day) {
       key = day.slice(0, 7);
-      const [y, m] = key.split('-').map(Number) as [number, number];
-      title = month.format(new Date(Date.UTC(y, m - 1, 15)));
+      title = formatMonth(key, today);
     }
     const group = groups.get(key) ?? { key, title, tasks: [] };
     group.tasks.push(task);

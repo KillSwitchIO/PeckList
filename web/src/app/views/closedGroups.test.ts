@@ -25,6 +25,6 @@ describe('Completed groups', () => {
       ['none', ['e']],
     ]);
     expect(groups[0]!.title).toMatch(/Today$/);
-    expect(groups[2]!.title).toBe('September 2026');
+    expect(groups[2]!.title).toBe('September');
   });
 });

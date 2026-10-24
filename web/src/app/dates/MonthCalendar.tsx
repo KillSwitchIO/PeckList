@@ -36,6 +36,8 @@ type Level = 'days' | 'months' | 'years';
 
 interface Formats {
   monthTitle: Intl.DateTimeFormat;
+  /** The title for a month of this year: no year. */
+  monthName: Intl.DateTimeFormat;
   monthShort: Intl.DateTimeFormat;
   dayLabel: Intl.DateTimeFormat;
 }
@@ -52,6 +54,7 @@ function formatsFor(locale: string | undefined): Formats {
         year: 'numeric',
         timeZone: 'UTC',
       }),
+      monthName: new Intl.DateTimeFormat(locale, { month: 'long', timeZone: 'UTC' }),
       monthShort: new Intl.DateTimeFormat(locale, { month: 'short', timeZone: 'UTC' }),
       dayLabel: new Intl.DateTimeFormat(locale, { dateStyle: 'full', timeZone: 'UTC' }),
     };
@@ -317,7 +320,7 @@ export function MonthCalendar({
   }, [topRow, level]);
 
   const formats = formatsFor(locale);
-  const { monthTitle, monthShort } = formats;
+  const { monthTitle, monthName, monthShort } = formats;
   const frame = useRef<number | null>(null);
   // Stable for the memoized rows.
   const selectRef = useRef(onSelect);
@@ -330,7 +333,10 @@ export function MonthCalendar({
   }, []);
   // The month the top week reaches into: the title changes once a month's 1st is on top.
   const shownMonth = `${monthOf(dateAt(topRow, 6))}-01`;
-  const title = monthTitle.format(utc(shownMonth));
+  // This year's months leave the year off.
+  const title = (shownMonth.slice(0, 4) === today.slice(0, 4) ? monthName : monthTitle).format(
+    utc(shownMonth),
+  );
 
   const showMonth = (firstOfMonth: string) => setTopRow(rowOf(firstOfMonth));
   const goToToday = () => {
