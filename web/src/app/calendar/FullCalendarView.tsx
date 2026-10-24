@@ -143,6 +143,17 @@ export function FullCalendarView({
     ref.current?.getApi().changeView(VIEWS[mode], date);
   }, [mode, date]);
 
+  // FullCalendar measures itself on window resizes only: re-measure when its box changes (the
+  // details panel opening, a scrollbar appearing).
+  const box = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const element = box.current;
+    if (!element || typeof ResizeObserver === 'undefined') return;
+    const observer = new ResizeObserver(() => ref.current?.getApi().updateSize());
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, []);
+
   // Tasks dragged in from the panel: FullCalendar only reports where they land (no event is made).
   useEffect(() => {
     if (!dragSource) return;
@@ -167,6 +178,7 @@ export function FullCalendarView({
 
   return (
     <Box
+      ref={box}
       sx={{
         height: '100%',
         '--fc-border-color': theme.palette.divider,
@@ -182,6 +194,13 @@ export function FullCalendarView({
         '& .fc .fc-col-header-cell-cushion, & .fc .fc-daygrid-day-number': {
           color: theme.palette.text.secondary,
           textDecoration: 'none',
+        },
+        // Phones: small chips with little padding, so a word or two of each title fits.
+        [theme.breakpoints.down('sm')]: {
+          '& .fc': { fontSize: 11 },
+          '& .fc .fc-daygrid-event': { marginInline: '1px', paddingInline: 0 },
+          '& .fc .fc-daygrid-day-number': { padding: '2px' },
+          '& .fc .fc-col-header-cell-cushion': { paddingInline: 0 },
         },
       }}
     >

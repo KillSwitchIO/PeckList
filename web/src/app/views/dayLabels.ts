@@ -24,14 +24,14 @@ export function dayPath(date: string, today: string): string {
 }
 
 /**
- * A day page's heading: "Monday, October 26", with the year only when it is not this year's
+ * A day page's heading: "Monday, October 26" ("Mon, Oct 26" short, for phones), with the year only when it is not this year's
  * (Ben, 2026-10-23: the year is noise for this year's dates).
  */
-export function dayHeading(date: string, today: string): string {
+export function dayHeading(date: string, today: string, short = false): string {
   const [year, month, day] = date.split('-').map(Number);
   return new Intl.DateTimeFormat(undefined, {
-    weekday: 'long',
-    month: 'long',
+    weekday: short ? 'short' : 'long',
+    month: short ? 'short' : 'long',
     day: 'numeric',
     ...(date.slice(0, 4) === today.slice(0, 4) ? {} : { year: 'numeric' }),
     timeZone: 'UTC',

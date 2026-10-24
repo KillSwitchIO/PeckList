@@ -146,7 +146,11 @@ describe('task details', () => {
     await addTasks('Plan the trip');
     await userEvent.click(screen.getByRole('button', { name: 'Open Plan the trip' }));
     const details = await screen.findByRole('region', { name: 'Task details' });
-    await userEvent.click(await within(details).findByRole('textbox', { name: 'Notes' }));
+    const notes = await within(details).findByRole('textbox', { name: 'Notes' });
+    await userEvent.click(notes);
+    // The editor takes focus a beat after the click on a busy machine; Escape before that would
+    // close the details instead.
+    await waitFor(() => expect(notes).toHaveFocus());
     await userEvent.keyboard('{Escape}');
     expect(screen.getByRole('region', { name: 'Task details' })).toBeInTheDocument();
     await userEvent.keyboard('{Escape}');

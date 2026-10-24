@@ -1,15 +1,7 @@
 import ChecklistRounded from '@mui/icons-material/ChecklistRounded';
 import ChevronRightRounded from '@mui/icons-material/ChevronRightRounded';
 import SubdirectoryArrowRightRounded from '@mui/icons-material/SubdirectoryArrowRightRounded';
-import {
-  Box,
-  ButtonBase,
-  Checkbox,
-  IconButton,
-  Typography,
-  useMediaQuery,
-  useTheme,
-} from '@mui/material';
+import { Box, ButtonBase, Checkbox, IconButton, Typography, useTheme } from '@mui/material';
 import { useState } from 'react';
 import { getEntity } from '../../core/collections.ts';
 import { subtaskProgress } from '../../core/queries.ts';
@@ -24,6 +16,7 @@ import { listName } from '../lists/listName.ts';
 import { useApply, useWorkspace } from '../store/hooks.ts';
 import { TaskReadOnly, useCanEditTask, useReadOnly } from './readOnly.ts';
 import { useTaskDrag } from './drag/dragContext.ts';
+import { useTwoLineRows } from '../layout/rowLayout.ts';
 import { keyboardMove } from '../../core/taskDrag.ts';
 import { TagChips } from '../tags/TagChip.tsx';
 import { useTaskSelection } from './selection.ts';
@@ -138,14 +131,14 @@ export function TaskRow({
   onHold?: () => void;
 }) {
   const workspace = useWorkspace();
-  const theme = useTheme();
   const { selectedId, open } = useTaskSelection();
   const list = getEntity(workspace, 'lists', task.listId);
   const parent = task.parentId ? getEntity(workspace, 'tasks', task.parentId) : undefined;
   const progress = subtaskProgress(workspace, task.id);
   const tags = tagsOfTask(workspace, task);
   const assigned = assigneesOf(task).map((principal) => describePrincipal(workspace, principal));
-  const isPhone = useMediaQuery(theme.breakpoints.down('sm'), { noSsr: true });
+  // Two lines on phones and in narrow list columns (beside the details panel).
+  const twoLine = useTwoLineRows();
   const { text: dateText } = useRowDate(task, dueFirst);
   const done = task.status !== 'open';
   const title = task.title || t('task.untitled');
@@ -260,13 +253,13 @@ export function TaskRow({
   );
   const titleText = (
     <Typography
-      noWrap={!isPhone}
+      noWrap={!twoLine}
       sx={{
         color: done ? 'text.disabled' : 'text.primary',
         // Won't do reads as dropped, not finished.
         textDecoration: task.status === 'wontdo' ? 'line-through' : 'none',
         // Phones give the title the whole width and up to two lines.
-        ...(isPhone
+        ...(twoLine
           ? {
               display: '-webkit-box',
               WebkitLineClamp: 2,
@@ -293,7 +286,7 @@ export function TaskRow({
         sx={{
           position: 'relative',
           display: 'flex',
-          alignItems: isPhone ? 'flex-start' : 'center',
+          alignItems: twoLine ? 'flex-start' : 'center',
           minHeight: 40,
           pl: `${4 + depth * INDENT}px`,
           opacity: dimmed ? 0.4 : 1,
@@ -326,7 +319,7 @@ export function TaskRow({
             sx={{
               position: 'absolute',
               left: depth * INDENT - 20,
-              ...(isPhone ? { top: 8 } : { top: '50%', transform: 'translateY(-50%)' }),
+              ...(twoLine ? { top: 8 } : { top: '50%', transform: 'translateY(-50%)' }),
               p: 0.25,
               color: 'text.secondary',
             }}
@@ -340,7 +333,7 @@ export function TaskRow({
             />
           </IconButton>
         )}
-        {isPhone ? (
+        {twoLine ? (
           <>
             <Box sx={{ pt: 0.5 }}>{checkbox}</Box>
             <Box sx={{ flexGrow: 1, minWidth: 0, py: 1, pr: 1.5 }}>

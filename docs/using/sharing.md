@@ -26,7 +26,7 @@ assign to them, but only admins change who is in them.
 
 ## Sharing a list
 
-Open the list's **Share** button:
+Open the list's **Share** button (on a phone it is in the list's **...** menu):
 
 | Role         | Can                                                    |
 | ------------ | ------------------------------------------------------ |
