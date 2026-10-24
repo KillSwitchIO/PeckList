@@ -8,7 +8,7 @@
   "additionalProperties": false,
   "properties": {
     "schemaVersion": {
-      "const": 8
+      "const": 9
     },
     "app": {
       "type": "object",
@@ -770,6 +770,12 @@
             "hidden": { "type": "array", "items": { "type": "string" } },
             "groupOpen": { "type": "boolean" }
           }
+        },
+        "bottomBar": {
+          "description": "The phone's bottom bar tabs, in order, before More (schema 9): view ids as in the sidebar, or search. Absent: Today, Mess Drawer, Calendar, Search.",
+          "type": "array",
+          "maxItems": 4,
+          "items": { "type": "string" }
         }
       },
       "unevaluatedProperties": false

@@ -10,6 +10,8 @@ export interface SidebarDraft {
   tags: Id[];
   /** New names of tags moved under another parent (their subtags included). */
   tagNames: Record<Id, string>;
+  /** The phone's bottom bar tabs, in order (edited on the More page). */
+  bottomBar: string[];
 }
 
 export interface SidebarEdit {
