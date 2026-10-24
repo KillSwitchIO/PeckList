@@ -70,6 +70,14 @@ export function formatTime(time: string, locale?: string, hour12 = !display.cloc
   }).format(new Date(Date.UTC(2000, 0, 1, h, m)));
 }
 
+/** An hour on the time grid's edge: "10 PM", or "22:00" on a 24-hour clock. */
+export function formatHour(hour: number, locale?: string): string {
+  if (display.clock24) return `${String(hour).padStart(2, '0')}:00`;
+  return new Intl.DateTimeFormat(locale, { timeZone: 'UTC', hour: 'numeric', hour12: true }).format(
+    new Date(Date.UTC(2000, 0, 1, hour)),
+  );
+}
+
 /** A local date or date-time for display: "Today 9:00 AM", "Thu, Oct 22". */
 export function formatWhen(value: string, today: string, locale?: string): string {
   const day = formatDay(datePart(value), today, locale);

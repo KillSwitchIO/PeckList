@@ -1,7 +1,7 @@
-import { screen, waitFor, within } from '@testing-library/react';
+import { fireEvent, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { localTimeZone, todayIn } from '../../core/dates.ts';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { addDays, localTimeZone, todayIn } from '../../core/dates.ts';
 import { inboxList } from '../../core/lists.ts';
 import { createTask } from '../../core/tasks.ts';
 import { mockViewport, renderApp, testStore } from '../../test/renderApp.tsx';
@@ -11,46 +11,77 @@ beforeEach(() => {
   vi.unstubAllGlobals();
   mockViewport('desktop');
 });
+afterEach(() => vi.restoreAllMocks());
 
-async function calendarWith() {
+async function calendarWith(path = '/calendar') {
   const store = testStore();
   await store.getState().init();
   const zone = localTimeZone();
   const today = todayIn(zone, Date.now());
+  let dentist = '';
+  let standup = '';
   store.getState().apply((ctx, ws) => {
     const inbox = inboxList(ws).id;
-    let next = createTask(ctx, ws, {
+    const made = createTask(ctx, ws, {
       title: 'Dentist',
       listId: inbox,
       schedule: { start: today, end: null, allDay: true, timeZone: zone },
       due: { at: today, allDay: true, timeZone: zone },
-    }).workspace;
-    next = createTask(ctx, next, { title: 'Someday', listId: inbox }).workspace;
-    return next;
+    });
+    dentist = made.task.id;
+    const timed = createTask(ctx, made.workspace, {
+      title: 'Standup',
+      listId: inbox,
+      schedule: {
+        start: `${today}T09:00`,
+        end: `${today}T09:30`,
+        allDay: false,
+        timeZone: zone,
+      },
+    });
+    standup = timed.task.id;
+    return createTask(ctx, timed.workspace, { title: 'Someday', listId: inbox }).workspace;
   });
   await store.getState().flush();
-  await renderApp('/calendar', store);
-  return { store };
+  await renderApp(path, store);
+  const task = (id: string) =>
+    store.getState().workspace!.entities.tasks.find((each) => each.id === id)!;
+  return { store, today, zone, task, dentist, standup };
+}
+
+/** Point the browser's hit test at an element (jsdom has no layout). */
+function pointAt(element: Element | null) {
+  vi.spyOn(document, 'elementFromPoint').mockReturnValue(element);
 }
 
 describe('calendar', () => {
-  it('shows scheduled tasks with their due flags, and unscheduled ones to drag in', async () => {
-    await calendarWith();
-    expect(await screen.findByRole('heading', { level: 2 })).toBeInTheDocument();
-    await waitFor(() => expect(screen.getAllByText('Dentist').length).toBeGreaterThanOrEqual(1));
-    expect(screen.getByTitle('Due: Dentist')).toBeInTheDocument();
+  it('lists tasks and due flags in the month, and unscheduled ones to drag in', async () => {
+    const { today } = await calendarWith();
+    const month = await screen.findByRole('grid', { name: 'Month' });
+    const day = within(month).getByRole('gridcell', { name: 'Today' });
+    expect(within(day).getByRole('button', { name: 'Dentist' })).toBeInTheDocument();
+    expect(within(day).getByRole('button', { name: /Standup$/ })).toBeInTheDocument();
+    expect(within(day).getByRole('button', { name: 'Due: Dentist' })).toBeInTheDocument();
+    expect(day).toHaveAttribute('data-cal-day', today);
     const waiting = screen.getByRole('list', { name: 'Unscheduled' });
-    const someday = within(waiting).getByRole('listitem');
-    expect(someday).toHaveTextContent('Someday');
-    expect(someday).toHaveAttribute('data-task-id');
+    expect(within(waiting).getByRole('listitem')).toHaveTextContent('Someday');
   });
 
-  it('switches between month, week and day and remembers the choice', async () => {
+  it('switches to Days, shows as many as the slider says, remembers, and pages by them', async () => {
     await calendarWith();
     const modes = await screen.findByRole('group', { name: 'Calendar view' });
-    await userEvent.click(within(modes).getByRole('button', { name: 'Week' }));
-    expect(localStorage.getItem('punchlist.calendar.mode')).toBe('week');
-    await userEvent.click(within(modes).getByRole('button', { name: 'Day' }));
+    await userEvent.click(within(modes).getByRole('button', { name: 'Days' }));
+    expect(screen.getByRole('slider', { name: 'Days shown' })).toHaveValue('7');
+    expect(
+      screen
+        .getAllByRole('group', { name: /./ })
+        .filter((each) => each.hasAttribute('data-cal-slots')),
+    ).toHaveLength(7);
+    fireEvent.change(screen.getByRole('slider', { name: 'Days shown' }), { target: { value: 3 } });
+    expect(JSON.parse(localStorage.getItem('punchlist.calendar')!)).toMatchObject({
+      mode: 'days',
+      days: 3,
+    });
     const title = screen.getByRole('heading', { level: 2 }).textContent;
     await userEvent.click(screen.getByRole('button', { name: 'Next' }));
     expect(screen.getByRole('heading', { level: 2 }).textContent).not.toBe(title);
@@ -58,10 +89,88 @@ describe('calendar', () => {
     expect(screen.getByRole('heading', { level: 2 }).textContent).toBe(title);
   });
 
-  it('opens a task from the calendar', async () => {
+  it('takes the old Week and Day choices over as Days', async () => {
+    localStorage.setItem('punchlist.calendar.mode', 'week');
     await calendarWith();
-    await waitFor(() => expect(screen.getAllByText('Dentist').length).toBeGreaterThanOrEqual(1));
-    await userEvent.click(screen.getAllByText('Dentist')[0]!);
+    expect(await screen.findByRole('slider', { name: 'Days shown' })).toHaveValue('7');
+  });
+
+  it('opens a task from the month, and a day to add to it', async () => {
+    const { store, today } = await calendarWith();
+    const month = await screen.findByRole('grid', { name: 'Month' });
+    const day = within(month).getByRole('gridcell', { name: 'Today' });
+    await userEvent.click(within(day).getByRole('button', { name: 'Open Today' }));
+    const popup = await screen.findByRole('dialog');
+    expect(within(popup).getByRole('button', { name: 'Dentist' })).toBeInTheDocument();
+    await userEvent.type(
+      within(popup).getByRole('textbox', { name: 'Add a task to this day' }),
+      'Pick up cake{Enter}',
+    );
+    const cake = store
+      .getState()
+      .workspace!.entities.tasks.find((each) => each.title === 'Pick up cake');
+    expect(cake?.schedule).toMatchObject({ start: today, allDay: true });
+    await userEvent.click(within(popup).getByRole('button', { name: 'Dentist' }));
     expect(await screen.findByRole('textbox', { name: /title/i })).toHaveValue('Dentist');
+  });
+
+  it('adds a task at a tapped time in Days', async () => {
+    localStorage.setItem(
+      'punchlist.calendar',
+      JSON.stringify({ mode: 'days', days: 1, hourHeight: 48 }),
+    );
+    const { store, today } = await calendarWith();
+    const column = (await screen.findAllByRole('group')).find(
+      (each) => each.getAttribute('data-cal-slots') === today,
+    )!;
+    expect(within(column).getByRole('button', { name: /Standup/ })).toBeInTheDocument();
+    // 14:00 is 14 hours of 48 px down the column (its top is 0 without layout).
+    fireEvent.pointerDown(column, { clientX: 10, clientY: 14 * 48 + 5, button: 0 });
+    fireEvent.pointerUp(window, { clientX: 10, clientY: 14 * 48 + 5 });
+    const popup = await screen.findByRole('dialog');
+    await userEvent.type(
+      within(popup).getByRole('textbox', { name: /Add a task at/ }),
+      'Call Kim{Enter}',
+    );
+    const call = store
+      .getState()
+      .workspace!.entities.tasks.find((each) => each.title === 'Call Kim');
+    expect(call?.schedule).toMatchObject({ start: `${today}T14:00`, allDay: false });
+  });
+
+  it('moves a task by dragging it to another day, without opening it', async () => {
+    const { today, task, dentist } = await calendarWith();
+    const month = await screen.findByRole('grid', { name: 'Month' });
+    const line = within(within(month).getByRole('gridcell', { name: 'Today' })).getByRole(
+      'button',
+      { name: 'Dentist' },
+    );
+    const tomorrow = month.querySelector(`[data-cal-day="${addDays(today, 1)}"]`);
+    fireEvent.pointerDown(line, {
+      clientX: 10,
+      clientY: 10,
+      button: 0,
+      pointerType: 'mouse',
+      pointerId: 1,
+    });
+    pointAt(tomorrow);
+    fireEvent.pointerMove(window, { clientX: 60, clientY: 10, pointerId: 1 });
+    fireEvent.pointerUp(window, { clientX: 60, clientY: 10, pointerId: 1 });
+    fireEvent.click(line);
+    expect(task(dentist).schedule).toMatchObject({ start: addDays(today, 1), allDay: true });
+    expect(screen.queryByRole('textbox', { name: /title/i })).toBeNull();
+  });
+
+  it('picks days by dragging across them, and shows just those', async () => {
+    const { today } = await calendarWith();
+    const month = await screen.findByRole('grid', { name: 'Month' });
+    const first = month.querySelector(`[data-cal-day="${today}"]`)!;
+    const third = month.querySelector(`[data-cal-day="${addDays(today, 2)}"]`);
+    fireEvent.pointerDown(first, { clientX: 5, clientY: 5, button: 0, pointerId: 2 });
+    pointAt(third);
+    fireEvent.pointerMove(window, { clientX: 200, clientY: 5, pointerId: 2 });
+    fireEvent.pointerUp(window, { clientX: 200, clientY: 5, pointerId: 2 });
+    await userEvent.click(await screen.findByRole('menuitem', { name: 'Show these 3 days' }));
+    expect(screen.getByRole('slider', { name: 'Days shown' })).toHaveValue('3');
   });
 });

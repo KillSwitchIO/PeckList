@@ -9,7 +9,7 @@
 | **Due dates**                           | Tasks with a deadline, by when; select many to move their dates. |
 | **Mess Drawer**                         | Tasks not yet put in a list: the place quick ideas land.         |
 | **All**                                 | Every open task.                                                 |
-| **Calendar**                            | Month, week, 3 days and day.                                     |
+| **Calendar**                            | Month, and 1 to 14 days on a time grid.                          |
 | **Assigned to me** / **Shared with me** | Tasks others gave you, and lists shared with you.                |
 | **Closed**                              | Done and won't-do tasks.                                         |
 | **Trash**                               | Deleted tasks and lists, restorable for 30 days.                 |
@@ -125,8 +125,22 @@ in a tag's menu; subtasks inherit their parent's tags.
 
 ## Calendar
 
-Month, week, 3 days (the day and the two after it) and day views. Drag a task from
-**Unscheduled** onto a day (all day) or, in the time views, onto a time. Drag a scheduled task to move it, pull its bottom edge to make it longer.
+Two views, switched at the top right:
+
+- **Month**: the weeks run on without breaks, scrolling a week at a time, so the next weeks are
+  always in sight at the end of a month. Each day lists its tasks as short lines (time first for
+  timed ones, an hourglass for a due date), then **+N more**. Pick 4, 5 or 6 weeks on screen.
+  Click a day (or its **+N more**) for everything on it and a field to add to it. Drag across
+  several days, or swipe across them on a phone, to **Show these days** or make a **New task over
+  these days**.
+- **Days**: 1 to 14 days side by side on a time grid (the slider: a day, three, a week, two),
+  with an all-day row on top. Pinch, or hold Ctrl and use the wheel, to make hours taller or
+  shorter. Click an empty time to add a task there. On a phone, swipe sideways to page.
+
+Drag a task to move it to another day or time (on a phone, hold it first); in Days, pull its
+bottom edge to change when it ends. Drag tasks from **Unscheduled** onto a day (all day) or a
+time. A task dropped on a month day keeps its time. The list button at the top opens Upcoming,
+the agenda. Each device remembers the view, days, weeks and hour height.
 
 ## Your profile menu
 
