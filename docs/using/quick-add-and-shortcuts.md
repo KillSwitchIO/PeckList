@@ -12,14 +12,15 @@ Call the vet tomorrow 3pm #pets !high ^Home
 makes the task **Call the vet**, starting tomorrow at 15:00, tagged `pets`, high priority, in the
 list Home.
 
-| Write          | Sets                | Examples                                                                                    |
-| -------------- | ------------------- | ------------------------------------------------------------------------------------------- |
-| A date or time | The start           | `today`, `tomorrow 9am`, `fri`, `next monday`, `oct 30`, `in 3 days`, `fri 9-11am` (a span) |
-| `due` + a date | The due date        | `due fri`, `due by friday`, `due on oct 30`                                                 |
-| `#tag`         | A tag (made if new) | `#errands`, `#home/garden`; `#garden` finds `home/garden` when it is the only one           |
-| `!priority`    | Priority            | `!high` `!h` `!1`, `!medium` `!med` `!m` `!2`, `!low` `!l` `!3`, `!none` `!0`               |
-| `^list`        | The list            | `^home`, `^groc` (the start of a name is enough)                                            |
-| `@person`      | Assign it           | `@kim` (people you share with, by name or username)                                         |
+| Write          | Sets                | Examples                                                                                             |
+| -------------- | ------------------- | ---------------------------------------------------------------------------------------------------- |
+| A date or time | The start           | `today`, `tomorrow 9am`, `fri`, `next monday`, `oct 30`, `in 3 days`, `fri 9-11am` (a span)          |
+| `due` + a date | The due date        | `due fri`, `due by friday`, `due on oct 30`                                                          |
+| `every` ...    | How it repeats      | `every day`, `every 3 days`, `every weekday`, `every other week`, `every mon and thu`, `every month` |
+| `#tag`         | A tag (made if new) | `#errands`, `#home/garden`; `#garden` finds `home/garden` when it is the only one                    |
+| `!priority`    | Priority            | `!high` `!h` `!1`, `!medium` `!med` `!m` `!2`, `!low` `!l` `!3`, `!none` `!0`                        |
+| `^list`        | The list            | `^home`, `^groc` (the start of a name is enough)                                                     |
+| `@person`      | Assign it           | `@kim` (people you share with, by name or username)                                                  |
 
 Without `^list`, the task goes to the list you are in (or the Mess Drawer from a view).
 

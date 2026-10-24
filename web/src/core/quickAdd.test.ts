@@ -95,6 +95,53 @@ describe('quick add', () => {
     expect(kept.schedule).toBeNull();
   });
 
+  it('reads "every ..." as a repeat, starting on its first day', () => {
+    const w = world();
+    const read = (text: string) => {
+      const parsed = parseQuickAdd(text, w.context());
+      return [parsed.title, parsed.recurrence, parsed.schedule?.start];
+    };
+    expect(read('Water plants every day')).toEqual([
+      'Water plants',
+      'FREQ=DAILY',
+      { date: '2026-10-21', time: null },
+    ]);
+    // 9:00 has passed at 10:00, so it starts tomorrow (a Thursday, a weekday).
+    expect(read('Standup every weekday 9am')).toEqual([
+      'Standup',
+      'FREQ=WEEKLY;BYDAY=MO,TU,WE,TH,FR',
+      { date: '2026-10-22', time: '09:00' },
+    ]);
+    // A Wednesday: Thursday comes first, then Monday and Thursday every other week.
+    expect(read('Gym every other mon and thursday')).toEqual([
+      'Gym',
+      'FREQ=WEEKLY;INTERVAL=2;BYDAY=MO,TH',
+      { date: '2026-10-22', time: null },
+    ]);
+    expect(read('Rent every month')[1]).toBe('FREQ=MONTHLY');
+    expect(read('Filters every 3 months')[1]).toBe('FREQ=MONTHLY;INTERVAL=3');
+    expect(read('Trash every fri, mon')[1]).toBe('FREQ=WEEKLY;BYDAY=FR,MO');
+    // Not a repeat: "everything", "every so often".
+    expect(read('Pack everything')[1]).toBeNull();
+    expect(read('Call every so often')[1]).toBeNull();
+    // With a due date only, it repeats from that.
+    const due = parseQuickAdd('Taxes every year due apr 15', w.context());
+    expect([due.recurrence, due.schedule, due.due?.date]).toEqual([
+      'FREQ=YEARLY',
+      null,
+      '2027-04-15',
+    ]);
+    const made = createFromQuickAdd(
+      w.ctx,
+      w.ws(),
+      parseQuickAdd('Water plants every 2 days', w.context()),
+      { listId: inboxList(w.ws()).id },
+      'America/Chicago',
+    );
+    const task = made.workspace.entities.tasks.find((each) => each.id === made.id)!;
+    expect(task.recurrence).toBe('FREQ=DAILY;INTERVAL=2');
+  });
+
   it('makes the task, with new tags, in the named list', () => {
     const w = world();
     const parsed = parseQuickAdd('Plant bulbs sat 10am #fall ^garden !2', w.context());

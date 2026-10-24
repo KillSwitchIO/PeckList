@@ -2,18 +2,18 @@
 
 ## The sidebar
 
-| View                                    | Shows                                                           |
-| --------------------------------------- | --------------------------------------------------------------- |
-| **Today**                               | Tasks that start today or earlier and are still open.           |
-| **Upcoming**                            | A week strip, then every coming day, each with its own add.     |
+| View                                    | Shows                                                            |
+| --------------------------------------- | ---------------------------------------------------------------- |
+| **Today**                               | Tasks that start today or earlier and are still open.            |
+| **Upcoming**                            | A week strip, then every coming day, each with its own add.      |
 | **Due dates**                           | Tasks with a deadline, by when; select many to move their dates. |
-| **Mess Drawer**                         | Tasks not yet put in a list: the place quick ideas land.        |
-| **All**                                 | Every open task.                                                |
-| **Calendar**                            | Month, week and day.                                            |
-| **Assigned to me** / **Shared with me** | Tasks others gave you, and lists shared with you.               |
-| **Closed**                              | Done and won't-do tasks.                                        |
-| **Trash**                               | Deleted tasks and lists, restorable for 30 days.                |
-| **Lists**, **Tags**, **Filters**        | Your own lists, nested tags, and saved filters.                 |
+| **Mess Drawer**                         | Tasks not yet put in a list: the place quick ideas land.         |
+| **All**                                 | Every open task.                                                 |
+| **Calendar**                            | Month, week and day.                                             |
+| **Assigned to me** / **Shared with me** | Tasks others gave you, and lists shared with you.                |
+| **Closed**                              | Done and won't-do tasks.                                         |
+| **Trash**                               | Deleted tasks and lists, restorable for 30 days.                 |
+| **Lists**, **Tags**, **Filters**        | Your own lists, nested tags, and saved filters.                  |
 
 **Edit sidebar** pins and hides views. The menu button at the top left folds the sidebar away
 and back (each device remembers it). At the bottom, a small month shows a dot on days with open
@@ -64,6 +64,14 @@ their start; the due date is the deadline.
   with Punchlist closed (on iPhone and iPad, from Punchlist added to the Home Screen). A click
   opens the task. A small bell on the row shows a task has reminders. **Settings > New tasks** can
   give new tasks a reminder.
+- **Repeat**: in a task's details, **Repeat** offers daily, weekly on the task's weekday, weekdays,
+  monthly on its day and yearly on its date, and **Custom**: every so many days, weeks (on the
+  days you pick), months (on its day, on its weekday such as the second Tuesday, or on the last
+  day) or years, ending never, on a date or after a number of times, and counted from the task's
+  date or from when you finish it. Completing a repeating task, or marking it won't do, keeps a
+  closed copy in its history and moves the task to its next date, keeping its time and reopening
+  its subtasks. A task without a date starts today. A small arrows icon on the row shows it repeats.
+  Quick add reads `every ...` too.
 - **Notes**: always ready to type in, with no edit mode. Checklist boxes tick with one tap, without
   starting to edit. The small button in their bottom right opens the full editor, with a
   formatting toolbar.

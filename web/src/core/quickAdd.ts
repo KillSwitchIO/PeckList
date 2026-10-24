@@ -1,9 +1,11 @@
 // Quick add (spec: PL-022, R-ENTRY-01): one line of text becomes a task. Dates and times
 // ("tomorrow 3pm", "fri 9-11am") set the start; "due ..." sets the due date; #tag, ^list,
-// !priority and @person pick those. Everything recognised comes back as tokens (for the chips
+// !priority and @person pick those, and "every ..." makes it repeat. Everything recognised comes back as tokens (for the chips
 // shown while typing) and is taken out of the title.
 
+import { addDays, weekday } from './dates.ts';
 import { visibleLists } from './lists.ts';
+import { formatRule, type Recurrence } from './recurrence.ts';
 import { createTag, findTagByName, leafName, normalizeTagName, visibleTags } from './tags.ts';
 import { createTask, type TaskInput } from './tasks.ts';
 import { setAssignee, type AssigneeOption } from './sharing.ts';
@@ -11,7 +13,7 @@ import type { DateParser, ParsedMoment } from '../ports/dateParser.ts';
 import type { OpContext } from './ops.ts';
 import type { Id, Priority, WorkspaceFile } from './types.ts';
 
-export type TokenKind = 'date' | 'due' | 'tag' | 'list' | 'priority' | 'person';
+export type TokenKind = 'date' | 'due' | 'tag' | 'list' | 'priority' | 'person' | 'repeat';
 
 export interface Token {
   kind: TokenKind;
@@ -31,6 +33,8 @@ export interface QuickAdd {
   /** Existing tags by id; new ones by name (made when the task is saved) */
   tags: { id: Id | null; name: string }[];
   assignees: string[];
+  /** How it repeats (RRULE text), from "every day", "every other week", "every mon and thu" */
+  recurrence: string | null;
 }
 
 export interface QuickAddContext {
@@ -70,6 +74,56 @@ function sigilWords(text: string, sigil: string): { start: number; end: number; 
     found.push({ start, end: start + 1 + match[2]!.length, word: match[2]! });
   }
   return found;
+}
+
+const UNIT_FREQ = { day: 'DAILY', week: 'WEEKLY', month: 'MONTHLY', year: 'YEARLY' } as const;
+const DAY_NAMES = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
+const DAY_WORD = String.raw`(?:sun|mon|tues?|wed(?:nes)?|thu(?:rs?)?|fri|sat(?:ur)?)(?:day)?s?`;
+const REPEAT = new RegExp(
+  String.raw`(^|\s)every\s+(?:(other)\s+|(\d{1,3})\s+)?` +
+    String.raw`(weekdays?|(?:day|week|month|year)s?|${DAY_WORD}(?:(?:\s*,\s*|\s*,?\s+(?:and|&)\s+)${DAY_WORD})*)` +
+    String.raw`(?=$|[\s,.;!?])`,
+  'i',
+);
+
+/** "every day", "every 3 weeks", "every other monday", "every mon, wed and fri", "every weekday". */
+function findRepeat(text: string): { start: number; end: number; rule: Recurrence } | null {
+  const match = REPEAT.exec(text);
+  if (!match) return null;
+  const interval = match[2] ? 2 : match[3] ? Number(match[3]) : 1;
+  if (interval < 1) return null;
+  const what = match[4]!.toLowerCase();
+  const start = match.index + match[1]!.length;
+  const end = match.index + match[0].length;
+  if (/^weekdays?$/.test(what)) {
+    const byDay = [1, 2, 3, 4, 5].map((day) => ({ weekday: day }));
+    return { start, end, rule: { freq: 'WEEKLY', interval, byDay } };
+  }
+  const unit = /^(day|week|month|year)s?$/.exec(what);
+  if (unit) {
+    return { start, end, rule: { freq: UNIT_FREQ[unit[1] as keyof typeof UNIT_FREQ], interval } };
+  }
+  const days = [...new Set(what.split(/\s*,\s*|\s+(?:and|&)\s+|\s+/).filter(Boolean))]
+    .map((word) => DAY_NAMES.indexOf(word.slice(0, 3)))
+    .filter((day) => day >= 0);
+  if (!days.length) return null;
+  return {
+    start,
+    end,
+    rule: { freq: 'WEEKLY', interval, byDay: [...new Set(days)].map((day) => ({ weekday: day })) },
+  };
+}
+
+/** The local date of `reference`. */
+const localDate = (reference: Date) =>
+  `${reference.getFullYear()}-${String(reference.getMonth() + 1).padStart(2, '0')}-${String(reference.getDate()).padStart(2, '0')}`;
+
+/** The first of a weekly rule's days on or after `date` (any date for other rules). */
+function firstOn(rule: Recurrence, date: string): string {
+  if (rule.freq !== 'WEEKLY' || !rule.byDay?.length) return date;
+  let at = date;
+  while (!rule.byDay.some((day) => day.weekday === weekday(at))) at = addDays(at, 1);
+  return at;
 }
 
 export function parseQuickAdd(text: string, context: QuickAddContext): QuickAdd {
@@ -127,6 +181,13 @@ export function parseQuickAdd(text: string, context: QuickAddContext): QuickAdd 
     }
   }
 
+  // "every ...", before the dates so "every monday" is not just next Monday.
+  let rule: Recurrence | null = null;
+  const repeat = findRepeat(text);
+  if (repeat && !tokens.some((token) => token.start < repeat.end && repeat.start < token.end)) {
+    if (take('repeat', repeat.start, repeat.end)) rule = repeat.rule;
+  }
+
   // Dates, in the text with the tokens above blanked out (positions stay the same).
   let masked = text;
   for (const token of tokens) {
@@ -149,6 +210,25 @@ export function parseQuickAdd(text: string, context: QuickAddContext): QuickAdd 
     }
   }
 
+  // A repeat counts from a date: the one given, moved to the first of its weekdays, else today.
+  if (rule) {
+    if (schedule) {
+      const date = firstOn(rule, schedule.start.date);
+      schedule = {
+        start: { ...schedule.start, date },
+        end:
+          schedule.end && schedule.start.date === schedule.end.date
+            ? { ...schedule.end, date }
+            : schedule.end,
+      };
+    } else if (!due) {
+      schedule = {
+        start: { date: firstOn(rule, localDate(context.reference)), time: null },
+        end: null,
+      };
+    }
+  }
+
   tokens.sort((a, b) => a.start - b.start);
   let title = '';
   let at = 0;
@@ -159,7 +239,8 @@ export function parseQuickAdd(text: string, context: QuickAddContext): QuickAdd 
   title += text.slice(at);
   title = title.replace(/\s+/g, ' ').trim();
 
-  return { title, tokens, schedule, due, priority, listId, tags, assignees };
+  const recurrence = rule ? formatRule(rule) : null;
+  return { title, tokens, schedule, due, priority, listId, tags, assignees, recurrence };
 }
 
 const asValue = (moment: ParsedMoment) =>
@@ -193,6 +274,7 @@ export function createFromQuickAdd(
     ...(parsed.listId ? { listId: parsed.listId, sectionId: null } : {}),
     ...(parsed.priority !== null ? { priority: parsed.priority } : {}),
     ...(tagIds.length ? { tags: [...new Set(tagIds)] } : {}),
+    ...(parsed.recurrence ? { recurrence: parsed.recurrence } : {}),
   };
   if (parsed.schedule) {
     input.schedule = {
