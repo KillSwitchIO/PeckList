@@ -1,7 +1,7 @@
 // Read-side queries: smart views, list contents, date states.
 
 import { isLive } from './collections.ts';
-import { todayIn } from './dates.ts';
+import { daysBetween, todayIn } from './dates.ts';
 import {
   ALL_TASKS,
   compileFilter,
@@ -46,6 +46,12 @@ function openTopLevel(workspace: WorkspaceFile): Task[] {
 /** Open tasks starting today or earlier (overdue included). */
 export function todayTasks(workspace: WorkspaceFile, today: string): Task[] {
   return filterTasks(workspace, TODAY_FILTER, today);
+}
+
+/** Open tasks starting on `date`, any day (spec: PL-090, a day picked in the mini calendar). */
+export function dayTasks(workspace: WorkspaceFile, date: string, today: string): Task[] {
+  const offset = daysBetween(today, date);
+  return filterTasks(workspace, { start: { from: offset, to: offset } }, today);
 }
 
 /** Today view groups: overdue (started before today) and today. */

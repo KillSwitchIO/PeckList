@@ -198,7 +198,8 @@ export function GroupedTasks({
 }) {
   const workspace = useWorkspace();
   const { pinned, rest } = pinnedFirst(tasks);
-  const open = sortTasks(rest, sort);
+  // Custom order across lists is the view's own: by start date and time, then each list's order.
+  const open = sort === 'manual' ? rest : sortTasks(rest, sort);
   const groups =
     grouping === 'priority'
       ? groupByPriority(open).map((group) => ({

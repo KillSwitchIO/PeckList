@@ -16,7 +16,10 @@
 
 **Edit sidebar** pins and hides views. The menu button at the top left folds the sidebar away
 and back (each device remembers it). At the bottom, a small month shows a dot on days with open
-tasks; click a day to open it in the calendar. Under it is the app's version, which links to what
+tasks; click a day to open that day's tasks as a list, like Today but for any day (today itself
+opens Today). The day page adds new tasks to that day, shows what got done that day, and its arrows
+step a day. The arrow at the top right of the small month folds it down to just one week (and
+back), and each device remembers which. Under it is the app's version, which links to what
 changed. On a phone the main views sit in the bottom bar.
 
 ## Tasks

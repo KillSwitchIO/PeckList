@@ -1,6 +1,7 @@
 import { Navigate, Route, Routes, useLocation } from 'react-router';
 import { t } from './i18n/i18n.ts';
 import { CalendarPage } from './calendar/CalendarPage.tsx';
+import { DayView } from './views/DayView.tsx';
 import { AppShell } from './layout/AppShell.tsx';
 import { Page } from './layout/Page.tsx';
 import { InboxView, ListView } from './lists/ListView.tsx';
@@ -66,6 +67,7 @@ export function AppRoutes() {
         <Route path="/shared" element={<SharedView />} />
         <Route path="/f/:code" element={<FriendLinkPage />} />
         <Route path="/calendar" element={<CalendarPage />} />
+        <Route path="/day/:date" element={<DayView />} />
         <Route path="/search" element={<SearchView />} />
         <Route path="/settings" element={<SettingsPage />} />
         <Route path="/stats" element={<StatsPage />} />
