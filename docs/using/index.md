@@ -60,7 +60,11 @@ tag, or **None** for the list's own order, the one you drag tasks in) and sorts 
 menu edits, archives or deletes it. The built-in views (Today, Next 7 days, All, Assigned to me,
 Shared with me) and every tag and saved filter have the same button, plus **List** to group by
 list. Each list and view keeps its own choice on this device, and the button turns colored while
-it differs from the default; **Restore defaults** at the bottom of its menu goes back. A list shared with a group shows the group after its name
+it differs from the default; **Restore defaults** at the bottom of its menu goes back.
+
+A list is marked in the sidebar by its color as a dot until you give it an icon: **Edit list**
+(or the new-list dialog) offers line icons drawn in the list's color, common emoji, or any emoji
+typed in. A list shared with a group shows the group after its name
 ("Groceries - Household") for everyone, so it never looks like someone's own list of the same name.
 Lists can be shared: see [sharing](sharing.md).
 

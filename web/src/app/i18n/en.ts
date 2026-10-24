@@ -1147,6 +1147,8 @@ export const en = {
   'list.group.priority': 'Priority',
   'list.group.tag': 'Tag',
   'list.group.list': 'List',
+  'list.symbol': '{name} icon',
+  'list.emoji': 'Emoji',
   'list.restoreDefaults': 'Restore defaults',
   'list.group.none': 'None',
   'list.sortBy': 'Sort by',

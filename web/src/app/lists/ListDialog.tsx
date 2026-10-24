@@ -71,7 +71,7 @@ export function ListDialog({
               <Typography variant="caption" color="text.secondary" component="div" sx={{ mb: 1 }}>
                 {t('list.icon')}
               </Typography>
-              <IconPicker value={icon} onChange={setIcon} />
+              <IconPicker value={icon} color={color} onChange={setIcon} />
             </Box>
           </Stack>
         </DialogContent>

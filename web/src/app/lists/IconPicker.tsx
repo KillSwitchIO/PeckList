@@ -1,27 +1,36 @@
-import { Box, ButtonBase, InputBase, useTheme } from '@mui/material';
+import { Box, ButtonBase, InputBase, Typography, useTheme } from '@mui/material';
+import { ensureContrast, WCAG_UI } from '../../core/palette.ts';
 import { t } from '../i18n/i18n.ts';
 import { LIST_ICONS, firstGrapheme } from './listIcons.ts';
+import { LIST_SYMBOLS, SYMBOL_PREFIX } from './listSymbols.ts';
 
 const CELL = 34;
 
-/** An icon for a list: none, one of the common emoji, or any other typed in. */
+/**
+ * An icon for a list: none (its color as a dot), a line icon in its color, one of the common
+ * emoji, or any other emoji typed in.
+ */
 export function IconPicker({
   value,
+  color,
   onChange,
 }: {
   value: string | null;
+  /** The list's color, to show the line icons in. */
+  color: string;
   onChange: (icon: string | null) => void;
 }) {
   const theme = useTheme();
   const ring = `0 0 0 2px ${theme.palette.text.primary}`;
-  const custom = value !== null && !LIST_ICONS.some((each) => each === value);
+  const tint = ensureContrast(color, theme.palette.background.paper, WCAG_UI);
+  const custom =
+    value !== null &&
+    !value.startsWith(SYMBOL_PREFIX) &&
+    !LIST_ICONS.some((each) => each === value);
+  const grid = { display: 'grid', gridTemplateColumns: `repeat(auto-fill, ${CELL}px)`, gap: 0.5 };
   return (
-    <Box>
-      <Box
-        role="radiogroup"
-        aria-label={t('list.icon')}
-        sx={{ display: 'grid', gridTemplateColumns: `repeat(auto-fill, ${CELL}px)`, gap: 0.5 }}
-      >
+    <Box role="radiogroup" aria-label={t('list.icon')}>
+      <Box sx={grid}>
         <ButtonBase
           role="radio"
           aria-checked={value === null}
@@ -38,6 +47,33 @@ export function IconPicker({
         >
           {t('list.noIconShort')}
         </ButtonBase>
+        {Object.entries(LIST_SYMBOLS).map(([name, Symbol]) => {
+          const key = `${SYMBOL_PREFIX}${name}`;
+          return (
+            <ButtonBase
+              key={key}
+              role="radio"
+              aria-checked={value === key}
+              aria-label={t('list.symbol', { name })}
+              onClick={() => onChange(key)}
+              sx={{
+                width: CELL,
+                height: CELL,
+                borderRadius: 1.5,
+                color: tint,
+                boxShadow: value === key ? ring : 'none',
+                '&:hover': { bgcolor: 'action.hover' },
+              }}
+            >
+              <Symbol sx={{ fontSize: 20 }} />
+            </ButtonBase>
+          );
+        })}
+      </Box>
+      <Typography variant="caption" color="text.secondary" component="div" sx={{ mt: 1.5, mb: 1 }}>
+        {t('list.emoji')}
+      </Typography>
+      <Box sx={grid}>
         {LIST_ICONS.map((icon) => (
           <ButtonBase
             key={icon}
