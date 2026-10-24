@@ -1,11 +1,15 @@
-import { act, screen, within } from '@testing-library/react';
+import { act, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { localTimeZone, todayIn } from '../../core/dates.ts';
 import { inboxList } from '../../core/lists.ts';
 import { createTask } from '../../core/tasks.ts';
 import type { Reminder } from '../../core/types.ts';
-import type { AppNotification, NotificationPermissionState } from '../../ports/notifier.ts';
+import type {
+  AppNotification,
+  NotificationPermissionState,
+  ScheduledNotification,
+} from '../../ports/notifier.ts';
 import { mockViewport, renderApp, testStore } from '../../test/renderApp.tsx';
 import { createBrowserNotifier } from '../../adapters/browser-notifier.ts';
 import { setNotifier } from './notifier.ts';
@@ -175,5 +179,31 @@ describe('reminders', () => {
     // Another change to the data looks again but does not fire it twice.
     addTask(store, 'Unrelated', inMinutes(300));
     expect(notifier.shown).toHaveLength(1);
+  });
+
+  it('in the Android app go to the system ahead of time, and the page shows none itself', async () => {
+    const handed: ScheduledNotification[][] = [];
+    const notifier = {
+      ...fakeNotifier(),
+      scheduleAhead: (notifications: ScheduledNotification[]) => {
+        handed.push(notifications);
+        return Promise.resolve();
+      },
+    };
+    setNotifier(notifier);
+    const store = testStore();
+    await renderApp('/inbox', store);
+    addTask(store, 'Take the pills', inMinutes(5), [{ before: 10 }]);
+    addTask(store, 'Call mum', inMinutes(120), [{ before: 0 }, { before: 30 }]);
+    addTask(store, 'Next month', inMinutes(40 * 24 * 60), [{ before: 0 }]);
+    await waitFor(() => expect(handed.length).toBeGreaterThan(0), { timeout: 3000 });
+    const last = handed.at(-1)!;
+    // Only what is still to come, within two weeks, soonest first.
+    expect(last.map((each) => each.title)).toEqual(['Call mum', 'Call mum']);
+    expect(last[0]!.at).toBeLessThan(last[1]!.at);
+    expect(last[0]!.url).toMatch(/^\/today\?task=/);
+    expect(new Set(last.map((each) => each.tag)).size).toBe(2);
+    // The one due now is the system's to show; the page only notes it.
+    expect(notifier.shown).toEqual([]);
   });
 });

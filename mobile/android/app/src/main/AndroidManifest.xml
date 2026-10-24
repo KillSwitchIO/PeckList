@@ -47,4 +47,10 @@
     <!-- Permissions -->
 
     <uses-permission android:name="android.permission.INTERNET" />
+    <!--
+      Reminders fire on time with exact alarms (Local Notifications schedules them). USE_EXACT_ALARM
+      is granted to apps with reminders and a calendar; without it Android 14+ denies exact alarms
+      until the person allows them in settings.
+    -->
+    <uses-permission android:name="android.permission.USE_EXACT_ALARM" />
 </manifest>

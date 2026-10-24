@@ -15,6 +15,7 @@
   },
   "dependencies": {
     "@capacitor/core": "8.5.3",
+    "@capacitor/local-notifications": "8.3.1",
     "@emotion/react": "11.14.0",
     "@emotion/styled": "11.14.1",
     "@mui/icons-material": "9.5.0",

@@ -33,6 +33,10 @@ logins work. After signing in there, tap **Continue** on the "Open Punchlist on 
 page; the tab closes and the app is signed in. Seeing that page without having just tapped a
 sign-in button in the app means something else asked for it: close the tab.
 
+Reminders arrive as Android notifications, on time even with the app closed: the app hands
+Android the next two weeks of them whenever they change, so open the app now and then if you set
+reminders further ahead. The first reminder asks for permission to notify.
+
 Servers with a certificate from your own CA work once that CA is installed on the phone
 (Settings > Security > Encryption & credentials > Install a certificate).
 

@@ -149,6 +149,7 @@ export const en = {
   'undo.startedOver': 'Everything moved to the Trash',
   'settings.appearance': 'Appearance',
   'settings.server': 'Server',
+  'reminder.channel': 'Reminders',
   'settings.server.version': 'Punchlist for Android {version}',
   'settings.server.none': 'This device only',
   'settings.server.noneHint':

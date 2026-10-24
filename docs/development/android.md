@@ -21,6 +21,11 @@ app (ADR-0017 in the project notes). There is no second copy of the UI.
 - **Server unreachable on a cold start** (nothing cached by the service worker yet, or a proxy
   answering 502/503/504): `ShellWebViewClient` shows a page at the server's origin with **Try
   again** and **Use another server**. Once the app has loaded, its service worker serves it offline.
+- **Reminders**: the WebView has no notifications and no Web Push, so the app hands the next two
+  weeks of reminders (at most 100) to Android through Capacitor's Local Notifications whenever
+  they change (`web/src/adapters/capacitor-notifier.ts`). They fire with exact alarms
+  (`USE_EXACT_ALARM`) even with the app closed, in a "Reminders" channel; a tap opens the task.
+  Reminders further out are handed over the next time the app opens.
 - **Icon and launch screen**: vector drawables drawn from `web/public/icon.svg` (adaptive icon
   with a monochrome layer for themed icons, and a legacy one for Android 7); the launch screen
   uses the web app's background colors, light and dark.
@@ -95,5 +100,5 @@ provider must be reachable at the same address from the server and from the emul
 
 ## Not done yet
 
-Native notifications, a native storage adapter, and linking a provider account from Settings
-(that flow still runs inside the WebView).
+A native storage adapter, and linking a provider account from Settings (that flow still runs
+inside the WebView).

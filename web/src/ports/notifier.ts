@@ -14,11 +14,24 @@ export interface AppNotification {
   actions?: { action: string; title: string }[];
 }
 
+/** A notification the system shows at a set time, with or without the app running. */
+export interface ScheduledNotification extends AppNotification {
+  /** When, in milliseconds since the epoch. */
+  at: number;
+}
+
 export interface Notifier {
   permission(): NotificationPermissionState;
   /** Ask once (only from a click or a key press, or browsers ignore it). */
   request(): Promise<NotificationPermissionState>;
   show(notification: AppNotification): Promise<void>;
+  /**
+   * Native apps only (ADR-0017): replace every notification scheduled ahead with these. The
+   * system shows each at its time, even with the app closed, so the page does not show them.
+   */
+  scheduleAhead?(notifications: ScheduledNotification[]): Promise<void>;
+  /** Native apps only: a tap on one of our notifications, with its address in the app. */
+  onOpen?(handler: (url: string) => void): () => void;
 }
 
 /** This browser's Web Push subscription, as the server stores it. */

@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { BrowserRouter } from 'react-router';
 import { NativeFirstRun } from './native/FirstRun.tsx';
+import { NotificationOpen } from './native/NotificationOpen.tsx';
 import { installBackHandler } from './native/back.ts';
 import { forgetServiceWorker, isBundledApp, nativeShell } from './native/shell.ts';
 import { AppProviders } from './providers.tsx';
@@ -22,6 +23,7 @@ export function App() {
         <BrowserRouter>
           <AppRoutes />
           <NativeFirstRun />
+          <NotificationOpen />
         </BrowserRouter>
         {viewAs && <ViewAsBanner view={viewAs} />}
         {!bundled && <UpdatePrompt />}

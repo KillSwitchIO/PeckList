@@ -11,6 +11,13 @@ const config: CapacitorConfig = {
     // Matches the PWA manifest's background, so no white flash before the app paints.
     backgroundColor: '#FAFAF7',
   },
+  plugins: {
+    // Reminders (web/src/adapters/capacitor-notifier.ts): our status bar icon, in the accent.
+    LocalNotifications: {
+      smallIcon: 'ic_stat_punchlist',
+      iconColor: '#4F8F87',
+    },
+  },
 };
 
 export default config;
