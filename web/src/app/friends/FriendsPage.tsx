@@ -33,6 +33,7 @@ import { useSyncState } from '../sync/syncContext.ts';
 import { Avatar } from './Avatar.tsx';
 import { Groups } from './Groups.tsx';
 import { QrCode } from './QrCode.tsx';
+import { WhatYouShare } from './WhatYouShare.tsx';
 
 /**
  * Friends (spec: Sharing & Permissions): your friend link to share, adding someone by exact
@@ -56,6 +57,7 @@ export function FriendsPage() {
         <Requests />
         <YourFriends />
         <Groups title={t('group.title')} />
+        <WhatYouShare />
       </Box>
     </Page>
   );

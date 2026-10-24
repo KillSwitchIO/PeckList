@@ -44,3 +44,10 @@ and offline edits merge when the device reconnects.
 
 In a shared list, give a task to someone (or a group) from its details, or type `@name` in
 [quick add](quick-add-and-shortcuts.md). **Assigned to me** collects everything given to you.
+
+## What you share
+
+At the bottom of **Friends and groups** (profile menu), **What you share** lists everything you
+share, by person and then by group: each shared list with the role it gives, and each task you
+assigned to someone who is not on its list. Tap one to open it. The cross stops sharing it with that
+person or group (removes them from the list, or unassigns them), and **Undo** brings it back.
