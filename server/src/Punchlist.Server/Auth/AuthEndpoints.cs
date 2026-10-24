@@ -55,6 +55,8 @@ public static class AuthEndpoints
             return;
         }
 
+        auth.MapAppSignIn(settings);
+
         auth.MapPost("/login", async (LoginRequest request, AccountService accounts, LiveSettings live, HttpContext context) =>
         {
             var tried = (request.Username ?? "").Trim();
