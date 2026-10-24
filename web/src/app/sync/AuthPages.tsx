@@ -1,9 +1,14 @@
 import { Alert, Box, Button, Divider, Link, Paper, TextField, Typography } from '@mui/material';
-import { useEffect, useState, type FormEvent, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type FormEvent, type ReactNode } from 'react';
 import { SyncFailure, type SignInOptions, type SignUpOutcome } from '../../ports/sync.ts';
 import type { MessageKey } from '../i18n/en.ts';
 import { t } from '../i18n/i18n.ts';
-import { leaveFor, rememberedProvider, rememberProvider } from './signInWith.ts';
+import {
+  leaveFor,
+  mayContinueOnItsOwn,
+  rememberedProvider,
+  rememberProvider,
+} from './signInWith.ts';
 import { useSyncState } from './syncContext.ts';
 
 type Entry = { page: 'sign-in' } | { page: 'sign-up' } | { page: 'join'; invite: string };
@@ -209,8 +214,15 @@ function SignIn({ onSignUp }: { onSignUp: () => void }) {
   const showForm = options !== null && (options.localLogin || forceLocal);
   // Signed in with a provider before and its session ran out: straight back through it.
   const continueWith = forceLocal ? undefined : providers.find((each) => each.name === remembered);
+  // Decided once per page (a ref survives StrictMode's second effect run): go, or, when the last
+  // trip came straight back within a minute, stay and show the buttons rather than loop.
+  const goOnItsOwn = useRef<boolean | null>(null);
+  const [heldBack, setHeldBack] = useState(false);
   useEffect(() => {
-    if (continueWith) leaveFor(continueWith.url);
+    if (!continueWith) return;
+    goOnItsOwn.current ??= mayContinueOnItsOwn();
+    if (goOnItsOwn.current) leaveFor(continueWith.url);
+    else setHeldBack(true);
   }, [continueWith]);
 
   const submit = async (event: FormEvent) => {
@@ -231,7 +243,7 @@ function SignIn({ onSignUp }: { onSignUp: () => void }) {
     }
   };
 
-  if (continueWith) {
+  if (continueWith && !heldBack) {
     return (
       <Card
         title={t('auth.title')}
