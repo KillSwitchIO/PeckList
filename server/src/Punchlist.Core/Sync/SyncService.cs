@@ -44,7 +44,8 @@ public sealed partial class SyncService(
     IChangeNotifier notifier,
     SharingState sharing,
     ISharingChangeSink? sharingChanges = null,
-    INotificationSink? notifications = null)
+    INotificationSink? notifications = null,
+    ServerClock? clock = null)
 {
     public const int MaxChanges = 5000;
     public const int PageSize = 500;
@@ -148,9 +149,10 @@ public sealed partial class SyncService(
                 entities,
                 (stored, arrived) =>
                 {
+                    var setFields = WorkspaceSchema.ElementSetFields(arrived.Collection);
                     var merged = stored is null
                         ? arrived.Doc
-                        : Merge.Entity(stored.Doc, arrived.Doc, WorkspaceSchema.ElementSetFields(arrived.Collection));
+                        : Merge.Entity(stored.Doc, Supersede(stored.Doc, arrived.Doc, setFields), setFields);
                     if (stored is not null && JsonNode.DeepEquals(merged, stored.Doc)) return null;
                     after.Apply(new StoredEntity(arrived.Collection, arrived.Id, arrived.Owner ?? stored?.OwnerId ?? ownerId, 0, merged));
                     return merged;
@@ -172,6 +174,44 @@ public sealed partial class SyncService(
         {
             sharing.Gate.Release();
         }
+    }
+
+    /// <summary>
+    /// The server's own change made to win over what it is applied to: a field (or set element) it
+    /// writes whose stored stamp is not older gets the stamp just after it. The server decided
+    /// having seen the stored copy, so its change comes after it, as a hybrid clock would order it
+    /// (stamps stored before a restart were never observed by <see cref="ServerClock"/>).
+    /// </summary>
+    internal static JsonObject Supersede(JsonObject stored, JsonObject arrived, IReadOnlyCollection<string> setFields)
+    {
+        var result = (JsonObject)arrived.DeepClone();
+        if (result["_hlc"] is JsonObject clocks && stored["_hlc"] is JsonObject old)
+        {
+            foreach (var (field, value) in clocks.ToList())
+            {
+                var mine = (string?)value;
+                var theirs = (string?)old[field];
+                if (Hlc.IsValid(mine) && Hlc.IsValid(theirs) && Hlc.Compare(mine, theirs) <= 0)
+                {
+                    clocks[field] = Hlc.After(theirs!, ServerClock.Node);
+                }
+            }
+        }
+        foreach (var field in setFields)
+        {
+            if (result[field] is not JsonObject set || stored[field] is not JsonObject oldSet) continue;
+            foreach (var (element, state) in set.ToList())
+            {
+                if (state is not JsonObject item || oldSet[element] is not JsonObject oldItem) continue;
+                var mine = (string?)item["hlc"];
+                var theirs = (string?)oldItem["hlc"];
+                if (Hlc.IsValid(mine) && Hlc.IsValid(theirs) && Hlc.Compare(mine, theirs) <= 0)
+                {
+                    item["hlc"] = Hlc.After(theirs!, ServerClock.Node);
+                }
+            }
+        }
+        return result;
     }
 
     /// <summary>
@@ -227,6 +267,8 @@ public sealed partial class SyncService(
             {
                 throw new SyncRejected("clock_drift", $"{Where()} ({id}): {field} is stamped {hlc}, more than a day ahead of the server");
             }
+            // The server's own later changes must sort after what devices send, however fast their clocks.
+            clock?.Observe(hlc);
         }
         foreach (var (field, value) in clocks) Check(value, field);
         foreach (var field in WorkspaceSchema.ElementSetFields(change.Collection))

@@ -126,4 +126,39 @@ public sealed class AccountDeletionTests(ServerFixture fixture) : IClassFixture<
         Assert.Contains(events, entry => entry.Type == "admin.user-deleted" && entry.TargetName == "sam");
         Assert.Contains(events, entry => entry.Type == "admin.user-removed" && entry.Detail!.StartsWith("sam,", StringComparison.Ordinal));
     }
+
+    [Fact]
+    public async Task What_a_removed_account_owned_goes_even_when_its_device_clock_ran_ahead()
+    {
+        // Devices' clocks are not the server's: one ten minutes fast stamps its changes after
+        // anything the server would stamp now. The removal still wins.
+        using var server = fixture.Factory(("ADMIN_PASSWORD", AdminPassword));
+        var admin = await LogIn(server, "admin", AdminPassword);
+        var (sam, samId) = await NewUser(server, "sam");
+        var ahead = DateTimeOffset.UtcNow.AddMinutes(10).UtcDateTime.ToString("yyyy-MM-dd'T'HH:mm:ss.fff'Z'", System.Globalization.CultureInfo.InvariantCulture) + "-0000-fastclock";
+        (await sam.PostAsJsonAsync("/api/sync", new
+        {
+            schemaVersion = WorkspaceSchema.CurrentVersion,
+            cursor = (long?)null,
+            changes = new[]
+            {
+                new
+                {
+                    collection = "tasks",
+                    entity = new JsonObject
+                    {
+                        ["id"] = "T9", ["title"] = "Fast clock task", ["deletedAt"] = null,
+                        ["_hlc"] = new JsonObject { ["title"] = ahead, ["deletedAt"] = ahead },
+                    },
+                },
+            },
+        }, Token)).EnsureSuccessStatusCode();
+
+        (await admin.DeleteAsync($"/api/admin/users/{samId}", Token)).EnsureSuccessStatusCode();
+        Assert.Equal(HttpStatusCode.NoContent, (await admin.PostAsync($"/api/admin/users/{samId}/remove-now", null, Token)).StatusCode);
+
+        var task = await server.Services.GetRequiredService<Core.Storage.IEntityStore>().GetAsync("T9", Token);
+        Assert.NotNull(task!.Doc["deletedAt"]);
+        Assert.True(Core.Sync.Hlc.Compare((string?)task.Doc["_hlc"]!["deletedAt"], ahead) > 0);
+    }
 }
