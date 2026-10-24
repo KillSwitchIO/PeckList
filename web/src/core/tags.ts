@@ -10,6 +10,7 @@ import {
   updateEntity,
   type OpContext,
 } from './ops.ts';
+import { compareOrderKeys, keyBetween } from './ordering.ts';
 import { COLOR_FAMILIES, findFamilyColor } from './palette.ts';
 import type { Id, Tag, Task, WorkspaceFile } from './types.ts';
 
@@ -98,10 +99,36 @@ function ensureParents(
   for (const path of tagAncestry(name).slice(0, -1)) {
     if (!findTagByName(next, path)) {
       const color = suggestTagColor(next, path, reserve);
-      next = putEntity(next, 'tags', createEntity<Tag>(ctx, { name: path, color }));
+      next = putEntity(
+        next,
+        'tags',
+        createEntity<Tag>(ctx, { name: path, color, order: endOrder(next) }),
+      );
     }
   }
   return next;
+}
+
+/** An order key after every tag (new tags go last among their siblings). */
+function endOrder(workspace: WorkspaceFile): string {
+  const last = workspace.entities.tags
+    .map((tag) => tag.order)
+    .sort(compareOrderKeys)
+    .at(-1);
+  return keyBetween(last ?? null, null);
+}
+
+/** Put tags in this order (siblings sort by it); the ones not listed keep theirs. */
+export function reorderTags(ctx: OpContext, workspace: WorkspaceFile, ids: Id[]): WorkspaceFile {
+  let previous: string | null = null;
+  const updated: Tag[] = [];
+  for (const id of ids) {
+    const tag = requireEntity(workspace, 'tags', id);
+    const order = keyBetween(previous, null);
+    previous = order;
+    if (order !== tag.order) updated.push(updateEntity(ctx, tag, { order }));
+  }
+  return updated.length ? putEntities(workspace, 'tags', updated) : workspace;
 }
 
 /**
@@ -122,6 +149,7 @@ export function createTag(
   const tag = createEntity<Tag>(ctx, {
     name: normalized,
     color: color ?? suggestTagColor(withParents, normalized),
+    order: endOrder(withParents),
   });
   return { workspace: putEntity(withParents, 'tags', tag), tag };
 }
@@ -167,6 +195,35 @@ export function updateTag(
   );
   const moved = putEntities(workspace, 'tags', renamed);
   return ensureParents(ctx, moved, name, [patch.color ?? tag.color]);
+}
+
+/**
+ * The names tags get when `id` moves under `parentId` (null: the top level), its subtags with
+ * it: a map of id to new name, empty when nothing changes, null when the move can't be made (into
+ * itself, or onto a name another tag has).
+ */
+export function moveTagNames(
+  tags: readonly Pick<Tag, 'id' | 'name'>[],
+  id: Id,
+  parentId: Id | null,
+): Map<Id, string> | null {
+  const byId = new Map(tags.map((tag) => [tag.id, tag]));
+  const tag = byId.get(id);
+  const parent = parentId === null ? null : byId.get(parentId);
+  if (!tag || parent === undefined) return null;
+  if (parent && isUnder(parent.name, tag.name)) return null;
+  const name = (parent ? `${parent.name}/` : '') + leafName(tag.name);
+  if (name.toLowerCase() === tag.name.toLowerCase()) return new Map();
+  const moving = tags.filter((other) => isUnder(other.name, tag.name));
+  const movingIds = new Set(moving.map((other) => other.id));
+  const renamed = new Map(
+    moving.map((other) => [other.id, name + other.name.slice(tag.name.length)]),
+  );
+  const taken = new Set(
+    tags.filter((other) => !movingIds.has(other.id)).map((other) => other.name.toLowerCase()),
+  );
+  for (const next of renamed.values()) if (taken.has(next.toLowerCase())) return null;
+  return renamed;
 }
 
 /** Delete a tag and the tags nested under it, removing them from every task. */
@@ -217,8 +274,9 @@ export function tagTree(workspace: WorkspaceFile): TagNode[] {
   }
   const out: TagNode[] = [];
   const walk = (parentId: Id | null, depth: number) => {
-    const level = (children.get(parentId) ?? []).sort((a, b) =>
-      leafName(a.name).localeCompare(leafName(b.name)),
+    const level = (children.get(parentId) ?? []).sort(
+      (a, b) =>
+        compareOrderKeys(a.order, b.order) || leafName(a.name).localeCompare(leafName(b.name)),
     );
     for (const tag of level) {
       const hasChildren = (children.get(tag.id)?.length ?? 0) > 0;

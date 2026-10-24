@@ -1,0 +1,3 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- Domain: HLC, merge, settings and the ports. No ASP.NET, no database drivers. -->
+</Project>

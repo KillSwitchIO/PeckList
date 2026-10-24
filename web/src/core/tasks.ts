@@ -28,8 +28,9 @@ import type {
 export interface TaskInput {
   title: string;
   listId: Id;
-  sectionId?: Id | null;
   parentId?: Id | null;
+  /** `user:<id>` / `group:<id>` principals to assign it to from the start. */
+  assignees?: string[];
   notes?: string;
   priority?: Priority;
   schedule?: Schedule | null;
@@ -42,21 +43,14 @@ export interface TaskInput {
 /** Subtask levels below a top-level task (R-TASK-03 asks for at least 3). */
 export const MAX_SUBTASK_DEPTH = 5;
 
-/** Live siblings in display order: same list, section and parent. */
-export function siblings(
-  workspace: WorkspaceFile,
-  listId: Id,
-  sectionId: Id | null,
-  parentId: Id | null,
-): Task[] {
+/** Live siblings in display order: same list and parent. (Sections were dropped: PL-011.) */
+export function siblings(workspace: WorkspaceFile, listId: Id, parentId: Id | null): Task[] {
   return workspace.entities.tasks
     .filter(
       (task) =>
         isLive(task) &&
         task.listId === listId &&
-        (parentId
-          ? task.parentId === parentId
-          : task.parentId === null && task.sectionId === sectionId),
+        (parentId ? task.parentId === parentId : task.parentId === null),
     )
     .sort((a, b) => compareOrderKeys(a.order, b.order));
 }
@@ -101,7 +95,7 @@ export function taskDepth(workspace: WorkspaceFile, id: Id): number {
 }
 
 /** Levels of live subtasks under a task: 0 without subtasks. */
-function subtreeHeight(workspace: WorkspaceFile, id: Id): number {
+export function subtreeHeight(workspace: WorkspaceFile, id: Id): number {
   let height = 0;
   for (const child of workspace.entities.tasks) {
     if (child.parentId === id && isLive(child)) {
@@ -113,7 +107,7 @@ function subtreeHeight(workspace: WorkspaceFile, id: Id): number {
 
 /** The sibling just above a task, which an indent would nest it under. */
 function previousSibling(workspace: WorkspaceFile, task: Task): Task | undefined {
-  const peers = siblings(workspace, task.listId, task.sectionId, task.parentId);
+  const peers = siblings(workspace, task.listId, task.parentId);
   const index = peers.findIndex((peer) => peer.id === task.id);
   return index > 0 ? peers[index - 1] : undefined;
 }
@@ -163,7 +157,6 @@ export function detachTask(ctx: OpContext, workspace: WorkspaceFile, id: Id): Wo
   if (!top) return workspace;
   return moveTask(ctx, workspace, id, {
     listId: top.listId,
-    sectionId: top.sectionId,
     parentId: null,
     afterId: top.id,
   });
@@ -176,7 +169,6 @@ export function outdentTask(ctx: OpContext, workspace: WorkspaceFile, id: Id): W
   const parent = requireEntity(workspace, 'tasks', task.parentId);
   return moveTask(ctx, workspace, id, {
     listId: parent.listId,
-    sectionId: parent.sectionId,
     parentId: parent.parentId,
     afterId: parent.id,
   });
@@ -189,26 +181,25 @@ export function createTask(
 ): { workspace: WorkspaceFile; task: Task } {
   const parent = input.parentId ? requireEntity(workspace, 'tasks', input.parentId) : null;
   const listId = parent?.listId ?? input.listId;
-  const sectionId = parent ? parent.sectionId : (input.sectionId ?? null);
   const parentId = parent?.id ?? null;
   if (parent && taskDepth(workspace, parent.id) + 1 > MAX_SUBTASK_DEPTH) {
     throw new Error('subtasks are nested too deep');
   }
-  const peers = siblings(workspace, listId, sectionId, parentId);
+  const peers = siblings(workspace, listId, parentId);
   const afterIndex = input.afterId ? peers.findIndex((peer) => peer.id === input.afterId) : -1;
   const order =
     afterIndex >= 0
       ? keyBetween(peers[afterIndex]!.order, peers[afterIndex + 1]?.order ?? null)
       : keyBetween(lastOrder(peers), null);
   let tags = {};
-  // A subtask starts with its parent's tags (its list and section come from the parent too).
+  // A subtask starts with its parent's tags (its list comes from the parent too).
   const tagIds = new Set([...(input.tags ?? []), ...(parent ? members(parent.tags) : [])]);
   for (const tag of tagIds) tags = setElement(ctx, tags, tag, true);
   const task = createEntity<Task>(ctx, {
     title: input.title.trim(),
     notes: input.notes ?? '',
     listId,
-    sectionId,
+    sectionId: null,
     parentId,
     order,
     status: 'open',
@@ -218,9 +209,13 @@ export function createTask(
     schedule: input.schedule ?? null,
     due: input.due ?? null,
     tags,
-    assignees: {},
+    assignees: (input.assignees ?? []).reduce(
+      (set, principal) => setElement(ctx, set, principal, true),
+      {} as Task['assignees'],
+    ),
     blockedBy: {},
     recurrence: null,
+    progress: 0,
   });
   return { workspace: putEntity(workspace, 'tasks', task), task };
 }
@@ -233,6 +228,26 @@ export function updateTask(
 ): WorkspaceFile {
   const task = requireEntity(workspace, 'tasks', id);
   return putEntity(workspace, 'tasks', updateEntity(ctx, task, patch));
+}
+
+/** Progress steps: 0 (none) to 100 percent, by 10. */
+export const PROGRESS_STEPS = [0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100] as const;
+
+/**
+ * Set how far along a task is, rounded to the nearest 10 percent (0 clears it). Reaching 100
+ * completes an open task.
+ */
+export function setTaskProgress(
+  ctx: OpContext,
+  workspace: WorkspaceFile,
+  id: Id,
+  percent: number,
+): WorkspaceFile {
+  const progress = Math.min(100, Math.max(0, Math.round(percent / 10) * 10));
+  const updated = updateTask(ctx, workspace, id, { progress });
+  return progress === 100 && requireEntity(updated, 'tasks', id).status === 'open'
+    ? setTaskStatus(ctx, updated, id, 'done')
+    : updated;
 }
 
 /**
@@ -252,6 +267,8 @@ export function setTaskStatus(
       status: next,
       completedAt: next === 'open' ? null : (target.completedAt ?? isoNow(ctx)),
       completedBy: next === 'open' ? null : (target.completedBy ?? ctx.userId),
+      // Done is done: a pinned task lets go of the top (reopening does not pin it again).
+      ...(next !== 'open' && target.pinnedAt ? { pinnedAt: null } : {}),
     });
   const changed = [stamp(task, status)];
   if (closing) {
@@ -318,14 +335,13 @@ export function restoreTask(ctx: OpContext, workspace: WorkspaceFile, id: Id): W
 
 export interface MoveTarget {
   listId: Id;
-  sectionId?: Id | null;
   parentId?: Id | null;
   /** Place directly before this sibling; null or omitted with `afterId` omitted means the end. */
   beforeId?: Id | null;
   afterId?: Id | null;
 }
 
-/** Move a task (and its subtree) to a new list, section, parent and position. */
+/** Move a task (and its subtree) to a new list, parent and position. */
 export function moveTask(
   ctx: OpContext,
   workspace: WorkspaceFile,
@@ -342,8 +358,7 @@ export function moveTask(
   }
   const parent = parentId ? requireEntity(workspace, 'tasks', parentId) : null;
   const listId = parent?.listId ?? target.listId;
-  const sectionId = parent ? parent.sectionId : (target.sectionId ?? null);
-  const peers = siblings(workspace, listId, sectionId, parentId).filter((peer) => peer.id !== id);
+  const peers = siblings(workspace, listId, parentId).filter((peer) => peer.id !== id);
 
   let before: string | null;
   let after: string | null;
@@ -372,14 +387,14 @@ export function moveTask(
   const moved = inherit(
     updateEntity(ctx, task, {
       listId,
-      sectionId,
+      sectionId: null,
       parentId,
       order: keyBetween(before, after),
     }),
   );
-  // Subtasks always follow their root task's list and section.
+  // Subtasks always follow their root task's list.
   const subtree = descendants(workspace, id).map((child) =>
-    inherit(updateEntity(ctx, child, { listId, sectionId })),
+    inherit(updateEntity(ctx, child, { listId, sectionId: null })),
   );
   return putEntities(workspace, 'tasks', [moved, ...subtree]);
 }
@@ -417,4 +432,49 @@ export function rescheduleTo(
     });
   });
   return putEntities(workspace, 'tasks', changed);
+}
+
+/**
+ * When a task (or any entity) last changed: the newest of its field clocks, which start with the
+ * time of the write. Falls back to when it was made.
+ */
+export function lastChangedAt(entity: { createdAt: string; _hlc: Record<string, string> }): string {
+  let latest = entity.createdAt;
+  for (const clock of Object.values(entity._hlc)) {
+    const at = clock.slice(0, 24);
+    if (at > latest) latest = at;
+  }
+  return latest;
+}
+
+/** Whether a task shows in its views' Pinned group: an open top-level task someone pinned. */
+export function isPinned(task: Task): boolean {
+  return Boolean(task.pinnedAt) && task.status === 'open' && task.parentId === null;
+}
+
+/** Pin a top-level task to the top of its views, or let it go (spec: PL-089). */
+export function setPinned(
+  ctx: OpContext,
+  workspace: WorkspaceFile,
+  id: Id,
+  pinned: boolean,
+): WorkspaceFile {
+  const task = requireEntity(workspace, 'tasks', id);
+  if (pinned === isPinned(task) || (pinned && task.parentId !== null)) return workspace;
+  return putEntity(
+    workspace,
+    'tasks',
+    updateEntity(ctx, task, { pinnedAt: pinned ? isoNow(ctx) : null }),
+  );
+}
+
+/** A view's tasks split: the pinned ones (oldest pin first) and the rest, in their order. */
+export function pinnedFirst(tasks: readonly Task[]): { pinned: Task[]; rest: Task[] } {
+  const pinned = tasks
+    .filter(isPinned)
+    .sort((a, b) => (a.pinnedAt ?? '').localeCompare(b.pinnedAt ?? ''));
+  return {
+    pinned,
+    rest: pinned.length === 0 ? [...tasks] : tasks.filter((task) => !isPinned(task)),
+  };
 }

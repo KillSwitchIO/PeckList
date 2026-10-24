@@ -1,5 +1,5 @@
 import { TextField } from '@mui/material';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { parseTime } from '../../core/time.ts';
 import { formatTime } from '../format.ts';
 import { t } from '../i18n/i18n.ts';
@@ -19,6 +19,9 @@ export function TimeInput({
   autoFocus?: boolean;
 }) {
   const [text, setText] = useState(value ? formatTime(value) : '');
+  // Focusing or first clicking into the field selects the whole entry, so typing replaces it.
+  // Once something is typed, clicks place the caret as usual.
+  const untouched = useRef(true);
   const parsed = parseTime(text);
   const invalid = text.trim() !== '' && parsed === null;
 
@@ -46,7 +49,17 @@ export function TimeInput({
             ? formatTime(parsed)
             : ' '
       }
-      onChange={(event) => setText(event.target.value)}
+      onChange={(event) => {
+        untouched.current = false;
+        setText(event.target.value);
+      }}
+      onFocus={(event) => event.target.select()}
+      onMouseUp={(event) => {
+        if (!untouched.current) return;
+        // The mouse up would drop the selection.
+        event.preventDefault();
+        (event.target as HTMLInputElement).select();
+      }}
       onBlur={commit}
       onKeyDown={(event) => {
         if (event.key === 'Enter') {

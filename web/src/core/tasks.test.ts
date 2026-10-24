@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { testContext } from '../test/fixtures.ts';
 import { getEntity, putEntity } from './collections.ts';
-import { createSection, inboxList } from './lists.ts';
+import { createList, inboxList } from './lists.ts';
 import { members } from './ops.ts';
 import { subtaskTree, todayTasks } from './queries.ts';
 import {
@@ -23,9 +23,13 @@ import {
   setTaskStatus,
   setTaskTag,
   siblings,
+  isPinned,
+  pinnedFirst,
+  setPinned,
   taskDepth,
   toggleTaskDone,
   updateTask,
+  setTaskProgress,
 } from './tasks.ts';
 import type { WorkspaceFile } from './types.ts';
 import { createWorkspace } from './workspace.ts';
@@ -59,7 +63,7 @@ describe('createTask', () => {
     const s = setup();
     s.add('  first ');
     s.add('second');
-    const order = siblings(s.ws, s.inbox, null, null);
+    const order = siblings(s.ws, s.inbox, null);
     expect(titles(order)).toEqual(['first', 'second']);
     expect(order[0]).toMatchObject({
       status: 'open',
@@ -69,13 +73,11 @@ describe('createTask', () => {
     });
   });
 
-  it('creates subtasks in the parent list and section', () => {
+  it('creates subtasks in the parent list', () => {
     const s = setup();
-    const { workspace, section } = createSection(s.ctx, s.ws, s.inbox, 'Yard');
-    s.ws = workspace;
-    const parent = s.add('Mow', { sectionId: section.id });
-    const child = s.add('Edge', { parentId: parent.id, listId: 'ignored', sectionId: null });
-    expect(child).toMatchObject({ listId: s.inbox, sectionId: section.id, parentId: parent.id });
+    const parent = s.add('Mow');
+    const child = s.add('Edge', { parentId: parent.id, listId: 'ignored' });
+    expect(child).toMatchObject({ listId: s.inbox, sectionId: null, parentId: parent.id });
   });
 
   it('applies initial tags', () => {
@@ -186,13 +188,13 @@ describe('moveTask', () => {
     const b = s.add('b');
     const c = s.add('c');
     s.ws = moveTask(s.ctx, s.ws, c.id, { listId: s.inbox, beforeId: a.id });
-    expect(titles(siblings(s.ws, s.inbox, null, null))).toEqual(['c', 'a', 'b']);
+    expect(titles(siblings(s.ws, s.inbox, null))).toEqual(['c', 'a', 'b']);
     s.ws = moveTask(s.ctx, s.ws, c.id, { listId: s.inbox, afterId: b.id });
-    expect(titles(siblings(s.ws, s.inbox, null, null))).toEqual(['a', 'b', 'c']);
+    expect(titles(siblings(s.ws, s.inbox, null))).toEqual(['a', 'b', 'c']);
     s.ws = moveTask(s.ctx, s.ws, a.id, { listId: s.inbox, afterId: b.id });
-    expect(titles(siblings(s.ws, s.inbox, null, null))).toEqual(['b', 'a', 'c']);
+    expect(titles(siblings(s.ws, s.inbox, null))).toEqual(['b', 'a', 'c']);
     s.ws = moveTask(s.ctx, s.ws, a.id, { listId: s.inbox });
-    expect(titles(siblings(s.ws, s.inbox, null, null))).toEqual(['b', 'c', 'a']);
+    expect(titles(siblings(s.ws, s.inbox, null))).toEqual(['b', 'c', 'a']);
   });
 
   it('only rewrites the moved task and its subtree', () => {
@@ -204,19 +206,19 @@ describe('moveTask', () => {
     expect(getEntity(s.ws, 'tasks', a.id)).toBe(getEntity(before, 'tasks', a.id));
   });
 
-  it('nests under a parent and carries subtasks to another section', () => {
+  it('nests under a parent and carries subtasks to another list', () => {
     const s = setup();
-    const { workspace, section } = createSection(s.ctx, s.ws, s.inbox, 'Later');
-    s.ws = workspace;
     const parent = s.add('Parent');
     const child = s.add('Child', { parentId: parent.id });
     const other = s.add('Other');
-    s.ws = moveTask(s.ctx, s.ws, parent.id, { listId: s.inbox, sectionId: section.id });
-    expect(getEntity(s.ws, 'tasks', child.id)?.sectionId).toBe(section.id);
+    const later = createList(s.ctx, s.ws, { name: 'Later', color: '#CFE3A3' });
+    s.ws = moveTask(s.ctx, later.workspace, parent.id, { listId: later.list.id });
+    expect(getEntity(s.ws, 'tasks', child.id)?.listId).toBe(later.list.id);
     s.ws = moveTask(s.ctx, s.ws, other.id, { listId: s.inbox, parentId: parent.id });
     expect(getEntity(s.ws, 'tasks', other.id)).toMatchObject({
       parentId: parent.id,
-      sectionId: section.id,
+      listId: later.list.id,
+      sectionId: null,
     });
   });
 
@@ -246,7 +248,7 @@ describe('moveTask', () => {
       ...getEntity(s.ws, 'tasks', a.id)!,
       deletedAt: '2026-10-20T00:00:00.000Z',
     });
-    expect(titles(siblings(s.ws, s.inbox, null, null))).toEqual(['b']);
+    expect(titles(siblings(s.ws, s.inbox, null))).toEqual(['b']);
   });
 });
 
@@ -378,7 +380,7 @@ describe('subtask inheritance and detaching', () => {
     const deep = s.add('deep', { parentId: mid.id });
     s.add('next');
     s.ws = detachTask(s.ctx, s.ws, deep.id);
-    expect(titles(siblings(s.ws, s.inbox, null, null))).toEqual(['top', 'deep', 'next']);
+    expect(titles(siblings(s.ws, s.inbox, null))).toEqual(['top', 'deep', 'next']);
     expect(detachTask(s.ctx, s.ws, top.id)).toBe(s.ws);
   });
 });
@@ -443,5 +445,40 @@ describe('completion date', () => {
     s.ws = setTaskStatus(s.ctx, s.ws, a.id, 'done');
     s.ws = setCompletedAt(s.ctx, s.ws, a.id, null);
     expect(getEntity(s.ws, 'tasks', a.id)).toMatchObject({ status: 'open', completedAt: null });
+  });
+});
+
+describe('progress', () => {
+  it('rounds to 10s, and 100% completes an open task', () => {
+    const s = setup();
+    const task = s.add('paint');
+    s.ws = setTaskProgress(s.ctx, s.ws, task.id, 43);
+    expect(getEntity(s.ws, 'tasks', task.id)).toMatchObject({ progress: 40, status: 'open' });
+    s.ws = setTaskProgress(s.ctx, s.ws, task.id, 100);
+    expect(getEntity(s.ws, 'tasks', task.id)).toMatchObject({ progress: 100, status: 'done' });
+  });
+});
+
+describe('pinning', () => {
+  it('pins top-level open tasks, oldest pin first, and lets go when they close', () => {
+    const s = setup();
+    const a = s.add('A');
+    const b = s.add('B');
+    const child = s.add('child', { parentId: a.id });
+    s.ws = setPinned(s.ctx, s.ws, b.id, true);
+    s.ws = setPinned(s.ctx, s.ws, a.id, true);
+    // A subtask is never pinned: it would show twice.
+    expect(setPinned(s.ctx, s.ws, child.id, true)).toBe(s.ws);
+    const tasks = s.ws.entities.tasks;
+    const split = pinnedFirst(tasks);
+    expect(titles(split.pinned)).toEqual(['B', 'A']);
+    expect(titles(split.rest)).toEqual(['child']);
+
+    s.ws = setTaskStatus(s.ctx, s.ws, b.id, 'done');
+    expect(isPinned(getEntity(s.ws, 'tasks', b.id)!)).toBe(false);
+    s.ws = setTaskStatus(s.ctx, s.ws, b.id, 'open');
+    expect(isPinned(getEntity(s.ws, 'tasks', b.id)!)).toBe(false);
+    s.ws = setPinned(s.ctx, s.ws, a.id, false);
+    expect(pinnedFirst(s.ws.entities.tasks).pinned).toEqual([]);
   });
 });

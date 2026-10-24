@@ -1,13 +1,14 @@
 // Read-side queries: smart views, list contents, date states.
 
 import { isLive } from './collections.ts';
-import { datePart, daysBetween, todayIn } from './dates.ts';
+import { todayIn } from './dates.ts';
 import {
   ALL_TASKS,
   compileFilter,
   filterClosedTasks,
   filterTasks,
   groupByDay,
+  inLiveList,
   startDate,
   type TaskFilter,
 } from './filters.ts';
@@ -21,20 +22,7 @@ export const TRASH_DAYS = 30;
 export const TODAY_FILTER: TaskFilter = { start: { to: 0 } };
 export const NEXT_7_DAYS_FILTER: TaskFilter = { start: { to: 7 } };
 
-export type DateState = 'late' | 'slipped' | 'dueSoon' | 'normal' | 'none';
-
-/** Date state per the Design Spec: late beats slipped beats due soon. */
-export function dateState(task: Task, today: string, dueSoonDays: number): DateState {
-  const due = task.due ? datePart(task.due.at) : null;
-  const scheduleEnd = task.schedule ? datePart(task.schedule.end ?? task.schedule.start) : null;
-  if (!due && !scheduleEnd) return 'none';
-  if (task.status !== 'open') return 'normal';
-  if (due && due < today) return 'late';
-  if (!due && scheduleEnd && scheduleEnd < today) return 'late';
-  if (due && scheduleEnd && scheduleEnd < today) return 'slipped';
-  if (due && daysBetween(today, due) <= dueSoonDays) return 'dueSoon';
-  return 'normal';
-}
+export { dateState, type DateState } from './dateState.ts';
 
 // The date a task belongs to in views is its start date (filters.ts); due dates show in the
 // task details and on the calendar, not in lists (Ben, 2026-10-20).
@@ -49,13 +37,9 @@ export function startState(task: Task, today: string): 'overdue' | 'today' | 'la
 }
 
 function openTopLevel(workspace: WorkspaceFile): Task[] {
-  const liveLists = new Set(workspace.entities.lists.filter(isLive).map((list) => list.id));
+  const listed = inLiveList(workspace);
   return workspace.entities.tasks.filter(
-    (task) =>
-      isLive(task) &&
-      task.status === 'open' &&
-      task.parentId === null &&
-      liveLists.has(task.listId),
+    (task) => isLive(task) && task.status === 'open' && task.parentId === null && listed(task),
   );
 }
 
@@ -95,35 +79,37 @@ export function upcomingTasks(
   return groupByDay(filterTasks(workspace, { start: { from: 1, to: days } }, today));
 }
 
-/** Open top-level tasks of a list, grouped by section (null section first). */
-export function listTasks(
-  workspace: WorkspaceFile,
-  listId: Id,
-): { sectionId: Id | null; tasks: Task[] }[] {
-  const tasks = openTopLevel(workspace).filter((task) => task.listId === listId);
-  const sections = workspace.entities.sections
-    .filter((section) => section.listId === listId && isLive(section))
+/** Open top-level tasks of a list, in the list's own order. */
+export function listTasks(workspace: WorkspaceFile, listId: Id): Task[] {
+  return openTopLevel(workspace)
+    .filter((task) => task.listId === listId)
     .sort((a, b) => compareOrderKeys(a.order, b.order));
-  const inSection = (sectionId: Id | null) =>
-    tasks
-      .filter((task) => task.sectionId === sectionId)
-      .sort((a, b) => compareOrderKeys(a.order, b.order));
-  const known = new Set(sections.map((section) => section.id));
-  const orphaned = tasks.filter((task) => task.sectionId !== null && !known.has(task.sectionId));
-  return [
-    {
-      sectionId: null,
-      tasks: [...inSection(null), ...orphaned.sort((a, b) => compareOrderKeys(a.order, b.order))],
-    },
-    ...sections.map((section) => ({ sectionId: section.id, tasks: inSection(section.id) })),
-  ];
 }
 
 /** Live subtasks of a task in order (any status). */
+/** Live tasks by parent, each in order: built once per tasks array (workspaces are immutable). */
+const childrenCache = new WeakMap<readonly Task[], { length: number; byParent: Map<Id, Task[]> }>();
+
+function childrenByParent(tasks: readonly Task[]): Map<Id, Task[]> {
+  let cached = childrenCache.get(tasks);
+  if (!cached || cached.length !== tasks.length) {
+    const byParent = new Map<Id, Task[]>();
+    for (const task of tasks) {
+      if (!isLive(task) || task.parentId === null) continue;
+      const siblings = byParent.get(task.parentId);
+      if (siblings) siblings.push(task);
+      else byParent.set(task.parentId, [task]);
+    }
+    for (const siblings of byParent.values())
+      siblings.sort((a, b) => compareOrderKeys(a.order, b.order));
+    cached = { length: tasks.length, byParent };
+    childrenCache.set(tasks, cached);
+  }
+  return cached.byParent;
+}
+
 export function subtasksOf(workspace: WorkspaceFile, parentId: Id): Task[] {
-  return workspace.entities.tasks
-    .filter((task) => isLive(task) && task.parentId === parentId)
-    .sort((a, b) => compareOrderKeys(a.order, b.order));
+  return [...(childrenByParent(workspace.entities.tasks).get(parentId) ?? [])];
 }
 
 export function subtaskProgress(

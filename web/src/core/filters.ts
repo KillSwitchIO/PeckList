@@ -3,6 +3,7 @@
 // `savedFilters[].query`, so keep it plain JSON and add fields rather than changing them.
 
 import { isLive } from './collections.ts';
+import { dateState } from './dateState.ts';
 import { addDays, datePart, daysBetween } from './dates.ts';
 import { members } from './ops.ts';
 import { compareOrderKeys } from './ordering.ts';
@@ -27,12 +28,29 @@ export interface TaskFilter {
   dated?: boolean;
   /** Any of these priorities */
   priorities?: Priority[];
+  /** Assigned to this user, directly or through a group they are an active member of */
+  assignedTo?: Id;
+  /** Shared with this user: in a list someone else owns, or assigned from a list they cannot see */
+  sharedWith?: Id;
+  /** Due date window in days from today, like `start` (tasks without a due date never match) */
+  due?: { from?: number; to?: number };
+  /** Only tasks with (true) or without (false) a due date */
+  hasDue?: boolean;
+  /** false: leave closed tasks out (no Closed group) */
+  closed?: boolean;
+  /**
+   * Assigned to any of: `me` (the workspace's user, directly or through a group), `none` (no
+   * one), `user:<id>` or `group:<id>`.
+   */
+  assignees?: string[];
+  /** In any of these date states (Late, Slipped, Due soon; spec: Design Spec, Date states). */
+  states?: ('late' | 'slipped' | 'dueSoon')[];
 }
 
 /** No conditions: the All view. */
 export const ALL_TASKS: TaskFilter = {};
 
-/** The start date a task belongs to in views (due dates live in details and the calendar). */
+/** The start date a task belongs to in views (due dates show on rows but don't place tasks). */
 export function startDate(task: Task): string | null {
   return task.schedule ? datePart(task.schedule.start) : null;
 }
@@ -54,8 +72,41 @@ export function compileFilter(
     : null;
   const from = filter.start?.from === undefined ? null : addDays(today, filter.start.from);
   const to = filter.start?.to === undefined ? null : addDays(today, filter.start.to);
+  const dueFrom = filter.due?.from === undefined ? null : addDays(today, filter.due.from);
+  const dueTo = filter.due?.to === undefined ? null : addDays(today, filter.due.to);
   const priorities = filter.priorities ? new Set(filter.priorities) : null;
+  const assignees = filter.assignedTo
+    ? new Set([
+        `user:${filter.assignedTo}`,
+        ...workspace.entities.groupMembers
+          .filter(
+            (member) =>
+              member.deletedAt === null &&
+              member.userId === filter.assignedTo &&
+              member.state === 'active',
+          )
+          .map((member) => `group:${member.groupId}`),
+      ])
+    : null;
+  const listById = new Map(workspace.entities.lists.map((list) => [list.id, list]));
+  const me = workspace.entities.settings[0]?.userId;
+  const myGroups = new Set(
+    workspace.entities.groupMembers
+      .filter(
+        (member) => member.deletedAt === null && member.userId === me && member.state === 'active',
+      )
+      .map((member) => `group:${member.groupId}`),
+  );
+  const wanted = filter.assignees?.length ? new Set(filter.assignees) : null;
+  const states = filter.states?.length ? new Set<string>(filter.states) : null;
+  const dueSoonDays = workspace.entities.settings[0]?.dueSoonDays ?? 2;
   return (task) => {
+    if (filter.sharedWith) {
+      const list = listById.get(task.listId);
+      if (list && list.createdBy === filter.sharedWith) return false;
+    }
+    if (assignees && !members(task.assignees).some((principal) => assignees.has(principal)))
+      return false;
     if (lists && !lists.has(task.listId)) return false;
     if (tags && !members(task.tags).some((id) => tags.has(id))) return false;
     if (priorities && !priorities.has(task.priority)) return false;
@@ -65,6 +116,23 @@ export function compileFilter(
       if (!date) return false;
       if (from && date < from) return false;
       if (to && date > to) return false;
+    }
+    if (wanted) {
+      const on = members(task.assignees);
+      const match =
+        (wanted.has('none') && on.length === 0) ||
+        (wanted.has('me') &&
+          on.some((principal) => principal === `user:${me}` || myGroups.has(principal))) ||
+        on.some((principal) => wanted.has(principal));
+      if (!match) return false;
+    }
+    if (states && !states.has(dateState(task, today, dueSoonDays))) return false;
+    const due = task.due ? datePart(task.due.at) : null;
+    if (filter.hasDue !== undefined && (due !== null) !== filter.hasDue) return false;
+    if (filter.due) {
+      if (!due) return false;
+      if (dueFrom && due < dueFrom) return false;
+      if (dueTo && due > dueTo) return false;
     }
     return true;
   };
@@ -100,15 +168,28 @@ export function byDateThenOrder(workspace: WorkspaceFile): (a: Task, b: Task) =>
   };
 }
 
-function inLiveList(workspace: WorkspaceFile): (task: Task) => boolean {
-  const live = new Set(workspace.entities.lists.filter(isLive).map((list) => list.id));
-  return (task) => live.has(task.listId);
+/**
+ * Whether a task's list is still around. A list this device never had counts (a task assigned
+ * from someone else's list). An archived list's tasks stay out of views, except the lists in
+ * `keep` (its own page) or everywhere with `'all'` (search).
+ */
+export function inLiveList(
+  workspace: WorkspaceFile,
+  keep: readonly Id[] | 'all' = [],
+): (task: Task) => boolean {
+  const gone = new Set<Id>();
+  const archived = new Set<Id>();
+  for (const list of workspace.entities.lists) {
+    if (!isLive(list)) gone.add(list.id);
+    else if (list.archived && keep !== 'all' && !keep.includes(list.id)) archived.add(list.id);
+  }
+  return (task) => !gone.has(task.listId) && !archived.has(task.listId);
 }
 
 /** Open tasks at any level matching the filter, by start date then manual order. */
 export function filterTasks(workspace: WorkspaceFile, filter: TaskFilter, today: string): Task[] {
   const matches = compileFilter(workspace, filter, today);
-  const listed = inLiveList(workspace);
+  const listed = inLiveList(workspace, filter.lists ?? []);
   return workspace.entities.tasks
     .filter((task) => isLive(task) && task.status === 'open' && listed(task) && matches(task))
     .sort(byDateThenOrder(workspace));
@@ -123,8 +204,9 @@ export function filterClosedTasks(
   filter: TaskFilter,
   today: string,
 ): Task[] {
+  if (filter.closed === false) return [];
   const matches = compileFilter(workspace, filter, today);
-  const listed = inLiveList(workspace);
+  const listed = inLiveList(workspace, filter.lists ?? []);
   const byId = new Map(workspace.entities.tasks.map((task) => [task.id, task]));
   return workspace.entities.tasks
     .filter((task) => {

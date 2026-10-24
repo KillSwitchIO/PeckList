@@ -3,18 +3,21 @@ import { BrowserRouter } from 'react-router';
 import { AppProviders } from './providers.tsx';
 import { UpdatePrompt } from './pwa/UpdatePrompt.tsx';
 import { AppRoutes } from './routes.tsx';
-import { createBrowserStore } from './store/browserStore.ts';
+import { createBrowserApp } from './store/browserStore.ts';
+import { ViewAsContext } from './store/viewAs.ts';
+import { ViewAsBanner } from './sync/ViewAsBanner.tsx';
 
 export function App() {
-  const [store] = useState(createBrowserStore);
+  const [{ store, sync, viewAs }] = useState(createBrowserApp);
   return (
-    <>
-      <AppProviders store={store}>
+    <ViewAsContext.Provider value={viewAs}>
+      <AppProviders store={store} sync={sync}>
         <BrowserRouter>
           <AppRoutes />
         </BrowserRouter>
+        {viewAs && <ViewAsBanner view={viewAs} />}
       </AppProviders>
       <UpdatePrompt />
-    </>
+    </ViewAsContext.Provider>
   );
 }

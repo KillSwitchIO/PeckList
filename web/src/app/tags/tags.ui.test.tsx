@@ -43,11 +43,16 @@ describe('tags in the sidebar', () => {
       within(nav)
         .getAllByRole('button')
         .map((item) => item.getAttribute('aria-label') ?? item.textContent),
-    ).toEqual(['New tag', 'home1', 'Hide tags in home', 'yard1', 'work1']);
+    ).toEqual(['Tags', 'New tag', 'home1', 'Hide tags in home', 'yard1', 'work1']);
     await userEvent.click(within(nav).getByRole('button', { name: 'Hide tags in home' }));
     expect(within(nav).queryByText('yard')).not.toBeInTheDocument();
     await userEvent.click(within(nav).getByRole('button', { name: 'Show tags in home' }));
     expect(within(nav).getByText('yard')).toBeInTheDocument();
+    // The Tags heading folds the whole section.
+    await userEvent.click(within(nav).getByRole('button', { name: 'Tags' }));
+    expect(within(nav).queryByText('home')).not.toBeInTheDocument();
+    await userEvent.click(within(nav).getByRole('button', { name: 'Tags' }));
+    expect(within(nav).getByText('home')).toBeInTheDocument();
   });
 
   it('creates a nested tag and opens its view', async () => {
@@ -130,7 +135,7 @@ describe('tag picker', () => {
     await renderSeeded('/inbox');
     await userEvent.click(screen.getByRole('button', { name: 'Open Call vet' }));
     const details = await screen.findByRole('region', { name: 'Task details' });
-    await userEvent.click(within(details).getByRole('button', { name: 'Tags: Add tags' }));
+    await userEvent.click(within(details).getByRole('button', { name: 'Add tags' }));
     const picker = screen.getByRole('dialog', { name: 'Tags' });
 
     await userEvent.click(within(picker).getByRole('checkbox', { name: 'work' }));
@@ -151,14 +156,24 @@ describe('tag picker', () => {
 
     const row = screen.getByRole('button', { name: 'Open Call vet' });
     expect(within(row).getByTestId('task-tags')).toHaveTextContent('petswork');
-    expect(within(details).getByRole('button', { name: 'Tags: pets, work' })).toBeInTheDocument();
+    expect(within(details).getByRole('button', { name: 'Open tag pets' })).toBeInTheDocument();
+    expect(within(details).getByRole('button', { name: 'Open tag work' })).toBeInTheDocument();
+
+    // The x on a pill removes the tag; clicking a pill opens the tag's view.
+    // The x shows on hover, which jsdom can't apply: skip the pointer-events check.
+    await userEvent
+      .setup({ pointerEventsCheck: 0 })
+      .click(within(details).getByRole('button', { name: 'Remove tag pets' }));
+    expect(within(details).queryByRole('button', { name: 'Open tag pets' })).toBeNull();
+    await userEvent.click(within(details).getByRole('button', { name: 'Open tag work' }));
+    expect(await screen.findByRole('heading', { level: 1, name: 'work' })).toBeInTheDocument();
   });
 
   it('shows at most two chips on a row', async () => {
     await renderSeeded('/inbox');
     await userEvent.click(screen.getByRole('button', { name: 'Open Mow lawn' }));
     const details = await screen.findByRole('region', { name: 'Task details' });
-    await userEvent.click(within(details).getByRole('button', { name: /^Tags:/ }));
+    await userEvent.click(within(details).getByRole('button', { name: 'Add tags' }));
     const picker = screen.getByRole('dialog', { name: 'Tags' });
     await userEvent.click(within(picker).getByRole('checkbox', { name: 'home' }));
     await userEvent.click(within(picker).getByRole('checkbox', { name: 'work' }));
@@ -253,7 +268,8 @@ describe('tag dialog', () => {
       .getAllByRole('button')
       .map((item) => item.textContent)
       .filter(Boolean);
-    expect(nav).toEqual(['home1', 'test', 'yard1', 'work1']);
+    // New tags go last among their siblings.
+    expect(nav).toEqual(['Tags', 'home1', 'yard1', 'test', 'work1']);
   });
 
   it('offers a path that does not exist yet as a new parent', async () => {

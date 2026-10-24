@@ -1,0 +1,12 @@
+**/node_modules
+**/dist
+**/dev-dist
+**/coverage
+**/bin
+**/obj
+.git
+e2e/logs
+e2e/screenshots
+*.local
+.env
+.env.*

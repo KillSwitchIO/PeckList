@@ -8,7 +8,7 @@
   "additionalProperties": false,
   "properties": {
     "schemaVersion": {
-      "const": 1
+      "const": 8
     },
     "app": {
       "type": "object",
@@ -43,7 +43,9 @@
         "listMembers",
         "friendships",
         "savedFilters",
-        "settings"
+        "settings",
+        "comments",
+        "attachments"
       ],
       "additionalProperties": false,
       "properties": {
@@ -117,6 +119,18 @@
           "type": "array",
           "items": {
             "$ref": "#/$defs/settings"
+          }
+        },
+        "comments": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/comment"
+          }
+        },
+        "attachments": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/attachment"
           }
         }
       }
@@ -348,7 +362,7 @@
           "$ref": "#/$defs/base"
         }
       ],
-      "required": ["name", "color"],
+      "required": ["name", "color", "order"],
       "properties": {
         "name": {
           "type": "string",
@@ -356,6 +370,10 @@
         },
         "color": {
           "$ref": "#/$defs/color"
+        },
+        "order": {
+          "$ref": "#/$defs/orderKey",
+          "description": "Order among sibling tags (the tree comes from the names)"
         }
       },
       "unevaluatedProperties": false
@@ -425,7 +443,8 @@
         "tags",
         "assignees",
         "blockedBy",
-        "recurrence"
+        "recurrence",
+        "progress"
       ],
       "properties": {
         "title": {
@@ -513,7 +532,7 @@
           "type": "object",
           "$ref": "#/$defs/elementSet",
           "propertyNames": {
-            "pattern": "^(user|group):[0-9A-HJKMNP-TV-Z]{26}$"
+            "pattern": "^((user|group):[0-9A-HJKMNP-TV-Z]{26}|invite:[0-9A-HJKMNP-TV-Z]{26}:[0-9A-HJKMNP-TV-Z]{26})$"
           }
         },
         "blockedBy": {
@@ -521,6 +540,23 @@
         },
         "recurrence": {
           "type": ["string", "null"]
+        },
+        "progress": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 100,
+          "multipleOf": 10
+        },
+        "pinnedAt": {
+          "description": "When it was pinned to the top of its views; null or absent: not pinned (schema 8)",
+          "oneOf": [
+            {
+              "$ref": "#/$defs/dateTime"
+            },
+            {
+              "type": "null"
+            }
+          ]
         }
       },
       "unevaluatedProperties": false
@@ -595,6 +631,32 @@
       },
       "unevaluatedProperties": false
     },
+    "attachment": {
+      "description": "A file on a task. Only its description is here; the file is stored by its sha256 (on the server and on each device). createdBy is who added it.",
+      "type": "object",
+      "allOf": [{ "$ref": "#/$defs/base" }],
+      "required": ["taskId", "name", "size", "mime", "sha256"],
+      "properties": {
+        "taskId": { "$ref": "#/$defs/id" },
+        "name": { "type": "string", "minLength": 1, "maxLength": 255 },
+        "size": { "type": "integer", "minimum": 0 },
+        "mime": { "type": "string", "maxLength": 255 },
+        "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" }
+      },
+      "unevaluatedProperties": false
+    },
+    "comment": {
+      "description": "A comment on a task (markdown). createdBy is its author; editedAt is set when the author changes it.",
+      "type": "object",
+      "allOf": [{ "$ref": "#/$defs/base" }],
+      "required": ["taskId", "body", "editedAt"],
+      "properties": {
+        "taskId": { "$ref": "#/$defs/id" },
+        "body": { "type": "string", "minLength": 1, "maxLength": 20000 },
+        "editedAt": { "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/dateTime" }] }
+      },
+      "unevaluatedProperties": false
+    },
     "friendship": {
       "type": "object",
       "allOf": [
@@ -612,6 +674,21 @@
         },
         "state": {
           "enum": ["pending", "accepted"]
+        },
+        "madeBy": {
+          "description": "Set when an admin made the friendship: who, with their username at the time. Absent or null when the two people made it themselves.",
+          "oneOf": [
+            { "type": "null" },
+            {
+              "type": "object",
+              "required": ["id", "name"],
+              "additionalProperties": false,
+              "properties": {
+                "id": { "$ref": "#/$defs/id" },
+                "name": { "type": "string", "minLength": 1, "maxLength": 100 }
+              }
+            }
+          ]
         }
       },
       "unevaluatedProperties": false
@@ -644,7 +721,7 @@
           "$ref": "#/$defs/base"
         }
       ],
-      "required": ["userId", "themeMode", "palette", "pointEventMinutes", "dueSoonDays"],
+      "required": ["userId", "themeMode", "palette", "pointEventMinutes", "dueSoonDays", "sidebar"],
       "properties": {
         "userId": {
           "$ref": "#/$defs/id"
@@ -668,6 +745,31 @@
           "type": "integer",
           "minimum": 0,
           "maximum": 30
+        },
+        "clockFormat": {
+          "description": "Times show on a 12-hour (default) or 24-hour clock",
+          "enum": ["12h", "24h"]
+        },
+        "weekStart": {
+          "description": "The first day of the week in calendars: 0 Sunday (default), 1 Monday",
+          "enum": [0, 1]
+        },
+        "timeZone": {
+          "description": "The person's time zone (an IANA name such as Europe/Berlin); null or absent: the server's, else the device's",
+          "type": ["string", "null"],
+          "minLength": 1,
+          "maxLength": 64
+        },
+        "sidebar": {
+          "type": "object",
+          "description": "Sidebar layout: view order (with an @group marker; views after it are grouped), hidden views, whether the group is open",
+          "required": ["order", "hidden", "groupOpen"],
+          "additionalProperties": false,
+          "properties": {
+            "order": { "type": "array", "items": { "type": "string" } },
+            "hidden": { "type": "array", "items": { "type": "string" } },
+            "groupOpen": { "type": "boolean" }
+          }
         }
       },
       "unevaluatedProperties": false

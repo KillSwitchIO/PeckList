@@ -72,13 +72,14 @@ export function sampleTask(
     assignees: {},
     blockedBy: {},
     recurrence: null,
+    progress: 0,
   });
 }
 
 export function sampleWorkspace(ctx: OpContext = testContext()): WorkspaceFile {
   const workspace = createWorkspace(ctx);
   const inbox = workspace.entities.lists[0]!;
-  const tag = createEntity<Tag>(ctx, { name: 'home/yard', color: '#CFE3A3' });
+  const tag = createEntity<Tag>(ctx, { name: 'home/yard', color: '#CFE3A3', order: 'V' });
   const first = sampleTask(ctx, inbox.id, 'Mow lawn', 'V');
   const second = sampleTask(ctx, inbox.id, 'Call vet', keyBetween('V', null));
   second.tags = setElement(ctx, second.tags, tag.id, true);

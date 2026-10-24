@@ -5,11 +5,11 @@ import InboxRounded from '@mui/icons-material/InboxRounded';
 import LayersRounded from '@mui/icons-material/LayersRounded';
 import MoreHorizRounded from '@mui/icons-material/MoreHorizRounded';
 import SearchRounded from '@mui/icons-material/SearchRounded';
-import SettingsRounded from '@mui/icons-material/SettingsRounded';
 import TaskAltRounded from '@mui/icons-material/TaskAltRounded';
 import TodayRounded from '@mui/icons-material/TodayRounded';
 import type { ReactElement } from 'react';
 import type { MessageKey } from '../i18n/i18n.ts';
+import { AssignedIcon, PeopleIcon } from '../icons/icons.tsx';
 
 export interface NavItem {
   path: string;
@@ -17,7 +17,7 @@ export interface NavItem {
   icon: ReactElement;
 }
 
-/** Smart views shown in the sidebar. Keep the order of the first items in step with BOTTOM_ITEMS. */
+/** Smart views shown in the sidebar (their default order; users can reorder them). */
 export const SIDEBAR_ITEMS: NavItem[] = [
   { path: '/today', label: 'nav.today', icon: <TodayRounded /> },
   { path: '/inbox', label: 'nav.inbox', icon: <InboxRounded /> },
@@ -28,9 +28,20 @@ export const SIDEBAR_ITEMS: NavItem[] = [
   { path: '/trash', label: 'nav.trash', icon: <DeleteOutlineRounded /> },
 ];
 
+/** Views that need a server with accounts (core/sidebar.ts SHARED_VIEWS). */
+export const SHARED_ITEMS: NavItem[] = [
+  { path: '/assigned', label: 'nav.assigned', icon: <AssignedIcon /> },
+  { path: '/shared', label: 'nav.shared', icon: <PeopleIcon /> },
+];
+
+/** The sidebar views by id (see core/sidebar.ts). */
+export const VIEW_ITEMS: Record<string, NavItem> = Object.fromEntries(
+  [...SIDEBAR_ITEMS, ...SHARED_ITEMS].map((item) => [item.path.slice(1), item]),
+);
+
+/** The sidebar's footer. Settings and Admin are in the profile menu (spec: PL-086). */
 export const SIDEBAR_FOOTER: NavItem[] = [
   { path: '/search', label: 'nav.search', icon: <SearchRounded /> },
-  { path: '/settings', label: 'nav.settings', icon: <SettingsRounded /> },
 ];
 
 /** Bottom navigation on phones */

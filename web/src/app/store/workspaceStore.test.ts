@@ -4,21 +4,41 @@ import { createMemoryStorage } from '../../adapters/memory-storage.ts';
 import { createUlidGenerator } from '../../adapters/ulid-ids.ts';
 import { getEntity } from '../../core/collections.ts';
 import { inboxList } from '../../core/lists.ts';
+import { CURRENT_SCHEMA_VERSION } from '../../core/migrations.ts';
+import { rekeyOwner } from '../../core/sync.ts';
 import { createTask, toggleTaskDone, updateTask } from '../../core/tasks.ts';
+import type { Journal } from '../../ports/journal.ts';
 import type { StorageAdapter } from '../../ports/storage.ts';
 import { deviceId, randomId } from './device.ts';
 import { createWorkspaceStore } from './workspaceStore.ts';
 
 const validator = createAjvValidator();
 
-function makeStore(storage: StorageAdapter, node = 'tabA') {
+function makeStore(storage: StorageAdapter, node = 'tabA', journal?: Journal) {
   return createWorkspaceStore({
     storage,
     validator,
     ids: createUlidGenerator(),
     node,
     saveDelayMs: 100,
+    ...(journal ? { journal } : {}),
   });
+}
+
+/** A journal in memory, like localStorage: written at once, survives the "page". */
+function memoryJournal(): Journal & { text: string | null } {
+  return {
+    text: null,
+    write(text) {
+      this.text = text;
+    },
+    read() {
+      return this.text;
+    },
+    clear() {
+      this.text = null;
+    },
+  };
 }
 
 function addTask(store: ReturnType<typeof makeStore>, title: string, label?: string) {
@@ -145,7 +165,7 @@ describe('workspace store', () => {
     expect(a.getState().status).toBe('needs-app-update');
 
     const broken = createMemoryStorage();
-    await broken.save({ schemaVersion: 1 } as never);
+    await broken.save({ schemaVersion: CURRENT_SCHEMA_VERSION } as never);
     const b = makeStore(broken);
     await b.getState().init();
     expect(b.getState().status).toBe('error');
@@ -155,12 +175,70 @@ describe('workspace store', () => {
       load: () => Promise.reject(new Error('disk')),
       save: () => Promise.resolve(),
       clear: () => Promise.resolve(),
+      backup: () => Promise.resolve(),
+      loadBackup: () => Promise.resolve(null),
+      loadMeta: () => Promise.resolve(null),
+      saveMeta: () => Promise.resolve(),
     };
     const c = makeStore(failing);
     await c.getState().init();
     expect(c.getState().problem).toEqual({ kind: 'error', message: 'disk' });
     expect(() => c.getState().apply((_, ws) => ws)).toThrow('not ready');
     expect(() => c.getState().context()).toThrow('not ready');
+  });
+});
+
+describe('a device joining an account', () => {
+  it('absorbs data without undo or new clocks, and other tabs follow the new owner', async () => {
+    const storage = createMemoryStorage();
+    const a = makeStore(storage, 'tabA');
+    await a.getState().init();
+    const b = makeStore(storage, 'tabB');
+    await b.getState().init();
+    addTask(a, 'Mow', 'Task added');
+    await a.getState().flush();
+    await b.getState().reloadFromStorage();
+
+    a.getState().absorb((ws) => rekeyOwner(ws, '01JBACCT000000000000000001'));
+    expect(a.getState().workspace!.owner).toBe('01JBACCT000000000000000001');
+    expect(a.getState().undoStack).toEqual([]);
+    expect(a.getState().context().userId).toBe('01JBACCT000000000000000001');
+    await a.getState().flush();
+
+    // The other tab saves its old-owner copy: it must not undo the join...
+    addTask(b, 'Rake');
+    await b.getState().flush();
+    expect(((await storage.load()) as { owner: string }).owner).toBe('01JBACCT000000000000000001');
+    // ...and when it hears about the save, it switches to the account's copy.
+    await b.getState().reloadFromStorage();
+    expect(b.getState().workspace!.owner).toBe('01JBACCT000000000000000001');
+  });
+});
+
+describe('upgrading stored data', () => {
+  it('backs up an older workspace, then upgrades and opens it', async () => {
+    const storage = createMemoryStorage();
+    const fresh = makeStore(createMemoryStorage());
+    await fresh.getState().init();
+    const current = fresh.getState().workspace!;
+    const legacy = structuredClone(current) as unknown as {
+      schemaVersion: number;
+      entities: { tasks: Record<string, unknown>[] };
+    };
+    legacy.schemaVersion = 1;
+    for (const task of legacy.entities.tasks) delete task.progress;
+    await storage.save(legacy as never);
+
+    const store = makeStore(storage);
+    await store.getState().init();
+    expect(store.getState().status).toBe('needs-upgrade');
+    await store.getState().upgrade();
+    expect(store.getState().status).toBe('ready');
+    expect(store.getState().workspace!.schemaVersion).toBe(CURRENT_SCHEMA_VERSION);
+    expect(await storage.loadBackup('workspace.v1.bak.json')).toEqual(legacy);
+    expect((await storage.load()) as { schemaVersion: number }).toMatchObject({
+      schemaVersion: CURRENT_SCHEMA_VERSION,
+    });
   });
 });
 
@@ -176,5 +254,101 @@ describe('device ids', () => {
     expect(deviceId(storage)).toBe(first);
     expect(deviceId(null)).toMatch(/^[A-Za-z0-9]{8}$/);
     expect(randomId(4, () => 0)).toBe('AAAA');
+  });
+
+  it('keeps a change made while a save is waiting on storage', async () => {
+    const memory = createMemoryStorage();
+    let release: () => void = () => undefined;
+    let slow = false;
+    // A storage whose reads can be held open, like a busy IndexedDB.
+    const storage: StorageAdapter = {
+      ...memory,
+      load: async () => {
+        if (slow) await new Promise<void>((resolve) => (release = resolve));
+        return memory.load();
+      },
+    };
+    const store = makeStore(storage);
+    await store.getState().init();
+    const first = addTask(store, 'First');
+    slow = true;
+    const saving = store.getState().flush();
+    // The save is waiting on storage; a change comes in now.
+    const second = addTask(store, 'Second');
+    release();
+    await saving;
+    const titles = () =>
+      store
+        .getState()
+        .workspace!.entities.tasks.map((task) => task.title)
+        .sort();
+    expect(titles()).toEqual(['First', 'Second']);
+    slow = false;
+    await vi.advanceTimersByTimeAsync(150);
+    const stored = (await memory.load()) as { entities: { tasks: { id: string }[] } };
+    expect(stored.entities.tasks.map((task) => task.id).sort()).toEqual([first, second].sort());
+  });
+
+  describe('closing the page before a save finishes', () => {
+    it('keeps the change through the journal', async () => {
+      const storage = createMemoryStorage();
+      const journal = memoryJournal();
+      const store = makeStore(storage, 'tabA', journal);
+      await store.getState().init();
+      const id = addTask(store, 'Delete me later');
+      await store.getState().flush();
+      store.getState().apply((ctx, ws) => updateTask(ctx, ws, id, { title: 'Renamed' }));
+      // The page goes away: only the synchronous journal write happens.
+      store.getState().journal();
+      expect(JSON.parse(journal.text!).entities.tasks).toHaveLength(1);
+
+      const reopened = makeStore(storage, 'tabA2', journal);
+      await reopened.getState().init();
+      expect(getEntity(reopened.getState().workspace!, 'tasks', id)?.title).toBe('Renamed');
+      // Saved for real, then the journal goes.
+      await vi.advanceTimersByTimeAsync(150);
+      expect(journal.text).toBeNull();
+      const stored = (await storage.load()) as { entities: { tasks: { title: string }[] } };
+      expect(stored.entities.tasks.map((task) => task.title)).toEqual(['Renamed']);
+    });
+
+    it('writes nothing when everything is saved', async () => {
+      const journal = memoryJournal();
+      const store = makeStore(createMemoryStorage(), 'tabA', journal);
+      await store.getState().init();
+      store.getState().journal();
+      expect(journal.text).toBeNull();
+    });
+
+    it("another tab's save takes the journal in instead of losing it", async () => {
+      const storage = createMemoryStorage();
+      const journal = memoryJournal();
+      const closing = makeStore(storage, 'tabA', journal);
+      await closing.getState().init();
+      const open = makeStore(storage, 'tabB', journal);
+      await open.getState().init();
+      const id = addTask(closing, 'From the closing tab');
+      closing.getState().journal();
+
+      addTask(open, 'From the open tab');
+      await open.getState().flush();
+      expect(journal.text).toBeNull();
+      const stored = (await storage.load()) as { entities: { tasks: { id: string }[] } };
+      expect(stored.entities.tasks.map((task) => task.id)).toContain(id);
+    });
+
+    it('ignores a journal left by another account', async () => {
+      const journal = memoryJournal();
+      journal.write(
+        JSON.stringify({
+          owner: 'someone-else',
+          schemaVersion: CURRENT_SCHEMA_VERSION,
+          entities: {},
+        }),
+      );
+      const store = makeStore(createMemoryStorage(), 'tabA', journal);
+      await store.getState().init();
+      expect(store.getState().status).toBe('ready');
+    });
   });
 });

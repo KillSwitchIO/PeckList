@@ -14,7 +14,11 @@ export function StoreProvider({
 }) {
   useEffect(() => {
     void store.getState().init();
-    const flush = () => void store.getState().flush();
+    // The page may be going away: note unsaved changes synchronously, then start the save.
+    const flush = () => {
+      store.getState().journal();
+      void store.getState().flush();
+    };
     const onHide = () => {
       if (document.visibilityState === 'hidden') flush();
     };

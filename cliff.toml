@@ -1,0 +1,61 @@
+# git-cliff: CHANGELOG.md from Conventional Commits (https://git-cliff.org).
+#   pnpm changelog          regenerate it, with what is not released yet under Unreleased
+#   pnpm release <version>  used by the release script; see docs/development/releasing.md
+
+[changelog]
+header = """
+# Changelog
+
+All notable changes to Punchlist. Generated from [Conventional Commits](https://www.conventionalcommits.org/)
+by `pnpm changelog`; the version follows [Semantic Versioning](https://semver.org/). Before 1.0.0 a
+minor release may break things; every break is listed under **Breaking changes** with what to do.
+
+"""
+body = """
+{%- macro line(commit) -%}
+- {% if commit.scope %}**{{ commit.scope }}:** {% endif %}{{ commit.message | split(pat="\n") | first | upper_first | trim }}
+{%- endmacro -%}
+
+{% if version -%}
+## [{{ version | trim_start_matches(pat="v") | split(pat="+") | first }}] - {{ timestamp | date(format="%Y-%m-%d") }}
+{% else -%}
+## Unreleased
+{% endif -%}
+{%- set breaking = commits | filter(attribute="breaking", value=true) -%}
+{% if breaking | length > 0 %}
+### Breaking changes
+{% for commit in breaking %}
+{{ self::line(commit=commit) }}{% if commit.breaking_description and commit.breaking_description != commit.message %}. {{ commit.breaking_description | split(pat="\n") | join(sep=" ") | trim | upper_first }}{% endif %}
+{%- endfor %}
+{% endif -%}
+{% for group, commits in commits | group_by(attribute="group") %}
+### {{ group | striptags | trim }}
+{% for commit in commits %}
+{{ self::line(commit=commit) }}
+{%- endfor %}
+{% endfor %}
+
+"""
+footer = ""
+trim = true
+
+[git]
+conventional_commits = true
+filter_unconventional = true
+split_commits = false
+protect_breaking_commits = true
+filter_commits = false
+# Release tags carry the date as build metadata: v0.2.0+20261023.
+tag_pattern = "^v[0-9]+\\.[0-9]+\\.[0-9]+"
+topo_order = false
+sort_commits = "oldest"
+commit_parsers = [
+  { message = "^chore\\(release\\)", skip = true },
+  { message = "^feat", group = "<!-- 0 -->Added" },
+  { message = "^fix", group = "<!-- 1 -->Fixed" },
+  { message = "^perf", group = "<!-- 2 -->Performance" },
+  { message = "^security", group = "<!-- 3 -->Security" },
+  { message = "^docs", group = "<!-- 4 -->Documentation" },
+  { message = "^refactor", group = "<!-- 5 -->Changed" },
+  { message = "^(test|ci|build|chore|style)", skip = true },
+]

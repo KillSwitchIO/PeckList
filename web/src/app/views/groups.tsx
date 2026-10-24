@@ -1,4 +1,6 @@
+import { pinnedFirst } from '../../core/tasks.ts';
 import { Button } from '@mui/material';
+import { sortTasks, type ListSort } from '../../core/listView.ts';
 import { useState } from 'react';
 import {
   filterClosedTasks,
@@ -106,26 +108,44 @@ function groupTitle(group: DateGroup, today: string): string {
   }
 }
 
+/** Pinned tasks, on top of a view, oldest pin first (spec: PL-089). */
+export function PinnedGroup({ tasks, showList = false }: { tasks: Task[]; showList?: boolean }) {
+  if (tasks.length === 0) return null;
+  return (
+    <GroupSection title={t('group.pinned')} count={tasks.length}>
+      <TaskTree tasks={tasks} showList={showList} />
+    </GroupSection>
+  );
+}
+
 /**
  * A filter's tasks in date groups (Overdue, Today, Tomorrow, Next 7 days, Later, No date) as
- * task trees, then Completed (the last few, then View more). Used by All, lists and tags.
+ * task trees, then Completed (the last few, then View more). Pinned ones come first, in their
+ * own group. Used by All, lists and tags.
  */
 export function DateGroupedTasks({
   filter,
   showList = false,
   emptyTitle,
+  sort = 'manual',
 }: {
   filter: TaskFilter;
   showList?: boolean;
   emptyTitle: string;
+  /** Within each date group; `manual` keeps the usual (time, priority, then own order). */
+  sort?: ListSort;
 }) {
   const workspace = useWorkspace();
   const today = useToday();
-  const groups = groupByDate(workspace, filterTasks(workspace, filter, today), today);
+  const { pinned, rest } = pinnedFirst(filterTasks(workspace, filter, today));
+  const groups = groupByDate(workspace, rest, today);
   const closed = filterClosedTasks(workspace, filter, today);
   return (
     <>
-      {groups.length === 0 && closed.length === 0 && <EmptyState title={emptyTitle} />}
+      {groups.length === 0 && pinned.length === 0 && closed.length === 0 && (
+        <EmptyState title={emptyTitle} />
+      )}
+      <PinnedGroup tasks={pinned} showList={showList} />
       {groups.map((group) => (
         <GroupSection
           key={group.key}
@@ -135,7 +155,11 @@ export function DateGroupedTasks({
             ? { actions: <PostponeButton tasks={group.tasks} today={today} /> }
             : {})}
         >
-          <TaskTree tasks={group.tasks} showList={showList} ownPlace={hasOwnDate} />
+          <TaskTree
+            tasks={sort === 'manual' ? group.tasks : sortTasks(group.tasks, sort)}
+            showList={showList}
+            ownPlace={hasOwnDate}
+          />
         </GroupSection>
       ))}
       <CompletedGroup tasks={closed} showList={showList} />

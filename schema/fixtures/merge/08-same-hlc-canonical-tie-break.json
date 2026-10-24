@@ -1,0 +1,40 @@
+{
+  "description": "Same HLC, different object values: the larger canonical JSON (keys sorted) wins, whatever order the keys arrived in",
+  "collection": "tasks",
+  "a": [
+    {
+      "id": "01JBTASK000000000000000001",
+      "schedule": {
+        "start": "2026-11-03",
+        "allDay": false
+      },
+      "_hlc": {
+        "schedule": "2026-10-20T16:00:00.000Z-0000-a"
+      }
+    }
+  ],
+  "b": [
+    {
+      "id": "01JBTASK000000000000000001",
+      "schedule": {
+        "allDay": true,
+        "start": "2026-11-02"
+      },
+      "_hlc": {
+        "schedule": "2026-10-20T16:00:00.000Z-0000-a"
+      }
+    }
+  ],
+  "expected": [
+    {
+      "id": "01JBTASK000000000000000001",
+      "schedule": {
+        "allDay": true,
+        "start": "2026-11-02"
+      },
+      "_hlc": {
+        "schedule": "2026-10-20T16:00:00.000Z-0000-a"
+      }
+    }
+  ]
+}

@@ -3,7 +3,13 @@ import { join } from 'node:path';
 import fc from 'fast-check';
 import { describe, expect, it } from 'vitest';
 import { sampleTask, testContext } from '../test/fixtures.ts';
-import { mergeCollection, mergeElementSets, mergeEntity, mergeWorkspaces } from './merge.ts';
+import {
+  canonicalJson,
+  mergeCollection,
+  mergeElementSets,
+  mergeEntity,
+  mergeWorkspaces,
+} from './merge.ts';
 import { setElement, softDelete, updateEntity, type OpContext } from './ops.ts';
 import { ELEMENT_SET_FIELDS, type BaseEntity, type CollectionName, type Task } from './types.ts';
 import { createWorkspace } from './workspace.ts';
@@ -62,6 +68,19 @@ describe('mergeEntity', () => {
   });
 });
 
+describe('canonicalJson', () => {
+  it('sorts keys at every depth and matches JSON.stringify otherwise', () => {
+    expect(canonicalJson({ b: 1, a: { d: [true, null], c: 'x' } })).toBe(
+      '{"a":{"c":"x","d":[true,null]},"b":1}',
+    );
+    expect(canonicalJson('quote " and \\ and \n and é')).toBe(
+      JSON.stringify('quote " and \\ and \n and é'),
+    );
+    expect(canonicalJson({ skipped: undefined, kept: 0 })).toBe('{"kept":0}');
+    expect(canonicalJson(undefined)).toBe('null');
+  });
+});
+
 describe('mergeElementSets', () => {
   it('handles missing sets', () => {
     expect(mergeElementSets(undefined, undefined)).toEqual({});
@@ -86,7 +105,9 @@ describe('mergeWorkspaces', () => {
     expect(() => mergeWorkspaces(base, { ...base, owner: 'someone-else' })).toThrow(
       'different owners',
     );
-    expect(() => mergeWorkspaces(base, { ...base, schemaVersion: 2 })).toThrow('schema versions');
+    expect(() => mergeWorkspaces(base, { ...base, schemaVersion: base.schemaVersion + 1 })).toThrow(
+      'schema versions',
+    );
   });
 });
 

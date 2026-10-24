@@ -14,6 +14,8 @@ export function DateProperty({
   placeholder,
   valueColor,
   allowRange = false,
+  compact = false,
+  inline = false,
   onChange,
 }: {
   label: string;
@@ -24,6 +26,10 @@ export function DateProperty({
   valueColor?: string;
   /** Offer Duration (a start and an end) next to a single date */
   allowRange?: boolean;
+  /** Half-width row (see PropertyRow); empty, it shows just its label. */
+  compact?: boolean;
+  /** Icon and value only (see PropertyRow); empty, it shows the placeholder. */
+  inline?: boolean;
   onChange: (value: DateValue | null) => void;
 }) {
   const [anchor, setAnchor] = useState<HTMLElement | null>(null);
@@ -45,11 +51,15 @@ export function DateProperty({
         icon={icon}
         ariaValue={display}
         iconColor={value ? (valueColor ?? 'text.secondary') : 'text.secondary'}
+        compact={compact}
+        inline={inline}
         onClick={setAnchor}
       >
-        <Typography sx={{ color: value ? (valueColor ?? 'text.primary') : 'text.disabled' }}>
-          {display}
-        </Typography>
+        {(value || !compact) && (
+          <Typography sx={{ color: value ? (valueColor ?? 'text.primary') : 'text.disabled' }}>
+            {display}
+          </Typography>
+        )}
       </PropertyRow>
       <PropertySheet label={label} anchor={anchor} onClose={close}>
         {anchor && (

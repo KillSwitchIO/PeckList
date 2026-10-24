@@ -2,8 +2,19 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import { VitePWA } from 'vite-plugin-pwa';
+import pkg from './package.json' with { type: 'json' };
+
+// The version the app shows under its menu: what a release or CI build stamps (the Dockerfile's
+// VERSION), else package.json's. A plain dev stamp falls back too.
+const stamped = process.env.PUNCHLIST_VERSION;
+const version = stamped && !stamped.startsWith('0.0.0') ? stamped : pkg.version;
+const revision = (process.env.PUNCHLIST_REVISION ?? '').slice(0, 7);
 
 export default defineConfig({
+  define: {
+    __APP_VERSION__: JSON.stringify(version),
+    __APP_REVISION__: JSON.stringify(/^[0-9a-f]{7}$/.test(revision) ? revision : ''),
+  },
   // Vite's default 5173 often falls inside a port range Windows reserves for Hyper-V/WSL.
   server: {
     port: 6173,
@@ -11,6 +22,16 @@ export default defineConfig({
     // Native file events on Windows miss edits (branch switches, scripted edits, the pre-commit
     // hook rewriting files), leaving the browser on stale modules. Polling is reliable there.
     ...(process.platform === 'win32' ? { watch: { usePolling: true, interval: 300 } } : {}),
+    // `PUNCHLIST_SERVER=http://localhost:5000 pnpm dev` talks to a running server; without it the
+    // app runs standalone, as a static PWA does.
+    ...(process.env.PUNCHLIST_SERVER
+      ? {
+          proxy: {
+            '/api': { target: process.env.PUNCHLIST_SERVER, changeOrigin: true },
+            '/auth': { target: process.env.PUNCHLIST_SERVER, changeOrigin: true },
+          },
+        }
+      : {}),
   },
   preview: { port: 6174, strictPort: true },
   plugins: [

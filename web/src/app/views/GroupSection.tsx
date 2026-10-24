@@ -1,6 +1,6 @@
 import ExpandMoreRounded from '@mui/icons-material/ExpandMoreRounded';
 import { Box, ButtonBase, Collapse, Typography } from '@mui/material';
-import { useState, type ReactNode } from 'react';
+import { useState, type HTMLAttributes, type ReactNode } from 'react';
 
 /**
  * A collapsible group of tasks: "⌄ Overdue 1 ........ Postpone". The header is a level-2
@@ -11,18 +11,21 @@ export function GroupSection({
   count,
   actions,
   defaultOpen = true,
+  headerProps,
   children,
 }: {
   title: string;
   count?: number;
   actions?: ReactNode;
   defaultOpen?: boolean;
+  /** Extra props on the header row (a drag handle for sections). */
+  headerProps?: HTMLAttributes<HTMLDivElement> & Record<`data-${string}`, string>;
   children: ReactNode;
 }) {
   const [open, setOpen] = useState(defaultOpen);
   return (
     <Box component="section" sx={{ mt: 2 }}>
-      <Box sx={{ display: 'flex', alignItems: 'center', minHeight: 32 }}>
+      <Box {...headerProps} sx={{ display: 'flex', alignItems: 'center', minHeight: 32 }}>
         <Typography component="h2" variant="subtitle2" sx={{ flexGrow: 1, m: 0 }}>
           <ButtonBase
             onClick={() => setOpen((value) => !value)}

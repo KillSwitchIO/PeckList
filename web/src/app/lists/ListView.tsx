@@ -1,106 +1,175 @@
-import AddRounded from '@mui/icons-material/AddRounded';
 import ArchiveRounded from '@mui/icons-material/ArchiveRounded';
+import UnarchiveRounded from '@mui/icons-material/UnarchiveRounded';
 import CheckRounded from '@mui/icons-material/CheckRounded';
 import DeleteOutlineRounded from '@mui/icons-material/DeleteOutlineRounded';
 import EditRounded from '@mui/icons-material/EditRounded';
-import EventRounded from '@mui/icons-material/EventRounded';
 import MoreVertRounded from '@mui/icons-material/MoreVertRounded';
-import PlaylistAddRounded from '@mui/icons-material/PlaylistAddRounded';
-import ViewAgendaOutlined from '@mui/icons-material/ViewAgendaOutlined';
-import { Divider, IconButton, Menu, MenuItem, Tooltip } from '@mui/material';
+import {
+  Alert,
+  Button,
+  IconButton,
+  ListSubheader,
+  Menu,
+  MenuItem,
+  Tooltip,
+  Typography,
+} from '@mui/material';
 import { useState } from 'react';
 import { useNavigate, useParams } from 'react-router';
 import { getEntity, isLive } from '../../core/collections.ts';
-import {
-  createSection,
-  deleteList,
-  deleteSection,
-  inboxList,
-  renameSection,
-  updateList,
-} from '../../core/lists.ts';
+import { deleteList, inboxList, updateList } from '../../core/lists.ts';
 import { filterClosedTasks } from '../../core/filters.ts';
 import { listTasks } from '../../core/queries.ts';
-import type { List, Section } from '../../core/types.ts';
+import {
+  groupByPriority,
+  groupByTag,
+  LIST_GROUPINGS,
+  LIST_SORTS,
+  sortTasks,
+} from '../../core/listView.ts';
+import type { List } from '../../core/types.ts';
 import { t } from '../i18n/i18n.ts';
 import { Page } from '../layout/Page.tsx';
-import { useApply, useWorkspace } from '../store/hooks.ts';
+import { useApply, useStoreState, useWorkspace } from '../store/hooks.ts';
 import { AddTaskInput } from '../tasks/AddTaskInput.tsx';
+import { TaskDragProvider } from '../tasks/drag/TaskDrag.tsx';
 import { TaskTree } from '../tasks/TaskTree.tsx';
 import { EmptyState } from '../views/EmptyState.tsx';
 import { GroupSection } from '../views/GroupSection.tsx';
-import { CompletedGroup, DateGroupedTasks } from '../views/groups.tsx';
+import { CompletedGroup, DateGroupedTasks, PinnedGroup } from '../views/groups.tsx';
+import { pinnedFirst } from '../../core/tasks.ts';
 import { useToday } from '../hooks/useToday.ts';
-import { useListGrouping, type ListGrouping } from './listGrouping.ts';
-import { ConfirmDialog, ListDialog, NameDialog } from './ListDialog.tsx';
+import { useListView, type ListViewSettings } from './listGrouping.ts';
+import { ConfirmDialog, ListDialog } from './ListDialog.tsx';
+import { ShareDialog } from './ShareDialog.tsx';
+import { listMembersOf, myRole, type Role } from '../../core/sharing.ts';
+import { ShareIcon, SortGroupIcon } from '../icons/icons.tsx';
+import { useSyncState } from '../sync/syncContext.ts';
 import { listName } from './listName.ts';
 
 function ListMenu({
   list,
-  grouping,
-  onGrouping,
+  role,
+  view,
 }: {
   list: List;
-  grouping: ListGrouping;
-  onGrouping: (next: ListGrouping) => void;
+  /** My role on the list: only its owner changes it. */
+  role: Role | null;
+  view: ListViewSettings;
 }) {
   const apply = useApply();
   const navigate = useNavigate();
   const [anchor, setAnchor] = useState<HTMLElement | null>(null);
-  const [dialog, setDialog] = useState<'edit' | 'section' | 'delete' | null>(null);
+  const [sortAnchor, setSortAnchor] = useState<HTMLElement | null>(null);
+  const [dialog, setDialog] = useState<'edit' | 'delete' | 'share' | null>(null);
   const close = () => setAnchor(null);
+  const closeSort = () => setSortAnchor(null);
+  const workspace = useWorkspace();
+  const phase = useSyncState((state) => state.phase);
+  const authMode = useSyncState((state) => state.account?.authMode);
+  // Sharing needs a server with accounts; the Mess Drawer is never shared.
+  const canShare = phase === 'ready' && authMode === 'local' && !list.isInbox;
+  const shared = listMembersOf(workspace, list.id).length;
+  const owner = role === 'owner';
   return (
     <>
-      <Tooltip title={t('common.more')} disableFocusListener>
-        <IconButton
-          aria-label={t('common.more')}
-          onClick={(event) => setAnchor(event.currentTarget)}
+      {canShare && (
+        <Tooltip
+          title={
+            shared === 0
+              ? t('share.button')
+              : shared === 1
+                ? t('share.sharedOne')
+                : t('share.sharedMany', { count: shared })
+          }
+          disableFocusListener
         >
-          <MoreVertRounded />
+          <IconButton
+            aria-label={t('share.button')}
+            onClick={() => setDialog('share')}
+            sx={{ color: shared > 0 ? 'primary.main' : undefined }}
+          >
+            <ShareIcon />
+          </IconButton>
+        </Tooltip>
+      )}
+      <Tooltip title={t('list.sortAndGroup')} disableFocusListener>
+        <IconButton
+          aria-label={t('list.sortAndGroup')}
+          onClick={(event) => setSortAnchor(event.currentTarget)}
+        >
+          <SortGroupIcon />
         </IconButton>
       </Tooltip>
-      <Menu anchorEl={anchor} open={anchor !== null} onClose={close}>
-        {(['date', 'section'] as const).map((mode) => (
+      {owner && !list.isInbox && (
+        <Tooltip title={t('common.more')} disableFocusListener>
+          <IconButton
+            aria-label={t('common.more')}
+            onClick={(event) => setAnchor(event.currentTarget)}
+          >
+            <MoreVertRounded />
+          </IconButton>
+        </Tooltip>
+      )}
+      <Menu anchorEl={sortAnchor} open={sortAnchor !== null} onClose={closeSort}>
+        <ListSubheader sx={{ lineHeight: '32px', bgcolor: 'transparent' }}>
+          {t('list.groupBy')}
+        </ListSubheader>
+        {LIST_GROUPINGS.map((mode) => (
           <MenuItem
-            key={mode}
-            selected={grouping === mode}
+            key={`group-${mode}`}
+            dense
+            aria-label={t('list.groupByOption', { name: t(`list.group.${mode}`).toLowerCase() })}
+            selected={view.grouping === mode}
             onClick={() => {
-              close();
-              onGrouping(mode);
+              closeSort();
+              view.setGrouping(mode);
             }}
           >
-            {mode === 'date' ? (
-              <EventRounded fontSize="small" sx={{ mr: 1 }} />
-            ) : (
-              <ViewAgendaOutlined fontSize="small" sx={{ mr: 1 }} />
-            )}
-            {mode === 'date' ? t('list.groupByDate') : t('list.groupBySection')}
-            {grouping === mode && <CheckRounded fontSize="small" sx={{ ml: 'auto', pl: 1 }} />}
+            {t(`list.group.${mode}`)}
+            {view.grouping === mode && <CheckRounded fontSize="small" sx={{ ml: 'auto', pl: 1 }} />}
           </MenuItem>
         ))}
-        <Divider />
-        <MenuItem
-          onClick={() => {
-            close();
-            setDialog('edit');
-          }}
-        >
-          <EditRounded fontSize="small" sx={{ mr: 1 }} />
-          {t('list.edit')}
-        </MenuItem>
-        <MenuItem
-          onClick={() => {
-            close();
-            setDialog('section');
-          }}
-        >
-          <PlaylistAddRounded fontSize="small" sx={{ mr: 1 }} />
-          {t('list.addSection')}
-        </MenuItem>
-        {!list.isInbox && (
+        <ListSubheader sx={{ lineHeight: '32px', bgcolor: 'transparent' }}>
+          {t('list.sortBy')}
+        </ListSubheader>
+        {LIST_SORTS.map((mode) => (
+          <MenuItem
+            key={`sort-${mode}`}
+            dense
+            aria-label={t('list.sortByOption', { name: t(`list.sort.${mode}`).toLowerCase() })}
+            selected={view.sort === mode}
+            onClick={() => {
+              closeSort();
+              view.setSort(mode);
+            }}
+          >
+            {t(`list.sort.${mode}`)}
+            {view.sort === mode && <CheckRounded fontSize="small" sx={{ ml: 'auto', pl: 1 }} />}
+          </MenuItem>
+        ))}
+      </Menu>
+      <Menu anchorEl={anchor} open={anchor !== null} onClose={close}>
+        {/* The Mess Drawer has a fixed name and no color: nothing to edit. */}
+        {owner && !list.isInbox && (
           <MenuItem
             onClick={() => {
               close();
+              setDialog('edit');
+            }}
+          >
+            <EditRounded fontSize="small" sx={{ mr: 1 }} />
+            {t('list.edit')}
+          </MenuItem>
+        )}
+        {owner && !list.isInbox && (
+          <MenuItem
+            onClick={() => {
+              close();
+              if (list.archived) {
+                apply((ctx, ws) => updateList(ctx, ws, list.id, { archived: false }));
+                return;
+              }
               apply(
                 (ctx, ws) => updateList(ctx, ws, list.id, { archived: true }),
                 t('undo.listArchived'),
@@ -108,11 +177,15 @@ function ListMenu({
               void navigate('/inbox');
             }}
           >
-            <ArchiveRounded fontSize="small" sx={{ mr: 1 }} />
-            {t('list.archive')}
+            {list.archived ? (
+              <UnarchiveRounded fontSize="small" sx={{ mr: 1 }} />
+            ) : (
+              <ArchiveRounded fontSize="small" sx={{ mr: 1 }} />
+            )}
+            {list.archived ? t('list.unarchive') : t('list.archive')}
           </MenuItem>
         )}
-        {!list.isInbox && (
+        {owner && !list.isInbox && (
           <MenuItem
             onClick={() => {
               close();
@@ -124,6 +197,7 @@ function ListMenu({
           </MenuItem>
         )}
       </Menu>
+      {dialog === 'share' && <ShareDialog list={list} onClose={() => setDialog(null)} />}
       {dialog === 'edit' && (
         <ListDialog
           open
@@ -135,25 +209,10 @@ function ListMenu({
           }}
         />
       )}
-      {dialog === 'section' && (
-        <NameDialog
-          open
-          title={t('list.addSection')}
-          label={t('list.sectionName')}
-          submitLabel={t('common.create')}
-          onClose={() => setDialog(null)}
-          onSubmit={(name) => {
-            apply((ctx, ws) => createSection(ctx, ws, list.id, name).workspace);
-            setDialog(null);
-            // A new section only shows when grouping by section.
-            onGrouping('section');
-          }}
-        />
-      )}
       {dialog === 'delete' && (
         <ConfirmDialog
           open
-          message={t('list.deleteConfirm', { name: listName(list) })}
+          message={t('list.deleteConfirm', { name: listName(list, workspace) })}
           confirmLabel={t('common.delete')}
           onClose={() => setDialog(null)}
           onConfirm={() => {
@@ -167,108 +226,116 @@ function ListMenu({
   );
 }
 
-function SectionActions({ section, onAdd }: { section: Section; onAdd: () => void }) {
-  const apply = useApply();
-  const [anchor, setAnchor] = useState<HTMLElement | null>(null);
-  const [renaming, setRenaming] = useState(false);
-  return (
-    <>
-      <IconButton size="small" aria-label={`${t('task.add')}: ${section.name}`} onClick={onAdd}>
-        <AddRounded fontSize="small" />
-      </IconButton>
-      <IconButton
-        size="small"
-        aria-label={`${t('common.more')}: ${section.name}`}
-        onClick={(event) => setAnchor(event.currentTarget)}
-      >
-        <MoreVertRounded fontSize="small" />
-      </IconButton>
-      <Menu anchorEl={anchor} open={anchor !== null} onClose={() => setAnchor(null)}>
-        <MenuItem
-          onClick={() => {
-            setAnchor(null);
-            setRenaming(true);
-          }}
-        >
-          {t('common.rename')}
-        </MenuItem>
-        <MenuItem
-          onClick={() => {
-            setAnchor(null);
-            apply((ctx, ws) => deleteSection(ctx, ws, section.id), t('undo.sectionDeleted'));
-          }}
-        >
-          {t('list.deleteSection')}
-        </MenuItem>
-      </Menu>
-      {renaming && (
-        <NameDialog
-          open
-          title={t('common.rename')}
-          label={t('list.sectionName')}
-          initial={section.name}
-          submitLabel={t('common.save')}
-          onClose={() => setRenaming(false)}
-          onSubmit={(name) => {
-            apply((ctx, ws) => renameSection(ctx, ws, section.id, name));
-            setRenaming(false);
-          }}
-        />
-      )}
-    </>
-  );
-}
-
 export function ListContents({ list }: { list: List }) {
   const workspace = useWorkspace();
+  const apply = useApply();
   const today = useToday();
-  const [addingTo, setAddingTo] = useState<string | null>(null);
-  const groups = listTasks(workspace, list.id);
-  const [grouping, setGrouping] = useListGrouping(list.id, groups.length > 1);
+  const me = useStoreState((state) => state.context().userId);
+  const role = myRole(workspace, me, list.id);
+  const canEdit = role === 'owner' || role === 'editor';
+  const { pinned, rest: tasks } = pinnedFirst(listTasks(workspace, list.id));
+  const view = useListView(list.id);
+  const { grouping, sort } = view;
   const filter = { lists: [list.id] };
   const completed = filterClosedTasks(workspace, filter, today);
-  const empty = groups.every((group) => group.tasks.length === 0);
 
-  const header = (
+  const archivedBar = list.archived && (
+    <Alert
+      severity="info"
+      variant="outlined"
+      icon={<ArchiveRounded fontSize="small" />}
+      sx={{ mb: 1.5, alignItems: 'center' }}
+      {...(role === 'owner'
+        ? {
+            action: (
+              <Button
+                size="small"
+                onClick={() =>
+                  apply((ctx, ws) => updateList(ctx, ws, list.id, { archived: false }))
+                }
+              >
+                {t('list.unarchive')}
+              </Button>
+            ),
+          }
+        : {})}
+    >
+      {t('list.archivedNote')}
+    </Alert>
+  );
+  const header = canEdit ? (
     <AddTaskInput
       defaults={{ listId: list.id }}
-      label={t('task.addTo', { list: listName(list) })}
+      label={t('task.addTo', { list: listName(list, workspace) })}
     />
+  ) : (
+    <Typography variant="body2" color="text.secondary" sx={{ px: 1, pb: 1 }}>
+      {t('share.viewerNote')}
+    </Typography>
   );
-  const actions = <ListMenu list={list} grouping={grouping} onGrouping={setGrouping} />;
+  const actions = <ListMenu list={list} role={role} view={view} />;
 
   if (grouping === 'date') {
     return (
-      <Page title={listName(list)} actions={actions}>
+      <Page title={listName(list, workspace)} actions={actions}>
+        {archivedBar}
         {header}
-        <DateGroupedTasks filter={filter} emptyTitle={t('list.empty')} />
+        <DateGroupedTasks filter={filter} emptyTitle={t('list.empty')} sort={sort} />
       </Page>
     );
   }
 
-  return (
-    <Page title={listName(list)} actions={actions}>
-      {header}
-      {empty && groups.length === 1 && completed.length === 0 && (
-        <EmptyState title={t('list.empty')} />
-      )}
-      {groups.map((group) => {
-        const section = group.sectionId ? getEntity(workspace, 'sections', group.sectionId) : null;
-        if (!section) return <TaskTree key="none" tasks={group.tasks} />;
-        return (
-          <GroupSection
-            key={section.id}
-            title={section.name}
-            count={group.tasks.length}
-            actions={<SectionActions section={section} onAdd={() => setAddingTo(section.id)} />}
-          >
-            {addingTo === section.id && (
-              <AddTaskInput defaults={{ listId: list.id, sectionId: section.id }} autoFocus />
-            )}
+  if (grouping === 'priority' || grouping === 'tag') {
+    // Groups the list's own order does not make: no dragging here.
+    const open = sortTasks(tasks, sort);
+    const grouped =
+      grouping === 'priority'
+        ? groupByPriority(open).map((group) => ({
+            ...group,
+            title: group.priority ? t(`priority.${group.priority}`) : t('list.noPriority'),
+          }))
+        : groupByTag(workspace, open).map((group) => ({
+            ...group,
+            title: group.name ?? t('list.noTags'),
+          }));
+    return (
+      <Page title={listName(list, workspace)} actions={actions}>
+        {archivedBar}
+        {header}
+        {open.length === 0 && pinned.length === 0 && completed.length === 0 && (
+          <EmptyState title={t('list.empty')} />
+        )}
+        <PinnedGroup tasks={pinned} />
+        {grouped.map((group) => (
+          <GroupSection key={group.key} title={group.title} count={group.tasks.length}>
             <TaskTree tasks={group.tasks} />
           </GroupSection>
-        );
-      })}
+        ))}
+        <CompletedGroup tasks={completed} />
+      </Page>
+    );
+  }
+
+  // The list's own order: tasks are dragged in it, when sorted by it.
+  const draggable = canEdit && sort === 'manual';
+  const shown = sort === 'manual' ? tasks : sortTasks(tasks, sort);
+  const content = (
+    <>
+      {tasks.length === 0 && pinned.length === 0 && completed.length === 0 && (
+        <EmptyState title={t('list.empty')} />
+      )}
+      <PinnedGroup tasks={pinned} />
+      {shown.length > 0 && (
+        <TaskTree tasks={shown} {...(draggable ? { dragZone: { listId: list.id } } : {})} />
+      )}
+    </>
+  );
+
+  return (
+    <Page title={listName(list, workspace)} actions={actions}>
+      {archivedBar}
+      {header}
+      {draggable ? <TaskDragProvider>{content}</TaskDragProvider> : content}
       <CompletedGroup tasks={completed} />
     </Page>
   );

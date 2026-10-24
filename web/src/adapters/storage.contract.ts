@@ -40,6 +40,30 @@ export function describeStorageContract(
       expect(await storage.load()).toBeNull();
     });
 
+    it('keeps backups apart from the workspace', async () => {
+      const storage = await create();
+      const workspace = sampleWorkspace();
+      await storage.save(workspace);
+      await storage.backup('workspace.v1.bak.json', { schemaVersion: 1, note: 'old' });
+      expect(await storage.load()).toEqual(workspace);
+      expect(await storage.loadBackup('workspace.v1.bak.json')).toEqual({
+        schemaVersion: 1,
+        note: 'old',
+      });
+      expect(await storage.loadBackup('missing')).toBeNull();
+    });
+
+    it('keeps device metadata apart from the workspace, surviving a clear', async () => {
+      const storage = await create();
+      const workspace = sampleWorkspace();
+      await storage.save(workspace);
+      expect(await storage.loadMeta('sync')).toBeNull();
+      await storage.saveMeta('sync', { cursor: 7, acks: { T1: 'x' } });
+      await storage.saveMeta('sync', { cursor: 8, acks: {} });
+      expect(await storage.loadMeta('sync')).toEqual({ cursor: 8, acks: {} });
+      expect(await storage.load()).toEqual(workspace);
+    });
+
     it('returns a copy, not a live reference', async () => {
       const storage = await create();
       const workspace = sampleWorkspace();

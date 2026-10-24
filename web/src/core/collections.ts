@@ -3,12 +3,39 @@
 import { compareHlc } from './hlc.ts';
 import { COLLECTIONS, type CollectionName, type EntityMap, type WorkspaceFile } from './types.ts';
 
+/**
+ * Where each id sits in a collection array, built once per array. Workspaces are immutable (every
+ * change makes new arrays), so an array's positions stay right; a changed length rebuilds them,
+ * and a lookup that misses its slot falls back to a scan, so hand-edited documents still work.
+ */
+const positions = new WeakMap<
+  readonly { id: string }[],
+  { length: number; at: Map<string, number> }
+>();
+
+function positionsOf(list: readonly { id: string }[]): Map<string, number> {
+  let index = positions.get(list);
+  if (!index || index.length !== list.length) {
+    const at = new Map<string, number>();
+    list.forEach((entity, i) => {
+      if (!at.has(entity.id)) at.set(entity.id, i);
+    });
+    index = { length: list.length, at };
+    positions.set(list, index);
+  }
+  return index.at;
+}
+
 export function getEntity<K extends CollectionName>(
   workspace: WorkspaceFile,
   collection: K,
   id: string,
 ): EntityMap[K] | undefined {
-  return (workspace.entities[collection] as EntityMap[K][]).find((entity) => entity.id === id);
+  const list = workspace.entities[collection] as EntityMap[K][];
+  const at = positionsOf(list).get(id);
+  const found = at === undefined ? undefined : list[at];
+  if (found?.id === id) return found;
+  return at === undefined ? undefined : list.find((entity) => entity.id === id);
 }
 
 export function requireEntity<K extends CollectionName>(

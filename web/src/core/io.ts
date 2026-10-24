@@ -8,7 +8,8 @@ import {
   MIGRATIONS,
   CURRENT_SCHEMA_VERSION,
 } from './migrations.ts';
-import type { WorkspaceFile } from './types.ts';
+import { joinAccount, type SyncChange } from './sync.ts';
+import { COLLECTIONS, type WorkspaceFile } from './types.ts';
 
 export type OpenResult =
   | { kind: 'ok'; workspace: WorkspaceFile }
@@ -73,4 +74,32 @@ export function upgradeDocument(
     return { kind: 'invalid', errors: [error instanceof Error ? error.message : String(error)] };
   }
   return openDocument(upgraded, validator, target);
+}
+
+/**
+ * An exported file brought into this device's data. Same-id entities merge field by field (the
+ * newer edit wins, so nothing here is overwritten by an older copy). A file from another person or
+ * device becomes this owner's: its own Mess Drawer, settings and profile give way to this one's,
+ * and the Mess Drawer's tasks move into this one's.
+ */
+export function importWorkspace(current: WorkspaceFile, incoming: WorkspaceFile): WorkspaceFile {
+  const here: SyncChange[] = COLLECTIONS.flatMap((collection) =>
+    current.entities[collection].map((entity) => ({ collection, entity })),
+  );
+  const joined = joinAccount(incoming, current.owner, here);
+  return { ...current, entities: joined.entities };
+}
+
+/** How many live entities of each kind `after` has that `before` did not. */
+export function importCounts(
+  before: WorkspaceFile,
+  after: WorkspaceFile,
+): { tasks: number; lists: number; tags: number } {
+  const added = (collection: 'tasks' | 'lists' | 'tags') => {
+    const known = new Set(before.entities[collection].map((entity) => entity.id));
+    return after.entities[collection].filter(
+      (entity) => !known.has(entity.id) && entity.deletedAt === null,
+    ).length;
+  };
+  return { tasks: added('tasks'), lists: added('lists'), tags: added('tags') };
 }

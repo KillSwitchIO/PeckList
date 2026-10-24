@@ -1,8 +1,8 @@
-import { screen, waitFor, within } from '@testing-library/react';
+import { fireEvent, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { inboxList } from '../../core/lists.ts';
-import { todayIn } from '../../core/dates.ts';
+import { localTimeZone, todayIn } from '../../core/dates.ts';
 import { createTag } from '../../core/tags.ts';
 import { createTask, setTaskTag } from '../../core/tasks.ts';
 import { mockViewport, renderApp, testStore } from '../../test/renderApp.tsx';
@@ -278,5 +278,28 @@ describe('subtasks in date views', () => {
     });
     const row = await screen.findByRole('button', { name: 'Open Call airline' });
     expect(within(row).getByTestId('task-meta')).toHaveTextContent('Plan trip');
+  });
+});
+
+describe('subtask lines in details', () => {
+  it('show the start date on the right and open the task menu on right-click', async () => {
+    const store = testStore();
+    await renderApp('/inbox', store);
+    const today = todayIn(localTimeZone(), Date.now());
+    store.getState().apply((ctx, ws) => {
+      const listId = inboxList(ws).id;
+      const trip = createTask(ctx, ws, { title: 'Plan trip', listId });
+      return createTask(ctx, trip.workspace, {
+        title: 'Book flights',
+        listId,
+        parentId: trip.task.id,
+        schedule: { start: today, end: null, allDay: true, timeZone: 'UTC' },
+      }).workspace;
+    });
+    await userEvent.click(await screen.findByRole('button', { name: 'Open Plan trip' }));
+    const details = await screen.findByRole('region', { name: 'Task details' });
+    expect(within(details).getByTestId('subtask-date')).toHaveTextContent('Today');
+    fireEvent.contextMenu(within(details).getByDisplayValue('Book flights'));
+    expect(await screen.findByRole('menuitem', { name: "Won't do" })).toBeInTheDocument();
   });
 });

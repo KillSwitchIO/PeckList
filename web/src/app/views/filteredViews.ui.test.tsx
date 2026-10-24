@@ -1,4 +1,4 @@
-import { fireEvent, screen, waitFor, within } from '@testing-library/react';
+import { act, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { addDays, localTimeZone, todayIn } from '../../core/dates.ts';
@@ -65,7 +65,7 @@ describe('date-grouped views', () => {
     expect(headings[0]).toMatch(/^Overdue/);
     expect(headings[1]).toMatch(/Today/);
     expect(headings[2]).toMatch(/Tomorrow/);
-    expect(headings.slice(3)).toEqual(['Next 7 days1', 'Later1', 'No date2', 'Completed6']);
+    expect(headings.slice(3)).toEqual(['Next 7 days1', 'Later1', 'No date2', 'Closed6']);
     // Only the last five completed, then View more.
     expect(screen.getAllByRole('checkbox', { name: /^Reopen done/ })).toHaveLength(5);
     await userEvent.click(screen.getByRole('button', { name: 'View more' }));
@@ -99,17 +99,47 @@ describe('date-grouped views', () => {
     expect(screen.queryByRole('button', { name: 'Open undated' })).toBeNull();
     expect(screen.queryByRole('button', { name: 'Open next month' })).toBeNull();
   });
+});
 
-  it('a list can switch to section grouping, and adding a section switches to it', async () => {
+describe('list sort and group options', () => {
+  it('groups a list by tag or not at all, and sorts by title', async () => {
     await renderSeeded('/inbox');
     await screen.findByRole('button', { name: 'Open undated' });
-    await userEvent.click(screen.getByRole('button', { name: 'More actions' }));
-    await userEvent.click(screen.getByRole('menuitem', { name: 'Group by section' }));
-    expect(groupHeadings()).not.toContain('No date1');
-    expect(groupHeadings()).toContain('Completed6');
-    await userEvent.click(screen.getByRole('button', { name: 'More actions' }));
-    await userEvent.click(screen.getByRole('menuitem', { name: 'Group by date' }));
-    expect(groupHeadings()).toContain('No date1');
+    await userEvent.click(screen.getByRole('button', { name: 'Sort and group' }));
+    await userEvent.click(screen.getByRole('menuitem', { name: 'Group by tag' }));
+    expect(groupHeadings()).toEqual(expect.arrayContaining(['home2', 'No tags4']));
+
+    await userEvent.click(screen.getByRole('button', { name: 'Sort and group' }));
+    await userEvent.click(screen.getByRole('menuitem', { name: 'Group by none' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Sort and group' }));
+    await userEvent.click(screen.getByRole('menuitem', { name: 'Sort by title' }));
+    const titles = screen
+      .getAllByRole('button', { name: /^Open / })
+      .map((row) => row.getAttribute('aria-label')!.slice(5))
+      .filter((title) => !title.startsWith('done'));
+    expect(titles).toEqual([
+      'in four days',
+      'next month',
+      'overdue',
+      'today',
+      'tomorrow',
+      'undated',
+    ]);
+
+    // Remembered for the list.
+    const nav = screen.getAllByRole('navigation')[0]!;
+    await userEvent.click(within(nav).getByRole('button', { name: /^Today/ }));
+    await userEvent.click(within(nav).getByRole('button', { name: /^Mess Drawer/ }));
+    await userEvent.click(await screen.findByRole('button', { name: 'Sort and group' }));
+    expect(screen.getByRole('menuitem', { name: 'Sort by title' })).toHaveClass('Mui-selected');
+  });
+
+  it('groups by priority, high first', async () => {
+    await renderSeeded('/inbox');
+    await screen.findByRole('button', { name: 'Open undated' });
+    await userEvent.click(screen.getByRole('button', { name: 'Sort and group' }));
+    await userEvent.click(screen.getByRole('menuitem', { name: 'Group by priority' }));
+    expect(groupHeadings()).toContain('No priority6');
   });
 });
 
@@ -126,6 +156,19 @@ describe('task menu', () => {
     // tomorrow keeps its own date, so it stays in Tomorrow and names its parent.
     const moved = screen.getByRole('button', { name: 'Open tomorrow' });
     expect(within(moved).getByTestId('task-meta')).toHaveTextContent('undated');
+  });
+
+  it('moves a task to another list from the menu (also the long-press menu on touch)', async () => {
+    await renderSeeded('/inbox');
+    const row = await screen.findByRole('button', { name: 'Open tomorrow' });
+    fireEvent.contextMenu(row);
+    await userEvent.click(screen.getByRole('menuitem', { name: 'Move to list...' }));
+    const dialog = screen.getByRole('dialog', { name: 'Move "tomorrow" to' });
+    // The list it is on is not offered.
+    expect(within(dialog).queryByRole('button', { name: 'Mess Drawer' })).toBeNull();
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Work' }));
+    expect(screen.getByText('Moved to Work')).toBeInTheDocument();
+    await waitFor(() => expect(screen.queryByRole('button', { name: 'Open tomorrow' })).toBeNull());
   });
 
   it('offers the same actions from the details panel', async () => {
@@ -177,5 +220,30 @@ describe('list names on rows', () => {
     expect(await meta('Child')).toHaveTextContent('Me');
     // On its own day: names both its parent and its list.
     expect(await meta('Later child')).toHaveTextContent('ParentMe');
+  });
+});
+
+describe('long lists', () => {
+  // Drawing 230 rows in jsdom takes seconds, more under coverage: past the 5 s default.
+  it('draws the first 200 rows and more on asking', { timeout: 30_000 }, async () => {
+    const store = testStore();
+    await renderApp('/inbox', store);
+    act(() =>
+      store.getState().apply((ctx, ws) => {
+        let next = ws;
+        for (let i = 0; i < 230; i += 1) {
+          next = createTask(ctx, next, {
+            title: `Task ${i}`,
+            listId: inboxList(next).id,
+          }).workspace;
+        }
+        return next;
+      }),
+    );
+    const rows = () => document.querySelectorAll('main [data-task-row]').length;
+    await waitFor(() => expect(rows()).toBe(200), { timeout: 20_000 });
+    await userEvent.click(screen.getByRole('button', { name: 'Show 30 more' }));
+    expect(rows()).toBe(230);
+    expect(screen.queryByRole('button', { name: /^Show \d+ more$/ })).toBeNull();
   });
 });

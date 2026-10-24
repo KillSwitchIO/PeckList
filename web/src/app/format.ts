@@ -22,11 +22,26 @@ export function formatDay(date: string, today: string, locale?: string): string 
   }).format(toDate(date));
 }
 
-/**
- * Display a 24-hour `HH:mm`. Standard (12-hour) clock by default; a Settings toggle for the
- * 24-hour clock is planned (PL-025).
- */
-export function formatTime(time: string, locale?: string, hour12 = true): string {
+// How the user likes dates shown (Settings, PL-025): set from the open workspace's settings
+// (WorkspaceTheme) before anything renders, like the locale.
+const display = { clock24: false, weekStart: 0 as 0 | 1 };
+
+export function setDisplayPreferences(settings: {
+  clockFormat?: '12h' | '24h' | undefined;
+  weekStart?: 0 | 1 | undefined;
+}) {
+  display.clock24 = settings.clockFormat === '24h';
+  display.weekStart = settings.weekStart ?? 0;
+}
+
+/** Whether times show on a 24-hour clock. */
+export const clockIs24 = () => display.clock24;
+
+/** The first day of the week in calendars: 0 Sunday, 1 Monday. */
+export const weekStart = () => display.weekStart;
+
+/** Display a 24-hour `HH:mm` on the user's clock: "9:00 AM", or "09:00" on a 24-hour clock. */
+export function formatTime(time: string, locale?: string, hour12 = !display.clock24): string {
   const [h, m] = time.split(':').map(Number) as [number, number];
   return new Intl.DateTimeFormat(locale, {
     timeZone: 'UTC',
@@ -54,4 +69,12 @@ export function formatSpan(start: string, end: string, today: string, locale?: s
     return endTime ? `${startText} - ${formatTime(endTime, locale)}` : startText;
   }
   return `${startText} - ${formatWhen(end, today, locale)}`;
+}
+
+/** A size for display: "512 B", "12 KB", "3.4 MB". */
+export function formatBytes(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`;
+  if (bytes < 1024 * 1024 * 1024) return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
+  return `${(bytes / 1024 / 1024 / 1024).toFixed(1)} GB`;
 }

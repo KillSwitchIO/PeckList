@@ -4,6 +4,8 @@ import type { StorageAdapter } from '../ports/storage.ts';
 /** In-memory storage for tests and for running without persistence. */
 export function createMemoryStorage(): StorageAdapter {
   let stored: string | null = null;
+  const backups = new Map<string, string>();
+  const meta = new Map<string, string>();
   return {
     kind: 'memory',
     load: () => Promise.resolve(stored === null ? null : (JSON.parse(stored) as unknown)),
@@ -13,6 +15,22 @@ export function createMemoryStorage(): StorageAdapter {
     },
     clear: () => {
       stored = null;
+      return Promise.resolve();
+    },
+    backup: (name: string, document: unknown) => {
+      backups.set(name, JSON.stringify(document));
+      return Promise.resolve();
+    },
+    loadBackup: (name: string) => {
+      const text = backups.get(name);
+      return Promise.resolve(text === undefined ? null : (JSON.parse(text) as unknown));
+    },
+    loadMeta: (key: string) => {
+      const text = meta.get(key);
+      return Promise.resolve(text === undefined ? null : (JSON.parse(text) as unknown));
+    },
+    saveMeta: (key: string, value: unknown) => {
+      meta.set(key, JSON.stringify(value));
       return Promise.resolve();
     },
   };

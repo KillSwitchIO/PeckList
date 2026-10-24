@@ -13,10 +13,29 @@ const browsers = (process.env.E2E_BROWSERS ?? 'chrome,firefox')
   .split(',')
   .map((name) => name.trim());
 
+// CI points these at the distribution's own browsers and drivers (Chromium, Firefox ESR);
+// unset, WebdriverIO finds or fetches them itself.
+const { CHROME_BIN, CHROMEDRIVER_BIN, FIREFOX_BIN } = process.env;
 const headless: Record<string, Record<string, unknown>> = {
-  chrome: { 'goog:chromeOptions': { args: ['--headless=new', '--window-size=1400,900'] } },
+  chrome: {
+    'goog:chromeOptions': {
+      args: [
+        '--headless=new',
+        '--window-size=1400,900',
+        // Root in a container has no sandbox to drop into.
+        ...(process.env.CI ? ['--no-sandbox', '--disable-dev-shm-usage'] : []),
+      ],
+      ...(CHROME_BIN ? { binary: CHROME_BIN } : {}),
+    },
+    ...(CHROMEDRIVER_BIN ? { 'wdio:chromedriverOptions': { binary: CHROMEDRIVER_BIN } } : {}),
+  },
   edge: { 'ms:edgeOptions': { args: ['--headless=new', '--window-size=1400,900'] } },
-  firefox: { 'moz:firefoxOptions': { args: ['-headless', '--width=1400', '--height=900'] } },
+  firefox: {
+    'moz:firefoxOptions': {
+      args: ['-headless', '--width=1400', '--height=900'],
+      ...(FIREFOX_BIN ? { binary: FIREFOX_BIN } : {}),
+    },
+  },
 };
 const browserName: Record<string, string> = {
   chrome: 'chrome',
@@ -77,7 +96,8 @@ export const config: WebdriverIO.Config = {
       shell: process.platform === 'win32',
       detached: process.platform !== 'win32',
     });
-    await waitForServer(baseUrl, 30_000);
+    // A cold container takes a while to start vite.
+    await waitForServer(baseUrl, 90_000);
   },
   onComplete() {
     stopPreview();

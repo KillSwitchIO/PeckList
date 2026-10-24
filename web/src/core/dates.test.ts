@@ -8,6 +8,9 @@ import {
   monthOf,
   shiftMonths,
   weekday,
+  deviceTimeZone,
+  localTimeZone,
+  setTimeZone,
 } from './dates.ts';
 
 describe('calendar helpers', () => {
@@ -50,5 +53,17 @@ describe('shiftMonths', () => {
     expect(shiftMonths('2026-01-31', 1)).toBe('2026-02-28');
     expect(shiftMonths('2028-01-31', 1)).toBe('2028-02-29');
     expect(shiftMonths('2026-12-15', 1)).toBe('2027-01-15');
+  });
+});
+
+describe('the chosen time zone', () => {
+  it('stands in for the device zone, ignores unknown names, and goes back on null', () => {
+    const device = deviceTimeZone();
+    setTimeZone('Asia/Tokyo');
+    expect(localTimeZone()).toBe('Asia/Tokyo');
+    setTimeZone('Not/AZone');
+    expect(localTimeZone()).toBe(device);
+    setTimeZone(null);
+    expect(localTimeZone()).toBe(device);
   });
 });

@@ -1,14 +1,102 @@
 // Schema versions and migrations. `schemaVersion` is an integer; every schema change bumps
 // it and registers a migration from N-1 to N, with fixtures in schema/fixtures/migrations.
 
-export const CURRENT_SCHEMA_VERSION = 1;
+import { keyBetween } from './ordering.ts';
+
+export const CURRENT_SCHEMA_VERSION = 8;
 
 export type Migration = (document: Record<string, unknown>) => Record<string, unknown>;
 
 /** Migration registry: key N migrates a version N-1 document to version N. */
 export type MigrationRegistry = Readonly<Record<number, Migration>>;
 
-export const MIGRATIONS: MigrationRegistry = {};
+export const MIGRATIONS: MigrationRegistry = {
+  // 2: tasks gain `progress` (percent done, 0 = none).
+  2: (document) => {
+    const entities = document.entities as Record<string, unknown[]> | undefined;
+    if (!entities || !Array.isArray(entities.tasks)) return document;
+    return {
+      ...document,
+      entities: {
+        ...entities,
+        tasks: entities.tasks.map((task) => ({ ...(task as object), progress: 0 })),
+      },
+    };
+  },
+  // 3: settings gain the sidebar layout (the default one).
+  3: (document) => {
+    const entities = document.entities as Record<string, unknown[]> | undefined;
+    if (!entities || !Array.isArray(entities.settings)) return document;
+    return {
+      ...document,
+      entities: {
+        ...entities,
+        settings: entities.settings.map((settings) => ({
+          ...(settings as object),
+          sidebar: {
+            order: [
+              'today',
+              'inbox',
+              'upcoming',
+              'all',
+              'calendar',
+              '@group',
+              'completed',
+              'trash',
+            ],
+            hidden: [],
+            groupOpen: false,
+          },
+        })),
+      },
+    };
+  },
+  // 4: tags gain an order; they keep the alphabetical order (by path) they had.
+  4: (document) => {
+    const entities = document.entities as Record<string, unknown[]> | undefined;
+    if (!entities || !Array.isArray(entities.tags)) return document;
+    const tags = entities.tags as { name: string }[];
+    const segments = (name: string) => name.toLowerCase().split('/');
+    const byPath = [...tags].sort((a, b) => {
+      const left = segments(a.name);
+      const right = segments(b.name);
+      for (let i = 0; i < Math.min(left.length, right.length); i++) {
+        const order = left[i]!.localeCompare(right[i]!);
+        if (order !== 0) return order;
+      }
+      return left.length - right.length;
+    });
+    const orders = new Map<object, string>();
+    let previous: string | null = null;
+    for (const tag of byPath) {
+      previous = keyBetween(previous, null);
+      orders.set(tag, previous);
+    }
+    return {
+      ...document,
+      entities: { ...entities, tags: tags.map((tag) => ({ ...tag, order: orders.get(tag) })) },
+    };
+  },
+  // 5: settings may hold clockFormat and weekStart. Both are optional (a missing one means the
+  // default: 12-hour clock, Sunday), so documents change only in version; older apps must not
+  // open version 5 files, which may carry them.
+  5: (document) => document,
+  // 6: friendships may hold madeBy (the admin who made it, with their name). Optional, so
+  // documents change only in version.
+  6: (document) => document,
+  // 7: comments on tasks, a new collection (empty to start with).
+  7: (document) => {
+    const entities = document.entities as Record<string, unknown[]> | undefined;
+    if (!entities) return document;
+    return { ...document, entities: { ...entities, comments: entities.comments ?? [] } };
+  },
+  // 8: files on tasks, a new collection (empty to start with).
+  8: (document) => {
+    const entities = document.entities as Record<string, unknown[]> | undefined;
+    if (!entities) return document;
+    return { ...document, entities: { ...entities, attachments: entities.attachments ?? [] } };
+  },
+};
 
 export type VersionCheck =
   | { kind: 'open'; version: number }

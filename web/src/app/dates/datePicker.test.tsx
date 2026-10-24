@@ -156,6 +156,16 @@ describe('DatePickerPanel', () => {
     expect(onApply).toHaveBeenCalledWith({ date: '2026-10-23', time: '09:30' });
   });
 
+  it('selects the typed time on focus, so typing replaces it', async () => {
+    const { onApply } = setup({ date: '2026-10-23', time: '09:00' });
+    await userEvent.click(screen.getByRole('button', { name: /Time/ }));
+    const field = screen.getByLabelText('Time');
+    await userEvent.click(field);
+    await userEvent.keyboard('1030');
+    await userEvent.click(screen.getByRole('button', { name: 'OK' }));
+    expect(onApply).toHaveBeenCalledWith({ date: '2026-10-23', time: '10:30' });
+  });
+
   it('picking a time with no date uses today; time can be removed', async () => {
     const { onApply } = setup();
     await userEvent.click(screen.getByRole('button', { name: /Time/ }));

@@ -8,6 +8,7 @@ import {
   useTheme,
 } from '@mui/material';
 import type { ReactNode } from 'react';
+import { useReadOnly } from './readOnly.ts';
 
 /** A task property row in the details panel: "icon  Label ........ value". */
 export function PropertyRow({
@@ -15,6 +16,8 @@ export function PropertyRow({
   icon,
   ariaValue,
   iconColor = 'text.secondary',
+  compact = false,
+  inline = false,
   onClick,
   children,
 }: {
@@ -23,19 +26,27 @@ export function PropertyRow({
   /** Text read out after the label, e.g. "Date: Tomorrow" */
   ariaValue: string;
   iconColor?: string;
+  /** Half-width: the label takes only the room it needs and the value truncates. */
+  compact?: boolean;
+  /** Icon and value only, sized to its content (the label stays in the accessible name). */
+  inline?: boolean;
   onClick: (anchor: HTMLElement) => void;
   children: ReactNode;
 }) {
+  // Shown, not changed, on a task I can only view.
+  const readOnly = useReadOnly();
   return (
     <ButtonBase
+      disabled={readOnly}
       onClick={(event) => onClick(event.currentTarget)}
       aria-haspopup="dialog"
       aria-label={`${label}: ${ariaValue}`}
       sx={{
-        width: '100%',
+        width: inline ? 'auto' : '100%',
+        minWidth: 0,
         display: 'flex',
         alignItems: 'center',
-        gap: 1.5,
+        gap: inline ? 1 : 1.5,
         px: 1,
         py: 1,
         borderRadius: 2,
@@ -43,10 +54,26 @@ export function PropertyRow({
       }}
     >
       <Box sx={{ display: 'flex', color: iconColor }}>{icon}</Box>
-      <Typography color="text.secondary" sx={{ width: 84, flexShrink: 0, textAlign: 'left' }}>
-        {label}
-      </Typography>
-      <Box sx={{ flexGrow: 1, minWidth: 0, textAlign: 'left' }}>{children}</Box>
+      {!inline && (
+        <Typography
+          color="text.secondary"
+          sx={{ width: compact ? 'auto' : 84, flexShrink: 0, textAlign: 'left' }}
+        >
+          {label}
+        </Typography>
+      )}
+      <Box
+        sx={{
+          flexGrow: 1,
+          minWidth: 0,
+          textAlign: 'left',
+          ...((compact || inline) && {
+            '& > *': { overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
+          }),
+        }}
+      >
+        {children}
+      </Box>
     </ButtonBase>
   );
 }

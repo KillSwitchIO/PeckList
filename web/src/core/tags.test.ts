@@ -8,6 +8,7 @@ import { COLOR_FAMILIES } from './palette.ts';
 import { completedTagTasks, openTagCounts, tagTasks } from './queries.ts';
 import {
   createTag,
+  moveTagNames,
   deleteTag,
   findTagByName,
   isUnder,
@@ -157,12 +158,13 @@ describe('nested tags', () => {
     const tree = tagTree(ws).map(
       (node) => `${'  '.repeat(node.depth)}${node.tag.name}${node.hasChildren ? '/' : ''}`,
     );
+    // Siblings keep the order they were made in (new tags go last).
     expect(tree).toEqual([
-      'home/',
-      '  home/attic',
-      '  home/yard',
       'work/meetings/',
       '  work/meetings/weekly',
+      'home/',
+      '  home/yard',
+      '  home/attic',
     ]);
   });
 
@@ -227,5 +229,32 @@ describe('maxHlc', () => {
     const { workspace, task } = createTask(ctx, ws, { title: 't', listId: inboxList(ws).id });
     const tagged = setTaskTag(ctx, workspace, task.id, 'a', true);
     expect(maxHlc(tagged)).toBe(getEntity(tagged, 'tasks', task.id)!.tags.a!.hlc);
+  });
+});
+
+describe('moving tags to another parent', () => {
+  const tags = [
+    { id: 'h', name: 'home' },
+    { id: 'y', name: 'home/yard' },
+    { id: 'b', name: 'home/yard/beds' },
+    { id: 'w', name: 'work' },
+    { id: 'wy', name: 'work/yard' },
+  ];
+
+  it('renames the tag and its subtags under the new parent', () => {
+    expect(moveTagNames(tags, 'h', 'w')).toEqual(
+      new Map([
+        ['h', 'work/home'],
+        ['y', 'work/home/yard'],
+        ['b', 'work/home/yard/beds'],
+      ]),
+    );
+    expect(moveTagNames(tags, 'b', null)).toEqual(new Map([['b', 'beds']]));
+    expect(moveTagNames(tags, 'y', 'h')).toEqual(new Map());
+  });
+
+  it('refuses a move into itself or onto a name in use', () => {
+    expect(moveTagNames(tags, 'h', 'b')).toBeNull();
+    expect(moveTagNames(tags, 'y', 'w')).toBeNull();
   });
 });

@@ -1,0 +1,189 @@
+# Command line
+
+The server program is also the maintenance tool. Every command reads the same settings as the
+server (environment, `CONFIG_FILE`), and works while the server runs.
+
+=== "Docker"
+
+    ```bash
+    docker exec punchlist punchlist <command>
+    docker exec -it punchlist punchlist <command>     # for commands that read input
+    ```
+
+=== "Linux"
+
+    ```bash
+    sudo -u punchlist env DB_PATH=/var/lib/punchlist/punchlist.db CONFIG_FILE=/etc/punchlist/punchlist.conf \
+      /opt/punchlist/punchlist <command>
+    ```
+
+    Or the wrapper from [Linux](../install/linux.md#day-to-day).
+
+=== "Windows"
+
+    ```powershell
+    $env:DB_PATH = 'C:\ProgramData\Punchlist\punchlist.db'
+    $env:CONFIG_FILE = 'C:\ProgramData\Punchlist\punchlist.conf'
+    & 'C:\Program Files\Punchlist\punchlist.exe' <command>
+    ```
+
+Run with no command (or one the program does not know as a command), it starts the server. Exit
+codes: `0` done, `1` the command failed (the reason is printed), `2` invalid settings.
+
+`punchlist help` prints the summary below; this page has the detail. A check in CI keeps this page
+listing every command.
+
+```text
+--8<-- "docs/reference/cli-usage.txt"
+```
+
+## Backups
+
+### `export`
+
+```bash
+punchlist export [file]
+punchlist export --user <username> [file]
+```
+
+Writes a full backup (every account and all data) as JSON, to the file or to standard output. With
+`--user`, only that person's data. See [backups](../guides/backups.md).
+
+### `import`
+
+```bash
+punchlist import <file> [--replace]
+punchlist import --user <file> [username]
+```
+
+Loads a full backup into an **empty** database; `--replace` deletes what is there first. With
+`--user`, puts one person back as the file had them; from a whole-server backup, say who. Restart
+the server afterwards.
+
+### `snapshot`
+
+Takes a snapshot now, into `SNAPSHOT_DIR`, and prunes old ones to `SNAPSHOT_KEEP`.
+
+## Database
+
+### `migrate-db`
+
+```bash
+punchlist migrate-db --to sqlite --path <file>
+punchlist migrate-db --to postgres --connection "<connection string>"
+```
+
+Copies everything into another, empty database. Then point `DB_PROVIDER` (and `DB_PATH` or
+`DB_CONNECTION_STRING`) at it and restart. See [database](../configuration/database.md).
+
+### `upgrade-db`
+
+Applies database schema upgrades and exits. For servers running with `DB_MIGRATE_ON_START=false`,
+whose own database user may not change the schema: run this with one that may, before starting a
+new version.
+
+## Accounts
+
+### `admin reset-password`
+
+```bash
+punchlist admin reset-password [username]     # default: admin
+```
+
+Prints a new password that must be changed at the next sign-in, and ends the account's other
+sessions.
+
+### `admin add-user`
+
+```bash
+punchlist admin add-user <username> [--admin]
+```
+
+Adds an account (a `user`, or an `admin` with `--admin`) and prints its password, to be changed at
+the first sign-in.
+
+### `admin set-role`
+
+```bash
+punchlist admin set-role <username> <user|admin|superadmin>
+```
+
+Changes a role; it applies from the person's next request. The last super admin cannot be demoted.
+
+### `admin login-link`
+
+```bash
+punchlist admin login-link <username>
+```
+
+Prints a link that signs the person in once, within 24 hours. For someone with no password and no
+working provider. Uses `PUBLIC_URL` for the address.
+
+## Single sign-on
+
+### `oidc unlink`
+
+```bash
+punchlist oidc unlink <username> [provider]
+```
+
+Detaches a person's provider accounts: all of them, or one provider's.
+
+### `oidc unbind-all`
+
+```bash
+punchlist oidc unbind-all <provider>
+```
+
+Detaches every account from a provider (when moving to another). Accounts and data stay.
+
+### `oidc migration-window`
+
+```bash
+punchlist oidc migration-window <provider> <hours>
+punchlist oidc migration-window <provider> close
+```
+
+Until it closes, a first sign-in through the provider joins the account with the same username.
+See [moving to another provider](../guides/single-sign-on.md#moving-to-another-provider).
+
+## Settings
+
+### `config show`
+
+Every setting, its value (secrets hidden) and where it comes from.
+
+### `config key`
+
+Prints a new `CONFIG_KEY` for [encrypted values](../configuration/index.md#encrypted-values).
+
+### `config encrypt`
+
+```bash
+punchlist config encrypt 'the secret'
+echo -n 'the secret' | punchlist config encrypt
+```
+
+Prints the value encrypted with `CONFIG_KEY` (`enc:v1:...`), for the environment or the settings
+file. Reading from standard input keeps the secret out of your shell history.
+
+## Diagnostics
+
+### `debug-dump`
+
+```bash
+punchlist debug-dump [file]
+```
+
+Writes a zip for bug reports: recent logs, settings (secrets hidden), version, time zone, database
+counts and health; to standard output without a file. See
+[debug dump](../guides/logging.md#debug-dump).
+
+### `healthcheck`
+
+Exits 0 when the running server answers `/healthz` on `ASPNETCORE_HTTP_PORTS`. The image's own
+health check.
+
+### `--version`
+
+Prints the version and the commit it was built from: `punchlist 0.2.0+4f1c2e9...`.

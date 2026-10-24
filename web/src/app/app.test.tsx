@@ -1,7 +1,8 @@
-import { screen, within } from '@testing-library/react';
+import { fireEvent, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { mockViewport, renderApp } from '../test/renderApp.tsx';
+import { createTag } from '../core/tags.ts';
+import { mockViewport, renderApp, testStore } from '../test/renderApp.tsx';
 import { setLocale, t } from './i18n/i18n.ts';
 import { activeItem, SIDEBAR_ITEMS } from './layout/navigation.tsx';
 
@@ -33,34 +34,123 @@ describe('app shell', () => {
     expect(screen.queryByRole('button', { name: t('nav.openMenu') })).not.toBeInTheDocument();
     await userEvent.click(screen.getByRole('button', { name: 'Calendar' }));
     expect(screen.getByRole('heading', { level: 1, name: 'Calendar' })).toBeInTheDocument();
-    expect(screen.getByText('This view arrives in milestone 0.3.')).toBeInTheDocument();
+    // On a phone the unscheduled tasks wait in a drawer.
+    expect(screen.getByRole('button', { name: 'Unscheduled' })).toBeInTheDocument();
+  });
+
+  it('gives phones a + button that opens the add-task field', async () => {
+    mockViewport('phone');
+    await renderApp('/today');
+    await userEvent.click(screen.getByRole('button', { name: 'Add a task' }));
+    expect(document.activeElement).toBe(document.querySelector('input[data-add-task]'));
+
+    // A page without an add field: on to the Inbox's.
+    await userEvent.click(screen.getByRole('button', { name: 'Calendar' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Add a task' }));
+    expect(
+      await screen.findByRole('heading', { level: 1, name: 'Mess Drawer' }),
+    ).toBeInTheDocument();
+    await waitFor(() =>
+      expect(document.activeElement).toBe(document.querySelector('input[data-add-task]')),
+    );
   });
 
   it('opens a drawer from the menu button on tablets', async () => {
     mockViewport('tablet');
     await renderApp('/today');
     await userEvent.click(screen.getByRole('button', { name: t('nav.openMenu') }));
+    // Trash sits in the collapsed "More" group.
+    await userEvent.click(await screen.findByRole('button', { name: /^More/ }));
     await userEvent.click(await screen.findByText('Trash'));
     // The drawer hides the page from assistive tech until its exit transition ends.
     expect(await screen.findByRole('heading', { level: 1, name: 'Trash' })).toBeInTheDocument();
   });
 
-  it('cycles the theme mode and remembers it', async () => {
-    mockViewport('desktop', true);
+  it('edits the sidebar: hide a view, Done saves, Cancel drops', async () => {
+    mockViewport('desktop');
     await renderApp('/today');
-    const toggle = screen.getByRole('button', { name: /switch theme \(currently system\)/i });
-    await userEvent.click(toggle);
-    expect(screen.getByRole('button', { name: /currently light/i })).toBeInTheDocument();
-    expect(localStorage.getItem('punchlist.themeMode')).toBe('light');
-    await userEvent.click(screen.getByRole('button', { name: /currently light/i }));
-    expect(screen.getByRole('button', { name: /currently dark/i })).toBeInTheDocument();
+    const nav = screen.getAllByRole('navigation')[0]!;
+    // Right-click (like a hold or a drag) starts editing.
+    fireEvent.contextMenu(within(nav).getByText('Calendar'));
+    const bar = within(nav).getByRole('toolbar', { name: 'Edit sidebar' });
+    await userEvent.click(within(nav).getByRole('button', { name: 'Hide Calendar' }));
+    await userEvent.click(within(bar).getByRole('button', { name: 'Done' }));
+    expect(within(nav).queryByText('Calendar')).toBeNull();
+    expect(screen.getByText('Sidebar updated')).toBeInTheDocument();
+
+    // Show it again, then cancel: it stays hidden.
+    fireEvent.contextMenu(within(nav).getByText('Today'));
+    await userEvent.click(within(nav).getByRole('button', { name: 'Show Calendar' }));
+    await userEvent.click(within(nav).getByRole('button', { name: 'Cancel' }));
+    expect(within(nav).queryByText('Calendar')).toBeNull();
+    expect(within(nav).queryByRole('toolbar', { name: 'Edit sidebar' })).toBeNull();
+
+    // Reset brings back the default layout (Calendar shown) once saved.
+    fireEvent.contextMenu(within(nav).getByText('Today'));
+    await userEvent.click(within(nav).getByRole('button', { name: 'Reset' }));
+    await userEvent.click(within(nav).getByRole('button', { name: 'Done' }));
+    expect(within(nav).getByText('Calendar')).toBeInTheDocument();
   });
 
-  it('restores a stored theme mode', async () => {
+  it('makes a saved filter from sidebar editing and opens it', async () => {
+    mockViewport('desktop');
+    await renderApp('/today');
+    const nav = screen.getAllByRole('navigation')[0]!;
+    fireEvent.contextMenu(within(nav).getByText('All'));
+    await userEvent.click(within(nav).getByRole('button', { name: 'New filter' }));
+    const dialog = await screen.findByRole('dialog', { name: 'New filter' });
+    await userEvent.type(within(dialog).getByLabelText('Name'), 'Urgent');
+    await userEvent.click(within(dialog).getByRole('button', { name: 'High' }));
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Create filter' }));
+    expect(await screen.findByRole('heading', { level: 1, name: 'Urgent' })).toBeInTheDocument();
+    await userEvent.click(within(nav).getByRole('button', { name: 'Done' }));
+    expect(within(nav).getByText('Urgent')).toBeInTheDocument();
+  });
+
+  it('pins a nested tag to the top with its whole path, then unpins it', async () => {
+    mockViewport('desktop');
+    const store = testStore();
+    await renderApp('/today', store);
+    store.getState().apply((ctx, ws) => createTag(ctx, ws, 'home/yard').workspace);
+    const nav = screen.getAllByRole('navigation')[0]!;
+    fireEvent.contextMenu(within(nav).getByText('Today'));
+    await userEvent.click(within(nav).getByRole('button', { name: 'Pin home/yard' }));
+    await userEvent.click(within(nav).getByRole('button', { name: 'Done' }));
+    // Shown in both places: pinned at the top (full path) and in the tag tree.
+    expect(within(nav).getByTitle('home/yard')).toBeInTheDocument();
+    expect(within(nav).getByText('yard')).toBeInTheDocument();
+
+    fireEvent.contextMenu(within(nav).getByText('Today'));
+    await userEvent.click(within(nav).getAllByRole('button', { name: 'Unpin home/yard' })[0]!);
+    await userEvent.click(within(nav).getByRole('button', { name: 'Done' }));
+    expect(within(nav).queryByTitle('home/yard')).toBeNull();
+  });
+
+  it('picks the theme in settings and remembers it, with no theme button in the top bar', async () => {
+    mockViewport('desktop', true);
+    await renderApp('/settings');
+    expect(screen.queryByRole('button', { name: /switch theme/i })).not.toBeInTheDocument();
+    const theme = screen.getByRole('group', { name: 'Theme' });
+    expect(within(theme).getByRole('button', { name: 'System' })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    );
+    await userEvent.click(within(theme).getByRole('button', { name: 'Light' }));
+    expect(localStorage.getItem('punchlist.themeMode')).toBe('light');
+    expect(within(theme).getByRole('button', { name: 'Light' })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    );
+  });
+
+  it('carries a theme mode picked in this browser into the synced settings', async () => {
     mockViewport('desktop');
     localStorage.setItem('punchlist.themeMode', 'dark');
-    await renderApp('/today');
-    expect(screen.getByRole('button', { name: /currently dark/i })).toBeInTheDocument();
+    const store = testStore();
+    await renderApp('/today', store);
+    await waitFor(() =>
+      expect(store.getState().workspace!.entities.settings[0]!.themeMode).toBe('dark'),
+    );
   });
 
   it('shows a not-found page', async () => {
@@ -75,11 +165,11 @@ describe('stable frame', () => {
     mockViewport('desktop');
     await renderApp('/today');
     const nav = screen.getAllByRole('navigation')[0]!;
-    const toggle = screen.getByRole('button', { name: /switch theme/i });
+    const profile = screen.getByRole('button', { name: /account/i });
     await userEvent.click(within(nav).getByText('Mess Drawer'));
     await screen.findByRole('heading', { level: 1, name: 'Mess Drawer' });
     expect(screen.getAllByRole('navigation')[0]).toBe(nav);
-    expect(screen.getByRole('button', { name: /switch theme/i })).toBe(toggle);
+    expect(screen.getByRole('button', { name: /account/i })).toBe(profile);
   });
 
   it('lists Today before the Mess Drawer in the sidebar and the bottom bar', async () => {
@@ -96,6 +186,41 @@ describe('stable frame', () => {
       .getAllByRole('button')
       .map((b) => b.textContent);
     expect(bottom.slice(0, 2)).toEqual(['Today', 'Mess Drawer']);
+  });
+});
+
+describe('sidebar frame', () => {
+  it('folds the sidebar away and back, and remembers it', async () => {
+    mockViewport('desktop');
+    const first = await renderApp('/today');
+    expect(screen.getByRole('navigation', { name: 'Punchlist' })).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Hide the sidebar' }));
+    expect(screen.queryByRole('navigation', { name: 'Punchlist' })).toBeNull();
+    first.unmount();
+
+    await renderApp('/today');
+    expect(screen.queryByRole('navigation', { name: 'Punchlist' })).toBeNull();
+    await userEvent.click(screen.getByRole('button', { name: 'Show the sidebar' }));
+    expect(screen.getByRole('navigation', { name: 'Punchlist' })).toBeInTheDocument();
+  });
+
+  it('opens a day of the mini calendar in the calendar, and shows the version', async () => {
+    mockViewport('desktop');
+    await renderApp('/today');
+    const mini = screen.getByRole('region', { name: 'Mini calendar' });
+    const days = within(mini).getAllByRole('gridcell');
+    expect(days).toHaveLength(42);
+    const today = within(mini).getByRole('gridcell', { current: 'date' });
+    await userEvent.click(within(mini).getByRole('button', { name: 'Next month' }));
+    expect(within(mini).queryByRole('gridcell', { current: 'date' })).toBeNull();
+    await userEvent.click(within(mini).getByRole('button', { name: 'Back to this month' }));
+    await userEvent.click(within(mini).getByRole('gridcell', { current: 'date' }));
+    expect(await screen.findByRole('button', { name: 'Day', pressed: true })).toBeInTheDocument();
+    expect(today).toBeTruthy();
+
+    expect(
+      screen.getByRole('link', { name: /^Punchlist v\d+\.\d+\.\d+.*: what changed$/ }),
+    ).toHaveAttribute('href', 'https://gitlab.com/killswitch10/punchlist/-/blob/main/CHANGELOG.md');
   });
 });
 

@@ -2,7 +2,9 @@ import { List, ListItemButton, ListItemIcon, ListItemText } from '@mui/material'
 import { useNavigate } from 'react-router';
 import { t } from '../i18n/i18n.ts';
 import { Page } from '../layout/Page.tsx';
-import { SIDEBAR_FOOTER, SIDEBAR_ITEMS } from '../layout/navigation.tsx';
+import { SIDEBAR_ITEMS } from '../layout/navigation.tsx';
+import { useFooterItems } from '../layout/useFooterItems.ts';
+import { SidebarEditProvider } from '../layout/sidebarEdit.tsx';
 import { SidebarLists } from '../lists/SidebarLists.tsx';
 import { SidebarTags } from '../tags/SidebarTags.tsx';
 
@@ -10,7 +12,8 @@ import { SidebarTags } from '../tags/SidebarTags.tsx';
 export function MoreView() {
   const navigate = useNavigate();
   const go = (path: string) => void navigate(path);
-  const items = [...SIDEBAR_ITEMS, ...SIDEBAR_FOOTER].filter(
+  const footer = useFooterItems();
+  const items = [...SIDEBAR_ITEMS, ...footer].filter(
     (item) => !['/today', '/inbox', '/calendar', '/search'].includes(item.path),
   );
   return (
@@ -23,8 +26,10 @@ export function MoreView() {
           </ListItemButton>
         ))}
       </List>
-      <SidebarLists onNavigate={go} />
-      <SidebarTags onNavigate={go} />
+      <SidebarEditProvider>
+        <SidebarLists onNavigate={go} />
+        <SidebarTags onNavigate={go} />
+      </SidebarEditProvider>
     </Page>
   );
 }

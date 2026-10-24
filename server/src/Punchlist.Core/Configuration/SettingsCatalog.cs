@@ -1,0 +1,116 @@
+namespace Punchlist.Core.Configuration;
+
+public enum SettingKind
+{
+    Text,
+    Url,
+    Choice,
+    Number,
+    Flag,
+    List,
+    Secret,
+}
+
+/// <summary>
+/// One setting as the admin settings page shows it. <see cref="EnvironmentOnly"/> settings are
+/// needed before the database opens (or guard it), so they are shown but never saved from the page.
+/// </summary>
+public sealed record SettingDefinition(
+    string Key,
+    string Group,
+    SettingKind Kind,
+    string? Default = null,
+    IReadOnlyList<string>? Choices = null,
+    bool EnvironmentOnly = false,
+    bool Live = false);
+
+/// <summary>Every setting the server reads (spec: Accounts &amp; Admin, Configuration reference).</summary>
+public static class SettingsCatalog
+{
+    public static readonly IReadOnlyList<SettingDefinition> Fixed =
+    [
+        new("PUBLIC_URL", "general", SettingKind.Url),
+        new("REGISTRATION", "general", SettingKind.Choice, "invite", ["open", "invite", "closed"], Live: true),
+        new("ACCOUNT_DELETE_GRACE_DAYS", "general", SettingKind.Number, "7", Live: true),
+        new("ATTACHMENT_MAX_MB", "general", SettingKind.Number, "25", Live: true),
+        new("LOCAL_LOGIN", "sign-in", SettingKind.Choice, "shown", ["shown", "hidden"], Live: true),
+        new("OIDC_PROVIDERS", "sign-in", SettingKind.List),
+        new("BACKUP_SCHEDULE", "backups", SettingKind.Choice, "daily", ["off", "hourly", "daily", "weekly"], Live: true),
+        new("SNAPSHOT_KEEP", "backups", SettingKind.Number, "14", Live: true),
+        new("TRUSTED_PROXIES", "network", SettingKind.List, "loopback and private ranges"),
+        new("LOG_LEVEL", "logging", SettingKind.Choice, "information", ["trace", "debug", "information", "warning", "error", "critical"], Live: true),
+        new("LOG_LEVEL_OVERRIDES", "logging", SettingKind.List, "Microsoft.AspNetCore=Warning", Live: true),
+        new("LOG_FORMAT", "logging", SettingKind.Choice, "text", ["text", "json"], Live: true),
+        new("LOG_FILES", "logging", SettingKind.Flag, "true", Live: true),
+        new("LOG_FILE_MAX_MB", "logging", SettingKind.Number, "50", Live: true),
+        new("LOG_FILE_KEEP_DAYS", "logging", SettingKind.Number, "14", Live: true),
+        new("AUDIT_RETENTION_DAYS", "audit", SettingKind.Number, "90", Live: true),
+        new("ACCESS_LOG_RETENTION_DAYS", "audit", SettingKind.Number, "14", Live: true),
+        new("AUDIT_ARCHIVE", "audit", SettingKind.Flag, "false", Live: true),
+        new("LOG_OTLP_ENDPOINT", "log-shipping", SettingKind.Url, Live: true),
+        new("LOG_OTLP_HEADERS", "log-shipping", SettingKind.Secret, Live: true),
+        new("LOG_LOKI_URL", "log-shipping", SettingKind.Url, Live: true),
+        new("LOG_LOKI_USERNAME", "log-shipping", SettingKind.Text, Live: true),
+        new("LOG_LOKI_PASSWORD", "log-shipping", SettingKind.Secret, Live: true),
+        new("LOG_LOKI_TENANT", "log-shipping", SettingKind.Text, Live: true),
+        new("LOG_GELF_ADDRESS", "log-shipping", SettingKind.Text, Live: true),
+        new("LOG_ELASTIC_URL", "log-shipping", SettingKind.Url, Live: true),
+        new("LOG_ELASTIC_INDEX", "log-shipping", SettingKind.Text, "logs-punchlist-default", Live: true),
+        new("LOG_ELASTIC_USERNAME", "log-shipping", SettingKind.Text, Live: true),
+        new("LOG_ELASTIC_PASSWORD", "log-shipping", SettingKind.Secret, Live: true),
+        new("LOG_ELASTIC_API_KEY", "log-shipping", SettingKind.Secret, Live: true),
+        new("LOG_SYSLOG_ADDRESS", "log-shipping", SettingKind.Text, Live: true),
+        new("AUTH_MODE", "environment", SettingKind.Choice, "local", ["none", "local"], EnvironmentOnly: true),
+        new("ADMIN_PASSWORD", "environment", SettingKind.Secret, EnvironmentOnly: true),
+        new("DB_PROVIDER", "environment", SettingKind.Choice, "sqlite", ["sqlite", "postgres"], EnvironmentOnly: true),
+        new("DB_PATH", "environment", SettingKind.Text, "/data/punchlist.db", EnvironmentOnly: true),
+        new("DB_CONNECTION_STRING", "environment", SettingKind.Secret, EnvironmentOnly: true),
+        new("DB_MIGRATE_ON_START", "environment", SettingKind.Flag, "true", EnvironmentOnly: true),
+        new("SNAPSHOT_DIR", "environment", SettingKind.Text, "snapshots next to the database", EnvironmentOnly: true),
+        new("ATTACHMENT_DIR", "environment", SettingKind.Text, "attachments next to the database (/files in the image)", EnvironmentOnly: true),
+        new("AUDIT_ARCHIVE_DIR", "environment", SettingKind.Text, "audit next to the database", EnvironmentOnly: true),
+        new("LOG_DIR", "environment", SettingKind.Text, "logs next to the database", EnvironmentOnly: true),
+        new("WEB_ROOT", "environment", SettingKind.Text, EnvironmentOnly: true),
+        new("CONFIG_FILE", "environment", SettingKind.Text, EnvironmentOnly: true),
+        new("CONFIG_KEY", "environment", SettingKind.Secret, EnvironmentOnly: true),
+    ];
+
+    /// <summary>The settings of one identity provider named in <c>OIDC_PROVIDERS</c>.</summary>
+    public static IReadOnlyList<SettingDefinition> ForProvider(string name)
+    {
+        var prefix = $"OIDC_{name.ToUpperInvariant().Replace('-', '_')}_";
+        var group = $"provider:{name}";
+        return
+        [
+            new(prefix + "AUTHORITY", group, SettingKind.Url),
+            new(prefix + "CLIENT_ID", group, SettingKind.Text),
+            new(prefix + "CLIENT_SECRET", group, SettingKind.Secret),
+            new(prefix + "DISPLAY_NAME", group, SettingKind.Text),
+            new(prefix + "SCOPES", group, SettingKind.List, "openid profile email (+ groups)"),
+            new(prefix + "GROUPS_CLAIM", group, SettingKind.Text, "groups"),
+            new(prefix + "USERNAME_CLAIM", group, SettingKind.Text, "preferred_username"),
+            new(prefix + "REQUIRED_GROUPS", group, SettingKind.List),
+            new(prefix + "AUTO_CREATE", group, SettingKind.Flag, "false"),
+            new(prefix + "LINK_BY_EMAIL", group, SettingKind.Flag, "false"),
+            new(prefix + "LINK_BY_USERNAME", group, SettingKind.Choice, "false", ["false", "true", "all"]),
+            new(prefix + "USER_MAP", group, SettingKind.List),
+            new(prefix + "ICON", group, SettingKind.Text, "the provider favicon"),
+            new(prefix + "ROLE_MAP", group, SettingKind.List),
+            new(prefix + "GROUP_MAP", group, SettingKind.List),
+            new(prefix + "SESSION_HOURS", group, SettingKind.Number, "12"),
+            new(prefix + "SIGN_OUT", group, SettingKind.Flag, "false"),
+        ];
+    }
+
+    /// <summary>The fixed settings plus those of each provider the layers name.</summary>
+    public static IReadOnlyList<SettingDefinition> For(ISecretSource source)
+    {
+        var providers = (source.Get("OIDC_PROVIDERS") ?? "")
+            .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Select(name => name.ToLowerInvariant())
+            .Distinct();
+        return [.. Fixed, .. providers.SelectMany(ForProvider)];
+    }
+
+    public static SettingDefinition? Find(ISecretSource source, string key) => For(source).FirstOrDefault(each => each.Key == key);
+}

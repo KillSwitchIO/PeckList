@@ -5,7 +5,7 @@ import type { Tag } from '../../core/types.ts';
 import { t } from '../i18n/i18n.ts';
 
 /** Small tinted pill with the tag's last name segment (`home/yard` shows `yard`). */
-export function TagChip({ tag }: { tag: Tag }) {
+export function TagChip({ tag, size = 'small' }: { tag: Tag; size?: 'small' | 'medium' }) {
   const theme = useTheme();
   const { bg, fg } = chipColors(tag.color, theme.palette.mode);
   return (
@@ -14,13 +14,13 @@ export function TagChip({ tag }: { tag: Tag }) {
       title={tag.name}
       sx={{
         display: 'inline-block',
-        maxWidth: 112,
-        px: 0.875,
-        lineHeight: '20px',
-        borderRadius: '10px',
+        maxWidth: size === 'medium' ? 180 : 112,
+        px: size === 'medium' ? 1.25 : 0.875,
+        lineHeight: size === 'medium' ? '24px' : '20px',
+        borderRadius: size === 'medium' ? '12px' : '10px',
         bgcolor: bg,
         color: fg,
-        typography: 'caption',
+        typography: size === 'medium' ? 'body2' : 'caption',
         fontWeight: 500,
         whiteSpace: 'nowrap',
         overflow: 'hidden',

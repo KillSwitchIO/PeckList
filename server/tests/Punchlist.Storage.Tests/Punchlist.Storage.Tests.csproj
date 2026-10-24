@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Testcontainers.PostgreSql" />
+    <PackageReference Include="xunit.v3" />
+  </ItemGroup>
+  <ItemGroup>
+    <Using Include="Xunit" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Punchlist.Storage.Sqlite\Punchlist.Storage.Sqlite.csproj" />
+    <ProjectReference Include="..\..\src\Punchlist.Storage.Postgres\Punchlist.Storage.Postgres.csproj" />
+  </ItemGroup>
+</Project>

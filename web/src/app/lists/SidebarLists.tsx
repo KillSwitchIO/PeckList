@@ -1,4 +1,5 @@
 import AddRounded from '@mui/icons-material/AddRounded';
+import ArchiveOutlined from '@mui/icons-material/ArchiveOutlined';
 import {
   Box,
   IconButton,
@@ -6,78 +7,176 @@ import {
   ListItemButton,
   ListItemIcon,
   ListItemText,
-  ListSubheader,
   Tooltip,
 } from '@mui/material';
 import { useState } from 'react';
 import { useLocation } from 'react-router';
+import { getEntity } from '../../core/collections.ts';
 import { createList, visibleLists } from '../../core/lists.ts';
 import { openCounts } from '../../core/queries.ts';
+import { moveInOrder, pinnedListId, togglePinned } from '../../core/sidebar.ts';
 import type { List as ListEntity } from '../../core/types.ts';
+import { useCollapsedSet } from '../hooks/useCollapsedSet.ts';
 import { t } from '../i18n/i18n.ts';
+import { DragHandleIcon } from '../icons/icons.tsx';
+import { editingRowSx, useSidebarEdit } from '../layout/sidebarEditContext.ts';
+import { PinButton } from '../layout/PinButton.tsx';
+import { SectionHeader } from '../layout/SectionHeader.tsx';
+import { useSortableRows } from '../layout/useSortableRows.ts';
 import { useApply, useWorkspace } from '../store/hooks.ts';
 import { ListDialog } from './ListDialog.tsx';
 import { listName } from './listName.ts';
-
-function ListLink({
-  list,
-  count,
-  onNavigate,
-}: {
-  list: ListEntity;
-  count: number;
-  onNavigate: (path: string) => void;
-}) {
-  const { pathname } = useLocation();
-  const path = `/lists/${list.id}`;
-  return (
-    <ListItemButton selected={pathname === path} onClick={() => onNavigate(path)}>
-      <ListItemIcon sx={{ minWidth: 28 }}>
-        <Box sx={{ width: 10, height: 10, borderRadius: '50%', bgcolor: list.color }} />
-      </ListItemIcon>
-      <ListItemText primary={listName(list)} />
-      {count > 0 && (
-        <Box component="span" sx={{ typography: 'caption', color: 'text.secondary' }}>
-          {count}
-        </Box>
-      )}
-    </ListItemButton>
-  );
-}
+import { ListMark } from './ListMark.tsx';
 
 /** Lists in the sidebar with a create button. The Mess Drawer lives under smart views. */
 export function SidebarLists({ onNavigate }: { onNavigate: (path: string) => void }) {
   const workspace = useWorkspace();
   const apply = useApply();
+  const { pathname } = useLocation();
+  const edit = useSidebarEdit();
+  const { editing } = edit;
   const [creating, setCreating] = useState(false);
-  const lists = visibleLists(workspace).filter((list) => !list.isInbox);
+  // Folded sections are remembered on this device.
+  const { collapsed: folded, toggle: fold } = useCollapsedSet('punchlist.foldedSections');
   const counts = openCounts(workspace);
+  const lists = edit.current.lists
+    .map((id) => getEntity(workspace, 'lists', id))
+    .filter((list): list is ListEntity => list !== undefined);
+  // Archived lists wait in a group at the end, closed until opened (remembered on this device).
+  const archived = visibleLists(workspace, true).filter((list) => list.archived);
+  const showArchived = folded.has('archived-open');
+  const sortable = useSortableRows({
+    editing,
+    start: edit.start,
+    onDrag: (id, y) =>
+      edit.update((draft) => {
+        const index = sortable.slot(
+          draft.lists.filter((each) => each !== id),
+          y,
+        );
+        const next = moveInOrder(draft.lists, id, index);
+        return next.join() === draft.lists.join() ? draft : { ...draft, lists: next };
+      }),
+  });
 
   return (
     <>
       <List
         dense
+        aria-label={t('nav.lists')}
         subheader={
-          <ListSubheader
-            sx={{ bgcolor: 'transparent', display: 'flex', alignItems: 'center', pr: 1 }}
-          >
-            <Box sx={{ flexGrow: 1 }}>{t('nav.lists')}</Box>
-            <Tooltip title={t('list.new')} disableFocusListener>
-              <IconButton size="small" aria-label={t('list.new')} onClick={() => setCreating(true)}>
-                <AddRounded fontSize="small" />
-              </IconButton>
-            </Tooltip>
-          </ListSubheader>
+          <SectionHeader
+            title={t('nav.lists')}
+            open={!folded.has('lists')}
+            onToggle={() => fold('lists')}
+            actions={
+              <Tooltip title={t('list.new')} disableFocusListener>
+                <IconButton
+                  size="small"
+                  aria-label={t('list.new')}
+                  onClick={() => setCreating(true)}
+                >
+                  <AddRounded fontSize="small" />
+                </IconButton>
+              </Tooltip>
+            }
+          />
         }
       >
-        {lists.map((list) => (
-          <ListLink
-            key={list.id}
-            list={list}
-            count={counts.get(list.id) ?? 0}
-            onNavigate={onNavigate}
-          />
-        ))}
+        {!folded.has('lists') &&
+          lists.map((list, index) => {
+            const path = `/lists/${list.id}`;
+            const count = counts.get(list.id) ?? 0;
+            const pin = pinnedListId(list.id);
+            return (
+              <ListItemButton
+                key={list.id}
+                {...sortable.rowProps(list.id)}
+                selected={!editing && pathname === path}
+                onClick={sortable.click(() => {
+                  if (!editing) onNavigate(path);
+                })}
+                // A task dragged out of a list can be dropped here to move it.
+                data-drop-list={list.id}
+                sx={{
+                  ...editingRowSx(editing, sortable.dragging === list.id, index),
+                  '&.drop-hover': {
+                    bgcolor: 'action.selected',
+                    boxShadow: (theme) => `inset 0 0 0 2px ${theme.palette.primary.main}`,
+                  },
+                }}
+              >
+                {editing && (
+                  <DragHandleIcon
+                    fontSize="small"
+                    sx={{ color: 'text.disabled', ml: -1, mr: 0.5, cursor: 'grab' }}
+                  />
+                )}
+                <ListItemIcon sx={{ minWidth: 28 }}>
+                  <ListMark list={list} />
+                </ListItemIcon>
+                <ListItemText
+                  primary={listName(list, workspace)}
+                  slotProps={{ primary: { noWrap: true } }}
+                />
+                {editing ? (
+                  <PinButton
+                    pinned={edit.current.layout.order.includes(pin)}
+                    name={listName(list, workspace)}
+                    onToggle={() =>
+                      edit.update((draft) => ({
+                        ...draft,
+                        layout: togglePinned(draft.layout, pin),
+                      }))
+                    }
+                  />
+                ) : (
+                  count > 0 && (
+                    <Box component="span" sx={{ typography: 'caption', color: 'text.secondary' }}>
+                      {count}
+                    </Box>
+                  )
+                )}
+              </ListItemButton>
+            );
+          })}
+        {!folded.has('lists') && !editing && archived.length > 0 && (
+          <>
+            <ListItemButton
+              aria-expanded={showArchived}
+              onClick={() => fold('archived-open')}
+              sx={{ color: 'text.secondary' }}
+            >
+              <ListItemIcon sx={{ minWidth: 28, color: 'inherit' }}>
+                <ArchiveOutlined sx={{ fontSize: 16 }} />
+              </ListItemIcon>
+              <ListItemText primary={t('list.archived')} />
+              <Box component="span" sx={{ typography: 'caption' }}>
+                {archived.length}
+              </Box>
+            </ListItemButton>
+            {showArchived &&
+              archived.map((list) => {
+                const path = `/lists/${list.id}`;
+                return (
+                  <ListItemButton
+                    key={list.id}
+                    selected={pathname === path}
+                    onClick={() => onNavigate(path)}
+                    sx={{ pl: 4, color: 'text.secondary' }}
+                  >
+                    <ListItemIcon sx={{ minWidth: 28 }}>
+                      <ListMark list={list} faded />
+                    </ListItemIcon>
+                    <ListItemText
+                      primary={listName(list, workspace)}
+                      slotProps={{ primary: { noWrap: true } }}
+                    />
+                  </ListItemButton>
+                );
+              })}
+          </>
+        )}
       </List>
       {creating && (
         <ListDialog

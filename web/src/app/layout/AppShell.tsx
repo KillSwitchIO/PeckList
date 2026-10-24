@@ -1,14 +1,18 @@
-import BrightnessAutoRounded from '@mui/icons-material/BrightnessAutoRounded';
-import DarkModeRounded from '@mui/icons-material/DarkModeRounded';
-import LightModeRounded from '@mui/icons-material/LightModeRounded';
+import { popupOpen } from '../hooks/keys.ts';
+import { ShortcutsDialog } from '../shortcuts/ShortcutsDialog.tsx';
+import { useShortcuts } from '../shortcuts/useShortcuts.ts';
 import MenuRounded from '@mui/icons-material/MenuRounded';
 import {
   AppBar,
   BottomNavigation,
   BottomNavigationAction,
+  Button,
+  Dialog,
   Box,
+  Link,
   Divider,
   Drawer,
+  Fab,
   IconButton,
   List,
   ListItemButton,
@@ -20,46 +24,68 @@ import {
   useMediaQuery,
   useTheme,
 } from '@mui/material';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Outlet, useLocation, useNavigate } from 'react-router';
 import { t } from '../i18n/i18n.ts';
+import { focusAddTask } from '../tasks/focusAddTask.ts';
+import { SyncNoticeToast } from '../sync/SyncNoticeToast.tsx';
+import { purgeExpired } from '../../core/trash.ts';
+import { flattenSections } from '../../core/lists.ts';
+import { canEditList } from '../../core/sharing.ts';
+import { useApply, useStoreState } from '../store/hooks.ts';
+
 import { HeaderSlotContext } from './headerSlot.ts';
+import { SidebarEditProvider } from './sidebarEdit.tsx';
+import { useSidebarEdit } from './sidebarEditContext.ts';
+import { PlusIcon } from '../icons/icons.tsx';
+import { SidebarViews } from './SidebarViews.tsx';
+import { ResizeHandle } from './ResizeHandle.tsx';
+import { useDetailWidth } from './useDetailWidth.ts';
 import { SidebarLists } from '../lists/SidebarLists.tsx';
 import { SidebarTags } from '../tags/SidebarTags.tsx';
 import { useTaskSelection } from '../tasks/selection.ts';
 import { TaskDetail } from '../tasks/TaskDetail.tsx';
+import { settleDraft } from '../tasks/drafts.ts';
 import { UndoToast } from '../tasks/UndoToast.tsx';
-import { useThemeMode } from '../theme/themeMode.ts';
-import {
-  activeItem,
-  BOTTOM_ITEMS,
-  SIDEBAR_FOOTER,
-  SIDEBAR_ITEMS,
-  type NavItem,
-} from './navigation.tsx';
+import { ProfileButton } from './ProfileButton.tsx';
+import { APP_VERSION_LABEL, CHANGELOG_URL } from './appVersion.ts';
+import { MiniCalendar } from './MiniCalendar.tsx';
+import { useAppliedTimeZone } from './useAppliedTimeZone.ts';
+import { activeItem, BOTTOM_ITEMS, SIDEBAR_ITEMS, type NavItem } from './navigation.tsx';
+import { SyncButton } from '../sync/SyncButton.tsx';
+import { useFooterItems } from './useFooterItems.ts';
 
-const DRAWER_WIDTH = 272;
-const DETAIL_WIDTH = 420;
+/** How often the trash is checked for things to erase. */
+const PURGE_EVERY_MS = 6 * 3_600_000;
 
-function ThemeToggle() {
-  const { mode, cycleMode } = useThemeMode();
-  const icon =
-    mode === 'light' ? (
-      <LightModeRounded />
-    ) : mode === 'dark' ? (
-      <DarkModeRounded />
-    ) : (
-      <BrightnessAutoRounded />
-    );
-  const label = t('theme.toggle', { mode: t(`theme.${mode}`) });
-  return (
-    <Tooltip title={label}>
-      <IconButton onClick={cycleMode} aria-label={label}>
-        {icon}
-      </IconButton>
-    </Tooltip>
-  );
+const DRAWER_WIDTH = 232;
+const COLLAPSED_KEY = 'punchlist.sidebarCollapsed';
+
+/** Whether the desktop sidebar is folded away (per device). */
+function useSidebarCollapsed(): [boolean, (collapsed: boolean) => void] {
+  const [collapsed, setCollapsed] = useState(() => {
+    try {
+      return localStorage.getItem(COLLAPSED_KEY) === 'true';
+    } catch {
+      return false;
+    }
+  });
+  const set = (next: boolean) => {
+    setCollapsed(next);
+    try {
+      if (next) localStorage.setItem(COLLAPSED_KEY, 'true');
+      else localStorage.removeItem(COLLAPSED_KEY);
+    } catch {
+      // Private windows: it stays as it is until the page reloads.
+    }
+  };
+  return [collapsed, set];
 }
+// Details get room for notes: about two fifths of the window, within sensible bounds.
+const DETAIL_WIDTH = 'clamp(440px, 40vw, 960px)';
+// A dragged width stays within these: the panel keeps room for its fields, the list for its rows.
+const DETAIL_MIN = 380;
+const LIST_MIN = 360;
 
 function NavList({
   items,
@@ -86,31 +112,121 @@ function NavList({
   );
 }
 
-function Sidebar({ onNavigate }: { onNavigate: (path: string) => void }) {
-  const { pathname } = useLocation();
-  const all = [...SIDEBAR_ITEMS, ...SIDEBAR_FOOTER];
-  const selected = activeItem(all, pathname);
-  return (
-    <Box
-      component="nav"
-      aria-label={t('app.name')}
-      sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}
-    >
+/** The sidebar's title row; while editing it holds Cancel, Reset and Done instead. */
+function SidebarTitle() {
+  const edit = useSidebarEdit();
+  if (!edit.editing) {
+    return (
       <Toolbar>
         <Typography variant="h2" component="div">
           {t('app.name')}
         </Typography>
       </Toolbar>
-      <NavList items={SIDEBAR_ITEMS} selected={selected} onSelect={onNavigate} />
-      <Divider sx={{ mx: 2 }} />
-      <Box sx={{ flexGrow: 1, overflowY: 'auto' }}>
-        <SidebarLists onNavigate={onNavigate} />
-        <SidebarTags onNavigate={onNavigate} />
-      </Box>
-      <NavList items={SIDEBAR_FOOTER} selected={selected} onSelect={onNavigate} />
-    </Box>
+    );
+  }
+  return (
+    <Toolbar
+      role="toolbar"
+      aria-label={t('nav.editSidebar')}
+      sx={{
+        gap: 0.5,
+        px: '8px !important',
+        '& .MuiButton-root': { minWidth: 0, px: 1, whiteSpace: 'nowrap' },
+      }}
+    >
+      <Button size="small" color="inherit" onClick={edit.cancel}>
+        {t('common.cancel')}
+      </Button>
+      {/* Back to the default views, nothing hidden or pinned; Done still saves it. */}
+      <Button size="small" color="inherit" onClick={edit.reset}>
+        {t('nav.resetSidebar')}
+      </Button>
+      <Box sx={{ flexGrow: 1 }} />
+      <Tooltip title={t('filter.new')}>
+        <IconButton
+          size="small"
+          aria-label={t('filter.new')}
+          onClick={() => edit.setCreatingFilter(true)}
+        >
+          <PlusIcon fontSize="small" />
+        </IconButton>
+      </Tooltip>
+      <Button size="small" variant="contained" disableElevation onClick={edit.done}>
+        {t('common.done')}
+      </Button>
+    </Toolbar>
   );
 }
+
+function Sidebar({ onNavigate }: { onNavigate: (path: string) => void }) {
+  const { pathname } = useLocation();
+  const footer = useFooterItems();
+  const all = [...SIDEBAR_ITEMS, ...footer];
+  const selected = activeItem(all, pathname);
+  return (
+    <SidebarEditProvider>
+      <Box
+        component="nav"
+        aria-label={t('app.name')}
+        sx={{
+          display: 'flex',
+          flexDirection: 'column',
+          height: '100%',
+          // Icons lift a whole pixel on hover: a light spring, nothing that pulls the eye. No
+          // scaling, which blurs the strokes.
+          '& .MuiListItemButton-root .MuiListItemIcon-root > *': {
+            transition: 'transform 220ms cubic-bezier(0.34, 1.56, 0.64, 1)',
+          },
+          '& .MuiListItemButton-root:hover .MuiListItemIcon-root > *': {
+            transform: 'translateY(-2px)',
+          },
+          '@media (prefers-reduced-motion: reduce)': {
+            '& .MuiListItemButton-root:hover .MuiListItemIcon-root > *': { transform: 'none' },
+          },
+        }}
+      >
+        <SidebarTitle />
+        <SidebarViews selected={selected} onNavigate={onNavigate} />
+        <Divider sx={{ mx: 2 }} />
+        <Box sx={{ flexGrow: 1, overflowY: 'auto', overflowX: 'hidden' }}>
+          <SidebarLists onNavigate={onNavigate} />
+          <SidebarTags onNavigate={onNavigate} />
+        </Box>
+        <NavList items={footer} selected={selected} onSelect={onNavigate} />
+        <MiniCalendar onPick={(date) => onNavigate(`/calendar?view=day&date=${date}`)} />
+        <Link
+          href={CHANGELOG_URL}
+          target="_blank"
+          rel="noreferrer"
+          variant="caption"
+          color="text.disabled"
+          underline="hover"
+          aria-label={t('app.versionLink', { version: APP_VERSION_LABEL })}
+          sx={{ px: 2.5, pb: 1, alignSelf: 'flex-start', fontSize: 11 }}
+        >
+          {APP_VERSION_LABEL}
+        </Link>
+      </Box>
+    </SidebarEditProvider>
+  );
+}
+
+/**
+ * An Escape something inside already used (the notes leave editing on the first one): the panel
+ * or dialog around it stays open until the next one, as on desktop.
+ */
+function handledInside(event: unknown, reason: string): boolean {
+  return (
+    reason === 'escapeKeyDown' &&
+    typeof event === 'object' &&
+    event !== null &&
+    'defaultPrevented' in event &&
+    event.defaultPrevented === true
+  );
+}
+
+/** Pages without tasks to add, where the phone's + button stays away. */
+const NO_ADD_BUTTON = ['/settings', '/admin', '/friends', '/f/', '/search'];
 
 /**
  * Responsive frame: permanent sidebar on desktop, temporary drawer on tablet,
@@ -122,10 +238,71 @@ export function AppShell() {
   const isPhone = useMediaQuery(theme.breakpoints.down('sm'), { noSsr: true });
   const isDesktop = useMediaQuery(theme.breakpoints.up('lg'), { noSsr: true });
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [collapsed, setCollapsed] = useSidebarCollapsed();
+  const sidebarShown = isDesktop && !collapsed;
+  const drawerWidth = sidebarShown ? DRAWER_WIDTH : 0;
   const navigate = useNavigate();
   const { pathname } = useLocation();
-  const { selectedId, close } = useTaskSelection();
+  const { selectedId, close, full, leaveFull } = useTaskSelection();
   const [headerSlot, setHeaderSlot] = useState<HTMLElement | null>(null);
+  // Details in the large full-screen view instead of the side panel (resets with the task).
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+  const expanded = selectedId !== null && (expandedId === selectedId || full);
+  const aside = useRef<HTMLElement | null>(null);
+  const [detailWidth, setDetailWidth] = useDetailWidth(
+    DETAIL_MIN,
+    () => window.innerWidth - drawerWidth - LIST_MIN,
+  );
+
+  // Escape closes the task details, unless a dialog, menu or picker takes it first.
+  useEffect(() => {
+    if (!selectedId) return;
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape' || event.defaultPrevented || popupOpen()) return;
+      // Let a field being edited save itself (it commits on blur).
+      if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
+      close();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [selectedId, close]);
+
+  // Things in the trash for more than 30 days are erased: at start, then every few hours.
+  const apply = useApply();
+  useEffect(() => {
+    const purge = () => apply((ctx, ws) => purgeExpired(ctx, ws, Date.now()));
+    purge();
+    const timer = window.setInterval(purge, PURGE_EVERY_MS);
+    return () => window.clearInterval(timer);
+  }, [apply]);
+
+  // Sections were dropped (PL-011): what old data has, or an older app on another device still
+  // syncs in, folds into its lists. Lists this person may not change stay as they are.
+  const hasSections = useStoreState(
+    (state) =>
+      state.workspace !== null &&
+      (state.workspace.entities.sections.some((section) => section.deletedAt === null) ||
+        state.workspace.entities.tasks.some(
+          (task) => task.sectionId !== null && task.deletedAt === null,
+        )),
+  );
+  useEffect(() => {
+    if (!hasSections) return;
+    apply((ctx, ws) => flattenSections(ctx, ws, (listId) => canEditList(ws, ctx.userId, listId)));
+  }, [hasSections, apply]);
+
+  // A blank task from the quick add bar's expand button goes again once it is closed still empty.
+  const shownTask = useRef(selectedId);
+  useEffect(() => {
+    const previous = shownTask.current;
+    shownTask.current = selectedId;
+    if (previous && previous !== selectedId) apply((ctx, ws) => settleDraft(ctx, ws, previous));
+  }, [selectedId, apply]);
+
+  // Keyboard shortcuts everywhere ("?" lists them).
+  const shortcuts = useShortcuts();
+  // Pages start over when the time zone changes, so every date is worked out again in it.
+  const timeZone = useAppliedTimeZone();
 
   const go = (path: string) => {
     setDrawerOpen(false);
@@ -133,12 +310,25 @@ export function AppShell() {
   };
 
   const detail = selectedId ? (
-    <TaskDetail key={selectedId} taskId={selectedId} onClose={close} />
+    <TaskDetail
+      key={selectedId}
+      taskId={selectedId}
+      onClose={close}
+      expanded={expanded}
+      {...(isPhone
+        ? {}
+        : {
+            onToggleExpanded: () => {
+              if (expanded && full) leaveFull();
+              setExpandedId(expanded ? null : selectedId);
+            },
+          })}
+    />
   ) : null;
 
   return (
     <Box sx={{ display: 'flex', minHeight: '100dvh' }}>
-      {isDesktop ? (
+      {sidebarShown ? (
         <Drawer
           variant="permanent"
           sx={{ width: DRAWER_WIDTH, flexShrink: 0, '& .MuiDrawer-paper': { width: DRAWER_WIDTH } }}
@@ -146,7 +336,8 @@ export function AppShell() {
           <Sidebar onNavigate={go} />
         </Drawer>
       ) : (
-        !isPhone && (
+        !isPhone &&
+        !isDesktop && (
           <Drawer
             variant="temporary"
             open={drawerOpen}
@@ -161,46 +352,64 @@ export function AppShell() {
       <Box sx={{ flexGrow: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
         <AppBar position="sticky">
           <Toolbar sx={{ gap: 1 }}>
-            {!isDesktop && !isPhone && (
-              <IconButton
-                edge="start"
-                aria-label={t('nav.openMenu')}
-                onClick={() => setDrawerOpen(true)}
+            {!isPhone && (
+              <Tooltip
+                title={
+                  isDesktop
+                    ? t(collapsed ? 'nav.showSidebar' : 'nav.hideSidebar')
+                    : t('nav.openMenu')
+                }
               >
-                <MenuRounded />
-              </IconButton>
+                <IconButton
+                  edge="start"
+                  aria-label={
+                    isDesktop
+                      ? t(collapsed ? 'nav.showSidebar' : 'nav.hideSidebar')
+                      : t('nav.openMenu')
+                  }
+                  aria-expanded={isDesktop ? !collapsed : drawerOpen}
+                  onClick={() => (isDesktop ? setCollapsed(!collapsed) : setDrawerOpen(true))}
+                >
+                  <MenuRounded />
+                </IconButton>
+              </Tooltip>
             )}
             <Box
               ref={setHeaderSlot}
               sx={{ display: 'flex', alignItems: 'center', gap: 1, flexGrow: 1, minWidth: 0 }}
             />
-            <ThemeToggle />
+            <SyncButton />
+            <ProfileButton onShortcuts={shortcuts.openHelp} />
           </Toolbar>
         </AppBar>
 
         <Box sx={{ flexGrow: 1, display: 'flex', minHeight: 0 }}>
           <Box
             component="main"
+            key={timeZone}
             sx={{
               flexGrow: 1,
               minWidth: 0,
               px: { xs: 2, sm: 3 },
               py: 2,
               pb: isPhone ? 10 : 2,
-              // Anchored to the left edge (not centered) so the list never shifts when the
-              // details panel opens or closes.
-              maxWidth: 960,
+              // Fills the space between the sidebar and the details panel, so the panel always
+              // sits at the window's right edge (wide and ultrawide screens included).
             }}
           >
             <HeaderSlotContext.Provider value={headerSlot}>
               <Outlet />
             </HeaderSlotContext.Provider>
           </Box>
-          {isDesktop && detail && (
+          {isDesktop && detail && !expanded && (
             <Box
               component="aside"
+              ref={aside}
               sx={{
-                width: DETAIL_WIDTH,
+                width:
+                  detailWidth === null
+                    ? DETAIL_WIDTH
+                    : `clamp(${DETAIL_MIN}px, ${detailWidth}px, calc(100vw - ${drawerWidth + LIST_MIN}px))`,
                 flexShrink: 0,
                 borderLeft: 1,
                 borderColor: 'divider',
@@ -208,33 +417,78 @@ export function AppShell() {
                 position: 'sticky',
                 top: 64,
                 alignSelf: 'flex-start',
-                maxHeight: 'calc(100dvh - 64px)',
-                overflowY: 'auto',
+                // Full height, so the list and priority bar sits at the bottom.
+                height: 'calc(100dvh - 64px)',
               }}
             >
+              <ResizeHandle
+                current={() => aside.current?.getBoundingClientRect().width ?? DETAIL_MIN}
+                onResize={setDetailWidth}
+                onReset={() => setDetailWidth(null)}
+              />
               {detail}
             </Box>
           )}
         </Box>
 
+        <Dialog
+          open={detail !== null && expanded}
+          onClose={(event, reason) => {
+            if (handledInside(event, reason)) return;
+            if (full) leaveFull();
+            setExpandedId(null);
+          }}
+          fullWidth
+          maxWidth="md"
+          slotProps={{ paper: { sx: { height: '88dvh', backgroundImage: 'none' } } }}
+        >
+          {expanded && detail}
+        </Dialog>
+
         {!isDesktop && (
           <Drawer
             anchor={isPhone ? 'bottom' : 'right'}
-            open={detail !== null}
-            onClose={close}
+            open={detail !== null && !expanded}
+            onClose={(event, reason) => {
+              if (!handledInside(event, reason)) close();
+            }}
             slotProps={{
               paper: {
                 sx: isPhone
                   ? { height: '92dvh', borderTopLeftRadius: 16, borderTopRightRadius: 16 }
-                  : { width: DETAIL_WIDTH },
+                  : { width: 'min(560px, 92vw)' },
               },
             }}
           >
-            {detail}
+            {!expanded && detail}
           </Drawer>
         )}
 
-        <UndoToast bottomOffset={isPhone ? 56 : 0} />
+        {isPhone && detail === null && !NO_ADD_BUTTON.some((path) => pathname.startsWith(path)) && (
+          <Fab
+            color="primary"
+            aria-label={t('shortcut.addTask')}
+            onClick={() => {
+              // There is no Q key on a phone: the page's add field, else the Inbox's.
+              if (focusAddTask()) return;
+              go('/inbox');
+              setTimeout(focusAddTask, 0);
+            }}
+            sx={{
+              position: 'fixed',
+              right: 16,
+              bottom: 'calc(56px + 16px + env(safe-area-inset-bottom))',
+              zIndex: (theme) => theme.zIndex.appBar,
+            }}
+          >
+            <PlusIcon />
+          </Fab>
+        )}
+
+        {/* On a phone, above the bottom navigation and the + button. */}
+        <UndoToast bottomOffset={isPhone ? 56 + 72 : 0} />
+        <SyncNoticeToast />
+        <ShortcutsDialog open={shortcuts.helpOpen} onClose={shortcuts.closeHelp} />
 
         {isPhone && (
           <BottomNavigation

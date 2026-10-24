@@ -1,0 +1,120 @@
+{
+  "schemaVersion": 8,
+  "app": {
+    "name": "punchlist",
+    "version": "0.1.0"
+  },
+  "owner": "01TESTMEMBER00000000000001",
+  "node": "dev1",
+  "entities": {
+    "users": [
+      {
+        "id": "01TESTMEMBER00000000000001",
+        "createdAt": "2026-10-20T16:15:00.001Z",
+        "createdBy": "01TESTMEMBER00000000000001",
+        "deletedAt": null,
+        "origin": "local",
+        "handle": "me@local",
+        "displayName": "Me",
+        "avatarColor": "#A7C7E7",
+        "homeServer": "local",
+        "_hlc": {
+          "createdAt": "2026-10-20T16:15:00.001Z-0000-dev1",
+          "createdBy": "2026-10-20T16:15:00.001Z-0000-dev1",
+          "deletedAt": "2026-10-20T16:15:00.001Z-0000-dev1",
+          "origin": "2026-10-20T16:15:00.001Z-0000-dev1",
+          "handle": "2026-10-20T16:15:00.001Z-0000-dev1",
+          "displayName": "2026-10-20T16:15:00.001Z-0000-dev1",
+          "avatarColor": "2026-10-20T16:15:00.001Z-0000-dev1",
+          "homeServer": "2026-10-20T16:15:00.001Z-0000-dev1"
+        }
+      }
+    ],
+    "folders": [],
+    "lists": [
+      {
+        "id": "not-a-ulid",
+        "createdAt": "2026-10-20T16:15:00.002Z",
+        "createdBy": "01TESTMEMBER00000000000001",
+        "deletedAt": null,
+        "origin": "local",
+        "name": "Mess Drawer",
+        "color": "#B8BCC4",
+        "icon": "inbox",
+        "folderId": null,
+        "visibility": "private",
+        "archived": false,
+        "order": "V",
+        "isInbox": true,
+        "_hlc": {
+          "createdAt": "2026-10-20T16:15:00.002Z-0000-dev1",
+          "createdBy": "2026-10-20T16:15:00.002Z-0000-dev1",
+          "deletedAt": "2026-10-20T16:15:00.002Z-0000-dev1",
+          "origin": "2026-10-20T16:15:00.002Z-0000-dev1",
+          "name": "2026-10-20T16:15:00.002Z-0000-dev1",
+          "color": "2026-10-20T16:15:00.002Z-0000-dev1",
+          "icon": "2026-10-20T16:15:00.002Z-0000-dev1",
+          "folderId": "2026-10-20T16:15:00.002Z-0000-dev1",
+          "visibility": "2026-10-20T16:15:00.002Z-0000-dev1",
+          "archived": "2026-10-20T16:15:00.002Z-0000-dev1",
+          "order": "2026-10-20T16:15:00.002Z-0000-dev1",
+          "isInbox": "2026-10-20T16:15:00.002Z-0000-dev1"
+        }
+      }
+    ],
+    "sections": [],
+    "tags": [],
+    "tasks": [],
+    "groups": [],
+    "groupMembers": [],
+    "listMembers": [],
+    "friendships": [],
+    "savedFilters": [],
+    "settings": [
+      {
+        "id": "01DEV100000000000000000002",
+        "createdAt": "2026-10-20T16:15:00.003Z",
+        "createdBy": "01TESTMEMBER00000000000001",
+        "deletedAt": null,
+        "origin": "local",
+        "userId": "01TESTMEMBER00000000000001",
+        "themeMode": "system",
+        "palette": {},
+        "pointEventMinutes": 30,
+        "dueSoonDays": 2,
+        "sidebar": {
+          "order": [
+            "today",
+            "inbox",
+            "upcoming",
+            "all",
+            "calendar",
+            "@group",
+            "completed",
+            "trash"
+          ],
+          "hidden": [],
+          "groupOpen": false
+        },
+        "_hlc": {
+          "createdAt": "2026-10-20T16:15:00.003Z-0000-dev1",
+          "createdBy": "2026-10-20T16:15:00.003Z-0000-dev1",
+          "deletedAt": "2026-10-20T16:15:00.003Z-0000-dev1",
+          "origin": "2026-10-20T16:15:00.003Z-0000-dev1",
+          "userId": "2026-10-20T16:15:00.003Z-0000-dev1",
+          "themeMode": "2026-10-20T16:15:00.003Z-0000-dev1",
+          "palette": "2026-10-20T16:15:00.003Z-0000-dev1",
+          "pointEventMinutes": "2026-10-20T16:15:00.003Z-0000-dev1",
+          "dueSoonDays": "2026-10-20T16:15:00.003Z-0000-dev1",
+          "sidebar": "2026-10-20T16:15:00.003Z-0000-dev1"
+        }
+      }
+    ],
+    "comments": [],
+    "attachments": []
+  },
+  "sync": {
+    "server": null,
+    "cursor": null
+  }
+}
