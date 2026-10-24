@@ -41,6 +41,7 @@ import { canEditTask } from '../../core/sharing.ts';
 import { TaskReadOnly } from './readOnly.ts';
 import { useSyncState } from '../sync/syncContext.ts';
 import { AssigneeProperty } from './AssigneeProperty.tsx';
+import { ReminderProperty } from '../reminders/ReminderProperty.tsx';
 
 /** A text field that edits locally and commits on blur or Enter. */
 function CommitField({
@@ -326,6 +327,7 @@ export function TaskDetail({
                 }
               />
             )}
+            <ReminderProperty task={task} />
             {canAssign && <AssigneeProperty task={task} />}
           </Box>
           {(!readOnly || task.notes) && (

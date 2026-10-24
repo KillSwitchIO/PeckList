@@ -109,7 +109,15 @@ export interface Task extends BaseEntity {
   progress: number;
   /** When it was pinned to the top of its views; null or absent: not pinned (schema 8). */
   pinnedAt?: DateTime | null;
+  /** When to remind about it (schema 12); absent or empty: never */
+  reminders?: Reminder[];
 }
+
+/**
+ * A reminder (schema 12): minutes before the task's date (an all-day task's date counts from
+ * 9:00 that day), or a set local date-time.
+ */
+export type Reminder = { before: number } | { at: LocalDateOrDateTime };
 
 export interface Group extends BaseEntity {
   name: string;
@@ -185,6 +193,8 @@ export interface NewTaskDefaults {
   time?: string | null;
   /** Assign tasks I add to shared lists to me (absent: yes) */
   assignSelf?: boolean;
+  /** Reminders a new task starts with (schema 12); they apply once it has a date */
+  reminders?: Reminder[];
 }
 
 /** A comment on a task (schema 7). `createdBy` is its author. */

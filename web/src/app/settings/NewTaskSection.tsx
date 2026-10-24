@@ -1,6 +1,8 @@
 import { MenuItem, Switch, TextField } from '@mui/material';
 import { visibleLists } from '../../core/lists.ts';
 import { newTaskDefaultsOf } from '../../core/newTaskDefaults.ts';
+import { TIMED_PRESETS } from '../../core/reminders.ts';
+import { reminderLabel } from '../reminders/reminderText.ts';
 import { updateSettings } from '../../core/settings.ts';
 import { canEditList } from '../../core/sharing.ts';
 import type { NewTaskDefaults, Priority } from '../../core/types.ts';
@@ -12,6 +14,8 @@ import { Section, SettingRow } from './settingsLayout.tsx';
 
 const DATES = ['none', 'today', 'tomorrow', 'nextWeek'] as const;
 const PRIORITIES: Priority[] = [0, 1, 2, 3];
+/** No default reminder, in the reminder select. */
+const NO_REMINDER = 'none';
 /** The Mess Drawer in the list select (its value must not be empty). */
 const INBOX = 'inbox';
 
@@ -37,6 +41,8 @@ export function NewTaskSection() {
   const listValue =
     defaults.listId && lists.some((list) => list.id === defaults.listId) ? defaults.listId : INBOX;
   const date = defaults.date ?? 'none';
+  const first = defaults.reminders?.[0];
+  const reminderChoice = first && 'before' in first ? String(first.before) : NO_REMINDER;
   return (
     <Section title={t('newTask.title')} hint={t('newTask.hint')}>
       <SettingRow label={t('newTask.list')} hint={t('newTask.listHint')}>
@@ -98,6 +104,25 @@ export function NewTaskSection() {
           />
         </SettingRow>
       )}
+      <SettingRow label={t('newTask.reminder')} hint={t('newTask.reminderHint')}>
+        <TextField
+          select
+          size="small"
+          value={reminderChoice}
+          onChange={(event) => {
+            const value = event.target.value;
+            change({ reminders: value === NO_REMINDER ? [] : [{ before: Number(value) }] });
+          }}
+          slotProps={{ htmlInput: { 'aria-label': t('newTask.reminder') } }}
+        >
+          <MenuItem value={NO_REMINDER}>{t('reminder.none')}</MenuItem>
+          {TIMED_PRESETS.map((before) => (
+            <MenuItem key={before} value={String(before)}>
+              {reminderLabel({ before }, false, '')}
+            </MenuItem>
+          ))}
+        </TextField>
+      </SettingRow>
       {phase === 'ready' && authMode === 'local' && (
         <SettingRow label={t('newTask.assignSelf')} hint={t('newTask.assignSelfHint')}>
           <Switch

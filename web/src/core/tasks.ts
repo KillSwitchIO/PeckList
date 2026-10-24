@@ -19,6 +19,7 @@ import type {
   Due,
   Id,
   Priority,
+  Reminder,
   Schedule,
   Task,
   TaskStatus,
@@ -36,6 +37,8 @@ export interface TaskInput {
   schedule?: Schedule | null;
   due?: Due | null;
   tags?: Id[];
+  /** Reminders it starts with (schema 12) */
+  reminders?: Reminder[];
   /** Place directly after this sibling instead of at the end */
   afterId?: Id | null;
 }
@@ -216,6 +219,7 @@ export function createTask(
     blockedBy: {},
     recurrence: null,
     progress: 0,
+    ...(input.reminders?.length ? { reminders: input.reminders } : {}),
   });
   return { workspace: putEntity(workspace, 'tasks', task), task };
 }
