@@ -168,6 +168,8 @@ export interface Settings extends BaseEntity {
   sidebar: SidebarLayout;
   /** The phone bottom bar's tabs before More, in order; absent: the default ones (schema 9) */
   bottomBar?: string[];
+  /** The named palette the colors start from; `palette` holds changes on top (schema 11) */
+  palettePreset?: string;
   /** What a new task starts with when where it is added says nothing (schema 10, PL-092) */
   newTask?: NewTaskDefaults;
 }

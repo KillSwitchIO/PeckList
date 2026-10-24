@@ -1,6 +1,6 @@
 import { ThemeProvider, useMediaQuery } from '@mui/material';
 import { useEffect, useMemo, type ReactNode } from 'react';
-import { paletteOverrides } from '../../core/paletteSettings.ts';
+import { effectivePalette } from '../../core/paletteSettings.ts';
 import { updateSettings } from '../../core/settings.ts';
 import { useApply, useWorkspace } from '../store/hooks.ts';
 import { setDisplayPreferences } from '../format.ts';
@@ -29,7 +29,7 @@ export function WorkspaceTheme({ children }: { children: ReactNode }) {
   setDisplayPreferences(settings ?? {});
   const display = `${settings?.clockFormat ?? '12h'}/${settings?.weekStart ?? 0}`;
   const resolved = mode === 'system' ? (prefersDark ? 'dark' : 'light') : mode;
-  const overrides = paletteOverrides(workspace);
+  const overrides = effectivePalette(workspace);
   const key = JSON.stringify(overrides);
   // A new theme object when the clock changes too, so everything showing a time renders again.
   const theme = useMemo(

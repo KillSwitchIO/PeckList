@@ -119,6 +119,9 @@ colors), dates (your time zone, 12 or 24-hour clock, the first day of the week, 
 counts as soon, how long a task with only a start time shows on the calendar), sign-in methods and
 linked accounts, and **Your data** ([download or import a copy](apps-and-sync.md#your-data-as-a-file)).
 
+**Colors**: pick a palette (Punchlist, Ocean, Forest, Sunset, Lavender or Graphite), then change
+any of its colors. **Reset colors** goes back to the palette's own colors.
+
 **Time zone**: "today", due dates and the calendar follow it. It starts out as the server's time
 zone (`TZ`), or your device's without a server; pick another one if you live somewhere else.
 
