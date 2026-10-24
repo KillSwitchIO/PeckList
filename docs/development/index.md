@@ -35,7 +35,13 @@ pnpm lint && pnpm typecheck
 pnpm build && pnpm e2e # end-to-end, against a production build
 # two devices through a real server (any running image, its ADMIN_PASSWORD given):
 E2E_BASE_URL=http://localhost:6183 E2E_ADMIN_PASSWORD=... pnpm e2e:server
+# the web client's own code (store, sync engine, HTTP) as several people against a real server:
+# friends, groups, sharing, hand-over, account removal, refusals, concurrent edits
+PUNCHLIST_URL=http://localhost:6183 PUNCHLIST_ADMIN_PASSWORD=... pnpm --filter @punchlist/web exec vitest run src/integration
 ```
+
+The `src/integration` tests are skipped unless `PUNCHLIST_URL` is set. Run them against a fresh
+server: each run adds accounts.
 
 ## Server
 

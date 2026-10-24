@@ -20,4 +20,22 @@ public static partial class Hlc
     /// <summary>The wall time an HLC carries.</summary>
     public static DateTimeOffset WallTime(string value) =>
         DateTimeOffset.Parse(value[..24], System.Globalization.CultureInfo.InvariantCulture);
+
+    /// <summary>The counter an HLC carries (the four digits after the wall time).</summary>
+    public static int Counter(string value) =>
+        int.Parse(value.AsSpan(25, 4), System.Globalization.CultureInfo.InvariantCulture);
+
+    /// <summary>The first stamp after <paramref name="value"/>, for <paramref name="node"/>.</summary>
+    public static string After(string value, string node)
+    {
+        var wall = WallTime(value);
+        var counter = Counter(value) + 1;
+        if (counter > 9999)
+        {
+            wall = wall.AddMilliseconds(1);
+            counter = 0;
+        }
+        var text = wall.UtcDateTime.ToString("yyyy-MM-dd'T'HH:mm:ss.fff'Z'", System.Globalization.CultureInfo.InvariantCulture);
+        return $"{text}-{counter:D4}-{node}";
+    }
 }
