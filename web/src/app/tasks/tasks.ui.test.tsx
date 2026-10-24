@@ -155,6 +155,9 @@ describe('task details', () => {
     expect(screen.getByRole('region', { name: 'Task details' })).toBeInTheDocument();
     // Likewise the editor lets go of focus a beat later; the next Escape is for the details.
     await waitFor(() => expect(notes).not.toHaveFocus());
+    // Focus sits on the page for a moment until the drawer's focus trap (an interval) takes it
+    // back; an Escape on the page would never reach the drawer.
+    await waitFor(() => expect(document.activeElement).not.toBe(document.body));
     await userEvent.keyboard('{Escape}');
     // Its closing transition runs on timers, slow under the coverage run.
     await waitFor(() => expect(screen.queryByRole('region', { name: 'Task details' })).toBeNull(), {
