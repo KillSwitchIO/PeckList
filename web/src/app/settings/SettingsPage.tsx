@@ -13,11 +13,12 @@ import {
   useTheme,
 } from '@mui/material';
 import { useState } from 'react';
-import { PALETTE_DEFAULTS, type PaletteSlot } from '../../core/palette.ts';
+import type { PaletteSlot } from '../../core/palette.ts';
 import {
   PALETTE_SLOTS,
   paletteColor,
   paletteOverrides,
+  presetColor,
   resetPalette,
   setPaletteColor,
   tooFaint,
@@ -34,6 +35,7 @@ import { t } from '../i18n/i18n.ts';
 import { Page } from '../layout/Page.tsx';
 import { DataSection } from './DataSection.tsx';
 import { NewTaskSection } from './NewTaskSection.tsx';
+import { PresetPicker } from './PresetPicker.tsx';
 import { Section, SettingRow } from './settingsLayout.tsx';
 import { SignInSection } from './SignInSection.tsx';
 import { TimeZoneSetting } from './TimeZoneSetting.tsx';
@@ -177,7 +179,7 @@ function SlotRow({ slot }: { slot: PaletteSlot }) {
               setAnchor(null);
             }}
           >
-            {t('palette.useDefault', { color: PALETTE_DEFAULTS[slot] })}
+            {t('palette.useDefault', { color: presetColor(workspace, slot) })}
           </Button>
           <Button size="small" onClick={() => setAnchor(null)}>
             {t('common.done')}
@@ -189,8 +191,8 @@ function SlotRow({ slot }: { slot: PaletteSlot }) {
 }
 
 /**
- * Settings (spec: PL-025). Colors (PL-018) come first: every slot shows live across the app as
- * it changes and syncs with the user's settings; Reset brings back the defaults.
+ * Settings (spec: PL-025). Colors (PL-018): a preset to start from, then every slot shows live
+ * across the app as it changes and syncs with the user's settings; Reset goes back to the preset.
  */
 export function SettingsPage() {
   const workspace = useWorkspace();
@@ -302,6 +304,7 @@ export function SettingsPage() {
             </Button>
           }
         >
+          <PresetPicker />
           <Preview />
           <Box role="list" aria-label={t('settings.colors')}>
             {PALETTE_SLOTS.map(({ slot }) => (

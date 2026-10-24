@@ -150,6 +150,67 @@ export const PALETTE_DEFAULTS = {
 
 export type PaletteSlot = keyof typeof PALETTE_DEFAULTS;
 
+/**
+ * Named palettes to start from (spec: PL-018, R-FB-09). Each sets every slot; the person's own
+ * changes go on top. The pastel rings and text are darkened on screen as needed, like the defaults.
+ */
+export const PALETTE_PRESETS = {
+  punchlist: PALETTE_DEFAULTS,
+  ocean: {
+    accent: '#3A7CA5',
+    accentContainer: '#CFE3F2',
+    priorityHigh: '#E07A7A',
+    priorityMedium: '#E8B26A',
+    priorityLow: '#7FA7D9',
+    priorityNone: '#B8BCC4',
+    late: '#E07A7A',
+    slipped: '#E8B26A',
+  },
+  forest: {
+    accent: '#5A8A4E',
+    accentContainer: '#DCEBD3',
+    priorityHigh: '#D9776B',
+    priorityMedium: '#E3B068',
+    priorityLow: '#8DAA9B',
+    priorityNone: '#B8BCC4',
+    late: '#D9776B',
+    slipped: '#E3B068',
+  },
+  sunset: {
+    accent: '#C46A4A',
+    accentContainer: '#F6DCCF',
+    priorityHigh: '#D95F6E',
+    priorityMedium: '#E9A15B',
+    priorityLow: '#9A8FD1',
+    priorityNone: '#BDB7B2',
+    late: '#D95F6E',
+    slipped: '#E9A15B',
+  },
+  lavender: {
+    accent: '#7B6CB8',
+    accentContainer: '#E3DEF5',
+    priorityHigh: '#E27D8E',
+    priorityMedium: '#EDB26F',
+    priorityLow: '#8CB2DE',
+    priorityNone: '#BDBCC8',
+    late: '#E27D8E',
+    slipped: '#EDB26F',
+  },
+  graphite: {
+    accent: '#5C6670',
+    accentContainer: '#DDE1E5',
+    priorityHigh: '#D9534F',
+    priorityMedium: '#E0A040',
+    priorityLow: '#6F8FB8',
+    priorityNone: '#B0B5BB',
+    late: '#D9534F',
+    slipped: '#E0A040',
+  },
+} as const satisfies Record<string, Record<PaletteSlot, string>>;
+
+export type PalettePreset = keyof typeof PALETTE_PRESETS;
+export const DEFAULT_PRESET: PalettePreset = 'punchlist';
+
 export const LIGHT_SURFACE = '#FFFFFF';
 export const DARK_SURFACE = '#24272A';
 

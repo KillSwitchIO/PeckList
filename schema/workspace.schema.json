@@ -8,7 +8,7 @@
   "additionalProperties": false,
   "properties": {
     "schemaVersion": {
-      "const": 10
+      "const": 11
     },
     "app": {
       "type": "object",
@@ -774,6 +774,11 @@
             "hidden": { "type": "array", "items": { "type": "string" } },
             "groupOpen": { "type": "boolean" }
           }
+        },
+        "palettePreset": {
+          "description": "The named palette the colors start from (schema 11); palette holds changes on top. Absent or unknown: punchlist.",
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9-]{0,31}$"
         },
         "newTask": {
           "description": "What a new task starts with when where it is added says nothing (schema 10). Absent fields: the Mess Drawer, no priority, no date, assigned to its maker in shared lists.",

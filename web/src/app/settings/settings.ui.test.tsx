@@ -221,3 +221,17 @@ describe('new task defaults', () => {
     expect(byTitle('Call vet')).toMatchObject({ listId: inbox, priority: 3 });
   });
 });
+
+describe('palette presets', () => {
+  it('picks a palette and shows its colors as the starting point', async () => {
+    const store = testStore();
+    await renderApp('/settings', store);
+    const palettes = await screen.findByRole('radiogroup', { name: 'Palettes' });
+    expect(within(palettes).getByRole('radio', { name: 'Punchlist' })).toBeChecked();
+    await userEvent.click(within(palettes).getByRole('radio', { name: 'Ocean' }));
+    expect(within(palettes).getByRole('radio', { name: 'Ocean' })).toBeChecked();
+    expect(store.getState().workspace!.entities.settings[0]!.palettePreset).toBe('ocean');
+    // The accent row shows the palette's color as its own (no change yet).
+    expect(screen.getByRole('button', { name: 'Change Accent, now #3A7CA5' })).toBeInTheDocument();
+  });
+});
