@@ -9,7 +9,7 @@ public static class WorkspaceSchema
     /// <summary>
     /// Older versions whose data this build reads as it is: their migrations only added optional
     /// fields or empty collections (5 to 6: friendships' <c>madeBy</c>; 6 to 7: comments; 7 to 8:
-    /// attachments; 8 to 9: settings' <c>bottomBar</c>). Backups
+    /// attachments; 8 to 9: settings' <c>bottomBar</c> and lists' <c>ownerId</c>). Backups
     /// from them restore without a migration.
     /// </summary>
     public static bool Readable(int? version) => version is >= 5 and <= CurrentVersion;

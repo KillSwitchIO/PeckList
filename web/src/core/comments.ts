@@ -4,7 +4,7 @@
 
 import { getEntity, isLive, putEntity, requireEntity } from './collections.ts';
 import { createEntity, isoNow, softDelete, updateEntity, type OpContext } from './ops.ts';
-import { canEditTask, roleOn } from './sharing.ts';
+import { canEditTask, listOwner, roleOn } from './sharing.ts';
 import type { Comment, Id, Task, User, WorkspaceFile } from './types.ts';
 
 export const MAX_COMMENT_LENGTH = 20000;
@@ -98,7 +98,7 @@ export function mentionCandidates(workspace: WorkspaceFile, me: Id, task: Task):
     }
   };
   const list = getEntity(workspace, 'lists', task.listId);
-  if (list) ids.add(list.createdBy);
+  if (list) ids.add(listOwner(list));
   for (const member of workspace.entities.listMembers) {
     if (member.listId === task.listId && isLive(member)) addPrincipal(member.principal);
   }

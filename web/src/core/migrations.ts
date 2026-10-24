@@ -96,8 +96,9 @@ export const MIGRATIONS: MigrationRegistry = {
     if (!entities) return document;
     return { ...document, entities: { ...entities, attachments: entities.attachments ?? [] } };
   },
-  // 9: settings may hold bottomBar (the phone's tabs). Optional (missing means the default tabs),
-  // so documents change only in version.
+  // 9: settings may hold bottomBar (the phone's tabs), and lists ownerId (set when an admin hands
+  // a list over). Both optional (missing: the default tabs, the creator), so documents change only
+  // in version.
   9: (document) => document,
 };
 

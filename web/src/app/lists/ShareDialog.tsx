@@ -22,6 +22,7 @@ import {
   describePrincipal,
   friendsOf,
   listMembersOf,
+  listOwner,
   makePrivate,
   nameOf,
   removeMember,
@@ -63,7 +64,7 @@ export function ShareDialog({ list, onClose }: { list: List; onClose: () => void
     (friend) =>
       friend.state === 'accepted' &&
       !memberPrincipals.has(`user:${friend.userId}`) &&
-      friend.userId !== list.createdBy,
+      friend.userId !== listOwner(list),
   );
   const groups = activeGroupsOf(workspace, me).filter(
     (group) => !memberPrincipals.has(`group:${group.id}`),
@@ -100,7 +101,7 @@ export function ShareDialog({ list, onClose }: { list: List; onClose: () => void
     const shown = describePrincipal(workspace, value);
     return { label: shown.name, plain: shown.name, color: shown.color, detail: t('share.group') };
   };
-  const creator = person(list.createdBy);
+  const creator = person(listOwner(list));
 
   return (
     <>

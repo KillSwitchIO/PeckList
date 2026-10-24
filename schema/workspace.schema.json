@@ -330,6 +330,10 @@
         },
         "isInbox": {
           "type": "boolean"
+        },
+        "ownerId": {
+          "description": "Who owns the list when an admin handed it over (schema 9); absent: its creator",
+          "$ref": "#/$defs/id"
         }
       },
       "unevaluatedProperties": false

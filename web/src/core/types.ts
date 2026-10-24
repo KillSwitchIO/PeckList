@@ -51,6 +51,8 @@ export interface List extends BaseEntity {
   archived: boolean;
   order: OrderKey;
   isInbox: boolean;
+  /** Set when an admin hands the list to someone else; absent: its creator owns it (schema 9) */
+  ownerId?: Id;
 }
 
 /** @deprecated Sections were dropped (PL-011); old ones fold into their list (flattenSections). */

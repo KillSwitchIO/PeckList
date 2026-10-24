@@ -96,10 +96,15 @@ export function listMembersOf(workspace: WorkspaceFile, listId: Id): ListMember[
 }
 
 /** A user's role on a list (null: none): its creator owns it; members get their best role. */
+/** Who owns a list: whoever an admin handed it to, else its creator. */
+export function listOwner(list: List): Id {
+  return list.ownerId ?? list.createdBy;
+}
+
 export function roleOn(workspace: WorkspaceFile, me: Id, listId: Id): Role | null {
   const list = getEntity(workspace, 'lists', listId);
   if (!list) return null;
-  if (list.createdBy === me) return 'owner';
+  if (listOwner(list) === me) return 'owner';
   if (list.visibility !== 'shared') return null;
   const groups = new Set(
     workspace.entities.groupMembers
@@ -321,7 +326,7 @@ export function assigneeCandidates(workspace: WorkspaceFile, me: Id, task: Task)
 
   const others = new Set<string>();
   const list = getEntity(workspace, 'lists', task.listId);
-  if (list) others.add(`user:${list.createdBy}`);
+  if (list) others.add(`user:${listOwner(list)}`);
   for (const member of listMembersOf(workspace, task.listId)) others.add(member.principal);
   for (const friend of friendsOf(workspace, me)) {
     if (friend.state === 'accepted') others.add(`user:${friend.userId}`);
@@ -373,7 +378,7 @@ export function assignedTo(workspace: WorkspaceFile, me: Id): Task[] {
 /** Tasks I can see only because someone shared them: in lists I do not own, or assigned from elsewhere. */
 export function sharedWithMe(workspace: WorkspaceFile, me: Id): Task[] {
   const mineLists = new Set(
-    workspace.entities.lists.filter((list) => list.createdBy === me).map((list) => list.id),
+    workspace.entities.lists.filter((list) => listOwner(list) === me).map((list) => list.id),
   );
   return workspace.entities.tasks.filter(
     (task) => isLive(task) && task.status === 'open' && !mineLists.has(task.listId),

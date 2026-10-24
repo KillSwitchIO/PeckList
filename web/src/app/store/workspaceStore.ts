@@ -18,6 +18,7 @@ import type { OpContext } from '../../core/ops.ts';
 import { COLLECTIONS, type WorkspaceFile } from '../../core/types.ts';
 import { revertChange } from '../../core/undo.ts';
 import { createWorkspace, emptyEntities } from '../../core/workspace.ts';
+import { keepValid } from '../../core/keepValid.ts';
 import type { IdGenerator } from '../../ports/ids.ts';
 import type { Journal } from '../../ports/journal.ts';
 import type { StorageAdapter } from '../../ports/storage.ts';
@@ -414,8 +415,14 @@ export function createWorkspaceStore(deps: StoreDependencies): WorkspaceStore {
       absorb(transform, ids = []) {
         const { workspace } = get();
         if (!workspace) return;
-        const next = transform(workspace);
-        if (next === workspace) return;
+        // Data from elsewhere that this app cannot read stays out (or keeps its old version), so
+        // one bad entity cannot stop the workspace from opening next time.
+        const merged = transform(workspace);
+        if (merged === workspace) return;
+        const { workspace: next, skipped } = keepValid(workspace, merged, (document) =>
+          deps.validator.validate(document),
+        );
+        if (skipped.length > 0) console.warn('Punchlist left out entities it cannot read', skipped);
         for (const id of ids) authoritative.add(id);
         advanceClock(next);
         if (next.owner !== workspace.owner) {

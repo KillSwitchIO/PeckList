@@ -7,6 +7,7 @@ import { dateState } from './dateState.ts';
 import { addDays, datePart, daysBetween } from './dates.ts';
 import { members } from './ops.ts';
 import { compareOrderKeys } from './ordering.ts';
+import { listOwner } from './sharing.ts';
 import { tagWithDescendants } from './tags.ts';
 import type { Id, Priority, Task, WorkspaceFile } from './types.ts';
 
@@ -103,7 +104,7 @@ export function compileFilter(
   return (task) => {
     if (filter.sharedWith) {
       const list = listById.get(task.listId);
-      if (list && list.createdBy === filter.sharedWith) return false;
+      if (list && listOwner(list) === filter.sharedWith) return false;
     }
     if (assignees && !members(task.assignees).some((principal) => assignees.has(principal)))
       return false;

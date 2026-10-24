@@ -77,6 +77,20 @@ describe('friends', () => {
 });
 
 describe('list sharing', () => {
+  it('a list an admin handed over belongs to its new owner, not its creator', () => {
+    const { ben, workspace, list } = benWorld();
+    const shared = shareList(ben, workspace, list.id, `user:${SAM}`, 'editor');
+    // What the server sends after Admin > hand over: ownerId, and Ben kept on as an editor.
+    const handed = putEntity(shared, 'lists', {
+      ...shared.entities.lists.find((each) => each.id === list.id)!,
+      ownerId: SAM,
+    });
+    const kept = shareList(as(SAM), handed, list.id, `user:${BEN}`, 'editor');
+    expect(roleOn(kept, SAM, list.id)).toBe('owner');
+    expect(roleOn(kept, BEN, list.id)).toBe('editor');
+    expect(createAjvValidator().validate(kept).errors).toEqual([]);
+  });
+
   it('shares a list in roles that decide who may edit', () => {
     const { ben, workspace, list } = benWorld();
     expect(roleOn(workspace, BEN, list.id)).toBe('owner');
