@@ -224,7 +224,8 @@ describe('list names on rows', () => {
 });
 
 describe('long lists', () => {
-  it('draws the first 200 rows and more on asking', async () => {
+  // Drawing 230 rows in jsdom takes seconds, more under coverage: past the 5 s default.
+  it('draws the first 200 rows and more on asking', { timeout: 30_000 }, async () => {
     const store = testStore();
     await renderApp('/inbox', store);
     act(() =>
@@ -240,7 +241,7 @@ describe('long lists', () => {
       }),
     );
     const rows = () => document.querySelectorAll('main [data-task-row]').length;
-    await waitFor(() => expect(rows()).toBe(200));
+    await waitFor(() => expect(rows()).toBe(200), { timeout: 20_000 });
     await userEvent.click(screen.getByRole('button', { name: 'Show 30 more' }));
     expect(rows()).toBe(230);
     expect(screen.queryByRole('button', { name: /^Show \d+ more$/ })).toBeNull();
