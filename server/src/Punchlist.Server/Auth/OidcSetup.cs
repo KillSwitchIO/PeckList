@@ -264,7 +264,10 @@ public static class OidcSetup
                 if (success.Created) note.Detail = success.JoinedBy == "invite" ? $"{provider.Name}, new account from an invite" : $"{provider.Name}, new account";
                 else if (success.JoinedBy == "remap") note.Detail = $"{provider.Name}, moved here from another account by a mapping";
                 else if (success.JoinedBy is { } joined) note.Detail = $"{provider.Name}, joined the account by {joined}";
-                var principal = AuthSetup.Principal(success.Account, CookieAuthenticationDefaults.AuthenticationScheme);
+                // No password was used, so a temporary one an admin set does not stand in the way: the
+                // account keeps the flag, and signing in with that password still asks for a new one.
+                var principal = AuthSetup.Principal(
+                    success.Account with { MustChangePassword = false }, CookieAuthenticationDefaults.AuthenticationScheme);
                 ((ClaimsIdentity)principal.Identity!).AddClaim(new Claim(ProviderClaim, provider.Name));
                 context.Principal = principal;
                 context.Properties!.IsPersistent = true;

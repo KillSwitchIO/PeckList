@@ -238,6 +238,25 @@ public sealed class OidcTests(ServerFixture fixture) : IClassFixture<ServerFixtu
     }
 
     [Fact]
+    public async Task A_provider_sign_in_skips_the_temporary_password_but_the_password_still_asks()
+    {
+        using var server = Server(("OIDC_FAKE_LINK_BY_USERNAME", "true"));
+        const string password = "a temporary password";
+        await server.Services.GetRequiredService<AccountService>()
+            .CreateUserAsync("kim", password, mustChangePassword: true, cancellation: Token);
+
+        var phone = Browser(server);
+        Assert.Equal("/", await SignIn(phone, Kim()));
+        var me = await phone.GetFromJsonAsync<Me>("/auth/me", Token);
+        Assert.Equal(("kim", false), (me!.Username, me.MustChangePassword));
+        Assert.Equal(HttpStatusCode.OK, (await phone.GetAsync("/api/account/sign-in", Token)).StatusCode);
+
+        var laptop = Browser(server);
+        (await laptop.PostAsJsonAsync("/auth/login", new { username = "kim", password }, Token)).EnsureSuccessStatusCode();
+        Assert.True((await laptop.GetFromJsonAsync<Me>("/auth/me", Token))!.MustChangePassword);
+    }
+
+    [Fact]
     public async Task A_link_finishes_only_for_the_person_who_started_it()
     {
         using var server = Server();
