@@ -48,6 +48,7 @@ async function sharedTask() {
 }
 
 describe('comments', () => {
+  // A long flow: under a full parallel run with coverage it can pass 15 seconds.
   it('posts with Ctrl+Enter, mentions people on the task, edits and deletes', async () => {
     const { details } = await sharedTask();
     const box = within(details).getByRole('textbox', { name: /Add a comment/ });
@@ -84,5 +85,5 @@ describe('comments', () => {
     expect(
       await within(details).findByRole('listitem', { name: 'Comment by You' }),
     ).toHaveTextContent('Green after all');
-  });
+  }, 30_000);
 });
