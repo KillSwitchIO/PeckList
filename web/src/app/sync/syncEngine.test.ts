@@ -107,18 +107,16 @@ describe('sync engine', () => {
       const bytes = new TextEncoder().encode(text);
       const sha256 = sha256Hex(bytes);
       await laptop.engine.getState().blobs.put(sha256, new Blob([bytes], { type: 'text/plain' }));
-      laptop.store
-        .getState()
-        .apply(
-          (ctx, ws) =>
-            addAttachment(ctx, ws, {
-              taskId: task,
-              name,
-              size: bytes.length,
-              mime: 'text/plain',
-              sha256,
-            }).workspace,
-        );
+      laptop.store.getState().apply(
+        (ctx, ws) =>
+          addAttachment(ctx, ws, {
+            taskId: task,
+            name,
+            size: bytes.length,
+            mime: 'text/plain',
+            sha256,
+          }).workspace,
+      );
       return sha256;
     };
     const small = await attach('colour.txt', 'red');

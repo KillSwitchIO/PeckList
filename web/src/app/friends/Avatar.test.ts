@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { initialsOf } from './Avatar.tsx';
+import { initialsOf } from './initials.ts';
 
 describe('initialsOf', () => {
   it('takes the first letters of the first and last names', () => {

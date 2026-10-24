@@ -3,7 +3,8 @@ import CloseRounded from '@mui/icons-material/CloseRounded';
 import DeleteOutlineRounded from '@mui/icons-material/DeleteOutlineRounded';
 import MoreHorizRounded from '@mui/icons-material/MoreHorizRounded';
 import AttachFileRounded from '@mui/icons-material/AttachFileRounded';
-import { AttachmentList, useAttachFiles } from '../attachments/Attachments.tsx';
+import { AttachmentList } from '../attachments/Attachments.tsx';
+import { useAttachFiles } from '../attachments/useAttachFiles.tsx';
 import TaskAltRounded from '@mui/icons-material/TaskAltRounded';
 import {
   Box,
