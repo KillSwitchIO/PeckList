@@ -1,0 +1,89 @@
+using System.Globalization;
+using System.Text.Json.Nodes;
+using Punchlist.Core.Sharing;
+
+namespace Punchlist.Core.Push;
+
+/// <summary>A browser's Web Push subscription (spec: PL-061): where to send, and its keys.</summary>
+public sealed record PushSubscription(string UserId, string Endpoint, string P256dh, string Auth);
+
+public interface IPushStore
+{
+    /// <summary>Add or move a subscription (an endpoint belongs to one person at a time).</summary>
+    Task SaveAsync(PushSubscription subscription, CancellationToken cancellation = default);
+
+    Task<IReadOnlyList<PushSubscription>> ForUserAsync(string userId, CancellationToken cancellation = default);
+
+    Task RemoveAsync(string endpoint, CancellationToken cancellation = default);
+
+    /// <summary>All of a person's subscriptions go (signing out everywhere, account removal).</summary>
+    Task RemoveUserAsync(string userId, CancellationToken cancellation = default);
+
+    /// <summary>Note a reminder as sent; false when it already was (so it goes out once).</summary>
+    Task<bool> MarkReminderSentAsync(string key, DateTimeOffset at, CancellationToken cancellation = default);
+
+    /// <summary>Forget sent reminders older than <paramref name="before"/>.</summary>
+    Task PruneSentRemindersAsync(DateTimeOffset before, CancellationToken cancellation = default);
+}
+
+/// <summary>
+/// Reminders on the server (spec: PL-061), the same rules as the app (web/src/core/reminders.ts):
+/// minutes before the task's start (else its due date; an all-day date counts from 9:00), or a set
+/// local date-time; for its assignees, or its maker when nobody is assigned.
+/// </summary>
+public static class ServerReminders
+{
+    public static readonly TimeSpan AllDayTime = TimeSpan.FromHours(9);
+
+    /// <summary>When the task's reminders fire, in the given time zone.</summary>
+    public static IEnumerable<DateTimeOffset> Instants(JsonObject task, TimeZoneInfo zone)
+    {
+        if (task["reminders"] is not JsonArray reminders) yield break;
+        var anchor = Text(task["schedule"]?["start"]) ?? Text(task["due"]?["at"]);
+        foreach (var reminder in reminders.OfType<JsonObject>())
+        {
+            if (Text(reminder["at"]) is { } at)
+            {
+                if (Local(at) is { } set) yield return InZone(set, zone);
+            }
+            else if (reminder["before"] is JsonValue before && before.TryGetValue<int>(out var minutes) && anchor is not null
+                && Local(anchor) is { } start)
+            {
+                yield return InZone(start, zone) - TimeSpan.FromMinutes(minutes);
+            }
+        }
+    }
+
+    /// <summary>Who a task's reminders are for: its assignees (groups as their people), else its maker.</summary>
+    public static IReadOnlyCollection<string> Recipients(JsonObject task, SharingIndex index)
+    {
+        var people = new HashSet<string>(StringComparer.Ordinal);
+        if (task["assignees"] is JsonObject assignees)
+        {
+            foreach (var (principal, state) in assignees)
+            {
+                if (state?["in"] is JsonValue value && value.TryGetValue<bool>(out var isIn) && isIn) people.UnionWith(index.PeopleOf(principal));
+            }
+        }
+        if (people.Count == 0 && Text(task["createdBy"]) is { } maker) people.Add(maker);
+        return people;
+    }
+
+    /// <summary>A local date (all day: 9:00) or date-time, without a zone.</summary>
+    private static DateTime? Local(string value)
+    {
+        string[] formats = ["yyyy-MM-dd'T'HH:mm", "yyyy-MM-dd'T'HH:mm:ss", "yyyy-MM-dd"];
+        if (!DateTime.TryParseExact(value, formats, CultureInfo.InvariantCulture, DateTimeStyles.None, out var parsed)) return null;
+        return value.Length == 10 ? parsed + AllDayTime : parsed;
+    }
+
+    private static DateTimeOffset InZone(DateTime local, TimeZoneInfo zone)
+    {
+        var unspecified = DateTime.SpecifyKind(local, DateTimeKind.Unspecified);
+        // A time the clocks skip (spring forward) happens an hour later.
+        if (zone.IsInvalidTime(unspecified)) unspecified = unspecified.AddHours(1);
+        return new DateTimeOffset(TimeZoneInfo.ConvertTimeToUtc(unspecified, zone), TimeSpan.Zero);
+    }
+
+    private static string? Text(JsonNode? node) => node is JsonValue value && value.TryGetValue<string>(out var text) ? text : null;
+}

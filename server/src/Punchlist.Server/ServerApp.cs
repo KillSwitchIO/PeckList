@@ -1,3 +1,4 @@
+using Punchlist.Server.Push;
 using System.Reflection;
 using Microsoft.AspNetCore.HttpOverrides;
 using Punchlist.Core;
@@ -69,6 +70,11 @@ public static partial class ServerApp
         builder.Services.AddSingleton<ISharingChangeSink, Audit.SharingAudit>();
         builder.Services.AddSingleton<Punchlist.Core.Notifications.INotificationSink, NotificationRecorder>();
         builder.Services.AddHostedService<NotificationRetention>();
+        builder.Services.AddHttpClient("push");
+        builder.Services.AddSingleton<VapidKeys>();
+        builder.Services.AddSingleton<IPushSender, PushSender>();
+        builder.Services.AddSingleton<ReminderSender>();
+        builder.Services.AddHostedService(provider => provider.GetRequiredService<ReminderSender>());
         builder.Services.AddSingleton<SyncService>();
         builder.Services.AddSingleton<Punchlist.Core.Attachments.IAttachmentStore>(new Attachments.FileAttachmentStore(settings.AttachmentDir));
         builder.Services.AddHostedService<Attachments.AttachmentCleanup>();
@@ -124,7 +130,7 @@ public static partial class ServerApp
         app.MapGet("/api/info", (LiveSettings live) =>
             new ServerInfo("punchlist", Version, WorkspaceSchema.CurrentVersion, TimeZoneInfo.Local.Id, live.Current.AttachmentMaxMb));
         app.MapAuth();
-        app.MapGroup("/api").RequireAuthorization().RequirePasswordChanged().EnsureProfiles().MapSync().MapFriends().MapAccount().MapAttachments().MapNotifications();
+        app.MapGroup("/api").RequireAuthorization().RequirePasswordChanged().EnsureProfiles().MapSync().MapFriends().MapAccount().MapAttachments().MapNotifications().MapPush();
         app.MapGroup("/api/admin").RequireAuthorization().RequirePasswordChanged().MapAdmin().MapSettings().MapBackups().MapLogging().MapAudit().MapStats().MapSetup();
 
         var webRoot = settings.WebRoot ?? Path.Combine(AppContext.BaseDirectory, "wwwroot");

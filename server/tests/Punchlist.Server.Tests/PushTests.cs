@@ -1,0 +1,138 @@
+using System.Net;
+using System.Net.Http.Json;
+using System.Text.Json.Nodes;
+using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.AspNetCore.TestHost;
+using Microsoft.Extensions.DependencyInjection;
+using Punchlist.Core;
+using Punchlist.Core.Accounts;
+using Punchlist.Core.Push;
+using Punchlist.Server.Push;
+
+namespace Punchlist.Server.Tests;
+
+/// <summary>Web Push and server reminders (spec: PL-061).</summary>
+public sealed class PushTests(ServerFixture fixture) : IClassFixture<ServerFixture>
+{
+    private sealed class FakePush : IPushSender
+    {
+        public List<(string UserId, PushPayload Payload)> Sent { get; } = [];
+
+        public Task SendAsync(string userId, PushPayload payload, CancellationToken cancellation = default)
+        {
+            lock (Sent) Sent.Add((userId, payload));
+            return Task.CompletedTask;
+        }
+    }
+
+    private readonly FakePush push = new();
+
+    private static CancellationToken Token => TestContext.Current.CancellationToken;
+
+    private async Task<(HttpClient Client, string Id)> SignIn(WebApplicationFactory<Program> server, string username)
+    {
+        var accounts = server.Services.GetRequiredService<AccountService>();
+        const string password = "a long enough password";
+        var account = await accounts.CreateUserAsync(username, password, mustChangePassword: false, cancellation: Token);
+        var client = server.CreateClient();
+        (await client.PostAsJsonAsync("/auth/login", new { username, password }, Token)).EnsureSuccessStatusCode();
+        return (client, account.Id);
+    }
+
+    private WebApplicationFactory<Program> Server() =>
+        fixture.Factory(("ADMIN_PASSWORD", "correct horse battery"))
+            .WithWebHostBuilder(host => host.ConfigureTestServices(services => services.AddSingleton<IPushSender>(push)));
+
+    private static JsonObject Entity(string id, string by, JsonObject fields)
+    {
+        const string stamp = "2026-10-24T10:00:00.000Z-0000-dev1";
+        fields["id"] = id;
+        fields["createdBy"] = by;
+        fields["deletedAt"] ??= null;
+        var clocks = new JsonObject();
+        foreach (var (field, _) in fields) if (field != "id") clocks[field] = stamp;
+        fields["_hlc"] = clocks;
+        return fields;
+    }
+
+    [Fact]
+    public async Task The_server_keeps_one_vapid_key_and_takes_subscriptions_from_the_signed_in()
+    {
+        using var server = Server();
+        var (ben, benId) = await SignIn(server, "ben-p");
+        var key = (await ben.GetFromJsonAsync<PushKey>("/api/push/key", Token))!.PublicKey;
+        // An uncompressed P-256 point: 65 bytes, base64url.
+        Assert.Equal(87, key.Length);
+        Assert.Equal(key, (await ben.GetFromJsonAsync<PushKey>("/api/push/key", Token))!.PublicKey);
+
+        Assert.Equal(HttpStatusCode.BadRequest, (await ben.PostAsJsonAsync("/api/push/subscriptions",
+            new { endpoint = "http://insecure.example/x", keys = new { p256dh = "p", auth = "a" } }, Token)).StatusCode);
+        (await ben.PostAsJsonAsync("/api/push/subscriptions",
+            new { endpoint = "https://push.example/ben", keys = new { p256dh = "p", auth = "a" } }, Token)).EnsureSuccessStatusCode();
+        var store = server.Services.GetRequiredService<IPushStore>();
+        Assert.Equal("https://push.example/ben", (await store.ForUserAsync(benId, Token)).Single().Endpoint);
+
+        // Someone else cannot take it away.
+        var (kim, _) = await SignIn(server, "kim-p");
+        (await kim.PostAsJsonAsync("/api/push/unsubscribe", new { endpoint = "https://push.example/ben" }, Token)).EnsureSuccessStatusCode();
+        Assert.Single(await store.ForUserAsync(benId, Token));
+        (await ben.PostAsJsonAsync("/api/push/unsubscribe", new { endpoint = "https://push.example/ben" }, Token)).EnsureSuccessStatusCode();
+        Assert.Empty(await store.ForUserAsync(benId, Token));
+    }
+
+    [Fact]
+    public async Task Due_reminders_go_out_once_as_a_notification_and_a_push_to_whom_they_are_for()
+    {
+        using var server = Server();
+        var (ben, benId) = await SignIn(server, "ben-r");
+        // Ben's own time zone: reminders count in it.
+        var settings = Entity("SET-R", benId, new JsonObject
+        {
+            ["userId"] = benId,
+            ["themeMode"] = "system",
+            ["palette"] = new JsonObject(),
+            ["pointEventMinutes"] = 30,
+            ["dueSoonDays"] = 2,
+            ["timeZone"] = "America/Chicago",
+            ["sidebar"] = new JsonObject { ["order"] = new JsonArray(), ["hidden"] = new JsonArray(), ["groupOpen"] = false },
+        });
+        var list = Entity("RL1", benId, new JsonObject { ["name"] = "Home", ["visibility"] = "private" });
+        var task = Entity("RT1", benId, new JsonObject
+        {
+            ["listId"] = "RL1",
+            ["title"] = "Dentist",
+            ["parentId"] = null,
+            ["status"] = "open",
+            ["assignees"] = new JsonObject(),
+            ["schedule"] = new JsonObject { ["start"] = "2026-10-26T10:30", ["end"] = null, ["allDay"] = false, ["timeZone"] = "America/Chicago" },
+            ["reminders"] = new JsonArray(new JsonObject { ["before"] = 30 }),
+        });
+        (await ben.PostAsJsonAsync("/api/sync", new
+        {
+            schemaVersion = WorkspaceSchema.CurrentVersion,
+            cursor = (long?)null,
+            changes = new object[]
+            {
+                new { collection = "settings", entity = settings },
+                new { collection = "lists", entity = list },
+                new { collection = "tasks", entity = task },
+            },
+        }, Token)).EnsureSuccessStatusCode();
+
+        // 10:00 in Chicago (CDT, UTC-5) is 15:00 UTC.
+        var due = new DateTimeOffset(2026, 10, 26, 15, 0, 0, TimeSpan.Zero);
+        var sender = server.Services.GetRequiredService<ReminderSender>();
+        await sender.SendDueAsync(due.AddMinutes(-1), due.AddMinutes(-0.5), Token);
+        Assert.Empty(push.Sent);
+        await sender.SendDueAsync(due.AddMinutes(-1), due.AddMinutes(1), Token);
+        await sender.SendDueAsync(due.AddMinutes(-1), due.AddMinutes(1), Token);
+
+        var (userId, payload) = Assert.Single(push.Sent);
+        Assert.Equal(benId, userId);
+        Assert.Equal(("Dentist", "Reminder for 10:00 AM", "/today?task=RT1"), (payload.Title, payload.Body, payload.Url));
+        Assert.Equal($"RT1@{due.ToUnixTimeMilliseconds()}", payload.Tag);
+        var feed = (await ben.GetFromJsonAsync<NotificationFeed>("/api/notifications", Token))!;
+        var reminder = Assert.Single(feed.Items);
+        Assert.Equal(("reminder", "RT1", due), (reminder.Kind, reminder.TaskId, reminder.At));
+    }
+}

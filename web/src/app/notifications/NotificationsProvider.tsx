@@ -69,16 +69,27 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
         read: each.read,
         local: false,
       })),
-      ...local.map((each) => ({
-        id: each.id,
-        kind: 'reminder' as const,
-        at: each.at,
-        actorId: null,
-        taskId: each.taskId,
-        listId: null,
-        read: each.read,
-        local: true,
-      })),
+      // A reminder the server sent too (its time within a minute) shows once.
+      ...local
+        .filter(
+          (each) =>
+            !server.some(
+              (sent) =>
+                sent.kind === 'reminder' &&
+                sent.taskId === each.taskId &&
+                Math.abs(Date.parse(sent.at) - each.at) < 60_000,
+            ),
+        )
+        .map((each) => ({
+          id: each.id,
+          kind: 'reminder' as const,
+          at: each.at,
+          actorId: null,
+          taskId: each.taskId,
+          listId: null,
+          read: each.read,
+          local: true,
+        })),
     ].sort((a, b) => b.at - a.at);
     const split = (ids: string[] | null) => ({
       mine: ids === null ? null : ids.filter((id) => local.some((each) => each.id === id)),

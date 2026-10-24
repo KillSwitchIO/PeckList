@@ -46,10 +46,10 @@ public sealed class SqlNotificationStore(SqlDatabase database) : INotificationSt
         if (ids is { Count: 0 }) return;
         await using var connection = await database.OpenAsync(cancellation);
         await using var transaction = await database.BeginWriteAsync(connection, cancellation);
-        var only = ids is null ? "" : " AND id IN @ids";
+        var only = ids is null ? "" : $" AND {database.IdInList}";
         await connection.ExecuteAsync(new CommandDefinition(
             $"UPDATE notifications SET read_at = @at WHERE user_id = @userId AND read_at IS NULL{only}",
-            new { userId, ids, at = at.ToUnixTimeMilliseconds() }, transaction, cancellationToken: cancellation));
+            new { userId, ids = ids?.ToArray(), at = at.ToUnixTimeMilliseconds() }, transaction, cancellationToken: cancellation));
         await transaction.CommitAsync(cancellation);
     }
 
@@ -58,10 +58,10 @@ public sealed class SqlNotificationStore(SqlDatabase database) : INotificationSt
         if (ids is { Count: 0 }) return;
         await using var connection = await database.OpenAsync(cancellation);
         await using var transaction = await database.BeginWriteAsync(connection, cancellation);
-        var only = ids is null ? "" : " AND id IN @ids";
+        var only = ids is null ? "" : $" AND {database.IdInList}";
         await connection.ExecuteAsync(new CommandDefinition(
             $"DELETE FROM notifications WHERE user_id = @userId{only}",
-            new { userId, ids }, transaction, cancellationToken: cancellation));
+            new { userId, ids = ids?.ToArray() }, transaction, cancellationToken: cancellation));
         await transaction.CommitAsync(cancellation);
     }
 

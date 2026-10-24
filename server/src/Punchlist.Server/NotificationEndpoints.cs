@@ -1,3 +1,4 @@
+using System.Text.Json.Nodes;
 using System.Security.Claims;
 using Punchlist.Core;
 using Punchlist.Core.Accounts;
@@ -52,7 +53,8 @@ public static class NotificationEndpoints
 /// Turns pushed changes into notifications (spec: PL-061): a task assigned, a list shared, an
 /// @mention in a comment. Whoever pushed the change is never told about it.
 /// </summary>
-public sealed class NotificationRecorder(INotificationStore store, IAccountStore accounts, SharingState sharing, TimeProvider time)
+public sealed class NotificationRecorder(
+    INotificationStore store, IAccountStore accounts, SharingState sharing, Push.IPushSender push, TimeProvider time)
     : INotificationSink
 {
     public async Task ChangedAsync(string userId, IReadOnlyList<NotableChange> changes, CancellationToken cancellation = default)
@@ -79,6 +81,28 @@ public sealed class NotificationRecorder(INotificationStore store, IAccountStore
             })
             .ToList();
         await store.AddAsync(found, cancellation);
+        if (found.Count == 0) return;
+
+        // And to their devices, with names: the push is encrypted for each browser.
+        var actor = (await accounts.FindByIdAsync(userId, cancellation))?.Username ?? "Someone";
+        var index = sharing.Index;
+        string Name(string? id, string field, string fallback) =>
+            id is not null && index.DocOf(id)?[field] is JsonValue value && value.TryGetValue<string>(out var text) && text.Length > 0
+                ? text
+                : fallback;
+        foreach (var each in found)
+        {
+            var task = Name(each.TaskId, "title", "a task");
+            var body = each.Kind switch
+            {
+                NotificationKind.Assigned => $"{actor} assigned you {task}",
+                NotificationKind.Shared => $"{actor} shared {Name(each.ListId, "name", "a list")} with you",
+                NotificationKind.Mentioned => $"{actor} mentioned you in {task}",
+                _ => task,
+            };
+            var url = each.TaskId is not null ? $"/today?task={each.TaskId}" : $"/lists/{each.ListId}";
+            await push.SendAsync(each.UserId, new Push.PushPayload("Punchlist", body, each.Id, url), cancellation);
+        }
     }
 }
 

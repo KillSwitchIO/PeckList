@@ -300,6 +300,28 @@ export function createHttpSync(
       },
     },
 
+    push: {
+      async key() {
+        const response = await call('/api/push/key');
+        if (!response.ok) return fail(response);
+        return ((await response.json()) as { publicKey: string }).publicKey;
+      },
+      async subscribe(subscription) {
+        const response = await call('/api/push/subscriptions', {
+          method: 'POST',
+          body: subscription,
+        });
+        if (!response.ok) return fail(response);
+      },
+      async unsubscribe(endpoint) {
+        const response = await call('/api/push/unsubscribe', {
+          method: 'POST',
+          body: { endpoint },
+        });
+        if (!response.ok) return fail(response);
+      },
+    },
+
     events(onChange) {
       // Server-Sent Events; the browser reconnects by itself after a drop.
       if (typeof EventSource === 'undefined') return () => undefined;

@@ -9,6 +9,7 @@
     <ProjectReference Include="..\Punchlist.Storage.Sqlite\Punchlist.Storage.Sqlite.csproj" />
   </ItemGroup>
   <ItemGroup>
+    <PackageReference Include="Lib.Net.Http.WebPush" />
     <PackageReference Include="Microsoft.AspNetCore.Authentication.OpenIdConnect" />
     <PackageReference Include="Microsoft.Extensions.Hosting.Systemd" />
     <PackageReference Include="Microsoft.Extensions.Hosting.WindowsServices" />

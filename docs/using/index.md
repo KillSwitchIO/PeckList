@@ -59,7 +59,9 @@ their start; the due date is the deadline.
   day before (an all-day task: on the day at 9:00, a day, two days or a week before), and any
   number of set times. The first one asks your browser for permission to show notifications.
   Reminders go to the people the task is assigned to, or to whoever made it when nobody is.
-  Today they appear while Punchlist is open or running in the background (offline too); a click
+  They appear while Punchlist is open or in the background (offline too), and with a server and
+  **Settings > Notifications > Notify me when Punchlist is closed** turned on for the device, also
+  with Punchlist closed (on iPhone and iPad, from Punchlist added to the Home Screen). A click
   opens the task. A small bell on the row shows a task has reminders. **Settings > New tasks** can
   give new tasks a reminder.
 - **Notes**: always ready to type in, with no edit mode. Checklist boxes tick with one tap, without

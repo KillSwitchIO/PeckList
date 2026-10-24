@@ -9,6 +9,7 @@ import {
   type FileApi,
   type FriendsApi,
   type NotificationsApi,
+  type PushApi,
   type ServerNotification,
   type ProfilePreview,
   type ServerInfo,
@@ -172,6 +173,20 @@ export class FakeTransport implements SyncTransport {
       const found = this.current();
       if (!found) return Promise.reject(new SyncFailure('signed-out', 'signed out'));
       return Promise.resolve(this.backend.stats(found.account.id, found.account.username));
+    },
+  };
+
+  /** Push subscriptions the fake server holds, by endpoint: the username. */
+  readonly pushed = new Map<string, string>();
+  readonly push: PushApi = {
+    key: () => Promise.resolve('BFAKEKEY'),
+    subscribe: (subscription) => {
+      this.pushed.set(subscription.endpoint, this.session ?? '');
+      return Promise.resolve();
+    },
+    unsubscribe: (endpoint) => {
+      this.pushed.delete(endpoint);
+      return Promise.resolve();
     },
   };
 

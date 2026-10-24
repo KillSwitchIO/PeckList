@@ -1,3 +1,5 @@
+using Punchlist.Core.Notifications;
+using Punchlist.Core.Push;
 using Punchlist.Core.Audit;
 using Punchlist.Core.Accounts;
 using Punchlist.Core.Storage;
@@ -123,4 +125,22 @@ public sealed class SqliteStatsSourceTests(SqliteFiles files) : StatsSourceContr
 public sealed class PostgresStatsSourceTests(PostgresServer server) : StatsSourceContract, IClassFixture<PostgresServer>
 {
     protected override async Task<SqlDatabase> CreateAsync() => await server.NewDatabaseAsync();
+}
+
+public sealed class SqliteNotificationStoreTests(SqliteFiles files) : NotificationStoreContract, IClassFixture<SqliteFiles>
+{
+    protected override async Task<(INotificationStore, IPushStore)> CreateAsync()
+    {
+        var database = await files.NewDatabaseAsync();
+        return (new SqlNotificationStore(database), new SqlPushStore(database, TimeProvider.System));
+    }
+}
+
+public sealed class PostgresNotificationStoreTests(PostgresServer server) : NotificationStoreContract, IClassFixture<PostgresServer>
+{
+    protected override async Task<(INotificationStore, IPushStore)> CreateAsync()
+    {
+        var database = await server.NewDatabaseAsync();
+        return (new SqlNotificationStore(database), new SqlPushStore(database, TimeProvider.System));
+    }
 }
