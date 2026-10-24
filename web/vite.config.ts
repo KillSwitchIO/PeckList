@@ -3,6 +3,7 @@ import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import { VitePWA } from 'vite-plugin-pwa';
 import pkg from './package.json' with { type: 'json' };
+import { serverPathPatterns } from './src/serverPaths.ts';
 
 // The version the app shows under its menu: what a release or CI build stamps (the Dockerfile's
 // VERSION), else package.json's. A plain dev stamp falls back too.
@@ -39,6 +40,11 @@ export default defineConfig({
     VitePWA({
       registerType: 'prompt',
       includeAssets: ['icon.svg'],
+      workbox: {
+        // Page loads of the server's own paths go to the network, never the app shell: signing in
+        // with a provider and its return to the callback are page loads (src/serverPaths.ts).
+        navigateFallbackDenylist: serverPathPatterns,
+      },
       manifest: {
         name: 'Punchlist',
         short_name: 'Punchlist',
@@ -53,6 +59,9 @@ export default defineConfig({
   test: {
     environment: 'jsdom',
     setupFiles: ['./src/test/setup.ts'],
+    // UI tests type and click through whole flows in jsdom; under coverage on a busy machine the
+    // longer ones pass 5 s now and then, which failed pushes at random.
+    testTimeout: 15_000,
     include: ['src/**/*.test.{ts,tsx}'],
     coverage: {
       provider: 'v8',

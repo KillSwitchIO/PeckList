@@ -14,6 +14,7 @@ vi.mock('./signInWith.ts', async (importOriginal) => ({
 
 beforeEach(() => {
   localStorage.clear();
+  sessionStorage.clear();
   vi.unstubAllGlobals();
   mockViewport('desktop');
 });
@@ -79,6 +80,23 @@ describe('signing in with an identity provider', () => {
     await serverApp(backend);
     expect(await screen.findByText('Continuing with Pocket ID')).toBeInTheDocument();
     expect(leaveFor).toHaveBeenCalledWith('/auth/oidc/pocket/login?returnUrl=%2Ftoday');
+  });
+
+  it('back again signed out within a minute, stays on the page instead of looping', async () => {
+    const backend = new FakeBackend();
+    backend.signIn = {
+      providers: [{ name: 'pocket', displayName: 'Pocket ID' }],
+      localLogin: true,
+    };
+    localStorage.setItem('punchlist.signInWith', 'pocket');
+    sessionStorage.setItem('punchlist.signInWith.autoAt', String(Date.now() - 5_000));
+    leaveFor.mockClear();
+    window.history.replaceState(null, '', '/today');
+    await serverApp(backend);
+    expect(
+      await screen.findByRole('link', { name: 'Continue with Pocket ID' }),
+    ).toBeInTheDocument();
+    expect(leaveFor).not.toHaveBeenCalled();
   });
 
   it('a refused sign-in forgets the provider instead of looping', async () => {
