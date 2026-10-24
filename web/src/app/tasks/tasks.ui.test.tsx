@@ -645,6 +645,42 @@ describe('phone', () => {
     expect(screen.queryByRole('button', { name: 'All' })).toBeNull();
     expect(screen.getByRole('button', { name: 'Upcoming' })).toBeInTheDocument();
   });
+
+  it('the bottom bar is picked and ordered on More: take one out, add another', async () => {
+    mockViewport('phone');
+    const store = testStore();
+    await renderApp('/more', store);
+    const bar = () => screen.getByRole('navigation', { name: 'Punchlist' });
+    const tabs = () =>
+      within(bar())
+        .getAllByRole('button')
+        .map((tab) => tab.textContent);
+    expect(tabs()).toEqual(['Today', 'Mess Drawer', 'Calendar', 'Search', 'More']);
+
+    await userEvent.click(screen.getByRole('button', { name: 'Edit sidebar' }));
+    const editor = screen.getByRole('list', { name: 'Bottom bar' });
+    expect(within(editor).getByText('Calendar')).toBeInTheDocument();
+    // Full: nothing more can be added until one comes out.
+    expect(screen.getByRole('button', { name: 'Add Upcoming to the bottom bar' })).toBeDisabled();
+    await userEvent.click(
+      within(editor).getByRole('button', { name: 'Remove Calendar from the bottom bar' }),
+    );
+    await userEvent.click(screen.getByRole('button', { name: 'Add Due dates to the bottom bar' }));
+    // Nothing changes until Done.
+    expect(tabs()).toContain('Calendar');
+    await userEvent.click(
+      within(screen.getByRole('toolbar', { name: 'Edit sidebar' })).getByRole('button', {
+        name: 'Done',
+      }),
+    );
+    expect(tabs()).toEqual(['Today', 'Mess Drawer', 'Search', 'Due dates', 'More']);
+    expect(store.getState().workspace!.entities.settings[0]!.bottomBar).toEqual([
+      'today',
+      'inbox',
+      'search',
+      'due',
+    ]);
+  });
 });
 
 describe('completion date', () => {

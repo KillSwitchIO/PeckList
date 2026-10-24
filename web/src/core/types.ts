@@ -164,6 +164,8 @@ export interface Settings extends BaseEntity {
   /** IANA time zone the person picked; null or absent: the server's, else the device's (schema 8) */
   timeZone?: string | null;
   sidebar: SidebarLayout;
+  /** The phone bottom bar's tabs before More, in order; absent: the default ones (schema 9) */
+  bottomBar?: string[];
 }
 
 /** A comment on a task (schema 7). `createdBy` is its author. */

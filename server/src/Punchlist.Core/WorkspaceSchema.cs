@@ -4,12 +4,12 @@ namespace Punchlist.Core;
 public static class WorkspaceSchema
 {
     /// <summary>Must match <c>CURRENT_SCHEMA_VERSION</c> in web/src/core/migrations.ts.</summary>
-    public const int CurrentVersion = 8;
+    public const int CurrentVersion = 9;
 
     /// <summary>
     /// Older versions whose data this build reads as it is: their migrations only added optional
     /// fields or empty collections (5 to 6: friendships' <c>madeBy</c>; 6 to 7: comments; 7 to 8:
-    /// attachments). Backups
+    /// attachments; 8 to 9: settings' <c>bottomBar</c>). Backups
     /// from them restore without a migration.
     /// </summary>
     public static bool Readable(int? version) => version is >= 5 and <= CurrentVersion;

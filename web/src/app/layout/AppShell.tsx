@@ -53,7 +53,8 @@ import { MiniCalendar } from './MiniCalendar.tsx';
 import { useToday } from '../hooks/useToday.ts';
 import { dayPath } from '../views/dayLabels.ts';
 import { useAppliedTimeZone } from './useAppliedTimeZone.ts';
-import { activeItem, BOTTOM_ITEMS, SIDEBAR_ITEMS, type NavItem } from './navigation.tsx';
+import { activeItem, SIDEBAR_ITEMS, type NavItem } from './navigation.tsx';
+import { useBottomTabs } from './bottomTabs.tsx';
 import { SyncButton } from '../sync/SyncButton.tsx';
 import { useFooterItems } from './useFooterItems.ts';
 
@@ -211,6 +212,7 @@ const NO_ADD_BUTTON = ['/settings', '/admin', '/friends', '/f/', '/search', '/du
 export function AppShell() {
   const theme = useTheme();
   const isPhone = useMediaQuery(theme.breakpoints.down('sm'), { noSsr: true });
+  const bottomTabs = useBottomTabs();
   const isDesktop = useMediaQuery(theme.breakpoints.up('lg'), { noSsr: true });
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [collapsed, setCollapsed] = useSidebarCollapsed();
@@ -470,7 +472,7 @@ export function AppShell() {
             component="nav"
             aria-label={t('app.name')}
             showLabels
-            value={activeItem(BOTTOM_ITEMS, pathname)}
+            value={activeItem(bottomTabs, pathname)}
             onChange={(_, path: string) => go(path)}
             sx={{
               position: 'fixed',
@@ -480,12 +482,12 @@ export function AppShell() {
               pb: 'env(safe-area-inset-bottom)',
             }}
           >
-            {BOTTOM_ITEMS.map((item) => (
+            {bottomTabs.map((tab) => (
               <BottomNavigationAction
-                key={item.path}
-                value={item.path}
-                label={t(item.label)}
-                icon={item.icon}
+                key={tab.id}
+                value={tab.path}
+                label={tab.label}
+                icon={tab.icon}
               />
             ))}
           </BottomNavigation>

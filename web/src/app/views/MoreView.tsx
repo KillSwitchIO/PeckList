@@ -9,12 +9,14 @@ import {
   Tooltip,
 } from '@mui/material';
 import { useNavigate } from 'react-router';
+import { SEARCH_TAB } from '../../core/bottomBar.ts';
 import { t } from '../i18n/i18n.ts';
 import { EditIcon } from '../icons/icons.tsx';
 import { Page } from '../layout/Page.tsx';
 import { useFooterItems } from '../layout/useFooterItems.ts';
 import { SidebarEditProvider } from '../layout/sidebarEdit.tsx';
 import { SidebarEditBar } from '../layout/SidebarEditBar.tsx';
+import { BottomBarEditor } from '../layout/BottomBarEditor.tsx';
 import { useSidebarEdit } from '../layout/sidebarEditContext.ts';
 import { SidebarViews } from '../layout/SidebarViews.tsx';
 import { SidebarLists } from '../lists/SidebarLists.tsx';
@@ -36,8 +38,10 @@ function MoreContent() {
   const navigate = useNavigate();
   const go = (path: string) => void navigate(path);
   const edit = useSidebarEdit();
-  // The bottom navigation already has Search.
-  const footer = useFooterItems().filter((item) => item.path !== '/search');
+  // Search only when the bottom bar does not have it.
+  const footer = useFooterItems().filter(
+    (item) => item.path !== '/search' || !edit.current.bottomBar.includes(SEARCH_TAB),
+  );
   return (
     <Page
       title={t('more.title')}
@@ -69,6 +73,12 @@ function MoreContent() {
         </Box>
       )}
       <Box sx={{ mx: -2 }}>
+        {edit.editing && (
+          <>
+            <BottomBarEditor />
+            <Divider sx={{ mx: 2, my: 1 }} />
+          </>
+        )}
         <SidebarViews selected={false} onNavigate={go} flat />
         <Divider sx={{ mx: 2 }} />
         <SidebarLists onNavigate={go} />

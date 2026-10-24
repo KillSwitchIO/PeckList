@@ -23,7 +23,9 @@ step a day. The arrow at the top right of the small month folds it down to just 
 back), and each device remembers which. Under it is the app's version, which links to what
 changed. On a phone the main views sit in the bottom bar, and **More** holds the rest of the
 sidebar: the views, saved filters, lists and tags. Its pencil (or holding a row) edits it just
-like **Edit sidebar** on a computer, and the changes apply on every device.
+like **Edit sidebar** on a computer, and the changes apply on every device. While editing, the
+**Bottom bar** section at the top picks the bar's tabs: up to four views, saved filters or Search,
+dragged into order, with More always last.
 
 Dates leave the year off when it is this year: "Thu, Oct 22", "October", but "Jan 4, 2027".
 

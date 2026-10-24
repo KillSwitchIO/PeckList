@@ -5,12 +5,8 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import { popupOpen } from '../hooks/keys.ts';
 import { reorderLists, visibleLists } from '../../core/lists.ts';
-import { savedFiltersOf } from '../../core/savedFilters.ts';
 import {
-  BUILT_IN_VIEWS,
-  SHARED_VIEWS,
   defaultSidebar,
-  filterViewId,
   normalizeSidebar,
   pinnedListId,
   pinnedTagId,
@@ -18,10 +14,11 @@ import {
   sidebarOf,
 } from '../../core/sidebar.ts';
 import { reorderTags, tagTree, updateTag } from '../../core/tags.ts';
+import { bottomBarOf, defaultBottomBar, fitBottomBar, setBottomBar } from '../../core/bottomBar.ts';
 import type { SidebarLayout } from '../../core/types.ts';
 import { t } from '../i18n/i18n.ts';
 import { useApply, useWorkspace } from '../store/hooks.ts';
-import { useSyncState } from '../sync/syncContext.ts';
+import { useViewIds } from './bottomTabs.tsx';
 import { SidebarEditContext, type SidebarDraft, type SidebarEdit } from './sidebarEditContext.ts';
 
 const same = (a: readonly string[], b: readonly string[]) => a.join() === b.join();
@@ -29,13 +26,7 @@ const same = (a: readonly string[], b: readonly string[]) => a.join() === b.join
 export function SidebarEditProvider({ children }: { children: ReactNode }) {
   const workspace = useWorkspace();
   const apply = useApply();
-  const phase = useSyncState((state) => state.phase);
-  const authMode = useSyncState((state) => state.account?.authMode);
-  const views = [
-    ...BUILT_IN_VIEWS,
-    ...(phase === 'ready' && authMode === 'local' ? SHARED_VIEWS : []),
-    ...savedFiltersOf(workspace).map((filter) => filterViewId(filter.id)),
-  ];
+  const views = useViewIds();
   const lists = visibleLists(workspace)
     .filter((list) => !list.isInbox)
     .map((list) => list.id);
@@ -46,6 +37,7 @@ export function SidebarEditProvider({ children }: { children: ReactNode }) {
     lists,
     tags,
     tagNames: {},
+    bottomBar: bottomBarOf(workspace, views),
   };
   const [draft, setDraft] = useState<SidebarDraft | null>(null);
   const [creatingFilter, setCreatingFilter] = useState(false);
@@ -71,6 +63,7 @@ export function SidebarEditProvider({ children }: { children: ReactNode }) {
       setDraft((before) => ({
         ...(before ?? saved),
         layout: normalizeSidebar(defaultSidebar(), views, pinnable),
+        bottomBar: fitBottomBar(defaultBottomBar(), views),
       })),
     done: () => {
       if (draft) {
@@ -87,6 +80,9 @@ export function SidebarEditProvider({ children }: { children: ReactNode }) {
           }
           if (!same(draft.lists, saved.lists)) next = reorderLists(ctx, next, draft.lists);
           if (!same(draft.tags, saved.tags)) next = reorderTags(ctx, next, draft.tags);
+          if (!same(draft.bottomBar, saved.bottomBar)) {
+            next = setBottomBar(ctx, next, draft.bottomBar);
+          }
           return next;
         }, t('undo.sidebar'));
       }

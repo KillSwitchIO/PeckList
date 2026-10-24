@@ -3,7 +3,7 @@
 
 import { keyBetween } from './ordering.ts';
 
-export const CURRENT_SCHEMA_VERSION = 8;
+export const CURRENT_SCHEMA_VERSION = 9;
 
 export type Migration = (document: Record<string, unknown>) => Record<string, unknown>;
 
@@ -96,6 +96,9 @@ export const MIGRATIONS: MigrationRegistry = {
     if (!entities) return document;
     return { ...document, entities: { ...entities, attachments: entities.attachments ?? [] } };
   },
+  // 9: settings may hold bottomBar (the phone's tabs). Optional (missing means the default tabs),
+  // so documents change only in version.
+  9: (document) => document,
 };
 
 export type VersionCheck =
