@@ -1,35 +1,89 @@
-import { List, ListItemButton, ListItemIcon, ListItemText } from '@mui/material';
+import {
+  Box,
+  Divider,
+  IconButton,
+  List,
+  ListItemButton,
+  ListItemIcon,
+  ListItemText,
+  Tooltip,
+} from '@mui/material';
 import { useNavigate } from 'react-router';
 import { t } from '../i18n/i18n.ts';
+import { EditIcon } from '../icons/icons.tsx';
 import { Page } from '../layout/Page.tsx';
-import { SIDEBAR_ITEMS } from '../layout/navigation.tsx';
 import { useFooterItems } from '../layout/useFooterItems.ts';
 import { SidebarEditProvider } from '../layout/sidebarEdit.tsx';
+import { SidebarEditBar } from '../layout/SidebarEditBar.tsx';
+import { useSidebarEdit } from '../layout/sidebarEditContext.ts';
+import { SidebarViews } from '../layout/SidebarViews.tsx';
 import { SidebarLists } from '../lists/SidebarLists.tsx';
 import { SidebarTags } from '../tags/SidebarTags.tsx';
 
-/** Phone-only hub for everything the bottom navigation has no room for. */
+/**
+ * Phone-only hub: the desktop sidebar's views, lists and tags, edited the same way (Edit, or hold
+ * a row): reorder, hide, pin, then Done.
+ */
 export function MoreView() {
+  return (
+    <SidebarEditProvider>
+      <MoreContent />
+    </SidebarEditProvider>
+  );
+}
+
+function MoreContent() {
   const navigate = useNavigate();
   const go = (path: string) => void navigate(path);
-  const footer = useFooterItems();
-  const items = [...SIDEBAR_ITEMS, ...footer].filter(
-    (item) => !['/today', '/inbox', '/calendar', '/search'].includes(item.path),
-  );
+  const edit = useSidebarEdit();
+  // The bottom navigation already has Search.
+  const footer = useFooterItems().filter((item) => item.path !== '/search');
   return (
-    <Page title={t('more.title')}>
-      <List>
-        {items.map((item) => (
-          <ListItemButton key={item.path} onClick={() => go(item.path)}>
-            <ListItemIcon>{item.icon}</ListItemIcon>
-            <ListItemText primary={t(item.label)} />
-          </ListItemButton>
-        ))}
-      </List>
-      <SidebarEditProvider>
+    <Page
+      title={t('more.title')}
+      actions={
+        !edit.editing && (
+          <Tooltip title={t('nav.editSidebar')}>
+            <IconButton aria-label={t('nav.editSidebar')} onClick={edit.start}>
+              <EditIcon />
+            </IconButton>
+          </Tooltip>
+        )
+      }
+    >
+      {edit.editing && (
+        <Box
+          sx={{
+            position: 'sticky',
+            top: 56,
+            zIndex: 2,
+            mx: -2,
+            mt: -2,
+            mb: 1,
+            bgcolor: 'background.default',
+            borderBottom: 1,
+            borderColor: 'divider',
+          }}
+        >
+          <SidebarEditBar />
+        </Box>
+      )}
+      <Box sx={{ mx: -2 }}>
+        <SidebarViews selected={false} onNavigate={go} flat />
+        <Divider sx={{ mx: 2 }} />
         <SidebarLists onNavigate={go} />
         <SidebarTags onNavigate={go} />
-      </SidebarEditProvider>
+        {footer.length > 0 && (
+          <List dense>
+            {footer.map((item) => (
+              <ListItemButton key={item.path} onClick={() => go(item.path)}>
+                <ListItemIcon sx={{ minWidth: 40 }}>{item.icon}</ListItemIcon>
+                <ListItemText primary={t(item.label)} />
+              </ListItemButton>
+            ))}
+          </List>
+        )}
+      </Box>
     </Page>
   );
 }

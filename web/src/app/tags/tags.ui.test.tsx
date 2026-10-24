@@ -1,9 +1,9 @@
-import { screen, waitFor, within } from '@testing-library/react';
+import { act, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { inboxList } from '../../core/lists.ts';
 import { createTag, findTagByName } from '../../core/tags.ts';
-import { createTask } from '../../core/tasks.ts';
+import { createTask, updateTask } from '../../core/tasks.ts';
 import { mockViewport, renderApp, testStore } from '../../test/renderApp.tsx';
 
 beforeEach(() => {
@@ -183,17 +183,26 @@ describe('tag picker', () => {
   });
 });
 
-describe('tags on phones', () => {
-  it('puts row tags on a second line under the title', async () => {
+describe('task rows on phones', () => {
+  it('put the title on top and the date, list and tags on a line under it', async () => {
     mockViewport('phone');
-    await renderSeeded('/inbox');
-    const row = screen.getByRole('button', { name: 'Open Mow lawn' });
-    const title = within(row).getByText('Mow lawn');
-    // Same block as the title, not in the right-hand meta column.
-    expect(title.parentElement).toContainElement(within(row).getByTestId('task-tags'));
-    expect(within(row).getByTestId('task-meta')).not.toContainElement(
-      within(row).getByTestId('task-tags'),
+    const { store } = await renderSeeded('/inbox');
+    act(() =>
+      store.getState().apply((ctx, ws) => {
+        const mow = ws.entities.tasks.find((task) => task.title === 'Mow lawn')!;
+        return updateTask(ctx, ws, mow.id, {
+          schedule: { start: '2031-05-02', end: null, allDay: true, timeZone: 'UTC' },
+        });
+      }),
     );
+    const button = screen.getByRole('button', { name: 'Open Mow lawn' });
+    const details = button.nextElementSibling as HTMLElement;
+    // The title has the button to itself; the details sit under it.
+    expect(button).not.toContainElement(within(details).getByTestId('task-tags'));
+    expect(details).toHaveAttribute('data-testid', 'task-meta');
+    expect(within(details).getByTestId('task-date')).toBeInTheDocument();
+    // The date leads the line.
+    expect(details.firstElementChild).toBe(within(details).getByTestId('task-date'));
   });
 });
 
