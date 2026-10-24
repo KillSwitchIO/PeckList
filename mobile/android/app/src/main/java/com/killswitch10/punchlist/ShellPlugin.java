@@ -100,21 +100,47 @@ public class ShellPlugin extends Plugin {
         restart();
     }
 
-    /** A provider sign-in started in the WebView goes to a Custom Tab instead. */
+    /** A provider sign-in or link started in the WebView goes to a Custom Tab instead. */
     @Override
     public Boolean shouldOverrideLoad(Uri url) {
         String server = ServerChoice.get(getContext());
         String provider = NativeSignIn.providerOf(server, url);
-        if (provider == null) return null;
-        NativeSignIn.Start start = NativeSignIn.start(getContext(), server, url, provider);
-        new CustomTabsIntent.Builder().setShowTitle(true).build().launchUrl(getActivity(), start.handoff);
-        return true;
+        if (provider != null) {
+            NativeSignIn.Start start = NativeSignIn.start(getContext(), server, url, provider);
+            openTab(start.handoff);
+            return true;
+        }
+        String linking = NativeLink.providerOf(server, url);
+        if (linking != null) {
+            network.execute(() -> {
+                try {
+                    Uri tab = NativeLink.start(getContext(), server, linking);
+                    getActivity().runOnUiThread(() -> openTab(tab));
+                } catch (Exception error) {
+                    Logger.warn("Punchlist: could not start linking " + linking + ": " + error.getMessage());
+                    String failed = server + "/settings?link=failed";
+                    getBridge().getWebView().post(() -> getBridge().getWebView().loadUrl(failed));
+                }
+            });
+            return true;
+        }
+        return null;
     }
 
-    /** The provider sign-in coming back: trade the code for a session in the WebView. */
+    private void openTab(Uri url) {
+        new CustomTabsIntent.Builder().setShowTitle(true).build().launchUrl(getActivity(), url);
+    }
+
+    /** A provider sign-in coming back: trade the code for a session in the WebView. A link: show how it went. */
     @Override
     protected void handleOnNewIntent(Intent intent) {
         Uri data = intent.getData();
+        String server = ServerChoice.get(getContext());
+        if (server != null && NativeLink.isReturn(getContext(), data)) {
+            String settings = NativeLink.settingsUrl(server, data);
+            getBridge().getWebView().post(() -> getBridge().getWebView().loadUrl(settings));
+            return;
+        }
         if (!NativeSignIn.isReturn(getContext(), data)) return;
         NativeSignIn.Redeem redeem = NativeSignIn.finish(getContext(), ServerChoice.get(getContext()), data);
         if (redeem == null) {

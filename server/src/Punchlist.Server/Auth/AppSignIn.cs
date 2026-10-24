@@ -31,6 +31,7 @@ namespace Punchlist.Server.Auth;
 public static partial class AppSignIn
 {
     public const string Kind = "app-handoff";
+    public const string LinkKind = "app-link";
     public static readonly TimeSpan CodeLifetime = TimeSpan.FromMinutes(2);
     private const string Purpose = "punchlist.app-handoff.v1";
 
@@ -43,6 +44,14 @@ public static partial class AppSignIn
     private static partial Regex SchemePattern();
 
     private sealed record Handoff(string Challenge, DateTimeOffset Expires, string ReturnUrl, string Ticket);
+
+    /// <summary>Linking a provider account from the app: who, with which provider, and where to report back.</summary>
+    private sealed record LinkStart(string AccountId, string Provider, string Scheme, DateTimeOffset Expires);
+
+    public sealed record LinkStartRequest(string? Provider, string? Scheme);
+
+    /// <summary><paramref name="Url"/>: where the app's browser tab starts linking (a path on this server).</summary>
+    public sealed record LinkStartResult(string Url);
 
     public static void MapAppSignIn(this RouteGroupBuilder auth, ServerSettings settings)
     {
@@ -88,7 +97,7 @@ public static partial class AppSignIn
         auth.MapPost("/app/redeem", async (HttpContext context, ISecretStore secrets, IDataProtectionProvider protection, TimeProvider time) =>
         {
             var form = await context.Request.ReadFormAsync(context.RequestAborted);
-            var handoff = await TakeAsync(secrets, protection, form["code"].ToString(), context.RequestAborted);
+            var handoff = await TakeAsync<Handoff>(secrets, protection, Kind, form["code"].ToString(), context.RequestAborted);
             var verifier = form["verifier"].ToString();
             if (handoff is null || handoff.Expires <= time.GetUtcNow() || verifier.Length < 43 || ChallengeOf(verifier) != handoff.Challenge)
             {
@@ -103,19 +112,50 @@ public static partial class AppSignIn
             await context.SignInAsync(CookieAuthenticationDefaults.AuthenticationScheme, ticket.Principal, ticket.Properties);
             return Results.Redirect(handoff.ReturnUrl);
         }).Audited("auth.app-signed-in", targetRoute: null);
+
+        // Linking a provider account from the app's Settings. The browser tab the provider runs in is
+        // not signed in as the app is, so the app first asks, with its own session, for a one-time
+        // code; the tab trades it for the provider's sign-in, marked (in the protected OIDC state) as
+        // a link for that account, and OidcSetup sends the outcome back to <scheme>://link.
+        auth.MapPost("/app/link-start", async (LinkStartRequest request, ClaimsPrincipal user, ISecretStore secrets,
+            IDataProtectionProvider protection, TimeProvider time, HttpContext context) =>
+        {
+            if (request.Provider is not { } provider || settings.OidcProviders.All(each => each.Name != provider)) return Results.NotFound();
+            if (request.Scheme is not { } scheme || !SchemePattern().IsMatch(scheme)) return Results.BadRequest(new AuthError("invalid_request"));
+            var code = Base64Url(RandomNumberGenerator.GetBytes(32));
+            var start = new LinkStart(user.UserId(), provider, scheme, time.GetUtcNow() + CodeLifetime);
+            await secrets.PutAsync(LinkKind, Hash(code),
+                protection.CreateProtector(Purpose).Protect(JsonSerializer.Serialize(start)), context.RequestAborted);
+            return Results.Ok(new LinkStartResult($"/auth/app/link?code={code}"));
+        }).RequireAuthorization();
+
+        auth.MapGet("/app/link", async (string? code, ISecretStore secrets, IDataProtectionProvider protection, TimeProvider time, HttpContext context) =>
+        {
+            var start = await TakeAsync<LinkStart>(secrets, protection, LinkKind, code ?? "", context.RequestAborted);
+            if (start is null || start.Expires <= time.GetUtcNow() || settings.OidcProviders.All(each => each.Name != start.Provider))
+            {
+                return Results.Content(
+                    "<!doctype html><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width\">" +
+                    "<title>Link expired</title><p style=\"font:16px system-ui;padding:24px\">This link has expired. " +
+                    "Close this tab and press Link again in the Punchlist app.</p>",
+                    "text/html; charset=utf-8", statusCode: StatusCodes.Status400BadRequest);
+            }
+            return Results.Challenge(OidcSetup.LinkProperties(start.AccountId, start.Scheme), [OidcSetup.Scheme(start.Provider)]);
+        });
     }
 
-    /// <summary>The handoff for a code, used up whatever happens next; null when unknown or used.</summary>
-    private static async Task<Handoff?> TakeAsync(ISecretStore secrets, IDataProtectionProvider protection, string code, CancellationToken cancellation)
+    /// <summary>What a code stands for, used up whatever happens next; null when unknown or used.</summary>
+    private static async Task<T?> TakeAsync<T>(ISecretStore secrets, IDataProtectionProvider protection, string kind, string code, CancellationToken cancellation)
+        where T : class
     {
         if (code.Length is 0 or > 100) return null;
         var key = Hash(code);
-        var stored = (await secrets.ListAsync(Kind, cancellation)).FirstOrDefault(each => each.Name == key).Value;
+        var stored = (await secrets.ListAsync(kind, cancellation)).FirstOrDefault(each => each.Name == key).Value;
         if (string.IsNullOrEmpty(stored)) return null;
-        await secrets.PutAsync(Kind, key, "", cancellation);
+        await secrets.PutAsync(kind, key, "", cancellation);
         try
         {
-            return JsonSerializer.Deserialize<Handoff>(protection.CreateProtector(Purpose).Unprotect(stored));
+            return JsonSerializer.Deserialize<T>(protection.CreateProtector(Purpose).Unprotect(stored));
         }
         catch (CryptographicException)
         {

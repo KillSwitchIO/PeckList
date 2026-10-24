@@ -14,6 +14,10 @@ app (ADR-0017 in the project notes). There is no second copy of the UI.
 - **`PunchlistShell` plugin** (`ShellPlugin.java`, used through `web/src/adapters/capacitor-shell.ts`):
   `info`, `checkServer`, `connect`, `disconnect`. The web build a server ships can be older or
   newer than the shell, so methods are only ever added and `info().api` says which exist.
+- **Linking a provider from Settings**: the browser tab is not signed in as the app is, so the
+  plugin first asks for a one-time code with the app's own session (`POST /auth/app/link-start`),
+  opens `/auth/app/link?code=...` in a Custom Tab, and the server sends the outcome to
+  `<package>://link?result=...`, which reopens Settings with it.
 - **Back button**: `MainActivity` asks the web app first (`window.punchlistBack()`,
   `web/src/app/native/back.ts`): it closes the topmost menu, dialog or sheet, else steps back in
   the app's history. With nothing left, the app moves to the background. A server's web build too
@@ -100,5 +104,5 @@ provider must be reachable at the same address from the server and from the emul
 
 ## Not done yet
 
-A native storage adapter, and linking a provider account from Settings (that flow still runs
-inside the WebView).
+A native storage adapter, and notifications the server sends (shares, comments): Web Push does
+not exist in the WebView.

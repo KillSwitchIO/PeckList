@@ -145,4 +145,50 @@ public sealed class AppSignInTests(ServerFixture fixture) : IClassFixture<Server
         var answer = await Browser(server).GetAsync($"/auth/app/handoff?provider=fake&challenge={challenge}&scheme={scheme}", Token);
         Assert.Equal(HttpStatusCode.BadRequest, answer.StatusCode);
     }
+
+    private async Task<HttpClient> SignedInAdmin(WebApplicationFactory<Program> server)
+    {
+        var admin = Browser(server);
+        (await admin.PostAsJsonAsync("/auth/login", new { username = "admin", password = "correct horse battery" }, Token))
+            .EnsureSuccessStatusCode();
+        return admin;
+    }
+
+    [Fact]
+    public async Task The_app_links_a_provider_account_through_a_tab_without_a_session()
+    {
+        using var server = Server();
+        var app = await SignedInAdmin(server);
+        var start = await app.PostAsJsonAsync("/auth/app/link-start", new { provider = "fake", scheme = Scheme }, Token);
+        start.EnsureSuccessStatusCode();
+        var url = (await start.Content.ReadFromJsonAsync<AppSignIn.LinkStartResult>(Token))!.Url;
+
+        var tab = Browser(server);
+        var challenge = await tab.GetAsync(url, Token);
+        Assert.Equal(HttpStatusCode.Redirect, challenge.StatusCode);
+        var back = await tab.GetAsync(provider.Authorize(challenge.Headers.Location!, Kim()), Token);
+        var appLink = back.Headers.Location!;
+        Assert.Equal((Scheme, "link", "?result=linked"), (appLink.Scheme, appLink.Host, appLink.Query));
+        // The tab got no session of its own.
+        Assert.Equal(HttpStatusCode.Unauthorized, (await tab.GetAsync("/auth/me", Token)).StatusCode);
+
+        var methods = await app.GetFromJsonAsync<SignInMethods>("/api/account/sign-in", Token);
+        Assert.Equal("fake", Assert.Single(methods!.Identities).Provider);
+
+        // The code was used up.
+        Assert.Equal(HttpStatusCode.BadRequest, (await Browser(server).GetAsync(url, Token)).StatusCode);
+    }
+
+    [Fact]
+    public async Task Only_a_signed_in_app_can_start_a_link()
+    {
+        using var server = Server();
+        var nobody = await Browser(server).PostAsJsonAsync("/auth/app/link-start", new { provider = "fake", scheme = Scheme }, Token);
+        Assert.Equal(HttpStatusCode.Unauthorized, nobody.StatusCode);
+        var app = await SignedInAdmin(server);
+        Assert.Equal(HttpStatusCode.BadRequest,
+            (await app.PostAsJsonAsync("/auth/app/link-start", new { provider = "fake", scheme = "https" }, Token)).StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound,
+            (await app.PostAsJsonAsync("/auth/app/link-start", new { provider = "nope", scheme = Scheme }, Token)).StatusCode);
+    }
 }
