@@ -3,7 +3,7 @@
 
 import { keyBetween } from './ordering.ts';
 
-export const CURRENT_SCHEMA_VERSION = 9;
+export const CURRENT_SCHEMA_VERSION = 10;
 
 export type Migration = (document: Record<string, unknown>) => Record<string, unknown>;
 
@@ -100,6 +100,9 @@ export const MIGRATIONS: MigrationRegistry = {
   // a list over). Both optional (missing: the default tabs, the creator), so documents change only
   // in version.
   9: (document) => document,
+  // 10: settings may hold newTask (what a new task starts with). Optional (missing: the old
+  // behavior), so documents change only in version.
+  10: (document) => document,
 };
 
 export type VersionCheck =

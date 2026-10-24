@@ -9,6 +9,7 @@ import {
   type QuickAdd,
   type Token,
 } from '../../core/quickAdd.ts';
+import { withNewTaskDefaults } from '../../core/newTaskDefaults.ts';
 import { assigneeCandidates } from '../../core/sharing.ts';
 import { createTask, type TaskInput } from '../../core/tasks.ts';
 import type { Task, WorkspaceFile } from '../../core/types.ts';
@@ -81,10 +82,13 @@ export function AddTaskInput({
   defaults,
   label = t('task.add'),
   autoFocus = false,
+  inList = false,
 }: {
   defaults: Omit<TaskInput, 'title'>;
   label?: string;
   autoFocus?: boolean;
+  /** The list in `defaults` is the page's own (a list page): the default list does not apply. */
+  inList?: boolean;
 }) {
   const apply = useApply();
   const workspace = useWorkspace();
@@ -113,17 +117,21 @@ export function AddTaskInput({
     if (!trimmed && !blank) return null;
     let id: string | null = null;
     const accounts = phase === 'ready' && authMode === 'local';
-    const withAssignee = (ws: WorkspaceFile, listId: string) => ({
-      ...defaults,
-      assignees: defaults.assignees ?? newTaskAssignees(ws, listId, me, accounts),
+    // Settings > New tasks fill what the place says nothing about; quick add's words win over both.
+    const placed = (ws: WorkspaceFile) =>
+      withNewTaskDefaults(ws, defaults, { today, timeZone: localTimeZone(), inList });
+    const withAssignee = (ws: WorkspaceFile, base: Omit<TaskInput, 'title'>, listId: string) => ({
+      ...base,
+      assignees: base.assignees ?? newTaskAssignees(ws, listId, me, accounts),
     });
     if (quick) {
       apply((ctx, ws) => {
+        const base = placed(ws);
         const made = createFromQuickAdd(
           ctx,
           ws,
           parsed,
-          withAssignee(ws, parsed.listId ?? defaults.listId),
+          withAssignee(ws, base, parsed.listId ?? base.listId),
           localTimeZone(),
         );
         id = made.id;
@@ -131,7 +139,11 @@ export function AddTaskInput({
       });
     } else {
       apply((ctx, ws) => {
-        const made = createTask(ctx, ws, { ...withAssignee(ws, defaults.listId), title: trimmed });
+        const base = placed(ws);
+        const made = createTask(ctx, ws, {
+          ...withAssignee(ws, base, base.listId),
+          title: trimmed,
+        });
         id = made.task.id;
         return made.workspace;
       });

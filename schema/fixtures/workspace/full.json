@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 9,
+  "schemaVersion": 10,
   "app": {
     "name": "punchlist",
     "version": "0.1.0"
@@ -574,6 +574,13 @@
           "groupOpen": false
         },
         "bottomBar": ["today", "upcoming", "calendar", "search"],
+        "newTask": {
+          "listId": null,
+          "priority": 2,
+          "date": "today",
+          "time": "09:00",
+          "assignSelf": false
+        },
         "_hlc": {
           "createdAt": "2026-10-20T16:15:00.003Z-0000-dev1",
           "createdBy": "2026-10-20T16:15:00.003Z-0000-dev1",
@@ -586,7 +593,8 @@
           "dueSoonDays": "2026-10-20T16:15:00.003Z-0000-dev1",
           "timeZone": "2026-10-20T16:15:00.003Z-0000-dev1",
           "sidebar": "2026-10-20T16:15:00.003Z-0000-dev1",
-          "bottomBar": "2026-10-20T16:15:00.003Z-0000-dev1"
+          "bottomBar": "2026-10-20T16:15:00.003Z-0000-dev1",
+          "newTask": "2026-10-20T16:15:00.003Z-0000-dev1"
         }
       }
     ],

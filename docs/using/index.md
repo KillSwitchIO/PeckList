@@ -121,3 +121,8 @@ linked accounts, and **Your data** ([download or import a copy](apps-and-sync.md
 
 **Time zone**: "today", due dates and the calendar follow it. It starts out as the server's time
 zone (`TZ`), or your device's without a server; pick another one if you live somewhere else.
+
+**New tasks**: what a new task starts with: a list (for tasks added outside a list), a priority, a
+date (none, today, tomorrow or in a week) with an optional time, and on a server whether tasks you
+add to shared lists start assigned to you. Where you add a task still wins: in a list it goes to
+that list, in Today or on a day it gets that date, and what you type in quick add wins over both.
