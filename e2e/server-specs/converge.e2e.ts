@@ -15,11 +15,11 @@ async function signIn(device: WebdriverIO.Browser): Promise<void> {
   await username.setValue('admin');
   await device.$('input[autocomplete="current-password"]').setValue(password);
   await device.$('button[type="submit"]').click();
-  await device.$('input[data-add-task]').waitForDisplayed({ timeout: 30_000 });
+  await device.$('[data-add-task]').waitForDisplayed({ timeout: 30_000 });
 }
 
 async function addTask(device: WebdriverIO.Browser, title: string): Promise<void> {
-  const field = await device.$('input[data-add-task]');
+  const field = await device.$('[data-add-task]');
   await field.click();
   await field.setValue(title);
   await device.keys('Enter');
@@ -59,8 +59,8 @@ describe('two devices', () => {
     await signIn(second);
     await browser.url('/inbox');
     await second.url('/inbox');
-    await browser.$('input[data-add-task]').waitForDisplayed();
-    await second.$('input[data-add-task]').waitForDisplayed();
+    await browser.$('[data-add-task]').waitForDisplayed();
+    await second.$('[data-add-task]').waitForDisplayed();
 
     // The server tells the other device at once (server-sent events), which then syncs.
     const first = `Converge from one ${run}`;

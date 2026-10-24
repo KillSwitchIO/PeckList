@@ -5,7 +5,7 @@ import { $, $$, browser, expect } from '@wdio/globals';
 
 /** Add tasks through the page's add field. */
 async function addTasks(titles: string[]) {
-  const input = $("//input[starts-with(@placeholder, 'Add task')]");
+  const input = $("//textarea[starts-with(@placeholder, 'Add task')][not(@aria-hidden)]");
   for (const title of titles) {
     await input.click();
     await input.setValue(title);
@@ -96,58 +96,58 @@ describe('dragging on the calendar', () => {
     await addTasks(['Calendar probe']);
     await browser.url('/calendar');
     const waiting = $(
-      "//*[@role='list'][@aria-label='Unscheduled']//*[@data-task-id][@data-title='Calendar probe']",
+      "//*[@role='list'][@aria-label='Unscheduled']//*[@data-task-id][normalize-space()='Calendar probe']",
     );
     await expect(waiting).toBeDisplayed();
 
-    // Onto today in the month view (the week view opens on today's week).
-    const today = await $('td.fc-daygrid-day.fc-day-today');
-    const date = await today.getAttribute('data-date');
+    // Onto today in the month view.
+    const today = await $("[role='gridcell'][aria-label='Today']");
+    const date = await today.getAttribute('data-cal-day');
     await drag(await waiting, today, { across: true });
-    await expect($(`td[data-date='${date}'] .fc-event.pl-schedule`)).toBeDisplayed();
+    await expect(
+      $(`[data-cal-day='${date}'] [data-cal-item][title='Calendar probe']`),
+    ).toBeDisplayed();
 
-    // In the week view, from the all-day row onto 10:00.
-    await $("//button[normalize-space()='Week']").click();
-    const allDay = await $('.fc-event.pl-schedule');
+    // In the Days view, from the all-day row onto 10:00.
+    await $("//button[normalize-space()='Days']").click();
+    const allDay = await $(`[data-cal-day='${date}'] [data-cal-item][title='Calendar probe']`);
     await expect(allDay).toBeDisplayed();
-    const column = await $(`td.fc-timegrid-col[data-date='${date}']`);
-    const ten = await $("td.fc-timegrid-slot-lane[data-time='10:00:00']");
+    const column = await $(`[data-cal-slots='${date}']`);
+    const hour = Number(await column.getAttribute('data-hour-height'));
+    // Bring 9:00 to the top of the grid, so 10:00 is in sight whatever the time now.
+    await browser.execute((h) => {
+      const body = document.querySelector<HTMLElement>('[data-cal-body]');
+      if (body) body.scrollTop = 9 * h;
+    }, hour);
+    await browser.pause(200);
     const start = await allDay.getLocation();
     const size = await allDay.getSize();
     const columnBox = await column.getLocation();
     const columnSize = await column.getSize();
-    const tenBox = await ten.getLocation();
+    const tenY = Math.round(columnBox.y + 10 * hour + 4);
     await browser
       .action('pointer', { parameters: { pointerType: 'mouse' } })
       .move({ x: Math.round(start.x + size.width / 2), y: Math.round(start.y + size.height / 2) })
       .down()
       .move({
         x: Math.round(start.x + size.width / 2),
-        y: Math.round(start.y + size.height / 2 + 8),
+        y: Math.round(start.y + size.height / 2 + 10),
         duration: 50,
       })
-      .move({
-        x: Math.round(columnBox.x + columnSize.width / 2),
-        y: Math.round(tenBox.y + 4),
-        duration: 250,
-      })
+      .move({ x: Math.round(columnBox.x + columnSize.width / 2), y: tenY, duration: 250 })
       .pause(100)
       .up()
       .perform();
-    const timed = $('.fc-timegrid-event.pl-schedule');
+    const timed = $(`[data-cal-slots='${date}'] [data-cal-item]`);
     await browser.waitUntil(
-      async () => (await timed.isExisting()) && (await timed.getText()).includes('10'),
-      {
-        timeout: 5000,
-      },
+      async () =>
+        (await timed.isExisting()) && /10:00/.test((await timed.getAttribute('aria-label')) ?? ''),
+      { timeout: 5000 },
     );
 
     // Pull its bottom edge down an hour: a longer block.
     const box = await timed.getLocation();
     const height = (await timed.getSize()).height;
-    const hour =
-      (await $("td.fc-timegrid-slot-lane[data-time='11:00:00']").getLocation()).y - tenBox.y;
-    await timed.moveTo();
     await browser
       .action('pointer', { parameters: { pointerType: 'mouse' } })
       .move({ x: Math.round(box.x + 20), y: Math.round(box.y + height - 2) })

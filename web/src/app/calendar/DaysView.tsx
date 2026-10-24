@@ -337,6 +337,7 @@ export function DaysView({
       )}
       <Box
         ref={body}
+        data-cal-body=""
         onPointerDown={onTouchDown}
         onPointerMove={onTouchMove}
         onPointerUp={onTouchUp}
