@@ -1,14 +1,8 @@
-import {
-  Box,
-  ButtonBase,
-  Drawer,
-  Popover,
-  Typography,
-  useMediaQuery,
-  useTheme,
-} from '@mui/material';
+import { Box, ButtonBase, Popover, Typography, useMediaQuery, useTheme } from '@mui/material';
 import type { ReactNode } from 'react';
 import { useReadOnly } from './readOnly.ts';
+import { POPUP_RADIUS } from '../theme/theme.ts';
+import { BottomSheet } from '../layout/BottomSheet.tsx';
 
 /** A task property row in the details panel: "icon  Label ........ value". */
 export function PropertyRow({
@@ -94,25 +88,14 @@ export function PropertySheet({
   const isPhone = useMediaQuery(theme.breakpoints.down('sm'), { noSsr: true });
   if (isPhone) {
     return (
-      <Drawer
-        anchor="bottom"
+      <BottomSheet
         open={anchor !== null}
         onClose={onClose}
-        slotProps={{
-          paper: {
-            role: 'dialog',
-            'aria-label': label,
-            sx: {
-              borderTopLeftRadius: 16,
-              borderTopRightRadius: 16,
-              alignItems: 'center',
-              pb: 'env(safe-area-inset-bottom)',
-            },
-          },
-        }}
+        label={label}
+        paperSx={{ alignItems: 'center' }}
       >
         {children}
-      </Drawer>
+      </BottomSheet>
     );
   }
   return (
@@ -121,7 +104,9 @@ export function PropertySheet({
       anchorEl={anchor}
       onClose={onClose}
       anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
-      slotProps={{ paper: { role: 'dialog', 'aria-label': label, sx: { borderRadius: 3 } } }}
+      slotProps={{
+        paper: { role: 'dialog', 'aria-label': label, sx: { borderRadius: `${POPUP_RADIUS}px` } },
+      }}
     >
       {children}
     </Popover>

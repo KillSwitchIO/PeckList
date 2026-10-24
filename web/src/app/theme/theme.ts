@@ -1,6 +1,9 @@
 import { createTheme, type Theme } from '@mui/material/styles';
 import { buildPalette, type ModePalette } from '../../core/palette.ts';
 
+/** The rounding of everything that floats: popovers, menus, dialogs, bottom sheets (px). */
+export const POPUP_RADIUS = 18;
+
 declare module '@mui/material/styles' {
   interface Theme {
     punchlist: ModePalette;
@@ -27,7 +30,8 @@ export function createAppTheme(
       error: { main: p.dateState.late },
       warning: { main: p.dateState.slipped },
     },
-    shape: { borderRadius: 12 },
+    // Small: buttons, fields and rows 6px; anything that floats (POPUP_RADIUS) 18px.
+    shape: { borderRadius: 6 },
     typography: {
       fontFamily:
         'system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
@@ -39,6 +43,9 @@ export function createAppTheme(
       MuiButton: { styleOverrides: { root: { textTransform: 'none', fontWeight: 600 } } },
       MuiToggleButton: { styleOverrides: { root: { textTransform: 'none' } } },
       MuiTab: { styleOverrides: { root: { textTransform: 'none' } } },
+      // Popovers, menus and dialogs share one rounding, the same as the phone sheets.
+      MuiPopover: { styleOverrides: { paper: { borderRadius: POPUP_RADIUS } } },
+      MuiDialog: { styleOverrides: { paper: { borderRadius: POPUP_RADIUS } } },
       MuiAppBar: {
         defaultProps: { elevation: 0, color: 'inherit' },
         styleOverrides: {

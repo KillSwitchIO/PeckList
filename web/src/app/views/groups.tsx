@@ -4,7 +4,8 @@ import {
   groupByList,
   groupByPriority,
   groupByTag,
-  sortTasks,
+  inOrder,
+  orderTasks,
   type ListGrouping,
   type ListSort,
 } from '../../core/listView.ts';
@@ -48,6 +49,7 @@ export function CompletedGroup({
   const expanded = all && tasks.length > COMPLETED_PREVIEW;
   return (
     <GroupSection
+      groupKey="completed"
       title={t('group.completed')}
       count={tasks.length}
       defaultOpen={defaultOpen}
@@ -122,7 +124,7 @@ function groupTitle(group: DateGroup, today: string): string {
 export function PinnedGroup({ tasks, showList = false }: { tasks: Task[]; showList?: boolean }) {
   if (tasks.length === 0) return null;
   return (
-    <GroupSection title={t('group.pinned')} count={tasks.length}>
+    <GroupSection groupKey="pinned" title={t('group.pinned')} count={tasks.length}>
       <TaskTree tasks={tasks} showList={showList} />
     </GroupSection>
   );
@@ -138,17 +140,23 @@ export function DateGroupedTasks({
   showList = false,
   emptyTitle,
   sort = 'manual',
+  reversed = false,
+  groupsReversed = false,
 }: {
   filter: TaskFilter;
   showList?: boolean;
   emptyTitle: string;
   /** Within each date group; `manual` keeps the usual (time, priority, then own order). */
   sort?: ListSort;
+  /** The sort the other way round */
+  reversed?: boolean;
+  /** The date groups the other way round (No date and Later first) */
+  groupsReversed?: boolean;
 }) {
   const workspace = useWorkspace();
   const today = useToday();
   const { pinned, rest } = pinnedFirst(filterTasks(workspace, filter, today));
-  const groups = groupByDate(workspace, rest, today);
+  const groups = inOrder(groupByDate(workspace, rest, today), groupsReversed);
   const closed = filterClosedTasks(workspace, filter, today);
   return (
     <>
@@ -159,6 +167,7 @@ export function DateGroupedTasks({
       {groups.map((group) => (
         <GroupSection
           key={group.key}
+          groupKey={group.key}
           title={groupTitle(group, today)}
           count={group.tasks.length}
           {...(group.key === 'overdue'
@@ -166,7 +175,7 @@ export function DateGroupedTasks({
             : {})}
         >
           <TaskTree
-            tasks={sort === 'manual' ? group.tasks : sortTasks(group.tasks, sort)}
+            tasks={orderTasks(group.tasks, sort, reversed)}
             showList={showList}
             ownPlace={hasOwnDate}
           />
@@ -186,6 +195,8 @@ export function GroupedTasks({
   closed,
   grouping,
   sort,
+  reversed = false,
+  groupsReversed = false,
   showList = false,
   emptyTitle,
 }: {
@@ -193,14 +204,16 @@ export function GroupedTasks({
   closed: Task[];
   grouping: Exclude<ListGrouping, 'date'>;
   sort: ListSort;
+  reversed?: boolean;
+  groupsReversed?: boolean;
   showList?: boolean;
   emptyTitle: string;
 }) {
   const workspace = useWorkspace();
   const { pinned, rest } = pinnedFirst(tasks);
   // Custom order across lists is the view's own: by start date and time, then each list's order.
-  const open = sort === 'manual' ? rest : sortTasks(rest, sort);
-  const groups =
+  const open = orderTasks(rest, sort, reversed);
+  const grouped =
     grouping === 'priority'
       ? groupByPriority(open).map((group) => ({
           ...group,
@@ -217,6 +230,7 @@ export function GroupedTasks({
               return { ...group, title: list ? listName(list, workspace) : (group.name ?? '') };
             })
           : null;
+  const groups = grouped && inOrder(grouped, groupsReversed);
   return (
     <>
       {open.length === 0 && pinned.length === 0 && closed.length === 0 && (
@@ -225,7 +239,12 @@ export function GroupedTasks({
       <PinnedGroup tasks={pinned} showList={showList} />
       {groups
         ? groups.map((group) => (
-            <GroupSection key={group.key} title={group.title} count={group.tasks.length}>
+            <GroupSection
+              key={group.key}
+              groupKey={group.key}
+              title={group.title}
+              count={group.tasks.length}
+            >
               <TaskTree tasks={group.tasks} showList={showList && grouping !== 'list'} />
             </GroupSection>
           ))
@@ -256,6 +275,8 @@ export function FilteredTasks({
         showList={showList}
         emptyTitle={emptyTitle}
         sort={view.sort}
+        reversed={view.sortReversed}
+        groupsReversed={view.groupReversed}
       />
     );
   }
@@ -265,6 +286,8 @@ export function FilteredTasks({
       closed={filterClosedTasks(workspace, filter, today)}
       grouping={view.grouping}
       sort={view.sort}
+      reversed={view.sortReversed}
+      groupsReversed={view.groupReversed}
       showList={showList}
       emptyTitle={emptyTitle}
     />

@@ -12,6 +12,7 @@ export type SettingsPatch = Partial<
     | 'pointEventMinutes'
     | 'dueSoonDays'
     | 'clockFormat'
+    | 'dateFormat'
     | 'weekStart'
     | 'timeZone'
     | 'newTask'

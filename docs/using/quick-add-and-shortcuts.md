@@ -2,8 +2,9 @@
 
 ## Quick add
 
-Type a whole task in one line. What Punchlist recognises turns into a chip as you type and comes
-out of the title; click a chip to keep those words as plain text instead.
+Type a whole task in one line; a long one wraps and the box grows, so it stays easy to read and
+fix. What Punchlist recognises turns into a chip on the line under the text as you type and comes
+out of the title; the cross on a chip keeps those words as plain text instead.
 
 ```text
 Call the vet tomorrow 3pm #pets !high ^Home

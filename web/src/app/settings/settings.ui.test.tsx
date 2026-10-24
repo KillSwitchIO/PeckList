@@ -96,6 +96,37 @@ describe('settings: colors', () => {
   });
 });
 
+describe('settings: date format', () => {
+  it('shows dates in a preset or a typed pattern, keeping Today and Tomorrow', async () => {
+    const store = testStore();
+    await store.getState().init();
+    store.getState().apply(
+      (ctx, ws) =>
+        createTask(ctx, ws, {
+          title: 'Dentist',
+          listId: inboxList(ws).id,
+          schedule: { start: '2030-01-07', end: null, allDay: true, timeZone: localTimeZone() },
+        }).workspace,
+    );
+    await store.getState().flush();
+    await renderApp('/settings', store);
+    await userEvent.click(await screen.findByRole('combobox', { name: 'Date format' }));
+    await userEvent.click(await screen.findByRole('option', { name: /\(YYYY-MM-DD\)$/ }));
+    expect(store.getState().workspace!.entities.settings[0]!.dateFormat).toBe('YYYY-MM-DD');
+
+    await userEvent.click(screen.getByRole('combobox', { name: 'Date format' }));
+    await userEvent.click(await screen.findByRole('option', { name: 'Custom...' }));
+    const pattern = screen.getByRole('textbox', { name: 'Date pattern' });
+    await userEvent.clear(pattern);
+    expect(screen.getByText('Use at least one of the parts below')).toBeInTheDocument();
+    await userEvent.type(pattern, 'YYYYMMdd');
+    expect(store.getState().workspace!.entities.settings[0]!.dateFormat).toBe('YYYYMMdd');
+
+    await userEvent.click(within(screen.getAllByRole('navigation')[0]!).getByText('All'));
+    expect(await screen.findByText('20300107')).toBeInTheDocument();
+  });
+});
+
 describe('settings: your data', () => {
   it('downloads everything as JSON and imports a file, adding what is new', async () => {
     const store = testStore();

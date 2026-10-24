@@ -60,6 +60,7 @@ import { useBottomTabs } from './bottomTabs.tsx';
 import { TwoLineRowsContext, useNarrow } from './rowLayout.ts';
 import { SyncButton } from '../sync/SyncButton.tsx';
 import { useFooterItems } from './useFooterItems.ts';
+import { BottomSheet } from './BottomSheet.tsx';
 
 /** How often the trash is checked for things to erase. */
 const PURGE_EVERY_MS = 6 * 3_600_000;
@@ -432,20 +433,26 @@ function AppFrame() {
           {expanded && detail}
         </Dialog>
 
-        {!isDesktop && (
+        {isPhone && (
+          <BottomSheet
+            open={detail !== null && !expanded}
+            onClose={(event, reason) => {
+              if (!handledInside(event, reason ?? '')) close();
+            }}
+            paperSx={{ height: '92dvh' }}
+          >
+            {!expanded && detail}
+          </BottomSheet>
+        )}
+
+        {!isDesktop && !isPhone && (
           <Drawer
-            anchor={isPhone ? 'bottom' : 'right'}
+            anchor="right"
             open={detail !== null && !expanded}
             onClose={(event, reason) => {
               if (!handledInside(event, reason)) close();
             }}
-            slotProps={{
-              paper: {
-                sx: isPhone
-                  ? { height: '92dvh', borderTopLeftRadius: 16, borderTopRightRadius: 16 }
-                  : { width: 'min(560px, 92vw)' },
-              },
-            }}
+            slotProps={{ paper: { sx: { width: 'min(560px, 92vw)' } } }}
           >
             {!expanded && detail}
           </Drawer>

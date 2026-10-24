@@ -3,8 +3,9 @@ import type { CalendarMode } from '../../ports/calendarView.ts';
 import { formatMonth } from '../format.ts';
 
 /**
- * The calendar's heading: "October", "Oct 19 - 25", "Thursday, Oct 22", with the year only when it
- * is not this one ("October 2027", "Dec 28, 2026 - Jan 3, 2027").
+ * The calendar's heading: "October", "Oct 19 - 25", "Oct 24 - 26" (three days), "Thursday,
+ * Oct 22", with the year only when it is not this one ("October 2027", "Dec 28, 2026 - Jan 3,
+ * 2027").
  */
 export function calendarTitle(
   mode: CalendarMode,
@@ -22,9 +23,9 @@ export function calendarTitle(
     const year = date.slice(0, 4) === thisYear ? undefined : 'numeric';
     return format(date, { weekday: 'long', month: 'short', day: 'numeric', year });
   }
-  const lead = (at(date).getUTCDay() - weekStart + 7) % 7;
+  const lead = mode === 'threeDays' ? 0 : (at(date).getUTCDay() - weekStart + 7) % 7;
   const first = addDays(date, -lead);
-  const last = addDays(first, 6);
+  const last = addDays(first, mode === 'threeDays' ? 2 : 6);
   const start = format(first, { month: 'short', day: 'numeric' });
   const year = last.slice(0, 4);
   if (first.slice(0, 4) !== year)

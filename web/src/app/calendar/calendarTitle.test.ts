@@ -10,6 +10,9 @@ describe('calendar title', () => {
     expect(calendarTitle('week', '2026-10-22', 1, TODAY, 'en-US')).toBe('Oct 19 - 25');
     expect(calendarTitle('week', '2026-10-22', 0, TODAY, 'en-US')).toBe('Oct 18 - 24');
     expect(calendarTitle('week', '2026-10-29', 1, TODAY, 'en-US')).toBe('Oct 26 - Nov 1');
+    // Three days start on the day itself.
+    expect(calendarTitle('threeDays', '2026-10-22', 1, TODAY, 'en-US')).toBe('Oct 22 - 24');
+    expect(calendarTitle('threeDays', '2026-10-31', 0, TODAY, 'en-US')).toBe('Oct 31 - Nov 2');
   });
 
   it('shows the year for other years', () => {

@@ -4,7 +4,7 @@ import { useState, type ReactNode } from 'react';
 import { agendaDays } from '../../core/agenda.ts';
 import { addDays, localTimeZone, weekday } from '../../core/dates.ts';
 import { inboxList } from '../../core/lists.ts';
-import { sortTasks, type ListSort } from '../../core/listView.ts';
+import { orderTasks, type ListSort } from '../../core/listView.ts';
 import { todayGroups } from '../../core/queries.ts';
 import { pinnedFirst } from '../../core/tasks.ts';
 import type { Task } from '../../core/types.ts';
@@ -30,15 +30,21 @@ function startOfWeek(date: string, weekStart: number): string {
   return addDays(date, -((weekday(date) - weekStart + 7) % 7));
 }
 
-const sorted = (tasks: Task[], sort: ListSort) =>
-  sort === 'manual' ? tasks : sortTasks(tasks, sort);
-
 /**
  * Upcoming, like Todoist's (spec: PL-091): a strip of the week's days on top, then every day from
  * there on with what starts on it, empty days included, each with its own add button. Overdue
  * tasks head the current week; pinned ones head everything.
  */
-export function AgendaView({ sort, actions }: { sort: ListSort; actions: ReactNode }) {
+export function AgendaView({
+  sort,
+  reversed = false,
+  actions,
+}: {
+  sort: ListSort;
+  reversed?: boolean;
+  actions: ReactNode;
+}) {
+  const sorted = (tasks: Task[], by: ListSort) => orderTasks(tasks, by, reversed);
   const workspace = useWorkspace();
   const today = useToday();
   const thisWeek = startOfWeek(today, preferredWeekStart());
@@ -160,6 +166,7 @@ export function AgendaView({ sort, actions }: { sort: ListSort; actions: ReactNo
       <PinnedGroup tasks={pinned} showList />
       {late.length > 0 && (
         <GroupSection
+          groupKey="overdue"
           title={t('group.overdue')}
           count={late.length}
           actions={<PostponeButton tasks={late} today={today} />}
@@ -173,6 +180,13 @@ export function AgendaView({ sort, actions }: { sort: ListSort; actions: ReactNo
         return (
           <Box key={day.date} id={`agenda-${day.date}`} sx={{ scrollMarginTop: 180 }}>
             <GroupSection
+              groupKey={
+                day.date === today
+                  ? 'today'
+                  : day.date === addDays(today, 1)
+                    ? 'tomorrow'
+                    : `day:${day.date}`
+              }
               title={title}
               count={tasks.length}
               actions={

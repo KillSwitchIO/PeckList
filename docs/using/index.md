@@ -9,7 +9,7 @@
 | **Due dates**                           | Tasks with a deadline, by when; select many to move their dates. |
 | **Mess Drawer**                         | Tasks not yet put in a list: the place quick ideas land.         |
 | **All**                                 | Every open task.                                                 |
-| **Calendar**                            | Month, week and day.                                             |
+| **Calendar**                            | Month, week, 3 days and day.                                     |
 | **Assigned to me** / **Shared with me** | Tasks others gave you, and lists shared with you.                |
 | **Closed**                              | Done and won't-do tasks.                                         |
 | **Trash**                               | Deleted tasks and lists, restorable for 30 days.                 |
@@ -20,7 +20,8 @@ and back (each device remembers it). At the bottom, a small month shows a dot on
 tasks; click a day to open that day's tasks as a list, like Today but for any day (today itself
 opens Today). The day page adds new tasks to that day, shows what got done that day, and its arrows
 step a day. The arrow at the top right of the small month folds it down to just one week (and
-back), and each device remembers which. Under it is the app's version, which links to what
+back), and each device remembers which. Its title picks a month, and clicked again a year, to jump
+far; the dot between its arrows goes back to now. Under it is the app's version, which links to what
 changed. On a phone the main views sit in the bottom bar, and **More** holds the rest of the
 sidebar: the views, saved filters, lists and tags. Its pencil (or holding a row) edits it just
 like **Edit sidebar** on a computer, and the changes apply on every device. While editing, the
@@ -53,7 +54,7 @@ their start; the due date is the deadline.
 - **Open**: click a task for its details panel; it can be widened or made full screen. The
   expand button at the end of the add field opens a new task straight in the full view, filled
   with what you typed. At the bottom: when the task was made and last changed. On a phone,
-  comments and those dates wait behind a bar at the bottom that slides a panel up. Phone rows put
+  comments and those dates wait behind a bar at the bottom that slides a panel up. Panels that slide up close with a swipe down or a tap outside them. Phone rows put
   the title on its own line, with the date, list and tags under it.
 - **Reminders**: in a task's details, **Reminders** offers on time, 5 or 30 minutes, an hour or a
   day before (an all-day task: on the day at 9:00, a day, two days or a week before), and any
@@ -100,8 +101,13 @@ Lists hold tasks. The sort-and-group button next to a list's name groups it (by 
 tag, or **None** for the list's own order, the one you drag tasks in) and sorts it; the **...**
 menu edits, archives or deletes it. The built-in views (Today, Upcoming, All, Assigned to me,
 Shared with me) and every tag and saved filter have the same button, plus **List** to group by
-list. Each list and view keeps its own choice on this device, and the button turns colored while
-it differs from the default; **Restore defaults** at the bottom of its menu goes back.
+list. Picking the chosen grouping or sort again turns it around (an arrow shows which way it
+runs): Z to A, latest date first (undated tasks stay last), low priority first, oldest first, or
+the groups in reverse. Each list and view keeps its own choice on this device, and the button turns
+colored while it differs from the default; **Restore defaults** at the bottom of its menu goes back.
+
+Folding a group (click its heading) folds it everywhere it shows: fold **Overdue** in Today and it
+is folded in Upcoming, All and your lists too, until you open it again. Each device remembers.
 
 A list is marked in the sidebar by its color as a dot until you give it an icon: **Edit list**
 (or the new-list dialog) offers line icons drawn in the list's color, common emoji, or any emoji
@@ -119,8 +125,8 @@ in a tag's menu; subtasks inherit their parent's tags.
 
 ## Calendar
 
-Month, week and day views. Drag a task from **Unscheduled** onto a day (all day) or, in the week and
-day views, onto a time. Drag a scheduled task to move it, pull its bottom edge to make it longer.
+Month, week, 3 days (the day and the two after it) and day views. Drag a task from
+**Unscheduled** onto a day (all day) or, in the time views, onto a time. Drag a scheduled task to move it, pull its bottom edge to make it longer.
 
 ## Your profile menu
 
@@ -137,9 +143,15 @@ The server keeps them for 90 days; reminders that fired on this device stay on i
 ## Settings
 
 **Settings** (the profile menu, or ++g++ ++s++): appearance (light, dark or system theme, and
-colors), dates (your time zone, 12 or 24-hour clock, the first day of the week, when a due date
-counts as soon, how long a task with only a start time shows on the calendar), sign-in methods and
+colors), dates (your time zone, how dates show, 12 or 24-hour clock, the first day of the week,
+when a due date counts as soon, how long a task with only a start time shows on the calendar), sign-in methods and
 linked accounts, and **Your data** ([download or import a copy](apps-and-sync.md#your-data-as-a-file)).
+
+**Date format**: the language's own (Automatic), a ready-made one such as `2026-10-24` or
+`24.10.2026`, or **Custom...** to type a pattern such as `YYYYMMDD` or `ddd D MMM`: `YYYY` 2026,
+`YY` 26, `MMMM` October, `MMM` Oct, `MM` 10, `M` 10, `DD` 05, `D` 5, `dddd` Monday, `ddd` Mon,
+and `[text]` as is. It shows today's date in the pattern as you type. Today, Tomorrow and
+Yesterday keep their names.
 
 **Colors**: pick a palette (Punchlist, Ocean, Forest, Sunset, Lavender or Graphite), then change
 any of its colors. **Reset colors** goes back to the palette's own colors.

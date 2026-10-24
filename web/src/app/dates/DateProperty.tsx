@@ -1,7 +1,9 @@
-import { Typography } from '@mui/material';
+import { Box, Typography } from '@mui/material';
+import { datePart, timePart } from '../../core/dates.ts';
 import { useState, type ReactNode } from 'react';
-import { formatSpan, formatWhen } from '../format.ts';
+import { formatDay, formatSpan, formatTime, formatWhen } from '../format.ts';
 import { PropertyRow, PropertySheet } from '../tasks/PropertyRow.tsx';
+import { t } from '../i18n/i18n.ts';
 import { DatePickerPanel } from './DatePickerPanel.tsx';
 import { fromDateValue, type DateValue } from './dateValue.ts';
 
@@ -43,6 +45,31 @@ export function DateProperty({
       ? formatSpan(fromDateValue(value), fromDateValue(value.end), today)
       : formatWhen(fromDateValue(value), today)
     : placeholder;
+  // Two short lines instead of one long one, so neither is cut short: a span's start over its
+  // end, and in the narrow header (inline) a timed date's day over its time.
+  const span = (() => {
+    if (!value) return null;
+    const start = fromDateValue(value);
+    if (value.end) {
+      const end = fromDateValue(value.end);
+      const endTime = timePart(end);
+      return {
+        start: formatWhen(start, today),
+        end: t('date.spanEnd', {
+          end:
+            datePart(start) === datePart(end) && endTime
+              ? formatTime(endTime)
+              : formatWhen(end, today),
+        }),
+      };
+    }
+    const time = timePart(start);
+    if (inline && time) {
+      return { start: formatDay(datePart(start), today), end: formatTime(time) };
+    }
+    return null;
+  })();
+  const color = value ? (valueColor ?? 'text.primary') : 'text.disabled';
 
   return (
     <>
@@ -55,10 +82,17 @@ export function DateProperty({
         inline={inline}
         onClick={setAnchor}
       >
-        {(value || !compact) && (
-          <Typography sx={{ color: value ? (valueColor ?? 'text.primary') : 'text.disabled' }}>
-            {display}
-          </Typography>
+        {span ? (
+          <Box sx={{ display: 'grid', color, lineHeight: 1.25 }} aria-hidden>
+            <Typography variant="body2" noWrap sx={{ lineHeight: 'inherit' }}>
+              {span.start}
+            </Typography>
+            <Typography variant="body2" noWrap sx={{ lineHeight: 'inherit' }}>
+              {span.end}
+            </Typography>
+          </Box>
+        ) : (
+          (value || !compact) && <Typography sx={{ color }}>{display}</Typography>
         )}
       </PropertyRow>
       <PropertySheet label={label} anchor={anchor} onClose={close}>

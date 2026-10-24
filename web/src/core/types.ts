@@ -178,6 +178,8 @@ export interface Settings extends BaseEntity {
   bottomBar?: string[];
   /** The named palette the colors start from; `palette` holds changes on top (schema 11) */
   palettePreset?: string;
+  /** How dates show, as a pattern (core/dateFormat.ts; schema 13); absent: the language's own */
+  dateFormat?: string;
   /** What a new task starts with when where it is added says nothing (schema 10, PL-092) */
   newTask?: NewTaskDefaults;
 }

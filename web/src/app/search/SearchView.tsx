@@ -197,7 +197,7 @@ export function SearchView() {
             ))}
           </Box>
           {closed.length > 0 && (
-            <GroupSection title={t('nav.completed')} count={closed.length}>
+            <GroupSection groupKey="completed" title={t('nav.completed')} count={closed.length}>
               <Box component="ul" sx={{ listStyle: 'none', m: 0, p: 0 }}>
                 {closed.map((hit) => (
                   <ResultRow key={hit.task.id} hit={hit} />

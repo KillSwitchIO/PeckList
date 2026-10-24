@@ -21,6 +21,7 @@ import { t } from '../i18n/i18n.ts';
 const VIEWS: Record<CalendarMode, string> = {
   month: 'dayGridMonth',
   week: 'timeGridWeek',
+  threeDays: 'timeGridThreeDays',
   day: 'timeGridDay',
 };
 
@@ -208,6 +209,7 @@ export function FullCalendarView({
         ref={ref}
         plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}
         initialView={VIEWS[mode]}
+        views={{ timeGridThreeDays: { type: 'timeGrid', duration: { days: 3 } } }}
         initialDate={date}
         headerToolbar={false}
         height="100%"

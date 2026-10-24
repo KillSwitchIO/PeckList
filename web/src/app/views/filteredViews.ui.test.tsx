@@ -126,12 +126,23 @@ describe('list sort and group options', () => {
       'undated',
     ]);
 
+    // Title again: Z to A, marked with an up arrow.
+    await userEvent.click(screen.getByRole('button', { name: 'Sort and group' }));
+    await userEvent.click(screen.getByRole('menuitem', { name: 'Sort by title' }));
+    const reversed = screen
+      .getAllByRole('button', { name: /^Open / })
+      .map((row) => row.getAttribute('aria-label')!.slice(5))
+      .filter((title) => !title.startsWith('done'));
+    expect(reversed).toEqual([...titles].reverse());
+
     // Remembered for the list.
     const nav = screen.getAllByRole('navigation')[0]!;
     await userEvent.click(within(nav).getByRole('button', { name: /^Today/ }));
     await userEvent.click(within(nav).getByRole('button', { name: /^Mess Drawer/ }));
     await userEvent.click(await screen.findByRole('button', { name: 'Sort and group' }));
-    expect(screen.getByRole('menuitem', { name: 'Sort by title' })).toHaveClass('Mui-selected');
+    const picked = screen.getByRole('menuitem', { name: 'Sort by title' });
+    expect(picked).toHaveClass('Mui-selected');
+    expect(within(picked).getByLabelText('Reversed')).toBeInTheDocument();
   });
 
   it('built-in views sort and group too, each remembering its own, and restore their defaults', async () => {
@@ -153,6 +164,13 @@ describe('list sort and group options', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Sort and group' }));
     await userEvent.click(screen.getByRole('menuitem', { name: 'Group by priority' }));
     expect(groupHeadings()).toEqual(['No priority2', 'Closed6']);
+    // Date again: the groups the other way round, Closed still last.
+    await userEvent.click(screen.getByRole('button', { name: 'Sort and group' }));
+    await userEvent.click(screen.getByRole('menuitem', { name: 'Group by date' }));
+    const byDate = groupHeadings();
+    await userEvent.click(screen.getByRole('button', { name: 'Sort and group' }));
+    await userEvent.click(screen.getByRole('menuitem', { name: 'Group by date' }));
+    expect(groupHeadings()).toEqual([...byDate.slice(0, -1).reverse(), byDate.at(-1)]);
 
     await userEvent.click(screen.getByRole('button', { name: 'Sort and group' }));
     await userEvent.click(screen.getByRole('menuitem', { name: 'Restore defaults' }));
@@ -160,6 +178,23 @@ describe('list sort and group options', () => {
     await userEvent.click(within(nav).getByRole('button', { name: /^All/ }));
     await screen.findByRole('heading', { level: 1, name: 'All' });
     expect(groupHeadings()).toEqual(['Mess Drawer6', 'Work1', 'Closed6']);
+  });
+
+  it('remember a folded group on every page that shows it', async () => {
+    await renderSeeded('/today');
+    const fold = await screen.findByRole('button', { name: /^Overdue/, expanded: true });
+    await userEvent.click(fold);
+    await waitFor(() => expect(screen.queryByRole('button', { name: 'Open overdue' })).toBeNull());
+    const nav = screen.getAllByRole('navigation')[0]!;
+    await userEvent.click(within(nav).getByRole('button', { name: /^All/ }));
+    await screen.findByRole('heading', { level: 1, name: 'All' });
+    const folded = screen.getByRole('button', { name: /^Overdue/ });
+    expect(folded).toHaveAttribute('aria-expanded', 'false');
+    expect(screen.queryByRole('button', { name: 'Open overdue' })).toBeNull();
+    // Unfolded here: unfolded back in Today too.
+    await userEvent.click(folded);
+    await userEvent.click(within(nav).getByRole('button', { name: /^Today/ }));
+    expect(await screen.findByRole('button', { name: 'Open overdue' })).toBeInTheDocument();
   });
 
   it('groups by priority, high first', async () => {

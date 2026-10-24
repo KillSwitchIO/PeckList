@@ -1,7 +1,8 @@
 import type { ComponentType } from 'react';
 import type { CalendarItem, CalendarPlacement } from '../core/calendar.ts';
 
-export type CalendarMode = 'month' | 'week' | 'day';
+/** `threeDays`: the day and the two after it, TickTick's 3-day view. */
+export type CalendarMode = 'month' | 'week' | 'threeDays' | 'day';
 
 export interface CalendarViewProps {
   mode: CalendarMode;

@@ -3,7 +3,7 @@
 
 import { keyBetween } from './ordering.ts';
 
-export const CURRENT_SCHEMA_VERSION = 12;
+export const CURRENT_SCHEMA_VERSION = 13;
 
 export type Migration = (document: Record<string, unknown>) => Record<string, unknown>;
 
@@ -109,6 +109,9 @@ export const MIGRATIONS: MigrationRegistry = {
   // 12: tasks may hold reminders, and new task defaults a reminder default. Optional (missing:
   // none), so documents change only in version.
   12: (document) => document,
+  // 13: settings may hold a date format (dateFormat). Optional (missing: the language's own), so
+  // documents change only in version.
+  13: (document) => document,
 };
 
 export type VersionCheck =

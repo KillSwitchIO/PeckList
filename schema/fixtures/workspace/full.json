@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 12,
+  "schemaVersion": 13,
   "app": {
     "name": "punchlist",
     "version": "0.1.0"
@@ -577,6 +577,7 @@
         },
         "bottomBar": ["today", "upcoming", "calendar", "search"],
         "palettePreset": "ocean",
+        "dateFormat": "YYYY-MM-DD",
         "newTask": {
           "listId": null,
           "priority": 2,
@@ -598,6 +599,7 @@
           "sidebar": "2026-10-20T16:15:00.003Z-0000-dev1",
           "bottomBar": "2026-10-20T16:15:00.003Z-0000-dev1",
           "palettePreset": "2026-10-20T16:15:00.003Z-0000-dev1",
+          "dateFormat": "2026-10-20T16:15:00.003Z-0000-dev1",
           "newTask": "2026-10-20T16:15:00.003Z-0000-dev1"
         }
       }

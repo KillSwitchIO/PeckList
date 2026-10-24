@@ -6,6 +6,9 @@ export type { ListGrouping, ListSort } from '../../core/listView.ts';
 interface ListViewChoice {
   group?: ListGrouping;
   sort?: ListSort;
+  /** Picked again: the other way round */
+  groupReversed?: boolean;
+  sortReversed?: boolean;
 }
 
 const KEY = 'punchlist.listGrouping';
@@ -22,10 +25,17 @@ function load(): Record<string, ListViewChoice> {
         const choice = (typeof value === 'string' ? { group: value } : value) as {
           group?: string;
           sort?: ListSort;
+          groupReversed?: boolean;
+          sortReversed?: boolean;
         };
         const group =
           choice.group === 'section' ? 'none' : (choice.group as ListGrouping | undefined);
-        return [id, { ...(group ? { group } : {}), ...(choice.sort ? { sort: choice.sort } : {}) }];
+        const kept: ListViewChoice = {};
+        if (group) kept.group = group;
+        if (choice.sort) kept.sort = choice.sort;
+        if (choice.groupReversed) kept.groupReversed = true;
+        if (choice.sortReversed) kept.sortReversed = true;
+        return [id, kept];
       }),
     );
   } catch {
@@ -36,7 +46,13 @@ function load(): Record<string, ListViewChoice> {
 export interface ListViewSettings {
   grouping: ListGrouping;
   sort: ListSort;
+  /** The groups the other way round (the grouping picked twice) */
+  groupReversed: boolean;
+  /** The sort the other way round (the sort picked twice) */
+  sortReversed: boolean;
+  /** Picks a grouping; the one already picked turns it around. */
   setGrouping: (next: ListGrouping) => void;
+  /** Picks a sort; the one already picked turns it around (not the own order). */
   setSort: (next: ListSort) => void;
   /** Whether the grouping and sort are the view's own defaults. */
   isDefault: boolean;
@@ -59,7 +75,13 @@ export function useListView(id: string): ListViewSettings {
     setHeld({ id, choice: next });
     try {
       const others = Object.entries(load()).filter(([key]) => key !== id);
-      const kept = next.group === undefined && next.sort === undefined ? [] : [[id, next]];
+      const kept =
+        next.group === undefined &&
+        next.sort === undefined &&
+        !next.groupReversed &&
+        !next.sortReversed
+          ? []
+          : [[id, next]];
       localStorage.setItem(KEY, JSON.stringify(Object.fromEntries([...others, ...kept])));
     } catch {
       // storage unavailable; keep the in-memory choice only
@@ -67,12 +89,26 @@ export function useListView(id: string): ListViewSettings {
   };
   const grouping = picked.group ?? 'date';
   const sort = picked.sort ?? 'manual';
+  const groupReversed = grouping !== 'none' && (picked.groupReversed ?? false);
+  const sortReversed = sort !== 'manual' && (picked.sortReversed ?? false);
   return {
     grouping,
     sort,
-    setGrouping: (group) => save({ ...picked, group }),
-    setSort: (sort) => save({ ...picked, sort }),
-    isDefault: grouping === 'date' && sort === 'manual',
+    groupReversed,
+    sortReversed,
+    setGrouping: (group) =>
+      save({
+        ...picked,
+        group,
+        groupReversed: group === grouping && group !== 'none' ? !groupReversed : false,
+      }),
+    setSort: (next) =>
+      save({
+        ...picked,
+        sort: next,
+        sortReversed: next === sort && next !== 'manual' ? !sortReversed : false,
+      }),
+    isDefault: grouping === 'date' && sort === 'manual' && !groupReversed,
     reset: () => save({}),
   };
 }
