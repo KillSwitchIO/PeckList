@@ -1146,6 +1146,8 @@ export const en = {
   'list.group.date': 'Date',
   'list.group.priority': 'Priority',
   'list.group.tag': 'Tag',
+  'list.group.list': 'List',
+  'list.restoreDefaults': 'Restore defaults',
   'list.group.none': 'None',
   'list.sortBy': 'Sort by',
   'list.groupByOption': 'Group by {name}',

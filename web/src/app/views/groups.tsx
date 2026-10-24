@@ -1,6 +1,16 @@
 import { pinnedFirst } from '../../core/tasks.ts';
 import { Button } from '@mui/material';
-import { sortTasks, type ListSort } from '../../core/listView.ts';
+import {
+  groupByList,
+  groupByPriority,
+  groupByTag,
+  sortTasks,
+  type ListGrouping,
+  type ListSort,
+} from '../../core/listView.ts';
+import { getEntity } from '../../core/collections.ts';
+import { listName } from '../lists/listName.ts';
+import type { ListViewSettings } from '../lists/listGrouping.ts';
 import { useState } from 'react';
 import {
   filterClosedTasks,
@@ -164,5 +174,98 @@ export function DateGroupedTasks({
       ))}
       <CompletedGroup tasks={closed} showList={showList} />
     </>
+  );
+}
+
+/**
+ * A view's open tasks grouped another way than by date (priority, tag, list, or none: one sorted
+ * run), pinned ones first, then Completed (spec: Views, sort and group options).
+ */
+export function GroupedTasks({
+  tasks,
+  closed,
+  grouping,
+  sort,
+  showList = false,
+  emptyTitle,
+}: {
+  tasks: readonly Task[];
+  closed: Task[];
+  grouping: Exclude<ListGrouping, 'date'>;
+  sort: ListSort;
+  showList?: boolean;
+  emptyTitle: string;
+}) {
+  const workspace = useWorkspace();
+  const { pinned, rest } = pinnedFirst(tasks);
+  const open = sortTasks(rest, sort);
+  const groups =
+    grouping === 'priority'
+      ? groupByPriority(open).map((group) => ({
+          ...group,
+          title: group.priority ? t(`priority.${group.priority}`) : t('list.noPriority'),
+        }))
+      : grouping === 'tag'
+        ? groupByTag(workspace, open).map((group) => ({
+            ...group,
+            title: group.name ?? t('list.noTags'),
+          }))
+        : grouping === 'list'
+          ? groupByList(workspace, open).map((group) => {
+              const list = getEntity(workspace, 'lists', group.listId!);
+              return { ...group, title: list ? listName(list, workspace) : (group.name ?? '') };
+            })
+          : null;
+  return (
+    <>
+      {open.length === 0 && pinned.length === 0 && closed.length === 0 && (
+        <EmptyState title={emptyTitle} />
+      )}
+      <PinnedGroup tasks={pinned} showList={showList} />
+      {groups
+        ? groups.map((group) => (
+            <GroupSection key={group.key} title={group.title} count={group.tasks.length}>
+              <TaskTree tasks={group.tasks} showList={showList && grouping !== 'list'} />
+            </GroupSection>
+          ))
+        : open.length > 0 && <TaskTree tasks={open} showList={showList} />}
+      <CompletedGroup tasks={closed} showList={showList} />
+    </>
+  );
+}
+
+/** A filter's tasks as the view's sort and group settings say: by date, or another grouping. */
+export function FilteredTasks({
+  filter,
+  view,
+  showList = false,
+  emptyTitle,
+}: {
+  filter: TaskFilter;
+  view: ListViewSettings;
+  showList?: boolean;
+  emptyTitle: string;
+}) {
+  const workspace = useWorkspace();
+  const today = useToday();
+  if (view.grouping === 'date') {
+    return (
+      <DateGroupedTasks
+        filter={filter}
+        showList={showList}
+        emptyTitle={emptyTitle}
+        sort={view.sort}
+      />
+    );
+  }
+  return (
+    <GroupedTasks
+      tasks={filterTasks(workspace, filter, today)}
+      closed={filterClosedTasks(workspace, filter, today)}
+      grouping={view.grouping}
+      sort={view.sort}
+      showList={showList}
+      emptyTitle={emptyTitle}
+    />
   );
 }

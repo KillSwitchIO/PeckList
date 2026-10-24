@@ -1,32 +1,16 @@
 import ArchiveRounded from '@mui/icons-material/ArchiveRounded';
 import UnarchiveRounded from '@mui/icons-material/UnarchiveRounded';
-import CheckRounded from '@mui/icons-material/CheckRounded';
 import DeleteOutlineRounded from '@mui/icons-material/DeleteOutlineRounded';
 import EditRounded from '@mui/icons-material/EditRounded';
 import MoreVertRounded from '@mui/icons-material/MoreVertRounded';
-import {
-  Alert,
-  Button,
-  IconButton,
-  ListSubheader,
-  Menu,
-  MenuItem,
-  Tooltip,
-  Typography,
-} from '@mui/material';
+import { Alert, Button, IconButton, Menu, MenuItem, Tooltip, Typography } from '@mui/material';
 import { useState } from 'react';
 import { useNavigate, useParams } from 'react-router';
 import { getEntity, isLive } from '../../core/collections.ts';
 import { deleteList, inboxList, updateList } from '../../core/lists.ts';
 import { filterClosedTasks } from '../../core/filters.ts';
 import { listTasks } from '../../core/queries.ts';
-import {
-  groupByPriority,
-  groupByTag,
-  LIST_GROUPINGS,
-  LIST_SORTS,
-  sortTasks,
-} from '../../core/listView.ts';
+import { groupByPriority, groupByTag, LIST_GROUPINGS, sortTasks } from '../../core/listView.ts';
 import type { List } from '../../core/types.ts';
 import { t } from '../i18n/i18n.ts';
 import { Page } from '../layout/Page.tsx';
@@ -40,10 +24,11 @@ import { CompletedGroup, DateGroupedTasks, PinnedGroup } from '../views/groups.t
 import { pinnedFirst } from '../../core/tasks.ts';
 import { useToday } from '../hooks/useToday.ts';
 import { useListView, type ListViewSettings } from './listGrouping.ts';
+import { SortGroupButton } from '../views/SortGroupButton.tsx';
 import { ConfirmDialog, ListDialog } from './ListDialog.tsx';
 import { ShareDialog } from './ShareDialog.tsx';
 import { listMembersOf, myRole, type Role } from '../../core/sharing.ts';
-import { ShareIcon, SortGroupIcon } from '../icons/icons.tsx';
+import { ShareIcon } from '../icons/icons.tsx';
 import { useSyncState } from '../sync/syncContext.ts';
 import { listName } from './listName.ts';
 
@@ -60,10 +45,8 @@ function ListMenu({
   const apply = useApply();
   const navigate = useNavigate();
   const [anchor, setAnchor] = useState<HTMLElement | null>(null);
-  const [sortAnchor, setSortAnchor] = useState<HTMLElement | null>(null);
   const [dialog, setDialog] = useState<'edit' | 'delete' | 'share' | null>(null);
   const close = () => setAnchor(null);
-  const closeSort = () => setSortAnchor(null);
   const workspace = useWorkspace();
   const phase = useSyncState((state) => state.phase);
   const authMode = useSyncState((state) => state.account?.authMode);
@@ -93,14 +76,7 @@ function ListMenu({
           </IconButton>
         </Tooltip>
       )}
-      <Tooltip title={t('list.sortAndGroup')} disableFocusListener>
-        <IconButton
-          aria-label={t('list.sortAndGroup')}
-          onClick={(event) => setSortAnchor(event.currentTarget)}
-        >
-          <SortGroupIcon />
-        </IconButton>
-      </Tooltip>
+      <SortGroupButton view={view} groupings={LIST_GROUPINGS} />
       {owner && !list.isInbox && (
         <Tooltip title={t('common.more')} disableFocusListener>
           <IconButton
@@ -111,44 +87,6 @@ function ListMenu({
           </IconButton>
         </Tooltip>
       )}
-      <Menu anchorEl={sortAnchor} open={sortAnchor !== null} onClose={closeSort}>
-        <ListSubheader sx={{ lineHeight: '32px', bgcolor: 'transparent' }}>
-          {t('list.groupBy')}
-        </ListSubheader>
-        {LIST_GROUPINGS.map((mode) => (
-          <MenuItem
-            key={`group-${mode}`}
-            dense
-            aria-label={t('list.groupByOption', { name: t(`list.group.${mode}`).toLowerCase() })}
-            selected={view.grouping === mode}
-            onClick={() => {
-              closeSort();
-              view.setGrouping(mode);
-            }}
-          >
-            {t(`list.group.${mode}`)}
-            {view.grouping === mode && <CheckRounded fontSize="small" sx={{ ml: 'auto', pl: 1 }} />}
-          </MenuItem>
-        ))}
-        <ListSubheader sx={{ lineHeight: '32px', bgcolor: 'transparent' }}>
-          {t('list.sortBy')}
-        </ListSubheader>
-        {LIST_SORTS.map((mode) => (
-          <MenuItem
-            key={`sort-${mode}`}
-            dense
-            aria-label={t('list.sortByOption', { name: t(`list.sort.${mode}`).toLowerCase() })}
-            selected={view.sort === mode}
-            onClick={() => {
-              closeSort();
-              view.setSort(mode);
-            }}
-          >
-            {t(`list.sort.${mode}`)}
-            {view.sort === mode && <CheckRounded fontSize="small" sx={{ ml: 'auto', pl: 1 }} />}
-          </MenuItem>
-        ))}
-      </Menu>
       <Menu anchorEl={anchor} open={anchor !== null} onClose={close}>
         {/* The Mess Drawer has a fixed name and no color: nothing to edit. */}
         {owner && !list.isInbox && (

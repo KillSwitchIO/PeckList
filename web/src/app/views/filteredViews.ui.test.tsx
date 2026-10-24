@@ -134,6 +134,34 @@ describe('list sort and group options', () => {
     expect(screen.getByRole('menuitem', { name: 'Sort by title' })).toHaveClass('Mui-selected');
   });
 
+  it('built-in views sort and group too, each remembering its own, and restore their defaults', async () => {
+    await renderSeeded('/all');
+    await screen.findByRole('button', { name: 'Open work thing' });
+    await userEvent.click(screen.getByRole('button', { name: 'Sort and group' }));
+    expect(screen.getByRole('menuitem', { name: 'Restore defaults' })).toHaveAttribute(
+      'aria-disabled',
+      'true',
+    );
+    await userEvent.click(screen.getByRole('menuitem', { name: 'Group by list' }));
+    expect(groupHeadings()).toEqual(['Mess Drawer6', 'Work1', 'Closed6']);
+
+    // Today keeps its own choice: still by date.
+    const nav = screen.getAllByRole('navigation')[0]!;
+    await userEvent.click(within(nav).getByRole('button', { name: /^Today/ }));
+    await screen.findByRole('heading', { level: 1, name: 'Today' });
+    expect(groupHeadings()[0]).toMatch(/^Overdue/);
+    await userEvent.click(screen.getByRole('button', { name: 'Sort and group' }));
+    await userEvent.click(screen.getByRole('menuitem', { name: 'Group by priority' }));
+    expect(groupHeadings()).toEqual(['No priority2', 'Closed6']);
+
+    await userEvent.click(screen.getByRole('button', { name: 'Sort and group' }));
+    await userEvent.click(screen.getByRole('menuitem', { name: 'Restore defaults' }));
+    expect(groupHeadings()[0]).toMatch(/^Overdue/);
+    await userEvent.click(within(nav).getByRole('button', { name: /^All/ }));
+    await screen.findByRole('heading', { level: 1, name: 'All' });
+    expect(groupHeadings()).toEqual(['Mess Drawer6', 'Work1', 'Closed6']);
+  });
+
   it('groups by priority, high first', async () => {
     await renderSeeded('/inbox');
     await screen.findByRole('button', { name: 'Open undated' });

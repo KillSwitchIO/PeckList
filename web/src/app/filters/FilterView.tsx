@@ -9,7 +9,10 @@ import { DeleteIcon, EditIcon, MoreIcon } from '../icons/icons.tsx';
 import { Page } from '../layout/Page.tsx';
 import { useApply, useWorkspace } from '../store/hooks.ts';
 import { AddTaskInput } from '../tasks/AddTaskInput.tsx';
-import { DateGroupedTasks } from '../views/groups.tsx';
+import { FilteredTasks } from '../views/groups.tsx';
+import { SortGroupButton } from '../views/SortGroupButton.tsx';
+import { useListView } from '../lists/listGrouping.ts';
+import { VIEW_GROUPINGS } from '../../core/listView.ts';
 import { EmptyState } from '../views/EmptyState.tsx';
 import { FilterDialog } from './FilterDialog.tsx';
 
@@ -21,6 +24,7 @@ export function FilterView() {
   const navigate = useNavigate();
   const [menu, setMenu] = useState<HTMLElement | null>(null);
   const [editing, setEditing] = useState(false);
+  const view = useListView(`filter:${filterId}`);
   const saved = getEntity(workspace, 'savedFilters', filterId);
   if (!saved || !isLive(saved)) {
     return (
@@ -32,6 +36,7 @@ export function FilterView() {
 
   const actions = (
     <>
+      <SortGroupButton view={view} groupings={VIEW_GROUPINGS} />
       <Tooltip title={t('common.more')}>
         <IconButton aria-label={t('common.more')} onClick={(event) => setMenu(event.currentTarget)}>
           <MoreIcon />
@@ -68,7 +73,7 @@ export function FilterView() {
   return (
     <Page title={saved.name} actions={actions}>
       <AddTaskInput defaults={{ listId: inboxList(workspace).id }} />
-      <DateGroupedTasks filter={filterOf(saved)} showList emptyTitle={t('filter.empty')} />
+      <FilteredTasks filter={filterOf(saved)} view={view} showList emptyTitle={t('filter.empty')} />
       {editing && (
         <FilterDialog
           initial={{ name: saved.name, filter: filterOf(saved) }}

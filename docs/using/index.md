@@ -57,7 +57,10 @@ their start; the due date is the deadline.
 
 Lists hold tasks. The sort-and-group button next to a list's name groups it (by date, priority or
 tag, or **None** for the list's own order, the one you drag tasks in) and sorts it; the **...**
-menu edits, archives or deletes it. A list shared with a group shows the group after its name
+menu edits, archives or deletes it. The built-in views (Today, Next 7 days, All, Assigned to me,
+Shared with me) and every tag and saved filter have the same button, plus **List** to group by
+list. Each list and view keeps its own choice on this device, and the button turns colored while
+it differs from the default; **Restore defaults** at the bottom of its menu goes back. A list shared with a group shows the group after its name
 ("Groceries - Household") for everyone, so it never looks like someone's own list of the same name.
 Lists can be shared: see [sharing](sharing.md).
 
