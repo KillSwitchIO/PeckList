@@ -13,6 +13,7 @@ export const BUILT_IN_VIEWS = [
   'today',
   'inbox',
   'upcoming',
+  'due',
   'all',
   'calendar',
   'completed',
@@ -24,7 +25,7 @@ export const SHARED_VIEWS = ['assigned', 'shared'] as const;
 
 export function defaultSidebar(): SidebarLayout {
   return {
-    order: ['today', 'inbox', 'upcoming', 'all', 'calendar', GROUP, 'completed', 'trash'],
+    order: ['today', 'inbox', 'upcoming', 'due', 'all', 'calendar', GROUP, 'completed', 'trash'],
     hidden: [],
     groupOpen: false,
   };

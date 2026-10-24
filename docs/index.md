@@ -16,7 +16,7 @@ serves the app and keeps everyone's data, in SQLite or PostgreSQL.
 - **Tasks** with subtasks, nested tags, priorities, start and due dates, times and time
   spans, rich notes and checklists. Type a whole task in one line:
   `Call the vet tomorrow 3pm #pets !high`.
-- **Views**: Today, Next 7 days, All, Closed, Assigned to me, Shared with me, saved filters,
+- **Views**: Today, Upcoming, Due dates, All, Closed, Assigned to me, Shared with me, saved filters,
   search, and a calendar (month, week, day) to drag tasks in, move them and stretch them.
 - **Offline first**: an installable web app (PWA) that keeps working without a connection and
   merges changes from every device without conflicts.

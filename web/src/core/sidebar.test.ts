@@ -46,6 +46,7 @@ describe('sidebar layout', () => {
       'today',
       'inbox',
       'upcoming',
+      'due',
       'calendar',
       GROUP,
       'all',

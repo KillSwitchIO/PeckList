@@ -40,7 +40,7 @@ import { TaskRows } from '../tasks/TaskRow.tsx';
 import { TaskTree } from '../tasks/TaskTree.tsx';
 import { EmptyState } from './EmptyState.tsx';
 import { GroupSection } from './GroupSection.tsx';
-import { dayTitle, hasOwnDate, weekdayName } from './dayLabels.ts';
+import { hasOwnDate, weekdayName } from './dayLabels.ts';
 import {
   CompletedGroup,
   FilteredTasks,
@@ -49,10 +49,10 @@ import {
   PostponeButton,
 } from './groups.tsx';
 import { SortGroupButton } from './SortGroupButton.tsx';
+import { AgendaView } from './AgendaView.tsx';
 import { useListView } from '../lists/listGrouping.ts';
 import { sortTasks, VIEW_GROUPINGS, type ListSort } from '../../core/listView.ts';
 
-/** Overdue (with Postpone) and today's groups, shared by Today and Next 7 days. */
 /** Overdue and today, without the pinned tasks (they head the view, in Pinned). */
 function OverdueAndToday({ today, sort }: { today: string; sort: ListSort }) {
   const workspace = useWorkspace();
@@ -136,55 +136,29 @@ export function TodayView() {
   );
 }
 
-/** Next 7 days: overdue and today first, then one group per day. */
+/**
+ * Upcoming (spec: PL-091): by date it is the agenda, a week strip over every coming day; other
+ * groupings show the next 7 days' tasks in those groups.
+ */
 export function UpcomingView() {
   const workspace = useWorkspace();
   const today = useToday();
   const view = useListView('view:upcoming');
+  const actions = <SortGroupButton view={view} groupings={VIEW_GROUPINGS} />;
+  if (view.grouping === 'date') return <AgendaView sort={view.sort} actions={actions} />;
   const groups = upcomingTasks(workspace, today);
   const current = todayGroups(workspace, today);
-  const empty = groups.length === 0 && current.overdue.length === 0 && current.today.length === 0;
-  const actions = <SortGroupButton view={view} groupings={VIEW_GROUPINGS} />;
-  if (view.grouping !== 'date') {
-    return (
-      <Page title={t('nav.upcoming')} actions={actions}>
-        <AddForToday today={today} />
-        <GroupedTasks
-          tasks={[...current.overdue, ...current.today, ...groups.flatMap((group) => group.tasks)]}
-          closed={[]}
-          grouping={view.grouping}
-          sort={view.sort}
-          showList
-          emptyTitle={t('upcoming.empty')}
-        />
-      </Page>
-    );
-  }
   return (
     <Page title={t('nav.upcoming')} actions={actions}>
       <AddForToday today={today} />
-      {empty && <EmptyState title={t('upcoming.empty')} />}
-      <PinnedGroup
-        tasks={
-          pinnedFirst([
-            ...current.overdue,
-            ...current.today,
-            ...groups.flatMap((group) => group.tasks),
-          ]).pinned
-        }
+      <GroupedTasks
+        tasks={[...current.overdue, ...current.today, ...groups.flatMap((group) => group.tasks)]}
+        closed={[]}
+        grouping={view.grouping}
+        sort={view.sort}
         showList
+        emptyTitle={t('upcoming.empty')}
       />
-      <OverdueAndToday today={today} sort={view.sort} />
-      {groups.map((group) => {
-        const tasks = ordered(pinnedFirst(group.tasks).rest, view.sort);
-        return (
-          tasks.length > 0 && (
-            <GroupSection key={group.date} title={dayTitle(group.date, today)} count={tasks.length}>
-              <TaskTree tasks={tasks} showList ownPlace={hasOwnDate} />
-            </GroupSection>
-          )
-        );
-      })}
     </Page>
   );
 }

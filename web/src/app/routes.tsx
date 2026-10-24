@@ -25,6 +25,7 @@ import {
   TrashView,
   UpcomingView,
 } from './views/TaskViews.tsx';
+import { DueDatesView } from './views/DueDatesView.tsx';
 
 function NotFound() {
   const { pathname } = useLocation();
@@ -55,6 +56,7 @@ export function AppRoutes() {
         <Route path="/today" element={<TodayView />} />
         <Route path="/inbox" element={<InboxView />} />
         <Route path="/upcoming" element={<UpcomingView />} />
+        <Route path="/due" element={<DueDatesView />} />
         <Route path="/all" element={<AllView />} />
         <Route path="/lists/:listId" element={<ListView />} />
         <Route path="/tags/:tagId" element={<TagView />} />

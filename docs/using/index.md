@@ -5,7 +5,8 @@
 | View                                    | Shows                                                           |
 | --------------------------------------- | --------------------------------------------------------------- |
 | **Today**                               | Tasks that start today or earlier and are still open.           |
-| **Next 7 days**                         | The coming week, day by day.                                    |
+| **Upcoming**                            | A week strip, then every coming day, each with its own add.     |
+| **Due dates**                           | Tasks with a deadline, by when; select many to move their dates. |
 | **Mess Drawer**                         | Tasks not yet put in a list: the place quick ideas land.        |
 | **All**                                 | Every open task.                                                |
 | **Calendar**                            | Month, week and day.                                            |
@@ -25,6 +26,19 @@ sidebar: the views, saved filters, lists and tags. Its pencil (or holding a row)
 like **Edit sidebar** on a computer, and the changes apply on every device.
 
 Dates leave the year off when it is this year: "Thu, Oct 22", "October", but "Jan 4, 2027".
+
+### Upcoming and Due dates
+
+**Upcoming** lists today and every day after it, empty days included, under a strip of the week's
+days: tap a day in the strip to jump to it, and use the arrows to step a week. Each day's **+**
+adds a task to that day. Overdue tasks sit on top while you look at the current week. Grouping it
+any other way than by date shows the next 7 days' tasks in those groups instead.
+
+**Due dates** shows every open task with a due date: Overdue, Due today, Due tomorrow, Due in the
+next 7 days and Due later. Each row shows its due date (even when the task also has a start) and
+changes it in place. **Select** (or hold a row on a phone), pick tasks or a whole group with
+**Select all**, then move them all to **Today**, **Tomorrow**, **Next week** or a date you pick, or
+clear them. Each task keeps its own time of day, and **Undo** puts them back.
 
 ## Tasks
 
@@ -65,7 +79,7 @@ their start; the due date is the deadline.
 
 Lists hold tasks. The sort-and-group button next to a list's name groups it (by date, priority or
 tag, or **None** for the list's own order, the one you drag tasks in) and sorts it; the **...**
-menu edits, archives or deletes it. The built-in views (Today, Next 7 days, All, Assigned to me,
+menu edits, archives or deletes it. The built-in views (Today, Upcoming, All, Assigned to me,
 Shared with me) and every tag and saved filter have the same button, plus **List** to group by
 list. Each list and view keeps its own choice on this device, and the button turns colored while
 it differs from the default; **Restore defaults** at the bottom of its menu goes back.

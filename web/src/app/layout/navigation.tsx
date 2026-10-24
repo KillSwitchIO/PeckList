@@ -9,7 +9,7 @@ import TaskAltRounded from '@mui/icons-material/TaskAltRounded';
 import TodayRounded from '@mui/icons-material/TodayRounded';
 import type { ReactElement } from 'react';
 import type { MessageKey } from '../i18n/i18n.ts';
-import { AssignedIcon, PeopleIcon } from '../icons/icons.tsx';
+import { AssignedIcon, DueIcon, PeopleIcon } from '../icons/icons.tsx';
 
 export interface NavItem {
   path: string;
@@ -22,6 +22,7 @@ export const SIDEBAR_ITEMS: NavItem[] = [
   { path: '/today', label: 'nav.today', icon: <TodayRounded /> },
   { path: '/inbox', label: 'nav.inbox', icon: <InboxRounded /> },
   { path: '/upcoming', label: 'nav.upcoming', icon: <DateRangeRounded /> },
+  { path: '/due', label: 'nav.due', icon: <DueIcon /> },
   { path: '/all', label: 'nav.all', icon: <LayersRounded /> },
   { path: '/calendar', label: 'nav.calendar', icon: <CalendarMonthRounded /> },
   { path: '/completed', label: 'nav.completed', icon: <TaskAltRounded /> },

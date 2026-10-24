@@ -15,7 +15,7 @@ program on Linux and Windows.
 
 - **Tasks**: subtasks, sections, nested tags, priorities, start and due dates, times and spans, rich
   notes and checklists, and one-line quick add (`Call the vet tomorrow 3pm #pets !high`).
-- **Views**: Today, Next 7 days, All, Closed, Assigned to me, Shared with me, filters, search, and a
+- **Views**: Today, Upcoming, Due dates, All, Closed, Assigned to me, Shared with me, filters, search, and a
   month/week/day calendar with drag in, move and resize.
 - **Offline first**: an installable PWA with a full local copy; changes merge per field across
   devices and people, without conflicts.

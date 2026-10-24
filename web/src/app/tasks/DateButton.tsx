@@ -27,17 +27,20 @@ export function DateButton({
   width,
   testId = 'task-date',
   compact = false,
+  dueFirst = false,
 }: {
   task: Task;
   width: string;
   testId?: string;
   /** Inline with other details, left-aligned, smaller (phone rows). */
   compact?: boolean;
+  /** The due date even when the task has a start (Due dates view). */
+  dueFirst?: boolean;
 }) {
   const apply = useApply();
   const today = useToday();
   const readOnly = useReadOnly();
-  const { text, color, completedDay, showsDue, due } = useRowDate(task);
+  const { text, color, completedDay, showsDue, due } = useRowDate(task, dueFirst);
   const [anchor, setAnchor] = useState<HTMLElement | null>(null);
   const zone = localTimeZone();
   const which: Which = completedDay ? 'completed' : showsDue ? 'due' : 'start';

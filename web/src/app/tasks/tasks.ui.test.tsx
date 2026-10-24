@@ -568,10 +568,11 @@ describe('smart views', () => {
     expect(screen.getByRole('button', { name: 'Open Water plants' })).toBeInTheDocument();
   });
 
-  it('Next 7 days, Completed and Trash with restore', async () => {
+  it('Upcoming, Completed and Trash with restore', async () => {
     const store = testStore();
     await renderApp('/upcoming', store);
-    expect(screen.getByText('Nothing planned for the next 7 days.')).toBeInTheDocument();
+    // Every coming day is listed, empty ones too.
+    expect(screen.getAllByText('Nothing planned').length).toBeGreaterThan(6);
     const tomorrow = new Date(Date.now() + 86_400_000).toISOString().slice(0, 10);
     store.getState().apply(
       (ctx, ws) =>
@@ -602,7 +603,7 @@ describe('smart views', () => {
     expect(await screen.findByText('The trash is empty.')).toBeInTheDocument();
   });
 
-  it('Next 7 days also shows overdue and today', async () => {
+  it('Upcoming also shows overdue and today', async () => {
     const store = testStore();
     await renderApp('/upcoming', store);
     store.getState().apply(
@@ -642,7 +643,7 @@ describe('phone', () => {
     await userEvent.click(within(bar).getByRole('button', { name: 'Done' }));
     expect(screen.queryByRole('toolbar', { name: 'Edit sidebar' })).toBeNull();
     expect(screen.queryByRole('button', { name: 'All' })).toBeNull();
-    expect(screen.getByRole('button', { name: 'Next 7 days' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Upcoming' })).toBeInTheDocument();
   });
 });
 
