@@ -1,7 +1,8 @@
 // Task operations. Each takes a workspace and returns a new one; every write is HLC-stamped.
 
 import { getEntity, isLive, putEntities, putEntity, requireEntity } from './collections.ts';
-import { addDays, datePart, daysBetween } from './dates.ts';
+import { addDays, datePart, daysBetween, localTimeZone, timePart, todayIn } from './dates.ts';
+import { advance, formatRule, parseRule } from './recurrence.ts';
 import { compareOrderKeys, keyBetween } from './ordering.ts';
 import {
   createEntity,
@@ -39,6 +40,8 @@ export interface TaskInput {
   tags?: Id[];
   /** Reminders it starts with (schema 12) */
   reminders?: Reminder[];
+  /** How it repeats (RRULE text, PL-060) */
+  recurrence?: string | null;
   /** Place directly after this sibling instead of at the end */
   afterId?: Id | null;
 }
@@ -217,7 +220,7 @@ export function createTask(
       {} as Task['assignees'],
     ),
     blockedBy: {},
-    recurrence: null,
+    recurrence: input.recurrence ?? null,
     progress: 0,
     ...(input.reminders?.length ? { reminders: input.reminders } : {}),
   });
@@ -266,6 +269,10 @@ export function setTaskStatus(
 ): WorkspaceFile {
   const task = requireEntity(workspace, 'tasks', id);
   const closing = status !== 'open';
+  if (closing && task.status === 'open') {
+    const repeated = repeatTask(ctx, workspace, task, status);
+    if (repeated) return repeated;
+  }
   const stamp = (target: Task, next: TaskStatus) =>
     updateEntity(ctx, target, {
       status: next,
@@ -281,6 +288,78 @@ export function setTaskStatus(
     }
   }
   return putEntities(workspace, 'tasks', changed);
+}
+
+/**
+ * One occurrence of a repeating task closes (spec: PL-060), the way TickTick does it: a closed copy
+ * stays in history, and the task itself moves on to its next date (start, end and due shift by the
+ * same days, times kept) with its subtasks open again. Null when it does not repeat, has no date
+ * to count from, or this was its last time (it then closes like any task).
+ */
+function repeatTask(
+  ctx: OpContext,
+  workspace: WorkspaceFile,
+  task: Task,
+  status: TaskStatus,
+): WorkspaceFile | null {
+  const rule = parseRule(task.recurrence);
+  const anchor = task.schedule?.start ?? task.due?.at;
+  if (!rule || !anchor) return null;
+  // Completed on a chosen date (the task menu) or now.
+  const doneAt = task.completedAt ?? isoNow(ctx);
+  const doneOn = todayIn(localTimeZone(), Date.parse(doneAt));
+  const step = advance(rule, datePart(anchor), doneOn);
+  if (!step) return null;
+  const days = daysBetween(datePart(anchor), step.date);
+  const shift = (value: string) => {
+    const time = timePart(value);
+    const date = addDays(datePart(value), days);
+    return time ? `${date}T${time}` : date;
+  };
+  const history = createEntity<Task>(ctx, {
+    title: task.title,
+    notes: task.notes,
+    listId: task.listId,
+    sectionId: null,
+    parentId: task.parentId,
+    order: task.order,
+    status,
+    completedAt: doneAt,
+    completedBy: ctx.userId,
+    priority: task.priority,
+    schedule: task.schedule,
+    due: task.due,
+    tags: members(task.tags).reduce(
+      (set, tag) => setElement(ctx, set, tag, true),
+      {} as Task['tags'],
+    ),
+    assignees: members(task.assignees).reduce(
+      (set, principal) => setElement(ctx, set, principal, true),
+      {} as Task['assignees'],
+    ),
+    blockedBy: {},
+    recurrence: null,
+    progress: task.progress,
+  });
+  const moved = updateEntity(ctx, task, {
+    schedule: task.schedule
+      ? {
+          ...task.schedule,
+          start: shift(task.schedule.start),
+          end: task.schedule.end ? shift(task.schedule.end) : null,
+        }
+      : null,
+    due: task.due ? { ...task.due, at: shift(task.due.at) } : null,
+    recurrence: formatRule(step.rule),
+    progress: 0,
+    completedAt: null,
+  });
+  const reopened = descendants(workspace, task.id)
+    .filter((child) => child.status !== 'open')
+    .map((child) =>
+      updateEntity(ctx, child, { status: 'open', completedAt: null, completedBy: null }),
+    );
+  return putEntities(workspace, 'tasks', [history, moved, ...reopened]);
 }
 
 /**

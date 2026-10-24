@@ -1,3 +1,4 @@
+import RepeatRounded from '@mui/icons-material/RepeatRounded';
 import OpenInFullRounded from '@mui/icons-material/OpenInFullRounded';
 import AddRounded from '@mui/icons-material/AddRounded';
 import { Box, Chip, IconButton, InputBase, Tooltip } from '@mui/material';
@@ -17,6 +18,7 @@ import type { DateParser, ParsedMoment } from '../../ports/dateParser.ts';
 import { formatSpan, formatWhen } from '../format.ts';
 import { useToday } from '../hooks/useToday.ts';
 import { t } from '../i18n/i18n.ts';
+import { repeatLabel } from '../repeat/repeatText.ts';
 import { AssignedIcon, CalendarIcon, CloseIcon, DueIcon, FlagIcon } from '../icons/icons.tsx';
 import { listName } from '../lists/listName.ts';
 import { useApply, useStoreState, useWorkspace } from '../store/hooks.ts';
@@ -70,6 +72,11 @@ function chipFor(
       return { label: token.text };
     case 'person':
       return { label: names.person(token.text), icon: <AssignedIcon /> };
+    case 'repeat':
+      return {
+        label: repeatLabel(parsed.recurrence, today),
+        icon: <RepeatRounded sx={{ fontSize: 16 }} />,
+      };
   }
 }
 
