@@ -453,6 +453,13 @@ export const en = {
   'admin.users.deletedNotice':
     "{name}'s account is deleted. You can restore it until it is removed for good.",
   'admin.users.restore': 'Restore account',
+  'admin.users.restoreNow': 'Restore',
+  'admin.users.removeNow': 'Delete now',
+  'admin.users.removeNowTitle': 'Delete {name} for good now?',
+  'admin.users.removeNowText':
+    'The account and everything it owns go now instead of at the end of the grace period. This cannot be undone.',
+  'admin.users.removedNotice': '{name} is deleted for good.',
+  'admin.users.groups': 'Groups: {names}',
   'admin.users.turnOn': 'Turn on',
   'admin.users.turnOffTitle': 'Turn off {name}?',
   'admin.users.turnOffText':

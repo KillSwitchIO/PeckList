@@ -142,6 +142,7 @@ export function createHttpAdmin(
     linkIdentity: async (id, provider, subject) =>
       result(await call(`/users/${segment(id)}/identities`, 'POST', { provider, subject }), none),
     restoreAccount: async (id) => result(await call(`/users/${segment(id)}/restore`, 'POST'), none),
+    removeNow: async (id) => result(await call(`/users/${segment(id)}/remove-now`, 'POST'), none),
     resetPassword: async (id) =>
       result(
         await call(`/users/${segment(id)}/password`, 'POST', {}),

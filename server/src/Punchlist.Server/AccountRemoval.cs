@@ -31,6 +31,9 @@ public sealed class AccountRemoval(
     TimeProvider time,
     ILogger<AccountRemoval> logger) : BackgroundService
 {
+    // One removal at a time: the hourly sweep and an admin's "delete now" may meet.
+    private readonly SemaphoreSlim removing = new(1, 1);
+
     /// <summary>When a deleted account goes for good.</summary>
     public DateTimeOffset RemovedAt(Account account) => account.DeletedAt!.Value.AddDays(live.Current.AccountDeleteGraceDays);
 
@@ -54,10 +57,37 @@ public sealed class AccountRemoval(
     /// <summary>Remove every deleted account whose grace period is over; how many went.</summary>
     public async Task<int> RemoveDueAsync(CancellationToken cancellation = default)
     {
-        var now = time.GetUtcNow();
-        var due = (await accounts.ListAsync(cancellation)).Where(account => account.DeletedAt is not null && RemovedAt(account) <= now).ToList();
-        foreach (var account in due) await RemoveAsync(account, cancellation);
-        return due.Count;
+        await removing.WaitAsync(cancellation);
+        try
+        {
+            var now = time.GetUtcNow();
+            var due = (await accounts.ListAsync(cancellation)).Where(account => account.DeletedAt is not null && RemovedAt(account) <= now).ToList();
+            foreach (var account in due) await RemoveAsync(account, cancellation);
+            return due.Count;
+        }
+        finally
+        {
+            removing.Release();
+        }
+    }
+
+    /// <summary>
+    /// Remove one deleted account for good now, without waiting out its grace period (an admin's
+    /// "delete now"). False when it is gone already or was never deleted.
+    /// </summary>
+    public async Task<bool> RemoveNowAsync(string accountId, CancellationToken cancellation = default)
+    {
+        await removing.WaitAsync(cancellation);
+        try
+        {
+            if (await accounts.FindByIdAsync(accountId, cancellation) is not { DeletedAt: not null } account) return false;
+            await RemoveAsync(account, cancellation);
+            return true;
+        }
+        finally
+        {
+            removing.Release();
+        }
     }
 
     private async Task RemoveAsync(Account account, CancellationToken cancellation)

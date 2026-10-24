@@ -33,6 +33,11 @@ import { refusalText, useIsSuperAdmin, useLoaded } from './useAdmin.ts';
 
 const ROLES: AccountRole[] = ['user', 'admin', 'superadmin'];
 
+/** The groups someone is in: server groups by name, then the ones people made. */
+function groupsOf(user: AdminUser, serverGroups: Map<string, string>): string[] {
+  return [...user.groups.map((id) => serverGroups.get(id) ?? id), ...(user.peopleGroups ?? [])];
+}
+
 /** One line under the name: role, how they sign in, and anything that needs attention. */
 function describe(user: AdminUser): string {
   if (user.removedAt) {
@@ -132,6 +137,8 @@ export function UsersTab({ api }: { api: AdminApi }) {
   const me = useSyncState((state) => state.account?.id);
   const { data: users, reload } = useLoaded(api.users);
   const { data: invites, reload: reloadInvites } = useLoaded(api.invites);
+  const { data: serverGroups } = useLoaded(api.groups);
+  const groupNames = new Map((serverGroups ?? []).map((group) => [group.id, group.name]));
   const [inviting, setInviting] = useState(false);
   const [query, setQuery] = useState('');
   const [adding, setAdding] = useState(false);
@@ -212,40 +219,77 @@ export function UsersTab({ api }: { api: AdminApi }) {
         </Alert>
       )}
       <Box role="list" aria-label={t('admin.tab.users')}>
-        {shown.map((user) => (
-          <Box
-            key={user.id}
-            role="listitem"
-            aria-label={user.username}
-            sx={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 1.5,
-              px: 1,
-              py: 1,
-              borderRadius: 2,
-              opacity: user.disabled ? 0.6 : 1,
-              '&:hover': { bgcolor: 'action.hover' },
-            }}
-          >
-            <Avatar sx={{ width: 32, height: 32, fontSize: '0.875rem' }}>
-              {user.username.slice(0, 1).toUpperCase()}
-            </Avatar>
-            <Box sx={{ flexGrow: 1, minWidth: 0 }}>
-              <Typography noWrap>{user.username}</Typography>
-              <Typography variant="caption" color="text.secondary" noWrap component="div">
-                {describe(user)}
-              </Typography>
-            </Box>
-            <IconButton
-              size="small"
-              aria-label={t('admin.users.actions', { name: user.username })}
-              onClick={(event) => openMenu(event.currentTarget, user)}
+        {shown.map((user) => {
+          const groups = groupsOf(user, groupNames);
+          const mayTouch = superAdmin || user.role === 'user';
+          return (
+            <Box
+              key={user.id}
+              role="listitem"
+              aria-label={user.username}
+              sx={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 1.5,
+                px: 1,
+                py: 1,
+                borderRadius: 2,
+                opacity: user.disabled ? 0.6 : 1,
+                '&:hover': { bgcolor: 'action.hover' },
+              }}
             >
-              <MoreIcon fontSize="small" />
-            </IconButton>
-          </Box>
-        ))}
+              <Avatar sx={{ width: 32, height: 32, fontSize: '0.875rem' }}>
+                {user.username.slice(0, 1).toUpperCase()}
+              </Avatar>
+              <Box sx={{ flexGrow: 1, minWidth: 0 }}>
+                <Typography noWrap>{user.username}</Typography>
+                <Typography variant="caption" color="text.secondary" noWrap component="div">
+                  {describe(user)}
+                </Typography>
+                {groups.length > 0 && (
+                  <Typography variant="caption" color="text.secondary" noWrap component="div">
+                    {t('admin.users.groups', { names: groups.join(', ') })}
+                  </Typography>
+                )}
+              </Box>
+              {user.deletedAt && mayTouch && (
+                <>
+                  <Button size="small" onClick={() => void act(() => api.restoreAccount(user.id))}>
+                    {t('admin.users.restoreNow')}
+                  </Button>
+                  <Button
+                    size="small"
+                    color="error"
+                    onClick={() =>
+                      setConfirm({
+                        title: t('admin.users.removeNowTitle', { name: user.username }),
+                        text: t('admin.users.removeNowText'),
+                        action: t('admin.users.removeNow'),
+                        run: () =>
+                          void act(async () => {
+                            const result = await api.removeNow(user.id);
+                            if (result.ok) {
+                              setNotice(t('admin.users.removedNotice', { name: user.username }));
+                            }
+                            return result;
+                          }),
+                      })
+                    }
+                  >
+                    {t('admin.users.removeNow')}
+                  </Button>
+                </>
+              )}
+              <IconButton
+                size="small"
+                aria-label={t('admin.users.actions', { name: user.username })}
+                onClick={(event) => openMenu(event.currentTarget, user)}
+              >
+                <MoreIcon fontSize="small" />
+              </IconButton>
+            </Box>
+          );
+        })}
       </Box>
 
       <InvitesList

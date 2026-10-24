@@ -410,6 +410,10 @@ function memoryAdmin(benId: string) {
       );
       return ok(undefined);
     },
+    removeNow: (id) => {
+      state.users = state.users.filter((each) => each.id !== id);
+      return ok(undefined);
+    },
     setup: () => Promise.resolve({ done: state.setupDone }),
     finishSetup: () => {
       state.setupDone = true;
@@ -520,7 +524,12 @@ function memoryAdmin(benId: string) {
 async function adminApp(
   role: AccountRole,
   path = '/admin',
-  options: { setupDone?: boolean; path?: string; registration?: 'open' | 'invite' | 'closed' } = {},
+  options: {
+    setupDone?: boolean;
+    path?: string;
+    registration?: 'open' | 'invite' | 'closed';
+    prepare?: (state: ReturnType<typeof memoryAdmin>['state']) => void;
+  } = {},
 ) {
   const backend = new FakeBackend();
   const ben = backend.addAccount('ben', 'correct horse battery', { role });
@@ -529,6 +538,7 @@ async function adminApp(
   const admin = memoryAdmin(ben.id);
   if (options.setupDone !== undefined) admin.state.setupDone = options.setupDone;
   if (options.registration) admin.state.registration = options.registration;
+  options.prepare?.(admin.state);
   transport.admin = admin.api;
   const store = testStore();
   const sync = createSyncEngine({
@@ -816,6 +826,60 @@ describe('admin', () => {
     expect(screen.queryByRole('menuitem', { name: 'Delete account' })).toBeNull();
     await userEvent.click(await screen.findByRole('menuitem', { name: 'Restore account' }));
     await waitFor(() => expect(within(list).queryByText(/Deleted, removed for good/)).toBeNull());
+  });
+
+  it('restores a deleted account, or deletes it for good now, from its row', async () => {
+    const { state } = await adminApp('superadmin');
+    const list = await screen.findByRole('list', { name: 'Users' });
+    const sam = await within(list).findByRole('listitem', { name: 'sam' });
+    expect(within(sam).queryByRole('button', { name: 'Delete now' })).toBeNull();
+    await userEvent.click(within(sam).getByRole('button', { name: 'Actions for sam' }));
+    await userEvent.click(await screen.findByRole('menuitem', { name: 'Delete account' }));
+    const dialog = await screen.findByRole('dialog', { name: "Delete sam's account?" });
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Delete' }));
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+
+    await userEvent.click(await within(sam).findByRole('button', { name: 'Restore' }));
+    await waitFor(() => expect(within(list).queryByText(/Deleted, removed for good/)).toBeNull());
+    expect(within(sam).queryByRole('button', { name: 'Restore' })).toBeNull();
+
+    await userEvent.click(within(sam).getByRole('button', { name: 'Actions for sam' }));
+    await userEvent.click(await screen.findByRole('menuitem', { name: 'Delete account' }));
+    const again = await screen.findByRole('dialog', { name: "Delete sam's account?" });
+    await userEvent.click(within(again).getByRole('button', { name: 'Delete' }));
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    await userEvent.click(await within(sam).findByRole('button', { name: 'Delete now' }));
+    const confirm = await screen.findByRole('dialog', { name: 'Delete sam for good now?' });
+    await userEvent.click(within(confirm).getByRole('button', { name: 'Delete now' }));
+    await waitFor(() => expect(within(list).queryByRole('listitem', { name: 'sam' })).toBeNull());
+    expect(await screen.findByText('sam is deleted for good.')).toBeInTheDocument();
+    expect(state.users.map((each) => each.username)).toEqual(['ben']);
+  });
+
+  it('shows the groups each user is in, server groups and the ones people made', async () => {
+    await adminApp('superadmin', '/admin', {
+      prepare: (state) => {
+        state.users = state.users.map((each) =>
+          each.username === 'sam'
+            ? { ...each, groups: ['G1'], peopleGroups: ['Game night'] }
+            : each,
+        );
+        state.groups = [
+          {
+            id: 'G1',
+            name: 'Household',
+            offeredForSharing: true,
+            createdAt: '2026-10-22T08:00:00Z',
+            members: [{ accountId: 'U2', sources: ['manual'] }],
+          },
+        ];
+      },
+    });
+    const list = await screen.findByRole('list', { name: 'Users' });
+    const sam = await within(list).findByRole('listitem', { name: 'sam' });
+    expect(await within(sam).findByText('Groups: Household, Game night')).toBeInTheDocument();
+    const ben = within(list).getByRole('listitem', { name: 'ben' });
+    expect(within(ben).queryByText(/^Groups:/)).toBeNull();
   });
 
   it('walks a new server through setup: address, a provider, who can join, then a restart', async () => {
