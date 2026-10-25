@@ -4,6 +4,7 @@ import { parseJson } from '../../core/io.ts';
 import { serializeWorkspace } from '../../core/workspace.ts';
 import { t } from '../i18n/i18n.ts';
 import { useWorkspaceStore } from '../store/hooks.ts';
+import { ExportDialog, ImportDialog } from './InterchangeDialogs.tsx';
 import { Section } from './settingsLayout.tsx';
 
 /** `punchlist-2026-10-23.json`, by this device's date. */
@@ -14,12 +15,14 @@ function fileName(now = new Date()): string {
 
 /**
  * Settings > Your data (spec: local storage, export and import): download everything as one JSON
- * file, or bring one in. An import merges, so it never loses what is here.
+ * file, or bring one in. An import merges, so it never loses what is here. Other apps' files come
+ * in and go out through their own dialogs (PL-063).
  */
 export function DataSection() {
   const store = useWorkspaceStore();
   const input = useRef<HTMLInputElement>(null);
   const [notice, setNotice] = useState<{ ok: boolean; text: string } | null>(null);
+  const [open, setOpen] = useState<'import' | 'export' | null>(null);
 
   const download = () => {
     const workspace = store.getState().workspace;
@@ -82,6 +85,21 @@ export function DataSection() {
           }}
         />
       </Box>
+      <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', mt: 1 }}>
+        <Button variant="outlined" onClick={() => setOpen('import')}>
+          {t('settings.data.fromApp')}
+        </Button>
+        <Button variant="outlined" onClick={() => setOpen('export')}>
+          {t('settings.data.forApp')}
+        </Button>
+      </Box>
+      {open === 'import' && (
+        <ImportDialog
+          onClose={() => setOpen(null)}
+          onDone={(text) => setNotice({ ok: true, text })}
+        />
+      )}
+      {open === 'export' && <ExportDialog onClose={() => setOpen(null)} />}
       {notice && (
         <Alert
           severity={notice.ok ? 'success' : 'error'}

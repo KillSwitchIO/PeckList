@@ -224,7 +224,9 @@ The server keeps them for 90 days; reminders that fired on this device stay on i
 **Settings** (the profile menu, or ++g++ ++s++): appearance (light, dark or system theme, and
 colors), dates (your time zone, how dates show, 12 or 24-hour clock, the first day of the week,
 when a due date counts as soon, how long a task with only a start time shows on the calendar), sign-in methods and
-linked accounts, and **Your data** ([download or import a copy](apps-and-sync.md#your-data-as-a-file)).
+linked accounts, and **Your data** ([download or import a copy](apps-and-sync.md#your-data-as-a-file), or
+[move from or to another app](apps-and-sync.md#moving-from-or-to-another-app): TickTick, Todoist, Google Tasks,
+Microsoft To Do, iCalendar and Things).
 
 **Date format**: the language's own (Automatic), a ready-made one such as `2026-10-24` or
 `24.10.2026`, or **Custom...** to type a pattern such as `YYYYMMDD` or `ddd D MMM`: `YYYY` 2026,
