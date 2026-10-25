@@ -1230,6 +1230,7 @@ export const en = {
   'agenda.addTo': 'Add a task to {day}',
   'agenda.nothing': 'Nothing planned',
   'agenda.showMore': 'Show more days',
+  'agenda.pickDay': '{month}: pick a day to start from',
   'due.empty': 'No open task has a due date.',
   'due.empty.hint': 'Give a task a due date in its details, or type "due fri" when adding one.',
   'due.group.overdue': 'Overdue',

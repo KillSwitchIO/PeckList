@@ -121,17 +121,75 @@ describe('Upcoming', () => {
     expect(task.schedule?.start).toBe(inThree);
   });
 
-  it('steps a week ahead from the strip and back to today', async () => {
-    await renderApp('/upcoming');
-    const strip = screen.getByRole('group', { name: 'Days of the week' });
-    expect(within(strip).getByRole('button', { name: /Today/ })).toHaveAttribute(
+  it('steps through weeks from the strip, back into the past, and home to today', async () => {
+    const store = testStore();
+    await store.getState().init();
+    store.getState().apply(
+      (ctx, ws) =>
+        createTask(ctx, ws, {
+          title: 'Old chore',
+          listId: inboxList(ws).id,
+          schedule: { start: addDays(today(), -2), end: null, allDay: true, timeZone: zone() },
+        }).workspace,
+    );
+    await store.getState().flush();
+    await renderApp('/upcoming', store);
+    const strip = () => screen.getByRole('group', { name: 'Days of the week' });
+    const firstDay = () =>
+      screen
+        .getAllByRole('heading', { level: 2 })
+        .find((each) => !/Overdue|Pinned/.test(each.textContent ?? ''));
+    const todayButton = () =>
+      within(strip().parentElement!.parentElement!.parentElement!).getByRole('button', {
+        name: 'Today',
+      });
+    expect(within(strip()).getByRole('button', { name: /Today/ })).toHaveAttribute(
       'aria-current',
       'date',
     );
-    expect(screen.getByRole('button', { name: 'Previous week' })).toBeDisabled();
+    expect(todayButton()).toBeDisabled();
+    expect(screen.getByRole('heading', { name: /Overdue/ })).toBeInTheDocument();
+
     await userEvent.click(screen.getByRole('button', { name: 'Next week' }));
-    expect(within(strip).queryByRole('button', { name: /Today/ })).toBeNull();
-    await userEvent.click(within(strip.parentElement!).getByRole('button', { name: 'Today' }));
-    expect(within(strip).getByRole('button', { name: /Today/ })).toBeInTheDocument();
+    expect(within(strip()).queryByRole('button', { name: /Today/ })).toBeNull();
+    expect(todayButton()).toBeEnabled();
+
+    // Earlier than today: the list starts there, with no Overdue group.
+    await userEvent.click(todayButton());
+    await userEvent.click(screen.getByRole('button', { name: 'Previous week' }));
+    const lastWeek = within(strip()).getAllByRole('button')[0]!;
+    expect(firstDay()).toHaveTextContent(lastWeek.getAttribute('aria-label')!);
+    expect(screen.queryByRole('heading', { name: /Overdue/ })).toBeNull();
+
+    await userEvent.click(todayButton());
+    expect(within(strip()).getByRole('button', { name: /Today/ })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    );
+    expect(screen.getByRole('heading', { name: /Overdue/ })).toBeInTheDocument();
+  });
+
+  it('starts from an older day picked on the month, and loads more days at the end', async () => {
+    await renderApp('/upcoming');
+    const days = () => document.querySelectorAll('[data-agenda-day]').length;
+    expect(days()).toBe(14);
+    await userEvent.click(screen.getByRole('button', { name: 'Show more days' }));
+    expect(days()).toBe(28);
+
+    await userEvent.click(screen.getByRole('button', { name: /pick a day to start from/ }));
+    const picker = await screen.findByRole('grid');
+    const weekAgo = addDays(today(), -7);
+    const cell = picker.querySelector(`[data-date="${weekAgo}"]`) as HTMLElement | null;
+    // A week ago may sit in the month before: step back to it.
+    if (!cell) await userEvent.click(screen.getByRole('button', { name: /previous month/i }));
+    await userEvent.click(document.querySelector(`[data-date="${weekAgo}"]`) as HTMLElement);
+    await waitFor(() =>
+      expect(document.querySelector('[data-agenda-day]')).toHaveAttribute(
+        'data-agenda-day',
+        weekAgo,
+      ),
+    );
+    // Everything loaded before stays.
+    expect(days()).toBe(35);
   });
 });

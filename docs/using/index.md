@@ -33,9 +33,13 @@ Dates leave the year off when it is this year: "Thu, Oct 22", "October", but "Ja
 ### Upcoming and Due dates
 
 **Upcoming** lists today and every day after it, empty days included, under a strip of the week's
-days: tap a day in the strip to jump to it, and use the arrows to step a week. Each day's **+**
-adds a task to that day. Overdue tasks sit on top while you look at the current week. Grouping it
-any other way than by date shows the next 7 days' tasks in those groups instead.
+days. More days load as you near the end, and the strip follows the day at the top of the list.
+Swipe the strip sideways (or drag it with the mouse, or use the arrows) to move a week, and the list
+goes there; tap a day to jump to it. Going back before today, or picking an earlier day from the
+month name above the strip, starts the list on that day; **Today** brings it back, and Upcoming
+always opens on today. Each day's **+** adds a task to that day. Overdue tasks sit on top while
+the list starts today. Grouping it any other way than by date shows the next 7 days' tasks in those
+groups instead.
 
 **Due dates** shows every open task with a due date: Overdue, Due today, Due tomorrow, Due in the
 next 7 days and Due later. Each row shows its due date (even when the task also has a start) and

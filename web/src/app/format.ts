@@ -53,6 +53,9 @@ export function setDisplayPreferences(settings: {
     pattern && pattern !== DATE_FORMAT_AUTO && isDatePattern(pattern) ? pattern : null;
 }
 
+/** Whether dates follow a pattern the user typed (not the automatic style). */
+export const customDateFormat = () => display.dateFormat !== null;
+
 /** Whether times show on a 24-hour clock. */
 export const clockIs24 = () => display.clock24;
 
