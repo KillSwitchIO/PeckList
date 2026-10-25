@@ -24,6 +24,11 @@ const HOLD_MS = 450;
 const ALL_DAY_ROWS = 3;
 const weekdayShort = new Intl.DateTimeFormat(undefined, { weekday: 'short', timeZone: 'UTC' });
 const at = (day: string) => new Date(`${day}T12:00:00Z`);
+const shortMonthDay = new Intl.DateTimeFormat(undefined, {
+  month: 'short',
+  day: 'numeric',
+  timeZone: 'UTC',
+});
 
 /** Minutes since midnight now, in the app's zone, updated each minute. */
 function useNowMinutes(): number {
@@ -304,7 +309,8 @@ export function DaysView({
                 bgcolor: day === today ? 'primary.main' : undefined,
               }}
             >
-              {Number(day.slice(8))}
+              {/* The 1st names its month, so paging across months stays clear. */}
+              {day.endsWith('-01') ? shortMonthDay.format(at(day)) : Number(day.slice(8))}
             </Box>
           </ButtonBase>
         ))}

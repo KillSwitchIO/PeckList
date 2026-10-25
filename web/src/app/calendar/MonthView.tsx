@@ -2,7 +2,8 @@ import { Box, ButtonBase, Typography, useMediaQuery, useTheme } from '@mui/mater
 import { memo, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import type { CalendarItem } from '../../core/calendar.ts';
 import { daysFrom, weekStartOf } from '../../core/calendarLayout.ts';
-import { addDays, daysBetween } from '../../core/dates.ts';
+import { addDays, daysBetween, monthOf } from '../../core/dates.ts';
+import { mix } from '../../core/palette.ts';
 import { formatDay } from '../format.ts';
 import { t } from '../i18n/i18n.ts';
 import { ItemLine } from './ItemLine.tsx';
@@ -43,6 +44,8 @@ interface DayCellProps {
   onGrab: (event: React.PointerEvent<HTMLElement>, item: CalendarItem) => void;
   /** Narrow cells (phones) say "+3" rather than "+3 more" */
   narrow: boolean;
+  /** Its column, 0 to 6 */
+  col: number;
 }
 
 const DayCell = memo(function DayCell({
@@ -56,18 +59,27 @@ const DayCell = memo(function DayCell({
   onOpenDay,
   onGrab,
   narrow,
+  col,
 }: DayCellProps) {
   const isToday = day === today;
   const first = day.endsWith('-01');
   const overflow = items.length > capacity;
   const shown = overflow ? items.slice(0, Math.max(0, capacity - 1)) : items;
   const label = formatDay(day, today);
+  // Month outline, as in the date picker: a firmer line where the day above or to the left is in
+  // another month, so each month reads as its own block.
+  const own = monthOf(day);
+  const edges = [
+    monthOf(addDays(day, -7)) !== own ? 'inset 0 2px 0 var(--month-line)' : null,
+    col > 0 && monthOf(addDays(day, -1)) !== own ? 'inset 2px 0 0 var(--month-line)' : null,
+  ].filter(Boolean);
   return (
     <Box
       role="gridcell"
       data-cal-day={day}
       aria-label={label}
       aria-selected={selected || undefined}
+      {...(edges.length ? { style: { boxShadow: edges.join(', ') } } : {})}
       sx={{
         minWidth: 0,
         overflow: 'hidden',
@@ -91,6 +103,7 @@ const DayCell = memo(function DayCell({
             px: 0.5,
             borderRadius: 10,
             fontSize: 12,
+            whiteSpace: 'nowrap',
             fontWeight: isToday || first ? 700 : 400,
             color: isToday
               ? 'primary.contrastText'
@@ -330,6 +343,8 @@ export function MonthView({
           position: 'relative',
           scrollSnapType: 'y mandatory',
           touchAction: 'pan-y',
+          // Firmer than the day lines, so the months stand apart on light and dark paper alike.
+          '--month-line': (theme) => mix(theme.punchlist.outline, theme.punchlist.textMuted, 0.45),
           userSelect: 'none',
         }}
       >
@@ -352,9 +367,10 @@ export function MonthView({
                   scrollSnapAlign: 'start',
                 }}
               >
-                {daysFrom(start, 7).map((day) => (
+                {daysFrom(start, 7).map((day, col) => (
                   <DayCell
                     key={day}
+                    col={col}
                     day={day}
                     items={byDay.get(day) ?? EMPTY}
                     capacity={capacity}
