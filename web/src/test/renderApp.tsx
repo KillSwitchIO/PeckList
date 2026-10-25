@@ -62,7 +62,8 @@ export async function renderApp(
       </MemoryRouter>
     </AppProviders>,
   );
-  await screen.findByRole('heading', { level: 1 });
+  // The first render in a file loads the lazy routes cold, slow on a shared runner with coverage.
+  await screen.findByRole('heading', { level: 1 }, { timeout: 10_000 });
   return { ...result, store };
 }
 
