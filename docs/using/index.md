@@ -92,9 +92,9 @@ their start; the due date is the deadline.
   ++alt+arrow-right++ / ++alt+arrow-left++.
 - **Pin**: **Pin to the top** in a task's menu (or the pin in its details) keeps it in a **Pinned**
   group at the top of every view it shows in. Completing it lets go of the pin.
-- **Swipe** (phones and tablets, like TickTick): a full swipe right opens the task's date, and a
-  short one shows **Complete**; a short swipe left shows **Date**, **Move** and **Delete**, and a
-  full one deletes. **Settings > Swipe actions** changes each side's buttons (up to three, in order
+- **Swipe** (phones and tablets, like TickTick): swipe a task right to complete it (or reopen a
+  closed one); a short swipe left shows **Date**, **Move** and **Delete**, and a full one opens
+  the task's date. **Settings > Swipe actions** changes each side's buttons (up to three, in order
   from the edge: Complete, Date, Move, Pin, Won't do or Delete) and what a full swipe does, or
   turns the full swipe off; it is kept per device. Each change can be undone. Swiping up and down
   still scrolls, and holding a task still drags it or opens its menu.
