@@ -34,6 +34,7 @@ import { THEME_MODE_ORDER, useThemeMode, type ThemeMode } from '../theme/themeMo
 import { t } from '../i18n/i18n.ts';
 import { Page } from '../layout/Page.tsx';
 import { DataSection } from './DataSection.tsx';
+import { ResetSection } from './ResetSection.tsx';
 import { DateFormatSetting } from './DateFormatSetting.tsx';
 import { NewTaskSection } from './NewTaskSection.tsx';
 import { NotificationSettings } from './NotificationSettings.tsx';
@@ -326,6 +327,7 @@ export function SettingsPage() {
           </Box>
         </Section>
         <DataSection />
+        <ResetSection />
       </Stack>
     </Page>
   );

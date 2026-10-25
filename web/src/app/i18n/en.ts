@@ -60,6 +60,21 @@ export const en = {
   'settings.data.notJson': 'That file is not a Punchlist export (it is not JSON).',
   'settings.data.newer': 'That file comes from a newer Punchlist. Update the app, then import it.',
   'settings.data.invalid': 'That file is not a Punchlist export: {reason}',
+  'settings.reset': 'Start over',
+  'settings.reset.hint':
+    'Delete all your lists, tasks and tags, to start again from nothing. Lists others share with you stay.',
+  'settings.reset.action': 'Delete all lists, tasks and tags',
+  'settings.reset.title': 'Start over?',
+  'settings.reset.confirm':
+    'Your {lists} lists, {tasks} tasks and {tags} tags go to the Trash. Undo brings them back, and the Trash keeps them for 30 days.',
+  'settings.reset.purge': 'Also empty the Trash',
+  'settings.reset.purgeWarning':
+    'Everything in the Trash, these and what was there before, is deleted forever. This cannot be undone.',
+  'settings.reset.go': 'Move to the Trash',
+  'settings.reset.goPurge': 'Delete forever',
+  'settings.reset.done': 'Moved {lists} lists, {tasks} tasks and {tags} tags to the Trash.',
+  'settings.reset.donePurged':
+    'Deleted {lists} lists, {tasks} tasks and {tags} tags, and emptied the Trash.',
   'settings.data.fromApp': 'Import from another app',
   'settings.data.forApp': 'Export for another app',
   'interchange.app.ticktick': 'TickTick',
@@ -95,6 +110,7 @@ export const en = {
   'interchange.import.replaceHint':
     'Your {lists} lists, {tasks} tasks and {tags} tags go to the Trash first. Lists others share with you stay. Undo brings it all back.',
   'interchange.import.go': 'Import',
+  'interchange.import.importing': 'Importing...',
   'interchange.import.done':
     'Imported from {app}: {tasks} tasks, {lists} new lists and {tags} new tags.',
   'interchange.import.doneReplaced':
@@ -130,6 +146,7 @@ export const en = {
   'interchange.export.thingsDropped':
     'Things will not keep: repeats on {repeats} tasks, priorities on {priorities}.',
   'undo.importedFrom': 'Imported from {app}',
+  'undo.startedOver': 'Everything moved to the Trash',
   'settings.appearance': 'Appearance',
   'nav.admin': 'Admin',
   'admin.title': 'Admin',

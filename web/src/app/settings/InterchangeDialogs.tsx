@@ -3,6 +3,7 @@ import {
   Box,
   Button,
   Checkbox,
+  CircularProgress,
   Dialog,
   DialogActions,
   DialogContent,
@@ -85,6 +86,8 @@ export function ImportDialog({
   const [plan, setPlan] = useState<ImportPlan | null>(null);
   const [problem, setProblem] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  // Importing: everything grays out until it lands (a big one takes seconds).
+  const [importing, setImporting] = useState(false);
   const [mode, setMode] = useState<'merge' | 'replace'>('merge');
   const [intoSameNamed, setIntoSameNamed] = useState(true);
   const summary = useMemo(() => (plan ? planSummary(plan) : null), [plan]);
@@ -136,8 +139,11 @@ export function ImportDialog({
     }
   };
 
-  const bringIn = () => {
-    if (!plan) return;
+  const bringIn = async () => {
+    if (!plan || importing) return;
+    setImporting(true);
+    // Let the grayed-out dialog paint before the work holds the page.
+    await new Promise((resolve) => requestAnimationFrame(() => setTimeout(resolve, 0)));
     let outcome: ImportOutcome | null = null;
     store.getState().apply(
       (ctx, ws) => {
@@ -165,7 +171,7 @@ export function ImportDialog({
     : [];
 
   return (
-    <Dialog open onClose={onClose} maxWidth="sm" fullWidth>
+    <Dialog open onClose={importing ? undefined : onClose} maxWidth="sm" fullWidth>
       <DialogTitle>{t('interchange.import.title')}</DialogTitle>
       <DialogContent>
         <Stack spacing={2} sx={{ pt: 1 }}>
@@ -175,6 +181,7 @@ export function ImportDialog({
             value={source}
             onChange={(event) => choose(event.target.value as ImportSource)}
             size="small"
+            disabled={importing}
           >
             {IMPORT_SOURCES.map((each) => (
               <MenuItem key={each} value={each}>
@@ -186,7 +193,11 @@ export function ImportDialog({
             {t(`interchange.import.how.${source}` as MessageKey)}
           </Typography>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flexWrap: 'wrap' }}>
-            <Button variant="outlined" disabled={busy} onClick={() => input.current?.click()}>
+            <Button
+              variant="outlined"
+              disabled={busy || importing}
+              onClick={() => input.current?.click()}
+            >
               {t(MANY.has(source) ? 'interchange.import.chooseMore' : 'interchange.import.choose')}
             </Button>
             <Typography variant="body2" sx={{ color: 'text.secondary', minWidth: 0 }} noWrap>
@@ -235,6 +246,7 @@ export function ImportDialog({
             >
               <FormControlLabel
                 value="merge"
+                disabled={importing}
                 control={<Radio />}
                 label={
                   <Box>
@@ -248,6 +260,7 @@ export function ImportDialog({
               {mode === 'merge' && (
                 <FormControlLabel
                   sx={{ ml: 3.5 }}
+                  disabled={importing}
                   control={
                     <Checkbox
                       checked={intoSameNamed}
@@ -259,6 +272,7 @@ export function ImportDialog({
               )}
               <FormControlLabel
                 value="replace"
+                disabled={importing}
                 control={<Radio />}
                 sx={{ mt: 1 }}
                 label={
@@ -281,14 +295,17 @@ export function ImportDialog({
         </Stack>
       </DialogContent>
       <DialogActions>
-        <Button onClick={onClose}>{t('common.cancel')}</Button>
+        <Button onClick={onClose} disabled={importing}>
+          {t('common.cancel')}
+        </Button>
         <Button
           variant="contained"
           color={mode === 'replace' ? 'warning' : 'primary'}
-          disabled={!plan || busy}
-          onClick={bringIn}
+          disabled={!plan || busy || importing}
+          onClick={() => void bringIn()}
+          startIcon={importing ? <CircularProgress size={16} color="inherit" /> : undefined}
         >
-          {t('interchange.import.go')}
+          {t(importing ? 'interchange.import.importing' : 'interchange.import.go')}
         </Button>
       </DialogActions>
     </Dialog>

@@ -45,8 +45,8 @@ export function replaceable(workspace: WorkspaceFile, me: Id) {
   return { lists, tasks, tags };
 }
 
-/** Everything replaceable() names, in the Trash. */
-function trashMine(ctx: OpContext, workspace: WorkspaceFile) {
+/** Everything replaceable() names, in the Trash (an import's Replace, and Settings' Start over). */
+export function trashMine(ctx: OpContext, workspace: WorkspaceFile) {
   const doomed = replaceable(workspace, ctx.userId);
   let ws = workspace;
   for (const list of doomed.lists) ws = deleteList(ctx, ws, list.id);
