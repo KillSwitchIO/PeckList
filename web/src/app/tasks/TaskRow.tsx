@@ -42,8 +42,18 @@ const PRIORITY_KEY = { 0: 'none', 1: 'low', 2: 'medium', 3: 'high' } as const sa
   string
 >;
 
-/** Rounded-square checkbox; its border carries the priority color. */
-export function PriorityCheckbox({ task }: { task: Task }) {
+/**
+ * Rounded-square checkbox; its border carries the priority color. Held (a finger), it opens the
+ * task's menu (spec: R-FB-69): the row itself only drags.
+ */
+export function PriorityCheckbox({
+  task,
+  hold,
+}: {
+  task: Task;
+  /** The long press that opens the task's menu */
+  hold?: ReturnType<typeof useLongPress>;
+}) {
   const theme = useTheme();
   const apply = useApply();
   const readOnly = useReadOnly();
@@ -57,6 +67,8 @@ export function PriorityCheckbox({ task }: { task: Task }) {
       aria-checked={done}
       aria-label={done ? t('task.reopen', { title }) : t('task.complete', { title })}
       {...(task.status === 'wontdo' ? { title: t('task.markedWontDo') } : {})}
+      {...(hold ?? {})}
+      data-row-checkbox=""
       disabled={readOnly}
       onClick={(event) => {
         event.stopPropagation();
@@ -170,7 +182,9 @@ export function TaskRow({
   // A left swipe's Date and Move.
   const [swipeDate, setSwipeDate] = useState<HTMLElement | null>(null);
   const [moving, setMoving] = useState(false);
-  const longPress = useLongPress((position) => (onHold ? onHold() : setMenu({ position })));
+  // A hold on the row starts picking where the page picks (Due dates); the menu is the checkbox's.
+  const longPress = useLongPress(() => onHold?.());
+  const checkboxHold = useLongPress((position) => setMenu({ position }));
   const canEdit = useCanEditTask(task);
   const apply = useApply();
   const drag = useTaskDrag();
@@ -300,7 +314,7 @@ export function TaskRow({
       sx={{ p: 0.75 }}
     />
   ) : (
-    <PriorityCheckbox task={task} />
+    <PriorityCheckbox task={task} hold={checkboxHold} />
   );
   const titleText = (
     <Typography
@@ -359,7 +373,7 @@ export function TaskRow({
             setMenu({ position: { top: event.clientY, left: event.clientX } });
           }}
           // A draggable row's own gesture covers the touch long-press (menu, or drag on moving).
-          {...(gesture ? {} : longPress)}
+          {...(gesture || !onHold ? {} : longPress)}
           sx={{
             position: 'relative',
             display: 'flex',

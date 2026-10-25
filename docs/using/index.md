@@ -35,7 +35,7 @@ Dates leave the year off when it is this year: "Thu, Oct 22", "October", but "Ja
 **Upcoming** lists today and every day after it, empty days included, under a strip of the week's
 days. More days load as you near the end, and the strip follows the day at the top of the list.
 Swipe the strip sideways (or drag it with the mouse, or use the arrows) to move a week, and the list
-goes there; tap a day to jump to it. Going back before today, or picking an earlier day from the
+goes to the same weekday there; tap a day to jump to it. Going back before today, or picking an earlier day from the
 month name above the strip, starts the list on that day; **Today** brings it back, and Upcoming
 always opens on today. Each day's **+** adds a task to that day. Overdue tasks sit on top while
 the list starts today. Grouping it any other way than by date shows the next 7 days' tasks in those
@@ -72,7 +72,9 @@ their start; the due date is the deadline.
   the **Day** or **Week** tab picks how early and the wheels the time of day (later than 9:00 on
   the day too); for a timed task, the **Minute**, **Hour** or **Day** tab picks how early. It shows
   when the reminder will come, or that the time has passed. **Constant reminder** keeps a reminder
-  on screen and brings it back every 5 minutes for an hour, until the task is done. Nothing
+  on screen and brings it back every 5 minutes for an hour, until the task is done; its
+  **Dismiss** stops that reminder (the task's other reminders still come) and **Snooze 10 min**
+  adds a one-time reminder ten minutes on. Nothing
   changes until **OK**. The first reminder asks your browser for permission to show notifications.
   Reminders go to the people the task is assigned to, or to whoever made it when nobody is.
   They appear while Punchlist is open or in the background (offline too), and with a server and
@@ -112,11 +114,14 @@ their start; the due date is the deadline.
   group at the top of every view it shows in. Completing it lets go of the pin.
 - **Swipe** (phones and tablets, like TickTick): swipe a task right to complete it (or reopen a
   closed one); a short swipe left shows **Date**, **Move** and **Delete**, and a full one opens
-  the task's date. **Settings > Swipe actions** changes each side's buttons (up to three, in order
-  from the edge: Complete, Date, Move, Pin, Won't do or Delete) and what a full swipe does, or
-  turns the full swipe off; it is kept per device. Each change can be undone. Swiping up and down
-  still scrolls, and holding a task still drags it or opens its menu.
-- **Undo**: every change shows an **Undo** button for a few seconds.
+  the task's date. **Settings > Swipe actions** shows each side on a sample task and changes its
+  buttons (up to three: Complete, Date, Move, Pin, Won't do or Delete; move them left
+  or right, take one away, add another) and what a full swipe does, or turns the full swipe off;
+  it is kept per device. Each change can be undone. Swiping up and down still scrolls. Holding a
+  task drags it; holding its checkbox opens its menu.
+- **Undo**: every change shows a small round **Undo** button for a few seconds (a ring runs
+  down the time; it sits bottom left on a phone, bottom right on a big screen). Swipe it left or
+  right to send it away.
 - **Comment**: at the bottom of a task's details. Comments take a little Markdown (`**bold**`,
   `*italic*`, `` `code` ``, `[links](https://...)`) and **@name** for the people on the task (type
   `@` for suggestions). ++ctrl+enter++ posts. Everyone who sees the task sees its comments; people
@@ -152,7 +157,9 @@ is folded in Upcoming, All and your lists too, until you open it again. Each dev
 
 A list is marked in the sidebar by its color as a dot until you give it an icon: **Edit list**
 (or the new-list dialog) offers line icons drawn in the list's color, common emoji, or any emoji
-typed in. A list shared with a group shows the group after its name
+typed in. Colors for lists and tags open on your theme's own nine, with the families (Pastel,
+Muted, Earthy, Classic, Vivid) beside them, **More themes** for any other theme's set, and the
+rainbow circle for a custom color. A list shared with a group shows the group after its name
 ("Groceries - Household") for everyone, so it never looks like someone's own list of the same name.
 Lists can be shared: see [sharing](sharing.md).
 
@@ -193,13 +200,15 @@ the agenda. Each device remembers the view, days, weeks and hour height.
 ## Your profile menu
 
 Your profile picture in the top right (your photo or initials, with a small icon of the sign-in
-provider when you signed in through one) opens a menu with **Profile photo**, **Notifications**,
+provider when you signed in through one) opens a menu with **Notifications**,
 **Settings**, **Admin** (admins only), **Stats** (your own numbers, as the server counts them),
 **Friends and groups**, **Keyboard shortcuts**, **Change password** and **Log out**.
 
-**Profile photo**: choose a picture, then drag it (or use the arrow keys) and pinch, scroll or use
+**Settings > Profile** holds your photo: choose a picture, then drag it (or use the arrow keys) and pinch, scroll or use
 the slider to zoom until it sits in the circle, and **Save**. It is kept small on your profile, so
 friends and people you share with see it too. **Remove photo** goes back to your initials.
+Signed in through an identity provider and never set one: Punchlist uses the provider's picture,
+if it gives one; a photo you set or remove stays yours.
 
 **Change password** asks for the new password twice. Every password field has an eye at its right
 end that shows what you typed.
@@ -224,7 +233,9 @@ Yesterday keep their names.
 
 **Colors**: pick one of 16 palettes, from calm (Punchlist, Ocean, Forest, Graphite) and soft (Rose,
 Blossom, Peach, Lavender, Mint) to bright (Electric, Tropical, Citrus, Berry) and deep (Sunset,
-Midnight, Coffee), then change any of its colors. **Reset colors** goes back to the palette's own colors.
+Midnight, Coffee), then change any of its colors. **Reset colors** goes back to the palette's own colors. Picking
+another palette asks whether to recolor your lists and tags too: each moves to the same spot in
+the new palette's set (grays, and lists you cannot change, stay as they are).
 
 **Time zone**: "today", due dates and the calendar follow it. It starts out as the server's time
 zone (`TZ`), or your device's without a server; pick another one if you live somewhere else.

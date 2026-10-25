@@ -1,11 +1,11 @@
-import { IconButton, ListItemIcon, Menu, MenuItem, Tooltip } from '@mui/material';
+import { ListItemIcon, MenuItem } from '@mui/material';
 import { useState } from 'react';
 import { useNavigate, useParams } from 'react-router';
 import { getEntity, isLive } from '../../core/collections.ts';
 import { inboxList } from '../../core/lists.ts';
 import { deleteSavedFilter, filterOf, updateSavedFilter } from '../../core/savedFilters.ts';
 import { t } from '../i18n/i18n.ts';
-import { DeleteIcon, EditIcon, MoreIcon } from '../icons/icons.tsx';
+import { DeleteIcon, EditIcon } from '../icons/icons.tsx';
 import { Page } from '../layout/Page.tsx';
 import { useApply, useWorkspace } from '../store/hooks.ts';
 import { AddTaskInput } from '../tasks/AddTaskInput.tsx';
@@ -22,7 +22,6 @@ export function FilterView() {
   const workspace = useWorkspace();
   const apply = useApply();
   const navigate = useNavigate();
-  const [menu, setMenu] = useState<HTMLElement | null>(null);
   const [editing, setEditing] = useState(false);
   const view = useListView(`filter:${filterId}`);
   const saved = getEntity(workspace, 'savedFilters', filterId);
@@ -34,18 +33,16 @@ export function FilterView() {
     );
   }
 
+  // The filter's own actions join the one view menu.
   const actions = (
-    <>
-      <SortGroupButton view={view} groupings={VIEW_GROUPINGS} />
-      <Tooltip title={t('common.more')}>
-        <IconButton aria-label={t('common.more')} onClick={(event) => setMenu(event.currentTarget)}>
-          <MoreIcon />
-        </IconButton>
-      </Tooltip>
-      <Menu anchorEl={menu} open={menu !== null} onClose={() => setMenu(null)}>
+    <SortGroupButton
+      view={view}
+      groupings={VIEW_GROUPINGS}
+      extra={(close) => [
         <MenuItem
+          key="edit"
           onClick={() => {
-            setMenu(null);
+            close();
             setEditing(true);
           }}
         >
@@ -53,10 +50,11 @@ export function FilterView() {
             <EditIcon fontSize="small" />
           </ListItemIcon>
           {t('filter.edit')}
-        </MenuItem>
+        </MenuItem>,
         <MenuItem
+          key="delete"
           onClick={() => {
-            setMenu(null);
+            close();
             apply((ctx, ws) => deleteSavedFilter(ctx, ws, saved.id), t('undo.filterDeleted'));
             void navigate('/all');
           }}
@@ -65,9 +63,9 @@ export function FilterView() {
             <DeleteIcon fontSize="small" />
           </ListItemIcon>
           {t('filter.delete')}
-        </MenuItem>
-      </Menu>
-    </>
+        </MenuItem>,
+      ]}
+    />
   );
 
   return (

@@ -301,6 +301,8 @@ export function TaskDragProvider({
           const startX = event.clientX;
           const startY = event.clientY;
           const source = event.currentTarget;
+          // Only a hold on the checkbox opens the menu; a hold on the rest of the row drags.
+          const fromCheckbox = (event.target as Element).closest('[data-row-checkbox]') !== null;
           const touch = event.pointerType === 'touch';
           let armed = !touch;
           let started = false;
@@ -336,10 +338,11 @@ export function TaskDragProvider({
           };
           const up = () => {
             cleanup();
-            // A held finger let go without moving: the task menu, as before.
+            // A held finger let go without moving: on the checkbox, the task menu; elsewhere
+            // nothing (and not a tap that opens the task).
             if (touch && armed && !started) {
               swallowClick.current = true;
-              onMenu({ top: startY, left: startX });
+              if (fromCheckbox) onMenu({ top: startY, left: startX });
             }
           };
           const cancel = () => cleanup();

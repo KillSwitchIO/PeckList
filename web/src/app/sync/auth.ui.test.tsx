@@ -231,12 +231,14 @@ describe('signing in to a server', () => {
     );
   });
 
-  it('the profile menu opens the profile photo, ready to pick a picture', async () => {
+  it('Settings > Profile opens the profile photo, ready to pick a picture', async () => {
     const backend = new FakeBackend();
     backend.addAccount('ben', 'correct horse battery');
     await serverApp(backend, 'ben');
     await userEvent.click(await screen.findByRole('button', { name: /^Account: / }));
-    await userEvent.click(await screen.findByRole('menuitem', { name: 'Profile photo' }));
+    await userEvent.click(await screen.findByRole('menuitem', { name: 'Settings' }));
+    const profile = await screen.findByRole('region', { name: 'Profile' });
+    await userEvent.click(within(profile).getByRole('button', { name: 'Choose a photo' }));
     const dialog = await screen.findByRole('dialog', { name: 'Profile photo' });
     expect(within(dialog).getByRole('button', { name: 'Choose a photo' })).toBeInTheDocument();
     expect(within(dialog).getByLabelText('Choose a photo')).toHaveAttribute('accept', 'image/*');

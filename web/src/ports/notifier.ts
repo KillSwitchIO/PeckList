@@ -10,6 +10,8 @@ export interface AppNotification {
   url: string;
   /** Stays on screen until dismissed, and buzzes again when it comes back (a constant reminder) */
   sticky?: boolean;
+  /** Buttons on it (shown where the system has them); a press reaches the app as a message */
+  actions?: { action: string; title: string }[];
 }
 
 export interface Notifier {

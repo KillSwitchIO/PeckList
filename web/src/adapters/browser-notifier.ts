@@ -14,7 +14,7 @@ export function createBrowserNotifier(): Notifier {
       if (Notification.permission !== 'default') return Notification.permission;
       return Notification.requestPermission();
     },
-    async show({ title, body, tag, url, sticky = false }: AppNotification) {
+    async show({ title, body, tag, url, sticky = false, actions }: AppNotification) {
       if (!supported() || Notification.permission !== 'granted') return;
       const options = {
         body,
@@ -23,6 +23,7 @@ export function createBrowserNotifier(): Notifier {
         icon: '/icon.svg',
         badge: '/icon.svg',
         ...(sticky ? { requireInteraction: true, renotify: true } : {}),
+        ...(actions?.length ? { actions } : {}),
       };
       const registration = await navigator.serviceWorker?.getRegistration?.();
       if (registration) {

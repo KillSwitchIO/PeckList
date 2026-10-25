@@ -38,7 +38,7 @@ describe('saved filters', () => {
     expect(screen.queryByRole('button', { name: 'Open Plan trip' })).toBeNull();
     expect(screen.getByText('Old bill')).toBeInTheDocument();
 
-    await userEvent.click(screen.getByRole('button', { name: 'More actions' }));
+    await userEvent.click(screen.getByRole('button', { name: 'View options' }));
     await userEvent.click(await screen.findByRole('menuitem', { name: 'Edit filter' }));
     const dialog = await screen.findByRole('dialog');
     const due = within(dialog).getByRole('group', { name: 'Due date' });
@@ -72,7 +72,7 @@ describe('saved filters', () => {
     });
     const nav = screen.getAllByRole('navigation')[0]!;
     await userEvent.click(await within(nav).findByRole('button', { name: /Watch/ }));
-    await userEvent.click(screen.getByRole('button', { name: 'More actions' }));
+    await userEvent.click(screen.getByRole('button', { name: 'View options' }));
     await userEvent.click(await screen.findByRole('menuitem', { name: 'Edit filter' }));
     let dialog = await screen.findByRole('dialog');
     await userEvent.click(within(dialog).getByRole('button', { name: 'Due soon' }));
@@ -80,7 +80,7 @@ describe('saved filters', () => {
     await waitFor(() => expect(screen.queryByRole('button', { name: 'Open Late one' })).toBeNull());
     expect(screen.getByRole('button', { name: 'Open Soon one' })).toBeInTheDocument();
 
-    await userEvent.click(screen.getByRole('button', { name: 'More actions' }));
+    await userEvent.click(screen.getByRole('button', { name: 'View options' }));
     await userEvent.click(await screen.findByRole('menuitem', { name: 'Edit filter' }));
     dialog = await screen.findByRole('dialog');
     await userEvent.click(within(dialog).getByRole('button', { name: 'Me' }));

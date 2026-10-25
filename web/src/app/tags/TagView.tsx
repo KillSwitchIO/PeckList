@@ -1,7 +1,6 @@
 import DeleteOutlineRounded from '@mui/icons-material/DeleteOutlineRounded';
 import EditRounded from '@mui/icons-material/EditRounded';
-import MoreVertRounded from '@mui/icons-material/MoreVertRounded';
-import { IconButton, Menu, MenuItem, Tooltip } from '@mui/material';
+import { MenuItem } from '@mui/material';
 import { useState } from 'react';
 import { useNavigate, useParams } from 'react-router';
 import { getEntity, isLive } from '../../core/collections.ts';
@@ -16,46 +15,43 @@ import { AddTaskInput } from '../tasks/AddTaskInput.tsx';
 import { EmptyState } from '../views/EmptyState.tsx';
 import { FilteredTasks } from '../views/groups.tsx';
 import { SortGroupButton } from '../views/SortGroupButton.tsx';
-import { useListView } from '../lists/listGrouping.ts';
+import { useListView, type ListViewSettings } from '../lists/listGrouping.ts';
 import { VIEW_GROUPINGS } from '../../core/listView.ts';
 import { TagDialog } from './TagDialog.tsx';
 
-function TagMenu({ tag }: { tag: Tag }) {
+/** The tag's own actions (edit, delete), joining the one view menu. */
+function TagMenu({ tag, view }: { tag: Tag; view: ListViewSettings }) {
   const apply = useApply();
   const navigate = useNavigate();
-  const [anchor, setAnchor] = useState<HTMLElement | null>(null);
   const [dialog, setDialog] = useState<'edit' | 'delete' | null>(null);
-  const close = () => setAnchor(null);
   return (
     <>
-      <Tooltip title={t('common.more')} disableFocusListener>
-        <IconButton
-          aria-label={t('common.more')}
-          onClick={(event) => setAnchor(event.currentTarget)}
-        >
-          <MoreVertRounded />
-        </IconButton>
-      </Tooltip>
-      <Menu anchorEl={anchor} open={anchor !== null} onClose={close}>
-        <MenuItem
-          onClick={() => {
-            close();
-            setDialog('edit');
-          }}
-        >
-          <EditRounded fontSize="small" sx={{ mr: 1 }} />
-          {t('tag.edit')}
-        </MenuItem>
-        <MenuItem
-          onClick={() => {
-            close();
-            setDialog('delete');
-          }}
-        >
-          <DeleteOutlineRounded fontSize="small" sx={{ mr: 1 }} />
-          {t('tag.delete')}
-        </MenuItem>
-      </Menu>
+      <SortGroupButton
+        view={view}
+        groupings={VIEW_GROUPINGS}
+        extra={(close) => [
+          <MenuItem
+            key="edit"
+            onClick={() => {
+              close();
+              setDialog('edit');
+            }}
+          >
+            <EditRounded fontSize="small" sx={{ mr: 1 }} />
+            {t('tag.edit')}
+          </MenuItem>,
+          <MenuItem
+            key="delete"
+            onClick={() => {
+              close();
+              setDialog('delete');
+            }}
+          >
+            <DeleteOutlineRounded fontSize="small" sx={{ mr: 1 }} />
+            {t('tag.delete')}
+          </MenuItem>,
+        ]}
+      />
       {dialog === 'edit' && (
         <TagDialog
           tag={tag}
@@ -89,15 +85,7 @@ function TagContents({ tag }: { tag: Tag }) {
   const workspace = useWorkspace();
   const name = leafName(tag.name);
   return (
-    <Page
-      title={name}
-      actions={
-        <>
-          <SortGroupButton view={view} groupings={VIEW_GROUPINGS} />
-          <TagMenu tag={tag} />
-        </>
-      }
-    >
+    <Page title={name} actions={<TagMenu tag={tag} view={view} />}>
       <AddTaskInput
         defaults={{ listId: inboxList(workspace).id, tags: [tag.id] }}
         label={t('tag.addTo', { tag: name })}
