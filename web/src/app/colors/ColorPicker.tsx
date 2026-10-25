@@ -1,8 +1,18 @@
 import CheckRounded from '@mui/icons-material/CheckRounded';
-import { Box, ButtonBase, InputBase, useTheme } from '@mui/material';
+import ExpandMoreRounded from '@mui/icons-material/ExpandMoreRounded';
+import { Box, ButtonBase, InputBase, ListItemIcon, Menu, MenuItem, useTheme } from '@mui/material';
 import { useState } from 'react';
-import { COLOR_FAMILIES, findFamilyColor, type ColorFamily } from '../../core/palette.ts';
+import {
+  COLOR_FAMILIES,
+  findFamilyColor,
+  PALETTE_PRESETS,
+  type ColorFamily,
+  type PalettePreset,
+} from '../../core/palette.ts';
+import { palettePreset } from '../../core/paletteSettings.ts';
+import { themeSwatches } from '../../core/themeColors.ts';
 import { t } from '../i18n/i18n.ts';
+import { useWorkspace } from '../store/hooks.ts';
 
 const HUES = [
   'red',
@@ -17,6 +27,24 @@ const HUES = [
 ] as const;
 const SWATCH = 28;
 const HEX = /^#?([0-9a-f]{6})$/i;
+const PRESETS = Object.keys(PALETTE_PRESETS) as PalettePreset[];
+
+/** Where the swatches come from: a color family, or a theme's own set. */
+type Source = { kind: 'family'; id: ColorFamily['id'] } | { kind: 'theme'; preset: PalettePreset };
+
+/** The family or theme a color comes from, if any. */
+function sourceOf(hex: string): Source | null {
+  const spot = findFamilyColor(hex);
+  if (spot) return { kind: 'family', id: spot.family.id };
+  const wanted = hex.toUpperCase();
+  const preset = PRESETS.find((each) => themeSwatches(each).includes(wanted));
+  return preset ? { kind: 'theme', preset } : null;
+}
+
+const sameSource = (a: Source, b: Source) =>
+  a.kind === 'family'
+    ? b.kind === 'family' && a.id === b.id
+    : b.kind === 'theme' && a.preset === b.preset;
 
 function Swatch({
   color,
@@ -54,9 +82,37 @@ function Swatch({
   );
 }
 
+const chipSx = (active: boolean) => ({
+  px: 1.25,
+  py: 0.5,
+  borderRadius: 999,
+  typography: 'body2',
+  fontWeight: active ? 600 : 400,
+  color: active ? 'text.primary' : 'text.secondary',
+  bgcolor: active ? 'action.selected' : 'transparent',
+  '&:hover': { bgcolor: active ? 'action.selected' : 'action.hover' },
+});
+
+/** A tiny preview of a set's look: its colors round a dot. */
+const dot = (colors: string[], size: number) => (
+  <Box
+    component="span"
+    aria-hidden
+    sx={{
+      width: size,
+      height: size,
+      mr: 0.75,
+      flexShrink: 0,
+      borderRadius: '50%',
+      background: `conic-gradient(${colors.join(', ')})`,
+    }}
+  />
+);
+
 /**
- * Color choice for lists and tags: a row of families (pastel to vivid), that family's nine
- * colors, and a custom color for anything else.
+ * Color choice for lists and tags (spec: R-FB-66): the current theme's nine colors first, then
+ * the families (pastel to vivid), any other theme's set from More themes, and a custom color for
+ * anything else.
  */
 export function ColorPicker({
   value,
@@ -66,20 +122,45 @@ export function ColorPicker({
   onChange: (color: string) => void;
 }) {
   const theme = useTheme();
-  const spot = findFamilyColor(value);
-  const [familyId, setFamilyId] = useState<ColorFamily['id']>(spot?.family.id ?? 'pastel');
-  const [customOpen, setCustomOpen] = useState(spot === null);
+  const current = palettePreset(useWorkspace());
+  const found = sourceOf(value);
+  const [source, setSource] = useState<Source>(found ?? { kind: 'theme', preset: current });
+  const [customOpen, setCustomOpen] = useState(found === null);
+  const [themesAnchor, setThemesAnchor] = useState<HTMLElement | null>(null);
   const [hexDraft, setHexDraft] = useState(value.toUpperCase());
   const [syncedValue, setSyncedValue] = useState(value);
   // Follow outside changes (a new suggested default) without an effect.
   if (value !== syncedValue) {
     setSyncedValue(value);
     setHexDraft(value.toUpperCase());
-    const next = findFamilyColor(value);
-    if (next) setFamilyId(next.family.id);
+    const next = sourceOf(value);
+    if (next) setSource(next);
   }
-  const family = COLOR_FAMILIES.find((item) => item.id === familyId)!;
-  const isCustom = spot === null;
+  const swatches =
+    source.kind === 'family'
+      ? COLOR_FAMILIES.find((item) => item.id === source.id)!.colors.map((color) => color.hex)
+      : themeSwatches(source.preset);
+  const sourceName =
+    source.kind === 'family'
+      ? t(`color.family.${source.id}`)
+      : t(`palette.preset.${source.preset}`);
+  const isCustom = found === null;
+  // This theme, the families, and a theme picked from More themes (when another).
+  const chips: { source: Source; label: string; colors: string[] }[] = [
+    {
+      source: { kind: 'theme', preset: current },
+      label: t('color.yourTheme', { theme: t(`palette.preset.${current}`) }),
+      colors: themeSwatches(current),
+    },
+    ...COLOR_FAMILIES.map((item) => ({
+      source: { kind: 'family', id: item.id } as Source,
+      label: t(`color.family.${item.id}`),
+      colors: item.colors.map((color) => color.hex),
+    })),
+    ...(source.kind === 'theme' && source.preset !== current
+      ? [{ source, label: sourceName, colors: themeSwatches(source.preset) }]
+      : []),
+  ];
 
   const commitHex = (text: string) => {
     const match = HEX.exec(text.trim());
@@ -93,40 +174,48 @@ export function ColorPicker({
         aria-label={t('color.families')}
         sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, mb: 1.25 }}
       >
-        {COLOR_FAMILIES.map((item) => {
-          const active = item.id === familyId;
+        {chips.map((chip) => {
+          const active = sameSource(chip.source, source);
           return (
             <ButtonBase
-              key={item.id}
+              key={chip.label}
               aria-pressed={active}
-              onClick={() => setFamilyId(item.id)}
-              sx={{
-                px: 1.25,
-                py: 0.5,
-                borderRadius: 999,
-                typography: 'body2',
-                fontWeight: active ? 600 : 400,
-                color: active ? 'text.primary' : 'text.secondary',
-                bgcolor: active ? 'action.selected' : 'transparent',
-                '&:hover': { bgcolor: active ? 'action.selected' : 'action.hover' },
-              }}
+              onClick={() => setSource(chip.source)}
+              sx={chipSx(active)}
             >
-              {/* A tiny preview of the family's look */}
-              <Box
-                component="span"
-                aria-hidden
-                sx={{
-                  width: 10,
-                  height: 10,
-                  mr: 0.75,
-                  borderRadius: '50%',
-                  background: `conic-gradient(${item.colors.map((color) => color.hex).join(', ')})`,
-                }}
-              />
-              {t(`color.family.${item.id}`)}
+              {dot(chip.colors, 10)}
+              {chip.label}
             </ButtonBase>
           );
         })}
+        <ButtonBase
+          aria-haspopup="menu"
+          onClick={(event) => setThemesAnchor(event.currentTarget)}
+          sx={chipSx(false)}
+        >
+          {t('color.moreThemes')}
+          <ExpandMoreRounded sx={{ fontSize: 18, ml: 0.25 }} />
+        </ButtonBase>
+        <Menu
+          anchorEl={themesAnchor}
+          open={themesAnchor !== null}
+          onClose={() => setThemesAnchor(null)}
+        >
+          {PRESETS.map((preset) => (
+            <MenuItem
+              key={preset}
+              dense
+              selected={source.kind === 'theme' && source.preset === preset}
+              onClick={() => {
+                setSource({ kind: 'theme', preset });
+                setThemesAnchor(null);
+              }}
+            >
+              <ListItemIcon sx={{ minWidth: 28 }}>{dot(themeSwatches(preset), 14)}</ListItemIcon>
+              {t(`palette.preset.${preset}`)}
+            </MenuItem>
+          ))}
+        </Menu>
       </Box>
 
       <Box
@@ -134,13 +223,13 @@ export function ColorPicker({
         aria-label={t('list.color')}
         sx={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 1.25, p: 0.5 }}
       >
-        {family.colors.map((color, index) => (
+        {swatches.map((hex, index) => (
           <Swatch
-            key={color.id}
-            color={color.hex}
-            label={`${t(`color.family.${family.id}`)} ${t(`color.hue.${HUES[index]!}`)}`}
-            selected={value.toUpperCase() === color.hex}
-            onClick={() => onChange(color.hex)}
+            key={hex}
+            color={hex}
+            label={`${sourceName} ${t(`color.hue.${HUES[index]!}`)}`}
+            selected={value.toUpperCase() === hex}
+            onClick={() => onChange(hex)}
           />
         ))}
         <ButtonBase

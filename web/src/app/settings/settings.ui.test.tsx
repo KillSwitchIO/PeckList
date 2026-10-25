@@ -4,6 +4,8 @@ import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { inboxList } from '../../core/lists.ts';
 import { paletteOverrides } from '../../core/paletteSettings.ts';
+import { COLOR_FAMILIES } from '../../core/palette.ts';
+import { themeSwatches } from '../../core/themeColors.ts';
 import { createTask } from '../../core/tasks.ts';
 import { createList } from '../../core/lists.ts';
 import { mockViewport, renderApp, testStore } from '../../test/renderApp.tsx';
@@ -25,6 +27,12 @@ describe('settings: colors', () => {
       within(colors).getByRole('button', { name: /^Change High priority, now #E8837E/ }),
     );
     const picker = await screen.findByRole('dialog', { name: 'High priority' });
+    // The picker opens on your theme's colors; the families are a tap away.
+    expect(within(picker).getByRole('button', { name: /your theme/ })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    );
+    await userEvent.click(within(picker).getByRole('button', { name: 'Pastel' }));
     await userEvent.click(within(picker).getByRole('radio', { name: 'Pastel yellow' }));
     await userEvent.click(within(picker).getByRole('button', { name: 'Done' }));
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
@@ -310,5 +318,27 @@ describe('settings: swipe actions', () => {
     });
     await userEvent.click(within(section).getByRole('button', { name: 'Reset' }));
     expect(localStorage.getItem('punchlist.swipes')).toBeNull();
+  });
+});
+
+describe('settings: changing the theme', () => {
+  it('asks to recolor lists and tags, and moves them to the same spot in the new set', async () => {
+    const store = testStore();
+    await store.getState().init();
+    let listId = '';
+    store.getState().apply((ctx, ws) => {
+      const made = createList(ctx, ws, { name: 'Work', color: COLOR_FAMILIES[0]!.colors[6]!.hex });
+      listId = made.list.id;
+      return made.workspace;
+    });
+    await store.getState().flush();
+    await renderApp('/settings', store);
+    const palettes = await screen.findByRole('radiogroup', { name: 'Palettes' });
+    await userEvent.click(within(palettes).getByRole('radio', { name: 'Berry' }));
+    const ask = await screen.findByRole('dialog', { name: 'Recolor lists and tags too?' });
+    await userEvent.click(within(ask).getByRole('button', { name: 'Recolor' }));
+    const color = () =>
+      store.getState().workspace!.entities.lists.find((list) => list.id === listId)!.color;
+    await waitFor(() => expect(color()).toBe(themeSwatches('berry')[6]));
   });
 });
