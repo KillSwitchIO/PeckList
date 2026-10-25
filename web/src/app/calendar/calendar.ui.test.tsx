@@ -209,6 +209,39 @@ describe('calendar', () => {
     });
   });
 
+  it('shows the times a task would get while it is stretched or dragged', async () => {
+    localStorage.setItem(
+      'punchlist.calendar',
+      JSON.stringify({ mode: 'days', days: 1, hourHeight: 48 }),
+    );
+    const { today } = await calendarWith();
+    const block = await screen.findByRole('button', { name: /Standup/ });
+    // Stretching the bottom edge: the label follows before letting go.
+    const bottom = block.querySelector('[data-cal-grip="bottom"]')!;
+    fireEvent.pointerDown(bottom, { clientX: 10, clientY: 10 * 48, button: 0, pointerId: 11 });
+    fireEvent.pointerMove(window, { clientX: 10, clientY: 10.5 * 48, pointerId: 11 });
+    expect(screen.getByRole('status')).toHaveTextContent(/9:00\sAM - 10:30\sAM/);
+    fireEvent.pointerUp(window, { clientX: 10, clientY: 10.5 * 48, pointerId: 11 });
+    expect(screen.queryByRole('status')).toBeNull();
+
+    // Dragging it over 2 PM: an outline there at its own length, with its times.
+    const moved = await screen.findByRole('button', { name: /Standup/ });
+    const column = document.querySelector(`[data-cal-slots="${today}"]`)!;
+    fireEvent.pointerDown(moved, {
+      clientX: 10,
+      clientY: 9 * 48 + 10,
+      button: 0,
+      pointerType: 'mouse',
+      pointerId: 12,
+    });
+    pointAt(column);
+    fireEvent.pointerMove(window, { clientX: 10, clientY: 14 * 48 + 12, pointerId: 12 });
+    expect(document.querySelector('[data-cal-preview]')).not.toBeNull();
+    expect(screen.getByRole('status')).toHaveTextContent(/2:00\sPM - 3:30\sPM/);
+    fireEvent.pointerUp(window, { clientX: 10, clientY: 14 * 48 + 12, pointerId: 12 });
+    expect(document.querySelector('[data-cal-preview]')).toBeNull();
+  });
+
   it('opens big time grips on a long hold, for tasks too short to grab by the edge', async () => {
     localStorage.setItem(
       'punchlist.calendar',

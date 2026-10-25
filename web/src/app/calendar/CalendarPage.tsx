@@ -229,6 +229,29 @@ export function CalendarPage() {
   const grabItem = (event: React.PointerEvent<HTMLElement>, item: CalendarItem, grabMinutes = 0) =>
     drag.begin(event, { taskId: item.taskId, title: item.title, grabMinutes });
 
+  // A task dragged over a time in Days: where it would land, at its own length.
+  const preview = (() => {
+    const target = drag.ghost?.target;
+    if (mode !== 'days' || !drag.ghost || !target || target.minutes === null) return null;
+    const task = workspace.entities.tasks.find((each) => each.id === drag.ghost!.taskId);
+    if (!task) return null;
+    const point = settings?.pointEventMinutes ?? 30;
+    const schedule = task.schedule;
+    const length =
+      schedule && !schedule.allDay && schedule.end && timePart(schedule.start)
+        ? (Date.parse(`${schedule.end}:00Z`) - Date.parse(`${schedule.start}:00Z`)) / 60_000
+        : point;
+    const color =
+      workspace.entities.lists.find((list) => list.id === task.listId)?.color ?? '#B8BCC4';
+    return {
+      taskId: task.id,
+      day: target.day,
+      top: target.minutes,
+      bottom: Math.min(1440, target.minutes + Math.max(15, length)),
+      color,
+    };
+  })();
+
   const goToday = () => {
     setDate(today);
     setTarget({ date: today, seq: target.seq + 1 });
@@ -400,6 +423,7 @@ export function CalendarPage() {
                 onPage={step}
                 onGrab={grabItem}
                 onCancelGrab={drag.cancel}
+                preview={preview}
                 onResize={(item, start, end) => {
                   const task = workspace.entities.tasks.find((each) => each.id === item.taskId);
                   if (!task?.schedule) return;
@@ -477,7 +501,7 @@ export function CalendarPage() {
           </MenuItem>,
         ]}
       </Menu>
-      {drag.ghost && (
+      {drag.ghost && !preview && (
         <Box
           aria-hidden
           sx={{
