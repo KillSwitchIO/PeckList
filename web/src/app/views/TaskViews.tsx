@@ -50,6 +50,7 @@ import {
 } from './groups.tsx';
 import { SortGroupButton } from './SortGroupButton.tsx';
 import { AgendaView } from './AgendaView.tsx';
+import { TaskDragProvider } from '../tasks/drag/TaskDrag.tsx';
 import { useNarrowed } from './useNarrowed.tsx';
 import { useListView, type ListViewSettings } from '../lists/listGrouping.ts';
 import { inOrder, orderTasks, VIEW_GROUPINGS } from '../../core/listView.ts';
@@ -78,7 +79,7 @@ function OverdueAndToday({
       count={groups.overdue.length}
       actions={<PostponeButton tasks={groups.overdue} today={today} />}
     >
-      <TaskTree tasks={groups.overdue} showList ownPlace={hasOwnDate} />
+      <TaskTree tasks={groups.overdue} showList ownPlace={hasOwnDate} dragZone={{ group: null }} />
     </GroupSection>
   );
   const todays = groups.today.length > 0 && (
@@ -88,10 +89,15 @@ function OverdueAndToday({
       title={t('group.todayWithDay', { weekday: weekdayName(today) })}
       count={groups.today.length}
     >
-      <TaskTree tasks={groups.today} showList ownPlace={hasOwnDate} />
+      <TaskTree
+        tasks={groups.today}
+        showList
+        ownPlace={hasOwnDate}
+        dragZone={{ group: { kind: 'date', value: today } }}
+      />
     </GroupSection>
   );
-  return <>{inOrder([overdue, todays], view.groupReversed)}</>;
+  return <TaskDragProvider>{inOrder([overdue, todays], view.groupReversed)}</TaskDragProvider>;
 }
 
 function AddForToday({ today }: { today: string }) {

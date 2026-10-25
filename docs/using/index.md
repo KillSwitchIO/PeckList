@@ -92,10 +92,17 @@ their start; the due date is the deadline.
   task sees its files; whoever added one, or the list's owner, removes it. Files sync through the
   server (up to `ATTACHMENT_MAX_MB`, 25 MB by default); a larger one is refused before it is added.
 - **Complete**: the circle on the left, or ++space++. **Won't do** is in the task's menu.
-- **Move**: drag it up or down; drag it right to make it a subtask, left to undo that; drop it on
-  the middle of another task to nest it there; drop it on a list in the sidebar to move it. Or use
-  **Move to list...** in its menu, or ++alt+arrow-up++ / ++alt+arrow-down++ /
-  ++alt+arrow-right++ / ++alt+arrow-left++.
+- **Move**: drag it up or down (on a phone, hold it a moment first); the task rides along under
+  your finger and a line shows where it will land. In a list's own order, drag it right to make it
+  a subtask, left to undo that, or drop it on the middle of another task to nest it there; a list
+  sorted another way switches to its own order when you drop. In groups, dropping it into another
+  group gives it that group's value: a day (Today, Tomorrow, a day in Upcoming) or **No date** sets
+  its date (keeping its time), **Next 7 days** and **Later** date it to their first day unless it
+  is in them already, and priority, tag and list groups set its priority, swap its tag or move it
+  to that list. Overdue and Pinned tasks drag out, nothing drops in. Drop it on a list in the
+  sidebar to move it there. Or use **Move to list...** in its menu, or ++alt+arrow-up++ /
+  ++alt+arrow-down++ / ++alt+arrow-right++ / ++alt+arrow-left++.
+- **Groups**: a group's whole heading row (apart from its buttons) folds and unfolds it.
 - **Pin**: **Pin to the top** in a task's menu (or the pin in its details) keeps it in a **Pinned**
   group at the top of every view it shows in. Completing it lets go of the pin.
 - **Swipe** (phones and tablets, like TickTick): swipe a task right to complete it (or reopen a

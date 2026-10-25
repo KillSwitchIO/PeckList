@@ -36,6 +36,7 @@ import { TaskTree } from '../tasks/TaskTree.tsx';
 import { EmptyState } from '../views/EmptyState.tsx';
 import { GroupSection } from '../views/GroupSection.tsx';
 import { CompletedGroup, DateGroupedTasks, PinnedGroup } from '../views/groups.tsx';
+import { groupZone } from '../views/dragZones.ts';
 import { pinnedFirst } from '../../core/tasks.ts';
 import { useToday } from '../hooks/useToday.ts';
 import { useListView, type ListViewSettings } from './listGrouping.ts';
@@ -305,24 +306,29 @@ export function ListContents({ list }: { list: List }) {
         {open.length === 0 && pinned.length === 0 && completed.length === 0 && (
           <EmptyState title={t('list.empty')} />
         )}
-        <PinnedGroup tasks={pinned} />
-        {grouped.map((group) => (
-          <GroupSection
-            key={group.key}
-            groupKey={group.key}
-            title={group.title}
-            count={group.tasks.length}
-          >
-            <TaskTree tasks={group.tasks} />
-          </GroupSection>
-        ))}
+        <TaskDragProvider>
+          <PinnedGroup tasks={pinned} />
+          {grouped.map((group) => (
+            <GroupSection
+              key={group.key}
+              groupKey={group.key}
+              title={group.title}
+              count={group.tasks.length}
+            >
+              <TaskTree
+                tasks={group.tasks}
+                {...(canEdit ? { dragZone: groupZone(group.key) } : {})}
+              />
+            </GroupSection>
+          ))}
+        </TaskDragProvider>
         <CompletedGroup tasks={completed} />
       </Page>
     );
   }
 
-  // The list's own order: tasks are dragged in it, when sorted by it.
-  const draggable = canEdit && sort === 'manual';
+  // The list's own order: tasks are dragged in it. Sorted another way, a drop switches to it.
+  const draggable = canEdit;
   const shown = orderTasks(tasks, sort, view.sortReversed);
   const content = (
     <>
@@ -340,7 +346,15 @@ export function ListContents({ list }: { list: List }) {
     <Page title={listName(list, workspace)} actions={actions}>
       {archivedBar}
       {header}
-      {draggable ? <TaskDragProvider>{content}</TaskDragProvider> : content}
+      {draggable ? (
+        <TaskDragProvider
+          {...(sort === 'manual' ? {} : { onReorder: () => view.setSort('manual') })}
+        >
+          {content}
+        </TaskDragProvider>
+      ) : (
+        content
+      )}
       <CompletedGroup tasks={completed} />
     </Page>
   );

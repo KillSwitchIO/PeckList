@@ -27,6 +27,8 @@ import { t } from '../i18n/i18n.ts';
 import { useApply, useWorkspace } from '../store/hooks.ts';
 import { TaskRows } from '../tasks/TaskRow.tsx';
 import { TaskTree } from '../tasks/TaskTree.tsx';
+import { dateZone, groupZone } from './dragZones.ts';
+import { TaskDragProvider } from '../tasks/drag/TaskDrag.tsx';
 import { dayTitle, hasOwnDate, weekdayName } from './dayLabels.ts';
 import { EmptyState } from './EmptyState.tsx';
 import { GroupSection } from './GroupSection.tsx';
@@ -125,7 +127,7 @@ export function PinnedGroup({ tasks, showList = false }: { tasks: Task[]; showLi
   if (tasks.length === 0) return null;
   return (
     <GroupSection groupKey="pinned" title={t('group.pinned')} count={tasks.length}>
-      <TaskTree tasks={tasks} showList={showList} />
+      <TaskTree tasks={tasks} showList={showList} dragZone={{ group: null }} />
     </GroupSection>
   );
 }
@@ -159,7 +161,7 @@ export function DateGroupedTasks({
   const groups = inOrder(groupByDate(workspace, rest, today), groupsReversed);
   const closed = filterClosedTasks(workspace, filter, today);
   return (
-    <>
+    <TaskDragProvider>
       {groups.length === 0 && pinned.length === 0 && closed.length === 0 && (
         <EmptyState title={emptyTitle} />
       )}
@@ -178,11 +180,12 @@ export function DateGroupedTasks({
             tasks={orderTasks(group.tasks, sort, reversed)}
             showList={showList}
             ownPlace={hasOwnDate}
+            dragZone={dateZone(group, today)}
           />
         </GroupSection>
       ))}
       <CompletedGroup tasks={closed} showList={showList} />
-    </>
+    </TaskDragProvider>
   );
 }
 
@@ -232,7 +235,7 @@ export function GroupedTasks({
           : null;
   const groups = grouped && inOrder(grouped, groupsReversed);
   return (
-    <>
+    <TaskDragProvider>
       {open.length === 0 && pinned.length === 0 && closed.length === 0 && (
         <EmptyState title={emptyTitle} />
       )}
@@ -245,12 +248,18 @@ export function GroupedTasks({
               title={group.title}
               count={group.tasks.length}
             >
-              <TaskTree tasks={group.tasks} showList={showList && grouping !== 'list'} />
+              <TaskTree
+                tasks={group.tasks}
+                showList={showList && grouping !== 'list'}
+                dragZone={groupZone(group.key)}
+              />
             </GroupSection>
           ))
-        : open.length > 0 && <TaskTree tasks={open} showList={showList} />}
+        : open.length > 0 && (
+            <TaskTree tasks={open} showList={showList} dragZone={{ group: null }} />
+          )}
       <CompletedGroup tasks={closed} showList={showList} />
-    </>
+    </TaskDragProvider>
   );
 }
 

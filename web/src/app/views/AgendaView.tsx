@@ -22,6 +22,7 @@ import { dayTitle, hasOwnDate } from './dayLabels.ts';
 import { GroupSection } from './GroupSection.tsx';
 import { PinnedGroup, PostponeButton } from './groups.tsx';
 import { WeekStrip } from './WeekStrip.tsx';
+import { TaskDragProvider } from '../tasks/drag/TaskDrag.tsx';
 
 /** Days loaded at first, and how many more each time the end comes near. */
 const DAYS = 14;
@@ -275,73 +276,80 @@ export function AgendaView({
           />
         </Popover>
 
-        <PinnedGroup tasks={pinned} showList />
-        {late.length > 0 && (
-          <GroupSection
-            groupKey="overdue"
-            title={t('group.overdue')}
-            count={late.length}
-            actions={<PostponeButton tasks={late} today={today} />}
-          >
-            <TaskTree tasks={late} showList ownPlace={hasOwnDate} />
-          </GroupSection>
-        )}
-        {days.map((day) => {
-          const tasks = sorted(pinnedFirst(day.tasks).rest, sort);
-          const title = dayTitle(day.date, today);
-          return (
-            <Box
-              key={day.date}
-              id={`agenda-${day.date}`}
-              data-agenda-day={day.date}
-              sx={{ scrollMarginTop: 180 }}
+        <TaskDragProvider>
+          <PinnedGroup tasks={pinned} showList />
+          {late.length > 0 && (
+            <GroupSection
+              groupKey="overdue"
+              title={t('group.overdue')}
+              count={late.length}
+              actions={<PostponeButton tasks={late} today={today} />}
             >
-              <GroupSection
-                groupKey={
-                  day.date === today
-                    ? 'today'
-                    : day.date === addDays(today, 1)
-                      ? 'tomorrow'
-                      : `day:${day.date}`
-                }
-                title={title}
-                count={tasks.length}
-                actions={
-                  <Tooltip title={t('agenda.addTo', { day: title })}>
-                    <IconButton
-                      size="small"
-                      aria-label={t('agenda.addTo', { day: title })}
-                      aria-pressed={adding === day.date}
-                      onClick={() => setAdding(adding === day.date ? null : day.date)}
-                    >
-                      <AddRounded fontSize="small" />
-                    </IconButton>
-                  </Tooltip>
-                }
+              <TaskTree tasks={late} showList ownPlace={hasOwnDate} dragZone={{ group: null }} />
+            </GroupSection>
+          )}
+          {days.map((day) => {
+            const tasks = sorted(pinnedFirst(day.tasks).rest, sort);
+            const title = dayTitle(day.date, today);
+            return (
+              <Box
+                key={day.date}
+                id={`agenda-${day.date}`}
+                data-agenda-day={day.date}
+                sx={{ scrollMarginTop: 180 }}
               >
-                {adding === day.date && (
-                  <AddTaskInput
-                    autoFocus
-                    defaults={{
-                      listId: inbox,
-                      schedule: { start: day.date, end: null, allDay: true, timeZone: zone },
-                    }}
-                    label={t('agenda.addTo', { day: title })}
-                  />
-                )}
-                {tasks.length > 0 ? (
-                  <TaskTree tasks={tasks} showList ownPlace={hasOwnDate} />
-                ) : (
-                  adding !== day.date && (
-                    <Typography variant="body2" color="text.disabled" sx={{ px: 1, pb: 0.5 }}>
-                      {t('agenda.nothing')}
-                    </Typography>
-                  )
-                )}
-              </GroupSection>
-            </Box>
-          );
-        })}
+                <GroupSection
+                  groupKey={
+                    day.date === today
+                      ? 'today'
+                      : day.date === addDays(today, 1)
+                        ? 'tomorrow'
+                        : `day:${day.date}`
+                  }
+                  title={title}
+                  count={tasks.length}
+                  actions={
+                    <Tooltip title={t('agenda.addTo', { day: title })}>
+                      <IconButton
+                        size="small"
+                        aria-label={t('agenda.addTo', { day: title })}
+                        aria-pressed={adding === day.date}
+                        onClick={() => setAdding(adding === day.date ? null : day.date)}
+                      >
+                        <AddRounded fontSize="small" />
+                      </IconButton>
+                    </Tooltip>
+                  }
+                >
+                  {adding === day.date && (
+                    <AddTaskInput
+                      autoFocus
+                      defaults={{
+                        listId: inbox,
+                        schedule: { start: day.date, end: null, allDay: true, timeZone: zone },
+                      }}
+                      label={t('agenda.addTo', { day: title })}
+                    />
+                  )}
+                  {tasks.length > 0 ? (
+                    <TaskTree
+                      tasks={tasks}
+                      showList
+                      ownPlace={hasOwnDate}
+                      dragZone={{ group: { kind: 'date', value: day.date } }}
+                    />
+                  ) : (
+                    adding !== day.date && (
+                      <Typography variant="body2" color="text.disabled" sx={{ px: 1, pb: 0.5 }}>
+                        {t('agenda.nothing')}
+                      </Typography>
+                    )
+                  )}
+                </GroupSection>
+              </Box>
+            );
+          })}
+        </TaskDragProvider>
         <Box ref={end} sx={{ textAlign: 'center', py: 2 }}>
           {more && typeof IntersectionObserver === 'undefined' && (
             <Button size="small" onClick={() => setCount(Math.min(MAX_DAYS, count + MORE_DAYS))}>

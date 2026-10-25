@@ -11,6 +11,8 @@ import { createPortal } from 'react-dom';
 import { getEntity } from '../../../core/collections.ts';
 import { projectDrop, type Drop, type DragRow } from '../../../core/taskDrag.ts';
 import { canNestUnder, descendants, moveTask } from '../../../core/tasks.ts';
+import { dropIntoGroup, type GroupTarget } from '../../../core/groupDrop.ts';
+import { localTimeZone } from '../../../core/dates.ts';
 import type { Id, Task } from '../../../core/types.ts';
 import { t } from '../../i18n/i18n.ts';
 import { listName } from '../../lists/listName.ts';
@@ -35,6 +37,23 @@ interface Active {
   hidden: Set<Id>;
   x: number;
   y: number;
+  /** The group it was dragged out of, if its rows stand for one */
+  from?: GroupTarget;
+  /** Where its row was, for the card that follows the finger */
+  row: { left: number; width: number; height: number; grab: number };
+}
+
+type Landing = (Drop & { listId: Id; onto?: Id }) | { group: GroupTarget };
+
+/** The group a zone stands for: null for a list's own order, or a zone that takes no drops. */
+function groupOf(zone: Element): GroupTarget | null {
+  const { dropKind, dropValue, dropUntil } = (zone as HTMLElement).dataset;
+  if (!dropKind || dropKind === 'none' || dropValue === undefined) return null;
+  return {
+    kind: dropKind as GroupTarget['kind'],
+    value: dropValue,
+    ...(dropUntil ? { until: dropUntil } : {}),
+  };
 }
 
 const EMPTY = new Set<Id>();
@@ -55,6 +74,8 @@ function zoneAt(root: Element, y: number): HTMLElement | null {
   let best: HTMLElement | null = null;
   let distance = Infinity;
   for (const zone of root.querySelectorAll<HTMLElement>('[data-drag-zone]')) {
+    // Rows there drag out, nothing drops in.
+    if (zone.dataset.dropKind === 'none') continue;
     const box = zone.getBoundingClientRect();
     const away = y < box.top ? box.top - y : y > box.bottom ? y - box.bottom : 0;
     if (away < distance) {
@@ -69,7 +90,14 @@ function zoneAt(root: Element, y: number): HTMLElement | null {
  * Lets the task rows inside drag: up and down to reorder, right to nest under
  * the task above, left to outdent, or onto a list in the sidebar to move it there.
  */
-export function TaskDragProvider({ children }: { children: ReactNode }) {
+export function TaskDragProvider({
+  children,
+  onReorder,
+}: {
+  children: ReactNode;
+  /** After a task is put in a new place in a list's order (a list sorted otherwise switches to it) */
+  onReorder?: () => void;
+}) {
   const workspace = useWorkspace();
   const apply = useApply();
   const root = useRef<HTMLDivElement | null>(null);
@@ -77,7 +105,11 @@ export function TaskDragProvider({ children }: { children: ReactNode }) {
   const [line, setLine] = useState<Line | null>(null);
   const [onto, setOnto] = useState<DOMRect | null>(null);
   const [pointer, setPointer] = useState<{ x: number; y: number } | null>(null);
-  const drop = useRef<(Drop & { listId: Id; onto?: Id }) | null>(null);
+  const drop = useRef<Landing | null>(null);
+  const reordered = useRef(onReorder);
+  useEffect(() => {
+    reordered.current = onReorder;
+  });
   const hoverList = useRef<HTMLElement | null>(null);
   const swallowClick = useRef(false);
   // Latest workspace for the window listeners.
@@ -106,6 +138,22 @@ export function TaskDragProvider({ children }: { children: ReactNode }) {
     const zone = zoneAt(root.current, y);
     if (!zone) return;
     const rows = zoneRows(zone, current.hidden);
+    const group = groupOf(zone);
+    if (group) {
+      // A group: the task takes its value; the line shows the group it goes into.
+      setOnto(null);
+      const index = rows.filter((row) => row.box.top + row.box.height / 2 < y).length;
+      const zoneBox = zone.getBoundingClientRect();
+      const top =
+        index < rows.length
+          ? rows[index]!.box.top
+          : rows.length > 0
+            ? rows[rows.length - 1]!.box.bottom
+            : zoneBox.top + 2;
+      drop.current = { group };
+      setLine({ top, left: zoneBox.left + 8, width: Math.max(40, zoneBox.width - 16) });
+      return;
+    }
     // Over the middle of a row that can take it: onto that task, as its last subtask.
     const over = rows.find(
       (row) =>
@@ -167,6 +215,12 @@ export function TaskDragProvider({ children }: { children: ReactNode }) {
           (ctx, ws) => moveTask(ctx, ws, current.id, { listId: listTarget, parentId: null }),
           t('undo.movedTo', { list: list ? listName(list, latest.current) : '' }),
         );
+      } else if (landing && 'group' in landing) {
+        apply(
+          (ctx, ws) =>
+            dropIntoGroup(ctx, ws, current.id, landing.group, current.from, localTimeZone()),
+          t('undo.moved'),
+        );
       } else if (landing?.onto) {
         const parent = getEntity(latest.current, 'tasks', landing.onto);
         apply(
@@ -175,6 +229,7 @@ export function TaskDragProvider({ children }: { children: ReactNode }) {
         );
       } else if (landing) {
         apply((ctx, ws) => moveTask(ctx, ws, current.id, landing.target), t('undo.moved'));
+        reordered.current?.();
       }
     },
     [apply],
@@ -214,13 +269,25 @@ export function TaskDragProvider({ children }: { children: ReactNode }) {
     };
   }, [active, track, finish]);
 
-  const begin = useCallback((task: Task, depth: number, x: number, y: number) => {
+  const begin = useCallback((task: Task, depth: number, x: number, y: number, source: Element) => {
     const hidden = new Set<Id>([
       task.id,
       ...descendants(latest.current, task.id).map((each) => each.id),
     ]);
     swallowClick.current = true;
-    const current = { id: task.id, title: task.title || t('task.untitled'), depth, hidden, x, y };
+    const rowBox = (source.closest('[data-drag-row]') ?? source).getBoundingClientRect();
+    const zone = source.closest('[data-drag-zone]');
+    const from = zone ? groupOf(zone) : null;
+    const current: Active = {
+      id: task.id,
+      title: task.title || t('task.untitled'),
+      depth,
+      hidden,
+      x,
+      y,
+      ...(from ? { from } : {}),
+      row: { left: rowBox.left, width: rowBox.width, height: rowBox.height, grab: y - rowBox.top },
+    };
     setActive(current);
     return current;
   }, []);
@@ -233,6 +300,7 @@ export function TaskDragProvider({ children }: { children: ReactNode }) {
           if (event.button !== 0 || active) return;
           const startX = event.clientX;
           const startY = event.clientY;
+          const source = event.currentTarget;
           const touch = event.pointerType === 'touch';
           let armed = !touch;
           let started = false;
@@ -264,7 +332,7 @@ export function TaskDragProvider({ children }: { children: ReactNode }) {
             }
             started = true;
             cleanup();
-            track(begin(task, depth, startX, startY), moved.clientX, moved.clientY);
+            track(begin(task, depth, startX, startY, source), moved.clientX, moved.clientY);
           };
           const up = () => {
             cleanup();
@@ -345,22 +413,29 @@ export function TaskDragProvider({ children }: { children: ReactNode }) {
               />
             )}
             {pointer && (
+              // The card itself rides up and down with the finger, where it was grabbed.
               <Paper
                 aria-hidden
-                elevation={4}
+                data-testid="drag-card"
+                elevation={8}
                 sx={{
                   position: 'fixed',
-                  top: pointer.y + 10,
-                  left: pointer.x + 12,
-                  px: 1.25,
-                  py: 0.5,
-                  maxWidth: 260,
+                  top: pointer.y - active.row.grab,
+                  left: active.row.left,
+                  width: active.row.width,
+                  minHeight: active.row.height,
+                  px: 2,
+                  display: 'flex',
+                  alignItems: 'center',
                   borderRadius: 2,
+                  border: 1,
+                  borderColor: 'primary.main',
+                  opacity: 0.95,
                   pointerEvents: 'none',
                   zIndex: (theme) => theme.zIndex.tooltip,
                 }}
               >
-                <Typography variant="body2" noWrap>
+                <Typography variant="body2" noWrap sx={{ fontWeight: 600 }}>
                   {active.title}
                 </Typography>
               </Paper>

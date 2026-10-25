@@ -79,18 +79,23 @@ export function GroupSection({
             sx={{ p: 0.5, ml: -0.5 }}
           />
         )}
-        <Typography component="h2" variant="subtitle2" sx={{ flexGrow: 1, m: 0 }}>
+        <Typography component="h2" variant="subtitle2" sx={{ flexGrow: 1, minWidth: 0, m: 0 }}>
           <ButtonBase
             onClick={toggle}
             aria-expanded={open}
             aria-label={count === undefined ? title : `${title} ${count}`}
+            // The whole header row (bar its buttons) folds it: easy to hit one-handed.
             sx={{
+              width: '100%',
+              justifyContent: 'flex-start',
               gap: 0.5,
               py: 0.5,
               pr: 1,
+              minHeight: { xs: 40, sm: 32 },
               borderRadius: 1,
               fontWeight: 600,
               typography: 'subtitle2',
+              '&:hover': { bgcolor: 'action.hover' },
             }}
           >
             <ExpandMoreRounded
