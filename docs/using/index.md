@@ -133,20 +133,23 @@ Two views, switched at the top right:
 
 - **Month**: the weeks run on without breaks, scrolling a week at a time, so the next weeks are
   always in sight at the end of a month. Each day lists its tasks as short lines (time first for
-  timed ones, an hourglass for a due date), then **+N more**. Pick 4, 5 or 6 weeks on screen.
+  timed ones, an hourglass for a due date), then **+N more**. Pick 4, 5 or 6 weeks on screen
+  with the round number button.
   Click a day (or its **+N more**) for everything on it and a field to add to it. Drag across
   several days, or swipe across them on a phone, to **Show these days** or make a **New task over
   these days**.
-- **Days**: 1 to 14 days side by side on a time grid (the slider: a day, three, a week, two),
-  with an all-day row on top. Pinch, or hold Ctrl and use the wheel, to make hours taller or
+- **Days**: 1 to 14 days side by side on a time grid, with an all-day row on top. The round
+  number button by the view switch picks how many: press and hold it, run your finger round the
+  dial that opens (the number under it rings and grows, and the days follow as you go), and let
+  go to keep it. A tap opens the dial to tap a number; with the keyboard, the arrow keys step it. Pinch, or hold Ctrl and use the wheel, to make hours taller or
   shorter. Click an empty time to add a task there. On a phone, swipe sideways to page.
 
 Drag a task to move it to another day or time, by finger or mouse; the calendar scrolls by its
 dates and empty space. In Days, pull the grip at a task's top or bottom edge to change when it
 starts or ends; on a phone, hold a task still for a moment to get big grips above and below it
 (easy to hit on a short task), and tap elsewhere when done. While you drag or stretch a task,
-a label above it shows its start (and end) time, and a dashed outline shows where it will land. Phones show no scrollbars in the
-calendar: swipe to scroll. Drag tasks from **Unscheduled** onto a day (all day) or a
+a label above it shows its start (and end) time, and a dashed outline shows where it will land.
+Phones show no scrollbars in the calendar: swipe to scroll. Drag tasks from **Unscheduled** onto a day (all day) or a
 time. A task dropped on a month day keeps its time. The list button at the top opens Upcoming,
 the agenda. Each device remembers the view, days, weeks and hour height.
 

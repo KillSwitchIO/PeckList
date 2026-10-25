@@ -71,13 +71,21 @@ describe('calendar', () => {
     await calendarWith();
     const modes = await screen.findByRole('group', { name: 'Calendar view' });
     await userEvent.click(within(modes).getByRole('button', { name: 'Days' }));
-    expect(screen.getByRole('slider', { name: 'Days shown' })).toHaveValue('7');
+    const dial = screen.getByRole('slider', { name: 'Days shown' });
+    expect(dial).toHaveAttribute('aria-valuenow', '7');
     expect(
       screen
         .getAllByRole('group', { name: /./ })
         .filter((each) => each.hasAttribute('data-cal-slots')),
     ).toHaveLength(7);
-    fireEvent.change(screen.getByRole('slider', { name: 'Days shown' }), { target: { value: 3 } });
+    dial.focus();
+    await userEvent.keyboard('{ArrowDown}{ArrowDown}{ArrowDown}{ArrowDown}');
+    expect(dial).toHaveAttribute('aria-valuenow', '3');
+    expect(
+      screen
+        .getAllByRole('group', { name: /./ })
+        .filter((each) => each.hasAttribute('data-cal-slots')),
+    ).toHaveLength(3);
     expect(JSON.parse(localStorage.getItem('punchlist.calendar')!)).toMatchObject({
       mode: 'days',
       days: 3,
@@ -89,10 +97,48 @@ describe('calendar', () => {
     expect(screen.getByRole('heading', { level: 2 }).textContent).toBe(title);
   });
 
+  it('picks days on a dial: hold, run round it, and the columns follow before letting go', async () => {
+    await calendarWith();
+    const modes = await screen.findByRole('group', { name: 'Calendar view' });
+    await userEvent.click(within(modes).getByRole('button', { name: 'Days' }));
+    const dial = screen.getByRole('slider', { name: 'Days shown' });
+    const columns = () =>
+      screen
+        .getAllByRole('group', { name: /./ })
+        .filter((each) => each.hasAttribute('data-cal-slots')).length;
+    // The button sits at 0,0 here, so the open dial is kept on screen with its middle at 132,132:
+    // 1 is down and left of the middle, 14 down and right.
+    const touch = { pointerType: 'touch', pointerId: 7 };
+    fireEvent.pointerDown(dial, { clientX: 0, clientY: 0, button: 0, ...touch });
+    expect(dial).toHaveAttribute('aria-expanded', 'true');
+    fireEvent.pointerMove(window, { clientX: 66, clientY: 198, ...touch });
+    expect(dial).toHaveAttribute('aria-valuenow', '1');
+    expect(columns()).toBe(1);
+    fireEvent.pointerMove(window, { clientX: 198, clientY: 198, ...touch });
+    expect(columns()).toBe(14);
+    fireEvent.pointerUp(window, { clientX: 198, clientY: 198, ...touch });
+    expect(dial).toHaveAttribute('aria-expanded', 'false');
+    expect(dial).toHaveAttribute('aria-valuenow', '14');
+    expect(JSON.parse(localStorage.getItem('punchlist.calendar')!)).toMatchObject({ days: 14 });
+
+    // A tap leaves it open to tap a number.
+    fireEvent.pointerDown(dial, { clientX: 0, clientY: 0, button: 0, ...touch });
+    fireEvent.pointerUp(window, { clientX: 0, clientY: 0, ...touch });
+    expect(dial).toHaveAttribute('aria-expanded', 'true');
+    const dialog = document.querySelector('[data-number-dial]')!;
+    fireEvent.pointerDown(dialog, { clientX: 66, clientY: 198, button: 0, ...touch, pointerId: 8 });
+    fireEvent.pointerUp(window, { clientX: 66, clientY: 198, ...touch, pointerId: 8 });
+    expect(dial).toHaveAttribute('aria-valuenow', '1');
+    expect(dial).toHaveAttribute('aria-expanded', 'false');
+  });
+
   it('takes the old Week and Day choices over as Days', async () => {
     localStorage.setItem('punchlist.calendar.mode', 'week');
     await calendarWith();
-    expect(await screen.findByRole('slider', { name: 'Days shown' })).toHaveValue('7');
+    expect(await screen.findByRole('slider', { name: 'Days shown' })).toHaveAttribute(
+      'aria-valuenow',
+      '7',
+    );
   });
 
   it('opens a task from the month, and a day to add to it', async () => {
@@ -298,6 +344,9 @@ describe('calendar', () => {
     fireEvent.pointerMove(window, { clientX: 200, clientY: 5, pointerId: 2 });
     fireEvent.pointerUp(window, { clientX: 200, clientY: 5, pointerId: 2 });
     await userEvent.click(await screen.findByRole('menuitem', { name: 'Show these 3 days' }));
-    expect(screen.getByRole('slider', { name: 'Days shown' })).toHaveValue('3');
+    expect(screen.getByRole('slider', { name: 'Days shown' })).toHaveAttribute(
+      'aria-valuenow',
+      '3',
+    );
   });
 });

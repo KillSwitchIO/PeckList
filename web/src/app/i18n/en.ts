@@ -15,6 +15,8 @@ export const en = {
   'calendar.days': 'Days',
   'calendar.daysShown': 'Days shown',
   'calendar.weeksShown': 'Weeks shown',
+  'calendar.oneDay': '1 day',
+  'calendar.dayCount': '{count} days',
   'calendar.weeks': '{count} weeks',
   'calendar.agenda': 'Agenda (Upcoming)',
   'calendar.more': '+{count} more',
