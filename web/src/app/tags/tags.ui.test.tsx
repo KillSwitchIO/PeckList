@@ -109,7 +109,7 @@ describe('tag view', () => {
   it('renames a tag and deletes it with undo', async () => {
     await renderSeeded('/today');
     await userEvent.click(within(tagNav()).getByRole('button', { name: /^home/ }));
-    await userEvent.click(await screen.findByRole('button', { name: 'More actions' }));
+    await userEvent.click(await screen.findByRole('button', { name: 'View options' }));
     await userEvent.click(screen.getByRole('menuitem', { name: 'Edit tag' }));
     const name = within(screen.getByRole('dialog')).getByLabelText('Name');
     await userEvent.clear(name);
@@ -117,7 +117,7 @@ describe('tag view', () => {
     expect(await screen.findByRole('heading', { level: 1, name: 'house' })).toBeInTheDocument();
     expect(within(tagNav()).getByText('yard')).toBeInTheDocument();
 
-    await userEvent.click(screen.getByRole('button', { name: 'More actions' }));
+    await userEvent.click(screen.getByRole('button', { name: 'View options' }));
     await userEvent.click(screen.getByRole('menuitem', { name: 'Delete tag' }));
     await userEvent.click(
       within(screen.getByRole('dialog')).getByRole('button', { name: 'Delete' }),
