@@ -68,6 +68,13 @@ export const emptyPlan = (source: InterchangeSource): ImportPlan => ({
   notes: {},
 });
 
+/** RRULE text without Punchlist's own parts (X-PL-...), for another app. */
+export const plainRule = (rule: string) =>
+  rule
+    .replace(/^RRULE:/i, '')
+    .replace(/;?X-PL-[^;]*/g, '')
+    .replace(/^;/, '');
+
 /** Priorities 0 (none) to 3 (high). */
 export const clampPriority = (value: number): Priority =>
   Math.max(0, Math.min(3, Math.round(value))) as Priority;

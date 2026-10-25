@@ -1,18 +1,24 @@
 // Adding an imported plan to the workspace (spec: PL-063), as one change: lists (new ones, or the
 // ones of the same name when asked), tags found or made by name, then tasks parents first, each
-// in its list's order, closed ones closed as they were.
+// in its list's order, closed ones closed as they were. Replacing first moves what I have to the
+// Trash (my lists, the Mess Drawer's tasks, my tags; shared lists of others stay), in the same
+// change, so one undo brings it all back.
 
 import { COLOR_FAMILIES } from '../palette.ts';
-import { createList, inboxList } from '../lists.ts';
+import { isLive } from '../collections.ts';
+import { createList, deleteList, inboxList } from '../lists.ts';
+import { myRole } from '../sharing.ts';
 import type { OpContext } from '../ops.ts';
 import { parseRule } from '../recurrence.ts';
-import { createTag, findTagByName } from '../tags.ts';
-import { createTask, MAX_SUBTASK_DEPTH, updateTask } from '../tasks.ts';
+import { createTag, deleteTag, findTagByName } from '../tags.ts';
+import { createTask, deleteTask, MAX_SUBTASK_DEPTH, updateTask } from '../tasks.ts';
 import type { Id, WorkspaceFile } from '../types.ts';
 import type { ImportedTask, ImportNote, ImportPlan } from './model.ts';
 
 export interface ImportOptions {
-  /** Lists named like one already here go into it, rather than a new list beside it */
+  /** Add to what is here, or put what is here in the Trash first */
+  mode?: 'merge' | 'replace';
+  /** Merging: lists named like one already here go into it, rather than a new list beside it */
   intoSameNamed: boolean;
 }
 
@@ -21,6 +27,43 @@ export interface ImportOutcome {
   lists: number;
   tasks: number;
   tags: number;
+  /** What replacing put in the Trash */
+  trashed: { lists: number; tasks: number; tags: number };
+}
+
+/** What replacing would put in the Trash: my lists (with their tasks), the Mess Drawer's, my tags. */
+export function replaceable(workspace: WorkspaceFile, me: Id) {
+  const lists = workspace.entities.lists.filter(
+    (list) => isLive(list) && !list.isInbox && myRole(workspace, me, list.id) === 'owner',
+  );
+  const listIds = new Set(lists.map((list) => list.id));
+  const inbox = inboxList(workspace).id;
+  const tasks = workspace.entities.tasks.filter(
+    (task) => isLive(task) && (listIds.has(task.listId) || task.listId === inbox),
+  );
+  const tags = workspace.entities.tags.filter((tag) => isLive(tag) && tag.createdBy === me);
+  return { lists, tasks, tags };
+}
+
+/** Everything replaceable() names, in the Trash. */
+function trashMine(ctx: OpContext, workspace: WorkspaceFile) {
+  const doomed = replaceable(workspace, ctx.userId);
+  let ws = workspace;
+  for (const list of doomed.lists) ws = deleteList(ctx, ws, list.id);
+  const inbox = inboxList(ws).id;
+  for (const task of ws.entities.tasks.filter(
+    (each) => isLive(each) && each.listId === inbox && each.parentId === null,
+  )) {
+    ws = deleteTask(ctx, ws, task.id);
+  }
+  for (const tag of doomed.tags) {
+    const current = ws.entities.tags.find((each) => each.id === tag.id);
+    if (current && isLive(current)) ws = deleteTag(ctx, ws, tag.id);
+  }
+  return {
+    workspace: ws,
+    trashed: { lists: doomed.lists.length, tasks: doomed.tasks.length, tags: doomed.tags.length },
+  };
 }
 
 /** A color for a new list: the families' middle tones, in turn. */
@@ -53,7 +96,9 @@ export function applyImport(
   plan: ImportPlan,
   options: ImportOptions,
 ): ImportOutcome {
-  let ws = workspace;
+  const replacing = options.mode === 'replace';
+  const cleared = replacing ? trashMine(ctx, workspace) : null;
+  let ws = cleared?.workspace ?? workspace;
   let lists = 0;
   let tags = 0;
   const listIds = new Map<string, Id>();
@@ -63,9 +108,10 @@ export function applyImport(
       listIds.set(each.key, inboxList(ws).id);
       return;
     }
-    const same = options.intoSameNamed
-      ? existing.find((list) => list.name.trim().toLowerCase() === each.name.trim().toLowerCase())
-      : undefined;
+    const same =
+      options.intoSameNamed && !replacing
+        ? existing.find((list) => list.name.trim().toLowerCase() === each.name.trim().toLowerCase())
+        : undefined;
     if (same) {
       listIds.set(each.key, same.id);
       return;
@@ -138,7 +184,13 @@ export function applyImport(
       });
     }
   }
-  return { workspace: ws, lists, tasks: taskIds.size, tags };
+  return {
+    workspace: ws,
+    lists,
+    tasks: taskIds.size,
+    tags,
+    trashed: cleared?.trashed ?? { lists: 0, tasks: 0, tags: 0 },
+  };
 }
 
 /** What a plan holds, for the preview: lists, tasks (open and closed), tag names, and notes. */

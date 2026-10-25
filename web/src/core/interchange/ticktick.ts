@@ -11,7 +11,8 @@ import { datePart, instantOf, localDateTimeOf, timePart } from '../dates.ts';
 import { members } from '../ops.ts';
 import type { Priority, Reminder, Schedule, Task, WorkspaceFile } from '../types.ts';
 import { parseCsv, recordsOf, toCsv } from './csv.ts';
-import { emptyPlan, note, type ImportedTask, type ImportPlan } from './model.ts';
+import { emptyPlan, note, plainRule, type ImportedTask, type ImportPlan } from './model.ts';
+import { exportName, walkTasks } from './walk.ts';
 
 const FROM_TICKTICK: Record<string, Priority> = { '0': 0, '1': 1, '3': 2, '5': 3 };
 const TO_TICKTICK: Record<Priority, string> = { 0: '0', 1: '1', 2: '3', 3: '5' };
@@ -86,6 +87,7 @@ export function parseTickTick(text: string, options: TickTickOptions): ImportPla
   const records = recordsOf(parseCsv(text), (row) => row[0]?.trim() === 'Folder Name');
   const lists = new Map<string, { key: string; name: string; inbox: boolean }>();
   let folders = false;
+  const columns = new Set<string>();
   const tasks: (ImportedTask & { order: bigint })[] = [];
   for (const row of records) {
     const listName = row['List Name']?.trim() || 'Inbox';
@@ -97,6 +99,9 @@ export function parseTickTick(text: string, options: TickTickOptions): ImportPla
       });
     }
     if (row['Folder Name']?.trim()) folders = true;
+    // Kanban columns: Punchlist has no sections (PL-011).
+    const column = row['Column Name']?.trim();
+    if (column) columns.add(JSON.stringify([listName, column]));
     if (row.projectKind === 'NOTE' || row.Kind === 'NOTE') note(plan, 'notesAsTasks');
     const zone = row.Timezone?.trim() || options.timeZone;
     const allDay = row['Is All Day']?.trim().toLowerCase() === 'true';
@@ -190,6 +195,7 @@ export function parseTickTick(text: string, options: TickTickOptions): ImportPla
     });
   }
   if (folders) note(plan, 'foldersDropped');
+  if (columns.size) note(plan, 'sectionsDropped', columns.size);
   plan.lists = [...lists.values()];
   // TickTick's order: smaller first, within each list and parent.
   plan.tasks = tasks
@@ -244,19 +250,14 @@ export function exportTickTick(
   options: { listIds?: readonly string[]; now?: Date } = {},
 ): string {
   const now = options.now ?? new Date();
-  const lists = new Map(workspace.entities.lists.map((list) => [list.id, list]));
   const tagNames = new Map(workspace.entities.tags.map((tag) => [tag.id, tag.name]));
-  const wanted = options.listIds ? new Set(options.listIds) : null;
-  const tasks = workspace.entities.tasks.filter(
-    (task) => !task.deletedAt && (!wanted || wanted.has(task.listId)),
-  );
-  const ids = new Map(tasks.map((task, index) => [task.id, String(index + 1)]));
+  const walked = walkTasks(workspace, options.listIds);
+  const ids = new Map(walked.map(({ task }, index) => [task.id, String(index + 1)]));
   const at = (task: Task, value: string) => {
     const zone = task.schedule?.timeZone ?? 'UTC';
     return tickInstant(instantOf(datePart(value), timePart(value) ?? '00:00', zone));
   };
-  const rows = tasks.map((task, index) => {
-    const list = lists.get(task.listId);
+  const rows = walked.map(({ list, task }, index) => {
     const allDay = task.schedule
       ? task.schedule.allDay || timePart(task.schedule.start) === null
       : false;
@@ -283,7 +284,7 @@ export function exportTickTick(
     };
     return [
       '',
-      list ? (list.isInbox ? 'Inbox' : list.name) : 'Inbox',
+      exportName(list),
       task.title,
       'TEXT',
       members(task.tags)
@@ -299,7 +300,7 @@ export function exportTickTick(
         .map((each) => (each ? reminderTo(each, allDay) : null))
         .filter(Boolean)
         .join('\n'),
-      task.recurrence ? `RRULE:${task.recurrence}` : '',
+      task.recurrence ? `RRULE:${plainRule(task.recurrence)}` : '',
       TO_TICKTICK[task.priority],
       task.status === 'done' ? '2' : task.status === 'wontdo' ? '-1' : '0',
       tickInstant(task.createdAt),
