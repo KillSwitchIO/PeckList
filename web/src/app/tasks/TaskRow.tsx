@@ -6,7 +6,7 @@ import RepeatRounded from '@mui/icons-material/RepeatRounded';
 import ChevronRightRounded from '@mui/icons-material/ChevronRightRounded';
 import SubdirectoryArrowRightRounded from '@mui/icons-material/SubdirectoryArrowRightRounded';
 import { Box, ButtonBase, Checkbox, IconButton, Typography, useTheme } from '@mui/material';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { getEntity } from '../../core/collections.ts';
 import { subtaskProgress } from '../../core/queries.ts';
 import { assigneesOf, describePrincipal } from '../../core/sharing.ts';
@@ -184,7 +184,26 @@ export function TaskRow({
   const [moving, setMoving] = useState(false);
   // A hold on the row starts picking where the page picks (Due dates); the menu is the checkbox's.
   const longPress = useLongPress(() => onHold?.());
-  const checkboxHold = useLongPress((position) => setMenu({ position }));
+  const checkboxHold = useLongPress((position) => {
+    // Until the finger lifts (and a moment after), closing is the lift's click, not a choice.
+    heldOpen.current = Infinity;
+    window.addEventListener(
+      'pointerup',
+      () => {
+        heldOpen.current = performance.now();
+      },
+      { once: true, capture: true },
+    );
+    setMenu({ position });
+  });
+  // A menu a hold opened ignores the click that lifting the finger sends onto its backdrop.
+  const heldOpen = useRef(0);
+  const closeMenu = () => {
+    if (performance.now() - heldOpen.current < 400) return;
+    setMenu(null);
+  };
+  // What last pressed the row: a finger's long press is not a right click.
+  const pointerKind = useRef('mouse');
   const canEdit = useCanEditTask(task);
   const apply = useApply();
   const drag = useTaskDrag();
@@ -368,8 +387,14 @@ export function TaskRow({
         }}
       >
         <Box
+          // A right click opens the menu. A phone sends this on any long press too: there it is
+          // the drag's (or the checkbox's) to handle, so no menu from the row.
+          onPointerDownCapture={(event) => {
+            pointerKind.current = event.pointerType;
+          }}
           onContextMenu={(event) => {
             event.preventDefault();
+            if (pointerKind.current === 'touch' || pointerKind.current === 'pen') return;
             setMenu({ position: { top: event.clientY, left: event.clientX } });
           }}
           // A draggable row's own gesture covers the touch long-press (menu, or drag on moving).
@@ -505,7 +530,7 @@ export function TaskRow({
               <DateButton task={task} width={DATE_COLUMN} dueFirst={dueFirst} />
             </>
           )}
-          <TaskMenu task={task} anchor={menu} onClose={() => setMenu(null)} showOpen />
+          <TaskMenu task={task} anchor={menu} onClose={closeMenu} showOpen />
         </Box>
       </SwipeRow>
       <TaskDateSheet

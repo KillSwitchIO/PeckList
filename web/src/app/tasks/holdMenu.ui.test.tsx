@@ -39,6 +39,8 @@ describe('holding a task', () => {
     const row = await screen.findByRole('button', { name: 'Open Sweep' });
     vi.useFakeTimers();
     hold(row);
+    // A phone sends a context menu event on a long press too: still no menu from the row.
+    fireEvent.contextMenu(row, { clientX: 20, clientY: 20 });
     expect(screen.queryByRole('menu')).toBeNull();
     hold(screen.getByRole('checkbox', { name: 'Complete Sweep' }));
     vi.useRealTimers();
