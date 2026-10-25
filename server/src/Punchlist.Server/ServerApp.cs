@@ -132,7 +132,7 @@ public static partial class ServerApp
         app.MapGet("/api/info", (LiveSettings live) =>
             new ServerInfo("punchlist", Version, WorkspaceSchema.CurrentVersion, TimeZoneInfo.Local.Id, live.Current.AttachmentMaxMb));
         app.MapAuth();
-        app.MapGroup("/api").RequireAuthorization().RequirePasswordChanged().EnsureProfiles().MapSync().MapFriends().MapAccount().MapAttachments().MapNotifications().MapPush().MapProviderPicture();
+        app.MapGroup("/api").RequireAuthorization().RequirePasswordChanged().EnsureProfiles().MapSync().MapFriends().MapAccount().MapAttachments().MapNotifications().MapPush().MapProviderPicture().MapAppCheck();
         app.MapGroup("/api/admin").RequireAuthorization().RequirePasswordChanged().MapAdmin().MapSettings().MapBackups().MapLogging().MapAudit().MapStats().MapSetup();
 
         var webRoot = settings.WebRoot ?? Path.Combine(AppContext.BaseDirectory, "wwwroot");

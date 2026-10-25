@@ -1,15 +1,26 @@
-import { act, screen, waitFor, within } from '@testing-library/react';
+import { act, render, screen, waitFor, within } from '@testing-library/react';
+import { MemoryRouter } from 'react-router';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createMemoryStorage } from '../../adapters/memory-storage.ts';
 import { createBrowserPush } from '../../adapters/browser-push.ts';
 import { inboxList } from '../../core/lists.ts';
 import { createTask } from '../../core/tasks.ts';
-import type { BrowserPush, PushSubscriptionData } from '../../ports/notifier.ts';
+import type { BackgroundCheck, NativeShell } from '../../ports/nativeShell.ts';
+import type {
+  BrowserPush,
+  NotificationPermissionState,
+  Notifier,
+  PushSubscriptionData,
+} from '../../ports/notifier.ts';
 import { FakeBackend } from '../../test/fakeTransport.ts';
 import { mockViewport, renderApp, testStore } from '../../test/renderApp.tsx';
 import { logReminder } from '../reminders/reminderLog.ts';
-import { setBrowserPush } from '../reminders/notifier.ts';
+import { BackgroundCheckPrompt } from '../native/BackgroundCheck.tsx';
+import { AppProviders } from '../providers.tsx';
+import { AppRoutes } from '../routes.tsx';
+import { setNativeShell } from '../native/shell.ts';
+import { notifier, setBrowserPush, setNotifier } from '../reminders/notifier.ts';
 import { createSyncEngine } from '../sync/syncEngine.ts';
 
 beforeEach(() => {
@@ -17,7 +28,12 @@ beforeEach(() => {
   vi.unstubAllGlobals();
   mockViewport('desktop');
 });
-afterEach(() => setBrowserPush(createBrowserPush()));
+const browserNotifier = notifier();
+afterEach(() => {
+  setBrowserPush(createBrowserPush());
+  setNativeShell(null);
+  setNotifier(browserNotifier);
+});
 
 function fakePush(supported = true) {
   let current: PushSubscriptionData | null = null;
@@ -118,5 +134,139 @@ describe('notifications with the app closed', () => {
     await act(() => sync.getState().syncNow());
     const list = await screen.findByRole('list', { name: 'Notifications' });
     await waitFor(() => expect(within(list).getAllByRole('listitem')).toHaveLength(1));
+  });
+});
+
+/** The Android shell with the background check-in (api 2), faked. */
+class CheckingShell implements NativeShell {
+  state: BackgroundCheck = {
+    enabled: true,
+    minutes: 5,
+    choices: [5, 15, 30, 60],
+    unrestricted: false,
+    asked: false,
+    maker: 'google',
+  };
+  asks = 0;
+  info() {
+    return Promise.resolve({ api: 2, server: 'https://tasks.example.com', version: '0.1.0' });
+  }
+  checkServer() {
+    return Promise.resolve({ ok: false as const, problem: 'unreachable' as const });
+  }
+  connect() {
+    return Promise.resolve();
+  }
+  disconnect() {
+    return Promise.resolve();
+  }
+  backgroundCheck() {
+    return Promise.resolve({ ...this.state });
+  }
+  setBackgroundCheck(change: { enabled?: boolean; minutes?: number }) {
+    this.state = { ...this.state, ...change };
+    return this.backgroundCheck();
+  }
+  allowBackground() {
+    this.asks++;
+    // As if the person said yes in Android's dialog.
+    this.state = { ...this.state, asked: true, unrestricted: true };
+    return this.backgroundCheck();
+  }
+}
+
+function fakeNotifier(start: NotificationPermissionState) {
+  let permission = start;
+  const fake: Notifier & { requests: number } = {
+    requests: 0,
+    permission: () => permission,
+    request: () => {
+      fake.requests++;
+      permission = 'granted';
+      return Promise.resolve(permission);
+    },
+    show: () => Promise.resolve(),
+  };
+  return fake;
+}
+
+async function signedInWithPrompt(backend: FakeBackend) {
+  const store = testStore();
+  const transport = backend.device();
+  transport.session = 'ben';
+  const sync = createSyncEngine({
+    transport,
+    workspace: store,
+    storage: createMemoryStorage(),
+    debounceMs: 60_000,
+    intervalMs: 600_000,
+  });
+  const result = render(
+    <AppProviders store={store} sync={sync}>
+      <MemoryRouter initialEntries={['/today']}>
+        <AppRoutes />
+        <BackgroundCheckPrompt />
+      </MemoryRouter>
+    </AppProviders>,
+  );
+  await waitFor(() => expect(sync.getState().phase).toBe('ready'));
+  return result;
+}
+
+describe('notifications in the Android app', () => {
+  it('check in with the server in the background: on, every 5 minutes, until changed', async () => {
+    const shell = new CheckingShell();
+    setNativeShell(shell);
+    setNotifier(fakeNotifier('granted'));
+    const backend = new FakeBackend();
+    backend.addAccount('ben', 'correct horse battery');
+    await signedIn('/settings', backend);
+    const section = await screen.findByRole('region', { name: 'Notifications' });
+    const toggle = await within(section).findByRole('switch', {
+      name: 'Check for updates in the background',
+    });
+    expect(toggle).toBeChecked();
+    // No Web Push in the app: its switch is not offered.
+    expect(
+      within(section).queryByRole('switch', { name: 'Notify me when Punchlist is closed' }),
+    ).toBeNull();
+
+    await userEvent.click(within(section).getByRole('combobox', { name: 'Check every' }));
+    await userEvent.click(await screen.findByRole('option', { name: '15 minutes' }));
+    await waitFor(() => expect(shell.state.minutes).toBe(15));
+
+    // Android may still put it to sleep: the app says so, and asks when told to.
+    const asleep = within(section).getByText(/Android may put Punchlist to sleep/);
+    await userEvent.click(
+      within(asleep.closest('[role="alert"]')!).getByRole('button', { name: 'Allow' }),
+    );
+    await waitFor(() =>
+      expect(within(section).queryByText(/Android may put Punchlist to sleep/)).toBeNull(),
+    );
+
+    await userEvent.click(toggle);
+    await waitFor(() => expect(shell.state.enabled).toBe(false));
+    expect(within(section).getByRole('combobox', { name: 'Check every' })).toHaveAttribute(
+      'aria-disabled',
+      'true',
+    );
+  });
+
+  it('asks once, after signing in, to show notifications and run in the background', async () => {
+    const shell = new CheckingShell();
+    setNativeShell(shell);
+    const fake = fakeNotifier('default');
+    setNotifier(fake);
+    const backend = new FakeBackend();
+    backend.addAccount('ben', 'correct horse battery');
+    const first = await signedInWithPrompt(backend);
+    await waitFor(() => expect(shell.asks).toBe(1));
+    expect(fake.requests).toBe(1);
+    first.unmount();
+
+    // Next start: asked already, so Settings is where to change it.
+    await signedInWithPrompt(backend);
+    await act(() => new Promise((done) => setTimeout(done, 50)));
+    expect(shell.asks).toBe(1);
   });
 });

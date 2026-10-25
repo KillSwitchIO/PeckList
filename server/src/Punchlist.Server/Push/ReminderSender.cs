@@ -25,6 +25,13 @@ public sealed class ReminderSender(
     /// <summary>On start, reminders due this long ago still go out (a restart or an update).</summary>
     public static readonly TimeSpan CatchUp = TimeSpan.FromMinutes(5);
 
+    /// <summary>
+    /// A reminder as a person sees it, for the Android app to set ahead. <paramref name="Key"/> is the
+    /// web app's key for it (web/src/core/reminders.ts): taskId@first, and #n on a constant
+    /// reminder's repeats, so the app's alarm ids agree whichever side set them.
+    /// </summary>
+    public sealed record Upcoming(string Key, string Title, string Body, DateTimeOffset At, string Url);
+
     protected override async Task ExecuteAsync(CancellationToken stopping)
     {
         var since = time.GetUtcNow() - CatchUp;
@@ -88,6 +95,36 @@ public sealed class ReminderSender(
                 }
             }
         }
+    }
+
+    /// <summary>
+    /// A person's reminders in (<paramref name="from"/>, <paramref name="to"/>], soonest first.
+    /// <paramref name="deviceZone"/> stands in when they set no time zone.
+    /// </summary>
+    public static IReadOnlyList<Upcoming> UpcomingFor(SharingIndex index, string userId, DateTimeOffset from, DateTimeOffset to, string? deviceZone)
+    {
+        var mine = index.LiveOf("settings")
+            .Select(each => each.Doc)
+            .FirstOrDefault(doc => doc["userId"] is JsonValue owner && owner.TryGetValue<string>(out var id) && id == userId);
+        var zone = mine?["timeZone"] is JsonValue ? ZoneOf(mine)
+            : deviceZone is not null && TimeZoneInfo.TryFindSystemTimeZoneById(deviceZone, out var device) ? device
+            : TimeZoneInfo.Local;
+        var found = new List<Upcoming>();
+        foreach (var (taskId, _, task) in index.LiveOf("tasks"))
+        {
+            if (task["reminders"] is not JsonArray { Count: > 0 } || (string?)task["status"] != "open") continue;
+            if (!ServerReminders.Recipients(task, index).Contains(userId)) continue;
+            var title = (string?)task["title"] is { Length: > 0 } named ? named : "Untitled task";
+            foreach (var (at, first, _) in ServerReminders.Instants(task, zone))
+            {
+                if (at <= from || at > to) continue;
+                var tag = $"{taskId}@{first.ToUnixTimeMilliseconds()}";
+                var again = (int)((at - first) / ServerReminders.ConstantEvery);
+                found.Add(new Upcoming(again == 0 ? tag : $"{tag}#{again}", title,
+                    $"Reminder for {Clock(first, zone, mine)}", at, $"/today?task={taskId}"));
+            }
+        }
+        return [.. found.OrderBy(each => each.At)];
     }
 
     internal static TimeZoneInfo ZoneOf(JsonObject? settings)

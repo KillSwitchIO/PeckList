@@ -88,4 +88,10 @@ describe('the Android notifier', () => {
     expect(idOf('r:abc')).not.toBe(idOf('r:abd'));
     for (const key of ['', 'x', 'r:01JABCDEFG:0']) expect(idOf(key)).toBeGreaterThan(0);
   });
+
+  it('makes the same ids as the background check-in (NativeReminders.idOf, pinned there too)', () => {
+    expect(idOf('T1@1793037600000')).toBe(153274604);
+    expect(idOf('01JBXYZ@1700000000000')).toBe(779024919);
+    expect(idOf('news:01K8ABCDEF')).toBe(798184953);
+  });
 });

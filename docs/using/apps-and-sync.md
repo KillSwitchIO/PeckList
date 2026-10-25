@@ -33,9 +33,13 @@ logins work. After signing in there, tap **Continue** on the "Open Punchlist on 
 page; the tab closes and the app is signed in. Seeing that page without having just tapped a
 sign-in button in the app means something else asked for it: close the tab.
 
-Reminders arrive as Android notifications, on time even with the app closed: the app hands
-Android the next two weeks of them whenever they change, so open the app now and then if you set
-reminders further ahead. The first reminder asks for permission to notify.
+Reminders arrive as Android notifications, on time even with the app closed. With the app closed
+it also checks in with your server every 5 minutes: new shares, assignments and mentions show as
+notifications, and reminders you set or change on another device are set on the phone too. After
+you sign in, the app asks to send notifications and to run in the background; allow both, or the
+checks come late or not at all. **Settings > Notifications** turns the check-in off or makes it
+less frequent (15, 30 or 60 minutes). On a Samsung phone, also add Punchlist to **Never sleeping
+apps** (Settings > Battery > Background usage limits).
 
 Servers with a certificate from your own CA work once that CA is installed on the phone
 (Settings > Security > Encryption & credentials > Install a certificate).

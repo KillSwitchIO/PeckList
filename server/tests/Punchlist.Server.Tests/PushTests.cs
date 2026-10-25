@@ -229,4 +229,72 @@ public sealed class PushTests(ServerFixture fixture) : IClassFixture<ServerFixtu
             Assert.Equal(HttpStatusCode.BadRequest, refused.StatusCode);
         }
     }
+
+    [Fact]
+    public async Task The_app_check_gives_what_is_new_once_and_the_reminders_ahead()
+    {
+        using var server = Server();
+        var (ben, benId) = await SignIn(server, "ben-k");
+        var (_, kimId) = await SignIn(server, "kim-k");
+        // Two days from now on Chicago's clock; Ben set no time zone, so the phone's counts.
+        var chicago = TimeZoneInfo.FindSystemTimeZoneById("America/Chicago");
+        var local = TimeZoneInfo.ConvertTime(DateTimeOffset.UtcNow, chicago).Date.AddDays(2).AddHours(14);
+        var due = new DateTimeOffset(TimeZoneInfo.ConvertTimeToUtc(local, chicago), TimeSpan.Zero);
+        var list = Entity("KL1", benId, new JsonObject { ["name"] = "Home", ["visibility"] = "private" });
+        var task = Entity("KT1", benId, new JsonObject
+        {
+            ["listId"] = "KL1",
+            ["title"] = "Call the plumber",
+            ["parentId"] = null,
+            ["status"] = "open",
+            ["assignees"] = new JsonObject(),
+            ["reminders"] = new JsonArray(new JsonObject { ["at"] = local.ToString("yyyy-MM-dd'T'HH:mm") }),
+        });
+        // A constant reminder a day later: its repeats too, keyed as the app keys them.
+        var nagging = Entity("KT2", benId, new JsonObject
+        {
+            ["listId"] = "KL1",
+            ["title"] = "Take the pills",
+            ["parentId"] = null,
+            ["status"] = "open",
+            ["assignees"] = new JsonObject(),
+            ["constantReminder"] = true,
+            ["reminders"] = new JsonArray(new JsonObject { ["at"] = local.AddDays(1).ToString("yyyy-MM-dd'T'HH:mm") }),
+        });
+        (await ben.PostAsJsonAsync("/api/sync", new
+        {
+            schemaVersion = WorkspaceSchema.CurrentVersion,
+            cursor = (long?)null,
+            changes = new object[]
+            {
+                new { collection = "lists", entity = list },
+                new { collection = "tasks", entity = task },
+                new { collection = "tasks", entity = nagging },
+            },
+        }, Token)).EnsureSuccessStatusCode();
+        var store = server.Services.GetRequiredService<Core.Notifications.INotificationStore>();
+        Core.Notifications.Notification Note(string kind) => new()
+        {
+            Id = Ids.NewUlid(), UserId = benId, Kind = kind, At = DateTimeOffset.UtcNow, ActorId = kimId, ListId = "KL1",
+        };
+        await store.AddAsync([Note("shared")], Token);
+
+        // The first check is only a starting point: what was there before is not news.
+        var first = (await ben.GetFromJsonAsync<AppCheck>("/api/app/check?zone=America/Chicago", Token))!;
+        Assert.Empty(first.Notifications);
+        var reminder = first.Reminders[0];
+        Assert.Equal(($"KT1@{due.ToUnixTimeMilliseconds()}", "Call the plumber", "Reminder for 2:00 PM", "/today?task=KT1"),
+            (reminder.Tag, reminder.Title, reminder.Body, reminder.Url));
+        var tag = $"KT2@{new DateTimeOffset(TimeZoneInfo.ConvertTimeToUtc(local.AddDays(1), chicago), TimeSpan.Zero).ToUnixTimeMilliseconds()}";
+        Assert.Equal([tag, .. Enumerable.Range(1, ServerReminders.ConstantTimes - 1).Select(again => $"{tag}#{again}")],
+            first.Reminders.Skip(1).Select(each => each.Tag));
+        Assert.All(first.Reminders.Skip(1), each => Assert.Equal("Reminder for 2:00 PM", each.Body));
+
+        // A reminder's own notification is left to the alarm set ahead.
+        await store.AddAsync([Note("shared"), Note("reminder")], Token);
+        var next = (await ben.GetFromJsonAsync<AppCheck>($"/api/app/check?after={first.Cursor}", Token))!;
+        var news = Assert.Single(next.Notifications);
+        Assert.Equal(("kim-k shared Home with you", "/lists/KL1"), (news.Body, news.Url));
+        Assert.Empty((await ben.GetFromJsonAsync<AppCheck>($"/api/app/check?after={next.Cursor}", Token))!.Notifications);
+    }
 }

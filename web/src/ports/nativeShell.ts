@@ -20,6 +20,23 @@ export type ServerProblem = 'invalid' | 'unreachable' | 'certificate' | 'not-pun
 export type ServerCheck =
   { ok: true; url: string; info: ServerInfo } | { ok: false; problem: ServerProblem };
 
+/**
+ * The background check-in (api 2): with the app closed, Android wakes it every few minutes to ask
+ * the server what is new and set the reminders ahead. On unless turned off.
+ */
+export interface BackgroundCheck {
+  enabled: boolean;
+  minutes: number;
+  /** The intervals to choose from, in minutes. */
+  choices: number[];
+  /** Whether Android lets the app run in the background (no battery optimization), so checks come on time. */
+  unrestricted: boolean;
+  /** Whether the app has asked for that already (it asks once by itself). */
+  asked: boolean;
+  /** The phone's maker, lowercase ("samsung"): some put apps to sleep on top of Android. */
+  maker: string;
+}
+
 export interface NativeShell {
   info(): Promise<ShellInfo>;
   /** Whether an address is a Punchlist server, and the origin it answers on. */
@@ -28,4 +45,9 @@ export interface NativeShell {
   connect(url: string): Promise<void>;
   /** Run standalone from now on. The app restarts. */
   disconnect(): Promise<void>;
+  /** Api 2 and up (check info().api first). */
+  backgroundCheck(): Promise<BackgroundCheck>;
+  setBackgroundCheck(change: { enabled?: boolean; minutes?: number }): Promise<BackgroundCheck>;
+  /** Android's dialog to let the app run in the background; the state once it closes. */
+  allowBackground(): Promise<BackgroundCheck>;
 }

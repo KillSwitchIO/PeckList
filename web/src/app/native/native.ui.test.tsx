@@ -29,6 +29,16 @@ class FakeShell implements NativeShell {
     this.went.push('standalone');
     return Promise.resolve();
   }
+  // Api 1: a shell from before the background check-in.
+  backgroundCheck(): Promise<never> {
+    return Promise.reject(new Error('not implemented'));
+  }
+  setBackgroundCheck(): Promise<never> {
+    return this.backgroundCheck();
+  }
+  allowBackground(): Promise<never> {
+    return this.backgroundCheck();
+  }
 }
 
 const punchlist = (url: string): ServerCheck => ({

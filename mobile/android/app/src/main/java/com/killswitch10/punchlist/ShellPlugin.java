@@ -1,16 +1,19 @@
 package com.killswitch10.punchlist;
 
+import android.content.ActivityNotFoundException;
 import android.content.Intent;
 import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
 import android.net.Uri;
 import android.os.Build;
+import androidx.activity.result.ActivityResult;
 import androidx.browser.customtabs.CustomTabsIntent;
 import com.getcapacitor.JSObject;
 import com.getcapacitor.Logger;
 import com.getcapacitor.Plugin;
 import com.getcapacitor.PluginCall;
 import com.getcapacitor.PluginMethod;
+import com.getcapacitor.annotation.ActivityCallback;
 import com.getcapacitor.annotation.CapacitorPlugin;
 import org.json.JSONObject;
 import java.util.concurrent.ExecutorService;
@@ -25,7 +28,7 @@ import java.util.concurrent.Executors;
 public class ShellPlugin extends Plugin {
 
     /** Bumped when a method is added; the web app checks it before calling a newer one. */
-    private static final int API = 1;
+    private static final int API = 2;
 
     private final ExecutorService network = Executors.newSingleThreadExecutor();
 
@@ -88,6 +91,7 @@ public class ShellPlugin extends Plugin {
             return;
         }
         ServerChoice.set(getContext(), origin);
+        BackgroundCheck.forgetServer(getContext());
         call.resolve();
         restart();
     }
@@ -96,8 +100,43 @@ public class ShellPlugin extends Plugin {
     @PluginMethod
     public void disconnect(PluginCall call) {
         ServerChoice.clear(getContext());
+        BackgroundCheck.forgetServer(getContext());
         call.resolve();
         restart();
+    }
+
+    /** Api 2: the background check-in (BackgroundCheck): on or off, how often, and whether Android lets it run. */
+    @PluginMethod
+    public void backgroundCheck(PluginCall call) {
+        call.resolve(BackgroundCheck.state(getContext()));
+    }
+
+    /** Api 2: turn the check-in on or off ({@code enabled}), or check every {@code minutes}. */
+    @PluginMethod
+    public void setBackgroundCheck(PluginCall call) {
+        BackgroundCheck.change(getContext(), call.getBoolean("enabled"), call.getInt("minutes"));
+        call.resolve(BackgroundCheck.state(getContext()));
+    }
+
+    /** Api 2: Android's dialog to let Punchlist run in the background; resolves once it closes. */
+    @PluginMethod
+    public void allowBackground(PluginCall call) {
+        BackgroundCheck.markAsked(getContext());
+        if (BackgroundCheck.unrestricted(getContext())) {
+            call.resolve(BackgroundCheck.state(getContext()));
+            return;
+        }
+        try {
+            startActivityForResult(call, BackgroundCheck.askToRunInBackground(getContext()), "backgroundAnswered");
+        } catch (ActivityNotFoundException error) {
+            // Some phones have no such dialog: their battery settings are the only way.
+            call.resolve(BackgroundCheck.state(getContext()));
+        }
+    }
+
+    @ActivityCallback
+    private void backgroundAnswered(PluginCall call, ActivityResult result) {
+        if (call != null) call.resolve(BackgroundCheck.state(getContext()));
     }
 
     /** A provider sign-in or link started in the WebView goes to a Custom Tab instead. */

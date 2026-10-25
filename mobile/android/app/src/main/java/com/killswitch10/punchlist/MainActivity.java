@@ -12,18 +12,39 @@ public class MainActivity extends BridgeActivity {
     /** Asks the web app to use Back (web/src/app/native/back.ts): true, false, or null from an older build without it. */
     private static final String ASK_WEB_APP = "typeof window.punchlistBack === 'function' ? window.punchlistBack() === true : null";
 
+    private static volatile boolean showing;
+
+    /** Whether the app is on screen, where the web app itself shows what is new (BackgroundCheck). */
+    static boolean showing() {
+        return showing;
+    }
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         registerPlugin(ShellPlugin.class);
         config = RuntimeConfig.load(this, ServerChoice.get(this));
         super.onCreate(savedInstanceState);
         if (bridge != null) bridge.setWebViewClient(new ShellWebViewClient(bridge));
+        // Force-stopping the app clears its alarms; opening it again sets the check-in again.
+        BackgroundCheck.schedule(this);
         getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {
             @Override
             public void handleOnBackPressed() {
                 back();
             }
         });
+    }
+
+    @Override
+    public void onResume() {
+        super.onResume();
+        showing = true;
+    }
+
+    @Override
+    public void onPause() {
+        showing = false;
+        super.onPause();
     }
 
     /**

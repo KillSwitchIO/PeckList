@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { BrowserRouter } from 'react-router';
+import { BackgroundCheckPrompt } from './native/BackgroundCheck.tsx';
 import { NativeFirstRun } from './native/FirstRun.tsx';
 import { NotificationOpen } from './native/NotificationOpen.tsx';
 import { installBackHandler } from './native/back.ts';
@@ -24,6 +25,7 @@ export function App() {
           <AppRoutes />
           <NativeFirstRun />
           <NotificationOpen />
+          <BackgroundCheckPrompt />
         </BrowserRouter>
         {viewAs && <ViewAsBanner view={viewAs} />}
         {!bundled && <UpdatePrompt />}

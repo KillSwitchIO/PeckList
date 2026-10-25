@@ -9,4 +9,7 @@
     <string name="offline_body">Punchlist could not reach %1$s. Check your connection, or whether the server is running.</string>
     <string name="offline_retry">Try again</string>
     <string name="offline_other">Use another server</string>
+    <!-- Notification channels, as Settings > Apps > Punchlist > Notifications lists them (NativeReminders). -->
+    <string name="channel_reminders">Reminders</string>
+    <string name="channel_activity">Shares, assignments and mentions</string>
 </resources>

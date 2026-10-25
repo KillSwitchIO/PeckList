@@ -29,7 +29,20 @@ app (ADR-0017 in the project notes). There is no second copy of the UI.
   weeks of reminders (at most 100) to Android through Capacitor's Local Notifications whenever
   they change (`web/src/adapters/capacitor-notifier.ts`). They fire with exact alarms
   (`USE_EXACT_ALARM`) even with the app closed, in a "Reminders" channel; a tap opens the task.
-  Reminders further out are handed over the next time the app opens.
+  Reminders further out are handed over by the background check-in.
+- **Background check-in** (instead of Web Push): with the app closed, an exact alarm wakes
+  `CheckReceiver` every 5 minutes (Settings > Notifications: off, or 15, 30 or 60 minutes). It
+  asks `GET /api/app/check` with the WebView's session cookie and gets what is new since its last
+  check (shares, assignments, mentions, worded as the push is) and the next two weeks of
+  reminders. `NativeReminders` shows the new ones in a "Shares, assignments and mentions" channel
+  and sets the reminders through the Local Notifications plugin's own store, with the web app's
+  ids (`idOf`, pinned in tests on both sides), so a reminder changed on another device fires here
+  and one set by both is one. While the app is on screen the web app owns both, and the check
+  only moves its cursor. Once signed in, the app asks once to notify and to run without battery
+  optimization (`REQUEST_IGNORE_BATTERY_OPTIMIZATIONS`); without that, Android holds the alarm and
+  the network while the phone is idle. Samsung phones also need Punchlist in **Never sleeping
+  apps**, which the settings say. Google Play allows that permission only for some kinds of app,
+  so a Play build would drop it and check every 15 minutes with WorkManager.
 - **Icon and launch screen**: vector drawables drawn from `web/public/icon.svg` (adaptive icon
   with a monochrome layer for themed icons, and a legacy one for Android 7); the launch screen
   uses the web app's background colors, light and dark.
@@ -104,5 +117,5 @@ provider must be reachable at the same address from the server and from the emul
 
 ## Not done yet
 
-A native storage adapter, and notifications the server sends (shares, comments): Web Push does
-not exist in the WebView.
+A native storage adapter. Notifications from the server arrive within the check-in interval, not
+at once: instant ones would need a push service (UnifiedPush or FCM).

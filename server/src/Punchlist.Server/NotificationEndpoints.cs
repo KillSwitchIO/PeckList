@@ -84,25 +84,35 @@ public sealed class NotificationRecorder(
         if (found.Count == 0) return;
 
         // And to their devices, with names: the push is encrypted for each browser.
-        var actor = (await accounts.FindByIdAsync(userId, cancellation))?.Username ?? "Someone";
-        var index = sharing.Index;
+        var actor = (await accounts.FindByIdAsync(userId, cancellation))?.Username;
+        foreach (var each in found)
+        {
+            var (body, url) = NotificationText.Of(each, actor, sharing.Index);
+            await push.SendAsync(each.UserId, new Push.PushPayload("Punchlist", body, each.Id, url), cancellation);
+        }
+    }
+}
+
+/// <summary>What a notification says and where it leads: in a push, and in the Android app's background check.</summary>
+public static class NotificationText
+{
+    public static (string Body, string Url) Of(Notification each, string? actorName, SharingIndex index)
+    {
+        var actor = actorName ?? "Someone";
         string Name(string? id, string field, string fallback) =>
             id is not null && index.DocOf(id)?[field] is JsonValue value && value.TryGetValue<string>(out var text) && text.Length > 0
                 ? text
                 : fallback;
-        foreach (var each in found)
+        var task = Name(each.TaskId, "title", "a task");
+        var body = each.Kind switch
         {
-            var task = Name(each.TaskId, "title", "a task");
-            var body = each.Kind switch
-            {
-                NotificationKind.Assigned => $"{actor} assigned you {task}",
-                NotificationKind.Shared => $"{actor} shared {Name(each.ListId, "name", "a list")} with you",
-                NotificationKind.Mentioned => $"{actor} mentioned you in {task}",
-                _ => task,
-            };
-            var url = each.TaskId is not null ? $"/today?task={each.TaskId}" : $"/lists/{each.ListId}";
-            await push.SendAsync(each.UserId, new Push.PushPayload("Punchlist", body, each.Id, url), cancellation);
-        }
+            NotificationKind.Assigned => $"{actor} assigned you {task}",
+            NotificationKind.Shared => $"{actor} shared {Name(each.ListId, "name", "a list")} with you",
+            NotificationKind.Mentioned => $"{actor} mentioned you in {task}",
+            _ => task,
+        };
+        var url = each.TaskId is not null ? $"/today?task={each.TaskId}" : $"/lists/{each.ListId}";
+        return (body, url);
     }
 }
 

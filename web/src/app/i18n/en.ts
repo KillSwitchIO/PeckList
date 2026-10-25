@@ -1164,6 +1164,16 @@ export const en = {
   'notifications.pushUnsupported':
     'This browser cannot take notifications with Punchlist closed. On iPhone and iPad, add Punchlist to your Home Screen and turn it on there.',
   'notifications.pushFailed': 'That did not work. Try again in a moment.',
+  'backgroundCheck.label': 'Check for updates in the background',
+  'backgroundCheck.hint':
+    'With Punchlist closed, it asks your server for new shares, assignments and mentions, and keeps reminders changed on your other devices up to date.',
+  'backgroundCheck.every': 'Check every',
+  'backgroundCheck.restricted':
+    'Android may put Punchlist to sleep and hold back these checks. Let it run in the background so they come on time.',
+  'backgroundCheck.allow': 'Allow',
+  'backgroundCheck.samsung':
+    'On a Samsung phone, also add Punchlist to Never sleeping apps (Settings > Battery > Background usage limits).',
+  'backgroundCheck.notificationsOff': 'Notifications are off for Punchlist, so nothing will show.',
   'notifications.clearAll': 'Clear all',
   'notifications.clear': 'Clear',
   'notifications.clearOne': 'Clear: {text}',

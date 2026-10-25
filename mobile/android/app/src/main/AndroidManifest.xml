@@ -41,6 +41,16 @@
 
         </activity>
 
+        <!-- The background check-in's alarm, and setting it again after a restart or an update (BackgroundCheck). -->
+        <receiver
+            android:name=".CheckReceiver"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+            </intent-filter>
+        </receiver>
+
         <provider
             android:name="androidx.core.content.FileProvider"
             android:authorities="${applicationId}.fileprovider"
@@ -61,4 +71,11 @@
       until the person allows them in settings.
     -->
     <uses-permission android:name="android.permission.USE_EXACT_ALARM" />
+    <!--
+      The background check-in (BackgroundCheck) asks once to run without battery optimization, or
+      Android holds its alarms and network while the phone is idle. Google Play allows this only for
+      some kinds of app; a Play build would drop it and check less often.
+    -->
+    <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
 </manifest>
