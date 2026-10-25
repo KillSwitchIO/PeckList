@@ -88,6 +88,10 @@ their start; the due date is the deadline.
   ++alt+arrow-right++ / ++alt+arrow-left++.
 - **Pin**: **Pin to the top** in a task's menu (or the pin in its details) keeps it in a **Pinned**
   group at the top of every view it shows in. Completing it lets go of the pin.
+- **Swipe** (phones and tablets, like TickTick): swipe a task right to complete it (or reopen a
+  closed one); a short swipe left opens **Date**, **Move** and **Delete**, and a long one deletes
+  it. Each can be undone. Swiping up and down still scrolls, and holding a task still drags it or
+  opens its menu.
 - **Undo**: every change shows an **Undo** button for a few seconds.
 - **Comment**: at the bottom of a task's details. Comments take a little Markdown (`**bold**`,
   `*italic*`, `` `code` ``, `[links](https://...)`) and **@name** for the people on the task (type

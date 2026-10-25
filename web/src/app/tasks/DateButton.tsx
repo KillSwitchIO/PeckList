@@ -22,27 +22,11 @@ import { useRowDate } from './rowDate.ts';
 
 type Which = 'start' | 'due' | 'completed';
 
-export function DateButton({
-  task,
-  width,
-  testId = 'task-date',
-  compact = false,
-  dueFirst = false,
-}: {
-  task: Task;
-  width: string;
-  testId?: string;
-  /** Inline with other details, left-aligned, smaller (phone rows). */
-  compact?: boolean;
-  /** The due date even when the task has a start (Due dates view). */
-  dueFirst?: boolean;
-}) {
+/** What a row's date edits (start, due, or completion of a closed task), and how to save it. */
+function useRowDateEditor(task: Task, dueFirst: boolean) {
   const apply = useApply();
-  const today = useToday();
-  const readOnly = useReadOnly();
-  const { text, color, completedDay, showsDue, due } = useRowDate(task, dueFirst);
-  const [anchor, setAnchor] = useState<HTMLElement | null>(null);
   const zone = localTimeZone();
+  const { completedDay, showsDue } = useRowDate(task, dueFirst);
   const which: Which = completedDay ? 'completed' : showsDue ? 'due' : 'start';
   const label =
     which === 'completed'
@@ -58,9 +42,7 @@ export function DateButton({
       : which === 'due'
         ? toDateValue(task.due?.at)
         : toDateValue(task.schedule?.start, task.schedule?.end);
-
   const save = (next: DateValue | null) => {
-    setAnchor(null);
     if (which === 'completed') {
       apply(
         (ctx, ws) =>
@@ -90,6 +72,60 @@ export function DateButton({
       );
     }
   };
+  return { which, label, value, save };
+}
+
+/** The date picker for a row's date, opened from its date or from a swipe's Date button. */
+export function TaskDateSheet({
+  task,
+  anchor,
+  onClose,
+  dueFirst = false,
+}: {
+  task: Task;
+  anchor: HTMLElement | null;
+  onClose: () => void;
+  dueFirst?: boolean;
+}) {
+  const today = useToday();
+  const { which, label, value, save } = useRowDateEditor(task, dueFirst);
+  return (
+    <PropertySheet label={label} anchor={anchor} onClose={onClose}>
+      {anchor && (
+        <DatePickerPanel
+          value={value}
+          today={today}
+          allowRange={which === 'start'}
+          onApply={(next) => {
+            onClose();
+            save(next);
+          }}
+          onCancel={onClose}
+        />
+      )}
+    </PropertySheet>
+  );
+}
+
+export function DateButton({
+  task,
+  width,
+  testId = 'task-date',
+  compact = false,
+  dueFirst = false,
+}: {
+  task: Task;
+  width: string;
+  testId?: string;
+  /** Inline with other details, left-aligned, smaller (phone rows). */
+  compact?: boolean;
+  /** The due date even when the task has a start (Due dates view). */
+  dueFirst?: boolean;
+}) {
+  const readOnly = useReadOnly();
+  const { text, color, completedDay, showsDue, due } = useRowDate(task, dueFirst);
+  const { label } = useRowDateEditor(task, dueFirst);
+  const [anchor, setAnchor] = useState<HTMLElement | null>(null);
 
   if (compact && !text && !(task.progress > 0 && task.status === 'open')) return null;
 
@@ -150,17 +186,12 @@ export function DateButton({
           />
         )}
       </ButtonBase>
-      <PropertySheet label={label} anchor={anchor} onClose={() => setAnchor(null)}>
-        {anchor && (
-          <DatePickerPanel
-            value={value}
-            today={today}
-            allowRange={which === 'start'}
-            onApply={save}
-            onCancel={() => setAnchor(null)}
-          />
-        )}
-      </PropertySheet>
+      <TaskDateSheet
+        task={task}
+        anchor={anchor}
+        onClose={() => setAnchor(null)}
+        dueFirst={dueFirst}
+      />
     </>
   );
 }
