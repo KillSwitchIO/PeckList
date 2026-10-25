@@ -1,4 +1,6 @@
+import CalendarViewMonthOutlined from '@mui/icons-material/CalendarViewMonthOutlined';
 import ViewAgendaOutlined from '@mui/icons-material/ViewAgendaOutlined';
+import ViewWeekOutlined from '@mui/icons-material/ViewWeekOutlined';
 import {
   Box,
   Button,
@@ -6,8 +8,6 @@ import {
   ListItemText,
   Menu,
   MenuItem,
-  Slider,
-  TextField,
   ToggleButton,
   ToggleButtonGroup,
   Tooltip,
@@ -31,7 +31,7 @@ import { canEditTask } from '../../core/sharing.ts';
 import { createTask, updateTask } from '../../core/tasks.ts';
 import type { Schedule } from '../../core/types.ts';
 import { useToday } from '../hooks/useToday.ts';
-import { ChevronLeftIcon, ChevronRightIcon } from '../icons/icons.tsx';
+import { CalendarIcon, ChevronLeftIcon, ChevronRightIcon } from '../icons/icons.tsx';
 import { t } from '../i18n/i18n.ts';
 import { BottomSheet } from '../layout/BottomSheet.tsx';
 import { Page } from '../layout/Page.tsx';
@@ -49,6 +49,7 @@ import {
 import { DayPopup } from './DayPopup.tsx';
 import { DaysView } from './DaysView.tsx';
 import { MonthView, type MonthViewInfo } from './MonthView.tsx';
+import { NumberDial } from './NumberDial.tsx';
 import { useCalendarDrag, type DragPayload, type DropTarget } from './useCalendarDrag.ts';
 
 /** How many unscheduled tasks show at first (and more on asking). */
@@ -118,11 +119,8 @@ function Unscheduled({
   );
 }
 
-// 3 gets a tick but no label: on a phone "1" and "3" would run together.
-const DAY_MARKS = [1, 3, 7, 14].map((value) => ({
-  value,
-  ...(value === 3 ? {} : { label: String(value) }),
-}));
+const DAY_CHOICES = Array.from({ length: MAX_DAYS - MIN_DAYS + 1 }, (_, i) => MIN_DAYS + i);
+const WEEK_CHOICES = [4, 5, 6];
 
 /**
  * Calendar (spec: PL-093, like Business Calendar 2): Month, a continuous run of weeks, and Days,
@@ -317,54 +315,57 @@ export function CalendarPage() {
           minHeight: 420,
         }}
       >
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap', mb: 1 }}>
-          <Button
-            size="small"
-            variant="outlined"
-            onClick={goToday}
-            aria-label={t('calendar.goToday')}
-          >
-            {t('calendar.today')}
-          </Button>
+        {/* One row that never wraps, so nothing moves as the title changes length. */}
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: { xs: 0.5, sm: 1 }, mb: 1 }}>
+          {phone ? (
+            <Tooltip title={t('calendar.goToday')}>
+              <IconButton size="small" onClick={goToday} aria-label={t('calendar.goToday')}>
+                <CalendarIcon badge={String(Number(today.slice(8, 10)))} />
+              </IconButton>
+            </Tooltip>
+          ) : (
+            <Button
+              size="small"
+              variant="outlined"
+              onClick={goToday}
+              aria-label={t('calendar.goToday')}
+              sx={{ flexShrink: 0 }}
+            >
+              {t('calendar.today')}
+            </Button>
+          )}
           <IconButton size="small" aria-label={t('calendar.previous')} onClick={() => step(-1)}>
             <ChevronLeftIcon fontSize="small" />
           </IconButton>
           <IconButton size="small" aria-label={t('calendar.next')} onClick={() => step(1)}>
             <ChevronRightIcon fontSize="small" />
           </IconButton>
-          <Typography component="h2" sx={{ fontWeight: 600, flexGrow: 1 }} aria-live="polite">
+          <Typography
+            component="h2"
+            aria-live="polite"
+            noWrap
+            sx={{ fontWeight: 600, flexGrow: 1, minWidth: 0, fontSize: { xs: 15, sm: 16 } }}
+          >
             {title}
           </Typography>
           {mode === 'days' ? (
-            <Box sx={{ width: { xs: 120, sm: 160 }, px: 1 }}>
-              <Slider
-                size="small"
-                min={MIN_DAYS}
-                max={MAX_DAYS}
-                step={1}
-                marks={DAY_MARKS}
-                value={prefs.days}
-                valueLabelDisplay="auto"
-                onChange={(_, value) => setPrefs({ days: value })}
-                slotProps={{ input: { 'aria-label': t('calendar.daysShown') } }}
-                sx={{ '& .MuiSlider-markLabel': { fontSize: 10, top: 18 }, mb: 1 }}
-              />
-            </Box>
+            <NumberDial
+              values={DAY_CHOICES}
+              value={prefs.days}
+              onChange={(days) => setPrefs({ days })}
+              label={t('calendar.daysShown')}
+              caption={(count) =>
+                count === 1 ? t('calendar.oneDay') : t('calendar.dayCount', { count })
+              }
+            />
           ) : (
-            <TextField
-              select
-              size="small"
+            <NumberDial
+              values={WEEK_CHOICES}
               value={prefs.weeks}
-              onChange={(event) => setPrefs({ weeks: Number(event.target.value) as 4 | 5 | 6 })}
-              slotProps={{ htmlInput: { 'aria-label': t('calendar.weeksShown') } }}
-              sx={{ '& .MuiSelect-select': { py: 0.5, fontSize: 13 } }}
-            >
-              {[4, 5, 6].map((weeks) => (
-                <MenuItem key={weeks} value={weeks}>
-                  {t('calendar.weeks', { count: weeks })}
-                </MenuItem>
-              ))}
-            </TextField>
+              onChange={(weeks) => setPrefs({ weeks: weeks as 4 | 5 | 6 })}
+              label={t('calendar.weeksShown')}
+              caption={(count) => t('calendar.weeks', { count })}
+            />
           )}
           <ToggleButtonGroup
             exclusive
@@ -372,12 +373,21 @@ export function CalendarPage() {
             value={mode}
             onChange={(_, next: CalendarMode | null) => next && switchMode(next)}
             aria-label={t('calendar.mode')}
+            sx={{ flexShrink: 0 }}
           >
-            <ToggleButton value="month" sx={{ px: 1.5 }}>
-              {t('calendar.month')}
+            <ToggleButton
+              value="month"
+              aria-label={t('calendar.month')}
+              sx={{ px: phone ? 0.75 : 1.5 }}
+            >
+              {phone ? <CalendarViewMonthOutlined fontSize="small" /> : t('calendar.month')}
             </ToggleButton>
-            <ToggleButton value="days" sx={{ px: 1.5 }}>
-              {t('calendar.days')}
+            <ToggleButton
+              value="days"
+              aria-label={t('calendar.days')}
+              sx={{ px: phone ? 0.75 : 1.5 }}
+            >
+              {phone ? <ViewWeekOutlined fontSize="small" /> : t('calendar.days')}
             </ToggleButton>
           </ToggleButtonGroup>
         </Box>
@@ -408,7 +418,6 @@ export function CalendarPage() {
               />
             ) : (
               <DaysView
-                key={prefs.days}
                 start={date}
                 count={prefs.days}
                 today={today}
