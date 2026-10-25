@@ -1,4 +1,4 @@
-import { fireEvent, screen, within } from '@testing-library/react';
+import { act, fireEvent, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { addDays, localTimeZone, todayIn } from '../../core/dates.ts';
@@ -207,6 +207,52 @@ describe('calendar', () => {
       start: `${today}T08:00`,
       end: `${today}T11:30`,
     });
+  });
+
+  it('opens big time grips on a long hold, for tasks too short to grab by the edge', async () => {
+    localStorage.setItem(
+      'punchlist.calendar',
+      JSON.stringify({ mode: 'days', days: 1, hourHeight: 48 }),
+    );
+    const { today, task, standup } = await calendarWith();
+    const block = await screen.findByRole('button', { name: /Standup/ });
+    vi.useFakeTimers();
+    try {
+      fireEvent.pointerDown(block, {
+        clientX: 10,
+        clientY: 9 * 48 + 10,
+        button: 0,
+        pointerType: 'touch',
+        pointerId: 8,
+      });
+      act(() => vi.advanceTimersByTime(500));
+      fireEvent.pointerUp(window, {
+        clientX: 10,
+        clientY: 9 * 48 + 10,
+        pointerType: 'touch',
+        pointerId: 8,
+      });
+      fireEvent.click(block);
+    } finally {
+      vi.useRealTimers();
+    }
+    // The hold did not open the task; the grips are out.
+    expect(screen.queryByRole('textbox', { name: /title/i })).toBeNull();
+    const top = document.querySelector('[data-cal-big-grip="top"]')!;
+    expect(document.querySelector('[data-cal-big-grip="bottom"]')).not.toBeNull();
+    fireEvent.pointerDown(top, { clientX: 10, clientY: 9 * 48, button: 0, pointerId: 9 });
+    fireEvent.pointerMove(window, { clientX: 10, clientY: 8.5 * 48, pointerId: 9 });
+    fireEvent.pointerUp(window, { clientX: 10, clientY: 8.5 * 48, pointerId: 9 });
+    expect(task(standup).schedule).toMatchObject({
+      start: `${today}T08:30`,
+      end: `${today}T10:00`,
+    });
+    // A tap on empty time puts the grips away (and adds nothing).
+    const column = document.querySelector(`[data-cal-slots="${today}"]`)!;
+    fireEvent.pointerDown(column, { clientX: 10, clientY: 15 * 48, button: 0 });
+    fireEvent.pointerUp(window, { clientX: 10, clientY: 15 * 48 });
+    expect(document.querySelector('[data-cal-big-grip]')).toBeNull();
+    expect(screen.queryByRole('dialog')).toBeNull();
   });
 
   it('picks days by dragging across them, and shows just those', async () => {

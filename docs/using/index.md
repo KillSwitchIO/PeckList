@@ -139,7 +139,9 @@ Two views, switched at the top right:
 
 Drag a task to move it to another day or time, by finger or mouse; the calendar scrolls by its
 dates and empty space. In Days, pull the grip at a task's top or bottom edge to change when it
-starts or ends. Drag tasks from **Unscheduled** onto a day (all day) or a
+starts or ends; on a phone, hold a task still for a moment to get big grips above and below it
+(easy to hit on a short task), and tap elsewhere when done. Phones show no scrollbars in the
+calendar: swipe to scroll. Drag tasks from **Unscheduled** onto a day (all day) or a
 time. A task dropped on a month day keeps its time. The list button at the top opens Upcoming,
 the agenda. Each device remembers the view, days, weeks and hour height.
 

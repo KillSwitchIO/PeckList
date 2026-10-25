@@ -124,5 +124,7 @@ export function useCalendarDrag(
     cleanup.current = finish;
   };
 
-  return { begin, ghost };
+  /** Stop following the pointer (a long hold turned into something else). */
+  const cancel = () => cleanup.current?.();
+  return { begin, ghost, cancel };
 }

@@ -6,6 +6,7 @@ import { addDays, daysBetween } from '../../core/dates.ts';
 import { formatDay } from '../format.ts';
 import { t } from '../i18n/i18n.ts';
 import { ItemLine } from './ItemLine.tsx';
+import { besideScrolling, scrolling } from './scrollbars.ts';
 
 /** Weeks either side of today the month view scrolls through. */
 const SPAN_WEEKS = 520;
@@ -301,6 +302,7 @@ export function MonthView({
           gridTemplateColumns: 'repeat(7, minmax(0, 1fr))',
           borderBottom: 1,
           borderColor: 'divider',
+          ...besideScrolling,
         }}
       >
         {headers.map((day) => (
@@ -324,6 +326,7 @@ export function MonthView({
           flexGrow: 1,
           minHeight: 0,
           overflowY: 'auto',
+          ...scrolling,
           position: 'relative',
           scrollSnapType: 'y mandatory',
           touchAction: 'pan-y',
