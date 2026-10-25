@@ -47,6 +47,12 @@ changes it in place. **Select** (or hold a row on a phone), pick tasks or a whol
 **Select all**, then move them all to **Today**, **Tomorrow**, **Next week** or a date you pick, or
 clear them. Each task keeps its own time of day, and **Undo** puts them back.
 
+**Filter** (the funnel at the top of Today, Upcoming and the Calendar) shows only some lists, tags
+and saved filters, in any mix: a task shows when it is in one of the lists picked, has one of the
+tags picked (or a tag under one) and matches one of the saved filters picked; a kind with nothing
+picked lets everything through. Each of the three keeps its own filter on this device, and the
+funnel is colored while one is on. **Clear** shows everything again.
+
 ## Tasks
 
 A task has a title, notes (rich text, with `- [ ] ` checklists), subtasks, tags, a priority, a

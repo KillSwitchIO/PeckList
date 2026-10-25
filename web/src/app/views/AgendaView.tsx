@@ -7,7 +7,7 @@ import { inboxList } from '../../core/lists.ts';
 import { orderTasks, type ListSort } from '../../core/listView.ts';
 import { todayGroups } from '../../core/queries.ts';
 import { pinnedFirst } from '../../core/tasks.ts';
-import type { Task } from '../../core/types.ts';
+import type { Task, WorkspaceFile } from '../../core/types.ts';
 import { weekStart as preferredWeekStart } from '../format.ts';
 import { useToday } from '../hooks/useToday.ts';
 import { t } from '../i18n/i18n.ts';
@@ -56,10 +56,13 @@ export function AgendaView({
   sort,
   reversed = false,
   actions,
+  source,
 }: {
   sort: ListSort;
   reversed?: boolean;
   actions: ReactNode;
+  /** The tasks to draw from (narrowed by the view's filter) */
+  source: WorkspaceFile;
 }) {
   const sorted = (tasks: Task[], by: ListSort) => orderTasks(tasks, by, reversed);
   const workspace = useWorkspace();
@@ -81,15 +84,15 @@ export function AgendaView({
   // Right after a jump the list sits where it was put: no tracking until it has.
   const jumping = useRef(false);
   const fromToday = start === today;
-  const days = agendaDays(workspace, today, start, count);
-  const overdue = fromToday ? todayGroups(workspace, today).overdue : [];
+  const days = agendaDays(source, today, start, count);
+  const overdue = fromToday ? todayGroups(source, today).overdue : [];
   const { pinned } = pinnedFirst([...overdue, ...days.flatMap((day) => day.tasks)]);
   const late = sorted(pinnedFirst(overdue).rest, sort);
   const inbox = inboxList(workspace).id;
   const zone = localTimeZone();
   const busyIn = (from: string) =>
     new Set(
-      agendaDays(workspace, today, from, 7)
+      agendaDays(source, today, from, 7)
         .filter((day) => day.tasks.length > 0)
         .map((day) => day.date),
     );

@@ -27,7 +27,7 @@ import {
 import { ALL_TASKS } from '../../core/filters.ts';
 import { restoreTask } from '../../core/tasks.ts';
 import { emptyTrash, purgeTask } from '../../core/trash.ts';
-import type { Task } from '../../core/types.ts';
+import type { Task, WorkspaceFile } from '../../core/types.ts';
 import { ConfirmDialog } from '../lists/ListDialog.tsx';
 import { formatDay } from '../format.ts';
 import { useNow, useToday } from '../hooks/useToday.ts';
@@ -50,13 +50,22 @@ import {
 } from './groups.tsx';
 import { SortGroupButton } from './SortGroupButton.tsx';
 import { AgendaView } from './AgendaView.tsx';
+import { useNarrowed } from './useNarrowed.tsx';
 import { useListView, type ListViewSettings } from '../lists/listGrouping.ts';
 import { inOrder, orderTasks, VIEW_GROUPINGS } from '../../core/listView.ts';
 
 /** Overdue and today, without the pinned tasks (they head the view, in Pinned). */
-function OverdueAndToday({ today, view }: { today: string; view: ListViewSettings }) {
-  const workspace = useWorkspace();
-  const all = todayGroups(workspace, today);
+function OverdueAndToday({
+  today,
+  view,
+  source,
+}: {
+  today: string;
+  view: ListViewSettings;
+  /** The tasks to draw from (narrowed by the view's filter) */
+  source: WorkspaceFile;
+}) {
+  const all = todayGroups(source, today);
   const groups = {
     overdue: orderTasks(pinnedFirst(all.overdue).rest, view.sort, view.sortReversed),
     today: orderTasks(pinnedFirst(all.today).rest, view.sort, view.sortReversed),
@@ -99,23 +108,28 @@ function AddForToday({ today }: { today: string }) {
 
 /** Today: a focused copy of Next 7 days with only overdue, today and what got done today. */
 export function TodayView() {
-  const workspace = useWorkspace();
   const today = useToday();
   const view = useListView('view:today');
+  const { workspace, button } = useNarrowed('today');
   const groups = todayGroups(workspace, today);
   const done = completedOn(workspace, today, localTimeZone());
   const empty = groups.overdue.length === 0 && groups.today.length === 0 && done.length === 0;
   return (
     <Page
       title={t('nav.today')}
-      actions={<SortGroupButton view={view} groupings={VIEW_GROUPINGS} />}
+      actions={
+        <>
+          {button}
+          <SortGroupButton view={view} groupings={VIEW_GROUPINGS} />
+        </>
+      }
     >
       <AddForToday today={today} />
       {view.grouping === 'date' ? (
         <>
           {empty && <EmptyState title={t('empty.today')} hint={t('empty.today.hint')} />}
           <PinnedGroup tasks={pinnedFirst([...groups.overdue, ...groups.today]).pinned} showList />
-          <OverdueAndToday today={today} view={view} />
+          <OverdueAndToday today={today} view={view} source={workspace} />
           <CompletedGroup tasks={done} showList />
         </>
       ) : (
@@ -139,12 +153,24 @@ export function TodayView() {
  * groupings show the next 7 days' tasks in those groups.
  */
 export function UpcomingView() {
-  const workspace = useWorkspace();
   const today = useToday();
   const view = useListView('view:upcoming');
-  const actions = <SortGroupButton view={view} groupings={VIEW_GROUPINGS} fixed={['date']} />;
+  const { workspace, button } = useNarrowed('upcoming');
+  const actions = (
+    <>
+      {button}
+      <SortGroupButton view={view} groupings={VIEW_GROUPINGS} fixed={['date']} />
+    </>
+  );
   if (view.grouping === 'date') {
-    return <AgendaView sort={view.sort} reversed={view.sortReversed} actions={actions} />;
+    return (
+      <AgendaView
+        sort={view.sort}
+        reversed={view.sortReversed}
+        actions={actions}
+        source={workspace}
+      />
+    );
   }
   const groups = upcomingTasks(workspace, today);
   const current = todayGroups(workspace, today);

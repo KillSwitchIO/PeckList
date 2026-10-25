@@ -29,7 +29,7 @@ import { addDays, daysBetween, localTimeZone, shiftMonths, timePart } from '../.
 import { inboxList } from '../../core/lists.ts';
 import { canEditTask } from '../../core/sharing.ts';
 import { createTask, updateTask } from '../../core/tasks.ts';
-import type { Schedule } from '../../core/types.ts';
+import type { Schedule, WorkspaceFile } from '../../core/types.ts';
 import { useToday } from '../hooks/useToday.ts';
 import { CalendarIcon, ChevronLeftIcon, ChevronRightIcon } from '../icons/icons.tsx';
 import { t } from '../i18n/i18n.ts';
@@ -51,6 +51,7 @@ import { DaysView } from './DaysView.tsx';
 import { MonthView, type MonthViewInfo } from './MonthView.tsx';
 import { NumberDial } from './NumberDial.tsx';
 import { useCalendarDrag, type DragPayload, type DropTarget } from './useCalendarDrag.ts';
+import { useNarrowed } from '../views/useNarrowed.tsx';
 
 /** How many unscheduled tasks show at first (and more on asking). */
 const UNSCHEDULED_PAGE = 100;
@@ -59,14 +60,16 @@ const WINDOW_PAD = 28;
 
 /** Open tasks with no date, to drag onto the calendar. */
 function Unscheduled({
+  source,
   onOpen,
   onGrab,
 }: {
+  /** The tasks to draw from (narrowed by the calendar's filter) */
+  source: WorkspaceFile;
   onOpen: (id: string) => void;
   onGrab: (event: React.PointerEvent<HTMLElement>, payload: DragPayload, hold: boolean) => void;
 }) {
-  const workspace = useWorkspace();
-  const tasks = unscheduledTasks(workspace);
+  const tasks = unscheduledTasks(source);
   const [limit, setLimit] = useState(UNSCHEDULED_PAGE);
   return (
     <Box sx={{ width: { xs: '100%', md: 260 }, p: 1.5, overflowY: 'auto', height: '100%' }}>
@@ -132,6 +135,7 @@ export function CalendarPage() {
   const theme = useTheme();
   const phone = useMediaQuery(theme.breakpoints.down('md'));
   const workspace = useWorkspace();
+  const { workspace: shown, button: narrowButton } = useNarrowed('calendar');
   const apply = useApply();
   const navigate = useNavigate();
   const me = useStoreState((state) => state.context().userId);
@@ -180,11 +184,11 @@ export function CalendarPage() {
   const items = useMemo(
     () =>
       win
-        ? calendarItems(workspace, win.from, win.to, settings?.pointEventMinutes ?? 30, (task) =>
+        ? calendarItems(shown, win.from, win.to, settings?.pointEventMinutes ?? 30, (task) =>
             canEditTask(workspace, me, task),
           )
         : [],
-    [workspace, win, settings?.pointEventMinutes, me],
+    [shown, workspace, win, settings?.pointEventMinutes, me],
   );
   const byDay = useMemo(
     () => (win ? itemsByDay(items, win.from, win.to) : new Map<string, CalendarItem[]>()),
@@ -281,6 +285,7 @@ export function CalendarPage() {
       : calendarTitle('days', date, prefs.days, today);
   const panel = (
     <Unscheduled
+      source={shown}
       onOpen={open}
       onGrab={(event, payload, hold) => drag.begin(event, payload, hold)}
     />
@@ -291,6 +296,7 @@ export function CalendarPage() {
       title={t('nav.calendar')}
       actions={
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+          {narrowButton}
           <Tooltip title={t('calendar.agenda')}>
             <IconButton
               aria-label={t('calendar.agenda')}
