@@ -115,8 +115,8 @@ their start; the due date is the deadline.
 - **Swipe** (phones and tablets, like TickTick): swipe a task right to complete it (or reopen a
   closed one); a short swipe left shows **Date**, **Move** and **Delete**, and a full one opens
   the task's date. **Settings > Swipe actions** shows each side on a sample task and changes its
-  buttons (up to three: Complete, Date, Move, Pin, Won't do or Delete; move them toward the edge
-  or inward, take one away, add another) and what a full swipe does, or turns the full swipe off;
+  buttons (up to three: Complete, Date, Move, Pin, Won't do or Delete; move them left
+  or right, take one away, add another) and what a full swipe does, or turns the full swipe off;
   it is kept per device. Each change can be undone. Swiping up and down still scrolls. Holding a
   task drags it; holding its checkbox opens its menu.
 - **Undo**: every change shows a small round **Undo** button for a few seconds (a ring runs

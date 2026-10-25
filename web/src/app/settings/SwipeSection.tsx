@@ -1,6 +1,6 @@
 import AddRounded from '@mui/icons-material/AddRounded';
-import ArrowDownwardRounded from '@mui/icons-material/ArrowDownwardRounded';
-import ArrowUpwardRounded from '@mui/icons-material/ArrowUpwardRounded';
+import ArrowBackRounded from '@mui/icons-material/ArrowBackRounded';
+import ArrowForwardRounded from '@mui/icons-material/ArrowForwardRounded';
 import CloseRounded from '@mui/icons-material/CloseRounded';
 import {
   Box,
@@ -206,27 +206,27 @@ export function SwipeSection() {
                   {look.icon}
                 </Box>
                 <Typography sx={{ flexGrow: 1 }}>{look.label}</Typography>
-                <Tooltip title={t('swipe.moveUp')}>
+                <Tooltip title={t('swipe.moveLeft')}>
                   <span>
                     <IconButton
                       size="small"
-                      aria-label={t('swipe.moveUpNamed', { name: look.label })}
+                      aria-label={t('swipe.moveLeftNamed', { name: look.label })}
                       disabled={index === 0}
                       onClick={() => move(side, index, -1)}
                     >
-                      <ArrowUpwardRounded fontSize="small" />
+                      <ArrowBackRounded fontSize="small" />
                     </IconButton>
                   </span>
                 </Tooltip>
-                <Tooltip title={t('swipe.moveDown')}>
+                <Tooltip title={t('swipe.moveRight')}>
                   <span>
                     <IconButton
                       size="small"
-                      aria-label={t('swipe.moveDownNamed', { name: look.label })}
+                      aria-label={t('swipe.moveRightNamed', { name: look.label })}
                       disabled={index === buttons.length - 1}
                       onClick={() => move(side, index, 1)}
                     >
-                      <ArrowDownwardRounded fontSize="small" />
+                      <ArrowForwardRounded fontSize="small" />
                     </IconButton>
                   </span>
                 </Tooltip>

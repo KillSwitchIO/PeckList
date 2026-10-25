@@ -297,9 +297,7 @@ describe('settings: swipe actions', () => {
     expect(within(left).getByRole('img')).toHaveAccessibleName(
       'Swipe left shows: Date, Move, Delete',
     );
-    await userEvent.click(
-      within(left).getByRole('button', { name: 'Move Delete toward the edge' }),
-    );
+    await userEvent.click(within(left).getByRole('button', { name: 'Move Delete left' }));
     await userEvent.click(within(left).getByRole('button', { name: 'Remove Date' }));
     await userEvent.click(within(left).getByRole('button', { name: 'Add a button' }));
     await userEvent.click(await screen.findByRole('menuitem', { name: 'Pin' }));
