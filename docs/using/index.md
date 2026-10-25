@@ -184,8 +184,9 @@ linked accounts, and **Your data** ([download or import a copy](apps-and-sync.md
 and `[text]` as is. It shows today's date in the pattern as you type. Today, Tomorrow and
 Yesterday keep their names.
 
-**Colors**: pick a palette (Punchlist, Ocean, Forest, Sunset, Lavender or Graphite), then change
-any of its colors. **Reset colors** goes back to the palette's own colors.
+**Colors**: pick one of 16 palettes, from calm (Punchlist, Ocean, Forest, Graphite) and soft (Rose,
+Blossom, Peach, Lavender, Mint) to bright (Electric, Tropical, Citrus, Berry) and deep (Sunset,
+Midnight, Coffee), then change any of its colors. **Reset colors** goes back to the palette's own colors.
 
 **Time zone**: "today", due dates and the calendar follow it. It starts out as the server's time
 zone (`TZ`), or your device's without a server; pick another one if you live somewhere else.

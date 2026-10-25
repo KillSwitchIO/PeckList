@@ -5,7 +5,29 @@ import { palettePreset, paletteOverrides, setPalettePreset } from '../../core/pa
 import { t } from '../i18n/i18n.ts';
 import { useApply, useWorkspace } from '../store/hooks.ts';
 
-const PRESETS = Object.keys(PALETTE_PRESETS) as PalettePreset[];
+// Calm first, then soft, then bright, then deep and earthy.
+const ORDER: PalettePreset[] = [
+  'punchlist',
+  'ocean',
+  'forest',
+  'graphite',
+  'rose',
+  'blossom',
+  'peach',
+  'lavender',
+  'mint',
+  'electric',
+  'tropical',
+  'citrus',
+  'berry',
+  'sunset',
+  'midnight',
+  'coffee',
+];
+const PRESETS = [
+  ...ORDER,
+  ...(Object.keys(PALETTE_PRESETS) as PalettePreset[]).filter((each) => !ORDER.includes(each)),
+];
 
 /**
  * The named palettes (spec: PL-018): each card shows its accent and priority colors. Picking one
