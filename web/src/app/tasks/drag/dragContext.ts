@@ -7,7 +7,7 @@ export const DRAG_INDENT = 24;
 export interface DragApi {
   /** Ids dimmed while dragging (the task and its subtasks) */
   dimmed: ReadonlySet<Id>;
-  /** Pointer handlers for a row's main area; `onMenu` is the touch long-press without a drag. */
+  /** Pointer handlers for a row's main area; `onMenu` is a touch hold on its checkbox, let go without a drag. */
   gesture: (
     task: Task,
     depth: number,
