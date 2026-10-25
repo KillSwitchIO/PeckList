@@ -105,9 +105,16 @@ server-test:
     key:
       files: [server/Directory.Packages.props]
     paths: [.nuget]
+  # The PostgreSQL tests use this service rather than starting a container of their own: a job
+  # container reaches a service by name, while a container it starts through the host's Docker sits
+  # behind the host's firewall (Testcontainers connects through the bridge gateway).
+  services:
+    - name: postgres:15-alpine
+      alias: postgres
   variables:
-    # The PostgreSQL tests start a container through the host's Docker socket.
-    TESTCONTAINERS_RYUK_DISABLED: 'true'
+    POSTGRES_USER: postgres
+    POSTGRES_PASSWORD: postgres-ci-only
+    PUNCHLIST_TEST_POSTGRES: Host=postgres;Username=postgres;Password=postgres-ci-only;Database=postgres
   script:
     - cd server
     - dotnet test --configuration Release
@@ -132,6 +139,10 @@ e2e:
   script:
     - pnpm build
     - pnpm e2e
+  artifacts:
+    when: on_failure
+    paths: [e2e/preview.log]
+    expire_in: 7 days
   rules:
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
     - *on-main

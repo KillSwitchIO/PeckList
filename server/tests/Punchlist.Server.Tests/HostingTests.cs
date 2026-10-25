@@ -76,7 +76,9 @@ public sealed class HostingTests : IClassFixture<ServerFixture>, IDisposable
     public async Task Info_reports_the_schema_version_and_time_zone()
     {
         var info = await client.GetFromJsonAsync<ServerInfo>("/api/info", TestContext.Current.CancellationToken);
-        Assert.Equal(new ServerInfo("punchlist", "0.1.0", WorkspaceSchema.CurrentVersion, TimeZoneInfo.Local.Id, 25), info);
+        // The version is the build's own (Directory.Build.props, or the release build's), never a fixed one.
+        Assert.Equal(new ServerInfo("punchlist", ServerApp.Version, WorkspaceSchema.CurrentVersion, TimeZoneInfo.Local.Id, 25), info);
+        Assert.Matches(@"^\d+\.\d+\.\d+(-[0-9A-Za-z.-]+)?$", info!.Version);
     }
 
     [Fact]

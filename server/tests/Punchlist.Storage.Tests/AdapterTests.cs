@@ -29,22 +29,37 @@ public sealed class SqliteFiles : IDisposable
     }
 }
 
-/// <summary>One PostgreSQL container for the whole run (Testcontainers; needs Docker).</summary>
+/// <summary>
+/// A PostgreSQL server for the tests: the one PUNCHLIST_TEST_POSTGRES names (a connection string,
+/// e.g. CI's postgres service), else a container of its own (Testcontainers; needs Docker).
+/// </summary>
 public sealed class PostgresServer : IAsyncLifetime
 {
-    private readonly PostgreSqlContainer container = new PostgreSqlBuilder("postgres:15-alpine").Build();
-    private int databases;
+    private static readonly string? Given = Environment.GetEnvironmentVariable("PUNCHLIST_TEST_POSTGRES");
+    private readonly PostgreSqlContainer? container = string.IsNullOrEmpty(Given) ? new PostgreSqlBuilder("postgres:15-alpine").Build() : null;
 
-    public async ValueTask InitializeAsync() => await container.StartAsync();
+    public async ValueTask InitializeAsync()
+    {
+        if (container is not null) await container.StartAsync();
+    }
 
-    public async ValueTask DisposeAsync() => await container.DisposeAsync();
+    public async ValueTask DisposeAsync()
+    {
+        if (container is not null) await container.DisposeAsync();
+    }
 
-    /// <summary>A new, empty, migrated database.</summary>
+    /// <summary>A new, empty, migrated database (a unique name: a given server is shared by every test class).</summary>
     public async Task<SqlDatabase> NewDatabaseAsync()
     {
-        var name = $"test{Interlocked.Increment(ref databases)}";
-        await container.ExecScriptAsync($"CREATE DATABASE {name}");
-        var connection = new Npgsql.NpgsqlConnectionStringBuilder(container.GetConnectionString()) { Database = name }.ToString();
+        var server = container?.GetConnectionString() ?? Given!;
+        var name = $"test_{Guid.NewGuid():N}";
+        await using (var admin = new Npgsql.NpgsqlConnection(server))
+        {
+            await admin.OpenAsync(TestContext.Current.CancellationToken);
+            await using var create = new Npgsql.NpgsqlCommand($"CREATE DATABASE {name}", admin);
+            await create.ExecuteNonQueryAsync(TestContext.Current.CancellationToken);
+        }
+        var connection = new Npgsql.NpgsqlConnectionStringBuilder(server) { Database = name }.ToString();
         var database = new PostgresDatabase(connection);
         await database.MigrateAsync(TestContext.Current.CancellationToken);
         return database;

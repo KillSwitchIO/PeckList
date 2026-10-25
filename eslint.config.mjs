@@ -53,4 +53,9 @@ export default tseslint.config(
     ignores: ['web/src/**'],
     languageOptions: { globals: globals.node },
   },
+  // Scripts the service worker imports as they are (not bundled): service-worker globals.
+  {
+    files: ['web/public/**/*.js'],
+    languageOptions: { globals: globals.serviceworker },
+  },
 );

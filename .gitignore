@@ -27,3 +27,6 @@ obj/
 site/
 .pnpm-store/
 .nuget/
+
+# vite preview output from an e2e run (e2e/wdio.conf.ts)
+e2e/preview.log

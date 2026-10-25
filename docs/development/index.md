@@ -18,8 +18,9 @@ testing) are in [CONTRIBUTING.md](https://gitlab.com/killswitch10/punchlist/-/bl
 ## Setting up
 
 Node.js 24 with pnpm, and the .NET 10 SDK. [mise](https://mise.jdx.dev/) installs both from
-`mise.toml`: `mise install`. Docker for the PostgreSQL tests and the image. Chrome and Firefox for
-end-to-end tests.
+`mise.toml`: `mise install`. Docker for the PostgreSQL tests and the image (or set
+`PUNCHLIST_TEST_POSTGRES` to a connection string for a PostgreSQL server the tests may create
+databases on). Chrome and Firefox for end-to-end tests.
 
 ```bash
 pnpm install           # also installs the git hooks

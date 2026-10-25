@@ -28,7 +28,9 @@ host that pulls.
 
 Every job runs on the runner tagged by the `RUNNER_TAG` variable (default `homelab`). It must be a
 **Docker executor** that mounts the host's Docker socket (`/var/run/docker.sock`), because the
-`container-image` job builds with Docker and the PostgreSQL tests start a container.
+`container-image` job builds with Docker. The PostgreSQL tests use a `postgres` service in CI
+(`PUNCHLIST_TEST_POSTGRES` names it), not a container they start: a container started through the
+host's Docker is reached through the bridge gateway, which a host firewall usually drops.
 
 ### A self-hosted runner
 
