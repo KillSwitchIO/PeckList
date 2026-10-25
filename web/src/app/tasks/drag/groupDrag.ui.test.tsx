@@ -1,0 +1,124 @@
+import { fireEvent, screen, waitFor } from '@testing-library/react';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { addDays, localTimeZone, todayIn } from '../../../core/dates.ts';
+import { createList, inboxList } from '../../../core/lists.ts';
+import { createTask } from '../../../core/tasks.ts';
+import type { WorkspaceFile } from '../../../core/types.ts';
+import { mockViewport, renderApp, testStore } from '../../../test/renderApp.tsx';
+
+const ROW = 40;
+const TOP = 100;
+
+beforeEach(() => {
+  localStorage.clear();
+  vi.unstubAllGlobals();
+  mockViewport('desktop');
+  // jsdom has no layout: rows stack 40 px apart from y = 100, in document order, and each zone
+  // spans its own rows.
+  vi.spyOn(Element.prototype, 'getBoundingClientRect').mockImplementation(function (this: Element) {
+    const rows = [...document.querySelectorAll('[data-drag-row]')];
+    const box = (top: number, height: number) =>
+      ({
+        top,
+        bottom: top + height,
+        left: 240,
+        right: 840,
+        height,
+        width: 600,
+        x: 240,
+        y: top,
+      }) as DOMRect;
+    if (this.hasAttribute('data-drag-row')) return box(TOP + rows.indexOf(this) * ROW, ROW);
+    if (this.hasAttribute('data-drag-zone')) {
+      const own = [...this.querySelectorAll('[data-drag-row]')].map((row) => rows.indexOf(row));
+      return own.length ? box(TOP + Math.min(...own) * ROW, own.length * ROW) : box(0, 0);
+    }
+    return box(0, 0);
+  });
+});
+afterEach(() => vi.restoreAllMocks());
+
+/** Press on a row's title and move the pointer to another row's middle, then let go. */
+function dragOnto(title: string, onto: string, offset = 5) {
+  const rows = [...document.querySelectorAll('[data-drag-row]')];
+  const y = (name: string) =>
+    TOP +
+    rows.indexOf(screen.getByRole('button', { name: `Open ${name}` }).closest('[data-drag-row]')!) *
+      ROW +
+    ROW / 2;
+  const from = screen.getByRole('button', { name: `Open ${title}` });
+  fireEvent.pointerDown(from, { button: 0, clientX: 300, clientY: y(title), pointerType: 'mouse' });
+  fireEvent.pointerMove(window, { clientX: 300, clientY: y(title) + 10 });
+  fireEvent.pointerMove(window, { clientX: 300, clientY: y(onto) + offset });
+  expect(screen.getByTestId('drop-line')).toBeInTheDocument();
+  expect(screen.getByTestId('drag-card')).toHaveTextContent(title);
+  fireEvent.pointerUp(window);
+}
+
+describe('dragging tasks between groups', () => {
+  it('in Today, an overdue task dragged into Today starts today', async () => {
+    const store = testStore();
+    await store.getState().init();
+    const today = todayIn(localTimeZone(), Date.now());
+    const on = (date: string) => ({
+      start: date,
+      end: null,
+      allDay: true,
+      timeZone: localTimeZone(),
+    });
+    store.getState().apply((ctx, ws) => {
+      let next: WorkspaceFile = ws;
+      for (const [title, date] of [
+        ['Old bill', addDays(today, -2)],
+        ['Walk dog', today],
+      ] as const) {
+        next = createTask(ctx, next, {
+          title,
+          listId: inboxList(next).id,
+          schedule: on(date),
+        }).workspace;
+      }
+      return next;
+    });
+    await store.getState().flush();
+    await renderApp('/today', store);
+    await screen.findByRole('button', { name: 'Open Old bill' });
+    dragOnto('Old bill', 'Walk dog');
+    const start = () =>
+      store.getState().workspace!.entities.tasks.find((task) => task.title === 'Old bill')!.schedule
+        ?.start;
+    await waitFor(() => expect(start()).toBe(today));
+  });
+
+  it('in a list sorted by title, a drag puts it in place and switches to the own order', async () => {
+    const store = testStore();
+    await store.getState().init();
+    let listId = '';
+    store.getState().apply((ctx, ws) => {
+      const made = createList(ctx, ws, { name: 'Chores', color: '#CFE3A3' });
+      listId = made.list.id;
+      let next = made.workspace;
+      for (const title of ['Wash', 'Dry', 'Fold'])
+        next = createTask(ctx, next, { title, listId }).workspace;
+      return next;
+    });
+    await store.getState().flush();
+    localStorage.setItem(
+      'punchlist.listGrouping',
+      JSON.stringify({ [listId]: { group: 'none', sort: 'title' } }),
+    );
+    await renderApp(`/lists/${listId}`, store);
+    await screen.findByRole('button', { name: 'Open Fold' });
+    const titles = () =>
+      [...document.querySelectorAll<HTMLElement>('[data-drag-row]')].map((row) =>
+        row.querySelector('[aria-label^="Open "]')!.getAttribute('aria-label')!.slice(5),
+      );
+    const sorted = titles();
+    // Into the slot above the first row (its top edge; its middle would nest it).
+    dragOnto(sorted[2]!, sorted[0]!, -16);
+    await waitFor(() => expect(titles()[0]).toBe(sorted[2]));
+    expect(JSON.parse(localStorage.getItem('punchlist.listGrouping')!)[listId]).toMatchObject({
+      sort: 'manual',
+    });
+  });
+});

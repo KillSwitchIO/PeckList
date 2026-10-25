@@ -1,3 +1,4 @@
+import type { GroupTarget } from '../../core/groupDrop.ts';
 import { Box, Button } from '@mui/material';
 import { useState } from 'react';
 import { subtaskTree } from '../../core/queries.ts';
@@ -43,6 +44,20 @@ function nestsUnderAncestor(
 export const ROW_PAGE = 200;
 const MORE_ROWS = 500;
 
+/** Where rows dragged in a tree may go: a list's own order, or a group standing for a value. */
+export type DragZone = { listId: string } | { group: GroupTarget | null };
+
+function zoneAttributes(zone: DragZone): Record<string, string> {
+  if ('listId' in zone) return { 'data-drag-zone': '', 'data-list': zone.listId };
+  if (!zone.group) return { 'data-drag-zone': '', 'data-drop-kind': 'none' };
+  return {
+    'data-drag-zone': '',
+    'data-drop-kind': zone.group.kind,
+    'data-drop-value': zone.group.value,
+    ...(zone.group.until ? { 'data-drop-until': zone.group.until } : {}),
+  };
+}
+
 /**
  * Tasks with their open subtasks indented underneath. Parents get a chevron to hide or show
  * their subtasks (remembered in this browser).
@@ -61,8 +76,8 @@ export function TaskTree({
   tasks: Task[];
   showList?: boolean;
   ownPlace?: (task: Task) => boolean;
-  /** Rows can be dragged here (a list's own page, in its own order) */
-  dragZone?: { listId: string };
+  /** Rows can be dragged here: a list's own order, or a group standing for a value (null: drag out only) */
+  dragZone?: DragZone;
 }) {
   const workspace = useWorkspace();
   const { collapsed, toggle } = useCollapsedSet('punchlist.collapsedTasks');
@@ -107,12 +122,7 @@ export function TaskTree({
     <Box
       component="ul"
       sx={{ listStyle: 'none', m: 0, p: 0 }}
-      {...(dragZone
-        ? {
-            'data-drag-zone': '',
-            'data-list': dragZone.listId,
-          }
-        : {})}
+      {...(dragZone ? zoneAttributes(dragZone) : {})}
     >
       {shown.map((row) => (
         <li
