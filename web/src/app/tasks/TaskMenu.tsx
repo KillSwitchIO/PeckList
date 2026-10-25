@@ -146,7 +146,7 @@ function NestUnderDialog({ task, onClose }: { task: Task; onClose: () => void })
 }
 
 /** Pick a list to move a task (and its subtasks) to; only lists I may add to are offered. */
-function MoveToListDialog({ task, onClose }: { task: Task; onClose: () => void }) {
+export function MoveToListDialog({ task, onClose }: { task: Task; onClose: () => void }) {
   const workspace = useWorkspace();
   const apply = useApply();
   const me = useStoreState((state) => state.context().userId);

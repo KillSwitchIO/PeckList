@@ -9,7 +9,7 @@ import { getEntity } from '../../core/collections.ts';
 import { subtaskProgress } from '../../core/queries.ts';
 import { assigneesOf, describePrincipal } from '../../core/sharing.ts';
 import { tagsOfTask } from '../../core/tags.ts';
-import { toggleTaskDone } from '../../core/tasks.ts';
+import { deleteTask, setTaskStatus, toggleTaskDone } from '../../core/tasks.ts';
 import type { Priority, Task } from '../../core/types.ts';
 import { useLongPress } from '../hooks/useLongPress.ts';
 import { t } from '../i18n/i18n.ts';
@@ -23,9 +23,10 @@ import { keyboardMove } from '../../core/taskDrag.ts';
 import { TagChips } from '../tags/TagChip.tsx';
 import { useTaskSelection } from './selection.ts';
 import { CHECK_PATH, CROSS_PATH } from './closedMarks.ts';
-import { DateButton } from './DateButton.tsx';
+import { DateButton, TaskDateSheet } from './DateButton.tsx';
+import { SwipeRow } from './SwipeRow.tsx';
 import { useRowDate } from './rowDate.ts';
-import { TaskMenu, type TaskMenuAnchor } from './TaskMenu.tsx';
+import { MoveToListDialog, TaskMenu, type TaskMenuAnchor } from './TaskMenu.tsx';
 
 const PRIORITY_KEY = { 0: 'none', 1: 'low', 2: 'medium', 3: 'high' } as const satisfies Record<
   Priority,
@@ -146,6 +147,9 @@ export function TaskRow({
   const title = task.title || t('task.untitled');
   const selected = selectedId === task.id;
   const [menu, setMenu] = useState<TaskMenuAnchor | null>(null);
+  // A left swipe's Date and Move.
+  const [swipeDate, setSwipeDate] = useState<HTMLElement | null>(null);
+  const [moving, setMoving] = useState(false);
   const longPress = useLongPress((position) => (onHold ? onHold() : setMenu({ position })));
   const canEdit = useCanEditTask(task);
   const apply = useApply();
@@ -300,141 +304,164 @@ export function TaskRow({
 
   return (
     <TaskReadOnly value={!canEdit}>
-      <Box
-        onContextMenu={(event) => {
-          event.preventDefault();
-          setMenu({ position: { top: event.clientY, left: event.clientX } });
-        }}
-        // A draggable row's own gesture covers the touch long-press (menu, or drag on moving).
-        {...(gesture ? {} : longPress)}
-        sx={{
-          position: 'relative',
-          display: 'flex',
-          alignItems: twoLine ? 'flex-start' : 'center',
-          minHeight: 40,
-          pl: `${4 + depth * INDENT}px`,
-          opacity: dimmed ? 0.4 : 1,
-          borderBottom: 1,
-          borderColor: 'divider',
-          bgcolor: selected || select?.selected ? 'action.selected' : 'transparent',
-          '&:hover': { bgcolor: selected ? 'action.selected' : 'action.hover' },
-          // List color as a thin stripe on the left edge (the Mess Drawer has no color).
-          '&::before': {
-            content: '""',
-            position: 'absolute',
-            left: 0,
-            top: 4,
-            bottom: 4,
-            width: 3,
-            borderRadius: 2,
-            bgcolor: list && !list.isInbox ? list.color : 'transparent',
-          },
-        }}
+      <SwipeRow
+        enabled={canEdit && !select}
+        done={done}
+        onComplete={() =>
+          apply(
+            (ctx, ws) => setTaskStatus(ctx, ws, task.id, done ? 'open' : 'done'),
+            done ? t('undo.reopened') : t('undo.completed'),
+          )
+        }
+        onDate={setSwipeDate}
+        onMove={() => setMoving(true)}
+        onDelete={() => apply((ctx, ws) => deleteTask(ctx, ws, task.id), t('undo.deleted'))}
       >
-        {expander && (
-          // Sits just left of the checkbox: in the page gutter for top-level tasks.
-          <IconButton
-            size="small"
-            aria-expanded={expander.open}
-            aria-label={
-              expander.open ? t('task.hideSubtasks', { title }) : t('task.showSubtasks', { title })
-            }
-            onClick={expander.onToggle}
-            sx={{
+        <Box
+          onContextMenu={(event) => {
+            event.preventDefault();
+            setMenu({ position: { top: event.clientY, left: event.clientX } });
+          }}
+          // A draggable row's own gesture covers the touch long-press (menu, or drag on moving).
+          {...(gesture ? {} : longPress)}
+          sx={{
+            position: 'relative',
+            display: 'flex',
+            alignItems: twoLine ? 'flex-start' : 'center',
+            minHeight: 40,
+            pl: `${4 + depth * INDENT}px`,
+            opacity: dimmed ? 0.4 : 1,
+            borderBottom: 1,
+            borderColor: 'divider',
+            bgcolor: selected || select?.selected ? 'action.selected' : 'transparent',
+            '&:hover': { bgcolor: selected ? 'action.selected' : 'action.hover' },
+            // List color as a thin stripe on the left edge (the Mess Drawer has no color).
+            '&::before': {
+              content: '""',
               position: 'absolute',
-              left: depth * INDENT - 20,
-              ...(twoLine ? { top: 8 } : { top: '50%', transform: 'translateY(-50%)' }),
-              p: 0.25,
-              color: 'text.secondary',
-            }}
-          >
-            <ChevronRightRounded
+              left: 0,
+              top: 4,
+              bottom: 4,
+              width: 3,
+              borderRadius: 2,
+              bgcolor: list && !list.isInbox ? list.color : 'transparent',
+            },
+          }}
+        >
+          {expander && (
+            // Sits just left of the checkbox: in the page gutter for top-level tasks.
+            <IconButton
+              size="small"
+              aria-expanded={expander.open}
+              aria-label={
+                expander.open
+                  ? t('task.hideSubtasks', { title })
+                  : t('task.showSubtasks', { title })
+              }
+              onClick={expander.onToggle}
               sx={{
-                fontSize: 18,
-                transform: expander.open ? 'rotate(90deg)' : 'none',
-                transition: 'transform 120ms',
-              }}
-            />
-          </IconButton>
-        )}
-        {twoLine ? (
-          <>
-            <Box sx={{ pt: 0.5 }}>{checkbox}</Box>
-            <Box sx={{ flexGrow: 1, minWidth: 0, py: 1, pr: 1.5 }}>
-              <ButtonBase
-                {...openButton}
-                sx={{ display: 'block', width: '100%', textAlign: 'left' }}
-              >
-                {titleText}
-              </ButtonBase>
-              {/* Phones have no room beside the title: the rest goes on a line under it. */}
-              {hasDetails && (
-                <Box
-                  data-testid="task-meta"
-                  // Tapping the details opens the task too (the title button is the one to focus).
-                  onClick={() => (select ? select.onToggle() : open(task.id))}
-                  sx={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    flexWrap: 'wrap',
-                    columnGap: 1.25,
-                    rowGap: 0.25,
-                    mt: 0.25,
-                    typography: 'body2',
-                    fontSize: '0.8125rem',
-                    color: 'text.secondary',
-                  }}
-                >
-                  <DateButton task={task} width="auto" compact dueFirst={dueFirst} />
-                  {showsList && <Box component="span">{listName(list, workspace)}</Box>}
-                  <TagChips tags={tags} max={3} wrap={false} />
-                  {details}
-                </Box>
-              )}
-            </Box>
-          </>
-        ) : (
-          <>
-            {checkbox}
-            <ButtonBase
-              {...openButton}
-              sx={{
-                flexGrow: 1,
-                minWidth: 0,
-                display: 'flex',
-                alignItems: 'center',
-                gap: 1.5,
-                py: 1,
-                pr: 1.5,
-                textAlign: 'left',
+                position: 'absolute',
+                left: depth * INDENT - 20,
+                ...(twoLine ? { top: 8 } : { top: '50%', transform: 'translateY(-50%)' }),
+                p: 0.25,
+                color: 'text.secondary',
               }}
             >
-              <Box sx={{ flexGrow: 1, minWidth: 0 }}>{titleText}</Box>
-              <Box
-                data-testid="task-meta"
+              <ChevronRightRounded
                 sx={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 1.25,
-                  flexShrink: 0,
-                  typography: 'body2',
+                  fontSize: 18,
+                  transform: expander.open ? 'rotate(90deg)' : 'none',
+                  transition: 'transform 120ms',
                 }}
-              >
-                <TagChips tags={tags} max={2} wrap={false} />
-                {details}
-                {/* The Mess Drawer is "no list", so its tasks show none. */}
-                {showsList && (
-                  <Box component="span" sx={{ color: 'text.secondary' }}>
-                    {listName(list, workspace)}
+              />
+            </IconButton>
+          )}
+          {twoLine ? (
+            <>
+              <Box sx={{ pt: 0.5 }}>{checkbox}</Box>
+              <Box sx={{ flexGrow: 1, minWidth: 0, py: 1, pr: 1.5 }}>
+                <ButtonBase
+                  {...openButton}
+                  sx={{ display: 'block', width: '100%', textAlign: 'left' }}
+                >
+                  {titleText}
+                </ButtonBase>
+                {/* Phones have no room beside the title: the rest goes on a line under it. */}
+                {hasDetails && (
+                  <Box
+                    data-testid="task-meta"
+                    // Tapping the details opens the task too (the title button is the one to focus).
+                    onClick={() => (select ? select.onToggle() : open(task.id))}
+                    sx={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      flexWrap: 'wrap',
+                      columnGap: 1.25,
+                      rowGap: 0.25,
+                      mt: 0.25,
+                      typography: 'body2',
+                      fontSize: '0.8125rem',
+                      color: 'text.secondary',
+                    }}
+                  >
+                    <DateButton task={task} width="auto" compact dueFirst={dueFirst} />
+                    {showsList && <Box component="span">{listName(list, workspace)}</Box>}
+                    <TagChips tags={tags} max={3} wrap={false} />
+                    {details}
                   </Box>
                 )}
               </Box>
-            </ButtonBase>
-            <DateButton task={task} width={DATE_COLUMN} dueFirst={dueFirst} />
-          </>
-        )}
-        <TaskMenu task={task} anchor={menu} onClose={() => setMenu(null)} showOpen />
-      </Box>
+            </>
+          ) : (
+            <>
+              {checkbox}
+              <ButtonBase
+                {...openButton}
+                sx={{
+                  flexGrow: 1,
+                  minWidth: 0,
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 1.5,
+                  py: 1,
+                  pr: 1.5,
+                  textAlign: 'left',
+                }}
+              >
+                <Box sx={{ flexGrow: 1, minWidth: 0 }}>{titleText}</Box>
+                <Box
+                  data-testid="task-meta"
+                  sx={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 1.25,
+                    flexShrink: 0,
+                    typography: 'body2',
+                  }}
+                >
+                  <TagChips tags={tags} max={2} wrap={false} />
+                  {details}
+                  {/* The Mess Drawer is "no list", so its tasks show none. */}
+                  {showsList && (
+                    <Box component="span" sx={{ color: 'text.secondary' }}>
+                      {listName(list, workspace)}
+                    </Box>
+                  )}
+                </Box>
+              </ButtonBase>
+              <DateButton task={task} width={DATE_COLUMN} dueFirst={dueFirst} />
+            </>
+          )}
+          <TaskMenu task={task} anchor={menu} onClose={() => setMenu(null)} showOpen />
+        </Box>
+      </SwipeRow>
+      <TaskDateSheet
+        task={task}
+        anchor={swipeDate}
+        onClose={() => setSwipeDate(null)}
+        dueFirst={dueFirst}
+      />
+      {moving && <MoveToListDialog task={task} onClose={() => setMoving(false)} />}
     </TaskReadOnly>
   );
 }

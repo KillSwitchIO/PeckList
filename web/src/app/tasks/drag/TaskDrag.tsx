@@ -194,10 +194,13 @@ export function TaskDragProvider({ children }: { children: ReactNode }) {
       event.stopPropagation();
       finish(active, false);
     };
+    // A finger dragging a task moves the task, not the page.
+    const still = (event: TouchEvent) => event.preventDefault();
     window.addEventListener('pointermove', move, { passive: false });
     window.addEventListener('pointerup', up);
     window.addEventListener('pointercancel', up);
     window.addEventListener('keydown', key, true);
+    document.addEventListener('touchmove', still, { passive: false });
     document.body.style.cursor = 'grabbing';
     document.body.style.userSelect = 'none';
     return () => {
@@ -205,6 +208,7 @@ export function TaskDragProvider({ children }: { children: ReactNode }) {
       window.removeEventListener('pointerup', up);
       window.removeEventListener('pointercancel', up);
       window.removeEventListener('keydown', key, true);
+      document.removeEventListener('touchmove', still);
       document.body.style.cursor = '';
       document.body.style.userSelect = '';
     };
@@ -238,8 +242,14 @@ export function TaskDragProvider({ children }: { children: ReactNode }) {
                 navigator.vibrate?.(10);
               }, HOLD_MS)
             : null;
+          // Once the hold has armed a drag, a finger moving must not scroll the page instead.
+          const still = (touchEvent: TouchEvent) => {
+            if (armed) touchEvent.preventDefault();
+          };
+          if (touch) document.addEventListener('touchmove', still, { passive: false });
           const cleanup = () => {
             if (hold) clearTimeout(hold);
+            document.removeEventListener('touchmove', still);
             window.removeEventListener('pointermove', move);
             window.removeEventListener('pointerup', up);
             window.removeEventListener('pointercancel', cancel);
