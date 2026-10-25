@@ -79,4 +79,25 @@ public sealed class ProviderPhotoTests(ServerFixture fixture) : IClassFixture<Se
         await photos.ImportAsync(account.Id, "https://id.example.com/me.png", Token);
         Assert.StartsWith("data:image/png;base64,iVBOR", (string?)Profile()["photo"]);
     }
+
+    [Fact]
+    public async Task The_provider_picture_passes_through_whole_for_the_app_and_is_404_without_one()
+    {
+        using var server = fixture.Factory(("ADMIN_PASSWORD", "correct horse battery"))
+            .WithWebHostBuilder(host => host.ConfigureTestServices(services =>
+                services.AddHttpClient("photos").ConfigurePrimaryHttpMessageHandler(() => new Pictures())));
+        var photos = server.Services.GetRequiredService<ProviderPhoto>();
+        // Too big to keep as it is, but the app shrinks it: it comes through whole.
+        var big = await photos.FetchAsync("https://id.example.com/big.png", Token);
+        Assert.Equal(ProviderPhoto.MaxBytes + 10, big!.Value.Bytes.Length);
+        Assert.Equal("image/png", big.Value.Type);
+
+        var accounts = server.Services.GetRequiredService<AccountService>();
+        await accounts.CreateUserAsync("pat-q", "a long enough password", mustChangePassword: false, cancellation: Token);
+        var client = server.CreateClient();
+        (await client.PostAsJsonAsync("/auth/login", new { username = "pat-q", password = "a long enough password" }, Token)).EnsureSuccessStatusCode();
+        Assert.Equal(HttpStatusCode.NotFound, (await client.GetAsync("/api/account/provider-picture", Token)).StatusCode);
+        var me = await client.GetFromJsonAsync<JsonObject>("/auth/me", Token);
+        Assert.False((bool)me!["hasProviderPicture"]!);
+    }
 }

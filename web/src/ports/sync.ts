@@ -36,6 +36,8 @@ export interface Account {
   provider?: string | null;
   /** Where the server serves that provider's icon (it answers 404 when there is none). */
   providerIcon?: string | null;
+  /** The provider has a picture of the person (served at /api/account/provider-picture) */
+  hasProviderPicture?: boolean;
 }
 
 export interface SyncRequest {

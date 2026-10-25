@@ -406,6 +406,10 @@ export function TaskRow({
             minHeight: 40,
             pl: `${4 + depth * INDENT}px`,
             opacity: dimmed ? 0.4 : 1,
+            // A held finger drags: no text selection or callout taking the hold over.
+            ...(dragging
+              ? { userSelect: 'none', WebkitUserSelect: 'none', WebkitTouchCallout: 'none' }
+              : {}),
             borderBottom: 1,
             borderColor: 'divider',
             bgcolor: selected || select?.selected ? 'action.selected' : 'transparent',

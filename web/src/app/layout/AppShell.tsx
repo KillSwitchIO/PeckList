@@ -58,6 +58,7 @@ import { useAppliedTimeZone } from './useAppliedTimeZone.ts';
 import { activeItem, SIDEBAR_ITEMS, type NavItem } from './navigation.tsx';
 import { useBottomTabs } from './bottomTabs.tsx';
 import { BulkBar } from '../tasks/BulkBar.tsx';
+import { ProviderPhotoSync } from '../friends/ProviderPhotoSync.tsx';
 import { BulkSelectProvider } from '../tasks/BulkSelectProvider.tsx';
 import { useBulkSelect } from '../tasks/bulkSelect.ts';
 import { TwoLineRowsContext, useNarrow } from './rowLayout.ts';
@@ -490,6 +491,7 @@ function AppFrame() {
         <UndoToast bottomOffset={isPhone ? 52 + 72 : 0} />
         <SyncNoticeToast />
         <ReminderScheduler />
+        <ProviderPhotoSync />
         <ShortcutsDialog open={shortcuts.helpOpen} onClose={shortcuts.closeHelp} />
 
         {/* Picking many: the actions take the bottom tabs' place (or float, on a big screen). */}
