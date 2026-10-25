@@ -7,6 +7,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Punchlist.Core;
 using Punchlist.Core.Accounts;
 using Punchlist.Core.Push;
+using Punchlist.Core.Sharing;
 using Punchlist.Server.Push;
 
 namespace Punchlist.Server.Tests;
@@ -177,5 +178,48 @@ public sealed class PushTests(ServerFixture fixture) : IClassFixture<ServerFixtu
         var feed = (await ben.GetFromJsonAsync<NotificationFeed>("/api/notifications", Token))!;
         Assert.Single(feed.Items);
         Assert.Equal(ServerReminders.ConstantTimes, ServerReminders.Instants(task, TimeZoneInfo.Local).Count());
+    }
+
+    [Fact]
+    public async Task Dismiss_stops_a_constant_reminders_repeats_and_snooze_adds_one_to_the_task()
+    {
+        using var server = Server();
+        var (ben, benId) = await SignIn(server, "ben-d");
+        var list = Entity("DL1", benId, new JsonObject { ["name"] = "Home", ["visibility"] = "private" });
+        var task = Entity("DT1", benId, new JsonObject
+        {
+            ["listId"] = "DL1",
+            ["title"] = "Stretch",
+            ["parentId"] = null,
+            ["status"] = "open",
+            ["assignees"] = new JsonObject(),
+            ["schedule"] = new JsonObject { ["start"] = "2026-10-26T10:00", ["end"] = null, ["allDay"] = false, ["timeZone"] = "UTC" },
+            ["reminders"] = new JsonArray(new JsonObject { ["before"] = 0 }),
+            ["constantReminder"] = true,
+        });
+        (await ben.PostAsJsonAsync("/api/sync", new
+        {
+            schemaVersion = WorkspaceSchema.CurrentVersion,
+            cursor = (long?)null,
+            changes = new object[] { new { collection = "lists", entity = list }, new { collection = "tasks", entity = task } },
+        }, Token)).EnsureSuccessStatusCode();
+
+        var sender = server.Services.GetRequiredService<ReminderSender>();
+        var first = ServerReminders.Instants(task, TimeZoneInfo.Local).First().First;
+        await sender.SendDueAsync(first.AddMinutes(-1), first.AddMinutes(1), Token);
+        Assert.Single(push.Sent);
+        (await ben.PostAsJsonAsync("/api/reminders/act", new { taskId = "DT1", first = first.ToUnixTimeMilliseconds(), action = "dismiss" }, Token)).EnsureSuccessStatusCode();
+        await sender.SendDueAsync(first.AddMinutes(1), first.AddMinutes(60), Token);
+        Assert.Single(push.Sent);
+
+        (await ben.PostAsJsonAsync("/api/reminders/act", new { taskId = "DT1", first = first.ToUnixTimeMilliseconds(), action = "snooze" }, Token)).EnsureSuccessStatusCode();
+        var stored = server.Services.GetRequiredService<SharingState>().Index.LiveOf("tasks").Single(each => each.Id == "DT1").Doc;
+        var reminders = Assert.IsType<JsonArray>(stored["reminders"]);
+        Assert.Equal(2, reminders.Count);
+        Assert.NotNull(reminders[1]!["at"]);
+
+        // Not someone else's.
+        var (sam, _) = await SignIn(server, "sam-d");
+        Assert.Equal(HttpStatusCode.NotFound, (await sam.PostAsJsonAsync("/api/reminders/act", new { taskId = "DT1", first = 0L, action = "dismiss" }, Token)).StatusCode);
     }
 }

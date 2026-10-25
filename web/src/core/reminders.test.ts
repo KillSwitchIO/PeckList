@@ -8,6 +8,7 @@ import {
   remindersBetween,
   remindsAllDay,
   remindsMe,
+  snoozeReminder,
 } from './reminders.ts';
 import { setAssignee } from './sharing.ts';
 import { createTask, toggleTaskDone, updateTask } from './tasks.ts';
@@ -116,5 +117,20 @@ describe('all-day reminders at a time of day', () => {
       const made = allDayReminder(days, time);
       expect('before' in made && allDayParts(made.before)).toEqual({ days, time });
     }
+  });
+});
+
+describe('snoozing a reminder', () => {
+  it('adds a set time and drops set times already past', () => {
+    const s = setup();
+    const task = s.add('Stretch', {
+      schedule: timed,
+      reminders: [{ before: 0 }, { at: '2026-10-26T09:00' }],
+    });
+    s.ws = snoozeReminder(s.ctx, s.ws, task.id, '2026-10-26T10:40', '2026-10-26T10:30');
+    expect(s.ws.entities.tasks.find((each) => each.id === task.id)!.reminders).toEqual([
+      { before: 0 },
+      { at: '2026-10-26T10:40' },
+    ]);
   });
 });

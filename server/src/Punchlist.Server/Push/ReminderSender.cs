@@ -90,7 +90,7 @@ public sealed class ReminderSender(
         }
     }
 
-    private static TimeZoneInfo ZoneOf(JsonObject? settings)
+    internal static TimeZoneInfo ZoneOf(JsonObject? settings)
     {
         if (settings?["timeZone"] is JsonValue value && value.TryGetValue<string>(out var name)
             && TimeZoneInfo.TryFindSystemTimeZoneById(name, out var zone))

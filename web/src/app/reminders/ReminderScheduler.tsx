@@ -1,9 +1,15 @@
 import { useEffect, useRef } from 'react';
-import { remindersBetween, type DueReminder } from '../../core/reminders.ts';
+import {
+  CONSTANT_TIMES,
+  remindersBetween,
+  SNOOZE_MINUTES,
+  snoozeReminder,
+  type DueReminder,
+} from '../../core/reminders.ts';
 import { localTimeZone } from '../../core/dates.ts';
 import { formatTime } from '../format.ts';
 import { t } from '../i18n/i18n.ts';
-import { useStoreState, useWorkspace } from '../store/hooks.ts';
+import { useApply, useStoreState, useWorkspace } from '../store/hooks.ts';
 import { notifier } from './notifier.ts';
 import { logReminder } from './reminderLog.ts';
 
@@ -46,6 +52,44 @@ export function ReminderScheduler({ now = Date.now }: { now?: () => number }) {
     latest.current = { workspace, me };
   });
 
+  // Dismiss or Snooze on a constant reminder (from the service worker, spec: R-FB-70): its
+  // repeats stop here and on the server; Snooze also adds a reminder that syncs. The task's other
+  // reminders come as before.
+  const apply = useApply();
+  const act = useRef(apply);
+  useEffect(() => {
+    act.current = apply;
+  });
+  useEffect(() => {
+    const worker = navigator.serviceWorker;
+    if (!worker) return;
+    const onMessage = (event: MessageEvent) => {
+      const data = event.data as
+        { type?: string; action?: string; taskId?: string; first?: number } | undefined;
+      if (data?.type !== 'punchlist-reminder' || !data.taskId || !data.first) return;
+      const tag = `${data.taskId}@${data.first}`;
+      const at = now();
+      for (let again = 1; again < CONSTANT_TIMES; again += 1) markFired(`${tag}#${again}`, at);
+      void fetch('/api/reminders/act', {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ taskId: data.taskId, first: data.first, action: 'dismiss' }),
+      }).catch(() => undefined);
+      if (data.action === 'snooze') {
+        const later = localClock(at + SNOOZE_MINUTES * 60_000);
+        const nowText = localClock(at);
+        const taskId = data.taskId;
+        act.current(
+          (ctx, ws) => snoozeReminder(ctx, ws, taskId, later, nowText),
+          t('reminder.snoozed', { minutes: SNOOZE_MINUTES }),
+        );
+      }
+    };
+    worker.addEventListener('message', onMessage);
+    return () => worker.removeEventListener('message', onMessage);
+  }, [now]);
+
   useEffect(() => {
     let timer: ReturnType<typeof setTimeout> | null = null;
     const fire = (due: DueReminder) => {
@@ -56,7 +100,15 @@ export function ReminderScheduler({ now = Date.now }: { now?: () => number }) {
         body: t('reminder.body', { time: formatTime(clock(due.at)) }),
         tag: due.tag,
         url: `/today?task=${due.taskId}`,
-        ...(due.constant ? { sticky: true } : {}),
+        ...(due.constant
+          ? {
+              sticky: true,
+              actions: [
+                { action: 'dismiss', title: t('reminder.dismiss') },
+                { action: 'snooze', title: t('reminder.snooze', { minutes: SNOOZE_MINUTES }) },
+              ],
+            }
+          : {}),
       });
     };
     const check = () => {
@@ -95,4 +147,19 @@ function clock(at: number): string {
     minute: '2-digit',
     hourCycle: 'h23',
   }).format(at);
+}
+
+/** "YYYY-MM-DDTHH:mm" in the app's time zone for an instant. */
+function localClock(at: number): string {
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: localTimeZone(),
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    hourCycle: 'h23',
+  }).formatToParts(at);
+  const part = (type: string) => parts.find((each) => each.type === type)?.value ?? '00';
+  return `${part('year')}-${part('month')}-${part('day')}T${part('hour')}:${part('minute')}`;
 }

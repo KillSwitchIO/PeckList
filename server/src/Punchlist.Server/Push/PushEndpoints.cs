@@ -1,5 +1,10 @@
+using System.Globalization;
 using System.Security.Claims;
+using System.Text.Json.Nodes;
 using Punchlist.Core.Push;
+using Punchlist.Core.Sharing;
+using Punchlist.Core.Storage;
+using Punchlist.Core.Sync;
 using Punchlist.Server.Auth;
 
 namespace Punchlist.Server.Push;
@@ -12,6 +17,9 @@ public sealed record PushKeys(string? P256dh, string? Auth);
 public sealed record PushSubscribe(string? Endpoint, PushKeys? Keys);
 
 public sealed record PushUnsubscribe(string? Endpoint);
+
+/// <summary>Dismiss or Snooze on a constant reminder: the task and the reminder's first time (ms since the epoch).</summary>
+public sealed record ReminderAct(string? TaskId, long First, string? Action);
 
 /// <summary>Web Push (spec: PL-061): the server's key, and this browser's subscription.</summary>
 public static class PushEndpoints
@@ -43,6 +51,57 @@ public static class PushEndpoints
             return Results.NoContent();
         });
 
+        // Dismiss or Snooze pressed on a constant reminder with the app closed (spec: R-FB-70): its
+        // repeats stop for this person; Snooze adds a one-time reminder in ten minutes, written to
+        // the task so every device has it. The task's other reminders come as before.
+        api.MapPost("/reminders/act", async (
+            ReminderAct request, ClaimsPrincipal user, SharingState sharing, IPushStore store, SyncService sync,
+            ServerClock clock, TimeProvider time, CancellationToken cancellation) =>
+        {
+            var userId = user.UserId();
+            var index = sharing.Index;
+            var found = index.LiveOf("tasks").FirstOrDefault(each => each.Id == request.TaskId);
+            if (found.Doc is null || !ServerReminders.Recipients(found.Doc, index).Contains(userId)) return Results.NotFound();
+            if (request.Action is not ("dismiss" or "snooze")) return Results.BadRequest(new { error = "unknown_action" });
+            var now = time.GetUtcNow();
+            var first = DateTimeOffset.FromUnixTimeMilliseconds(request.First);
+            var tag = $"{found.Id}@{request.First}";
+            for (var again = 1; again < ServerReminders.ConstantTimes; again++)
+            {
+                var at = first + again * ServerReminders.ConstantEvery;
+                await store.MarkReminderSentAsync($"{userId}|{tag}#{at.ToUnixTimeMilliseconds()}", now, cancellation);
+            }
+            if (request.Action == "snooze")
+            {
+                var settings = index.LiveOf("settings").Select(each => each.Doc).FirstOrDefault(doc => (string?)doc["userId"] == userId);
+                var zone = ReminderSender.ZoneOf(settings);
+                var local = TimeZoneInfo.ConvertTime(now, zone);
+                var nowText = local.ToString("yyyy-MM-dd'T'HH:mm", CultureInfo.InvariantCulture);
+                var later = local.AddMinutes(SnoozeMinutes).ToString("yyyy-MM-dd'T'HH:mm", CultureInfo.InvariantCulture);
+                var reminders = new JsonArray();
+                if (found.Doc["reminders"] is JsonArray existing)
+                {
+                    foreach (var each in existing.OfType<JsonObject>())
+                    {
+                        // Set times already past (earlier snoozes) go.
+                        if ((string?)each["at"] is { } setAt && string.CompareOrdinal(setAt, nowText) <= 0) continue;
+                        reminders.Add(each.DeepClone());
+                    }
+                }
+                reminders.Add(new JsonObject { ["at"] = later });
+                var doc = (JsonObject)found.Doc.DeepClone();
+                doc["reminders"] = reminders;
+                var clocks = doc["_hlc"] as JsonObject ?? new JsonObject();
+                clocks["reminders"] = clock.Next();
+                doc["_hlc"] = clocks;
+                await sync.WriteAsServerAsync((string?)found.Doc["createdBy"] ?? userId, [new IncomingEntity("tasks", doc)], cancellation);
+            }
+            return Results.NoContent();
+        });
+
         return api;
     }
+
+    /// <summary>How long Snooze puts a constant reminder off (the app's SNOOZE_MINUTES).</summary>
+    public const int SnoozeMinutes = 10;
 }

@@ -2,7 +2,8 @@
 // task's date (its start, else its due date; an all-day date counts from 9:00 that day) or a set
 // local date-time. Delivery is the app's job (app/reminders); this is plain data in, data out.
 
-import { isLive } from './collections.ts';
+import { isLive, putEntity } from './collections.ts';
+import { updateEntity, type OpContext } from './ops.ts';
 import { datePart, instantOf, timePart } from './dates.ts';
 import { groupMembersOf } from './groups.ts';
 import { assigneesOf } from './sharing.ts';
@@ -128,4 +129,24 @@ export function remindersBetween(
 /** The same reminder twice is one. */
 export function sameReminder(a: Reminder, b: Reminder): boolean {
   return 'at' in a ? 'at' in b && a.at === b.at : 'before' in b && a.before === b.before;
+}
+
+/** How long Snooze puts a constant reminder off. */
+export const SNOOZE_MINUTES = 10;
+
+/**
+ * Snooze (spec: R-FB-70): the task gets a one-time reminder at `at` (local "YYYY-MM-DDTHH:mm"),
+ * and set times already past (earlier snoozes) go, so they do not pile up.
+ */
+export function snoozeReminder(
+  ctx: OpContext,
+  workspace: WorkspaceFile,
+  taskId: Id,
+  at: string,
+  now: string,
+): WorkspaceFile {
+  const task = workspace.entities.tasks.find((each) => each.id === taskId);
+  if (!task || !isLive(task)) return workspace;
+  const kept = (task.reminders ?? []).filter((each) => !('at' in each) || each.at > now);
+  return putEntity(workspace, 'tasks', updateEntity(ctx, task, { reminders: [...kept, { at }] }));
 }
