@@ -3,7 +3,7 @@
 // violet, pink), taking the theme's own strength and lightness from its accent. Changing the
 // theme can move every list and tag to the same spot in the new theme's set.
 
-import { canEditList } from './sharing.ts';
+import { myRole } from './sharing.ts';
 import {
   COLOR_FAMILIES,
   hexToRgb,
@@ -84,12 +84,15 @@ export function spectrumSpot(hex: string): number | null {
   return best;
 }
 
-/** Lists and tags the theme change would recolor (lists one may change; not the Mess Drawer). */
+/**
+ * Lists and tags a theme change recolors: lists one owns (only owners change a list; not the Mess
+ * Drawer) and one's own tags.
+ */
 export function recolorable(workspace: WorkspaceFile, me: string) {
   const lists = workspace.entities.lists.filter(
-    (list) => !list.deletedAt && !list.isInbox && canEditList(workspace, me, list.id),
+    (list) => !list.deletedAt && !list.isInbox && myRole(workspace, me, list.id) === 'owner',
   );
-  const tags = workspace.entities.tags.filter((tag) => !tag.deletedAt);
+  const tags = workspace.entities.tags.filter((tag) => !tag.deletedAt && tag.createdBy === me);
   return { lists, tags };
 }
 

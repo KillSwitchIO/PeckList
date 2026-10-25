@@ -320,7 +320,7 @@ describe('settings: swipe actions', () => {
 });
 
 describe('settings: changing the theme', () => {
-  it('asks to recolor lists and tags, and moves them to the same spot in the new set', async () => {
+  it('recolors lists and tags to the same spot in the new set, unless turned off', async () => {
     const store = testStore();
     await store.getState().init();
     let listId = '';
@@ -332,11 +332,20 @@ describe('settings: changing the theme', () => {
     await store.getState().flush();
     await renderApp('/settings', store);
     const palettes = await screen.findByRole('radiogroup', { name: 'Palettes' });
+    // On by default: the palette and the lists and tags change as one.
+    expect(
+      screen.getByRole('switch', { name: 'Recolor lists and tags with the palette' }),
+    ).toBeChecked();
     await userEvent.click(within(palettes).getByRole('radio', { name: 'Berry' }));
-    const ask = await screen.findByRole('dialog', { name: 'Recolor lists and tags too?' });
-    await userEvent.click(within(ask).getByRole('button', { name: 'Recolor' }));
     const color = () =>
       store.getState().workspace!.entities.lists.find((list) => list.id === listId)!.color;
     await waitFor(() => expect(color()).toBe(themeSwatches('berry')[6]));
+
+    // Off: only the palette changes.
+    await userEvent.click(
+      screen.getByRole('switch', { name: 'Recolor lists and tags with the palette' }),
+    );
+    await userEvent.click(within(palettes).getByRole('radio', { name: 'Ocean' }));
+    expect(color()).toBe(themeSwatches('berry')[6]);
   });
 });
