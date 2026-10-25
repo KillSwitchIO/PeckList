@@ -271,6 +271,9 @@ export function CompletedView() {
   );
 }
 
+/** Trash rows shown at first, and added per "Show more" (an import replaced can trash thousands). */
+const TRASH_PAGE = 100;
+
 export function TrashView() {
   const workspace = useWorkspace();
   const apply = useApply();
@@ -279,6 +282,7 @@ export function TrashView() {
   const tasks = trashedTasks(workspace, now);
   // Deleting forever cannot be undone, so it asks first.
   const [confirm, setConfirm] = useState<'all' | Task | null>(null);
+  const [limit, setLimit] = useState(TRASH_PAGE);
   return (
     <Page
       title={t('nav.trash')}
@@ -304,7 +308,7 @@ export function TrashView() {
             {t('trash.hint')}
           </Typography>
           <List>
-            {tasks.map((task) => {
+            {tasks.slice(0, limit).map((task) => {
               const list = getEntity(workspace, 'lists', task.listId);
               return (
                 <ListItem
@@ -350,6 +354,11 @@ export function TrashView() {
               );
             })}
           </List>
+          {tasks.length > limit && (
+            <Button size="small" onClick={() => setLimit((current) => current + TRASH_PAGE)}>
+              {t('tasks.showMore', { count: Math.min(tasks.length - limit, TRASH_PAGE) })}
+            </Button>
+          )}
         </>
       )}
       {confirm && (

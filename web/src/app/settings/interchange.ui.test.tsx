@@ -45,16 +45,15 @@ describe('settings: import from another app', () => {
       new File([BACKUP], 'TickTick-backup.csv', { type: 'text/csv' }),
     );
     const preview = await within(dialog).findByTestId('import-preview');
-    expect(preview).toHaveTextContent('1 lists, 3 open and 1 closed tasks, 1 tags.');
-    expect(preview).toHaveTextContent('Checklist items that become subtasks: 2');
+    expect(preview).toHaveTextContent('1 lists, 2 open and 0 closed tasks, 1 tags.');
     expect(within(dialog).getByRole('radio', { name: /Merge with what you have/ })).toBeChecked();
     const before = titles(store);
     await userEvent.click(within(dialog).getByRole('button', { name: 'Import' }));
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
     expect(await screen.findByRole('region', { name: 'Your data' })).toHaveTextContent(
-      'Imported from TickTick: 4 tasks, 1 new lists and 1 new tags.',
+      'Imported from TickTick: 2 tasks, 1 new lists and 1 new tags.',
     );
-    expect(titles(store)).toEqual([...before, 'Boots', 'Gloves', 'Pack', 'Plant bulbs'].sort());
+    expect(titles(store)).toEqual([...before, 'Pack', 'Plant bulbs'].sort());
     expect(store.getState().lastUndoable?.label).toBe('Imported from TickTick');
     store.getState().undo();
     expect(titles(store)).toEqual(before);
@@ -79,7 +78,7 @@ describe('settings: import from another app', () => {
     expect(within(dialog).getByText(/tasks and .* tags go to the Trash first/)).toBeInTheDocument();
     await userEvent.click(within(dialog).getByRole('button', { name: 'Import' }));
     expect(await screen.findByText(/What was here is in the Trash/)).toBeInTheDocument();
-    expect(titles(store)).toEqual(['Boots', 'Gloves', 'Pack', 'Plant bulbs']);
+    expect(titles(store)).toEqual(['Pack', 'Plant bulbs']);
   });
 
   it('knows a Todoist file when TickTick is picked, and reads it as Todoist', async () => {

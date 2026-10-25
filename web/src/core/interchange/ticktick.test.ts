@@ -216,30 +216,29 @@ describe('reading a TickTick backup', () => {
     expect(task('Buy mulch').completedAt).toBe('2026-11-02T22:00:00.000Z');
   });
 
-  it("takes reminders, repeats, tags, notes and subtasks; a checklist's items become subtasks", () => {
+  it('takes reminders, repeats, tags, notes and subtasks; a checklist stays a checklist in its notes', () => {
     expect(task('Plant bulbs').reminders).toEqual([{ before: 0 }, { before: 1440 }]);
     expect(task('Buy mulch').reminders).toEqual([{ before: 15 }]);
     expect(task('Plant bulbs').recurrence).toBe('FREQ=YEARLY;INTERVAL=1;BYMONTH=11;BYMONTHDAY=4');
     expect(task('Plant bulbs').tags).toEqual(['yard', 'fall']);
     expect(task('Plant bulbs').notes).toBe('Tulips, deep');
     expect(task('Rake leaves').parentKey).toBe('1');
-    expect(task('Pack for trip').notes).toBe('For the cabin');
-    expect(task('Boots')).toMatchObject({ parentKey: '4', status: 'done' });
-    expect(task('Gloves')).toMatchObject({ parentKey: '4', status: 'open' });
+    expect(task('Pack for trip').notes).toBe('For the cabin\n\n- [x] Boots\n- [ ] Gloves');
+    expect(plan.tasks.find((each) => each.title === 'Boots')).toBeUndefined();
     // Garden's own order: smaller first.
     expect(
       plan.tasks
         .filter((each) => each.listKey === 'Garden' && !each.parentKey)
         .map((each) => each.title),
     ).toEqual(['Buy mulch', 'Plant bulbs']);
-    expect(planSummary(plan)).toMatchObject({ lists: 2, open: 3, closed: 3, tags: 2 });
+    expect(planSummary(plan)).toMatchObject({ lists: 2, open: 2, closed: 2, tags: 2 });
   });
 
   it('lands in the workspace as one: lists, tags, subtasks, closed ones closed', () => {
     const ctx = testContext();
     const outcome = applyImport(ctx, createWorkspace(ctx), plan, { intoSameNamed: true });
     const ws = outcome.workspace;
-    expect([outcome.lists, outcome.tasks, outcome.tags]).toEqual([1, 6, 2]);
+    expect([outcome.lists, outcome.tasks, outcome.tags]).toEqual([1, 4, 2]);
     const made = (title: string) => ws.entities.tasks.find((each) => each.title === title)!;
     expect(made('Pack for trip').listId).toBe(inboxList(ws).id);
     expect(made('Rake leaves').parentId).toBe(made('Plant bulbs').id);
@@ -276,7 +275,13 @@ describe('writing a TickTick backup', () => {
       status: 'done',
       schedule: { start: '2026-11-02T14:30', end: '2026-11-02T15:30' },
     });
-    expect(pick('Boots').parentKey).toBe(pick('Pack for trip').key);
+    // The checklist goes back out as TickTick's own.
+    expect(
+      parseCsv(text)
+        .find((row) => row[2] === 'Pack for trip')!
+        .slice(3, 7),
+    ).toEqual(['CHECKLIST', '', 'For the cabin▪Boots▫Gloves', 'Y']);
+    expect(pick('Pack for trip').notes).toBe('For the cabin\n\n- [x] Boots\n- [ ] Gloves');
     expect(again.lists.find((list) => list.name === 'Inbox')?.inbox).toBe(true);
   });
 });

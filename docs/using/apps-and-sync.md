@@ -76,7 +76,11 @@ reminders, subtasks, and done and won't-do tasks closed as they were (Todoist an
 in open tasks). What does not:
 
 - **Sections, kanban columns and folders**: Punchlist has none, so their tasks stay in the list.
-- **TickTick checklists**: their items become subtasks.
+- **TickTick checklists** stay checklists, in the task's notes, ticked items ticked (and go back
+  to TickTick as checklists).
+- **Done means done**: a task left open under a completed one (an unticked item of a completed
+  TickTick task, say) comes in completed with it.
+- **When tasks were made** comes over where the app exports it (TickTick, iCalendar).
 - **Todoist comments**: they go into the task's notes.
 - **Repeats Punchlist cannot follow** (such as TickTick's "these dates"): the task comes in
   without one.

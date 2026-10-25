@@ -6,7 +6,7 @@ import { createWorkspace } from '../workspace.ts';
 import { createList, inboxList } from '../lists.ts';
 import { createTag } from '../tags.ts';
 import { createTask } from '../tasks.ts';
-import { applyImport, replaceable } from './apply.ts';
+import { applyImport, planSummary, replaceable } from './apply.ts';
 import { parseCsv, toCsv } from './csv.ts';
 import { dateReader, ruleWords, scheduleWords } from './dateText.ts';
 import { parseGoogleTasks } from './googleTasks.ts';
@@ -451,5 +451,63 @@ describe('merging or replacing', () => {
     expect(
       out.workspace.entities.tasks.find((each) => each.title === 'Old one')?.deletedAt,
     ).not.toBeNull();
+  });
+});
+
+describe('landing as the other app meant it', () => {
+  it('closes what is open under a closed task, keeps when it was made, and titles the untitled', () => {
+    const plan: ImportPlan = {
+      source: 'ticktick',
+      lists: [{ key: 'l', name: 'Trip' }],
+      tasks: [
+        {
+          key: 'p',
+          listKey: 'l',
+          title: 'Pack',
+          status: 'done',
+          completedAt: '2026-05-02T10:00:00.000Z',
+          priority: 0,
+          createdAt: '2024-03-01T08:30:00.000Z',
+        },
+        { key: 'p.0', listKey: 'l', parentKey: 'p', title: 'Gloves', status: 'open', priority: 0 },
+        {
+          key: 'p.0.0',
+          listKey: 'l',
+          parentKey: 'p.0',
+          title: 'Left one',
+          status: 'open',
+          priority: 0,
+        },
+        {
+          key: 'x',
+          listKey: 'l',
+          title: '',
+          notes: '\n  Call the cabin\nabout keys',
+          status: 'open',
+          priority: 0,
+        },
+        { key: 'y', listKey: 'l', title: ' ', status: 'open', priority: 0 },
+        {
+          key: 'z',
+          listKey: 'l',
+          title: '',
+          notes: '- [x] Realtor questions\n- [ ] Siding',
+          status: 'open',
+          priority: 0,
+        },
+      ],
+      notes: {},
+    };
+    expect(planSummary(plan)).toMatchObject({ open: 3, closed: 3 });
+    const { task } = landed(plan);
+    expect(task('Gloves')).toMatchObject({
+      status: 'done',
+      completedAt: '2026-05-02T10:00:00.000Z',
+    });
+    expect(task('Left one').status).toBe('done');
+    expect(task('Pack').createdAt).toBe('2024-03-01T08:30:00.000Z');
+    expect(task('Call the cabin').status).toBe('open');
+    expect(task('Untitled').status).toBe('open');
+    expect(task('Realtor questions').notes).toContain('- [ ] Siding');
   });
 });

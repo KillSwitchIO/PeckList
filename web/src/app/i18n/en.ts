@@ -104,7 +104,6 @@ export const en = {
   'interchange.note.reminderDropped': 'Reminders that could not be read: {count}',
   'interchange.note.foldersDropped': 'Folders are not kept; their lists come in on their own.',
   'interchange.note.notesAsTasks': 'Notes that come in as tasks: {count}',
-  'interchange.note.checklistAsSubtasks': 'Checklist items that become subtasks: {count}',
   'interchange.note.tooDeep': 'Subtasks nested deeper than Punchlist goes, moved up: {count}',
   'interchange.note.dateUnread': 'Dates that could not be read: {count}',
   'interchange.note.commentsAsNotes': "Comments added to their task's notes: {count}",

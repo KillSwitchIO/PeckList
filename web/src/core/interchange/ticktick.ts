@@ -4,7 +4,8 @@
 // day counts. Status 0 open, 2 done, -1 won't do. Priority 0, 1, 3, 5. Reminders are ISO
 // durations, one a line: for a timed task before the time ("-PT5M"), for an all-day task from the
 // day's midnight ("P0DT9H0M0S" is 9:00 that day, "-P0DT15H0M0S" 9:00 the day before). A checklist
-// task's items sit in its content, "▪" done and "▫" not; they come in as subtasks.
+// task's items sit in its content, "▪" done and "▫" not; they come in as a checklist in the
+// task's notes (and go back out as one).
 
 import { ALL_DAY_REMINDER_TIME } from '../reminders.ts';
 import { datePart, instantOf, localDateTimeOf, timePart } from '../dates.ts';
@@ -20,6 +21,12 @@ const DONE_ITEM = '▪';
 
 /** "2026-11-04T06:00:00+0000" as a parseable instant. */
 const instant = (value: string) => value.trim().replace(/([+-]\d{2})(\d{2})$/, '$1:$2');
+
+/** A TickTick instant as ISO, or null. */
+const instantOrNull = (value: string | undefined) => {
+  const at = value?.trim() ? Date.parse(instant(value)) : NaN;
+  return Number.isNaN(at) ? null : new Date(at).toISOString();
+};
 
 /**
  * Signed minutes of an ISO duration ("-P1DT15H0M0S" is -2340), or null. TickTick sometimes writes
@@ -146,17 +153,17 @@ export function parseTickTick(text: string, options: TickTickOptions): ImportPla
       row.Status?.trim() === '2' ? 'done' : row.Status?.trim() === '-1' ? 'wontdo' : 'open';
     const completed = row['Completed Time']?.trim();
     const key = row.taskId?.trim() || `row${tasks.length}`;
-    // A checklist's items: text before the first is the description.
+    // A checklist's items: text before the first is the description; the items follow it as a
+    // checklist in the notes.
     let notes = row.Content ?? '';
-    const items: { title: string; done: boolean }[] = [];
     if (row.Kind === 'CHECKLIST' || row['Is Check list'] === 'Y') {
       const parts = notes.split(/([▪▫])/);
-      notes = parts[0]!.trim();
+      const items: string[] = [];
       for (let i = 1; i < parts.length; i += 2) {
-        const title = (parts[i + 1] ?? '').trim();
-        if (title) items.push({ title, done: parts[i] === DONE_ITEM });
+        const title = (parts[i + 1] ?? '').replace(/\s+/g, ' ').trim();
+        if (title) items.push(`- [${parts[i] === DONE_ITEM ? 'x' : ' '}] ${title}`);
       }
-      if (items.length) note(plan, 'checklistAsSubtasks', items.length);
+      notes = [parts[0]!.trim(), items.join('\n')].filter(Boolean).join('\n\n');
     }
     const repeat = row.Repeat?.trim();
     const task = {
@@ -170,6 +177,7 @@ export function parseTickTick(text: string, options: TickTickOptions): ImportPla
         status !== 'open' && completed && !Number.isNaN(Date.parse(instant(completed)))
           ? new Date(Date.parse(instant(completed))).toISOString()
           : null,
+      createdAt: instantOrNull(row['Created Time']),
       priority: FROM_TICKTICK[row.Priority?.trim() ?? '0'] ?? 0,
       schedule,
       reminders,
@@ -181,18 +189,6 @@ export function parseTickTick(text: string, options: TickTickOptions): ImportPla
       order: BigInt(/^-?\d+$/.test(row.Order?.trim() ?? '') ? row.Order!.trim() : '0'),
     } satisfies ImportedTask & { order: bigint };
     tasks.push(task);
-    items.forEach((item, index) => {
-      tasks.push({
-        key: `${key}.${index}`,
-        listKey: listName,
-        parentKey: key,
-        title: item.title,
-        status: item.done ? 'done' : 'open',
-        completedAt: item.done ? task.completedAt : null,
-        priority: 0,
-        order: BigInt(index),
-      });
-    });
   }
   if (folders) note(plan, 'foldersDropped');
   if (columns.size) note(plan, 'sectionsDropped', columns.size);
@@ -241,6 +237,23 @@ const HEADER = [
   'projectKind',
 ];
 
+const CHECK_LINE = /^\s*[-*+] \[([ xX])\] (.*)$/;
+
+/** Notes as TickTick content: a checklist in them makes it a checklist task. */
+function contentOf(notes: string): { kind: 'TEXT' | 'CHECKLIST'; content: string } {
+  const lines = notes.split(/\r?\n/);
+  const items = lines.map((line) => CHECK_LINE.exec(line)).filter((match) => match !== null);
+  if (!items.length) return { kind: 'TEXT', content: notes };
+  const text = lines
+    .filter((line) => !CHECK_LINE.test(line))
+    .join('\n')
+    .trim();
+  const list = items
+    .map((match) => `${match[1] === ' ' ? '▫' : DONE_ITEM}${match[2]!.trim()}`)
+    .join('');
+  return { kind: 'CHECKLIST', content: `${text}${list}` };
+}
+
 /** A UTC instant as TickTick writes it: "2026-11-04T06:00:00+0000". */
 const tickInstant = (iso: string) => `${new Date(Date.parse(iso)).toISOString().slice(0, 19)}+0000`;
 
@@ -282,17 +295,18 @@ export function exportTickTick(
       );
       return { before: Math.round((anchor - fires) / 60_000) };
     };
+    const body = contentOf(task.notes);
     return [
       '',
       exportName(list),
       task.title,
-      'TEXT',
+      body.kind,
       members(task.tags)
         .map((id) => tagNames.get(id))
         .filter(Boolean)
         .join(','),
-      task.notes,
-      'N',
+      body.content,
+      body.kind === 'CHECKLIST' ? 'Y' : 'N',
       start,
       end,
       (task.reminders ?? [])
