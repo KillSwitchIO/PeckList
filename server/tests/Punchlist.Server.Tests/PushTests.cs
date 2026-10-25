@@ -135,4 +135,47 @@ public sealed class PushTests(ServerFixture fixture) : IClassFixture<ServerFixtu
         var reminder = Assert.Single(feed.Items);
         Assert.Equal(("reminder", "RT1", due), (reminder.Kind, reminder.TaskId, reminder.At));
     }
+
+    [Fact]
+    public async Task A_constant_reminder_comes_again_every_five_minutes_sticky_until_done_and_lists_once()
+    {
+        using var server = Server();
+        var (ben, benId) = await SignIn(server, "ben-c");
+        var list = Entity("CL1", benId, new JsonObject { ["name"] = "Home", ["visibility"] = "private" });
+        // All day, reminded on the day at 10:00 (an hour after 9:00: a negative "before").
+        var task = Entity("CT1", benId, new JsonObject
+        {
+            ["listId"] = "CL1",
+            ["title"] = "Water plants",
+            ["parentId"] = null,
+            ["status"] = "open",
+            ["assignees"] = new JsonObject(),
+            ["schedule"] = new JsonObject { ["start"] = "2026-10-26", ["end"] = null, ["allDay"] = true, ["timeZone"] = "UTC" },
+            ["reminders"] = new JsonArray(new JsonObject { ["before"] = -60 }),
+            ["constantReminder"] = true,
+        });
+        (await ben.PostAsJsonAsync("/api/sync", new
+        {
+            schemaVersion = WorkspaceSchema.CurrentVersion,
+            cursor = (long?)null,
+            changes = new object[]
+            {
+                new { collection = "lists", entity = list },
+                new { collection = "tasks", entity = task },
+            },
+        }, Token)).EnsureSuccessStatusCode();
+
+        // The server's own zone counts (no settings): pin it by checking the first send's time.
+        var sender = server.Services.GetRequiredService<ReminderSender>();
+        var first = ServerReminders.Instants(task, TimeZoneInfo.Local).First();
+        Assert.Equal(new DateTime(2026, 10, 26, 10, 0, 0), TimeZoneInfo.ConvertTime(first.At, TimeZoneInfo.Local).DateTime);
+        await sender.SendDueAsync(first.At.AddMinutes(-1), first.At.AddMinutes(12), Token);
+
+        Assert.Equal(3, push.Sent.Count);
+        Assert.All(push.Sent, sent => Assert.True(sent.Payload.Sticky));
+        Assert.Single(push.Sent.Select(sent => sent.Payload.Tag).Distinct());
+        var feed = (await ben.GetFromJsonAsync<NotificationFeed>("/api/notifications", Token))!;
+        Assert.Single(feed.Items);
+        Assert.Equal(ServerReminders.ConstantTimes, ServerReminders.Instants(task, TimeZoneInfo.Local).Count());
+    }
 }

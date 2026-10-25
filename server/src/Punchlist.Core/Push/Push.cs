@@ -31,12 +31,34 @@ public interface IPushStore
 /// minutes before the task's start (else its due date; an all-day date counts from 9:00), or a set
 /// local date-time; for its assignees, or its maker when nobody is assigned.
 /// </summary>
+/// <summary>One time a reminder fires: <paramref name="At"/>, for the reminder due at <paramref name="First"/>.</summary>
+public readonly record struct ReminderTime(DateTimeOffset At, DateTimeOffset First, bool Constant);
+
 public static class ServerReminders
 {
     public static readonly TimeSpan AllDayTime = TimeSpan.FromHours(9);
 
-    /// <summary>When the task's reminders fire, in the given time zone.</summary>
-    public static IEnumerable<DateTimeOffset> Instants(JsonObject task, TimeZoneInfo zone)
+    /// <summary>A constant reminder (spec: R-FB-60) comes again this often, this many times in all.</summary>
+    public static readonly TimeSpan ConstantEvery = TimeSpan.FromMinutes(5);
+    public const int ConstantTimes = 12;
+
+    /// <summary>
+    /// When the task's reminders fire, in the given time zone: each one, and for a constant reminder
+    /// its repeats too (<see cref="ReminderTime.First"/> is the reminder each belongs to).
+    /// </summary>
+    public static IEnumerable<ReminderTime> Instants(JsonObject task, TimeZoneInfo zone)
+    {
+        var constant = task["constantReminder"] is JsonValue flag && flag.TryGetValue<bool>(out var on) && on;
+        foreach (var first in FirstInstants(task, zone))
+        {
+            for (var again = 0; again < (constant ? ConstantTimes : 1); again++)
+            {
+                yield return new ReminderTime(first + again * ConstantEvery, first, constant);
+            }
+        }
+    }
+
+    private static IEnumerable<DateTimeOffset> FirstInstants(JsonObject task, TimeZoneInfo zone)
     {
         if (task["reminders"] is not JsonArray reminders) yield break;
         var anchor = Text(task["schedule"]?["start"]) ?? Text(task["due"]?["at"]);

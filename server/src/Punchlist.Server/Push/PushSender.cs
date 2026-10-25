@@ -12,7 +12,8 @@ using WebPushSubscription = Lib.Net.Http.WebPush.PushSubscription;
 namespace Punchlist.Server.Push;
 
 /// <summary>What a push shows: the app's service worker turns it into a notification (public/sw-notifications.js).</summary>
-public sealed record PushPayload(string Title, string Body, string Tag, string Url);
+/// <param name="Sticky">A constant reminder: it stays on screen and buzzes again on each repeat.</param>
+public sealed record PushPayload(string Title, string Body, string Tag, string Url, bool Sticky = false);
 
 /// <summary>Sends a push to a person's devices.</summary>
 public interface IPushSender

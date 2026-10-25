@@ -3,7 +3,7 @@
 
 import { keyBetween } from './ordering.ts';
 
-export const CURRENT_SCHEMA_VERSION = 14;
+export const CURRENT_SCHEMA_VERSION = 15;
 
 export type Migration = (document: Record<string, unknown>) => Record<string, unknown>;
 
@@ -115,6 +115,9 @@ export const MIGRATIONS: MigrationRegistry = {
   // 14: a person's profile may hold a photo. Optional (missing: their initials), so documents
   // change only in version.
   14: (document) => document,
+  // 15: a reminder may come after an all-day task's 9:00 (a negative `before`), and a task may
+  // keep reminding (constantReminder). Both optional, so documents change only in version.
+  15: (document) => document,
 };
 
 export type VersionCheck =

@@ -66,9 +66,14 @@ their start; the due date is the deadline.
   with what you typed. At the bottom: when the task was made and last changed. On a phone,
   comments and those dates wait behind a bar at the bottom that slides a panel up. Panels that slide up close with a swipe down or a tap outside them. Phone rows put
   the title on its own line, with the list and tags under it and the date at the right.
-- **Reminders**: in a task's details, **Reminders** offers on time, 5 or 30 minutes, an hour or a
-  day before (an all-day task: on the day at 9:00, a day, two days or a week before), and any
-  number of set times. The first one asks your browser for permission to show notifications.
+- **Reminders**: in a task's details, **Reminders** opens a list like TickTick's: tick any of
+  **On time**, 5 or 30 minutes, an hour or a day early (an all-day task: **On the day**, 1, 2 or 3
+  days or a week early, each at 9:00), or **None**. **Custom** makes your own: for an all-day task,
+  the **Day** or **Week** tab picks how early and the wheels the time of day (later than 9:00 on
+  the day too); for a timed task, the **Minute**, **Hour** or **Day** tab picks how early. It shows
+  when the reminder will come, or that the time has passed. **Constant reminder** keeps a reminder
+  on screen and brings it back every 5 minutes for an hour, until the task is done. Nothing
+  changes until **OK**. The first reminder asks your browser for permission to show notifications.
   Reminders go to the people the task is assigned to, or to whoever made it when nobody is.
   They appear while Punchlist is open or in the background (offline too), and with a server and
   **Settings > Notifications > Notify me when Punchlist is closed** turned on for the device, also

@@ -54,8 +54,9 @@ export function ReminderScheduler({ now = Date.now }: { now?: () => number }) {
       void notifier().show({
         title: due.title || t('task.untitled'),
         body: t('reminder.body', { time: formatTime(clock(due.at)) }),
-        tag: due.key,
+        tag: due.tag,
         url: `/today?task=${due.taskId}`,
+        ...(due.constant ? { sticky: true } : {}),
       });
     };
     const check = () => {
@@ -66,7 +67,13 @@ export function ReminderScheduler({ now = Date.now }: { now?: () => number }) {
       const { workspace: ws, me: user } = latest.current;
       const fired = firedKeys();
       const due = remindersBetween(ws, user, at - GRACE_MS, at + 86_400_000, localTimeZone());
-      for (const each of due) if (each.at <= at && !(each.key in fired)) fire(each);
+      // Woken late with a constant reminder's repeats piled up: the latest one only.
+      const waiting = due.filter((each) => each.at <= at && !(each.key in fired));
+      for (const each of waiting) {
+        const later = waiting.some((other) => other.tag === each.tag && other.at > each.at);
+        if (later) markFired(each.key, at);
+        else fire(each);
+      }
       const next = due.find((each) => each.at > at);
       // Timers far off drift or sleep: aim at the next one, but look again at least each minute.
       if (next) timer = setTimeout(check, Math.min(next.at - at, CHECK_EVERY_MS));

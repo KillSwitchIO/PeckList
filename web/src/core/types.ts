@@ -113,6 +113,8 @@ export interface Task extends BaseEntity {
   pinnedAt?: DateTime | null;
   /** When to remind about it (schema 12); absent or empty: never */
   reminders?: Reminder[];
+  /** Its reminders stay up and come again every 5 minutes for an hour until done (schema 15) */
+  constantReminder?: boolean;
 }
 
 /**

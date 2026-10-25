@@ -1,19 +1,24 @@
+import CheckRounded from '@mui/icons-material/CheckRounded';
+import ChevronRightRounded from '@mui/icons-material/ChevronRightRounded';
 import NotificationsNoneRounded from '@mui/icons-material/NotificationsNoneRounded';
-import CloseRounded from '@mui/icons-material/CloseRounded';
 import {
   Alert,
   Box,
   Button,
-  Checkbox,
-  FormControlLabel,
-  IconButton,
-  TextField,
+  ButtonBase,
+  Divider,
+  Switch,
+  Tab,
+  Tabs,
   Typography,
 } from '@mui/material';
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
+import { localTimeZone } from '../../core/dates.ts';
 import {
-  ALL_DAY_PRESETS,
+  allDayReminder,
+  ALL_DAY_REMINDER_TIME,
   reminderAnchor,
+  reminderInstant,
   remindsAllDay,
   sameReminder,
   TIMED_PRESETS,
@@ -21,18 +26,180 @@ import {
 import { updateTask } from '../../core/tasks.ts';
 import type { Reminder, Task } from '../../core/types.ts';
 import type { NotificationPermissionState } from '../../ports/notifier.ts';
+import { TimeWheels } from '../dates/TimeWheels.tsx';
+import { Wheel } from '../dates/Wheel.tsx';
+import { formatTime } from '../format.ts';
 import { useToday } from '../hooks/useToday.ts';
 import { t } from '../i18n/i18n.ts';
 import { useApply } from '../store/hooks.ts';
 import { PropertyRow, PropertySheet } from '../tasks/PropertyRow.tsx';
 import { useReadOnly } from '../tasks/readOnly.ts';
 import { notifier } from './notifier.ts';
-import { reminderLabel } from './reminderText.ts';
+import { daysEarlyText, minutesEarlyText, reminderLabel, reminderParts } from './reminderText.ts';
+
+/** The quick choices for an all-day task: days early, all at 9:00 (TickTick's list). */
+const ALL_DAY_QUICK = [0, 1, 2, 3, 7].map((days) => allDayReminder(days, ALL_DAY_REMINDER_TIME));
+const TIMED_QUICK: Reminder[] = TIMED_PRESETS.map((before) => ({ before }));
+
+type CustomTab = 'day' | 'week' | 'minute' | 'hour';
+const CHOICES: Record<CustomTab, readonly number[]> = {
+  // All day: days early (Day), weeks early in days (Week).
+  day: Array.from({ length: 61 }, (_, i) => i),
+  week: Array.from({ length: 13 }, (_, i) => i * 7),
+  // Timed: minutes early, by the minute, the hour or the day.
+  minute: Array.from({ length: 60 }, (_, i) => i),
+  hour: Array.from({ length: 24 }, (_, i) => i * 60),
+};
+const TIMED_DAYS = Array.from({ length: 31 }, (_, i) => i * 1440);
+
+const dateText = new Intl.DateTimeFormat(undefined, {
+  month: 'short',
+  day: 'numeric',
+  year: 'numeric',
+});
+const clockOf = (at: number) =>
+  new Intl.DateTimeFormat('en-GB', {
+    timeZone: localTimeZone(),
+    hour: '2-digit',
+    minute: '2-digit',
+    hourCycle: 'h23',
+  }).format(at);
+
+/** One choice in the list: its words, its time muted beside them, a tick when picked. */
+function Choice({
+  label,
+  time,
+  picked,
+  disabled = false,
+  trailing,
+  onClick,
+}: {
+  label: string;
+  time?: string | undefined;
+  picked: boolean;
+  disabled?: boolean;
+  trailing?: ReactNode;
+  onClick: () => void;
+}) {
+  return (
+    <ButtonBase
+      role="menuitemcheckbox"
+      aria-checked={picked}
+      disabled={disabled}
+      onClick={onClick}
+      sx={{
+        width: '100%',
+        justifyContent: 'flex-start',
+        gap: 1,
+        px: 2.5,
+        py: 1.25,
+        typography: 'body1',
+        textAlign: 'left',
+        color: picked ? 'primary.main' : disabled ? 'text.disabled' : 'text.primary',
+        '&:hover': { bgcolor: 'action.hover' },
+      }}
+    >
+      <Box component="span" sx={{ flexGrow: 1 }}>
+        {label}
+        {time && (
+          <Box
+            component="span"
+            sx={{ ml: 0.75, color: picked ? 'primary.main' : 'text.secondary' }}
+          >
+            ({time})
+          </Box>
+        )}
+      </Box>
+      {picked && <CheckRounded fontSize="small" />}
+      {trailing}
+    </ButtonBase>
+  );
+}
 
 /**
- * Reminders on a task (spec: PL-061), set the way TickTick sets them: on time, 5 or 30 minutes,
- * an hour or a day before (an all-day task: on the day at 9:00, a day, two days or a week before),
- * and any number of set times. The first one asks the browser for permission to notify.
+ * Making a reminder of one's own (spec: R-FB-60), like TickTick's Custom: for an all-day task,
+ * Day or Week tabs with how early and at what time; for a timed one, Minute, Hour or Day tabs
+ * with how early. Below, when it will come, or that the time has passed.
+ */
+function CustomReminder({
+  task,
+  allDay,
+  onDone,
+  onCancel,
+}: {
+  task: Task;
+  allDay: boolean;
+  onDone: (reminder: Reminder) => void;
+  onCancel: () => void;
+}) {
+  const [tab, setTab] = useState<CustomTab>(allDay ? 'day' : 'minute');
+  const [days, setDays] = useState(1);
+  const [time, setTime] = useState(ALL_DAY_REMINDER_TIME);
+  const [minutes, setMinutes] = useState(5);
+  // Now, as of opening Custom: enough to say a reminder has passed.
+  const [now] = useState(() => Date.now());
+  const reminder: Reminder = allDay ? allDayReminder(days, time) : { before: minutes };
+  const at = reminderInstant(task, reminder, localTimeZone());
+  const expired = at !== null && at < now;
+  const choices = !allDay && tab === 'day' ? TIMED_DAYS : CHOICES[tab];
+  const value = allDay ? days : minutes;
+  const shown = choices.includes(value) ? value : choices[0]!;
+  const tabs: readonly CustomTab[] = allDay ? ['day', 'week'] : ['minute', 'hour', 'day'];
+
+  return (
+    <Box sx={{ display: 'grid', gap: 1 }}>
+      <Tabs
+        value={tab}
+        onChange={(_, next: CustomTab) => {
+          setTab(next);
+          // Start the new tab's wheel on its first choice that is not the day itself.
+          const first = (!allDay && next === 'day' ? TIMED_DAYS : CHOICES[next])[1]!;
+          if (allDay) setDays(first);
+          else setMinutes(first);
+        }}
+        sx={{ px: 1.5, minHeight: 40, '& .MuiTab-root': { minHeight: 40, minWidth: 64 } }}
+      >
+        {tabs.map((each) => (
+          <Tab key={each} value={each} label={t(`reminder.tab.${each}`)} />
+        ))}
+      </Tabs>
+      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 1 }}>
+        <Wheel
+          label={t('reminder.when')}
+          options={choices}
+          value={shown}
+          format={(option) => (allDay ? daysEarlyText(option) : minutesEarlyText(option))}
+          onChange={(next) => (allDay ? setDays(next) : setMinutes(next))}
+          width={150}
+        />
+        {allDay && <TimeWheels value={time} onChange={setTime} />}
+      </Box>
+      <Typography
+        variant="body2"
+        role="status"
+        sx={{ px: 2.5, color: expired ? 'error.main' : 'text.secondary' }}
+      >
+        {at === null
+          ? t('reminder.needsDate')
+          : expired
+            ? t('reminder.expired')
+            : t('reminder.remindAt', { time: formatTime(clockOf(at)), date: dateText.format(at) })}
+      </Typography>
+      <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 1, px: 1.5, pb: 1 }}>
+        <Button onClick={onCancel}>{t('common.cancel')}</Button>
+        <Button variant="contained" disableElevation onClick={() => onDone(reminder)}>
+          {t('common.done')}
+        </Button>
+      </Box>
+    </Box>
+  );
+}
+
+/**
+ * Reminders on a task (spec: PL-061, R-FB-60), set the way TickTick sets them: a list to tick
+ * any of (on the day or on time, a few days or minutes early, each with its time), Custom for
+ * one of your own, and Constant reminder to keep it coming until done. Nothing changes until
+ * OK. The first reminder asks the browser for permission to notify.
  */
 export function ReminderProperty({ task }: { task: Task }) {
   const apply = useApply();
@@ -42,28 +209,55 @@ export function ReminderProperty({ task }: { task: Task }) {
   const [permission, setPermission] = useState<NotificationPermissionState>(() =>
     notifier().permission(),
   );
-  const [custom, setCustom] = useState('');
   const reminders = task.reminders ?? [];
+  // What the sheet shows, kept until OK.
+  const [draft, setDraft] = useState<{ reminders: Reminder[]; constant: boolean } | null>(null);
+  const [custom, setCustom] = useState(false);
   const allDay = remindsAllDay(task);
   const dated = reminderAnchor(task) !== null;
   const labels = reminders.map((each) => reminderLabel(each, allDay, today));
   if (readOnly && reminders.length === 0) return null;
 
-  const save = (next: Reminder[]) => {
-    apply((ctx, ws) => updateTask(ctx, ws, task.id, { reminders: next }));
+  const open = (element: HTMLElement) => {
+    setDraft({ reminders, constant: task.constantReminder === true });
+    setCustom(false);
+    setAnchor(element);
+  };
+  const close = () => {
+    setAnchor(null);
+    setDraft(null);
+  };
+  const save = () => {
+    if (!draft) return;
+    apply((ctx, ws) =>
+      updateTask(ctx, ws, task.id, {
+        reminders: draft.reminders,
+        constantReminder: draft.constant,
+      }),
+    );
     // The first reminder is the moment to ask (a click, so the browser shows the prompt).
-    if (next.length > reminders.length && notifier().permission() === 'default') {
+    if (draft.reminders.length > reminders.length && notifier().permission() === 'default') {
       void notifier().request().then(setPermission);
     }
+    close();
   };
-  const toggle = (reminder: Reminder, on: boolean) =>
-    save(
-      on
-        ? [...reminders.filter((each) => !sameReminder(each, reminder)), reminder]
-        : reminders.filter((each) => !sameReminder(each, reminder)),
+  const picked = (reminder: Reminder) =>
+    draft?.reminders.some((each) => sameReminder(each, reminder)) ?? false;
+  const toggle = (reminder: Reminder) =>
+    setDraft(
+      (now) =>
+        now && {
+          ...now,
+          reminders: now.reminders.some((each) => sameReminder(each, reminder))
+            ? now.reminders.filter((each) => !sameReminder(each, reminder))
+            : [...now.reminders, reminder],
+        },
     );
-  const presets = allDay ? ALL_DAY_PRESETS : TIMED_PRESETS;
-  const sets = reminders.filter((each): each is { at: string } => 'at' in each);
+  const quick = allDay ? ALL_DAY_QUICK : TIMED_QUICK;
+  // Picked ones the quick list does not have (custom times, set times) show under it.
+  const others = (draft?.reminders ?? []).filter(
+    (each) => !quick.some((choice) => sameReminder(choice, each)),
+  );
 
   return (
     <>
@@ -71,87 +265,105 @@ export function ReminderProperty({ task }: { task: Task }) {
         label={t('reminder.title')}
         icon={<NotificationsNoneRounded fontSize="small" />}
         ariaValue={labels.length ? labels.join(', ') : t('reminder.none')}
-        onClick={setAnchor}
+        onClick={open}
       >
         <Typography color={labels.length ? 'text.primary' : 'text.disabled'} noWrap>
           {labels.length ? labels.join(', ') : t('reminder.add')}
         </Typography>
       </PropertyRow>
-      <PropertySheet label={t('reminder.title')} anchor={anchor} onClose={() => setAnchor(null)}>
-        <Box sx={{ p: 2, width: { sm: 320 }, display: 'grid', gap: 1 }}>
-          {permission === 'denied' && (
-            <Alert severity="warning" variant="outlined">
-              {t('reminder.blocked')}
-            </Alert>
-          )}
-          {permission === 'unsupported' && (
-            <Alert severity="info" variant="outlined">
-              {t('reminder.unsupported')}
-            </Alert>
-          )}
-          {!dated && (
-            <Typography variant="body2" color="text.secondary">
-              {t('reminder.needsDate')}
+      <PropertySheet label={t('reminder.dialog')} anchor={anchor} onClose={close}>
+        {draft && (
+          <Box sx={{ width: { sm: 340 }, py: 1 }}>
+            <Typography variant="h6" component="h2" sx={{ px: 2.5, pt: 1, pb: 1, fontSize: 18 }}>
+              {custom ? t('reminder.custom') : t('reminder.dialog')}
             </Typography>
-          )}
-          <Box sx={{ display: 'grid' }}>
-            {presets.map((before) => {
-              const reminder = { before };
-              const on = reminders.some((each) => sameReminder(each, reminder));
-              return (
-                <FormControlLabel
-                  key={before}
-                  disabled={!dated}
-                  control={
-                    <Checkbox
-                      size="small"
-                      checked={on}
-                      onChange={(event) => toggle(reminder, event.target.checked)}
-                    />
-                  }
-                  label={reminderLabel(reminder, allDay, today)}
-                />
-              );
-            })}
-          </Box>
-          {sets.map((each) => {
-            const label = reminderLabel(each, allDay, today);
-            return (
-              <Box key={each.at} sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                <Typography sx={{ flexGrow: 1 }}>{label}</Typography>
-                <IconButton
-                  size="small"
-                  aria-label={t('reminder.remove', { when: label })}
-                  onClick={() => toggle(each, false)}
+            {permission === 'denied' && (
+              <Alert severity="warning" variant="outlined" sx={{ mx: 2, mb: 1 }}>
+                {t('reminder.blocked')}
+              </Alert>
+            )}
+            {permission === 'unsupported' && (
+              <Alert severity="info" variant="outlined" sx={{ mx: 2, mb: 1 }}>
+                {t('reminder.unsupported')}
+              </Alert>
+            )}
+            {custom ? (
+              <CustomReminder
+                task={task}
+                allDay={allDay}
+                onCancel={() => setCustom(false)}
+                onDone={(reminder) => {
+                  if (!picked(reminder)) toggle(reminder);
+                  setCustom(false);
+                }}
+              />
+            ) : (
+              <>
+                {!dated && (
+                  <Typography variant="body2" color="text.secondary" sx={{ px: 2.5, pb: 1 }}>
+                    {t('reminder.needsDate')}
+                  </Typography>
+                )}
+                <Box role="menu" aria-label={t('reminder.dialog')}>
+                  <Choice
+                    label={t('reminder.none')}
+                    picked={draft.reminders.length === 0}
+                    onClick={() => setDraft({ ...draft, reminders: [] })}
+                  />
+                  {[...quick, ...others].map((reminder) => {
+                    const { text, time } = reminderParts(reminder, allDay, today);
+                    return (
+                      <Choice
+                        key={JSON.stringify(reminder)}
+                        label={text}
+                        time={time}
+                        picked={picked(reminder)}
+                        disabled={!dated && !('at' in reminder)}
+                        onClick={() => toggle(reminder)}
+                      />
+                    );
+                  })}
+                  <Choice
+                    label={t('reminder.custom')}
+                    picked={false}
+                    disabled={!dated}
+                    trailing={<ChevronRightRounded fontSize="small" color="action" />}
+                    onClick={() => setCustom(true)}
+                  />
+                </Box>
+                <Divider sx={{ my: 1, mx: 1.5 }} />
+                <Box sx={{ display: 'flex', alignItems: 'center', px: 2.5, gap: 1 }}>
+                  <Box sx={{ flexGrow: 1 }}>
+                    <Typography>{t('reminder.constant')}</Typography>
+                    <Typography variant="caption" color="text.secondary">
+                      {t('reminder.constantHint')}
+                    </Typography>
+                  </Box>
+                  <Switch
+                    checked={draft.constant}
+                    onChange={(event) => setDraft({ ...draft, constant: event.target.checked })}
+                    slotProps={{ input: { 'aria-label': t('reminder.constant') } }}
+                  />
+                </Box>
+                <Box
+                  sx={{
+                    display: 'flex',
+                    justifyContent: 'flex-end',
+                    gap: 1,
+                    px: 1.5,
+                    pt: 1.5,
+                    pb: 0.5,
+                  }}
                 >
-                  <CloseRounded fontSize="small" />
-                </IconButton>
-              </Box>
-            );
-          })}
-          <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
-            <TextField
-              type="datetime-local"
-              size="small"
-              value={custom}
-              onChange={(event) => setCustom(event.target.value)}
-              slotProps={{ htmlInput: { 'aria-label': t('reminder.at') } }}
-              sx={{ flexGrow: 1 }}
-            />
-            <Button
-              disabled={!custom}
-              onClick={() => {
-                toggle({ at: custom.slice(0, 16) }, true);
-                setCustom('');
-              }}
-            >
-              {t('reminder.addAt')}
-            </Button>
+                  <Button onClick={close}>{t('common.cancel')}</Button>
+                  <Button variant="contained" disableElevation onClick={save}>
+                    {t('reminder.ok')}
+                  </Button>
+                </Box>
+              </>
+            )}
           </Box>
-          <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
-            <Button onClick={() => setAnchor(null)}>{t('common.done')}</Button>
-          </Box>
-        </Box>
+        )}
       </PropertySheet>
     </>
   );

@@ -28,6 +28,8 @@ self.addEventListener('push', (event) => {
       data: { url: payload.url || '/today' },
       icon: '/icon.svg',
       badge: '/icon.svg',
+      // A constant reminder stays until dismissed and buzzes again on each repeat.
+      ...(payload.sticky ? { requireInteraction: true, renotify: true } : {}),
     }),
   );
 });

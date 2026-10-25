@@ -8,6 +8,8 @@ export interface AppNotification {
   tag: string;
   /** Where a click goes, inside the app. */
   url: string;
+  /** Stays on screen until dismissed, and buzzes again when it comes back (a constant reminder) */
+  sticky?: boolean;
 }
 
 export interface Notifier {

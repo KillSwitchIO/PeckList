@@ -14,9 +14,16 @@ export function createBrowserNotifier(): Notifier {
       if (Notification.permission !== 'default') return Notification.permission;
       return Notification.requestPermission();
     },
-    async show({ title, body, tag, url }: AppNotification) {
+    async show({ title, body, tag, url, sticky = false }: AppNotification) {
       if (!supported() || Notification.permission !== 'granted') return;
-      const options = { body, tag, data: { url }, icon: '/icon.svg', badge: '/icon.svg' };
+      const options = {
+        body,
+        tag,
+        data: { url },
+        icon: '/icon.svg',
+        badge: '/icon.svg',
+        ...(sticky ? { requireInteraction: true, renotify: true } : {}),
+      };
       const registration = await navigator.serviceWorker?.getRegistration?.();
       if (registration) {
         await registration.showNotification(title, options);

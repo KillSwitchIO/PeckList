@@ -8,7 +8,7 @@
   "additionalProperties": false,
   "properties": {
     "schemaVersion": {
-      "const": 14
+      "const": 15
     },
     "app": {
       "type": "object",
@@ -389,13 +389,13 @@
       "unevaluatedProperties": false
     },
     "reminder": {
-      "description": "A reminder (schema 12): minutes before the task's date (all-day tasks: before 9:00 that day), or a set local date-time",
+      "description": "A reminder (schema 12): minutes before the task's date (all-day tasks: before 9:00 that day; from schema 15 negative is after it, so an all-day task can remind later that day), or a set local date-time",
       "oneOf": [
         {
           "type": "object",
           "required": ["before"],
           "additionalProperties": false,
-          "properties": { "before": { "type": "integer", "minimum": 0, "maximum": 525600 } }
+          "properties": { "before": { "type": "integer", "minimum": -1439, "maximum": 525600 } }
         },
         {
           "type": "object",
@@ -579,6 +579,10 @@
           "type": "array",
           "maxItems": 10,
           "items": { "$ref": "#/$defs/reminder" }
+        },
+        "constantReminder": {
+          "description": "Its reminders stay on screen and come again every 5 minutes for an hour, until it is done (schema 15); absent: once",
+          "type": "boolean"
         },
         "pinnedAt": {
           "description": "When it was pinned to the top of its views; null or absent: not pinned (schema 8)",

@@ -61,11 +61,20 @@ public sealed class ReminderSender(
             {
                 var mine = settings.GetValueOrDefault(userId);
                 var zone = ZoneOf(mine);
-                foreach (var at in ServerReminders.Instants(task, zone))
+                foreach (var (at, first, constant) in ServerReminders.Instants(task, zone))
                 {
                     if (at <= from || at > to) continue;
-                    var tag = $"{taskId}@{at.ToUnixTimeMilliseconds()}";
-                    if (!await store.MarkReminderSentAsync($"{userId}|{tag}", to, cancellation)) continue;
+                    // Repeats share the first one's tag (each replaces the last), but go once each.
+                    var tag = $"{taskId}@{first.ToUnixTimeMilliseconds()}";
+                    var sent = at == first ? tag : $"{tag}#{at.ToUnixTimeMilliseconds()}";
+                    if (!await store.MarkReminderSentAsync($"{userId}|{sent}", to, cancellation)) continue;
+                    var title = (string?)task["title"] is { Length: > 0 } named ? named : "Untitled task";
+                    var payload = new PushPayload(title, $"Reminder for {Clock(first, zone, mine)}", tag, $"/today?task={taskId}", constant);
+                    if (at != first)
+                    {
+                        await push.SendAsync(userId, payload, cancellation);
+                        continue;
+                    }
                     await notifications.AddAsync([new Notification
                     {
                         Id = Ids.NewUlid(time),
@@ -75,8 +84,7 @@ public sealed class ReminderSender(
                         TaskId = taskId,
                         ListId = (string?)task["listId"],
                     }], cancellation);
-                    var title = (string?)task["title"] is { Length: > 0 } named ? named : "Untitled task";
-                    await push.SendAsync(userId, new PushPayload(title, $"Reminder for {Clock(at, zone, mine)}", tag, $"/today?task={taskId}"), cancellation);
+                    await push.SendAsync(userId, payload, cancellation);
                 }
             }
         }
