@@ -231,6 +231,17 @@ describe('signing in to a server', () => {
     );
   });
 
+  it('the profile menu opens the profile photo, ready to pick a picture', async () => {
+    const backend = new FakeBackend();
+    backend.addAccount('ben', 'correct horse battery');
+    await serverApp(backend, 'ben');
+    await userEvent.click(await screen.findByRole('button', { name: /^Account: / }));
+    await userEvent.click(await screen.findByRole('menuitem', { name: 'Profile photo' }));
+    const dialog = await screen.findByRole('dialog', { name: 'Profile photo' });
+    expect(within(dialog).getByRole('button', { name: 'Choose a photo' })).toBeInTheDocument();
+    expect(within(dialog).getByLabelText('Choose a photo')).toHaveAttribute('accept', 'image/*');
+  });
+
   it('the cloud says how syncing stands; the profile menu logs out', async () => {
     const backend = new FakeBackend();
     backend.addAccount('ben', 'correct horse battery');

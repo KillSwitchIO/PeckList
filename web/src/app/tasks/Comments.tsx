@@ -228,7 +228,12 @@ function Composer({
                 onMouseDown={(event) => event.preventDefault()}
                 onClick={() => choose(person)}
               >
-                <Avatar name={person.displayName} color={person.avatarColor} size={20} />
+                <Avatar
+                  name={person.displayName}
+                  color={person.avatarColor}
+                  photo={person.photo}
+                  size={20}
+                />
                 <Box component="span" sx={{ ml: 1 }}>
                   {person.displayName}
                 </Box>
@@ -266,6 +271,7 @@ function CommentRow({ comment, people }: { comment: Comment; people: User[] }) {
       <Avatar
         name={author?.displayName ?? name}
         color={author?.avatarColor ?? '#B8BCC4'}
+        photo={author?.photo}
         size={28}
       />
       <Box sx={{ flexGrow: 1, minWidth: 0 }}>

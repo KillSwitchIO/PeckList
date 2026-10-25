@@ -3,7 +3,7 @@ import { useState } from 'react';
 import { initialsOf } from './initials.ts';
 
 /**
- * A person as round initials on their color. `badge`: an icon in the bottom right (the identity
+ * A person as their round photo, or initials on their color. `badge`: an icon in the bottom right (the identity
  * provider they signed in with); it stays away when the image does not load.
  */
 export function Avatar({
@@ -11,11 +11,14 @@ export function Avatar({
   color,
   size = 32,
   badge,
+  photo,
 }: {
   name: string;
   color: string;
   size?: number;
   badge?: string | null | undefined;
+  /** Their picture (a data URL); empty or absent: initials */
+  photo?: string | null | undefined;
 }) {
   const [badgeFailed, setBadgeFailed] = useState(false);
   const letters = initialsOf(name);
@@ -37,7 +40,22 @@ export function Avatar({
         userSelect: 'none',
       }}
     >
-      {letters}
+      {photo ? (
+        <Box
+          component="img"
+          src={photo}
+          alt=""
+          sx={{
+            width: '100%',
+            height: '100%',
+            borderRadius: '50%',
+            objectFit: 'cover',
+            display: 'block',
+          }}
+        />
+      ) : (
+        letters
+      )}
       {badge && !badgeFailed && (
         <Box
           component="img"

@@ -53,17 +53,18 @@ function swipe(row: Element, x0: number, x1: number, dy = 0, pointerId = 1) {
 }
 
 describe('swiping task rows', () => {
-  it('a full swipe right picks the date; a short one shows Complete', async () => {
+  it('right completes the task, with undo', async () => {
     const { task } = await inbox('Water plants');
     const row = await screen.findByRole('button', { name: 'Open Water plants' });
-    swipe(row, 20, 300);
-    expect(await screen.findByRole('button', { name: 'Today' })).toBeInTheDocument();
-    await userEvent.keyboard('{Escape}');
-
-    swipe(await screen.findByRole('button', { name: 'Open Water plants' }), 20, 90, 0, 3);
-    await userEvent.click(await screen.findByRole('button', { name: 'Complete' }));
+    swipe(row, 20, 220);
     await waitFor(() => expect(task('Water plants').status).toBe('done'));
     expect(await screen.findByText('Task completed')).toBeInTheDocument();
+  });
+
+  it('a full swipe left picks the date', async () => {
+    await inbox('Water plants');
+    swipe(await screen.findByRole('button', { name: 'Open Water plants' }), 340, 60);
+    expect(await screen.findByRole('button', { name: 'Today' })).toBeInTheDocument();
   });
 
   it('follows the swipe settings: buttons, their order, and the full swipe', async () => {
@@ -88,7 +89,7 @@ describe('swiping task rows', () => {
     await waitFor(() => expect(task('Dust').status).toBe('wontdo'));
   });
 
-  it('a short swipe left opens Date, Move and Delete; a long one deletes', async () => {
+  it('a short swipe left opens Date, Move and Delete, and Delete deletes', async () => {
     const { task } = await inbox('Call mom', 'Old idea');
     const row = await screen.findByRole('button', { name: 'Open Call mom' });
     swipe(row, 300, 220);
@@ -99,7 +100,8 @@ describe('swiping task rows', () => {
     await userEvent.keyboard('{Escape}');
 
     const other = await screen.findByRole('button', { name: 'Open Old idea' });
-    swipe(other, 340, 60, 0, 2);
+    swipe(other, 300, 220, 0, 2);
+    await userEvent.click(await screen.findByRole('button', { name: 'Delete' }));
     await waitFor(() => expect(task('Old idea').deletedAt).not.toBeNull());
     expect(await screen.findByText('Task deleted')).toBeInTheDocument();
   });

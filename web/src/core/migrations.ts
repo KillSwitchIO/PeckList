@@ -3,7 +3,7 @@
 
 import { keyBetween } from './ordering.ts';
 
-export const CURRENT_SCHEMA_VERSION = 13;
+export const CURRENT_SCHEMA_VERSION = 14;
 
 export type Migration = (document: Record<string, unknown>) => Record<string, unknown>;
 
@@ -112,6 +112,9 @@ export const MIGRATIONS: MigrationRegistry = {
   // 13: settings may hold a date format (dateFormat). Optional (missing: the language's own), so
   // documents change only in version.
   13: (document) => document,
+  // 14: a person's profile may hold a photo. Optional (missing: their initials), so documents
+  // change only in version.
+  14: (document) => document,
 };
 
 export type VersionCheck =

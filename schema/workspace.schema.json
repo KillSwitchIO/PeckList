@@ -8,7 +8,7 @@
   "additionalProperties": false,
   "properties": {
     "schemaVersion": {
-      "const": 13
+      "const": 14
     },
     "app": {
       "type": "object",
@@ -257,6 +257,12 @@
         },
         "avatarColor": {
           "$ref": "#/$defs/color"
+        },
+        "photo": {
+          "description": "The person's picture (schema 14): a small square image, cropped to the circle it shows in, as a data URL; empty for none (initials on avatarColor).",
+          "type": "string",
+          "maxLength": 80000,
+          "pattern": "^(data:image/(jpeg|png|webp);base64,[A-Za-z0-9+/]+=*)?$"
         },
         "homeServer": {
           "type": "string"

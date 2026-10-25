@@ -161,10 +161,17 @@ the agenda. Each device remembers the view, days, weeks and hour height.
 
 ## Your profile menu
 
-Your profile picture in the top right (your initials, with a small icon of the sign-in provider
-when you signed in through one) opens a menu with **Notifications**, **Settings**, **Admin**
-(admins only), **Stats** (your own numbers, as the server counts them), **Friends and groups**,
-**Keyboard shortcuts**, **Change password** and **Log out**.
+Your profile picture in the top right (your photo or initials, with a small icon of the sign-in
+provider when you signed in through one) opens a menu with **Profile photo**, **Notifications**,
+**Settings**, **Admin** (admins only), **Stats** (your own numbers, as the server counts them),
+**Friends and groups**, **Keyboard shortcuts**, **Change password** and **Log out**.
+
+**Profile photo**: choose a picture, then drag it (or use the arrow keys) and pinch, scroll or use
+the slider to zoom until it sits in the circle, and **Save**. It is kept small on your profile, so
+friends and people you share with see it too. **Remove photo** goes back to your initials.
+
+**Change password** asks for the new password twice. Every password field has an eye at its right
+end that shows what you typed.
 
 **Notifications** lists reminders, @mentions, tasks someone assigned you and lists someone shared
 with you, newest first; a red dot on your picture means some are new. A click opens the task or

@@ -1,3 +1,4 @@
+import AddAPhotoOutlined from '@mui/icons-material/AddAPhotoOutlined';
 import BarChartRounded from '@mui/icons-material/BarChartRounded';
 import KeyRounded from '@mui/icons-material/KeyRounded';
 import KeyboardRounded from '@mui/icons-material/KeyboardRounded';
@@ -23,6 +24,7 @@ import { useNavigate } from 'react-router';
 import { useAdminApi } from '../admin/useAdmin.ts';
 import { useNotifications } from '../notifications/notificationsContext.ts';
 import { Avatar } from '../friends/Avatar.tsx';
+import { PhotoDialog } from '../friends/PhotoDialog.tsx';
 import { t } from '../i18n/i18n.ts';
 import { AccountIcon, PeopleIcon, ShieldIcon } from '../icons/icons.tsx';
 import { useStoreState } from '../store/hooks.ts';
@@ -67,6 +69,7 @@ export function ProfileButton({ onShortcuts }: { onShortcuts: () => void }) {
   const navigate = useNavigate();
   const [anchor, setAnchor] = useState<HTMLElement | null>(null);
   const [changing, setChanging] = useState(false);
+  const [photo, setPhoto] = useState(false);
   const theme = useTheme();
   // Phones have no keyboard to take shortcuts.
   const phone = useMediaQuery(theme.breakpoints.down('sm'), { noSsr: true });
@@ -80,7 +83,13 @@ export function ProfileButton({ onShortcuts }: { onShortcuts: () => void }) {
 
   const picture = (size: number) =>
     name ? (
-      <Avatar name={name} color={me?.avatarColor ?? NO_COLOR} size={size} badge={badge} />
+      <Avatar
+        name={name}
+        color={me?.avatarColor ?? NO_COLOR}
+        photo={me?.photo}
+        size={size}
+        badge={badge}
+      />
     ) : (
       <Box
         sx={{
@@ -162,6 +171,7 @@ export function ProfileButton({ onShortcuts }: { onShortcuts: () => void }) {
             </Box>
           </Box>
         )}
+        {me && item(t('photo.title'), <AddAPhotoOutlined fontSize="small" />, () => setPhoto(true))}
         {name && <Divider />}
         <MenuItem
           onClick={() => {
@@ -210,6 +220,14 @@ export function ProfileButton({ onShortcuts }: { onShortcuts: () => void }) {
           })}
       </Menu>
       {changing && <ChangePasswordDialog onClose={() => setChanging(false)} />}
+      {photo && me && (
+        <PhotoDialog
+          name={name || me.displayName}
+          color={me.avatarColor}
+          photo={me.photo || undefined}
+          onClose={() => setPhoto(false)}
+        />
+      )}
     </>
   );
 }

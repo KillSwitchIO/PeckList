@@ -23,10 +23,10 @@ export interface SwipePrefs {
 
 export const MAX_SWIPE_BUTTONS = 3;
 
-/** Out of the box: a full swipe right picks the date (Ben, 2026-10-25), left deletes. */
+/** Out of the box (Ben, 2026-10-25): a swipe right completes; a full swipe left picks the date. */
 export const DEFAULT_SWIPES: SwipePrefs = {
-  right: { buttons: ['complete'], full: 'date' },
-  left: { buttons: ['date', 'move', 'delete'], full: 'delete' },
+  right: { buttons: [], full: 'complete' },
+  left: { buttons: ['date', 'move', 'delete'], full: 'date' },
 };
 
 const KEY = 'punchlist.swipes';

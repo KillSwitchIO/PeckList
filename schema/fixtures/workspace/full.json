@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 13,
+  "schemaVersion": 14,
   "app": {
     "name": "punchlist",
     "version": "0.1.0"
@@ -17,6 +17,7 @@
         "handle": "me@local",
         "displayName": "Me",
         "avatarColor": "#A7C7E7",
+        "photo": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==",
         "homeServer": "local",
         "_hlc": {
           "createdAt": "2026-10-20T16:15:00.001Z-0000-dev1",
@@ -26,6 +27,7 @@
           "handle": "2026-10-20T16:15:00.001Z-0000-dev1",
           "displayName": "2026-10-20T16:15:00.001Z-0000-dev1",
           "avatarColor": "2026-10-20T16:15:00.001Z-0000-dev1",
+          "photo": "2026-10-20T16:15:00.001Z-0000-dev1",
           "homeServer": "2026-10-20T16:15:00.001Z-0000-dev1"
         }
       },

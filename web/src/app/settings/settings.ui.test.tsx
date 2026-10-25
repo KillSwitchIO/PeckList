@@ -289,15 +289,15 @@ describe('settings: swipe actions', () => {
       await userEvent.click(within(section).getByRole('combobox', { name: label }));
       await userEvent.click(await screen.findByRole('option', { name: option }));
     };
-    expect(within(section).getByRole('combobox', { name: 'Full swipe right' })).toHaveTextContent(
+    expect(within(section).getByRole('combobox', { name: 'Full swipe left' })).toHaveTextContent(
       'Date',
     );
-    await pick('Full swipe right', 'Complete');
-    await pick('Swipe right: buttons, Button 2', 'Pin');
+    await pick('Full swipe right', 'Pin');
+    await pick('Swipe right: buttons, Button 1', 'Complete');
     await pick('Swipe left: buttons, Button 1', 'None');
     expect(JSON.parse(localStorage.getItem('punchlist.swipes')!)).toEqual({
-      right: { buttons: ['complete', 'pin'], full: 'complete' },
-      left: { buttons: ['move', 'delete'], full: 'delete' },
+      right: { buttons: ['complete'], full: 'pin' },
+      left: { buttons: ['move', 'delete'], full: 'date' },
     });
     await userEvent.click(within(section).getByRole('button', { name: 'Reset' }));
     expect(localStorage.getItem('punchlist.swipes')).toBeNull();

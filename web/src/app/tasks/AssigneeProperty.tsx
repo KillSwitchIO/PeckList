@@ -168,7 +168,12 @@ export function AssigneeProperty({ task }: { task: Task }) {
                   sx={{ pl: each.depth === 1 && !needle ? 5 : 2 }}
                 >
                   <ListItemIcon sx={{ minWidth: each.depth === 1 ? 34 : 40 }}>
-                    <Avatar name={each.name} color={each.color} size={each.depth === 1 ? 24 : 28} />
+                    <Avatar
+                      name={each.name}
+                      color={each.color}
+                      photo={each.user?.photo}
+                      size={each.depth === 1 ? 24 : 28}
+                    />
                   </ListItemIcon>
                   <ListItemText
                     primary={label(each)}
