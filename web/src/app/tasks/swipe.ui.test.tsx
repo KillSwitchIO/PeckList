@@ -53,12 +53,39 @@ function swipe(row: Element, x0: number, x1: number, dy = 0, pointerId = 1) {
 }
 
 describe('swiping task rows', () => {
-  it('right completes the task, with undo', async () => {
+  it('a full swipe right picks the date; a short one shows Complete', async () => {
     const { task } = await inbox('Water plants');
     const row = await screen.findByRole('button', { name: 'Open Water plants' });
-    swipe(row, 20, 220);
+    swipe(row, 20, 300);
+    expect(await screen.findByRole('button', { name: 'Today' })).toBeInTheDocument();
+    await userEvent.keyboard('{Escape}');
+
+    swipe(await screen.findByRole('button', { name: 'Open Water plants' }), 20, 90, 0, 3);
+    await userEvent.click(await screen.findByRole('button', { name: 'Complete' }));
     await waitFor(() => expect(task('Water plants').status).toBe('done'));
     expect(await screen.findByText('Task completed')).toBeInTheDocument();
+  });
+
+  it('follows the swipe settings: buttons, their order, and the full swipe', async () => {
+    localStorage.setItem(
+      'punchlist.swipes',
+      JSON.stringify({
+        right: { buttons: [], full: 'complete' },
+        left: { buttons: ['pin', 'wontDo'], full: null },
+      }),
+    );
+    const { task } = await inbox('Sweep', 'Dust');
+    swipe(await screen.findByRole('button', { name: 'Open Sweep' }), 20, 220);
+    await waitFor(() => expect(task('Sweep').status).toBe('done'));
+
+    // No full swipe left: even a long one only opens the buttons.
+    swipe(await screen.findByRole('button', { name: 'Open Dust' }), 340, 40, 0, 2);
+    const pin = await screen.findByRole('button', { name: 'Pin' });
+    const wontDo = screen.getByRole('button', { name: "Won't do" });
+    expect(pin.compareDocumentPosition(wontDo) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(task('Dust').deletedAt).toBeNull();
+    await userEvent.click(wontDo);
+    await waitFor(() => expect(task('Dust').status).toBe('wontdo'));
   });
 
   it('a short swipe left opens Date, Move and Delete; a long one deletes', async () => {

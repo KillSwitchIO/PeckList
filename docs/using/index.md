@@ -59,7 +59,7 @@ their start; the due date is the deadline.
   expand button at the end of the add field opens a new task straight in the full view, filled
   with what you typed. At the bottom: when the task was made and last changed. On a phone,
   comments and those dates wait behind a bar at the bottom that slides a panel up. Panels that slide up close with a swipe down or a tap outside them. Phone rows put
-  the title on its own line, with the date, list and tags under it.
+  the title on its own line, with the list and tags under it and the date at the right.
 - **Reminders**: in a task's details, **Reminders** offers on time, 5 or 30 minutes, an hour or a
   day before (an all-day task: on the day at 9:00, a day, two days or a week before), and any
   number of set times. The first one asks your browser for permission to show notifications.
@@ -92,10 +92,12 @@ their start; the due date is the deadline.
   ++alt+arrow-right++ / ++alt+arrow-left++.
 - **Pin**: **Pin to the top** in a task's menu (or the pin in its details) keeps it in a **Pinned**
   group at the top of every view it shows in. Completing it lets go of the pin.
-- **Swipe** (phones and tablets, like TickTick): swipe a task right to complete it (or reopen a
-  closed one); a short swipe left opens **Date**, **Move** and **Delete**, and a long one deletes
-  it. Each can be undone. Swiping up and down still scrolls, and holding a task still drags it or
-  opens its menu.
+- **Swipe** (phones and tablets, like TickTick): a full swipe right opens the task's date, and a
+  short one shows **Complete**; a short swipe left shows **Date**, **Move** and **Delete**, and a
+  full one deletes. **Settings > Swipe actions** changes each side's buttons (up to three, in order
+  from the edge: Complete, Date, Move, Pin, Won't do or Delete) and what a full swipe does, or
+  turns the full swipe off; it is kept per device. Each change can be undone. Swiping up and down
+  still scrolls, and holding a task still drags it or opens its menu.
 - **Undo**: every change shows an **Undo** button for a few seconds.
 - **Comment**: at the bottom of a task's details. Comments take a little Markdown (`**bold**`,
   `*italic*`, `` `code` ``, `[links](https://...)`) and **@name** for the people on the task (type
