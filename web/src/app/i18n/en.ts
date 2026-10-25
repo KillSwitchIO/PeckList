@@ -1427,12 +1427,10 @@ export const en = {
   'color.family.vivid': 'Vivid',
   'color.yourTheme': '{theme} (your theme)',
   'color.moreThemes': 'More themes',
-  'palette.recolorTitle': 'Recolor lists and tags too?',
-  'palette.recolorBody':
-    'Move your {lists} lists and {tags} tags to the matching colors in {theme}? Each keeps its place on the color wheel; grays and lists you cannot change stay as they are.',
-  'palette.recolorKeep': 'Keep their colors',
-  'palette.recolorYes': 'Recolor',
-  'undo.recolored': 'Lists and tags recolored',
+  'palette.recolorToggle': 'Recolor lists and tags with the palette',
+  'palette.recolorHint':
+    'A new palette moves your lists and tags to the same colors in its set. Grays stay.',
+  'undo.themeRecolored': 'Palette changed, lists and tags recolored',
   'color.hue.red': 'red',
   'color.hue.orange': 'orange',
   'color.hue.yellow': 'yellow',

@@ -1,14 +1,5 @@
 import CheckRounded from '@mui/icons-material/CheckRounded';
-import {
-  Box,
-  Button,
-  ButtonBase,
-  Dialog,
-  DialogActions,
-  DialogContent,
-  DialogTitle,
-  Typography,
-} from '@mui/material';
+import { Box, ButtonBase, Switch, Typography } from '@mui/material';
 import { useState } from 'react';
 import { recolorable, recolorToTheme } from '../../core/themeColors.ts';
 import { useStoreState } from '../store/hooks.ts';
@@ -36,6 +27,8 @@ const ORDER: PalettePreset[] = [
   'midnight',
   'coffee',
 ];
+const RECOLOR_KEY = 'punchlist.recolorWithTheme';
+
 const PRESETS = [
   ...ORDER,
   ...(Object.keys(PALETTE_PRESETS) as PalettePreset[]).filter((each) => !ORDER.includes(each)),
@@ -51,8 +44,22 @@ export function PresetPicker() {
   const current = palettePreset(workspace);
   const changed = Object.keys(paletteOverrides(workspace)).length > 0;
   const me = useStoreState((state) => state.context().userId);
-  // A new theme: ask whether lists and tags move to its colors too.
-  const [asking, setAsking] = useState<PalettePreset | null>(null);
+  // A new theme moves lists and tags to its colors too, when this is on (kept on this device).
+  const [recolor, setRecolorState] = useState(() => {
+    try {
+      return localStorage.getItem(RECOLOR_KEY) !== 'off';
+    } catch {
+      return true;
+    }
+  });
+  const setRecolor = (on: boolean) => {
+    setRecolorState(on);
+    try {
+      localStorage.setItem(RECOLOR_KEY, on ? 'on' : 'off');
+    } catch {
+      // This visit only.
+    }
+  };
   const { lists, tags } = recolorable(workspace, me);
   return (
     <>
@@ -78,10 +85,16 @@ export function PresetPicker() {
               onClick={() => {
                 if (preset === current) return;
                 apply(
-                  (ctx, ws) => setPalettePreset(ctx, ws, preset),
-                  changed ? t('undo.colorsReset') : undefined,
+                  (ctx, ws) => {
+                    const next = setPalettePreset(ctx, ws, preset);
+                    return recolor ? recolorToTheme(ctx, next, preset) : next;
+                  },
+                  recolor && lists.length + tags.length > 0
+                    ? t('undo.themeRecolored')
+                    : changed
+                      ? t('undo.colorsReset')
+                      : undefined,
                 );
-                if (lists.length + tags.length > 0) setAsking(preset);
               }}
               sx={{
                 position: 'relative',
@@ -142,33 +155,19 @@ export function PresetPicker() {
           );
         })}
       </Box>
-      <Dialog open={asking !== null} onClose={() => setAsking(null)} maxWidth="xs" fullWidth>
-        <DialogTitle>{t('palette.recolorTitle')}</DialogTitle>
-        <DialogContent>
-          <Typography variant="body2" color="text.secondary">
-            {asking &&
-              t('palette.recolorBody', {
-                theme: t(`palette.preset.${asking}`),
-                lists: lists.length,
-                tags: tags.length,
-              })}
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, px: 1, mb: 1 }}>
+        <Box sx={{ flexGrow: 1 }}>
+          <Typography>{t('palette.recolorToggle')}</Typography>
+          <Typography variant="caption" color="text.secondary">
+            {t('palette.recolorHint')}
           </Typography>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setAsking(null)}>{t('palette.recolorKeep')}</Button>
-          <Button
-            variant="contained"
-            disableElevation
-            onClick={() => {
-              const preset = asking;
-              setAsking(null);
-              if (preset) apply((ctx, ws) => recolorToTheme(ctx, ws, preset), t('undo.recolored'));
-            }}
-          >
-            {t('palette.recolorYes')}
-          </Button>
-        </DialogActions>
-      </Dialog>
+        </Box>
+        <Switch
+          checked={recolor}
+          onChange={(event) => setRecolor(event.target.checked)}
+          slotProps={{ input: { 'aria-label': t('palette.recolorToggle') } }}
+        />
+      </Box>
     </>
   );
 }

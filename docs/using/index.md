@@ -207,8 +207,8 @@ provider when you signed in through one) opens a menu with **Notifications**,
 **Settings > Profile** holds your photo: choose a picture, then drag it (or use the arrow keys) and pinch, scroll or use
 the slider to zoom until it sits in the circle, and **Save**. It is kept small on your profile, so
 friends and people you share with see it too. **Remove photo** goes back to your initials.
-Signed in through an identity provider and never set one: Punchlist uses the provider's picture,
-if it gives one; a photo you set or remove stays yours.
+Signed in through an identity provider with no photo of your own (never set, or removed): at
+sign-in Punchlist uses the provider's picture, if it gives one. A photo you set stays yours.
 
 **Change password** asks for the new password twice. Every password field has an eye at its right
 end that shows what you typed.
