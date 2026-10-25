@@ -832,6 +832,7 @@ export const en = {
   'auth.invalid': 'That username and password do not match.',
   'auth.locked': 'Too many tries. This account is locked until {time}.',
   'auth.tooMany': 'Too many tries from here. Wait a minute and try again.',
+  'auth.passwordsOff': 'This server signs in with an identity provider only, not with a password.',
   'auth.with': 'Continue with {name}',
   'auth.continuing': 'Continuing with {name}',
   'auth.or': 'or',

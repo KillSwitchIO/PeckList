@@ -165,6 +165,12 @@ export function createHttpSync(
       if (response.status === 423)
         return { kind: 'locked', until: (await errorOf(response)).until ?? '' };
       if (response.status === 429) return { kind: 'too-many' };
+      if (
+        response.status === 403 &&
+        (await errorOf(response.clone())).error === 'local_login_disabled'
+      ) {
+        return { kind: 'disabled' };
+      }
       return fail(response);
     },
 
@@ -176,6 +182,7 @@ export function createHttpSync(
       if (response.ok) return { kind: 'ok', account: (await response.json()) as Account };
       if (response.status === 429) return { kind: 'too-many' };
       const { error } = await errorOf(response);
+      // local_login_hidden is the name servers before 0.2.1 answer with.
       switch (error) {
         case 'username_taken':
           return { kind: 'username-taken' };
@@ -187,6 +194,7 @@ export function createHttpSync(
           return { kind: 'invite-invalid' };
         case 'registration_closed':
         case 'invite_required':
+        case 'local_login_disabled':
         case 'local_login_hidden':
           return { kind: 'closed' };
         default:

@@ -12,7 +12,7 @@ public abstract record SignUpResult
     public static readonly Refused Closed = new("registration_closed");
     public static readonly Refused InviteNeeded = new("invite_required");
     public static readonly Refused InviteInvalid = new("invite_invalid");
-    public static readonly Refused PasswordsHidden = new("local_login_hidden");
+    public static readonly Refused PasswordsDisabled = new("local_login_disabled");
     public static readonly Refused InvalidUsername = new("invalid_username");
     public static readonly Refused TooShort = new("too_short");
     public static readonly Refused UsernameTaken = new("username_taken");
@@ -34,12 +34,12 @@ public sealed class SelfSignUp(AccountService accounts, SignupInvites invites, L
     public bool InvitesWork => Settings.AuthMode == AuthMode.Local && Settings.Registration != Registration.Closed;
 
     /// <summary>Whether this server offers a password sign-up form: open, or with an invite.</summary>
-    public bool PasswordSignUp => InvitesWork && !Settings.LocalLoginHidden;
+    public bool PasswordSignUp => InvitesWork && !Settings.LocalLoginDisabled;
 
     public async Task<SignUpResult> SignUpAsync(string username, string password, string? invite, CancellationToken cancellation = default)
     {
         if (!InvitesWork) return SignUpResult.Closed;
-        if (Settings.LocalLoginHidden) return SignUpResult.PasswordsHidden;
+        if (Settings.LocalLoginDisabled) return SignUpResult.PasswordsDisabled;
         var hasInvite = !string.IsNullOrWhiteSpace(invite);
         if (!hasInvite && Settings.Registration != Registration.Open) return SignUpResult.InviteNeeded;
         username = username.Trim().ToLowerInvariant();

@@ -58,11 +58,50 @@ public sealed class OidcTests(ServerFixture fixture) : IClassFixture<ServerFixtu
     [Fact]
     public async Task Lists_the_providers_on_the_sign_in_page()
     {
-        using var server = Server(("LOCAL_LOGIN", "hidden"));
+        using var server = Server(("LOCAL_LOGIN", "disabled"));
         var options = await Browser(server).GetFromJsonAsync<SignInOptions>("/auth/providers", Token);
         Assert.Equal([new SignInProvider("fake", "Fake ID", "/auth/providers/fake/icon")], options!.Providers);
         Assert.False(options.LocalLogin);
         Assert.Equal(HttpStatusCode.NotFound, (await Browser(server).GetAsync("/auth/oidc/nope/login", Token)).StatusCode);
+    }
+
+    [Fact]
+    public async Task With_local_login_disabled_no_password_gets_in_by_any_route()
+    {
+        using var server = Server(("OIDC_FAKE_AUTO_CREATE", "true"), ("REGISTRATION", "open"));
+        var admin = Browser(server);
+        (await admin.PostAsJsonAsync("/auth/login", new { username = "admin", password = AdminPassword }, Token)).EnsureSuccessStatusCode();
+        var adminId = (await admin.GetFromJsonAsync<Me>("/auth/me", Token))!.Id;
+        var link = (await (await admin.PostAsync($"/api/admin/users/{adminId}/login-link", null, Token))
+            .Content.ReadFromJsonAsync<LoginLinkView>(Token))!;
+        var kim = Browser(server);
+        await SignIn(kim, Kim());
+
+        // Turned off on the settings page (a live setting): the password session that did it ends at once.
+        (await admin.PutAsJsonAsync("/api/admin/settings",
+            new { values = new Dictionary<string, string?> { ["LOCAL_LOGIN"] = "disabled" } }, Token)).EnsureSuccessStatusCode();
+        Assert.Equal(HttpStatusCode.Unauthorized, (await admin.GetAsync("/auth/me", Token)).StatusCode);
+
+        // The right password, straight at the API, gets nowhere; nor does a new password account.
+        var api = Browser(server);
+        var refused = await api.PostAsJsonAsync("/auth/login", new { username = "admin", password = AdminPassword }, Token);
+        Assert.Equal(HttpStatusCode.Forbidden, refused.StatusCode);
+        Assert.Equal("local_login_disabled", (await refused.Content.ReadFromJsonAsync<AuthError>(Token))!.Error);
+        Assert.Equal(HttpStatusCode.Unauthorized, (await api.GetAsync("/auth/me", Token)).StatusCode);
+        var signUp = await api.PostAsJsonAsync("/auth/signup", new { username = "lee", password = AdminPassword }, Token);
+        Assert.Equal(HttpStatusCode.Forbidden, signUp.StatusCode);
+        Assert.False((await api.GetFromJsonAsync<SignInOptions>("/auth/providers", Token))!.LocalLogin);
+
+        // A provider's session goes on; it cannot set a password either.
+        Assert.Equal(HttpStatusCode.OK, (await kim.GetAsync("/auth/me", Token)).StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden,
+            (await kim.PostAsJsonAsync("/auth/password", new { current = "x", next = "a brand new password" }, Token)).StatusCode);
+
+        // The way back in for an admin: a one-time sign-in link (punchlist admin login-link).
+        var tab = Browser(server);
+        Assert.Equal(HttpStatusCode.Redirect, (await tab.GetAsync(new Uri(link.Url).PathAndQuery, Token)).StatusCode);
+        var me = await tab.GetFromJsonAsync<Me>("/auth/me", Token);
+        Assert.Equal(("admin", false), (me!.Username, me.MustChangePassword));
     }
 
     [Fact]

@@ -33,12 +33,6 @@ public enum LogLevelSetting
     Critical,
 }
 
-public enum LocalLogin
-{
-    Shown,
-    Hidden,
-}
-
 public enum SnapshotSchedule
 {
     Off,
@@ -103,8 +97,12 @@ public sealed record ServerSettings
     /// <summary>Levels, format, files and shipping targets (<c>LOG_*</c>).</summary>
     public LoggingSettings Logging { get; init; } = new();
 
-    /// <summary><c>LOCAL_LOGIN=hidden</c> hides the password form once a provider works (<c>/login?local</c> still shows it).</summary>
-    public bool LocalLoginHidden { get; init; }
+    /// <summary>
+    /// <c>LOCAL_LOGIN=disabled</c>: nobody signs in with a username and password, by the form or the
+    /// API, and password sign-up and password sessions end. Identity providers and one-time sign-in
+    /// links still work. The old values <c>shown</c> and <c>hidden</c> read as enabled and disabled.
+    /// </summary>
+    public bool LocalLoginDisabled { get; init; }
 
     /// <summary>
     /// Read and check every setting. All problems are reported at once, so a broken config is
@@ -134,6 +132,21 @@ public sealed record ServerSettings
             var allowed = string.Join(", ", Enum.GetNames<T>().Select(each => each.ToLowerInvariant()));
             errors.Add($"{name}: '{raw}' is not one of {allowed}");
             return fallback;
+        }
+        // enabled or disabled; shown and hidden are the names before 0.2.1.
+        bool LocalLoginOff()
+        {
+            var raw = Get("LOCAL_LOGIN");
+            switch (raw?.Trim().ToLowerInvariant())
+            {
+                case null or "enabled" or "shown":
+                    return false;
+                case "disabled" or "hidden":
+                    return true;
+                default:
+                    errors.Add($"LOCAL_LOGIN: '{raw}' is not enabled or disabled");
+                    return false;
+            }
         }
         bool Flag(string name, bool fallback)
         {
@@ -193,7 +206,7 @@ public sealed record ServerSettings
             TrustedProxies = Get("TRUSTED_PROXIES"),
             WebRoot = Get("WEB_ROOT"),
             OidcProviders = OidcProviderSettings.ReadAll(Get, errors),
-            LocalLoginHidden = Choice("LOCAL_LOGIN", LocalLogin.Shown) == LocalLogin.Hidden,
+            LocalLoginDisabled = LocalLoginOff(),
             AccountDeleteGraceDays = Count("ACCOUNT_DELETE_GRACE_DAYS", 7, 0),
             AuditRetentionDays = Count("AUDIT_RETENTION_DAYS", 90, 1),
             AccessLogRetentionDays = Count("ACCESS_LOG_RETENTION_DAYS", 14, 1),
@@ -209,9 +222,9 @@ public sealed record ServerSettings
         {
             errors.Add("OIDC_PROVIDERS needs AUTH_MODE=local (AUTH_MODE=none has no sign-in)");
         }
-        if (settings.LocalLoginHidden && settings.OidcProviders.Count == 0)
+        if (settings.LocalLoginDisabled && settings.OidcProviders.Count == 0)
         {
-            errors.Add("LOCAL_LOGIN=hidden needs an OIDC provider (OIDC_PROVIDERS), or nobody could sign in");
+            errors.Add("LOCAL_LOGIN=disabled needs an OIDC provider (OIDC_PROVIDERS), or nobody could sign in");
         }
         if (settings.DbProvider == DbProvider.Postgres && settings.DbConnectionString is null)
         {

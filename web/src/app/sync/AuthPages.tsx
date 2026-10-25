@@ -205,16 +205,14 @@ function SignIn({ onSignUp }: { onSignUp: () => void }) {
   const [password, setPassword] = useState('');
   const [busy, setBusy] = useState(false);
   const options = useSignInOptions();
-  // `/login?local` always shows the password form, for the admin when it is hidden.
-  const [forceLocal] = useState(() => new URLSearchParams(window.location.search).has('local'));
   const [problem, setProblem] = useState<string | null>(takeSignInError);
   // Read after the error: a refused sign-in has forgotten it.
   const [remembered] = useState(rememberedProvider);
 
   const providers = options?.providers ?? [];
-  const showForm = options !== null && (options.localLogin || forceLocal);
+  const showForm = options !== null && options.localLogin;
   // Signed in with a provider before and its session ran out: straight back through it.
-  const continueWith = forceLocal ? undefined : providers.find((each) => each.name === remembered);
+  const continueWith = providers.find((each) => each.name === remembered);
   // Decided once per page (a ref survives StrictMode's second effect run): go, or, when the last
   // trip came straight back within a minute, stay and show the buttons rather than loop.
   const goOnItsOwn = useRef<boolean | null>(null);
@@ -237,6 +235,7 @@ function SignIn({ onSignUp }: { onSignUp: () => void }) {
       else if (outcome.kind === 'locked')
         setProblem(t('auth.locked', { time: untilTime(outcome.until) }));
       else if (outcome.kind === 'too-many') setProblem(t('auth.tooMany'));
+      else if (outcome.kind === 'disabled') setProblem(t('auth.passwordsOff'));
     } catch (error) {
       setProblem(problemOf(error));
     } finally {

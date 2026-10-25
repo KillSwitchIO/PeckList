@@ -1,4 +1,5 @@
 using Punchlist.Server.Audit;
+using Punchlist.Core.Audit;
 using System.Security.Claims;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
@@ -8,10 +9,13 @@ using Punchlist.Core.Configuration;
 
 namespace Punchlist.Server.Auth;
 
-/// <summary><paramref name="Provider"/>: the identity provider this session came through, if any.</summary>
+/// <summary>
+/// <paramref name="Provider"/>: the identity provider this session came through, if any.
+/// <paramref name="LocalLogin"/>: whether passwords work on this server (<c>LOCAL_LOGIN</c>).
+/// </summary>
 public sealed record Me(
     string Id, string Username, string Role, bool MustChangePassword, string AuthMode, ViewingAs? Impersonation = null, string? Provider = null,
-    bool HasProviderPicture = false);
+    bool HasProviderPicture = false, bool LocalLogin = true);
 
 /// <summary>Set while a super admin views the app as this user: who, why, until when.</summary>
 public sealed record ViewingAs(string By, string Reason, DateTimeOffset Until);
@@ -39,7 +43,8 @@ public static class AuthEndpoints
         var mode = settings.AuthMode.ToString().ToLowerInvariant();
         var auth = app.MapGroup("/auth");
 
-        auth.MapGet("/me", (ClaimsPrincipal user) => Results.Ok(MeOf(user, mode))).RequireAuthorization();
+        auth.MapGet("/me", (ClaimsPrincipal user, LiveSettings live) =>
+            Results.Ok(MeOf(user, mode) with { LocalLogin = !live.Current.LocalLoginDisabled })).RequireAuthorization();
         auth.MapOidc(settings);
         auth.MapImpersonation();
 
@@ -50,15 +55,17 @@ public static class AuthEndpoints
             return;
         }
 
-        auth.MapPost("/login", async (LoginRequest request, AccountService accounts, HttpContext context) =>
+        auth.MapPost("/login", async (LoginRequest request, AccountService accounts, LiveSettings live, HttpContext context) =>
         {
             var tried = (request.Username ?? "").Trim();
             context.Audit().On(null, tried.Length > 100 ? tried[..100] : tried).Anonymous = true;
+            // LOCAL_LOGIN=disabled: no password is checked at all, so nothing can be guessed here.
+            if (live.Current.LocalLoginDisabled) return LocalLoginDisabled(context);
             switch (await accounts.LoginAsync(request.Username ?? "", request.Password ?? "", context.RequestAborted))
             {
                 case LoginResult.Success success:
                     context.Audit().Actor(success.Account).On(null, null).Anonymous = false;
-                    var principal = AuthSetup.Principal(success.Account, CookieAuthenticationDefaults.AuthenticationScheme);
+                    var principal = AuthSetup.Principal(success.Account, CookieAuthenticationDefaults.AuthenticationScheme, AuthSetup.ByPassword);
                     await context.SignInAsync(CookieAuthenticationDefaults.AuthenticationScheme, principal,
                         new AuthenticationProperties { IsPersistent = true });
                     return Results.Ok(MeOf(principal, mode));
@@ -88,14 +95,14 @@ public static class AuthEndpoints
                 var refused = (SignUpResult.Refused)result;
                 var status = refused.Error switch
                 {
-                    "registration_closed" or "invite_required" or "local_login_hidden" => StatusCodes.Status403Forbidden,
+                    "registration_closed" or "invite_required" or "local_login_disabled" => StatusCodes.Status403Forbidden,
                     "username_taken" => StatusCodes.Status409Conflict,
                     _ => StatusCodes.Status400BadRequest,
                 };
                 return Results.Json(new AuthError(refused.Error), statusCode: status);
             }
             context.Audit().Actor(success.Account).On(success.Account.Id, success.Account.Username).Anonymous = false;
-            var principal = AuthSetup.Principal(success.Account, CookieAuthenticationDefaults.AuthenticationScheme);
+            var principal = AuthSetup.Principal(success.Account, CookieAuthenticationDefaults.AuthenticationScheme, AuthSetup.ByPassword);
             await context.SignInAsync(CookieAuthenticationDefaults.AuthenticationScheme, principal,
                 new AuthenticationProperties { IsPersistent = true });
             return Results.Ok(MeOf(principal, mode));
@@ -112,8 +119,10 @@ public static class AuthEndpoints
             return Results.Ok(new SignOutResult(next));
         }).Audited("auth.sign-out", targetRoute: null);
 
-        auth.MapPost("/password", async (PasswordRequest request, ClaimsPrincipal user, AccountService accounts, IMemoryCache cache, HttpContext context) =>
+        auth.MapPost("/password", async (PasswordRequest request, ClaimsPrincipal user, AccountService accounts, IMemoryCache cache, LiveSettings live, HttpContext context) =>
         {
+            // Passwords are not used while LOCAL_LOGIN=disabled; none is checked or set.
+            if (live.Current.LocalLoginDisabled) return LocalLoginDisabled(context);
             var (result, account) = await accounts.ChangePasswordAsync(user.UserId(), request.Current ?? "", request.Next ?? "", context.RequestAborted);
             if (result != PasswordChange.Changed)
             {
@@ -127,11 +136,19 @@ public static class AuthEndpoints
             }
             // Other sessions end (new stamp); this one gets a fresh cookie.
             AuthSetup.ForgetStamp(cache, account!.Id);
-            var principal = AuthSetup.Principal(account, CookieAuthenticationDefaults.AuthenticationScheme);
+            var principal = AuthSetup.Principal(account, CookieAuthenticationDefaults.AuthenticationScheme, AuthSetup.ByPassword);
             await context.SignInAsync(CookieAuthenticationDefaults.AuthenticationScheme, principal,
                 new AuthenticationProperties { IsPersistent = true });
             return Results.Ok(MeOf(principal, mode));
         }).RequireAuthorization().RequireRateLimiting(AuthSetup.LoginRateLimit).Audited("auth.password-changed", targetRoute: null);
+    }
+
+    /// <summary>403 <c>local_login_disabled</c>: passwords are turned off (<c>LOCAL_LOGIN=disabled</c>).</summary>
+    private static IResult LocalLoginDisabled(HttpContext context)
+    {
+        context.Audit().Outcome = AuditOutcome.Refused;
+        context.Audit().Detail = "password sign-in is disabled";
+        return Results.Json(new AuthError("local_login_disabled"), statusCode: StatusCodes.Status403Forbidden);
     }
 
     /// <summary>

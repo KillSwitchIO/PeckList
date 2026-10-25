@@ -207,6 +207,7 @@ export function ProfileButton({ onShortcuts }: { onShortcuts: () => void }) {
         {!phone && item(t('profile.shortcuts'), <KeyboardRounded fontSize="small" />, onShortcuts)}
         {local && <Divider />}
         {local &&
+          account?.localLogin !== false &&
           item(t('sync.changePassword'), <KeyRounded fontSize="small" />, () => setChanging(true))}
         {local &&
           item(t('profile.logOut'), <LogoutRounded fontSize="small" />, () => {

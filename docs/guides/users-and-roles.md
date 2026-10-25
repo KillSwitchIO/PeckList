@@ -57,7 +57,7 @@ invites drop off the list.
 
 With single sign-on, the invite page also offers **Continue with** each provider. A new provider
 account that would otherwise wait for approval (`AUTO_CREATE` off) comes in on the invite and uses
-it up. With `LOCAL_LOGIN=hidden` the invite page offers only the providers.
+it up. With `LOCAL_LOGIN=disabled` the invite page offers only the providers.
 
 Every sign-up, invite made and invite withdrawn is in the [event log](logging.md#access-and-event-log).
 

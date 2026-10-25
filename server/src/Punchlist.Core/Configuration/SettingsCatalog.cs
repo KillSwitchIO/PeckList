@@ -33,7 +33,7 @@ public static class SettingsCatalog
         new("REGISTRATION", "general", SettingKind.Choice, "invite", ["open", "invite", "closed"], Live: true),
         new("ACCOUNT_DELETE_GRACE_DAYS", "general", SettingKind.Number, "7", Live: true),
         new("ATTACHMENT_MAX_MB", "general", SettingKind.Number, "25", Live: true),
-        new("LOCAL_LOGIN", "sign-in", SettingKind.Choice, "shown", ["shown", "hidden"], Live: true),
+        new("LOCAL_LOGIN", "sign-in", SettingKind.Choice, "enabled", ["enabled", "disabled"], Live: true),
         new("OIDC_PROVIDERS", "sign-in", SettingKind.List),
         new("BACKUP_SCHEDULE", "backups", SettingKind.Choice, "daily", ["off", "hourly", "daily", "weekly"], Live: true),
         new("SNAPSHOT_KEEP", "backups", SettingKind.Number, "14", Live: true),

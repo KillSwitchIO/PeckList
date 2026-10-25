@@ -33,9 +33,9 @@ public sealed class SelfSignUpTests
 
     private static CancellationToken Token => TestContext.Current.CancellationToken;
 
-    private SelfSignUp SignUp(Registration registration, bool localLoginHidden = false, AuthMode mode = AuthMode.Local) =>
+    private SelfSignUp SignUp(Registration registration, bool localLoginDisabled = false, AuthMode mode = AuthMode.Local) =>
         new(new AccountService(accounts, new FakeHasher(), clock), invites,
-            new LiveSettings(new ServerSettings { Registration = registration, LocalLoginHidden = localLoginHidden, AuthMode = mode }));
+            new LiveSettings(new ServerSettings { Registration = registration, LocalLoginDisabled = localLoginDisabled, AuthMode = mode }));
 
     [Fact]
     public async Task Registration_decides_who_may_sign_up_without_an_invite()
@@ -44,8 +44,8 @@ public sealed class SelfSignUpTests
         Assert.Equal(SignUpResult.InviteNeeded, await SignUp(Registration.Invite).SignUpAsync("bo", Password, null, Token));
         Assert.Equal(SignUpResult.Closed, await SignUp(Registration.Closed).SignUpAsync("bo", Password, null, Token));
         Assert.Equal(SignUpResult.Closed, await SignUp(Registration.Open, mode: AuthMode.None).SignUpAsync("bo", Password, null, Token));
-        // Passwords hidden behind identity providers: no password accounts either.
-        Assert.Equal(SignUpResult.PasswordsHidden, await SignUp(Registration.Open, localLoginHidden: true).SignUpAsync("bo", Password, null, Token));
+        // Passwords turned off for identity providers: no password accounts either.
+        Assert.Equal(SignUpResult.PasswordsDisabled, await SignUp(Registration.Open, localLoginDisabled: true).SignUpAsync("bo", Password, null, Token));
         Assert.Single(accounts.ById);
     }
 

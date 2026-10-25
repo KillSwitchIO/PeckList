@@ -52,7 +52,7 @@ describe('signing in with an identity provider', () => {
     expect(screen.getByLabelText(/Username/)).toBeInTheDocument();
   });
 
-  it('hides the password form when the server says so, unless the address asks for it', async () => {
+  it('shows no password form when the server turns passwords off, whatever the address says', async () => {
     const backend = new FakeBackend();
     backend.signIn = {
       providers: [{ name: 'pocket', displayName: 'Pocket ID' }],
@@ -63,9 +63,11 @@ describe('signing in with an identity provider', () => {
     expect(screen.queryByLabelText(/Username/)).toBeNull();
     cleanup();
 
+    // `/login?local` used to bring the form back for admins; passwords are off now, so it does not.
     window.history.replaceState(null, '', '/login?local');
     await serverApp(backend);
-    expect(await screen.findByLabelText(/Username/)).toBeInTheDocument();
+    await screen.findByRole('link', { name: 'Continue with Pocket ID' });
+    expect(screen.queryByLabelText(/Username/)).toBeNull();
   });
 
   it('when a provider session runs out, goes straight back through that provider', async () => {

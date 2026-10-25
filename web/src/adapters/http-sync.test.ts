@@ -76,6 +76,7 @@ describe('HTTP sync transport', () => {
       { status: 401, body: { error: 'invalid' } },
       { status: 423, body: { error: 'locked', until: '2026-10-21T12:00:00Z' } },
       { status: 429 },
+      { status: 403, body: { error: 'local_login_disabled' } },
     );
     const http = createHttpSync('', fetcher);
     expect(await http.login('ben', 'pw')).toEqual({ kind: 'ok', account });
@@ -85,6 +86,7 @@ describe('HTTP sync transport', () => {
       until: '2026-10-21T12:00:00Z',
     });
     expect(await http.login('ben', 'pw')).toEqual({ kind: 'too-many' });
+    expect(await http.login('ben', 'pw')).toEqual({ kind: 'disabled' });
     expect(calls[0]!.init.method).toBe('POST');
     expect(JSON.parse(calls[0]!.init.body as string)).toEqual({ username: 'ben', password: 'pw' });
     expect(calls[0]!.init.credentials).toBe('same-origin');
