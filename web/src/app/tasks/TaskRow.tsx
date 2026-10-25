@@ -404,10 +404,13 @@ export function TaskRow({
                       color: 'text.secondary',
                     }}
                   >
-                    <DateButton task={task} width="auto" compact dueFirst={dueFirst} />
                     {showsList && <Box component="span">{listName(list, workspace)}</Box>}
                     <TagChips tags={tags} max={3} wrap={false} />
                     {details}
+                    {/* The date keeps to the right, as on the wide row. */}
+                    <Box sx={{ ml: 'auto', display: 'flex' }}>
+                      <DateButton task={task} width="auto" compact dueFirst={dueFirst} />
+                    </Box>
                   </Box>
                 )}
               </Box>
