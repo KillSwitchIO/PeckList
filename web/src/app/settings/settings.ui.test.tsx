@@ -280,3 +280,26 @@ describe('theme mode', () => {
     await waitFor(() => expect(page()).toBe(light));
   });
 });
+
+describe('settings: swipe actions', () => {
+  it('sets the buttons, their order and the full swipe, and resets them', async () => {
+    await renderApp('/settings');
+    const section = await screen.findByRole('region', { name: 'Swipe actions' });
+    const pick = async (label: string, option: string) => {
+      await userEvent.click(within(section).getByRole('combobox', { name: label }));
+      await userEvent.click(await screen.findByRole('option', { name: option }));
+    };
+    expect(within(section).getByRole('combobox', { name: 'Full swipe left' })).toHaveTextContent(
+      'Date',
+    );
+    await pick('Full swipe right', 'Pin');
+    await pick('Swipe right: buttons, Button 1', 'Complete');
+    await pick('Swipe left: buttons, Button 1', 'None');
+    expect(JSON.parse(localStorage.getItem('punchlist.swipes')!)).toEqual({
+      right: { buttons: ['complete'], full: 'pin' },
+      left: { buttons: ['move', 'delete'], full: 'date' },
+    });
+    await userEvent.click(within(section).getByRole('button', { name: 'Reset' }));
+    expect(localStorage.getItem('punchlist.swipes')).toBeNull();
+  });
+});

@@ -236,7 +236,11 @@ function Person({ friend, children }: { friend: Friend; children: React.ReactNod
       secondaryAction={<Box sx={{ display: 'flex', gap: 1 }}>{children}</Box>}
     >
       <Box sx={{ mr: 1.5 }}>
-        <Avatar name={name} color={friend.user?.avatarColor ?? '#B8BCC4'} />
+        <Avatar
+          name={name}
+          color={friend.user?.avatarColor ?? '#B8BCC4'}
+          photo={friend.user?.photo}
+        />
       </Box>
       <ListItemText
         primary={name}

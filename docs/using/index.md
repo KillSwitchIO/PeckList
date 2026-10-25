@@ -33,15 +33,25 @@ Dates leave the year off when it is this year: "Thu, Oct 22", "October", but "Ja
 ### Upcoming and Due dates
 
 **Upcoming** lists today and every day after it, empty days included, under a strip of the week's
-days: tap a day in the strip to jump to it, and use the arrows to step a week. Each day's **+**
-adds a task to that day. Overdue tasks sit on top while you look at the current week. Grouping it
-any other way than by date shows the next 7 days' tasks in those groups instead.
+days. More days load as you near the end, and the strip follows the day at the top of the list.
+Swipe the strip sideways (or drag it with the mouse, or use the arrows) to move a week, and the list
+goes there; tap a day to jump to it. Going back before today, or picking an earlier day from the
+month name above the strip, starts the list on that day; **Today** brings it back, and Upcoming
+always opens on today. Each day's **+** adds a task to that day. Overdue tasks sit on top while
+the list starts today. Grouping it any other way than by date shows the next 7 days' tasks in those
+groups instead.
 
 **Due dates** shows every open task with a due date: Overdue, Due today, Due tomorrow, Due in the
 next 7 days and Due later. Each row shows its due date (even when the task also has a start) and
 changes it in place. **Select** (or hold a row on a phone), pick tasks or a whole group with
 **Select all**, then move them all to **Today**, **Tomorrow**, **Next week** or a date you pick, or
 clear them. Each task keeps its own time of day, and **Undo** puts them back.
+
+**Filter** (the funnel at the top of Today, Upcoming and the Calendar) shows only some lists, tags
+and saved filters, in any mix: a task shows when it is in one of the lists picked, has one of the
+tags picked (or a tag under one) and matches one of the saved filters picked; a kind with nothing
+picked lets everything through. Each of the three keeps its own filter on this device, and the
+funnel is colored while one is on. **Clear** shows everything again.
 
 ## Tasks
 
@@ -55,7 +65,7 @@ their start; the due date is the deadline.
   expand button at the end of the add field opens a new task straight in the full view, filled
   with what you typed. At the bottom: when the task was made and last changed. On a phone,
   comments and those dates wait behind a bar at the bottom that slides a panel up. Panels that slide up close with a swipe down or a tap outside them. Phone rows put
-  the title on its own line, with the date, list and tags under it.
+  the title on its own line, with the list and tags under it and the date at the right.
 - **Reminders**: in a task's details, **Reminders** offers on time, 5 or 30 minutes, an hour or a
   day before (an all-day task: on the day at 9:00, a day, two days or a week before), and any
   number of set times. The first one asks your browser for permission to show notifications.
@@ -89,9 +99,11 @@ their start; the due date is the deadline.
 - **Pin**: **Pin to the top** in a task's menu (or the pin in its details) keeps it in a **Pinned**
   group at the top of every view it shows in. Completing it lets go of the pin.
 - **Swipe** (phones and tablets, like TickTick): swipe a task right to complete it (or reopen a
-  closed one); a short swipe left opens **Date**, **Move** and **Delete**, and a long one deletes
-  it. Each can be undone. Swiping up and down still scrolls, and holding a task still drags it or
-  opens its menu.
+  closed one); a short swipe left shows **Date**, **Move** and **Delete**, and a full one opens
+  the task's date. **Settings > Swipe actions** changes each side's buttons (up to three, in order
+  from the edge: Complete, Date, Move, Pin, Won't do or Delete) and what a full swipe does, or
+  turns the full swipe off; it is kept per device. Each change can be undone. Swiping up and down
+  still scrolls, and holding a task still drags it or opens its menu.
 - **Undo**: every change shows an **Undo** button for a few seconds.
 - **Comment**: at the bottom of a task's details. Comments take a little Markdown (`**bold**`,
   `*italic*`, `` `code` ``, `[links](https://...)`) and **@name** for the people on the task (type
@@ -101,14 +113,27 @@ their start; the due date is the deadline.
 
 ## Lists
 
-Lists hold tasks. The sort-and-group button next to a list's name groups it (by date, priority or
-tag, or **None** for the list's own order, the one you drag tasks in) and sorts it; the **...**
-menu edits, archives or deletes it. The built-in views (Today, Upcoming, All, Assigned to me,
-Shared with me) and every tag and saved filter have the same button, plus **List** to group by
-list. Picking the chosen grouping or sort again turns it around (an arrow shows which way it
-runs): Z to A, latest date first (undated tasks stay last), low priority first, oldest first, or
-the groups in reverse. Each list and view keeps its own choice on this device, and the button turns
-colored while it differs from the default; **Restore defaults** at the bottom of its menu goes back.
+Lists hold tasks. The three dots next to a list's name open its view menu: **Select**, the view
+(**List** or **Timeline**), grouping (by date, priority or tag, or **None** for the list's own
+order, the one you drag tasks in) and sorting, and, for its owner, editing, archiving or deleting
+the list. The built-in views (Today, Upcoming, All, Assigned to me, Shared with me) and every tag
+and saved filter have the same menu, plus **List** to group by list. Picking the chosen grouping or
+sort again turns it around (an arrow shows which way it runs): Z to A, latest date first (undated
+tasks stay last), low priority first, oldest first, or the groups in reverse. Each list and view
+keeps its own choice on this device, and the dots turn colored while it differs from the default;
+**Restore defaults** at the bottom of the menu goes back.
+
+**Select** picks many tasks at once: each task's box becomes a circle to tap, and each group gets
+a circle that picks everything in it. The bar at the bottom (in place of the tabs on a phone) then
+completes, dates, moves, tags, prioritizes, pins or deletes them all together; one **Undo** puts
+them back, and the cross stops selecting.
+
+**Timeline** shows a list's dated tasks as bars across their days, with today marked. Drag a bar
+to move the task to other days (its times and length stay), or drag either end to change when it
+starts or ends; a click opens it. **One per task** gives each task its own row; **Fit together**
+lets tasks that do not overlap share a row, to see more at once. The magnifiers make days wider or
+narrower. Tasks without a date wait under the timeline. Each list remembers whether it was last
+shown as a List or a Timeline, on this device.
 
 Folding a group (click its heading) folds it everywhere it shows: fold **Overdue** in Today and it
 is folded in Upcoming, All and your lists too, until you open it again. Each device remembers.
@@ -155,10 +180,17 @@ the agenda. Each device remembers the view, days, weeks and hour height.
 
 ## Your profile menu
 
-Your profile picture in the top right (your initials, with a small icon of the sign-in provider
-when you signed in through one) opens a menu with **Notifications**, **Settings**, **Admin**
-(admins only), **Stats** (your own numbers, as the server counts them), **Friends and groups**,
-**Keyboard shortcuts**, **Change password** and **Log out**.
+Your profile picture in the top right (your photo or initials, with a small icon of the sign-in
+provider when you signed in through one) opens a menu with **Profile photo**, **Notifications**,
+**Settings**, **Admin** (admins only), **Stats** (your own numbers, as the server counts them),
+**Friends and groups**, **Keyboard shortcuts**, **Change password** and **Log out**.
+
+**Profile photo**: choose a picture, then drag it (or use the arrow keys) and pinch, scroll or use
+the slider to zoom until it sits in the circle, and **Save**. It is kept small on your profile, so
+friends and people you share with see it too. **Remove photo** goes back to your initials.
+
+**Change password** asks for the new password twice. Every password field has an eye at its right
+end that shows what you typed.
 
 **Notifications** lists reminders, @mentions, tasks someone assigned you and lists someone shared
 with you, newest first; a red dot on your picture means some are new. A click opens the task or
@@ -178,8 +210,9 @@ linked accounts, and **Your data** ([download or import a copy](apps-and-sync.md
 and `[text]` as is. It shows today's date in the pattern as you type. Today, Tomorrow and
 Yesterday keep their names.
 
-**Colors**: pick a palette (Punchlist, Ocean, Forest, Sunset, Lavender or Graphite), then change
-any of its colors. **Reset colors** goes back to the palette's own colors.
+**Colors**: pick one of 16 palettes, from calm (Punchlist, Ocean, Forest, Graphite) and soft (Rose,
+Blossom, Peach, Lavender, Mint) to bright (Electric, Tropical, Citrus, Berry) and deep (Sunset,
+Midnight, Coffee), then change any of its colors. **Reset colors** goes back to the palette's own colors.
 
 **Time zone**: "today", due dates and the calendar follow it. It starts out as the server's time
 zone (`TZ`), or your device's without a server; pick another one if you live somewhere else.

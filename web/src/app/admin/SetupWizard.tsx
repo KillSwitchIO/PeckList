@@ -13,6 +13,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router';
 import type { AdminApi, ServerSetting, ServerSettingsView } from '../../ports/admin.ts';
 import { t } from '../i18n/i18n.ts';
+import { PasswordField } from '../layout/PasswordField.tsx';
 
 const STEPS = ['address', 'provider', 'join'] as const;
 type Step = (typeof STEPS)[number];
@@ -242,9 +243,8 @@ export function SetupWizard({ api }: { api: AdminApi }) {
                 onChange={(event) => setProvider({ ...provider, clientId: event.target.value })}
                 slotProps={{ htmlInput: { spellCheck: false } }}
               />
-              <TextField
+              <PasswordField
                 label={t('serverSettings.provider.CLIENT_SECRET')}
-                type="password"
                 value={provider.clientSecret}
                 onChange={(event) => setProvider({ ...provider, clientSecret: event.target.value })}
                 helperText={t('setup.secretHint')}

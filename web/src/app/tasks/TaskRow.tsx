@@ -1,4 +1,6 @@
+import CheckCircleRounded from '@mui/icons-material/CheckCircleRounded';
 import ChecklistRounded from '@mui/icons-material/ChecklistRounded';
+import RadioButtonUncheckedRounded from '@mui/icons-material/RadioButtonUncheckedRounded';
 import NotificationsNoneRounded from '@mui/icons-material/NotificationsNoneRounded';
 import RepeatRounded from '@mui/icons-material/RepeatRounded';
 import ChevronRightRounded from '@mui/icons-material/ChevronRightRounded';
@@ -9,7 +11,13 @@ import { getEntity } from '../../core/collections.ts';
 import { subtaskProgress } from '../../core/queries.ts';
 import { assigneesOf, describePrincipal } from '../../core/sharing.ts';
 import { tagsOfTask } from '../../core/tags.ts';
-import { deleteTask, setTaskStatus, toggleTaskDone } from '../../core/tasks.ts';
+import {
+  deleteTask,
+  isPinned,
+  setPinned,
+  setTaskStatus,
+  toggleTaskDone,
+} from '../../core/tasks.ts';
 import type { Priority, Task } from '../../core/types.ts';
 import { useLongPress } from '../hooks/useLongPress.ts';
 import { t } from '../i18n/i18n.ts';
@@ -22,6 +30,7 @@ import { useTwoLineRows } from '../layout/rowLayout.ts';
 import { keyboardMove } from '../../core/taskDrag.ts';
 import { TagChips } from '../tags/TagChip.tsx';
 import { useTaskSelection } from './selection.ts';
+import { useBulkSelect, useInSection } from './bulkSelect.ts';
 import { CHECK_PATH, CROSS_PATH } from './closedMarks.ts';
 import { DateButton, TaskDateSheet } from './DateButton.tsx';
 import { SwipeRow } from './SwipeRow.tsx';
@@ -112,7 +121,7 @@ export function TaskRow({
   expander,
   draggable = false,
   dueFirst = false,
-  select,
+  select: ownSelect,
   onHold,
 }: {
   task: Task;
@@ -135,6 +144,17 @@ export function TaskRow({
 }) {
   const workspace = useWorkspace();
   const { selectedId, open } = useTaskSelection();
+  // Picking many (the view menu's Select): the page's own picking, if it has one, comes first.
+  const bulk = useBulkSelect();
+  useInSection(task.id, bulk?.selecting ?? false);
+  const select: RowSelection | undefined =
+    ownSelect ??
+    (bulk?.selecting
+      ? {
+          selected: bulk.picked.has(task.id),
+          onToggle: () => bulk.toggle([task.id], !bulk.picked.has(task.id)),
+        }
+      : undefined);
   const list = getEntity(workspace, 'lists', task.listId);
   const parent = task.parentId ? getEntity(workspace, 'tasks', task.parentId) : undefined;
   const progress = subtaskProgress(workspace, task.id);
@@ -268,11 +288,14 @@ export function TaskRow({
     disableRipple: true,
   };
   const checkbox = select ? (
+    // Picking is a circle, so it never reads as completing.
     <Checkbox
       size="small"
       checked={select.selected}
       onChange={select.onToggle}
       onClick={(event) => event.stopPropagation()}
+      icon={<RadioButtonUncheckedRounded />}
+      checkedIcon={<CheckCircleRounded />}
       slotProps={{ input: { 'aria-label': t('task.select', { title }) } }}
       sx={{ p: 0.75 }}
     />
@@ -307,15 +330,28 @@ export function TaskRow({
       <SwipeRow
         enabled={canEdit && !select}
         done={done}
-        onComplete={() =>
-          apply(
-            (ctx, ws) => setTaskStatus(ctx, ws, task.id, done ? 'open' : 'done'),
-            done ? t('undo.reopened') : t('undo.completed'),
-          )
-        }
-        onDate={setSwipeDate}
-        onMove={() => setMoving(true)}
-        onDelete={() => apply((ctx, ws) => deleteTask(ctx, ws, task.id), t('undo.deleted'))}
+        pinned={isPinned(task)}
+        run={(action, anchor) => {
+          if (action === 'complete') {
+            apply(
+              (ctx, ws) => setTaskStatus(ctx, ws, task.id, done ? 'open' : 'done'),
+              done ? t('undo.reopened') : t('undo.completed'),
+            );
+          } else if (action === 'date') {
+            setSwipeDate(anchor);
+          } else if (action === 'move') {
+            setMoving(true);
+          } else if (action === 'pin') {
+            apply(
+              (ctx, ws) => setPinned(ctx, ws, task.id, !isPinned(task)),
+              isPinned(task) ? t('undo.unpinned') : t('undo.pinned'),
+            );
+          } else if (action === 'wontDo') {
+            apply((ctx, ws) => setTaskStatus(ctx, ws, task.id, 'wontdo'), t('undo.wontDo'));
+          } else {
+            apply((ctx, ws) => deleteTask(ctx, ws, task.id), t('undo.deleted'));
+          }
+        }}
       >
         <Box
           onContextMenu={(event) => {
@@ -404,10 +440,13 @@ export function TaskRow({
                       color: 'text.secondary',
                     }}
                   >
-                    <DateButton task={task} width="auto" compact dueFirst={dueFirst} />
                     {showsList && <Box component="span">{listName(list, workspace)}</Box>}
                     <TagChips tags={tags} max={3} wrap={false} />
                     {details}
+                    {/* The date keeps to the right, as on the wide row. */}
+                    <Box sx={{ ml: 'auto', display: 'flex' }}>
+                      <DateButton task={task} width="auto" compact dueFirst={dueFirst} />
+                    </Box>
                   </Box>
                 )}
               </Box>

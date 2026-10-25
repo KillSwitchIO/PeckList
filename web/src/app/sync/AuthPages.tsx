@@ -3,6 +3,7 @@ import { useEffect, useRef, useState, type FormEvent, type ReactNode } from 'rea
 import { SyncFailure, type SignInOptions, type SignUpOutcome } from '../../ports/sync.ts';
 import type { MessageKey } from '../i18n/en.ts';
 import { t } from '../i18n/i18n.ts';
+import { PasswordField } from '../layout/PasswordField.tsx';
 import {
   leaveFor,
   mayContinueOnItsOwn,
@@ -286,9 +287,8 @@ function SignIn({ onSignUp }: { onSignUp: () => void }) {
             required
             slotProps={{ htmlInput: { autoCapitalize: 'none', spellCheck: false } }}
           />
-          <TextField
+          <PasswordField
             label={t('auth.password')}
-            type="password"
             value={password}
             onChange={(event) => setPassword(event.target.value)}
             autoComplete="current-password"
@@ -433,9 +433,8 @@ function SignUp({ invite, onSignIn }: { invite?: string; onSignIn: () => void })
             helperText={t('auth.signUp.usernameHint')}
             slotProps={{ htmlInput: { autoCapitalize: 'none', spellCheck: false, maxLength: 32 } }}
           />
-          <TextField
+          <PasswordField
             label={t('auth.password')}
-            type="password"
             value={password}
             onChange={(event) => setPassword(event.target.value)}
             autoComplete="new-password"
@@ -463,11 +462,18 @@ function ChangePassword() {
   const superAdmin = useSyncState((state) => state.account?.role === 'superadmin');
   const [current, setCurrent] = useState('');
   const [next, setNext] = useState('');
+  const [again, setAgain] = useState('');
+  // Said once both are as long as each other, not at the first letter.
+  const mismatch = again.length >= next.length && again.length > 0 && again !== next;
   const [busy, setBusy] = useState(false);
   const [problem, setProblem] = useState<string | null>(null);
 
   const submit = async (event: FormEvent) => {
     event.preventDefault();
+    if (again !== next) {
+      setProblem(t('auth.mismatch'));
+      return;
+    }
     setBusy(true);
     setProblem(null);
     try {
@@ -494,22 +500,29 @@ function ChangePassword() {
         onSubmit={(event) => void submit(event)}
         sx={{ display: 'grid', gap: 2 }}
       >
-        <TextField
+        <PasswordField
           label={t('auth.current')}
-          type="password"
           value={current}
           onChange={(event) => setCurrent(event.target.value)}
           autoComplete="current-password"
           autoFocus
           required
         />
-        <TextField
+        <PasswordField
           label={t('auth.new')}
-          type="password"
           value={next}
           onChange={(event) => setNext(event.target.value)}
           autoComplete="new-password"
           helperText={t('auth.newHint')}
+          required
+        />
+        <PasswordField
+          label={t('auth.confirmNew')}
+          value={again}
+          onChange={(event) => setAgain(event.target.value)}
+          autoComplete="new-password"
+          error={mismatch}
+          helperText={mismatch ? t('auth.mismatch') : undefined}
           required
         />
         {problem && (

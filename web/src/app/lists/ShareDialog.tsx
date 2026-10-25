@@ -93,13 +93,20 @@ export function ShareDialog({ list, onClose }: { list: List; onClose: () => void
       label: userId === me ? t('share.you', { name: label }) : label,
       plain: label,
       color: user?.avatarColor ?? '#B8BCC4',
+      photo: user?.photo,
       detail: user?.handle,
     };
   };
   const principal = (value: string) => {
     if (value.startsWith('user:')) return person(value.slice(5));
     const shown = describePrincipal(workspace, value);
-    return { label: shown.name, plain: shown.name, color: shown.color, detail: t('share.group') };
+    return {
+      label: shown.name,
+      plain: shown.name,
+      color: shown.color,
+      photo: undefined as string | undefined,
+      detail: t('share.group'),
+    };
   };
   const creator = person(listOwner(list));
 
@@ -111,7 +118,7 @@ export function ShareDialog({ list, onClose }: { list: List; onClose: () => void
           <MuiList dense disablePadding aria-label={t('share.title', { name })}>
             <ListItem disableGutters>
               <Box sx={{ mr: 1.5 }}>
-                <Avatar name={creator.plain} color={creator.color} />
+                <Avatar name={creator.plain} color={creator.color} photo={creator.photo} />
               </Box>
               <ListItemText
                 primary={creator.label}
@@ -128,7 +135,7 @@ export function ShareDialog({ list, onClose }: { list: List; onClose: () => void
               return (
                 <ListItem key={member.id} disableGutters>
                   <Box sx={{ mr: 1.5 }}>
-                    <Avatar name={shown.plain} color={shown.color} />
+                    <Avatar name={shown.plain} color={shown.color} photo={shown.photo} />
                   </Box>
                   <ListItemText
                     primary={shown.label}

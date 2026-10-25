@@ -279,7 +279,11 @@ function GroupDialog({ view, onClose }: { view: GroupView; onClose: () => void }
                   }
                 >
                   <Box sx={{ mr: 1.5 }}>
-                    <Avatar name={name} color={user?.avatarColor ?? '#B8BCC4'} />
+                    <Avatar
+                      name={name}
+                      color={user?.avatarColor ?? '#B8BCC4'}
+                      photo={user?.photo}
+                    />
                   </Box>
                   <ListItemText primary={label(member)} secondary={user?.handle} />
                 </ListItem>

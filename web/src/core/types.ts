@@ -32,6 +32,8 @@ export interface User extends BaseEntity {
   handle: string;
   displayName: string;
   avatarColor: string;
+  /** Their picture as a data URL, cropped square to its circle (schema 14); empty or absent: initials */
+  photo?: string;
   homeServer: string;
 }
 

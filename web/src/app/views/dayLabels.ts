@@ -1,6 +1,7 @@
 import { startDate } from '../../core/filters.ts';
 import type { Task } from '../../core/types.ts';
-import { formatDay } from '../format.ts';
+import { addDays } from '../../core/dates.ts';
+import { customDateFormat, formatDay } from '../format.ts';
 
 /** Long weekday name of a local date, e.g. "Tuesday". */
 export function weekdayName(date: string): string {
@@ -10,9 +11,11 @@ export function weekdayName(date: string): string {
   );
 }
 
-/** "Thursday, Tomorrow", "Friday, Fri, Oct 23" */
+/** "Thursday, Tomorrow", "Friday, October 23" (the weekday once), or the weekday and the user's own pattern. */
 export function dayTitle(date: string, today: string): string {
-  return `${weekdayName(date)}, ${formatDay(date, today)}`;
+  const near = date === today || date === addDays(today, 1) || date === addDays(today, -1);
+  if (near || customDateFormat()) return `${weekdayName(date)}, ${formatDay(date, today)}`;
+  return dayHeading(date, today);
 }
 
 /** In date groups a subtask with its own start date sits on that date, not under its parent. */

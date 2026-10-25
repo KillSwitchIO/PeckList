@@ -22,7 +22,7 @@ export function AvatarStack({
             boxShadow: (theme) => `0 0 0 1.5px ${theme.palette.background.paper}`,
           }}
         >
-          <Avatar name={each.name} color={each.color} size={size} />
+          <Avatar name={each.name} color={each.color} size={size} photo={each.user?.photo} />
         </Box>
       ))}
     </Box>

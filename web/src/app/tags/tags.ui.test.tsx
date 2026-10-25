@@ -184,7 +184,7 @@ describe('tag picker', () => {
 });
 
 describe('task rows on phones', () => {
-  it('put the title on top and the date, list and tags on a line under it', async () => {
+  it('put the title on top and the list, tags and date (at the right) on a line under it', async () => {
     mockViewport('phone');
     const { store } = await renderSeeded('/inbox');
     act(() =>
@@ -201,8 +201,8 @@ describe('task rows on phones', () => {
     expect(button).not.toContainElement(within(details).getByTestId('task-tags'));
     expect(details).toHaveAttribute('data-testid', 'task-meta');
     expect(within(details).getByTestId('task-date')).toBeInTheDocument();
-    // The date leads the line.
-    expect(details.firstElementChild).toBe(within(details).getByTestId('task-date'));
+    // The date ends the line, at the right.
+    expect(details.lastElementChild).toContainElement(within(details).getByTestId('task-date'));
   });
 });
 

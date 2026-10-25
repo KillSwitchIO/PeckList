@@ -3,6 +3,7 @@ import { useState } from 'react';
 import type { AdminApi, ServerSetting, ServerSettingsView } from '../../ports/admin.ts';
 import type { MessageKey } from '../i18n/en.ts';
 import { t } from '../i18n/i18n.ts';
+import { PasswordField } from '../layout/PasswordField.tsx';
 import { useLoaded } from './useAdmin.ts';
 
 const LABELS: Record<string, MessageKey> = {
@@ -144,14 +145,25 @@ function SettingControl({
       </TextField>
     );
   }
+  if (setting.kind === 'secret') {
+    return (
+      <PasswordField
+        size="small"
+        value={value}
+        placeholder={setting.value ? SECRET_SHOWN : (setting.default ?? '')}
+        disabled={setting.locked}
+        onChange={(event) => onChange(event.target.value)}
+        slotProps={{ htmlInput: { 'aria-label': label, autoComplete: 'off', spellCheck: false } }}
+        sx={{ width: { xs: '100%', sm: 280 } }}
+      />
+    );
+  }
   return (
     <TextField
       size="small"
-      type={setting.kind === 'secret' ? 'password' : setting.kind === 'number' ? 'number' : 'text'}
+      type={setting.kind === 'number' ? 'number' : 'text'}
       value={value}
-      placeholder={
-        setting.kind === 'secret' && setting.value ? SECRET_SHOWN : (setting.default ?? '')
-      }
+      placeholder={setting.default ?? ''}
       disabled={setting.locked}
       onChange={(event) => onChange(event.target.value)}
       slotProps={{ htmlInput: { 'aria-label': label, autoComplete: 'off', spellCheck: false } }}

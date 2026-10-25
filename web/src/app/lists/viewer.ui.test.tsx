@@ -51,7 +51,7 @@ describe('a list I can only view', () => {
 
     // Only the view options: no list actions at all.
     expect(screen.queryByRole('button', { name: 'More actions' })).toBeNull();
-    await userEvent.click(screen.getByRole('button', { name: 'Sort and group' }));
+    await userEvent.click(screen.getByRole('button', { name: 'View options' }));
     const menu = await screen.findByRole('menu');
     expect(within(menu).getByRole('menuitem', { name: 'Group by date' })).toBeInTheDocument();
     expect(within(menu).queryByText('Edit list')).toBeNull();
@@ -75,6 +75,6 @@ describe('a list I can only view', () => {
     expect(screen.getByRole('checkbox', { name: 'Complete Fix fence' })).toBeEnabled();
     // The list itself is the owner's: no edit, archive or delete.
     expect(screen.queryByRole('button', { name: 'More actions' })).toBeNull();
-    expect(screen.getByRole('button', { name: 'Sort and group' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'View options' })).toBeInTheDocument();
   });
 });

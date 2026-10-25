@@ -40,6 +40,7 @@ import { NotificationSettings } from './NotificationSettings.tsx';
 import { PresetPicker } from './PresetPicker.tsx';
 import { Section, SettingRow } from './settingsLayout.tsx';
 import { SignInSection } from './SignInSection.tsx';
+import { SwipeSection } from './SwipeSection.tsx';
 import { TimeZoneSetting } from './TimeZoneSetting.tsx';
 import { useApply, useWorkspace } from '../store/hooks.ts';
 
@@ -298,6 +299,7 @@ export function SettingsPage() {
         </Section>
         <NewTaskSection />
         <NotificationSettings />
+        <SwipeSection />
         <Section
           title={t('settings.colors')}
           hint={t('settings.colorsHint')}

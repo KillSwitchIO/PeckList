@@ -1,51 +1,56 @@
-import CheckRounded from '@mui/icons-material/CheckRounded';
-import DeleteOutlineRounded from '@mui/icons-material/DeleteOutlineRounded';
-import DriveFileMoveOutlined from '@mui/icons-material/DriveFileMoveOutlined';
-import ReplayRounded from '@mui/icons-material/ReplayRounded';
 import { Box, ButtonBase } from '@mui/material';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
-import { t } from '../i18n/i18n.ts';
-import { CalendarIcon } from '../icons/icons.tsx';
+import { swipeLook } from './swipeLook.tsx';
+import { useSwipePrefs, type SwipeAction } from './swipePrefs.ts';
 
-/** Width of each action a left swipe reveals. */
-const ACTION = 56;
-const ACTIONS = 3;
+/** Width of each button a short swipe shows. */
+const ACTION = 60;
 /** A sideways move this far decides it is a swipe (not a tap or the start of a hold). */
 const DECIDE_PX = 10;
+/** A short swipe this far stays open on its buttons. */
+const OPEN_PX = 48;
 
 // One row open at a time: opening another closes it.
 let closeOpen: (() => void) | null = null;
 
+const fill = (color: string) =>
+  color === 'grey'
+    ? { bgcolor: 'grey.600', color: 'common.white' }
+    : { bgcolor: `${color}.main`, color: `${color}.contrastText` };
+
 /**
- * TickTick's swipes on a task row (spec: Interactions, swipe), for fingers only: right completes
- * (or reopens a closed task); a short swipe left opens Date, Move and Delete, and a long one
- * deletes. Up and down still scroll, and a hold still drags or opens the menu.
+ * TickTick's swipes on a task row (spec: Interactions, swipe; R-FB-54), for fingers only. Each
+ * side shows its buttons on a short swipe and does its full-swipe action on a long one, as set in
+ * Settings. Up and down still scroll, and a hold still drags or opens the menu.
  */
 export function SwipeRow({
   enabled,
   done,
-  onComplete,
-  onDate,
-  onMove,
-  onDelete,
+  pinned,
+  run,
   children,
 }: {
   enabled: boolean;
-  /** Closed: a right swipe reopens */
+  /** Closed: Complete reopens */
   done: boolean;
-  onComplete: () => void;
-  onDate: (anchor: HTMLElement) => void;
-  onMove: () => void;
-  onDelete: () => void;
+  pinned: boolean;
+  /** Does an action; `anchor` is the row (or the button), for a popup to open by */
+  run: (action: SwipeAction, anchor: HTMLElement) => void;
   children: ReactNode;
 }) {
+  const prefs = useSwipePrefs();
   const root = useRef<HTMLDivElement>(null);
   const [offset, setOffset] = useState(0);
   const [live, setLive] = useState(false);
   // The row's width, taken when a swipe starts: thresholds are shares of it.
   const [rowWidth, setRowWidth] = useState(360);
   const swiped = useRef(false);
-  const open = offset === -ACTION * ACTIONS && !live;
+  const rightWidth = prefs.right.buttons.length * ACTION;
+  const leftWidth = prefs.left.buttons.length * ACTION;
+  const open = !live && offset !== 0 && (offset === rightWidth || offset === -leftWidth);
+  /** How far a full swipe must go: further when there are buttons to stop on first. */
+  const fullAt = (buttons: number, width: number) =>
+    buttons > 0 ? width * 0.6 : Math.max(90, width * 0.33);
 
   // An open row closes on a touch anywhere else.
   useEffect(() => {
@@ -72,6 +77,9 @@ export function SwipeRow({
     const id = event.pointerId;
     const origin = { x: event.clientX, y: event.clientY };
     const from = offset;
+    // A side with nothing to show or do does not move.
+    const most = prefs.right.buttons.length || prefs.right.full ? width : 0;
+    const least = prefs.left.buttons.length || prefs.left.full ? -width : 0;
     let deciding = true;
     swiped.current = false;
 
@@ -86,34 +94,36 @@ export function SwipeRow({
         swiped.current = true;
         setLive(true);
       }
-      setOffset(Math.max(-width, Math.min(width, from + dx)));
+      setOffset(Math.max(least, Math.min(most, from + dx)));
     };
     const up = (next: PointerEvent) => {
       if (next.pointerId !== id) return;
       finish();
       if (deciding) return;
       // A browser may or may not send a click after a swipe: swallow one only right away, so the
-      // next real tap (an action button) still works.
+      // next real tap (a button) still works.
       setTimeout(() => {
         swiped.current = false;
       }, 300);
-      const at = from + (next.clientX - origin.x);
+      const at = Math.max(least, Math.min(most, from + (next.clientX - origin.x)));
       setLive(false);
-      if (at >= Math.max(90, width * 0.33)) {
-        // Slide out, then act: the row comes back (or goes) with the change.
-        setOffset(width);
-        setTimeout(() => {
-          onComplete();
+      const toward = at > 0 ? prefs.right : prefs.left;
+      const shown = Math.abs(at);
+      if (toward.full && shown >= fullAt(toward.buttons.length, width)) {
+        const action = toward.full;
+        // Completing or deleting slides the row out; the rest slide back and open their popup.
+        if (action === 'complete' || action === 'delete') {
+          setOffset(at > 0 ? width : -width);
+          setTimeout(() => {
+            run(action, element);
+            setOffset(0);
+          }, 160);
+        } else {
           setOffset(0);
-        }, 160);
-      } else if (-at >= width * 0.6) {
-        setOffset(-width);
-        setTimeout(() => {
-          onDelete();
-          setOffset(0);
-        }, 160);
-      } else if (-at >= 48) {
-        setOffset(-ACTION * ACTIONS);
+          run(action, element);
+        }
+      } else if (toward.buttons.length > 0 && shown >= OPEN_PX) {
+        setOffset(at > 0 ? rightWidth : -leftWidth);
       } else {
         setOffset(0);
       }
@@ -133,12 +143,13 @@ export function SwipeRow({
     window.addEventListener('pointercancel', cancel);
   };
 
-  const deleting = -offset >= rowWidth * 0.6;
-  const completing = offset >= Math.max(90, rowWidth * 0.33);
-  const act = (action: () => void) => () => {
-    setOffset(0);
-    action();
-  };
+  const state = { done, pinned };
+  const side = offset > 0 ? prefs.right : prefs.left;
+  // Past the full-swipe point: the whole background says what letting go does.
+  const fullNow =
+    offset !== 0 && side.full && Math.abs(offset) >= fullAt(side.buttons.length, rowWidth)
+      ? swipeLook(side.full, state)
+      : null;
 
   return (
     <Box
@@ -147,7 +158,7 @@ export function SwipeRow({
       // The click that ends a swipe is not a tap on the task.
       onClickCapture={(event) => {
         if (!swiped.current) return;
-        // The actions it revealed are what the finger is reaching for.
+        // The buttons it showed are what the finger is reaching for.
         if ((event.target as Element).closest('[data-swipe-action]')) return;
         swiped.current = false;
         event.preventDefault();
@@ -155,95 +166,61 @@ export function SwipeRow({
       }}
       sx={{ position: 'relative', overflow: 'hidden', touchAction: enabled ? 'pan-y' : undefined }}
     >
-      {offset > 0 && (
-        <Box
-          aria-hidden
-          sx={{
-            position: 'absolute',
-            inset: 0,
-            display: 'flex',
-            alignItems: 'center',
-            pl: 2,
-            gap: 1,
-            bgcolor: completing ? 'primary.main' : 'action.selected',
-            color: completing ? 'primary.contrastText' : 'text.secondary',
-            typography: 'body2',
-            fontWeight: 600,
-            transition: 'background-color 120ms',
-          }}
-        >
-          {done ? <ReplayRounded /> : <CheckRounded />}
-          {done ? t('swipe.reopen') : t('swipe.complete')}
-        </Box>
-      )}
-      {offset < 0 && (
+      {offset !== 0 && (
         <Box
           sx={{
             position: 'absolute',
             inset: 0,
             display: 'flex',
-            justifyContent: 'flex-end',
-            bgcolor: deleting ? 'error.main' : 'action.selected',
-            transition: 'background-color 120ms',
+            justifyContent: offset > 0 ? 'flex-start' : 'flex-end',
+            bgcolor: 'action.selected',
           }}
         >
-          {deleting ? (
+          {fullNow ? (
             <Box
               aria-hidden
               sx={{
+                flex: 1,
                 display: 'flex',
                 alignItems: 'center',
+                justifyContent: offset > 0 ? 'flex-start' : 'flex-end',
                 gap: 1,
-                pr: 2,
-                color: 'error.contrastText',
+                px: 2,
                 typography: 'body2',
                 fontWeight: 600,
+                ...fill(fullNow.color),
               }}
             >
-              <DeleteOutlineRounded />
-              {t('swipe.delete')}
+              {fullNow.icon}
+              {fullNow.label}
             </Box>
           ) : (
-            [
-              {
-                key: 'date',
-                label: t('swipe.date'),
-                icon: <CalendarIcon />,
-                run: (anchor: HTMLElement) => onDate(anchor),
-              },
-              {
-                key: 'move',
-                label: t('swipe.move'),
-                icon: <DriveFileMoveOutlined />,
-                run: () => onMove(),
-              },
-              {
-                key: 'delete',
-                label: t('swipe.delete'),
-                icon: <DeleteOutlineRounded />,
-                run: () => onDelete(),
-                danger: true,
-              },
-            ].map((action) => (
-              <ButtonBase
-                key={action.key}
-                data-swipe-action={action.key}
-                aria-label={action.label}
-                tabIndex={open ? 0 : -1}
-                onClick={(event) => act(() => action.run(event.currentTarget))()}
-                sx={{
-                  width: ACTION,
-                  flexDirection: 'column',
-                  gap: 0.25,
-                  fontSize: 11,
-                  color: action.danger ? 'error.contrastText' : 'text.primary',
-                  bgcolor: action.danger ? 'error.main' : undefined,
-                }}
-              >
-                {action.icon}
-                {action.label}
-              </ButtonBase>
-            ))
+            side.buttons.map((action) => {
+              const look = swipeLook(action, state);
+              return (
+                <ButtonBase
+                  key={action}
+                  data-swipe-action={action}
+                  aria-label={look.label}
+                  tabIndex={open ? 0 : -1}
+                  onClick={(event) => {
+                    const anchor = event.currentTarget;
+                    setOffset(0);
+                    run(action, anchor);
+                  }}
+                  sx={{
+                    width: ACTION,
+                    flexDirection: 'column',
+                    gap: 0.25,
+                    fontSize: 11,
+                    ...fill(look.color),
+                  }}
+                >
+                  {look.icon}
+                  {look.label}
+                </ButtonBase>
+              );
+            })
           )}
         </Box>
       )}
