@@ -48,6 +48,46 @@ deletes it, so download a copy now and then.
 Signed in to a server, what an import adds syncs like anything else. Server admins have
 [whole-server and per-person backups](../guides/backups.md) for everyone's data.
 
+## Moving from or to another app
+
+**Settings > Your data > Import from another app** reads another app's export. Pick the app, choose
+its file, and Punchlist shows what it found (lists, open and closed tasks, tags) and anything it
+cannot keep before anything changes. Then pick one:
+
+- **Merge with what you have**: the import lands beside your tasks. With **Add to lists with the
+  same name**, an imported "Groceries" goes into your Groceries list instead of a second one.
+- **Replace what you have**: your lists, your Mess Drawer's tasks and your tags go to the Trash
+  first (lists other people share with you stay). The dialog says how many.
+
+Either way the import is one step, so the undo toast takes it all back, including what Replace put
+in the Trash.
+
+| App | Import | Export |
+|---|---|---|
+| TickTick | Its backup (.csv): on the web, Settings > Account > Backup | A backup file TickTick's Import Backup reads |
+| Todoist | Settings > Backups (a .zip), or one project's Export as a CSV file | One .csv a list (open tasks), for a project's Import from CSV |
+| Google Tasks | Google Takeout with only Tasks (the .zip, or Tasks.json in it) | (Google Tasks imports nothing) |
+| Microsoft To Do | Through classic Outlook for Windows: export the Tasks folder as CSV | One .csv a list, to import into Outlook's Tasks |
+| iCalendar (.ics) | Tasks (VTODO) from Nextcloud Tasks, Thunderbird, tasks.org, CalDAV apps | One .ics a list |
+| Things 3 | (Things exports nothing) | Links that add your open tasks to Things |
+
+What comes over: lists, tasks with their notes, dates and times, priorities, tags, repeats,
+reminders, subtasks, and done and won't-do tasks closed as they were (Todoist and Things only deal
+in open tasks). What does not:
+
+- **Sections, kanban columns and folders**: Punchlist has none, so their tasks stay in the list.
+- **TickTick checklists**: their items become subtasks.
+- **Todoist comments**: they go into the task's notes.
+- **Repeats Punchlist cannot follow** (such as TickTick's "these dates"): the task comes in
+  without one.
+- **Things**: no priorities or repeats, and a tag only if Things already has one of that name.
+  Things takes no file, so open the links in order on the device that has Things: the first
+  makes the lists, the rest add up to 250 tasks each.
+- **Microsoft To Do**: steps are not in Outlook's file, and To Do keeps one reminder (the first).
+
+Several lists for Todoist, Microsoft To Do or iCalendar download as one .zip; pick one list under
+**Lists** to get a single file.
+
 ## Signing out
 
 **Log out** is in the profile menu (your picture in the top right). It sends any changes still

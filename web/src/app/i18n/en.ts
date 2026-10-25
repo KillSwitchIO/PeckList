@@ -60,6 +60,77 @@ export const en = {
   'settings.data.notJson': 'That file is not a Punchlist export (it is not JSON).',
   'settings.data.newer': 'That file comes from a newer Punchlist. Update the app, then import it.',
   'settings.data.invalid': 'That file is not a Punchlist export: {reason}',
+  'settings.data.fromApp': 'Import from another app',
+  'settings.data.forApp': 'Export for another app',
+  'interchange.app.ticktick': 'TickTick',
+  'interchange.app.todoist': 'Todoist',
+  'interchange.app.googleTasks': 'Google Tasks',
+  'interchange.app.microsoftToDo': 'Microsoft To Do',
+  'interchange.app.ical': 'iCalendar (.ics)',
+  'interchange.app.things': 'Things 3',
+  'interchange.import.title': 'Import from another app',
+  'interchange.import.app': 'From',
+  'interchange.import.how.ticktick':
+    'In TickTick on the web: Settings > Account > Backup, then Generate backup. Choose the .csv it downloads.',
+  'interchange.import.how.todoist':
+    'In Todoist: Settings > Backups, and download the latest (a .zip of every project). Or one project: its menu > Export as a CSV file. You can choose several files.',
+  'interchange.import.how.googleTasks':
+    'At takeout.google.com, choose only Tasks. Choose the .zip it gives you, or the Tasks.json inside it.',
+  'interchange.import.how.microsoftToDo':
+    'To Do has no export of its own, but keeps its tasks in Outlook. In classic Outlook for Windows: File > Open & Export > Import/Export > Export to a file > Comma Separated Values, then the Tasks folder.',
+  'interchange.import.how.ical':
+    'An .ics file of tasks, as Nextcloud Tasks, Thunderbird, tasks.org and other CalDAV apps save them. You can choose several files.',
+  'interchange.import.choose': 'Choose file',
+  'interchange.import.chooseMore': 'Choose files',
+  'interchange.import.reading': 'Reading...',
+  'interchange.import.found': '{lists} lists, {open} open and {closed} closed tasks, {tags} tags.',
+  'interchange.import.noFiles':
+    'There is nothing in that file this app exports. Is it the right one?',
+  'interchange.import.unreadable': 'That file could not be read as a {app} export.',
+  'interchange.import.empty': 'That file has no tasks in it.',
+  'interchange.import.merge': 'Merge with what you have',
+  'interchange.import.mergeHint': 'Everything here stays; the import is added beside it.',
+  'interchange.import.sameNamed': 'Add to lists with the same name',
+  'interchange.import.replace': 'Replace what you have',
+  'interchange.import.replaceHint':
+    'Your {lists} lists, {tasks} tasks and {tags} tags go to the Trash first. Lists others share with you stay. Undo brings it all back.',
+  'interchange.import.go': 'Import',
+  'interchange.import.done':
+    'Imported from {app}: {tasks} tasks, {lists} new lists and {tags} new tags.',
+  'interchange.import.doneReplaced':
+    'Imported from {app}: {tasks} tasks, {lists} new lists and {tags} new tags. What was here is in the Trash.',
+  'interchange.note.repeatDropped':
+    'Repeats Punchlist cannot keep (the tasks come in without them): {count}',
+  'interchange.note.reminderDropped': 'Reminders that could not be read: {count}',
+  'interchange.note.foldersDropped': 'Folders are not kept; their lists come in on their own.',
+  'interchange.note.notesAsTasks': 'Notes that come in as tasks: {count}',
+  'interchange.note.checklistAsSubtasks': 'Checklist items that become subtasks: {count}',
+  'interchange.note.tooDeep': 'Subtasks nested deeper than Punchlist goes, moved up: {count}',
+  'interchange.note.dateUnread': 'Dates that could not be read: {count}',
+  'interchange.note.commentsAsNotes': "Comments added to their task's notes: {count}",
+  'interchange.note.sectionsDropped':
+    'Sections are not kept; their tasks stay in the list. Sections: {count}',
+  'interchange.export.title': 'Export for another app',
+  'interchange.export.app': 'For',
+  'interchange.export.scope': 'Lists',
+  'interchange.export.all': 'All lists',
+  'interchange.export.how.ticktick':
+    'One backup file. In TickTick on the web: Settings > Import & Integration > Import Backup, then choose it.',
+  'interchange.export.how.todoist':
+    'Open tasks only, one .csv a list (a .zip for several). In Todoist, make a project, then its menu > Import from CSV.',
+  'interchange.export.how.microsoftToDo':
+    'One .csv a list (a .zip for several). In classic Outlook for Windows: File > Open & Export > Import/Export > Import from another program or file > Comma Separated Values, into Tasks. To Do picks them up.',
+  'interchange.export.how.ical':
+    'One .ics a list (a .zip for several), for Nextcloud Tasks, Thunderbird, tasks.org and other CalDAV apps.',
+  'interchange.export.how.things':
+    'Things takes no file: open each link below, in order, on the device that has Things. Open tasks only. Things keeps no priorities or repeats, and takes a tag only if Things has one of that name.',
+  'interchange.export.go': 'Download',
+  'interchange.export.nothing': 'There is nothing to export in those lists.',
+  'interchange.export.batch': 'Add part {n} of {total} to Things',
+  'interchange.export.projects': 'Add the lists to Things (do this first)',
+  'interchange.export.thingsDropped':
+    'Things will not keep: repeats on {repeats} tasks, priorities on {priorities}.',
+  'undo.importedFrom': 'Imported from {app}',
   'settings.appearance': 'Appearance',
   'nav.admin': 'Admin',
   'admin.title': 'Admin',

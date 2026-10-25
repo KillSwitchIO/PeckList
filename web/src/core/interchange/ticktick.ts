@@ -247,7 +247,7 @@ const tickInstant = (iso: string) => `${new Date(Date.parse(iso)).toISOString().
 /** Tasks (all, or the lists named) as a TickTick backup CSV, which TickTick imports. */
 export function exportTickTick(
   workspace: WorkspaceFile,
-  options: { listIds?: readonly string[]; now?: Date } = {},
+  options: { listIds?: readonly string[] | null; now?: Date } = {},
 ): string {
   const now = options.now ?? new Date();
   const tagNames = new Map(workspace.entities.tags.map((tag) => [tag.id, tag.name]));
