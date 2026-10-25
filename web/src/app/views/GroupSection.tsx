@@ -1,6 +1,12 @@
+import CheckCircleRounded from '@mui/icons-material/CheckCircleRounded';
 import ExpandMoreRounded from '@mui/icons-material/ExpandMoreRounded';
-import { Box, ButtonBase, Collapse, Typography } from '@mui/material';
-import { useState, type HTMLAttributes, type ReactNode } from 'react';
+import RadioButtonUncheckedRounded from '@mui/icons-material/RadioButtonUncheckedRounded';
+import RemoveCircleRounded from '@mui/icons-material/RemoveCircleRounded';
+import { Box, ButtonBase, Checkbox, Collapse, Typography } from '@mui/material';
+import { useContext, useMemo, useState, type HTMLAttributes, type ReactNode } from 'react';
+import type { Id } from '../../core/types.ts';
+import { t } from '../i18n/i18n.ts';
+import { SectionRowsContext, useBulkSelect, type SectionRows } from '../tasks/bulkSelect.ts';
 import { setGroupOpen, useGroupOpen } from './collapsed.ts';
 
 /**
@@ -32,9 +38,47 @@ export function GroupSection({
   const open = groupKey === undefined ? local : shared;
   const toggle = () =>
     groupKey === undefined ? setLocal(!open) : setGroupOpen(groupKey, !open, defaultOpen);
+  // While picking many, the rows inside say so, and a circle here picks them all.
+  const bulk = useBulkSelect();
+  const outer = useContext(SectionRowsContext);
+  const [rows, setRows] = useState<ReadonlySet<Id>>(new Set());
+  const registry = useMemo<SectionRows>(
+    () => ({
+      add: (id) => {
+        outer?.add(id);
+        setRows((before) => (before.has(id) ? before : new Set(before).add(id)));
+      },
+      remove: (id) => {
+        outer?.remove(id);
+        setRows((before) => {
+          if (!before.has(id)) return before;
+          const next = new Set(before);
+          next.delete(id);
+          return next;
+        });
+      },
+    }),
+    [outer],
+  );
+  const selecting = bulk?.selecting ?? false;
+  const held = [...rows];
+  const pickedHere = held.filter((id) => bulk?.picked.has(id)).length;
   return (
     <Box component="section" sx={{ mt: 2 }}>
       <Box {...headerProps} sx={{ display: 'flex', alignItems: 'center', minHeight: 32 }}>
+        {selecting && bulk && held.length > 0 && (
+          <Checkbox
+            size="small"
+            checked={pickedHere === held.length}
+            indeterminate={pickedHere > 0 && pickedHere < held.length}
+            onChange={() => bulk.toggle(held, pickedHere < held.length)}
+            icon={<RadioButtonUncheckedRounded />}
+            checkedIcon={<CheckCircleRounded />}
+            indeterminateIcon={<RemoveCircleRounded />}
+            slotProps={{ input: { 'aria-label': t('bulk.selectSection', { title }) } }}
+            sx={{ p: 0.5, ml: -0.5 }}
+          />
+        )}
         <Typography component="h2" variant="subtitle2" sx={{ flexGrow: 1, m: 0 }}>
           <ButtonBase
             onClick={toggle}
@@ -68,9 +112,12 @@ export function GroupSection({
         </Typography>
         {actions}
       </Box>
-      <Collapse in={open} unmountOnExit>
-        {children}
-      </Collapse>
+      <SectionRowsContext.Provider value={registry}>
+        {/* Folded rows stay while picking, so a section's circle still picks them. */}
+        <Collapse in={open} unmountOnExit={!selecting}>
+          {children}
+        </Collapse>
+      </SectionRowsContext.Provider>
     </Box>
   );
 }

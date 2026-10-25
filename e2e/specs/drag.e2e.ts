@@ -65,7 +65,7 @@ describe('dragging tasks', () => {
     await browser.url('/inbox');
     await addTasks(['Wash', 'Dry', 'Fold']);
     // The list's own order: no grouping.
-    await $("//button[@aria-label='Sort and group']").click();
+    await $("//button[@aria-label='View options']").click();
     await $("//*[@role='menuitem'][normalize-space()='None']").click();
     // The menu's backdrop takes pointer presses until it has faded out.
     await $("//*[@role='menu']").waitForExist({ reverse: true });

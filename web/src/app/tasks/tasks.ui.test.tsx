@@ -522,7 +522,7 @@ describe('lists and sections', () => {
       .map((row) => row.getAttribute('aria-label'));
     expect(titles).toEqual(['Open Loose', 'Open Rake']);
     // A list grouped by section before now shows its own order.
-    await userEvent.click(screen.getByRole('button', { name: 'Sort and group' }));
+    await userEvent.click(screen.getByRole('button', { name: 'View options' }));
     expect(await screen.findByRole('menuitem', { name: 'Group by none' })).toHaveClass(
       'Mui-selected',
     );

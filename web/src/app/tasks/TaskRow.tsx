@@ -1,4 +1,6 @@
+import CheckCircleRounded from '@mui/icons-material/CheckCircleRounded';
 import ChecklistRounded from '@mui/icons-material/ChecklistRounded';
+import RadioButtonUncheckedRounded from '@mui/icons-material/RadioButtonUncheckedRounded';
 import NotificationsNoneRounded from '@mui/icons-material/NotificationsNoneRounded';
 import RepeatRounded from '@mui/icons-material/RepeatRounded';
 import ChevronRightRounded from '@mui/icons-material/ChevronRightRounded';
@@ -28,6 +30,7 @@ import { useTwoLineRows } from '../layout/rowLayout.ts';
 import { keyboardMove } from '../../core/taskDrag.ts';
 import { TagChips } from '../tags/TagChip.tsx';
 import { useTaskSelection } from './selection.ts';
+import { useBulkSelect, useInSection } from './bulkSelect.ts';
 import { CHECK_PATH, CROSS_PATH } from './closedMarks.ts';
 import { DateButton, TaskDateSheet } from './DateButton.tsx';
 import { SwipeRow } from './SwipeRow.tsx';
@@ -118,7 +121,7 @@ export function TaskRow({
   expander,
   draggable = false,
   dueFirst = false,
-  select,
+  select: ownSelect,
   onHold,
 }: {
   task: Task;
@@ -141,6 +144,17 @@ export function TaskRow({
 }) {
   const workspace = useWorkspace();
   const { selectedId, open } = useTaskSelection();
+  // Picking many (the view menu's Select): the page's own picking, if it has one, comes first.
+  const bulk = useBulkSelect();
+  useInSection(task.id, bulk?.selecting ?? false);
+  const select: RowSelection | undefined =
+    ownSelect ??
+    (bulk?.selecting
+      ? {
+          selected: bulk.picked.has(task.id),
+          onToggle: () => bulk.toggle([task.id], !bulk.picked.has(task.id)),
+        }
+      : undefined);
   const list = getEntity(workspace, 'lists', task.listId);
   const parent = task.parentId ? getEntity(workspace, 'tasks', task.parentId) : undefined;
   const progress = subtaskProgress(workspace, task.id);
@@ -274,11 +288,14 @@ export function TaskRow({
     disableRipple: true,
   };
   const checkbox = select ? (
+    // Picking is a circle, so it never reads as completing.
     <Checkbox
       size="small"
       checked={select.selected}
       onChange={select.onToggle}
       onClick={(event) => event.stopPropagation()}
+      icon={<RadioButtonUncheckedRounded />}
+      checkedIcon={<CheckCircleRounded />}
       slotProps={{ input: { 'aria-label': t('task.select', { title }) } }}
       sx={{ p: 0.75 }}
     />

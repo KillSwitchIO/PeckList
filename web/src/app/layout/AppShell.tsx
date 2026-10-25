@@ -57,6 +57,9 @@ import { dayPath } from '../views/dayLabels.ts';
 import { useAppliedTimeZone } from './useAppliedTimeZone.ts';
 import { activeItem, SIDEBAR_ITEMS, type NavItem } from './navigation.tsx';
 import { useBottomTabs } from './bottomTabs.tsx';
+import { BulkBar } from '../tasks/BulkBar.tsx';
+import { BulkSelectProvider } from '../tasks/BulkSelectProvider.tsx';
+import { useBulkSelect } from '../tasks/bulkSelect.ts';
 import { TwoLineRowsContext, useNarrow } from './rowLayout.ts';
 import { SyncButton } from '../sync/SyncButton.tsx';
 import { useFooterItems } from './useFooterItems.ts';
@@ -218,6 +221,7 @@ const NO_ADD_BUTTON = ['/settings', '/admin', '/friends', '/f/', '/search', '/du
 function AppFrame() {
   const theme = useTheme();
   const isPhone = useMediaQuery(theme.breakpoints.down('sm'), { noSsr: true });
+  const bulk = useBulkSelect();
   const bottomTabs = useBottomTabs();
   const [mainElement, setMainElement] = useState<HTMLElement | null>(null);
   const narrowMain = useNarrow(mainElement);
@@ -458,26 +462,29 @@ function AppFrame() {
           </Drawer>
         )}
 
-        {isPhone && detail === null && !NO_ADD_BUTTON.some((path) => pathname.startsWith(path)) && (
-          <Fab
-            color="primary"
-            aria-label={t('shortcut.addTask')}
-            onClick={() => {
-              // There is no Q key on a phone: the page's add field, else the Inbox's.
-              if (focusAddTask()) return;
-              go('/inbox');
-              setTimeout(focusAddTask, 0);
-            }}
-            sx={{
-              position: 'fixed',
-              right: 16,
-              bottom: 'calc(52px + 16px + env(safe-area-inset-bottom))',
-              zIndex: (theme) => theme.zIndex.appBar,
-            }}
-          >
-            <PlusIcon />
-          </Fab>
-        )}
+        {isPhone &&
+          detail === null &&
+          !bulk?.selecting &&
+          !NO_ADD_BUTTON.some((path) => pathname.startsWith(path)) && (
+            <Fab
+              color="primary"
+              aria-label={t('shortcut.addTask')}
+              onClick={() => {
+                // There is no Q key on a phone: the page's add field, else the Inbox's.
+                if (focusAddTask()) return;
+                go('/inbox');
+                setTimeout(focusAddTask, 0);
+              }}
+              sx={{
+                position: 'fixed',
+                right: 16,
+                bottom: 'calc(52px + 16px + env(safe-area-inset-bottom))',
+                zIndex: (theme) => theme.zIndex.appBar,
+              }}
+            >
+              <PlusIcon />
+            </Fab>
+          )}
 
         {/* On a phone, above the bottom navigation and the + button. */}
         <UndoToast bottomOffset={isPhone ? 52 + 72 : 0} />
@@ -485,7 +492,9 @@ function AppFrame() {
         <ReminderScheduler />
         <ShortcutsDialog open={shortcuts.helpOpen} onClose={shortcuts.closeHelp} />
 
-        {isPhone && (
+        {/* Picking many: the actions take the bottom tabs' place (or float, on a big screen). */}
+        <BulkBar phone={isPhone} />
+        {isPhone && !bulk?.selecting && (
           <BottomNavigation
             component="nav"
             aria-label={t('app.name')}
@@ -519,7 +528,9 @@ function AppFrame() {
 export function AppShell() {
   return (
     <NotificationsProvider>
-      <AppFrame />
+      <BulkSelectProvider>
+        <AppFrame />
+      </BulkSelectProvider>
     </NotificationsProvider>
   );
 }
