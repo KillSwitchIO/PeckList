@@ -137,8 +137,9 @@ Two views, switched at the top right:
   with an all-day row on top. Pinch, or hold Ctrl and use the wheel, to make hours taller or
   shorter. Click an empty time to add a task there. On a phone, swipe sideways to page.
 
-Drag a task to move it to another day or time (on a phone, hold it first); in Days, pull its
-bottom edge to change when it ends. Drag tasks from **Unscheduled** onto a day (all day) or a
+Drag a task to move it to another day or time, by finger or mouse; the calendar scrolls by its
+dates and empty space. In Days, pull the grip at a task's top or bottom edge to change when it
+starts or ends. Drag tasks from **Unscheduled** onto a day (all day) or a
 time. A task dropped on a month day keeps its time. The list button at the top opens Upcoming,
 the agenda. Each device remembers the view, days, weeks and hour height.
 
