@@ -135,10 +135,6 @@ describe('Upcoming', () => {
     await store.getState().flush();
     await renderApp('/upcoming', store);
     const strip = () => screen.getByRole('group', { name: 'Days of the week' });
-    const firstDay = () =>
-      screen
-        .getAllByRole('heading', { level: 2 })
-        .find((each) => !/Overdue|Pinned/.test(each.textContent ?? ''));
     const todayButton = () =>
       within(strip().parentElement!.parentElement!.parentElement!).getByRole('button', {
         name: 'Today',
@@ -157,8 +153,11 @@ describe('Upcoming', () => {
     // Earlier than today: the list starts there, with no Overdue group.
     await userEvent.click(todayButton());
     await userEvent.click(screen.getByRole('button', { name: 'Previous week' }));
-    const lastWeek = within(strip()).getAllByRole('button')[0]!;
-    expect(firstDay()).toHaveTextContent(lastWeek.getAttribute('aria-label')!);
+    // The same weekday, a week back: the list starts there.
+    expect(document.querySelector('[data-agenda-day]')).toHaveAttribute(
+      'data-agenda-day',
+      addDays(today(), -7),
+    );
     expect(screen.queryByRole('heading', { name: /Overdue/ })).toBeNull();
 
     await userEvent.click(todayButton());

@@ -28,6 +28,7 @@ export function WeekStrip({
   busyIn,
   onSwipe,
   onPick,
+  slide = true,
 }: {
   week: string;
   thisWeek: string;
@@ -37,6 +38,8 @@ export function WeekStrip({
   busyIn: (start: string) => Set<string>;
   onSwipe: (week: string) => void;
   onPick: (date: string) => void;
+  /** Slide to a new week (a week asked for); false jumps (keeping up with the list's scroll) */
+  slide?: boolean;
 }) {
   const scroller = useRef<HTMLDivElement>(null);
   const indexOf = (start: string) =>
@@ -63,8 +66,10 @@ export function WeekStrip({
     const left = wanted * element.clientWidth;
     if (Math.abs(element.scrollLeft - left) < 2) return;
     ownScroll.current = true;
-    element.scrollTo({ left, behavior: placed.current ? 'smooth' : 'auto' });
+    element.scrollTo({ left, behavior: placed.current && slide ? 'smooth' : 'auto' });
     placed.current = true;
+    // Only a new week moves it; how it moves is read as it was asked.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [wanted]);
 
   const onScroll = () => {
@@ -181,6 +186,8 @@ export function WeekStrip({
                       borderRadius: 1.5,
                       border: 1.5,
                       borderColor: focused ? 'primary.main' : 'transparent',
+                      // The day ring moves softly from day to day.
+                      transition: 'border-color 160ms ease-out, background-color 160ms ease-out',
                       color: past ? 'text.disabled' : 'text.primary',
                       bgcolor: isToday ? 'action.selected' : undefined,
                       userSelect: 'none',

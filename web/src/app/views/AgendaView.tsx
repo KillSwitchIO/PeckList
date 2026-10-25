@@ -76,6 +76,8 @@ export function AgendaView({
   const [count, setCount] = useState(DAYS);
   const [focus, setFocus] = useState(today);
   const [week, setWeek] = useState(thisWeek);
+  // Whether the strip slides to a new week (asked for) or jumps (following the list).
+  const [sliding, setSliding] = useState(true);
   const [jump, setJump] = useState<{ date: string | null; seq: number }>({ date: null, seq: 0 });
   const [adding, setAdding] = useState<string | null>(null);
   const [picker, setPicker] = useState<HTMLElement | null>(null);
@@ -107,6 +109,7 @@ export function AgendaView({
       Math.min(MAX_DAYS, Math.max(daysBetween(first, last), daysBetween(first, date) + DAYS)),
     );
     setFocus(date);
+    setSliding(true);
     setWeek(startOfWeek(date, weekStart));
     setJump({ date, seq: jump.seq + 1 });
   };
@@ -114,12 +117,16 @@ export function AgendaView({
     setStart(today);
     setCount(DAYS);
     setFocus(today);
+    setSliding(true);
     setWeek(thisWeek);
     // The top of the page: the overdue tasks above today too.
     setJump({ date: null, seq: jump.seq + 1 });
   };
-  /** The strip moved to the week from `first`: the list goes to its first day (today, in this week). */
-  const toWeek = (first: string) => goTo(first === thisWeek && start === today ? today : first);
+  /** The strip moved to the week from `first`: the list goes to the same weekday there. */
+  const toWeek = (first: string) => {
+    setSliding(true);
+    goTo(addDays(first, Math.max(0, Math.min(6, daysBetween(week, focus)))));
+  };
 
   useLayoutEffect(() => {
     if (jump.seq === 0) return;
@@ -159,6 +166,8 @@ export function AgendaView({
         if (section.getBoundingClientRect().bottom > line) {
           const date = section.dataset.agendaDay!;
           setFocus(date);
+          // Following the list: the strip keeps up at once, no slide.
+          setSliding(false);
           setWeek(startOfWeek(date, weekStart));
           return;
         }
@@ -248,6 +257,7 @@ export function AgendaView({
           </Box>
           <WeekStrip
             week={week}
+            slide={sliding}
             thisWeek={thisWeek}
             today={today}
             focus={focus}
