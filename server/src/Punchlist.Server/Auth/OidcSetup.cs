@@ -38,6 +38,9 @@ public static class OidcSetup
     /// <summary>On sessions a provider signed in: its name, for the provider badge on the avatar.</summary>
     public const string ProviderClaim = "punchlist:provider";
 
+    /// <summary>The provider's picture of the person (its URL), for the app to bring in when they have no photo.</summary>
+    public const string PictureClaim = "punchlist:picture";
+
     /// <summary>Set on a sign-in started from an invite link: a new provider account may come in on it.</summary>
     private const string InviteItem = "punchlist.invite";
 
@@ -273,6 +276,7 @@ public static class OidcSetup
                 var principal = AuthSetup.Principal(
                     success.Account with { MustChangePassword = false }, CookieAuthenticationDefaults.AuthenticationScheme);
                 ((ClaimsIdentity)principal.Identity!).AddClaim(new Claim(ProviderClaim, provider.Name));
+                if (Claim("picture") is { } pictureUrl) ((ClaimsIdentity)principal.Identity!).AddClaim(new Claim(PictureClaim, pictureUrl));
                 context.Principal = principal;
                 context.Properties!.IsPersistent = true;
                 if (provider.SessionLength is { } length)

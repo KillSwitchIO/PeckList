@@ -198,8 +198,12 @@ export function TaskDragProvider({
     setLine({ top, left, width: Math.max(40, zoneBox.right - left - 8) });
   }, []);
 
+  const ended = useRef<Active | null>(null);
   const finish = useCallback(
     (current: Active, commit: boolean) => {
+      // A finger ends a drag twice (pointerup, then touchend): once is enough.
+      if (ended.current === current) return;
+      ended.current = current;
       const listTarget = hoverList.current?.dataset.dropList;
       setHover(null);
       setActive(null);
@@ -243,27 +247,42 @@ export function TaskDragProvider({
       track(active, event.clientX, event.clientY);
     };
     const up = () => finish(active, true);
+    // Phones may hand a held finger over to the browser (a pointercancel) and go on with touch
+    // events only: follow those too, so the drag carries on.
+    const cancelled = (event: PointerEvent) => {
+      if (event.pointerType !== 'touch') finish(active, false);
+    };
+    const touchMove = (event: TouchEvent) => {
+      event.preventDefault();
+      const finger = event.touches[0];
+      if (finger) track(active, finger.clientX, finger.clientY);
+    };
+    const touchEnd = () => finish(active, true);
+    const touchCancel = () => finish(active, false);
     const key = (event: KeyboardEvent) => {
       if (event.key !== 'Escape') return;
       event.preventDefault();
       event.stopPropagation();
       finish(active, false);
     };
-    // A finger dragging a task moves the task, not the page.
-    const still = (event: TouchEvent) => event.preventDefault();
     window.addEventListener('pointermove', move, { passive: false });
     window.addEventListener('pointerup', up);
-    window.addEventListener('pointercancel', up);
+    window.addEventListener('pointercancel', cancelled);
     window.addEventListener('keydown', key, true);
-    document.addEventListener('touchmove', still, { passive: false });
+    // A finger dragging a task moves the task, not the page.
+    document.addEventListener('touchmove', touchMove, { passive: false });
+    document.addEventListener('touchend', touchEnd);
+    document.addEventListener('touchcancel', touchCancel);
     document.body.style.cursor = 'grabbing';
     document.body.style.userSelect = 'none';
     return () => {
       window.removeEventListener('pointermove', move);
       window.removeEventListener('pointerup', up);
-      window.removeEventListener('pointercancel', up);
+      window.removeEventListener('pointercancel', cancelled);
       window.removeEventListener('keydown', key, true);
-      document.removeEventListener('touchmove', still);
+      document.removeEventListener('touchmove', touchMove);
+      document.removeEventListener('touchend', touchEnd);
+      document.removeEventListener('touchcancel', touchCancel);
       document.body.style.cursor = '';
       document.body.style.userSelect = '';
     };
@@ -312,20 +331,17 @@ export function TaskDragProvider({
                 navigator.vibrate?.(10);
               }, HOLD_MS)
             : null;
-          // Once the hold has armed a drag, a finger moving must not scroll the page instead.
-          const still = (touchEvent: TouchEvent) => {
-            if (armed) touchEvent.preventDefault();
-          };
-          if (touch) document.addEventListener('touchmove', still, { passive: false });
           const cleanup = () => {
             if (hold) clearTimeout(hold);
-            document.removeEventListener('touchmove', still);
+            document.removeEventListener('touchmove', touchMove);
+            document.removeEventListener('touchend', up);
+            document.removeEventListener('touchcancel', cleanup);
             window.removeEventListener('pointermove', move);
             window.removeEventListener('pointerup', up);
             window.removeEventListener('pointercancel', cancel);
           };
-          const move = (moved: PointerEvent) => {
-            const far = Math.hypot(moved.clientX - startX, moved.clientY - startY) >= START_PX;
+          const step = (x: number, y: number) => {
+            const far = Math.hypot(x - startX, y - startY) >= START_PX;
             if (!far) return;
             // A finger moving before the hold is a scroll, not a drag.
             if (!armed) {
@@ -334,7 +350,15 @@ export function TaskDragProvider({
             }
             started = true;
             cleanup();
-            track(begin(task, depth, startX, startY, source), moved.clientX, moved.clientY);
+            track(begin(task, depth, startX, startY, source), x, y);
+          };
+          const move = (moved: PointerEvent) => step(moved.clientX, moved.clientY);
+          // Touch events as well: once the hold has armed a drag, a finger moving must not
+          // scroll the page, and they go on where a phone cancels the pointer.
+          const touchMove = (touchEvent: TouchEvent) => {
+            if (armed) touchEvent.preventDefault();
+            const finger = touchEvent.touches[0];
+            if (finger) step(finger.clientX, finger.clientY);
           };
           const up = () => {
             cleanup();
@@ -345,7 +369,15 @@ export function TaskDragProvider({
               if (fromCheckbox) onMenu({ top: startY, left: startX });
             }
           };
-          const cancel = () => cleanup();
+          // A phone may cancel a held finger's pointer: its touch events carry on.
+          const cancel = () => {
+            if (!(touch && armed)) cleanup();
+          };
+          if (touch) {
+            document.addEventListener('touchmove', touchMove, { passive: false });
+            document.addEventListener('touchend', up);
+            document.addEventListener('touchcancel', cleanup);
+          }
           window.addEventListener('pointermove', move);
           window.addEventListener('pointerup', up);
           window.addEventListener('pointercancel', cancel);

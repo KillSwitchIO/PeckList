@@ -11,6 +11,25 @@ namespace Punchlist.Server.Auth;
 /// fetched and kept on their profile at sign-in when it has none (never set, or taken away: then the
 /// provider's comes back). One they set stays theirs. Too big, not an image, or out of reach: initials.
 /// </summary>
+public static class ProviderPhotoEndpoints
+{
+    /// <summary>
+    /// The signed-in person's picture at their identity provider, passed through (spec: R-FB-62):
+    /// the app shrinks it to a profile photo when they have none. 404 when there is none.
+    /// </summary>
+    public static RouteGroupBuilder MapProviderPicture(this RouteGroupBuilder api)
+    {
+        api.MapGet("/account/provider-picture", async (System.Security.Claims.ClaimsPrincipal user, ProviderPhoto photos, CancellationToken cancellation) =>
+        {
+            if (user.FindFirst(OidcSetup.PictureClaim)?.Value is not { } url) return Results.NotFound();
+            return await photos.FetchAsync(url, cancellation) is { } picture
+                ? Results.File(picture.Bytes, picture.Type)
+                : Results.NotFound();
+        });
+        return api;
+    }
+}
+
 public sealed class ProviderPhoto(IHttpClientFactory http, SharingState sharing, SyncService sync, ServerClock clock, ILogger<ProviderPhoto> logger)
 {
     /// <summary>The most a picture may weigh (it is kept as text: base64 grows it by a third, under the schema's 80,000).</summary>
@@ -44,6 +63,34 @@ public sealed class ProviderPhoto(IHttpClientFactory http, SharingState sharing,
         catch (Exception error) when (error is HttpRequestException or OperationCanceledException or IOException)
         {
             logger.LogInformation("Could not bring in the provider's picture: {Message}", error.Message);
+        }
+    }
+
+    /// <summary>The most the app is sent to shrink itself (a full-size upload at the provider).</summary>
+    public const int MaxProxyBytes = 5_000_000;
+
+    /// <summary>The picture at <paramref name="url"/> as it is (any size up to <see cref="MaxProxyBytes"/>), or null.</summary>
+    public async Task<(byte[] Bytes, string Type)?> FetchAsync(string url, CancellationToken cancellation = default)
+    {
+        if (!Uri.TryCreate(url, UriKind.Absolute, out var address) || address.Scheme is not ("https" or "http")) return null;
+        try
+        {
+            using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellation);
+            timeout.CancelAfter(TimeSpan.FromSeconds(8));
+            using var response = await http.CreateClient("photos").GetAsync(address, HttpCompletionOption.ResponseHeadersRead, timeout.Token);
+            var type = response.Content.Headers.ContentType?.MediaType;
+            if (!response.IsSuccessStatusCode || type is null || !Types.Contains(type))
+            {
+                logger.LogInformation("The provider's picture is not an image we take ({Status}, {Type})", (int)response.StatusCode, type);
+                return null;
+            }
+            var bytes = await ReadUpToAsync(response.Content, MaxProxyBytes + 1, timeout.Token);
+            return bytes.Length is > 0 and <= MaxProxyBytes ? (bytes, type) : null;
+        }
+        catch (Exception error) when (error is HttpRequestException or OperationCanceledException or IOException)
+        {
+            logger.LogInformation("Could not fetch the provider's picture: {Message}", error.Message);
+            return null;
         }
     }
 

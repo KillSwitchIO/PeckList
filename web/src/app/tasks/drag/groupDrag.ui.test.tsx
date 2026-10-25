@@ -1,4 +1,4 @@
-import { fireEvent, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { addDays, localTimeZone, todayIn } from '../../../core/dates.ts';
 import { createList, inboxList } from '../../../core/lists.ts';
@@ -120,5 +120,62 @@ describe('dragging tasks between groups', () => {
     expect(JSON.parse(localStorage.getItem('punchlist.listGrouping')!)[listId]).toMatchObject({
       sort: 'manual',
     });
+  });
+
+  it('goes on with touch events when a phone cancels the held finger (Android)', async () => {
+    const store = testStore();
+    await store.getState().init();
+    const today = todayIn(localTimeZone(), Date.now());
+    const on = (date: string) => ({
+      start: date,
+      end: null,
+      allDay: true,
+      timeZone: localTimeZone(),
+    });
+    store.getState().apply((ctx, ws) => {
+      let next: WorkspaceFile = ws;
+      for (const [title, date] of [
+        ['Old bill', addDays(today, -2)],
+        ['Walk dog', today],
+      ] as const) {
+        next = createTask(ctx, next, {
+          title,
+          listId: inboxList(next).id,
+          schedule: on(date),
+        }).workspace;
+      }
+      return next;
+    });
+    await store.getState().flush();
+    await renderApp('/today', store);
+    const from = await screen.findByRole('button', { name: 'Open Old bill' });
+    const rows = [...document.querySelectorAll('[data-drag-row]')];
+    const y = (name: string) =>
+      TOP +
+      rows.indexOf(
+        screen.getByRole('button', { name: `Open ${name}` }).closest('[data-drag-row]')!,
+      ) *
+        ROW +
+      ROW / 2;
+    vi.useFakeTimers();
+    fireEvent.pointerDown(from, {
+      button: 0,
+      clientX: 300,
+      clientY: y('Old bill'),
+      pointerType: 'touch',
+      pointerId: 5,
+    });
+    act(() => vi.advanceTimersByTime(600));
+    // The browser takes the finger's pointer away; touch events go on.
+    fireEvent.pointerCancel(window, { pointerType: 'touch', pointerId: 5 });
+    fireEvent.touchMove(document, { touches: [{ clientX: 300, clientY: y('Old bill') + 12 }] });
+    fireEvent.touchMove(document, { touches: [{ clientX: 300, clientY: y('Walk dog') + 5 }] });
+    expect(screen.getByTestId('drag-card')).toHaveTextContent('Old bill');
+    fireEvent.touchEnd(document, { touches: [] });
+    vi.useRealTimers();
+    const start = () =>
+      store.getState().workspace!.entities.tasks.find((task) => task.title === 'Old bill')!.schedule
+        ?.start;
+    await waitFor(() => expect(start()).toBe(today));
   });
 });
