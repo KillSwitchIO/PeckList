@@ -282,22 +282,31 @@ describe('theme mode', () => {
 });
 
 describe('settings: swipe actions', () => {
-  it('sets the buttons, their order and the full swipe, and resets them', async () => {
+  it('reorders, removes and adds buttons, sets the full swipe, shows it on a sample, and resets', async () => {
     await renderApp('/settings');
     const section = await screen.findByRole('region', { name: 'Swipe actions' });
-    const pick = async (label: string, option: string) => {
-      await userEvent.click(within(section).getByRole('combobox', { name: label }));
-      await userEvent.click(await screen.findByRole('option', { name: option }));
-    };
-    expect(within(section).getByRole('combobox', { name: 'Full swipe left' })).toHaveTextContent(
-      'Date',
+    const left = within(section).getByRole('region', { name: 'Swipe left' });
+    expect(within(left).getByRole('img')).toHaveAccessibleName(
+      'Swipe left shows: Date, Move, Delete',
     );
-    await pick('Full swipe right', 'Pin');
-    await pick('Swipe right: buttons, Button 1', 'Complete');
-    await pick('Swipe left: buttons, Button 1', 'None');
+    await userEvent.click(
+      within(left).getByRole('button', { name: 'Move Delete toward the edge' }),
+    );
+    await userEvent.click(within(left).getByRole('button', { name: 'Remove Date' }));
+    await userEvent.click(within(left).getByRole('button', { name: 'Add a button' }));
+    await userEvent.click(await screen.findByRole('menuitem', { name: 'Pin' }));
+    expect(within(left).getByRole('img')).toHaveAccessibleName(
+      'Swipe left shows: Delete, Move, Pin',
+    );
+    // Three is the most: no more adding.
+    expect(within(left).queryByRole('button', { name: 'Add a button' })).toBeNull();
+
+    const right = within(section).getByRole('region', { name: 'Swipe right' });
+    await userEvent.click(within(right).getByRole('combobox', { name: 'Full swipe right' }));
+    await userEvent.click(await screen.findByRole('option', { name: "Won't do" }));
     expect(JSON.parse(localStorage.getItem('punchlist.swipes')!)).toEqual({
-      right: { buttons: ['complete'], full: 'pin' },
-      left: { buttons: ['move', 'delete'], full: 'date' },
+      right: { buttons: [], full: 'wontDo' },
+      left: { buttons: ['delete', 'move', 'pin'], full: 'date' },
     });
     await userEvent.click(within(section).getByRole('button', { name: 'Reset' }));
     expect(localStorage.getItem('punchlist.swipes')).toBeNull();
