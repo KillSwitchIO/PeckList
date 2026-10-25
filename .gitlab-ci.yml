@@ -165,11 +165,11 @@ container-image:
     - |
       set -eu
       CREATED=$(date -u +%Y-%m-%dT%H:%M:%SZ)
-      VERSION=$(sed -n 's:.*<Version>\(.*\)</Version>.*:\1:p' server/Directory.Build.props)
+      # The tag's version, else the next patch -edge (main) or -dev (other branches).
+      VERSION=$(sh scripts/build-version.sh)
       TAGS=""
       PUSH=false
       if [ -n "${CI_COMMIT_TAG:-}" ]; then
-        VERSION=$(echo "$CI_COMMIT_TAG" | sed 's/^v//; s/+.*//')
         TAGS="-t $IMAGE:$VERSION"
         case "$VERSION" in
           *-*) ;;  # a pre-release gets its exact tag only
@@ -178,11 +178,9 @@ container-image:
         esac
         PUSH=true
       elif [ "${CI_COMMIT_BRANCH:-}" = "$CI_DEFAULT_BRANCH" ]; then
-        VERSION="$VERSION-edge.$CI_COMMIT_SHORT_SHA"
         TAGS="-t $IMAGE:edge -t $IMAGE:sha-$CI_COMMIT_SHORT_SHA"
         PUSH=true
       else
-        VERSION="$VERSION-dev.$CI_COMMIT_SHORT_SHA"
         TAGS="-t $IMAGE:mr-${CI_MERGE_REQUEST_IID:-0}"
       fi
       CACHE_TO=""
@@ -250,11 +248,7 @@ packages:
   script:
     - apt-get update -qq && apt-get install -y -qq --no-install-recommends zip > /dev/null
     - |
-      if [ -n "${CI_COMMIT_TAG:-}" ]; then
-        VERSION=$(echo "$CI_COMMIT_TAG" | sed 's/^v//; s/+.*//')
-      else
-        VERSION="$(sed -n 's:.*<Version>\(.*\)</Version>.*:\1:p' server/Directory.Build.props)-edge.$CI_COMMIT_SHORT_SHA"
-      fi
+      VERSION=$(sh scripts/build-version.sh)
       REVISION=$CI_COMMIT_SHA bash scripts/package.sh "$VERSION"
   artifacts:
     paths: [dist]

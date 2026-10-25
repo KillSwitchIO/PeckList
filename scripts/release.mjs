@@ -4,6 +4,8 @@
 //   pnpm release 0.2.0-rc.1       (a pre-release: no `latest` image, marked upcoming)
 //   pnpm release 0.2.0 --dry-run  (show the changelog section, change nothing)
 // Then: git push origin main --follow-tags   (CI builds, publishes and releases the tag)
+// Through a merge request instead: on a branch, `pnpm release 0.2.0 --any-branch --no-tag`, push,
+// merge, then `pnpm release:tag` on main (scripts/tag-release.mjs).
 
 import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
@@ -15,6 +17,7 @@ const args = process.argv.slice(2);
 const version = args.find((arg) => !arg.startsWith('--'));
 const dryRun = args.includes('--dry-run');
 const anyBranch = args.includes('--any-branch');
+const noTag = args.includes('--no-tag');
 
 const fail = (message) => {
   console.error(message);
@@ -59,5 +62,9 @@ git(
   'server/Directory.Build.props',
 );
 git('commit', '-m', `chore(release): ${version}`);
-git('tag', '-a', tag, '-m', `Punchlist ${version}\n\n${notes}`);
-console.log(`Tagged ${tag}. Review the commit, then: git push origin main --follow-tags`);
+if (noTag) {
+  console.log(`Committed ${version}. Push the branch, merge it, then: pnpm release:tag on main.`);
+} else {
+  git('tag', '-a', tag, '-m', `Punchlist ${version}\n\n${notes}`);
+  console.log(`Tagged ${tag}. Review the commit, then: git push origin main --follow-tags`);
+}

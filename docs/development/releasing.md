@@ -14,6 +14,14 @@ release with notes.
 - The version lives in `web/package.json`, `web/src/core/workspace.ts` (`APP_VERSION`) and
   `server/Directory.Build.props`. `pnpm check:version` checks they agree, and in a tag pipeline
   that they match the tag.
+- Builds between releases carry the **next** patch, so they sort after the release they follow and
+  before the next one: after `0.2.0`, `main` builds `0.2.1-edge.<commit>` and other branches
+  `0.2.1-dev.<commit>`. After a pre-release such as `0.3.0-rc.1` they are
+  `0.3.0-rc.1.edge.<commit>`. `scripts/build-version.sh` works this out, for CI and for builds by
+  hand (`CI_COMMIT_SHORT_SHA=$(git rev-parse --short HEAD) CI_COMMIT_BRANCH=main sh
+  scripts/build-version.sh`).
+- Bump the version with each release; nothing else moves it. Until something is released, every
+  build says the last version (that is how everything up to 0.2.0 said `0.1.0-edge`).
 
 ## The changelog
 
@@ -36,6 +44,22 @@ pnpm release 0.4.0              # bump versions, regenerate CHANGELOG.md, commit
 git show                        # review; amend the changelog wording if needed, then re-tag
 git push origin main --follow-tags
 ```
+
+### Through a merge request
+
+`main` is protected, so the usual way is a merge request:
+
+```bash
+git switch -c release/0.4.0
+pnpm release 0.4.0 --any-branch --no-tag   # bump versions, regenerate CHANGELOG.md, commit
+git push -u origin release/0.4.0           # open the merge request, review, merge
+git switch main && git pull
+pnpm release:tag                            # tag main's head with the version and its notes
+git push origin v0.4.0+<date>               # the tag `pnpm release:tag` printed
+```
+
+`pnpm release:tag` checks that main holds one version in every file, that it is not tagged yet,
+and that `CHANGELOG.md` has its section (which becomes the tag message and the release notes).
 
 The tag pipeline then:
 

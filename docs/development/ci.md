@@ -7,7 +7,7 @@ The pipeline is in [`.gitlab-ci.yml`](https://gitlab.com/killswitch10/punchlist/
 | Pipeline              | Jobs                                                                                                                                             |
 | --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
 | Merge request         | `lint` (lint, format, typecheck, versions, docs coverage), `web-test`, `server-test`, `e2e`, `docs`, `container-image` (built, not pushed)                 |
-| `main`                | The same, then the `:edge` and `:sha-<commit>` images, two devices syncing through that image (`e2e-server`) and the docs site (`pages`). Native downloads on demand (`web-build`, `packages`: manual). |
+| `main`                | The same, then the `:edge` and `:sha-<commit>` images (version `<next patch>-edge.<commit>`, [releasing](releasing.md#versions)), two devices syncing through that image (`e2e-server`) and the docs site (`pages`). Native downloads on demand (`web-build`, `packages`: manual). |
 | Tag `vX.Y.Z+YYYYMMDD` | Checks and tests, release images (`:X.Y.Z`, `:X.Y`, `:latest`), native downloads, and the GitLab release (`release`).                            |
 | Run pipeline (web UI) | Like a merge request, on any branch.                                                                                                             |
 
