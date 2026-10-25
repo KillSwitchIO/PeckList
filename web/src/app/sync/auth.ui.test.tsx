@@ -163,10 +163,29 @@ describe('signing in to a server', () => {
     ).toBeInTheDocument();
 
     await userEvent.type(screen.getByLabelText(/Current password/), 'generated password');
-    await userEvent.type(screen.getByLabelText(/New password/), 'short{Enter}');
+    await userEvent.type(screen.getByLabelText(/New password/), 'short');
+    await userEvent.type(screen.getByLabelText(/Confirm new password/), 'short{Enter}');
     expect(await screen.findByText('Use at least 12 characters.')).toBeInTheDocument();
     await userEvent.clear(screen.getByLabelText(/New password/));
-    await userEvent.type(screen.getByLabelText(/New password/), 'a brand new password{Enter}');
+    await userEvent.type(screen.getByLabelText(/New password/), 'a brand new password');
+    // Typed twice, and the two must match.
+    await userEvent.clear(screen.getByLabelText(/Confirm new password/));
+    await userEvent.type(screen.getByLabelText(/Confirm new password/), 'a brand new passwrod');
+    expect(screen.getByText("The new passwords don't match.")).toBeInTheDocument();
+    await userEvent.type(screen.getByLabelText(/Confirm new password/), '{Enter}');
+    expect(screen.getByRole('heading', { name: 'Choose a new password' })).toBeInTheDocument();
+    // The eye shows what was typed, and hides it again.
+    const confirm = screen.getByLabelText(/Confirm new password/);
+    expect(confirm).toHaveAttribute('type', 'password');
+    const eyes = screen.getAllByRole('button', { name: 'Show password' });
+    expect(eyes).toHaveLength(3);
+    await userEvent.click(eyes[2]!);
+    expect(confirm).toHaveAttribute('type', 'text');
+    expect(confirm).toHaveValue('a brand new passwrod');
+    await userEvent.click(screen.getByRole('button', { name: 'Hide password' }));
+    expect(confirm).toHaveAttribute('type', 'password');
+    await userEvent.clear(confirm);
+    await userEvent.type(confirm, 'a brand new password{Enter}');
     expect(await screen.findByRole('heading', { level: 1, name: 'Today' })).toBeInTheDocument();
   });
 
@@ -184,7 +203,11 @@ describe('signing in to a server', () => {
 
     // A wrong current password leaves the address alone.
     await userEvent.type(screen.getByLabelText(/Current password/), 'not it');
-    await userEvent.type(screen.getByLabelText(/New password/), 'a brand new password{Enter}');
+    await userEvent.type(screen.getByLabelText(/New password/), 'a brand new password');
+    await userEvent.type(
+      screen.getByLabelText(/Confirm new password/),
+      'a brand new password{Enter}',
+    );
     expect(
       await screen.findByText(/current password/i, { selector: '.MuiAlert-message' }),
     ).toBeInTheDocument();

@@ -12,7 +12,6 @@ import {
   ListItemText,
   Menu,
   MenuItem,
-  TextField,
   Tooltip,
   Typography,
 } from '@mui/material';
@@ -20,6 +19,7 @@ import { keyframes } from '@emotion/react';
 import { useState, type FormEvent } from 'react';
 import { submitOnShiftEnter } from '../hooks/keys.ts';
 import { t } from '../i18n/i18n.ts';
+import { PasswordField } from '../layout/PasswordField.tsx';
 import {
   AccountIcon,
   CloudAlertIcon,
@@ -121,11 +121,18 @@ export function ChangePasswordDialog({ onClose }: { onClose: () => void }) {
   const changePassword = useSyncState((state) => state.changePassword);
   const [current, setCurrent] = useState('');
   const [next, setNext] = useState('');
+  const [again, setAgain] = useState('');
+  // Said once both are as long as each other, not at the first letter.
+  const mismatch = again.length >= next.length && again.length > 0 && again !== next;
   const [problem, setProblem] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
   const submit = async (event?: FormEvent) => {
     event?.preventDefault();
+    if (again !== next) {
+      setProblem(t('auth.mismatch'));
+      return;
+    }
     setBusy(true);
     setProblem(null);
     try {
@@ -146,22 +153,29 @@ export function ChangePasswordDialog({ onClose }: { onClose: () => void }) {
       <Box component="form" onSubmit={(event) => void submit(event)} onKeyDown={submitOnShiftEnter}>
         <DialogTitle>{t('auth.changeTitle')}</DialogTitle>
         <DialogContent sx={{ display: 'grid', gap: 2, pt: '8px !important' }}>
-          <TextField
+          <PasswordField
             label={t('auth.current')}
-            type="password"
             value={current}
             onChange={(event) => setCurrent(event.target.value)}
             autoComplete="current-password"
             autoFocus
             required
           />
-          <TextField
+          <PasswordField
             label={t('auth.new')}
-            type="password"
             value={next}
             onChange={(event) => setNext(event.target.value)}
             autoComplete="new-password"
             helperText={t('auth.newHint')}
+            required
+          />
+          <PasswordField
+            label={t('auth.confirmNew')}
+            value={again}
+            onChange={(event) => setAgain(event.target.value)}
+            autoComplete="new-password"
+            error={mismatch}
+            helperText={mismatch ? t('auth.mismatch') : undefined}
             required
           />
           {problem && (
