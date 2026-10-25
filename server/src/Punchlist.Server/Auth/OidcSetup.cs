@@ -68,6 +68,8 @@ public static class OidcSetup
                 foreach (var scope in provider.Scopes) options.Scope.Add(scope);
                 options.ClaimActions.MapJsonKey(provider.GroupsClaim, provider.GroupsClaim);
                 options.ClaimActions.MapJsonKey(provider.UsernameClaim, provider.UsernameClaim);
+                // The person's picture, for their profile until they set one (spec: R-FB-62).
+                options.ClaimActions.MapUniqueJsonKey("picture", "picture");
                 foreach (var cookie in new[] { options.CorrelationCookie, options.NonceCookie })
                 {
                     cookie.SameSite = SameSiteMode.Lax;
@@ -257,6 +259,8 @@ public static class OidcSetup
                     await services.GetRequiredService<Friends>().EnsureProfileAsync(
                         success.Account, identity.DisplayName, context.HttpContext.RequestAborted);
                 }
+                await services.GetRequiredService<ProviderPhoto>().ImportAsync(
+                    success.Account.Id, Claim("picture"), context.HttpContext.RequestAborted);
                 note.Actor(success.Account).On(null, null).Anonymous = false;
                 // The provider's groups may have changed this person's server groups.
                 await services.GetRequiredService<ServerGroupProjection>().ProjectAsync(context.HttpContext.RequestAborted);

@@ -71,6 +71,8 @@ public static partial class ServerApp
         builder.Services.AddSingleton<Punchlist.Core.Notifications.INotificationSink, NotificationRecorder>();
         builder.Services.AddHostedService<NotificationRetention>();
         builder.Services.AddHttpClient("push");
+        builder.Services.AddHttpClient("photos");
+        builder.Services.AddSingleton<Auth.ProviderPhoto>();
         builder.Services.AddSingleton<VapidKeys>();
         builder.Services.AddSingleton<IPushSender, PushSender>();
         builder.Services.AddSingleton<ReminderSender>();
