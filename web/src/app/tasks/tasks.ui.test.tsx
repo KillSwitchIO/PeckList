@@ -30,6 +30,20 @@ describe('tasks in a list', () => {
     expect(rows.map((row) => row.textContent)).toEqual(['Mow the lawn', 'Call the vet']);
   });
 
+  it('lets the small Undo button be swiped away', async () => {
+    await renderApp('/inbox');
+    await addTasks('Feed the cat');
+    await userEvent.click(screen.getByRole('checkbox', { name: 'Complete Feed the cat' }));
+    const button = screen.getByRole('button', { name: 'Undo' });
+    fireEvent.pointerDown(button, { clientX: 40, pointerId: 4 });
+    fireEvent.pointerMove(window, { clientX: 70, pointerId: 4 });
+    fireEvent.pointerMove(window, { clientX: 110, pointerId: 4 });
+    fireEvent.pointerUp(window, { clientX: 110, pointerId: 4 });
+    await waitFor(() => expect(screen.queryByRole('button', { name: 'Undo' })).toBeNull());
+    // Still done: swiping it away is not undoing.
+    expect(screen.getByRole('checkbox', { name: 'Reopen Feed the cat' })).toBeInTheDocument();
+  });
+
   it('completes a task, offers undo, and undo brings it back', async () => {
     await renderApp('/inbox');
     await addTasks('Mow the lawn');
