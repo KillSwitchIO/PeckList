@@ -1325,6 +1325,8 @@ export const en = {
   'timeline.empty': 'No dated tasks yet: give a task a date to see it here.',
   'timeline.undated': 'No date',
   'photo.title': 'Profile photo',
+  'profile.section': 'Profile',
+  'profile.photoHint': 'Your picture, as friends and people you share with see it.',
   'photo.choose': 'Choose a photo',
   'photo.change': 'Change photo',
   'photo.remove': 'Remove photo',

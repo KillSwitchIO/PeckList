@@ -40,6 +40,7 @@ import { NotificationSettings } from './NotificationSettings.tsx';
 import { PresetPicker } from './PresetPicker.tsx';
 import { Section, SettingRow } from './settingsLayout.tsx';
 import { SignInSection } from './SignInSection.tsx';
+import { ProfileSection } from './ProfileSection.tsx';
 import { SwipeSection } from './SwipeSection.tsx';
 import { TimeZoneSetting } from './TimeZoneSetting.tsx';
 import { useApply, useWorkspace } from '../store/hooks.ts';
@@ -208,6 +209,7 @@ export function SettingsPage() {
     <Page title={t('nav.settings')}>
       <Stack spacing={4}>
         <SignInSection />
+        <ProfileSection />
         <Section title={t('settings.appearance')}>
           <SettingRow label={t('settings.theme')}>
             <ToggleButtonGroup

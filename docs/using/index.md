@@ -193,11 +193,11 @@ the agenda. Each device remembers the view, days, weeks and hour height.
 ## Your profile menu
 
 Your profile picture in the top right (your photo or initials, with a small icon of the sign-in
-provider when you signed in through one) opens a menu with **Profile photo**, **Notifications**,
+provider when you signed in through one) opens a menu with **Notifications**,
 **Settings**, **Admin** (admins only), **Stats** (your own numbers, as the server counts them),
 **Friends and groups**, **Keyboard shortcuts**, **Change password** and **Log out**.
 
-**Profile photo**: choose a picture, then drag it (or use the arrow keys) and pinch, scroll or use
+**Settings > Profile** holds your photo: choose a picture, then drag it (or use the arrow keys) and pinch, scroll or use
 the slider to zoom until it sits in the circle, and **Save**. It is kept small on your profile, so
 friends and people you share with see it too. **Remove photo** goes back to your initials.
 
