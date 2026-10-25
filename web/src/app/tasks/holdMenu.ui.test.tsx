@@ -50,4 +50,23 @@ describe('holding a task', () => {
       screen.getByRole('checkbox', { name: 'Complete Sweep', hidden: true }),
     ).toBeInTheDocument();
   });
+
+  it('a tap after a hold (with no click of its own, as phones do) still opens the task', async () => {
+    const store = testStore();
+    await store.getState().init();
+    store
+      .getState()
+      .apply(
+        (ctx, ws) => createTask(ctx, ws, { title: 'Mop', listId: inboxList(ws).id }).workspace,
+      );
+    await store.getState().flush();
+    await renderApp('/inbox', store);
+    const row = await screen.findByRole('button', { name: 'Open Mop' });
+    vi.useFakeTimers();
+    hold(row);
+    act(() => vi.advanceTimersByTime(600));
+    vi.useRealTimers();
+    fireEvent.click(row);
+    expect(await screen.findByRole('region', { name: 'Task details' })).toBeInTheDocument();
+  });
 });

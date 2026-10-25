@@ -39,7 +39,7 @@ beforeEach(() => {
 afterEach(() => vi.restoreAllMocks());
 
 /** Press on a row's title and move the pointer to another row's middle, then let go. */
-function dragOnto(title: string, onto: string, offset = 5) {
+function dragOnto(title: string, onto: string, offset = 5, mark = 'drop-line') {
   const rows = [...document.querySelectorAll('[data-drag-row]')];
   const y = (name: string) =>
     TOP +
@@ -50,7 +50,7 @@ function dragOnto(title: string, onto: string, offset = 5) {
   fireEvent.pointerDown(from, { button: 0, clientX: 300, clientY: y(title), pointerType: 'mouse' });
   fireEvent.pointerMove(window, { clientX: 300, clientY: y(title) + 10 });
   fireEvent.pointerMove(window, { clientX: 300, clientY: y(onto) + offset });
-  expect(screen.getByTestId('drop-line')).toBeInTheDocument();
+  expect(screen.getByTestId(mark)).toBeInTheDocument();
   expect(screen.getByTestId('drag-card')).toHaveTextContent(title);
   fireEvent.pointerUp(window);
 }
@@ -83,7 +83,8 @@ describe('dragging tasks between groups', () => {
     await store.getState().flush();
     await renderApp('/today', store);
     await screen.findByRole('button', { name: 'Open Old bill' });
-    dragOnto('Old bill', 'Walk dog');
+    // Into another group: the whole group lights up.
+    dragOnto('Old bill', 'Walk dog', 5, 'drop-group');
     const start = () =>
       store.getState().workspace!.entities.tasks.find((task) => task.title === 'Old bill')!.schedule
         ?.start;
@@ -120,6 +121,62 @@ describe('dragging tasks between groups', () => {
     expect(JSON.parse(localStorage.getItem('punchlist.listGrouping')!)[listId]).toMatchObject({
       sort: 'manual',
     });
+  });
+
+  it('within Overdue (which takes nothing) shows no landing place and changes nothing', async () => {
+    const store = testStore();
+    await store.getState().init();
+    const today = todayIn(localTimeZone(), Date.now());
+    const on = (date: string) => ({
+      start: date,
+      end: null,
+      allDay: true,
+      timeZone: localTimeZone(),
+    });
+    store.getState().apply((ctx, ws) => {
+      let next: WorkspaceFile = ws;
+      for (const [title, date] of [
+        ['Old bill', addDays(today, -2)],
+        ['Old call', addDays(today, -3)],
+        ['Walk dog', today],
+      ] as const) {
+        next = createTask(ctx, next, {
+          title,
+          listId: inboxList(next).id,
+          schedule: on(date),
+        }).workspace;
+      }
+      return next;
+    });
+    await store.getState().flush();
+    await renderApp('/today', store);
+    await screen.findByRole('button', { name: 'Open Old bill' });
+    const before = JSON.stringify(
+      store.getState().workspace!.entities.tasks.map((task) => task.schedule),
+    );
+    const rows = [...document.querySelectorAll('[data-drag-row]')];
+    const y = (name: string) =>
+      TOP +
+      rows.indexOf(
+        screen.getByRole('button', { name: `Open ${name}` }).closest('[data-drag-row]')!,
+      ) *
+        ROW +
+      ROW / 2;
+    const from = screen.getByRole('button', { name: 'Open Old call' });
+    fireEvent.pointerDown(from, {
+      button: 0,
+      clientX: 300,
+      clientY: y('Old call'),
+      pointerType: 'mouse',
+    });
+    fireEvent.pointerMove(window, { clientX: 300, clientY: y('Old call') - 10 });
+    fireEvent.pointerMove(window, { clientX: 300, clientY: y('Old bill') - 5 });
+    expect(screen.queryByTestId('drop-line')).toBeNull();
+    expect(screen.queryByTestId('drop-group')).toBeNull();
+    fireEvent.pointerUp(window);
+    expect(
+      JSON.stringify(store.getState().workspace!.entities.tasks.map((task) => task.schedule)),
+    ).toBe(before);
   });
 
   it('goes on with touch events when a phone cancels the held finger (Android)', async () => {

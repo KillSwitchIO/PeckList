@@ -127,7 +127,12 @@ export function PinnedGroup({ tasks, showList = false }: { tasks: Task[]; showLi
   if (tasks.length === 0) return null;
   return (
     <GroupSection groupKey="pinned" title={t('group.pinned')} count={tasks.length}>
-      <TaskTree tasks={tasks} showList={showList} dragZone={{ group: null }} />
+      {/* Dropping a task here pins it; dragging one out unpins it. */}
+      <TaskTree
+        tasks={tasks}
+        showList={showList}
+        dragZone={{ group: { kind: 'pin', value: 'pinned' } }}
+      />
     </GroupSection>
   );
 }

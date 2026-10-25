@@ -7,10 +7,10 @@ import { requireEntity } from './collections.ts';
 import { dateTasks, moveTasks } from './bulk.ts';
 import { datePart } from './dates.ts';
 import type { OpContext } from './ops.ts';
-import { setTaskTag, updateTask } from './tasks.ts';
+import { isPinned, setPinned, setTaskTag, updateTask } from './tasks.ts';
 import type { Id, Priority, WorkspaceFile } from './types.ts';
 
-export type GroupKind = 'date' | 'priority' | 'tag' | 'list';
+export type GroupKind = 'date' | 'priority' | 'tag' | 'list' | 'pin';
 
 /** A group as a drop target: `value` is a date (or "none"), a priority, a tag id (or "none"), a list id. */
 export interface GroupTarget {
@@ -54,9 +54,23 @@ export function dropIntoGroup(
       if (target.value !== 'none') next = setTaskTag(ctx, next, taskId, target.value, true);
       return next;
     }
+    case 'pin':
+      return isPinned(task) ? workspace : setPinned(ctx, workspace, taskId, true);
     case 'list':
       return task.listId === target.value && !task.parentId
         ? workspace
         : moveTasks(ctx, workspace, [taskId], target.value);
   }
+}
+
+/** A pinned task dragged out of Pinned (anywhere but back into it) is unpinned. */
+export function leavingPinned(
+  ctx: OpContext,
+  workspace: WorkspaceFile,
+  taskId: Id,
+  from: GroupTarget | undefined,
+): WorkspaceFile {
+  if (from?.kind !== 'pin') return workspace;
+  const task = workspace.entities.tasks.find((each) => each.id === taskId);
+  return task && isPinned(task) ? setPinned(ctx, workspace, taskId, false) : workspace;
 }
