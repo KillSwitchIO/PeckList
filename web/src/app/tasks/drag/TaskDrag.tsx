@@ -6,12 +6,20 @@
 // and `data-depth` on each row, `data-drop-list` on sidebar lists that take a dropped task.
 
 import { Box, Paper, Typography } from '@mui/material';
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { createPortal } from 'react-dom';
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from 'react';
+import { createPortal, flushSync } from 'react-dom';
 import { getEntity } from '../../../core/collections.ts';
 import { projectDrop, type Drop, type DragRow } from '../../../core/taskDrag.ts';
 import { canNestUnder, descendants, moveTask } from '../../../core/tasks.ts';
-import { dropIntoGroup, type GroupTarget } from '../../../core/groupDrop.ts';
+import { dropIntoGroup, leavingPinned, type GroupTarget } from '../../../core/groupDrop.ts';
 import { localTimeZone } from '../../../core/dates.ts';
 import type { Id, Task } from '../../../core/types.ts';
 import { t } from '../../i18n/i18n.ts';
@@ -69,15 +77,19 @@ function zoneRows(zone: Element, hidden: ReadonlySet<Id>) {
     }));
 }
 
-/** The zone under (or nearest to) a height on screen. */
+/**
+ * The zone under a height on screen (even one that takes no drops: then nothing lands), else the
+ * nearest one that takes drops.
+ */
 function zoneAt(root: Element, y: number): HTMLElement | null {
   let best: HTMLElement | null = null;
   let distance = Infinity;
   for (const zone of root.querySelectorAll<HTMLElement>('[data-drag-zone]')) {
-    // Rows there drag out, nothing drops in.
-    if (zone.dataset.dropKind === 'none') continue;
     const box = zone.getBoundingClientRect();
     const away = y < box.top ? box.top - y : y > box.bottom ? y - box.bottom : 0;
+    if (away === 0) return zone;
+    // Rows there drag out, nothing drops in.
+    if (zone.dataset.dropKind === 'none') continue;
     if (away < distance) {
       distance = away;
       best = zone;
@@ -85,6 +97,21 @@ function zoneAt(root: Element, y: number): HTMLElement | null {
   }
   return best;
 }
+
+/** The nearest ancestor that scrolls up and down, or null for the window. */
+function scrollParent(element: HTMLElement | null): HTMLElement | null {
+  for (let at = element?.parentElement; at; at = at.parentElement) {
+    const { overflowY } = getComputedStyle(at);
+    if ((overflowY === 'auto' || overflowY === 'scroll') && at.scrollHeight > at.clientHeight) {
+      return at;
+    }
+  }
+  return null;
+}
+
+/** Near the top or bottom edge, the page scrolls this far a frame at most, faster nearer. */
+const EDGE_PX = 64;
+const SCROLL_STEP = 18;
 
 /**
  * Lets the task rows inside drag: up and down to reorder, right to nest under
@@ -104,6 +131,9 @@ export function TaskDragProvider({
   const [active, setActive] = useState<Active | null>(null);
   const [line, setLine] = useState<Line | null>(null);
   const [onto, setOnto] = useState<DOMRect | null>(null);
+  // A group the task would go into (its whole box outlined).
+  const [groupBox, setGroupBox] = useState<DOMRect | null>(null);
+  const lastPoint = useRef<{ x: number; y: number } | null>(null);
   const [pointer, setPointer] = useState<{ x: number; y: number } | null>(null);
   const drop = useRef<Landing | null>(null);
   const reordered = useRef(onReorder);
@@ -112,6 +142,16 @@ export function TaskDragProvider({
   });
   const hoverList = useRef<HTMLElement | null>(null);
   const swallowClick = useRef(false);
+  /**
+   * The click a drop or a hold may send is not a tap on the task; but a phone often sends none,
+   * so the next real tap must not be eaten: only right after.
+   */
+  const swallowSoon = useCallback(() => {
+    swallowClick.current = true;
+    setTimeout(() => {
+      swallowClick.current = false;
+    }, 350);
+  }, []);
   // Latest workspace for the window listeners.
   const latest = useRef(workspace);
   useEffect(() => {
@@ -127,33 +167,36 @@ export function TaskDragProvider({
 
   const track = useCallback((current: Active, x: number, y: number) => {
     setPointer({ x, y });
+    lastPoint.current = { x, y };
     const target = document.elementFromPoint?.(x, y)?.closest<HTMLElement>('[data-drop-list]');
     setHover(target ?? null);
-    if (target || !root.current) {
+    const nowhere = () => {
       setLine(null);
       setOnto(null);
+      setGroupBox(null);
       drop.current = null;
-      return;
-    }
+    };
+    if (target || !root.current) return nowhere();
     const zone = zoneAt(root.current, y);
-    if (!zone) return;
+    // Over a group that takes nothing (Overdue, Pinned): letting go here changes nothing.
+    if (!zone || zone.dataset.dropKind === 'none') return nowhere();
     const rows = zoneRows(zone, current.hidden);
     const group = groupOf(zone);
     if (group) {
-      // A group: the task takes its value; the line shows the group it goes into.
+      // A group: the task takes its value, so the whole group lights up (no place within it).
+      // Its own group: nothing to change.
+      const same =
+        current.from?.kind === group.kind &&
+        current.from.value === group.value &&
+        current.from.until === group.until;
+      if (same) return nowhere();
       setOnto(null);
-      const index = rows.filter((row) => row.box.top + row.box.height / 2 < y).length;
-      const zoneBox = zone.getBoundingClientRect();
-      const top =
-        index < rows.length
-          ? rows[index]!.box.top
-          : rows.length > 0
-            ? rows[rows.length - 1]!.box.bottom
-            : zoneBox.top + 2;
+      setLine(null);
       drop.current = { group };
-      setLine({ top, left: zoneBox.left + 8, width: Math.max(40, zoneBox.width - 16) });
+      setGroupBox(zone.getBoundingClientRect());
       return;
     }
+    setGroupBox(null);
     // Over the middle of a row that can take it: onto that task, as its last subtask.
     const over = rows.find(
       (row) =>
@@ -209,38 +252,68 @@ export function TaskDragProvider({
       setActive(null);
       setLine(null);
       setOnto(null);
+      setGroupBox(null);
       setPointer(null);
+      lastPoint.current = null;
+      swallowSoon();
       const landing = drop.current;
       drop.current = null;
       if (!commit) return;
       if (listTarget) {
         const list = getEntity(latest.current, 'lists', listTarget);
         apply(
-          (ctx, ws) => moveTask(ctx, ws, current.id, { listId: listTarget, parentId: null }),
+          (ctx, ws) =>
+            moveTask(ctx, leavingPinned(ctx, ws, current.id, current.from), current.id, {
+              listId: listTarget,
+              parentId: null,
+            }),
           t('undo.movedTo', { list: list ? listName(list, latest.current) : '' }),
         );
       } else if (landing && 'group' in landing) {
         apply(
           (ctx, ws) =>
-            dropIntoGroup(ctx, ws, current.id, landing.group, current.from, localTimeZone()),
+            dropIntoGroup(
+              ctx,
+              landing.group.kind === 'pin' ? ws : leavingPinned(ctx, ws, current.id, current.from),
+              current.id,
+              landing.group,
+              current.from,
+              localTimeZone(),
+            ),
           t('undo.moved'),
         );
       } else if (landing?.onto) {
         const parent = getEntity(latest.current, 'tasks', landing.onto);
         apply(
-          (ctx, ws) => moveTask(ctx, ws, current.id, landing.target),
+          (ctx, ws) =>
+            moveTask(
+              ctx,
+              leavingPinned(ctx, ws, current.id, current.from),
+              current.id,
+              landing.target,
+            ),
           t('undo.nested', { title: parent?.title || t('task.untitled') }),
         );
       } else if (landing) {
-        apply((ctx, ws) => moveTask(ctx, ws, current.id, landing.target), t('undo.moved'));
+        apply(
+          (ctx, ws) =>
+            moveTask(
+              ctx,
+              leavingPinned(ctx, ws, current.id, current.from),
+              current.id,
+              landing.target,
+            ),
+          t('undo.moved'),
+        );
         reordered.current?.();
       }
     },
-    [apply],
+    [apply, swallowSoon],
   );
 
-  // While dragging, the whole window follows the pointer; Escape calls it off.
-  useEffect(() => {
+  // While dragging, the whole window follows the pointer; Escape calls it off. Set up as the
+  // drag starts (a layout effect after a synchronous render): no move in between is lost.
+  useLayoutEffect(() => {
     if (!active) return;
     const move = (event: PointerEvent) => {
       event.preventDefault();
@@ -275,7 +348,32 @@ export function TaskDragProvider({
     document.addEventListener('touchcancel', touchCancel);
     document.body.style.cursor = 'grabbing';
     document.body.style.userSelect = 'none';
+    // Near the top or bottom, the page scrolls on, so tasks off screen can be reached.
+    const scroller = scrollParent(root.current);
+    let frame = requestAnimationFrame(function edge() {
+      const point = lastPoint.current;
+      if (point) {
+        const box = scroller
+          ? scroller.getBoundingClientRect()
+          : { top: 0, bottom: window.innerHeight };
+        const fromTop = point.y - box.top;
+        const fromBottom = box.bottom - point.y;
+        const by =
+          fromTop < EDGE_PX
+            ? -Math.ceil(((EDGE_PX - fromTop) / EDGE_PX) * SCROLL_STEP)
+            : fromBottom < EDGE_PX
+              ? Math.ceil(((EDGE_PX - fromBottom) / EDGE_PX) * SCROLL_STEP)
+              : 0;
+        if (by !== 0) {
+          if (scroller) scroller.scrollBy(0, by);
+          else window.scrollBy(0, by);
+          track(active, point.x, point.y);
+        }
+      }
+      frame = requestAnimationFrame(edge);
+    });
     return () => {
+      cancelAnimationFrame(frame);
       window.removeEventListener('pointermove', move);
       window.removeEventListener('pointerup', up);
       window.removeEventListener('pointercancel', cancelled);
@@ -293,7 +391,6 @@ export function TaskDragProvider({
       task.id,
       ...descendants(latest.current, task.id).map((each) => each.id),
     ]);
-    swallowClick.current = true;
     const rowBox = (source.closest('[data-drag-row]') ?? source).getBoundingClientRect();
     const zone = source.closest('[data-drag-zone]');
     const from = zone ? groupOf(zone) : null;
@@ -307,7 +404,7 @@ export function TaskDragProvider({
       ...(from ? { from } : {}),
       row: { left: rowBox.left, width: rowBox.width, height: rowBox.height, grab: y - rowBox.top },
     };
-    setActive(current);
+    flushSync(() => setActive(current));
     return current;
   }, []);
 
@@ -365,7 +462,7 @@ export function TaskDragProvider({
             // A held finger let go without moving: on the checkbox, the task menu; elsewhere
             // nothing (and not a tap that opens the task).
             if (touch && armed && !started) {
-              swallowClick.current = true;
+              swallowSoon();
               if (fromCheckbox) onMenu({ top: startY, left: startX });
             }
           };
@@ -390,7 +487,7 @@ export function TaskDragProvider({
         },
       }),
     }),
-    [active, begin, track],
+    [active, begin, track, swallowSoon],
   );
 
   return (
@@ -399,6 +496,26 @@ export function TaskDragProvider({
       {active &&
         createPortal(
           <>
+            {groupBox && (
+              <Box
+                data-testid="drop-group"
+                aria-hidden
+                sx={{
+                  position: 'fixed',
+                  top: groupBox.top - 2,
+                  left: groupBox.left - 2,
+                  width: groupBox.width + 4,
+                  height: Math.max(36, groupBox.height + 4),
+                  border: 2,
+                  borderStyle: 'dashed',
+                  borderColor: 'primary.main',
+                  borderRadius: 2,
+                  bgcolor: (theme) => `${theme.palette.primary.main}14`,
+                  pointerEvents: 'none',
+                  zIndex: (theme) => theme.zIndex.tooltip,
+                }}
+              />
+            )}
             {onto && (
               <Box
                 data-testid="drop-onto"

@@ -1,10 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import { testContext } from '../test/fixtures.ts';
-import { dropIntoGroup } from './groupDrop.ts';
+import { dropIntoGroup, leavingPinned } from './groupDrop.ts';
 import { createList, inboxList } from './lists.ts';
 import { members } from './ops.ts';
 import { createTag } from './tags.ts';
-import { createTask } from './tasks.ts';
+import { createTask, isPinned } from './tasks.ts';
 import type { WorkspaceFile } from './types.ts';
 import { createWorkspace } from './workspace.ts';
 
@@ -90,5 +90,15 @@ describe('dropping a task into a group', () => {
     expect(
       task(dropIntoGroup(ctx, ws, id, { kind: 'list', value: work }, undefined, 'UTC'), id).listId,
     ).toBe(work);
+  });
+
+  it('Pinned pins what comes in, and what leaves it is unpinned', () => {
+    const { ctx, ws, id } = setup();
+    const pinned = dropIntoGroup(ctx, ws, id, { kind: 'pin', value: 'pinned' }, undefined, 'UTC');
+    expect(isPinned(task(pinned, id))).toBe(true);
+    const out = leavingPinned(ctx, pinned, id, { kind: 'pin', value: 'pinned' });
+    expect(isPinned(task(out, id))).toBe(false);
+    // Only from Pinned.
+    expect(leavingPinned(ctx, pinned, id, { kind: 'priority', value: '3' })).toBe(pinned);
   });
 });
