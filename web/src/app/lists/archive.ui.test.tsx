@@ -24,7 +24,7 @@ describe('archiving a list', () => {
     const lists = () => screen.getByRole('list', { name: 'Lists' });
     await userEvent.click(within(lists()).getByText('Taxes 2025'));
 
-    await userEvent.click(await screen.findByRole('button', { name: 'More actions' }));
+    await userEvent.click(await screen.findByRole('button', { name: 'View options' }));
     await userEvent.click(await screen.findByRole('menuitem', { name: 'Archive list' }));
     await waitFor(() => expect(within(lists()).queryByText('Taxes 2025')).toBeNull());
 

@@ -113,14 +113,27 @@ their start; the due date is the deadline.
 
 ## Lists
 
-Lists hold tasks. The sort-and-group button next to a list's name groups it (by date, priority or
-tag, or **None** for the list's own order, the one you drag tasks in) and sorts it; the **...**
-menu edits, archives or deletes it. The built-in views (Today, Upcoming, All, Assigned to me,
-Shared with me) and every tag and saved filter have the same button, plus **List** to group by
-list. Picking the chosen grouping or sort again turns it around (an arrow shows which way it
-runs): Z to A, latest date first (undated tasks stay last), low priority first, oldest first, or
-the groups in reverse. Each list and view keeps its own choice on this device, and the button turns
-colored while it differs from the default; **Restore defaults** at the bottom of its menu goes back.
+Lists hold tasks. The three dots next to a list's name open its view menu: **Select**, the view
+(**List** or **Timeline**), grouping (by date, priority or tag, or **None** for the list's own
+order, the one you drag tasks in) and sorting, and, for its owner, editing, archiving or deleting
+the list. The built-in views (Today, Upcoming, All, Assigned to me, Shared with me) and every tag
+and saved filter have the same menu, plus **List** to group by list. Picking the chosen grouping or
+sort again turns it around (an arrow shows which way it runs): Z to A, latest date first (undated
+tasks stay last), low priority first, oldest first, or the groups in reverse. Each list and view
+keeps its own choice on this device, and the dots turn colored while it differs from the default;
+**Restore defaults** at the bottom of the menu goes back.
+
+**Select** picks many tasks at once: each task's box becomes a circle to tap, and each group gets
+a circle that picks everything in it. The bar at the bottom (in place of the tabs on a phone) then
+completes, dates, moves, tags, prioritizes, pins or deletes them all together; one **Undo** puts
+them back, and the cross stops selecting.
+
+**Timeline** shows a list's dated tasks as bars across their days, with today marked. Drag a bar
+to move the task to other days (its times and length stay), or drag either end to change when it
+starts or ends; a click opens it. **One per task** gives each task its own row; **Fit together**
+lets tasks that do not overlap share a row, to see more at once. The magnifiers make days wider or
+narrower. Tasks without a date wait under the timeline. Each list remembers whether it was last
+shown as a List or a Timeline, on this device.
 
 Folding a group (click its heading) folds it everywhere it shows: fold **Overdue** in Today and it
 is folded in Upcoming, All and your lists too, until you open it again. Each device remembers.

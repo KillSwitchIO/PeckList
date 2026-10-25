@@ -2,12 +2,10 @@ import ArchiveRounded from '@mui/icons-material/ArchiveRounded';
 import UnarchiveRounded from '@mui/icons-material/UnarchiveRounded';
 import DeleteOutlineRounded from '@mui/icons-material/DeleteOutlineRounded';
 import EditRounded from '@mui/icons-material/EditRounded';
-import MoreVertRounded from '@mui/icons-material/MoreVertRounded';
 import {
   Alert,
   Button,
   IconButton,
-  Menu,
   MenuItem,
   Tooltip,
   Typography,
@@ -41,7 +39,9 @@ import { CompletedGroup, DateGroupedTasks, PinnedGroup } from '../views/groups.t
 import { pinnedFirst } from '../../core/tasks.ts';
 import { useToday } from '../hooks/useToday.ts';
 import { useListView, type ListViewSettings } from './listGrouping.ts';
-import { SortGroupButton } from '../views/SortGroupButton.tsx';
+import { SortGroupButton, type ListLayout } from '../views/SortGroupButton.tsx';
+import { useListLayout } from './listLayout.ts';
+import { TimelineView } from './TimelineView.tsx';
 import { ConfirmDialog, ListDialog } from './ListDialog.tsx';
 import { ShareDialog } from './ShareDialog.tsx';
 import { listMembersOf, myRole, type Role } from '../../core/sharing.ts';
@@ -53,17 +53,17 @@ function ListMenu({
   list,
   role,
   view,
+  layout,
 }: {
   list: List;
   /** My role on the list: only its owner changes it. */
   role: Role | null;
   view: ListViewSettings;
+  layout: { value: ListLayout; onChange: (next: ListLayout) => void };
 }) {
   const apply = useApply();
   const navigate = useNavigate();
-  const [anchor, setAnchor] = useState<HTMLElement | null>(null);
   const [dialog, setDialog] = useState<'edit' | 'delete' | 'share' | null>(null);
-  const close = () => setAnchor(null);
   const workspace = useWorkspace();
   const phase = useSyncState((state) => state.phase);
   const authMode = useSyncState((state) => state.account?.authMode);
@@ -98,76 +98,76 @@ function ListMenu({
           </IconButton>
         </Tooltip>
       )}
-      <SortGroupButton view={view} groupings={LIST_GROUPINGS} />
-      {owner && !list.isInbox && (
-        <Tooltip title={t('common.more')} disableFocusListener>
-          <IconButton
-            aria-label={t('common.more')}
-            onClick={(event) => setAnchor(event.currentTarget)}
-          >
-            <MoreVertRounded />
-          </IconButton>
-        </Tooltip>
-      )}
-      <Menu anchorEl={anchor} open={anchor !== null} onClose={close}>
-        {shareInMenu && (
-          <MenuItem
-            onClick={() => {
-              close();
-              setDialog('share');
-            }}
-          >
-            <ShareIcon fontSize="small" sx={{ mr: 1 }} />
-            {t('share.button')}
-          </MenuItem>
-        )}
-        {/* The Mess Drawer has a fixed name and no color: nothing to edit. */}
-        {owner && !list.isInbox && (
-          <MenuItem
-            onClick={() => {
-              close();
-              setDialog('edit');
-            }}
-          >
-            <EditRounded fontSize="small" sx={{ mr: 1 }} />
-            {t('list.edit')}
-          </MenuItem>
-        )}
-        {owner && !list.isInbox && (
-          <MenuItem
-            onClick={() => {
-              close();
-              if (list.archived) {
-                apply((ctx, ws) => updateList(ctx, ws, list.id, { archived: false }));
-                return;
-              }
-              apply(
-                (ctx, ws) => updateList(ctx, ws, list.id, { archived: true }),
-                t('undo.listArchived'),
-              );
-              void navigate('/inbox');
-            }}
-          >
-            {list.archived ? (
-              <UnarchiveRounded fontSize="small" sx={{ mr: 1 }} />
-            ) : (
-              <ArchiveRounded fontSize="small" sx={{ mr: 1 }} />
-            )}
-            {list.archived ? t('list.unarchive') : t('list.archive')}
-          </MenuItem>
-        )}
-        {owner && !list.isInbox && (
-          <MenuItem
-            onClick={() => {
-              close();
-              setDialog('delete');
-            }}
-          >
-            <DeleteOutlineRounded fontSize="small" sx={{ mr: 1 }} />
-            {t('list.delete')}
-          </MenuItem>
-        )}
-      </Menu>
+      <SortGroupButton
+        view={view}
+        groupings={LIST_GROUPINGS}
+        layout={layout}
+        // The list's own items join the one menu (the Mess Drawer has a fixed name: none).
+        extra={(close) =>
+          [
+            shareInMenu && (
+              <MenuItem
+                key="share"
+                onClick={() => {
+                  close();
+                  setDialog('share');
+                }}
+              >
+                <ShareIcon fontSize="small" sx={{ mr: 1 }} />
+                {t('share.button')}
+              </MenuItem>
+            ),
+            menu && (
+              <MenuItem
+                key="edit"
+                onClick={() => {
+                  close();
+                  setDialog('edit');
+                }}
+              >
+                <EditRounded fontSize="small" sx={{ mr: 1 }} />
+                {t('list.edit')}
+              </MenuItem>
+            ),
+            menu && (
+              <MenuItem
+                key="archive"
+                onClick={() => {
+                  close();
+                  if (list.archived) {
+                    apply((ctx, ws) => updateList(ctx, ws, list.id, { archived: false }));
+                    return;
+                  }
+                  apply(
+                    (ctx, ws) => updateList(ctx, ws, list.id, { archived: true }),
+                    t('undo.listArchived'),
+                  );
+                  void navigate('/inbox');
+                }}
+              >
+                {list.archived ? (
+                  <UnarchiveRounded fontSize="small" sx={{ mr: 1 }} />
+                ) : (
+                  <ArchiveRounded fontSize="small" sx={{ mr: 1 }} />
+                )}
+                {list.archived ? t('list.unarchive') : t('list.archive')}
+              </MenuItem>
+            ),
+            menu && (
+              <MenuItem
+                key="delete"
+                onClick={() => {
+                  close();
+                  setDialog('delete');
+                }}
+              >
+                <DeleteOutlineRounded fontSize="small" sx={{ mr: 1 }} />
+                {t('list.delete')}
+              </MenuItem>
+            ),
+          ].filter(Boolean)
+        }
+      />
       {dialog === 'share' && <ShareDialog list={list} onClose={() => setDialog(null)} />}
       {dialog === 'edit' && (
         <ListDialog
@@ -245,7 +245,28 @@ export function ListContents({ list }: { list: List }) {
       {t('share.viewerNote')}
     </Typography>
   );
-  const actions = <ListMenu list={list} role={role} view={view} />;
+  const [layoutValue, setLayout] = useListLayout(list.id);
+  const actions = (
+    <ListMenu
+      list={list}
+      role={role}
+      view={view}
+      layout={{ value: layoutValue, onChange: setLayout }}
+    />
+  );
+
+  if (layoutValue === 'timeline') {
+    const open = workspace.entities.tasks.filter(
+      (task) => isLive(task) && task.status === 'open' && task.listId === list.id,
+    );
+    return (
+      <Page title={listName(list, workspace)} actions={actions}>
+        {archivedBar}
+        {header}
+        <TimelineView tasks={open} canEdit={canEdit} />
+      </Page>
+    );
+  }
 
   if (grouping === 'date') {
     return (

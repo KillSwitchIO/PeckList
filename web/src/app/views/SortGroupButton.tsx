@@ -49,6 +49,7 @@ export function SortGroupButton({
   groupings,
   fixed = [],
   layout,
+  extra,
 }: {
   view: ListViewSettings;
   groupings: readonly ListGrouping[];
@@ -56,6 +57,8 @@ export function SortGroupButton({
   fixed?: readonly ListGrouping[];
   /** A list's List or Timeline, where it has both */
   layout?: { value: ListLayout; onChange: (next: ListLayout) => void };
+  /** More items at the end (a list's own: edit, share, archive, delete), given `close` */
+  extra?: (close: () => void) => ReactNode[];
 }) {
   const [anchor, setAnchor] = useState<HTMLElement | null>(null);
   const bulk = useBulkSelect();
@@ -157,6 +160,9 @@ export function SortGroupButton({
       </MenuItem>,
     );
   }
+
+  const more = extra?.(close) ?? [];
+  if (more.length > 0) items.push(<Divider key="before-extra" />, ...more);
 
   return (
     <>

@@ -447,7 +447,7 @@ describe('lists and sections', () => {
     expect(await within(nav).findByRole('button', { name: /^Groceries/ })).toHaveTextContent('🛒');
 
     // Any emoji can be typed instead; only its first character is kept.
-    await userEvent.click(screen.getByRole('button', { name: 'More actions' }));
+    await userEvent.click(screen.getByRole('button', { name: 'View options' }));
     await userEvent.click(await screen.findByRole('menuitem', { name: 'Edit list' }));
     const edit = await screen.findByRole('dialog');
     await userEvent.type(within(edit).getByLabelText('Or type any emoji'), '🥕🥦');
@@ -457,7 +457,7 @@ describe('lists and sections', () => {
       expect(within(nav).getByRole('button', { name: /^Groceries/ })).toHaveTextContent('🥕'),
     );
 
-    await userEvent.click(screen.getByRole('button', { name: 'More actions' }));
+    await userEvent.click(screen.getByRole('button', { name: 'View options' }));
     await userEvent.click(await screen.findByRole('menuitem', { name: 'Edit list' }));
     const again = await screen.findByRole('dialog');
     await userEvent.click(within(again).getByRole('radio', { name: 'No icon' }));
@@ -539,14 +539,14 @@ describe('lists and sections', () => {
     );
     await screen.findByRole('heading', { level: 1, name: 'Work' });
 
-    await userEvent.click(screen.getByRole('button', { name: 'More actions' }));
+    await userEvent.click(screen.getByRole('button', { name: 'View options' }));
     await userEvent.click(await screen.findByRole('menuitem', { name: 'Edit list' }));
     const name = within(await screen.findByRole('dialog')).getByLabelText('Name');
     await userEvent.clear(name);
     await userEvent.type(name, 'Job{Enter}');
     expect(await screen.findByRole('heading', { level: 1, name: 'Job' })).toBeInTheDocument();
 
-    await userEvent.click(screen.getByRole('button', { name: 'More actions' }));
+    await userEvent.click(screen.getByRole('button', { name: 'View options' }));
     await userEvent.click(await screen.findByRole('menuitem', { name: 'Delete list' }));
     await userEvent.click(
       within(await screen.findByRole('dialog')).getByRole('button', { name: 'Delete' }),
