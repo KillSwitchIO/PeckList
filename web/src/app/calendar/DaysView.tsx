@@ -71,7 +71,8 @@ export function DaysView({
   onSlot: (day: string, minutes: number, anchor: HTMLElement) => void;
   onPage: (direction: 1 | -1) => void;
   onGrab: (event: React.PointerEvent<HTMLElement>, item: CalendarItem, grabMinutes: number) => void;
-  onResize: (item: CalendarItem, end: string) => void;
+  /** A task's edge was dragged: its new start and end */
+  onResize: (item: CalendarItem, start: string, end: string) => void;
 }) {
   const days = daysFrom(start, count);
   const body = useRef<HTMLDivElement>(null);
@@ -89,7 +90,9 @@ export function DaysView({
   const side = Math.max(1, Math.floor((width - GUTTER) / count / 44));
   const now = useNowMinutes();
   const [allDayOpen, setAllDayOpen] = useState(false);
-  const [resizing, setResizing] = useState<{ id: string; bottom: number } | null>(null);
+  const [resizing, setResizing] = useState<{ id: string; top: number; bottom: number } | null>(
+    null,
+  );
   const height = useRef(hourHeight);
   useEffect(() => {
     height.current = hourHeight;
@@ -194,32 +197,50 @@ export function DaysView({
     window.addEventListener('pointerup', up);
   };
 
-  const startResize = (event: React.PointerEvent<HTMLElement>, block: TimedBlock, day: string) => {
+  /** Drag a task's top or bottom edge: a new start or end, in quarter hours, at least 15 minutes. */
+  const startResize = (
+    event: React.PointerEvent<HTMLElement>,
+    block: TimedBlock,
+    day: string,
+    edge: 'top' | 'bottom',
+  ) => {
     event.stopPropagation();
     event.preventDefault();
     const column = (event.currentTarget as HTMLElement).closest<HTMLElement>('[data-cal-slots]')!;
     const id = event.pointerId;
+    const place = (y: number) => {
+      const minutes = snap(minutesAt(column, y));
+      return edge === 'bottom'
+        ? { top: block.top, bottom: Math.max(block.top + 15, Math.min(1440, minutes)) }
+        : { top: Math.min(block.bottom - 15, Math.max(0, minutes)), bottom: block.bottom };
+    };
     const move = (next: PointerEvent) => {
       if (next.pointerId !== id) return;
-      const bottom = Math.max(
-        block.top + 15,
-        Math.min(1440, snap(minutesAt(column, next.clientY))),
-      );
-      setResizing({ id: block.item.id, bottom });
+      setResizing({ id: block.item.id, ...place(next.clientY) });
     };
     const up = (next: PointerEvent) => {
       if (next.pointerId !== id) return;
       window.removeEventListener('pointermove', move);
       window.removeEventListener('pointerup', up);
-      const bottom = Math.max(
-        block.top + 15,
-        Math.min(1440, snap(minutesAt(column, next.clientY))),
-      );
+      window.removeEventListener('pointercancel', cancel);
+      const placed = place(next.clientY);
       setResizing(null);
-      if (bottom !== block.bottom) onResize(block.item, atMinutes(day, bottom));
+      if (edge === 'bottom' && placed.bottom !== block.bottom) {
+        onResize(block.item, block.item.start, atMinutes(day, placed.bottom));
+      }
+      if (edge === 'top' && placed.top !== block.top) {
+        onResize(block.item, atMinutes(day, placed.top), block.item.end ?? block.item.start);
+      }
+    };
+    const cancel = () => {
+      window.removeEventListener('pointermove', move);
+      window.removeEventListener('pointerup', up);
+      window.removeEventListener('pointercancel', cancel);
+      setResizing(null);
     };
     window.addEventListener('pointermove', move);
     window.addEventListener('pointerup', up);
+    window.addEventListener('pointercancel', cancel);
   };
 
   const columns = `${GUTTER}px repeat(${count}, minmax(0, 1fr))`;
@@ -406,7 +427,11 @@ export function DaysView({
                 }}
               >
                 {blocks.map((block) => {
-                  const bottom = resizing?.id === block.item.id ? resizing.bottom : block.bottom;
+                  const sized = resizing?.id === block.item.id ? resizing : null;
+                  const top = sized ? sized.top : block.top;
+                  const bottom = sized ? sized.bottom : block.bottom;
+                  const tall = ((bottom - top) / 60) * hourHeight;
+                  const starts = datePart(block.item.start) === day;
                   const startText = timePart(block.item.start);
                   const ends = block.item.end && datePart(block.item.end) === day;
                   return (
@@ -435,8 +460,8 @@ export function DaysView({
                       }}
                       sx={{
                         position: 'absolute',
-                        top: (block.top / 60) * hourHeight + 1,
-                        height: Math.max(14, ((bottom - block.top) / 60) * hourHeight - 2),
+                        top: (top / 60) * hourHeight + 1,
+                        height: Math.max(14, tall - 2),
                         left: `calc(${(block.column / Math.min(block.columns, side)) * 100}% + 1px)`,
                         width: `calc(${100 / Math.min(block.columns, side)}% - 3px)`,
                         bgcolor: block.item.color,
@@ -450,7 +475,9 @@ export function DaysView({
                         opacity: block.item.done ? 0.55 : 1,
                         textDecoration: block.item.done ? 'line-through' : 'none',
                         boxShadow: resizing?.id === block.item.id ? 3 : 0,
-                        touchAction: 'pan-y',
+                        // A finger on a task moves it; the grid scrolls by its empty space.
+                        touchAction: block.item.movable ? 'none' : 'pan-y',
+                        '&:hover .pl-grip, &:focus-visible .pl-grip': { opacity: 1 },
                       }}
                     >
                       <Box
@@ -465,7 +492,7 @@ export function DaysView({
                       >
                         {block.item.title || t('task.untitled')}
                       </Box>
-                      {((bottom - block.top) / 60) * hourHeight > 28 && startText && (
+                      {tall > 28 && startText && (
                         <Box component="span" sx={{ opacity: 0.75 }}>
                           {formatTime(startText)}
                           {ends && block.item.end
@@ -473,21 +500,49 @@ export function DaysView({
                             : ''}
                         </Box>
                       )}
-                      {block.item.movable && ends && (
-                        <Box
-                          aria-hidden
-                          onPointerDown={(event) => startResize(event, block, day)}
-                          sx={{
-                            position: 'absolute',
-                            left: 0,
-                            right: 0,
-                            bottom: 0,
-                            height: 6,
-                            cursor: 'ns-resize',
-                            touchAction: 'none',
-                          }}
-                        />
-                      )}
+                      {block.item.movable &&
+                        (
+                          [
+                            ['top', starts && tall >= 36],
+                            ['bottom', ends],
+                          ] as const
+                        ).map(
+                          ([edge, shown]) =>
+                            shown && (
+                              <Box
+                                key={edge}
+                                role="presentation"
+                                data-cal-grip={edge}
+                                onPointerDown={(event) => startResize(event, block, day, edge)}
+                                sx={{
+                                  position: 'absolute',
+                                  left: 0,
+                                  right: 0,
+                                  [edge]: 0,
+                                  height: 12,
+                                  cursor: 'ns-resize',
+                                  touchAction: 'none',
+                                  display: 'flex',
+                                  alignItems: edge === 'top' ? 'flex-start' : 'flex-end',
+                                  justifyContent: 'center',
+                                }}
+                              >
+                                {/* A grip that says "pull me": always on touch screens, on hover with a mouse. */}
+                                <Box
+                                  className="pl-grip"
+                                  sx={{
+                                    width: 22,
+                                    height: 4,
+                                    my: '2px',
+                                    borderRadius: 2,
+                                    bgcolor: 'rgba(31, 35, 40, 0.5)',
+                                    opacity: 0.55,
+                                    '@media (hover: none)': { opacity: 1 },
+                                  }}
+                                />
+                              </Box>
+                            ),
+                        )}
                     </Box>
                   );
                 })}

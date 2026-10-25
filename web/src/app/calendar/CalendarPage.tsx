@@ -62,7 +62,7 @@ function Unscheduled({
   onGrab,
 }: {
   onOpen: (id: string) => void;
-  onGrab: (event: React.PointerEvent<HTMLElement>, payload: DragPayload) => void;
+  onGrab: (event: React.PointerEvent<HTMLElement>, payload: DragPayload, hold: boolean) => void;
 }) {
   const workspace = useWorkspace();
   const tasks = unscheduledTasks(workspace);
@@ -82,7 +82,7 @@ function Unscheduled({
             role="listitem"
             data-task-id={task.id}
             onClick={() => onOpen(task.id)}
-            onPointerDown={(event) => onGrab(event, { taskId: task.id, title: task.title })}
+            onPointerDown={(event) => onGrab(event, { taskId: task.id, title: task.title }, true)}
             sx={{
               px: 1,
               py: 0.75,
@@ -259,7 +259,10 @@ export function CalendarPage() {
       ? calendarTitle('month', `${view?.month ?? today.slice(0, 7)}-01`, prefs.days, today)
       : calendarTitle('days', date, prefs.days, today);
   const panel = (
-    <Unscheduled onOpen={open} onGrab={(event, payload) => drag.begin(event, payload)} />
+    <Unscheduled
+      onOpen={open}
+      onGrab={(event, payload, hold) => drag.begin(event, payload, hold)}
+    />
   );
 
   return (
@@ -396,12 +399,12 @@ export function CalendarPage() {
                 }
                 onPage={step}
                 onGrab={grabItem}
-                onResize={(item, end) => {
+                onResize={(item, start, end) => {
                   const task = workspace.entities.tasks.find((each) => each.id === item.taskId);
                   if (!task?.schedule) return;
                   schedule(
                     task.id,
-                    placedSchedule(task.schedule, { start: item.start, end, allDay: false }, zone),
+                    placedSchedule(task.schedule, { start, end, allDay: false }, zone),
                   );
                 }}
               />

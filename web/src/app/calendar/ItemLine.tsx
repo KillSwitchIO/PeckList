@@ -58,7 +58,8 @@ export function ItemLine({
         borderColor: item.color,
         bgcolor: item.allDay && !due ? `${item.color}55` : 'transparent',
         cursor: item.movable ? 'grab' : 'pointer',
-        touchAction: 'pan-y',
+        // A finger on a task moves it; the calendar scrolls by its dates and empty space.
+        touchAction: onPointerDown ? 'none' : 'pan-y',
         '&:hover': { bgcolor: 'action.hover' },
       }}
     >

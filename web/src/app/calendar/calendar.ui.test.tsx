@@ -34,7 +34,7 @@ async function calendarWith(path = '/calendar') {
       listId: inbox,
       schedule: {
         start: `${today}T09:00`,
-        end: `${today}T09:30`,
+        end: `${today}T10:00`,
         allDay: false,
         timeZone: zone,
       },
@@ -159,6 +159,54 @@ describe('calendar', () => {
     fireEvent.click(line);
     expect(task(dentist).schedule).toMatchObject({ start: addDays(today, 1), allDay: true });
     expect(screen.queryByRole('textbox', { name: /title/i })).toBeNull();
+  });
+
+  it('moves a task under a finger without holding it first', async () => {
+    const { today, task, dentist } = await calendarWith();
+    const month = await screen.findByRole('grid', { name: 'Month' });
+    const line = within(within(month).getByRole('gridcell', { name: 'Today' })).getByRole(
+      'button',
+      { name: 'Dentist' },
+    );
+    const later = month.querySelector(`[data-cal-day="${addDays(today, 2)}"]`);
+    fireEvent.pointerDown(line, {
+      clientX: 10,
+      clientY: 10,
+      button: 0,
+      pointerType: 'touch',
+      pointerId: 5,
+    });
+    pointAt(later);
+    fireEvent.pointerMove(window, { clientX: 90, clientY: 12, pointerType: 'touch', pointerId: 5 });
+    fireEvent.pointerUp(window, { clientX: 90, clientY: 12, pointerType: 'touch', pointerId: 5 });
+    expect(task(dentist).schedule).toMatchObject({ start: addDays(today, 2), allDay: true });
+  });
+
+  it('stretches a task from its top edge and its bottom edge', async () => {
+    localStorage.setItem(
+      'punchlist.calendar',
+      JSON.stringify({ mode: 'days', days: 1, hourHeight: 48 }),
+    );
+    const { today, task, standup } = await calendarWith();
+    const block = await screen.findByRole('button', { name: /Standup/ });
+    const top = block.querySelector('[data-cal-grip="top"]')!;
+    fireEvent.pointerDown(top, { clientX: 10, clientY: 9 * 48, button: 0, pointerId: 6 });
+    fireEvent.pointerMove(window, { clientX: 10, clientY: 8 * 48, pointerId: 6 });
+    fireEvent.pointerUp(window, { clientX: 10, clientY: 8 * 48, pointerId: 6 });
+    expect(task(standup).schedule).toMatchObject({
+      start: `${today}T08:00`,
+      end: `${today}T10:00`,
+    });
+    const bottom = (await screen.findByRole('button', { name: /Standup/ })).querySelector(
+      '[data-cal-grip="bottom"]',
+    )!;
+    fireEvent.pointerDown(bottom, { clientX: 10, clientY: 10 * 48, button: 0, pointerId: 7 });
+    fireEvent.pointerMove(window, { clientX: 10, clientY: 11.5 * 48, pointerId: 7 });
+    fireEvent.pointerUp(window, { clientX: 10, clientY: 11.5 * 48, pointerId: 7 });
+    expect(task(standup).schedule).toMatchObject({
+      start: `${today}T08:00`,
+      end: `${today}T11:30`,
+    });
   });
 
   it('picks days by dragging across them, and shows just those', async () => {

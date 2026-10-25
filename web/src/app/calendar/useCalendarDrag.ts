@@ -35,8 +35,9 @@ const MOVE_PX = 6;
 const HOLD_MS = 350;
 
 /**
- * Dragging tasks onto days and times (spec: PL-093). A mouse drags once it has moved a few pixels;
- * a finger holds first (so a swipe still scrolls). While dragging, `ghost` follows the pointer
+ * Dragging tasks onto days and times (spec: PL-093). Tasks on the calendar drag as soon as the
+ * pointer moves a few pixels, finger or mouse (the calendar scrolls by its dates and empty
+ * space); ones in a scrolling list (`hold`) wait for a finger to hold first, so a swipe scrolls. While dragging, `ghost` follows the pointer
  * with where it would land; letting go there calls `onDrop`. A click right after a drag is
  * swallowed, so dropping does not also open the task.
  */
@@ -59,10 +60,10 @@ export function useCalendarDrag(
   const cleanup = useRef<(() => void) | null>(null);
   useEffect(() => () => cleanup.current?.(), []);
 
-  const begin = (event: PointerEvent<HTMLElement>, payload: DragPayload) => {
+  const begin = (event: PointerEvent<HTMLElement>, payload: DragPayload, waitForHold = false) => {
     if (event.button !== 0) return;
     cleanup.current?.();
-    const touch = event.pointerType === 'touch';
+    const touch = event.pointerType === 'touch' && waitForHold;
     const origin = { x: event.clientX, y: event.clientY };
     const id = event.pointerId;
     let dragging = false;
