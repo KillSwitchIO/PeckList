@@ -72,6 +72,8 @@ export function SwipeRow({
     if (!enabled || event.pointerType !== 'touch') return;
     const element = root.current;
     if (!element) return;
+    // A popup the row opened (its menu) is a portal, but its events still reach here: not a swipe.
+    if (!element.contains(event.target as Node)) return;
     const width = element.clientWidth || 360;
     setRowWidth(width);
     const id = event.pointerId;

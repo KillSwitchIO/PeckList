@@ -48,7 +48,19 @@ describe('settings: import from another app', () => {
     expect(preview).toHaveTextContent('1 lists, 2 open and 0 closed tasks, 1 tags.');
     expect(within(dialog).getByRole('radio', { name: /Merge with what you have/ })).toBeChecked();
     const before = titles(store);
+    // Hold the frame the import waits for, to see the dialog while it works.
+    let release: FrameRequestCallback | null = null;
+    vi.stubGlobal('requestAnimationFrame', (callback: FrameRequestCallback) => {
+      release = callback;
+      return 1;
+    });
     await userEvent.click(within(dialog).getByRole('button', { name: 'Import' }));
+    expect(within(dialog).getByRole('button', { name: 'Importing...' })).toBeDisabled();
+    expect(within(dialog).getByRole('button', { name: 'Cancel' })).toBeDisabled();
+    expect(within(dialog).getByRole('radio', { name: /Replace what you have/ })).toBeDisabled();
+    expect(titles(store)).toEqual(before);
+    vi.unstubAllGlobals();
+    (release as FrameRequestCallback | null)?.(0);
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
     expect(await screen.findByRole('region', { name: 'Your data' })).toHaveTextContent(
       'Imported from TickTick: 2 tasks, 1 new lists and 1 new tags.',

@@ -114,4 +114,22 @@ describe('swiping task rows', () => {
     expect(task('Scroll past me').status).toBe('open');
     expect(within(document.body).queryByRole('button', { name: 'Delete' })).toBeNull();
   });
+
+  it('does not swipe while its menu is open: the progress slider drags instead', async () => {
+    const { task } = await inbox('Water plants');
+    const row = await screen.findByRole('button', { name: 'Open Water plants' });
+    fireEvent.contextMenu(row, { clientX: 20, clientY: 20 });
+    const slider = await screen.findByRole('slider', { name: 'Progress' });
+    // A finger across the slider (in the menu), and one across the row while the menu is open.
+    swipe(slider, 20, 260);
+    swipe(row, 20, 260);
+    await new Promise((resolve) => setTimeout(resolve, 800));
+    expect(task('Water plants').status).toBe('open');
+    expect(screen.queryByText('Task completed')).toBeNull();
+    // Closed, it swipes again.
+    await userEvent.keyboard('{Escape}');
+    await waitFor(() => expect(screen.queryByRole('menu')).toBeNull());
+    swipe(row, 20, 220);
+    await waitFor(() => expect(task('Water plants').status).toBe('done'));
+  });
 });

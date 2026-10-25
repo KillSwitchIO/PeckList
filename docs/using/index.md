@@ -228,6 +228,10 @@ linked accounts, and **Your data** ([download or import a copy](apps-and-sync.md
 [move from or to another app](apps-and-sync.md#moving-from-or-to-another-app): TickTick, Todoist, Google Tasks,
 Microsoft To Do, iCalendar and Things).
 
+**Start over** (last on the page): **Delete all lists, tasks and tags** moves every list, task and tag
+of yours to the Trash at once (lists others share with you stay), and Undo brings them back. Tick
+**Also empty the Trash** to delete them, and everything already in the Trash, for good.
+
 **Date format**: the language's own (Automatic), a ready-made one such as `2026-10-24` or
 `24.10.2026`, or **Custom...** to type a pattern such as `YYYYMMDD` or `ddd D MMM`: `YYYY` 2026,
 `YY` 26, `MMMM` October, `MMM` Oct, `MM` 10, `M` 10, `DD` 05, `D` 5, `dddd` Monday, `ddd` Mon,
