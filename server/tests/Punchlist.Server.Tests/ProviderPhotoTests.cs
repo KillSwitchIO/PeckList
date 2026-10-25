@@ -32,7 +32,7 @@ public sealed class ProviderPhotoTests(ServerFixture fixture) : IClassFixture<Se
     private static CancellationToken Token => TestContext.Current.CancellationToken;
 
     [Fact]
-    public async Task A_provider_picture_fills_a_profile_with_none_and_never_one_set_or_taken_away()
+    public async Task A_provider_picture_fills_a_profile_with_none_also_after_one_is_taken_away_but_never_replaces_one()
     {
         using var server = fixture.Factory(("ADMIN_PASSWORD", "correct horse battery"))
             .WithWebHostBuilder(host => host.ConfigureTestServices(services =>
@@ -55,9 +55,9 @@ public sealed class ProviderPhotoTests(ServerFixture fixture) : IClassFixture<Se
         await photos.ImportAsync(account.Id, "https://id.example.com/me.png", Token);
         Assert.StartsWith("data:image/png;base64,", (string?)Profile()["photo"]);
 
-        // Once there is one (or the person took it away), the provider's never replaces it.
+        // A photo of one's own stays; taken away, the provider's comes back.
         var mine = (JsonObject)Profile().DeepClone();
-        mine["photo"] = "";
+        mine["photo"] = "data:image/png;base64,QUJD";
         mine["_hlc"]!["photo"] = $"{DateTime.UtcNow.AddSeconds(5):yyyy-MM-ddTHH:mm:ss.fff}Z-0000-dev1";
         (await client.PostAsJsonAsync("/api/sync", new
         {
@@ -66,6 +66,17 @@ public sealed class ProviderPhotoTests(ServerFixture fixture) : IClassFixture<Se
             changes = new object[] { new { collection = "users", entity = mine } },
         }, Token)).EnsureSuccessStatusCode();
         await photos.ImportAsync(account.Id, "https://id.example.com/me.png", Token);
-        Assert.Equal("", (string?)Profile()["photo"]);
+        Assert.Equal("data:image/png;base64,QUJD", (string?)Profile()["photo"]);
+        var none = (JsonObject)Profile().DeepClone();
+        none["photo"] = "";
+        none["_hlc"]!["photo"] = $"{DateTime.UtcNow.AddSeconds(6):yyyy-MM-ddTHH:mm:ss.fff}Z-0000-dev1";
+        (await client.PostAsJsonAsync("/api/sync", new
+        {
+            schemaVersion = WorkspaceSchema.CurrentVersion,
+            cursor = (long?)null,
+            changes = new object[] { new { collection = "users", entity = none } },
+        }, Token)).EnsureSuccessStatusCode();
+        await photos.ImportAsync(account.Id, "https://id.example.com/me.png", Token);
+        Assert.StartsWith("data:image/png;base64,iVBOR", (string?)Profile()["photo"]);
     }
 }

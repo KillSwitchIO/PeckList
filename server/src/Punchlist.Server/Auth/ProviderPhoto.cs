@@ -8,8 +8,8 @@ namespace Punchlist.Server.Auth;
 
 /// <summary>
 /// A person's picture from their identity provider (spec: R-FB-62): the OIDC <c>picture</c> claim,
-/// fetched and kept on their profile when they have never set one of their own. One they set, or
-/// took away (an empty photo), stays theirs. Too big, not an image, or out of reach: initials.
+/// fetched and kept on their profile at sign-in when it has none (never set, or taken away: then the
+/// provider's comes back). One they set stays theirs. Too big, not an image, or out of reach: initials.
 /// </summary>
 public sealed class ProviderPhoto(IHttpClientFactory http, SharingState sharing, SyncService sync, ServerClock clock, ILogger<ProviderPhoto> logger)
 {
@@ -22,8 +22,8 @@ public sealed class ProviderPhoto(IHttpClientFactory http, SharingState sharing,
     {
         if (picture is null || !Uri.TryCreate(picture, UriKind.Absolute, out var url) || url.Scheme is not ("https" or "http")) return;
         var profile = sharing.Index.LiveOf("users").FirstOrDefault(each => each.Id == userId).Doc;
-        // None yet (it is written first), or the person's own choice already.
-        if (profile is null || profile.ContainsKey("photo")) return;
+        // No profile yet (it is written first), or a photo of the person's own.
+        if (profile is null || profile["photo"] is JsonValue held && held.TryGetValue<string>(out var photo) && photo.Length > 0) return;
         try
         {
             using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellation);
