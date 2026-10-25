@@ -152,6 +152,7 @@ export function parseIcal(
         const status = get('STATUS')?.value.trim().toUpperCase();
         const closed = status === 'COMPLETED' ? 'done' : status === 'CANCELLED' ? 'wontdo' : null;
         const completed = moment(get('COMPLETED'), 'UTC');
+        const created = moment(get('CREATED'), 'UTC');
         const reminders: Reminder[] = [];
         for (const alarm of todo.children.filter((each) => each.name === 'VALARM')) {
           const trigger = alarm.props.find((prop) => prop.name === 'TRIGGER');
@@ -195,6 +196,8 @@ export function parseIcal(
           status: closed ?? 'open',
           completedAt:
             closed && completed ? new Date(msOf(completed.value, 'UTC')).toISOString() : null,
+          createdAt:
+            created && !created.allDay ? new Date(msOf(created.value, 'UTC')).toISOString() : null,
           priority: PRIORITY_FROM(Number(get('PRIORITY')?.value ?? 0)),
           schedule,
           due,

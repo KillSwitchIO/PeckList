@@ -56,4 +56,25 @@ describe('trash', () => {
     // Nothing left to empty: the button goes.
     expect(screen.queryByRole('button', { name: 'Empty trash' })).toBeNull();
   });
+
+  it('shows a big trash a page at a time', async () => {
+    const store = testStore();
+    await renderApp('/trash', store);
+    store.getState().apply((ctx, ws) => {
+      let next = ws;
+      for (let i = 0; i < 230; i += 1) {
+        const made = createTask(ctx, next, { title: `Imported ${i}`, listId: inboxList(next).id });
+        next = deleteTask(ctx, made.workspace, made.task.id);
+      }
+      return next;
+    });
+    const rows = () =>
+      screen.getAllByRole('button', { name: /^Delete Imported \d+ forever$/ }).length;
+    await waitFor(() => expect(rows()).toBe(100));
+    await userEvent.click(screen.getByRole('button', { name: 'Show 100 more' }));
+    expect(rows()).toBe(200);
+    await userEvent.click(screen.getByRole('button', { name: 'Show 30 more' }));
+    expect(rows()).toBe(230);
+    expect(screen.queryByRole('button', { name: /^Show \d+ more$/ })).toBeNull();
+  });
 });

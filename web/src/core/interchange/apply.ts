@@ -5,7 +5,7 @@
 // change, so one undo brings it all back.
 
 import { COLOR_FAMILIES } from '../palette.ts';
-import { isLive } from '../collections.ts';
+import { isLive, putEntity } from '../collections.ts';
 import { createList, deleteList, inboxList } from '../lists.ts';
 import { myRole } from '../sharing.ts';
 import type { OpContext } from '../ops.ts';
@@ -90,6 +90,45 @@ function depths(tasks: readonly ImportedTask[]): Map<string, number> {
   return found;
 }
 
+/**
+ * Each task's status as it lands: its own, but closed with its nearest closed ancestor when it is
+ * open under one (TickTick keeps a done checklist's unticked items; done means all of it).
+ */
+function statuses(tasks: readonly ImportedTask[]) {
+  const byKey = new Map(tasks.map((task) => [task.key, task]));
+  const found = new Map<string, Pick<ImportedTask, 'status' | 'completedAt'>>();
+  const statusOf = (
+    task: ImportedTask,
+    seen: Set<string>,
+  ): Pick<ImportedTask, 'status' | 'completedAt'> => {
+    const known = found.get(task.key);
+    if (known) return known;
+    let result: Pick<ImportedTask, 'status' | 'completedAt'> = {
+      status: task.status,
+      completedAt: task.completedAt ?? null,
+    };
+    const parent = task.parentKey ? byKey.get(task.parentKey) : undefined;
+    if (task.status === 'open' && parent && !seen.has(parent.key)) {
+      const above = statusOf(parent, new Set(seen).add(task.key));
+      if (above.status !== 'open') result = above;
+    }
+    found.set(task.key, result);
+    return result;
+  };
+  for (const task of tasks) statusOf(task, new Set());
+  return found;
+}
+
+/** A title for a task that has none: its notes' first line. */
+const titleOf = (task: ImportedTask) =>
+  task.title.trim() ||
+  (task.notes ?? '')
+    .split(/\r?\n/)
+    .map((line) => line.replace(/^\s*(?:[-*+]\s+)?(?:\[[ xX]\]\s+)?/, '').trim())
+    .find(Boolean)
+    ?.slice(0, 200) ||
+  'Untitled';
+
 export function applyImport(
   ctx: OpContext,
   workspace: WorkspaceFile,
@@ -150,6 +189,7 @@ export function applyImport(
   const taskIds = new Map<string, Id>();
   const levels = new Map<string, number>();
   const fallback = inboxList(ws).id;
+  const closed = statuses(plan.tasks);
   for (const task of ordered) {
     let parentKey = task.parentKey ?? null;
     // Deeper than Punchlist nests: under the deepest one it can go under.
@@ -161,7 +201,7 @@ export function applyImport(
     // Tags first: making one changes `ws`, which createTask must see.
     const taskTags = (task.tags ?? []).map(tagId).filter((id): id is Id => id !== null);
     const made = createTask(ctx, ws, {
-      title: task.title || 'Untitled',
+      title: titleOf(task),
       listId: listIds.get(task.listKey) ?? fallback,
       ...(parentId ? { parentId } : {}),
       notes: task.notes ?? '',
@@ -173,13 +213,21 @@ export function applyImport(
       recurrence,
     });
     ws = made.workspace;
+    // Made when the other app made it, not now.
+    if (task.createdAt && !Number.isNaN(Date.parse(task.createdAt))) {
+      ws = putEntity(ws, 'tasks', {
+        ...made.task,
+        createdAt: new Date(Date.parse(task.createdAt)).toISOString(),
+      });
+    }
     taskIds.set(task.key, made.task.id);
     levels.set(task.key, parentId ? (levels.get(parentKey!) ?? 0) + 1 : 0);
-    if (task.status !== 'open') {
+    const landed = closed.get(task.key)!;
+    if (landed.status !== 'open') {
       // Closed as it was (not through completing, which would start a repeat's next one).
       ws = updateTask(ctx, ws, made.task.id, {
-        status: task.status,
-        completedAt: task.completedAt ?? new Date().toISOString(),
+        status: landed.status,
+        completedAt: landed.completedAt ?? new Date().toISOString(),
         completedBy: ctx.userId,
       });
     }
@@ -204,13 +252,14 @@ export function planSummary(plan: ImportPlan) {
     if (depth.get(task.key)! > MAX_SUBTASK_DEPTH) add('tooDeep');
     if (task.recurrence && !parseRule(task.recurrence)) add('repeatDropped');
   }
+  const closed = statuses(plan.tasks);
   const tags = new Set(
     plan.tasks.flatMap((task) => (task.tags ?? []).map((tag) => tag.toLowerCase())),
   );
   return {
     lists: plan.lists.length,
-    open: plan.tasks.filter((task) => task.status === 'open').length,
-    closed: plan.tasks.filter((task) => task.status !== 'open').length,
+    open: plan.tasks.filter((task) => closed.get(task.key)!.status === 'open').length,
+    closed: plan.tasks.filter((task) => closed.get(task.key)!.status !== 'open').length,
     tags: tags.size,
     notes,
   };

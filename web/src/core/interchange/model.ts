@@ -26,6 +26,8 @@ export interface ImportedTask {
   status: 'open' | 'done' | 'wontdo';
   /** When it was closed (an ISO instant) */
   completedAt?: string | null;
+  /** When the other app made it (an ISO instant) */
+  createdAt?: string | null;
   priority: Priority;
   schedule?: Schedule | null;
   due?: Due | null;
@@ -42,7 +44,6 @@ export type ImportNote =
   | 'reminderDropped'
   | 'foldersDropped'
   | 'notesAsTasks'
-  | 'checklistAsSubtasks'
   | 'tooDeep'
   | 'dateUnread'
   | 'commentsAsNotes'
