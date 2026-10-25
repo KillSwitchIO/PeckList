@@ -57,9 +57,37 @@ export function remindsMe(workspace: WorkspaceFile, task: Task, me: Id): boolean
 export interface DueReminder {
   /** Stable for one task, reminder and time: tells a fired reminder from a new one. */
   key: string;
+  /** The notification's tag: a constant reminder's repeats share it, so each replaces the last */
+  tag: string;
   taskId: Id;
   title: string;
   at: number;
+  /** A constant reminder: it stays on screen */
+  constant: boolean;
+}
+
+/** A constant reminder comes again this often, this many times in all (an hour). */
+export const CONSTANT_EVERY_MINUTES = 5;
+export const CONSTANT_TIMES = 12;
+
+/**
+ * An all-day task's reminder as days early and a time that day (spec: R-FB-60): `before` counts
+ * from 9:00 on the task's day, so later that day is negative.
+ */
+export function allDayParts(before: number): { days: number; time: string } {
+  const [h, m] = ALL_DAY_REMINDER_TIME.split(':').map(Number) as [number, number];
+  const fromMidnight = h * 60 + m - before;
+  const days = fromMidnight >= 0 ? 0 : Math.ceil(-fromMidnight / 1440);
+  const minutes = fromMidnight + days * 1440;
+  const two = (n: number) => String(n).padStart(2, '0');
+  return { days, time: `${two(Math.floor(minutes / 60))}:${two(minutes % 60)}` };
+}
+
+/** The reminder `days` early at `time` ("HH:mm") for an all-day task. */
+export function allDayReminder(days: number, time: string): Reminder {
+  const [h, m] = ALL_DAY_REMINDER_TIME.split(':').map(Number) as [number, number];
+  const [th, tm] = time.split(':').map(Number) as [number, number];
+  return { before: days * 1440 + (h * 60 + m) - (th * 60 + tm) };
 }
 
 /** My reminders that fire in [from, to), soonest first. */
@@ -75,9 +103,23 @@ export function remindersBetween(
     if (!task.reminders?.length || !isLive(task) || task.status !== 'open') continue;
     if (!remindsMe(workspace, task, me)) continue;
     for (const reminder of task.reminders) {
-      const at = reminderInstant(task, reminder, timeZone);
-      if (at === null || at < from || at >= to) continue;
-      found.push({ key: `${task.id}@${at}`, taskId: task.id, title: task.title, at });
+      const first = reminderInstant(task, reminder, timeZone);
+      if (first === null) continue;
+      const constant = task.constantReminder === true;
+      const times = constant ? CONSTANT_TIMES : 1;
+      for (let again = 0; again < times; again += 1) {
+        const at = first + again * CONSTANT_EVERY_MINUTES * 60_000;
+        if (at < from || at >= to) continue;
+        const tag = `${task.id}@${first}`;
+        found.push({
+          key: again === 0 ? tag : `${tag}#${again}`,
+          tag,
+          taskId: task.id,
+          title: task.title,
+          at,
+          constant,
+        });
+      }
     }
   }
   return found.sort((a, b) => a.at - b.at);

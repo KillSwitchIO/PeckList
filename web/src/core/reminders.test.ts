@@ -1,9 +1,16 @@
 import { describe, expect, it } from 'vitest';
 import { testContext } from '../test/fixtures.ts';
 import { inboxList } from './lists.ts';
-import { reminderInstant, remindersBetween, remindsAllDay, remindsMe } from './reminders.ts';
+import {
+  allDayParts,
+  allDayReminder,
+  reminderInstant,
+  remindersBetween,
+  remindsAllDay,
+  remindsMe,
+} from './reminders.ts';
 import { setAssignee } from './sharing.ts';
-import { createTask, toggleTaskDone } from './tasks.ts';
+import { createTask, toggleTaskDone, updateTask } from './tasks.ts';
 import type { Task, WorkspaceFile } from './types.ts';
 import { createWorkspace } from './workspace.ts';
 
@@ -78,5 +85,36 @@ describe('reminders', () => {
       ['Later', at('2026-10-26T10:30')],
     ]);
     expect(new Set(due.map((each) => each.key)).size).toBe(2);
+  });
+
+  it('come again every 5 minutes for an hour when constant, under one tag', () => {
+    const s = setup();
+    const pills = s.add('Pills', { schedule: timed, reminders: [{ before: 0 }] });
+    s.ws = updateTask(s.ctx, s.ws, pills.id, { constantReminder: true });
+    const due = remindersBetween(s.ws, ME, at('2026-10-26T10:00'), at('2026-10-26T12:00'), TZ);
+    expect(due).toHaveLength(12);
+    expect(due[1]!.at - due[0]!.at).toBe(5 * 60_000);
+    expect(new Set(due.map((each) => each.tag)).size).toBe(1);
+    expect(new Set(due.map((each) => each.key)).size).toBe(12);
+    expect(due.every((each) => each.constant)).toBe(true);
+  });
+});
+
+describe('all-day reminders at a time of day', () => {
+  it('turn days early and a time into minutes from 9:00, and back, later that day too', () => {
+    expect(allDayReminder(0, '09:00')).toEqual({ before: 0 });
+    expect(allDayReminder(1, '09:00')).toEqual({ before: 1440 });
+    expect(allDayReminder(0, '10:00')).toEqual({ before: -60 });
+    expect(allDayReminder(2, '07:30')).toEqual({ before: 2880 + 90 });
+    for (const [days, time] of [
+      [0, '09:00'],
+      [0, '23:59'],
+      [0, '00:00'],
+      [1, '18:45'],
+      [7, '06:00'],
+    ] as const) {
+      const made = allDayReminder(days, time);
+      expect('before' in made && allDayParts(made.before)).toEqual({ days, time });
+    }
   });
 });

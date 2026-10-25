@@ -82,18 +82,81 @@ describe('reminders', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Open Dentist' }));
     const details = await screen.findByRole('region', { name: 'Task details' });
     await userEvent.click(within(details).getByRole('button', { name: 'Reminders: None' }));
-    const sheet = await screen.findByRole('dialog', { name: 'Reminders' });
-    await userEvent.click(within(sheet).getByRole('checkbox', { name: '30 minutes before' }));
-    await userEvent.click(within(sheet).getByRole('checkbox', { name: '1 day before' }));
+    const sheet = await screen.findByRole('dialog', { name: 'Reminder' });
+    const choice = (name: string | RegExp) => within(sheet).getByRole('menuitemcheckbox', { name });
+    await userEvent.click(choice('30 minutes early'));
+    await userEvent.click(choice('1 day early'));
+    await userEvent.click(choice('30 minutes early'));
+    // Nothing changes until OK.
     const task = () => store.getState().workspace!.entities.tasks.find((each) => each.id === id)!;
-    expect(task().reminders).toEqual([{ before: 30 }, { before: 1440 }]);
-    expect(notifier.asked).toBe(1);
-    await userEvent.click(within(sheet).getByRole('checkbox', { name: '30 minutes before' }));
+    expect(task().reminders ?? []).toEqual([]);
+    await userEvent.click(within(sheet).getByRole('switch', { name: 'Constant reminder' }));
+    await userEvent.click(within(sheet).getByRole('button', { name: 'OK' }));
     expect(task().reminders).toEqual([{ before: 1440 }]);
-    await userEvent.click(within(sheet).getByRole('button', { name: 'Done' }));
+    expect(task().constantReminder).toBe(true);
+    expect(notifier.asked).toBe(1);
     expect(
-      within(details).getByRole('button', { name: 'Reminders: 1 day before' }),
+      within(details).getByRole('button', { name: 'Reminders: 1 day early' }),
     ).toBeInTheDocument();
+
+    // Custom: 2 hours early, from the Hour tab's wheel.
+    await userEvent.click(within(details).getByRole('button', { name: /^Reminders: / }));
+    const again = await screen.findByRole('dialog', { name: 'Reminder' });
+    await userEvent.click(within(again).getByRole('menuitemcheckbox', { name: /Custom/ }));
+    await userEvent.click(within(again).getByRole('tab', { name: 'Hour' }));
+    await userEvent.click(
+      within(within(again).getByRole('listbox', { name: 'How early' })).getByRole('option', {
+        name: '2 hours early',
+      }),
+    );
+    expect(within(again).getByRole('status')).toHaveTextContent(/^Remind at /);
+    await userEvent.click(within(again).getByRole('button', { name: 'Done' }));
+    expect(within(again).getByRole('menuitemcheckbox', { name: '2 hours early' })).toHaveAttribute(
+      'aria-checked',
+      'true',
+    );
+    await userEvent.click(within(again).getByRole('button', { name: 'OK' }));
+    expect(task().reminders).toEqual([{ before: 1440 }, { before: 120 }]);
+  });
+
+  it('remind an all-day task on the day at a later time, and say when it has passed', async () => {
+    setNotifier(fakeNotifier('granted'));
+    const store = testStore();
+    await renderApp('/inbox', store);
+    const id = addTask(store, 'Water plants', inMinutes(3 * 24 * 60).slice(0, 10));
+    await userEvent.click(screen.getByRole('button', { name: 'Open Water plants' }));
+    const details = await screen.findByRole('region', { name: 'Task details' });
+    await userEvent.click(within(details).getByRole('button', { name: 'Reminders: None' }));
+    const sheet = await screen.findByRole('dialog', { name: 'Reminder' });
+    // The quick list for a whole day, each at 9:00.
+    expect(within(sheet).getByRole('menuitemcheckbox', { name: /^On the day/ })).toHaveTextContent(
+      /9:00/,
+    );
+    await userEvent.click(within(sheet).getByRole('menuitemcheckbox', { name: /Custom/ }));
+    await userEvent.click(
+      within(within(sheet).getByRole('listbox', { name: 'How early' })).getByRole('option', {
+        name: 'On the day',
+      }),
+    );
+    await userEvent.click(
+      within(within(sheet).getByRole('listbox', { name: 'Hour' })).getByRole('option', {
+        name: '10',
+      }),
+    );
+    await userEvent.click(within(sheet).getByRole('button', { name: 'Done' }));
+    await userEvent.click(within(sheet).getByRole('button', { name: 'OK' }));
+    const task = () => store.getState().workspace!.entities.tasks.find((each) => each.id === id)!;
+    expect(task().reminders).toEqual([{ before: -60 }]);
+    expect(
+      within(details).getByRole('button', { name: /^Reminders: On the day \(10:00/ }),
+    ).toBeInTheDocument();
+
+    // A week early is already gone for a task three days out.
+    await userEvent.click(within(details).getByRole('button', { name: /^Reminders: / }));
+    const again = await screen.findByRole('dialog', { name: 'Reminder' });
+    await userEvent.click(within(again).getByRole('menuitemcheckbox', { name: /Custom/ }));
+    await userEvent.click(within(again).getByRole('tab', { name: 'Week' }));
+    expect(within(again).getByRole('status')).toHaveTextContent('The reminder has expired.');
   });
 
   it('fire once when due, a little late after a sleep, and not for closed tasks', async () => {

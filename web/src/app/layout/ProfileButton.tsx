@@ -184,7 +184,7 @@ export function ProfileButton({ onShortcuts }: { onShortcuts: () => void }) {
           </ListItemIcon>
           <ListItemText>{t('notifications.title')}</ListItemText>
           {unread > 0 && (
-            <Typography variant="body2" color="error.main" sx={{ fontWeight: 600, ml: 2 }}>
+            <Typography variant="body2" sx={{ color: 'error.main', fontWeight: 600, ml: 2 }}>
               {unread}
             </Typography>
           )}
