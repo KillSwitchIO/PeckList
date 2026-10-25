@@ -48,6 +48,7 @@ export function useCalendarDrag(
   const [ghost, setGhost] = useState<{
     x: number;
     y: number;
+    taskId: string;
     title: string;
     target: DropTarget | null;
   } | null>(null);
@@ -70,7 +71,13 @@ export function useCalendarDrag(
     let timer: ReturnType<typeof setTimeout> | null = null;
 
     const show = (x: number, y: number) =>
-      setGhost({ x, y, title: payload.title, target: targetAt(x, y, payload.grabMinutes) });
+      setGhost({
+        x,
+        y,
+        taskId: payload.taskId,
+        title: payload.title,
+        target: targetAt(x, y, payload.grabMinutes),
+      });
     const lift = (x: number, y: number) => {
       dragging = true;
       start.current?.();

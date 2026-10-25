@@ -13,6 +13,7 @@ import { datePart, localTimeZone, timePart } from '../../core/dates.ts';
 import { formatDay, formatHour, formatTime } from '../format.ts';
 import { t } from '../i18n/i18n.ts';
 import { ItemLine } from './ItemLine.tsx';
+import { TimeLabel } from './TimeLabel.tsx';
 import { MAX_HOUR, MIN_HOUR } from './calendarPrefs.ts';
 import { besideScrolling, scrolling } from './scrollbars.ts';
 
@@ -63,6 +64,7 @@ export function DaysView({
   onGrab,
   onResize,
   onCancelGrab,
+  preview = null,
 }: {
   start: string;
   count: number;
@@ -79,6 +81,8 @@ export function DaysView({
   onResize: (item: CalendarItem, start: string, end: string) => void;
   /** A long hold on a task stops the drag it began, for big grips instead */
   onCancelGrab: () => void;
+  /** Where a task being dragged would land: drawn as an outline with its times */
+  preview?: { taskId: string; day: string; top: number; bottom: number; color: string } | null;
 }) {
   const days = daysFrom(start, count);
   const body = useRef<HTMLDivElement>(null);
@@ -526,7 +530,9 @@ export function DaysView({
                         fontSize: 11,
                         lineHeight: 1.25,
                         cursor: block.item.movable ? 'grab' : 'pointer',
-                        opacity: block.item.done ? 0.55 : 1,
+                        // Dimmed where it was while it is dragged elsewhere; done ones faded.
+                        opacity:
+                          preview?.taskId === block.item.taskId ? 0.35 : block.item.done ? 0.55 : 1,
                         textDecoration: block.item.done ? 'line-through' : 'none',
                         boxShadow:
                           editing === block.item.id
@@ -687,6 +693,49 @@ export function DaysView({
                     </ButtonBase>
                   );
                 })}
+                {resizing &&
+                  blocks
+                    .filter((block) => block.item.id === resizing.id)
+                    .map((block) => (
+                      <TimeLabel
+                        key={`label-${block.item.id}`}
+                        top={resizing.top}
+                        bottom={resizing.bottom}
+                        hourHeight={hourHeight}
+                        left={`calc(${(block.column / Math.min(block.columns, side)) * 100}% + 1px)`}
+                      />
+                    ))}
+                {preview?.day === day && (
+                  <>
+                    <Box
+                      aria-hidden
+                      data-cal-preview=""
+                      sx={{
+                        position: 'absolute',
+                        top: (preview.top / 60) * hourHeight + 1,
+                        height: Math.max(
+                          14,
+                          ((preview.bottom - preview.top) / 60) * hourHeight - 2,
+                        ),
+                        left: 2,
+                        right: 3,
+                        borderRadius: 0.75,
+                        border: 2,
+                        borderStyle: 'dashed',
+                        borderColor: 'primary.main',
+                        bgcolor: `${preview.color}40`,
+                        zIndex: 3,
+                        pointerEvents: 'none',
+                      }}
+                    />
+                    <TimeLabel
+                      top={preview.top}
+                      bottom={preview.bottom}
+                      hourHeight={hourHeight}
+                      left="2px"
+                    />
+                  </>
+                )}
                 {day === today && (
                   <Box
                     aria-hidden
