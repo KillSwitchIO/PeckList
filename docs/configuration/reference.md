@@ -30,7 +30,7 @@ Who may make their own account with a username and password:
 
 Single sign-on keeps its own switch, [`OIDC_<NAME>_AUTO_CREATE`](#sign-in). An invite link
 also lets a new provider account in when that switch is off. With [`LOCAL_LOGIN`](#local_login)
-`hidden`, people sign up only through a provider. Admins can always add accounts. **Default:**
+`disabled`, people sign up only through a provider. Admins can always add accounts. **Default:**
 `invite`. **Where:** any, live. See [adding people](../guides/users-and-roles.md#adding-people).
 
 ### `TZ`
@@ -55,9 +55,13 @@ generated. **Where:** env.
 
 ### `LOCAL_LOGIN`
 
-`shown` or `hidden`. `hidden` takes the username and password form off the sign-in page when
-everyone uses single sign-on; `/login?local` still shows it, for admins. Needs at least one
-provider. **Default:** `shown`. **Where:** any, live.
+`enabled` or `disabled`. `disabled` turns password sign-in off when everyone uses single
+sign-on: the sign-in page has no password form, and the server refuses passwords on every route
+(`POST /auth/login`, sign-up and password changes answer `403 local_login_disabled`). Password
+sessions already open end at once; provider sessions go on. To get an admin back in, make a
+one-time link with [`punchlist admin login-link`](../reference/cli.md#admin-login-link). Needs at
+least one provider. `shown` and `hidden`, the names before 0.2.1, still work as `enabled` and
+`disabled`. **Default:** `enabled`. **Where:** any, live.
 
 ### `OIDC_PROVIDERS`
 

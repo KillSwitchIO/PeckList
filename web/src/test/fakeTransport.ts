@@ -309,6 +309,7 @@ export class FakeTransport implements SyncTransport {
 
   login(username: string, password: string) {
     this.check();
+    if (!this.backend.signIn.localLogin) return Promise.resolve({ kind: 'disabled' as const });
     const found = this.backend.accounts.get(username);
     if (!found || found.password !== password) return Promise.resolve({ kind: 'invalid' as const });
     this.session = username;

@@ -38,6 +38,8 @@ export interface Account {
   providerIcon?: string | null;
   /** The provider has a picture of the person (served at /api/account/provider-picture) */
   hasProviderPicture?: boolean;
+  /** Whether passwords work on this server (false with `LOCAL_LOGIN=disabled`; older servers: absent). */
+  localLogin?: boolean;
 }
 
 export interface SyncRequest {
@@ -73,7 +75,7 @@ export interface SyncResponse {
 export interface SignInOptions {
   /** Identity providers, each with the address that starts its sign-in. */
   providers: { name: string; displayName: string; url: string; icon?: string }[];
-  /** False when the server hides the password form (`/login?local` still shows it). */
+  /** False when the server turns password sign-in off (`LOCAL_LOGIN=disabled`). */
   localLogin: boolean;
   /** Who may make an account: anyone, people with an invite link, or nobody (older servers: closed). */
   registration?: Registration;
@@ -97,7 +99,9 @@ export type LoginOutcome =
   | { kind: 'ok'; account: Account }
   | { kind: 'invalid' }
   | { kind: 'locked'; until: string }
-  | { kind: 'too-many' };
+  | { kind: 'too-many' }
+  /** Password sign-in is turned off on the server (`LOCAL_LOGIN=disabled`). */
+  | { kind: 'disabled' };
 
 export type PasswordOutcome =
   { kind: 'ok'; account: Account } | { kind: 'wrong-password' | 'too-short' | 'unchanged' };

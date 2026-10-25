@@ -18,7 +18,7 @@ public sealed class LiveSettings(ServerSettings start)
         Volatile.Write(ref current, before with
         {
             Registration = next.Registration,
-            LocalLoginHidden = next.LocalLoginHidden,
+            LocalLoginDisabled = next.LocalLoginDisabled,
             AccountDeleteGraceDays = next.AccountDeleteGraceDays,
             AttachmentMaxMb = next.AttachmentMaxMb,
             SnapshotSchedule = next.SnapshotSchedule,

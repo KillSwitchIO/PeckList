@@ -27,8 +27,8 @@ services:
       OIDC_POCKET_AUTO_CREATE: 'true'
       # Members of punchlist-admins become admins at every sign-in.
       OIDC_POCKET_ROLE_MAP: punchlist-admins=admin
-      # Hide the password form (an admin can still use /login?local).
-      # LOCAL_LOGIN: hidden
+      # No passwords at all, in the app or the API (punchlist admin login-link gets an admin back in).
+      # LOCAL_LOGIN: disabled
     secrets:
       - oidc_secret
 

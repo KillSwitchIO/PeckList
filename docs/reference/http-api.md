@@ -38,8 +38,10 @@ does. Every admin route needs the matching [role](../guides/users-and-roles.md#r
 | `POST /auth/signup`           | `{"username","password","invite"}`; makes the account and signs in (see below)   |
 | `GET /auth/invites/{token}`   | `200 {"expires"}` while an invite link works, else `404`                         |
 
-`/auth/providers` also says who may sign up (`registration`: `open`, `invite` or `closed`). A
-refused sign-up answers `403` (`registration_closed`, `invite_required`, `local_login_hidden`),
+`/auth/providers` also says who may sign up (`registration`: `open`, `invite` or `closed`), and
+`localLogin` whether passwords work. With `LOCAL_LOGIN=disabled`, `/auth/login` and
+`/auth/password` answer `403 local_login_disabled`. A
+refused sign-up answers `403` (`registration_closed`, `invite_required`, `local_login_disabled`),
 `409 username_taken` or `400` (`invalid_username`, `too_short`, `invite_invalid`). Sign-up shares
 the sign-in rate limit.
 

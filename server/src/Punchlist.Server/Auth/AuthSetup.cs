@@ -26,6 +26,13 @@ public static class AuthSetup
     public const string StampClaim = "stamp";
     public const string MustChangeClaim = "must_change_password";
 
+    /// <summary>How the session was made: <see cref="ByPassword"/>, <see cref="ByProvider"/> or <see cref="ByLink"/>.</summary>
+    public const string MethodClaim = "punchlist:method";
+
+    public const string ByPassword = "password";
+    public const string ByProvider = "provider";
+    public const string ByLink = "link";
+
     public static IServiceCollection AddPunchlistAuth(this IServiceCollection services, ServerSettings settings)
     {
         services.AddSingleton(TimeProvider.System);
@@ -91,14 +98,25 @@ public static class AuthSetup
         return services;
     }
 
-    public static ClaimsPrincipal Principal(Account account, string scheme) => new(new ClaimsIdentity(
+    /// <param name="method">How the person proved who they are (<see cref="MethodClaim"/>); null for requests that are no session.</param>
+    public static ClaimsPrincipal Principal(Account account, string scheme, string? method = null) => new(new ClaimsIdentity(
     [
         new Claim(ClaimTypes.NameIdentifier, account.Id),
         new Claim(ClaimTypes.Name, account.Username),
         new Claim(ClaimTypes.Role, account.Role.Name()),
         new Claim(StampClaim, account.SecurityStamp),
         new Claim(MustChangeClaim, account.MustChangePassword ? "true" : "false"),
+        .. method is null ? Array.Empty<Claim>() : [new Claim(MethodClaim, method)],
     ], scheme));
+
+    /// <summary>
+    /// Whether a session was made with a password. Sessions from before the method was recorded
+    /// count as password sessions unless an identity provider made them.
+    /// </summary>
+    public static bool IsPasswordSession(ClaimsPrincipal user) =>
+        user.FindFirstValue(MethodClaim) is { } method
+            ? method == ByPassword
+            : user.FindFirstValue(OidcSetup.ProviderClaim) is null;
 
     public static string UserId(this ClaimsPrincipal user) =>
         user.FindFirstValue(ClaimTypes.NameIdentifier) ?? throw new InvalidOperationException("not signed in");
@@ -149,6 +167,14 @@ public static class AuthSetup
             return;
         }
         var principal = context.Principal!;
+        // LOCAL_LOGIN=disabled ends password sessions at once (a live setting), not when they expire.
+        if (context.HttpContext.RequestServices.GetRequiredService<LiveSettings>().Current.LocalLoginDisabled
+            && IsPasswordSession(principal))
+        {
+            context.RejectPrincipal();
+            await context.HttpContext.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
+            return;
+        }
         if (principal.FindFirstValue(ClaimTypes.Role) != current.Role)
         {
             var claims = principal.Claims.Where(claim => claim.Type != ClaimTypes.Role)

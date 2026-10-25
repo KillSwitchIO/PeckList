@@ -120,9 +120,9 @@ public sealed class ServerSettingsTests
             ["OIDC_HOME_SSO_DISPLAY_NAME"] = "Home login",
             ["OIDC_HOME_SSO_GROUP_MAP"] = "*",
             ["OIDC_HOME_SSO_SCOPES"] = "profile email",
-            ["LOCAL_LOGIN"] = "hidden",
+            ["LOCAL_LOGIN"] = "disabled",
         });
-        Assert.True(settings.LocalLoginHidden);
+        Assert.True(settings.LocalLoginDisabled);
         var pocket = settings.OidcProviders[0];
         Assert.Equal(("pocket", "Pocket", "https://id.example.com/"), (pocket.Name, pocket.DisplayName, pocket.Authority.ToString()));
         Assert.Equal("s3cret", pocket.ClientSecret);
@@ -175,8 +175,30 @@ public sealed class ServerSettingsTests
             ["OIDC_POCKET_CLIENT_ID"] = "punchlist",
         }));
         Assert.Contains("OIDC_PROVIDERS needs AUTH_MODE=local", error.Message);
-        Assert.Contains("LOCAL_LOGIN=hidden needs an OIDC provider",
-            Assert.Throws<SettingsException>(() => Read(new() { ["LOCAL_LOGIN"] = "hidden" })).Message);
+        Assert.Contains("LOCAL_LOGIN=disabled needs an OIDC provider",
+            Assert.Throws<SettingsException>(() => Read(new() { ["LOCAL_LOGIN"] = "disabled" })).Message);
+    }
+
+    [Theory]
+    [InlineData(null, false)]
+    [InlineData("enabled", false)]
+    [InlineData("Disabled", true)]
+    // The names before 0.2.1 still work; hidden now turns password sign-in off everywhere.
+    [InlineData("shown", false)]
+    [InlineData("hidden", true)]
+    public void Local_login_is_enabled_or_disabled(string? value, bool disabled)
+    {
+        var env = new Dictionary<string, string>
+        {
+            ["OIDC_PROVIDERS"] = "pocket",
+            ["OIDC_POCKET_AUTHORITY"] = "https://id.example.com",
+            ["OIDC_POCKET_CLIENT_ID"] = "punchlist",
+        };
+        if (value is not null) env["LOCAL_LOGIN"] = value;
+        var settings = Read(env);
+        Assert.Equal(disabled, settings.LocalLoginDisabled);
+        Assert.Contains("LOCAL_LOGIN: 'maybe' is not enabled or disabled",
+            Assert.Throws<SettingsException>(() => Read(new() { ["LOCAL_LOGIN"] = "maybe" })).Message);
     }
 
     [Fact]

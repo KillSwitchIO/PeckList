@@ -124,7 +124,7 @@ public static class OidcSetup
     {
         auth.MapGet("/providers", (SelfSignUp signUp, LiveSettings live) => new SignInOptions(
             settings.OidcProviders.Select(provider => new SignInProvider(provider.Name, provider.DisplayName, IconPath(provider.Name))).ToList(),
-            !live.Current.LocalLoginHidden,
+            !live.Current.LocalLoginDisabled,
             signUp.InvitesWork ? signUp.Policy.ToString().ToLowerInvariant() : "closed"));
 
         auth.MapGet("/providers/{name}/icon", async (string name, ProviderIcons icons, HttpContext context, CancellationToken cancellation) =>
@@ -160,7 +160,9 @@ public static class OidcSetup
         }).RequireAuthorization();
 
         // A one-time sign-in link from an admin.
-        auth.MapGet("/link/{token}", async (string token, LoginLinks links, HttpContext context) =>
+        // It stays the way back in while LOCAL_LOGIN=disabled (punchlist admin login-link); then no
+        // password is asked for, so a temporary one cannot stand in the way.
+        auth.MapGet("/link/{token}", async (string token, LoginLinks links, LiveSettings live, HttpContext context) =>
         {
             if (await links.RedeemAsync(token, context.RequestAborted) is not { } account)
             {
@@ -168,8 +170,9 @@ public static class OidcSetup
                 return Results.Redirect("/login?error=link_expired");
             }
             context.Audit().Actor(account);
+            var signedIn = live.Current.LocalLoginDisabled ? account with { MustChangePassword = false } : account;
             await context.SignInAsync(CookieAuthenticationDefaults.AuthenticationScheme,
-                AuthSetup.Principal(account, CookieAuthenticationDefaults.AuthenticationScheme),
+                AuthSetup.Principal(signedIn, CookieAuthenticationDefaults.AuthenticationScheme, AuthSetup.ByLink),
                 new AuthenticationProperties { IsPersistent = true });
             return Results.Redirect(LinkReturn);
         }).Audited("auth.login-link-used", targetRoute: null);
@@ -274,7 +277,7 @@ public static class OidcSetup
                 // No password was used, so a temporary one an admin set does not stand in the way: the
                 // account keeps the flag, and signing in with that password still asks for a new one.
                 var principal = AuthSetup.Principal(
-                    success.Account with { MustChangePassword = false }, CookieAuthenticationDefaults.AuthenticationScheme);
+                    success.Account with { MustChangePassword = false }, CookieAuthenticationDefaults.AuthenticationScheme, AuthSetup.ByProvider);
                 ((ClaimsIdentity)principal.Identity!).AddClaim(new Claim(ProviderClaim, provider.Name));
                 if (Claim("picture") is { } pictureUrl) ((ClaimsIdentity)principal.Identity!).AddClaim(new Claim(PictureClaim, pictureUrl));
                 context.Principal = principal;

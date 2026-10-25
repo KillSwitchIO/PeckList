@@ -37,7 +37,7 @@ Every `OIDC_<NAME>_*` setting is in [all settings](../configuration/reference.md
 | `OIDC_<NAME>_AUTO_CREATE=true`                              | A first sign-in makes an account. Off (the default): the person waits under **Admin > Sign-in** for approval. |
 | `OIDC_<NAME>_ROLE_MAP=punchlist-admins=admin,it=superadmin` | Roles from groups, set at every sign-in. The highest match wins; no match means `user`.                       |
 | `OIDC_<NAME>_GROUP_MAP=family=Family`                       | Server group membership from provider groups. `*` mirrors every provider group.                               |
-| `LOCAL_LOGIN=hidden`                                        | Hide the password form; `/login?local` still shows it, for an admin.                                          |
+| `LOCAL_LOGIN=disabled`                                      | No passwords at all, in the app or the API. An admin gets back in with `punchlist admin login-link`.          |
 
 A new account never takes over an existing one with the same username: it gets a number after the
 name, unless you turn on [username linking](#linking-accounts). Usernames come from
