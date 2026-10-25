@@ -44,7 +44,7 @@ self.addEventListener('notificationclick', (event) => {
 // A push from the server (a reminder, an assignment, a mention): show it. The same tag as the
 // app's own reminder replaces it rather than showing twice.
 self.addEventListener('push', (event) => {
-  let payload = {};
+  let payload;
   try {
     payload = event.data ? event.data.json() : {};
   } catch {

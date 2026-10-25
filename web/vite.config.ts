@@ -34,7 +34,9 @@ export default defineConfig({
         }
       : {}),
   },
-  preview: { port: 6174, strictPort: true },
+  // An IPv4 address, not `localhost`: in a container `localhost` may be IPv6 for one side and
+  // IPv4 for the other, and the e2e run then never finds the server.
+  preview: { host: '127.0.0.1', port: 6174, strictPort: true },
   plugins: [
     react(),
     VitePWA({
@@ -62,8 +64,9 @@ export default defineConfig({
     environment: 'jsdom',
     setupFiles: ['./src/test/setup.ts'],
     // UI tests type and click through whole flows in jsdom; under coverage on a busy machine the
-    // longer ones pass 5 s now and then, which failed pushes at random.
-    testTimeout: 15_000,
+    // longer ones pass 5 s now and then, which failed pushes at random. CI's runner is shared and
+    // slower again (a settings flow took 15 s there).
+    testTimeout: process.env.CI ? 30_000 : 15_000,
     include: ['src/**/*.test.{ts,tsx}'],
     coverage: {
       provider: 'v8',

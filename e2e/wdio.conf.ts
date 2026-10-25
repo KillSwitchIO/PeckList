@@ -4,11 +4,15 @@
 // otherwise `vite preview` is started for the run.
 import { browser } from '@wdio/globals';
 import { spawn, spawnSync, type ChildProcess } from 'node:child_process';
+import { closeSync, existsSync, openSync, readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const here = dirname(fileURLToPath(import.meta.url));
-const baseUrl = process.env.E2E_BASE_URL ?? 'http://localhost:6174';
+// 127.0.0.1, as vite preview binds it (web/vite.config.ts).
+const baseUrl = process.env.E2E_BASE_URL ?? 'http://127.0.0.1:6174';
+// What vite preview printed, for when it does not come up.
+const previewLog = join(here, 'preview.log');
 const browsers = (process.env.E2E_BROWSERS ?? 'chrome,firefox')
   .split(',')
   .map((name) => name.trim());
@@ -91,13 +95,25 @@ export const config: WebdriverIO.Config = {
   },
   async onPrepare() {
     if (process.env.E2E_BASE_URL) return;
+    const log = openSync(previewLog, 'w');
     preview = spawn('pnpm', ['--dir', join(here, '..', 'web'), 'preview'], {
-      stdio: 'ignore',
+      stdio: ['ignore', log, log],
       shell: process.platform === 'win32',
       detached: process.platform !== 'win32',
     });
+    closeSync(log);
     // A cold container takes a while to start vite.
-    await waitForServer(baseUrl, 90_000);
+    try {
+      await waitForServer(baseUrl, 90_000);
+    } catch (error) {
+      const printed = existsSync(previewLog) ? readFileSync(previewLog, 'utf8').slice(-2000) : '';
+      throw new Error(
+        `${(error as Error).message}; vite preview said:\n${printed || '(nothing)'}`,
+        {
+          cause: error,
+        },
+      );
+    }
   },
   onComplete() {
     stopPreview();
