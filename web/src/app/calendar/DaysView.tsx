@@ -14,8 +14,11 @@ import { formatDay, formatHour, formatTime } from '../format.ts';
 import { t } from '../i18n/i18n.ts';
 import { ItemLine } from './ItemLine.tsx';
 import { MAX_HOUR, MIN_HOUR } from './calendarPrefs.ts';
+import { besideScrolling, scrolling } from './scrollbars.ts';
 
 const GUTTER = 44;
+/** How long a finger holds a task still before its big time grips show. */
+const HOLD_MS = 450;
 /** All-day lines a day shows before "+N" (the row grows when opened). */
 const ALL_DAY_ROWS = 3;
 const weekdayShort = new Intl.DateTimeFormat(undefined, { weekday: 'short', timeZone: 'UTC' });
@@ -59,6 +62,7 @@ export function DaysView({
   onPage,
   onGrab,
   onResize,
+  onCancelGrab,
 }: {
   start: string;
   count: number;
@@ -73,6 +77,8 @@ export function DaysView({
   onGrab: (event: React.PointerEvent<HTMLElement>, item: CalendarItem, grabMinutes: number) => void;
   /** A task's edge was dragged: its new start and end */
   onResize: (item: CalendarItem, start: string, end: string) => void;
+  /** A long hold on a task stops the drag it began, for big grips instead */
+  onCancelGrab: () => void;
 }) {
   const days = daysFrom(start, count);
   const body = useRef<HTMLDivElement>(null);
@@ -90,6 +96,10 @@ export function DaysView({
   const side = Math.max(1, Math.floor((width - GUTTER) / count / 44));
   const now = useNowMinutes();
   const [allDayOpen, setAllDayOpen] = useState(false);
+  // A task held still for a moment (touch): its time is up for change with big grips, easy to hit
+  // even on a short task, until a tap elsewhere.
+  const [editing, setEditing] = useState<string | null>(null);
+  const held = useRef<string | null>(null);
   const [resizing, setResizing] = useState<{ id: string; top: number; bottom: number } | null>(
     null,
   );
@@ -183,6 +193,11 @@ export function DaysView({
 
   const tapSlot = (event: React.PointerEvent<HTMLElement>, day: string) => {
     if (event.target !== event.currentTarget || event.button !== 0) return;
+    // A tap off the task being changed just ends that.
+    if (editing) {
+      setEditing(null);
+      return;
+    }
     const column = event.currentTarget;
     const origin = { x: event.clientX, y: event.clientY };
     const up = (next: PointerEvent) => {
@@ -247,7 +262,6 @@ export function DaysView({
   const allDay = days.map((day) =>
     (byDay.get(day) ?? []).filter((item) => item.allDay || item.kind === 'due'),
   );
-  const tallest = Math.max(0, ...allDay.map((list) => list.length));
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0 }}>
@@ -257,6 +271,8 @@ export function DaysView({
           gridTemplateColumns: columns,
           borderBottom: 1,
           borderColor: 'divider',
+          flexShrink: 0,
+          ...besideScrolling,
         }}
       >
         <Box />
@@ -289,16 +305,18 @@ export function DaysView({
           </ButtonBase>
         ))}
       </Box>
-      {tallest > 0 && (
+      {
         <Box
           sx={{
             display: 'grid',
             gridTemplateColumns: columns,
             borderBottom: 1,
             borderColor: 'divider',
+            // One height whatever the days hold, so paging through them never moves the grid.
+            height: allDayOpen ? undefined : ALL_DAY_ROWS * 17 + 6,
             maxHeight: allDayOpen ? '40%' : undefined,
-            overflowY: allDayOpen ? 'auto' : undefined,
             flexShrink: 0,
+            ...(allDayOpen ? { overflowY: 'auto', ...scrolling } : besideScrolling),
           }}
         >
           <Typography
@@ -355,7 +373,7 @@ export function DaysView({
             );
           })}
         </Box>
-      )}
+      }
       <Box
         ref={body}
         data-cal-body=""
@@ -368,6 +386,7 @@ export function DaysView({
           minHeight: 0,
           overflowY: 'auto',
           overflowX: 'hidden',
+          ...scrolling,
           touchAction: 'pan-y',
           userSelect: 'none',
         }}
@@ -443,6 +462,15 @@ export function DaysView({
                       aria-label={`${startText ? formatTime(startText) : ''} ${block.item.title}`}
                       onClick={(event) => {
                         event.stopPropagation();
+                        // The hold that opened the grips is not a click on the task.
+                        if (held.current === block.item.id) {
+                          held.current = null;
+                          return;
+                        }
+                        if (editing) {
+                          setEditing(null);
+                          if (editing === block.item.id) return;
+                        }
                         onOpenTask(block.item.taskId);
                       }}
                       onKeyDown={(event) => {
@@ -451,6 +479,32 @@ export function DaysView({
                       onPointerDown={(event) => {
                         event.stopPropagation();
                         if (!block.item.movable) return;
+                        if (event.pointerType === 'touch') {
+                          const id = event.pointerId;
+                          const origin = { x: event.clientX, y: event.clientY };
+                          const timer = setTimeout(() => {
+                            stop();
+                            onCancelGrab();
+                            held.current = block.item.id;
+                            setEditing(block.item.id);
+                            navigator.vibrate?.(15);
+                          }, HOLD_MS);
+                          const moved = (next: PointerEvent) => {
+                            if (next.pointerId !== id) return;
+                            if (Math.hypot(next.clientX - origin.x, next.clientY - origin.y) > 8) {
+                              stop();
+                            }
+                          };
+                          const stop = () => {
+                            clearTimeout(timer);
+                            window.removeEventListener('pointermove', moved);
+                            window.removeEventListener('pointerup', stop);
+                            window.removeEventListener('pointercancel', stop);
+                          };
+                          window.addEventListener('pointermove', moved);
+                          window.addEventListener('pointerup', stop);
+                          window.addEventListener('pointercancel', stop);
+                        }
                         const column = event.currentTarget.parentElement!;
                         onGrab(
                           event,
@@ -474,7 +528,13 @@ export function DaysView({
                         cursor: block.item.movable ? 'grab' : 'pointer',
                         opacity: block.item.done ? 0.55 : 1,
                         textDecoration: block.item.done ? 'line-through' : 'none',
-                        boxShadow: resizing?.id === block.item.id ? 3 : 0,
+                        boxShadow:
+                          editing === block.item.id
+                            ? (theme) => `0 0 0 2px ${theme.palette.primary.main}`
+                            : resizing?.id === block.item.id
+                              ? 3
+                              : 0,
+                        zIndex: editing === block.item.id ? 2 : undefined,
                         // A finger on a task moves it; the grid scrolls by its empty space.
                         touchAction: block.item.movable ? 'none' : 'pan-y',
                         '&:hover .pl-grip, &:focus-visible .pl-grip': { opacity: 1 },
@@ -546,6 +606,57 @@ export function DaysView({
                     </Box>
                   );
                 })}
+                {blocks
+                  .filter((block) => block.item.id === editing)
+                  .map((block) => {
+                    const sized = resizing?.id === block.item.id ? resizing : block;
+                    const left = `calc(${(block.column / Math.min(block.columns, side)) * 100}% + ${50 / Math.min(block.columns, side)}% - 14px)`;
+                    const edges = [
+                      ['top', sized.top, datePart(block.item.start) === day],
+                      [
+                        'bottom',
+                        sized.bottom,
+                        Boolean(block.item.end && datePart(block.item.end) === day),
+                      ],
+                    ] as const;
+                    return edges.map(
+                      ([edge, minutes, shown]) =>
+                        shown && (
+                          <Box
+                            key={`${block.item.id}-${edge}`}
+                            role="presentation"
+                            data-cal-big-grip={edge}
+                            onPointerDown={(event) => startResize(event, block, day, edge)}
+                            sx={{
+                              position: 'absolute',
+                              top: (minutes / 60) * hourHeight - 14,
+                              left,
+                              width: 28,
+                              height: 28,
+                              borderRadius: '50%',
+                              bgcolor: 'background.paper',
+                              border: 2,
+                              borderColor: 'primary.main',
+                              boxShadow: 2,
+                              zIndex: 3,
+                              touchAction: 'none',
+                              cursor: 'ns-resize',
+                              display: 'grid',
+                              placeItems: 'center',
+                              '&::after': {
+                                content: '""',
+                                width: 12,
+                                height: 2,
+                                borderRadius: 1,
+                                bgcolor: 'primary.main',
+                                boxShadow: (theme) => `0 4px 0 ${theme.palette.primary.main}`,
+                                transform: 'translateY(-2px)',
+                              },
+                            }}
+                          />
+                        ),
+                    );
+                  })}
                 {[...hidden.values()].map((rest) => {
                   const first = Math.min(...rest.map((block) => block.top));
                   return (

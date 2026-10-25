@@ -399,6 +399,7 @@ export function CalendarPage() {
                 }
                 onPage={step}
                 onGrab={grabItem}
+                onCancelGrab={drag.cancel}
                 onResize={(item, start, end) => {
                   const task = workspace.entities.tasks.find((each) => each.id === item.taskId);
                   if (!task?.schedule) return;
