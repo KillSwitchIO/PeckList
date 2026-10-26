@@ -237,8 +237,11 @@ public static class AdminEndpoints
         }).RequirePermission(Permission.ManageAdmins).Audited("admin.role-changed");
 
         // Linked provider accounts and moving between providers (spec: Linking and provider migration).
-        admin.MapGet("/users/{id}/identities", async (string id, ExternalSignIn signIn, ServerSettings settings, CancellationToken cancellation) =>
-            (await signIn.IdentitiesOfAsync(id, cancellation)).Select(identity => AccountEndpoints.View(identity, settings)))
+        admin.MapGet("/users/{id}/identities", async (
+            string id, ClaimsPrincipal user, IAccountStore accounts, ExternalSignIn signIn, ServerSettings settings, CancellationToken cancellation) =>
+            await OnAccountAsync(id, user, accounts, async _ =>
+                Results.Ok((await signIn.IdentitiesOfAsync(id, cancellation)).Select(identity => AccountEndpoints.View(identity, settings)).ToList()),
+                cancellation))
             .RequirePermission(Permission.ManageUsers);
 
         admin.MapDelete("/users/{id}/identities/{provider}/{subject}", async (
@@ -411,15 +414,17 @@ public static class AdminEndpoints
             }, cancellation)).RequirePermission(Permission.ManageUsers).Audited("admin.login-link-created");
 
         // Friendships admins set up or end for people (spec: Account management).
-        admin.MapGet("/users/{id}/friends", async (string id, SharingState sharing, IAccountStore accounts, CancellationToken cancellation) =>
-        {
-            var all = (await accounts.ListAsync(cancellation)).ToDictionary(account => account.Id);
-            return sharing.Index.FriendshipsOf(id)
-                .Where(each => all.ContainsKey(each.Other))
-                .Select(each => new AdminFriend(each.Other, all[each.Other].Username, each.State))
-                .OrderBy(friend => friend.Username)
-                .ToList();
-        }).RequirePermission(Permission.ManageUsers);
+        admin.MapGet("/users/{id}/friends", async (
+            string id, ClaimsPrincipal user, SharingState sharing, IAccountStore accounts, CancellationToken cancellation) =>
+            await OnAccountAsync(id, user, accounts, async _ =>
+            {
+                var all = (await accounts.ListAsync(cancellation)).ToDictionary(account => account.Id);
+                return Results.Ok(sharing.Index.FriendshipsOf(id)
+                    .Where(each => all.ContainsKey(each.Other))
+                    .Select(each => new AdminFriend(each.Other, all[each.Other].Username, each.State))
+                    .OrderBy(friend => friend.Username)
+                    .ToList());
+            }, cancellation)).RequirePermission(Permission.ManageUsers);
 
         // Pending task invites between the two settle as they would after a friend link.
         admin.MapPost("/friendships", async (
@@ -445,22 +450,23 @@ public static class AdminEndpoints
         }).RequirePermission(Permission.ManageUsers).Audited("admin.friends-ended", "a");
 
         // Shared lists and groups someone owns, and handing them to another person.
-        admin.MapGet("/users/{id}/shared", (string id, Ownership ownership) =>
-            ownership.SharedBy(id).Select(share => new AdminShare(share.Kind, share.Id, share.Name, share.People)))
+        admin.MapGet("/users/{id}/shared", async (
+            string id, ClaimsPrincipal user, IAccountStore accounts, Ownership ownership, CancellationToken cancellation) =>
+            await OnAccountAsync(id, user, accounts, _ =>
+                Task.FromResult(Results.Ok(ownership.SharedBy(id).Select(share => new AdminShare(share.Kind, share.Id, share.Name, share.People)).ToList())),
+                cancellation))
             .RequirePermission(Permission.ManageUsers);
 
         admin.MapPost("/users/{id}/hand-over", async (
-            string id, HandOverRequest request, Ownership ownership, IAccountStore accounts, HttpContext context, CancellationToken cancellation) =>
-        {
-            if (await accounts.FindByIdAsync(id, cancellation) is null || request.To is null
-                || await accounts.FindByIdAsync(request.To, cancellation) is not { } to)
+            string id, HandOverRequest request, ClaimsPrincipal user, Ownership ownership, IAccountStore accounts, HttpContext context,
+            CancellationToken cancellation) =>
+            await OnAccountAsync(id, user, accounts, async _ =>
             {
-                return Results.NotFound();
-            }
-            var moved = await ownership.HandOverAsync(id, request.To, request.Ids, cancellation);
-            context.Audit().Detail = $"{moved} to {to.Username}";
-            return Results.Ok(new { Moved = moved });
-        }).RequirePermission(Permission.ManageUsers).Audited("admin.shares-handed-over");
+                if (request.To is null || await accounts.FindByIdAsync(request.To, cancellation) is not { } to) return Results.NotFound();
+                var moved = await ownership.HandOverAsync(id, request.To, request.Ids, cancellation);
+                context.Audit().Detail = $"{moved} to {to.Username}";
+                return Results.Ok(new { Moved = moved });
+            }, cancellation)).RequirePermission(Permission.ManageUsers).Audited("admin.shares-handed-over");
 
         // View the app as someone (super admins; spec: Account management, impersonation).
         admin.MapPost("/users/{id}/impersonate", async (
@@ -594,10 +600,6 @@ public static class AdminEndpoints
         return admin;
     }
 
-    /// <summary>
-    /// Run an action on someone else's account: 404 when there is none, and 403 when it is an admin's
-    /// and the caller may not manage admins (spec: only super admins act on admins).
-    /// </summary>
     /// <summary>After a change to server groups, their members or accounts: the app's copies follow.</summary>
     private static RouteHandlerBuilder ProjectsServerGroups(this RouteHandlerBuilder builder) =>
         builder.AddEndpointFilter(async (context, next) =>
@@ -607,7 +609,11 @@ public static class AdminEndpoints
             return result;
         });
 
-    private static async Task<IResult> OnAccountAsync(
+    /// <summary>
+    /// Run an action on someone else's account: 404 when there is none, and 403 when it is an admin's
+    /// and the caller may not manage admins (spec: only super admins act on admins).
+    /// </summary>
+    internal static async Task<IResult> OnAccountAsync(
         string id, ClaimsPrincipal user, IAccountStore accounts, Func<Account, Task<IResult>> action, CancellationToken cancellation)
     {
         if (await accounts.FindByIdAsync(id, cancellation) is not { } account) return Results.NotFound();

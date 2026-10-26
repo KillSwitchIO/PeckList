@@ -227,6 +227,8 @@ export const en = {
   'admin.backups.exportTitle': 'Export and restore',
   'admin.backups.exportServer': 'Download the whole server',
   'admin.backups.fromFile': 'Restore from a file',
+  'admin.backups.adminHint':
+    'Only super admins download, export or restore the whole server: those files hold every password hash and the keys that sign sessions. You can restore anyone who is not an admin from a file, and export one person from their menu under Users.',
   'admin.backups.exportHint':
     'To export one person, use Export their data in their menu under Users.',
   'admin.backups.restoreTitle': 'Restore from {name}',
@@ -257,6 +259,7 @@ export const en = {
   'serverSettings.from.page': '{key} · saved here',
   'serverSettings.from.default': '{key} · default: {value}',
   'serverSettings.overrides': 'overrides a value saved here',
+  'serverSettings.superAdminOnly': 'super admins only',
   'serverSettings.pending': 'Saved changes apply when the server restarts.',
   'admin.logs.outputs': 'Where logs go',
   'admin.logs.view': 'Show',

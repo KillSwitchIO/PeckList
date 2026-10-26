@@ -27,6 +27,11 @@ change once written, so an incremental backup tool copies each one once.
   one person within it. A whole-server restore is applied at the next start, before anything loads,
   and the page offers the restart.
 
+Downloading, exporting and restoring the whole server is for super admins: those files hold every
+password hash and the keys that sign sessions. Admins take backups, see the list, and export and
+restore people who are not admins; someone an admin restores always comes back as a plain user.
+See [users and roles](users-and-roles.md#roles).
+
 ## From the command line
 
 ```bash

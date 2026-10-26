@@ -42,6 +42,8 @@ function memoryAdmin(benId: string) {
     friendships: [] as [string, string][],
     page: {} as Record<string, string>,
     restarted: false,
+    /** Signed in as a plain admin: sign-in settings come locked, as the server sends them. */
+    signInLocked: false,
     setupDone: true,
     backups: [] as { name: string; taken: string; size: number }[],
     restores: [] as { source: unknown; username: string | null }[],
@@ -176,9 +178,10 @@ function memoryAdmin(benId: string) {
         default: 'invite',
         value: state.page.REGISTRATION ?? null,
         source: state.page.REGISTRATION ? ('page' as const) : ('default' as const),
-        locked: false,
+        locked: state.signInLocked,
         saved: Boolean(state.page.REGISTRATION),
         live: false,
+        superAdminOnly: true,
       },
       {
         key: 'SNAPSHOT_KEEP',
@@ -773,6 +776,47 @@ describe('admin', () => {
       await screen.findByText(/The server is restarting to restore the backup/),
     ).toBeInTheDocument();
     expect(state.restores.map((each) => each.username)).toEqual([null, 'sam', 'everyone']);
+  });
+
+  it('offers a plain admin no whole-server backups', async () => {
+    const { state } = await adminApp('admin', '/admin/backups', {
+      prepare: (admin) => {
+        admin.signInLocked = true;
+      },
+    });
+    const scheduled = await screen.findByRole('region', { name: 'Backups on the server' });
+    await userEvent.click(within(scheduled).getByRole('button', { name: 'Back up now' }));
+    const row = await within(scheduled).findByRole('listitem', {
+      name: 'punchlist-20261022-120000.json',
+    });
+    expect(within(row).queryByRole('link', { name: 'Download' })).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('link', { name: 'Download the whole server' }),
+    ).not.toBeInTheDocument();
+    await userEvent.click(within(row).getByRole('button', { name: 'Restore' }));
+    const dialog = await screen.findByRole('dialog');
+    expect(
+      within(dialog).queryByRole('radio', { name: 'The whole server' }),
+    ).not.toBeInTheDocument();
+    await userEvent.type(within(dialog).getByLabelText('Whose data'), 'sam');
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Restore' }));
+    await waitFor(() => expect(state.restores).toHaveLength(1));
+  });
+
+  it('shows a plain admin the sign-in settings locked to super admins', async () => {
+    await adminApp('admin', '/admin/settings', {
+      prepare: (admin) => {
+        admin.signInLocked = true;
+      },
+    });
+    const general = await screen.findByRole('region', { name: 'General' });
+    expect(
+      within(general).getByText('REGISTRATION · default: invite · super admins only'),
+    ).toBeInTheDocument();
+    expect(within(general).getByRole('combobox', { name: 'Who can join' })).toHaveAttribute(
+      'aria-disabled',
+      'true',
+    );
   });
 
   it('links a provider account by hand, to a person or from a waiting sign-in', async () => {

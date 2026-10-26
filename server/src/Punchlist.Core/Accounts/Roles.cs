@@ -14,6 +14,14 @@ public enum Permission
     ManageBackups,
     ViewStats,
     Impersonate,
+
+    /// <summary>
+    /// What would let someone make themselves a super admin: settings that decide who signs in and
+    /// how (<see cref="Configuration.SettingsCatalog.SuperAdminOnly"/>), and whole-server backups,
+    /// which hold every password hash and the keys that sign sessions (download, export, restore).
+    /// Super admins only.
+    /// </summary>
+    ManageSecurity,
 }
 
 public static class Roles
