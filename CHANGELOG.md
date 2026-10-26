@@ -4,6 +4,30 @@ All notable changes to Punchlist. Generated from [Conventional Commits](https://
 by `pnpm changelog`; the version follows [Semantic Versioning](https://semver.org/). Before 1.0.0 a
 minor release may break things; every break is listed under **Breaking changes** with what to do.
 
+## [0.2.3] - 2026-10-26
+
+### Added
+
+- **server:** Send security headers and compressed answers itself
+- **mobile:** Snooze picker, pull to sync, and servers behind a sign-in page
+- **tasks:** Pin subtasks too
+- **settings:** Swipe right shows Complete and Pin; calendar length 1 hour
+- **sidebar:** The mini calendar always starts folded to this week
+- **tasks:** The + button opens the new task screen
+- **reminders:** Choose the time all-day reminders come at (schema 16)
+- **profile:** The version at the bottom of the profile menu
+- **calendar:** A header like Upcoming's, with a date picker on the title
+- **calendar:** Outline the day a dragged task will land on
+- **tasks:** Drag subtasks to reorder them in task details
+- **notes:** A handle on each list item in the notes to move it
+
+### Fixed
+
+- **web:** Compile the workspace validator at build time
+- **web:** A sheet opened from the expanded task form shows on top of it
+- **tasks:** The Title label in task details is no longer cut off
+- **drag:** A task moved within its own day stays where it is put
+
 ## [0.2.2] - 2026-10-26
 
 ### Breaking changes
@@ -27,6 +51,7 @@ minor release may break things; every break is listed under **Breaking changes**
 - **mobile:** Run the Gradle wrapper by full path on Windows
 - **mobile:** Sign in inside the app on servers without app sign-in
 - **mobile:** Keep an older server's provider sign-in inside the app
+- **trash:** Purge only trash in lists I own
 
 ### Documentation
 
