@@ -4,6 +4,16 @@ All notable changes to Punchlist. Generated from [Conventional Commits](https://
 by `pnpm changelog`; the version follows [Semantic Versioning](https://semver.org/). Before 1.0.0 a
 minor release may break things; every break is listed under **Breaking changes** with what to do.
 
+## [0.2.1] - 2026-10-26
+
+### Breaking changes
+
+- **auth:** LOCAL_LOGIN=disabled turns password sign-in off everywhere. LOCAL_LOGIN takes enabled or disabled. shown and hidden still work, but hidden now means disabled: the API refuses passwords and password sessions end, and /login?local no longer shows the form. Use `punchlist admin login-link <user>` to get an admin in.
+
+### Fixed
+
+- **auth:** LOCAL_LOGIN=disabled turns password sign-in off everywhere
+
 ## [0.2.0] - 2026-10-25
 
 ### Breaking changes
