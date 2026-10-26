@@ -7,3 +7,14 @@ export function focusAddTask(): boolean {
   field.scrollIntoView?.({ block: 'center', behavior: 'smooth' });
   return true;
 }
+
+/**
+ * Open the new task screen of the page's add-task field (its expand button: a blank task, full
+ * screen, with the page's defaults); false when the page has none.
+ */
+export function expandAddTask(): boolean {
+  const button = document.querySelector<HTMLElement>('[data-add-task-expand]');
+  if (!button) return false;
+  button.click();
+  return true;
+}

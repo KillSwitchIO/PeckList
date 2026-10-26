@@ -26,7 +26,7 @@ import {
 import { useEffect, useRef, useState } from 'react';
 import { Outlet, useLocation, useNavigate } from 'react-router';
 import { t } from '../i18n/i18n.ts';
-import { focusAddTask } from '../tasks/focusAddTask.ts';
+import { expandAddTask } from '../tasks/focusAddTask.ts';
 import { PullToRefresh } from '../sync/PullToRefresh.tsx';
 import { SyncNoticeToast } from '../sync/SyncNoticeToast.tsx';
 import { ReminderScheduler } from '../reminders/ReminderScheduler.tsx';
@@ -472,10 +472,11 @@ function AppFrame() {
               color="primary"
               aria-label={t('shortcut.addTask')}
               onClick={() => {
-                // There is no Q key on a phone: the page's add field, else the Inbox's.
-                if (focusAddTask()) return;
+                // The new task screen, with the page's defaults; on a page with no add field,
+                // the Inbox's (R-FB-74).
+                if (expandAddTask()) return;
                 go('/inbox');
-                setTimeout(focusAddTask, 0);
+                setTimeout(expandAddTask, 0);
               }}
               sx={{
                 position: 'fixed',

@@ -40,21 +40,28 @@ describe('app shell', () => {
     expect(screen.getByRole('button', { name: 'Unscheduled' })).toBeInTheDocument();
   });
 
-  it('gives phones a + button that opens the add-task field', async () => {
+  it('gives phones a + button that opens the new task screen (R-FB-74)', async () => {
     mockViewport('phone');
-    await renderApp('/today');
+    const { store } = await renderApp('/today');
     await userEvent.click(screen.getByRole('button', { name: 'Add a task' }));
-    expect(document.activeElement).toBe(document.querySelector('[data-add-task]'));
+    // A blank task, full screen, dated today as the page's tasks are.
+    const form = await screen.findByRole('dialog');
+    expect(within(form).getByLabelText('Title')).toHaveValue('');
+    const blank = () =>
+      store.getState().workspace!.entities.tasks.filter((task) => task.title === '');
+    expect(blank()).toHaveLength(1);
+    expect(blank()[0]!.schedule).not.toBeNull();
+    await userEvent.keyboard('{Escape}');
+    await userEvent.keyboard('{Escape}');
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
 
-    // A page without an add field: on to the Inbox's.
+    // A page without an add field: the Inbox's.
     await userEvent.click(screen.getByRole('button', { name: 'Calendar' }));
     await userEvent.click(screen.getByRole('button', { name: 'Add a task' }));
     expect(
       await screen.findByRole('heading', { level: 1, name: 'Mess Drawer' }),
     ).toBeInTheDocument();
-    await waitFor(() =>
-      expect(document.activeElement).toBe(document.querySelector('[data-add-task]')),
-    );
+    expect(await screen.findByRole('dialog')).toBeInTheDocument();
   });
 
   it('opens a drawer from the menu button on tablets', async () => {
