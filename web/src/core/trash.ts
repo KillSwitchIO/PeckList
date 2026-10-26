@@ -5,6 +5,7 @@
 import { putEntities } from './collections.ts';
 import { updateEntity, type OpContext } from './ops.ts';
 import { TRASH_DAYS } from './queries.ts';
+import { myRole } from './sharing.ts';
 import type { Id, Task, WorkspaceFile } from './types.ts';
 
 /** The deletedAt of a purged entity: before anything was ever deleted. */
@@ -46,7 +47,7 @@ export function purgeTask(ctx: OpContext, workspace: WorkspaceFile, id: Id): Wor
   );
 }
 
-/** Empty the trash: purge every task, list and section in it now. */
+/** Empty the trash: purge every task, list and section in it that is mine, now. */
 export function emptyTrash(ctx: OpContext, workspace: WorkspaceFile): WorkspaceFile {
   return purgeOlderThan(ctx, workspace, '9999-12-31T23:59:59.999Z');
 }
@@ -59,11 +60,17 @@ export function purgeExpired(ctx: OpContext, workspace: WorkspaceFile, now: numb
   return purgeOlderThan(ctx, workspace, new Date(now - TRASH_DAYS * 86_400_000).toISOString());
 }
 
+/**
+ * Only trash in lists I own is mine to erase (audit C2). A viewer's purges of a shared list's
+ * trash are refused by the server at every start ("The server refused N changes"), and an editor
+ * would blank the owner's trash: the owner's own device erases it.
+ */
 function purgeOlderThan(ctx: OpContext, workspace: WorkspaceFile, cutoff: string): WorkspaceFile {
+  const mine = (listId: Id) => myRole(workspace, ctx.userId, listId) === 'owner';
   const due = (entity: { deletedAt: string | null }) =>
     entity.deletedAt !== null && !isPurged(entity) && entity.deletedAt < cutoff;
   let next = workspace;
-  const tasks = workspace.entities.tasks.filter(due);
+  const tasks = workspace.entities.tasks.filter((task) => due(task) && mine(task.listId));
   if (tasks.length > 0) {
     next = putEntities(
       next,
@@ -71,7 +78,7 @@ function purgeOlderThan(ctx: OpContext, workspace: WorkspaceFile, cutoff: string
       tasks.map((task) => purgedTask(ctx, task)),
     );
   }
-  const lists = workspace.entities.lists.filter(due);
+  const lists = workspace.entities.lists.filter((list) => due(list) && mine(list.id));
   if (lists.length > 0) {
     next = putEntities(
       next,
@@ -79,7 +86,9 @@ function purgeOlderThan(ctx: OpContext, workspace: WorkspaceFile, cutoff: string
       lists.map((list) => updateEntity(ctx, list, { name: '', deletedAt: PURGED_AT })),
     );
   }
-  const sections = workspace.entities.sections.filter(due);
+  const sections = workspace.entities.sections.filter(
+    (section) => due(section) && mine(section.listId),
+  );
   if (sections.length > 0) {
     next = putEntities(
       next,

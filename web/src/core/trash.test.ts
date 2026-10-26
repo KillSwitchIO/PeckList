@@ -69,6 +69,37 @@ describe('trash purge', () => {
     expect(purgeExpired(s.ctx, settled, s.now + 100 * DAY)).toBe(settled);
   });
 
+  // Audit C2: a viewer's device purged a shared list's trash at every start; the server refused
+  // each one ("The server refused N changes"), and an editor's blanked the owner's trash.
+  it('leaves trash in a list someone else owns to them, and erases my own', () => {
+    const s = setup();
+    const theirs = createList(s.ctx, s.ws, { name: 'Their list', color: '#A7C7E7' });
+    s.ws = theirs.workspace;
+    const shared = theirs.list.id;
+    s.ws = {
+      ...s.ws,
+      entities: {
+        ...s.ws.entities,
+        lists: s.ws.entities.lists.map((list) =>
+          list.id === theirs.list.id
+            ? { ...list, createdBy: '01SOMEONEELSE0000000000001', visibility: 'shared' as const }
+            : list,
+        ),
+      },
+    };
+    const inTheirs = createTask(s.ctx, s.ws, { title: 'Their old task', listId: shared });
+    s.ws = deleteTask(s.ctx, inTheirs.workspace, inTheirs.task.id);
+    const mineToo = s.add('My old task');
+    s.ws = deleteTask(s.ctx, s.ws, mineToo.id);
+    s.advance(31);
+
+    s.ws = purgeExpired(s.ctx, s.ws, s.now);
+    expect(isPurged(find(s.ws, mineToo.id))).toBe(true);
+    expect(find(s.ws, inTheirs.task.id).title).toBe('Their old task');
+    s.ws = emptyTrash(s.ctx, s.ws);
+    expect(find(s.ws, inTheirs.task.id).title).toBe('Their old task');
+  });
+
   it('deletes one task forever with the subtasks trashed along with it', () => {
     const s = setup();
     const parent = s.add('Parent');
