@@ -35,6 +35,9 @@ export function BottomSheet({
       onClose={onClose as (event: SyntheticEvent) => void}
       disableSwipeToOpen
       disableDiscovery
+      // On a dialog's level, not a drawer's (below it): a sheet opened from a dialog, such as the
+      // date from the expanded task form, must come out on top of it. Among equals, the last opened wins.
+      sx={{ zIndex: (theme) => theme.zIndex.modal }}
       // Closed sheets leave the page (MUI keeps a swipeable one mounted by default).
       ModalProps={{ keepMounted }}
       slotProps={{
