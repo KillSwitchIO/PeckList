@@ -219,7 +219,11 @@ describe('calendar', () => {
     });
     pointAt(tomorrow);
     fireEvent.pointerMove(window, { clientX: 60, clientY: 10, pointerId: 1 });
+    // The day it would land on is outlined while it is over it (R-FB-78).
+    expect(tomorrow).toHaveAttribute('data-cal-drop');
+    expect(month.querySelectorAll('[data-cal-drop]')).toHaveLength(1);
     fireEvent.pointerUp(window, { clientX: 60, clientY: 10, pointerId: 1 });
+    expect(month.querySelectorAll('[data-cal-drop]')).toHaveLength(0);
     fireEvent.click(line);
     expect(task(dentist).schedule).toMatchObject({ start: addDays(today, 1), allDay: true });
     expect(screen.queryByRole('textbox', { name: /title/i })).toBeNull();

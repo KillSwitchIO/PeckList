@@ -239,6 +239,13 @@ export function CalendarPage() {
   const grabItem = (event: React.PointerEvent<HTMLElement>, item: CalendarItem, grabMinutes = 0) =>
     drag.begin(event, { taskId: item.taskId, title: item.title, grabMinutes });
 
+  // A task dragged onto a whole day (any day on the month, the all-day row in Days): that day is
+  // outlined, so it is plain where it lands (R-FB-78).
+  const dropDay =
+    drag.ghost?.target && (mode === 'month' || drag.ghost.target.minutes === null)
+      ? drag.ghost.target.day
+      : null;
+
   // A task dragged over a time in Days: where it would land, at its own length.
   const preview = (() => {
     const target = drag.ghost?.target;
@@ -460,6 +467,7 @@ export function CalendarPage() {
                 onRange={(first, last, point) => setRange({ first, last, ...point })}
                 rangeOpen={range !== null}
                 onGrab={(event, item) => grabItem(event, item)}
+                dropDay={dropDay}
               />
             ) : (
               <DaysView
@@ -478,6 +486,7 @@ export function CalendarPage() {
                 onGrab={grabItem}
                 onCancelGrab={drag.cancel}
                 preview={preview}
+                dropDay={dropDay}
                 onResize={(item, start, end) => {
                   const task = workspace.entities.tasks.find((each) => each.id === item.taskId);
                   if (!task?.schedule) return;
