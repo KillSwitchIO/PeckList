@@ -69,58 +69,53 @@ keep Punchlist's `TRUSTED_PROXIES` on Caddy.
 ## Caddy
 
 The recommended Caddyfile. Caddy gets and renews the certificate itself and redirects `http` to
-`https`:
+`https`; Punchlist sends its own security headers and compressed answers, so nothing else is
+needed:
 
 ```text title="Caddyfile"
 --8<-- "examples/reverse-proxy/Caddyfile"
 ```
 
-What each part is for, and whether you need it:
+What people often add, and whether you need it:
 
-| Part                                         | Needed?     | Why                                                                                                                                                                                                                                                                                                   |
-| -------------------------------------------- | ----------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `tasks.example.com { reverse_proxy ... }`    | Yes         | The certificate, the redirect to HTTPS and the forwarded headers all come with it.                                                                                                                                                                                                                   |
-| `encode zstd gzip`                           | Recommended | Punchlist sends nothing compressed. Compressed, the app's script goes from 1.5 MB to under 0.5 MB and sync answers shrink by more than half, which saves seconds on a first sign-in over a slow connection. Caddy leaves the live-update stream uncompressed, so updates are not delayed.            |
-| `header { ... }`                             | Recommended | Browser protections Punchlist does not send itself yet. See [security headers](#security-headers).                                                                                                                                                                                                    |
-| `flush_interval -1` (older examples)         | No          | Caddy already sends server-sent events at once. Harmless if you have it.                                                                                                                                                                                                                              |
-| `request_body max_size`                      | No          | Caddy has no upload limit unless you set one. If you do, allow at least 200 MB for backups.                                                                                                                                                                                                           |
-| `header_up X-Forwarded-*`, `header_up Host`  | No          | Caddy sets `X-Forwarded-For`, `X-Forwarded-Proto` and `X-Forwarded-Host`, and passes `Host` on, by itself.                                                                                                                                                                                            |
+| Part                                        | Needed? | Why                                                                                                                                                                                                                                                              |
+| ------------------------------------------- | ------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `tasks.example.com { reverse_proxy ... }`   | Yes     | The certificate, the redirect to HTTPS and the forwarded headers all come with it.                                                                                                                                                                              |
+| `encode zstd gzip`                          | No      | Punchlist compresses its answers itself, and its app files come compressed from the build at the highest setting: smaller (355 KB for the app's script) than Caddy compressing them on the fly (about 480 KB). Harmless: Caddy leaves compressed answers alone. |
+| `header { ... }` security headers           | No      | Punchlist sends them itself, see [security headers](#security-headers). Harmless if you keep yours, with one exception: never set `Content-Security-Policy` without the `?` in front, or yours replaces Punchlist's.                                         |
+| `flush_interval -1`                         | No      | Caddy already sends server-sent events at once.                                                                                                                                                                                                                 |
+| `request_body max_size`                     | No      | Caddy has no upload limit unless you set one. If you do, allow at least 200 MB for backups.                                                                                                                                                                     |
+| `header_up X-Forwarded-*`, `header_up Host` | No      | Caddy sets `X-Forwarded-For`, `X-Forwarded-Proto` and `X-Forwarded-Host`, and passes `Host` on, by itself.                                                                                                                                                      |
 
 A whole Compose setup with Caddy is in [Docker Compose](docker-compose.md#with-https-caddy).
 
+On Punchlist 0.2.2 or older, which sent neither, add `encode zstd gzip` and the security headers
+below to the site block.
+
 ## Security headers
 
-Punchlist does not set browser security headers on its pages yet, so let the proxy add them. None
-of them is needed for Punchlist to work; each closes a door that is cheap to close.
+Punchlist sets these on every answer itself, so they protect you with any proxy, or none. They are
+listed here so you know what they do, and so you do not need to add them at the proxy:
 
-| Header                            | Needed?     | Why                                                                                                                                                                                                                                                                                                                                       |
-| --------------------------------- | ----------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `Strict-Transport-Security`       | Recommended | Browsers that have been to the site once go straight to `https` from then on, even when someone types or links `http://`, so nobody on the way can catch a first plain request. Add it once HTTPS works: browsers then refuse plain `http` on that name for a year. Leave out `preload` unless you mean to submit the domain to the browsers' preload list. |
-| `X-Frame-Options: DENY`           | Recommended | No other site can show Punchlist inside a frame, so nobody can trick a signed-in admin into clicking buttons on a hidden copy of the admin pages ("clickjacking"). Neither the web app nor the Android app frames it.                                                                                                                     |
-| `X-Content-Type-Options: nosniff` | Recommended | Browsers take the content type the server gives instead of guessing, so a file cannot be run as a script or page. Attachments already send it; this covers everything else.                                                                                                                                                              |
-| `Referrer-Policy: same-origin`    | Recommended | When someone follows a link in a task's notes, the other site does not learn your server's address or which page they came from.                                                                                                                                                                                                         |
-| `Content-Security-Policy`         | Optional    | Limits where the page may load scripts, styles, images and connections from: if a bug ever let someone inject script, it could not pull in more from elsewhere or send your data away. It needs care, see below.                                                                                                                        |
-| `-Server`                         | No          | Hides that the proxy is Caddy. Cosmetic: it does not make anything harder to attack.                                                                                                                                                                                                                                                     |
-| `X-XSS-Protection`, `Expect-CT`   | No          | Obsolete; current browsers ignore them. Do not add them.                                                                                                                                                                                                                                                                                  |
+| Header                            | Why                                                                                                                                                                                                                                                                          |
+| --------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `Content-Security-Policy`         | The page may load scripts, styles, images and connections only from your server: if a bug ever let someone inject script, it could not pull in more from elsewhere or send your data away. Attachments and provider icons get a stricter, sandboxed policy of their own. |
+| `Strict-Transport-Security`       | Browsers that have been to the site over HTTPS go straight to `https` for a year, even when someone types or links `http://`, so nobody on the way can catch a first plain request. Sent only on HTTPS requests and never for `localhost`.                                 |
+| `X-Frame-Options: DENY`           | No other site can show Punchlist inside a frame, so nobody can trick a signed-in admin into clicking buttons on a hidden copy of the admin pages ("clickjacking"). The policy's `frame-ancestors 'none'` says the same to current browsers.                               |
+| `X-Content-Type-Options: nosniff` | Browsers take the content type the server gives instead of guessing, so a file cannot be run as a script or page.                                                                                                                                                         |
+| `Referrer-Policy: same-origin`    | When someone follows a link in a task's notes, the other site does not learn your server's address or which page they came from.                                                                                                                                           |
 
-**About the Content-Security-Policy:**
+**HSTS needs the proxy to say HTTPS.** Punchlist knows a request came over HTTPS from the proxy's
+`X-Forwarded-Proto`, which it believes only from [trusted proxies](#trusted-proxies). With the
+proxy left out of `TRUSTED_PROXIES`, the header is not sent.
 
-- The policy in the example is the strictest one the app runs with today. It was checked in Chrome:
-  signing in, adding and completing tasks, live sync between two devices, and the service worker,
-  with nothing blocked. It allows `'unsafe-eval'` because the app builds its data checks at run
-  time, and inline styles because its components set styles that way. Without `'unsafe-eval'` the
-  app does not start.
-- Set it with `?` (`?Content-Security-Policy`) in Caddy. Punchlist sends its own, stricter policy on
-  attachments and provider icons, and `?` only adds the header where there is none. A plain
-  `Content-Security-Policy` would replace those.
-- The Android app adds its bridge as a document-start script, which a page's policy does not block
-  on current Android WebViews. If the app misbehaves on an old phone, take the policy out first.
-- If something stops working after you add it, open the browser's console: blocked loads are listed
-  there. Removing the line rules it out.
+**Not needed, whatever guides say:** hiding the `Server` header (cosmetic, it makes nothing harder
+to attack), `X-XSS-Protection` and `Expect-CT` (obsolete, current browsers ignore them), and HSTS
+`preload` (it puts your domain on a list built into browsers that is slow to get off).
 
-In nginx the same headers go in the `server` block as `add_header Name "value" always;`. nginx adds
-its policy next to Punchlist's on attachments instead of replacing it; browsers then apply both,
-which is fine.
+**If something you add needs more** (a browser extension that injects script is the usual case),
+the browser's console lists what the policy blocked. The proxy can drop Punchlist's policy as a last
+resort, in Caddy with `header -Content-Security-Policy`, at the cost of the protection above.
 
 ## nginx
 
@@ -128,9 +123,8 @@ which is fine.
 --8<-- "examples/reverse-proxy/nginx.conf"
 ```
 
-nginx does not compress proxied answers unless told to. Add
-`gzip on; gzip_proxied any; gzip_types application/json application/javascript text/css image/svg+xml;`
-for the same gain as Caddy's `encode`, and keep `text/event-stream` out of `gzip_types`.
+Compression and security headers come from Punchlist; nginx needs no `gzip` or `add_header`
+lines for them.
 
 ## Traefik
 
@@ -140,8 +134,8 @@ Labels for a Traefik v3 that watches Docker:
 --8<-- "examples/docker/compose.traefik.yaml"
 ```
 
-Traefik streams responses by default; nothing extra is needed for `/api/events`. Its `compress`
-middleware gives compression and a `headers` middleware the security headers above.
+Traefik streams responses by default; nothing extra is needed for `/api/events`, and no `compress`
+or `headers` middleware either.
 
 ## Apache
 

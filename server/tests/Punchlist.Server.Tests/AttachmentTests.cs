@@ -98,6 +98,8 @@ public sealed class AttachmentTests(ServerFixture fixture) : IClassFixture<Serve
         Assert.Equal(HttpStatusCode.OK, download.StatusCode);
         Assert.Equal(bytes, await download.Content.ReadAsByteArrayAsync(Token));
         Assert.Equal("nosniff", download.Headers.GetValues("X-Content-Type-Options").Single());
+        // Its own sandboxed policy, not the app's (ResponseHardening adds only what is missing).
+        Assert.Equal("sandbox; default-src 'none'", download.Headers.GetValues("Content-Security-Policy").Single());
         Assert.Equal(HttpStatusCode.NotFound, (await kim.GetAsync($"/api/attachments/{sha}", Token)).StatusCode);
 
         // Anything that is not plain viewing downloads (HTML never renders from here).

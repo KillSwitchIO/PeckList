@@ -1,22 +1,7 @@
 # Caddy in front of Punchlist on 127.0.0.1:8080. Caddy gets and renews the certificate itself,
 # redirects http to https and sets X-Forwarded-For and X-Forwarded-Proto.
 # Set TRUSTED_PROXIES=127.0.0.1 on Punchlist.
+# Punchlist sends its own security headers and compressed answers: nothing else is needed here.
 tasks.example.com {
-	# Recommended: Punchlist sends nothing compressed, and the app is 1.5 MB of script.
-	# Live updates (the event stream) are not held back by it.
-	encode zstd gzip
-
-	# Recommended: browser security headers Punchlist does not send itself yet.
-	# Why each one is there: https://killswitch10.gitlab.io/punchlist/install/reverse-proxy/#security-headers
-	header {
-		Strict-Transport-Security "max-age=31536000"
-		X-Content-Type-Options "nosniff"
-		Referrer-Policy "same-origin"
-		X-Frame-Options "DENY"
-		# Optional. "?" keeps the stricter policy Punchlist sets on attachments.
-		?Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self'; font-src 'self' data:; worker-src 'self'; manifest-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none'"
-		-Server
-	}
-
 	reverse_proxy 127.0.0.1:8080
 }
