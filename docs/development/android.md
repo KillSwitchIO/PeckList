@@ -28,6 +28,19 @@ app (ADR-0017 in the project notes). There is no second copy of the UI.
   not handle. So Capacitor's handling is off (`SystemBars.insetsHandling: 'disable'`) and
   `MainActivity` pads the window itself (bars, cutout and keyboard), with the app's background
   behind the bars; the page sees no insets.
+- **Pull to refresh**: pulling down at the top syncs, with a Chrome-like circle
+  (`web/src/app/sync/PullToRefresh.tsx`, also in an installed web app). The WebView's own
+  overscroll stretch is off: it dragged the fixed bottom bar along.
+- **A sign-in page in front of the server** (Pangolin, Cloudflare Access, Authelia, Authentik):
+  the WebView is redirected to another site, which Capacitor would open in the browser, and the
+  gate's sign-in (often a passkey) does not work in a WebView anyway. So the app notices the
+  redirect (`ShellWebViewClient`, and `Gate.gated` on start for a cached app) and shows a page of
+  its own: **Sign in** opens `/auth/app/gate` in a browser tab with a fresh RSA public key; past the
+  gate, our server (`AppGate.cs`) confirms like app sign-in and sends the gate's cookies back to
+  `<package>://gate`, sealed to that key (RSA-OAEP-SHA256 around AES-256-GCM); `Gate` puts them in
+  the WebView's cookies for a month (the gate asks again when its own session ends). **Sign in here
+  instead** signs in to the gate inside the WebView, for a gate without passkeys or a server too
+  old for `/auth/app/gate`. The connect page says when an address is gated (`ServerCheck`, `gated`).
 - **Getting off a server**: the connect page always offers **Use on this device only**; the
   offline page's **Use another server** and the launcher icon's long-press shortcut **Change
   server** (`res/xml/shortcuts.xml`) leave the server for the app's own connect page, whatever the
@@ -40,11 +53,14 @@ app (ADR-0017 in the project notes). There is no second copy of the UI.
   weeks of reminders (at most 100) to the shell whenever they change
   (`web/src/adapters/shell-notifier.ts`, shell api 3; an older shell gets them through Capacitor's
   Local Notifications instead). `Reminders` sets an exact alarm for each (`USE_EXACT_ALARM`) and
-  shows it when it fires, in a "Reminders" channel, with **Complete** and **Snooze 10 min** as
-  TickTick has. On a server the buttons act there (`POST /api/reminders/act`, `ReminderReceiver`)
-  without opening the app; Snooze also sets the new reminder at once. Standalone, for a repeating
-  task (only the app works out its next date), or when the server cannot be reached, the button
-  opens the app and does it there (`app/native/NotificationOpen.tsx`). A tap opens the task.
+  shows it when it fires, in a "Reminders" channel, with **Complete** and **Snooze** as TickTick
+  has. Snooze asks how long first (`SnoozeActivity`, a dialog over whatever is on screen: 10 or 30
+  minutes, 1 or 3 hours, tomorrow at 9:00, or a time). On a server the buttons act there
+  (`POST /api/reminders/act`, `ReminderReceiver`) without opening the app, and take effect on the
+  phone at once; offline, the press waits in `Pending` and goes at the next check-in or start, with
+  no second notification. Standalone, or Complete on a repeating task (only the app works out its
+  next date), the button opens the app and does it there (`app/native/NotificationOpen.tsx`). A tap
+  opens the task.
   Reminders further out are handed over by the background check-in.
 - **Background check-in** (instead of Web Push): with the app closed, an exact alarm wakes
   `CheckReceiver` every 5 minutes (Settings > Notifications: off, or 15, 30 or 60 minutes). It

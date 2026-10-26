@@ -129,6 +129,8 @@ final class BackgroundCheck {
         CookieManager cookies = CookieManager.getInstance();
         String cookie = cookies.getCookie(server);
         if (cookie == null) return;
+        // Presses made offline first, so the reminders that come back already reflect them.
+        ReminderReceiver.retryPending(context);
         String after = prefs(context).getString(CURSOR, null);
         String address = server + "/api/app/check?zone=" + Uri.encode(TimeZone.getDefault().getID())
             + (after == null ? "" : "&after=" + Uri.encode(after));

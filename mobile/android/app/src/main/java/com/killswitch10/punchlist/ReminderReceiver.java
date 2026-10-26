@@ -39,7 +39,7 @@ public class ReminderReceiver extends BroadcastReceiver {
         Context app = context.getApplicationContext();
         new Thread(() -> {
             try {
-                press(app, button, Reminders.Reminder.of(new JSONObject(stored)));
+                press(app, button, Reminders.Reminder.of(new JSONObject(stored)), Reminders.SNOOZE_MINUTES);
             } catch (Exception error) {
                 Logger.warn("Punchlist: reminder button failed: " + error);
             } finally {
@@ -48,34 +48,53 @@ public class ReminderReceiver extends BroadcastReceiver {
         }, "punchlist-reminder").start();
     }
 
-    private static void press(Context context, String button, Reminders.Reminder reminder) {
+    /** Complete, or Snooze for {@code minutes}. Network: call off the main thread. */
+    static void press(Context context, String button, Reminders.Reminder reminder, int minutes) {
         // Gone from the screen at once, as TickTick does; it comes back only if this fails.
         Reminders.cancelShown(context, reminder.shown());
-        int status = act(context, button, reminder);
-        if (status == 204) {
-            if (Reminders.COMPLETE.equals(button)) {
-                Reminders.dropTask(context, reminder.taskId());
-            } else {
-                Reminders.dropRepeats(context, reminder.tag());
-                Reminders.add(context, snoozed(context, reminder));
-            }
-            return;
+        // Done here at once, offline too: the server hears of it now or at the next check-in.
+        if (Reminders.COMPLETE.equals(button)) {
+            Reminders.dropTask(context, reminder.taskId());
+        } else {
+            Reminders.dropRepeats(context, reminder.tag());
+            Reminders.add(context, snoozed(context, reminder, minutes));
         }
-        Logger.info("Punchlist", "Reminder " + button + ": the server answered " + status);
-        Reminders.show(context, reminder, context.getString(
-            Reminders.COMPLETE.equals(button) ? R.string.action_failed_complete : R.string.action_failed_snooze));
+        int status = act(context, button, reminder, minutes);
+        if (status == 204) return;
+        Logger.info("Punchlist", "Reminder " + button + ": the server answered " + status + "; trying again later");
+        // Unreachable or signed out: later. Refused (the task is gone, or not theirs): nothing to do.
+        if (status == 0 || status == 401 || status == 403 || status >= 500) {
+            Pending.add(context, button, reminder.taskId(), reminder.first(), minutes);
+        }
+    }
+
+    /** Presses the server did not hear of yet, sent again. Network: call off the main thread. */
+    static void retryPending(Context context) {
+        boolean reachable = true;
+        for (Pending.Press each : Pending.take(context)) {
+            // Once the server cannot be reached, the rest wait too.
+            int status = reachable ? act(context, each.button, each.taskId, each.first, each.minutes) : 0;
+            if (status == 0 || status == 401 || status == 403 || status >= 500) {
+                reachable = false;
+                Pending.add(context, each.button, each.taskId, each.first, each.minutes);
+            }
+        }
     }
 
     /** The reminder Snooze leaves, until the server's own copy replaces it at the next check-in. */
-    private static Reminders.Reminder snoozed(Context context, Reminders.Reminder reminder) {
-        long at = (System.currentTimeMillis() / 60_000L + Reminders.SNOOZE_MINUTES) * 60_000L;
+    private static Reminders.Reminder snoozed(Context context, Reminders.Reminder reminder, int minutes) {
+        long at = (System.currentTimeMillis() / 60_000L + minutes) * 60_000L;
         String time = DateFormat.getTimeFormat(context).format(new Date(at));
         return new Reminders.Reminder(reminder.taskId() + "@" + at, reminder.title,
             context.getString(R.string.reminder_body, time), at, reminder.url, false, reminder.repeats);
     }
 
     /** The server's answer: 204 when done, else why not (0: unreachable). Network: off the main thread. */
-    private static int act(Context context, String button, Reminders.Reminder reminder) {
+    private static int act(Context context, String button, Reminders.Reminder reminder, int minutes) {
+        return act(context, button, reminder.taskId(), reminder.first(), minutes);
+    }
+
+    private static int act(Context context, String button, String taskId, long first, int minutes) {
         String server = ServerChoice.get(context);
         String cookie = server == null ? null : CookieManager.getInstance().getCookie(server);
         if (cookie == null) return 0;
@@ -89,10 +108,10 @@ public class ReminderReceiver extends BroadcastReceiver {
                 connection.setRequestProperty("Content-Type", "application/json");
                 connection.setRequestProperty("Cookie", cookie);
                 byte[] body = new JSONObject()
-                    .put("taskId", reminder.taskId())
-                    .put("first", reminder.first())
+                    .put("taskId", taskId)
+                    .put("first", first)
                     .put("action", button)
-                    .put("minutes", Reminders.SNOOZE_MINUTES)
+                    .put("minutes", minutes)
                     .toString()
                     .getBytes(StandardCharsets.UTF_8);
                 try (OutputStream out = connection.getOutputStream()) {

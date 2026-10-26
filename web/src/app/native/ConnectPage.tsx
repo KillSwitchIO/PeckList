@@ -10,6 +10,8 @@ type Step =
   | { kind: 'problem'; problem: ServerProblem }
   /** Found, but on plain http: say what that means before going there. */
   | { kind: 'plain-http'; url: string }
+  /** Behind a sign-in page (Pangolin, Cloudflare Access...): passed once connected. */
+  | { kind: 'gated'; url: string }
   | { kind: 'connecting'; url: string };
 
 /**
@@ -34,7 +36,9 @@ export function ConnectPage({ onBack }: { onBack: () => void }) {
     if (!shell || address.trim() === '') return;
     setStep({ kind: 'checking' });
     const answer = await shell.checkServer(address);
-    if (!answer.ok) setStep({ kind: 'problem', problem: answer.problem });
+    if (!answer.ok && answer.problem === 'gated' && answer.url)
+      setStep({ kind: 'gated', url: answer.url });
+    else if (!answer.ok) setStep({ kind: 'problem', problem: answer.problem });
     else if (answer.url.startsWith('http://')) setStep({ kind: 'plain-http', url: answer.url });
     else await go(answer.url);
   };
@@ -89,6 +93,19 @@ export function ConnectPage({ onBack }: { onBack: () => void }) {
               {t(`connect.problem.${step.problem}`)}
             </Alert>
           )}
+          {step.kind === 'gated' && (
+            <Alert
+              severity="info"
+              sx={{ mt: 2 }}
+              action={
+                <Button color="inherit" size="small" onClick={() => void go(step.url)}>
+                  {t('connect.continue')}
+                </Button>
+              }
+            >
+              {t('connect.gated')}
+            </Alert>
+          )}
           {step.kind === 'plain-http' && (
             <Alert
               severity="warning"
@@ -107,7 +124,9 @@ export function ConnectPage({ onBack }: { onBack: () => void }) {
             fullWidth
             variant="contained"
             disableElevation
-            disabled={busy || address.trim() === '' || step.kind === 'plain-http'}
+            disabled={
+              busy || address.trim() === '' || step.kind === 'plain-http' || step.kind === 'gated'
+            }
             sx={{ mt: 2 }}
           >
             {step.kind === 'checking'

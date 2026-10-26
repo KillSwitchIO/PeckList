@@ -27,6 +27,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Outlet, useLocation, useNavigate } from 'react-router';
 import { t } from '../i18n/i18n.ts';
 import { focusAddTask } from '../tasks/focusAddTask.ts';
+import { PullToRefresh } from '../sync/PullToRefresh.tsx';
 import { SyncNoticeToast } from '../sync/SyncNoticeToast.tsx';
 import { ReminderScheduler } from '../reminders/ReminderScheduler.tsx';
 import { NotificationsProvider } from '../notifications/NotificationsProvider.tsx';
@@ -490,6 +491,7 @@ function AppFrame() {
         {/* On a phone, above the bottom navigation and the + button. */}
         <UndoToast bottomOffset={isPhone ? 52 + 72 : 0} />
         <SyncNoticeToast />
+        <PullToRefresh />
         <ReminderScheduler />
         <ProviderPhotoSync />
         <ShortcutsDialog open={shortcuts.helpOpen} onClose={shortcuts.closeHelp} />

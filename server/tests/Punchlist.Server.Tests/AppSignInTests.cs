@@ -1,6 +1,7 @@
 using System.Net;
 using System.Net.Http.Json;
 using System.Security.Cryptography;
+using System.Text.Json.Nodes;
 using Microsoft.AspNetCore.Authentication.OpenIdConnect;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.TestHost;
@@ -190,5 +191,55 @@ public sealed class AppSignInTests(ServerFixture fixture) : IClassFixture<Server
             (await app.PostAsJsonAsync("/auth/app/link-start", new { provider = "fake", scheme = "https" }, Token)).StatusCode);
         Assert.Equal(HttpStatusCode.NotFound,
             (await app.PostAsJsonAsync("/auth/app/link-start", new { provider = "nope", scheme = Scheme }, Token)).StatusCode);
+    }
+
+    [Fact]
+    public async Task The_app_gets_past_a_gate_with_its_cookies_sealed_to_the_app_key()
+    {
+        using var server = Server();
+        var tab = Browser(server);
+        using var appKey = RSA.Create(2048);
+        var key = Convert.ToBase64String(appKey.ExportSubjectPublicKeyInfo()).TrimEnd('=').Replace('+', '-').Replace('/', '_');
+
+        // A bad key or scheme: no page.
+        Assert.Equal(HttpStatusCode.BadRequest, (await tab.GetAsync($"/auth/app/gate?key=nope&scheme={Scheme}", Token)).StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest, (await tab.GetAsync($"/auth/app/gate?key={key}&scheme=https", Token)).StatusCode);
+        var page = await tab.GetAsync($"/auth/app/gate?key={key}&scheme={Scheme}", Token);
+        Assert.Equal(HttpStatusCode.OK, page.StatusCode);
+        Assert.Contains("Let the Punchlist app in?", await page.Content.ReadAsStringAsync(Token));
+
+        HttpRequestMessage Confirm(string site)
+        {
+            var post = new HttpRequestMessage(HttpMethod.Post, "/auth/app/gate") { Content = Form(("key", key), ("scheme", Scheme)) };
+            // The gate's cookie, and ours, as the browser sends them past the gate.
+            post.Headers.Add("Cookie", "p_session_token=gate-secret; punchlist_session=ours; .AspNetCore.Correlation.x=flow");
+            post.Headers.Add("Sec-Fetch-Site", site);
+            post.Headers.Add("Origin", site == "same-origin" ? "http://localhost" : "https://evil.example");
+            return post;
+        }
+
+        // Only from our own page.
+        Assert.Equal(HttpStatusCode.BadRequest, (await tab.SendAsync(Confirm("cross-site"), Token)).StatusCode);
+
+        var back = await tab.SendAsync(Confirm("same-origin"), Token);
+        Assert.Equal(HttpStatusCode.Redirect, back.StatusCode);
+        var link = back.Headers.Location!;
+        Assert.Equal((Scheme, "gate"), (link.Scheme, link.Host));
+        var sealedData = Convert.FromBase64String(PadBase64(QueryHelpers.ParseQuery(link.Query)["data"].ToString()));
+
+        // As the app opens it (Gate.open): only the gate's cookie, none of ours.
+        var aesKey = appKey.Decrypt(sealedData[..256], RSAEncryptionPadding.OaepSHA256);
+        var nonce = sealedData[256..268];
+        var ciphertext = sealedData[268..^16];
+        var plain = new byte[ciphertext.Length];
+        using (var aes = new AesGcm(aesKey, 16)) aes.Decrypt(nonce, ciphertext, sealedData[^16..], plain);
+        var cookies = JsonNode.Parse(plain)!.AsArray().Select(each => ((string)each!["Name"]!, (string)each["Value"]!)).ToList();
+        Assert.Equal([("p_session_token", "gate-secret")], cookies);
+    }
+
+    private static string PadBase64(string url)
+    {
+        var text = url.Replace('-', '+').Replace('_', '/');
+        return text.PadRight(text.Length + (4 - text.Length % 4) % 4, '=');
     }
 }

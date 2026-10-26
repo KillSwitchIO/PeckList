@@ -17,10 +17,12 @@ export interface ShellInfo {
 }
 
 /** Why an address cannot be used. */
-export type ServerProblem = 'invalid' | 'unreachable' | 'certificate' | 'not-punchlist';
+export type ServerProblem = 'invalid' | 'unreachable' | 'certificate' | 'not-punchlist' | 'gated';
 
 export type ServerCheck =
-  { ok: true; url: string; info: ServerInfo } | { ok: false; problem: ServerProblem };
+  | { ok: true; url: string; info: ServerInfo }
+  /** `url`: the origin it answered on, for a sign-in page in front of it (gated). */
+  | { ok: false; problem: ServerProblem; url?: string };
 
 /**
  * The background check-in (api 2): with the app closed, Android wakes it every few minutes to ask

@@ -24,6 +24,7 @@ const PROBLEMS: readonly ServerProblem[] = [
   'unreachable',
   'certificate',
   'not-punchlist',
+  'gated',
 ];
 
 /** A rejected call's code, as the plugin names the problem; anything else is "unreachable". */
@@ -46,7 +47,12 @@ export function createCapacitorShell(): NativeShell | null {
         const { url, info } = await plugin.checkServer({ url: address });
         return { ok: true, url, info };
       } catch (error) {
-        return { ok: false, problem: problemOf(error) };
+        const url = (error as { data?: { url?: unknown } } | null)?.data?.url;
+        return {
+          ok: false,
+          problem: problemOf(error),
+          ...(typeof url === 'string' ? { url } : {}),
+        };
       }
     },
     connect: (url) => plugin.connect({ url }),

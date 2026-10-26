@@ -1,5 +1,6 @@
 package com.killswitch10.punchlist;
 
+import android.content.Context;
 import android.content.Intent;
 import android.os.Bundle;
 import android.os.SystemClock;
@@ -41,7 +42,14 @@ public class MainActivity extends BridgeActivity {
         registerPlugin(ShellPlugin.class);
         config = RuntimeConfig.load(this, ServerChoice.get(this));
         super.onCreate(savedInstanceState);
-        if (bridge != null) bridge.setWebViewClient(new ShellWebViewClient(bridge));
+        if (bridge != null) {
+            ShellWebViewClient client = new ShellWebViewClient(bridge);
+            bridge.setWebViewClient(client);
+            checkForGate(client);
+            // No stretch when pulling past the top: it moved the bottom bar too. A pull syncs instead
+            // (web/src/app/sync/PullToRefresh.tsx).
+            bridge.getWebView().setOverScrollMode(View.OVER_SCROLL_NEVER);
+        }
         keepClearOfSystemBars();
         // Force-stopping the app clears its alarms; opening it again sets the check-in again.
         BackgroundCheck.schedule(this);
@@ -62,6 +70,18 @@ public class MainActivity extends BridgeActivity {
             return;
         }
         super.onNewIntent(intent);
+    }
+
+    /**
+     * A sign-in page in front of the server may not show as a redirect when the app comes from its
+     * cache: ask the server directly, and offer to pass it (Gate).
+     */
+    private void checkForGate(ShellWebViewClient client) {
+        String server = ServerChoice.get(this);
+        if (server == null) return;
+        new Thread(() -> {
+            if (Gate.gated(server) && bridge != null) client.showGate(bridge.getWebView());
+        }, "punchlist-gate").start();
     }
 
     /**
@@ -104,6 +124,8 @@ public class MainActivity extends BridgeActivity {
     public void onResume() {
         super.onResume();
         showing = true;
+        Context app = getApplicationContext();
+        new Thread(() -> ReminderReceiver.retryPending(app), "punchlist-pending").start();
     }
 
     @Override

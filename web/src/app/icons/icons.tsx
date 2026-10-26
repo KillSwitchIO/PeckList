@@ -497,6 +497,16 @@ export function CloudSyncIcon(props: SvgIconProps) {
   );
 }
 
+/** Refresh: an arrow going round (pull to refresh). */
+export function RefreshIcon(props: SvgIconProps) {
+  return (
+    <PunchIcon {...props}>
+      <path d="M19 12a7 7 0 1 1-2.05-4.95" />
+      <path d="M17.5 3.8v3.7h-3.7" />
+    </PunchIcon>
+  );
+}
+
 /** Offline: a cloud struck through. */
 export function CloudOffIcon(props: SvgIconProps) {
   return (
