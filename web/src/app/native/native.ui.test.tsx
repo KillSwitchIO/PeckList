@@ -170,3 +170,25 @@ describe('android: settings > server', () => {
     expect(shell.went).toEqual(['standalone']);
   });
 });
+
+describe('versions', () => {
+  // R-FB-77: phones have no sidebar to show the version; the Android app has one of its own too.
+  it("show at the bottom of the profile menu, with the Android app's own", async () => {
+    setNativeShell(new FakeShell());
+    await renderApp('/today', testStore());
+    await userEvent.click(screen.getByRole('button', { name: 'Your account' }));
+    const menu = await screen.findByRole('menu');
+    expect(
+      within(menu).getByRole('link', { name: /^Punchlist v\d+\.\d+\.\d+.*: what changed$/ }),
+    ).toHaveTextContent(/^Punchlist v\d/);
+    expect(await within(menu).findByText('Android app 0.1.0')).toBeInTheDocument();
+  });
+
+  it('show only the web version in a browser', async () => {
+    await renderApp('/today', testStore());
+    await userEvent.click(screen.getByRole('button', { name: 'Your account' }));
+    const menu = await screen.findByRole('menu');
+    expect(within(menu).getByText(/^Punchlist v\d/)).toBeInTheDocument();
+    expect(within(menu).queryByText(/^Android app/)).toBeNull();
+  });
+});

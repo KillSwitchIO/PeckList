@@ -991,6 +991,8 @@ export const en = {
   'profile.stats': 'Stats',
   'profile.friends': 'Friends and groups',
   'profile.shortcuts': 'Keyboard shortcuts',
+  'profile.webVersion': 'Punchlist {version}',
+  'profile.appVersion': 'Android app {version}',
   'profile.logOut': 'Log out',
   'settings.timeZone': 'Time zone',
   'settings.timeZoneHint': 'Today, due dates and the calendar follow it.',
