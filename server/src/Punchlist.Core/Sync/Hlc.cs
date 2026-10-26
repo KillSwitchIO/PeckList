@@ -12,12 +12,16 @@ public static partial class Hlc
     [GeneratedRegex(@"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z-\d{4}-[A-Za-z0-9]{1,32}$")]
     private static partial Regex Pattern();
 
-    public static bool IsValid(string? value) => value is not null && Pattern().IsMatch(value);
+    /// <summary>The format, and a wall time that is a real date (<c>2026-13-45</c> matches the pattern but is not).</summary>
+    public static bool IsValid(string? value) =>
+        value is not null && Pattern().IsMatch(value)
+        && DateTimeOffset.TryParse(value[..24], System.Globalization.CultureInfo.InvariantCulture,
+            System.Globalization.DateTimeStyles.AssumeUniversal, out _);
 
     /// <summary>Compare two HLCs; a missing one sorts before everything.</summary>
     public static int Compare(string? a, string? b) => Math.Sign(string.CompareOrdinal(a ?? "", b ?? ""));
 
-    /// <summary>The wall time an HLC carries.</summary>
+    /// <summary>The wall time an HLC carries; <paramref name="value"/> must be <see cref="IsValid"/>.</summary>
     public static DateTimeOffset WallTime(string value) =>
         DateTimeOffset.Parse(value[..24], System.Globalization.CultureInfo.InvariantCulture);
 

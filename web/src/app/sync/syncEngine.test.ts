@@ -228,6 +228,64 @@ describe('sync engine', () => {
     expect(titles(store)).toEqual(['Mow']);
   });
 
+  // Audit C1: one change the server could not take used to fail every sync after it.
+  it('keeps a change the server sets aside and syncs everything after it', async () => {
+    const backend = new FakeBackend();
+    backend.addAccount('ben', 'correct horse battery');
+    const { engine, store } = await device(backend, 'dev1');
+    await engine.getState().start();
+    await engine.getState().signIn('ben', 'correct horse battery');
+
+    const odd = addTask(store, 'Odd one');
+    backend.invalid.set(odd, 'invalid_change');
+    await engine.getState().syncNow();
+    expect(engine.getState().status).toBe('idle');
+    expect(engine.getState().notice).toMatchObject({ setAside: 1 });
+    // It stays on this device.
+    expect(titles(store)).toEqual(['Odd one']);
+
+    const next = addTask(store, 'Rake');
+    await engine.getState().syncNow();
+    expect(engine.getState().status).toBe('idle');
+    const onServer = [...backend.server.rows.keys()];
+    expect(onServer).toContain(next);
+    expect(onServer).not.toContain(odd);
+    // Not sent again, so not set aside again.
+    expect(engine.getState().notice).toMatchObject({ setAside: 1 });
+  });
+
+  it("says once when this device's clock is well off the server's", async () => {
+    const backend = new FakeBackend();
+    backend.addAccount('ben', 'correct horse battery');
+    const { engine, store } = await device(backend, 'dev1');
+    await engine.getState().start();
+    await engine.getState().signIn('ben', 'correct horse battery');
+    expect(engine.getState().notice).toBeNull();
+
+    // A server ten minutes behind: this device is ahead.
+    backend.serverTime = Date.now() - 10 * 60_000;
+    addTask(store, 'Mow');
+    await engine.getState().syncNow();
+    expect(engine.getState().notice).toMatchObject({ clock: 'ahead' });
+
+    engine.getState().dismissNotice();
+    addTask(store, 'Rake');
+    await engine.getState().syncNow();
+    expect(engine.getState().notice).toBeNull();
+  });
+
+  it('takes a server within a few minutes of this device as on time', async () => {
+    const backend = new FakeBackend();
+    backend.addAccount('ben', 'correct horse battery');
+    backend.serverTime = Date.now() + 2 * 60_000;
+    const { engine, store } = await device(backend, 'dev1');
+    await engine.getState().start();
+    await engine.getState().signIn('ben', 'correct horse battery');
+    addTask(store, 'Mow');
+    await engine.getState().syncNow();
+    expect(engine.getState().notice).toBeNull();
+  });
+
   it('pushes only what changed', async () => {
     const backend = new FakeBackend();
     backend.addAccount('ben', 'correct horse battery');

@@ -63,6 +63,8 @@ public static class PushEndpoints
             var found = index.LiveOf("tasks").FirstOrDefault(each => each.Id == request.TaskId);
             if (found.Doc is null || !ServerReminders.Recipients(found.Doc, index).Contains(userId)) return Results.NotFound();
             if (request.Action is not ("dismiss" or "snooze")) return Results.BadRequest(new { error = "unknown_action" });
+            // A reminder time, not any number (FromUnixTimeMilliseconds throws outside year 1 to 9999).
+            if (request.First is < 0 or > 253_402_300_799_999) return Results.BadRequest(new { error = "invalid_time" });
             var now = time.GetUtcNow();
             var first = DateTimeOffset.FromUnixTimeMilliseconds(request.First);
             var tag = $"{found.Id}@{request.First}";

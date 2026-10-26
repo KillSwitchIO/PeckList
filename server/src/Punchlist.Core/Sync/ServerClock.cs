@@ -37,7 +37,10 @@ public sealed class ServerClock(TimeProvider time)
 
     /// <summary>
     /// Take in a stamp a device sent (an HLC's receive), so the server's next stamps sort after it.
-    /// One more than a day ahead is left out, as the sync refuses it anyway.
+    /// Only stamps at most <see cref="MaxObservedAhead"/> ahead of the server's time: one device with
+    /// a fast clock must not push every later server-made change into the future, where people's own
+    /// edits would lose to it until the wall time caught up. Server writes that must win over a stored
+    /// stamp get the stamp just after it instead (<see cref="SyncService.Supersede"/>).
     /// </summary>
     public void Observe(string? stamp)
     {
@@ -46,7 +49,7 @@ public sealed class ServerClock(TimeProvider time)
         var seen = Hlc.Counter(stamp!);
         lock (gate)
         {
-            if (wall - time.GetUtcNow().ToUnixTimeMilliseconds() > MaxDriftMs) return;
+            if (wall - time.GetUtcNow().ToUnixTimeMilliseconds() > MaxObservedAhead.TotalMilliseconds) return;
             if (wall > lastMs || (wall == lastMs && seen > counter))
             {
                 lastMs = wall;
@@ -55,7 +58,8 @@ public sealed class ServerClock(TimeProvider time)
         }
     }
 
-    private const long MaxDriftMs = 24L * 60 * 60 * 1000;
+    /// <summary>How far ahead of the server's own time a device's stamp may move this clock.</summary>
+    public static readonly TimeSpan MaxObservedAhead = TimeSpan.FromMinutes(1);
 
     /// <summary>The current time as the workspace writes dates (<c>2026-10-21T10:00:00.000Z</c>).</summary>
     public string Now() => time.GetUtcNow().UtcDateTime.ToString("yyyy-MM-dd'T'HH:mm:ss.fff'Z'", CultureInfo.InvariantCulture);

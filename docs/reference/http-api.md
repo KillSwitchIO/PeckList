@@ -71,3 +71,7 @@ the sign-in rate limit.
 | Stats    | `GET /stats`                                                                                                                                                                                                                      |
 
 The workspace data that `/api/sync` carries is described by the [workspace schema](../schema.md).
+Each pushed change is checked on its own: one the server cannot take as it is (malformed, or
+stamped more than an hour ahead of its clock) is listed in the response's `invalid` with its index,
+id, `code` (`invalid_change` or `clock_drift`) and reason, and the rest of the push is stored. The
+response's `serverTime` lets a device tell when its own clock is off.

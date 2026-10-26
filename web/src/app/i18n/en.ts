@@ -962,6 +962,14 @@ export const en = {
     '"{name}" and {count} more files are too large for the server, so they stay on this device only.',
   'sync.notice.refusedOne': 'The server did not accept one of your changes, so it was undone.',
   'sync.notice.refused': 'The server did not accept {count} of your changes, so they were undone.',
+  'sync.notice.setAsideOne':
+    'The server could not take one of your changes. It stays on this device and syncs once it changes again.',
+  'sync.notice.setAside':
+    'The server could not take {count} of your changes. They stay on this device and sync once they change again.',
+  'sync.notice.clockAhead':
+    "This device's clock is ahead of the server's. Check its date and time, or its changes will win over newer ones.",
+  'sync.notice.clockBehind':
+    "This device's clock is behind the server's. Check its date and time, or its changes may lose to older ones.",
   'sync.justNow': 'just now',
   'sync.friends': 'Friends',
   'friends.title': 'Friends',

@@ -18,6 +18,12 @@ public sealed record SyncRequest(int SchemaVersion, long? Cursor, IReadOnlyList<
 /// Pushed changes the user may not make. The client takes the server's copy from
 /// <paramref name="Corrections"/> instead of its own, or drops the entity when there is none.
 /// </param>
+/// <param name="Invalid">
+/// Pushed changes the server could not take as they are (malformed, or stamped too far ahead of its
+/// clock). Nothing of them was stored; the rest of the push was. The client keeps its copy and stops
+/// sending it until it changes again.
+/// </param>
+/// <param name="ServerTime">The server's time, so a device can tell when its own clock is off.</param>
 public sealed record SyncResponse(
     long Cursor,
     IReadOnlyList<SyncEntity> Changes,
@@ -25,7 +31,15 @@ public sealed record SyncResponse(
     IReadOnlyList<string> Revoked,
     IReadOnlyList<string> Rejected,
     IReadOnlyList<SyncEntity> Corrections,
-    string? Epoch = null);
+    string? Epoch = null,
+    IReadOnlyList<SyncInvalid>? Invalid = null,
+    string? ServerTime = null);
+
+/// <summary>
+/// One pushed change the server set aside: where it was in the push, its id when it has one, and
+/// why (<c>invalid_change</c> or <c>clock_drift</c>, the codes a whole request used to fail with).
+/// </summary>
+public sealed record SyncInvalid(int Index, string? Id, string Code, string Reason);
 
 /// <summary>Why a sync was refused; <see cref="Code"/> is what the client switches on.</summary>
 public sealed class SyncRejected(string code, string message, int? serverSchemaVersion = null) : Exception(message)
@@ -50,8 +64,8 @@ public sealed partial class SyncService(
     public const int MaxChanges = 5000;
     public const int PageSize = 500;
 
-    /// <summary>A client clock further ahead than this would win every merge for days; refuse it.</summary>
-    public static readonly TimeSpan MaxClockDrift = TimeSpan.FromHours(24);
+    /// <summary>A change stamped further ahead than this would win every merge for hours; set it aside.</summary>
+    public static readonly TimeSpan MaxClockDrift = TimeSpan.FromHours(1);
 
     [GeneratedRegex("^[0-9A-Za-z_-]{1,64}$")]
     private static partial Regex IdPattern();
@@ -67,7 +81,21 @@ public sealed partial class SyncService(
         }
         var changes = request.Changes ?? [];
         if (changes.Count > MaxChanges) throw new SyncRejected("too_many_changes", $"send at most {MaxChanges} changes at a time");
-        var incoming = changes.Select(Validate).ToList();
+        // Each change on its own: one bad change must not hold back the rest of the push (or every
+        // push after it, as the device sends the same batch again).
+        var invalid = new List<SyncInvalid>();
+        var incoming = new List<IncomingEntity>();
+        for (var index = 0; index < changes.Count; index++)
+        {
+            try
+            {
+                incoming.Add(Validate(changes[index], index));
+            }
+            catch (SyncRejected error)
+            {
+                invalid.Add(new SyncInvalid(index, IdOf(changes[index]), error.Code, error.Message));
+            }
+        }
 
         var rejected = new List<string>();
         var corrections = new List<SyncEntity>();
@@ -129,8 +157,13 @@ public sealed partial class SyncService(
             page.More,
             page.Revoked,
             rejected.Distinct().ToList(),
-            corrections);
+            corrections,
+            Invalid: invalid,
+            ServerTime: clock?.Now() ?? time.GetUtcNow().UtcDateTime.ToString("yyyy-MM-dd'T'HH:mm:ss.fff'Z'", System.Globalization.CultureInfo.InvariantCulture));
     }
+
+    private static string? IdOf(SyncEntity change) =>
+        change.Entity?["id"] is JsonValue value && value.TryGetValue<string>(out var id) ? id : null;
 
     /// <summary>
     /// Changes the server makes itself (a profile, a friendship accepted from a link): merged like
@@ -265,7 +298,7 @@ public sealed partial class SyncService(
             if (!Hlc.IsValid(hlc)) throw new SyncRejected("invalid_change", $"{Where()} ({id}): bad clock for {field}");
             if (Hlc.WallTime(hlc!) > latest)
             {
-                throw new SyncRejected("clock_drift", $"{Where()} ({id}): {field} is stamped {hlc}, more than a day ahead of the server");
+                throw new SyncRejected("clock_drift", $"{Where()} ({id}): {field} is stamped {hlc}, more than an hour ahead of the server");
             }
             // The server's own later changes must sort after what devices send, however fast their clocks.
             clock?.Observe(hlc);

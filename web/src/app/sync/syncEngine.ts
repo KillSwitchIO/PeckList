@@ -84,6 +84,13 @@ export interface SyncNotice {
   lostLists: string[];
   /** Files the server would not take (too large): they stay on this device only. */
   filesKept?: string[];
+  /**
+   * Changes the server could not take as they are (malformed, or stamped too far ahead): kept on
+   * this device, not sent again until they change.
+   */
+  setAside?: number;
+  /** This device's clock is well ahead of or behind the server's. Said once per session. */
+  clock?: 'ahead' | 'behind';
 }
 
 /** Device-local sync progress, kept under storage metadata `sync`. */
@@ -114,6 +121,8 @@ export interface SyncEngineDependencies {
 }
 
 const META = 'sync';
+/** How far this device's clock may be from the server's before the person is told. */
+const CLOCK_TOLERANCE_MS = 5 * 60_000;
 /** Changes per request; more go out in the next round of the same sync. */
 const BATCH = 1000;
 /** Rounds per sync, so a server that always says "more" cannot spin forever. */
@@ -158,6 +167,8 @@ export function createSyncEngine(deps: SyncEngineDependencies): SyncEngine {
   let eventDebounce: ReturnType<typeof setTimeout> | null = null;
   // Changes this engine makes itself must not schedule another sync.
   let absorbing = false;
+  // An off clock is said once per session, not after every sync.
+  let clockSaid = false;
 
   const loadMeta = async (): Promise<SyncMeta> => {
     const stored = (await storage.loadMeta(META)) as Partial<SyncMeta> | null;
@@ -317,6 +328,7 @@ export function createSyncEngine(deps: SyncEngineDependencies): SyncEngine {
         const before = get().notice;
         set({
           notice: {
+            ...before,
             refused: before?.refused ?? 0,
             lostLists: before?.lostLists ?? [],
             filesKept: [...(before?.filesKept ?? []), ...tooLarge],
@@ -324,6 +336,24 @@ export function createSyncEngine(deps: SyncEngineDependencies): SyncEngine {
         });
       }
       return kept;
+    };
+
+    /**
+     * Whether this device's clock is off: the server set a change aside for being stamped too far
+     * ahead, or its time differs from the device's by more than a few minutes. Changes stamped
+     * ahead win every merge until the time catches up; ones stamped behind lose.
+     */
+    const clockOff = (response: {
+      invalid?: { code: string }[];
+      serverTime?: string | null;
+    }): 'ahead' | 'behind' | undefined => {
+      if (response.invalid?.some((each) => each.code === 'clock_drift')) return 'ahead';
+      const server = response.serverTime ? Date.parse(response.serverTime) : NaN;
+      if (Number.isNaN(server)) return undefined;
+      const skew = now() - server;
+      if (skew > CLOCK_TOLERANCE_MS) return 'ahead';
+      if (skew < -CLOCK_TOLERANCE_MS) return 'behind';
+      return undefined;
     };
 
     /** One sync: push batches and pull pages until both sides are caught up. */
@@ -377,12 +407,20 @@ export function createSyncEngine(deps: SyncEngineDependencies): SyncEngine {
             [...(response.rejected ?? []), ...response.revoked],
           );
           const refused = response.rejected?.length ?? 0;
-          if (refused > 0 || lost.length > 0) {
+          // Set aside by the server: acknowledged with the batch above, so they are not sent
+          // again (and cannot hold up everything after them) until they change here.
+          const setAside = response.invalid?.length ?? 0;
+          const clock = clockSaid ? undefined : clockOff(response);
+          if (clock) clockSaid = true;
+          if (refused > 0 || lost.length > 0 || setAside > 0 || clock) {
             const before = get().notice;
             set({
               notice: {
+                ...before,
                 refused: (before?.refused ?? 0) + refused,
                 lostLists: [...(before?.lostLists ?? []), ...lost],
+                ...(setAside > 0 ? { setAside: (before?.setAside ?? 0) + setAside } : {}),
+                ...(clock ? { clock } : {}),
               },
             });
           }
