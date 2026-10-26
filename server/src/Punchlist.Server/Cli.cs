@@ -344,7 +344,7 @@ public static class Cli
         if (rest.Length == 0) return await Fail(errors, "import --user needs a file: punchlist import --user <file> [user]");
         await using (var file = File.OpenRead(rest[0]))
         {
-            var result = await users.RestoreAsync(file, rest.Length > 1 ? rest[1] : null);
+            var result = await users.RestoreAsync(file, rest.Length > 1 ? rest[1] : null, mayRestoreAdmins: true);
             await output.WriteLineAsync(
                 $"{result.Username} {(result.Created ? "added" : "restored")}: {result.Restored} restored, {result.Removed} removed, {result.Dropped} left out.");
         }

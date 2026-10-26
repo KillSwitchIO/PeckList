@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Security.Claims;
 using Punchlist.Core.Accounts;
 using Punchlist.Core.Backup;
 using Punchlist.Server.Audit;
@@ -12,7 +13,9 @@ public sealed record BackupFile(string Name, DateTimeOffset Taken, long Size);
 /// <c>/api/admin/backups</c> and exports (spec: Backup and restore): the scheduled backups (list,
 /// take one now, download), the whole server or one person as a download, and restoring one person
 /// from an uploaded file or a backup already on the server. Backups hold password hashes, so every
-/// one of these needs the backups permission and is logged.
+/// one of these needs the backups permission and is logged. Whole-server backups also hold the keys
+/// that sign sessions: downloading, exporting and restoring one is for super admins only
+/// (<see cref="Permission.ManageSecurity"/>), and an admin exports and restores plain users only.
 /// </summary>
 public static class BackupEndpoints
 {
@@ -33,27 +36,27 @@ public static class BackupEndpoints
         {
             if (Find(snapshots, name) is not { } path) return Results.NotFound();
             return Results.File(path, "application/json", name);
-        }).RequirePermission(Permission.ManageBackups).Audited("backup.downloaded", "name", AuditTarget.Name);
+        }).RequirePermission(Permission.ManageSecurity).Audited("backup.downloaded", "name", AuditTarget.Name);
 
         admin.MapGet("/export", async (HttpContext context, BackupService backup, TimeProvider time) =>
         {
             Attach(context, $"punchlist-{Stamp(time)}.json");
             await backup.ExportAsync(context.Response.Body, ServerApp.Version, context.RequestAborted);
-        }).RequirePermission(Permission.ManageBackups).Audited("backup.exported", targetRoute: null);
+        }).RequirePermission(Permission.ManageSecurity).Audited("backup.exported", targetRoute: null);
 
         admin.MapGet("/users/{id}/export", async (
-            string id, HttpContext context, UserBackups users, IAccountStore accounts, TimeProvider time) =>
-        {
-            if (await accounts.FindByIdAsync(id, context.RequestAborted) is not { } account) return Results.NotFound();
-            Attach(context, $"punchlist-{account.Username}-{Stamp(time)}.json");
-            await users.ExportAsync(id, context.Response.Body, ServerApp.Version, context.RequestAborted);
-            return Results.Empty;
-        }).RequirePermission(Permission.ManageBackups).Audited("backup.user-exported");
+            string id, ClaimsPrincipal user, HttpContext context, UserBackups users, IAccountStore accounts, TimeProvider time) =>
+            await AdminEndpoints.OnAccountAsync(id, user, accounts, async account =>
+            {
+                Attach(context, $"punchlist-{account.Username}-{Stamp(time)}.json");
+                await users.ExportAsync(id, context.Response.Body, ServerApp.Version, context.RequestAborted);
+                return Results.Empty;
+            }, context.RequestAborted)).RequirePermission(Permission.ManageBackups).Audited("backup.user-exported");
 
         // One person back as they were in a backup: an uploaded file (field "file") or a backup on
         // the server (field "backup"); from a whole-server backup, "username" says who.
         admin.MapPost("/users/restore", async (
-            HttpRequest request, UserBackups users, Snapshots snapshots, CancellationToken cancellation) =>
+            HttpRequest request, ClaimsPrincipal user, UserBackups users, Snapshots snapshots, CancellationToken cancellation) =>
         {
             var form = await request.ReadFormAsync(cancellation);
             Stream input;
@@ -66,9 +69,14 @@ public static class BackupEndpoints
                 var safety = await snapshots.TakeAsync(ServerApp.Version, cancellation);
                 try
                 {
-                    var result = await users.RestoreAsync(input, form["username"].FirstOrDefault(), cancellation);
+                    var result = await users.RestoreAsync(input, form["username"].FirstOrDefault(),
+                        mayRestoreAdmins: user.AccountRole().Can(Permission.ManageAdmins), cancellation);
                     request.HttpContext.Audit().On(null, result.Username).Detail = $"safety backup {Path.GetFileName(safety)}";
                     return Results.Ok(result);
+                }
+                catch (RestoreRefusedException error)
+                {
+                    return Results.Json(new AdminError("admins_only_by_super_admins", error.Message), statusCode: StatusCodes.Status403Forbidden);
                 }
                 catch (BackupException error)
                 {
@@ -102,7 +110,7 @@ public static class BackupEndpoints
             request.HttpContext.Audit().Detail = $"safety backup {Path.GetFileName(safety)}; restarting";
             _ = Task.Delay(500).ContinueWith(_ => lifetime.StopApplication(), TaskScheduler.Default);
             return Results.Accepted(value: new { Safety = Path.GetFileName(safety) });
-        }).RequirePermission(Permission.ManageBackups).DisableAntiforgery().Audited("backup.server-restore-started", targetRoute: null);
+        }).RequirePermission(Permission.ManageSecurity).DisableAntiforgery().Audited("backup.server-restore-started", targetRoute: null);
 
         return admin;
     }

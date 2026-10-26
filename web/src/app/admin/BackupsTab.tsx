@@ -19,7 +19,7 @@ import type { AdminApi, RestoreSource } from '../../ports/admin.ts';
 import { formatWhen } from '../format.ts';
 import { useToday } from '../hooks/useToday.ts';
 import { t } from '../i18n/i18n.ts';
-import { useLoaded } from './useAdmin.ts';
+import { useIsSuperAdmin, useLoaded } from './useAdmin.ts';
 
 function size(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
@@ -41,6 +41,8 @@ function RestoreDialog({
   onClose: () => void;
   onDone: (message: string, restarting: boolean) => void;
 }) {
+  // The whole server is for super admins (its backups hold the keys that sign sessions).
+  const superAdmin = useIsSuperAdmin();
   const [what, setWhat] = useState<'person' | 'server'>('person');
   const [username, setUsername] = useState('');
   const [problem, setProblem] = useState<string | null>(null);
@@ -74,21 +76,23 @@ function RestoreDialog({
     <Dialog open onClose={onClose} maxWidth="xs" fullWidth>
       <DialogTitle>{t('admin.backups.restoreTitle', { name: label })}</DialogTitle>
       <DialogContent sx={{ display: 'grid', gap: 2 }}>
-        <RadioGroup
-          value={what}
-          onChange={(event) => setWhat(event.target.value as 'person' | 'server')}
-        >
-          <FormControlLabel
-            value="person"
-            control={<Radio />}
-            label={t('admin.backups.onePerson')}
-          />
-          <FormControlLabel
-            value="server"
-            control={<Radio />}
-            label={t('admin.backups.wholeServer')}
-          />
-        </RadioGroup>
+        {superAdmin && (
+          <RadioGroup
+            value={what}
+            onChange={(event) => setWhat(event.target.value as 'person' | 'server')}
+          >
+            <FormControlLabel
+              value="person"
+              control={<Radio />}
+              label={t('admin.backups.onePerson')}
+            />
+            <FormControlLabel
+              value="server"
+              control={<Radio />}
+              label={t('admin.backups.wholeServer')}
+            />
+          </RadioGroup>
+        )}
         {what === 'person' ? (
           <TextField
             label={t('admin.backups.username')}
@@ -127,6 +131,7 @@ function RestoreDialog({
 /** Admin > Backups (spec: Backup and restore). */
 export function BackupsTab({ api }: { api: AdminApi }) {
   const today = useToday();
+  const superAdmin = useIsSuperAdmin();
   const backups = useLoaded(api.backups);
   const [restoring, setRestoring] = useState<{ source: RestoreSource; label: string } | null>(null);
   const [notice, setNotice] = useState<{ text: string; restarting: boolean } | null>(null);
@@ -195,9 +200,11 @@ export function BackupsTab({ api }: { api: AdminApi }) {
                   {`${backup.name} · ${size(backup.size)}`}
                 </Typography>
               </Box>
-              <Button size="small" href={api.backupUrl(backup.name)} download>
-                {t('admin.backups.download')}
-              </Button>
+              {superAdmin && (
+                <Button size="small" href={api.backupUrl(backup.name)} download>
+                  {t('admin.backups.download')}
+                </Button>
+              )}
               <Button
                 size="small"
                 onClick={() =>
@@ -221,9 +228,11 @@ export function BackupsTab({ api }: { api: AdminApi }) {
           {t('admin.backups.exportTitle')}
         </Typography>
         <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-          <Button variant="outlined" href={api.exportUrl()} download>
-            {t('admin.backups.exportServer')}
-          </Button>
+          {superAdmin && (
+            <Button variant="outlined" href={api.exportUrl()} download>
+              {t('admin.backups.exportServer')}
+            </Button>
+          )}
           <Button variant="outlined" component="label">
             {t('admin.backups.fromFile')}
             <input
@@ -240,7 +249,7 @@ export function BackupsTab({ api }: { api: AdminApi }) {
           </Button>
         </Box>
         <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-          {t('admin.backups.exportHint')}
+          {t(superAdmin ? 'admin.backups.exportHint' : 'admin.backups.adminHint')}
         </Typography>
       </Box>
 

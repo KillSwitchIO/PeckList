@@ -113,4 +113,18 @@ public static class SettingsCatalog
     }
 
     public static SettingDefinition? Find(ISecretSource source, string key) => For(source).FirstOrDefault(each => each.Key == key);
+
+    private static readonly HashSet<string> SignInKeys = new(StringComparer.Ordinal)
+    {
+        "PUBLIC_URL", "REGISTRATION", "LOCAL_LOGIN", "TRUSTED_PROXIES",
+    };
+
+    /// <summary>
+    /// Settings that decide who signs in and as what: identity providers and their role and user
+    /// maps, password sign-in, registration, the proxies trusted for the client address and the
+    /// address links point to. An admin who could change these could make themselves a super admin,
+    /// so only super admins save them (<see cref="Accounts.Permission.ManageSecurity"/>).
+    /// </summary>
+    public static bool SuperAdminOnly(string key) =>
+        SignInKeys.Contains(key) || key.StartsWith("OIDC_", StringComparison.Ordinal);
 }

@@ -10,6 +10,19 @@ Everything here is under **Admin**, which only admins see.
 | `admin`      | Everything a user can, plus manage users and server groups, settings, backups, logs and stats. |
 | `superadmin` | Everything an admin can, plus manage admins and view the app as someone else.                  |
 
+Some of that is for super admins only, because an admin who could do it could make themselves a
+super admin:
+
+- **Sign-in settings**: identity providers (`OIDC_*`, role and user maps included), `LOCAL_LOGIN`,
+  `REGISTRATION`, `TRUSTED_PROXIES` and `PUBLIC_URL`. Admins see them on **Admin > Settings**,
+  locked and marked _super admins only_.
+- **Whole-server backups**: downloading a snapshot, exporting the whole server and restoring it.
+  They hold every password hash and the keys that sign sessions. Admins can still take a backup
+  and see the list.
+- **Admins' accounts**: only super admins export, restore, hand over or look into (linked accounts,
+  friends, shares) an admin's or super admin's account. A person an admin restores from a file
+  always comes back as a plain user.
+
 The first account, `admin`, is a super admin. There is always at least one active super admin: the
 last one cannot be turned off, deleted or lose the role (from the page, the command line or a
 single sign-on role map).

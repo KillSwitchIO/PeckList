@@ -4,7 +4,7 @@ import type { AdminApi, ServerSetting, ServerSettingsView } from '../../ports/ad
 import type { MessageKey } from '../i18n/en.ts';
 import { t } from '../i18n/i18n.ts';
 import { PasswordField } from '../layout/PasswordField.tsx';
-import { useLoaded } from './useAdmin.ts';
+import { useIsSuperAdmin, useLoaded } from './useAdmin.ts';
 
 const LABELS: Record<string, MessageKey> = {
   PUBLIC_URL: 'serverSettings.PUBLIC_URL',
@@ -178,6 +178,7 @@ function SettingControl({
  * a restart.
  */
 export function SettingsTab({ api }: { api: AdminApi }) {
+  const superAdmin = useIsSuperAdmin();
   const { data, reload } = useLoaded(api.settings);
   const [saved, setSaved] = useState<ServerSettingsView | null>(null);
   const view = saved ?? data;
@@ -262,6 +263,9 @@ export function SettingsTab({ api }: { api: AdminApi }) {
                   <Typography variant="caption" color="text.secondary" component="div">
                     {sourceText(setting)}
                     {setting.locked && setting.saved && ` · ${t('serverSettings.overrides')}`}
+                    {setting.superAdminOnly &&
+                      !superAdmin &&
+                      ` · ${t('serverSettings.superAdminOnly')}`}
                   </Typography>
                 </Box>
                 <SettingControl

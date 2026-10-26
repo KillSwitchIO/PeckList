@@ -162,7 +162,10 @@ export function UsersTab({ api }: { api: AdminApi }) {
   const openMenu = (anchor: HTMLElement, user: AdminUser) => {
     setMenu({ anchor, user });
     setIdentities([]);
-    if (user.providers.length > 0) void api.identities(user.id).then(setIdentities);
+    // An admin's linked accounts are for super admins to see (the server refuses the rest).
+    if (user.providers.length > 0 && (superAdmin || user.role === 'user')) {
+      void api.identities(user.id).then(setIdentities, () => undefined);
+    }
   };
   /** Close the menu, run the action, then show any refusal and refresh. */
   const act = async (
@@ -305,7 +308,7 @@ export function UsersTab({ api }: { api: AdminApi }) {
       />
 
       <Menu anchorEl={menu?.anchor} open={menu !== null} onClose={() => setMenu(null)}>
-        {target && (
+        {target && canTouch && (
           <MenuItem
             onClick={() => {
               setMenu(null);
@@ -315,7 +318,7 @@ export function UsersTab({ api }: { api: AdminApi }) {
             {t('admin.users.friends')}
           </MenuItem>
         )}
-        {target && (
+        {target && canTouch && (
           <MenuItem
             onClick={() => {
               setMenu(null);
@@ -325,7 +328,7 @@ export function UsersTab({ api }: { api: AdminApi }) {
             {t('admin.users.handOver')}
           </MenuItem>
         )}
-        {target && (
+        {target && canTouch && (
           <MenuItem
             component="a"
             href={api.userExportUrl(target.id)}

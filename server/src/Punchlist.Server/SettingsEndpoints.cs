@@ -1,3 +1,4 @@
+using System.Security.Claims;
 using Punchlist.Core.Accounts;
 using Punchlist.Core.Configuration;
 using Punchlist.Server.Audit;
@@ -16,7 +17,8 @@ public sealed record SettingView(
     string Source,
     bool Locked,
     bool Saved,
-    bool Live);
+    bool Live,
+    bool SuperAdminOnly = false);
 
 public sealed record SettingsView(IReadOnlyList<SettingView> Settings, bool PendingRestart, string? Problem);
 
@@ -25,7 +27,8 @@ public sealed record SettingsChange(Dictionary<string, string?>? Values);
 /// <summary>
 /// <c>/api/admin/settings</c> (spec: Server settings): every setting with where its value comes
 /// from; saving page values (checked like the environment's, refused where the environment or
-/// config file already decides); and a restart to apply them.
+/// config file already decides); and a restart to apply them. Settings that decide who signs in
+/// (<see cref="SettingsCatalog.SuperAdminOnly"/>) are shown to admins but saved by super admins only.
 /// </summary>
 public static class SettingsEndpoints
 {
@@ -34,13 +37,13 @@ public static class SettingsEndpoints
 
     public static RouteGroupBuilder MapSettings(this RouteGroupBuilder admin)
     {
-        admin.MapGet("/settings", async (LoadedSettings loaded, Core.Accounts.ISecretStore secrets, CancellationToken cancellation) =>
-            View(loaded, await SettingsLoader.ReadPageAsync(secrets, cancellation)))
+        admin.MapGet("/settings", async (LoadedSettings loaded, Core.Accounts.ISecretStore secrets, ClaimsPrincipal user, CancellationToken cancellation) =>
+            View(loaded, await SettingsLoader.ReadPageAsync(secrets, cancellation), MaySaveSignIn(user)))
             .RequirePermission(Permission.ManageSettings);
 
         admin.MapPut("/settings", async (
             SettingsChange change, LoadedSettings loaded, Core.Accounts.ISecretStore secrets, LogPipeline logging, LiveSettings live,
-            HttpContext context,
+            ClaimsPrincipal user, HttpContext context,
             CancellationToken cancellation) =>
         {
             var saved = await SettingsLoader.ReadPageAsync(secrets, cancellation);
@@ -49,6 +52,11 @@ public static class SettingsEndpoints
             var values = (change.Values ?? []).Where(pair => pair.Value != Hidden).ToDictionary(pair => pair.Key, pair => pair.Value);
             // Which settings, never their values.
             context.Audit().Detail = string.Join(", ", values.Keys.Order(StringComparer.Ordinal));
+            if (!MaySaveSignIn(user) && values.Keys.FirstOrDefault(SettingsCatalog.SuperAdminOnly) is { } guarded)
+            {
+                return Results.Json(new AdminError("super_admins_only", $"only a super admin changes {guarded}"),
+                    statusCode: StatusCodes.Status403Forbidden);
+            }
             foreach (var (key, value) in values)
             {
                 if (string.IsNullOrWhiteSpace(value)) page.Remove(key);
@@ -81,7 +89,7 @@ public static class SettingsEndpoints
                 live.Apply(next);
                 logging.Apply(next.Logging);
             }
-            return Results.Ok(View(loaded, page));
+            return Results.Ok(View(loaded, page, MaySaveSignIn(user)));
         }).RequirePermission(Permission.ManageSettings).Audited("settings.saved", targetRoute: null);
 
         // Stops the server; a container with a restart policy (restart: unless-stopped) comes back
@@ -95,7 +103,9 @@ public static class SettingsEndpoints
         return admin;
     }
 
-    private static SettingsView View(LoadedSettings loaded, IReadOnlyDictionary<string, string> saved)
+    private static bool MaySaveSignIn(ClaimsPrincipal user) => user.AccountRole().Can(Permission.ManageSecurity);
+
+    private static SettingsView View(LoadedSettings loaded, IReadOnlyDictionary<string, string> saved, bool maySaveSignIn)
     {
         var layers = loaded.Layers.WithPage(saved);
         var list = new List<SettingView>();
@@ -112,6 +122,7 @@ public static class SettingsEndpoints
                 (value, source) = (Hidden, SettingSource.Environment);
             }
             if (definition.Kind == SettingKind.Secret && value is not null) value = Hidden;
+            var superAdminOnly = SettingsCatalog.SuperAdminOnly(definition.Key);
             list.Add(new SettingView(
                 definition.Key,
                 definition.Group,
@@ -120,9 +131,10 @@ public static class SettingsEndpoints
                 definition.Default,
                 value,
                 source.ToString().ToLowerInvariant(),
-                definition.EnvironmentOnly || source is SettingSource.Environment or SettingSource.File,
+                definition.EnvironmentOnly || source is SettingSource.Environment or SettingSource.File || (superAdminOnly && !maySaveSignIn),
                 saved.ContainsKey(definition.Key),
-                definition.Live));
+                definition.Live,
+                superAdminOnly));
         }
         // Settings that apply while running never wait for a restart.
         bool Live(string key) => SettingsCatalog.Find(layers, key)?.Live == true;

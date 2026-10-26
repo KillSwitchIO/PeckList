@@ -77,10 +77,14 @@ public sealed class UserBackups(
     /// <summary>
     /// Restore one person from a user backup, or from a server backup (then <paramref name="username"/>
     /// says who). Their account is made when missing, with its password hash and identity links;
-    /// an existing one is kept as it is.
+    /// an existing one is kept as it is. Without <paramref name="mayRestoreAdmins"/> (a super admin,
+    /// or the command line) only plain users come back: a new account is always a user, and an
+    /// existing admin's data is refused.
     /// </summary>
     /// <exception cref="BackupException">The file cannot be used, or names someone else's account.</exception>
-    public async Task<UserRestoreResult> RestoreAsync(Stream input, string? username, CancellationToken cancellation = default)
+    /// <exception cref="RestoreRefusedException">The account is an admin's and <paramref name="mayRestoreAdmins"/> is false.</exception>
+    public async Task<UserRestoreResult> RestoreAsync(
+        Stream input, string? username, bool mayRestoreAdmins, CancellationToken cancellation = default)
     {
         JsonObject root;
         try
@@ -128,6 +132,10 @@ public sealed class UserBackups(
         var userId = (string?)accountNode["id"] ?? throw new BackupException("the account has no id");
         var name = (string?)accountNode["username"] ?? throw new BackupException("the account has no username");
         var account = await accounts.FindByIdAsync(userId, cancellation);
+        if (account is not null && account.Role != Role.User && !mayRestoreAdmins)
+        {
+            throw new RestoreRefusedException($"{account.Username} is an admin; only a super admin restores an admin's data");
+        }
         var created = false;
         if (account is null)
         {
@@ -140,7 +148,8 @@ public sealed class UserBackups(
                 Id = userId,
                 Username = name,
                 PasswordHash = (string?)accountNode["passwordHash"],
-                Role = Roles.TryParse((string?)accountNode["role"], out var role) && role != Role.SuperAdmin ? role : Role.User,
+                // Never a super admin, and an admin only when a super admin restores them.
+                Role = mayRestoreAdmins && Roles.TryParse((string?)accountNode["role"], out var role) && role != Role.SuperAdmin ? role : Role.User,
                 SecurityStamp = Ids.NewUlid(time),
                 CreatedAt = DateTimeOffset.TryParse((string?)accountNode["createdAt"], CultureInfo.InvariantCulture, DateTimeStyles.None, out var at) ? at : time.GetUtcNow(),
             }, cancellation);

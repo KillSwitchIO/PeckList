@@ -11,7 +11,9 @@ from three places. The first that has it wins:
 
 The settings page shows every setting with its value and where it came from. One set in the
 environment or the file is greyed out there: it cannot be changed from the page, and it overrides
-anything saved there before.
+anything saved there before. Settings that decide who signs in (`OIDC_*`, `LOCAL_LOGIN`,
+`REGISTRATION`, `TRUSTED_PROXIES`, `PUBLIC_URL`) are saved by super admins only; admins see them
+greyed out, marked _super admins only_.
 
 Some settings are **environment only**, because they are needed before the database opens or they
 guard it: `AUTH_MODE`, `ADMIN_PASSWORD`, `DB_*`, `SNAPSHOT_DIR`, `LOG_DIR`, `AUDIT_ARCHIVE_DIR`,

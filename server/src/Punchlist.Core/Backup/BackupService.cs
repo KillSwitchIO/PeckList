@@ -10,6 +10,9 @@ namespace Punchlist.Core.Backup;
 /// <summary>What an import found wrong; the message says what to do.</summary>
 public sealed class BackupException(string message) : Exception(message);
 
+/// <summary>A restore the person asking may not do: an admin's account, by someone who is not a super admin.</summary>
+public sealed class RestoreRefusedException(string message) : Exception(message);
+
 /// <summary>Counts of what an export or import moved, for the CLI to report.</summary>
 public sealed record BackupSummary(int Accounts, int Entities, long Cursor);
 

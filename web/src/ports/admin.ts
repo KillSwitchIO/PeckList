@@ -122,6 +122,9 @@ export interface ServerSetting {
   locked: boolean;
   /** A value is saved on the page (it may be overridden). */
   saved: boolean;
+  /** Decides who signs in (identity providers, passwords, registration, proxies, the public
+   * address): only super admins save it; for admins it is locked. */
+  superAdminOnly?: boolean;
   /** Applies as soon as it is saved (logging), not at the next restart. */
   live: boolean;
 }
