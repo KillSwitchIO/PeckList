@@ -1306,6 +1306,7 @@ export const en = {
   'task.subtasks': '{done}/{total}',
   'task.subtasksHeading': 'Subtasks',
   'task.addSubtask': 'Add subtask',
+  'task.reorderSubtask': 'Move {title}',
   'task.subtaskTitle': 'Subtask title',
   'task.showSubtasks': 'Show subtasks of {title}',
   'task.hideSubtasks': 'Hide subtasks of {title}',
