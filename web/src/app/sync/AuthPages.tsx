@@ -219,8 +219,9 @@ function SignIn({ onSignUp }: { onSignUp: () => void }) {
   // Signed in with a provider before and its session ran out: straight back through it.
   // Not in the Android app, where a provider opens in a browser tab: popping that up unasked on
   // start is jarring, so the buttons show instead.
-  const continueWith =
-    nativeShell() ? undefined : providers.find((each) => each.name === remembered);
+  const continueWith = nativeShell()
+    ? undefined
+    : providers.find((each) => each.name === remembered);
   // Decided once per page (a ref survives StrictMode's second effect run): go, or, when the last
   // trip came straight back within a minute, stay and show the buttons rather than loop.
   const goOnItsOwn = useRef<boolean | null>(null);
