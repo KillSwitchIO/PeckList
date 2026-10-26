@@ -4,6 +4,8 @@ import { SyncFailure, type SignInOptions, type SignUpOutcome } from '../../ports
 import type { MessageKey } from '../i18n/en.ts';
 import { t } from '../i18n/i18n.ts';
 import { PasswordField } from '../layout/PasswordField.tsx';
+import { ConnectPage } from '../native/ConnectPage.tsx';
+import { nativeShell } from '../native/shell.ts';
 import {
   leaveFor,
   mayContinueOnItsOwn,
@@ -95,6 +97,7 @@ const OIDC_ERRORS = [
   'oidc_disabled',
   'oidc_failed',
   'link_expired',
+  'app_sign_in_failed',
 ] as const;
 type OidcError = (typeof OIDC_ERRORS)[number];
 const isOidcError = (error: string | null): error is OidcError =>
@@ -201,6 +204,8 @@ function SwitchLine({
 
 function SignIn({ onSignUp }: { onSignUp: () => void }) {
   const signIn = useSyncState((state) => state.signIn);
+  // The Android app: maybe this is the wrong server (ADR-0017).
+  const [connecting, setConnecting] = useState(false);
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [busy, setBusy] = useState(false);
@@ -212,7 +217,11 @@ function SignIn({ onSignUp }: { onSignUp: () => void }) {
   const providers = options?.providers ?? [];
   const showForm = options !== null && options.localLogin;
   // Signed in with a provider before and its session ran out: straight back through it.
-  const continueWith = providers.find((each) => each.name === remembered);
+  // Not in the Android app, where a provider opens in a browser tab: popping that up unasked on
+  // start is jarring, so the buttons show instead.
+  const continueWith = nativeShell()
+    ? undefined
+    : providers.find((each) => each.name === remembered);
   // Decided once per page (a ref survives StrictMode's second effect run): go, or, when the last
   // trip came straight back within a minute, stay and show the buttons rather than loop.
   const goOnItsOwn = useRef<boolean | null>(null);
@@ -242,6 +251,8 @@ function SignIn({ onSignUp }: { onSignUp: () => void }) {
       setBusy(false);
     }
   };
+
+  if (connecting) return <ConnectPage onBack={() => setConnecting(false)} />;
 
   if (continueWith && !heldBack) {
     return (
@@ -305,6 +316,13 @@ function SignIn({ onSignUp }: { onSignUp: () => void }) {
       )}
       {options?.registration === 'open' && options.localLogin && (
         <SwitchLine text={t('auth.newHere')} action={t('auth.createAccount')} onClick={onSignUp} />
+      )}
+      {nativeShell() && (
+        <SwitchLine
+          text={t('auth.otherServer')}
+          action={t('auth.changeServer')}
+          onClick={() => setConnecting(true)}
+        />
       )}
     </Card>
   );

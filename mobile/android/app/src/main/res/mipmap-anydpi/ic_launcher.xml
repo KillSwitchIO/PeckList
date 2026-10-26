@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Android 7 and older launchers: the whole icon, rounded square included (web/public/icon.svg). -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="48dp"
+    android:height="48dp"
+    android:viewportWidth="64"
+    android:viewportHeight="64">
+    <path
+        android:fillColor="#4F8F87"
+        android:pathData="M14,0 L50,0 A14,14 0 0 1 64,14 L64,50 A14,14 0 0 1 50,64 L14,64 A14,14 0 0 1 0,50 L0,14 A14,14 0 0 1 14,0 Z" />
+    <path android:fillColor="#CDE8E3" android:pathData="M20,16 L44,16 A6,6 0 0 1 50,22 L50,44 A6,6 0 0 1 44,50 L20,50 A6,6 0 0 1 14,44 L14,22 A6,6 0 0 1 20,16 Z" />
+    <path
+        android:pathData="M22,33 L29,40 L42,26"
+        android:strokeColor="#2F5F59"
+        android:strokeWidth="5"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round" />
+</vector>

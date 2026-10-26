@@ -29,6 +29,14 @@ environment:
 
 Every `OIDC_<NAME>_*` setting is in [all settings](../configuration/reference.md#per-provider-oidc_name_).
 
+## The Android app
+
+The app signs in through the same provider and the same redirect URI, in a browser tab instead of
+inside the app (passkeys do not work inside apps, and some providers refuse them). There is
+nothing extra to register with the provider. After the provider, the person confirms on a
+Punchlist page, and the app receives a one-time code it can only use with a secret it kept to
+itself. The app's session is a copy of the browser's, so `OIDC_<NAME>_SESSION_HOURS` still applies.
+
 ## Who gets in
 
 | Setting                                                     | Effect                                                                                                        |

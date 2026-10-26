@@ -30,6 +30,7 @@ import {
   type SettingsPatch,
 } from '../../core/settings.ts';
 import { ColorPicker } from '../colors/ColorPicker.tsx';
+import { ServerSection } from '../native/ServerSection.tsx';
 import { THEME_MODE_ORDER, useThemeMode, type ThemeMode } from '../theme/themeMode.ts';
 import { t } from '../i18n/i18n.ts';
 import { Page } from '../layout/Page.tsx';
@@ -209,6 +210,7 @@ export function SettingsPage() {
   return (
     <Page title={t('nav.settings')}>
       <Stack spacing={4}>
+        <ServerSection />
         <SignInSection />
         <ProfileSection />
         <Section title={t('settings.appearance')}>

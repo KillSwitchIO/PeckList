@@ -4,3 +4,6 @@
 *.jpg binary
 *.ico binary
 *.woff2 binary
+# Windows batch files need CRLF (cmd misreads labels in LF files): the Gradle wrapper.
+*.bat text eol=crlf
+*.jar binary

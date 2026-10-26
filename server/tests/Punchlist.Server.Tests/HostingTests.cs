@@ -73,11 +73,12 @@ public sealed class HostingTests : IClassFixture<ServerFixture>, IDisposable
     }
 
     [Fact]
-    public async Task Info_reports_the_schema_version_and_time_zone()
+    public async Task Info_reports_the_schema_version_time_zone_and_app_sign_in()
     {
         var info = await client.GetFromJsonAsync<ServerInfo>("/api/info", TestContext.Current.CancellationToken);
         // The version is the build's own (Directory.Build.props, or the release build's), never a fixed one.
-        Assert.Equal(new ServerInfo("punchlist", ServerApp.Version, WorkspaceSchema.CurrentVersion, TimeZoneInfo.Local.Id, 25), info);
+        // AppSignIn: the Android app opens providers in a browser tab only on a server that says so.
+        Assert.Equal(new ServerInfo("punchlist", ServerApp.Version, WorkspaceSchema.CurrentVersion, TimeZoneInfo.Local.Id, 25, AppSignIn: true), info);
         Assert.Matches(@"^\d+\.\d+\.\d+(-[0-9A-Za-z.-]+)?$", info!.Version);
     }
 

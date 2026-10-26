@@ -1,11 +1,20 @@
 import { useState } from 'react';
 import { BrowserRouter } from 'react-router';
+import { BackgroundCheckPrompt } from './native/BackgroundCheck.tsx';
+import { NativeFirstRun } from './native/FirstRun.tsx';
+import { NotificationOpen } from './native/NotificationOpen.tsx';
+import { installBackHandler } from './native/back.ts';
+import { forgetServiceWorker, isBundledApp, nativeShell } from './native/shell.ts';
 import { AppProviders } from './providers.tsx';
 import { UpdatePrompt } from './pwa/UpdatePrompt.tsx';
 import { AppRoutes } from './routes.tsx';
 import { createBrowserApp } from './store/browserStore.ts';
 import { ViewAsContext } from './store/viewAs.ts';
 import { ViewAsBanner } from './sync/ViewAsBanner.tsx';
+
+const bundled = isBundledApp();
+if (bundled) forgetServiceWorker();
+if (nativeShell()) installBackHandler();
 
 export function App() {
   const [{ store, sync, viewAs }] = useState(createBrowserApp);
@@ -14,9 +23,12 @@ export function App() {
       <AppProviders store={store} sync={sync}>
         <BrowserRouter>
           <AppRoutes />
+          <NativeFirstRun />
+          <NotificationOpen />
+          <BackgroundCheckPrompt />
         </BrowserRouter>
         {viewAs && <ViewAsBanner view={viewAs} />}
-        <UpdatePrompt />
+        {!bundled && <UpdatePrompt />}
       </AppProviders>
     </ViewAsContext.Provider>
   );

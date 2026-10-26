@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Self-hosted servers on a home network often run on plain http (http://192.168.1.20:8080), so the
+  app allows it; the connect screen warns before using one. Certificates the person installed
+  themselves are trusted too, for servers behind a home CA (Caddy's internal one, step-ca).
+-->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="true">
+        <trust-anchors>
+            <certificates src="system" />
+            <certificates src="user" />
+        </trust-anchors>
+    </base-config>
+</network-security-config>

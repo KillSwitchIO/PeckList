@@ -10,6 +10,7 @@ import { localTimeZone } from '../../core/dates.ts';
 import { formatTime } from '../format.ts';
 import { t } from '../i18n/i18n.ts';
 import { useApply, useStoreState, useWorkspace } from '../store/hooks.ts';
+import { localClock } from './clock.ts';
 import { notifier } from './notifier.ts';
 import { logReminder } from './reminderLog.ts';
 
@@ -17,6 +18,11 @@ import { logReminder } from './reminderLog.ts';
 const GRACE_MS = 15 * 60_000;
 /** How often to look again, in case a timer slept through (laptops, phones). */
 const CHECK_EVERY_MS = 60_000;
+/** How far ahead the Android app hands reminders to the system, and at most how many. */
+const AHEAD_MS = 14 * 86_400_000;
+const AHEAD_MAX = 100;
+/** How long the workspace must stay still before the reminders ahead are handed over again. */
+const AHEAD_SETTLE_MS = 1_000;
 const FIRED_KEY = 'punchlist.firedReminders';
 
 function firedKeys(): Record<string, number> {
@@ -42,7 +48,11 @@ function markFired(key: string, now: number): void {
 /**
  * Fires my reminders while the app is open or in the background (spec: PL-061): each once (the
  * fired ones are remembered on this device, and the notification tag keeps tabs from doubling
- * up), up to 15 minutes late after a sleep. With the app closed, Web Push takes over (later).
+ * up), up to 15 minutes late after a sleep. With the app closed, Web Push takes over.
+ *
+ * In the Android app (ADR-0017) the system shows them instead: the next two weeks of reminders
+ * are handed over whenever they change, and fire with the app closed. The page then only notes
+ * them as fired, for the notifications page.
  */
 export function ReminderScheduler({ now = Date.now }: { now?: () => number }) {
   const workspace = useWorkspace();
@@ -95,21 +105,7 @@ export function ReminderScheduler({ now = Date.now }: { now?: () => number }) {
     const fire = (due: DueReminder) => {
       markFired(due.key, now());
       logReminder({ id: due.key, taskId: due.taskId, at: due.at });
-      void notifier().show({
-        title: due.title || t('task.untitled'),
-        body: t('reminder.body', { time: formatTime(clock(due.at)) }),
-        tag: due.tag,
-        url: `/today?task=${due.taskId}`,
-        ...(due.constant
-          ? {
-              sticky: true,
-              actions: [
-                { action: 'dismiss', title: t('reminder.dismiss') },
-                { action: 'snooze', title: t('reminder.snooze', { minutes: SNOOZE_MINUTES }) },
-              ],
-            }
-          : {}),
-      });
+      if (!notifier().scheduleAhead) void notifier().show(notificationOf(due));
     };
     const check = () => {
       if (timer) clearTimeout(timer);
@@ -136,7 +132,48 @@ export function ReminderScheduler({ now = Date.now }: { now?: () => number }) {
       if (timer) clearTimeout(timer);
     };
   }, [workspace, me, now]);
+
+  useEffect(() => {
+    if (!notifier().scheduleAhead) return;
+    const handle = setTimeout(() => {
+      const at = now();
+      const ahead = remindersBetween(workspace, me, at, at + AHEAD_MS, localTimeZone())
+        .filter((each) => each.at > at)
+        .slice(0, AHEAD_MAX);
+      void notifier().scheduleAhead?.(
+        // Each repeat of a constant reminder is its own alarm here, so its own key. A repeating
+        // task is completed in the app, which works out its next date.
+        ahead.map((each) => ({
+          ...notificationOf(each),
+          tag: each.key,
+          at: each.at,
+          repeats: Boolean(
+            workspace.entities.tasks.find((task) => task.id === each.taskId)?.recurrence,
+          ),
+        })),
+      );
+    }, AHEAD_SETTLE_MS);
+    return () => clearTimeout(handle);
+  }, [workspace, me, now]);
   return null;
+}
+
+function notificationOf(due: DueReminder) {
+  return {
+    title: due.title || t('task.untitled'),
+    body: t('reminder.body', { time: formatTime(clock(due.at)) }),
+    tag: due.tag,
+    url: `/today?task=${due.taskId}`,
+    ...(due.constant
+      ? {
+          sticky: true,
+          actions: [
+            { action: 'dismiss', title: t('reminder.dismiss') },
+            { action: 'snooze', title: t('reminder.snooze', { minutes: SNOOZE_MINUTES }) },
+          ],
+        }
+      : {}),
+  };
 }
 
 /** "HH:mm" in the app's time zone for an instant. */
@@ -147,19 +184,4 @@ function clock(at: number): string {
     minute: '2-digit',
     hourCycle: 'h23',
   }).format(at);
-}
-
-/** "YYYY-MM-DDTHH:mm" in the app's time zone for an instant. */
-function localClock(at: number): string {
-  const parts = new Intl.DateTimeFormat('en-CA', {
-    timeZone: localTimeZone(),
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-    hourCycle: 'h23',
-  }).formatToParts(at);
-  const part = (type: string) => parts.find((each) => each.type === type)?.value ?? '00';
-  return `${part('year')}-${part('month')}-${part('day')}T${part('hour')}:${part('minute')}`;
 }

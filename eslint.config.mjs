@@ -5,7 +5,16 @@ import reactRefresh from 'eslint-plugin-react-refresh';
 import tseslint from 'typescript-eslint';
 
 export default tseslint.config(
-  { ignores: ['**/dist', '**/dev-dist', '**/coverage', '**/node_modules', 'CHANGELOG.md'] },
+  {
+    ignores: [
+      '**/dist',
+      '**/dev-dist',
+      '**/coverage',
+      '**/node_modules',
+      'CHANGELOG.md',
+      'mobile/android',
+    ],
+  },
   js.configs.recommended,
   ...tseslint.configs.strict,
   {

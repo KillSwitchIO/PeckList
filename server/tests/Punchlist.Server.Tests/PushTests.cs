@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json.Nodes;
@@ -228,5 +229,125 @@ public sealed class PushTests(ServerFixture fixture) : IClassFixture<ServerFixtu
             var refused = await ben.PostAsJsonAsync("/api/reminders/act", new { taskId = "DT1", first = nonsense, action = "dismiss" }, Token);
             Assert.Equal(HttpStatusCode.BadRequest, refused.StatusCode);
         }
+    }
+
+    [Fact]
+    public async Task The_app_check_gives_what_is_new_once_and_the_reminders_ahead()
+    {
+        using var server = Server();
+        var (ben, benId) = await SignIn(server, "ben-k");
+        var (_, kimId) = await SignIn(server, "kim-k");
+        // Two days from now on Chicago's clock; Ben set no time zone, so the phone's counts.
+        var chicago = TimeZoneInfo.FindSystemTimeZoneById("America/Chicago");
+        var local = TimeZoneInfo.ConvertTime(DateTimeOffset.UtcNow, chicago).Date.AddDays(2).AddHours(14);
+        var due = new DateTimeOffset(TimeZoneInfo.ConvertTimeToUtc(local, chicago), TimeSpan.Zero);
+        var list = Entity("KL1", benId, new JsonObject { ["name"] = "Home", ["visibility"] = "private" });
+        var task = Entity("KT1", benId, new JsonObject
+        {
+            ["listId"] = "KL1",
+            ["title"] = "Call the plumber",
+            ["parentId"] = null,
+            ["status"] = "open",
+            ["assignees"] = new JsonObject(),
+            ["reminders"] = new JsonArray(new JsonObject { ["at"] = local.ToString("yyyy-MM-dd'T'HH:mm") }),
+        });
+        // A constant reminder a day later: its repeats too, keyed as the app keys them.
+        var nagging = Entity("KT2", benId, new JsonObject
+        {
+            ["listId"] = "KL1",
+            ["title"] = "Take the pills",
+            ["parentId"] = null,
+            ["status"] = "open",
+            ["assignees"] = new JsonObject(),
+            ["constantReminder"] = true,
+            ["reminders"] = new JsonArray(new JsonObject { ["at"] = local.AddDays(1).ToString("yyyy-MM-dd'T'HH:mm") }),
+        });
+        (await ben.PostAsJsonAsync("/api/sync", new
+        {
+            schemaVersion = WorkspaceSchema.CurrentVersion,
+            cursor = (long?)null,
+            changes = new object[]
+            {
+                new { collection = "lists", entity = list },
+                new { collection = "tasks", entity = task },
+                new { collection = "tasks", entity = nagging },
+            },
+        }, Token)).EnsureSuccessStatusCode();
+        var store = server.Services.GetRequiredService<Core.Notifications.INotificationStore>();
+        Core.Notifications.Notification Note(string kind) => new()
+        {
+            Id = Ids.NewUlid(), UserId = benId, Kind = kind, At = DateTimeOffset.UtcNow, ActorId = kimId, ListId = "KL1",
+        };
+        await store.AddAsync([Note("shared")], Token);
+
+        // The first check is only a starting point: what was there before is not news.
+        var first = (await ben.GetFromJsonAsync<AppCheck>("/api/app/check?zone=America/Chicago", Token))!;
+        Assert.Empty(first.Notifications);
+        var reminder = first.Reminders[0];
+        Assert.Equal(($"KT1@{due.ToUnixTimeMilliseconds()}", "Call the plumber", "Reminder for 2:00 PM", "/today?task=KT1"),
+            (reminder.Tag, reminder.Title, reminder.Body, reminder.Url));
+        var tag = $"KT2@{new DateTimeOffset(TimeZoneInfo.ConvertTimeToUtc(local.AddDays(1), chicago), TimeSpan.Zero).ToUnixTimeMilliseconds()}";
+        Assert.Equal([tag, .. Enumerable.Range(1, ServerReminders.ConstantTimes - 1).Select(again => $"{tag}#{again}")],
+            first.Reminders.Skip(1).Select(each => each.Tag));
+        Assert.All(first.Reminders.Skip(1), each => Assert.Equal("Reminder for 2:00 PM", each.Body));
+
+        // A reminder's own notification is left to the alarm set ahead.
+        await store.AddAsync([Note("shared"), Note("reminder")], Token);
+        var next = (await ben.GetFromJsonAsync<AppCheck>($"/api/app/check?after={first.Cursor}", Token))!;
+        var news = Assert.Single(next.Notifications);
+        Assert.Equal(("kim-k shared Home with you", "/lists/KL1"), (news.Body, news.Url));
+        Assert.Empty((await ben.GetFromJsonAsync<AppCheck>($"/api/app/check?after={next.Cursor}", Token))!.Notifications);
+    }
+
+    [Fact]
+    public async Task Complete_and_snooze_from_the_android_notification_write_the_task_for_every_device()
+    {
+        using var server = Server();
+        var (ben, benId) = await SignIn(server, "ben-a");
+        JsonObject Task(string id, string? parent, string? recurrence) => Entity(id, benId, new JsonObject
+        {
+            ["listId"] = "AL1",
+            ["title"] = id,
+            ["parentId"] = parent,
+            ["status"] = "open",
+            ["assignees"] = new JsonObject(),
+            ["recurrence"] = recurrence,
+            ["schedule"] = new JsonObject { ["start"] = "2026-10-26T10:30", ["end"] = null, ["allDay"] = false, ["timeZone"] = null },
+            ["reminders"] = new JsonArray(new JsonObject { ["before"] = 30 }),
+        });
+        (await ben.PostAsJsonAsync("/api/sync", new
+        {
+            schemaVersion = WorkspaceSchema.CurrentVersion,
+            cursor = (long?)null,
+            changes = new object[]
+            {
+                new { collection = "lists", entity = Entity("AL1", benId, new JsonObject { ["name"] = "Home", ["visibility"] = "private" }) },
+                new { collection = "tasks", entity = Task("AT1", null, null) },
+                new { collection = "tasks", entity = Task("AT2", "AT1", null) },
+                new { collection = "tasks", entity = Task("AT3", null, "FREQ=DAILY") },
+            },
+        }, Token)).EnsureSuccessStatusCode();
+
+        (await ben.PostAsJsonAsync("/api/reminders/act", new { taskId = "AT1", first = 0L, action = "complete" }, Token)).EnsureSuccessStatusCode();
+        // A repeating task moves to its next date, which only the app works out.
+        Assert.Equal(HttpStatusCode.Conflict,
+            (await ben.PostAsJsonAsync("/api/reminders/act", new { taskId = "AT3", first = 0L, action = "complete" }, Token)).StatusCode);
+        var before = DateTimeOffset.UtcNow;
+        (await ben.PostAsJsonAsync("/api/reminders/act", new { taskId = "AT3", first = 0L, action = "snooze", minutes = 60 }, Token)).EnsureSuccessStatusCode();
+
+        var synced = await (await ben.PostAsJsonAsync("/api/sync", new
+        {
+            schemaVersion = WorkspaceSchema.CurrentVersion,
+            cursor = (long?)null,
+            changes = Array.Empty<object>(),
+        }, Token)).Content.ReadFromJsonAsync<JsonObject>(Token);
+        var tasks = synced!["changes"]!.AsArray().Select(each => each!["entity"]!.AsObject()).ToDictionary(each => (string)each["id"]!);
+        Assert.Equal(("done", benId), ((string?)tasks["AT1"]["status"], (string?)tasks["AT1"]["completedBy"]));
+        Assert.Equal("done", (string?)tasks["AT2"]["status"]);
+        Assert.Equal("open", (string?)tasks["AT3"]["status"]);
+        // Snoozed an hour, on the server's clock (Ben set no time zone).
+        var snoozed = DateTime.ParseExact((string)tasks["AT3"]["reminders"]!.AsArray().Last()!["at"]!, "yyyy-MM-dd'T'HH:mm", CultureInfo.InvariantCulture);
+        var expected = TimeZoneInfo.ConvertTime(before, TimeZoneInfo.Local).DateTime.AddMinutes(60);
+        Assert.InRange((snoozed - expected).TotalMinutes, -1.5, 1.5);
     }
 }

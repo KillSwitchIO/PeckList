@@ -1,6 +1,8 @@
 import { Alert, Switch } from '@mui/material';
 import { useEffect, useState } from 'react';
 import { t } from '../i18n/i18n.ts';
+import { BackgroundCheckSettings, CHECK_API } from '../native/BackgroundCheck.tsx';
+import { useShellInfo } from '../native/shell.ts';
 import { browserPush } from '../reminders/notifier.ts';
 import { useSyncState } from '../sync/syncContext.ts';
 import { Section, SettingRow } from './settingsLayout.tsx';
@@ -9,9 +11,11 @@ type State = 'checking' | 'on' | 'off' | 'unsupported' | 'blocked' | 'failed';
 
 /**
  * Settings > Notifications (spec: PL-061): Web Push for this device, so reminders and
- * notifications arrive with Punchlist closed. Each device turns it on for itself.
+ * notifications arrive with Punchlist closed. Each device turns it on for itself. The Android app
+ * has no Web Push and checks in with the server instead.
  */
 export function NotificationSettings() {
+  const { shell, info } = useShellInfo();
   const api = useSyncState((state) => state.transport.push);
   const ready = useSyncState((state) => state.phase === 'ready');
   const [checked, setState] = useState<State>('checking');
@@ -37,6 +41,11 @@ export function NotificationSettings() {
   }, [api, ready, supported]);
 
   if (!api || !ready) return null;
+  if (shell) {
+    if (!info) return null;
+    if (info.server !== null && info.api >= CHECK_API)
+      return <BackgroundCheckSettings shell={shell} />;
+  }
 
   const turn = async (on: boolean) => {
     const push = browserPush();

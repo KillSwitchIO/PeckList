@@ -32,6 +32,13 @@ public static class OidcSetup
     /// <summary>Set on a challenge that links a provider account to the signed-in user instead of signing in.</summary>
     private const string LinkAccountItem = "punchlist.link_account";
 
+    /// <summary>
+    /// Set (with the app's URL scheme) on a link started from the Android app (AppSignIn): the
+    /// browser tab has no session, the one-time code stood in for it, and the outcome goes back to
+    /// the app. Only the server sets it; the state it travels in is encrypted.
+    /// </summary>
+    private const string AppLinkItem = "punchlist.app_link_scheme";
+
     /// <summary>On a session from a provider that ends its own session too: which provider (with the ID token kept).</summary>
     public const string ProviderItem = "punchlist.provider";
 
@@ -154,9 +161,7 @@ public static class OidcSetup
         auth.MapGet("/oidc/{name}/link", (string name, ClaimsPrincipal user) =>
         {
             if (settings.OidcProviders.All(provider => provider.Name != name)) return Results.NotFound();
-            var properties = new AuthenticationProperties { RedirectUri = LinkReturn };
-            properties.Items[LinkAccountItem] = user.UserId();
-            return Results.Challenge(properties, [Scheme(name)]);
+            return Results.Challenge(LinkProperties(user.UserId(), appScheme: null), [Scheme(name)]);
         }).RequireAuthorization();
 
         // A one-time sign-in link from an admin.
@@ -176,6 +181,15 @@ public static class OidcSetup
                 new AuthenticationProperties { IsPersistent = true });
             return Results.Redirect(LinkReturn);
         }).Audited("auth.login-link-used", targetRoute: null);
+    }
+
+    /// <summary>A challenge that links the provider account to <paramref name="accountId"/>; from the app when <paramref name="appScheme"/> is set.</summary>
+    public static AuthenticationProperties LinkProperties(string accountId, string? appScheme)
+    {
+        var properties = new AuthenticationProperties { RedirectUri = LinkReturn };
+        properties.Items[LinkAccountItem] = accountId;
+        if (appScheme is not null) properties.Items[AppLinkItem] = appScheme;
+        return properties;
     }
 
     /// <summary>
@@ -312,23 +326,43 @@ public static class OidcSetup
 
     /// <summary>
     /// The link flow's return: only for the same person who started it (the session cookie still
-    /// names them), so a forged callback cannot attach someone else's provider account.
+    /// names them), so a forged callback cannot attach someone else's provider account. A link
+    /// started from the app has no session in its browser tab; the one-time code that started it
+    /// was issued to that account's own session instead (AppSignIn), and the outcome goes back to
+    /// the app.
     /// </summary>
     private static async Task LinkAsync(TicketReceivedContext context, OidcProviderSettings provider, ExternalIdentity identity, string accountId)
     {
         context.HandleResponse();
-        // The callback runs before the session cookie is read for this request: read it here.
-        var session = await context.HttpContext.AuthenticateAsync(CookieAuthenticationDefaults.AuthenticationScheme);
-        var current = session.Principal;
+        var appScheme = context.Properties?.Items.TryGetValue(AppLinkItem, out var scheme) == true ? scheme : null;
+        string Back(string outcome) => appScheme is null ? $"{LinkReturn}?link={outcome}" : $"{appScheme}://link?result={outcome}";
         var note = context.HttpContext.Audit();
-        if (current?.Identity?.IsAuthenticated != true || current.UserId() != accountId)
+        if (appScheme is null)
         {
-            note.Outcome = AuditOutcome.Denied;
-            context.Response.Redirect($"{LinkReturn}?link=failed");
-            return;
+            // The callback runs before the session cookie is read for this request: read it here.
+            var session = await context.HttpContext.AuthenticateAsync(CookieAuthenticationDefaults.AuthenticationScheme);
+            var current = session.Principal;
+            if (current?.Identity?.IsAuthenticated != true || current.UserId() != accountId)
+            {
+                note.Outcome = AuditOutcome.Denied;
+                context.Response.Redirect(Back("failed"));
+                return;
+            }
+            note.ActorId = current.UserId();
+            note.ActorName = current.FindFirstValue(ClaimTypes.Name);
         }
-        note.ActorId = current.UserId();
-        note.ActorName = current.FindFirstValue(ClaimTypes.Name);
+        else
+        {
+            var account = await context.HttpContext.RequestServices.GetRequiredService<IAccountStore>()
+                .FindByIdAsync(accountId, context.HttpContext.RequestAborted);
+            if (account is null || account.Disabled)
+            {
+                note.Outcome = AuditOutcome.Denied;
+                context.Response.Redirect(Back("failed"));
+                return;
+            }
+            note.Actor(account);
+        }
         var result = await context.HttpContext.RequestServices.GetRequiredService<ExternalSignIn>()
             .LinkAsync(provider, identity, accountId, context.HttpContext.RequestAborted);
         var outcome = result switch
@@ -339,7 +373,7 @@ public static class OidcSetup
         };
         note.Outcome = result == LinkResult.Linked ? AuditOutcome.Ok : AuditOutcome.Refused;
         note.Detail = $"{provider.Name}: {outcome}";
-        context.Response.Redirect($"{LinkReturn}?link={outcome}");
+        context.Response.Redirect(Back(outcome));
     }
 
     private static void Redirect(TicketReceivedContext context, string error)
