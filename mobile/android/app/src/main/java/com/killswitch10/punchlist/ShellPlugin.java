@@ -32,6 +32,9 @@ public class ShellPlugin extends Plugin {
 
     private final ExecutorService network = Executors.newSingleThreadExecutor();
 
+    /** A provider page an older server must show in the WebView itself: let it through once. */
+    private volatile String passThrough;
+
     @PluginMethod
     public void info(PluginCall call) {
         JSObject result = new JSObject();
@@ -139,19 +142,38 @@ public class ShellPlugin extends Plugin {
         if (call != null) call.resolve(BackgroundCheck.state(getContext()));
     }
 
-    /** A provider sign-in or link started in the WebView goes to a Custom Tab instead. */
+    /**
+     * A provider sign-in or link started in the WebView goes to a Custom Tab instead, when the
+     * server has the pages for it ({@code appSignIn} in its info). An older server does not: the
+     * provider then runs in the WebView, as before the app had tabs.
+     */
     @Override
     public Boolean shouldOverrideLoad(Uri url) {
+        String address = url.toString();
+        if (address.equals(passThrough)) {
+            passThrough = null;
+            return null;
+        }
         String server = ServerChoice.get(getContext());
         String provider = NativeSignIn.providerOf(server, url);
         if (provider != null) {
-            NativeSignIn.Start start = NativeSignIn.start(getContext(), server, url, provider);
-            openTab(start.handoff);
+            network.execute(() -> {
+                if (!appSignIn(server)) {
+                    inWebView(address);
+                    return;
+                }
+                NativeSignIn.Start start = NativeSignIn.start(getContext(), server, url, provider);
+                getActivity().runOnUiThread(() -> openTab(start.handoff));
+            });
             return true;
         }
         String linking = NativeLink.providerOf(server, url);
         if (linking != null) {
             network.execute(() -> {
+                if (!appSignIn(server)) {
+                    inWebView(address);
+                    return;
+                }
                 try {
                     Uri tab = NativeLink.start(getContext(), server, linking);
                     getActivity().runOnUiThread(() -> openTab(tab));
@@ -164,6 +186,21 @@ public class ShellPlugin extends Plugin {
             return true;
         }
         return null;
+    }
+
+    /** Whether the server has the app's sign-in pages. Network: call off the main thread. */
+    private static boolean appSignIn(String server) {
+        try {
+            return ServerCheck.check(server).info.optBoolean("appSignIn", false);
+        } catch (Exception error) {
+            Logger.warn("Punchlist: could not ask " + server + " about app sign-in: " + error.getMessage());
+            return false;
+        }
+    }
+
+    private void inWebView(String address) {
+        passThrough = address;
+        getBridge().getWebView().post(() -> getBridge().getWebView().loadUrl(address));
     }
 
     private void openTab(Uri url) {

@@ -130,7 +130,8 @@ public static partial class ServerApp
 
         app.MapHealthChecks("/healthz");
         app.MapGet("/api/info", (LiveSettings live) =>
-            new ServerInfo("punchlist", Version, WorkspaceSchema.CurrentVersion, TimeZoneInfo.Local.Id, live.Current.AttachmentMaxMb));
+            new ServerInfo("punchlist", Version, WorkspaceSchema.CurrentVersion, TimeZoneInfo.Local.Id, live.Current.AttachmentMaxMb,
+                AppSignIn: settings.AuthMode != AuthMode.None));
         app.MapAuth();
         app.MapGroup("/api").RequireAuthorization().RequirePasswordChanged().EnsureProfiles().MapSync().MapFriends().MapAccount().MapAttachments().MapNotifications().MapPush().MapProviderPicture().MapAppCheck();
         app.MapGroup("/api/admin").RequireAuthorization().RequirePasswordChanged().MapAdmin().MapSettings().MapBackups().MapLogging().MapAudit().MapStats().MapSetup();
@@ -149,6 +150,11 @@ public static partial class ServerApp
         ?? $"{context.Request.Scheme}://{context.Request.Host}";
 }
 
-/// <summary>What clients check before syncing: which app and schema version this server runs.</summary>
-/// <summary><paramref name="TimeZone"/>: the server's (<c>TZ</c>), the default for people who pick none.</summary>
-public sealed record ServerInfo(string Name, string Version, int SchemaVersion, string? TimeZone = null, int? AttachmentMaxMb = null);
+/// <summary>
+/// What clients check before syncing: which app and schema version this server runs.
+/// <paramref name="TimeZone"/>: the server's (<c>TZ</c>), the default for people who pick none.
+/// <paramref name="AppSignIn"/>: the Android app may sign in and link providers through a browser
+/// tab (<c>/auth/app/*</c>); the app checks it, since an older server has no such pages.
+/// </summary>
+public sealed record ServerInfo(string Name, string Version, int SchemaVersion, string? TimeZone = null, int? AttachmentMaxMb = null,
+    bool AppSignIn = false);

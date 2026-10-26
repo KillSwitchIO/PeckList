@@ -11,6 +11,8 @@ export interface ServerInfo {
   timeZone?: string | null;
   /** The largest file the server takes, in megabytes (older servers: absent). */
   attachmentMaxMb?: number | null;
+  /** Whether the Android app may sign in through a browser tab (older servers: absent). */
+  appSignIn?: boolean;
 }
 
 /** What became of a file sent to the server. */
