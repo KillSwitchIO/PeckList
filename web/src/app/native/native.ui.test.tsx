@@ -62,9 +62,13 @@ describe('android: connecting to a server', () => {
         </MemoryRouter>
       </AppProviders>,
     );
-    expect(await screen.findByRole('heading', { name: 'Connect to a server' })).toBeInTheDocument();
+    // The first render loads the lazy routes cold: slow with coverage on a busy machine.
+    const slow = { timeout: 10_000 };
+    expect(
+      await screen.findByRole('heading', { name: 'Connect to a server' }, slow),
+    ).toBeInTheDocument();
     await userEvent.click(screen.getByRole('button', { name: 'Use on this device only' }));
-    expect(await screen.findByRole('heading', { name: 'Today' })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: 'Today' }, slow)).toBeInTheDocument();
     first.unmount();
 
     // Next start: the choice stands.
@@ -76,7 +80,7 @@ describe('android: connecting to a server', () => {
         </MemoryRouter>
       </AppProviders>,
     );
-    expect(await screen.findByRole('heading', { name: 'Today' })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: 'Today' }, slow)).toBeInTheDocument();
     expect(screen.queryByRole('heading', { name: 'Connect to a server' })).toBeNull();
     expect(shell.went).toEqual([]);
   });
@@ -114,6 +118,20 @@ describe('android: connecting to a server', () => {
       within(warning.closest('[role="alert"]')!).getByRole('button', { name: 'Connect anyway' }),
     );
     expect(shell.went).toEqual(['http://192.168.1.20:8080']);
+  });
+
+  it('always offers a way off the server, even when connecting fails', async () => {
+    const shell = new FakeShell('https://tasks.example.com');
+    setNativeShell(shell);
+    await renderApp('/connect');
+    await userEvent.type(
+      screen.getByRole('textbox', { name: 'Server address' }),
+      'nothing.example.com{Enter}',
+    );
+    expect(await screen.findByText(/Could not reach that address/)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Cancel' })).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Use on this device only' }));
+    expect(shell.went).toEqual(['standalone']);
   });
 
   it('names what is wrong with an address the shell refused', async () => {

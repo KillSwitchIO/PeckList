@@ -18,8 +18,12 @@ public sealed record PushSubscribe(string? Endpoint, PushKeys? Keys);
 
 public sealed record PushUnsubscribe(string? Endpoint);
 
-/// <summary>Dismiss or Snooze on a constant reminder: the task and the reminder's first time (ms since the epoch).</summary>
-public sealed record ReminderAct(string? TaskId, long First, string? Action);
+/// <summary>
+/// A button on a reminder: the task and the reminder's first time (ms since the epoch). Dismiss and
+/// Snooze come from a constant reminder in the browser; Complete and Snooze from the Android app's
+/// notifications. <paramref name="Minutes"/>: how long Snooze puts it off (default ten).
+/// </summary>
+public sealed record ReminderAct(string? TaskId, long First, string? Action, int? Minutes = null);
 
 /// <summary>Web Push (spec: PL-061): the server's key, and this browser's subscription.</summary>
 public static class PushEndpoints
@@ -53,7 +57,9 @@ public static class PushEndpoints
 
         // Dismiss or Snooze pressed on a constant reminder with the app closed (spec: R-FB-70): its
         // repeats stop for this person; Snooze adds a one-time reminder in ten minutes, written to
-        // the task so every device has it. The task's other reminders come as before.
+        // the task so every device has it. The task's other reminders come as before. Complete
+        // (the Android app's notifications) closes the task and its open subtasks; a repeating task
+        // is left to the app, which works out its next date (409).
         api.MapPost("/reminders/act", async (
             ReminderAct request, ClaimsPrincipal user, SharingState sharing, IPushStore store, SyncService sync,
             ServerClock clock, TimeProvider time, CancellationToken cancellation) =>
@@ -62,10 +68,38 @@ public static class PushEndpoints
             var index = sharing.Index;
             var found = index.LiveOf("tasks").FirstOrDefault(each => each.Id == request.TaskId);
             if (found.Doc is null || !ServerReminders.Recipients(found.Doc, index).Contains(userId)) return Results.NotFound();
-            if (request.Action is not ("dismiss" or "snooze")) return Results.BadRequest(new { error = "unknown_action" });
+            if (request.Action is not ("dismiss" or "snooze" or "complete")) return Results.BadRequest(new { error = "unknown_action" });
             // A reminder time, not any number (FromUnixTimeMilliseconds throws outside year 1 to 9999).
             if (request.First is < 0 or > 253_402_300_799_999) return Results.BadRequest(new { error = "invalid_time" });
             var now = time.GetUtcNow();
+            if (request.Action == "complete")
+            {
+                if ((string?)found.Doc["recurrence"] is { Length: > 0 }) return Results.Conflict(new { error = "repeats" });
+                if ((string?)found.Doc["status"] != "open") return Results.NoContent();
+                var stamp = now.UtcDateTime.ToString("yyyy-MM-dd'T'HH:mm:ss.fff'Z'", CultureInfo.InvariantCulture);
+                var closed = new List<IncomingEntity>();
+                foreach (var (_, doc) in WithOpenSubtasks(index, found.Id, found.Doc))
+                {
+                    var next = (JsonObject)doc.DeepClone();
+                    var clocks = next["_hlc"] as JsonObject ?? new JsonObject();
+                    next["status"] = "done";
+                    next["completedAt"] = stamp;
+                    next["completedBy"] = userId;
+                    clocks["status"] = clock.Next();
+                    clocks["completedAt"] = clock.Next();
+                    clocks["completedBy"] = clock.Next();
+                    // Done is done: a pinned task lets go of the top, as in the app.
+                    if (next["pinnedAt"] is JsonValue)
+                    {
+                        next["pinnedAt"] = null;
+                        clocks["pinnedAt"] = clock.Next();
+                    }
+                    next["_hlc"] = clocks;
+                    closed.Add(new IncomingEntity("tasks", next));
+                }
+                await sync.WriteAsServerAsync((string?)found.Doc["createdBy"] ?? userId, closed, cancellation);
+                return Results.NoContent();
+            }
             var first = DateTimeOffset.FromUnixTimeMilliseconds(request.First);
             var tag = $"{found.Id}@{request.First}";
             for (var again = 1; again < ServerReminders.ConstantTimes; again++)
@@ -79,7 +113,8 @@ public static class PushEndpoints
                 var zone = ReminderSender.ZoneOf(settings);
                 var local = TimeZoneInfo.ConvertTime(now, zone);
                 var nowText = local.ToString("yyyy-MM-dd'T'HH:mm", CultureInfo.InvariantCulture);
-                var later = local.AddMinutes(SnoozeMinutes).ToString("yyyy-MM-dd'T'HH:mm", CultureInfo.InvariantCulture);
+                var minutes = Math.Clamp(request.Minutes ?? SnoozeMinutes, 1, 24 * 60);
+                var later = local.AddMinutes(minutes).ToString("yyyy-MM-dd'T'HH:mm", CultureInfo.InvariantCulture);
                 var reminders = new JsonArray();
                 if (found.Doc["reminders"] is JsonArray existing)
                 {
@@ -106,4 +141,18 @@ public static class PushEndpoints
 
     /// <summary>How long Snooze puts a constant reminder off (the app's SNOOZE_MINUTES).</summary>
     public const int SnoozeMinutes = 10;
+
+    /// <summary>A task and its subtasks at any depth that are still open, as completing closes them.</summary>
+    private static IEnumerable<(string Id, JsonObject Doc)> WithOpenSubtasks(SharingIndex index, string id, JsonObject doc)
+    {
+        yield return (id, doc);
+        var children = index.LiveOf("tasks").Where(each => (string?)each.Doc["parentId"] == id).ToList();
+        foreach (var child in children)
+        {
+            foreach (var each in WithOpenSubtasks(index, child.Id, child.Doc))
+            {
+                if ((string?)each.Doc["status"] == "open") yield return each;
+            }
+        }
+    }
 }

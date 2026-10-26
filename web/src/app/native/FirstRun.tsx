@@ -11,7 +11,11 @@ export function NativeFirstRun() {
   const navigate = useNavigate();
   const { pathname } = useLocation();
   const due =
-    info !== null && info.server === null && !choseStandalone() && pathname !== '/connect';
+    info !== null &&
+    info.server === null &&
+    info.choseStandalone !== true &&
+    !choseStandalone() &&
+    pathname !== '/connect';
   useEffect(() => {
     if (due) void navigate('/connect', { replace: true });
     // Once per start: after that the person moves around freely.

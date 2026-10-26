@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Long-press the launcher icon: back to the connect page, whatever the server runs (MainActivity). -->
+<shortcuts xmlns:android="http://schemas.android.com/apk/res/android">
+    <shortcut
+        android:shortcutId="change-server"
+        android:enabled="true"
+        android:icon="@mipmap/ic_launcher"
+        android:shortcutShortLabel="@string/shortcut_server_short"
+        android:shortcutLongLabel="@string/shortcut_server_long">
+        <intent
+            android:action="com.killswitch10.punchlist.CHOOSE_SERVER"
+            android:targetPackage="com.killswitch10.punchlist"
+            android:targetClass="com.killswitch10.punchlist.MainActivity" />
+    </shortcut>
+</shortcuts>

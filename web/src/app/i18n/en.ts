@@ -1279,6 +1279,7 @@ export const en = {
   'reminder.dismiss': 'Dismiss',
   'reminder.snooze': 'Snooze {minutes} min',
   'reminder.snoozed': 'Reminder snoozed {minutes} minutes',
+  'reminder.completed': 'Completed from the reminder',
   'reminder.at': 'At a set time',
   'reminder.addAt': 'Add',
   'reminder.remove': 'Remove the reminder {when}',

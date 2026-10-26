@@ -22,6 +22,7 @@
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
+            <meta-data android:name="android.app.shortcuts" android:resource="@xml/shortcuts" />
 
             <!-- A provider sign-in coming back from the Custom Tab (NativeSignIn). -->
             <intent-filter>
@@ -40,6 +41,11 @@
             </intent-filter>
 
         </activity>
+
+        <!-- Reminders going off, and their Complete and Snooze buttons (Reminders, ReminderReceiver). -->
+        <receiver
+            android:name=".ReminderReceiver"
+            android:exported="false" />
 
         <!-- The background check-in's alarm, and setting it again after a restart or an update (BackgroundCheck). -->
         <receiver

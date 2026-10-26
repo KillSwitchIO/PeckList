@@ -68,7 +68,7 @@ class ShellWebViewClient extends BridgeWebViewClient {
             "<button class=\"other\" id=\"other\" hidden>" + TextUtils.htmlEncode(context.getString(R.string.offline_other)) + "</button>" +
             "</main><script>" +
             "var c=window.Capacitor;var b=document.getElementById('other');" +
-            "if(c&&c.nativePromise){b.hidden=false;b.onclick=function(){c.nativePromise('PunchlistShell','disconnect',{})}}" +
+            "if(c&&c.nativePromise){b.hidden=false;b.onclick=function(){c.nativePromise('PunchlistShell','chooseServer',{})}}" +
             "</script></body></html>"
         );
     }

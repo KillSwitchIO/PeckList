@@ -30,7 +30,7 @@ public sealed class ReminderSender(
     /// web app's key for it (web/src/core/reminders.ts): taskId@first, and #n on a constant
     /// reminder's repeats, so the app's alarm ids agree whichever side set them.
     /// </summary>
-    public sealed record Upcoming(string Key, string Title, string Body, DateTimeOffset At, string Url);
+    public sealed record Upcoming(string Key, string Title, string Body, DateTimeOffset At, string Url, bool Constant, bool Repeats);
 
     protected override async Task ExecuteAsync(CancellationToken stopping)
     {
@@ -115,13 +115,14 @@ public sealed class ReminderSender(
             if (task["reminders"] is not JsonArray { Count: > 0 } || (string?)task["status"] != "open") continue;
             if (!ServerReminders.Recipients(task, index).Contains(userId)) continue;
             var title = (string?)task["title"] is { Length: > 0 } named ? named : "Untitled task";
-            foreach (var (at, first, _) in ServerReminders.Instants(task, zone))
+            var repeats = (string?)task["recurrence"] is { Length: > 0 };
+            foreach (var (at, first, constant) in ServerReminders.Instants(task, zone))
             {
                 if (at <= from || at > to) continue;
                 var tag = $"{taskId}@{first.ToUnixTimeMilliseconds()}";
                 var again = (int)((at - first) / ServerReminders.ConstantEvery);
                 found.Add(new Upcoming(again == 0 ? tag : $"{tag}#{again}", title,
-                    $"Reminder for {Clock(first, zone, mine)}", at, $"/today?task={taskId}"));
+                    $"Reminder for {Clock(first, zone, mine)}", at, $"/today?task={taskId}", constant, repeats));
             }
         }
         return [.. found.OrderBy(each => each.At)];

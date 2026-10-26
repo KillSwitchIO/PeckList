@@ -9,8 +9,11 @@ namespace Punchlist.Server.Push;
 
 public sealed record AppCheckNotification(string Id, string Title, string Body, string Url);
 
-/// <summary><paramref name="At"/>: milliseconds since the epoch.</summary>
-public sealed record AppCheckReminder(string Tag, string Title, string Body, long At, string Url);
+/// <summary>
+/// <paramref name="At"/>: milliseconds since the epoch. <paramref name="Constant"/>: it comes again
+/// every few minutes; <paramref name="Repeats"/>: the task repeats, so completing it is the app's job.
+/// </summary>
+public sealed record AppCheckReminder(string Tag, string Title, string Body, long At, string Url, bool Constant = false, bool Repeats = false);
 
 /// <summary><paramref name="Cursor"/>: what to send as <c>after</c> next time.</summary>
 public sealed record AppCheck(string? Cursor, IReadOnlyList<AppCheckNotification> Notifications, IReadOnlyList<AppCheckReminder> Reminders);
@@ -63,7 +66,7 @@ public static class AppCheckEndpoints
             var now = time.GetUtcNow();
             var reminders = ReminderSender.UpcomingFor(index, me, now, now + Ahead, zone)
                 .Take(AheadMax)
-                .Select(each => new AppCheckReminder(each.Key, each.Title, each.Body, each.At.ToUnixTimeMilliseconds(), each.Url))
+                .Select(each => new AppCheckReminder(each.Key, each.Title, each.Body, each.At.ToUnixTimeMilliseconds(), each.Url, each.Constant, each.Repeats))
                 .ToList();
             return new AppCheck(cursor, notifications, reminders);
         });

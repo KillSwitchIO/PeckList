@@ -9,7 +9,18 @@
     <string name="offline_body">Punchlist could not reach %1$s. Check your connection, or whether the server is running.</string>
     <string name="offline_retry">Try again</string>
     <string name="offline_other">Use another server</string>
-    <!-- Notification channels, as Settings > Apps > Punchlist > Notifications lists them (NativeReminders). -->
+    <!-- Notification channels, as Settings > Apps > Punchlist > Notifications lists them (Reminders). -->
     <string name="channel_reminders">Reminders</string>
     <string name="channel_activity">Shares, assignments and mentions</string>
+    <!-- A reminder's buttons and text (Reminders, ReminderReceiver); the web app words them the same. -->
+    <string name="action_complete">Complete</string>
+    <string name="action_snooze">Snooze %1$d min</string>
+    <string name="reminder_body">Reminder for %1$s</string>
+    <string name="action_failed_complete">Could not reach your server. Tap to complete it in the app.</string>
+    <string name="action_failed_snooze">Could not reach your server. Tap to snooze it in the app.</string>
+    <!-- Back with nothing left to go back to (MainActivity). -->
+    <string name="back_again">Press Back again to leave Punchlist</string>
+    <!-- The launcher icon's long-press shortcut: back to the connect page, whatever the server runs. -->
+    <string name="shortcut_server_short">Change server</string>
+    <string name="shortcut_server_long">Change server or use without one</string>
 </resources>

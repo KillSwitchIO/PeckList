@@ -18,6 +18,15 @@ export interface AppNotification {
 export interface ScheduledNotification extends AppNotification {
   /** When, in milliseconds since the epoch. */
   at: number;
+  /** Its task repeats: completing it moves the task on, which only the app does (Android) */
+  repeats?: boolean;
+}
+
+/** A button on a reminder that finishes in the app (Android): close the task, or put it off. */
+export interface NotificationAction {
+  action: 'complete' | 'snooze';
+  taskId: string;
+  minutes: number;
 }
 
 export interface Notifier {
@@ -30,8 +39,11 @@ export interface Notifier {
    * system shows each at its time, even with the app closed, so the page does not show them.
    */
   scheduleAhead?(notifications: ScheduledNotification[]): Promise<void>;
-  /** Native apps only: a tap on one of our notifications, with its address in the app. */
-  onOpen?(handler: (url: string) => void): () => void;
+  /**
+   * Native apps only: a tap on one of our notifications, with its address in the app, and the
+   * button pressed when it is one the app must finish (offline, standalone, a repeating task).
+   */
+  onOpen?(handler: (url: string, action?: NotificationAction) => void): () => void;
 }
 
 /** This browser's Web Push subscription, as the server stores it. */

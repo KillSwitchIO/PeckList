@@ -15,6 +15,7 @@ final class ServerChoice {
 
     private static final String PREFS = "punchlist.shell";
     private static final String SERVER = "server";
+    private static final String STANDALONE = "standalone";
 
     private ServerChoice() {}
 
@@ -23,11 +24,20 @@ final class ServerChoice {
     }
 
     static void set(Context context, String origin) {
-        prefs(context).edit().putString(SERVER, origin).apply();
+        prefs(context).edit().putString(SERVER, origin).remove(STANDALONE).apply();
     }
 
     static void clear(Context context) {
         prefs(context).edit().remove(SERVER).apply();
+    }
+
+    /** Off the server by choice (Disconnect, "Use on this device only"): no connect page on start. */
+    static void chooseStandalone(Context context) {
+        prefs(context).edit().remove(SERVER).putBoolean(STANDALONE, true).apply();
+    }
+
+    static boolean choseStandalone(Context context) {
+        return prefs(context).getBoolean(STANDALONE, false);
     }
 
     /**

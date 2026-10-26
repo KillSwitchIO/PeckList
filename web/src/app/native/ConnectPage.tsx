@@ -125,12 +125,21 @@ export function ConnectPage({ onBack }: { onBack: () => void }) {
           disabled={busy}
           sx={{ mt: 1 }}
           onClick={() => {
-            if (!onServer) rememberStandalone();
+            if (onServer) {
+              void shell?.disconnect();
+              return;
+            }
+            rememberStandalone();
             onBack();
           }}
         >
-          {onServer ? t('common.cancel') : t('connect.deviceOnly')}
+          {t('connect.deviceOnly')}
         </Button>
+        {onServer && (
+          <Button fullWidth disabled={busy} onClick={onBack}>
+            {t('common.cancel')}
+          </Button>
+        )}
       </Paper>
     </Box>
   );

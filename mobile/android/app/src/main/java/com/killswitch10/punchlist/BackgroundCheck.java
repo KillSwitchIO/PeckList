@@ -158,8 +158,8 @@ final class BackgroundCheck {
 
         // With the app on screen, the web app shows what is new and owns the reminders.
         if (!MainActivity.showing()) {
-            NativeReminders.handOver(context, answer.getJSONArray("reminders"));
-            NativeReminders.showNew(context, answer.getJSONArray("notifications"));
+            Reminders.handOver(context, Reminders.parse(answer.getJSONArray("reminders")));
+            Reminders.showNew(context, answer.getJSONArray("notifications"));
         }
         if (!answer.isNull("cursor")) prefs(context).edit().putString(CURSOR, answer.getString("cursor")).apply();
     }

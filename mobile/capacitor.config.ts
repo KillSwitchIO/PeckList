@@ -12,6 +12,11 @@ const config: CapacitorConfig = {
     backgroundColor: '#FAFAF7',
   },
   plugins: {
+    // MainActivity keeps the WebView clear of the status and navigation bars itself, so a server's
+    // older web build lays out right too.
+    SystemBars: {
+      insetsHandling: 'disable',
+    },
     // Reminders (web/src/adapters/capacitor-notifier.ts): our status bar icon, in the accent.
     LocalNotifications: {
       smallIcon: 'ic_stat_punchlist',

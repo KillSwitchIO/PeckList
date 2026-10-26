@@ -1,5 +1,6 @@
 package com.killswitch10.punchlist;
 
+import android.Manifest;
 import android.content.ActivityNotFoundException;
 import android.content.Intent;
 import android.content.pm.PackageInfo;
@@ -10,11 +11,15 @@ import androidx.activity.result.ActivityResult;
 import androidx.browser.customtabs.CustomTabsIntent;
 import com.getcapacitor.JSObject;
 import com.getcapacitor.Logger;
+import com.getcapacitor.PermissionState;
 import com.getcapacitor.Plugin;
 import com.getcapacitor.PluginCall;
 import com.getcapacitor.PluginMethod;
 import com.getcapacitor.annotation.ActivityCallback;
 import com.getcapacitor.annotation.CapacitorPlugin;
+import com.getcapacitor.annotation.Permission;
+import com.getcapacitor.annotation.PermissionCallback;
+import org.json.JSONException;
 import org.json.JSONObject;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -24,11 +29,16 @@ import java.util.concurrent.Executors;
  * {@code web/src/adapters/capacitor-shell.ts}. The web build a server ships may be newer or older
  * than this shell, so methods are only ever added, and {@code info().api} says which exist.
  */
-@CapacitorPlugin(name = "PunchlistShell")
+@CapacitorPlugin(
+    name = "PunchlistShell",
+    permissions = { @Permission(alias = ShellPlugin.NOTIFICATIONS, strings = { Manifest.permission.POST_NOTIFICATIONS }) }
+)
 public class ShellPlugin extends Plugin {
 
     /** Bumped when a method is added; the web app checks it before calling a newer one. */
-    private static final int API = 2;
+    private static final int API = 3;
+
+    static final String NOTIFICATIONS = "notifications";
 
     private final ExecutorService network = Executors.newSingleThreadExecutor();
 
@@ -43,6 +53,7 @@ public class ShellPlugin extends Plugin {
         // JSONObject drops a null value; standalone must read as server: null, not a missing key.
         result.put("server", server == null ? JSONObject.NULL : server);
         result.put("version", versionName());
+        result.put("choseStandalone", ServerChoice.choseStandalone(getContext()));
         call.resolve(result);
     }
 
@@ -102,10 +113,20 @@ public class ShellPlugin extends Plugin {
     /** Back to the app on its own (standalone): the app restarts without a server. */
     @PluginMethod
     public void disconnect(PluginCall call) {
-        ServerChoice.clear(getContext());
+        ServerChoice.chooseStandalone(getContext());
         BackgroundCheck.forgetServer(getContext());
         call.resolve();
         restart();
+    }
+
+    /** Api 3: off the server and onto the app's own connect page (the offline page's "Use another server"). */
+    @PluginMethod
+    public void chooseServer(PluginCall call) {
+        call.resolve();
+        getActivity().runOnUiThread(() -> {
+            getActivity().setIntent(new Intent(getContext(), MainActivity.class).setAction(MainActivity.CHOOSE_SERVER));
+            getActivity().recreate();
+        });
     }
 
     /** Api 2: the background check-in (BackgroundCheck): on or off, how often, and whether Android lets it run. */
@@ -207,9 +228,90 @@ public class ShellPlugin extends Plugin {
         new CustomTabsIntent.Builder().setShowTitle(true).build().launchUrl(getActivity(), url);
     }
 
+    /** Api 3: whether the app may show notifications: granted, denied or prompt. */
+    @PluginMethod
+    public void notificationPermission(PluginCall call) {
+        call.resolve(permission());
+    }
+
+    /** Api 3: Android's notification permission dialog (Android 13 and up), then the answer. */
+    @PluginMethod
+    public void requestNotificationPermission(PluginCall call) {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU || getPermissionState(NOTIFICATIONS) == PermissionState.GRANTED) {
+            call.resolve(permission());
+            return;
+        }
+        requestPermissionForAlias(NOTIFICATIONS, call, "notificationAnswered");
+    }
+
+    @PermissionCallback
+    private void notificationAnswered(PluginCall call) {
+        call.resolve(permission());
+    }
+
+    private JSObject permission() {
+        JSObject answer = new JSObject();
+        boolean enabled = androidx.core.app.NotificationManagerCompat.from(getContext()).areNotificationsEnabled();
+        String state = enabled ? "granted"
+            : Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU && getPermissionState(NOTIFICATIONS) != PermissionState.DENIED ? "prompt"
+            : "denied";
+        answer.put("display", state);
+        return answer;
+    }
+
+    /** Api 3: replace the reminders set ahead ({key, title, body, at, url, constant, repeats}); see Reminders. */
+    @PluginMethod
+    public void scheduleReminders(PluginCall call) {
+        try {
+            Reminders.handOver(getContext(), Reminders.parse(call.getArray("reminders", new com.getcapacitor.JSArray())));
+            call.resolve();
+        } catch (JSONException error) {
+            call.reject("bad reminders: " + error.getMessage(), "invalid");
+        }
+    }
+
+    /** Api 3: show one notification now ({tag, title, body, url}). */
+    @PluginMethod
+    public void showNotification(PluginCall call) {
+        String tag = call.getString("tag", "");
+        Reminders.show(getContext(), new Reminders.Reminder("now:" + tag, call.getString("title", ""), call.getString("body", ""),
+            System.currentTimeMillis(), call.getString("url", "/"), false, true), null);
+        call.resolve();
+    }
+
+    /** A notification tapped while the app was closed: its intent started the app. */
+    @Override
+    public void load() {
+        super.load();
+        if (getActivity() != null) opened(getActivity().getIntent());
+    }
+
+    /**
+     * A notification tapped, or one of its buttons that finishes in the app: tell the web app where
+     * to go and what to do (retained, so a web app still starting gets it too).
+     */
+    private boolean opened(Intent intent) {
+        String url = intent == null ? null : intent.getStringExtra(Reminders.EXTRA_URL);
+        if (url == null || !url.startsWith("/")) return false;
+        Reminders.cancelShown(getContext(), intent.getIntExtra(Reminders.EXTRA_SHOWN, 0));
+        JSObject event = new JSObject();
+        event.put("url", url);
+        String action = intent.getStringExtra(Reminders.EXTRA_ACTION);
+        if (action != null) {
+            event.put("action", action);
+            event.put("taskId", intent.getStringExtra(Reminders.EXTRA_TASK));
+            event.put("minutes", intent.getIntExtra(Reminders.EXTRA_MINUTES, Reminders.SNOOZE_MINUTES));
+        }
+        // Handled: the same intent must not act again when the activity is recreated.
+        intent.removeExtra(Reminders.EXTRA_URL);
+        notifyListeners("notificationOpen", event, true);
+        return true;
+    }
+
     /** A provider sign-in coming back: trade the code for a session in the WebView. A link: show how it went. */
     @Override
     protected void handleOnNewIntent(Intent intent) {
+        if (opened(intent)) return;
         Uri data = intent.getData();
         String server = ServerChoice.get(getContext());
         if (server != null && NativeLink.isReturn(getContext(), data)) {

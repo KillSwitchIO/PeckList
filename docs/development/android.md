@@ -20,24 +20,40 @@ app (ADR-0017 in the project notes). There is no second copy of the UI.
   `<package>://link?result=...`, which reopens Settings with it.
 - **Back button**: `MainActivity` asks the web app first (`window.punchlistBack()`,
   `web/src/app/native/back.ts`): it closes the topmost menu, dialog or sheet, else steps back in
-  the app's history. With nothing left, the app moves to the background. A server's web build too
-  old to answer gets the WebView's own history instead.
+  the app's history. With nothing left, a second Back within two seconds moves the app to the
+  background ("Press Back again to leave Punchlist"). A server's web build too old to answer gets
+  the WebView's own history instead.
+- **System bars**: Android 15 draws apps under the status and navigation bars, and on WebView 140
+  and later Capacitor leaves the space to the page's CSS, which an older server's web build does
+  not handle. So Capacitor's handling is off (`SystemBars.insetsHandling: 'disable'`) and
+  `MainActivity` pads the window itself (bars, cutout and keyboard), with the app's background
+  behind the bars; the page sees no insets.
+- **Getting off a server**: the connect page always offers **Use on this device only**; the
+  offline page's **Use another server** and the launcher icon's long-press shortcut **Change
+  server** (`res/xml/shortcuts.xml`) leave the server for the app's own connect page, whatever the
+  server's web build is. Leaving on purpose is remembered (`choseStandalone` in `info()`), so the
+  server-less app does not open on the connect page.
 - **Server unreachable on a cold start** (nothing cached by the service worker yet, or a proxy
   answering 502/503/504): `ShellWebViewClient` shows a page at the server's origin with **Try
   again** and **Use another server**. Once the app has loaded, its service worker serves it offline.
 - **Reminders**: the WebView has no notifications and no Web Push, so the app hands the next two
-  weeks of reminders (at most 100) to Android through Capacitor's Local Notifications whenever
-  they change (`web/src/adapters/capacitor-notifier.ts`). They fire with exact alarms
-  (`USE_EXACT_ALARM`) even with the app closed, in a "Reminders" channel; a tap opens the task.
+  weeks of reminders (at most 100) to the shell whenever they change
+  (`web/src/adapters/shell-notifier.ts`, shell api 3; an older shell gets them through Capacitor's
+  Local Notifications instead). `Reminders` sets an exact alarm for each (`USE_EXACT_ALARM`) and
+  shows it when it fires, in a "Reminders" channel, with **Complete** and **Snooze 10 min** as
+  TickTick has. On a server the buttons act there (`POST /api/reminders/act`, `ReminderReceiver`)
+  without opening the app; Snooze also sets the new reminder at once. Standalone, for a repeating
+  task (only the app works out its next date), or when the server cannot be reached, the button
+  opens the app and does it there (`app/native/NotificationOpen.tsx`). A tap opens the task.
   Reminders further out are handed over by the background check-in.
 - **Background check-in** (instead of Web Push): with the app closed, an exact alarm wakes
   `CheckReceiver` every 5 minutes (Settings > Notifications: off, or 15, 30 or 60 minutes). It
   asks `GET /api/app/check` with the WebView's session cookie and gets what is new since its last
   check (shares, assignments, mentions, worded as the push is) and the next two weeks of
-  reminders. `NativeReminders` shows the new ones in a "Shares, assignments and mentions" channel
-  and sets the reminders through the Local Notifications plugin's own store, with the web app's
-  ids (`idOf`, pinned in tests on both sides), so a reminder changed on another device fires here
-  and one set by both is one. While the app is on screen the web app owns both, and the check
+  reminders. `Reminders` shows the new ones in a "Shares, assignments and mentions" channel and
+  sets the reminders the same way the web app does, keyed alike (`taskId@first`, `#n` on a constant
+  reminder's repeats), so a reminder changed on another device fires here and one set by both is
+  one. While the app is on screen the web app owns both, and the check
   only moves its cursor. Once signed in, the app asks once to notify and to run without battery
   optimization (`REQUEST_IGNORE_BATTERY_OPTIMIZATIONS`); without that, Android holds the alarm and
   the network while the phone is idle. Samsung phones also need Punchlist in **Never sleeping

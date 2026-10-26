@@ -10,6 +10,7 @@ import { localTimeZone } from '../../core/dates.ts';
 import { formatTime } from '../format.ts';
 import { t } from '../i18n/i18n.ts';
 import { useApply, useStoreState, useWorkspace } from '../store/hooks.ts';
+import { localClock } from './clock.ts';
 import { notifier } from './notifier.ts';
 import { logReminder } from './reminderLog.ts';
 
@@ -140,8 +141,16 @@ export function ReminderScheduler({ now = Date.now }: { now?: () => number }) {
         .filter((each) => each.at > at)
         .slice(0, AHEAD_MAX);
       void notifier().scheduleAhead?.(
-        // Each repeat of a constant reminder is its own alarm here, so its own key.
-        ahead.map((each) => ({ ...notificationOf(each), tag: each.key, at: each.at })),
+        // Each repeat of a constant reminder is its own alarm here, so its own key. A repeating
+        // task is completed in the app, which works out its next date.
+        ahead.map((each) => ({
+          ...notificationOf(each),
+          tag: each.key,
+          at: each.at,
+          repeats: Boolean(
+            workspace.entities.tasks.find((task) => task.id === each.taskId)?.recurrence,
+          ),
+        })),
       );
     }, AHEAD_SETTLE_MS);
     return () => clearTimeout(handle);
@@ -175,19 +184,4 @@ function clock(at: number): string {
     minute: '2-digit',
     hourCycle: 'h23',
   }).format(at);
-}
-
-/** "YYYY-MM-DDTHH:mm" in the app's time zone for an instant. */
-function localClock(at: number): string {
-  const parts = new Intl.DateTimeFormat('en-CA', {
-    timeZone: localTimeZone(),
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-    hourCycle: 'h23',
-  }).formatToParts(at);
-  const part = (type: string) => parts.find((each) => each.type === type)?.value ?? '00';
-  return `${part('year')}-${part('month')}-${part('day')}T${part('hour')}:${part('minute')}`;
 }

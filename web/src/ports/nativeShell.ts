@@ -12,6 +12,8 @@ export interface ShellInfo {
   server: string | null;
   /** The app's own version (its web build may be the server's). */
   version: string;
+  /** Left a server on purpose, so no connect page on start (api 3; older: absent). */
+  choseStandalone?: boolean;
 }
 
 /** Why an address cannot be used. */
