@@ -14,16 +14,6 @@ import {
 import { useWorkspace } from '../store/hooks.ts';
 import { weekdayInitials, monthTitle } from './miniCalendarText.ts';
 
-const FOLDED = 'punchlist.miniCalendarFolded';
-
-function loadFolded(): boolean {
-  try {
-    return localStorage.getItem(FOLDED) === '1';
-  } catch {
-    return false;
-  }
-}
-
 /** What the grid shows: days, the months of a year, or twelve years. */
 type Level = 'days' | 'months' | 'years';
 
@@ -52,7 +42,8 @@ export function MiniCalendar({
   const today = useToday();
   const workspace = useWorkspace();
   const weekStart = workspace.entities.settings[0]?.weekStart ?? 0;
-  const [folded, setFolded] = useState(loadFolded);
+  // Always starts folded to one week, so the sidebar's lists keep the room (Ben, R-FB-76).
+  const [folded, setFolded] = useState(true);
   const [month, setMonth] = useState(() => monthOf(today));
   const [week, setWeek] = useState(() => weekOf(selected ?? today, weekStart));
   const [level, setLevel] = useState<Level>('days');
@@ -78,11 +69,6 @@ export function MiniCalendar({
     // Folding shows the week of what is open, else this week; unfolding, that week's month.
     if (next) setWeek(weekOf(selected ?? today, weekStart));
     else setMonth(monthOf(addDays(week, 3)));
-    try {
-      localStorage.setItem(FOLDED, next ? '1' : '0');
-    } catch {
-      // storage unavailable: folded for this visit only
-    }
   };
   const step = (by: number) => {
     if (level === 'months') setYear(year + by);
