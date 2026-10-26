@@ -1,15 +1,19 @@
 import { describe, expect, it } from 'vitest';
 import { testContext } from '../test/fixtures.ts';
 import { inboxList } from './lists.ts';
+import { withNewTaskDefaults } from './newTaskDefaults.ts';
 import {
   allDayParts,
   allDayReminder,
+  allDayReminderTimeOf,
+  atAllDayTime,
   reminderInstant,
   remindersBetween,
   remindsAllDay,
   remindsMe,
   snoozeReminder,
 } from './reminders.ts';
+import { updateSettings } from './settings.ts';
 import { setAssignee } from './sharing.ts';
 import { createTask, toggleTaskDone, updateTask } from './tasks.ts';
 import type { Task, WorkspaceFile } from './types.ts';
@@ -117,6 +121,42 @@ describe('all-day reminders at a time of day', () => {
       const made = allDayReminder(days, time);
       expect('before' in made && allDayParts(made.before)).toEqual({ days, time });
     }
+  });
+});
+
+describe("the person's time for all-day reminders (R-FB-83)", () => {
+  it('moves new choices to it, while reminders keep counting from 9:00', () => {
+    // "On the day" and "1 day early" at 7:30 instead of 9:00; five minutes early stays five.
+    expect(atAllDayTime(0, '07:30')).toBe(90);
+    expect(atAllDayTime(1440, '07:30')).toBe(1440 + 90);
+    expect(atAllDayTime(5, '10:00')).toBe(-55);
+    expect(atAllDayTime(1440, '09:00')).toBe(1440);
+    expect(allDayParts(atAllDayTime(1440, '07:30'))).toEqual({ days: 1, time: '07:30' });
+  });
+
+  it('is 9:00 until the person picks another', () => {
+    const s = setup();
+    expect(allDayReminderTimeOf(s.ws)).toBe('09:00');
+    s.ws = updateSettings(s.ctx, s.ws, { allDayReminderTime: '07:30' });
+    expect(allDayReminderTimeOf(s.ws)).toBe('07:30');
+  });
+
+  it("give a new all-day task's default reminder that time", () => {
+    const s = setup();
+    s.ws = updateSettings(s.ctx, s.ws, {
+      allDayReminderTime: '07:30',
+      newTask: { date: 'today', reminders: [{ before: 0 }] },
+    });
+    const options = { today: '2026-10-26', timeZone: TZ, inList: false };
+    const allDayTask = withNewTaskDefaults(s.ws, { listId: inboxList(s.ws).id }, options);
+    expect(allDayTask.reminders).toEqual([{ before: 90 }]);
+    s.ws = updateSettings(s.ctx, s.ws, {
+      newTask: { date: 'today', time: '14:00', reminders: [{ before: 0 }] },
+    });
+    // A timed task keeps "on time".
+    expect(withNewTaskDefaults(s.ws, { listId: inboxList(s.ws).id }, options).reminders).toEqual([
+      { before: 0 },
+    ]);
   });
 });
 

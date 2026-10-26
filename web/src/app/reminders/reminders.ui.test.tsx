@@ -3,6 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { localTimeZone, todayIn } from '../../core/dates.ts';
 import { inboxList } from '../../core/lists.ts';
+import { updateSettings } from '../../core/settings.ts';
 import { createTask } from '../../core/tasks.ts';
 import type { Reminder } from '../../core/types.ts';
 import type {
@@ -121,6 +122,24 @@ describe('reminders', () => {
     );
     await userEvent.click(within(again).getByRole('button', { name: 'OK' }));
     expect(task().reminders).toEqual([{ before: 1440 }, { before: 120 }]);
+  });
+
+  it("offer an all-day task's reminders at the person's time (R-FB-83)", async () => {
+    setNotifier(fakeNotifier('granted'));
+    const store = testStore();
+    await renderApp('/inbox', store);
+    store.getState().apply((ctx, ws) => updateSettings(ctx, ws, { allDayReminderTime: '07:30' }));
+    const id = addTask(store, 'Water plants', inMinutes(3 * 24 * 60).slice(0, 10));
+    await userEvent.click(screen.getByRole('button', { name: 'Open Water plants' }));
+    const details = await screen.findByRole('region', { name: 'Task details' });
+    await userEvent.click(within(details).getByRole('button', { name: 'Reminders: None' }));
+    const sheet = await screen.findByRole('dialog', { name: 'Reminder' });
+    const onTheDay = within(sheet).getByRole('menuitemcheckbox', { name: /^On the day/ });
+    expect(onTheDay).toHaveTextContent(/7:30/);
+    await userEvent.click(onTheDay);
+    await userEvent.click(within(sheet).getByRole('button', { name: 'OK' }));
+    const task = () => store.getState().workspace!.entities.tasks.find((each) => each.id === id)!;
+    expect(task().reminders).toEqual([{ before: 90 }]);
   });
 
   it('remind an all-day task on the day at a later time, and say when it has passed', async () => {

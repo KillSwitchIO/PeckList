@@ -3,7 +3,8 @@
 // both (core/quickAdd.createFromQuickAdd lays them on top).
 
 import { getEntity, isLive } from './collections.ts';
-import { addDays } from './dates.ts';
+import { addDays, timePart } from './dates.ts';
+import { allDayReminderTimeOf, atAllDayTime } from './reminders.ts';
 import type { TaskInput } from './tasks.ts';
 import type { Id, NewTaskDefaults, WorkspaceFile } from './types.ts';
 
@@ -54,7 +55,15 @@ export function withNewTaskDefaults(
   }
   // They wait for a date if the task has none (core/reminders counts from it).
   if (next.reminders === undefined && defaults.reminders?.length) {
-    next.reminders = defaults.reminders;
+    // On an all-day task they come at the person's time for all-day reminders (R-FB-83).
+    const anchor = next.schedule?.start ?? next.due?.at ?? null;
+    const time = allDayReminderTimeOf(workspace);
+    next.reminders =
+      anchor !== null && timePart(anchor) === null
+        ? defaults.reminders.map((each) =>
+            'before' in each ? { before: atAllDayTime(each.before, time) } : each,
+          )
+        : defaults.reminders;
   }
   return next;
 }

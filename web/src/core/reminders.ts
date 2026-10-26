@@ -9,8 +9,28 @@ import { groupMembersOf } from './groups.ts';
 import { assigneesOf } from './sharing.ts';
 import type { Id, Reminder, Task, WorkspaceFile } from './types.ts';
 
-/** When an all-day task's reminders count from. */
+/**
+ * When an all-day task's reminders count from. Fixed, so a reminder keeps its time; the time new
+ * ones come at is the person's (allDayReminderTimeOf).
+ */
 export const ALL_DAY_REMINDER_TIME = '09:00';
+
+/** The time of day new all-day reminders come at: the person's setting, else 9:00 (R-FB-83). */
+export function allDayReminderTimeOf(workspace: WorkspaceFile): string {
+  return workspace.entities.settings[0]?.allDayReminderTime ?? ALL_DAY_REMINDER_TIME;
+}
+
+/**
+ * A reminder made for an all-day task from a choice counted from the day's start time (the quick
+ * choices, the new-task reminder: "on time", "1 day early"), at the person's time instead.
+ */
+export function atAllDayTime(before: number, time: string): number {
+  const minutes = (hhmm: string) => {
+    const [h, m] = hhmm.split(':').map(Number) as [number, number];
+    return h * 60 + m;
+  };
+  return before + minutes(ALL_DAY_REMINDER_TIME) - minutes(time);
+}
 
 /** The picker's choices, minutes before: a timed task, and an all-day one (from 9:00). */
 export const TIMED_PRESETS = [0, 5, 30, 60, 1440] as const;

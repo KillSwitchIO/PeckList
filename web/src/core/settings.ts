@@ -16,6 +16,7 @@ export type SettingsPatch = Partial<
     | 'weekStart'
     | 'timeZone'
     | 'newTask'
+    | 'allDayReminderTime'
   >
 >;
 

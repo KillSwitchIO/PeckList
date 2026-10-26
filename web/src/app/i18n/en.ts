@@ -721,7 +721,10 @@ export const en = {
   'newTask.time': 'Time',
   'newTask.timeHint': 'Empty: all day',
   'newTask.reminder': 'Reminder',
-  'newTask.reminderHint': 'Once the task has a date (all-day tasks: from 9:00 that day)',
+  'newTask.reminderHint': 'Once the task has a date (all-day tasks: from the time below)',
+  'newTask.allDayTime': 'All-day reminder time',
+  'newTask.allDayTimeHint':
+    'When reminders on a task with no start time come: on the day, or days early. Reminders already set keep their time.',
   'newTask.assignSelf': 'Assign to me in shared lists',
   'newTask.assignSelfHint': 'Tasks you add to a shared list start assigned to you',
   'settings.clock': 'Clock',
