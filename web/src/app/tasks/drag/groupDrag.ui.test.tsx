@@ -91,6 +91,38 @@ describe('dragging tasks between groups', () => {
     await waitFor(() => expect(start()).toBe(today));
   });
 
+  // R-FB-75: a task moved within its own day used to snap back.
+  it("in Today, a task dragged within today's group stays where it is put", async () => {
+    const store = testStore();
+    await store.getState().init();
+    const today = todayIn(localTimeZone(), Date.now());
+    store.getState().apply((ctx, ws) => {
+      let next: WorkspaceFile = ws;
+      for (const title of ['Walk dog', 'Water plants', 'Call mom']) {
+        next = createTask(ctx, next, {
+          title,
+          listId: inboxList(next).id,
+          schedule: { start: today, end: null, allDay: true, timeZone: localTimeZone() },
+        }).workspace;
+      }
+      return next;
+    });
+    await store.getState().flush();
+    await renderApp('/today', store);
+    await screen.findByRole('button', { name: 'Open Call mom' });
+    const titles = () =>
+      [...document.querySelectorAll<HTMLElement>('[data-drag-row]')].map((row) =>
+        row.querySelector('[aria-label^="Open "]')!.getAttribute('aria-label')!.slice(5),
+      );
+    expect(titles()).toEqual(['Walk dog', 'Water plants', 'Call mom']);
+    // Above the first row: a line, not the whole group.
+    dragOnto('Call mom', 'Walk dog', -16);
+    await waitFor(() => expect(titles()).toEqual(['Call mom', 'Walk dog', 'Water plants']));
+    // And it stays so when the page is drawn again.
+    await store.getState().flush();
+    expect(titles()).toEqual(['Call mom', 'Walk dog', 'Water plants']);
+  });
+
   it('in a list sorted by title, a drag puts it in place and switches to the own order', async () => {
     const store = testStore();
     await store.getState().init();

@@ -25,6 +25,7 @@ import {
   siblings,
   isPinned,
   pinnedFirst,
+  placeBetween,
   setPinned,
   taskDepth,
   toggleTaskDone,
@@ -482,5 +483,32 @@ describe('pinning', () => {
     expect(isPinned(getEntity(s.ws, 'tasks', b.id)!)).toBe(false);
     s.ws = setPinned(s.ctx, s.ws, a.id, false);
     expect(pinnedFirst(s.ws.entities.tasks).pinned).toEqual([]);
+  });
+});
+
+describe('placing a task between two others', () => {
+  it('gives it an order between theirs, or just after the first when they share one', () => {
+    const s = setup();
+    const a = s.add('A');
+    const b = s.add('B');
+    const c = s.add('C');
+    s.ws = placeBetween(s.ctx, s.ws, c.id, null, a.id);
+    const order = (id: string) => getEntity(s.ws, 'tasks', id)!.order;
+    expect(order(c.id) < order(a.id)).toBe(true);
+    s.ws = placeBetween(s.ctx, s.ws, c.id, a.id, b.id);
+    expect(order(a.id) < order(c.id) && order(c.id) < order(b.id)).toBe(true);
+    s.ws = placeBetween(s.ctx, s.ws, a.id, b.id, null);
+    expect(order(a.id) > order(b.id)).toBe(true);
+    // Two neighbors with one key between them leave no room: just after the first.
+    const same = { ...getEntity(s.ws, 'tasks', c.id)!, order: order(b.id) };
+    s.ws = {
+      ...s.ws,
+      entities: {
+        ...s.ws.entities,
+        tasks: s.ws.entities.tasks.map((t) => (t.id === c.id ? same : t)),
+      },
+    };
+    s.ws = placeBetween(s.ctx, s.ws, a.id, b.id, c.id);
+    expect(order(a.id) > order(b.id)).toBe(true);
   });
 });

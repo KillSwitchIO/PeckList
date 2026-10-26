@@ -554,6 +554,26 @@ export function setPinned(
   );
 }
 
+/**
+ * Put a task between two others in the own order, as a view shows it (a day in Upcoming, Today):
+ * a drop within its own group (R-FB-75). Either side may be null (the group's start or end).
+ */
+export function placeBetween(
+  ctx: OpContext,
+  workspace: WorkspaceFile,
+  id: Id,
+  after: Id | null,
+  before: Id | null,
+): WorkspaceFile {
+  const task = requireEntity(workspace, 'tasks', id);
+  const low = after ? (getEntity(workspace, 'tasks', after)?.order ?? null) : null;
+  let high = before ? (getEntity(workspace, 'tasks', before)?.order ?? null) : null;
+  // Neighbors with the same key (or out of order) leave no room between: just after the first.
+  if (low !== null && high !== null && compareOrderKeys(low, high) >= 0) high = null;
+  const order = keyBetween(low, high);
+  return putEntity(workspace, 'tasks', updateEntity(ctx, task, { order }));
+}
+
 /** A view's tasks split: the pinned ones (oldest pin first) and the rest, in their order. */
 export function pinnedFirst(tasks: readonly Task[]): { pinned: Task[]; rest: Task[] } {
   const pinned = tasks
