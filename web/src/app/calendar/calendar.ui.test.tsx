@@ -1,4 +1,4 @@
-import { act, fireEvent, screen, within } from '@testing-library/react';
+import { act, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { addDays, localTimeZone, todayIn } from '../../core/dates.ts';
@@ -95,6 +95,24 @@ describe('calendar', () => {
     expect(screen.getByRole('heading', { level: 2 }).textContent).not.toBe(title);
     await userEvent.click(screen.getByRole('button', { name: 'Go to today' }));
     expect(screen.getByRole('heading', { level: 2 }).textContent).toBe(title);
+  });
+
+  // R-FB-71: the title picks a date, with the same month picker as Upcoming.
+  it('goes to a date picked from the title', async () => {
+    await calendarWith();
+    const heading = () => screen.getByRole('heading', { level: 2 }).textContent;
+    const before = heading();
+    await userEvent.click(screen.getByRole('button', { name: /: pick a date$/ }));
+    const picker = await screen.findByRole('presentation');
+    const grid = within(picker).getByRole('grid');
+    // A day four months on: the calendar goes there.
+    for (let i = 0; i < 4; i += 1) {
+      await userEvent.click(within(picker).getAllByRole('button', { name: /next/i })[0]!);
+    }
+    await userEvent.click(within(within(picker).getByRole('grid')).getAllByRole('gridcell')[15]!);
+    await waitFor(() => expect(screen.queryByRole('presentation')).toBeNull());
+    expect(heading()).not.toBe(before);
+    expect(grid).not.toBeInTheDocument();
   });
 
   it('picks days on a dial: hold, run round it, and the columns follow before letting go', async () => {
@@ -201,7 +219,11 @@ describe('calendar', () => {
     });
     pointAt(tomorrow);
     fireEvent.pointerMove(window, { clientX: 60, clientY: 10, pointerId: 1 });
+    // The day it would land on is outlined while it is over it (R-FB-78).
+    expect(tomorrow).toHaveAttribute('data-cal-drop');
+    expect(month.querySelectorAll('[data-cal-drop]')).toHaveLength(1);
     fireEvent.pointerUp(window, { clientX: 60, clientY: 10, pointerId: 1 });
+    expect(month.querySelectorAll('[data-cal-drop]')).toHaveLength(0);
     fireEvent.click(line);
     expect(task(dentist).schedule).toMatchObject({ start: addDays(today, 1), allDay: true });
     expect(screen.queryByRole('textbox', { name: /title/i })).toBeNull();

@@ -227,6 +227,8 @@ export function AddTaskInput({
               size="small"
               aria-label={t('quickAdd.expand')}
               onClick={expand}
+              // The + button opens this (R-FB-74).
+              data-add-task-expand=""
               sx={{ color: 'text.secondary', flexShrink: 0, my: -0.25 }}
             >
               <OpenInFullRounded sx={{ fontSize: 16 }} />

@@ -68,9 +68,9 @@ their start; the due date is the deadline.
   the title on its own line, with the list and tags under it and the date at the right.
 - **Reminders**: in a task's details, **Reminders** opens a list like TickTick's: tick any of
   **On time**, 5 or 30 minutes, an hour or a day early (an all-day task: **On the day**, 1, 2 or 3
-  days or a week early, each at 9:00), or **None**. **Custom** makes your own: for an all-day task,
-  the **Day** or **Week** tab picks how early and the wheels the time of day (later than 9:00 on
-  the day too); for a timed task, the **Minute**, **Hour** or **Day** tab picks how early. It shows
+  days or a week early, each at 9:00 or the time set in **Settings > New tasks > All-day reminder
+  time**), or **None**. **Custom** makes your own: for an all-day task, the **Day** or **Week** tab
+  picks how early and the wheels the time of day; for a timed task, the **Minute**, **Hour** or **Day** tab picks how early. It shows
   when the reminder will come, or that the time has passed. **Constant reminder** keeps a reminder
   on screen and brings it back every 5 minutes for an hour, until the task is done; its
   **Dismiss** stops that reminder (the task's other reminders still come) and **Snooze 10 min**

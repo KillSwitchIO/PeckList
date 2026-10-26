@@ -186,6 +186,11 @@ export interface Settings extends BaseEntity {
   dateFormat?: string;
   /** What a new task starts with when where it is added says nothing (schema 10, PL-092) */
   newTask?: NewTaskDefaults;
+  /**
+   * The time of day new reminders on an all-day task come at, "HH:mm" (schema 16, R-FB-83):
+   * the quick choices, Custom's first time and the new-task reminder; absent: 09:00
+   */
+  allDayReminderTime?: string;
 }
 
 /** The person's defaults for new tasks; each absent field keeps the built-in behavior. */

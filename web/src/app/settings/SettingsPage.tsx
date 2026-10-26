@@ -286,7 +286,7 @@ export function SettingsPage() {
             <TextField
               select
               size="small"
-              value={settings?.pointEventMinutes ?? 30}
+              value={settings?.pointEventMinutes ?? 60}
               onChange={(event) => change({ pointEventMinutes: Number(event.target.value) })}
               slotProps={{ htmlInput: { 'aria-label': t('settings.pointEvent') } }}
             >

@@ -135,10 +135,10 @@ describe('Upcoming', () => {
     await store.getState().flush();
     await renderApp('/upcoming', store);
     const strip = () => screen.getByRole('group', { name: 'Days of the week' });
-    const todayButton = () =>
-      within(strip().parentElement!.parentElement!.parentElement!).getByRole('button', {
-        name: 'Today',
-      });
+    // The calendar-today icon between the arrows, as on Calendar (R-FB-73).
+    // Upcoming's own controls (the sidebar's folded mini calendar has week arrows too).
+    const main = () => screen.getByRole('main');
+    const todayButton = () => within(main()).getByRole('button', { name: 'Go to today' });
     expect(within(strip()).getByRole('button', { name: /Today/ })).toHaveAttribute(
       'aria-current',
       'date',
@@ -146,13 +146,13 @@ describe('Upcoming', () => {
     expect(todayButton()).toBeDisabled();
     expect(screen.getByRole('heading', { name: /Overdue/ })).toBeInTheDocument();
 
-    await userEvent.click(screen.getByRole('button', { name: 'Next week' }));
+    await userEvent.click(within(main()).getByRole('button', { name: 'Next week' }));
     expect(within(strip()).queryByRole('button', { name: /Today/ })).toBeNull();
     expect(todayButton()).toBeEnabled();
 
     // Earlier than today: the list starts there, with no Overdue group.
     await userEvent.click(todayButton());
-    await userEvent.click(screen.getByRole('button', { name: 'Previous week' }));
+    await userEvent.click(within(main()).getByRole('button', { name: 'Previous week' }));
     // The same weekday, a week back: the list starts there.
     expect(document.querySelector('[data-agenda-day]')).toHaveAttribute(
       'data-agenda-day',

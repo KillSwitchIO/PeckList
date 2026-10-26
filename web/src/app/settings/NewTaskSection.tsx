@@ -1,7 +1,11 @@
 import { MenuItem, Switch, TextField } from '@mui/material';
 import { visibleLists } from '../../core/lists.ts';
 import { newTaskDefaultsOf } from '../../core/newTaskDefaults.ts';
-import { TIMED_PRESETS } from '../../core/reminders.ts';
+import {
+  ALL_DAY_REMINDER_TIME,
+  allDayReminderTimeOf,
+  TIMED_PRESETS,
+} from '../../core/reminders.ts';
 import { reminderLabel } from '../reminders/reminderText.ts';
 import { updateSettings } from '../../core/settings.ts';
 import { canEditList } from '../../core/sharing.ts';
@@ -122,6 +126,19 @@ export function NewTaskSection() {
             </MenuItem>
           ))}
         </TextField>
+      </SettingRow>
+      <SettingRow label={t('newTask.allDayTime')} hint={t('newTask.allDayTimeHint')}>
+        <TextField
+          type="time"
+          size="small"
+          value={allDayReminderTimeOf(workspace)}
+          onChange={(event) => {
+            // Cleared: back to 9:00.
+            const time = event.target.value || ALL_DAY_REMINDER_TIME;
+            apply((ctx, ws) => updateSettings(ctx, ws, { allDayReminderTime: time }));
+          }}
+          slotProps={{ htmlInput: { 'aria-label': t('newTask.allDayTime') } }}
+        />
       </SettingRow>
       {phase === 'ready' && authMode === 'local' && (
         <SettingRow label={t('newTask.assignSelf')} hint={t('newTask.assignSelfHint')}>

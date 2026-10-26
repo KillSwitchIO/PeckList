@@ -40,21 +40,28 @@ describe('app shell', () => {
     expect(screen.getByRole('button', { name: 'Unscheduled' })).toBeInTheDocument();
   });
 
-  it('gives phones a + button that opens the add-task field', async () => {
+  it('gives phones a + button that opens the new task screen (R-FB-74)', async () => {
     mockViewport('phone');
-    await renderApp('/today');
+    const { store } = await renderApp('/today');
     await userEvent.click(screen.getByRole('button', { name: 'Add a task' }));
-    expect(document.activeElement).toBe(document.querySelector('[data-add-task]'));
+    // A blank task, full screen, dated today as the page's tasks are.
+    const form = await screen.findByRole('dialog');
+    expect(within(form).getByLabelText('Title')).toHaveValue('');
+    const blank = () =>
+      store.getState().workspace!.entities.tasks.filter((task) => task.title === '');
+    expect(blank()).toHaveLength(1);
+    expect(blank()[0]!.schedule).not.toBeNull();
+    await userEvent.keyboard('{Escape}');
+    await userEvent.keyboard('{Escape}');
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
 
-    // A page without an add field: on to the Inbox's.
+    // A page without an add field: the Inbox's.
     await userEvent.click(screen.getByRole('button', { name: 'Calendar' }));
     await userEvent.click(screen.getByRole('button', { name: 'Add a task' }));
     expect(
       await screen.findByRole('heading', { level: 1, name: 'Mess Drawer' }),
     ).toBeInTheDocument();
-    await waitFor(() =>
-      expect(document.activeElement).toBe(document.querySelector('[data-add-task]')),
-    );
+    expect(await screen.findByRole('dialog')).toBeInTheDocument();
   });
 
   it('opens a drawer from the menu button on tablets', async () => {
@@ -210,6 +217,7 @@ describe('sidebar frame', () => {
     mockViewport('desktop');
     await renderApp('/calendar');
     const mini = screen.getByRole('region', { name: 'Mini calendar' });
+    await userEvent.click(within(mini).getByRole('button', { name: 'Show the whole month' }));
     expect(within(mini).getAllByRole('gridcell')).toHaveLength(42);
     await userEvent.click(within(mini).getByRole('button', { name: 'Next month' }));
     expect(within(mini).queryByRole('gridcell', { current: 'date' })).toBeNull();
@@ -259,6 +267,7 @@ describe('sidebar frame', () => {
     const mini = screen.getByRole('region', { name: 'Mini calendar' });
     const now = todayIn(localTimeZone(), Date.now());
     const year = Number(now.slice(0, 4));
+    await userEvent.click(within(mini).getByRole('button', { name: 'Show the whole month' }));
     await userEvent.click(within(mini).getByRole('button', { name: /: pick a month$/ }));
     await userEvent.click(within(mini).getByRole('button', { name: `${year}: pick a year` }));
     await userEvent.click(within(mini).getByRole('button', { name: 'Later years' }));
@@ -270,24 +279,24 @@ describe('sidebar frame', () => {
     expect(within(mini).getByRole('gridcell', { current: 'date' })).toBeVisible();
   });
 
-  it('folds the mini calendar down to this week, and remembers it', async () => {
+  it('starts the mini calendar folded to this week, every time (R-FB-76)', async () => {
     mockViewport('desktop');
     const first = await renderApp('/today');
     const mini = screen.getByRole('region', { name: 'Mini calendar' });
-    await userEvent.click(within(mini).getByRole('button', { name: 'Show only this week' }));
     expect(within(mini).getAllByRole('gridcell')).toHaveLength(7);
     expect(within(mini).getByRole('gridcell', { current: 'date' })).toBeInTheDocument();
     await userEvent.click(within(mini).getByRole('button', { name: 'Next week' }));
     expect(within(mini).queryByRole('gridcell', { current: 'date' })).toBeNull();
     await userEvent.click(within(mini).getByRole('button', { name: 'Back to this week' }));
     expect(within(mini).getByRole('gridcell', { current: 'date' })).toBeInTheDocument();
+    await userEvent.click(within(mini).getByRole('button', { name: 'Show the whole month' }));
+    expect(within(mini).getAllByRole('gridcell')).toHaveLength(42);
     first.unmount();
 
+    // Unfolded last time, folded again now.
     await renderApp('/today');
     const again = screen.getByRole('region', { name: 'Mini calendar' });
     expect(within(again).getAllByRole('gridcell')).toHaveLength(7);
-    await userEvent.click(within(again).getByRole('button', { name: 'Show the whole month' }));
-    expect(within(again).getAllByRole('gridcell')).toHaveLength(42);
   });
 });
 

@@ -3,6 +3,7 @@ import AccountTreeOutlined from '@mui/icons-material/AccountTreeOutlined';
 import CheckCircleRounded from '@mui/icons-material/CheckCircleRounded';
 import CheckRounded from '@mui/icons-material/CheckRounded';
 import ChevronRightRounded from '@mui/icons-material/ChevronRightRounded';
+import DragIndicatorRounded from '@mui/icons-material/DragIndicatorRounded';
 import ExpandMoreRounded from '@mui/icons-material/ExpandMoreRounded';
 import LinkOffRounded from '@mui/icons-material/LinkOffRounded';
 import RadioButtonUncheckedRounded from '@mui/icons-material/RadioButtonUncheckedRounded';
@@ -17,6 +18,7 @@ import {
   Popover,
   Tooltip,
   Typography,
+  useTheme,
 } from '@mui/material';
 import { useState, type KeyboardEvent } from 'react';
 import { flushSync } from 'react-dom';
@@ -30,9 +32,11 @@ import {
   indentTask,
   MAX_SUBTASK_DEPTH,
   outdentTask,
+  placeBetween,
   taskDepth,
   updateTask,
 } from '../../core/tasks.ts';
+import { followReorder } from '../dnd/followReorder.ts';
 import type { Task } from '../../core/types.ts';
 import { t } from '../i18n/i18n.ts';
 import { useApply, useWorkspace } from '../store/hooks.ts';
@@ -187,9 +191,12 @@ export function ParentTrail({ task }: { task: Task }) {
 function SubtaskLine({
   node,
   onKeyDown,
+  onReorder,
 }: {
   node: SubtaskNode;
   onKeyDown: (event: KeyboardEvent<HTMLInputElement>, draft: string, commit: () => void) => void;
+  /** Its handle was pressed: follow the pointer to a new place among its siblings */
+  onReorder?: (event: React.PointerEvent<HTMLElement>) => void;
 }) {
   const apply = useApply();
   const { open } = useTaskSelection();
@@ -226,6 +233,7 @@ function SubtaskLine({
           setMenu({ position: { top: event.clientY, left: event.clientX } });
         }}
         {...longPress}
+        data-subtask-row={task.id}
         sx={{
           display: 'flex',
           alignItems: 'center',
@@ -251,6 +259,33 @@ function SubtaskLine({
         />
         {/* Like the list rows: the start date (or the completion day) on the right. */}
         <DateButton task={task} width="auto" testId="subtask-date" />
+        {onReorder && !readOnly && (
+          // Drag to a new place among its siblings (R-FB-79); the line itself is a text field.
+          <Box
+            className="subtask-open"
+            role="button"
+            aria-label={t('task.reorderSubtask', { title })}
+            onPointerDown={(event) => {
+              if (event.button !== 0) return;
+              event.preventDefault();
+              event.stopPropagation();
+              onReorder(event);
+            }}
+            sx={{
+              display: 'grid',
+              placeItems: 'center',
+              width: 24,
+              height: 28,
+              color: 'text.secondary',
+              cursor: 'grab',
+              touchAction: 'none',
+              opacity: { xs: 1, md: 0 },
+              transition: 'opacity 120ms',
+            }}
+          >
+            <DragIndicatorRounded fontSize="small" />
+          </Box>
+        )}
         <IconButton
           className="subtask-open"
           size="small"
@@ -277,6 +312,28 @@ export function SubtaskEditor({ task }: { task: Task }) {
   const readOnly = useReadOnly();
   const nodes = subtaskTree(workspace, task.id);
   const progress = subtaskProgress(workspace, task.id);
+  const theme = useTheme();
+  /** A subtask's handle was pressed: follow the pointer to its new place among its siblings. */
+  const reorder = (node: SubtaskNode, event: React.PointerEvent<HTMLElement>) => {
+    const siblings = nodes.filter((each) => each.task.parentId === node.task.parentId);
+    const rows = siblings
+      .map((each) => document.querySelector<HTMLElement>(`[data-subtask-row="${each.task.id}"]`))
+      .filter((row): row is HTMLElement => row !== null);
+    if (rows.length !== siblings.length || rows.length < 2) return;
+    const from = siblings.indexOf(node);
+    followReorder(
+      event,
+      rows,
+      from,
+      (to) => {
+        const others = siblings.filter((each) => each !== node);
+        const after = others[to - 1]?.task.id ?? null;
+        const before = others[to]?.task.id ?? null;
+        apply((ctx, ws) => placeBetween(ctx, ws, node.task.id, after, before), t('undo.moved'));
+      },
+      theme.palette.primary.main,
+    );
+  };
   // Direct subtasks of a task at the deepest level cannot exist; a task I only view gets none.
   const canHaveSubtasks = !readOnly && taskDepth(workspace, task.id) < MAX_SUBTASK_DEPTH;
   if (!canHaveSubtasks && nodes.length === 0) return null;
@@ -365,6 +422,7 @@ export function SubtaskEditor({ task }: { task: Task }) {
           key={node.task.id}
           node={node}
           onKeyDown={(event, lineDraft, commit) => lineKeys(index, event, lineDraft, commit)}
+          {...(readOnly ? {} : { onReorder: (event) => reorder(node, event) })}
         />
       ))}
       {canHaveSubtasks && (

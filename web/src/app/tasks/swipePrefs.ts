@@ -23,9 +23,12 @@ export interface SwipePrefs {
 
 export const MAX_SWIPE_BUTTONS = 3;
 
-/** Out of the box (Ben, 2026-10-25): a swipe right completes; a full swipe left picks the date. */
+/**
+ * Out of the box: a swipe right shows Complete and Pin, and a full one completes (Ben, 2026-10-26,
+ * R-FB-86); a full swipe left picks the date (2026-10-25).
+ */
 export const DEFAULT_SWIPES: SwipePrefs = {
-  right: { buttons: [], full: 'complete' },
+  right: { buttons: ['complete', 'pin'], full: 'complete' },
   left: { buttons: ['date', 'move', 'delete'], full: 'date' },
 };
 

@@ -70,6 +70,7 @@ export function DaysView({
   onResize,
   onCancelGrab,
   preview = null,
+  dropDay = null,
 }: {
   start: string;
   count: number;
@@ -88,6 +89,8 @@ export function DaysView({
   onCancelGrab: () => void;
   /** Where a task being dragged would land: drawn as an outline with its times */
   preview?: { taskId: string; day: string; top: number; bottom: number; color: string } | null;
+  /** The day whose all-day row a task being dragged would land in, outlined (R-FB-78) */
+  dropDay?: string | null;
 }) {
   const days = daysFrom(start, count);
   const body = useRef<HTMLDivElement>(null);
@@ -344,6 +347,7 @@ export function DaysView({
               <Box
                 key={day}
                 data-cal-day={day}
+                data-cal-drop={day === dropDay ? '' : undefined}
                 sx={{
                   display: 'grid',
                   gap: '1px',
@@ -353,6 +357,14 @@ export function DaysView({
                   borderLeft: 1,
                   borderColor: 'divider',
                   minHeight: 22,
+                  ...(day === dropDay
+                    ? {
+                        outline: '2px solid',
+                        outlineColor: 'primary.main',
+                        outlineOffset: -2,
+                        bgcolor: 'action.selected',
+                      }
+                    : {}),
                 }}
               >
                 {list.slice(0, limit).map((item) => (

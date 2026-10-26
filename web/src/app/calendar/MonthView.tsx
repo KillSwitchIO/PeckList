@@ -46,6 +46,8 @@ interface DayCellProps {
   narrow: boolean;
   /** Its column, 0 to 6 */
   col: number;
+  /** A task being dragged would land on this day (R-FB-78) */
+  dropping: boolean;
 }
 
 const DayCell = memo(function DayCell({
@@ -60,6 +62,7 @@ const DayCell = memo(function DayCell({
   onGrab,
   narrow,
   col,
+  dropping,
 }: DayCellProps) {
   const isToday = day === today;
   const first = day.endsWith('-01');
@@ -79,6 +82,7 @@ const DayCell = memo(function DayCell({
       data-cal-day={day}
       aria-label={label}
       aria-selected={selected || undefined}
+      data-cal-drop={dropping ? '' : undefined}
       {...(edges.length ? { style: { boxShadow: edges.join(', ') } } : {})}
       sx={{
         minWidth: 0,
@@ -88,7 +92,11 @@ const DayCell = memo(function DayCell({
         borderColor: 'divider',
         px: 0.25,
         cursor: 'pointer',
-        bgcolor: selected ? 'action.selected' : undefined,
+        bgcolor: dropping ? 'action.selected' : selected ? 'action.selected' : undefined,
+        // Where a dragged task would land: the whole day outlined.
+        ...(dropping
+          ? { outline: '2px solid', outlineColor: 'primary.main', outlineOffset: -2 }
+          : {}),
         '&:last-of-type': { borderRight: 0 },
       }}
     >
@@ -171,6 +179,7 @@ export function MonthView({
   onRange,
   rangeOpen,
   onGrab,
+  dropDay = null,
 }: {
   today: string;
   weekStart: number;
@@ -185,6 +194,8 @@ export function MonthView({
   /** The page's menu for picked days is open: keep them marked */
   rangeOpen: boolean;
   onGrab: (event: React.PointerEvent<HTMLElement>, item: CalendarItem) => void;
+  /** The day a task being dragged would land on, outlined (R-FB-78) */
+  dropDay?: string | null;
 }) {
   const [origin] = useState(() => addDays(weekStartOf(today, weekStart), -7 * SPAN_WEEKS));
   const rows = SPAN_WEEKS * 2 + 1;
@@ -381,6 +392,7 @@ export function MonthView({
                     onOpenDay={onOpenDay}
                     onGrab={onGrab}
                     narrow={narrow}
+                    dropping={day === dropDay}
                   />
                 ))}
               </Box>

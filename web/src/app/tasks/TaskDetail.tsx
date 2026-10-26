@@ -205,7 +205,7 @@ export function TaskDetail({
             }
           />
           <Box sx={{ flexGrow: 1 }} />
-          {!readOnly && !phone && task.parentId === null && task.status === 'open' && (
+          {!readOnly && !phone && task.status === 'open' && (
             <Tooltip title={isPinned(task) ? t('task.unpin') : t('task.pin')}>
               <IconButton
                 aria-label={isPinned(task) ? t('task.unpin') : t('task.pin')}
@@ -263,9 +263,11 @@ export function TaskDetail({
           </IconButton>
         </Toolbar>
 
+        {/* Room above the first field: the outlined Title's label sits above its border, and this
+            scroll area would cut it off (R-FB-81). */}
         <Stack
           spacing={2}
-          sx={{ flexGrow: 1, minHeight: 0, overflowY: 'auto', px: 2, pb: 2, pt: 0.5 }}
+          sx={{ flexGrow: 1, minHeight: 0, overflowY: 'auto', px: 2, pb: 2, pt: 1.5 }}
         >
           <ParentTrail task={task} />
           {/* Right-click or long-press the title for Won't do, Progress and the other actions. */}

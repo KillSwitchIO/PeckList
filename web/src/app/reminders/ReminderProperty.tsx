@@ -16,7 +16,7 @@ import { useState, type ReactNode } from 'react';
 import { localTimeZone } from '../../core/dates.ts';
 import {
   allDayReminder,
-  ALL_DAY_REMINDER_TIME,
+  allDayReminderTimeOf,
   reminderAnchor,
   reminderInstant,
   remindsAllDay,
@@ -31,14 +31,14 @@ import { Wheel } from '../dates/Wheel.tsx';
 import { formatTime } from '../format.ts';
 import { useToday } from '../hooks/useToday.ts';
 import { t } from '../i18n/i18n.ts';
-import { useApply } from '../store/hooks.ts';
+import { useApply, useWorkspace } from '../store/hooks.ts';
 import { PropertyRow, PropertySheet } from '../tasks/PropertyRow.tsx';
 import { useReadOnly } from '../tasks/readOnly.ts';
 import { notifier } from './notifier.ts';
 import { daysEarlyText, minutesEarlyText, reminderLabel, reminderParts } from './reminderText.ts';
 
-/** The quick choices for an all-day task: days early, all at 9:00 (TickTick's list). */
-const ALL_DAY_QUICK = [0, 1, 2, 3, 7].map((days) => allDayReminder(days, ALL_DAY_REMINDER_TIME));
+/** The quick choices for an all-day task: days early, all at the person's time (TickTick's list). */
+const allDayQuick = (time: string) => [0, 1, 2, 3, 7].map((days) => allDayReminder(days, time));
 const TIMED_QUICK: Reminder[] = TIMED_PRESETS.map((before) => ({ before }));
 
 type CustomTab = 'day' | 'week' | 'minute' | 'hour';
@@ -124,17 +124,20 @@ function Choice({
 function CustomReminder({
   task,
   allDay,
+  startTime,
   onDone,
   onCancel,
 }: {
   task: Task;
   allDay: boolean;
+  /** An all-day reminder's first time: the person's (R-FB-83) */
+  startTime: string;
   onDone: (reminder: Reminder) => void;
   onCancel: () => void;
 }) {
   const [tab, setTab] = useState<CustomTab>(allDay ? 'day' : 'minute');
   const [days, setDays] = useState(1);
-  const [time, setTime] = useState(ALL_DAY_REMINDER_TIME);
+  const [time, setTime] = useState(startTime);
   const [minutes, setMinutes] = useState(5);
   // Now, as of opening Custom: enough to say a reminder has passed.
   const [now] = useState(() => Date.now());
@@ -214,6 +217,7 @@ export function ReminderProperty({ task }: { task: Task }) {
   const [draft, setDraft] = useState<{ reminders: Reminder[]; constant: boolean } | null>(null);
   const [custom, setCustom] = useState(false);
   const allDay = remindsAllDay(task);
+  const allDayTime = allDayReminderTimeOf(useWorkspace());
   const dated = reminderAnchor(task) !== null;
   const labels = reminders.map((each) => reminderLabel(each, allDay, today));
   if (readOnly && reminders.length === 0) return null;
@@ -253,7 +257,7 @@ export function ReminderProperty({ task }: { task: Task }) {
             : [...now.reminders, reminder],
         },
     );
-  const quick = allDay ? ALL_DAY_QUICK : TIMED_QUICK;
+  const quick = allDay ? allDayQuick(allDayTime) : TIMED_QUICK;
   // Picked ones the quick list does not have (custom times, set times) show under it.
   const others = (draft?.reminders ?? []).filter(
     (each) => !quick.some((choice) => sameReminder(choice, each)),
@@ -291,6 +295,7 @@ export function ReminderProperty({ task }: { task: Task }) {
               <CustomReminder
                 task={task}
                 allDay={allDay}
+                startTime={allDayTime}
                 onCancel={() => setCustom(false)}
                 onDone={(reminder) => {
                   if (!picked(reminder)) toggle(reminder);

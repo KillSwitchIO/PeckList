@@ -63,9 +63,12 @@ export function sortTasks(tasks: readonly Task[], sort: ListSort, reversed = fal
   });
 }
 
-/** The tasks as a view shows them: as they come for the own order, else sorted. */
+/**
+ * The tasks as a view shows them: in their own order (their order keys, so a task moved by hand
+ * in a day or group stays there, R-FB-75), else sorted.
+ */
 export function orderTasks(tasks: Task[], sort: ListSort, reversed = false): Task[] {
-  return sort === 'manual' ? tasks : sortTasks(tasks, sort, reversed);
+  return sortTasks(tasks, sort, reversed);
 }
 
 /** Groups in their order, or the other way round. */

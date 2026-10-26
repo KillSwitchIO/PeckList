@@ -9,6 +9,7 @@ import {
   Box,
   Divider,
   IconButton,
+  Link,
   ListItemIcon,
   ListItemText,
   Menu,
@@ -25,10 +26,12 @@ import { useNotifications } from '../notifications/notificationsContext.ts';
 import { Avatar } from '../friends/Avatar.tsx';
 import { t } from '../i18n/i18n.ts';
 import { AccountIcon, PeopleIcon, ShieldIcon } from '../icons/icons.tsx';
+import { useShellInfo } from '../native/shell.ts';
 import { useStoreState } from '../store/hooks.ts';
 import { ChangePasswordDialog } from '../sync/SyncButton.tsx';
 import { leaveFor, rememberProvider } from '../sync/signInWith.ts';
 import { useSyncState } from '../sync/syncContext.ts';
+import { APP_VERSION_LABEL, CHANGELOG_URL } from './appVersion.ts';
 
 const NO_COLOR = '#B8BCC4';
 
@@ -77,6 +80,8 @@ export function ProfileButton({ onShortcuts }: { onShortcuts: () => void }) {
   const providerName = useProviderName(local ? account.provider : null);
   const name = me?.displayName || (local ? account.username : '');
   const badge = local ? account.providerIcon : null;
+  // In the Android app: its own version as well, since the web app may be the server's (R-FB-77).
+  const shellVersion = useShellInfo().info?.version ?? null;
 
   const picture = (size: number) =>
     name ? (
@@ -215,6 +220,26 @@ export function ProfileButton({ onShortcuts }: { onShortcuts: () => void }) {
             rememberProvider(null);
             void signOut().then((redirect) => redirect && leaveFor(redirect));
           })}
+        <Divider />
+        {/* Which version this is, at the bottom (R-FB-77): phones have no sidebar to show it. */}
+        <Box sx={{ px: 2, pt: 0.5, pb: 0.25 }}>
+          <Link
+            href={CHANGELOG_URL}
+            target="_blank"
+            rel="noreferrer"
+            variant="caption"
+            color="text.secondary"
+            underline="hover"
+            aria-label={t('app.versionLink', { version: APP_VERSION_LABEL })}
+          >
+            {t('profile.webVersion', { version: APP_VERSION_LABEL })}
+          </Link>
+          {shellVersion && (
+            <Typography variant="caption" color="text.secondary" component="div">
+              {t('profile.appVersion', { version: shellVersion })}
+            </Typography>
+          )}
+        </Box>
       </Menu>
       {changing && <ChangePasswordDialog onClose={() => setChanging(false)} />}
     </>

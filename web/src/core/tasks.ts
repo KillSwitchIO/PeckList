@@ -532,10 +532,13 @@ export function lastChangedAt(entity: { createdAt: string; _hlc: Record<string, 
 
 /** Whether a task shows in its views' Pinned group: an open top-level task someone pinned. */
 export function isPinned(task: Task): boolean {
-  return Boolean(task.pinnedAt) && task.status === 'open' && task.parentId === null;
+  return Boolean(task.pinnedAt) && task.status === 'open';
 }
 
-/** Pin a top-level task to the top of its views, or let it go (spec: PL-089). */
+/**
+ * Pin a task to the top of its views, or let it go (spec: PL-089). A pinned subtask goes to the
+ * top of the views that list it on its own, and of its list's Pinned group (R-FB-85).
+ */
 export function setPinned(
   ctx: OpContext,
   workspace: WorkspaceFile,
@@ -543,12 +546,32 @@ export function setPinned(
   pinned: boolean,
 ): WorkspaceFile {
   const task = requireEntity(workspace, 'tasks', id);
-  if (pinned === isPinned(task) || (pinned && task.parentId !== null)) return workspace;
+  if (pinned === isPinned(task)) return workspace;
   return putEntity(
     workspace,
     'tasks',
     updateEntity(ctx, task, { pinnedAt: pinned ? isoNow(ctx) : null }),
   );
+}
+
+/**
+ * Put a task between two others in the own order, as a view shows it (a day in Upcoming, Today):
+ * a drop within its own group (R-FB-75). Either side may be null (the group's start or end).
+ */
+export function placeBetween(
+  ctx: OpContext,
+  workspace: WorkspaceFile,
+  id: Id,
+  after: Id | null,
+  before: Id | null,
+): WorkspaceFile {
+  const task = requireEntity(workspace, 'tasks', id);
+  const low = after ? (getEntity(workspace, 'tasks', after)?.order ?? null) : null;
+  let high = before ? (getEntity(workspace, 'tasks', before)?.order ?? null) : null;
+  // Neighbors with the same key (or out of order) leave no room between: just after the first.
+  if (low !== null && high !== null && compareOrderKeys(low, high) >= 0) high = null;
+  const order = keyBetween(low, high);
+  return putEntity(workspace, 'tasks', updateEntity(ctx, task, { order }));
 }
 
 /** A view's tasks split: the pinned ones (oldest pin first) and the rest, in their order. */

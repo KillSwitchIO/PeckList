@@ -53,10 +53,18 @@ function swipe(row: Element, x0: number, x1: number, dy = 0, pointerId = 1) {
 }
 
 describe('swiping task rows', () => {
-  it('right completes the task, with undo', async () => {
+  it('a short swipe right shows Complete and Pin', async () => {
+    await inbox('Water plants');
+    swipe(await screen.findByRole('button', { name: 'Open Water plants' }), 20, 120);
+    const complete = await screen.findByRole('button', { name: 'Complete' });
+    const pin = screen.getByRole('button', { name: 'Pin' });
+    expect(complete.compareDocumentPosition(pin) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it('a full swipe right completes the task, with undo', async () => {
     const { task } = await inbox('Water plants');
     const row = await screen.findByRole('button', { name: 'Open Water plants' });
-    swipe(row, 20, 220);
+    swipe(row, 20, 340);
     await waitFor(() => expect(task('Water plants').status).toBe('done'));
     expect(await screen.findByText('Task completed')).toBeInTheDocument();
   });
@@ -129,7 +137,7 @@ describe('swiping task rows', () => {
     // Closed, it swipes again.
     await userEvent.keyboard('{Escape}');
     await waitFor(() => expect(screen.queryByRole('menu')).toBeNull());
-    swipe(row, 20, 220);
+    swipe(row, 20, 340);
     await waitFor(() => expect(task('Water plants').status).toBe('done'));
   });
 });

@@ -8,6 +8,7 @@ import {
   ListItemText,
   Menu,
   MenuItem,
+  Popover,
   ToggleButton,
   ToggleButtonGroup,
   Tooltip,
@@ -31,7 +32,14 @@ import { canEditTask } from '../../core/sharing.ts';
 import { createTask, updateTask } from '../../core/tasks.ts';
 import type { Schedule, WorkspaceFile } from '../../core/types.ts';
 import { useToday } from '../hooks/useToday.ts';
-import { CalendarIcon, ChevronLeftIcon, ChevronRightIcon } from '../icons/icons.tsx';
+import { MonthCalendar } from '../dates/MonthCalendar.tsx';
+import { weekStart as preferredWeekStart } from '../format.ts';
+import {
+  CalendarIcon,
+  ChevronDownIcon,
+  ChevronLeftIcon,
+  ChevronRightIcon,
+} from '../icons/icons.tsx';
 import { t } from '../i18n/i18n.ts';
 import { BottomSheet } from '../layout/BottomSheet.tsx';
 import { Page } from '../layout/Page.tsx';
@@ -184,7 +192,7 @@ export function CalendarPage() {
   const items = useMemo(
     () =>
       win
-        ? calendarItems(shown, win.from, win.to, settings?.pointEventMinutes ?? 30, (task) =>
+        ? calendarItems(shown, win.from, win.to, settings?.pointEventMinutes ?? 60, (task) =>
             canEditTask(workspace, me, task),
           )
         : [],
@@ -231,13 +239,20 @@ export function CalendarPage() {
   const grabItem = (event: React.PointerEvent<HTMLElement>, item: CalendarItem, grabMinutes = 0) =>
     drag.begin(event, { taskId: item.taskId, title: item.title, grabMinutes });
 
+  // A task dragged onto a whole day (any day on the month, the all-day row in Days): that day is
+  // outlined, so it is plain where it lands (R-FB-78).
+  const dropDay =
+    drag.ghost?.target && (mode === 'month' || drag.ghost.target.minutes === null)
+      ? drag.ghost.target.day
+      : null;
+
   // A task dragged over a time in Days: where it would land, at its own length.
   const preview = (() => {
     const target = drag.ghost?.target;
     if (mode !== 'days' || !drag.ghost || !target || target.minutes === null) return null;
     const task = workspace.entities.tasks.find((each) => each.id === drag.ghost!.taskId);
     if (!task) return null;
-    const point = settings?.pointEventMinutes ?? 30;
+    const point = settings?.pointEventMinutes ?? 60;
     const schedule = task.schedule;
     const length =
       schedule && !schedule.allDay && schedule.end && timePart(schedule.start)
@@ -257,6 +272,13 @@ export function CalendarPage() {
   const goToday = () => {
     setDate(today);
     setTarget({ date: today, seq: target.seq + 1 });
+  };
+  // The title picks a date to go to, as Upcoming's does (R-FB-71).
+  const [picker, setPicker] = useState<HTMLElement | null>(null);
+  const goTo = (day: string) => {
+    setPicker(null);
+    setDate(day);
+    setTarget({ date: day, seq: target.seq + 1 });
   };
   const step = (direction: 1 | -1) => {
     if (mode === 'month') {
@@ -321,38 +343,37 @@ export function CalendarPage() {
           minHeight: 420,
         }}
       >
-        {/* One row that never wraps, so nothing moves as the title changes length. */}
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: { xs: 0.5, sm: 1 }, mb: 1 }}>
-          {phone ? (
-            <Tooltip title={t('calendar.goToday')}>
-              <IconButton size="small" onClick={goToday} aria-label={t('calendar.goToday')}>
-                <CalendarIcon badge={String(Number(today.slice(8, 10)))} />
-              </IconButton>
-            </Tooltip>
-          ) : (
-            <Button
-              size="small"
-              variant="outlined"
-              onClick={goToday}
-              aria-label={t('calendar.goToday')}
-              sx={{ flexShrink: 0 }}
-            >
-              {t('calendar.today')}
-            </Button>
-          )}
-          <IconButton size="small" aria-label={t('calendar.previous')} onClick={() => step(-1)}>
-            <ChevronLeftIcon fontSize="small" />
-          </IconButton>
-          <IconButton size="small" aria-label={t('calendar.next')} onClick={() => step(1)}>
-            <ChevronRightIcon fontSize="small" />
-          </IconButton>
+        {/* One row that never wraps, so nothing moves as the title changes length. Laid out as
+            Upcoming's (R-FB-72): the title (a date picker) left, the arrows round the today icon
+            at the right, the dial and Month/Days between. */}
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: { xs: 0.25, sm: 0.5 }, mb: 1 }}>
           <Typography
             component="h2"
             aria-live="polite"
             noWrap
-            sx={{ fontWeight: 600, flexGrow: 1, minWidth: 0, fontSize: { xs: 15, sm: 16 } }}
+            sx={{ flexGrow: 1, minWidth: 0, display: 'flex' }}
           >
-            {title}
+            <Button
+              size="small"
+              color="inherit"
+              aria-haspopup="dialog"
+              aria-label={t('calendar.pickDate', { title })}
+              onClick={(event) => setPicker(event.currentTarget)}
+              endIcon={<ChevronDownIcon fontSize="small" />}
+              sx={{
+                fontWeight: 600,
+                fontSize: { xs: 15, sm: 16 },
+                px: 0.5,
+                minWidth: 0,
+                maxWidth: '100%',
+                justifyContent: 'flex-start',
+                '& > span:first-of-type': { overflow: 'hidden', textOverflow: 'ellipsis' },
+              }}
+            >
+              <Box component="span" sx={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                {title}
+              </Box>
+            </Button>
           </Typography>
           {mode === 'days' ? (
             <NumberDial
@@ -396,7 +417,32 @@ export function CalendarPage() {
               {phone ? <ViewWeekOutlined fontSize="small" /> : t('calendar.days')}
             </ToggleButton>
           </ToggleButtonGroup>
+          <IconButton size="small" aria-label={t('calendar.previous')} onClick={() => step(-1)}>
+            <ChevronLeftIcon fontSize="small" />
+          </IconButton>
+          <Tooltip title={t('calendar.goToday')}>
+            <IconButton size="small" onClick={goToday} aria-label={t('calendar.goToday')}>
+              <CalendarIcon badge={String(Number(today.slice(8, 10)))} />
+            </IconButton>
+          </Tooltip>
+          <IconButton size="small" aria-label={t('calendar.next')} onClick={() => step(1)}>
+            <ChevronRightIcon fontSize="small" />
+          </IconButton>
         </Box>
+        <Popover
+          open={picker !== null}
+          anchorEl={picker}
+          onClose={() => setPicker(null)}
+          anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
+          slotProps={{ paper: { sx: { p: 1, width: 300 } } }}
+        >
+          <MonthCalendar
+            selected={mode === 'month' && view ? `${view.month}-01` : date}
+            today={today}
+            weekStartsOn={preferredWeekStart()}
+            onSelect={goTo}
+          />
+        </Popover>
         <Box sx={{ display: 'flex', flexGrow: 1, minHeight: 0, gap: 1 }}>
           <Box
             sx={{
@@ -421,6 +467,7 @@ export function CalendarPage() {
                 onRange={(first, last, point) => setRange({ first, last, ...point })}
                 rangeOpen={range !== null}
                 onGrab={(event, item) => grabItem(event, item)}
+                dropDay={dropDay}
               />
             ) : (
               <DaysView
@@ -439,6 +486,7 @@ export function CalendarPage() {
                 onGrab={grabItem}
                 onCancelGrab={drag.cancel}
                 preview={preview}
+                dropDay={dropDay}
                 onResize={(item, start, end) => {
                   const task = workspace.entities.tasks.find((each) => each.id === item.taskId);
                   if (!task?.schedule) return;

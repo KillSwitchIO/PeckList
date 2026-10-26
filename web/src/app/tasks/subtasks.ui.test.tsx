@@ -303,3 +303,42 @@ describe('subtask lines in details', () => {
     expect(await screen.findByRole('menuitem', { name: "Won't do" })).toBeInTheDocument();
   });
 });
+
+describe('reordering subtasks', () => {
+  // R-FB-79: a subtask line is a text field, so a handle at its right drags it.
+  it('moves a subtask to a new place among its siblings by its handle', async () => {
+    await renderTree();
+    await userEvent.click(screen.getByRole('button', { name: 'Open Plan trip' }));
+    const details = await screen.findByRole('region', { name: 'Task details' });
+    expect(subtaskLines(details)).toEqual(['Book flights', 'Compare prices', 'Pack']);
+    // jsdom has no layout: subtask rows stack 30 px apart from y = 200.
+    vi.spyOn(Element.prototype, 'getBoundingClientRect').mockImplementation(function (
+      this: Element,
+    ) {
+      const rows = [...document.querySelectorAll('[data-subtask-row]')];
+      const index = rows.indexOf(this);
+      const top = index < 0 ? 0 : 200 + index * 30;
+      return {
+        top,
+        bottom: top + 30,
+        left: 0,
+        right: 300,
+        width: 300,
+        height: 30,
+        x: 0,
+        y: top,
+      } as DOMRect;
+    });
+    const handle = within(details).getByRole('button', { name: 'Move Pack' });
+    // Pack (the third row) up above Book flights: its subtask comes along under it.
+    fireEvent.pointerDown(handle, { button: 0, clientY: 265, pointerId: 3 });
+    fireEvent.pointerMove(window, { clientY: 205, pointerId: 3 });
+    expect(document.querySelector('[data-testid="reorder-line"]')).not.toBeNull();
+    fireEvent.pointerUp(window, { clientY: 205, pointerId: 3 });
+    await waitFor(() =>
+      expect(subtaskLines(details)).toEqual(['Pack', 'Book flights', 'Compare prices']),
+    );
+    expect(document.querySelector('[data-testid="reorder-line"]')).toBeNull();
+    vi.restoreAllMocks();
+  });
+});

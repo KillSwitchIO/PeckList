@@ -18,7 +18,7 @@ import {
 import { createPortal, flushSync } from 'react-dom';
 import { getEntity } from '../../../core/collections.ts';
 import { projectDrop, type Drop, type DragRow } from '../../../core/taskDrag.ts';
-import { canNestUnder, descendants, moveTask } from '../../../core/tasks.ts';
+import { canNestUnder, descendants, moveTask, placeBetween } from '../../../core/tasks.ts';
 import { dropIntoGroup, leavingPinned, type GroupTarget } from '../../../core/groupDrop.ts';
 import { localTimeZone } from '../../../core/dates.ts';
 import type { Id, Task } from '../../../core/types.ts';
@@ -51,7 +51,11 @@ interface Active {
   row: { left: number; width: number; height: number; grab: number };
 }
 
-type Landing = (Drop & { listId: Id; onto?: Id }) | { group: GroupTarget };
+type Landing =
+  | (Drop & { listId: Id; onto?: Id })
+  | { group: GroupTarget }
+  /** A new place within its own group: between these two (null: the group's start or end). */
+  | { reorder: { after: Id | null; before: Id | null } };
 
 /** The group a zone stands for: null for a list's own order, or a zone that takes no drops. */
 function groupOf(zone: Element): GroupTarget | null {
@@ -184,12 +188,31 @@ export function TaskDragProvider({
     const group = groupOf(zone);
     if (group) {
       // A group: the task takes its value, so the whole group lights up (no place within it).
-      // Its own group: nothing to change.
       const same =
         current.from?.kind === group.kind &&
         current.from.value === group.value &&
         current.from.until === group.until;
-      if (same) return nowhere();
+      if (same) {
+        // Its own group: a new place in it, among its top rows (R-FB-75). Pins keep pin order.
+        if (group.kind === 'pin' || current.depth !== 0) return nowhere();
+        const top = rows.filter((row) => row.depth === 0);
+        const index = top.filter((row) => row.box.top + row.box.height / 2 < y).length;
+        setOnto(null);
+        setGroupBox(null);
+        drop.current = {
+          reorder: { after: top[index - 1]?.id ?? null, before: top[index]?.id ?? null },
+        };
+        const zoneBox = zone.getBoundingClientRect();
+        const lineTop =
+          index < top.length
+            ? top[index]!.box.top
+            : top.length > 0
+              ? top[top.length - 1]!.box.bottom
+              : zoneBox.top + 2;
+        const left = zoneBox.left + 8;
+        setLine({ top: lineTop, left, width: Math.max(40, zoneBox.right - left - 8) });
+        return;
+      }
       setOnto(null);
       setLine(null);
       drop.current = { group };
@@ -269,6 +292,9 @@ export function TaskDragProvider({
             }),
           t('undo.movedTo', { list: list ? listName(list, latest.current) : '' }),
         );
+      } else if (landing && 'reorder' in landing) {
+        const { after, before } = landing.reorder;
+        apply((ctx, ws) => placeBetween(ctx, ws, current.id, after, before), t('undo.moved'));
       } else if (landing && 'group' in landing) {
         apply(
           (ctx, ws) =>
