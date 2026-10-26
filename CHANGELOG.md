@@ -4,6 +4,12 @@ All notable changes to Punchlist. Generated from [Conventional Commits](https://
 by `pnpm changelog`; the version follows [Semantic Versioning](https://semver.org/). Before 1.0.0 a
 minor release may break things; every break is listed under **Breaking changes** with what to do.
 
+## [0.2.4] - 2026-10-26
+
+### Fixed
+
+- **mobile:** Leave the web build's .gz and .br copies out of the APK
+
 ## [0.2.3] - 2026-10-26
 
 ### Added
