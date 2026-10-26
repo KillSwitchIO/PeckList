@@ -47,6 +47,8 @@ public static class AuthEndpoints
             Results.Ok(MeOf(user, mode) with { LocalLogin = !live.Current.LocalLoginDisabled })).RequireAuthorization();
         auth.MapOidc(settings);
         auth.MapImpersonation();
+        // A gate in front of the server is there whatever Punchlist's own sign-in is.
+        auth.MapAppGate();
 
         if (settings.AuthMode == AuthMode.None)
         {

@@ -39,15 +39,61 @@ class ShellWebViewClient extends BridgeWebViewClient {
         if (request.isForMainFrame() && (status == 502 || status == 503 || status == 504)) showOffline(view, request);
     }
 
+    /**
+     * The server sent the WebView to another site first: a sign-in page in front of it (Gate). A
+     * provider's own pages, while one runs in the WebView, are let through (ShellPlugin).
+     */
+    @Override
+    public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
+        String server = ServerChoice.get(context);
+        String url = request.getUrl().toString();
+        String scheme = request.getUrl().getScheme();
+        if (server != null && request.isForMainFrame() && request.isRedirect() && !ShellPlugin.lettingThrough()
+            && ("https".equals(scheme) || "http".equals(scheme)) && Gate.elsewhere(server, url)) {
+            showGate(view);
+            return true;
+        }
+        return super.shouldOverrideUrlLoading(view, request);
+    }
+
     private void showOffline(WebView view, WebResourceRequest request) {
         String server = ServerChoice.get(context);
         if (server == null || !ServerChoice.sameOrigin(server, request.getUrl().toString())) return;
-        view.loadDataWithBaseURL(server + "/", page(server), "text/html", "utf-8", null);
-    }
-
-    private String page(String server) {
         String host = server.replaceFirst("^https?://", "");
         // The server address is only ever an origin (ServerChoice.normalize), so it is safe in JS.
+        view.loadDataWithBaseURL(server + "/", card(
+            context.getString(R.string.offline_title),
+            context.getString(R.string.offline_body, host),
+            "<button class=\"go\" onclick=\"location.replace('" + server + "/')\">" + E(R.string.offline_retry) + "</button>" +
+            shellButton("other", R.string.offline_other, "chooseServer", "{}")
+        ), "text/html", "utf-8", null);
+    }
+
+    /** Sign in to the gate in a browser tab (passkeys work there), or here when it has none. */
+    void showGate(WebView view) {
+        String server = ServerChoice.get(context);
+        if (server == null) return;
+        String host = server.replaceFirst("^https?://", "");
+        view.post(() -> view.loadDataWithBaseURL(server + "/", card(
+            context.getString(R.string.gate_title),
+            context.getString(R.string.gate_body, host),
+            shellButton("go", R.string.gate_sign_in, "passGate", "{}") +
+            shellButton("other", R.string.gate_here, "passGate", "{inApp:true}") +
+            shellButton("other", R.string.offline_other, "chooseServer", "{}")
+        ), "text/html", "utf-8", null));
+    }
+
+    /** A button that asks the shell (hidden until the bridge is there). */
+    private String shellButton(String kind, int label, String method, String options) {
+        return "<button class=\"" + kind + " shell\" hidden onclick=\"Capacitor.nativePromise('PunchlistShell','" + method + "'," + options + ")\">" +
+            E(label) + "</button>";
+    }
+
+    private String E(int text) {
+        return TextUtils.htmlEncode(context.getString(text));
+    }
+
+    private static String card(String title, String body, String buttons) {
         return (
             "<!doctype html><html><head><meta charset=\"utf-8\">" +
             "<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">" +
@@ -61,14 +107,11 @@ class ShellWebViewClient extends BridgeWebViewClient {
             "button{width:100%;border:0;border-radius:8px;padding:12px 16px;font:inherit;font-weight:600;cursor:pointer}" +
             ".go{background:var(--accent);color:var(--on)}.other{background:none;color:var(--accent);margin-top:8px}" +
             "</style></head><body><main>" +
-            "<h1>" + TextUtils.htmlEncode(context.getString(R.string.offline_title)) + "</h1>" +
-            "<p>" + TextUtils.htmlEncode(context.getString(R.string.offline_body, host)) + "</p>" +
-            "<button class=\"go\" onclick=\"location.replace('" + server + "/')\">" +
-            TextUtils.htmlEncode(context.getString(R.string.offline_retry)) + "</button>" +
-            "<button class=\"other\" id=\"other\" hidden>" + TextUtils.htmlEncode(context.getString(R.string.offline_other)) + "</button>" +
+            "<h1>" + TextUtils.htmlEncode(title) + "</h1>" +
+            "<p>" + TextUtils.htmlEncode(body) + "</p>" +
+            buttons +
             "</main><script>" +
-            "var c=window.Capacitor;var b=document.getElementById('other');" +
-            "if(c&&c.nativePromise){b.hidden=false;b.onclick=function(){c.nativePromise('PunchlistShell','chooseServer',{})}}" +
+            "if(window.Capacitor&&Capacitor.nativePromise){document.querySelectorAll('.shell').forEach(function(b){b.hidden=false})}" +
             "</script></body></html>"
         );
     }

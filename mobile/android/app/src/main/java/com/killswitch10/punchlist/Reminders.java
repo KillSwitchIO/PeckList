@@ -164,7 +164,7 @@ final class Reminders {
         Reminder due = all.remove(key);
         if (due == null) return;
         save(context, all);
-        show(context, due, null);
+        show(context, due);
     }
 
     /** Forget a task's reminders still to come (it was completed from a notification). */
@@ -200,21 +200,20 @@ final class Reminders {
     /**
      * Show a reminder with Complete and Snooze. On a server they act there without opening the app;
      * standalone, or for a repeating task (only the app works out its next date), they open the app
-     * to do it. {@code note} replaces the text, as when acting on the server failed.
+     * to do it. Snooze asks how long first.
      */
-    static void show(Context context, Reminder reminder, String note) {
+    static void show(Context context, Reminder reminder) {
         if (!NotificationManagerCompat.from(context).areNotificationsEnabled()) return;
         channel(context, CHANNEL, R.string.channel_reminders, NotificationManager.IMPORTANCE_HIGH);
         boolean onServer = ServerChoice.get(context) != null;
-        NotificationCompat.Builder built = base(context, CHANNEL, reminder.title, note == null ? reminder.body : note)
+        NotificationCompat.Builder built = base(context, CHANNEL, reminder.title, reminder.body)
             .setCategory(NotificationCompat.CATEGORY_REMINDER)
             .setPriority(NotificationCompat.PRIORITY_HIGH)
             .setWhen(reminder.at)
             .setContentIntent(open(context, reminder, null))
             .addAction(0, context.getString(R.string.action_complete),
-                onServer && !reminder.repeats && note == null ? act(context, reminder, COMPLETE) : open(context, reminder, COMPLETE))
-            .addAction(0, context.getString(R.string.action_snooze, SNOOZE_MINUTES),
-                onServer && note == null ? act(context, reminder, SNOOZE) : open(context, reminder, SNOOZE));
+                onServer && !reminder.repeats ? act(context, reminder, COMPLETE) : open(context, reminder, COMPLETE))
+            .addAction(0, context.getString(R.string.action_snooze), snoozePicker(context, reminder));
         NotificationManagerCompat.from(context).notify(reminder.shown(), built.build());
     }
 
@@ -263,6 +262,32 @@ final class Reminders {
             intent.putExtra(EXTRA_ACTION, action).putExtra(EXTRA_TASK, reminder.taskId()).putExtra(EXTRA_MINUTES, SNOOZE_MINUTES);
         }
         return PendingIntent.getActivity(context, reminder.alarm(), intent, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
+    }
+
+    /** Snooze asks how long first, as TickTick does (SnoozeActivity, a dialog over whatever is on screen). */
+    private static PendingIntent snoozePicker(Context context, Reminder reminder) {
+        Intent intent = new Intent(context, SnoozeActivity.class)
+            .setData(Uri.parse("punchlist-reminder://" + reminder.alarm()))
+            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
+        try {
+            intent.putExtra(EXTRA_REMINDER, reminder.json().toString());
+        } catch (JSONException error) {
+            throw new IllegalStateException(error);
+        }
+        return PendingIntent.getActivity(context, reminder.alarm(), intent, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
+    }
+
+    /** Opens the app on the task to snooze it there (standalone, or the server could not be reached). */
+    static Intent snoozeInApp(Context context, Reminder reminder, int minutes) {
+        return new Intent(context, MainActivity.class)
+            .setAction("com.killswitch10.punchlist.OPEN." + SNOOZE)
+            .setData(Uri.parse("punchlist-reminder://" + reminder.alarm()))
+            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_SINGLE_TOP)
+            .putExtra(EXTRA_URL, reminder.url)
+            .putExtra(EXTRA_SHOWN, reminder.shown())
+            .putExtra(EXTRA_ACTION, SNOOZE)
+            .putExtra(EXTRA_TASK, reminder.taskId())
+            .putExtra(EXTRA_MINUTES, minutes);
     }
 
     /** Acts on the server without opening the app (ReminderReceiver). */

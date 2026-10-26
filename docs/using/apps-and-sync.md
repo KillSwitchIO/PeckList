@@ -35,8 +35,10 @@ page; the tab closes and the app is signed in. Seeing that page without having j
 sign-in button in the app means something else asked for it: close the tab.
 
 Reminders arrive as Android notifications, on time even with the app closed, with **Complete**
-and **Snooze 10 min** buttons that work without opening the app. (Without a server, for a
-repeating task, or with no connection, the button opens the app and does it there.) With the app closed
+and **Snooze** buttons that work without opening the app; Snooze asks how long. With no connection
+they still take effect on the phone, and the server hears of them once it is back. (Without a
+server, or Complete on a repeating task, the button opens the app and does it there.) Pull down at
+the top of a list to sync now. With the app closed
 it also checks in with your server every 5 minutes: new shares, assignments and mentions show as
 notifications, and reminders you set or change on another device are set on the phone too. After
 you sign in, the app asks to send notifications and to run in the background; allow both, or the
@@ -45,6 +47,11 @@ less frequent (15, 30 or 60 minutes). On a Samsung phone, also add Punchlist to 
 apps** (Settings > Battery > Background usage limits).
 
 Back steps back through the app; on the first screen, press it twice to leave.
+
+If your server sits behind a sign-in page of its own (Pangolin, Cloudflare Access, Authelia,
+Authentik), the app asks you to sign in to it: **Sign in** does that in your browser, where passkeys
+work, then hands the pass back to the app after you confirm. Your server must be Punchlist 0.2.3 or
+later for that; on an older one, **Sign in here instead** works for gates without passkeys.
 
 Servers with a certificate from your own CA work once that CA is installed on the phone
 (Settings > Security > Encryption & credentials > Install a certificate).

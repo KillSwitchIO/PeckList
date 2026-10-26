@@ -58,7 +58,10 @@ final class ServerCheck {
                 connection.setRequestProperty("Accept", "application/json");
                 int status = connection.getResponseCode();
                 if (status >= 300 && status < 400 && connection.getHeaderField("Location") != null) {
-                    String next = ServerChoice.normalize(new URL(new URL(current), connection.getHeaderField("Location")).toString());
+                    String target = new URL(new URL(current), connection.getHeaderField("Location")).toString();
+                    // Off to another host: a sign-in page in front of the server (Gate), passed once connected.
+                    if (Gate.elsewhere(origin, target)) throw new Failure("gated", "a sign-in page first");
+                    String next = ServerChoice.normalize(target);
                     if (next == null) throw new Failure("not-punchlist", "redirected away");
                     current = next;
                     continue;

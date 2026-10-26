@@ -177,6 +177,10 @@ export const en = {
   'connect.problem.unreachable': 'Could not reach that address. Check it and your connection.',
   'connect.problem.certificate': "The server's certificate is not trusted on this device.",
   'connect.problem.not-punchlist': 'That address does not run a Punchlist server.',
+  'connect.problem.gated': 'That address asks you to sign in first.',
+  'connect.gated':
+    'This server is behind a sign-in page (like Pangolin or Cloudflare Access). Continue, then sign in to it when the app asks.',
+  'connect.continue': 'Continue',
   'nav.admin': 'Admin',
   'admin.title': 'Admin',
   'admin.notAllowed': 'Only admins of this server can open this page.',
@@ -926,6 +930,7 @@ export const en = {
   'sync.signedInAs': 'Signed in as {name}',
   'sync.noLogin': 'This server has no logins',
   'sync.now': 'Sync now',
+  'sync.pullToRefresh': 'Pull down to sync',
   'sync.changePassword': 'Change password',
   'sync.signOut': 'Sign out',
   'group.pinned': 'Pinned',

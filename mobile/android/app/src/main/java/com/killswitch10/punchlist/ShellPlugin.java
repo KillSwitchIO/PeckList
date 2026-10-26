@@ -50,7 +50,12 @@ public class ShellPlugin extends Plugin {
      * stay in the WebView too, or Android would open them in the browser, which would then be the
      * one signed in. Ends when the provider sends the WebView back to the server.
      */
-    private volatile long providerInWebViewUntil;
+    private static volatile long providerInWebViewUntil;
+
+    /** Whether outside pages stay in the WebView just now (a provider or gate signing in there). */
+    static boolean lettingThrough() {
+        return System.currentTimeMillis() < providerInWebViewUntil;
+    }
 
     private static final long PROVIDER_IN_WEBVIEW_MS = 10 * 60 * 1000;
 
@@ -81,16 +86,22 @@ public class ShellPlugin extends Plugin {
         }
         boolean schemeTyped = typed.contains("://");
         network.execute(() -> {
+            // Where the answer came from: the https try, or the plain http one after it.
+            String[] tried = { origin };
             try {
                 ServerCheck.Result result;
                 try {
                     result = ServerCheck.check(origin);
                 } catch (ServerCheck.Failure failure) {
-                    if (schemeTyped || failure.code.equals("certificate")) throw failure;
+                    if (schemeTyped || failure.code.equals("certificate") || failure.code.equals("gated")) throw failure;
+                    String plain = ServerChoice.normalize("http://" + typed.trim());
                     try {
-                        result = ServerCheck.check(ServerChoice.normalize("http://" + typed.trim()));
-                    } catch (ServerCheck.Failure ignored) {
-                        throw failure;
+                        result = ServerCheck.check(plain);
+                    } catch (ServerCheck.Failure second) {
+                        // Plain http got further (a server, or a sign-in page in front of one): say that.
+                        if (second.code.equals("unreachable")) throw failure;
+                        tried[0] = plain;
+                        throw second;
                     }
                 }
                 JSObject answer = new JSObject();
@@ -98,7 +109,9 @@ public class ShellPlugin extends Plugin {
                 answer.put("info", JSObject.fromJSONObject(result.info));
                 call.resolve(answer);
             } catch (ServerCheck.Failure failure) {
-                call.reject(failure.getMessage(), failure.code);
+                JSObject where = new JSObject();
+                where.put("url", tried[0]);
+                call.reject(failure.getMessage(), failure.code, where);
             } catch (Exception error) {
                 call.reject(String.valueOf(error.getMessage()), "unreachable");
             }
@@ -126,6 +139,34 @@ public class ShellPlugin extends Plugin {
         BackgroundCheck.forgetServer(getContext());
         call.resolve();
         restart();
+    }
+
+    /**
+     * Api 3: past a sign-in page in front of the server (Gate). In a browser tab, where passkeys
+     * work, by default; {@code inApp} signs in to it in the WebView instead (a gate without passkeys,
+     * or a server too old for the tab's way back).
+     */
+    @PluginMethod
+    public void passGate(PluginCall call) {
+        String server = ServerChoice.get(getContext());
+        if (server == null) {
+            call.reject("no server", "invalid");
+            return;
+        }
+        call.resolve();
+        if (Boolean.TRUE.equals(call.getBoolean("inApp", false))) {
+            providerInWebViewUntil = System.currentTimeMillis() + PROVIDER_IN_WEBVIEW_MS;
+            getBridge().getWebView().post(() -> getBridge().getWebView().loadUrl(server + "/"));
+            return;
+        }
+        network.execute(() -> {
+            try {
+                Uri tab = Gate.start(getContext(), server);
+                getActivity().runOnUiThread(() -> openTab(tab));
+            } catch (Exception error) {
+                Logger.warn("Punchlist: could not start passing the gate: " + error);
+            }
+        });
     }
 
     /** Api 3: off the server and onto the app's own connect page (the offline page's "Use another server"). */
@@ -289,7 +330,7 @@ public class ShellPlugin extends Plugin {
     public void showNotification(PluginCall call) {
         String tag = call.getString("tag", "");
         Reminders.show(getContext(), new Reminders.Reminder("now:" + tag, call.getString("title", ""), call.getString("body", ""),
-            System.currentTimeMillis(), call.getString("url", "/"), false, true), null);
+            System.currentTimeMillis(), call.getString("url", "/"), false, true));
         call.resolve();
     }
 
@@ -327,6 +368,18 @@ public class ShellPlugin extends Plugin {
     protected void handleOnNewIntent(Intent intent) {
         if (opened(intent)) return;
         Uri data = intent.getData();
+        if (Gate.isReturn(getContext(), data)) {
+            String home = ServerChoice.get(getContext());
+            network.execute(() -> {
+                try {
+                    Gate.finish(getContext(), data);
+                } catch (Exception error) {
+                    Logger.warn("Punchlist: the gate's pass did not open: " + error);
+                }
+                if (home != null) getBridge().getWebView().post(() -> getBridge().getWebView().loadUrl(home + "/"));
+            });
+            return;
+        }
         String server = ServerChoice.get(getContext());
         if (server != null && NativeLink.isReturn(getContext(), data)) {
             String settings = NativeLink.settingsUrl(server, data);

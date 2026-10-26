@@ -113,7 +113,8 @@ public static class PushEndpoints
                 var zone = ReminderSender.ZoneOf(settings);
                 var local = TimeZoneInfo.ConvertTime(now, zone);
                 var nowText = local.ToString("yyyy-MM-dd'T'HH:mm", CultureInfo.InvariantCulture);
-                var minutes = Math.Clamp(request.Minutes ?? SnoozeMinutes, 1, 24 * 60);
+                // Up to a week: "tomorrow morning" from late at night is more than a day.
+                var minutes = Math.Clamp(request.Minutes ?? SnoozeMinutes, 1, 7 * 24 * 60);
                 var later = local.AddMinutes(minutes).ToString("yyyy-MM-dd'T'HH:mm", CultureInfo.InvariantCulture);
                 var reminders = new JsonArray();
                 if (found.Doc["reminders"] is JsonArray existing)
