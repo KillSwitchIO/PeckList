@@ -45,6 +45,15 @@ public class ShellPlugin extends Plugin {
     /** A provider page an older server must show in the WebView itself: let it through once. */
     private volatile String passThrough;
 
+    /**
+     * Until when a provider runs in the WebView (an older server): its own pages, on other sites,
+     * stay in the WebView too, or Android would open them in the browser, which would then be the
+     * one signed in. Ends when the provider sends the WebView back to the server.
+     */
+    private volatile long providerInWebViewUntil;
+
+    private static final long PROVIDER_IN_WEBVIEW_MS = 10 * 60 * 1000;
+
     @PluginMethod
     public void info(PluginCall call) {
         JSObject result = new JSObject();
@@ -176,6 +185,10 @@ public class ShellPlugin extends Plugin {
             return null;
         }
         String server = ServerChoice.get(getContext());
+        if (System.currentTimeMillis() < providerInWebViewUntil && ("https".equals(url.getScheme()) || "http".equals(url.getScheme()))) {
+            if (!ServerChoice.sameOrigin(server, address)) return false;
+            providerInWebViewUntil = 0;
+        }
         String provider = NativeSignIn.providerOf(server, url);
         if (provider != null) {
             network.execute(() -> {
@@ -221,6 +234,7 @@ public class ShellPlugin extends Plugin {
 
     private void inWebView(String address) {
         passThrough = address;
+        providerInWebViewUntil = System.currentTimeMillis() + PROVIDER_IN_WEBVIEW_MS;
         getBridge().getWebView().post(() -> getBridge().getWebView().loadUrl(address));
     }
 
