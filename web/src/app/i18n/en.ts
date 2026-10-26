@@ -8,6 +8,7 @@ export const en = {
   'nav.calendar': 'Calendar',
   'calendar.today': 'Today',
   'calendar.goToday': 'Go to today',
+  'calendar.pickDate': '{title}: pick a date',
   'calendar.previous': 'Previous',
   'calendar.next': 'Next',
   'calendar.mode': 'Calendar view',

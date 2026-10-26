@@ -11,7 +11,12 @@ import type { Task, WorkspaceFile } from '../../core/types.ts';
 import { weekStart as preferredWeekStart } from '../format.ts';
 import { useToday } from '../hooks/useToday.ts';
 import { t } from '../i18n/i18n.ts';
-import { ChevronDownIcon, ChevronLeftIcon, ChevronRightIcon } from '../icons/icons.tsx';
+import {
+  CalendarIcon,
+  ChevronDownIcon,
+  ChevronLeftIcon,
+  ChevronRightIcon,
+} from '../icons/icons.tsx';
 import { MonthCalendar } from '../dates/MonthCalendar.tsx';
 import { Page } from '../layout/Page.tsx';
 import { monthTitle } from '../layout/miniCalendarText.ts';
@@ -240,13 +245,18 @@ export function AgendaView({
             >
               <ChevronLeftIcon fontSize="small" />
             </IconButton>
-            <Button
-              size="small"
-              disabled={fromToday && focus === today && week === thisWeek}
-              onClick={goToday}
-            >
-              {t('calendar.today')}
-            </Button>
+            <Tooltip title={t('calendar.goToday')}>
+              <span>
+                <IconButton
+                  size="small"
+                  aria-label={t('calendar.goToday')}
+                  disabled={fromToday && focus === today && week === thisWeek}
+                  onClick={goToday}
+                >
+                  <CalendarIcon badge={String(Number(today.slice(8, 10)))} />
+                </IconButton>
+              </span>
+            </Tooltip>
             <IconButton
               size="small"
               aria-label={t('agenda.nextWeek')}
