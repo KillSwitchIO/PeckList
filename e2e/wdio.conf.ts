@@ -86,6 +86,9 @@ export const config: WebdriverIO.Config = {
   })),
   logLevel: 'warn',
   baseUrl,
+  // How long element waits and expect() matchers keep trying. A cold Firefox on a busy CI runner
+  // can take longer than the 5 s default to show the first page.
+  waitforTimeout: process.env.CI ? 20_000 : 5_000,
   framework: 'mocha',
   reporters: ['spec'],
   mochaOpts: { ui: 'bdd', timeout: 60_000 },
