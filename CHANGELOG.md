@@ -4,6 +4,34 @@ All notable changes to Punchlist. Generated from [Conventional Commits](https://
 by `pnpm changelog`; the version follows [Semantic Versioning](https://semver.org/). Before 1.0.0 a
 minor release may break things; every break is listed under **Breaking changes** with what to do.
 
+## [0.2.2] - 2026-10-26
+
+### Breaking changes
+
+- **admin:** An admin can no longer make themselves a super admin. Admins (not super admins) can no longer change sign-in settings or download, export or restore the whole server. Make whoever does those a super admin: punchlist admin set-role <user> superadmin.
+
+### Added
+
+- **server:** Provider sign-in handoff for the Android app
+- Android app shell (Capacitor) with server connect
+- **mobile:** Back button, offline start page, icon and launch screen
+- **mobile:** Reminders as Android notifications
+- **mobile:** Link a provider account from Settings through a Chrome tab
+- **mobile:** Background check-in for notifications with the app closed
+- **mobile:** Complete and Snooze on reminders; status bar, Back, leaving a server
+
+### Fixed
+
+- **admin:** An admin can no longer make themselves a super admin
+- **sync:** One bad change no longer stops a device syncing
+- **mobile:** Run the Gradle wrapper by full path on Windows
+- **mobile:** Sign in inside the app on servers without app sign-in
+- **mobile:** Keep an older server's provider sign-in inside the app
+
+### Documentation
+
+- What to set before putting Punchlist on the internet
+
 ## [0.2.1] - 2026-10-26
 
 ### Breaking changes
