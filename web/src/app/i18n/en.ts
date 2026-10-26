@@ -1120,6 +1120,7 @@ export const en = {
   'editor.strike': 'Strikethrough',
   'editor.code': 'Code',
   'editor.heading': 'Heading',
+  'editor.moveItem': 'Move this item',
   'editor.bulletList': 'Bulleted list',
   'editor.checklist': 'Checklist',
   'editor.link': 'Link',

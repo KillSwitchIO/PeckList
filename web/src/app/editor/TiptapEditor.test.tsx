@@ -49,3 +49,23 @@ describe('TipTap notes extras', () => {
     expect(editor).not.toHaveFocus();
   });
 });
+
+describe('list item handles (R-FB-80)', () => {
+  it('gives each list item a handle to move it, and none when read only', async () => {
+    const { unmount } = renderThemed(
+      <TiptapEditor
+        label="Notes"
+        value={['1. Milk', '2. Eggs', '', '- [ ] Bread'].join('\n')}
+        onCommit={() => undefined}
+      />,
+    );
+    const editor = await screen.findByRole('textbox', { name: 'Notes' });
+    expect(editor.querySelectorAll('li .note-item-handle')).toHaveLength(3);
+    expect(screen.getAllByRole('button', { name: 'Move this item' })).toHaveLength(3);
+    unmount();
+
+    renderThemed(<TiptapEditor label="Notes" value="- Milk" readOnly onCommit={() => undefined} />);
+    const shown = await screen.findByRole('textbox', { name: 'Notes' });
+    expect(shown).toHaveAttribute('contenteditable', 'false');
+  });
+});

@@ -42,6 +42,7 @@ import {
   type SlashCommandId,
   type SlashMenuHandlers,
 } from './slashCommands.ts';
+import { listItemHandles } from './listItemHandles.ts';
 import { editorMarkdown, linkHref, notesExtensions } from './tiptapMarkdown.ts';
 
 const SLASH_ICONS: Record<SlashCommandId, ReactNode> = {
@@ -127,7 +128,12 @@ export default function TiptapEditor({
   });
 
   const editor = useEditor({
-    extensions: [...notesExtensions(placeholder), slashCommandsExtension(bridge, slashName)],
+    extensions: [
+      ...notesExtensions(placeholder),
+      slashCommandsExtension(bridge, slashName),
+      // A handle to move each list item (R-FB-80).
+      listItemHandles(t('editor.moveItem'), theme.palette.primary.main),
+    ],
     content: value,
     contentType: 'markdown',
     editable: !readOnly,
@@ -268,6 +274,27 @@ export default function TiptapEditor({
           '& h3': { ...theme.typography.subtitle2, fontWeight: 700, my: 0.75 },
           '& ul, & ol': { my: 0.75, pl: 3 },
           '& li > p': { my: 0.25 },
+          // Each item's handle at its right (R-FB-80): room kept for it, shown on hover (and
+          // always on touch screens); none when the notes are read only.
+          '& li': { position: 'relative', pr: 3 },
+          '& .note-item-handle': {
+            position: 'absolute',
+            right: 0,
+            top: 0,
+            width: 22,
+            height: `${theme.typography.body2.lineHeight}em`,
+            display: 'grid',
+            placeItems: 'center',
+            color: 'text.secondary',
+            cursor: 'grab',
+            touchAction: 'none',
+            userSelect: 'none',
+            opacity: 0,
+            transition: 'opacity 120ms',
+            '@media (hover: none)': { opacity: 0.6 },
+          },
+          '& li:hover > .note-item-handle, & li:hover > div > .note-item-handle': { opacity: 0.8 },
+          '&[contenteditable=false] .note-item-handle': { display: 'none' },
           '& a': { color: 'primary.main', textDecoration: 'underline', cursor: 'text' },
           '& code': {
             fontFamily: 'ui-monospace, SFMono-Regular, Consolas, monospace',
