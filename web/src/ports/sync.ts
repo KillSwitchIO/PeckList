@@ -69,6 +69,23 @@ export interface SyncResponse {
    * device then starts over from what the server has. Absent from older servers.
    */
   epoch?: string | null;
+  /**
+   * Pushed changes the server set aside (malformed, or stamped too far ahead of its clock). It
+   * took the rest of the push; the device keeps its copy of these. Absent from older servers.
+   */
+  invalid?: SyncInvalid[];
+  /** The server's time (ISO), so the device can tell when its own clock is off. */
+  serverTime?: string | null;
+}
+
+/** One pushed change the server set aside, and why. */
+export interface SyncInvalid {
+  /** Where it was in the push. */
+  index: number;
+  id: string | null;
+  /** `invalid_change` or `clock_drift`. */
+  code: string;
+  reason: string;
 }
 
 /** Ways to sign in on this server (`/auth/providers`). */

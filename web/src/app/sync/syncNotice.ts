@@ -27,5 +27,15 @@ export function noticeText(notice: SyncNotice): string {
         : t('sync.notice.filesKept', { name: file, count: moreFiles.length }),
     );
   }
+  if (notice.setAside) {
+    parts.push(
+      notice.setAside === 1
+        ? t('sync.notice.setAsideOne')
+        : t('sync.notice.setAside', { count: notice.setAside }),
+    );
+  }
+  if (notice.clock) {
+    parts.push(t(notice.clock === 'ahead' ? 'sync.notice.clockAhead' : 'sync.notice.clockBehind'));
+  }
   return parts.join(' ');
 }

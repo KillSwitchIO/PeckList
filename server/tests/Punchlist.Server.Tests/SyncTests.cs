@@ -205,19 +205,44 @@ public sealed class SyncTests(ServerFixture fixture) : IClassFixture<ServerFixtu
         Assert.Equal(WorkspaceSchema.CurrentVersion, error.ServerSchemaVersion);
     }
 
+    // Audit C1: one bad change used to fail the whole request, and the device sent the same batch
+    // again every 30 s, so nothing it changed after that ever synced. C8: a date that matches the
+    // pattern but is not a date was a 500.
     [Theory]
-    [InlineData("""{"collection":"widgets","entity":{"id":"X1","_hlc":{}}}""", "unknown collection")]
-    [InlineData("""{"collection":"tasks","entity":{"title":"no id","_hlc":{}}}""", "malformed id")]
-    [InlineData("""{"collection":"tasks","entity":{"id":"X1"}}""", "missing _hlc")]
-    [InlineData("""{"collection":"tasks","entity":{"id":"X1","_hlc":{"title":"yesterday"}}}""", "bad clock for title")]
-    [InlineData("""{"collection":"tasks","entity":{"id":"X1","_hlc":{},"tags":{"G1":{"in":true,"hlc":"soon"}}}}""", "bad clock for tags.G1")]
-    [InlineData("""{"collection":"tasks","entity":{"id":"X1","_hlc":{"title":"2999-01-01T00:00:00.000Z-0000-dev1"}}}""", "more than a day ahead")]
-    public async Task Refuses_bad_changes(string change, string message)
+    [InlineData("""{"collection":"widgets","entity":{"id":"X1","_hlc":{}}}""", "X1", "invalid_change", "unknown collection")]
+    [InlineData("""{"collection":"tasks","entity":{"title":"no id","_hlc":{}}}""", null, "invalid_change", "malformed id")]
+    [InlineData("""{"collection":"tasks","entity":{"id":"X1"}}""", "X1", "invalid_change", "missing _hlc")]
+    [InlineData("""{"collection":"tasks","entity":{"id":"X1","_hlc":{"title":"yesterday"}}}""", "X1", "invalid_change", "bad clock for title")]
+    [InlineData("""{"collection":"tasks","entity":{"id":"X1","_hlc":{"title":"2026-13-45T10:00:00.000Z-0000-dev1"}}}""", "X1", "invalid_change", "bad clock for title")]
+    [InlineData("""{"collection":"tasks","entity":{"id":"X1","_hlc":{},"tags":{"G1":{"in":true,"hlc":"soon"}}}}""", "X1", "invalid_change", "bad clock for tags.G1")]
+    [InlineData("""{"collection":"tasks","entity":{"id":"X1","_hlc":{"title":"2999-01-01T00:00:00.000Z-0000-dev1"}}}""", "X1", "clock_drift", "more than an hour ahead")]
+    public async Task Sets_aside_a_bad_change_and_takes_the_rest_of_the_push(string change, string? id, string code, string message)
     {
         var client = await SignedIn();
-        var body = $$"""{"schemaVersion":{{WorkspaceSchema.CurrentVersion}},"changes":[{{change}}]}""";
+        var good = Task("G1", "Still syncs").ToJsonString();
+        var body = $$"""{"schemaVersion":{{WorkspaceSchema.CurrentVersion}},"changes":[{{change}},{"collection":"tasks","entity":{{good}}}]}""";
         var response = await client.PostAsync("/api/sync", new StringContent(body, System.Text.Encoding.UTF8, "application/json"), Token);
-        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
-        Assert.Contains(message, (await response.Content.ReadFromJsonAsync<SyncError>(Token))!.Message);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var result = (await response.Content.ReadFromJsonAsync<SyncResponse>(Token))!;
+        var aside = Assert.Single(result.Invalid!);
+        Assert.Equal((0, id, code), (aside.Index, aside.Id, aside.Code));
+        Assert.Contains(message, aside.Reason);
+        Assert.Equal("Still syncs", Title(result, "G1"));
+        Assert.DoesNotContain(result.Changes, each => (string?)each.Entity["id"] == "X1");
+    }
+
+    [Fact]
+    public async Task Takes_a_change_stamped_a_little_ahead_and_says_what_time_the_server_has()
+    {
+        var client = await SignedIn();
+        var ahead = DateTimeOffset.UtcNow.AddMinutes(30).UtcDateTime.ToString("yyyy-MM-dd'T'HH:mm:ss.fff'Z'", System.Globalization.CultureInfo.InvariantCulture);
+
+        var result = await Sync(client, null, Task("A1", "Half an hour ahead", $"{ahead}-0000-dev1"));
+
+        Assert.Empty(result.Invalid!);
+        Assert.Equal("Half an hour ahead", Title(result, "A1"));
+        var serverTime = DateTimeOffset.Parse(result.ServerTime!, System.Globalization.CultureInfo.InvariantCulture);
+        Assert.InRange(serverTime, DateTimeOffset.UtcNow.AddMinutes(-1), DateTimeOffset.UtcNow.AddMinutes(1));
     }
 }

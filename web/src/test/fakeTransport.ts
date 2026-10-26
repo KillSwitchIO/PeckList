@@ -33,6 +33,10 @@ export class FakeBackend {
   /** The largest file it takes, in bytes. */
   maxFileBytes = 25 * 1024 * 1024;
   readonly accounts = new Map<string, FakeAccount>();
+  /** Ids the server sets aside when pushed (as the real one does a malformed change), with why. */
+  readonly invalid = new Map<string, 'invalid_change' | 'clock_drift'>();
+  /** The server's time sent with every sync (ms since epoch); null sends none. */
+  serverTime: number | null = null;
 
   /** An account's numbers as the server would count them: its live tasks by status. */
   stats(id: string, username: string): UserStats {
@@ -344,7 +348,15 @@ export class FakeTransport implements SyncTransport {
     // A copy, as over the wire.
     const before = this.backend.server.calls;
     const seqBefore = Math.max(0, ...[...this.backend.server.rows.values()].map((row) => row.seq));
-    const response = this.backend.server.sync(found.account.id, structuredClone(request));
+    const sent = structuredClone(request);
+    const invalid = sent.changes.flatMap((change, index) => {
+      const code = this.backend.invalid.get(change.entity.id);
+      return code ? [{ index, id: change.entity.id, code, reason: code }] : [];
+    });
+    const response = this.backend.server.sync(found.account.id, {
+      ...sent,
+      changes: sent.changes.filter((change) => !this.backend.invalid.has(change.entity.id)),
+    });
     const seqAfter = Math.max(0, ...[...this.backend.server.rows.values()].map((row) => row.seq));
     if (seqAfter > seqBefore && this.backend.server.calls > before) {
       for (const listener of this.backend.listeners) {
@@ -353,6 +365,12 @@ export class FakeTransport implements SyncTransport {
         }
       }
     }
-    return Promise.resolve({ ...response, epoch: this.backend.epoch });
+    const serverTime = this.backend.serverTime;
+    return Promise.resolve({
+      ...response,
+      epoch: this.backend.epoch,
+      invalid,
+      ...(serverTime === null ? {} : { serverTime: new Date(serverTime).toISOString() }),
+    });
   }
 }

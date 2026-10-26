@@ -221,5 +221,12 @@ public sealed class PushTests(ServerFixture fixture) : IClassFixture<ServerFixtu
         // Not someone else's.
         var (sam, _) = await SignIn(server, "sam-d");
         Assert.Equal(HttpStatusCode.NotFound, (await sam.PostAsJsonAsync("/api/reminders/act", new { taskId = "DT1", first = 0L, action = "dismiss" }, Token)).StatusCode);
+
+        // A number that is no time is a 400, not a 500 (audit C8).
+        foreach (var nonsense in new[] { long.MaxValue, -1L })
+        {
+            var refused = await ben.PostAsJsonAsync("/api/reminders/act", new { taskId = "DT1", first = nonsense, action = "dismiss" }, Token);
+            Assert.Equal(HttpStatusCode.BadRequest, refused.StatusCode);
+        }
     }
 }

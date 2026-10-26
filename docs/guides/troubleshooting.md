@@ -48,6 +48,12 @@ that buffers it delays them (the app still syncs every 30 seconds and on focus).
 **The access log shows the proxy's address for everyone.** Set `TRUSTED_PROXIES` to the proxy's
 address; see [trusted proxies](../install/reverse-proxy.md#trusted-proxies).
 
+**"The server could not take one of your changes."** The change was malformed or stamped more
+than an hour ahead of the server's clock. It stays on that device, everything else syncs, and it
+goes again once it changes. If the app also says the device's clock is ahead or behind, set the
+device's date and time to automatic: changes stamped ahead win over newer ones, and ones stamped
+behind lose to older ones.
+
 **Stats months are off by a day, or "today" is wrong on the server.** Set `TZ` to your time zone.
 The debug dump's `about.json` shows the zone the server uses.
 
