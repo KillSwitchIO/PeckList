@@ -7,7 +7,9 @@
 - **Sessions** are HttpOnly, SameSite cookies, signed with keys kept in the database. Changing a
   password, turning an account off or deleting it ends its sessions at once.
 - **Single sign-on** always uses PKCE, checks required groups at every sign-in, and never takes over
-  an existing account by username alone.
+  an existing account by username alone. With `LOCAL_LOGIN=disabled` no password works at all.
+- **Sign-in settings** (`OIDC_*`, `LOCAL_LOGIN`, `REGISTRATION`, `TRUSTED_PROXIES`, `PUBLIC_URL`) and
+  whole-server backups are for super admins only, so an admin cannot widen their own access.
 - **Logs** never contain passwords, cookies, tokens, secrets or task content; the first admin
   password goes to the console only.
 - **Admin actions** are recorded in the [event log](logging.md#access-and-event-log), including
@@ -15,22 +17,99 @@
 - **The image** is a chiseled base with no shell or package manager, running as a non-root user.
 - **Secrets** can come from files (`NAME_FILE`) or be [encrypted](../configuration/index.md#encrypted-values).
 
-## Checklist
+## Should it be on the internet?
 
-- [ ] **HTTPS** in front, with [`PUBLIC_URL`](../configuration/reference.md#public_url) set to the
-      `https://` address. Never put the plain HTTP port on the internet.
-- [ ] **Change the first admin password** (the server insists), and do not use the `admin` account
-      every day: give yourself a normal account and keep `admin` for administration.
-- [ ] **Trust only your proxy**: set [`TRUSTED_PROXIES`](../install/reverse-proxy.md#trusted-proxies)
-      to its address if anything but your proxy can reach Punchlist from a private range.
-- [ ] **Single sign-on**: use `REQUIRED_GROUPS`, leave `AUTO_CREATE` off unless the provider only
-      has people you trust, and keep `LINK_BY_EMAIL` off unless the provider verifies emails.
-- [ ] **Backups are sensitive**: snapshots and exports hold password hashes and session keys.
-      Keep them as private as the database, and encrypt off-site copies.
-- [ ] **Keep up to date**: only the latest release gets fixes. Watch the
-      [releases](https://gitlab.com/killswitch10/punchlist/-/releases).
-- [ ] **Not on the internet?** Even better: reach it over a VPN (WireGuard, Tailscale, NetBird).
-- [ ] `AUTH_MODE=none` only on a network where everyone may see and change everything.
+It can be: Punchlist is built to sit behind HTTPS on a public name. If only you and your household
+use it, a VPN (WireGuard, Tailscale, NetBird) in front is still the safer choice: nobody else can
+even reach the sign-in page, and every item below matters less. The phone app and the web app work
+the same over a VPN.
+
+The rest of this page is for a server people reach over the internet. Each item says whether it is
+needed and why.
+
+## Needed
+
+Do these before the server is reachable from the internet.
+
+- [ ] **HTTPS in front, and only the proxy reaches Punchlist.** Punchlist's own port is plain HTTP:
+      passwords and session cookies would cross the internet readable. Put a
+      [reverse proxy](../install/reverse-proxy.md) in front and do not publish port `8080` beyond
+      it. With Docker Compose, leave `ports:` off the Punchlist service.
+- [ ] **[`PUBLIC_URL`](../configuration/reference.md#public_url) set to the `https://` address.**
+      Invite links, one-time sign-in links and single sign-on callbacks are built from it. Without
+      it they are built from whatever host name the request names.
+- [ ] **A real password for `admin`, and a normal account for every day.** A generated first
+      password must be changed at the first sign-in; one set with
+      [`ADMIN_PASSWORD`](../configuration/reference.md#admin_password) is kept as it is, so make it
+      long and take it out of the environment after the first start (it is only read then). Keep
+      `admin` (a super admin) for administration and use a plain account for your tasks, so a
+      stolen everyday session cannot change who may sign in.
+- [ ] **[`REGISTRATION`](../configuration/reference.md#registration) at `invite` (the default) or
+      `closed`.** `open` lets anyone on the internet make an account, and every account can fill
+      the disk with attachments.
+- [ ] **Never `AUTH_MODE=none` on the internet.** It turns sign-in off: everyone who reaches the
+      server is its owner. It is only for a proxy that signs people in itself, on a network where
+      everyone may see and change everything.
+- [ ] **Keep up to date.** Only the latest release gets fixes. Watch the
+      [releases](https://gitlab.com/killswitch10/punchlist/-/releases) and read
+      [Upgrading](upgrading.md).
+
+## Recommended
+
+Not needed for Punchlist to work, but each one closes a real gap for little effort.
+
+- [ ] **[`TRUSTED_PROXIES`](../install/reverse-proxy.md#trusted-proxies) set to the proxy alone.**
+      The default believes forwarded headers from every private address, so anything on your LAN,
+      VPN or Docker network that can reach port 8080 directly can claim to be any address: in the
+      access log, and to get around the per-address sign-in limit. _Not needed_ when nothing but the
+      proxy can reach Punchlist, as in the Compose example with Caddy.
+- [ ] **Security headers and compression at the proxy.** Punchlist does not send browser security
+      headers or compress its answers yet. The [recommended Caddyfile](../install/reverse-proxy.md#caddy)
+      adds both; [security headers](../install/reverse-proxy.md#security-headers) explains each one.
+- [ ] **With single sign-on, [`LOCAL_LOGIN=disabled`](../configuration/reference.md#local_login).**
+      Then nobody can guess a password, through the app or straight at the API: there is none to
+      guess. Password sessions end at once; provider sessions go on. Keep a way back in for when
+      the provider is down: `punchlist admin login-link admin` prints a one-time sign-in link.
+      _Not needed_ when you use passwords only; the attempt limits and lockout above protect
+      long passwords well.
+- [ ] **Single sign-on settings.** Use `OIDC_<NAME>_REQUIRED_GROUPS` so only the provider's
+      Punchlist group gets in. Leave `AUTO_CREATE` off unless everyone the provider knows may have
+      an account. Turn on `LINK_BY_EMAIL` only if the provider verifies emails, and
+      `LINK_BY_USERNAME` only while moving people over, and only if people cannot rename themselves
+      at the provider: either would let someone sign into an account that is not theirs. See
+      [Single sign-on](single-sign-on.md).
+- [ ] **Attachments limit.** [`ATTACHMENT_MAX_MB`](../configuration/reference.md#attachment_max_mb)
+      (25 MB by default) caps each file, but there is no total per person yet. Watch the free space
+      of the `/files` volume, or lower the limit, when you do not know everyone with an account.
+- [ ] **Backups are as sensitive as the server.** Snapshots and exports hold every password hash
+      and the keys that sign sessions: anyone with a copy could sign in as anyone. Keep them as
+      private as the database, and encrypt off-site copies.
+- [ ] **Secrets in the environment or in files, not on the settings page, when backups leave the
+      machine.** Secrets saved on the settings page are encrypted with a key kept in the same
+      database, so a backup holds both. An OIDC client secret given as `NAME_FILE` or as an
+      [encrypted value](../configuration/index.md#encrypted-values) is not in the database at all.
+
+## Optional
+
+- **A VPN or a sign-in proxy in front** (Pangolin, Authelia, Authentik): strangers never reach
+  Punchlist's own sign-in. Keep `/api/*` and `/auth/*` reachable for the app, see
+  [Others](../install/reverse-proxy.md#others).
+- **A Content-Security-Policy** at the proxy. Useful extra protection, but it has to allow what
+  the app needs; use the one in the [example](../install/reverse-proxy.md#security-headers).
+- **`OIDC_<NAME>_SESSION_HOURS`** shorter than the default 12 hours, so leaving the provider's
+  Punchlist group takes effect sooner on open sessions.
+- **Logs shipped off the machine** ([Logs and audit](logging.md)), so they survive the server.
+
+## Not needed
+
+- **A web application firewall, fail2ban or Cloudflare's proxy** for Punchlist's sake. Sign-in
+  attempts are already limited per address and per account. Cloudflare's proxy can also delay live
+  updates.
+- **Another port than 8080, or hiding the `Server` header.** Neither makes anything harder to
+  attack; the proxy is what is reachable anyway.
+- **`X-XSS-Protection` or `Expect-CT`.** Obsolete headers that current browsers ignore.
+- **HSTS `preload`.** It puts your domain on a list built into browsers that is slow to get off.
+  Plain `Strict-Transport-Security` gives the protection that matters here.
 
 ## Reporting a vulnerability
 

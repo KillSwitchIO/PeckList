@@ -87,7 +87,8 @@ OIDC_POCKET_CLIENT_SECRET=enc:v1:Q2h...
 ```
 
 Secrets saved on the settings page are encrypted in the database and never shown again after
-saving.
+saving. The key is kept in the same database, so this keeps them off screens, not out of backups:
+for a secret that must not be in a backup, use `NAME_FILE` or an `enc:v1:` value instead.
 
 ## Seeing what is in effect
 
