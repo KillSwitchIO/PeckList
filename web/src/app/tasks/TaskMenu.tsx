@@ -291,7 +291,7 @@ export function TaskMenu({
             {t('task.openAction')}
           </MenuItem>
         )}
-        {task.status === 'open' && task.parentId === null && (
+        {task.status === 'open' && (
           <MenuItem
             onClick={run(() =>
               apply(

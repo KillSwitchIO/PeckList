@@ -532,10 +532,13 @@ export function lastChangedAt(entity: { createdAt: string; _hlc: Record<string, 
 
 /** Whether a task shows in its views' Pinned group: an open top-level task someone pinned. */
 export function isPinned(task: Task): boolean {
-  return Boolean(task.pinnedAt) && task.status === 'open' && task.parentId === null;
+  return Boolean(task.pinnedAt) && task.status === 'open';
 }
 
-/** Pin a top-level task to the top of its views, or let it go (spec: PL-089). */
+/**
+ * Pin a task to the top of its views, or let it go (spec: PL-089). A pinned subtask goes to the
+ * top of the views that list it on its own, and of its list's Pinned group (R-FB-85).
+ */
 export function setPinned(
   ctx: OpContext,
   workspace: WorkspaceFile,
@@ -543,7 +546,7 @@ export function setPinned(
   pinned: boolean,
 ): WorkspaceFile {
   const task = requireEntity(workspace, 'tasks', id);
-  if (pinned === isPinned(task) || (pinned && task.parentId !== null)) return workspace;
+  if (pinned === isPinned(task)) return workspace;
   return putEntity(
     workspace,
     'tasks',

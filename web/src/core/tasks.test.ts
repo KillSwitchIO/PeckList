@@ -460,19 +460,21 @@ describe('progress', () => {
 });
 
 describe('pinning', () => {
-  it('pins top-level open tasks, oldest pin first, and lets go when they close', () => {
+  it('pins open tasks, subtasks too, oldest pin first, and lets go when they close', () => {
     const s = setup();
     const a = s.add('A');
     const b = s.add('B');
     const child = s.add('child', { parentId: a.id });
     s.ws = setPinned(s.ctx, s.ws, b.id, true);
     s.ws = setPinned(s.ctx, s.ws, a.id, true);
-    // A subtask is never pinned: it would show twice.
-    expect(setPinned(s.ctx, s.ws, child.id, true)).toBe(s.ws);
     const tasks = s.ws.entities.tasks;
     const split = pinnedFirst(tasks);
     expect(titles(split.pinned)).toEqual(['B', 'A']);
     expect(titles(split.rest)).toEqual(['child']);
+    // A subtask pins as well (R-FB-85).
+    s.ws = setPinned(s.ctx, s.ws, child.id, true);
+    expect(titles(pinnedFirst(s.ws.entities.tasks).pinned)).toEqual(['B', 'A', 'child']);
+    s.ws = setPinned(s.ctx, s.ws, child.id, false);
 
     s.ws = setTaskStatus(s.ctx, s.ws, b.id, 'done');
     expect(isPinned(getEntity(s.ws, 'tasks', b.id)!)).toBe(false);

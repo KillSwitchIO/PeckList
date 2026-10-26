@@ -205,7 +205,7 @@ export function TaskDetail({
             }
           />
           <Box sx={{ flexGrow: 1 }} />
-          {!readOnly && !phone && task.parentId === null && task.status === 'open' && (
+          {!readOnly && !phone && task.status === 'open' && (
             <Tooltip title={isPinned(task) ? t('task.unpin') : t('task.pin')}>
               <IconButton
                 aria-label={isPinned(task) ? t('task.unpin') : t('task.pin')}

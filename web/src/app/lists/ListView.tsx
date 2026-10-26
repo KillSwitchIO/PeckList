@@ -205,7 +205,17 @@ export function ListContents({ list }: { list: List }) {
   const me = useStoreState((state) => state.context().userId);
   const role = myRole(workspace, me, list.id);
   const canEdit = role === 'owner' || role === 'editor';
-  const { pinned, rest: tasks } = pinnedFirst(listTasks(workspace, list.id));
+  const split = pinnedFirst(listTasks(workspace, list.id));
+  const tasks = split.rest;
+  // Pinned subtasks join the Pinned group too (they also stay under their parent).
+  const pinned = [
+    ...split.pinned,
+    ...pinnedFirst(
+      workspace.entities.tasks.filter(
+        (task) => isLive(task) && task.listId === list.id && task.parentId !== null,
+      ),
+    ).pinned,
+  ];
   const view = useListView(list.id);
   const { grouping, sort } = view;
   const filter = { lists: [list.id] };
