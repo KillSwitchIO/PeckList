@@ -59,7 +59,7 @@ export function createWorkspace(ctx: OpContext, options: NewWorkspaceOptions = {
     userId: ctx.userId,
     themeMode: 'system',
     palette: {},
-    pointEventMinutes: 30,
+    pointEventMinutes: 60,
     dueSoonDays: 2,
     sidebar: defaultSidebar(),
   });

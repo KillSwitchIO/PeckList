@@ -311,7 +311,7 @@ describe('settings: swipe actions', () => {
     await userEvent.click(within(right).getByRole('combobox', { name: 'Full swipe right' }));
     await userEvent.click(await screen.findByRole('option', { name: "Won't do" }));
     expect(JSON.parse(localStorage.getItem('punchlist.swipes')!)).toEqual({
-      right: { buttons: [], full: 'wontDo' },
+      right: { buttons: ['complete', 'pin'], full: 'wontDo' },
       left: { buttons: ['delete', 'move', 'pin'], full: 'date' },
     });
     await userEvent.click(within(section).getByRole('button', { name: 'Reset' }));

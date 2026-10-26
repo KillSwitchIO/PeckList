@@ -184,7 +184,7 @@ export function CalendarPage() {
   const items = useMemo(
     () =>
       win
-        ? calendarItems(shown, win.from, win.to, settings?.pointEventMinutes ?? 30, (task) =>
+        ? calendarItems(shown, win.from, win.to, settings?.pointEventMinutes ?? 60, (task) =>
             canEditTask(workspace, me, task),
           )
         : [],
@@ -237,7 +237,7 @@ export function CalendarPage() {
     if (mode !== 'days' || !drag.ghost || !target || target.minutes === null) return null;
     const task = workspace.entities.tasks.find((each) => each.id === drag.ghost!.taskId);
     if (!task) return null;
-    const point = settings?.pointEventMinutes ?? 30;
+    const point = settings?.pointEventMinutes ?? 60;
     const schedule = task.schedule;
     const length =
       schedule && !schedule.allDay && schedule.end && timePart(schedule.start)
