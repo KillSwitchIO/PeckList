@@ -6,6 +6,7 @@ import { VitePWA } from 'vite-plugin-pwa';
 import pkg from './package.json' with { type: 'json' };
 import { serverPathPatterns } from './src/serverPaths.ts';
 import { workspaceValidator } from './workspace-validator.ts';
+import { precompress } from './precompress.ts';
 
 // The version the app shows under its menu: what a release or CI build stamps (the Dockerfile's
 // VERSION), else package.json's. A plain dev stamp falls back too.
@@ -62,6 +63,7 @@ export default defineConfig({
         icons: [{ src: 'icon.svg', sizes: 'any', type: 'image/svg+xml', purpose: 'any maskable' }],
       },
     }),
+    precompress(),
   ],
   test: {
     environment: 'jsdom',

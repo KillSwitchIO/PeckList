@@ -94,6 +94,7 @@ public static partial class ServerApp
         builder.Services.AddHostedService<Audit.AuditRetention>();
         builder.Services.AddSingleton<AccountRemoval>();
         builder.Services.AddHostedService(provider => provider.GetRequiredService<AccountRemoval>());
+        builder.Services.AddResponseHardening();
         builder.Services.Configure<ForwardedHeadersOptions>(options =>
         {
             options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
@@ -122,6 +123,7 @@ public static partial class ServerApp
         // Times every request; who made it is known by the time it is recorded.
         Audit.AuditLog.UseAuditLog(app);
         app.UseForwardedHeaders();
+        app.UseResponseHardening();
         app.UseAuthentication();
         app.UseImpersonation();
         LogPipeline.UseLogContext(app, user: true);

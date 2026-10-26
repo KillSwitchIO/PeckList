@@ -10,6 +10,9 @@
   an existing account by username alone. With `LOCAL_LOGIN=disabled` no password works at all.
 - **Sign-in settings** (`OIDC_*`, `LOCAL_LOGIN`, `REGISTRATION`, `TRUSTED_PROXIES`, `PUBLIC_URL`) and
   whole-server backups are for super admins only, so an admin cannot widen their own access.
+- **Browser protections** come with every answer: a strict Content-Security-Policy (only your
+  server's own scripts run), HSTS on HTTPS, no framing by other sites, no content-type guessing and
+  a same-origin referrer policy. See [security headers](../install/reverse-proxy.md#security-headers).
 - **Logs** never contain passwords, cookies, tokens, secrets or task content; the first admin
   password goes to the console only.
 - **Admin actions** are recorded in the [event log](logging.md#access-and-event-log), including
@@ -63,9 +66,6 @@ Not needed for Punchlist to work, but each one closes a real gap for little effo
       VPN or Docker network that can reach port 8080 directly can claim to be any address: in the
       access log, and to get around the per-address sign-in limit. _Not needed_ when nothing but the
       proxy can reach Punchlist, as in the Compose example with Caddy.
-- [ ] **Security headers and compression at the proxy.** Punchlist does not send browser security
-      headers or compress its answers yet. The [recommended Caddyfile](../install/reverse-proxy.md#caddy)
-      adds both; [security headers](../install/reverse-proxy.md#security-headers) explains each one.
 - [ ] **With single sign-on, [`LOCAL_LOGIN=disabled`](../configuration/reference.md#local_login).**
       Then nobody can guess a password, through the app or straight at the API: there is none to
       guess. Password sessions end at once; provider sessions go on. Keep a way back in for when
@@ -94,14 +94,15 @@ Not needed for Punchlist to work, but each one closes a real gap for little effo
 - **A VPN or a sign-in proxy in front** (Pangolin, Authelia, Authentik): strangers never reach
   Punchlist's own sign-in. Keep `/api/*` and `/auth/*` reachable for the app, see
   [Others](../install/reverse-proxy.md#others).
-- **A Content-Security-Policy** at the proxy. Useful extra protection, but it has to allow what
-  the app needs; use the one in the [example](../install/reverse-proxy.md#security-headers).
 - **`OIDC_<NAME>_SESSION_HOURS`** shorter than the default 12 hours, so leaving the provider's
   Punchlist group takes effect sooner on open sessions.
 - **Logs shipped off the machine** ([Logs and audit](logging.md)), so they survive the server.
 
 ## Not needed
 
+- **Security headers or compression at the proxy.** Punchlist sends both itself; adding them
+  again does no harm (but a `Content-Security-Policy` at the proxy must not replace Punchlist's,
+  see [security headers](../install/reverse-proxy.md#security-headers)).
 - **A web application firewall, fail2ban or Cloudflare's proxy** for Punchlist's sake. Sign-in
   attempts are already limited per address and per account. Cloudflare's proxy can also delay live
   updates.
