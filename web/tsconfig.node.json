@@ -13,5 +13,5 @@
     "skipLibCheck": true,
     "noEmit": true
   },
-  "include": ["vite.config.ts", "vitest.browser.config.ts"]
+  "include": ["vite.config.ts", "vitest.browser.config.ts", "workspace-validator.ts"]
 }

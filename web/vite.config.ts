@@ -1,9 +1,11 @@
 /// <reference types="vitest/config" />
+import { fileURLToPath } from 'node:url';
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import { VitePWA } from 'vite-plugin-pwa';
 import pkg from './package.json' with { type: 'json' };
 import { serverPathPatterns } from './src/serverPaths.ts';
+import { workspaceValidator } from './workspace-validator.ts';
 
 // The version the app shows under its menu: what a release or CI build stamps (the Dockerfile's
 // VERSION), else package.json's. A plain dev stamp falls back too.
@@ -39,6 +41,7 @@ export default defineConfig({
   preview: { host: '127.0.0.1', port: 6174, strictPort: true },
   plugins: [
     react(),
+    workspaceValidator(fileURLToPath(new URL('../schema/workspace.schema.json', import.meta.url))),
     VitePWA({
       registerType: 'prompt',
       includeAssets: ['icon.svg'],
