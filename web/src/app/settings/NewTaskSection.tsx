@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { visibleLists } from '../../core/lists.ts';
 import { newTaskDefaultsOf } from '../../core/newTaskDefaults.ts';
 import { ALL_DAY_REMINDER_TIME, allDayReminderTimeOf } from '../../core/reminders.ts';
+import { TimeField } from '../dates/TimeField.tsx';
 import { formatTime } from '../format.ts';
 import { ReminderSheet } from '../reminders/ReminderProperty.tsx';
 import { reminderLabel } from '../reminders/reminderText.ts';
@@ -43,8 +44,13 @@ export function NewTaskSection() {
     defaults.listId && lists.some((list) => list.id === defaults.listId) ? defaults.listId : INBOX;
   const date = defaults.date ?? 'none';
   const [reminderAnchor, setReminderAnchor] = useState<HTMLElement | null>(null);
+  // The same list a new task's own reminders show (R-FB-92): an all-day one, counted from the
+  // all-day time, unless new tasks start with a time of day.
+  const allDayTime = allDayReminderTimeOf(workspace);
+  const timed = date !== 'none' && Boolean(defaults.time);
+  const reminderFrom = timed ? defaults.time! : allDayTime;
   const reminderText = defaults.reminders?.length
-    ? defaults.reminders.map((each) => reminderLabel(each, false, '')).join(', ')
+    ? defaults.reminders.map((each) => reminderLabel(each, !timed, '', reminderFrom)).join(', ')
     : t('reminder.none');
   return (
     <Section title={t('newTask.title')} hint={t('newTask.hint')}>
@@ -98,12 +104,11 @@ export function NewTaskSection() {
       </SettingRow>
       {date !== 'none' && (
         <SettingRow label={t('newTask.time')} hint={t('newTask.timeHint')}>
-          <TextField
-            type="time"
-            size="small"
-            value={defaults.time ?? ''}
-            onChange={(event) => change({ time: event.target.value || null })}
-            slotProps={{ htmlInput: { 'aria-label': t('newTask.time') } }}
+          <TimeField
+            label={t('newTask.time')}
+            value={defaults.time ?? null}
+            emptyText={t('newTask.allDay')}
+            onChange={(time) => change({ time })}
           />
         </SettingRow>
       )}
@@ -122,8 +127,9 @@ export function NewTaskSection() {
           anchor={reminderAnchor}
           initial={{ reminders: defaults.reminders ?? [], constant: false }}
           task={null}
-          allDay={false}
-          note={t('newTask.reminderNote', { time: formatTime(allDayReminderTimeOf(workspace)) })}
+          allDay={!timed}
+          from={reminderFrom}
+          note={t('newTask.reminderNote', { time: formatTime(allDayTime) })}
           showConstant={false}
           onSave={(draft) => {
             change({ reminders: draft.reminders });
@@ -133,16 +139,14 @@ export function NewTaskSection() {
         />
       </SettingRow>
       <SettingRow label={t('newTask.allDayTime')} hint={t('newTask.allDayTimeHint')}>
-        <TextField
-          type="time"
-          size="small"
-          value={allDayReminderTimeOf(workspace)}
-          onChange={(event) => {
-            // Cleared: back to 9:00.
-            const time = event.target.value || ALL_DAY_REMINDER_TIME;
-            apply((ctx, ws) => updateSettings(ctx, ws, { allDayReminderTime: time }));
-          }}
-          slotProps={{ htmlInput: { 'aria-label': t('newTask.allDayTime') } }}
+        <TimeField
+          label={t('newTask.allDayTime')}
+          value={allDayTime}
+          onChange={(time) =>
+            apply((ctx, ws) =>
+              updateSettings(ctx, ws, { allDayReminderTime: time ?? ALL_DAY_REMINDER_TIME }),
+            )
+          }
         />
       </SettingRow>
       {phase === 'ready' && authMode === 'local' && (
