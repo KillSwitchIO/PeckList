@@ -51,3 +51,31 @@ describe('keeping only valid entities', () => {
     expect(skipped).toHaveLength(1);
   });
 });
+
+describe('keeping only valid entities: what is checked (R-FB-94)', () => {
+  it('checks only what changed: `before` is taken as valid, as it was checked when taken in', () => {
+    const { ctx, workspace, list } = world();
+    // An entity `before` already holds as it is (by identity) is not checked again, even one this
+    // schema refuses: storage is checked on opening and every earlier answer on arrival, so
+    // nothing unchecked can be in `before`.
+    const before = putEntity(workspace, 'lists', withStranger(list, 'Garden'));
+    const added = createList(ctx, before, { name: 'Work', color: '#A7C7E7' });
+    const checked: unknown[] = [];
+    const { workspace: kept, skipped } = keepValid(before, added.workspace, (document) => {
+      checked.push(document);
+      return validate(document);
+    });
+    expect(skipped).toEqual([]);
+    expect(kept).toBe(added.workspace);
+    const seen = (checked[0] as { entities: { lists: List[] } }).entities.lists;
+    expect(seen.map((each) => each.name)).toEqual(['Work']);
+  });
+
+  it('still refuses a changed entity, whatever else is unchanged around it', () => {
+    const { workspace, list } = world();
+    const after = putEntity(workspace, 'lists', withStranger(list, 'Garden 2'));
+    const { workspace: kept, skipped } = keepValid(workspace, after, validate);
+    expect(skipped.map((each) => each.id)).toEqual([list.id]);
+    expect(kept.entities.lists.find((each) => each.id === list.id)).toBe(list);
+  });
+});

@@ -417,7 +417,9 @@ export function createSyncEngine(deps: SyncEngineDependencies): SyncEngine {
             epoch: response.epoch ?? meta.epoch ?? null,
           };
           // Only data, and more to come: hold it (the first page always goes in at once, so the
-          // lists fill straight away).
+          // lists fill straight away). Held pages skip the notices below; nothing they could raise
+          // (refusals, revocations, set-asides) can be on them, and the clock check runs on the
+          // last page, which always goes through.
           const onlyData =
             batch.length === 0 &&
             revoked.size === 0 &&
