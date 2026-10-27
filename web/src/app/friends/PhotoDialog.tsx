@@ -1,7 +1,6 @@
 import ZoomInRounded from '@mui/icons-material/ZoomInRounded';
 import ZoomOutRounded from '@mui/icons-material/ZoomOutRounded';
 import {
-  Alert,
   Box,
   Button,
   Dialog,
@@ -13,6 +12,7 @@ import {
 import { useEffect, useRef, useState } from 'react';
 import { PHOTO_MAX_LENGTH, setProfilePhoto } from '../../core/profile.ts';
 import { t } from '../i18n/i18n.ts';
+import { ProblemAlert } from '../layout/ProblemAlert.tsx';
 import { useApply } from '../store/hooks.ts';
 import { Avatar } from './Avatar.tsx';
 import {
@@ -329,11 +329,7 @@ export function PhotoDialog({
             </Button>
           </>
         )}
-        {problem && (
-          <Alert severity="error" variant="outlined" sx={{ width: '100%' }}>
-            {problem}
-          </Alert>
-        )}
+        <ProblemAlert problem={problem} sx={{ width: '100%' }} />
       </DialogContent>
       <DialogActions>
         {!picked && photo && (

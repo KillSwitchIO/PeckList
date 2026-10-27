@@ -1,6 +1,6 @@
 import RadioButtonUncheckedRounded from '@mui/icons-material/RadioButtonUncheckedRounded';
 import AddRounded from '@mui/icons-material/AddRounded';
-import { Box, Button, IconButton, Popover, Tooltip, Typography } from '@mui/material';
+import { Box, Button, IconButton, Tooltip, Typography } from '@mui/material';
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { agendaDays } from '../../core/agenda.ts';
 import { addDays, daysBetween, localTimeZone, weekday } from '../../core/dates.ts';
@@ -13,7 +13,7 @@ import { weekStart as preferredWeekStart } from '../format.ts';
 import { useToday } from '../hooks/useToday.ts';
 import { t } from '../i18n/i18n.ts';
 import { ChevronDownIcon, ChevronLeftIcon, ChevronRightIcon } from '../icons/icons.tsx';
-import { MonthCalendar } from '../dates/MonthCalendar.tsx';
+import { MonthPickerPopover } from '../dates/MonthPickerPopover.tsx';
 import { Page } from '../layout/Page.tsx';
 import { monthTitle } from '../layout/miniCalendarText.ts';
 import { useWorkspace } from '../store/hooks.ts';
@@ -275,23 +275,17 @@ export function AgendaView({
             onPick={goTo}
           />
         </Box>
-        <Popover
-          open={picker !== null}
-          anchorEl={picker}
+        <MonthPickerPopover
+          anchor={picker}
           onClose={() => setPicker(null)}
-          anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
-          slotProps={{ paper: { sx: { p: 1, width: 300 } } }}
-        >
-          <MonthCalendar
-            selected={focus}
-            today={today}
-            weekStartsOn={weekStart}
-            onSelect={(date) => {
-              setPicker(null);
-              goTo(date);
-            }}
-          />
-        </Popover>
+          selected={focus}
+          today={today}
+          weekStartsOn={weekStart}
+          onSelect={(date) => {
+            setPicker(null);
+            goTo(date);
+          }}
+        />
 
         <TaskDragProvider>
           <PinnedGroup tasks={pinned} showList />

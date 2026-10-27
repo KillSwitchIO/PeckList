@@ -1,7 +1,8 @@
-import { Alert, Box, Button, Paper, TextField, Typography } from '@mui/material';
+import { Alert, Box, Button, TextField, Typography } from '@mui/material';
 import { useState, type FormEvent } from 'react';
 import type { ServerProblem } from '../../ports/nativeShell.ts';
 import { t } from '../i18n/i18n.ts';
+import { CenteredCard } from '../layout/CenteredCard.tsx';
 import { rememberStandalone, useShellInfo } from './shell.ts';
 
 type Step =
@@ -45,121 +46,99 @@ export function ConnectPage({ onBack }: { onBack: () => void }) {
 
   const busy = step.kind === 'checking' || step.kind === 'connecting';
   return (
-    <Box
-      component="main"
-      sx={{
-        display: 'grid',
-        placeItems: 'center',
-        minHeight: '100dvh',
-        px: 2,
-        pt: 'env(safe-area-inset-top)',
-        pb: 'env(safe-area-inset-bottom)',
-        bgcolor: 'background.default',
-      }}
-    >
-      <Paper
-        variant="outlined"
-        sx={{ width: '100%', maxWidth: 380, p: { xs: 3, sm: 4 }, borderRadius: 3 }}
-      >
-        <Typography variant="h1" sx={{ fontSize: '1.375rem', mb: 0.5 }}>
-          {t('connect.title')}
-        </Typography>
-        <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-          {t('connect.subtitle')}
-        </Typography>
-        <Box component="form" onSubmit={(event) => void submit(event)} noValidate>
-          <TextField
-            fullWidth
-            autoFocus
-            label={t('connect.address')}
-            placeholder="punchlist.example.com"
-            value={address}
-            disabled={busy}
-            onChange={(event) => {
-              setAddress(event.target.value);
-              if (step.kind !== 'typing') setStep({ kind: 'typing' });
-            }}
-            slotProps={{
-              htmlInput: {
-                inputMode: 'url',
-                autoCapitalize: 'none',
-                autoCorrect: 'off',
-                spellCheck: false,
-              },
-            }}
-          />
-          {step.kind === 'problem' && (
-            <Alert severity="error" sx={{ mt: 2 }}>
-              {t(`connect.problem.${step.problem}`)}
-            </Alert>
-          )}
-          {step.kind === 'gated' && (
-            <Alert
-              severity="info"
-              sx={{ mt: 2 }}
-              action={
-                <Button color="inherit" size="small" onClick={() => void go(step.url)}>
-                  {t('connect.continue')}
-                </Button>
-              }
-            >
-              {t('connect.gated')}
-            </Alert>
-          )}
-          {step.kind === 'plain-http' && (
-            <Alert
-              severity="warning"
-              sx={{ mt: 2 }}
-              action={
-                <Button color="inherit" size="small" onClick={() => void go(step.url)}>
-                  {t('connect.anyway')}
-                </Button>
-              }
-            >
-              {t('connect.plainHttp')}
-            </Alert>
-          )}
-          <Button
-            type="submit"
-            fullWidth
-            variant="contained"
-            disableElevation
-            disabled={
-              busy || address.trim() === '' || step.kind === 'plain-http' || step.kind === 'gated'
-            }
-            sx={{ mt: 2 }}
-          >
-            {step.kind === 'checking'
-              ? t('connect.checking')
-              : step.kind === 'connecting'
-                ? t('connect.connecting')
-                : t('connect.connect')}
-          </Button>
-        </Box>
-        <Typography variant="caption" color="text.secondary" component="p" sx={{ mt: 2 }}>
-          {t('connect.dataStays')}
-        </Typography>
-        <Button
+    <CenteredCard title={t('connect.title')} subtitle={t('connect.subtitle')}>
+      <Box component="form" onSubmit={(event) => void submit(event)} noValidate>
+        <TextField
           fullWidth
+          autoFocus
+          label={t('connect.address')}
+          placeholder="punchlist.example.com"
+          value={address}
           disabled={busy}
-          sx={{ mt: 1 }}
-          onClick={() => {
-            if (onServer) {
-              void shell?.disconnect();
-              return;
-            }
-            rememberStandalone();
-            onBack();
+          onChange={(event) => {
+            setAddress(event.target.value);
+            if (step.kind !== 'typing') setStep({ kind: 'typing' });
           }}
-        >
-          {t('connect.deviceOnly')}
-        </Button>
-        {onServer && (
-          <Button fullWidth disabled={busy} onClick={onBack}>
-            {t('common.cancel')}
-          </Button>
+          slotProps={{
+            htmlInput: {
+              inputMode: 'url',
+              autoCapitalize: 'none',
+              autoCorrect: 'off',
+              spellCheck: false,
+            },
+          }}
+        />
+        {step.kind === 'problem' && (
+          <Alert severity="error" sx={{ mt: 2 }}>
+            {t(`connect.problem.${step.problem}`)}
+          </Alert>
         )}
-      </Paper>
-    </Box>
+        {step.kind === 'gated' && (
+          <Alert
+            severity="info"
+            sx={{ mt: 2 }}
+            action={
+              <Button color="inherit" size="small" onClick={() => void go(step.url)}>
+                {t('connect.continue')}
+              </Button>
+            }
+          >
+            {t('connect.gated')}
+          </Alert>
+        )}
+        {step.kind === 'plain-http' && (
+          <Alert
+            severity="warning"
+            sx={{ mt: 2 }}
+            action={
+              <Button color="inherit" size="small" onClick={() => void go(step.url)}>
+                {t('connect.anyway')}
+              </Button>
+            }
+          >
+            {t('connect.plainHttp')}
+          </Alert>
+        )}
+        <Button
+          type="submit"
+          fullWidth
+          variant="contained"
+          disableElevation
+          disabled={
+            busy || address.trim() === '' || step.kind === 'plain-http' || step.kind === 'gated'
+          }
+          sx={{ mt: 2 }}
+        >
+          {step.kind === 'checking'
+            ? t('connect.checking')
+            : step.kind === 'connecting'
+              ? t('connect.connecting')
+              : t('connect.connect')}
+        </Button>
+      </Box>
+      <Typography variant="caption" color="text.secondary" component="p" sx={{ mt: 2 }}>
+        {t('connect.dataStays')}
+      </Typography>
+      <Button
+        fullWidth
+        disabled={busy}
+        sx={{ mt: 1 }}
+        onClick={() => {
+          if (onServer) {
+            void shell?.disconnect();
+            return;
+          }
+          rememberStandalone();
+          onBack();
+        }}
+      >
+        {t('connect.deviceOnly')}
+      </Button>
+      {onServer && (
+        <Button fullWidth disabled={busy} onClick={onBack}>
+          {t('common.cancel')}
+        </Button>
+      )}
+    </CenteredCard>
   );
 }

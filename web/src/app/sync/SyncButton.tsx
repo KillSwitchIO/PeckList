@@ -1,5 +1,4 @@
 import {
-  Alert,
   Box,
   Button,
   Dialog,
@@ -17,9 +16,10 @@ import {
 } from '@mui/material';
 import { keyframes } from '@emotion/react';
 import { useState, type FormEvent } from 'react';
+import { messageOf } from '../../core/errors.ts';
 import { submitOnShiftEnter } from '../hooks/keys.ts';
 import { t } from '../i18n/i18n.ts';
-import { PasswordField } from '../layout/PasswordField.tsx';
+import { ProblemAlert } from '../layout/ProblemAlert.tsx';
 import {
   AccountIcon,
   CloudAlertIcon,
@@ -27,6 +27,8 @@ import {
   CloudOffIcon,
   CloudSyncIcon,
 } from '../icons/icons.tsx';
+import { passwordProblem, usePasswordDraft } from './passwordChange.ts';
+import { PasswordChangeFields } from './PasswordChangeFields.tsx';
 import { useSyncState } from './syncContext.ts';
 import { syncSummary } from './syncSummary.ts';
 
@@ -119,30 +121,24 @@ export function SyncButton() {
 /** Change the account's password (from the profile menu). */
 export function ChangePasswordDialog({ onClose }: { onClose: () => void }) {
   const changePassword = useSyncState((state) => state.changePassword);
-  const [current, setCurrent] = useState('');
-  const [next, setNext] = useState('');
-  const [again, setAgain] = useState('');
-  // Said once both are as long as each other, not at the first letter.
-  const mismatch = again.length >= next.length && again.length > 0 && again !== next;
+  const draft = usePasswordDraft();
   const [problem, setProblem] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
   const submit = async (event?: FormEvent) => {
     event?.preventDefault();
-    if (again !== next) {
+    if (draft.again !== draft.next) {
       setProblem(t('auth.mismatch'));
       return;
     }
     setBusy(true);
     setProblem(null);
     try {
-      const outcome = await changePassword(current, next);
+      const outcome = await changePassword(draft.current, draft.next);
       if (outcome.kind === 'ok') onClose();
-      else if (outcome.kind === 'wrong-password') setProblem(t('auth.wrongPassword'));
-      else if (outcome.kind === 'too-short') setProblem(t('auth.tooShort'));
-      else setProblem(t('auth.unchanged'));
+      else setProblem(passwordProblem(outcome));
     } catch (error) {
-      setProblem(error instanceof Error ? error.message : String(error));
+      setProblem(messageOf(error));
     } finally {
       setBusy(false);
     }
@@ -153,36 +149,8 @@ export function ChangePasswordDialog({ onClose }: { onClose: () => void }) {
       <Box component="form" onSubmit={(event) => void submit(event)} onKeyDown={submitOnShiftEnter}>
         <DialogTitle>{t('auth.changeTitle')}</DialogTitle>
         <DialogContent sx={{ display: 'grid', gap: 2, pt: '8px !important' }}>
-          <PasswordField
-            label={t('auth.current')}
-            value={current}
-            onChange={(event) => setCurrent(event.target.value)}
-            autoComplete="current-password"
-            autoFocus
-            required
-          />
-          <PasswordField
-            label={t('auth.new')}
-            value={next}
-            onChange={(event) => setNext(event.target.value)}
-            autoComplete="new-password"
-            helperText={t('auth.newHint')}
-            required
-          />
-          <PasswordField
-            label={t('auth.confirmNew')}
-            value={again}
-            onChange={(event) => setAgain(event.target.value)}
-            autoComplete="new-password"
-            error={mismatch}
-            helperText={mismatch ? t('auth.mismatch') : undefined}
-            required
-          />
-          {problem && (
-            <Alert severity="error" variant="outlined">
-              {problem}
-            </Alert>
-          )}
+          <PasswordChangeFields draft={draft} />
+          <ProblemAlert problem={problem} />
         </DialogContent>
         <DialogActions>
           <Button onClick={onClose}>{t('common.cancel')}</Button>

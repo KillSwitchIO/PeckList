@@ -1,9 +1,12 @@
-import { Alert, Box, Button, Divider, Link, Paper, TextField, Typography } from '@mui/material';
-import { useEffect, useRef, useState, type FormEvent, type ReactNode } from 'react';
+import { Box, Button, Divider, Link, TextField, Typography } from '@mui/material';
+import { useEffect, useRef, useState, type FormEvent } from 'react';
+import { messageOf } from '../../core/errors.ts';
 import { SyncFailure, type SignInOptions, type SignUpOutcome } from '../../ports/sync.ts';
 import type { MessageKey } from '../i18n/en.ts';
 import { t } from '../i18n/i18n.ts';
+import { CenteredCard } from '../layout/CenteredCard.tsx';
 import { PasswordField } from '../layout/PasswordField.tsx';
+import { ProblemAlert } from '../layout/ProblemAlert.tsx';
 import { ConnectPage } from '../native/ConnectPage.tsx';
 import { nativeShell } from '../native/shell.ts';
 import {
@@ -12,6 +15,8 @@ import {
   rememberedProvider,
   rememberProvider,
 } from './signInWith.ts';
+import { passwordProblem, usePasswordDraft } from './passwordChange.ts';
+import { PasswordChangeFields } from './PasswordChangeFields.tsx';
 import { useSyncState } from './syncContext.ts';
 
 type Entry = { page: 'sign-in' } | { page: 'sign-up' } | { page: 'join'; invite: string };
@@ -41,42 +46,6 @@ export function AuthPages({ phase }: { phase: 'signed-out' | 'password-change' }
   return <SignIn onSignUp={() => go('/signup')} />;
 }
 
-function Card({
-  title,
-  subtitle,
-  children,
-}: {
-  title: string;
-  subtitle: string;
-  children: ReactNode;
-}) {
-  return (
-    <Box
-      component="main"
-      sx={{
-        display: 'grid',
-        placeItems: 'center',
-        minHeight: '100dvh',
-        px: 2,
-        bgcolor: 'background.default',
-      }}
-    >
-      <Paper
-        variant="outlined"
-        sx={{ width: '100%', maxWidth: 380, p: { xs: 3, sm: 4 }, borderRadius: 3 }}
-      >
-        <Typography variant="h1" sx={{ fontSize: '1.375rem', mb: 0.5 }}>
-          {title}
-        </Typography>
-        <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-          {subtitle}
-        </Typography>
-        {children}
-      </Paper>
-    </Box>
-  );
-}
-
 /** When a lock ends, as a time of day. */
 function untilTime(iso: string): string {
   const date = new Date(iso);
@@ -88,7 +57,7 @@ function untilTime(iso: string): string {
 /** Network trouble reads as "cannot reach the server"; anything else shows its message. */
 function problemOf(error: unknown): string {
   if (error instanceof SyncFailure && error.kind === 'offline') return t('auth.offline');
-  return error instanceof Error ? error.message : String(error);
+  return messageOf(error);
 }
 
 const OIDC_ERRORS = [
@@ -256,25 +225,21 @@ function SignIn({ onSignUp }: { onSignUp: () => void }) {
 
   if (continueWith && !heldBack) {
     return (
-      <Card
+      <CenteredCard
         title={t('auth.title')}
         subtitle={t('auth.continuing', { name: continueWith.displayName })}
       >
         {null}
-      </Card>
+      </CenteredCard>
     );
   }
 
   return (
-    <Card title={t('auth.title')} subtitle={t('auth.subtitle')}>
+    <CenteredCard title={t('auth.title')} subtitle={t('auth.subtitle')}>
       {providers.length > 0 && (
         <Box sx={{ display: 'grid', gap: 1.5 }}>
           <ProviderButtons providers={providers} onPick={rememberProvider} />
-          {!showForm && problem && (
-            <Alert severity="error" variant="outlined">
-              {problem}
-            </Alert>
-          )}
+          {!showForm && <ProblemAlert problem={problem} />}
         </Box>
       )}
       {providers.length > 0 && showForm && (
@@ -304,11 +269,7 @@ function SignIn({ onSignUp }: { onSignUp: () => void }) {
             autoComplete="current-password"
             required
           />
-          {problem && (
-            <Alert severity="error" variant="outlined">
-              {problem}
-            </Alert>
-          )}
+          <ProblemAlert problem={problem} />
           <Button type="submit" variant="contained" size="large" disableElevation disabled={busy}>
             {busy ? t('auth.signingIn') : t('auth.signIn')}
           </Button>
@@ -324,7 +285,7 @@ function SignIn({ onSignUp }: { onSignUp: () => void }) {
           onClick={() => setConnecting(true)}
         />
       )}
-    </Card>
+    </CenteredCard>
   );
 }
 
@@ -397,30 +358,30 @@ function SignUp({ invite, onSignIn }: { invite?: string; onSignIn: () => void })
 
   if (options === null || inviteWorks === null) {
     return (
-      <Card title={t('auth.signUp.title')} subtitle={t('auth.signUp.checking')}>
+      <CenteredCard title={t('auth.signUp.title')} subtitle={t('auth.signUp.checking')}>
         {null}
-      </Card>
+      </CenteredCard>
     );
   }
   if (!inviteWorks) {
     return (
-      <Card title={t('auth.signUp.expiredTitle')} subtitle={t('auth.signUp.expired')}>
+      <CenteredCard title={t('auth.signUp.expiredTitle')} subtitle={t('auth.signUp.expired')}>
         {signInInstead}
-      </Card>
+      </CenteredCard>
     );
   }
   if (invite === undefined && options.registration !== 'open') {
     const why = options.registration === 'invite' ? 'auth.signUp.inviteOnly' : 'auth.signUp.closed';
     return (
-      <Card title={t('auth.signUp.title')} subtitle={t(why)}>
+      <CenteredCard title={t('auth.signUp.title')} subtitle={t(why)}>
         {signInInstead}
-      </Card>
+      </CenteredCard>
     );
   }
 
   const { providers } = options;
   return (
-    <Card
+    <CenteredCard
       title={t('auth.signUp.title')}
       subtitle={t(invite === undefined ? 'auth.signUp.subtitle' : 'auth.signUp.invited')}
     >
@@ -458,18 +419,14 @@ function SignUp({ invite, onSignIn }: { invite?: string; onSignIn: () => void })
             helperText={t('auth.newHint')}
             required
           />
-          {problem && (
-            <Alert severity="error" variant="outlined">
-              {problem}
-            </Alert>
-          )}
+          <ProblemAlert problem={problem} />
           <Button type="submit" variant="contained" size="large" disableElevation disabled={busy}>
             {busy ? t('auth.signUp.creating') : t('auth.signUp.create')}
           </Button>
         </Box>
       )}
       {signInInstead}
-    </Card>
+    </CenteredCard>
   );
 }
 
@@ -477,17 +434,13 @@ function ChangePassword() {
   const changePassword = useSyncState((state) => state.changePassword);
   // The generated first password: once a super admin has chosen theirs, the setup wizard comes next.
   const superAdmin = useSyncState((state) => state.account?.role === 'superadmin');
-  const [current, setCurrent] = useState('');
-  const [next, setNext] = useState('');
-  const [again, setAgain] = useState('');
-  // Said once both are as long as each other, not at the first letter.
-  const mismatch = again.length >= next.length && again.length > 0 && again !== next;
+  const draft = usePasswordDraft();
   const [busy, setBusy] = useState(false);
   const [problem, setProblem] = useState<string | null>(null);
 
   const submit = async (event: FormEvent) => {
     event.preventDefault();
-    if (again !== next) {
+    if (draft.again !== draft.next) {
       setProblem(t('auth.mismatch'));
       return;
     }
@@ -498,11 +451,9 @@ function ChangePassword() {
       // The router starts once this page goes away: it opens at the wizard (which steps aside when
       // the server is already set up).
       if (superAdmin) window.history.replaceState(null, '', '/admin/setup');
-      const outcome = await changePassword(current, next);
+      const outcome = await changePassword(draft.current, draft.next);
       if (outcome.kind !== 'ok' && superAdmin) window.history.replaceState(null, '', before);
-      if (outcome.kind === 'wrong-password') setProblem(t('auth.wrongPassword'));
-      else if (outcome.kind === 'too-short') setProblem(t('auth.tooShort'));
-      else if (outcome.kind === 'unchanged') setProblem(t('auth.unchanged'));
+      setProblem(passwordProblem(outcome));
     } catch (error) {
       setProblem(problemOf(error));
     } finally {
@@ -511,46 +462,18 @@ function ChangePassword() {
   };
 
   return (
-    <Card title={t('auth.changeTitle')} subtitle={t('auth.changeSubtitle')}>
+    <CenteredCard title={t('auth.changeTitle')} subtitle={t('auth.changeSubtitle')}>
       <Box
         component="form"
         onSubmit={(event) => void submit(event)}
         sx={{ display: 'grid', gap: 2 }}
       >
-        <PasswordField
-          label={t('auth.current')}
-          value={current}
-          onChange={(event) => setCurrent(event.target.value)}
-          autoComplete="current-password"
-          autoFocus
-          required
-        />
-        <PasswordField
-          label={t('auth.new')}
-          value={next}
-          onChange={(event) => setNext(event.target.value)}
-          autoComplete="new-password"
-          helperText={t('auth.newHint')}
-          required
-        />
-        <PasswordField
-          label={t('auth.confirmNew')}
-          value={again}
-          onChange={(event) => setAgain(event.target.value)}
-          autoComplete="new-password"
-          error={mismatch}
-          helperText={mismatch ? t('auth.mismatch') : undefined}
-          required
-        />
-        {problem && (
-          <Alert severity="error" variant="outlined">
-            {problem}
-          </Alert>
-        )}
+        <PasswordChangeFields draft={draft} />
+        <ProblemAlert problem={problem} />
         <Button type="submit" variant="contained" size="large" disableElevation disabled={busy}>
           {t('auth.change')}
         </Button>
       </Box>
-    </Card>
+    </CenteredCard>
   );
 }

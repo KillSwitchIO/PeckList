@@ -1,6 +1,7 @@
 // Opening a workspace document from any source: version check, migration, validation.
 
 import type { SchemaValidator } from '../ports/validator.ts';
+import { messageOf } from './errors.ts';
 import {
   checkVersion,
   migrate,
@@ -25,7 +26,7 @@ export function parseJson(
   try {
     return { ok: true, value: JSON.parse(text) as unknown };
   } catch (error) {
-    return { ok: false, error: error instanceof Error ? error.message : String(error) };
+    return { ok: false, error: messageOf(error) };
   }
 }
 
@@ -71,7 +72,7 @@ export function upgradeDocument(
   try {
     upgraded = migrate(document, target, registry);
   } catch (error) {
-    return { kind: 'invalid', errors: [error instanceof Error ? error.message : String(error)] };
+    return { kind: 'invalid', errors: [messageOf(error)] };
   }
   return openDocument(upgraded, validator, target);
 }

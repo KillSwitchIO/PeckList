@@ -4,6 +4,7 @@
 
 import { createStore, type StoreApi } from 'zustand/vanilla';
 import { maxHlc } from '../../core/collections.ts';
+import { messageOf } from '../../core/errors.ts';
 import { HlcClock } from '../../core/hlc.ts';
 import {
   importCounts,
@@ -263,6 +264,10 @@ export function createWorkspaceStore(deps: StoreDependencies): WorkspaceStore {
       }
     };
 
+    /** The store cannot go on: say why (the UI shows it instead of the workspace). */
+    const failWith = (error: unknown) =>
+      set({ status: 'error', problem: { kind: 'error', message: messageOf(error) } });
+
     const schedule = () => {
       dirty = true;
       if (timer) clearTimeout(timer);
@@ -317,13 +322,7 @@ export function createWorkspaceStore(deps: StoreDependencies): WorkspaceStore {
             set({ status: 'error', problem: opened });
           }
         } catch (error) {
-          set({
-            status: 'error',
-            problem: {
-              kind: 'error',
-              message: error instanceof Error ? error.message : String(error),
-            },
-          });
+          failWith(error);
         }
       },
 
@@ -381,13 +380,7 @@ export function createWorkspaceStore(deps: StoreDependencies): WorkspaceStore {
           ctx = makeContext(upgraded.workspace.owner);
           set({ status: 'ready', workspace: upgraded.workspace, problem: null });
         } catch (error) {
-          set({
-            status: 'error',
-            problem: {
-              kind: 'error',
-              message: error instanceof Error ? error.message : String(error),
-            },
-          });
+          failWith(error);
         }
       },
 

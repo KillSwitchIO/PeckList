@@ -22,7 +22,7 @@ import {
   Typography,
   Divider,
 } from '@mui/material';
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import { getEntity } from '../../core/collections.ts';
 import { ALL_TASKS, filterTasks } from '../../core/filters.ts';
 import {
@@ -54,30 +54,34 @@ import { useTaskSelection } from './selection.ts';
 
 const MAX_RESULTS = 50;
 
-/** Pick the task that `task` should become a subtask of. */
-function NestUnderDialog({ task, onClose }: { task: Task; onClose: () => void }) {
-  const workspace = useWorkspace();
-  const apply = useApply();
-  const today = useToday();
+/** Pick one thing out of a searched list: a search box, the matches, and Enter takes the first. */
+function PickerDialog<T>({
+  title,
+  searchLabel,
+  emptyText,
+  listLabel,
+  matching,
+  keyOf,
+  render,
+  onPick,
+  onClose,
+}: {
+  title: string;
+  searchLabel: string;
+  emptyText: string;
+  listLabel?: string;
+  /** The candidates for what was typed (trimmed, lowercase; empty for all). */
+  matching: (wanted: string) => T[];
+  keyOf: (item: T) => string;
+  render: (item: T) => ReactNode;
+  onPick: (item: T) => void;
+  onClose: () => void;
+}) {
   const [query, setQuery] = useState('');
-  const wanted = query.trim().toLowerCase();
-  const candidates = filterTasks(workspace, ALL_TASKS, today)
-    .filter((other) => canNestUnder(workspace, task.id, other.id))
-    .filter((other) => !wanted || other.title.toLowerCase().includes(wanted))
-    .slice(0, MAX_RESULTS);
-  const title = task.title || t('task.untitled');
-
-  const choose = (parent: Task) => {
-    apply(
-      (ctx, ws) => nestUnder(ctx, ws, task.id, parent.id),
-      t('undo.nested', { title: parent.title || t('task.untitled') }),
-    );
-    onClose();
-  };
-
+  const found = matching(query.trim().toLowerCase());
   return (
     <Dialog open onClose={onClose} fullWidth maxWidth="xs">
-      <DialogTitle sx={{ pb: 1 }}>{t('task.nestUnderTitle', { title })}</DialogTitle>
+      <DialogTitle sx={{ pb: 1 }}>{title}</DialogTitle>
       <DialogContent sx={{ px: 1, pb: 1 }}>
         <Box
           sx={{
@@ -98,50 +102,85 @@ function NestUnderDialog({ task, onClose }: { task: Task; onClose: () => void })
             autoFocus
             fullWidth
             value={query}
-            placeholder={t('task.nestSearch')}
-            inputProps={{ 'aria-label': t('task.nestSearch') }}
+            placeholder={searchLabel}
+            inputProps={{ 'aria-label': searchLabel }}
             onChange={(event) => setQuery(event.target.value)}
             onKeyDown={(event) => {
-              if (event.key === 'Enter' && candidates[0]) {
+              if (event.key === 'Enter' && found[0]) {
                 event.preventDefault();
-                choose(candidates[0]);
+                onPick(found[0]);
               }
             }}
             sx={{ color: 'text.primary' }}
           />
         </Box>
-        {candidates.length === 0 ? (
+        {found.length === 0 ? (
           <Typography color="text.secondary" sx={{ px: 2, py: 1 }}>
-            {t('task.nestNone')}
+            {emptyText}
           </Typography>
         ) : (
-          <List dense sx={{ maxHeight: 360, overflowY: 'auto' }}>
-            {candidates.map((other) => {
-              const list = getEntity(workspace, 'lists', other.listId);
-              const where = [
-                list ? listName(list, workspace) : null,
-                ...ancestors(workspace, other.id).map((item) => item.title || t('task.untitled')),
-              ]
-                .filter(Boolean)
-                .join(' › ');
-              return (
-                <ListItemButton
-                  key={other.id}
-                  onClick={() => choose(other)}
-                  sx={{ borderRadius: 2 }}
-                >
-                  <ListItemText
-                    primary={other.title || t('task.untitled')}
-                    secondary={where}
-                    slotProps={{ primary: { noWrap: true }, secondary: { noWrap: true } }}
-                  />
-                </ListItemButton>
-              );
-            })}
+          <List dense sx={{ maxHeight: 360, overflowY: 'auto' }} aria-label={listLabel}>
+            {found.map((item) => (
+              <ListItemButton
+                key={keyOf(item)}
+                onClick={() => onPick(item)}
+                sx={{ borderRadius: 2 }}
+              >
+                {render(item)}
+              </ListItemButton>
+            ))}
           </List>
         )}
       </DialogContent>
     </Dialog>
+  );
+}
+
+/** Pick the task that `task` should become a subtask of. */
+function NestUnderDialog({ task, onClose }: { task: Task; onClose: () => void }) {
+  const workspace = useWorkspace();
+  const apply = useApply();
+  const today = useToday();
+  const candidates = filterTasks(workspace, ALL_TASKS, today).filter((other) =>
+    canNestUnder(workspace, task.id, other.id),
+  );
+  const choose = (parent: Task) => {
+    apply(
+      (ctx, ws) => nestUnder(ctx, ws, task.id, parent.id),
+      t('undo.nested', { title: parent.title || t('task.untitled') }),
+    );
+    onClose();
+  };
+  return (
+    <PickerDialog
+      title={t('task.nestUnderTitle', { title: task.title || t('task.untitled') })}
+      searchLabel={t('task.nestSearch')}
+      emptyText={t('task.nestNone')}
+      matching={(wanted) =>
+        candidates
+          .filter((other) => !wanted || other.title.toLowerCase().includes(wanted))
+          .slice(0, MAX_RESULTS)
+      }
+      keyOf={(other) => other.id}
+      render={(other) => {
+        const list = getEntity(workspace, 'lists', other.listId);
+        const where = [
+          list ? listName(list, workspace) : null,
+          ...ancestors(workspace, other.id).map((item) => item.title || t('task.untitled')),
+        ]
+          .filter(Boolean)
+          .join(' › ');
+        return (
+          <ListItemText
+            primary={other.title || t('task.untitled')}
+            secondary={where}
+            slotProps={{ primary: { noWrap: true }, secondary: { noWrap: true } }}
+          />
+        );
+      }}
+      onPick={choose}
+      onClose={onClose}
+    />
   );
 }
 
@@ -150,79 +189,39 @@ export function MoveToListDialog({ task, onClose }: { task: Task; onClose: () =>
   const workspace = useWorkspace();
   const apply = useApply();
   const me = useStoreState((state) => state.context().userId);
-  const [query, setQuery] = useState('');
-  const wanted = query.trim().toLowerCase();
-  const lists = visibleLists(workspace)
-    .filter((list) => list.id !== task.listId && canEditList(workspace, me, list.id))
-    .filter((list) => !wanted || listName(list, workspace).toLowerCase().includes(wanted));
-  const title = task.title || t('task.untitled');
-
-  const choose = (listId: string, name: string) => {
+  const lists = visibleLists(workspace).filter(
+    (list) => list.id !== task.listId && canEditList(workspace, me, list.id),
+  );
+  const choose = (list: (typeof lists)[number]) => {
+    const name = listName(list, workspace);
     apply(
-      (ctx, ws) => moveTask(ctx, ws, task.id, { listId, parentId: null }),
+      (ctx, ws) => moveTask(ctx, ws, task.id, { listId: list.id, parentId: null }),
       t('undo.movedTo', { list: name }),
     );
     onClose();
   };
-
   return (
-    <Dialog open onClose={onClose} fullWidth maxWidth="xs">
-      <DialogTitle sx={{ pb: 1 }}>{t('task.moveToTitle', { title })}</DialogTitle>
-      <DialogContent sx={{ px: 1, pb: 1 }}>
-        <Box
-          sx={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: 1,
-            mx: 1,
-            mb: 1,
-            px: 1.5,
-            py: 0.5,
-            borderRadius: 2,
-            bgcolor: 'action.hover',
-            color: 'text.secondary',
-          }}
-        >
-          <SearchRounded fontSize="small" />
-          <InputBase
-            autoFocus
-            fullWidth
-            value={query}
-            placeholder={t('task.moveSearch')}
-            inputProps={{ 'aria-label': t('task.moveSearch') }}
-            onChange={(event) => setQuery(event.target.value)}
-            onKeyDown={(event) => {
-              if (event.key === 'Enter' && lists[0]) {
-                event.preventDefault();
-                choose(lists[0].id, listName(lists[0], workspace));
-              }
-            }}
-            sx={{ color: 'text.primary' }}
+    <PickerDialog
+      title={t('task.moveToTitle', { title: task.title || t('task.untitled') })}
+      searchLabel={t('task.moveSearch')}
+      emptyText={t('task.moveNone')}
+      listLabel={t('task.moveTo')}
+      matching={(wanted) =>
+        lists.filter((list) => !wanted || listName(list, workspace).toLowerCase().includes(wanted))
+      }
+      keyOf={(list) => list.id}
+      render={(list) => (
+        <>
+          <ListMark list={list} sx={{ mr: 1.5 }} />
+          <ListItemText
+            primary={listName(list, workspace)}
+            slotProps={{ primary: { noWrap: true } }}
           />
-        </Box>
-        {lists.length === 0 ? (
-          <Typography color="text.secondary" sx={{ px: 2, py: 1 }}>
-            {t('task.moveNone')}
-          </Typography>
-        ) : (
-          <List dense sx={{ maxHeight: 360, overflowY: 'auto' }} aria-label={t('task.moveTo')}>
-            {lists.map((list) => (
-              <ListItemButton
-                key={list.id}
-                onClick={() => choose(list.id, listName(list, workspace))}
-                sx={{ borderRadius: 2 }}
-              >
-                <ListMark list={list} sx={{ mr: 1.5 }} />
-                <ListItemText
-                  primary={listName(list, workspace)}
-                  slotProps={{ primary: { noWrap: true } }}
-                />
-              </ListItemButton>
-            ))}
-          </List>
-        )}
-      </DialogContent>
-    </Dialog>
+        </>
+      )}
+      onPick={choose}
+      onClose={onClose}
+    />
   );
 }
 
