@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- The app's accent (web/public/icon.svg, the PWA theme color). -->
-    <color name="ic_launcher_background">#4F8F87</color>
+    <!-- The icon's purple (web/public/icon.svg). -->
+    <color name="ic_launcher_background">#4B2A8A</color>
 </resources>
