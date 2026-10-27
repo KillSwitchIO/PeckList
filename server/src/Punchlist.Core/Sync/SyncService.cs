@@ -62,7 +62,9 @@ public sealed partial class SyncService(
     ServerClock? clock = null)
 {
     public const int MaxChanges = 5000;
-    public const int PageSize = 500;
+    // About 3.8 MB of JSON at a real workspace's ~2 KB a task, ~0.4 MB compressed: a first sync of
+    // 4,500 tasks is 3 round trips instead of 9 (R-FB-94).
+    public const int PageSize = 2000;
 
     /// <summary>A change stamped further ahead than this would win every merge for hours; set it aside.</summary>
     public static readonly TimeSpan MaxClockDrift = TimeSpan.FromHours(1);
