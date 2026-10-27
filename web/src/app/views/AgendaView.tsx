@@ -151,7 +151,7 @@ export function AgendaView({
       if (section && bar) {
         const stuck = (parseFloat(getComputedStyle(bar).top) || 0) + bar.offsetHeight;
         const by = section.getBoundingClientRect().top - stuck;
-        if (scroller) scroller.scrollTop += by;
+        if (scroller) scroller.scrollBy(0, by);
         else window.scrollBy(0, by);
       }
     }

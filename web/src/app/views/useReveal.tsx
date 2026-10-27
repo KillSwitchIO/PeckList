@@ -3,9 +3,9 @@
 // A spacer holds the place of the rows not drawn yet, so the scroll bar is the whole list's from
 // the start. 4,279 closed rows drawn at once took 4 s to show and half a second to leave.
 
-import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 
-/** One row's height before any is measured, for the spacer standing in for the rest. */
+/** About one row's height, for the spacer that stands in for the rows not drawn yet. */
 const ROW_HEIGHT = 44;
 
 /** The nearest ancestor that scrolls (the page's own scroll area), or null for the window. */
@@ -27,19 +27,8 @@ export function useReveal(
   step = 150,
 ): { shown: number; spacer: ReactNode } {
   const [shown, setShown] = useState(first);
-  // What a drawn row takes on average (group headings included), so the spacer is as tall as the
-  // rest will be and the scroll range ends where the list does (R-FB-96).
-  const [rowHeight, setRowHeight] = useState(ROW_HEIGHT);
   const sentinel = useRef<HTMLDivElement>(null);
   const observable = typeof IntersectionObserver !== 'undefined';
-  useLayoutEffect(() => {
-    const element = sentinel.current;
-    const parent = element?.parentElement;
-    if (!element || !parent || shown === 0) return;
-    const drawn = element.getBoundingClientRect().top - parent.getBoundingClientRect().top;
-    const each = drawn / Math.min(shown, total);
-    if (each > 8 && Math.abs(each - rowHeight) > 0.5) setRowHeight(each);
-  }, [shown, total, rowHeight]);
   useEffect(() => {
     const element = sentinel.current;
     if (!element || !observable || shown >= total) return;
@@ -59,8 +48,6 @@ export function useReveal(
   return {
     shown: Math.min(shown, total),
     spacer:
-      rest > 0 ? (
-        <div ref={sentinel} aria-hidden style={{ height: Math.round(rest * rowHeight) }} />
-      ) : null,
+      rest > 0 ? <div ref={sentinel} aria-hidden style={{ height: rest * ROW_HEIGHT }} /> : null,
   };
 }

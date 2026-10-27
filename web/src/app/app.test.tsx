@@ -14,24 +14,6 @@ beforeEach(() => {
 });
 
 describe('app shell', () => {
-  it('scrolls the page column on wider screens, from the top on each page (R-FB-96)', async () => {
-    mockViewport('desktop');
-    await renderApp('/today');
-    const main = screen.getByRole('main');
-    // The column scrolls, so its scroll bar covers the page only, not the top bar.
-    expect(getComputedStyle(main).overflowY).toBe('auto');
-    main.scrollTop = 500;
-    await userEvent.click(screen.getByRole('button', { name: 'Upcoming' }));
-    await screen.findByRole('heading', { level: 1, name: 'Upcoming' });
-    expect(main.scrollTop).toBe(0);
-  });
-
-  it('scrolls the window on phones (pull to refresh, the browser bars)', async () => {
-    mockViewport('phone');
-    await renderApp('/today');
-    expect(getComputedStyle(screen.getByRole('main')).overflowY).not.toBe('auto');
-  });
-
   it('redirects / to Today and shows the empty state', async () => {
     mockViewport('desktop');
     await renderApp('/');

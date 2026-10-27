@@ -391,7 +391,7 @@ export function TaskDragProvider({
               ? Math.ceil(((EDGE_PX - fromBottom) / EDGE_PX) * SCROLL_STEP)
               : 0;
         if (by !== 0) {
-          if (scroller) scroller.scrollTop += by;
+          if (scroller) scroller.scrollBy(0, by);
           else window.scrollBy(0, by);
           track(active, point.x, point.y);
         }
