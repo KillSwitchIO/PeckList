@@ -1,4 +1,5 @@
 import { openDB, type IDBPDatabase } from 'idb';
+import { mergeWorkspaces } from '../core/merge.ts';
 import { COLLECTIONS, type WorkspaceFile } from '../core/types.ts';
 import type { StorageAdapter } from '../ports/storage.ts';
 
@@ -30,7 +31,8 @@ const sameIds = (a: readonly string[] | undefined, b: readonly string[]) =>
  * Keeps the workspace in IndexedDB one record per entity (R-FB-94, audit P5): a save writes the
  * entities that changed since storage was last read or written, not the whole document (9 MB at
  * 4,500 tasks). Backups and device metadata stay in the first database as JSON text, as does a
- * workspace saved by an older version, which is read once and moved over on the next save.
+ * workspace saved by an older version: read and taken in like another tab's save (merged), and
+ * dropped by the next save while it is still the text that was read.
  */
 export function createIndexedDbStorage(databaseName = 'punchlist'): StorageAdapter {
   let db: Promise<IDBPDatabase> | null = null;
@@ -50,6 +52,13 @@ export function createIndexedDbStorage(databaseName = 'punchlist'): StorageAdapt
       },
     }));
   let held: Held | null = null;
+  // The old single-text copy as last read: a save drops it only while it is still that text.
+  let legacySeen: string | null = null;
+  const readLegacy = async () => {
+    const text = (await (await open()).get(STORE, LEGACY)) as string | undefined;
+    legacySeen = text ?? null;
+    return text;
+  };
 
   return {
     kind: 'indexeddb',
@@ -60,7 +69,7 @@ export function createIndexedDbStorage(databaseName = 'punchlist'): StorageAdapt
       if (!header) {
         await tx.done;
         held = null;
-        const text = (await (await open()).get(STORE, LEGACY)) as string | undefined;
+        const text = await readLegacy();
         return text === undefined ? null : (JSON.parse(text) as unknown);
       }
       const [keys, values] = await Promise.all([
@@ -91,7 +100,17 @@ export function createIndexedDbStorage(databaseName = 'punchlist'): StorageAdapt
         (entities[collection] ??= []).push(entity);
       }
       held = { entities: byKey, header: JSON.stringify(header.doc), order: header.order };
-      return { ...header.doc, entities };
+      const stored = { ...header.doc, entities } as unknown as WorkspaceFile;
+      // A tab of an older version, still open, saves the old way: that is another tab's save,
+      // taken in like one (dropped once the records hold it, see save).
+      const text = await readLegacy();
+      if (text === undefined) return stored;
+      try {
+        return mergeWorkspaces(stored, JSON.parse(text) as WorkspaceFile);
+      } catch {
+        // Another owner or schema: the records are this version's, they win.
+        return stored;
+      }
     },
     async save(workspace: WorkspaceFile) {
       const { entities, ...doc } = workspace;
@@ -125,16 +144,23 @@ export function createIndexedDbStorage(databaseName = 'punchlist'): StorageAdapt
         writes.push(tx.objectStore(DOC).put({ doc, order } satisfies Header, HEADER));
       }
       await Promise.all([...writes, tx.done]);
-      const first = held === null;
       held = { entities: now, header, order };
-      // The copy an older version kept as one text goes once the records hold it.
-      if (first) await (await open()).delete(STORE, LEGACY);
+      // The copy an older version keeps as one text goes once the records hold it: only the text
+      // last read (taken in with that load). One an older tab wrote since stays for the next load.
+      if (legacySeen !== null) {
+        const legacy = await open();
+        if ((await legacy.getKey(STORE, LEGACY)) !== undefined) {
+          if ((await legacy.get(STORE, LEGACY)) === legacySeen) await legacy.delete(STORE, LEGACY);
+        }
+        legacySeen = null;
+      }
     },
     async clear() {
       const store = await openRecords();
       const tx = store.transaction([ENTITIES, DOC], 'readwrite');
       await Promise.all([tx.objectStore(ENTITIES).clear(), tx.objectStore(DOC).clear(), tx.done]);
       held = null;
+      legacySeen = null;
       await (await open()).delete(STORE, LEGACY);
     },
     async backup(name: string, document: unknown) {
