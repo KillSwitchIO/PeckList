@@ -128,6 +128,13 @@ const CLOCK_TOLERANCE_MS = 5 * 60_000;
 const BATCH = 1000;
 /** Rounds per sync, so a server that always says "more" cannot spin forever. */
 const MAX_ROUNDS = 50;
+/**
+ * A run of pages that only bring data (a first sync) is taken in together, up to this many
+ * entities or this long, rather than page by page: one render and one save instead of one each
+ * (R-FB-94; a 4,500-task first sync spent 2 s doing that work nine times over).
+ */
+const HOLD_ENTITIES = 5000;
+const HOLD_MS = 1500;
 
 export type SyncEngine = StoreApi<SyncState>;
 
@@ -369,11 +376,20 @@ export function createSyncEngine(deps: SyncEngineDependencies): SyncEngine {
         const account = get().account;
         if (!account) return;
         await link(account);
+        let meta = await loadMeta();
+        // Pages pulled but not taken in yet, and where the sync stands once they are.
+        let held = null as { changes: SyncChange[]; since: number; meta: SyncMeta } | null;
+        const takeInHeld = async () => {
+          if (!held) return;
+          const { changes, meta: after } = held;
+          held = null;
+          absorb((local) => mergeRemote(local, changes, []));
+          await saveMeta(after);
+        };
         for (let round = 0; round < MAX_ROUNDS; round += 1) {
           await workspace.getState().flush();
           const current = workspace.getState().workspace;
           if (!current) return;
-          const meta = await loadMeta();
           const pending = pendingChanges(current, meta.acks);
           const batch = await withFiles(pending.slice(0, BATCH));
           const response = await transport.sync({
@@ -384,6 +400,7 @@ export function createSyncEngine(deps: SyncEngineDependencies): SyncEngine {
           // The server's data was restored from a backup: this device's pending changes went
           // with this request; now it starts over from what the server has.
           if (response.epoch && meta.epoch && response.epoch !== meta.epoch) {
+            held = null;
             await startOver(account);
             break;
           }
@@ -393,6 +410,30 @@ export function createSyncEngine(deps: SyncEngineDependencies): SyncEngine {
               ([id]) => !revoked.has(id),
             ),
           );
+          const next: SyncMeta = {
+            account: account.id,
+            cursor: response.cursor,
+            acks,
+            epoch: response.epoch ?? meta.epoch ?? null,
+          };
+          // Only data, and more to come: hold it (the first page always goes in at once, so the
+          // lists fill straight away).
+          const onlyData =
+            batch.length === 0 &&
+            revoked.size === 0 &&
+            !response.rejected?.length &&
+            !response.corrections?.length &&
+            !response.invalid?.length;
+          if (onlyData && response.more && round > 0) {
+            const since: number = held?.since ?? now();
+            held = { changes: [...(held?.changes ?? []), ...response.changes], since, meta: next };
+            meta = next;
+            if (held.changes.length >= HOLD_ENTITIES || now() - since >= HOLD_MS) {
+              await takeInHeld();
+            }
+            continue;
+          }
+          await takeInHeld();
           const lost: string[] = [];
           absorb(
             (local) => {
@@ -421,14 +462,11 @@ export function createSyncEngine(deps: SyncEngineDependencies): SyncEngine {
           if (refused > 0 || lost.length > 0 || setAside > 0 || clock) {
             tell({ refused, lostLists: lost, setAside, clock });
           }
-          await saveMeta({
-            account: account.id,
-            cursor: response.cursor,
-            acks,
-            epoch: response.epoch ?? meta.epoch ?? null,
-          });
+          await saveMeta(next);
+          meta = next;
           if (!response.more && pending.length <= BATCH) break;
         }
+        await takeInHeld();
       });
       set({ status: 'idle', lastSynced: now(), error: null });
       if (!closeEvents) openEvents();

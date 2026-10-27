@@ -183,6 +183,42 @@ describe('sync engine', () => {
     ).toEqual(onPhone);
   });
 
+  it('takes many pages of changes in together, not page by page (R-FB-94)', async () => {
+    const backend = new FakeBackend();
+    backend.addAccount('ben', 'correct horse battery');
+    const laptop = await device(backend, 'laptop');
+    const phone = await device(backend, 'phone');
+    await laptop.engine.getState().start();
+    await laptop.engine.getState().signIn('ben', 'correct horse battery');
+    await phone.engine.getState().start();
+    await phone.engine.getState().signIn('ben', 'correct horse battery');
+
+    // The phone was away while the laptop added a lot.
+    for (let index = 0; index < 30; index += 1) addTask(laptop.store, `Task ${index}`);
+    await laptop.engine.getState().syncNow();
+    backend.server.pageSize = 5;
+    let pages = 0;
+    const sync = phone.transport.sync.bind(phone.transport);
+    phone.transport.sync = (request) => {
+      pages += 1;
+      return sync(request);
+    };
+    let updates = 0;
+    const stop = phone.store.subscribe((state, previous) => {
+      if (state.workspace !== previous.workspace) updates += 1;
+    });
+    await phone.engine.getState().syncNow();
+    stop();
+    expect(titles(phone.store)).toHaveLength(30);
+    expect(pages).toBeGreaterThanOrEqual(6);
+    // The first page at once, the rest together.
+    expect(updates).toBeLessThanOrEqual(3);
+    // Where the sync stands is kept only with the data it stands for: the next sync asks for nothing old.
+    pages = 0;
+    await phone.engine.getState().syncNow();
+    expect(pages).toBe(1);
+  });
+
   it("another device's change arrives at once, not on the next timer", async () => {
     const backend = new FakeBackend();
     backend.addAccount('ben', 'correct horse battery');
