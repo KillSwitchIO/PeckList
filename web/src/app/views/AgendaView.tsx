@@ -1,3 +1,4 @@
+import RadioButtonUncheckedRounded from '@mui/icons-material/RadioButtonUncheckedRounded';
 import AddRounded from '@mui/icons-material/AddRounded';
 import { Box, Button, IconButton, Popover, Tooltip, Typography } from '@mui/material';
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
@@ -11,12 +12,7 @@ import type { Task, WorkspaceFile } from '../../core/types.ts';
 import { weekStart as preferredWeekStart } from '../format.ts';
 import { useToday } from '../hooks/useToday.ts';
 import { t } from '../i18n/i18n.ts';
-import {
-  CalendarIcon,
-  ChevronDownIcon,
-  ChevronLeftIcon,
-  ChevronRightIcon,
-} from '../icons/icons.tsx';
+import { ChevronDownIcon, ChevronLeftIcon, ChevronRightIcon } from '../icons/icons.tsx';
 import { MonthCalendar } from '../dates/MonthCalendar.tsx';
 import { Page } from '../layout/Page.tsx';
 import { monthTitle } from '../layout/miniCalendarText.ts';
@@ -253,7 +249,8 @@ export function AgendaView({
                   disabled={fromToday && focus === today && week === thisWeek}
                   onClick={goToday}
                 >
-                  <CalendarIcon badge={String(Number(today.slice(8, 10)))} />
+                  {/* The plain circle the date pickers use (R-FB-87). */}
+                  <RadioButtonUncheckedRounded sx={{ fontSize: 12 }} />
                 </IconButton>
               </span>
             </Tooltip>

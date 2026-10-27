@@ -1,3 +1,4 @@
+import RadioButtonUncheckedRounded from '@mui/icons-material/RadioButtonUncheckedRounded';
 import CalendarViewMonthOutlined from '@mui/icons-material/CalendarViewMonthOutlined';
 import ViewAgendaOutlined from '@mui/icons-material/ViewAgendaOutlined';
 import ViewWeekOutlined from '@mui/icons-material/ViewWeekOutlined';
@@ -34,12 +35,7 @@ import type { Schedule, WorkspaceFile } from '../../core/types.ts';
 import { useToday } from '../hooks/useToday.ts';
 import { MonthCalendar } from '../dates/MonthCalendar.tsx';
 import { weekStart as preferredWeekStart } from '../format.ts';
-import {
-  CalendarIcon,
-  ChevronDownIcon,
-  ChevronLeftIcon,
-  ChevronRightIcon,
-} from '../icons/icons.tsx';
+import { ChevronDownIcon, ChevronLeftIcon, ChevronRightIcon } from '../icons/icons.tsx';
 import { t } from '../i18n/i18n.ts';
 import { BottomSheet } from '../layout/BottomSheet.tsx';
 import { Page } from '../layout/Page.tsx';
@@ -422,7 +418,8 @@ export function CalendarPage() {
           </IconButton>
           <Tooltip title={t('calendar.goToday')}>
             <IconButton size="small" onClick={goToday} aria-label={t('calendar.goToday')}>
-              <CalendarIcon badge={String(Number(today.slice(8, 10)))} />
+              {/* The plain circle the date pickers use (R-FB-87). */}
+              <RadioButtonUncheckedRounded sx={{ fontSize: 12 }} />
             </IconButton>
           </Tooltip>
           <IconButton size="small" aria-label={t('calendar.next')} onClick={() => step(1)}>
