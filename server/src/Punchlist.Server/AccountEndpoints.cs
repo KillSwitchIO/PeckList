@@ -54,7 +54,7 @@ public static class AccountEndpoints
 
     public static IdentityView View(LinkedIdentity identity, ServerSettings settings) => new(
         identity.Provider,
-        settings.OidcProviders.FirstOrDefault(provider => provider.Name == identity.Provider)?.DisplayName ?? identity.Provider,
+        settings.Provider(identity.Provider)?.DisplayName ?? identity.Provider,
         identity.Subject,
         identity.Email,
         identity.LinkedAt,

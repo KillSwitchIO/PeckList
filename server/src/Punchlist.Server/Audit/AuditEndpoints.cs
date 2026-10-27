@@ -2,6 +2,7 @@ using System.Globalization;
 using System.IO.Compression;
 using System.Text;
 using System.Text.Json;
+using Punchlist.Core;
 using Punchlist.Core.Accounts;
 using Punchlist.Core.Audit;
 using Punchlist.Core.Configuration;
@@ -29,7 +30,7 @@ public static class AuditEndpoints
         {
             var query = Query(context.Request, limit: 100_000, oldestFirst: true);
             var page = await store.QueryAsync(query, context.RequestAborted);
-            var name = $"punchlist-{query.Kind}-{time.GetUtcNow().ToString("yyyyMMdd-HHmmss", CultureInfo.InvariantCulture)}.csv";
+            var name = $"punchlist-{query.Kind}-{time.FileStamp()}.csv";
             context.Response.ContentType = "text/csv; charset=utf-8";
             context.Response.Headers.ContentDisposition = $"attachment; filename=\"{name}\"";
             await using var writer = new StreamWriter(context.Response.Body, new UTF8Encoding(false));
@@ -127,8 +128,7 @@ public sealed class AuditRetention(IAuditStore store, LiveSettings live, TimePro
         var first = await store.OlderAsync(kind, cutoff, 1, cancellation);
         if (first.Count == 0) return 0;
         Directory.CreateDirectory(live.Current.AuditArchiveDir);
-        var path = Path.Combine(live.Current.AuditArchiveDir,
-            $"audit-{kind}-{time.GetUtcNow().ToString("yyyyMMdd-HHmmss", CultureInfo.InvariantCulture)}.jsonl.gz");
+        var path = Path.Combine(live.Current.AuditArchiveDir, $"audit-{kind}-{time.FileStamp()}.jsonl.gz");
         var total = 0;
         await using (var file = File.Create(path))
         await using (var gzip = new GZipStream(file, CompressionLevel.Optimal))

@@ -1,6 +1,4 @@
 using System.Globalization;
-using System.Security.Cryptography;
-using System.Text;
 
 namespace Punchlist.Core.Accounts;
 
@@ -27,9 +25,9 @@ public sealed class Impersonations(ISecretStore secrets, IAccountStore accounts,
         if (reason.Length < MinReasonLength) throw new ArgumentException("say why, in a few words");
         var target = await accounts.FindByIdAsync(targetId, cancellation);
         if (target is null || target.Disabled || target.Role == Role.SuperAdmin || targetId == adminId) return null;
-        var token = Convert.ToBase64String(RandomNumberGenerator.GetBytes(32)).TrimEnd('=').Replace('+', '-').Replace('/', '_');
+        var token = Tokens.New();
         var view = new Impersonation(adminId, targetId, reason, time.GetUtcNow() + Lifetime);
-        await secrets.PutAsync(Kind, Hash(token),
+        await secrets.PutAsync(Kind, Tokens.Hash(token),
             $"{adminId} {targetId} {view.Expires.ToString("O", CultureInfo.InvariantCulture)} {reason}", cancellation);
         return (token, view);
     }
@@ -37,7 +35,7 @@ public sealed class Impersonations(ISecretStore secrets, IAccountStore accounts,
     /// <summary>The impersonation a token stands for, while it lasts.</summary>
     public async Task<Impersonation?> FindAsync(string token, CancellationToken cancellation = default)
     {
-        var key = Hash(token);
+        var key = Tokens.Hash(token);
         var value = (await secrets.ListAsync(Kind, cancellation)).FirstOrDefault(each => each.Name == key).Value;
         if (string.IsNullOrEmpty(value)) return null;
         var parts = value.Split(' ', 4);
@@ -51,7 +49,5 @@ public sealed class Impersonations(ISecretStore secrets, IAccountStore accounts,
     }
 
     public Task EndAsync(string token, CancellationToken cancellation = default) =>
-        secrets.PutAsync(Kind, Hash(token), "", cancellation);
-
-    private static string Hash(string token) => Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(token)));
+        secrets.PutAsync(Kind, Tokens.Hash(token), "", cancellation);
 }

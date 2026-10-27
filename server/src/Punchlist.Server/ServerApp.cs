@@ -150,6 +150,13 @@ public static partial class ServerApp
     public static string Origin(HttpContext context) =>
         context.RequestServices.GetRequiredService<ServerSettings>().PublicUrl?.ToString().TrimEnd('/')
         ?? $"{context.Request.Scheme}://{context.Request.Host}";
+
+    /// <summary>
+    /// Stop the server once the answer is out (a restart to apply settings, or to restore a backup).
+    /// A container with a restart policy (<c>restart: unless-stopped</c>) comes back on its own.
+    /// </summary>
+    public static void StopSoon(IHostApplicationLifetime lifetime) =>
+        _ = Task.Delay(500).ContinueWith(_ => lifetime.StopApplication(), TaskScheduler.Default);
 }
 
 /// <summary>

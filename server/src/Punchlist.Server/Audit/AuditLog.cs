@@ -164,9 +164,7 @@ public sealed class AuditLog : BackgroundService
         TargetName = targetName,
         Detail = detail,
         Ip = context is null ? null : Address(context.Connection.RemoteIpAddress),
-        Device = context?.Request.Headers.UserAgent.ToString() is { Length: > 0 } agent
-            ? agent.Length > DeviceLength ? agent[..DeviceLength] : agent
-            : null,
+        Device = context is null ? null : DeviceOf(context),
         RequestId = context?.TraceIdentifier,
     });
 
@@ -281,9 +279,7 @@ public sealed class AuditLog : BackgroundService
             ImpersonatorId = user.FindFirstValue(ImpersonationSetup.ByClaim),
             ImpersonatorName = user.FindFirstValue(ImpersonationSetup.ByNameClaim),
             Ip = Address(context.Connection.RemoteIpAddress),
-            Device = context.Request.Headers.UserAgent.ToString() is { Length: > 0 } agent
-                ? agent.Length > DeviceLength ? agent[..DeviceLength] : agent
-                : null,
+            Device = DeviceOf(context),
             Method = context.Request.Method,
             Route = route is not null ? Template(route) : path,
             Status = status,
@@ -331,6 +327,12 @@ public sealed class AuditLog : BackgroundService
 
     /// <summary>The full template with route parameter names, never values.</summary>
     private static string Template(RoutePattern pattern) => "/" + (pattern.RawText ?? "").TrimStart('/');
+
+    /// <summary>The browser or app, from the user agent, cut to <see cref="DeviceLength"/>; null without one.</summary>
+    private static string? DeviceOf(HttpContext context) =>
+        context.Request.Headers.UserAgent.ToString() is { Length: > 0 } agent
+            ? agent.Length > DeviceLength ? agent[..DeviceLength] : agent
+            : null;
 
     private static string? Address(IPAddress? address) =>
         address is null ? null : (address.IsIPv4MappedToIPv6 ? address.MapToIPv4() : address).ToString();

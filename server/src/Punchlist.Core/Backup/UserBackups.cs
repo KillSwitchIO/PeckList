@@ -86,15 +86,7 @@ public sealed class UserBackups(
     public async Task<UserRestoreResult> RestoreAsync(
         Stream input, string? username, bool mayRestoreAdmins, CancellationToken cancellation = default)
     {
-        JsonObject root;
-        try
-        {
-            root = (await JsonNode.ParseAsync(input, cancellationToken: cancellation))?.AsObject() ?? throw new BackupException("the file is empty");
-        }
-        catch (JsonException error)
-        {
-            throw new BackupException($"not a JSON file: {error.Message}");
-        }
+        var root = await BackupService.ParseAsync(input, cancellation);
         var schema = (int?)root["schemaVersion"];
         if (!WorkspaceSchema.Readable(schema))
         {

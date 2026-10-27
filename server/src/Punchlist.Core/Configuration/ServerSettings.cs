@@ -73,6 +73,10 @@ public sealed record ServerSettings
     /// <summary>OIDC providers (<c>OIDC_PROVIDERS</c>); empty without OIDC.</summary>
     public IReadOnlyList<OidcProviderSettings> OidcProviders { get; init; } = [];
 
+    /// <summary>The configured provider called <paramref name="name"/>, or null.</summary>
+    public OidcProviderSettings? Provider(string? name) =>
+        name is null ? null : OidcProviders.FirstOrDefault(each => each.Name == name);
+
     /// <summary>Days a deleted account can be restored before it is removed for good (<c>ACCOUNT_DELETE_GRACE_DAYS</c>).</summary>
     public int AccountDeleteGraceDays { get; init; } = 7;
 

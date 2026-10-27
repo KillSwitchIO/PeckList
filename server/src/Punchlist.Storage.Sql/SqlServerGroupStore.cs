@@ -1,5 +1,4 @@
 using System.Data.Common;
-using System.Globalization;
 using Dapper;
 using Punchlist.Core.Accounts;
 
@@ -52,8 +51,7 @@ public sealed class SqlServerGroupStore(SqlDatabase database) : IServerGroupStor
         {
             changed = await connection.ExecuteAsync(new CommandDefinition(sql, Row.From(group), cancellationToken: cancellation));
         }
-        catch (DbException error) when (error.Message.Contains("unique", StringComparison.OrdinalIgnoreCase)
-            || error.Message.Contains("duplicate", StringComparison.OrdinalIgnoreCase))
+        catch (DbException error) when (SqlDatabase.IsUniqueViolation(error))
         {
             throw new DuplicateGroupNameException(group.Name);
         }
@@ -135,7 +133,7 @@ public sealed class SqlServerGroupStore(SqlDatabase database) : IServerGroupStor
             Name = group.Name,
             NameKey = Key(group.Name),
             OfferedForSharing = group.OfferedForSharing ? 1 : 0,
-            CreatedAt = group.CreatedAt.ToString("O", CultureInfo.InvariantCulture),
+            CreatedAt = SqlTime.Text(group.CreatedAt),
         };
 
         public ServerGroup ToGroup() => new()
@@ -143,7 +141,7 @@ public sealed class SqlServerGroupStore(SqlDatabase database) : IServerGroupStor
             Id = Id,
             Name = Name,
             OfferedForSharing = OfferedForSharing != 0,
-            CreatedAt = DateTimeOffset.Parse(CreatedAt, CultureInfo.InvariantCulture),
+            CreatedAt = SqlTime.Parse(CreatedAt),
         };
     }
 }

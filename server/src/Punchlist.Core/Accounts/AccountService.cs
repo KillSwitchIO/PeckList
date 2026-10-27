@@ -162,12 +162,7 @@ public sealed class AccountService(IAccountStore store, IPasswordHasher hasher, 
     {
         var account = await store.FindByIdAsync(id, cancellation) ?? throw new KeyNotFoundException($"no account {id}");
         if (account.Disabled == disabled) return account;
-        if (disabled && account.Role == Role.SuperAdmin)
-        {
-            var others = (await store.ListAsync(cancellation))
-                .Count(each => each.Id != id && each.Role == Role.SuperAdmin && !each.Disabled);
-            if (others == 0) throw new LastSuperAdminException();
-        }
+        if (disabled) await EnsureNotLastSuperAdminAsync(account, cancellation);
         var updated = account with
         {
             Disabled = disabled,
@@ -188,12 +183,7 @@ public sealed class AccountService(IAccountStore store, IPasswordHasher hasher, 
     {
         var account = await store.FindByIdAsync(id, cancellation) ?? throw new KeyNotFoundException($"no account {id}");
         if (account.DeletedAt is not null) return account;
-        if (account.Role == Role.SuperAdmin && !account.Disabled)
-        {
-            var others = (await store.ListAsync(cancellation))
-                .Count(each => each.Id != id && each.Role == Role.SuperAdmin && !each.Disabled);
-            if (others == 0) throw new LastSuperAdminException();
-        }
+        await EnsureNotLastSuperAdminAsync(account, cancellation);
         var updated = account with
         {
             DeletedAt = time.GetUtcNow(),
@@ -222,15 +212,20 @@ public sealed class AccountService(IAccountStore store, IPasswordHasher hasher, 
     {
         var account = await store.FindByIdAsync(id, cancellation) ?? throw new KeyNotFoundException($"no account {id}");
         if (account.Role == role) return account;
-        if (account.Role == Role.SuperAdmin && !account.Disabled)
-        {
-            var others = (await store.ListAsync(cancellation))
-                .Count(each => each.Id != id && each.Role == Role.SuperAdmin && !each.Disabled);
-            if (others == 0) throw new LastSuperAdminException();
-        }
+        await EnsureNotLastSuperAdminAsync(account, cancellation);
         var updated = account with { Role = role };
         await store.UpdateAsync(updated, cancellation);
         return updated;
+    }
+
+    /// <summary>The server needs one active super admin: refuse to turn off, delete or demote the last.</summary>
+    /// <exception cref="LastSuperAdminException">It is the last active super admin.</exception>
+    private async Task EnsureNotLastSuperAdminAsync(Account account, CancellationToken cancellation)
+    {
+        if (account.Role != Role.SuperAdmin || account.Disabled) return;
+        var others = (await store.ListAsync(cancellation))
+            .Count(each => each.Id != account.Id && each.Role == Role.SuperAdmin && !each.Disabled);
+        if (others == 0) throw new LastSuperAdminException();
     }
 
     /// <summary>

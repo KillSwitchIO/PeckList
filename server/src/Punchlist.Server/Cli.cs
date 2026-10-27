@@ -135,7 +135,7 @@ public static class Cli
                 {
                     var username = args.Skip(2).FirstOrDefault(arg => !arg.StartsWith("--", StringComparison.Ordinal));
                     if (username is null) return await Fail(errors, "admin add-user needs a username: punchlist admin add-user <user> [--admin]");
-                    var accounts = new AccountService(new SqlAccountStore(database), new AspNetPasswordHasher(), TimeProvider.System);
+                    var accounts = Accounts(database);
                     var password = Core.Ids.NewPassword();
                     var role = args.Contains("--admin") ? Role.Admin : Role.User;
                     await accounts.CreateUserAsync(username, password, role);
@@ -149,19 +149,16 @@ public static class Cli
                     {
                         return await Fail(errors, "admin set-role needs a user and a role: punchlist admin set-role <user> <user|admin|superadmin>");
                     }
-                    var store = new SqlAccountStore(database);
-                    var account = await store.FindByUsernameAsync(args[2]) ?? throw new KeyNotFoundException($"no user '{args[2]}'");
-                    var accounts = new AccountService(store, new AspNetPasswordHasher(), TimeProvider.System);
-                    await accounts.SetRoleAsync(account.Id, role);
+                    var account = await UserAsync(database, args[2]);
+                    await Accounts(database).SetRoleAsync(account.Id, role);
                     await output.WriteLineAsync($"{account.Username} is now {role.Name()}. It applies from their next request.");
                     return 0;
                 }
                 case "admin" when args.Length > 1 && args[1] == "login-link":
                 {
                     if (args.Length < 3) return await Fail(errors, "admin login-link needs a user: punchlist admin login-link <user>");
-                    var store = new SqlAccountStore(database);
-                    var account = await store.FindByUsernameAsync(args[2]) ?? throw new KeyNotFoundException($"no user '{args[2]}'");
-                    var (token, expires) = await new LoginLinks(new SqlSecretStore(database), store, TimeProvider.System).CreateAsync(account.Id);
+                    var account = await UserAsync(database, args[2]);
+                    var (token, expires) = await new LoginLinks(new SqlSecretStore(database), new SqlAccountStore(database), TimeProvider.System).CreateAsync(account.Id);
                     var origin = settings.PublicUrl?.ToString().TrimEnd('/') ?? "<server address>";
                     await output.WriteLineAsync($"{origin}/auth/link/{token}");
                     await output.WriteLineAsync($"Signs {account.Username} in once, until {expires:yyyy-MM-dd HH:mm} UTC.");
@@ -172,8 +169,7 @@ public static class Cli
                 case "admin" when args.Length > 1 && args[1] == "reset-password":
                 {
                     var username = args.Length > 2 ? args[2] : AccountService.AdminUsername;
-                    var accounts = new AccountService(new SqlAccountStore(database), new AspNetPasswordHasher(), TimeProvider.System);
-                    var password = await accounts.ResetPasswordAsync(username);
+                    var password = await Accounts(database).ResetPasswordAsync(username);
                     await output.WriteLineAsync($"New password for {username}: {password}");
                     await output.WriteLineAsync("It must be changed at the next login. Other sessions of this account have ended.");
                     return 0;
@@ -228,13 +224,13 @@ public static class Cli
     private static async Task<int> OidcAsync(string[] args, SqlDatabase database, TextWriter output, TextWriter errors)
     {
         var store = new SqlAccountStore(database);
-        var signIn = new ExternalSignIn(store, new AccountService(store, new AspNetPasswordHasher(), TimeProvider.System),
+        var signIn = new ExternalSignIn(store, Accounts(database),
             new SqlIdentityStore(database), new SqlServerGroupStore(database), new SqlSecretStore(database), TimeProvider.System);
         switch (args.Length > 1 ? args[1] : "")
         {
             case "unlink" when args.Length > 2:
             {
-                var account = await store.FindByUsernameAsync(args[2]) ?? throw new KeyNotFoundException($"no user '{args[2]}'");
+                var account = await UserAsync(database, args[2]);
                 var gone = 0;
                 foreach (var identity in await signIn.IdentitiesOfAsync(account.Id))
                 {
@@ -327,7 +323,7 @@ public static class Cli
         if (command == "export")
         {
             if (rest.Length == 0) return await Fail(errors, "export --user needs a username: punchlist export --user <user> [file]");
-            var account = await accounts.FindByUsernameAsync(rest[0]) ?? throw new KeyNotFoundException($"no user '{rest[0]}'");
+            var account = await UserAsync(database, rest[0]);
             int count;
             if (rest.Length > 1)
             {
@@ -358,4 +354,11 @@ public static class Cli
         await errors.WriteLineAsync(message);
         return 1;
     }
+
+    private static AccountService Accounts(SqlDatabase database) =>
+        new(new SqlAccountStore(database), new AspNetPasswordHasher(), TimeProvider.System);
+
+    /// <exception cref="KeyNotFoundException">No account has that username.</exception>
+    private static async Task<Account> UserAsync(SqlDatabase database, string username) =>
+        await new SqlAccountStore(database).FindByUsernameAsync(username) ?? throw new KeyNotFoundException($"no user '{username}'");
 }

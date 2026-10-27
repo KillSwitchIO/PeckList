@@ -61,18 +61,14 @@ public static class AuthEndpoints
 
         auth.MapPost("/login", async (LoginRequest request, AccountService accounts, LiveSettings live, HttpContext context) =>
         {
-            var tried = (request.Username ?? "").Trim();
-            context.Audit().On(null, tried.Length > 100 ? tried[..100] : tried).Anonymous = true;
+            context.Audit().On(null, Typed(request.Username)).Anonymous = true;
             // LOCAL_LOGIN=disabled: no password is checked at all, so nothing can be guessed here.
             if (live.Current.LocalLoginDisabled) return LocalLoginDisabled(context);
             switch (await accounts.LoginAsync(request.Username ?? "", request.Password ?? "", context.RequestAborted))
             {
                 case LoginResult.Success success:
                     context.Audit().Actor(success.Account).On(null, null).Anonymous = false;
-                    var principal = AuthSetup.Principal(success.Account, CookieAuthenticationDefaults.AuthenticationScheme, AuthSetup.ByPassword);
-                    await context.SignInAsync(CookieAuthenticationDefaults.AuthenticationScheme, principal,
-                        new AuthenticationProperties { IsPersistent = true });
-                    return Results.Ok(MeOf(principal, mode));
+                    return await SignedInAsync(context, success.Account, mode);
                 case LoginResult.Locked locked:
                     return Results.Json(new AuthError("locked", locked.Until), statusCode: StatusCodes.Status423Locked);
                 default:
@@ -89,8 +85,7 @@ public static class AuthEndpoints
 
         auth.MapPost("/signup", async (SignUpRequest request, SelfSignUp signUp, HttpContext context) =>
         {
-            var wanted = (request.Username ?? "").Trim();
-            context.Audit().On(null, wanted.Length > 100 ? wanted[..100] : wanted).Anonymous = true;
+            context.Audit().On(null, Typed(request.Username)).Anonymous = true;
             var hasInvite = !string.IsNullOrWhiteSpace(request.Invite);
             context.Audit().Detail = hasInvite ? "with an invite" : "open sign-up";
             var result = await signUp.SignUpAsync(request.Username ?? "", request.Password ?? "", request.Invite, context.RequestAborted);
@@ -106,10 +101,7 @@ public static class AuthEndpoints
                 return Results.Json(new AuthError(refused.Error), statusCode: status);
             }
             context.Audit().Actor(success.Account).On(success.Account.Id, success.Account.Username).Anonymous = false;
-            var principal = AuthSetup.Principal(success.Account, CookieAuthenticationDefaults.AuthenticationScheme, AuthSetup.ByPassword);
-            await context.SignInAsync(CookieAuthenticationDefaults.AuthenticationScheme, principal,
-                new AuthenticationProperties { IsPersistent = true });
-            return Results.Ok(MeOf(principal, mode));
+            return await SignedInAsync(context, success.Account, mode);
         }).RequireRateLimiting(AuthSetup.LoginRateLimit).Audited("auth.signed-up", targetRoute: null);
 
         // A session from a provider that ends its own session too: the answer says where to go next.
@@ -140,11 +132,23 @@ public static class AuthEndpoints
             }
             // Other sessions end (new stamp); this one gets a fresh cookie.
             AuthSetup.ForgetStamp(cache, account!.Id);
-            var principal = AuthSetup.Principal(account, CookieAuthenticationDefaults.AuthenticationScheme, AuthSetup.ByPassword);
-            await context.SignInAsync(CookieAuthenticationDefaults.AuthenticationScheme, principal,
-                new AuthenticationProperties { IsPersistent = true });
-            return Results.Ok(MeOf(principal, mode));
+            return await SignedInAsync(context, account, mode);
         }).RequireAuthorization().RequireRateLimiting(AuthSetup.LoginRateLimit).Audited("auth.password-changed", targetRoute: null);
+    }
+
+    /// <summary>A lasting password session for the account, and who they are now.</summary>
+    private static async Task<IResult> SignedInAsync(HttpContext context, Account account, string mode)
+    {
+        var principal = AuthSetup.Principal(account, CookieAuthenticationDefaults.AuthenticationScheme, AuthSetup.ByPassword);
+        await context.SignInAsync(CookieAuthenticationDefaults.AuthenticationScheme, principal, new AuthenticationProperties { IsPersistent = true });
+        return Results.Ok(MeOf(principal, mode));
+    }
+
+    /// <summary>The username someone typed, for the log: trimmed, at most 100 characters.</summary>
+    private static string Typed(string? username)
+    {
+        var name = (username ?? "").Trim();
+        return name.Length > 100 ? name[..100] : name;
     }
 
     /// <summary>403 <c>local_login_disabled</c>: passwords are turned off (<c>LOCAL_LOGIN=disabled</c>).</summary>
