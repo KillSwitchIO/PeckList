@@ -216,6 +216,8 @@ public sealed class SyncTests(ServerFixture fixture) : IClassFixture<ServerFixtu
     [InlineData("""{"collection":"tasks","entity":{"id":"X1","_hlc":{"title":"2026-13-45T10:00:00.000Z-0000-dev1"}}}""", "X1", "invalid_change", "bad clock for title")]
     [InlineData("""{"collection":"tasks","entity":{"id":"X1","_hlc":{},"tags":{"G1":{"in":true,"hlc":"soon"}}}}""", "X1", "invalid_change", "bad clock for tags.G1")]
     [InlineData("""{"collection":"tasks","entity":{"id":"X1","_hlc":{"title":"2999-01-01T00:00:00.000Z-0000-dev1"}}}""", "X1", "clock_drift", "more than an hour ahead")]
+    // R-FB-94: half an emoji (imported text) used to be a 500 when the server wrote it out.
+    [InlineData("""{"collection":"tasks","entity":{"id":"X1","title":"cut \udc8f","_hlc":{"title":"2026-10-20T10:00:00.000Z-0000-dev1"}}}""", "X1", "invalid_text", "not valid Unicode")]
     public async Task Sets_aside_a_bad_change_and_takes_the_rest_of_the_push(string change, string? id, string code, string message)
     {
         var client = await SignedIn();

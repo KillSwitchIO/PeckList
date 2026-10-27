@@ -119,6 +119,56 @@ describe('workspace store', () => {
     }
   });
 
+  it('reads storage back on a save only when another tab saved since (R-FB-94)', async () => {
+    const storage = createMemoryStorage();
+    let loads = 0;
+    const counted: StorageAdapter = {
+      ...storage,
+      load: () => {
+        loads += 1;
+        return storage.load();
+      },
+    };
+    const a = makeStore(counted, 'tabA');
+    await a.getState().init();
+    await a.getState().flush();
+    loads = 0;
+    addTask(a, 'one');
+    await a.getState().flush();
+    addTask(a, 'two');
+    await a.getState().flush();
+    // Nobody else wrote: this tab's copy is what storage holds.
+    expect(loads).toBe(0);
+
+    const b = makeStore(storage, 'tabB');
+    await b.getState().init();
+    const fromB = addTask(b, 'from B');
+    await b.getState().flush();
+    addTask(a, 'three');
+    await a.getState().flush();
+    expect(loads).toBe(1);
+    expect(getEntity(a.getState().workspace!, 'tasks', fromB)).toBeDefined();
+  });
+
+  it('puts right text with half an emoji when it opens, as an edit that syncs', async () => {
+    const storage = createMemoryStorage();
+    const a = makeStore(storage, 'tabA');
+    await a.getState().init();
+    const id = addTask(a, 'cut \uD83D');
+    await a.getState().flush();
+    const b = makeStore(storage, 'tabB');
+    await b.getState().init();
+    const task = getEntity(b.getState().workspace!, 'tasks', id)!;
+    expect(task.title).toBe('cut \uFFFD');
+    expect(task._hlc.title! > getEntity(a.getState().workspace!, 'tasks', id)!._hlc.title!).toBe(
+      true,
+    );
+    await b.getState().flush();
+    const reopened = makeStore(storage, 'tabC');
+    await reopened.getState().init();
+    expect(getEntity(reopened.getState().workspace!, 'tasks', id)!.title).toBe('cut \uFFFD');
+  });
+
   it('undo reverts the last labelled action and is a new write', async () => {
     const store = makeStore(createMemoryStorage());
     await store.getState().init();
