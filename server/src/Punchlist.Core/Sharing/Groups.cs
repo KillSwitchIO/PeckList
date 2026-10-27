@@ -18,22 +18,10 @@ public sealed class Groups(SyncService sync, SharingState sharing, ServerClock c
         foreach (var succession in sharing.Index.PendingSuccessions())
         {
             var stamp = clock.Next();
-            var change = new JsonObject { ["id"] = succession.GroupId };
-            var clocks = new JsonObject();
-            if (succession.NewOwner is { } heir)
-            {
-                change["ownerId"] = heir;
-                clocks["ownerId"] = stamp;
-            }
-            else
-            {
-                change["archived"] = true;
-                clocks["archived"] = stamp;
-            }
-            change["_hlc"] = clocks;
+            var change = succession.NewOwner is { } heir ? new JsonObject { ["ownerId"] = heir } : new JsonObject { ["archived"] = true };
             var writes = new List<IncomingEntity>
             {
-                new("groups", Merge.Entity((JsonObject)succession.Group.DeepClone(), change, [])),
+                new("groups", ServerEntities.Changed(succession.Group, stamp, change)),
             };
             foreach (var (id, doc) in succession.AssignedTasks)
             {

@@ -95,37 +95,10 @@ public sealed class ServerGroupProjection(IServerGroupStore store, IAccountStore
         return writes.Count;
     }
 
-    private JsonObject Entity(string id, JsonObject fields)
-    {
-        var stamp = clock.Next();
-        var entity = new JsonObject
-        {
-            ["id"] = id,
-            ["createdAt"] = clock.Now(),
-            ["createdBy"] = Owner,
-            ["deletedAt"] = null,
-            ["origin"] = "server",
-        };
-        foreach (var (field, value) in fields) entity[field] = value?.DeepClone();
-        var clocks = new JsonObject();
-        foreach (var (field, _) in entity) if (field != "id") clocks[field] = stamp;
-        entity["_hlc"] = clocks;
-        return entity;
-    }
+    private JsonObject Entity(string id, JsonObject fields) => ServerEntities.New(id, Owner, "server", clock.Now(), clock.Next(), fields);
 
-    private IncomingEntity Changed(string collection, string id, JsonObject fields)
-    {
-        var stamp = clock.Next();
-        var change = new JsonObject { ["id"] = id };
-        var clocks = new JsonObject();
-        foreach (var (field, value) in fields)
-        {
-            change[field] = value?.DeepClone();
-            clocks[field] = stamp;
-        }
-        change["_hlc"] = clocks;
-        return new IncomingEntity(collection, change) { Owner = Owner };
-    }
+    private IncomingEntity Changed(string collection, string id, JsonObject fields) =>
+        new(collection, ServerEntities.Change(id, clock.Next(), fields)) { Owner = Owner };
 
     private IncomingEntity Removed(string collection, string id) => Changed(collection, id, new JsonObject { ["deletedAt"] = clock.Now() });
 }

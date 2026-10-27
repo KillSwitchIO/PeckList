@@ -191,13 +191,7 @@ public sealed class UserBackups(
         await foreach (var entity in entities.AllAsync(cancellation))
         {
             if (entity.OwnerId != userId || restoredIds.Contains(entity.Id) || entity.Doc["deletedAt"] is not null) continue;
-            var stamp = clock.Next();
-            writes.Add(new IncomingEntity(entity.Collection, new JsonObject
-            {
-                ["id"] = entity.Id,
-                ["deletedAt"] = clock.Now(),
-                ["_hlc"] = new JsonObject { ["deletedAt"] = stamp },
-            }));
+            writes.Add(new IncomingEntity(entity.Collection, ServerEntities.Tombstone(entity.Id, clock)));
             removed++;
         }
         if (writes.Count > 0) await sync.WriteAsServerAsync(userId, writes, cancellation);

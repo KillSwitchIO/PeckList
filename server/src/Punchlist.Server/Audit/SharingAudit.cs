@@ -53,10 +53,10 @@ public sealed class SharingAudit(AuditLog audit, IAccountStore accounts, Sharing
             case "listMembers":
             {
                 var principal = Field(change.After, "principal") ?? "";
+                var user = principal.Replace("user:", "", StringComparison.Ordinal);
                 var (targetId, targetName) = principal.StartsWith("group:", StringComparison.Ordinal)
                     ? (principal[6..], NameOf(principal[6..]) ?? "a group")
-                    : (principal.Replace("user:", "", StringComparison.Ordinal),
-                        names.GetValueOrDefault(principal.Replace("user:", "", StringComparison.Ordinal)));
+                    : (user, names.GetValueOrDefault(user));
                 var list = NameOf(Field(change.After, "listId")) ?? "a list";
                 var role = Field(change.After, "role");
                 // The owner's own row comes with sharing the list: that event says it already.
