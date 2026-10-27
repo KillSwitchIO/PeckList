@@ -4,6 +4,54 @@ All notable changes to Punchlist. Generated from [Conventional Commits](https://
 by `pnpm changelog`; the version follows [Semantic Versioning](https://semver.org/). Before 1.0.0 a
 minor release may break things; every break is listed under **Breaking changes** with what to do.
 
+## [0.2.5] - 2026-10-27
+
+### Added
+
+- **calendar:** The plain circle for going to today (R-FB-87)
+- **tasks:** A light outline on the subtask or notes item under the mouse
+- **tasks:** The title wraps; Pin is in the ... menu only
+- **reminders:** Days early at any time for timed tasks; one list in Settings
+- **icon:** The checklist in purple and grey (R-FB-84)
+
+### Fixed
+
+- **tasks:** A blank task opened in the full form stays out of the lists
+- **sync:** Quick saves, and half an emoji no longer stalls the sync
+- **store:** A tab no longer reloads its own save
+- **storage:** Take in what a tab of an older version saves
+- **layout:** The page column scrolls, not the window, on wider screens
+- **settings:** New-task reminder and times as on a task
+
+### Performance
+
+- **web:** Make each date formatter once
+- **views:** The local day of a closed task is worked out once
+- **sync:** Take in a server answer by what changed
+- **storage:** Keep the workspace one IndexedDB record per entity
+- **views:** Long closed lists draw as they scroll near
+- **calendar:** One set of styles for the day cells and task lines
+- **web:** Pages split off the first load, fetched ahead when idle
+- **sync:** Take a run of data-only pages in together
+- **server:** Bigger sync pages, brotli that packs smaller than gzip
+
+### Documentation
+
+- **development:** Coding standards page
+- How the app stays quick with thousands of tasks
+- **standards:** Point the performance habits at how the app stays quick
+
+### Changed
+
+- **server:** One copy of the helpers endpoints had copied from each other
+- **server:** One shape for server-made entities and background jobs
+- **web:** Shared pieces for what the pages had copied from each other
+- The last two copies, in the notification store and the sign-in forms
+
+### revert
+
+- **layout:** The window scrolls again on every screen
+
 ## [0.2.4] - 2026-10-26
 
 ### Fixed
