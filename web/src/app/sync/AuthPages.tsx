@@ -151,6 +151,50 @@ function ProviderButtons({
   ));
 }
 
+/** The username and password fields, for signing in or (`newAccount`) making an account. */
+function CredentialsFields({
+  username,
+  password,
+  onUsername,
+  onPassword,
+  newAccount = false,
+}: {
+  username: string;
+  password: string;
+  onUsername: (value: string) => void;
+  onPassword: (value: string) => void;
+  newAccount?: boolean;
+}) {
+  return (
+    <>
+      <TextField
+        label={t('auth.username')}
+        value={username}
+        onChange={(event) => onUsername(event.target.value)}
+        autoComplete="username"
+        autoFocus
+        required
+        {...(newAccount ? { helperText: t('auth.signUp.usernameHint') } : {})}
+        slotProps={{
+          htmlInput: {
+            autoCapitalize: 'none',
+            spellCheck: false,
+            ...(newAccount ? { maxLength: 32 } : {}),
+          },
+        }}
+      />
+      <PasswordField
+        label={t('auth.password')}
+        value={password}
+        onChange={(event) => onPassword(event.target.value)}
+        autoComplete={newAccount ? 'new-password' : 'current-password'}
+        {...(newAccount ? { helperText: t('auth.newHint') } : {})}
+        required
+      />
+    </>
+  );
+}
+
 /** "New here? Create an account" and its opposite, under a form. */
 function SwitchLine({
   text,
@@ -253,21 +297,11 @@ function SignIn({ onSignUp }: { onSignUp: () => void }) {
           onSubmit={(event) => void submit(event)}
           sx={{ display: 'grid', gap: 2 }}
         >
-          <TextField
-            label={t('auth.username')}
-            value={username}
-            onChange={(event) => setUsername(event.target.value)}
-            autoComplete="username"
-            autoFocus
-            required
-            slotProps={{ htmlInput: { autoCapitalize: 'none', spellCheck: false } }}
-          />
-          <PasswordField
-            label={t('auth.password')}
-            value={password}
-            onChange={(event) => setPassword(event.target.value)}
-            autoComplete="current-password"
-            required
+          <CredentialsFields
+            username={username}
+            password={password}
+            onUsername={setUsername}
+            onPassword={setPassword}
           />
           <ProblemAlert problem={problem} />
           <Button type="submit" variant="contained" size="large" disableElevation disabled={busy}>
@@ -401,23 +435,12 @@ function SignUp({ invite, onSignIn }: { invite?: string; onSignIn: () => void })
           onSubmit={(event) => void submit(event)}
           sx={{ display: 'grid', gap: 2 }}
         >
-          <TextField
-            label={t('auth.username')}
-            value={username}
-            onChange={(event) => setUsername(event.target.value)}
-            autoComplete="username"
-            autoFocus
-            required
-            helperText={t('auth.signUp.usernameHint')}
-            slotProps={{ htmlInput: { autoCapitalize: 'none', spellCheck: false, maxLength: 32 } }}
-          />
-          <PasswordField
-            label={t('auth.password')}
-            value={password}
-            onChange={(event) => setPassword(event.target.value)}
-            autoComplete="new-password"
-            helperText={t('auth.newHint')}
-            required
+          <CredentialsFields
+            username={username}
+            password={password}
+            onUsername={setUsername}
+            onPassword={setPassword}
+            newAccount
           />
           <ProblemAlert problem={problem} />
           <Button type="submit" variant="contained" size="large" disableElevation disabled={busy}>
