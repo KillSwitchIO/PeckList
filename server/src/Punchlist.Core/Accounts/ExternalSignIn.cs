@@ -213,6 +213,10 @@ public sealed class ExternalSignIn(
     public async Task<bool> CanSignInAsync(Account account, CancellationToken cancellation = default) =>
         account.PasswordHash is not null || (await IdentitiesOfAsync(account.Id, cancellation)).Count > 0;
 
+    /// <summary>Whether the account already has an account of this provider linked.</summary>
+    private async Task<bool> LinkedToAsync(string accountId, string provider, CancellationToken cancellation) =>
+        (await IdentitiesOfAsync(accountId, cancellation)).Any(each => each.Provider == provider);
+
     private async Task<bool> HasOtherWayInAsync(string accountId, LinkedIdentity leaving, CancellationToken cancellation)
     {
         var account = await accounts.FindByIdAsync(accountId, cancellation);
@@ -249,7 +253,7 @@ public sealed class ExternalSignIn(
     {
         if (await MigrationWindowAsync(provider.Name, cancellation) is null) return null;
         var account = await accounts.FindByUsernameAsync(UsernameBase(identity), cancellation);
-        if (account is null || (await IdentitiesOfAsync(account.Id, cancellation)).Any(each => each.Provider == provider.Name)) return null;
+        if (account is null || await LinkedToAsync(account.Id, provider.Name, cancellation)) return null;
         await AttachAsync(provider, identity, account.Id, cancellation);
         return account;
     }
@@ -295,7 +299,7 @@ public sealed class ExternalSignIn(
         var account = await accounts.FindByUsernameAsync(UsernameBase(identity), cancellation);
         if (account is null || account.DeletedAt is not null) return null;
         if (provider.LinkByUsername == UsernameLinking.Users && account.Role != Role.User) return null;
-        if ((await IdentitiesOfAsync(account.Id, cancellation)).Any(each => each.Provider == provider.Name)) return null;
+        if (await LinkedToAsync(account.Id, provider.Name, cancellation)) return null;
         await AttachAsync(provider, identity, account.Id, cancellation);
         return account;
     }
@@ -327,7 +331,7 @@ public sealed class ExternalSignIn(
             .ToList();
         if (owners.Count != 1) return null;
         var account = await accounts.FindByIdAsync(owners[0], cancellation);
-        if (account is null || (await IdentitiesOfAsync(account.Id, cancellation)).Any(each => each.Provider == provider.Name)) return null;
+        if (account is null || await LinkedToAsync(account.Id, provider.Name, cancellation)) return null;
         await AttachAsync(provider, identity, account.Id, cancellation);
         return account;
     }

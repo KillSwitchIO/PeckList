@@ -52,7 +52,7 @@ public sealed class Friends(AccountService accounts, IAccountStore store, SyncSe
             ["avatarColor"] = AvatarColor(account.Id),
             ["homeServer"] = Host ?? "local",
         };
-        await sync.WriteAsServerAsync(account.Id, [new IncomingEntity("users", Entity(account.Id, account.Id, stamp, fields))], cancellation);
+        await sync.WriteAsServerAsync(account.Id, [new IncomingEntity("users", New(account.Id, account.Id, stamp, fields))], cancellation);
     }
 
     public async Task<string> CodeAsync(string userId, bool rotate = false, CancellationToken cancellation = default) =>
@@ -103,13 +103,7 @@ public sealed class Friends(AccountService accounts, IAccountStore store, SyncSe
     public async Task<bool> EndFriendshipAsync(string a, string b, CancellationToken cancellation = default)
     {
         if (sharing.Index.FriendshipBetween(a, b) is not { } found || found.Doc["deletedAt"] is not null) return false;
-        var stamp = clock.Next();
-        var ended = Merge.Entity((JsonObject)found.Doc.DeepClone(), new JsonObject
-        {
-            ["id"] = found.Id,
-            ["deletedAt"] = clock.Now(),
-            ["_hlc"] = new JsonObject { ["deletedAt"] = stamp },
-        }, []);
+        var ended = ServerEntities.Changed(found.Doc, clock.Next(), new JsonObject { ["deletedAt"] = clock.Now() });
         await sync.WriteAsServerAsync((string?)found.Doc["userA"] ?? a, [new IncomingEntity("friendships", ended)], cancellation);
         return true;
     }
@@ -130,16 +124,8 @@ public sealed class Friends(AccountService accounts, IAccountStore store, SyncSe
         JsonObject doc;
         if (existing is { } found)
         {
-            doc = new JsonObject
-            {
-                ["id"] = found.Id,
-                ["state"] = "accepted",
-                ["deletedAt"] = null,
-                ["madeBy"] = madeBy,
-                ["_hlc"] = new JsonObject { ["state"] = stamp, ["deletedAt"] = stamp, ["madeBy"] = stamp },
-            };
-            // Merge keeps the rest; the stamped fields win.
-            doc = Merge.Entity((JsonObject)found.Doc.DeepClone(), doc, []);
+            // The rest stays; the stamped fields win.
+            doc = ServerEntities.Changed(found.Doc, stamp, new JsonObject { ["state"] = "accepted", ["deletedAt"] = null, ["madeBy"] = madeBy });
         }
         else
         {
@@ -150,7 +136,7 @@ public sealed class Friends(AccountService accounts, IAccountStore store, SyncSe
                 ["state"] = "accepted",
             };
             if (madeBy is not null) fields["madeBy"] = madeBy;
-            doc = Entity(Ids.NewUlid(), viewerId, stamp, fields);
+            doc = New(Ids.NewUlid(), viewerId, stamp, fields);
         }
         await sync.WriteAsServerAsync(owner.Id, [new IncomingEntity("friendships", doc)], cancellation);
         return (string)doc["id"]!;
@@ -165,21 +151,7 @@ public sealed class Friends(AccountService accounts, IAccountStore store, SyncSe
             account.CreatedAt, account.Id == viewerId, state);
     }
 
-    /// <summary>A whole entity as the workspace schema wants it, every field stamped.</summary>
-    private JsonObject Entity(string id, string createdBy, string stamp, JsonObject fields)
-    {
-        var entity = new JsonObject
-        {
-            ["id"] = id,
-            ["createdAt"] = clock.Now(),
-            ["createdBy"] = createdBy,
-            ["deletedAt"] = null,
-            ["origin"] = Host ?? "local",
-        };
-        foreach (var (field, value) in fields) entity[field] = value?.DeepClone();
-        var clocks = new JsonObject();
-        foreach (var (field, _) in entity) if (field != "id") clocks[field] = stamp;
-        entity["_hlc"] = clocks;
-        return entity;
-    }
+    /// <summary>A whole entity from this server, every field stamped.</summary>
+    private JsonObject New(string id, string createdBy, string stamp, JsonObject fields) =>
+        ServerEntities.New(id, createdBy, Host ?? "local", clock.Now(), stamp, fields);
 }

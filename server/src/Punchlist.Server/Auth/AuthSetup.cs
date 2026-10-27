@@ -160,21 +160,17 @@ public static class AuthSetup
             var account = await accounts.FindByIdAsync(id, context.HttpContext.RequestAborted);
             return account is null || account.Disabled ? null : new SessionCheck(account.SecurityStamp, account.Role.Name());
         });
-        if (current is null || current.Stamp != stamp)
+        // LOCAL_LOGIN=disabled ends password sessions at once (a live setting), not when they expire.
+        var passwordsOff = context.Principal is { } session
+            && context.HttpContext.RequestServices.GetRequiredService<LiveSettings>().Current.LocalLoginDisabled
+            && IsPasswordSession(session);
+        if (current is null || current.Stamp != stamp || passwordsOff)
         {
             context.RejectPrincipal();
             await context.HttpContext.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
             return;
         }
         var principal = context.Principal!;
-        // LOCAL_LOGIN=disabled ends password sessions at once (a live setting), not when they expire.
-        if (context.HttpContext.RequestServices.GetRequiredService<LiveSettings>().Current.LocalLoginDisabled
-            && IsPasswordSession(principal))
-        {
-            context.RejectPrincipal();
-            await context.HttpContext.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
-            return;
-        }
         if (principal.FindFirstValue(ClaimTypes.Role) != current.Role)
         {
             var claims = principal.Claims.Where(claim => claim.Type != ClaimTypes.Role)

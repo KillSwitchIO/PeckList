@@ -1,6 +1,4 @@
 using System.Globalization;
-using System.Security.Cryptography;
-using System.Text;
 
 namespace Punchlist.Core.Accounts;
 
@@ -19,16 +17,16 @@ public sealed class LoginLinks(ISecretStore secrets, IAccountStore accounts, Tim
         string accountId, TimeSpan? lifetime = null, CancellationToken cancellation = default)
     {
         _ = await accounts.FindByIdAsync(accountId, cancellation) ?? throw new KeyNotFoundException($"no account {accountId}");
-        var token = Base64Url(RandomNumberGenerator.GetBytes(32));
+        var token = Tokens.New();
         var expires = time.GetUtcNow() + (lifetime ?? DefaultLifetime);
-        await secrets.PutAsync(Kind, Hash(token), $"{accountId} {expires.ToString("O", CultureInfo.InvariantCulture)}", cancellation);
+        await secrets.PutAsync(Kind, Tokens.Hash(token), $"{accountId} {expires.ToString("O", CultureInfo.InvariantCulture)}", cancellation);
         return (token, expires);
     }
 
     /// <summary>The account the token signs in, using it up; null when unknown, used, expired or the account is disabled.</summary>
     public async Task<Account?> RedeemAsync(string token, CancellationToken cancellation = default)
     {
-        var key = Hash(token);
+        var key = Tokens.Hash(token);
         var value = (await secrets.ListAsync(Kind, cancellation)).FirstOrDefault(each => each.Name == key).Value;
         if (string.IsNullOrEmpty(value)) return null;
         await secrets.PutAsync(Kind, key, "", cancellation);
@@ -41,9 +39,4 @@ public sealed class LoginLinks(ISecretStore secrets, IAccountStore accounts, Tim
         }
         return await accounts.FindByIdAsync(parts[0], cancellation) is { Disabled: false } account ? account : null;
     }
-
-    private static string Hash(string token) => Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(token)));
-
-    private static string Base64Url(byte[] bytes) =>
-        Convert.ToBase64String(bytes).TrimEnd('=').Replace('+', '-').Replace('/', '_');
 }

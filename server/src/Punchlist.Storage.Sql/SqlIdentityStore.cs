@@ -1,5 +1,4 @@
 using System.Data.Common;
-using System.Globalization;
 using System.Text.Json;
 using Dapper;
 using Punchlist.Core.Accounts;
@@ -46,8 +45,7 @@ public sealed class SqlIdentityStore(SqlDatabase database) : IIdentityStore
                 Row.From(identity),
                 cancellationToken: cancellation));
         }
-        catch (DbException error) when (error.Message.Contains("unique", StringComparison.OrdinalIgnoreCase)
-            || error.Message.Contains("duplicate", StringComparison.OrdinalIgnoreCase))
+        catch (DbException error) when (SqlDatabase.IsUniqueViolation(error))
         {
             throw new IdentityTakenException(identity.Provider, identity.Subject);
         }
@@ -126,7 +124,7 @@ public sealed class SqlIdentityStore(SqlDatabase database) : IIdentityStore
             Provider = row.Provider,
             ProviderUsername = row.ProviderUsername,
             AccountId = row.AccountId,
-            CreatedAt = Time(row.CreatedAt),
+            CreatedAt = SqlTime.Parse(row.CreatedAt),
         }).ToList();
     }
 
@@ -137,7 +135,7 @@ public sealed class SqlIdentityStore(SqlDatabase database) : IIdentityStore
             Provider = mapping.Provider,
             ProviderUsername = mapping.ProviderUsername.ToLowerInvariant(),
             AccountId = mapping.AccountId,
-            CreatedAt = Time(mapping.CreatedAt),
+            CreatedAt = SqlTime.Text(mapping.CreatedAt),
         };
         await using var connection = await database.OpenAsync(cancellation);
         await using var transaction = await database.BeginWriteAsync(connection, cancellation);
@@ -161,10 +159,6 @@ public sealed class SqlIdentityStore(SqlDatabase database) : IIdentityStore
             new { provider, username = providerUsername.ToLowerInvariant() }, cancellationToken: cancellation)) > 0;
     }
 
-    private static string Time(DateTimeOffset value) => value.ToString("O", CultureInfo.InvariantCulture);
-
-    private static DateTimeOffset Time(string value) => DateTimeOffset.Parse(value, CultureInfo.InvariantCulture);
-
     private sealed class Row
     {
         public string Provider { get; set; } = "";
@@ -182,8 +176,8 @@ public sealed class SqlIdentityStore(SqlDatabase database) : IIdentityStore
             AccountId = identity.AccountId,
             Email = identity.Email,
             Username = identity.Username,
-            LinkedAt = Time(identity.LinkedAt),
-            LastUsedAt = Time(identity.LastUsedAt),
+            LinkedAt = SqlTime.Text(identity.LinkedAt),
+            LastUsedAt = SqlTime.Text(identity.LastUsedAt),
         };
 
         public LinkedIdentity ToIdentity() => new()
@@ -193,8 +187,8 @@ public sealed class SqlIdentityStore(SqlDatabase database) : IIdentityStore
             AccountId = AccountId,
             Email = Email,
             Username = Username,
-            LinkedAt = Time(LinkedAt),
-            LastUsedAt = Time(LastUsedAt),
+            LinkedAt = SqlTime.Parse(LinkedAt),
+            LastUsedAt = SqlTime.Parse(LastUsedAt),
         };
     }
 
@@ -225,8 +219,8 @@ public sealed class SqlIdentityStore(SqlDatabase database) : IIdentityStore
             DisplayName = pending.DisplayName,
             Email = pending.Email,
             GroupsJson = JsonSerializer.Serialize(pending.Groups),
-            FirstSeen = Time(pending.FirstSeen),
-            LastSeen = Time(pending.LastSeen),
+            FirstSeen = SqlTime.Text(pending.FirstSeen),
+            LastSeen = SqlTime.Text(pending.LastSeen),
         };
 
         public PendingSignIn ToPending() => new()
@@ -237,8 +231,8 @@ public sealed class SqlIdentityStore(SqlDatabase database) : IIdentityStore
             DisplayName = DisplayName,
             Email = Email,
             Groups = JsonSerializer.Deserialize<string[]>(GroupsJson) ?? [],
-            FirstSeen = Time(FirstSeen),
-            LastSeen = Time(LastSeen),
+            FirstSeen = SqlTime.Parse(FirstSeen),
+            LastSeen = SqlTime.Parse(LastSeen),
         };
     }
 }

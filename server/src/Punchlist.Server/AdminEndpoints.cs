@@ -121,20 +121,13 @@ public static class AdminEndpoints
         admin.MapDelete("/users/{id}", async (
             string id, ClaimsPrincipal user, IAccountStore store, AccountService accounts, IMemoryCache cache, AccountRemoval removal,
             CancellationToken cancellation) =>
-            await OnAccountAsync(id, user, store, async account =>
+            await OnAccountAsync(id, user, store, account => AccountResult(async () =>
             {
                 if (account.Id == user.UserId()) return Results.Conflict(new AdminError("self", "you cannot delete your own account"));
-                try
-                {
-                    var deleted = await accounts.DeleteAsync(id, cancellation);
-                    AuthSetup.ForgetStamp(cache, id);
-                    return Results.Ok(new { RemovedAt = removal.RemovedAt(deleted) });
-                }
-                catch (LastSuperAdminException error)
-                {
-                    return Results.Conflict(new AdminError("last_super_admin", error.Message));
-                }
-            }, cancellation)).RequirePermission(Permission.ManageUsers).ProjectsServerGroups().Audited("admin.user-deleted");
+                var deleted = await accounts.DeleteAsync(id, cancellation);
+                AuthSetup.ForgetStamp(cache, id);
+                return Results.Ok(new { RemovedAt = removal.RemovedAt(deleted) });
+            }), cancellation)).RequirePermission(Permission.ManageUsers).ProjectsServerGroups().Audited("admin.user-deleted");
 
         admin.MapPost("/users/{id}/restore", async (
             string id, ClaimsPrincipal user, IAccountStore store, AccountService accounts, IMemoryCache cache, CancellationToken cancellation) =>
@@ -156,48 +149,35 @@ public static class AdminEndpoints
                 return Results.NoContent();
             }, cancellation)).RequirePermission(Permission.ManageUsers).Audited("admin.user-removed-now");
 
-        admin.MapPost("/users", async (NewUserRequest request, ClaimsPrincipal user, AccountService accounts, HttpContext context, CancellationToken cancellation) =>
-        {
-            var role = Role.User;
-            if (request.Role is not null && !Roles.TryParse(request.Role, out role)) return Results.BadRequest(new AdminError("invalid_role"));
-            if (role != Role.User && !user.AccountRole().Can(Permission.ManageAdmins)) return Results.Forbid();
-            var username = (request.Username ?? "").Trim().ToLowerInvariant();
-            if (!AccountService.IsValidUsername(username))
+        admin.MapPost("/users", (NewUserRequest request, ClaimsPrincipal user, AccountService accounts, HttpContext context, CancellationToken cancellation) =>
+            AccountResult(async () =>
             {
-                return Results.BadRequest(new AdminError("invalid_username", "lowercase letters, digits, dots, dashes and underscores"));
-            }
-            var password = Core.Ids.NewPassword();
-            try
-            {
+                var role = Role.User;
+                if (request.Role is not null && !Roles.TryParse(request.Role, out role)) return Results.BadRequest(new AdminError("invalid_role"));
+                if (role != Role.User && !user.AccountRole().Can(Permission.ManageAdmins)) return Results.Forbid();
+                var username = (request.Username ?? "").Trim().ToLowerInvariant();
+                if (!AccountService.IsValidUsername(username))
+                {
+                    return Results.BadRequest(new AdminError("invalid_username", "lowercase letters, digits, dots, dashes and underscores"));
+                }
+                var password = Core.Ids.NewPassword();
                 var account = await accounts.CreateUserAsync(username, password, role, mustChangePassword: true, cancellation);
                 context.Audit().On(account.Id, account.Username).Detail = $"role {role.Name()}";
                 return Results.Created($"/api/admin/users/{account.Id}", new NewUser(account.Id, account.Username, role.Name(), password));
-            }
-            catch (DuplicateUsernameException)
-            {
-                return Results.Conflict(new AdminError("username_taken"));
-            }
-        }).RequirePermission(Permission.ManageUsers).Audited("admin.user-created", targetRoute: null);
+            })).RequirePermission(Permission.ManageUsers).Audited("admin.user-created", targetRoute: null);
 
         admin.MapPut("/users/{id}/disabled", async (
             string id, DisabledRequest request, ClaimsPrincipal user, IAccountStore store, AccountService accounts, IMemoryCache cache, HttpContext context,
             CancellationToken cancellation) =>
-            await OnAccountAsync(id, user, store, async account =>
+            await OnAccountAsync(id, user, store, account => AccountResult(async () =>
             {
                 if (!request.Disabled) context.Audit().Type = "admin.user-enabled";
                 if (account.DeletedAt is not null) return Results.Conflict(new AdminError("deleted", "restore the account instead"));
                 if (account.Id == user.UserId() && request.Disabled) return Results.Conflict(new AdminError("self", "you cannot turn off your own account"));
-                try
-                {
-                    await accounts.SetDisabledAsync(id, request.Disabled, cancellation);
-                }
-                catch (LastSuperAdminException error)
-                {
-                    return Results.Conflict(new AdminError("last_super_admin", error.Message));
-                }
+                await accounts.SetDisabledAsync(id, request.Disabled, cancellation);
                 AuthSetup.ForgetStamp(cache, id);
                 return Results.NoContent();
-            }, cancellation)).RequirePermission(Permission.ManageUsers).Audited("admin.user-disabled");
+            }), cancellation)).RequirePermission(Permission.ManageUsers).Audited("admin.user-disabled");
 
         admin.MapPost("/users/{id}/password", async (
             string id, PasswordResetRequest request, ClaimsPrincipal user, IAccountStore store, AccountService accounts, IMemoryCache cache, CancellationToken cancellation) =>
@@ -215,26 +195,16 @@ public static class AdminEndpoints
                 }
             }, cancellation)).RequirePermission(Permission.ManageUsers).Audited("admin.password-reset");
 
-        admin.MapPut("/users/{id}/role", async (string id, RoleRequest request, AccountService accounts, IMemoryCache cache, HttpContext context, CancellationToken cancellation) =>
-        {
-            context.Audit().Detail = $"role {request.Role}";
-            if (!Roles.TryParse(request.Role, out var role)) return Results.BadRequest(new AdminError("invalid_role"));
-            try
+        admin.MapPut("/users/{id}/role", (string id, RoleRequest request, AccountService accounts, IMemoryCache cache, HttpContext context, CancellationToken cancellation) =>
+            AccountResult(async () =>
             {
+                context.Audit().Detail = $"role {request.Role}";
+                if (!Roles.TryParse(request.Role, out var role)) return Results.BadRequest(new AdminError("invalid_role"));
                 var account = await accounts.SetRoleAsync(id, role, cancellation);
                 // This process changed it: the next request already sees the new role.
                 AuthSetup.ForgetStamp(cache, id);
                 return Results.Ok(new { account.Id, Role = account.Role.Name() });
-            }
-            catch (KeyNotFoundException)
-            {
-                return Results.NotFound();
-            }
-            catch (LastSuperAdminException error)
-            {
-                return Results.Conflict(new AdminError("last_super_admin", error.Message));
-            }
-        }).RequirePermission(Permission.ManageAdmins).Audited("admin.role-changed");
+            })).RequirePermission(Permission.ManageAdmins).Audited("admin.role-changed");
 
         // Linked provider accounts and moving between providers (spec: Linking and provider migration).
         admin.MapGet("/users/{id}/identities", async (
@@ -263,7 +233,7 @@ public static class AdminEndpoints
             {
                 var subject = request.Subject?.Trim() ?? "";
                 context.Audit().Detail = request.Provider;
-                if (settings.OidcProviders.All(provider => provider.Name != request.Provider) || subject.Length == 0)
+                if (settings.Provider(request.Provider) is null || subject.Length == 0)
                 {
                     return Results.BadRequest(new AdminError("invalid", "a configured provider and the account's subject"));
                 }
@@ -295,7 +265,7 @@ public static class AdminEndpoints
         admin.MapPut("/providers/{name}/migration-window", async (
             string name, WindowRequest request, ServerSettings settings, ExternalSignIn signIn, HttpContext context, CancellationToken cancellation) =>
         {
-            if (settings.OidcProviders.All(provider => provider.Name != name)) return Results.NotFound();
+            if (settings.Provider(name) is null) return Results.NotFound();
             var hours = request.Hours ?? 24;
             context.Audit().Detail = $"{hours} hours";
             if (hours is <= 0 or > 24 * 30) return Results.BadRequest(new AdminError("invalid_hours", "between a minute and 30 days"));
@@ -333,8 +303,7 @@ public static class AdminEndpoints
             }
             foreach (var mapping in await identities.ListMappingsAsync(cancellation))
             {
-                var shadowed = settings.OidcProviders.Any(provider => provider.Name == mapping.Provider && provider.UserMap.ContainsKey(mapping.ProviderUsername));
-                if (shadowed) continue;
+                if (settings.Provider(mapping.Provider)?.UserMap.ContainsKey(mapping.ProviderUsername) == true) continue;
                 mappings.Add(new OidcMappingView(mapping.Provider, mapping.ProviderUsername, mapping.AccountId,
                     byId.GetValueOrDefault(mapping.AccountId)?.Username ?? mapping.AccountId, "admin", mapping.CreatedAt));
             }
@@ -354,8 +323,7 @@ public static class AdminEndpoints
         {
             var name = request.ProviderUsername?.Trim().ToLowerInvariant() ?? "";
             context.Audit().Detail = $"{request.Provider}: {name}";
-            if (settings.OidcProviders.FirstOrDefault(each => each.Name == request.Provider) is not { } provider
-                || name.Length is 0 or > 255 || string.IsNullOrEmpty(request.AccountId))
+            if (settings.Provider(request.Provider) is not { } provider || name.Length is 0 or > 255 || string.IsNullOrEmpty(request.AccountId))
             {
                 return Results.BadRequest(new AdminError("invalid", "a configured provider, a provider username and an account"));
             }
@@ -382,7 +350,7 @@ public static class AdminEndpoints
             CancellationToken cancellation) =>
         {
             context.Audit().Detail = $"{provider}: {providerUsername}";
-            if (settings.OidcProviders.Any(each => each.Name == provider && each.UserMap.ContainsKey(providerUsername.ToLowerInvariant())))
+            if (settings.Provider(provider)?.UserMap.ContainsKey(providerUsername.ToLowerInvariant()) == true)
             {
                 return Results.Conflict(new AdminError("set_by_settings", "change OIDC_..._USER_MAP to remove this one"));
             }
@@ -418,10 +386,10 @@ public static class AdminEndpoints
             string id, ClaimsPrincipal user, SharingState sharing, IAccountStore accounts, CancellationToken cancellation) =>
             await OnAccountAsync(id, user, accounts, async _ =>
             {
-                var all = (await accounts.ListAsync(cancellation)).ToDictionary(account => account.Id);
+                var names = await NamesAsync(accounts, cancellation);
                 return Results.Ok(sharing.Index.FriendshipsOf(id)
-                    .Where(each => all.ContainsKey(each.Other))
-                    .Select(each => new AdminFriend(each.Other, all[each.Other].Username, each.State))
+                    .Where(each => names.ContainsKey(each.Other))
+                    .Select(each => new AdminFriend(each.Other, names[each.Other], each.State))
                     .OrderBy(friend => friend.Username)
                     .ToList());
             }, cancellation)).RequirePermission(Permission.ManageUsers);
@@ -492,7 +460,7 @@ public static class AdminEndpoints
         // Invite links for self sign-up (spec: Registration).
         admin.MapGet("/invites", async (SelfSignUp signUp, SignupInvites invites, IAccountStore accounts, CancellationToken cancellation) =>
         {
-            var names = (await accounts.ListAsync(cancellation)).ToDictionary(account => account.Id, account => account.Username);
+            var names = await NamesAsync(accounts, cancellation);
             return new InviteList(signUp.InvitesWork ? signUp.Policy.ToString().ToLowerInvariant() : "closed",
                 (await invites.ListAsync(cancellation)).Select(invite => View(invite, names)).ToList());
         }).RequirePermission(Permission.ManageUsers);
@@ -509,8 +477,7 @@ public static class AdminEndpoints
                     request.AnyNumber ? null : request.Uses ?? 1, request.Note, cancellation);
                 context.Audit().On(invite.Id, invite.Note).Detail =
                     $"{(invite.MaxUses is { } most ? $"{most} {(most == 1 ? "person" : "people")}" : "any number of people")} until {invite.Expires:yyyy-MM-dd HH:mm}Z";
-                var names = (await accounts.ListAsync(cancellation)).ToDictionary(account => account.Id, account => account.Username);
-                return Results.Ok(new NewInvite($"{ServerApp.Origin(context)}/join/{token}", View(invite, names)));
+                return Results.Ok(new NewInvite($"{ServerApp.Origin(context)}/join/{token}", View(invite, await NamesAsync(accounts, cancellation))));
             }
             catch (ArgumentException error)
             {
@@ -532,7 +499,7 @@ public static class AdminEndpoints
             string provider, string subject, ServerSettings settings, ExternalSignIn signIn, HttpContext context, CancellationToken cancellation) =>
         {
             context.Audit().Detail = provider;
-            if (settings.OidcProviders.FirstOrDefault(each => each.Name == provider) is not { } found) return Results.NotFound();
+            if (settings.Provider(provider) is not { } found) return Results.NotFound();
             if (await signIn.ApproveAsync(found, subject, cancellation) is not { } account) return Results.NotFound();
             context.Audit().On(account.Id, account.Username);
             return Results.Ok(new { account.Id, account.Username, Role = account.Role.Name() });
@@ -622,6 +589,31 @@ public static class AdminEndpoints
             return Results.Json(new AdminError("admins_only_by_super_admins"), statusCode: StatusCodes.Status403Forbidden);
         }
         return await action(account);
+    }
+
+    /// <summary>Usernames by account id, for naming people in answers.</summary>
+    private static async Task<Dictionary<string, string>> NamesAsync(IAccountStore accounts, CancellationToken cancellation) =>
+        (await accounts.ListAsync(cancellation)).ToDictionary(account => account.Id, account => account.Username);
+
+    /// <summary>What the account service refuses, as answers: no such account (404), the last super admin or a taken name (409).</summary>
+    private static async Task<IResult> AccountResult(Func<Task<IResult>> action)
+    {
+        try
+        {
+            return await action();
+        }
+        catch (KeyNotFoundException)
+        {
+            return Results.NotFound();
+        }
+        catch (LastSuperAdminException error)
+        {
+            return Results.Conflict(new AdminError("last_super_admin", error.Message));
+        }
+        catch (DuplicateUsernameException)
+        {
+            return Results.Conflict(new AdminError("username_taken"));
+        }
     }
 
     private static AdminInvite View(SignupInvite invite, IReadOnlyDictionary<string, string> names) => new(

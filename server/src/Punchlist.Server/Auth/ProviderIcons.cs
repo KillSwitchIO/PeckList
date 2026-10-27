@@ -26,7 +26,7 @@ public sealed partial class ProviderIcons(
     /// <summary>The provider's icon, or null when it has none (or is not configured).</summary>
     public async Task<Icon?> GetAsync(string name, CancellationToken cancellation = default)
     {
-        if (settings.OidcProviders.FirstOrDefault(each => each.Name == name) is not { } provider) return null;
+        if (settings.Provider(name) is not { } provider) return null;
         var now = time.GetUtcNow();
         if (cache.TryGetValue(name, out var kept) && kept.Until > now) return kept.Icon;
         Icon? icon = null;

@@ -76,31 +76,19 @@ public static class AttachmentEndpoints
 /// just before it syncs the attachment naming it.
 /// </summary>
 public sealed class AttachmentCleanup(IAttachmentStore store, SharingState sharing, TimeProvider time, ILogger<AttachmentCleanup> logger)
-    : BackgroundService
+    : PeriodicService("Cleaning attachment files", TimeSpan.FromMinutes(5), TimeSpan.FromDays(1), time, logger)
 {
     public static readonly TimeSpan KeepDeleted = TimeSpan.FromDays(30);
 
-    protected override async Task ExecuteAsync(CancellationToken stopping)
+    protected override async Task RunAsync(CancellationToken stopping)
     {
-        await Task.Delay(TimeSpan.FromMinutes(5), time, stopping).ConfigureAwait(ConfigureAwaitOptions.SuppressThrowing);
-        while (!stopping.IsCancellationRequested)
-        {
-            try
-            {
-                var removed = await CleanAsync(stopping);
-                if (removed > 0) logger.LogInformation("Removed {Count} attachment files nothing uses", removed);
-            }
-            catch (Exception error) when (error is not OperationCanceledException)
-            {
-                logger.LogError(error, "Cleaning attachment files failed; trying again tomorrow");
-            }
-            await Task.Delay(TimeSpan.FromDays(1), time, stopping).ConfigureAwait(ConfigureAwaitOptions.SuppressThrowing);
-        }
+        var removed = await CleanAsync(stopping);
+        if (removed > 0) Logger.LogInformation("Removed {Count} attachment files nothing uses", removed);
     }
 
     public async Task<int> CleanAsync(CancellationToken cancellation = default)
     {
-        var now = time.GetUtcNow();
+        var now = Time.GetUtcNow();
         var wanted = sharing.Index.WantedFiles(now - KeepDeleted);
         var removed = 0;
         await foreach (var (sha256, written) in store.ListAsync(cancellation))

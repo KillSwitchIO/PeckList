@@ -1,5 +1,5 @@
-using System.Globalization;
 using System.Security.Claims;
+using Punchlist.Core;
 using Punchlist.Core.Accounts;
 using Punchlist.Core.Backup;
 using Punchlist.Server.Audit;
@@ -59,10 +59,7 @@ public static class BackupEndpoints
             HttpRequest request, ClaimsPrincipal user, UserBackups users, Snapshots snapshots, CancellationToken cancellation) =>
         {
             var form = await request.ReadFormAsync(cancellation);
-            Stream input;
-            if (form.Files["file"] is { } file) input = file.OpenReadStream();
-            else if (form["backup"].FirstOrDefault() is { } name && Find(snapshots, name) is { } path) input = File.OpenRead(path);
-            else return Results.BadRequest(new AdminError("no_backup", "upload a backup file or pick one on the server"));
+            if (OpenBackup(form, snapshots) is not { } input) return NoBackup();
             await using (input)
             {
                 // A way back if the restore was not what was wanted.
@@ -90,11 +87,7 @@ public static class BackupEndpoints
         admin.MapPost("/restore", async (
             HttpRequest request, PendingRestore pending, Snapshots snapshots, IHostApplicationLifetime lifetime, CancellationToken cancellation) =>
         {
-            var form = await request.ReadFormAsync(cancellation);
-            Stream input;
-            if (form.Files["file"] is { } file) input = file.OpenReadStream();
-            else if (form["backup"].FirstOrDefault() is { } name && Find(snapshots, name) is { } path) input = File.OpenRead(path);
-            else return Results.BadRequest(new AdminError("no_backup", "upload a backup file or pick one on the server"));
+            if (OpenBackup(await request.ReadFormAsync(cancellation), snapshots) is not { } input) return NoBackup();
             await using (input)
             {
                 try
@@ -108,7 +101,7 @@ public static class BackupEndpoints
             }
             var safety = await snapshots.TakeAsync(ServerApp.Version, cancellation);
             request.HttpContext.Audit().Detail = $"safety backup {Path.GetFileName(safety)}; restarting";
-            _ = Task.Delay(500).ContinueWith(_ => lifetime.StopApplication(), TaskScheduler.Default);
+            ServerApp.StopSoon(lifetime);
             return Results.Accepted(value: new { Safety = Path.GetFileName(safety) });
         }).RequirePermission(Permission.ManageSecurity).DisableAntiforgery().Audited("backup.server-restore-started", targetRoute: null);
 
@@ -119,11 +112,20 @@ public static class BackupEndpoints
     private static string? Find(Snapshots snapshots, string name) =>
         snapshots.List().Select(each => each.Path).FirstOrDefault(path => Path.GetFileName(path) == name);
 
+    /// <summary>The backup a restore form names: an uploaded file (field "file") or one on the server (field "backup"); null for neither.</summary>
+    private static Stream? OpenBackup(IFormCollection form, Snapshots snapshots)
+    {
+        if (form.Files["file"] is { } file) return file.OpenReadStream();
+        return form["backup"].FirstOrDefault() is { } name && Find(snapshots, name) is { } path ? File.OpenRead(path) : null;
+    }
+
+    private static IResult NoBackup() => Results.BadRequest(new AdminError("no_backup", "upload a backup file or pick one on the server"));
+
     private static void Attach(HttpContext context, string name)
     {
         context.Response.ContentType = "application/json";
         context.Response.Headers.ContentDisposition = $"attachment; filename=\"{name}\"";
     }
 
-    private static string Stamp(TimeProvider time) => time.GetUtcNow().ToString("yyyyMMdd-HHmmss", CultureInfo.InvariantCulture);
+    private static string Stamp(TimeProvider time) => time.FileStamp();
 }

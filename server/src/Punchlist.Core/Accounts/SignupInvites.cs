@@ -1,5 +1,3 @@
-using System.Security.Cryptography;
-using System.Text;
 using System.Text.Json;
 
 namespace Punchlist.Core.Accounts;
@@ -54,7 +52,7 @@ public sealed class SignupInvites(ISecretStore secrets, TimeProvider time)
         note = string.IsNullOrWhiteSpace(note) ? null : note.Trim();
         if (note?.Length > MaxNoteLength) note = note[..MaxNoteLength];
         var now = time.GetUtcNow();
-        var token = Base64Url(RandomNumberGenerator.GetBytes(24));
+        var token = Tokens.New(24);
         var invite = new SignupInvite
         {
             Id = Ids.NewUlid(time),
@@ -64,7 +62,7 @@ public sealed class SignupInvites(ISecretStore secrets, TimeProvider time)
             MaxUses = maxUses,
             Note = note,
         };
-        await secrets.PutAsync(Kind, Hash(token), JsonSerializer.Serialize(invite, Json), cancellation);
+        await secrets.PutAsync(Kind, Tokens.Hash(token), JsonSerializer.Serialize(invite, Json), cancellation);
         return (token, invite);
     }
 
@@ -103,7 +101,7 @@ public sealed class SignupInvites(ISecretStore secrets, TimeProvider time)
             if (invite?.Usable(time.GetUtcNow()) != true) return null;
             var made = await create();
             var used = invite with { Uses = invite.Uses + 1, UsedBy = [.. invite.UsedBy, accountId(made)] };
-            await secrets.PutAsync(Kind, Hash(token),
+            await secrets.PutAsync(Kind, Tokens.Hash(token),
                 used.Usable(time.GetUtcNow()) ? JsonSerializer.Serialize(used, Json) : "", cancellation);
             return made;
         }
@@ -128,7 +126,7 @@ public sealed class SignupInvites(ISecretStore secrets, TimeProvider time)
     private async Task<SignupInvite?> ByTokenAsync(string token, CancellationToken cancellation)
     {
         if (string.IsNullOrWhiteSpace(token)) return null;
-        var key = Hash(token.Trim());
+        var key = Tokens.Hash(token.Trim());
         return (await AllAsync(cancellation)).FirstOrDefault(each => each.Name == key).Invite;
     }
 
@@ -149,9 +147,4 @@ public sealed class SignupInvites(ISecretStore secrets, TimeProvider time)
         }
         return all;
     }
-
-    private static string Hash(string token) => Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(token)));
-
-    private static string Base64Url(byte[] bytes) =>
-        Convert.ToBase64String(bytes).TrimEnd('=').Replace('+', '-').Replace('/', '_');
 }

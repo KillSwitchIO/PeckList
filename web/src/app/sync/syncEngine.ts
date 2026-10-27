@@ -4,6 +4,7 @@
 // cursor and the per-entity acks) lives in storage metadata, never in the workspace.
 
 import { createStore, type StoreApi } from 'zustand/vanilla';
+import { messageOf } from '../../core/errors.ts';
 import { CURRENT_SCHEMA_VERSION } from '../../core/migrations.ts';
 import {
   acknowledge,
@@ -180,6 +181,8 @@ export function createSyncEngine(deps: SyncEngineDependencies): SyncEngine {
     };
   };
 
+  const saveMeta = (meta: SyncMeta) => storage.saveMeta(META, meta);
+
   const absorb = (
     transform: (local: WorkspaceFile) => WorkspaceFile,
     authoritative?: readonly string[],
@@ -221,12 +224,7 @@ export function createSyncEngine(deps: SyncEngineDependencies): SyncEngine {
       const { changes, cursor, epoch } = await pullAll();
       const fresh = createWorkspace(workspace.getState().context());
       await workspace.getState().reset(joinAccount(fresh, account.id, changes));
-      await storage.saveMeta(META, {
-        account: account.id,
-        cursor,
-        acks: acknowledge({}, changes),
-        epoch,
-      } satisfies SyncMeta);
+      await saveMeta({ account: account.id, cursor, acks: acknowledge({}, changes), epoch });
     };
 
     /**
@@ -245,12 +243,7 @@ export function createSyncEngine(deps: SyncEngineDependencies): SyncEngine {
       }
       const { changes, cursor, epoch } = await pullAll();
       absorb((local) => joinAccount(local, account.id, changes));
-      await storage.saveMeta(META, {
-        account: account.id,
-        cursor,
-        acks: acknowledge({}, changes),
-        epoch,
-      } satisfies SyncMeta);
+      await saveMeta({ account: account.id, cursor, acks: acknowledge({}, changes), epoch });
     };
 
     const fail = (error: unknown) => {
@@ -280,7 +273,30 @@ export function createSyncEngine(deps: SyncEngineDependencies): SyncEngine {
             return;
         }
       }
-      set({ status: 'error', error: error instanceof Error ? error.message : String(error) });
+      set({ status: 'error', error: messageOf(error) });
+    };
+
+    /** Add to what the person is told next (the notice toast), on top of what waits already. */
+    const tell = (news: {
+      refused?: number;
+      lostLists?: string[];
+      filesKept?: string[];
+      setAside?: number | undefined;
+      clock?: 'ahead' | 'behind' | undefined;
+    }) => {
+      const before = get().notice;
+      set({
+        notice: {
+          ...before,
+          refused: (before?.refused ?? 0) + (news.refused ?? 0),
+          lostLists: [...(before?.lostLists ?? []), ...(news.lostLists ?? [])],
+          ...(news.filesKept
+            ? { filesKept: [...(before?.filesKept ?? []), ...news.filesKept] }
+            : {}),
+          ...(news.setAside ? { setAside: (before?.setAside ?? 0) + news.setAside } : {}),
+          ...(news.clock ? { clock: news.clock } : {}),
+        },
+      });
     };
 
     // Files the server has (or refused), so each is asked about once per session.
@@ -324,17 +340,7 @@ export function createSyncEngine(deps: SyncEngineDependencies): SyncEngine {
           tooLarge.push(attachment.name);
         }
       }
-      if (tooLarge.length > 0) {
-        const before = get().notice;
-        set({
-          notice: {
-            ...before,
-            refused: before?.refused ?? 0,
-            lostLists: before?.lostLists ?? [],
-            filesKept: [...(before?.filesKept ?? []), ...tooLarge],
-          },
-        });
-      }
+      if (tooLarge.length > 0) tell({ filesKept: tooLarge });
       return kept;
     };
 
@@ -413,23 +419,14 @@ export function createSyncEngine(deps: SyncEngineDependencies): SyncEngine {
           const clock = clockSaid ? undefined : clockOff(response);
           if (clock) clockSaid = true;
           if (refused > 0 || lost.length > 0 || setAside > 0 || clock) {
-            const before = get().notice;
-            set({
-              notice: {
-                ...before,
-                refused: (before?.refused ?? 0) + refused,
-                lostLists: [...(before?.lostLists ?? []), ...lost],
-                ...(setAside > 0 ? { setAside: (before?.setAside ?? 0) + setAside } : {}),
-                ...(clock ? { clock } : {}),
-              },
-            });
+            tell({ refused, lostLists: lost, setAside, clock });
           }
-          await storage.saveMeta(META, {
+          await saveMeta({
             account: account.id,
             cursor: response.cursor,
             acks,
             epoch: response.epoch ?? meta.epoch ?? null,
-          } satisfies SyncMeta);
+          });
           if (!response.more && pending.length <= BATCH) break;
         }
       });

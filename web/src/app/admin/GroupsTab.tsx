@@ -1,5 +1,4 @@
 import {
-  Alert,
   Box,
   Button,
   Dialog,
@@ -16,6 +15,7 @@ import {
 import { useState, type FormEvent } from 'react';
 import type { AdminApi, AdminGroup, AdminUser } from '../../ports/admin.ts';
 import { t } from '../i18n/i18n.ts';
+import { ProblemAlert } from '../layout/ProblemAlert.tsx';
 import { CloseIcon, PlusIcon } from '../icons/icons.tsx';
 import { ConfirmDialog } from './AdminDialogs.tsx';
 import { refusalText, useLoaded } from './useAdmin.ts';
@@ -90,11 +90,7 @@ function GroupDialog({
             }
             label={t('admin.groups.offered')}
           />
-          {problem && (
-            <Alert severity="error" variant="outlined">
-              {problem}
-            </Alert>
-          )}
+          <ProblemAlert problem={problem} />
           {group && (
             <Box>
               <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 0.5 }}>

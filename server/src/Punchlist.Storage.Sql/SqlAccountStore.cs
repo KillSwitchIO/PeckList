@@ -1,5 +1,4 @@
 using System.Data.Common;
-using System.Globalization;
 using Dapper;
 using Punchlist.Core.Accounts;
 
@@ -59,8 +58,7 @@ public sealed class SqlAccountStore(SqlDatabase database) : IAccountStore
                 Row.From(account),
                 cancellationToken: cancellation));
         }
-        catch (DbException error) when (error.Message.Contains("unique", StringComparison.OrdinalIgnoreCase)
-            || error.Message.Contains("duplicate", StringComparison.OrdinalIgnoreCase))
+        catch (DbException error) when (SqlDatabase.IsUniqueViolation(error))
         {
             throw new DuplicateUsernameException(account.Username);
         }
@@ -112,12 +110,12 @@ public sealed class SqlAccountStore(SqlDatabase database) : IAccountStore
             Role = account.Role.ToString().ToLowerInvariant(),
             MustChangePassword = account.MustChangePassword ? 1 : 0,
             FailedLogins = account.FailedLogins,
-            LockedUntil = account.LockedUntil?.ToString("O", CultureInfo.InvariantCulture),
+            LockedUntil = SqlTime.Text(account.LockedUntil),
             SecurityStamp = account.SecurityStamp,
             Disabled = account.Disabled ? 1 : 0,
-            CreatedAt = account.CreatedAt.ToString("O", CultureInfo.InvariantCulture),
+            CreatedAt = SqlTime.Text(account.CreatedAt),
             FriendCode = account.FriendCode,
-            DeletedAt = account.DeletedAt?.ToString("O", CultureInfo.InvariantCulture),
+            DeletedAt = SqlTime.Text(account.DeletedAt),
         };
 
         public Account ToAccount() => new()
@@ -128,12 +126,12 @@ public sealed class SqlAccountStore(SqlDatabase database) : IAccountStore
             Role = Enum.Parse<Role>(Role, ignoreCase: true),
             MustChangePassword = MustChangePassword != 0,
             FailedLogins = (int)FailedLogins,
-            LockedUntil = LockedUntil is null ? null : DateTimeOffset.Parse(LockedUntil, CultureInfo.InvariantCulture),
+            LockedUntil = SqlTime.ParseOrNull(LockedUntil),
             SecurityStamp = SecurityStamp,
             Disabled = Disabled != 0,
-            CreatedAt = DateTimeOffset.Parse(CreatedAt, CultureInfo.InvariantCulture),
+            CreatedAt = SqlTime.Parse(CreatedAt),
             FriendCode = FriendCode,
-            DeletedAt = DeletedAt is null ? null : DateTimeOffset.Parse(DeletedAt, CultureInfo.InvariantCulture),
+            DeletedAt = SqlTime.ParseOrNull(DeletedAt),
         };
     }
 }

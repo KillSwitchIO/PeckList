@@ -2,6 +2,7 @@ using System.Globalization;
 using System.IO.Compression;
 using System.Text;
 using System.Text.Json;
+using Punchlist.Core;
 using Punchlist.Core.Accounts;
 using Punchlist.Core.Audit;
 using Punchlist.Core.Configuration;
@@ -29,7 +30,7 @@ public static class AuditEndpoints
         {
             var query = Query(context.Request, limit: 100_000, oldestFirst: true);
             var page = await store.QueryAsync(query, context.RequestAborted);
-            var name = $"punchlist-{query.Kind}-{time.GetUtcNow().ToString("yyyyMMdd-HHmmss", CultureInfo.InvariantCulture)}.csv";
+            var name = $"punchlist-{query.Kind}-{time.FileStamp()}.csv";
             context.Response.ContentType = "text/csv; charset=utf-8";
             context.Response.Headers.ContentDisposition = $"attachment; filename=\"{name}\"";
             await using var writer = new StreamWriter(context.Response.Body, new UTF8Encoding(false));
@@ -86,26 +87,11 @@ public static class AuditEndpoints
 /// <c>AUDIT_ARCHIVE</c> writes what it removes to gzipped JSON lines in <c>AUDIT_ARCHIVE_DIR</c> first.
 /// </summary>
 public sealed class AuditRetention(IAuditStore store, LiveSettings live, TimeProvider time, ILogger<AuditRetention> logger)
-    : BackgroundService
+    : PeriodicService("Pruning the access and event log", TimeSpan.FromSeconds(20), TimeSpan.FromHours(1), time, logger)
 {
     private static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web);
 
-    protected override async Task ExecuteAsync(CancellationToken stopping)
-    {
-        await Task.Delay(TimeSpan.FromSeconds(20), time, stopping).ConfigureAwait(ConfigureAwaitOptions.SuppressThrowing);
-        while (!stopping.IsCancellationRequested)
-        {
-            try
-            {
-                await PruneAsync(stopping);
-            }
-            catch (Exception error) when (error is not OperationCanceledException)
-            {
-                logger.LogError(error, "Pruning the access and event log failed; trying again in an hour");
-            }
-            await Task.Delay(TimeSpan.FromHours(1), time, stopping).ConfigureAwait(ConfigureAwaitOptions.SuppressThrowing);
-        }
-    }
+    protected override Task RunAsync(CancellationToken stopping) => PruneAsync(stopping);
 
     /// <summary>Remove (and archive) what is past each kind's retention; how many went.</summary>
     public async Task<int> PruneAsync(CancellationToken cancellation = default)
@@ -114,9 +100,9 @@ public sealed class AuditRetention(IAuditStore store, LiveSettings live, TimePro
         var settings = live.Current;
         foreach (var (kind, days) in new[] { (AuditKind.Event, settings.AuditRetentionDays), (AuditKind.Access, settings.AccessLogRetentionDays) })
         {
-            var cutoff = time.GetUtcNow().AddDays(-days);
+            var cutoff = Time.GetUtcNow().AddDays(-days);
             var count = settings.AuditArchive ? await ArchiveAsync(kind, cutoff, cancellation) : await store.PruneAsync(kind, cutoff, cancellation);
-            if (count > 0) logger.LogInformation("Removed {Count} {Kind} log entries older than {Days} days", count, kind, days);
+            if (count > 0) Logger.LogInformation("Removed {Count} {Kind} log entries older than {Days} days", count, kind, days);
             removed += count;
         }
         return removed;
@@ -127,8 +113,7 @@ public sealed class AuditRetention(IAuditStore store, LiveSettings live, TimePro
         var first = await store.OlderAsync(kind, cutoff, 1, cancellation);
         if (first.Count == 0) return 0;
         Directory.CreateDirectory(live.Current.AuditArchiveDir);
-        var path = Path.Combine(live.Current.AuditArchiveDir,
-            $"audit-{kind}-{time.GetUtcNow().ToString("yyyyMMdd-HHmmss", CultureInfo.InvariantCulture)}.jsonl.gz");
+        var path = Path.Combine(live.Current.AuditArchiveDir, $"audit-{kind}-{Time.FileStamp()}.jsonl.gz");
         var total = 0;
         await using (var file = File.Create(path))
         await using (var gzip = new GZipStream(file, CompressionLevel.Optimal))

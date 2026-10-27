@@ -28,7 +28,7 @@ public sealed class Ownership(SyncService sync, SharingState sharing, ServerCloc
             var writes = new List<IncomingEntity>();
             if (share.Kind == "list")
             {
-                writes.Add(new IncomingEntity("lists", Change(share.Doc, share.Id, "ownerId", to, stamp)) { Owner = to });
+                writes.Add(new IncomingEntity("lists", ServerEntities.Changed(share.Doc, stamp, new JsonObject { ["ownerId"] = to })) { Owner = to });
                 writes.Add(new IncomingEntity("listMembers", New(from, stamp, new JsonObject
                 {
                     ["listId"] = share.Id,
@@ -38,17 +38,11 @@ public sealed class Ownership(SyncService sync, SharingState sharing, ServerCloc
             }
             else
             {
-                writes.Add(new IncomingEntity("groups", Change(share.Doc, share.Id, "ownerId", to, stamp)));
+                writes.Add(new IncomingEntity("groups", ServerEntities.Changed(share.Doc, stamp, new JsonObject { ["ownerId"] = to })));
                 // The old owner was a member by ownership: now by a membership of their own.
                 if (sharing.Index.GroupMembership(share.Id, from) is { } row)
                 {
-                    var active = Merge.Entity((JsonObject)row.Doc.DeepClone(), new JsonObject
-                    {
-                        ["id"] = row.Id,
-                        ["state"] = "active",
-                        ["deletedAt"] = null,
-                        ["_hlc"] = new JsonObject { ["state"] = stamp, ["deletedAt"] = stamp },
-                    }, []);
+                    var active = ServerEntities.Changed(row.Doc, stamp, new JsonObject { ["state"] = "active", ["deletedAt"] = null });
                     writes.Add(new IncomingEntity("groupMembers", active));
                 }
                 else
@@ -68,28 +62,6 @@ public sealed class Ownership(SyncService sync, SharingState sharing, ServerCloc
         return moved;
     }
 
-    private static JsonObject Change(JsonObject doc, string id, string field, string value, string stamp) =>
-        Merge.Entity((JsonObject)doc.DeepClone(), new JsonObject
-        {
-            ["id"] = id,
-            [field] = value,
-            ["_hlc"] = new JsonObject { [field] = stamp },
-        }, []);
-
-    private JsonObject New(string createdBy, string stamp, JsonObject fields)
-    {
-        var entity = new JsonObject
-        {
-            ["id"] = Ids.NewUlid(),
-            ["createdAt"] = clock.Now(),
-            ["createdBy"] = createdBy,
-            ["deletedAt"] = null,
-            ["origin"] = "local",
-        };
-        foreach (var (field, value) in fields) entity[field] = value?.DeepClone();
-        var clocks = new JsonObject();
-        foreach (var (field, _) in entity) if (field != "id") clocks[field] = stamp;
-        entity["_hlc"] = clocks;
-        return entity;
-    }
+    private JsonObject New(string createdBy, string stamp, JsonObject fields) =>
+        ServerEntities.New(Ids.NewUlid(), createdBy, "local", clock.Now(), stamp, fields);
 }

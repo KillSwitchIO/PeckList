@@ -23,6 +23,7 @@ import type {
 } from '../ports/admin.ts';
 import type { ServerStats } from '../ports/stats.ts';
 import { SyncFailure } from '../ports/sync.ts';
+import { messageOf } from '../core/errors.ts';
 
 /** The server's error names, as the app reads them. */
 const REFUSALS: Record<string, AdminRefusal> = {
@@ -42,7 +43,6 @@ const REFUSALS: Record<string, AdminRefusal> = {
   set_by_settings: 'set-by-settings',
 };
 
-/** `/api/admin` over fetch, with the session cookie (same origin). */
 /** The query string for an audit query: only the filters that are set. */
 function auditParams(query: AuditQuery): string {
   const params = new URLSearchParams();
@@ -52,10 +52,17 @@ function auditParams(query: AuditQuery): string {
   return params.toString();
 }
 
+/** `/api/admin` over fetch, with the session cookie (same origin). */
 export function createHttpAdmin(
   base = '',
   fetcher: typeof fetch = (...args) => fetch(...args),
 ): AdminApi {
+  const serverError = (response: Response) =>
+    new SyncFailure('server', `server error ${response.status}`);
+  /** Nothing to read back: the answer must be fine, or one of `alsoFine` (404 for deleting what is gone). */
+  const accept = async (response: Response, ...alsoFine: number[]) => {
+    if (!response.ok && !alsoFine.includes(response.status)) throw serverError(response);
+  };
   const call = async (path: string, method = 'GET', body?: unknown) => {
     let response: Response;
     try {
@@ -66,13 +73,13 @@ export function createHttpAdmin(
         body: body === undefined ? null : JSON.stringify(body),
       });
     } catch (error) {
-      throw new SyncFailure('offline', error instanceof Error ? error.message : String(error));
+      throw new SyncFailure('offline', messageOf(error));
     }
     if (response.status === 401) throw new SyncFailure('signed-out', 'not signed in');
     return response;
   };
   const json = async <T>(response: Response): Promise<T> => {
-    if (!response.ok) throw new SyncFailure('server', `server error ${response.status}`);
+    if (!response.ok) throw serverError(response);
     return (await response.json()) as T;
   };
   /** A refusal the person can act on, or a failure for anything else. */
@@ -91,7 +98,7 @@ export function createHttpAdmin(
       const reason = REFUSALS[error] ?? (response.status === 403 ? 'admins-only' : undefined);
       if (reason) return { ok: false, reason };
     }
-    throw new SyncFailure('server', `server error ${response.status}`);
+    throw serverError(response);
   };
   const none = () => Promise.resolve();
   /** A restore's form: the file or the backup's name, and whose data when it matters. */
@@ -110,12 +117,12 @@ export function createHttpAdmin(
       return response;
     } catch (error) {
       if (error instanceof SyncFailure) throw error;
-      throw new SyncFailure('offline', error instanceof Error ? error.message : String(error));
+      throw new SyncFailure('offline', messageOf(error));
     }
   };
   /** The server's explanation of a refused restore. */
   const reason = async (response: Response): Promise<string> => {
-    if (response.status !== 400) throw new SyncFailure('server', `server error ${response.status}`);
+    if (response.status !== 400) throw serverError(response);
     return (
       ((await response.json()) as { message?: string }).message ??
       'not a backup this server can use'
@@ -159,12 +166,7 @@ export function createHttpAdmin(
         await call('/invites', 'POST', { days, uses, anyNumber: uses === null, note }),
         async (response) => (await response.json()) as { url: string; invite: AdminInvite },
       ),
-    revokeInvite: async (id) => {
-      const response = await call(`/invites/${segment(id)}`, 'DELETE');
-      if (!response.ok && response.status !== 404) {
-        throw new SyncFailure('server', `server error ${response.status}`);
-      }
-    },
+    revokeInvite: async (id) => accept(await call(`/invites/${segment(id)}`, 'DELETE'), 404),
     impersonate: async (id, reason) =>
       result(
         await call(`/users/${segment(id)}/impersonate`, 'POST', { reason }),
@@ -183,16 +185,9 @@ export function createHttpAdmin(
       ),
 
     friends: async (id) => json<AdminFriend[]>(await call(`/users/${segment(id)}/friends`)),
-    makeFriends: async (a, b) => {
-      const response = await call('/friendships', 'POST', { userA: a, userB: b });
-      if (!response.ok) throw new SyncFailure('server', `server error ${response.status}`);
-    },
-    endFriendship: async (a, b) => {
-      const response = await call(`/friendships/${segment(a)}/${segment(b)}`, 'DELETE');
-      if (!response.ok && response.status !== 404) {
-        throw new SyncFailure('server', `server error ${response.status}`);
-      }
-    },
+    makeFriends: async (a, b) => accept(await call('/friendships', 'POST', { userA: a, userB: b })),
+    endFriendship: async (a, b) =>
+      accept(await call(`/friendships/${segment(a)}/${segment(b)}`, 'DELETE'), 404),
 
     shared: async (id) => json<AdminShare[]>(await call(`/users/${segment(id)}/shared`)),
     handOver: async (from, to, ids) =>
@@ -207,18 +202,14 @@ export function createHttpAdmin(
       result(await call('/groups', 'POST', { name, offeredForSharing }), none),
     updateGroup: async (id, change) =>
       result(await call(`/groups/${segment(id)}`, 'PATCH', change), none),
-    deleteGroup: async (id) => {
-      const response = await call(`/groups/${segment(id)}`, 'DELETE');
-      if (!response.ok && response.status !== 404)
-        throw new SyncFailure('server', `server error ${response.status}`);
-    },
-    setMember: async (groupId, accountId, member) => {
-      const response = await call(
-        `/groups/${segment(groupId)}/members/${segment(accountId)}`,
-        member ? 'PUT' : 'DELETE',
-      );
-      if (!response.ok) throw new SyncFailure('server', `server error ${response.status}`);
-    },
+    deleteGroup: async (id) => accept(await call(`/groups/${segment(id)}`, 'DELETE'), 404),
+    setMember: async (groupId, accountId, member) =>
+      accept(
+        await call(
+          `/groups/${segment(groupId)}/members/${segment(accountId)}`,
+          member ? 'PUT' : 'DELETE',
+        ),
+      ),
 
     backups: async () => json<BackupFile[]>(await call('/backups')),
     backUpNow: async () => (await json<{ name: string }>(await call('/backups', 'POST'))).name,
@@ -243,7 +234,7 @@ export function createHttpAdmin(
         const body = (await response.json()) as { message?: string };
         return { ok: false, message: body.message ?? `server error ${response.status}` };
       }
-      throw new SyncFailure('server', `server error ${response.status}`);
+      throw serverError(response);
     },
     restart: async () => {
       await call('/restart', 'POST');
@@ -253,10 +244,7 @@ export function createHttpAdmin(
     audit: async (query) => json<AuditPage>(await call(`/audit?${auditParams(query)}`)),
     stats: async () => json<ServerStats>(await call('/stats')),
     setup: async () => json<{ done: boolean }>(await call('/setup')),
-    finishSetup: async () => {
-      const response = await call('/setup', 'PUT', { done: true });
-      if (!response.ok) throw new SyncFailure('server', `server error ${response.status}`);
-    },
+    finishSetup: async () => accept(await call('/setup', 'PUT', { done: true })),
     auditCsvUrl: (query) => `${base}/api/admin/audit.csv?${auditParams(query)}`,
     providers: async () => json<AdminProvider[]>(await call('/providers')),
     oidc: async () => json<OidcOverview>(await call('/oidc')),
@@ -293,14 +281,11 @@ export function createHttpAdmin(
       await call(`/providers/${segment(provider)}/migration-window`, 'DELETE');
     },
     pending: async () => json<PendingSignIn[]>(await call('/pending-signins')),
-    approve: async (provider, subject) => {
-      const response = await call(
-        `/pending-signins/${segment(provider)}/${segment(subject)}/approve`,
-        'POST',
-      );
-      if (!response.ok && response.status !== 404)
-        throw new SyncFailure('server', `server error ${response.status}`);
-    },
+    approve: async (provider, subject) =>
+      accept(
+        await call(`/pending-signins/${segment(provider)}/${segment(subject)}/approve`, 'POST'),
+        404,
+      ),
     dismiss: async (provider, subject) => {
       await call(`/pending-signins/${segment(provider)}/${segment(subject)}`, 'DELETE');
     },

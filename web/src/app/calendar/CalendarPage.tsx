@@ -9,7 +9,6 @@ import {
   ListItemText,
   Menu,
   MenuItem,
-  Popover,
   ToggleButton,
   ToggleButtonGroup,
   Tooltip,
@@ -33,7 +32,7 @@ import { canEditTask } from '../../core/sharing.ts';
 import { createTask, updateTask } from '../../core/tasks.ts';
 import type { Schedule, WorkspaceFile } from '../../core/types.ts';
 import { useToday } from '../hooks/useToday.ts';
-import { MonthCalendar } from '../dates/MonthCalendar.tsx';
+import { MonthPickerPopover } from '../dates/MonthPickerPopover.tsx';
 import { weekStart as preferredWeekStart } from '../format.ts';
 import { ChevronDownIcon, ChevronLeftIcon, ChevronRightIcon } from '../icons/icons.tsx';
 import { t } from '../i18n/i18n.ts';
@@ -426,20 +425,14 @@ export function CalendarPage() {
             <ChevronRightIcon fontSize="small" />
           </IconButton>
         </Box>
-        <Popover
-          open={picker !== null}
-          anchorEl={picker}
+        <MonthPickerPopover
+          anchor={picker}
           onClose={() => setPicker(null)}
-          anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
-          slotProps={{ paper: { sx: { p: 1, width: 300 } } }}
-        >
-          <MonthCalendar
-            selected={mode === 'month' && view ? `${view.month}-01` : date}
-            today={today}
-            weekStartsOn={preferredWeekStart()}
-            onSelect={goTo}
-          />
-        </Popover>
+          selected={mode === 'month' && view ? `${view.month}-01` : date}
+          today={today}
+          weekStartsOn={preferredWeekStart()}
+          onSelect={goTo}
+        />
         <Box sx={{ display: 'flex', flexGrow: 1, minHeight: 0, gap: 1 }}>
           <Box
             sx={{

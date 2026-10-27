@@ -1,5 +1,5 @@
-using System.Globalization;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
+using Punchlist.Core;
 using Punchlist.Core.Accounts;
 using Punchlist.Core.Backup;
 using Punchlist.Core.Storage;
@@ -38,7 +38,7 @@ public static class LoggingEndpoints
             var file = new FileStream(Path.GetTempFileName(), FileMode.Create, FileAccess.ReadWrite, FileShare.None, 81920, FileOptions.DeleteOnClose);
             await dump.WriteAsync(file, cancellation);
             file.Position = 0;
-            var name = $"punchlist-debug-{time.GetUtcNow().ToString("yyyyMMdd-HHmmss", CultureInfo.InvariantCulture)}.zip";
+            var name = $"punchlist-debug-{time.FileStamp()}.zip";
             return Results.File(file, "application/zip", name);
         }).RequirePermission(Permission.ViewLogs).Audited("logs.debug-dump", targetRoute: null);
 

@@ -18,6 +18,7 @@ import {
 import { useState, type FormEvent } from 'react';
 import type { AccountRole, AdminApi, AdminIdentity, AdminUser } from '../../ports/admin.ts';
 import { t } from '../i18n/i18n.ts';
+import { ProblemAlert } from '../layout/ProblemAlert.tsx';
 import { LinkIcon, MoreIcon, PlusIcon } from '../icons/icons.tsx';
 import { useSyncState } from '../sync/syncContext.ts';
 import { ConfirmDialog, SecretDialog } from './AdminDialogs.tsx';
@@ -114,11 +115,7 @@ function AddUserDialog({
               ))}
             </TextField>
           )}
-          {problem && (
-            <Alert severity="error" variant="outlined">
-              {problem}
-            </Alert>
-          )}
+          <ProblemAlert problem={problem} />
         </DialogContent>
         <DialogActions>
           <Button onClick={close}>{t('admin.cancel')}</Button>

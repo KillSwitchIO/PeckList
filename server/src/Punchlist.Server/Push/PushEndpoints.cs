@@ -76,26 +76,14 @@ public static class PushEndpoints
             {
                 if ((string?)found.Doc["recurrence"] is { Length: > 0 }) return Results.Conflict(new { error = "repeats" });
                 if ((string?)found.Doc["status"] != "open") return Results.NoContent();
-                var stamp = now.UtcDateTime.ToString("yyyy-MM-dd'T'HH:mm:ss.fff'Z'", CultureInfo.InvariantCulture);
+                var completedAt = clock.Now();
                 var closed = new List<IncomingEntity>();
                 foreach (var (_, doc) in WithOpenSubtasks(index, found.Id, found.Doc))
                 {
-                    var next = (JsonObject)doc.DeepClone();
-                    var clocks = next["_hlc"] as JsonObject ?? new JsonObject();
-                    next["status"] = "done";
-                    next["completedAt"] = stamp;
-                    next["completedBy"] = userId;
-                    clocks["status"] = clock.Next();
-                    clocks["completedAt"] = clock.Next();
-                    clocks["completedBy"] = clock.Next();
+                    var fields = new JsonObject { ["status"] = "done", ["completedAt"] = completedAt, ["completedBy"] = userId };
                     // Done is done: a pinned task lets go of the top, as in the app.
-                    if (next["pinnedAt"] is JsonValue)
-                    {
-                        next["pinnedAt"] = null;
-                        clocks["pinnedAt"] = clock.Next();
-                    }
-                    next["_hlc"] = clocks;
-                    closed.Add(new IncomingEntity("tasks", next));
+                    if (doc["pinnedAt"] is JsonValue) fields["pinnedAt"] = null;
+                    closed.Add(new IncomingEntity("tasks", ServerEntities.Changed(doc, clock.Next(), fields)));
                 }
                 await sync.WriteAsServerAsync((string?)found.Doc["createdBy"] ?? userId, closed, cancellation);
                 return Results.NoContent();
@@ -109,8 +97,7 @@ public static class PushEndpoints
             }
             if (request.Action == "snooze")
             {
-                var settings = index.LiveOf("settings").Select(each => each.Doc).FirstOrDefault(doc => (string?)doc["userId"] == userId);
-                var zone = ReminderSender.ZoneOf(settings);
+                var zone = ReminderSender.ZoneOf(ReminderSender.SettingsOf(index, userId));
                 var local = TimeZoneInfo.ConvertTime(now, zone);
                 var nowText = local.ToString("yyyy-MM-dd'T'HH:mm", CultureInfo.InvariantCulture);
                 // Up to a week: "tomorrow morning" from late at night is more than a day.
@@ -127,11 +114,7 @@ public static class PushEndpoints
                     }
                 }
                 reminders.Add(new JsonObject { ["at"] = later });
-                var doc = (JsonObject)found.Doc.DeepClone();
-                doc["reminders"] = reminders;
-                var clocks = doc["_hlc"] as JsonObject ?? new JsonObject();
-                clocks["reminders"] = clock.Next();
-                doc["_hlc"] = clocks;
+                var doc = ServerEntities.Changed(found.Doc, clock.Next(), new JsonObject { ["reminders"] = reminders });
                 await sync.WriteAsServerAsync((string?)found.Doc["createdBy"] ?? userId, [new IncomingEntity("tasks", doc)], cancellation);
             }
             return Results.NoContent();

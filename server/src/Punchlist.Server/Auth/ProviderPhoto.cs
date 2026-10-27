@@ -53,11 +53,8 @@ public sealed class ProviderPhoto(IHttpClientFactory http, SharingState sharing,
             if (response.Content.Headers.ContentLength is > MaxBytes) return;
             var bytes = await ReadUpToAsync(response.Content, MaxBytes + 1, timeout.Token);
             if (bytes.Length == 0 || bytes.Length > MaxBytes) return;
-            var doc = (JsonObject)profile.DeepClone();
-            doc["photo"] = $"data:{type};base64,{Convert.ToBase64String(bytes)}";
-            var clocks = doc["_hlc"] as JsonObject ?? new JsonObject();
-            clocks["photo"] = clock.Next();
-            doc["_hlc"] = clocks;
+            var data = $"data:{type};base64,{Convert.ToBase64String(bytes)}";
+            var doc = ServerEntities.Changed(profile, clock.Next(), new JsonObject { ["photo"] = data });
             await sync.WriteAsServerAsync(userId, [new IncomingEntity("users", doc)], cancellation);
         }
         catch (Exception error) when (error is HttpRequestException or OperationCanceledException or IOException)

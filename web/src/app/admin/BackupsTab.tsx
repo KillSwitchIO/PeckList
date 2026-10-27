@@ -19,6 +19,7 @@ import type { AdminApi, RestoreSource } from '../../ports/admin.ts';
 import { formatWhen } from '../format.ts';
 import { useToday } from '../hooks/useToday.ts';
 import { t } from '../i18n/i18n.ts';
+import { ProblemAlert } from '../layout/ProblemAlert.tsx';
 import { useIsSuperAdmin, useLoaded } from './useAdmin.ts';
 
 function size(bytes: number): string {
@@ -106,11 +107,7 @@ function RestoreDialog({
             {t('admin.backups.wholeServerHint')}
           </DialogContentText>
         )}
-        {problem && (
-          <Alert severity="error" variant="outlined">
-            {problem}
-          </Alert>
-        )}
+        <ProblemAlert problem={problem} />
       </DialogContent>
       <DialogActions>
         <Button onClick={onClose}>{t('admin.cancel')}</Button>

@@ -193,16 +193,7 @@ public sealed class BackupService(
     /// </summary>
     public async Task<BackupSummary> ImportAsync(Stream input, bool replace = false, CancellationToken cancellation = default)
     {
-        JsonObject root;
-        try
-        {
-            root = (await JsonNode.ParseAsync(input, cancellationToken: cancellation))?.AsObject()
-                ?? throw new BackupException("the file is empty");
-        }
-        catch (JsonException error)
-        {
-            throw new BackupException($"not a JSON file: {error.Message}");
-        }
+        var root = await ParseAsync(input, cancellation);
         Check(root);
         if (!await database.IsEmptyAsync(cancellation))
         {
@@ -309,19 +300,22 @@ public sealed class BackupService(
 
     /// <summary>Whether a file is a server backup this server can restore, without restoring it.</summary>
     /// <exception cref="BackupException">It is not, and why.</exception>
-    public static async Task CheckAsync(Stream input, CancellationToken cancellation = default)
+    public static async Task CheckAsync(Stream input, CancellationToken cancellation = default) =>
+        Check(await ParseAsync(input, cancellation));
+
+    /// <summary>A backup file as JSON, whatever kind of backup it is.</summary>
+    /// <exception cref="BackupException">Not JSON, not an object, or empty.</exception>
+    internal static async Task<JsonObject> ParseAsync(Stream input, CancellationToken cancellation)
     {
-        JsonObject root;
         try
         {
-            root = (await JsonNode.ParseAsync(input, cancellationToken: cancellation))?.AsObject()
+            return (await JsonNode.ParseAsync(input, cancellationToken: cancellation))?.AsObject()
                 ?? throw new BackupException("the file is empty");
         }
-        catch (JsonException error)
+        catch (Exception error) when (error is JsonException or InvalidOperationException)
         {
             throw new BackupException($"not a JSON file: {error.Message}");
         }
-        Check(root);
     }
 
     private static void Check(JsonObject root)

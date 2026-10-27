@@ -33,6 +33,11 @@ public abstract class SqlDatabase : IDatabase
     /// <summary>The larger of two values.</summary>
     public virtual string Greatest(string a, string b) => $"MAX({a}, {b})";
 
+    /// <summary>Whether a write hit a unique index (SQLite and PostgreSQL word it differently).</summary>
+    public static bool IsUniqueViolation(DbException error) =>
+        error.Message.Contains("unique", StringComparison.OrdinalIgnoreCase)
+        || error.Message.Contains("duplicate", StringComparison.OrdinalIgnoreCase);
+
     /// <summary>Runs the dialect's embedded migrations (its own assembly's <c>Migrations/*.sql</c>).</summary>
     public async Task MigrateAsync(CancellationToken cancellation = default)
     {

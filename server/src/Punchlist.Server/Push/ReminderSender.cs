@@ -18,12 +18,16 @@ public sealed class ReminderSender(
     INotificationStore notifications,
     IPushSender push,
     TimeProvider time,
-    ILogger<ReminderSender> logger) : BackgroundService
+    ILogger<ReminderSender> logger)
+    : PeriodicService("Sending reminders", TimeSpan.Zero, Every, time, logger, LogLevel.Warning)
 {
     public static readonly TimeSpan Every = TimeSpan.FromSeconds(30);
 
     /// <summary>On start, reminders due this long ago still go out (a restart or an update).</summary>
     public static readonly TimeSpan CatchUp = TimeSpan.FromMinutes(5);
+
+    /// <summary>Where the last run got to; the next sends what came due since.</summary>
+    private DateTimeOffset? since;
 
     /// <summary>
     /// A reminder as a person sees it, for the Android app to set ahead. <paramref name="Key"/> is the
@@ -32,24 +36,12 @@ public sealed class ReminderSender(
     /// </summary>
     public sealed record Upcoming(string Key, string Title, string Body, DateTimeOffset At, string Url, bool Constant, bool Repeats);
 
-    protected override async Task ExecuteAsync(CancellationToken stopping)
+    protected override async Task RunAsync(CancellationToken stopping)
     {
-        var since = time.GetUtcNow() - CatchUp;
-        while (!stopping.IsCancellationRequested)
-        {
-            var now = time.GetUtcNow();
-            try
-            {
-                await SendDueAsync(since, now, stopping);
-                await store.PruneSentRemindersAsync(now - TimeSpan.FromDays(7), stopping);
-                since = now;
-            }
-            catch (Exception error) when (error is not OperationCanceledException)
-            {
-                logger.LogWarning(error, "Sending reminders failed; trying again shortly");
-            }
-            await Task.Delay(Every, time, stopping);
-        }
+        var now = Time.GetUtcNow();
+        await SendDueAsync(since ?? now - CatchUp, now, stopping);
+        await store.PruneSentRemindersAsync(now - TimeSpan.FromDays(7), stopping);
+        since = now;
     }
 
     /// <summary>Reminders due in (<paramref name="from"/>, <paramref name="to"/>]: sent, and noted so they go once.</summary>
@@ -75,8 +67,7 @@ public sealed class ReminderSender(
                     var tag = $"{taskId}@{first.ToUnixTimeMilliseconds()}";
                     var sent = at == first ? tag : $"{tag}#{at.ToUnixTimeMilliseconds()}";
                     if (!await store.MarkReminderSentAsync($"{userId}|{sent}", to, cancellation)) continue;
-                    var title = (string?)task["title"] is { Length: > 0 } named ? named : "Untitled task";
-                    var payload = new PushPayload(title, $"Reminder for {Clock(first, zone, mine)}", tag, $"/today?task={taskId}", constant);
+                    var payload = new PushPayload(TitleOf(task), $"Reminder for {Clock(first, zone, mine)}", tag, $"/today?task={taskId}", constant);
                     if (at != first)
                     {
                         await push.SendAsync(userId, payload, cancellation);
@@ -84,7 +75,7 @@ public sealed class ReminderSender(
                     }
                     await notifications.AddAsync([new Notification
                     {
-                        Id = Ids.NewUlid(time),
+                        Id = Ids.NewUlid(Time),
                         UserId = userId,
                         Kind = NotificationKind.Reminder,
                         At = at,
@@ -103,9 +94,7 @@ public sealed class ReminderSender(
     /// </summary>
     public static IReadOnlyList<Upcoming> UpcomingFor(SharingIndex index, string userId, DateTimeOffset from, DateTimeOffset to, string? deviceZone)
     {
-        var mine = index.LiveOf("settings")
-            .Select(each => each.Doc)
-            .FirstOrDefault(doc => doc["userId"] is JsonValue owner && owner.TryGetValue<string>(out var id) && id == userId);
+        var mine = SettingsOf(index, userId);
         var zone = mine?["timeZone"] is JsonValue ? ZoneOf(mine)
             : deviceZone is not null && TimeZoneInfo.TryFindSystemTimeZoneById(deviceZone, out var device) ? device
             : TimeZoneInfo.Local;
@@ -114,7 +103,7 @@ public sealed class ReminderSender(
         {
             if (task["reminders"] is not JsonArray { Count: > 0 } || (string?)task["status"] != "open") continue;
             if (!ServerReminders.Recipients(task, index).Contains(userId)) continue;
-            var title = (string?)task["title"] is { Length: > 0 } named ? named : "Untitled task";
+            var title = TitleOf(task);
             var repeats = (string?)task["recurrence"] is { Length: > 0 };
             foreach (var (at, first, constant) in ServerReminders.Instants(task, zone))
             {
@@ -127,6 +116,14 @@ public sealed class ReminderSender(
         }
         return [.. found.OrderBy(each => each.At)];
     }
+
+    /// <summary>A person's settings entity (time zone, clock format), if they have one.</summary>
+    internal static JsonObject? SettingsOf(SharingIndex index, string userId) =>
+        index.LiveOf("settings")
+            .Select(each => each.Doc)
+            .FirstOrDefault(doc => doc["userId"] is JsonValue owner && owner.TryGetValue<string>(out var id) && id == userId);
+
+    private static string TitleOf(JsonObject task) => (string?)task["title"] is { Length: > 0 } named ? named : "Untitled task";
 
     internal static TimeZoneInfo ZoneOf(JsonObject? settings)
     {

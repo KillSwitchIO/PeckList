@@ -42,8 +42,11 @@ public sealed class SqlAuditStore(SqlDatabase database) : IAuditStore
         }
         if (!string.IsNullOrWhiteSpace(query.User))
         {
+            // An id, or a username ignoring case: LIKE only for the case, so % and _ mean themselves.
             parameters.Add("User", query.User.Trim());
-            where.Append($" AND (actor_id = @User OR target_id = @User OR by_id = @User OR actor_name {like} @User OR target_name {like} @User OR by_name {like} @User)");
+            parameters.Add("UserName", Escape(query.User.Trim()));
+            where.Append($" AND (actor_id = @User OR target_id = @User OR by_id = @User"
+                + $" OR actor_name {like} @UserName ESCAPE '\\' OR target_name {like} @UserName ESCAPE '\\' OR by_name {like} @UserName ESCAPE '\\')");
         }
         if (!string.IsNullOrWhiteSpace(query.Type))
         {

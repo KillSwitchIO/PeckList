@@ -1,18 +1,8 @@
-import {
-  Alert,
-  Button,
-  Dialog,
-  DialogActions,
-  DialogContent,
-  DialogContentText,
-  DialogTitle,
-  MenuItem,
-  TextField,
-} from '@mui/material';
+import { MenuItem, TextField } from '@mui/material';
 import { useState } from 'react';
-import type { AdminApi, AdminResult, OidcOverview } from '../../ports/admin.ts';
+import type { AdminApi, OidcOverview } from '../../ports/admin.ts';
 import { t } from '../i18n/i18n.ts';
-import { refusalText } from './useAdmin.ts';
+import { ActionDialog } from './AdminDialogs.tsx';
 
 type Accounts = OidcOverview['accounts'];
 
@@ -47,70 +37,6 @@ function AccountPicker({
   );
 }
 
-/** One dialog's shell: title, text, fields, a refusal, and the action. */
-function OidcDialog<T>({
-  title,
-  text,
-  action,
-  ready,
-  run,
-  onDone,
-  onClose,
-  children,
-}: {
-  title: string;
-  text: string;
-  action: string;
-  ready: boolean;
-  run: () => Promise<AdminResult<T>>;
-  onDone: (value: T) => void;
-  onClose: () => void;
-  children: React.ReactNode;
-}) {
-  const [problem, setProblem] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
-  const submit = async () => {
-    setBusy(true);
-    setProblem(null);
-    try {
-      const result = await run();
-      if (!result.ok) {
-        setProblem(refusalText(result.reason));
-        return;
-      }
-      onDone(result.value);
-      onClose();
-    } finally {
-      setBusy(false);
-    }
-  };
-  return (
-    <Dialog open onClose={onClose} maxWidth="xs" fullWidth>
-      <DialogTitle>{title}</DialogTitle>
-      <DialogContent sx={{ display: 'grid', gap: 2 }}>
-        <DialogContentText>{text}</DialogContentText>
-        {children}
-        {problem && (
-          <Alert severity="error" variant="outlined">
-            {problem}
-          </Alert>
-        )}
-      </DialogContent>
-      <DialogActions>
-        <Button onClick={onClose}>{t('admin.cancel')}</Button>
-        <Button
-          variant="contained"
-          disableElevation
-          disabled={!ready || busy}
-          onClick={() => void submit()}
-        >
-          {action}
-        </Button>
-      </DialogActions>
-    </Dialog>
-  );
-}
-
 /** Map a provider username to an account (spec: Linking, user mapping). */
 export function MapDialog({
   api,
@@ -130,7 +56,7 @@ export function MapDialog({
   const [username, setUsername] = useState('');
   const [target, setTarget] = useState(account ?? '');
   return (
-    <OidcDialog
+    <ActionDialog
       title={t('admin.map.title')}
       text={t('admin.map.text')}
       action={t('admin.map.save')}
@@ -166,7 +92,7 @@ export function MapDialog({
         onChange={setTarget}
         label={t('admin.map.account')}
       />
-    </OidcDialog>
+    </ActionDialog>
   );
 }
 
@@ -191,7 +117,7 @@ export function MoveDialog({
 }) {
   const [target, setTarget] = useState('');
   return (
-    <OidcDialog
+    <ActionDialog
       title={t('admin.move.title', { identity: move.label })}
       text={t('admin.move.text', { name: move.from.username })}
       action={t('admin.signIn.move')}
@@ -207,6 +133,6 @@ export function MoveDialog({
         label={t('admin.map.account')}
         exclude={move.from.id}
       />
-    </OidcDialog>
+    </ActionDialog>
   );
 }

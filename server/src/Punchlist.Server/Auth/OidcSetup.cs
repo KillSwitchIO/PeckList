@@ -146,13 +146,8 @@ public static class OidcSetup
 
         auth.MapGet("/oidc/{name}/login", (string name, string? returnUrl, string? invite) =>
         {
-            if (settings.OidcProviders.All(provider => provider.Name != name)) return Results.NotFound();
-            // Only back into this app: a path, never another site.
-            var back = returnUrl is { Length: > 0 } && returnUrl.StartsWith('/') && !returnUrl.StartsWith("//", StringComparison.Ordinal)
-                && !returnUrl.StartsWith("/\\", StringComparison.Ordinal)
-                ? returnUrl
-                : "/";
-            var properties = new AuthenticationProperties { RedirectUri = back, IsPersistent = true };
+            if (settings.Provider(name) is null) return Results.NotFound();
+            var properties = new AuthenticationProperties { RedirectUri = ReturnUrls.Safe(returnUrl), IsPersistent = true };
             if (!string.IsNullOrWhiteSpace(invite)) properties.Items[InviteItem] = invite.Trim();
             return Results.Challenge(properties, [Scheme(name)]);
         });
@@ -160,7 +155,7 @@ public static class OidcSetup
         // Link a provider account to the signed-in user (their settings page).
         auth.MapGet("/oidc/{name}/link", (string name, ClaimsPrincipal user) =>
         {
-            if (settings.OidcProviders.All(provider => provider.Name != name)) return Results.NotFound();
+            if (settings.Provider(name) is null) return Results.NotFound();
             return Results.Challenge(LinkProperties(user.UserId(), appScheme: null), [Scheme(name)]);
         }).RequireAuthorization();
 
@@ -201,7 +196,7 @@ public static class OidcSetup
     {
         if (session?.Items.TryGetValue(ProviderItem, out var name) != true || name is null) return null;
         var settings = context.RequestServices.GetRequiredService<ServerSettings>();
-        if (settings.OidcProviders.FirstOrDefault(each => each.Name == name) is not { SignOut: true } provider) return null;
+        if (settings.Provider(name) is not { SignOut: true } provider) return null;
         if (session.GetTokenValue("id_token") is not { Length: > 0 } idToken) return null;
         var options = context.RequestServices.GetRequiredService<Microsoft.Extensions.Options.IOptionsMonitor<OpenIdConnectOptions>>().Get(Scheme(name));
         try

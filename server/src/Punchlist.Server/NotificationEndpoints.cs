@@ -118,24 +118,13 @@ public static class NotificationText
 
 /// <summary>Clears notifications older than 90 days, once a day.</summary>
 public sealed class NotificationRetention(INotificationStore store, TimeProvider time, ILogger<NotificationRetention> logger)
-    : BackgroundService
+    : PeriodicService("Clearing old notifications", TimeSpan.Zero, TimeSpan.FromDays(1), time, logger, LogLevel.Warning)
 {
     public static readonly TimeSpan Keep = TimeSpan.FromDays(90);
 
-    protected override async Task ExecuteAsync(CancellationToken stopping)
+    protected override async Task RunAsync(CancellationToken stopping)
     {
-        while (!stopping.IsCancellationRequested)
-        {
-            try
-            {
-                var gone = await store.PruneAsync(time.GetUtcNow() - Keep, stopping);
-                if (gone > 0) logger.LogInformation("Cleared {Count} notifications older than {Days} days", gone, Keep.Days);
-            }
-            catch (Exception error) when (error is not OperationCanceledException)
-            {
-                logger.LogWarning(error, "Clearing old notifications failed");
-            }
-            await Task.Delay(TimeSpan.FromDays(1), time, stopping);
-        }
+        var gone = await store.PruneAsync(Time.GetUtcNow() - Keep, stopping);
+        if (gone > 0) Logger.LogInformation("Cleared {Count} notifications older than {Days} days", gone, Keep.Days);
     }
 }

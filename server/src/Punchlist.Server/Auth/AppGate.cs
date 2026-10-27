@@ -1,5 +1,4 @@
-using System.Globalization;
-using System.Net;
+using System.Buffers.Text;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
@@ -83,41 +82,14 @@ public static partial class AppSignIn
         var tag = new byte[16];
         using (var aes = new AesGcm(aesKey, tag.Length)) aes.Encrypt(nonce, plaintext, ciphertext, tag);
         var wrapped = publicKey.Encrypt(aesKey, RSAEncryptionPadding.OaepSHA256);
-        return Base64Url([.. wrapped, .. nonce, .. ciphertext, .. tag]);
+        return Base64Url.EncodeToString([.. wrapped, .. nonce, .. ciphertext, .. tag]);
     }
 
-    private static string GatePage(string key, string scheme)
-    {
-        static string E(string text) => WebUtility.HtmlEncode(text);
-        return string.Create(CultureInfo.InvariantCulture, $$"""
-            <!doctype html>
-            <html lang="en">
-            <head>
-            <meta charset="utf-8">
-            <meta name="viewport" content="width=device-width, initial-scale=1">
-            <title>Open Punchlist</title>
-            <style>
-              :root { color-scheme: light dark; --bg: #FAFAF7; --card: #FFFFFF; --text: #1F2421; --muted: #5E6662; --line: #DADDD8; --accent: #4F8F87; --on-accent: #FFFFFF; }
-              @media (prefers-color-scheme: dark) { :root { --bg: #151816; --card: #1D211F; --text: #E6E9E6; --muted: #A3ABA7; --line: #333A36; --accent: #7FBFB6; --on-accent: #0E1A18; } }
-              body { margin: 0; min-height: 100dvh; display: grid; place-items: center; background: var(--bg); color: var(--text); font: 16px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; padding: 16px; box-sizing: border-box; }
-              main { width: 100%; max-width: 380px; background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 28px 24px; box-sizing: border-box; }
-              h1 { font-size: 1.375rem; margin: 0 0 4px; }
-              p { color: var(--muted); margin: 0 0 24px; font-size: 0.875rem; }
-              button { width: 100%; border: 0; border-radius: 8px; padding: 12px 16px; font: inherit; font-weight: 600; background: var(--accent); color: var(--on-accent); cursor: pointer; }
-            </style>
-            </head>
-            <body>
-            <main>
-              <h1>Let the Punchlist app in?</h1>
-              <p>You got past this server's sign-in page. Continue to let the Punchlist app on this device past it too. If you did not just ask for this in the app, close this tab.</p>
-              <form method="post" action="/auth/app/gate">
-                <input type="hidden" name="key" value="{{E(key)}}">
-                <input type="hidden" name="scheme" value="{{E(scheme)}}">
-                <button type="submit">Continue</button>
-              </form>
-            </main>
-            </body>
-            </html>
-            """);
-    }
+    private static string GatePage(string key, string scheme) =>
+        ConfirmationPage(
+            "Let the Punchlist app in?",
+            "You got past this server's sign-in page. Continue to let the Punchlist app on this device past it too. "
+            + "If you did not just ask for this in the app, close this tab.",
+            "/auth/app/gate",
+            ("key", key), ("scheme", scheme));
 }

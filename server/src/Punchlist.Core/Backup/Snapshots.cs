@@ -10,7 +10,7 @@ namespace Punchlist.Core.Backup;
 public sealed class Snapshots(BackupService backup, string folder, Func<int> keep, TimeProvider time)
 {
     private const string Prefix = "punchlist-";
-    private const string Stamp = "yyyyMMdd-HHmmss";
+    private const string Stamp = TimeStamps.FileFormat;
 
     public string Folder { get; } = folder;
 
@@ -18,7 +18,7 @@ public sealed class Snapshots(BackupService backup, string folder, Func<int> kee
     public async Task<string> TakeAsync(string appVersion, CancellationToken cancellation = default)
     {
         Directory.CreateDirectory(Folder);
-        var name = $"{Prefix}{time.GetUtcNow().ToString(Stamp, CultureInfo.InvariantCulture)}.json";
+        var name = $"{Prefix}{time.FileStamp()}.json";
         var path = Path.Combine(Folder, name);
         var partial = path + ".partial";
         await using (var file = File.Create(partial))

@@ -1,3 +1,4 @@
+using System.Buffers.Text;
 using System.Globalization;
 using System.Net;
 using System.Security.Claims;
@@ -8,6 +9,7 @@ using System.Text.RegularExpressions;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.DataProtection;
+using Punchlist.Core;
 using Punchlist.Core.Accounts;
 using Punchlist.Core.Audit;
 using Punchlist.Core.Configuration;
@@ -62,15 +64,15 @@ public static partial class AppSignIn
             var session = await context.AuthenticateAsync(CookieAuthenticationDefaults.AuthenticationScheme);
             if (session.Principal?.Identity?.IsAuthenticated != true)
             {
-                if (provider is null || settings.OidcProviders.All(each => each.Name != provider)) return Results.NotFound();
+                if (settings.Provider(provider) is not { Name: var name }) return Results.NotFound();
                 var here = context.Request.Path + context.Request.QueryString;
-                var login = $"/auth/oidc/{Uri.EscapeDataString(provider)}/login?returnUrl={Uri.EscapeDataString(here)}";
+                var login = $"/auth/oidc/{Uri.EscapeDataString(name)}/login?returnUrl={Uri.EscapeDataString(here)}";
                 if (!string.IsNullOrWhiteSpace(invite)) login += $"&invite={Uri.EscapeDataString(invite)}";
                 return Results.Redirect(login);
             }
             var user = session.Principal;
             Protect(context, scheme!);
-            return Results.Content(ConfirmPage(user.FindFirstValue(ClaimTypes.Name) ?? "", challenge!, scheme!, SafeReturn(returnUrl)),
+            return Results.Content(ConfirmPage(user.FindFirstValue(ClaimTypes.Name) ?? "", challenge!, scheme!, ReturnUrls.Safe(returnUrl)),
                 "text/html; charset=utf-8");
         });
 
@@ -84,11 +86,11 @@ public static partial class AppSignIn
             if (session.Principal?.Identity?.IsAuthenticated != true || session.Ticket is null) return Results.Unauthorized();
             Note(context, session.Principal);
 
-            var code = Base64Url(RandomNumberGenerator.GetBytes(32));
+            var code = Tokens.New();
             var ticket = Convert.ToBase64String(TicketSerializer.Default.Serialize(session.Ticket));
-            var handoff = new Handoff(challenge, time.GetUtcNow() + CodeLifetime, SafeReturn(form["returnUrl"].ToString()), ticket);
+            var handoff = new Handoff(challenge, time.GetUtcNow() + CodeLifetime, ReturnUrls.Safe(form["returnUrl"].ToString()), ticket);
             var sealedValue = protection.CreateProtector(Purpose).Protect(JsonSerializer.Serialize(handoff));
-            await secrets.PutAsync(Kind, Hash(code), sealedValue, context.RequestAborted);
+            await secrets.PutAsync(Kind, Tokens.Hash(code), sealedValue, context.RequestAborted);
             Protect(context, scheme);
             return Results.Redirect($"{scheme}://auth?code={code}");
         }).Audited("auth.app-handoff", targetRoute: null);
@@ -120,11 +122,11 @@ public static partial class AppSignIn
         auth.MapPost("/app/link-start", async (LinkStartRequest request, ClaimsPrincipal user, ISecretStore secrets,
             IDataProtectionProvider protection, TimeProvider time, HttpContext context) =>
         {
-            if (request.Provider is not { } provider || settings.OidcProviders.All(each => each.Name != provider)) return Results.NotFound();
+            if (settings.Provider(request.Provider) is not { Name: var provider }) return Results.NotFound();
             if (request.Scheme is not { } scheme || !SchemePattern().IsMatch(scheme)) return Results.BadRequest(new AuthError("invalid_request"));
-            var code = Base64Url(RandomNumberGenerator.GetBytes(32));
+            var code = Tokens.New();
             var start = new LinkStart(user.UserId(), provider, scheme, time.GetUtcNow() + CodeLifetime);
-            await secrets.PutAsync(LinkKind, Hash(code),
+            await secrets.PutAsync(LinkKind, Tokens.Hash(code),
                 protection.CreateProtector(Purpose).Protect(JsonSerializer.Serialize(start)), context.RequestAborted);
             return Results.Ok(new LinkStartResult($"/auth/app/link?code={code}"));
         }).RequireAuthorization();
@@ -132,7 +134,7 @@ public static partial class AppSignIn
         auth.MapGet("/app/link", async (string? code, ISecretStore secrets, IDataProtectionProvider protection, TimeProvider time, HttpContext context) =>
         {
             var start = await TakeAsync<LinkStart>(secrets, protection, LinkKind, code ?? "", context.RequestAborted);
-            if (start is null || start.Expires <= time.GetUtcNow() || settings.OidcProviders.All(each => each.Name != start.Provider))
+            if (start is null || start.Expires <= time.GetUtcNow() || settings.Provider(start.Provider) is null)
             {
                 return Results.Content(
                     "<!doctype html><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width\">" +
@@ -149,7 +151,7 @@ public static partial class AppSignIn
         where T : class
     {
         if (code.Length is 0 or > 100) return null;
-        var key = Hash(code);
+        var key = Tokens.Hash(code);
         var stored = (await secrets.ListAsync(kind, cancellation)).FirstOrDefault(each => each.Name == key).Value;
         if (string.IsNullOrEmpty(stored)) return null;
         await secrets.PutAsync(kind, key, "", cancellation);
@@ -170,7 +172,7 @@ public static partial class AppSignIn
         note.ActorName = user.FindFirstValue(ClaimTypes.Name);
     }
 
-    public static string ChallengeOf(string verifier) => Base64Url(SHA256.HashData(Encoding.ASCII.GetBytes(verifier)));
+    public static string ChallengeOf(string verifier) => Base64Url.EncodeToString(SHA256.HashData(Encoding.ASCII.GetBytes(verifier)));
 
     private static bool ValidRequest(string? challenge, string? scheme) =>
         challenge is not null && ChallengePattern().IsMatch(challenge) && scheme is not null && SchemePattern().IsMatch(scheme);
@@ -186,13 +188,6 @@ public static partial class AppSignIn
             || string.Equals(origin, $"{context.Request.Scheme}://{context.Request.Host}", StringComparison.OrdinalIgnoreCase);
     }
 
-    /// <summary>Only back into this app: a path, never another site.</summary>
-    private static string SafeReturn(string? returnUrl) =>
-        returnUrl is { Length: > 0 } && returnUrl.StartsWith('/') && !returnUrl.StartsWith("//", StringComparison.Ordinal)
-            && !returnUrl.StartsWith("/\\", StringComparison.Ordinal)
-            ? returnUrl
-            : "/";
-
     /// <summary>Not framed (the button must not be clicked through another page), no script, and the form may only lead back to the app.</summary>
     private static void Protect(HttpContext context, string scheme)
     {
@@ -204,9 +199,22 @@ public static partial class AppSignIn
         headers["Referrer-Policy"] = "same-origin";
     }
 
-    private static string ConfirmPage(string username, string challenge, string scheme, string returnUrl)
+    private static string ConfirmPage(string username, string challenge, string scheme, string returnUrl) =>
+        ConfirmationPage(
+            "Open Punchlist on this device?",
+            $"You are signed in as <strong>{WebUtility.HtmlEncode(username)}</strong>. Continue to sign in to the Punchlist app with this account. "
+            + "If you did not just ask for this, close this tab.",
+            "/auth/app/handoff",
+            ("challenge", challenge), ("scheme", scheme), ("returnUrl", returnUrl));
+
+    /// <summary>
+    /// One of our confirm pages, in the app's own look: a heading, a line (HTML the caller has
+    /// escaped) and a form of hidden fields with one Continue button that posts to <paramref name="action"/>.
+    /// </summary>
+    private static string ConfirmationPage(string heading, string textHtml, string action, params (string Name, string Value)[] fields)
     {
         static string E(string text) => WebUtility.HtmlEncode(text);
+        var inputs = string.Concat(fields.Select(field => $"<input type=\"hidden\" name=\"{E(field.Name)}\" value=\"{E(field.Value)}\">\n    "));
         return string.Create(CultureInfo.InvariantCulture, $$"""
             <!doctype html>
             <html lang="en">
@@ -227,22 +235,14 @@ public static partial class AppSignIn
             </head>
             <body>
             <main>
-              <h1>Open Punchlist on this device?</h1>
-              <p>You are signed in as <strong>{{E(username)}}</strong>. Continue to sign in to the Punchlist app with this account. If you did not just ask for this, close this tab.</p>
-              <form method="post" action="/auth/app/handoff">
-                <input type="hidden" name="challenge" value="{{E(challenge)}}">
-                <input type="hidden" name="scheme" value="{{E(scheme)}}">
-                <input type="hidden" name="returnUrl" value="{{E(returnUrl)}}">
-                <button type="submit">Continue</button>
+              <h1>{{E(heading)}}</h1>
+              <p>{{textHtml}}</p>
+              <form method="post" action="{{E(action)}}">
+                {{inputs}}<button type="submit">Continue</button>
               </form>
             </main>
             </body>
             </html>
             """);
     }
-
-    private static string Hash(string code) => Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(code)));
-
-    private static string Base64Url(byte[] bytes) =>
-        Convert.ToBase64String(bytes).TrimEnd('=').Replace('+', '-').Replace('/', '_');
 }

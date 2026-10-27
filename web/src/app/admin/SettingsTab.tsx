@@ -3,6 +3,7 @@ import { useState } from 'react';
 import type { AdminApi, ServerSetting, ServerSettingsView } from '../../ports/admin.ts';
 import type { MessageKey } from '../i18n/en.ts';
 import { t } from '../i18n/i18n.ts';
+import { ProblemAlert } from '../layout/ProblemAlert.tsx';
 import { PasswordField } from '../layout/PasswordField.tsx';
 import { useIsSuperAdmin, useLoaded } from './useAdmin.ts';
 
@@ -277,11 +278,7 @@ export function SettingsTab({ api }: { api: AdminApi }) {
             ))}
         </Box>
       ))}
-      {problem && (
-        <Alert severity="error" variant="outlined">
-          {problem}
-        </Alert>
-      )}
+      <ProblemAlert problem={problem} />
       <Box sx={{ display: 'flex', gap: 1 }}>
         <Button
           variant="contained"

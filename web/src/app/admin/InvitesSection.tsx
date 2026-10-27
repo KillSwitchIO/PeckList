@@ -14,6 +14,7 @@ import {
 import { useState, type FormEvent } from 'react';
 import type { AdminApi, AdminInvite, InviteList } from '../../ports/admin.ts';
 import { t } from '../i18n/i18n.ts';
+import { ProblemAlert } from '../layout/ProblemAlert.tsx';
 import { CloseIcon } from '../icons/icons.tsx';
 import { describeInvite } from './inviteText.ts';
 import { refusalText } from './useAdmin.ts';
@@ -123,11 +124,7 @@ export function InviteDialog({
               ))}
             </TextField>
           </Box>
-          {problem && (
-            <Alert severity="error" variant="outlined">
-              {problem}
-            </Alert>
-          )}
+          <ProblemAlert problem={problem} />
         </DialogContent>
         <DialogActions>
           <Button onClick={close}>{t('admin.cancel')}</Button>

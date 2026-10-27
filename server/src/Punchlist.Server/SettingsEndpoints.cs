@@ -96,7 +96,7 @@ public static class SettingsEndpoints
         // with the saved values.
         admin.MapPost("/restart", (IHostApplicationLifetime lifetime) =>
         {
-            _ = Task.Delay(500).ContinueWith(_ => lifetime.StopApplication(), TaskScheduler.Default);
+            ServerApp.StopSoon(lifetime);
             return Results.Accepted();
         }).RequirePermission(Permission.ManageSettings).Audited("server.restart", targetRoute: null);
 

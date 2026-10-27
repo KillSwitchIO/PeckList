@@ -14,6 +14,7 @@ import type {
   SyncTransport,
 } from '../ports/sync.ts';
 import { SyncFailure } from '../ports/sync.ts';
+import { messageOf } from '../core/errors.ts';
 import { createHttpAdmin } from './http-admin.ts';
 
 interface ErrorBody {
@@ -33,37 +34,32 @@ export function createHttpSync(
   /** This device (tab), sent with each sync so the server's change events can name it. */
   device: string | null = null,
 ): SyncTransport {
-  const call = async (path: string, init?: { method?: string; body?: unknown }) => {
+  /** A request with the session cookie and this device's name; no answer at all reads as offline. */
+  const send = async (path: string, init: RequestInit & { headers: Record<string, string> }) => {
     try {
       return await fetcher(`${base}${path}`, {
-        method: init?.method ?? 'GET',
+        ...init,
         credentials: 'same-origin',
-        headers: {
-          ...(init?.body === undefined ? {} : { 'Content-Type': 'application/json' }),
-          ...(device ? { 'X-Punchlist-Device': device } : {}),
-        },
-        body: init?.body === undefined ? null : JSON.stringify(init.body),
+        headers: { ...init.headers, ...(device ? { 'X-Punchlist-Device': device } : {}) },
       });
     } catch (error) {
-      throw new SyncFailure('offline', error instanceof Error ? error.message : String(error));
+      throw new SyncFailure('offline', messageOf(error));
     }
   };
+  /** A JSON request (or a plain GET). */
+  const call = (path: string, init?: { method?: string; body?: unknown }) =>
+    send(path, {
+      method: init?.method ?? 'GET',
+      headers: init?.body === undefined ? {} : { 'Content-Type': 'application/json' },
+      body: init?.body === undefined ? null : JSON.stringify(init.body),
+    });
   /** A file's own request: raw bytes, not JSON. */
-  const fileCall = async (sha256: string, method: string, body?: Blob) => {
-    try {
-      return await fetcher(`${base}/api/attachments/${encodeURIComponent(sha256)}`, {
-        method,
-        credentials: 'same-origin',
-        headers: {
-          ...(body ? { 'Content-Type': 'application/octet-stream' } : {}),
-          ...(device ? { 'X-Punchlist-Device': device } : {}),
-        },
-        body: body ?? null,
-      });
-    } catch (error) {
-      throw new SyncFailure('offline', error instanceof Error ? error.message : String(error));
-    }
-  };
+  const fileCall = (sha256: string, method: string, body?: Blob) =>
+    send(`/api/attachments/${encodeURIComponent(sha256)}`, {
+      method,
+      headers: body ? { 'Content-Type': 'application/octet-stream' } : {},
+      body: body ?? null,
+    });
   const errorOf = async (response: Response): Promise<ErrorBody> => {
     try {
       return (await response.json()) as ErrorBody;

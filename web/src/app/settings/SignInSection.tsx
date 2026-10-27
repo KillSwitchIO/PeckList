@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router';
 import type { SignInMethods } from '../../ports/sync.ts';
 import { t } from '../i18n/i18n.ts';
+import { ProblemAlert } from '../layout/ProblemAlert.tsx';
 import { useSyncState } from '../sync/syncContext.ts';
 import { Section, SettingRow } from './settingsLayout.tsx';
 
@@ -71,11 +72,7 @@ export function SignInSection() {
           {t(`settings.signIn.done.${outcome}`)}
         </Alert>
       )}
-      {problem && (
-        <Alert severity="error" variant="outlined" sx={{ mb: 1 }}>
-          {problem}
-        </Alert>
-      )}
+      <ProblemAlert problem={problem} sx={{ mb: 1 }} />
       {methods.password && (
         <SettingRow label={t('settings.signIn.password')} hint={t('settings.signIn.passwordOn')} />
       )}

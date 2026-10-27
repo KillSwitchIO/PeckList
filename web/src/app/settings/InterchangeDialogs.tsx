@@ -17,6 +17,7 @@ import {
   Typography,
 } from '@mui/material';
 import { useMemo, useRef, useState } from 'react';
+import { ProblemAlert } from '../layout/ProblemAlert.tsx';
 import type { DateParser } from '../../ports/dateParser.ts';
 import { localTimeZone } from '../../core/dates.ts';
 import { visibleLists } from '../../core/lists.ts';
@@ -217,11 +218,7 @@ export function ImportDialog({
               }}
             />
           </Box>
-          {problem && (
-            <Alert severity="error" variant="outlined">
-              {problem}
-            </Alert>
-          )}
+          <ProblemAlert problem={problem} />
           {summary && (
             <Box data-testid="import-preview">
               <Typography>

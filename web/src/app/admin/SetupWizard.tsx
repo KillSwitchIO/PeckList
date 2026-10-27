@@ -13,6 +13,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router';
 import type { AdminApi, ServerSetting, ServerSettingsView } from '../../ports/admin.ts';
 import { t } from '../i18n/i18n.ts';
+import { ProblemAlert } from '../layout/ProblemAlert.tsx';
 import { PasswordField } from '../layout/PasswordField.tsx';
 
 const STEPS = ['address', 'provider', 'join'] as const;
@@ -301,11 +302,7 @@ export function SetupWizard({ api }: { api: AdminApi }) {
         </>
       )}
 
-      {problem && (
-        <Alert severity="error" variant="outlined">
-          {problem}
-        </Alert>
-      )}
+      <ProblemAlert problem={problem} />
 
       <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
         {step > 0 && <Button onClick={() => go(step - 1)}>{t('setup.back')}</Button>}

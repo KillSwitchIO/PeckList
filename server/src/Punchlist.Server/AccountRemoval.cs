@@ -1,4 +1,3 @@
-using System.Text.Json.Nodes;
 using Punchlist.Core.Accounts;
 using Punchlist.Core.Configuration;
 using Punchlist.Core.Sharing;
@@ -31,7 +30,8 @@ public sealed class AccountRemoval(
     Core.Push.IPushStore push,
     LiveSettings live,
     TimeProvider time,
-    ILogger<AccountRemoval> logger) : BackgroundService
+    ILogger<AccountRemoval> logger)
+    : PeriodicService("Removing deleted accounts", TimeSpan.FromSeconds(30), TimeSpan.FromHours(1), time, logger)
 {
     // One removal at a time: the hourly sweep and an admin's "delete now" may meet.
     private readonly SemaphoreSlim removing = new(1, 1);
@@ -39,22 +39,7 @@ public sealed class AccountRemoval(
     /// <summary>When a deleted account goes for good.</summary>
     public DateTimeOffset RemovedAt(Account account) => account.DeletedAt!.Value.AddDays(live.Current.AccountDeleteGraceDays);
 
-    protected override async Task ExecuteAsync(CancellationToken stopping)
-    {
-        await Task.Delay(TimeSpan.FromSeconds(30), time, stopping).ConfigureAwait(ConfigureAwaitOptions.SuppressThrowing);
-        while (!stopping.IsCancellationRequested)
-        {
-            try
-            {
-                await RemoveDueAsync(stopping);
-            }
-            catch (Exception error) when (error is not OperationCanceledException)
-            {
-                logger.LogError(error, "Removing deleted accounts failed; trying again in an hour");
-            }
-            await Task.Delay(TimeSpan.FromHours(1), time, stopping).ConfigureAwait(ConfigureAwaitOptions.SuppressThrowing);
-        }
-    }
+    protected override Task RunAsync(CancellationToken stopping) => RemoveDueAsync(stopping);
 
     /// <summary>Remove every deleted account whose grace period is over; how many went.</summary>
     public async Task<int> RemoveDueAsync(CancellationToken cancellation = default)
@@ -62,7 +47,7 @@ public sealed class AccountRemoval(
         await removing.WaitAsync(cancellation);
         try
         {
-            var now = time.GetUtcNow();
+            var now = Time.GetUtcNow();
             var due = (await accounts.ListAsync(cancellation)).Where(account => account.DeletedAt is not null && RemovedAt(account) <= now).ToList();
             foreach (var account in due) await RemoveAsync(account, cancellation);
             return due.Count;
@@ -102,12 +87,7 @@ public sealed class AccountRemoval(
         await foreach (var entity in entities.AllAsync(cancellation))
         {
             if (entity.OwnerId != account.Id || entity.Doc["deletedAt"] is not null) continue;
-            writes.Add(new IncomingEntity(entity.Collection, new JsonObject
-            {
-                ["id"] = entity.Id,
-                ["deletedAt"] = clock.Now(),
-                ["_hlc"] = new JsonObject { ["deletedAt"] = clock.Next() },
-            }));
+            writes.Add(new IncomingEntity(entity.Collection, ServerEntities.Tombstone(entity.Id, clock)));
         }
         if (writes.Count > 0) await sync.WriteAsServerAsync(account.Id, writes, cancellation);
         foreach (var identity in (await identities.ListAsync(cancellation)).Where(each => each.AccountId == account.Id))
@@ -131,6 +111,6 @@ public sealed class AccountRemoval(
         await invites.SettleAsync(cancellation);
         await serverGroupProjection.ProjectAsync(cancellation);
         audit.RecordSystem("admin.user-removed", detail: $"{account.Username}, {writes.Count} things deleted");
-        logger.LogWarning("Removed the deleted account {Username} for good ({Count} things deleted)", account.Username, writes.Count);
+        Logger.LogWarning("Removed the deleted account {Username} for good ({Count} things deleted)", account.Username, writes.Count);
     }
 }
