@@ -1,4 +1,4 @@
-import { daysBetween, localTimeZone, todayIn } from '../../core/dates.ts';
+import { daysBetween, localDayOf, localTimeZone } from '../../core/dates.ts';
 import type { Task } from '../../core/types.ts';
 import { formatMonth } from '../format.ts';
 import { dayTitle } from './dayLabels.ts';
@@ -11,7 +11,7 @@ export interface ClosedGroup {
 
 /** The local day a closed task was completed (or marked won't do). */
 export function closedDay(task: Task, zone = localTimeZone()): string | null {
-  return task.completedAt ? todayIn(zone, Date.parse(task.completedAt)) : null;
+  return task.completedAt ? localDayOf(task.completedAt, zone) : null;
 }
 
 /**

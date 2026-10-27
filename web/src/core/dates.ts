@@ -18,6 +18,22 @@ export function todayIn(timeZone: string, now: number): string {
   return `${get('year')}-${get('month')}-${get('day')}`;
 }
 
+// Views ask for the day of the same instants (when tasks were completed) on every render: one
+// conversion per instant and zone, kept (R-FB-94: 4,279 a render made Today 100 ms slower).
+const instantDays = new Map<string, string>();
+
+/** The local date (`YYYY-MM-DD`) of an ISO instant in `timeZone`. */
+export function localDayOf(instant: string, timeZone: string): string {
+  const key = `${timeZone}|${instant}`;
+  let day = instantDays.get(key);
+  if (day === undefined) {
+    day = todayIn(timeZone, Date.parse(instant));
+    if (instantDays.size >= 100_000) instantDays.clear();
+    instantDays.set(key, day);
+  }
+  return day;
+}
+
 /** An instant's wall-clock date and time in `timeZone`, as `YYYY-MM-DDTHH:mm`. */
 export function localDateTimeOf(instant: string, timeZone: string): string {
   const parts = dateTimeFormat('en-CA', {
