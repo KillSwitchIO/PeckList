@@ -45,7 +45,7 @@ export default defineConfig({
     workspaceValidator(fileURLToPath(new URL('../schema/workspace.schema.json', import.meta.url))),
     VitePWA({
       registerType: 'prompt',
-      includeAssets: ['icon.svg'],
+      includeAssets: ['icon.svg', 'favicon.svg'],
       workbox: {
         // Page loads of the server's own paths go to the network, never the app shell: signing in
         // with a provider and its return to the callback are page loads (src/serverPaths.ts).
