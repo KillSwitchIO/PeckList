@@ -37,6 +37,7 @@ import {
   updateTask,
 } from '../../core/tasks.ts';
 import { followReorder } from '../dnd/followReorder.ts';
+import { hoverOutline } from '../dnd/hoverOutline.ts';
 import type { Task } from '../../core/types.ts';
 import { t } from '../i18n/i18n.ts';
 import { useApply, useWorkspace } from '../store/hooks.ts';
@@ -241,6 +242,7 @@ function SubtaskLine({
           pl: `${node.depth * 24}px`,
           borderRadius: 1.5,
           '&:hover .subtask-open, &:focus-within .subtask-open': { opacity: 1 },
+          '@media (hover: hover)': { '&:hover': { boxShadow: hoverOutline } },
         }}
       >
         <PriorityCheckbox task={task} />

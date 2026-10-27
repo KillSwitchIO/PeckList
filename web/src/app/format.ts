@@ -2,6 +2,7 @@
 import { addDays, datePart, timePart } from '../core/dates.ts';
 import { DATE_FORMAT_AUTO, formatDatePattern, isDatePattern } from '../core/dateFormat.ts';
 import { t } from './i18n/i18n.ts';
+import { dateTimeFormat } from '../core/intl.ts';
 
 function toDate(date: string): Date {
   const [y, m, d] = date.split('-').map(Number) as [number, number, number];
@@ -18,7 +19,7 @@ export function formatDay(date: string, today: string, locale?: string): string 
   if (date === addDays(today, -1)) return t('date.yesterday');
   if (display.dateFormat) return formatDatePattern(date, display.dateFormat, locale);
   const sameYear = date.slice(0, 4) === today.slice(0, 4);
-  return new Intl.DateTimeFormat(locale, {
+  return dateTimeFormat(locale, {
     timeZone: 'UTC',
     weekday: sameYear ? 'short' : undefined,
     month: 'short',
@@ -30,7 +31,7 @@ export function formatDay(date: string, today: string, locale?: string): string 
 /** "October" for a month of this year, "October 2027" for other years. `month` is `YYYY-MM`. */
 export function formatMonth(month: string, today: string, locale?: string): string {
   const [y, m] = month.split('-').map(Number) as [number, number];
-  return new Intl.DateTimeFormat(locale, {
+  return dateTimeFormat(locale, {
     timeZone: 'UTC',
     month: 'long',
     year: month.slice(0, 4) === today.slice(0, 4) ? undefined : 'numeric',
@@ -65,7 +66,7 @@ export const weekStart = () => display.weekStart;
 /** Display a 24-hour `HH:mm` on the user's clock: "9:00 AM", or "09:00" on a 24-hour clock. */
 export function formatTime(time: string, locale?: string, hour12 = !display.clock24): string {
   const [h, m] = time.split(':').map(Number) as [number, number];
-  return new Intl.DateTimeFormat(locale, {
+  return dateTimeFormat(locale, {
     timeZone: 'UTC',
     hour: hour12 ? 'numeric' : '2-digit',
     minute: '2-digit',
@@ -76,7 +77,7 @@ export function formatTime(time: string, locale?: string, hour12 = !display.cloc
 /** An hour on the time grid's edge: "10 PM", or "22:00" on a 24-hour clock. */
 export function formatHour(hour: number, locale?: string): string {
   if (display.clock24) return `${String(hour).padStart(2, '0')}:00`;
-  return new Intl.DateTimeFormat(locale, { timeZone: 'UTC', hour: 'numeric', hour12: true }).format(
+  return dateTimeFormat(locale, { timeZone: 'UTC', hour: 'numeric', hour12: true }).format(
     new Date(Date.UTC(2000, 0, 1, hour)),
   );
 }

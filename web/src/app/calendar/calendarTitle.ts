@@ -1,5 +1,6 @@
 import { addDays } from '../../core/dates.ts';
 import { formatMonth } from '../format.ts';
+import { dateTimeFormat } from '../../core/intl.ts';
 
 /**
  * The calendar's heading: "October" for the month view; for the Days view "Thursday, Oct 22" (one
@@ -15,7 +16,7 @@ export function calendarTitle(
 ): string {
   const at = (day: string) => new Date(`${day}T12:00:00Z`);
   const format = (day: string, options: Intl.DateTimeFormatOptions) =>
-    new Intl.DateTimeFormat(locale, { ...options, timeZone: 'UTC' }).format(at(day));
+    dateTimeFormat(locale, { ...options, timeZone: 'UTC' }).format(at(day));
   const thisYear = today.slice(0, 4);
   if (mode === 'month') return formatMonth(date.slice(0, 7), today, locale);
   if (count <= 1) {

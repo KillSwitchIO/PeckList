@@ -75,8 +75,8 @@ export function useShortcuts(): { helpOpen: boolean; openHelp: () => void; close
         }
         case 'edit': {
           if (!editable) return false;
-          const title = document.querySelector<HTMLInputElement>(
-            `[aria-label="${t('task.details')}"] input:not([type=file])`,
+          const title = document.querySelector<HTMLTextAreaElement>(
+            `[aria-label="${t('task.details')}"] [data-task-title]`,
           );
           title?.focus();
           title?.select();

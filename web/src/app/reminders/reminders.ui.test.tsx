@@ -182,6 +182,32 @@ describe('reminders', () => {
     expect(within(again).getByRole('status')).toHaveTextContent('The reminder has expired.');
   });
 
+  it('remind a timed task days early at a time of their own (R-FB-91)', async () => {
+    setNotifier(fakeNotifier('granted'));
+    const store = testStore();
+    await renderApp('/inbox', store);
+    const id = addTask(store, 'Renew passport', `${inMinutes(90 * 24 * 60).slice(0, 10)}T10:00`);
+    await userEvent.click(screen.getByRole('button', { name: 'Open Renew passport' }));
+    const details = await screen.findByRole('region', { name: 'Task details' });
+    await userEvent.click(within(details).getByRole('button', { name: 'Reminders: None' }));
+    const sheet = await screen.findByRole('dialog', { name: 'Reminder' });
+    await userEvent.click(within(sheet).getByRole('menuitemcheckbox', { name: /Custom/ }));
+    await userEvent.click(within(sheet).getByRole('tab', { name: 'Day' }));
+    const wheel = (name: string) => within(within(sheet).getByRole('listbox', { name }));
+    await userEvent.click(wheel('How early').getByRole('option', { name: '60 days early' }));
+    // The time wheels start at the task's own time (10:00 AM): 4 PM.
+    await userEvent.click(wheel('Hour').getByRole('option', { name: '4' }));
+    await userEvent.click(wheel('AM or PM').getByRole('option', { name: 'PM' }));
+    await userEvent.click(within(sheet).getByRole('button', { name: 'Done' }));
+    await userEvent.click(within(sheet).getByRole('button', { name: 'OK' }));
+    const task = () => store.getState().workspace!.entities.tasks.find((each) => each.id === id)!;
+    // 60 days before 10:00, then 6 hours later that day.
+    expect(task().reminders).toEqual([{ before: 60 * 1440 - 360 }]);
+    expect(
+      within(details).getByRole('button', { name: /^Reminders: 60 days early \(4:00/ }),
+    ).toBeInTheDocument();
+  });
+
   it('fire once when due, a little late after a sleep, and not for closed tasks', async () => {
     const notifier = fakeNotifier();
     setNotifier(notifier);

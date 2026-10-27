@@ -36,6 +36,7 @@ import { DateButton, TaskDateSheet } from './DateButton.tsx';
 import { SwipeRow } from './SwipeRow.tsx';
 import { useRowDate } from './rowDate.ts';
 import { MoveToListDialog, TaskMenu, type TaskMenuAnchor } from './TaskMenu.tsx';
+import { isBlankDraft } from './drafts.ts';
 
 const PRIORITY_KEY = { 0: 'none', 1: 'low', 2: 'medium', 3: 'high' } as const satisfies Record<
   Priority,
@@ -125,7 +126,18 @@ export interface RowSelection {
   onToggle: () => void;
 }
 
-export function TaskRow({
+type TaskRowProps = Parameters<typeof TaskRowContent>[0];
+
+/**
+ * One task in a list. A blank task the add bar's expand button made for its form stays out of the
+ * lists until it has a title (R-FB-93): closed still empty, it goes again.
+ */
+export function TaskRow(props: TaskRowProps) {
+  if (isBlankDraft(props.task)) return null;
+  return <TaskRowContent {...props} />;
+}
+
+function TaskRowContent({
   task,
   showList = false,
   showParent = true,

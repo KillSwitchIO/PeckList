@@ -27,22 +27,35 @@ export function minutesEarlyText(minutes: number): string {
   return minutes === 1 ? t('reminder.minuteEarly') : t('reminder.minutesEarly', { minutes });
 }
 
-/** A reminder as words and, for an all-day task, the time of day it comes at. */
+/**
+ * A reminder as words and the time of day it comes at: always for an all-day task; for a timed
+ * one (its start time `startTime`) when it is days early at a time of its own (R-FB-91).
+ */
 export function reminderParts(
   reminder: Reminder,
   allDay: boolean,
   today: string,
+  startTime: string | null = null,
 ): { text: string; time?: string } {
   if ('at' in reminder) return { text: formatWhen(reminder.at, today) };
   if (allDay) {
     const { days, time } = allDayParts(reminder.before);
     return { text: daysEarlyText(days), time: formatTime(time) };
   }
+  if (startTime && reminder.before >= 1440 && reminder.before % 1440 !== 0) {
+    const { days, time } = allDayParts(reminder.before, startTime);
+    return { text: daysEarlyText(days), time: formatTime(time) };
+  }
   return { text: minutesEarlyText(reminder.before) };
 }
 
 /** "30 minutes early", "1 day early (9:00 AM)", "On the day (9:00 AM)", or the set time. */
-export function reminderLabel(reminder: Reminder, allDay: boolean, today: string): string {
-  const { text, time } = reminderParts(reminder, allDay, today);
+export function reminderLabel(
+  reminder: Reminder,
+  allDay: boolean,
+  today: string,
+  startTime: string | null = null,
+): string {
+  const { text, time } = reminderParts(reminder, allDay, today, startTime);
   return time ? `${text} (${time})` : text;
 }

@@ -1,3 +1,4 @@
+import { dateTimeFormat } from './intl.ts';
 // How dates show (Settings > Dates): the language's own, a preset, or a pattern the user types.
 // Patterns take the tokens people know from ISO 8601 and moment.js, in either case where that
 // is not ambiguous: YYYY 2026, YY 26, MMMM October, MMM Oct, MM 10, M 10, DD 05, D 5,
@@ -36,7 +37,7 @@ export function formatDatePattern(date: string, pattern: string, locale?: string
   const [year, month, day] = date.split('-').map(Number) as [number, number, number];
   const at = new Date(Date.UTC(year, month - 1, day, 12));
   const name = (options: Intl.DateTimeFormatOptions) =>
-    new Intl.DateTimeFormat(locale, { ...options, timeZone: 'UTC' }).format(at);
+    dateTimeFormat(locale, { ...options, timeZone: 'UTC' }).format(at);
   return pattern.replace(TOKENS, (token) => {
     switch (token) {
       case 'YYYY':

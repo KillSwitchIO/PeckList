@@ -140,6 +140,8 @@ describe('task details', () => {
     const count = () =>
       store.getState().workspace!.entities.tasks.filter((task) => task.title === '').length;
     expect(count()).toBe(1);
+    // While its form is open the blank task stays out of the list behind it (R-FB-93).
+    expect(screen.queryByRole('button', { name: 'Open Untitled task', hidden: true })).toBeNull();
     await userEvent.keyboard('{Escape}');
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
     await userEvent.keyboard('{Escape}');

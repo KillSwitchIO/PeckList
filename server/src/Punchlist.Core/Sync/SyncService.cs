@@ -314,6 +314,16 @@ public sealed partial class SyncService(
                 Check(item["hlc"], $"{field}.{element}");
             }
         }
+        // Text that is not valid Unicode (half an emoji, cut in two by an import) cannot be stored:
+        // this change alone is refused, not the whole push (R-FB-94).
+        try
+        {
+            entity.ToJsonString();
+        }
+        catch (InvalidOperationException)
+        {
+            throw new SyncRejected("invalid_text", $"{Where()} ({id}): text that is not valid Unicode");
+        }
         return new IncomingEntity(change.Collection, entity);
     }
 }

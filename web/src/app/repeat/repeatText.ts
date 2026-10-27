@@ -1,12 +1,13 @@
 import { parseRule, type ByDay, type Recurrence } from '../../core/recurrence.ts';
 import { formatDay } from '../format.ts';
 import { t } from '../i18n/i18n.ts';
+import { dateTimeFormat } from '../../core/intl.ts';
 
 const sunday = Date.UTC(2026, 0, 4, 12);
 
 /** A weekday's name: "Friday", or "Fri" short. */
 export function weekdayName(day: number, short = false, locale?: string): string {
-  return new Intl.DateTimeFormat(locale, {
+  return dateTimeFormat(locale, {
     timeZone: 'UTC',
     weekday: short ? 'short' : 'long',
   }).format(new Date(sunday + day * 86_400_000));
@@ -14,7 +15,7 @@ export function weekdayName(day: number, short = false, locale?: string): string
 
 /** "Oct 24" for a month and day, whatever the year. */
 function monthDay(month: number, day: number, locale?: string): string {
-  return new Intl.DateTimeFormat(locale, {
+  return dateTimeFormat(locale, {
     timeZone: 'UTC',
     month: 'short',
     day: 'numeric',

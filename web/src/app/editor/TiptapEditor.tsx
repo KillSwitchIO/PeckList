@@ -42,6 +42,7 @@ import {
   type SlashCommandId,
   type SlashMenuHandlers,
 } from './slashCommands.ts';
+import { hoverOutline } from '../dnd/hoverOutline.ts';
 import { listItemHandles } from './listItemHandles.ts';
 import { editorMarkdown, linkHref, notesExtensions } from './tiptapMarkdown.ts';
 
@@ -295,6 +296,14 @@ export default function TiptapEditor({
           },
           '& li:hover > .note-item-handle, & li:hover > div > .note-item-handle': { opacity: 0.8 },
           '&[contenteditable=false] .note-item-handle': { display: 'none' },
+          // The item under the mouse gets the subtasks' light outline (R-FB-89); only the innermost
+          // one when lists nest.
+          '@media (hover: hover)': {
+            '&[contenteditable=true] li:hover:not(:has(li:hover))': {
+              boxShadow: hoverOutline(theme),
+              borderRadius: 1,
+            },
+          },
           '& a': { color: 'primary.main', textDecoration: 'underline', cursor: 'text' },
           '& code': {
             fontFamily: 'ui-monospace, SFMono-Regular, Consolas, monospace',

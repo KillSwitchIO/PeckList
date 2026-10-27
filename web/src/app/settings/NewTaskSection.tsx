@@ -1,11 +1,10 @@
-import { MenuItem, Switch, TextField } from '@mui/material';
+import { Button, MenuItem, Switch, TextField } from '@mui/material';
+import { useState } from 'react';
 import { visibleLists } from '../../core/lists.ts';
 import { newTaskDefaultsOf } from '../../core/newTaskDefaults.ts';
-import {
-  ALL_DAY_REMINDER_TIME,
-  allDayReminderTimeOf,
-  TIMED_PRESETS,
-} from '../../core/reminders.ts';
+import { ALL_DAY_REMINDER_TIME, allDayReminderTimeOf } from '../../core/reminders.ts';
+import { formatTime } from '../format.ts';
+import { ReminderSheet } from '../reminders/ReminderProperty.tsx';
 import { reminderLabel } from '../reminders/reminderText.ts';
 import { updateSettings } from '../../core/settings.ts';
 import { canEditList } from '../../core/sharing.ts';
@@ -18,8 +17,6 @@ import { Section, SettingRow } from './settingsLayout.tsx';
 
 const DATES = ['none', 'today', 'tomorrow', 'nextWeek'] as const;
 const PRIORITIES: Priority[] = [0, 1, 2, 3];
-/** No default reminder, in the reminder select. */
-const NO_REMINDER = 'none';
 /** The Mess Drawer in the list select (its value must not be empty). */
 const INBOX = 'inbox';
 
@@ -45,8 +42,10 @@ export function NewTaskSection() {
   const listValue =
     defaults.listId && lists.some((list) => list.id === defaults.listId) ? defaults.listId : INBOX;
   const date = defaults.date ?? 'none';
-  const first = defaults.reminders?.[0];
-  const reminderChoice = first && 'before' in first ? String(first.before) : NO_REMINDER;
+  const [reminderAnchor, setReminderAnchor] = useState<HTMLElement | null>(null);
+  const reminderText = defaults.reminders?.length
+    ? defaults.reminders.map((each) => reminderLabel(each, false, '')).join(', ')
+    : t('reminder.none');
   return (
     <Section title={t('newTask.title')} hint={t('newTask.hint')}>
       <SettingRow label={t('newTask.list')} hint={t('newTask.listHint')}>
@@ -109,23 +108,29 @@ export function NewTaskSection() {
         </SettingRow>
       )}
       <SettingRow label={t('newTask.reminder')} hint={t('newTask.reminderHint')}>
-        <TextField
-          select
-          size="small"
-          value={reminderChoice}
-          onChange={(event) => {
-            const value = event.target.value;
-            change({ reminders: value === NO_REMINDER ? [] : [{ before: Number(value) }] });
-          }}
-          slotProps={{ htmlInput: { 'aria-label': t('newTask.reminder') } }}
+        {/* The same reminder list as a task's (R-FB-92), not a menu of its own. */}
+        <Button
+          variant="outlined"
+          color="inherit"
+          onClick={(event) => setReminderAnchor(event.currentTarget)}
+          aria-label={`${t('newTask.reminder')}: ${reminderText}`}
+          sx={{ textTransform: 'none', justifyContent: 'flex-start', minWidth: 160 }}
         >
-          <MenuItem value={NO_REMINDER}>{t('reminder.none')}</MenuItem>
-          {TIMED_PRESETS.map((before) => (
-            <MenuItem key={before} value={String(before)}>
-              {reminderLabel({ before }, false, '')}
-            </MenuItem>
-          ))}
-        </TextField>
+          {reminderText}
+        </Button>
+        <ReminderSheet
+          anchor={reminderAnchor}
+          initial={{ reminders: defaults.reminders ?? [], constant: false }}
+          task={null}
+          allDay={false}
+          note={t('newTask.reminderNote', { time: formatTime(allDayReminderTimeOf(workspace)) })}
+          showConstant={false}
+          onSave={(draft) => {
+            change({ reminders: draft.reminders });
+            setReminderAnchor(null);
+          }}
+          onClose={() => setReminderAnchor(null)}
+        />
       </SettingRow>
       <SettingRow label={t('newTask.allDayTime')} hint={t('newTask.allDayTimeHint')}>
         <TextField

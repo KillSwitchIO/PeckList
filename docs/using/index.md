@@ -69,9 +69,9 @@ their start; the due date is the deadline.
 - **Reminders**: in a task's details, **Reminders** opens a list like TickTick's: tick any of
   **On time**, 5 or 30 minutes, an hour or a day early (an all-day task: **On the day**, 1, 2 or 3
   days or a week early, each at 9:00 or the time set in **Settings > New tasks > All-day reminder
-  time**), or **None**. **Custom** makes your own: for an all-day task, the **Day** or **Week** tab
-  picks how early and the wheels the time of day; for a timed task, the **Minute**, **Hour** or **Day** tab picks how early. It shows
-  when the reminder will come, or that the time has passed. **Constant reminder** keeps a reminder
+  time**), or **None**. **Custom** makes your own: the **Day** or **Week** tab picks how many days
+  or weeks early and the wheels the time of day (60 days early at 4:00 PM, say); a timed task also
+  has **Minute** and **Hour** tabs for minutes or hours early. It shows when the reminder will come, or that the time has passed. **Constant reminder** keeps a reminder
   on screen and brings it back every 5 minutes for an hour, until the task is done; its
   **Dismiss** stops that reminder (the task's other reminders still come) and **Snooze 10 min**
   adds a one-time reminder ten minutes on. Nothing
@@ -80,8 +80,8 @@ their start; the due date is the deadline.
   They appear while Punchlist is open or in the background (offline too), and with a server and
   **Settings > Notifications > Notify me when Punchlist is closed** turned on for the device, also
   with Punchlist closed (on iPhone and iPad, from Punchlist added to the Home Screen). A click
-  opens the task. A small bell on the row shows a task has reminders. **Settings > New tasks** can
-  give new tasks a reminder.
+  opens the task. A small bell on the row shows a task has reminders. **Settings > New tasks >
+  Reminder** opens the same list to give every new task reminders once it has a date.
 - **Repeat**: in a task's details, **Repeat** offers daily, weekly on the task's weekday, weekdays,
   monthly on its day and yearly on its date, and **Custom**: every so many days, weeks (on the
   days you pick), months (on its day, on its weekday such as the second Tuesday, or on the last
@@ -111,7 +111,7 @@ their start; the due date is the deadline.
   changes nothing. Drop it on a list in the sidebar to move it there. Or use **Move to list...** in
   its menu, or ++alt+arrow-up++ / ++alt+arrow-down++ / ++alt+arrow-right++ / ++alt+arrow-left++.
 - **Groups**: a group's whole heading row (apart from its buttons) folds and unfolds it.
-- **Pin**: **Pin to the top** in a task's menu (or the pin in its details) keeps it in a **Pinned**
+- **Pin**: **Pin to the top** in a task's menu (its **...** in the details) keeps it in a **Pinned**
   group at the top of every view it shows in. Completing it lets go of the pin.
 - **Swipe** (phones and tablets, like TickTick): swipe a task right to complete it (or reopen a
   closed one); a short swipe left shows **Date**, **Move** and **Delete**, and a full one opens

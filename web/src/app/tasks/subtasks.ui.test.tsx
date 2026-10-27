@@ -4,7 +4,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { inboxList } from '../../core/lists.ts';
 import { localTimeZone, todayIn } from '../../core/dates.ts';
 import { createTag } from '../../core/tags.ts';
-import { createTask, setTaskTag } from '../../core/tasks.ts';
+import { createTask, isPinned, setTaskTag } from '../../core/tasks.ts';
 import { mockViewport, renderApp, testStore } from '../../test/renderApp.tsx';
 
 beforeEach(() => {
@@ -166,6 +166,19 @@ describe('subtask layers in the details', () => {
     );
     return screen.findByRole('region', { name: 'Task details' });
   }
+
+  it('pins a subtask from the ... menu, the one place Pin is (R-FB-85, R-FB-95)', async () => {
+    const { store } = await renderTree();
+    const details = await openDetails('Compare prices');
+    // No second Pin button beside the menu.
+    expect(within(details).queryByRole('button', { name: /^Pin/ })).toBeNull();
+    await userEvent.click(within(details).getByRole('button', { name: 'Task actions' }));
+    await userEvent.click(await screen.findByRole('menuitem', { name: 'Pin to the top' }));
+    const prices = store
+      .getState()
+      .workspace!.entities.tasks.find((task) => task.title === 'Compare prices')!;
+    expect(isPinned(prices)).toBe(true);
+  });
 
   it('switches between sibling subtasks', async () => {
     await renderTree();

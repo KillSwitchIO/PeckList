@@ -19,6 +19,7 @@ import { COLLECTIONS, type WorkspaceFile } from '../../core/types.ts';
 import { revertChange } from '../../core/undo.ts';
 import { createWorkspace, emptyEntities } from '../../core/workspace.ts';
 import { keepValid } from '../../core/keepValid.ts';
+import { repairText } from '../../core/wellFormed.ts';
 import type { IdGenerator } from '../../ports/ids.ts';
 import type { Journal } from '../../ports/journal.ts';
 import type { StorageAdapter } from '../../ports/storage.ts';
@@ -122,6 +123,20 @@ export function createWorkspaceStore(deps: StoreDependencies): WorkspaceStore {
   const authoritative = new Set<string>();
   // The workspace as last read from or written to storage: what the journal is measured against.
   let saved: WorkspaceFile | null = null;
+  // A stamp each save leaves in storage. While it is still the one this tab last read or wrote,
+  // no other tab saved since: storage holds `saved`, and a save can skip reading it back and
+  // merging (R-FB-94; with thousands of tasks that read and merge took most of a save).
+  const GENERATION = 'workspace-generation';
+  let generation: unknown = undefined;
+
+  /** Write `workspace` and a new stamp, under the lock. */
+  const write = async (workspace: WorkspaceFile) => {
+    await deps.storage.save(workspace);
+    const stamp = deps.ids.next();
+    await deps.storage.saveMeta(GENERATION, stamp);
+    generation = stamp;
+    saved = workspace;
+  };
 
   /** `workspace` with the journal's changes merged in (same owner and schema only). */
   const withJournal = (workspace: WorkspaceFile): WorkspaceFile => {
@@ -216,11 +231,16 @@ export function createWorkspaceStore(deps: StoreDependencies): WorkspaceStore {
       try {
         await withLock(async () => {
           const current = get().workspace ?? workspace;
+          // Only another tab's save (a new stamp) needs reading back and merging.
+          const stamp = await deps.storage.loadMeta(GENERATION);
+          const stored =
+            saved !== null && typeof generation === 'string' && stamp === generation
+              ? current
+              : pin(mergeStored(await deps.storage.load(), current), current);
           // A journal left by a page that closed (this tab's or another's) goes in too.
-          const merged = withJournal(pin(mergeStored(await deps.storage.load(), current), current));
-          await deps.storage.save(merged);
+          const merged = withJournal(stored);
+          await write(merged);
           deps.journal?.clear();
-          saved = merged;
           authoritative.clear();
           storedOwner = merged.owner;
           if (merged.owner !== current.owner) {
@@ -281,11 +301,14 @@ export function createWorkspaceStore(deps: StoreDependencies): WorkspaceStore {
             ctx = makeContext(opened.workspace.owner);
             storedOwner = opened.workspace.owner;
             saved = opened.workspace;
+            generation = await deps.storage.loadMeta(GENERATION);
             // Changes the page could not save before it closed.
             const recovered = withJournal(opened.workspace);
             if (recovered !== opened.workspace) advanceClock(recovered);
-            set({ status: 'ready', workspace: recovered });
-            if (recovered !== opened.workspace) schedule();
+            // Broken text (half an emoji) would stop every sync: put it right first.
+            const ready = repairText(ctx, recovered);
+            set({ status: 'ready', workspace: ready });
+            if (ready !== opened.workspace) schedule();
           } else if (opened.kind === 'needs-upgrade') {
             set({ status: 'needs-upgrade', problem: opened });
           } else if (opened.kind === 'needs-app-update') {
@@ -352,7 +375,7 @@ export function createWorkspaceStore(deps: StoreDependencies): WorkspaceStore {
             set({ status: 'error', problem: upgraded });
             return;
           }
-          await deps.storage.save(upgraded.workspace);
+          await withLock(() => write(upgraded.workspace));
           storedOwner = upgraded.workspace.owner;
           advanceClock(upgraded.workspace);
           ctx = makeContext(upgraded.workspace.owner);
@@ -444,7 +467,7 @@ export function createWorkspaceStore(deps: StoreDependencies): WorkspaceStore {
         advanceClock(workspace);
         ctx = makeContext(workspace.owner);
         set({ status: 'ready', workspace, undoStack: [], lastUndoable: null, problem: null });
-        await withLock(() => deps.storage.save(workspace));
+        await withLock(() => write(workspace));
         storedOwner = workspace.owner;
         deps.notify?.();
       },

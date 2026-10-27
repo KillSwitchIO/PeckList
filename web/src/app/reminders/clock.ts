@@ -1,8 +1,9 @@
 import { localTimeZone } from '../../core/dates.ts';
+import { dateTimeFormat } from '../../core/intl.ts';
 
 /** "YYYY-MM-DDTHH:mm" in the app's time zone for an instant. */
 export function localClock(at: number): string {
-  const parts = new Intl.DateTimeFormat('en-CA', {
+  const parts = dateTimeFormat('en-CA', {
     timeZone: localTimeZone(),
     year: 'numeric',
     month: '2-digit',

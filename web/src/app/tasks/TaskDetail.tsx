@@ -21,10 +21,10 @@ import { useState } from 'react';
 import { getEntity, isLive } from '../../core/collections.ts';
 import { localDateTimeOf, localTimeZone } from '../../core/dates.ts';
 import { dateState } from '../../core/queries.ts';
-import { deleteTask, isPinned, setCompletedAt, setPinned, updateTask } from '../../core/tasks.ts';
+import { deleteTask, setCompletedAt, updateTask } from '../../core/tasks.ts';
 import { DateProperty } from '../dates/DateProperty.tsx';
 import { NotesEditor } from '../editor/NotesEditor.tsx';
-import { CollapseIcon, DueIcon, ExpandIcon, PinIcon } from '../icons/icons.tsx';
+import { CollapseIcon, DueIcon, ExpandIcon } from '../icons/icons.tsx';
 import { useLongPress } from '../hooks/useLongPress.ts';
 import { CompleteCheckbox } from './CompleteCheckbox.tsx';
 import { completionInstant } from './completion.ts';
@@ -71,8 +71,12 @@ function CommitField({
       label={label}
       value={draft}
       fullWidth
-      slotProps={{ htmlInput: { readOnly } }}
-      onChange={(event) => setDraft(event.target.value)}
+      // Wraps and grows, so a long title reads whole (R-FB-90); it stays one line of text, a
+      // pasted line break becoming a space.
+      multiline
+      // E (keyboard shortcuts) finds it by this.
+      slotProps={{ htmlInput: { readOnly, 'data-task-title': '' } }}
+      onChange={(event) => setDraft(event.target.value.replace(/\s*[\r\n]+\s*/g, ' '))}
       onBlur={commit}
       onKeyDown={(event) => {
         if (event.key === 'Enter') {
@@ -174,7 +178,8 @@ export function TaskDetail({
         }}
       >
         {attach.input}
-        {/* Phones keep the date readable: pin and delete are in the ... menu there. */}
+        {/* Phones keep the date readable: delete is in the ... menu there. Pin is in that menu for
+            every task, subtasks too (R-FB-95). */}
         <Toolbar
           disableGutters
           sx={{ gap: phone ? 0.25 : 0.5, px: phone ? 1.5 : 2, flexShrink: 0 }}
@@ -205,18 +210,6 @@ export function TaskDetail({
             }
           />
           <Box sx={{ flexGrow: 1 }} />
-          {!readOnly && !phone && task.status === 'open' && (
-            <Tooltip title={isPinned(task) ? t('task.unpin') : t('task.pin')}>
-              <IconButton
-                aria-label={isPinned(task) ? t('task.unpin') : t('task.pin')}
-                aria-pressed={isPinned(task)}
-                onClick={() => apply((ctx, ws) => setPinned(ctx, ws, task.id, !isPinned(task)))}
-                sx={{ color: isPinned(task) ? 'primary.main' : undefined }}
-              >
-                <PinIcon fontSize="small" filled={isPinned(task)} />
-              </IconButton>
-            </Tooltip>
-          )}
           {!readOnly && attach.allowed && (
             <Tooltip title={t('files.attach')}>
               <IconButton aria-label={t('files.attach')} onClick={attach.pick}>
