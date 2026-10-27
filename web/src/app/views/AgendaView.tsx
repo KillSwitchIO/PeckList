@@ -1,7 +1,7 @@
 import RadioButtonUncheckedRounded from '@mui/icons-material/RadioButtonUncheckedRounded';
 import AddRounded from '@mui/icons-material/AddRounded';
 import { Box, Button, IconButton, Tooltip, Typography } from '@mui/material';
-import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { agendaDays } from '../../core/agenda.ts';
 import { addDays, daysBetween, localTimeZone, weekday } from '../../core/dates.ts';
 import { inboxList } from '../../core/lists.ts';
@@ -88,8 +88,16 @@ export function AgendaView({
   // Right after a jump the list sits where it was put: no tracking until it has.
   const jumping = useRef(false);
   const fromToday = start === today;
-  const days = agendaDays(source, today, start, count);
-  const overdue = fromToday ? todayGroups(source, today).overdue : [];
+  // Scrolling moves the focused day and week on every step: the days themselves only change with
+  // the tasks or the range (R-FB-94).
+  const days = useMemo(
+    () => agendaDays(source, today, start, count),
+    [source, today, start, count],
+  );
+  const overdue = useMemo(
+    () => (fromToday ? todayGroups(source, today).overdue : []),
+    [fromToday, source, today],
+  );
   const { pinned } = pinnedFirst([...overdue, ...days.flatMap((day) => day.tasks)]);
   const late = sorted(pinnedFirst(overdue).rest, sort);
   const inbox = inboxList(workspace).id;
