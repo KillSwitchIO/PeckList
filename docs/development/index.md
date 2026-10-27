@@ -45,6 +45,41 @@ PUNCHLIST_URL=http://localhost:6183 PUNCHLIST_ADMIN_PASSWORD=... pnpm --filter @
 The `src/integration` tests are skipped unless `PUNCHLIST_URL` is set. Run them against a fresh
 server: each run adds accounts.
 
+### Staying quick with thousands of tasks
+
+A real workspace of 4,500 tasks is about 9 MB of JSON, most of it per-field clocks. What keeps the
+app quick at that size, and what to keep in mind when changing it:
+
+- **Storage, one record per entity.** `adapters/indexeddb-storage.ts` keeps each entity as its own
+  IndexedDB record (database `punchlist-records`) plus a small header with the workspace fields
+  and each collection's order. A save writes the entities that are new objects since storage was
+  last read or written: entities are never changed in place, so a changed one is a new object. A
+  workspace an older version saved as one JSON text is read once and moved over on the next save.
+- **No read-back while no other tab saved.** Each save leaves a stamp (`meta:workspace-generation`).
+  While the stamp is still this tab's own, the store saves without reading storage back and
+  merging. Other tabs' saves arrive on the `punchlist` BroadcastChannel, heard only on the channel
+  the tab saves on (a channel never hears itself).
+- **Data from the server is checked by what changed.** `keepValid` validates the changed entities
+  only, and the clock moves on from those alone (`changedEntities`, `maxHlcOf`).
+- **Formatters and day lookups are made once.** Use `dateTimeFormat` (`core/intl.ts`), not
+  `new Intl.DateTimeFormat`, in anything that runs per task, and `localDayOf` for the local day of
+  an instant (closed tasks' days are asked for on every render).
+- **Long lists draw as they scroll near.** `useReveal` (`app/views/useReveal.tsx`) draws the first
+  rows, adds more while the end is still screens away, and keeps a spacer for the rest so the
+  scroll bar is the whole list's. The Closed page and a list's Completed group use it.
+- **Pages split off the first load.** Settings, admin, the calendar, friends, stats and
+  notifications load on first visit (`app/lazyPages.ts`, React's `lazy`), the notes editor on first
+  use. Once the app is idle it fetches them all ahead, and the service worker precaches every
+  chunk, so they open offline and with no server too. A test that opens one of these pages waits
+  for it (`findBy...`), as a page loading on first visit is drawn a moment later.
+- **A sync's run of data-only pages is taken in together** (up to 5,000 entities or 1.5 s), one
+  render and one save instead of one per page; where the sync stands is saved only with the data it
+  stands for. The server sends 2,000 entities a page.
+
+To measure, load a copy of real data (an exported workspace, or a server snapshot imported into a
+throwaway container) and watch the main thread for blocks over 50 ms while doing the slow thing;
+`docs/` has no numbers to keep up to date on purpose, the vault's performance notes do.
+
 ## Server
 
 ```bash
