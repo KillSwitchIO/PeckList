@@ -13,6 +13,7 @@ import { useApply, useStoreState, useWorkspace } from '../store/hooks.ts';
 import { localClock } from './clock.ts';
 import { notifier } from './notifier.ts';
 import { logReminder } from './reminderLog.ts';
+import { dateTimeFormat } from '../../core/intl.ts';
 
 /** How late a reminder may still fire (the app was closed or asleep at the time). */
 const GRACE_MS = 15 * 60_000;
@@ -178,7 +179,7 @@ function notificationOf(due: DueReminder) {
 
 /** "HH:mm" in the app's time zone for an instant. */
 function clock(at: number): string {
-  return new Intl.DateTimeFormat('en-GB', {
+  return dateTimeFormat('en-GB', {
     timeZone: localTimeZone(),
     hour: '2-digit',
     minute: '2-digit',

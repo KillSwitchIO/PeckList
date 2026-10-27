@@ -2,12 +2,13 @@
 // local date-time plus a time zone, so "today" must be computed in that zone.
 
 import type { LocalDateOrDateTime } from './types.ts';
+import { dateTimeFormat } from './intl.ts';
 
 const DATE = /^\d{4}-\d{2}-\d{2}$/;
 
 /** Today's date in `timeZone` (IANA name), e.g. `2026-10-20`. */
 export function todayIn(timeZone: string, now: number): string {
-  const parts = new Intl.DateTimeFormat('en-CA', {
+  const parts = dateTimeFormat('en-CA', {
     timeZone,
     year: 'numeric',
     month: '2-digit',
@@ -19,7 +20,7 @@ export function todayIn(timeZone: string, now: number): string {
 
 /** An instant's wall-clock date and time in `timeZone`, as `YYYY-MM-DDTHH:mm`. */
 export function localDateTimeOf(instant: string, timeZone: string): string {
-  const parts = new Intl.DateTimeFormat('en-CA', {
+  const parts = dateTimeFormat('en-CA', {
     timeZone,
     year: 'numeric',
     month: '2-digit',

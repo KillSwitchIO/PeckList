@@ -6,6 +6,7 @@ import { memo, useCallback, useLayoutEffect, useRef, useState, type ReactNode } 
 import { addDays, addMonths, daysBetween, monthOf } from '../../core/dates.ts';
 import { mix } from '../../core/palette.ts';
 import { t } from '../i18n/i18n.ts';
+import { dateTimeFormat } from '../../core/intl.ts';
 
 const DAY = 36;
 /** Height of one week row; the scroller snaps to these. */
@@ -26,7 +27,7 @@ function utc(date: string): Date {
 }
 
 function weekdayLabels(locale: string | undefined, weekStartsOn: number): string[] {
-  const format = new Intl.DateTimeFormat(locale, { weekday: 'narrow', timeZone: 'UTC' });
+  const format = dateTimeFormat(locale, { weekday: 'narrow', timeZone: 'UTC' });
   return Array.from({ length: 7 }, (_, i) =>
     format.format(utc(addDays(ORIGIN_SUNDAY, i + weekStartsOn))),
   );
@@ -49,14 +50,14 @@ function formatsFor(locale: string | undefined): Formats {
   let formats = formatCache.get(key);
   if (!formats) {
     formats = {
-      monthTitle: new Intl.DateTimeFormat(locale, {
+      monthTitle: dateTimeFormat(locale, {
         month: 'long',
         year: 'numeric',
         timeZone: 'UTC',
       }),
-      monthName: new Intl.DateTimeFormat(locale, { month: 'long', timeZone: 'UTC' }),
-      monthShort: new Intl.DateTimeFormat(locale, { month: 'short', timeZone: 'UTC' }),
-      dayLabel: new Intl.DateTimeFormat(locale, { dateStyle: 'full', timeZone: 'UTC' }),
+      monthName: dateTimeFormat(locale, { month: 'long', timeZone: 'UTC' }),
+      monthShort: dateTimeFormat(locale, { month: 'short', timeZone: 'UTC' }),
+      dayLabel: dateTimeFormat(locale, { dateStyle: 'full', timeZone: 'UTC' }),
     };
     formatCache.set(key, formats);
   }

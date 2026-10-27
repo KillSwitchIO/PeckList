@@ -16,6 +16,7 @@ import { ItemLine } from './ItemLine.tsx';
 import { TimeLabel } from './TimeLabel.tsx';
 import { MAX_HOUR, MIN_HOUR } from './calendarPrefs.ts';
 import { besideScrolling, scrolling } from './scrollbars.ts';
+import { dateTimeFormat } from '../../core/intl.ts';
 
 const GUTTER = 44;
 /** How long a finger holds a task still before its big time grips show. */
@@ -33,7 +34,7 @@ const shortMonthDay = new Intl.DateTimeFormat(undefined, {
 /** Minutes since midnight now, in the app's zone, updated each minute. */
 function useNowMinutes(): number {
   const read = () => {
-    const parts = new Intl.DateTimeFormat('en-GB', {
+    const parts = dateTimeFormat('en-GB', {
       timeZone: localTimeZone(),
       hour: '2-digit',
       minute: '2-digit',

@@ -2,11 +2,12 @@ import { startDate } from '../../core/filters.ts';
 import type { Task } from '../../core/types.ts';
 import { addDays } from '../../core/dates.ts';
 import { customDateFormat, formatDay } from '../format.ts';
+import { dateTimeFormat } from '../../core/intl.ts';
 
 /** Long weekday name of a local date, e.g. "Tuesday". */
 export function weekdayName(date: string): string {
   const [y, m, d] = date.split('-').map(Number) as [number, number, number];
-  return new Intl.DateTimeFormat(undefined, { weekday: 'long', timeZone: 'UTC' }).format(
+  return dateTimeFormat(undefined, { weekday: 'long', timeZone: 'UTC' }).format(
     new Date(Date.UTC(y, m - 1, d, 12)),
   );
 }
@@ -32,7 +33,7 @@ export function dayPath(date: string, today: string): string {
  */
 export function dayHeading(date: string, today: string, short = false): string {
   const [year, month, day] = date.split('-').map(Number);
-  return new Intl.DateTimeFormat(undefined, {
+  return dateTimeFormat(undefined, {
     weekday: short ? 'short' : 'long',
     month: short ? 'short' : 'long',
     day: 'numeric',

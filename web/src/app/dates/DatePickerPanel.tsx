@@ -27,6 +27,7 @@ import { addHour, DEFAULT_TIME, orderedSpan, type DatePart, type DateValue } fro
 import { MonthCalendar } from './MonthCalendar.tsx';
 import { TimeInput } from './TimeInput.tsx';
 import { TimeWheels } from './TimeWheels.tsx';
+import { dateTimeFormat } from '../../core/intl.ts';
 
 /** A compact quick-pick: the icon, with what it sets ("Thu", "Oct 28") centered underneath. */
 function QuickPick({
@@ -228,8 +229,8 @@ export function DatePickerPanel({
   const smallScreen = useMediaQuery(theme.breakpoints.down('lg'), { noSsr: true });
   const touch = anyTouch || smallScreen;
 
-  const weekdayShort = new Intl.DateTimeFormat(undefined, { weekday: 'short', timeZone: 'UTC' });
-  const monthDay = new Intl.DateTimeFormat(undefined, {
+  const weekdayShort = dateTimeFormat(undefined, { weekday: 'short', timeZone: 'UTC' });
+  const monthDay = dateTimeFormat(undefined, {
     month: 'short',
     day: 'numeric',
     timeZone: 'UTC',
