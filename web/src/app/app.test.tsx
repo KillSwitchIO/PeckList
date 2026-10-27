@@ -35,7 +35,8 @@ describe('app shell', () => {
     await renderApp('/today');
     expect(screen.queryByRole('button', { name: t('nav.openMenu') })).not.toBeInTheDocument();
     await userEvent.click(screen.getByRole('button', { name: 'Calendar' }));
-    expect(screen.getByRole('heading', { level: 1, name: 'Calendar' })).toBeInTheDocument();
+    // The calendar loads on first visit (R-FB-94).
+    expect(await screen.findByRole('heading', { level: 1, name: 'Calendar' })).toBeInTheDocument();
     // On a phone the unscheduled tasks wait in a drawer.
     expect(screen.getByRole('button', { name: 'Unscheduled' })).toBeInTheDocument();
   });

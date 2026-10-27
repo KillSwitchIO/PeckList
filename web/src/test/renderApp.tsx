@@ -8,6 +8,7 @@ import { createAjvValidator } from '../adapters/ajv-validator.ts';
 import { createMemoryStorage } from '../adapters/memory-storage.ts';
 import { createUlidGenerator } from '../adapters/ulid-ids.ts';
 import { AppProviders } from '../app/providers.tsx';
+import { preloadPages } from '../app/lazyPages.ts';
 import { AppRoutes } from '../app/routes.tsx';
 import { createAppTheme } from '../app/theme/theme.ts';
 import { createWorkspaceStore, type WorkspaceStore } from '../app/store/workspaceStore.ts';
@@ -55,6 +56,8 @@ export async function renderApp(
   store: WorkspaceStore = testStore(),
   sync?: SyncEngine,
 ) {
+  // Pages that load on first visit are fetched first, as the app does once idle.
+  await preloadPages();
   const result = render(
     <AppProviders store={store} {...(sync ? { sync } : {})}>
       <MemoryRouter initialEntries={[path]}>
