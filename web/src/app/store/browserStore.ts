@@ -39,6 +39,10 @@ export function createBrowserApp(): {
     notify: () => channel?.postMessage('saved'),
     journal: createLocalJournal(),
   });
+  // Another tab saved: take in what it wrote. A channel never hears its own messages, so this
+  // tab's saves do not come back to it (one listener of its own on the same channel name did,
+  // and reloaded the whole workspace after every save, R-FB-94).
+  if (channel) channel.onmessage = () => void store.getState().reloadFromStorage();
   // The server that served this page, if it is a Punchlist server (a static host is not).
   const sync = createSyncEngine({
     transport: createHttpSync('', undefined, node),

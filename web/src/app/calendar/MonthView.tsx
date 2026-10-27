@@ -77,54 +77,29 @@ const DayCell = memo(function DayCell({
     col > 0 && monthOf(addDays(day, -1)) !== own ? 'inset 2px 0 0 var(--month-line)' : null,
   ].filter(Boolean);
   return (
-    <Box
+    <div
       role="gridcell"
+      className="cal-day"
       data-cal-day={day}
       aria-label={label}
       aria-selected={selected || undefined}
       data-cal-drop={dropping ? '' : undefined}
       {...(edges.length ? { style: { boxShadow: edges.join(', ') } } : {})}
-      sx={{
-        minWidth: 0,
-        overflow: 'hidden',
-        borderRight: 1,
-        borderBottom: 1,
-        borderColor: 'divider',
-        px: 0.25,
-        cursor: 'pointer',
-        bgcolor: dropping ? 'action.selected' : selected ? 'action.selected' : undefined,
-        // Where a dragged task would land: the whole day outlined.
-        ...(dropping
-          ? { outline: '2px solid', outlineColor: 'primary.main', outlineOffset: -2 }
-          : {}),
-        '&:last-of-type': { borderRight: 0 },
-      }}
     >
-      <Box sx={{ height: HEADER, display: 'flex', alignItems: 'center', px: 0.25 }}>
+      <div className="cal-day-head">
         <ButtonBase
+          className="cal-day-number"
+          data-today={isToday ? '' : undefined}
+          data-first={first ? '' : undefined}
+          data-other-month={day.startsWith(month) ? undefined : ''}
           aria-label={t('calendar.openDay', { day: label })}
           onClick={(event) => onOpenDay(day, event.currentTarget)}
           onPointerDown={(event) => event.stopPropagation()}
-          sx={{
-            minWidth: 20,
-            height: 20,
-            px: 0.5,
-            borderRadius: 10,
-            fontSize: 12,
-            whiteSpace: 'nowrap',
-            fontWeight: isToday || first ? 700 : 400,
-            color: isToday
-              ? 'primary.contrastText'
-              : day.startsWith(month)
-                ? 'text.primary'
-                : 'text.disabled',
-            bgcolor: isToday ? 'primary.main' : undefined,
-          }}
         >
           {first ? shortMonthDay.format(at(day)) : Number(day.slice(8))}
         </ButtonBase>
-      </Box>
-      <Box sx={{ display: 'grid', gap: '1px' }}>
+      </div>
+      <div className="cal-day-items">
         {shown.map((item) => (
           <ItemLine
             key={item.id}
@@ -140,27 +115,61 @@ const DayCell = memo(function DayCell({
         ))}
         {overflow && (
           <ButtonBase
+            className="cal-day-more"
             onClick={(event) => onOpenDay(day, event.currentTarget)}
             onPointerDown={(event) => event.stopPropagation()}
-            sx={{
-              height: 16,
-              px: 0.5,
-              justifyContent: 'flex-start',
-              fontSize: 11,
-              color: 'text.secondary',
-              borderRadius: 0.75,
-              '&:hover': { bgcolor: 'action.hover' },
-            }}
           >
             {narrow
               ? `+${items.length - shown.length}`
               : t('calendar.more', { count: items.length - shown.length })}
           </ButtonBase>
         )}
-      </Box>
-    </Box>
+      </div>
+    </div>
   );
 });
+
+// The days' styles, once for the whole grid; each day only says what it is on data attributes
+// (R-FB-94: a style object per day and per line was most of the calendar's render time).
+const dayStyles = {
+  '& .cal-day': {
+    minWidth: 0,
+    overflow: 'hidden',
+    borderRight: 1,
+    borderBottom: 1,
+    borderColor: 'divider',
+    px: 0.25,
+    cursor: 'pointer',
+    '&:last-of-type': { borderRight: 0 },
+    '&[aria-selected=true], &[data-cal-drop]': { bgcolor: 'action.selected' },
+    // Where a dragged task would land: the whole day outlined.
+    '&[data-cal-drop]': { outline: '2px solid', outlineColor: 'primary.main', outlineOffset: -2 },
+  },
+  '& .cal-day-head': { height: HEADER, display: 'flex', alignItems: 'center', px: 0.25 },
+  '& .cal-day-number': {
+    minWidth: 20,
+    height: 20,
+    px: 0.5,
+    borderRadius: 10,
+    fontSize: 12,
+    whiteSpace: 'nowrap',
+    fontWeight: 400,
+    color: 'text.primary',
+    '&[data-other-month]': { color: 'text.disabled' },
+    '&[data-first]': { fontWeight: 700 },
+    '&[data-today]': { fontWeight: 700, color: 'primary.contrastText', bgcolor: 'primary.main' },
+  },
+  '& .cal-day-items': { display: 'grid', gap: '1px' },
+  '& .cal-day-more': {
+    height: 16,
+    px: 0.5,
+    justifyContent: 'flex-start',
+    fontSize: 11,
+    color: 'text.secondary',
+    borderRadius: 0.75,
+    '&:hover': { bgcolor: 'action.hover' },
+  },
+} as const;
 
 /**
  * The month view (spec: PL-093): weeks in one continuous run, scrolling a week at a time, each
@@ -357,6 +366,7 @@ export function MonthView({
           // Firmer than the day lines, so the months stand apart on light and dark paper alike.
           '--month-line': (theme) => mix(theme.punchlist.outline, theme.punchlist.textMuted, 0.45),
           userSelect: 'none',
+          ...dayStyles,
         }}
       >
         <Box sx={{ height: rows * rowHeight, position: 'relative' }}>

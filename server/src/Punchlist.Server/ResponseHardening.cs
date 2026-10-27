@@ -39,8 +39,10 @@ public static class ResponseHardening
             options.MimeTypes = ResponseCompressionDefaults.MimeTypes.Concat(
                 ["text/javascript", "image/svg+xml", "application/manifest+json"]);
         });
-        // The answers are built per request: fast beats small (Brotli's fastest still beats gzip's best).
-        services.Configure<BrotliCompressionProviderOptions>(options => options.Level = CompressionLevel.Fastest);
+        // The answers are built per request. Brotli at its fastest packed a sync page of 954 KB into
+        // 201 KB, worse than gzip's fastest (113 KB), and browsers ask for Brotli first; its default
+        // level (Optimal, quality 4) costs a few milliseconds more and packs smaller than gzip.
+        services.Configure<BrotliCompressionProviderOptions>(options => options.Level = CompressionLevel.Optimal);
         services.Configure<GzipCompressionProviderOptions>(options => options.Level = CompressionLevel.Fastest);
         return services;
     }

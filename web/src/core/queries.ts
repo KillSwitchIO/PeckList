@@ -1,7 +1,7 @@
 // Read-side queries: smart views, list contents, date states.
 
 import { isLive } from './collections.ts';
-import { daysBetween, todayIn } from './dates.ts';
+import { daysBetween, localDayOf } from './dates.ts';
 import {
   ALL_TASKS,
   compileFilter,
@@ -72,7 +72,7 @@ export function completedOn(workspace: WorkspaceFile, today: string, timeZone: s
     (task) =>
       task.parentId === null &&
       task.completedAt !== null &&
-      todayIn(timeZone, Date.parse(task.completedAt)) === today,
+      localDayOf(task.completedAt, timeZone) === today,
   );
 }
 

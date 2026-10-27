@@ -23,7 +23,7 @@ import {
   useMediaQuery,
   useTheme,
 } from '@mui/material';
-import { useEffect, useRef, useState } from 'react';
+import { Suspense, useEffect, useRef, useState } from 'react';
 import { Outlet, useLocation, useNavigate } from 'react-router';
 import { t } from '../i18n/i18n.ts';
 import { expandAddTask } from '../tasks/focusAddTask.ts';
@@ -391,7 +391,10 @@ function AppFrame() {
           >
             <HeaderSlotContext.Provider value={headerSlot}>
               <TwoLineRowsContext.Provider value={isPhone || narrowMain}>
-                <Outlet />
+                {/* A page loading on first visit (R-FB-94): the shell stays, the page fills in. */}
+                <Suspense fallback={null}>
+                  <Outlet />
+                </Suspense>
               </TwoLineRowsContext.Provider>
             </HeaderSlotContext.Provider>
           </Box>

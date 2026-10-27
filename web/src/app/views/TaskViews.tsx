@@ -1,5 +1,6 @@
 import { pinnedFirst } from '../../core/tasks.ts';
 import { groupClosed } from './closedGroups.ts';
+import { useReveal } from './useReveal.tsx';
 import DeleteOutlineRounded from '@mui/icons-material/DeleteOutlineRounded';
 import DeleteForeverOutlined from '@mui/icons-material/DeleteForeverOutlined';
 import RestoreRounded from '@mui/icons-material/RestoreRounded';
@@ -251,21 +252,35 @@ export function CompletedView() {
   const workspace = useWorkspace();
   const today = useToday();
   const tasks = completedTasks(workspace);
+  // Drawn as they scroll near, the whole list's height kept from the start (R-FB-94).
+  const { shown, spacer } = useReveal(tasks.length);
+  // The groups as far as the rows drawn so far reach.
+  const groups: { key: string; title: string; total: number; rows: typeof tasks }[] = [];
+  let left = shown;
+  for (const group of groupClosed(tasks, today)) {
+    if (left <= 0) break;
+    const rows = group.tasks.slice(0, left);
+    left -= rows.length;
+    groups.push({ key: group.key, title: group.title, total: group.tasks.length, rows });
+  }
   return (
     <Page title={t('nav.completed')}>
       {tasks.length === 0 ? (
         <EmptyState title={t('completed.empty')} />
       ) : (
-        groupClosed(tasks, today).map((group) => (
-          <GroupSection
-            key={group.key}
-            groupKey={`closed:${group.key}`}
-            title={group.title || t('group.noDate')}
-            count={group.tasks.length}
-          >
-            <TaskRows tasks={group.tasks} showList />
-          </GroupSection>
-        ))
+        <>
+          {groups.map((group) => (
+            <GroupSection
+              key={group.key}
+              groupKey={`closed:${group.key}`}
+              title={group.title || t('group.noDate')}
+              count={group.total}
+            >
+              <TaskRows tasks={group.rows} showList />
+            </GroupSection>
+          ))}
+          {spacer}
+        </>
       )}
     </Page>
   );

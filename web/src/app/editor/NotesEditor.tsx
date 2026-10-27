@@ -14,9 +14,11 @@ import {
 import { lazy, Suspense, useState } from 'react';
 import type { RichTextEditorProps } from '../../ports/richText.ts';
 import { t } from '../i18n/i18n.ts';
+import { preloadEditor } from './preloadEditor.ts';
 
-// The editor library loads on first use, keeping it out of the app's first load.
-const Editor = lazy(() => import('./TiptapEditor.tsx'));
+// The editor library loads on first use, keeping it out of the app's first load; the app fetches
+// it ahead once idle (preloadEditor), so opening a task does not wait for it.
+const Editor = lazy(preloadEditor);
 
 function Fallback({ value, placeholder }: { value: string; placeholder: string | undefined }) {
   return (

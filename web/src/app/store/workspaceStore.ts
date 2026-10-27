@@ -3,7 +3,7 @@
 // StorageAdapter with a read-merge-write so several tabs never overwrite each other.
 
 import { createStore, type StoreApi } from 'zustand/vanilla';
-import { maxHlc } from '../../core/collections.ts';
+import { changedEntities, maxHlc, maxHlcOf } from '../../core/collections.ts';
 import { messageOf } from '../../core/errors.ts';
 import { HlcClock } from '../../core/hlc.ts';
 import {
@@ -440,7 +440,16 @@ export function createWorkspaceStore(deps: StoreDependencies): WorkspaceStore {
         );
         if (skipped.length > 0) console.warn('Punchlist left out entities it cannot read', skipped);
         for (const id of ids) authoritative.add(id);
-        advanceClock(next);
+        // Only what arrived can be newer than the clock (scanning everything took 100 ms).
+        const arrived = Object.values(changedEntities(workspace, next)).flat();
+        const newest = maxHlcOf(arrived);
+        if (newest) {
+          try {
+            clock.receive(newest);
+          } catch {
+            // A copy stamped far in the future (bad device clock): keep our own time.
+          }
+        }
         if (next.owner !== workspace.owner) {
           ctx = makeContext(next.owner);
           // Undo entries belong to the old owner's data.

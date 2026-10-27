@@ -1,11 +1,15 @@
 import '@testing-library/jest-dom/vitest';
 import 'fake-indexeddb/auto';
-import { cleanup } from '@testing-library/react';
+import { cleanup, configure } from '@testing-library/react';
 import { afterEach } from 'vitest';
 
 afterEach(() => {
   cleanup();
 });
+
+// Pages that load on first visit (app/lazyPages.ts) appear a moment after the click; on a busy
+// runner with coverage that moment passed findBy's default second.
+configure({ asyncUtilTimeout: 3000 });
 
 // jsdom has no layout. The notes editor (ProseMirror) asks where things are on screen; answer
 // with empty boxes so it can run.

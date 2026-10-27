@@ -2,16 +2,11 @@ import { useEffect, type ReactNode } from 'react';
 import { StoreContext } from './hooks.ts';
 import type { WorkspaceStore } from './workspaceStore.ts';
 
-/** Makes the store available, initializes it, and keeps it in step with other tabs. */
-export function StoreProvider({
-  store,
-  channelName = 'punchlist',
-  children,
-}: {
-  store: WorkspaceStore;
-  channelName?: string;
-  children: ReactNode;
-}) {
+/**
+ * Makes the store available, initializes it, and saves before the page goes away. Other tabs'
+ * saves reach it through the composition root (browserStore), on the channel it saves on.
+ */
+export function StoreProvider({ store, children }: { store: WorkspaceStore; children: ReactNode }) {
   useEffect(() => {
     void store.getState().init();
     // The page may be going away: note unsaved changes synchronously, then start the save.
@@ -24,15 +19,11 @@ export function StoreProvider({
     };
     document.addEventListener('visibilitychange', onHide);
     window.addEventListener('pagehide', flush);
-    const channel =
-      typeof BroadcastChannel === 'undefined' ? null : new BroadcastChannel(channelName);
-    if (channel) channel.onmessage = () => void store.getState().reloadFromStorage();
     return () => {
       document.removeEventListener('visibilitychange', onHide);
       window.removeEventListener('pagehide', flush);
-      channel?.close();
     };
-  }, [store, channelName]);
+  }, [store]);
 
   return <StoreContext.Provider value={store}>{children}</StoreContext.Provider>;
 }

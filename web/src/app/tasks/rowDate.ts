@@ -1,5 +1,5 @@
 import { useTheme } from '@mui/material';
-import { datePart, localTimeZone, todayIn } from '../../core/dates.ts';
+import { datePart, localDayOf, localTimeZone } from '../../core/dates.ts';
 import { startState } from '../../core/queries.ts';
 import type { Task } from '../../core/types.ts';
 import { formatDay, formatWhen } from '../format.ts';
@@ -27,7 +27,7 @@ export function useRowDate(
   const done = task.status !== 'open';
   const start = task.schedule?.start;
   const completedDay =
-    done && task.completedAt ? todayIn(localTimeZone(), Date.parse(task.completedAt)) : null;
+    done && task.completedAt ? localDayOf(task.completedAt, localTimeZone()) : null;
   const due = task.due ? formatWhen(task.due.at, today) : null;
   // No start date: the due date stands in.
   const showsDue = !completedDay && (dueFirst || !start) && due !== null;

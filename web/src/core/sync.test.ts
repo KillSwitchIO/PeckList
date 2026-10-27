@@ -95,6 +95,9 @@ describe('mergeRemote', () => {
     expect(merged.entities.tasks.find((each) => each.id === brandNew.id)?.title).toBe('Rake');
     // Untouched collections stay shared.
     expect(merged.entities.lists).toBe(workspace.entities.lists);
+    // So do untouched entities: what changed is told by identity (keepValid, the clock, storage).
+    const other = workspace.entities.tasks[1]!;
+    expect(merged.entities.tasks.find((each) => each.id === other.id)).toBe(other);
   });
 
   it('drops revoked ids and ignores unknown collections', () => {

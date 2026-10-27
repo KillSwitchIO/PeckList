@@ -185,8 +185,12 @@ Reach for these before writing another copy:
 - The build pre-compresses the web app (`web/precompress.ts`, Brotli and gzip at the highest
   setting) and the server sends those; API answers are compressed per request; the event stream
   never is. Keep the main bundle lean: a page only some people open loads on first visit.
-- In React, make formatters and heavy derived data once (`useMemo`, module-level `Intl` objects),
-  keep render-time work proportional to what is on screen, and reveal long lists as they scroll.
+- In React, make formatters and heavy derived data once (`useMemo`, `dateTimeFormat` from
+  `core/intl.ts` or module-level `Intl` objects), keep render-time work proportional to what is on
+  screen, and reveal long lists as they scroll (`useReveal`).
+- How the app stays quick at thousands of tasks (storage per record, checking only what changed,
+  pages split off the first load and still offline):
+  [Staying quick with thousands of tasks](index.md#staying-quick-with-thousands-of-tasks).
 - Measure before and after on real-sized data (a copy of the test server's workspace), and put the
   numbers in the merge request.
 

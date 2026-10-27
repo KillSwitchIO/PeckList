@@ -1,7 +1,13 @@
 // Immutable helpers for reading and writing entities inside a workspace document.
 
 import { compareHlc } from './hlc.ts';
-import { COLLECTIONS, type CollectionName, type EntityMap, type WorkspaceFile } from './types.ts';
+import {
+  COLLECTIONS,
+  type BaseEntity,
+  type CollectionName,
+  type EntityMap,
+  type WorkspaceFile,
+} from './types.ts';
 
 /**
  * Where each id sits in a collection array, built once per array. Workspaces are immutable (every
@@ -80,23 +86,46 @@ export function isLive(entity: { deletedAt: string | null }): boolean {
 
 /** The newest HLC anywhere in the document, so a clock can be advanced past it on load. */
 export function maxHlc(workspace: WorkspaceFile): string | undefined {
+  return maxHlcOf(COLLECTIONS.flatMap((name) => workspace.entities[name] as BaseEntity[]));
+}
+
+/** The newest clock on any field of `entities` (element sets included). */
+export function maxHlcOf(entities: Iterable<BaseEntity>): string | undefined {
   let max: string | undefined;
   const consider = (value: string | undefined) => {
     if (compareHlc(value, max) > 0) max = value;
   };
-  for (const name of COLLECTIONS) {
-    for (const entity of workspace.entities[name]) {
-      for (const value of Object.values(entity._hlc)) consider(value);
-      for (const field of Object.values(entity as unknown as Record<string, unknown>)) {
-        if (field && typeof field === 'object' && !Array.isArray(field)) {
-          for (const element of Object.values(field as Record<string, unknown>)) {
-            if (element && typeof element === 'object' && 'hlc' in element) {
-              consider((element as { hlc: string }).hlc);
-            }
+  for (const entity of entities) {
+    for (const value of Object.values(entity._hlc)) consider(value);
+    for (const field of Object.values(entity as unknown as Record<string, unknown>)) {
+      if (field && typeof field === 'object' && !Array.isArray(field)) {
+        for (const element of Object.values(field as Record<string, unknown>)) {
+          if (element && typeof element === 'object' && 'hlc' in element) {
+            consider((element as { hlc: string }).hlc);
           }
         }
       }
     }
   }
   return max;
+}
+
+/**
+ * The entities of `after` that `before` does not hold as they are (new or changed), by
+ * collection. Entities are never changed in place, so a changed one is a different object.
+ */
+export function changedEntities(
+  before: WorkspaceFile,
+  after: WorkspaceFile,
+): Partial<Record<CollectionName, BaseEntity[]>> {
+  const changed: Partial<Record<CollectionName, BaseEntity[]>> = {};
+  for (const name of COLLECTIONS) {
+    const now = after.entities[name] as BaseEntity[];
+    const then = before.entities[name] as BaseEntity[];
+    if (now === then) continue;
+    const old = new Set<BaseEntity>(then);
+    const fresh = now.filter((entity) => !old.has(entity));
+    if (fresh.length > 0) changed[name] = fresh;
+  }
+  return changed;
 }

@@ -1,3 +1,4 @@
+import { useReveal } from './useReveal.tsx';
 import { pinnedFirst } from '../../core/tasks.ts';
 import { Button } from '@mui/material';
 import {
@@ -46,8 +47,10 @@ export function CompletedGroup({
   defaultOpen?: boolean;
 }) {
   const [all, setAll] = useState(false);
+  // All of a long list: drawn as they scroll near (R-FB-94).
+  const reveal = useReveal(all ? tasks.length : 0);
   if (tasks.length === 0) return null;
-  const shown = all ? tasks : tasks.slice(0, COMPLETED_PREVIEW);
+  const shown = all ? tasks.slice(0, reveal.shown) : tasks.slice(0, COMPLETED_PREVIEW);
   const expanded = all && tasks.length > COMPLETED_PREVIEW;
   return (
     <GroupSection
@@ -67,6 +70,7 @@ export function CompletedGroup({
         : {})}
     >
       <TaskRows tasks={shown} {...(showList === undefined ? {} : { showList })} />
+      {all && reveal.spacer}
       {!all && tasks.length > COMPLETED_PREVIEW && (
         <Button
           size="small"
