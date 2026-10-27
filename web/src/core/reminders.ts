@@ -92,11 +92,14 @@ export const CONSTANT_EVERY_MINUTES = 5;
 export const CONSTANT_TIMES = 12;
 
 /**
- * An all-day task's reminder as days early and a time that day (spec: R-FB-60): `before` counts
- * from 9:00 on the task's day, so later that day is negative.
+ * A reminder as days early and a time that day (spec: R-FB-60): `before` counts from `from` on
+ * the task's day (9:00 for an all-day task, else its start time), so later that day is negative.
  */
-export function allDayParts(before: number): { days: number; time: string } {
-  const [h, m] = ALL_DAY_REMINDER_TIME.split(':').map(Number) as [number, number];
+export function allDayParts(
+  before: number,
+  from: string = ALL_DAY_REMINDER_TIME,
+): { days: number; time: string } {
+  const [h, m] = from.split(':').map(Number) as [number, number];
   const fromMidnight = h * 60 + m - before;
   const days = fromMidnight >= 0 ? 0 : Math.ceil(-fromMidnight / 1440);
   const minutes = fromMidnight + days * 1440;
@@ -104,9 +107,16 @@ export function allDayParts(before: number): { days: number; time: string } {
   return { days, time: `${two(Math.floor(minutes / 60))}:${two(minutes % 60)}` };
 }
 
-/** The reminder `days` early at `time` ("HH:mm") for an all-day task. */
-export function allDayReminder(days: number, time: string): Reminder {
-  const [h, m] = ALL_DAY_REMINDER_TIME.split(':').map(Number) as [number, number];
+/**
+ * The reminder `days` early at `time` ("HH:mm"), counted from `from`: 9:00 for an all-day task,
+ * a timed task's own start time ("60 days early at 16:00", R-FB-91).
+ */
+export function allDayReminder(
+  days: number,
+  time: string,
+  from: string = ALL_DAY_REMINDER_TIME,
+): Reminder {
+  const [h, m] = from.split(':').map(Number) as [number, number];
   const [th, tm] = time.split(':').map(Number) as [number, number];
   return { before: days * 1440 + (h * 60 + m) - (th * 60 + tm) };
 }

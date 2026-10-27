@@ -261,6 +261,29 @@ describe('new task defaults', () => {
   });
 });
 
+describe('the new-task reminder', () => {
+  it('is picked in the same reminder list as a task, saying what it is for (R-FB-92)', async () => {
+    const store = testStore();
+    await renderApp('/settings', store);
+    const section = await screen.findByRole('region', { name: 'New tasks' });
+    await userEvent.click(within(section).getByRole('button', { name: 'Reminder: None' }));
+    const sheet = await screen.findByRole('dialog', { name: 'Reminder' });
+    expect(sheet).toHaveTextContent(/Every new task gets these once it has a date/);
+    await userEvent.click(
+      within(sheet).getByRole('menuitemcheckbox', { name: '30 minutes early' }),
+    );
+    await userEvent.click(within(sheet).getByRole('menuitemcheckbox', { name: '1 day early' }));
+    await userEvent.click(within(sheet).getByRole('button', { name: 'OK' }));
+    expect(store.getState().workspace!.entities.settings[0]!.newTask?.reminders).toEqual([
+      { before: 30 },
+      { before: 1440 },
+    ]);
+    expect(
+      within(section).getByRole('button', { name: 'Reminder: 30 minutes early, 1 day early' }),
+    ).toBeInTheDocument();
+  });
+});
+
 describe('palette presets', () => {
   it('picks a palette and shows its colors as the starting point', async () => {
     const store = testStore();

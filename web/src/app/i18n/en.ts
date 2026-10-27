@@ -722,7 +722,9 @@ export const en = {
   'newTask.time': 'Time',
   'newTask.timeHint': 'Empty: all day',
   'newTask.reminder': 'Reminder',
-  'newTask.reminderHint': 'Once the task has a date (all-day tasks: from the time below)',
+  'newTask.reminderHint': 'Every new task gets this reminder once it has a date',
+  'newTask.reminderNote':
+    "Every new task gets these once it has a date. Times count from the task's start; on an all-day task they come at {time} (All-day reminder time).",
   'newTask.allDayTime': 'All-day reminder time',
   'newTask.allDayTimeHint':
     'When reminders on a task with no start time come: on the day, or days early. Reminders already set keep their time.',
