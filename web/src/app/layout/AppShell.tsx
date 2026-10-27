@@ -23,7 +23,7 @@ import {
   useMediaQuery,
   useTheme,
 } from '@mui/material';
-import { Suspense, useEffect, useRef, useState } from 'react';
+import { Suspense, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { Outlet, useLocation, useNavigate } from 'react-router';
 import { t } from '../i18n/i18n.ts';
 import { expandAddTask } from '../tasks/focusAddTask.ts';
@@ -235,6 +235,11 @@ function AppFrame() {
   const navigate = useNavigate();
   const { pathname } = useLocation();
   const { selectedId, close, full, leaveFull } = useTaskSelection();
+  // Another page starts at its top: the column scrolls on its own now (R-FB-96).
+  const mainRef = useRef<HTMLElement | null>(null);
+  useLayoutEffect(() => {
+    if (mainRef.current) mainRef.current.scrollTop = 0;
+  }, [pathname]);
   const [headerSlot, setHeaderSlot] = useState<HTMLElement | null>(null);
   // Details in the large full-screen view instead of the side panel (resets with the task).
   const [expandedId, setExpandedId] = useState<string | null>(null);
@@ -318,7 +323,10 @@ function AppFrame() {
   ) : null;
 
   return (
-    <Box sx={{ display: 'flex', minHeight: '100dvh' }}>
+    // Wider screens: the window stays put and the page's own column scrolls, so its scroll bar
+    // covers only the page, not the top bar (R-FB-96). Phones scroll the window (pull to refresh,
+    // the browser's bars).
+    <Box sx={{ display: 'flex', ...(isPhone ? { minHeight: '100dvh' } : { height: '100dvh' }) }}>
       {sidebarShown ? (
         <Drawer
           variant="permanent"
@@ -340,7 +348,9 @@ function AppFrame() {
         )
       )}
 
-      <Box sx={{ flexGrow: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
+      <Box
+        sx={{ flexGrow: 1, display: 'flex', flexDirection: 'column', minWidth: 0, minHeight: 0 }}
+      >
         <AppBar position="sticky">
           <Toolbar sx={{ gap: 1 }}>
             {!isPhone && (
@@ -378,7 +388,10 @@ function AppFrame() {
           <Box
             component="main"
             key={timeZone}
-            ref={setMainElement}
+            ref={(element: HTMLElement | null) => {
+              mainRef.current = element;
+              setMainElement(element);
+            }}
             sx={{
               flexGrow: 1,
               minWidth: 0,
@@ -387,6 +400,7 @@ function AppFrame() {
               pb: isPhone ? 10 : 2,
               // Fills the space between the sidebar and the details panel, so the panel always
               // sits at the window's right edge (wide and ultrawide screens included).
+              ...(isPhone ? {} : { overflowY: 'auto' }),
             }}
           >
             <HeaderSlotContext.Provider value={headerSlot}>

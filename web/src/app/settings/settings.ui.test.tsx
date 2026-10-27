@@ -1,5 +1,5 @@
 import { localTimeZone } from '../../core/dates.ts';
-import { screen, waitFor, within } from '@testing-library/react';
+import { act, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { inboxList } from '../../core/lists.ts';
@@ -7,6 +7,7 @@ import { paletteOverrides } from '../../core/paletteSettings.ts';
 import { COLOR_FAMILIES } from '../../core/palette.ts';
 import { themeSwatches } from '../../core/themeColors.ts';
 import { createTask } from '../../core/tasks.ts';
+import { updateSettings } from '../../core/settings.ts';
 import { createList } from '../../core/lists.ts';
 import { mockViewport, renderApp, testStore } from '../../test/renderApp.tsx';
 
@@ -262,24 +263,51 @@ describe('new task defaults', () => {
 });
 
 describe('the new-task reminder', () => {
-  it('is picked in the same reminder list as a task, saying what it is for (R-FB-92)', async () => {
+  it('is picked in the list a new all-day task shows, at the all-day time (R-FB-92)', async () => {
     const store = testStore();
     await renderApp('/settings', store);
+    store.getState().apply((ctx, ws) => updateSettings(ctx, ws, { allDayReminderTime: '07:30' }));
     const section = await screen.findByRole('region', { name: 'New tasks' });
     await userEvent.click(within(section).getByRole('button', { name: 'Reminder: None' }));
     const sheet = await screen.findByRole('dialog', { name: 'Reminder' });
     expect(sheet).toHaveTextContent(/Every new task gets these once it has a date/);
-    await userEvent.click(
-      within(sheet).getByRole('menuitemcheckbox', { name: '30 minutes early' }),
-    );
-    await userEvent.click(within(sheet).getByRole('menuitemcheckbox', { name: '1 day early' }));
+    // The all-day list, each at the person's all-day time, as on a task.
+    const onTheDay = within(sheet).getByRole('menuitemcheckbox', { name: /^On the day/ });
+    expect(onTheDay).toHaveTextContent(/7:30 AM/);
+    await userEvent.click(onTheDay);
+    await userEvent.click(within(sheet).getByRole('menuitemcheckbox', { name: /^1 day early/ }));
     await userEvent.click(within(sheet).getByRole('button', { name: 'OK' }));
+    // Counted from the all-day time: a new all-day task turns them into its own (newTaskDefaults).
     expect(store.getState().workspace!.entities.settings[0]!.newTask?.reminders).toEqual([
-      { before: 30 },
+      { before: 0 },
       { before: 1440 },
     ]);
     expect(
-      within(section).getByRole('button', { name: 'Reminder: 30 minutes early, 1 day early' }),
+      within(section).getByRole('button', {
+        name: 'Reminder: On the day (7:30 AM), 1 day early (7:30 AM)',
+      }),
+    ).toBeInTheDocument();
+  });
+});
+
+describe('times in Settings', () => {
+  it('are set with the wheels and shown on the clock the person uses (R-FB-97)', async () => {
+    const store = testStore();
+    await renderApp('/settings', store);
+    const section = await screen.findByRole('region', { name: 'New tasks' });
+    await userEvent.click(
+      within(section).getByRole('button', { name: 'All-day reminder time: 9:00 AM' }),
+    );
+    const sheet = await screen.findByRole('dialog', { name: 'All-day reminder time' });
+    const wheel = (name: string) => within(within(sheet).getByRole('listbox', { name }));
+    await userEvent.click(wheel('Hour').getByRole('option', { name: '7' }));
+    await userEvent.click(wheel('Minute').getByRole('option', { name: '30' }));
+    await userEvent.click(within(sheet).getByRole('button', { name: 'Done' }));
+    expect(store.getState().workspace!.entities.settings[0]!.allDayReminderTime).toBe('07:30');
+    // On a 24-hour clock it reads that way too.
+    act(() => store.getState().apply((ctx, ws) => updateSettings(ctx, ws, { clockFormat: '24h' })));
+    expect(
+      await within(section).findByRole('button', { name: 'All-day reminder time: 07:30' }),
     ).toBeInTheDocument();
   });
 });

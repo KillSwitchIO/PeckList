@@ -39,8 +39,12 @@ import { notifier } from './notifier.ts';
 import { daysEarlyText, minutesEarlyText, reminderLabel, reminderParts } from './reminderText.ts';
 import { dateTimeFormat } from '../../core/intl.ts';
 
-/** The quick choices for an all-day task: days early, all at the person's time (TickTick's list). */
-const allDayQuick = (time: string) => [0, 1, 2, 3, 7].map((days) => allDayReminder(days, time));
+/**
+ * The quick choices for an all-day task: days early, all at the person's time (TickTick's list),
+ * counted from `from` (9:00 on a task).
+ */
+const allDayQuick = (time: string, from: string) =>
+  [0, 1, 2, 3, 7].map((days) => allDayReminder(days, time, from));
 const TIMED_QUICK: Reminder[] = TIMED_PRESETS.map((before) => ({ before }));
 
 type CustomTab = 'day' | 'week' | 'minute' | 'hour';
@@ -233,6 +237,7 @@ export function ReminderSheet({
   initial,
   task,
   allDay,
+  from: fromGiven,
   note,
   showConstant = true,
   onSave,
@@ -243,6 +248,11 @@ export function ReminderSheet({
   /** The task they are for; none in Settings */
   task: Task | null;
   allDay: boolean;
+  /**
+   * What the reminders count from, when there is no task to say: Settings counts new tasks'
+   * reminders from the all-day time, or from the default time when new tasks have one (R-FB-92)
+   */
+  from?: string;
   /** A line at the top saying what these are for */
   note?: string;
   showConstant?: boolean;
@@ -264,8 +274,8 @@ export function ReminderSheet({
   const taskAnchor = task ? reminderAnchor(task) : null;
   const dated = task === null || taskAnchor !== null;
   // What the reminders count from: 9:00 on an all-day task, else its start time.
-  const start = (taskAnchor && timePart(taskAnchor)) ?? null;
-  const from = allDay ? ALL_DAY_REMINDER_TIME : (start ?? ALL_DAY_REMINDER_TIME);
+  const start = (taskAnchor && timePart(taskAnchor)) ?? fromGiven ?? null;
+  const from = fromGiven ?? (allDay ? ALL_DAY_REMINDER_TIME : (start ?? ALL_DAY_REMINDER_TIME));
   const picked = (reminder: Reminder) =>
     draft.reminders.some((each) => sameReminder(each, reminder));
   const toggle = (reminder: Reminder) =>
@@ -275,7 +285,7 @@ export function ReminderSheet({
         ? now.reminders.filter((each) => !sameReminder(each, reminder))
         : [...now.reminders, reminder],
     }));
-  const quick = allDay ? allDayQuick(allDayTime) : TIMED_QUICK;
+  const quick = allDay ? allDayQuick(allDayTime, from) : TIMED_QUICK;
   // Picked ones the quick list does not have (custom times, set times) show under it.
   const others = draft.reminders.filter(
     (each) => !quick.some((choice) => sameReminder(choice, each)),
@@ -330,7 +340,7 @@ export function ReminderSheet({
                   onClick={() => setDraft({ ...draft, reminders: [] })}
                 />
                 {[...quick, ...others].map((reminder) => {
-                  const { text, time } = reminderParts(reminder, allDay, today, start);
+                  const { text, time } = reminderParts(reminder, allDay, today, from);
                   return (
                     <Choice
                       key={JSON.stringify(reminder)}

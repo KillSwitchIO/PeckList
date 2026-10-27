@@ -81,7 +81,9 @@ their start; the due date is the deadline.
   **Settings > Notifications > Notify me when Punchlist is closed** turned on for the device, also
   with Punchlist closed (on iPhone and iPad, from Punchlist added to the Home Screen). A click
   opens the task. A small bell on the row shows a task has reminders. **Settings > New tasks >
-  Reminder** opens the same list to give every new task reminders once it has a date.
+  Reminder** opens the same list a new task shows (the all-day one at the all-day reminder time,
+  or the timed one when new tasks start with a time) to give every new task reminders once it has
+  a date.
 - **Repeat**: in a task's details, **Repeat** offers daily, weekly on the task's weekday, weekdays,
   monthly on its day and yearly on its date, and **Custom**: every so many days, weeks (on the
   days you pick), months (on its day, on its weekday such as the second Tuesday, or on the last
@@ -248,6 +250,7 @@ the new palette's set (grays, and lists you cannot change, stay as they are).
 zone (`TZ`), or your device's without a server; pick another one if you live somewhere else.
 
 **New tasks**: what a new task starts with: a list (for tasks added outside a list), a priority, a
-date (none, today, tomorrow or in a week) with an optional time, and on a server whether tasks you
-add to shared lists start assigned to you. Where you add a task still wins: in a list it goes to
+date (none, today, tomorrow or in a week) with an optional time, reminders, the time all-day
+reminders come at, and on a server whether tasks you add to shared lists start assigned to you.
+Times are shown on your clock (Settings > Clock) and set with the same wheels as a task's date. Where you add a task still wins: in a list it goes to
 that list, in Today or on a day it gets that date, and what you type in quick add wins over both.

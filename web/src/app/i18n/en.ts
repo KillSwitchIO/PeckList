@@ -720,7 +720,8 @@ export const en = {
   'newTask.date.tomorrow': 'Tomorrow',
   'newTask.date.nextWeek': 'In a week',
   'newTask.time': 'Time',
-  'newTask.timeHint': 'Empty: all day',
+  'newTask.timeHint': 'None: new tasks are all day',
+  'newTask.allDay': 'None (all day)',
   'newTask.reminder': 'Reminder',
   'newTask.reminderHint': 'Every new task gets this reminder once it has a date',
   'newTask.reminderNote':

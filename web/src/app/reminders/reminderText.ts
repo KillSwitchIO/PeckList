@@ -29,7 +29,9 @@ export function minutesEarlyText(minutes: number): string {
 
 /**
  * A reminder as words and the time of day it comes at: always for an all-day task; for a timed
- * one (its start time `startTime`) when it is days early at a time of its own (R-FB-91).
+ * one (its start time `startTime`) when it is days early at a time of its own (R-FB-91). For an
+ * all-day task `startTime` is what it counts from (9:00 unless said otherwise: Settings counts
+ * new tasks' reminders from the person's all-day time, R-FB-92).
  */
 export function reminderParts(
   reminder: Reminder,
@@ -39,7 +41,7 @@ export function reminderParts(
 ): { text: string; time?: string } {
   if ('at' in reminder) return { text: formatWhen(reminder.at, today) };
   if (allDay) {
-    const { days, time } = allDayParts(reminder.before);
+    const { days, time } = allDayParts(reminder.before, startTime ?? undefined);
     return { text: daysEarlyText(days), time: formatTime(time) };
   }
   if (startTime && reminder.before >= 1440 && reminder.before % 1440 !== 0) {
