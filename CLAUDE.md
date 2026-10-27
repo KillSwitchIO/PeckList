@@ -30,6 +30,7 @@ Vite's native file watcher on Windows missed edits (git branch switches, scripte
 
 ## Rules
 
+- Read `docs/development/standards.md` first: the house style, the checks and the shared pieces to reach for before writing a new one.
 - Ports and adapters: `web/src/core` must not import UI libraries, adapters or third-party packages (ESLint enforces). New libraries go behind a port in `web/src/ports` with an adapter in `web/src/adapters` and a contract suite.
 - Schema changes: bump `schemaVersion`, add a migration, fixtures and `docs/migrations/<N>.md`.
 - Merge changes must keep `schema/fixtures/merge` passing; add a fixture for any new rule.

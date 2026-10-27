@@ -1,5 +1,9 @@
 # Contributing
 
+The workflow is below. The coding standards (layers, style, the checks, shared pieces, security
+and performance habits, what to test) are in
+[docs/development/standards.md](docs/development/standards.md); read it before a change.
+
 ## Branching (trunk-based)
 
 - `main` is always releasable. Every commit on it passes lint, typecheck, tests and build.

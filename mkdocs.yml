@@ -103,6 +103,7 @@ nav:
       - FAQ: faq.md
   - Development:
       - Developing: development/index.md
+      - Coding standards: development/standards.md
       - CI and runners: development/ci.md
       - Releasing: development/releasing.md
       - Android app: development/android.md
