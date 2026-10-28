@@ -62,6 +62,7 @@ import { TwoLineRowsContext, useNarrow } from './rowLayout.ts';
 import { SyncButton } from '../sync/SyncButton.tsx';
 import { BottomSheet } from './BottomSheet.tsx';
 import { NotificationLinks } from '../notifications/NotificationLinks.tsx';
+import { EasterEggs } from '../fun/EasterEggs.tsx';
 
 /** How often the trash is checked for things to erase. */
 const PURGE_EVERY_MS = 6 * 3_600_000;
@@ -479,6 +480,7 @@ function AppFrame() {
         <PullToRefresh />
         <ReminderScheduler />
         <NotificationLinks />
+        <EasterEggs />
         <ProviderPhotoSync />
         <ShortcutsDialog open={shortcuts.helpOpen} onClose={shortcuts.closeHelp} />
 

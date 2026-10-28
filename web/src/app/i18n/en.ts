@@ -1221,6 +1221,8 @@ export const en = {
   'notifications.liked': 'Thumbs up sent',
   'notifications.openTask': 'Open task',
   'notifications.calledDibs': 'Dibs called',
+  'fun.confetti': 'You found the party!',
+  'fun.roll': 'Wheee!',
   'history.title': 'History',
   'history.empty': 'No changes yet',
   'history.offline': 'History shows when Punchlist can reach the server.',

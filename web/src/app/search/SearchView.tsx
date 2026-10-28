@@ -1,9 +1,10 @@
 import SearchRounded from '@mui/icons-material/SearchRounded';
 import { alpha, Box, InputBase, Typography } from '@mui/material';
-import { useDeferredValue } from 'react';
+import { useDeferredValue, useEffect } from 'react';
 import { useSearchParams } from 'react-router';
 import { searchTasks, type Range, type SearchHit } from '../../core/search.ts';
 import { t } from '../i18n/i18n.ts';
+import { eggFor, hatch } from '../fun/eggs.ts';
 import { Page } from '../layout/Page.tsx';
 import { useWorkspace } from '../store/hooks.ts';
 import { TaskRow } from '../tasks/TaskRow.tsx';
@@ -78,6 +79,11 @@ export function SearchView() {
   // Typing stays quick on big workspaces: results follow a moment behind.
   const deferred = useDeferredValue(query);
   const hits = searchTasks(workspace, deferred);
+  // A few words hide a surprise (R-FB-122).
+  const egg = eggFor(deferred);
+  useEffect(() => {
+    if (egg) hatch(egg);
+  }, [egg]);
   const open = hits.filter((hit) => hit.task.status === 'open');
   const closed = hits.filter((hit) => hit.task.status !== 'open');
 
