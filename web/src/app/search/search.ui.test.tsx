@@ -28,7 +28,7 @@ async function withTasks(path: string) {
 }
 
 describe('search', () => {
-  it('"/" opens search; words match titles and notes, with matches marked', async () => {
+  it('"/" opens search; words match titles and notes, notes matches marked', async () => {
     await withTasks('/today');
     await userEvent.keyboard('/');
     const field = await screen.findByRole('searchbox', { name: 'Search tasks' });
@@ -42,8 +42,7 @@ describe('search', () => {
       'Open Paint the fence',
       'Open Tidy shed',
     ]);
-    // The match is marked in the title and in the notes snippet.
-    expect(within(results).getAllByText('Paint', { selector: 'mark' })).toHaveLength(1);
+    // Rows like any task list (R-FB-111); a match in the notes shows under its row, marked.
     expect(within(results).getByText('paint', { selector: 'mark' })).toBeInTheDocument();
     // Closed tasks come in their own group.
     expect(screen.getByRole('button', { name: 'Open Paint the door' })).toBeInTheDocument();
