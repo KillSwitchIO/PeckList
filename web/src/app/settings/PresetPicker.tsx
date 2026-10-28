@@ -5,6 +5,7 @@ import { recolorable, recolorToTheme } from '../../core/themeColors.ts';
 import { useStoreState } from '../store/hooks.ts';
 import { PALETTE_PRESETS, type PalettePreset } from '../../core/palette.ts';
 import { palettePreset, paletteOverrides, setPalettePreset } from '../../core/paletteSettings.ts';
+import { notePalettePick } from '../fun/eggs.ts';
 import { t } from '../i18n/i18n.ts';
 import { useApply, useWorkspace } from '../store/hooks.ts';
 
@@ -83,6 +84,7 @@ export function PresetPicker() {
               aria-checked={picked}
               aria-label={t(`palette.preset.${preset}`)}
               onClick={() => {
+                notePalettePick();
                 if (preset === current) return;
                 apply(
                   (ctx, ws) => {

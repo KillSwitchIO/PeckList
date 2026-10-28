@@ -63,6 +63,7 @@ import { SyncButton } from '../sync/SyncButton.tsx';
 import { BottomSheet } from './BottomSheet.tsx';
 import { NotificationLinks } from '../notifications/NotificationLinks.tsx';
 import { EasterEggs } from '../fun/EasterEggs.tsx';
+import { useHoldToHatch } from '../fun/useHoldToHatch.ts';
 
 /** How often the trash is checked for things to erase. */
 const PURGE_EVERY_MS = 6 * 3_600_000;
@@ -269,6 +270,7 @@ function AppFrame() {
     void navigate(path);
   };
 
+  const dogHold = useHoldToHatch('dog', 3000);
   const asideWidth =
     detailWidth === null
       ? DETAIL_WIDTH
@@ -456,7 +458,10 @@ function AppFrame() {
             <Fab
               color="primary"
               aria-label={t('shortcut.addTask')}
+              // Held for 3 seconds, a dog comes to nap on it (R-FB-122).
+              {...dogHold.handlers}
               onClick={() => {
+                if (dogHold.swallowed()) return;
                 // The new task screen, with the page's defaults; on a page with no add field,
                 // the Inbox's (R-FB-74).
                 if (expandAddTask()) return;
