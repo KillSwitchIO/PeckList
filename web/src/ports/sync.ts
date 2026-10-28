@@ -177,7 +177,15 @@ export interface FriendsApi {
 /** One of my notifications on the server (spec: PL-061): ids only, the app names them. */
 export interface ServerNotification {
   id: string;
-  kind: 'assigned' | 'shared' | 'mentioned' | 'reminder';
+  kind:
+    | 'assigned'
+    | 'groupAssigned'
+    | 'claimed'
+    | 'shared'
+    | 'mentioned'
+    | 'commented'
+    | 'commentEdited'
+    | 'reminder';
   /** ISO time */
   at: string;
   actorId: string | null;

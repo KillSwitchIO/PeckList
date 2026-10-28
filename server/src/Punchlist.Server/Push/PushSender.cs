@@ -13,7 +13,16 @@ namespace Punchlist.Server.Push;
 
 /// <summary>What a push shows: the app's service worker turns it into a notification (public/sw-notifications.js).</summary>
 /// <param name="Sticky">A constant reminder: it stays on screen and buzzes again on each repeat.</param>
-public sealed record PushPayload(string Title, string Body, string Tag, string Url, bool Sticky = false);
+/// <summary>A button on a notification: what it says and where in the app it leads.</summary>
+public sealed record PushAction(string Action, string Title, string Url);
+
+/// <summary>
+/// What a push shows, and its buttons left to right: Reply and thumbs up for a comment, Open task
+/// and Call dibs for a group's task (R-FB-106, R-FB-107).
+/// </summary>
+public sealed record PushPayload(
+    string Title, string Body, string Tag, string Url, bool Sticky = false,
+    IReadOnlyList<PushAction>? Actions = null);
 
 /// <summary>Sends a push to a person's devices.</summary>
 public interface IPushSender

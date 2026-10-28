@@ -1,4 +1,7 @@
 import AlternateEmailRounded from '@mui/icons-material/AlternateEmailRounded';
+import BackHandOutlined from '@mui/icons-material/BackHandOutlined';
+import ChatBubbleOutlineRounded from '@mui/icons-material/ChatBubbleOutlineRounded';
+import GroupsOutlined from '@mui/icons-material/GroupsOutlined';
 import CloseRounded from '@mui/icons-material/CloseRounded';
 import NotificationsNoneRounded from '@mui/icons-material/NotificationsNoneRounded';
 import { Box, Button, ButtonBase, IconButton, Tooltip, Typography } from '@mui/material';
@@ -6,22 +9,29 @@ import { useEffect, type ReactNode } from 'react';
 import { useNavigate } from 'react-router';
 import { getEntity } from '../../core/collections.ts';
 import { localDateTimeOf, localTimeZone } from '../../core/dates.ts';
-import { describePrincipal } from '../../core/sharing.ts';
+import { addComment, canComment } from '../../core/comments.ts';
+import { canClaim, claimTask, describePrincipal } from '../../core/sharing.ts';
 import { formatWhen } from '../format.ts';
 import { useToday } from '../hooks/useToday.ts';
 import { t } from '../i18n/i18n.ts';
 import { AssignedIcon, ShareIcon } from '../icons/icons.tsx';
 import { Page } from '../layout/Page.tsx';
 import { listName } from '../lists/listName.ts';
-import { useWorkspace } from '../store/hooks.ts';
+import { useApply, useStoreState, useWorkspace } from '../store/hooks.ts';
+import { useSyncState } from '../sync/syncContext.ts';
+import { THUMBS_UP } from './NotificationLinks.tsx';
 import { useTaskSelection } from '../tasks/selection.ts';
 import { EmptyState } from '../views/EmptyState.tsx';
 import { useNotifications, type NotificationItem } from './notificationsContext.ts';
 
 const ICONS: Record<NotificationItem['kind'], ReactNode> = {
   assigned: <AssignedIcon fontSize="small" />,
+  groupAssigned: <GroupsOutlined fontSize="small" />,
+  claimed: <BackHandOutlined fontSize="small" />,
   shared: <ShareIcon fontSize="small" />,
   mentioned: <AlternateEmailRounded fontSize="small" />,
+  commented: <ChatBubbleOutlineRounded fontSize="small" />,
+  commentEdited: <ChatBubbleOutlineRounded fontSize="small" />,
   reminder: <NotificationsNoneRounded fontSize="small" />,
 };
 
@@ -37,6 +47,9 @@ export function NotificationsPage() {
   const { open } = useTaskSelection();
   const { items, unread, read, clear } = useNotifications();
   const zone = localTimeZone();
+  const apply = useApply();
+  const me = useStoreState((state) => state.context().userId);
+  const syncNow = useSyncState((state) => state.syncNow);
 
   // Seen once the page shows them (after a moment, so they show as new first).
   useEffect(() => {
@@ -54,6 +67,14 @@ export function NotificationsPage() {
     switch (item.kind) {
       case 'assigned':
         return t('notifications.assigned', { actor, task: taskName });
+      case 'groupAssigned':
+        return t('notifications.groupAssigned', { actor, task: taskName });
+      case 'claimed':
+        return t('notifications.claimed', { actor, task: taskName });
+      case 'commented':
+        return t('notifications.commented', { actor, task: taskName });
+      case 'commentEdited':
+        return t('notifications.commentEdited', { actor, task: taskName });
       case 'shared':
         return t('notifications.shared', { actor, list: listLabel });
       case 'mentioned':
@@ -64,8 +85,63 @@ export function NotificationsPage() {
   };
   const go = (item: NotificationItem) => {
     if (!item.read) read([item.id]);
-    if (item.taskId && getEntity(workspace, 'tasks', item.taskId)) open(item.taskId);
-    else if (item.listId) void navigate(`/lists/${item.listId}`);
+    if (item.taskId && getEntity(workspace, 'tasks', item.taskId)) {
+      // A comment's: its comments open, scrolled to it (R-FB-106).
+      open(item.taskId, item.commentId ? { comment: item.commentId } : undefined);
+    } else if (item.listId) void navigate(`/lists/${item.listId}`);
+  };
+
+  // Buttons under a notification, left and right (R-FB-106, R-FB-107).
+  const buttons = (item: NotificationItem) => {
+    const task = item.taskId ? getEntity(workspace, 'tasks', item.taskId) : undefined;
+    if (!task) return null;
+    const about =
+      item.kind === 'commented' || item.kind === 'commentEdited' || item.kind === 'mentioned';
+    if (about && item.commentId && canComment(workspace, me, task)) {
+      return [
+        <Button key="reply" size="small" onClick={() => go(item)}>
+          {t('notifications.reply')}
+        </Button>,
+        <Button
+          key="like"
+          size="small"
+          aria-label={t('notifications.like')}
+          onClick={() => {
+            if (!item.read) read([item.id]);
+            apply(
+              (ctx, ws) => addComment(ctx, ws, task.id, THUMBS_UP).workspace,
+              t('notifications.liked'),
+            );
+            void syncNow();
+          }}
+        >
+          {THUMBS_UP}
+        </Button>,
+      ];
+    }
+    if (item.kind === 'groupAssigned') {
+      return [
+        <Button key="open" size="small" onClick={() => go(item)}>
+          {t('notifications.openTask')}
+        </Button>,
+        canClaim(workspace, me, task) ? (
+          <Button
+            key="dibs"
+            size="small"
+            onClick={() => {
+              if (!item.read) read([item.id]);
+              apply((ctx, ws) => claimTask(ctx, ws, task.id), t('notifications.calledDibs'));
+              void syncNow();
+            }}
+          >
+            {t('assignee.dibs')}
+          </Button>
+        ) : (
+          <span key="dibs" />
+        ),
+      ];
+    }
+    return null;
   };
 
   return (
@@ -90,12 +166,14 @@ export function NotificationsPage() {
           {items.map((item) => {
             const text = sentence(item);
             const when = formatWhen(localDateTimeOf(new Date(item.at).toISOString(), zone), today);
+            const actions = buttons(item);
             return (
               <Box
                 component="li"
                 key={item.id}
                 sx={{
                   display: 'flex',
+                  flexWrap: 'wrap',
                   alignItems: 'center',
                   gap: 0.5,
                   borderBottom: 1,
@@ -153,6 +231,21 @@ export function NotificationsPage() {
                     <CloseRounded fontSize="small" />
                   </IconButton>
                 </Tooltip>
+                {actions && (
+                  <Box
+                    sx={{
+                      flexBasis: '100%',
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      pl: 5,
+                      pr: 1,
+                      pb: 0.75,
+                      mt: -0.75,
+                    }}
+                  >
+                    {actions}
+                  </Box>
+                )}
               </Box>
             );
           })}

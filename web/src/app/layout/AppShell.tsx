@@ -61,6 +61,7 @@ import { useBulkSelect } from '../tasks/bulkSelect.ts';
 import { TwoLineRowsContext, useNarrow } from './rowLayout.ts';
 import { SyncButton } from '../sync/SyncButton.tsx';
 import { BottomSheet } from './BottomSheet.tsx';
+import { NotificationLinks } from '../notifications/NotificationLinks.tsx';
 
 /** How often the trash is checked for things to erase. */
 const PURGE_EVERY_MS = 6 * 3_600_000;
@@ -477,6 +478,7 @@ function AppFrame() {
         <SyncNoticeToast />
         <PullToRefresh />
         <ReminderScheduler />
+        <NotificationLinks />
         <ProviderPhotoSync />
         <ShortcutsDialog open={shortcuts.helpOpen} onClose={shortcuts.closeHelp} />
 

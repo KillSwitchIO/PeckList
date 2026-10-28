@@ -88,7 +88,10 @@ public sealed class NotificationRecorder(
         foreach (var each in found)
         {
             var (body, url) = NotificationText.Of(each, actor, sharing.Index);
-            await push.SendAsync(each.UserId, new Push.PushPayload("Punchlist", body, each.Id, url), cancellation);
+            await push.SendAsync(
+                each.UserId,
+                new Push.PushPayload("Punchlist", body, each.Id, url, Actions: NotificationText.ActionsOf(each, url)),
+                cancellation);
         }
     }
 }
@@ -109,11 +112,34 @@ public static class NotificationText
             NotificationKind.Assigned => $"{actor} assigned you {task}",
             NotificationKind.Shared => $"{actor} shared {Name(each.ListId, "name", "a list")} with you",
             NotificationKind.Mentioned => $"{actor} mentioned you in {task}",
+            NotificationKind.Commented => $"{actor} commented on {task}",
+            NotificationKind.CommentEdited => $"{actor} edited a comment on {task}",
+            NotificationKind.GroupAssigned => $"{actor} assigned {task} to your group",
+            NotificationKind.Claimed => $"{actor} called dibs on {task}",
             _ => task,
         };
-        var url = each.TaskId is not null ? $"/today?task={each.TaskId}" : $"/lists/{each.ListId}";
+        // A comment opens with the comments shown and scrolled to it (R-FB-106).
+        var url = each.TaskId is null
+            ? $"/lists/{each.ListId}"
+            : each.CommentId is null
+                ? $"/today?task={each.TaskId}"
+                : $"/today?task={each.TaskId}&comment={each.CommentId}";
         return (body, url);
     }
+
+    /// <summary>
+    /// A notification's buttons, left to right, each leading into the app: Reply (the comments,
+    /// scrolled to it) and thumbs up for a comment (R-FB-106); Open task and Call dibs for a task
+    /// assigned to a group (R-FB-107). The app does the thumbs up and the dibs on opening.
+    /// </summary>
+    public static IReadOnlyList<Push.PushAction> ActionsOf(Notification each, string url) => each.Kind switch
+    {
+        NotificationKind.Commented or NotificationKind.CommentEdited or NotificationKind.Mentioned
+            when each.CommentId is not null =>
+            [new("reply", "Reply", url), new("like", "\U0001F44D", $"{url}&like=1")],
+        NotificationKind.GroupAssigned => [new("open", "Open task", url), new("dibs", "Call dibs", $"{url}&dibs=1")],
+        _ => [],
+    };
 }
 
 /// <summary>Clears notifications older than 90 days, once a day.</summary>

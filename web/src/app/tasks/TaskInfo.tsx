@@ -1,6 +1,7 @@
 import ExpandLessRounded from '@mui/icons-material/ExpandLessRounded';
 import { Box, ButtonBase, Typography } from '@mui/material';
 import { useState } from 'react';
+import { useSearchParams } from 'react-router';
 import { commentsOf } from '../../core/comments.ts';
 import { localDateTimeOf, localTimeZone } from '../../core/dates.ts';
 import { lastChangedAt } from '../../core/tasks.ts';
@@ -39,7 +40,9 @@ export function TaskDates({ task }: { task: Task }) {
  */
 export function PhoneTaskMore({ task }: { task: Task }) {
   const workspace = useWorkspace();
-  const [open, setOpen] = useState(false);
+  const [params] = useSearchParams();
+  // Opened from a notification about a comment: straight to the comments (R-FB-106).
+  const [open, setOpen] = useState(() => params.get('comment') !== null);
   const comments = commentsOf(workspace, task.id).length;
   const label =
     comments === 0

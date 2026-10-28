@@ -232,6 +232,19 @@ final class Reminders {
             NotificationCompat.Builder built = base(context, ACTIVITY, each.getString("title"), each.getString("body"))
                 .setCategory(NotificationCompat.CATEGORY_SOCIAL)
                 .setContentIntent(PendingIntent.getActivity(context, id, intent, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE));
+            // Its buttons, left to right (R-FB-106, R-FB-107): each opens the app where it says.
+            JSONArray actions = each.optJSONArray("actions");
+            for (int a = 0; actions != null && a < actions.length(); a++) {
+                JSONObject action = actions.getJSONObject(a);
+                int code = idOf("news:" + each.getString("id") + ":" + action.getString("action"));
+                Intent press = new Intent(context, MainActivity.class)
+                    .setAction("com.killswitch10.punchlist.OPEN." + code)
+                    .addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP)
+                    .putExtra(EXTRA_URL, action.getString("url"))
+                    .putExtra(EXTRA_SHOWN, id);
+                built.addAction(0, action.getString("title"),
+                    PendingIntent.getActivity(context, code, press, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE));
+            }
             NotificationManagerCompat.from(context).notify(id, built.build());
         }
     }
