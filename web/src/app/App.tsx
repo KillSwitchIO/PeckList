@@ -9,6 +9,7 @@ import { AppProviders } from './providers.tsx';
 import { UpdatePrompt } from './pwa/UpdatePrompt.tsx';
 import { preloadEditor } from './editor/preloadEditor.ts';
 import { preloadPages } from './lazyPages.ts';
+import { loadSymbolCatalog } from './lists/listSymbols.ts';
 import { AppRoutes } from './routes.tsx';
 import { createBrowserApp } from './store/browserStore.ts';
 import { ViewAsContext } from './store/viewAs.ts';
@@ -30,6 +31,7 @@ export function App() {
     later(() => {
       void preloadEditor();
       void preloadPages();
+      void loadSymbolCatalog();
     });
   }, []);
   return (

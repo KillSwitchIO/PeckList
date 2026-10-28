@@ -2,7 +2,7 @@ import { Box, useTheme, type SxProps, type Theme } from '@mui/material';
 import { createElement } from 'react';
 import { ensureContrast, WCAG_UI } from '../../core/palette.ts';
 import type { List } from '../../core/types.ts';
-import { symbolOf } from './listSymbols.ts';
+import { SYMBOL_PREFIX, useListSymbol } from './listSymbols.ts';
 
 /**
  * How a list is marked beside its name: its line icon in its color, or its emoji, when it has one;
@@ -18,7 +18,7 @@ export function ListMark({
   sx?: SxProps<Theme>;
 }) {
   const theme = useTheme();
-  const Symbol = symbolOf(list.icon);
+  const Symbol = useListSymbol(list.icon);
   if (Symbol) {
     // createElement: the icon is looked up by name, not a component made during render.
     return createElement(Symbol, {
@@ -35,7 +35,8 @@ export function ListMark({
       ],
     });
   }
-  if (list.icon) {
+  // An emoji (a line icon still loading shows the dot below).
+  if (list.icon && !list.icon.startsWith(SYMBOL_PREFIX)) {
     return (
       <Box
         component="span"

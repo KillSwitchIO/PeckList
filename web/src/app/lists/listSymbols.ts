@@ -1,6 +1,7 @@
 // Line icons a list can wear instead of an emoji, drawn in the list's color. Stored in the list's
 // `icon` as `symbol:<name>`, so the schema needs no change.
 import type { SvgIconComponent } from '@mui/icons-material';
+import { useEffect, useSyncExternalStore } from 'react';
 import BeachAccessOutlined from '@mui/icons-material/BeachAccessOutlined';
 import BuildOutlined from '@mui/icons-material/BuildOutlined';
 import CalendarMonthOutlined from '@mui/icons-material/CalendarMonthOutlined';
@@ -86,8 +87,40 @@ export const LIST_SYMBOLS: Readonly<Record<string, SvgIconComponent>> = {
   printing: PrintOutlined,
 };
 
+// The rest of the catalog (R-FB-117) loads on its own after start-up (and offline, from the
+// app's cache); a list wearing one of those shows its color dot for that moment.
+let more: Readonly<Record<string, SvgIconComponent>> | null = null;
+let loading: Promise<void> | null = null;
+const listeners = new Set<() => void>();
+
+/** Load the full catalog of icons and emoji (once). */
+export function loadSymbolCatalog(): Promise<void> {
+  loading ??= import('./iconCatalog.ts').then((catalog) => {
+    more = catalog.MORE_SYMBOLS;
+    for (const listener of listeners) listener();
+  });
+  return loading;
+}
+
+const subscribe = (listener: () => void) => {
+  listeners.add(listener);
+  return () => listeners.delete(listener);
+};
+
 /** The line icon a list's `icon` names, or null for an emoji, an unknown name or none. */
 export function symbolOf(icon: string | null | undefined): SvgIconComponent | null {
   if (!icon?.startsWith(SYMBOL_PREFIX)) return null;
-  return LIST_SYMBOLS[icon.slice(SYMBOL_PREFIX.length)] ?? null;
+  const name = icon.slice(SYMBOL_PREFIX.length);
+  return LIST_SYMBOLS[name] ?? more?.[name] ?? null;
+}
+
+/** As symbolOf, loading the full catalog when the icon is in it (and drawing again then). */
+export function useListSymbol(icon: string | null | undefined): SvgIconComponent | null {
+  const loaded = useSyncExternalStore(subscribe, () => more);
+  const Symbol = symbolOf(icon);
+  const waiting = Symbol === null && loaded === null && icon?.startsWith(SYMBOL_PREFIX) === true;
+  useEffect(() => {
+    if (waiting) void loadSymbolCatalog();
+  }, [waiting]);
+  return Symbol;
 }
