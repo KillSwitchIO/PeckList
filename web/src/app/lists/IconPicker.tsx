@@ -12,6 +12,8 @@ type Catalog = typeof import('./iconCatalog.ts');
 const CELL = 34;
 /** Rows in a strip that scrolls sideways: compact, and a swipe shows more (R-FB-117). */
 const ROWS = 3;
+/** Search results past this many go in a strip too; fewer simply wrap. */
+const MANY = 24;
 /** The line icons most lists want, in the top row. */
 const COMMON_SYMBOLS = ['list', 'checklist', 'star', 'flag', 'idea', 'work', 'home', 'cart'];
 
@@ -201,7 +203,7 @@ export function IconPicker({
         </Box>
       )}
       {shownSymbols.length > 0 ? (
-        <Cells strip label={t('list.icons')}>
+        <Cells strip={!searching || shownSymbols.length > MANY} label={t('list.icons')}>
           {shownSymbols.map(([name, Symbol]) => symbolCell(name, Symbol))}
         </Cells>
       ) : (
@@ -225,7 +227,7 @@ export function IconPicker({
         </Box>
       )}
       {shownEmoji.length > 0 ? (
-        <Cells strip label={t('list.emoji')}>
+        <Cells strip={!searching || shownEmoji.length > MANY} label={t('list.emoji')}>
           {shownEmoji.map(([each]) => cell(each, each, each))}
         </Cells>
       ) : (
