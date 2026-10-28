@@ -62,14 +62,29 @@ export const isPinataTitle = (title: string) => /pi[ñn]ata/i.test(title);
 /** A comment the rubber duck answers. */
 export const isQuack = (body: string) => /^quack[.!]*$/.test(plain(body));
 
+let listening = 0;
+/** Eggs hatched before anything listened (a search link opened straight): handed over then. */
+let waiting: Egg[] = [];
+
 export function hatch(egg: Egg): void {
+  if (listening === 0) {
+    waiting.push(egg);
+    return;
+  }
   window.dispatchEvent(new CustomEvent<Egg>(EVENT, { detail: egg }));
 }
 
 export function onHatch(handler: (egg: Egg) => void): () => void {
   const listener = (event: Event) => handler((event as CustomEvent<Egg>).detail);
   window.addEventListener(EVENT, listener);
-  return () => window.removeEventListener(EVENT, listener);
+  listening += 1;
+  const early = waiting;
+  waiting = [];
+  for (const egg of early) handler(egg);
+  return () => {
+    window.removeEventListener(EVENT, listener);
+    listening -= 1;
+  };
 }
 
 const bursts = new Map<string, number[]>();

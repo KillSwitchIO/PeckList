@@ -63,4 +63,16 @@ describe('easter eggs in the app (R-FB-122)', () => {
     );
     expect(await screen.findByText('You found the party!')).toBeInTheDocument();
   });
+
+  it('a search for the secret words sets them off, opened straight or typed', async () => {
+    const store = testStore();
+    await renderApp('/search?q=insert%20coin', store);
+    expect(await screen.findByText(/Retro mode/)).toBeInTheDocument();
+    const field = screen.getByRole('searchbox', { name: 'Search tasks' });
+    await userEvent.clear(field);
+    await userEvent.type(field, 'follow the white rabbit');
+    expect(
+      await screen.findByText('Wake up. The tasks have you.', {}, { timeout: 5000 }),
+    ).toBeInTheDocument();
+  });
 });

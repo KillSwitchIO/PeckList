@@ -244,69 +244,67 @@ export function EasterEggs() {
   const endShow = useCallback(() => setShow(null), []);
   const endCritter = useCallback(() => setCritters((queue) => queue.slice(1)), []);
 
-  // What each surprise does.
-  useEffect(
-    () =>
-      onHatch((egg: Egg) => {
-        setLines((queue) => [...queue, t(`fun.${egg}`)]);
-        if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return;
-        switch (egg) {
-          case 'confetti':
-            return setShow({ kind: 'confetti' });
-          case 'pinata':
-            return setShow({ kind: 'candy' });
-          case 'fireworks':
-            return setShow({ kind: 'fireworks' });
-          case 'season':
-            return setShow({ kind: 'season', pieces: seasonOf(new Date().getMonth() + 1).pieces });
-          case 'matrix':
-            return setShow({ kind: 'matrix', words: titles.current });
-          case 'roll': {
-            const root = document.getElementById('root') ?? document.body;
-            root.animate?.([{ transform: 'rotate(0deg)' }, { transform: 'rotate(360deg)' }], {
-              duration: 1100,
-              easing: 'cubic-bezier(0.45, 0, 0.2, 1)',
-            });
-            return;
-          }
-          case 'gravity': {
-            const rows = [...document.querySelectorAll<HTMLElement>('[data-task-row]')].slice(
-              0,
-              40,
-            );
-            rows.forEach((row, index) =>
-              row.animate?.(
-                [
-                  { transform: 'translateY(0)' },
-                  { transform: 'translateY(110vh) rotate(8deg)', offset: 0.45 },
-                  { transform: 'translateY(110vh) rotate(8deg)', offset: 0.55 },
-                  { transform: 'translateY(-14px)', offset: 0.85 },
-                  { transform: 'translateY(0)' },
-                ],
-                { duration: 2400, delay: index * 35, easing: 'ease-in-out' },
-              ),
-            );
-            return;
-          }
-          case 'retro':
-            blip();
-            return startRetro();
-          case 'disco':
-            return startDisco();
-          case 'typewriter':
-            return startTypewriter();
-          case 'wink':
-            return startWink();
-          case 'dog':
-          case 'duck':
-          case 'trophy':
-          case 'mascot':
-            nextCritter.current += 1;
-            return setCritters((queue) => [...queue, { id: nextCritter.current, critter: egg }]);
+  // What each surprise does: listened for once, so a page that hatches one as it changes (a
+  // search) never finds nobody listening.
+  const play = useRef<(egg: Egg) => void>(() => undefined);
+  useEffect(() => {
+    play.current = (egg: Egg) => {
+      setLines((queue) => [...queue, t(`fun.${egg}`)]);
+      if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return;
+      switch (egg) {
+        case 'confetti':
+          return setShow({ kind: 'confetti' });
+        case 'pinata':
+          return setShow({ kind: 'candy' });
+        case 'fireworks':
+          return setShow({ kind: 'fireworks' });
+        case 'season':
+          return setShow({ kind: 'season', pieces: seasonOf(new Date().getMonth() + 1).pieces });
+        case 'matrix':
+          return setShow({ kind: 'matrix', words: titles.current });
+        case 'roll': {
+          const root = document.getElementById('root') ?? document.body;
+          root.animate?.([{ transform: 'rotate(0deg)' }, { transform: 'rotate(360deg)' }], {
+            duration: 1100,
+            easing: 'cubic-bezier(0.45, 0, 0.2, 1)',
+          });
+          return;
         }
-      }),
-    [startRetro, startDisco, startTypewriter, startWink],
-  );
+        case 'gravity': {
+          const rows = [...document.querySelectorAll<HTMLElement>('[data-task-row]')].slice(0, 40);
+          rows.forEach((row, index) =>
+            row.animate?.(
+              [
+                { transform: 'translateY(0)' },
+                { transform: 'translateY(110vh) rotate(8deg)', offset: 0.45 },
+                { transform: 'translateY(110vh) rotate(8deg)', offset: 0.55 },
+                { transform: 'translateY(-14px)', offset: 0.85 },
+                { transform: 'translateY(0)' },
+              ],
+              { duration: 2400, delay: index * 35, easing: 'ease-in-out' },
+            ),
+          );
+          return;
+        }
+        case 'retro':
+          blip();
+          return startRetro();
+        case 'disco':
+          return startDisco();
+        case 'typewriter':
+          return startTypewriter();
+        case 'wink':
+          return startWink();
+        case 'dog':
+        case 'duck':
+        case 'trophy':
+        case 'mascot':
+          nextCritter.current += 1;
+          return setCritters((queue) => [...queue, { id: nextCritter.current, critter: egg }]);
+      }
+    };
+  });
+  useEffect(() => onHatch((egg) => play.current(egg)), []);
 
   // The line saying what was found, for a moment (then the next one).
   useEffect(() => {
