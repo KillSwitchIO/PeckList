@@ -1,6 +1,14 @@
 import RadioButtonUncheckedRounded from '@mui/icons-material/RadioButtonUncheckedRounded';
 import AddRounded from '@mui/icons-material/AddRounded';
-import { Box, Button, IconButton, Tooltip, Typography } from '@mui/material';
+import {
+  Box,
+  Button,
+  IconButton,
+  Tooltip,
+  Typography,
+  useMediaQuery,
+  useTheme,
+} from '@mui/material';
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { agendaDays } from '../../core/agenda.ts';
 import { addDays, daysBetween, localTimeZone, weekday } from '../../core/dates.ts';
@@ -102,6 +110,18 @@ export function AgendaView({
   const late = sorted(pinnedFirst(overdue).rest, sort);
   const inbox = inboxList(workspace).id;
   const zone = localTimeZone();
+  const phone = useMediaQuery(useTheme().breakpoints.down('sm'), { noSsr: true });
+  // The add bar adds to the day picked in the strip. Off a phone it sticks with the strip, so
+  // picking a later day (which scrolls the list there) never scrolls it away (R-FB-143).
+  const addBar = (
+    <AddTaskInput
+      defaults={{
+        listId: inbox,
+        schedule: { start: focus, end: null, allDay: true, timeZone: zone },
+      }}
+      {...(focus === today ? {} : { label: t('agenda.addTo', { day: dayTitle(focus, today) }) })}
+    />
+  );
   const busyIn = (from: string) =>
     new Set(
       agendaDays(source, today, from, 7)
@@ -210,12 +230,7 @@ export function AgendaView({
   return (
     <Page title={t('nav.upcoming')} actions={actions}>
       <Box ref={root}>
-        <AddTaskInput
-          defaults={{
-            listId: inbox,
-            schedule: { start: today, end: null, allDay: true, timeZone: zone },
-          }}
-        />
+        {phone && addBar}
         <Box
           ref={header}
           sx={{
@@ -228,6 +243,7 @@ export function AgendaView({
             borderColor: 'divider',
           }}
         >
+          {!phone && addBar}
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
             <Box sx={{ flexGrow: 1, minWidth: 0 }}>
               <Button

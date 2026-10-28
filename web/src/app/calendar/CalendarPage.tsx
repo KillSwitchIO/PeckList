@@ -185,12 +185,13 @@ export function CalendarPage() {
   if (shownFrom && shownTo && (!win || shownFrom < win.from || shownTo > win.to)) {
     setWin({ from: addDays(shownFrom, -WINDOW_PAD), to: addDays(shownTo, WINDOW_PAD) });
   }
+  // What is done is off the calendar (R-FB-141).
   const items = useMemo(
     () =>
       win
         ? calendarItems(shown, win.from, win.to, settings?.pointEventMinutes ?? 60, (task) =>
             canEditTask(workspace, me, task),
-          )
+          ).filter((item) => !item.done)
         : [],
     [shown, workspace, win, settings?.pointEventMinutes, me],
   );
@@ -557,8 +558,14 @@ export function CalendarPage() {
           aria-hidden
           sx={{
             position: 'fixed',
-            left: drag.ghost.x + 12,
-            top: drag.ghost.y + 12,
+            // Under and right of a mouse; well above a finger, centred on it (R-FB-140).
+            ...(drag.ghost.touch
+              ? {
+                  left: Math.min(Math.max(drag.ghost.x, 128), window.innerWidth - 128),
+                  top: drag.ghost.y - 48,
+                  transform: 'translate(-50%, -100%)',
+                }
+              : { left: drag.ghost.x + 12, top: drag.ghost.y + 12 }),
             zIndex: (z) => z.zIndex.tooltip,
             pointerEvents: 'none',
             px: 1,

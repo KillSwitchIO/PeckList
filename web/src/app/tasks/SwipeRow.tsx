@@ -48,6 +48,15 @@ export function SwipeRow({
   const rightWidth = prefs.right.buttons.length * ACTION;
   const leftWidth = prefs.left.buttons.length * ACTION;
   const open = !live && offset !== 0 && (offset === rightWidth || offset === -leftWidth);
+  // Clipped only while the row is slid over (and as it slides back): at rest, a top-level
+  // parent's chevron sits out in the page gutter and must show (R-FB-137).
+  const [clipped, setClipped] = useState(false);
+  if (offset !== 0 && !clipped) setClipped(true);
+  useEffect(() => {
+    if (offset !== 0 || !clipped) return;
+    const timer = setTimeout(() => setClipped(false), 220);
+    return () => clearTimeout(timer);
+  }, [offset, clipped]);
   /** How far a full swipe must go: further when there are buttons to stop on first. */
   const fullAt = (buttons: number, width: number) =>
     buttons > 0 ? width * 0.6 : Math.max(90, width * 0.33);
@@ -166,7 +175,11 @@ export function SwipeRow({
         event.preventDefault();
         event.stopPropagation();
       }}
-      sx={{ position: 'relative', overflow: 'hidden', touchAction: enabled ? 'pan-y' : undefined }}
+      sx={{
+        position: 'relative',
+        overflow: clipped ? 'hidden' : 'visible',
+        touchAction: enabled ? 'pan-y' : undefined,
+      }}
     >
       {offset !== 0 && (
         <Box

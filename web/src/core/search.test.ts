@@ -1,8 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import { sampleTask, testContext } from '../test/fixtures.ts';
+import { addComment } from './comments.ts';
 import { putEntity } from './collections.ts';
 import { createList, deleteList, inboxList } from './lists.ts';
-import { queryTerms, searchTasks, type SearchHit } from './search.ts';
+import { parseQuery, queryTerms, searchTasks, type SearchHit } from './search.ts';
 import { createTag } from './tags.ts';
 import { createTask, setTaskStatus, updateTask } from './tasks.ts';
 import type { WorkspaceFile } from './types.ts';
@@ -50,7 +51,7 @@ describe('search', () => {
     expect(searchTasks(s.ws, 'nothing here')).toEqual([]);
   });
 
-  it('ranks title hits first, word starts higher, open before closed', () => {
+  it('ranks by BM25: title words over notes, words inside others last, open before closed', () => {
     const s = setup();
     s.add('Notes mention paint', 'paint the shed');
     const closed = s.add('Paint the fence');
@@ -59,10 +60,60 @@ describe('search', () => {
     s.ws = setTaskStatus(s.ctx, s.ws, closed.id, 'done');
     expect(titles(searchTasks(s.ws, 'paint'))).toEqual([
       'Notes mention paint',
-      'Repaint door',
       'Shopping',
+      'Repaint door',
       'Paint the fence',
     ]);
+  });
+
+  it('lifts a title that starts with the query, and matches words as they are typed', () => {
+    const s = setup();
+    s.add('Order more paint', 'garden shed paint');
+    s.add('Garden shed roof');
+    expect(titles(searchTasks(s.ws, 'garden shed'))).toEqual([
+      'Garden shed roof',
+      'Order more paint',
+    ]);
+    expect(titles(searchTasks(s.ws, 'gard'))).toEqual(['Garden shed roof', 'Order more paint']);
+    // A slip in a longer word still finds it.
+    expect(titles(searchTasks(s.ws, 'gardem'))).toHaveLength(2);
+  });
+
+  it('finds tasks by list name, parent, comments and tags, with a snippet from a comment', () => {
+    const s = setup();
+    const list = createList(s.ctx, s.ws, { name: 'Moving house', color: '#A7C7E7' });
+    s.ws = list.workspace;
+    const parent = s.add('Electric work', '', { listId: list.list.id });
+    s.add('Swap the breaker', '', { listId: list.list.id, parentId: parent.id });
+    const asked = s.add('Ask about quotes');
+    s.ws = addComment(s.ctx, s.ws, asked.id, 'The plumber says Thursday works').workspace;
+    const tag = createTag(s.ctx, s.ws, 'errands', '#CFE3A3');
+    s.ws = tag.workspace;
+    s.add('Post office', '', { tags: [tag.tag.id] });
+    expect(titles(searchTasks(s.ws, 'moving')).sort()).toEqual([
+      'Electric work',
+      'Swap the breaker',
+    ]);
+    expect(titles(searchTasks(s.ws, 'electric breaker'))).toEqual(['Swap the breaker']);
+    const [hit] = searchTasks(s.ws, 'plumber');
+    expect(hit!.task.title).toBe('Ask about quotes');
+    expect(marked(hit!.snippet!.text, hit!.snippet!.ranges)).toEqual(['plumber']);
+    expect(titles(searchTasks(s.ws, '#errands'))).toEqual(['Post office']);
+    expect(titles(searchTasks(s.ws, 'post #moving'))).toEqual([]);
+  });
+
+  it('keeps to "phrases" and leaves out -words', () => {
+    const s = setup();
+    s.add('Paint the fence white');
+    s.add('Fence paint, the white one');
+    expect(parseQuery('"the fence" -white #yard x')).toEqual({
+      words: ['the', 'fence', 'x'],
+      phrases: ['the fence'],
+      without: ['white'],
+      tags: ['yard'],
+    });
+    expect(titles(searchTasks(s.ws, '"paint the fence"'))).toEqual(['Paint the fence white']);
+    expect(titles(searchTasks(s.ws, 'fence -one'))).toEqual(['Paint the fence white']);
   });
 
   it('marks matches in the title and a snippet of the notes', () => {

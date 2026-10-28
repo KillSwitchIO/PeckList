@@ -244,18 +244,79 @@ export function MonthView({
   }, [target.seq, rowHeight]);
 
   // Scrolling runs free, with the momentum of a fling (R-FB-103; snapping each week stopped a
-  // fling dead). Once it comes to rest, the nearest week glides to the top.
+  // fling dead). Once it comes to rest, a week lines up at the top. With a mouse or keys, the
+  // nearest one, smoothly. After a finger's fling (R-FB-139), the week it was heading for, eased in
+  // gently so the fling seems to come to rest there rather than bounce back.
   useEffect(() => {
     const element = scroller.current;
     if (!element) return;
-    const settle = () => {
-      const row = Math.round(element.scrollTop / rowHeight);
-      if (Math.abs(element.scrollTop - row * rowHeight) > 1) {
-        element.scrollTo({ top: row * rowHeight, behavior: 'smooth' });
-      }
+    let touched = false;
+    let last = element.scrollTop;
+    let heading = 0;
+    let glide: number | null = null;
+    const stopGlide = () => {
+      if (glide !== null) cancelAnimationFrame(glide);
+      glide = null;
     };
+    const onTouch = () => {
+      touched = true;
+      stopGlide();
+    };
+    const onWheel = () => {
+      touched = false;
+      stopGlide();
+    };
+    const onScroll = () => {
+      const now = element.scrollTop;
+      if (glide === null && now !== last) heading = Math.sign(now - last);
+      last = now;
+    };
+    const settle = () => {
+      if (glide !== null) return;
+      const at = element.scrollTop / rowHeight;
+      if (!touched) {
+        const row = Math.round(at);
+        if (Math.abs(element.scrollTop - row * rowHeight) > 1) {
+          element.scrollTo({ top: row * rowHeight, behavior: 'smooth' });
+        }
+        return;
+      }
+      const part = at - Math.floor(at);
+      if (part * rowHeight < 1 || (1 - part) * rowHeight < 1) return;
+      // On along the way it was going unless barely into the next week.
+      const row =
+        heading > 0
+          ? part > 0.2
+            ? Math.ceil(at)
+            : Math.floor(at)
+          : heading < 0
+            ? part < 0.8
+              ? Math.floor(at)
+              : Math.ceil(at)
+            : Math.round(at);
+      const from = element.scrollTop;
+      const distance = row * rowHeight - from;
+      const duration = Math.min(520, Math.max(240, Math.abs(distance) * 3));
+      const start = performance.now();
+      const step = (now: number) => {
+        const progress = Math.min(1, (now - start) / duration);
+        const eased = 1 - (1 - progress) ** 3;
+        element.scrollTop = from + distance * eased;
+        glide = progress < 1 ? requestAnimationFrame(step) : null;
+      };
+      glide = requestAnimationFrame(step);
+    };
+    element.addEventListener('touchstart', onTouch, { passive: true });
+    element.addEventListener('wheel', onWheel, { passive: true });
+    element.addEventListener('scroll', onScroll, { passive: true });
     element.addEventListener('scrollend', settle);
-    return () => element.removeEventListener('scrollend', settle);
+    return () => {
+      stopGlide();
+      element.removeEventListener('touchstart', onTouch);
+      element.removeEventListener('wheel', onWheel);
+      element.removeEventListener('scroll', onScroll);
+      element.removeEventListener('scrollend', settle);
+    };
   }, [rowHeight]);
 
   const frame = useRef<number | null>(null);

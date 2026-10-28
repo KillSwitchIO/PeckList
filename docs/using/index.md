@@ -13,7 +13,7 @@
 | **Assigned to me** / **Shared with me** | Tasks others gave you, and lists shared with you.                |
 | **Closed**                              | Done and won't-do tasks.                                         |
 | **Trash**                               | Deleted tasks and lists, restorable for 30 days.                 |
-| **Search**                              | Finds tasks by their words.                                      |
+| **Search**                              | Finds tasks by their words, ranked best first (see below).       |
 | **Lists**, **Tags**, **Filters**        | Your own lists, nested tags, and saved filters.                  |
 
 Views show how many open tasks they hold, as lists do, and Closed how many closed tasks it lists
@@ -39,9 +39,14 @@ Dates leave the year off when it is this year: "Thu, Oct 22", "October", but "Ja
 
 A task that spans days (a start and an end) is not overdue while it runs: from its start until its
 end it shows under today, and only once its end has passed does it count as overdue.
+Its row shows both dates, start then end (on a phone, the end under the start).
+
+**Today** says all punched out once nothing is left open or overdue, with what you finished today
+still listed under it.
 
 **Upcoming** lists today and every day after it, empty days included, under a strip of the week's
-days. More days load as you near the end, and the strip follows the day at the top of the list.
+days. More days load as you near the end, and the strip follows the day at the top of the list. On a
+wide screen the add bar sticks above the strip and adds to the day picked there.
 Swipe the strip sideways (or drag it with the mouse, or use the arrows) to move a week, and the list
 goes to the same weekday there; tap a day to jump to it. Going back before today, or picking an earlier day from the
 month name above the strip, starts the list on that day; **Today** brings it back, and Upcoming
@@ -202,7 +207,8 @@ in a tag's menu; subtasks inherit their parent's tags.
 Two views, switched at the top right:
 
 - **Month**: the weeks run on without breaks, so the next weeks are always in sight at the end of
-  a month. It scrolls freely, a flick carrying it on, and settles with a week at the top. Each day
+  a month. It scrolls freely, a flick carrying it on, and settles with a week at the top (after a
+  flick on a phone, gently, on the way it was going). Done tasks stay off the calendar. Each day
   lists its tasks as short lines (time first for timed ones, an hourglass for a due date), then
   **+N more**. Pick 1 to 12 weeks on screen with the round number button: four at first, then
   whatever you picked last.
@@ -251,14 +257,30 @@ task for a group has **Open task** on the left and **Call dibs** on the right. T
 come on the notifications your phone or browser shows. Opening the page marks them read. The
 server keeps them for 90 days; reminders that fired on this device stay on it.
 
+## Search
+
+**Search** ranks what it finds the way a search engine does (BM25, as Obsidian's Omnisearch): a
+word in a task's title counts most, then its tags, its list's name, its parent task, its notes,
+its comments and its files' names, and a title that starts with what you typed comes first. Every
+word must match somewhere; words match as you type them ("gard" finds "garden"), and a slip in a
+longer word is forgiven. A word found only inside another ("paint" in "Repaint") still shows,
+after the rest. `"quotes"` keep a phrase together, `-word` leaves out tasks with that word, and
+`#tag` asks for tasks with that tag. Open tasks come first, closed ones under **Closed**.
+
 ## Settings
 
 **Settings** (the profile menu, or ++g++ ++s++): appearance (light, dark or system theme, and
 colors), dates (your time zone, how dates show, 12 or 24-hour clock, the first day of the week,
 when a due date counts as soon, how long a task with only a start time shows on the calendar), sign-in methods and
-linked accounts, and **Your data** ([download or import a copy](apps-and-sync.md#your-data-as-a-file), or
+linked accounts, **Lists and tags**, and **Your data** ([download or import a copy](apps-and-sync.md#your-data-as-a-file), or
 [move from or to another app](apps-and-sync.md#moving-from-or-to-another-app): TickTick, Todoist, Google Tasks,
 Microsoft To Do, iCalendar and Things).
+
+**Lists and tags** gathers them on one page: drag a list by its grip to set the order the menu
+shows them in, and from each row change its name, icon and color (tap it), who it is shared with,
+people and groups (the share button), pin it to the top of the menu, archive it or delete it.
+Archived lists wait at the end with Unarchive. Tags the same: tap one to rename it, nest it or
+change its color, pin it, or delete it.
 
 **Start over** (last on the page): **Delete all lists, tasks and tags** moves every list, task and tag
 of yours to the Trash at once (lists others share with you stay), and Undo brings them back. Tick

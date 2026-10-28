@@ -1,4 +1,6 @@
+import ChevronRightRounded from '@mui/icons-material/ChevronRightRounded';
 import WarningAmberRounded from '@mui/icons-material/WarningAmberRounded';
+import { Link as RouterLink } from 'react-router';
 import {
   Box,
   Button,
@@ -213,6 +215,25 @@ export function SettingsPage() {
         <ServerSection />
         <SignInSection />
         <ProfileSection />
+        <Section title={t('manage.title')}>
+          <ButtonBase
+            component={RouterLink}
+            to="/settings/lists"
+            sx={{
+              display: 'flex',
+              width: '100%',
+              justifyContent: 'flex-start',
+              textAlign: 'left',
+              borderRadius: 1,
+              '& > *': { flexGrow: 1 },
+              '&:hover': { bgcolor: 'action.hover' },
+            }}
+          >
+            <SettingRow label={t('manage.open')} hint={t('manage.openHint')}>
+              <ChevronRightRounded sx={{ color: 'text.secondary', display: 'block' }} />
+            </SettingRow>
+          </ButtonBase>
+        </Section>
         <Section title={t('settings.appearance')}>
           <SettingRow label={t('settings.theme')}>
             <ToggleButtonGroup
