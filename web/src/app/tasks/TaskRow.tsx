@@ -349,6 +349,8 @@ function TaskRowContent({
   );
   const titleText = (
     <Typography
+      // Typewriter mode types it out (R-FB-122).
+      data-row-title=""
       noWrap={!twoLine}
       sx={{
         color: done ? 'text.disabled' : 'text.primary',

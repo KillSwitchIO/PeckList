@@ -4,6 +4,7 @@ import { t } from '../i18n/i18n.ts';
 import { RefreshIcon } from '../icons/icons.tsx';
 import { nativeShell } from '../native/shell.ts';
 import { useSyncState } from './syncContext.ts';
+import { notePull } from '../fun/eggs.ts';
 
 /** How far to pull before letting go syncs, and the most the circle travels. */
 export const PULL_TRIGGER = 72;
@@ -87,6 +88,8 @@ export function PullToRefresh() {
       distance = 0;
       setPull(0);
       if (pulled < PULL_TRIGGER) return;
+      // The third pull in a row lets the season fall (R-FB-122).
+      notePull();
       setSyncing(true);
       const began = Date.now();
       void latest.current
