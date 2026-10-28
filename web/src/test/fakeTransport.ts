@@ -9,6 +9,7 @@ import {
   type FileApi,
   type FriendsApi,
   type HistoryApi,
+  type UpdatesApi,
   type HistoryEntry,
   type NotificationsApi,
   type PushApi,
@@ -89,6 +90,10 @@ export class FakeBackend {
   readonly notifications = new Map<string, ServerNotification[]>();
   /** Each task's history, newest first (tests add them). */
   readonly history = new Map<string, HistoryEntry[]>();
+  /** The version the server says it runs. */
+  serverVersion = '0.1.0';
+  /** The newest release the server knows of (tests set it). */
+  latestRelease: { version: string; url: string } | null = null;
   /** Event listeners of every device, by account username. */
   readonly listeners = new Set<{ username: string; onChange: (change: ChangeEvent) => void }>();
 
@@ -198,6 +203,16 @@ export class FakeTransport implements SyncTransport {
     },
   };
 
+  readonly updates: UpdatesApi = {
+    latest: () =>
+      Promise.resolve({
+        enabled: true,
+        current: this.backend.serverVersion,
+        latest: this.backend.latestRelease?.version ?? null,
+        releaseUrl: this.backend.latestRelease?.url ?? null,
+      }),
+  };
+
   readonly history: HistoryApi = {
     task: (taskId) => Promise.resolve([...(this.backend.history.get(taskId) ?? [])]),
   };
@@ -268,7 +283,7 @@ export class FakeTransport implements SyncTransport {
     this.check();
     return Promise.resolve({
       name: 'punchlist',
-      version: '0.1.0',
+      version: this.backend.serverVersion,
       schemaVersion: this.backend.schemaVersion,
     });
   }

@@ -57,6 +57,16 @@ describe('search', () => {
     expect(screen.getByRole('searchbox', { name: 'Search tasks' })).toHaveValue('fence blue');
   });
 
+  it('answers every key at once, and searches once typing pauses', async () => {
+    await withTasks('/search');
+    const field = await screen.findByRole('searchbox', { name: 'Search tasks' });
+    await userEvent.type(field, 'shed');
+    // The field has every letter straight away; the results follow the pause.
+    expect(field).toHaveValue('shed');
+    const results = await screen.findByRole('list', { name: 'Search results' });
+    expect(within(results).getByRole('button', { name: 'Open Tidy shed' })).toBeInTheDocument();
+  });
+
   it('"/" types normally inside a text field', async () => {
     await withTasks('/inbox');
     const add = await screen.findByRole('textbox', { name: /Add task/ });

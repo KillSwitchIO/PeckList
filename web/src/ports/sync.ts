@@ -219,6 +219,22 @@ export interface HistoryEntry {
   after: string | null;
 }
 
+/** The newest Punchlist release the server knows of (`/api/updates`, R-FB-148). */
+export interface UpdateInfo {
+  /** Whether the server looks for releases at all (`UPDATE_CHECK`). */
+  enabled: boolean;
+  /** The server's own version. */
+  current: string;
+  /** The newest release, or null when none is known (off, offline, or the project not public). */
+  latest: string | null;
+  releaseUrl: string | null;
+}
+
+export interface UpdatesApi {
+  /** What the server knows of releases; null from a server too old to say. */
+  latest(): Promise<UpdateInfo | null>;
+}
+
 /** Task history on the server (R-FB-105). */
 export interface HistoryApi {
   /** A task's latest changes, newest first (none for a task I cannot see). */
@@ -289,6 +305,8 @@ export interface SyncTransport {
   push?: PushApi;
   /** Task history (optional: older servers keep none). */
   history?: HistoryApi;
+  /** Release check (optional: older servers make none). */
+  updates?: UpdatesApi;
   account?: AccountApi;
   /** Attached files (optional: older servers keep none). */
   files?: FileApi;

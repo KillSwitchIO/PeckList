@@ -21,7 +21,8 @@ Views show how many open tasks they hold, as lists do, and Closed how many close
 
 **Edit sidebar** pins, hides and moves views, Search included. While editing, drag a row by its
 grip on the left; a swipe anywhere else scrolls. The menu button at the top left folds the sidebar away
-and back (each device remembers it). At the bottom, a small month shows a dot on days with open
+and back (each device remembers it); folded away on a desktop, rest the mouse at the window's
+left edge and it slides out over the page, going again once the mouse moves off it. At the bottom, a small month shows a dot on days with open
 tasks; click a day to open that day's tasks as a list, like Today but for any day (today itself
 opens Today). The day page adds new tasks to that day, shows what got done that day, and its arrows
 step a day. The arrow at the top right of the small month folds it down to just one week (and
@@ -207,8 +208,8 @@ in a tag's menu; subtasks inherit their parent's tags.
 Two views, switched at the top right:
 
 - **Month**: the weeks run on without breaks, so the next weeks are always in sight at the end of
-  a month. It scrolls freely, a flick carrying it on, and settles with a week at the top (after a
-  flick on a phone, gently, on the way it was going). Done tasks stay off the calendar. Each day
+  a month. It scrolls freely, a flick carrying it on, and settles with a week at the top (with a
+  mouse; on a phone it stays wherever the flick leaves it). Done tasks stay off the calendar. Each day
   lists its tasks as short lines (time first for timed ones, an hourglass for a due date), then
   **+N more**. Pick 1 to 12 weeks on screen with the round number button: four at first, then
   whatever you picked last.
@@ -243,6 +244,17 @@ the slider to zoom until it sits in the circle, and **Save**. It is kept small o
 friends and people you share with see it too. **Remove photo** goes back to your initials.
 Signed in through an identity provider with no photo of your own (never set, or removed): at
 sign-in Punchlist uses the provider's picture, if it gives one. A photo you set stays yours.
+
+At the bottom of the menu is the version of the page you are using, with a green check when it is
+the version your server runs, or a yellow **!** when it is not (a page from before an update):
+hover or click it to read why, and **Reload** to get the matching one. In the Android app the
+app's own version shows under it, with a check when the app has everything the server's web app
+uses, or a **!** when it is too old for some of it (update the app).
+
+**Update available**: when a newer Punchlist release is out than your server runs, or than your
+Android app, a box at the bottom of the sidebar (at the end of **More** on a phone) says so, with
+**Release page** for its notes and downloads and **Skip this release** to hide it until the next
+one. The server looks twice a day ([`UPDATE_CHECK`](../configuration/reference.md#update_check)).
 
 **Change password** asks for the new password twice. Every password field has an eye at its right
 end that shows what you typed.

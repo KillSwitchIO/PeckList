@@ -45,7 +45,13 @@ export default defineConfig({
     workspaceValidator(fileURLToPath(new URL('../schema/workspace.schema.json', import.meta.url))),
     VitePWA({
       registerType: 'prompt',
-      includeAssets: ['icon.svg', 'favicon.svg'],
+      includeAssets: [
+        'icon.svg',
+        'favicon.svg',
+        'icons/icon-180.png',
+        'icons/icon-192.png',
+        'icons/icon-512.png',
+      ],
       workbox: {
         // Page loads of the server's own paths go to the network, never the app shell: signing in
         // with a provider and its return to the callback are page loads (src/serverPaths.ts).
@@ -60,7 +66,13 @@ export default defineConfig({
         theme_color: '#4F8F87',
         background_color: '#FAFAF7',
         display: 'standalone',
-        icons: [{ src: 'icon.svg', sizes: 'any', type: 'image/svg+xml', purpose: 'any maskable' }],
+        // The SVG for browsers that take it; PNGs (public/icons, rendered from icon.svg) for
+        // those that want a bitmap at a set size.
+        icons: [
+          { src: 'icon.svg', sizes: 'any', type: 'image/svg+xml', purpose: 'any maskable' },
+          { src: 'icons/icon-192.png', sizes: '192x192', type: 'image/png', purpose: 'any' },
+          { src: 'icons/icon-512.png', sizes: '512x512', type: 'image/png', purpose: 'any' },
+        ],
       },
     }),
     precompress(),

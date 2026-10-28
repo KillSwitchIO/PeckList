@@ -32,6 +32,8 @@ import { ChangePasswordDialog } from '../sync/SyncButton.tsx';
 import { leaveFor, rememberProvider } from '../sync/signInWith.ts';
 import { useSyncState } from '../sync/syncContext.ts';
 import { APP_VERSION_LABEL, CHANGELOG_URL } from './appVersion.ts';
+import { StatusMark } from './VersionStatus.tsx';
+import { useAppStatus, usePageStatus } from './versionChecks.ts';
 
 const NO_COLOR = '#B8BCC4';
 
@@ -82,6 +84,9 @@ export function ProfileButton({ onShortcuts }: { onShortcuts: () => void }) {
   const badge = local ? account.providerIcon : null;
   // In the Android app: its own version as well, since the web app may be the server's (R-FB-77).
   const shellVersion = useShellInfo().info?.version ?? null;
+  // A check or a ! beside each: the page against its server, the app against what it needs (R-FB-147).
+  const pageStatus = usePageStatus(__APP_VERSION__);
+  const appStatus = useAppStatus();
 
   const picture = (size: number) =>
     name ? (
@@ -223,21 +228,36 @@ export function ProfileButton({ onShortcuts }: { onShortcuts: () => void }) {
         <Divider />
         {/* Which version this is, at the bottom (R-FB-77): phones have no sidebar to show it. */}
         <Box sx={{ px: 2, pt: 0.5, pb: 0.25 }}>
-          <Link
-            href={CHANGELOG_URL}
-            target="_blank"
-            rel="noreferrer"
-            variant="caption"
-            color="text.secondary"
-            underline="hover"
-            aria-label={t('app.versionLink', { version: APP_VERSION_LABEL })}
-          >
-            {t('profile.webVersion', { version: APP_VERSION_LABEL })}
-          </Link>
+          <Box sx={{ display: 'flex', alignItems: 'center' }}>
+            <Link
+              href={CHANGELOG_URL}
+              target="_blank"
+              rel="noreferrer"
+              variant="caption"
+              color="text.secondary"
+              underline="hover"
+              aria-label={t('app.versionLink', { version: APP_VERSION_LABEL })}
+            >
+              {t('profile.webVersion', { version: APP_VERSION_LABEL })}
+            </Link>
+            {pageStatus && (
+              <StatusMark
+                {...pageStatus}
+                {...(pageStatus.ok
+                  ? {}
+                  : {
+                      action: { label: t('version.reload'), run: () => window.location.reload() },
+                    })}
+              />
+            )}
+          </Box>
           {shellVersion && (
-            <Typography variant="caption" color="text.secondary" component="div">
-              {t('profile.appVersion', { version: shellVersion })}
-            </Typography>
+            <Box sx={{ display: 'flex', alignItems: 'center' }}>
+              <Typography variant="caption" color="text.secondary" component="div">
+                {t('profile.appVersion', { version: shellVersion })}
+              </Typography>
+              {appStatus && <StatusMark {...appStatus} />}
+            </Box>
           )}
         </Box>
       </Menu>

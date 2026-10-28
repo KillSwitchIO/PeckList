@@ -26,6 +26,14 @@ public sealed class ServerSettingsTests
     }
 
     [Fact]
+    public void The_update_check_is_on_unless_turned_off()
+    {
+        Assert.True(Read([]).UpdateCheck);
+        Assert.False(Read(new() { ["UPDATE_CHECK"] = "off" }).UpdateCheck);
+        Assert.Throws<SettingsException>(() => Read(new() { ["UPDATE_CHECK"] = "sometimes" }));
+    }
+
+    [Fact]
     public void Outside_a_container_the_database_sits_in_a_local_data_folder()
     {
         Assert.Equal(Path.Combine("data", "punchlist.db"), Read([], inContainer: false).DbPath);

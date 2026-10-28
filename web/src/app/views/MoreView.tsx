@@ -8,6 +8,7 @@ import { SidebarEditBar } from '../layout/SidebarEditBar.tsx';
 import { BottomBarEditor } from '../layout/BottomBarEditor.tsx';
 import { useSidebarEdit } from '../layout/sidebarEditContext.ts';
 import { SidebarViews } from '../layout/SidebarViews.tsx';
+import { UpdateNotice } from '../layout/VersionStatus.tsx';
 import { SidebarLists } from '../lists/SidebarLists.tsx';
 import { SidebarTags } from '../tags/SidebarTags.tsx';
 
@@ -68,6 +69,10 @@ function MoreContent() {
         <Divider sx={{ mx: 2 }} />
         <SidebarLists onNavigate={go} />
         <SidebarTags onNavigate={go} />
+      </Box>
+      {/* Phones have no sidebar: the release notice sits at the end here (R-FB-148). */}
+      <Box sx={{ mx: -1.5, mt: 2 }}>
+        <UpdateNotice />
       </Box>
     </Page>
   );
