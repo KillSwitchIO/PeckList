@@ -144,9 +144,9 @@ function CritterShow({ critter, onDone }: { critter: Critter; onDone: () => void
   }
   const center = critter === 'trophy';
   const content = {
-    duck: { face: '🦆', words: t('fun.duck') },
-    trophy: { face: '🏆', words: t('fun.trophy') },
-    mascot: { face: '🥊', words: t('fun.mascot') },
+    duck: { face: '🦆', words: t('fun.duckSays') },
+    trophy: { face: '🏆', words: t('fun.trophySays') },
+    mascot: { face: '🥊', words: t('fun.mascotSays') },
   }[critter];
   return (
     <Box
