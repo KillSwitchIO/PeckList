@@ -300,6 +300,11 @@ function AppFrame() {
     void navigate(path);
   };
 
+  const asideWidth =
+    detailWidth === null
+      ? DETAIL_WIDTH
+      : `clamp(${DETAIL_MIN}px, ${detailWidth}px, calc(100vw - ${drawerWidth + LIST_MIN}px))`;
+
   const detail = selectedId ? (
     <TaskDetail
       key={selectedId}
@@ -403,10 +408,7 @@ function AppFrame() {
               component="aside"
               ref={aside}
               sx={{
-                width:
-                  detailWidth === null
-                    ? DETAIL_WIDTH
-                    : `clamp(${DETAIL_MIN}px, ${detailWidth}px, calc(100vw - ${drawerWidth + LIST_MIN}px))`,
+                width: asideWidth,
                 flexShrink: 0,
                 borderLeft: 1,
                 borderColor: 'divider',
@@ -432,12 +434,22 @@ function AppFrame() {
           open={detail !== null && expanded}
           onClose={(event, reason) => {
             if (handledInside(event, reason)) return;
+            // A phone has no smaller view to fall back to: closing the full view closes the task
+            // (R-FB-110).
+            if (isPhone) {
+              close();
+              return;
+            }
             if (full) leaveFull();
             setExpandedId(null);
           }}
           fullWidth
           maxWidth="md"
-          slotProps={{ paper: { sx: { height: '88dvh', backgroundImage: 'none' } } }}
+          // On a phone the full view is the whole screen, bigger than the task sheet (R-FB-110).
+          fullScreen={isPhone}
+          slotProps={{
+            paper: { sx: { ...(isPhone ? {} : { height: '88dvh' }), backgroundImage: 'none' } },
+          }}
         >
           {expanded && detail}
         </Dialog>
@@ -467,8 +479,9 @@ function AppFrame() {
           </Drawer>
         )}
 
-        {isPhone &&
-          detail === null &&
+        {/* Every screen size (R-FB-98); beside the task panel on a desktop, hidden behind the
+            others while one is open. */}
+        {(isDesktop ? !expanded : detail === null) &&
           !bulk?.selecting &&
           !NO_ADD_BUTTON.some((path) => pathname.startsWith(path)) && (
             <Fab
@@ -483,8 +496,8 @@ function AppFrame() {
               }}
               sx={{
                 position: 'fixed',
-                right: 16,
-                bottom: 'calc(52px + 16px + env(safe-area-inset-bottom))',
+                right: isDesktop && detail ? `calc(${asideWidth} + 24px)` : isPhone ? 16 : 24,
+                bottom: isPhone ? 'calc(52px + 16px + env(safe-area-inset-bottom))' : 24,
                 zIndex: (theme) => theme.zIndex.appBar,
               }}
             >
@@ -493,7 +506,7 @@ function AppFrame() {
           )}
 
         {/* On a phone, above the bottom navigation and the + button. */}
-        <UndoToast bottomOffset={isPhone ? 52 + 72 : 0} />
+        <UndoToast bottomOffset={isPhone ? 52 + 72 : 0} wideBottomOffset={72} />
         <SyncNoticeToast />
         <PullToRefresh />
         <ReminderScheduler />

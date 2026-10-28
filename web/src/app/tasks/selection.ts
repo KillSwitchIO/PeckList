@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 import { useLocation, useNavigate, useSearchParams } from 'react-router';
 
 /** Set on the history entry that opening a task added, so closing it can go back over it. */
@@ -43,7 +43,15 @@ export function useTaskSelection(): {
       ),
     [setParams, selectedId, openedHere],
   );
+  // Closing again before the address has changed (two Escapes, a dialog and the page both
+  // closing) must not go back a second time, past the page.
+  const closing = useRef<string | null>(null);
+  useEffect(() => {
+    closing.current = null;
+  }, [selectedId]);
   const close = useCallback(() => {
+    if (selectedId !== null && closing.current === selectedId) return;
+    closing.current = selectedId;
     if (openedHere) {
       void navigate(-1);
       return;
@@ -58,7 +66,7 @@ export function useTaskSelection(): {
       },
       { replace: true },
     );
-  }, [setParams, navigate, openedHere]);
+  }, [setParams, navigate, openedHere, selectedId]);
   const leaveFull = useCallback(
     () =>
       setParams(

@@ -471,7 +471,8 @@ describe('pinning', () => {
     const tasks = s.ws.entities.tasks;
     const split = pinnedFirst(tasks);
     expect(titles(split.pinned)).toEqual(['B', 'A']);
-    expect(titles(split.rest)).toEqual(['child']);
+    // Pinned ones stay in their sections too (R-FB-118).
+    expect(titles(split.rest)).toEqual(['A', 'B', 'child']);
     // A subtask pins as well (R-FB-85).
     s.ws = setPinned(s.ctx, s.ws, child.id, true);
     expect(titles(pinnedFirst(s.ws.entities.tasks).pinned)).toEqual(['B', 'A', 'child']);

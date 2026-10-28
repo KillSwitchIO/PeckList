@@ -5,10 +5,10 @@ import InboxRounded from '@mui/icons-material/InboxRounded';
 import LayersRounded from '@mui/icons-material/LayersRounded';
 import SearchRounded from '@mui/icons-material/SearchRounded';
 import TaskAltRounded from '@mui/icons-material/TaskAltRounded';
-import TodayRounded from '@mui/icons-material/TodayRounded';
 import type { ReactElement } from 'react';
 import type { MessageKey } from '../i18n/i18n.ts';
 import { AssignedIcon, DueIcon, PeopleIcon } from '../icons/icons.tsx';
+import { TodayIcon } from '../icons/TodayIcon.tsx';
 
 export interface NavItem {
   path: string;
@@ -18,7 +18,7 @@ export interface NavItem {
 
 /** Smart views shown in the sidebar (their default order; users can reorder them). */
 export const SIDEBAR_ITEMS: NavItem[] = [
-  { path: '/today', label: 'nav.today', icon: <TodayRounded /> },
+  { path: '/today', label: 'nav.today', icon: <TodayIcon /> },
   { path: '/inbox', label: 'nav.inbox', icon: <InboxRounded /> },
   { path: '/upcoming', label: 'nav.upcoming', icon: <DateRangeRounded /> },
   { path: '/due', label: 'nav.due', icon: <DueIcon /> },

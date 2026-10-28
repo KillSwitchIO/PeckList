@@ -174,7 +174,7 @@ export function RepeatProperty({ task }: { task: Task }) {
         ariaValue={label}
         onClick={setAnchor}
       >
-        <Typography color={current ? 'text.primary' : 'text.disabled'} noWrap>
+        <Typography noWrap sx={{ color: current ? 'text.primary' : 'text.disabled' }}>
           {current ? label : t('repeat.add')}
         </Typography>
       </PropertyRow>

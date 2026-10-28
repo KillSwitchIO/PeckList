@@ -13,7 +13,6 @@ import {
 import { getEntity } from '../../core/collections.ts';
 import { listName } from '../lists/listName.ts';
 import type { ListViewSettings } from '../lists/listGrouping.ts';
-import { useState } from 'react';
 import {
   filterClosedTasks,
   filterTasks,
@@ -34,9 +33,10 @@ import { dayTitle, hasOwnDate, weekdayName } from './dayLabels.ts';
 import { EmptyState } from './EmptyState.tsx';
 import { GroupSection } from './GroupSection.tsx';
 
-const COMPLETED_PREVIEW = 5;
-
-/** Completed group: the first few tasks, then "View more". */
+/**
+ * Completed group: the whole list, drawn as it scrolls near (R-FB-94), so it reads as if all of
+ * it were there from the start; no View more (R-FB-115).
+ */
 export function CompletedGroup({
   tasks,
   showList,
@@ -46,41 +46,20 @@ export function CompletedGroup({
   showList?: boolean;
   defaultOpen?: boolean;
 }) {
-  const [all, setAll] = useState(false);
-  // All of a long list: drawn as they scroll near (R-FB-94).
-  const reveal = useReveal(all ? tasks.length : 0);
+  const reveal = useReveal(tasks.length);
   if (tasks.length === 0) return null;
-  const shown = all ? tasks.slice(0, reveal.shown) : tasks.slice(0, COMPLETED_PREVIEW);
-  const expanded = all && tasks.length > COMPLETED_PREVIEW;
   return (
     <GroupSection
       groupKey="completed"
       title={t('group.completed')}
       count={tasks.length}
       defaultOpen={defaultOpen}
-      // In the header, so it is easy to reach at the top of a long list.
-      {...(expanded
-        ? {
-            actions: (
-              <Button size="small" onClick={() => setAll(false)}>
-                {t('group.viewLess')}
-              </Button>
-            ),
-          }
-        : {})}
     >
-      <TaskRows tasks={shown} {...(showList === undefined ? {} : { showList })} />
-      {all && reveal.spacer}
-      {!all && tasks.length > COMPLETED_PREVIEW && (
-        <Button
-          size="small"
-          color="inherit"
-          sx={{ mt: 0.5, color: 'text.secondary' }}
-          onClick={() => setAll(true)}
-        >
-          {t('group.viewMore')}
-        </Button>
-      )}
+      <TaskRows
+        tasks={tasks.slice(0, reveal.shown)}
+        {...(showList === undefined ? {} : { showList })}
+      />
+      {reveal.spacer}
     </GroupSection>
   );
 }

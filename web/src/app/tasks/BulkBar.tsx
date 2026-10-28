@@ -5,6 +5,7 @@ import DriveFileMoveOutlined from '@mui/icons-material/DriveFileMoveOutlined';
 import LocalOfferOutlined from '@mui/icons-material/LocalOfferOutlined';
 import {
   Box,
+  Button,
   ButtonBase,
   Dialog,
   DialogTitle,
@@ -69,6 +70,9 @@ export function BulkBar({ phone }: { phone: boolean }) {
   );
   const ids = [...bulk.picked].filter((id) => live.has(id));
   const none = ids.length === 0;
+  // Everything the page shows (R-FB-124): Select all, then Deselect all once it is all picked.
+  const onPage = [...bulk.rows].filter((id) => live.has(id));
+  const allPicked = onPage.length > 0 && onPage.every((id) => bulk.picked.has(id));
   const changed = t('bulk.changed', { count: ids.length });
   const run = (change: Parameters<typeof apply>[0], undo: string) => {
     apply(change, undo);
@@ -146,6 +150,15 @@ export function BulkBar({ phone }: { phone: boolean }) {
           <Typography variant="body2" sx={{ fontWeight: 600, whiteSpace: 'nowrap', pr: 1 }}>
             {t('bulk.count', { count: ids.length })}
           </Typography>
+          {onPage.length > 0 && (
+            <Button
+              size="small"
+              onClick={() => bulk.toggle(onPage, !allPicked)}
+              sx={{ whiteSpace: 'nowrap', ...(phone ? { ml: 'auto' } : {}) }}
+            >
+              {allPicked ? t('bulk.deselectAll') : t('bulk.selectAll')}
+            </Button>
+          )}
         </Box>
         <Box
           sx={{

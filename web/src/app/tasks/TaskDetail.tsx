@@ -9,8 +9,8 @@ import TaskAltRounded from '@mui/icons-material/TaskAltRounded';
 import {
   Box,
   IconButton,
+  InputBase,
   Stack,
-  TextField,
   Toolbar,
   Tooltip,
   Typography,
@@ -67,15 +67,28 @@ function CommitField({
     if (draft !== value) onCommit(draft);
   };
   return (
-    <TextField
-      label={label}
+    // The title as a heading, no box round it (R-FB-121): a light wash on hover and while
+    // editing says it can be changed.
+    <InputBase
       value={draft}
       fullWidth
+      placeholder={label}
       // Wraps and grows, so a long title reads whole (R-FB-90); it stays one line of text, a
       // pasted line break becoming a space.
       multiline
       // E (keyboard shortcuts) finds it by this.
-      slotProps={{ htmlInput: { readOnly, 'data-task-title': '' } }}
+      inputProps={{ readOnly, 'aria-label': label, 'data-task-title': '' }}
+      sx={{
+        px: 1,
+        py: 0.5,
+        borderRadius: 2,
+        fontSize: 20,
+        fontWeight: 600,
+        lineHeight: 1.35,
+        transition: 'background-color 120ms',
+        '& textarea::placeholder': { color: 'text.disabled', opacity: 1 },
+        ...(readOnly ? {} : { '&:hover, &.Mui-focused': { bgcolor: 'action.hover' } }),
+      }}
       onChange={(event) => setDraft(event.target.value.replace(/\s*[\r\n]+\s*/g, ' '))}
       onBlur={commit}
       onKeyDown={(event) => {

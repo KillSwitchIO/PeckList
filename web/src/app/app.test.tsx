@@ -65,6 +65,25 @@ describe('app shell', () => {
     expect(await screen.findByRole('dialog')).toBeInTheDocument();
   });
 
+  it('gives desktops the + button too, beside an open task (R-FB-98)', async () => {
+    mockViewport('desktop');
+    await renderApp('/today');
+    await userEvent.click(screen.getByRole('button', { name: 'Add a task' }));
+    expect(await screen.findByRole('dialog')).toBeInTheDocument();
+  });
+
+  it('closes the full task view on a phone outright, with no smaller sheet after it (R-FB-110)', async () => {
+    mockViewport('phone');
+    await renderApp('/today');
+    await userEvent.click(screen.getByRole('button', { name: 'Add a task' }));
+    await screen.findByRole('dialog');
+    await userEvent.keyboard('{Escape}');
+    await userEvent.keyboard('{Escape}');
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    // No task sheet in its place: the + button is back.
+    expect(screen.getByRole('button', { name: 'Add a task' })).toBeInTheDocument();
+  });
+
   it('opens a drawer from the menu button on tablets', async () => {
     mockViewport('tablet');
     await renderApp('/today');
