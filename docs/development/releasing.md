@@ -34,6 +34,27 @@ will read the changelog.
 
 `pnpm changelog` regenerates it, with unreleased work under **Unreleased**.
 
+### Compatibility
+
+A release that needs people to update the Android app, or that stops serving old web apps, says
+so at the top of its section, under **Compatibility**. The lines come from commit footers:
+
+```text
+feat(sync)!: pages carry the server clock
+
+Requires-Android: 0.3.0
+Supports-Web: 0.2.9
+```
+
+- `Requires-Android: X.Y.Z`: the Android app must be X.Y.Z or newer before this server is
+  updated (an older app is signed out until it updates).
+- `Supports-Web: X.Y.Z`: the oldest web app this server still serves; an older one updates itself
+  on its next load, so this is for people who pin an app build.
+
+Write the footer on the commit that makes it true (the one that changes the sync protocol, the
+app's API, or the schema), so the next release carries it. A release without either footer makes
+no claim: nothing changed in what it needs.
+
 ## Making a release
 
 On an up-to-date `main` with a green pipeline:
@@ -59,11 +80,13 @@ git push origin v0.4.0+<date>               # the tag `pnpm release:tag` printed
 ```
 
 `pnpm release:tag` checks that main holds one version in every file, that it is not tagged yet,
-and that `CHANGELOG.md` has its section (which becomes the tag message and the release notes).
+that `CHANGELOG.md` has its section (which becomes the tag message and the release notes), and
+that the commit's `main` pipeline passed: the tag pipeline builds and publishes without running
+the checks and tests again (`--skip-pipeline-check` if you know better).
 
 The tag pipeline then:
 
-1. Runs the checks and tests again, and `check:version` against the tag.
+1. Runs `check:version` against the tag (the checks and tests ran on `main`).
 2. Builds and pushes the release images for amd64 and arm64.
 3. Builds the native downloads (`punchlist-linux-x64.tar.gz`, `punchlist-linux-arm64.tar.gz`,
    `punchlist-win-x64.zip`) and `SHA256SUMS`.
@@ -78,7 +101,8 @@ always at `https://gitlab.com/killswitch10/punchlist/-/releases/permalink/latest
 ## Checklist
 
 - [ ] The pipeline on `main` is green, including e2e.
-- [ ] Breaking changes have upgrade steps in their commit footers (they become the notes).
+- [ ] Breaking changes have upgrade steps in their commit footers (they become the notes), and
+      `Requires-Android` / `Supports-Web` footers where the apps are affected.
 - [ ] Schema changes have a note in `docs/migrations/`.
 - [ ] After the tag pipeline: the release page, `docker pull ...:X.Y.Z`, and a native download's
       `punchlist --version`.

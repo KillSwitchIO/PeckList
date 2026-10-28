@@ -3,6 +3,7 @@
 // with the changelog section as its message. Nothing is pushed.
 //   pnpm release:tag            (the version the files hold)
 //   pnpm release:tag --dry-run
+//   pnpm release:tag --skip-pipeline-check   (tag a commit main's pipeline has not passed)
 // Then: git push origin <tag>   (CI builds, publishes and releases the tag)
 
 import { execFileSync } from 'node:child_process';
@@ -24,6 +25,21 @@ const [version] = versions;
 if (git('tag', '--list', `v${version}+*`)) fail(`${version} is already tagged.`);
 if (git('rev-parse', '--abbrev-ref', 'HEAD') !== 'main') fail('Release tags go on main.');
 if (git('status', '--porcelain')) fail('Commit or stash your changes first.');
+const sha = git('rev-parse', 'HEAD');
+if (!process.argv.includes('--skip-pipeline-check')) {
+  // The tag's pipeline builds and publishes without re-testing, so the commit must have been
+  // tested as main (the project is public, so the API needs no token).
+  const pipelines = await fetch(
+    `https://gitlab.com/api/v4/projects/killswitch10%2Fpunchlist/pipelines?sha=${sha}&ref=main`,
+  ).then((response) => (response.ok ? response.json() : []));
+  const green = pipelines.some((pipeline) => pipeline.status === 'success');
+  if (!green) {
+    fail(
+      `No green main pipeline for ${sha.slice(0, 8)} (${pipelines.map((p) => p.status).join(', ') || 'none found'}). ` +
+        'Wait for it, or pass --skip-pipeline-check if you know better.',
+    );
+  }
+}
 const notes = releaseNotes(readFileSync(join(root, 'CHANGELOG.md'), 'utf8'), version);
 if (notes === null) fail(`CHANGELOG.md has no section for ${version}: run pnpm release first.`);
 const date = new Date().toISOString().slice(0, 10).replaceAll('-', '');

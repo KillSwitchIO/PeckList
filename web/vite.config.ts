@@ -82,8 +82,8 @@ export default defineConfig({
     setupFiles: ['./src/test/setup.ts'],
     // UI tests type and click through whole flows in jsdom; under coverage on a busy machine the
     // longer ones pass 5 s now and then, which failed pushes at random. CI's runner is shared and
-    // slower again (a settings flow took 15 s there).
-    testTimeout: process.env.CI ? 30_000 : 15_000,
+    // slower again (a settings flow took 15 s there; with other jobs on the same runner, 30 s).
+    testTimeout: process.env.CI ? 45_000 : 15_000,
     include: ['src/**/*.test.{ts,tsx}'],
     coverage: {
       provider: 'v8',
