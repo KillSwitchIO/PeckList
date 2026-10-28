@@ -16,7 +16,10 @@ import { TaskHistory } from './TaskHistory.tsx';
 /** How far a finger swipes up to open the comments (R-FB-109). */
 export const SWIPE_UP_PX = 40;
 
-/** "Created Thu, Oct 22 9:00 AM · Updated Today 2:15 PM" (spec: PL-088). */
+/**
+ * "Created Thu, Oct 22 9:00 AM" at the left and "Updated Today 2:15 PM" at the right (spec:
+ * PL-088), with a little room at either end.
+ */
 export function TaskDates({ task }: { task: Task }) {
   const today = useToday();
   const zone = localTimeZone();
@@ -29,10 +32,10 @@ export function TaskDates({ task }: { task: Task }) {
       color="text.disabled"
       component="p"
       data-testid="task-dates"
-      sx={{ m: 0 }}
+      sx={{ m: 0, px: 1, display: 'flex', justifyContent: 'space-between', gap: 2 }}
     >
-      {t('task.createdWhen', { when: created })}
-      {updated !== created && ` · ${t('task.updatedWhen', { when: updated })}`}
+      <span>{t('task.createdWhen', { when: created })}</span>
+      {updated !== created && <span>{t('task.updatedWhen', { when: updated })}</span>}
     </Typography>
   );
 }
@@ -98,7 +101,8 @@ export function PhoneTaskMore({
         open={open}
         onClose={() => setOpen(false)}
         label={t('task.moreTitle')}
-        paperSx={{ maxHeight: '75dvh', px: 2, pb: 'calc(16px + env(safe-area-inset-bottom))' }}
+        // As tall as the task sheet it opens over.
+        paperSx={{ height: '92dvh', px: 2, pb: 'calc(16px + env(safe-area-inset-bottom))' }}
       >
         <Box sx={{ mt: 1 }}>
           <TaskDates task={task} />

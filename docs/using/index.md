@@ -17,7 +17,7 @@
 | **Lists**, **Tags**, **Filters**        | Your own lists, nested tags, and saved filters.                  |
 
 Views show how many open tasks they hold, as lists do (Calendar, Closed, Trash and Search show
-none). The Today icon shows today's date, and turns over at midnight.
+none), and so do lists and tags pinned among them. The Today icon shows today's date, and turns over at midnight.
 
 **Edit sidebar** pins, hides and moves views, Search included. While editing, drag a row by its
 grip on the left; a swipe anywhere else scrolls. The menu button at the top left folds the sidebar away
@@ -36,6 +36,9 @@ dragged into order, with More always last.
 Dates leave the year off when it is this year: "Thu, Oct 22", "October", but "Jan 4, 2027".
 
 ### Upcoming and Due dates
+
+A task that spans days (a start and an end) is not overdue while it runs: from its start until its
+end it shows under today, and only once its end has passed does it count as overdue.
 
 **Upcoming** lists today and every day after it, empty days included, under a strip of the week's
 days. More days load as you near the end, and the strip follows the day at the top of the list.
@@ -69,10 +72,12 @@ their start; the due date is the deadline.
 - **Open**: click a task for its details panel; it can be widened or made full screen. The
   expand button at the end of the add field opens a new task straight in the full view, filled
   with what you typed. The **+** button at the bottom right (every screen size) opens that full
-  view too; on a phone it fills the screen, and closing it closes the task. At the bottom: the
+  view too, with the title ready to type into; on a phone it fills the screen, and closing it
+  closes the task. At the bottom: the
   comments, the task's history and when it was made and last changed. On a phone those wait
   behind a bar at the bottom: tap it, or swipe up on it or past the end of the task, and a panel
-  slides up with the comments and, below them, the history. Panels that slide up close with a swipe down or a tap outside them. Phone rows put
+  as tall as the task's slides up with the comments and, below them, the history. When the task
+  was made shows at the left and when it last changed at the right. Panels that slide up close with a swipe down or a tap outside them. Phone rows put
   the title on its own line, with the list and tags under it and the date at the right.
 - **Reminders**: in a task's details, **Reminders** opens a list like TickTick's: tick any of
   **On time**, 5 or 30 minutes, an hour or a day early (an all-day task: **On the day**, 1, 2 or 3
@@ -140,8 +145,8 @@ their start; the due date is the deadline.
   `@` for suggestions). ++ctrl+enter++ posts. Everyone who sees the task sees its comments; people
   who may change the task may comment (a list's viewers only read). You edit or delete your own;
   a list's owner may delete any on it.
-- **History**: under the comments, who changed what and when, newest first (Sam set the date to
-  Fri, Oct 30), from when the task was made: its title, dates, priority, list, people, tags,
+- **History**: under the comments, a timeline of who changed what and when, newest first (Sam
+  set the date to Fri, Oct 30), each change marked by an icon for what changed, from when the task was made: its title, dates, priority, list, people, tags,
   notes, repeat, reminders, progress and pin, and completing, deleting or restoring it. A
   person's quick changes to the same thing within ten minutes show as one. The server keeps it
   for a year, so it shows with a server (and while it can be reached).

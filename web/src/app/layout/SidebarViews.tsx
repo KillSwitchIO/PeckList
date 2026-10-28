@@ -22,6 +22,7 @@ import { filterTasks } from '../../core/filters.ts';
 import { inboxList } from '../../core/lists.ts';
 import { createSavedFilter, filterOf, savedFiltersOf } from '../../core/savedFilters.ts';
 import { viewCounts } from '../../core/viewCounts.ts';
+import { openCounts, openTagCounts } from '../../core/queries.ts';
 import { useToday } from '../hooks/useToday.ts';
 import {
   filterViewId,
@@ -101,6 +102,8 @@ export function SidebarViews({
   const apply = useApply();
   const me = useStoreState((state) => state.context().userId);
   const counts = useMemo(() => viewCounts(workspace, today, me), [workspace, today, me]);
+  const listCounts = useMemo(() => openCounts(workspace), [workspace]);
+  const tagCounts = useMemo(() => openTagCounts(workspace), [workspace]);
   const theme = useTheme();
   const navigate = useNavigate();
   const { pathname } = useLocation();
@@ -141,6 +144,8 @@ export function SidebarViews({
         label: listName(list, workspace),
         icon: <ListMark list={list} sx={{ mx: list.icon ? '3px' : '7px' }} />,
         pinned: true,
+        // Its open tasks, as in the Lists section.
+        count: listCounts.get(list.id) ?? 0,
       };
     } else if (kind === 'tag') {
       const tag = getEntity(workspace, 'tags', entityId);
@@ -156,6 +161,8 @@ export function SidebarViews({
           />
         ),
         pinned: true,
+        // Its open tasks, as in the Tags section.
+        count: tagCounts.get(tag.id) ?? 0,
       };
     }
   }
