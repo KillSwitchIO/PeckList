@@ -1,6 +1,6 @@
-import TaskAltRounded from '@mui/icons-material/TaskAltRounded';
 import { Box, Typography } from '@mui/material';
 import type { ReactNode } from 'react';
+import { EmptyMark } from './EmptyMark.tsx';
 
 export function EmptyState({
   title,
@@ -22,9 +22,14 @@ export function EmptyState({
         color: 'text.secondary',
       }}
     >
-      <Box sx={{ color: 'primary.main', '& svg': { fontSize: 56 } }}>
-        {icon ?? <TaskAltRounded />}
-      </Box>
+      {/* Our logo, flipping round to a check (a view's own icon, when it gives one). */}
+      {icon ? (
+        <Box sx={{ color: 'primary.main', '& svg': { fontSize: 56 } }}>{icon}</Box>
+      ) : (
+        <Box sx={{ mb: 1 }}>
+          <EmptyMark />
+        </Box>
+      )}
       <Typography variant="h2" component="p" color="text.primary">
         {title}
       </Typography>

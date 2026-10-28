@@ -31,9 +31,9 @@ describe('view counts (R-FB-114)', () => {
     add('bill', { due: { at: '2026-10-25', allDay: true, timeZone: TZ }, listId: made.list.id });
 
     const counts = viewCounts(ws, TODAY, null);
-    expect(counts).toMatchObject({ today: 2, inbox: 3, upcoming: 3, due: 1, all: 5 });
-    // Calendar, Completed, Trash and Search show none.
+    expect(counts).toMatchObject({ today: 2, inbox: 3, upcoming: 3, due: 1, all: 5, completed: 1 });
+    // Calendar, Trash and Search show none.
     expect(counts.calendar).toBeUndefined();
-    expect(counts.completed).toBeUndefined();
+    expect(counts.trash).toBeUndefined();
   });
 });
