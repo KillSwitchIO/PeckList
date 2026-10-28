@@ -39,6 +39,7 @@ import { useApply, useStoreState, useWorkspace } from '../store/hooks.ts';
 import { AddTaskInput } from '../tasks/AddTaskInput.tsx';
 import { TaskRows } from '../tasks/TaskRow.tsx';
 import { TaskTree } from '../tasks/TaskTree.tsx';
+import { useNoteEmpty } from './emptyMarkPlays.ts';
 import { EmptyState } from './EmptyState.tsx';
 import { GroupSection } from './GroupSection.tsx';
 import { hasOwnDate, weekdayName } from './dayLabels.ts';
@@ -122,6 +123,7 @@ export function TodayView() {
   const done = completedOn(workspace, today, localTimeZone());
   // All punched out once nothing is open or overdue, whatever got done today (R-FB-135).
   const empty = groups.overdue.length === 0 && groups.today.length === 0;
+  useNoteEmpty(empty);
   return (
     <Page
       title={t('nav.today')}

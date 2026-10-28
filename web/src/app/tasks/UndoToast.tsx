@@ -147,6 +147,9 @@ export function UndoToast({
             sx={{
               position: 'absolute',
               inset: 0,
+              // Presses go to the button: the ring starts over (a new one) on each press, and a
+              // click whose press landed on the old ring never came (R-FB-151).
+              pointerEvents: 'none',
               color: 'primary.main',
               '& circle': { animation: `undo-ring ${SHOW_MS}ms linear forwards` },
               '@keyframes undo-ring': {

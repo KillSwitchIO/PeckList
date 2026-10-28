@@ -30,6 +30,7 @@ import { TaskTree } from '../tasks/TaskTree.tsx';
 import { dateZone, groupZone } from './dragZones.ts';
 import { TaskDragProvider } from '../tasks/drag/TaskDrag.tsx';
 import { dayTitle, hasOwnDate, weekdayName } from './dayLabels.ts';
+import { useNoteEmpty } from './emptyMarkPlays.ts';
 import { EmptyState } from './EmptyState.tsx';
 import { GroupSection } from './GroupSection.tsx';
 
@@ -148,6 +149,7 @@ export function DateGroupedTasks({
   const { pinned, rest } = pinnedFirst(filterTasks(workspace, filter, today));
   const groups = inOrder(groupByDate(workspace, rest, today), groupsReversed);
   const closed = filterClosedTasks(workspace, filter, today);
+  useNoteEmpty(groups.length === 0 && pinned.length === 0);
   return (
     <TaskDragProvider>
       {groups.length === 0 && pinned.length === 0 && closed.length === 0 && (
@@ -225,6 +227,7 @@ export function GroupedTasks({
             })
           : null;
   const groups = grouped && inOrder(grouped, groupsReversed);
+  useNoteEmpty(open.length === 0 && pinned.length === 0);
   return (
     <TaskDragProvider>
       {open.length === 0 && pinned.length === 0 && (emptyWithClosed || closed.length === 0) && (
