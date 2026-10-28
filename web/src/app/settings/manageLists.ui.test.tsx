@@ -7,7 +7,8 @@ import { loadSymbolCatalog } from '../lists/listSymbols.ts';
 import { mockViewport, renderApp, testStore } from '../../test/renderApp.tsx';
 
 // The list dialog's icon picker loads the icon catalog: in before the test, not after it ends.
-beforeAll(() => loadSymbolCatalog());
+// Hundreds of icon modules: under coverage on a busy CI runner this took over 10 s once.
+beforeAll(() => loadSymbolCatalog(), 60_000);
 
 beforeEach(() => {
   localStorage.clear();
