@@ -1,6 +1,6 @@
 import { CssBaseline, ThemeProvider, useMediaQuery } from '@mui/material';
 import { useEffect, useMemo, type ReactNode } from 'react';
-import { effectivePalette } from '../../core/paletteSettings.ts';
+import { effectivePalette, paletteTint } from '../../core/paletteSettings.ts';
 import { updateSettings } from '../../core/settings.ts';
 import { useApply, useWorkspace } from '../store/hooks.ts';
 import { setDisplayPreferences } from '../format.ts';
@@ -31,10 +31,14 @@ export function WorkspaceTheme({ children }: { children: ReactNode }) {
   const resolved = mode === 'system' ? (prefersDark ? 'dark' : 'light') : mode;
   const overrides = effectivePalette(workspace);
   const key = JSON.stringify(overrides);
+  const tint = paletteTint(workspace);
   // A new theme object when the clock changes too, so everything showing a time renders again.
   const theme = useMemo(
-    () => ({ ...createAppTheme(resolved, JSON.parse(key) as Record<string, string>), display }),
-    [resolved, key, display],
+    () => ({
+      ...createAppTheme(resolved, JSON.parse(key) as Record<string, string>, tint),
+      display,
+    }),
+    [resolved, key, tint, display],
   );
   // A light or dark choice made in this browser before settings synced comes along, once.
   useEffect(() => {

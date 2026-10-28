@@ -11,7 +11,8 @@ import {
   Paper,
   Typography,
 } from '@mui/material';
-import { Fragment, useRef, useState, type KeyboardEvent, type ReactNode } from 'react';
+import { Fragment, useEffect, useRef, useState, type KeyboardEvent, type ReactNode } from 'react';
+import { useSearchParams } from 'react-router';
 import { localDateTimeOf, localTimeZone } from '../../core/dates.ts';
 import {
   addComment,
@@ -266,7 +267,21 @@ function CommentRow({ comment, people }: { comment: Comment; people: User[] }) {
     <Box
       component="li"
       aria-label={t('comments.by', { name })}
-      sx={{ display: 'flex', gap: 1.25, py: 1 }}
+      data-comment-id={comment.id}
+      sx={{
+        display: 'flex',
+        gap: 1.25,
+        py: 1,
+        borderRadius: 1.5,
+        // The comment a notification opened: marked a moment (R-FB-106).
+        '&[data-pointed]': {
+          animation: 'comment-pointed 2.4s ease-out',
+          '@keyframes comment-pointed': {
+            from: { backgroundColor: 'var(--mui-palette-action-selected, rgba(127,127,127,0.25))' },
+            to: { backgroundColor: 'transparent' },
+          },
+        },
+      }}
     >
       <Avatar
         name={author?.displayName ?? name}
@@ -346,6 +361,19 @@ export function Comments({ task }: { task: Task }) {
   const me = useStoreState((state) => state.context().userId);
   const comments = commentsOf(workspace, task.id);
   const allowed = canComment(workspace, me, task);
+  // A notification's Reply (or a tap on it) opens the comments scrolled to its comment (R-FB-106).
+  const [params] = useSearchParams();
+  const pointed = params.get('comment');
+  const here = pointed !== null && comments.some((comment) => comment.id === pointed);
+  useEffect(() => {
+    if (!here) return;
+    const row = document.querySelector<HTMLElement>(`[data-comment-id="${CSS.escape(pointed)}"]`);
+    if (!row) return;
+    row.scrollIntoView?.({ block: 'center', behavior: 'smooth' });
+    row.setAttribute('data-pointed', '');
+    const timer = setTimeout(() => row.removeAttribute('data-pointed'), 2500);
+    return () => clearTimeout(timer);
+  }, [here, pointed]);
   if (!allowed && comments.length === 0) return null;
   const people = mentionCandidates(workspace, me, task);
 

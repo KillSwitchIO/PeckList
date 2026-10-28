@@ -35,11 +35,11 @@ const MOVE_PX = 6;
 const HOLD_MS = 350;
 
 /**
- * Dragging tasks onto days and times (spec: PL-093). Tasks on the calendar drag as soon as the
- * pointer moves a few pixels, finger or mouse (the calendar scrolls by its dates and empty
- * space); ones in a scrolling list (`hold`) wait for a finger to hold first, so a swipe scrolls. While dragging, `ghost` follows the pointer
- * with where it would land; letting go there calls `onDrop`. A click right after a drag is
- * swallowed, so dropping does not also open the task.
+ * Dragging tasks onto days and times (spec: PL-093). A mouse drags as soon as it moves a few
+ * pixels. A finger holds the task for a moment first, so a swipe anywhere, tasks included,
+ * scrolls the calendar (R-FB-99). While dragging, `ghost` follows the pointer with where it would
+ * land; letting go there calls `onDrop` (a task held and let go without moving stays put). A click
+ * right after a drag is swallowed, so dropping does not also open the task.
  */
 export function useCalendarDrag(
   onDrop: (payload: DragPayload, target: DropTarget) => void,
@@ -61,13 +61,15 @@ export function useCalendarDrag(
   const cleanup = useRef<(() => void) | null>(null);
   useEffect(() => () => cleanup.current?.(), []);
 
-  const begin = (event: PointerEvent<HTMLElement>, payload: DragPayload, waitForHold = false) => {
+  const begin = (event: PointerEvent<HTMLElement>, payload: DragPayload) => {
     if (event.button !== 0) return;
     cleanup.current?.();
-    const touch = event.pointerType === 'touch' && waitForHold;
+    const touch = event.pointerType === 'touch';
     const origin = { x: event.clientX, y: event.clientY };
     const id = event.pointerId;
     let dragging = false;
+    // Moved since it was picked up: only then does letting go move the task.
+    let travelled = false;
     let timer: ReturnType<typeof setTimeout> | null = null;
 
     const show = (x: number, y: number) =>
@@ -90,15 +92,19 @@ export function useCalendarDrag(
       if (!dragging) {
         if (touch && far)
           finish(); // a swipe: let the page scroll
-        else if (!touch && far) lift(next.clientX, next.clientY);
+        else if (!touch && far) {
+          travelled = true;
+          lift(next.clientX, next.clientY);
+        }
         return;
       }
+      if (far) travelled = true;
       show(next.clientX, next.clientY);
     };
     const up = (next: globalThis.PointerEvent) => {
       if (next.pointerId !== id) return;
       if (dragging) {
-        const target = targetAt(next.clientX, next.clientY, payload.grabMinutes);
+        const target = travelled ? targetAt(next.clientX, next.clientY, payload.grabMinutes) : null;
         if (target) drop.current(payload, target);
         // The click that follows a drop is not a click on the task.
         const swallow = (click: MouseEvent) => {

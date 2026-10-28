@@ -11,6 +11,8 @@ interface Gesture {
   touch: boolean;
   timer: ReturnType<typeof setTimeout> | null;
   dragging: boolean;
+  /** Pressed on the row's grip, which alone drags while editing (R-FB-113). */
+  handle: boolean;
   /** The row's section and where it sat when the press began. */
   section: Element | null;
   sectionTop: number;
@@ -19,8 +21,8 @@ interface Gesture {
 /**
  * Drag to sort rows of one section. `onDrag(id, y)` gets the dragged id and the pointer's height
  * as it moves; `slot(ids, y)` turns that into an index among `ids` (the rows above the pointer).
- * Holding or dragging a row starts editing; right-click does too. While editing a finger drags,
- * before that it scrolls.
+ * Holding a row starts editing (a mouse drag or right-click does too). While editing only a row's
+ * grip (`data-drag-handle`) drags it; anywhere else scrolls (R-FB-113).
  */
 export function useSortableRows({
   editing,
@@ -59,6 +61,7 @@ export function useSortableRows({
         x: event.clientX,
         y: event.clientY,
         touch: event.pointerType === 'touch',
+        handle: (event.target as Element).closest?.('[data-drag-handle]') != null,
         dragging: false,
         section: event.currentTarget.closest('ul'),
         sectionTop: event.currentTarget.closest('ul')?.getBoundingClientRect().top ?? 0,
@@ -75,7 +78,9 @@ export function useSortableRows({
       if (!current) return;
       if (!current.dragging) {
         if (Math.hypot(event.clientX - current.x, event.clientY - current.y) < DRAG_PX) return;
-        if (current.touch && !editing) {
+        // While editing only the grip drags, so the menu scrolls freely; before that a finger
+        // scrolls and a mouse drag starts editing.
+        if (editing ? !current.handle : current.touch) {
           end();
           return;
         }

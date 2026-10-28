@@ -58,7 +58,7 @@ const groupHeadings = () =>
   screen.getAllByRole('heading', { level: 2 }).map((heading) => heading.textContent);
 
 describe('date-grouped views', () => {
-  it('All shows every open task in date groups, then Completed with View more', async () => {
+  it('All shows every open task in date groups, then all of Completed', async () => {
     await renderSeeded('/all');
     await screen.findByRole('button', { name: 'Open work thing' });
     const headings = groupHeadings();
@@ -66,15 +66,9 @@ describe('date-grouped views', () => {
     expect(headings[1]).toMatch(/Today/);
     expect(headings[2]).toMatch(/Tomorrow/);
     expect(headings.slice(3)).toEqual(['Next 7 days1', 'Later1', 'No date2', 'Closed6']);
-    // Only the last five completed, then View more.
-    expect(screen.getAllByRole('checkbox', { name: /^Reopen done/ })).toHaveLength(5);
-    await userEvent.click(screen.getByRole('button', { name: 'View more' }));
+    // All of Completed, with no View more (R-FB-115).
     expect(screen.getAllByRole('checkbox', { name: /^Reopen done/ })).toHaveLength(6);
-    // View less sits in the Completed header and goes back to five.
     expect(screen.queryByRole('button', { name: 'View more' })).toBeNull();
-    await userEvent.click(screen.getByRole('button', { name: 'View less' }));
-    expect(screen.getAllByRole('checkbox', { name: /^Reopen done/ })).toHaveLength(5);
-    expect(screen.queryByRole('button', { name: 'View less' })).toBeNull();
   });
 
   it('a list shows only its own tasks, grouped by date with No date', async () => {

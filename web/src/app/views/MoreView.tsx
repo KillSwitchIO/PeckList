@@ -1,19 +1,8 @@
-import {
-  Box,
-  Divider,
-  IconButton,
-  List,
-  ListItemButton,
-  ListItemIcon,
-  ListItemText,
-  Tooltip,
-} from '@mui/material';
+import { Box, Divider, IconButton, Tooltip } from '@mui/material';
 import { useNavigate } from 'react-router';
-import { SEARCH_TAB } from '../../core/bottomBar.ts';
 import { t } from '../i18n/i18n.ts';
 import { EditIcon } from '../icons/icons.tsx';
 import { Page } from '../layout/Page.tsx';
-import { useFooterItems } from '../layout/useFooterItems.ts';
 import { SidebarEditProvider } from '../layout/sidebarEdit.tsx';
 import { SidebarEditBar } from '../layout/SidebarEditBar.tsx';
 import { BottomBarEditor } from '../layout/BottomBarEditor.tsx';
@@ -38,10 +27,6 @@ function MoreContent() {
   const navigate = useNavigate();
   const go = (path: string) => void navigate(path);
   const edit = useSidebarEdit();
-  // Search only when the bottom bar does not have it.
-  const footer = useFooterItems().filter(
-    (item) => item.path !== '/search' || !edit.current.bottomBar.includes(SEARCH_TAB),
-  );
   return (
     <Page
       title={t('more.title')}
@@ -83,16 +68,6 @@ function MoreContent() {
         <Divider sx={{ mx: 2 }} />
         <SidebarLists onNavigate={go} />
         <SidebarTags onNavigate={go} />
-        {footer.length > 0 && (
-          <List dense>
-            {footer.map((item) => (
-              <ListItemButton key={item.path} onClick={() => go(item.path)}>
-                <ListItemIcon sx={{ minWidth: 40 }}>{item.icon}</ListItemIcon>
-                <ListItemText primary={t(item.label)} />
-              </ListItemButton>
-            ))}
-          </List>
-        )}
       </Box>
     </Page>
   );

@@ -139,6 +139,109 @@ public sealed class SharingTests(ServerFixture fixture) : IClassFixture<ServerFi
     }
 
     [Fact]
+    public async Task A_comment_tells_everyone_else_who_can_see_the_task_and_so_does_an_edit()
+    {
+        var ben = await SignIn("ben-c");
+        var sam = await SignIn("sam-c");
+        var lee = await SignIn("lee-c");
+        await ben.SyncAsync(List("CL1", "shared"), Member("CM1", "CL1", sam.UserId, "editor"), Task("CT1", "CL1", "Paint"));
+        await sam.SyncAsync(("comments", Entity("CC1", new JsonObject
+        {
+            ["taskId"] = "CT1",
+            ["body"] = "Blue?",
+            ["editedAt"] = null,
+        })));
+
+        var comment = Assert.Single((await ben.NotificationsAsync()).Items, each => each.Kind == "commented");
+        Assert.Equal(("CT1", "CC1", sam.UserId), (comment.TaskId, comment.CommentId, comment.ActorId));
+        Assert.DoesNotContain((await sam.NotificationsAsync()).Items, each => each.Kind == "commented");
+        Assert.Empty((await lee.NotificationsAsync()).Items);
+
+        // Changing the words tells them again; pushing it unchanged does not.
+        await sam.SyncAsync(("comments", Entity("CC1", new JsonObject
+        {
+            ["taskId"] = "CT1",
+            ["body"] = "Green, actually",
+            ["editedAt"] = "2026-10-21T12:00:00.000Z",
+        })));
+        Assert.Single((await ben.NotificationsAsync()).Items, each => each.Kind == "commentEdited");
+    }
+
+    [Fact]
+    public async Task A_task_keeps_its_history_for_those_who_can_see_it()
+    {
+        var ben = await SignIn("ben-h");
+        var sam = await SignIn("sam-h");
+        var lee = await SignIn("lee-h");
+        await ben.SyncAsync(List("HL1", "shared"), Member("HM1", "HL1", sam.UserId, "editor"), Task("HT1", "HL1", "Paint"));
+        // Two quick renames by Sam fold into one change; then Ben raises its priority.
+        await sam.SyncAsync(Task("HT1", "HL1", "Paint the"));
+        await sam.SyncAsync(Task("HT1", "HL1", "Paint the shed"));
+        var withPriority = Task("HT1", "HL1", "Paint the shed");
+        withPriority.Item2["priority"] = 3;
+        ((JsonObject)withPriority.Item2["_hlc"]!)["priority"] = "2026-10-21T13:00:00.000Z-0000-dev1";
+        await ben.SyncAsync(withPriority);
+
+        var history = (await sam.Client.GetFromJsonAsync<List<HistoryView>>("/api/tasks/HT1/history", Token))!;
+        Assert.Equal(["priority", "title", "created"], history.Select(each => each.Field));
+        var title = history[1];
+        Assert.Equal(("\"Paint\"", "\"Paint the shed\"", sam.UserId), (title.Before, title.After, title.ActorId));
+        Assert.Equal(("3", ben.UserId), (history[0].After, history[0].ActorId));
+        // Lee cannot see the task, so its history is not there for them either.
+        Assert.Equal(System.Net.HttpStatusCode.NotFound, (await lee.Client.GetAsync("/api/tasks/HT1/history", Token)).StatusCode);
+    }
+
+    [Fact]
+    public async Task A_task_for_a_group_tells_its_members_and_calling_dibs_tells_the_rest()
+    {
+        var ben = await SignIn("ben-g");
+        var sam = await SignIn("sam-g");
+        var kim = await SignIn("kim-g");
+        var admin = factory.CreateClient();
+        (await admin.PostAsJsonAsync("/auth/login", new { username = "admin", password = "correct horse battery" }, Token)).EnsureSuccessStatusCode();
+        var made = await admin.PostAsJsonAsync("/api/admin/groups", new { name = "Chores", offeredForSharing = true }, Token);
+        var groupId = (string)(await made.Content.ReadFromJsonAsync<JsonObject>(Token))!["id"]!;
+        foreach (var member in new[] { sam, kim })
+        {
+            (await admin.PutAsync($"/api/admin/groups/{groupId}/members/{member.UserId}", null, Token)).EnsureSuccessStatusCode();
+        }
+        JsonObject Assigned(params (string Principal, bool In, string Clock)[] states)
+        {
+            var assignees = new JsonObject();
+            foreach (var (principal, isIn, at) in states) assignees[principal] = new JsonObject { ["in"] = isIn, ["hlc"] = at };
+            return assignees;
+        }
+        var task = Entity("GT1", new JsonObject
+        {
+            ["listId"] = "GL1",
+            ["title"] = "Take out the bins",
+            ["parentId"] = null,
+            ["assignees"] = Assigned(($"group:{groupId}", true, "2026-10-21T11:00:00.000Z-0000-dev1")),
+        });
+        await ben.SyncAsync(
+            List("GL1", "shared"),
+            ("listMembers", Entity("GM1", new JsonObject { ["listId"] = "GL1", ["principal"] = $"group:{groupId}", ["role"] = "editor" })),
+            ("tasks", task));
+        Assert.Contains((await sam.NotificationsAsync()).Items, each => each.Kind == "groupAssigned" && each.TaskId == "GT1");
+        Assert.Contains((await kim.NotificationsAsync()).Items, each => each.Kind == "groupAssigned" && each.TaskId == "GT1");
+
+        // Kim calls dibs: the group comes off, Kim goes on. Sam hears; Kim does not.
+        await kim.SyncAsync();
+        var claimed = Entity("GT1", new JsonObject
+        {
+            ["listId"] = "GL1",
+            ["title"] = "Take out the bins",
+            ["parentId"] = null,
+            ["assignees"] = Assigned(
+                ($"group:{groupId}", false, "2026-10-21T12:00:00.000Z-0000-dev2"),
+                ($"user:{kim.UserId}", true, "2026-10-21T12:00:00.000Z-0000-dev2")),
+        });
+        await kim.SyncAsync(("tasks", claimed));
+        Assert.Contains((await sam.NotificationsAsync()).Items, each => each.Kind == "claimed" && each.ActorId == kim.UserId);
+        Assert.DoesNotContain((await kim.NotificationsAsync()).Items, each => each.Kind == "claimed");
+    }
+
+    [Fact]
     public async Task A_server_group_offered_for_sharing_is_a_group_members_share_with_but_cannot_leave()
     {
         var sam = await SignIn("sam");

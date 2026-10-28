@@ -109,14 +109,14 @@ describe('task details', () => {
     );
   });
 
-  it('on a phone keeps comments and dates in a panel that slides up', async () => {
+  it('on a phone keeps comments, dates and history in a panel that slides up', async () => {
     mockViewport('phone');
     await renderApp('/inbox');
     await addTasks('Call the plumber');
     await userEvent.click(screen.getByRole('button', { name: 'Open Call the plumber' }));
     expect(screen.queryByTestId('task-dates')).toBeNull();
-    await userEvent.click(await screen.findByRole('button', { name: 'Comments and dates' }));
-    const panel = await screen.findByRole('dialog', { name: 'Comments and dates' });
+    await userEvent.click(await screen.findByRole('button', { name: 'Comments and history' }));
+    const panel = await screen.findByRole('dialog', { name: 'Comments and history' });
     expect(within(panel).getByTestId('task-dates')).toHaveTextContent(/^Created Today/);
   });
 
@@ -462,12 +462,17 @@ describe('lists and sections', () => {
     // The icon is decoration: the button is still named by the list.
     expect(await within(nav).findByRole('button', { name: /^Groceries/ })).toHaveTextContent('🛒');
 
-    // Any emoji can be typed instead; only its first character is kept.
+    // Search finds emoji (and icons) by name (R-FB-117).
     await userEvent.click(screen.getByRole('button', { name: 'View options' }));
     await userEvent.click(await screen.findByRole('menuitem', { name: 'Edit list' }));
     const edit = await screen.findByRole('dialog');
-    await userEvent.type(within(edit).getByLabelText('Or type any emoji'), '🥕🥦');
-    expect(within(edit).getByLabelText('Or type any emoji')).toHaveValue('🥕');
+    const search = within(edit).getByRole('searchbox', { name: 'Search icons and emoji' });
+    await userEvent.type(search, 'carrot');
+    await userEvent.click(await within(edit).findByRole('radio', { name: '🥕' }));
+    // An emoji the catalog lacks can be typed in and used.
+    await userEvent.clear(search);
+    await userEvent.type(search, '🫎');
+    expect(within(edit).getByRole('radio', { name: 'Use 🫎' })).toBeInTheDocument();
     await userEvent.click(within(edit).getByRole('button', { name: 'Save' }));
     await waitFor(() =>
       expect(within(nav).getByRole('button', { name: /^Groceries/ })).toHaveTextContent('🥕'),

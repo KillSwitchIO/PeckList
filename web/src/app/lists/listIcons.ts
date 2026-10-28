@@ -1,12 +1,9 @@
-/** Emoji a to-do list is likely to want; any other can be typed. */
+/**
+ * The emoji most lists want, in the picker's top row (R-FB-117); the full set with search is in
+ * iconCatalog.ts.
+ */
 // prettier-ignore
-export const LIST_ICONS = [
-  '📥', '✅', '📌', '⭐', '🔥', '💡', '📝', '📅',
-  '💼', '🏠', '🛒', '🍳', '💰', '🧾', '📚', '🎓',
-  '🏋️', '🏃', '🧘', '❤️', '🩺', '💊', '🐶', '🌱',
-  '🚗', '✈️', '🧳', '🏖️', '🎮', '🎵', '🎬', '🎁',
-  '🎉', '🛠️', '💻', '📱', '🧹', '👪', '🙏', '🌙',
-] as const;
+export const LIST_ICONS = ['✅', '📌', '⭐', '🔥', '💡', '📝', '🏠', '💼', '🛒'] as const;
 
 /** The first character a person sees in `text` (an emoji may be several code points), or null. */
 export function firstGrapheme(text: string): string | null {

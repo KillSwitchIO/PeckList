@@ -306,10 +306,173 @@ export const PALETTE_PRESETS = {
     late: '#C8574E',
     slipped: '#D9A048',
   },
+  // Louder and more colorful, and soft pretty ones (R-FB-123): these also wash the page in their
+  // accent (PRESET_TINTS).
+  neon: {
+    accent: '#FF2E93',
+    accentContainer: '#FFD1E8',
+    priorityHigh: '#FF3B30',
+    priorityMedium: '#FF9500',
+    priorityLow: '#00B8F0',
+    priorityNone: '#B0B3BE',
+    late: '#FF3B30',
+    slipped: '#FF9500',
+  },
+  arcade: {
+    accent: '#00A8E8',
+    accentContainer: '#C9F0FF',
+    priorityHigh: '#FF2D55',
+    priorityMedium: '#FFC300',
+    priorityLow: '#AF52DE',
+    priorityNone: '#AEB4C0',
+    late: '#FF2D55',
+    slipped: '#FFC300',
+  },
+  fiesta: {
+    accent: '#FF6B00',
+    accentContainer: '#FFE0C2',
+    priorityHigh: '#E63946',
+    priorityMedium: '#FFB703',
+    priorityLow: '#219EBC',
+    priorityNone: '#BDB5AC',
+    late: '#E63946',
+    slipped: '#FFB703',
+  },
+  volt: {
+    accent: '#7CB518',
+    accentContainer: '#E6F6C6',
+    priorityHigh: '#EF4444',
+    priorityMedium: '#F59E0B',
+    priorityLow: '#06B6D4',
+    priorityNone: '#B4BAA8',
+    late: '#EF4444',
+    slipped: '#F59E0B',
+  },
+  rainbow: {
+    accent: '#7C3AED',
+    accentContainer: '#EDE3FF',
+    priorityHigh: '#FF4D4D',
+    priorityMedium: '#FFB020',
+    priorityLow: '#22A6F2',
+    priorityNone: '#B7B4C6',
+    late: '#FF4D4D',
+    slipped: '#FFB020',
+  },
+  lagoon: {
+    accent: '#00A6A6',
+    accentContainer: '#C2F0EE',
+    priorityHigh: '#FF5A5F',
+    priorityMedium: '#FFB400',
+    priorityLow: '#3D5AFE',
+    priorityNone: '#AEBDBD',
+    late: '#FF5A5F',
+    slipped: '#FFB400',
+  },
+  sunburst: {
+    accent: '#F08C00',
+    accentContainer: '#FEEBC7',
+    priorityHigh: '#E11D48',
+    priorityMedium: '#F97316',
+    priorityLow: '#6366F1',
+    priorityNone: '#C2B8A8',
+    late: '#E11D48',
+    slipped: '#F97316',
+  },
+  bubblegum: {
+    accent: '#E75480',
+    accentContainer: '#FFD6E5',
+    priorityHigh: '#E0446A',
+    priorityMedium: '#F7A35C',
+    priorityLow: '#9B8CF2',
+    priorityNone: '#CDB8C4',
+    late: '#E0446A',
+    slipped: '#F7A35C',
+  },
+  'cotton-candy': {
+    accent: '#F06EAA',
+    accentContainer: '#FFE0F0',
+    priorityHigh: '#F25C78',
+    priorityMedium: '#F9B572',
+    priorityLow: '#7FC8F8',
+    priorityNone: '#CFBFCA',
+    late: '#F25C78',
+    slipped: '#F9B572',
+  },
+  lilac: {
+    accent: '#A06CD5',
+    accentContainer: '#EBDDF8',
+    priorityHigh: '#E26D8F',
+    priorityMedium: '#F2B27A',
+    priorityLow: '#7EB6E8',
+    priorityNone: '#C3BACD',
+    late: '#E26D8F',
+    slipped: '#F2B27A',
+  },
+  'rose-gold': {
+    accent: '#B76E79',
+    accentContainer: '#F5DDE0',
+    priorityHigh: '#D9566B',
+    priorityMedium: '#E8A86C',
+    priorityLow: '#8FA6D6',
+    priorityNone: '#C9B5B8',
+    late: '#D9566B',
+    slipped: '#E8A86C',
+  },
+  peony: {
+    accent: '#D6336C',
+    accentContainer: '#FCD9E5',
+    priorityHigh: '#E8434F',
+    priorityMedium: '#F5A142',
+    priorityLow: '#8C7AE6',
+    priorityNone: '#C9B6BE',
+    late: '#E8434F',
+    slipped: '#F5A142',
+  },
+  orchid: {
+    accent: '#B5179E',
+    accentContainer: '#F6D3EE',
+    priorityHigh: '#F72585',
+    priorityMedium: '#F8961E',
+    priorityLow: '#4CC9F0',
+    priorityNone: '#C4B3C3',
+    late: '#F72585',
+    slipped: '#F8961E',
+  },
+  champagne: {
+    accent: '#B08D57',
+    accentContainer: '#F3E7D3',
+    priorityHigh: '#D0605E',
+    priorityMedium: '#E3A857',
+    priorityLow: '#93A9C9',
+    priorityNone: '#C7BDAF',
+    late: '#D0605E',
+    slipped: '#E3A857',
+  },
 } as const satisfies Record<string, Record<PaletteSlot, string>>;
 
 export type PalettePreset = keyof typeof PALETTE_PRESETS;
 export const DEFAULT_PRESET: PalettePreset = 'punchlist';
+
+/**
+ * How strongly a palette washes the page and panels in its accent (0 to about 0.1; none for the
+ * quiet ones), so the loud and pretty palettes look it (R-FB-123). Text keeps its contrast.
+ */
+export const PRESET_TINTS: Partial<Record<PalettePreset, number>> = {
+  neon: 0.08,
+  arcade: 0.08,
+  fiesta: 0.07,
+  volt: 0.07,
+  rainbow: 0.06,
+  lagoon: 0.07,
+  sunburst: 0.08,
+  bubblegum: 0.07,
+  'cotton-candy': 0.08,
+  lilac: 0.06,
+  'rose-gold': 0.05,
+  peony: 0.05,
+  orchid: 0.06,
+  champagne: 0.05,
+};
 
 export const LIGHT_SURFACE = '#FFFFFF';
 export const DARK_SURFACE = '#24272A';
@@ -317,19 +480,23 @@ export const DARK_SURFACE = '#24272A';
 export function buildPalette(
   mode: 'light' | 'dark',
   overrides: Partial<Record<string, string>> = {},
+  /** How much of the accent washes the page and panels (PRESET_TINTS) */
+  tint = 0,
 ): ModePalette {
   const dark = mode === 'dark';
-  const surface = dark ? DARK_SURFACE : LIGHT_SURFACE;
   const fill = (name: string, fallback: string) => overrides[name] ?? fallback;
+  const wash = (base: string, amount: number) =>
+    tint > 0 ? mix(base, fill('accent', PALETTE_DEFAULTS.accent), tint * amount) : base;
+  const surface = wash(dark ? DARK_SURFACE : LIGHT_SURFACE, dark ? 0.6 : 0.45);
   const pastels = Object.fromEntries(
     PASTEL_NAMES.map((name) => [name, token(fill(name, PASTEL_FILLS[name]), surface, dark)]),
   ) as Record<PastelName, ColorToken>;
   const accentSeed = fill('accent', PALETTE_DEFAULTS.accent);
   return {
-    background: dark ? '#1B1D1F' : '#FAFAF7',
+    background: wash(dark ? '#1B1D1F' : '#FAFAF7', dark ? 0.8 : 1),
     surface,
-    surfaceVariant: dark ? '#2E3236' : '#F1F2EE',
-    outline: dark ? '#41464B' : '#D9DBD6',
+    surfaceVariant: wash(dark ? '#2E3236' : '#F1F2EE', 1),
+    outline: wash(dark ? '#41464B' : '#D9DBD6', 1.2),
     text: dark ? '#E6E7E4' : '#1F2224',
     textMuted: dark ? '#A9ADB1' : '#5C6266',
     accent: {

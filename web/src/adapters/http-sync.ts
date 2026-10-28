@@ -4,6 +4,7 @@ import type {
   ChangeEvent,
   ProfilePreview,
   ServerNotification,
+  HistoryEntry,
   LoginOutcome,
   PasswordOutcome,
   ServerInfo,
@@ -301,6 +302,15 @@ export function createHttpSync(
       async clear(ids) {
         const response = await call('/api/notifications/clear', { method: 'POST', body: { ids } });
         if (!response.ok) return fail(response);
+      },
+    },
+
+    history: {
+      async task(taskId) {
+        const response = await call(`/api/tasks/${encodeURIComponent(taskId)}/history`);
+        if (response.status === 404) return [];
+        if (!response.ok) return fail(response);
+        return (await response.json()) as HistoryEntry[];
       },
     },
 

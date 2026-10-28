@@ -13,10 +13,6 @@ import {
   Drawer,
   Fab,
   IconButton,
-  List,
-  ListItemButton,
-  ListItemIcon,
-  ListItemText,
   Toolbar,
   Tooltip,
   Typography,
@@ -56,7 +52,7 @@ import { MiniCalendar } from './MiniCalendar.tsx';
 import { useToday } from '../hooks/useToday.ts';
 import { dayPath } from '../views/dayLabels.ts';
 import { useAppliedTimeZone } from './useAppliedTimeZone.ts';
-import { activeItem, SIDEBAR_ITEMS, type NavItem } from './navigation.tsx';
+import { activeItem, SIDEBAR_ITEMS } from './navigation.tsx';
 import { useBottomTabs } from './bottomTabs.tsx';
 import { BulkBar } from '../tasks/BulkBar.tsx';
 import { ProviderPhotoSync } from '../friends/ProviderPhotoSync.tsx';
@@ -64,8 +60,9 @@ import { BulkSelectProvider } from '../tasks/BulkSelectProvider.tsx';
 import { useBulkSelect } from '../tasks/bulkSelect.ts';
 import { TwoLineRowsContext, useNarrow } from './rowLayout.ts';
 import { SyncButton } from '../sync/SyncButton.tsx';
-import { useFooterItems } from './useFooterItems.ts';
 import { BottomSheet } from './BottomSheet.tsx';
+import { NotificationLinks } from '../notifications/NotificationLinks.tsx';
+import { EasterEggs } from '../fun/EasterEggs.tsx';
 
 /** How often the trash is checked for things to erase. */
 const PURGE_EVERY_MS = 6 * 3_600_000;
@@ -99,31 +96,6 @@ const DETAIL_WIDTH = 'clamp(440px, 40vw, 960px)';
 const DETAIL_MIN = 380;
 const LIST_MIN = 360;
 
-function NavList({
-  items,
-  selected,
-  onSelect,
-}: {
-  items: NavItem[];
-  selected: string | false;
-  onSelect: (path: string) => void;
-}) {
-  return (
-    <List dense>
-      {items.map((item) => (
-        <ListItemButton
-          key={item.path}
-          selected={selected === item.path}
-          onClick={() => onSelect(item.path)}
-        >
-          <ListItemIcon sx={{ minWidth: 40 }}>{item.icon}</ListItemIcon>
-          <ListItemText primary={t(item.label)} />
-        </ListItemButton>
-      ))}
-    </List>
-  );
-}
-
 /** The sidebar's title row; while editing it holds Cancel, Reset and Done instead. */
 function SidebarTitle() {
   const edit = useSidebarEdit();
@@ -141,9 +113,7 @@ function SidebarTitle() {
 
 function Sidebar({ onNavigate }: { onNavigate: (path: string) => void }) {
   const { pathname } = useLocation();
-  const footer = useFooterItems();
-  const all = [...SIDEBAR_ITEMS, ...footer];
-  const selected = activeItem(all, pathname);
+  const selected = activeItem(SIDEBAR_ITEMS, pathname);
   const today = useToday();
   const openDay =
     /^\/day\/(\d{4}-\d{2}-\d{2})$/.exec(pathname)?.[1] ?? (pathname === '/today' ? today : null);
@@ -177,7 +147,6 @@ function Sidebar({ onNavigate }: { onNavigate: (path: string) => void }) {
           <SidebarLists onNavigate={onNavigate} />
           <SidebarTags onNavigate={onNavigate} />
         </Box>
-        <NavList items={footer} selected={selected} onSelect={onNavigate} />
         <MiniCalendar selected={openDay} onPick={(date) => onNavigate(dayPath(date, today))} />
         <Link
           href={CHANGELOG_URL}
@@ -300,6 +269,11 @@ function AppFrame() {
     void navigate(path);
   };
 
+  const asideWidth =
+    detailWidth === null
+      ? DETAIL_WIDTH
+      : `clamp(${DETAIL_MIN}px, ${detailWidth}px, calc(100vw - ${drawerWidth + LIST_MIN}px))`;
+
   const detail = selectedId ? (
     <TaskDetail
       key={selectedId}
@@ -403,10 +377,7 @@ function AppFrame() {
               component="aside"
               ref={aside}
               sx={{
-                width:
-                  detailWidth === null
-                    ? DETAIL_WIDTH
-                    : `clamp(${DETAIL_MIN}px, ${detailWidth}px, calc(100vw - ${drawerWidth + LIST_MIN}px))`,
+                width: asideWidth,
                 flexShrink: 0,
                 borderLeft: 1,
                 borderColor: 'divider',
@@ -432,12 +403,22 @@ function AppFrame() {
           open={detail !== null && expanded}
           onClose={(event, reason) => {
             if (handledInside(event, reason)) return;
+            // A phone has no smaller view to fall back to: closing the full view closes the task
+            // (R-FB-110).
+            if (isPhone) {
+              close();
+              return;
+            }
             if (full) leaveFull();
             setExpandedId(null);
           }}
           fullWidth
           maxWidth="md"
-          slotProps={{ paper: { sx: { height: '88dvh', backgroundImage: 'none' } } }}
+          // On a phone the full view is the whole screen, bigger than the task sheet (R-FB-110).
+          fullScreen={isPhone}
+          slotProps={{
+            paper: { sx: { ...(isPhone ? {} : { height: '88dvh' }), backgroundImage: 'none' } },
+          }}
         >
           {expanded && detail}
         </Dialog>
@@ -467,8 +448,9 @@ function AppFrame() {
           </Drawer>
         )}
 
-        {isPhone &&
-          detail === null &&
+        {/* Every screen size (R-FB-98); beside the task panel on a desktop, hidden behind the
+            others while one is open. */}
+        {(isDesktop ? !expanded : detail === null) &&
           !bulk?.selecting &&
           !NO_ADD_BUTTON.some((path) => pathname.startsWith(path)) && (
             <Fab
@@ -483,8 +465,8 @@ function AppFrame() {
               }}
               sx={{
                 position: 'fixed',
-                right: 16,
-                bottom: 'calc(52px + 16px + env(safe-area-inset-bottom))',
+                right: isDesktop && detail ? `calc(${asideWidth} + 24px)` : isPhone ? 16 : 24,
+                bottom: isPhone ? 'calc(52px + 16px + env(safe-area-inset-bottom))' : 24,
                 zIndex: (theme) => theme.zIndex.appBar,
               }}
             >
@@ -493,10 +475,12 @@ function AppFrame() {
           )}
 
         {/* On a phone, above the bottom navigation and the + button. */}
-        <UndoToast bottomOffset={isPhone ? 52 + 72 : 0} />
+        <UndoToast bottomOffset={isPhone ? 52 + 72 : 0} wideBottomOffset={72} />
         <SyncNoticeToast />
         <PullToRefresh />
         <ReminderScheduler />
+        <NotificationLinks />
+        <EasterEggs />
         <ProviderPhotoSync />
         <ShortcutsDialog open={shortcuts.helpOpen} onClose={shortcuts.closeHelp} />
 

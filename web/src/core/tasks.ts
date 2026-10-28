@@ -574,13 +574,13 @@ export function placeBetween(
   return putEntity(workspace, 'tasks', updateEntity(ctx, task, { order }));
 }
 
-/** A view's tasks split: the pinned ones (oldest pin first) and the rest, in their order. */
+/**
+ * A view's pinned tasks (oldest pin first), for the Pinned group on top, and all its tasks in
+ * their order: a pinned task also stays in the section it belongs to (R-FB-118).
+ */
 export function pinnedFirst(tasks: readonly Task[]): { pinned: Task[]; rest: Task[] } {
   const pinned = tasks
     .filter(isPinned)
     .sort((a, b) => (a.pinnedAt ?? '').localeCompare(b.pinnedAt ?? ''));
-  return {
-    pinned,
-    rest: pinned.length === 0 ? [...tasks] : tasks.filter((task) => !isPinned(task)),
-  };
+  return { pinned, rest: [...tasks] };
 }

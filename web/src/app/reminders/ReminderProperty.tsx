@@ -436,7 +436,7 @@ export function ReminderProperty({ task }: { task: Task }) {
         ariaValue={labels.length ? labels.join(', ') : t('reminder.none')}
         onClick={setAnchor}
       >
-        <Typography color={labels.length ? 'text.primary' : 'text.disabled'} noWrap>
+        <Typography noWrap sx={{ color: labels.length ? 'text.primary' : 'text.disabled' }}>
           {labels.length ? labels.join(', ') : t('reminder.add')}
         </Typography>
       </PropertyRow>

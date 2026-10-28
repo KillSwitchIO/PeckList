@@ -22,15 +22,26 @@ const visuallyHidden = {
 /**
  * Undo after a change (spec: R-FB-68): a small round button off to the side, a ring running down
  * the time it stays, rather than a bar across the screen. Swipe it left or right to send it away
- * sooner. What changed is read out to screen readers and shows on hover.
+ * sooner; touching it, or nudging it less than that, starts the time over (R-FB-119). What
+ * changed is read out to screen readers and shows on hover.
  */
-export function UndoToast({ bottomOffset = 0 }: { bottomOffset?: number }) {
+export function UndoToast({
+  bottomOffset = 0,
+  wideBottomOffset = 0,
+}: {
+  /** Room to keep below it on a phone */
+  bottomOffset?: number;
+  /** Room to keep below it on bigger screens (the + button) */
+  wideBottomOffset?: number;
+}) {
   const entry = useStoreState((state) => state.lastUndoable);
   const undo = useStoreState((state) => state.undo);
   const dismiss = useStoreState((state) => state.dismissUndo);
   const [dx, setDx] = useState(0);
   const [leaving, setLeaving] = useState(0);
   const [shown, setShown] = useState(entry?.id ?? null);
+  // Bumped to start the time over.
+  const [round, setRound] = useState(0);
   const swiped = useRef(false);
   const latest = useRef(dismiss);
   useEffect(() => {
@@ -47,7 +58,7 @@ export function UndoToast({ bottomOffset = 0 }: { bottomOffset?: number }) {
     if (!entry) return;
     const timer = setTimeout(() => latest.current(), SHOW_MS);
     return () => clearTimeout(timer);
-  }, [entry]);
+  }, [entry, round]);
 
   if (!entry) return null;
 
@@ -55,6 +66,7 @@ export function UndoToast({ bottomOffset = 0 }: { bottomOffset?: number }) {
     const x0 = event.clientX;
     const id = event.pointerId;
     swiped.current = false;
+    setRound((n) => n + 1);
     const move = (next: PointerEvent) => {
       if (next.pointerId !== id) return;
       const by = next.clientX - x0;
@@ -72,6 +84,7 @@ export function UndoToast({ bottomOffset = 0 }: { bottomOffset?: number }) {
         setTimeout(() => latest.current(), 150);
       } else {
         setDx(0);
+        setRound((n) => n + 1);
       }
     };
     window.addEventListener('pointermove', move);
@@ -86,7 +99,7 @@ export function UndoToast({ bottomOffset = 0 }: { bottomOffset?: number }) {
         // Phones: bottom left, clear of the add button on the right. Bigger screens: bottom right.
         left: { xs: 16, sm: 'auto' },
         right: { xs: 'auto', sm: 24 },
-        bottom: { xs: 16 + bottomOffset, sm: 24 },
+        bottom: { xs: 16 + bottomOffset, sm: 24 + wideBottomOffset },
         zIndex: (theme) => theme.zIndex.snackbar,
         transform: leaving
           ? `translateX(${leaving * 200}px)`
@@ -125,6 +138,7 @@ export function UndoToast({ bottomOffset = 0 }: { bottomOffset?: number }) {
           <UndoRounded />
           {/* The time left, running down round the edge. */}
           <CircularProgress
+            key={round}
             aria-hidden
             variant="determinate"
             value={100}

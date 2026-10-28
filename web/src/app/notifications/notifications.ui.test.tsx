@@ -1,8 +1,9 @@
-import { act, screen, waitFor, within } from '@testing-library/react';
+import { act, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { createMemoryStorage } from '../../adapters/memory-storage.ts';
 import { inboxList } from '../../core/lists.ts';
+import { addComment } from '../../core/comments.ts';
 import { createTask } from '../../core/tasks.ts';
 import { FakeBackend } from '../../test/fakeTransport.ts';
 import { mockViewport, renderApp, testStore } from '../../test/renderApp.tsx';
@@ -99,5 +100,118 @@ describe('notifications', () => {
       await screen.findByRole('button', { name: 'New: Reminder: Call the vet' }),
     );
     expect(await screen.findByRole('region', { name: 'Task details' })).toBeInTheDocument();
+  });
+
+  it('a comment offers Reply (left) and a thumbs up (right) (R-FB-106)', async () => {
+    const backend = new FakeBackend();
+    backend.addAccount('ben', 'correct horse battery');
+    const sam = backend.addAccount('sam', 'sams own password');
+    const { store, sync } = await signedIn('/today', backend);
+    let taskId = '';
+    let commentId = '';
+    act(() =>
+      store.getState().apply((ctx, ws) => {
+        const made = createTask(ctx, ws, { title: 'Paint the shed', listId: inboxList(ws).id });
+        taskId = made.task.id;
+        const said = addComment(ctx, made.workspace, taskId, 'Blue or green?');
+        commentId = said.comment.id;
+        return said.workspace;
+      }),
+    );
+    backend.notifications.set('ben', [
+      {
+        id: 'N2',
+        kind: 'commented',
+        at: '2026-10-24T15:00:00.000Z',
+        actorId: sam.id,
+        taskId,
+        listId: null,
+        commentId,
+        read: false,
+      },
+    ]);
+    await act(() => sync.getState().syncNow());
+    await userEvent.click(await screen.findByRole('button', { name: /new notification/ }));
+    await userEvent.click(await screen.findByRole('menuitem', { name: /^Notifications/ }));
+    const list = await screen.findByRole('list', { name: 'Notifications' });
+    const item = within(list).getByRole('listitem');
+    expect(item).toHaveTextContent(/commented on Paint the shed/);
+    const [reply, like] = within(item)
+      .getAllByRole('button')
+      .filter((button) =>
+        /^(Reply|Thumbs up)$/.test(button.getAttribute('aria-label') ?? button.textContent ?? ''),
+      );
+    expect(reply).toHaveTextContent('Reply');
+    expect(like).toHaveAccessibleName('Thumbs up');
+
+    await userEvent.click(like!);
+    const comments = () =>
+      store.getState().workspace!.entities.comments.filter((each) => each.taskId === taskId);
+    expect(comments().map((each) => each.body)).toEqual(['Blue or green?', '👍']);
+
+    await userEvent.click(reply!);
+    expect(await screen.findByRole('region', { name: 'Task details' })).toBeInTheDocument();
+    expect(new URL(window.location.href).searchParams.get('comment') ?? commentId).toBe(commentId);
+  });
+
+  it('a task shows its history under the comments (R-FB-105)', async () => {
+    const backend = new FakeBackend();
+    backend.addAccount('ben', 'correct horse battery');
+    const sam = backend.addAccount('sam', 'sams own password');
+    const { store, sync } = await signedIn('/inbox', backend);
+    let taskId = '';
+    act(() =>
+      store.getState().apply((ctx, ws) => {
+        const made = createTask(ctx, ws, { title: 'Mow the lawn', listId: inboxList(ws).id });
+        taskId = made.task.id;
+        return made.workspace;
+      }),
+    );
+    backend.history.set(taskId, [
+      {
+        id: 'H2',
+        at: '2026-10-27T15:00:00.000Z',
+        actorId: sam.id,
+        field: 'priority',
+        before: '0',
+        after: '3',
+      },
+      {
+        id: 'H1',
+        at: '2026-10-27T14:00:00.000Z',
+        actorId: null,
+        field: 'created',
+        before: null,
+        after: '"Mow"',
+      },
+    ]);
+    await act(() => sync.getState().syncNow());
+    await userEvent.click(await screen.findByRole('button', { name: 'Open Mow the lawn' }));
+    const history = await screen.findByRole('region', { name: 'History' });
+    const lines = within(history)
+      .getAllByRole('listitem')
+      .map((item) => item.textContent);
+    expect(lines[0]).toMatch(/set the priority to High/);
+    expect(lines[1]).toMatch(/^Someone created this task/);
+  });
+
+  it('a phone swipes up from the bottom bar to the comments and history (R-FB-109)', async () => {
+    mockViewport('phone');
+    const store = testStore();
+    await renderApp('/inbox', store);
+    act(() =>
+      store
+        .getState()
+        .apply(
+          (ctx, ws) =>
+            createTask(ctx, ws, { title: 'Water plants', listId: inboxList(ws).id }).workspace,
+        ),
+    );
+    await userEvent.click(await screen.findByRole('button', { name: 'Open Water plants' }));
+    const bar = await screen.findByRole('button', { name: 'Comments and history' });
+    fireEvent.touchStart(bar, { touches: [{ clientX: 100, clientY: 700 }] });
+    fireEvent.touchMove(bar, { touches: [{ clientX: 100, clientY: 600 }] });
+    const panel = await screen.findByRole('dialog', { name: 'Comments and history' });
+    expect(within(panel).getByRole('region', { name: 'History' })).toBeInTheDocument();
   });
 });

@@ -1,3 +1,4 @@
+using Punchlist.Core.History;
 using Punchlist.Core.Notifications;
 using Punchlist.Core.Push;
 using Punchlist.Core.Audit;
@@ -158,4 +159,14 @@ public sealed class PostgresNotificationStoreTests(PostgresServer server) : Noti
         var database = await server.NewDatabaseAsync();
         return (new SqlNotificationStore(database), new SqlPushStore(database, TimeProvider.System));
     }
+}
+
+public sealed class SqliteTaskHistoryStoreTests(SqliteFiles files) : TaskHistoryStoreContract, IClassFixture<SqliteFiles>
+{
+    protected override async Task<ITaskHistoryStore> CreateAsync() => new SqlTaskHistoryStore(await files.NewDatabaseAsync());
+}
+
+public sealed class PostgresTaskHistoryStoreTests(PostgresServer server) : TaskHistoryStoreContract, IClassFixture<PostgresServer>
+{
+    protected override async Task<ITaskHistoryStore> CreateAsync() => new SqlTaskHistoryStore(await server.NewDatabaseAsync());
 }

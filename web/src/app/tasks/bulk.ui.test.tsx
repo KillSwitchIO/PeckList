@@ -69,4 +69,18 @@ describe('picking many tasks', () => {
     expect(screen.queryByRole('toolbar', { name: 'Picked tasks' })).toBeNull();
     expect(await screen.findByText('2 tasks changed')).toBeInTheDocument();
   });
+
+  it('Select all picks every task shown, then turns into Deselect all (R-FB-124)', async () => {
+    mockViewport('desktop');
+    await today();
+    await userEvent.click(screen.getByRole('button', { name: 'View options' }));
+    await userEvent.click(await screen.findByRole('menuitem', { name: 'Select' }));
+    const bar = await screen.findByRole('toolbar', { name: 'Picked tasks' });
+    await userEvent.click(within(bar).getByRole('button', { name: 'Select all' }));
+    expect(within(bar).getByText('3 selected')).toBeInTheDocument();
+    await userEvent.click(within(bar).getByRole('button', { name: 'Deselect all' }));
+    expect(within(bar).getByText('0 selected')).toBeInTheDocument();
+    // Still picking: one by one again, and Select all is back.
+    expect(within(bar).getByRole('button', { name: 'Select all' })).toBeInTheDocument();
+  });
 });

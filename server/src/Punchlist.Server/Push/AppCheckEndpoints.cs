@@ -7,7 +7,8 @@ using Punchlist.Server.Auth;
 
 namespace Punchlist.Server.Push;
 
-public sealed record AppCheckNotification(string Id, string Title, string Body, string Url);
+/// <summary>A notification for the Android app to show, with its buttons left to right (R-FB-106, R-FB-107).</summary>
+public sealed record AppCheckNotification(string Id, string Title, string Body, string Url, IReadOnlyList<PushAction> Actions);
 
 /// <summary>
 /// <paramref name="At"/>: milliseconds since the epoch. <paramref name="Constant"/>: it comes again
@@ -60,7 +61,7 @@ public static class AppCheckEndpoints
                     actor = names[actorId] = (await accounts.FindByIdAsync(actorId, cancellation))?.Username;
                 }
                 var (body, url) = NotificationText.Of(each, actor, index);
-                notifications.Add(new AppCheckNotification(each.Id, "Punchlist", body, url));
+                notifications.Add(new AppCheckNotification(each.Id, "Punchlist", body, url, NotificationText.ActionsOf(each, url)));
             }
 
             var now = time.GetUtcNow();

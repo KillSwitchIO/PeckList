@@ -12,9 +12,14 @@ export interface BulkSelection {
   start: (ids?: Id[]) => void;
   stop: () => void;
   toggle: (ids: Id[], on: boolean) => void;
+  /** Every row the page shows while picking, for Select all (R-FB-124) */
+  rows: ReadonlySet<Id>;
 }
 
 export const BulkSelectContext = createContext<BulkSelection | null>(null);
+
+/** Where rows say they are on the page (stable, so registering never re-renders in a loop). */
+export const PageRowsContext = createContext<SectionRows | null>(null);
 
 export const useBulkSelect = () => useContext(BulkSelectContext);
 
@@ -26,12 +31,18 @@ export interface SectionRows {
 
 export const SectionRowsContext = createContext<SectionRows | null>(null);
 
-/** A row says which section it sits in (each section above it, for nested ones). */
+/** A row says which section it sits in (each section above it, for nested ones) and that it is
+ * on the page. */
 export function useInSection(id: Id, active: boolean) {
   const section = useContext(SectionRowsContext);
+  const page = useContext(PageRowsContext);
   useEffect(() => {
-    if (!section || !active) return;
-    section.add(id);
-    return () => section.remove(id);
-  }, [section, id, active]);
+    if (!active) return;
+    section?.add(id);
+    page?.add(id);
+    return () => {
+      section?.remove(id);
+      page?.remove(id);
+    };
+  }, [section, page, id, active]);
 }

@@ -83,7 +83,7 @@ describe('palette presets', () => {
     const settings = ws.entities.settings[0]!;
     const odd = {
       ...ws,
-      entities: { ...ws.entities, settings: [{ ...settings, palettePreset: 'neon' }] },
+      entities: { ...ws.entities, settings: [{ ...settings, palettePreset: 'not-a-palette' }] },
     };
     expect(palettePreset(odd)).toBe('punchlist');
   });

@@ -65,11 +65,11 @@ describe('filtering Today, Upcoming and the calendar', () => {
 
     // Upcoming has its own.
     const nav = () => screen.getAllByRole('navigation')[0]!;
-    await userEvent.click(within(nav()).getByRole('button', { name: 'Upcoming' }));
+    await userEvent.click(within(nav()).getByRole('button', { name: /^Upcoming/ }));
     expect(await screen.findByRole('button', { name: 'Filter' })).toBeInTheDocument();
     expect(shown('Water plants')).toBeInTheDocument();
 
-    await userEvent.click(within(nav()).getByRole('button', { name: 'Today' }));
+    await userEvent.click(within(nav()).getByRole('button', { name: /^Today/ }));
     await userEvent.click(await screen.findByRole('button', { name: 'Filter (on)' }));
     const panel = await screen.findByRole('dialog', { name: 'Show only' });
     await userEvent.click(within(panel).getByRole('button', { name: 'Clear' }));

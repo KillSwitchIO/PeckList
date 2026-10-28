@@ -5,10 +5,10 @@ import InboxRounded from '@mui/icons-material/InboxRounded';
 import LayersRounded from '@mui/icons-material/LayersRounded';
 import SearchRounded from '@mui/icons-material/SearchRounded';
 import TaskAltRounded from '@mui/icons-material/TaskAltRounded';
-import TodayRounded from '@mui/icons-material/TodayRounded';
 import type { ReactElement } from 'react';
 import type { MessageKey } from '../i18n/i18n.ts';
 import { AssignedIcon, DueIcon, PeopleIcon } from '../icons/icons.tsx';
+import { TodayIcon } from '../icons/TodayIcon.tsx';
 
 export interface NavItem {
   path: string;
@@ -18,7 +18,7 @@ export interface NavItem {
 
 /** Smart views shown in the sidebar (their default order; users can reorder them). */
 export const SIDEBAR_ITEMS: NavItem[] = [
-  { path: '/today', label: 'nav.today', icon: <TodayRounded /> },
+  { path: '/today', label: 'nav.today', icon: <TodayIcon /> },
   { path: '/inbox', label: 'nav.inbox', icon: <InboxRounded /> },
   { path: '/upcoming', label: 'nav.upcoming', icon: <DateRangeRounded /> },
   { path: '/due', label: 'nav.due', icon: <DueIcon /> },
@@ -26,6 +26,8 @@ export const SIDEBAR_ITEMS: NavItem[] = [
   { path: '/calendar', label: 'nav.calendar', icon: <CalendarMonthRounded /> },
   { path: '/completed', label: 'nav.completed', icon: <TaskAltRounded /> },
   { path: '/trash', label: 'nav.trash', icon: <DeleteOutlineRounded /> },
+  // A view like the others, so it can be moved and hidden in the sidebar (R-FB-112).
+  { path: '/search', label: 'nav.search', icon: <SearchRounded /> },
 ];
 
 /** Views that need a server with accounts (core/sidebar.ts SHARED_VIEWS). */
@@ -38,11 +40,6 @@ export const SHARED_ITEMS: NavItem[] = [
 export const VIEW_ITEMS: Record<string, NavItem> = Object.fromEntries(
   [...SIDEBAR_ITEMS, ...SHARED_ITEMS].map((item) => [item.path.slice(1), item]),
 );
-
-/** The sidebar's footer. Settings and Admin are in the profile menu (spec: PL-086). */
-export const SIDEBAR_FOOTER: NavItem[] = [
-  { path: '/search', label: 'nav.search', icon: <SearchRounded /> },
-];
 
 /** The nav item a path belongs to, so nested routes keep their tab highlighted. */
 export function activeItem(items: readonly { path: string }[], pathname: string): string | false {

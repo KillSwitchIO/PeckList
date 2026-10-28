@@ -177,7 +177,15 @@ export interface FriendsApi {
 /** One of my notifications on the server (spec: PL-061): ids only, the app names them. */
 export interface ServerNotification {
   id: string;
-  kind: 'assigned' | 'shared' | 'mentioned' | 'reminder';
+  kind:
+    | 'assigned'
+    | 'groupAssigned'
+    | 'claimed'
+    | 'shared'
+    | 'mentioned'
+    | 'commented'
+    | 'commentEdited'
+    | 'reminder';
   /** ISO time */
   at: string;
   actorId: string | null;
@@ -194,6 +202,27 @@ export interface NotificationsApi {
   read(ids: string[] | null): Promise<void>;
   /** Clear some (null: all). */
   clear(ids: string[] | null): Promise<void>;
+}
+
+/**
+ * One change to a task (R-FB-105): who changed which field, from what to what (each value the
+ * field's JSON; none for notes, which only say they changed). Fields are task fields, or
+ * `created`, `deleted` and `restored`.
+ */
+export interface HistoryEntry {
+  id: string;
+  /** ISO time */
+  at: string;
+  actorId: string | null;
+  field: string;
+  before: string | null;
+  after: string | null;
+}
+
+/** Task history on the server (R-FB-105). */
+export interface HistoryApi {
+  /** A task's latest changes, newest first (none for a task I cannot see). */
+  task(taskId: string): Promise<HistoryEntry[]>;
 }
 
 /** Web Push on the server (spec: PL-061): its key, and this browser's subscription. */
@@ -258,6 +287,8 @@ export interface SyncTransport {
   notifications?: NotificationsApi;
   /** Web Push (optional: older servers send none). */
   push?: PushApi;
+  /** Task history (optional: older servers keep none). */
+  history?: HistoryApi;
   account?: AccountApi;
   /** Attached files (optional: older servers keep none). */
   files?: FileApi;

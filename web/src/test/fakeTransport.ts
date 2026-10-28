@@ -8,6 +8,8 @@ import {
   type AccountApi,
   type FileApi,
   type FriendsApi,
+  type HistoryApi,
+  type HistoryEntry,
   type NotificationsApi,
   type PushApi,
   type ServerNotification,
@@ -85,6 +87,8 @@ export class FakeBackend {
   schemaVersion = CURRENT_SCHEMA_VERSION;
   /** Each account's notifications, by username, newest first (tests add them). */
   readonly notifications = new Map<string, ServerNotification[]>();
+  /** Each task's history, newest first (tests add them). */
+  readonly history = new Map<string, HistoryEntry[]>();
   /** Event listeners of every device, by account username. */
   readonly listeners = new Set<{ username: string; onChange: (change: ChangeEvent) => void }>();
 
@@ -192,6 +196,10 @@ export class FakeTransport implements SyncTransport {
       this.pushed.delete(endpoint);
       return Promise.resolve();
     },
+  };
+
+  readonly history: HistoryApi = {
+    task: (taskId) => Promise.resolve([...(this.backend.history.get(taskId) ?? [])]),
   };
 
   readonly notifications: NotificationsApi = {

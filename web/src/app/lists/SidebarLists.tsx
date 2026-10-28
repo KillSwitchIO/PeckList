@@ -18,7 +18,6 @@ import { moveInOrder, pinnedListId, togglePinned } from '../../core/sidebar.ts';
 import type { List as ListEntity } from '../../core/types.ts';
 import { useCollapsedSet } from '../hooks/useCollapsedSet.ts';
 import { t } from '../i18n/i18n.ts';
-import { DragHandleIcon } from '../icons/icons.tsx';
 import { editingRowSx, useSidebarEdit } from '../layout/sidebarEditContext.ts';
 import { PinButton } from '../layout/PinButton.tsx';
 import { SectionHeader } from '../layout/SectionHeader.tsx';
@@ -27,6 +26,7 @@ import { useApply, useWorkspace } from '../store/hooks.ts';
 import { ListDialog } from './ListDialog.tsx';
 import { listName } from './listName.ts';
 import { ListMark } from './ListMark.tsx';
+import { SortHandle } from '../layout/SortHandle.tsx';
 
 /** Lists in the sidebar with a create button. The Mess Drawer lives under smart views. */
 export function SidebarLists({ onNavigate }: { onNavigate: (path: string) => void }) {
@@ -106,12 +106,7 @@ export function SidebarLists({ onNavigate }: { onNavigate: (path: string) => voi
                   },
                 }}
               >
-                {editing && (
-                  <DragHandleIcon
-                    fontSize="small"
-                    sx={{ color: 'text.disabled', ml: -1, mr: 0.5, cursor: 'grab' }}
-                  />
-                )}
+                {editing && <SortHandle />}
                 <ListItemIcon sx={{ minWidth: 28 }}>
                   <ListMark list={list} />
                 </ListItemIcon>

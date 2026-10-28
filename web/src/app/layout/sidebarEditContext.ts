@@ -50,7 +50,8 @@ export const wiggle = keyframes`
 export function editingRowSx(editing: boolean, dragged: boolean, index: number) {
   return {
     userSelect: 'none' as const,
-    touchAction: editing ? 'none' : 'pan-y',
+    // Rows scroll under a finger even while editing; only the grip drags (R-FB-113).
+    touchAction: 'pan-y',
     ...(editing &&
       !dragged && {
         animation: `${wiggle} 0.24s ${(index % 3) * 0.06}s ease-in-out infinite alternate`,

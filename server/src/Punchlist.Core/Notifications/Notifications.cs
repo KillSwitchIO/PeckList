@@ -7,8 +7,20 @@ namespace Punchlist.Core.Notifications;
 /// <summary>What a notification is about (spec: PL-061).</summary>
 public static class NotificationKind
 {
-    /// <summary>Someone assigned me (or a group I am in) a task.</summary>
+    /// <summary>Someone assigned me a task.</summary>
     public const string Assigned = "assigned";
+
+    /// <summary>Someone assigned a task to a group I am in: first to call dibs takes it (R-FB-107).</summary>
+    public const string GroupAssigned = "groupAssigned";
+
+    /// <summary>Someone in the group called dibs on a task assigned to it (R-FB-107).</summary>
+    public const string Claimed = "claimed";
+
+    /// <summary>Someone commented on a task I can see (R-FB-106).</summary>
+    public const string Commented = "commented";
+
+    /// <summary>Someone changed their comment on a task I can see (R-FB-106).</summary>
+    public const string CommentEdited = "commentEdited";
 
     /// <summary>Someone shared a list with me (or a group I am in).</summary>
     public const string Shared = "shared";
@@ -89,20 +101,28 @@ public static partial class NotificationRules
         if (change.After["deletedAt"] is not null) return [];
         var found = change.Collection switch
         {
-            "tasks" => NewlyAssigned(change).SelectMany(index.PeopleOf)
-                .Select(user => new Found(user, NotificationKind.Assigned, change.Id, Field(change.After, "listId"), null)),
+            "tasks" => Assignments(actorId, change, index),
             "listMembers" when change.Before is null || change.Before["deletedAt"] is not null =>
                 Field(change.After, "principal") is { } principal
                     ? index.PeopleOf(principal).Select(user =>
                         new Found(user, NotificationKind.Shared, null, Field(change.After, "listId"), null))
                     : [],
-            "comments" when change.Before is null => Mentioned(change, index, userByName),
+            // A mention says more than a comment, so it comes first (one notice per person).
+            "comments" when change.Before is null =>
+                Mentioned(change, index, userByName).Concat(Commented(change, index, NotificationKind.Commented)),
+            "comments" when Field(change.Before, "body") != Field(change.After, "body") =>
+                Commented(change, index, NotificationKind.CommentEdited),
             _ => [],
         };
         return found.Where(each => each.UserId != actorId).DistinctBy(each => each.UserId);
     }
 
-    private static IEnumerable<string> NewlyAssigned(NotableChange change)
+    /// <summary>
+    /// A task newly assigned to a person tells them; newly assigned to a group, its members
+    /// (R-FB-107); a group's task taken by one of them (dibs: the group out, they in) tells the
+    /// rest of the group (R-FB-108).
+    /// </summary>
+    private static IEnumerable<Found> Assignments(string actorId, NotableChange change, SharingIndex index)
     {
         static HashSet<string> In(JsonObject? task)
         {
@@ -115,7 +135,29 @@ public static partial class NotificationRules
             return set;
         }
         var before = In(change.Before);
-        return In(change.After).Where(principal => !before.Contains(principal));
+        var after = In(change.After);
+        var listId = Field(change.After, "listId");
+        var added = after.Where(principal => !before.Contains(principal)).ToList();
+        var direct = added.Where(principal => !principal.StartsWith("group:", StringComparison.Ordinal))
+            .SelectMany(index.PeopleOf)
+            .Select(user => new Found(user, NotificationKind.Assigned, change.Id, listId, null));
+        var group = added.Where(principal => principal.StartsWith("group:", StringComparison.Ordinal))
+            .SelectMany(index.PeopleOf)
+            .Select(user => new Found(user, NotificationKind.GroupAssigned, change.Id, listId, null));
+        var claimed = added.Contains($"user:{actorId}")
+            ? before.Where(principal => principal.StartsWith("group:", StringComparison.Ordinal) && !after.Contains(principal))
+                .SelectMany(index.PeopleOf)
+                .Select(user => new Found(user, NotificationKind.Claimed, change.Id, listId, null))
+            : [];
+        return direct.Concat(group).Concat(claimed);
+    }
+
+    /// <summary>Everyone who can see the comment's task hears of it (R-FB-106).</summary>
+    private static IEnumerable<Found> Commented(NotableChange change, SharingIndex index, string kind)
+    {
+        if (Field(change.After, "taskId") is not { } taskId) return [];
+        return index.Viewers(taskId).Order(StringComparer.Ordinal)
+            .Select(user => new Found(user, kind, taskId, null, change.Id));
     }
 
     private static IEnumerable<Found> Mentioned(NotableChange change, SharingIndex index, Func<string, string?> userByName)

@@ -37,8 +37,6 @@ const Line = styled(ButtonBase)(({ theme }) => ({
     backgroundColor: 'color-mix(in srgb, var(--item-color) 33%, transparent)',
   },
   '&[data-movable]': { cursor: 'grab' },
-  // A finger on a task moves it; the calendar scrolls by its dates and empty space.
-  '&[data-grab]': { touchAction: 'none' },
   '&:hover': { backgroundColor: theme.palette.action.hover },
   '& .item-due': { fontSize: 12, flexShrink: 0 },
   '& .item-priority': {
@@ -86,7 +84,6 @@ export function ItemLine({
       data-done={flag(item.done)}
       data-all-day={flag(item.allDay)}
       data-movable={flag(item.movable)}
-      data-grab={flag(onPointerDown !== undefined)}
       style={
         {
           '--item-color': item.color,

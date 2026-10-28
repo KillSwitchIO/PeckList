@@ -1,6 +1,6 @@
 import RadioButtonUncheckedRounded from '@mui/icons-material/RadioButtonUncheckedRounded';
 import CalendarViewMonthOutlined from '@mui/icons-material/CalendarViewMonthOutlined';
-import ViewAgendaOutlined from '@mui/icons-material/ViewAgendaOutlined';
+import EventBusyOutlined from '@mui/icons-material/EventBusyOutlined';
 import ViewWeekOutlined from '@mui/icons-material/ViewWeekOutlined';
 import {
   Box,
@@ -17,7 +17,7 @@ import {
   useTheme,
 } from '@mui/material';
 import { useMemo, useState } from 'react';
-import { useNavigate, useSearchParams } from 'react-router';
+import { useSearchParams } from 'react-router';
 import {
   calendarItems,
   droppedSchedule,
@@ -46,6 +46,8 @@ import {
   askedFor,
   loadPrefs,
   savePrefs,
+  MAX_WEEKS,
+  MIN_WEEKS,
   type CalendarMode,
   type CalendarPrefs,
 } from './calendarPrefs.ts';
@@ -70,7 +72,7 @@ function Unscheduled({
   /** The tasks to draw from (narrowed by the calendar's filter) */
   source: WorkspaceFile;
   onOpen: (id: string) => void;
-  onGrab: (event: React.PointerEvent<HTMLElement>, payload: DragPayload, hold: boolean) => void;
+  onGrab: (event: React.PointerEvent<HTMLElement>, payload: DragPayload) => void;
 }) {
   const tasks = unscheduledTasks(source);
   const [limit, setLimit] = useState(UNSCHEDULED_PAGE);
@@ -89,7 +91,7 @@ function Unscheduled({
             role="listitem"
             data-task-id={task.id}
             onClick={() => onOpen(task.id)}
-            onPointerDown={(event) => onGrab(event, { taskId: task.id, title: task.title }, true)}
+            onPointerDown={(event) => onGrab(event, { taskId: task.id, title: task.title })}
             sx={{
               px: 1,
               py: 0.75,
@@ -126,13 +128,13 @@ function Unscheduled({
 }
 
 const DAY_CHOICES = Array.from({ length: MAX_DAYS - MIN_DAYS + 1 }, (_, i) => MIN_DAYS + i);
-const WEEK_CHOICES = [4, 5, 6];
+const WEEK_CHOICES = Array.from({ length: MAX_WEEKS - MIN_WEEKS + 1 }, (_, i) => MIN_WEEKS + i);
 
 /**
  * Calendar (spec: PL-093, like Business Calendar 2): Month, a continuous run of weeks, and Days,
  * 1 to 14 days on a time grid. Tasks move by dragging; days picked by dragging across them show
  * on their own or become a task's span; Unscheduled tasks drag in from the side (a sheet on
- * phones). Upcoming is the agenda, a click away.
+ * phones). Upcoming, the agenda, is in the menu.
  */
 export function CalendarPage() {
   const theme = useTheme();
@@ -140,7 +142,6 @@ export function CalendarPage() {
   const workspace = useWorkspace();
   const { workspace: shown, button: narrowButton } = useNarrowed('calendar');
   const apply = useApply();
-  const navigate = useNavigate();
   const me = useStoreState((state) => state.context().userId);
   const { open } = useTaskSelection();
   const zone = localTimeZone();
@@ -208,8 +209,9 @@ export function CalendarPage() {
     null,
   );
 
-  const schedule = (taskId: string, next: Schedule) =>
-    apply((ctx, ws) => updateTask(ctx, ws, taskId, { schedule: next }));
+  // Undoable like a move in a list (R-FB-100).
+  const schedule = (taskId: string, next: Schedule, label = t('undo.moved')) =>
+    apply((ctx, ws) => updateTask(ctx, ws, taskId, { schedule: next }), label);
   const drag = useCalendarDrag(
     (payload: DragPayload, place: DropTarget) => {
       const task = workspace.entities.tasks.find((each) => each.id === payload.taskId);
@@ -304,7 +306,7 @@ export function CalendarPage() {
     <Unscheduled
       source={shown}
       onOpen={open}
-      onGrab={(event, payload, hold) => drag.begin(event, payload, hold)}
+      onGrab={(event, payload) => drag.begin(event, payload)}
     />
   );
 
@@ -314,18 +316,14 @@ export function CalendarPage() {
       actions={
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
           {narrowButton}
-          <Tooltip title={t('calendar.agenda')}>
-            <IconButton
-              aria-label={t('calendar.agenda')}
-              onClick={() => void navigate('/upcoming')}
-            >
-              <ViewAgendaOutlined />
-            </IconButton>
-          </Tooltip>
+          {/* Upcoming is in the menu; no shortcut to it here (R-FB-101). Unscheduled is an icon
+              (R-FB-104). */}
           {phone && (
-            <Button size="small" onClick={() => setDrawer(true)}>
-              {t('calendar.unscheduled')}
-            </Button>
+            <Tooltip title={t('calendar.unscheduled')}>
+              <IconButton aria-label={t('calendar.unscheduled')} onClick={() => setDrawer(true)}>
+                <EventBusyOutlined />
+              </IconButton>
+            </Tooltip>
           )}
         </Box>
       }
@@ -384,7 +382,7 @@ export function CalendarPage() {
             <NumberDial
               values={WEEK_CHOICES}
               value={prefs.weeks}
-              onChange={(weeks) => setPrefs({ weeks: weeks as 4 | 5 | 6 })}
+              onChange={(weeks) => setPrefs({ weeks })}
               label={t('calendar.weeksShown')}
               caption={(count) => t('calendar.weeks', { count })}
             />
@@ -474,7 +472,6 @@ export function CalendarPage() {
                 }
                 onPage={step}
                 onGrab={grabItem}
-                onCancelGrab={drag.cancel}
                 preview={preview}
                 dropDay={dropDay}
                 onResize={(item, start, end) => {
@@ -483,6 +480,7 @@ export function CalendarPage() {
                   schedule(
                     task.id,
                     placedSchedule(task.schedule, { start, end, allDay: false }, zone),
+                    t('undo.timeChanged'),
                   );
                 }}
               />

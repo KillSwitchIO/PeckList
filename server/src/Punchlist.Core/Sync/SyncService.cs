@@ -59,7 +59,8 @@ public sealed partial class SyncService(
     SharingState sharing,
     ISharingChangeSink? sharingChanges = null,
     INotificationSink? notifications = null,
-    ServerClock? clock = null)
+    ServerClock? clock = null,
+    History.ITaskHistorySink? history = null)
 {
     public const int MaxChanges = 5000;
     // About 3.8 MB of JSON at a real workspace's ~2 KB a task, ~0.4 MB compressed: a first sync of
@@ -151,6 +152,11 @@ public sealed partial class SyncService(
             }
             if (shared.Count > 0 && sharingChanges is not null) await sharingChanges.ChangedAsync(userId, shared, cancellation);
             if (notable.Count > 0 && notifications is not null) await notifications.ChangedAsync(userId, notable, cancellation);
+            // Each task's history (R-FB-105).
+            if (history is not null && notable.Any(change => change.Collection == "tasks"))
+            {
+                await history.ChangedAsync(userId, [.. notable.Where(change => change.Collection == "tasks")], cancellation);
+            }
         }
         var page = await store.ChangesAsync(userId, Math.Max(request.Cursor ?? 0, 0), PageSize, cancellation);
         return new SyncResponse(

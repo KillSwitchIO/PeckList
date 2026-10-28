@@ -3,12 +3,22 @@ import { createContext, useContext } from 'react';
 /** One notification as the app shows it: from the server, or a reminder fired on this device. */
 export interface NotificationItem {
   id: string;
-  kind: 'assigned' | 'shared' | 'mentioned' | 'reminder';
+  kind:
+    | 'assigned'
+    | 'groupAssigned'
+    | 'claimed'
+    | 'shared'
+    | 'mentioned'
+    | 'commented'
+    | 'commentEdited'
+    | 'reminder';
   /** When (ms) */
   at: number;
   actorId: string | null;
   taskId: string | null;
   listId: string | null;
+  /** The comment it is about (comments and mentions) */
+  commentId: string | null;
   read: boolean;
   /** Kept in this browser only (a reminder fired here). */
   local: boolean;

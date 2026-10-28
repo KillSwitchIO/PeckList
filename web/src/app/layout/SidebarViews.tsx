@@ -15,12 +15,13 @@ import {
   Typography,
   useTheme,
 } from '@mui/material';
-import type { ReactNode } from 'react';
+import { useMemo, type ReactNode } from 'react';
 import { useLocation, useNavigate } from 'react-router';
 import { getEntity, isLive } from '../../core/collections.ts';
 import { filterTasks } from '../../core/filters.ts';
 import { inboxList } from '../../core/lists.ts';
 import { createSavedFilter, filterOf, savedFiltersOf } from '../../core/savedFilters.ts';
+import { viewCounts } from '../../core/viewCounts.ts';
 import { useToday } from '../hooks/useToday.ts';
 import {
   filterViewId,
@@ -33,7 +34,6 @@ import { t } from '../i18n/i18n.ts';
 import {
   ChevronDownIcon,
   ChevronRightIcon,
-  DragHandleIcon,
   EyeIcon,
   EyeOffIcon,
   FilterIcon,
@@ -42,11 +42,12 @@ import {
 import { FilterDialog } from '../filters/FilterDialog.tsx';
 import { listName } from '../lists/listName.ts';
 import { ListMark } from '../lists/ListMark.tsx';
-import { useApply, useWorkspace } from '../store/hooks.ts';
+import { useApply, useStoreState, useWorkspace } from '../store/hooks.ts';
 import { tagIconColor } from '../tags/tagColors.ts';
 import { VIEW_ITEMS } from './navigation.tsx';
 import { editingRowSx, useSidebarEdit } from './sidebarEditContext.ts';
 import { useSortableRows } from './useSortableRows.ts';
+import { SortHandle } from './SortHandle.tsx';
 
 /** A row in the views section. */
 interface ViewItem {
@@ -56,7 +57,7 @@ interface ViewItem {
   label: string;
   icon: ReactNode;
   pinned: boolean;
-  /** Open tasks it holds (saved filters) */
+  /** Open tasks it holds (R-FB-114) */
   count?: number;
   /** A list a dragged task can be dropped on (the Mess Drawer, pinned lists) */
   dropList?: string;
@@ -98,6 +99,8 @@ export function SidebarViews({
   const workspace = useWorkspace();
   const today = useToday();
   const apply = useApply();
+  const me = useStoreState((state) => state.context().userId);
+  const counts = useMemo(() => viewCounts(workspace, today, me), [workspace, today, me]);
   const theme = useTheme();
   const navigate = useNavigate();
   const { pathname } = useLocation();
@@ -112,6 +115,10 @@ export function SidebarViews({
     items[id] = { path: item.path, name, label: name, icon: item.icon, pinned: false };
   }
   items.inbox = { ...items.inbox!, dropList: inboxList(workspace).id };
+  // Counts beside the views, as the lists have (R-FB-114).
+  for (const [id, count] of Object.entries(counts)) {
+    if (items[id] && count !== undefined) items[id] = { ...items[id], count };
+  }
   for (const filter of savedFiltersOf(workspace)) {
     items[filterViewId(filter.id)] = {
       path: `/filters/${filter.id}`,
@@ -200,12 +207,7 @@ export function SidebarViews({
           ...editingRowSx(editing, sortable.dragging === id, index),
         }}
       >
-        {editing && (
-          <DragHandleIcon
-            fontSize="small"
-            sx={{ color: 'text.disabled', ml: -1, mr: 0.5, cursor: 'grab' }}
-          />
-        )}
+        {editing && <SortHandle />}
         <ListItemIcon sx={{ minWidth: 40 }}>{item.icon}</ListItemIcon>
         <ListItemText primary={item.name} sx={{ minWidth: 0 }} />
         {!editing && item.count !== undefined && item.count > 0 && (

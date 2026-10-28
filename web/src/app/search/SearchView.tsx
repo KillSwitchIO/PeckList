@@ -1,18 +1,13 @@
 import SearchRounded from '@mui/icons-material/SearchRounded';
-import { alpha, Box, ButtonBase, InputBase, Typography } from '@mui/material';
-import { useDeferredValue } from 'react';
+import { alpha, Box, InputBase, Typography } from '@mui/material';
+import { useDeferredValue, useEffect } from 'react';
 import { useSearchParams } from 'react-router';
-import { getEntity } from '../../core/collections.ts';
 import { searchTasks, type Range, type SearchHit } from '../../core/search.ts';
 import { t } from '../i18n/i18n.ts';
+import { eggFor, hatch } from '../fun/eggs.ts';
 import { Page } from '../layout/Page.tsx';
-import { listName } from '../lists/listName.ts';
 import { useWorkspace } from '../store/hooks.ts';
-import { DateButton } from '../tasks/DateButton.tsx';
-import { TaskReadOnly, useCanEditTask } from '../tasks/readOnly.ts';
-import { useTaskSelection } from '../tasks/selection.ts';
-import { PriorityCheckbox } from '../tasks/TaskRow.tsx';
-import { useTwoLineRows } from '../layout/rowLayout.ts';
+import { TaskRow } from '../tasks/TaskRow.tsx';
 import { EmptyState } from '../views/EmptyState.tsx';
 import { GroupSection } from '../views/GroupSection.tsx';
 
@@ -43,91 +38,33 @@ function Highlighted({ text, ranges }: { text: string; ranges: readonly Range[] 
   return <>{parts}</>;
 }
 
-function ResultRow({ hit }: { hit: SearchHit }) {
-  const workspace = useWorkspace();
-  const { selectedId, open } = useTaskSelection();
-  const canEdit = useCanEditTask(hit.task);
-  const { task } = hit;
-  const list = getEntity(workspace, 'lists', task.listId);
-  const title = task.title || t('task.untitled');
-  const selected = selectedId === task.id;
-  const twoLine = useTwoLineRows();
-  const listLabel = list && !list.isInbox ? listName(list, workspace) : null;
+/**
+ * Results as rows like every other task list (R-FB-111): the same row, its list, date, tags and
+ * actions. A match in the notes adds a line under it with the words marked.
+ */
+function ResultRows({ hits, label }: { hits: SearchHit[]; label?: string }) {
   return (
-    <TaskReadOnly value={!canEdit}>
-      <Box
-        component="li"
-        sx={{
-          display: 'flex',
-          alignItems: 'flex-start',
-          flexWrap: 'wrap',
-          borderBottom: 1,
-          borderColor: 'divider',
-          bgcolor: selected ? 'action.selected' : 'transparent',
-          '&:hover': { bgcolor: selected ? 'action.selected' : 'action.hover' },
-        }}
-      >
-        <Box sx={{ pt: 0.5, pl: 0.5 }}>
-          <PriorityCheckbox task={task} />
-        </Box>
-        <ButtonBase
-          onClick={() => open(task.id)}
-          aria-label={t('task.open', { title })}
-          disableRipple
-          sx={{ flexGrow: 1, minWidth: 0, display: 'block', textAlign: 'left', py: 1, pr: 1.5 }}
-        >
-          <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 1.5 }}>
-            <Typography
-              noWrap={!twoLine}
-              sx={{
-                flexGrow: 1,
-                minWidth: 0,
-                color: task.status === 'open' ? 'text.primary' : 'text.disabled',
-                textDecoration: task.status === 'wontdo' ? 'line-through' : 'none',
-                overflowWrap: 'anywhere',
-              }}
-            >
-              <Highlighted text={title} ranges={task.title ? hit.title : []} />
-            </Typography>
-            {!twoLine && listLabel && (
-              <Typography variant="body2" color="text.secondary" noWrap sx={{ flexShrink: 0 }}>
-                {listLabel}
-              </Typography>
-            )}
-          </Box>
+    <Box
+      component="ul"
+      {...(label ? { 'aria-label': label } : {})}
+      sx={{ listStyle: 'none', m: 0, p: 0 }}
+    >
+      {hits.map((hit) => (
+        <li key={hit.task.id}>
+          <TaskRow task={hit.task} showList showParent />
           {hit.snippet && (
-            <Typography variant="body2" color="text.secondary" noWrap>
+            <Typography
+              variant="body2"
+              color="text.secondary"
+              noWrap
+              sx={{ pl: 6, pr: 1.5, mt: -0.5, pb: 0.75, fontSize: '0.8125rem' }}
+            >
               <Highlighted text={hit.snippet.text} ranges={hit.snippet.ranges} />
             </Typography>
           )}
-        </ButtonBase>
-        {/* Narrow: the date and list go under the title, like the other task rows. */}
-        {!twoLine && (
-          <Box sx={{ alignSelf: 'stretch', display: 'flex' }}>
-            <DateButton task={task} width="7rem" />
-          </Box>
-        )}
-        {twoLine && (listLabel || task.schedule || task.due || task.completedAt) && (
-          <Box
-            sx={{
-              flexBasis: '100%',
-              display: 'flex',
-              alignItems: 'center',
-              gap: 1.25,
-              pl: 6,
-              pb: 1,
-              mt: -0.75,
-              typography: 'body2',
-              fontSize: '0.8125rem',
-              color: 'text.secondary',
-            }}
-          >
-            <DateButton task={task} width="auto" compact />
-            {listLabel && <span>{listLabel}</span>}
-          </Box>
-        )}
-      </Box>
-    </TaskReadOnly>
+        </li>
+      ))}
+    </Box>
   );
 }
 
@@ -142,6 +79,11 @@ export function SearchView() {
   // Typing stays quick on big workspaces: results follow a moment behind.
   const deferred = useDeferredValue(query);
   const hits = searchTasks(workspace, deferred);
+  // A few words hide a surprise (R-FB-122).
+  const egg = eggFor(deferred);
+  useEffect(() => {
+    if (egg) hatch(egg);
+  }, [egg]);
   const open = hits.filter((hit) => hit.task.status === 'open');
   const closed = hits.filter((hit) => hit.task.status !== 'open');
 
@@ -187,22 +129,10 @@ export function SearchView() {
         <EmptyState title={t('search.none', { query: deferred.trim() })} />
       ) : (
         <>
-          <Box
-            component="ul"
-            aria-label={t('search.results')}
-            sx={{ listStyle: 'none', m: 0, p: 0 }}
-          >
-            {open.map((hit) => (
-              <ResultRow key={hit.task.id} hit={hit} />
-            ))}
-          </Box>
+          <ResultRows hits={open} label={t('search.results')} />
           {closed.length > 0 && (
             <GroupSection groupKey="completed" title={t('nav.completed')} count={closed.length}>
-              <Box component="ul" sx={{ listStyle: 'none', m: 0, p: 0 }}>
-                {closed.map((hit) => (
-                  <ResultRow key={hit.task.id} hit={hit} />
-                ))}
-              </Box>
+              <ResultRows hits={closed} />
             </GroupSection>
           )}
         </>
