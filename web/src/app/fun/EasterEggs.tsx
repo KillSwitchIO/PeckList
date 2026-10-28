@@ -1,8 +1,10 @@
 import { Box, GlobalStyles } from '@mui/material';
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { useLocation } from 'react-router';
 import { changedEntities, getEntity } from '../../core/collections.ts';
+import { localTimeZone } from '../../core/dates.ts';
 import { inboxList } from '../../core/lists.ts';
-import { openCounts, todayGroups } from '../../core/queries.ts';
+import { completedOn, openCounts, todayGroups } from '../../core/queries.ts';
 import type { Comment, Task, WorkspaceFile } from '../../core/types.ts';
 import { useToday } from '../hooks/useToday.ts';
 import { t } from '../i18n/i18n.ts';
@@ -30,6 +32,32 @@ const WINK_MS = 2_400;
 /** A quick run of completions that brings Punchy out. */
 const STREAK = 5;
 const STREAK_MS = 120_000;
+/** The day the fireworks last went off in this tab: once a day on arriving at a finished Today. */
+const FIREWORKS_KEY = 'punchlist-fireworks-day';
+
+const fireworksDay = () => {
+  try {
+    return sessionStorage.getItem(FIREWORKS_KEY);
+  } catch {
+    return null;
+  }
+};
+const markFireworks = (day: string) => {
+  try {
+    sessionStorage.setItem(FIREWORKS_KEY, day);
+  } catch {
+    // A browser that keeps nothing: the fireworks may repeat on the next visit.
+  }
+};
+
+/** Nothing open or overdue on Today, and something got done today: the day is finished. */
+function todayFinished(workspace: WorkspaceFile, today: string): boolean {
+  const groups = todayGroups(workspace, today);
+  return (
+    groups.overdue.length + groups.today.length === 0 &&
+    completedOn(workspace, today, localTimeZone()).length > 0
+  );
+}
 
 /** A body class while a mode is on (retro, disco, typewriter, wink). */
 function useMode(name: string, ms: number): [boolean, () => void] {
@@ -248,6 +276,9 @@ export function EasterEggs() {
   const workspace = useWorkspace();
   const today = useToday();
   const me = useStoreState((state) => state.context().userId);
+  const onToday = useLocation().pathname === '/today';
+  // Fireworks have gone off during this visit to Today (so arriving does not set them off again).
+  const celebratedVisit = useRef(false);
   const [show, setShow] = useState<ParticleShow | null>(null);
   // Surprises that come at once (the last task of the Mess Drawer was a piñata) take turns.
   const [critters, setCritters] = useState<{ id: number; critter: Critter }[]>([]);
@@ -433,19 +464,38 @@ export function EasterEggs() {
       const old = getEntity(previous, 'comments', comment.id);
       if (!old && comment.createdBy === me && isQuack(comment.body)) hatch('duck');
     }
-    if (completed) {
+    // Finishing Today's last task sets off fireworks while Today is open, not from another page.
+    if (completed && onToday) {
       const open = (ws: WorkspaceFile) => {
         const groups = todayGroups(ws, today);
         return groups.overdue.length + groups.today.length;
       };
-      if (open(previous) > 0 && open(workspace) === 0) hatch('fireworks');
+      if (open(previous) > 0 && open(workspace) === 0) {
+        celebratedVisit.current = true;
+        markFireworks(today);
+        hatch('fireworks');
+      }
     }
     // Emptied by completing or moving its last task.
     if (mine) {
       const drawer = (ws: WorkspaceFile) => openCounts(ws).get(inboxList(ws).id) ?? 0;
       if (drawer(previous) > 0 && drawer(workspace) === 0) hatch('trophy');
     }
-  }, [workspace, today, me]);
+  }, [workspace, today, me, onToday]);
+
+  // Arriving at a Today that is already finished: fireworks once a day for this tab, the first
+  // time the page shows it done (after this effect, so a completion on the page is not counted twice).
+  useEffect(() => {
+    if (!onToday) {
+      celebratedVisit.current = false;
+      return;
+    }
+    if (celebratedVisit.current || fireworksDay() === today || !todayFinished(workspace, today))
+      return;
+    celebratedVisit.current = true;
+    markFireworks(today);
+    hatch('fireworks');
+  }, [onToday, today, workspace]);
 
   return (
     <>
