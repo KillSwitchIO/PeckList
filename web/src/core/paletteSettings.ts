@@ -11,6 +11,7 @@ import {
   LIGHT_SURFACE,
   PALETTE_DEFAULTS,
   PALETTE_PRESETS,
+  PRESET_TINTS,
   type PalettePreset,
   type PaletteSlot,
 } from './palette.ts';
@@ -42,6 +43,11 @@ export function paletteOverrides(workspace: WorkspaceFile): Partial<Record<Palet
 export function palettePreset(workspace: WorkspaceFile): PalettePreset {
   const saved = workspace.entities.settings[0]?.palettePreset;
   return saved && saved in PALETTE_PRESETS ? (saved as PalettePreset) : DEFAULT_PRESET;
+}
+
+/** How much the preset washes the page in its accent (R-FB-123). */
+export function paletteTint(workspace: WorkspaceFile): number {
+  return PRESET_TINTS[palettePreset(workspace)] ?? 0;
 }
 
 /** The preset's color for a slot: what "Use the preset's color" brings back. */

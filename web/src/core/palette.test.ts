@@ -9,6 +9,7 @@ import {
   hexToRgb,
   mix,
   PASTEL_NAMES,
+  PRESET_TINTS,
   rgbToHex,
   WCAG_TEXT,
   WCAG_UI,
@@ -113,5 +114,25 @@ describe.each(['light', 'dark'] as const)('%s accent container', (mode) => {
   it('keeps today and the current pick readable', () => {
     const p = buildPalette(mode);
     expect(contrastRatio(p.onAccentContainer, p.accentContainer)).toBeGreaterThanOrEqual(WCAG_TEXT);
+  });
+});
+
+describe('washed palettes (R-FB-123)', () => {
+  it('tints the page and panels in the accent, keeping text readable', () => {
+    const plain = buildPalette('light', { accent: '#FF2E93' });
+    const washed = buildPalette('light', { accent: '#FF2E93' }, 0.08);
+    expect(washed.background).not.toBe(plain.background);
+    expect(washed.surface).not.toBe(plain.surface);
+    expect(contrastRatio(washed.text, washed.background)).toBeGreaterThanOrEqual(4.5);
+    expect(contrastRatio(washed.textMuted, washed.surface)).toBeGreaterThanOrEqual(4.5);
+    const dark = buildPalette('dark', { accent: '#FF2E93' }, 0.08);
+    expect(contrastRatio(dark.text, dark.background)).toBeGreaterThanOrEqual(4.5);
+  });
+
+  it('gives every loud and pretty palette a wash', () => {
+    for (const id of ['neon', 'arcade', 'bubblegum', 'rose-gold'] as const) {
+      expect(PRESET_TINTS[id]).toBeGreaterThan(0);
+    }
+    expect(PRESET_TINTS.punchlist).toBeUndefined();
   });
 });

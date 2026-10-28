@@ -17,8 +17,9 @@ declare module '@mui/material/styles' {
 export function createAppTheme(
   mode: 'light' | 'dark',
   overrides: Record<string, string> = {},
+  tint = 0,
 ): Theme {
-  const p = buildPalette(mode, overrides);
+  const p = buildPalette(mode, overrides, tint);
   return createTheme({
     punchlist: p,
     palette: {
