@@ -4,6 +4,12 @@ All notable changes to Punchlist. Generated from [Conventional Commits](https://
 by `pnpm changelog`; the version follows [Semantic Versioning](https://semver.org/). Before 1.0.0 a
 minor release may break things; every break is listed under **Breaking changes** with what to do.
 
+## [0.2.8] - 2026-10-28
+
+### Added
+
+- Version marks, release notice, edge menu, quicker search, icons
+
 ## [0.2.7] - 2026-10-28
 
 ### Added
