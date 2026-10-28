@@ -66,6 +66,7 @@ import { EasterEggs } from '../fun/EasterEggs.tsx';
 import { useHoldToHatch } from '../fun/useHoldToHatch.ts';
 import { UpdateNotice } from './VersionStatus.tsx';
 import { PeekSidebar } from './PeekSidebar.tsx';
+import { noteArrival } from '../views/emptyMarkPlays.ts';
 
 /** How often the trash is checked for things to erase. */
 const PURGE_EVERY_MS = 6 * 3_600_000;
@@ -207,6 +208,8 @@ function AppFrame() {
   const drawerWidth = sidebarShown ? DRAWER_WIDTH : 0;
   const navigate = useNavigate();
   const { pathname } = useLocation();
+  // Pages arrived at, for the empty views' mark: it plays once per arrival (R-FB-152).
+  noteArrival(pathname);
   const { selectedId, close, full, leaveFull } = useTaskSelection();
   const [headerSlot, setHeaderSlot] = useState<HTMLElement | null>(null);
   // Details in the large full-screen view instead of the side panel (resets with the task).

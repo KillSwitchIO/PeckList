@@ -1,4 +1,5 @@
 import { Box, useTheme } from '@mui/material';
+import { useMarkPlays } from './emptyMarkPlays.ts';
 
 const PURPLE = '#4B2A8A';
 const GREY = '#A8A6A3';
@@ -53,12 +54,21 @@ function Check({ tile, mark }: { tile: string; mark: string }) {
  */
 export function EmptyMark() {
   const theme = useTheme();
+  // On arriving, or when the view just emptied; otherwise the check, still (R-FB-152).
+  const plays = useMarkPlays();
+  const still = {
+    '& .pl-empty-card': { animation: 'none', transform: 'rotateY(180deg)' },
+    '& .pl-empty-check': { animation: 'none', strokeDashoffset: 0 },
+    '& .pl-empty-back svg': { animation: 'none' },
+  };
   const dark = theme.palette.mode === 'dark';
   const tile = dark ? PURPLE : GREY;
   const mark = dark ? GREY : PURPLE;
   return (
     <Box
       aria-hidden
+      data-plays={plays ? 'true' : 'false'}
+      data-testid="empty-mark"
       sx={{
         width: SIZE,
         height: SIZE,
@@ -91,11 +101,8 @@ export function EmptyMark() {
         },
         '@keyframes pl-empty-draw': { to: { strokeDashoffset: 0 } },
         '@keyframes pl-empty-pop': { '50%': { transform: 'scale(1.12)' } },
-        '@media (prefers-reduced-motion: reduce)': {
-          '& .pl-empty-card': { animation: 'none', transform: 'rotateY(180deg)' },
-          '& .pl-empty-check': { animation: 'none', strokeDashoffset: 0 },
-          '& .pl-empty-back svg': { animation: 'none' },
-        },
+        '@media (prefers-reduced-motion: reduce)': still,
+        ...(plays ? {} : still),
       }}
     >
       <div className="pl-empty-card">
