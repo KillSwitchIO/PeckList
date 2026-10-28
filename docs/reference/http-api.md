@@ -54,6 +54,7 @@ the sign-in rate limit.
 | `GET /api/account/sign-in`, `GET /api/account/stats` | Your sign-in methods, your stats                |
 | `/api/friends/...`, `GET /api/users/lookup`          | Friend links and requests, finding people       |
 | `GET /api/notifications`, `POST .../read`, `.../clear` | Your notifications; mark read or clear (`{"ids": [...]}`, or `null` for all) |
+| `GET /api/tasks/{id}/history`                        | A task's changes, newest first: `at`, `actorId`, `field`, `before`, `after` (JSON values); 404 for a task you cannot see |
 | `GET /api/push/key`, `POST /api/push/subscriptions`, `POST /api/push/unsubscribe` | Web Push: the server's VAPID key, this browser's subscription |
 
 ## Admin (`/api/admin`)
