@@ -32,9 +32,13 @@ self.addEventListener('notificationclick', (event) => {
     return;
   }
   // A button with a place of its own (Reply, thumbs up, Open task, Call dibs: R-FB-106, R-FB-107).
-  const pressed = (event.notification.data?.actions || []).find((each) => each.action === event.action);
-  const url = new URL(pressed?.url || event.notification.data?.url || '/today', self.location.origin)
-    .href;
+  const pressed = (event.notification.data?.actions || []).find(
+    (each) => each.action === event.action,
+  );
+  const url = new URL(
+    pressed?.url || event.notification.data?.url || '/today',
+    self.location.origin,
+  ).href;
   event.waitUntil(
     self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((windows) => {
       const open = windows.find((each) => new URL(each.url).origin === self.location.origin);
