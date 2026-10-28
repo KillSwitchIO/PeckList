@@ -17,7 +17,7 @@ import {
   useMediaQuery,
   useTheme,
 } from '@mui/material';
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router';
 import { getEntity, isLive } from '../../core/collections.ts';
 import { localDateTimeOf, localTimeZone } from '../../core/dates.ts';
@@ -28,6 +28,7 @@ import { NotesEditor } from '../editor/NotesEditor.tsx';
 import { CollapseIcon, DueIcon, ExpandIcon } from '../icons/icons.tsx';
 import { useLongPress } from '../hooks/useLongPress.ts';
 import { CompleteCheckbox } from './CompleteCheckbox.tsx';
+import { isBlankDraft } from './drafts.ts';
 import { completionInstant } from './completion.ts';
 import { DetailFooter } from './DetailFooter.tsx';
 import { ParentTrail, SubtaskEditor } from './Subtasks.tsx';
@@ -52,14 +53,25 @@ function CommitField({
   value,
   onCommit,
   readOnly = false,
+  autoFocus = false,
 }: {
   label: string;
   value: string;
   onCommit: (value: string) => void;
   readOnly?: boolean;
+  /** A new task: ready to type its title */
+  autoFocus?: boolean;
 }) {
   const [draft, setDraft] = useState(value);
   const [synced, setSynced] = useState(value);
+  // A new task: the title takes the keyboard once the view has opened (a dialog takes focus for
+  // itself as it opens, so a moment after).
+  const field = useRef<HTMLTextAreaElement | null>(null);
+  useEffect(() => {
+    if (!autoFocus) return;
+    const timer = setTimeout(() => field.current?.focus(), 80);
+    return () => clearTimeout(timer);
+  }, [autoFocus]);
   // Take outside changes (undo, another tab) without an effect.
   if (value !== synced) {
     setSynced(value);
@@ -74,6 +86,7 @@ function CommitField({
     <InputBase
       value={draft}
       fullWidth
+      inputRef={field}
       placeholder={label}
       // Wraps and grows, so a long title reads whole (R-FB-90); it stays one line of text, a
       // pasted line break becoming a space.
@@ -312,6 +325,8 @@ export function TaskDetail({
               label={t('task.title')}
               value={task.title}
               readOnly={readOnly}
+              // A new task (the + button, the add bar's expand): type its title straight away.
+              autoFocus={isBlankDraft(task)}
               onCommit={(title) =>
                 apply((ctx, ws) => updateTask(ctx, ws, task.id, { title: title.trim() }))
               }

@@ -16,6 +16,7 @@ import {
   trashedTasks,
   upcomingTasks,
 } from './queries.ts';
+import { agendaDays } from './agenda.ts';
 import { createTask, deleteTask, toggleTaskDone } from './tasks.ts';
 import type { Due, Schedule, Task, WorkspaceFile } from './types.ts';
 import { createWorkspace } from './workspace.ts';
@@ -191,6 +192,19 @@ describe('list contents', () => {
     const groups = todayGroups(s.ws, TODAY);
     expect(titles(groups.overdue)).toEqual(['late']);
     expect(titles(groups.today)).toEqual(['all day', 'morning', 'evening']);
+  });
+
+  it('keeps a task spanning days in Today while it runs, overdue only once it has ended', () => {
+    const s = setup();
+    const running = s.add('trip', { schedule: at('2026-10-18', '2026-10-22') });
+    s.add('ends today', { schedule: at('2026-10-19T09:00', '2026-10-20T17:00') });
+    s.add('ended', { schedule: at('2026-10-16', '2026-10-19') });
+    const groups = todayGroups(s.ws, TODAY);
+    expect(titles(groups.overdue)).toEqual(['ended']);
+    expect(titles(groups.today).sort()).toEqual(['ends today', 'trip']);
+    expect(startState(running, TODAY)).toBe('today');
+    // In Upcoming it shows on today.
+    expect(titles(agendaDays(s.ws, TODAY, TODAY, 2)[0]!.tasks)).toContain('trip');
   });
 
   it('finds tasks completed today in the local time zone', () => {
