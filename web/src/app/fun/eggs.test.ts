@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   burst,
+  streak,
   EGGS,
   eggFor,
   isPinataTitle,
@@ -46,6 +47,14 @@ describe('easter eggs (R-FB-122)', () => {
     expect(burst('test', 3, 1000, 2000)).toBe(false);
     expect(burst('test', 3, 1000, 2100)).toBe(false);
     expect(burst('test', 3, 1000, 2200)).toBe(true);
+  });
+
+  it('a streak needs each one quickly after the last', () => {
+    expect(streak('quick', 3, 500, 0)).toBe(false);
+    expect(streak('quick', 3, 500, 400)).toBe(false);
+    expect(streak('quick', 3, 500, 1000)).toBe(false);
+    expect(streak('quick', 3, 500, 1400)).toBe(false);
+    expect(streak('quick', 3, 500, 1800)).toBe(true);
   });
 
   it('lets each season fall', () => {

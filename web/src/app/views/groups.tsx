@@ -190,6 +190,7 @@ export function GroupedTasks({
   groupsReversed = false,
   showList = false,
   emptyTitle,
+  emptyWithClosed = false,
 }: {
   tasks: readonly Task[];
   closed: Task[];
@@ -199,6 +200,8 @@ export function GroupedTasks({
   groupsReversed?: boolean;
   showList?: boolean;
   emptyTitle: string;
+  /** Show the empty mark over closed tasks too: nothing open is enough (Today). */
+  emptyWithClosed?: boolean;
 }) {
   const workspace = useWorkspace();
   const { pinned, rest } = pinnedFirst(tasks);
@@ -224,7 +227,7 @@ export function GroupedTasks({
   const groups = grouped && inOrder(grouped, groupsReversed);
   return (
     <TaskDragProvider>
-      {open.length === 0 && pinned.length === 0 && closed.length === 0 && (
+      {open.length === 0 && pinned.length === 0 && (emptyWithClosed || closed.length === 0) && (
         <EmptyState title={emptyTitle} />
       )}
       <PinnedGroup tasks={pinned} showList={showList} />

@@ -104,14 +104,30 @@ export function burst(key: string, count: number, withinMs: number, now = Date.n
   return false;
 }
 
+/**
+ * Note one more of something in a quick run: true when it is the `count`th in a row, each no more
+ * than `gapMs` after the one before; a slower one starts the run over.
+ */
+export function streak(key: string, count: number, gapMs: number, now = Date.now()): boolean {
+  const run = bursts.get(key) ?? [];
+  const last = run[run.length - 1];
+  const next = last !== undefined && now - last <= gapMs ? [...run, now] : [now];
+  if (next.length >= count) {
+    bursts.delete(key);
+    return true;
+  }
+  bursts.set(key, next);
+  return false;
+}
+
 /** A pull to refresh: the third in a row lets the season fall (R-FB-122). */
 export function notePull(): void {
   if (burst('pull', 3, 30_000)) hatch('season');
 }
 
-/** A palette picked: the fifth within 20 seconds starts the disco. */
+/** A palette picked: five in a row, each within half a second of the last, starts the disco. */
 export function notePalettePick(): void {
-  if (burst('palette', 5, 20_000)) hatch('disco');
+  if (streak('palette', 5, 500)) hatch('disco');
 }
 
 /** Up, up, down, down, left, right, left, right, B, A. */

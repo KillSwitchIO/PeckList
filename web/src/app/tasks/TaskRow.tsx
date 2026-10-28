@@ -455,7 +455,8 @@ function TaskRowContent({
               onClick={expander.onToggle}
               sx={{
                 position: 'absolute',
-                left: depth * INDENT - 20,
+                // Phones' gutter is narrower: a little further in, so none of it is off screen.
+                left: depth * INDENT - (twoLine ? 16 : 20),
                 ...(twoLine ? { top: 8 } : { top: '50%', transform: 'translateY(-50%)' }),
                 p: 0.25,
                 color: 'text.secondary',

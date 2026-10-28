@@ -30,6 +30,7 @@ import {
   FriendsPage,
   NotificationsPage,
   SettingsPage,
+  ManageListsPage,
   StatsPage,
 } from './lazyPages.ts';
 
@@ -93,6 +94,7 @@ export function AppRoutes() {
           <Route path="/day/:date" element={<DayView />} />
           <Route path="/search" element={<SearchView />} />
           <Route path="/settings" element={<SettingsPage />} />
+          <Route path="/settings/lists" element={<ManageListsPage />} />
           <Route path="/stats" element={<StatsPage />} />
           <Route path="/admin" element={<AdminPage />} />
           <Route path="/admin/:tab" element={<AdminPage />} />

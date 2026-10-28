@@ -120,7 +120,8 @@ export function TodayView() {
   const { workspace, button } = useNarrowed('today');
   const groups = todayGroups(workspace, today);
   const done = completedOn(workspace, today, localTimeZone());
-  const empty = groups.overdue.length === 0 && groups.today.length === 0 && done.length === 0;
+  // All punched out once nothing is open or overdue, whatever got done today (R-FB-135).
+  const empty = groups.overdue.length === 0 && groups.today.length === 0;
   return (
     <Page
       title={t('nav.today')}
@@ -149,6 +150,7 @@ export function TodayView() {
           groupsReversed={view.groupReversed}
           showList
           emptyTitle={t('empty.today')}
+          emptyWithClosed
         />
       )}
     </Page>

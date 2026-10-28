@@ -8,13 +8,15 @@ import { useToday } from '../hooks/useToday.ts';
 /**
  * What a task row shows on the right: the start date and time (or the due date when there is no
  * start, or always with `dueFirst`), or, once closed, the day it was completed. `completedDay` is
- * set in that case.
+ * set in that case. A span over several days has its end too (R-FB-136).
  */
 export function useRowDate(
   task: Task,
   dueFirst = false,
 ): {
   text: string | null;
+  /** Where a span over several days ends ("Thu, Oct 30"), shown after the start. */
+  endText: string | null;
   color: string;
   completedDay: string | null;
   /** The text is the due date (the task has no start date). */
@@ -38,6 +40,11 @@ export function useRowDate(
       : start
         ? formatWhen(start, today)
         : null;
+  const end = task.schedule?.end;
+  const endText =
+    !completedDay && !showsDue && start && end && datePart(end) !== datePart(start)
+      ? formatWhen(end, today)
+      : null;
   const state =
     showsDue && dueFirst
       ? datePart(task.due!.at) < today
@@ -49,5 +56,5 @@ export function useRowDate(
     : state === 'overdue'
       ? theme.punchlist.dateState.late
       : theme.punchlist.dateState.dueSoon;
-  return { text, color, completedDay, showsDue, due };
+  return { text, endText, color, completedDay, showsDue, due };
 }

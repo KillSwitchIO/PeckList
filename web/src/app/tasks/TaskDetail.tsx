@@ -399,9 +399,16 @@ export function TaskDetail({
             onDismissProblem={attach.clearProblem}
           />
           <SubtaskEditor task={task} />
-          {!phone && <Comments task={task} />}
-          {!phone && <TaskHistory task={task} />}
-          {!phone && <TaskDates task={task} />}
+          {!phone && (
+            <>
+              {/* Comments and history keep to the bottom of the panel, not under the subtasks
+                  (R-FB-138). */}
+              <Box aria-hidden sx={{ flexGrow: 1 }} />
+              <Comments task={task} />
+              <TaskHistory task={task} />
+              <TaskDates task={task} />
+            </>
+          )}
         </Stack>
         {phone && <PhoneTaskMore task={task} open={moreOpen} setOpen={setMoreOpen} />}
         <DetailFooter task={task} />

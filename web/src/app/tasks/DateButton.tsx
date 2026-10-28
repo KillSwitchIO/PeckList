@@ -123,7 +123,7 @@ export function DateButton({
   dueFirst?: boolean;
 }) {
   const readOnly = useReadOnly();
-  const { text, color, completedDay, showsDue, due } = useRowDate(task, dueFirst);
+  const { text, endText, color, completedDay, showsDue, due } = useRowDate(task, dueFirst);
   const { label } = useRowDateEditor(task, dueFirst);
   const [anchor, setAnchor] = useState<HTMLElement | null>(null);
 
@@ -133,7 +133,11 @@ export function DateButton({
     <>
       <ButtonBase
         data-testid={testId}
-        aria-label={text ? t('task.editDate', { what: label, date: text }) : t('date.addDate')}
+        aria-label={
+          text
+            ? t('task.editDate', { what: label, date: endText ? `${text} - ${endText}` : text })
+            : t('date.addDate')
+        }
         aria-haspopup="dialog"
         disabled={readOnly}
         {...(completedDay ? { title: t('task.completedOn', { date: text ?? '' }) } : {})}
@@ -144,7 +148,9 @@ export function DateButton({
         }}
         onContextMenu={(event) => event.stopPropagation()}
         sx={{
-          width,
+          width: endText && !compact ? 'auto' : width,
+          // A span's two dates widen the column for that row rather than cut off.
+          ...(endText && !compact ? { minWidth: width } : {}),
           flexShrink: 0,
           alignSelf: 'stretch',
           display: 'flex',
@@ -172,7 +178,24 @@ export function DateButton({
             <DueIcon sx={{ fontSize: 15 }} />
           </Box>
         )}
-        {text ? (
+        {text && endText ? (
+          // Start and end: side by side on a wide row, the end under the start on a phone.
+          <Box
+            component="span"
+            data-testid="task-date-span"
+            sx={{
+              display: 'flex',
+              flexDirection: compact ? 'column' : 'row',
+              alignItems: compact ? 'flex-end' : 'center',
+              columnGap: 0.5,
+              whiteSpace: 'nowrap',
+              lineHeight: compact ? 1.25 : undefined,
+            }}
+          >
+            <span>{compact ? text : `${text} -`}</span>
+            <span>{endText}</span>
+          </Box>
+        ) : text ? (
           <Box
             component="span"
             sx={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}

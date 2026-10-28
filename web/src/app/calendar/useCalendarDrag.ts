@@ -48,6 +48,8 @@ export function useCalendarDrag(
   const [ghost, setGhost] = useState<{
     x: number;
     y: number;
+    /** Dragged by a finger: the label goes above it, where the thumb does not cover it. */
+    touch: boolean;
     taskId: string;
     title: string;
     target: DropTarget | null;
@@ -76,6 +78,7 @@ export function useCalendarDrag(
       setGhost({
         x,
         y,
+        touch,
         taskId: payload.taskId,
         title: payload.title,
         target: targetAt(x, y, payload.grabMinutes),
