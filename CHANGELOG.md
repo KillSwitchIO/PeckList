@@ -4,6 +4,22 @@ All notable changes to Punchlist. Generated from [Conventional Commits](https://
 by `pnpm changelog`; the version follows [Semantic Versioning](https://semver.org/). Before 1.0.0 a
 minor release may break things; every break is listed under **Breaking changes** with what to do.
 
+## [0.2.7] - 2026-10-28
+
+### Added
+
+- **fun:** All fifteen Easter eggs, each with its trigger
+- **fun:** The dog naps on +, disco is a 2-second flash, typewriter on renames
+- **views:** Our logo flips to a check on empty views; Closed shows its count
+- Lists and tags settings page, BM25 search, feedback fixes
+
+### Fixed
+
+- **fun:** Search words always set off their egg
+- **fun:** The characters say their own line, not the found line again
+- **tasks:** A running span is today's, and a new task's title is ready to type
+- **tasks:** History as a timeline, dates split, panel as tall as the task
+
 ## [0.2.6] - 2026-10-28
 
 ### Added
