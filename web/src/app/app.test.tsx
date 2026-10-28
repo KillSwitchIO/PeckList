@@ -48,6 +48,8 @@ describe('app shell', () => {
     // A blank task, full screen, dated today as the page's tasks are.
     const form = await screen.findByRole('dialog');
     expect(within(form).getByLabelText('Title')).toHaveValue('');
+    // Ready to type the title straight away.
+    await waitFor(() => expect(within(form).getByLabelText('Title')).toHaveFocus());
     const blank = () =>
       store.getState().workspace!.entities.tasks.filter((task) => task.title === '');
     expect(blank()).toHaveLength(1);

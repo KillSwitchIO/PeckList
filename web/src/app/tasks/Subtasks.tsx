@@ -140,6 +140,8 @@ export function ParentTrail({ task }: { task: Task }) {
             size="small"
             aria-label={t('task.detach')}
             onClick={() => apply((ctx, ws) => detachTask(ctx, ws, task.id), t('undo.detached'))}
+            // The lighter grey of the trail's chevrons: there, not shouting.
+            sx={{ color: 'text.disabled', '&:hover': { color: 'text.secondary' } }}
           >
             <LinkOffRounded fontSize="small" />
           </IconButton>

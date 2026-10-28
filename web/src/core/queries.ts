@@ -9,7 +9,7 @@ import {
   filterTasks,
   groupByDay,
   inLiveList,
-  startDate,
+  placeDate,
   type TaskFilter,
 } from './filters.ts';
 import { compareOrderKeys } from './ordering.ts';
@@ -30,7 +30,8 @@ export { startDate } from './filters.ts';
 
 /** Whether the start date shown on a row is overdue, today, later, or absent. */
 export function startState(task: Task, today: string): 'overdue' | 'today' | 'later' | 'none' {
-  const date = startDate(task);
+  // A span still running is today's, not overdue, until its end has passed.
+  const date = placeDate(task, today);
   if (!date) return 'none';
   if (task.status === 'open' && date < today) return 'overdue';
   return date === today ? 'today' : 'later';
@@ -54,15 +55,18 @@ export function dayTasks(workspace: WorkspaceFile, date: string, today: string):
   return filterTasks(workspace, { start: { from: offset, to: offset } }, today);
 }
 
-/** Today view groups: overdue (started before today) and today. */
+/**
+ * Today view groups: overdue (started before today) and today. A task spanning days is today's
+ * while it runs, and overdue only once its end has passed.
+ */
 export function todayGroups(
   workspace: WorkspaceFile,
   today: string,
 ): { overdue: Task[]; today: Task[] } {
   const tasks = todayTasks(workspace, today);
   return {
-    overdue: tasks.filter((task) => startDate(task)! < today),
-    today: tasks.filter((task) => startDate(task) === today),
+    overdue: tasks.filter((task) => placeDate(task, today)! < today),
+    today: tasks.filter((task) => placeDate(task, today) === today),
   };
 }
 

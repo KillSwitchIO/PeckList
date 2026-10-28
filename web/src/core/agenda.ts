@@ -3,7 +3,7 @@
 
 import { putEntities, requireEntity } from './collections.ts';
 import { addDays, datePart, daysBetween, timePart } from './dates.ts';
-import { filterTasks, groupByDay } from './filters.ts';
+import { filterTasks, groupByDay, placeDate } from './filters.ts';
 import { updateEntity, type OpContext } from './ops.ts';
 import type { Id, Task, WorkspaceFile } from './types.ts';
 
@@ -20,6 +20,13 @@ export function agendaDays(
       filterTasks(workspace, { start: { from: offset, to: offset + count - 1 } }, today),
     ).map((day) => [day.date, day.tasks]),
   );
+  // A task spanning days that is still running shows on today, not as overdue.
+  if (daysBetween(today, from) <= 0 && daysBetween(today, addDays(from, count - 1)) >= 0) {
+    const running = filterTasks(workspace, { start: { to: -1 } }, today).filter(
+      (task) => placeDate(task, today) === today,
+    );
+    if (running.length) placed.set(today, [...running, ...(placed.get(today) ?? [])]);
+  }
   return Array.from({ length: count }, (_, index) => {
     const date = addDays(from, index);
     return { date, tasks: placed.get(date) ?? [] };

@@ -56,6 +56,17 @@ export function startDate(task: Task): string | null {
   return task.schedule ? datePart(task.schedule.start) : null;
 }
 
+/**
+ * The day a task belongs to in Today's and the date groups: its start, except that a task that
+ * spans days and is still running (started before today, ending today or later) belongs to
+ * today. It is not overdue until its end has passed.
+ */
+export function placeDate(task: Task, today: string): string | null {
+  const start = startDate(task);
+  const end = task.schedule?.end ? datePart(task.schedule.end) : null;
+  return start !== null && end !== null && start < today && end >= today ? today : start;
+}
+
 /** A predicate for one filter, with the lookups it needs done once. */
 export function compileFilter(
   workspace: WorkspaceFile,
@@ -237,7 +248,7 @@ const on = (date: string): Task['schedule'] => ({
 });
 
 export function dateGroupOf(task: Task, today: string): DateGroupKey {
-  const date = startDate(task);
+  const date = placeDate(task, today);
   if (!date) return 'none';
   const days = daysBetween(today, date);
   if (days < 0) return 'overdue';
