@@ -38,6 +38,7 @@ const LABELS: Record<string, MessageKey> = {
   AUDIT_RETENTION_DAYS: 'serverSettings.AUDIT_RETENTION_DAYS',
   ACCESS_LOG_RETENTION_DAYS: 'serverSettings.ACCESS_LOG_RETENTION_DAYS',
   AUDIT_ARCHIVE: 'serverSettings.AUDIT_ARCHIVE',
+  UPDATE_CHECK: 'serverSettings.UPDATE_CHECK',
   AUDIT_ARCHIVE_DIR: 'serverSettings.AUDIT_ARCHIVE_DIR',
   AUTH_MODE: 'serverSettings.AUTH_MODE',
   ADMIN_PASSWORD: 'serverSettings.ADMIN_PASSWORD',

@@ -64,6 +64,8 @@ import { BottomSheet } from './BottomSheet.tsx';
 import { NotificationLinks } from '../notifications/NotificationLinks.tsx';
 import { EasterEggs } from '../fun/EasterEggs.tsx';
 import { useHoldToHatch } from '../fun/useHoldToHatch.ts';
+import { UpdateNotice } from './VersionStatus.tsx';
+import { PeekSidebar } from './PeekSidebar.tsx';
 
 /** How often the trash is checked for things to erase. */
 const PURGE_EVERY_MS = 6 * 3_600_000;
@@ -149,6 +151,7 @@ function Sidebar({ onNavigate }: { onNavigate: (path: string) => void }) {
           <SidebarTags onNavigate={onNavigate} />
         </Box>
         <MiniCalendar selected={openDay} onPick={(date) => onNavigate(dayPath(date, today))} />
+        <UpdateNotice />
         <Link
           href={CHANGELOG_URL}
           target="_blank"
@@ -314,6 +317,12 @@ function AppFrame() {
             <Sidebar onNavigate={go} />
           </Drawer>
         )
+      )}
+      {/* Hidden on a desktop: the mouse at the left edge brings it out (R-FB-149). */}
+      {isDesktop && collapsed && (
+        <PeekSidebar width={DRAWER_WIDTH}>
+          <Sidebar onNavigate={go} />
+        </PeekSidebar>
       )}
 
       <Box sx={{ flexGrow: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>

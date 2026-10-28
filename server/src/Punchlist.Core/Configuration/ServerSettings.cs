@@ -95,6 +95,9 @@ public sealed record ServerSettings
     /// <summary>The largest file people may attach, in megabytes (<c>ATTACHMENT_MAX_MB</c>).</summary>
     public int AttachmentMaxMb { get; init; } = 25;
 
+    /// <summary>Look for newer Punchlist releases on GitLab twice a day (<c>UPDATE_CHECK</c>).</summary>
+    public bool UpdateCheck { get; init; } = true;
+
     /// <summary>Where archives go: <c>audit</c> next to the SQLite file.</summary>
     public string AuditArchiveDir { get; init; } = "/data/audit";
 
@@ -218,6 +221,7 @@ public sealed record ServerSettings
             AttachmentDir = Get("ATTACHMENT_DIR")
                 ?? Path.Combine(Path.GetDirectoryName(dbPath) is { Length: > 0 } attachmentDir ? attachmentDir : ".", "attachments"),
             AttachmentMaxMb = Count("ATTACHMENT_MAX_MB", 25, 1),
+            UpdateCheck = Flag("UPDATE_CHECK", true),
             AuditArchiveDir = Get("AUDIT_ARCHIVE_DIR")
                 ?? Path.Combine(Path.GetDirectoryName(dbPath) is { Length: > 0 } auditDir ? auditDir : ".", "audit"),
             Logging = LoggingSettings.Read(Get, Path.Combine(Path.GetDirectoryName(dbPath) is { Length: > 0 } dir ? dir : ".", "logs"), errors),

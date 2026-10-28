@@ -137,6 +137,13 @@ change the schema, and run the upgrade yourself. **Default:** `true`. **Where:**
 The largest file someone may attach to a task, in megabytes. Bigger uploads are refused and stay
 on the device that added them. **Default:** `25`. **Where:** any, live.
 
+### `UPDATE_CHECK`
+
+Look for newer Punchlist releases: twice a day the server reads the latest release from
+GitLab (one request, from the server only; people's browsers never call out). When one is newer
+than the server or someone's Android app, the menu shows a notice with the release page. Turn it
+off to make no such request. **Default:** `true`. **Where:** any, live.
+
 ### `ATTACHMENT_DIR`
 
 Where attached files are kept, one file per content hash. Back this folder up with the database.

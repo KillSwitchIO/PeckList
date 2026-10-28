@@ -8,6 +8,7 @@ import type {
   LoginOutcome,
   PasswordOutcome,
   ServerInfo,
+  UpdateInfo,
   SignInMethods,
   SignUpOutcome,
   SyncRequest,
@@ -302,6 +303,15 @@ export function createHttpSync(
       async clear(ids) {
         const response = await call('/api/notifications/clear', { method: 'POST', body: { ids } });
         if (!response.ok) return fail(response);
+      },
+    },
+
+    updates: {
+      async latest() {
+        const response = await call('/api/updates');
+        if (response.status === 404) return null;
+        if (!response.ok) return fail(response);
+        return (await response.json()) as UpdateInfo;
       },
     },
 

@@ -26,6 +26,8 @@ public sealed class ServerFixture : IDisposable
             host.UseSetting("DB_PATH", NewDbPath());
             // Servers in one test run share a folder; files are tested on their own.
             host.UseSetting("LOG_FILES", "off");
+            // No test server asks GitLab for releases; the update tests turn it on with a fake feed.
+            host.UseSetting("UPDATE_CHECK", "off");
             foreach (var (key, value) in settings) host.UseSetting(key, value);
         });
 
