@@ -1,9 +1,13 @@
 import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createList } from '../../core/lists.ts';
 import { createTag } from '../../core/tags.ts';
+import { loadSymbolCatalog } from '../lists/listSymbols.ts';
 import { mockViewport, renderApp, testStore } from '../../test/renderApp.tsx';
+
+// The list dialog's icon picker loads the icon catalog: in before the test, not after it ends.
+beforeAll(() => loadSymbolCatalog());
 
 beforeEach(() => {
   localStorage.clear();
