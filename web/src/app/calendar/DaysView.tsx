@@ -69,7 +69,6 @@ export function DaysView({
   onPage,
   onGrab,
   onResize,
-  onCancelGrab,
   preview = null,
   dropDay = null,
 }: {
@@ -86,8 +85,6 @@ export function DaysView({
   onGrab: (event: React.PointerEvent<HTMLElement>, item: CalendarItem, grabMinutes: number) => void;
   /** A task's edge was dragged: its new start and end */
   onResize: (item: CalendarItem, start: string, end: string) => void;
-  /** A long hold on a task stops the drag it began, for big grips instead */
-  onCancelGrab: () => void;
   /** Where a task being dragged would land: drawn as an outline with its times */
   preview?: { taskId: string; day: string; top: number; bottom: number; color: string } | null;
   /** The day whose all-day row a task being dragged would land in, outlined (R-FB-78) */
@@ -503,29 +500,32 @@ export function DaysView({
                         event.stopPropagation();
                         if (!block.item.movable) return;
                         if (event.pointerType === 'touch') {
+                          // A finger held still, then let go without moving: its time is up for
+                          // change. Held and moved, it is dragged (useCalendarDrag); swiped, the
+                          // grid scrolls (R-FB-99).
                           const id = event.pointerId;
                           const origin = { x: event.clientX, y: event.clientY };
-                          const timer = setTimeout(() => {
-                            stop();
-                            onCancelGrab();
-                            held.current = block.item.id;
-                            setEditing(block.item.id);
-                            navigator.vibrate?.(15);
-                          }, HOLD_MS);
+                          const pressed = Date.now();
                           const moved = (next: PointerEvent) => {
                             if (next.pointerId !== id) return;
                             if (Math.hypot(next.clientX - origin.x, next.clientY - origin.y) > 8) {
                               stop();
                             }
                           };
+                          const up = (next: PointerEvent) => {
+                            if (next.pointerId !== id) return;
+                            stop();
+                            if (Date.now() - pressed < HOLD_MS) return;
+                            held.current = block.item.id;
+                            setEditing(block.item.id);
+                          };
                           const stop = () => {
-                            clearTimeout(timer);
                             window.removeEventListener('pointermove', moved);
-                            window.removeEventListener('pointerup', stop);
+                            window.removeEventListener('pointerup', up);
                             window.removeEventListener('pointercancel', stop);
                           };
                           window.addEventListener('pointermove', moved);
-                          window.addEventListener('pointerup', stop);
+                          window.addEventListener('pointerup', up);
                           window.addEventListener('pointercancel', stop);
                         }
                         const column = event.currentTarget.parentElement!;
@@ -560,8 +560,8 @@ export function DaysView({
                               ? 3
                               : 0,
                         zIndex: editing === block.item.id ? 2 : undefined,
-                        // A finger on a task moves it; the grid scrolls by its empty space.
-                        touchAction: block.item.movable ? 'none' : 'pan-y',
+                        // A swipe on a task scrolls; a finger held on it first moves it (R-FB-99).
+                        touchAction: 'pan-y',
                         '&:hover .pl-grip, &:focus-visible .pl-grip': { opacity: 1 },
                       }}
                     >

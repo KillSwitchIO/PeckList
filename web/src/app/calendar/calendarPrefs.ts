@@ -9,13 +9,16 @@ export interface CalendarPrefs {
   mode: CalendarMode;
   /** Days side by side in the Days view */
   days: number;
-  /** Weeks the month view shows at once */
-  weeks: 4 | 5 | 6;
+  /** Weeks the month view shows at once (R-FB-102) */
+  weeks: number;
   /** Pixels per hour in the Days view */
   hourHeight: number;
 }
 
 export const MIN_HOUR = 24;
+/** Weeks the month view can show: one to three months' worth (R-FB-102). */
+export const MIN_WEEKS = 1;
+export const MAX_WEEKS = 12;
 export const MAX_HOUR = 160;
 const KEY = 'punchlist.calendar';
 /** Before PL-093: month, week, threeDays or day. */
@@ -23,7 +26,8 @@ const OLD_MODE_KEY = 'punchlist.calendar.mode';
 const OLD_DAYS: Record<string, number> = { week: 7, threeDays: 3, day: 1 };
 
 export function defaultPrefs(phone: boolean): CalendarPrefs {
-  return { mode: 'month', days: phone ? 3 : 7, weeks: 6, hourHeight: 48 };
+  // Four weeks on first open; after that, whatever was picked last (R-FB-102).
+  return { mode: 'month', days: phone ? 3 : 7, weeks: 4, hourHeight: 48 };
 }
 
 const clamp = (value: number, low: number, high: number) => Math.min(high, Math.max(low, value));
@@ -37,7 +41,7 @@ export function loadPrefs(phone: boolean): CalendarPrefs {
       return {
         mode: saved.mode === 'days' ? 'days' : 'month',
         days: clamp(Math.round(Number(saved.days) || base.days), MIN_DAYS, MAX_DAYS),
-        weeks: saved.weeks === 4 || saved.weeks === 5 ? saved.weeks : 6,
+        weeks: clamp(Math.round(Number(saved.weeks) || base.weeks), MIN_WEEKS, MAX_WEEKS),
         hourHeight: clamp(Number(saved.hourHeight) || base.hourHeight, MIN_HOUR, MAX_HOUR),
       };
     }

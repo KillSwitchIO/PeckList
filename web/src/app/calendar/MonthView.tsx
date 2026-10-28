@@ -13,8 +13,8 @@ import { besideScrolling, scrolling } from './scrollbars.ts';
 const SPAN_WEEKS = 520;
 const LINE = 19;
 const HEADER = 22;
-/** Rows drawn above and below the ones on screen, so a quick scroll does not show gaps. */
-const OVERSCAN = 2;
+/** Screens of rows drawn above and below the one shown, so a fling does not show gaps. */
+const OVERSCAN_SCREENS = 1;
 
 export interface MonthViewInfo {
   /** The first and last day drawn */
@@ -172,7 +172,7 @@ const dayStyles = {
 } as const;
 
 /**
- * The month view (spec: PL-093): weeks in one continuous run, scrolling a week at a time, each
+ * The month view (spec: PL-093): weeks in one continuous run, scrolling freely, each
  * day listing its tasks as short lines ("+N more" when it is full). Only the weeks on screen are
  * drawn. A click on a day opens it; a drag across days (a swipe on a phone) picks them.
  */
@@ -243,6 +243,21 @@ export function MonthView({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [target.seq, rowHeight]);
 
+  // Scrolling runs free, with the momentum of a fling (R-FB-103; snapping each week stopped a
+  // fling dead). Once it comes to rest, the nearest week glides to the top.
+  useEffect(() => {
+    const element = scroller.current;
+    if (!element) return;
+    const settle = () => {
+      const row = Math.round(element.scrollTop / rowHeight);
+      if (Math.abs(element.scrollTop - row * rowHeight) > 1) {
+        element.scrollTo({ top: row * rowHeight, behavior: 'smooth' });
+      }
+    };
+    element.addEventListener('scrollend', settle);
+    return () => element.removeEventListener('scrollend', settle);
+  }, [rowHeight]);
+
   const frame = useRef<number | null>(null);
   const onScroll = () => {
     if (frame.current !== null) return;
@@ -253,8 +268,9 @@ export function MonthView({
     });
   };
 
-  const first = Math.max(0, top - OVERSCAN);
-  const last = Math.min(rows - 1, top + weeks + OVERSCAN);
+  const overscan = Math.max(2, Math.ceil(height / rowHeight) * OVERSCAN_SCREENS);
+  const first = Math.max(0, top - overscan);
+  const last = Math.min(rows - 1, top + weeks + overscan);
   // The month of the top row's last day: a week holding the 1st already belongs to the new month,
   // so the arrows (which bring the 1st's week to the top) and the title always agree.
   const month = addDays(weekAt(top), 6).slice(0, 7);
@@ -361,7 +377,6 @@ export function MonthView({
           overflowY: 'auto',
           ...scrolling,
           position: 'relative',
-          scrollSnapType: 'y mandatory',
           touchAction: 'pan-y',
           // Firmer than the day lines, so the months stand apart on light and dark paper alike.
           '--month-line': (theme) => mix(theme.punchlist.outline, theme.punchlist.textMuted, 0.45),
@@ -385,7 +400,6 @@ export function MonthView({
                   height: rowHeight,
                   display: 'grid',
                   gridTemplateColumns: 'repeat(7, minmax(0, 1fr))',
-                  scrollSnapAlign: 'start',
                 }}
               >
                 {daysFrom(start, 7).map((day, col) => (

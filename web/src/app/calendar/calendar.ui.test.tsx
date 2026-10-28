@@ -229,24 +229,26 @@ describe('calendar', () => {
     expect(screen.queryByRole('textbox', { name: /title/i })).toBeNull();
   });
 
-  it('moves a task under a finger without holding it first', async () => {
+  it('scrolls on a swipe across a task, and moves it once a finger holds it (R-FB-99)', async () => {
     const { today, task, dentist } = await calendarWith();
     const month = await screen.findByRole('grid', { name: 'Month' });
-    const line = within(within(month).getByRole('gridcell', { name: 'Today' })).getByRole(
-      'button',
-      { name: 'Dentist' },
-    );
+    const line = () =>
+      within(within(month).getByRole('gridcell', { name: 'Today' })).getByRole('button', {
+        name: 'Dentist',
+      });
     const later = month.querySelector(`[data-cal-day="${addDays(today, 2)}"]`);
-    fireEvent.pointerDown(line, {
-      clientX: 10,
-      clientY: 10,
-      button: 0,
-      pointerType: 'touch',
-      pointerId: 5,
-    });
+    const touch = { pointerType: 'touch', pointerId: 5 };
+    // A swipe straight away: the calendar scrolls, the task stays.
+    fireEvent.pointerDown(line(), { clientX: 10, clientY: 10, button: 0, ...touch });
     pointAt(later);
-    fireEvent.pointerMove(window, { clientX: 90, clientY: 12, pointerType: 'touch', pointerId: 5 });
-    fireEvent.pointerUp(window, { clientX: 90, clientY: 12, pointerType: 'touch', pointerId: 5 });
+    fireEvent.pointerMove(window, { clientX: 90, clientY: 12, ...touch });
+    fireEvent.pointerUp(window, { clientX: 90, clientY: 12, ...touch });
+    expect(task(dentist).schedule).toMatchObject({ start: today });
+    // Held a moment first: it is picked up and moves.
+    fireEvent.pointerDown(line(), { clientX: 10, clientY: 10, button: 0, ...touch });
+    await act(() => new Promise((resolve) => setTimeout(resolve, 400)));
+    fireEvent.pointerMove(window, { clientX: 90, clientY: 12, ...touch });
+    fireEvent.pointerUp(window, { clientX: 90, clientY: 12, ...touch });
     expect(task(dentist).schedule).toMatchObject({ start: addDays(today, 2), allDay: true });
   });
 
@@ -283,14 +285,20 @@ describe('calendar', () => {
       JSON.stringify({ mode: 'days', days: 1, hourHeight: 48 }),
     );
     const { today } = await calendarWith();
+    // The times shown while stretching or dragging (the Undo after a change is a status too).
+    const times = () =>
+      screen
+        .queryAllByRole('status')
+        .map((each) => each.textContent ?? '')
+        .find((text) => /\d:\d\d/.test(text)) ?? null;
     const block = await screen.findByRole('button', { name: /Standup/ });
     // Stretching the bottom edge: the label follows before letting go.
     const bottom = block.querySelector('[data-cal-grip="bottom"]')!;
     fireEvent.pointerDown(bottom, { clientX: 10, clientY: 10 * 48, button: 0, pointerId: 11 });
     fireEvent.pointerMove(window, { clientX: 10, clientY: 10.5 * 48, pointerId: 11 });
-    expect(screen.getByRole('status')).toHaveTextContent(/9:00\sAM - 10:30\sAM/);
+    expect(times()).toMatch(/9:00\sAM - 10:30\sAM/);
     fireEvent.pointerUp(window, { clientX: 10, clientY: 10.5 * 48, pointerId: 11 });
-    expect(screen.queryByRole('status')).toBeNull();
+    expect(times()).toBeNull();
 
     // Dragging it over 2 PM: an outline there at its own length, with its times.
     const moved = await screen.findByRole('button', { name: /Standup/ });
@@ -305,7 +313,7 @@ describe('calendar', () => {
     pointAt(column);
     fireEvent.pointerMove(window, { clientX: 10, clientY: 14 * 48 + 12, pointerId: 12 });
     expect(document.querySelector('[data-cal-preview]')).not.toBeNull();
-    expect(screen.getByRole('status')).toHaveTextContent(/2:00\sPM - 3:30\sPM/);
+    expect(times()).toMatch(/2:00\sPM - 3:30\sPM/);
     fireEvent.pointerUp(window, { clientX: 10, clientY: 14 * 48 + 12, pointerId: 12 });
     expect(document.querySelector('[data-cal-preview]')).toBeNull();
   });
