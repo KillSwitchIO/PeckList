@@ -16,8 +16,8 @@
 | **Search**                              | Finds tasks by their words.                                      |
 | **Lists**, **Tags**, **Filters**        | Your own lists, nested tags, and saved filters.                  |
 
-Views show how many open tasks they hold, as lists do (Calendar, Closed, Trash and Search show
-none), and so do lists and tags pinned among them. The Today icon shows today's date, and turns over at midnight.
+Views show how many open tasks they hold, as lists do, and Closed how many closed tasks it lists
+(Calendar, Trash and Search show none); so do lists and tags pinned among them. The Today icon shows today's date, and turns over at midnight.
 
 **Edit sidebar** pins, hides and moves views, Search included. While editing, drag a row by its
 grip on the left; a swipe anywhere else scrolls. The menu button at the top left folds the sidebar away

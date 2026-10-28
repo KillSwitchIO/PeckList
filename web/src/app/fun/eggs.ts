@@ -33,7 +33,7 @@ export const EGGS: readonly { egg: Egg; trigger: string }[] = [
   { egg: 'season', trigger: 'Pulling to refresh 3 times in a row' },
   { egg: 'trophy', trigger: 'Emptying the Mess Drawer' },
   { egg: 'matrix', trigger: '"follow the white rabbit" in search' },
-  { egg: 'typewriter', trigger: 'Adding a task titled "clickety clack"' },
+  { egg: 'typewriter', trigger: 'Titling a task "clickety clack" (new or renamed)' },
   { egg: 'mascot', trigger: 'Completing 5 tasks within 2 minutes' },
 ];
 
