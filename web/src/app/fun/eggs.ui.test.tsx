@@ -3,14 +3,32 @@ import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { inboxList } from '../../core/lists.ts';
 import { createTask } from '../../core/tasks.ts';
-import { hatch } from './eggs.ts';
+import { localTimeZone, todayIn } from '../../core/dates.ts';
+import { type Egg, hatch, onHatch } from './eggs.ts';
 import { mockViewport, renderApp, testStore } from '../../test/renderApp.tsx';
 
 beforeEach(() => {
   localStorage.clear();
+  sessionStorage.clear();
   vi.unstubAllGlobals();
   mockViewport('desktop');
 });
+
+const today = () => todayIn(localTimeZone(), Date.now());
+
+/** A task due today, in the Mess Drawer. */
+function dueToday(store: ReturnType<typeof testStore>, title: string) {
+  act(() =>
+    store.getState().apply(
+      (ctx, ws) =>
+        createTask(ctx, ws, {
+          title,
+          listId: inboxList(ws).id,
+          schedule: { start: today(), end: null, allDay: true, timeZone: localTimeZone() },
+        }).workspace,
+    ),
+  );
+}
 
 async function withTasks(titles: string[]) {
   const store = testStore();
@@ -112,5 +130,35 @@ describe('easter eggs in the app (R-FB-122)', () => {
     await userEvent.clear(title);
     await userEvent.type(title, 'clickety clack{Enter}');
     expect(await findLine(/typewriter mode/)).toBeInTheDocument();
+  });
+
+  it('fireworks when the last task of Today is completed while Today is open', async () => {
+    const store = testStore();
+    await renderApp('/today', store);
+    dueToday(store, 'Walk the dog');
+    await userEvent.click(await screen.findByRole('checkbox', { name: /^Complete Walk the dog/ }));
+    expect(await findLine('Today is done! Fireworks!')).toBeInTheDocument();
+  });
+
+  it('not from another page; then once on opening a finished Today, and not again that day', async () => {
+    const eggs: Egg[] = [];
+    const stop = onHatch((egg) => eggs.push(egg));
+    const store = testStore();
+    await renderApp('/inbox', store);
+    dueToday(store, 'Walk the dog');
+    await userEvent.click(await screen.findByRole('checkbox', { name: /^Complete Walk the dog/ }));
+    // The Mess Drawer emptied (a trophy), but Today was not open: no fireworks.
+    expect(await findLine('Mess Drawer empty!')).toBeInTheDocument();
+    expect(eggs).not.toContain('fireworks');
+
+    await userEvent.click(screen.getByRole('button', { name: 'Today' }));
+    expect(await findLine('Today is done! Fireworks!')).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole('button', { name: 'Mess Drawer' }));
+    await screen.findByRole('heading', { level: 1, name: 'Mess Drawer' });
+    await userEvent.click(screen.getByRole('button', { name: 'Today' }));
+    await screen.findByText('All punched out.');
+    expect(eggs.filter((egg) => egg === 'fireworks')).toHaveLength(1);
+    stop();
   });
 });

@@ -26,7 +26,11 @@ export const EGGS: readonly { egg: Egg; trigger: string }[] = [
   { egg: 'retro', trigger: '"insert coin" in search' },
   { egg: 'gravity', trigger: 'Shaking the phone' },
   { egg: 'dog', trigger: 'Holding the + button for 3 seconds' },
-  { egg: 'fireworks', trigger: 'Finishing the last open task of Today' },
+  {
+    egg: 'fireworks',
+    trigger:
+      'Finishing the last open task of Today while on Today, or opening a finished Today (once a day)',
+  },
   { egg: 'duck', trigger: 'Posting the comment "quack"' },
   { egg: 'wink', trigger: 'Tapping Today 5 times quickly' },
   { egg: 'disco', trigger: 'Picking 5 palettes within 20 seconds' },
