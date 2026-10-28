@@ -4,6 +4,28 @@ All notable changes to Punchlist. Generated from [Conventional Commits](https://
 by `pnpm changelog`; the version follows [Semantic Versioning](https://semver.org/). Before 1.0.0 a
 minor release may break things; every break is listed under **Breaking changes** with what to do.
 
+## [0.2.6] - 2026-10-28
+
+### Added
+
+- **lists:** Icon picker with search, 260 icons and 370 emoji
+- **theme:** 14 more palettes, the loud and pretty ones washing the page
+- **notifications:** Comments, group tasks and dibs, with buttons
+- **history:** Each task's history, under its comments
+- **fun:** Two hidden surprises
+
+### Fixed
+
+- **calendar:** Hold to move, free scrolling, undo, 1 to 12 weeks
+- **app:** + on desktop, full view on phones, Select all, quieter title
+- **menu:** Drag by the grip, Search movable, counts beside views
+- **search:** Results are the usual task rows
+- **lists:** A few search results wrap instead of standing in a column
+
+### Documentation
+
+- The PL-107 round in the tour and the API reference
+
 ## [0.2.5] - 2026-10-27
 
 ### Added
