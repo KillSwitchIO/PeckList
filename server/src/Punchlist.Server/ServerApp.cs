@@ -70,6 +70,8 @@ public static partial class ServerApp
         builder.Services.AddSingleton<ISharingChangeSink, Audit.SharingAudit>();
         builder.Services.AddSingleton<Punchlist.Core.Notifications.INotificationSink, NotificationRecorder>();
         builder.Services.AddHostedService<NotificationRetention>();
+        builder.Services.AddSingleton<Punchlist.Core.History.ITaskHistorySink, TaskHistoryRecorder>();
+        builder.Services.AddHostedService<HistoryRetention>();
         builder.Services.AddHttpClient("push");
         builder.Services.AddHttpClient("photos");
         builder.Services.AddSingleton<Auth.ProviderPhoto>();
@@ -135,7 +137,7 @@ public static partial class ServerApp
             new ServerInfo("punchlist", Version, WorkspaceSchema.CurrentVersion, TimeZoneInfo.Local.Id, live.Current.AttachmentMaxMb,
                 AppSignIn: settings.AuthMode != AuthMode.None));
         app.MapAuth();
-        app.MapGroup("/api").RequireAuthorization().RequirePasswordChanged().EnsureProfiles().MapSync().MapFriends().MapAccount().MapAttachments().MapNotifications().MapPush().MapProviderPicture().MapAppCheck();
+        app.MapGroup("/api").RequireAuthorization().RequirePasswordChanged().EnsureProfiles().MapSync().MapFriends().MapAccount().MapAttachments().MapNotifications().MapHistory().MapPush().MapProviderPicture().MapAppCheck();
         app.MapGroup("/api/admin").RequireAuthorization().RequirePasswordChanged().MapAdmin().MapSettings().MapBackups().MapLogging().MapAudit().MapStats().MapSetup();
 
         var webRoot = settings.WebRoot ?? Path.Combine(AppContext.BaseDirectory, "wwwroot");

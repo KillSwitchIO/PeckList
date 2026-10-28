@@ -109,14 +109,14 @@ describe('task details', () => {
     );
   });
 
-  it('on a phone keeps comments and dates in a panel that slides up', async () => {
+  it('on a phone keeps comments, dates and history in a panel that slides up', async () => {
     mockViewport('phone');
     await renderApp('/inbox');
     await addTasks('Call the plumber');
     await userEvent.click(screen.getByRole('button', { name: 'Open Call the plumber' }));
     expect(screen.queryByTestId('task-dates')).toBeNull();
-    await userEvent.click(await screen.findByRole('button', { name: 'Comments and dates' }));
-    const panel = await screen.findByRole('dialog', { name: 'Comments and dates' });
+    await userEvent.click(await screen.findByRole('button', { name: 'Comments and history' }));
+    const panel = await screen.findByRole('dialog', { name: 'Comments and history' });
     expect(within(panel).getByTestId('task-dates')).toHaveTextContent(/^Created Today/);
   });
 

@@ -168,6 +168,30 @@ public sealed class SharingTests(ServerFixture fixture) : IClassFixture<ServerFi
     }
 
     [Fact]
+    public async Task A_task_keeps_its_history_for_those_who_can_see_it()
+    {
+        var ben = await SignIn("ben-h");
+        var sam = await SignIn("sam-h");
+        var lee = await SignIn("lee-h");
+        await ben.SyncAsync(List("HL1", "shared"), Member("HM1", "HL1", sam.UserId, "editor"), Task("HT1", "HL1", "Paint"));
+        // Two quick renames by Sam fold into one change; then Ben raises its priority.
+        await sam.SyncAsync(Task("HT1", "HL1", "Paint the"));
+        await sam.SyncAsync(Task("HT1", "HL1", "Paint the shed"));
+        var withPriority = Task("HT1", "HL1", "Paint the shed");
+        withPriority.Item2["priority"] = 3;
+        ((JsonObject)withPriority.Item2["_hlc"]!)["priority"] = "2026-10-21T13:00:00.000Z-0000-dev1";
+        await ben.SyncAsync(withPriority);
+
+        var history = (await sam.Client.GetFromJsonAsync<List<HistoryView>>("/api/tasks/HT1/history", Token))!;
+        Assert.Equal(["priority", "title", "created"], history.Select(each => each.Field));
+        var title = history[1];
+        Assert.Equal(("\"Paint\"", "\"Paint the shed\"", sam.UserId), (title.Before, title.After, title.ActorId));
+        Assert.Equal(("3", ben.UserId), (history[0].After, history[0].ActorId));
+        // Lee cannot see the task, so its history is not there for them either.
+        Assert.Equal(System.Net.HttpStatusCode.NotFound, (await lee.Client.GetAsync("/api/tasks/HT1/history", Token)).StatusCode);
+    }
+
+    [Fact]
     public async Task A_task_for_a_group_tells_its_members_and_calling_dibs_tells_the_rest()
     {
         var ben = await SignIn("ben-g");

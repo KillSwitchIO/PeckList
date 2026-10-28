@@ -1,7 +1,6 @@
 import ExpandLessRounded from '@mui/icons-material/ExpandLessRounded';
 import { Box, ButtonBase, Typography } from '@mui/material';
-import { useState } from 'react';
-import { useSearchParams } from 'react-router';
+import { useRef } from 'react';
 import { commentsOf } from '../../core/comments.ts';
 import { localDateTimeOf, localTimeZone } from '../../core/dates.ts';
 import { lastChangedAt } from '../../core/tasks.ts';
@@ -12,6 +11,10 @@ import { t } from '../i18n/i18n.ts';
 import { useWorkspace } from '../store/hooks.ts';
 import { Comments } from './Comments.tsx';
 import { BottomSheet } from '../layout/BottomSheet.tsx';
+import { TaskHistory } from './TaskHistory.tsx';
+
+/** How far a finger swipes up to open the comments (R-FB-109). */
+export const SWIPE_UP_PX = 40;
 
 /** "Created Thu, Oct 22 9:00 AM · Updated Today 2:15 PM" (spec: PL-088). */
 export function TaskDates({ task }: { task: Task }) {
@@ -35,14 +38,21 @@ export function TaskDates({ task }: { task: Task }) {
 }
 
 /**
- * On phones the details keep to the title, dates and notes: when it was made and changed, and the
- * comments, wait behind a bar at the bottom that slides a panel up, like TickTick (spec: PL-088).
+ * On phones the details keep to the title, dates and notes: when it was made and changed, the
+ * comments and the history (R-FB-105) wait behind a bar at the bottom that slides a panel up,
+ * like TickTick (spec: PL-088). A tap or a swipe up on the bar opens it (R-FB-109).
  */
-export function PhoneTaskMore({ task }: { task: Task }) {
+export function PhoneTaskMore({
+  task,
+  open,
+  setOpen,
+}: {
+  task: Task;
+  open: boolean;
+  setOpen: (open: boolean) => void;
+}) {
   const workspace = useWorkspace();
-  const [params] = useSearchParams();
-  // Opened from a notification about a comment: straight to the comments (R-FB-106).
-  const [open, setOpen] = useState(() => params.get('comment') !== null);
+  const swipe = useRef<number | null>(null);
   const comments = commentsOf(workspace, task.id).length;
   const label =
     comments === 0
@@ -54,6 +64,16 @@ export function PhoneTaskMore({ task }: { task: Task }) {
     <>
       <ButtonBase
         onClick={() => setOpen(true)}
+        onTouchStart={(event) => {
+          swipe.current = event.touches[0]?.clientY ?? null;
+        }}
+        onTouchMove={(event) => {
+          const y = event.touches[0]?.clientY;
+          if (swipe.current !== null && y !== undefined && swipe.current - y > SWIPE_UP_PX) {
+            swipe.current = null;
+            setOpen(true);
+          }
+        }}
         aria-label={label}
         aria-haspopup="dialog"
         sx={{
@@ -85,6 +105,9 @@ export function PhoneTaskMore({ task }: { task: Task }) {
         </Box>
         <Box sx={{ mt: 2 }}>
           <Comments task={task} />
+        </Box>
+        <Box sx={{ mt: 2 }}>
+          <TaskHistory task={task} />
         </Box>
       </BottomSheet>
     </>
