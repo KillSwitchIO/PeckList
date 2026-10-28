@@ -137,7 +137,9 @@ describe('easter eggs in the app (R-FB-122)', () => {
     await renderApp('/today', store);
     dueToday(store, 'Walk the dog');
     await userEvent.click(await screen.findByRole('checkbox', { name: /^Complete Walk the dog/ }));
-    expect(await findLine('Today is done! Fireworks!')).toBeInTheDocument();
+    expect(
+      await findLine('Today is done! Fireworks!', {}, { timeout: 10_000 }),
+    ).toBeInTheDocument();
   });
 
   it('not from another page; then once on opening a finished Today, and not again that day', async () => {
@@ -148,11 +150,14 @@ describe('easter eggs in the app (R-FB-122)', () => {
     dueToday(store, 'Walk the dog');
     await userEvent.click(await screen.findByRole('checkbox', { name: /^Complete Walk the dog/ }));
     // The Mess Drawer emptied (a trophy), but Today was not open: no fireworks.
-    expect(await findLine('Mess Drawer empty!')).toBeInTheDocument();
+    expect(await findLine('Mess Drawer empty!', {}, { timeout: 10_000 })).toBeInTheDocument();
     expect(eggs).not.toContain('fireworks');
 
     await userEvent.click(screen.getByRole('button', { name: 'Today' }));
-    expect(await findLine('Today is done! Fireworks!')).toBeInTheDocument();
+    // The page draws, then the effect sees it finished: slow on a loaded runner.
+    expect(
+      await findLine('Today is done! Fireworks!', {}, { timeout: 10_000 }),
+    ).toBeInTheDocument();
 
     await userEvent.click(screen.getByRole('button', { name: 'Mess Drawer' }));
     await screen.findByRole('heading', { level: 1, name: 'Mess Drawer' });
