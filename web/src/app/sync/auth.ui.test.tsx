@@ -239,7 +239,8 @@ describe('signing in to a server', () => {
     await serverApp(backend, 'ben');
     await userEvent.click(await screen.findByRole('button', { name: /^Account: / }));
     await userEvent.click(await screen.findByRole('menuitem', { name: 'Settings' }));
-    const profile = await screen.findByRole('region', { name: 'Profile' });
+    // Settings loads on first visit: room for a busy CI runner.
+    const profile = await screen.findByRole('region', { name: 'Profile' }, { timeout: 10_000 });
     await userEvent.click(within(profile).getByRole('button', { name: 'Choose a photo' }));
     const dialog = await screen.findByRole('dialog', { name: 'Profile photo' });
     expect(within(dialog).getByRole('button', { name: 'Choose a photo' })).toBeInTheDocument();

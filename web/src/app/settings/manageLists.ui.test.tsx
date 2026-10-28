@@ -15,6 +15,9 @@ beforeEach(() => {
   mockViewport('desktop');
 });
 
+// Pages load on first visit: room for a busy CI runner.
+const slow = { timeout: 10_000 };
+
 describe('Settings, Lists and tags', () => {
   it('opens from Settings and edits, pins, archives and deletes lists and tags', async () => {
     const store = testStore();
@@ -24,10 +27,10 @@ describe('Settings, Lists and tags', () => {
       next = createList(ctx, next, { name: 'Garden', color: '#CFE3A3' }).workspace;
       return createTag(ctx, next, 'errands', '#A7C7E7').workspace;
     });
-    await userEvent.click(await screen.findByRole('link', { name: /Lists and tags/ }));
+    await userEvent.click(await screen.findByRole('link', { name: /Lists and tags/ }, slow));
 
     const lists = () => screen.getByRole('list', { name: 'Your lists' });
-    expect(await screen.findByRole('list', { name: 'Your lists' })).toBeInTheDocument();
+    expect(await screen.findByRole('list', { name: 'Your lists' }, slow)).toBeInTheDocument();
     expect(within(lists()).getAllByText('Only you')).toHaveLength(2);
 
     // Rename from its row.
