@@ -13,10 +13,6 @@ import {
   Drawer,
   Fab,
   IconButton,
-  List,
-  ListItemButton,
-  ListItemIcon,
-  ListItemText,
   Toolbar,
   Tooltip,
   Typography,
@@ -56,7 +52,7 @@ import { MiniCalendar } from './MiniCalendar.tsx';
 import { useToday } from '../hooks/useToday.ts';
 import { dayPath } from '../views/dayLabels.ts';
 import { useAppliedTimeZone } from './useAppliedTimeZone.ts';
-import { activeItem, SIDEBAR_ITEMS, type NavItem } from './navigation.tsx';
+import { activeItem, SIDEBAR_ITEMS } from './navigation.tsx';
 import { useBottomTabs } from './bottomTabs.tsx';
 import { BulkBar } from '../tasks/BulkBar.tsx';
 import { ProviderPhotoSync } from '../friends/ProviderPhotoSync.tsx';
@@ -64,7 +60,6 @@ import { BulkSelectProvider } from '../tasks/BulkSelectProvider.tsx';
 import { useBulkSelect } from '../tasks/bulkSelect.ts';
 import { TwoLineRowsContext, useNarrow } from './rowLayout.ts';
 import { SyncButton } from '../sync/SyncButton.tsx';
-import { useFooterItems } from './useFooterItems.ts';
 import { BottomSheet } from './BottomSheet.tsx';
 
 /** How often the trash is checked for things to erase. */
@@ -99,31 +94,6 @@ const DETAIL_WIDTH = 'clamp(440px, 40vw, 960px)';
 const DETAIL_MIN = 380;
 const LIST_MIN = 360;
 
-function NavList({
-  items,
-  selected,
-  onSelect,
-}: {
-  items: NavItem[];
-  selected: string | false;
-  onSelect: (path: string) => void;
-}) {
-  return (
-    <List dense>
-      {items.map((item) => (
-        <ListItemButton
-          key={item.path}
-          selected={selected === item.path}
-          onClick={() => onSelect(item.path)}
-        >
-          <ListItemIcon sx={{ minWidth: 40 }}>{item.icon}</ListItemIcon>
-          <ListItemText primary={t(item.label)} />
-        </ListItemButton>
-      ))}
-    </List>
-  );
-}
-
 /** The sidebar's title row; while editing it holds Cancel, Reset and Done instead. */
 function SidebarTitle() {
   const edit = useSidebarEdit();
@@ -141,9 +111,7 @@ function SidebarTitle() {
 
 function Sidebar({ onNavigate }: { onNavigate: (path: string) => void }) {
   const { pathname } = useLocation();
-  const footer = useFooterItems();
-  const all = [...SIDEBAR_ITEMS, ...footer];
-  const selected = activeItem(all, pathname);
+  const selected = activeItem(SIDEBAR_ITEMS, pathname);
   const today = useToday();
   const openDay =
     /^\/day\/(\d{4}-\d{2}-\d{2})$/.exec(pathname)?.[1] ?? (pathname === '/today' ? today : null);
@@ -177,7 +145,6 @@ function Sidebar({ onNavigate }: { onNavigate: (path: string) => void }) {
           <SidebarLists onNavigate={onNavigate} />
           <SidebarTags onNavigate={onNavigate} />
         </Box>
-        <NavList items={footer} selected={selected} onSelect={onNavigate} />
         <MiniCalendar selected={openDay} onPick={(date) => onNavigate(dayPath(date, today))} />
         <Link
           href={CHANGELOG_URL}

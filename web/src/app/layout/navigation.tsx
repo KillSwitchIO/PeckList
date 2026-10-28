@@ -26,6 +26,8 @@ export const SIDEBAR_ITEMS: NavItem[] = [
   { path: '/calendar', label: 'nav.calendar', icon: <CalendarMonthRounded /> },
   { path: '/completed', label: 'nav.completed', icon: <TaskAltRounded /> },
   { path: '/trash', label: 'nav.trash', icon: <DeleteOutlineRounded /> },
+  // A view like the others, so it can be moved and hidden in the sidebar (R-FB-112).
+  { path: '/search', label: 'nav.search', icon: <SearchRounded /> },
 ];
 
 /** Views that need a server with accounts (core/sidebar.ts SHARED_VIEWS). */
@@ -38,11 +40,6 @@ export const SHARED_ITEMS: NavItem[] = [
 export const VIEW_ITEMS: Record<string, NavItem> = Object.fromEntries(
   [...SIDEBAR_ITEMS, ...SHARED_ITEMS].map((item) => [item.path.slice(1), item]),
 );
-
-/** The sidebar's footer. Settings and Admin are in the profile menu (spec: PL-086). */
-export const SIDEBAR_FOOTER: NavItem[] = [
-  { path: '/search', label: 'nav.search', icon: <SearchRounded /> },
-];
 
 /** The nav item a path belongs to, so nested routes keep their tab highlighted. */
 export function activeItem(items: readonly { path: string }[], pathname: string): string | false {

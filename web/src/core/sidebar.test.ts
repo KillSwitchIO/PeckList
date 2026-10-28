@@ -48,6 +48,7 @@ describe('sidebar layout', () => {
       'upcoming',
       'due',
       'calendar',
+      'search',
       GROUP,
       'all',
       'completed',

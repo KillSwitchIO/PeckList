@@ -12,10 +12,10 @@ import {
 import { MAX_TABS, SEARCH_TAB, toggleTab } from '../../core/bottomBar.ts';
 import { moveInOrder } from '../../core/sidebar.ts';
 import { t } from '../i18n/i18n.ts';
-import { DragHandleIcon } from '../icons/icons.tsx';
 import { useTabs, type Tab } from './bottomTabs.tsx';
 import { editingRowSx, useSidebarEdit } from './sidebarEditContext.ts';
 import { useSortableRows } from './useSortableRows.ts';
+import { SortHandle } from './SortHandle.tsx';
 
 /**
  * The More page's editor for the phone's bottom bar: its tabs in order (drag to sort, minus to
@@ -72,10 +72,7 @@ export function BottomBarEditor() {
             }
             sx={editingRowSx(true, sortable.dragging === tab.id, index)}
           >
-            <DragHandleIcon
-              fontSize="small"
-              sx={{ color: 'text.disabled', ml: -1, mr: 0.5, cursor: 'grab' }}
-            />
+            <SortHandle />
             <ListItemIcon sx={{ minWidth: 40 }}>{tab.icon}</ListItemIcon>
             <ListItemText primary={tab.label} />
           </ListItem>

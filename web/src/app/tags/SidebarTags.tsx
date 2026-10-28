@@ -27,13 +27,13 @@ import {
 import { useCollapsedSet, withoutCollapsed } from '../hooks/useCollapsedSet.ts';
 import { t } from '../i18n/i18n.ts';
 import { useApply, useWorkspace } from '../store/hooks.ts';
-import { DragHandleIcon } from '../icons/icons.tsx';
 import { editingRowSx, useSidebarEdit, type SidebarDraft } from '../layout/sidebarEditContext.ts';
 import { SectionHeader } from '../layout/SectionHeader.tsx';
 import { useSortableRows } from '../layout/useSortableRows.ts';
 import { PinButton } from '../layout/PinButton.tsx';
 import { tagIconColor } from './tagColors.ts';
 import { TagDialog } from './TagDialog.tsx';
+import { SortHandle } from '../layout/SortHandle.tsx';
 
 function TagLink({
   node,
@@ -115,12 +115,7 @@ function TagLink({
           }),
         }}
       >
-        {editing && (
-          <DragHandleIcon
-            fontSize="small"
-            sx={{ color: 'text.disabled', ml: -1, mr: 0.5, cursor: 'grab' }}
-          />
-        )}
+        {editing && <SortHandle />}
         <ListItemIcon sx={{ minWidth: 28 }}>
           <TagRounded
             sx={{
