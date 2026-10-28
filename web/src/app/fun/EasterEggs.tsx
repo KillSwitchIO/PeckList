@@ -18,11 +18,13 @@ import {
   seasonOf,
   type Egg,
 } from './eggs.ts';
+import { Dog } from './Dog.tsx';
 import { Particles, type ParticleShow } from './Particles.tsx';
 
 /** How long the modes last. */
 const RETRO_MS = 60_000;
-const DISCO_MS = 30_000;
+/** Disco: five colors a second, for two seconds (Ben). */
+const DISCO_MS = 2_000;
 const TYPEWRITER_MS = 120_000;
 const WINK_MS = 2_400;
 /** A quick run of completions that brings Punchy out. */
@@ -69,12 +71,12 @@ function blip() {
   }
 }
 
-type Critter = 'dog' | 'duck' | 'trophy' | 'mascot';
+type Critter = 'duck' | 'trophy' | 'mascot';
 
-/** The little characters: a dog's walk, the rubber duck, the trophy and Punchy. */
+/** The little characters: the rubber duck, the trophy and Punchy (the dog is its own). */
 function CritterShow({ critter, onDone }: { critter: Critter; onDone: () => void }) {
   useEffect(() => {
-    const timer = setTimeout(onDone, critter === 'dog' ? 9000 : critter === 'duck' ? 7000 : 4200);
+    const timer = setTimeout(onDone, critter === 'duck' ? 7000 : 4200);
     return () => clearTimeout(timer);
   }, [critter, onDone]);
   const bubble = (text: string) => (
@@ -100,48 +102,6 @@ function CritterShow({ critter, onDone }: { critter: Critter; onDone: () => void
     </Box>
   );
   const z = { zIndex: (theme: { zIndex: { tooltip: number } }) => theme.zIndex.tooltip + 1 };
-  if (critter === 'dog') {
-    return (
-      <Box
-        aria-hidden
-        sx={{
-          ...z,
-          position: 'fixed',
-          bottom: 'calc(64px + env(safe-area-inset-bottom))',
-          left: 0,
-          fontSize: 34,
-          pointerEvents: 'none',
-          animation: 'pl-dog-walk 5s linear forwards',
-          '@keyframes pl-dog-walk': {
-            from: { transform: 'translateX(-60px)' },
-            to: { transform: 'translateX(calc(100vw - 120px))' },
-          },
-          '& .pl-dog-zz': {
-            position: 'absolute',
-            top: -18,
-            right: -10,
-            fontSize: 18,
-            opacity: 0,
-            animation: 'pl-dog-nap 4s 5s ease-in-out forwards',
-          },
-          '@keyframes pl-dog-nap': { '0%, 100%': { opacity: 0 }, '20%, 80%': { opacity: 1 } },
-        }}
-      >
-        <Box
-          component="span"
-          sx={{
-            display: 'inline-block',
-            transform: 'scaleX(-1)',
-            animation: 'pl-dog-trot 0.3s ease-in-out 16 alternate',
-            '@keyframes pl-dog-trot': { to: { transform: 'scaleX(-1) translateY(-4px)' } },
-          }}
-        >
-          🐕
-        </Box>
-        <span className="pl-dog-zz">💤</span>
-      </Box>
-    );
-  }
   const center = critter === 'trophy';
   const content = {
     duck: { face: '🦆', words: t('fun.duckSays') },
@@ -176,6 +136,62 @@ function CritterShow({ critter, onDone }: { critter: Critter; onDone: () => void
   );
 }
 
+/** Typewriter keys: a short burst of noise, a few times, as the titles type. */
+function clacks(count: number) {
+  try {
+    const AudioContext =
+      window.AudioContext ??
+      (window as unknown as { webkitAudioContext?: typeof window.AudioContext }).webkitAudioContext;
+    if (!AudioContext) return;
+    const audio = new AudioContext();
+    const length = Math.round(audio.sampleRate * 0.02);
+    const noise = audio.createBuffer(1, length, audio.sampleRate);
+    const data = noise.getChannelData(0);
+    for (let i = 0; i < length; i++) data[i] = (Math.random() * 2 - 1) * (1 - i / length);
+    for (let n = 0; n < count; n++) {
+      const source = audio.createBufferSource();
+      const level = audio.createGain();
+      source.buffer = noise;
+      level.gain.value = 0.18;
+      source.connect(level).connect(audio.destination);
+      source.start(audio.currentTime + n * (0.06 + Math.random() * 0.05));
+    }
+    setTimeout(() => void audio.close(), (count * 0.12 + 0.5) * 1000);
+  } catch {
+    // No sound is fine.
+  }
+}
+
+const DISCO_COLORS = ['#FF2E93', '#FFC300', '#00E0B0', '#00B8F0', '#A06CD5'];
+
+/** DISCO across the screen while the colors jump. */
+function DiscoSign() {
+  return (
+    <Box
+      aria-hidden
+      sx={{
+        position: 'fixed',
+        top: '38%',
+        left: '50%',
+        transform: 'translate(-50%, -50%)',
+        zIndex: (theme) => theme.zIndex.tooltip + 1,
+        pointerEvents: 'none',
+        fontSize: { xs: 64, sm: 96 },
+        fontWeight: 900,
+        letterSpacing: '0.12em',
+        whiteSpace: 'nowrap',
+        textShadow: '0 4px 18px rgba(0,0,0,0.35)',
+        animation: 'pl-disco-sign 1s step-end infinite',
+        '@keyframes pl-disco-sign': Object.fromEntries(
+          DISCO_COLORS.map((color, index) => [`${index * 20}%`, { color }]),
+        ),
+      }}
+    >
+      🪩 DISCO
+    </Box>
+  );
+}
+
 /** The modes' looks, on the page while their body class is on. */
 const modeStyles = (
   <GlobalStyles
@@ -193,18 +209,25 @@ const modeStyles = (
         background:
           'repeating-linear-gradient(to bottom, rgba(0,0,0,0.12) 0 1px, transparent 1px 3px)',
       },
-      'body.pl-egg-disco #root': { animation: 'pl-disco 2.4s linear infinite' },
+      // Five colors a second: the page jumps from one to the next.
+      'body.pl-egg-disco #root': { animation: 'pl-disco 1s step-end infinite' },
       '@keyframes pl-disco': {
-        from: { filter: 'hue-rotate(0deg) saturate(1.4)' },
-        to: { filter: 'hue-rotate(360deg) saturate(1.4)' },
+        '0%': { filter: 'hue-rotate(0deg) saturate(1.8)' },
+        '20%': { filter: 'hue-rotate(72deg) saturate(1.8)' },
+        '40%': { filter: 'hue-rotate(144deg) saturate(1.8)' },
+        '60%': { filter: 'hue-rotate(216deg) saturate(1.8)' },
+        '80%': { filter: 'hue-rotate(288deg) saturate(1.8)' },
       },
+      // Each title types itself out, a caret blinking at its end.
       'body.pl-egg-typewriter [data-row-title]': {
-        animation: 'pl-type 0.9s steps(24, end)',
+        animation: 'pl-type 1.3s steps(26, end) both, pl-caret 0.45s step-end 4',
+        borderRight: '2px solid transparent',
       },
       '@keyframes pl-type': {
         from: { clipPath: 'inset(0 100% 0 0)' },
         to: { clipPath: 'inset(0 0 0 0)' },
       },
+      '@keyframes pl-caret': { '50%': { borderRightColor: 'currentColor' } },
       'body.pl-egg-wink [data-day]': {
         animation: 'pl-flip 0.9s cubic-bezier(0.45, 0, 0.2, 1)',
       },
@@ -233,7 +256,9 @@ export function EasterEggs() {
   const nextCritter = useRef(0);
   const found = lines[0] ?? null;
   const [retro, startRetro] = useMode('retro', RETRO_MS);
-  const [, startDisco] = useMode('disco', DISCO_MS);
+  const [disco, startDisco] = useMode('disco', DISCO_MS);
+  const [dog, setDog] = useState(false);
+  const endDog = useCallback(() => setDog(false), []);
   const [, startTypewriter] = useMode('typewriter', TYPEWRITER_MS);
   const [, startWink] = useMode('wink', WINK_MS);
   const retroOn = useRef(retro);
@@ -291,11 +316,26 @@ export function EasterEggs() {
           return startRetro();
         case 'disco':
           return startDisco();
-        case 'typewriter':
-          return startTypewriter();
+        case 'typewriter': {
+          startTypewriter();
+          // The titles on screen type themselves out now, one after another, clacking.
+          requestAnimationFrame(() => {
+            const titles = [...document.querySelectorAll<HTMLElement>('[data-row-title]')];
+            titles.slice(0, 40).forEach((title, index) => {
+              title.style.animationDelay = `${index * 0.12}s`;
+              title.style.animationName = 'none';
+              void title.offsetWidth;
+              title.style.animationName = '';
+            });
+            clacks(Math.min(40, 12 + titles.length * 3));
+          });
+          return;
+        }
         case 'wink':
           return startWink();
         case 'dog':
+          setDog(true);
+          return;
         case 'duck':
         case 'trophy':
         case 'mascot':
@@ -370,7 +410,14 @@ export function EasterEggs() {
     const mine = Date.now() - lastInput.current < 3000 && (changed.tasks ?? []).length > 0;
     for (const task of (changed.tasks ?? []) as Task[]) {
       const old = getEntity(previous, 'tasks', task.id);
-      if (!old && task.createdBy === me && isTypewriterTitle(task.title)) hatch('typewriter');
+      // Titled so by me: a new task, or the blank one the + button opens, named after.
+      if (
+        isTypewriterTitle(task.title) &&
+        !isTypewriterTitle(old?.title ?? '') &&
+        (old ? Date.now() - lastInput.current < 3000 : task.createdBy === me)
+      ) {
+        hatch('typewriter');
+      }
       if (old?.status !== 'open' || task.status !== 'done' || task.completedBy !== me) continue;
       completed = true;
       if (isPinataTitle(task.title)) hatch('pinata');
@@ -404,6 +451,8 @@ export function EasterEggs() {
     <>
       {modeStyles}
       {show && <Particles show={show} onDone={endShow} />}
+      {disco && <DiscoSign />}
+      {dog && <Dog onDone={endDog} />}
       {critter && <CritterShow key={critter.id} critter={critter.critter} onDone={endCritter} />}
       {found && (
         <Box

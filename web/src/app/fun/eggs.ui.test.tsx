@@ -1,8 +1,9 @@
-import { act, screen } from '@testing-library/react';
+import { act, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { inboxList } from '../../core/lists.ts';
 import { createTask } from '../../core/tasks.ts';
+import { hatch } from './eggs.ts';
 import { mockViewport, renderApp, testStore } from '../../test/renderApp.tsx';
 
 beforeEach(() => {
@@ -84,5 +85,32 @@ describe('easter eggs in the app (R-FB-122)', () => {
     expect(
       await findLine('Wake up. The tasks have you.', {}, { timeout: 5000 }),
     ).toBeInTheDocument();
+  });
+
+  it('the dog sleeps on the + button until touched, then trots off', async () => {
+    await withTasks([]);
+    act(() => hatch('dog'));
+    const dog = await screen.findByRole('button', { name: 'Wake the dog' }, { timeout: 6000 });
+    await userEvent.click(dog);
+    await waitFor(() => expect(screen.queryByRole('button', { name: 'Wake the dog' })).toBeNull());
+  });
+
+  it('disco says so and is over in two seconds', async () => {
+    await withTasks([]);
+    act(() => hatch('disco'));
+    expect(await findLine('Disco!')).toBeInTheDocument();
+    expect(document.body.classList.contains('pl-egg-disco')).toBe(true);
+    await waitFor(() => expect(document.body.classList.contains('pl-egg-disco')).toBe(false), {
+      timeout: 3500,
+    });
+  });
+
+  it('renaming a task clickety clack starts typewriter mode too', async () => {
+    await withTasks(['Plain task']);
+    await userEvent.click(await screen.findByRole('button', { name: 'Open Plain task' }));
+    const title = await screen.findByRole('textbox', { name: 'Title' });
+    await userEvent.clear(title);
+    await userEvent.type(title, 'clickety clack{Enter}');
+    expect(await findLine(/typewriter mode/)).toBeInTheDocument();
   });
 });
