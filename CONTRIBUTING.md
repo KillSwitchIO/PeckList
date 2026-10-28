@@ -23,7 +23,7 @@ feat(calendar): resize time ranges by dragging the block edge
 Refs: PL-021
 ```
 
-Types: `feat`, `fix`, `docs`, `test`, `refactor`, `perf`, `chore`, `ci`, `build`. Mark breaking changes with `feat!:` or a `BREAKING CHANGE:` footer and describe the upgrade path. `Refs:` points at the feature id (`PL-xxx`).
+Types: `feat`, `fix`, `docs`, `test`, `refactor`, `perf`, `chore`, `ci`, `build`. Mark breaking changes with `feat!:` or a `BREAKING CHANGE:` footer and describe the upgrade path. `Refs:` points at the feature id (`PL-xxx`). `Requires-Android: X.Y.Z` and `Supports-Web: X.Y.Z` footers put a Compatibility note in the next release's changelog ([releasing](docs/development/releasing.md#compatibility)).
 
 ## Architecture rules
 

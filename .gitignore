@@ -32,3 +32,8 @@ site/
 e2e/preview.log
 .android-sdk/
 .gradle/
+
+# CI caches
+.eslintcache
+.prettiercache
+.gradle/

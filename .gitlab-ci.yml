@@ -1,16 +1,21 @@
 # Punchlist CI/CD
 #
-#   merge requests   check, test (web, server, e2e), image build (not pushed), docs build
-#   main             the same, then the :edge image, two devices syncing through it (e2e-server)
-#                    and the docs site (GitLab Pages)
+#   merge requests   check, test (web, server, e2e), image build (amd64, not pushed), docs build
+#   main             the same, then the :edge image for both architectures, two devices syncing
+#                    through it (e2e-server), the test server updated to it (deploy-test), the docs
+#                    site (GitLab Pages) and the wiki mirror of the docs (wiki)
 #   by hand          android-apk: the Android app's debug APK (merge requests, main);
-#                    android-release: the signed APK (main; automatic on tags, attached to the release)
-#   tags v1.2.3+...  the same, then release images (:1.2.3, :1.2, :latest), native downloads,
-#                    and the GitLab release with notes from CHANGELOG.md
+#                    android-release, web-build, packages (main)
+#   tags v1.2.3+...  no re-testing (the tag goes on a green main commit, which release:tag checks):
+#                    release images (:1.2.3, :1.2, :latest), native downloads, the signed APK, and
+#                    the GitLab release with notes from CHANGELOG.md
+#   schedule         weekly: the CI images rebuilt, dependency and image audits
 #
 # Jobs run on the runner tagged RUNNER_TAG (a self-hosted Docker runner with the host's Docker
 # socket, for image builds and the PostgreSQL tests). To use GitLab's shared runners instead, set the
-# CI/CD variable RUNNER_TAG=saas-linux-medium-amd64. Releasing: docs/development/releasing.md
+# CI/CD variable RUNNER_TAG=saas-linux-medium-amd64. The jobs that write elsewhere (deploy-test,
+# wiki) need GITLAB_API_TOKEN, a token with the api scope, as a masked protected variable; without
+# it they do not run. Releasing: docs/development/releasing.md. The pipeline: docs/development/ci.md
 
 stages:
   - check
@@ -26,6 +31,8 @@ variables:
   DOTNET_IMAGE: mcr.microsoft.com/dotnet/sdk:10.0
   DOCKER_IMAGE: docker:29
   IMAGE: $CI_REGISTRY_IMAGE
+  # Images with the tools some jobs need, built from ci/*.Dockerfile by the ci-images job.
+  CI_IMAGES: $CI_REGISTRY_IMAGE/ci
   # pnpm and NuGet caches inside the project folder, so GitLab can cache them.
   PNPM_STORE_DIR: $CI_PROJECT_DIR/.pnpm-store
   NUGET_PACKAGES: $CI_PROJECT_DIR/.nuget
@@ -33,8 +40,16 @@ variables:
   COREPACK_ENABLE_DOWNLOAD_PROMPT: '0'
   DOTNET_CLI_TELEMETRY_OPTOUT: '1'
   DOTNET_NOLOGO: '1'
+  # Cache and artifact archives: the fastest zip, in parallel. The runner spent more time zipping
+  # the 50 000-file pnpm store than installing from it.
+  FF_USE_FASTZIP: 'true'
+  CACHE_COMPRESSION_LEVEL: fastest
+  ARTIFACT_COMPRESSION_LEVEL: fastest
 
 workflow:
+  # A newer push to the same branch cancels the pipeline still running for the old one.
+  auto_cancel:
+    on_new_commit: interruptible
   rules:
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
     # A branch with an open merge request runs as the merge request, not twice.
@@ -42,6 +57,7 @@ workflow:
       when: never
     - if: $CI_COMMIT_TAG =~ /^v\d+\.\d+\.\d+/
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+    - if: $CI_PIPELINE_SOURCE == "schedule"
     # Run pipeline from the UI, on any branch.
     - if: $CI_PIPELINE_SOURCE == "web"
 
@@ -56,29 +72,86 @@ default:
 .on-main: &on-main
   if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
 
+# A tag re-tests nothing: it was made on a main commit whose pipeline passed (release:tag checks).
+.not-on-tag: &not-on-tag
+  if: $CI_COMMIT_TAG
+  when: never
+
+.not-on-schedule: &not-on-schedule
+  if: $CI_PIPELINE_SOURCE == "schedule"
+  when: never
+
+# The pnpm store, read by every Node job and written back by lint alone (the lockfile is its key,
+# so the archive only changes when the lockfile does).
 .node:
   image: $NODE_IMAGE
   cache:
-    key:
-      files: [pnpm-lock.yaml]
-    paths: [.pnpm-store]
+    - key:
+        files: [pnpm-lock.yaml]
+      paths: [.pnpm-store]
+      policy: pull
   before_script:
     - corepack enable
     - pnpm config set store-dir "$PNPM_STORE_DIR"
     - pnpm install --frozen-lockfile
 
+.nuget-cache: &nuget-cache
+  key:
+    files: [server/Directory.Packages.props]
+  paths: [.nuget]
+
 # --- check -----------------------------------------------------------------------------------
+
+# The tool images the e2e, docs and Android jobs run in (ci/*.Dockerfile): built when one of their
+# inputs changes, and weekly, so base images and Debian packages move on their own. A merge
+# request builds and pushes them too, so the jobs after it in the same pipeline use the new ones.
+ci-images:
+  image: $DOCKER_IMAGE
+  stage: check
+  needs: []
+  timeout: 40m
+  before_script:
+    - echo "$CI_REGISTRY_PASSWORD" | docker login "$CI_REGISTRY" -u "$CI_REGISTRY_USER" --password-stdin
+  script:
+    - |
+      set -eu
+      for name in browsers docs android; do
+        echo "=== $CI_IMAGES/$name"
+        docker build --pull -f "ci/$name.Dockerfile" -t "$CI_IMAGES/$name:latest" .
+        docker push "$CI_IMAGES/$name:latest"
+      done
+  rules:
+    - *not-on-tag
+    - if: $CI_PIPELINE_SOURCE == "schedule"
+    - if: $CI_PIPELINE_SOURCE == "web" && $CI_IMAGES_BUILD == "true"
+    - changes:
+        - ci/*.Dockerfile
+        - docs/requirements.txt
+        - scripts/ci/android-sdk.sh
 
 lint:
   extends: .node
   stage: check
+  needs: []
+  timeout: 15m
+  cache:
+    - key:
+        files: [pnpm-lock.yaml]
+      paths: [.pnpm-store, .eslintcache, .prettiercache]
+      policy: pull-push
   script:
-    - pnpm lint
-    - pnpm format:check
-    - pnpm typecheck
+    # The three slow checks at once; the quick ones after.
+    - node scripts/ci/parallel.mjs
+      "pnpm lint --cache --cache-location .eslintcache"
+      "pnpm format:check --cache --cache-location .prettiercache"
+      "pnpm typecheck"
     - pnpm check:version
     - pnpm check:docs
     - pnpm test:scripts
+  rules:
+    - *not-on-tag
+    - *not-on-schedule
+    - when: on_success
 
 # --- test ------------------------------------------------------------------------------------
 
@@ -86,6 +159,12 @@ web-test:
   extends: .node
   stage: test
   needs: []
+  timeout: 20m
+  # UI tests in jsdom time out now and then when the runner is busy (a stopgap: the real fix is a
+  # less loaded runner and tests that wait on what they assert).
+  retry:
+    max: 1
+    when: script_failure
   script:
     - pnpm --filter @punchlist/web exec vitest run --coverage
       --reporter=default --reporter=junit --outputFile.junit=junit.xml
@@ -98,15 +177,19 @@ web-test:
       coverage_report:
         coverage_format: cobertura
         path: web/coverage/cobertura-coverage.xml
+  rules:
+    - *not-on-tag
+    - *not-on-schedule
+    - when: on_success
 
 server-test:
   image: $DOTNET_IMAGE
   stage: test
   needs: []
+  timeout: 20m
   cache:
-    key:
-      files: [server/Directory.Packages.props]
-    paths: [.nuget]
+    - <<: *nuget-cache
+      policy: pull-push
   # The PostgreSQL tests use this service rather than starting a container of their own: a job
   # container reaches a service by name, while a container it starts through the host's Docker sits
   # behind the host's firewall (Testcontainers connects through the bridge gateway).
@@ -120,24 +203,24 @@ server-test:
   script:
     - cd server
     - dotnet test --configuration Release
+  rules:
+    - *not-on-tag
+    - *not-on-schedule
+    - when: on_success
 
 e2e:
   extends: .node
-  image: node:24-bookworm
+  image: $CI_IMAGES/browsers:latest
   stage: test
-  needs: []
+  needs:
+    - job: ci-images
+      optional: true
+  timeout: 20m
+  retry:
+    max: 1
+    when: script_failure
   variables:
     E2E_BROWSERS: chrome,firefox
-    CHROME_BIN: /usr/bin/chromium
-    CHROMEDRIVER_BIN: /usr/bin/chromedriver
-    FIREFOX_BIN: /usr/bin/firefox-esr
-  before_script:
-    # Debian's Chromium (with its matching driver) and Firefox ESR; geckodriver is fetched.
-    - apt-get update -qq
-    - apt-get install -y -qq --no-install-recommends chromium chromium-driver firefox-esr > /dev/null
-    - corepack enable
-    - pnpm config set store-dir "$PNPM_STORE_DIR"
-    - pnpm install --frozen-lockfile
   script:
     - pnpm build
     - pnpm e2e
@@ -151,26 +234,41 @@ e2e:
     - if: $CI_PIPELINE_SOURCE == "web"
 
 docs:
-  image: python:3.13-slim
+  image: $CI_IMAGES/docs:latest
   stage: test
-  needs: []
+  needs:
+    - job: ci-images
+      optional: true
+  timeout: 10m
   script:
-    - pip install --quiet --no-cache-dir -r docs/requirements.txt
     - mkdocs build --strict --site-dir site
   artifacts:
     paths: [site]
     expire_in: 1 week
+  rules:
+    - *not-on-tag
+    - *not-on-schedule
+    - when: on_success
 
 # --- build -----------------------------------------------------------------------------------
 
-# Builds the image for amd64 and arm64. Merge requests only check that it builds; main pushes
-# :edge, a tag pushes the release tags. Uses the host's Docker through its socket.
+# Merge requests build amd64 only, with no attestations, to check that it builds. main pushes :edge
+# for amd64 and arm64 with an SBOM and provenance; a tag pushes the release tags the same way.
+# Uses the host's Docker through its socket.
 container-image:
   image: $DOCKER_IMAGE
   stage: build
-  needs: [lint, web-test, server-test]
+  needs:
+    - job: lint
+      optional: true
+    - job: web-test
+      optional: true
+    - job: server-test
+      optional: true
+  timeout: 30m
   variables:
     PLATFORMS: linux/amd64,linux/arm64
+    ATTEST: --sbom=true --provenance=mode=min
   before_script:
     - echo "$CI_REGISTRY_PASSWORD" | docker login "$CI_REGISTRY" -u "$CI_REGISTRY_USER" --password-stdin
     - docker buildx create --name punchlist-ci --driver docker-container --use 2>/dev/null || docker buildx use punchlist-ci
@@ -197,20 +295,35 @@ container-image:
         TAGS="-t $IMAGE:mr-${CI_MERGE_REQUEST_IID:-0}"
       fi
       CACHE_TO=""
-      if [ "$PUSH" = true ]; then CACHE_TO="--cache-to type=registry,ref=$IMAGE:buildcache,mode=max"; fi
-      echo "Building $VERSION ($TAGS), push: $PUSH"
+      if [ "$PUSH" = true ]; then CACHE_TO="--cache-to type=registry,ref=$IMAGE:buildcache,mode=min"; fi
+      echo "Building $VERSION for $PLATFORMS ($TAGS), push: $PUSH"
       docker buildx build --platform "$PLATFORMS" \
         --build-arg VERSION="$VERSION" --build-arg REVISION="$CI_COMMIT_SHA" --build-arg CREATED="$CREATED" \
         --cache-from type=registry,ref="$IMAGE:buildcache" $CACHE_TO \
-        --sbom=true --provenance=mode=min \
+        $ATTEST \
         $TAGS --push="$PUSH" .
+  rules:
+    - *not-on-schedule
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+      variables:
+        PLATFORMS: linux/amd64
+        ATTEST: --sbom=false --provenance=false
+    - when: on_success
 
-# The web app for the native downloads (the image builds its own).
+# The web app once per pipeline, for the native downloads and the Android app (the image builds
+# its own, inside Docker). Stamped like the image is.
 web-build:
   extends: .node
   stage: build
-  needs: [lint, web-test]
+  needs:
+    - job: lint
+      optional: true
+    - job: web-test
+      optional: true
+  timeout: 15m
+  resource_group: heavy-build
   script:
+    - export PUNCHLIST_VERSION="$(sh scripts/build-version.sh)" PUNCHLIST_REVISION="$CI_COMMIT_SHA"
     - pnpm build
   artifacts:
     paths: [web/dist]
@@ -221,34 +334,29 @@ web-build:
       when: manual
       allow_failure: true
 
-# The Android app (mobile/, ADR-0017). JDK 21 from Debian; the Android SDK from Google, cached with
-# Gradle's downloads.
+# The Android app (mobile/, ADR-0017), in the image with the JDK and the SDK (ci/android.Dockerfile).
 .android:
   extends: .node
-  image: node:24-trixie
+  image: $CI_IMAGES/android:latest
   stage: build
-  needs: [lint, web-test]
+  timeout: 45m
   variables:
-    ANDROID_HOME: $CI_PROJECT_DIR/.android-sdk
     GRADLE_USER_HOME: $CI_PROJECT_DIR/.gradle
   cache:
     - key:
         files: [pnpm-lock.yaml]
       paths: [.pnpm-store]
+      policy: pull
     - key:
         files: [mobile/android/variables.gradle, mobile/android/build.gradle]
-      paths: [.android-sdk, .gradle]
-  before_script:
-    - apt-get update -qq
-    - apt-get install -y -qq --no-install-recommends openjdk-21-jdk-headless unzip > /dev/null
-    - sh scripts/ci/android-sdk.sh
-    - corepack enable
-    - pnpm config set store-dir "$PNPM_STORE_DIR"
-    - pnpm install --frozen-lockfile
+      paths: [.gradle]
 
 # Debug APK, by hand on merge requests and main: for trying a branch on a phone.
 android-apk:
   extends: .android
+  needs:
+    - job: ci-images
+      optional: true
   script:
     - pnpm --filter @punchlist/mobile apk
     - pnpm --filter @punchlist/mobile test:android
@@ -266,12 +374,17 @@ android-apk:
       when: manual
       allow_failure: true
 
-# Signed release APK: on tags (attached to the release), by hand on main. The key comes from the
-# protected variables ANDROID_KEYSTORE_BASE64, ANDROID_KEYSTORE_PASSWORD and ANDROID_KEY_ALIAS, so
-# only main and v* tags can sign (docs/development/android.md). The version code is the pipeline
-# number, which only grows.
+# Signed release APK: on tags (attached to the release), by hand on main (run web-build first). The
+# key comes from the protected variables ANDROID_KEYSTORE_BASE64, ANDROID_KEYSTORE_PASSWORD and
+# ANDROID_KEY_ALIAS, so only main and v* tags can sign (docs/development/android.md). The version
+# code is the pipeline number, which only grows.
 android-release:
   extends: .android
+  needs:
+    - web-build
+    - job: lint
+      optional: true
+  resource_group: heavy-build
   script:
     - |
       set -eu
@@ -283,7 +396,7 @@ android-release:
       export PUNCHLIST_VERSION="$VERSION" PUNCHLIST_VERSION_CODE="$CI_PIPELINE_IID" PUNCHLIST_REVISION="$CI_COMMIT_SHA"
       export ANDROID_KEYSTORE_FILE="$CI_PROJECT_DIR/release-key.p12"
       echo "$ANDROID_KEYSTORE_BASE64" | base64 -d > "$ANDROID_KEYSTORE_FILE"
-      pnpm --filter @punchlist/web build
+      # web/dist comes from web-build.
       cd mobile
       pnpm exec cap sync android
       node scripts/gradle.mjs assembleRelease testDebugUnitTest
@@ -304,43 +417,19 @@ android-release:
       when: manual
       allow_failure: true
 
-# Two devices against the image main just pushed (server-specs): sync, live updates between them.
-e2e-server:
-  extends: .node
-  image: node:24-bookworm
-  stage: publish
-  needs: [container-image]
-  services:
-    - name: $IMAGE:sha-$CI_COMMIT_SHORT_SHA
-      alias: punchlist
-  variables:
-    # Services get the job's variables: this is the test server's admin password, nothing real.
-    ADMIN_PASSWORD: e2e-admin-password-ci
-    E2E_ADMIN_PASSWORD: e2e-admin-password-ci
-    E2E_BASE_URL: http://punchlist:8080
-    E2E_BROWSERS: chrome
-    CHROME_BIN: /usr/bin/chromium
-    CHROMEDRIVER_BIN: /usr/bin/chromedriver
-  before_script:
-    - apt-get update -qq
-    - apt-get install -y -qq --no-install-recommends chromium chromium-driver > /dev/null
-    - corepack enable
-    - pnpm config set store-dir "$PNPM_STORE_DIR"
-    - pnpm install --frozen-lockfile
-  script:
-    - pnpm e2e:server
-  rules:
-    - *on-main
-
 # Native downloads (tags, or by hand from main): self-contained Linux and Windows builds.
 packages:
   image: $DOTNET_IMAGE
   stage: build
-  needs: [web-build, server-test]
+  needs:
+    - web-build
+    - job: server-test
+      optional: true
+  timeout: 30m
+  resource_group: heavy-build
   cache:
-    key:
-      files: [server/Directory.Packages.props]
-    paths: [.nuget]
+    - <<: *nuget-cache
+      policy: pull
   script:
     - apt-get update -qq && apt-get install -y -qq --no-install-recommends zip > /dev/null
     - |
@@ -357,6 +446,46 @@ packages:
 
 # --- publish ---------------------------------------------------------------------------------
 
+# Two devices against the image main just pushed (server-specs): sync, live updates between them.
+e2e-server:
+  extends: .node
+  image: $CI_IMAGES/browsers:latest
+  stage: publish
+  needs: [container-image]
+  timeout: 20m
+  retry:
+    max: 1
+    when: script_failure
+  services:
+    - name: $IMAGE:sha-$CI_COMMIT_SHORT_SHA
+      alias: punchlist
+  variables:
+    # Services get the job's variables: this is the test server's admin password, nothing real.
+    ADMIN_PASSWORD: e2e-admin-password-ci
+    E2E_ADMIN_PASSWORD: e2e-admin-password-ci
+    E2E_BASE_URL: http://punchlist:8080
+    E2E_BROWSERS: chrome
+  script:
+    - pnpm e2e:server
+  rules:
+    - *on-main
+
+# The test server follows main: the compose repository's tag for punchlist-test is bumped to this
+# image and its pipeline released (scripts/ci/deploy-test.mjs). Production never moves from here.
+deploy-test:
+  image: $NODE_IMAGE
+  stage: publish
+  needs: [e2e-server]
+  timeout: 10m
+  interruptible: false
+  script:
+    - node scripts/ci/deploy-test.mjs
+  environment:
+    name: test
+    url: https://punchlist-test.killswitch10.com
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $GITLAB_API_TOKEN
+
 # The docs site, from main.
 pages:
   image: busybox
@@ -368,6 +497,59 @@ pages:
     paths: [public]
   rules:
     - *on-main
+
+# The same docs as wiki pages (scripts/wiki-pages.mjs), for reading inside GitLab.
+wiki:
+  extends: .node
+  image: node:24-bookworm
+  stage: publish
+  needs: [docs]
+  timeout: 10m
+  interruptible: false
+  script:
+    - node scripts/ci/wiki-sync.mjs
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $GITLAB_API_TOKEN
+
+# --- weekly audits (the scheduled pipeline) --------------------------------------------------
+
+audit-web:
+  extends: .node
+  stage: test
+  needs: []
+  script:
+    - pnpm audit --audit-level=high
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "schedule"
+
+audit-server:
+  image: $DOTNET_IMAGE
+  stage: test
+  needs: []
+  cache:
+    - <<: *nuget-cache
+      policy: pull
+  script:
+    - cd server
+    - dotnet restore
+    - dotnet list package --vulnerable --include-transitive | tee vulnerable.txt
+    - '! grep -qE "has the following vulnerable packages" vulnerable.txt'
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "schedule"
+
+# The current main image, scanned for known vulnerabilities in what it ships.
+audit-image:
+  image: $DOCKER_IMAGE
+  stage: test
+  needs: []
+  before_script:
+    - echo "$CI_REGISTRY_PASSWORD" | docker login "$CI_REGISTRY" -u "$CI_REGISTRY_USER" --password-stdin
+  script:
+    - docker pull --quiet "$IMAGE:edge"
+    - docker run --rm -v /var/run/docker.sock:/var/run/docker.sock aquasec/trivy:0.76.1
+      image --severity HIGH,CRITICAL --ignore-unfixed --exit-code 1 "$IMAGE:edge"
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "schedule"
 
 # --- release ---------------------------------------------------------------------------------
 

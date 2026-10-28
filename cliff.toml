@@ -1,6 +1,8 @@
 # git-cliff: CHANGELOG.md from Conventional Commits (https://git-cliff.org).
 #   pnpm changelog          regenerate it, with what is not released yet under Unreleased
 #   pnpm release <version>  used by the release script; see docs/development/releasing.md
+# A commit footer `Requires-Android: 0.2.6` or `Supports-Web: 0.2.3` puts a Compatibility block at
+# the top of the release's section (docs/development/releasing.md).
 
 [changelog]
 header = """
@@ -26,6 +28,23 @@ body = """
 ### Breaking changes
 {% for commit in breaking %}
 {{ self::line(commit=commit) }}{% if commit.breaking_description and commit.breaking_description != commit.message %}. {{ commit.breaking_description | split(pat="\n") | join(sep=" ") | trim | upper_first }}{% endif %}
+{%- endfor %}
+{% endif -%}
+{%- set_global compat = [] -%}
+{%- for commit in commits -%}
+{%- for footer in commit.footers -%}
+{%- set value = footer.value | trim -%}
+{%- if footer.token == "Requires-Android" -%}
+{%- set_global compat = compat | concat(with="Android app " ~ value ~ " or newer is required: update the app before updating the server.") -%}
+{%- elif footer.token == "Supports-Web" -%}
+{%- set_global compat = compat | concat(with="Web app: " ~ value ~ " is the oldest this server still serves; older ones update themselves on their next load.") -%}
+{%- endif -%}
+{%- endfor -%}
+{%- endfor -%}
+{% if compat | length > 0 %}
+### Compatibility
+{% for line in compat | unique %}
+- {{ line }}
 {%- endfor %}
 {% endif -%}
 {% for group, commits in commits | group_by(attribute="group") %}

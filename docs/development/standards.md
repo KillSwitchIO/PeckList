@@ -223,7 +223,8 @@ each intermediate state.
 - Conventional Commits with a scope (`feat(calendar):`, `fix(sync):`, `refactor(server):`), a
   summary under 72 characters written for the changelog reader, a body that says what changed and
   why, and `Refs: PL-xxx` naming the feature note. Breaking changes carry `!` and a
-  `BREAKING CHANGE:` footer with the upgrade path.
+  `BREAKING CHANGE:` footer with the upgrade path; a change that needs a newer Android app or
+  drops old web apps carries `Requires-Android:` or `Supports-Web:` ([releasing](releasing.md#compatibility)).
 - A merge request says what to look at and ends with a numbered **What to test** list someone
   can follow on the test server. A large refactor lands as one commit per reviewable group.
 - A setting, a CLI change, a new endpoint or anything a self-hoster will notice comes with its
