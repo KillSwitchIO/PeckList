@@ -138,6 +138,9 @@ public static class NotificationText
             when each.CommentId is not null =>
             [new("reply", "Reply", url), new("like", "\U0001F44D", $"{url}&like=1")],
         NotificationKind.GroupAssigned => [new("open", "Open task", url), new("dibs", "Call dibs", $"{url}&dibs=1")],
+        // A tap opens it too, but a button says so (drill of 2026-10-29).
+        NotificationKind.Assigned or NotificationKind.Claimed => [new("open", "Open task", url)],
+        NotificationKind.Shared => [new("open", "Open list", url)],
         _ => [],
     };
 }

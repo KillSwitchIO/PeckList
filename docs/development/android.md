@@ -70,7 +70,9 @@ app (ADR-0017 in the project notes). There is no second copy of the UI.
   sets the reminders the same way the web app does, keyed alike (`taskId@first`, `#n` on a constant
   reminder's repeats), so a reminder changed on another device fires here and one set by both is
   one. While the app is on screen the web app owns both, and the check
-  only moves its cursor. Once signed in, the app asks once to notify and to run without battery
+  only moves its cursor; news the web app's own sync brings then goes through `showNotification`
+  with `news: true` (shell api 4), shown the same way and keyed by the same server id, so the two
+  never show one piece of news twice. Once signed in, the app asks once to notify and to run without battery
   optimization (`REQUEST_IGNORE_BATTERY_OPTIMIZATIONS`); without that, Android holds the alarm and
   the network while the phone is idle. Samsung phones also need Punchlist in **Never sleeping
   apps**, which the settings say. Google Play allows that permission only for some kinds of app,

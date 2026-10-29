@@ -1310,6 +1310,8 @@ export const en = {
   'notifications.like': 'Thumbs up',
   'notifications.liked': 'Thumbs up sent',
   'notifications.openTask': 'Open task',
+  'notifications.openList': 'Open list',
+  'notifications.callDibs': 'Call dibs',
   'notifications.calledDibs': 'Dibs called',
   'fun.confetti': 'You found the party!',
   'fun.roll': 'Wheee!',

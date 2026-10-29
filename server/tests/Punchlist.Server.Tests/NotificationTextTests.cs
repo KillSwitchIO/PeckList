@@ -26,6 +26,11 @@ public class NotificationTextTests
         Assert.Equal(["Open task", "Call dibs"], group.Select(each => each.Title));
         Assert.Equal("/today?task=T1&dibs=1", group[1].Url);
 
-        Assert.Empty(NotificationText.ActionsOf(Of(NotificationKind.Assigned), "/today?task=T1"));
+        Assert.Equal([("open", "Open task", "/today?task=T1")],
+            NotificationText.ActionsOf(Of(NotificationKind.Assigned), "/today?task=T1").Select(each => (each.Action, each.Title, each.Url)));
+        Assert.Equal(["Open task"], NotificationText.ActionsOf(Of(NotificationKind.Claimed), "/today?task=T1").Select(each => each.Title));
+        Assert.Equal([("open", "Open list", "/lists/L1")],
+            NotificationText.ActionsOf(Of(NotificationKind.Shared), "/lists/L1").Select(each => (each.Action, each.Title, each.Url)));
+        Assert.Empty(NotificationText.ActionsOf(Of(NotificationKind.Reminder), "/today?task=T1"));
     }
 }

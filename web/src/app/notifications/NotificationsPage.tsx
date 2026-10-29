@@ -10,16 +10,16 @@ import { useNavigate } from 'react-router';
 import { getEntity } from '../../core/collections.ts';
 import { localDateTimeOf, localTimeZone } from '../../core/dates.ts';
 import { addComment, canComment } from '../../core/comments.ts';
-import { canClaim, claimTask, describePrincipal } from '../../core/sharing.ts';
+import { canClaim, claimTask } from '../../core/sharing.ts';
 import { formatWhen } from '../format.ts';
 import { useToday } from '../hooks/useToday.ts';
 import { t } from '../i18n/i18n.ts';
 import { AssignedIcon, ShareIcon } from '../icons/icons.tsx';
 import { Page } from '../layout/Page.tsx';
-import { listName } from '../lists/listName.ts';
 import { useApply, useStoreState, useWorkspace } from '../store/hooks.ts';
 import { useSyncState } from '../sync/syncContext.ts';
 import { THUMBS_UP } from './NotificationLinks.tsx';
+import { notificationSentence } from './notificationText.ts';
 import { useTaskSelection } from '../tasks/selection.ts';
 import { EmptyState } from '../views/EmptyState.tsx';
 import { useNotifications, type NotificationItem } from './notificationsContext.ts';
@@ -58,31 +58,7 @@ export function NotificationsPage() {
     return () => clearTimeout(timer);
   }, [unread, read]);
 
-  const sentence = (item: NotificationItem): string => {
-    const actor = item.actorId ? describePrincipal(workspace, `user:${item.actorId}`).name : '';
-    const task = item.taskId ? getEntity(workspace, 'tasks', item.taskId) : undefined;
-    const list = item.listId ? getEntity(workspace, 'lists', item.listId) : undefined;
-    const taskName = task ? task.title || t('task.untitled') : t('notifications.aTask');
-    const listLabel = list ? listName(list, workspace) : t('notifications.aList');
-    switch (item.kind) {
-      case 'assigned':
-        return t('notifications.assigned', { actor, task: taskName });
-      case 'groupAssigned':
-        return t('notifications.groupAssigned', { actor, task: taskName });
-      case 'claimed':
-        return t('notifications.claimed', { actor, task: taskName });
-      case 'commented':
-        return t('notifications.commented', { actor, task: taskName });
-      case 'commentEdited':
-        return t('notifications.commentEdited', { actor, task: taskName });
-      case 'shared':
-        return t('notifications.shared', { actor, list: listLabel });
-      case 'mentioned':
-        return t('notifications.mentioned', { actor, task: taskName });
-      case 'reminder':
-        return t('notifications.reminder', { task: taskName });
-    }
-  };
+  const sentence = (item: NotificationItem): string => notificationSentence(workspace, item);
   const go = (item: NotificationItem) => {
     if (!item.read) read([item.id]);
     if (item.taskId && getEntity(workspace, 'tasks', item.taskId)) {

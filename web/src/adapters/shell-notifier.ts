@@ -8,6 +8,8 @@ import type {
 
 /** The first shell api with its own reminders (ShellPlugin.java). */
 const REMINDERS_API = 3;
+/** The first shell api that shows news (an assignment, a share) with its own buttons, not as a reminder. */
+const NEWS_API = 4;
 
 type Display = { display: 'granted' | 'denied' | 'prompt' };
 
@@ -22,6 +24,8 @@ interface ShellReminders {
     title: string;
     body: string;
     url: string;
+    news?: boolean;
+    actions?: { action: string; title: string; url: string }[];
   }): Promise<void>;
   addListener(
     event: 'notificationOpen',
@@ -74,8 +78,12 @@ export function openedOf(event: {
 export function createShellNotifier(older: () => Notifier | null): Notifier | null {
   if (!Capacitor.isNativePlatform() || !Capacitor.isPluginAvailable('PunchlistShell')) return null;
   const plugin = registerPlugin<ShellReminders>('PunchlistShell');
+  let api = 0;
   const fallback = plugin.info().then(
-    ({ api }) => (api >= REMINDERS_API ? null : older()),
+    (info) => {
+      api = info.api;
+      return api >= REMINDERS_API ? null : older();
+    },
     () => older(),
   );
   // permission() is synchronous: the answer is kept, and refreshed whenever it may have changed.
@@ -103,6 +111,21 @@ export function createShellNotifier(older: () => Notifier | null): Notifier | nu
     async show(notification) {
       const other = await fallback;
       if (other) return other.show(notification);
+      if (notification.kind === 'news') {
+        // An older shell would dress it as a reminder, Complete and Snooze included: leave it out.
+        if (api < NEWS_API) return;
+        await plugin.showNotification({
+          tag: notification.tag,
+          title: notification.title,
+          body: notification.body,
+          url: notification.url,
+          news: true,
+          actions: (notification.actions ?? [])
+            .filter((each) => each.url !== undefined)
+            .map((each) => ({ action: each.action, title: each.title, url: each.url ?? '/' })),
+        });
+        return;
+      }
       await plugin.showNotification({
         tag: notification.tag,
         title: notification.title,

@@ -10,8 +10,10 @@ export interface AppNotification {
   url: string;
   /** Stays on screen until dismissed, and buzzes again when it comes back (a constant reminder) */
   sticky?: boolean;
-  /** Buttons on it (shown where the system has them); a press reaches the app as a message */
-  actions?: { action: string; title: string }[];
+  /** Buttons on it (shown where the system has them); a press reaches the app as a message, or opens its url */
+  actions?: { action: string; title: string; url?: string }[];
+  /** News from the server (an assignment, a share, a comment), not a reminder: no Complete or Snooze */
+  kind?: 'reminder' | 'news';
 }
 
 /** A notification the system shows at a set time, with or without the app running. */
