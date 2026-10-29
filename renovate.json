@@ -83,9 +83,9 @@
       "groupName": "docs builder"
     },
     {
-      "description": "Base images float on their major tags (node:24, dotnet 10.0); only majors are proposed, by hand",
+      "description": "Base images float on their major tags (node:24, dotnet 10.0): no pins to exact tags or digests (a pin to node:24.22.2 would then never move), only majors are proposed, by hand",
       "matchManagers": ["dockerfile", "gitlabci"],
-      "matchUpdateTypes": ["minor", "patch", "digest"],
+      "matchUpdateTypes": ["minor", "patch", "digest", "pin", "pinDigest"],
       "enabled": false
     },
     {
