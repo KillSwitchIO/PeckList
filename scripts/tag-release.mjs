@@ -28,15 +28,18 @@ if (git('status', '--porcelain')) fail('Commit or stash your changes first.');
 const sha = git('rev-parse', 'HEAD');
 if (!process.argv.includes('--skip-pipeline-check')) {
   // The tag's pipeline builds and publishes without re-testing, so the commit must have been
-  // tested as main (the project is public, so the API needs no token).
+  // tested as main. A public project's API needs no token; while it is private, GITLAB_TOKEN (a
+  // token that can read the project) is sent, else the API answers 404 and nothing is found.
+  const token = process.env.GITLAB_TOKEN;
   const pipelines = await fetch(
     `https://gitlab.com/api/v4/projects/killswitch10%2Fpunchlist/pipelines?sha=${sha}&ref=main`,
+    token ? { headers: { 'PRIVATE-TOKEN': token } } : {},
   ).then((response) => (response.ok ? response.json() : []));
   const green = pipelines.some((pipeline) => pipeline.status === 'success');
   if (!green) {
     fail(
       `No green main pipeline for ${sha.slice(0, 8)} (${pipelines.map((p) => p.status).join(', ') || 'none found'}). ` +
-        'Wait for it, or pass --skip-pipeline-check if you know better.',
+        `Wait for it${token ? '' : ', set GITLAB_TOKEN while the project is private'}, or pass --skip-pipeline-check if you know better.`,
     );
   }
 }

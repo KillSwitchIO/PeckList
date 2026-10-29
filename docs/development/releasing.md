@@ -82,7 +82,9 @@ git push origin v0.4.0+<date>               # the tag `pnpm release:tag` printed
 `pnpm release:tag` checks that main holds one version in every file, that it is not tagged yet,
 that `CHANGELOG.md` has its section (which becomes the tag message and the release notes), and
 that the commit's `main` pipeline passed: the tag pipeline builds and publishes without running
-the checks and tests again (`--skip-pipeline-check` if you know better).
+the checks and tests again (`--skip-pipeline-check` if you know better). While the project is
+private, the check needs `GITLAB_TOKEN` set to a token that can read it (the API answers 404
+without one).
 
 The tag pipeline then:
 
