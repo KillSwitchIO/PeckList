@@ -1,4 +1,4 @@
 [tools]
-node = "v24.22.2"
-pnpm = "10.34.9"
+node = "24"
+pnpm = "10"
 dotnet = "10"

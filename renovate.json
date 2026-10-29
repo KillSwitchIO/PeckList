@@ -19,6 +19,16 @@
       "automerge": true
     },
     {
+      "description": "Engine ranges and the mise tool versions stay ranges (node 24, pnpm 10): a pin there made pnpm refuse every other Node 24",
+      "matchDepTypes": ["engines"],
+      "enabled": false
+    },
+    {
+      "description": "mise.toml: ranges on purpose (see above)",
+      "matchManagers": ["mise"],
+      "enabled": false
+    },
+    {
       "description": "Majors need reading the changelog first",
       "matchUpdateTypes": ["major"],
       "automerge": false,
