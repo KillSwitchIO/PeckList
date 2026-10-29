@@ -4,6 +4,19 @@ All notable changes to Punchlist. Generated from [Conventional Commits](https://
 by `pnpm changelog`; the version follows [Semantic Versioning](https://semver.org/). Before 1.0.0 a
 minor release may break things; every break is listed under **Breaking changes** with what to do.
 
+## [0.2.9] - 2026-10-29
+
+### Added
+
+- API keys, mutual TLS in the Android app, timeline and date fixes
+
+### Fixed
+
+- Undo on a mouse click; the empty check plays once per arrival
+- **fun:** Today's fireworks only on Today, once a day on arrival or when its last task is done there
+- **interchange:** TickTick all-day spans end on their last day, not the day after
+- Keep the Node and pnpm ranges Renovate pinned
+
 ## [0.2.8] - 2026-10-28
 
 ### Added
