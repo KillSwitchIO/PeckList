@@ -19,7 +19,8 @@ export function createBrowserNotifier(): Notifier {
       const options = {
         body,
         tag,
-        data: { url },
+        // A button with a place of its own: the service worker's click handler reads it here.
+        data: actions?.some((each) => each.url) ? { url, actions } : { url },
         icon: '/icon.svg',
         badge: '/icon.svg',
         ...(sticky ? { requireInteraction: true, renotify: true } : {}),

@@ -37,7 +37,7 @@ import java.util.concurrent.Executors;
 public class ShellPlugin extends Plugin {
 
     /** Bumped when a method is added; the web app checks it before calling a newer one. */
-    private static final int API = 3;
+    private static final int API = 4;
 
     static final String NOTIFICATIONS = "notifications";
 
@@ -345,10 +345,25 @@ public class ShellPlugin extends Plugin {
         }
     }
 
-    /** Api 3: show one notification now ({tag, title, body, url}). */
+    /**
+     * Api 3: show one notification now ({tag, title, body, url}). Api 4: with {news: true, actions},
+     * it is news from the server (an assignment, a share, a comment) that arrived while the app was
+     * on screen, shown as the background check-in shows it, with its own buttons; the same tag as
+     * the check-in's replaces rather than repeats.
+     */
     @PluginMethod
     public void showNotification(PluginCall call) {
         String tag = call.getString("tag", "");
+        if (Boolean.TRUE.equals(call.getBoolean("news", false))) {
+            try {
+                Reminders.showNews(getContext(), tag, call.getString("title", "Punchlist"), call.getString("body", ""),
+                    call.getString("url", "/today"), call.getArray("actions", new com.getcapacitor.JSArray()));
+                call.resolve();
+            } catch (JSONException error) {
+                call.reject("bad news: " + error.getMessage(), "invalid");
+            }
+            return;
+        }
         Reminders.show(getContext(), new Reminders.Reminder("now:" + tag, call.getString("title", ""), call.getString("body", ""),
             System.currentTimeMillis(), call.getString("url", "/"), false, true));
         call.resolve();

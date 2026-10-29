@@ -8,12 +8,16 @@ import { createTask } from '../../core/tasks.ts';
 import { FakeBackend } from '../../test/fakeTransport.ts';
 import { mockViewport, renderApp, testStore } from '../../test/renderApp.tsx';
 import { logReminder } from '../reminders/reminderLog.ts';
+import { notifier, setNotifier } from '../reminders/notifier.ts';
 import { createSyncEngine } from '../sync/syncEngine.ts';
+
+const browser = notifier();
 
 beforeEach(() => {
   localStorage.clear();
   vi.unstubAllGlobals();
   mockViewport('desktop');
+  setNotifier(browser);
 });
 
 async function signedIn(path: string, backend: FakeBackend) {
@@ -81,6 +85,72 @@ describe('notifications', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Clear all' }));
     expect(await screen.findByText('Nothing new')).toBeInTheDocument();
     expect(backend.notifications.get('ben')).toEqual([]);
+  });
+
+  it('news arriving while the app is open shows as a system notification, once', async () => {
+    const shown: unknown[] = [];
+    setNotifier({
+      ...browser,
+      permission: () => 'granted',
+      show: (notification) => {
+        shown.push(notification);
+        return Promise.resolve();
+      },
+    });
+    const backend = new FakeBackend();
+    backend.addAccount('ben', 'correct horse battery');
+    const sam = backend.addAccount('sam', 'sams own password');
+    const { store, sync } = await signedIn('/today', backend);
+    let taskId = '';
+    act(() =>
+      store.getState().apply((ctx, ws) => {
+        const made = createTask(ctx, ws, { title: 'Mow the lawn', listId: inboxList(ws).id });
+        taskId = made.task.id;
+        return made.workspace;
+      }),
+    );
+    const news = (id: string, kind: 'assigned' | 'groupAssigned') => ({
+      id,
+      kind,
+      at: '2026-10-24T15:00:00.000Z',
+      actorId: sam.id,
+      taskId,
+      listId: null,
+      commentId: null,
+      read: false,
+    });
+    // Signing in was the first look (nothing there); what the next sync brings is news.
+    expect(shown).toEqual([]);
+    backend.notifications.set('ben', [news('N1', 'assigned')]);
+    await act(() => sync.getState().syncNow());
+    await screen.findByRole('button', { name: /1 new notification/ });
+    await waitFor(() => expect(shown).toHaveLength(1));
+    expect(shown[0]).toMatchObject({
+      kind: 'news',
+      tag: 'N1',
+      body: expect.stringMatching(/assigned you Mow the lawn$/) as string,
+    });
+
+    backend.notifications.set('ben', [news('N2', 'groupAssigned'), news('N1', 'assigned')]);
+    await act(() => sync.getState().syncNow());
+    await screen.findByRole('button', { name: /2 new notifications/ });
+    await waitFor(() => expect(shown).toHaveLength(2));
+    expect(shown[1]).toEqual({
+      kind: 'news',
+      title: 'Punchlist',
+      body: expect.stringMatching(/assigned Mow the lawn to your group$/) as string,
+      tag: 'N2',
+      url: `/today?task=${taskId}`,
+      actions: [
+        { action: 'open', title: 'Open task', url: `/today?task=${taskId}` },
+        { action: 'dibs', title: 'Call dibs', url: `/today?task=${taskId}&dibs=1` },
+      ],
+    });
+
+    // Seen once: the next sync does not show them again.
+    await act(() => sync.getState().syncNow());
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(shown).toHaveLength(2);
   });
 
   it('open the task they are about', async () => {

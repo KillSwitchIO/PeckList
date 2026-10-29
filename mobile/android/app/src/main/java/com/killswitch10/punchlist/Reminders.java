@@ -219,34 +219,43 @@ final class Reminders {
 
     /** What is new from other people ({id, title, body, url} from the check-in), shown now. */
     static void showNew(Context context, JSONArray notifications) throws JSONException {
-        if (notifications.length() == 0 || !NotificationManagerCompat.from(context).areNotificationsEnabled()) return;
-        channel(context, ACTIVITY, R.string.channel_activity, NotificationManager.IMPORTANCE_DEFAULT);
         for (int i = 0; i < notifications.length(); i++) {
             JSONObject each = notifications.getJSONObject(i);
-            int id = idOf("news:" + each.getString("id"));
-            Intent intent = new Intent(context, MainActivity.class)
-                .setAction("com.killswitch10.punchlist.OPEN." + id)
-                .addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP)
-                .putExtra(EXTRA_URL, each.getString("url"))
-                .putExtra(EXTRA_SHOWN, id);
-            NotificationCompat.Builder built = base(context, ACTIVITY, each.getString("title"), each.getString("body"))
-                .setCategory(NotificationCompat.CATEGORY_SOCIAL)
-                .setContentIntent(PendingIntent.getActivity(context, id, intent, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE));
-            // Its buttons, left to right (R-FB-106, R-FB-107): each opens the app where it says.
-            JSONArray actions = each.optJSONArray("actions");
-            for (int a = 0; actions != null && a < actions.length(); a++) {
-                JSONObject action = actions.getJSONObject(a);
-                int code = idOf("news:" + each.getString("id") + ":" + action.getString("action"));
-                Intent press = new Intent(context, MainActivity.class)
-                    .setAction("com.killswitch10.punchlist.OPEN." + code)
-                    .addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP)
-                    .putExtra(EXTRA_URL, action.getString("url"))
-                    .putExtra(EXTRA_SHOWN, id);
-                built.addAction(0, action.getString("title"),
-                    PendingIntent.getActivity(context, code, press, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE));
-            }
-            NotificationManagerCompat.from(context).notify(id, built.build());
+            showNews(context, each.getString("id"), each.getString("title"), each.getString("body"), each.getString("url"),
+                each.optJSONArray("actions"));
         }
+    }
+
+    /**
+     * One piece of news (an assignment, a share, a comment), from the check-in or from the web app
+     * while it is on screen (shell api 4), keyed by the server's id so the two never show it twice.
+     */
+    static void showNews(Context context, String newsId, String title, String body, String url, JSONArray actions)
+        throws JSONException {
+        if (!NotificationManagerCompat.from(context).areNotificationsEnabled()) return;
+        channel(context, ACTIVITY, R.string.channel_activity, NotificationManager.IMPORTANCE_DEFAULT);
+        int id = idOf("news:" + newsId);
+        Intent intent = new Intent(context, MainActivity.class)
+            .setAction("com.killswitch10.punchlist.OPEN." + id)
+            .addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP)
+            .putExtra(EXTRA_URL, url)
+            .putExtra(EXTRA_SHOWN, id);
+        NotificationCompat.Builder built = base(context, ACTIVITY, title, body)
+            .setCategory(NotificationCompat.CATEGORY_SOCIAL)
+            .setContentIntent(PendingIntent.getActivity(context, id, intent, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE));
+        // Its buttons, left to right (R-FB-106, R-FB-107): each opens the app where it says.
+        for (int a = 0; actions != null && a < actions.length(); a++) {
+            JSONObject action = actions.getJSONObject(a);
+            int code = idOf("news:" + newsId + ":" + action.getString("action"));
+            Intent press = new Intent(context, MainActivity.class)
+                .setAction("com.killswitch10.punchlist.OPEN." + code)
+                .addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP)
+                .putExtra(EXTRA_URL, action.getString("url"))
+                .putExtra(EXTRA_SHOWN, id);
+            built.addAction(0, action.getString("title"),
+                PendingIntent.getActivity(context, code, press, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE));
+        }
+        NotificationManagerCompat.from(context).notify(id, built.build());
     }
 
     static void cancelShown(Context context, int id) {

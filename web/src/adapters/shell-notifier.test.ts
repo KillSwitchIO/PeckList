@@ -5,6 +5,7 @@ const shell = vi.hoisted(() => ({
   api: 3,
   display: 'granted' as string,
   scheduled: [] as unknown[][],
+  shown: [] as unknown[],
   listener: null as null | ((event: unknown) => void),
 }));
 
@@ -18,7 +19,10 @@ vi.mock('@capacitor/core', () => ({
       shell.scheduled.push(reminders);
       return Promise.resolve();
     },
-    showNotification: () => Promise.resolve(),
+    showNotification: (options: unknown) => {
+      shell.shown.push(options);
+      return Promise.resolve();
+    },
     addListener: (_: string, listener: (event: unknown) => void) => {
       shell.listener = listener;
       return Promise.resolve({ remove: () => Promise.resolve() });
@@ -56,6 +60,7 @@ beforeEach(() => {
   shell.api = 3;
   shell.display = 'granted';
   shell.scheduled = [];
+  shell.shown = [];
   shell.listener = null;
 });
 
@@ -87,6 +92,36 @@ describe('the Android app with its own reminders', () => {
     await notifier.scheduleAhead?.([reminder]);
     expect(handed).toEqual([[reminder]]);
     expect(shell.scheduled).toEqual([]);
+  });
+
+  it('shows news with its buttons on shell api 4, and not at all on an older shell', async () => {
+    shell.api = 4;
+    const news = {
+      kind: 'news' as const,
+      title: 'Punchlist',
+      body: 'sam assigned you Mow the lawn',
+      tag: 'N1',
+      url: '/today?task=T1',
+      actions: [{ action: 'open', title: 'Open task', url: '/today?task=T1' }],
+    };
+    await createShellNotifier(() => null)!.show(news);
+    await createShellNotifier(() => null)!.show({ ...reminder, kind: 'reminder' });
+    expect(shell.shown).toEqual([
+      {
+        tag: 'N1',
+        title: 'Punchlist',
+        body: 'sam assigned you Mow the lawn',
+        url: '/today?task=T1',
+        news: true,
+        actions: [{ action: 'open', title: 'Open task', url: '/today?task=T1' }],
+      },
+      { tag: reminder.tag, title: reminder.title, body: reminder.body, url: reminder.url },
+    ]);
+
+    shell.api = 3;
+    shell.shown = [];
+    await createShellNotifier(() => null)!.show(news);
+    expect(shell.shown).toEqual([]);
   });
 
   it('passes a tap on and a button the app must finish, and nothing it cannot use', async () => {

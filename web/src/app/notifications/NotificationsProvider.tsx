@@ -1,5 +1,7 @@
-import { useEffect, useMemo, useState, useSyncExternalStore, type ReactNode } from 'react';
+import { useEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from 'react';
 import type { ServerNotification } from '../../ports/sync.ts';
+import { notifier } from '../reminders/notifier.ts';
+import { useWorkspace } from '../store/hooks.ts';
 import {
   clearReminders,
   readReminders,
@@ -9,6 +11,21 @@ import {
 } from '../reminders/reminderLog.ts';
 import { useSyncState } from '../sync/syncContext.ts';
 import { NotificationsContext, type NotificationItem } from './notificationsContext.ts';
+import { notificationActions, notificationSentence, notificationUrl } from './notificationText.ts';
+
+function itemOf(each: ServerNotification): NotificationItem {
+  return {
+    id: each.id,
+    kind: each.kind,
+    at: Date.parse(each.at),
+    actorId: each.actorId,
+    taskId: each.taskId,
+    listId: each.listId,
+    commentId: each.commentId,
+    read: each.read,
+    local: false,
+  };
+}
 
 // The device's reminder log as an external store: changes in this tab or another re-read it.
 let logText = '';
@@ -33,6 +50,9 @@ function subscribe(changed: () => void): () => void {
 /**
  * My notifications (spec: PL-061): the server's (assignments, shares, mentions), fetched after
  * every sync, and the reminders that fired on this device. Reading or clearing goes to both.
+ * News that arrives while the app is on screen shows as a system notification too, worded as the
+ * server's push would be, so a share or an assignment is seen without waiting for the next
+ * check-in (the drill of 2026-10-29); what is there at the first look is not news.
  */
 export function NotificationsProvider({ children }: { children: ReactNode }) {
   const api = useSyncState((state) => state.transport.notifications);
@@ -42,13 +62,43 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
   const local = useSyncExternalStore(subscribe, readLog);
   // Signed out or without a server: nothing from it.
   const server = useMemo(() => (api && ready ? fetched : []), [api, ready, fetched]);
+  const workspace = useWorkspace();
+  const latest = useRef(workspace);
+  useEffect(() => {
+    latest.current = workspace;
+  }, [workspace]);
+  // The ids seen so far, null before the first look.
+  const known = useRef<Set<string> | null>(null);
 
   useEffect(() => {
-    if (!api || !ready) return;
+    if (!api || !ready) {
+      known.current = null;
+      return;
+    }
     let current = true;
     api.list().then(
       (feed) => {
-        if (current) setServer(feed.items);
+        if (!current) return;
+        setServer(feed.items);
+        const seen = known.current;
+        known.current = new Set(feed.items.map((each) => each.id));
+        if (!seen || typeof document === 'undefined' || document.visibilityState !== 'visible') {
+          return;
+        }
+        for (const each of feed.items) {
+          if (seen.has(each.id) || each.read || each.kind === 'reminder') continue;
+          const item = itemOf(each);
+          void notifier()
+            .show({
+              kind: 'news',
+              title: 'Punchlist',
+              body: notificationSentence(latest.current, item),
+              tag: each.id,
+              url: notificationUrl(item),
+              actions: notificationActions(item),
+            })
+            .catch(() => undefined);
+        }
       },
       () => undefined,
     );
@@ -59,17 +109,7 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
 
   const value = useMemo(() => {
     const items: NotificationItem[] = [
-      ...server.map((each) => ({
-        id: each.id,
-        kind: each.kind,
-        at: Date.parse(each.at),
-        actorId: each.actorId,
-        taskId: each.taskId,
-        listId: each.listId,
-        commentId: each.commentId,
-        read: each.read,
-        local: false,
-      })),
+      ...server.map(itemOf),
       // A reminder the server sent too (its time within a minute) shows once.
       ...local
         .filter(

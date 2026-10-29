@@ -267,8 +267,10 @@ dot on your picture means some are new. A new or changed comment tells everyone 
 the task (changes to the task itself tell nobody). A click opens the task or list, the cross clears
 one and **Clear all** clears the rest. A comment has **Reply** on the left, which opens the task
 with its comments shown and scrolled to it, and a thumbs up on the right, which answers with 👍. A
-task for a group has **Open task** on the left and **Call dibs** on the right. The same buttons
-come on the notifications your phone or browser shows. Opening the page marks them read. The
+task for a group has **Open task** on the left and **Call dibs** on the right; a task assigned to
+you or taken by dibs has **Open task**, a shared list **Open list**. The same buttons come on the
+notifications your phone or browser shows, and those show while the app is open too, as soon as
+the next sync brings the news (pull down to sync now). Opening the page marks them read. The
 server keeps them for 90 days; reminders that fired on this device stay on it.
 
 ## Search
