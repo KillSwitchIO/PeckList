@@ -147,6 +147,29 @@ From the emulator, the computer is `10.0.2.2`, so a server published on port 808
 `10.0.2.2:8080` on the connect page (it warns about plain HTTP). For provider sign-in, the
 provider must be reachable at the same address from the server and from the emulator.
 
+## Notification drill
+
+`scripts/notification-drill.mjs` makes every kind of notification happen for one person from the
+outside, so each can be watched arriving on a phone or in a browser: a second account (an admin,
+through an API key with `tasks:write`, `notifications` and `admin`) shares a list, assigns a task
+to the person and to a group, calls dibs, comments, edits the comment, mentions them, and sets
+reminders that fire a few minutes later (plain, constant, repeating, all-day). The person only
+watches the device and presses the buttons on the notifications; `status` then shows what those
+presses did on the server, and `cleanup` deletes everything the drill made.
+
+```bash
+PUNCHLIST_URL=https://tasks.example.com PUNCHLIST_TOKEN_FILE=~/.punchlist-drill.token PUNCHLIST_TARGET=ben node scripts/notification-drill.mjs setup
+node scripts/notification-drill.mjs reminder 7          # reminds in 7 minutes
+node scripts/notification-drill.mjs reminder 7 --constant
+node scripts/notification-drill.mjs --help
+```
+
+`PUNCHLIST_ZONE` (default `America/Chicago`) must be the person's time zone, since reminders are
+local times. The Android app learns of a reminder at its next check-in, so leave more than the
+check-in interval before the time; a browser with push on gets it from the server at the time.
+Every entity the drill pushes is checked against `schema/workspace.schema.json` first, because a
+field the schema does not know would stop the person's app from opening its data.
+
 ## Not done yet
 
 A native storage adapter. Notifications from the server arrive within the check-in interval, not
