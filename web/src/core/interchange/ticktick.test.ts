@@ -285,3 +285,54 @@ describe('writing a TickTick backup', () => {
     expect(again.lists.find((list) => list.name === 'Inbox')?.inbox).toBe(true);
   });
 });
+
+describe('an all-day span', () => {
+  // TickTick shows "Junk cleanout", Nov 7 to Nov 9 in its file, as Nov 7 - 8.
+  const span = (start: string, due: string) =>
+    SAMPLE.split('\n')
+      .map((line) =>
+        line.includes('"Plant bulbs"')
+          ? line
+              .replace(
+                '"2026-11-04T06:00:00+0000","2026-11-04T06:00:00+0000"',
+                `"${start}","${due}"`,
+              )
+              .replace('"FREQ=YEARLY;INTERVAL=1;BYMONTH=11;BYMONTHDAY=4"', '""')
+          : line,
+      )
+      .join('\n');
+  const bulbs = (text: string) =>
+    parseTickTick(text, { timeZone: 'UTC' }).tasks.find((each) => each.title === 'Plant bulbs')!;
+
+  it('ends the day before its TickTick due date', () => {
+    expect(bulbs(span('2026-11-07T06:00:00+0000', '2026-11-09T06:00:00+0000')).schedule).toEqual({
+      start: '2026-11-07',
+      end: '2026-11-08',
+      allDay: true,
+      timeZone: 'America/Chicago',
+    });
+    // One day, written as a span to the next: no end.
+    expect(
+      bulbs(span('2026-11-07T06:00:00+0000', '2026-11-08T06:00:00+0000')).schedule?.end,
+    ).toBeNull();
+  });
+
+  it('goes back out with the day after its last as the due date, and reads back the same', () => {
+    const ctx = testContext();
+    const ws = applyImport(
+      ctx,
+      createWorkspace(ctx),
+      parseTickTick(span('2026-11-07T06:00:00+0000', '2026-11-09T06:00:00+0000'), {
+        timeZone: 'UTC',
+      }),
+      { intoSameNamed: true },
+    ).workspace;
+    const text = exportTickTick(ws);
+    expect(
+      parseCsv(text)
+        .find((row) => row[2] === 'Plant bulbs')!
+        .slice(7, 9),
+    ).toEqual(['2026-11-07T06:00:00+0000', '2026-11-09T06:00:00+0000']);
+    expect(bulbs(text).schedule).toMatchObject({ start: '2026-11-07', end: '2026-11-08' });
+  });
+});

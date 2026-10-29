@@ -3,12 +3,14 @@
 // Dates are UTC instants with the task's time zone beside them; "Is All Day" says whether only the
 // day counts. Status 0 open, 2 done, -1 won't do. Priority 0, 1, 3, 5. Reminders are ISO
 // durations, one a line: for a timed task before the time ("-PT5M"), for an all-day task from the
-// day's midnight ("P0DT9H0M0S" is 9:00 that day, "-P0DT15H0M0S" 9:00 the day before). A checklist
+// day's midnight ("P0DT9H0M0S" is 9:00 that day, "-P0DT15H0M0S" 9:00 the day before). An all-day
+// span's due date is the day after its last, as TickTick shows it (Nov 7 to Nov 9 is Nov 7 - 8);
+// ours is its last day. A checklist
 // task's items sit in its content, "▪" done and "▫" not; they come in as a checklist in the
 // task's notes (and go back out as one).
 
 import { ALL_DAY_REMINDER_TIME } from '../reminders.ts';
-import { datePart, instantOf, localDateTimeOf, timePart } from '../dates.ts';
+import { addDays, datePart, instantOf, localDateTimeOf, timePart } from '../dates.ts';
 import { members } from '../ops.ts';
 import type { Priority, Reminder, Schedule, Task, WorkspaceFile } from '../types.ts';
 import { parseCsv, recordsOf, toCsv } from './csv.ts';
@@ -120,9 +122,11 @@ export function parseTickTick(text: string, options: TickTickOptions): ImportPla
       return allDay ? wall.slice(0, 10) : wall;
     };
     const start = local(row['Start Date']);
-    const end = local(row['Due Date']);
+    const due = local(row['Due Date']);
+    // All day, the span's last day is the one before its due date.
+    const end = due && start && allDay && due > start ? addDays(due, -1) : due;
     let schedule: Schedule | null = null;
-    const first = start ?? end;
+    const first = start ?? due;
     if (first) {
       schedule = {
         start: first,
@@ -275,7 +279,12 @@ export function exportTickTick(
       ? task.schedule.allDay || timePart(task.schedule.start) === null
       : false;
     const start = task.schedule ? at(task, task.schedule.start) : '';
-    const end = task.schedule ? at(task, task.schedule.end ?? task.schedule.start) : '';
+    // An all-day span's due date is the day after its last.
+    const end = !task.schedule
+      ? ''
+      : allDay && task.schedule.end
+        ? at(task, addDays(datePart(task.schedule.end), 1))
+        : at(task, task.schedule.end ?? task.schedule.start);
     // A set-time reminder as minutes from the time (timed) or 9:00 that day (all day).
     const zone = task.schedule?.timeZone ?? 'UTC';
     const anchor = task.schedule
