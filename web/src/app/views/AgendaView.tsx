@@ -129,10 +129,13 @@ export function AgendaView({
         .map((day) => day.date),
     );
 
-  /** Put `date` at the top of the list, starting the list there when it is earlier. */
+  /**
+   * Put `date` at the top of the list, starting the list there when it is earlier, or when it
+   * lies beyond the most days the list holds (March 2031 from today, R-FB-154).
+   */
   const goTo = (date: string) => {
     const last = addDays(start, count);
-    const first = date < start ? date : start;
+    const first = date < start || daysBetween(start, date) + DAYS > MAX_DAYS ? date : start;
     setStart(first);
     setCount(
       Math.min(MAX_DAYS, Math.max(daysBetween(first, last), daysBetween(first, date) + DAYS)),

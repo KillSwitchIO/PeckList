@@ -84,6 +84,7 @@ nav:
   - Guides:
       - Users, roles and groups: guides/users-and-roles.md
       - Single sign-on (OIDC): guides/single-sign-on.md
+      - Mutual TLS (client certificates): guides/mutual-tls.md
       - Backups and restore: guides/backups.md
       - Logs and audit: guides/logging.md
       - Monitoring and stats: guides/monitoring.md

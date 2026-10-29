@@ -40,6 +40,7 @@ final class NativeLink {
     /** Where the browser tab starts linking; throws when the server will not start one. Network: call off the main thread. */
     static Uri start(Context context, String server, String provider) throws IOException {
         HttpURLConnection connection = (HttpURLConnection) new URL(server + "/auth/app/link-start").openConnection();
+        ClientCert.apply(context, connection);
         try {
             connection.setConnectTimeout(TIMEOUT_MS);
             connection.setReadTimeout(TIMEOUT_MS);

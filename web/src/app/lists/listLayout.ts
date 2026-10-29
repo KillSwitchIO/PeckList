@@ -15,7 +15,8 @@ export interface TimelinePrefs {
   dayWidth: number;
 }
 
-export const DAY_WIDTHS = [20, 32, 48, 72] as const;
+/** Zoom steps, pixels per day: out to months at a glance, in to roomy days (R-FB-155). */
+export const DAY_WIDTHS = [12, 20, 32, 48, 72, 104, 144] as const;
 const DEFAULT_TIMELINE: TimelinePrefs = { fit: false, dayWidth: 48 };
 
 const listeners = new Set<() => void>();

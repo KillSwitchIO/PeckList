@@ -20,13 +20,13 @@ describe('timeline rows', () => {
     expect(Object.fromEntries(rows)).toEqual({ a: 0, b: 1, c: 0, d: 1 });
   });
 
-  it('gives each bar its own row otherwise', () => {
-    expect([
-      ...ownRows([
-        { id: 'x', from: '', to: '' },
-        { id: 'y', from: '', to: '' },
-      ]).values(),
-    ]).toEqual([0, 1]);
+  it('gives each bar its own row otherwise, due first at the top', () => {
+    const rows = ownRows([
+      { id: 'late', from: '2026-10-01', to: '2026-10-20' },
+      { id: 'soon', from: '2026-10-05', to: '2026-10-06' },
+      { id: 'sameEndEarlierStart', from: '2026-10-02', to: '2026-10-06' },
+    ]);
+    expect(Object.fromEntries(rows)).toEqual({ sameEndEarlierStart: 0, soon: 1, late: 2 });
   });
 });
 

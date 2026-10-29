@@ -6,6 +6,40 @@ against it, and read the changelog when upgrading.
 
 ## Signing in from a script
 
+The easy way is an **API key**: make one in **Settings > API keys** with a name, an expiry (or
+none) and only the permissions the script needs, copy it (it is shown once), and send it with
+every request:
+
+```bash
+curl -H 'Authorization: Bearer pl_...' https://tasks.example.com/api/sync \
+  -H 'Content-Type: application/json' -d '{"schemaVersion":16,"cursor":null,"changes":[]}'
+```
+
+| Permission      | Lets the key                                                               |
+| --------------- | -------------------------------------------------------------------------- |
+| `tasks:read`    | Sync without changes (everything you can see), `/api/events`, task history |
+| `tasks:write`   | Push changes through `/api/sync` (comes with `tasks:read`)                 |
+| `files:read`    | Download attachments                                                       |
+| `files:write`   | Upload attachments (comes with `files:read`)                               |
+| `notifications` | List notifications, mark them read, clear them                             |
+| `admin`         | The admin API, as far as your role allows (admins only)                    |
+
+A key works as you, so it never sees more than you do. It cannot do anything outside its
+permissions: no sign-in or password routes, no account settings, no friends, and it cannot make
+or revoke keys. Anything else answers `403 {"error":"scope"}`; an unknown, revoked or expired key
+answers `401`. The server keeps only a hash of the secret, and when each key was last used (to
+within a few minutes). Making and revoking keys go in the event log.
+
+| Route                                 |                                                                              |
+| ------------------------------------- | ---------------------------------------------------------------------------- |
+| `GET /api/account/api-keys`           | Your keys: `id`, `name`, `scopes`, `createdAt`, `expiresAt`, `lastUsedAt`, `revokedAt` |
+| `POST /api/account/api-keys`          | `{"name","scopes","expiresAt"}` (`expiresAt` null: never); answers `{"key","token"}` once |
+| `DELETE /api/account/api-keys/{id}`   | Revoke one at once                                                           |
+
+These three take a signed-in session, never a key. With `AUTH_MODE=none` there are no keys.
+
+### With a session cookie
+
 Sessions are cookies. Sign in, keep the cookie, send it back:
 
 ```bash

@@ -80,7 +80,7 @@ public class MainActivity extends BridgeActivity {
         String server = ServerChoice.get(this);
         if (server == null) return;
         new Thread(() -> {
-            if (Gate.gated(server) && bridge != null) client.showGate(bridge.getWebView());
+            if (Gate.gated(this, server) && bridge != null) client.showGate(bridge.getWebView());
         }, "punchlist-gate").start();
     }
 

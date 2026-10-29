@@ -162,6 +162,33 @@ export interface AccountApi {
   stats(): Promise<UserStats>;
 }
 
+/** What an API key may do (R-FB-157). */
+export type ApiScope =
+  'tasks:read' | 'tasks:write' | 'files:read' | 'files:write' | 'notifications' | 'admin';
+
+/** An API key as listed: never its secret. Times are ISO instants. */
+export interface ApiKeyInfo {
+  id: string;
+  name: string;
+  scopes: ApiScope[];
+  createdAt: string;
+  expiresAt: string | null;
+  lastUsedAt: string | null;
+  revokedAt: string | null;
+}
+
+/** A person's own API keys (servers with accounts). */
+export interface ApiKeysApi {
+  list(): Promise<ApiKeyInfo[]>;
+  /** A new key and its token, which is shown once and never again; or why it could not be made. */
+  create(input: {
+    name: string;
+    scopes: ApiScope[];
+    expiresAt: string | null;
+  }): Promise<{ key: ApiKeyInfo; token: string } | { problem: string }>;
+  revoke(id: string): Promise<void>;
+}
+
 /** Friend links and lookups (servers only). */
 export interface FriendsApi {
   /** This account's friend link; `rotate` makes a new one and retires the old. */
@@ -308,6 +335,8 @@ export interface SyncTransport {
   /** Release check (optional: older servers make none). */
   updates?: UpdatesApi;
   account?: AccountApi;
+  /** API keys (optional: older servers have none). */
+  apiKeys?: ApiKeysApi;
   /** Attached files (optional: older servers keep none). */
   files?: FileApi;
   /** Admin actions; the server refuses them for anyone without the permission. */

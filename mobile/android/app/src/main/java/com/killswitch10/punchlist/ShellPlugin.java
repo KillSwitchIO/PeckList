@@ -1,5 +1,6 @@
 package com.killswitch10.punchlist;
 
+import android.content.Context;
 import android.Manifest;
 import android.content.ActivityNotFoundException;
 import android.content.Intent;
@@ -91,12 +92,12 @@ public class ShellPlugin extends Plugin {
             try {
                 ServerCheck.Result result;
                 try {
-                    result = ServerCheck.check(origin);
+                    result = checkWithCertificate(origin);
                 } catch (ServerCheck.Failure failure) {
                     if (schemeTyped || failure.code.equals("certificate") || failure.code.equals("gated")) throw failure;
                     String plain = ServerChoice.normalize("http://" + typed.trim());
                     try {
-                        result = ServerCheck.check(plain);
+                        result = ServerCheck.check(getContext(), plain);
                     } catch (ServerCheck.Failure second) {
                         // Plain http got further (a server, or a sign-in page in front of one): say that.
                         if (second.code.equals("unreachable")) throw failure;
@@ -126,6 +127,8 @@ public class ShellPlugin extends Plugin {
             call.reject("not an address", "invalid");
             return;
         }
+        // Another server: a certificate picked for the last one is not offered to it.
+        if (!origin.equals(ServerChoice.get(getContext()))) ClientCert.forget(getContext());
         ServerChoice.set(getContext(), origin);
         BackgroundCheck.forgetServer(getContext());
         call.resolve();
@@ -137,6 +140,7 @@ public class ShellPlugin extends Plugin {
     public void disconnect(PluginCall call) {
         ServerChoice.chooseStandalone(getContext());
         BackgroundCheck.forgetServer(getContext());
+        ClientCert.forget(getContext());
         call.resolve();
         restart();
     }
@@ -233,7 +237,7 @@ public class ShellPlugin extends Plugin {
         String provider = NativeSignIn.providerOf(server, url);
         if (provider != null) {
             network.execute(() -> {
-                if (!appSignIn(server)) {
+                if (!appSignIn(getContext(), server)) {
                     inWebView(address);
                     return;
                 }
@@ -245,7 +249,7 @@ public class ShellPlugin extends Plugin {
         String linking = NativeLink.providerOf(server, url);
         if (linking != null) {
             network.execute(() -> {
-                if (!appSignIn(server)) {
+                if (!appSignIn(getContext(), server)) {
                     inWebView(address);
                     return;
                 }
@@ -263,10 +267,26 @@ public class ShellPlugin extends Plugin {
         return null;
     }
 
-    /** Whether the server has the app's sign-in pages. Network: call off the main thread. */
-    private static boolean appSignIn(String server) {
+    /**
+     * The server check; when the TLS handshake fails other than on trust (a proxy wanting a client
+     * certificate, R-FB-158), the person picks one from Android's store and it is tried once more.
+     */
+    private ServerCheck.Result checkWithCertificate(String origin) throws ServerCheck.Failure {
         try {
-            return ServerCheck.check(server).info.optBoolean("appSignIn", false);
+            return ServerCheck.check(getContext(), origin);
+        } catch (ServerCheck.Failure failure) {
+            if (!failure.tls || !origin.startsWith("https://") || getActivity() == null) throw failure;
+            android.net.Uri address = android.net.Uri.parse(origin);
+            int port = address.getPort() == -1 ? 443 : address.getPort();
+            if (!ClientCert.pick(getActivity(), address.getHost(), port)) throw failure;
+            return ServerCheck.check(getContext(), origin);
+        }
+    }
+
+    /** Whether the server has the app's sign-in pages. Network: call off the main thread. */
+    private static boolean appSignIn(Context context, String server) {
+        try {
+            return ServerCheck.check(context, server).info.optBoolean("appSignIn", false);
         } catch (Exception error) {
             Logger.warn("Punchlist: could not ask " + server + " about app sign-in: " + error.getMessage());
             return false;

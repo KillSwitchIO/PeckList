@@ -1,5 +1,6 @@
 package com.killswitch10.punchlist;
 
+import android.content.Context;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -8,6 +9,7 @@ import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.security.cert.CertPathValidatorException;
 import java.security.cert.CertificateException;
+import javax.net.ssl.SSLException;
 import javax.net.ssl.SSLPeerUnverifiedException;
 import org.json.JSONException;
 import org.json.JSONObject;
@@ -23,10 +25,17 @@ final class ServerCheck {
     /** Why an address is not usable, as the web app names it. */
     static final class Failure extends Exception {
         final String code;
+        /** The TLS handshake failed for another reason than trust: often a client certificate wanted. */
+        final boolean tls;
 
         Failure(String code, String message) {
+            this(code, message, false);
+        }
+
+        Failure(String code, String message, boolean tls) {
             super(message);
             this.code = code;
+            this.tls = tls;
         }
     }
 
@@ -46,12 +55,13 @@ final class ServerCheck {
 
     private ServerCheck() {}
 
-    static Result check(String origin) throws Failure {
+    static Result check(Context context, String origin) throws Failure {
         String current = origin;
         for (int hop = 0; hop < 4; hop++) {
             HttpURLConnection connection = null;
             try {
                 connection = (HttpURLConnection) new URL(current + "/api/info").openConnection();
+                ClientCert.apply(context, connection);
                 connection.setInstanceFollowRedirects(false);
                 connection.setConnectTimeout(TIMEOUT_MS);
                 connection.setReadTimeout(TIMEOUT_MS);
@@ -75,7 +85,8 @@ final class ServerCheck {
             } catch (IOException error) {
                 // A handshake that fails on the certificate is a trust problem; any other TLS
                 // failure (a server speaking plain http, say) is just not reachable this way.
-                throw new Failure(isCertificateProblem(error) ? "certificate" : "unreachable", error.getMessage());
+                boolean trust = isCertificateProblem(error);
+                throw new Failure(trust ? "certificate" : "unreachable", error.getMessage(), !trust && isTls(error));
             } catch (JSONException error) {
                 throw new Failure("not-punchlist", "bad json");
             } finally {
@@ -83,6 +94,13 @@ final class ServerCheck {
             }
         }
         throw new Failure("not-punchlist", "too many redirects");
+    }
+
+    private static boolean isTls(Throwable error) {
+        for (Throwable each = error; each != null; each = each.getCause()) {
+            if (each instanceof SSLException) return true;
+        }
+        return false;
     }
 
     private static boolean isCertificateProblem(Throwable error) {

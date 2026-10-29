@@ -17,6 +17,7 @@ import {
   upcomingTasks,
 } from './queries.ts';
 import { agendaDays } from './agenda.ts';
+import { groupByDate } from './filters.ts';
 import { createTask, deleteTask, toggleTaskDone } from './tasks.ts';
 import type { Due, Schedule, Task, WorkspaceFile } from './types.ts';
 import { createWorkspace } from './workspace.ts';
@@ -205,6 +206,20 @@ describe('list contents', () => {
     expect(startState(running, TODAY)).toBe('today');
     // In Upcoming it shows on today.
     expect(titles(agendaDays(s.ws, TODAY, TODAY, 2)[0]!.tasks)).toContain('trip');
+    // And in a list's date groups (R-FB-153), undated subtasks with it.
+    const moving = createTask(s.ctx, s.ws, {
+      title: 'pack',
+      listId: running.listId,
+      parentId: running.id,
+    });
+    s.ws = moving.workspace;
+    const listGroups = groupByDate(s.ws, s.ws.entities.tasks, TODAY);
+    expect(titles(listGroups.find((group) => group.key === 'overdue')!.tasks)).toEqual(['ended']);
+    expect(titles(listGroups.find((group) => group.key === 'today')!.tasks).sort()).toEqual([
+      'ends today',
+      'pack',
+      'trip',
+    ]);
   });
 
   it('finds tasks completed today in the local time zone', () => {

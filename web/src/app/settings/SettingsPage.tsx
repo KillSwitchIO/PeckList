@@ -48,6 +48,7 @@ import { ProfileSection } from './ProfileSection.tsx';
 import { SwipeSection } from './SwipeSection.tsx';
 import { TimeZoneSetting } from './TimeZoneSetting.tsx';
 import { useApply, useWorkspace } from '../store/hooks.ts';
+import { useSyncState } from '../sync/syncContext.ts';
 
 /** A small live sample of the colors as the theme shows them now. */
 function Preview() {
@@ -208,6 +209,9 @@ export function SettingsPage() {
   const changed = Object.keys(paletteOverrides(workspace)).length > 0;
   const settings = workspace.entities.settings[0];
   const { mode, setMode } = useThemeMode();
+  const accounts = useSyncState(
+    (state) => state.phase === 'ready' && state.account?.authMode === 'local',
+  );
   const change = (patch: SettingsPatch) => apply((ctx, ws) => updateSettings(ctx, ws, patch));
   return (
     <Page title={t('nav.settings')}>
@@ -234,6 +238,28 @@ export function SettingsPage() {
             </SettingRow>
           </ButtonBase>
         </Section>
+        {/* Servers with accounts only (R-FB-157). */}
+        {accounts && (
+          <Section title={t('apiKeys.title')}>
+            <ButtonBase
+              component={RouterLink}
+              to="/settings/api-keys"
+              sx={{
+                display: 'flex',
+                width: '100%',
+                justifyContent: 'flex-start',
+                textAlign: 'left',
+                borderRadius: 1,
+                '& > *': { flexGrow: 1 },
+                '&:hover': { bgcolor: 'action.hover' },
+              }}
+            >
+              <SettingRow label={t('apiKeys.open')} hint={t('apiKeys.openHint')}>
+                <ChevronRightRounded sx={{ color: 'text.secondary', display: 'block' }} />
+              </SettingRow>
+            </ButtonBase>
+          </Section>
+        )}
         <Section title={t('settings.appearance')}>
           <SettingRow label={t('settings.theme')}>
             <ToggleButtonGroup

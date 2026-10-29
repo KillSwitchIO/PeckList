@@ -9,6 +9,7 @@ import type {
   PasswordOutcome,
   ServerInfo,
   UpdateInfo,
+  ApiKeyInfo,
   SignInMethods,
   SignUpOutcome,
   SyncRequest,
@@ -303,6 +304,29 @@ export function createHttpSync(
       async clear(ids) {
         const response = await call('/api/notifications/clear', { method: 'POST', body: { ids } });
         if (!response.ok) return fail(response);
+      },
+    },
+
+    apiKeys: {
+      async list() {
+        const response = await call('/api/account/api-keys');
+        if (!response.ok) return fail(response);
+        return (await response.json()) as ApiKeyInfo[];
+      },
+      async create(input) {
+        const response = await call('/api/account/api-keys', { method: 'POST', body: input });
+        if (response.status === 400) {
+          const body = (await response.json().catch(() => ({}))) as { message?: string };
+          return { problem: body.message ?? 'The key could not be made.' };
+        }
+        if (!response.ok) return fail(response);
+        return (await response.json()) as { key: ApiKeyInfo; token: string };
+      },
+      async revoke(id) {
+        const response = await call(`/api/account/api-keys/${encodeURIComponent(id)}`, {
+          method: 'DELETE',
+        });
+        if (!response.ok && response.status !== 404) return fail(response);
       },
     },
 

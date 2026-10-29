@@ -44,6 +44,7 @@ public static class AuthSetup
         services.AddSingleton<SignupInvites>();
         services.AddSingleton<SelfSignUp>();
         services.AddSingleton<Impersonations>();
+        services.AddSingleton<ApiKeyService>();
         services.AddSingleton<OwnerAccount>();
         services.AddMemoryCache();
         services.AddSingleton(new StartupConsole(Console.Out));
@@ -62,7 +63,9 @@ public static class AuthSetup
         }
         else
         {
-            var authentication = services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme);
+            // A bearer API key (R-FB-157) or the session cookie, whichever the request carries.
+            var authentication = services.AddAuthentication(ApiKeyAuth.Auto);
+            authentication.AddApiKeys();
             authentication.AddCookie(options =>
                 {
                     options.Cookie.Name = "punchlist_session";

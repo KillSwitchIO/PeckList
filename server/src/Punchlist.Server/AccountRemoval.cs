@@ -28,6 +28,7 @@ public sealed class AccountRemoval(
     AuditLog audit,
     Core.Notifications.INotificationStore notifications,
     Core.History.ITaskHistoryStore history,
+    Core.Accounts.IApiKeyStore apiKeys,
     Core.Push.IPushStore push,
     LiveSettings live,
     TimeProvider time,
@@ -105,6 +106,7 @@ public sealed class AccountRemoval(
         }
         await notifications.DeleteAsync(account.Id, null, cancellation);
         await history.ForgetActorAsync(account.Id, cancellation);
+        await apiKeys.DeleteForUserAsync(account.Id, cancellation);
         await push.RemoveUserAsync(account.Id, cancellation);
         await accounts.DeleteAsync(account.Id, cancellation);
         // Who sees what, groups whose owner left, and invites are worked out again without them.

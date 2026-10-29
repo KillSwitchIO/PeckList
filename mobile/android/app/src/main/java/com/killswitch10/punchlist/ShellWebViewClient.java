@@ -1,7 +1,9 @@
 package com.killswitch10.punchlist;
 
+import android.app.Activity;
 import android.content.Context;
 import android.text.TextUtils;
+import android.webkit.ClientCertRequest;
 import android.webkit.WebResourceError;
 import android.webkit.WebResourceRequest;
 import android.webkit.WebResourceResponse;
@@ -19,10 +21,22 @@ import com.getcapacitor.BridgeWebViewClient;
 class ShellWebViewClient extends BridgeWebViewClient {
 
     private final Context context;
+    private final Activity activity;
 
     ShellWebViewClient(Bridge bridge) {
         super(bridge);
         this.context = bridge.getContext();
+        this.activity = bridge.getActivity();
+    }
+
+    /** The server (or its proxy) wants a client certificate: mutual TLS (R-FB-158). */
+    @Override
+    public void onReceivedClientCertRequest(WebView view, ClientCertRequest request) {
+        if (activity == null) {
+            request.cancel();
+            return;
+        }
+        ClientCert.answer(activity, request);
     }
 
     @Override

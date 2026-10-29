@@ -58,13 +58,13 @@ export function PullToRefresh() {
     const root = document.documentElement;
     const before = root.style.overscrollBehaviorY;
     root.style.overscrollBehaviorY = 'none';
-    let start: { y: number; at: number } | null = null;
+    let start: { x: number; y: number; at: number } | null = null;
     let distance = 0;
     const onStart = (event: TouchEvent) => {
       const touch = event.touches[0];
       start =
         event.touches.length === 1 && touch && !latest.current.syncing && pullable(event.target)
-          ? { y: touch.clientY, at: Date.now() }
+          ? { x: touch.clientX, y: touch.clientY, at: Date.now() }
           : null;
       distance = 0;
     };
@@ -72,7 +72,12 @@ export function PullToRefresh() {
       const touch = event.touches[0];
       if (!start || !touch) return;
       const down = touch.clientY - start.y;
-      if (distance === 0 && (down <= 0 || Date.now() - start.at > HOLD_MS || window.scrollY > 0)) {
+      // More sideways than down is a sideways scroll (the timeline, R-FB-155), never a pull.
+      const sideways = Math.abs(touch.clientX - start.x) > down;
+      if (
+        distance === 0 &&
+        (down <= 0 || sideways || Date.now() - start.at > HOLD_MS || window.scrollY > 0)
+      ) {
         start = null;
         return;
       }

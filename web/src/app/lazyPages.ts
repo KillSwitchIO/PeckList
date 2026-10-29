@@ -28,6 +28,9 @@ export const SettingsPage = lazyPage(() =>
 export const ManageListsPage = lazyPage(() =>
   import('./settings/ManageListsPage.tsx').then((m) => m.ManageListsPage),
 );
+export const ApiKeysPage = lazyPage(() =>
+  import('./settings/ApiKeysPage.tsx').then((m) => m.ApiKeysPage),
+);
 export const StatsPage = lazyPage(() =>
   import('./settings/StatsSection.tsx').then((m) => m.StatsPage),
 );
@@ -48,6 +51,7 @@ export function preloadPages(): Promise<unknown> {
       FriendsPage,
       SettingsPage,
       ManageListsPage,
+      ApiKeysPage,
       StatsPage,
       AdminPage,
       NotificationsPage,
