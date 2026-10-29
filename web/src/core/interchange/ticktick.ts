@@ -5,9 +5,9 @@
 // durations, one a line: for a timed task before the time ("-PT5M"), for an all-day task from the
 // day's midnight ("P0DT9H0M0S" is 9:00 that day, "-P0DT15H0M0S" 9:00 the day before). An all-day
 // span's due date is the day after its last, as TickTick shows it (Nov 7 to Nov 9 is Nov 7 - 8);
-// ours is its last day. A checklist
-// task's items sit in its content, "▪" done and "▫" not; they come in as a checklist in the
-// task's notes (and go back out as one).
+// ours is its last day. Repeats are bare RRULE parts ("FREQ=WEEKLY;BYDAY=FR"). A checklist
+// task's items sit in its content, "▪" done and "▫" not, each line ending in a carriage return;
+// they come in as a checklist in the task's notes (and go back out as one).
 
 import { ALL_DAY_REMINDER_TIME } from '../reminders.ts';
 import { addDays, datePart, instantOf, localDateTimeOf, timePart } from '../dates.ts';
@@ -243,19 +243,25 @@ const HEADER = [
 
 const CHECK_LINE = /^\s*[-*+] \[([ xX])\] (.*)$/;
 
-/** Notes as TickTick content: a checklist in them makes it a checklist task. */
+/**
+ * Notes as TickTick content: a checklist in them makes it a checklist task, written as TickTick
+ * writes one, every line ending in a carriage return ("Before\r▪Done\r▫Not yet\r"). Empty
+ * checklist lines are left out; notes with only those stay text.
+ */
 function contentOf(notes: string): { kind: 'TEXT' | 'CHECKLIST'; content: string } {
   const lines = notes.split(/\r?\n/);
-  const items = lines.map((line) => CHECK_LINE.exec(line)).filter((match) => match !== null);
+  const items = lines
+    .map((line) => CHECK_LINE.exec(line))
+    .filter((match) => match !== null && match[2]!.trim() !== '');
   if (!items.length) return { kind: 'TEXT', content: notes };
   const text = lines
     .filter((line) => !CHECK_LINE.test(line))
     .join('\n')
     .trim();
   const list = items
-    .map((match) => `${match[1] === ' ' ? '▫' : DONE_ITEM}${match[2]!.trim()}`)
+    .map((match) => `${match![1] === ' ' ? '▫' : DONE_ITEM}${match![2]!.trim()}\r`)
     .join('');
-  return { kind: 'CHECKLIST', content: `${text}${list}` };
+  return { kind: 'CHECKLIST', content: `${text ? `${text}\r` : ''}${list}` };
 }
 
 /** A UTC instant as TickTick writes it: "2026-11-04T06:00:00+0000". */
@@ -323,7 +329,8 @@ export function exportTickTick(
         .map((each) => (each ? reminderTo(each, allDay) : null))
         .filter(Boolean)
         .join('\n'),
-      task.recurrence ? `RRULE:${plainRule(task.recurrence)}` : '',
+      // TickTick's backup writes the rule bare, without "RRULE:".
+      task.recurrence ? plainRule(task.recurrence) : '',
       TO_TICKTICK[task.priority],
       task.status === 'done' ? '2' : task.status === 'wontdo' ? '-1' : '0',
       tickInstant(task.createdAt),

@@ -275,14 +275,44 @@ describe('writing a TickTick backup', () => {
       status: 'done',
       schedule: { start: '2026-11-02T14:30', end: '2026-11-02T15:30' },
     });
-    // The checklist goes back out as TickTick's own.
+    // The checklist goes back out as TickTick's own, every line ending in a carriage return.
     expect(
       parseCsv(text)
         .find((row) => row[2] === 'Pack for trip')!
         .slice(3, 7),
-    ).toEqual(['CHECKLIST', '', 'For the cabin▪Boots▫Gloves', 'Y']);
+    ).toEqual(['CHECKLIST', '', 'For the cabin\r▪Boots\r▫Gloves\r', 'Y']);
     expect(pick('Pack for trip').notes).toBe('For the cabin\n\n- [x] Boots\n- [ ] Gloves');
+    // The repeat goes out bare, as TickTick writes it.
+    expect(parseCsv(text).find((row) => row[2] === 'Plant bulbs')![10]).toBe(
+      'FREQ=YEARLY;INTERVAL=1;BYMONTH=11;BYMONTHDAY=4',
+    );
     expect(again.lists.find((list) => list.name === 'Inbox')?.inbox).toBe(true);
+  });
+
+  it('leaves empty checklist lines out, and notes with only those stay text', () => {
+    const ctx = testContext();
+    let ws = createWorkspace(ctx);
+    const plan = parseTickTick(SAMPLE, { timeZone: 'UTC' });
+    const notes = new Map([
+      ['Plant bulbs', '- [ ] '],
+      ['Buy mulch', 'Shop\n- [ ] \n- [x] Mulch\n- [ ] '],
+    ]);
+    ws = applyImport(
+      ctx,
+      ws,
+      {
+        ...plan,
+        tasks: plan.tasks.map((task) => ({
+          ...task,
+          notes: notes.get(task.title) ?? task.notes ?? '',
+        })),
+      },
+      { intoSameNamed: true },
+    ).workspace;
+    const rows = parseCsv(exportTickTick(ws));
+    const row = (title: string) => rows.find((each) => each[2] === title)!.slice(3, 7);
+    expect(row('Plant bulbs')).toEqual(['TEXT', 'yard,fall', '- [ ] ', 'N']);
+    expect(row('Buy mulch')).toEqual(['CHECKLIST', '', 'Shop\r▪Mulch\r', 'Y']);
   });
 });
 
