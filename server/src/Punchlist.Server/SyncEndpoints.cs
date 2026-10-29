@@ -19,6 +19,12 @@ public static class SyncEndpoints
     {
         api.MapPost("/sync", async (SyncRequest request, ClaimsPrincipal user, SyncService sync, Groups groups, Invites invites, HttpContext context, CancellationToken cancellation) =>
         {
+            // An API key without tasks:write may pull, never push (R-FB-157).
+            if (user.ByKey() && request.Changes is { Count: > 0 } && !user.KeyMay(Core.Accounts.ApiScopes.TasksWrite))
+            {
+                return Results.Json(new { error = "scope", message = "this key lacks the tasks:write permission" },
+                    statusCode: StatusCodes.Status403Forbidden);
+            }
             try
             {
                 var source = context.Request.Headers[DeviceHeader].FirstOrDefault();

@@ -136,6 +136,7 @@ final class BackgroundCheck {
             + (after == null ? "" : "&after=" + Uri.encode(after));
 
         HttpURLConnection connection = (HttpURLConnection) new URL(address).openConnection();
+        ClientCert.apply(context, connection);
         JSONObject answer;
         try {
             connection.setConnectTimeout(TIMEOUT_MS);

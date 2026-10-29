@@ -47,10 +47,11 @@ final class Gate {
      * Whether the server sends the app elsewhere first, with the cookies the WebView has: a
      * redirect to another host. Network: call off the main thread. Unreachable is not gated.
      */
-    static boolean gated(String server) {
+    static boolean gated(Context context, String server) {
         HttpURLConnection connection = null;
         try {
             connection = (HttpURLConnection) new URL(server + "/api/info").openConnection();
+            ClientCert.apply(context, connection);
             connection.setInstanceFollowRedirects(false);
             connection.setConnectTimeout(TIMEOUT_MS);
             connection.setReadTimeout(TIMEOUT_MS);

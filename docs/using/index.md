@@ -177,9 +177,11 @@ turns into **Deselect all**.
 
 **Timeline** shows a list's dated tasks as bars across their days, with today marked. Drag a bar
 to move the task to other days (its times and length stay), or drag either end to change when it
-starts or ends; a click opens it. **One per task** gives each task its own row; **Fit together**
-lets tasks that do not overlap share a row, to see more at once. The magnifiers make days wider or
-narrower. Tasks without a date wait under the timeline. Each list remembers whether it was last
+starts or ends; a click opens it, and **Undo** takes a move back. On a phone a swipe scrolls the
+timeline, bars and all; hold a bar still for a moment to pick it up, as on the calendar.
+**One per task** gives each task its own row, the one due first at the top and the last at the
+bottom; **Fit together** lets tasks that do not overlap share a row, to see more at once. The
+magnifiers make days wider or narrower, from months at a glance to roomy days. Tasks without a date wait under the timeline. Each list remembers whether it was last
 shown as a List or a Timeline, on this device.
 
 Folding a group (click its heading) folds it everywhere it shows: fold **Overdue** in Today and it
@@ -287,6 +289,12 @@ when a due date counts as soon, how long a task with only a start time shows on 
 linked accounts, **Lists and tags**, and **Your data** ([download or import a copy](apps-and-sync.md#your-data-as-a-file), or
 [move from or to another app](apps-and-sync.md#moving-from-or-to-another-app): TickTick, Todoist, Google Tasks,
 Microsoft To Do, iCalendar and Things).
+
+**API keys** (on a server with accounts) let a script or another app use Punchlist as you:
+give each a name, an expiry (or none) and only the permissions it needs (read or change tasks,
+download or upload attachments, notifications, and admin for admins), copy it once, and revoke it
+whenever you like. Each shows when it was made, when it expires and when it was last used. See
+[the HTTP API](../reference/http-api.md#signing-in-from-a-script).
 
 **Lists and tags** gathers them on one page: drag a list by its grip to set the order the menu
 shows them in, and from each row change its name, icon and color (tap it), who it is shared with,

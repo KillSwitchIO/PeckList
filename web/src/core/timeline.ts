@@ -38,9 +38,15 @@ export function fitRows(bars: readonly Bar[]): Map<Id, number> {
   return rows;
 }
 
-/** Every bar on its own row, in the order given. */
+/**
+ * Every bar on its own row, the one due first at the top and the last at the bottom (by its end,
+ * then its start; R-FB-156): scrolling down goes forward in time, nothing scattered.
+ */
 export function ownRows(bars: readonly Bar[]): Map<Id, number> {
-  return new Map(bars.map((bar, index) => [bar.id, index]));
+  const order = [...bars].sort(
+    (a, b) => a.to.localeCompare(b.to) || a.from.localeCompare(b.from) || a.id.localeCompare(b.id),
+  );
+  return new Map(order.map((bar, index) => [bar.id, index]));
 }
 
 const shift = (value: string, days: number) => addDays(datePart(value), days) + value.slice(10);

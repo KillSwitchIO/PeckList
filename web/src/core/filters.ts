@@ -259,15 +259,16 @@ export function dateGroupOf(task: Task, today: string): DateGroupKey {
 }
 
 /**
- * The date that places a task in date groups: its own start, or for an undated subtask its
- * nearest dated ancestor's (so it stays with the parent it shows under).
+ * The date that places a task in date groups: its own (see `placeDate`: a span still running is
+ * today's), or for an undated subtask its nearest dated ancestor's (so it stays with the parent
+ * it shows under).
  */
-export function placingDate(workspace: WorkspaceFile, task: Task): string | null {
+export function placingDate(workspace: WorkspaceFile, task: Task, today: string): string | null {
   let current: Task | undefined = task;
   const seen = new Set<Id>();
   while (current && !seen.has(current.id)) {
     seen.add(current.id);
-    const date = startDate(current);
+    const date = placeDate(current, today);
     if (date) return date;
     const parentId: Id | null = current.parentId;
     current = parentId ? workspace.entities.tasks.find((item) => item.id === parentId) : undefined;
@@ -279,7 +280,8 @@ export function placingDate(workspace: WorkspaceFile, task: Task): string | null
 export function groupByDate(workspace: WorkspaceFile, tasks: Task[], today: string): DateGroup[] {
   const buckets = new Map<DateGroupKey, Task[]>();
   for (const task of tasks) {
-    const date = placingDate(workspace, task);
+    // The span's own place: groups by its start alone put running spans in Overdue (R-FB-153).
+    const date = placingDate(workspace, task, today);
     const key = date ? dateGroupOf({ ...task, schedule: on(date) }, today) : 'none';
     buckets.set(key, [...(buckets.get(key) ?? []), task]);
   }

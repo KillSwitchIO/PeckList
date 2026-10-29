@@ -26,6 +26,7 @@ public static class Storage
         services.AddSingleton<Core.Audit.IAuditStore, SqlAuditStore>();
         services.AddSingleton<Core.Notifications.INotificationStore, SqlNotificationStore>();
         services.AddSingleton<Core.History.ITaskHistoryStore, SqlTaskHistoryStore>();
+        services.AddSingleton<Core.Accounts.IApiKeyStore, SqlApiKeyStore>();
         services.AddSingleton<Core.Push.IPushStore, SqlPushStore>();
         services.AddSingleton<Core.Stats.IStatsSource, SqlStatsSource>();
         services.AddSingleton<ISecretStore, SqlSecretStore>();

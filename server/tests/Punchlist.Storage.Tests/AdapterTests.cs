@@ -170,3 +170,13 @@ public sealed class PostgresTaskHistoryStoreTests(PostgresServer server) : TaskH
 {
     protected override async Task<ITaskHistoryStore> CreateAsync() => new SqlTaskHistoryStore(await server.NewDatabaseAsync());
 }
+
+public sealed class SqliteApiKeyStoreTests(SqliteFiles files) : ApiKeyStoreContract, IClassFixture<SqliteFiles>
+{
+    protected override async Task<IApiKeyStore> CreateAsync() => new SqlApiKeyStore(await files.NewDatabaseAsync());
+}
+
+public sealed class PostgresApiKeyStoreTests(PostgresServer server) : ApiKeyStoreContract, IClassFixture<PostgresServer>
+{
+    protected override async Task<IApiKeyStore> CreateAsync() => new SqlApiKeyStore(await server.NewDatabaseAsync());
+}

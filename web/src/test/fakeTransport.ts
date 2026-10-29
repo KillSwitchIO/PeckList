@@ -10,6 +10,8 @@ import {
   type FriendsApi,
   type HistoryApi,
   type UpdatesApi,
+  type ApiKeyInfo,
+  type ApiKeysApi,
   type HistoryEntry,
   type NotificationsApi,
   type PushApi,
@@ -90,6 +92,8 @@ export class FakeBackend {
   readonly notifications = new Map<string, ServerNotification[]>();
   /** Each task's history, newest first (tests add them). */
   readonly history = new Map<string, HistoryEntry[]>();
+  /** Each account's API keys, by username (the fake keeps them as listed). */
+  readonly apiKeys = new Map<string, ApiKeyInfo[]>();
   /** The version the server says it runs. */
   serverVersion = '0.1.0';
   /** The newest release the server knows of (tests set it). */
@@ -199,6 +203,36 @@ export class FakeTransport implements SyncTransport {
     },
     unsubscribe: (endpoint) => {
       this.pushed.delete(endpoint);
+      return Promise.resolve();
+    },
+  };
+
+  readonly apiKeys: ApiKeysApi = {
+    list: () => Promise.resolve([...(this.backend.apiKeys.get(this.session ?? '') ?? [])]),
+    create: (input) => {
+      if (!input.name.trim()) return Promise.resolve({ problem: 'An API key needs a name.' });
+      const mine = this.backend.apiKeys.get(this.session ?? '') ?? [];
+      const id = `k${mine.length + 1}`;
+      const key: ApiKeyInfo = {
+        id,
+        name: input.name.trim(),
+        scopes: input.scopes,
+        createdAt: '2026-10-29T10:00:00.000Z',
+        expiresAt: input.expiresAt,
+        lastUsedAt: null,
+        revokedAt: null,
+      };
+      this.backend.apiKeys.set(this.session ?? '', [key, ...mine]);
+      return Promise.resolve({ key, token: `pl_${id}_secretsecret` });
+    },
+    revoke: (id) => {
+      const mine = this.backend.apiKeys.get(this.session ?? '') ?? [];
+      this.backend.apiKeys.set(
+        this.session ?? '',
+        mine.map((key) =>
+          key.id === id ? { ...key, revokedAt: '2026-10-29T11:00:00.000Z' } : key,
+        ),
+      );
       return Promise.resolve();
     },
   };

@@ -29,6 +29,8 @@ const HEADER = 44;
 const GRIP = 10;
 /** A press that moves this far is a drag, not a tap. */
 const MOVE_PX = 5;
+/** A finger holds a bar this long to pick it up; moving sooner scrolls (as the calendar). */
+const HOLD_MS = 350;
 
 const weekdayNarrow = new Intl.DateTimeFormat(undefined, { weekday: 'narrow', timeZone: 'UTC' });
 const at = (day: string) => new Date(`${day}T12:00:00Z`);
@@ -96,39 +98,73 @@ export function TimelineView({ tasks, canEdit }: { tasks: Task[]; canEdit: boole
     const schedule = task.schedule;
     const x0 = event.clientX;
     const y0 = event.clientY;
+    const id = event.pointerId;
+    // A mouse drags once it moves a little. A finger scrolls the timeline, bars and all, unless it
+    // first holds a bar still for a moment, as on the calendar (R-FB-155).
+    const touch = event.pointerType === 'touch';
+    let lifted = !touch;
     let moved = false;
+    let scrolled = false;
     let days = 0;
+    const timer =
+      touch && canEdit
+        ? setTimeout(() => {
+            lifted = true;
+            navigator.vibrate?.(10);
+            setDrag({ id: bar.id, part, days: 0 });
+          }, HOLD_MS)
+        : null;
     const move = (next: PointerEvent) => {
-      if (!moved && Math.hypot(next.clientX - x0, next.clientY - y0) < MOVE_PX) return;
+      if (next.pointerId !== id) return;
+      const far = Math.hypot(next.clientX - x0, next.clientY - y0) >= MOVE_PX;
+      if (!lifted) {
+        // Moved before the hold: a scroll, which the page has.
+        if (far) {
+          scrolled = true;
+          finish();
+        }
+        return;
+      }
+      if (!moved && !far) return;
       if (!canEdit) return;
       moved = true;
       days = Math.round((next.clientX - x0) / day);
       setDrag({ id: bar.id, part, days });
     };
-    const up = () => {
+    // While a finger holds a bar, moving it must not scroll the timeline.
+    const hold = (touchEvent: TouchEvent) => {
+      if (lifted && touchEvent.cancelable) touchEvent.preventDefault();
+    };
+    const finish = () => {
+      if (timer) clearTimeout(timer);
       window.removeEventListener('pointermove', move);
       window.removeEventListener('pointerup', up);
-      window.removeEventListener('pointercancel', cancel);
+      window.removeEventListener('pointercancel', finish);
+      document.removeEventListener('touchmove', hold);
       setDrag(null);
+    };
+    const up = (next: PointerEvent) => {
+      if (next.pointerId !== id) return;
+      const wasLifted = lifted && touch;
+      finish();
+      if (scrolled) return;
       if (!moved) {
-        if (part === 'move') open(bar.id);
+        // A tap opens the task; a hold let go without moving changes nothing.
+        if (part === 'move' && !wasLifted) open(bar.id);
         return;
       }
       if (days !== 0) {
-        apply((ctx, ws) =>
-          updateTask(ctx, ws, bar.id, { schedule: draggedSchedule(schedule, part, days) }),
+        apply(
+          (ctx, ws) =>
+            updateTask(ctx, ws, bar.id, { schedule: draggedSchedule(schedule, part, days) }),
+          part === 'move' ? t('undo.moved') : t('undo.datesChanged'),
         );
       }
     };
-    const cancel = () => {
-      window.removeEventListener('pointermove', move);
-      window.removeEventListener('pointerup', up);
-      window.removeEventListener('pointercancel', cancel);
-      setDrag(null);
-    };
     window.addEventListener('pointermove', move);
     window.addEventListener('pointerup', up);
-    window.addEventListener('pointercancel', cancel);
+    window.addEventListener('pointercancel', finish);
+    document.addEventListener('touchmove', hold, { passive: false });
   };
 
   /** Where a bar shows, with a drag in progress applied. */
@@ -317,6 +353,8 @@ export function TimelineView({ tasks, canEdit }: { tasks: Task[]; canEdit: boole
                 aria-label={t('timeline.bar', { title })}
                 data-timeline-bar={bar.id}
                 onPointerDown={(event) => press(event, original, 'move')}
+                // A held finger picks the bar up: no menu from the browser.
+                onContextMenu={(event) => event.preventDefault()}
                 onKeyDown={(event) => {
                   if (event.key === 'Enter') open(bar.id);
                 }}
@@ -340,7 +378,9 @@ export function TimelineView({ tasks, canEdit }: { tasks: Task[]; canEdit: boole
                   overflow: prefs.fit ? 'hidden' : 'visible',
                   textOverflow: 'ellipsis',
                   cursor: canEdit ? 'grab' : 'pointer',
-                  touchAction: canEdit ? 'none' : 'auto',
+                  // A finger scrolls across bars too; holding one picks it up.
+                  touchAction: drag?.id === bar.id ? 'none' : 'pan-x pan-y',
+                  WebkitTouchCallout: 'none',
                   userSelect: 'none',
                   '&:focus-visible': { outline: 2, outlineColor: 'primary.main' },
                 }}

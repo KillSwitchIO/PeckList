@@ -100,6 +100,7 @@ public class ReminderReceiver extends BroadcastReceiver {
         if (cookie == null) return 0;
         try {
             HttpURLConnection connection = (HttpURLConnection) new URL(server + "/api/reminders/act").openConnection();
+            ClientCert.apply(context, connection);
             try {
                 connection.setConnectTimeout(TIMEOUT_MS);
                 connection.setReadTimeout(TIMEOUT_MS);
