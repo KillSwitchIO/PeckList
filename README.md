@@ -60,4 +60,11 @@ Issues and merge requests are welcome. Start with [CONTRIBUTING.md](CONTRIBUTING
 
 ## License
 
-Not chosen yet. Until a license is published here, all rights are reserved.
+Copyright (C) 2026 Ben Dimit. Punchlist is free software under the
+[GNU Affero General Public License, version 3 or later](LICENSE): use it, host it, change it and
+share it, for any purpose. If you run a modified version for other people over a network, offer
+them its source under the same license.
+
+Organizations that cannot work under the AGPL can buy a
+[commercial license](COMMERCIAL-LICENSE.md). Contributions are accepted under the terms in
+[CONTRIBUTING.md](CONTRIBUTING.md#license-and-contributions).
