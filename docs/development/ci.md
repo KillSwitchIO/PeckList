@@ -122,3 +122,13 @@ They use compute minutes.
 
 Every job is a container image plus a script, so it can be run with `docker run` against a checkout,
 or with [gitlab-ci-local](https://github.com/firecow/gitlab-ci-local).
+
+## Dependency updates
+
+[Renovate](https://docs.renovatebot.com/) opens merge requests for updates once a week, run from
+the `homelab-killswitch/renovate-runner` project's schedule (Fridays). The rules are in
+`renovate.json`: patches and minors merge themselves once their pipeline passes, majors (and the
+Android Gradle setup, which follows Capacitor's template) wait for a person, related packages
+come together (MUI, Tiptap, Capacitor, React, test and lint tools, .NET packages), at most six
+are open at a time, and the lockfile is refreshed on Mondays. Base images keep floating on their
+major tags (`node:24`, `dotnet/sdk:10.0`), so only a new major shows up for those.

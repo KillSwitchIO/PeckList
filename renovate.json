@@ -1,0 +1,87 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "description": "Punchlist's dependency updates. Renovate runs weekly from homelab-killswitch/renovate-runner. Patches and minors merge themselves once the merge request's pipeline passes; majors wait for a person.",
+  "extends": ["config:recommended", ":semanticCommits", ":semanticCommitTypeAll(chore)"],
+  "labels": ["renovate"],
+  "rangeStrategy": "pin",
+  "prConcurrentLimit": 6,
+  "prHourlyLimit": 3,
+  "platformAutomerge": true,
+  "lockFileMaintenance": {
+    "enabled": true,
+    "automerge": true,
+    "schedule": ["before 6am on monday"]
+  },
+  "packageRules": [
+    {
+      "description": "Patches and minors: merge when the pipeline passes (one runner builds everything, so they are grouped below)",
+      "matchUpdateTypes": ["minor", "patch", "pin", "digest"],
+      "automerge": true
+    },
+    {
+      "description": "Majors need reading the changelog first",
+      "matchUpdateTypes": ["major"],
+      "automerge": false,
+      "labels": ["renovate", "major"]
+    },
+    {
+      "description": "MUI moves together",
+      "matchPackageNames": ["@mui/**"],
+      "groupName": "MUI"
+    },
+    {
+      "description": "Tiptap packages share one version",
+      "matchPackageNames": ["@tiptap/**"],
+      "groupName": "Tiptap"
+    },
+    {
+      "description": "Capacitor core, CLI, Android and plugins move together",
+      "matchPackageNames": ["@capacitor/**"],
+      "groupName": "Capacitor"
+    },
+    {
+      "description": "React and its types",
+      "matchPackageNames": ["react", "react-dom", "@types/react", "@types/react-dom"],
+      "groupName": "React"
+    },
+    {
+      "description": "Test and lint tooling, one merge request",
+      "matchPackageNames": [
+        "vitest",
+        "@vitest/**",
+        "@testing-library/**",
+        "jsdom",
+        "eslint",
+        "@eslint/**",
+        "eslint-plugin-**",
+        "typescript-eslint",
+        "prettier",
+        "@playwright/**",
+        "playwright"
+      ],
+      "groupName": "test and lint tools"
+    },
+    {
+      "description": "Server packages (Directory.Packages.props), one merge request",
+      "matchManagers": ["nuget"],
+      "matchUpdateTypes": ["minor", "patch"],
+      "groupName": ".NET packages"
+    },
+    {
+      "description": "Docs site builder",
+      "matchManagers": ["pip_requirements"],
+      "groupName": "docs builder"
+    },
+    {
+      "description": "Base images float on their major tags (node:24, dotnet 10.0); only majors are proposed, by hand",
+      "matchManagers": ["dockerfile", "gitlabci"],
+      "matchUpdateTypes": ["minor", "patch", "digest"],
+      "enabled": false
+    },
+    {
+      "description": "The Android build's Gradle plugins and SDK levels: by hand (they track Capacitor's template)",
+      "matchManagers": ["gradle", "gradle-wrapper"],
+      "automerge": false
+    }
+  ]
+}
