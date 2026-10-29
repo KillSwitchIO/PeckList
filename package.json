@@ -1,6 +1,7 @@
 {
   "name": "punchlist",
   "private": true,
+  "license": "AGPL-3.0-or-later",
   "description": "Self-hostable, offline-first task and calendar app",
   "packageManager": "pnpm@10.34.7",
   "engines": {

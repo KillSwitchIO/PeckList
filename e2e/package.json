@@ -1,6 +1,7 @@
 {
   "name": "@punchlist/e2e",
   "private": true,
+  "license": "AGPL-3.0-or-later",
   "type": "module",
   "scripts": {
     "test": "wdio run ./wdio.conf.ts",

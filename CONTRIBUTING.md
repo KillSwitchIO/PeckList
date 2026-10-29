@@ -4,6 +4,23 @@ The workflow is below. The coding standards (layers, style, the checks, shared p
 and performance habits, what to test) are in
 [docs/development/standards.md](docs/development/standards.md); read it before a change.
 
+## License and contributions
+
+Punchlist is released under the [AGPL-3.0-or-later](LICENSE). To keep the project able to offer a
+[commercial license](COMMERCIAL-LICENSE.md) alongside it, contributions come in under a more
+permissive license than the one the project ships with:
+
+- **By submitting a contribution you license it to the project under the
+  [Apache License 2.0](https://www.apache.org/licenses/LICENSE-2.0).** The project redistributes it
+  under the AGPL-3.0-or-later, and may also do so under the commercial license. You keep the
+  copyright and may use your own work however you like.
+- **Sign off every commit** (`git commit -s`, which adds `Signed-off-by: Name <email>`). The
+  sign-off records that you wrote the change or have the right to submit it under these terms, in
+  the sense of the [Developer Certificate of Origin](https://developercertificate.org/), and that
+  you agree to the grant above. If your employer owns your work, make sure they allow it.
+- Third-party code and assets come with a compatible license (MIT, BSD, ISC, Apache-2.0 and the
+  like) and keep their notices. GPL-only or noncommercial-only material cannot be merged.
+
 ## Branching (trunk-based)
 
 - `main` is always releasable. Every commit on it passes lint, typecheck, tests and build.
