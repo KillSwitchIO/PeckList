@@ -28,6 +28,35 @@ const places = [
 export const SEMVER =
   /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-([0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*))?$/;
 
+/** A Conventional Commit that adds something: `feat: ...`, `feat(scope): ...`, `feat!: ...`. */
+const FEATURE = /^feat(\([^)]*\))?!?:/;
+/** A breaking change: `type!:` in the subject, or a `BREAKING CHANGE:` footer. */
+const BREAKING = /^[a-z]+(\([^)]*\))?!:|^BREAKING[ -]CHANGE:/m;
+
+/**
+ * What a release is, from the commit messages since the last tag (Ben, 2026-10-30): any feature
+ * makes it a minor release (0.x.0); only fixes, dependency and version bumps and chores make it a
+ * patch (0.0.x). From 1.0 on a breaking change makes it a major; before 1.0 it counts as a feature.
+ */
+export function releaseKind(current, messages) {
+  const [major] = current.split(/[.-]/).map(Number);
+  if (major >= 1 && messages.some((message) => BREAKING.test(message))) return 'major';
+  if (messages.some((message) => FEATURE.test(message) || BREAKING.test(message))) return 'minor';
+  return 'patch';
+}
+
+/** The release after `current` for those commits. A pre-release (0.3.0-rc.1) releases as its core. */
+export function nextVersion(current, messages) {
+  const match = SEMVER.exec(current);
+  if (!match) throw new Error(`not a version: ${current}`);
+  const [major, minor, patch] = [Number(match[1]), Number(match[2]), Number(match[3])];
+  if (match[4]) return `${major}.${minor}.${patch}`;
+  const kind = releaseKind(current, messages);
+  if (kind === 'major') return `${major + 1}.0.0`;
+  if (kind === 'minor') return `${major}.${minor + 1}.0`;
+  return `${major}.${minor}.${patch + 1}`;
+}
+
 /** Each place with the version it holds. */
 export function readVersions() {
   return places.map(({ file, pattern }) => {

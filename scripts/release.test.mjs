@@ -6,7 +6,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { test } from 'node:test';
 import { releaseNotes } from './release-notes.mjs';
-import { SEMVER, parseTag, readVersions } from './versions.mjs';
+import { SEMVER, nextVersion, parseTag, readVersions, releaseKind } from './versions.mjs';
 
 test('a release tag carries the version and the date as build metadata', () => {
   assert.deepEqual(parseTag('v0.4.0+20261023'), {
@@ -87,4 +87,26 @@ test('a build between releases is the next patch, so it sorts after the release 
 test('a release tag builds exactly its version', () => {
   assert.equal(buildVersion('0.2.0', { CI_COMMIT_TAG: 'v0.2.0+20261025' }), '0.2.0');
   assert.equal(buildVersion('0.3.0-rc.1', { CI_COMMIT_TAG: 'v0.3.0-rc.1+20261101' }), '0.3.0-rc.1');
+});
+
+test('a release with a feature is a minor one; fixes and dependency bumps alone, a patch', () => {
+  const fixes = [
+    'fix(sync): time requests out',
+    'chore(deps): update .net packages',
+    'docs: notes',
+  ];
+  assert.equal(releaseKind('0.2.10', fixes), 'patch');
+  assert.equal(nextVersion('0.2.10', fixes), '0.2.11');
+  const withFeature = [...fixes, 'feat: hide the Closed group\n\nA long press on its header.'];
+  assert.equal(releaseKind('0.2.10', withFeature), 'minor');
+  assert.equal(nextVersion('0.2.10', withFeature), '0.3.0');
+  assert.equal(nextVersion('0.2.10', ['feat(notifications): a button on every notice']), '0.3.0');
+  // Breaking before 1.0 counts as a feature; from 1.0 on it is a major.
+  assert.equal(nextVersion('0.9.4', ['fix!: drop the old sync route']), '0.10.0');
+  assert.equal(nextVersion('1.4.2', ['fix: x\n\nBREAKING CHANGE: the old route is gone']), '2.0.0');
+  assert.equal(nextVersion('1.4.2', ['feat: x']), '1.5.0');
+  // A pre-release releases as its own version.
+  assert.equal(nextVersion('0.3.0-rc.1', ['fix: y']), '0.3.0');
+  // "feature" in a fix's words is not a feature.
+  assert.equal(releaseKind('0.2.10', ['fix: the feature flag check']), 'patch');
 });
