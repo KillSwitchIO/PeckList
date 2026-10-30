@@ -34,6 +34,18 @@ public sealed class ServerSettingsTests
     }
 
     [Fact]
+    public void Usage_reports_go_unless_turned_off_or_do_not_track_is_set()
+    {
+        var settings = Read([]);
+        Assert.True(settings.Telemetry);
+        Assert.Equal(ServerSettings.DefaultTelemetryUrl, settings.TelemetryUrl);
+        Assert.False(Read(new() { ["TELEMETRY"] = "off" }).Telemetry);
+        Assert.False(Read(new() { ["DO_NOT_TRACK"] = "1" }).Telemetry);
+        Assert.Equal("https://stats.example.test/v1/ping", Read(new() { ["TELEMETRY_URL"] = "https://stats.example.test/v1/ping" }).TelemetryUrl.ToString());
+        Assert.Throws<SettingsException>(() => Read(new() { ["TELEMETRY_URL"] = "collector:9000" }));
+    }
+
+    [Fact]
     public void Outside_a_container_the_database_sits_in_a_local_data_folder()
     {
         Assert.Equal(Path.Combine("data", "punchlist.db"), Read([], inContainer: false).DbPath);

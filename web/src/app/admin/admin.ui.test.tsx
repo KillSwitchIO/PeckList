@@ -42,6 +42,7 @@ function memoryAdmin(benId: string) {
     friendships: [] as [string, string][],
     page: {} as Record<string, string>,
     restarted: false,
+    telemetry: { installId: 'id-1', noticeSeen: false },
     /** Signed in as a plain admin: sign-in settings come locked, as the server sends them. */
     signInLocked: false,
     setupDone: true,
@@ -182,6 +183,19 @@ function memoryAdmin(benId: string) {
         saved: Boolean(state.page.REGISTRATION),
         live: false,
         superAdminOnly: true,
+      },
+      {
+        key: 'TELEMETRY',
+        group: 'telemetry',
+        kind: 'flag' as const,
+        choices: null,
+        default: 'true',
+        value: state.page.TELEMETRY ?? null,
+        source: state.page.TELEMETRY ? ('page' as const) : ('default' as const),
+        locked: false,
+        saved: Boolean(state.page.TELEMETRY),
+        live: true,
+        superAdminOnly: false,
       },
       {
         key: 'SNAPSHOT_KEEP',
@@ -363,6 +377,22 @@ function memoryAdmin(benId: string) {
     },
     restart: () => {
       state.restarted = true;
+      return Promise.resolve();
+    },
+    telemetry: () =>
+      Promise.resolve({
+        enabled: state.page.TELEMETRY !== 'false',
+        url: 'https://telemetry.example.test/v1/ping',
+        sentAt: null,
+        noticeSeen: state.telemetry.noticeSeen,
+        report: { installId: state.telemetry.installId, version: '0.3.0', scale: { users: '2-5' } },
+      }),
+    renewTelemetryId: () => {
+      state.telemetry.installId = 'id-2';
+      return Promise.resolve();
+    },
+    telemetryNoticeSeen: () => {
+      state.telemetry.noticeSeen = true;
       return Promise.resolve();
     },
     logging: () =>
@@ -734,6 +764,30 @@ describe('admin', () => {
     expect(state.page).toEqual({ REGISTRATION: 'open' });
     await userEvent.click(screen.getByRole('button', { name: 'Restart now' }));
     expect(state.restarted).toBe(true);
+  });
+
+  it('tells the admin once that the server reports, shows the report as it goes, and renews the install id', async () => {
+    const { state } = await adminApp('superadmin', '/admin/settings');
+    const notice = await screen.findByText(/sends an anonymous usage report once a day/);
+    const telemetry = screen.getByRole('region', { name: 'Telemetry' });
+    expect(within(telemetry).getByText(/Not sent yet/)).toBeInTheDocument();
+
+    await userEvent.click(within(telemetry).getByRole('button', { name: "See what's sent" }));
+    const report = await screen.findByRole('dialog', {
+      name: 'The usage report, as it would go now',
+    });
+    expect(report).toHaveTextContent('"installId": "id-1"');
+    expect(report).toHaveTextContent('"users": "2-5"');
+    await userEvent.click(screen.getByRole('button', { name: 'Close' }));
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+
+    await userEvent.click(within(telemetry).getByRole('button', { name: 'New install id' }));
+    expect(await within(telemetry).findByRole('status')).toHaveTextContent('a new install id');
+    expect(state.telemetry.installId).toBe('id-2');
+
+    await userEvent.click(screen.getByRole('button', { name: 'Got it' }));
+    await waitFor(() => expect(notice).not.toBeInTheDocument());
+    expect(state.telemetry.noticeSeen).toBe(true);
   });
 
   it('backs up, restores one person or the whole server, and exports', async () => {

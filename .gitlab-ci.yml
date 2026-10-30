@@ -314,6 +314,39 @@ container-image:
         ATTEST: --sbom=false --provenance=false
     - when: on_success
 
+# The telemetry collector's image (PL-116), when its code or the ping it reads changes: built on a
+# merge request, pushed from main as :edge and :sha-<commit>. amd64 only; the project runs it.
+collector-image:
+  image: $DOCKER_IMAGE
+  stage: build
+  needs:
+    - job: server-test
+      optional: true
+  timeout: 15m
+  variables:
+    COLLECTOR_IMAGE: $CI_REGISTRY_IMAGE/collector
+  before_script:
+    - echo "$CI_REGISTRY_PASSWORD" | docker login "$CI_REGISTRY" -u "$CI_REGISTRY_USER" --password-stdin
+  script:
+    - |
+      set -eu
+      if [ "${CI_COMMIT_BRANCH:-}" = "$CI_DEFAULT_BRANCH" ]; then
+        docker build --pull -f server/src/Punchlist.Collector/Dockerfile \
+          -t "$COLLECTOR_IMAGE:edge" -t "$COLLECTOR_IMAGE:sha-$CI_COMMIT_SHORT_SHA" server
+        docker push "$COLLECTOR_IMAGE:edge"
+        docker push "$COLLECTOR_IMAGE:sha-$CI_COMMIT_SHORT_SHA"
+      else
+        docker build --pull -f server/src/Punchlist.Collector/Dockerfile -t "$COLLECTOR_IMAGE:mr" server
+      fi
+  rules:
+    - *not-on-tag
+    - *not-on-schedule
+    - changes:
+        - server/src/Punchlist.Collector/**/*
+        - server/src/Punchlist.Core/Telemetry/**/*
+        - server/Directory.Packages.props
+        - server/global.json
+
 # The web app once per pipeline, for the native downloads and the Android app (the image builds
 # its own, inside Docker). Stamped like the image is.
 web-build:
@@ -466,6 +499,8 @@ e2e-server:
   variables:
     # Services get the job's variables: this is the test server's admin password, nothing real.
     ADMIN_PASSWORD: e2e-admin-password-ci
+    # A CI server is not an install: it sends no usage report.
+    TELEMETRY: 'false'
     E2E_ADMIN_PASSWORD: e2e-admin-password-ci
     E2E_BASE_URL: http://punchlist:8080
     E2E_BROWSERS: chrome

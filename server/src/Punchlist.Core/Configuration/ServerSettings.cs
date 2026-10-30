@@ -98,6 +98,18 @@ public sealed record ServerSettings
     /// <summary>Look for newer Punchlist releases on GitLab twice a day (<c>UPDATE_CHECK</c>).</summary>
     public bool UpdateCheck { get; init; } = true;
 
+    /// <summary>Where the daily usage report goes unless <c>TELEMETRY_URL</c> says otherwise (moves to the app's domain at 1.0).</summary>
+    public static readonly Uri DefaultTelemetryUrl = new("https://telemetry.killswitch10.com/v1/ping");
+
+    /// <summary>
+    /// Send the anonymous daily usage report (<c>TELEMETRY</c>, on by default; PL-116). The
+    /// <c>DO_NOT_TRACK=1</c> convention turns it off too.
+    /// </summary>
+    public bool Telemetry { get; init; } = true;
+
+    /// <summary>Where the daily usage report goes (<c>TELEMETRY_URL</c>).</summary>
+    public Uri TelemetryUrl { get; init; } = DefaultTelemetryUrl;
+
     /// <summary>Where archives go: <c>audit</c> next to the SQLite file.</summary>
     public string AuditArchiveDir { get; init; } = "/data/audit";
 
@@ -194,6 +206,20 @@ public sealed record ServerSettings
             return fallback;
         }
 
+        var telemetryUrl = DefaultTelemetryUrl;
+        if (Get("TELEMETRY_URL") is { } telemetry)
+        {
+            if (Uri.TryCreate(telemetry, UriKind.Absolute, out var parsed)
+                && (parsed.Scheme == Uri.UriSchemeHttp || parsed.Scheme == Uri.UriSchemeHttps))
+            {
+                telemetryUrl = parsed;
+            }
+            else
+            {
+                errors.Add($"TELEMETRY_URL: '{telemetry}' is not an http or https address");
+            }
+        }
+
         var dbPath = Get("DB_PATH") ?? (inContainer ? "/data/punchlist.db" : Path.Combine("data", "punchlist.db"));
         var settings = new ServerSettings
         {
@@ -222,6 +248,8 @@ public sealed record ServerSettings
                 ?? Path.Combine(Path.GetDirectoryName(dbPath) is { Length: > 0 } attachmentDir ? attachmentDir : ".", "attachments"),
             AttachmentMaxMb = Count("ATTACHMENT_MAX_MB", 25, 1),
             UpdateCheck = Flag("UPDATE_CHECK", true),
+            Telemetry = Flag("TELEMETRY", true) && !Flag("DO_NOT_TRACK", false),
+            TelemetryUrl = telemetryUrl,
             AuditArchiveDir = Get("AUDIT_ARCHIVE_DIR")
                 ?? Path.Combine(Path.GetDirectoryName(dbPath) is { Length: > 0 } auditDir ? auditDir : ".", "audit"),
             Logging = LoggingSettings.Read(Get, Path.Combine(Path.GetDirectoryName(dbPath) is { Length: > 0 } dir ? dir : ".", "logs"), errors),

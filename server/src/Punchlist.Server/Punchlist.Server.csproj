@@ -17,4 +17,9 @@
   <ItemGroup>
     <InternalsVisibleTo Include="Punchlist.Server.Tests" />
   </ItemGroup>
+  <!-- A build CI stamped with its version (the image, the native packages): the usage report
+       names its channel from the version; any other build is a developer's (channel dev). -->
+  <ItemGroup Condition="'$(PunchlistStamped)' == 'true'">
+    <AssemblyMetadata Include="PunchlistStamped" Value="true" />
+  </ItemGroup>
 </Project>

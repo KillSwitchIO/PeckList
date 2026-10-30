@@ -107,6 +107,17 @@ export interface PendingSignIn {
   lastSeen: string;
 }
 
+/** The daily usage report as the admin settings page shows it (PL-116). */
+export interface TelemetryView {
+  enabled: boolean;
+  url: string;
+  /** When a report last went, ISO; null before the first. */
+  sentAt: string | null;
+  noticeSeen: boolean;
+  /** The report exactly as it would go now. */
+  report: Record<string, unknown>;
+}
+
 /** One server setting as the settings page shows it (spec: Server settings). */
 export interface ServerSetting {
   key: string;
@@ -347,6 +358,12 @@ export interface AdminApi {
   ): Promise<{ ok: true; value: ServerSettingsView } | { ok: false; message: string }>;
   /** Stop the server so it starts again with the saved values (needs a restart policy). */
   restart(): Promise<void>;
+  /** The daily usage report (PL-116): whether it goes, where, and the report as it would go now. */
+  telemetry(): Promise<TelemetryView>;
+  /** A new random install id: later reports cannot be tied to earlier ones. */
+  renewTelemetryId(): Promise<void>;
+  /** Stop the first-start notice about the usage report. */
+  telemetryNoticeSeen(): Promise<void>;
 
   logging(): Promise<LoggingView>;
   /** Downloads a zip of recent logs, settings (secrets hidden), versions and counts. */

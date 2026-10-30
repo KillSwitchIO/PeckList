@@ -29,6 +29,7 @@ public static class Storage
         services.AddSingleton<Core.Accounts.IApiKeyStore, SqlApiKeyStore>();
         services.AddSingleton<Core.Push.IPushStore, SqlPushStore>();
         services.AddSingleton<Core.Stats.IStatsSource, SqlStatsSource>();
+        services.AddSingleton<Core.Telemetry.ITelemetrySource, SqlTelemetrySource>();
         services.AddSingleton<ISecretStore, SqlSecretStore>();
         services.AddHostedService<DatabaseStartup>();
         services.AddHealthChecks().AddCheck<DatabaseHealthCheck>("database");

@@ -5,6 +5,7 @@ import type { MessageKey } from '../i18n/en.ts';
 import { t } from '../i18n/i18n.ts';
 import { ProblemAlert } from '../layout/ProblemAlert.tsx';
 import { PasswordField } from '../layout/PasswordField.tsx';
+import { TelemetryNotice, TelemetryPanel } from './TelemetryPanel.tsx';
 import { useIsSuperAdmin, useLoaded } from './useAdmin.ts';
 
 const LABELS: Record<string, MessageKey> = {
@@ -39,6 +40,9 @@ const LABELS: Record<string, MessageKey> = {
   ACCESS_LOG_RETENTION_DAYS: 'serverSettings.ACCESS_LOG_RETENTION_DAYS',
   AUDIT_ARCHIVE: 'serverSettings.AUDIT_ARCHIVE',
   UPDATE_CHECK: 'serverSettings.UPDATE_CHECK',
+  TELEMETRY: 'serverSettings.TELEMETRY',
+  TELEMETRY_URL: 'serverSettings.TELEMETRY_URL',
+  DO_NOT_TRACK: 'serverSettings.DO_NOT_TRACK',
   AUDIT_ARCHIVE_DIR: 'serverSettings.AUDIT_ARCHIVE_DIR',
   AUTH_MODE: 'serverSettings.AUTH_MODE',
   ADMIN_PASSWORD: 'serverSettings.ADMIN_PASSWORD',
@@ -78,6 +82,7 @@ const GROUPS: Record<string, MessageKey> = {
   logging: 'serverSettings.group.logging',
   'log-shipping': 'serverSettings.group.log-shipping',
   audit: 'serverSettings.group.audit',
+  telemetry: 'serverSettings.group.telemetry',
   environment: 'serverSettings.group.environment',
 };
 
@@ -182,6 +187,7 @@ function SettingControl({
 export function SettingsTab({ api }: { api: AdminApi }) {
   const superAdmin = useIsSuperAdmin();
   const { data, reload } = useLoaded(api.settings);
+  const telemetry = useLoaded(api.telemetry);
   const [saved, setSaved] = useState<ServerSettingsView | null>(null);
   const view = saved ?? data;
   // What the admin has typed, by key; a secret's field starts empty (never shown).
@@ -219,6 +225,7 @@ export function SettingsTab({ api }: { api: AdminApi }) {
           {t('serverSettings.setAside', { problem: view.problem })}
         </Alert>
       )}
+      <TelemetryNotice view={telemetry.data} api={api} onSeen={telemetry.reload} />
       {view.pendingRestart && (
         <Alert
           severity="info"
@@ -277,6 +284,9 @@ export function SettingsTab({ api }: { api: AdminApi }) {
                 />
               </Box>
             ))}
+          {group === 'telemetry' && (
+            <TelemetryPanel view={telemetry.data} api={api} onChange={telemetry.reload} />
+          )}
         </Box>
       ))}
       <ProblemAlert problem={problem} />
