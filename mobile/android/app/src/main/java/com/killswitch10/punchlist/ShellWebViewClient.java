@@ -93,6 +93,12 @@ class ShellWebViewClient extends BridgeWebViewClient {
             context.getString(R.string.gate_body, host),
             shellButton("go", R.string.gate_sign_in, "passGate", "{}") +
             shellButton("other", R.string.gate_here, "passGate", "{inApp:true}") +
+            // A gate that keeps its cookie to itself (Pangolin): a share link for this server,
+            // loaded here once, gives this WebView the gate's session the way a browser gets it.
+            "<label class=\"shell\" hidden>" + E(R.string.gate_link_hint) +
+            "<input id=\"link\" type=\"url\" inputmode=\"url\" autocomplete=\"off\" placeholder=\"https://\"></label>" +
+            "<button class=\"other shell\" hidden onclick=\"Capacitor.nativePromise('PunchlistShell','passGate',{link:document.getElementById('link').value})\">" +
+            E(R.string.gate_link_use) + "</button>" +
             shellButton("other", R.string.offline_other, "chooseServer", "{}")
         ), "text/html", "utf-8", null));
     }
@@ -120,6 +126,9 @@ class ShellWebViewClient extends BridgeWebViewClient {
             "h1{font-size:1.375rem;margin:0 0 4px}p{color:var(--muted);margin:0 0 24px;font-size:.875rem}" +
             "button{width:100%;border:0;border-radius:8px;padding:12px 16px;font:inherit;font-weight:600;cursor:pointer}" +
             ".go{background:var(--accent);color:var(--on)}.other{background:none;color:var(--accent);margin-top:8px}" +
+            "label{display:block;margin-top:20px;font-size:.875rem;color:var(--muted)}" +
+            "input{display:block;width:100%;margin-top:6px;padding:10px 12px;border:1px solid var(--line);border-radius:8px;" +
+            "font:inherit;box-sizing:border-box;background:var(--bg);color:var(--text)}" +
             "</style></head><body><main>" +
             "<h1>" + TextUtils.htmlEncode(title) + "</h1>" +
             "<p>" + TextUtils.htmlEncode(body) + "</p>" +

@@ -157,6 +157,21 @@ public class ShellPlugin extends Plugin {
             call.reject("no server", "invalid");
             return;
         }
+        String link = call.getString("link");
+        if (link != null && !link.trim().isEmpty()) {
+            // A share link (Pangolin): the gate answers its first load with its session cookie and
+            // sends the WebView on to the server, which is then open to it like to a browser.
+            String given = link.trim();
+            String host = Uri.parse(given).getHost();
+            if (host == null || !host.equalsIgnoreCase(Uri.parse(server).getHost())) {
+                call.reject("the link is for another server", "invalid");
+                return;
+            }
+            call.resolve();
+            providerInWebViewUntil = System.currentTimeMillis() + PROVIDER_IN_WEBVIEW_MS;
+            getBridge().getWebView().post(() -> getBridge().getWebView().loadUrl(given));
+            return;
+        }
         call.resolve();
         if (Boolean.TRUE.equals(call.getBoolean("inApp", false))) {
             providerInWebViewUntil = System.currentTimeMillis() + PROVIDER_IN_WEBVIEW_MS;
