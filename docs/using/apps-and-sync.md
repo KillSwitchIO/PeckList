@@ -48,10 +48,14 @@ apps** (Settings > Battery > Background usage limits).
 
 Back steps back through the app; on the first screen, press it twice to leave.
 
-If your server sits behind a sign-in page of its own (Pangolin, Cloudflare Access, Authelia,
-Authentik), the app asks you to sign in to it: **Sign in** does that in your browser, where passkeys
-work, then hands the pass back to the app after you confirm. Your server must be Punchlist 0.2.3 or
+If your server sits behind a sign-in page of its own (Cloudflare Access, Authelia, Authentik),
+the app asks you to sign in to it: **Sign in** does that in your browser, where passkeys work,
+then hands the pass back to the app after you confirm. Your server must be Punchlist 0.2.3 or
 later for that; on an older one, **Sign in here instead** works for gates without passkeys.
+**Pangolin** keeps its sign-in to itself, so that hand-back cannot work there: make a share link
+for the resource in Pangolin (no expiry, or as long as you like), paste it into the app's sign-in
+card under **Behind Pangolin?**, and the app is let in like a browser would be, for as long as the
+link's session lasts.
 
 Servers with a certificate from your own CA work once that CA is installed on the phone
 (Settings > Security > Encryption & credentials > Install a certificate).

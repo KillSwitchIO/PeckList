@@ -41,6 +41,9 @@ app (ADR-0017 in the project notes). There is no second copy of the UI.
   the WebView's cookies for a month (the gate asks again when its own session ends). **Sign in here
   instead** signs in to the gate inside the WebView, for a gate without passkeys or a server too
   old for `/auth/app/gate`. The connect page says when an address is gated (`ServerCheck`, `gated`).
+  **A share link** (`passGate` with `link`, for Pangolin, which strips its session cookie before
+  the request reaches the server, so the hand-back can never carry it): the link, on the server's
+  host, is loaded in the WebView once; the gate answers with its cookie and sends the WebView on.
 - **Getting off a server**: the connect page always offers **Use on this device only**; the
   offline page's **Use another server** and the launcher icon's long-press shortcut **Change
   server** (`res/xml/shortcuts.xml`) leave the server for the app's own connect page, whatever the

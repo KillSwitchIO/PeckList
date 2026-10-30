@@ -153,3 +153,9 @@ or `headers` middleware either.
 - **Pangolin, Authelia or Authentik forward auth**: fine in front of Punchlist, but keep
   `/api/*` and `/auth/*` reachable for the app's own sign-in and sync, or sign in only through the
   proxy and use `AUTH_MODE=none` (everyone the proxy lets through is the same one user).
+- **The Android app behind Pangolin**: Pangolin strips its session cookie from every request
+  before it reaches Punchlist, so the app's browser hand-back (which passes the gate's cookies on)
+  has nothing to pass. Make a **share link** for the resource in Pangolin instead and paste it into
+  the app's sign-in card; the first load gives the app Pangolin's session the way it gives a
+  browser one. Gates that forward their cookie (Cloudflare Access, Authelia, Authentik) work with
+  the hand-back as documented in [apps and sync](../using/apps-and-sync.md).
