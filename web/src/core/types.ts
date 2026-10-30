@@ -191,6 +191,19 @@ export interface Settings extends BaseEntity {
    * the quick choices, Custom's first time and the new-task reminder; absent: 09:00
    */
   allDayReminderTime?: string;
+  /** Which kinds of notification reach them, and whether they vibrate (schema 17, PL-115); absent: all on */
+  notifications?: NotificationSwitches;
+}
+
+/** Each absent switch is on. The Notifications page lists every kind regardless. */
+export interface NotificationSwitches {
+  reminders?: boolean;
+  /** Assigned to me, assigned to my group, dibs called */
+  assignments?: boolean;
+  shares?: boolean;
+  /** Comments, edited comments and mentions */
+  comments?: boolean;
+  vibrate?: boolean;
 }
 
 /** The person's defaults for new tasks; each absent field keeps the built-in behavior. */

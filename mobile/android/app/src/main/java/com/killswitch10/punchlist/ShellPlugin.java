@@ -371,8 +371,8 @@ public class ShellPlugin extends Plugin {
         String tag = call.getString("tag", "");
         if (Boolean.TRUE.equals(call.getBoolean("news", false))) {
             try {
-                Reminders.showNews(getContext(), tag, call.getString("title", "Punchlist"), call.getString("body", ""),
-                    call.getString("url", "/today"), call.getArray("actions", new com.getcapacitor.JSArray()));
+                Reminders.showNews(getContext(), tag, call.getString("category", ""), call.getString("title", "Punchlist"),
+                    call.getString("body", ""), call.getString("url", "/today"), call.getArray("actions", new com.getcapacitor.JSArray()));
                 call.resolve();
             } catch (JSONException error) {
                 call.reject("bad news: " + error.getMessage(), "invalid");

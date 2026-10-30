@@ -87,6 +87,8 @@ public sealed class NotificationRecorder(
         var actor = (await accounts.FindByIdAsync(userId, cancellation))?.Username;
         foreach (var each in found)
         {
+            // Switched off in their settings: recorded in the feed, but not pushed (PL-115).
+            if (!NotificationSwitches.Allows(Push.ReminderSender.SettingsOf(sharing.Index, each.UserId), each.Kind)) continue;
             var (body, url) = NotificationText.Of(each, actor, sharing.Index);
             await push.SendAsync(
                 each.UserId,

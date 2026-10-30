@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { createMemoryStorage } from '../../adapters/memory-storage.ts';
 import { inboxList } from '../../core/lists.ts';
 import { addComment } from '../../core/comments.ts';
+import { updateSettings } from '../../core/settings.ts';
 import { createTask } from '../../core/tasks.ts';
 import { FakeBackend } from '../../test/fakeTransport.ts';
 import { mockViewport, renderApp, testStore } from '../../test/renderApp.tsx';
@@ -137,6 +138,8 @@ describe('notifications', () => {
     await waitFor(() => expect(shown).toHaveLength(2));
     expect(shown[1]).toEqual({
       kind: 'news',
+      category: 'groupAssigned',
+      vibrate: true,
       title: 'Punchlist',
       body: expect.stringMatching(/assigned Mow the lawn to your group$/) as string,
       tag: 'N2',
@@ -184,6 +187,45 @@ describe('notifications', () => {
     expect(await screen.findByText('Looking for this task on the server…')).toBeInTheDocument();
     act(() => release());
     expect(await screen.findByText('This task no longer exists.')).toBeInTheDocument();
+  });
+
+  it('a kind switched off in Settings is not shown while the app is open', async () => {
+    const shown: unknown[] = [];
+    setNotifier({
+      ...browser,
+      permission: () => 'granted',
+      show: (notification) => {
+        shown.push(notification);
+        return Promise.resolve();
+      },
+    });
+    const backend = new FakeBackend();
+    backend.addAccount('ben', 'correct horse battery');
+    const sam = backend.addAccount('sam', 'sams own password');
+    const { store, sync } = await signedIn('/today', backend);
+    let taskId = '';
+    act(() =>
+      store.getState().apply((ctx, ws) => {
+        const made = createTask(ctx, ws, { title: 'Mow the lawn', listId: inboxList(ws).id });
+        taskId = made.task.id;
+        return updateSettings(ctx, made.workspace, { notifications: { assignments: false } });
+      }),
+    );
+    const news = (id: string, kind: 'assigned' | 'shared') => ({
+      id,
+      kind,
+      at: '2026-10-24T15:00:00.000Z',
+      actorId: sam.id,
+      taskId: kind === 'assigned' ? taskId : null,
+      listId: kind === 'shared' ? inboxList(store.getState().workspace!).id : null,
+      commentId: null,
+      read: false,
+    });
+    backend.notifications.set('ben', [news('N1', 'assigned'), news('N2', 'shared')]);
+    await act(() => sync.getState().syncNow());
+    await screen.findByRole('button', { name: /2 new notifications/ });
+    await waitFor(() => expect(shown).toHaveLength(1));
+    expect(shown[0]).toMatchObject({ tag: 'N2', category: 'shared', vibrate: true });
   });
 
   it('open the task they are about', async () => {

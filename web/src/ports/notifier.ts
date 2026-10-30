@@ -14,6 +14,10 @@ export interface AppNotification {
   actions?: { action: string; title: string; url?: string }[];
   /** News from the server (an assignment, a share, a comment), not a reminder: no Complete or Snooze */
   kind?: 'reminder' | 'news';
+  /** The news' kind as the server names it (assigned, shared, commented, ...): picks its channel on Android */
+  category?: string;
+  /** Whether to vibrate, where the page may say (Android browsers); absent: yes */
+  vibrate?: boolean;
 }
 
 /** A notification the system shows at a set time, with or without the app running. */

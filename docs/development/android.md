@@ -57,7 +57,11 @@ app (ADR-0017 in the project notes). There is no second copy of the UI.
   (`web/src/adapters/shell-notifier.ts`, shell api 3; an older shell gets them through Capacitor's
   Local Notifications instead). `Reminders` sets an exact alarm for each (`USE_EXACT_ALARM`) and
   shows it when it fires, in a "Reminders" channel, with **Complete** and **Snooze** as TickTick
-  has. Snooze asks how long first (`SnoozeActivity`, a dialog over whatever is on screen: 10 or 30
+  has. A constant reminder is insistent (it keeps sounding until touched) and a quiet copy
+  replaces it after 30 minutes; its 5-minute repeats are for browsers and are skipped here.
+  News goes to a channel per kind ("Assignments and dibs", "Shared lists", "Comments and
+  mentions"), all with vibration on (PL-115); the channel ids are versioned (`.v2`) because
+  Android keeps a channel's settings as first created, and the first ones had no vibration. Snooze asks how long first (`SnoozeActivity`, a dialog over whatever is on screen: 10 or 30
   minutes, 1 or 3 hours, tomorrow at 9:00, or a time). On a server the buttons act there
   (`POST /api/reminders/act`, `ReminderReceiver`) without opening the app, and take effect on the
   phone at once; offline, the press waits in `Pending` and goes at the next check-in or start, with

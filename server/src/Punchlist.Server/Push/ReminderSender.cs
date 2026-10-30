@@ -59,6 +59,7 @@ public sealed class ReminderSender(
             foreach (var userId in ServerReminders.Recipients(task, index))
             {
                 var mine = settings.GetValueOrDefault(userId);
+                if (!NotificationSwitches.Allows(mine, NotificationKind.Reminder)) continue;
                 var zone = ZoneOf(mine);
                 foreach (var (at, first, constant) in ServerReminders.Instants(task, zone))
                 {
@@ -95,6 +96,7 @@ public sealed class ReminderSender(
     public static IReadOnlyList<Upcoming> UpcomingFor(SharingIndex index, string userId, DateTimeOffset from, DateTimeOffset to, string? deviceZone)
     {
         var mine = SettingsOf(index, userId);
+        if (!NotificationSwitches.Allows(mine, NotificationKind.Reminder)) return [];
         var zone = mine?["timeZone"] is JsonValue ? ZoneOf(mine)
             : deviceZone is not null && TimeZoneInfo.TryFindSystemTimeZoneById(deviceZone, out var device) ? device
             : TimeZoneInfo.Local;

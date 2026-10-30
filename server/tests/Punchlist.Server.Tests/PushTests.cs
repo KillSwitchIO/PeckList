@@ -350,4 +350,63 @@ public sealed class PushTests(ServerFixture fixture) : IClassFixture<ServerFixtu
         var expected = TimeZoneInfo.ConvertTime(before, TimeZoneInfo.Local).DateTime.AddMinutes(60);
         Assert.InRange((snoozed - expected).TotalMinutes, -1.5, 1.5);
     }
+
+    [Fact]
+    public async Task A_kind_switched_off_in_settings_is_recorded_but_neither_pushed_nor_handed_to_the_app()
+    {
+        using var server = Server();
+        var (ben, benId) = await SignIn(server, "ben-s");
+        var (sam, samId) = await SignIn(server, "sam-s");
+        // Ben hears of assignments in the feed only (PL-115).
+        var settings = Entity("SET-S", benId, new JsonObject
+        {
+            ["userId"] = benId,
+            ["themeMode"] = "system",
+            ["palette"] = new JsonObject(),
+            ["pointEventMinutes"] = 30,
+            ["dueSoonDays"] = 2,
+            ["sidebar"] = new JsonObject { ["order"] = new JsonArray(), ["hidden"] = new JsonArray(), ["groupOpen"] = false },
+            ["notifications"] = new JsonObject { ["assignments"] = false },
+        });
+        (await ben.PostAsJsonAsync("/api/sync", new
+        {
+            schemaVersion = WorkspaceSchema.CurrentVersion,
+            cursor = (long?)null,
+            changes = new object[] { new { collection = "settings", entity = settings } },
+        }, Token)).EnsureSuccessStatusCode();
+        // The app's first check only notes where things stand.
+        var first = (await ben.GetFromJsonAsync<AppCheck>("/api/app/check", Token))!;
+
+        var list = Entity("SL1", samId, new JsonObject { ["name"] = "Chores", ["visibility"] = "shared" });
+        var member = Entity("SM1", samId, new JsonObject { ["listId"] = "SL1", ["principal"] = $"user:{benId}", ["role"] = "editor" });
+        var task = Entity("ST1", samId, new JsonObject
+        {
+            ["listId"] = "SL1",
+            ["title"] = "Bins",
+            ["parentId"] = null,
+            ["assignees"] = new JsonObject
+            {
+                [$"user:{benId}"] = new JsonObject { ["in"] = true, ["hlc"] = "2026-10-24T10:00:00.000Z-0000-dev1" },
+            },
+        });
+        (await sam.PostAsJsonAsync("/api/sync", new
+        {
+            schemaVersion = WorkspaceSchema.CurrentVersion,
+            cursor = (long?)null,
+            changes = new object[]
+            {
+                new { collection = "lists", entity = list },
+                new { collection = "listMembers", entity = member },
+                new { collection = "tasks", entity = task },
+            },
+        }, Token)).EnsureSuccessStatusCode();
+
+        // The share went out (shares are on); the assignment did not.
+        Assert.Equal(["sam-s shared Chores with you"], push.Sent.Where(each => each.UserId == benId).Select(each => each.Payload.Body));
+        var check = (await ben.GetFromJsonAsync<AppCheck>($"/api/app/check?after={first.Cursor}", Token))!;
+        Assert.Equal(["sam-s shared Chores with you"], check.Notifications.Select(each => each.Body));
+        // The feed still lists both: the switch is about interruptions, not the record.
+        var feed = (await ben.GetFromJsonAsync<NotificationFeed>("/api/notifications", Token))!;
+        Assert.Equal(["assigned", "shared"], feed.Items.Select(each => each.Kind).Order());
+    }
 }

@@ -40,7 +40,7 @@ public static class ServerReminders
 
     /// <summary>A constant reminder (spec: R-FB-60) comes again this often, this many times in all.</summary>
     public static readonly TimeSpan ConstantEvery = TimeSpan.FromMinutes(5);
-    public const int ConstantTimes = 12;
+    public const int ConstantTimes = 6;
 
     /// <summary>
     /// When the task's reminders fire, in the given time zone: each one, and for a constant reminder

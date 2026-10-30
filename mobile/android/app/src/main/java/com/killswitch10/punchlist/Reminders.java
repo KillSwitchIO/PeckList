@@ -32,8 +32,21 @@ import org.json.JSONObject;
  */
 final class Reminders {
 
-    static final String CHANNEL = "reminders";
-    static final String ACTIVITY = "activity";
+    /**
+     * Notification channels, one per kind so the phone's own settings can quiet any one of them
+     * (spec: PL-115). Versioned: Android keeps a channel's settings as first created, and the first
+     * ones had no vibration, so these replace them and the old two are deleted.
+     */
+    static final String CHANNEL = "reminders.v2";
+    static final String ASSIGNMENTS = "assignments.v2";
+    static final String SHARES = "shares.v2";
+    static final String COMMENTS = "comments.v2";
+    private static final String[] OLD_CHANNELS = { "reminders", "activity" };
+
+    /** A constant reminder stops buzzing after this long (PL-115): a quiet copy replaces it. */
+    static final long QUIET_AFTER_MS = 30 * 60 * 1000;
+    /** The key suffix of that quiet copy; it shares the tag, so it replaces the loud one on screen. */
+    static final String QUIET = "#quiet";
     /** How long Snooze puts a reminder off (the web app's SNOOZE_MINUTES). */
     static final int SNOOZE_MINUTES = 10;
 
@@ -143,7 +156,16 @@ final class Reminders {
     static synchronized void handOver(Context context, List<Reminder> wanted) {
         migrateFromPlugin(context);
         Map<String, Reminder> next = new LinkedHashMap<>();
-        for (Reminder each : wanted) next.put(each.key, each);
+        for (Reminder old : load(context).values()) {
+            // The quiet copies this phone made for its constant reminders are its own to keep.
+            if (old.key.endsWith(QUIET)) next.put(old.key, old);
+        }
+        for (Reminder each : wanted) {
+            // A constant reminder's repeats are for browsers; here the notification itself keeps
+            // sounding until touched (FLAG_INSISTENT), and goes quiet after QUIET_AFTER_MS.
+            if (each.constant && each.key.contains("#")) continue;
+            next.put(each.key, each);
+        }
         for (Reminder old : load(context).values()) {
             if (!next.containsKey(old.key)) cancelAlarm(context, old);
         }
@@ -206,23 +228,42 @@ final class Reminders {
         if (!NotificationManagerCompat.from(context).areNotificationsEnabled()) return;
         channel(context, CHANNEL, R.string.channel_reminders, NotificationManager.IMPORTANCE_HIGH);
         boolean onServer = ServerChoice.get(context) != null;
+        boolean quiet = reminder.key.endsWith(QUIET);
         NotificationCompat.Builder built = base(context, CHANNEL, reminder.title, reminder.body)
             .setCategory(NotificationCompat.CATEGORY_REMINDER)
             .setPriority(NotificationCompat.PRIORITY_HIGH)
             .setWhen(reminder.at)
+            .setOnlyAlertOnce(quiet)
             .setContentIntent(open(context, reminder, null))
             .addAction(0, context.getString(R.string.action_complete),
                 onServer && !reminder.repeats ? act(context, reminder, COMPLETE) : open(context, reminder, COMPLETE))
             .addAction(0, context.getString(R.string.action_snooze), snoozePicker(context, reminder));
-        NotificationManagerCompat.from(context).notify(reminder.shown(), built.build());
+        android.app.Notification made = built.build();
+        if (reminder.constant && !quiet) {
+            // Keeps sounding and buzzing until it is opened, dismissed or a button is pressed
+            // (spec: PL-115), and a quiet copy takes its place after QUIET_AFTER_MS.
+            made.flags |= android.app.Notification.FLAG_INSISTENT;
+            add(context, new Reminder(reminder.tag() + QUIET, reminder.title, reminder.body,
+                reminder.at + QUIET_AFTER_MS, reminder.url, true, reminder.repeats));
+        }
+        NotificationManagerCompat.from(context).notify(reminder.shown(), made);
     }
 
-    /** What is new from other people ({id, title, body, url} from the check-in), shown now. */
+    /** What is new from other people ({id, kind, title, body, url} from the check-in), shown now. */
     static void showNew(Context context, JSONArray notifications) throws JSONException {
         for (int i = 0; i < notifications.length(); i++) {
             JSONObject each = notifications.getJSONObject(i);
-            showNews(context, each.getString("id"), each.getString("title"), each.getString("body"), each.getString("url"),
-                each.optJSONArray("actions"));
+            showNews(context, each.getString("id"), each.optString("kind", ""), each.getString("title"), each.getString("body"),
+                each.getString("url"), each.optJSONArray("actions"));
+        }
+    }
+
+    /** The channel a kind of news goes to: shares, comments and mentions, or assignments and dibs. */
+    static String channelOf(String kind) {
+        switch (kind) {
+            case "shared": return SHARES;
+            case "commented": case "commentEdited": case "mentioned": return COMMENTS;
+            default: return ASSIGNMENTS;
         }
     }
 
@@ -230,17 +271,19 @@ final class Reminders {
      * One piece of news (an assignment, a share, a comment), from the check-in or from the web app
      * while it is on screen (shell api 4), keyed by the server's id so the two never show it twice.
      */
-    static void showNews(Context context, String newsId, String title, String body, String url, JSONArray actions)
+    static void showNews(Context context, String newsId, String kind, String title, String body, String url, JSONArray actions)
         throws JSONException {
         if (!NotificationManagerCompat.from(context).areNotificationsEnabled()) return;
-        channel(context, ACTIVITY, R.string.channel_activity, NotificationManager.IMPORTANCE_DEFAULT);
+        String channel = channelOf(kind);
+        channel(context, channel, channel.equals(SHARES) ? R.string.channel_shares
+            : channel.equals(COMMENTS) ? R.string.channel_comments : R.string.channel_assignments, NotificationManager.IMPORTANCE_DEFAULT);
         int id = idOf("news:" + newsId);
         Intent intent = new Intent(context, MainActivity.class)
             .setAction("com.killswitch10.punchlist.OPEN." + id)
             .addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP)
             .putExtra(EXTRA_URL, url)
             .putExtra(EXTRA_SHOWN, id);
-        NotificationCompat.Builder built = base(context, ACTIVITY, title, body)
+        NotificationCompat.Builder built = base(context, channel, title, body)
             .setCategory(NotificationCompat.CATEGORY_SOCIAL)
             .setContentIntent(PendingIntent.getActivity(context, id, intent, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE));
         // Its buttons, left to right (R-FB-106, R-FB-107): each opens the app where it says.
@@ -354,8 +397,17 @@ final class Reminders {
 
     private static void channel(Context context, String id, int name, int importance) {
         NotificationManager notifications = context.getSystemService(NotificationManager.class);
-        if (notifications == null || notifications.getNotificationChannel(id) != null) return;
-        notifications.createNotificationChannel(new NotificationChannel(id, context.getString(name), importance));
+        if (notifications == null) return;
+        for (String old : OLD_CHANNELS) {
+            if (notifications.getNotificationChannel(old) != null) notifications.deleteNotificationChannel(old);
+        }
+        if (notifications.getNotificationChannel(id) != null) return;
+        NotificationChannel made = new NotificationChannel(id, context.getString(name), importance);
+        // Vibration on from the start (PL-115); the person turns it off per channel on the phone.
+        made.enableVibration(true);
+        made.setVibrationPattern(new long[] { 0, 250, 150, 250 });
+        made.enableLights(true);
+        notifications.createNotificationChannel(made);
     }
 
     private static Map<String, Reminder> load(Context context) {

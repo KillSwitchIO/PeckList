@@ -10,6 +10,7 @@ import { localTimeZone } from '../../core/dates.ts';
 import { formatTime } from '../format.ts';
 import { t } from '../i18n/i18n.ts';
 import { useApply, useStoreState, useWorkspace } from '../store/hooks.ts';
+import { notificationAllowed } from '../../core/notificationSwitches.ts';
 import { localClock } from './clock.ts';
 import { notifier } from './notifier.ts';
 import { logReminder } from './reminderLog.ts';
@@ -115,7 +116,9 @@ export function ReminderScheduler({ now = Date.now }: { now?: () => number }) {
       const at = now();
       const { workspace: ws, me: user } = latest.current;
       const fired = firedKeys();
-      const due = remindersBetween(ws, user, at - GRACE_MS, at + 86_400_000, localTimeZone());
+      const due = notificationAllowed(ws.entities.settings[0], 'reminder')
+        ? remindersBetween(ws, user, at - GRACE_MS, at + 86_400_000, localTimeZone())
+        : [];
       // Woken late with a constant reminder's repeats piled up: the latest one only.
       const waiting = due.filter((each) => each.at <= at && !(each.key in fired));
       for (const each of waiting) {
@@ -138,7 +141,11 @@ export function ReminderScheduler({ now = Date.now }: { now?: () => number }) {
     if (!notifier().scheduleAhead) return;
     const handle = setTimeout(() => {
       const at = now();
-      const ahead = remindersBetween(workspace, me, at, at + AHEAD_MS, localTimeZone())
+      const ahead = (
+        notificationAllowed(workspace.entities.settings[0], 'reminder')
+          ? remindersBetween(workspace, me, at, at + AHEAD_MS, localTimeZone())
+          : []
+      )
         .filter((each) => each.at > at)
         .slice(0, AHEAD_MAX);
       void notifier().scheduleAhead?.(

@@ -87,9 +87,12 @@ export interface DueReminder {
   constant: boolean;
 }
 
-/** A constant reminder comes again this often, this many times in all (an hour). */
+/**
+ * A constant reminder comes again this often, this many times in all (30 minutes, PL-115), where
+ * the notification cannot keep sounding by itself; the Android app makes it insistent instead.
+ */
 export const CONSTANT_EVERY_MINUTES = 5;
-export const CONSTANT_TIMES = 12;
+export const CONSTANT_TIMES = 6;
 
 /**
  * A reminder as days early and a time that day (spec: R-FB-60): `before` counts from `from` on
