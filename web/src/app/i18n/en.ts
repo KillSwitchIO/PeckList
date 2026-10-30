@@ -215,6 +215,11 @@ export const en = {
   'apiKeys.needsServer': 'API keys need a Punchlist server with accounts.',
   'audit.type.account.api-key-created': '{actor} made the API key {target}',
   'audit.type.account.api-key-revoked': '{actor} revoked an API key',
+  'completed.hide': 'Hide the Closed group',
+  'completed.hideHint': 'On this device. Show them again in Settings.',
+  'settings.showCompleted': 'Show the Closed group',
+  'settings.showCompletedHint':
+    "Done and won't-do tasks under lists and views, on this device. The Closed view and search always show them.",
   'manage.title': 'Lists and tags',
   'manage.open': 'Lists and tags',
   'manage.openHint': 'Order, icons, colors, sharing and archive in one place',

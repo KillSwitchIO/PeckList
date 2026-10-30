@@ -298,6 +298,10 @@ download or upload attachments, notifications, and admin for admins), copy it on
 whenever you like. Each shows when it was made, when it expires and when it was last used. See
 [the HTTP API](../reference/http-api.md#signing-in-from-a-script).
 
+**Show the Closed group** (under Lists and tags) hides or shows the done and won't-do tasks
+under lists and views on this device; a long press (or right-click) on a **Closed** group's
+header hides it too. The **Closed** view and search always show them.
+
 **Lists and tags** gathers them on one page: drag a list by its grip to set the order the menu
 shows them in, and from each row change its name, icon and color (tap it), who it is shared with,
 people and groups (the share button), pin it to the top of the menu, archive it or delete it.

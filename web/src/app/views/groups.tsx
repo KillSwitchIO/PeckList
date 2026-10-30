@@ -1,6 +1,9 @@
 import { useReveal } from './useReveal.tsx';
 import { pinnedFirst } from '../../core/tasks.ts';
-import { Button } from '@mui/material';
+import { Button, ListItemText, Menu, MenuItem } from '@mui/material';
+import { useState } from 'react';
+import { useLongPress } from '../hooks/useLongPress.ts';
+import { setHideCompleted, useHideCompleted } from './completedPrefs.ts';
 import {
   groupByList,
   groupByPriority,
@@ -48,14 +51,40 @@ export function CompletedGroup({
   defaultOpen?: boolean;
 }) {
   const reveal = useReveal(tasks.length);
-  if (tasks.length === 0) return null;
+  const hidden = useHideCompleted();
+  // A long press (or right-click) on the header offers to hide the group (R-FB-159).
+  const [menu, setMenu] = useState<{ top: number; left: number } | null>(null);
+  const hold = useLongPress(setMenu);
+  if (tasks.length === 0 || hidden) return null;
   return (
     <GroupSection
       groupKey="completed"
       title={t('group.completed')}
       count={tasks.length}
       defaultOpen={defaultOpen}
+      headerProps={{
+        ...hold,
+        onContextMenu: (event) => {
+          event.preventDefault();
+          setMenu({ top: event.clientY, left: event.clientX });
+        },
+      }}
     >
+      <Menu
+        open={menu !== null}
+        onClose={() => setMenu(null)}
+        anchorReference="anchorPosition"
+        {...(menu ? { anchorPosition: menu } : {})}
+      >
+        <MenuItem
+          onClick={() => {
+            setMenu(null);
+            setHideCompleted(true);
+          }}
+        >
+          <ListItemText primary={t('completed.hide')} secondary={t('completed.hideHint')} />
+        </MenuItem>
+      </Menu>
       <TaskRows
         tasks={tasks.slice(0, reveal.shown)}
         {...(showList === undefined ? {} : { showList })}
