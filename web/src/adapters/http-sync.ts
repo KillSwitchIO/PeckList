@@ -28,6 +28,14 @@ interface ErrorBody {
 }
 
 /**
+ * How long a request may go unanswered before it counts as offline. A request that dies while the
+ * page is paused (the Android app in the background) would otherwise hang forever and, with it,
+ * every sync after it (the drill of 2026-10-29). Files get longer: an upload on a slow link.
+ */
+export const REQUEST_TIMEOUT_MS = 30_000;
+export const FILE_TIMEOUT_MS = 5 * 60_000;
+
+/**
  * The server on the same origin, over fetch with the session cookie. Same origin keeps the cookie
  * first-party (the BFF pattern in ADR-0006); `base` is only for tests and a dev proxy.
  */
@@ -38,15 +46,27 @@ export function createHttpSync(
   device: string | null = null,
 ): SyncTransport {
   /** A request with the session cookie and this device's name; no answer at all reads as offline. */
-  const send = async (path: string, init: RequestInit & { headers: Record<string, string> }) => {
+  const send = async (
+    path: string,
+    init: RequestInit & { headers: Record<string, string> },
+    timeoutMs = REQUEST_TIMEOUT_MS,
+  ) => {
+    const control = new AbortController();
+    const timer = setTimeout(() => control.abort(), timeoutMs);
     try {
       return await fetcher(`${base}${path}`, {
         ...init,
         credentials: 'same-origin',
+        signal: control.signal,
         headers: { ...init.headers, ...(device ? { 'X-Punchlist-Device': device } : {}) },
       });
     } catch (error) {
-      throw new SyncFailure('offline', messageOf(error));
+      throw new SyncFailure(
+        'offline',
+        control.signal.aborted ? `no answer in ${timeoutMs / 1000} s` : messageOf(error),
+      );
+    } finally {
+      clearTimeout(timer);
     }
   };
   /** A JSON request (or a plain GET). */
@@ -58,11 +78,15 @@ export function createHttpSync(
     });
   /** A file's own request: raw bytes, not JSON. */
   const fileCall = (sha256: string, method: string, body?: Blob) =>
-    send(`/api/attachments/${encodeURIComponent(sha256)}`, {
-      method,
-      headers: body ? { 'Content-Type': 'application/octet-stream' } : {},
-      body: body ?? null,
-    });
+    send(
+      `/api/attachments/${encodeURIComponent(sha256)}`,
+      {
+        method,
+        headers: body ? { 'Content-Type': 'application/octet-stream' } : {},
+        body: body ?? null,
+      },
+      FILE_TIMEOUT_MS,
+    );
   const errorOf = async (response: Response): Promise<ErrorBody> => {
     try {
       return (await response.json()) as ErrorBody;

@@ -122,6 +122,13 @@ export interface SyncEngineDependencies {
 }
 
 const META = 'sync';
+/**
+ * A sync still running this long after it began, when another is asked for, is taken as lost (a
+ * request that died while the page was paused, a lock never released) and a fresh one starts;
+ * whatever the lost one still does is ignored (the drill of 2026-10-29).
+ */
+export const STALE_SYNC_MS = 60_000;
+
 /** How far this device's clock may be from the server's before the person is told. */
 const CLOCK_TOLERANCE_MS = 5 * 60_000;
 /** Changes per request; more go out in the next round of the same sync. */
@@ -167,6 +174,9 @@ export function createSyncEngine(deps: SyncEngineDependencies): SyncEngine {
   const blobs = deps.blobs ?? createMemoryBlobs();
   const { transport, workspace, storage } = deps;
   let running: Promise<void> | null = null;
+  let runningSince = 0;
+  // Counts the syncs started: a sync given up on must not touch the state of the one after it.
+  let generation = 0;
   let again = false;
   let debounce: ReturnType<typeof setTimeout> | null = null;
   let interval: ReturnType<typeof setInterval> | null = null;
@@ -476,21 +486,31 @@ export function createSyncEngine(deps: SyncEngineDependencies): SyncEngine {
 
     const syncNow = async (): Promise<void> => {
       if (get().phase !== 'ready') return;
-      if (running) {
+      if (running && now() - runningSince < STALE_SYNC_MS) {
         // One at a time; a request during a sync runs once more right after it.
         again = true;
         return running;
       }
+      // Nothing running, or a sync that has hung past its time: start afresh.
+      const mine = ++generation;
+      runningSince = now();
       running = (async () => {
         try {
           do {
             again = false;
             await cycle();
-          } while (again);
+          } while (again && mine === generation);
         } catch (error) {
-          fail(error);
+          if (mine === generation) fail(error);
         } finally {
-          running = null;
+          if (mine === generation) {
+            running = null;
+            // A request that came in while this one failed still wants its sync.
+            if (again) {
+              again = false;
+              void syncNow();
+            }
+          }
         }
       })();
       return running;

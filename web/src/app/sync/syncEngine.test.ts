@@ -9,7 +9,7 @@ import { createTask, updateTask } from '../../core/tasks.ts';
 import type { WorkspaceFile } from '../../core/types.ts';
 import { FakeBackend } from '../../test/fakeTransport.ts';
 import { createWorkspaceStore, type WorkspaceStore } from '../store/workspaceStore.ts';
-import { createSyncEngine, type SyncEngine } from './syncEngine.ts';
+import { createSyncEngine, STALE_SYNC_MS, type SyncEngine } from './syncEngine.ts';
 
 const engines: SyncEngine[] = [];
 afterEach(() => {
@@ -217,6 +217,66 @@ describe('sync engine', () => {
     pages = 0;
     await phone.engine.getState().syncNow();
     expect(pages).toBe(1);
+  });
+
+  it('starts over when a sync has hung, instead of queueing behind it forever', async () => {
+    const backend = new FakeBackend();
+    backend.addAccount('ben', 'correct horse battery');
+    const laptop = await device(backend, 'laptop');
+    // The phone's engine keeps its own clock, so the hang can be aged without waiting.
+    const storage = createMemoryStorage();
+    const store = createWorkspaceStore({
+      storage,
+      validator: createAjvValidator(),
+      ids: createUlidGenerator(),
+      node: 'phone',
+      now: () => (clock += 1000),
+      saveDelayMs: 0,
+    });
+    await store.getState().init();
+    const transport = backend.device();
+    transport.device = 'phone';
+    let phoneClock = clock;
+    const engine = createSyncEngine({
+      transport,
+      device: 'phone',
+      workspace: store,
+      storage,
+      debounceMs: 60_000,
+      intervalMs: 600_000,
+      now: () => phoneClock,
+    });
+    engines.push(engine);
+    await engine.getState().start();
+    await engine.getState().signIn('ben', 'correct horse battery');
+    await laptop.engine.getState().start();
+    await laptop.engine.getState().signIn('ben', 'correct horse battery');
+
+    // The next request never answers (the page was paused while it was out).
+    const real = transport.sync.bind(transport);
+    let hung = false;
+    transport.sync = (request) => {
+      if (hung) return real(request);
+      hung = true;
+      return new Promise(() => undefined);
+    };
+    void engine.getState().syncNow();
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(hung).toBe(true);
+    addTask(store, 'Water the plants');
+    // Soon after, a sync only queues behind the hung one.
+    phoneClock += 10_000;
+    const queued = engine.getState().syncNow();
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    await laptop.engine.getState().syncNow();
+    expect(titles(laptop.store)).toEqual([]);
+    // Once it has hung long enough, a sync starts afresh and the change goes through.
+    phoneClock += STALE_SYNC_MS;
+    await engine.getState().syncNow();
+    await laptop.engine.getState().syncNow();
+    expect(titles(laptop.store)).toEqual(['Water the plants']);
+    expect(engine.getState().status).toBe('idle');
+    void queued;
   });
 
   it("another device's change arrives at once, not on the next timer", async () => {
