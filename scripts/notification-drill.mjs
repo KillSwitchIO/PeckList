@@ -301,8 +301,11 @@ function saveState(path, state) {
   writeFileSync(path, `${JSON.stringify(state, null, 2)}\n`);
 }
 
+// A four-digit code in everything one run makes, so the person can report "received 4821".
+let code = '';
+
 function say(expect) {
-  console.log(`\nExpect on the target's device: ${expect}`);
+  console.log(`\nCode ${code}. Expect on the target's device: ${expect}`);
 }
 
 async function people(server, targetName) {
@@ -343,6 +346,7 @@ async function main() {
   const { target, bot } = await people(server, targetName);
   const ctx = { clock: new Clock(), userId: bot.id };
   const flag = (name) => args.includes(name);
+  code = String(1000 + Math.floor(Math.random() * 9000));
   const number = args.find((arg) => /^\d+$/.test(arg));
 
   const need = (key, what) => {
@@ -369,7 +373,7 @@ async function main() {
       await server.call('PUT', `/api/admin/groups/${group.id}/members/${target.id}`);
       await server.call('PUT', `/api/admin/groups/${group.id}/members/${bot.id}`);
       const list = create(ctx, 'list', {
-        name: 'Notification drill',
+        name: `Notification drill ${code}`,
         color: '#7C4DFF',
         icon: null,
         folderId: null,
@@ -406,7 +410,7 @@ async function main() {
     case 'assign': {
       const listId = need('listId', 'list');
       const made = task(ctx, {
-        title: `Drill: assigned to you ${new Date().toLocaleTimeString('en-US')}`,
+        title: `Drill ${code}: assigned to you`,
         listId,
         assignees: { [`user:${target.id}`]: member(ctx.clock.tick()) },
       });
@@ -422,7 +426,7 @@ async function main() {
       const listId = need('listId', 'list');
       const groupId = need('groupId', 'group');
       const made = task(ctx, {
-        title: `Drill: for the group ${new Date().toLocaleTimeString('en-US')}`,
+        title: `Drill ${code}: for the group`,
         listId,
         assignees: { [`group:${groupId}`]: member(ctx.clock.tick()) },
       });
@@ -457,7 +461,7 @@ async function main() {
       const id = need('assignedTaskId', 'assigned task');
       const made = create(ctx, 'comment', {
         taskId: id,
-        body: `Drill comment at ${new Date().toLocaleTimeString('en-US')}. No mention here.`,
+        body: `Drill ${code}: a comment, no mention.`,
         editedAt: null,
       });
       await server.push([{ collection: 'comments', entity: made }]);
@@ -471,7 +475,7 @@ async function main() {
       const id = need('commentId', 'comment');
       const before = await current(id, 'comment');
       const after = update(ctx, 'comment', before, {
-        body: `${before.body} Edited at ${new Date().toLocaleTimeString('en-US')}.`,
+        body: `${before.body} Edited: drill ${code}.`,
         editedAt: new Date().toISOString(),
       });
       await server.push([{ collection: 'comments', entity: after }]);
@@ -482,7 +486,7 @@ async function main() {
       const id = need('assignedTaskId', 'assigned task');
       const made = create(ctx, 'comment', {
         taskId: id,
-        body: `@${target.username} can you look at this? (drill, ${new Date().toLocaleTimeString('en-US')})`,
+        body: `@${target.username} drill ${code}: can you look at this?`,
         editedAt: null,
       });
       await server.push([{ collection: 'comments', entity: made }]);
@@ -507,7 +511,7 @@ async function main() {
         .filter(Boolean)
         .join(', ');
       const made = task(ctx, {
-        title: `Drill: reminder${kind ? ` (${kind})` : ''} ${new Date(at).toLocaleTimeString('en-US')}`,
+        title: `Drill ${code}: reminder${kind ? ` (${kind})` : ''} ${new Date(at).toLocaleTimeString('en-US')}`,
         listId,
         assignees: { [`user:${target.id}`]: member(ctx.clock.tick()) },
         schedule: { start, end: null, allDay, timeZone: zone },
