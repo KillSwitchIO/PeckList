@@ -1,6 +1,7 @@
 # Punchlist CI/CD
 #
-#   merge requests   check, test (web, server, e2e), image build (amd64, not pushed), docs build
+#   merge requests   check, test (web, server, e2e), image build (amd64, not pushed), docs build,
+#                    then approval: red until APPROVERS approve the merge request
 #   main             the same, then the :edge image for both architectures, two devices syncing
 #                    through it (e2e-server), the test server updated to it (deploy-test), the docs
 #                    site (GitLab Pages) and the wiki mirror of the docs (wiki)
@@ -23,6 +24,7 @@ stages:
   - build
   - publish
   - release
+  - approve
 
 variables:
   RUNNER_TAG: homelab
@@ -568,3 +570,19 @@ release:
     - node scripts/ci/publish-release.mjs dist
   rules:
     - *on-tag
+
+# --- approve ---------------------------------------------------------------------------------
+
+# A merge request passes only once APPROVERS has approved it (GitLab Free has the Approve button
+# but no required approvals). It runs last, so approving while the pipeline is still running is
+# enough; approving after it failed needs a retry of this job. scripts/check-approval.mjs
+approval:
+  image: $NODE_IMAGE
+  stage: approve
+  timeout: 5m
+  variables:
+    APPROVERS: hambone0
+  script:
+    - node scripts/check-approval.mjs
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"

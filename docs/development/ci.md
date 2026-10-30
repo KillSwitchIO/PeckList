@@ -6,7 +6,7 @@ The pipeline is in [`.gitlab-ci.yml`](https://gitlab.com/killswitch10/punchlist/
 
 | Pipeline              | Jobs                                                                                                                                                                                                                                                                                                                                              |
 | --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Merge request         | `lint` (lint, format and typecheck at once, then versions, docs coverage, script tests), `web-test`, `server-test`, `e2e`, `docs`, `container-image` (amd64 only, built, not pushed). `ci-images` first when a tool image's inputs changed.                                                                                                      |
+| Merge request         | `lint` (lint, format and typecheck at once, then versions, docs coverage, script tests), `web-test`, `server-test`, `e2e`, `docs`, `container-image` (amd64 only, built, not pushed). `ci-images` first when a tool image's inputs changed. `approval` last ([approval](#approval)).                                                                                                      |
 | `main`                | The same, then the `:edge` and `:sha-<commit>` images for amd64 and arm64 (version `<next patch>-edge.<commit>`, [releasing](releasing.md#versions)), two devices syncing through that image (`e2e-server`), the test server updated to it (`deploy-test`), the docs site (`pages`) and the docs in the wiki (`wiki`). By hand: `web-build`, `packages`, `android-release`, `android-apk`. |
 | Tag `vX.Y.Z+YYYYMMDD` | No checks or tests (the tag goes on a main commit whose pipeline passed; `pnpm release:tag` refuses otherwise): release images (`:X.Y.Z`, `:X.Y`, `:latest`), native downloads, the signed APK, and the GitLab release (`release`).                                                                                                          |
 | Weekly schedule       | `ci-images` rebuilt on current base images, `audit-web` (`pnpm audit`), `audit-server` (vulnerable NuGet packages), `audit-image` (Trivy on `:edge`).                                                                                                                                                                                              |
@@ -14,6 +14,21 @@ The pipeline is in [`.gitlab-ci.yml`](https://gitlab.com/killswitch10/punchlist/
 
 Pushes to other branches do not start a pipeline; open a merge request. A newer push to a branch
 cancels the pipeline still running for the old one.
+
+## Approval
+
+GitLab Free has an Approve button on merge requests but cannot require it, so the last job of a
+merge request pipeline, `approval`, does: it fails until someone named in `APPROVERS` (set on the
+job) has approved, and "Pipelines must succeed" then keeps the merge request from merging.
+
+- Approve while the pipeline is still running and `approval` passes when it gets there.
+- Approve after it failed, then retry the `approval` job; a merge request set to merge when the
+  pipeline succeeds then merges.
+- On Free an approval stays when more commits are pushed. With a `read_api` token in the CI/CD
+  variable `APPROVAL_READ_TOKEN` (masked, not protected, since merge request pipelines run on
+  unprotected branches), an approval only counts if it came after the last push: unapprove and
+  approve again after looking at new commits. Without the token the job reads the approvals
+  anonymously, which needs the project to be public.
 
 ## What keeps it quick
 
@@ -127,8 +142,9 @@ or with [gitlab-ci-local](https://github.com/firecow/gitlab-ci-local).
 
 [Renovate](https://docs.renovatebot.com/) opens merge requests for updates once a week, run from
 the `homelab-killswitch/renovate-runner` project's schedule (Fridays). The rules are in
-`renovate.json`: patches and minors merge themselves once their pipeline passes, majors (and the
-Android Gradle setup, which follows Capacitor's template) wait for a person, related packages
+`renovate.json`: patches and minors merge themselves once their pipeline passes, which takes an
+[approval](#approval) like any merge request; majors (and the Android Gradle setup, which follows
+Capacitor's template) also wait for a closer look, related packages
 come together (MUI, Tiptap, Capacitor, React, test and lint tools, .NET packages), at most six
 are open at a time, and the lockfile is refreshed on Mondays. Base images keep floating on their
 major tags (`node:24`, `dotnet/sdk:10.0`), so only a new major shows up for those.
