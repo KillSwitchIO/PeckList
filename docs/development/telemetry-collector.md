@@ -19,11 +19,15 @@ The code is `server/src/Punchlist.Collector`; the report it reads is `TelemetryP
 
 ## Endpoints
 
+Everything the internet may reach is under `/api/public/`; everything else is under
+`/api/private/`. The proxy in front lets `/api/public/*` through and nothing else.
+
+
 | Endpoint        | What it does                                                                                                                                                       |
 | --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `POST /v1/ping` | Takes one report (64 KB at most, 600 a minute in all). `202` when kept, `400` with the field at fault when not.                                                     |
-| `GET /v1/stats` | The public totals: installs that reported in the last 7 days, broken down per dimension. A value fewer than 5 installs share is folded into "other", and "other" is left out when it is that small too. Any site may read it. |
-| `GET /healthz`  | `ok` when it is up.                                                                                                                                                |
+| `POST /api/public/v1/ping` | Takes one report (64 KB at most, 600 a minute in all). `202` when kept, `400` with the field at fault when not.                                                     |
+| `GET /api/public/v1/stats` | The public totals: installs that reported in the last 7 days, broken down per dimension. A value fewer than 5 installs share is folded into "other", and "other" is left out when it is that small too. Any site may read it. |
+| `GET /api/private/healthz` | `ok` when it is up.                                                                                                                                                |
 
 ## Running it
 
@@ -32,6 +36,8 @@ docker run -d -p 8080:8080 -e COLLECTOR_DB="Host=db;Username=collector;Password=
   registry.gitlab.com/killswitch10/punchlist/collector:edge
 ```
 
-`COLLECTOR_DB` is a PostgreSQL connection string; the tables are made on start. CI builds the
+`COLLECTOR_DB` is a PostgreSQL connection string; the tables are made on start. To keep the
+password out of the environment, leave it out of the string and set `COLLECTOR_DB_PASSWORD_FILE` to
+a file holding it (a Docker secret, say). CI builds the
 image when the collector or the report changes (`collector-image`) and pushes `:edge` and
 `:sha-<commit>` from `main`. It belongs behind a TLS proxy that does not log client addresses.

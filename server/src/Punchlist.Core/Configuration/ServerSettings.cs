@@ -99,7 +99,7 @@ public sealed record ServerSettings
     public bool UpdateCheck { get; init; } = true;
 
     /// <summary>Where the daily usage report goes unless <c>TELEMETRY_URL</c> says otherwise (moves to the app's domain at 1.0).</summary>
-    public static readonly Uri DefaultTelemetryUrl = new("https://telemetry.killswitch10.com/v1/ping");
+    public static readonly Uri DefaultTelemetryUrl = new("https://telemetry.killswitch10.com/api/public/v1/ping");
 
     /// <summary>
     /// Send the anonymous daily usage report (<c>TELEMETRY</c>, on by default; PL-116). The
