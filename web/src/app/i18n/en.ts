@@ -1531,6 +1531,7 @@ export const en = {
   'undo.filterDeleted': 'Filter deleted',
   'undo.filterCreated': 'Filter created',
   'task.notFound': 'This task no longer exists.',
+  'task.fetching': 'Looking for this task on the server…',
   'priority.0': 'None',
   'priority.1': 'Low',
   'priority.2': 'Medium',

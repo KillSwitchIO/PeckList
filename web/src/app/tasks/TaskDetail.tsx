@@ -144,6 +144,9 @@ export function TaskDetail({
   const titleLongPress = useLongPress((position) => setMenu({ position }));
   const phase = useSyncState((state) => state.phase);
   const authMode = useSyncState((state) => state.account?.authMode);
+  // Opened from a notification before the first sync of this run has fetched the task: it is
+  // being looked for, not gone (the drill of 2026-10-30).
+  const fetching = useSyncState((state) => state.phase === 'ready' && state.lastSynced === null);
   // Assigning needs other people: a server with accounts.
   const canAssign = phase === 'ready' && authMode === 'local';
   const me = useStoreState((state) => state.context().userId);
@@ -158,7 +161,9 @@ export function TaskDetail({
             <CloseRounded />
           </IconButton>
         </Toolbar>
-        <Typography color="text.secondary">{t('task.notFound')}</Typography>
+        <Typography color="text.secondary">
+          {fetching ? t('task.fetching') : t('task.notFound')}
+        </Typography>
       </Box>
     );
   }
