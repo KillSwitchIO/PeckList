@@ -73,6 +73,11 @@ app.MapPost("/api/public/v1/ping", async (TelemetryPing ping, PingStore store, T
 app.MapGet("/api/public/v1/stats", async (StatsCache stats, CancellationToken cancellation) =>
     Results.Ok(await stats.GetAsync(cancellation))).RequireCors("public");
 
+// The same totals as a page for people; the bare address leads to it.
+app.MapGet("/api/public/", async (StatsCache stats, CancellationToken cancellation) =>
+    Results.Content(StatusPage.Render(await stats.GetAsync(cancellation)), "text/html; charset=utf-8"));
+app.MapGet("/", () => Results.Redirect("/api/public/"));
+
 app.Run();
 
 /// <summary>The public totals, worked out again at most every ten minutes.</summary>

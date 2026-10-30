@@ -152,6 +152,27 @@ public sealed class CollectorTests(PostgresServer server) : IClassFixture<Postgr
     }
 
     [Fact]
+    public async Task The_bare_address_leads_to_a_status_page_for_people()
+    {
+        var (factory, connection) = await StartAsync();
+        var store = Store(connection);
+        for (var i = 0; i < 5; i++) await store.SaveAsync(Ping(version: "0.3.0"), DateTimeOffset.UtcNow, Cancel);
+        using var client = factory.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
+
+        var root = await client.GetAsync("/", Cancel);
+        Assert.Equal(HttpStatusCode.Redirect, root.StatusCode);
+        Assert.Equal("/api/public/", root.Headers.Location?.ToString());
+
+        var page = await client.GetAsync("/api/public/", Cancel);
+        Assert.Equal(HttpStatusCode.OK, page.StatusCode);
+        Assert.Equal("text/html", page.Content.Headers.ContentType?.MediaType);
+        var html = await page.Content.ReadAsStringAsync(Cancel);
+        Assert.Contains("Punchlist telemetry", html);
+        Assert.Contains("0.3.0", html);
+        Assert.Contains("<div class=\"total\">5</div>", html);
+    }
+
+    [Fact]
     public async Task The_database_password_can_come_from_a_file()
     {
         var connection = await server.NewDatabaseAsync();

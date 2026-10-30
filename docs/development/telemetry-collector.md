@@ -23,6 +23,7 @@ Everything the internet may reach is under `/api/public/`; everything else is un
 `/api/private/`. The proxy in front lets `/api/public/*` through and nothing else.
 
 
+|  | The same totals as a page for people (no scripts, light and dark).  redirects here. |
 | Endpoint        | What it does                                                                                                                                                       |
 | --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | `POST /api/public/v1/ping` | Takes one report (64 KB at most, 600 a minute in all). `202` when kept, `400` with the field at fault when not.                                                     |
