@@ -160,8 +160,10 @@ web-test:
   stage: test
   needs: []
   timeout: 20m
-  # UI tests in jsdom time out now and then when the runner is busy (a stopgap: the real fix is a
-  # less loaded runner and tests that wait on what they assert).
+  # One suite at a time across pipelines: every pipeline shares the one runner, and two or three
+  # suites at once (Renovate opens its MRs together) time the jsdom UI tests out.
+  resource_group: web-test
+  # A retry for the odd timeout that is left (the real fix is tests that wait on what they assert).
   retry:
     max: 1
     when: script_failure
