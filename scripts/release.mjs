@@ -1,6 +1,7 @@
 // Prepare a release on main: bump the version everywhere, regenerate CHANGELOG.md from the
 // Conventional Commits since the last tag, commit, and make the annotated tag. Nothing is pushed.
-//   pnpm release 0.2.0            (tag v0.2.0+<today>, UTC)
+//   pnpm release                  (the next version by the rule below, tagged v<it>+<today>, UTC)
+//   pnpm release 0.2.0            (that version, if the rule allows it)
 //   pnpm release 0.2.0-rc.1       (a pre-release: no `latest` image, marked upcoming)
 //   pnpm release 0.2.0 --dry-run  (show the changelog section, change nothing)
 // Then: git push origin main --follow-tags   (CI builds, publishes and releases the tag)
@@ -11,10 +12,10 @@ import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { releaseNotes } from './release-notes.mjs';
-import { SEMVER, readVersions, root, writeVersion } from './versions.mjs';
+import { SEMVER, nextVersion, readVersions, root, writeVersion } from './versions.mjs';
 
 const args = process.argv.slice(2);
-const version = args.find((arg) => !arg.startsWith('--'));
+const asked = args.find((arg) => !arg.startsWith('--'));
 const dryRun = args.includes('--dry-run');
 const anyBranch = args.includes('--any-branch');
 const noTag = args.includes('--no-tag');
@@ -31,10 +32,44 @@ const cliff = (...cliffArgs) =>
     shell: process.platform === 'win32',
   });
 
-if (!version || !SEMVER.test(version)) {
-  fail('Usage: pnpm release <version> [--dry-run]   e.g. pnpm release 0.2.0');
+if (asked && !SEMVER.test(asked)) {
+  fail('Usage: pnpm release [<version>] [--dry-run]   e.g. pnpm release, or pnpm release 1.0.0');
 }
 const current = readVersions()[0].version;
+
+// The version follows what the release holds (Ben, 2026-10-30): any feature since the last tag
+// makes it a minor release (0.3.0), only fixes and dependency bumps a patch (0.2.11). A major
+// (1.0.0) is always asked for by name; a pre-release must be of the version the rule gives.
+const lastTag = (() => {
+  try {
+    return git('describe', '--tags', '--abbrev=0', '--match', 'v*');
+  } catch {
+    return null;
+  }
+})();
+const messages = git(
+  'log',
+  '--no-merges',
+  '--format=%B%x00',
+  ...(lastTag ? [`${lastTag}..HEAD`] : []),
+)
+  .split('\0')
+  .map((message) => message.trim())
+  .filter(Boolean);
+const expected = nextVersion(current, messages);
+const features = messages.filter((message) => /^feat(\([^)]*\))?!?:/.test(message));
+const coreOf = (value) => value.replace(/-.*/, '');
+const majorOf = (value) => Number(value.split('.')[0]);
+const version = asked ?? expected;
+if (asked && coreOf(asked) !== expected && majorOf(asked) <= majorOf(current)) {
+  fail(
+    `${asked} does not fit this release: since ${lastTag ?? 'the start'} it has ` +
+      (features.length
+        ? `${features.length} feature(s), so it is ${expected} (a minor release), e.g. ${features[0].split('\n')[0]}`
+        : `no features, so it is ${expected} (a patch release)`) +
+      '. Run pnpm release with no version, or name a major (1.0.0).',
+  );
+}
 const date = new Date().toISOString().slice(0, 10).replaceAll('-', '');
 const tag = `v${version}+${date}`;
 

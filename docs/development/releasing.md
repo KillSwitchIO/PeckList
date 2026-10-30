@@ -7,6 +7,12 @@ release with notes.
 
 - [Semantic versioning](https://semver.org/). Before 1.0, a minor version may break things; a patch
   never does.
+- **What a release holds decides its number.** Any feature (a `feat` commit) since the last tag
+  makes it a **minor** release (`0.2.10` to `0.3.0`); only fixes, dependency and version bumps,
+  docs and chores make it a **patch** (`0.2.10` to `0.2.11`). From 1.0 on, a breaking change
+  (`type!:` or a `BREAKING CHANGE:` footer) makes it a major; before 1.0 it counts as a feature.
+  `pnpm release` with no version works this out from the commits, and refuses a version that
+  breaks the rule (a major, such as `1.0.0`, is always named by hand).
 - The tag carries the date as build metadata: `v0.4.0+20261023`. Images are tagged `0.4.0`, `0.4`
   and `latest` (`+` is not allowed in image tags).
 - A pre-release (`0.4.0-rc.1`) gets only its exact image tag, no `latest`, and is marked as a
@@ -60,8 +66,9 @@ no claim: nothing changed in what it needs.
 On an up-to-date `main` with a green pipeline:
 
 ```bash
-pnpm release 0.4.0 --dry-run    # preview the changelog section
-pnpm release 0.4.0              # bump versions, regenerate CHANGELOG.md, commit, tag
+pnpm release --dry-run          # the version the commits call for, and the changelog section
+pnpm release                    # bump versions, regenerate CHANGELOG.md, commit, tag
+pnpm release 1.0.0              # a major, named by hand
 git show                        # review; amend the changelog wording if needed, then re-tag
 git push origin main --follow-tags
 ```
@@ -72,7 +79,7 @@ git push origin main --follow-tags
 
 ```bash
 git switch -c release/0.4.0
-pnpm release 0.4.0 --any-branch --no-tag   # bump versions, regenerate CHANGELOG.md, commit
+pnpm release --any-branch --no-tag   # bump versions, regenerate CHANGELOG.md, commit
 git push -u origin release/0.4.0           # open the merge request, review, merge
 git switch main && git pull
 pnpm release:tag                            # tag main's head with the version and its notes
