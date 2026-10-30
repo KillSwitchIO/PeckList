@@ -35,7 +35,7 @@ public static class SettingsCatalog
         new("ATTACHMENT_MAX_MB", "general", SettingKind.Number, "25", Live: true),
         new("UPDATE_CHECK", "general", SettingKind.Flag, "true", Live: true),
         new("TELEMETRY", "telemetry", SettingKind.Flag, "true", Live: true),
-        new("TELEMETRY_URL", "telemetry", SettingKind.Url, "https://telemetry.killswitch10.com/v1/ping", Live: true),
+        new("TELEMETRY_URL", "telemetry", SettingKind.Url, "https://telemetry.killswitch10.com/api/public/v1/ping", Live: true),
         new("LOCAL_LOGIN", "sign-in", SettingKind.Choice, "enabled", ["enabled", "disabled"], Live: true),
         new("OIDC_PROVIDERS", "sign-in", SettingKind.List),
         new("BACKUP_SCHEDULE", "backups", SettingKind.Choice, "daily", ["off", "hourly", "daily", "weekly"], Live: true),

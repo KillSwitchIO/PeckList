@@ -53,8 +53,8 @@ public sealed class CollectorTests(PostgresServer server) : IClassFixture<Postgr
         using var client = factory.CreateClient();
         var ping = Ping();
 
-        Assert.Equal(HttpStatusCode.Accepted, (await client.PostAsJsonAsync("/v1/ping", ping, Cancel)).StatusCode);
-        Assert.Equal(HttpStatusCode.Accepted, (await client.PostAsJsonAsync("/v1/ping", ping with { Version = "0.3.1" }, Cancel)).StatusCode);
+        Assert.Equal(HttpStatusCode.Accepted, (await client.PostAsJsonAsync("/api/public/v1/ping", ping, Cancel)).StatusCode);
+        Assert.Equal(HttpStatusCode.Accepted, (await client.PostAsJsonAsync("/api/public/v1/ping", ping with { Version = "0.3.1" }, Cancel)).StatusCode);
 
         await using var db = new NpgsqlConnection(connection);
         var rows = (await db.QueryAsync<(string Version, string Channel)>("SELECT version, channel FROM pings")).ToList();
@@ -67,11 +67,11 @@ public sealed class CollectorTests(PostgresServer server) : IClassFixture<Postgr
         var (factory, connection) = await StartAsync();
         using var client = factory.CreateClient();
 
-        Assert.Equal(HttpStatusCode.BadRequest, (await client.PostAsJsonAsync("/v1/ping", Ping() with { Channel = "nightly" }, Cancel)).StatusCode);
-        Assert.Equal(HttpStatusCode.BadRequest, (await client.PostAsJsonAsync("/v1/ping", Ping() with { InstallId = "ben's-server" }, Cancel)).StatusCode);
-        Assert.Equal(HttpStatusCode.BadRequest, (await client.PostAsJsonAsync("/v1/ping", new { schema = 1, installId = Guid.NewGuid() }, Cancel)).StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest, (await client.PostAsJsonAsync("/api/public/v1/ping", Ping() with { Channel = "nightly" }, Cancel)).StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest, (await client.PostAsJsonAsync("/api/public/v1/ping", Ping() with { InstallId = "ben's-server" }, Cancel)).StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest, (await client.PostAsJsonAsync("/api/public/v1/ping", new { schema = 1, installId = Guid.NewGuid() }, Cancel)).StatusCode);
         var huge = new StringContent(new string('x', 100_000), System.Text.Encoding.UTF8, "application/json");
-        Assert.Equal(HttpStatusCode.RequestEntityTooLarge, (await client.PostAsync("/v1/ping", huge, Cancel)).StatusCode);
+        Assert.Equal(HttpStatusCode.RequestEntityTooLarge, (await client.PostAsync("/api/public/v1/ping", huge, Cancel)).StatusCode);
 
         await using var db = new NpgsqlConnection(connection);
         Assert.Equal(0, await db.ExecuteScalarAsync<int>("SELECT count(*) FROM pings"));
@@ -89,7 +89,7 @@ public sealed class CollectorTests(PostgresServer server) : IClassFixture<Postgr
             hostname = "tasks.example.com",
         };
 
-        Assert.Equal(HttpStatusCode.Accepted, (await client.PostAsJsonAsync("/v1/ping", body, Cancel)).StatusCode);
+        Assert.Equal(HttpStatusCode.Accepted, (await client.PostAsJsonAsync("/api/public/v1/ping", body, Cancel)).StatusCode);
 
         await using var db = new NpgsqlConnection(connection);
         var stored = await db.ExecuteScalarAsync<string>("SELECT payload::text FROM pings");
@@ -113,7 +113,7 @@ public sealed class CollectorTests(PostgresServer server) : IClassFixture<Postgr
         Assert.Equal(new[] { new StatValue("0.3.0", 6), new StatValue("other", 5) }, stats.Breakdown["version"]);
 
         using var client = factory.CreateClient();
-        var response = await client.GetAsync("/v1/stats", Cancel);
+        var response = await client.GetAsync("/api/public/v1/stats", Cancel);
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         Assert.Contains("\"installs\":11", await response.Content.ReadAsStringAsync(Cancel));
     }
@@ -138,6 +138,39 @@ public sealed class CollectorTests(PostgresServer server) : IClassFixture<Postgr
         Assert.Equal(
             new[] { (Now.AddDays(-100).UtcDateTime.Date, 1), (Now.AddDays(-1).UtcDateTime.Date, 1) },
             totals);
+    }
+
+    [Fact]
+    public async Task Only_the_report_and_the_totals_are_public_the_health_check_is_private()
+    {
+        var (factory, _) = await StartAsync();
+        using var client = factory.CreateClient();
+        Assert.Equal(HttpStatusCode.OK, (await client.GetAsync("/api/private/healthz", Cancel)).StatusCode);
+        Assert.Equal(HttpStatusCode.OK, (await client.GetAsync("/api/public/v1/stats", Cancel)).StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, (await client.GetAsync("/healthz", Cancel)).StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, (await client.PostAsJsonAsync("/v1/ping", Ping(), Cancel)).StatusCode);
+    }
+
+    [Fact]
+    public async Task The_database_password_can_come_from_a_file()
+    {
+        var connection = await server.NewDatabaseAsync();
+        var builder = new NpgsqlConnectionStringBuilder(connection);
+        var file = Path.GetTempFileName();
+        await File.WriteAllTextAsync(file, builder.Password + "\n", Cancel);
+        builder.Password = null;
+        try
+        {
+            using var factory = new WebApplicationFactory<Program>().WithWebHostBuilder(host => host
+                .UseSetting("COLLECTOR_DB", builder.ToString())
+                .UseSetting("COLLECTOR_DB_PASSWORD_FILE", file));
+            using var client = factory.CreateClient();
+            Assert.Equal(HttpStatusCode.Accepted, (await client.PostAsJsonAsync("/api/public/v1/ping", Ping(), Cancel)).StatusCode);
+        }
+        finally
+        {
+            File.Delete(file);
+        }
     }
 
     private static CancellationToken Cancel => TestContext.Current.CancellationToken;

@@ -165,7 +165,7 @@ would go. **Default:** `true`. **Where:** any, live.
 
 ### `TELEMETRY_URL`
 
-Where the report goes. **Default:** `https://telemetry.killswitch10.com/v1/ping` (it moves to the
+Where the report goes. **Default:** `https://telemetry.killswitch10.com/api/public/v1/ping` (it moves to the
 app's own domain at 1.0). **Where:** any, live.
 
 ### `DO_NOT_TRACK`
