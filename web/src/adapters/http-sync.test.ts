@@ -159,6 +159,31 @@ describe('HTTP sync transport', () => {
     expect((await http.changePassword('a', 'b')).kind).toBe('unchanged');
   });
 
+  it('gives up on a request that never answers, and reads it as offline', async () => {
+    vi.useFakeTimers();
+    try {
+      // A fetch that only ends when it is aborted.
+      const fetcher = vi.fn(
+        (_url: string, init: RequestInit) =>
+          new Promise<Response>((_, reject) => {
+            init.signal?.addEventListener('abort', () =>
+              reject(new DOMException('aborted', 'AbortError')),
+            );
+          }),
+      );
+      const http = createHttpSync('/base', fetcher as unknown as typeof fetch);
+      const pending = failure(http.sync({ schemaVersion: 4, cursor: null, changes: [] }));
+      await vi.advanceTimersByTimeAsync(29_000);
+      expect(fetcher).toHaveBeenCalledTimes(1);
+      await vi.advanceTimersByTimeAsync(1_000);
+      const failed = await pending;
+      expect(failed.kind).toBe('offline');
+      expect(failed.message).toMatch(/no answer in 30 s/);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it('syncs, naming the device', async () => {
     const response = { cursor: 3, changes: [], more: false, revoked: [] };
     const { fetcher, calls } = fakeFetch({ status: 200, body: response });
