@@ -108,3 +108,4 @@ nav:
       - CI and runners: development/ci.md
       - Releasing: development/releasing.md
       - Android app: development/android.md
+      - Telemetry collector: development/telemetry-collector.md
