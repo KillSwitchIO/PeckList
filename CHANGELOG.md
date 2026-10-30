@@ -4,6 +4,18 @@ All notable changes to Punchlist. Generated from [Conventional Commits](https://
 by `pnpm changelog`; the version follows [Semantic Versioning](https://semver.org/). Before 1.0.0 a
 minor release may break things; every break is listed under **Breaking changes** with what to do.
 
+## [0.2.10] - 2026-10-30
+
+### Added
+
+- **notifications:** A button on every notice, and news while the app is open
+- Hide the Closed group (long press on its header, or Settings)
+
+### Fixed
+
+- **renovate:** Base images keep floating, no pins to exact tags
+- **sync:** Time requests out, and start over when a sync has hung
+
 ## [0.2.9] - 2026-10-29
 
 ### Added
@@ -15,7 +27,9 @@ minor release may break things; every break is listed under **Breaking changes**
 - Undo on a mouse click; the empty check plays once per arrival
 - **fun:** Today's fireworks only on Today, once a day on arrival or when its last task is done there
 - **interchange:** TickTick all-day spans end on their last day, not the day after
+- **interchange:** TickTick export writes repeats and checklists as TickTick does
 - Keep the Node and pnpm ranges Renovate pinned
+- **release:** The tag check sends GITLAB_TOKEN while the project is private
 
 ## [0.2.8] - 2026-10-28
 
