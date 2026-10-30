@@ -4,6 +4,23 @@ All notable changes to Punchlist. Generated from [Conventional Commits](https://
 by `pnpm changelog`; the version follows [Semantic Versioning](https://semver.org/). Before 1.0.0 a
 minor release may break things; every break is listed under **Breaking changes** with what to do.
 
+## [0.3.0] - 2026-10-30
+
+### Added
+
+- **telemetry:** The collector for servers' daily usage reports
+- **telemetry:** The server sends an anonymous usage report once a day
+- **telemetry:** Public routes under /api/public, password from a file
+- **android:** A share link lets the app through a Pangolin gate
+- **telemetry:** A public status page, and the bare address leads to it
+- **notifications:** Channels per kind, vibration, insistent constant reminders, and switches
+
+### Fixed
+
+- **release:** Features make a minor release, fixes a patch
+- **tasks:** Say a task is being looked for until the first sync
+- **auth:** Log which cookies the app gate hands back
+
 ## [0.2.10] - 2026-10-30
 
 ### Added
