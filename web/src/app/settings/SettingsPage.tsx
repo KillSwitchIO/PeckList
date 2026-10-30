@@ -8,6 +8,7 @@ import {
   MenuItem,
   Popover,
   Stack,
+  Switch,
   TextField,
   ToggleButton,
   ToggleButtonGroup,
@@ -49,6 +50,7 @@ import { SwipeSection } from './SwipeSection.tsx';
 import { TimeZoneSetting } from './TimeZoneSetting.tsx';
 import { useApply, useWorkspace } from '../store/hooks.ts';
 import { useSyncState } from '../sync/syncContext.ts';
+import { setHideCompleted, useHideCompleted } from '../views/completedPrefs.ts';
 
 /** A small live sample of the colors as the theme shows them now. */
 function Preview() {
@@ -209,6 +211,7 @@ export function SettingsPage() {
   const changed = Object.keys(paletteOverrides(workspace)).length > 0;
   const settings = workspace.entities.settings[0];
   const { mode, setMode } = useThemeMode();
+  const hideCompleted = useHideCompleted();
   const accounts = useSyncState(
     (state) => state.phase === 'ready' && state.account?.authMode === 'local',
   );
@@ -237,6 +240,13 @@ export function SettingsPage() {
               <ChevronRightRounded sx={{ color: 'text.secondary', display: 'block' }} />
             </SettingRow>
           </ButtonBase>
+          <SettingRow label={t('settings.showCompleted')} hint={t('settings.showCompletedHint')}>
+            <Switch
+              checked={!hideCompleted}
+              onChange={(event) => setHideCompleted(!event.target.checked)}
+              slotProps={{ input: { 'aria-label': t('settings.showCompleted') } }}
+            />
+          </SettingRow>
         </Section>
         {/* Servers with accounts only (R-FB-157). */}
         {accounts && (
