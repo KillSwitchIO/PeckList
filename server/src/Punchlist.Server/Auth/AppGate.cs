@@ -32,7 +32,7 @@ public static partial class AppSignIn
             return Results.Content(GatePage(key!, scheme), "text/html; charset=utf-8");
         });
 
-        auth.MapPost("/app/gate", async (HttpContext context) =>
+        auth.MapPost("/app/gate", async (HttpContext context, ILoggerFactory loggers) =>
         {
             var form = await context.Request.ReadFormAsync(context.RequestAborted);
             var key = form["key"].ToString();
@@ -43,6 +43,11 @@ public static partial class AppSignIn
                 .Where(each => !OwnCookie(each.Key))
                 .Select(each => new GateCookie(each.Key, each.Value))
                 .ToList();
+            // Names only, never values: whether the gate's cookie reached us at all is the first
+            // question when the hand-back loops (a proxy that keeps its session cookie to itself).
+            loggers.CreateLogger("Punchlist.AppGate").LogInformation(
+                "App gate: handing {Count} cookies back to the app: {Names}",
+                cookies.Count, string.Join(", ", cookies.Select(each => each.Name)));
             var sealedCookies = Seal(rsa, JsonSerializer.SerializeToUtf8Bytes(cookies));
             return Results.Redirect($"{scheme}://gate?data={sealedCookies}");
         });
