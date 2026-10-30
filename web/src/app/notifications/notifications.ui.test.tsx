@@ -153,6 +153,39 @@ describe('notifications', () => {
     expect(shown).toHaveLength(2);
   });
 
+  it('a task opened before the first sync says it is being looked for, then that it is gone', async () => {
+    const backend = new FakeBackend();
+    backend.addAccount('ben', 'correct horse battery');
+    const store = testStore();
+    const transport = backend.device();
+    transport.session = 'ben';
+    // The first sync of this run hangs until released, as on a phone opening from a notification.
+    const real = transport.sync.bind(transport);
+    let release = () => undefined;
+    let held = true;
+    transport.sync = (request) =>
+      held
+        ? new Promise((resolve) => {
+            release = () => {
+              held = false;
+              resolve(real(request));
+            };
+          })
+        : real(request);
+    const sync = createSyncEngine({
+      transport,
+      workspace: store,
+      storage: createMemoryStorage(),
+      debounceMs: 60_000,
+      intervalMs: 600_000,
+    });
+    await renderApp('/today?task=01ARZ3NDEKTSV4RRFFQ69G5FAV', store, sync);
+    await waitFor(() => expect(sync.getState().phase).toBe('ready'));
+    expect(await screen.findByText('Looking for this task on the server…')).toBeInTheDocument();
+    act(() => release());
+    expect(await screen.findByText('This task no longer exists.')).toBeInTheDocument();
+  });
+
   it('open the task they are about', async () => {
     const backend = new FakeBackend();
     backend.addAccount('ben', 'correct horse battery');
