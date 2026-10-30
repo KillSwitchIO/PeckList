@@ -8,7 +8,7 @@
   "additionalProperties": false,
   "properties": {
     "schemaVersion": {
-      "const": 16
+      "const": 17
     },
     "app": {
       "type": "object",
@@ -844,6 +844,24 @@
               "maxItems": 10,
               "items": { "$ref": "#/$defs/reminder" }
             }
+          }
+        },
+        "notifications": {
+          "description": "Which kinds of notification reach this person, and whether they vibrate (schema 17, PL-115). Absent, or an absent field: on. The Notifications page lists every kind regardless.",
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "reminders": { "type": "boolean" },
+            "assignments": {
+              "type": "boolean",
+              "description": "Assigned to me, assigned to my group, dibs called"
+            },
+            "shares": { "type": "boolean" },
+            "comments": {
+              "type": "boolean",
+              "description": "Comments, edited comments and mentions"
+            },
+            "vibrate": { "type": "boolean" }
           }
         },
         "bottomBar": {

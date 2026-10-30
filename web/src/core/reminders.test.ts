@@ -92,15 +92,15 @@ describe('reminders', () => {
     expect(new Set(due.map((each) => each.key)).size).toBe(2);
   });
 
-  it('come again every 5 minutes for an hour when constant, under one tag', () => {
+  it('come again every 5 minutes for 30 minutes when constant, under one tag', () => {
     const s = setup();
     const pills = s.add('Pills', { schedule: timed, reminders: [{ before: 0 }] });
     s.ws = updateTask(s.ctx, s.ws, pills.id, { constantReminder: true });
     const due = remindersBetween(s.ws, ME, at('2026-10-26T10:00'), at('2026-10-26T12:00'), TZ);
-    expect(due).toHaveLength(12);
+    expect(due).toHaveLength(6);
     expect(due[1]!.at - due[0]!.at).toBe(5 * 60_000);
     expect(new Set(due.map((each) => each.tag)).size).toBe(1);
-    expect(new Set(due.map((each) => each.key)).size).toBe(12);
+    expect(new Set(due.map((each) => each.key)).size).toBe(6);
     expect(due.every((each) => each.constant)).toBe(true);
   });
 });

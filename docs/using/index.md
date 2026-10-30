@@ -91,7 +91,9 @@ their start; the due date is the deadline.
   time**), or **None**. **Custom** makes your own: the **Day** or **Week** tab picks how many days
   or weeks early and the wheels the time of day (60 days early at 4:00 PM, say); a timed task also
   has **Minute** and **Hour** tabs for minutes or hours early. It shows when the reminder will come, or that the time has passed. **Constant reminder** keeps a reminder
-  on screen and brings it back every 5 minutes for an hour, until the task is done; its
+  on screen until the task is done: on the Android app it keeps sounding and buzzing until you
+  open it, dismiss it or press a button, going quiet after 30 minutes; in a browser it comes back
+  every 5 minutes for 30 minutes. Its
   **Dismiss** stops that reminder (the task's other reminders still come) and **Snooze 10 min**
   adds a one-time reminder ten minutes on. Nothing
   changes until **OK**. The first reminder asks your browser for permission to show notifications.
@@ -263,7 +265,11 @@ end that shows what you typed.
 
 **Notifications** lists reminders, @mentions, comments, tasks someone assigned you or a group
 you are in, dibs called on a group's task, and lists someone shared with you, newest first; a red
-dot on your picture means some are new. A new or changed comment tells everyone else who can see
+dot on your picture means some are new. **Settings > Tell me about** picks which of those kinds
+reach you as a notification on any of your devices (reminders; assignments and dibs; shared lists;
+comments and mentions) and whether they vibrate; the page lists everything either way. The Android
+app also lists the same kinds under the phone's own notification settings for Punchlist, where each
+can be silenced or muted the Android way. A new or changed comment tells everyone else who can see
 the task (changes to the task itself tell nobody). A click opens the task or list, the cross clears
 one and **Clear all** clears the rest. A comment has **Reply** on the left, which opens the task
 with its comments shown and scrolled to it, and a thumbs up on the right, which answers with 👍. A

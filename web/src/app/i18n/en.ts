@@ -1304,6 +1304,16 @@ export const en = {
   'notifications.pushUnsupported':
     'This browser cannot take notifications with Punchlist closed. On iPhone and iPad, add Punchlist to your Home Screen and turn it on there.',
   'notifications.pushFailed': 'That did not work. Try again in a moment.',
+  'notifications.kinds': 'Tell me about',
+  'notifications.kindsHint':
+    'What reaches you as a notification. The Notifications page lists everything either way.',
+  'notifications.kindReminders': 'Reminders',
+  'notifications.kindAssignments': 'Assignments and dibs',
+  'notifications.kindShares': 'Shared lists',
+  'notifications.kindComments': 'Comments and mentions',
+  'notifications.vibrate': 'Vibrate',
+  'notifications.vibrateHint':
+    'In the Android app, vibration is also set per kind in the phone\u2019s notification settings for Punchlist.',
   'backgroundCheck.label': 'Check for updates in the background',
   'backgroundCheck.hint':
     'With Punchlist closed, it asks your server for new shares, assignments and mentions, and keeps reminders changed on your other devices up to date.',

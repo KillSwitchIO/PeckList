@@ -98,6 +98,7 @@ describe('the Android app with its own reminders', () => {
     shell.api = 4;
     const news = {
       kind: 'news' as const,
+      category: 'assigned',
       title: 'Punchlist',
       body: 'sam assigned you Mow the lawn',
       tag: 'N1',
@@ -113,6 +114,7 @@ describe('the Android app with its own reminders', () => {
         body: 'sam assigned you Mow the lawn',
         url: '/today?task=T1',
         news: true,
+        category: 'assigned',
         actions: [{ action: 'open', title: 'Open task', url: '/today?task=T1' }],
       },
       { tag: reminder.tag, title: reminder.title, body: reminder.body, url: reminder.url },

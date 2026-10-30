@@ -93,6 +93,30 @@ describe('notifications with the app closed', () => {
     expect(transport.pushed.size).toBe(0);
   });
 
+  it('pick which kinds reach me, for every device', async () => {
+    setBrowserPush(fakePush());
+    const backend = new FakeBackend();
+    backend.addAccount('ben', 'correct horse battery');
+    const { store } = await signedIn('/settings', backend);
+    const section = await screen.findByRole('region', { name: 'Tell me about' });
+    const shares = within(section).getByRole('switch', { name: 'Shared lists' });
+    expect(shares).toBeChecked();
+    await userEvent.click(shares);
+    await waitFor(() =>
+      expect(store.getState().workspace!.entities.settings[0]!.notifications).toEqual({
+        shares: false,
+      }),
+    );
+    expect(within(section).getByRole('switch', { name: 'Reminders' })).toBeChecked();
+    await userEvent.click(within(section).getByRole('switch', { name: 'Vibrate' }));
+    await waitFor(() =>
+      expect(store.getState().workspace!.entities.settings[0]!.notifications).toEqual({
+        shares: false,
+        vibrate: false,
+      }),
+    );
+  });
+
   it('say where they cannot work', async () => {
     setBrowserPush(fakePush(false));
     const backend = new FakeBackend();

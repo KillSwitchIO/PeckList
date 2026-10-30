@@ -4,7 +4,7 @@ namespace Punchlist.Core;
 public static class WorkspaceSchema
 {
     /// <summary>Must match <c>CURRENT_SCHEMA_VERSION</c> in web/src/core/migrations.ts.</summary>
-    public const int CurrentVersion = 16;
+    public const int CurrentVersion = 17;
 
     /// <summary>
     /// Older versions whose data this build reads as it is: their migrations only added optional

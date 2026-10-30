@@ -174,3 +174,27 @@ public static partial class NotificationRules
     private static string? Field(JsonObject? doc, string name) =>
         doc?[name] is JsonValue value && value.TryGetValue<string>(out var text) ? text : null;
 }
+
+/// <summary>
+/// The person's notification switches (settings.notifications, schema 17, PL-115): which kinds
+/// reach them as a push, a check-in notice or a reminder. Absent, or an absent switch: on. The
+/// notifications feed itself lists every kind regardless.
+/// </summary>
+public static class NotificationSwitches
+{
+    /// <summary>The switch a kind of notification is behind.</summary>
+    public static string SwitchOf(string kind) => kind switch
+    {
+        NotificationKind.Reminder => "reminders",
+        NotificationKind.Shared => "shares",
+        NotificationKind.Commented or NotificationKind.CommentEdited or NotificationKind.Mentioned => "comments",
+        _ => "assignments",
+    };
+
+    public static bool Allows(JsonObject? settings, string kind) =>
+        settings?["notifications"] is not JsonObject switches
+        || switches[SwitchOf(kind)] is not JsonValue value
+        || !value.TryGetValue<bool>(out var on)
+        || on;
+}
+

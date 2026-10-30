@@ -17,6 +17,7 @@ export type SettingsPatch = Partial<
     | 'timeZone'
     | 'newTask'
     | 'allDayReminderTime'
+    | 'notifications'
   >
 >;
 

@@ -16,9 +16,11 @@
     <string name="gate_here">Sign in here instead</string>
     <string name="gate_link_hint">Behind Pangolin? Paste a share link for this server instead:</string>
     <string name="gate_link_use">Use the link</string>
-    <!-- Notification channels, as Settings > Apps > Punchlist > Notifications lists them (Reminders). -->
+    <!-- Notification channels, as Settings > Apps > Punchlist > Notifications lists them (PL-115). -->
     <string name="channel_reminders">Reminders</string>
-    <string name="channel_activity">Shares, assignments and mentions</string>
+    <string name="channel_assignments">Assignments and dibs</string>
+    <string name="channel_shares">Shared lists</string>
+    <string name="channel_comments">Comments and mentions</string>
     <!-- A reminder's buttons and text (Reminders, ReminderReceiver); the web app words them the same. -->
     <string name="action_complete">Complete</string>
     <string name="action_snooze">Snooze</string>

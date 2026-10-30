@@ -14,7 +14,7 @@ export function createBrowserNotifier(): Notifier {
       if (Notification.permission !== 'default') return Notification.permission;
       return Notification.requestPermission();
     },
-    async show({ title, body, tag, url, sticky = false, actions }: AppNotification) {
+    async show({ title, body, tag, url, sticky = false, actions, vibrate }: AppNotification) {
       if (!supported() || Notification.permission !== 'granted') return;
       const options = {
         body,
@@ -24,6 +24,8 @@ export function createBrowserNotifier(): Notifier {
         icon: '/icon.svg',
         badge: '/icon.svg',
         ...(sticky ? { requireInteraction: true, renotify: true } : {}),
+        // Honored by Android browsers, ignored elsewhere (PL-115).
+        ...(vibrate === false ? {} : { vibrate: [250, 150, 250] }),
         ...(actions?.length ? { actions } : {}),
       };
       const registration = await navigator.serviceWorker?.getRegistration?.();

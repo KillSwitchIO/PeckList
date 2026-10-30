@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from 'react';
 import type { ServerNotification } from '../../ports/sync.ts';
+import { notificationAllowed, vibrates } from '../../core/notificationSwitches.ts';
 import { notifier } from '../reminders/notifier.ts';
 import { useWorkspace } from '../store/hooks.ts';
 import {
@@ -85,12 +86,16 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
         if (!seen || typeof document === 'undefined' || document.visibilityState !== 'visible') {
           return;
         }
+        const settings = latest.current.entities.settings[0];
         for (const each of feed.items) {
           if (seen.has(each.id) || each.read || each.kind === 'reminder') continue;
+          if (!notificationAllowed(settings, each.kind)) continue;
           const item = itemOf(each);
           void notifier()
             .show({
               kind: 'news',
+              category: each.kind,
+              vibrate: vibrates(settings),
               title: 'Punchlist',
               body: notificationSentence(latest.current, item),
               tag: each.id,

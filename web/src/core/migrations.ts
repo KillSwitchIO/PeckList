@@ -3,7 +3,7 @@
 
 import { keyBetween } from './ordering.ts';
 
-export const CURRENT_SCHEMA_VERSION = 16;
+export const CURRENT_SCHEMA_VERSION = 17;
 
 export type Migration = (document: Record<string, unknown>) => Record<string, unknown>;
 
@@ -121,6 +121,9 @@ export const MIGRATIONS: MigrationRegistry = {
   // 16: settings may hold the time new all-day reminders come at (allDayReminderTime). Optional
   // (missing: 9:00), so documents change only in version.
   16: (document) => document,
+  // 17: settings may say which kinds of notification reach the person and whether they vibrate
+  // (notifications). Optional (missing: all on), so documents change only in version.
+  17: (document) => document,
 };
 
 export type VersionCheck =

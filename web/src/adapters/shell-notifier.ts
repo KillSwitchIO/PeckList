@@ -25,6 +25,7 @@ interface ShellReminders {
     body: string;
     url: string;
     news?: boolean;
+    category?: string;
     actions?: { action: string; title: string; url: string }[];
   }): Promise<void>;
   addListener(
@@ -120,6 +121,7 @@ export function createShellNotifier(older: () => Notifier | null): Notifier | nu
           body: notification.body,
           url: notification.url,
           news: true,
+          category: notification.category ?? '',
           actions: (notification.actions ?? [])
             .filter((each) => each.url !== undefined)
             .map((each) => ({ action: each.action, title: each.title, url: each.url ?? '/' })),

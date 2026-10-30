@@ -8,7 +8,7 @@ using Punchlist.Server.Auth;
 namespace Punchlist.Server.Push;
 
 /// <summary>A notification for the Android app to show, with its buttons left to right (R-FB-106, R-FB-107).</summary>
-public sealed record AppCheckNotification(string Id, string Title, string Body, string Url, IReadOnlyList<PushAction> Actions);
+public sealed record AppCheckNotification(string Id, string Kind, string Title, string Body, string Url, IReadOnlyList<PushAction> Actions);
 
 /// <summary>
 /// <paramref name="At"/>: milliseconds since the epoch. <paramref name="Constant"/>: it comes again
@@ -38,6 +38,7 @@ public static class AppCheckEndpoints
         {
             var me = user.UserId();
             var index = sharing.Index;
+            var mine = ReminderSender.SettingsOf(index, me);
             // A first check starts from now (a ULID sorts by time), taken before looking so nothing slips past.
             var start = after ?? Ids.NewUlid(time);
             var latest = await store.ListAsync(me, NotificationEndpoints.FeedSize, cancellation);
@@ -48,7 +49,8 @@ public static class AppCheckEndpoints
                 ? []
                 : latest
                     .Where(each => each.ReadAt is null && each.Kind != NotificationKind.Reminder
-                        && string.CompareOrdinal(each.Id, after) > 0)
+                        && string.CompareOrdinal(each.Id, after) > 0
+                        && NotificationSwitches.Allows(mine, each.Kind))
                     .OrderBy(each => each.Id, StringComparer.Ordinal)
                     .ToList();
             var names = new Dictionary<string, string?>(StringComparer.Ordinal);
@@ -61,7 +63,7 @@ public static class AppCheckEndpoints
                     actor = names[actorId] = (await accounts.FindByIdAsync(actorId, cancellation))?.Username;
                 }
                 var (body, url) = NotificationText.Of(each, actor, index);
-                notifications.Add(new AppCheckNotification(each.Id, "Punchlist", body, url, NotificationText.ActionsOf(each, url)));
+                notifications.Add(new AppCheckNotification(each.Id, each.Kind, "Punchlist", body, url, NotificationText.ActionsOf(each, url)));
             }
 
             var now = time.GetUtcNow();
