@@ -20,6 +20,7 @@ import type {
   OidcOverview,
   PendingSignIn,
   ServerSettingsView,
+  TelemetryView,
 } from '../ports/admin.ts';
 import type { ServerStats } from '../ports/stats.ts';
 import { SyncFailure } from '../ports/sync.ts';
@@ -239,6 +240,9 @@ export function createHttpAdmin(
     restart: async () => {
       await call('/restart', 'POST');
     },
+    telemetry: async () => json<TelemetryView>(await call('/telemetry')),
+    renewTelemetryId: async () => accept(await call('/telemetry/new-id', 'POST')),
+    telemetryNoticeSeen: async () => accept(await call('/telemetry/notice-seen', 'POST')),
     logging: async () => json<LoggingView>(await call('/logging')),
     debugDumpUrl: () => `${base}/api/admin/debug-dump`,
     audit: async (query) => json<AuditPage>(await call(`/audit?${auditParams(query)}`)),

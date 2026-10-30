@@ -499,6 +499,8 @@ e2e-server:
   variables:
     # Services get the job's variables: this is the test server's admin password, nothing real.
     ADMIN_PASSWORD: e2e-admin-password-ci
+    # A CI server is not an install: it sends no usage report.
+    TELEMETRY: 'false'
     E2E_ADMIN_PASSWORD: e2e-admin-password-ci
     E2E_BASE_URL: http://punchlist:8080
     E2E_BROWSERS: chrome

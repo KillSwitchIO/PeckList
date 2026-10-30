@@ -33,6 +33,9 @@ public abstract class SqlDatabase : IDatabase
     /// <summary>The larger of two values.</summary>
     public virtual string Greatest(string a, string b) => $"MAX({a}, {b})";
 
+    /// <summary>A query for the database's size on disk in bytes.</summary>
+    public virtual string DatabaseBytes => "SELECT page_count * page_size FROM pragma_page_count(), pragma_page_size()";
+
     /// <summary>Whether a write hit a unique index (SQLite and PostgreSQL word it differently).</summary>
     public static bool IsUniqueViolation(DbException error) =>
         error.Message.Contains("unique", StringComparison.OrdinalIgnoreCase)

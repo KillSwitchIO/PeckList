@@ -22,6 +22,8 @@ public sealed class LiveSettings(ServerSettings start)
             AccountDeleteGraceDays = next.AccountDeleteGraceDays,
             AttachmentMaxMb = next.AttachmentMaxMb,
             UpdateCheck = next.UpdateCheck,
+            Telemetry = next.Telemetry,
+            TelemetryUrl = next.TelemetryUrl,
             SnapshotSchedule = next.SnapshotSchedule,
             SnapshotKeep = next.SnapshotKeep,
             AuditRetentionDays = next.AuditRetentionDays,

@@ -20,6 +20,10 @@ public static partial class ServerApp
 
     public static string Version { get; } = FullVersion.Split('+')[0];
 
+    /// <summary>Built by CI with its version stamped (the image, the native packages), not on a developer's machine.</summary>
+    public static bool Stamped { get; } = typeof(ServerApp).Assembly.GetCustomAttributes<AssemblyMetadataAttribute>()
+        .Any(each => each.Key == "PunchlistStamped" && each.Value == "true");
+
     public static WebApplication Build(string[] args)
     {
         var builder = WebApplication.CreateBuilder(args);
@@ -82,6 +86,14 @@ public static partial class ServerApp
         builder.Services.AddSingleton<IReleaseFeed, GitLabReleaseFeed>();
         builder.Services.AddSingleton<UpdateStatus>();
         builder.Services.AddHostedService<UpdateCheck>();
+        builder.Services.AddHttpClient("telemetry", client =>
+        {
+            client.Timeout = TimeSpan.FromSeconds(30);
+            client.DefaultRequestHeaders.UserAgent.ParseAdd($"Punchlist/{Version}");
+        });
+        builder.Services.AddSingleton<ITelemetrySender, HttpTelemetrySender>();
+        builder.Services.AddSingleton<TelemetryReport>();
+        builder.Services.AddHostedService<TelemetryService>();
         builder.Services.AddSingleton<Auth.ProviderPhoto>();
         builder.Services.AddSingleton<VapidKeys>();
         builder.Services.AddSingleton<IPushSender, PushSender>();
@@ -147,7 +159,7 @@ public static partial class ServerApp
                 AppSignIn: settings.AuthMode != AuthMode.None));
         app.MapAuth();
         app.MapGroup("/api").RequireAuthorization().RequirePasswordChanged().EnsureProfiles().MapSync().MapFriends().MapAccount().MapAttachments().MapNotifications().MapHistory().MapPush().MapProviderPicture().MapAppCheck().MapUpdates().MapApiKeys();
-        app.MapGroup("/api/admin").RequireAuthorization().RequirePasswordChanged().MapAdmin().MapSettings().MapBackups().MapLogging().MapAudit().MapStats().MapSetup();
+        app.MapGroup("/api/admin").RequireAuthorization().RequirePasswordChanged().MapAdmin().MapSettings().MapBackups().MapLogging().MapAudit().MapStats().MapSetup().MapTelemetry();
 
         var webRoot = settings.WebRoot ?? Path.Combine(AppContext.BaseDirectory, "wwwroot");
         app.UseStaticSite(webRoot, app.Logger);

@@ -152,6 +152,28 @@ folder that grows, so it can sit on other storage than the database: the image k
 volume, `/files`. **Default:** `attachments` next to the SQLite file; `/files` in the image.
 **Where:** env.
 
+## Telemetry
+
+What the daily usage report holds, and what it never holds: [privacy](../using/privacy.md).
+
+### `TELEMETRY`
+
+Send the anonymous daily usage report: one request a day from the server to the project's
+collector, with counts in ranges and switches, never names, titles, addresses or anything people
+wrote. Turn it off and nothing is sent. The admin settings page shows the report exactly as it
+would go. **Default:** `true`. **Where:** any, live.
+
+### `TELEMETRY_URL`
+
+Where the report goes. **Default:** `https://telemetry.killswitch10.com/v1/ping` (it moves to the
+app's own domain at 1.0). **Where:** any, live.
+
+### `DO_NOT_TRACK`
+
+`1` or `true` turns the report off, like `TELEMETRY=false`, for those who set this
+[convention](https://consoledonottrack.com/) across all their tools. **Default:** `false`.
+**Where:** environment.
+
 ## Network
 
 ### `TRUSTED_PROXIES`

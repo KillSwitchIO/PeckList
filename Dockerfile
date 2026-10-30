@@ -40,7 +40,7 @@ COPY server/src/Punchlist.Storage.Postgres/Punchlist.Storage.Postgres.csproj src
 RUN dotnet restore src/Punchlist.Server/Punchlist.Server.csproj -a $TARGETARCH
 COPY server/src src
 # A dev build keeps the version in Directory.Build.props; a release build stamps its own.
-RUN if [ "$VERSION" = "0.0.0-dev" ]; then STAMP=""; else STAMP="-p:Version=$VERSION"; fi \
+RUN if [ "$VERSION" = "0.0.0-dev" ]; then STAMP=""; else STAMP="-p:Version=$VERSION -p:PunchlistStamped=true"; fi \
     && dotnet publish src/Punchlist.Server/Punchlist.Server.csproj -c Release -a $TARGETARCH --self-contained false \
        -o /app --no-restore $STAMP -p:SourceRevisionId=$REVISION \
     && mkdir -p /data /files && chown 1654:1654 /data /files

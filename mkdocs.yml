@@ -96,6 +96,7 @@ nav:
       - Quick add and shortcuts: using/quick-add-and-shortcuts.md
       - Sharing: using/sharing.md
       - Apps, offline and sync: using/apps-and-sync.md
+      - Privacy and telemetry: using/privacy.md
   - Reference:
       - Command line: reference/cli.md
       - HTTP API: reference/http-api.md

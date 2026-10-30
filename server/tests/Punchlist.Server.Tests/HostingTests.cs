@@ -28,6 +28,8 @@ public sealed class ServerFixture : IDisposable
             host.UseSetting("LOG_FILES", "off");
             // No test server asks GitLab for releases; the update tests turn it on with a fake feed.
             host.UseSetting("UPDATE_CHECK", "off");
+            // Nor sends usage reports; the telemetry tests turn it on with a fake sender.
+            host.UseSetting("TELEMETRY", "off");
             foreach (var (key, value) in settings) host.UseSetting(key, value);
         });
 
