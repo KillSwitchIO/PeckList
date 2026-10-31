@@ -25,6 +25,53 @@ describe('TipTap notes extras', () => {
     expect(onCommit).toHaveBeenCalledExactlyOnceWith('- [ ] paint');
   });
 
+  it('"/" + "Every line a checkbox" turns the whole note into boxes, one per line', async () => {
+    const onCommit = vi.fn();
+    renderThemed(
+      <>
+        <TiptapEditor label="Notes" value="" onCommit={onCommit} />
+        <button type="button">Elsewhere</button>
+      </>,
+    );
+    const editor = await screen.findByRole('textbox', { name: 'Notes' });
+    // Two lines in one paragraph (Shift+Enter), then "/" on a line of its own.
+    await userEvent.type(
+      editor,
+      'call the vet{Shift>}{Enter}{/Shift}ask about the shots{Enter}/every',
+    );
+    expect(
+      await screen.findByRole('menuitem', { name: 'Every line a checkbox' }),
+    ).toBeInTheDocument();
+    await userEvent.keyboard('{Enter}');
+    await userEvent.click(screen.getByRole('button', { name: 'Elsewhere' }));
+    expect(onCommit).toHaveBeenCalledExactlyOnceWith(
+      '- [ ] call the vet\n- [ ] ask about the shots',
+    );
+  });
+
+  it('the full editor has one button that is "back to lines" while the note is all boxes', async () => {
+    const onCommit = vi.fn();
+    renderThemed(
+      <>
+        <TiptapEditor
+          label="Notes"
+          value={'- [x] bought\n- [ ] not yet'}
+          onCommit={onCommit}
+          expanded
+        />
+        <button type="button">Elsewhere</button>
+      </>,
+    );
+    await userEvent.click(await screen.findByRole('textbox', { name: 'Notes' }));
+    expect(screen.queryByRole('button', { name: 'Every line a checkbox' })).toBeNull();
+    await userEvent.click(screen.getByRole('button', { name: 'Checkboxes back to lines' }));
+    expect(
+      await screen.findByRole('button', { name: 'Every line a checkbox' }),
+    ).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Elsewhere' }));
+    expect(onCommit).toHaveBeenCalledExactlyOnceWith('bought\n\nnot yet');
+  });
+
   it('has no edit mode inline: no toolbar on focus; the full editor has one', async () => {
     const { unmount } = renderThemed(
       <TiptapEditor label="Notes" value="" onCommit={() => undefined} />,

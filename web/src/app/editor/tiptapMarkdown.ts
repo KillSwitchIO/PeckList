@@ -6,6 +6,7 @@ import { Editor, Extension, InputRule, type AnyExtension } from '@tiptap/core';
 import { Link } from '@tiptap/extension-link';
 import { TaskItem, TaskList } from '@tiptap/extension-list';
 import { Placeholder } from '@tiptap/extensions';
+import { LinesChecklist } from './linesChecklist.ts';
 import { Markdown, type MarkdownManager } from '@tiptap/markdown';
 import StarterKit from '@tiptap/starter-kit';
 
@@ -169,6 +170,7 @@ export function notesExtensions(placeholder?: string): AnyExtension[] {
     TaskList,
     TaskItem.configure({ nested: true }),
     BulletToChecklist,
+    LinesChecklist,
     NotesMarkdown,
     ...(placeholder ? [Placeholder.configure({ placeholder })] : []),
   ];

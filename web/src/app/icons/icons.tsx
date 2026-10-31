@@ -170,6 +170,15 @@ export function ChecklistIcon(props: SvgIconProps) {
   );
 }
 
+/** Plain lines: three text lines, no boxes (a checklist turned back into lines). */
+export function NotesLinesIcon(props: SvgIconProps) {
+  return (
+    <PunchIcon {...props}>
+      <path d="M4 6.5h16M4 12h16M4 17.5h10" />
+    </PunchIcon>
+  );
+}
+
 /** Link: two chain links. */
 export function LinkIcon(props: SvgIconProps) {
   return (

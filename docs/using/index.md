@@ -115,7 +115,10 @@ their start; the due date is the deadline.
   Quick add reads `every ...` too.
 - **Notes**: always ready to type in, with no edit mode. Checklist boxes tick with one tap, without
   starting to edit. The small button in their bottom right opens the full editor, with a
-  formatting toolbar.
+  formatting toolbar. Type `/` for blocks (headings, lists, a checklist, a quote, code). Two of
+  them change the whole note: **Every line a checkbox** makes a checklist out of what is there,
+  one box per line, and **Checkboxes back to lines** undoes that; the full editor has the same as
+  one toolbar button.
 - **Assigned**: a task you add to a shared list starts assigned to you.
 - **Files**: the paperclip at the top of a task's details attaches files, or drop them on the
   details. Pictures show as thumbnails and open large; other files download. Everyone who sees the
