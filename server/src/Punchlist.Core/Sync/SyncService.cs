@@ -76,6 +76,8 @@ public sealed partial class SyncService(
     /// <param name="source">The pushing device, passed on to the user's other devices' change events.</param>
     public async Task<SyncResponse> SyncAsync(string userId, SyncRequest request, string? source = null, CancellationToken cancellation = default)
     {
+        // Nothing reads or writes sharing before the index has loaded (the server listens meanwhile).
+        await sharing.Loaded.WaitAsync(cancellation);
         if (request.SchemaVersion != WorkspaceSchema.CurrentVersion)
         {
             throw new SyncRejected("schema_mismatch",
@@ -180,6 +182,7 @@ public sealed partial class SyncService(
     public async Task<IReadOnlyList<StoredEntity>> WriteAsServerAsync(
         string ownerId, IReadOnlyList<IncomingEntity> entities, CancellationToken cancellation = default)
     {
+        await sharing.Loaded.WaitAsync(cancellation);
         await sharing.Gate.WaitAsync(cancellation);
         try
         {

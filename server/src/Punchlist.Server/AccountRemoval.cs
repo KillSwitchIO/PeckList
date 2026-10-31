@@ -48,6 +48,7 @@ public sealed class AccountRemoval(
     /// <summary>Remove every deleted account whose grace period is over; how many went.</summary>
     public async Task<int> RemoveDueAsync(CancellationToken cancellation = default)
     {
+        await sharing.Loaded.WaitAsync(cancellation);
         await removing.WaitAsync(cancellation);
         try
         {
@@ -68,6 +69,7 @@ public sealed class AccountRemoval(
     /// </summary>
     public async Task<bool> RemoveNowAsync(string accountId, CancellationToken cancellation = default)
     {
+        await sharing.Loaded.WaitAsync(cancellation);
         await removing.WaitAsync(cancellation);
         try
         {
