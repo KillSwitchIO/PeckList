@@ -97,6 +97,7 @@ public sealed class SharingTests(ServerFixture fixture) : IClassFixture<ServerFi
     {
         var ben = await SignIn("ben-n");
         var sam = await SignIn("sam-n");
+        await Befriend(ben, sam);
         await ben.SyncAsync(List("NL1", "shared"), Member("NM1", "NL1", sam.UserId, "editor"), Task("NT1", "NL1", "Mow", sam.UserId));
 
         var feed = await sam.NotificationsAsync();
@@ -124,6 +125,7 @@ public sealed class SharingTests(ServerFixture fixture) : IClassFixture<ServerFi
         var ben = await SignIn("ben-m");
         var sam = await SignIn("sam-m");
         var lee = await SignIn("lee-m");
+        await Befriend(ben, sam);
         await ben.SyncAsync(List("ML1", "shared"), Member("MM1", "ML1", sam.UserId, "editor"), Task("MT1", "ML1", "Paint"));
         await sam.SyncAsync(("comments", Entity("MC1", new JsonObject
         {
@@ -144,6 +146,7 @@ public sealed class SharingTests(ServerFixture fixture) : IClassFixture<ServerFi
         var ben = await SignIn("ben-c");
         var sam = await SignIn("sam-c");
         var lee = await SignIn("lee-c");
+        await Befriend(ben, sam);
         await ben.SyncAsync(List("CL1", "shared"), Member("CM1", "CL1", sam.UserId, "editor"), Task("CT1", "CL1", "Paint"));
         await sam.SyncAsync(("comments", Entity("CC1", new JsonObject
         {
@@ -173,6 +176,7 @@ public sealed class SharingTests(ServerFixture fixture) : IClassFixture<ServerFi
         var ben = await SignIn("ben-h");
         var sam = await SignIn("sam-h");
         var lee = await SignIn("lee-h");
+        await Befriend(ben, sam);
         await ben.SyncAsync(List("HL1", "shared"), Member("HM1", "HL1", sam.UserId, "editor"), Task("HT1", "HL1", "Paint"));
         // Two quick renames by Sam fold into one change; then Ben raises its priority.
         await sam.SyncAsync(Task("HT1", "HL1", "Paint the"));
@@ -201,7 +205,8 @@ public sealed class SharingTests(ServerFixture fixture) : IClassFixture<ServerFi
         (await admin.PostAsJsonAsync("/auth/login", new { username = "admin", password = "correct horse battery" }, Token)).EnsureSuccessStatusCode();
         var made = await admin.PostAsJsonAsync("/api/admin/groups", new { name = "Chores", offeredForSharing = true }, Token);
         var groupId = (string)(await made.Content.ReadFromJsonAsync<JsonObject>(Token))!["id"]!;
-        foreach (var member in new[] { sam, kim })
+        // Ben shares with the group and assigns to it, so Ben is in it too (audit S3).
+        foreach (var member in new[] { ben, sam, kim })
         {
             (await admin.PutAsync($"/api/admin/groups/{groupId}/members/{member.UserId}", null, Token)).EnsureSuccessStatusCode();
         }
@@ -301,6 +306,7 @@ public sealed class SharingTests(ServerFixture fixture) : IClassFixture<ServerFi
     {
         var ben = await SignIn("ben");
         var sam = await SignIn("sam");
+        await Befriend(ben, sam);
         await ben.SyncAsync(List("L1", "shared"), Member("M1", "L1", sam.UserId, "editor"), Task("T1", "L1", "Mow"));
 
         await sam.SyncAsync();
@@ -335,6 +341,7 @@ public sealed class SharingTests(ServerFixture fixture) : IClassFixture<ServerFi
         var ben = await SignIn("ben");
         var sam = await SignIn("sam");
         var kim = await SignIn("kim");
+        await Befriend(ben, sam, kim);
         await ben.SyncAsync(List("L1", "shared"), Member("O1", "L1", ben.UserId, "owner"), Member("M1", "L1", sam.UserId, "editor"),
             Member("M2", "L1", kim.UserId, "viewer"), Task("T1", "L1", "Paint the shed"), Comment("C1", "T1", "Blue?"));
 
@@ -367,6 +374,7 @@ public sealed class SharingTests(ServerFixture fixture) : IClassFixture<ServerFi
     {
         var ben = await SignIn("ben");
         var sam = await SignIn("sam");
+        await Befriend(ben, sam);
         await ben.SyncAsync(List("L1", "shared"), Member("O1", "L1", ben.UserId, "owner"), Member("M1", "L1", sam.UserId, "editor"));
         await ben.SyncAsync(Member("M1", "L1", sam.UserId, "viewer"));
         var gone = Member("M1", "L1", sam.UserId, "viewer");
@@ -394,6 +402,7 @@ public sealed class SharingTests(ServerFixture fixture) : IClassFixture<ServerFi
     {
         var ben = await SignIn("ben2");
         var jo = await SignIn("jo2");
+        await Befriend(ben, jo);
         await ben.SyncAsync(List("L1", "shared"), Member("M1", "L1", jo.UserId, "viewer"), Task("T1", "L1", "Mow"));
         await jo.SyncAsync();
 
@@ -409,6 +418,7 @@ public sealed class SharingTests(ServerFixture fixture) : IClassFixture<ServerFi
     {
         var ben = await SignIn("ben3");
         var sam = await SignIn("sam3");
+        await Befriend(ben, sam);
         await ben.SyncAsync(List("L1", "private"), Task("T1", "L1", "Fix fence", sam.UserId), Task("T2", "L1", "Private stuff"));
         await sam.SyncAsync();
         Assert.Contains("T1", sam.Seen.Keys);
@@ -461,6 +471,7 @@ public sealed class SharingTests(ServerFixture fixture) : IClassFixture<ServerFi
         {
             ["group:G1"] = new JsonObject { ["in"] = true, ["hlc"] = "2026-10-21T11:00:00.000Z-0000-dev1" },
         };
+        await Befriend(ben, jo, sam);
         await ben.SyncAsync(
             group,
             GroupMember("GB", "G1", ben.UserId, "2026-10-21T09:00:00.000Z", "active"),
@@ -499,6 +510,19 @@ public sealed class SharingTests(ServerFixture fixture) : IClassFixture<ServerFi
             ["state"] = state,
             ["deletedAt"] = ended ? "2026-10-21T12:00:00.000Z" : null,
         }));
+
+    private static int friendships;
+
+    /// <summary>Friends first: people share with, assign and invite only people they know (audit S3).</summary>
+    private static async Task Befriend(Device asker, params Device[] others)
+    {
+        foreach (var other in others)
+        {
+            var id = $"FR{Interlocked.Increment(ref friendships)}";
+            await asker.SyncAsync(Friendship(id, asker.UserId, other.UserId, "pending"));
+            await other.SyncAsync(Friendship(id, asker.UserId, other.UserId, "accepted"));
+        }
+    }
 
     private static (string, JsonObject) Invited(string id, string list, string title, string user, string inviter)
     {
@@ -548,11 +572,13 @@ public sealed class SharingTests(ServerFixture fixture) : IClassFixture<ServerFi
     {
         var ben = await SignIn("ben9");
         var sam = await SignIn("sam9");
+        await Befriend(ben, sam);
         await ben.SyncAsync(
             List("L1", "shared"), Member("M1", "L1", sam.UserId, "editor"), Task("T1", "L1", "Mow"),
             List("L2", "private"), Task("T2", "L2", "Diary"),
             ("groups", Entity("G1", new JsonObject { ["name"] = "Household", ["color"] = "#A7C7E7", ["ownerId"] = ben.UserId, ["archived"] = false })),
-            GroupMember("GS", "G1", sam.UserId, "2026-10-21T09:10:00.000Z", "active"));
+            GroupMember("GS", "G1", sam.UserId, "2026-10-21T09:10:00.000Z", "invited"));
+        await sam.SyncAsync(GroupMember("GS", "G1", sam.UserId, "2026-10-21T09:10:00.000Z", "active"));
 
         var admin = factory.CreateClient();
         (await admin.PostAsJsonAsync("/auth/login", new { username = "admin", password = "correct horse battery" }, Token)).EnsureSuccessStatusCode();
@@ -580,5 +606,29 @@ public sealed class SharingTests(ServerFixture fixture) : IClassFixture<ServerFi
         await sam.SyncAsync(List("L1", "private"));
         await ben.SyncAsync();
         Assert.DoesNotContain("T1", ben.Seen.Keys);
+    }
+
+    [Fact]
+    public async Task A_stranger_is_not_shared_with_assigned_or_invited_and_hears_nothing()
+    {
+        var ben = await SignIn("ben-x");
+        var kim = await SignIn("kim-x");
+        var refused = await ben.SyncAsync(
+            List("XL1", "shared"),
+            Member("XM1", "XL1", kim.UserId, "editor"),
+            Task("XT1", "XL1", "Mow", kim.UserId),
+            ("groups", Entity("XG1", new JsonObject { ["name"] = "Pals", ["color"] = "#A7C7E7", ["ownerId"] = ben.UserId, ["archived"] = false })),
+            GroupMember("XGK", "XG1", kim.UserId, "2026-10-21T09:10:00.000Z", "invited"),
+            ("comments", Entity("XC1", new JsonObject { ["taskId"] = "XT1", ["body"] = "From Kim, honest", ["createdBy"] = kim.UserId })));
+        Assert.Equal(["XM1", "XT1", "XGK", "XC1"], refused.Rejected);
+        await kim.SyncAsync();
+        Assert.DoesNotContain("XL1", kim.Seen.Keys);
+        Assert.DoesNotContain("XG1", kim.Seen.Keys);
+        Assert.Empty((await kim.NotificationsAsync()).Items);
+
+        // Friends now: the same share and assignment go through.
+        await Befriend(ben, kim);
+        Assert.Empty((await ben.SyncAsync(Member("XM1", "XL1", kim.UserId, "editor"), Task("XT1", "XL1", "Mow", kim.UserId))).Rejected);
+        Assert.Contains((await kim.NotificationsAsync()).Items, each => each.Kind == "shared");
     }
 }

@@ -88,6 +88,8 @@ public static class ServerReminders
             }
         }
         if (people.Count == 0 && Text(task["createdBy"]) is { } maker) people.Add(maker);
+        // Never someone who cannot see the task (a maker since moved out of its list, audit S3).
+        if (Text(task["id"]) is { } id) people.IntersectWith(index.Viewers(id));
         return people;
     }
 

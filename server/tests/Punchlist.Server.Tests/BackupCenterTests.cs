@@ -140,8 +140,9 @@ public sealed class BackupCenterTests(ServerFixture fixture) : IClassFixture<Ser
         using (var old = Server())
         {
             var admin = await LogIn(old, "admin", AdminPassword);
-            var (sam, _) = await NewUser(old, "sam");
+            var (sam, samId) = await NewUser(old, "sam");
             var (_, kimId) = await NewUser(old, "kim");
+            await old.BefriendAsync(samId, kimId);
             await Sync(sam,
                 ("lists", Entity("L1", new JsonObject { ["name"] = "Chores", ["visibility"] = "shared" })),
                 ("listMembers", Entity("M1", new JsonObject { ["listId"] = "L1", ["principal"] = $"user:{kimId}", ["role"] = "editor" })),
@@ -156,8 +157,8 @@ public sealed class BackupCenterTests(ServerFixture fixture) : IClassFixture<Ser
             Assert.Equal(HttpStatusCode.BadRequest, refused.StatusCode);
         }
         var result = await Restore(newAdmin, whole, "Sam");
-        // Kim is not on this server: the share with Kim is left out.
-        Assert.Equal(("sam", true, 1), (result.Username, result.Created, result.Dropped));
+        // Kim is not on this server: the share with Kim and their friendship are left out.
+        Assert.Equal(("sam", true, 2), (result.Username, result.Created, result.Dropped));
 
         // Same password, same data.
         var sam2 = await LogIn(fresh, "sam", Password);

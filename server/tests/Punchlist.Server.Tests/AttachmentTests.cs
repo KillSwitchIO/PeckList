@@ -88,6 +88,7 @@ public sealed class AttachmentTests(ServerFixture fixture) : IClassFixture<Serve
 
         // A stored file is nobody's to read until an attachment they see names it.
         Assert.Equal(HttpStatusCode.NotFound, (await ben.GetAsync($"/api/attachments/{sha}", Token)).StatusCode);
+        await factory.BefriendAsync(benId, samId);
         var list = ("lists", Entity("L1", new JsonObject { ["name"] = "Shed", ["visibility"] = "shared" }));
         var member = ("listMembers", Entity("M1", new JsonObject { ["listId"] = "L1", ["principal"] = $"user:{samId}", ["role"] = "viewer" }));
         var task = ("tasks", Entity("T1", new JsonObject { ["listId"] = "L1", ["title"] = "Build it", ["parentId"] = null }));
