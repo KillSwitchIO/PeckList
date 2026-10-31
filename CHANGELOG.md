@@ -4,6 +4,40 @@ All notable changes to Punchlist. Generated from [Conventional Commits](https://
 by `pnpm changelog`; the version follows [Semantic Versioning](https://semver.org/). Before 1.0.0 a
 minor release may break things; every break is listed under **Breaking changes** with what to do.
 
+## [0.4.0] - 2026-10-31
+
+### Added
+
+- Demo server mode (DEMO_MODE) and a sign-up limit per address
+- **api:** An OpenAPI document and a Swagger UI page for the HTTP API
+
+### Fixed
+
+- **sharing:** The server sets author and owner, and shares only with people you know
+- **import:** Fixtures, schema check, dedupe and Todoist repeats
+- **admin:** Viewing as someone only looks, never writes
+- **accounts:** Removing an account hands its shared lists and groups on
+- **server:** Provider pictures, file checks and migration joins stay inside their bounds
+- **notes:** Links in notes are web and mail addresses only
+- **admin:** The admin pages fit a phone and scroll where they must
+- **sync:** Signing out clears the device
+- **sync:** A first sign-in asks before the device's own tasks join the account
+- **tasks:** A swipe in a picker over the details no longer opens the comments
+
+### Performance
+
+- **sharing:** A write looks only at what depends on it
+- **sync:** A feed page ends at about 4 MB of JSON
+- **server:** Listen while the sharing index loads
+- **sharing:** The index keeps only the fields it reads
+- **sharing:** Load the index in seconds and give the memory back
+- **sharing:** Tasks and the rest are kept as plain fields
+
+### Documentation
+
+- Pages for 1.0 (why, comparison, imports, Android, help)
+- **import:** The guide as imports work since !112
+
 ## [0.3.0] - 2026-10-30
 
 ### Added
