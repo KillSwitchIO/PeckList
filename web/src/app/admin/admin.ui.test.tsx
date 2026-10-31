@@ -600,6 +600,16 @@ describe('admin', () => {
     ).toBeInTheDocument();
   });
 
+  it('on a phone the tab strip scrolls instead of cutting the last tabs off', async () => {
+    mockViewport('phone');
+    await adminApp('superadmin', '/admin/stats');
+    const tabs = await screen.findByRole('tablist');
+    // MUI's standard strip hides what does not fit; the scrollable one can be swiped.
+    expect(tabs.parentElement).toHaveClass('MuiTabs-scrollableX');
+    expect(screen.getByRole('tab', { name: 'Settings' })).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: 'Stats' })).toHaveAttribute('aria-selected', 'true');
+  });
+
   it('adds people, resets passwords and turns accounts off', async () => {
     const { state } = await adminApp('superadmin');
     const list = await screen.findByRole('list', { name: 'Users' });

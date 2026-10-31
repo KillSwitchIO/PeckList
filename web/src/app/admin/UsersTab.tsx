@@ -183,20 +183,22 @@ export function UsersTab({ api }: { api: AdminApi }) {
   return (
     <Box sx={{ maxWidth: 720 }}>
       <SetupCard api={api} />
-      <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', mb: 1.5 }}>
+      <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, alignItems: 'center', mb: 1.5 }}>
         <InputBase
           placeholder={t('admin.users.search')}
           value={query}
           onChange={(event) => setQuery(event.target.value)}
           inputProps={{ 'aria-label': t('admin.users.search') }}
-          sx={{ flexGrow: 1, px: 1.5, py: 0.5, borderRadius: 2, bgcolor: 'action.hover' }}
+          sx={{ flex: '1 1 160px', px: 1.5, py: 0.5, borderRadius: 2, bgcolor: 'action.hover' }}
         />
-        <Button startIcon={<LinkIcon />} onClick={() => setInviting(true)}>
-          {t('admin.invites.invite')}
-        </Button>
-        <Button startIcon={<PlusIcon />} onClick={() => setAdding(true)}>
-          {t('admin.users.add')}
-        </Button>
+        <Box sx={{ display: 'flex', gap: 1, flexShrink: 0 }}>
+          <Button startIcon={<LinkIcon />} onClick={() => setInviting(true)}>
+            {t('admin.invites.invite')}
+          </Button>
+          <Button startIcon={<PlusIcon />} onClick={() => setAdding(true)}>
+            {t('admin.users.add')}
+          </Button>
+        </Box>
       </Box>
       {problem && (
         <Alert

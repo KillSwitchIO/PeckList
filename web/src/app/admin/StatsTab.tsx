@@ -81,7 +81,11 @@ export function StatsTab({ api }: { api: AdminApi }) {
     ['stats.storage', formatBytes(data.storageBytes)],
   ];
   return (
-    <Box sx={{ maxWidth: 960, display: 'grid', gap: 3, pb: 10 }}>
+    // One column that can shrink: a grid's auto column takes the width of its widest child,
+    // which would stretch the page to the table's width and leave nothing to scroll on a phone.
+    <Box
+      sx={{ maxWidth: 960, display: 'grid', gridTemplateColumns: 'minmax(0, 1fr)', gap: 3, pb: 10 }}
+    >
       <Box
         component="section"
         aria-label={t('stats.totals')}
