@@ -31,6 +31,10 @@ import {
 } from '../../ports/sync.ts';
 import type { WorkspaceStore } from '../store/workspaceStore.ts';
 
+/** What signing out did: done, or stopped by changes the server has not taken yet. */
+export type SignOutOutcome =
+  { kind: 'signed-out'; redirect: string | null } | { kind: 'unsynced'; count: number };
+
 /**
  * Where this device stands with a server:
  * - `standalone`: no server here (a static PWA); nothing to do.
@@ -68,8 +72,12 @@ export interface SyncState {
   signIn(username: string, password: string): Promise<LoginOutcome>;
   /** Make an account (open sign-up, or with an invite link) and sign in to it. */
   signUp(username: string, password: string, invite?: string): Promise<SignUpOutcome>;
-  /** Sign out; resolves to the provider's end-session address when that session should end too. */
-  signOut(): Promise<string | null>;
+  /**
+   * Sign out and forget this device's copy (audit W1). Changes the server has not taken yet stop
+   * it (`unsynced`) unless `discard` says to lose them. Signed out, it resolves to the provider's
+   * end-session address when that session should end too.
+   */
+  signOut(options?: { discard?: boolean }): Promise<SignOutOutcome>;
   changePassword(current: string, next: string): Promise<PasswordOutcome>;
   /** Sync now (push, then pull until caught up). Resolves when done or failed. */
   syncNow(): Promise<void>;
@@ -124,9 +132,16 @@ export interface SyncEngineDependencies {
    * account has on the server, and never push. Nothing made on this tab reaches their account.
    */
   readOnly?: boolean;
+  /**
+   * After a sign-out has forgotten the data: what else this device should drop (its Web Push
+   * subscription, alarms set ahead in the Android app).
+   */
+  onSignedOut?: () => Promise<void>;
 }
 
 const META = 'sync';
+/** A sign-out that could not reach the server: its session ends at the next start that can. */
+const LOGOUT_OWED = 'logoutOwed';
 /**
  * A sync still running this long after it began, when another is asked for, is taken as lost (a
  * request that died while the page was paused, a lock never released) and a fresh one starts;
@@ -608,6 +623,10 @@ export function createSyncEngine(deps: SyncEngineDependencies): SyncEngine {
             return;
           }
           listen();
+          if ((await storage.loadMeta(LOGOUT_OWED)) === true) {
+            await transport.logout();
+            await storage.saveMeta(LOGOUT_OWED, false);
+          }
           const account = await transport.me();
           if (!account) {
             set({ phase: 'signed-out' });
@@ -643,14 +662,29 @@ export function createSyncEngine(deps: SyncEngineDependencies): SyncEngine {
         return outcome;
       },
 
-      async signOut() {
+      async signOut(options = {}) {
         await get()
           .syncNow()
           .catch(() => undefined);
-        const answer = await transport.logout().catch(() => undefined);
+        // Forgetting the device's copy must not lose work the server never got.
+        const current = workspace.getState().workspace;
+        const unsynced = current ? pendingChanges(current, (await loadMeta()).acks).length : 0;
+        if (unsynced > 0 && !options.discard) return { kind: 'unsynced', count: unsynced };
+        let reached = true;
+        const answer = await transport.logout().catch(() => {
+          reached = false;
+          return undefined;
+        });
         closeEventStream();
-        set({ phase: 'signed-out', account: null, status: 'idle' });
-        return answer?.redirect ?? null;
+        // Nothing of the person stays readable here, online or off (audit W1).
+        await workspace.getState().forget();
+        // Offline, the server never heard: its session (an HttpOnly cookie) would sign the next
+        // person on this device straight back in, so it ends at the next start.
+        if (!reached) await storage.saveMeta(LOGOUT_OWED, true);
+        await blobs.clear().catch(() => undefined);
+        await deps.onSignedOut?.().catch(() => undefined);
+        set({ phase: 'signed-out', account: null, status: 'idle', notice: null });
+        return { kind: 'signed-out', redirect: answer?.redirect ?? null };
       },
 
       async changePassword(current, next) {

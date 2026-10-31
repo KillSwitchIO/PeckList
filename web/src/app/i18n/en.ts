@@ -1132,6 +1132,9 @@ export const en = {
   'profile.webVersion': 'Punchlist {version}',
   'profile.appVersion': 'Android app {version}',
   'profile.logOut': 'Log out',
+  'profile.logOutUnsynced':
+    'Changes not on the server yet: {count}. Logging out clears this device, so they would be lost.',
+  'profile.logOutAnyway': 'Log out anyway',
   'settings.timeZone': 'Time zone',
   'settings.timeZoneHint': 'Today, due dates and the calendar follow it.',
   'settings.timeZone.server': "The server's ({zone})",

@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createMemoryStorage } from '../../adapters/memory-storage.ts';
 import { FakeBackend } from '../../test/fakeTransport.ts';
 import { mockViewport, renderApp, testStore } from '../../test/renderApp.tsx';
+import { createTask } from '../../core/tasks.ts';
 import { createSyncEngine } from './syncEngine.ts';
 
 const leaveFor = vi.hoisted(() => vi.fn());
@@ -31,7 +32,7 @@ async function serverApp(backend: FakeBackend, signedInAs: string | null = null)
     intervalMs: 600_000,
   });
   const result = await renderApp('/today', store, sync);
-  return { ...result, sync, transport };
+  return { ...result, store, sync, transport };
 }
 
 describe('signing in with an identity provider', () => {
@@ -275,6 +276,32 @@ describe('signing in to a server', () => {
     expect(
       await screen.findByRole('heading', { name: 'Sign in to Punchlist' }),
     ).toBeInTheDocument();
+  });
+
+  it('logging out with changes the server has not taken asks first, then clears the device', async () => {
+    const backend = new FakeBackend();
+    backend.addAccount('ben', 'correct horse battery');
+    const { store, transport } = await serverApp(backend, 'ben');
+    await screen.findByRole('button', { name: /^Sync: Synced/ });
+    transport.offline = true;
+    store.getState().apply((ctx, ws) => {
+      const inbox = ws.entities.lists.find((list) => list.isInbox)!.id;
+      return createTask(ctx, ws, { title: 'Written on the train', listId: inbox }).workspace;
+    });
+    const titles = () => store.getState().workspace!.entities.tasks.map((task) => task.title);
+
+    await userEvent.click(screen.getByRole('button', { name: /^Account: / }));
+    await userEvent.click(await screen.findByRole('menuitem', { name: 'Log out' }));
+    const ask = await screen.findByRole('dialog');
+    expect(within(ask).getByText(/Changes not on the server yet: 1/)).toBeInTheDocument();
+    await userEvent.click(within(ask).getByRole('button', { name: 'Cancel' }));
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    expect(titles()).toEqual(['Written on the train']);
+
+    await userEvent.click(screen.getByRole('button', { name: /^Account: / }));
+    await userEvent.click(await screen.findByRole('menuitem', { name: 'Log out' }));
+    await userEvent.click(await screen.findByRole('button', { name: 'Log out anyway' }));
+    await waitFor(() => expect(titles()).toEqual([]));
   });
 
   it('shows no cloud without a server', async () => {

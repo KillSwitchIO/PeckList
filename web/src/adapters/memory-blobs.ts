@@ -14,5 +14,9 @@ export function createMemoryBlobs(): BlobStore {
       blobs.delete(sha256);
       return Promise.resolve();
     },
+    clear: () => {
+      blobs.clear();
+      return Promise.resolve();
+    },
   };
 }

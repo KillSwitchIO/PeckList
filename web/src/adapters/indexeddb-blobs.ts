@@ -35,5 +35,8 @@ export function createIndexedDbBlobs(databaseName = 'punchlist-files'): BlobStor
     async delete(sha256) {
       await (await open()).delete(STORE, sha256);
     },
+    async clear() {
+      await (await open()).clear(STORE);
+    },
   };
 }

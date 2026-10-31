@@ -513,6 +513,63 @@ describe('sync engine', () => {
     expect(again.getState().status).toBe('offline');
   });
 
+  it('signing out leaves nothing readable, not even offline (audit W1)', async () => {
+    const backend = new FakeBackend();
+    backend.addAccount('ben', 'correct horse battery');
+    const first = await device(backend, 'dev1');
+    await first.engine.getState().start();
+    await first.engine.getState().signIn('ben', 'correct horse battery');
+    addTask(first.store, 'Diary');
+    await first.engine.getState().blobs.put('a'.repeat(64), new Blob(['photo']));
+    await first.engine.getState().syncNow();
+
+    expect((await first.engine.getState().signOut()).kind).toBe('signed-out');
+    expect(first.engine.getState().phase).toBe('signed-out');
+    expect(titles(first.store)).toEqual([]);
+    expect(JSON.stringify(await first.storage.load())).not.toContain('Diary');
+    expect(await first.storage.loadMeta('sync')).toBeNull();
+    expect(await first.engine.getState().blobs.has('a'.repeat(64))).toBe(false);
+
+    // Started again with no connection: no account to fall back on, so no way in to Ben's data.
+    const again = createSyncEngine({
+      transport: first.transport,
+      workspace: first.store,
+      storage: first.storage,
+      debounceMs: 60_000,
+      intervalMs: 600_000,
+    });
+    engines.push(again);
+    first.transport.offline = true;
+    await again.getState().start();
+    expect(again.getState().phase).not.toBe('ready');
+    expect(titles(first.store)).toEqual([]);
+  });
+
+  it('asks before signing out would lose changes the server has not taken', async () => {
+    const backend = new FakeBackend();
+    backend.addAccount('ben', 'correct horse battery');
+    const { engine, store, transport } = await device(backend, 'dev1');
+    await engine.getState().start();
+    await engine.getState().signIn('ben', 'correct horse battery');
+    transport.offline = true;
+    addTask(store, 'Written on the train');
+
+    expect(await engine.getState().signOut()).toEqual({ kind: 'unsynced', count: 1 });
+    expect(engine.getState().phase).toBe('ready');
+    expect(titles(store)).toEqual(['Written on the train']);
+
+    expect((await engine.getState().signOut({ discard: true })).kind).toBe('signed-out');
+    expect(titles(store)).toEqual([]);
+
+    // The server never heard of that sign-out: the next start that reaches it ends the session
+    // first, instead of signing straight back in.
+    transport.offline = false;
+    expect(await transport.me()).not.toBeNull();
+    await engine.getState().start();
+    expect(engine.getState().phase).toBe('signed-out');
+    expect(await transport.me()).toBeNull();
+  });
+
   it('says when the app or the server needs an update', async () => {
     const backend = new FakeBackend();
     backend.addAccount('ben', 'correct horse battery');

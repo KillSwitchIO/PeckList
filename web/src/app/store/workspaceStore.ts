@@ -89,6 +89,12 @@ export interface WorkspaceState {
   /** Replace the workspace outright (signing in as someone else on this device). */
   reset(workspace: WorkspaceFile): Promise<void>;
   /**
+   * Forget everything stored for the person (signing out, audit W1): the workspace, its backups,
+   * the device's sync progress and any unsaved journal. A new, empty workspace takes its place,
+   * as on a first start.
+   */
+  forget(): Promise<void>;
+  /**
    * Bring in an exported file (parsed JSON): checked against the schema, upgraded when older, and
    * merged into this device's data as one undoable change.
    */
@@ -476,6 +482,25 @@ export function createWorkspaceStore(deps: StoreDependencies): WorkspaceStore {
           set({ workspace: next });
         }
         schedule();
+      },
+
+      async forget() {
+        if (timer) {
+          clearTimeout(timer);
+          timer = null;
+        }
+        dirty = false;
+        deps.journal?.clear();
+        authoritative.clear();
+        saved = null;
+        await withLock(() => deps.storage.wipe());
+        const userId = deps.ids.next();
+        await get().reset(
+          createWorkspace(
+            makeContext(userId),
+            deps.displayName ? { displayName: deps.displayName } : {},
+          ),
+        );
       },
 
       async reset(workspace) {
