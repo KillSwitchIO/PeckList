@@ -359,4 +359,34 @@ describe('notifications', () => {
     const panel = await screen.findByRole('dialog', { name: 'Comments and history' });
     expect(within(panel).getByRole('region', { name: 'History' })).toBeInTheDocument();
   });
+
+  it('a swipe up in a picker over the details never opens the comments', async () => {
+    mockViewport('phone');
+    const store = testStore();
+    await renderApp('/inbox', store);
+    act(() =>
+      store
+        .getState()
+        .apply(
+          (ctx, ws) =>
+            createTask(ctx, ws, { title: 'Water plants', listId: inboxList(ws).id }).workspace,
+        ),
+    );
+    await userEvent.click(await screen.findByRole('button', { name: 'Open Water plants' }));
+    const details = await screen.findByRole('region', { name: 'Task details' });
+    await userEvent.click(within(details).getByRole('button', { name: 'Repeat: None' }));
+    const sheet = await screen.findByRole('dialog', { name: 'Repeat' });
+    const item = within(sheet).getByRole('menuitem', { name: 'Daily' });
+    fireEvent.touchStart(item, { touches: [{ clientX: 100, clientY: 700 }] });
+    fireEvent.touchMove(item, { touches: [{ clientX: 100, clientY: 600 }] });
+    expect(screen.queryByRole('dialog', { name: 'Comments and history' })).not.toBeInTheDocument();
+
+    // The details themselves still swipe up to the comments once the picker is closed.
+    await userEvent.keyboard('{Escape}');
+    await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Repeat' })).toBeNull());
+    const bar = screen.getByRole('button', { name: 'Comments and history' });
+    fireEvent.touchStart(bar, { touches: [{ clientX: 100, clientY: 700 }] });
+    fireEvent.touchMove(bar, { touches: [{ clientX: 100, clientY: 600 }] });
+    expect(await screen.findByRole('dialog', { name: 'Comments and history' })).toBeInTheDocument();
+  });
 });

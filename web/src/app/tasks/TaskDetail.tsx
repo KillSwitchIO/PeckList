@@ -34,6 +34,7 @@ import { DetailFooter } from './DetailFooter.tsx';
 import { ParentTrail, SubtaskEditor } from './Subtasks.tsx';
 import { Comments } from './Comments.tsx';
 import { PhoneTaskMore, SWIPE_UP_PX, TaskDates } from './TaskInfo.tsx';
+import { touchInside } from './touchInside.ts';
 import { TaskHistory } from './TaskHistory.tsx';
 import { TaskMenu, type TaskMenuAnchor } from './TaskMenu.tsx';
 import { fromDateValue, toDateValue } from '../dates/dateValue.ts';
@@ -304,7 +305,8 @@ export function TaskDetail({
                 onTouchStart: (event: React.TouchEvent<HTMLDivElement>) => {
                   const box = event.currentTarget;
                   const atEnd = box.scrollTop + box.clientHeight >= box.scrollHeight - 2;
-                  pull.current = atEnd ? (event.touches[0]?.clientY ?? null) : null;
+                  pull.current =
+                    atEnd && touchInside(event) ? (event.touches[0]?.clientY ?? null) : null;
                 },
                 onTouchMove: (event: React.TouchEvent<HTMLDivElement>) => {
                   const y = event.touches[0]?.clientY;
