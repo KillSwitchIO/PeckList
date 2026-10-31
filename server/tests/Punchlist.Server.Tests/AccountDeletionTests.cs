@@ -161,4 +161,73 @@ public sealed class AccountDeletionTests(ServerFixture fixture) : IClassFixture<
         Assert.NotNull(task!.Doc["deletedAt"]);
         Assert.True(Core.Sync.Hlc.Compare((string?)task.Doc["_hlc"]!["deletedAt"], ahead) > 0);
     }
+
+    private static int clock;
+
+    private static object Change(string collection, JsonObject fields)
+    {
+        var stamp = $"2026-10-22T11:{Interlocked.Increment(ref clock) / 60 % 60:D2}:{clock % 60:D2}.000Z-0000-dev1";
+        fields["deletedAt"] ??= null;
+        var clocks = new JsonObject();
+        foreach (var (field, _) in fields) if (field != "id") clocks[field] = stamp;
+        fields["_hlc"] = clocks;
+        return new { collection, entity = fields };
+    }
+
+    private static async Task<Dictionary<string, JsonObject>> Push(HttpClient client, params object[] changes)
+    {
+        var response = await client.PostAsJsonAsync("/api/sync", new { schemaVersion = WorkspaceSchema.CurrentVersion, cursor = (long?)null, changes }, Token);
+        response.EnsureSuccessStatusCode();
+        var body = (await response.Content.ReadFromJsonAsync<JsonObject>(Token))!;
+        Assert.Empty(body["rejected"]!.AsArray());
+        return body["changes"]!.AsArray().Select(each => each!["entity"]!.AsObject()).ToDictionary(each => (string)each["id"]!);
+    }
+
+    [Fact]
+    public async Task Removing_an_account_hands_its_shared_lists_and_groups_on_and_keeps_what_others_work_on()
+    {
+        using var server = fixture.Factory(("ADMIN_PASSWORD", AdminPassword), ("ACCOUNT_DELETE_GRACE_DAYS", "0"));
+        var admin = await LogIn(server, "admin", AdminPassword);
+        var (sam, samId) = await NewUser(server, "sam");
+        var (kim, kimId) = await NewUser(server, "kim");
+        var (lee, leeId) = await NewUser(server, "lee");
+        foreach (var other in new[] { kimId, leeId })
+        {
+            (await admin.PostAsJsonAsync("/api/admin/friendships", new { userA = samId, userB = other }, Token)).EnsureSuccessStatusCode();
+        }
+        // Sam's shared list (Lee joined first as a viewer, Kim edits), a private list, and a group.
+        await Push(sam,
+            Change("lists", new JsonObject { ["id"] = "L1", ["name"] = "House", ["visibility"] = "shared", ["createdBy"] = samId }),
+            Change("listMembers", new JsonObject { ["id"] = "M1", ["listId"] = "L1", ["principal"] = $"user:{leeId}", ["role"] = "viewer", ["createdBy"] = samId, ["createdAt"] = "2026-10-01T00:00:00.000Z" }),
+            Change("listMembers", new JsonObject { ["id"] = "M2", ["listId"] = "L1", ["principal"] = $"user:{kimId}", ["role"] = "editor", ["createdBy"] = samId, ["createdAt"] = "2026-10-02T00:00:00.000Z" }),
+            Change("tasks", new JsonObject { ["id"] = "T1", ["listId"] = "L1", ["title"] = "Sam's chore in the shared list", ["parentId"] = null, ["createdBy"] = samId }),
+            Change("lists", new JsonObject { ["id"] = "L2", ["name"] = "Diary", ["visibility"] = "private", ["createdBy"] = samId }),
+            Change("tasks", new JsonObject { ["id"] = "T2", ["listId"] = "L2", ["title"] = "Private", ["parentId"] = null, ["createdBy"] = samId }),
+            Change("groups", new JsonObject { ["id"] = "G1", ["name"] = "Family", ["color"] = "#A7C7E7", ["ownerId"] = samId, ["archived"] = false, ["createdBy"] = samId }),
+            Change("groupMembers", new JsonObject { ["id"] = "GS", ["groupId"] = "G1", ["userId"] = samId, ["joinedAt"] = "2026-10-01T00:00:00.000Z", ["state"] = "active", ["createdBy"] = samId }),
+            Change("groupMembers", new JsonObject { ["id"] = "GK", ["groupId"] = "G1", ["userId"] = kimId, ["joinedAt"] = "2026-10-02T00:00:00.000Z", ["state"] = "invited", ["createdBy"] = samId }));
+        await Push(kim,
+            Change("groupMembers", new JsonObject { ["id"] = "GK", ["groupId"] = "G1", ["userId"] = kimId, ["joinedAt"] = "2026-10-02T00:00:00.000Z", ["state"] = "active", ["createdBy"] = samId }),
+            Change("tasks", new JsonObject { ["id"] = "T3", ["listId"] = "L1", ["title"] = "Kim's chore", ["parentId"] = null, ["createdBy"] = kimId }));
+
+        (await admin.DeleteAsync($"/api/admin/users/{samId}", Token)).EnsureSuccessStatusCode();
+        Assert.Equal(1, await server.Services.GetRequiredService<AccountRemoval>().RemoveDueAsync(Token));
+
+        // Kim edits, so Kim owns the list now (the higher role wins over Lee's longer stay), with
+        // everything in it; the group is Kim's too. Sam's private list went with Sam.
+        var seen = await Push(kim);
+        Assert.Equal(kimId, (string?)seen["L1"]["ownerId"]);
+        Assert.Null(seen["L1"]["deletedAt"]);
+        Assert.Null(seen["T1"]["deletedAt"]);
+        Assert.Null(seen["T3"]["deletedAt"]);
+        Assert.Equal(kimId, (string?)seen["G1"]["ownerId"]);
+        Assert.Null(seen["GK"]["deletedAt"]);
+        Assert.False(seen.ContainsKey("T2"));
+        var store = server.Services.GetRequiredService<Core.Storage.IEntityStore>();
+        Assert.NotNull((await store.GetAsync("T2", Token))!.Doc["deletedAt"]);
+        // Lee still sees the list.
+        var leeSees = await Push(lee);
+        Assert.Null(leeSees["T3"]["deletedAt"]);
+        Assert.Null(leeSees["M1"]["deletedAt"]);
+    }
 }

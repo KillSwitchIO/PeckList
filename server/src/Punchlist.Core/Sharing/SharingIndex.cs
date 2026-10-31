@@ -407,6 +407,38 @@ public sealed class SharingIndex
         return pending;
     }
 
+    /// <summary>
+    /// Who takes a shared list when its owner's account is removed (audit B4): the person on it
+    /// with the highest role, longest on it first; a group's people count by its share. Null when
+    /// nobody else with an account in <paramref name="accounts"/> is on it.
+    /// </summary>
+    public string? ListHeir(string listId, string leaving, IReadOnlySet<string> accounts)
+    {
+        var rows = D.ListMembers[listId]
+            .OrderByDescending(each => Rank(each.Get("role")))
+            .ThenBy(each => each.Get("createdAt"), StringComparer.Ordinal)
+            .ThenBy(each => each.Id, StringComparer.Ordinal);
+        foreach (var row in rows)
+        {
+            if (row.Get("principal") is not { } principal) continue;
+            var heir = PeopleOf(principal).Where(person => person != leaving && accounts.Contains(person)).Order(StringComparer.Ordinal).FirstOrDefault();
+            if (heir is not null) return heir;
+        }
+        return null;
+    }
+
+    /// <summary>
+    /// Who takes a group when its owner's account is removed: its longest-standing active member
+    /// with an account (as when an owner leaves). Null when nobody is left.
+    /// </summary>
+    public string? GroupHeir(string groupId, string leaving, IReadOnlySet<string> accounts) =>
+        D.GroupMembers[groupId]
+            .Where(each => each.Get("state") == "active" && each.Get("userId") is { } user && user != leaving && accounts.Contains(user))
+            .OrderBy(each => each.Get("joinedAt"), StringComparer.Ordinal)
+            .ThenBy(each => each.Id, StringComparer.Ordinal)
+            .Select(each => each.Get("userId"))
+            .FirstOrDefault();
+
     // Invites -------------------------------------------------------------------------------------
 
     /// <summary>
