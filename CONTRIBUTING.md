@@ -11,6 +11,12 @@ are small and well described, and
 ones are where a hand is most welcome. Say on the issue that you are taking it, so two people do
 not do the same work.
 
+Changes, issues and reviews happen on GitLab,
+[gitlab.com/killswitch10/punchlist](https://gitlab.com/killswitch10/punchlist). The GitHub
+repository [KillSwitchIO/PeckList](https://github.com/KillSwitchIO/PeckList) is a one-way mirror
+of `main` and the release tags: pull requests opened there are closed automatically with a
+pointer back here.
+
 ## License and contributions
 
 Punchlist is released under the [AGPL-3.0-or-later](LICENSE). To keep the project able to offer a
