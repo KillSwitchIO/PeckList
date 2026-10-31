@@ -129,4 +129,25 @@ public sealed class SharingPlanTests
         }
         Assert.Equal(["UA", "UB", "UC"], built.Viewers("C1").Order());
     }
+
+    [Fact]
+    public void Tasks_are_kept_lean_and_the_sharing_collections_whole()
+    {
+        var index = new SharingIndex();
+        var notes = new string('n', 5000);
+        index.Apply(Entity("tasks", "T1", "UA", new JsonObject
+        {
+            ["listId"] = "L1", ["title"] = "Mow", ["notes"] = notes, ["order"] = "a0", ["status"] = "open",
+            ["reminders"] = new JsonArray(new JsonObject { ["before"] = 30 }), ["schedule"] = new JsonObject { ["start"] = "2026-10-31" },
+            ["tags"] = new JsonObject { ["TG1"] = new JsonObject { ["in"] = true, ["hlc"] = "x" } },
+        }));
+        index.Apply(Entity("tasks", "T2", "UA", new JsonObject { ["listId"] = "L1", ["title"] = "No reminder" }));
+        index.Apply(Entity("lists", "L1", "UA", new JsonObject { ["name"] = "Home", ["visibility"] = "private", ["color"] = "#fff" }));
+
+        var task = index.DocOf("T1")!;
+        Assert.Equal(["deletedAt", "id", "listId", "reminders", "schedule", "status", "title"], task.Select(pair => pair.Key).Order());
+        Assert.Equal("#fff", (string?)index.DocOf("L1")!["color"]);
+        // The reminder sender reads only tasks with reminders.
+        Assert.Equal(["T1"], index.LiveTasksWithReminders().Select(each => each.Id));
+    }
 }

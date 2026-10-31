@@ -314,6 +314,8 @@ public sealed class PushTests(ServerFixture fixture) : IClassFixture<ServerFixtu
             ["recurrence"] = recurrence,
             ["schedule"] = new JsonObject { ["start"] = "2026-10-26T10:30", ["end"] = null, ["allDay"] = false, ["timeZone"] = null },
             ["reminders"] = new JsonArray(new JsonObject { ["before"] = 30 }),
+            ["notes"] = $"notes of {id}",
+            ["tags"] = new JsonObject { ["TG1"] = new JsonObject { ["in"] = true, ["hlc"] = "2026-10-24T10:00:00.000Z-0000-dev1" } },
         });
         (await ben.PostAsJsonAsync("/api/sync", new
         {
@@ -345,6 +347,10 @@ public sealed class PushTests(ServerFixture fixture) : IClassFixture<ServerFixtu
         Assert.Equal(("done", benId), ((string?)tasks["AT1"]["status"], (string?)tasks["AT1"]["completedBy"]));
         Assert.Equal("done", (string?)tasks["AT2"]["status"]);
         Assert.Equal("open", (string?)tasks["AT3"]["status"]);
+        // The server keeps only some fields of a task in memory; what it writes merges onto the
+        // stored copy, so the rest stays (audit P1).
+        Assert.All(["AT1", "AT2", "AT3"], id => Assert.Equal($"notes of {id}", (string?)tasks[id]["notes"]));
+        Assert.True((bool?)tasks["AT3"]["tags"]!["TG1"]!["in"]);
         // Snoozed an hour, on the server's clock (Ben set no time zone).
         var snoozed = DateTime.ParseExact((string)tasks["AT3"]["reminders"]!.AsArray().Last()!["at"]!, "yyyy-MM-dd'T'HH:mm", CultureInfo.InvariantCulture);
         var expected = TimeZoneInfo.ConvertTime(before, TimeZoneInfo.Local).DateTime.AddMinutes(60);
