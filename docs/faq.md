@@ -19,7 +19,8 @@ merge when it reconnects, field by field, so two people editing different parts 
 conflict.
 
 **Can I import from TickTick, Todoist or others?**
-Not yet.
+Yes: TickTick, Todoist, Google Tasks, Microsoft To Do and iCalendar files, under **Settings > Your
+data > Import from another app**. See [moving from TickTick or Todoist](using/moving-from-ticktick-or-todoist.md).
 
 **Is there a public API?**
 The web app's own HTTP API is usable, but it is not a stable, versioned public API yet. See
@@ -28,8 +29,10 @@ The web app's own HTTP API is usable, but it is not a stable, versioned public A
 **Where is my data?**
 In the database (`/data/punchlist.db` in the image), its snapshots in `/data/snapshots`, attached
 files in `/files`, and on
-each device's browser storage. Nothing is sent anywhere else: no telemetry, no external services
-unless you configure single sign-on or log shipping.
+each device's browser storage. Task content is never sent anywhere else. On its own, the server
+only checks GitLab for new releases and sends an anonymous daily usage report; both can be turned
+off ([privacy](using/privacy.md)). Other outside services are only those you configure, such as
+single sign-on or log shipping.
 
 **Which license is it under?**
 The [GNU AGPL-3.0-or-later](https://gitlab.com/killswitch10/punchlist/-/blob/main/LICENSE): free

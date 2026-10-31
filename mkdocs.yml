@@ -97,6 +97,14 @@ nav:
       - Sharing: using/sharing.md
       - Apps, offline and sync: using/apps-and-sync.md
       - Privacy and telemetry: using/privacy.md
+      - Moving from TickTick or Todoist: using/moving-from-ticktick-or-todoist.md
+      - The Android app: using/android-app.md
+  - About:
+      - Why Punchlist: about/why.md
+      - Compared with others: about/comparison.md
+      - Roadmap: about/roadmap.md
+      - Getting help: about/support.md
+      - Reporting a bug: about/reporting-bugs.md
   - Reference:
       - Command line: reference/cli.md
       - HTTP API: reference/http-api.md

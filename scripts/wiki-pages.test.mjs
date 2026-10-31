@@ -29,6 +29,17 @@ test('relative doc links point at wiki pages from the root; other links stay', (
   assert.equal(rewriteLink('../examples/x.yaml', 'docs/index.md'), '../examples/x.yaml');
 });
 
+test('images in the docs point at the repository file, since the wiki has no copy', () => {
+  assert.equal(
+    rewriteLink('assets/screenshots/list.png', 'docs/index.md'),
+    'https://gitlab.com/killswitch10/punchlist/-/raw/main/docs/assets/screenshots/list.png',
+  );
+  assert.equal(
+    rewriteLink('../assets/shot.webp', 'docs/using/index.md'),
+    'https://gitlab.com/killswitch10/punchlist/-/raw/main/docs/assets/shot.webp',
+  );
+});
+
 test('admonitions become alerts, tabs become bold headings, snippets are pasted in, keys get kbd', () => {
   const page = [
     '# Title',
