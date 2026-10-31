@@ -163,6 +163,36 @@ public abstract class EntityStoreContract : IAsyncLifetime
     }
 
     [Fact]
+    public async Task A_page_ends_once_it_holds_a_few_megabytes_of_json()
+    {
+        // Seven tasks of about 1.5 MB each (notes pasted in): a page of 2,000 would be 10 MB.
+        var big = new string('x', 1_500_000);
+        var tasks = Enumerable.Range(1, 7).Select(index => Task($"B{index}", big)).ToList();
+        foreach (var task in tasks) await Store.WriteAsync("u1", [task], TakeIncoming, cancellation: Token);
+
+        var seen = new List<string>();
+        var cursor = 0L;
+        var pages = 0;
+        ChangePage page;
+        do
+        {
+            page = await Store.ChangesAsync("u1", cursor, 2000, Token);
+            Assert.InRange(page.Entities.Sum(each => each.Doc.ToJsonString().Length), 1, 5_000_000);
+            seen.AddRange(page.Entities.Select(each => each.Id));
+            cursor = page.Cursor;
+            pages++;
+        } while (page.More);
+        // Every one exactly once, in order, over several pages.
+        Assert.Equal(tasks.Select(each => each.Id), seen);
+        Assert.InRange(pages, 3, 7);
+
+        // One larger than a page still comes, on its own.
+        await Store.WriteAsync("u1", [Task("HUGE", new string('y', 6_000_000))], TakeIncoming, cancellation: Token);
+        var huge = await Store.ChangesAsync("u1", cursor, 2000, Token);
+        Assert.Equal(["HUGE"], huge.Entities.Select(each => each.Id));
+    }
+
+    [Fact]
     public async Task Tombstones_stay_in_the_feed()
     {
         await Store.WriteAsync("u1", [Task("T1", "Mow")], TakeIncoming, cancellation: Token);

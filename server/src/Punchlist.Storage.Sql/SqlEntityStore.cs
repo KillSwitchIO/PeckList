@@ -193,6 +193,13 @@ public sealed class SqlEntityStore(SqlDatabase database) : IEntityStore
         }
     }
 
+    /// <summary>
+    /// A feed page also ends once its documents pass this much JSON (characters), so a workspace
+    /// with very large notes cannot make one page huge (each page is built in memory). A page
+    /// always holds at least one entity.
+    /// </summary>
+    public const int PageChars = 4_000_000;
+
     public async Task<ChangePage> ChangesAsync(string userId, long after, int limit, CancellationToken cancellation = default)
     {
         ArgumentOutOfRangeException.ThrowIfLessThan(limit, 1);
@@ -213,18 +220,25 @@ public sealed class SqlEntityStore(SqlDatabase database) : IEntityStore
             cancellationToken: cancellation))).Select(row =>
             {
                 var at = Math.Max(row.Seq, row.GrantedSeq);
-                return (Seq: at, Entity: (StoredEntity?)(new Row(row.Collection, row.Id, row.OwnerId, at, row.Doc).ToEntity()), Revoked: (string?)null);
+                return (Seq: at, Entity: (StoredEntity?)(new Row(row.Collection, row.Id, row.OwnerId, at, row.Doc).ToEntity()), Revoked: (string?)null, Chars: row.Doc.Length);
             });
         var revoked = (await connection.QueryAsync<(string EntityId, long Seq)>(new CommandDefinition(
             "SELECT entity_id, seq FROM revocations WHERE user_id = @userId AND seq > @after ORDER BY seq LIMIT @take",
             new { userId, after, take = limit + 1 },
-            cancellationToken: cancellation))).Select(row => (row.Seq, Entity: (StoredEntity?)null, Revoked: (string?)row.EntityId));
+            cancellationToken: cancellation))).Select(row => (row.Seq, Entity: (StoredEntity?)null, Revoked: (string?)row.EntityId, Chars: row.EntityId.Length));
         var merged = rows.Concat(revoked).OrderBy(item => item.Seq).ToList();
-        var page = merged.Take(limit).ToList();
+        var page = new List<(long Seq, StoredEntity? Entity, string? Revoked, int Chars)>();
+        var chars = 0L;
+        foreach (var item in merged)
+        {
+            if (page.Count == limit || (page.Count > 0 && chars + item.Chars > PageChars)) break;
+            page.Add(item);
+            chars += item.Chars;
+        }
         return new ChangePage(
             page.Where(item => item.Entity is not null).Select(item => item.Entity!).ToList(),
             page.Count > 0 ? page[^1].Seq : after,
-            merged.Count > limit,
+            merged.Count > page.Count,
             page.Where(item => item.Revoked is not null).Select(item => item.Revoked!).ToList());
     }
 
