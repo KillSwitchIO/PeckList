@@ -17,16 +17,120 @@ namespace Punchlist.Core.Sharing;
 /// </remarks>
 public sealed class SharingIndex
 {
-    private sealed record Facts(string Collection, string Id, string Owner, JsonObject Doc)
+    /// <summary>
+    /// What the index holds of one entity. The collections sharing is made of keep their whole
+    /// document; everything else keeps the fields it reads as plain text (see <see cref="Read"/>).
+    /// </summary>
+    private sealed class Facts
     {
-        public bool Deleted => Doc["deletedAt"] is not null;
-        public string? Get(string field) => Doc[field] is JsonValue value && value.TryGetValue<string>(out var text) ? text : null;
+        public required string Collection { get; init; }
+        public required string Id { get; init; }
+        public required string Owner { get; init; }
+        public required bool Deleted { get; init; }
+
+        /// <summary>The stored document, for the collections in <see cref="Whole"/>.</summary>
+        public JsonObject? Whole { get; init; }
+
+        /// <summary>The fields <see cref="Read"/> names for the collection, as text, in that order.</summary>
+        public string?[] Fields { get; init; } = [];
+
+        /// <summary>Assignees that are in, and each one's clock.</summary>
+        public (string Key, string? Clock)[] In { get; init; } = [];
+
+        /// <summary>A task's reminder fields (reminders, schedule, due, constantReminder) as JSON text, when it has reminders.</summary>
+        public string? Reminders { get; init; }
+
+        public string? Get(string field)
+        {
+            if (Whole is not null) return Whole[field] is JsonValue value && value.TryGetValue<string>(out var text) ? text : null;
+            var at = Array.IndexOf(Read.GetValueOrDefault(Collection) ?? Plain, field);
+            return at >= 0 ? Fields[at] : null;
+        }
 
         /// <summary>Members of an element set that are in.</summary>
-        public IEnumerable<string> SetMembers(string field) =>
-            Doc[field] is JsonObject set
-                ? set.Where(pair => pair.Value is JsonObject item && (bool?)item["in"] == true).Select(pair => pair.Key)
+        public IEnumerable<string> SetMembers(string field)
+        {
+            if (Whole is not null)
+            {
+                return Whole[field] is JsonObject set
+                    ? set.Where(pair => pair.Value is JsonObject item && (bool?)item["in"] == true).Select(pair => pair.Key)
+                    : [];
+            }
+            return field == "assignees" ? In.Select(each => each.Key) : [];
+        }
+
+        /// <summary>
+        /// The document: the stored one, or for the rest one made from the kept fields (a fresh
+        /// copy each time, so callers may change it).
+        /// </summary>
+        public JsonObject Doc
+        {
+            get
+            {
+                if (Whole is not null) return Whole;
+                var doc = new JsonObject { ["id"] = Id };
+                var names = Read.GetValueOrDefault(Collection) ?? Plain;
+                for (var at = 0; at < names.Length; at++) doc[names[at]] = Fields[at];
+                if (Collection == "tasks")
+                {
+                    var assignees = new JsonObject();
+                    foreach (var (key, clock) in In) assignees[key] = new JsonObject { ["in"] = true, ["hlc"] = clock };
+                    doc["assignees"] = assignees;
+                }
+                if (Reminders is not null && JsonNode.Parse(Reminders) is JsonObject kept)
+                {
+                    foreach (var (name, value) in kept.ToList())
+                    {
+                        kept.Remove(name);
+                        doc[name] = value;
+                    }
+                }
+                return doc;
+            }
+        }
+
+        public static Facts Of(StoredEntity entity)
+        {
+            var doc = entity.Doc;
+            var deleted = doc["deletedAt"] is not null;
+            if (SharingIndex.Whole.Contains(entity.Collection))
+            {
+                return new Facts { Collection = entity.Collection, Id = entity.Id, Owner = string.Intern(entity.OwnerId), Deleted = deleted, Whole = doc };
+            }
+            static string? Text(JsonNode? node) => node is JsonValue value && value.TryGetValue<string>(out var text) ? text : null;
+            var names = Read.GetValueOrDefault(entity.Collection) ?? Plain;
+            var fields = new string?[names.Length];
+            for (var at = 0; at < names.Length; at++)
+            {
+                var text = Text(doc[names[at]]);
+                // Lists, people and states repeat across thousands of entities: one copy each.
+                fields[at] = text is not null && Shared.Contains(names[at]) ? string.Intern(text) : text;
+            }
+            var assignees = doc["assignees"] is JsonObject set
+                ? set.Where(pair => pair.Value is JsonObject item && (bool?)item["in"] == true)
+                    .Select(pair => (string.Intern(pair.Key), Text(pair.Value!["hlc"]))).ToArray()
                 : [];
+            string? reminders = null;
+            if (entity.Collection == "tasks" && doc["reminders"] is JsonArray { Count: > 0 })
+            {
+                var kept = new JsonObject();
+                foreach (var field in ReminderFields)
+                {
+                    if (doc[field] is { } value) kept[field] = value.DeepClone();
+                }
+                reminders = kept.ToJsonString();
+            }
+            return new Facts
+            {
+                Collection = string.Intern(entity.Collection),
+                Id = entity.Id,
+                Owner = string.Intern(entity.OwnerId),
+                Deleted = deleted,
+                Fields = fields,
+                In = assignees,
+                Reminders = reminders,
+            };
+        }
     }
 
     /// <summary>The lookups kept beside the entities (each maps a key to entity ids, deleted ones included).</summary>
@@ -66,33 +170,29 @@ public sealed class SharingIndex
     private static readonly HashSet<string> Whole = ["lists", "listMembers", "groups", "groupMembers", "friendships", "users", "settings"];
 
     /// <summary>
-    /// What is kept of everything else: the fields sharing, reminders, notification texts and the
-    /// server's own changes read. Notes, tags, order and the per-field clocks stay in the database
-    /// (audit P1: whole task documents in memory were about 7.5 KB each, 2.3 GB at 300,000 entities).
-    /// The server's changes merge onto the stored copy, so a kept copy without clocks loses to it
-    /// on every field the change does not set.
+    /// What is kept of everything else, as plain text: the fields sharing, reminders, notification
+    /// texts and the server's own changes read. Notes, tags, order and the per-field clocks stay in
+    /// the database (audit P1: whole task documents were about 7.5 KB each in memory, and even a
+    /// trimmed JSON copy about 3 KB, since every JSON value keeps a document of its own). The
+    /// server's changes merge onto the stored copy, so a kept copy without clocks loses to it on
+    /// every field the change does not set.
     /// </summary>
-    private static readonly Dictionary<string, string[]> Kept = new(StringComparer.Ordinal)
+    private static readonly Dictionary<string, string[]> Read = new(StringComparer.Ordinal)
     {
-        ["tasks"] = ["listId", "parentId", "assignees", "title", "status", "reminders", "schedule", "due", "recurrence", "constantReminder", "pinnedAt"],
-        ["comments"] = ["taskId"],
-        ["attachments"] = ["taskId", "sha256", "name"],
-        ["sections"] = ["listId", "name"],
+        ["tasks"] = ["deletedAt", "createdBy", "listId", "parentId", "title", "status", "recurrence", "pinnedAt"],
+        ["comments"] = ["deletedAt", "createdBy", "taskId"],
+        ["attachments"] = ["deletedAt", "createdBy", "taskId", "sha256", "name"],
+        ["sections"] = ["deletedAt", "createdBy", "listId", "name"],
     };
 
-    private static readonly string[] Always = ["id", "deletedAt", "createdBy"];
+    /// <summary>What other collections (tags, folders, saved filters) keep.</summary>
+    private static readonly string[] Plain = ["deletedAt", "createdBy", "name"];
 
-    /// <summary>The document as the index keeps it (see <see cref="Kept"/>).</summary>
-    private static JsonObject Slim(string collection, JsonObject doc)
-    {
-        if (Whole.Contains(collection)) return doc;
-        var kept = new JsonObject();
-        foreach (var field in Always.Concat(Kept.GetValueOrDefault(collection) ?? ["name"]))
-        {
-            if (doc.TryGetPropertyValue(field, out var value)) kept[field] = value?.DeepClone();
-        }
-        return kept;
-    }
+    /// <summary>Fields whose values repeat (kept once each).</summary>
+    private static readonly HashSet<string> Shared = ["createdBy", "listId", "status"];
+
+    /// <summary>A task's fields the reminder sender reads, kept only for tasks with reminders.</summary>
+    private static readonly string[] ReminderFields = ["reminders", "schedule", "due", "constantReminder"];
 
     private static readonly int Lookups = Enum.GetValues<By>().Length;
 
@@ -122,7 +222,7 @@ public sealed class SharingIndex
         {
             case "tasks":
                 if (facts.Get("parentId") is { } parent) yield return (By.Parent, parent);
-                if (facts.Doc["reminders"] is JsonArray { Count: > 0 }) yield return (By.Reminders, "");
+                if (facts.Reminders is not null) yield return (By.Reminders, "");
                 foreach (var assignee in facts.SetMembers("assignees")) yield return (By.Assignee, assignee);
                 break;
             case "listMembers":
@@ -176,7 +276,7 @@ public sealed class SharingIndex
     public void Apply(StoredEntity entity)
     {
         if (byId.TryGetValue(entity.Id, out var old)) Index(old, add: false);
-        var facts = new Facts(entity.Collection, entity.Id, entity.OwnerId, Slim(entity.Collection, entity.Doc));
+        var facts = Facts.Of(entity);
         byId = byId.SetItem(entity.Id, facts);
         Index(facts, add: true);
     }
@@ -201,7 +301,7 @@ public sealed class SharingIndex
         public int Count => all.Count;
 
         public void Add(StoredEntity entity) =>
-            all[entity.Id] = new Facts(entity.Collection, entity.Id, entity.OwnerId, Slim(entity.Collection, entity.Doc));
+            all[entity.Id] = Facts.Of(entity);
 
         public SharingIndex Build()
         {
@@ -247,7 +347,7 @@ public sealed class SharingIndex
 
     /// <summary>
     /// An entity's document as the index keeps it, deleted or not: whole for the sharing
-    /// collections, the read fields only for tasks, comments, files and the rest (see <see cref="Kept"/>).
+    /// collections, the read fields only for tasks, comments, files and the rest (see <see cref="Read"/>).
     /// </summary>
     public JsonObject? DocOf(string id) => byId.TryGetValue(id, out var facts) ? facts.Doc : null;
 
