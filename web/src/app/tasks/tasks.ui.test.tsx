@@ -234,6 +234,29 @@ describe('task details', () => {
     );
   });
 
+  it('shows a pinned task with no date in Pinned on Today and Upcoming, and nowhere else there', async () => {
+    await renderApp('/inbox');
+    await addTasks('Undated', 'Not pinned');
+    fireEvent.contextMenu(screen.getByRole('button', { name: 'Open Undated' }));
+    await userEvent.click(await screen.findByRole('menuitem', { name: 'Pin to the top' }));
+    await screen.findByRole('heading', { level: 2, name: /^Pinned/ });
+
+    const nav = screen.getAllByRole('navigation')[0]!;
+    for (const view of [/^Today/, /^Upcoming/]) {
+      await userEvent.click(within(nav).getByRole('button', { name: view }));
+      const group = (await screen.findByRole('heading', { level: 2, name: /^Pinned/ })).closest(
+        'section',
+      )!;
+      expect(within(group).getByRole('button', { name: 'Open Undated' })).toBeInTheDocument();
+      // Only there: it has no day to sit in, and an undated task that isn't pinned stays out.
+      expect(screen.getAllByRole('button', { name: 'Open Undated' })).toHaveLength(1);
+      expect(screen.queryByRole('button', { name: 'Open Not pinned' })).toBeNull();
+    }
+    // Pinned undated tasks are not today's work: Today still says it is punched out.
+    await userEvent.click(within(nav).getByRole('button', { name: /^Today/ }));
+    expect(await screen.findByText('All punched out.')).toBeInTheDocument();
+  });
+
   it('opens the notes in the full editor, with the formatting toolbar, and keeps what was typed', async () => {
     await renderApp('/inbox');
     await addTasks('Shopping');

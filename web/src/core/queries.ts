@@ -70,6 +70,14 @@ export function todayGroups(
   };
 }
 
+/**
+ * Open pinned tasks with no start date. The date views (Today, Upcoming) never list undated
+ * tasks, but a pin means "keep this in front of me", so these join their Pinned group.
+ */
+export function undatedPinned(workspace: WorkspaceFile, today: string): Task[] {
+  return filterTasks(workspace, { dated: false }, today).filter((task) => Boolean(task.pinnedAt));
+}
+
 /** Top-level tasks completed on `today` in `timeZone`, most recent first. */
 export function completedOn(workspace: WorkspaceFile, today: string, timeZone: string): Task[] {
   return completedTasks(workspace).filter(

@@ -14,11 +14,12 @@ import {
   todayTasks,
   dayTasks,
   trashedTasks,
+  undatedPinned,
   upcomingTasks,
 } from './queries.ts';
 import { agendaDays } from './agenda.ts';
 import { groupByDate } from './filters.ts';
-import { createTask, deleteTask, toggleTaskDone } from './tasks.ts';
+import { createTask, deleteTask, setPinned, toggleTaskDone } from './tasks.ts';
 import type { Due, Schedule, Task, WorkspaceFile } from './types.ts';
 import { createWorkspace } from './workspace.ts';
 
@@ -87,6 +88,19 @@ describe('smart views', () => {
     s.add('urgent today', { schedule: at(TODAY), priority: 3 });
     s.add('no date');
     expect(titles(todayTasks(s.ws, TODAY))).toEqual(['overdue', 'urgent today', 'today']);
+  });
+
+  it('pinned tasks with no start date are kept for the date views', () => {
+    const s = setup();
+    const pin = (task: Task) => (s.ws = setPinned(s.ctx, s.ws, task.id, true));
+    pin(s.add('pinned, no date'));
+    pin(s.add('pinned, due only', { due: due(TODAY) }));
+    pin(s.add('pinned, dated', { schedule: at('2026-10-22') }));
+    s.add('no date, not pinned');
+    const done = s.add('pinned, then done');
+    pin(done);
+    s.ws = toggleTaskDone(s.ctx, s.ws, done.id);
+    expect(titles(undatedPinned(s.ws, TODAY))).toEqual(['pinned, no date', 'pinned, due only']);
   });
 
   it('a day holds the open tasks starting on it, by time, past days and future ones alike', () => {

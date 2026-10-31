@@ -14,7 +14,7 @@ import { agendaDays } from '../../core/agenda.ts';
 import { addDays, daysBetween, localTimeZone, weekday } from '../../core/dates.ts';
 import { inboxList } from '../../core/lists.ts';
 import { orderTasks, type ListSort } from '../../core/listView.ts';
-import { todayGroups } from '../../core/queries.ts';
+import { todayGroups, undatedPinned } from '../../core/queries.ts';
 import { pinnedFirst } from '../../core/tasks.ts';
 import type { Task, WorkspaceFile } from '../../core/types.ts';
 import { weekStart as preferredWeekStart } from '../format.ts';
@@ -106,7 +106,9 @@ export function AgendaView({
     () => (fromToday ? todayGroups(source, today).overdue : []),
     [fromToday, source, today],
   );
-  const { pinned } = pinnedFirst([...overdue, ...days.flatMap((day) => day.tasks)]);
+  // Pinned ones head everything, the undated among them too (they have no day of their own).
+  const undated = useMemo(() => undatedPinned(source, today), [source, today]);
+  const { pinned } = pinnedFirst([...overdue, ...days.flatMap((day) => day.tasks), ...undated]);
   const late = sorted(pinnedFirst(overdue).rest, sort);
   const inbox = inboxList(workspace).id;
   const zone = localTimeZone();

@@ -222,6 +222,7 @@ export function GroupedTasks({
   showList = false,
   emptyTitle,
   emptyWithClosed = false,
+  pinnedOnly = [],
 }: {
   tasks: readonly Task[];
   closed: Task[];
@@ -233,9 +234,12 @@ export function GroupedTasks({
   emptyTitle: string;
   /** Show the empty mark over closed tasks too: nothing open is enough (Today). */
   emptyWithClosed?: boolean;
+  /** Pinned tasks shown in Pinned only, in no other group (undated ones in a date view) */
+  pinnedOnly?: readonly Task[];
 }) {
   const workspace = useWorkspace();
-  const { pinned, rest } = pinnedFirst(tasks);
+  const { rest } = pinnedFirst(tasks);
+  const { pinned } = pinnedFirst([...tasks, ...pinnedOnly]);
   // Custom order across lists is the view's own: by start date and time, then each list's order.
   const open = orderTasks(rest, sort, reversed);
   const grouped =
@@ -256,10 +260,12 @@ export function GroupedTasks({
             })
           : null;
   const groups = grouped && inOrder(grouped, groupsReversed);
-  useNoteEmpty(open.length === 0 && pinned.length === 0);
+  // Every pinned task of `tasks` is in `open` too, so empty means nothing of the view's own is
+  // open: pinned undated tasks on top (pinnedOnly) don't stop Today from being punched out.
+  useNoteEmpty(open.length === 0);
   return (
     <TaskDragProvider>
-      {open.length === 0 && pinned.length === 0 && (emptyWithClosed || closed.length === 0) && (
+      {open.length === 0 && (emptyWithClosed || closed.length === 0) && (
         <EmptyState title={emptyTitle} />
       )}
       <PinnedGroup tasks={pinned} showList={showList} />

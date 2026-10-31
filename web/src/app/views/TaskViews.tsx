@@ -23,6 +23,7 @@ import {
   completedTasks,
   todayGroups,
   trashedTasks,
+  undatedPinned,
   upcomingTasks,
 } from '../../core/queries.ts';
 import { ALL_TASKS } from '../../core/filters.ts';
@@ -120,8 +121,11 @@ export function TodayView() {
   const view = useListView('view:today');
   const { workspace, button } = useNarrowed('today');
   const groups = todayGroups(workspace, today);
+  // Pinned tasks with no date have no day to sit in, so they show in Pinned only.
+  const undated = undatedPinned(workspace, today);
   const done = completedOn(workspace, today, localTimeZone());
-  // All punched out once nothing is open or overdue, whatever got done today (R-FB-135).
+  // All punched out once nothing is open or overdue, whatever got done today (R-FB-135). Pinned
+  // undated tasks aren't today's work, so they don't count against it.
   const empty = groups.overdue.length === 0 && groups.today.length === 0;
   useNoteEmpty(empty);
   return (
@@ -138,7 +142,10 @@ export function TodayView() {
       {view.grouping === 'date' ? (
         <>
           {empty && <EmptyState title={t('empty.today')} hint={t('empty.today.hint')} />}
-          <PinnedGroup tasks={pinnedFirst([...groups.overdue, ...groups.today]).pinned} showList />
+          <PinnedGroup
+            tasks={pinnedFirst([...groups.overdue, ...groups.today, ...undated]).pinned}
+            showList
+          />
           <OverdueAndToday today={today} view={view} source={workspace} />
           <CompletedGroup tasks={done} showList />
         </>
@@ -153,6 +160,7 @@ export function TodayView() {
           showList
           emptyTitle={t('empty.today')}
           emptyWithClosed
+          pinnedOnly={undated}
         />
       )}
     </Page>
@@ -197,6 +205,7 @@ export function UpcomingView() {
         groupsReversed={view.groupReversed}
         showList
         emptyTitle={t('upcoming.empty')}
+        pinnedOnly={undatedPinned(workspace, today)}
       />
     </Page>
   );
