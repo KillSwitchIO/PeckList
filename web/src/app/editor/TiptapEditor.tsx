@@ -31,6 +31,7 @@ import {
   HeadingIcon,
   ItalicIcon,
   LinkIcon,
+  NotesLinesIcon,
   NumberedListIcon,
   QuoteIcon,
   StrikeIcon,
@@ -44,6 +45,7 @@ import {
 } from './slashCommands.ts';
 import { hoverOutline } from '../dnd/hoverOutline.ts';
 import { listItemHandles } from './listItemHandles.ts';
+import { isAllChecklist } from './linesChecklist.ts';
 import { editorMarkdown, linkHref, notesExtensions } from './tiptapMarkdown.ts';
 
 const SLASH_ICONS: Record<SlashCommandId, ReactNode> = {
@@ -53,6 +55,8 @@ const SLASH_ICONS: Record<SlashCommandId, ReactNode> = {
   bulletList: <BulletListIcon fontSize="small" />,
   orderedList: <NumberedListIcon fontSize="small" />,
   checklist: <ChecklistIcon fontSize="small" />,
+  linesToChecklist: <ChecklistIcon fontSize="small" />,
+  checklistToLines: <NotesLinesIcon fontSize="small" />,
   quote: <QuoteIcon fontSize="small" />,
   codeBlock: <CodeIcon fontSize="small" />,
   divider: <DividerIcon fontSize="small" />,
@@ -455,6 +459,7 @@ function FormatToolbar({ editor }: { editor: Editor }) {
       bulletList: editor.isActive('bulletList'),
       orderedList: editor.isActive('orderedList'),
       taskList: editor.isActive('taskList'),
+      allChecklist: isAllChecklist(editor.state.doc),
       link: editor.isActive('link'),
       hasSelection: !editor.state.selection.empty,
     }),
@@ -551,6 +556,18 @@ function FormatToolbar({ editor }: { editor: Editor }) {
           )}
           {button('taskList', t('editor.checklist'), <ChecklistIcon fontSize="small" />, () =>
             chain().toggleTaskList().run(),
+          )}
+          {/* The whole note, one box per line, and back (a toggle: pressed while it is all boxes). */}
+          {button(
+            'allChecklist',
+            active.allChecklist ? t('editor.checklistToLines') : t('editor.linesToChecklist'),
+            active.allChecklist ? (
+              <NotesLinesIcon fontSize="small" />
+            ) : (
+              <ChecklistIcon fontSize="small" />
+            ),
+            () =>
+              (active.allChecklist ? chain().checklistToLines() : chain().linesToChecklist()).run(),
           )}
           <Divider />
           {button(

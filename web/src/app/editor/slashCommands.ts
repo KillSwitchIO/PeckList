@@ -13,6 +13,8 @@ export type SlashCommandId =
   | 'bulletList'
   | 'orderedList'
   | 'checklist'
+  | 'linesToChecklist'
+  | 'checklistToLines'
   | 'quote'
   | 'codeBlock'
   | 'divider';
@@ -56,6 +58,16 @@ export const SLASH_COMMANDS: SlashCommand[] = [
     id: 'checklist',
     keywords: ['todo', 'task', 'checkbox'],
     run: (editor, range) => start(editor, range).toggleTaskList().run(),
+  },
+  {
+    id: 'linesToChecklist',
+    keywords: ['convert', 'every', 'all', 'lines', 'boxes'],
+    run: (editor, range) => start(editor, range).linesToChecklist().run(),
+  },
+  {
+    id: 'checklistToLines',
+    keywords: ['convert', 'plain', 'text', 'unlist', 'back'],
+    run: (editor, range) => start(editor, range).checklistToLines().run(),
   },
   {
     id: 'quote',
