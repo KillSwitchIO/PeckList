@@ -228,6 +228,20 @@ public sealed class ExternalSignInTests(SqliteFiles files) : IClassFixture<Sqlit
     }
 
     [Fact]
+    public async Task A_migration_window_never_hands_over_an_admin_unless_only_admins_set_usernames()
+    {
+        var root = await accountService.CreateUserAsync("root", "correct horse battery", Role.SuperAdmin, cancellation: Token);
+        await signIn.OpenMigrationWindowAsync("pocket", TimeSpan.FromHours(1), Token);
+        // Someone renamed themselves "root" at the provider: a fresh account, not the admin's.
+        var renamed = await SignedIn(Pocket(), Kim() with { Subject = "sub-renamed", Username = "root" });
+        Assert.NotEqual(root.Id, renamed.Id);
+        Assert.Equal(Role.User, renamed.Role);
+
+        var trusted = await SignedIn(Pocket() with { LinkByUsername = UsernameLinking.All }, Kim() with { Subject = "sub-root", Username = "root" });
+        Assert.Equal(root.Id, trusted.Id);
+    }
+
+    [Fact]
     public async Task One_time_links_work_once_and_not_after_they_expire()
     {
         var clock = new MovableClock();

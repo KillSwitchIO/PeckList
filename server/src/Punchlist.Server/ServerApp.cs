@@ -77,7 +77,14 @@ public static partial class ServerApp
         builder.Services.AddSingleton<Punchlist.Core.History.ITaskHistorySink, TaskHistoryRecorder>();
         builder.Services.AddHostedService<HistoryRetention>();
         builder.Services.AddHttpClient("push");
-        builder.Services.AddHttpClient("photos");
+        // Provider pictures: public addresses (or the providers' own hosts) only, every redirect
+        // checked again by ProviderPhoto (audit S2).
+        builder.Services.AddHttpClient("photos").ConfigurePrimaryHttpMessageHandler(services => new SocketsHttpHandler
+        {
+            AllowAutoRedirect = false,
+            ConnectCallback = Auth.PhotoAddresses.Connect(() =>
+                services.GetRequiredService<LiveSettings>().Current.OidcProviders.Select(provider => provider.Authority.Host)),
+        });
         builder.Services.AddHttpClient("updates", client =>
         {
             client.Timeout = TimeSpan.FromSeconds(20);

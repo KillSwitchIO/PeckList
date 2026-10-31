@@ -114,6 +114,11 @@ People who signed in through a provider see its icon on their profile picture. P
 `/favicon.ico`, and keeps a copy for a day, so browsers never load it from the provider. Without an
 image there, no icon shows.
 
+A first sign-in also brings in the person's picture from the provider's `picture` claim, when their
+profile has no photo. Many providers let people set that address themselves, so Punchlist fetches
+it only from public internet addresses, or from the host of a configured provider (one on your own
+network is fine). Anything else, and redirects to it, is refused and the profile keeps its initials.
+
 ## Moving to another provider
 
 To move everyone from `pocket` to `keycloak` without losing accounts:
@@ -129,7 +134,9 @@ docker exec punchlist punchlist oidc migration-window keycloak close
 ```
 
 A migration window never joins an account that already has a keycloak link, and it matches
-usernames only, so check that both providers hand out the same usernames. Someone left with no way
+usernames only, so check that both providers hand out the same usernames. It never joins an admin
+account either (someone could rename themselves at the new provider to take it), unless
+`OIDC_<NAME>_LINK_BY_USERNAME=all`; map admins with `USER_MAP` instead. Someone left with no way
 in gets a one-time link: `punchlist admin login-link kim`.
 
 ## Provider notes
