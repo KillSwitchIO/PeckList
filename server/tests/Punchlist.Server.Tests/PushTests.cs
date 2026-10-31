@@ -377,6 +377,7 @@ public sealed class PushTests(ServerFixture fixture) : IClassFixture<ServerFixtu
         // The app's first check only notes where things stand.
         var first = (await ben.GetFromJsonAsync<AppCheck>("/api/app/check", Token))!;
 
+        await server.BefriendAsync(samId, benId);
         var list = Entity("SL1", samId, new JsonObject { ["name"] = "Chores", ["visibility"] = "shared" });
         var member = Entity("SM1", samId, new JsonObject { ["listId"] = "SL1", ["principal"] = $"user:{benId}", ["role"] = "editor" });
         var task = Entity("ST1", samId, new JsonObject
@@ -408,5 +409,26 @@ public sealed class PushTests(ServerFixture fixture) : IClassFixture<ServerFixtu
         // The feed still lists both: the switch is about interruptions, not the record.
         var feed = (await ben.GetFromJsonAsync<NotificationFeed>("/api/notifications", Token))!;
         Assert.Equal(["assigned", "shared"], feed.Items.Select(each => each.Kind).Order());
+    }
+
+    [Fact]
+    public void Reminders_use_the_settings_a_person_wrote_last_and_never_someone_elses()
+    {
+        var index = new Core.Sharing.SharingIndex();
+        void Put(string id, string owner, string userId, string clock, string format) =>
+            index.Apply(new Core.Storage.StoredEntity("settings", id, owner, 0, new JsonObject
+            {
+                ["id"] = id,
+                ["userId"] = userId,
+                ["clockFormat"] = format,
+                ["deletedAt"] = null,
+                ["_hlc"] = new JsonObject { ["clockFormat"] = clock },
+            }));
+        // Ben's device made settings before the account had any (C7), and Sam wrote one naming Ben (S3).
+        Put("SB2", "UBEN", "UBEN", "2026-10-22T10:00:00.000Z-0000-dev1", "24h");
+        Put("SB1", "UBEN", "UBEN", "2026-10-21T10:00:00.000Z-0000-dev1", "12h");
+        Put("SS1", "USAM", "UBEN", "2026-10-23T10:00:00.000Z-0000-dev2", "12h");
+        Assert.Equal("24h", (string?)ReminderSender.SettingsOf(index, "UBEN")?["clockFormat"]);
+        Assert.Null(ReminderSender.SettingsOf(index, "USAM"));
     }
 }

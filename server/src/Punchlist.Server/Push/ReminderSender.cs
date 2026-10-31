@@ -4,6 +4,7 @@ using Punchlist.Core;
 using Punchlist.Core.Notifications;
 using Punchlist.Core.Push;
 using Punchlist.Core.Sharing;
+using Punchlist.Core.Sync;
 
 namespace Punchlist.Server.Push;
 
@@ -48,11 +49,7 @@ public sealed class ReminderSender(
     public async Task SendDueAsync(DateTimeOffset from, DateTimeOffset to, CancellationToken cancellation = default)
     {
         var index = sharing.Index;
-        var settings = index.LiveOf("settings")
-            .Select(each => each.Doc)
-            .Where(doc => doc["userId"] is JsonValue)
-            .GroupBy(doc => (string)doc["userId"]!)
-            .ToDictionary(group => group.Key, group => group.First(), StringComparer.Ordinal);
+        var settings = SettingsByUser(index);
         foreach (var (taskId, _, task) in index.LiveOf("tasks"))
         {
             if (task["reminders"] is not JsonArray { Count: > 0 } || (string?)task["status"] != "open") continue;
@@ -120,10 +117,26 @@ public sealed class ReminderSender(
     }
 
     /// <summary>A person's settings entity (time zone, clock format), if they have one.</summary>
-    internal static JsonObject? SettingsOf(SharingIndex index, string userId) =>
+    internal static JsonObject? SettingsOf(SharingIndex index, string userId) => SettingsByUser(index).GetValueOrDefault(userId);
+
+    /// <summary>
+    /// Each person's settings: only an entity they wrote themselves that names them (one written by
+    /// someone else cannot set their time zone, audit S3), and of two, the one changed last (C7: a
+    /// device that joined before the account had settings leaves a second one).
+    /// </summary>
+    private static Dictionary<string, JsonObject> SettingsByUser(SharingIndex index) =>
         index.LiveOf("settings")
-            .Select(each => each.Doc)
-            .FirstOrDefault(doc => doc["userId"] is JsonValue owner && owner.TryGetValue<string>(out var id) && id == userId);
+            .Where(each => each.Doc["userId"] is JsonValue named && named.TryGetValue<string>(out var id) && id == each.Owner)
+            .GroupBy(each => each.Owner, StringComparer.Ordinal)
+            .ToDictionary(
+                group => group.Key,
+                group => group.OrderByDescending(each => LastChange(each.Doc), Comparer<string?>.Create(Hlc.Compare)).ThenBy(each => each.Id, StringComparer.Ordinal).First().Doc,
+                StringComparer.Ordinal);
+
+    private static string? LastChange(JsonObject doc) =>
+        doc["_hlc"] is JsonObject clocks
+            ? clocks.Select(pair => (string?)pair.Value).Where(Hlc.IsValid).Max(Comparer<string?>.Create(Hlc.Compare))
+            : null;
 
     private static string TitleOf(JsonObject task) => (string?)task["title"] is { Length: > 0 } named ? named : "Untitled task";
 

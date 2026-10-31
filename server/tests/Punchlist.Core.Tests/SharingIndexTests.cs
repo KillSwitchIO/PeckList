@@ -232,4 +232,118 @@ public sealed class SharingIndexTests
         index.Apply(With(task, doc => doc["deletedAt"] = "2026-10-21T12:00:00.000Z"));
         Assert.Contains("T1", index.VisibleTo(Sam));
     }
+
+    // Server trust (audit S3) -----------------------------------------------------------------------
+
+    /// <summary>An entity as a client pushes it, not yet in the index.</summary>
+    private static StoredEntity Fresh(string collection, string id, string owner, JsonObject fields)
+    {
+        fields["id"] = id;
+        fields["deletedAt"] ??= null;
+        fields["_hlc"] = new JsonObject();
+        return new StoredEntity(collection, id, owner, 0, fields);
+    }
+
+    [Fact]
+    public void Nothing_is_written_in_someone_elses_name()
+    {
+        List("L1", Ben, "shared");
+        Member("M1", Ben, "L1", $"user:{Sam}", "editor");
+        var task = Task("T1", Ben, "L1");
+        var comment = Fresh("comments", "C1", Sam, new JsonObject { ["taskId"] = "T1", ["body"] = "Hi", ["createdBy"] = Ben });
+        Assert.False(May(Sam, null, comment));
+        Assert.True(May(Sam, null, With(comment, doc => doc["createdBy"] = Sam)));
+        // Once made, its author stays.
+        var mine = Put("comments", "C2", Sam, new JsonObject { ["taskId"] = "T1", ["body"] = "Hi", ["createdBy"] = Sam });
+        Assert.False(May(Sam, mine, With(mine, doc => doc["createdBy"] = Ben)));
+        Assert.False(May(Ben, task, With(task, doc => doc["createdBy"] = Sam)));
+        // A list is not made, or later handed, in someone else's name by a client.
+        Assert.False(May(Sam, null, Fresh("lists", "L2", Sam, new JsonObject { ["name"] = "x", ["visibility"] = "private", ["ownerId"] = Ben })));
+        Assert.True(May(Sam, null, Fresh("lists", "L2", Sam, new JsonObject { ["name"] = "x", ["visibility"] = "private", ["ownerId"] = Sam })));
+        var list = index.DocOf("L1")!;
+        var stored = new StoredEntity("lists", "L1", Ben, 0, list);
+        Assert.False(May(Ben, stored, With(stored, doc => doc["ownerId"] = Sam)));
+        // Settings name their owner only: the reminder sender takes time zones from them.
+        Assert.False(May(Sam, null, Fresh("settings", "ST1", Sam, new JsonObject { ["userId"] = Ben })));
+        Assert.True(May(Sam, null, Fresh("settings", "ST1", Sam, new JsonObject { ["userId"] = Sam })));
+    }
+
+    [Fact]
+    public void Lists_and_tasks_go_only_to_people_one_knows()
+    {
+        List("L1", Ben, "shared");
+        var task = Task("T1", Ben, "L1");
+        bool Share(string principal) => May(Ben, null, Fresh("listMembers", $"M-{principal}", Ben,
+            new JsonObject { ["listId"] = "L1", ["principal"] = principal, ["role"] = "editor" }));
+        bool Assign(string principal) => May(Ben, task, With(task, doc => doc["assignees"] = Set(principal)));
+
+        // A stranger, and a pending request (either side makes one alone), are not enough.
+        Friendship("F1", Ben, Kim, "pending");
+        Assert.False(Share($"user:{Sam}"));
+        Assert.False(Assign($"user:{Sam}"));
+        Assert.False(Share($"user:{Kim}"));
+        Assert.False(Assign($"user:{Kim}"));
+        // Nor a group one is not in, nor an invite in someone else's name.
+        Group("G1", Jo);
+        GroupMember("GJ", Jo, "G1", Jo, "active");
+        Assert.False(Share("group:G1"));
+        Assert.False(Assign("group:G1"));
+        Assert.False(Assign($"invite:{Sam}:{Jo}"));
+        Assert.True(Assign($"invite:{Sam}:{Ben}"));
+
+        // Friends, group mates and list mates are.
+        Friendship("F2", Sam, Ben, "accepted");
+        Assert.True(Share($"user:{Sam}"));
+        Assert.True(Assign($"user:{Sam}"));
+        GroupMember("GB", Jo, "G1", Ben, "active");
+        Assert.True(Assign("group:G1"));
+        Assert.True(Assign($"user:{Jo}"));
+        List("L9", Sam, "shared");
+        Member("M9", Sam, "L9", $"user:{Kim}", "viewer");
+        Member("M8", Sam, "L9", $"user:{Ben}", "editor");
+        Assert.True(Assign($"user:{Kim}"));
+
+        // Someone already on the task stays, whoever writes next.
+        var assigned = Task("T2", Ben, "L1", assignees: Set($"user:{Sam}"));
+        index.Remove("F2");
+        Assert.True(May(Ben, assigned, With(assigned, doc => doc["title"] = "renamed")));
+    }
+
+    [Fact]
+    public void A_group_owner_invites_people_they_know_who_join_by_accepting()
+    {
+        Group("G1", Ben);
+        GroupMember("GB", Ben, "G1", Ben, "active");
+        Friendship("F1", Ben, Sam, "accepted");
+        StoredEntity Row(string user, string state) => Fresh("groupMembers", $"G-{user}", Ben,
+            new JsonObject { ["groupId"] = "G1", ["userId"] = user, ["state"] = state });
+
+        Assert.False(May(Ben, null, Row(Kim, "invited")));
+        Assert.False(May(Ben, null, Row(Sam, "active")));
+        Assert.True(May(Ben, null, Row(Sam, "invited")));
+        var invited = GroupMember("GS", Ben, "G1", Sam, "invited");
+        Assert.False(May(Ben, invited, With(invited, doc => doc["state"] = "active")));
+        Assert.True(May(Sam, invited, With(invited, doc => doc["state"] = "active")));
+        // The owner still takes people out.
+        Assert.True(May(Ben, invited, With(invited, doc => doc["deletedAt"] = "2026-10-21T12:00:00.000Z")));
+
+        // The group goes only to someone in it.
+        var group = new StoredEntity("groups", "G1", Ben, 0, index.DocOf("G1")!);
+        Assert.False(May(Ben, group, With(group, doc => doc["ownerId"] = Sam)));
+        index.Apply(With(invited, doc => doc["state"] = "active"));
+        Assert.True(May(Ben, group, With(group, doc => doc["ownerId"] = Sam)));
+    }
+
+    [Fact]
+    public void Reminders_go_only_to_people_who_see_the_task()
+    {
+        List("L1", Ben, "shared");
+        Member("M1", Ben, "L1", $"user:{Sam}", "editor");
+        var made = Put("tasks", "T1", Sam, new JsonObject { ["title"] = "T1", ["listId"] = "L1", ["parentId"] = null, ["createdBy"] = Sam, ["assignees"] = new JsonObject() });
+        Assert.Equal([Sam], Push.ServerReminders.Recipients(made.Doc, index));
+        // Sam leaves the list: their old task no longer reminds them.
+        index.Apply(With(index.DocOf("M1") is { } member ? new StoredEntity("listMembers", "M1", Ben, 0, member) : throw new InvalidOperationException(),
+            doc => doc["deletedAt"] = "2026-10-21T12:00:00.000Z"));
+        Assert.Empty(Push.ServerReminders.Recipients(made.Doc, index));
+    }
 }

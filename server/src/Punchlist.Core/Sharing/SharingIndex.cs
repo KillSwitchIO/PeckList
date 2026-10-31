@@ -324,6 +324,35 @@ public sealed class SharingIndex
         return people;
     }
 
+    /// <summary>
+    /// Whether <paramref name="userId"/> may share with, assign or invite <paramref name="other"/>:
+    /// themselves, an accepted friend, an active mate in a group, or someone on a shared list with
+    /// them (spec: Friends; the app offers only these). Requests and invitations do not count: either
+    /// side can make those alone.
+    /// </summary>
+    public bool Knows(string userId, string other)
+    {
+        if (userId == other) return true;
+        foreach (var friendship in D.Friendships)
+        {
+            var a = friendship.Get("userA");
+            var b = friendship.Get("userB");
+            if (friendship.Get("state") == "accepted" && ((a == userId && b == other) || (a == other && b == userId))) return true;
+        }
+        foreach (var group in D.Groups)
+        {
+            if (Archived(group)) continue;
+            var members = GroupPeople(group.Id, withInvited: false);
+            if (members.Contains(userId) && members.Contains(other)) return true;
+        }
+        foreach (var list in D.SharedLists)
+        {
+            var members = ListPeople(list.Id).ToHashSet(StringComparer.Ordinal);
+            if (members.Contains(userId) && members.Contains(other)) return true;
+        }
+        return false;
+    }
+
     /// <summary>Whether the user sees a live attachment with these bytes (so may download them).</summary>
     public bool SeesFile(string userId, string sha256) =>
         Live("attachments").Any(each => each.Get("sha256") == sha256 && Viewers(each.Id).Contains(userId));
@@ -425,11 +454,18 @@ public sealed class SharingIndex
         string? Field(JsonObject source, string name) => source[name] is JsonValue value && value.TryGetValue<string>(out var text) ? text : null;
         bool Changed(string name) => before is null || !JsonNode.DeepEquals(before.Doc[name], doc[name]);
 
+        // The author is whoever made it, and stays so: a client cannot put words in someone else's
+        // mouth (comments) or send them reminders for a task they cannot see (audit S3).
+        var author = Field(doc, "createdBy");
+        var wasAuthor = before is null ? null : Field(before.Doc, "createdBy");
+        if (wasAuthor is null ? author is not null && author != userId : author != wasAuthor) return false;
+
         switch (after.Collection)
         {
             case "tasks":
             case "sections":
             {
+                if (!PrincipalsAllowed(userId, AddedMembers(before, doc, "assignees"), beforeIndex)) return false;
                 // Its list (old and new) must be editable, or the task assigned to this user.
                 bool CanEditIn(SharingIndex index, string? listId, string id) =>
                     (listId is not null && index.ListRole(userId, listId) is "owner" or "editor")
@@ -471,15 +507,21 @@ public sealed class SharingIndex
                     && doc["deletedAt"] is not null && !Changed("name");
             }
             case "lists":
-                // Only owners change a list; a new list is the writer's own.
-                return before is null ? after.OwnerId == userId : beforeIndex.ListRole(userId, before.Id) == "owner";
+                // Only owners change a list; a new list is the writer's own. Only the server hands
+                // a list to someone else (an admin's hand-over), so clients keep ownerId as it is.
+                if (before is null) return after.OwnerId == userId && (Field(doc, "ownerId") ?? userId) == userId;
+                return beforeIndex.ListRole(userId, before.Id) == "owner" && !Changed("ownerId");
             case "listMembers":
             {
                 var listId = Field(doc, "listId");
                 if (listId is null) return false;
                 // A list made in this same push has its owner in this index only.
                 var role = beforeIndex.Contains(listId) ? beforeIndex.ListRole(userId, listId) : ListRole(userId, listId);
-                if (role == "owner") return true;
+                if (role == "owner")
+                {
+                    // Shared only with people the owner knows (and groups they are in).
+                    return !Changed("principal") || PrincipalsAllowed(userId, Field(doc, "principal") is { } principal ? [principal] : [], beforeIndex);
+                }
                 // Anyone may leave: delete their own membership, changing nothing else.
                 return before is not null
                     && Field(before.Doc, "principal") == $"user:{userId}"
@@ -489,7 +531,9 @@ public sealed class SharingIndex
             case "groups":
             {
                 if (before is null) return Field(doc, "ownerId") == userId;
-                return Field(before.Doc, "ownerId") == userId;
+                if (Field(before.Doc, "ownerId") != userId) return false;
+                // Handed on only to someone already in it (audit S3).
+                return !Changed("ownerId") || (Field(doc, "ownerId") is { } heir && beforeIndex.GroupPeople(before.Id, withInvited: false).Contains(heir));
             }
             case "groupMembers":
             {
@@ -499,7 +543,17 @@ public sealed class SharingIndex
                 groupOwner ??= groupId is not null && byId.TryGetValue(groupId, out var newGroup) ? newGroup.Get("ownerId") : null;
                 // A server group's memberships are the server's: nobody leaves or changes them in the app.
                 if (groupOwner == ServerGroupProjection.Owner) return false;
-                if (groupOwner == userId) return before is null ? Field(doc, "state") is "invited" or "active" : true;
+                if (groupOwner == userId)
+                {
+                    var member = Field(doc, "userId");
+                    // The owner's own membership.
+                    if (member == userId && (before is null || Field(before.Doc, "userId") == userId)) return before is not null || Field(doc, "state") is "invited" or "active";
+                    // Someone else is invited, never made a member: they join by accepting. Only
+                    // people the owner knows are invited (audit S3).
+                    if (before is null) return member is not null && Field(doc, "state") == "invited" && beforeIndex.Knows(userId, member);
+                    return !Changed("groupId") && !Changed("userId")
+                        && (Field(doc, "state") != "active" || Field(before.Doc, "state") == "active");
+                }
                 // The invited accept (invited -> active) or leave; nothing else.
                 return before is not null
                     && Field(before.Doc, "userId") == userId
@@ -518,9 +572,49 @@ public sealed class SharingIndex
             }
             case "users":
                 return after.Id == userId;
+            case "settings":
+                // The reminder sender reads a person's time zone from the settings naming them.
+                return (before is null || before.OwnerId == userId) && (Field(doc, "userId") ?? userId) == userId;
             default:
                 return before is null || before.OwnerId == userId;
         }
+    }
+
+    /// <summary>Elements of an element set that are in now and were not before (all of them for a new entity).</summary>
+    private static List<string> AddedMembers(StoredEntity? before, JsonObject doc, string field)
+    {
+        static bool In(JsonNode? item) => item is JsonObject state && state["in"] is JsonValue value && value.TryGetValue<bool>(out var isIn) && isIn;
+        var added = new List<string>();
+        if (doc[field] is not JsonObject set) return added;
+        var old = before?.Doc[field] as JsonObject;
+        foreach (var (element, state) in set)
+        {
+            if (In(state) && !In(old?[element])) added.Add(element);
+        }
+        return added;
+    }
+
+    /// <summary>
+    /// Whether the user may newly give these principals a list or a task: people they know (see
+    /// <see cref="Knows"/>), groups they are in, and invites in their own name. Anything else would
+    /// show a stranger's tasks to them, and them to the list's people, with a notice they never asked for.
+    /// </summary>
+    private bool PrincipalsAllowed(string userId, IEnumerable<string> principals, SharingIndex beforeIndex)
+    {
+        foreach (var principal in principals)
+        {
+            var allowed = principal.Split(':') switch
+            {
+                ["user", var other] => beforeIndex.Knows(userId, other),
+                // A group made in this same push is in this index only.
+                ["group", var group] => GroupPeople(group, withInvited: false).Contains(userId),
+                // invite:<them>:<me>: settled to user:<them> once they accept my friend request.
+                ["invite", _, var inviter] => inviter == userId,
+                _ => false,
+            };
+            if (!allowed) return false;
+        }
+        return true;
     }
 }
 

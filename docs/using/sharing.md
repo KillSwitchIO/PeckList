@@ -15,6 +15,10 @@ You share with friends, so start there:
 
 An admin can also make two people friends (**Admin > Users > Friends**).
 
+The server holds to this too: a list, a task or a group invite goes only to your friends, to people
+in a group you are in, and to people on a shared list with you. Anyone else is asked to be friends
+first (assigning a task to someone you found by name does that for you).
+
 ## Groups
 
 A group shares lists and chores with several people at once. **New group**, then **Invite a
