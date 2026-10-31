@@ -3,6 +3,7 @@
 // plain text ("2 < 3 & snake_case") comes back exactly as it went in.
 
 import { Editor, Extension, InputRule, type AnyExtension } from '@tiptap/core';
+import { Link } from '@tiptap/extension-link';
 import { TaskItem, TaskList } from '@tiptap/extension-list';
 import { Placeholder } from '@tiptap/extensions';
 import { Markdown, type MarkdownManager } from '@tiptap/markdown';
@@ -116,24 +117,55 @@ const BulletToChecklist = Extension.create({
 });
 
 /**
+ * Links notes may hold: web and mail addresses (audit W3). Notes reach everyone on a shared list,
+ * so a `javascript:` or `data:` link from someone else must stay plain text, whatever it was typed
+ * into or synced from.
+ */
+export function safeLink(href: string): boolean {
+  return /^(https?:\/\/|mailto:)/i.test(href.trim());
+}
+
+/**
  * A typed link address made usable: trimmed, and given https:// when it has no scheme
- * ("example.com/x"). Empty input gives null.
+ * ("example.com/x"). Empty input, or a scheme other than web and mail, gives null.
  */
 export function linkHref(input: string): string | null {
   const href = input.trim();
   if (!href) return null;
-  return /^[a-z][a-z0-9+.-]*:/i.test(href) ? href : `https://${href}`;
+  const full = /^[a-z][a-z0-9+.-]*:/i.test(href) ? href : `https://${href}`;
+  return safeLink(full) ? full : null;
 }
+
+/**
+ * Links in notes: web and mail only, typed, pasted or parsed (audit W3). A markdown link to
+ * anything else comes in as its text alone, so a note synced from someone else cannot carry one.
+ */
+const NotesLink = Link.extend({
+  parseMarkdown: (token, helpers) => {
+    const content = helpers.parseInline(token.tokens || []);
+    const href = typeof token.href === 'string' ? token.href : '';
+    return safeLink(href)
+      ? helpers.applyMark('link', content, { href, title: token.title || null })
+      : content;
+  },
+}).configure({
+  openOnClick: false,
+  autolink: true,
+  defaultProtocol: 'https',
+  isAllowedUri: (url) => safeLink(url),
+});
 
 /** The notes schema: everyday formatting, links and checklists, read and written as markdown. */
 export function notesExtensions(placeholder?: string): AnyExtension[] {
   return [
     StarterKit.configure({
       heading: { levels: [1, 2, 3] },
-      link: { openOnClick: false, autolink: true, defaultProtocol: 'https' },
+      // Our own link, below: one that reads markdown links through safeLink.
+      link: false,
       // Underline has no markdown form; keep notes to what markdown can store.
       underline: false,
     }),
+    NotesLink,
     TaskList,
     TaskItem.configure({ nested: true }),
     BulletToChecklist,

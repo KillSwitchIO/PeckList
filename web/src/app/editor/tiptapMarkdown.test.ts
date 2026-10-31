@@ -39,4 +39,16 @@ describe('link addresses', () => {
     expect(linkHref('mailto:me@example.com')).toBe('mailto:me@example.com');
     expect(linkHref('   ')).toBeNull();
   });
+
+  it('keeps only web and mail links, typed or synced from someone else (audit W3)', () => {
+    expect(linkHref('javascript:alert(1)')).toBeNull();
+    expect(linkHref(' JavaScript:alert(1)')).toBeNull();
+    expect(linkHref('data:text/html,<script>alert(1)</script>')).toBeNull();
+    // A note that arrives with such a link shows its text, not a link.
+    const synced = roundTripMarkdown(
+      'see [the guide](javascript:alert(1)) and [ok](https://example.com)',
+    );
+    expect(synced).not.toContain('javascript:');
+    expect(synced).toContain('[ok](https://example.com)');
+  });
 });
