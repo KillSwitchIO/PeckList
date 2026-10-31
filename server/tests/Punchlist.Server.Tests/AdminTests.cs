@@ -296,6 +296,18 @@ public sealed partial class AdminTests(ServerFixture fixture) : IClassFixture<Se
         var synced = await Viewing(root, token, HttpMethod.Post, "/api/sync", new { schemaVersion = Core.WorkspaceSchema.CurrentVersion, cursor = (long?)null });
         Assert.Contains("Sam's chores", await synced.Content.ReadAsStringAsync(Token));
 
+        // It only looks: no change reaches Sam's account, and nothing is done in Sam's name.
+        var renamed = list.DeepClone().AsObject();
+        renamed["name"] = "Admin was here";
+        renamed["_hlc"] = new System.Text.Json.Nodes.JsonObject { ["name"] = "2026-10-22T11:00:00.000Z-0000-dev9" };
+        var pushed = await Viewing(root, token, HttpMethod.Post, "/api/sync", new { schemaVersion = Core.WorkspaceSchema.CurrentVersion, cursor = (long?)null, changes = new[] { new { collection = "lists", entity = renamed } } });
+        Assert.Equal(HttpStatusCode.Forbidden, pushed.StatusCode);
+        Assert.DoesNotContain("Admin was here", await (await sam.PostAsJsonAsync("/api/sync", new { schemaVersion = Core.WorkspaceSchema.CurrentVersion, cursor = (long?)null }, Token)).Content.ReadAsStringAsync(Token));
+        Assert.Equal(HttpStatusCode.Forbidden, (await Viewing(root, token, HttpMethod.Post, "/api/friends/code")).StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, (await Viewing(root, token, HttpMethod.Post, "/api/friends/link/ABCDEFGH")).StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, (await Viewing(root, token, HttpMethod.Put, $"/api/attachments/{new string('a', 64)}", new { })).StatusCode);
+        Assert.Equal(HttpStatusCode.OK, (await Viewing(root, token, HttpMethod.Get, "/api/friends/code")).StatusCode);
+
         // Accounts are out of bounds while viewing.
         Assert.Equal(HttpStatusCode.Forbidden, (await Viewing(root, token, HttpMethod.Get, "/api/admin/users")).StatusCode);
         Assert.Equal(HttpStatusCode.Forbidden, (await Viewing(root, token, HttpMethod.Post, "/auth/password", new { current = "x", next = "y" })).StatusCode);

@@ -18,7 +18,7 @@ import {
 import type { Attachment, WorkspaceFile } from '../../core/types.ts';
 import { createMemoryBlobs } from '../../adapters/memory-blobs.ts';
 import type { BlobStore } from '../../ports/blobs.ts';
-import { createWorkspace } from '../../core/workspace.ts';
+import { createWorkspace, emptyEntities } from '../../core/workspace.ts';
 import type { StorageAdapter } from '../../ports/storage.ts';
 import {
   SyncFailure,
@@ -119,6 +119,11 @@ export interface SyncEngineDependencies {
   debounceMs?: number;
   /** How often to sync while the app is open. */
   intervalMs?: number;
+  /**
+   * Only look (a super admin viewing as someone, audit C4): start from nothing but what the
+   * account has on the server, and never push. Nothing made on this tab reaches their account.
+   */
+  readOnly?: boolean;
 }
 
 const META = 'sync';
@@ -259,7 +264,17 @@ export function createSyncEngine(deps: SyncEngineDependencies): SyncEngine {
         return;
       }
       const { changes, cursor, epoch } = await pullAll();
-      absorb((local) => joinAccount(local, account.id, changes));
+      if (deps.readOnly) {
+        // None of the starter lists, settings or profile this tab made may pass for theirs.
+        const current = workspace.getState().workspace!;
+        await workspace
+          .getState()
+          .reset(
+            mergeRemote({ ...current, owner: account.id, entities: emptyEntities() }, changes),
+          );
+      } else {
+        absorb((local) => joinAccount(local, account.id, changes));
+      }
       await saveMeta({ account: account.id, cursor, acks: acknowledge({}, changes), epoch });
     };
 
@@ -400,7 +415,7 @@ export function createSyncEngine(deps: SyncEngineDependencies): SyncEngine {
           await workspace.getState().flush();
           const current = workspace.getState().workspace;
           if (!current) return;
-          const pending = pendingChanges(current, meta.acks);
+          const pending = deps.readOnly ? [] : pendingChanges(current, meta.acks);
           const batch = await withFiles(pending.slice(0, BATCH));
           const response = await transport.sync({
             schemaVersion: CURRENT_SCHEMA_VERSION,

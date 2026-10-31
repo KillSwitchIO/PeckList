@@ -95,8 +95,9 @@ From the **...** menu on a person in **Admin > Users**:
 
 To see what someone sees (a support question, a broken list), a super admin opens **View as**, says
 why, and gets a new tab showing the app as that person for 30 minutes. A banner stays on the page.
-Anything changed there is real and recorded under the admin's name, with the reason, in the
-[event log](logging.md#access-and-event-log). It cannot target another super admin or a turned-off
+It only looks: nothing done in that tab is saved to their account, and the server refuses any
+change sent from it. Starting and ending the view are recorded under the admin's name, with the
+reason, in the [event log](logging.md#access-and-event-log). It cannot target another super admin or a turned-off
 account, and it ends when the admin signs out.
 
 ### Deleting an account
