@@ -1043,6 +1043,11 @@ export const en = {
     'That sign-in link has expired or was already used. Ask the admin for a new one.',
   'auth.offline': 'The server cannot be reached. Check your connection and try again.',
   'auth.changeTitle': 'Choose a new password',
+  'join.title': 'Tasks already on this device',
+  'join.text':
+    'This device has tasks or lists that are not in an account yet. Add them to {name}? If they are not yours, leave them out: they are removed from this device.',
+  'join.keep': 'Add them to my account',
+  'join.leave': 'Leave them out',
   'auth.changeSubtitle': 'Your current password was given to you; pick your own before you go on.',
   'auth.current': 'Current password',
   'auth.new': 'New password',
