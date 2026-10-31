@@ -53,6 +53,11 @@ export function AdminPage() {
           onChange={(_, next: AdminTab) =>
             void navigate(next === 'users' ? '/admin' : `/admin/${next}`)
           }
+          // Seven tabs do not fit a phone: the strip scrolls (a swipe, or the arrows) instead
+          // of cutting the last ones off.
+          variant="scrollable"
+          scrollButtons="auto"
+          allowScrollButtonsMobile
         >
           {tabs.map((each) => (
             <Tab

@@ -219,7 +219,9 @@ export function SettingsTab({ api }: { api: AdminApi }) {
   };
 
   return (
-    <Box sx={{ maxWidth: 720, display: 'grid', gap: 3, pb: 10 }}>
+    <Box
+      sx={{ maxWidth: 720, display: 'grid', gridTemplateColumns: 'minmax(0, 1fr)', gap: 3, pb: 10 }}
+    >
       {view.problem && (
         <Alert severity="error" variant="outlined">
           {t('serverSettings.setAside', { problem: view.problem })}
