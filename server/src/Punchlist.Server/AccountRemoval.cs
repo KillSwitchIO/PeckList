@@ -1,3 +1,4 @@
+using System.Text.Json.Nodes;
 using Punchlist.Core.Accounts;
 using Punchlist.Core.Configuration;
 using Punchlist.Core.Sharing;
@@ -11,7 +12,8 @@ namespace Punchlist.Server;
 /// Removes deleted accounts for good once their grace period is over (spec: Users, delete with grace
 /// period and restore), checking every hour: friendships end, everything the person owns is deleted
 /// (devices hear of it like any deletion), provider links and server group memberships go, then
-/// the account itself. Shared lists and groups an admin wants kept are handed over before deleting.
+/// the account itself. Shared lists and groups go to the next person in them first (audit B4), and
+/// what is inside them stays: removing one person must not take the others' work with it.
 /// </summary>
 public sealed class AccountRemoval(
     IAccountStore accounts,
@@ -85,10 +87,25 @@ public sealed class AccountRemoval(
         {
             await friends.EndFriendshipAsync(account.Id, other, cancellation);
         }
+        var handed = await HandOnAsync(account, cancellation);
+        var index = sharing.Index;
+        var keptLists = index.LiveOf("lists").Where(list => list.Owner != account.Id).Select(list => list.Id).ToHashSet(StringComparer.Ordinal);
+        var keptGroups = index.LiveOf("groups").Where(group => (string?)group.Doc["ownerId"] != account.Id).Select(group => group.Id).ToHashSet(StringComparer.Ordinal);
+        string? ListOfTask(JsonNode? taskId) => (string?)taskId is { } id ? (string?)index.DocOf(id)?["listId"] : null;
+        // What this person made inside a list or group someone else has now stays theirs to keep;
+        // only the person's own place in it goes.
+        bool Kept(StoredEntity entity) => entity.Collection switch
+        {
+            "tasks" or "sections" => (string?)entity.Doc["listId"] is { } list && keptLists.Contains(list),
+            "comments" or "attachments" => ListOfTask(entity.Doc["taskId"]) is { } list && keptLists.Contains(list),
+            "listMembers" => (string?)entity.Doc["listId"] is { } list && keptLists.Contains(list) && (string?)entity.Doc["principal"] != $"user:{account.Id}",
+            "groupMembers" => (string?)entity.Doc["groupId"] is { } group && keptGroups.Contains(group) && (string?)entity.Doc["userId"] != account.Id,
+            _ => false,
+        };
         var writes = new List<IncomingEntity>();
         await foreach (var entity in entities.AllAsync(cancellation))
         {
-            if (entity.OwnerId != account.Id || entity.Doc["deletedAt"] is not null) continue;
+            if (entity.OwnerId != account.Id || entity.Doc["deletedAt"] is not null || Kept(entity)) continue;
             writes.Add(new IncomingEntity(entity.Collection, ServerEntities.Tombstone(entity.Id, clock)));
         }
         if (writes.Count > 0) await sync.WriteAsServerAsync(account.Id, writes, cancellation);
@@ -114,7 +131,31 @@ public sealed class AccountRemoval(
         await groups.SettleAsync(cancellation);
         await invites.SettleAsync(cancellation);
         await serverGroupProjection.ProjectAsync(cancellation);
-        audit.RecordSystem("admin.user-removed", detail: $"{account.Username}, {writes.Count} things deleted");
-        Logger.LogWarning("Removed the deleted account {Username} for good ({Count} things deleted)", account.Username, writes.Count);
+        audit.RecordSystem("admin.user-removed", detail: $"{account.Username}, {writes.Count} things deleted, {handed} shared lists and groups handed on");
+        Logger.LogWarning("Removed the deleted account {Username} for good ({Count} things deleted, {Handed} handed on)", account.Username, writes.Count, handed);
+    }
+
+    /// <summary>
+    /// Shared lists and groups the person owns go to the next person in each (see
+    /// <see cref="SharingIndex.ListHeir"/>); ones nobody else is in are deleted with the rest.
+    /// </summary>
+    private async Task<int> HandOnAsync(Account account, CancellationToken cancellation)
+    {
+        var others = (await accounts.ListAsync(cancellation))
+            .Where(each => each.Id != account.Id && each.DeletedAt is null)
+            .Select(each => each.Id)
+            .ToHashSet(StringComparer.Ordinal);
+        var handed = 0;
+        foreach (var share in sharing.Index.SharedOwnedBy(account.Id))
+        {
+            var heir = share.Kind == "list"
+                ? sharing.Index.ListHeir(share.Id, account.Id, others)
+                : sharing.Index.GroupHeir(share.Id, account.Id, others);
+            if (heir is null) continue;
+            var changed = ServerEntities.Changed(share.Doc, clock.Next(), new JsonObject { ["ownerId"] = heir });
+            await sync.WriteAsServerAsync(heir, [new IncomingEntity(share.Kind == "list" ? "lists" : "groups", changed) { Owner = heir }], cancellation);
+            handed++;
+        }
+        return handed;
     }
 }
