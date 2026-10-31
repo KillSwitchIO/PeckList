@@ -66,7 +66,7 @@ public static class PushEndpoints
         {
             var userId = user.UserId();
             var index = sharing.Index;
-            var found = index.LiveOf("tasks").FirstOrDefault(each => each.Id == request.TaskId);
+            var found = (Id: request.TaskId ?? "", Doc: request.TaskId is null ? null : index.LiveDocOf(request.TaskId, "tasks"));
             if (found.Doc is null || !ServerReminders.Recipients(found.Doc, index).Contains(userId)) return Results.NotFound();
             if (request.Action is not ("dismiss" or "snooze" or "complete")) return Results.BadRequest(new { error = "unknown_action" });
             // A reminder time, not any number (FromUnixTimeMilliseconds throws outside year 1 to 9999).
@@ -130,7 +130,7 @@ public static class PushEndpoints
     private static IEnumerable<(string Id, JsonObject Doc)> WithOpenSubtasks(SharingIndex index, string id, JsonObject doc)
     {
         yield return (id, doc);
-        var children = index.LiveOf("tasks").Where(each => (string?)each.Doc["parentId"] == id).ToList();
+        var children = index.LiveChildrenOf(id);
         foreach (var child in children)
         {
             foreach (var each in WithOpenSubtasks(index, child.Id, child.Doc))

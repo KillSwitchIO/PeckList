@@ -22,30 +22,38 @@ public sealed class SharingState
         await Gate.WaitAsync(cancellation);
         try
         {
-            var index = new SharingIndex();
-            var owners = new HashSet<string>(StringComparer.Ordinal);
-            await foreach (var entity in store.AllAsync(cancellation))
-            {
-                index.Apply(entity);
-                owners.Add(entity.OwnerId);
-            }
+            var entities = new List<StoredEntity>();
+            await foreach (var entity in store.AllAsync(cancellation)) entities.Add(entity);
+            var index = SharingIndex.Build(entities);
+            entities.Clear();
             var current = new Dictionary<string, HashSet<string>>(StringComparer.Ordinal);
             await foreach (var (userId, entityId) in store.VisibilityAsync(cancellation))
             {
                 if (!current.TryGetValue(userId, out var set)) current[userId] = set = new HashSet<string>(StringComparer.Ordinal);
                 set.Add(entityId);
             }
+            // Who should see what, entity by entity (one look at each entity's viewers, rather than
+            // every entity for every person: a minute at 300,000 entities, audit P3).
+            var desired = new Dictionary<string, HashSet<string>>(StringComparer.Ordinal);
+            foreach (var id in index.Ids())
+            {
+                foreach (var user in index.Viewers(id))
+                {
+                    if (!desired.TryGetValue(user, out var set)) desired[user] = set = new HashSet<string>(StringComparer.Ordinal);
+                    set.Add(id);
+                }
+            }
             var users = new HashSet<string>(accounts, StringComparer.Ordinal);
-            users.UnionWith(owners);
+            users.UnionWith(desired.Keys);
             users.UnionWith(current.Keys);
             var grants = new List<(string, string)>();
             var revokes = new List<(string, string)>();
             foreach (var user in users)
             {
-                var desired = index.VisibleTo(user);
+                var want = desired.GetValueOrDefault(user) ?? [];
                 var had = current.GetValueOrDefault(user) ?? [];
-                grants.AddRange(desired.Except(had).Select(id => (user, id)));
-                revokes.AddRange(had.Except(desired).Select(id => (user, id)));
+                grants.AddRange(want.Where(id => !had.Contains(id)).Select(id => (user, id)));
+                revokes.AddRange(had.Where(id => !want.Contains(id)).Select(id => (user, id)));
             }
             await store.ApplyVisibilityAsync(new VisibilityPlan(grants, revokes), cancellation);
             Index = index;
@@ -59,26 +67,27 @@ public sealed class SharingState
 
     /// <summary>
     /// Who gains and loses sight of what when <paramref name="written"/> moves the index from
-    /// <paramref name="before"/> to <paramref name="after"/>. Only people who could see a written
-    /// entity before or after can be affected: every access rule hangs on an entity they see.
+    /// <paramref name="before"/> to <paramref name="after"/>. Only entities that depend on a written
+    /// one can change hands (<see cref="SharingIndex.Dependents"/>, on both sides of the change), so
+    /// only their viewers are compared (audit P2: comparing whole views cost seconds a write).
     /// </summary>
     public static VisibilityPlan Plan(SharingIndex before, SharingIndex after, IReadOnlyList<StoredEntity> written)
     {
-        var affected = new HashSet<string>(StringComparer.Ordinal);
+        var touched = new HashSet<string>(StringComparer.Ordinal);
         foreach (var entity in written)
         {
-            affected.UnionWith(before.Viewers(entity.Id));
-            affected.UnionWith(after.Viewers(entity.Id));
+            touched.UnionWith(before.Dependents(entity.Id));
+            touched.UnionWith(after.Dependents(entity.Id));
         }
         var grants = new List<(string, string)>();
         var revokes = new List<(string, string)>();
-        foreach (var user in affected)
+        foreach (var id in touched.Order(StringComparer.Ordinal))
         {
-            var had = before.VisibleTo(user);
-            var has = after.VisibleTo(user);
-            grants.AddRange(has.Except(had).Select(id => (user, id)));
-            revokes.AddRange(had.Except(has).Select(id => (user, id)));
-            // Written entities the user sees both before and after: their new seq brings them along.
+            var had = before.Viewers(id);
+            var has = after.Viewers(id);
+            // Written entities a user sees both before and after: their new seq brings them along.
+            grants.AddRange(has.Where(user => !had.Contains(user)).Select(user => (user, id)));
+            revokes.AddRange(had.Where(user => !has.Contains(user)).Select(user => (user, id)));
         }
         return new VisibilityPlan(grants, revokes);
     }

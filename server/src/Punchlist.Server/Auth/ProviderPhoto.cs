@@ -40,7 +40,7 @@ public sealed class ProviderPhoto(IHttpClientFactory http, SharingState sharing,
     public async Task ImportAsync(string userId, string? picture, CancellationToken cancellation = default)
     {
         if (picture is null || !Uri.TryCreate(picture, UriKind.Absolute, out var url) || url.Scheme is not ("https" or "http")) return;
-        var profile = sharing.Index.LiveOf("users").FirstOrDefault(each => each.Id == userId).Doc;
+        var profile = sharing.Index.LiveDocOf(userId, "users");
         // No profile yet (it is written first), or a photo of the person's own.
         if (profile is null || profile["photo"] is JsonValue held && held.TryGetValue<string>(out var photo) && photo.Length > 0) return;
         try
