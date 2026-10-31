@@ -43,7 +43,9 @@ export type SignOutOutcome =
  * - `password-change`: signed in, but the password must change before anything else.
  * - `ready`: signed in (or no login needed) and syncing.
  */
-export type SyncPhase = 'standalone' | 'checking' | 'signed-out' | 'password-change' | 'ready';
+/** `join-question`: signed in for the first time on a device with data of its own; see `answerJoin`. */
+export type SyncPhase =
+  'standalone' | 'checking' | 'signed-out' | 'password-change' | 'join-question' | 'ready';
 
 /** How the last sync went, for the indicator. */
 export type SyncStatus = 'idle' | 'syncing' | 'offline' | 'error' | 'app-update' | 'server-behind';
@@ -81,6 +83,12 @@ export interface SyncState {
   changePassword(current: string, next: string): Promise<PasswordOutcome>;
   /** Sync now (push, then pull until caught up). Resolves when done or failed. */
   syncNow(): Promise<void>;
+  /**
+   * The first sign-in on a device that has tasks or lists of its own (perhaps someone else's, on a
+   * shared computer, audit W5): `keep` adds them to the account, otherwise they leave this device
+   * and it starts from what the account has.
+   */
+  answerJoin(keep: boolean): Promise<void>;
   /** Stop timers and listeners. */
   stop(): void;
   dismissNotice(): void;
@@ -184,6 +192,16 @@ export function leftHere(workspace: WorkspaceFile, me: string, node: string): Se
     }
   }
   return left;
+}
+
+/** Tasks, lists or tags the person made on this device (a fresh workspace has only its Mess Drawer). */
+export function hasOwnData(workspace: WorkspaceFile): boolean {
+  const { tasks, lists, tags } = workspace.entities;
+  return (
+    tasks.some((task) => task.deletedAt === null) ||
+    lists.some((list) => list.deletedAt === null && !list.isInbox) ||
+    tags.some((tag) => tag.deletedAt === null)
+  );
 }
 
 export function createSyncEngine(deps: SyncEngineDependencies): SyncEngine {
@@ -567,6 +585,12 @@ export function createSyncEngine(deps: SyncEngineDependencies): SyncEngine {
         set({ phase: 'password-change', account });
         return;
       }
+      // Never linked, and data on the device already: ask before it goes into this account.
+      const current = workspace.getState().workspace;
+      if (current && hasOwnData(current) && (await loadMeta()).account === null) {
+        set({ phase: 'join-question', account, status: 'idle' });
+        return;
+      }
       set({ phase: 'ready', account, status: 'idle' });
       openEvents();
       await syncNow();
@@ -694,6 +718,22 @@ export function createSyncEngine(deps: SyncEngineDependencies): SyncEngine {
       },
 
       syncNow,
+
+      async answerJoin(keep) {
+        const account = get().account;
+        if (!account || get().phase !== 'join-question') return;
+        if (!keep) {
+          try {
+            await withLock(() => startOver(account));
+          } catch (error) {
+            fail(error);
+            return;
+          }
+        }
+        set({ phase: 'ready', status: 'idle' });
+        openEvents();
+        await syncNow();
+      },
 
       stop() {
         closeEventStream();

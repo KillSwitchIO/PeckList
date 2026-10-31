@@ -33,6 +33,10 @@ connection: add, edit, complete, move. Changes wait on the device and sync when 
   starts, when it comes back into focus or online, every 30 seconds, and at once when the server
   says something changed (live updates).
 - The sync button shows the state (syncing, offline, a problem) and when it last synced.
+- Signing in for the first time on a device that already has tasks or lists of its own (used
+  without an account, or by someone else on a shared computer) asks first: **Add them to my
+  account**, or **Leave them out**, which removes them from the device and starts from what the
+  account has.
 
 ## Without a server
 

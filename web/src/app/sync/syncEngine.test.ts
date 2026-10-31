@@ -84,6 +84,10 @@ describe('sync engine', () => {
 
     expect((await engine.getState().signIn('ben', 'wrong')).kind).toBe('invalid');
     expect((await engine.getState().signIn('ben', 'correct horse battery')).kind).toBe('ok');
+    // The device has a task of its own: asked first (audit W5), then it joins.
+    expect(engine.getState().phase).toBe('join-question');
+    expect(backend.server.rows.size).toBe(0);
+    await engine.getState().answerJoin(true);
     expect(engine.getState().phase).toBe('ready');
     expect(engine.getState().status).toBe('idle');
     expect(engine.getState().lastSynced).not.toBeNull();
@@ -149,6 +153,7 @@ describe('sync engine', () => {
     addTask(laptop.store, 'Mow');
     await laptop.engine.getState().start();
     await laptop.engine.getState().signIn('ben', 'correct horse battery');
+    await laptop.engine.getState().answerJoin(true);
     await phone.engine.getState().start();
     await phone.engine.getState().signIn('ben', 'correct horse battery');
     // The phone joined an account with data: one Mess Drawer, the laptop's task.
@@ -307,6 +312,7 @@ describe('sync engine', () => {
     const id = addTask(store, 'Mow');
     await engine.getState().start();
     await engine.getState().signIn('ben', 'correct horse battery');
+    await engine.getState().answerJoin(true);
 
     backend.server.refuse.add(id);
     store.getState().apply((ctx, ws) => updateTask(ctx, ws, id, { title: 'Not allowed' }));
@@ -411,6 +417,37 @@ describe('sync engine', () => {
     expect(titles(laptop.store)).toEqual(['Mow']);
   });
 
+  it("a first sign-in leaves a device's own tasks out when told to (audit W5)", async () => {
+    const backend = new FakeBackend();
+    backend.addAccount('ben', 'correct horse battery');
+    const laptop = await device(backend, 'laptop');
+    await laptop.engine.getState().start();
+    await laptop.engine.getState().signIn('ben', 'correct horse battery');
+    addTask(laptop.store, 'Ben on the laptop');
+    await laptop.engine.getState().syncNow();
+
+    // A shared computer with a stranger's standalone tasks on it.
+    const shared = await device(backend, 'shared');
+    addTask(shared.store, "A stranger's diary");
+    await shared.engine.getState().start();
+    await shared.engine.getState().signIn('ben', 'correct horse battery');
+    expect(shared.engine.getState().phase).toBe('join-question');
+    await shared.engine.getState().answerJoin(false);
+    expect(shared.engine.getState().phase).toBe('ready');
+    expect(titles(shared.store)).toEqual(['Ben on the laptop']);
+    await laptop.engine.getState().syncNow();
+    expect(titles(laptop.store)).toEqual(['Ben on the laptop']);
+  });
+
+  it('a first sign-in on a device with nothing of its own asks nothing', async () => {
+    const backend = new FakeBackend();
+    backend.addAccount('ben', 'correct horse battery');
+    const { engine } = await device(backend, 'dev1');
+    await engine.getState().start();
+    await engine.getState().signIn('ben', 'correct horse battery');
+    expect(engine.getState().phase).toBe('ready');
+  });
+
   it('pushes only what changed', async () => {
     const backend = new FakeBackend();
     backend.addAccount('ben', 'correct horse battery');
@@ -434,6 +471,7 @@ describe('sync engine', () => {
     addTask(store, 'Ben stuff');
     await engine.getState().start();
     await engine.getState().signIn('ben', 'correct horse battery');
+    await engine.getState().answerJoin(true);
     await engine.getState().signOut();
     expect(engine.getState().phase).toBe('signed-out');
 

@@ -304,6 +304,27 @@ describe('signing in to a server', () => {
     await waitFor(() => expect(titles()).toEqual([]));
   });
 
+  it('a first sign-in asks before the tasks already on the device join the account', async () => {
+    const backend = new FakeBackend();
+    backend.addAccount('ben', 'correct horse battery');
+    const { store } = await serverApp(backend);
+    await screen.findByRole('heading', { name: 'Sign in to Punchlist' });
+    // Someone else's standalone tasks on this computer.
+    store.getState().apply((ctx, ws) => {
+      const inbox = ws.entities.lists.find((list) => list.isInbox)!.id;
+      return createTask(ctx, ws, { title: "A stranger's diary", listId: inbox }).workspace;
+    });
+    await userEvent.type(screen.getByLabelText(/Username/), 'ben');
+    await userEvent.type(screen.getByLabelText(/^Password/), 'correct horse battery{Enter}');
+
+    await screen.findByRole('heading', { name: 'Tasks already on this device' });
+    expect(backend.server.rows.size).toBe(0);
+    await userEvent.click(screen.getByRole('button', { name: 'Leave them out' }));
+    await screen.findByRole('button', { name: /^Sync: Synced/ });
+    expect(store.getState().workspace!.entities.tasks).toEqual([]);
+    expect(backend.server.rows.size).toBeGreaterThan(0);
+  });
+
   it('shows no cloud without a server', async () => {
     await renderApp('/today');
     await waitFor(() => expect(screen.queryByRole('button', { name: /^Sync/ })).toBeNull());

@@ -2,6 +2,7 @@ import { useEffect, type ReactNode } from 'react';
 import { DemoBanner } from '../demo/DemoBanner.tsx';
 import { useViewAs } from '../store/viewAs.ts';
 import { AuthPages } from './AuthPages.tsx';
+import { JoinQuestion } from './JoinQuestion.tsx';
 import { ViewEnded } from './ViewAsBanner.tsx';
 import { SyncContext, useSyncState } from './syncContext.ts';
 import type { SyncEngine } from './syncEngine.ts';
@@ -32,5 +33,6 @@ function AuthGate({ children }: { children: ReactNode }) {
   const viewAs = useViewAs();
   if (viewAs && phase === 'signed-out') return <ViewEnded />;
   if (phase === 'signed-out' || phase === 'password-change') return <AuthPages phase={phase} />;
+  if (phase === 'join-question') return <JoinQuestion />;
   return <>{children}</>;
 }
