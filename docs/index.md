@@ -5,11 +5,16 @@ drag tasks onto, shared with the people you choose. It works offline on every de
 when it can. One small server (a Docker container, or a native program on Linux and Windows)
 serves the app and keeps everyone's data, in SQLite or PostgreSQL.
 
-!!! warning "Early days"
-Punchlist is before 1.0. It is in daily use, but a minor version may still change things;
-every change you need to act on is listed under **Breaking changes** in the
-[changelog](https://gitlab.com/killswitch10/punchlist/-/blob/main/CHANGELOG.md).
-Keep [backups](guides/backups.md).
+<!-- The status line: at 1.0, replace this one line with "**Status: 1.0.** Stable; see the changelog." and its link. -->
+**Status: before 1.0.** In daily use, but a minor version may still change things: every change you need to act on is under **Breaking changes** in the [changelog](https://gitlab.com/killswitch10/punchlist/-/blob/main/CHANGELOG.md). Keep [backups](guides/backups.md).
+
+<div class="grid" markdown>
+
+![A list of tasks with the task details open beside it](assets/screenshots/list.png)
+
+![The week calendar with tasks placed on it](assets/screenshots/calendar.png)
+
+</div>
 
 ## What it does
 
@@ -37,10 +42,15 @@ Keep [backups](guides/backups.md).
 | Change a setting                               | [How settings work](configuration/index.md) and [all settings](configuration/reference.md)            |
 | Back up, move or restore                       | [Backups and restore](guides/backups.md)                                                              |
 | Fix something                                  | [Troubleshooting](guides/troubleshooting.md)                                                          |
+| Move from TickTick or Todoist                  | [Moving from TickTick or Todoist](using/moving-from-ticktick-or-todoist.md)                           |
+| Put it on your Android phone                   | [The Android app](using/android-app.md)                                                               |
+| Decide whether it is for you                   | [Why Punchlist](about/why.md) and [the comparison](about/comparison.md)                               |
 
 ## Getting help
 
-Open an issue on [GitLab](https://gitlab.com/killswitch10/punchlist/-/issues). For a bug, attach a
+See [getting help](about/support.md). In short: open an issue on
+[GitLab](https://gitlab.com/killswitch10/punchlist/-/issues), and for a bug
+([how to report one](about/reporting-bugs.md)) attach a
 [debug dump](guides/logging.md#debug-dump): it carries logs, settings and versions but no task
 content, passwords or keys. Report security problems privately as described in
 [SECURITY.md](https://gitlab.com/killswitch10/punchlist/-/blob/main/SECURITY.md).

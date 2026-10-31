@@ -8,6 +8,8 @@
 
 const SITE = 'https://killswitch10.gitlab.io/punchlist/';
 const SOURCE = 'https://gitlab.com/killswitch10/punchlist/-/blob/main/';
+const RAW = 'https://gitlab.com/killswitch10/punchlist/-/raw/main/';
+const IMAGE = /\.(png|jpe?g|gif|svg|webp)$/i;
 
 /** Admonition kinds GitLab shows as alerts; anything else becomes a note. */
 const ALERTS = {
@@ -73,16 +75,21 @@ export function sidebar(nav) {
   return `${lines.join('\n')}\n`;
 }
 
-/** A doc-relative link target (`../guides/security.md#x`) as a wiki root link (`/guides/security#x`). */
+/**
+ * A doc-relative link target (`../guides/security.md#x`) as a wiki root link (`/guides/security#x`);
+ * an image in the docs (`assets/shot.png`) as its file in the repository, which the wiki lacks.
+ */
 export function rewriteLink(target, docPath) {
   if (/^[a-z]+:/i.test(target) || target.startsWith('#') || target.startsWith('/')) return target;
   const [file, fragment] = target.split('#');
-  if (!file.endsWith('.md')) return target;
+  const isImage = IMAGE.test(file);
+  if (!file.endsWith('.md') && !isImage) return target;
   const parts = docPath.split('/').slice(0, -1);
   for (const piece of file.split('/')) {
     if (piece === '..') parts.pop();
     else if (piece !== '.') parts.push(piece);
   }
+  if (isImage) return `${RAW}${parts.join('/')}`;
   return `/${wikiPath(parts.join('/'))}${fragment ? `#${fragment}` : ''}`;
 }
 

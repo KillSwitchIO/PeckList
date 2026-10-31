@@ -9,6 +9,23 @@ both from the server (never from people's browsers or phones), and both can be t
   day the server sends an anonymous report to the project, so we know which versions, databases
   and setups are in use and what to keep working. It is on by default.
 
+## The update check
+
+So the app can tell you when a new release is out, the server reads Punchlist's latest release
+from GitLab: a minute after it starts, then every 12 hours.
+
+- **What it asks**: one `GET` of
+  `https://gitlab.com/api/v4/projects/killswitch10%2Fpunchlist/releases/permalink/latest`,
+  with no token, no cookie and no install id. GitLab sees what any web request shows: your
+  server's public IP address and a `User-Agent` of `Punchlist/<version>`.
+- **What it does with the answer**: keeps the newest version, its date and its release page in
+  memory, and shows the notice in the app when it is newer than the server or someone's Android
+  app. People's browsers and phones only ever ask your server, never GitLab.
+- **Turning it off**: `UPDATE_CHECK=false` in the environment or the settings file, or the
+  **Look for new releases** switch in **Admin > Settings > General**. It takes effect at once: the server
+  makes no more requests, forgets what it found, and the app shows no notice. Watch for releases
+  another way then (the GitLab release feed, Diun, Renovate).
+
 ## What the usage report holds
 
 Everything in it is a range or a switch. An admin can see the report exactly as it would go in

@@ -28,6 +28,14 @@ Run the newer download's `install.sh` or `install-service.ps1`, the same way as 
 settings and data stay. See [Linux](../install/linux.md#upgrade) and
 [Windows](../install/windows.md#upgrade).
 
+## The Android app
+
+The Android app runs your server's own copy of the web app, so most server upgrades need nothing
+from people's phones. When a release does need a newer app, its changelog section starts with a
+**Compatibility** note (`Requires-Android: X.Y.Z`): update the apps first, since an app older than
+that is signed out until it updates. Obtainium updates the app by itself; otherwise install the
+new `punchlist-android.apk` over the old one ([the Android app](../using/android-app.md#install)).
+
 ## What happens on start
 
 The server upgrades the database schema before it takes requests (each step in its own

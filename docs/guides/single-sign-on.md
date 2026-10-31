@@ -11,7 +11,11 @@ button for each.
      name you give the provider below (lowercase).
    - **Type**: confidential (with a secret) is usual; a public client also works, since Punchlist
      always uses PKCE.
-   - **Scopes**: `openid profile email`, plus `groups` if you will use groups.
+   - **Scopes**: `openid profile email`, plus `groups` if you will use groups. Punchlist asks for
+     `groups` by itself as soon as any group setting (`REQUIRED_GROUPS`, `ROLE_MAP`, `GROUP_MAP`)
+     is set; `OIDC_<NAME>_SCOPES` overrides the list for providers that have no such scope.
+   - **Client authentication**: the secret goes in the token request's body
+     (`client_secret_post`). Most providers accept it by default; Authelia needs it set.
 2. Set `PUBLIC_URL` to the address people open, and the provider's settings:
 
 ```yaml
@@ -143,8 +147,27 @@ in gets a one-time link: `punchlist admin login-link kim`.
 
 === "Authelia"
 
-    Add a client under `identity_providers.oidc.clients` with `redirect_uris` and
-    `scopes: [openid, profile, email, groups]`, `token_endpoint_auth_method: client_secret_basic`.
+    Add a client under `identity_providers.oidc.clients`. Punchlist sends its client secret in the
+    token request's body, so the client must use `client_secret_post` (Authelia's default for a
+    confidential client is `client_secret_basic`, which fails with `invalid_client`):
+
+    ```yaml
+    - client_id: punchlist
+      client_name: Punchlist
+      client_secret: '$pbkdf2-sha512$...'   # the hash of OIDC_<NAME>_CLIENT_SECRET
+      public: false
+      authorization_policy: two_factor
+      require_pkce: true
+      pkce_challenge_method: S256
+      redirect_uris:
+        - https://tasks.example.com/auth/oidc/authelia/callback
+      scopes: [openid, profile, email, groups]
+      response_types: [code]
+      grant_types: [authorization_code]
+      response_modes: [query]
+      token_endpoint_auth_method: client_secret_post
+    ```
+
     Authority: `https://auth.example.com`.
 
 === "Keycloak"
@@ -156,15 +179,21 @@ in gets a one-time link: `punchlist admin login-link kim`.
 
 === "Microsoft Entra ID"
 
-    Register an app (web platform, the redirect URI). The groups claim holds group **ids**, not
-    names: map the ids in `REQUIRED_GROUPS`, `ROLE_MAP` and `GROUP_MAP`. Authority:
-    `https://login.microsoftonline.com/<tenant-id>/v2.0`.
+    Register an app (platform **Web**, the redirect URI) and give it a client secret. Entra has no
+    `groups` scope and refuses a sign-in that asks for one, so set
+    `OIDC_<NAME>_SCOPES=openid profile email` whenever you use any group setting. Groups come from
+    the app's **Token configuration > Add groups claim** (security groups) instead. The claim holds
+    group **object ids**, not names: use the ids in `REQUIRED_GROUPS`, `ROLE_MAP` and `GROUP_MAP`.
+    `preferred_username` is the person's sign-in name (`kim@contoso.com`), so usernames look like
+    email addresses. Authority: `https://login.microsoftonline.com/<tenant-id>/v2.0`.
 
 === "Google"
 
-    Create an OAuth client (web application). Google has no groups claim, so leave the group
-    settings out and approve people by hand, or turn on `AUTO_CREATE` with care (any Google account
-    could then sign in). Authority: `https://accounts.google.com`.
+    Create an OAuth client (web application) with the redirect URI. Google has no groups, so leave
+    the group settings out (with one set, Punchlist would ask for a `groups` scope Google refuses).
+    Approve people by hand, or turn on `AUTO_CREATE` with care: any Google account could then sign
+    in. Google sends no `preferred_username`, so usernames come from the email address. Authority:
+    `https://accounts.google.com`.
 
 ## Troubleshooting
 

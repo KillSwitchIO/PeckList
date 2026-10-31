@@ -4,6 +4,13 @@ The workflow is below. The coding standards (layers, style, the checks, shared p
 and performance habits, what to test) are in
 [docs/development/standards.md](docs/development/standards.md); read it before a change.
 
+Everyone taking part follows the [code of conduct](CODE_OF_CONDUCT.md). New here? Issues labelled
+[`good first issue`](https://gitlab.com/killswitch10/punchlist/-/issues/?label_name%5B%5D=good%20first%20issue)
+are small and well described, and
+[`help wanted`](https://gitlab.com/killswitch10/punchlist/-/issues/?label_name%5B%5D=help%20wanted)
+ones are where a hand is most welcome. Say on the issue that you are taking it, so two people do
+not do the same work.
+
 ## License and contributions
 
 Punchlist is released under the [AGPL-3.0-or-later](LICENSE). To keep the project able to offer a

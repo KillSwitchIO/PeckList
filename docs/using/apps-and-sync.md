@@ -14,51 +14,10 @@ home screen or start menu, and works offline. Installing needs HTTPS (or `localh
 
 ## The Android app
 
-The Android app (in development: build it yourself for now, see
-[the Android app](../development/android.md)) is the same Punchlist in a native shell. On first
-start it asks for your server's address, or runs on the phone alone:
-
-- **Connect**: type the address (`tasks.example.com`, or `192.168.1.20:8080` at home). The app
-  checks that a Punchlist server answers there, then runs that server's own copy of the app, so
-  the app and server never disagree about versions. An address without `https://` is tried with
-  HTTPS first, then plain HTTP, which it warns about before using.
-- **Use on this device only**: no account and no sync, like the web app without a server.
-
-**Settings > Server** shows where the app is connected, and **Change** or **Disconnect** moves it.
-Disconnecting leaves your tasks on the server. The sign-in page has **Use another** for a wrong
-address, and the connect page always has **Use on this device only**. If a server will not let you
-in at all, long-press the Punchlist icon and pick **Change server**.
-
-Signing in with a provider (single sign-on) opens it in a browser tab, so passkeys and saved
-logins work. After signing in there, tap **Continue** on the "Open Punchlist on this device?"
-page; the tab closes and the app is signed in. Seeing that page without having just tapped a
-sign-in button in the app means something else asked for it: close the tab.
-
-Reminders arrive as Android notifications, on time even with the app closed, with **Complete**
-and **Snooze** buttons that work without opening the app; Snooze asks how long. With no connection
-they still take effect on the phone, and the server hears of them once it is back. (Without a
-server, or Complete on a repeating task, the button opens the app and does it there.) Pull down at
-the top of a list to sync now. With the app closed
-it also checks in with your server every 5 minutes: new shares, assignments and mentions show as
-notifications, and reminders you set or change on another device are set on the phone too. After
-you sign in, the app asks to send notifications and to run in the background; allow both, or the
-checks come late or not at all. **Settings > Notifications** turns the check-in off or makes it
-less frequent (15, 30 or 60 minutes). On a Samsung phone, also add Punchlist to **Never sleeping
-apps** (Settings > Battery > Background usage limits).
-
-Back steps back through the app; on the first screen, press it twice to leave.
-
-If your server sits behind a sign-in page of its own (Cloudflare Access, Authelia, Authentik),
-the app asks you to sign in to it: **Sign in** does that in your browser, where passkeys work,
-then hands the pass back to the app after you confirm. Your server must be Punchlist 0.2.3 or
-later for that; on an older one, **Sign in here instead** works for gates without passkeys.
-**Pangolin** keeps its sign-in to itself, so that hand-back cannot work there: make a share link
-for the resource in Pangolin (no expiry, or as long as you like), paste it into the app's sign-in
-card under **Behind Pangolin?**, and the app is let in like a browser would be, for as long as the
-link's session lasts.
-
-Servers with a certificate from your own CA work once that CA is installed on the phone
-(Settings > Security > Encryption & credentials > Install a certificate).
+The Android app is the same Punchlist in a native shell, with reminders that arrive on time with
+the app closed and sign-in through your real browser. Installing it (from the release page or
+with Obtainium), connecting, the browser sign-in and notifications are on their own page:
+[the Android app](android-app.md).
 
 ## Offline
 
