@@ -33,7 +33,15 @@ public sealed class SharingStartup(
             var watch = Stopwatch.StartNew();
             var users = (await accounts.ListAsync(stopping)).Select(account => account.Id);
             var changed = await sharing.LoadAsync(store, users, stopping);
-            logger.LogInformation("Sharing index loaded in {Seconds:0.0} s", watch.Elapsed.TotalSeconds);
+            if (sharing.LastLoad is { } times)
+            {
+                logger.LogInformation(
+                    "Sharing index loaded in {Seconds:0.0} s: {Entities} entities (read {Read:0.0} s, build {Build:0.0} s, access check {Check:0.0} s, store {Store:0.0} s)",
+                    watch.Elapsed.TotalSeconds, times.Entities, times.Read.TotalSeconds, times.Build.TotalSeconds, times.Check.TotalSeconds, times.Store.TotalSeconds);
+            }
+            // Reading every document leaves a large heap behind; give it back now rather than
+            // holding the peak for the life of the process (audit P1).
+            GC.Collect(GC.MaxGeneration, GCCollectionMode.Aggressive, blocking: true, compacting: true);
             if (changed > 0) logger.LogInformation("Brought {Count} access entries in line with the sharing rules", changed);
             var settled = await groups.SettleAsync(stopping);
             if (settled > 0) logger.LogInformation("Handed on {Count} groups whose owner had left", settled);
