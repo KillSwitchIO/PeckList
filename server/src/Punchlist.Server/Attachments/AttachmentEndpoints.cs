@@ -93,6 +93,8 @@ public sealed class AttachmentCleanup(IAttachmentStore store, SharingState shari
 
     public async Task<int> CleanAsync(CancellationToken cancellation = default)
     {
+        // An index still loading wants nothing: every file would look unused.
+        await sharing.Loaded.WaitAsync(cancellation);
         var now = Time.GetUtcNow();
         var wanted = sharing.Index.WantedFiles(now - KeepDeleted);
         var removed = 0;

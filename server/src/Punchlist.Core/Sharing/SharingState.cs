@@ -13,6 +13,14 @@ public sealed class SharingState
 
     public SharingIndex Index { get; set; } = new();
 
+    private readonly TaskCompletionSource loaded = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+    /// <summary>
+    /// Completes once the index has been loaded the first time. The server listens while it loads
+    /// (audit P3); writes and the jobs that read the index wait for this.
+    /// </summary>
+    public Task Loaded => loaded.Task;
+
     /// <summary>
     /// Load every entity, then bring the stored visibility in line with the rules (they may have
     /// changed in a new version, or a backup was restored). Returns how many access rows changed.
@@ -57,6 +65,7 @@ public sealed class SharingState
             }
             await store.ApplyVisibilityAsync(new VisibilityPlan(grants, revokes), cancellation);
             Index = index;
+            loaded.TrySetResult();
             return grants.Count + revokes.Count;
         }
         finally

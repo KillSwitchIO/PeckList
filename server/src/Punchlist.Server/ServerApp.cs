@@ -53,7 +53,8 @@ public static partial class ServerApp
         builder.Services.AddSingleton(logging);
         builder.Services.AddSingleton<ILoggerProvider>(_ => logging);
 
-        builder.Services.AddHealthChecks();
+        builder.Services.AddHealthChecks().AddCheck<SharingHealthCheck>("sharing");
+        builder.Services.AddSingleton(StartupWait.Default);
         builder.Services.AddEntityStore(settings);
         // After the store: its startup (migrations) runs before the admin is made.
         builder.Services.AddPunchlistAuth(settings);
@@ -155,6 +156,7 @@ public static partial class ServerApp
         Audit.AuditLog.UseAuditLog(app);
         app.UseForwardedHeaders();
         app.UseResponseHardening();
+        SharingStartup.UseSharingStartup(app);
         app.UseDemoMode(settings);
         app.UseAuthentication();
         app.UseImpersonation();

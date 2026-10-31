@@ -48,6 +48,8 @@ public sealed class ReminderSender(
     /// <summary>Reminders due in (<paramref name="from"/>, <paramref name="to"/>]: sent, and noted so they go once.</summary>
     public async Task SendDueAsync(DateTimeOffset from, DateTimeOffset to, CancellationToken cancellation = default)
     {
+        // Reminders due while the index loads go out once it is in (the first run catches up).
+        await sharing.Loaded.WaitAsync(cancellation);
         var index = sharing.Index;
         var settings = SettingsByUser(index);
         foreach (var (taskId, _, task) in index.LiveOf("tasks"))
