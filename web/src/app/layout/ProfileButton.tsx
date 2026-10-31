@@ -28,6 +28,7 @@ import { t } from '../i18n/i18n.ts';
 import { AccountIcon, PeopleIcon, ShieldIcon } from '../icons/icons.tsx';
 import { useShellInfo } from '../native/shell.ts';
 import { useStoreState } from '../store/hooks.ts';
+import { ConfirmDialog } from '../lists/ListDialog.tsx';
 import { ChangePasswordDialog } from '../sync/SyncButton.tsx';
 import { leaveFor, rememberProvider } from '../sync/signInWith.ts';
 import { useSyncState } from '../sync/syncContext.ts';
@@ -72,6 +73,13 @@ export function ProfileButton({ onShortcuts }: { onShortcuts: () => void }) {
   const navigate = useNavigate();
   const [anchor, setAnchor] = useState<HTMLElement | null>(null);
   const [changing, setChanging] = useState(false);
+  // Changes the server has not taken yet: signing out would lose them, so ask first.
+  const [unsynced, setUnsynced] = useState<number | null>(null);
+  const logOut = (discard = false) =>
+    void signOut({ discard }).then((outcome) => {
+      if (outcome.kind === 'unsynced') setUnsynced(outcome.count);
+      else if (outcome.redirect) leaveFor(outcome.redirect);
+    });
   const theme = useTheme();
   // Phones have no keyboard to take shortcuts.
   const phone = useMediaQuery(theme.breakpoints.down('sm'), { noSsr: true });
@@ -223,7 +231,7 @@ export function ProfileButton({ onShortcuts }: { onShortcuts: () => void }) {
           item(t('profile.logOut'), <LogoutRounded fontSize="small" />, () => {
             // Signing out on purpose: the sign-in page waits instead of going back to a provider.
             rememberProvider(null);
-            void signOut().then((redirect) => redirect && leaveFor(redirect));
+            logOut();
           })}
         <Divider />
         {/* Which version this is, at the bottom (R-FB-77): phones have no sidebar to show it. */}
@@ -262,6 +270,16 @@ export function ProfileButton({ onShortcuts }: { onShortcuts: () => void }) {
         </Box>
       </Menu>
       {changing && <ChangePasswordDialog onClose={() => setChanging(false)} />}
+      <ConfirmDialog
+        open={unsynced !== null}
+        message={t('profile.logOutUnsynced', { count: unsynced ?? 0 })}
+        confirmLabel={t('profile.logOutAnyway')}
+        onClose={() => setUnsynced(null)}
+        onConfirm={() => {
+          setUnsynced(null);
+          logOut(true);
+        }}
+      />
     </>
   );
 }

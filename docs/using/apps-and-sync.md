@@ -102,4 +102,12 @@ Several lists for Todoist, Microsoft To Do or iCalendar download as one .zip; pi
 ## Signing out
 
 **Log out** is in the profile menu (your picture in the top right). It sends any changes still
-waiting first, then signs out. The cloud next to it shows how syncing stands and syncs now.
+waiting first, then signs out and clears this device: your tasks, files and sync progress are
+removed from the browser or the app, so nobody opening it afterwards (offline included) can read
+them, and this device stops getting your notifications. Sign in again and everything comes back
+from the server. When some changes could not reach the server (you are offline), it asks before
+logging out, since clearing the device would lose them. The cloud next to it shows how syncing
+stands and syncs now.
+
+The Android app keeps nothing in the phone's backups or in a move to a new phone; sign in again
+there.

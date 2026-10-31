@@ -19,5 +19,13 @@ export function describeBlobsContract(name: string, make: () => BlobStore) {
       expect(await blobs.has(A)).toBe(false);
       await blobs.delete(A);
     });
+
+    it('forgets every file at once', async () => {
+      const blobs = make();
+      await blobs.put(A, new Blob(['a']));
+      await blobs.put(B, new Blob(['b']));
+      await blobs.clear();
+      expect([await blobs.has(A), await blobs.has(B)]).toEqual([false, false]);
+    });
   });
 }

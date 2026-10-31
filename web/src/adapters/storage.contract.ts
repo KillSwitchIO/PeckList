@@ -64,6 +64,17 @@ export function describeStorageContract(
       expect(await storage.load()).toEqual(workspace);
     });
 
+    it('wipes the workspace, backups and device metadata together (signing out)', async () => {
+      const storage = await create();
+      await storage.save(sampleWorkspace());
+      await storage.backup('workspace.v1.bak.json', { schemaVersion: 1 });
+      await storage.saveMeta('sync', { account: 'U1', cursor: 8 });
+      await storage.wipe();
+      expect(await storage.load()).toBeNull();
+      expect(await storage.loadBackup('workspace.v1.bak.json')).toBeNull();
+      expect(await storage.loadMeta('sync')).toBeNull();
+    });
+
     it('returns a copy, not a live reference', async () => {
       const storage = await create();
       const workspace = sampleWorkspace();

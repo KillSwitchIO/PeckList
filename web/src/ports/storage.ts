@@ -21,4 +21,9 @@ export interface StorageAdapter {
    */
   loadMeta(key: string): Promise<unknown>;
   saveMeta(key: string, value: unknown): Promise<void>;
+  /**
+   * Forget everything this device keeps for the person: the workspace, backups and device
+   * metadata (signing out, audit W1). Unlike `clear`, nothing survives.
+   */
+  wipe(): Promise<void>;
 }

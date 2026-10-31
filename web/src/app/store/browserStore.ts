@@ -6,6 +6,7 @@ import { createIndexedDbStorage } from '../../adapters/indexeddb-storage.ts';
 import { createLocalJournal } from '../../adapters/local-journal.ts';
 import { createMemoryStorage } from '../../adapters/memory-storage.ts';
 import { createUlidGenerator } from '../../adapters/ulid-ids.ts';
+import { browserPush, notifier } from '../reminders/notifier.ts';
 import { createSyncEngine, type SyncEngine } from '../sync/syncEngine.ts';
 import { tabNodeId } from './device.ts';
 import { takeViewAs, type ViewAs } from './viewAs.ts';
@@ -51,8 +52,22 @@ export function createBrowserApp(): {
     storage,
     blobs: createIndexedDbBlobs(),
     withLock: lock('punchlist-sync'),
+    onSignedOut: forgetThisDevice,
   });
   return { store, sync, viewAs: null };
+}
+
+/**
+ * Signed out: this browser stops getting the person's pushes, and the Android app drops the
+ * reminders it set ahead (their titles would still show). A browser without a service worker
+ * never answers, so neither may hold up the sign-out for long.
+ */
+async function forgetThisDevice(): Promise<void> {
+  const giveUp = new Promise<void>((resolve) => setTimeout(resolve, 3000));
+  await Promise.race([
+    Promise.allSettled([browserPush().unsubscribe(), notifier().scheduleAhead?.([])]),
+    giveUp,
+  ]);
 }
 
 /**

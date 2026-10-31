@@ -229,6 +229,7 @@ describe('workspace store', () => {
       loadBackup: () => Promise.resolve(null),
       loadMeta: () => Promise.resolve(null),
       saveMeta: () => Promise.resolve(),
+      wipe: () => Promise.resolve(),
     };
     const c = makeStore(failing);
     await c.getState().init();

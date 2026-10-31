@@ -332,7 +332,8 @@ export class FakeTransport implements SyncTransport {
   }
 
   signInOptions(returnUrl: string, invite?: string) {
-    this.check();
+    // Offline, a request rejects (the HTTP transport's promise does), it does not throw.
+    if (this.offline) return Promise.reject(new SyncFailure('offline', 'offline'));
     const { providers, localLogin, registration } = this.backend.signIn;
     const withInvite = invite ? `&invite=${encodeURIComponent(invite)}` : '';
     return Promise.resolve({
@@ -382,6 +383,7 @@ export class FakeTransport implements SyncTransport {
   }
 
   logout() {
+    if (this.offline) return Promise.reject(new SyncFailure('offline', 'offline'));
     this.session = null;
     const redirect = this.backend.signOutRedirect;
     return Promise.resolve(redirect ? { redirect } : undefined);

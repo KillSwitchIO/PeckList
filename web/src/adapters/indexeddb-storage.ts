@@ -177,5 +177,14 @@ export function createIndexedDbStorage(databaseName = 'punchlist'): StorageAdapt
     async saveMeta(key: string, value: unknown) {
       await (await open()).put(STORE, JSON.stringify(value), `meta:${key}`);
     },
+    async wipe() {
+      const store = await openRecords();
+      const tx = store.transaction([ENTITIES, DOC], 'readwrite');
+      await Promise.all([tx.objectStore(ENTITIES).clear(), tx.objectStore(DOC).clear(), tx.done]);
+      held = null;
+      legacySeen = null;
+      // Backups, device metadata and an old single-text copy all live in the first database.
+      await (await open()).clear(STORE);
+    },
   };
 }

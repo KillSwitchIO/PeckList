@@ -33,5 +33,11 @@ export function createMemoryStorage(): StorageAdapter {
       meta.set(key, JSON.stringify(value));
       return Promise.resolve();
     },
+    wipe: () => {
+      stored = null;
+      backups.clear();
+      meta.clear();
+      return Promise.resolve();
+    },
   };
 }

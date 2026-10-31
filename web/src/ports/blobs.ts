@@ -8,4 +8,6 @@ export interface BlobStore {
   put(sha256: string, blob: Blob): Promise<void>;
   has(sha256: string): Promise<boolean>;
   delete(sha256: string): Promise<void>;
+  /** Forget every file (signing out: nothing of the person stays on the device). */
+  clear(): Promise<void>;
 }
