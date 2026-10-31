@@ -100,4 +100,89 @@ public sealed class ProviderPhotoTests(ServerFixture fixture) : IClassFixture<Se
         var me = await client.GetFromJsonAsync<JsonObject>("/auth/me", Token);
         Assert.False((bool)me!["hasProviderPicture"]!);
     }
+
+    /// <summary>Redirects: to the picture, to a file path, or round and round.</summary>
+    private sealed class Redirects : HttpMessageHandler
+    {
+        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+        {
+            var path = request.RequestUri!.AbsolutePath;
+            if (path == "/me.png")
+            {
+                var content = new ByteArrayContent(Pixel);
+                content.Headers.ContentType = new MediaTypeHeaderValue("image/png");
+                return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK) { Content = content });
+            }
+            var to = path switch
+            {
+                "/moved" => "/me.png",
+                "/to-file" => "file:///etc/passwd",
+                _ => "/loop",
+            };
+            var response = new HttpResponseMessage(HttpStatusCode.Found);
+            response.Headers.Location = new Uri(to, UriKind.RelativeOrAbsolute);
+            return Task.FromResult(response);
+        }
+    }
+
+    [Fact]
+    public async Task Redirects_are_followed_a_few_times_and_only_to_web_addresses()
+    {
+        using var server = fixture.Factory(("ADMIN_PASSWORD", "correct horse battery"))
+            .WithWebHostBuilder(host => host.ConfigureTestServices(services =>
+                services.AddHttpClient("photos").ConfigurePrimaryHttpMessageHandler(() => new Redirects())));
+        var photos = server.Services.GetRequiredService<ProviderPhoto>();
+        Assert.Equal(Pixel, (await photos.FetchAsync("https://id.example.com/moved", Token))!.Value.Bytes);
+        Assert.Null(await photos.FetchAsync("https://id.example.com/to-file", Token));
+        Assert.Null(await photos.FetchAsync("https://id.example.com/loop", Token));
+    }
+
+    [Theory]
+    [InlineData("127.0.0.1", false)]
+    [InlineData("10.1.2.3", false)]
+    [InlineData("172.20.0.5", false)]
+    [InlineData("192.168.1.10", false)]
+    [InlineData("169.254.169.254", false)]
+    [InlineData("100.64.0.1", false)]
+    [InlineData("0.0.0.0", false)]
+    [InlineData("::1", false)]
+    [InlineData("fd12:3456::1", false)]
+    [InlineData("fe80::1", false)]
+    [InlineData("::ffff:10.0.0.1", false)]
+    [InlineData("93.184.216.34", true)]
+    [InlineData("2606:4700::6810:84e5", true)]
+    public void Only_public_addresses_count_as_public(string address, bool expected) =>
+        Assert.Equal(expected, PhotoAddresses.IsPublic(System.Net.IPAddress.Parse(address)));
+
+    [Fact]
+    public async Task Pictures_never_come_from_the_servers_own_network_unless_a_provider_lives_there()
+    {
+        // A local service the picture claim points at: it must never even be connected to.
+        using var listener = new System.Net.Sockets.TcpListener(System.Net.IPAddress.Loopback, 0);
+        listener.Start();
+        var port = ((System.Net.IPEndPoint)listener.LocalEndpoint).Port;
+        var accepted = 0;
+        _ = Task.Run(async () =>
+        {
+            while (true)
+            {
+                using var socket = await listener.AcceptSocketAsync(Token);
+                Interlocked.Increment(ref accepted);
+                await socket.ReceiveAsync(new byte[4096], Token);
+                await socket.SendAsync("HTTP/1.1 200 OK\r\nContent-Type: image/png\r\nContent-Length: 1\r\nConnection: close\r\n\r\nx"u8.ToArray(), Token);
+                socket.Shutdown(System.Net.Sockets.SocketShutdown.Both);
+            }
+        }, Token);
+        var trusted = new List<string>();
+        using var client = new HttpClient(new SocketsHttpHandler { AllowAutoRedirect = false, ConnectCallback = PhotoAddresses.Connect(() => trusted) });
+
+        await Assert.ThrowsAsync<HttpRequestException>(() => client.GetAsync($"http://127.0.0.1:{port}/admin", Token));
+        Assert.Equal(0, accepted);
+
+        // The self-hoster's own identity provider on the LAN is fine.
+        trusted.Add("127.0.0.1");
+        using var response = await client.GetAsync($"http://127.0.0.1:{port}/me.png", Token);
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Equal(1, accepted);
+    }
 }

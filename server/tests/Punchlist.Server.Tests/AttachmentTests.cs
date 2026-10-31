@@ -84,7 +84,11 @@ public sealed class AttachmentTests(ServerFixture fixture) : IClassFixture<Serve
             (await ben.PutAsync($"/api/attachments/{Sha(new byte[2_000_000])}", new ByteArrayContent(new byte[2_000_000]), Token)).StatusCode);
         Assert.Equal(HttpStatusCode.Created, (await ben.PutAsync($"/api/attachments/{sha}", new ByteArrayContent(bytes), Token)).StatusCode);
         Assert.Equal(HttpStatusCode.NoContent, (await sam.PutAsync($"/api/attachments/{sha}", new ByteArrayContent(bytes), Token)).StatusCode);
-        Assert.Equal(HttpStatusCode.OK, (await ben.SendAsync(new HttpRequestMessage(HttpMethod.Head, $"/api/attachments/{sha}"), Token)).StatusCode);
+        // Whether the server holds a file is nobody's business until they see it (audit S5).
+        Task<HttpStatusCode> Head(HttpClient client) =>
+            client.SendAsync(new HttpRequestMessage(HttpMethod.Head, $"/api/attachments/{sha}"), Token).ContinueWith(sent => sent.Result.StatusCode, Token);
+        Assert.Equal(HttpStatusCode.NotFound, await Head(ben));
+        Assert.Equal(HttpStatusCode.NotFound, await Head(kim));
 
         // A stored file is nobody's to read until an attachment they see names it.
         Assert.Equal(HttpStatusCode.NotFound, (await ben.GetAsync($"/api/attachments/{sha}", Token)).StatusCode);
@@ -94,6 +98,10 @@ public sealed class AttachmentTests(ServerFixture fixture) : IClassFixture<Serve
         var task = ("tasks", Entity("T1", new JsonObject { ["listId"] = "L1", ["title"] = "Build it", ["parentId"] = null }));
         var synced = await Sync(ben, list, member, task, Attachment("A1", "T1", "plan.txt", bytes));
         Assert.Empty(synced["rejected"]!.AsArray());
+
+        Assert.Equal(HttpStatusCode.OK, await Head(ben));
+        Assert.Equal(HttpStatusCode.OK, await Head(sam));
+        Assert.Equal(HttpStatusCode.NotFound, await Head(kim));
 
         var download = await sam.GetAsync($"/api/attachments/{sha}?name=plan.txt&type=text/plain", Token);
         Assert.Equal(HttpStatusCode.OK, download.StatusCode);

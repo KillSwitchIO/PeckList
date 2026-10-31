@@ -248,12 +248,17 @@ public sealed class ExternalSignIn(
             : null;
     }
 
-    /// <summary>During a migration window: the same-named account with no link to this provider yet, now linked.</summary>
+    /// <summary>
+    /// During a migration window: the same-named account with no link to this provider yet, now
+    /// linked. Never an admin's, unless <c>LINK_BY_USERNAME=all</c> says only admins set usernames
+    /// there: a provider that lets people rename themselves would hand them the admin account (audit S9).
+    /// </summary>
     private async Task<Account?> MigrationMatchAsync(OidcProviderSettings provider, ExternalIdentity identity, CancellationToken cancellation)
     {
         if (await MigrationWindowAsync(provider.Name, cancellation) is null) return null;
         var account = await accounts.FindByUsernameAsync(UsernameBase(identity), cancellation);
         if (account is null || await LinkedToAsync(account.Id, provider.Name, cancellation)) return null;
+        if (account.Role != Role.User && provider.LinkByUsername != UsernameLinking.All) return null;
         await AttachAsync(provider, identity, account.Id, cancellation);
         return account;
     }

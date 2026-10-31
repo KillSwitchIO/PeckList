@@ -47,9 +47,9 @@ public sealed class ProviderPhoto(IHttpClientFactory http, SharingState sharing,
         {
             using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellation);
             timeout.CancelAfter(TimeSpan.FromSeconds(5));
-            using var response = await http.CreateClient("photos").GetAsync(url, HttpCompletionOption.ResponseHeadersRead, timeout.Token);
-            var type = response.Content.Headers.ContentType?.MediaType;
-            if (!response.IsSuccessStatusCode || type is null || !Types.Contains(type)) return;
+            using var response = await GetAsync(url, timeout.Token);
+            var type = response?.Content.Headers.ContentType?.MediaType;
+            if (response is null || !response.IsSuccessStatusCode || type is null || !Types.Contains(type)) return;
             if (response.Content.Headers.ContentLength is > MaxBytes) return;
             var bytes = await ReadUpToAsync(response.Content, MaxBytes + 1, timeout.Token);
             if (bytes.Length == 0 || bytes.Length > MaxBytes) return;
@@ -74,11 +74,11 @@ public sealed class ProviderPhoto(IHttpClientFactory http, SharingState sharing,
         {
             using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellation);
             timeout.CancelAfter(TimeSpan.FromSeconds(8));
-            using var response = await http.CreateClient("photos").GetAsync(address, HttpCompletionOption.ResponseHeadersRead, timeout.Token);
-            var type = response.Content.Headers.ContentType?.MediaType;
-            if (!response.IsSuccessStatusCode || type is null || !Types.Contains(type))
+            using var response = await GetAsync(address, timeout.Token);
+            var type = response?.Content.Headers.ContentType?.MediaType;
+            if (response is null || !response.IsSuccessStatusCode || type is null || !Types.Contains(type))
             {
-                logger.LogInformation("The provider's picture is not an image we take ({Status}, {Type})", (int)response.StatusCode, type);
+                logger.LogInformation("The provider's picture is not an image we take ({Status}, {Type})", (int?)response?.StatusCode, type);
                 return null;
             }
             var bytes = await ReadUpToAsync(response.Content, MaxProxyBytes + 1, timeout.Token);
@@ -89,6 +89,24 @@ public sealed class ProviderPhoto(IHttpClientFactory http, SharingState sharing,
             logger.LogInformation("Could not fetch the provider's picture: {Message}", error.Message);
             return null;
         }
+    }
+
+    /// <summary>Redirects the picture client does not follow itself (each hop's address is checked when connecting).</summary>
+    public const int MaxRedirects = 3;
+
+    /// <summary>The picture's response after at most <see cref="MaxRedirects"/> redirects, each to http or https; null past that.</summary>
+    private async Task<HttpResponseMessage?> GetAsync(Uri url, CancellationToken cancellation)
+    {
+        var client = http.CreateClient("photos");
+        for (var hop = 0; hop <= MaxRedirects; hop++)
+        {
+            var response = await client.GetAsync(url, HttpCompletionOption.ResponseHeadersRead, cancellation);
+            if ((int)response.StatusCode is not (301 or 302 or 303 or 307 or 308) || response.Headers.Location is not { } next) return response;
+            response.Dispose();
+            if (!Uri.TryCreate(url, next, out var target) || target.Scheme is not ("https" or "http")) return null;
+            url = target;
+        }
+        return null;
     }
 
     private static async Task<byte[]> ReadUpToAsync(HttpContent content, int limit, CancellationToken cancellation)

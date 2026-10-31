@@ -24,8 +24,13 @@ public static class AttachmentEndpoints
 
     public static RouteGroupBuilder MapAttachments(this RouteGroupBuilder api)
     {
-        api.MapMethods("/attachments/{sha256}", ["HEAD"], async (string sha256, IAttachmentStore store, CancellationToken cancellation) =>
-            AttachmentHash.IsValid(sha256) && await store.ExistsAsync(sha256, cancellation) ? Results.Ok() : Results.NotFound());
+        // Only for files the person can see: otherwise it would tell anyone whether someone on the
+        // server has this file (audit S5). A device uploading its own new file hears 404 and sends
+        // it; the store keeps one copy either way.
+        api.MapMethods("/attachments/{sha256}", ["HEAD"], async (string sha256, ClaimsPrincipal user, SharingState sharing, IAttachmentStore store, CancellationToken cancellation) =>
+            AttachmentHash.IsValid(sha256) && sharing.Index.SeesFile(user.UserId(), sha256) && await store.ExistsAsync(sha256, cancellation)
+                ? Results.Ok()
+                : Results.NotFound());
 
         api.MapPut("/attachments/{sha256}", async (string sha256, HttpContext context, IAttachmentStore store, LiveSettings live) =>
         {
