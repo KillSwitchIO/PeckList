@@ -84,6 +84,11 @@ Issues and merge requests are welcome. Start with [CONTRIBUTING.md](CONTRIBUTING
 `help wanted`. Everyone follows the [code of conduct](CODE_OF_CONDUCT.md). Report security
 problems privately: [SECURITY.md](SECURITY.md).
 
+The project lives on GitLab: [gitlab.com/killswitch10/punchlist](https://gitlab.com/killswitch10/punchlist).
+The copy on GitHub ([KillSwitchIO/PeckList](https://github.com/KillSwitchIO/PeckList)) is a
+read-only mirror, updated from GitLab: open issues and merge requests on GitLab, not pull
+requests on GitHub.
+
 ## License
 
 Copyright (C) 2026 Ben Dimit. Punchlist is free software under the
