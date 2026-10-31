@@ -14,7 +14,14 @@ import { addDays, datePart, instantOf, localDateTimeOf, timePart } from '../date
 import { members } from '../ops.ts';
 import type { Priority, Reminder, Schedule, Task, WorkspaceFile } from '../types.ts';
 import { parseCsv, recordsOf, toCsv } from './csv.ts';
-import { emptyPlan, note, plainRule, type ImportedTask, type ImportPlan } from './model.ts';
+import {
+  emptyPlan,
+  note,
+  plainRule,
+  withoutAttachments,
+  type ImportedTask,
+  type ImportPlan,
+} from './model.ts';
 import { exportName, walkTasks } from './walk.ts';
 
 const FROM_TICKTICK: Record<string, Priority> = { '0': 0, '1': 1, '3': 2, '5': 3 };
@@ -58,7 +65,8 @@ export function durationMinutes(text: string): number | null {
 export function reminderFrom(text: string, allDay: boolean): Reminder | null {
   const minutes = durationMinutes(text);
   if (minutes === null) return null;
-  if (!allDay) return minutes <= 0 ? { before: -minutes } : null;
+  // Up to a year ahead (as the schema allows); further, or after the time, it is a set time.
+  if (!allDay) return minutes <= 0 && -minutes <= 525600 ? { before: -minutes } : null;
   const [h, m] = ALL_DAY_REMINDER_TIME.split(':').map(Number) as [number, number];
   const before = h * 60 + m - minutes;
   return before >= -1439 && before <= 525600 ? { before } : null;
@@ -110,7 +118,7 @@ export function parseTickTick(text: string, options: TickTickOptions): ImportPla
     if (row['Folder Name']?.trim()) folders = true;
     // Kanban columns: Punchlist has no sections (PL-011).
     const column = row['Column Name']?.trim();
-    if (column) columns.add(JSON.stringify([listName, column]));
+    if (column && column !== 'Not Sectioned') columns.add(JSON.stringify([listName, column]));
     if (row.projectKind === 'NOTE' || row.Kind === 'NOTE') note(plan, 'notesAsTasks');
     const zone = row.Timezone?.trim() || options.timeZone;
     const allDay = row['Is All Day']?.trim().toLowerCase() === 'true';
@@ -142,9 +150,9 @@ export function parseTickTick(text: string, options: TickTickOptions): ImportPla
       .map((each): Reminder | null => {
         const made = reminderFrom(each, allDay);
         if (made) return made;
-        // After a timed task's time: a set time instead.
+        // After a timed task's time, or more than a year before it: a set time instead.
         const minutes = durationMinutes(each);
-        if (minutes !== null && minutes > 0 && schedule && !schedule.allDay) {
+        if (minutes !== null && schedule && !schedule.allDay) {
           const time = timePart(schedule.start) ?? '00:00';
           const at = Date.parse(instantOf(datePart(schedule.start), time, zone)) + minutes * 60_000;
           return { at: localDateTimeOf(new Date(at).toISOString(), zone) };
@@ -169,6 +177,7 @@ export function parseTickTick(text: string, options: TickTickOptions): ImportPla
       }
       notes = [parts[0]!.trim(), items.join('\n')].filter(Boolean).join('\n\n');
     }
+    notes = withoutAttachments(plan, notes);
     const repeat = row.Repeat?.trim();
     const task = {
       key,

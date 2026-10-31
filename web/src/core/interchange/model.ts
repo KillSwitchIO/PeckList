@@ -47,7 +47,8 @@ export type ImportNote =
   | 'tooDeep'
   | 'dateUnread'
   | 'commentsAsNotes'
-  | 'sectionsDropped';
+  | 'sectionsDropped'
+  | 'attachmentsLeft';
 
 export interface ImportPlan {
   source: InterchangeSource;
@@ -79,3 +80,35 @@ export const plainRule = (rule: string) =>
 /** Priorities 0 (none) to 3 (high). */
 export const clampPriority = (value: number): Priority =>
   Math.max(0, Math.min(3, Math.round(value))) as Priority;
+
+/** TickTick's attachment as its backup writes it: `![image](<24 hex digits>/receipt.jpg)`. */
+const TICKTICK_FILE = /!\[[^\]\n]*\]\([0-9a-f]{24}\/([^)\s]+)\)/gi;
+/** Todoist's, in a comment: `[[file {"file_name": "receipt.pdf", ...}]]`. */
+const TODOIST_FILE = /\[\[file\s+(\{[^\n]*?\})\]\]/g;
+
+/**
+ * Text with the other app's attachments (which the export does not hold) as a line saying so,
+ * rather than a broken image or a blob of JSON; each one counted on the plan.
+ */
+export function withoutAttachments(plan: ImportPlan, text: string): string {
+  const left = (name: string) => {
+    note(plan, 'attachmentsLeft');
+    return `📎 ${name} (attachment not imported)`;
+  };
+  return text
+    .replace(TICKTICK_FILE, (_, file: string) => {
+      try {
+        return left(decodeURIComponent(file));
+      } catch {
+        return left(file);
+      }
+    })
+    .replace(TODOIST_FILE, (whole, json: string) => {
+      try {
+        const name = (JSON.parse(json) as { file_name?: unknown }).file_name;
+        return left(typeof name === 'string' && name.trim() ? name.trim() : 'file');
+      } catch {
+        return whole;
+      }
+    });
+}

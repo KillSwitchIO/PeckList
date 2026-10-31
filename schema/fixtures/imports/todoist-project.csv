@@ -1,0 +1,49 @@
+"TYPE","CONTENT","DESCRIPTION","PRIORITY","INDENT","AUTHOR","RESPONSIBLE","DATE","DATE_LANG","TIMEZONE","DURATION","DURATION_UNIT","DEADLINE","DEADLINE_LANG"
+"meta","view_style","list","","","","","","","","","","",""
+"","","","","","","","","","","","","",""
+"task","Plain task, no date","","4","1","Sam Sample (40000001)","","","","","","","",""
+"","","","","","","","","","","","","",""
+"task","All-day date","","4","1","Sam Sample (40000001)","","Nov 12 2026","en","","","","",""
+"","","","","","","","","","","","","",""
+"task","Timed date","","4","1","Sam Sample (40000001)","","Nov 12 2026 14:30","en","","","","",""
+"","","","","","","","","","","","","",""
+"task","Timed in Tokyo","","4","1","Sam Sample (40000001)","","Nov 13 2026 09:00","en","Asia/Tokyo","","","",""
+"","","","","","","","","","","","","",""
+"task","Timed with a duration","","4","1","Sam Sample (40000001)","","Nov 14 2026 10:00","en","","45","minute","",""
+"","","","","","","","","","","","","",""
+"task","With a deadline","","4","1","Sam Sample (40000001)","","Nov 15 2026","en","","","","Dec 1 2026","en"
+"","","","","","","","","","","","","",""
+"task","Priority p1","","1","1","Sam Sample (40000001)","","","","","","","",""
+"","","","","","","","","","","","","",""
+"task","Priority p2","","2","1","Sam Sample (40000001)","","","","","","","",""
+"","","","","","","","","","","","","",""
+"task","Priority p3","","3","1","Sam Sample (40000001)","","","","","","","",""
+"","","","","","","","","","","","","",""
+"task","Priority p4","","4","1","Sam Sample (40000001)","","","","","","","",""
+"","","","","","","","","","","","","",""
+"task","Labels @home/garden @🌱plants @errands","","4","1","Sam Sample (40000001)","","","","","","","",""
+"","","","","","","","","","","","","",""
+"task","Markdown description","## Plan
+
+Ask **two** quotes, pick the _cheaper_ one. See [the guide](https://example.com/guide).
+
+1. Measure
+2. Order
+   - nested bullet
+
+> Keep the receipt.
+
+```
+width = 120 cm
+```
+
+| Part | Cost |
+|---|---|
+| Tile | 40 |","4","1","Sam Sample (40000001)","","","","","","","",""
+"","","","","","","","","","","","","",""
+"task","Has comments","","4","1","Sam Sample (40000001)","","","","","","","",""
+"","","","","","","","","","","","","",""
+"note","First comment with **bold**","","","","Sam Sample (40000001)","","","","","","","",""
+"","","","","","","","","","","","","",""
+"note","[[file {""file_name"": ""receipt.pdf"", ""file_size"": 20480, ""file_type"": ""application/pdf"", ""file_url"": ""https://files.todoist.com/example/receipt.pdf"", ""resource_type"": ""file""}]]","","","","Sam Sample (40000001)","","","","","","","",""
+"","","","","","","","","","","","","",""

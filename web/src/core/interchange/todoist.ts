@@ -5,12 +5,18 @@
 // in the content as "@label". DATE is words Todoist reads ("every monday at 9am", "Nov 4 2026").
 // Sections become nothing (Punchlist has none: PL-011); their tasks stay in the list.
 
-import { datePart, instantOf, localDateTimeOf, timePart } from '../dates.ts';
+import { datePart, instantOf, isTimeZone, localDateTimeOf, timePart } from '../dates.ts';
 import { members } from '../ops.ts';
 import type { Priority, WorkspaceFile } from '../types.ts';
 import { parseCsv, recordsOf, toCsv } from './csv.ts';
 import { dateWords, scheduleWords, type DateReader } from './dateText.ts';
-import { emptyPlan, note, type ImportedTask, type ImportPlan } from './model.ts';
+import {
+  emptyPlan,
+  note,
+  withoutAttachments,
+  type ImportedTask,
+  type ImportPlan,
+} from './model.ts';
 import { exportName, walkTasks } from './walk.ts';
 
 const FROM_TODOIST: Record<string, Priority> = { '1': 3, '2': 2, '3': 1, '4': 0, '': 3 };
@@ -57,7 +63,8 @@ export function parseTodoist(
       }
       if (type === 'note') {
         if (last && content.trim()) {
-          last.notes = last.notes ? `${last.notes}\n\n${content.trim()}` : content.trim();
+          const comment = withoutAttachments(plan, content.trim());
+          last.notes = last.notes ? `${last.notes}\n\n${comment}` : comment;
           note(plan, 'commentsAsNotes');
         }
         return;
@@ -77,6 +84,9 @@ export function parseTodoist(
       const read = dateText ? options.readDate(dateText) : null;
       if (dateText && !read) note(plan, 'dateUnread');
       let schedule = read?.schedule ?? null;
+      // A task kept in one time zone names it: its date and time are that zone's.
+      const zone = row.TIMEZONE?.trim();
+      if (schedule && zone && isTimeZone(zone)) schedule = { ...schedule, timeZone: zone };
       // A timed task's duration is its end.
       const minutes = Number(row.DURATION?.trim() || '0');
       if (schedule && !schedule.allDay && minutes > 0) {
@@ -96,7 +106,7 @@ export function parseTodoist(
         listKey,
         parentKey: parent?.key ?? null,
         title,
-        notes: row.DESCRIPTION?.trim() ?? '',
+        notes: withoutAttachments(plan, row.DESCRIPTION?.trim() ?? ''),
         status: 'open',
         priority: FROM_TODOIST[row.PRIORITY?.trim() ?? ''] ?? 0,
         schedule,

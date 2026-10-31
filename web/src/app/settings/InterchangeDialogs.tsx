@@ -21,8 +21,11 @@ import { ProblemAlert } from '../layout/ProblemAlert.tsx';
 import type { DateParser } from '../../ports/dateParser.ts';
 import { localTimeZone } from '../../core/dates.ts';
 import { visibleLists } from '../../core/lists.ts';
+import { messageOf } from '../../core/errors.ts';
 import {
+  alreadyHere,
   applyImport,
+  describeErrors,
   planSummary,
   replaceable,
   type ImportOutcome,
@@ -93,6 +96,11 @@ export function ImportDialog({
   const [intoSameNamed, setIntoSameNamed] = useState(true);
   const summary = useMemo(() => (plan ? planSummary(plan) : null), [plan]);
   const workspace = store.getState().workspace;
+  // Tasks an earlier import of the same file brought: left out of this one.
+  const repeats = useMemo(
+    () => (plan && workspace ? alreadyHere(workspace, plan, { mode, intoSameNamed }).size : 0),
+    [plan, workspace, mode, intoSameNamed],
+  );
   const doomed = useMemo(() => {
     if (!workspace) return null;
     const found = replaceable(workspace, store.getState().context().userId);
@@ -146,22 +154,39 @@ export function ImportDialog({
     // Let the grayed-out dialog paint before the work holds the page.
     await new Promise((resolve) => requestAnimationFrame(() => setTimeout(resolve, 0)));
     let outcome: ImportOutcome | null = null;
-    store.getState().apply(
-      (ctx, ws) => {
-        outcome = applyImport(ctx, ws, plan, { mode, intoSameNamed });
-        return outcome.workspace;
-      },
-      t('undo.importedFrom', { app: appName(source) }),
-    );
+    // Nothing lands unless all of it passes the schema: a bad value would stop the data opening.
+    try {
+      const result = store.getState().applyChecked(
+        (ctx, ws) => {
+          outcome = applyImport(ctx, ws, plan, { mode, intoSameNamed });
+          return outcome.workspace;
+        },
+        t('undo.importedFrom', { app: appName(source) }),
+      );
+      if (!result.ok) {
+        const problems = describeErrors(result.workspace, result.errors);
+        setProblem(
+          t('interchange.import.invalid', {
+            count: problems.length,
+            problems: problems.slice(0, 3).join('; '),
+          }),
+        );
+        setImporting(false);
+        return;
+      }
+    } catch (error) {
+      setProblem(t('interchange.import.failed', { message: messageOf(error) }));
+      setImporting(false);
+      return;
+    }
     const done = outcome as ImportOutcome | null;
     if (done) {
+      const text = t(
+        mode === 'replace' ? 'interchange.import.doneReplaced' : 'interchange.import.done',
+        { app: appName(source), tasks: done.tasks, lists: done.lists, tags: done.tags },
+      );
       onDone(
-        t(mode === 'replace' ? 'interchange.import.doneReplaced' : 'interchange.import.done', {
-          app: appName(source),
-          tasks: done.tasks,
-          lists: done.lists,
-          tags: done.tags,
-        }),
+        done.skipped ? `${text} ${t('interchange.import.skipped', { count: done.skipped })}` : text,
       );
     }
     onClose();
@@ -234,6 +259,11 @@ export function ImportDialog({
                   {t(`interchange.note.${what}` as MessageKey, { count })}
                 </Typography>
               ))}
+              {repeats > 0 && (
+                <Typography variant="body2" sx={{ color: 'text.secondary' }}>
+                  {t('interchange.import.alreadyHere', { count: repeats })}
+                </Typography>
+              )}
             </Box>
           )}
           {summary && (
