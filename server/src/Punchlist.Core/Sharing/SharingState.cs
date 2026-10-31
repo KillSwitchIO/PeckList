@@ -13,6 +13,11 @@ public sealed class SharingState
 
     public SharingIndex Index { get; set; } = new();
 
+    /// <summary>How the last load went: entities, and the time spent reading, building, checking access and storing changes.</summary>
+    public sealed record LoadTimes(int Entities, TimeSpan Read, TimeSpan Build, TimeSpan Check, TimeSpan Store);
+
+    public LoadTimes? LastLoad { get; private set; }
+
     private readonly TaskCompletionSource loaded = new(TaskCreationOptions.RunContinuationsAsynchronously);
 
     /// <summary>
@@ -30,10 +35,12 @@ public sealed class SharingState
         await Gate.WaitAsync(cancellation);
         try
         {
-            var entities = new List<StoredEntity>();
-            await foreach (var entity in store.AllAsync(cancellation)) entities.Add(entity);
-            var index = SharingIndex.Build(entities);
-            entities.Clear();
+            var watch = System.Diagnostics.Stopwatch.StartNew();
+            var builder = new SharingIndex.Builder();
+            await foreach (var entity in store.AllAsync(cancellation)) builder.Add(entity);
+            var read = watch.Elapsed;
+            var index = builder.Build();
+            var built = watch.Elapsed;
             var current = new Dictionary<string, HashSet<string>>(StringComparer.Ordinal);
             await foreach (var (userId, entityId) in store.VisibilityAsync(cancellation))
             {
@@ -63,8 +70,10 @@ public sealed class SharingState
                 grants.AddRange(want.Where(id => !had.Contains(id)).Select(id => (user, id)));
                 revokes.AddRange(had.Where(id => !want.Contains(id)).Select(id => (user, id)));
             }
+            var checkedAt = watch.Elapsed;
             await store.ApplyVisibilityAsync(new VisibilityPlan(grants, revokes), cancellation);
             Index = index;
+            LastLoad = new LoadTimes(index.Count, read, built - read, checkedAt - built, watch.Elapsed - checkedAt);
             loaded.TrySetResult();
             return grants.Count + revokes.Count;
         }

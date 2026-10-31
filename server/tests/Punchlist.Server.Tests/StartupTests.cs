@@ -69,6 +69,8 @@ public sealed class StartupTests(ServerFixture fixture) : IClassFixture<ServerFi
             if (healthy != "Healthy") await Task.Delay(50, Token);
         }
         Assert.Equal("Healthy", healthy);
+        // What the load took is on record (and in the log).
+        Assert.NotNull(server.Services.GetRequiredService<Punchlist.Core.Sharing.SharingState>().LastLoad);
         (await client.PostAsJsonAsync("/auth/login", new { username = "admin", password = "correct horse battery" }, Token)).EnsureSuccessStatusCode();
     }
 }

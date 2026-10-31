@@ -35,6 +35,8 @@ public sealed class SharingIndex
         Collection,
         /// <summary>listId of sections, tasks and list memberships.</summary>
         List,
+        /// <summary>listId of list memberships only (a list's people, without walking its thousands of tasks).</summary>
+        ListMember,
         /// <summary>taskId of comments and attachments.</summary>
         Task,
         /// <summary>parentId of tasks.</summary>
@@ -125,6 +127,7 @@ public sealed class SharingIndex
                 break;
             case "listMembers":
                 if (facts.Get("principal") is { } principal) yield return (By.Principal, principal);
+                if (facts.Get("listId") is { } memberOf) yield return (By.ListMember, memberOf);
                 break;
             case "groupMembers":
                 if (facts.Get("groupId") is { } group) yield return (By.Group, group);
@@ -181,23 +184,43 @@ public sealed class SharingIndex
     /// <summary>An index of many entities at once (startup), built in one go rather than one by one.</summary>
     public static SharingIndex Build(IEnumerable<StoredEntity> entities)
     {
-        var all = ImmutableDictionary.CreateBuilder<string, Facts>(StringComparer.Ordinal);
-        foreach (var entity in entities) all[entity.Id] = new Facts(entity.Collection, entity.Id, entity.OwnerId, Slim(entity.Collection, entity.Doc));
-        var keyed = Enumerable.Range(0, Lookups).Select(_ => new Dictionary<string, ImmutableHashSet<string>.Builder>(StringComparer.Ordinal)).ToArray();
-        foreach (var facts in all.Values)
+        var builder = new Builder();
+        foreach (var entity in entities) builder.Add(entity);
+        return builder.Build();
+    }
+
+    /// <summary>
+    /// Takes entities as they stream from the store, keeping only what the index keeps of each, so
+    /// whole documents never pile up in memory (at startup they did: every one, about 2 GB at
+    /// 300,000 entities, before the index was built).
+    /// </summary>
+    public sealed class Builder
+    {
+        private readonly ImmutableDictionary<string, Facts>.Builder all = ImmutableDictionary.CreateBuilder<string, Facts>(StringComparer.Ordinal);
+
+        public int Count => all.Count;
+
+        public void Add(StoredEntity entity) =>
+            all[entity.Id] = new Facts(entity.Collection, entity.Id, entity.OwnerId, Slim(entity.Collection, entity.Doc));
+
+        public SharingIndex Build()
         {
-            foreach (var (lookup, key) in KeysOf(facts))
+            var keyed = Enumerable.Range(0, Lookups).Select(_ => new Dictionary<string, ImmutableHashSet<string>.Builder>(StringComparer.Ordinal)).ToArray();
+            foreach (var facts in all.Values)
             {
-                if (!keyed[(int)lookup].TryGetValue(key, out var ids)) keyed[(int)lookup][key] = ids = NoIds.ToBuilder();
-                ids.Add(facts.Id);
+                foreach (var (lookup, key) in KeysOf(facts))
+                {
+                    if (!keyed[(int)lookup].TryGetValue(key, out var ids)) keyed[(int)lookup][key] = ids = NoIds.ToBuilder();
+                    ids.Add(facts.Id);
+                }
             }
+            var index = new SharingIndex { byId = all.ToImmutable() };
+            for (var lookup = 0; lookup < Lookups; lookup++)
+            {
+                index.lookups[lookup] = keyed[lookup].ToImmutableDictionary(pair => pair.Key, pair => pair.Value.ToImmutable(), StringComparer.Ordinal);
+            }
+            return index;
         }
-        var index = new SharingIndex { byId = all.ToImmutable() };
-        for (var lookup = 0; lookup < Lookups; lookup++)
-        {
-            index.lookups[lookup] = keyed[lookup].ToImmutableDictionary(pair => pair.Key, pair => pair.Value.ToImmutable(), StringComparer.Ordinal);
-        }
-        return index;
     }
 
     public void Clear()
@@ -215,6 +238,9 @@ public sealed class SharingIndex
     }
 
     public bool Contains(string id) => byId.ContainsKey(id);
+
+    /// <summary>How many entities are held (deleted ones too).</summary>
+    public int Count => byId.Count;
 
     /// <summary>Every entity id held (deleted ones too).</summary>
     public IEnumerable<string> Ids() => byId.Keys;
@@ -385,7 +411,7 @@ public sealed class SharingIndex
     }
 
     /// <summary>Live memberships of a list.</summary>
-    private IEnumerable<Facts> ListMembers(string listId) => EachLive(By.List, listId).Where(each => each.Collection == "listMembers");
+    private IEnumerable<Facts> ListMembers(string listId) => EachLive(By.ListMember, listId);
 
     /// <summary>Users behind a principal: <c>user:&lt;id&gt;</c> or <c>group:&lt;id&gt;</c> (active members).</summary>
     public IEnumerable<string> PeopleOf(string principal) =>
