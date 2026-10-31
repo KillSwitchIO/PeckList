@@ -78,6 +78,8 @@ public sealed class PushSender(
 
     public async Task SendAsync(string userId, PushPayload payload, CancellationToken cancellation = default)
     {
+        // A demo server sends nothing anywhere (PL-117); reminders still show on the device itself.
+        if (settings.DemoMode) return;
         var subscriptions = await store.ForUserAsync(userId, cancellation);
         if (subscriptions.Count == 0) return;
         var (publicKey, privateKey) = await vapid.GetAsync(cancellation);

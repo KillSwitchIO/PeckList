@@ -33,6 +33,15 @@ also lets a new provider account in when that switch is off. With [`LOCAL_LOGIN`
 `disabled`, people sign up only through a provider. Admins can always add accounts. **Default:**
 `invite`. **Where:** any, live. See [adding people](../guides/users-and-roles.md#adding-people).
 
+### `SIGNUP_RATE_LIMIT`
+
+How many accounts one address may make by signing up in an hour; `0` turns the limit off. Tries
+that make no account (a taken name, a short password) do not count, and the ten tries a minute
+every sign-in and sign-up route allows still apply on top. Further sign-ups answer
+`429 signup_limited` until the hour has passed. Behind a proxy, set
+[`TRUSTED_PROXIES`](#trusted_proxies) so the limit counts people, not the proxy. **Default:** `5`.
+**Where:** any, live.
+
 ### `TZ`
 
 The server's time zone (an IANA name such as `Europe/Berlin`), used for months in stats and for
@@ -173,6 +182,36 @@ app's own domain at 1.0). **Where:** any, live.
 `1` or `true` turns the report off, like `TELEMETRY=false`, for those who set this
 [convention](https://consoledonottrack.com/) across all their tools. **Default:** `false`.
 **Where:** environment.
+
+## Demo server
+
+A public trial server that resets every night: see [run a demo server](../install/demo.md).
+
+### `DEMO_MODE`
+
+`true` makes this a demo server. It shows a banner (the nightly reset, that anyone can sign up,
+and the [demo accounts](#demo_accounts)) and forces, whatever else is set:
+[`REGISTRATION`](#registration) `open`, [`ACCOUNT_DELETE_GRACE_DAYS`](#account_delete_grace_days)
+`0`, [`ATTACHMENT_MAX_MB`](#attachment_max_mb) at most `2`, [`TELEMETRY`](#telemetry) and
+[`UPDATE_CHECK`](#update_check) off. The server makes no calls out of its own (no usage report,
+release check or Web Push; reminders still show on the device). Only the identity providers and
+log servers you set up still get calls. Every answer carries `X-Robots-Tag: noindex, nofollow`
+and the page a robots meta tag. Needs `AUTH_MODE=local`. **Default:** `false`. **Where:** env.
+
+### `DEMO_ACCOUNTS`
+
+Pre-made accounts the banner shows with their passwords, so visitors can try sharing without
+inviting anyone: `demo-sam:try-punchlist-sam,demo-alex:try-punchlist-alex`. Each start makes
+them, or puts them back as plain users with these passwords. Wrong guesses lock nobody out, and
+nobody can change their password. The names must match the accounts in the seed the nightly
+reset loads (the image's seed has `demo-sam`, `demo-alex` and `demo-jordan`); passwords need 12
+characters or more. Needs `DEMO_MODE`. **Default:** none. **Where:** env.
+
+### `DEMO_RESET_TIME`
+
+When the nightly reset runs (`HH:mm`, server time), as the banner says it. The reset itself is
+the job you schedule (see [run a demo server](../install/demo.md)); keep the two the same.
+**Default:** `04:00`. **Where:** env.
 
 ## Network
 

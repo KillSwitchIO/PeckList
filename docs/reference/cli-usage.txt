@@ -2,7 +2,10 @@ Usage: punchlist <command>
 
   export [file]                 Write a full backup as JSON (to stdout without a file).
   export --user <user> [file]   Write one person's data (to stdout without a file).
-  import <file> [--replace]     Load a backup into an empty database (--replace: delete what is there first).
+  import <file> [--replace] [--shift-dates]
+                                Load a backup into an empty database (--replace: delete what is
+                                there first; --shift-dates: move its dates on by the days since
+                                it was made, for a demo seed).
   import --user <file> [user]   Put one person back as a backup had them (from a whole-server
                                 backup, say who). Restart the server afterwards.
   migrate-db --to sqlite --path <file>

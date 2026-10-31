@@ -189,12 +189,14 @@ public sealed class BackupService(
     /// <summary>
     /// Load a backup. The database must be empty unless <paramref name="replace"/>, which deletes
     /// what is there first. Backups from another schema version are refused (for now; a migration
-    /// step goes here once the schema moves on).
+    /// step goes here once the schema moves on). <paramref name="shiftDates"/>: a seed's dates move
+    /// on by the days since it was made (<see cref="SeedDates"/>).
     /// </summary>
-    public async Task<BackupSummary> ImportAsync(Stream input, bool replace = false, CancellationToken cancellation = default)
+    public async Task<BackupSummary> ImportAsync(Stream input, bool replace = false, CancellationToken cancellation = default, bool shiftDates = false)
     {
         var root = await ParseAsync(input, cancellation);
         Check(root);
+        var shift = shiftDates ? SeedDates.DaysSince(root, DateOnly.FromDateTime(time.GetUtcNow().UtcDateTime)) : 0;
         if (!await database.IsEmptyAsync(cancellation))
         {
             if (!replace) throw new BackupException("the database is not empty; import into a new one, or pass --replace to delete what is there first");
@@ -209,6 +211,7 @@ public sealed class BackupService(
             var item = node.AsObject();
             var doc = item["entity"]?.AsObject() ?? throw new BackupException("an entity without its JSON");
             item.Remove("entity");
+            SeedDates.Shift(doc, shift);
             return new StoredEntity(
                 Required(item, "collection"),
                 (string?)doc["id"] ?? throw new BackupException("an entity without an id"),

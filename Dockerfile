@@ -25,6 +25,10 @@ COPY web web
 ARG VERSION
 ARG REVISION
 RUN PUNCHLIST_VERSION="$VERSION" PUNCHLIST_REVISION="$REVISION" pnpm --filter @punchlist/web build
+# The demo server's seed (PL-117), made by this version's own code so its schema always matches.
+# A fixed day keeps the build reproducible; `punchlist import --shift-dates` moves it to today.
+COPY scripts/demo-seed.mts scripts/
+RUN mkdir -p /src/demo && node scripts/demo-seed.mts /src/demo/seed.json --today 2026-01-01
 
 FROM --platform=$BUILDPLATFORM mcr.microsoft.com/dotnet/sdk:10.0 AS server
 ARG TARGETARCH
@@ -60,6 +64,7 @@ LABEL org.opencontainers.image.title="Punchlist" \
 WORKDIR /app
 COPY --from=server /app .
 COPY --from=web /src/web/dist wwwroot
+COPY --from=web /src/demo demo
 # The chiseled base has no time zone data, so TZ would silently mean UTC. The files are the same
 # on every architecture.
 COPY --from=server /usr/share/zoneinfo /usr/share/zoneinfo

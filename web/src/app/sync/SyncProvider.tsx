@@ -1,4 +1,5 @@
 import { useEffect, type ReactNode } from 'react';
+import { DemoBanner } from '../demo/DemoBanner.tsx';
 import { useViewAs } from '../store/viewAs.ts';
 import { AuthPages } from './AuthPages.tsx';
 import { ViewEnded } from './ViewAsBanner.tsx';
@@ -19,6 +20,8 @@ export function SyncProvider({ engine, children }: { engine: SyncEngine; childre
   return (
     <SyncContext.Provider value={engine}>
       <AuthGate>{children}</AuthGate>
+      {/* Over the sign-in pages and the app alike (PL-117). */}
+      <DemoBanner />
     </SyncContext.Provider>
   );
 }

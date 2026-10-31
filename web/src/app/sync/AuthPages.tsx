@@ -332,6 +332,7 @@ const SIGN_UP_PROBLEMS: Record<
   'too-short': 'auth.tooShort',
   closed: 'auth.signUp.closed',
   'too-many': 'auth.tooMany',
+  'signup-limited': 'auth.signUp.limited',
 };
 
 /**

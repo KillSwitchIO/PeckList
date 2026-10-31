@@ -49,7 +49,9 @@ Do these before the server is reachable from the internet.
       stolen everyday session cannot change who may sign in.
 - [ ] **[`REGISTRATION`](../configuration/reference.md#registration) at `invite` (the default) or
       `closed`.** `open` lets anyone on the internet make an account, and every account can fill
-      the disk with attachments.
+      the disk with attachments. If it must be open, one address makes at most
+      [`SIGNUP_RATE_LIMIT`](../configuration/reference.md#signup_rate_limit) accounts an hour
+      (5 by default); a public trial belongs on a [demo server](../install/demo.md).
 - [ ] **Never `AUTH_MODE=none` on the internet.** It turns sign-in off: everyone who reaches the
       server is its owner. It is only for a proxy that signs people in itself, on a network where
       everyone may see and change everything.

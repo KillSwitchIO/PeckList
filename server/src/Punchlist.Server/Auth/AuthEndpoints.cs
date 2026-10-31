@@ -83,11 +83,17 @@ public static class AuthEndpoints
                 : Results.NotFound(new AuthError("invite_invalid")))
             .RequireRateLimiting(AuthSetup.LoginRateLimit);
 
-        auth.MapPost("/signup", async (SignUpRequest request, SelfSignUp signUp, HttpContext context) =>
+        auth.MapPost("/signup", async (SignUpRequest request, SelfSignUp signUp, SignUpThrottle throttle, HttpContext context) =>
         {
             context.Audit().On(null, Typed(request.Username)).Anonymous = true;
             var hasInvite = !string.IsNullOrWhiteSpace(request.Invite);
             context.Audit().Detail = hasInvite ? "with an invite" : "open sign-up";
+            var address = context.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+            if (!throttle.Allows(address))
+            {
+                context.Audit().Detail = "too many accounts from one address";
+                return Results.Json(new AuthError("signup_limited"), statusCode: StatusCodes.Status429TooManyRequests);
+            }
             var result = await signUp.SignUpAsync(request.Username ?? "", request.Password ?? "", request.Invite, context.RequestAborted);
             if (result is not SignUpResult.Success success)
             {
@@ -100,6 +106,7 @@ public static class AuthEndpoints
                 };
                 return Results.Json(new AuthError(refused.Error), statusCode: status);
             }
+            throttle.Record(address);
             context.Audit().Actor(success.Account).On(success.Account.Id, success.Account.Username).Anonymous = false;
             return await SignedInAsync(context, success.Account, mode);
         }).RequireRateLimiting(AuthSetup.LoginRateLimit).Audited("auth.signed-up", targetRoute: null);
@@ -126,6 +133,7 @@ public static class AuthEndpoints
                 {
                     PasswordChange.WrongPassword => "wrong_password",
                     PasswordChange.TooShort => "too_short",
+                    PasswordChange.DemoAccount => "demo_account",
                     _ => "unchanged",
                 };
                 return Results.BadRequest(new AuthError(error));

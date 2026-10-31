@@ -203,8 +203,10 @@ export function createHttpSync(
         body: { username, password, invite: invite ?? null },
       });
       if (response.ok) return { kind: 'ok', account: (await response.json()) as Account };
-      if (response.status === 429) return { kind: 'too-many' };
       const { error } = await errorOf(response);
+      if (response.status === 429) {
+        return { kind: error === 'signup_limited' ? 'signup-limited' : 'too-many' };
+      }
       // local_login_hidden is the name servers before 0.2.1 answer with.
       switch (error) {
         case 'username_taken':
@@ -253,6 +255,7 @@ export function createHttpSync(
         if (error === 'wrong_password') return { kind: 'wrong-password' };
         if (error === 'too_short') return { kind: 'too-short' };
         if (error === 'unchanged') return { kind: 'unchanged' };
+        if (error === 'demo_account') return { kind: 'demo-account' };
       }
       return fail(response);
     },

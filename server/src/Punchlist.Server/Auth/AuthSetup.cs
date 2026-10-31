@@ -37,7 +37,12 @@ public static class AuthSetup
     {
         services.AddSingleton(TimeProvider.System);
         services.AddSingleton<IPasswordHasher, AspNetPasswordHasher>();
-        services.AddSingleton<AccountService>();
+        services.AddSingleton(provider => new AccountService(
+            provider.GetRequiredService<IAccountStore>(), provider.GetRequiredService<IPasswordHasher>(), provider.GetRequiredService<TimeProvider>())
+        {
+            DemoUsernames = settings.DemoMode ? settings.DemoAccounts.Select(each => each.Username).ToHashSet(StringComparer.Ordinal) : new HashSet<string>(),
+        });
+        services.AddSingleton<SignUpThrottle>();
         services.AddSingleton<ExternalSignIn>();
         services.AddSingleton<LoginLinks>();
         services.AddSingleton<ProviderIcons>();

@@ -23,6 +23,8 @@ export function passwordProblem(outcome: PasswordOutcome): string | null {
       return t('auth.wrongPassword');
     case 'too-short':
       return t('auth.tooShort');
+    case 'demo-account':
+      return t('auth.demoAccount');
     default:
       return t('auth.unchanged');
   }

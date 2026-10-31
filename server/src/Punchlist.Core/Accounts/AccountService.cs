@@ -25,6 +25,9 @@ public enum PasswordChange
     WrongPassword,
     TooShort,
     Unchanged,
+
+    /// <summary>A demo account's password is the one the banner shows (PL-117).</summary>
+    DemoAccount,
 }
 
 /// <summary>Logins, lockout, password changes and the first admin (spec: Accounts &amp; Admin).</summary>
@@ -39,6 +42,14 @@ public sealed class AccountService(IAccountStore store, IPasswordHasher hasher, 
     public static bool IsValidUsername(string username) =>
         username.Length is > 0 and <= ExternalSignIn.MaxUsernameLength
         && ExternalSignIn.UsernameBase(new ExternalIdentity { Subject = "", Username = username }) == username;
+
+    /// <summary>
+    /// The pre-made accounts of a demo server (<c>DEMO_ACCOUNTS</c>): their passwords are public,
+    /// so wrong guesses lock nobody out and nobody changes them.
+    /// </summary>
+    public IReadOnlySet<string> DemoUsernames { get; init; } = new HashSet<string>();
+
+    private bool IsDemo(Account account) => DemoUsernames.Contains(account.Username.ToLowerInvariant());
 
     /// <summary>Verified against when the user does not exist, so timing does not reveal usernames.</summary>
     private readonly Lazy<string> decoy = new(() => hasher.Hash(Ids.NewPassword()));
@@ -56,6 +67,7 @@ public sealed class AccountService(IAccountStore store, IPasswordHasher hasher, 
 
         if (!hasher.Verify(account.PasswordHash, password, out var rehash))
         {
+            if (IsDemo(account)) return new LoginResult.Invalid();
             var failures = account.FailedLogins + 1;
             var locked = failures >= MaxFailedLogins;
             await store.UpdateAsync(account with
@@ -80,6 +92,7 @@ public sealed class AccountService(IAccountStore store, IPasswordHasher hasher, 
         string id, string current, string next, CancellationToken cancellation = default)
     {
         var account = await store.FindByIdAsync(id, cancellation) ?? throw new KeyNotFoundException($"no account {id}");
+        if (IsDemo(account)) return (PasswordChange.DemoAccount, null);
         if (account.PasswordHash is null || !hasher.Verify(account.PasswordHash, current, out _)) return (PasswordChange.WrongPassword, null);
         if (next.Length < MinPasswordLength) return (PasswordChange.TooShort, null);
         if (next == current) return (PasswordChange.Unchanged, null);
@@ -263,6 +276,34 @@ public sealed class AccountService(IAccountStore store, IPasswordHasher hasher, 
         };
         await store.CreateAsync(account, cancellation);
         return account with { Username = account.Username.ToLowerInvariant() };
+    }
+
+    /// <summary>
+    /// A demo account as <c>DEMO_ACCOUNTS</c> has it: there, a plain user, enabled, signing in with
+    /// <paramref name="password"/> and no change asked for. True when it had to be made.
+    /// </summary>
+    public async Task<bool> EnsureDemoAccountAsync(string username, string password, CancellationToken cancellation = default)
+    {
+        var account = await store.FindByUsernameAsync(username, cancellation);
+        if (account is null)
+        {
+            await CreateUserAsync(username, password, Role.User, mustChangePassword: false, cancellation);
+            return true;
+        }
+        var samePassword = account.PasswordHash is not null && hasher.Verify(account.PasswordHash, password, out _);
+        var updated = account with
+        {
+            PasswordHash = samePassword ? account.PasswordHash : hasher.Hash(password),
+            Role = Role.User,
+            MustChangePassword = false,
+            Disabled = false,
+            DeletedAt = null,
+            FailedLogins = 0,
+            LockedUntil = null,
+            SecurityStamp = samePassword && account.Role == Role.User ? account.SecurityStamp : Ids.NewUlid(time),
+        };
+        if (updated != account) await store.UpdateAsync(updated, cancellation);
+        return false;
     }
 
     /// <summary>An account that signs in through an identity provider only.</summary>

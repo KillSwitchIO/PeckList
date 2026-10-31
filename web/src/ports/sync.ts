@@ -13,6 +13,15 @@ export interface ServerInfo {
   attachmentMaxMb?: number | null;
   /** Whether the Android app may sign in through a browser tab (older servers: absent). */
   appSignIn?: boolean;
+  /** Set on a demo server (`DEMO_MODE`): when it resets and the accounts anyone may use. */
+  demo?: DemoInfo | null;
+}
+
+/** A demo server's banner facts (PL-117). */
+export interface DemoInfo {
+  /** The nightly reset, `HH:mm` in the server's time zone. */
+  resetTime: string;
+  accounts: { username: string; password: string }[];
 }
 
 /** What became of a file sent to the server. */
@@ -111,7 +120,9 @@ export type SignUpOutcome =
         | 'too-short'
         | 'invite-invalid'
         | 'closed'
-        | 'too-many';
+        | 'too-many'
+        /** This address has made as many accounts as the server allows an hour (`SIGNUP_RATE_LIMIT`). */
+        | 'signup-limited';
     };
 
 export type LoginOutcome =
@@ -123,7 +134,9 @@ export type LoginOutcome =
   | { kind: 'disabled' };
 
 export type PasswordOutcome =
-  { kind: 'ok'; account: Account } | { kind: 'wrong-password' | 'too-short' | 'unchanged' };
+  | { kind: 'ok'; account: Account }
+  /** `demo-account`: a demo server's pre-made account keeps the password its banner shows. */
+  | { kind: 'wrong-password' | 'too-short' | 'unchanged' | 'demo-account' };
 
 /** Who someone is, before becoming friends (a friend link or a lookup). */
 export interface ProfilePreview {

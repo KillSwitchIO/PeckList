@@ -17,6 +17,7 @@ import {
   type PushApi,
   type ServerNotification,
   type ProfilePreview,
+  type DemoInfo,
   type ServerInfo,
   type SignInMethods,
   type SignUpOutcome,
@@ -96,6 +97,8 @@ export class FakeBackend {
   readonly apiKeys = new Map<string, ApiKeyInfo[]>();
   /** The version the server says it runs. */
   serverVersion = '0.1.0';
+  /** What a demo server (`DEMO_MODE`) tells the app; null on an ordinary one. */
+  demo: DemoInfo | null = null;
   /** The newest release the server knows of (tests set it). */
   latestRelease: { version: string; url: string } | null = null;
   /** Event listeners of every device, by account username. */
@@ -319,6 +322,7 @@ export class FakeTransport implements SyncTransport {
       name: 'punchlist',
       version: this.backend.serverVersion,
       schemaVersion: this.backend.schemaVersion,
+      ...(this.backend.demo ? { demo: this.backend.demo } : {}),
     });
   }
 
