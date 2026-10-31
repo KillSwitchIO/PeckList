@@ -57,7 +57,8 @@ export function createBrowserApp(): {
 
 /**
  * A super admin viewing the app as someone (spec: impersonation): everything in memory, so none of
- * that person's data is written to this device, and the admin's own copy is never touched. Every
+ * that person's data is written to this device, and the admin's own copy is never touched. It only
+ * looks: the engine never pushes, so nothing reaches their account either (audit C4). Every
  * request carries the tab's token; live events need a header EventSource cannot send, so the
  * engine syncs on its timer instead.
  */
@@ -87,6 +88,12 @@ function createViewAsApp(viewAs: ViewAs): {
   void events;
   void admin;
   void account;
-  const sync = createSyncEngine({ transport, device: node, workspace: store, storage });
+  const sync = createSyncEngine({
+    transport,
+    device: node,
+    workspace: store,
+    storage,
+    readOnly: true,
+  });
   return { store, sync, viewAs };
 }

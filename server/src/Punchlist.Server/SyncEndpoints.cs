@@ -25,16 +25,17 @@ public static class SyncEndpoints
                 return Results.Json(new { error = "scope", message = "this key lacks the tasks:write permission" },
                     statusCode: StatusCodes.Status403Forbidden);
             }
+            // Viewing as someone never writes into their account (audit C4, S12).
+            if (user.Impersonator() is { } admin && request.Changes is { Count: > 0 })
+            {
+                context.RequestServices.GetRequiredService<ILoggerFactory>().CreateLogger("Punchlist.Impersonation").LogWarning(
+                    "{Admin} as {User} tried to write {Count} change(s); refused", admin, user.FindFirstValue(ClaimTypes.Name), request.Changes.Count);
+                return Results.Json(new AuthError("not_while_impersonating"), statusCode: StatusCodes.Status403Forbidden);
+            }
             try
             {
                 var source = context.Request.Headers[DeviceHeader].FirstOrDefault();
                 var response = await sync.SyncAsync(user.UserId(), request, source, cancellation);
-                if (user.Impersonator() is { } admin && request.Changes is { Count: > 0 })
-                {
-                    // Every write made while viewing as someone is on record (spec: impersonation).
-                    context.RequestServices.GetRequiredService<ILoggerFactory>().CreateLogger("Punchlist.Impersonation").LogWarning(
-                        "{Admin} as {User} wrote {Count} change(s)", admin, user.FindFirstValue(ClaimTypes.Name), request.Changes.Count);
-                }
                 // An owner who just left hands the group on; everyone concerned hears of it.
                 if (request.Changes is { Count: > 0 })
                 {

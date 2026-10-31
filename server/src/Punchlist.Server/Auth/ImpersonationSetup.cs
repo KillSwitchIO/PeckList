@@ -26,6 +26,15 @@ public static class ImpersonationSetup
     /// <summary>Paths an impersonated request may reach: the app's data and who's who, nothing about accounts.</summary>
     private static readonly string[] Allowed = ["/api/sync", "/api/attachments", "/api/friends", "/api/users/lookup", "/api/info", "/auth/me", "/auth/impersonation"];
 
+    /// <summary>
+    /// Viewing as someone only looks (audit S12): reads anywhere above, a sync that pulls (it refuses
+    /// pushed changes itself), and ending the view. No friend codes, friend links or uploads.
+    /// </summary>
+    private static bool Looks(HttpRequest request) =>
+        HttpMethods.IsGet(request.Method) || HttpMethods.IsHead(request.Method)
+        || (HttpMethods.IsPost(request.Method) && request.Path.StartsWithSegments("/api/sync"))
+        || (HttpMethods.IsDelete(request.Method) && request.Path.StartsWithSegments("/auth/impersonation"));
+
     public static IApplicationBuilder UseImpersonation(this IApplicationBuilder app) =>
         app.Use(async (context, next) =>
         {
@@ -45,7 +54,7 @@ public static class ImpersonationSetup
                 await context.Response.WriteAsJsonAsync(new AuthError("impersonation_ended"));
                 return;
             }
-            if (!Allowed.Any(path => context.Request.Path.StartsWithSegments(path)))
+            if (!Allowed.Any(path => context.Request.Path.StartsWithSegments(path)) || !Looks(context.Request))
             {
                 context.Response.StatusCode = StatusCodes.Status403Forbidden;
                 await context.Response.WriteAsJsonAsync(new AuthError("not_while_impersonating"));

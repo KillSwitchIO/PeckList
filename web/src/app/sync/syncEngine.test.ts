@@ -18,7 +18,7 @@ afterEach(() => {
 
 let clock = Date.UTC(2026, 9, 21, 9);
 
-async function device(backend: FakeBackend, node: string) {
+async function device(backend: FakeBackend, node: string, options: { readOnly?: boolean } = {}) {
   const storage = createMemoryStorage();
   const store = createWorkspaceStore({
     storage,
@@ -39,6 +39,7 @@ async function device(backend: FakeBackend, node: string) {
     storage,
     debounceMs: 60_000,
     intervalMs: 600_000,
+    ...options,
   });
   engines.push(engine);
   return { store, storage, transport, engine };
@@ -380,6 +381,34 @@ describe('sync engine', () => {
     addTask(store, 'Mow');
     await engine.getState().syncNow();
     expect(engine.getState().notice).toBeNull();
+  });
+
+  it('viewing as someone shows only what their account has and never writes to it (audit C4)', async () => {
+    const backend = new FakeBackend();
+    backend.addAccount('ben', 'correct horse battery');
+    const laptop = await device(backend, 'laptop');
+    await laptop.engine.getState().start();
+    await laptop.engine.getState().signIn('ben', 'correct horse battery');
+    addTask(laptop.store, 'Mow');
+    await laptop.engine.getState().syncNow();
+    const rows = backend.server.rows.size;
+
+    const viewing = await device(backend, 'viewas', { readOnly: true });
+    await viewing.engine.getState().start();
+    await viewing.engine.getState().signIn('ben', 'correct horse battery');
+    const seen = viewing.store.getState().workspace!;
+    expect(titles(viewing.store)).toEqual(['Mow']);
+    // Ben's own Mess Drawer, not a second one this tab made up.
+    expect(seen.entities.lists.map((list) => list.id)).toEqual(
+      laptop.store.getState().workspace!.entities.lists.map((list) => list.id),
+    );
+    expect(backend.server.rows.size).toBe(rows);
+
+    addTask(viewing.store, 'Admin was here');
+    await viewing.engine.getState().syncNow();
+    expect(backend.server.rows.size).toBe(rows);
+    await laptop.engine.getState().syncNow();
+    expect(titles(laptop.store)).toEqual(['Mow']);
   });
 
   it('pushes only what changed', async () => {
