@@ -1,3 +1,4 @@
+using System.Collections.Immutable;
 using System.Text.Json.Nodes;
 using Punchlist.Core.Storage;
 
@@ -8,6 +9,12 @@ namespace Punchlist.Core.Sharing;
 /// It answers two questions: who may see an entity, and whether someone may write a change to it.
 /// Built once from the store at startup, then updated with every write, inside the same lock.
 /// </summary>
+/// <remarks>
+/// Everything is held in immutable maps, with lookups (by list, by task, by group, ...) kept up to
+/// date entity by entity. A copy to try a push on is a handful of references, and a change touches
+/// only the lookups of the entities it changes (audit P2: copying and re-deriving the whole index
+/// on every write cost seconds at 300,000 entities).
+/// </remarks>
 public sealed class SharingIndex
 {
     private sealed record Facts(string Collection, string Id, string Owner, JsonObject Doc)
@@ -22,65 +29,185 @@ public sealed class SharingIndex
                 : [];
     }
 
-    private readonly Dictionary<string, Facts> byId = new(StringComparer.Ordinal);
+    /// <summary>The lookups kept beside the entities (each maps a key to entity ids, deleted ones included).</summary>
+    private enum By
+    {
+        Collection,
+        /// <summary>listId of sections, tasks and list memberships.</summary>
+        List,
+        /// <summary>taskId of comments and attachments.</summary>
+        Task,
+        /// <summary>parentId of tasks.</summary>
+        Parent,
+        /// <summary>groupId of group memberships.</summary>
+        Group,
+        /// <summary>principal of list memberships.</summary>
+        Principal,
+        /// <summary>Assignees (in) of tasks.</summary>
+        Assignee,
+        /// <summary>sha256 of attachments.</summary>
+        Sha,
+        /// <summary>The people of friendships (both sides) and group memberships.</summary>
+        User,
+        /// <summary>ownerId of groups.</summary>
+        GroupOwner,
+        /// <summary>The storage owner of lists.</summary>
+        ListOwner,
+    }
 
-    /// <summary>Membership lookups, rebuilt after a change (most reads come between writes).</summary>
-    private sealed record Derived(
-        ILookup<string, Facts> ListMembers,
-        ILookup<string, Facts> GroupMembers,
-        IReadOnlyList<Facts> Friendships,
-        IReadOnlyList<Facts> Groups,
-        IReadOnlyList<Facts> SharedLists);
+    private static readonly int Lookups = Enum.GetValues<By>().Length;
 
-    private Derived? derived;
+    private static readonly ImmutableHashSet<string> NoIds = ImmutableHashSet.Create<string>(StringComparer.Ordinal);
 
-    private Derived D => derived ??= new Derived(
-        Live("listMembers").ToLookup(each => each.Get("listId") ?? "", StringComparer.Ordinal),
-        Live("groupMembers").ToLookup(each => each.Get("groupId") ?? "", StringComparer.Ordinal),
-        Live("friendships").ToList(),
-        Live("groups").ToList(),
-        Live("lists").Where(each => each.Get("visibility") == "shared").ToList());
+    private static readonly ImmutableDictionary<string, ImmutableHashSet<string>> NoLookup =
+        ImmutableDictionary.Create<string, ImmutableHashSet<string>>(StringComparer.Ordinal);
+
+    private ImmutableDictionary<string, Facts> byId = ImmutableDictionary.Create<string, Facts>(StringComparer.Ordinal);
+
+    private readonly ImmutableDictionary<string, ImmutableHashSet<string>>[] lookups = Enumerable.Repeat(NoLookup, Lookups).ToArray();
+
+    /// <summary>Where an entity sits in the lookups.</summary>
+    private static IEnumerable<(By Lookup, string Key)> KeysOf(Facts facts)
+    {
+        yield return (By.Collection, facts.Collection);
+        switch (facts.Collection)
+        {
+            case "sections" or "tasks" or "listMembers":
+                if (facts.Get("listId") is { } list) yield return (By.List, list);
+                break;
+            case "comments" or "attachments":
+                if (facts.Get("taskId") is { } task) yield return (By.Task, task);
+                break;
+        }
+        switch (facts.Collection)
+        {
+            case "tasks":
+                if (facts.Get("parentId") is { } parent) yield return (By.Parent, parent);
+                foreach (var assignee in facts.SetMembers("assignees")) yield return (By.Assignee, assignee);
+                break;
+            case "listMembers":
+                if (facts.Get("principal") is { } principal) yield return (By.Principal, principal);
+                break;
+            case "groupMembers":
+                if (facts.Get("groupId") is { } group) yield return (By.Group, group);
+                if (facts.Get("userId") is { } member) yield return (By.User, member);
+                break;
+            case "friendships":
+                if (facts.Get("userA") is { } a) yield return (By.User, a);
+                if (facts.Get("userB") is { } b) yield return (By.User, b);
+                break;
+            case "attachments":
+                if (facts.Get("sha256") is { } sha) yield return (By.Sha, sha);
+                break;
+            case "groups":
+                if (facts.Get("ownerId") is { } owner) yield return (By.GroupOwner, owner);
+                break;
+            case "lists":
+                yield return (By.ListOwner, facts.Owner);
+                break;
+        }
+    }
+
+    private ImmutableHashSet<string> Ids(By lookup, string key) => lookups[(int)lookup].GetValueOrDefault(key) ?? NoIds;
+
+    private IEnumerable<Facts> Each(By lookup, string key)
+    {
+        foreach (var id in Ids(lookup, key))
+        {
+            if (byId.TryGetValue(id, out var facts)) yield return facts;
+        }
+    }
+
+    private IEnumerable<Facts> EachLive(By lookup, string key) => Each(lookup, key).Where(each => !each.Deleted);
+
+    private void Index(Facts facts, bool add)
+    {
+        foreach (var (lookup, key) in KeysOf(facts).Distinct())
+        {
+            var map = lookups[(int)lookup];
+            var ids = map.GetValueOrDefault(key) ?? NoIds;
+            ids = add ? ids.Add(facts.Id) : ids.Remove(facts.Id);
+            lookups[(int)lookup] = ids.IsEmpty ? map.Remove(key) : map.SetItem(key, ids);
+        }
+    }
 
     /// <summary>Take in an entity as now stored (new or changed).</summary>
     public void Apply(StoredEntity entity)
     {
-        byId[entity.Id] = new Facts(entity.Collection, entity.Id, entity.OwnerId, entity.Doc);
-        derived = null;
+        if (byId.TryGetValue(entity.Id, out var old)) Index(old, add: false);
+        var facts = new Facts(entity.Collection, entity.Id, entity.OwnerId, entity.Doc);
+        byId = byId.SetItem(entity.Id, facts);
+        Index(facts, add: true);
+    }
+
+    /// <summary>An index of many entities at once (startup), built in one go rather than one by one.</summary>
+    public static SharingIndex Build(IEnumerable<StoredEntity> entities)
+    {
+        var all = ImmutableDictionary.CreateBuilder<string, Facts>(StringComparer.Ordinal);
+        foreach (var entity in entities) all[entity.Id] = new Facts(entity.Collection, entity.Id, entity.OwnerId, entity.Doc);
+        var keyed = Enumerable.Range(0, Lookups).Select(_ => new Dictionary<string, ImmutableHashSet<string>.Builder>(StringComparer.Ordinal)).ToArray();
+        foreach (var facts in all.Values)
+        {
+            foreach (var (lookup, key) in KeysOf(facts))
+            {
+                if (!keyed[(int)lookup].TryGetValue(key, out var ids)) keyed[(int)lookup][key] = ids = NoIds.ToBuilder();
+                ids.Add(facts.Id);
+            }
+        }
+        var index = new SharingIndex { byId = all.ToImmutable() };
+        for (var lookup = 0; lookup < Lookups; lookup++)
+        {
+            index.lookups[lookup] = keyed[lookup].ToImmutableDictionary(pair => pair.Key, pair => pair.Value.ToImmutable(), StringComparer.Ordinal);
+        }
+        return index;
     }
 
     public void Clear()
     {
-        byId.Clear();
-        derived = null;
+        byId = byId.Clear();
+        Array.Fill(lookups, NoLookup);
     }
 
     /// <summary>Forget an entity (undo a tried change that was refused).</summary>
     public void Remove(string id)
     {
-        if (byId.Remove(id)) derived = null;
+        if (!byId.TryGetValue(id, out var old)) return;
+        Index(old, add: false);
+        byId = byId.Remove(id);
     }
 
     public bool Contains(string id) => byId.ContainsKey(id);
 
+    /// <summary>Every entity id held (deleted ones too).</summary>
+    public IEnumerable<string> Ids() => byId.Keys;
+
     /// <summary>An entity's stored document, deleted or not.</summary>
     public JsonObject? DocOf(string id) => byId.TryGetValue(id, out var facts) ? facts.Doc : null;
 
+    /// <summary>A live entity's document (of <paramref name="collection"/> when given), or null when it is deleted or unknown.</summary>
+    public JsonObject? LiveDocOf(string id, string? collection = null) =>
+        byId.TryGetValue(id, out var facts) && !facts.Deleted && (collection is null || facts.Collection == collection) ? facts.Doc : null;
+
     /// <summary>Every live entity of a collection: its id, owner and document (the reminder sender reads tasks).</summary>
-    public IReadOnlyList<(string Id, string Owner, JsonObject Doc)> LiveOf(string collection) =>
-        [.. Live(collection).Select(each => (each.Id, each.Owner, each.Doc))];
+    public IEnumerable<(string Id, string Owner, JsonObject Doc)> LiveOf(string collection) =>
+        Live(collection).Select(each => (each.Id, each.Owner, each.Doc));
+
+    /// <summary>The live subtasks of a task.</summary>
+    public IReadOnlyList<(string Id, JsonObject Doc)> LiveChildrenOf(string taskId) =>
+        [.. EachLive(By.Parent, taskId).Where(each => each.Collection == "tasks").Select(each => (each.Id, each.Doc))];
 
     /// <summary>The live groups an owner has (the server's own, for <see cref="ServerGroupProjection"/>).</summary>
     public IReadOnlyList<(string Id, JsonObject Doc)> GroupsOwnedBy(string owner) =>
-        [.. byId.Values.Where(each => each.Collection == "groups" && !each.Deleted && each.Get("ownerId") == owner).Select(each => (each.Id, each.Doc))];
+        [.. EachLive(By.GroupOwner, owner).Select(each => (each.Id, each.Doc))];
 
     /// <summary>
     /// Names of the groups people made that a user is in (owner or active member), for admins;
     /// archived ones and the server's own (see <see cref="ServerGroupProjection"/>) are left out.
     /// </summary>
     public IReadOnlyList<string> GroupNamesOf(string userId) =>
-        [.. byId.Values
-            .Where(each => each.Collection == "groups" && !each.Deleted && !Archived(each)
-                && each.Get("ownerId") != ServerGroupProjection.Owner
+        [.. GroupsOf(userId)
+            .Select(id => byId[id])
+            .Where(each => !Archived(each) && each.Get("ownerId") != ServerGroupProjection.Owner
                 && GroupPeople(each.Id, withInvited: false).Contains(userId))
             .Select(each => each.Get("name") ?? "")
             .Where(name => name.Length > 0)
@@ -88,12 +215,12 @@ public sealed class SharingIndex
 
     /// <summary>Every membership row of a group, left ones too.</summary>
     public IReadOnlyList<(string Id, JsonObject Doc)> MembershipRowsOf(string groupId) =>
-        [.. byId.Values.Where(each => each.Collection == "groupMembers" && each.Get("groupId") == groupId).Select(each => (each.Id, each.Doc))];
+        [.. Each(By.Group, groupId).Select(each => (each.Id, each.Doc))];
 
     /// <summary>The friendship between two people in either direction, deleted ones too.</summary>
     public (string Id, JsonObject Doc)? FriendshipBetween(string a, string b)
     {
-        foreach (var facts in byId.Values)
+        foreach (var facts in Each(By.User, a).OrderBy(each => each.Id, StringComparer.Ordinal))
         {
             if (facts.Collection != "friendships") continue;
             var userA = facts.Get("userA");
@@ -107,9 +234,9 @@ public sealed class SharingIndex
     public IReadOnlyList<(string Id, string Other, string State)> FriendshipsOf(string userId)
     {
         var found = new List<(string, string, string)>();
-        foreach (var facts in byId.Values)
+        foreach (var facts in EachLive(By.User, userId))
         {
-            if (facts.Collection != "friendships" || facts.Doc["deletedAt"] is not null) continue;
+            if (facts.Collection != "friendships") continue;
             var userA = facts.Get("userA");
             var userB = facts.Get("userB");
             var other = userA == userId ? userB : userB == userId ? userA : null;
@@ -125,11 +252,11 @@ public sealed class SharingIndex
     public IReadOnlyList<OwnedShare> SharedOwnedBy(string userId)
     {
         var found = new List<OwnedShare>();
-        foreach (var list in D.SharedLists.Where(each => each.Owner == userId))
+        foreach (var list in EachLive(By.ListOwner, userId).Where(each => each.Get("visibility") == "shared"))
         {
             found.Add(new OwnedShare("list", list.Id, list.Get("name") ?? "", ListPeople(list.Id).Count(), list.Doc));
         }
-        foreach (var group in D.Groups.Where(each => each.Get("ownerId") == userId && !Archived(each)))
+        foreach (var group in EachLive(By.GroupOwner, userId).Where(each => !Archived(each)))
         {
             found.Add(new OwnedShare("group", group.Id, group.Get("name") ?? "", GroupPeople(group.Id, withInvited: false).Count, group.Doc));
         }
@@ -138,22 +265,55 @@ public sealed class SharingIndex
 
     /// <summary>A user's membership row in a group, if any (deleted ones too).</summary>
     public (string Id, JsonObject Doc)? GroupMembership(string groupId, string userId) =>
-        byId.Values
-            .Where(each => each.Collection == "groupMembers" && each.Get("groupId") == groupId && each.Get("userId") == userId)
+        Each(By.Group, groupId)
+            .Where(each => each.Get("userId") == userId)
+            .OrderBy(each => each.Id, StringComparer.Ordinal)
             .Select(each => ((string, JsonObject)?)(each.Id, each.Doc))
             .FirstOrDefault();
 
-    /// <summary>A copy to try changes on before they are committed.</summary>
+    /// <summary>A copy to try changes on before they are committed (the maps are immutable: nothing is copied).</summary>
     public SharingIndex Clone()
     {
-        var copy = new SharingIndex();
-        foreach (var (id, facts) in byId) copy.byId[id] = facts;
+        var copy = new SharingIndex { byId = byId };
+        Array.Copy(lookups, copy.lookups, Lookups);
         return copy;
     }
 
     // Relations ----------------------------------------------------------------------------------
 
-    private IEnumerable<Facts> Live(string collection) => byId.Values.Where(each => each.Collection == collection && !each.Deleted);
+    private IEnumerable<Facts> Live(string collection) => EachLive(By.Collection, collection);
+
+    /// <summary>Live groups a user owns or has a live membership row in (any state).</summary>
+    private HashSet<string> GroupsOf(string userId)
+    {
+        var groups = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var group in EachLive(By.GroupOwner, userId)) groups.Add(group.Id);
+        foreach (var row in EachLive(By.User, userId))
+        {
+            if (row.Collection == "groupMembers" && row.Get("groupId") is { } id && byId.TryGetValue(id, out var group) && group.Collection == "groups" && !group.Deleted)
+            {
+                groups.Add(id);
+            }
+        }
+        return groups;
+    }
+
+    /// <summary>Live shared lists a user owns or is on (directly or through a group they are in).</summary>
+    private HashSet<string> SharedListsOf(string userId)
+    {
+        var lists = new HashSet<string>(StringComparer.Ordinal);
+        void Consider(string? listId)
+        {
+            if (listId is not null && byId.TryGetValue(listId, out var list) && list.Collection == "lists" && !list.Deleted && list.Get("visibility") == "shared") lists.Add(listId);
+        }
+        foreach (var list in Each(By.ListOwner, userId)) Consider(list.Id);
+        foreach (var member in EachLive(By.Principal, $"user:{userId}")) Consider(member.Get("listId"));
+        foreach (var group in GroupsOf(userId))
+        {
+            foreach (var member in EachLive(By.Principal, $"group:{group}")) Consider(member.Get("listId"));
+        }
+        return lists;
+    }
 
     /// <summary>People in a group: active members (and the owner); with invites, the invited too.</summary>
     private HashSet<string> GroupPeople(string groupId, bool withInvited)
@@ -168,7 +328,7 @@ public sealed class SharingIndex
         {
             return people;
         }
-        foreach (var member in D.GroupMembers[groupId])
+        foreach (var member in EachLive(By.Group, groupId))
         {
             var state = member.Get("state");
             if (state == "active" || (withInvited && state == "invited"))
@@ -178,6 +338,9 @@ public sealed class SharingIndex
         }
         return people;
     }
+
+    /// <summary>Live memberships of a list.</summary>
+    private IEnumerable<Facts> ListMembers(string listId) => EachLive(By.List, listId).Where(each => each.Collection == "listMembers");
 
     /// <summary>Users behind a principal: <c>user:&lt;id&gt;</c> or <c>group:&lt;id&gt;</c> (active members).</summary>
     public IEnumerable<string> PeopleOf(string principal) =>
@@ -193,7 +356,7 @@ public sealed class SharingIndex
         if (list.Owner == userId) return "owner";
         if (list.Get("visibility") != "shared") return null;
         string? best = null;
-        foreach (var member in D.ListMembers[listId])
+        foreach (var member in ListMembers(listId))
         {
             if (member.Get("principal") is not { } principal || !PeopleOf(principal).Contains(userId)) continue;
             var role = member.Get("role");
@@ -211,7 +374,7 @@ public sealed class SharingIndex
         var people = new HashSet<string>(StringComparer.Ordinal) { list.Owner };
         if (list.Get("visibility") == "shared")
         {
-            foreach (var member in D.ListMembers[listId])
+            foreach (var member in ListMembers(listId))
             {
                 if (member.Get("principal") is { } principal) people.UnionWith(PeopleOf(principal));
             }
@@ -303,21 +466,22 @@ public sealed class SharingIndex
     private HashSet<string> Acquaintances(string userId)
     {
         var people = new HashSet<string>(StringComparer.Ordinal);
-        foreach (var friendship in D.Friendships)
+        foreach (var friendship in EachLive(By.User, userId))
         {
+            if (friendship.Collection != "friendships") continue;
             var a = friendship.Get("userA");
             var b = friendship.Get("userB");
             if (a == userId && b is not null) people.Add(b);
             if (b == userId && a is not null) people.Add(a);
         }
-        foreach (var group in D.Groups)
+        foreach (var group in GroupsOf(userId))
         {
-            var members = GroupPeople(group.Id, withInvited: true);
+            var members = GroupPeople(group, withInvited: true);
             if (members.Contains(userId)) people.UnionWith(members);
         }
-        foreach (var list in D.SharedLists)
+        foreach (var list in SharedListsOf(userId))
         {
-            var members = ListPeople(list.Id).ToHashSet(StringComparer.Ordinal);
+            var members = ListPeople(list).ToHashSet(StringComparer.Ordinal);
             if (members.Contains(userId)) people.UnionWith(members);
         }
         people.Remove(userId);
@@ -333,21 +497,22 @@ public sealed class SharingIndex
     public bool Knows(string userId, string other)
     {
         if (userId == other) return true;
-        foreach (var friendship in D.Friendships)
+        foreach (var friendship in EachLive(By.User, userId))
         {
+            if (friendship.Collection != "friendships") continue;
             var a = friendship.Get("userA");
             var b = friendship.Get("userB");
             if (friendship.Get("state") == "accepted" && ((a == userId && b == other) || (a == other && b == userId))) return true;
         }
-        foreach (var group in D.Groups)
+        foreach (var group in GroupsOf(userId))
         {
-            if (Archived(group)) continue;
-            var members = GroupPeople(group.Id, withInvited: false);
+            if (Archived(byId[group])) continue;
+            var members = GroupPeople(group, withInvited: false);
             if (members.Contains(userId) && members.Contains(other)) return true;
         }
-        foreach (var list in D.SharedLists)
+        foreach (var list in SharedListsOf(userId))
         {
-            var members = ListPeople(list.Id).ToHashSet(StringComparer.Ordinal);
+            var members = ListPeople(list).ToHashSet(StringComparer.Ordinal);
             if (members.Contains(userId) && members.Contains(other)) return true;
         }
         return false;
@@ -355,24 +520,103 @@ public sealed class SharingIndex
 
     /// <summary>Whether the user sees a live attachment with these bytes (so may download them).</summary>
     public bool SeesFile(string userId, string sha256) =>
-        Live("attachments").Any(each => each.Get("sha256") == sha256 && Viewers(each.Id).Contains(userId));
+        EachLive(By.Sha, sha256).Any(each => each.Collection == "attachments" && Viewers(each.Id).Contains(userId));
 
     /// <summary>
     /// File hashes still wanted: live attachments, and deleted ones newer than <paramref name="keepDeletedSince"/>
     /// (they can still be restored from the trash or undone).
     /// </summary>
     public HashSet<string> WantedFiles(DateTimeOffset keepDeletedSince) =>
-        byId.Values
-            .Where(each => each.Collection == "attachments"
-                && (!each.Deleted || (DateTimeOffset.TryParse(each.Get("deletedAt"), System.Globalization.CultureInfo.InvariantCulture,
-                    System.Globalization.DateTimeStyles.AssumeUniversal, out var at) && at >= keepDeletedSince)))
+        Each(By.Collection, "attachments")
+            .Where(each => !each.Deleted || (DateTimeOffset.TryParse(each.Get("deletedAt"), System.Globalization.CultureInfo.InvariantCulture,
+                System.Globalization.DateTimeStyles.AssumeUniversal, out var at) && at >= keepDeletedSince))
             .Select(each => each.Get("sha256"))
             .OfType<string>()
             .ToHashSet(StringComparer.Ordinal);
 
-    /// <summary>Every entity id the user may see.</summary>
+    /// <summary>Every entity id the user may see (a whole scan: tests and checks; writes use <see cref="Dependents"/>).</summary>
     public HashSet<string> VisibleTo(string userId) =>
         byId.Keys.Where(id => Viewers(id).Contains(userId)).ToHashSet(StringComparer.Ordinal);
+
+    /// <summary>
+    /// The entities whose viewers can change when <paramref name="id"/> changes, itself included: a
+    /// list's (or list membership's) sections, tasks, memberships, the tasks' comments, files and
+    /// subtasks, and the profiles of its people; a group's memberships, the lists shared with it
+    /// and the tasks assigned to it; a task's comments, files and subtasks; the two profiles of a
+    /// friendship. Taken on the index as it is: a write needs it before and after the change.
+    /// </summary>
+    public HashSet<string> Dependents(string id)
+    {
+        var found = new HashSet<string>(StringComparer.Ordinal) { id };
+        if (!byId.TryGetValue(id, out var entity)) return found;
+        switch (entity.Collection)
+        {
+            case "lists":
+                AddList(entity.Id, found);
+                break;
+            case "listMembers":
+                if (entity.Get("listId") is { } list) AddList(list, found);
+                if (entity.Get("principal") is { } principal) foreach (var person in PeopleOf(principal)) found.Add(person);
+                break;
+            case "groups":
+                AddGroup(entity.Id, found);
+                break;
+            case "groupMembers":
+                if (entity.Get("groupId") is { } group) AddGroup(group, found);
+                if (entity.Get("userId") is { } member) found.Add(member);
+                break;
+            case "tasks":
+                AddTask(entity.Id, found);
+                break;
+            case "friendships":
+                if (entity.Get("userA") is { } a) found.Add(a);
+                if (entity.Get("userB") is { } b) found.Add(b);
+                break;
+        }
+        return found;
+    }
+
+    /// <summary>A list's contents and the profiles of its people (they are acquainted through it).</summary>
+    private void AddList(string listId, HashSet<string> found)
+    {
+        found.Add(listId);
+        foreach (var person in ListPeople(listId)) found.Add(person);
+        foreach (var item in Each(By.List, listId))
+        {
+            if (item.Collection == "tasks") AddTask(item.Id, found);
+            else found.Add(item.Id);
+        }
+    }
+
+    /// <summary>A group's memberships, lists shared with it, tasks assigned to it, and its people's profiles.</summary>
+    private void AddGroup(string groupId, HashSet<string> found)
+    {
+        found.Add(groupId);
+        foreach (var person in GroupPeople(groupId, withInvited: true)) found.Add(person);
+        foreach (var row in Each(By.Group, groupId)) found.Add(row.Id);
+        foreach (var member in Each(By.Principal, $"group:{groupId}"))
+        {
+            found.Add(member.Id);
+            if (member.Get("listId") is { } list) AddList(list, found);
+        }
+        foreach (var task in Each(By.Assignee, $"group:{groupId}")) AddTask(task.Id, found);
+    }
+
+    /// <summary>A task, its comments and files, and its subtasks (their assignees include its own), all the way down.</summary>
+    private void AddTask(string taskId, HashSet<string> found)
+    {
+        var pending = new Stack<string>();
+        pending.Push(taskId);
+        var seen = new HashSet<string>(StringComparer.Ordinal);
+        while (pending.Count > 0)
+        {
+            var current = pending.Pop();
+            if (!seen.Add(current)) continue;
+            found.Add(current);
+            foreach (var item in Each(By.Task, current)) found.Add(item.Id);
+            foreach (var child in Each(By.Parent, current)) pending.Push(child.Id);
+        }
+    }
 
     private static bool Archived(Facts group) => group.Doc["archived"] is JsonValue value && value.TryGetValue<bool>(out var archived) && archived;
 
@@ -386,10 +630,10 @@ public sealed class SharingIndex
     public IReadOnlyList<GroupSuccession> PendingSuccessions()
     {
         var pending = new List<GroupSuccession>();
-        foreach (var group in D.Groups)
+        foreach (var group in Live("groups"))
         {
             if (Archived(group) || group.Get("ownerId") is not { } owner) continue;
-            var rows = byId.Values.Where(each => each.Collection == "groupMembers" && each.Get("groupId") == group.Id).ToList();
+            var rows = Each(By.Group, group.Id).ToList();
             var ownerRows = rows.Where(each => each.Get("userId") == owner).ToList();
             // An owner who never had a membership is a member by ownership: nothing to do.
             if (ownerRows.Count == 0 || ownerRows.Any(each => !each.Deleted && each.Get("state") == "active")) continue;
@@ -400,7 +644,7 @@ public sealed class SharingIndex
                 .Select(each => each.Get("userId"))
                 .FirstOrDefault();
             var assigned = heir is null
-                ? Live("tasks").Where(task => task.SetMembers("assignees").Contains($"group:{group.Id}")).Select(task => (task.Id, task.Doc)).ToList()
+                ? EachLive(By.Assignee, $"group:{group.Id}").Where(task => task.Collection == "tasks").Select(task => (task.Id, task.Doc)).ToList()
                 : [];
             pending.Add(new GroupSuccession(group.Id, group.Doc, heir, assigned));
         }
@@ -414,7 +658,7 @@ public sealed class SharingIndex
     /// </summary>
     public string? ListHeir(string listId, string leaving, IReadOnlySet<string> accounts)
     {
-        var rows = D.ListMembers[listId]
+        var rows = ListMembers(listId)
             .OrderByDescending(each => Rank(each.Get("role")))
             .ThenBy(each => each.Get("createdAt"), StringComparer.Ordinal)
             .ThenBy(each => each.Id, StringComparer.Ordinal);
@@ -432,7 +676,7 @@ public sealed class SharingIndex
     /// with an account (as when an owner leaves). Null when nobody is left.
     /// </summary>
     public string? GroupHeir(string groupId, string leaving, IReadOnlySet<string> accounts) =>
-        D.GroupMembers[groupId]
+        EachLive(By.Group, groupId)
             .Where(each => each.Get("state") == "active" && each.Get("userId") is { } user && user != leaving && accounts.Contains(user))
             .OrderBy(each => each.Get("joinedAt"), StringComparer.Ordinal)
             .ThenBy(each => each.Id, StringComparer.Ordinal)
@@ -449,17 +693,21 @@ public sealed class SharingIndex
     public IReadOnlyList<InviteSettlement> PendingInvites()
     {
         var settled = new List<InviteSettlement>();
-        foreach (var task in Live("tasks"))
+        foreach (var (key, ids) in lookups[(int)By.Assignee])
         {
-            foreach (var key in task.SetMembers("assignees"))
+            if (!key.StartsWith("invite:", StringComparison.Ordinal)) continue;
+            var parts = key.Split(':');
+            if (parts.Length != 3) continue;
+            var friendship = FriendshipBetween(parts[1], parts[2]);
+            var live = friendship is { } found && found.Doc["deletedAt"] is null;
+            var accepted = live && (string?)friendship!.Value.Doc["state"] == "accepted";
+            if (!accepted && live) continue;
+            foreach (var id in ids.Order(StringComparer.Ordinal))
             {
-                if (!key.StartsWith("invite:", StringComparison.Ordinal)) continue;
-                var parts = key.Split(':');
-                if (parts.Length != 3) continue;
-                var friendship = FriendshipBetween(parts[1], parts[2]);
-                var live = friendship is { } found && found.Doc["deletedAt"] is null;
-                var accepted = live && (string?)friendship!.Value.Doc["state"] == "accepted";
-                if (accepted || !live) settled.Add(new InviteSettlement(task.Id, task.Doc, key, accepted ? $"user:{parts[1]}" : null));
+                if (byId.TryGetValue(id, out var task) && task.Collection == "tasks" && !task.Deleted)
+                {
+                    settled.Add(new InviteSettlement(task.Id, task.Doc, key, accepted ? $"user:{parts[1]}" : null));
+                }
             }
         }
         return settled;
