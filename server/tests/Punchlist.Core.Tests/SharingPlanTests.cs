@@ -145,7 +145,10 @@ public sealed class SharingPlanTests
         index.Apply(Entity("lists", "L1", "UA", new JsonObject { ["name"] = "Home", ["visibility"] = "private", ["color"] = "#fff" }));
 
         var task = index.DocOf("T1")!;
-        Assert.Equal(["deletedAt", "id", "listId", "reminders", "schedule", "status", "title"], task.Select(pair => pair.Key).Order());
+        Assert.Equal(["assignees", "createdBy", "deletedAt", "id", "listId", "parentId", "pinnedAt", "recurrence", "reminders", "schedule", "status", "title"],
+            task.Select(pair => pair.Key).Order());
+        Assert.Equal(("Mow", 30), ((string?)task["title"], (int?)task["reminders"]![0]!["before"]));
+        Assert.Null(index.DocOf("T2")!["reminders"]);
         Assert.Equal("#fff", (string?)index.DocOf("L1")!["color"]);
         // The reminder sender reads only tasks with reminders.
         Assert.Equal(["T1"], index.LiveTasksWithReminders().Select(each => each.Id));
