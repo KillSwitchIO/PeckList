@@ -117,6 +117,7 @@ public static partial class ServerApp
         builder.Services.AddSingleton<AccountRemoval>();
         builder.Services.AddHostedService(provider => provider.GetRequiredService<AccountRemoval>());
         builder.Services.AddResponseHardening();
+        builder.Services.AddDemoMode(settings);
         builder.Services.Configure<ForwardedHeadersOptions>(options =>
         {
             options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
@@ -146,6 +147,7 @@ public static partial class ServerApp
         Audit.AuditLog.UseAuditLog(app);
         app.UseForwardedHeaders();
         app.UseResponseHardening();
+        app.UseDemoMode(settings);
         app.UseAuthentication();
         app.UseImpersonation();
         app.UseApiKeyScopes();
@@ -156,13 +158,13 @@ public static partial class ServerApp
         app.MapHealthChecks("/healthz");
         app.MapGet("/api/info", (LiveSettings live) =>
             new ServerInfo("punchlist", Version, WorkspaceSchema.CurrentVersion, TimeZoneInfo.Local.Id, live.Current.AttachmentMaxMb,
-                AppSignIn: settings.AuthMode != AuthMode.None));
+                AppSignIn: settings.AuthMode != AuthMode.None, Demo: Demo.Info(settings)));
         app.MapAuth();
         app.MapGroup("/api").RequireAuthorization().RequirePasswordChanged().EnsureProfiles().MapSync().MapFriends().MapAccount().MapAttachments().MapNotifications().MapHistory().MapPush().MapProviderPicture().MapAppCheck().MapUpdates().MapApiKeys();
         app.MapGroup("/api/admin").RequireAuthorization().RequirePasswordChanged().MapAdmin().MapSettings().MapBackups().MapLogging().MapAudit().MapStats().MapSetup().MapTelemetry();
 
         var webRoot = settings.WebRoot ?? Path.Combine(AppContext.BaseDirectory, "wwwroot");
-        app.UseStaticSite(webRoot, app.Logger);
+        app.UseStaticSite(webRoot, app.Logger, noindex: settings.DemoMode);
         return app;
     }
 }
@@ -187,6 +189,7 @@ public static partial class ServerApp
 /// <paramref name="TimeZone"/>: the server's (<c>TZ</c>), the default for people who pick none.
 /// <paramref name="AppSignIn"/>: the Android app may sign in and link providers through a browser
 /// tab (<c>/auth/app/*</c>); the app checks it, since an older server has no such pages.
+/// <paramref name="Demo"/>: set on a demo server, for the app's banner (PL-117).
 /// </summary>
 public sealed record ServerInfo(string Name, string Version, int SchemaVersion, string? TimeZone = null, int? AttachmentMaxMb = null,
-    bool AppSignIn = false);
+    bool AppSignIn = false, DemoInfo? Demo = null);

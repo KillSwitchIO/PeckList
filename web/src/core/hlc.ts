@@ -16,13 +16,16 @@ export interface ParsedHlc {
   node: string;
 }
 
+// Plain fields, not parameter properties: Node runs core files as they are (scripts/demo-seed.mts).
 export class ClockDriftError extends Error {
-  constructor(
-    readonly remoteWall: number,
-    readonly localWall: number,
-  ) {
+  readonly remoteWall: number;
+  readonly localWall: number;
+
+  constructor(remoteWall: number, localWall: number) {
     super(`remote clock is ${remoteWall - localWall} ms ahead of the local clock`);
     this.name = 'ClockDriftError';
+    this.remoteWall = remoteWall;
+    this.localWall = localWall;
   }
 }
 

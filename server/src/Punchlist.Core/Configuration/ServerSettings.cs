@@ -117,6 +117,25 @@ public sealed record ServerSettings
     public LoggingSettings Logging { get; init; } = new();
 
     /// <summary>
+    /// A public trial server (<c>DEMO_MODE</c>, PL-117): anyone signs up, deleted accounts go at
+    /// once, files stay small and nothing leaves the server. <see cref="Read"/> forces the settings
+    /// that follow from it, whatever the other layers say.
+    /// </summary>
+    public bool DemoMode { get; init; }
+
+    /// <summary>Pre-made accounts a demo shows with their passwords (<c>DEMO_ACCOUNTS</c>, <c>name:password,...</c>).</summary>
+    public IReadOnlyList<DemoAccount> DemoAccounts { get; init; } = [];
+
+    /// <summary>When the demo's nightly reset runs, as the banner says it (<c>DEMO_RESET_TIME</c>, server time).</summary>
+    public string DemoResetTime { get; init; } = "04:00";
+
+    /// <summary>The largest attachment on a demo server, in megabytes: lower settings stay, higher ones come down to it.</summary>
+    public const int DemoAttachmentMaxMb = 2;
+
+    /// <summary>Accounts one address may make by sign-up in an hour (<c>SIGNUP_RATE_LIMIT</c>; 0 turns the limit off).</summary>
+    public int SignUpRateLimit { get; init; } = 5;
+
+    /// <summary>
     /// <c>LOCAL_LOGIN=disabled</c>: nobody signs in with a username and password, by the form or the
     /// API, and password sign-up and password sessions end. Identity providers and one-time sign-in
     /// links still work. The old values <c>shown</c> and <c>hidden</c> read as enabled and disabled.
@@ -220,6 +239,18 @@ public sealed record ServerSettings
             }
         }
 
+        var demoMode = Flag("DEMO_MODE", false);
+        var demoAccounts = DemoAccount.ReadAll(Get("DEMO_ACCOUNTS"), errors);
+        var demoResetTime = Get("DEMO_RESET_TIME")?.Trim() ?? "04:00";
+        if (!TimeOnly.TryParseExact(demoResetTime, "HH:mm", System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.None, out _))
+        {
+            errors.Add($"DEMO_RESET_TIME: '{demoResetTime}' is not a time like 04:00");
+        }
+        if (demoAccounts.Count > 0 && !demoMode)
+        {
+            errors.Add("DEMO_ACCOUNTS needs DEMO_MODE=true");
+        }
+
         var dbPath = Get("DB_PATH") ?? (inContainer ? "/data/punchlist.db" : Path.Combine("data", "punchlist.db"));
         var settings = new ServerSettings
         {
@@ -252,8 +283,26 @@ public sealed record ServerSettings
             TelemetryUrl = telemetryUrl,
             AuditArchiveDir = Get("AUDIT_ARCHIVE_DIR")
                 ?? Path.Combine(Path.GetDirectoryName(dbPath) is { Length: > 0 } auditDir ? auditDir : ".", "audit"),
+            DemoMode = demoMode,
+            DemoAccounts = demoAccounts,
+            DemoResetTime = demoResetTime,
+            SignUpRateLimit = Count("SIGNUP_RATE_LIMIT", 5, 0),
             Logging = LoggingSettings.Read(Get, Path.Combine(Path.GetDirectoryName(dbPath) is { Length: > 0 } dir ? dir : ".", "logs"), errors),
         };
+        if (settings.DemoMode)
+        {
+            if (settings.AuthMode == AuthMode.None) errors.Add("DEMO_MODE needs AUTH_MODE=local (people sign up and sign in)");
+            // What a demo is: open to anyone, gone at once when deleted, small files, nothing sent
+            // anywhere (no reports, no release check) and no setting on any layer changes that.
+            settings = settings with
+            {
+                Registration = Registration.Open,
+                AccountDeleteGraceDays = 0,
+                AttachmentMaxMb = Math.Min(settings.AttachmentMaxMb, DemoAttachmentMaxMb),
+                UpdateCheck = false,
+                Telemetry = false,
+            };
+        }
         if (settings.OidcProviders.Count > 0 && settings.AuthMode == AuthMode.None)
         {
             errors.Add("OIDC_PROVIDERS needs AUTH_MODE=local (AUTH_MODE=none has no sign-in)");
@@ -276,4 +325,40 @@ public sealed record ServerSettings
         }
         return settings;
     }
+}
+
+/// <summary>A pre-made demo account: its name and the password the banner shows for it.</summary>
+public sealed record DemoAccount(string Username, string Password)
+{
+    /// <summary><c>name:password</c> pairs, comma separated; each name a valid username, each password long enough.</summary>
+    public static IReadOnlyList<DemoAccount> ReadAll(string? raw, List<string> errors)
+    {
+        var accounts = new List<DemoAccount>();
+        foreach (var entry in (raw ?? "").Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+        {
+            var at = entry.IndexOf(':');
+            var username = at > 0 ? entry[..at].Trim().ToLowerInvariant() : "";
+            var password = at > 0 ? entry[(at + 1)..].Trim() : "";
+            if (!Accounts.AccountService.IsValidUsername(username) || password.Length < Accounts.AccountService.MinPasswordLength)
+            {
+                errors.Add($"DEMO_ACCOUNTS: '{(at > 0 ? username + ":..." : entry)}' is not name:password with a password of at least {Accounts.AccountService.MinPasswordLength} characters");
+                continue;
+            }
+            if (username == Accounts.AccountService.AdminUsername)
+            {
+                errors.Add($"DEMO_ACCOUNTS: {username} is the server's admin; pick other names");
+                continue;
+            }
+            if (accounts.Any(each => each.Username == username))
+            {
+                errors.Add($"DEMO_ACCOUNTS: {username} is listed twice");
+                continue;
+            }
+            accounts.Add(new DemoAccount(username, password));
+        }
+        return accounts;
+    }
+
+    /// <summary>Hidden in logs and dumps; the banner shows it on purpose, nothing else does.</summary>
+    public override string ToString() => $"{Username}:***";
 }

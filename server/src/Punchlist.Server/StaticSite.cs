@@ -19,7 +19,8 @@ public static class StaticSite
     /// </summary>
     private static readonly string[] ServerPrefixes = ["/api", "/auth", "/healthz", "/assets"];
 
-    public static void UseStaticSite(this WebApplication app, string webRoot, ILogger logger)
+    /// <param name="noindex">A demo server (PL-117): the page tells crawlers to stay away in its HTML too.</param>
+    public static void UseStaticSite(this WebApplication app, string webRoot, ILogger logger, bool noindex = false)
     {
         if (!File.Exists(Path.Combine(webRoot, "index.html")))
         {
@@ -27,6 +28,21 @@ public static class StaticSite
             return;
         }
         var files = new PhysicalFileProvider(Path.GetFullPath(webRoot));
+        // The page as served: read once, and never its precompressed copies, which lack the tag.
+        var page = noindex ? Demo.WithRobotsMeta(File.ReadAllText(Path.Combine(webRoot, "index.html"))) : null;
+        if (page is not null)
+        {
+            app.Use(async (context, next) =>
+            {
+                var path = context.Request.Path.Value;
+                if (path is "/" or "/index.html" && (HttpMethods.IsGet(context.Request.Method) || HttpMethods.IsHead(context.Request.Method)))
+                {
+                    await SendPageAsync(context, page);
+                    return;
+                }
+                await next(context);
+            });
+        }
         app.UseDefaultFiles(new DefaultFilesOptions { FileProvider = files });
         app.Use(async (context, next) =>
         {
@@ -60,10 +76,23 @@ public static class StaticSite
                 context.Response.StatusCode = StatusCodes.Status404NotFound;
                 return;
             }
+            if (page is not null)
+            {
+                await SendPageAsync(context, page);
+                return;
+            }
             context.Response.ContentType = "text/html; charset=utf-8";
             SetCaching(context);
             await context.Response.SendFileAsync(files.GetFileInfo("index.html"));
         });
+    }
+
+    private static async Task SendPageAsync(HttpContext context, string page)
+    {
+        context.Response.ContentType = "text/html; charset=utf-8";
+        SetCaching(context);
+        if (HttpMethods.IsHead(context.Request.Method)) return;
+        await context.Response.WriteAsync(page, context.RequestAborted);
     }
 
     private const string EncodingKey = "punchlist.precompressed";

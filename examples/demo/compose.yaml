@@ -1,0 +1,58 @@
+# A public demo server that resets every night (PL-117). Docs: docs/install/demo.md
+#   printf '%s' 'a long admin password' > admin_password.txt
+#   docker compose up -d && docker compose exec reset sh /demo/reset.sh   # load the seed now
+# Then open http://localhost:8080 and sign in as demo-sam / try-punchlist-sam.
+name: punchlist-demo
+
+services:
+  punchlist:
+    image: registry.gitlab.com/killswitch10/punchlist:latest
+    restart: unless-stopped
+    ports:
+      - '8080:8080'
+    volumes:
+      # Both are deleted and made anew at every reset: keep nothing here you want back.
+      - data:/data
+      - files:/files
+    secrets:
+      - admin_password
+    environment:
+      TZ: Etc/UTC
+      DEMO_MODE: 'true'
+      # The seed's three people, with the passwords the banner shows.
+      DEMO_ACCOUNTS: demo-sam:try-punchlist-sam,demo-alex:try-punchlist-alex,demo-jordan:try-punchlist-jordan
+      # As the banner says it; keep it the same as RESET_AT below.
+      DEMO_RESET_TIME: '04:00'
+      # The operator's own way in. Visitors never get an admin.
+      ADMIN_PASSWORD_FILE: /run/secrets/admin_password
+      # Behind a reverse proxy with HTTPS (the sign-up limit counts the real addresses):
+      # PUBLIC_URL: https://demo.example.com
+      # TRUSTED_PROXIES: 172.16.0.0/12
+
+  # The nightly reset: stop the server, make its volumes anew, load the seed, start it again.
+  # It drives Docker through the socket, which is as good as root on this host; run reset.sh from
+  # the host's own cron instead if you would rather not (see the docs).
+  reset:
+    image: docker:27.5.1-cli
+    restart: unless-stopped
+    # The same path as on the host, so the compose file it drives resolves as it does here.
+    working_dir: ${PWD}
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - .:${PWD}:ro
+      - ./reset.sh:/demo/reset.sh:ro
+    environment:
+      # Minute and hour (UTC) for cron.
+      RESET_AT: '0 4'
+    entrypoint:
+      - sh
+      - -c
+      - echo "$$RESET_AT * * * cd $$PWD && sh /demo/reset.sh" > /etc/crontabs/root && exec crond -f -l 6
+
+volumes:
+  data:
+  files:
+
+secrets:
+  admin_password:
+    file: ./admin_password.txt

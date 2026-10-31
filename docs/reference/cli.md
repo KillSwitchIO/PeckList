@@ -52,13 +52,17 @@ Writes a full backup (every account and all data) as JSON, to the file or to sta
 ### `import`
 
 ```bash
-punchlist import <file> [--replace]
+punchlist import <file> [--replace] [--shift-dates]
 punchlist import --user <file> [username]
 ```
 
 Loads a full backup into an **empty** database; `--replace` deletes what is there first. With
 `--user`, puts one person back as the file had them; from a whole-server backup, say who. Restart
 the server afterwards.
+
+`--shift-dates` moves every date in the file's tasks, lists and comments on by the days between
+the file's `exportedAt` and today, so a seed made once reads as if made today. The
+[demo server](../install/demo.md) loads its seed this way every night.
 
 ### `snapshot`
 

@@ -76,6 +76,7 @@ nav:
       - Windows: install/windows.md
       - From source: install/from-source.md
       - Reverse proxy and HTTPS: install/reverse-proxy.md
+      - Demo server: install/demo.md
   - Configuration:
       - How settings work: configuration/index.md
       - All settings: configuration/reference.md

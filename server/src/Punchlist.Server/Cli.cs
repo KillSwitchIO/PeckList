@@ -22,7 +22,10 @@ public static class Cli
 
           export [file]                 Write a full backup as JSON (to stdout without a file).
           export --user <user> [file]   Write one person's data (to stdout without a file).
-          import <file> [--replace]     Load a backup into an empty database (--replace: delete what is there first).
+          import <file> [--replace] [--shift-dates]
+                                        Load a backup into an empty database (--replace: delete what is
+                                        there first; --shift-dates: move its dates on by the days since
+                                        it was made, for a demo seed).
           import --user <file> [user]   Put one person back as a backup had them (from a whole-server
                                         backup, say who). Restart the server afterwards.
           migrate-db --to sqlite --path <file>
@@ -98,9 +101,9 @@ public static class Cli
                 case "import":
                 {
                     var path = args.Skip(1).FirstOrDefault(arg => !arg.StartsWith("--", StringComparison.Ordinal));
-                    if (path is null) return await Fail(errors, "import needs a file: punchlist import <file> [--replace]");
+                    if (path is null) return await Fail(errors, "import needs a file: punchlist import <file> [--replace] [--shift-dates]");
                     await using var file = File.OpenRead(path);
-                    var summary = await backup.ImportAsync(file, replace: args.Contains("--replace"));
+                    var summary = await backup.ImportAsync(file, replace: args.Contains("--replace"), shiftDates: args.Contains("--shift-dates"));
                     await output.WriteLineAsync($"Imported {summary.Accounts} accounts and {summary.Entities} entities.");
                     return 0;
                 }

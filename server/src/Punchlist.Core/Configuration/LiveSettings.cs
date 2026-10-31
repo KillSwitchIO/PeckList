@@ -21,6 +21,7 @@ public sealed class LiveSettings(ServerSettings start)
             LocalLoginDisabled = next.LocalLoginDisabled,
             AccountDeleteGraceDays = next.AccountDeleteGraceDays,
             AttachmentMaxMb = next.AttachmentMaxMb,
+            SignUpRateLimit = next.SignUpRateLimit,
             UpdateCheck = next.UpdateCheck,
             Telemetry = next.Telemetry,
             TelemetryUrl = next.TelemetryUrl,
