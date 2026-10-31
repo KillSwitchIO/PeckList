@@ -1,9 +1,14 @@
 import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { createAjvValidator } from '../../adapters/ajv-validator.ts';
+import { createMemoryStorage } from '../../adapters/memory-storage.ts';
+import { createUlidGenerator } from '../../adapters/ulid-ids.ts';
 import { inboxList } from '../../core/lists.ts';
 import { createTask } from '../../core/tasks.ts';
+import type { WorkspaceFile } from '../../core/types.ts';
 import { mockViewport, renderApp, testStore } from '../../test/renderApp.tsx';
+import { createWorkspaceStore } from '../store/workspaceStore.ts';
 
 beforeEach(() => {
   localStorage.clear();
@@ -126,6 +131,70 @@ describe('settings: import from another app', () => {
       new File(['just,some\ncsv,here'], 'other.csv', { type: 'text/csv' }),
     );
     expect(await within(dialog).findByText('That file has no tasks in it.')).toBeInTheDocument();
+  });
+
+  it('the same backup a second time: says what is already here, and adds nothing', async () => {
+    const store = testStore();
+    await renderApp('/settings', store);
+    const upload = async () => {
+      const dialog = await openImport();
+      await userEvent.upload(
+        within(dialog).getByLabelText('Choose file'),
+        new File([BACKUP], 'TickTick-backup.csv', { type: 'text/csv' }),
+      );
+      return dialog;
+    };
+    let dialog = await upload();
+    await within(dialog).findByTestId('import-preview');
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Import' }));
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    const once = titles(store);
+    dialog = await upload();
+    expect(await within(dialog).findByTestId('import-preview')).toHaveTextContent(
+      'Already here from an earlier import, so left out: 2 tasks',
+    );
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Import' }));
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    expect(await screen.findByRole('region', { name: 'Your data' })).toHaveTextContent(
+      'Imported from TickTick: 0 tasks, 0 new lists and 0 new tags. 2 tasks already here from an earlier import were left out.',
+    );
+    expect(titles(store)).toEqual(once);
+  });
+
+  it('an import the schema refuses lands nothing and says why', async () => {
+    // A validator that refuses one title, as it would refuse a value the schema cannot hold.
+    const real = createAjvValidator();
+    const store = createWorkspaceStore({
+      storage: createMemoryStorage(),
+      ids: createUlidGenerator(),
+      node: 'test',
+      validator: {
+        validate(document) {
+          const tasks = (document as WorkspaceFile).entities.tasks;
+          const index = tasks.findIndex((task) => task.title === 'Plant bulbs');
+          return index < 0
+            ? real.validate(document)
+            : { valid: false, errors: [`/entities/tasks/${index}/title must be readable`] };
+        },
+      },
+    });
+    await renderApp('/settings', store);
+    const before = titles(store);
+    const dialog = await openImport();
+    await userEvent.upload(
+      within(dialog).getByLabelText('Choose file'),
+      new File([BACKUP], 'TickTick-backup.csv', { type: 'text/csv' }),
+    );
+    await within(dialog).findByTestId('import-preview');
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Import' }));
+    expect(
+      await within(dialog).findByText(
+        'Nothing was imported: it would leave your data unreadable (problems: 1). "Plant bulbs": title must be readable',
+      ),
+    ).toBeInTheDocument();
+    expect(within(dialog).getByRole('button', { name: 'Import' })).toBeEnabled();
+    expect(titles(store)).toEqual(before);
+    expect(store.getState().lastUndoable).toBeNull();
   });
 });
 

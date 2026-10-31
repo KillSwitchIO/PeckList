@@ -115,9 +115,18 @@ export const en = {
     'Imported from {app}: {tasks} tasks, {lists} new lists and {tags} new tags.',
   'interchange.import.doneReplaced':
     'Imported from {app}: {tasks} tasks, {lists} new lists and {tags} new tags. What was here is in the Trash.',
+  'interchange.import.skipped': '{count} tasks already here from an earlier import were left out.',
+  'interchange.import.alreadyHere':
+    'Already here from an earlier import, so left out: {count} tasks',
+  'interchange.import.invalid':
+    'Nothing was imported: it would leave your data unreadable (problems: {count}). {problems}',
+  'interchange.import.failed': 'Nothing was imported: the import stopped ({message}).',
   'interchange.note.repeatDropped':
     'Repeats Punchlist cannot keep (the tasks come in without them): {count}',
-  'interchange.note.reminderDropped': 'Reminders that could not be read: {count}',
+  'interchange.note.reminderDropped':
+    'Reminders that could not be kept (unreadable, or more than 10 on a task): {count}',
+  'interchange.note.attachmentsLeft':
+    'Attachments are not in the export and stay in the other app; a line in the notes names each: {count}',
   'interchange.note.foldersDropped': 'Folders are not kept; their lists come in on their own.',
   'interchange.note.notesAsTasks': 'Notes that come in as tasks: {count}',
   'interchange.note.tooDeep': 'Subtasks nested deeper than Punchlist goes, moved up: {count}',

@@ -164,6 +164,9 @@ export function sameReminder(a: Reminder, b: Reminder): boolean {
   return 'at' in a ? 'at' in b && a.at === b.at : 'before' in b && a.before === b.before;
 }
 
+/** The most reminders a task keeps (the schema's limit). */
+export const MAX_REMINDERS = 10;
+
 /** How long Snooze puts a constant reminder off. */
 export const SNOOZE_MINUTES = 10;
 

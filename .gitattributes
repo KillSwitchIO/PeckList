@@ -7,3 +7,6 @@
 # Windows batch files need CRLF (cmd misreads labels in LF files): the Gradle wrapper.
 *.bat text eol=crlf
 *.jar binary
+# Other apps' exports, kept byte for byte (TickTick ends checklist lines in a bare carriage return).
+schema/fixtures/imports/*.csv -text
+*.zip binary

@@ -57,6 +57,14 @@ export interface WorkspaceState {
   upgrade(): Promise<void>;
   /** Run an operation. With a label it becomes undoable ("Task completed"). */
   apply(operation: Operation, label?: string): void;
+  /**
+   * Run a big operation on outside data (an import) only if what it makes still passes the
+   * schema; otherwise nothing changes, and the errors (with the workspace that failed) come back.
+   */
+  applyChecked(
+    operation: Operation,
+    label: string,
+  ): { ok: true } | { ok: false; errors: string[]; workspace: WorkspaceFile };
   undo(id?: number): void;
   dismissUndo(): void;
   /** Persist now (also called on page hide). */
@@ -342,6 +350,16 @@ export function createWorkspaceStore(deps: StoreDependencies): WorkspaceStore {
           set({ workspace: after });
         }
         schedule();
+      },
+
+      applyChecked(operation, label) {
+        const { workspace } = get();
+        if (!workspace || !ctx) throw new Error('workspace is not ready');
+        const after = operation(ctx, workspace);
+        const check = deps.validator.validate(after);
+        if (!check.valid) return { ok: false, errors: check.errors, workspace: after };
+        get().apply(() => after, label);
+        return { ok: true };
       },
 
       undo(id) {

@@ -2,9 +2,9 @@
 // quick add reads them (spec: PL-022, PL-063), and ours written back as words those apps read.
 
 import type { DateParser } from '../../ports/dateParser.ts';
-import { datePart, timePart } from '../dates.ts';
+import { addDays, datePart, localDayOf, timePart } from '../dates.ts';
 import { parseQuickAdd } from '../quickAdd.ts';
-import { formatRule, parseRule, type Recurrence } from '../recurrence.ts';
+import { formatRule, nextOccurrence, parseRule, type Recurrence } from '../recurrence.ts';
 import type { Schedule, WorkspaceFile } from '../types.ts';
 
 export interface ReadDate {
@@ -40,14 +40,21 @@ export function dateReader(options: {
         recurrence: null,
       };
     }
-    // Todoist's "every!" counts from when it was done; "starting <date>" is a repeat's first day.
+    // Todoist's "every!" counts from when it was done; "starting <date>" is a repeat's first day,
+    // "until <date>" or "ending <date>" its last.
     const fromCompletion = /\bevery!/i.test(clean);
-    const [rest, startingText] = clean.replace(/\bevery!/gi, 'every').split(/\s+starting\s+/i);
-    const parsed = parseQuickAdd(rest!, {
-      workspace: options.workspace,
-      parser: options.parser,
-      reference: options.reference,
-    });
+    const words = clean.replace(/\bevery!/gi, 'every');
+    const [repeatText, untilText] = /^every\b/i.test(words)
+      ? words.split(/\s+(?:until|ending)\s+/i)
+      : [words];
+    const [rest, startingText] = repeatText!.split(/\s+starting\s+/i);
+    const parsed =
+      monthlyRepeat(rest!, options) ??
+      parseQuickAdd(rest!, {
+        workspace: options.workspace,
+        parser: options.parser,
+        reference: options.reference,
+      });
     let at = parsed.schedule ?? (parsed.due ? { start: parsed.due, end: null } : null);
     const starting = startingText
       ? options.parser.find(startingText, options.reference)[0]?.start
@@ -55,9 +62,16 @@ export function dateReader(options: {
     if (starting) at = { start: { date: starting.date, time: at?.start.time ?? null }, end: null };
     if (!at && !parsed.recurrence) return null;
     let recurrence = parsed.recurrence;
-    if (recurrence && fromCompletion) {
+    const until = untilText ? options.parser.find(untilText, options.reference)[0]?.start : null;
+    if (recurrence && (fromCompletion || until)) {
       const rule = parseRule(recurrence);
-      if (rule) recurrence = formatRule({ ...rule, fromCompletion: true });
+      if (rule) {
+        recurrence = formatRule({
+          ...rule,
+          ...(fromCompletion ? { fromCompletion: true } : {}),
+          ...(until ? { until: until.date } : {}),
+        });
+      }
     }
     const value = (moment: { date: string; time: string | null }) =>
       moment.time ? `${moment.date}T${moment.time}` : moment.date;
@@ -72,6 +86,70 @@ export function dateReader(options: {
         : null,
       recurrence,
     };
+  };
+}
+
+const ORDINALS: Record<string, number> = {
+  first: 1,
+  '1st': 1,
+  second: 2,
+  '2nd': 2,
+  third: 3,
+  '3rd': 3,
+  fourth: 4,
+  '4th': 4,
+  fifth: 5,
+  '5th': 5,
+  last: -1,
+};
+const MONTH_DAY = new RegExp(
+  String.raw`^every\s+(?:(\d{1,2})\s+months?\s+on\s+the\s+|month\s+on\s+the\s+)?` +
+    String.raw`(last|\d{1,2}(?:st|nd|rd|th))(?:\s+day)?(?:\s+of\s+(?:the\s+|each\s+)?month)?(?=$|\s)(.*)$`,
+  'i',
+);
+const NTH_WEEKDAY =
+  /^every\s+(first|second|third|fourth|fifth|last|1st|2nd|3rd|4th|5th)\s+(sun|mon|tue|wed|thu|fri|sat)[a-z]*(?:\s+of\s+(?:the\s+|each\s+)?month)?(?=$|\s)(.*)$/i;
+const SHORT_DAYS = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
+
+/**
+ * The monthly repeats quick add does not read, as Todoist writes them: "every last day", "every
+ * month on the last day", "every 15th", "every 3 months on the 1st", "every last friday", "every
+ * 2nd tuesday", each perhaps "at 9am". It starts on the first date on or after the reference.
+ */
+function monthlyRepeat(
+  text: string,
+  options: { parser: DateParser; reference: Date; timeZone: string },
+): Pick<ReturnType<typeof parseQuickAdd>, 'schedule' | 'due' | 'recurrence'> | null {
+  let rule: Recurrence | null = null;
+  let tail = '';
+  // "every last friday" before "every last day".
+  const nth = NTH_WEEKDAY.exec(text.trim());
+  const day = nth ? null : MONTH_DAY.exec(text.trim());
+  if (day) {
+    const which = day[2]!.toLowerCase();
+    const date = which === 'last' ? -1 : parseInt(which, 10);
+    if (date === 0 || date > 31) return null;
+    rule = { freq: 'MONTHLY', interval: Number(day[1] ?? 1) || 1, byMonthDay: [date] };
+    tail = day[3] ?? '';
+  } else if (nth) {
+    const weekday = SHORT_DAYS.indexOf(nth[2]!.toLowerCase());
+    rule = {
+      freq: 'MONTHLY',
+      interval: 1,
+      byDay: [{ weekday, nth: ORDINALS[nth[1]!.toLowerCase()]! }],
+    };
+    tail = nth[3] ?? '';
+  }
+  if (!rule) return null;
+  // Anything after it must be a time ("at 9am"), or it is some other kind of date.
+  const time = tail.trim() ? options.parser.find(tail, options.reference)[0] : undefined;
+  if (tail.trim() && !time?.start.time) return null;
+  const today = localDayOf(options.reference.toISOString(), options.timeZone);
+  const first = nextOccurrence(rule, today, addDays(today, -1)) ?? today;
+  return {
+    schedule: { start: { date: first, time: time?.start.time ?? null }, end: null },
+    due: null,
+    recurrence: formatRule(rule),
   };
 }
 
