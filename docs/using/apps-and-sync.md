@@ -68,6 +68,8 @@ cannot keep before anything changes. Then pick one:
 
 Either way the import is one step, so the undo toast takes it all back, including what Replace put
 in the Trash.
+Merging a newer export of the same account adds only the tasks that are not here yet; the details
+are in [moving from TickTick or Todoist](moving-from-ticktick-or-todoist.md#importing-again).
 
 | App | Import | Export |
 |---|---|---|

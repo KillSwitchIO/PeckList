@@ -28,11 +28,13 @@ way ([the other apps](apps-and-sync.md#moving-from-or-to-another-app)).
 
 1. In Punchlist: **Settings > Your data > Import from another app**.
 2. Pick **TickTick** or **Todoist** under **From**, and choose the file (or files).
-3. Punchlist shows what it found (lists, open and closed tasks, tags) and anything it cannot keep,
-   before it changes anything. Nothing is imported until you press **Import**.
+3. Punchlist shows what it found (lists, open and closed tasks, tags), what is already here from an
+   earlier import, and anything it cannot keep, before it changes anything. Nothing is imported
+   until you press **Import**.
 4. Choose how it lands:
-    - **Merge with what you have**: the import goes beside your tasks. Tick **Add to lists with the
-      same name** to put an imported "Groceries" into your Groceries list instead of a second one.
+    - **Merge with what you have**: the import goes beside your tasks. **Add to lists with the same
+      name** is on, so an imported "Groceries" goes into your Groceries list instead of a second
+      one; turn it off to get new lists beside yours.
     - **Replace what you have**: your own lists, your Mess Drawer's tasks and your tags go to the
       Trash first. Lists other people share with you stay. The dialog says how many.
 5. **Import**. It is one step: the undo toast takes all of it back, including what Replace moved to
@@ -41,36 +43,48 @@ way ([the other apps](apps-and-sync.md#moving-from-or-to-another-app)).
 Your TickTick or Todoist Inbox goes into Punchlist's **Mess Drawer** (its inbox); every other
 list or project becomes a list of the same name, with a colour of its own.
 
-!!! tip "Importing twice"
-    The import does not look for tasks you already have. Importing the same file twice with
-    **Merge** gives you every task twice. To start again from a newer export, undo the first
-    import, or use **Replace**.
+Before anything lands, Punchlist checks that the result is valid data. If it is not, nothing is
+imported, and the message names the task and what is wrong with it; please
+[report it](../about/reporting-bugs.md). Large exports are fine: 5,000 tasks take a few seconds.
+
+### Importing again
+
+Importing a newer export of the same account with **Merge** adds only what is new. A task is
+left out when one with the same title already sits in the list it would land in, under the same
+parent; from TickTick, its created time must match too (Todoist's export has none). The preview
+shows how many are already here, and the done message how many were left out. Tasks you changed in
+Punchlist since stay as you left them: the import does not overwrite them (but one you renamed
+counts as new, and comes in again).
+
+This needs the import to land in the same lists, so keep **Add to lists with the same name** on.
+With it off, only the Mess Drawer's tasks are recognised and every other list comes in again. Two
+tasks of the same name in one file stay two.
 
 ## What comes across
 
-| What                         | From TickTick                                                                                                                                          | From Todoist                                                                                                         |
-| ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------- |
-| Lists                        | Every list; the Inbox into the Mess Drawer                                                                                                             | Every project (named after its file); the Inbox into the Mess Drawer                                                 |
-| Folders                      | Not kept: their lists come in on their own                                                                                                             | (Todoist has none)                                                                                                   |
-| Sections and kanban columns  | Not kept: their tasks stay in the list                                                                                                                 | Not kept: their tasks stay in the list                                                                               |
-| Subtasks                     | Yes, in TickTick's order, up to 5 levels deep                                                                                                          | Yes, from the indent, up to 5 levels deep                                                                            |
-| Checklist items              | A checklist in the task's notes, ticked items ticked                                                                                                   | (Todoist has none; sub-tasks come as subtasks)                                                                       |
-| Notes and descriptions       | Yes, as written                                                                                                                                        | The description, as written                                                                                          |
-| Comments                     | Not in TickTick's backup                                                                                                                               | Added to the task's notes                                                                                            |
-| Tags and labels              | Yes; `Work/Calls` becomes a nested tag; emoji kept                                                                                                     | Yes, from `@label` in the task's text; nested with `/` the same way                                                  |
-| Priorities                   | High, medium, low, none                                                                                                                                | p1 to high, p2 medium, p3 low, p4 none                                                                               |
-| Start and due dates, times   | Yes, all-day or timed, in each task's own time zone; a span keeps its first and last day                                                               | Read from the date as Todoist writes it ("Nov 4 2026 9am", "every monday at 9am"), in your time zone                 |
-| Duration                     | A timed span keeps its end                                                                                                                             | A timed task's duration becomes its end time                                                                         |
-| Deadlines                    | (TickTick has none)                                                                                                                                    | Todoist's deadline becomes the task's due date                                                                       |
-| Repeats                      | Yes, when the rule is one Punchlist follows (daily, weekly on days, monthly on a day or the last day, yearly, until a date or a count)               | Yes, from the date words; `every!` repeats from when you finish it                                                   |
-| Reminders                    | Yes, before a timed task, or at a time on an all-day one                                                                                               | Not in Todoist's export                                                                                              |
-| Completed tasks              | Yes, closed with the date they were done                                                                                                               | Not in Todoist's export (it holds open tasks only)                                                                   |
-| Won't do                     | Yes, closed as won't do                                                                                                                                | (Todoist has none)                                                                                                   |
-| When a task was made         | Yes                                                                                                                                                    | Not in Todoist's export                                                                                              |
-| Notes (TickTick's note kind) | Come in as tasks                                                                                                                                       | (Todoist has none)                                                                                                   |
-| Attachments                  | **No.** The backup holds no files; download the ones you need from TickTick first                                                                    | **No.** The export holds no files                                                                                    |
-| Sharing, assignees           | No: the import is yours. Share the lists again in Punchlist                                                                                            | No, the same                                                                                                         |
-| List colours, pins, habits, focus records | No                                                                                                                                       | No                                                                                                                   |
+| What                         | From TickTick | From Todoist |
+| ---------------------------- | ------------- | ------------ |
+| Lists                        | Every list; the Inbox into the Mess Drawer | Every project (named after its file); the Inbox into the Mess Drawer |
+| Folders                      | Not kept: their lists come in on their own, and the preview says so | (Todoist has none) |
+| Sections and kanban columns  | Not kept: their tasks stay in the list, and the preview says so | Not kept: their tasks stay in the list, and the preview says so |
+| Subtasks                     | Yes, in TickTick's order, up to 5 levels deep | Yes, from the indent, up to 5 levels deep |
+| Checklist items              | A checklist in the task's notes, ticked items ticked | (Todoist has none; sub-tasks come as subtasks) |
+| Notes and descriptions       | Yes, as written, Markdown included (headings, links, lists, code, tables) | The description, as written |
+| Comments                     | Not in TickTick's backup | Added to the task's notes, below the description |
+| Tags and labels              | Yes. Names are lowercased and spaces become dashes (`Work Stuff` is `work-stuff`); `home/garden` nests under `home`; emoji kept | Yes, from `@label` in the task's text (the title loses them), named and nested the same way |
+| Priorities                   | High, medium, low, none | p1 to high, p2 medium, p3 low, p4 none |
+| Start and due dates, times   | Yes, all-day or timed, in each task's own time zone (the device's when the row names none); a span keeps its first and last day | Read from the date as Todoist writes it ("Nov 4 2026 9am"), in the task's own time zone when the export names one, else the device's |
+| Duration                     | A timed span keeps its end | A timed task's duration becomes its end time |
+| Deadlines                    | (TickTick has none) | Todoist's deadline becomes the task's due date |
+| Repeats                      | Yes, when the rule is one Punchlist follows: daily, every weekday, weekly on days, monthly on a day, the last day or the last Friday, yearly, until a date or a count | Yes, from the date words: "every monday at 9am", "every weekday", "every 15th", "every last day", "every last friday", "every 2 weeks starting Nov 4", "every day until Dec 31"; `every!` repeats from when you finish it |
+| Reminders                    | Yes, before a timed task, or at a time on an all-day one; up to 10 a task (more are counted in the preview) | Not in Todoist's export |
+| Completed tasks              | Yes, closed with the time they were done. The backup has no archived flag | Not in Todoist's export (it holds open tasks only, not completed or archived ones) |
+| Won't do                     | Yes, closed as won't do | (Todoist has none) |
+| When a task was made         | Yes | Not in Todoist's export |
+| Notes (TickTick's note kind) | Come in as tasks | (Todoist has none) |
+| Attachments                  | **No**: the backup holds no files. Each one leaves a line in the notes, `📎 receipt.jpg (attachment not imported)`, and the preview counts them. Download the ones you need from TickTick first | **No**, the same: a line in the notes for each file on a task or comment |
+| Sharing, assignees           | No: the import is yours. Share the lists again in Punchlist | No, the same |
+| List colours, pins, habits, focus records | No | No |
 
 A few more things work the way TickTick and Todoist mean them, not literally:
 
@@ -82,7 +96,8 @@ A few more things work the way TickTick and Todoist mean them, not literally:
   without a repeat. The preview counts them.
 - **Dates Punchlist cannot read** in a Todoist export come in without a date, and the preview
   counts them too.
-- **Reminders it cannot read** are dropped and counted.
+- **Reminders it cannot keep** (unreadable, or past the tenth on a task) are dropped and counted.
+  One set more than a year before its task becomes a reminder at that date and time instead.
 
 ## After the import
 
