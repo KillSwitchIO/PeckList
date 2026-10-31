@@ -12,6 +12,7 @@ import { useWorkspace } from '../store/hooks.ts';
 import { Comments } from './Comments.tsx';
 import { BottomSheet } from '../layout/BottomSheet.tsx';
 import { TaskHistory } from './TaskHistory.tsx';
+import { touchInside } from './touchInside.ts';
 
 /** How far a finger swipes up to open the comments (R-FB-109). */
 export const SWIPE_UP_PX = 40;
@@ -68,7 +69,7 @@ export function PhoneTaskMore({
       <ButtonBase
         onClick={() => setOpen(true)}
         onTouchStart={(event) => {
-          swipe.current = event.touches[0]?.clientY ?? null;
+          swipe.current = touchInside(event) ? (event.touches[0]?.clientY ?? null) : null;
         }}
         onTouchMove={(event) => {
           const y = event.touches[0]?.clientY;
