@@ -53,6 +53,43 @@ public sealed class SharingIndex
         GroupOwner,
         /// <summary>The storage owner of lists.</summary>
         ListOwner,
+        /// <summary>Tasks with reminders (one key): the reminder sender reads only these.</summary>
+        Reminders,
+    }
+
+    /// <summary>
+    /// Collections kept whole: the ones sharing is made of, few and small, whose documents the
+    /// server writes back (hand-overs, successions, profiles) or reads (settings).
+    /// </summary>
+    private static readonly HashSet<string> Whole = ["lists", "listMembers", "groups", "groupMembers", "friendships", "users", "settings"];
+
+    /// <summary>
+    /// What is kept of everything else: the fields sharing, reminders, notification texts and the
+    /// server's own changes read. Notes, tags, order and the per-field clocks stay in the database
+    /// (audit P1: whole task documents in memory were about 7.5 KB each, 2.3 GB at 300,000 entities).
+    /// The server's changes merge onto the stored copy, so a kept copy without clocks loses to it
+    /// on every field the change does not set.
+    /// </summary>
+    private static readonly Dictionary<string, string[]> Kept = new(StringComparer.Ordinal)
+    {
+        ["tasks"] = ["listId", "parentId", "assignees", "title", "status", "reminders", "schedule", "due", "recurrence", "constantReminder", "pinnedAt"],
+        ["comments"] = ["taskId"],
+        ["attachments"] = ["taskId", "sha256", "name"],
+        ["sections"] = ["listId", "name"],
+    };
+
+    private static readonly string[] Always = ["id", "deletedAt", "createdBy"];
+
+    /// <summary>The document as the index keeps it (see <see cref="Kept"/>).</summary>
+    private static JsonObject Slim(string collection, JsonObject doc)
+    {
+        if (Whole.Contains(collection)) return doc;
+        var kept = new JsonObject();
+        foreach (var field in Always.Concat(Kept.GetValueOrDefault(collection) ?? ["name"]))
+        {
+            if (doc.TryGetPropertyValue(field, out var value)) kept[field] = value?.DeepClone();
+        }
+        return kept;
     }
 
     private static readonly int Lookups = Enum.GetValues<By>().Length;
@@ -83,6 +120,7 @@ public sealed class SharingIndex
         {
             case "tasks":
                 if (facts.Get("parentId") is { } parent) yield return (By.Parent, parent);
+                if (facts.Doc["reminders"] is JsonArray { Count: > 0 }) yield return (By.Reminders, "");
                 foreach (var assignee in facts.SetMembers("assignees")) yield return (By.Assignee, assignee);
                 break;
             case "listMembers":
@@ -135,7 +173,7 @@ public sealed class SharingIndex
     public void Apply(StoredEntity entity)
     {
         if (byId.TryGetValue(entity.Id, out var old)) Index(old, add: false);
-        var facts = new Facts(entity.Collection, entity.Id, entity.OwnerId, entity.Doc);
+        var facts = new Facts(entity.Collection, entity.Id, entity.OwnerId, Slim(entity.Collection, entity.Doc));
         byId = byId.SetItem(entity.Id, facts);
         Index(facts, add: true);
     }
@@ -144,7 +182,7 @@ public sealed class SharingIndex
     public static SharingIndex Build(IEnumerable<StoredEntity> entities)
     {
         var all = ImmutableDictionary.CreateBuilder<string, Facts>(StringComparer.Ordinal);
-        foreach (var entity in entities) all[entity.Id] = new Facts(entity.Collection, entity.Id, entity.OwnerId, entity.Doc);
+        foreach (var entity in entities) all[entity.Id] = new Facts(entity.Collection, entity.Id, entity.OwnerId, Slim(entity.Collection, entity.Doc));
         var keyed = Enumerable.Range(0, Lookups).Select(_ => new Dictionary<string, ImmutableHashSet<string>.Builder>(StringComparer.Ordinal)).ToArray();
         foreach (var facts in all.Values)
         {
@@ -181,7 +219,10 @@ public sealed class SharingIndex
     /// <summary>Every entity id held (deleted ones too).</summary>
     public IEnumerable<string> Ids() => byId.Keys;
 
-    /// <summary>An entity's stored document, deleted or not.</summary>
+    /// <summary>
+    /// An entity's document as the index keeps it, deleted or not: whole for the sharing
+    /// collections, the read fields only for tasks, comments, files and the rest (see <see cref="Kept"/>).
+    /// </summary>
     public JsonObject? DocOf(string id) => byId.TryGetValue(id, out var facts) ? facts.Doc : null;
 
     /// <summary>A live entity's document (of <paramref name="collection"/> when given), or null when it is deleted or unknown.</summary>
@@ -191,6 +232,10 @@ public sealed class SharingIndex
     /// <summary>Every live entity of a collection: its id, owner and document (the reminder sender reads tasks).</summary>
     public IEnumerable<(string Id, string Owner, JsonObject Doc)> LiveOf(string collection) =>
         Live(collection).Select(each => (each.Id, each.Owner, each.Doc));
+
+    /// <summary>Live tasks that have reminders (the reminder sender and the Android check read these).</summary>
+    public IEnumerable<(string Id, string Owner, JsonObject Doc)> LiveTasksWithReminders() =>
+        EachLive(By.Reminders, "").Where(each => each.Collection == "tasks").Select(each => (each.Id, each.Owner, each.Doc));
 
     /// <summary>The live subtasks of a task.</summary>
     public IReadOnlyList<(string Id, JsonObject Doc)> LiveChildrenOf(string taskId) =>

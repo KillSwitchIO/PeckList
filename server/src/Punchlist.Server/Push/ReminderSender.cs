@@ -50,7 +50,7 @@ public sealed class ReminderSender(
     {
         var index = sharing.Index;
         var settings = SettingsByUser(index);
-        foreach (var (taskId, _, task) in index.LiveOf("tasks"))
+        foreach (var (taskId, _, task) in index.LiveTasksWithReminders())
         {
             if (task["reminders"] is not JsonArray { Count: > 0 } || (string?)task["status"] != "open") continue;
             foreach (var userId in ServerReminders.Recipients(task, index))
@@ -98,7 +98,7 @@ public sealed class ReminderSender(
             : deviceZone is not null && TimeZoneInfo.TryFindSystemTimeZoneById(deviceZone, out var device) ? device
             : TimeZoneInfo.Local;
         var found = new List<Upcoming>();
-        foreach (var (taskId, _, task) in index.LiveOf("tasks"))
+        foreach (var (taskId, _, task) in index.LiveTasksWithReminders())
         {
             if (task["reminders"] is not JsonArray { Count: > 0 } || (string?)task["status"] != "open") continue;
             if (!ServerReminders.Recipients(task, index).Contains(userId)) continue;
