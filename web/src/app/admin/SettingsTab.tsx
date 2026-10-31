@@ -40,6 +40,7 @@ const LABELS: Record<string, MessageKey> = {
   ACCESS_LOG_RETENTION_DAYS: 'serverSettings.ACCESS_LOG_RETENTION_DAYS',
   AUDIT_ARCHIVE: 'serverSettings.AUDIT_ARCHIVE',
   UPDATE_CHECK: 'serverSettings.UPDATE_CHECK',
+  API_DOCS: 'serverSettings.API_DOCS',
   TELEMETRY: 'serverSettings.TELEMETRY',
   TELEMETRY_URL: 'serverSettings.TELEMETRY_URL',
   DO_NOT_TRACK: 'serverSettings.DO_NOT_TRACK',

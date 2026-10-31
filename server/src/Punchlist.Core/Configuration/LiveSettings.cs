@@ -23,6 +23,7 @@ public sealed class LiveSettings(ServerSettings start)
             AttachmentMaxMb = next.AttachmentMaxMb,
             SignUpRateLimit = next.SignUpRateLimit,
             UpdateCheck = next.UpdateCheck,
+            ApiDocs = next.ApiDocs,
             Telemetry = next.Telemetry,
             TelemetryUrl = next.TelemetryUrl,
             SnapshotSchedule = next.SnapshotSchedule,

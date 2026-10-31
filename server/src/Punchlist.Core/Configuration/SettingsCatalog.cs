@@ -34,6 +34,7 @@ public static class SettingsCatalog
         new("ACCOUNT_DELETE_GRACE_DAYS", "general", SettingKind.Number, "7", Live: true),
         new("ATTACHMENT_MAX_MB", "general", SettingKind.Number, "25", Live: true),
         new("UPDATE_CHECK", "general", SettingKind.Flag, "true", Live: true),
+        new("API_DOCS", "general", SettingKind.Flag, "true", Live: true),
         new("TELEMETRY", "telemetry", SettingKind.Flag, "true", Live: true),
         new("TELEMETRY_URL", "telemetry", SettingKind.Url, "https://telemetry.killswitch10.com/api/public/v1/ping", Live: true),
         new("SIGNUP_RATE_LIMIT", "sign-in", SettingKind.Number, "5", Live: true),

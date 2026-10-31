@@ -4,6 +4,17 @@ The web app talks to the server over JSON. That API is usable from scripts, but 
 stable public API**: it can change in any minor version. Pin the Punchlist version if you script
 against it, and read the changelog when upgrading.
 
+## Swagger and OpenAPI
+
+Every server describes its own API: the OpenAPI 3.1 document is at `/api/openapi/v1.json`, and
+**`/api/docs`** is a Swagger UI page that reads it. There you can browse the routes by area and
+try them: press **Authorize** and paste an API key (below), or just use the page in a browser
+that is signed in to the server. Point other tools at the document: code generators, Postman or
+Bruno, an AI assistant's HTTP tool, a ChatGPT Custom GPT action.
+
+Both are public, like the source code: they show what the API offers, never anyone's data.
+[`API_DOCS=off`](../configuration/reference.md#api_docs) turns them off.
+
 ## Signing in from a script
 
 The easy way is an **API key**: make one in **Settings > API keys** with a name, an expiry (or
@@ -57,6 +68,7 @@ does. Every admin route needs the matching [role](../guides/users-and-roles.md#r
 | --------------------- | -------------------------------------------------------- |
 | `GET /healthz`        | `200 Healthy` or `503`                                   |
 | `GET /api/info`       | Name, version, schema version and time zone              |
+| `GET /api/openapi/v1.json`, `GET /api/docs` | The API's OpenAPI document and its Swagger UI page (unless `API_DOCS=off`) |
 | `GET /auth/providers` | The single sign-on providers offered on the sign-in page |
 
 ## Signing in
