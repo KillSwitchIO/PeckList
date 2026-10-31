@@ -505,6 +505,7 @@ export const en = {
   'serverSettings.ACCESS_LOG_RETENTION_DAYS': 'Days requests are kept',
   'serverSettings.AUDIT_ARCHIVE': 'Archive entries before removing them',
   'serverSettings.UPDATE_CHECK': 'Look for new releases',
+  'serverSettings.API_DOCS': 'API docs page (Swagger)',
   'serverSettings.group.telemetry': 'Telemetry',
   'serverSettings.TELEMETRY': 'Send the anonymous daily usage report',
   'serverSettings.TELEMETRY_URL': 'Where the usage report goes',

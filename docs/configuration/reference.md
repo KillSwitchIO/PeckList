@@ -153,6 +153,14 @@ GitLab (one request, from the server only; people's browsers never call out). Wh
 than the server or someone's Android app, the menu shows a notice with the release page. Turn it
 off to make no such request. **Default:** `true`. **Where:** any, live.
 
+### `API_DOCS`
+
+Serve the description of the HTTP API: the OpenAPI document at `/api/openapi/v1.json` and a
+Swagger UI page at `/api/docs` to read it and try calls with an API key (see the
+[HTTP API](../reference/http-api.md#swagger-and-openapi)). Both are public, like the source code;
+they show what the API offers, never anyone's data. Turn it off and both answer 404.
+**Default:** `true`. **Where:** any, live.
+
 ### `ATTACHMENT_DIR`
 
 Where attached files are kept, one file per content hash. Back this folder up with the database.

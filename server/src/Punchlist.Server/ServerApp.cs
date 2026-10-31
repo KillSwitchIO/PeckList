@@ -125,6 +125,7 @@ public static partial class ServerApp
         builder.Services.AddHostedService(provider => provider.GetRequiredService<AccountRemoval>());
         builder.Services.AddResponseHardening();
         builder.Services.AddDemoMode(settings);
+        builder.Services.AddApiDocs();
         builder.Services.Configure<ForwardedHeadersOptions>(options =>
         {
             options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
@@ -161,8 +162,10 @@ public static partial class ServerApp
         LogPipeline.UseLogContext(app, user: true);
         app.UseAuthorization();
         app.UseRateLimiter();
+        app.UseApiDocs();
 
         app.MapHealthChecks("/healthz");
+        app.MapApiDocs();
         app.MapGet("/api/info", (LiveSettings live) =>
             new ServerInfo("punchlist", Version, WorkspaceSchema.CurrentVersion, TimeZoneInfo.Local.Id, live.Current.AttachmentMaxMb,
                 AppSignIn: settings.AuthMode != AuthMode.None, Demo: Demo.Info(settings)));

@@ -98,6 +98,9 @@ public sealed record ServerSettings
     /// <summary>Look for newer Punchlist releases on GitLab twice a day (<c>UPDATE_CHECK</c>).</summary>
     public bool UpdateCheck { get; init; } = true;
 
+    /// <summary>Serve the OpenAPI document and the Swagger UI page of the HTTP API (<c>API_DOCS</c>).</summary>
+    public bool ApiDocs { get; init; } = true;
+
     /// <summary>Where the daily usage report goes unless <c>TELEMETRY_URL</c> says otherwise (moves to the app's domain at 1.0).</summary>
     public static readonly Uri DefaultTelemetryUrl = new("https://telemetry.killswitch10.com/api/public/v1/ping");
 
@@ -279,6 +282,7 @@ public sealed record ServerSettings
                 ?? Path.Combine(Path.GetDirectoryName(dbPath) is { Length: > 0 } attachmentDir ? attachmentDir : ".", "attachments"),
             AttachmentMaxMb = Count("ATTACHMENT_MAX_MB", 25, 1),
             UpdateCheck = Flag("UPDATE_CHECK", true),
+            ApiDocs = Flag("API_DOCS", true),
             Telemetry = Flag("TELEMETRY", true) && !Flag("DO_NOT_TRACK", false),
             TelemetryUrl = telemetryUrl,
             AuditArchiveDir = Get("AUDIT_ARCHIVE_DIR")
