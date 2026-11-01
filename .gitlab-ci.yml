@@ -428,7 +428,10 @@ android-release:
       if [ -n "${CI_COMMIT_TAG:-}" ]; then
         VERSION=$(echo "$CI_COMMIT_TAG" | sed 's/^v//; s/+.*//')
       else
-        VERSION="$(sed -n 's:.*<Version>\(.*\)</Version>.*:\1:p' server/Directory.Build.props)-edge.$CI_COMMIT_SHORT_SHA"
+        # A digits-only hash gets a letter, as in scripts/build-version.sh (SemVer forbids 0123).
+        SHA=$CI_COMMIT_SHORT_SHA
+        case "$SHA" in *[!0-9]*) ;; *) SHA="g$SHA" ;; esac
+        VERSION="$(sed -n 's:.*<Version>\(.*\)</Version>.*:\1:p' server/Directory.Build.props)-edge.$SHA"
       fi
       export PUNCHLIST_VERSION="$VERSION" PUNCHLIST_VERSION_CODE="$CI_PIPELINE_IID" PUNCHLIST_REVISION="$CI_COMMIT_SHA"
       export ANDROID_KEYSTORE_FILE="$CI_PROJECT_DIR/release-key.p12"

@@ -84,6 +84,21 @@ test('a build between releases is the next patch, so it sorts after the release 
   }
 });
 
+test('a hash of digits only gets a letter, so the build is still a version', () => {
+  // Main's 03262935 (2026-11-01) made 0.4.1-edge.03262935, which .NET refused: SemVer forbids a
+  // leading zero in a numeric identifier.
+  const main = { CI_COMMIT_BRANCH: 'main' };
+  for (const [sha, version] of [
+    ['03262935', '0.4.1-edge.g03262935'],
+    ['12345678', '0.4.1-edge.g12345678'],
+    ['0a2b3c4d', '0.4.1-edge.0a2b3c4d'],
+  ]) {
+    const built = buildVersion('0.4.0', { ...main, CI_COMMIT_SHORT_SHA: sha });
+    assert.equal(built, version);
+    assert.ok(SEMVER.test(built), built);
+  }
+});
+
 test('a release tag builds exactly its version', () => {
   assert.equal(buildVersion('0.2.0', { CI_COMMIT_TAG: 'v0.2.0+20261025' }), '0.2.0');
   assert.equal(buildVersion('0.3.0-rc.1', { CI_COMMIT_TAG: 'v0.3.0-rc.1+20261101' }), '0.3.0-rc.1');
