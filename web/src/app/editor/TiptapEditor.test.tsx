@@ -72,6 +72,19 @@ describe('TipTap notes extras', () => {
     expect(onCommit).toHaveBeenCalledExactlyOnceWith('bought\n\nnot yet');
   });
 
+  it('draws "every line a checkbox" apart from the checklist button, and keeps the toolbar on top', async () => {
+    renderThemed(<TiptapEditor label="Notes" value="milk" onCommit={() => undefined} expanded />);
+    await screen.findByRole('textbox', { name: 'Notes' });
+    const icon = (name: string) =>
+      screen.getByRole('button', { name }).querySelector('svg')!.innerHTML;
+    // Two buttons that do different things must not look the same (Ben, 2026-11-01).
+    expect(icon('Every line a checkbox')).not.toBe(icon('Checklist'));
+    // Pinned to the top of the full editor while the notes scroll under it.
+    expect(getComputedStyle(screen.getByRole('toolbar', { name: 'Formatting' })).position).toBe(
+      'sticky',
+    );
+  });
+
   it('has no edit mode inline: no toolbar on focus; the full editor has one', async () => {
     const { unmount } = renderThemed(
       <TiptapEditor label="Notes" value="" onCommit={() => undefined} />,

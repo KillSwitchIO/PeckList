@@ -170,6 +170,21 @@ export function ChecklistIcon(props: SvgIconProps) {
   );
 }
 
+/**
+ * Every line a checkbox: three lines, each with its own small box. Set apart from the checklist
+ * button (two bigger boxes, one ticked), which makes a checklist of the current line only.
+ */
+export function AllLinesChecklistIcon(props: SvgIconProps) {
+  return (
+    <PunchIcon {...props}>
+      <rect x="3.5" y="3.75" width="4.5" height="4.5" rx="1.2" />
+      <rect x="3.5" y="9.75" width="4.5" height="4.5" rx="1.2" />
+      <rect x="3.5" y="15.75" width="4.5" height="4.5" rx="1.2" />
+      <path d="M11.5 6h9M11.5 12h9M11.5 18h6" />
+    </PunchIcon>
+  );
+}
+
 /** Plain lines: three text lines, no boxes (a checklist turned back into lines). */
 export function NotesLinesIcon(props: SvgIconProps) {
   return (
