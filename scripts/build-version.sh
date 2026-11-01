@@ -22,6 +22,13 @@ props=${VERSION_PROPS:-$(dirname "$0")/../server/Directory.Build.props}
 current=$(sed -n 's:.*<Version>\(.*\)</Version>.*:\1:p' "$props")
 [ -n "$current" ] || { echo "no <Version> in $props" >&2; exit 1; }
 sha=${CI_COMMIT_SHORT_SHA:?CI_COMMIT_SHORT_SHA is not set}
+# A hash of digits only is a numeric SemVer identifier, which may not start with 0
+# (`0.4.1-edge.03262935` is no version, and .NET refuses it): give it a letter, as git describe
+# does. Hashes with a letter in them, nearly all of them, stay as they are.
+case "$sha" in
+  *[!0-9]*) ;;
+  *) sha="g$sha" ;;
+esac
 
 if [ "${CI_COMMIT_BRANCH:-}" = "${CI_DEFAULT_BRANCH:-main}" ]; then
   channel=edge

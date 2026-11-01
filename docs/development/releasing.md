@@ -23,8 +23,10 @@ release with notes.
 - Builds between releases carry the **next** patch, so they sort after the release they follow and
   before the next one: after `0.2.0`, `main` builds `0.2.1-edge.<commit>` and other branches
   `0.2.1-dev.<commit>`. After a pre-release such as `0.3.0-rc.1` they are
-  `0.3.0-rc.1.edge.<commit>`. `scripts/build-version.sh` works this out, for CI and for builds by
-  hand (`CI_COMMIT_SHORT_SHA=$(git rev-parse --short HEAD) CI_COMMIT_BRANCH=main sh
+  `0.3.0-rc.1.edge.<commit>`. A commit hash of digits only gets a `g` in front
+  (`0.4.1-edge.g03262935`): SemVer forbids a leading zero in a numeric part.
+  `scripts/build-version.sh` works this out, for CI and for builds by hand
+  (`CI_COMMIT_SHORT_SHA=$(git rev-parse --short HEAD) CI_COMMIT_BRANCH=main sh
   scripts/build-version.sh`).
 - Bump the version with each release; nothing else moves it. Until something is released, every
   build says the last version (that is how everything up to 0.2.0 said `0.1.0-edge`).
