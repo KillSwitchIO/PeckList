@@ -23,6 +23,7 @@ import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 're
 import type { RichTextEditorProps } from '../../ports/richText.ts';
 import { t } from '../i18n/i18n.ts';
 import {
+  AllLinesChecklistIcon,
   BoldIcon,
   BulletListIcon,
   ChecklistIcon,
@@ -55,7 +56,7 @@ const SLASH_ICONS: Record<SlashCommandId, ReactNode> = {
   bulletList: <BulletListIcon fontSize="small" />,
   orderedList: <NumberedListIcon fontSize="small" />,
   checklist: <ChecklistIcon fontSize="small" />,
-  linesToChecklist: <ChecklistIcon fontSize="small" />,
+  linesToChecklist: <AllLinesChecklistIcon fontSize="small" />,
   checklistToLines: <NotesLinesIcon fontSize="small" />,
   quote: <QuoteIcon fontSize="small" />,
   codeBlock: <CodeIcon fontSize="small" />,
@@ -336,8 +337,9 @@ export default function TiptapEditor({
           '& ul[data-type=taskList] li': {
             display: 'flex',
             alignItems: 'flex-start',
-            gap: 1,
-            my: 0.25,
+            gap: 1.5,
+            // Room between rows, so each box is easy to hit on its own (Ben, 2026-11-01).
+            my: 1.5,
             // The box is centered on the first line of text: the label is one line tall.
             '& > label': {
               flex: 'none',
@@ -357,11 +359,11 @@ export default function TiptapEditor({
               appearance: 'none',
               boxSizing: 'border-box',
               m: 0,
-              width: 18,
-              height: 18,
-              borderRadius: '5px',
+              width: 22,
+              height: 22,
+              borderRadius: '6px',
               border: `1.5px solid ${theme.palette.text.secondary}`,
-              [theme.breakpoints.down('md')]: { width: 20, height: 20 },
+              [theme.breakpoints.down('md')]: { width: 24, height: 24 },
               cursor: 'pointer',
               '&:checked': {
                 borderColor: theme.palette.text.disabled,
@@ -369,7 +371,7 @@ export default function TiptapEditor({
                 backgroundImage: checkMark(theme.palette.background.paper),
                 backgroundRepeat: 'no-repeat',
                 backgroundPosition: 'center',
-                backgroundSize: '13px',
+                backgroundSize: '15px',
               },
               '&:focus-visible': {
                 outline: `2px solid ${theme.palette.primary.main}`,
@@ -500,6 +502,13 @@ function FormatToolbar({ editor }: { editor: Editor }) {
       role="toolbar"
       aria-label={t('editor.formatting')}
       sx={{
+        // Stays at the top of the full editor while the notes scroll under it, on the dialog's
+        // own surface (its dark-mode overlay included, through the Paper's variable).
+        position: 'sticky',
+        top: 0,
+        zIndex: 1,
+        bgcolor: 'background.paper',
+        backgroundImage: 'var(--Paper-overlay)',
         display: 'flex',
         flexWrap: 'wrap',
         alignItems: 'center',
@@ -564,7 +573,7 @@ function FormatToolbar({ editor }: { editor: Editor }) {
             active.allChecklist ? (
               <NotesLinesIcon fontSize="small" />
             ) : (
-              <ChecklistIcon fontSize="small" />
+              <AllLinesChecklistIcon fontSize="small" />
             ),
             () =>
               (active.allChecklist ? chain().checklistToLines() : chain().linesToChecklist()).run(),
