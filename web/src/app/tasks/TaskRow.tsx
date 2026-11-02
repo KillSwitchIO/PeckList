@@ -6,7 +6,9 @@ import RepeatRounded from '@mui/icons-material/RepeatRounded';
 import ChevronRightRounded from '@mui/icons-material/ChevronRightRounded';
 import SubdirectoryArrowRightRounded from '@mui/icons-material/SubdirectoryArrowRightRounded';
 import { Box, ButtonBase, Checkbox, IconButton, Typography, useTheme } from '@mui/material';
+import { darken, lighten, type Theme } from '@mui/material/styles';
 import { useRef, useState } from 'react';
+import { useLocation } from 'react-router';
 import { getEntity } from '../../core/collections.ts';
 import { subtaskProgress } from '../../core/queries.ts';
 import { assigneesOf, describePrincipal } from '../../core/sharing.ts';
@@ -31,6 +33,7 @@ import { keyboardMove } from '../../core/taskDrag.ts';
 import { TagChips } from '../tags/TagChip.tsx';
 import { useTaskSelection } from './selection.ts';
 import { useBulkSelect, useInSection } from './bulkSelect.ts';
+import { bumpClosedCount, playCheckOff, type BirdColors } from './checkOff.ts';
 import { CHECK_PATH, CROSS_PATH } from './closedMarks.ts';
 import { DateButton, TaskDateSheet } from './DateButton.tsx';
 import { SwipeRow } from './SwipeRow.tsx';
@@ -47,6 +50,27 @@ const PRIORITY_KEY = { 0: 'none', 1: 'low', 2: 'medium', 3: 'high' } as const sa
  * Rounded-square checkbox; its border carries the priority color. Held (a finger), it opens the
  * task's menu (spec: R-FB-69): the row itself only drags.
  */
+/** The bird in the theme's accent, as the app icon has it. */
+function birdColors(theme: Theme): BirdColors {
+  const accent = theme.palette.primary.main;
+  return {
+    facets: [
+      accent,
+      darken(accent, 0.15),
+      lighten(accent, 0.15),
+      darken(accent, 0.28),
+      lighten(accent, 0.3),
+      darken(accent, 0.06),
+    ],
+    edge: theme.palette.background.paper,
+    beak: '#e8a33d',
+    eye: '#ffffff',
+    tick: theme.palette.text.disabled,
+    onTick: theme.palette.background.paper,
+    strike: theme.palette.text.disabled,
+  };
+}
+
 export function PriorityCheckbox({
   task,
   hold,
@@ -58,6 +82,9 @@ export function PriorityCheckbox({
   const theme = useTheme();
   const apply = useApply();
   const readOnly = useReadOnly();
+  const { pathname } = useLocation();
+  // The bird is still flying: the task is not written as done yet, and another tap waits.
+  const flying = useRef(false);
   const ring = theme.punchlist.priority[PRIORITY_KEY[task.priority]].fill;
   const done = task.status !== 'open';
   const title = task.title || t('task.untitled');
@@ -73,10 +100,33 @@ export function PriorityCheckbox({
       disabled={readOnly}
       onClick={(event) => {
         event.stopPropagation();
-        apply(
-          (ctx, ws) => toggleTaskDone(ctx, ws, task.id),
-          done ? t('undo.reopened') : t('undo.completed'),
-        );
+        if (done) {
+          apply((ctx, ws) => toggleTaskDone(ctx, ws, task.id), t('undo.reopened'));
+          return;
+        }
+        if (flying.current) return;
+        // Written once the bird is done, and only if nothing closed it meanwhile.
+        const complete = () =>
+          apply(
+            (ctx, ws) =>
+              getEntity(ws, 'tasks', task.id)?.status === 'open'
+                ? setTaskStatus(ctx, ws, task.id, 'done')
+                : ws,
+            t('undo.completed'),
+          );
+        // Delivery on Today, to the Closed count; a swoop along the row everywhere else.
+        const style = pathname === '/today' ? 'deliver' : 'swoop';
+        const playing = playCheckOff(event.currentTarget, style, birdColors(theme));
+        if (!playing) {
+          complete();
+          return;
+        }
+        flying.current = true;
+        void playing.then(() => {
+          flying.current = false;
+          complete();
+          if (style === 'deliver') requestAnimationFrame(bumpClosedCount);
+        });
       }}
       sx={{ p: 0.75 }}
     >
