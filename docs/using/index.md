@@ -125,7 +125,10 @@ their start; the due date is the deadline.
   formatting toolbar. Type `/` for blocks (headings, lists, a checklist, a quote, code). Two of
   them change the whole note: **Every line a checkbox** makes a checklist out of what is there,
   one box per line, and **Checkboxes back to lines** undoes that; the full editor has the same as
-  one toolbar button.
+  one toolbar button. Each heading has a handle at its right: drag it to move the heading with
+  everything under it. It goes before any heading of its size or bigger, or to the end, so two
+  top-level sections swap with their subsections, and a subsection moves within its section or
+  into another.
 - **Assigned**: a task you add to a shared list starts assigned to you.
 - **Files**: the paperclip at the top of a task's details attaches files, or drop them on the
   details. Pictures show as thumbnails and open large; other files download. Everyone who sees the
