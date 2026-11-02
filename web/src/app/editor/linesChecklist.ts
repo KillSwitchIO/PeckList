@@ -107,15 +107,19 @@ export function toLines(doc: Node, schema: Schema): Node[] {
   return out;
 }
 
-/** True when the notes are one checklist and nothing else (so "back to lines" is the move). */
+/**
+ * True when every line in the notes is a checkbox, so "back to lines" is the move. Headings, code
+ * and dividers keep their place either way, so they do not count: a checklist with a title in the
+ * middle still goes back to lines.
+ */
 export function isAllChecklist(doc: Node): boolean {
   let lists = 0;
-  let other = 0;
+  let lines = 0;
   doc.forEach((block) => {
     if (block.type.name === 'taskList') lists++;
-    else if (block.textContent.trim() !== '' || block.type.name !== 'paragraph') other++;
+    else if (LINE_BLOCKS.has(block.type.name) && collectLines(block).length > 0) lines++;
   });
-  return lists > 0 && other === 0;
+  return lists > 0 && lines === 0;
 }
 
 export const LinesChecklist = Extension.create({
