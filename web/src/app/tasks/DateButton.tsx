@@ -7,6 +7,7 @@ import { Box, ButtonBase } from '@mui/material';
 import { useState, type MouseEvent } from 'react';
 import { localDateTimeOf, localTimeZone } from '../../core/dates.ts';
 import { setCompletedAt, updateTask } from '../../core/tasks.ts';
+import { scheduleAsking } from '../repeat/repeatActions.ts';
 import type { Task } from '../../core/types.ts';
 import { DatePickerPanel } from '../dates/DatePickerPanel.tsx';
 import { fromDateValue, toDateValue, type DateValue } from '../dates/dateValue.ts';
@@ -58,17 +59,17 @@ function useRowDateEditor(task: Task, dueFirst: boolean) {
         }),
       );
     } else {
-      apply((ctx, ws) =>
-        updateTask(ctx, ws, task.id, {
-          schedule: next
-            ? {
-                start: fromDateValue(next),
-                end: next.end ? fromDateValue(next.end) : null,
-                allDay: next.time === null,
-                timeZone: zone,
-              }
-            : null,
-        }),
+      void scheduleAsking(
+        apply,
+        task,
+        next
+          ? {
+              start: fromDateValue(next),
+              end: next.end ? fromDateValue(next.end) : null,
+              allDay: next.time === null,
+              timeZone: zone,
+            }
+          : null,
       );
     }
   };

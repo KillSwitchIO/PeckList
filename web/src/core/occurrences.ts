@@ -34,7 +34,7 @@ function anchorOf(task: Task): string | null {
 }
 
 /** The task's schedule and due date moved by `days`, times kept. */
-function shifted(task: Task, days: number): Pick<Task, 'schedule' | 'due'> {
+export function shifted(task: Task, days: number): Pick<Task, 'schedule' | 'due'> {
   const shift = (value: string) => {
     const time = timePart(value);
     const date = addDays(datePart(value), days);
@@ -109,20 +109,21 @@ export function skipOccurrence(
 }
 
 /**
- * Change one occurrence on its own: it becomes a task of its own on that date (the same title,
- * notes, list, priority, tags, people and reminders before its time, not repeating), and the
- * series skips that date. The new task is returned to be opened and changed.
+ * Change one occurrence on its own: it becomes a task of its own (the same title, notes, list,
+ * priority, tags, people and reminders before its time, not repeating), on that date or on the
+ * dates `change` gives, and the series skips that date. The new task is returned to be opened.
  */
 export function detachOccurrence(
   ctx: OpContext,
   workspace: WorkspaceFile,
   id: Id,
   date: string,
+  change: Partial<Pick<Task, 'schedule' | 'due'>> = {},
 ): { workspace: WorkspaceFile; task: Task } | null {
   const task = requireEntity(workspace, 'tasks', id);
   const anchor = anchorOf(task);
   if (!parseRule(task.recurrence) || !anchor || date < datePart(anchor)) return null;
-  const moved = shifted(task, daysBetween(datePart(anchor), date));
+  const moved = { ...shifted(task, daysBetween(datePart(anchor), date)), ...change };
   const skipped = skipOccurrence(ctx, workspace, id, date);
   const made = createTask(ctx, skipped, {
     title: task.title,

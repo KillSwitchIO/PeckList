@@ -14,6 +14,8 @@ const OPENED = 'punchlistOpenedTask';
  */
 export function useTaskSelection(): {
   selectedId: string | null;
+  /** The date of a repeating task's occurrence to come it was opened on (`&on=`), if any. */
+  on: string | null;
   /** Whether the address asks for the full-screen view. */
   full: boolean;
   /** `on`: the date of a repeating task's occurrence to come it was opened from. */
@@ -26,6 +28,7 @@ export function useTaskSelection(): {
   const navigate = useNavigate();
   const location = useLocation();
   const selectedId = params.get('task');
+  const on = params.get('on');
   const full = params.get('full') === '1';
   const openedHere = (location.state as Record<string, unknown> | null)?.[OPENED] === true;
   const open = useCallback(
@@ -86,5 +89,5 @@ export function useTaskSelection(): {
       ),
     [setParams, openedHere],
   );
-  return { selectedId, full, open, close, leaveFull };
+  return { selectedId, on, full, open, close, leaveFull };
 }

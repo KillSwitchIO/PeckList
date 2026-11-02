@@ -2,7 +2,8 @@ import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router';
 import { getEntity, isLive } from '../../core/collections.ts';
 import { canEditTask } from '../../core/sharing.ts';
-import { deleteTask, toggleTaskDone } from '../../core/tasks.ts';
+import { toggleTaskDone } from '../../core/tasks.ts';
+import { deleteAsking } from '../repeat/repeatActions.ts';
 import { popupOpen, typing } from '../hooks/keys.ts';
 import { t } from '../i18n/i18n.ts';
 import { useWorkspaceStore } from '../store/hooks.ts';
@@ -91,8 +92,9 @@ export function useShortcuts(): { helpOpen: boolean; openHelp: () => void; close
           return true;
         case 'delete':
           if (!editable) return false;
-          state.apply((ctx, ws) => deleteTask(ctx, ws, task.id), t('undo.deleted'));
-          closeTask();
+          void deleteAsking(state.apply, task).then((deleted) => {
+            if (deleted) closeTask();
+          });
           return true;
       }
     };

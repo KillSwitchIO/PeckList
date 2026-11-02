@@ -13,13 +13,7 @@ import { getEntity } from '../../core/collections.ts';
 import { subtaskProgress } from '../../core/queries.ts';
 import { assigneesOf, describePrincipal } from '../../core/sharing.ts';
 import { tagsOfTask } from '../../core/tags.ts';
-import {
-  deleteTask,
-  isPinned,
-  setPinned,
-  setTaskStatus,
-  toggleTaskDone,
-} from '../../core/tasks.ts';
+import { isPinned, setPinned, setTaskStatus, toggleTaskDone } from '../../core/tasks.ts';
 import type { Priority, Task } from '../../core/types.ts';
 import { useLongPress } from '../hooks/useLongPress.ts';
 import { t } from '../i18n/i18n.ts';
@@ -42,6 +36,7 @@ import { MoveToListDialog, TaskMenu, type TaskMenuAnchor } from './TaskMenu.tsx'
 import { isBlankDraft } from './drafts.ts';
 import { occurrenceOf } from '../../core/occurrences.ts';
 import { OccurrenceRow } from '../repeat/OccurrenceRow.tsx';
+import { deleteAsking } from '../repeat/repeatActions.ts';
 
 const PRIORITY_KEY = { 0: 'none', 1: 'low', 2: 'medium', 3: 'high' } as const satisfies Record<
   Priority,
@@ -452,7 +447,7 @@ function TaskRowContent({
           } else if (action === 'wontDo') {
             apply((ctx, ws) => setTaskStatus(ctx, ws, task.id, 'wontdo'), t('undo.wontDo'));
           } else {
-            apply((ctx, ws) => deleteTask(ctx, ws, task.id), t('undo.deleted'));
+            void deleteAsking(apply, task);
           }
         }}
       >

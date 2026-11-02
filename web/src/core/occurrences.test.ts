@@ -134,3 +134,31 @@ describe("a repeating task's dates to come (PL-060)", () => {
     ]);
   });
 });
+
+describe('changing one date where the list has tasks that share an order key', () => {
+  it('still works (an import left two tasks with the same key: Ben, 2026-11-02)', () => {
+    const s = therapy();
+    const task = s.get(s.id);
+    // A second task with the very same order key, as the TickTick import left some.
+    const twin = createTask(s.ctx, s.ws, { title: 'Twin', listId: task.listId });
+    s.ws = {
+      ...twin.workspace,
+      entities: {
+        ...twin.workspace.entities,
+        tasks: twin.workspace.entities.tasks.map((each) =>
+          each.id === twin.task.id ? { ...each, order: task.order } : each,
+        ),
+      },
+    };
+    const made = detachOccurrence(s.ctx, s.ws, s.id, '2026-11-13', {
+      schedule: {
+        start: '2026-11-14T15:00',
+        end: null,
+        allDay: false,
+        timeZone: 'America/Chicago',
+      },
+    });
+    expect(made?.task.schedule?.start).toBe('2026-11-14T15:00');
+    expect((made?.task.order ?? '') > task.order).toBe(true);
+  });
+});

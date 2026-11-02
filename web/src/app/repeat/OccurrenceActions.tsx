@@ -1,12 +1,12 @@
-// One date of a repeating task, on its own (spec: PL-060): in the task's details, under Repeat,
-// "Skip" leaves that date out and "Change just this one" makes it a task of its own, while
-// everything else in the details changes the whole series. Opened from a date to come (the
-// calendar, Upcoming), it is about that date; otherwise about the task's current one.
+// The date of a repeating task the details show (spec: PL-060), under Repeat: which date it is,
+// what changes just that date (changing the date or deleting asks, thisOrAll) and a quick Skip.
+// Opened from a date to come (the calendar, Upcoming), it is about that date; otherwise about
+// the task's current one.
 
 import { Box, Button, Typography } from '@mui/material';
 import { useSearchParams } from 'react-router';
 import { datePart } from '../../core/dates.ts';
-import { detachOccurrence, skipOccurrence } from '../../core/occurrences.ts';
+import { skipOccurrence } from '../../core/occurrences.ts';
 import { parseRule } from '../../core/recurrence.ts';
 import type { Task } from '../../core/types.ts';
 import { formatDay } from '../format.ts';
@@ -47,24 +47,6 @@ export function OccurrenceActions({ task }: { task: Task }) {
           }}
         >
           {t('occurrence.skip', { day })}
-        </Button>
-        <Button
-          size="small"
-          variant="outlined"
-          onClick={() => {
-            let made: string | null = null;
-            apply(
-              (ctx, ws) => {
-                const detached = detachOccurrence(ctx, ws, task.id, date);
-                made = detached?.task.id ?? null;
-                return detached?.workspace ?? ws;
-              },
-              t('undo.occurrenceDetached', { day }),
-            );
-            if (made) open(made);
-          }}
-        >
-          {t('occurrence.changeOne')}
         </Button>
       </Box>
     </Box>
