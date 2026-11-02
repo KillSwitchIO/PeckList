@@ -1,4 +1,4 @@
-import { Alert, Switch } from '@mui/material';
+import { Alert, Button, Switch } from '@mui/material';
 import { useEffect, useState } from 'react';
 import { updateSettings } from '../../core/settings.ts';
 import type { NotificationSwitches } from '../../core/types.ts';
@@ -6,11 +6,15 @@ import { t } from '../i18n/i18n.ts';
 import { useApply, useWorkspace } from '../store/hooks.ts';
 import { BackgroundCheckSettings, CHECK_API } from '../native/BackgroundCheck.tsx';
 import { useShellInfo } from '../native/shell.ts';
+import type { NativeShell } from '../../ports/nativeShell.ts';
 import { browserPush } from '../reminders/notifier.ts';
 import { useSyncState } from '../sync/syncContext.ts';
 import { Section, SettingRow } from './settingsLayout.tsx';
 
 type State = 'checking' | 'on' | 'off' | 'unsupported' | 'blocked' | 'failed';
+
+/** The shell api with Android's notification settings for the app (PL-115). */
+const PHONE_SETTINGS_API = 5;
 
 /**
  * Settings > Notifications (spec: PL-061): Web Push for this device, so reminders and
@@ -49,7 +53,7 @@ export function NotificationSettings() {
     if (info.server !== null && info.api >= CHECK_API)
       return (
         <>
-          <NotificationKinds />
+          <NotificationKinds {...(info.api >= PHONE_SETTINGS_API ? { phone: shell } : {})} />
           <BackgroundCheckSettings shell={shell} />
         </>
       );
@@ -119,7 +123,7 @@ const KINDS: { key: keyof NotificationSwitches; label: Key; hint?: Key }[] = [
  * PL-115): synced, honored by the server for pushes and check-ins and by every device for what it
  * shows. Each switch absent means on.
  */
-function NotificationKinds() {
+function NotificationKinds({ phone }: { phone?: NativeShell }) {
   const workspace = useWorkspace();
   const apply = useApply();
   const current = workspace.entities.settings[0]?.notifications ?? {};
@@ -140,6 +144,14 @@ function NotificationKinds() {
           />
         </SettingRow>
       ))}
+      {phone && (
+        // Sound, vibration and on or off per kind are the phone's own channel settings.
+        <SettingRow label={t('notifications.onPhone')} hint={t('notifications.onPhoneHint')}>
+          <Button onClick={() => void phone.notificationSettings()}>
+            {t('notifications.manageOnPhone')}
+          </Button>
+        </SettingRow>
+      )}
     </Section>
   );
 }

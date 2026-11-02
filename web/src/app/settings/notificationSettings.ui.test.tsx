@@ -172,8 +172,14 @@ class CheckingShell implements NativeShell {
     maker: 'google',
   };
   asks = 0;
+  opened = 0;
+  constructor(public api = 2) {}
   info() {
-    return Promise.resolve({ api: 2, server: 'https://tasks.example.com', version: '0.1.0' });
+    return Promise.resolve({
+      api: this.api,
+      server: 'https://tasks.example.com',
+      version: '0.1.0',
+    });
   }
   checkServer() {
     return Promise.resolve({ ok: false as const, problem: 'unreachable' as const });
@@ -196,6 +202,10 @@ class CheckingShell implements NativeShell {
     // As if the person said yes in Android's dialog.
     this.state = { ...this.state, asked: true, unrestricted: true };
     return this.backgroundCheck();
+  }
+  notificationSettings() {
+    this.opened++;
+    return Promise.resolve();
   }
 }
 
@@ -238,6 +248,28 @@ async function signedInWithPrompt(backend: FakeBackend) {
 }
 
 describe('notifications in the Android app', () => {
+  it("open the phone's own notification settings for sounds and vibration (api 5)", async () => {
+    const shell = new CheckingShell(5);
+    setNativeShell(shell);
+    setNotifier(fakeNotifier('granted'));
+    const backend = new FakeBackend();
+    backend.addAccount('ben', 'correct horse battery');
+    await signedIn('/settings', backend);
+    const kinds = await screen.findByRole('region', { name: 'Tell me about' });
+    await userEvent.click(within(kinds).getByRole('button', { name: 'Manage on the phone' }));
+    expect(shell.opened).toBe(1);
+  });
+
+  it('an older app (api 4 and below) has no such button', async () => {
+    setNativeShell(new CheckingShell(4));
+    setNotifier(fakeNotifier('granted'));
+    const backend = new FakeBackend();
+    backend.addAccount('ben', 'correct horse battery');
+    await signedIn('/settings', backend);
+    const kinds = await screen.findByRole('region', { name: 'Tell me about' });
+    expect(within(kinds).queryByRole('button', { name: 'Manage on the phone' })).toBeNull();
+  });
+
   it('check in with the server in the background: on, every 5 minutes, until changed', async () => {
     const shell = new CheckingShell();
     setNativeShell(shell);

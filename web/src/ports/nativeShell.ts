@@ -54,4 +54,6 @@ export interface NativeShell {
   setBackgroundCheck(change: { enabled?: boolean; minutes?: number }): Promise<BackgroundCheck>;
   /** Android's dialog to let the app run in the background; the state once it closes. */
   allowBackground(): Promise<BackgroundCheck>;
+  /** Api 5: Android's notification settings for the app (each kind's sound and vibration). */
+  notificationSettings(): Promise<void>;
 }

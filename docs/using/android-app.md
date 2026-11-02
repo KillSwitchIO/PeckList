@@ -104,6 +104,9 @@ Servers with a certificate from your own CA work once that CA is installed on th
   mentions show as notifications, and reminders set on another device are set on the phone too.
   **Settings > Notifications** turns the check-in off or makes it less frequent (15, 30 or 60
   minutes).
+- Each kind of notification (reminders, assignments and dibs, shares, comments and mentions) has
+  its own sound, vibration and on or off switch in the phone's notification settings. **Settings >
+  Notifications > Manage on the phone** opens them.
 - After you sign in, the app asks to send notifications and to run in the background. Allow both,
   or reminders and check-ins come late or not at all.
 - On a Samsung phone, also add Punchlist to **Never sleeping apps** (Settings > Battery >

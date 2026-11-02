@@ -1349,6 +1349,10 @@ export const en = {
   'notifications.kindShares': 'Shared lists',
   'notifications.kindComments': 'Comments and mentions',
   'notifications.vibrate': 'Vibrate',
+  'notifications.onPhone': 'Sounds and vibration',
+  'notifications.onPhoneHint':
+    'Each kind has its own sound, vibration and on or off switch in the phone\u2019s notification settings for Punchlist.',
+  'notifications.manageOnPhone': 'Manage on the phone',
   'notifications.vibrateHint':
     'In the Android app, vibration is also set per kind in the phone\u2019s notification settings for Punchlist.',
   'backgroundCheck.label': 'Check for updates in the background',
