@@ -87,6 +87,12 @@ app (ADR-0017 in the project notes). There is no second copy of the UI.
   `notificationSettings` (shell api 5) opens Android's notification settings for the app, where
   each channel has its own sound and vibration; Settings > Notifications offers it as **Manage on
   the phone**.
+  **Tasks made without a server** (shell api 6, PL-070): the connect page hands the bundled
+  build's workspace to `carry` (with the server it is for) before `connect`; the shell keeps it in
+  app-private `carried.json` and gives it back through `carried` only while connected to that
+  server. After sign-in the server's build asks the join question (`join: 'phone'`), imports on
+  yes like **Import a file**, and calls `clearCarried` either way; the bundled build's own
+  storage is never touched.
 - **Icon and launch screen**: vector drawables drawn from `web/public/icon.svg` (adaptive icon
   with a monochrome layer for themed icons, and a legacy one for Android 7); the launch screen
   uses the web app's background colors, light and dark.

@@ -5,6 +5,9 @@ import type { NativeShell, ShellInfo } from '../../ports/nativeShell.ts';
 let current: NativeShell | null | undefined;
 
 /** The Android shell around the app, or null in a browser (tests swap in a fake). */
+/** The shell api that hands this phone's own tasks to a server on connecting (PL-070). */
+export const CARRY_API = 6;
+
 export function nativeShell(): NativeShell | null {
   if (current === undefined) current = createCapacitorShell();
   return current;

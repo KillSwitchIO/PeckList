@@ -37,7 +37,7 @@ import java.util.concurrent.Executors;
 public class ShellPlugin extends Plugin {
 
     /** Bumped when a method is added; the web app checks it before calling a newer one. */
-    private static final int API = 5;
+    private static final int API = 6;
 
     static final String NOTIFICATIONS = "notifications";
 
@@ -216,6 +216,62 @@ public class ShellPlugin extends Plugin {
                 .setData(Uri.parse("package:" + getContext().getPackageName()))
                 .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
         }
+        call.resolve();
+    }
+
+    /** Where the tasks handed over on connecting wait (app-private storage). */
+    private static final String CARRIED = "carried.json";
+
+    /**
+     * Api 6: the phone's own tasks ("this device only"), kept for the server it is connecting to.
+     * Only that server's page gets them back ({@link #carried}), so a server chosen later cannot.
+     */
+    @PluginMethod
+    public void carry(PluginCall call) {
+        String data = call.getString("data");
+        String server = call.getString("server");
+        if (data == null || server == null) {
+            call.reject("nothing to keep", "invalid");
+            return;
+        }
+        try {
+            JSONObject kept = new JSONObject();
+            kept.put("server", server);
+            kept.put("data", data);
+            try (java.io.FileOutputStream out = getContext().openFileOutput(CARRIED, Context.MODE_PRIVATE)) {
+                out.write(kept.toString().getBytes(java.nio.charset.StandardCharsets.UTF_8));
+            }
+            call.resolve();
+        } catch (JSONException | java.io.IOException failed) {
+            call.reject("could not keep the tasks", "failed", failed);
+        }
+    }
+
+    /** Api 6: the handed-over tasks, when the app is on the server they were kept for. */
+    @PluginMethod
+    public void carried(PluginCall call) {
+        JSObject result = new JSObject();
+        java.io.File file = new java.io.File(getContext().getFilesDir(), CARRIED);
+        String server = ServerChoice.get(getContext());
+        if (file.exists() && server != null) {
+            try (java.io.FileInputStream in = new java.io.FileInputStream(file);
+                 java.io.ByteArrayOutputStream bytes = new java.io.ByteArrayOutputStream()) {
+                byte[] buffer = new byte[8192];
+                int read;
+                while ((read = in.read(buffer)) != -1) bytes.write(buffer, 0, read);
+                JSONObject kept = new JSONObject(bytes.toString("UTF-8"));
+                if (server.equalsIgnoreCase(kept.optString("server"))) result.put("data", kept.optString("data"));
+            } catch (JSONException | java.io.IOException unreadable) {
+                Logger.warn("Punchlist", "handed-over tasks unreadable: " + unreadable.getMessage());
+            }
+        }
+        call.resolve(result);
+    }
+
+    /** Api 6: forget the handed-over tasks. */
+    @PluginMethod
+    public void clearCarried(PluginCall call) {
+        new java.io.File(getContext().getFilesDir(), CARRIED).delete();
         call.resolve();
     }
 

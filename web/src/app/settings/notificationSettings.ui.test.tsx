@@ -207,6 +207,15 @@ class CheckingShell implements NativeShell {
     this.opened++;
     return Promise.resolve();
   }
+  carried(): Promise<string | null> {
+    return Promise.resolve(null);
+  }
+  carry(): Promise<void> {
+    return Promise.resolve();
+  }
+  clearCarried(): Promise<void> {
+    return Promise.resolve();
+  }
 }
 
 function fakeNotifier(start: NotificationPermissionState) {

@@ -5,6 +5,7 @@
 
 import { createStore, type StoreApi } from 'zustand/vanilla';
 import { messageOf } from '../../core/errors.ts';
+import { parseJson } from '../../core/io.ts';
 import { CURRENT_SCHEMA_VERSION } from '../../core/migrations.ts';
 import {
   acknowledge,
@@ -43,9 +44,31 @@ export type SignOutOutcome =
  * - `password-change`: signed in, but the password must change before anything else.
  * - `ready`: signed in (or no login needed) and syncing.
  */
-/** `join-question`: signed in for the first time on a device with data of its own; see `answerJoin`. */
+/**
+ * `join-question`: signed in with tasks not yet in the account (the device's own on a first
+ * sign-in, or a phone's handed over on connecting); see `join` and `answerJoin`.
+ */
 export type SyncPhase =
   'standalone' | 'checking' | 'signed-out' | 'password-change' | 'join-question' | 'ready';
+
+/**
+ * Where the tasks the join question asks about are: `device`, this device's own storage (a first
+ * sign-in, audit W5); `phone`, the Android app's "this device only" tasks, handed over on
+ * connecting (PL-070).
+ */
+export type JoinSource = 'device' | 'phone';
+
+/** How answering went: `newer` and `invalid` leave the phone's tasks where they are. */
+export type JoinOutcome = 'ok' | 'newer' | 'invalid';
+
+/** The Android app's handed-over tasks (shell api 6), for the join question. */
+export interface PhoneTasks {
+  /** The workspace file handed over, or null. */
+  peek(): Promise<string | null>;
+  clear(): Promise<void>;
+  /** The undo label for adding them. */
+  label: string;
+}
 
 /** How the last sync went, for the indicator. */
 export type SyncStatus = 'idle' | 'syncing' | 'offline' | 'error' | 'app-update' | 'server-behind';
@@ -58,6 +81,8 @@ export interface SyncState {
   phase: SyncPhase;
   status: SyncStatus;
   account: Account | null;
+  /** What the join question is about, while asking; null otherwise. */
+  join: JoinSource | null;
   /** What the server said about itself at start (its version and time zone); null without one. */
   server: ServerInfo | null;
   /** When the last sync finished (ms since epoch). */
@@ -86,9 +111,10 @@ export interface SyncState {
   /**
    * The first sign-in on a device that has tasks or lists of its own (perhaps someone else's, on a
    * shared computer, audit W5): `keep` adds them to the account, otherwise they leave this device
-   * and it starts from what the account has.
+   * and it starts from what the account has. For a phone's handed-over tasks (`join` is `phone`),
+   * `keep` adds them and leaving them out keeps them on the phone, untouched.
    */
-  answerJoin(keep: boolean): Promise<void>;
+  answerJoin(keep: boolean): Promise<JoinOutcome>;
   /** Stop timers and listeners. */
   stop(): void;
   dismissNotice(): void;
@@ -145,6 +171,8 @@ export interface SyncEngineDependencies {
    * subscription, alarms set ahead in the Android app).
    */
   onSignedOut?: () => Promise<void>;
+  /** The Android app's handed-over tasks (absent in a browser). */
+  phoneTasks?: PhoneTasks;
 }
 
 const META = 'sync';
@@ -585,13 +613,19 @@ export function createSyncEngine(deps: SyncEngineDependencies): SyncEngine {
         set({ phase: 'password-change', account });
         return;
       }
+      // Tasks the phone made without a server, handed over on connecting: ask about them first.
+      const handed = await deps.phoneTasks?.peek().catch(() => null);
+      if (handed) {
+        set({ phase: 'join-question', join: 'phone', account, status: 'idle' });
+        return;
+      }
       // Never linked, and data on the device already: ask before it goes into this account.
       const current = workspace.getState().workspace;
       if (current && hasOwnData(current) && (await loadMeta()).account === null) {
-        set({ phase: 'join-question', account, status: 'idle' });
+        set({ phase: 'join-question', join: 'device', account, status: 'idle' });
         return;
       }
-      set({ phase: 'ready', account, status: 'idle' });
+      set({ phase: 'ready', join: null, account, status: 'idle' });
       openEvents();
       await syncNow();
     };
@@ -621,6 +655,7 @@ export function createSyncEngine(deps: SyncEngineDependencies): SyncEngine {
       phase: 'checking',
       status: 'idle',
       account: null,
+      join: null,
       server: null,
       lastSynced: null,
       error: null,
@@ -721,18 +756,41 @@ export function createSyncEngine(deps: SyncEngineDependencies): SyncEngine {
 
       async answerJoin(keep) {
         const account = get().account;
-        if (!account || get().phase !== 'join-question') return;
+        if (!account || get().phase !== 'join-question') return 'ok';
+        if (get().join === 'phone') {
+          if (keep) {
+            const handed = await deps.phoneTasks?.peek().catch(() => null);
+            const parsed = handed ? parseJson(handed) : null;
+            if (!parsed?.ok) return 'invalid';
+            const outcome = workspace
+              .getState()
+              .importDocument(parsed.value, deps.phoneTasks?.label ?? 'Tasks from this phone');
+            if (outcome.kind === 'newer' || outcome.kind === 'invalid') return outcome.kind;
+          }
+          await deps.phoneTasks?.clear().catch(() => undefined);
+          set({ join: null });
+          // Left on the phone: this device's own tasks may still need asking about.
+          if (!keep) {
+            await enter(account);
+            return 'ok';
+          }
+          set({ phase: 'ready', status: 'idle' });
+          openEvents();
+          await syncNow();
+          return 'ok';
+        }
         if (!keep) {
           try {
             await withLock(() => startOver(account));
           } catch (error) {
             fail(error);
-            return;
+            return 'ok';
           }
         }
-        set({ phase: 'ready', status: 'idle' });
+        set({ phase: 'ready', join: null, status: 'idle' });
         openEvents();
         await syncNow();
+        return 'ok';
       },
 
       stop() {

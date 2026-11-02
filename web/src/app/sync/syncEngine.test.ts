@@ -9,7 +9,13 @@ import { createTask, updateTask } from '../../core/tasks.ts';
 import type { WorkspaceFile } from '../../core/types.ts';
 import { FakeBackend } from '../../test/fakeTransport.ts';
 import { createWorkspaceStore, type WorkspaceStore } from '../store/workspaceStore.ts';
-import { createSyncEngine, STALE_SYNC_MS, type SyncEngine } from './syncEngine.ts';
+import { serializeWorkspace } from '../../core/workspace.ts';
+import {
+  createSyncEngine,
+  STALE_SYNC_MS,
+  type SyncEngine,
+  type SyncEngineDependencies,
+} from './syncEngine.ts';
 
 const engines: SyncEngine[] = [];
 afterEach(() => {
@@ -18,7 +24,11 @@ afterEach(() => {
 
 let clock = Date.UTC(2026, 9, 21, 9);
 
-async function device(backend: FakeBackend, node: string, options: { readOnly?: boolean } = {}) {
+async function device(
+  backend: FakeBackend,
+  node: string,
+  options: Partial<Pick<SyncEngineDependencies, 'readOnly' | 'phoneTasks'>> = {},
+) {
   const storage = createMemoryStorage();
   const store = createWorkspaceStore({
     storage,
@@ -437,6 +447,67 @@ describe('sync engine', () => {
     expect(titles(shared.store)).toEqual(['Ben on the laptop']);
     await laptop.engine.getState().syncNow();
     expect(titles(laptop.store)).toEqual(['Ben on the laptop']);
+  });
+
+  it('adds the tasks a phone made without a server, after asking (PL-070)', async () => {
+    const backend = new FakeBackend();
+    const ben = backend.addAccount('ben', 'correct horse battery');
+    // The Android app's "this device only" data, handed over on connecting.
+    const standalone = await device(backend, 'standalone');
+    addTask(standalone.store, 'Pick up the garlic');
+    let handed: string | null = serializeWorkspace(standalone.store.getState().workspace!);
+    const phoneTasks = {
+      peek: () => Promise.resolve(handed),
+      clear: () => {
+        handed = null;
+        return Promise.resolve();
+      },
+      label: 'Add tasks from this phone',
+    };
+    const { engine, store } = await device(backend, 'phone', { phoneTasks });
+    await engine.getState().start();
+    await engine.getState().signIn('ben', 'correct horse battery');
+    expect(engine.getState().phase).toBe('join-question');
+    expect(engine.getState().join).toBe('phone');
+    expect(await engine.getState().answerJoin(true)).toBe('ok');
+    expect(engine.getState().phase).toBe('ready');
+    expect(engine.getState().join).toBeNull();
+    expect(handed).toBeNull();
+    expect(titles(store)).toEqual(['Pick up the garlic']);
+    expect(store.getState().workspace!.owner).toBe(ben.id);
+    const onServer = [...backend.server.rows.values()].map((row) => row.change.entity);
+    expect(
+      onServer.some((entity) => (entity as { title?: string }).title === 'Pick up the garlic'),
+    ).toBe(true);
+    // Asked once: the next start goes straight in.
+    await engine.getState().start();
+    expect(engine.getState().phase).toBe('ready');
+  });
+
+  it("leaves a phone's tasks on the phone when told to, adding nothing (PL-070)", async () => {
+    const backend = new FakeBackend();
+    backend.addAccount('ben', 'correct horse battery');
+    const standalone = await device(backend, 'standalone');
+    addTask(standalone.store, 'A private note to self');
+    let handed: string | null = serializeWorkspace(standalone.store.getState().workspace!);
+    const phoneTasks = {
+      peek: () => Promise.resolve(handed),
+      clear: () => {
+        handed = null;
+        return Promise.resolve();
+      },
+      label: 'Add tasks from this phone',
+    };
+    const { engine, store } = await device(backend, 'phone', { phoneTasks });
+    await engine.getState().start();
+    await engine.getState().signIn('ben', 'correct horse battery');
+    expect(engine.getState().join).toBe('phone');
+    expect(await engine.getState().answerJoin(false)).toBe('ok');
+    expect(engine.getState().phase).toBe('ready');
+    expect(handed).toBeNull();
+    expect(titles(store)).toEqual([]);
+    // The phone's own copy is untouched.
+    expect(titles(standalone.store)).toEqual(['A private note to self']);
   });
 
   it('a first sign-in on a device with nothing of its own asks nothing', async () => {

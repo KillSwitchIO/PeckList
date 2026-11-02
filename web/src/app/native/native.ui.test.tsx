@@ -4,6 +4,7 @@ import { MemoryRouter } from 'react-router';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { problemOf } from '../../adapters/capacitor-shell.ts';
 import type { NativeShell, ServerCheck, ShellInfo } from '../../ports/nativeShell.ts';
+import { createTask } from '../../core/tasks.ts';
 import { renderApp, testStore } from '../../test/renderApp.tsx';
 import { AppProviders } from '../providers.tsx';
 import { AppRoutes } from '../routes.tsx';
@@ -15,11 +16,27 @@ class FakeShell implements NativeShell {
   notificationSettings(): Promise<void> {
     return Promise.resolve();
   }
+  /** What the phone handed over on connecting (api 6), and for which server. */
+  handed: { workspace: string; server: string } | null = null;
+  carry(workspace: string, server: string): Promise<void> {
+    this.handed = { workspace, server };
+    return Promise.resolve();
+  }
+  carried(): Promise<string | null> {
+    return Promise.resolve(this.handed?.workspace ?? null);
+  }
+  clearCarried(): Promise<void> {
+    this.handed = null;
+    return Promise.resolve();
+  }
   went: string[] = [];
   servers = new Map<string, ServerCheck>();
-  constructor(public server: string | null = null) {}
+  constructor(
+    public server: string | null = null,
+    public api = 1,
+  ) {}
   info(): Promise<ShellInfo> {
-    return Promise.resolve({ api: 1, server: this.server, version: '0.1.0' });
+    return Promise.resolve({ api: this.api, server: this.server, version: '0.1.0' });
   }
   checkServer(address: string): Promise<ServerCheck> {
     return Promise.resolve(this.servers.get(address) ?? { ok: false, problem: 'unreachable' });
@@ -104,6 +121,40 @@ describe('android: connecting to a server', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Connect' }));
     await screen.findByRole('button', { name: 'Connecting...' });
     expect(shell.went).toEqual(['https://tasks.example.com']);
+  });
+
+  it("hands the phone's own tasks to the server it connects to, and nothing when it has none (PL-070)", async () => {
+    const shell = new FakeShell(null, 6);
+    shell.servers.set('tasks.example.com', punchlist('https://tasks.example.com'));
+    setNativeShell(shell);
+    const store = testStore();
+    await renderApp('/connect', store);
+    store.getState().apply((ctx, ws) => {
+      const inbox = ws.entities.lists.find((list) => list.isInbox)!.id;
+      return createTask(ctx, ws, { title: 'Pick up the garlic', listId: inbox }).workspace;
+    });
+    await userEvent.type(
+      screen.getByRole('textbox', { name: 'Server address' }),
+      'tasks.example.com{Enter}',
+    );
+    await screen.findByRole('button', { name: 'Connecting...' });
+    expect(shell.went).toEqual(['https://tasks.example.com']);
+    expect(shell.handed?.server).toBe('https://tasks.example.com');
+    expect(shell.handed?.workspace).toContain('Pick up the garlic');
+  });
+
+  it('hands nothing over from a phone with no tasks of its own', async () => {
+    const shell = new FakeShell(null, 6);
+    shell.servers.set('tasks.example.com', punchlist('https://tasks.example.com'));
+    setNativeShell(shell);
+    await renderApp('/connect');
+    await userEvent.type(
+      screen.getByRole('textbox', { name: 'Server address' }),
+      'tasks.example.com{Enter}',
+    );
+    await screen.findByRole('button', { name: 'Connecting...' });
+    expect(shell.went).toEqual(['https://tasks.example.com']);
+    expect(shell.handed).toBeNull();
   });
 
   it('asks before using a server on plain http', async () => {

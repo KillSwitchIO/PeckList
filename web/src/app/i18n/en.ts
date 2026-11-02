@@ -1049,6 +1049,14 @@ export const en = {
     'This device has tasks or lists that are not in an account yet. Add them to {name}? If they are not yours, leave them out: they are removed from this device.',
   'join.keep': 'Add them to my account',
   'join.leave': 'Leave them out',
+  'join.phoneTitle': 'Tasks from this phone',
+  'join.phoneText':
+    'You made tasks on this phone before connecting it to this server. Add them to {name}\u2019s account, or leave them on the phone: they are there again whenever you use the app without a server.',
+  'join.phoneLeave': 'Leave them on the phone',
+  'join.phoneUndo': 'Add tasks from this phone',
+  'join.phoneNewer':
+    'These tasks come from a newer version of the app than this server runs. Update the server, and this question comes back.',
+  'join.phoneInvalid': 'These tasks could not be read, so they stay on the phone.',
   'auth.changeSubtitle': 'Your current password was given to you; pick your own before you go on.',
   'auth.current': 'Current password',
   'auth.new': 'New password',

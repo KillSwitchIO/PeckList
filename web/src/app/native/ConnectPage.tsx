@@ -3,7 +3,10 @@ import { useState, type FormEvent } from 'react';
 import type { ServerProblem } from '../../ports/nativeShell.ts';
 import { t } from '../i18n/i18n.ts';
 import { CenteredCard } from '../layout/CenteredCard.tsx';
-import { rememberStandalone, useShellInfo } from './shell.ts';
+import { serializeWorkspace } from '../../core/workspace.ts';
+import { useWorkspaceStore } from '../store/hooks.ts';
+import { hasOwnData } from '../sync/syncEngine.ts';
+import { CARRY_API, rememberStandalone, useShellInfo } from './shell.ts';
 
 type Step =
   | { kind: 'typing' }
@@ -23,12 +26,24 @@ type Step =
  */
 export function ConnectPage({ onBack }: { onBack: () => void }) {
   const { shell, info } = useShellInfo();
+  const store = useWorkspaceStore();
   const [address, setAddress] = useState('');
   const [step, setStep] = useState<Step>({ kind: 'typing' });
   const onServer = info?.server != null;
 
   const go = async (url: string) => {
     setStep({ kind: 'connecting', url });
+    // Tasks made on this phone without a server go along; the server's app asks about them after
+    // signing in (PL-070). They also stay here, for "this device only" later.
+    const workspace = store.getState().workspace;
+    if (
+      shell &&
+      info?.server === null &&
+      info.api >= CARRY_API &&
+      workspace &&
+      hasOwnData(workspace)
+    )
+      await shell.carry(serializeWorkspace(workspace), url).catch(() => undefined);
     await shell?.connect(url);
   };
 
