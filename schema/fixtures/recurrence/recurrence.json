@@ -1,0 +1,347 @@
+{
+  "description": "Repeating tasks: what advance() gives (null: the series is over) and how rules read back. The web app (recurrence.test.ts) and the server (RecurrenceTests.cs) both pass these.",
+  "advance": [
+    {
+      "description": "every day",
+      "rule": "FREQ=DAILY",
+      "current": "2026-11-02",
+      "doneOn": "2026-11-02",
+      "expected": {
+        "date": "2026-11-03",
+        "rule": "FREQ=DAILY"
+      }
+    },
+    {
+      "description": "every 3 days",
+      "rule": "FREQ=DAILY;INTERVAL=3",
+      "current": "2026-11-02",
+      "doneOn": "2026-11-05",
+      "expected": {
+        "date": "2026-11-05",
+        "rule": "FREQ=DAILY;INTERVAL=3"
+      }
+    },
+    {
+      "description": "weekdays from a Friday",
+      "rule": "FREQ=DAILY;BYDAY=MO,TU,WE,TH,FR",
+      "current": "2026-11-06",
+      "doneOn": "2026-11-06",
+      "expected": {
+        "date": "2026-11-09",
+        "rule": "FREQ=DAILY;BYDAY=MO,TU,WE,TH,FR"
+      }
+    },
+    {
+      "description": "every week",
+      "rule": "FREQ=WEEKLY",
+      "current": "2026-11-02",
+      "doneOn": "2026-11-03",
+      "expected": {
+        "date": "2026-11-09",
+        "rule": "FREQ=WEEKLY"
+      }
+    },
+    {
+      "description": "every 2 weeks on Tue and Thu",
+      "rule": "FREQ=WEEKLY;INTERVAL=2;BYDAY=TU,TH",
+      "current": "2026-11-05",
+      "doneOn": "2026-11-05",
+      "expected": {
+        "date": "2026-11-17",
+        "rule": "FREQ=WEEKLY;INTERVAL=2;BYDAY=TU,TH"
+      }
+    },
+    {
+      "description": "weekly across the new year",
+      "rule": "FREQ=WEEKLY;BYDAY=WE",
+      "current": "2026-12-30",
+      "doneOn": "2026-12-30",
+      "expected": {
+        "date": "2027-01-06",
+        "rule": "FREQ=WEEKLY;BYDAY=WE"
+      }
+    },
+    {
+      "description": "monthly on the 31st skips short months",
+      "rule": "FREQ=MONTHLY;BYMONTHDAY=31",
+      "current": "2026-10-31",
+      "doneOn": "2026-10-31",
+      "expected": {
+        "date": "2026-12-31",
+        "rule": "FREQ=MONTHLY;BYMONTHDAY=31"
+      }
+    },
+    {
+      "description": "monthly on the last day",
+      "rule": "FREQ=MONTHLY;BYMONTHDAY=-1",
+      "current": "2027-01-31",
+      "doneOn": "2027-01-31",
+      "expected": {
+        "date": "2027-02-28",
+        "rule": "FREQ=MONTHLY;BYMONTHDAY=-1"
+      }
+    },
+    {
+      "description": "monthly same day",
+      "rule": "FREQ=MONTHLY",
+      "current": "2026-01-15",
+      "doneOn": "2026-01-15",
+      "expected": {
+        "date": "2026-02-15",
+        "rule": "FREQ=MONTHLY"
+      }
+    },
+    {
+      "description": "monthly on the 31st by its date",
+      "rule": "FREQ=MONTHLY",
+      "current": "2026-01-31",
+      "doneOn": "2026-01-31",
+      "expected": {
+        "date": "2026-03-31",
+        "rule": "FREQ=MONTHLY"
+      }
+    },
+    {
+      "description": "second Tuesday",
+      "rule": "FREQ=MONTHLY;BYDAY=2TU",
+      "current": "2026-11-10",
+      "doneOn": "2026-11-10",
+      "expected": {
+        "date": "2026-12-08",
+        "rule": "FREQ=MONTHLY;BYDAY=2TU"
+      }
+    },
+    {
+      "description": "last Friday",
+      "rule": "FREQ=MONTHLY;BYDAY=-1FR",
+      "current": "2026-11-27",
+      "doneOn": "2026-11-27",
+      "expected": {
+        "date": "2026-12-25",
+        "rule": "FREQ=MONTHLY;BYDAY=-1FR"
+      }
+    },
+    {
+      "description": "every 3 months",
+      "rule": "FREQ=MONTHLY;INTERVAL=3",
+      "current": "2026-11-30",
+      "doneOn": "2026-12-01",
+      "expected": {
+        "date": "2027-05-30",
+        "rule": "FREQ=MONTHLY;INTERVAL=3"
+      }
+    },
+    {
+      "description": "yearly",
+      "rule": "FREQ=YEARLY",
+      "current": "2026-03-14",
+      "doneOn": "2026-03-14",
+      "expected": {
+        "date": "2027-03-14",
+        "rule": "FREQ=YEARLY"
+      }
+    },
+    {
+      "description": "yearly on Feb 29",
+      "rule": "FREQ=YEARLY",
+      "current": "2028-02-29",
+      "doneOn": "2028-02-29",
+      "expected": {
+        "date": "2032-02-29",
+        "rule": "FREQ=YEARLY"
+      }
+    },
+    {
+      "description": "yearly in Jan and Jul",
+      "rule": "FREQ=YEARLY;BYMONTH=1,7",
+      "current": "2026-07-04",
+      "doneOn": "2026-07-04",
+      "expected": {
+        "date": "2027-01-04",
+        "rule": "FREQ=YEARLY;BYMONTH=1,7"
+      }
+    },
+    {
+      "description": "Thanksgiving",
+      "rule": "FREQ=YEARLY;BYMONTH=11;BYDAY=4TH",
+      "current": "2026-11-26",
+      "doneOn": "2026-11-26",
+      "expected": {
+        "date": "2027-11-25",
+        "rule": "FREQ=YEARLY;BYDAY=4TH;BYMONTH=11"
+      }
+    },
+    {
+      "description": "count left",
+      "rule": "FREQ=DAILY;COUNT=3",
+      "current": "2026-11-02",
+      "doneOn": "2026-11-02",
+      "expected": {
+        "date": "2026-11-03",
+        "rule": "FREQ=DAILY;COUNT=2"
+      }
+    },
+    {
+      "description": "last of the count",
+      "rule": "FREQ=DAILY;COUNT=1",
+      "current": "2026-11-02",
+      "doneOn": "2026-11-02",
+      "expected": null
+    },
+    {
+      "description": "until not reached",
+      "rule": "FREQ=WEEKLY;UNTIL=20261120",
+      "current": "2026-11-06",
+      "doneOn": "2026-11-06",
+      "expected": {
+        "date": "2026-11-13",
+        "rule": "FREQ=WEEKLY;UNTIL=20261120"
+      }
+    },
+    {
+      "description": "until passed",
+      "rule": "FREQ=WEEKLY;UNTIL=20261110",
+      "current": "2026-11-06",
+      "doneOn": "2026-11-06",
+      "expected": null
+    },
+    {
+      "description": "until with a time",
+      "rule": "RRULE:FREQ=DAILY;UNTIL=20261103T235959Z",
+      "current": "2026-11-02",
+      "doneOn": "2026-11-02",
+      "expected": {
+        "date": "2026-11-03",
+        "rule": "FREQ=DAILY;UNTIL=20261103"
+      }
+    },
+    {
+      "description": "from completion, days",
+      "rule": "FREQ=DAILY;INTERVAL=2;X-PL-FROM=COMPLETION",
+      "current": "2026-11-02",
+      "doneOn": "2026-11-05",
+      "expected": {
+        "date": "2026-11-07",
+        "rule": "FREQ=DAILY;INTERVAL=2;X-PL-FROM=COMPLETION"
+      }
+    },
+    {
+      "description": "from completion, weeks",
+      "rule": "FREQ=WEEKLY;X-PL-FROM=COMPLETION",
+      "current": "2026-11-02",
+      "doneOn": "2026-11-04",
+      "expected": {
+        "date": "2026-11-11",
+        "rule": "FREQ=WEEKLY;X-PL-FROM=COMPLETION"
+      }
+    },
+    {
+      "description": "from completion, months clamps",
+      "rule": "FREQ=MONTHLY;X-PL-FROM=COMPLETION",
+      "current": "2026-01-10",
+      "doneOn": "2027-01-31",
+      "expected": {
+        "date": "2027-02-28",
+        "rule": "FREQ=MONTHLY;X-PL-FROM=COMPLETION"
+      }
+    },
+    {
+      "description": "from completion, 14 months",
+      "rule": "FREQ=MONTHLY;INTERVAL=14;X-PL-FROM=COMPLETION",
+      "current": "2026-01-10",
+      "doneOn": "2026-12-15",
+      "expected": {
+        "date": "2028-02-15",
+        "rule": "FREQ=MONTHLY;INTERVAL=14;X-PL-FROM=COMPLETION"
+      }
+    },
+    {
+      "description": "from completion, years from Feb 29",
+      "rule": "FREQ=YEARLY;X-PL-FROM=COMPLETION",
+      "current": "2028-02-29",
+      "doneOn": "2028-02-29",
+      "expected": {
+        "date": "2029-02-28",
+        "rule": "FREQ=YEARLY;X-PL-FROM=COMPLETION"
+      }
+    },
+    {
+      "description": "lower case and odd order",
+      "rule": "byday=mo,fr;freq=weekly",
+      "current": "2026-11-02",
+      "doneOn": "2026-11-02",
+      "expected": {
+        "date": "2026-11-06",
+        "rule": "FREQ=WEEKLY;BYDAY=MO,FR"
+      }
+    },
+    {
+      "description": "done late, next from its date",
+      "rule": "FREQ=DAILY",
+      "current": "2026-10-20",
+      "doneOn": "2026-11-02",
+      "expected": {
+        "date": "2026-10-21",
+        "rule": "FREQ=DAILY"
+      }
+    }
+  ],
+  "parse": [
+    {
+      "text": "FREQ=DAILY",
+      "expected": "FREQ=DAILY"
+    },
+    {
+      "text": "RRULE:FREQ=WEEKLY;INTERVAL=1;BYDAY=MO",
+      "expected": "FREQ=WEEKLY;BYDAY=MO"
+    },
+    {
+      "text": "FREQ=HOURLY",
+      "expected": null
+    },
+    {
+      "text": "FREQ=DAILY;INTERVAL=0",
+      "expected": null
+    },
+    {
+      "text": "FREQ=DAILY;INTERVAL=",
+      "expected": null
+    },
+    {
+      "text": "FREQ=MONTHLY;BYMONTHDAY=0",
+      "expected": null
+    },
+    {
+      "text": "FREQ=MONTHLY;BYMONTHDAY=32",
+      "expected": null
+    },
+    {
+      "text": "FREQ=YEARLY;BYMONTH=13",
+      "expected": null
+    },
+    {
+      "text": "FREQ=WEEKLY;BYDAY=XX",
+      "expected": null
+    },
+    {
+      "text": "FREQ=WEEKLY;BYDAY=+2MO",
+      "expected": "FREQ=WEEKLY;BYDAY=2MO"
+    },
+    {
+      "text": "FREQ=DAILY;COUNT=0",
+      "expected": null
+    },
+    {
+      "text": "FREQ=DAILY;UNTIL=soon",
+      "expected": null
+    },
+    {
+      "text": "FREQ=MONTHLY;BYMONTHDAY=1,15,-1;BYMONTH=2,8;COUNT=4;UNTIL=20271231;X-PL-FROM=COMPLETION",
+      "expected": "FREQ=MONTHLY;BYMONTHDAY=1,15,-1;BYMONTH=2,8;COUNT=4;UNTIL=20271231;X-PL-FROM=COMPLETION"
+    },
+    {
+      "text": "",
+      "expected": null
+    }
+  ]
+}

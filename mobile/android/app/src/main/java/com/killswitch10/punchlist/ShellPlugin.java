@@ -37,7 +37,7 @@ import java.util.concurrent.Executors;
 public class ShellPlugin extends Plugin {
 
     /** Bumped when a method is added; the web app checks it before calling a newer one. */
-    private static final int API = 6;
+    private static final int API = 7;
 
     static final String NOTIFICATIONS = "notifications";
 
@@ -466,6 +466,19 @@ public class ShellPlugin extends Plugin {
     public void load() {
         super.load();
         if (getActivity() != null) opened(getActivity().getIntent());
+        Held.listen(() -> notifyListeners("held", new JSObject(), true));
+    }
+
+    /**
+     * Api 7: Complete and Snooze pressed on reminders that the web app finishes (standalone, or a
+     * server too old to move a repeating task), as {presses: [{action, taskId, minutes, at}]}, and
+     * none of them left. A "held" event says more are waiting.
+     */
+    @PluginMethod
+    public void held(PluginCall call) {
+        JSObject result = new JSObject();
+        result.put("presses", Held.take(getContext()));
+        call.resolve(result);
     }
 
     /**
@@ -524,6 +537,7 @@ public class ShellPlugin extends Plugin {
 
     @Override
     protected void handleOnDestroy() {
+        Held.listen(null);
         network.shutdownNow();
     }
 

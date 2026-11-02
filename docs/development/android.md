@@ -93,6 +93,12 @@ app (ADR-0017 in the project notes). There is no second copy of the UI.
   server. After sign-in the server's build asks the join question (`join: 'phone'`), imports on
   yes like **Import a file**, and calls `clearCarried` either way; the bundled build's own
   storage is never touched.
+  **Reminder buttons never open the app** (shell api 7, PL-061): on a server, Complete and Snooze
+  post `/api/reminders/act`, and the server moves a repeating task itself (`RepeatingTask`, the
+  C# twin of `repeatTask`; both pass `schema/fixtures/recurrence`). Standalone, or when an older
+  server answers 409 for a repeating task, the shell holds the press (`Held`, per server) and the
+  web app takes it through `held` when the workspace loads, when it comes back on screen, and on
+  the `held` event, completing as of the press time.
 - **Icon and launch screen**: vector drawables drawn from `web/public/icon.svg` (adaptive icon
   with a monochrome layer for themed icons, and a legacy one for Android 7); the launch screen
   uses the web app's background colors, light and dark.

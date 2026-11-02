@@ -1,10 +1,12 @@
 using System.Globalization;
 using System.Security.Claims;
 using System.Text.Json.Nodes;
+using Punchlist.Core;
 using Punchlist.Core.Push;
 using Punchlist.Core.Sharing;
 using Punchlist.Core.Storage;
 using Punchlist.Core.Sync;
+using Punchlist.Core.Tasks;
 using Punchlist.Server.Auth;
 
 namespace Punchlist.Server.Push;
@@ -59,10 +61,10 @@ public static class PushEndpoints
         // repeats stop for this person; Snooze adds a one-time reminder in ten minutes, written to
         // the task so every device has it. The task's other reminders come as before. Complete
         // (the Android app's notifications) closes the task and its open subtasks; a repeating task
-        // is left to the app, which works out its next date (409).
+        // moves to its next date as the app moves it (RepeatingTask), so the app need not open.
         api.MapPost("/reminders/act", async (
             ReminderAct request, ClaimsPrincipal user, SharingState sharing, IPushStore store, SyncService sync,
-            ServerClock clock, TimeProvider time, CancellationToken cancellation) =>
+            IEntityStore entities, ServerClock clock, TimeProvider time, CancellationToken cancellation) =>
         {
             var userId = user.UserId();
             var index = sharing.Index;
@@ -74,9 +76,22 @@ public static class PushEndpoints
             var now = time.GetUtcNow();
             if (request.Action == "complete")
             {
-                if ((string?)found.Doc["recurrence"] is { Length: > 0 }) return Results.Conflict(new { error = "repeats" });
                 if ((string?)found.Doc["status"] != "open") return Results.NoContent();
                 var completedAt = clock.Now();
+                var owner = (string?)found.Doc["createdBy"] ?? userId;
+                if ((string?)found.Doc["recurrence"] is { Length: > 0 }
+                    && await entities.GetAsync(found.Id, cancellation) is { } stored)
+                {
+                    // Its next date counts from the day it was done, where the person is.
+                    var zone = ReminderSender.ZoneOf(ReminderSender.SettingsOf(index, userId));
+                    var doneOn = DateOnly.FromDateTime(TimeZoneInfo.ConvertTime(time.GetUtcNow(), zone).DateTime);
+                    var subtasks = Subtasks(index, found.Id).Select(each => each.Doc);
+                    if (RepeatingTask.Complete(stored.Doc, subtasks, userId, completedAt, doneOn, Ids.NewUlid(), clock.Next) is { } moved)
+                    {
+                        await sync.WriteAsServerAsync(owner, [.. moved.Select(each => new IncomingEntity("tasks", each))], cancellation);
+                        return Results.NoContent();
+                    }
+                }
                 var closed = new List<IncomingEntity>();
                 foreach (var (_, doc) in WithOpenSubtasks(index, found.Id, found.Doc))
                 {
@@ -85,7 +100,7 @@ public static class PushEndpoints
                     if (doc["pinnedAt"] is JsonValue) fields["pinnedAt"] = null;
                     closed.Add(new IncomingEntity("tasks", ServerEntities.Changed(doc, clock.Next(), fields)));
                 }
-                await sync.WriteAsServerAsync((string?)found.Doc["createdBy"] ?? userId, closed, cancellation);
+                await sync.WriteAsServerAsync(owner, closed, cancellation);
                 return Results.NoContent();
             }
             var first = DateTimeOffset.FromUnixTimeMilliseconds(request.First);
@@ -125,6 +140,16 @@ public static class PushEndpoints
 
     /// <summary>How long Snooze puts a constant reminder off (the app's SNOOZE_MINUTES).</summary>
     public const int SnoozeMinutes = 10;
+
+    /// <summary>A task's live subtasks at any depth, open or not (a repeating task opens them again).</summary>
+    private static IEnumerable<(string Id, JsonObject Doc)> Subtasks(SharingIndex index, string id)
+    {
+        foreach (var child in index.LiveChildrenOf(id))
+        {
+            yield return child;
+            foreach (var each in Subtasks(index, child.Id)) yield return each;
+        }
+    }
 
     /// <summary>A task and its subtasks at any depth that are still open, as completing closes them.</summary>
     private static IEnumerable<(string Id, JsonObject Doc)> WithOpenSubtasks(SharingIndex index, string id, JsonObject doc)

@@ -4,10 +4,13 @@ import type { NativeShell, ShellInfo } from '../../ports/nativeShell.ts';
 
 let current: NativeShell | null | undefined;
 
-/** The Android shell around the app, or null in a browser (tests swap in a fake). */
 /** The shell api that hands this phone's own tasks to a server on connecting (PL-070). */
 export const CARRY_API = 6;
 
+/** The shell api that holds a reminder's Complete and Snooze for the app instead of opening it. */
+export const HELD_API = 7;
+
+/** The Android shell around the app, or null in a browser (tests swap in a fake). */
 export function nativeShell(): NativeShell | null {
   if (current === undefined) current = createCapacitorShell();
   return current;

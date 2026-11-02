@@ -3,7 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { problemOf } from '../../adapters/capacitor-shell.ts';
-import type { NativeShell, ServerCheck, ShellInfo } from '../../ports/nativeShell.ts';
+import type { HeldPress, NativeShell, ServerCheck, ShellInfo } from '../../ports/nativeShell.ts';
 import { createTask } from '../../core/tasks.ts';
 import { renderApp, testStore } from '../../test/renderApp.tsx';
 import { AppProviders } from '../providers.tsx';
@@ -28,6 +28,12 @@ class FakeShell implements NativeShell {
   clearCarried(): Promise<void> {
     this.handed = null;
     return Promise.resolve();
+  }
+  held(): Promise<HeldPress[]> {
+    return Promise.resolve([]);
+  }
+  onHeld(): () => void {
+    return () => undefined;
   }
   went: string[] = [];
   servers = new Map<string, ServerCheck>();
