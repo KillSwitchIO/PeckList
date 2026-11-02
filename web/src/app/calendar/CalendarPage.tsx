@@ -26,7 +26,14 @@ import {
   type CalendarItem,
 } from '../../core/calendar.ts';
 import { atMinutes, itemsByDay, MAX_DAYS, MIN_DAYS } from '../../core/calendarLayout.ts';
-import { addDays, daysBetween, localTimeZone, shiftMonths, timePart } from '../../core/dates.ts';
+import {
+  addDays,
+  datePart,
+  daysBetween,
+  localTimeZone,
+  shiftMonths,
+  timePart,
+} from '../../core/dates.ts';
 import { inboxList } from '../../core/lists.ts';
 import { canEditTask } from '../../core/sharing.ts';
 import { createTask, updateTask } from '../../core/tasks.ts';
@@ -185,15 +192,16 @@ export function CalendarPage() {
   if (shownFrom && shownTo && (!win || shownFrom < win.from || shownTo > win.to)) {
     setWin({ from: addDays(shownFrom, -WINDOW_PAD), to: addDays(shownTo, WINDOW_PAD) });
   }
-  // What is done is off the calendar (R-FB-141).
+  // What is done is off the calendar from today on (R-FB-141), but days gone by show what was
+  // done on them, drawn as done (Ben, 2026-11-02).
   const items = useMemo(
     () =>
       win
         ? calendarItems(shown, win.from, win.to, settings?.pointEventMinutes ?? 60, (task) =>
             canEditTask(workspace, me, task),
-          ).filter((item) => !item.done)
+          ).filter((item) => !item.done || datePart(item.end ?? item.start) < today)
         : [],
-    [shown, workspace, win, settings?.pointEventMinutes, me],
+    [shown, workspace, win, settings?.pointEventMinutes, me, today],
   );
   const byDay = useMemo(
     () => (win ? itemsByDay(items, win.from, win.to) : new Map<string, CalendarItem[]>()),
