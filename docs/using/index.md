@@ -113,6 +113,13 @@ their start; the due date is the deadline.
   closed copy in its history and moves the task to its next date, keeping its time and reopening
   its subtasks. A task without a date starts today. A small arrows icon on the row shows it repeats.
   Quick add reads `every ...` too.
+- **A repeating task's dates to come**: the calendar, **Upcoming**, **Next 7 days** and a picked day
+  also show where a repeating task falls next, lighter, with the repeat arrows in place of the
+  checkbox (not for one that counts from when you finish it). Opening one opens the task on that
+  date: **Skip** leaves just that date out (cancel one appointment, keep the rest), and **Change
+  just this one** makes that date a task of its own to move or change, while the series skips it.
+  The same two work on the task's current date. Everything else in the details changes the whole
+  series.
 - **Notes**: always ready to type in, with no edit mode. Checklist boxes tick with one tap, without
   starting to edit. The small button in their bottom right opens the full editor, with a
   formatting toolbar. Type `/` for blocks (headings, lists, a checklist, a quote, code). Two of

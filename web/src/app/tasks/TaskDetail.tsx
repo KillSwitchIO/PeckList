@@ -46,6 +46,7 @@ import { TaskReadOnly } from './readOnly.ts';
 import { useSyncState } from '../sync/syncContext.ts';
 import { AssigneeProperty } from './AssigneeProperty.tsx';
 import { ReminderProperty } from '../reminders/ReminderProperty.tsx';
+import { OccurrenceActions } from '../repeat/OccurrenceActions.tsx';
 import { RepeatProperty } from '../repeat/RepeatProperty.tsx';
 
 /**
@@ -421,6 +422,7 @@ export function TaskDetail({
               />
             )}
             <RepeatProperty task={task} />
+            <OccurrenceActions task={task} />
             <ReminderProperty task={task} />
             {canAssign && <AssigneeProperty task={task} />}
           </Box>

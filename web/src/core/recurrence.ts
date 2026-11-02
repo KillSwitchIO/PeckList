@@ -2,7 +2,9 @@
 // task's local dates, so a 9:00 task stays at 9:00 through clock changes. Covers what the picker
 // offers: FREQ (daily, weekly, monthly, yearly), INTERVAL, BYDAY (with an ordinal for months:
 // 2TU, -1FR), BYMONTHDAY (negative from the month's end), BYMONTH, COUNT and UNTIL, plus
-// X-PL-FROM=COMPLETION for TickTick's "repeat from the completion date".
+// X-PL-FROM=COMPLETION for TickTick's "repeat from the completion date" and X-PL-SKIP for the
+// dates one occurrence was skipped on (like EXDATE: a skipped date still counts toward COUNT).
+// The server works them out the same way (Recurrence.cs); both pass schema/fixtures/recurrence.
 
 import { addDays, daysBetween, weekday } from './dates.ts';
 
@@ -26,6 +28,8 @@ export interface Recurrence {
   until?: string;
   /** The next date counts from when it was done, not from its date */
   fromCompletion?: boolean;
+  /** Dates (YYYY-MM-DD, sorted) whose occurrence is skipped */
+  skip?: string[];
 }
 
 const DAY_CODES = ['SU', 'MO', 'TU', 'WE', 'TH', 'FR', 'SA'] as const;
@@ -83,6 +87,12 @@ export function parseRule(text: string | null | undefined): Recurrence | null {
     rule.until = `${match[1]}-${match[2]}-${match[3]}`;
   }
   if (parts.get('X-PL-FROM') === 'COMPLETION') rule.fromCompletion = true;
+  const skip = parts.get('X-PL-SKIP');
+  if (skip) {
+    const dates = skip.split(',').map((each) => /^(\d{4})(\d{2})(\d{2})$/.exec(each));
+    if (dates.some((each) => !each)) return null;
+    rule.skip = [...new Set(dates.map((each) => `${each![1]}-${each![2]}-${each![3]}`))].sort();
+  }
   return rule;
 }
 
@@ -100,6 +110,8 @@ export function formatRule(rule: Recurrence): string {
   if (rule.count !== undefined) parts.push(`COUNT=${rule.count}`);
   if (rule.until) parts.push(`UNTIL=${rule.until.replace(/-/g, '')}`);
   if (rule.fromCompletion) parts.push('X-PL-FROM=COMPLETION');
+  if (rule.skip?.length)
+    parts.push(`X-PL-SKIP=${rule.skip.map((date) => date.replace(/-/g, '')).join(',')}`);
   return parts.join(';');
 }
 
@@ -197,21 +209,54 @@ export function nextFromCompletion(rule: Recurrence, done: string): string {
 
 /**
  * Where a repeating task goes next when one occurrence is done: its next date, and the rule to
- * keep (COUNT one less), or null when this was the last.
+ * keep (COUNT less the occurrences passed, skipped ones too; skips before the new date dropped),
+ * or null when this was the last.
  */
 export function advance(
   rule: Recurrence,
   current: string,
   doneOn: string,
 ): { date: string; rule: Recurrence } | null {
-  if (rule.count !== undefined && rule.count <= 1) return null;
-  const date = rule.fromCompletion
-    ? nextFromCompletion(rule, doneOn)
-    : nextOccurrence(rule, current, current);
-  if (!date || (rule.until && date > rule.until)) return null;
-  const next = { ...rule };
-  if (rule.count !== undefined) next.count = rule.count - 1;
+  const skipped = new Set(rule.skip);
+  let left = rule.count;
+  let date: string | null = current;
+  do {
+    if (left !== undefined && left <= 1) return null;
+    date = rule.fromCompletion
+      ? nextFromCompletion(rule, date === current ? doneOn : date)
+      : nextOccurrence(rule, current, date);
+    if (!date || (rule.until && date > rule.until)) return null;
+    if (left !== undefined) left -= 1;
+  } while (skipped.has(date));
+  const next: Recurrence = { ...rule };
+  if (left !== undefined) next.count = left;
+  const later = (rule.skip ?? []).filter((each) => each > date!);
+  if (later.length) next.skip = later;
+  else delete next.skip;
   return { date, rule: next };
+}
+
+/**
+ * The dates after `current` (the task's own date) that the series falls on, from `from` to `to`
+ * (inclusive), skipped ones left out, at most `limit` of them. None for a series that counts
+ * from completion: its next date is not known until it is done.
+ */
+export function upcomingDates(
+  rule: Recurrence,
+  current: string,
+  from: string,
+  to: string,
+  limit = 400,
+): string[] {
+  if (rule.fromCompletion) return [];
+  const dates: string[] = [];
+  let step: { date: string; rule: Recurrence } | null = { date: current, rule };
+  while (dates.length < limit) {
+    step = advance(step.rule, step.date, step.date);
+    if (!step || step.date > to) break;
+    if (step.date >= from) dates.push(step.date);
+  }
+  return dates;
 }
 
 /** The weekday codes in rule order, for labels. */

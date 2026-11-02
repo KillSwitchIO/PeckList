@@ -5,6 +5,7 @@
 import { isLive } from './collections.ts';
 import { dateState } from './dateState.ts';
 import { addDays, datePart, daysBetween } from './dates.ts';
+import { projectOccurrences } from './occurrences.ts';
 import { members } from './ops.ts';
 import { compareOrderKeys } from './ordering.ts';
 import { listOwner } from './sharing.ts';
@@ -202,9 +203,25 @@ export function inLiveList(
 export function filterTasks(workspace: WorkspaceFile, filter: TaskFilter, today: string): Task[] {
   const matches = compileFilter(workspace, filter, today);
   const listed = inLiveList(workspace, filter.lists ?? []);
-  return workspace.entities.tasks
+  return withOccurrences(workspace.entities.tasks, filter, today)
     .filter((task) => isLive(task) && task.status === 'open' && listed(task) && matches(task))
     .sort(byDateThenOrder(workspace));
+}
+
+/**
+ * A window of days ahead (Next 7 days, Upcoming, a picked day) also shows where repeating tasks
+ * fall next, from tomorrow on, as projections (core/occurrences): not today or before, where the
+ * task itself already is.
+ */
+function withOccurrences(
+  tasks: readonly Task[],
+  filter: TaskFilter,
+  today: string,
+): readonly Task[] {
+  const to = filter.start?.to;
+  if (to === undefined || to < 1) return tasks;
+  const from = Math.max(1, filter.start?.from ?? 1);
+  return [...tasks, ...projectOccurrences(tasks, addDays(today, from), addDays(today, to))];
 }
 
 /**

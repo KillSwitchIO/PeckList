@@ -7,6 +7,7 @@ import type { Task, WorkspaceFile } from '../../core/types.ts';
 import { getEntity } from '../../core/collections.ts';
 import { useCollapsedSet, withoutCollapsed } from '../hooks/useCollapsedSet.ts';
 import { useWorkspace } from '../store/hooks.ts';
+import { occurrenceOf } from '../../core/occurrences.ts';
 import { TaskRow } from './TaskRow.tsx';
 
 interface TreeRow {
@@ -127,7 +128,10 @@ export function TaskTree({
       {shown.map((row) => (
         <li
           key={row.task.id}
-          {...(dragZone ? { 'data-drag-row': row.task.id, 'data-depth': row.depth } : {})}
+          // A repeating task's date to come is no place to drop a task.
+          {...(dragZone && !occurrenceOf(row.task)
+            ? { 'data-drag-row': row.task.id, 'data-depth': row.depth }
+            : {})}
         >
           <TaskRow
             task={row.task}

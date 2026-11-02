@@ -4,6 +4,7 @@
 import { isLive } from './collections.ts';
 import { addDays, datePart, joinDateTime, timePart } from './dates.ts';
 import { inLiveList } from './filters.ts';
+import { occurrenceOf, projectOccurrences } from './occurrences.ts';
 import type { Id, LocalDateOrDateTime, Priority, Schedule, Task, WorkspaceFile } from './types.ts';
 
 /** One thing on the calendar: a task's schedule, or its due flag. */
@@ -25,8 +26,10 @@ export interface CalendarItem {
   color: string;
   priority: Priority;
   done: boolean;
-  /** Can be dragged (due flags and read-only tasks cannot). */
+  /** Can be dragged (due flags, read-only tasks and a repeating task's dates to come cannot). */
   movable: boolean;
+  /** A repeating task's date to come (core/occurrences), not the task's own date. */
+  occurrence?: string;
 }
 
 /** Where a drag left an item, in calendar terms (all-day ends inclusive, null for one day). */
@@ -63,10 +66,15 @@ export function calendarItems(
   const listed = inLiveList(workspace);
   const colors = new Map(workspace.entities.lists.map((list) => [list.id, list.color]));
   const items: CalendarItem[] = [];
-  for (const task of workspace.entities.tasks) {
+  const tasks = workspace.entities.tasks;
+  // Repeating tasks also show where they fall next (a series that started before the range
+  // still reaches into it).
+  for (const task of [...tasks, ...projectOccurrences(tasks, addDays(from, -31), to)]) {
     if (!isLive(task) || !listed(task)) continue;
+    const occurrence = occurrenceOf(task);
     const base = {
-      taskId: task.id,
+      taskId: occurrence?.taskId ?? task.id,
+      ...(occurrence ? { occurrence: occurrence.date } : {}),
       title: task.title,
       color: colors.get(task.listId) ?? '#B8BCC4',
       priority: task.priority,
@@ -86,7 +94,7 @@ export function calendarItems(
           start: timed ? start : first,
           end: timed ? end : end && last !== first ? last : null,
           allDay: !timed,
-          movable: canEdit(task),
+          movable: !occurrence && canEdit(task),
         });
       }
     }
