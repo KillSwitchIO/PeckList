@@ -84,6 +84,9 @@ app (ADR-0017 in the project notes). There is no second copy of the UI.
   the network while the phone is idle. Samsung phones also need Punchlist in **Never sleeping
   apps**, which the settings say. Google Play allows that permission only for some kinds of app,
   so a Play build would drop it and check every 15 minutes with WorkManager.
+  `notificationSettings` (shell api 5) opens Android's notification settings for the app, where
+  each channel has its own sound and vibration; Settings > Notifications offers it as **Manage on
+  the phone**.
 - **Icon and launch screen**: vector drawables drawn from `web/public/icon.svg` (adaptive icon
   with a monochrome layer for themed icons, and a legacy one for Android 7); the launch screen
   uses the web app's background colors, light and dark.

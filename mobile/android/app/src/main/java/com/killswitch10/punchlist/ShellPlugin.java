@@ -37,7 +37,7 @@ import java.util.concurrent.Executors;
 public class ShellPlugin extends Plugin {
 
     /** Bumped when a method is added; the web app checks it before calling a newer one. */
-    private static final int API = 4;
+    private static final int API = 5;
 
     static final String NOTIFICATIONS = "notifications";
 
@@ -196,6 +196,27 @@ public class ShellPlugin extends Plugin {
             getActivity().setIntent(new Intent(getContext(), MainActivity.class).setAction(MainActivity.CHOOSE_SERVER));
             getActivity().recreate();
         });
+    }
+
+    /**
+     * Api 5: Android's notification settings for this app, where each channel (Reminders,
+     * Assignments and dibs, Shares, Comments and mentions) has its own sound, vibration and on or
+     * off. PL-115's "Manage on the phone".
+     */
+    @PluginMethod
+    public void notificationSettings(PluginCall call) {
+        Intent intent = new Intent(android.provider.Settings.ACTION_APP_NOTIFICATION_SETTINGS)
+            .putExtra(android.provider.Settings.EXTRA_APP_PACKAGE, getContext().getPackageName())
+            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+        try {
+            getContext().startActivity(intent);
+        } catch (android.content.ActivityNotFoundException missing) {
+            // A phone without that screen: the app's own details page has the notification switch.
+            getContext().startActivity(new Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS)
+                .setData(Uri.parse("package:" + getContext().getPackageName()))
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
+        }
+        call.resolve();
     }
 
     /** Api 2: the background check-in (BackgroundCheck): on or off, how often, and whether Android lets it run. */

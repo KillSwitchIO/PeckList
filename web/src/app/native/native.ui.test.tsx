@@ -12,6 +12,9 @@ import { setNativeShell } from './shell.ts';
 
 /** The Android shell, faked: answers checks from a table and records where the app went. */
 class FakeShell implements NativeShell {
+  notificationSettings(): Promise<void> {
+    return Promise.resolve();
+  }
   went: string[] = [];
   servers = new Map<string, ServerCheck>();
   constructor(public server: string | null = null) {}

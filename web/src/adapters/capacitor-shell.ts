@@ -17,6 +17,7 @@ interface ShellPlugin {
   backgroundCheck(): Promise<BackgroundCheck>;
   setBackgroundCheck(options: { enabled?: boolean; minutes?: number }): Promise<BackgroundCheck>;
   allowBackground(): Promise<BackgroundCheck>;
+  notificationSettings(): Promise<void>;
 }
 
 const PROBLEMS: readonly ServerProblem[] = [
@@ -60,5 +61,6 @@ export function createCapacitorShell(): NativeShell | null {
     backgroundCheck: () => plugin.backgroundCheck(),
     setBackgroundCheck: (change) => plugin.setBackgroundCheck(change),
     allowBackground: () => plugin.allowBackground(),
+    notificationSettings: () => plugin.notificationSettings(),
   };
 }
