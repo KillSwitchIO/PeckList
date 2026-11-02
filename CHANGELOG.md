@@ -4,6 +4,29 @@ All notable changes to Punchlist. Generated from [Conventional Commits](https://
 by `pnpm changelog`; the version follows [Semantic Versioning](https://semver.org/). Before 1.0.0 a
 minor release may break things; every break is listed under **Breaking changes** with what to do.
 
+## [0.5.0] - 2026-11-02
+
+### Added
+
+- **notes:** Every line a checkbox, and checkboxes back to lines
+- **android:** Manage notification sounds and vibration on the phone
+- **android:** Tasks made without a server go along when connecting
+- **android:** Reminder buttons complete without opening the app
+- **web:** The bird checks tasks off
+- **web:** Drag a heading with its section in the notes
+
+### Fixed
+
+- **views:** Pinned tasks with no date show in Pinned on Today and Upcoming
+- **notes:** Bigger checklist boxes, a toolbar that stays on top, its own icon for every line
+- **ci:** A commit hash of digits only still makes a valid build version
+- **day:** The day page rows no longer repeat its date
+- **tasks:** A title typed on a phone is kept when the panel closes
+- **web:** Repeating tasks show on their dates to come
+- **web:** A checklist with a title goes back to lines
+- **web:** Repeating tasks ask just this date or every date
+- **web:** A repeating task's dates to come can be ticked and swiped
+
 ## [0.4.0] - 2026-10-31
 
 ### Added
