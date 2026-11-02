@@ -56,4 +56,13 @@ export interface NativeShell {
   allowBackground(): Promise<BackgroundCheck>;
   /** Api 5: Android's notification settings for the app (each kind's sound and vibration). */
   notificationSettings(): Promise<void>;
+  /**
+   * Api 6: keep this device's own tasks (a workspace file) for the server it is about to connect
+   * to; after signing in there, the server's web app asks whether they join the account (PL-070).
+   */
+  carry(workspace: string, server: string): Promise<void>;
+  /** Api 6: the tasks handed over for the server the app is on now; null when there are none. */
+  carried(): Promise<string | null>;
+  /** Api 6: forget the handed-over tasks (added to the account, or left on the phone). */
+  clearCarried(): Promise<void>;
 }

@@ -37,6 +37,8 @@ connection: add, edit, complete, move. Changes wait on the device and sync when 
   without an account, or by someone else on a shared computer) asks first: **Add them to my
   account**, or **Leave them out**, which removes them from the device and starts from what the
   account has.
+- The Android app asks the same about the tasks you made on the phone without a server, the
+  first time you sign in after connecting it to one; leaving them out keeps them on the phone.
 
 ## Without a server
 

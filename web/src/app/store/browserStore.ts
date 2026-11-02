@@ -6,8 +6,10 @@ import { createIndexedDbStorage } from '../../adapters/indexeddb-storage.ts';
 import { createLocalJournal } from '../../adapters/local-journal.ts';
 import { createMemoryStorage } from '../../adapters/memory-storage.ts';
 import { createUlidGenerator } from '../../adapters/ulid-ids.ts';
+import { t } from '../i18n/i18n.ts';
+import { CARRY_API, nativeShell } from '../native/shell.ts';
 import { browserPush, notifier } from '../reminders/notifier.ts';
-import { createSyncEngine, type SyncEngine } from '../sync/syncEngine.ts';
+import { createSyncEngine, type PhoneTasks, type SyncEngine } from '../sync/syncEngine.ts';
 import { tabNodeId } from './device.ts';
 import { takeViewAs, type ViewAs } from './viewAs.ts';
 import { createWorkspaceStore, type WorkspaceStore } from './workspaceStore.ts';
@@ -53,8 +55,29 @@ export function createBrowserApp(): {
     blobs: createIndexedDbBlobs(),
     withLock: lock('punchlist-sync'),
     onSignedOut: forgetThisDevice,
+    phoneTasks: phoneTasks(),
   });
   return { store, sync, viewAs: null };
+}
+
+/**
+ * The Android app's "this device only" tasks, handed over when it connected to this server (shell
+ * api 6, PL-070). Nothing in a browser or an older app.
+ */
+function phoneTasks(): PhoneTasks {
+  const shell = async () => {
+    const native = nativeShell();
+    if (!native) return null;
+    const info = await native.info();
+    return info.api >= CARRY_API ? native : null;
+  };
+  return {
+    peek: async () => (await shell())?.carried() ?? null,
+    clear: async () => {
+      await (await shell())?.clearCarried();
+    },
+    label: t('join.phoneUndo'),
+  };
 }
 
 /**
