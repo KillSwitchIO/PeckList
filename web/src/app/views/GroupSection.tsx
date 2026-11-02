@@ -109,7 +109,12 @@ export function GroupSection({
             />
             {title}
             {count !== undefined && (
-              <Box component="span" sx={{ color: 'text.secondary', fontWeight: 400, ml: 0.75 }}>
+              <Box
+                component="span"
+                // Where a task checked off on Today is carried (checkOff.ts).
+                data-group-count={groupKey}
+                sx={{ display: 'inline-block', color: 'text.secondary', fontWeight: 400, ml: 0.75 }}
+              >
                 {count}
               </Box>
             )}

@@ -137,6 +137,9 @@ their start; the due date is the deadline.
   changes nothing. Drop it on a list in the sidebar to move it there. Or use **Move to list...** in
   its menu, or ++alt+arrow-up++ / ++alt+arrow-down++ / ++alt+arrow-right++ / ++alt+arrow-left++.
 - **Groups**: a group's whole heading row (apart from its buttons) folds and unfolds it.
+- **Check off**: ticking a task's box sends the bird. On **Today** it pops out of the box and
+  carries the task to the **Closed** count; everywhere else it flies along the row, striking the
+  title through. It takes about half a second. With reduced motion on, the task closes at once.
 - **Pin**: **Pin to the top** in a task's menu (its **...** in the details) puts it in a **Pinned**
   group at the top of every view it shows in, and it stays in its own group too. Completing it
   lets go of the pin.
