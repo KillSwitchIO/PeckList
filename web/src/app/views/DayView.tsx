@@ -11,6 +11,7 @@ import { Page } from '../layout/Page.tsx';
 import { useListView } from '../lists/listGrouping.ts';
 import { useWorkspace } from '../store/hooks.ts';
 import { AddTaskInput } from '../tasks/AddTaskInput.tsx';
+import { PageDay } from '../tasks/pageDay.ts';
 import { dayHeading, dayPath } from './dayLabels.ts';
 import { EmptyState } from './EmptyState.tsx';
 import { GroupedTasks } from './groups.tsx';
@@ -73,17 +74,19 @@ export function DayView() {
         }}
         label={t('day.addTo', { day: dayHeading(date, today) })}
       />
-      <GroupedTasks
-        tasks={dayTasks(workspace, date, today)}
-        closed={completedOn(workspace, date, localTimeZone())}
-        // One day is one date group: by date is the day's tasks in a single run.
-        grouping={view.grouping === 'date' ? 'none' : view.grouping}
-        sort={view.sort}
-        reversed={view.sortReversed}
-        groupsReversed={view.groupReversed}
-        showList
-        emptyTitle={t('day.empty')}
-      />
+      <PageDay.Provider value={date}>
+        <GroupedTasks
+          tasks={dayTasks(workspace, date, today)}
+          closed={completedOn(workspace, date, localTimeZone())}
+          // One day is one date group: by date is the day's tasks in a single run.
+          grouping={view.grouping === 'date' ? 'none' : view.grouping}
+          sort={view.sort}
+          reversed={view.sortReversed}
+          groupsReversed={view.groupReversed}
+          showList
+          emptyTitle={t('day.empty')}
+        />
+      </PageDay.Provider>
     </Page>
   );
 }

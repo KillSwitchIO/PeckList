@@ -123,11 +123,11 @@ export function DateButton({
   dueFirst?: boolean;
 }) {
   const readOnly = useReadOnly();
-  const { text, endText, color, completedDay, showsDue, due } = useRowDate(task, dueFirst);
+  const { text, shown, endText, color, completedDay, showsDue, due } = useRowDate(task, dueFirst);
   const { label } = useRowDateEditor(task, dueFirst);
   const [anchor, setAnchor] = useState<HTMLElement | null>(null);
 
-  if (compact && !text && !(task.progress > 0 && task.status === 'open')) return null;
+  if (compact && !shown && !(task.progress > 0 && task.status === 'open')) return null;
 
   return (
     <>
@@ -178,7 +178,7 @@ export function DateButton({
             <DueIcon sx={{ fontSize: 15 }} />
           </Box>
         )}
-        {text && endText ? (
+        {shown && endText ? (
           // Start and end: side by side on a wide row, the end under the start on a phone.
           <Box
             component="span"
@@ -192,17 +192,17 @@ export function DateButton({
               lineHeight: compact ? 1.25 : undefined,
             }}
           >
-            <span>{compact ? text : `${text} -`}</span>
+            <span>{compact ? shown : `${shown} -`}</span>
             <span>{endText}</span>
           </Box>
-        ) : text ? (
+        ) : shown ? (
           <Box
             component="span"
             sx={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}
           >
-            {text}
+            {shown}
           </Box>
-        ) : (
+        ) : text ? null : (
           <CalendarIcon
             className="add-date"
             sx={{ fontSize: 16, color: 'text.disabled', opacity: 0, transition: 'opacity 120ms' }}
