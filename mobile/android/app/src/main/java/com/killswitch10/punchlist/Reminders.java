@@ -220,23 +220,21 @@ final class Reminders {
     }
 
     /**
-     * Show a reminder with Complete and Snooze. On a server they act there without opening the app;
-     * standalone, or for a repeating task (only the app works out its next date), they open the app
-     * to do it. Snooze asks how long first.
+     * Show a reminder with Complete and Snooze. Neither opens the app (ReminderReceiver): on a
+     * server they act there, repeating tasks too; standalone, the app finishes them the next time
+     * it runs (Held). Snooze asks how long first.
      */
     static void show(Context context, Reminder reminder) {
         if (!NotificationManagerCompat.from(context).areNotificationsEnabled()) return;
         channel(context, CHANNEL, R.string.channel_reminders, NotificationManager.IMPORTANCE_HIGH);
-        boolean onServer = ServerChoice.get(context) != null;
         boolean quiet = reminder.key.endsWith(QUIET);
         NotificationCompat.Builder built = base(context, CHANNEL, reminder.title, reminder.body)
             .setCategory(NotificationCompat.CATEGORY_REMINDER)
             .setPriority(NotificationCompat.PRIORITY_HIGH)
             .setWhen(reminder.at)
             .setOnlyAlertOnce(quiet)
-            .setContentIntent(open(context, reminder, null))
-            .addAction(0, context.getString(R.string.action_complete),
-                onServer && !reminder.repeats ? act(context, reminder, COMPLETE) : open(context, reminder, COMPLETE))
+            .setContentIntent(open(context, reminder))
+            .addAction(0, context.getString(R.string.action_complete), act(context, reminder, COMPLETE))
             .addAction(0, context.getString(R.string.action_snooze), snoozePicker(context, reminder));
         android.app.Notification made = built.build();
         if (reminder.constant && !quiet) {
@@ -315,17 +313,14 @@ final class Reminders {
             .setAutoCancel(true);
     }
 
-    /** Opens the app on the reminder's task, and with a button, finishes it there. */
-    private static PendingIntent open(Context context, Reminder reminder, String action) {
+    /** Opens the app on the reminder's task. */
+    private static PendingIntent open(Context context, Reminder reminder) {
         Intent intent = new Intent(context, MainActivity.class)
-            .setAction("com.killswitch10.punchlist.OPEN." + (action == null ? "" : action))
+            .setAction("com.killswitch10.punchlist.OPEN.")
             .setData(Uri.parse("punchlist-reminder://" + reminder.alarm()))
             .addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP)
             .putExtra(EXTRA_URL, reminder.url)
             .putExtra(EXTRA_SHOWN, reminder.shown());
-        if (action != null) {
-            intent.putExtra(EXTRA_ACTION, action).putExtra(EXTRA_TASK, reminder.taskId()).putExtra(EXTRA_MINUTES, SNOOZE_MINUTES);
-        }
         return PendingIntent.getActivity(context, reminder.alarm(), intent, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
     }
 
@@ -342,20 +337,7 @@ final class Reminders {
         return PendingIntent.getActivity(context, reminder.alarm(), intent, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
     }
 
-    /** Opens the app on the task to snooze it there (standalone, or the server could not be reached). */
-    static Intent snoozeInApp(Context context, Reminder reminder, int minutes) {
-        return new Intent(context, MainActivity.class)
-            .setAction("com.killswitch10.punchlist.OPEN." + SNOOZE)
-            .setData(Uri.parse("punchlist-reminder://" + reminder.alarm()))
-            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_SINGLE_TOP)
-            .putExtra(EXTRA_URL, reminder.url)
-            .putExtra(EXTRA_SHOWN, reminder.shown())
-            .putExtra(EXTRA_ACTION, SNOOZE)
-            .putExtra(EXTRA_TASK, reminder.taskId())
-            .putExtra(EXTRA_MINUTES, minutes);
-    }
-
-    /** Acts on the server without opening the app (ReminderReceiver). */
+    /** Acts without opening the app (ReminderReceiver). */
     private static PendingIntent act(Context context, Reminder reminder, String action) {
         Intent intent = new Intent(context, ReminderReceiver.class)
             .setAction("com.killswitch10.punchlist." + action)

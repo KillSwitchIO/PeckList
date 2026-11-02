@@ -14,10 +14,10 @@ import java.util.Date;
 import org.json.JSONObject;
 
 /**
- * A reminder's alarm going off, and Complete or Snooze pressed on it (Reminders). The buttons act
- * on the server ({@code POST /api/reminders/act}) with the app's session, without opening the app.
- * When that fails (offline, signed out), the notification comes back saying so, and a tap does it
- * in the app instead.
+ * A reminder's alarm going off, and Complete or Snooze pressed on it (Reminders). Neither opens
+ * the app: on a server the buttons act there ({@code POST /api/reminders/act}) with the app's
+ * session, and are sent again later when it cannot be reached (Pending); standalone, or on a server
+ * too old to move a repeating task, the web app finishes them the next time it runs (Held).
  */
 public class ReminderReceiver extends BroadcastReceiver {
 
@@ -59,8 +59,17 @@ public class ReminderReceiver extends BroadcastReceiver {
             Reminders.dropRepeats(context, reminder.tag());
             Reminders.add(context, snoozed(context, reminder, minutes));
         }
+        if (ServerChoice.get(context) == null) {
+            Held.add(context, button, reminder.taskId(), minutes);
+            return;
+        }
         int status = act(context, button, reminder, minutes);
         if (status == 204) return;
+        if (status == 409) {
+            // A server from before it moved repeating tasks itself: the app moves it.
+            Held.add(context, button, reminder.taskId(), minutes);
+            return;
+        }
         Logger.info("Punchlist", "Reminder " + button + ": the server answered " + status + "; trying again later");
         // Unreachable or signed out: later. Refused (the task is gone, or not theirs): nothing to do.
         if (status == 0 || status == 401 || status == 403 || status >= 500) {
@@ -74,6 +83,10 @@ public class ReminderReceiver extends BroadcastReceiver {
         for (Pending.Press each : Pending.take(context)) {
             // Once the server cannot be reached, the rest wait too.
             int status = reachable ? act(context, each.button, each.taskId, each.first, each.minutes) : 0;
+            if (status == 409) {
+                Held.add(context, each.button, each.taskId, each.minutes);
+                continue;
+            }
             if (status == 0 || status == 401 || status == 403 || status >= 500) {
                 reachable = false;
                 Pending.add(context, each.button, each.taskId, each.first, each.minutes);

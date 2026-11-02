@@ -304,12 +304,12 @@ public sealed class PushTests(ServerFixture fixture) : IClassFixture<ServerFixtu
     {
         using var server = Server();
         var (ben, benId) = await SignIn(server, "ben-a");
-        JsonObject Task(string id, string? parent, string? recurrence) => Entity(id, benId, new JsonObject
+        JsonObject Task(string id, string? parent, string? recurrence, string status = "open") => Entity(id, benId, new JsonObject
         {
             ["listId"] = "AL1",
             ["title"] = id,
             ["parentId"] = parent,
-            ["status"] = "open",
+            ["status"] = status,
             ["assignees"] = new JsonObject(),
             ["recurrence"] = recurrence,
             ["schedule"] = new JsonObject { ["start"] = "2026-10-26T10:30", ["end"] = null, ["allDay"] = false, ["timeZone"] = null },
@@ -326,14 +326,14 @@ public sealed class PushTests(ServerFixture fixture) : IClassFixture<ServerFixtu
                 new { collection = "lists", entity = Entity("AL1", benId, new JsonObject { ["name"] = "Home", ["visibility"] = "private" }) },
                 new { collection = "tasks", entity = Task("AT1", null, null) },
                 new { collection = "tasks", entity = Task("AT2", "AT1", null) },
-                new { collection = "tasks", entity = Task("AT3", null, "FREQ=DAILY") },
+                new { collection = "tasks", entity = Task("AT3", null, "FREQ=DAILY;COUNT=3") },
+                new { collection = "tasks", entity = Task("AT4", "AT3", null, status: "done") },
             },
         }, Token)).EnsureSuccessStatusCode();
 
         (await ben.PostAsJsonAsync("/api/reminders/act", new { taskId = "AT1", first = 0L, action = "complete" }, Token)).EnsureSuccessStatusCode();
-        // A repeating task moves to its next date, which only the app works out.
-        Assert.Equal(HttpStatusCode.Conflict,
-            (await ben.PostAsJsonAsync("/api/reminders/act", new { taskId = "AT3", first = 0L, action = "complete" }, Token)).StatusCode);
+        // A repeating task moves to its next date, as the app moves it, without the app.
+        (await ben.PostAsJsonAsync("/api/reminders/act", new { taskId = "AT3", first = 0L, action = "complete" }, Token)).EnsureSuccessStatusCode();
         var before = DateTimeOffset.UtcNow;
         (await ben.PostAsJsonAsync("/api/reminders/act", new { taskId = "AT3", first = 0L, action = "snooze", minutes = 60 }, Token)).EnsureSuccessStatusCode();
 
@@ -347,9 +347,17 @@ public sealed class PushTests(ServerFixture fixture) : IClassFixture<ServerFixtu
         Assert.Equal(("done", benId), ((string?)tasks["AT1"]["status"], (string?)tasks["AT1"]["completedBy"]));
         Assert.Equal("done", (string?)tasks["AT2"]["status"]);
         Assert.Equal("open", (string?)tasks["AT3"]["status"]);
+        Assert.Equal(("2026-10-27T10:30", "FREQ=DAILY;COUNT=2"), ((string?)tasks["AT3"]["schedule"]!["start"], (string?)tasks["AT3"]["recurrence"]));
+        Assert.Equal("open", (string?)tasks["AT4"]["status"]);
+        // The occurrence done stays in history: a closed copy on the old date, not repeating.
+        var copy = Assert.Single(tasks.Values, each => (string?)each["title"] == "AT3" && (string?)each["id"] != "AT3");
+        Assert.Equal(("done", benId, "2026-10-26T10:30", null), ((string?)copy["status"], (string?)copy["completedBy"],
+            (string?)copy["schedule"]!["start"], (string?)copy["recurrence"]));
+        Assert.Equal("notes of AT3", (string?)copy["notes"]);
+        Assert.True((bool?)copy["tags"]!["TG1"]!["in"]);
         // The server keeps only some fields of a task in memory; what it writes merges onto the
         // stored copy, so the rest stays (audit P1).
-        Assert.All(["AT1", "AT2", "AT3"], id => Assert.Equal($"notes of {id}", (string?)tasks[id]["notes"]));
+        Assert.All(["AT1", "AT2", "AT3", "AT4"], id => Assert.Equal($"notes of {id}", (string?)tasks[id]["notes"]));
         Assert.True((bool?)tasks["AT3"]["tags"]!["TG1"]!["in"]);
         // Snoozed an hour, on the server's clock (Ben set no time zone).
         var snoozed = DateTime.ParseExact((string)tasks["AT3"]["reminders"]!.AsArray().Last()!["at"]!, "yyyy-MM-dd'T'HH:mm", CultureInfo.InvariantCulture);

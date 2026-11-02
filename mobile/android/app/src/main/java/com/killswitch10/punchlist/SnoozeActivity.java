@@ -14,8 +14,7 @@ import org.json.JSONObject;
 
 /**
  * Snooze on a reminder asks how long, as TickTick does: a dialog over whatever is on screen, not
- * the app. On a server the choice acts there (ReminderReceiver.press); standalone, the app opens
- * to do it.
+ * the app. The choice acts without the app (ReminderReceiver.press).
  */
 public class SnoozeActivity extends AppCompatActivity {
 
@@ -70,11 +69,6 @@ public class SnoozeActivity extends AppCompatActivity {
 
     private void snooze(int minutes) {
         Context app = getApplicationContext();
-        if (ServerChoice.get(app) == null) {
-            startActivity(Reminders.snoozeInApp(app, reminder, minutes));
-            finish();
-            return;
-        }
         String until = clock(System.currentTimeMillis() + minutes * 60_000L);
         new Thread(() -> {
             try {

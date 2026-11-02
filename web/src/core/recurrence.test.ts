@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import {
   advance,
@@ -134,5 +136,44 @@ describe('recurrence rules', () => {
       advance(parseRule('FREQ=WEEKLY;X-PL-FROM=COMPLETION')!, '2026-10-01', '2026-10-24')!.date,
     ).toBe('2026-10-31');
     expect(advance(parseRule('FREQ=DAILY;UNTIL=20261024')!, '2026-10-24', '2026-10-24')).toBeNull();
+  });
+});
+
+interface SharedFixtures {
+  advance: {
+    description: string;
+    rule: string;
+    current: string;
+    doneOn: string;
+    expected: { date: string; rule: string } | null;
+  }[];
+  parse: { text: string; expected: string | null }[];
+}
+
+describe('the fixtures the server passes too (completing from a notification)', () => {
+  const shared = JSON.parse(
+    readFileSync(
+      join(
+        import.meta.dirname,
+        '..',
+        '..',
+        '..',
+        'schema',
+        'fixtures',
+        'recurrence',
+        'recurrence.json',
+      ),
+      'utf8',
+    ),
+  ) as SharedFixtures;
+
+  it.each(shared.advance)('$description', ({ rule, current, doneOn, expected }) => {
+    const step = advance(parseRule(rule)!, current, doneOn);
+    expect(step && { date: step.date, rule: formatRule(step.rule) }).toEqual(expected);
+  });
+
+  it.each(shared.parse)('reads "$text"', ({ text, expected }) => {
+    const rule = parseRule(text);
+    expect(rule && formatRule(rule)).toBe(expected);
   });
 });

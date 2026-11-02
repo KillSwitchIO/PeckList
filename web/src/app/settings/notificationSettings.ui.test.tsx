@@ -6,7 +6,7 @@ import { createMemoryStorage } from '../../adapters/memory-storage.ts';
 import { createBrowserPush } from '../../adapters/browser-push.ts';
 import { inboxList } from '../../core/lists.ts';
 import { createTask } from '../../core/tasks.ts';
-import type { BackgroundCheck, NativeShell } from '../../ports/nativeShell.ts';
+import type { BackgroundCheck, HeldPress, NativeShell } from '../../ports/nativeShell.ts';
 import type {
   BrowserPush,
   NotificationPermissionState,
@@ -215,6 +215,12 @@ class CheckingShell implements NativeShell {
   }
   clearCarried(): Promise<void> {
     return Promise.resolve();
+  }
+  held(): Promise<HeldPress[]> {
+    return Promise.resolve([]);
+  }
+  onHeld(): () => void {
+    return () => undefined;
   }
 }
 

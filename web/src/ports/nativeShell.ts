@@ -41,6 +41,17 @@ export interface BackgroundCheck {
   maker: string;
 }
 
+/**
+ * A reminder's Complete or Snooze that the shell held for the app (api 7): pressed standalone, or
+ * on a server too old to move a repeating task. `at`: when it was pressed (ms since the epoch).
+ */
+export interface HeldPress {
+  action: 'complete' | 'snooze';
+  taskId: string;
+  minutes: number;
+  at: number;
+}
+
 export interface NativeShell {
   info(): Promise<ShellInfo>;
   /** Whether an address is a Punchlist server, and the origin it answers on. */
@@ -65,4 +76,8 @@ export interface NativeShell {
   carried(): Promise<string | null>;
   /** Api 6: forget the handed-over tasks (added to the account, or left on the phone). */
   clearCarried(): Promise<void>;
+  /** Api 7: the reminder presses held for the app, oldest first; taking them clears them. */
+  held(): Promise<HeldPress[]>;
+  /** Api 7: `listener` runs whenever another press is held; returns a stop function. */
+  onHeld(listener: () => void): () => void;
 }

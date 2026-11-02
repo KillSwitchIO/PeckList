@@ -102,7 +102,9 @@ Servers with a certificate from your own CA work once that CA is installed on th
 ## Reminders and notifications
 
 - Reminders arrive as Android notifications on time, even with the app closed, with **Complete**
-  and **Snooze** buttons that work without opening the app. Snooze asks how long.
+  and **Snooze** buttons that never open the app. Snooze asks how long. A repeating task moves on
+  to its next date. Without a server, the app catches up on the presses the next time you open
+  it.
 - With the app closed it checks in with your server every 5 minutes: new shares, assignments and
   mentions show as notifications, and reminders set on another device are set on the phone too.
   **Settings > Notifications** turns the check-in off or makes it less frequent (15, 30 or 60
