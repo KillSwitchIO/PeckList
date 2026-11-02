@@ -114,9 +114,10 @@ their start; the due date is the deadline.
   its subtasks. A task without a date starts today. A small arrows icon on the row shows it repeats.
   Quick add reads `every ...` too.
 - **A repeating task's dates to come**: the calendar, **Upcoming**, **Next 7 days** and a picked day
-  also show where a repeating task falls next, lighter, with the repeat arrows in place of the
-  checkbox (not for one that counts from when you finish it). Opening one shows the task on that
-  date. Deleting a repeating task, or changing its date, asks first: **Just** that date (the
+  also show where a repeating task falls next, lighter, with a dashed box and the repeat arrows
+  (not for one that counts from when you finish it). Its box and its swipe work on that date:
+  completing it (or won't do) closes just that date, and the series goes on without it; Move and
+  Pin are the whole series'. Opening one shows the task on that date. Deleting a repeating task, or changing its date, asks first: **Just** that date (the
   series goes on without it; a date moved on its own becomes a task of its own), or **Every
   date**. **Skip** under Repeat leaves the date shown out in one tap. Anything else in the details
   changes every date.

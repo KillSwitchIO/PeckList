@@ -141,3 +141,22 @@ export function detachOccurrence(
   });
   return made;
 }
+
+/**
+ * Close one occurrence, done or won't do. The current one closes as the task does (a closed copy
+ * in history, the task on to its next date); one to come leaves a closed task of its own for that
+ * date, and the series skips it.
+ */
+export function closeOccurrence(
+  ctx: OpContext,
+  workspace: WorkspaceFile,
+  id: Id,
+  date: string,
+  status: 'done' | 'wontdo',
+): WorkspaceFile {
+  const task = requireEntity(workspace, 'tasks', id);
+  const anchor = anchorOf(task);
+  if (!anchor || date <= datePart(anchor)) return setTaskStatus(ctx, workspace, id, status);
+  const made = detachOccurrence(ctx, workspace, id, date);
+  return made ? setTaskStatus(ctx, made.workspace, made.task.id, status) : workspace;
+}

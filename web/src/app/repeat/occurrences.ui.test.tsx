@@ -50,4 +50,38 @@ describe("a repeating task's dates to come (PL-060)", () => {
       { timeout: 5000 },
     );
   });
+
+  it('ticks a date to come: done for that date, the rest of the series still to come', async () => {
+    const store = testStore();
+    await renderApp('/upcoming', store);
+    const today = todayIn(localTimeZone(), Date.now());
+    let id = '';
+    store.getState().apply((ctx, ws) => {
+      const made = createTask(ctx, ws, {
+        title: 'Feed the fish',
+        listId: inboxList(ws).id,
+        schedule: { start: addDays(today, 1), end: null, allDay: true, timeZone: localTimeZone() },
+        recurrence: 'FREQ=DAILY',
+      });
+      id = made.task.id;
+      return made.workspace;
+    });
+    const [box] = await screen.findAllByRole(
+      'checkbox',
+      { name: /^Complete Feed the fish for / },
+      { timeout: 5000 },
+    );
+    await userEvent.click(box!);
+    const tasks = () =>
+      store.getState().workspace!.entities.tasks.filter((task) => task.title === 'Feed the fish');
+    await waitFor(() =>
+      expect(tasks().find((task) => task.id === id)?.recurrence).toBe(
+        `FREQ=DAILY;X-PL-SKIP=${addDays(today, 2).replace(/-/g, '')}`,
+      ),
+    );
+    expect(tasks().find((task) => task.id !== id)).toMatchObject({
+      status: 'done',
+      schedule: { start: addDays(today, 2) },
+    });
+  });
 });
