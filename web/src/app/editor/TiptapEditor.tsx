@@ -45,6 +45,7 @@ import {
   type SlashMenuHandlers,
 } from './slashCommands.ts';
 import { hoverOutline } from '../dnd/hoverOutline.ts';
+import { headingSections } from './headingSections.ts';
 import { listItemHandles } from './listItemHandles.ts';
 import { isAllChecklist } from './linesChecklist.ts';
 import { editorMarkdown, linkHref, notesExtensions } from './tiptapMarkdown.ts';
@@ -139,6 +140,7 @@ export default function TiptapEditor({
       slashCommandsExtension(bridge, slashName),
       // A handle to move each list item (R-FB-80).
       listItemHandles(t('editor.moveItem'), theme.palette.primary.main),
+      headingSections(t('editor.moveSection'), theme.palette.primary.main),
     ],
     content: value,
     contentType: 'markdown',
@@ -278,6 +280,20 @@ export default function TiptapEditor({
           '& h1': { ...theme.typography.h6, my: 1 },
           '& h2': { ...theme.typography.subtitle1, fontWeight: 700, my: 1 },
           '& h3': { ...theme.typography.subtitle2, fontWeight: 700, my: 0.75 },
+          // Each heading's handle at its right moves its whole section (headingSections).
+          '& h1, & h2, & h3': { position: 'relative', pr: 3 },
+          '& h1:hover > .note-item-handle, & h2:hover > .note-item-handle, & h3:hover > .note-item-handle':
+            { opacity: 0.8 },
+          // A divider, the full width (Ben, 2026-11-02: it did not show). The browser's own has
+          // auto side margins, which in the editor's flex column shrink it to nothing.
+          '& hr': {
+            border: 0,
+            borderTop: '1px solid',
+            borderColor: 'text.disabled',
+            mx: 0,
+            my: 1.5,
+            width: '100%',
+          },
           '& ul, & ol': { my: 0.75, pl: 3 },
           '& li > p': { my: 0.25 },
           // Each item's handle at its right (R-FB-80): room kept for it, shown on hover (and

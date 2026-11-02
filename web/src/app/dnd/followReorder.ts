@@ -41,6 +41,8 @@ export function followReorder(
   from: number,
   onDrop: (to: number) => void,
   color = '#6c8ebf',
+  /** Where the slot after the last row is drawn, when it is not right under the last row. */
+  endRow?: HTMLElement,
 ): void {
   const dragged = rows[from];
   if (!dragged) return;
@@ -53,7 +55,7 @@ export function followReorder(
     const others = rows.filter((_, index) => index !== from);
     const anchor = others[to];
     const last = others[others.length - 1];
-    const box = (anchor ?? last ?? dragged).getBoundingClientRect();
+    const box = (anchor ?? endRow ?? last ?? dragged).getBoundingClientRect();
     const top = anchor ? box.top : box.bottom;
     Object.assign(line.style, {
       display: 'block',

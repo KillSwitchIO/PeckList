@@ -1290,6 +1290,7 @@ export const en = {
   'editor.code': 'Code',
   'editor.heading': 'Heading',
   'editor.moveItem': 'Move this item',
+  'editor.moveSection': 'Move this heading and everything under it',
   'editor.bulletList': 'Bulleted list',
   'editor.checklist': 'Checklist',
   'editor.linesToChecklist': 'Every line a checkbox',
