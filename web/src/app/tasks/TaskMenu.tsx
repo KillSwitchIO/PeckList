@@ -28,7 +28,6 @@ import { ALL_TASKS, filterTasks } from '../../core/filters.ts';
 import {
   ancestors,
   canNestUnder,
-  deleteTask,
   detachTask,
   nestUnder,
   setCompletedAt,
@@ -50,6 +49,7 @@ import { DatePickerPanel } from '../dates/DatePickerPanel.tsx';
 import { CalendarCheckIcon, ReopenIcon, WontDoIcon } from '../icons/icons.tsx';
 import { completionInstant } from './completion.ts';
 import { ProgressRing } from './ProgressRing.tsx';
+import { deleteAsking } from '../repeat/repeatActions.ts';
 import { useTaskSelection } from './selection.ts';
 
 const MAX_RESULTS = 50;
@@ -244,7 +244,7 @@ export function TaskMenu({
   showOpen?: boolean;
 }) {
   const apply = useApply();
-  const { selectedId, open, close } = useTaskSelection();
+  const { selectedId, on, open, close } = useTaskSelection();
   const [nesting, setNesting] = useState(false);
   const [moving, setMoving] = useState(false);
   const today = useToday();
@@ -399,8 +399,10 @@ export function TaskMenu({
         )}
         <MenuItem
           onClick={run(() => {
-            apply((ctx, ws) => deleteTask(ctx, ws, task.id), t('undo.deleted'));
-            if (selectedId === task.id) close();
+            const opened = selectedId === task.id;
+            void deleteAsking(apply, task, opened ? on : null).then((deleted) => {
+              if (deleted && opened) close();
+            });
           })}
         >
           <ListItemIcon>

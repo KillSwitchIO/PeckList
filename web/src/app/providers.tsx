@@ -1,4 +1,5 @@
 import { useState, type ReactNode } from 'react';
+import { ThisOrAllHost } from './repeat/ThisOrAllHost.tsx';
 import { StatusGate } from './StatusGate.tsx';
 import { StoreProvider } from './store/StoreProvider.tsx';
 import type { WorkspaceStore } from './store/workspaceStore.ts';
@@ -27,7 +28,10 @@ export function AppProviders({
       <StoreProvider store={store}>
         <StatusGate>
           <WorkspaceTheme>
-            <SyncProvider engine={engine}>{children}</SyncProvider>
+            <SyncProvider engine={engine}>
+              {children}
+              <ThisOrAllHost />
+            </SyncProvider>
           </WorkspaceTheme>
         </StatusGate>
       </StoreProvider>

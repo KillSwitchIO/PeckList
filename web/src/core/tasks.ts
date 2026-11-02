@@ -193,9 +193,13 @@ export function createTask(
   }
   const peers = siblings(workspace, listId, parentId);
   const afterIndex = input.afterId ? peers.findIndex((peer) => peer.id === input.afterId) : -1;
+  const before = afterIndex >= 0 ? peers[afterIndex]!.order : null;
+  const next = afterIndex >= 0 ? (peers[afterIndex + 1]?.order ?? null) : null;
+  // Imported lists can hold two tasks with the same key: nothing fits between them, so the new
+  // one goes just past both rather than failing.
   const order =
-    afterIndex >= 0
-      ? keyBetween(peers[afterIndex]!.order, peers[afterIndex + 1]?.order ?? null)
+    before !== null
+      ? keyBetween(before, next !== null && next > before ? next : null)
       : keyBetween(lastOrder(peers), null);
   let tags = {};
   // A subtask starts with its parent's tags (its list comes from the parent too).

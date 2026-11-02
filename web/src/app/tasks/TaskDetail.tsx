@@ -20,9 +20,9 @@ import {
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router';
 import { getEntity, isLive } from '../../core/collections.ts';
-import { localDateTimeOf, localTimeZone } from '../../core/dates.ts';
+import { datePart, daysBetween, localDateTimeOf, localTimeZone } from '../../core/dates.ts';
 import { dateState } from '../../core/queries.ts';
-import { deleteTask, setCompletedAt, updateTask } from '../../core/tasks.ts';
+import { setCompletedAt, updateTask } from '../../core/tasks.ts';
 import { DateProperty } from '../dates/DateProperty.tsx';
 import { NotesEditor } from '../editor/NotesEditor.tsx';
 import { CollapseIcon, DueIcon, ExpandIcon } from '../icons/icons.tsx';
@@ -47,6 +47,10 @@ import { useSyncState } from '../sync/syncContext.ts';
 import { AssigneeProperty } from './AssigneeProperty.tsx';
 import { ReminderProperty } from '../reminders/ReminderProperty.tsx';
 import { OccurrenceActions } from '../repeat/OccurrenceActions.tsx';
+import { shifted } from '../../core/occurrences.ts';
+import { deleteAsking, scheduleAsking } from '../repeat/repeatActions.ts';
+import { asksThisOrAll, shownOccurrence } from '../repeat/thisOrAll.ts';
+import { useTaskSelection } from './selection.ts';
 import { RepeatProperty } from '../repeat/RepeatProperty.tsx';
 
 /**
@@ -170,6 +174,7 @@ export function TaskDetail({
   // The phone's comments and history panel: open at once from a notification about a comment
   // (R-FB-106), or by a swipe up past the end (R-FB-109).
   const [params] = useSearchParams();
+  const { open } = useTaskSelection();
   const [moreOpen, setMoreOpen] = useState(() => params.get('comment') !== null);
   const pull = useRef<number | null>(null);
   const titleLongPress = useLongPress((position) => setMenu({ position }));
@@ -200,6 +205,12 @@ export function TaskDetail({
   }
 
   const zone = localTimeZone();
+  // Opened on a repeating task's date to come: that date is the one shown (and moved).
+  const shownOn = asksThisOrAll(task) ? shownOccurrence(task, params.get('on')) : null;
+  const shownSchedule =
+    shownOn && task.schedule
+      ? shifted(task, daysBetween(datePart(task.schedule.start), shownOn)).schedule
+      : task.schedule;
   const state = dateState(task, today, workspace.entities.settings[0]?.dueSoonDays ?? 2);
   const colors = theme.punchlist.dateState;
   // Color the row that causes the state: the due date when there is one, else the schedule.
@@ -258,24 +269,28 @@ export function TaskDetail({
             label={t('task.date')}
             inline
             icon={<CalendarMonthOutlined fontSize="small" />}
-            value={toDateValue(task.schedule?.start, task.schedule?.end)}
+            value={toDateValue(shownSchedule?.start, shownSchedule?.end)}
             today={today}
             placeholder={t('task.date')}
             allowRange
             {...(scheduleColor ? { valueColor: scheduleColor } : {})}
             onChange={(value) =>
-              apply((ctx, ws) =>
-                updateTask(ctx, ws, task.id, {
-                  schedule: value
-                    ? {
-                        start: fromDateValue(value),
-                        end: value.end ? fromDateValue(value.end) : null,
-                        allDay: value.time === null,
-                        timeZone: zone,
-                      }
-                    : null,
-                }),
-              )
+              void scheduleAsking(
+                apply,
+                task,
+                value
+                  ? {
+                      start: fromDateValue(value),
+                      end: value.end ? fromDateValue(value.end) : null,
+                      allDay: value.time === null,
+                      timeZone: zone,
+                    }
+                  : null,
+                params.get('on'),
+              ).then((shown) => {
+                // Just this date: it is a task of its own now, so that is the one to show.
+                if (shown && shown !== task.id) open(shown);
+              })
             }
           />
           <Box sx={{ flexGrow: 1 }} />
@@ -311,10 +326,11 @@ export function TaskDetail({
             <Tooltip title={t('task.delete')}>
               <IconButton
                 aria-label={t('task.delete')}
-                onClick={() => {
-                  apply((ctx, ws) => deleteTask(ctx, ws, task.id), t('undo.deleted'));
-                  onClose();
-                }}
+                onClick={() =>
+                  void deleteAsking(apply, task, params.get('on')).then((deleted) => {
+                    if (deleted) onClose();
+                  })
+                }
               >
                 <DeleteOutlineRounded />
               </IconButton>
