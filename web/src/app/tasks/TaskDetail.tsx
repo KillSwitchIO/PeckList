@@ -17,7 +17,7 @@ import {
   useMediaQuery,
   useTheme,
 } from '@mui/material';
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router';
 import { getEntity, isLive } from '../../core/collections.ts';
 import { localDateTimeOf, localTimeZone } from '../../core/dates.ts';
@@ -48,7 +48,10 @@ import { AssigneeProperty } from './AssigneeProperty.tsx';
 import { ReminderProperty } from '../reminders/ReminderProperty.tsx';
 import { RepeatProperty } from '../repeat/RepeatProperty.tsx';
 
-/** A text field that edits locally and commits on blur or Enter. */
+/**
+ * A text field that edits locally and commits on blur or Enter, and also when it goes away
+ * without a blur (the panel closes, the app goes to the background), like the notes do.
+ */
 function CommitField({
   label,
   value,
@@ -78,9 +81,35 @@ function CommitField({
     setSynced(value);
     setDraft(value);
   }
-  const commit = () => {
-    if (draft !== value) onCommit(draft);
-  };
+  // The latest draft for the listeners below, and what was last sent (so a blur and the close
+  // right after it send one change, not two).
+  const latest = useRef({ draft, value, onCommit });
+  const sent = useRef<string | null>(null);
+  useLayoutEffect(() => {
+    if (latest.current.value !== value) sent.current = null;
+    latest.current = { draft, value, onCommit };
+  });
+  const commit = useCallback(() => {
+    const { draft: text, value: saved, onCommit: save } = latest.current;
+    if (text === saved || text === sent.current) return;
+    sent.current = text;
+    save(text);
+  }, []);
+  // Leaving without a blur still keeps the edit. On a phone the back gesture closes the panel and
+  // takes the field away with no blur, so a typed title was lost (Courtney, 2026-11-02); the same
+  // when the app goes to the background. Capture phase: before the store flushes on these events.
+  useEffect(() => {
+    const onHide = () => {
+      if (document.visibilityState === 'hidden') commit();
+    };
+    window.addEventListener('visibilitychange', onHide, true);
+    window.addEventListener('pagehide', commit, true);
+    return () => {
+      window.removeEventListener('visibilitychange', onHide, true);
+      window.removeEventListener('pagehide', commit, true);
+      commit();
+    };
+  }, [commit]);
   return (
     // The title as a heading, no box round it (R-FB-121): a light wash on hover and while
     // editing says it can be changed.
@@ -335,7 +364,13 @@ export function TaskDetail({
               // A new task (the + button, the add bar's expand): type its title straight away.
               autoFocus={isBlankDraft(task)}
               onCommit={(title) =>
-                apply((ctx, ws) => updateTask(ctx, ws, task.id, { title: title.trim() }))
+                apply((ctx, ws) => {
+                  // Saved on the way out: the task may be gone by then (deleted, or out of sync).
+                  const current = getEntity(ws, 'tasks', task.id);
+                  return current && isLive(current)
+                    ? updateTask(ctx, ws, task.id, { title: title.trim() })
+                    : ws;
+                })
               }
             />
           </Box>
