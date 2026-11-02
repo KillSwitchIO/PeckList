@@ -24,7 +24,11 @@ import { useRowDate } from './rowDate.ts';
 type Which = 'start' | 'due' | 'completed';
 
 /** What a row's date edits (start, due, or completion of a closed task), and how to save it. */
-function useRowDateEditor(task: Task, dueFirst: boolean) {
+/**
+ * `series`: the row is a repeating task's date to come (`task` is its projection), so a new date
+ * goes to the series, asking just that date or every date.
+ */
+function useRowDateEditor(task: Task, dueFirst: boolean, series?: { task: Task; on: string }) {
   const apply = useApply();
   const zone = localTimeZone();
   const { completedDay, showsDue } = useRowDate(task, dueFirst);
@@ -61,7 +65,7 @@ function useRowDateEditor(task: Task, dueFirst: boolean) {
     } else {
       void scheduleAsking(
         apply,
-        task,
+        series?.task ?? task,
         next
           ? {
               start: fromDateValue(next),
@@ -70,6 +74,7 @@ function useRowDateEditor(task: Task, dueFirst: boolean) {
               timeZone: zone,
             }
           : null,
+        series?.on ?? null,
       );
     }
   };
@@ -82,14 +87,17 @@ export function TaskDateSheet({
   anchor,
   onClose,
   dueFirst = false,
+  series,
 }: {
   task: Task;
   anchor: HTMLElement | null;
   onClose: () => void;
   dueFirst?: boolean;
+  /** A repeating task's date to come: the series, and that date. */
+  series?: { task: Task; on: string };
 }) {
   const today = useToday();
-  const { which, label, value, save } = useRowDateEditor(task, dueFirst);
+  const { which, label, value, save } = useRowDateEditor(task, dueFirst, series);
   return (
     <PropertySheet label={label} anchor={anchor} onClose={onClose}>
       {anchor && (

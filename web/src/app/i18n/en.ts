@@ -1464,6 +1464,7 @@ export const en = {
   'occurrence.toCome':
     'Showing {day}, a date to come. Changing the date or deleting asks: just this date, or all of them. Anything else changes every date.',
   'occurrence.skip': 'Skip {day}',
+  'occurrence.complete': 'Complete {title} for {day}',
   'thisOrAll.deleteTitle': 'Delete a repeating task',
   'thisOrAll.deleteMessage': '{title} repeats. Delete just {day}, or every date?',
   'thisOrAll.deleteThis': 'Just {day}',
@@ -1806,6 +1807,7 @@ export const en = {
   'undo.completed': 'Task completed',
   'undo.occurrenceSkipped': 'Skipped {day}',
   'undo.occurrenceDeleted': 'Deleted {day} only',
+  'undo.occurrenceCompleted': 'Completed {day}',
   'undo.occurrenceMoved': 'Moved {day} only',
   'undo.seriesMoved': 'Moved every date',
   'undo.reopened': 'Task reopened',

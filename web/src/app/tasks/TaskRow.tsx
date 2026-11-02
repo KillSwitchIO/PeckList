@@ -6,7 +6,6 @@ import RepeatRounded from '@mui/icons-material/RepeatRounded';
 import ChevronRightRounded from '@mui/icons-material/ChevronRightRounded';
 import SubdirectoryArrowRightRounded from '@mui/icons-material/SubdirectoryArrowRightRounded';
 import { Box, ButtonBase, Checkbox, IconButton, Typography, useTheme } from '@mui/material';
-import { darken, lighten, type Theme } from '@mui/material/styles';
 import { useRef, useState } from 'react';
 import { useLocation } from 'react-router';
 import { getEntity } from '../../core/collections.ts';
@@ -27,7 +26,8 @@ import { keyboardMove } from '../../core/taskDrag.ts';
 import { TagChips } from '../tags/TagChip.tsx';
 import { useTaskSelection } from './selection.ts';
 import { useBulkSelect, useInSection } from './bulkSelect.ts';
-import { bumpClosedCount, playCheckOff, type BirdColors } from './checkOff.ts';
+import { birdColors } from './birdColors.ts';
+import { bumpClosedCount, playCheckOff } from './checkOff.ts';
 import { CHECK_PATH, CROSS_PATH } from './closedMarks.ts';
 import { DateButton, TaskDateSheet } from './DateButton.tsx';
 import { SwipeRow } from './SwipeRow.tsx';
@@ -47,27 +47,6 @@ const PRIORITY_KEY = { 0: 'none', 1: 'low', 2: 'medium', 3: 'high' } as const sa
  * Rounded-square checkbox; its border carries the priority color. Held (a finger), it opens the
  * task's menu (spec: R-FB-69): the row itself only drags.
  */
-/** The bird in the theme's accent, as the app icon has it. */
-function birdColors(theme: Theme): BirdColors {
-  const accent = theme.palette.primary.main;
-  return {
-    facets: [
-      accent,
-      darken(accent, 0.15),
-      lighten(accent, 0.15),
-      darken(accent, 0.28),
-      lighten(accent, 0.3),
-      darken(accent, 0.06),
-    ],
-    edge: theme.palette.background.paper,
-    beak: '#e8a33d',
-    eye: '#ffffff',
-    tick: theme.palette.text.disabled,
-    onTick: theme.palette.background.paper,
-    strike: theme.palette.text.disabled,
-  };
-}
-
 export function PriorityCheckbox({
   task,
   hold,

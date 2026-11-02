@@ -4,6 +4,7 @@ import { calendarItems } from './calendar.ts';
 import { filterTasks, groupByDay } from './filters.ts';
 import { inboxList } from './lists.ts';
 import {
+  closeOccurrence,
   detachOccurrence,
   occurrenceOf,
   projectOccurrences,
@@ -160,5 +161,34 @@ describe('changing one date where the list has tasks that share an order key', (
     });
     expect(made?.task.schedule?.start).toBe('2026-11-14T15:00');
     expect((made?.task.order ?? '') > task.order).toBe(true);
+  });
+});
+
+describe('closing one date of a repeating task (Ben, 2026-11-02: completing a date to come)', () => {
+  it('done early: a done task for that date, and the series skips it', () => {
+    const s = therapy();
+    s.ws = closeOccurrence(s.ctx, s.ws, s.id, '2026-11-13', 'done');
+    const done = s.ws.entities.tasks.find((task) => task.id !== s.id && task.title === 'Therapy')!;
+    expect(done).toMatchObject({
+      status: 'done',
+      recurrence: null,
+      schedule: { start: '2026-11-13T15:00' },
+    });
+    expect(s.get(s.id)).toMatchObject({
+      status: 'open',
+      recurrence: 'FREQ=WEEKLY;BYDAY=FR;X-PL-SKIP=20261113',
+      schedule: { start: '2026-11-06T15:00' },
+    });
+    expect(days(s.ws, 20)).toEqual([
+      { date: '2026-11-06', titles: ['Therapy'] },
+      { date: '2026-11-20', titles: ['Therapy (to come)'] },
+    ]);
+  });
+
+  it("won't do on the current date closes it as the task does, moving on", () => {
+    const s = therapy();
+    s.ws = closeOccurrence(s.ctx, s.ws, s.id, '2026-11-06', 'wontdo');
+    expect(s.get(s.id).schedule?.start).toBe('2026-11-13T15:00');
+    expect(s.ws.entities.tasks.some((task) => task.status === 'wontdo')).toBe(true);
   });
 });
