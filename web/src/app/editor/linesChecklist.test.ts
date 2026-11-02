@@ -1,5 +1,6 @@
 import { Editor } from '@tiptap/core';
 import { describe, expect, it } from 'vitest';
+import { isAllChecklist } from './linesChecklist.ts';
 import { editorMarkdown, notesExtensions } from './tiptapMarkdown.ts';
 
 /** The notes after one command, as markdown. */
@@ -54,6 +55,32 @@ describe('notes to a checklist and back, one box per line', () => {
     ['plain notes are left alone', 'just a note', 'just a note'],
   ])('checkboxes back to lines: %s', (_name, notes, expected) => {
     expect(run(notes, 'checklistToLines')).toBe(expected);
+  });
+
+  it.each([
+    ['a checklist', '- [ ] dig\n- [x] set', true],
+    // Ben, 2026-11-02: a title in the middle converted one way but not back.
+    ['a checklist with a title in the middle', '- [ ] dig\n\n## Then\n\n- [ ] set', true],
+    ['a checklist with code and a divider', '- [ ] dig\n\n---\n\n```\nnpm run dev\n```', true],
+    ['a checklist and a plain line', '- [ ] dig\n\nset the posts', false],
+    ['no checklist at all', '# Plan\n\ndig', false],
+  ])('the toolbar offers back to lines for %s', (_name, notes, expected) => {
+    const editor = new Editor({
+      extensions: notesExtensions(),
+      content: notes,
+      contentType: 'markdown',
+    });
+    try {
+      expect(isAllChecklist(editor.state.doc)).toBe(expected);
+    } finally {
+      editor.destroy();
+    }
+  });
+
+  it('a checklist with a title in the middle goes back to lines', () => {
+    expect(run('- [ ] dig\n\n## Then\n\n- [x] set', 'checklistToLines')).toBe(
+      'dig\n\n## Then\n\nset',
+    );
   });
 
   it('empty notes stay empty either way', () => {
