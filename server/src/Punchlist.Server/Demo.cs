@@ -57,7 +57,8 @@ public static partial class Demo
 
     /// <summary>What <c>/api/info</c> tells the app for its banner.</summary>
     public static DemoInfo? Info(ServerSettings settings) => settings.DemoMode
-        ? new DemoInfo(settings.DemoResetTime, [.. settings.DemoAccounts.Select(each => new DemoLogin(each.Username, each.Password))])
+        ? new DemoInfo(settings.DemoResetTime, [.. settings.DemoAccounts.Select(each => new DemoLogin(each.Username, each.Password))],
+            settings.DemoResetEvery)
         : null;
 
     /// <summary>Refuses every request: a demo server sends nothing anywhere.</summary>
@@ -87,7 +88,10 @@ public static partial class Demo
     }
 }
 
-/// <summary>The banner's facts: when the nightly reset runs, and the accounts anyone may use.</summary>
-public sealed record DemoInfo(string ResetTime, IReadOnlyList<DemoLogin> Accounts);
+/// <summary>
+/// The banner's facts: when the nightly reset runs, the accounts anyone may use, and how often it
+/// resets in minutes (1440: nightly at <paramref name="ResetTime"/>).
+/// </summary>
+public sealed record DemoInfo(string ResetTime, IReadOnlyList<DemoLogin> Accounts, int ResetEveryMinutes = 1440);
 
 public sealed record DemoLogin(string Username, string Password);

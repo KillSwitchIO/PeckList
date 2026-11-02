@@ -40,9 +40,9 @@ public sealed class DemoModeTests(ServerFixture fixture) : IClassFixture<ServerF
     [Fact]
     public async Task Tells_the_app_when_it_resets_and_which_accounts_anyone_may_use()
     {
-        using var server = Demo(("DEMO_RESET_TIME", "03:30"));
+        using var server = Demo(("DEMO_RESET_TIME", "03:30"), ("DEMO_RESET_EVERY", "60"));
         var info = await server.CreateClient().GetFromJsonAsync<ServerInfo>("/api/info", Token);
-        Assert.Equal("03:30", info!.Demo!.ResetTime);
+        Assert.Equal(("03:30", 60), (info!.Demo!.ResetTime, info.Demo.ResetEveryMinutes));
         Assert.Equal([new DemoLogin("demo-sam", SamPassword), new DemoLogin("demo-alex", "try-punchlist-alex")], info.Demo.Accounts);
 
         using var ordinary = Ordinary();

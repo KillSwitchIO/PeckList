@@ -68,6 +68,7 @@ public static class SettingsCatalog
         new("DEMO_MODE", "environment", SettingKind.Flag, "false", EnvironmentOnly: true),
         new("DEMO_ACCOUNTS", "environment", SettingKind.Secret, EnvironmentOnly: true),
         new("DEMO_RESET_TIME", "environment", SettingKind.Text, "04:00", EnvironmentOnly: true),
+        new("DEMO_RESET_EVERY", "environment", SettingKind.Number, "1440", EnvironmentOnly: true),
         new("DO_NOT_TRACK", "environment", SettingKind.Flag, "false", EnvironmentOnly: true),
         new("AUTH_MODE", "environment", SettingKind.Choice, "local", ["none", "local"], EnvironmentOnly: true),
         new("ADMIN_PASSWORD", "environment", SettingKind.Secret, EnvironmentOnly: true),

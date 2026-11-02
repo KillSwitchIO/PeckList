@@ -48,6 +48,7 @@ const LABELS: Record<string, MessageKey> = {
   DEMO_MODE: 'serverSettings.DEMO_MODE',
   DEMO_ACCOUNTS: 'serverSettings.DEMO_ACCOUNTS',
   DEMO_RESET_TIME: 'serverSettings.DEMO_RESET_TIME',
+  DEMO_RESET_EVERY: 'serverSettings.DEMO_RESET_EVERY',
   AUDIT_ARCHIVE_DIR: 'serverSettings.AUDIT_ARCHIVE_DIR',
   AUTH_MODE: 'serverSettings.AUTH_MODE',
   ADMIN_PASSWORD: 'serverSettings.ADMIN_PASSWORD',

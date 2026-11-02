@@ -2,6 +2,7 @@ import { cleanup, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { createMemoryStorage } from '../../adapters/memory-storage.ts';
+import type { DemoInfo } from '../../ports/sync.ts';
 import { FakeBackend } from '../../test/fakeTransport.ts';
 import { mockViewport, renderApp, testStore } from '../../test/renderApp.tsx';
 import { createSyncEngine } from '../sync/syncEngine.ts';
@@ -14,7 +15,7 @@ beforeEach(() => {
 });
 
 const slow = { timeout: 10_000 };
-const DEMO = {
+const DEMO: DemoInfo = {
   resetTime: '04:00',
   accounts: [
     { username: 'demo-sam', password: 'try-punchlist-sam' },
@@ -36,7 +37,7 @@ async function serverApp(backend: FakeBackend, signedInAs: string | null) {
   return renderApp('/today', store, sync);
 }
 
-function demoServer(demo: typeof DEMO | null = DEMO) {
+function demoServer(demo: DemoInfo | null = DEMO) {
   const backend = new FakeBackend();
   backend.addAccount('ben', 'correct horse battery');
   backend.demo = demo;
@@ -109,6 +110,12 @@ describe('the demo server banner (PL-117)', () => {
     const banner = await screen.findByRole('status', { name: 'Demo server' }, slow);
     expect(banner).toHaveTextContent('resets every night at 03:30');
     expect(within(banner).queryByRole('button', { name: 'Demo accounts' })).toBeNull();
+  });
+
+  it('says how often it resets when that is more than nightly (DEMO_RESET_EVERY)', async () => {
+    await serverApp(demoServer({ resetTime: '04:00', accounts: [], resetEveryMinutes: 60 }), 'ben');
+    const banner = await screen.findByRole('status', { name: 'Demo server' }, slow);
+    expect(banner).toHaveTextContent('resets every hour');
   });
 
   it('is not there on an ordinary server', async () => {

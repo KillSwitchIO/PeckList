@@ -132,6 +132,12 @@ public sealed record ServerSettings
     /// <summary>When the demo's nightly reset runs, as the banner says it (<c>DEMO_RESET_TIME</c>, server time).</summary>
     public string DemoResetTime { get; init; } = "04:00";
 
+    /// <summary>
+    /// How often the demo resets, in minutes (<c>DEMO_RESET_EVERY</c>): 1440 is the nightly reset
+    /// at <see cref="DemoResetTime"/>; less makes the banner say "every hour" and so on.
+    /// </summary>
+    public int DemoResetEvery { get; init; } = 1440;
+
     /// <summary>The largest attachment on a demo server, in megabytes: lower settings stay, higher ones come down to it.</summary>
     public const int DemoAttachmentMaxMb = 2;
 
@@ -290,6 +296,7 @@ public sealed record ServerSettings
             DemoMode = demoMode,
             DemoAccounts = demoAccounts,
             DemoResetTime = demoResetTime,
+            DemoResetEvery = Count("DEMO_RESET_EVERY", 1440, 5),
             SignUpRateLimit = Count("SIGNUP_RATE_LIMIT", 5, 0),
             Logging = LoggingSettings.Read(Get, Path.Combine(Path.GetDirectoryName(dbPath) is { Length: > 0 } dir ? dir : ".", "logs"), errors),
         };
