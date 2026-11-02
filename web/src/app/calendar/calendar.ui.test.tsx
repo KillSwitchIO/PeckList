@@ -3,7 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { addDays, localTimeZone, todayIn } from '../../core/dates.ts';
 import { inboxList } from '../../core/lists.ts';
-import { createTask } from '../../core/tasks.ts';
+import { createTask, setTaskStatus } from '../../core/tasks.ts';
 import { mockViewport, renderApp, testStore } from '../../test/renderApp.tsx';
 
 beforeEach(() => {
@@ -65,6 +65,40 @@ describe('calendar', () => {
     expect(day).toHaveAttribute('data-cal-day', today);
     const waiting = screen.getByRole('list', { name: 'Unscheduled' });
     expect(within(waiting).getByRole('listitem')).toHaveTextContent('Someday');
+  });
+
+  it('shows what was done on days gone by, but not from today on (Ben, 2026-11-02)', async () => {
+    const { store, today, zone } = await calendarWith();
+    const yesterday = addDays(today, -1);
+    act(() =>
+      store.getState().apply((ctx, ws) => {
+        const inbox = inboxList(ws).id;
+        const past = createTask(ctx, ws, {
+          title: 'Paid rent',
+          listId: inbox,
+          schedule: { start: yesterday, end: null, allDay: true, timeZone: zone },
+        });
+        const now = createTask(ctx, past.workspace, {
+          title: 'Took vitamins',
+          listId: inbox,
+          schedule: { start: today, end: null, allDay: true, timeZone: zone },
+        });
+        return setTaskStatus(
+          ctx,
+          setTaskStatus(ctx, now.workspace, past.task.id, 'done'),
+          now.task.id,
+          'done',
+        );
+      }),
+    );
+    const month = await screen.findByRole('grid', { name: 'Month' });
+    await waitFor(() =>
+      expect(within(month).getByRole('button', { name: 'Paid rent' })).toBeInTheDocument(),
+    );
+    expect(
+      within(month).getByRole('button', { name: 'Paid rent' }).closest('[data-cal-day]'),
+    ).toHaveAttribute('data-cal-day', yesterday);
+    expect(within(month).queryByRole('button', { name: 'Took vitamins' })).toBeNull();
   });
 
   it('switches to Days, shows as many as the slider says, remembers, and pages by them', async () => {
