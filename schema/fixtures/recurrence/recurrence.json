@@ -284,6 +284,70 @@
         "date": "2026-10-21",
         "rule": "FREQ=DAILY"
       }
+    },
+    {
+      "description": "the next one skipped",
+      "rule": "FREQ=WEEKLY;X-PL-SKIP=20261113",
+      "current": "2026-11-06",
+      "doneOn": "2026-11-06",
+      "expected": {
+        "date": "2026-11-20",
+        "rule": "FREQ=WEEKLY"
+      }
+    },
+    {
+      "description": "two skipped in a row",
+      "rule": "FREQ=DAILY;X-PL-SKIP=20261103,20261104",
+      "current": "2026-11-02",
+      "doneOn": "2026-11-02",
+      "expected": {
+        "date": "2026-11-05",
+        "rule": "FREQ=DAILY"
+      }
+    },
+    {
+      "description": "a skip passed stays behind, a later one is kept",
+      "rule": "FREQ=WEEKLY;X-PL-SKIP=20261030,20261120",
+      "current": "2026-11-06",
+      "doneOn": "2026-11-06",
+      "expected": {
+        "date": "2026-11-13",
+        "rule": "FREQ=WEEKLY;X-PL-SKIP=20261120"
+      }
+    },
+    {
+      "description": "a skipped date still counts",
+      "rule": "FREQ=DAILY;COUNT=3;X-PL-SKIP=20261103",
+      "current": "2026-11-02",
+      "doneOn": "2026-11-02",
+      "expected": {
+        "date": "2026-11-04",
+        "rule": "FREQ=DAILY;COUNT=1"
+      }
+    },
+    {
+      "description": "the last left is skipped",
+      "rule": "FREQ=DAILY;COUNT=2;X-PL-SKIP=20261103",
+      "current": "2026-11-02",
+      "doneOn": "2026-11-02",
+      "expected": null
+    },
+    {
+      "description": "skipped up to UNTIL",
+      "rule": "FREQ=WEEKLY;UNTIL=20261113;X-PL-SKIP=20261113",
+      "current": "2026-11-06",
+      "doneOn": "2026-11-06",
+      "expected": null
+    },
+    {
+      "description": "from completion, a skipped date",
+      "rule": "FREQ=DAILY;X-PL-FROM=COMPLETION;X-PL-SKIP=20261105",
+      "current": "2026-11-02",
+      "doneOn": "2026-11-04",
+      "expected": {
+        "date": "2026-11-06",
+        "rule": "FREQ=DAILY;X-PL-FROM=COMPLETION"
+      }
     }
   ],
   "parse": [
@@ -342,6 +406,18 @@
     {
       "text": "",
       "expected": null
+    },
+    {
+      "text": "FREQ=WEEKLY;X-PL-SKIP=20261120,20261113,20261113",
+      "expected": "FREQ=WEEKLY;X-PL-SKIP=20261113,20261120"
+    },
+    {
+      "text": "FREQ=WEEKLY;X-PL-SKIP=2026-11-13",
+      "expected": null
+    },
+    {
+      "text": "FREQ=WEEKLY;X-PL-SKIP=",
+      "expected": "FREQ=WEEKLY"
     }
   ]
 }

@@ -78,7 +78,8 @@ export function DaysView({
   byDay: Map<string, CalendarItem[]>;
   hourHeight: number;
   onHourHeight: (height: number) => void;
-  onOpenTask: (taskId: string) => void;
+  /** `occurrence`: a repeating task's date to come that was picked, not its own date. */
+  onOpenTask: (taskId: string, occurrence?: string) => void;
   onOpenDay: (day: string, anchor: HTMLElement) => void;
   onSlot: (day: string, minutes: number, anchor: HTMLElement) => void;
   onPage: (direction: 1 | -1) => void;
@@ -371,7 +372,7 @@ export function DaysView({
                     item={item}
                     day={day}
                     dense
-                    onOpen={() => onOpenTask(item.taskId)}
+                    onOpen={() => onOpenTask(item.taskId, item.occurrence)}
                     onPointerDown={(event) => item.movable && onGrab(event, item, 0)}
                   />
                 ))}
@@ -491,10 +492,11 @@ export function DaysView({
                           setEditing(null);
                           if (editing === block.item.id) return;
                         }
-                        onOpenTask(block.item.taskId);
+                        onOpenTask(block.item.taskId, block.item.occurrence);
                       }}
                       onKeyDown={(event) => {
-                        if (event.key === 'Enter') onOpenTask(block.item.taskId);
+                        if (event.key === 'Enter')
+                          onOpenTask(block.item.taskId, block.item.occurrence);
                       }}
                       onPointerDown={(event) => {
                         event.stopPropagation();
@@ -551,7 +553,11 @@ export function DaysView({
                         cursor: block.item.movable ? 'grab' : 'pointer',
                         // Dimmed where it was while it is dragged elsewhere; done ones faded.
                         opacity:
-                          preview?.taskId === block.item.taskId ? 0.35 : block.item.done ? 0.55 : 1,
+                          preview?.taskId === block.item.taskId
+                            ? 0.35
+                            : block.item.done || block.item.occurrence
+                              ? 0.55
+                              : 1,
                         textDecoration: block.item.done ? 'line-through' : 'none',
                         boxShadow:
                           editing === block.item.id

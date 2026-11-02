@@ -37,6 +37,8 @@ const Line = styled(ButtonBase)(({ theme }) => ({
     backgroundColor: 'color-mix(in srgb, var(--item-color) 33%, transparent)',
   },
   '&[data-movable]': { cursor: 'grab' },
+  // A repeating task's date to come: there, but not yet the task's own.
+  '&[data-occurrence]': { opacity: 0.6 },
   '&:hover': { backgroundColor: theme.palette.action.hover },
   '& .item-due': { fontSize: 12, flexShrink: 0 },
   '& .item-priority': {
@@ -84,6 +86,7 @@ export function ItemLine({
       data-done={flag(item.done)}
       data-all-day={flag(item.allDay)}
       data-movable={flag(item.movable)}
+      data-occurrence={flag(Boolean(item.occurrence))}
       style={
         {
           '--item-color': item.color,

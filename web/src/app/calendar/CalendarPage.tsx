@@ -451,7 +451,7 @@ export function CalendarPage() {
                 target={target}
                 byDay={byDay}
                 onView={setView}
-                onOpenTask={open}
+                onOpenTask={(id, on) => open(id, on ? { on } : undefined)}
                 onOpenDay={(day, anchor) => setPopup({ day, time: null, anchor })}
                 onRange={(first, last, point) => setRange({ first, last, ...point })}
                 rangeOpen={range !== null}
@@ -466,7 +466,7 @@ export function CalendarPage() {
                 byDay={byDay}
                 hourHeight={prefs.hourHeight}
                 onHourHeight={(hourHeight) => setPrefs({ hourHeight })}
-                onOpenTask={open}
+                onOpenTask={(id, on) => open(id, on ? { on } : undefined)}
                 onOpenDay={(day, anchor) => setPopup({ day, time: null, anchor })}
                 onSlot={(day, minutes, anchor) =>
                   setPopup({ day, time: atMinutes(day, minutes).slice(11), anchor })
@@ -502,7 +502,7 @@ export function CalendarPage() {
           items={byDay.get(popup.day) ?? []}
           anchor={popup.anchor}
           onClose={() => setPopup(null)}
-          onOpenTask={open}
+          onOpenTask={(id, on) => open(id, on ? { on } : undefined)}
           onShowDays={() => {
             setPopup(null);
             showDays(popup.day, 1);

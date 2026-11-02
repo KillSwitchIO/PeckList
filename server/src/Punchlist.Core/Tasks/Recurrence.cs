@@ -20,7 +20,8 @@ public sealed partial record Recurrence(
     IReadOnlyList<int>? ByMonth = null,
     int? Count = null,
     string? Until = null,
-    bool FromCompletion = false)
+    bool FromCompletion = false,
+    IReadOnlyList<string>? Skip = null)
 {
     private static readonly string[] DayCodes = ["SU", "MO", "TU", "WE", "TH", "FR", "SA"];
     private static readonly string[] Freqs = ["DAILY", "WEEKLY", "MONTHLY", "YEARLY"];
@@ -33,6 +34,9 @@ public sealed partial record Recurrence(
 
     [GeneratedRegex("^(\\d{4})(\\d{2})(\\d{2})")]
     private static partial Regex UntilPattern();
+
+    [GeneratedRegex("^(\\d{4})(\\d{2})(\\d{2})$")]
+    private static partial Regex SkipPattern();
 
     [GeneratedRegex("^RRULE:", RegexOptions.IgnoreCase)]
     private static partial Regex Prefix();
@@ -81,8 +85,20 @@ public sealed partial record Recurrence(
             if (!match.Success) return null;
             until = $"{match.Groups[1].Value}-{match.Groups[2].Value}-{match.Groups[3].Value}";
         }
+        List<string>? skip = null;
+        if (parts.GetValueOrDefault("X-PL-SKIP") is { Length: > 0 } skipText)
+        {
+            var dates = new SortedSet<string>(StringComparer.Ordinal);
+            foreach (var each in skipText.Split(','))
+            {
+                var match = SkipPattern().Match(each);
+                if (!match.Success) return null;
+                dates.Add($"{match.Groups[1].Value}-{match.Groups[2].Value}-{match.Groups[3].Value}");
+            }
+            skip = [.. dates];
+        }
         return new Recurrence(freq, every, byDays, byMonthDay, byMonth, count, until,
-            parts.GetValueOrDefault("X-PL-FROM") == "COMPLETION");
+            parts.GetValueOrDefault("X-PL-FROM") == "COMPLETION", skip);
     }
 
     /// <summary>RRULE text for the rule (in a stable order, so the same rule is the same text).</summary>
@@ -99,20 +115,34 @@ public sealed partial record Recurrence(
         if (Count is { } count) parts.Add($"COUNT={count}");
         if (!string.IsNullOrEmpty(Until)) parts.Add("UNTIL=" + Until.Replace("-", ""));
         if (FromCompletion) parts.Add("X-PL-FROM=COMPLETION");
+        if (Skip is { Count: > 0 }) parts.Add("X-PL-SKIP=" + string.Join(',', Skip.Select(date => date.Replace("-", ""))));
         return string.Join(';', parts);
     }
 
     /// <summary>
     /// Where a repeating task goes next when one occurrence is done: its next date, and the rule
-    /// to keep (COUNT one less), or null when this was the last.
+    /// to keep (COUNT less the occurrences passed, skipped ones too; skips before the new date
+    /// dropped), or null when this was the last.
     /// </summary>
     public (DateOnly Date, Recurrence Rule)? Advance(DateOnly current, DateOnly doneOn)
     {
-        if (Count is <= 1) return null;
-        var date = FromCompletion ? NextFromCompletion(doneOn) : NextOccurrence(current, current);
-        if (date is not { } next || (UntilDate is { } until && next > until)) return null;
-        return (next, Count is { } count ? this with { Count = count - 1 } : this);
+        var skipped = new HashSet<string>(Skip ?? [], StringComparer.Ordinal);
+        var left = Count;
+        var date = current;
+        do
+        {
+            if (left is <= 1) return null;
+            DateOnly? next = FromCompletion ? NextFromCompletion(date == current ? doneOn : date) : NextOccurrence(current, date);
+            if (next is not { } found || (UntilDate is { } until && found > until)) return null;
+            date = found;
+            if (left is { } count) left = count - 1;
+        }
+        while (skipped.Contains(Text(date)));
+        var later = (Skip ?? []).Where(each => string.CompareOrdinal(each, Text(date)) > 0).ToList();
+        return (date, this with { Count = left, Skip = later.Count > 0 ? later : null });
     }
+
+    private static string Text(DateOnly date) => date.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
 
     /// <summary>The date after <paramref name="after"/> the series falls on, counted from <paramref name="start"/>.</summary>
     public DateOnly? NextOccurrence(DateOnly start, DateOnly after)

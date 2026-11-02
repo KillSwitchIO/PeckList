@@ -16,7 +16,8 @@ export function useTaskSelection(): {
   selectedId: string | null;
   /** Whether the address asks for the full-screen view. */
   full: boolean;
-  open: (id: string, options?: { full?: boolean; comment?: string }) => void;
+  /** `on`: the date of a repeating task's occurrence to come it was opened from. */
+  open: (id: string, options?: { full?: boolean; comment?: string; on?: string }) => void;
   close: () => void;
   /** Leave the full-screen view the address asked for. */
   leaveFull: () => void;
@@ -28,7 +29,7 @@ export function useTaskSelection(): {
   const full = params.get('full') === '1';
   const openedHere = (location.state as Record<string, unknown> | null)?.[OPENED] === true;
   const open = useCallback(
-    (id: string, options?: { full?: boolean; comment?: string }) =>
+    (id: string, options?: { full?: boolean; comment?: string; on?: string }) =>
       setParams(
         (current) => {
           const next = new URLSearchParams(current);
@@ -38,6 +39,8 @@ export function useTaskSelection(): {
           // Its comments open, scrolled to this one (a notification, R-FB-106).
           if (options?.comment) next.set('comment', options.comment);
           else next.delete('comment');
+          if (options?.on) next.set('on', options.on);
+          else next.delete('on');
           return next;
         },
         selectedId === null

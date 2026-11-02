@@ -40,6 +40,8 @@ import { SwipeRow } from './SwipeRow.tsx';
 import { useRowDate } from './rowDate.ts';
 import { MoveToListDialog, TaskMenu, type TaskMenuAnchor } from './TaskMenu.tsx';
 import { isBlankDraft } from './drafts.ts';
+import { occurrenceOf } from '../../core/occurrences.ts';
+import { OccurrenceRow } from '../repeat/OccurrenceRow.tsx';
 
 const PRIORITY_KEY = { 0: 'none', 1: 'low', 2: 'medium', 3: 'high' } as const satisfies Record<
   Priority,
@@ -184,6 +186,9 @@ type TaskRowProps = Parameters<typeof TaskRowContent>[0];
  */
 export function TaskRow(props: TaskRowProps) {
   if (isBlankDraft(props.task)) return null;
+  // A repeating task's date to come (core/occurrences) is not a task of its own.
+  const occurrence = occurrenceOf(props.task);
+  if (occurrence) return <OccurrenceRow task={props.task} occurrence={occurrence} />;
   return <TaskRowContent {...props} />;
 }
 
