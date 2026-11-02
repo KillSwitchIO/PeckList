@@ -514,6 +514,7 @@ export const en = {
   'serverSettings.DEMO_MODE': 'Demo server',
   'serverSettings.DEMO_ACCOUNTS': 'Demo accounts',
   'serverSettings.DEMO_RESET_TIME': 'Demo reset time',
+  'serverSettings.DEMO_RESET_EVERY': 'Demo reset every (minutes)',
   'telemetry.about':
     'Once a day this server sends the Punchlist project an anonymous report: the version, how it is set up, and counts in ranges. Never names, titles, addresses or anything people wrote.',
   'telemetry.sentAt': 'Last sent {when}.',
@@ -1024,6 +1025,14 @@ export const en = {
   'demo.accountsText':
     'Anyone can sign up, or use one of these accounts. They share lists with each other, so you can see sharing without inviting anyone. Everything here goes every night at {time}.',
   'demo.noAccountsText': 'Anyone can sign up. Everything here goes every night at {time}.',
+  'demo.bannerEvery': 'Demo server: resets every {every}, anyone can sign up',
+  'demo.bannerShortEvery': 'Demo, resets every {every}',
+  'demo.accountsTextEvery':
+    'Anyone can sign up, or use one of these accounts. They share lists with each other, so you can see sharing without inviting anyone. Everything here goes every {every}.',
+  'demo.noAccountsTextEvery': 'Anyone can sign up. Everything here goes every {every}.',
+  'demo.everyHour': 'hour',
+  'demo.everyHours': '{count} hours',
+  'demo.everyMinutes': '{count} minutes',
   'demo.dismiss': 'Hide for now',
   'auth.signUp.limited': 'Enough accounts were made from here for now. Try again in an hour.',
   'auth.demoAccount': 'Demo accounts keep their password, so everyone can use them.',

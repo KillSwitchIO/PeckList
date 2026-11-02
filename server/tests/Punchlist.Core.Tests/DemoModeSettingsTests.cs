@@ -83,6 +83,8 @@ public sealed class DemoModeSettingsTests
         Assert.Equal([new DemoAccount("demo-sam", "try-punchlist-sam"), new DemoAccount("demo-alex", "try-punchlist-alex")], settings.DemoAccounts);
         Assert.Equal("03:30", settings.DemoResetTime);
         Assert.Equal("04:00", Read(new() { ["DEMO_MODE"] = "on" }).DemoResetTime);
+        Assert.Equal(1440, Read(new() { ["DEMO_MODE"] = "on" }).DemoResetEvery);
+        Assert.Equal(60, Read(new() { ["DEMO_MODE"] = "on", ["DEMO_RESET_EVERY"] = "60" }).DemoResetEvery);
         // Listed in logs and dumps without the password.
         Assert.Equal("demo-sam:***", settings.DemoAccounts[0].ToString());
     }
@@ -93,6 +95,7 @@ public sealed class DemoModeSettingsTests
     [InlineData("DEMO_ACCOUNTS", "admin:a long enough password", "is the server's admin")]
     [InlineData("DEMO_ACCOUNTS", "sam:a long enough password,Sam:another long password", "listed twice")]
     [InlineData("DEMO_RESET_TIME", "4am", "is not a time like 04:00")]
+    [InlineData("DEMO_RESET_EVERY", "1h", "is not a whole number of at least 5")]
     [InlineData("AUTH_MODE", "none", "DEMO_MODE needs AUTH_MODE=local")]
     public void Refuses_demo_settings_that_cannot_work(string key, string value, string message)
     {

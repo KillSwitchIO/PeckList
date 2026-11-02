@@ -81,25 +81,25 @@ and dashes; each gets the settings below with its name in capitals and dashes as
 
 ### Per provider: `OIDC_<NAME>_...`
 
-| Setting                       | Default                             | Meaning                                                                                                                             |
-| ----------------------------- | ----------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
-| `OIDC_<NAME>_AUTHORITY`       | required                            | The issuer URL (where `/.well-known/openid-configuration` lives).                                                                   |
-| `OIDC_<NAME>_CLIENT_ID`       | required                            | The client id registered for Punchlist.                                                                                             |
-| `OIDC_<NAME>_CLIENT_SECRET`   | none                                | The client secret. None: a public client. PKCE is always used.                                                                      |
-| `OIDC_<NAME>_DISPLAY_NAME`    | the name                            | The sign-in button's label ("Continue with ...").                                                                                   |
-| `OIDC_<NAME>_SCOPES`          | `openid profile email` (+ `groups`) | `groups` is added when a group setting is used. Set this for providers without a `groups` scope.                                    |
-| `OIDC_<NAME>_GROUPS_CLAIM`    | `groups`                            | The claim holding group names.                                                                                                      |
-| `OIDC_<NAME>_USERNAME_CLAIM`  | `preferred_username`                | Where a new account's username comes from (else the email's first part).                                                            |
-| `OIDC_<NAME>_REQUIRED_GROUPS` | none (everyone)                     | Comma list; signing in needs at least one. Checked at every sign-in.                                                                |
-| `OIDC_<NAME>_AUTO_CREATE`     | `false`                             | Make an account at a first sign-in. Off: the person waits for an admin's approval.                                                  |
-| `OIDC_<NAME>_LINK_BY_EMAIL`   | `false`                             | Join a first sign-in to the one existing account with the same **verified** email.                                                  |
-| `OIDC_<NAME>_LINK_BY_USERNAME`| `false`                             | `true`: a first sign-in joins the same-named plain user account with no link to this provider. `all`: admins too.                   |
-| `OIDC_<NAME>_USER_MAP`        | none                                | `provideruser=punchlistuser,...`: that provider user always signs into that account, moving an existing link.                       |
-| `OIDC_<NAME>_ICON`            | the provider's favicon              | An `https` address or a file: the icon shown on the profile picture of people signed in through it.                                 |
-| `OIDC_<NAME>_ROLE_MAP`        | none                                | `group=role,...` with roles `user`, `admin`, `superadmin`. The highest match wins at every sign-in; no match means `user`.          |
-| `OIDC_<NAME>_GROUP_MAP`       | none                                | `group=Server group,...`, or `*` to mirror every provider group as a server group.                                                  |
-| `OIDC_<NAME>_SIGN_OUT`        | `false`                             | Signing out of Punchlist also ends the provider session. Register `<PUBLIC_URL>/login` as a post-logout redirect URI first.         |
-| `OIDC_<NAME>_SESSION_HOURS`   | `12`                                | How long a session from this provider lasts (0 to 720) before the app goes back through the provider. `0`: 30 days, like passwords. |
+| Setting                        | Default                             | Meaning                                                                                                                             |
+| ------------------------------ | ----------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
+| `OIDC_<NAME>_AUTHORITY`        | required                            | The issuer URL (where `/.well-known/openid-configuration` lives).                                                                   |
+| `OIDC_<NAME>_CLIENT_ID`        | required                            | The client id registered for Punchlist.                                                                                             |
+| `OIDC_<NAME>_CLIENT_SECRET`    | none                                | The client secret. None: a public client. PKCE is always used.                                                                      |
+| `OIDC_<NAME>_DISPLAY_NAME`     | the name                            | The sign-in button's label ("Continue with ...").                                                                                   |
+| `OIDC_<NAME>_SCOPES`           | `openid profile email` (+ `groups`) | `groups` is added when a group setting is used. Set this for providers without a `groups` scope.                                    |
+| `OIDC_<NAME>_GROUPS_CLAIM`     | `groups`                            | The claim holding group names.                                                                                                      |
+| `OIDC_<NAME>_USERNAME_CLAIM`   | `preferred_username`                | Where a new account's username comes from (else the email's first part).                                                            |
+| `OIDC_<NAME>_REQUIRED_GROUPS`  | none (everyone)                     | Comma list; signing in needs at least one. Checked at every sign-in.                                                                |
+| `OIDC_<NAME>_AUTO_CREATE`      | `false`                             | Make an account at a first sign-in. Off: the person waits for an admin's approval.                                                  |
+| `OIDC_<NAME>_LINK_BY_EMAIL`    | `false`                             | Join a first sign-in to the one existing account with the same **verified** email.                                                  |
+| `OIDC_<NAME>_LINK_BY_USERNAME` | `false`                             | `true`: a first sign-in joins the same-named plain user account with no link to this provider. `all`: admins too.                   |
+| `OIDC_<NAME>_USER_MAP`         | none                                | `provideruser=punchlistuser,...`: that provider user always signs into that account, moving an existing link.                       |
+| `OIDC_<NAME>_ICON`             | the provider's favicon              | An `https` address or a file: the icon shown on the profile picture of people signed in through it.                                 |
+| `OIDC_<NAME>_ROLE_MAP`         | none                                | `group=role,...` with roles `user`, `admin`, `superadmin`. The highest match wins at every sign-in; no match means `user`.          |
+| `OIDC_<NAME>_GROUP_MAP`        | none                                | `group=Server group,...`, or `*` to mirror every provider group as a server group.                                                  |
+| `OIDC_<NAME>_SIGN_OUT`         | `false`                             | Signing out of Punchlist also ends the provider session. Register `<PUBLIC_URL>/login` as a post-logout redirect URI first.         |
+| `OIDC_<NAME>_SESSION_HOURS`    | `12`                                | How long a session from this provider lasts (0 to 720) before the app goes back through the provider. `0`: 30 days, like passwords. |
 
 ## Backups
 
@@ -220,6 +220,12 @@ characters or more. Needs `DEMO_MODE`. **Default:** none. **Where:** env.
 When the nightly reset runs (`HH:mm`, server time), as the banner says it. The reset itself is
 the job you schedule (see [run a demo server](../install/demo.md)); keep the two the same.
 **Default:** `04:00`. **Where:** env.
+
+### `DEMO_RESET_EVERY`
+
+How often the demo resets, in minutes, as the banner says it: `60` makes it "resets every hour".
+`1440` (a day) is the nightly reset at `DEMO_RESET_TIME`. Schedule the reset job to match (the
+example's `RESET_CRON`). **Default:** `1440`. **Where:** env.
 
 ## Network
 

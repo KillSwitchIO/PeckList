@@ -79,16 +79,19 @@ The reset stops the server, deletes the `data` and `files` volumes, makes them a
 seed in, and starts the server. It takes a few seconds, and everyone signed in is signed out.
 
 !!! warning "The reset service holds the Docker socket"
-    With `/var/run/docker.sock` mounted, the `reset` container can do anything Docker can on this
-    host. On a host that runs other things, leave the `reset` service out and run the same script
-    from the host's cron instead:
+With `/var/run/docker.sock` mounted, the `reset` container can do anything Docker can on this
+host. On a host that runs other things, leave the `reset` service out and run the same script
+from the host's cron instead:
 
     ```cron
     0 4 * * * cd /srv/punchlist-demo && sh reset.sh >> reset.log 2>&1
     ```
 
-Keep [`DEMO_RESET_TIME`](../configuration/reference.md#demo_reset_time) the same as the cron time
-(`RESET_AT` in the compose file, or your crontab line), in the server's time zone (`TZ`).
+Keep [`DEMO_RESET_TIME`](../configuration/reference.md#demo_reset_time) and
+[`DEMO_RESET_EVERY`](../configuration/reference.md#demo_reset_every) the same as the schedule
+(`RESET_CRON` in the compose file, or your crontab line), in the server's time zone (`TZ`). For an
+hourly reset: `DEMO_RESET_EVERY: '60'` and `RESET_CRON: '0 * * * *'`; the banner then says
+"resets every hour".
 
 ## In front of it
 

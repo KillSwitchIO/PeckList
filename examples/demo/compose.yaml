@@ -1,4 +1,4 @@
-# A public demo server that resets every night (PL-117). Docs: docs/install/demo.md
+# A public demo server that resets on a schedule, nightly here (PL-117). Docs: docs/install/demo.md
 #   printf '%s' 'a long admin password' > admin_password.txt
 #   docker compose up -d && docker compose exec reset sh /demo/reset.sh   # load the seed now
 # Then open http://localhost:8080 and sign in as demo-sam / try-punchlist-sam.
@@ -21,15 +21,17 @@ services:
       DEMO_MODE: 'true'
       # The seed's three people, with the passwords the banner shows.
       DEMO_ACCOUNTS: demo-sam:try-punchlist-sam,demo-alex:try-punchlist-alex,demo-jordan:try-punchlist-jordan
-      # As the banner says it; keep it the same as RESET_AT below.
+      # As the banner says it; keep them the same as RESET_CRON below. For an hourly reset:
+      # DEMO_RESET_EVERY: '60' here and RESET_CRON: '0 * * * *' below.
       DEMO_RESET_TIME: '04:00'
+      DEMO_RESET_EVERY: '1440'
       # The operator's own way in. Visitors never get an admin.
       ADMIN_PASSWORD_FILE: /run/secrets/admin_password
       # Behind a reverse proxy with HTTPS (the sign-up limit counts the real addresses):
       # PUBLIC_URL: https://demo.example.com
       # TRUSTED_PROXIES: 172.16.0.0/12
 
-  # The nightly reset: stop the server, make its volumes anew, load the seed, start it again.
+  # The reset: stop the server, make its volumes anew, load the seed, start it again.
   # It drives Docker through the socket, which is as good as root on this host; run reset.sh from
   # the host's own cron instead if you would rather not (see the docs).
   reset:
@@ -42,12 +44,12 @@ services:
       - .:${PWD}:ro
       - ./reset.sh:/demo/reset.sh:ro
     environment:
-      # Minute and hour (UTC) for cron.
-      RESET_AT: '0 4'
+      # When, as a cron line (UTC): nightly at 04:00. Hourly is '0 * * * *'.
+      RESET_CRON: '0 4 * * *'
     entrypoint:
       - sh
       - -c
-      - echo "$$RESET_AT * * * cd $$PWD && sh /demo/reset.sh" > /etc/crontabs/root && exec crond -f -l 6
+      - echo "$$RESET_CRON cd $$PWD && sh /demo/reset.sh" > /etc/crontabs/root && exec crond -f -l 6
 
 volumes:
   data:

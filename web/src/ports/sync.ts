@@ -22,6 +22,8 @@ export interface DemoInfo {
   /** The nightly reset, `HH:mm` in the server's time zone. */
   resetTime: string;
   accounts: { username: string; password: string }[];
+  /** How often it resets, in minutes (`DEMO_RESET_EVERY`); 1440 or absent: nightly at resetTime. */
+  resetEveryMinutes?: number;
 }
 
 /** What became of a file sent to the server. */

@@ -3,7 +3,7 @@ import { useState } from 'react';
 import { t } from '../i18n/i18n.ts';
 import { CloseIcon } from '../icons/icons.tsx';
 import { useSyncState } from '../sync/syncContext.ts';
-import { bannerDismissed, dismissBanner } from './demoBanner.ts';
+import { bannerDismissed, dismissBanner, resetWording } from './demoBanner.ts';
 
 /**
  * On a demo server (`DEMO_MODE`, PL-117): one line saying it resets every night and anyone can
@@ -16,6 +16,7 @@ export function DemoBanner() {
   const [anchor, setAnchor] = useState<HTMLElement | null>(null);
   if (!demo || hidden) return null;
   const accounts = demo.accounts;
+  const words = resetWording(demo);
   return (
     <Paper
       role="status"
@@ -42,7 +43,7 @@ export function DemoBanner() {
       }}
     >
       <Typography variant="body2" noWrap sx={{ minWidth: 0, display: { xs: 'none', sm: 'block' } }}>
-        {t('demo.banner', { time: demo.resetTime })}
+        {words.banner}
       </Typography>
       {/* A phone has room for the short line only; it opens the rest. */}
       <ButtonBase
@@ -50,7 +51,7 @@ export function DemoBanner() {
         sx={{ minWidth: 0, borderRadius: 1, display: { xs: 'flex', sm: 'none' } }}
       >
         <Typography variant="body2" noWrap>
-          {t('demo.bannerShort', { time: demo.resetTime })}
+          {words.short}
         </Typography>
       </ButtonBase>
       {accounts.length > 0 && (
@@ -89,9 +90,7 @@ export function DemoBanner() {
           color="text.secondary"
           sx={{ mb: accounts.length > 0 ? 1.5 : 0 }}
         >
-          {t(accounts.length > 0 ? 'demo.accountsText' : 'demo.noAccountsText', {
-            time: demo.resetTime,
-          })}
+          {accounts.length > 0 ? words.accounts : words.noAccounts}
         </Typography>
         <Box
           component="dl"
