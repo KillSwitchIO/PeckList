@@ -19,7 +19,7 @@ two disagree, the notes win on behavior and this page wins on code; fix whicheve
   lives only in one side's code.
 - **Ports and adapters.** The web domain (`web/src/core`) knows no UI, no storage and no
   libraries; it talks through interfaces in `web/src/ports` with implementations in
-  `web/src/adapters`. The server's `Punchlist.Core` knows no ASP.NET and reaches storage through
+  `web/src/adapters`. The server's `PeckList.Core` knows no ASP.NET and reaches storage through
   store interfaces. Swapping a library means a new adapter that passes the same contract suite.
 - **Tests pin behavior.** A change in behavior must fail a test; coverage is a safety net, not a
   goal. See [Testing](#testing).
@@ -111,10 +111,10 @@ Reach for these before writing another copy:
 
 ### Layout and style
 
-- `Punchlist.Core` is the domain: accounts and sign-in rules, sharing (the `SharingIndex`), sync
-  and merge, backups, notifications, settings. It depends on nothing from ASP.NET. `Punchlist.Server`
+- `PeckList.Core` is the domain: accounts and sign-in rules, sharing (the `SharingIndex`), sync
+  and merge, backups, notifications, settings. It depends on nothing from ASP.NET. `PeckList.Server`
   is the HTTP layer: endpoints, auth, audit, logging, the CLI, the static site.
-  `Punchlist.Storage.Sql` holds the stores on Dapper, with `Storage.Sqlite` and `Storage.Postgres`
+  `PeckList.Storage.Sql` holds the stores on Dapper, with `Storage.Sqlite` and `Storage.Postgres`
   as thin dialects.
 - File-scoped namespaces, primary constructors, `sealed` by default, `record` for anything on the
   wire or in a backup, pattern matching and early returns over nesting, expression bodies where a
@@ -207,8 +207,8 @@ write a test to raise the number.
 | The schema                                        | Bump `schemaVersion`, a migration, fixtures in `schema/fixtures/migrations`, `docs/migrations/<N>.md`.                                                                   |
 | A port or adapter                                 | The port's contract suite (`adapters/*.contract.ts`), run by every adapter including the memory one.                                                                     |
 | A screen or dialog                                | A `*.ui.test.tsx` through `renderApp`: what the person sees and can do, not component internals.                                                                         |
-| A server rule                                     | `Punchlist.Core.Tests` for the rule on its own, `Punchlist.Server.Tests` over HTTP through `WebApplicationFactory` for the endpoint (both SQLite and, where it matters, PostgreSQL). |
-| A store                                           | The store contract in `Punchlist.Storage.Tests`, run on SQLite and PostgreSQL.                                                                                           |
+| A server rule                                     | `PeckList.Core.Tests` for the rule on its own, `PeckList.Server.Tests` over HTTP through `WebApplicationFactory` for the endpoint (both SQLite and, where it matters, PostgreSQL). |
+| A store                                           | The store contract in `PeckList.Storage.Tests`, run on SQLite and PostgreSQL.                                                                                           |
 | A critical flow (sign in, sync between devices, sharing) | An end-to-end spec in `e2e/` (`pnpm e2e`, and `e2e:server` against a real server).                                                                                 |
 
 Test names read as sentences about behavior (`it('offers each provider beside the password form')`),

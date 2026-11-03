@@ -286,7 +286,7 @@ The least important entries written: `trace`, `debug`, `information`, `warning`,
 
 ### `LOG_LEVEL_OVERRIDES`
 
-Levels for a category and those under it: `Punchlist.Sync=debug,Microsoft=warning`.
+Levels for a category and those under it: `PeckList.Sync=debug,Microsoft=warning`.
 `Microsoft.AspNetCore` and `System.Net.Http.HttpClient` start at `warning`; an override changes
 that. **Default:** `Microsoft.AspNetCore=Warning`. **Where:** any, live.
 

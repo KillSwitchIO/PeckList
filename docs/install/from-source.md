@@ -17,7 +17,7 @@ git clone https://gitlab.com/killswitch10/punchlist.git
 cd punchlist
 pnpm install
 pnpm build                                   # the web app, into web/dist
-dotnet publish server/src/Punchlist.Server -c Release -o out
+dotnet publish server/src/PeckList.Server -c Release -o out
 cp -r web/dist out/wwwroot
 ASPNETCORE_HTTP_PORTS=8080 out/punchlist     # out\punchlist.exe on Windows
 ```

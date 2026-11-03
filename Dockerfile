@@ -36,16 +36,16 @@ ARG VERSION
 ARG REVISION
 WORKDIR /src
 COPY server/global.json server/Directory.Build.props server/Directory.Packages.props ./
-COPY server/src/Punchlist.Core/Punchlist.Core.csproj src/Punchlist.Core/
-COPY server/src/Punchlist.Server/Punchlist.Server.csproj src/Punchlist.Server/
-COPY server/src/Punchlist.Storage.Sql/Punchlist.Storage.Sql.csproj src/Punchlist.Storage.Sql/
-COPY server/src/Punchlist.Storage.Sqlite/Punchlist.Storage.Sqlite.csproj src/Punchlist.Storage.Sqlite/
-COPY server/src/Punchlist.Storage.Postgres/Punchlist.Storage.Postgres.csproj src/Punchlist.Storage.Postgres/
-RUN dotnet restore src/Punchlist.Server/Punchlist.Server.csproj -a $TARGETARCH
+COPY server/src/PeckList.Core/PeckList.Core.csproj src/PeckList.Core/
+COPY server/src/PeckList.Server/PeckList.Server.csproj src/PeckList.Server/
+COPY server/src/PeckList.Storage.Sql/PeckList.Storage.Sql.csproj src/PeckList.Storage.Sql/
+COPY server/src/PeckList.Storage.Sqlite/PeckList.Storage.Sqlite.csproj src/PeckList.Storage.Sqlite/
+COPY server/src/PeckList.Storage.Postgres/PeckList.Storage.Postgres.csproj src/PeckList.Storage.Postgres/
+RUN dotnet restore src/PeckList.Server/PeckList.Server.csproj -a $TARGETARCH
 COPY server/src src
 # A dev build keeps the version in Directory.Build.props; a release build stamps its own.
-RUN if [ "$VERSION" = "0.0.0-dev" ]; then STAMP=""; else STAMP="-p:Version=$VERSION -p:PunchlistStamped=true"; fi \
-    && dotnet publish src/Punchlist.Server/Punchlist.Server.csproj -c Release -a $TARGETARCH --self-contained false \
+RUN if [ "$VERSION" = "0.0.0-dev" ]; then STAMP=""; else STAMP="-p:Version=$VERSION -p:PeckListStamped=true"; fi \
+    && dotnet publish src/PeckList.Server/PeckList.Server.csproj -c Release -a $TARGETARCH --self-contained false \
        -o /app --no-restore $STAMP -p:SourceRevisionId=$REVISION \
     && mkdir -p /data /files && chown 1654:1654 /data /files
 
