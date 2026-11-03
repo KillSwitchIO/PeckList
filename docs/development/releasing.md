@@ -107,7 +107,7 @@ The tag pipeline then:
    notes, the downloads as assets, and the image.
 
 Re-running the `release` job updates the release instead of failing. The newest release's files are
-always at `https://gitlab.com/killswitch10/punchlist/-/releases/permalink/latest/downloads/<file>`.
+always at `https://gitlab.com/killswitch10/pecklist/-/releases/permalink/latest/downloads/<file>`.
 
 ## Checklist
 

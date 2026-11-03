@@ -26,7 +26,7 @@ the wiki, the community chat, and anywhere you speak for the project.
 ## Reporting
 
 If someone's behaviour worries you, open a
-[confidential issue](https://gitlab.com/killswitch10/punchlist/-/issues/new?issue[confidential]=true)
+[confidential issue](https://gitlab.com/killswitch10/pecklist/-/issues/new?issue[confidential]=true)
 (tick **This issue is confidential**) addressed to the maintainers, or message a moderator in the
 community chat. Only maintainers can read confidential issues. Reports are read promptly and kept
 as private as the situation allows; reporting in good faith never counts against you.

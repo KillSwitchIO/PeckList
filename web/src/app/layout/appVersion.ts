@@ -1,5 +1,5 @@
 /** Where the changes in each version are listed. */
-export const CHANGELOG_URL = 'https://gitlab.com/killswitch10/punchlist/-/blob/main/CHANGELOG.md';
+export const CHANGELOG_URL = 'https://gitlab.com/killswitch10/pecklist/-/blob/main/CHANGELOG.md';
 
 /**
  * The version as the menu shows it: `v0.2.0`, or `v0.1.0-dev.7d865c2` for builds between releases.

@@ -1,7 +1,7 @@
 # Developing
 
 How the code is organised and how to work on it. Conventions (branches, commits, architecture rules,
-testing) are in [CONTRIBUTING.md](https://gitlab.com/killswitch10/punchlist/-/blob/main/CONTRIBUTING.md);
+testing) are in [CONTRIBUTING.md](https://gitlab.com/killswitch10/pecklist/-/blob/main/CONTRIBUTING.md);
 the house style, the checks and the shared pieces to reach for are in [Coding standards](standards.md).
 
 ## Layout

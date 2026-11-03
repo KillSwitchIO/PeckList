@@ -1,7 +1,7 @@
 # PeckList
 
-[![pipeline](https://gitlab.com/killswitch10/punchlist/badges/main/pipeline.svg)](https://gitlab.com/killswitch10/punchlist/-/pipelines)
-[![release](https://gitlab.com/killswitch10/punchlist/-/badges/release.svg)](https://gitlab.com/killswitch10/punchlist/-/releases)
+[![pipeline](https://gitlab.com/killswitch10/pecklist/badges/main/pipeline.svg)](https://gitlab.com/killswitch10/pecklist/-/pipelines)
+[![release](https://gitlab.com/killswitch10/pecklist/-/badges/release.svg)](https://gitlab.com/killswitch10/pecklist/-/releases)
 [![license: AGPL-3.0-or-later](https://img.shields.io/badge/license-AGPL--3.0--or--later-blue)](LICENSE)
 [![docs](https://img.shields.io/badge/docs-docs.pecklist.com-indigo)](https://docs.pecklist.com/)
 [![Android: Obtainium](https://img.shields.io/badge/Android-Obtainium-6750a4)](docs/using/android-app.md#install)
@@ -43,7 +43,7 @@ Productivity (including what they do better): [why PeckList](docs/about/why.md) 
 
 ```bash
 docker run -d --name pecklist -p 8080:8080 -v pecklist-data:/data -v pecklist-files:/files \
-  registry.gitlab.com/killswitch10/punchlist:latest
+  registry.gitlab.com/killswitch10/pecklist:latest
 docker logs pecklist     # the first admin password, printed once
 ```
 
@@ -65,8 +65,8 @@ The same docs are published as a site from `main` (GitLab Pages).
 
 ## Downloads
 
-Each [release](https://gitlab.com/killswitch10/punchlist/-/releases) has the image
-(`registry.gitlab.com/killswitch10/punchlist:<version>`, amd64 and arm64), self-contained Linux
+Each [release](https://gitlab.com/killswitch10/pecklist/-/releases) has the image
+(`registry.gitlab.com/killswitch10/pecklist:<version>`, amd64 and arm64), self-contained Linux
 (x64, arm64) and Windows (x64) downloads, the signed Android app (`pecklist-android.apk`, also
 through [Obtainium](docs/using/android-app.md#install)), and `SHA256SUMS`.
 
@@ -84,7 +84,7 @@ Issues and merge requests are welcome. Start with [CONTRIBUTING.md](CONTRIBUTING
 `help wanted`. Everyone follows the [code of conduct](CODE_OF_CONDUCT.md). Report security
 problems privately: [SECURITY.md](SECURITY.md).
 
-The project lives on GitLab: [gitlab.com/killswitch10/punchlist](https://gitlab.com/killswitch10/punchlist).
+The project lives on GitLab: [gitlab.com/killswitch10/pecklist](https://gitlab.com/killswitch10/pecklist).
 The copy on GitHub ([KillSwitchIO/PeckList](https://github.com/KillSwitchIO/PeckList)) is a
 read-only mirror, updated from GitLab: open issues and merge requests on GitLab, not pull
 requests on GitHub.

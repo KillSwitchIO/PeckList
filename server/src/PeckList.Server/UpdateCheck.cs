@@ -39,7 +39,7 @@ public sealed class GitLabReleaseFeed(IHttpClientFactory http) : IReleaseFeed
         DateTimeOffset? published = release.TryGetProperty("released_at", out var at) && at.TryGetDateTimeOffset(out var when)
             ? when
             : null;
-        return new ReleaseInfo(version, url ?? "https://gitlab.com/killswitch10/punchlist/-/releases", published);
+        return new ReleaseInfo(version, url ?? "https://gitlab.com/killswitch10/pecklist/-/releases", published);
     }
 }
 

@@ -6,7 +6,7 @@ when it can. One small server (a Docker container, or a native program on Linux 
 serves the app and keeps everyone's data, in SQLite or PostgreSQL.
 
 <!-- The status line: at 1.0, replace this one line with "**Status: 1.0.** Stable; see the changelog." and its link. -->
-**Status: before 1.0.** In daily use, but a minor version may still change things: every change you need to act on is under **Breaking changes** in the [changelog](https://gitlab.com/killswitch10/punchlist/-/blob/main/CHANGELOG.md). Keep [backups](guides/backups.md).
+**Status: before 1.0.** In daily use, but a minor version may still change things: every change you need to act on is under **Breaking changes** in the [changelog](https://gitlab.com/killswitch10/pecklist/-/blob/main/CHANGELOG.md). Keep [backups](guides/backups.md).
 
 <div class="grid" markdown>
 
@@ -49,8 +49,8 @@ serves the app and keeps everyone's data, in SQLite or PostgreSQL.
 ## Getting help
 
 See [getting help](about/support.md). In short: open an issue on
-[GitLab](https://gitlab.com/killswitch10/punchlist/-/issues), and for a bug
+[GitLab](https://gitlab.com/killswitch10/pecklist/-/issues), and for a bug
 ([how to report one](about/reporting-bugs.md)) attach a
 [debug dump](guides/logging.md#debug-dump): it carries logs, settings and versions but no task
 content, passwords or keys. Report security problems privately as described in
-[SECURITY.md](https://gitlab.com/killswitch10/punchlist/-/blob/main/SECURITY.md).
+[SECURITY.md](https://gitlab.com/killswitch10/pecklist/-/blob/main/SECURITY.md).

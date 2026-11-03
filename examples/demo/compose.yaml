@@ -6,7 +6,7 @@ name: pecklist-demo
 
 services:
   pecklist:
-    image: registry.gitlab.com/killswitch10/punchlist:latest
+    image: registry.gitlab.com/killswitch10/pecklist:latest
     restart: unless-stopped
     ports:
       - '8080:8080'

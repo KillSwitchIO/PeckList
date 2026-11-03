@@ -7,7 +7,7 @@ Only the latest release gets security fixes. Fixes ship as a new release; there 
 ## Reporting a vulnerability
 
 Please **do not** open a public issue. Open a
-[confidential issue](https://gitlab.com/killswitch10/punchlist/-/issues/new?issue[confidential]=true)
+[confidential issue](https://gitlab.com/killswitch10/pecklist/-/issues/new?issue[confidential]=true)
 instead (tick **This issue is confidential**), with:
 
 - what an attacker can do, and what they need first (an account, network access, ...),

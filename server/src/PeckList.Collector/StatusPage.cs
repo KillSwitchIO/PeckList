@@ -82,7 +82,7 @@ public static class StatusPage
         html.Append("</div>");
         html.Append(CultureInfo.InvariantCulture,
             $"<p style=\"margin-top:24px\">Updated {stats.Generated:yyyy-MM-dd HH:mm} UTC. <a href=\"/api/private/v1/stats\">The same as JSON</a>. ");
-        html.Append("What a report holds, and how to turn it off: <a href=\"https://gitlab.com/killswitch10/punchlist/-/blob/main/docs/using/privacy.md\">privacy</a>.</p>");
+        html.Append("What a report holds, and how to turn it off: <a href=\"https://gitlab.com/killswitch10/pecklist/-/blob/main/docs/using/privacy.md\">privacy</a>.</p>");
         html.Append("</main></body></html>");
         return html.ToString();
     }

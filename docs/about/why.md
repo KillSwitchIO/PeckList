@@ -30,7 +30,7 @@ household and a few friends.
 - **Easy to leave, easy to arrive.** Import from TickTick, Todoist, Google Tasks, Microsoft To Do
   and iCalendar files; export back to most of them. See
   [moving from TickTick or Todoist](../using/moving-from-ticktick-or-todoist.md).
-- **Free software.** [AGPL-3.0-or-later](https://gitlab.com/killswitch10/punchlist/-/blob/main/LICENSE),
+- **Free software.** [AGPL-3.0-or-later](https://gitlab.com/killswitch10/pecklist/-/blob/main/LICENSE),
   developed in the open on GitLab.
 
 ## Who it suits
@@ -59,6 +59,6 @@ Honest limits, so you do not find them the hard way:
 - **No hosted version.** You need somewhere to run it. A public demo server is planned for 1.0.
 - **Before 1.0.** It is in daily use, but a minor version may still change things. Every change you
   need to act on is under **Breaking changes** in the
-  [changelog](https://gitlab.com/killswitch10/punchlist/-/blob/main/CHANGELOG.md).
+  [changelog](https://gitlab.com/killswitch10/pecklist/-/blob/main/CHANGELOG.md).
 
 How it stacks up against the apps people usually name: [comparison](comparison.md).

@@ -3,7 +3,7 @@
 PeckList ships as one image that serves both the web app and the API.
 
 ```text
-registry.gitlab.com/killswitch10/punchlist
+registry.gitlab.com/killswitch10/pecklist
 ```
 
 ## Image tags
@@ -26,7 +26,7 @@ docker run -d --name pecklist --restart unless-stopped \
   -v pecklist-data:/data \
   -v pecklist-files:/files \
   -e TZ=Europe/Berlin \
-  registry.gitlab.com/killswitch10/punchlist:latest
+  registry.gitlab.com/killswitch10/pecklist:latest
 ```
 
 Then read the first admin password with `docker logs pecklist` and open <http://localhost:8080>.
@@ -36,7 +36,7 @@ To keep settings in a file, pass an env file:
 
 ```bash
 docker run -d --name pecklist -p 8080:8080 -v pecklist-data:/data -v pecklist-files:/files \
-  --env-file pecklist.env registry.gitlab.com/killswitch10/punchlist:latest
+  --env-file pecklist.env registry.gitlab.com/killswitch10/pecklist:latest
 ```
 
 ??? example "pecklist.env"
@@ -86,7 +86,7 @@ Values can also be [encrypted](../configuration/index.md#encrypted-values).
 ## Building the image yourself
 
 ```bash
-git clone https://gitlab.com/killswitch10/punchlist.git && cd pecklist
+git clone https://gitlab.com/killswitch10/pecklist.git && cd pecklist
 docker build -t pecklist:local .
 # both architectures:
 docker buildx build --platform linux/amd64,linux/arm64 -t pecklist:local .

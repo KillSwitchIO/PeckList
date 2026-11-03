@@ -58,7 +58,7 @@ the upgrade yourself before starting a new version, with a user that may:
 
 ```bash
 docker run --rm -e DB_PROVIDER=postgres -e DB_CONNECTION_STRING="Host=db;Username=owner;..." \
-  registry.gitlab.com/killswitch10/punchlist:0.2.0 upgrade-db
+  registry.gitlab.com/killswitch10/pecklist:0.2.0 upgrade-db
 ```
 
 The server does not check the schema when it starts this way, so do not skip this step.

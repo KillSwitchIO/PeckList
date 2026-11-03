@@ -1,7 +1,7 @@
 # Docker Compose
 
 The recommended way to run PeckList. All examples are in
-[`examples/docker`](https://gitlab.com/killswitch10/punchlist/-/tree/main/examples/docker).
+[`examples/docker`](https://gitlab.com/killswitch10/pecklist/-/tree/main/examples/docker).
 
 ## SQLite (the default)
 
@@ -21,7 +21,7 @@ Open <http://localhost:8080>. Read [first start](../getting-started/first-start.
 next.
 
 !!! note "Data in a folder instead of a volume"
-    [`compose.bind-mount.yaml`](https://gitlab.com/killswitch10/punchlist/-/blob/main/examples/docker/compose.bind-mount.yaml)
+    [`compose.bind-mount.yaml`](https://gitlab.com/killswitch10/pecklist/-/blob/main/examples/docker/compose.bind-mount.yaml)
     keeps the data in `./data` and attached files in `./files` (point that one at bigger storage if
     you like). Both folders must belong to uid 1654 (`sudo chown 1654:1654 data files`), or run the
     container as your own user with `user:`.
@@ -43,7 +43,7 @@ Caddy gets and renews a certificate by itself. Point a DNS name at the machine, 
     --8<-- "examples/docker/Caddyfile"
     ```
 
-Behind Traefik instead: [`compose.traefik.yaml`](https://gitlab.com/killswitch10/punchlist/-/blob/main/examples/docker/compose.traefik.yaml).
+Behind Traefik instead: [`compose.traefik.yaml`](https://gitlab.com/killswitch10/pecklist/-/blob/main/examples/docker/compose.traefik.yaml).
 Other proxies: [reverse proxy and HTTPS](reverse-proxy.md).
 
 ## PostgreSQL

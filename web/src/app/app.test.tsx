@@ -280,7 +280,7 @@ describe('sidebar frame', () => {
 
     expect(
       screen.getByRole('link', { name: /^PeckList v\d+\.\d+\.\d+.*: what changed$/ }),
-    ).toHaveAttribute('href', 'https://gitlab.com/killswitch10/punchlist/-/blob/main/CHANGELOG.md');
+    ).toHaveAttribute('href', 'https://gitlab.com/killswitch10/pecklist/-/blob/main/CHANGELOG.md');
   });
 
   it('zooms the mini calendar out to months and years from its title', async () => {

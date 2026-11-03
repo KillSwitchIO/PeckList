@@ -52,11 +52,11 @@ public sealed class UpdateTests(ServerFixture fixture) : IClassFixture<ServerFix
     {
         using var json = JsonDocument.Parse("""
             {"tag_name":"v0.2.7+20261028","released_at":"2026-10-28T17:00:00Z",
-             "_links":{"self":"https://gitlab.com/killswitch10/punchlist/-/releases/v0.2.7%2B20261028"}}
+             "_links":{"self":"https://gitlab.com/killswitch10/pecklist/-/releases/v0.2.7%2B20261028"}}
             """);
         var release = GitLabReleaseFeed.Parse(json.RootElement)!;
         Assert.Equal("0.2.7", release.Version);
-        Assert.Equal("https://gitlab.com/killswitch10/punchlist/-/releases/v0.2.7%2B20261028", release.Url);
+        Assert.Equal("https://gitlab.com/killswitch10/pecklist/-/releases/v0.2.7%2B20261028", release.Url);
         Assert.NotNull(release.PublishedAt);
     }
 

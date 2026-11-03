@@ -2,7 +2,7 @@
 
 The house style: how the code is laid out, what the checks enforce, the habits the code follows
 and the shared pieces to reach for before writing a new one. [Developing](index.md) says how to
-run things and [CONTRIBUTING.md](https://gitlab.com/killswitch10/punchlist/-/blob/main/CONTRIBUTING.md)
+run things and [CONTRIBUTING.md](https://gitlab.com/killswitch10/pecklist/-/blob/main/CONTRIBUTING.md)
 how branches, commits and merge requests work. Read all three before a change; this page is the
 one to come back to while writing.
 

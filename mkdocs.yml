@@ -3,8 +3,8 @@
 site_name: PeckList
 site_description: Self-hosted, offline-first tasks and calendar
 site_url: https://docs.pecklist.com/
-repo_url: https://gitlab.com/killswitch10/punchlist
-repo_name: killswitch10/punchlist
+repo_url: https://gitlab.com/killswitch10/pecklist
+repo_name: killswitch10/pecklist
 edit_uri: -/edit/main/docs/
 docs_dir: docs
 strict: true

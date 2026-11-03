@@ -1,6 +1,6 @@
 # Windows
 
-Each [release](https://gitlab.com/killswitch10/punchlist/-/releases) has a self-contained download
+Each [release](https://gitlab.com/killswitch10/pecklist/-/releases) has a self-contained download
 for **Windows x64** (Windows 10, 11, Server 2019 and later). Nothing else to install.
 
 ## Install as a service
@@ -8,7 +8,7 @@ for **Windows x64** (Windows 10, 11, Server 2019 and later). Nothing else to ins
 In an **elevated** PowerShell (Run as administrator), from the folder you downloaded to:
 
 ```powershell
-$base = 'https://gitlab.com/killswitch10/punchlist/-/releases/permalink/latest/downloads'
+$base = 'https://gitlab.com/killswitch10/pecklist/-/releases/permalink/latest/downloads'
 Invoke-WebRequest "$base/pecklist-win-x64.zip" -OutFile pecklist-win-x64.zip
 Invoke-WebRequest "$base/SHA256SUMS" -OutFile SHA256SUMS
 # The two hashes must match:
