@@ -56,6 +56,7 @@ collector does not read or keep the sender's IP address.
 
 ## What the project does with it
 
-The reports are kept 90 days; totals per day are kept after that. The totals are public, with any
-value fewer than five installs share left out. The collector's code is in the repository
+The reports are kept 90 days; totals per day are kept after that. Only the project sees them: the
+collector takes reports from the internet and shows its totals on the project's own network, nowhere
+else. The collector's code is in the repository
 ([telemetry collector](../development/telemetry-collector.md)).

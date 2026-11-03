@@ -103,8 +103,8 @@ public sealed record ServerSettings
     /// <summary>Serve the OpenAPI document and the Swagger UI page of the HTTP API (<c>API_DOCS</c>).</summary>
     public bool ApiDocs { get; init; } = true;
 
-    /// <summary>Where the daily usage report goes unless <c>TELEMETRY_URL</c> says otherwise (moves to the app's domain at 1.0).</summary>
-    public static readonly Uri DefaultTelemetryUrl = new("https://telemetry.killswitch10.com/api/public/v1/ping");
+    /// <summary>Where the daily usage report goes unless <c>TELEMETRY_URL</c> says otherwise.</summary>
+    public static readonly Uri DefaultTelemetryUrl = new("https://telemetry.pecklist.com/api/public/v1/ping");
 
     /// <summary>
     /// Send the anonymous daily usage report (<c>TELEMETRY</c>, on by default; PL-116). The

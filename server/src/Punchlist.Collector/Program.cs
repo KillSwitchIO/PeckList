@@ -9,9 +9,10 @@ using Punchlist.Core.Telemetry;
 //   ASPNETCORE_URLS             where to listen (the image: http://+:8080)
 // It never reads or keeps the sender's address: behind a proxy it does not even see it.
 //
-// Routes: what anyone on the internet may reach is under /api/public/ (the report and the public
-// totals), everything else under /api/private/ (the health check), so the proxy in front needs one
-// rule: let /api/public/* through, keep the rest inside.
+// Routes: what anyone on the internet may reach is under /api/public/ (the report, nothing else);
+// everything else is under /api/private/ (the totals, their page and the health check), for the
+// project's own network only. So the proxy in front needs one rule: let /api/public/* through, keep
+// the rest inside.
 
 var builder = WebApplication.CreateBuilder(args);
 var connection = builder.Configuration["COLLECTOR_DB"]
@@ -29,7 +30,6 @@ builder.Services.AddSingleton<PingStore>();
 builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddSingleton<StatsCache>();
 builder.Services.AddHostedService<Totals>();
-builder.Services.AddCors(cors => cors.AddPolicy("public", policy => policy.AllowAnyOrigin().WithMethods("GET")));
 builder.Services.AddRateLimiter(limits =>
 {
     limits.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
@@ -58,7 +58,6 @@ app.Use(async (context, next) =>
     }
     await next(context);
 });
-app.UseCors();
 app.UseRateLimiter();
 
 app.MapGet("/api/private/healthz", () => Results.Text("ok"));
@@ -70,17 +69,18 @@ app.MapPost("/api/public/v1/ping", async (TelemetryPing ping, PingStore store, T
     return Results.Accepted();
 }).RequireRateLimiting("ping");
 
-app.MapGet("/api/public/v1/stats", async (StatsCache stats, CancellationToken cancellation) =>
-    Results.Ok(await stats.GetAsync(cancellation))).RequireCors("public");
+// The totals are the project's own (Ben, 2026-11-02): inside only, never through the public proxy.
+app.MapGet("/api/private/v1/stats", async (StatsCache stats, CancellationToken cancellation) =>
+    Results.Ok(await stats.GetAsync(cancellation)));
 
 // The same totals as a page for people; the bare address leads to it.
-app.MapGet("/api/public/", async (StatsCache stats, CancellationToken cancellation) =>
+app.MapGet("/api/private/", async (StatsCache stats, CancellationToken cancellation) =>
     Results.Content(StatusPage.Render(await stats.GetAsync(cancellation)), "text/html; charset=utf-8"));
-app.MapGet("/", () => Results.Redirect("/api/public/"));
+app.MapGet("/", () => Results.Redirect("/api/private/"));
 
 app.Run();
 
-/// <summary>The public totals, worked out again at most every ten minutes.</summary>
+/// <summary>The totals, worked out again at most every ten minutes.</summary>
 internal sealed class StatsCache(PingStore store, TimeProvider time)
 {
     private static readonly TimeSpan MaxAge = TimeSpan.FromMinutes(10);

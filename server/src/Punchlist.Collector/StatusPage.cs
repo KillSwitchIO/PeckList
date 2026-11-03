@@ -5,7 +5,7 @@ using System.Text;
 namespace Punchlist.Collector;
 
 /// <summary>
-/// The public status page at <c>/api/public/</c>: the same totals as <c>/api/public/v1/stats</c>,
+/// The status page at <c>/api/private/</c>: the same totals as <c>/api/private/v1/stats</c>,
 /// for a person in a browser. One self-contained page, no scripts, no outside assets.
 /// </summary>
 public static class StatusPage
@@ -81,7 +81,7 @@ public static class StatusPage
         }
         html.Append("</div>");
         html.Append(CultureInfo.InvariantCulture,
-            $"<p style=\"margin-top:24px\">Updated {stats.Generated:yyyy-MM-dd HH:mm} UTC. <a href=\"/api/public/v1/stats\">The same as JSON</a>. ");
+            $"<p style=\"margin-top:24px\">Updated {stats.Generated:yyyy-MM-dd HH:mm} UTC. <a href=\"/api/private/v1/stats\">The same as JSON</a>. ");
         html.Append("What a report holds, and how to turn it off: <a href=\"https://gitlab.com/killswitch10/punchlist/-/blob/main/docs/using/privacy.md\">privacy</a>.</p>");
         html.Append("</main></body></html>");
         return html.ToString();
