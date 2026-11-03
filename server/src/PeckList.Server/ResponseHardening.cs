@@ -48,7 +48,8 @@ public static class ResponseHardening
     }
 
     /// <summary>After <c>UseForwardedHeaders</c>, so https is known from the proxy.</summary>
-    public static void UseResponseHardening(this WebApplication app)
+    /// <param name="policy">The page's security policy: <see cref="ContentSecurityPolicy"/> unless Umami is set up (<see cref="Analytics"/>).</param>
+    public static void UseResponseHardening(this WebApplication app, string policy = ContentSecurityPolicy)
     {
         app.UseHsts();
         app.Use((context, next) =>
@@ -61,7 +62,7 @@ public static class ResponseHardening
                 headers.TryAdd(HeaderNames.XContentTypeOptions, "nosniff");
                 headers.TryAdd(HeaderNames.XFrameOptions, "DENY");
                 headers.TryAdd("Referrer-Policy", "same-origin");
-                headers.TryAdd(HeaderNames.ContentSecurityPolicy, ContentSecurityPolicy);
+                headers.TryAdd(HeaderNames.ContentSecurityPolicy, policy);
                 return Task.CompletedTask;
             });
             return next(context);

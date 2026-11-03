@@ -57,11 +57,13 @@ public sealed class ServerFixture : IDisposable
 
 public sealed class HostingTests : IClassFixture<ServerFixture>, IDisposable
 {
+    private readonly ServerFixture fixture;
     private readonly WebApplicationFactory<Program> server;
     private readonly HttpClient client;
 
     public HostingTests(ServerFixture fixture)
     {
+        this.fixture = fixture;
         server = fixture.Factory();
         client = server.CreateClient();
     }
@@ -102,6 +104,35 @@ public sealed class HostingTests : IClassFixture<ServerFixture>, IDisposable
         var response = await client.SendAsync(request, TestContext.Current.CancellationToken);
         var info = await response.Content.ReadFromJsonAsync<ServerInfo>(TestContext.Current.CancellationToken);
         Assert.Equal(expected, info!.Name);
+    }
+
+    [Fact]
+    public async Task Without_umami_the_page_and_its_policy_stay_as_built()
+    {
+        var page = await client.GetAsync("/", TestContext.Current.CancellationToken);
+        Assert.DoesNotContain("data-website-id", await page.Content.ReadAsStringAsync(TestContext.Current.CancellationToken));
+        Assert.Equal(ResponseHardening.ContentSecurityPolicy, page.Headers.GetValues("Content-Security-Policy").Single());
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task With_umami_the_page_loads_its_scripts_and_may_report_to_it(bool recorder)
+    {
+        await using var factory = fixture.Factory(("UMAMI_URL", "https://stats.example.test"),
+            ("UMAMI_WEBSITE_ID", "2af69a04-8c9a-4cac-9a19-390ad57c4840"), ("UMAMI_RECORDER", recorder ? "true" : "false"));
+        using var umamiClient = factory.CreateClient();
+        foreach (var path in new[] { "/", "/index.html", "/lists/inbox" })
+        {
+            var response = await umamiClient.GetAsync(path, TestContext.Current.CancellationToken);
+            var html = await response.Content.ReadAsStringAsync(TestContext.Current.CancellationToken);
+            Assert.Contains("<script defer src=\"https://stats.example.test/script.js\" data-website-id=\"2af69a04-8c9a-4cac-9a19-390ad57c4840\"></script>", html);
+            Assert.Equal(recorder, html.Contains("https://stats.example.test/recorder.js"));
+            var policy = response.Headers.GetValues("Content-Security-Policy").Single();
+            Assert.Contains("script-src 'self' https://stats.example.test;", policy);
+            Assert.Contains("connect-src 'self' https://stats.example.test;", policy);
+            Assert.Equal(recorder, policy.Contains("worker-src 'self' blob:;"));
+        }
     }
 
     [Fact]

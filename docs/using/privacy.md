@@ -9,6 +9,10 @@ both from the server (never from people's browsers or phones), and both can be t
   day the server sends an anonymous report to the project, so we know which versions, databases
   and setups are in use and what to keep working. It is on by default.
 
+Visit counts are different: they are off unless you set up [`UMAMI_URL`](../configuration/reference.md#umami_url),
+and then people's browsers report page views to **your** Umami server, not to the project. If
+you turn it on, say so to the people who use your server.
+
 ## The update check
 
 So the app can tell you when a new release is out, the server reads PeckList's latest release

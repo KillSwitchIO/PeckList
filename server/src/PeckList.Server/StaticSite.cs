@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.StaticFiles;
 using Microsoft.Extensions.FileProviders;
 using Microsoft.Net.Http.Headers;
+using PeckList.Core.Configuration;
 
 namespace PeckList.Server;
 
@@ -20,7 +21,8 @@ public static class StaticSite
     private static readonly string[] ServerPrefixes = ["/api", "/auth", "/healthz", "/assets"];
 
     /// <param name="noindex">A demo server (PL-117): the page tells crawlers to stay away in its HTML too.</param>
-    public static void UseStaticSite(this WebApplication app, string webRoot, ILogger logger, bool noindex = false)
+    /// <param name="umami">Visit counts (<c>UMAMI_*</c>): the page loads Umami's scripts.</param>
+    public static void UseStaticSite(this WebApplication app, string webRoot, ILogger logger, bool noindex = false, UmamiSettings? umami = null)
     {
         if (!File.Exists(Path.Combine(webRoot, "index.html")))
         {
@@ -29,7 +31,13 @@ public static class StaticSite
         }
         var files = new PhysicalFileProvider(Path.GetFullPath(webRoot));
         // The page as served: read once, and never its precompressed copies, which lack the tag.
-        var page = noindex ? Demo.WithRobotsMeta(File.ReadAllText(Path.Combine(webRoot, "index.html"))) : null;
+        string? page = null;
+        if (noindex || umami is not null)
+        {
+            page = File.ReadAllText(Path.Combine(webRoot, "index.html"));
+            if (noindex) page = Demo.WithRobotsMeta(page);
+            if (umami is not null) page = Analytics.WithUmami(page, umami);
+        }
         if (page is not null)
         {
             app.Use(async (context, next) =>
