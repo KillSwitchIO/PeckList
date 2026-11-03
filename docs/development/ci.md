@@ -36,9 +36,9 @@ job) has approved, and "Pipelines must succeed" then keeps the merge request fro
   (keyed by the lockfile) and only `lint` writes it back, with the eslint and prettier caches.
   The NuGet cache works the same way: `server-test` writes, the others read. Archives use the
   fastest compression (`FF_USE_FASTZIP`, `CACHE_COMPRESSION_LEVEL`).
-- **Tool images instead of `apt-get`.** The browsers, the JDK and Android SDK, and MkDocs come
+- **Tool images instead of `apt-get`.** The browsers and the JDK and Android SDK come
   from images built out of [`ci/`](https://gitlab.com/killswitch10/pecklist/-/tree/main/ci)
-  into `registry.gitlab.com/killswitch10/pecklist/ci/{browsers,android,docs}` by the
+  into `registry.gitlab.com/killswitch10/pecklist/ci/{browsers,android}` by the
   `ci-images` job: when one of those files changes, weekly, or on demand.
 - **Heavy jobs one at a time.** `web-build`, `android-release` and `packages` share a
   `resource_group`, so a release does not run four builds against each other on one runner;
@@ -71,25 +71,26 @@ not appear. The same token lets `wiki` push.
 
 `wiki` runs on `main` after `docs` and mirrors `docs/` into the
 [project wiki](https://gitlab.com/killswitch10/pecklist/-/wikis/home): the same pages, with
-the MkDocs-only syntax rewritten for GitLab (admonitions as alerts, tabs as bold headings,
-`--8<--` snippets pasted in, `++key++` as `<kbd>`) and the links pointed at wiki pages
+the site-only syntax rewritten for GitLab (`:::` admonitions as alerts, tabs as bold headings,
+`--8<--` snippets pasted in) and the links pointed at wiki pages, in the order of
+`website/sidebars.json`
 (`scripts/wiki-pages.mjs`, tested in `scripts/wiki-pages.test.mjs`). Each page starts with a
 line saying where it comes from. The wiki is a copy: edit `docs/`, and the next merge refreshes
 it. Pages that leave `docs/` leave the wiki.
 
-The rendered site at <https://docs.pecklist.com> stays the canonical docs: it has the search, the
+The rendered site at [https://docs.pecklist.com](https://docs.pecklist.com) stays the canonical docs: it has the search, the
 tabs and the strict link check the wiki cannot give. GitLab Pages builds it from main (`pages`, at
-<https://pecklist-c58cd3.gitlab.io>), and Pangolin proxies `docs.pecklist.com` to it. The website
-itself, <https://pecklist.com>, is [killswitch10/pecklist.com](https://gitlab.com/killswitch10/pecklist.com)
+[https://pecklist-c58cd3.gitlab.io](https://pecklist-c58cd3.gitlab.io)), and Pangolin proxies `docs.pecklist.com` to it. The website
+itself, [https://pecklist.com](https://pecklist.com), is [killswitch10/pecklist.com](https://gitlab.com/killswitch10/pecklist.com)
 on our own server.
 
 ## The website and the demo
 
-- The website, <https://pecklist.com>, is its own repository,
+- The website, [https://pecklist.com](https://pecklist.com), is its own repository,
   [killswitch10/pecklist.com](https://gitlab.com/killswitch10/pecklist.com): a landing page
   published by GitLab Pages, which Pangolin proxies. Its docs links go to this project's wiki.
 - `deploy-demo` (release tags, not pre-releases) runs `scripts/ci/deploy-test.mjs` with
-  `COMPOSE_SERVICE=pecklist-demo`: the release goes to <https://demo.pecklist.com>, which resets
+  `COMPOSE_SERVICE=pecklist-demo`: the release goes to [https://demo.pecklist.com](https://demo.pecklist.com), which resets
   every hour (`DEMO_RESET_EVERY`, PL-117).
 
 ## Container registry

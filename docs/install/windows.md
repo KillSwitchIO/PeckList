@@ -31,10 +31,14 @@ your private network.
 The service runs as its own virtual account, `NT SERVICE\PeckList`, which may change only the data
 folder. It starts with Windows and restarts by itself after a crash.
 
-??? example "install-service.ps1"
-    ```powershell
-    --8<-- "examples/windows/install-service.ps1"
-    ```
+<details>
+<summary>install-service.ps1</summary>
+
+```powershell
+--8<-- "examples/windows/install-service.ps1"
+```
+
+</details>
 
 ## Day to day
 

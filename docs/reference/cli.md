@@ -3,29 +3,35 @@
 The server program is also the maintenance tool. Every command reads the same settings as the
 server (environment, `CONFIG_FILE`), and works while the server runs.
 
-=== "Docker"
+<Tabs>
+<TabItem value="docker" label="Docker">
 
-    ```bash
-    docker exec pecklist pecklist <command>
-    docker exec -it pecklist pecklist <command>     # for commands that read input
-    ```
+```bash
+docker exec pecklist pecklist <command>
+docker exec -it pecklist pecklist <command>     # for commands that read input
+```
 
-=== "Linux"
+</TabItem>
+<TabItem value="linux" label="Linux">
 
-    ```bash
-    sudo -u pecklist env DB_PATH=/var/lib/pecklist/pecklist.db CONFIG_FILE=/etc/pecklist/pecklist.conf \
-      /opt/pecklist/pecklist <command>
-    ```
+```bash
+sudo -u pecklist env DB_PATH=/var/lib/pecklist/pecklist.db CONFIG_FILE=/etc/pecklist/pecklist.conf \
+  /opt/pecklist/pecklist <command>
+```
 
-    Or the wrapper from [Linux](../install/linux.md#day-to-day).
+Or the wrapper from [Linux](../install/linux.md#day-to-day).
 
-=== "Windows"
+</TabItem>
+<TabItem value="windows" label="Windows">
 
-    ```powershell
-    $env:DB_PATH = 'C:\ProgramData\PeckList\pecklist.db'
-    $env:CONFIG_FILE = 'C:\ProgramData\PeckList\pecklist.conf'
-    & 'C:\Program Files\PeckList\pecklist.exe' <command>
-    ```
+```powershell
+$env:DB_PATH = 'C:\ProgramData\PeckList\pecklist.db'
+$env:CONFIG_FILE = 'C:\ProgramData\PeckList\pecklist.conf'
+& 'C:\Program Files\PeckList\pecklist.exe' <command>
+```
+
+</TabItem>
+</Tabs>
 
 Run with no command (or one the program does not know as a command), it starts the server. Exit
 codes: `0` done, `1` the command failed (the reason is printed), `2` invalid settings.

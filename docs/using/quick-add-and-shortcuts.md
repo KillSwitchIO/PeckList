@@ -27,24 +27,24 @@ Without `^list`, the task goes to the list you are in (or the Mess Drawer from a
 
 ## Keyboard shortcuts
 
-Press ++question++ anywhere for this list. Shortcuts are plain keys, never fire while you type, and
+Press <kbd>?</kbd> anywhere for this list. Shortcuts are plain keys, never fire while you type, and
 stay clear of the browser's own.
 
 | Keys                                     | Does                                             |
 | ---------------------------------------- | ------------------------------------------------ |
-| ++q++                                    | Add a task                                       |
-| ++slash++                                | Search                                           |
-| ++question++                             | Show the shortcuts                               |
-| ++g++ then ++t++                         | Go to Today                                      |
-| ++g++ then ++i++                         | Go to the Mess Drawer                            |
-| ++g++ then ++n++                         | Go to Upcoming                                   |
-| ++g++ then ++d++                         | Go to Due dates                                  |
-| ++g++ then ++a++                         | Go to All                                        |
-| ++g++ then ++c++                         | Go to Calendar                                   |
-| ++g++ then ++s++                         | Go to Settings                                   |
-| ++j++ / ++k++                            | Next / previous task                             |
-| ++e++                                    | Edit the title                                   |
-| ++space++                                | Complete or reopen                               |
-| ++delete++                               | Move to the trash                                |
-| ++alt+arrow-up++ / ++alt+arrow-down++    | Move the task up or down                         |
-| ++alt+arrow-right++ / ++alt+arrow-left++ | Make it a subtask of the one above / take it out |
+| <kbd>Q</kbd>                                    | Add a task                                       |
+| <kbd>/</kbd>                                | Search                                           |
+| <kbd>?</kbd>                             | Show the shortcuts                               |
+| <kbd>G</kbd> then <kbd>T</kbd>                         | Go to Today                                      |
+| <kbd>G</kbd> then <kbd>I</kbd>                         | Go to the Mess Drawer                            |
+| <kbd>G</kbd> then <kbd>N</kbd>                         | Go to Upcoming                                   |
+| <kbd>G</kbd> then <kbd>D</kbd>                         | Go to Due dates                                  |
+| <kbd>G</kbd> then <kbd>A</kbd>                         | Go to All                                        |
+| <kbd>G</kbd> then <kbd>C</kbd>                         | Go to Calendar                                   |
+| <kbd>G</kbd> then <kbd>S</kbd>                         | Go to Settings                                   |
+| <kbd>J</kbd> / <kbd>K</kbd>                            | Next / previous task                             |
+| <kbd>E</kbd>                                    | Edit the title                                   |
+| <kbd>Space</kbd>                                | Complete or reopen                               |
+| <kbd>Del</kbd>                               | Move to the trash                                |
+| <kbd>Alt</kbd>+<kbd>Up</kbd> / <kbd>Alt</kbd>+<kbd>Down</kbd>    | Move the task up or down                         |
+| <kbd>Alt</kbd>+<kbd>Right</kbd> / <kbd>Alt</kbd>+<kbd>Left</kbd> | Make it a subtask of the one above / take it out |

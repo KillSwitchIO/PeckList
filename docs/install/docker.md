@@ -29,7 +29,7 @@ docker run -d --name pecklist --restart unless-stopped \
   registry.gitlab.com/killswitch10/pecklist:latest
 ```
 
-Then read the first admin password with `docker logs pecklist` and open <http://localhost:8080>.
+Then read the first admin password with `docker logs pecklist` and open [http://localhost:8080](http://localhost:8080).
 For anything longer-lived, use [Docker Compose](docker-compose.md).
 
 To keep settings in a file, pass an env file:
@@ -39,10 +39,14 @@ docker run -d --name pecklist -p 8080:8080 -v pecklist-data:/data -v pecklist-fi
   --env-file pecklist.env registry.gitlab.com/killswitch10/pecklist:latest
 ```
 
-??? example "pecklist.env"
-    ```bash
-    --8<-- "examples/docker/pecklist.env"
-    ```
+<details>
+<summary>pecklist.env</summary>
+
+```bash
+--8<-- "examples/docker/pecklist.env"
+```
+
+</details>
 
 ## What is inside
 

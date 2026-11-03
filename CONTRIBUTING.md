@@ -76,7 +76,7 @@ Git hooks (installed by `pnpm install`): pre-commit runs lint-staged and typeche
 
 ## Docs
 
-The documentation site lives in `docs/` (MkDocs, see [developing](docs/development/index.md)). A change people will notice comes with its docs:
+The documentation site lives in `docs/` (Docusaurus, built from `website/`; see [developing](docs/development/index.md)). A change people will notice comes with its docs:
 
 - A new or changed setting: its section in `docs/configuration/reference.md`. `pnpm check:docs` (also in CI) fails when a setting in `SettingsCatalog.cs` is missing there.
 - A CLI change: run `node scripts/check-docs.mjs --write` to refresh the usage text, and describe the command in `docs/reference/cli.md`.

@@ -1,0 +1,21 @@
+/* PeckList's indigo, as the MkDocs site had it. */
+:root {
+  --ifm-color-primary: #3f51b5;
+  --ifm-color-primary-dark: #3949a3;
+  --ifm-color-primary-darker: #36459a;
+  --ifm-color-primary-darkest: #2c397f;
+  --ifm-color-primary-light: #5262bc;
+  --ifm-color-primary-lighter: #5c6bc0;
+  --ifm-color-primary-lightest: #7986cb;
+  --ifm-code-font-size: 95%;
+}
+
+[data-theme='dark'] {
+  --ifm-color-primary: #7986cb;
+  --ifm-color-primary-dark: #6575c4;
+  --ifm-color-primary-darker: #5c6bc0;
+  --ifm-color-primary-darkest: #4352ab;
+  --ifm-color-primary-light: #8d97d2;
+  --ifm-color-primary-lighter: #97a0d6;
+  --ifm-color-primary-lightest: #b5bce2;
+}

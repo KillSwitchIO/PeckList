@@ -6,7 +6,9 @@ run things and [CONTRIBUTING.md](https://gitlab.com/killswitch10/pecklist/-/blob
 how branches, commits and merge requests work. Read all three before a change; this page is the
 one to come back to while writing.
 
-!!! note "The project notes point here"
+:::note[The project notes point here]
+
+:::
 The planning notes (the Obsidian vault: spec, roadmap, feature notes `PL-xxx`, decisions
 `ADR-xxxx`) say _what_ to build and _why_. This page says _how_ the code is written. When the
 two disagree, the notes win on behavior and this page wins on code; fix whichever is stale.
@@ -47,7 +49,7 @@ are in [CI and runners](ci.md). What they stand on:
 | .NET                              | `server/Directory.Build.props`                      | Nullable on, implicit usings, **warnings are errors**, invariant globalization (no culture-dependent parsing or formatting: `CultureInfo.InvariantCulture` everywhere, and tables instead of Unicode normalization, which is off).                            |
 | Line endings and indentation      | `.gitattributes`, `.editorconfig`                   | LF in the repo on every platform; two spaces, four in C#; a final newline.                                                                                                                                                                                    |
 | Versions                          | `scripts/check-version.mjs`                         | `web/package.json`, `web/src/core/workspace.ts` and `server/Directory.Build.props` agree; only a release moves them.                                                                                                                                          |
-| Docs                              | `scripts/check-docs.mjs`, `mkdocs build --strict`   | Every setting in `SettingsCatalog.cs` has a section in the settings reference; the CLI page matches the usage text; no broken links.                                                                                                                         |
+| Docs                              | `scripts/check-docs.mjs`, the `docs` build          | Every setting in `SettingsCatalog.cs` has a section in the settings reference; the CLI page matches the usage text; no broken links.                                                                                                                         |
 
 ## The web app
 
@@ -237,7 +239,7 @@ each intermediate state.
 - Written for the person running or using PeckList: plain words, short sentences, the reason
   behind each recommendation, and an honest **needed / recommended / optional / not needed**
   sorting where settings are involved. No em dashes.
-- `docs/` is the MkDocs site (`mkdocs serve`; `mkdocs build --strict` in CI); `CONTRIBUTING.md`,
+- `docs/` is the Docusaurus site (`pnpm --filter @pecklist/docs start`; its build in CI); `CONTRIBUTING.md`,
   `SECURITY.md` and `CHANGELOG.md` are read on GitLab; `CLAUDE.md` and this page are for whoever
   (or whatever) writes code.
 - Keep examples real: a `Caddyfile` under `examples/` is tested against a running image before it
@@ -248,7 +250,7 @@ each intermediate state.
 1. `pnpm lint && pnpm format:check && pnpm typecheck && pnpm test` (the hooks run most of this).
 2. `cd server && dotnet test` when the server changed (Docker running, for PostgreSQL).
 3. `pnpm build && pnpm e2e` when a flow changed.
-4. `pnpm check:docs` after a setting or CLI change; `mkdocs build --strict` after a docs change.
+4. `pnpm check:docs` after a setting or CLI change; `pnpm --filter @pecklist/docs build` after a docs change.
 5. Read the diff once as a reviewer: is anything copied that a shared piece covers, is every new
    refusal tested, does every new string go through `t()`, does the commit message tell the
    changelog reader what changed?

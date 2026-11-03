@@ -141,86 +141,89 @@ in gets a one-time link: `pecklist admin login-link kim`.
 
 ## Provider notes
 
-=== "Google"
+<Tabs>
+<TabItem value="google" label="Google">
 
-    "Continue with Google" for anyone with a Google account, with no groups. Name the provider
-    `google` and only the client id and secret are needed: the authority
-    (`https://accounts.google.com`), the button and its label come filled in. A provider with
-    another name gets the same with `OIDC_<NAME>_PRESET=google`.
+"Continue with Google" for anyone with a Google account, with no groups. Name the provider
+`google` and only the client id and secret are needed: the authority
+(`https://accounts.google.com`), the button and its label come filled in. A provider with
+another name gets the same with `OIDC_<NAME>_PRESET=google`.
 
-    ```yaml
-    OIDC_PROVIDERS: google
-    OIDC_GOOGLE_CLIENT_ID: 123-abc.apps.googleusercontent.com
-    OIDC_GOOGLE_CLIENT_SECRET_FILE: /run/secrets/google_client_secret
-    OIDC_GOOGLE_AUTO_CREATE: 'true'   # or let an admin approve each new person
-    ```
+```yaml
+OIDC_PROVIDERS: google
+OIDC_GOOGLE_CLIENT_ID: 123-abc.apps.googleusercontent.com
+OIDC_GOOGLE_CLIENT_SECRET_FILE: /run/secrets/google_client_secret
+OIDC_GOOGLE_AUTO_CREATE: 'true'   # or let an admin approve each new person
+```
 
-    In the [Google Cloud console](https://console.cloud.google.com/apis/credentials): set up the
-    OAuth consent screen (External, with your server's address as an authorized domain), then
-    **Create credentials > OAuth client ID > Web application**, with the callback URL above as an
-    authorized redirect URI. Google has no username claim: a new account takes the part of the
-    email before the `@`. The Android app signs in through the browser, which Google requires.
+In the [Google Cloud console](https://console.cloud.google.com/apis/credentials): set up the
+OAuth consent screen (External, with your server's address as an authorized domain), then
+**Create credentials > OAuth client ID > Web application**, with the callback URL above as an
+authorized redirect URI. Google has no username claim: a new account takes the part of the
+email before the `@`. Google has no groups, so leave the group settings out (with one set,
+PeckList would ask for a `groups` scope Google refuses). The Android app signs in through the
+browser, which Google requires.
 
-=== "Pocket ID"
+</TabItem>
+<TabItem value="pocket-id" label="Pocket ID">
 
-    Create an OIDC client with the callback URL. Groups come with the `groups` scope; nothing else
-    to set. Authority: `https://id.example.com`.
+Create an OIDC client with the callback URL. Groups come with the `groups` scope; nothing else
+to set. Authority: `https://id.example.com`.
 
-=== "Authentik"
+</TabItem>
+<TabItem value="authentik" label="Authentik">
 
-    Create an OAuth2/OpenID **Provider** (confidential, the redirect URI as *strict*) and an
-    **Application** using it. Authority: `https://auth.example.com/application/o/<application-slug>/`.
-    Groups arrive in the `groups` claim; nothing else to set.
+Create an OAuth2/OpenID **Provider** (confidential, the redirect URI as *strict*) and an
+**Application** using it. Authority: `https://auth.example.com/application/o/<application-slug>/`.
+Groups arrive in the `groups` claim; nothing else to set.
 
-=== "Authelia"
+</TabItem>
+<TabItem value="authelia" label="Authelia">
 
-    Add a client under `identity_providers.oidc.clients`. PeckList sends its client secret in the
-    token request's body, so the client must use `client_secret_post` (Authelia's default for a
-    confidential client is `client_secret_basic`, which fails with `invalid_client`):
+Add a client under `identity_providers.oidc.clients`. PeckList sends its client secret in the
+token request's body, so the client must use `client_secret_post` (Authelia's default for a
+confidential client is `client_secret_basic`, which fails with `invalid_client`):
 
-    ```yaml
-    - client_id: pecklist
-      client_name: PeckList
-      client_secret: '$pbkdf2-sha512$...'   # the hash of OIDC_<NAME>_CLIENT_SECRET
-      public: false
-      authorization_policy: two_factor
-      require_pkce: true
-      pkce_challenge_method: S256
-      redirect_uris:
-        - https://tasks.example.com/auth/oidc/authelia/callback
-      scopes: [openid, profile, email, groups]
-      response_types: [code]
-      grant_types: [authorization_code]
-      response_modes: [query]
-      token_endpoint_auth_method: client_secret_post
-    ```
+```yaml
+- client_id: pecklist
+  client_name: PeckList
+  client_secret: '$pbkdf2-sha512$...'   # the hash of OIDC_<NAME>_CLIENT_SECRET
+  public: false
+  authorization_policy: two_factor
+  require_pkce: true
+  pkce_challenge_method: S256
+  redirect_uris:
+    - https://tasks.example.com/auth/oidc/authelia/callback
+  scopes: [openid, profile, email, groups]
+  response_types: [code]
+  grant_types: [authorization_code]
+  response_modes: [query]
+  token_endpoint_auth_method: client_secret_post
+```
 
-    Authority: `https://auth.example.com`.
+Authority: `https://auth.example.com`.
 
-=== "Keycloak"
+</TabItem>
+<TabItem value="keycloak" label="Keycloak">
 
-    Create an OpenID Connect client with *Client authentication* on. Keycloak has no `groups`
-    scope: add a **Group Membership** mapper (token claim name `groups`, *Full group path* off) to
-    the client's dedicated scope, and set `OIDC_<NAME>_SCOPES=openid profile email`. Authority:
-    `https://keycloak.example.com/realms/<realm>`.
+Create an OpenID Connect client with *Client authentication* on. Keycloak has no `groups`
+scope: add a **Group Membership** mapper (token claim name `groups`, *Full group path* off) to
+the client's dedicated scope, and set `OIDC_<NAME>_SCOPES=openid profile email`. Authority:
+`https://keycloak.example.com/realms/<realm>`.
 
-=== "Microsoft Entra ID"
+</TabItem>
+<TabItem value="microsoft-entra-id" label="Microsoft Entra ID">
 
-    Register an app (platform **Web**, the redirect URI) and give it a client secret. Entra has no
-    `groups` scope and refuses a sign-in that asks for one, so set
-    `OIDC_<NAME>_SCOPES=openid profile email` whenever you use any group setting. Groups come from
-    the app's **Token configuration > Add groups claim** (security groups) instead. The claim holds
-    group **object ids**, not names: use the ids in `REQUIRED_GROUPS`, `ROLE_MAP` and `GROUP_MAP`.
-    `preferred_username` is the person's sign-in name (`kim@contoso.com`), so usernames look like
-    email addresses. Authority: `https://login.microsoftonline.com/<tenant-id>/v2.0`.
+Register an app (platform **Web**, the redirect URI) and give it a client secret. Entra has no
+`groups` scope and refuses a sign-in that asks for one, so set
+`OIDC_<NAME>_SCOPES=openid profile email` whenever you use any group setting. Groups come from
+the app's **Token configuration > Add groups claim** (security groups) instead. The claim holds
+group **object ids**, not names: use the ids in `REQUIRED_GROUPS`, `ROLE_MAP` and `GROUP_MAP`.
+`preferred_username` is the person's sign-in name (`kim@contoso.com`), so usernames look like
+email addresses. Authority: `https://login.microsoftonline.com/<tenant-id>/v2.0`.
 
-=== "Google"
-
-    Create an OAuth client (web application) with the redirect URI. Google has no groups, so leave
-    the group settings out (with one set, PeckList would ask for a `groups` scope Google refuses).
-    Approve people by hand, or turn on `AUTO_CREATE` with care: any Google account could then sign
-    in. Google sends no `preferred_username`, so usernames come from the email address. Authority:
-    `https://accounts.google.com`.
+</TabItem>
+</Tabs>
 
 ## Troubleshooting
 

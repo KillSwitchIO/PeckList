@@ -73,7 +73,7 @@ A task has a title, notes (rich text, with `- [ ] ` checklists), subtasks, tags,
 **start** (a date, a time, or a time span) and an optional hard **due** date. Views place tasks by
 their start; the due date is the deadline.
 
-- **Add**: the field at the top of a list, or press ++q++ anywhere. Type it all in one line:
+- **Add**: the field at the top of a list, or press <kbd>Q</kbd> anywhere. Type it all in one line:
   see [quick add](quick-add-and-shortcuts.md).
 - **Open**: click a task for its details panel; it can be widened or made full screen. The
   expand button at the end of the add field opens a new task straight in the full view, filled
@@ -135,7 +135,7 @@ their start; the due date is the deadline.
   details. Pictures show as thumbnails and open large; other files download. Everyone who sees the
   task sees its files; whoever added one, or the list's owner, removes it. Files sync through the
   server (up to `ATTACHMENT_MAX_MB`, 25 MB by default); a larger one is refused before it is added.
-- **Complete**: the circle on the left, or ++space++. **Won't do** is in the task's menu.
+- **Complete**: the circle on the left, or <kbd>Space</kbd>. **Won't do** is in the task's menu.
 - **Move**: drag it up or down (on a phone, hold it a moment first); the task rides along under
   your finger, and near the top or bottom of the screen the page scrolls on. In a list's own order a
   line shows where it will land: drag it right to make it a subtask, left to undo that, or drop it
@@ -146,7 +146,7 @@ their start; the due date is the deadline.
   priority, swap its tag or move it to that list, and **Pinned** pins it (dragging a task out of
   Pinned unpins it). Overdue only drags out: letting go over it, or over the task's own group,
   changes nothing. Drop it on a list in the sidebar to move it there. Or use **Move to list...** in
-  its menu, or ++alt+arrow-up++ / ++alt+arrow-down++ / ++alt+arrow-right++ / ++alt+arrow-left++.
+  its menu, or <kbd>Alt</kbd>+<kbd>Up</kbd> / <kbd>Alt</kbd>+<kbd>Down</kbd> / <kbd>Alt</kbd>+<kbd>Right</kbd> / <kbd>Alt</kbd>+<kbd>Left</kbd>.
 - **Groups**: a group's whole heading row (apart from its buttons) folds and unfolds it.
 - **Check off**: ticking a task's box sends the bird. On **Today** it pops out of the box and
   carries the task to the **Closed** count; everywhere else it flies along the row, striking the
@@ -167,7 +167,7 @@ their start; the due date is the deadline.
   send it away.
 - **Comment**: at the bottom of a task's details. Comments take a little Markdown (`**bold**`,
   `*italic*`, `` `code` ``, `[links](https://...)`) and **@name** for the people on the task (type
-  `@` for suggestions). ++ctrl+enter++ posts. Everyone who sees the task sees its comments; people
+  `@` for suggestions). <kbd>Ctrl</kbd>+<kbd>Enter</kbd> posts. Everyone who sees the task sees its comments; people
   who may change the task may comment (a list's viewers only read). You edit or delete your own;
   a list's owner may delete any on it.
 - **History**: under the comments, a timeline of who changed what and when, newest first (Sam
@@ -308,7 +308,7 @@ after the rest. `"quotes"` keep a phrase together, `-word` leaves out tasks with
 
 ## Settings
 
-**Settings** (the profile menu, or ++g++ ++s++): appearance (light, dark or system theme, and
+**Settings** (the profile menu, or <kbd>G</kbd> <kbd>S</kbd>): appearance (light, dark or system theme, and
 colors), dates (your time zone, how dates show, 12 or 24-hour clock, the first day of the week,
 when a due date counts as soon, how long a task with only a start time shows on the calendar), sign-in methods and
 linked accounts, **Lists and tags**, and **Your data** ([download or import a copy](apps-and-sync.md#your-data-as-a-file), or

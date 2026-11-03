@@ -27,7 +27,8 @@ bin/
 obj/
 
 # Docs site build and CI caches (release downloads land in dist/, above)
-site/
+website/build/
+website/.docusaurus/
 .pnpm-store/
 .nuget/
 

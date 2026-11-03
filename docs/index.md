@@ -5,7 +5,7 @@ drag tasks onto, shared with the people you choose. It works offline on every de
 when it can. One small server (a Docker container, or a native program on Linux and Windows)
 serves the app and keeps everyone's data, in SQLite or PostgreSQL.
 
-<!-- The status line: at 1.0, replace this one line with "**Status: 1.0.** Stable; see the changelog." and its link. -->
+{/* The status line: at 1.0, replace this one line with "**Status: 1.0.** Stable; see the changelog." and its link. */}
 **Status: before 1.0.** In daily use, but a minor version may still change things: every change you need to act on is under **Breaking changes** in the [changelog](https://gitlab.com/killswitch10/pecklist/-/blob/main/CHANGELOG.md). Keep [backups](guides/backups.md).
 
 <div class="grid" markdown>

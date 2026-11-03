@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <!-- The tab icon: icon.svg, inverted (grey with a purple checklist) in a light theme. -->
+  <style>
+    .bg { fill: #4B2A8A; }
+    .mark { fill: #A8A6A3; }
+    .line { stroke: #A8A6A3; }
+    .tick { stroke: #4B2A8A; }
+    @media (prefers-color-scheme: light) {
+      .bg { fill: #A8A6A3; }
+      .mark { fill: #4B2A8A; }
+      .line { stroke: #4B2A8A; }
+      .tick { stroke: #A8A6A3; }
+    }
+  </style>
+  <rect class="bg" width="64" height="64" rx="14"/>
+  <rect class="mark" x="14" y="15" width="10" height="10" rx="3"/>
+  <path class="tick" d="M16.5 20l2 2 3.5-4" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+  <rect class="mark" x="28" y="18" width="22" height="4" rx="2"/>
+  <rect class="line" x="14" y="29" width="10" height="10" rx="3" fill="none" stroke-width="2"/>
+  <rect class="mark" x="28" y="32" width="18" height="4" rx="2" opacity=".7"/>
+  <rect class="line" x="14" y="43" width="10" height="10" rx="3" fill="none" stroke-width="2"/>
+  <rect class="mark" x="28" y="46" width="14" height="4" rx="2" opacity=".7"/>
+</svg>

@@ -14,14 +14,17 @@ no paid support; these are the places to ask, and what each is for.
 
 ## Community chat
 
-!!! note "Not open yet"
-    A Discord server is planned for the 1.0 release, with a forum for support questions (one
-    thread a question), channels for releases, the Android testers and people's setups. Until it
-    opens, ask in a [GitLab issue](https://gitlab.com/killswitch10/pecklist/-/issues); questions
-    are welcome there too.
+:::note[Not open yet]
 
-<!-- When the Discord server opens: replace the note above with its invite link, and add it to the
-README and docs/index.md. -->
+A Discord server is planned for the 1.0 release, with a forum for support questions (one
+thread a question), channels for releases, the Android testers and people's setups. Until it
+opens, ask in a [GitLab issue](https://gitlab.com/killswitch10/pecklist/-/issues); questions
+are welcome there too.
+
+:::
+
+{/* When the Discord server opens: replace the note above with its invite link, and add it to the
+README and docs/index.md. */}
 
 ## What to expect
 

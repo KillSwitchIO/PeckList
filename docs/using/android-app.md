@@ -11,44 +11,52 @@ The native app is better at reminders.
 
 The app is not in the Play Store yet. Two ways in, both with the same signed app:
 
-=== "Obtainium (updates itself)"
+<Tabs>
+<TabItem value="obtainium-updates-itself" label="Obtainium (updates itself)">
 
-    [Obtainium](https://github.com/ImranR98/Obtainium) installs apps straight from their release
-    pages and tells you when there is a new version.
+[Obtainium](https://github.com/ImranR98/Obtainium) installs apps straight from their release
+pages and tells you when there is a new version.
 
-    1. Install Obtainium.
-    2. On the phone, open [this Obtainium link](obtainium://add/https://gitlab.com/killswitch10/pecklist), or in
-       Obtainium tap **Add app** and paste:
+1. Install Obtainium.
+2. On the phone, open [this Obtainium link](obtainium://add/https://gitlab.com/killswitch10/pecklist), or in
+   Obtainium tap **Add app** and paste:
 
-        ```text
-        https://gitlab.com/killswitch10/pecklist
-        ```
+    ```text
+    https://gitlab.com/killswitch10/pecklist
+    ```
 
-    3. Obtainium finds the GitLab releases. If it asks which file to install, pick
-       `pecklist-android.apk` (to make it ask no more, set **Filter APKs by regular expression** to
-       `pecklist-android\.apk`).
-    4. **Install**, and allow Obtainium to install apps when Android asks.
+3. Obtainium finds the GitLab releases. If it asks which file to install, pick
+   `pecklist-android.apk` (to make it ask no more, set **Filter APKs by regular expression** to
+   `pecklist-android\.apk`).
+4. **Install**, and allow Obtainium to install apps when Android asks.
 
-=== "Download the APK"
+</TabItem>
+<TabItem value="download-the-apk" label="Download the APK">
 
-    1. Open the [latest release](https://gitlab.com/killswitch10/pecklist/-/releases) on the phone.
-    2. Download `pecklist-android.apk`.
-    3. Open it and allow your browser to install apps when Android asks.
+1. Open the [latest release](https://gitlab.com/killswitch10/pecklist/-/releases) on the phone.
+2. Download `pecklist-android.apk`.
+3. Open it and allow your browser to install apps when Android asks.
 
-    To check the download, compare its SHA-256 with the line for `pecklist-android.apk` in the
-    release's `SHA256SUMS`. For updates, download the next release's APK and install it over the
-    old one; your data stays.
+To check the download, compare its SHA-256 with the line for `pecklist-android.apk` in the
+release's `SHA256SUMS`. For updates, download the next release's APK and install it over the
+old one; your data stays.
+
+</TabItem>
+</Tabs>
 
 Every release APK is signed with the same key, so each one installs over the last. A build you
 made yourself, or a debug build, has a different key: uninstall it first.
 
-!!! note "Coming from the Punchlist app"
-    The app was called Punchlist before the rename (`com.killswitch10.punchlist`); PeckList is a
-    new app on Android (`com.killswitch10.pecklist`), so it installs beside the old one instead of
-    over it. Install PeckList, connect it to your server and sign in, then uninstall Punchlist.
-    Your tasks are on the server, so nothing is lost; changes made in the old app while it was
-    offline sync once it is online, so open it with a connection before you remove it. In
-    Obtainium, add PeckList as a new app the same way and remove the Punchlist entry.
+:::note[Coming from the Punchlist app]
+
+The app was called Punchlist before the rename (`com.killswitch10.punchlist`); PeckList is a
+new app on Android (`com.killswitch10.pecklist`), so it installs beside the old one instead of
+over it. Install PeckList, connect it to your server and sign in, then uninstall Punchlist.
+Your tasks are on the server, so nothing is lost; changes made in the old app while it was
+offline sync once it is online, so open it with a connection before you remove it. In
+Obtainium, add PeckList as a new app the same way and remove the Punchlist entry.
+
+:::
 
 ## First start
 
