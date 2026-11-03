@@ -27,6 +27,13 @@ public sealed partial record OidcProviderSettings
     /// <summary>The sign-in button's label.</summary>
     public required string DisplayName { get; init; }
 
+    /// <summary>
+    /// A known provider whose settings come filled in (<c>OIDC_&lt;NAME&gt;_PRESET</c>, or a provider
+    /// named after one): <c>google</c>. Null for any other OIDC provider. The app draws a preset's
+    /// own sign-in button.
+    /// </summary>
+    public string? Preset { get; init; }
+
     public required Uri Authority { get; init; }
     public required string ClientId { get; init; }
 
@@ -110,8 +117,18 @@ public sealed partial record OidcProviderSettings
             var prefix = $"OIDC_{name.ToUpperInvariant().Replace('-', '_')}_";
             string? Value(string key) => get(prefix + key);
 
+            // A preset fills in what every server sets the same for that provider.
+            var preset = Value("PRESET")?.Trim().ToLowerInvariant() is { Length: > 0 } named
+                ? named
+                : Presets.ContainsKey(name) ? name : null;
+            PresetDefaults? known = null;
+            if (preset is not null && !Presets.TryGetValue(preset, out known))
+            {
+                errors.Add($"{prefix}PRESET: '{preset}' is not one of {string.Join(", ", Presets.Keys)}");
+            }
+
             Uri? authority = null;
-            if (Value("AUTHORITY") is not { } rawAuthority)
+            if ((Value("AUTHORITY") ?? known?.Authority) is not { } rawAuthority)
             {
                 errors.Add($"{prefix}AUTHORITY is required (the provider's issuer URL)");
             }
@@ -194,7 +211,8 @@ public sealed partial record OidcProviderSettings
             var provider = new OidcProviderSettings
             {
                 Name = name,
-                DisplayName = Value("DISPLAY_NAME") ?? char.ToUpperInvariant(name[0]) + name[1..],
+                DisplayName = Value("DISPLAY_NAME") ?? known?.DisplayName ?? char.ToUpperInvariant(name[0]) + name[1..],
+                Preset = known is null ? null : preset,
                 Authority = authority,
                 ClientId = clientId,
                 ClientSecret = Value("CLIENT_SECRET"),
@@ -222,6 +240,14 @@ public sealed partial record OidcProviderSettings
         }
         return providers;
     }
+
+    /// <summary>What a preset fills in (PL-124). Google: plain OIDC with no groups.</summary>
+    private sealed record PresetDefaults(string Authority, string DisplayName);
+
+    private static readonly IReadOnlyDictionary<string, PresetDefaults> Presets = new Dictionary<string, PresetDefaults>
+    {
+        ["google"] = new("https://accounts.google.com", "Google"),
+    };
 
     private static IReadOnlyList<string> Split(string? raw) =>
         (raw ?? "").Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);

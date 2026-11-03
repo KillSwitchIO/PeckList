@@ -197,6 +197,38 @@ public sealed class ServerSettingsTests
     }
 
     [Fact]
+    public void A_provider_named_google_needs_only_its_client_and_draws_googles_button()
+    {
+        var settings = Read(new()
+        {
+            ["OIDC_PROVIDERS"] = "google, work",
+            ["OIDC_GOOGLE_CLIENT_ID"] = "123-abc.apps.googleusercontent.com",
+            ["OIDC_GOOGLE_CLIENT_SECRET"] = "s3cret",
+            ["OIDC_WORK_PRESET"] = "google",
+            ["OIDC_WORK_CLIENT_ID"] = "456-def.apps.googleusercontent.com",
+            ["OIDC_WORK_DISPLAY_NAME"] = "Work Google",
+        });
+        var google = settings.OidcProviders[0];
+        Assert.Equal(("google", "Google", "https://accounts.google.com/", "google"),
+            (google.Name, google.DisplayName, google.Authority.ToString(), google.Preset));
+        Assert.Equal(["openid", "profile", "email"], google.Scopes);
+        var work = settings.OidcProviders[1];
+        Assert.Equal(("Work Google", "https://accounts.google.com/", "google"), (work.DisplayName, work.Authority.ToString(), work.Preset));
+    }
+
+    [Fact]
+    public void An_unknown_preset_is_refused()
+    {
+        var error = Assert.Throws<SettingsException>(() => Read(new()
+        {
+            ["OIDC_PROVIDERS"] = "apple",
+            ["OIDC_APPLE_PRESET"] = "apple",
+            ["OIDC_APPLE_CLIENT_ID"] = "pl",
+        }));
+        Assert.Contains("OIDC_APPLE_PRESET: 'apple' is not one of google", error.Message);
+    }
+
+    [Fact]
     public void Oidc_problems_are_reported_together()
     {
         var error = Assert.Throws<SettingsException>(() => Read(new()

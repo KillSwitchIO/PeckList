@@ -98,6 +98,7 @@ public static class SettingsCatalog
         var group = $"provider:{name}";
         return
         [
+            new(prefix + "PRESET", group, SettingKind.Text, "google for a provider named google"),
             new(prefix + "AUTHORITY", group, SettingKind.Url),
             new(prefix + "CLIENT_ID", group, SettingKind.Text),
             new(prefix + "CLIENT_SECRET", group, SettingKind.Secret),

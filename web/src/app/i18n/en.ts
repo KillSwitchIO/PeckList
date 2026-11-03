@@ -1048,6 +1048,7 @@ export const en = {
   'auth.signUp.limited': 'Enough accounts were made from here for now. Try again in an hour.',
   'auth.demoAccount': 'Demo accounts keep their password, so everyone can use them.',
   'auth.passwordsOff': 'This server signs in with an identity provider only, not with a password.',
+  'auth.withGoogle': 'Continue with Google',
   'auth.with': 'Continue with {name}',
   'auth.continuing': 'Continuing with {name}',
   'auth.or': 'or',
