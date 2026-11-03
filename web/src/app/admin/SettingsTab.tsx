@@ -5,6 +5,7 @@ import type { MessageKey } from '../i18n/en.ts';
 import { t } from '../i18n/i18n.ts';
 import { ProblemAlert } from '../layout/ProblemAlert.tsx';
 import { PasswordField } from '../layout/PasswordField.tsx';
+import { MailTestPanel } from './MailTestPanel.tsx';
 import { TelemetryNotice, TelemetryPanel } from './TelemetryPanel.tsx';
 import { useIsSuperAdmin, useLoaded } from './useAdmin.ts';
 
@@ -45,6 +46,12 @@ const LABELS: Record<string, MessageKey> = {
   TELEMETRY_URL: 'serverSettings.TELEMETRY_URL',
   DO_NOT_TRACK: 'serverSettings.DO_NOT_TRACK',
   SIGNUP_RATE_LIMIT: 'serverSettings.SIGNUP_RATE_LIMIT',
+  SMTP_HOST: 'serverSettings.SMTP_HOST',
+  SMTP_PORT: 'serverSettings.SMTP_PORT',
+  SMTP_TLS: 'serverSettings.SMTP_TLS',
+  SMTP_USER: 'serverSettings.SMTP_USER',
+  SMTP_PASSWORD: 'serverSettings.SMTP_PASSWORD',
+  SMTP_FROM: 'serverSettings.SMTP_FROM',
   DEMO_MODE: 'serverSettings.DEMO_MODE',
   DEMO_ACCOUNTS: 'serverSettings.DEMO_ACCOUNTS',
   DEMO_RESET_TIME: 'serverSettings.DEMO_RESET_TIME',
@@ -88,6 +95,7 @@ const GROUPS: Record<string, MessageKey> = {
   logging: 'serverSettings.group.logging',
   'log-shipping': 'serverSettings.group.log-shipping',
   audit: 'serverSettings.group.audit',
+  email: 'serverSettings.group.email',
   telemetry: 'serverSettings.group.telemetry',
   environment: 'serverSettings.group.environment',
 };
@@ -292,6 +300,7 @@ export function SettingsTab({ api }: { api: AdminApi }) {
                 />
               </Box>
             ))}
+          {group === 'email' && <MailTestPanel api={api} />}
           {group === 'telemetry' && (
             <TelemetryPanel view={telemetry.data} api={api} onChange={telemetry.reload} />
           )}

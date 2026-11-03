@@ -358,6 +358,8 @@ export interface AdminApi {
   ): Promise<{ ok: true; value: ServerSettingsView } | { ok: false; message: string }>;
   /** Stop the server so it starts again with the saved values (needs a restart policy). */
   restart(): Promise<void>;
+  /** Send a test email with the email settings as they apply now (PL-122); the mail server's answer when it fails. */
+  sendTestMail(to: string): Promise<{ ok: true } | { ok: false; message: string }>;
   /** The daily usage report (PL-116): whether it goes, where, and the report as it would go now. */
   telemetry(): Promise<TelemetryView>;
   /** A new random install id: later reports cannot be tied to earlier ones. */

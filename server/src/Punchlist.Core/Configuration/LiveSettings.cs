@@ -26,6 +26,7 @@ public sealed class LiveSettings(ServerSettings start)
             ApiDocs = next.ApiDocs,
             Telemetry = next.Telemetry,
             TelemetryUrl = next.TelemetryUrl,
+            Mail = next.Mail,
             SnapshotSchedule = next.SnapshotSchedule,
             SnapshotKeep = next.SnapshotKeep,
             AuditRetentionDays = next.AuditRetentionDays,

@@ -185,6 +185,19 @@ function memoryAdmin(benId: string) {
         superAdminOnly: true,
       },
       {
+        key: 'SMTP_HOST',
+        group: 'email',
+        kind: 'text' as const,
+        choices: null,
+        default: null,
+        value: state.page.SMTP_HOST ?? 'smtp.example.com',
+        source: 'environment' as const,
+        locked: false,
+        saved: false,
+        live: true,
+        superAdminOnly: false,
+      },
+      {
         key: 'TELEMETRY',
         group: 'telemetry',
         kind: 'flag' as const,
@@ -379,6 +392,12 @@ function memoryAdmin(benId: string) {
       state.restarted = true;
       return Promise.resolve();
     },
+    sendTestMail: (to) =>
+      Promise.resolve(
+        to.endsWith('@example.com')
+          ? { ok: true as const }
+          : { ok: false as const, message: 'The mail server said no: 550 relay denied' },
+      ),
     telemetry: () =>
       Promise.resolve({
         enabled: state.page.TELEMETRY !== 'false',
@@ -865,6 +884,21 @@ describe('admin', () => {
     await userEvent.type(within(dialog).getByLabelText('Whose data'), 'sam');
     await userEvent.click(within(dialog).getByRole('button', { name: 'Restore' }));
     await waitFor(() => expect(state.restores).toHaveLength(1));
+  });
+
+  it('sends a test email and says what the mail server answered (PL-122)', async () => {
+    await adminApp('admin', '/admin/settings');
+    const email = await screen.findByRole('region', { name: 'Email' });
+    const to = within(email).getByLabelText('Send a test to');
+    await userEvent.type(to, 'ben@example.com');
+    await userEvent.click(within(email).getByRole('button', { name: 'Send test email' }));
+    expect(await within(email).findByText(/^Sent to ben@example.com/)).toBeInTheDocument();
+    await userEvent.clear(to);
+    await userEvent.type(to, 'ben@elsewhere.test');
+    await userEvent.click(within(email).getByRole('button', { name: 'Send test email' }));
+    expect(
+      await within(email).findByText('The mail server said no: 550 relay denied'),
+    ).toBeInTheDocument();
   });
 
   it('shows a plain admin the sign-in settings locked to super admins', async () => {
