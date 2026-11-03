@@ -74,12 +74,12 @@ So that a compose file, an env file or the settings file holds nothing readable,
 encrypted with a key only the server has:
 
 ```bash
-docker exec punchlist punchlist config key                 # prints a new key; keep it secret
-docker exec -e CONFIG_KEY=<key> punchlist punchlist config encrypt 'the secret'
+docker exec pecklist pecklist config key                 # prints a new key; keep it secret
+docker exec -e CONFIG_KEY=<key> pecklist pecklist config encrypt 'the secret'
 # prints enc:v1:...
 ```
 
-Give the server the key (`CONFIG_KEY`, or better `CONFIG_KEY_FILE=/run/secrets/punchlist_key`) and
+Give the server the key (`CONFIG_KEY`, or better `CONFIG_KEY_FILE=/run/secrets/pecklist_key`) and
 use the `enc:v1:...` text wherever the value would go:
 
 ```text
@@ -93,7 +93,7 @@ for a secret that must not be in a backup, use `NAME_FILE` or an `enc:v1:` value
 ## Seeing what is in effect
 
 ```bash
-docker exec punchlist punchlist config show
+docker exec pecklist pecklist config show
 ```
 
 lists every setting, its value (secrets hidden) and where it comes from. The admin settings page

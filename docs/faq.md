@@ -27,7 +27,7 @@ The web app's own HTTP API is usable, but it is not a stable, versioned public A
 [HTTP API](reference/http-api.md).
 
 **Where is my data?**
-In the database (`/data/punchlist.db` in the image), its snapshots in `/data/snapshots`, attached
+In the database (`/data/pecklist.db` in the image, `punchlist.db` on servers from before the rename), its snapshots in `/data/snapshots`, attached
 files in `/files`, and on
 each device's browser storage. Task content is never sent anywhere else. On its own, the server
 only checks GitLab for new releases and sends an anonymous daily usage report; both can be turned

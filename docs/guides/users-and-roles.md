@@ -30,7 +30,7 @@ single sign-on role map).
 Change a role under **Admin > Users > ... > Make admin**, or:
 
 ```bash
-docker exec punchlist punchlist admin set-role kim admin
+docker exec pecklist pecklist admin set-role kim admin
 ```
 
 With single sign-on, `OIDC_<NAME>_ROLE_MAP` sets roles from the provider's groups at every sign-in
@@ -41,7 +41,7 @@ With single sign-on, `OIDC_<NAME>_ROLE_MAP` sets roles from the provider's group
 - **Admin > Users > Invite**: an invite link people use to make their own account (below).
 - **Admin > Users > Add user**: a username and a role. PeckList shows a generated password to hand
   over; it must be changed at the first sign-in.
-- From the command line: `punchlist admin add-user kim [--admin]` prints the password.
+- From the command line: `pecklist admin add-user kim [--admin]` prints the password.
 - **Single sign-on** with `OIDC_<NAME>_AUTO_CREATE=true` makes the account at the first sign-in.
   Without it, the person waits under **Admin > Sign-in** until an admin approves them (or joins them
   to an existing account).

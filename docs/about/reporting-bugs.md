@@ -21,12 +21,12 @@ and fill in:
   short screen recording helps a lot.
 - **Steps to reproduce**: the shortest list of steps that makes it happen again, starting from
   something anyone can do ("open a list, add a task with a due date, ...").
-- **Versions**: the server's (`punchlist --version`, the version label in the sidebar, or `/api/info`), and
+- **Versions**: the server's (`pecklist --version`, the version label in the sidebar, or `/api/info`), and
   the Android app's if it is involved.
 - **How you run it**: Docker, Compose, Linux, Windows or from source; SQLite or PostgreSQL; the
   reverse proxy in front, if any; single sign-on and which provider, if it is about signing in.
 - **Where**: the browser and device, or the Android app and phone model.
-- **A debug dump**: **Admin > Logs > Download debug dump**, or `punchlist debug-dump`. It carries
+- **A debug dump**: **Admin > Logs > Download debug dump**, or `pecklist debug-dump`. It carries
   logs, settings and versions, but no task content, passwords or keys. If you are not the admin,
   ask yours for one, or paste the error from the browser's console.
 
@@ -56,11 +56,11 @@ problems privately (see SECURITY.md), never here.
 
 - what you did, what you expected, what happened (a screenshot helps)
 - the steps to make it happen again
-- the server version (`punchlist --version` or `/api/info`), and the Android app's if involved
+- the server version (`pecklist --version` or `/api/info`), and the Android app's if involved
 - how you run it: Docker, Compose, Linux, Windows or source; SQLite or PostgreSQL; the proxy;
   the SSO provider if it is about signing in
 - the browser and device, or the phone model
-- a debug dump (Admin > Logs > Download debug dump, or `punchlist debug-dump`): it holds no task
+- a debug dump (Admin > Logs > Download debug dump, or `pecklist debug-dump`): it holds no task
   content, passwords or keys
 
 **Never include** passwords, API keys, client secrets, cookies, backups or other people's data.

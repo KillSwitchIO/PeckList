@@ -62,7 +62,7 @@ public sealed record LoggingSettings
     public string? ElasticApiKey { get; init; }
 
     /// <summary>The index or data stream written to.</summary>
-    public string ElasticIndex { get; init; } = "logs-punchlist-default";
+    public string ElasticIndex { get; init; } = "logs-pecklist-default";
 
     public LogAddress? Syslog { get; init; }
 
@@ -164,7 +164,7 @@ public sealed record LoggingSettings
             ElasticUsername = get("LOG_ELASTIC_USERNAME"),
             ElasticPassword = get("LOG_ELASTIC_PASSWORD"),
             ElasticApiKey = get("LOG_ELASTIC_API_KEY"),
-            ElasticIndex = index ?? "logs-punchlist-default",
+            ElasticIndex = index ?? "logs-pecklist-default",
             Syslog = Address("LOG_SYSLOG_ADDRESS", 514, http: false),
         };
     }

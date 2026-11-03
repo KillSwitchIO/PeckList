@@ -51,14 +51,14 @@ job) has approved, and "Pipelines must succeed" then keeps the merge request fro
 - Each job has a `timeout`, and the jsdom and browser test jobs retry once on a script failure
   (a stopgap for the timeouts a busy runner causes; a real flake still fails twice).
 
-Per-job timings are in the API: `glab api projects/killswitch10%2Fpunchlist/pipelines/<id>/jobs`
+Per-job timings are in the API: `glab api projects/killswitch10%2Fpecklist/pipelines/<id>/jobs`
 lists `duration` and `queued_duration` for each.
 
 ## The test server follows main
 
 `deploy-test` runs on `main` after `e2e-server` passed. It bumps the image tag in the compose
-repository's `services/punchlist-test/compose.yaml` to `sha-<commit>` (a commit on its `main`,
-marked `[skip ci]`) and starts that repository's pipeline with `RELEASE=punchlist-test` and
+repository's `services/pecklist-test/compose.yaml` to `sha-<commit>` (a commit on its `main`,
+marked `[skip ci]`) and starts that repository's pipeline with `RELEASE=pecklist-test` and
 `AUTO_RELEASE=true`, which releases the service once its own checks pass. Production is never
 touched from here: it pins a release version and moves only by hand
 ([releasing](releasing.md)).
@@ -79,7 +79,7 @@ it. Pages that leave `docs/` leave the wiki.
 
 The rendered site at <https://docs.pecklist.com> stays the canonical docs: it has the search, the
 tabs and the strict link check the wiki cannot give. GitLab Pages builds it from main (`pages`, at
-<https://punchlist-c58cd3.gitlab.io>), and Pangolin proxies `docs.pecklist.com` to it. The website
+<https://pecklist-c58cd3.gitlab.io>), and Pangolin proxies `docs.pecklist.com` to it. The website
 itself, <https://pecklist.com>, is [killswitch10/pecklist.com](https://gitlab.com/killswitch10/pecklist.com)
 on our own server.
 
@@ -89,7 +89,7 @@ on our own server.
   [killswitch10/pecklist.com](https://gitlab.com/killswitch10/pecklist.com): a landing page
   published by GitLab Pages, which Pangolin proxies. Its docs links go to this project's wiki.
 - `deploy-demo` (release tags, not pre-releases) runs `scripts/ci/deploy-test.mjs` with
-  `COMPOSE_SERVICE=punchlist-demo`: the release goes to <https://demo.pecklist.com>, which resets
+  `COMPOSE_SERVICE=pecklist-demo`: the release goes to <https://demo.pecklist.com>, which resets
   every hour (`DEMO_RESET_EVERY`, PL-117).
 
 ## Container registry

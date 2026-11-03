@@ -21,27 +21,27 @@ Every image runs on `linux/amd64` and `linux/arm64` (a Raspberry Pi 4 or 5 with 
 ## Run it
 
 ```bash
-docker run -d --name punchlist --restart unless-stopped \
+docker run -d --name pecklist --restart unless-stopped \
   -p 8080:8080 \
-  -v punchlist-data:/data \
-  -v punchlist-files:/files \
+  -v pecklist-data:/data \
+  -v pecklist-files:/files \
   -e TZ=Europe/Berlin \
   registry.gitlab.com/killswitch10/punchlist:latest
 ```
 
-Then read the first admin password with `docker logs punchlist` and open <http://localhost:8080>.
+Then read the first admin password with `docker logs pecklist` and open <http://localhost:8080>.
 For anything longer-lived, use [Docker Compose](docker-compose.md).
 
 To keep settings in a file, pass an env file:
 
 ```bash
-docker run -d --name punchlist -p 8080:8080 -v punchlist-data:/data -v punchlist-files:/files \
-  --env-file punchlist.env registry.gitlab.com/killswitch10/punchlist:latest
+docker run -d --name pecklist -p 8080:8080 -v pecklist-data:/data -v pecklist-files:/files \
+  --env-file pecklist.env registry.gitlab.com/killswitch10/punchlist:latest
 ```
 
-??? example "punchlist.env"
+??? example "pecklist.env"
     ```bash
-    --8<-- "examples/docker/punchlist.env"
+    --8<-- "examples/docker/pecklist.env"
     ```
 
 ## What is inside
@@ -54,14 +54,14 @@ docker run -d --name punchlist -p 8080:8080 -v punchlist-data:/data -v punchlist
 - Keeps attached files in **`/files`** (`ATTACHMENT_DIR`), apart from the database, since that is the
   folder that grows. Mount a volume there too, on bigger or slower storage if you like; without
   one, Docker makes an anonymous volume that is easy to lose when the container is recreated.
-- A health check that runs `punchlist healthcheck` (there is no curl inside); `docker ps` shows
+- A health check that runs `pecklist healthcheck` (there is no curl inside); `docker ps` shows
   `healthy` once the server answers.
-- The `punchlist` command for maintenance, run with `docker exec`: see the
+- The `pecklist` command for maintenance, run with `docker exec`: see the
   [command line reference](../reference/cli.md).
 
 ## Data folder permissions
 
-A **named volume** (`-v punchlist-data:/data`) works as is. A **bind mount** of a host folder must
+A **named volume** (`-v pecklist-data:/data`) works as is. A **bind mount** of a host folder must
 be writable by uid 1654:
 
 ```bash
@@ -86,8 +86,8 @@ Values can also be [encrypted](../configuration/index.md#encrypted-values).
 ## Building the image yourself
 
 ```bash
-git clone https://gitlab.com/killswitch10/punchlist.git && cd punchlist
-docker build -t punchlist:local .
+git clone https://gitlab.com/killswitch10/punchlist.git && cd pecklist
+docker build -t pecklist:local .
 # both architectures:
-docker buildx build --platform linux/amd64,linux/arm64 -t punchlist:local .
+docker buildx build --platform linux/amd64,linux/arm64 -t pecklist:local .
 ```

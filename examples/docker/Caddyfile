@@ -1,5 +1,5 @@
 # Used by compose.caddy.yaml. Replace the name with yours.
-# Punchlist sends its own security headers and compressed answers: nothing else is needed here.
+# PeckList sends its own security headers and compressed answers: nothing else is needed here.
 tasks.example.com {
-	reverse_proxy punchlist:8080
+	reverse_proxy pecklist:8080
 }

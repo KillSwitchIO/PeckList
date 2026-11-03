@@ -33,12 +33,12 @@ server that is down never holds PeckList up, and what does not fit is dropped an
 | Elasticsearch, OpenSearch (ELK)                                | `LOG_ELASTIC_URL=https://es:9200`, `LOG_ELASTIC_API_KEY` or user and password, `LOG_ELASTIC_INDEX`    |
 | Syslog (rsyslog, syslog-ng, Vector)                            | `LOG_SYSLOG_ADDRESS=udp://rsyslog:514` or `tcp://...` (RFC 5424, facility local0)                     |
 
-**Loki**: entries get the labels `service_name="punchlist"`, `host` and `level`, and each line is
+**Loki**: entries get the labels `service_name="pecklist"`, `host` and `level`, and each line is
 the JSON entry, so every field is queryable:
 
 ```logql
-{service_name="punchlist"} | json | level="error"
-{service_name="punchlist"} | json | userId="01M5JR..." | line_format "{{.message}}"
+{service_name="pecklist"} | json | level="error"
+{service_name="pecklist"} | json | userId="01M5JR..." | line_format "{{.message}}"
 ```
 
 **Elasticsearch**: entries use ECS names (`@timestamp`, `log.level`, `log.logger`, `trace.id`,
@@ -80,7 +80,7 @@ so the log shows people's own addresses, not the proxy's.
 For a bug report: **Admin > Logs > Download debug dump**, or
 
 ```bash
-docker exec punchlist punchlist debug-dump /data/debug.zip
+docker exec pecklist pecklist debug-dump /data/debug.zip
 ```
 
 The zip holds recent logs, every setting with where it comes from (secrets shown as `********`),

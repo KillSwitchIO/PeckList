@@ -8,7 +8,7 @@ With the default `AUTH_MODE=local`, the first start makes one account, `admin`, 
 | Running as      | Where the password appears                              |
 | --------------- | ------------------------------------------------------- |
 | Docker          | `docker logs <container>`                               |
-| Linux service   | `journalctl -u punchlist`                               |
+| Linux service   | `journalctl -u pecklist`                               |
 | Windows service | The install script prints it (a service has no console) |
 
 It goes to the console only, never to log files or a log server. Sign in and change it: until
@@ -16,7 +16,7 @@ you do, the server refuses everything else. To choose it yourself instead, set `
 (12 characters or more) or `ADMIN_PASSWORD_FILE` before the first start. Lost it later?
 
 ```bash
-docker exec <container> punchlist admin reset-password
+docker exec <container> pecklist admin reset-password
 ```
 
 prints a new one that must be changed at the next sign-in.

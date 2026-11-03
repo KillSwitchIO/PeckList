@@ -10,7 +10,7 @@ if (args is ["healthcheck", ..])
 
 if (args is ["--version" or "version", ..])
 {
-    Console.WriteLine($"punchlist {ServerApp.FullVersion}");
+    Console.WriteLine($"pecklist {ServerApp.FullVersion}");
     return 0;
 }
 

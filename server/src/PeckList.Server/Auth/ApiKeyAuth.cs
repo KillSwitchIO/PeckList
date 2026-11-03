@@ -18,9 +18,9 @@ public static class ApiKeyAuth
 {
     public const string Scheme = "apikey";
     /// <summary>Picks the key scheme for a bearer key, else the session cookie.</summary>
-    public const string Auto = "punchlist";
-    public const string ScopeClaim = "punchlist:scope";
-    public const string KeyClaim = "punchlist:key";
+    public const string Auto = "pecklist";
+    public const string ScopeClaim = "pecklist:scope";
+    public const string KeyClaim = "pecklist:key";
 
     public static bool ByKey(this ClaimsPrincipal user) => user.Identity?.AuthenticationType == Scheme;
 

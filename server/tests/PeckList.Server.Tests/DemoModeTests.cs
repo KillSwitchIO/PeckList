@@ -96,7 +96,7 @@ public sealed class DemoModeTests(ServerFixture fixture) : IClassFixture<ServerF
             Assert.Equal("noindex, nofollow", page.Headers.GetValues("X-Robots-Tag").Single());
             var html = await page.Content.ReadAsStringAsync(Token);
             Assert.Contains("<meta name=\"robots\" content=\"noindex, nofollow\">", html);
-            Assert.Contains("<title>Punchlist</title>", html);
+            Assert.Contains("<title>PeckList</title>", html);
         }
         Assert.Equal("noindex, nofollow", (await client.GetAsync("/api/info", Token)).Headers.GetValues("X-Robots-Tag").Single());
 

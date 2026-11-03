@@ -1,6 +1,6 @@
 # Troubleshooting
 
-Start with the logs (`docker logs punchlist`, `journalctl -u punchlist`, or the files in
+Start with the logs (`docker logs pecklist`, `journalctl -u pecklist`, or the files in
 `/data/logs`) and **Admin > Logs**. For anything you report, attach a
 [debug dump](logging.md#debug-dump).
 
@@ -12,7 +12,7 @@ them all and start again. See [all settings](../configuration/reference.md).
 **`SQLite Error 14: unable to open database file`** or **permission denied on `/data`.** The data
 folder is not writable by the container's user (uid 1654). With a bind mount:
 `sudo chown -R 1654:1654 ./data`, or run as your own user (`user: "1000:1000"`). On Linux native:
-`sudo chown -R punchlist:punchlist /var/lib/punchlist`.
+`sudo chown -R pecklist:pecklist /var/lib/pecklist`.
 
 **Port already in use.** Another program has 8080. Map another host port (`-p 9000:8080`), or set
 `ASPNETCORE_HTTP_PORTS`.
@@ -22,7 +22,7 @@ folder is not writable by the container's user (uid 1654). With a bind mount:
 
 ## Signing in
 
-**I never saw the admin password.** `docker exec punchlist punchlist admin reset-password` prints a
+**I never saw the admin password.** `docker exec pecklist pecklist admin reset-password` prints a
 new one. With `ADMIN_PASSWORD` set, that was the password (it is used only when the account is
 first made; changing the variable later does nothing).
 
@@ -81,7 +81,7 @@ Docker network), and the credentials.
 ## Getting more detail
 
 ```bash
-docker exec punchlist punchlist config show      # every setting and where it comes from
+docker exec pecklist pecklist config show      # every setting and where it comes from
 ```
 
 Raise the log level for one area without a restart: in **Admin > Settings**, set

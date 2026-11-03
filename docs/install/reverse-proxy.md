@@ -119,7 +119,7 @@ resort, in Caddy with `header -Content-Security-Policy`, at the cost of the prot
 
 ## nginx
 
-```nginx title="/etc/nginx/conf.d/punchlist.conf"
+```nginx title="/etc/nginx/conf.d/pecklist.conf"
 --8<-- "examples/reverse-proxy/nginx.conf"
 ```
 
@@ -145,9 +145,9 @@ or `headers` middleware either.
 
 ## Others
 
-- **Nginx Proxy Manager**: add a proxy host to `punchlist:8080`, turn on _Websockets support_ (it
+- **Nginx Proxy Manager**: add a proxy host to `pecklist:8080`, turn on _Websockets support_ (it
   also turns off buffering), and request a certificate.
-- **Cloudflare Tunnel**: point the tunnel's public hostname at `http://punchlist:8080`. Cloudflare's
+- **Cloudflare Tunnel**: point the tunnel's public hostname at `http://pecklist:8080`. Cloudflare's
   edge may hold server-sent events back; the app still syncs every 30 seconds and whenever it comes
   back into focus, so changes arrive, just not instantly.
 - **Pangolin, Authelia or Authentik forward auth**: fine in front of PeckList, but keep

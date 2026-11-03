@@ -14,12 +14,30 @@ public sealed class ServerSettingsTests
             files is not null && files.TryGetValue(path, out var contents) ? contents : throw new FileNotFoundException("no such file", path));
 
     [Fact]
+    public void A_server_from_before_the_rename_keeps_its_punchlist_db_where_it_is()
+    {
+        var folder = Directory.CreateTempSubdirectory().FullName;
+        try
+        {
+            Assert.Equal(Path.Combine(folder, "pecklist.db"), ServerSettings.DefaultDbPath(folder));
+            File.WriteAllText(Path.Combine(folder, "punchlist.db"), "");
+            Assert.Equal(Path.Combine(folder, "punchlist.db"), ServerSettings.DefaultDbPath(folder));
+            File.WriteAllText(Path.Combine(folder, "pecklist.db"), "");
+            Assert.Equal(Path.Combine(folder, "pecklist.db"), ServerSettings.DefaultDbPath(folder));
+        }
+        finally
+        {
+            Directory.Delete(folder, recursive: true);
+        }
+    }
+
+    [Fact]
     public void Defaults_match_the_spec()
     {
         var settings = Read([]);
         Assert.Equal(AuthMode.Local, settings.AuthMode);
         Assert.Equal(DbProvider.Sqlite, settings.DbProvider);
-        Assert.Equal("/data/punchlist.db", settings.DbPath);
+        Assert.Equal("/data/pecklist.db", settings.DbPath);
         Assert.True(settings.DbMigrateOnStart);
         Assert.Equal(Registration.Invite, settings.Registration);
         Assert.Equal(SnapshotSchedule.Daily, settings.SnapshotSchedule);
@@ -49,7 +67,7 @@ public sealed class ServerSettingsTests
     [Fact]
     public void Outside_a_container_the_database_sits_in_a_local_data_folder()
     {
-        Assert.Equal(Path.Combine("data", "punchlist.db"), Read([], inContainer: false).DbPath);
+        Assert.Equal(Path.Combine("data", "pecklist.db"), Read([], inContainer: false).DbPath);
     }
 
     [Fact]
@@ -312,7 +330,7 @@ public sealed class ServerSettingsTests
         Assert.Equal("Basic YWJj", logging.OtlpHeaders["Authorization"]);
         Assert.Equal(new LogAddress("udp", "graylog", 12201), logging.Gelf);
         Assert.Equal(new LogAddress("tcp", "rsyslog", 6514), logging.Syslog);
-        Assert.Equal("logs-punchlist-default", logging.ElasticIndex);
+        Assert.Equal("logs-pecklist-default", logging.ElasticIndex);
     }
 
     [Fact]

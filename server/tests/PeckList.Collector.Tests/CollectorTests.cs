@@ -169,7 +169,7 @@ public sealed class CollectorTests(PostgresServer server) : IClassFixture<Postgr
         Assert.Equal(HttpStatusCode.OK, page.StatusCode);
         Assert.Equal("text/html", page.Content.Headers.ContentType?.MediaType);
         var html = await page.Content.ReadAsStringAsync(Cancel);
-        Assert.Contains("Punchlist telemetry", html);
+        Assert.Contains("PeckList telemetry", html);
         Assert.Contains("0.3.0", html);
         Assert.Contains("<div class=\"total\">5</div>", html);
     }

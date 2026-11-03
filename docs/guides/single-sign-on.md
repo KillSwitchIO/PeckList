@@ -23,7 +23,7 @@ environment:
   PUBLIC_URL: https://tasks.example.com
   OIDC_PROVIDERS: pocket
   OIDC_POCKET_AUTHORITY: https://id.example.com
-  OIDC_POCKET_CLIENT_ID: punchlist
+  OIDC_POCKET_CLIENT_ID: pecklist
   OIDC_POCKET_CLIENT_SECRET_FILE: /run/secrets/oidc_secret
   OIDC_POCKET_DISPLAY_NAME: Pocket ID
 ```
@@ -45,11 +45,11 @@ itself. The app's session is a copy of the browser's, so `OIDC_<NAME>_SESSION_HO
 
 | Setting                                                     | Effect                                                                                                        |
 | ----------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
-| `OIDC_<NAME>_REQUIRED_GROUPS=punchlist`                     | Only members of at least one of these groups may sign in. Checked at every sign-in.                           |
+| `OIDC_<NAME>_REQUIRED_GROUPS=pecklist`                     | Only members of at least one of these groups may sign in. Checked at every sign-in.                           |
 | `OIDC_<NAME>_AUTO_CREATE=true`                              | A first sign-in makes an account. Off (the default): the person waits under **Admin > Sign-in** for approval. |
-| `OIDC_<NAME>_ROLE_MAP=punchlist-admins=admin,it=superadmin` | Roles from groups, set at every sign-in. The highest match wins; no match means `user`.                       |
+| `OIDC_<NAME>_ROLE_MAP=pecklist-admins=admin,it=superadmin` | Roles from groups, set at every sign-in. The highest match wins; no match means `user`.                       |
 | `OIDC_<NAME>_GROUP_MAP=family=Family`                       | Server group membership from provider groups. `*` mirrors every provider group.                               |
-| `LOCAL_LOGIN=disabled`                                      | No passwords at all, in the app or the API. An admin gets back in with `punchlist admin login-link`.          |
+| `LOCAL_LOGIN=disabled`                                      | No passwords at all, in the app or the API. An admin gets back in with `pecklist admin login-link`.          |
 
 A new account never takes over an existing one with the same username: it gets a number after the
 name, unless you turn on [username linking](#linking-accounts). Usernames come from
@@ -126,18 +126,18 @@ To move everyone from `pocket` to `keycloak` without losing accounts:
 ```bash
 # 1. Add keycloak to OIDC_PROVIDERS (keep pocket for now) and restart.
 # 2. For a day, a first sign-in through keycloak joins the account with the same username.
-docker exec punchlist punchlist oidc migration-window keycloak 24
+docker exec pecklist pecklist oidc migration-window keycloak 24
 # 3. Detach everyone from the old provider (accounts and data stay).
-docker exec punchlist punchlist oidc unbind-all pocket
+docker exec pecklist pecklist oidc unbind-all pocket
 # 4. People sign in with keycloak. Then close the window and remove pocket.
-docker exec punchlist punchlist oidc migration-window keycloak close
+docker exec pecklist pecklist oidc migration-window keycloak close
 ```
 
 A migration window never joins an account that already has a keycloak link, and it matches
 usernames only, so check that both providers hand out the same usernames. It never joins an admin
 account either (someone could rename themselves at the new provider to take it), unless
 `OIDC_<NAME>_LINK_BY_USERNAME=all`; map admins with `USER_MAP` instead. Someone left with no way
-in gets a one-time link: `punchlist admin login-link kim`.
+in gets a one-time link: `pecklist admin login-link kim`.
 
 ## Provider notes
 
@@ -179,7 +179,7 @@ in gets a one-time link: `punchlist admin login-link kim`.
     confidential client is `client_secret_basic`, which fails with `invalid_client`):
 
     ```yaml
-    - client_id: punchlist
+    - client_id: pecklist
       client_name: PeckList
       client_secret: '$pbkdf2-sha512$...'   # the hash of OIDC_<NAME>_CLIENT_SECRET
       public: false

@@ -95,7 +95,7 @@ public static class StaticSite
         await context.Response.WriteAsync(page, context.RequestAborted);
     }
 
-    private const string EncodingKey = "punchlist.precompressed";
+    private const string EncodingKey = "pecklist.precompressed";
 
     /// <summary>Brotli first, then gzip, as the browser allows (q=0 refuses one).</summary>
     private static readonly (string Encoding, string Suffix)[] Encodings = [("br", ".br"), ("gzip", ".gz")];

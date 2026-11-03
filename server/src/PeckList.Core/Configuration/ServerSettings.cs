@@ -58,7 +58,7 @@ public sealed record ServerSettings
     public string? AdminPassword { get; init; }
 
     public DbProvider DbProvider { get; init; } = DbProvider.Sqlite;
-    public string DbPath { get; init; } = "/data/punchlist.db";
+    public string DbPath { get; init; } = "/data/pecklist.db";
     public string? DbConnectionString { get; init; }
     public bool DbMigrateOnStart { get; init; } = true;
     public Registration Registration { get; init; } = Registration.Invite;
@@ -97,11 +97,23 @@ public sealed record ServerSettings
     /// <summary>The largest file people may attach, in megabytes (<c>ATTACHMENT_MAX_MB</c>).</summary>
     public int AttachmentMaxMb { get; init; } = 25;
 
-    /// <summary>Look for newer Punchlist releases on GitLab twice a day (<c>UPDATE_CHECK</c>).</summary>
+    /// <summary>Look for newer PeckList releases on GitLab twice a day (<c>UPDATE_CHECK</c>).</summary>
     public bool UpdateCheck { get; init; } = true;
 
     /// <summary>Serve the OpenAPI document and the Swagger UI page of the HTTP API (<c>API_DOCS</c>).</summary>
     public bool ApiDocs { get; init; } = true;
+
+    /// <summary>
+    /// The SQLite file when DB_PATH is not set: pecklist.db, or punchlist.db where a server from before
+    /// the rename (PL-127) already keeps its data. The old file is used where it is, never moved, so
+    /// going back to an older version still finds it.
+    /// </summary>
+    public static string DefaultDbPath(string folder)
+    {
+        var current = Path.Combine(folder, "pecklist.db");
+        var legacy = Path.Combine(folder, "punchlist.db");
+        return !File.Exists(current) && File.Exists(legacy) ? legacy : current;
+    }
 
     /// <summary>Where the daily usage report goes unless <c>TELEMETRY_URL</c> says otherwise.</summary>
     public static readonly Uri DefaultTelemetryUrl = new("https://telemetry.pecklist.com/api/public/v1/ping");
@@ -289,7 +301,7 @@ public sealed record ServerSettings
             errors.Add("DEMO_ACCOUNTS needs DEMO_MODE=true");
         }
 
-        var dbPath = Get("DB_PATH") ?? (inContainer ? "/data/punchlist.db" : Path.Combine("data", "punchlist.db"));
+        var dbPath = Get("DB_PATH") ?? DefaultDbPath(inContainer ? "/data" : "data");
         var settings = new ServerSettings
         {
             AuthMode = Choice("AUTH_MODE", AuthMode.Local),

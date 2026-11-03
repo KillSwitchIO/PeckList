@@ -1,16 +1,16 @@
-# Punchlist behind an existing Traefik v3 that watches Docker labels and has a `websecure`
+# PeckList behind an existing Traefik v3 that watches Docker labels and has a `websecure`
 # entrypoint with a certificate resolver called `letsencrypt`. Adjust the names to your setup.
 #   docker compose -f compose.traefik.yaml up -d
 
 services:
-  punchlist:
+  pecklist:
     image: registry.gitlab.com/killswitch10/punchlist:latest
-    container_name: punchlist
+    container_name: pecklist
     restart: unless-stopped
     volumes:
-      - punchlist-data:/data
+      - pecklist-data:/data
       # Attached files, apart from the database.
-      - punchlist-files:/files
+      - pecklist-files:/files
     environment:
       TZ: Etc/UTC
       PUBLIC_URL: https://tasks.example.com
@@ -18,10 +18,10 @@ services:
       - proxy
     labels:
       traefik.enable: 'true'
-      traefik.http.routers.punchlist.rule: Host(`tasks.example.com`)
-      traefik.http.routers.punchlist.entrypoints: websecure
-      traefik.http.routers.punchlist.tls.certresolver: letsencrypt
-      traefik.http.services.punchlist.loadbalancer.server.port: '8080'
+      traefik.http.routers.pecklist.rule: Host(`tasks.example.com`)
+      traefik.http.routers.pecklist.entrypoints: websecure
+      traefik.http.routers.pecklist.tls.certresolver: letsencrypt
+      traefik.http.services.pecklist.loadbalancer.server.port: '8080'
 
 networks:
   # The network Traefik is attached to.
@@ -29,5 +29,5 @@ networks:
     external: true
 
 volumes:
-  punchlist-data:
-  punchlist-files:
+  pecklist-data:
+  pecklist-files:

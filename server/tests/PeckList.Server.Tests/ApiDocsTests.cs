@@ -36,7 +36,7 @@ public sealed class ApiDocsTests(ServerFixture fixture) : IClassFixture<ServerFi
         var tags = document.GetProperty("tags").EnumerateArray().Select(each => each.GetProperty("name").GetString()).ToList();
         Assert.Contains("Sync", tags);
         Assert.Contains("Admin: users", tags);
-        Assert.DoesNotContain("punchlist", tags);
+        Assert.DoesNotContain("pecklist", tags);
     }
 
     [Theory]

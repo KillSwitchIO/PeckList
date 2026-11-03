@@ -57,7 +57,7 @@ public sealed partial record OidcProviderSettings
     public bool AutoCreate { get; init; }
 
     /// <summary>
-    /// Signing out of Punchlist also ends the provider session (RP-initiated logout), when the
+    /// Signing out of PeckList also ends the provider session (RP-initiated logout), when the
     /// provider advertises an <c>end_session_endpoint</c>. Off by default: the provider must accept
     /// <c>&lt;PUBLIC_URL&gt;/login</c> as a post-logout redirect.
     /// </summary>
@@ -70,7 +70,7 @@ public sealed partial record OidcProviderSettings
     public UsernameLinking LinkByUsername { get; init; }
 
     /// <summary>
-    /// Provider username (lowercase) to Punchlist username: that provider user always signs into
+    /// Provider username (lowercase) to PeckList username: that provider user always signs into
     /// that account, and an existing link elsewhere moves there. Admins add more on the OIDC page.
     /// </summary>
     public IReadOnlyDictionary<string, string> UserMap { get; init; } = new Dictionary<string, string>();
@@ -186,7 +186,7 @@ public sealed partial record OidcProviderSettings
                 }
             }
             var userMap = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-            foreach (var (providerUser, account) in Pairs(Value("USER_MAP"), prefix + "USER_MAP", errors, "provideruser=punchlistuser"))
+            foreach (var (providerUser, account) in Pairs(Value("USER_MAP"), prefix + "USER_MAP", errors, "provideruser=pecklistuser"))
             {
                 userMap[providerUser.ToLowerInvariant()] = account.ToLowerInvariant();
             }

@@ -34,7 +34,7 @@ lists, six of them shared with each other (a household, groceries, a trip, a gar
 a game night), with subtasks, tags, repeats, assignments, comments and a few things in Trash.
 
 ```bash
-punchlist import /app/demo/seed.json --shift-dates
+pecklist import /app/demo/seed.json --shift-dates
 ```
 
 loads it into an empty database. [`--shift-dates`](../reference/cli.md#import) moves every date
@@ -66,14 +66,14 @@ server and a `reset` service whose cron runs the nightly reset.
     ```
 
 ```bash
-mkdir punchlist-demo && cd punchlist-demo   # with compose.yaml and reset.sh in it
+mkdir pecklist-demo && cd pecklist-demo   # with compose.yaml and reset.sh in it
 printf '%s' 'a long admin password' > admin_password.txt
 docker compose up -d
 sh reset.sh                                  # the first load; then every night at 04:00 UTC
 ```
 
 Open <http://localhost:8080>: the banner is at the bottom, and `demo-sam` with
-`try-punchlist-sam` signs you in to Sam's lists.
+`try-pecklist-sam` signs you in to Sam's lists.
 
 The reset stops the server, deletes the `data` and `files` volumes, makes them again with the
 seed in, and starts the server. It takes a few seconds, and everyone signed in is signed out.
@@ -84,7 +84,7 @@ host. On a host that runs other things, leave the `reset` service out and run th
 from the host's cron instead:
 
     ```cron
-    0 4 * * * cd /srv/punchlist-demo && sh reset.sh >> reset.log 2>&1
+    0 4 * * * cd /srv/pecklist-demo && sh reset.sh >> reset.log 2>&1
     ```
 
 Keep [`DEMO_RESET_TIME`](../configuration/reference.md#demo_reset_time) and

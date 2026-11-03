@@ -27,7 +27,9 @@ public sealed class BackupService(
     IDatabase database, IEntityStore entities, IAccountStore accounts, IServerGroupStore groups, IIdentityStore identities,
     ISecretStore secrets, TimeProvider time)
 {
-    public const string Format = "punchlist-server-backup";
+    public const string Format = "pecklist-server-backup";
+    /// <summary>What server backups were called before the rename (PL-127); still read.</summary>
+    public const string LegacyFormat = "punchlist-server-backup";
     public const int FormatVersion = 1;
 
     private static readonly JsonWriterOptions WriterOptions = new()
@@ -44,7 +46,7 @@ public sealed class BackupService(
         json.WriteNumber("formatVersion", FormatVersion);
         json.WriteNumber("schemaVersion", WorkspaceSchema.CurrentVersion);
         json.WriteStartObject("app");
-        json.WriteString("name", "punchlist");
+        json.WriteString("name", "pecklist");
         json.WriteString("version", appVersion);
         json.WriteEndObject();
         json.WriteString("exportedAt", time.GetUtcNow().ToString("O", CultureInfo.InvariantCulture));
@@ -323,7 +325,7 @@ public sealed class BackupService(
 
     private static void Check(JsonObject root)
     {
-        if ((string?)root["format"] != Format) throw new BackupException("not a PeckList server backup (no \"format\": \"" + Format + "\")");
+        if ((string?)root["format"] is not (Format or LegacyFormat)) throw new BackupException("not a PeckList server backup (no \"format\": \"" + Format + "\")");
         if ((int?)root["formatVersion"] != FormatVersion) throw new BackupException($"backup format {(int?)root["formatVersion"]} is not supported (this server reads {FormatVersion})");
         var schema = (int?)root["schemaVersion"];
         if (!WorkspaceSchema.Readable(schema))

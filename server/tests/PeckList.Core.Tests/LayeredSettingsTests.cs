@@ -30,7 +30,7 @@ public sealed class LayeredSettingsTests
         var layers = LayeredSettings.FromEnvironment(
             Env(new() { ["CONFIG_FILE"] = "/run/pl.env", ["CONFIG_KEY"] = key, ["REGISTRATION"] = "open" }),
             new Dictionary<string, string> { ["REGISTRATION"] = "closed", ["PUBLIC_URL"] = "https://page.example", ["SNAPSHOT_KEEP"] = "3" },
-            _ => $"# Punchlist\nREGISTRATION=invite\nexport PUBLIC_URL=\"https://file.example\"\nOIDC_POCKET_CLIENT_SECRET={hidden}\n");
+            _ => $"# PeckList\nREGISTRATION=invite\nexport PUBLIC_URL=\"https://file.example\"\nOIDC_POCKET_CLIENT_SECRET={hidden}\n");
         Assert.Equal(("open", SettingSource.Environment), layers.Explain("REGISTRATION"));
         Assert.Equal(("https://file.example", SettingSource.File), layers.Explain("PUBLIC_URL"));
         Assert.Equal(("3", SettingSource.Page), layers.Explain("SNAPSHOT_KEEP"));

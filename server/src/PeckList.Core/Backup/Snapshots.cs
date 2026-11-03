@@ -4,12 +4,14 @@ namespace PeckList.Core.Backup;
 
 /// <summary>
 /// Backups the server takes on its own (<c>SNAPSHOT_SCHEDULE</c>): readable JSON files named
-/// <c>punchlist-YYYYMMDD-HHMMSS.json</c> in one folder, the newest <c>keep</c> kept. A file appears
+/// <c>pecklist-YYYYMMDD-HHMMSS.json</c> (<c>punchlist-</c> from before the rename) in one folder, the newest <c>keep</c> kept. A file appears
 /// only once complete (written aside, then renamed), so a crash never leaves half a backup.
 /// </summary>
 public sealed class Snapshots(BackupService backup, string folder, Func<int> keep, TimeProvider time)
 {
-    private const string Prefix = "punchlist-";
+    private const string Prefix = "pecklist-";
+    // Snapshots taken before the rename (PL-127) keep their name and still count.
+    private static readonly string[] Prefixes = [Prefix, "punchlist-"];
     private const string Stamp = TimeStamps.FileFormat;
 
     public string Folder { get; } = folder;
@@ -38,9 +40,10 @@ public sealed class Snapshots(BackupService backup, string folder, Func<int> kee
     {
         if (!Directory.Exists(Folder)) return [];
         var found = new List<(string, DateTimeOffset)>();
-        foreach (var path in Directory.GetFiles(Folder, $"{Prefix}*.json"))
+        foreach (var prefix in Prefixes)
+        foreach (var path in Directory.GetFiles(Folder, $"{prefix}*.json"))
         {
-            var stamp = Path.GetFileNameWithoutExtension(path)[Prefix.Length..];
+            var stamp = Path.GetFileNameWithoutExtension(path)[prefix.Length..];
             if (DateTimeOffset.TryParseExact(stamp, Stamp, CultureInfo.InvariantCulture,
                     DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal, out var taken))
             {
@@ -54,6 +57,7 @@ public sealed class Snapshots(BackupService backup, string folder, Func<int> kee
     {
         foreach (var (path, _) in List().Skip(Math.Max(keep(), 1))) File.Delete(path);
         // Leftovers of a snapshot interrupted mid-write.
-        foreach (var partial in Directory.GetFiles(Folder, $"{Prefix}*.json.partial")) File.Delete(partial);
+        foreach (var prefix in Prefixes)
+        foreach (var partial in Directory.GetFiles(Folder, $"{prefix}*.json.partial")) File.Delete(partial);
     }
 }

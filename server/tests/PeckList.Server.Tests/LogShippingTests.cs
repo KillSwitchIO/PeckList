@@ -194,7 +194,7 @@ public sealed class LogShippingTests
         }
         var line = Encoding.UTF8.GetString((await udp.ReceiveAsync(Token)).Buffer);
         // local0 (16) * 8 + warning (4) = 132
-        Assert.StartsWith($"<132>1 2026-10-22T07:49:01.123Z box punchlist {Environment.ProcessId} BackupTaken [punchlist@32473 category=\"PeckList.Backups\" level=\"warn\" eventId=\"12\" requestId=\"0HN1\"", line);
+        Assert.StartsWith($"<132>1 2026-10-22T07:49:01.123Z box punchlist {Environment.ProcessId} BackupTaken [pecklist@32473 category=\"PeckList.Backups\" level=\"warn\" eventId=\"12\" requestId=\"0HN1\"", line);
         Assert.EndsWith("userId=\"u-1\"] Ben took a backup: b1", line);
 
         using var listener = new TcpListener(IPAddress.Loopback, 0);
@@ -248,29 +248,30 @@ public sealed class LogShippingTests
         {
             var day = new DateTimeOffset(2026, 10, 1, 12, 0, 0, TimeSpan.Zero);
             var time = new ManualTime(day);
-            // An archive from long ago that is past the keep window.
+            // An archive from long ago that is past the keep window, named as before the rename (PL-127):
+            // old files expire like new ones.
             File.WriteAllText(Path.Combine(dir, "punchlist-20260901-001.log.gz"), "old");
             await using (var sink = new FileSink(dir, maxMegabytes: 1, keepDays: 7, time))
             {
                 await sink.WriteAsync([Entry(time: day)], Token);
-                Assert.EndsWith("punchlist-20261001-001.log", sink.CurrentPath);
+                Assert.EndsWith("pecklist-20261001-001.log", sink.CurrentPath);
                 Assert.False(File.Exists(Path.Combine(dir, "punchlist-20260901-001.log.gz")));
 
                 // Over 1 MB: the next entry starts file 002 and 001 is archived.
                 var big = Entry(new string('y', 600_000), time: day);
                 await sink.WriteAsync([big, big], Token);
                 await sink.WriteAsync([Entry(time: day)], Token);
-                Assert.EndsWith("punchlist-20261001-002.log", sink.CurrentPath);
-                Assert.True(File.Exists(Path.Combine(dir, "punchlist-20261001-001.log.gz")));
+                Assert.EndsWith("pecklist-20261001-002.log", sink.CurrentPath);
+                Assert.True(File.Exists(Path.Combine(dir, "pecklist-20261001-001.log.gz")));
 
                 // Midnight: a new day's file.
                 time.Now = day.AddDays(1);
                 await sink.WriteAsync([Entry("tomorrow", time: day.AddDays(1))], Token);
-                Assert.EndsWith("punchlist-20261002-001.log", sink.CurrentPath);
+                Assert.EndsWith("pecklist-20261002-001.log", sink.CurrentPath);
             }
-            Assert.Equal(["punchlist-20261001-001.log.gz", "punchlist-20261001-002.log.gz", "punchlist-20261002-001.log"],
+            Assert.Equal(["pecklist-20261001-001.log.gz", "pecklist-20261001-002.log.gz", "pecklist-20261002-001.log"],
                 Directory.GetFiles(dir).Select(Path.GetFileName).Order());
-            await using (var gzip = new GZipStream(File.OpenRead(Path.Combine(dir, "punchlist-20261001-002.log.gz")), CompressionMode.Decompress))
+            await using (var gzip = new GZipStream(File.OpenRead(Path.Combine(dir, "pecklist-20261001-002.log.gz")), CompressionMode.Decompress))
             using (var reader = new StreamReader(gzip))
             {
                 Assert.Equal("Ben took a backup: b1", (string?)JsonNode.Parse((await reader.ReadLineAsync(Token))!)!["message"]);
@@ -280,9 +281,9 @@ public sealed class LogShippingTests
             await using (var again = new FileSink(dir, 1, 7, time))
             {
                 await again.WriteAsync([Entry("after restart", time: day.AddDays(1))], Token);
-                Assert.EndsWith("punchlist-20261002-001.log", again.CurrentPath);
+                Assert.EndsWith("pecklist-20261002-001.log", again.CurrentPath);
             }
-            Assert.Equal(2, File.ReadAllLines(Path.Combine(dir, "punchlist-20261002-001.log")).Length);
+            Assert.Equal(2, File.ReadAllLines(Path.Combine(dir, "pecklist-20261002-001.log")).Length);
         }
         finally
         {

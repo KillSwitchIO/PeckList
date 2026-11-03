@@ -34,7 +34,7 @@ public static class StatusPage
             <meta charset="utf-8">
             <meta name="viewport" content="width=device-width, initial-scale=1">
             <meta name="robots" content="noindex">
-            <title>Punchlist telemetry</title>
+            <title>PeckList telemetry</title>
             <style>
             :root { color-scheme: light dark; --fg: #1d1f21; --muted: #5f6368; --line: #dadce0; --bg: #ffffff; --bar: #4f8a8b; }
             @media (prefers-color-scheme: dark) { :root { --fg: #e8eaed; --muted: #9aa0a6; --line: #3c4043; --bg: #1d1f21; --bar: #7fb8b9; } }
@@ -53,8 +53,8 @@ public static class StatusPage
             </style>
             </head>
             <body><main>
-            <h1>Punchlist telemetry</h1>
-            <p>Anonymous counts from Punchlist servers that send the daily usage report. A value fewer than five installs share is not shown.</p>
+            <h1>PeckList telemetry</h1>
+            <p>Anonymous counts from PeckList servers that send the daily usage report. A value fewer than five installs share is not shown.</p>
             """);
         html.Append(CultureInfo.InvariantCulture, $"<div class=\"total\">{stats.Installs:N0}</div>");
         html.Append(CultureInfo.InvariantCulture, $"<p>servers reported in the last {stats.WindowDays} days</p>");

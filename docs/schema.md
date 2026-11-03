@@ -7,7 +7,7 @@ The canonical data format is one JSON document per user, defined by [`schema/wor
 | Field           | Meaning                                                              |
 | --------------- | -------------------------------------------------------------------- |
 | `schemaVersion` | Integer. Bumped on every schema change (see `docs/migrations/`)      |
-| `app`           | `{ name: "punchlist", version }` of the app that last wrote the file |
+| `app`           | `{ name: "pecklist", version }` (`punchlist` before the rename) of the app that last wrote the file |
 | `owner`         | User id (ULID) the file belongs to                                   |
 | `node`          | Device id used in this copy's HLC timestamps                         |
 | `entities`      | One array per entity type                                            |

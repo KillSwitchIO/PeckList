@@ -92,7 +92,7 @@ public sealed class CliTests : IDisposable
             await Task.Delay(1100, TestContext.Current.CancellationToken);
         }
         // SNAPSHOT_KEEP=2.
-        Assert.Equal(2, Directory.GetFiles(Path.Combine(folder, "snapshots"), "punchlist-*.json").Length);
+        Assert.Equal(2, Directory.GetFiles(Path.Combine(folder, "snapshots"), "pecklist-*.json").Length);
     }
 
     private static async Task<Core.Accounts.AccountService> MakeAdminAsync(ServerSettings settings)

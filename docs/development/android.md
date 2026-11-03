@@ -136,11 +136,11 @@ build needs it uninstalled before the release one goes on.
 
 | Where | What |
 | --- | --- |
-| GitLab, project CI/CD variables | `ANDROID_KEYSTORE_BASE64` (the PKCS12 keystore, base64; protected, masked), `ANDROID_KEYSTORE_PASSWORD` (protected, masked), `ANDROID_KEY_ALIAS` (`punchlist`, protected) |
+| GitLab, project CI/CD variables | `ANDROID_KEYSTORE_BASE64` (the PKCS12 keystore, base64; protected, masked), `ANDROID_KEYSTORE_PASSWORD` (protected, masked), `ANDROID_KEY_ALIAS` (`pecklist`, protected) |
 | GitLab, protected tags | `v*`, so tag pipelines get the protected variables (only `main` and `v*` tags can sign) |
 | A password manager | The keystore file and its password: the copy to restore from |
 
-The key: RSA 4096, alias `punchlist`, `CN=Punchlist, O=killswitch10`, valid 100 years,
+The key: RSA 4096, alias `pecklist`, `CN=PeckList, O=killswitch10`, valid 100 years,
 certificate SHA-256 `18:C8:C5:CE:EE:2E:8C:5D:DD:2E:BE:E6:7A:F8:B6:AA:E5:88:0C:65:65:2D:0C:56:81:85:15:88:4F:3B:BD:CA`.
 A PKCS12 keystore has one password for the store and the key.
 
@@ -150,7 +150,7 @@ A PKCS12 keystore has one password for the store and the key.
 the pipeline number, which only grows. A signed build by hand:
 
 ```bash
-export ANDROID_KEYSTORE_FILE=/path/to/punchlist-release.p12 ANDROID_KEYSTORE_PASSWORD=...
+export ANDROID_KEYSTORE_FILE=/path/to/pecklist-release.p12 ANDROID_KEYSTORE_PASSWORD=...
 PUNCHLIST_VERSION=0.2.0 PUNCHLIST_VERSION_CODE=1000 pnpm --filter @punchlist/mobile exec node scripts/gradle.mjs assembleRelease
 apksigner verify --print-certs mobile/android/app/build/outputs/apk/release/app-release.apk
 ```
@@ -158,9 +158,9 @@ apksigner verify --print-certs mobile/android/app/build/outputs/apk/release/app-
 A new key (only if the old one is lost, and every install must then be removed first):
 
 ```bash
-keytool -genkeypair -keystore punchlist-release.p12 -storetype PKCS12 -alias punchlist \
+keytool -genkeypair -keystore pecklist-release.p12 -storetype PKCS12 -alias pecklist \
   -keyalg RSA -keysize 4096 -validity 36500 -dname "CN=PeckList, O=killswitch10"
-base64 -w0 punchlist-release.p12   # the value of ANDROID_KEYSTORE_BASE64
+base64 -w0 pecklist-release.p12   # the value of ANDROID_KEYSTORE_BASE64
 ```
 
 If the app goes on Google Play, enrol in Play App Signing with this key as the upload key.
@@ -182,7 +182,7 @@ watches the device and presses the buttons on the notifications; `status` then s
 presses did on the server, and `cleanup` deletes everything the drill made.
 
 ```bash
-PUNCHLIST_URL=https://tasks.example.com PUNCHLIST_TOKEN_FILE=~/.punchlist-drill.token PUNCHLIST_TARGET=ben node scripts/notification-drill.mjs setup
+PUNCHLIST_URL=https://tasks.example.com PUNCHLIST_TOKEN_FILE=~/.pecklist-drill.token PUNCHLIST_TARGET=ben node scripts/notification-drill.mjs setup
 node scripts/notification-drill.mjs reminder 7          # reminds in 7 minutes
 node scripts/notification-drill.mjs reminder 7 --constant
 node scripts/notification-drill.mjs --help

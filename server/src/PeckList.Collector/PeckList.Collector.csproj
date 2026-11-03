@@ -1,8 +1,8 @@
 <Project Sdk="Microsoft.NET.Sdk.Web">
   <!-- The telemetry collector (PL-116): takes servers' daily pings into PostgreSQL and serves the
-       totals for the project. Deployed on its own, by the project; a Punchlist server never runs it. -->
+       totals for the project. Deployed on its own, by the project; a PeckList server never runs it. -->
   <PropertyGroup>
-    <AssemblyName>punchlist-collector</AssemblyName>
+    <AssemblyName>pecklist-collector</AssemblyName>
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="..\PeckList.Core\PeckList.Core.csproj" />

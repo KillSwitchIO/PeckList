@@ -7,20 +7,20 @@ Keep settings in one file instead of many environment variables. Point the serve
 
     ```yaml
     services:
-      punchlist:
+      pecklist:
         environment:
-          CONFIG_FILE: /config/punchlist.conf
+          CONFIG_FILE: /config/pecklist.conf
         volumes:
-          - ./punchlist.conf:/config/punchlist.conf:ro
+          - ./pecklist.conf:/config/pecklist.conf:ro
     ```
 
 === "Linux service"
 
-    The install script already sets `CONFIG_FILE=/etc/punchlist/punchlist.conf`.
+    The install script already sets `CONFIG_FILE=/etc/pecklist/pecklist.conf`.
 
 === "Windows service"
 
-    The install script already sets `CONFIG_FILE=C:\ProgramData\Punchlist\punchlist.conf`.
+    The install script already sets `CONFIG_FILE=C:\ProgramData\PeckList\pecklist.conf`.
 
 ## Format
 
@@ -42,9 +42,9 @@ Changes apply at the next restart.
 
 Every setting the file can hold, with its default, commented out. Uncomment what you change.
 
-```bash title="punchlist.conf"
---8<-- "examples/config/punchlist.conf"
+```bash title="pecklist.conf"
+--8<-- "examples/config/pecklist.conf"
 ```
 
-The same file ships in every native download (`examples/punchlist.conf`) and is in the repository
-at [`examples/config/punchlist.conf`](https://gitlab.com/killswitch10/punchlist/-/blob/main/examples/config/punchlist.conf).
+The same file ships in every native download (`examples/pecklist.conf`) and is in the repository
+at [`examples/config/pecklist.conf`](https://gitlab.com/killswitch10/punchlist/-/blob/main/examples/config/punchlist.conf).

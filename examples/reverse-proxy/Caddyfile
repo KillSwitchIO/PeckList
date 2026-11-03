@@ -1,7 +1,7 @@
-# Caddy in front of Punchlist on 127.0.0.1:8080. Caddy gets and renews the certificate itself,
+# Caddy in front of PeckList on 127.0.0.1:8080. Caddy gets and renews the certificate itself,
 # redirects http to https and sets X-Forwarded-For and X-Forwarded-Proto.
-# Set TRUSTED_PROXIES=127.0.0.1 on Punchlist.
-# Punchlist sends its own security headers and compressed answers: nothing else is needed here.
+# Set TRUSTED_PROXIES=127.0.0.1 on PeckList.
+# PeckList sends its own security headers and compressed answers: nothing else is needed here.
 tasks.example.com {
 	reverse_proxy 127.0.0.1:8080
 }

@@ -1,11 +1,11 @@
 # A public demo server that resets on a schedule, nightly here (PL-117). Docs: docs/install/demo.md
 #   printf '%s' 'a long admin password' > admin_password.txt
 #   docker compose up -d && docker compose exec reset sh /demo/reset.sh   # load the seed now
-# Then open http://localhost:8080 and sign in as demo-sam / try-punchlist-sam.
-name: punchlist-demo
+# Then open http://localhost:8080 and sign in as demo-sam / try-pecklist-sam.
+name: pecklist-demo
 
 services:
-  punchlist:
+  pecklist:
     image: registry.gitlab.com/killswitch10/punchlist:latest
     restart: unless-stopped
     ports:
@@ -20,7 +20,7 @@ services:
       TZ: Etc/UTC
       DEMO_MODE: 'true'
       # The seed's three people, with the passwords the banner shows.
-      DEMO_ACCOUNTS: demo-sam:try-punchlist-sam,demo-alex:try-punchlist-alex,demo-jordan:try-punchlist-jordan
+      DEMO_ACCOUNTS: demo-sam:try-pecklist-sam,demo-alex:try-pecklist-alex,demo-jordan:try-pecklist-jordan
       # As the banner says it; keep them the same as RESET_CRON below. For an hourly reset:
       # DEMO_RESET_EVERY: '60' here and RESET_CRON: '0 * * * *' below.
       DEMO_RESET_TIME: '04:00'

@@ -17,7 +17,7 @@ tasks.example.com {
             trust_pool file /etc/caddy/client-ca.pem
         }
     }
-    reverse_proxy punchlist:8080
+    reverse_proxy pecklist:8080
 }
 ```
 

@@ -42,7 +42,7 @@ const files = readdirSync(dir).filter(
 if (files.length === 0) throw new Error(`nothing to publish in ${dir}`);
 const links = [];
 for (const file of files) {
-  const url = `${api}/packages/generic/punchlist/${encodeURIComponent(version)}/${file}`;
+  const url = `${api}/packages/generic/pecklist/${encodeURIComponent(version)}/${file}`;
   await call('PUT', url, new Uint8Array(readFileSync(join(dir, file))));
   console.log(`uploaded ${file}`);
   links.push({

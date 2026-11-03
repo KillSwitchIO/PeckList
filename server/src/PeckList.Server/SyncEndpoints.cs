@@ -34,7 +34,7 @@ public static class SyncEndpoints
             }
             try
             {
-                var source = context.Request.Headers[DeviceHeader].FirstOrDefault();
+                var source = context.Request.Headers[DeviceHeader].FirstOrDefault() ?? context.Request.Headers[LegacyDeviceHeader].FirstOrDefault();
                 var response = await sync.SyncAsync(user.UserId(), request, source, cancellation);
                 // An owner who just left hands the group on; everyone concerned hears of it.
                 if (request.Changes is { Count: > 0 })
@@ -60,7 +60,9 @@ public static class SyncEndpoints
     }
 
     /// <summary>The device id a client sends, so its own changes are not announced back to it.</summary>
-    public const string DeviceHeader = "X-Punchlist-Device";
+    public const string DeviceHeader = "X-PeckList-Device";
+    /// <summary>The header before the rename (PL-127), from an app that has not updated yet.</summary>
+    public const string LegacyDeviceHeader = "X-Punchlist-Device";
 
     private static readonly TimeSpan Heartbeat = TimeSpan.FromSeconds(25);
 

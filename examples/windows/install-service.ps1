@@ -1,19 +1,22 @@
 <#
 .SYNOPSIS
-  Install (or upgrade) Punchlist as a Windows service.
+  Install (or upgrade) PeckList as a Windows service.
 
 .DESCRIPTION
   Run from the unpacked download in an elevated PowerShell:
-    Expand-Archive punchlist-win-x64.zip -DestinationPath .
-    .\punchlist-win-x64\examples\install-service.ps1
+    Expand-Archive pecklist-win-x64.zip -DestinationPath .
+    .\pecklist-win-x64\examples\install-service.ps1
 
-  Program:  C:\Program Files\Punchlist                (replaced on every run)
-  Data:     C:\ProgramData\Punchlist                  (database, snapshots, logs; kept)
-  Settings: C:\ProgramData\Punchlist\punchlist.conf   (kept)
+  Program:  C:\Program Files\PeckList               (replaced on every run)
+  Data:     C:\ProgramData\PeckList                 (database, snapshots, logs; kept)
+  Settings: C:\ProgramData\PeckList\pecklist.conf   (kept)
 
-  The service runs as its own virtual account, NT SERVICE\Punchlist, which may change only the
+  The service runs as its own virtual account, NT SERVICE\PeckList, which may change only the
   data folder. On a first install the script prints the admin password (to change at first
   sign-in). Upgrading is the same command with the newer download.
+
+  An install from before the rename (the Punchlist service, C:\ProgramData\Punchlist) is moved
+  over first: the old service goes, and its data and settings move to the new folder.
 
 .PARAMETER Port
   The port the server listens on (all addresses). Default 8080.
@@ -34,15 +37,42 @@ if (-not $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administra
 }
 
 $source = Split-Path -Parent $PSScriptRoot
-if (-not (Test-Path (Join-Path $source 'punchlist.exe'))) {
-    throw 'Run this from the unpacked download (no punchlist.exe next to it).'
+if (-not (Test-Path (Join-Path $source 'pecklist.exe'))) {
+    throw 'Run this from the unpacked download (no pecklist.exe next to it).'
 }
-$name = 'Punchlist'
+$name = 'PeckList'
 $program = Join-Path $env:ProgramFiles $name
 $data = Join-Path $env:ProgramData $name
-$config = Join-Path $data 'punchlist.conf'
-$database = Join-Path $data 'punchlist.db'
-$exe = Join-Path $program 'punchlist.exe'
+$config = Join-Path $data 'pecklist.conf'
+$database = Join-Path $data 'pecklist.db'
+$exe = Join-Path $program 'pecklist.exe'
+
+# --- Moving over from Punchlist, once ---------------------------------------------------------------
+$old = Get-Service -Name 'Punchlist' -ErrorAction SilentlyContinue
+$oldData = Join-Path $env:ProgramData 'Punchlist'
+if (-not (Get-Service -Name $name -ErrorAction SilentlyContinue) -and ($old -or (Test-Path $oldData))) {
+    Write-Host 'Moving the Punchlist install over to PeckList...'
+    if ($old) {
+        if ($old.Status -ne 'Stopped') {
+            Stop-Service -Name 'Punchlist'
+            $old.WaitForStatus('Stopped', [TimeSpan]::FromSeconds(30))
+        }
+        sc.exe delete Punchlist | Out-Null
+    }
+    Get-NetFirewallRule -DisplayName 'Punchlist' -ErrorAction SilentlyContinue | Remove-NetFirewallRule
+    # Same drive, so the move is a rename: quick, whatever the size of the data.
+    if ((Test-Path $oldData) -and -not (Test-Path $data)) {
+        Move-Item $oldData $data
+        foreach ($suffix in '', '-wal', '-shm') {
+            $was = Join-Path $data "punchlist.db$suffix"
+            if (Test-Path $was) { Rename-Item $was "pecklist.db$suffix" }
+        }
+        $wasConfig = Join-Path $data 'punchlist.conf'
+        if (Test-Path $wasConfig) { Rename-Item $wasConfig 'pecklist.conf' }
+    }
+    $oldProgram = Join-Path $env:ProgramFiles 'Punchlist'
+    if (Test-Path $oldProgram) { Remove-Item -Recurse -Force $oldProgram }
+}
 
 $existing = Get-Service -Name $name -ErrorAction SilentlyContinue
 if ($existing -and $existing.Status -ne 'Stopped') {
@@ -55,12 +85,12 @@ New-Item -ItemType Directory -Force -Path $data | Out-Null
 if (Test-Path $program) { Remove-Item -Recurse -Force $program }
 Copy-Item -Recurse -Path $source -Destination $program
 if (-not (Test-Path $config)) {
-    Copy-Item (Join-Path $PSScriptRoot 'punchlist.conf') $config
+    Copy-Item (Join-Path $PSScriptRoot 'pecklist.conf') $config
 }
 
 if (-not $existing) {
-    New-Service -Name $name -BinaryPathName ('"' + $exe + '"') -DisplayName 'Punchlist' `
-        -Description 'Punchlist tasks and calendar' -StartupType Automatic | Out-Null
+    New-Service -Name $name -BinaryPathName ('"' + $exe + '"') -DisplayName 'PeckList' `
+        -Description 'PeckList tasks and calendar' -StartupType Automatic | Out-Null
     sc.exe config $name obj= "NT SERVICE\$name" | Out-Null
     # Restart after a crash: after 5 seconds, again, then every minute.
     sc.exe failure $name reset= 86400 actions= restart/5000/restart/5000/restart/60000 | Out-Null
@@ -97,7 +127,7 @@ if (-not $healthy) {
     throw "The service started but does not answer on port $Port. See Event Viewer > Windows Logs > Application."
 }
 
-if ($existing) {
+if ($existing -or $old) {
     Write-Host 'Upgraded and running.'
 } else {
     # A service has no console for the first-start password, so set one here instead.

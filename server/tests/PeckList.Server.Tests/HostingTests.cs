@@ -13,7 +13,7 @@ public sealed class ServerFixture : IDisposable
 
     public ServerFixture()
     {
-        File.WriteAllText(Path.Combine(WebRoot, "index.html"), "<!doctype html><title>Punchlist</title>");
+        File.WriteAllText(Path.Combine(WebRoot, "index.html"), "<!doctype html><title>PeckList</title>");
         Directory.CreateDirectory(Path.Combine(WebRoot, "assets"));
         File.WriteAllText(Path.Combine(WebRoot, "assets", "index-abc123.js"), "console.log('hi')");
         File.WriteAllText(Path.Combine(WebRoot, "sw.js"), "// service worker");
@@ -82,7 +82,7 @@ public sealed class HostingTests : IClassFixture<ServerFixture>, IDisposable
         var info = await client.GetFromJsonAsync<ServerInfo>("/api/info", TestContext.Current.CancellationToken);
         // The version is the build's own (Directory.Build.props, or the release build's), never a fixed one.
         // AppSignIn: the Android app opens providers in a browser tab only on a server that says so.
-        Assert.Equal(new ServerInfo("punchlist", ServerApp.Version, WorkspaceSchema.CurrentVersion, TimeZoneInfo.Local.Id, 25, AppSignIn: true), info);
+        Assert.Equal(new ServerInfo("pecklist", ServerApp.Version, WorkspaceSchema.CurrentVersion, TimeZoneInfo.Local.Id, 25, AppSignIn: true), info);
         Assert.Matches(@"^\d+\.\d+\.\d+(-[0-9A-Za-z.-]+)?$", info!.Version);
     }
 
@@ -91,7 +91,7 @@ public sealed class HostingTests : IClassFixture<ServerFixture>, IDisposable
     {
         var response = await client.GetAsync("/", TestContext.Current.CancellationToken);
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        Assert.Contains("<title>Punchlist</title>", await response.Content.ReadAsStringAsync(TestContext.Current.CancellationToken));
+        Assert.Contains("<title>PeckList</title>", await response.Content.ReadAsStringAsync(TestContext.Current.CancellationToken));
         Assert.Equal("no-cache", response.Headers.CacheControl?.ToString());
 
         var worker = await client.GetAsync("/sw.js", TestContext.Current.CancellationToken);
@@ -113,7 +113,7 @@ public sealed class HostingTests : IClassFixture<ServerFixture>, IDisposable
     {
         var response = await client.GetAsync(path, TestContext.Current.CancellationToken);
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        Assert.Contains("<title>Punchlist</title>", await response.Content.ReadAsStringAsync(TestContext.Current.CancellationToken));
+        Assert.Contains("<title>PeckList</title>", await response.Content.ReadAsStringAsync(TestContext.Current.CancellationToken));
     }
 
     [Theory]

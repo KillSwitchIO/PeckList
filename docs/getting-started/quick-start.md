@@ -3,9 +3,9 @@
 The fastest way to see PeckList: one container, data in a Docker volume.
 
 ```bash
-docker run -d --name punchlist -p 8080:8080 -v punchlist-data:/data -v punchlist-files:/files \
+docker run -d --name pecklist -p 8080:8080 -v pecklist-data:/data -v pecklist-files:/files \
   registry.gitlab.com/killswitch10/punchlist:latest
-docker logs punchlist
+docker logs pecklist
 ```
 
 The log shows a box like this, once:
@@ -24,7 +24,7 @@ setup follows (the address people will use, single sign-on if you want it). You 
 come back from **Admin**.
 
 !!! tip "Missed the password?"
-    `docker exec punchlist punchlist admin reset-password` prints a new one.
+    `docker exec pecklist pecklist admin reset-password` prints a new one.
 
 ## Next steps
 

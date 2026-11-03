@@ -27,13 +27,13 @@ public static class AuthSetup
     public const string MustChangeClaim = "must_change_password";
 
     /// <summary>How the session was made: <see cref="ByPassword"/>, <see cref="ByProvider"/> or <see cref="ByLink"/>.</summary>
-    public const string MethodClaim = "punchlist:method";
+    public const string MethodClaim = "pecklist:method";
 
     public const string ByPassword = "password";
     public const string ByProvider = "provider";
     public const string ByLink = "link";
 
-    public static IServiceCollection AddPunchlistAuth(this IServiceCollection services, ServerSettings settings)
+    public static IServiceCollection AddPeckListAuth(this IServiceCollection services, ServerSettings settings)
     {
         services.AddSingleton(TimeProvider.System);
         services.AddSingleton<IPasswordHasher, AspNetPasswordHasher>();
@@ -57,7 +57,7 @@ public static class AuthSetup
 
         // Cookie keys live in the database: restarts and new containers keep sessions valid, and a
         // PostgreSQL setup needs no volume for them.
-        services.AddDataProtection().SetApplicationName("punchlist");
+        services.AddDataProtection().SetApplicationName("pecklist");
         services.AddOptions<KeyManagementOptions>()
             .Configure<Core.Accounts.ISecretStore>((options, secrets) => options.XmlRepository = new SecretStoreXmlRepository(secrets));
 
@@ -73,7 +73,7 @@ public static class AuthSetup
             authentication.AddApiKeys();
             authentication.AddCookie(options =>
                 {
-                    options.Cookie.Name = "punchlist_session";
+                    options.Cookie.Name = "pecklist_session";
                     options.Cookie.HttpOnly = true;
                     options.Cookie.SameSite = SameSiteMode.Lax;
                     options.Cookie.SecurePolicy = CookieSecurePolicy.SameAsRequest;

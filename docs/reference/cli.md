@@ -6,15 +6,15 @@ server (environment, `CONFIG_FILE`), and works while the server runs.
 === "Docker"
 
     ```bash
-    docker exec punchlist punchlist <command>
-    docker exec -it punchlist punchlist <command>     # for commands that read input
+    docker exec pecklist pecklist <command>
+    docker exec -it pecklist pecklist <command>     # for commands that read input
     ```
 
 === "Linux"
 
     ```bash
-    sudo -u punchlist env DB_PATH=/var/lib/punchlist/punchlist.db CONFIG_FILE=/etc/punchlist/punchlist.conf \
-      /opt/punchlist/punchlist <command>
+    sudo -u pecklist env DB_PATH=/var/lib/pecklist/pecklist.db CONFIG_FILE=/etc/pecklist/pecklist.conf \
+      /opt/pecklist/pecklist <command>
     ```
 
     Or the wrapper from [Linux](../install/linux.md#day-to-day).
@@ -22,15 +22,15 @@ server (environment, `CONFIG_FILE`), and works while the server runs.
 === "Windows"
 
     ```powershell
-    $env:DB_PATH = 'C:\ProgramData\Punchlist\punchlist.db'
-    $env:CONFIG_FILE = 'C:\ProgramData\Punchlist\punchlist.conf'
-    & 'C:\Program Files\Punchlist\punchlist.exe' <command>
+    $env:DB_PATH = 'C:\ProgramData\PeckList\pecklist.db'
+    $env:CONFIG_FILE = 'C:\ProgramData\PeckList\pecklist.conf'
+    & 'C:\Program Files\PeckList\pecklist.exe' <command>
     ```
 
 Run with no command (or one the program does not know as a command), it starts the server. Exit
 codes: `0` done, `1` the command failed (the reason is printed), `2` invalid settings.
 
-`punchlist help` prints the summary below; this page has the detail. A check in CI keeps this page
+`pecklist help` prints the summary below; this page has the detail. A check in CI keeps this page
 listing every command.
 
 ```text
@@ -42,8 +42,8 @@ listing every command.
 ### `export`
 
 ```bash
-punchlist export [file]
-punchlist export --user <username> [file]
+pecklist export [file]
+pecklist export --user <username> [file]
 ```
 
 Writes a full backup (every account and all data) as JSON, to the file or to standard output. With
@@ -52,8 +52,8 @@ Writes a full backup (every account and all data) as JSON, to the file or to sta
 ### `import`
 
 ```bash
-punchlist import <file> [--replace] [--shift-dates]
-punchlist import --user <file> [username]
+pecklist import <file> [--replace] [--shift-dates]
+pecklist import --user <file> [username]
 ```
 
 Loads a full backup into an **empty** database; `--replace` deletes what is there first. With
@@ -73,8 +73,8 @@ Takes a snapshot now, into `SNAPSHOT_DIR`, and prunes old ones to `SNAPSHOT_KEEP
 ### `migrate-db`
 
 ```bash
-punchlist migrate-db --to sqlite --path <file>
-punchlist migrate-db --to postgres --connection "<connection string>"
+pecklist migrate-db --to sqlite --path <file>
+pecklist migrate-db --to postgres --connection "<connection string>"
 ```
 
 Copies everything into another, empty database. Then point `DB_PROVIDER` (and `DB_PATH` or
@@ -91,7 +91,7 @@ new version.
 ### `admin reset-password`
 
 ```bash
-punchlist admin reset-password [username]     # default: admin
+pecklist admin reset-password [username]     # default: admin
 ```
 
 Prints a new password that must be changed at the next sign-in, and ends the account's other
@@ -100,7 +100,7 @@ sessions.
 ### `admin add-user`
 
 ```bash
-punchlist admin add-user <username> [--admin]
+pecklist admin add-user <username> [--admin]
 ```
 
 Adds an account (a `user`, or an `admin` with `--admin`) and prints its password, to be changed at
@@ -109,7 +109,7 @@ the first sign-in.
 ### `admin set-role`
 
 ```bash
-punchlist admin set-role <username> <user|admin|superadmin>
+pecklist admin set-role <username> <user|admin|superadmin>
 ```
 
 Changes a role; it applies from the person's next request. The last super admin cannot be demoted.
@@ -117,7 +117,7 @@ Changes a role; it applies from the person's next request. The last super admin 
 ### `admin login-link`
 
 ```bash
-punchlist admin login-link <username>
+pecklist admin login-link <username>
 ```
 
 Prints a link that signs the person in once, within 24 hours. For someone with no password and no
@@ -128,7 +128,7 @@ working provider. Uses `PUBLIC_URL` for the address.
 ### `oidc unlink`
 
 ```bash
-punchlist oidc unlink <username> [provider]
+pecklist oidc unlink <username> [provider]
 ```
 
 Detaches a person's provider accounts: all of them, or one provider's.
@@ -136,7 +136,7 @@ Detaches a person's provider accounts: all of them, or one provider's.
 ### `oidc unbind-all`
 
 ```bash
-punchlist oidc unbind-all <provider>
+pecklist oidc unbind-all <provider>
 ```
 
 Detaches every account from a provider (when moving to another). Accounts and data stay.
@@ -144,8 +144,8 @@ Detaches every account from a provider (when moving to another). Accounts and da
 ### `oidc migration-window`
 
 ```bash
-punchlist oidc migration-window <provider> <hours>
-punchlist oidc migration-window <provider> close
+pecklist oidc migration-window <provider> <hours>
+pecklist oidc migration-window <provider> close
 ```
 
 Until it closes, a first sign-in through the provider joins the account with the same username.
@@ -164,8 +164,8 @@ Prints a new `CONFIG_KEY` for [encrypted values](../configuration/index.md#encry
 ### `config encrypt`
 
 ```bash
-punchlist config encrypt 'the secret'
-echo -n 'the secret' | punchlist config encrypt
+pecklist config encrypt 'the secret'
+echo -n 'the secret' | pecklist config encrypt
 ```
 
 Prints the value encrypted with `CONFIG_KEY` (`enc:v1:...`), for the environment or the settings
@@ -176,7 +176,7 @@ file. Reading from standard input keeps the secret out of your shell history.
 ### `debug-dump`
 
 ```bash
-punchlist debug-dump [file]
+pecklist debug-dump [file]
 ```
 
 Writes a zip for bug reports: recent logs, settings (secrets hidden), version, time zone, database
@@ -190,4 +190,4 @@ health check.
 
 ### `--version`
 
-Prints the version and the commit it was built from: `punchlist 0.2.0+4f1c2e9...`.
+Prints the version and the commit it was built from: `pecklist 0.2.0+4f1c2e9...`.

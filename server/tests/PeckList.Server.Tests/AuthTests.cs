@@ -29,7 +29,7 @@ public sealed class AuthTests(ServerFixture fixture) : IClassFixture<ServerFixtu
         var login = await Login(client, "Admin", Password);
         Assert.Equal(HttpStatusCode.OK, login.StatusCode);
         var cookie = Assert.Single(login.Headers.GetValues("Set-Cookie"));
-        Assert.Contains("punchlist_session=", cookie);
+        Assert.Contains("pecklist_session=", cookie);
         Assert.Contains("httponly", cookie, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("samesite=lax", cookie, StringComparison.OrdinalIgnoreCase);
 

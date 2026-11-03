@@ -5,7 +5,7 @@ using System.Text.RegularExpressions;
 namespace PeckList.Core.Backup;
 
 /// <summary>
-/// Moves a seed's dates on (<c>punchlist import --shift-dates</c>, PL-117): a demo seed made once,
+/// Moves a seed's dates on (<c>pecklist import --shift-dates</c>, PL-117): a demo seed made once,
 /// with its tasks laid out around the day it was made, reads as if made today. Every calendar date
 /// and time in an entity moves by whole days; the clock stamps (<c>_hlc</c>) stay, as they order
 /// changes and are never shown.

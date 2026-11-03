@@ -128,7 +128,7 @@ public sealed class LoggingTests(ServerFixture fixture) : IClassFixture<ServerFi
         var pipeline = server.Services.GetRequiredService<LogPipeline>();
         // The event log's entry for it, as it goes to the logs.
         var entry = pipeline.Recent().Last(record => record.Category == "PeckList.Audit");
-        Assert.StartsWith("backup.taken ok by admin on punchlist-", entry.Message);
+        Assert.StartsWith("backup.taken ok by admin on pecklist-", entry.Message);
         Assert.NotNull(entry.RequestId);
         Assert.Matches("^[0-9a-f]{32}$", entry.TraceId);
         var adminId = (await server.Services.GetRequiredService<IAccountStore>().FindByUsernameAsync("admin", Token))!.Id;
@@ -185,7 +185,7 @@ public sealed class LoggingTests(ServerFixture fixture) : IClassFixture<ServerFi
         Assert.Contains("database.json", names);
         Assert.Contains("health.json", names);
         Assert.Contains("logs/recent.jsonl", names);
-        Assert.Contains(names, name => name.StartsWith("logs/punchlist-", StringComparison.Ordinal));
+        Assert.Contains(names, name => name.StartsWith("logs/pecklist-", StringComparison.Ordinal));
         Assert.Equal(names.Count, names.Distinct().Count());
 
         string Read(string name)
