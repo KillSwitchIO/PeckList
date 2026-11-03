@@ -2,7 +2,7 @@
 # Locally:  pip install -r docs/requirements.txt && mkdocs serve
 site_name: Punchlist
 site_description: Self-hosted, offline-first tasks and calendar
-site_url: https://killswitch10.gitlab.io/punchlist/
+site_url: https://docs.pecklist.com/
 repo_url: https://gitlab.com/killswitch10/punchlist
 repo_name: killswitch10/punchlist
 edit_uri: -/edit/main/docs/

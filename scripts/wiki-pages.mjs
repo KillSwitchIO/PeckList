@@ -6,7 +6,7 @@
 //
 // Pure: takes the files, returns the pages. The git work is in scripts/ci/wiki-sync.mjs.
 
-const SITE = 'https://killswitch10.gitlab.io/punchlist/';
+const SITE = 'https://docs.pecklist.com/';
 const SOURCE = 'https://gitlab.com/killswitch10/punchlist/-/blob/main/';
 const RAW = 'https://gitlab.com/killswitch10/punchlist/-/raw/main/';
 const IMAGE = /\.(png|jpe?g|gif|svg|webp)$/i;

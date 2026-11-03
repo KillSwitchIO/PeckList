@@ -141,8 +141,5 @@ test('every doc becomes a page with a banner, plus the sidebar', () => {
   });
   assert.deepEqual([...pages.keys()], ['home', 'install/docker', '_sidebar']);
   assert.match(pages.get('home'), /^> This page is a copy of \[`docs\/index.md`\]/);
-  assert.match(
-    pages.get('install/docker'),
-    /https:\/\/killswitch10.gitlab.io\/punchlist\/install\/docker\//,
-  );
+  assert.match(pages.get('install/docker'), /https:\/\/docs.pecklist.com\/install\/docker\//);
 });
