@@ -164,7 +164,7 @@ public sealed class BackupTests(SqliteFiles files, PostgresServer postgres) : IC
 
     [Theory]
     [InlineData("not json", "not a JSON file")]
-    [InlineData("""{"format":"something-else"}""", "not a Punchlist server backup")]
+    [InlineData("""{"format":"something-else"}""", "not a PeckList server backup")]
     [InlineData("""{"format":"punchlist-server-backup","formatVersion":9}""", "format 9 is not supported")]
     [InlineData("""{"format":"punchlist-server-backup","formatVersion":1,"schemaVersion":1}""", "holds schema 1")]
     public async Task Refuses_what_it_cannot_read(string json, string message)

@@ -1,12 +1,12 @@
 # FAQ
 
 **Is there a mobile app?**
-Punchlist is an installable web app (PWA). On Android, Chrome offers "Install app"; on iPhone and
+PeckList is an installable web app (PWA). On Android, Chrome offers "Install app"; on iPhone and
 iPad, Safari's Share > **Add to Home Screen**. It then opens full screen, works offline and syncs.
 There are no store apps yet.
 
 **Can I use it without a server?**
-Yes. Opened without a Punchlist server behind it, the web app keeps everything in the browser, on
+Yes. Opened without a PeckList server behind it, the web app keeps everything in the browser, on
 that one device. With a server, it syncs between devices and people.
 
 **How many people can one server handle?**

@@ -706,7 +706,7 @@ describe('phone', () => {
     mockViewport('phone');
     const store = testStore();
     await renderApp('/more', store);
-    const bar = () => screen.getByRole('navigation', { name: 'Punchlist' });
+    const bar = () => screen.getByRole('navigation', { name: 'PeckList' });
     const tabs = () =>
       within(bar())
         .getAllByRole('button')

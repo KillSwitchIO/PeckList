@@ -60,8 +60,8 @@ export default defineConfig({
         importScripts: ['sw-notifications.js'],
       },
       manifest: {
-        name: 'Punchlist',
-        short_name: 'Punchlist',
+        name: 'PeckList',
+        short_name: 'PeckList',
         description: 'Tasks and calendar, offline-first',
         theme_color: '#4F8F87',
         background_color: '#FAFAF7',

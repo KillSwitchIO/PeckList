@@ -139,7 +139,7 @@ public static partial class AppSignIn
                 return Results.Content(
                     "<!doctype html><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width\">" +
                     "<title>Link expired</title><p style=\"font:16px system-ui;padding:24px\">This link has expired. " +
-                    "Close this tab and press Link again in the Punchlist app.</p>",
+                    "Close this tab and press Link again in the PeckList app.</p>",
                     "text/html; charset=utf-8", statusCode: StatusCodes.Status400BadRequest);
             }
             return Results.Challenge(OidcSetup.LinkProperties(start.AccountId, start.Scheme), [OidcSetup.Scheme(start.Provider)]);
@@ -201,8 +201,8 @@ public static partial class AppSignIn
 
     private static string ConfirmPage(string username, string challenge, string scheme, string returnUrl) =>
         ConfirmationPage(
-            "Open Punchlist on this device?",
-            $"You are signed in as <strong>{WebUtility.HtmlEncode(username)}</strong>. Continue to sign in to the Punchlist app with this account. "
+            "Open PeckList on this device?",
+            $"You are signed in as <strong>{WebUtility.HtmlEncode(username)}</strong>. Continue to sign in to the PeckList app with this account. "
             + "If you did not just ask for this, close this tab.",
             "/auth/app/handoff",
             ("challenge", challenge), ("scheme", scheme), ("returnUrl", returnUrl));

@@ -92,7 +92,7 @@ public sealed class NotificationRecorder(
             var (body, url) = NotificationText.Of(each, actor, sharing.Index);
             await push.SendAsync(
                 each.UserId,
-                new Push.PushPayload("Punchlist", body, each.Id, url, Actions: NotificationText.ActionsOf(each, url)),
+                new Push.PushPayload("PeckList", body, each.Id, url, Actions: NotificationText.ActionsOf(each, url)),
                 cancellation);
         }
     }

@@ -99,7 +99,7 @@ describe('the Android app with its own reminders', () => {
     const news = {
       kind: 'news' as const,
       category: 'assigned',
-      title: 'Punchlist',
+      title: 'PeckList',
       body: 'sam assigned you Mow the lawn',
       tag: 'N1',
       url: '/today?task=T1',
@@ -110,7 +110,7 @@ describe('the Android app with its own reminders', () => {
     expect(shell.shown).toEqual([
       {
         tag: 'N1',
-        title: 'Punchlist',
+        title: 'PeckList',
         body: 'sam assigned you Mow the lawn',
         url: '/today?task=T1',
         news: true,

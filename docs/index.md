@@ -1,6 +1,6 @@
-# Punchlist
+# PeckList
 
-Punchlist is a self-hosted task and calendar app: lists, subtasks, tags, dates and a calendar you
+PeckList is a self-hosted task and calendar app: lists, subtasks, tags, dates and a calendar you
 drag tasks onto, shared with the people you choose. It works offline on every device and syncs
 when it can. One small server (a Docker container, or a native program on Linux and Windows)
 serves the app and keeps everyone's data, in SQLite or PostgreSQL.
@@ -44,7 +44,7 @@ serves the app and keeps everyone's data, in SQLite or PostgreSQL.
 | Fix something                                  | [Troubleshooting](guides/troubleshooting.md)                                                          |
 | Move from TickTick or Todoist                  | [Moving from TickTick or Todoist](using/moving-from-ticktick-or-todoist.md)                           |
 | Put it on your Android phone                   | [The Android app](using/android-app.md)                                                               |
-| Decide whether it is for you                   | [Why Punchlist](about/why.md) and [the comparison](about/comparison.md)                               |
+| Decide whether it is for you                   | [Why PeckList](about/why.md) and [the comparison](about/comparison.md)                               |
 
 ## Getting help
 

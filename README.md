@@ -1,4 +1,4 @@
-# Punchlist
+# PeckList
 
 [![pipeline](https://gitlab.com/killswitch10/punchlist/badges/main/pipeline.svg)](https://gitlab.com/killswitch10/punchlist/-/pipelines)
 [![release](https://gitlab.com/killswitch10/punchlist/-/badges/release.svg)](https://gitlab.com/killswitch10/punchlist/-/releases)
@@ -36,7 +36,7 @@ program on Linux and Windows.
   admin page (encrypted secrets supported).
 
 Why it exists, and how it compares with Todoist, TickTick, Vikunja, Nextcloud Tasks and Super
-Productivity (including what they do better): [why Punchlist](docs/about/why.md) and
+Productivity (including what they do better): [why PeckList](docs/about/why.md) and
 [the comparison](docs/about/comparison.md). What comes next: [roadmap](docs/about/roadmap.md).
 
 ## Quick start
@@ -91,7 +91,7 @@ requests on GitHub.
 
 ## License
 
-Copyright (C) 2026 Ben Dimit. Punchlist is free software under the
+Copyright (C) 2026 Ben Dimit. PeckList is free software under the
 [GNU Affero General Public License, version 3 or later](LICENSE): use it, host it, change it and
 share it, for any purpose. If you run a modified version for other people over a network, offer
 them its source under the same license.

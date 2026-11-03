@@ -1,6 +1,6 @@
 # Privacy and telemetry
 
-Your tasks stay on your server. Punchlist makes two kinds of request to the internet on its own,
+Your tasks stay on your server. PeckList makes two kinds of request to the internet on its own,
 both from the server (never from people's browsers or phones), and both can be turned off:
 
 - **The update check** ([`UPDATE_CHECK`](../configuration/reference.md#update_check)): twice a
@@ -11,7 +11,7 @@ both from the server (never from people's browsers or phones), and both can be t
 
 ## The update check
 
-So the app can tell you when a new release is out, the server reads Punchlist's latest release
+So the app can tell you when a new release is out, the server reads PeckList's latest release
 from GitLab: a minute after it starts, then every 12 hours.
 
 - **What it asks**: one `GET` of

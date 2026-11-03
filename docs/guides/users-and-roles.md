@@ -39,7 +39,7 @@ With single sign-on, `OIDC_<NAME>_ROLE_MAP` sets roles from the provider's group
 ## Adding people
 
 - **Admin > Users > Invite**: an invite link people use to make their own account (below).
-- **Admin > Users > Add user**: a username and a role. Punchlist shows a generated password to hand
+- **Admin > Users > Add user**: a username and a role. PeckList shows a generated password to hand
   over; it must be changed at the first sign-in.
 - From the command line: `punchlist admin add-user kim [--admin]` prints the password.
 - **Single sign-on** with `OIDC_<NAME>_AUTO_CREATE=true` makes the account at the first sign-in.

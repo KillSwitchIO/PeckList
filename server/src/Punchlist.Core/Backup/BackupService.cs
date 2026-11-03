@@ -323,12 +323,12 @@ public sealed class BackupService(
 
     private static void Check(JsonObject root)
     {
-        if ((string?)root["format"] != Format) throw new BackupException("not a Punchlist server backup (no \"format\": \"" + Format + "\")");
+        if ((string?)root["format"] != Format) throw new BackupException("not a PeckList server backup (no \"format\": \"" + Format + "\")");
         if ((int?)root["formatVersion"] != FormatVersion) throw new BackupException($"backup format {(int?)root["formatVersion"]} is not supported (this server reads {FormatVersion})");
         var schema = (int?)root["schemaVersion"];
         if (!WorkspaceSchema.Readable(schema))
         {
-            throw new BackupException($"the backup holds schema {schema}; this server speaks {WorkspaceSchema.CurrentVersion}. Use the matching Punchlist version.");
+            throw new BackupException($"the backup holds schema {schema}; this server speaks {WorkspaceSchema.CurrentVersion}. Use the matching PeckList version.");
         }
     }
 

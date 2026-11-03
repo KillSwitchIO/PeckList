@@ -448,7 +448,7 @@ public class ShellPlugin extends Plugin {
         String tag = call.getString("tag", "");
         if (Boolean.TRUE.equals(call.getBoolean("news", false))) {
             try {
-                Reminders.showNews(getContext(), tag, call.getString("category", ""), call.getString("title", "Punchlist"),
+                Reminders.showNews(getContext(), tag, call.getString("category", ""), call.getString("title", "PeckList"),
                     call.getString("body", ""), call.getString("url", "/today"), call.getArray("actions", new com.getcapacitor.JSArray()));
                 call.resolve();
             } catch (JSONException error) {

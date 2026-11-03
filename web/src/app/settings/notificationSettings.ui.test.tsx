@@ -80,7 +80,7 @@ describe('notifications with the app closed', () => {
     const { transport } = await signedIn('/settings', backend);
     const section = await screen.findByRole('region', { name: 'Notifications' });
     const toggle = within(section).getByRole('switch', {
-      name: 'Notify me when Punchlist is closed',
+      name: 'Notify me when PeckList is closed',
     });
     await waitFor(() => expect(toggle).toBeEnabled());
     expect(toggle).not.toBeChecked();
@@ -122,9 +122,9 @@ describe('notifications with the app closed', () => {
     const backend = new FakeBackend();
     backend.addAccount('ben', 'correct horse battery');
     await signedIn('/settings', backend);
-    expect(await screen.findByText(/add Punchlist to your Home Screen/)).toBeInTheDocument();
+    expect(await screen.findByText(/add PeckList to your Home Screen/)).toBeInTheDocument();
     expect(
-      screen.getByRole('switch', { name: 'Notify me when Punchlist is closed' }),
+      screen.getByRole('switch', { name: 'Notify me when PeckList is closed' }),
     ).toBeDisabled();
   });
 
@@ -299,7 +299,7 @@ describe('notifications in the Android app', () => {
     expect(toggle).toBeChecked();
     // No Web Push in the app: its switch is not offered.
     expect(
-      within(section).queryByRole('switch', { name: 'Notify me when Punchlist is closed' }),
+      within(section).queryByRole('switch', { name: 'Notify me when PeckList is closed' }),
     ).toBeNull();
 
     await userEvent.click(within(section).getByRole('combobox', { name: 'Check every' }));
@@ -307,12 +307,12 @@ describe('notifications in the Android app', () => {
     await waitFor(() => expect(shell.state.minutes).toBe(15));
 
     // Android may still put it to sleep: the app says so, and asks when told to.
-    const asleep = within(section).getByText(/Android may put Punchlist to sleep/);
+    const asleep = within(section).getByText(/Android may put PeckList to sleep/);
     await userEvent.click(
       within(asleep.closest('[role="alert"]')!).getByRole('button', { name: 'Allow' }),
     );
     await waitFor(() =>
-      expect(within(section).queryByText(/Android may put Punchlist to sleep/)).toBeNull(),
+      expect(within(section).queryByText(/Android may put PeckList to sleep/)).toBeNull(),
     );
 
     await userEvent.click(toggle);

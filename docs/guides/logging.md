@@ -23,7 +23,7 @@ whether it keeps up, and how many entries it dropped.
 ## Sending logs to a log server
 
 Set one or more. Each has its own queue of up to 10,000 entries, retried with growing waits; a log
-server that is down never holds Punchlist up, and what does not fit is dropped and counted.
+server that is down never holds PeckList up, and what does not fit is dropped and counted.
 
 | Stack                                                          | Settings                                                                                              |
 | -------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------- |

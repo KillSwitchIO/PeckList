@@ -5,7 +5,7 @@ import type { CapacitorConfig } from '@capacitor/cli';
 // the app always runs the web build its server ships. `server.url` is set at runtime, never here.
 const config: CapacitorConfig = {
   appId: 'com.killswitch10.punchlist',
-  appName: 'Punchlist',
+  appName: 'PeckList',
   webDir: '../web/dist',
   android: {
     // Matches the PWA manifest's background, so no white flash before the app paints.

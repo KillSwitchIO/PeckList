@@ -49,7 +49,7 @@ describe('UpdatePrompt', () => {
   it('offers the update and applies it', async () => {
     state.needRefresh = true;
     render(<UpdatePrompt />, withSync());
-    expect(screen.getByText('A new version of Punchlist is available.')).toBeInTheDocument();
+    expect(screen.getByText('A new version of PeckList is available.')).toBeInTheDocument();
     await userEvent.click(screen.getByRole('button', { name: 'Update' }));
     expect(state.updateServiceWorker).toHaveBeenCalledWith(true);
   });
@@ -68,7 +68,7 @@ describe('UpdatePrompt', () => {
     expect(screen.queryByText(/keep syncing/)).toBeNull();
     act(() => engine.setState({ status: 'app-update' }));
     expect(
-      screen.getByText('Punchlist was updated on the server. Update this app to keep syncing.'),
+      screen.getByText('PeckList was updated on the server. Update this app to keep syncing.'),
     ).toBeInTheDocument();
     expect(registration.update).toHaveBeenCalled();
     // Later hides it until the next time.

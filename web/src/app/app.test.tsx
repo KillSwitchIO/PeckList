@@ -224,15 +224,15 @@ describe('sidebar frame', () => {
   it('folds the sidebar away and back, and remembers it', async () => {
     mockViewport('desktop');
     const first = await renderApp('/today');
-    expect(screen.getByRole('navigation', { name: 'Punchlist' })).toBeInTheDocument();
+    expect(screen.getByRole('navigation', { name: 'PeckList' })).toBeInTheDocument();
     await userEvent.click(screen.getByRole('button', { name: 'Hide the sidebar' }));
-    expect(screen.queryByRole('navigation', { name: 'Punchlist' })).toBeNull();
+    expect(screen.queryByRole('navigation', { name: 'PeckList' })).toBeNull();
     first.unmount();
 
     await renderApp('/today');
-    expect(screen.queryByRole('navigation', { name: 'Punchlist' })).toBeNull();
+    expect(screen.queryByRole('navigation', { name: 'PeckList' })).toBeNull();
     await userEvent.click(screen.getByRole('button', { name: 'Show the sidebar' }));
-    expect(screen.getByRole('navigation', { name: 'Punchlist' })).toBeInTheDocument();
+    expect(screen.getByRole('navigation', { name: 'PeckList' })).toBeInTheDocument();
   });
 
   it("opens a day of the mini calendar as that day's list, and shows the version", async () => {
@@ -279,7 +279,7 @@ describe('sidebar frame', () => {
     expect(await screen.findByRole('heading', { level: 1, name: 'Today' })).toBeInTheDocument();
 
     expect(
-      screen.getByRole('link', { name: /^Punchlist v\d+\.\d+\.\d+.*: what changed$/ }),
+      screen.getByRole('link', { name: /^PeckList v\d+\.\d+\.\d+.*: what changed$/ }),
     ).toHaveAttribute('href', 'https://gitlab.com/killswitch10/punchlist/-/blob/main/CHANGELOG.md');
   });
 

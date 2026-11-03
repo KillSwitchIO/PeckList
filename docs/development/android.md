@@ -21,7 +21,7 @@ app (ADR-0017 in the project notes). There is no second copy of the UI.
 - **Back button**: `MainActivity` asks the web app first (`window.punchlistBack()`,
   `web/src/app/native/back.ts`): it closes the topmost menu, dialog or sheet, else steps back in
   the app's history. With nothing left, a second Back within two seconds moves the app to the
-  background ("Press Back again to leave Punchlist"). A server's web build too old to answer gets
+  background ("Press Back again to leave PeckList"). A server's web build too old to answer gets
   the WebView's own history instead.
 - **System bars**: Android 15 draws apps under the status and navigation bars, and on WebView 140
   and later Capacitor leaves the space to the page's CSS, which an older server's web build does
@@ -81,7 +81,7 @@ app (ADR-0017 in the project notes). There is no second copy of the UI.
   with `news: true` (shell api 4), shown the same way and keyed by the same server id, so the two
   never show one piece of news twice. Once signed in, the app asks once to notify and to run without battery
   optimization (`REQUEST_IGNORE_BATTERY_OPTIMIZATIONS`); without that, Android holds the alarm and
-  the network while the phone is idle. Samsung phones also need Punchlist in **Never sleeping
+  the network while the phone is idle. Samsung phones also need PeckList in **Never sleeping
   apps**, which the settings say. Google Play allows that permission only for some kinds of app,
   so a Play build would drop it and check every 15 minutes with WorkManager.
   `notificationSettings` (shell api 5) opens Android's notification settings for the app, where
@@ -159,7 +159,7 @@ A new key (only if the old one is lost, and every install must then be removed f
 
 ```bash
 keytool -genkeypair -keystore punchlist-release.p12 -storetype PKCS12 -alias punchlist \
-  -keyalg RSA -keysize 4096 -validity 36500 -dname "CN=Punchlist, O=killswitch10"
+  -keyalg RSA -keysize 4096 -validity 36500 -dname "CN=PeckList, O=killswitch10"
 base64 -w0 punchlist-release.p12   # the value of ANDROID_KEYSTORE_BASE64
 ```
 

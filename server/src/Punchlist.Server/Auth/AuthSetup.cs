@@ -240,7 +240,7 @@ public static class AuthSetup
                 // password (the log pipeline would only mask it anyway).
                 console.Write(
                     "\n============================================================\n" +
-                    "  Punchlist admin account created\n" +
+                    "  PeckList admin account created\n" +
                     $"    username: {AccountService.AdminUsername}\n" +
                     $"    password: {password}\n" +
                     "  Log in and change it. This is shown only once.\n" +

@@ -1,6 +1,6 @@
 # Sharing
 
-Sharing needs a Punchlist server: everyone on it has an account. Friends, groups and your friend
+Sharing needs a PeckList server: everyone on it has an account. Friends, groups and your friend
 link are on the **Friends** page, in the account menu (the sync button).
 
 ## Friends

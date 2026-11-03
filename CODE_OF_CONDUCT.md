@@ -1,7 +1,7 @@
 # Code of conduct
 
-Punchlist wants to be a project anyone can bring a question, a bug or a change to, whatever their
-experience, background or identity. This applies in every Punchlist space: issues, merge requests,
+PeckList wants to be a project anyone can bring a question, a bug or a change to, whatever their
+experience, background or identity. This applies in every PeckList space: issues, merge requests,
 the wiki, the community chat, and anywhere you speak for the project.
 
 ## Expected

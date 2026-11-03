@@ -224,7 +224,7 @@ describe('android: settings > server', () => {
     const section = await screen.findByRole('region', { name: 'Server' });
     expect(within(section).getByText('https://tasks.example.com')).toBeInTheDocument();
     await userEvent.click(within(section).getByRole('button', { name: 'Disconnect' }));
-    const dialog = await screen.findByRole('dialog', { name: 'Use Punchlist without a server?' });
+    const dialog = await screen.findByRole('dialog', { name: 'Use PeckList without a server?' });
     expect(shell.went).toEqual([]);
     await userEvent.click(within(dialog).getByRole('button', { name: 'Disconnect' }));
     expect(shell.went).toEqual(['standalone']);
@@ -239,8 +239,8 @@ describe('versions', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Your account' }));
     const menu = await screen.findByRole('menu');
     expect(
-      within(menu).getByRole('link', { name: /^Punchlist v\d+\.\d+\.\d+.*: what changed$/ }),
-    ).toHaveTextContent(/^Punchlist v\d/);
+      within(menu).getByRole('link', { name: /^PeckList v\d+\.\d+\.\d+.*: what changed$/ }),
+    ).toHaveTextContent(/^PeckList v\d/);
     expect(await within(menu).findByText('Android app 0.1.0')).toBeInTheDocument();
   });
 
@@ -248,7 +248,7 @@ describe('versions', () => {
     await renderApp('/today', testStore());
     await userEvent.click(screen.getByRole('button', { name: 'Your account' }));
     const menu = await screen.findByRole('menu');
-    expect(within(menu).getByText(/^Punchlist v\d/)).toBeInTheDocument();
+    expect(within(menu).getByText(/^PeckList v\d/)).toBeInTheDocument();
     expect(within(menu).queryByText(/^Android app/)).toBeNull();
   });
 });

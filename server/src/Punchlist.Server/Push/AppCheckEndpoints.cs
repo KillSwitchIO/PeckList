@@ -63,7 +63,7 @@ public static class AppCheckEndpoints
                     actor = names[actorId] = (await accounts.FindByIdAsync(actorId, cancellation))?.Username;
                 }
                 var (body, url) = NotificationText.Of(each, actor, index);
-                notifications.Add(new AppCheckNotification(each.Id, each.Kind, "Punchlist", body, url, NotificationText.ActionsOf(each, url)));
+                notifications.Add(new AppCheckNotification(each.Id, each.Kind, "PeckList", body, url, NotificationText.ActionsOf(each, url)));
             }
 
             var now = time.GetUtcNow();

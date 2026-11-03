@@ -1,6 +1,6 @@
 # Database
 
-Punchlist stores everything in one database: **SQLite** (the default, a single file) or
+PeckList stores everything in one database: **SQLite** (the default, a single file) or
 **PostgreSQL** 15 or later.
 
 ## Which one
@@ -9,7 +9,7 @@ Punchlist stores everything in one database: **SQLite** (the default, a single f
 | ------------------- | ----------------------------------------------------------- | ------------------------------------------------ |
 | Setup               | Nothing                                                     | A PostgreSQL server and a database               |
 | Good for            | A household, a club, a small company                        | Larger servers, or if you already run PostgreSQL |
-| Backups             | Punchlist's snapshots, or copy the file while it is stopped | Snapshots, or your usual `pg_dump`               |
+| Backups             | PeckList's snapshots, or copy the file while it is stopped | Snapshots, or your usual `pg_dump`               |
 | Moving between them | `punchlist migrate-db` either way                           |                                                  |
 
 SQLite is not a toy here: many people syncing at once is fine. Choose PostgreSQL for operational
@@ -33,7 +33,7 @@ DB_PROVIDER=postgres
 DB_CONNECTION_STRING=Host=db;Port=5432;Username=punchlist;Password=...;Database=punchlist
 ```
 
-Create an empty database owned by the user; Punchlist creates its tables at the first start.
+Create an empty database owned by the user; PeckList creates its tables at the first start.
 
 ```sql
 CREATE ROLE punchlist LOGIN PASSWORD '...';
@@ -49,7 +49,7 @@ needs nothing special.
 
 ## Schema upgrades
 
-A newer Punchlist upgrades the database schema when it starts (`DB_MIGRATE_ON_START=true`). Each
+A newer PeckList upgrades the database schema when it starts (`DB_MIGRATE_ON_START=true`). Each
 step runs in its own transaction: it either completes or changes nothing, and the next start
 carries on from there.
 
@@ -63,7 +63,7 @@ docker run --rm -e DB_PROVIDER=postgres -e DB_CONNECTION_STRING="Host=db;Usernam
 
 The server does not check the schema when it starts this way, so do not skip this step.
 
-Going back to an older Punchlist after an upgrade is not supported: restore the snapshot taken
+Going back to an older PeckList after an upgrade is not supported: restore the snapshot taken
 before (see [upgrading](../guides/upgrading.md)).
 
 ## Moving from SQLite to PostgreSQL (or back)

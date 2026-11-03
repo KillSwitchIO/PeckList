@@ -1,6 +1,6 @@
 # Getting help
 
-Punchlist is made by one person in their spare time, with help from anyone who joins in. There is
+PeckList is made by one person in their spare time, with help from anyone who joins in. There is
 no paid support; these are the places to ask, and what each is for.
 
 | You want to                         | Go to                                                                                                                                    |
@@ -30,7 +30,7 @@ README and docs/index.md. -->
 - Fixes ship in the next release; only the latest release is supported, so the fix for an old
   version is to upgrade.
 - Feature requests are read and labelled, and the ones that fit go on the [roadmap](roadmap.md).
-  Not every one will: Punchlist tries to stay small and easy to run.
+  Not every one will: PeckList tries to stay small and easy to run.
 
 ## Following releases
 

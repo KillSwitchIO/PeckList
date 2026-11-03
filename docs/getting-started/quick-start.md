@@ -1,6 +1,6 @@
 # Quick start
 
-The fastest way to see Punchlist: one container, data in a Docker volume.
+The fastest way to see PeckList: one container, data in a Docker volume.
 
 ```bash
 docker run -d --name punchlist -p 8080:8080 -v punchlist-data:/data -v punchlist-files:/files \
@@ -12,7 +12,7 @@ The log shows a box like this, once:
 
 ```text
 ============================================================
-  Punchlist admin account created
+  PeckList admin account created
     username: admin
     password: 7mKq...
   Log in and change it. This is shown only once.

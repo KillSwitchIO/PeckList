@@ -71,7 +71,7 @@ new object, which is how saves, the journal and the sync engine tell what moved.
 - **Every string people see goes through `t()`** with a key in `app/i18n/en.ts`
   (`'admin.link.subject'`: area, then the thing). Sentence case. No em dashes anywhere, in
   strings or docs; a plain dash or a new sentence instead.
-- **Icons** are Punchlist's own, in `app/icons/icons.tsx` (24 x 24, 1.75 round strokes, no fills,
+- **Icons** are PeckList's own, in `app/icons/icons.tsx` (24 x 24, 1.75 round strokes, no fills,
   `currentColor`). Draw a new one there rather than reach for a Material icon, and swap Material
   icons for ours as a screen is reworked.
 - **Clean UI, TickTick's feel**: popovers and icon quick-picks over chips and toggles, no layout
@@ -234,7 +234,7 @@ each intermediate state.
 
 ## Documentation
 
-- Written for the person running or using Punchlist: plain words, short sentences, the reason
+- Written for the person running or using PeckList: plain words, short sentences, the reason
   behind each recommendation, and an honest **needed / recommended / optional / not needed**
   sorting where settings are involved. No em dashes.
 - `docs/` is the MkDocs site (`mkdocs serve`; `mkdocs build --strict` in CI); `CONTRIBUTING.md`,

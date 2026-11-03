@@ -112,7 +112,7 @@ describe('friends page', () => {
 
   it('says friends need a server when there is none', async () => {
     await renderApp('/friends');
-    expect(await screen.findByText(/Friends need a Punchlist server/)).toBeInTheDocument();
+    expect(await screen.findByText(/Friends need a PeckList server/)).toBeInTheDocument();
   });
 });
 

@@ -6,12 +6,12 @@ button for each.
 
 ## Setting it up
 
-1. In the provider, create a client (also called an application) for Punchlist:
+1. In the provider, create a client (also called an application) for PeckList:
    - **Redirect URI**: `https://tasks.example.com/auth/oidc/<name>/callback`, where `<name>` is the
      name you give the provider below (lowercase).
-   - **Type**: confidential (with a secret) is usual; a public client also works, since Punchlist
+   - **Type**: confidential (with a secret) is usual; a public client also works, since PeckList
      always uses PKCE.
-   - **Scopes**: `openid profile email`, plus `groups` if you will use groups. Punchlist asks for
+   - **Scopes**: `openid profile email`, plus `groups` if you will use groups. PeckList asks for
      `groups` by itself as soon as any group setting (`REQUIRED_GROUPS`, `ROLE_MAP`, `GROUP_MAP`)
      is set; `OIDC_<NAME>_SCOPES` overrides the list for providers that have no such scope.
    - **Client authentication**: the secret goes in the token request's body
@@ -38,7 +38,7 @@ Every `OIDC_<NAME>_*` setting is in [all settings](../configuration/reference.md
 The app signs in through the same provider and the same redirect URI, in a browser tab instead of
 inside the app (passkeys do not work inside apps, and some providers refuse them). There is
 nothing extra to register with the provider. After the provider, the person confirms on a
-Punchlist page, and the app receives a one-time code it can only use with a secret it kept to
+PeckList page, and the app receives a one-time code it can only use with a secret it kept to
 itself. The app's session is a copy of the browser's, so `OIDC_<NAME>_SESSION_HOURS` still applies.
 
 ## Who gets in
@@ -57,7 +57,7 @@ name, unless you turn on [username linking](#linking-accounts). Usernames come f
 
 ## Signing out
 
-Signing out of Punchlist ends the Punchlist session only: the provider still knows the person, so
+Signing out of PeckList ends the PeckList session only: the provider still knows the person, so
 **Continue with** signs them straight back in. On a shared computer that is not what you want. With
 `OIDC_<NAME>_SIGN_OUT=true`, signing out also ends the provider session (OpenID Connect
 RP-initiated logout), and the provider sends the browser back to the sign-in page.
@@ -70,7 +70,7 @@ For that, the provider must:
   the client's settings (Keycloak: **Valid post logout redirect URIs**; Authentik: the provider's
   redirect URIs).
 
-If the provider cannot be reached, Punchlist still signs out and only its own session ends.
+If the provider cannot be reached, PeckList still signs out and only its own session ends.
 
 ## Linking accounts
 
@@ -79,11 +79,11 @@ long as another way to sign in remains. An admin can link one by hand (**Admin >
 provider account**, with the provider and the account's `sub`), or join a waiting sign-in to an
 existing person (**Admin > Sign-in > Link to an account**).
 
-A first sign-in can also find its account by itself. Punchlist tries these in order, and the first
+A first sign-in can also find its account by itself. PeckList tries these in order, and the first
 that matches wins:
 
 1. **A mapping.** `OIDC_<NAME>_USER_MAP=ben=bendimit,kim.lee=kim` sends the provider user on the
-   left to the Punchlist account on the right, every time. Admins add more on **Admin > Sign-in >
+   left to the PeckList account on the right, every time. Admins add more on **Admin > Sign-in >
    Mappings** (the setting wins when both name the same provider user). A mapping also moves a link:
    someone already linked to another account lands in the mapped one at their next sign-in.
 2. **A migration window**, while one is open (see [moving to another provider](#moving-to-another-provider)).
@@ -109,13 +109,13 @@ account, or unlinks it. Every change goes into the event log.
 
 ### Provider icons
 
-People who signed in through a provider see its icon on their profile picture. Punchlist uses
+People who signed in through a provider see its icon on their profile picture. PeckList uses
 `OIDC_<NAME>_ICON` (an `https` address or a file in the container), else the provider's own
 `/favicon.ico`, and keeps a copy for a day, so browsers never load it from the provider. Without an
 image there, no icon shows.
 
 A first sign-in also brings in the person's picture from the provider's `picture` claim, when their
-profile has no photo. Many providers let people set that address themselves, so Punchlist fetches
+profile has no photo. Many providers let people set that address themselves, so PeckList fetches
 it only from public internet addresses, or from the host of a configured provider (one on your own
 network is fine). Anything else, and redirects to it, is refused and the profile keeps its initials.
 
@@ -174,13 +174,13 @@ in gets a one-time link: `punchlist admin login-link kim`.
 
 === "Authelia"
 
-    Add a client under `identity_providers.oidc.clients`. Punchlist sends its client secret in the
+    Add a client under `identity_providers.oidc.clients`. PeckList sends its client secret in the
     token request's body, so the client must use `client_secret_post` (Authelia's default for a
     confidential client is `client_secret_basic`, which fails with `invalid_client`):
 
     ```yaml
     - client_id: punchlist
-      client_name: Punchlist
+      client_name: PeckList
       client_secret: '$pbkdf2-sha512$...'   # the hash of OIDC_<NAME>_CLIENT_SECRET
       public: false
       authorization_policy: two_factor
@@ -217,7 +217,7 @@ in gets a one-time link: `punchlist admin login-link kim`.
 === "Google"
 
     Create an OAuth client (web application) with the redirect URI. Google has no groups, so leave
-    the group settings out (with one set, Punchlist would ask for a `groups` scope Google refuses).
+    the group settings out (with one set, PeckList would ask for a `groups` scope Google refuses).
     Approve people by hand, or turn on `AUTO_CREATE` with care: any Google account could then sign
     in. Google sends no `preferred_username`, so usernames come from the email address. Authority:
     `https://accounts.google.com`.

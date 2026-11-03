@@ -85,7 +85,7 @@ and dashes; each gets the settings below with its name in capitals and dashes as
 | ------------------------------ | ----------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
 | `OIDC_<NAME>_PRESET`           | the name, if it is a preset         | `google` fills in the authority and the label and draws Google's own button. A provider named `google` gets it without this.        |
 | `OIDC_<NAME>_AUTHORITY`        | required (a preset fills it in)     | The issuer URL (where `/.well-known/openid-configuration` lives).                                                                   |
-| `OIDC_<NAME>_CLIENT_ID`        | required                            | The client id registered for Punchlist.                                                                                             |
+| `OIDC_<NAME>_CLIENT_ID`        | required                            | The client id registered for PeckList.                                                                                             |
 | `OIDC_<NAME>_CLIENT_SECRET`    | none                                | The client secret. None: a public client. PKCE is always used.                                                                      |
 | `OIDC_<NAME>_DISPLAY_NAME`     | the name                            | The sign-in button's label ("Continue with ...").                                                                                   |
 | `OIDC_<NAME>_SCOPES`           | `openid profile email` (+ `groups`) | `groups` is added when a group setting is used. Set this for providers without a `groups` scope.                                    |
@@ -99,7 +99,7 @@ and dashes; each gets the settings below with its name in capitals and dashes as
 | `OIDC_<NAME>_ICON`             | the provider's favicon              | An `https` address or a file: the icon shown on the profile picture of people signed in through it.                                 |
 | `OIDC_<NAME>_ROLE_MAP`         | none                                | `group=role,...` with roles `user`, `admin`, `superadmin`. The highest match wins at every sign-in; no match means `user`.          |
 | `OIDC_<NAME>_GROUP_MAP`        | none                                | `group=Server group,...`, or `*` to mirror every provider group as a server group.                                                  |
-| `OIDC_<NAME>_SIGN_OUT`         | `false`                             | Signing out of Punchlist also ends the provider session. Register `<PUBLIC_URL>/login` as a post-logout redirect URI first.         |
+| `OIDC_<NAME>_SIGN_OUT`         | `false`                             | Signing out of PeckList also ends the provider session. Register `<PUBLIC_URL>/login` as a post-logout redirect URI first.         |
 | `OIDC_<NAME>_SESSION_HOURS`    | `12`                                | How long a session from this provider lasts (0 to 720) before the app goes back through the provider. `0`: 30 days, like passwords. |
 
 ## Backups
@@ -149,7 +149,7 @@ on the device that added them. **Default:** `25`. **Where:** any, live.
 
 ### `UPDATE_CHECK`
 
-Look for newer Punchlist releases: twice a day the server reads the latest release from
+Look for newer PeckList releases: twice a day the server reads the latest release from
 GitLab (one request, from the server only; people's browsers never call out). When one is newer
 than the server or someone's Android app, the menu shows a notice with the release page. Turn it
 off to make no such request. **Default:** `true`. **Where:** any, live.
@@ -315,7 +315,7 @@ Archived log files older than this are deleted. **Default:** `14`. **Where:** an
 ## Log servers
 
 Any number of these at once. Each has its own queue (10,000 entries, retried with growing waits), so
-a log server that is down never holds Punchlist up. Guide: [logs and audit](../guides/logging.md).
+a log server that is down never holds PeckList up. Guide: [logs and audit](../guides/logging.md).
 All are live.
 
 | Setting                | Meaning                                                                          |

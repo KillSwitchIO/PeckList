@@ -11,7 +11,7 @@ Please **do not** open a public issue. Open a
 instead (tick **This issue is confidential**), with:
 
 - what an attacker can do, and what they need first (an account, network access, ...),
-- how to reproduce it, with the Punchlist version (`punchlist --version`),
+- how to reproduce it, with the PeckList version (`punchlist --version`),
 - a debug dump if it helps (it holds no task content, passwords or keys).
 
 Reports are answered as soon as possible. Once a fix is released, the changelog credits you unless

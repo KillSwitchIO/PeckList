@@ -1,6 +1,6 @@
 # The documentation site (docs/), built by CI and published to GitLab Pages from main.
 # Locally:  pip install -r docs/requirements.txt && mkdocs serve
-site_name: Punchlist
+site_name: PeckList
 site_description: Self-hosted, offline-first tasks and calendar
 site_url: https://docs.pecklist.com/
 repo_url: https://gitlab.com/killswitch10/punchlist
@@ -93,7 +93,7 @@ nav:
       - Upgrading: guides/upgrading.md
       - Security: guides/security.md
       - Troubleshooting: guides/troubleshooting.md
-  - Using Punchlist:
+  - Using PeckList:
       - Tour: using/index.md
       - Quick add and shortcuts: using/quick-add-and-shortcuts.md
       - Sharing: using/sharing.md
@@ -102,7 +102,7 @@ nav:
       - Moving from TickTick or Todoist: using/moving-from-ticktick-or-todoist.md
       - The Android app: using/android-app.md
   - About:
-      - Why Punchlist: about/why.md
+      - Why PeckList: about/why.md
       - Compared with others: about/comparison.md
       - Roadmap: about/roadmap.md
       - Getting help: about/support.md

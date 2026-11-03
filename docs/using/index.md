@@ -98,9 +98,9 @@ their start; the due date is the deadline.
   adds a one-time reminder ten minutes on. Nothing
   changes until **OK**. The first reminder asks your browser for permission to show notifications.
   Reminders go to the people the task is assigned to, or to whoever made it when nobody is.
-  They appear while Punchlist is open or in the background (offline too), and with a server and
-  **Settings > Notifications > Notify me when Punchlist is closed** turned on for the device, also
-  with Punchlist closed (on iPhone and iPad, from Punchlist added to the Home Screen). A click
+  They appear while PeckList is open or in the background (offline too), and with a server and
+  **Settings > Notifications > Notify me when PeckList is closed** turned on for the device, also
+  with PeckList closed (on iPhone and iPad, from PeckList added to the Home Screen). A click
   opens the task. A small bell on the row shows a task has reminders. **Settings > New tasks >
   Reminder** opens the same list a new task shows (the all-day one at the all-day reminder time,
   or the timed one when new tasks start with a time) to give every new task reminders once it has
@@ -264,7 +264,7 @@ provider when you signed in through one) opens a menu with **Notifications**,
 the slider to zoom until it sits in the circle, and **Save**. It is kept small on your profile, so
 friends and people you share with see it too. **Remove photo** goes back to your initials.
 Signed in through an identity provider with no photo of your own (never set, or removed): at
-sign-in Punchlist uses the provider's picture, if it gives one. A photo you set stays yours.
+sign-in PeckList uses the provider's picture, if it gives one. A photo you set stays yours.
 
 At the bottom of the menu is the version of the page you are using, with a green check when it is
 the version your server runs, or a yellow **!** when it is not (a page from before an update):
@@ -272,7 +272,7 @@ hover or click it to read why, and **Reload** to get the matching one. In the An
 app's own version shows under it, with a check when the app has everything the server's web app
 uses, or a **!** when it is too old for some of it (update the app).
 
-**Update available**: when a newer Punchlist release is out than your server runs, or than your
+**Update available**: when a newer PeckList release is out than your server runs, or than your
 Android app, a box at the bottom of the sidebar (at the end of **More** on a phone) says so, with
 **Release page** for its notes and downloads and **Skip this release** to hide it until the next
 one. The server looks twice a day ([`UPDATE_CHECK`](../configuration/reference.md#update_check)).
@@ -285,7 +285,7 @@ you are in, dibs called on a group's task, and lists someone shared with you, ne
 dot on your picture means some are new. **Settings > Tell me about** picks which of those kinds
 reach you as a notification on any of your devices (reminders; assignments and dibs; shared lists;
 comments and mentions) and whether they vibrate; the page lists everything either way. The Android
-app also lists the same kinds under the phone's own notification settings for Punchlist, where each
+app also lists the same kinds under the phone's own notification settings for PeckList, where each
 can be silenced or muted the Android way. A new or changed comment tells everyone else who can see
 the task (changes to the task itself tell nobody). A click opens the task or list, the cross clears
 one and **Clear all** clears the rest. A comment has **Reply** on the left, which opens the task
@@ -315,7 +315,7 @@ linked accounts, **Lists and tags**, and **Your data** ([download or import a co
 [move from or to another app](apps-and-sync.md#moving-from-or-to-another-app): TickTick, Todoist, Google Tasks,
 Microsoft To Do, iCalendar and Things).
 
-**API keys** (on a server with accounts) let a script or another app use Punchlist as you:
+**API keys** (on a server with accounts) let a script or another app use PeckList as you:
 give each a name, an expiry (or none) and only the permissions it needs (read or change tasks,
 download or upload attachments, notifications, and admin for admins), copy it once, and revoke it
 whenever you like. Each shows when it was made, when it expires and when it was last used. See
@@ -341,7 +341,7 @@ of yours to the Trash at once (lists others share with you stay), and Undo bring
 and `[text]` as is. It shows today's date in the pattern as you type. Today, Tomorrow and
 Yesterday keep their names.
 
-**Colors**: pick one of 30 palettes, from calm (Punchlist, Ocean, Forest, Graphite) and soft (Rose,
+**Colors**: pick one of 30 palettes, from calm (PeckList, Ocean, Forest, Graphite) and soft (Rose,
 Blossom, Peach, Lavender, Mint) to bright (Electric, Tropical, Citrus, Berry) and deep (Sunset,
 Midnight, Coffee), loud (Neon, Arcade, Fiesta, Volt, Rainbow, Lagoon, Sunburst) and pretty
 (Bubblegum, Cotton candy, Lilac, Rose gold, Peony, Orchid, Champagne), then change any of its

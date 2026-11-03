@@ -98,7 +98,7 @@ public sealed class UpdateCheck(IReleaseFeed feed, UpdateStatus status, LiveSett
         }
         else if (UpdateStatus.IsNewer(release.Version, ServerApp.Version))
         {
-            Logger.LogInformation("Punchlist {Latest} is out; this server runs {Current}", release.Version, ServerApp.Version);
+            Logger.LogInformation("PeckList {Latest} is out; this server runs {Current}", release.Version, ServerApp.Version);
         }
     }
 }

@@ -149,7 +149,7 @@ describe('the TickTick backup fixture', () => {
     expect(planSummary(plan).notes.reminderDropped).toBe(1);
   });
 
-  it('keeps the repeats Punchlist reads, and says which it cannot', async () => {
+  it('keeps the repeats PeckList reads, and says which it cannot', async () => {
     const { task, plan } = await imported('ticktick-backup.csv');
     expect(task('Every weekday').recurrence).toBe('FREQ=WEEKLY;INTERVAL=1;BYDAY=MO,TU,WE,TH,FR');
     expect(task('Monthly on the last day').recurrence).toBe(
