@@ -1,0 +1,9 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- What the SQL adapters share: the store logic, migrations runner and Dapper. -->
+  <ItemGroup>
+    <PackageReference Include="Dapper" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\PeckList.Core\PeckList.Core.csproj" />
+  </ItemGroup>
+</Project>

@@ -24,7 +24,7 @@ import org.json.JSONObject;
 
 /**
  * A sign-in page in front of the server (Pangolin, Cloudflare Access, Authelia and the like; see
- * server/src/Punchlist.Server/Auth/AppGate.cs). The WebView is sent there and cannot pass it: the
+ * server/src/PeckList.Server/Auth/AppGate.cs). The WebView is sent there and cannot pass it: the
  * gate's own sign-in often needs a passkey, which does not work in a WebView. So the person passes
  * it in a browser tab, our server hands the gate's cookies back sealed to a key made here, and
  * they go into the WebView's cookies. The key's private half never leaves the app.

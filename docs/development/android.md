@@ -106,7 +106,7 @@ app (ADR-0017 in the project notes). There is no second copy of the UI.
   opens `/auth/app/handoff` in a Custom Tab instead, with a PKCE challenge. The server signs the
   tab in through the provider, asks the person to confirm, and sends the tab to
   `<package>://auth?code=...`. The app posts the code and its verifier to `/auth/app/redeem` in the
-  WebView, which gets a copy of the tab's session. See `server/src/Punchlist.Server/Auth/AppSignIn.cs`.
+  WebView, which gets a copy of the tab's session. See `server/src/PeckList.Server/Auth/AppSignIn.cs`.
 
 ## Building
 

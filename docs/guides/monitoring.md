@@ -28,4 +28,4 @@ own numbers under **Stats** in their profile menu.
 ## Logs and alerts
 
 Ship [logs](logging.md) to Loki, Elasticsearch, Graylog or an OpenTelemetry collector and alert on
-`level="error"`, or on the event log's failed sign-ins (`Punchlist.Audit` category).
+`level="error"`, or on the event log's failed sign-ins (`PeckList.Audit` category).

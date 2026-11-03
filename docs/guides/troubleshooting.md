@@ -85,4 +85,4 @@ docker exec punchlist punchlist config show      # every setting and where it co
 ```
 
 Raise the log level for one area without a restart: in **Admin > Settings**, set
-`LOG_LEVEL_OVERRIDES` to `Punchlist=debug` (or `Punchlist.Sync=debug`), reproduce, then remove it.
+`LOG_LEVEL_OVERRIDES` to `PeckList=debug` (or `PeckList.Sync=debug`), reproduce, then remove it.

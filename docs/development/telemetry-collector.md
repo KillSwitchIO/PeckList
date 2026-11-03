@@ -5,8 +5,8 @@ privacy page once it lands). The collector is the service the project runs to ta
 and total them for the project. A PeckList server never runs it, and nobody self-hosting PeckList needs
 it.
 
-The code is `server/src/Punchlist.Collector`; the report it reads is `TelemetryPing` in
-`server/src/Punchlist.Core/Telemetry`.
+The code is `server/src/PeckList.Collector`; the report it reads is `TelemetryPing` in
+`server/src/PeckList.Core/Telemetry`.
 
 ## What it keeps
 

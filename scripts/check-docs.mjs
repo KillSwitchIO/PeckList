@@ -13,7 +13,7 @@ const read = (path) => readFileSync(join(root, path), 'utf8').replaceAll('\r\n',
 const problems = [];
 
 // Settings: fixed keys, plus each provider key as OIDC_<NAME>_<SUFFIX>.
-const catalog = read('server/src/Punchlist.Core/Configuration/SettingsCatalog.cs');
+const catalog = read('server/src/PeckList.Core/Configuration/SettingsCatalog.cs');
 const fixed = [...catalog.matchAll(/new\("([A-Z0-9_]+)",/g)].map((match) => match[1]);
 const perProvider = [...catalog.matchAll(/new\(prefix \+ "([A-Z0-9_]+)",/g)].map(
   (match) => `OIDC_<NAME>_${match[1]}`,
@@ -27,7 +27,7 @@ for (const key of [...fixed, ...perProvider]) {
 }
 
 // The CLI's usage text, as the program prints it.
-const cli = read('server/src/Punchlist.Server/Cli.cs');
+const cli = read('server/src/PeckList.Server/Cli.cs');
 const block = /Usage = """\n([\s\S]*?)\n\s*""";/.exec(cli);
 if (!block) {
   problems.push('could not read the usage text in Cli.cs');

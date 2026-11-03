@@ -9,7 +9,7 @@ the house style, the checks and the shared pieces to reach for are in [Coding st
 | Path        | What                                                                                                                                                              |
 | ----------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `web/`      | The React + TypeScript web app (PWA). `src/core` is the domain, `src/ports` the interfaces, `src/adapters` their implementations, `src/app` the UI.               |
-| `server/`   | The ASP.NET Core server: `src/Punchlist.Core` (domain), `Punchlist.Server` (HTTP, auth, logging, CLI), `Punchlist.Storage.*` (SQL, SQLite, PostgreSQL); `tests/`. |
+| `server/`   | The ASP.NET Core server: `src/PeckList.Core` (domain), `PeckList.Server` (HTTP, auth, logging, CLI), `PeckList.Storage.*` (SQL, SQLite, PostgreSQL); `tests/`. |
 | `schema/`   | The workspace JSON Schema and fixtures both sides must pass (merge, migrations).                                                                                  |
 | `e2e/`      | WebdriverIO end-to-end tests in real browsers.                                                                                                                    |
 | `docs/`     | This site (MkDocs).                                                                                                                                               |
@@ -85,7 +85,7 @@ throwaway container) and watch the main thread for blocks over 50 ms while doing
 ```bash
 cd server
 dotnet test                                     # unit and integration tests (Docker for PostgreSQL)
-WEB_ROOT=../web/dist dotnet run --project src/Punchlist.Server   # serves the built web app too
+WEB_ROOT=../web/dist dotnet run --project src/PeckList.Server   # serves the built web app too
 ```
 
 ## Docs

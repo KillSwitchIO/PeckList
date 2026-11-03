@@ -331,19 +331,19 @@ collector-image:
     - |
       set -eu
       if [ "${CI_COMMIT_BRANCH:-}" = "$CI_DEFAULT_BRANCH" ]; then
-        docker build --pull -f server/src/Punchlist.Collector/Dockerfile \
+        docker build --pull -f server/src/PeckList.Collector/Dockerfile \
           -t "$COLLECTOR_IMAGE:edge" -t "$COLLECTOR_IMAGE:sha-$CI_COMMIT_SHORT_SHA" server
         docker push "$COLLECTOR_IMAGE:edge"
         docker push "$COLLECTOR_IMAGE:sha-$CI_COMMIT_SHORT_SHA"
       else
-        docker build --pull -f server/src/Punchlist.Collector/Dockerfile -t "$COLLECTOR_IMAGE:mr" server
+        docker build --pull -f server/src/PeckList.Collector/Dockerfile -t "$COLLECTOR_IMAGE:mr" server
       fi
   rules:
     - *not-on-tag
     - *not-on-schedule
     - changes:
-        - server/src/Punchlist.Collector/**/*
-        - server/src/Punchlist.Core/Telemetry/**/*
+        - server/src/PeckList.Collector/**/*
+        - server/src/PeckList.Core/Telemetry/**/*
         - server/Directory.Packages.props
         - server/global.json
 

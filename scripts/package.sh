@@ -25,9 +25,9 @@ for rid in "${rids[@]}"; do
   name="punchlist-$rid"
   stage="$work/$name"
   echo "=== $name"
-  dotnet publish "$root/server/src/Punchlist.Server/Punchlist.Server.csproj" \
+  dotnet publish "$root/server/src/PeckList.Server/PeckList.Server.csproj" \
     -c Release -r "$rid" --self-contained true \
-    -p:Version="$version" -p:PunchlistStamped=true -p:SourceRevisionId="${REVISION:-unknown}" \
+    -p:Version="$version" -p:PeckListStamped=true -p:SourceRevisionId="${REVISION:-unknown}" \
     -p:DebugType=none -p:GenerateDocumentationFile=false \
     -o "$stage"
   cp -r "$root/web/dist" "$stage/wwwroot"

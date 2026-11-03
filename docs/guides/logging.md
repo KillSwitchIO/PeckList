@@ -16,7 +16,7 @@ Where they go:
 - **Log servers**, below.
 
 Levels: `LOG_LEVEL` (default `information`), and per category with
-`LOG_LEVEL_OVERRIDES=Punchlist.Sync=debug,Microsoft=warning`. Levels and log servers saved in
+`LOG_LEVEL_OVERRIDES=PeckList.Sync=debug,Microsoft=warning`. Levels and log servers saved in
 **Admin > Settings** apply at once, without a restart. **Admin > Logs > Outputs** shows each output,
 whether it keeps up, and how many entries it dropped.
 
@@ -67,8 +67,8 @@ Kibana's Discover and Logs show them without a mapping. OpenSearch creates the i
 Each entry says who, the admin viewing the app as them if any, what, about whom, how it ended,
 from where and when. Search, filter by area, outcome, person, address and dates, open an entry for
 its details, and download the filtered set as CSV. Entries also go to the logs (categories
-`Punchlist.Audit` and `Punchlist.Access`), so they reach a log server too;
-`LOG_LEVEL_OVERRIDES=Punchlist.Access=warning` keeps requests out of the console.
+`PeckList.Audit` and `PeckList.Access`), so they reach a log server too;
+`LOG_LEVEL_OVERRIDES=PeckList.Access=warning` keeps requests out of the console.
 
 Old entries are removed hourly: events after `AUDIT_RETENTION_DAYS` (90), requests after
 `ACCESS_LOG_RETENTION_DAYS` (14). `AUDIT_ARCHIVE=true` writes them to gzipped JSON lines in
