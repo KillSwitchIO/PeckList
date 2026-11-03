@@ -1,5 +1,6 @@
 using Punchlist.Core.Accounts;
 using Punchlist.Core.Configuration;
+using Punchlist.Core.Mail;
 
 namespace Punchlist.Core.Tests;
 
@@ -161,6 +162,38 @@ public sealed class ServerSettingsTests
         Assert.Null(home.ClientSecret);
         Assert.Equal(["openid", "profile", "email"], home.Scopes);
         Assert.Equal(TimeSpan.FromHours(12), home.SessionLength);
+    }
+
+    [Fact]
+    public void Reads_email_settings_and_leaves_email_off_without_a_host()
+    {
+        Assert.Null(Read(new()).Mail);
+        var mail = Read(new()
+        {
+            ["SMTP_HOST"] = "smtp.example.com",
+            ["SMTP_USER"] = "tasks@example.com",
+            ["SMTP_PASSWORD"] = "app password",
+            ["SMTP_FROM"] = "PeckList <tasks@example.com>",
+        }).Mail!;
+        Assert.Equal(("smtp.example.com", 587, MailTls.StartTls, "tasks@example.com", "app password"),
+            (mail.Host, mail.Port, mail.Tls, mail.User, mail.Password));
+        // TLS from the first byte defaults to its own port; the password never shows in a dump.
+        var tls = Read(new() { ["SMTP_HOST"] = "smtp.example.com", ["SMTP_TLS"] = "tls", ["SMTP_FROM"] = "a@example.com" }).Mail!;
+        Assert.Equal((465, MailTls.Tls), (tls.Port, tls.Tls));
+        Assert.DoesNotContain("app password", mail.ToString());
+    }
+
+    [Theory]
+    [InlineData("SMTP_FROM", "", "SMTP_FROM is required")]
+    [InlineData("SMTP_FROM", "tasks", "is not an email address")]
+    [InlineData("SMTP_TLS", "ssl3", "is not one of starttls, tls, none")]
+    [InlineData("SMTP_PORT", "70000", "is not a port")]
+    public void Refuses_email_settings_that_cannot_work(string key, string value, string message)
+    {
+        var values = new Dictionary<string, string> { ["SMTP_HOST"] = "smtp.example.com", ["SMTP_FROM"] = "tasks@example.com", [key] = value };
+        if (value == "") values.Remove(key);
+        var error = Assert.Throws<SettingsException>(() => Read(values));
+        Assert.Contains(message, error.Message);
     }
 
     [Fact]

@@ -240,6 +240,15 @@ export function createHttpAdmin(
     restart: async () => {
       await call('/restart', 'POST');
     },
+    sendTestMail: async (to) => {
+      const response = await call('/mail/test', 'POST', { to });
+      if (response.ok) return { ok: true };
+      if ([400, 409, 502].includes(response.status)) {
+        const body = (await response.json()) as { message?: string };
+        return { ok: false, message: body.message ?? `server error ${response.status}` };
+      }
+      throw serverError(response);
+    },
     telemetry: async () => json<TelemetryView>(await call('/telemetry')),
     renewTelemetryId: async () => accept(await call('/telemetry/new-id', 'POST')),
     telemetryNoticeSeen: async () => accept(await call('/telemetry/notice-seen', 'POST')),

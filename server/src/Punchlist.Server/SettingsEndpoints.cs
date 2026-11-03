@@ -1,6 +1,7 @@
 using System.Security.Claims;
 using Punchlist.Core.Accounts;
 using Punchlist.Core.Configuration;
+using Punchlist.Core.Mail;
 using Punchlist.Server.Audit;
 using Punchlist.Server.Auth;
 using Punchlist.Server.Logging;
@@ -23,6 +24,9 @@ public sealed record SettingView(
 public sealed record SettingsView(IReadOnlyList<SettingView> Settings, bool PendingRestart, string? Problem);
 
 public sealed record SettingsChange(Dictionary<string, string?>? Values);
+
+/// <summary>Where the admin's test email goes.</summary>
+public sealed record TestMailRequest(string? To);
 
 /// <summary>
 /// <c>/api/admin/settings</c> (spec: Server settings): every setting with where its value comes
@@ -99,6 +103,29 @@ public static class SettingsEndpoints
             ServerApp.StopSoon(lifetime);
             return Results.Accepted();
         }).RequirePermission(Permission.ManageSettings).Audited("server.restart", targetRoute: null);
+
+        // Send test email (PL-122): with the settings as they apply now (a save applies at once),
+        // to the address given; the mail server's own answer comes back in words when it fails.
+        admin.MapPost("/mail/test", async (TestMailRequest request, IMailSender mail, LiveSettings live, CancellationToken cancellation) =>
+        {
+            if (!mail.Configured) return Results.Conflict(new AdminError("mail_not_set_up", "Set SMTP_HOST and SMTP_FROM first."));
+            if (string.IsNullOrWhiteSpace(request.To) || !request.To.Contains('@'))
+            {
+                return Results.BadRequest(new AdminError("invalid_address", "Give an email address to send the test to."));
+            }
+            var server = live.Current.PublicUrl?.Host ?? "your server";
+            try
+            {
+                await mail.SendAsync(new OutgoingMail(request.To.Trim(), $"Test email from PeckList on {server}",
+                    $"This is a test email from PeckList on {server}. Email works: password reset links and invites can go out." + Environment.NewLine),
+                    cancellation);
+                return Results.NoContent();
+            }
+            catch (MailException error)
+            {
+                return Results.Json(new AdminError("mail_failed", error.Message), statusCode: StatusCodes.Status502BadGateway);
+            }
+        }).RequirePermission(Permission.ManageSettings).Audited("mail.test", targetRoute: null);
 
         return admin;
     }

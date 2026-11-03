@@ -169,6 +169,36 @@ folder that grows, so it can sit on other storage than the database: the image k
 volume, `/files`. **Default:** `attachments` next to the SQLite file; `/files` in the image.
 **Where:** env.
 
+## Email
+
+No email is sent until `SMTP_HOST` is set; without it, nothing that needs email shows. All of these
+are **Live**: saved on the settings page, they apply at once. Guide: [email](../guides/email.md).
+
+### `SMTP_HOST`
+
+The mail server email goes out through (SMTP submission). **Default:** none (no email). **Where:**
+any.
+
+### `SMTP_PORT`
+
+**Default:** `587`, or `465` with `SMTP_TLS=tls`. **Where:** any.
+
+### `SMTP_TLS`
+
+`starttls` (plain, then TLS: port 587), `tls` (TLS from the start: port 465) or `none` (only for a
+relay on the same host or a private network). **Default:** `starttls`. **Where:** any.
+
+### `SMTP_USER`, `SMTP_PASSWORD`
+
+The login at the mail server, if it wants one (most do). `SMTP_PASSWORD_FILE` reads the password
+from a file. **Default:** none. **Where:** any.
+
+### `SMTP_FROM`
+
+The address email comes from, with a name if you like: `PeckList <tasks@example.com>`. Required
+with `SMTP_HOST`; most mail servers only send from addresses the login owns. **Default:** none.
+**Where:** any.
+
 ## Telemetry
 
 What the daily usage report holds, and what it never holds: [privacy](../using/privacy.md).

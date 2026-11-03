@@ -1,3 +1,5 @@
+using Punchlist.Core.Mail;
+
 namespace Punchlist.Core.Configuration;
 
 public enum AuthMode
@@ -112,6 +114,9 @@ public sealed record ServerSettings
 
     /// <summary>Where the daily usage report goes (<c>TELEMETRY_URL</c>).</summary>
     public Uri TelemetryUrl { get; init; } = DefaultTelemetryUrl;
+
+    /// <summary>Email (<c>SMTP_*</c>, PL-122); null without <c>SMTP_HOST</c>, and always on a demo server.</summary>
+    public MailSettings? Mail { get; init; }
 
     /// <summary>Where archives go: <c>audit</c> next to the SQLite file.</summary>
     public string AuditArchiveDir { get; init; } = "/data/audit";
@@ -234,6 +239,30 @@ public sealed record ServerSettings
             return fallback;
         }
 
+        MailSettings? mail = null;
+        if (Get("SMTP_HOST")?.Trim() is { Length: > 0 } smtpHost)
+        {
+            var tls = Get("SMTP_TLS")?.Trim().ToLowerInvariant() switch
+            {
+                null or "" or "starttls" => MailTls.StartTls,
+                "tls" or "ssl" => MailTls.Tls,
+                "none" => MailTls.None,
+                var other => Bad($"SMTP_TLS: '{other}' is not one of starttls, tls, none"),
+            };
+            MailTls Bad(string message)
+            {
+                errors.Add(message);
+                return MailTls.StartTls;
+            }
+            var port = Count("SMTP_PORT", tls == MailTls.Tls ? 465 : 587, 1);
+            if (port > 65535) errors.Add($"SMTP_PORT: '{port}' is not a port");
+            var from = Get("SMTP_FROM")?.Trim();
+            if (string.IsNullOrEmpty(from)) errors.Add("SMTP_FROM is required with SMTP_HOST (the address email comes from)");
+            else if (!from.Contains('@')) errors.Add($"SMTP_FROM: '{from}' is not an email address");
+            mail = new MailSettings(smtpHost, port, Get("SMTP_USER")?.Trim() is { Length: > 0 } user ? user : null,
+                Get("SMTP_PASSWORD"), from ?? "", tls);
+        }
+
         var telemetryUrl = DefaultTelemetryUrl;
         if (Get("TELEMETRY_URL") is { } telemetry)
         {
@@ -291,6 +320,7 @@ public sealed record ServerSettings
             ApiDocs = Flag("API_DOCS", true),
             Telemetry = Flag("TELEMETRY", true) && !Flag("DO_NOT_TRACK", false),
             TelemetryUrl = telemetryUrl,
+            Mail = mail,
             AuditArchiveDir = Get("AUDIT_ARCHIVE_DIR")
                 ?? Path.Combine(Path.GetDirectoryName(dbPath) is { Length: > 0 } auditDir ? auditDir : ".", "audit"),
             DemoMode = demoMode,
@@ -312,6 +342,7 @@ public sealed record ServerSettings
                 AttachmentMaxMb = Math.Min(settings.AttachmentMaxMb, DemoAttachmentMaxMb),
                 UpdateCheck = false,
                 Telemetry = false,
+                Mail = null,
             };
         }
         if (settings.OidcProviders.Count > 0 && settings.AuthMode == AuthMode.None)
