@@ -20,7 +20,7 @@ type Step =
 
 /**
  * The Android app's way onto a server (ADR-0017): type its address, the app checks it really is a
- * Punchlist server, then restarts on it. Shown on first start, from Settings > Server and from the
+ * PeckList server, then restarts on it. Shown on first start, from Settings > Server and from the
  * sign-in page. `onBack` leaves without connecting (after "Use on this device only", that choice
  * is remembered first).
  */
@@ -67,7 +67,7 @@ export function ConnectPage({ onBack }: { onBack: () => void }) {
           fullWidth
           autoFocus
           label={t('connect.address')}
-          placeholder="punchlist.example.com"
+          placeholder="pecklist.example.com"
           value={address}
           disabled={busy}
           onChange={(event) => {

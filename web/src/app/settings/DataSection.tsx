@@ -7,10 +7,10 @@ import { useWorkspaceStore } from '../store/hooks.ts';
 import { ExportDialog, ImportDialog } from './InterchangeDialogs.tsx';
 import { Section } from './settingsLayout.tsx';
 
-/** `punchlist-2026-10-23.json`, by this device's date. */
+/** `pecklist-2026-10-23.json`, by this device's date. */
 function fileName(now = new Date()): string {
   const pad = (n: number) => String(n).padStart(2, '0');
-  return `punchlist-${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}.json`;
+  return `pecklist-${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}.json`;
 }
 
 /**

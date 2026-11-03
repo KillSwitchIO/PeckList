@@ -4,7 +4,7 @@ import { useSyncExternalStore } from 'react';
 // the swipe and view choices: one phone may want a clean list while the desk keeps the record.
 // The Closed view and search still show closed tasks either way.
 
-const KEY = 'punchlist.hideCompleted';
+const KEY = 'pecklist.hideCompleted';
 const listeners = new Set<() => void>();
 let fallback: string | null = null;
 

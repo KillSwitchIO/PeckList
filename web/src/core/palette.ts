@@ -155,7 +155,7 @@ export type PaletteSlot = keyof typeof PALETTE_DEFAULTS;
  * changes go on top. The pastel rings and text are darkened on screen as needed, like the defaults.
  */
 export const PALETTE_PRESETS = {
-  punchlist: PALETTE_DEFAULTS,
+  pecklist: PALETTE_DEFAULTS,
   ocean: {
     accent: '#3A7CA5',
     accentContainer: '#CFE3F2',
@@ -451,7 +451,7 @@ export const PALETTE_PRESETS = {
 } as const satisfies Record<string, Record<PaletteSlot, string>>;
 
 export type PalettePreset = keyof typeof PALETTE_PRESETS;
-export const DEFAULT_PRESET: PalettePreset = 'punchlist';
+export const DEFAULT_PRESET: PalettePreset = 'pecklist';
 
 /**
  * How strongly a palette washes the page and panels in its accent (0 to about 0.1; none for the

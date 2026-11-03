@@ -79,7 +79,7 @@ export function useRowDate(
   const color = done
     ? 'text.disabled'
     : state === 'overdue'
-      ? theme.punchlist.dateState.late
-      : theme.punchlist.dateState.dueSoon;
+      ? theme.pecklist.dateState.late
+      : theme.pecklist.dateState.dueSoon;
   return { text, shown, endText, color, completedDay, showsDue, due };
 }

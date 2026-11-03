@@ -131,7 +131,7 @@ export function Particles({ show, onDone }: { show: ParticleShow; onDone: () => 
             x: index * 16,
             y: random(-height, 0),
             speed: random(4, 9),
-            text: pick(show.words.length ? show.words : ['punchlist']),
+            text: pick(show.words.length ? show.words : ['pecklist']),
             at: 0,
           }))
         : [];
@@ -151,7 +151,7 @@ export function Particles({ show, onDone }: { show: ParticleShow; onDone: () => 
           column.at += 1;
           if (column.y > height + 20) {
             column.y = random(-200, 0);
-            column.text = pick(show.words.length ? show.words : ['punchlist']);
+            column.text = pick(show.words.length ? show.words : ['pecklist']);
           }
         }
       } else {

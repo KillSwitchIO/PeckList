@@ -14,7 +14,7 @@ import { tabNodeId } from './device.ts';
 import { takeViewAs, type ViewAs } from './viewAs.ts';
 import { createWorkspaceStore, type WorkspaceStore } from './workspaceStore.ts';
 
-const CHANNEL = 'punchlist';
+const CHANNEL = 'pecklist';
 
 /** Run `work` holding a lock shared by every tab (Web Locks), or directly where there are none. */
 const lock =
@@ -38,7 +38,7 @@ export function createBrowserApp(): {
     validator: createAjvValidator(),
     ids: createUlidGenerator(),
     node,
-    withLock: lock('punchlist-save'),
+    withLock: lock('pecklist-save'),
     notify: () => channel?.postMessage('saved'),
     journal: createLocalJournal(),
   });
@@ -46,14 +46,14 @@ export function createBrowserApp(): {
   // tab's saves do not come back to it (one listener of its own on the same channel name did,
   // and reloaded the whole workspace after every save, R-FB-94).
   if (channel) channel.onmessage = () => void store.getState().reloadFromStorage();
-  // The server that served this page, if it is a Punchlist server (a static host is not).
+  // The server that served this page, if it is a PeckList server (a static host is not).
   const sync = createSyncEngine({
     transport: createHttpSync('', undefined, node),
     device: node,
     workspace: store,
     storage,
     blobs: createIndexedDbBlobs(),
-    withLock: lock('punchlist-sync'),
+    withLock: lock('pecklist-sync'),
     onSignedOut: forgetThisDevice,
     phoneTasks: phoneTasks(),
   });
@@ -117,7 +117,7 @@ function createViewAsApp(viewAs: ViewAs): {
     '',
     (input, init) => {
       const headers = new Headers(init?.headers);
-      headers.set('X-Punchlist-Impersonate', viewAs.token);
+      headers.set('X-PeckList-Impersonate', viewAs.token);
       return fetch(input, { ...init, headers });
     },
     node,

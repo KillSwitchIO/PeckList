@@ -4,7 +4,7 @@ import { useSyncExternalStore } from 'react';
 // "tag:<id>"), not by page: folding Overdue in Today folds it in Next 7 days, a list and All too.
 // Kept on this device, like the other view choices.
 
-const KEY = 'punchlist.collapsedGroups';
+const KEY = 'pecklist.collapsedGroups';
 const listeners = new Set<() => void>();
 // Used only when storage cannot be read or written (a locked-down browser).
 let memory: Record<string, boolean> = {};

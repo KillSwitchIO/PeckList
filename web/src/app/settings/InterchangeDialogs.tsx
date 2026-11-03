@@ -373,7 +373,7 @@ export function ExportDialog({ onClose }: { onClose: () => void }) {
     } else {
       const stamp = new Date().toISOString().slice(0, 10);
       save(
-        `punchlist-${target}-${stamp}.zip`,
+        `pecklist-${target}-${stamp}.zip`,
         writeZip(result.files) as Uint8Array<ArrayBuffer>,
         'application/zip',
       );

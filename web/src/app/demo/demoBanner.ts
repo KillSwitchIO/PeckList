@@ -3,7 +3,7 @@
 import type { DemoInfo } from '../../ports/sync.ts';
 import { t } from '../i18n/i18n.ts';
 
-const KEY = 'punchlist.demoBanner';
+const KEY = 'pecklist.demoBanner';
 
 export function bannerDismissed(): boolean {
   try {

@@ -3,7 +3,7 @@
 // or a note (a comment on the task above). INDENT 1 is top level, 2 under the task above, and
 // so on. Priority 1 is Todoist's p1 (highest) and 4 its p4 (none); an empty one is p1. Labels sit
 // in the content as "@label". DATE is words Todoist reads ("every monday at 9am", "Nov 4 2026").
-// Sections become nothing (Punchlist has none: PL-011); their tasks stay in the list.
+// Sections become nothing (PeckList has none: PL-011); their tasks stay in the list.
 
 import { datePart, instantOf, isTimeZone, localDateTimeOf, timePart } from '../dates.ts';
 import { members } from '../ops.ts';

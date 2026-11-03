@@ -54,7 +54,7 @@ export interface HeldPress {
 
 export interface NativeShell {
   info(): Promise<ShellInfo>;
-  /** Whether an address is a Punchlist server, and the origin it answers on. */
+  /** Whether an address is a PeckList server, and the origin it answers on. */
   checkServer(address: string): Promise<ServerCheck>;
   /** Run on this server from now on. The app restarts on it, so this never really returns. */
   connect(url: string): Promise<void>;

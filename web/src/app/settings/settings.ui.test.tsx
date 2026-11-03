@@ -58,7 +58,7 @@ describe('settings: colors', () => {
     const theme = await screen.findByRole('group', { name: 'Theme' });
     await userEvent.click(within(theme).getByRole('button', { name: 'Dark' }));
     expect(settings().themeMode).toBe('dark');
-    expect(localStorage.getItem('punchlist.themeMode')).toBe('dark');
+    expect(localStorage.getItem('pecklist.themeMode')).toBe('dark');
 
     await userEvent.click(screen.getByRole('combobox', { name: 'Due soon' }));
     await userEvent.click(await screen.findByRole('option', { name: '5 days before' }));
@@ -147,7 +147,7 @@ describe('settings: your data', () => {
       ...URL,
       createObjectURL: (blob: Blob) => {
         blobs.push(blob);
-        return 'blob:punchlist';
+        return 'blob:pecklist';
       },
       revokeObjectURL: () => undefined,
     });
@@ -168,7 +168,7 @@ describe('settings: your data', () => {
       title: 'From the file',
       listId: inboxList(state.workspace!)!.id,
     }).workspace;
-    const file = new File([JSON.stringify(withExtra)], 'punchlist.json', {
+    const file = new File([JSON.stringify(withExtra)], 'pecklist.json', {
       type: 'application/json',
     });
     await userEvent.upload(within(data).getByLabelText('Import a file'), file);
@@ -361,12 +361,12 @@ describe('settings: swipe actions', () => {
     const right = within(section).getByRole('region', { name: 'Swipe right' });
     await userEvent.click(within(right).getByRole('combobox', { name: 'Full swipe right' }));
     await userEvent.click(await screen.findByRole('option', { name: "Won't do" }));
-    expect(JSON.parse(localStorage.getItem('punchlist.swipes')!)).toEqual({
+    expect(JSON.parse(localStorage.getItem('pecklist.swipes')!)).toEqual({
       right: { buttons: ['complete', 'pin'], full: 'wontDo' },
       left: { buttons: ['delete', 'move', 'pin'], full: 'date' },
     });
     await userEvent.click(within(section).getByRole('button', { name: 'Reset' }));
-    expect(localStorage.getItem('punchlist.swipes')).toBeNull();
+    expect(localStorage.getItem('pecklist.swipes')).toBeNull();
   });
 });
 

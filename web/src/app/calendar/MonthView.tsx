@@ -397,7 +397,7 @@ export function MonthView({
           position: 'relative',
           touchAction: 'pan-y',
           // Firmer than the day lines, so the months stand apart on light and dark paper alike.
-          '--month-line': (theme) => mix(theme.punchlist.outline, theme.punchlist.textMuted, 0.45),
+          '--month-line': (theme) => mix(theme.pecklist.outline, theme.pecklist.textMuted, 0.45),
           userSelect: 'none',
           ...dayStyles,
         }}

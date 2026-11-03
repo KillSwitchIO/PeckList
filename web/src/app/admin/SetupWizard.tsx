@@ -18,7 +18,7 @@ import { PasswordField } from '../layout/PasswordField.tsx';
 
 const STEPS = ['address', 'provider', 'join'] as const;
 type Step = (typeof STEPS)[number];
-const STEP_KEY = 'punchlist.setup.step';
+const STEP_KEY = 'pecklist.setup.step';
 
 function savedStep(): number {
   try {

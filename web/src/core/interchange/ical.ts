@@ -273,7 +273,7 @@ export function exportIcal(
     const zone = task.schedule?.timeZone ?? task.due?.timeZone ?? 'UTC';
     const lines = [
       'BEGIN:VTODO',
-      `UID:${task.id}@punchlist`,
+      `UID:${task.id}@pecklist`,
       `DTSTAMP:${now}`,
       `CREATED:${utcStamp(Date.parse(task.createdAt))}`,
       `SUMMARY:${escapeText(task.title)}`,
@@ -307,7 +307,7 @@ export function exportIcal(
       .filter((name): name is string => !!name);
     if (tags.length) lines.push(`CATEGORIES:${tags.map(escapeText).join(',')}`);
     if (task.recurrence) lines.push(`RRULE:${plainRule(task.recurrence)}`);
-    if (task.parentId) lines.push(`RELATED-TO;RELTYPE=PARENT:${task.parentId}@punchlist`);
+    if (task.parentId) lines.push(`RELATED-TO;RELTYPE=PARENT:${task.parentId}@pecklist`);
     const allDay = schedule ? schedule.allDay : task.due ? task.due.allDay : false;
     for (const reminder of task.reminders ?? []) {
       if (!('at' in reminder) && !schedule && !task.due) continue;

@@ -167,15 +167,15 @@ describe('HTTP admin', () => {
       value: { username: 'sam', created: true, restored: 3, removed: 0, dropped: 1 },
     });
     expect((forms[0]!.get('file') as File).name).toBe('sam.json');
-    expect(await admin.restoreUser({ backup: 'punchlist-1.json' }, 'kim')).toEqual({
+    expect(await admin.restoreUser({ backup: 'pecklist-1.json' }, 'kim')).toEqual({
       ok: false,
       message: 'not a PeckList backup',
     });
     expect([forms[1]!.get('backup'), forms[1]!.get('username')]).toEqual([
-      'punchlist-1.json',
+      'pecklist-1.json',
       'kim',
     ]);
-    expect(await admin.restoreServer({ backup: 'punchlist-1.json' })).toEqual({ ok: true });
+    expect(await admin.restoreServer({ backup: 'pecklist-1.json' })).toEqual({ ok: true });
     expect(admin.userExportUrl('U 1')).toBe('/api/admin/users/U%201/export');
   });
 

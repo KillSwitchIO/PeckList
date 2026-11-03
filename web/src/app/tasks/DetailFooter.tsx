@@ -154,7 +154,7 @@ function PriorityPicker({ task }: { task: Task }) {
   const color = (priority: Priority) =>
     priority === 0
       ? theme.palette.text.secondary
-      : theme.punchlist.priority[PRIORITY_KEY[priority]].fill;
+      : theme.pecklist.priority[PRIORITY_KEY[priority]].fill;
   const name = t('task.priorityValue', { priority: t(`priority.${task.priority}`) });
 
   return (

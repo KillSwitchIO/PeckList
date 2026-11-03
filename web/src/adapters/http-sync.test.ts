@@ -49,7 +49,7 @@ afterEach(() => vi.unstubAllGlobals());
 
 describe('HTTP sync transport', () => {
   it('tells a PeckList server from a static host', async () => {
-    const info = { name: 'punchlist', version: '0.1.0', schemaVersion: 4 };
+    const info = { name: 'pecklist', version: '0.1.0', schemaVersion: 4 };
     const { fetcher } = fakeFetch(
       { status: 200, body: info },
       { status: 404 },
@@ -192,7 +192,7 @@ describe('HTTP sync transport', () => {
     expect(calls[0]!.url).toBe('/base/api/sync');
     expect(calls[0]!.init.headers).toEqual({
       'Content-Type': 'application/json',
-      'X-Punchlist-Device': 'dev1',
+      'X-PeckList-Device': 'dev1',
     });
   });
 

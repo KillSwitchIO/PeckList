@@ -70,7 +70,7 @@ export async function renderApp(
   return { ...result, store };
 }
 
-/** Render a component with the app theme (components read Punchlist's color tokens from it). */
+/** Render a component with the app theme (components read PeckList's color tokens from it). */
 export function renderThemed(ui: ReactElement) {
   const theme = createAppTheme('light');
   return render(ui, {

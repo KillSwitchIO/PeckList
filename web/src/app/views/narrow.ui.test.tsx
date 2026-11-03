@@ -77,6 +77,6 @@ describe('filtering Today, Upcoming and the calendar', () => {
     fireEvent.keyDown(panel, { key: 'Escape' });
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
     expect(shown('Water plants')).toBeInTheDocument();
-    expect(localStorage.getItem('punchlist.narrow.today')).toBeNull();
+    expect(localStorage.getItem('pecklist.narrow.today')).toBeNull();
   });
 });

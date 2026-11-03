@@ -1,10 +1,10 @@
 // Reminders that fired on this device, for the notifications page (spec: PL-061). Kept in this
 // browser only (the server learns of reminders once it sends them itself, step C).
 
-const LOG_KEY = 'punchlist.reminderLog';
+const LOG_KEY = 'pecklist.reminderLog';
 const KEEP = 50;
 /** Fired when the log changes in this tab (other tabs hear the storage event). */
-export const REMINDER_LOG_EVENT = 'punchlist:reminder-log';
+export const REMINDER_LOG_EVENT = 'pecklist:reminder-log';
 
 export interface LoggedReminder {
   /** The reminder's key: task and time. */

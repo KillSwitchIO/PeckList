@@ -8,7 +8,7 @@ async function endView(view: ViewAs) {
     await fetch('/auth/impersonation', {
       method: 'DELETE',
       credentials: 'same-origin',
-      headers: { 'X-Punchlist-Impersonate': view.token },
+      headers: { 'X-PeckList-Impersonate': view.token },
     });
   } finally {
     forgetViewAs();

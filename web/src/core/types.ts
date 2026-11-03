@@ -299,7 +299,8 @@ export const ELEMENT_SET_FIELDS: { readonly [K in CollectionName]: readonly stri
 
 export interface WorkspaceFile {
   schemaVersion: number;
-  app: { name: 'punchlist'; version: string };
+  /** pecklist; punchlist in a file written before the rename (PL-127). */
+  app: { name: 'pecklist' | 'punchlist'; version: string };
   owner: Id;
   node: string;
   entities: Entities;

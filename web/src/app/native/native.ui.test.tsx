@@ -67,10 +67,10 @@ class FakeShell implements NativeShell {
   }
 }
 
-const punchlist = (url: string): ServerCheck => ({
+const pecklist = (url: string): ServerCheck => ({
   ok: true,
   url,
-  info: { name: 'punchlist', version: '0.5.0', schemaVersion: 6 },
+  info: { name: 'pecklist', version: '0.5.0', schemaVersion: 6 },
 });
 
 beforeEach(() => localStorage.clear());
@@ -113,7 +113,7 @@ describe('android: connecting to a server', () => {
 
   it('checks the address, then moves the app to the origin the server answers on', async () => {
     const shell = new FakeShell();
-    shell.servers.set('tasks.example.com', punchlist('https://tasks.example.com'));
+    shell.servers.set('tasks.example.com', pecklist('https://tasks.example.com'));
     setNativeShell(shell);
     await renderApp('/connect');
     const address = screen.getByRole('textbox', { name: 'Server address' });
@@ -131,7 +131,7 @@ describe('android: connecting to a server', () => {
 
   it("hands the phone's own tasks to the server it connects to, and nothing when it has none (PL-070)", async () => {
     const shell = new FakeShell(null, 6);
-    shell.servers.set('tasks.example.com', punchlist('https://tasks.example.com'));
+    shell.servers.set('tasks.example.com', pecklist('https://tasks.example.com'));
     setNativeShell(shell);
     const store = testStore();
     await renderApp('/connect', store);
@@ -151,7 +151,7 @@ describe('android: connecting to a server', () => {
 
   it('hands nothing over from a phone with no tasks of its own', async () => {
     const shell = new FakeShell(null, 6);
-    shell.servers.set('tasks.example.com', punchlist('https://tasks.example.com'));
+    shell.servers.set('tasks.example.com', pecklist('https://tasks.example.com'));
     setNativeShell(shell);
     await renderApp('/connect');
     await userEvent.type(
@@ -165,7 +165,7 @@ describe('android: connecting to a server', () => {
 
   it('asks before using a server on plain http', async () => {
     const shell = new FakeShell();
-    shell.servers.set('192.168.1.20:8080', punchlist('http://192.168.1.20:8080'));
+    shell.servers.set('192.168.1.20:8080', pecklist('http://192.168.1.20:8080'));
     setNativeShell(shell);
     await renderApp('/connect');
     await userEvent.type(

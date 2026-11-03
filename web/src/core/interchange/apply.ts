@@ -156,7 +156,7 @@ function existingTargets(
   return targets;
 }
 
-/** The task a task lands under, by key: its parent, or the deepest ancestor Punchlist nests under. */
+/** The task a task lands under, by key: its parent, or the deepest ancestor PeckList nests under. */
 function landingParent(
   task: ImportedTask,
   byKey: ReadonlyMap<string, ImportedTask>,
@@ -286,7 +286,7 @@ export function applyImport(
       taskIds.set(task.key, here);
       continue;
     }
-    // Deeper than Punchlist nests: under the deepest one it can go under.
+    // Deeper than PeckList nests: under the deepest one it can go under.
     const parentKey = landingParent(task, byKey, depth);
     const parentId = parentKey ? taskIds.get(parentKey) : undefined;
     const recurrence = task.recurrence && parseRule(task.recurrence) ? task.recurrence : null;

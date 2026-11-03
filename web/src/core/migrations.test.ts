@@ -65,6 +65,6 @@ describe('migrate', () => {
 describe('backupName', () => {
   it('names backups by version', () => {
     expect(backupName('workspace.json', 1)).toBe('workspace.v1.bak.json');
-    expect(backupName('punchlist', 2)).toBe('punchlist.v2.bak.json');
+    expect(backupName('pecklist', 2)).toBe('pecklist.v2.bak.json');
   });
 });

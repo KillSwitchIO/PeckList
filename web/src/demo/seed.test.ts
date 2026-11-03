@@ -1,4 +1,4 @@
-// The demo seed (PL-117): what `punchlist import` loads on the demo server every night.
+// The demo seed (PL-117): what `pecklist import` loads on the demo server every night.
 import { describe, expect, it } from 'vitest';
 import { createAjvValidator } from '../adapters/ajv-validator.ts';
 import { openDocument } from '../core/io.ts';
@@ -10,7 +10,7 @@ const seed = buildDemoSeed(TODAY);
 
 describe('the demo seed', () => {
   it('is a server backup of this schema with the three demo accounts, plain users without passwords', () => {
-    expect(seed.file.format).toBe('punchlist-server-backup');
+    expect(seed.file.format).toBe('pecklist-server-backup');
     expect(seed.file.schemaVersion).toBe(CURRENT_SCHEMA_VERSION);
     expect(seed.file.accounts.map((account) => account.username)).toEqual([...DEMO_USERNAMES]);
     for (const account of seed.file.accounts) {

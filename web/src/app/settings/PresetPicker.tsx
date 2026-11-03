@@ -11,7 +11,7 @@ import { useApply, useWorkspace } from '../store/hooks.ts';
 
 // Calm first, then soft, then bright, then deep and earthy.
 const ORDER: PalettePreset[] = [
-  'punchlist',
+  'pecklist',
   'ocean',
   'forest',
   'graphite',
@@ -28,7 +28,7 @@ const ORDER: PalettePreset[] = [
   'midnight',
   'coffee',
 ];
-const RECOLOR_KEY = 'punchlist.recolorWithTheme';
+const RECOLOR_KEY = 'pecklist.recolorWithTheme';
 
 const PRESETS = [
   ...ORDER,

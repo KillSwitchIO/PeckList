@@ -141,8 +141,8 @@ export function SidebarTags({ onNavigate }: { onNavigate: (path: string) => void
   const apply = useApply();
   const [creating, setCreating] = useState(false);
   // Folded sections are remembered on this device.
-  const { collapsed: folded, toggle: fold } = useCollapsedSet('punchlist.foldedSections');
-  const { collapsed, toggle } = useCollapsedSet('punchlist.collapsedTags');
+  const { collapsed: folded, toggle: fold } = useCollapsedSet('pecklist.foldedSections');
+  const { collapsed, toggle } = useCollapsedSet('pecklist.collapsedTags');
   const counts = openTagCounts(workspace);
   const edit = useSidebarEdit();
   // The tree as being edited: siblings sort by their place in the draft, moved tags show

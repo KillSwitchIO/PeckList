@@ -81,7 +81,7 @@ export function TaskTree({
   dragZone?: DragZone;
 }) {
   const workspace = useWorkspace();
-  const { collapsed, toggle } = useCollapsedSet('punchlist.collapsedTasks');
+  const { collapsed, toggle } = useCollapsedSet('pecklist.collapsedTasks');
   const inView = new Set(tasks.map((task) => task.id));
   const follows = (task: Task) => inView.has(task.id) || !ownPlace(task);
 

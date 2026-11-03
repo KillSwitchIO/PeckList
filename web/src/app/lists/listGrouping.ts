@@ -11,7 +11,7 @@ interface ListViewChoice {
   sortReversed?: boolean;
 }
 
-const KEY = 'punchlist.listGrouping';
+const KEY = 'pecklist.listGrouping';
 
 // How each list is grouped and sorted is a per-browser view choice for now. It moves into the
 // view's filter settings with saved filters (PL-015), so it syncs.

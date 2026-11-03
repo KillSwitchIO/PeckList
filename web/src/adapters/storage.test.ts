@@ -9,12 +9,12 @@ describeStorageContract('memory', () => createMemoryStorage());
 
 let counter = 0;
 describeStorageContract('indexeddb', () =>
-  createIndexedDbStorage(`punchlist-test-${(counter += 1)}`),
+  createIndexedDbStorage(`pecklist-test-${(counter += 1)}`),
 );
 
 describe('IndexedDB storage, one record per entity', () => {
   it('reads a workspace an older version saved as one text, then keeps it as records', async () => {
-    const name = `punchlist-legacy-${(counter += 1)}`;
+    const name = `pecklist-legacy-${(counter += 1)}`;
     const workspace = sampleWorkspace();
     const old = await openDB(name, 1, {
       upgrade: (database) => void database.createObjectStore('workspace'),
@@ -31,7 +31,7 @@ describe('IndexedDB storage, one record per entity', () => {
   });
 
   it("takes in a save an older version's tab makes, and drops it only once taken in", async () => {
-    const name = `punchlist-mixed-${(counter += 1)}`;
+    const name = `pecklist-mixed-${(counter += 1)}`;
     const storage = createIndexedDbStorage(name);
     const workspace = sampleWorkspace();
     await storage.save(workspace);
@@ -83,7 +83,7 @@ describe('IndexedDB storage, one record per entity', () => {
   });
 
   it('writes only the entities that changed, and drops the ones that went', async () => {
-    const name = `punchlist-diff-${(counter += 1)}`;
+    const name = `pecklist-diff-${(counter += 1)}`;
     const storage = createIndexedDbStorage(name);
     const workspace = sampleWorkspace();
     await storage.save(workspace);

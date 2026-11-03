@@ -37,7 +37,7 @@ export function SidebarLists({ onNavigate }: { onNavigate: (path: string) => voi
   const { editing } = edit;
   const [creating, setCreating] = useState(false);
   // Folded sections are remembered on this device.
-  const { collapsed: folded, toggle: fold } = useCollapsedSet('punchlist.foldedSections');
+  const { collapsed: folded, toggle: fold } = useCollapsedSet('pecklist.foldedSections');
   const counts = openCounts(workspace);
   const lists = edit.current.lists
     .map((id) => getEntity(workspace, 'lists', id))

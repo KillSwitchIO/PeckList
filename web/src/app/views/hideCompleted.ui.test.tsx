@@ -38,11 +38,11 @@ describe('hiding the Closed group (R-FB-159)', () => {
     await userEvent.click(within(menu).getByText('Hide the Closed group'));
     await waitFor(() => expect(closedHeader()).toBeNull());
     expect(screen.queryByRole('button', { name: 'Open Water the plants' })).toBeNull();
-    expect(localStorage.getItem('punchlist.hideCompleted')).toBe('true');
+    expect(localStorage.getItem('pecklist.hideCompleted')).toBe('true');
   });
 
   it('the Closed view still lists closed tasks while the group is hidden', async () => {
-    localStorage.setItem('punchlist.hideCompleted', 'true');
+    localStorage.setItem('pecklist.hideCompleted', 'true');
     await withDoneTask('/completed');
     expect(
       await screen.findByRole('button', { name: 'Open Water the plants' }),
@@ -50,7 +50,7 @@ describe('hiding the Closed group (R-FB-159)', () => {
   });
 
   it('Settings shows it again', async () => {
-    localStorage.setItem('punchlist.hideCompleted', 'true');
+    localStorage.setItem('pecklist.hideCompleted', 'true');
     await renderApp('/settings', testStore());
     const toggle = await screen.findByRole(
       'switch',
@@ -59,7 +59,7 @@ describe('hiding the Closed group (R-FB-159)', () => {
     );
     expect(toggle).not.toBeChecked();
     await userEvent.click(toggle);
-    expect(localStorage.getItem('punchlist.hideCompleted')).toBeNull();
+    expect(localStorage.getItem('pecklist.hideCompleted')).toBeNull();
     expect(toggle).toBeChecked();
   });
 });

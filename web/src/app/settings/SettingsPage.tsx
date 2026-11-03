@@ -55,7 +55,7 @@ import { setHideCompleted, useHideCompleted } from '../views/completedPrefs.ts';
 /** A small live sample of the colors as the theme shows them now. */
 function Preview() {
   const theme = useTheme();
-  const { priority, dateState } = theme.punchlist;
+  const { priority, dateState } = theme.pecklist;
   return (
     <Box
       aria-label={t('palette.preview')}
@@ -98,8 +98,8 @@ function Preview() {
           py: 0.25,
           borderRadius: 1,
           typography: 'body2',
-          bgcolor: theme.punchlist.accentContainer,
-          color: theme.punchlist.onAccentContainer,
+          bgcolor: theme.pecklist.accentContainer,
+          color: theme.pecklist.onAccentContainer,
         }}
       >
         {t('nav.today')}

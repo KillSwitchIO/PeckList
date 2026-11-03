@@ -284,7 +284,7 @@ export class FakeTransport implements SyncTransport {
     code: () =>
       Promise.resolve({
         code: (this.session ?? '').toUpperCase(),
-        link: `https://punchlist.test/f/${(this.session ?? '').toUpperCase()}`,
+        link: `https://pecklist.test/f/${(this.session ?? '').toUpperCase()}`,
       }),
     preview: (code) => {
       const found = this.backend.accounts.get(code.toLowerCase());
@@ -319,7 +319,7 @@ export class FakeTransport implements SyncTransport {
   info(): Promise<ServerInfo | null> {
     this.check();
     return Promise.resolve({
-      name: 'punchlist',
+      name: 'pecklist',
       version: this.backend.serverVersion,
       schemaVersion: this.backend.schemaVersion,
       ...(this.backend.demo ? { demo: this.backend.demo } : {}),

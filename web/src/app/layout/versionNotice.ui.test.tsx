@@ -70,7 +70,7 @@ describe('the update notice (R-FB-148)', () => {
     await waitFor(() =>
       expect(screen.queryByRole('status', { name: 'Update available' })).toBeNull(),
     );
-    expect(localStorage.getItem('punchlist.skippedRelease')).toBe('0.2.8');
+    expect(localStorage.getItem('pecklist.skippedRelease')).toBe('0.2.8');
   });
 
   it('shows nothing while the server is on the newest release, or knows of none', async () => {
@@ -84,7 +84,7 @@ describe('the update notice (R-FB-148)', () => {
 
 describe('the hidden menu (R-FB-149)', () => {
   it('slides out when the mouse rests at the left edge and goes when it leaves', async () => {
-    localStorage.setItem('punchlist.sidebarCollapsed', 'true');
+    localStorage.setItem('pecklist.sidebarCollapsed', 'true');
     await renderApp('/today', testStore());
     expect(screen.queryByRole('complementary', { name: 'Menu' })).toBeNull();
     fireEvent.pointerEnter(await screen.findByTestId('sidebar-peek-edge'));

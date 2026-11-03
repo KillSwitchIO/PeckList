@@ -256,7 +256,7 @@ function TokenDialog({ token, onClose }: { token: string; onClose: () => void })
 }
 
 /**
- * API keys (R-FB-157): let scripts and other apps use Punchlist as you, with only what you allow,
+ * API keys (R-FB-157): let scripts and other apps use PeckList as you, with only what you allow,
  * for as long as you choose. Each has a name, its permissions, when it was made, when it stops
  * working and when it was last used; revoking one ends it at once.
  */

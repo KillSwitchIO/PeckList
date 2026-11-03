@@ -18,8 +18,8 @@ const slow = { timeout: 10_000 };
 const DEMO: DemoInfo = {
   resetTime: '04:00',
   accounts: [
-    { username: 'demo-sam', password: 'try-punchlist-sam' },
-    { username: 'demo-alex', password: 'try-punchlist-alex' },
+    { username: 'demo-sam', password: 'try-pecklist-sam' },
+    { username: 'demo-alex', password: 'try-pecklist-alex' },
   ],
 };
 
@@ -62,9 +62,9 @@ describe('the demo server banner (PL-117)', () => {
     expect(within(popover).getByText('Try the demo')).toBeInTheDocument();
     expect(within(popover).getByText(/Anyone can sign up/)).toBeInTheDocument();
     expect(within(popover).getByText('demo-sam')).toBeInTheDocument();
-    expect(within(popover).getByText('try-punchlist-sam')).toBeInTheDocument();
+    expect(within(popover).getByText('try-pecklist-sam')).toBeInTheDocument();
     expect(within(popover).getByText('demo-alex')).toBeInTheDocument();
-    expect(within(popover).getByText('try-punchlist-alex')).toBeInTheDocument();
+    expect(within(popover).getByText('try-pecklist-alex')).toBeInTheDocument();
   });
 
   it('on a phone, a short line opens the same accounts', async () => {
@@ -74,7 +74,7 @@ describe('the demo server banner (PL-117)', () => {
     await userEvent.click(within(banner).getByRole('button', { name: 'Demo, resets at 04:00' }));
     const popover = await screen.findByRole('presentation');
     expect(within(popover).getByText(/Anyone can sign up/)).toBeInTheDocument();
-    expect(within(popover).getByText('try-punchlist-sam')).toBeInTheDocument();
+    expect(within(popover).getByText('try-pecklist-sam')).toBeInTheDocument();
   });
 
   it('stays one line and floats, so the page does not move', async () => {

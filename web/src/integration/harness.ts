@@ -1,5 +1,5 @@
 // A harness for running the real web client (store, sync engine, HTTP transport) against a real
-// Punchlist server from Node, several people at once. Used by *.server.test.ts, which run only
+// PeckList server from Node, several people at once. Used by *.server.test.ts, which run only
 // when PUNCHLIST_URL (and PUNCHLIST_ADMIN_PASSWORD) name a server to try.
 import { expect } from 'vitest';
 import { createAjvValidator } from '../adapters/ajv-validator.ts';

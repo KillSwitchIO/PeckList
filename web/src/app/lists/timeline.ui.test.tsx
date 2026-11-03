@@ -44,8 +44,8 @@ describe('a list as a timeline', () => {
     expect(screen.getByRole('button', { name: 'Open Pick seeds' })).toBeInTheDocument();
     // The rows choice.
     await userEvent.click(screen.getByRole('button', { name: 'Fit together' }));
-    expect(JSON.parse(localStorage.getItem('punchlist.timeline')!)).toMatchObject({ fit: true });
-    expect(JSON.parse(localStorage.getItem('punchlist.listLayouts')!)).toEqual({
+    expect(JSON.parse(localStorage.getItem('pecklist.timeline')!)).toMatchObject({ fit: true });
+    expect(JSON.parse(localStorage.getItem('pecklist.listLayouts')!)).toEqual({
       [listId]: 'timeline',
     });
 
@@ -53,6 +53,6 @@ describe('a list as a timeline', () => {
     await userEvent.click(screen.getByRole('button', { name: 'View options' }));
     await userEvent.click(await screen.findByRole('menuitem', { name: 'List' }));
     expect(screen.queryByRole('grid', { name: 'Timeline' })).toBeNull();
-    expect(localStorage.getItem('punchlist.listLayouts')).toBe('{}');
+    expect(localStorage.getItem('pecklist.listLayouts')).toBe('{}');
   });
 });

@@ -1,6 +1,6 @@
 import { useState } from 'react';
 
-const STORAGE_KEY = 'punchlist.detailWidth';
+const STORAGE_KEY = 'pecklist.detailWidth';
 
 function readWidth(): number | null {
   try {

@@ -17,8 +17,8 @@ export function nextThemeMode(mode: ThemeMode): ThemeMode {
   );
 }
 
-const STORAGE_KEY = 'punchlist.themeMode';
-const MOVED_KEY = 'punchlist.themeMode.moved';
+const STORAGE_KEY = 'pecklist.themeMode';
+const MOVED_KEY = 'pecklist.themeMode.moved';
 
 /** The mode this browser remembers (what to paint before the workspace opens). */
 export function readStoredMode(): ThemeMode {

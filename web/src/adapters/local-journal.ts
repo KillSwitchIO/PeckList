@@ -1,7 +1,7 @@
 import type { Journal } from '../ports/journal.ts';
 
 /** The Journal port on localStorage (synchronous, survives the page). Fails quietly when blocked. */
-export function createLocalJournal(key = 'punchlist.journal'): Journal {
+export function createLocalJournal(key = 'pecklist.journal'): Journal {
   return {
     write(text) {
       try {

@@ -247,20 +247,20 @@ function PickButton({
           selected
             ? theme.palette.primary.contrastText
             : current
-              ? theme.punchlist.onAccentContainer
+              ? theme.pecklist.onAccentContainer
               : theme.palette.text.primary,
         bgcolor: (theme) =>
           selected
             ? theme.palette.primary.main
             : current
-              ? theme.punchlist.accentContainer
+              ? theme.pecklist.accentContainer
               : 'transparent',
         '&:hover': {
           bgcolor: (theme) =>
             selected
               ? theme.palette.primary.main
               : current
-                ? theme.punchlist.accentContainer
+                ? theme.pecklist.accentContainer
                 : theme.palette.action.hover,
         },
       }}
@@ -502,7 +502,7 @@ export function MonthCalendar({
           // The divider reads well on white but disappears on dark paper: lift it there.
           '--month-line':
             theme.palette.mode === 'dark'
-              ? mix(theme.punchlist.outline, theme.punchlist.textMuted, 0.4)
+              ? mix(theme.pecklist.outline, theme.pecklist.textMuted, 0.4)
               : theme.palette.divider,
           '& .week': {
             position: 'absolute',
@@ -542,8 +542,8 @@ export function MonthCalendar({
           '& [data-muted]': { color: theme.palette.text.secondary },
           // Today: a soft accent fill, clear in light and dark (the selection stays solid).
           '& [data-today] .dot, & [data-today]:hover .dot': {
-            background: theme.punchlist.accentContainer,
-            color: theme.punchlist.onAccentContainer,
+            background: theme.pecklist.accentContainer,
+            color: theme.pecklist.onAccentContainer,
             fontWeight: 700,
           },
           '& [data-inside] .dot': {
