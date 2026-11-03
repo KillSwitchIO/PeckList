@@ -1,4 +1,5 @@
-import { Capacitor, registerPlugin, type PluginListenerHandle } from '@capacitor/core';
+import { registerPlugin, type PluginListenerHandle } from '@capacitor/core';
+import { shellPluginName } from './capacitor-shell.ts';
 import type {
   NotificationAction,
   NotificationPermissionState,
@@ -77,8 +78,9 @@ export function openedOf(event: {
  * so `older` (Capacitor's Local Notifications) takes over there.
  */
 export function createShellNotifier(older: () => Notifier | null): Notifier | null {
-  if (!Capacitor.isNativePlatform() || !Capacitor.isPluginAvailable('PunchlistShell')) return null;
-  const plugin = registerPlugin<ShellReminders>('PunchlistShell');
+  const name = shellPluginName();
+  if (!name) return null;
+  const plugin = registerPlugin<ShellReminders>(name);
   let api = 0;
   const fallback = plugin.info().then(
     (info) => {

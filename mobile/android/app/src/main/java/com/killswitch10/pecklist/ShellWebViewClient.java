@@ -1,4 +1,4 @@
-package com.killswitch10.punchlist;
+package com.killswitch10.pecklist;
 
 import android.app.Activity;
 import android.content.Context;
@@ -16,7 +16,7 @@ import com.getcapacitor.BridgeWebViewClient;
  * start with nothing cached yet (once the app has loaded, its service worker serves it offline).
  * Capacitor's own error page would load at https://localhost, where the bridge is not injected in
  * server mode; this one is shown at the server's origin, so its "Use another server" button can
- * reach the PunchlistShell plugin.
+ * reach the PeckListShell plugin.
  */
 class ShellWebViewClient extends BridgeWebViewClient {
 
@@ -97,7 +97,7 @@ class ShellWebViewClient extends BridgeWebViewClient {
             // loaded here once, gives this WebView the gate's session the way a browser gets it.
             "<label class=\"shell\" hidden>" + E(R.string.gate_link_hint) +
             "<input id=\"link\" type=\"url\" inputmode=\"url\" autocomplete=\"off\" placeholder=\"https://\"></label>" +
-            "<button class=\"other shell\" hidden onclick=\"Capacitor.nativePromise('PunchlistShell','passGate',{link:document.getElementById('link').value})\">" +
+            "<button class=\"other shell\" hidden onclick=\"Capacitor.nativePromise('PeckListShell','passGate',{link:document.getElementById('link').value})\">" +
             E(R.string.gate_link_use) + "</button>" +
             shellButton("other", R.string.offline_other, "chooseServer", "{}")
         ), "text/html", "utf-8", null));
@@ -105,7 +105,7 @@ class ShellWebViewClient extends BridgeWebViewClient {
 
     /** A button that asks the shell (hidden until the bridge is there). */
     private String shellButton(String kind, int label, String method, String options) {
-        return "<button class=\"" + kind + " shell\" hidden onclick=\"Capacitor.nativePromise('PunchlistShell','" + method + "'," + options + ")\">" +
+        return "<button class=\"" + kind + " shell\" hidden onclick=\"Capacitor.nativePromise('PeckListShell','" + method + "'," + options + ")\">" +
             E(label) + "</button>";
     }
 

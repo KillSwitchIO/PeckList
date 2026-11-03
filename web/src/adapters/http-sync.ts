@@ -122,7 +122,8 @@ export function createHttpSync(
       // A static host may answer every path with the app's index.html.
       if (!response.headers.get('content-type')?.includes('json')) return null;
       const info = (await response.json()) as ServerInfo;
-      return info.name === 'punchlist' ? info : null;
+      // punchlist: a server from before the rename (PL-127).
+      return info.name === 'pecklist' || info.name === 'punchlist' ? info : null;
     },
 
     files: {

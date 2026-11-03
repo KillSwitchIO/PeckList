@@ -25,22 +25,30 @@ The app is not in the Play Store yet. Two ways in, both with the same signed app
         ```
 
     3. Obtainium finds the GitLab releases. If it asks which file to install, pick
-       `punchlist-android.apk` (to make it ask no more, set **Filter APKs by regular expression** to
-       `punchlist-android\.apk`).
+       `pecklist-android.apk` (to make it ask no more, set **Filter APKs by regular expression** to
+       `pecklist-android\.apk`).
     4. **Install**, and allow Obtainium to install apps when Android asks.
 
 === "Download the APK"
 
     1. Open the [latest release](https://gitlab.com/killswitch10/punchlist/-/releases) on the phone.
-    2. Download `punchlist-android.apk`.
+    2. Download `pecklist-android.apk`.
     3. Open it and allow your browser to install apps when Android asks.
 
-    To check the download, compare its SHA-256 with the line for `punchlist-android.apk` in the
+    To check the download, compare its SHA-256 with the line for `pecklist-android.apk` in the
     release's `SHA256SUMS`. For updates, download the next release's APK and install it over the
     old one; your data stays.
 
 Every release APK is signed with the same key, so each one installs over the last. A build you
 made yourself, or a debug build, has a different key: uninstall it first.
+
+!!! note "Coming from the Punchlist app"
+    The app was called Punchlist before the rename (`com.killswitch10.punchlist`); PeckList is a
+    new app on Android (`com.killswitch10.pecklist`), so it installs beside the old one instead of
+    over it. Install PeckList, connect it to your server and sign in, then uninstall Punchlist.
+    Your tasks are on the server, so nothing is lost; changes made in the old app while it was
+    offline sync once it is online, so open it with a connection before you remove it. In
+    Obtainium, add PeckList as a new app the same way and remove the Punchlist entry.
 
 ## First start
 

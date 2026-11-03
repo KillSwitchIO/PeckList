@@ -11,14 +11,14 @@ app (ADR-0017 in the project notes). There is no second copy of the UI.
   saved address). The WebView then loads that server's own web build, so cookies, live updates and
   the service worker work as in a browser, and the app always matches its server's version.
   Capacitor injects its bridge into that origin only.
-- **`PunchlistShell` plugin** (`ShellPlugin.java`, used through `web/src/adapters/capacitor-shell.ts`):
+- **`PeckListShell` plugin** (`ShellPlugin.java`, used through `web/src/adapters/capacitor-shell.ts`):
   `info`, `checkServer`, `connect`, `disconnect`. The web build a server ships can be older or
   newer than the shell, so methods are only ever added and `info().api` says which exist.
 - **Linking a provider from Settings**: the browser tab is not signed in as the app is, so the
   plugin first asks for a one-time code with the app's own session (`POST /auth/app/link-start`),
   opens `/auth/app/link?code=...` in a Custom Tab, and the server sends the outcome to
   `<package>://link?result=...`, which reopens Settings with it.
-- **Back button**: `MainActivity` asks the web app first (`window.punchlistBack()`,
+- **Back button**: `MainActivity` asks the web app first (`window.pecklistBack()`,
   `web/src/app/native/back.ts`): it closes the topmost menu, dialog or sheet, else steps back in
   the app's history. With nothing left, a second Back within two seconds moves the app to the
   background ("Press Back again to leave PeckList"). A server's web build too old to answer gets

@@ -17,7 +17,7 @@ export interface ShellInfo {
 }
 
 /** Why an address cannot be used. */
-export type ServerProblem = 'invalid' | 'unreachable' | 'certificate' | 'not-punchlist' | 'gated';
+export type ServerProblem = 'invalid' | 'unreachable' | 'certificate' | 'not-pecklist' | 'gated';
 
 export type ServerCheck =
   | { ok: true; url: string; info: ServerInfo }

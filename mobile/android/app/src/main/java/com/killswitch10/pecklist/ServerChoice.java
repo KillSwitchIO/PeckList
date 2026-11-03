@@ -1,4 +1,4 @@
-package com.killswitch10.punchlist;
+package com.killswitch10.pecklist;
 
 import android.content.Context;
 import android.content.SharedPreferences;
@@ -13,7 +13,7 @@ import java.util.Locale;
  */
 final class ServerChoice {
 
-    private static final String PREFS = "punchlist.shell";
+    private static final String PREFS = "pecklist.shell";
     private static final String SERVER = "server";
     private static final String STANDALONE = "standalone";
 
@@ -41,8 +41,8 @@ final class ServerChoice {
     }
 
     /**
-     * The origin a typed address means: {@code punchlist.example.com} is
-     * {@code https://punchlist.example.com}, a path, query or trailing slash is dropped (the server
+     * The origin a typed address means: {@code pecklist.example.com} is
+     * {@code https://pecklist.example.com}, a path, query or trailing slash is dropped (the server
      * answers at its root). Null when it is not an http or https address.
      */
     static String normalize(String input) {

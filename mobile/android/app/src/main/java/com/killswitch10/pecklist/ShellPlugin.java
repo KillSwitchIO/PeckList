@@ -1,4 +1,4 @@
-package com.killswitch10.punchlist;
+package com.killswitch10.pecklist;
 
 import android.content.Context;
 import android.Manifest;
@@ -26,12 +26,12 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 /**
- * What the web app can ask of the Android shell (ADR-0017), as {@code PunchlistShell} in
+ * What the web app can ask of the Android shell (ADR-0017), as {@code PeckListShell} in
  * {@code web/src/adapters/capacitor-shell.ts}. The web build a server ships may be newer or older
  * than this shell, so methods are only ever added, and {@code info().api} says which exist.
  */
 @CapacitorPlugin(
-    name = "PunchlistShell",
+    name = "PeckListShell",
     permissions = { @Permission(alias = ShellPlugin.NOTIFICATIONS, strings = { Manifest.permission.POST_NOTIFICATIONS }) }
 )
 public class ShellPlugin extends Plugin {
@@ -73,7 +73,7 @@ public class ShellPlugin extends Plugin {
     }
 
     /**
-     * Whether an address is a Punchlist server; resolves with the origin it answers on. An address
+     * Whether an address is a PeckList server; resolves with the origin it answers on. An address
      * typed without a scheme is tried with https first, then plain http (a server on a home
      * network often has no certificate); the web app warns before using an http one.
      */
@@ -183,7 +183,7 @@ public class ShellPlugin extends Plugin {
                 Uri tab = Gate.start(getContext(), server);
                 getActivity().runOnUiThread(() -> openTab(tab));
             } catch (Exception error) {
-                Logger.warn("Punchlist: could not start passing the gate: " + error);
+                Logger.warn("PeckList: could not start passing the gate: " + error);
             }
         });
     }
@@ -262,7 +262,7 @@ public class ShellPlugin extends Plugin {
                 JSONObject kept = new JSONObject(bytes.toString("UTF-8"));
                 if (server.equalsIgnoreCase(kept.optString("server"))) result.put("data", kept.optString("data"));
             } catch (JSONException | java.io.IOException unreadable) {
-                Logger.warn("Punchlist", "handed-over tasks unreadable: " + unreadable.getMessage());
+                Logger.warn("PeckList", "handed-over tasks unreadable: " + unreadable.getMessage());
             }
         }
         call.resolve(result);
@@ -288,7 +288,7 @@ public class ShellPlugin extends Plugin {
         call.resolve(BackgroundCheck.state(getContext()));
     }
 
-    /** Api 2: Android's dialog to let Punchlist run in the background; resolves once it closes. */
+    /** Api 2: Android's dialog to let PeckList run in the background; resolves once it closes. */
     @PluginMethod
     public void allowBackground(PluginCall call) {
         BackgroundCheck.markAsked(getContext());
@@ -349,7 +349,7 @@ public class ShellPlugin extends Plugin {
                     Uri tab = NativeLink.start(getContext(), server, linking);
                     getActivity().runOnUiThread(() -> openTab(tab));
                 } catch (Exception error) {
-                    Logger.warn("Punchlist: could not start linking " + linking + ": " + error.getMessage());
+                    Logger.warn("PeckList: could not start linking " + linking + ": " + error.getMessage());
                     String failed = server + "/settings?link=failed";
                     getBridge().getWebView().post(() -> getBridge().getWebView().loadUrl(failed));
                 }
@@ -380,7 +380,7 @@ public class ShellPlugin extends Plugin {
         try {
             return ServerCheck.check(context, server).info.optBoolean("appSignIn", false);
         } catch (Exception error) {
-            Logger.warn("Punchlist: could not ask " + server + " about app sign-in: " + error.getMessage());
+            Logger.warn("PeckList: could not ask " + server + " about app sign-in: " + error.getMessage());
             return false;
         }
     }
@@ -514,7 +514,7 @@ public class ShellPlugin extends Plugin {
                 try {
                     Gate.finish(getContext(), data);
                 } catch (Exception error) {
-                    Logger.warn("Punchlist: the gate's pass did not open: " + error);
+                    Logger.warn("PeckList: the gate's pass did not open: " + error);
                 }
                 if (home != null) getBridge().getWebView().post(() -> getBridge().getWebView().loadUrl(home + "/"));
             });
@@ -529,7 +529,7 @@ public class ShellPlugin extends Plugin {
         if (!NativeSignIn.isReturn(getContext(), data)) return;
         NativeSignIn.Redeem redeem = NativeSignIn.finish(getContext(), ServerChoice.get(getContext()), data);
         if (redeem == null) {
-            Logger.warn("Punchlist: a sign-in came back that this app did not start");
+            Logger.warn("PeckList: a sign-in came back that this app did not start");
             return;
         }
         getBridge().getWebView().post(() -> getBridge().getWebView().postUrl(redeem.url, redeem.body));

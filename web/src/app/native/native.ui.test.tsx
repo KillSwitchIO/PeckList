@@ -196,7 +196,7 @@ describe('android: connecting to a server', () => {
 
   it('names what is wrong with an address the shell refused', async () => {
     expect(problemOf({ code: 'certificate' })).toBe('certificate');
-    expect(problemOf({ code: 'not-punchlist' })).toBe('not-punchlist');
+    expect(problemOf({ code: 'not-pecklist' })).toBe('not-pecklist');
     expect(problemOf(new Error('boom'))).toBe('unreachable');
     expect(problemOf(null)).toBe('unreachable');
   });

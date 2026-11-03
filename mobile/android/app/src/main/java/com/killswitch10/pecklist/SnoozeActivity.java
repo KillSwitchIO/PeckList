@@ -1,4 +1,4 @@
-package com.killswitch10.punchlist;
+package com.killswitch10.pecklist;
 
 import android.app.TimePickerDialog;
 import android.content.Context;
@@ -74,9 +74,9 @@ public class SnoozeActivity extends AppCompatActivity {
             try {
                 ReminderReceiver.press(app, Reminders.SNOOZE, reminder, minutes);
             } catch (Exception error) {
-                Logger.warn("Punchlist: snooze failed: " + error);
+                Logger.warn("PeckList: snooze failed: " + error);
             }
-        }, "punchlist-snooze").start();
+        }, "pecklist-snooze").start();
         Toast.makeText(app, getString(R.string.snooze_done, until), Toast.LENGTH_SHORT).show();
         finish();
     }

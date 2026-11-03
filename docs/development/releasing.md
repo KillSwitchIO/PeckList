@@ -101,7 +101,7 @@ The tag pipeline then:
 2. Builds and pushes the release images for amd64 and arm64.
 3. Builds the native downloads (`punchlist-linux-x64.tar.gz`, `punchlist-linux-arm64.tar.gz`,
    `punchlist-win-x64.zip`) and `SHA256SUMS`.
-4. Builds the signed Android app, `punchlist-android.apk`, and adds it to the downloads and
+4. Builds the signed Android app, `pecklist-android.apk`, and adds it to the downloads and
    `SHA256SUMS` ([Android app](android.md#release-signing)).
 5. Uploads them to the package registry and creates the release, with the changelog section as its
    notes, the downloads as assets, and the image.

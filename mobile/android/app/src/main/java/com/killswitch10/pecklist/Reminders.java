@@ -1,4 +1,4 @@
-package com.killswitch10.punchlist;
+package com.killswitch10.pecklist;
 
 import android.app.AlarmManager;
 import android.app.NotificationChannel;
@@ -50,19 +50,19 @@ final class Reminders {
     /** How long Snooze puts a reminder off (the web app's SNOOZE_MINUTES). */
     static final int SNOOZE_MINUTES = 10;
 
-    static final String FIRE = "com.killswitch10.punchlist.REMINDER";
+    static final String FIRE = "com.killswitch10.pecklist.REMINDER";
     static final String COMPLETE = "complete";
     static final String SNOOZE = "snooze";
 
     /** Intent extras for the app: where to go, and a button to finish there (MainActivity, ShellPlugin). */
-    static final String EXTRA_URL = "punchlist.url";
-    static final String EXTRA_ACTION = "punchlist.action";
-    static final String EXTRA_TASK = "punchlist.task";
-    static final String EXTRA_MINUTES = "punchlist.minutes";
-    static final String EXTRA_SHOWN = "punchlist.shown";
-    static final String EXTRA_REMINDER = "punchlist.reminder";
+    static final String EXTRA_URL = "pecklist.url";
+    static final String EXTRA_ACTION = "pecklist.action";
+    static final String EXTRA_TASK = "pecklist.task";
+    static final String EXTRA_MINUTES = "pecklist.minutes";
+    static final String EXTRA_SHOWN = "pecklist.shown";
+    static final String EXTRA_REMINDER = "pecklist.reminder";
 
-    private static final String PREFS = "punchlist.reminders";
+    private static final String PREFS = "pecklist.reminders";
     private static final String ALL = "all";
     private static final String MIGRATED = "migrated-from-plugin";
 
@@ -277,7 +277,7 @@ final class Reminders {
             : channel.equals(COMMENTS) ? R.string.channel_comments : R.string.channel_assignments, NotificationManager.IMPORTANCE_DEFAULT);
         int id = idOf("news:" + newsId);
         Intent intent = new Intent(context, MainActivity.class)
-            .setAction("com.killswitch10.punchlist.OPEN." + id)
+            .setAction("com.killswitch10.pecklist.OPEN." + id)
             .addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP)
             .putExtra(EXTRA_URL, url)
             .putExtra(EXTRA_SHOWN, id);
@@ -289,7 +289,7 @@ final class Reminders {
             JSONObject action = actions.getJSONObject(a);
             int code = idOf("news:" + newsId + ":" + action.getString("action"));
             Intent press = new Intent(context, MainActivity.class)
-                .setAction("com.killswitch10.punchlist.OPEN." + code)
+                .setAction("com.killswitch10.pecklist.OPEN." + code)
                 .addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP)
                 .putExtra(EXTRA_URL, action.getString("url"))
                 .putExtra(EXTRA_SHOWN, id);
@@ -305,7 +305,7 @@ final class Reminders {
 
     private static NotificationCompat.Builder base(Context context, String channel, String title, String text) {
         return new NotificationCompat.Builder(context, channel)
-            .setSmallIcon(R.drawable.ic_stat_punchlist)
+            .setSmallIcon(R.drawable.ic_stat_pecklist)
             .setColor(ContextCompat.getColor(context, R.color.notification_accent))
             .setContentTitle(title)
             .setContentText(text)
@@ -316,8 +316,8 @@ final class Reminders {
     /** Opens the app on the reminder's task. */
     private static PendingIntent open(Context context, Reminder reminder) {
         Intent intent = new Intent(context, MainActivity.class)
-            .setAction("com.killswitch10.punchlist.OPEN.")
-            .setData(Uri.parse("punchlist-reminder://" + reminder.alarm()))
+            .setAction("com.killswitch10.pecklist.OPEN.")
+            .setData(Uri.parse("pecklist-reminder://" + reminder.alarm()))
             .addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP)
             .putExtra(EXTRA_URL, reminder.url)
             .putExtra(EXTRA_SHOWN, reminder.shown());
@@ -327,7 +327,7 @@ final class Reminders {
     /** Snooze asks how long first, as TickTick does (SnoozeActivity, a dialog over whatever is on screen). */
     private static PendingIntent snoozePicker(Context context, Reminder reminder) {
         Intent intent = new Intent(context, SnoozeActivity.class)
-            .setData(Uri.parse("punchlist-reminder://" + reminder.alarm()))
+            .setData(Uri.parse("pecklist-reminder://" + reminder.alarm()))
             .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
         try {
             intent.putExtra(EXTRA_REMINDER, reminder.json().toString());
@@ -340,8 +340,8 @@ final class Reminders {
     /** Acts without opening the app (ReminderReceiver). */
     private static PendingIntent act(Context context, Reminder reminder, String action) {
         Intent intent = new Intent(context, ReminderReceiver.class)
-            .setAction("com.killswitch10.punchlist." + action)
-            .setData(Uri.parse("punchlist-reminder://" + reminder.alarm()));
+            .setAction("com.killswitch10.pecklist." + action)
+            .setData(Uri.parse("pecklist-reminder://" + reminder.alarm()));
         try {
             intent.putExtra(EXTRA_REMINDER, reminder.json().toString());
         } catch (JSONException error) {
@@ -353,7 +353,7 @@ final class Reminders {
     private static PendingIntent alarmIntent(Context context, Reminder reminder, int flags) {
         Intent intent = new Intent(context, ReminderReceiver.class)
             .setAction(FIRE)
-            .setData(Uri.parse("punchlist-reminder://" + reminder.alarm()))
+            .setData(Uri.parse("pecklist-reminder://" + reminder.alarm()))
             .putExtra("key", reminder.key);
         return PendingIntent.getBroadcast(context, reminder.alarm(), intent, flags | PendingIntent.FLAG_IMMUTABLE);
     }

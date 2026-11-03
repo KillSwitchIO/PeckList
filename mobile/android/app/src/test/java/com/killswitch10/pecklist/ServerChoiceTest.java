@@ -1,4 +1,4 @@
-package com.killswitch10.punchlist;
+package com.killswitch10.pecklist;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
@@ -11,8 +11,8 @@ public class ServerChoiceTest {
 
     @Test
     public void aBareHostMeansHttps() {
-        assertEquals("https://punchlist.example.com", ServerChoice.normalize("punchlist.example.com"));
-        assertEquals("https://punchlist.example.com", ServerChoice.normalize("  Punchlist.Example.com/  "));
+        assertEquals("https://pecklist.example.com", ServerChoice.normalize("pecklist.example.com"));
+        assertEquals("https://pecklist.example.com", ServerChoice.normalize("  PeckList.Example.com/  "));
     }
 
     @Test

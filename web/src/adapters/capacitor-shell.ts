@@ -48,20 +48,33 @@ const PROBLEMS: readonly ServerProblem[] = [
   'invalid',
   'unreachable',
   'certificate',
-  'not-punchlist',
+  'not-pecklist',
   'gated',
 ];
 
 /** A rejected call's code, as the plugin names the problem; anything else is "unreachable". */
 export function problemOf(error: unknown): ServerProblem {
   const code = (error as { code?: unknown } | null)?.code;
+  // Shells from before the rename (PL-127) say not-punchlist.
+  if (code === 'not-punchlist') return 'not-pecklist';
   return PROBLEMS.find((each) => each === code) ?? 'unreachable';
+}
+
+/**
+ * The shell plugin's name in this app: PeckListShell, or PunchlistShell in an APK from before the
+ * rename (PL-127); null in a browser or a shell without either.
+ */
+export function shellPluginName(): 'PeckListShell' | 'PunchlistShell' | null {
+  if (!Capacitor.isNativePlatform()) return null;
+  if (Capacitor.isPluginAvailable('PeckListShell')) return 'PeckListShell';
+  return Capacitor.isPluginAvailable('PunchlistShell') ? 'PunchlistShell' : null;
 }
 
 /** The Android shell, through Capacitor; null in a browser or a shell without the plugin. */
 export function createCapacitorShell(): NativeShell | null {
-  if (!Capacitor.isNativePlatform() || !Capacitor.isPluginAvailable('PunchlistShell')) return null;
-  const plugin = registerPlugin<ShellPlugin>('PunchlistShell');
+  const name = shellPluginName();
+  if (!name) return null;
+  const plugin = registerPlugin<ShellPlugin>(name);
   return {
     async info() {
       const answer = await plugin.info();

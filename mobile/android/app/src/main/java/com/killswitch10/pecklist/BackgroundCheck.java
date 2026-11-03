@@ -1,4 +1,4 @@
-package com.killswitch10.punchlist;
+package com.killswitch10.pecklist;
 
 import android.app.AlarmManager;
 import android.app.PendingIntent;
@@ -28,16 +28,16 @@ import org.json.JSONObject;
  * wakes it every few minutes to ask the server what is new ({@code GET /api/app/check}). New
  * shares, assignments and mentions show as notifications; the reminders ahead are set again, so a
  * reminder changed on another device fires here too. On by default; Settings turns it off or
- * changes how often. Android only lets it run on time when Punchlist may run in the background
+ * changes how often. Android only lets it run on time when PeckList may run in the background
  * (no battery optimization), which the app asks for once.
  */
 final class BackgroundCheck {
 
-    static final String ACTION = "com.killswitch10.punchlist.CHECK";
+    static final String ACTION = "com.killswitch10.pecklist.CHECK";
     static final int[] CHOICES = {5, 15, 30, 60};
     static final int DEFAULT_MINUTES = 5;
 
-    private static final String PREFS = "punchlist.check";
+    private static final String PREFS = "pecklist.check";
     private static final String ENABLED = "enabled";
     private static final String MINUTES = "minutes";
     private static final String CURSOR = "cursor";
@@ -67,7 +67,7 @@ final class BackgroundCheck {
         schedule(context);
     }
 
-    /** Whether Android lets Punchlist run in the background on time (no battery optimization). */
+    /** Whether Android lets PeckList run in the background on time (no battery optimization). */
     static boolean unrestricted(Context context) {
         PowerManager power = (PowerManager) context.getSystemService(Context.POWER_SERVICE);
         return power != null && power.isIgnoringBatteryOptimizations(context.getPackageName());
@@ -145,7 +145,7 @@ final class BackgroundCheck {
             connection.setRequestProperty("Accept", "application/json");
             int status = connection.getResponseCode();
             if (status != 200) {
-                Logger.info("Punchlist", "Background check: the server answered " + status);
+                Logger.info("PeckList", "Background check: the server answered " + status);
                 return;
             }
             // The session slides forward on use: keep the renewed cookie, as the WebView would.

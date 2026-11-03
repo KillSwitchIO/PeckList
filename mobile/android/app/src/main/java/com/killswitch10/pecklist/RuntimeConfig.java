@@ -1,4 +1,4 @@
-package com.killswitch10.punchlist;
+package com.killswitch10.pecklist;
 
 import android.content.Context;
 import com.getcapacitor.CapConfig;
@@ -42,7 +42,7 @@ final class RuntimeConfig {
             return CapConfig.loadFromFile(context, folder.getAbsolutePath());
         } catch (IOException | JSONException error) {
             // Better the standalone app than none: the person can connect again from there.
-            Logger.error("Punchlist: could not point the app at " + server, error);
+            Logger.error("PeckList: could not point the app at " + server, error);
             return CapConfig.loadDefault(context);
         }
     }

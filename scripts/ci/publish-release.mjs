@@ -68,7 +68,7 @@ const description = `${notes}
 docker pull ${image}:${version}
 \`\`\`
 
-Native downloads for Linux and Windows, and the Android app (\`punchlist-android.apk\`), are below; check them against \`SHA256SUMS\`. The newest
+Native downloads for Linux and Windows, and the Android app (\`pecklist-android.apk\`), are below; check them against \`SHA256SUMS\`. The newest
 release's files are always at \`${projectUrl}/-/releases/permalink/latest/downloads/<file>\`. Setup, upgrade
 steps and every setting are in the [documentation](${projectUrl}/-/tree/main/docs).${
   prerelease
