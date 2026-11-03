@@ -1,0 +1,14 @@
+{#- The docs site's own additions to Material's pages (mkdocs.yml, theme.custom_dir). -#} {% extends
+"base.html" %} {% block extrahead %} {{ super() }} {#- Visit counts and session replays for
+docs.pecklist.com: Umami at stats.pecklist.com, no cookies. -#}
+<script
+  defer
+  src="https://stats.pecklist.com/script.js"
+  data-website-id="6c0a1406-9f89-4d9d-8672-5bf0c13ed894"
+></script>
+<script
+  defer
+  src="https://stats.pecklist.com/recorder.js"
+  data-website-id="6c0a1406-9f89-4d9d-8672-5bf0c13ed894"
+></script>
+{% endblock %}

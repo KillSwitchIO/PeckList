@@ -17,6 +17,7 @@ validation:
 
 theme:
   name: material
+  custom_dir: docs-theme
   features:
     - navigation.tabs
     - navigation.sections
