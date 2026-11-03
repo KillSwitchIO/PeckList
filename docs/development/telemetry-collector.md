@@ -2,7 +2,7 @@
 
 Punchlist servers send one anonymous usage report a day (on by default, easy to turn off; see the
 privacy page once it lands). The collector is the service the project runs to take those reports in
-and publish the totals. A Punchlist server never runs it, and nobody self-hosting Punchlist needs
+and total them for the project. A Punchlist server never runs it, and nobody self-hosting Punchlist needs
 it.
 
 The code is `server/src/Punchlist.Collector`; the report it reads is `TelemetryPing` in
@@ -19,16 +19,19 @@ The code is `server/src/Punchlist.Collector`; the report it reads is `TelemetryP
 
 ## Endpoints
 
-Everything the internet may reach is under `/api/public/`; everything else is under
-`/api/private/`. The proxy in front lets `/api/public/*` through and nothing else.
+Everything the internet may reach is under `/api/public/`, and that is only the report; everything
+else is under `/api/private/`, for the project's own network. The proxy in front lets
+`/api/public/*` through and nothing else.
 
+| Endpoint                    | What it does                                                                                                                                                                       |
+| --------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `POST /api/public/v1/ping`  | Takes one report (64 KB at most, 600 a minute in all). `202` when kept, `400` with the field at fault when not.                                                                    |
+| `GET /api/private/v1/stats` | The totals: installs that reported in the last 7 days, broken down per dimension. A value fewer than 5 installs share is folded into "other", and "other" is left out when it is that small too. |
+| `GET /api/private/`         | The same totals as a page for people (no scripts, light and dark). `/` redirects here.                                                                                             |
+| `GET /api/private/healthz`  | `ok` when it is up.                                                                                                                                                                |
 
-|  | The same totals as a page for people (no scripts, light and dark).  redirects here. |
-| Endpoint        | What it does                                                                                                                                                       |
-| --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `POST /api/public/v1/ping` | Takes one report (64 KB at most, 600 a minute in all). `202` when kept, `400` with the field at fault when not.                                                     |
-| `GET /api/public/v1/stats` | The public totals: installs that reported in the last 7 days, broken down per dimension. A value fewer than 5 installs share is folded into "other", and "other" is left out when it is that small too. Any site may read it. |
-| `GET /api/private/healthz` | `ok` when it is up.                                                                                                                                                |
+The project runs it with reports arriving at `telemetry.pecklist.com` (Pangolin, `/api/public/*`
+only) and the totals at `telemetry.killswitch10.com`, on its own network only (Caddy).
 
 ## Running it
 

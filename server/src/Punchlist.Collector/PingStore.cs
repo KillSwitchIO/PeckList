@@ -9,7 +9,7 @@ namespace Punchlist.Collector;
 public sealed record StatValue(string Value, int Installs);
 
 /// <summary>
-/// The public totals: installs that sent a ping in the last <see cref="WindowDays"/> days, broken
+/// The totals: installs that sent a ping in the last <see cref="WindowDays"/> days, broken
 /// down per dimension. A value fewer than <see cref="PingStore.MinInstalls"/> installs share is
 /// folded into "other", and "other" itself is left out when it is that small too.
 /// </summary>

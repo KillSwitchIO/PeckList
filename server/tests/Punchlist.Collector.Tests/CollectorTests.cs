@@ -113,7 +113,7 @@ public sealed class CollectorTests(PostgresServer server) : IClassFixture<Postgr
         Assert.Equal(new[] { new StatValue("0.3.0", 6), new StatValue("other", 5) }, stats.Breakdown["version"]);
 
         using var client = factory.CreateClient();
-        var response = await client.GetAsync("/api/public/v1/stats", Cancel);
+        var response = await client.GetAsync("/api/private/v1/stats", Cancel);
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         Assert.Contains("\"installs\":11", await response.Content.ReadAsStringAsync(Cancel));
     }
@@ -141,12 +141,14 @@ public sealed class CollectorTests(PostgresServer server) : IClassFixture<Postgr
     }
 
     [Fact]
-    public async Task Only_the_report_and_the_totals_are_public_the_health_check_is_private()
+    public async Task Only_the_report_is_public_the_totals_and_the_health_check_are_private()
     {
         var (factory, _) = await StartAsync();
         using var client = factory.CreateClient();
         Assert.Equal(HttpStatusCode.OK, (await client.GetAsync("/api/private/healthz", Cancel)).StatusCode);
-        Assert.Equal(HttpStatusCode.OK, (await client.GetAsync("/api/public/v1/stats", Cancel)).StatusCode);
+        Assert.Equal(HttpStatusCode.OK, (await client.GetAsync("/api/private/v1/stats", Cancel)).StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, (await client.GetAsync("/api/public/v1/stats", Cancel)).StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, (await client.GetAsync("/api/public/", Cancel)).StatusCode);
         Assert.Equal(HttpStatusCode.NotFound, (await client.GetAsync("/healthz", Cancel)).StatusCode);
         Assert.Equal(HttpStatusCode.NotFound, (await client.PostAsJsonAsync("/v1/ping", Ping(), Cancel)).StatusCode);
     }
@@ -161,9 +163,9 @@ public sealed class CollectorTests(PostgresServer server) : IClassFixture<Postgr
 
         var root = await client.GetAsync("/", Cancel);
         Assert.Equal(HttpStatusCode.Redirect, root.StatusCode);
-        Assert.Equal("/api/public/", root.Headers.Location?.ToString());
+        Assert.Equal("/api/private/", root.Headers.Location?.ToString());
 
-        var page = await client.GetAsync("/api/public/", Cancel);
+        var page = await client.GetAsync("/api/private/", Cancel);
         Assert.Equal(HttpStatusCode.OK, page.StatusCode);
         Assert.Equal("text/html", page.Content.Headers.ContentType?.MediaType);
         var html = await page.Content.ReadAsStringAsync(Cancel);

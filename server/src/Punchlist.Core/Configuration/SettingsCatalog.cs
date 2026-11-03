@@ -36,7 +36,7 @@ public static class SettingsCatalog
         new("UPDATE_CHECK", "general", SettingKind.Flag, "true", Live: true),
         new("API_DOCS", "general", SettingKind.Flag, "true", Live: true),
         new("TELEMETRY", "telemetry", SettingKind.Flag, "true", Live: true),
-        new("TELEMETRY_URL", "telemetry", SettingKind.Url, "https://telemetry.killswitch10.com/api/public/v1/ping", Live: true),
+        new("TELEMETRY_URL", "telemetry", SettingKind.Url, "https://telemetry.pecklist.com/api/public/v1/ping", Live: true),
         new("SIGNUP_RATE_LIMIT", "sign-in", SettingKind.Number, "5", Live: true),
         new("SMTP_HOST", "email", SettingKind.Text, Live: true),
         new("SMTP_PORT", "email", SettingKind.Number, "587", Live: true),
