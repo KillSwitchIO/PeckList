@@ -14,7 +14,7 @@ namespace PeckList.Storage.Tests;
 /// <summary>Fresh SQLite databases in a temp folder, deleted afterwards.</summary>
 public sealed class SqliteFiles : IDisposable
 {
-    private readonly string folder = Directory.CreateTempSubdirectory("punchlist-sqlite-").FullName;
+    private readonly string folder = Directory.CreateTempSubdirectory("pecklist-sqlite-").FullName;
 
     public async Task<SqlDatabase> NewDatabaseAsync()
     {
@@ -31,12 +31,12 @@ public sealed class SqliteFiles : IDisposable
 }
 
 /// <summary>
-/// A PostgreSQL server for the tests: the one PUNCHLIST_TEST_POSTGRES names (a connection string,
+/// A PostgreSQL server for the tests: the one PECKLIST_TEST_POSTGRES names (a connection string,
 /// e.g. CI's postgres service), else a container of its own (Testcontainers; needs Docker).
 /// </summary>
 public sealed class PostgresServer : IAsyncLifetime
 {
-    private static readonly string? Given = Environment.GetEnvironmentVariable("PUNCHLIST_TEST_POSTGRES");
+    private static readonly string? Given = Environment.GetEnvironmentVariable("PECKLIST_TEST_POSTGRES");
     private readonly PostgreSqlContainer? container = string.IsNullOrEmpty(Given) ? new PostgreSqlBuilder("postgres:15-alpine").Build() : null;
 
     public async ValueTask InitializeAsync()

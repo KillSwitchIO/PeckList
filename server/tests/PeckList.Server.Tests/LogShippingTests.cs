@@ -47,7 +47,7 @@ public sealed class LogShippingTests
 {
     private static CancellationToken Token => TestContext.Current.CancellationToken;
 
-    private static readonly LogSource Source = new("punchlist", "1.2.3", "box");
+    private static readonly LogSource Source = new("pecklist", "1.2.3", "box");
 
     private static LogRecord Entry(string message = "Ben took a backup: b1", LogLevel level = LogLevel.Information, DateTimeOffset? time = null) => new(
         time ?? new DateTimeOffset(2026, 10, 22, 7, 49, 1, 123, TimeSpan.Zero),
@@ -74,7 +74,7 @@ public sealed class LogShippingTests
         Assert.Equal("http://alloy:4318/v1/logs", request.RequestUri!.ToString());
         Assert.Equal("Basic abc", request.Headers.GetValues("Authorization").Single());
         var resource = JsonNode.Parse(body)!["resourceLogs"]![0]!;
-        Assert.Contains(resource["resource"]!["attributes"]!.AsArray(), a => (string?)a!["key"] == "service.name" && (string?)a["value"]!["stringValue"] == "punchlist");
+        Assert.Contains(resource["resource"]!["attributes"]!.AsArray(), a => (string?)a!["key"] == "service.name" && (string?)a["value"]!["stringValue"] == "pecklist");
         var scope = resource["scopeLogs"]![0]!;
         Assert.Equal("PeckList.Backups", (string?)scope["scope"]!["name"]);
         var first = scope["logRecords"]![0]!;
@@ -101,7 +101,7 @@ public sealed class LogShippingTests
         var streams = JsonNode.Parse(body)!["streams"]!.AsArray();
         Assert.Equal(["info", "warn"], streams.Select(s => (string)s!["stream"]!["level"]!).Order());
         var info = streams.Single(s => (string?)s!["stream"]!["level"] == "info")!;
-        Assert.Equal("punchlist", (string?)info["stream"]!["service_name"]);
+        Assert.Equal("pecklist", (string?)info["stream"]!["service_name"]);
         var value = info["values"]![0]!;
         Assert.Equal("1792655341123000000", (string?)value[0]);
         var line = JsonNode.Parse((string)value[1]!)!;
@@ -113,7 +113,7 @@ public sealed class LogShippingTests
     public async Task Elastic_bulk_creates_ecs_documents_and_reports_refused_entries()
     {
         var receiver = new FakeReceiver(answer: """{"errors":false,"items":[{"create":{"status":201}}]}""");
-        await using var sink = new ElasticSink(new Uri("https://es:9200"), "logs-punchlist-default", null, null, "a2V5", Source, receiver);
+        await using var sink = new ElasticSink(new Uri("https://es:9200"), "logs-pecklist-default", null, null, "a2V5", Source, receiver);
         await sink.WriteAsync([Entry()], Token);
 
         var (request, body) = Assert.Single(receiver.Received);
@@ -121,7 +121,7 @@ public sealed class LogShippingTests
         Assert.Equal("ApiKey a2V5", request.Headers.Authorization!.ToString());
         Assert.Equal("application/x-ndjson", request.Content!.Headers.ContentType!.MediaType);
         var lines = body.Split('\n', StringSplitOptions.RemoveEmptyEntries);
-        Assert.Equal("logs-punchlist-default", (string?)JsonNode.Parse(lines[0])!["create"]!["_index"]);
+        Assert.Equal("logs-pecklist-default", (string?)JsonNode.Parse(lines[0])!["create"]!["_index"]);
         var doc = JsonNode.Parse(lines[1])!;
         Assert.Equal("2026-10-22T07:49:01.123Z", (string?)doc["@timestamp"]);
         Assert.Equal(("info", "PeckList.Backups"), ((string?)doc["log"]!["level"], (string?)doc["log"]!["logger"]));
@@ -194,7 +194,7 @@ public sealed class LogShippingTests
         }
         var line = Encoding.UTF8.GetString((await udp.ReceiveAsync(Token)).Buffer);
         // local0 (16) * 8 + warning (4) = 132
-        Assert.StartsWith($"<132>1 2026-10-22T07:49:01.123Z box punchlist {Environment.ProcessId} BackupTaken [pecklist@32473 category=\"PeckList.Backups\" level=\"warn\" eventId=\"12\" requestId=\"0HN1\"", line);
+        Assert.StartsWith($"<132>1 2026-10-22T07:49:01.123Z box pecklist {Environment.ProcessId} BackupTaken [pecklist@32473 category=\"PeckList.Backups\" level=\"warn\" eventId=\"12\" requestId=\"0HN1\"", line);
         Assert.EndsWith("userId=\"u-1\"] Ben took a backup: b1", line);
 
         using var listener = new TcpListener(IPAddress.Loopback, 0);
@@ -243,7 +243,7 @@ public sealed class LogShippingTests
     [Fact]
     public async Task Files_roll_by_day_and_size_are_gzipped_and_expire()
     {
-        var dir = Directory.CreateTempSubdirectory("punchlist-logs-").FullName;
+        var dir = Directory.CreateTempSubdirectory("pecklist-logs-").FullName;
         try
         {
             var day = new DateTimeOffset(2026, 10, 1, 12, 0, 0, TimeSpan.Zero);

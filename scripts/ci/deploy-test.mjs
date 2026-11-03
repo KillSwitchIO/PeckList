@@ -61,7 +61,7 @@ if (match[2] === tag) {
       branch: 'main',
       commit_message:
         `feat(${COMPOSE_SERVICE}): run ${tag} [skip ci]\n\n` +
-        `Punchlist ${CI_COMMIT_TAG ?? 'main'} at ${CI_COMMIT_SHA}, deployed by its pipeline ${CI_PIPELINE_URL ?? ''}.\n` +
+        `PeckList ${CI_COMMIT_TAG ?? 'main'} at ${CI_COMMIT_SHA}, deployed by its pipeline ${CI_PIPELINE_URL ?? ''}.\n` +
         `Was ${match[2]}.`,
       actions: [{ action: 'update', file_path: file, content: updated }],
     }),

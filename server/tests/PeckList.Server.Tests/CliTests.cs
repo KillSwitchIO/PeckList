@@ -6,7 +6,7 @@ namespace PeckList.Server.Tests;
 
 public sealed class CliTests : IDisposable
 {
-    private readonly string folder = Directory.CreateTempSubdirectory("punchlist-cli-").FullName;
+    private readonly string folder = Directory.CreateTempSubdirectory("pecklist-cli-").FullName;
 
     public void Dispose()
     {

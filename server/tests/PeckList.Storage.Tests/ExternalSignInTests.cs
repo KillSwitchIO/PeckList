@@ -45,7 +45,7 @@ public sealed class ExternalSignInTests(SqliteFiles files) : IClassFixture<Sqlit
         Name = "pocket",
         DisplayName = "Pocket ID",
         Authority = new Uri("https://id.example.com"),
-        ClientId = "punchlist",
+        ClientId = "pecklist",
         Scopes = ["openid"],
         AutoCreate = autoCreate,
     };
@@ -65,7 +65,7 @@ public sealed class ExternalSignInTests(SqliteFiles files) : IClassFixture<Sqlit
     [Fact]
     public async Task Required_groups_keep_others_out_without_storing_anything()
     {
-        var provider = Pocket() with { RequiredGroups = ["punchlist", "family"] };
+        var provider = Pocket() with { RequiredGroups = ["pecklist", "family"] };
         Assert.IsType<ExternalSignInResult.NotAllowed>(await signIn.SignInAsync(provider, Kim("gaming"), Token));
         Assert.Equal(0, await accounts.CountAsync(Token));
         Assert.Empty(await identities.ListPendingAsync(Token));
@@ -175,7 +175,7 @@ public sealed class ExternalSignInTests(SqliteFiles files) : IClassFixture<Sqlit
 
         var sam = await accountService.CreateUserAsync("sam", "correct horse battery", cancellation: Token);
         Assert.Equal(LinkResult.Taken, await signIn.LinkAsync(Pocket(), Kim(), sam.Id, Token));
-        var strict = Pocket() with { RequiredGroups = ["punchlist"] };
+        var strict = Pocket() with { RequiredGroups = ["pecklist"] };
         Assert.Equal(LinkResult.NotAllowed, await signIn.LinkAsync(strict, Kim() with { Subject = "other" }, sam.Id, Token));
     }
 

@@ -1,6 +1,6 @@
 // A harness for running the real web client (store, sync engine, HTTP transport) against a real
 // PeckList server from Node, several people at once. Used by *.server.test.ts, which run only
-// when PUNCHLIST_URL (and PUNCHLIST_ADMIN_PASSWORD) name a server to try.
+// when PECKLIST_URL (and PECKLIST_ADMIN_PASSWORD) name a server to try.
 import { expect } from 'vitest';
 import { createAjvValidator } from '../adapters/ajv-validator.ts';
 import { createHttpSync } from '../adapters/http-sync.ts';
@@ -17,8 +17,8 @@ import type { SyncTransport } from '../ports/sync.ts';
 
 // Node's environment, without Node's types in the web project.
 const env = (globalThis as { process?: { env: Record<string, string | undefined> } }).process?.env;
-export const BASE = env?.PUNCHLIST_URL ?? '';
-export const ADMIN_PASSWORD = env?.PUNCHLIST_ADMIN_PASSWORD ?? '';
+export const BASE = env?.PECKLIST_URL ?? '';
+export const ADMIN_PASSWORD = env?.PECKLIST_ADMIN_PASSWORD ?? '';
 export const enabled = BASE !== '' && ADMIN_PASSWORD !== '';
 
 let addresses = 0;

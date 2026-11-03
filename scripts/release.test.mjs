@@ -57,7 +57,7 @@ test('every place that holds the version holds the same one', () => {
 
 /** What scripts/build-version.sh says for a version file and GitLab's variables. */
 function buildVersion(current, env) {
-  const dir = mkdtempSync(join(tmpdir(), 'punchlist-version-'));
+  const dir = mkdtempSync(join(tmpdir(), 'pecklist-version-'));
   const props = join(dir, 'Directory.Build.props');
   writeFileSync(
     props,

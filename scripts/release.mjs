@@ -100,6 +100,6 @@ git('commit', '-m', `chore(release): ${version}`);
 if (noTag) {
   console.log(`Committed ${version}. Push the branch, merge it, then: pnpm release:tag on main.`);
 } else {
-  git('tag', '-a', tag, '-m', `Punchlist ${version}\n\n${notes}`);
+  git('tag', '-a', tag, '-m', `PeckList ${version}\n\n${notes}`);
   console.log(`Tagged ${tag}. Review the commit, then: git push origin main --follow-tags`);
 }

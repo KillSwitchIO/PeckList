@@ -5,8 +5,8 @@
 // sets reminders for the target; the target does nothing but look at the device, and press the
 // buttons on the notifications. Nothing here runs on the device: it drives the server only.
 //
-//   PUNCHLIST_URL=https://tasks.example.com PUNCHLIST_TOKEN_FILE=~/.punchlist-drill.token \
-//   PUNCHLIST_TARGET=ben node scripts/notification-drill.mjs <command>
+//   PECKLIST_URL=https://tasks.example.com PECKLIST_TOKEN_FILE=~/.pecklist-drill.token \
+//   PECKLIST_TARGET=ben node scripts/notification-drill.mjs <command>
 //
 // Commands, in the order a drill usually runs them:
 //   setup                     friends, a group with both, a shared list   -> "shared"
@@ -22,7 +22,7 @@
 //   cleanup                   delete everything the drill made (the group and friendship too)
 //
 // The bot's key needs tasks:write, notifications and admin (an admin account). The state between
-// commands (ids, the sync cursor) sits in PUNCHLIST_DRILL_STATE (default .notification-drill.json).
+// commands (ids, the sync cursor) sits in PECKLIST_DRILL_STATE (default .notification-drill.json).
 
 import { readFileSync, writeFileSync, existsSync } from 'node:fs';
 import { randomBytes } from 'node:crypto';
@@ -314,12 +314,10 @@ async function people(server, targetName) {
   if (!target) throw new Error(`no account named "${targetName}"`);
   // The key's owner: the one account whose keys list is readable is ours, but simpler, the server
   // tells us through /auth/me only with a session; so the bot names itself.
-  const botName = env('PUNCHLIST_BOT', 'pl-notify-bot');
+  const botName = env('PECKLIST_BOT', 'pl-notify-bot');
   const bot = users.find((user) => user.username === botName);
   if (!bot)
-    throw new Error(
-      `no account named "${botName}" (set PUNCHLIST_BOT to the key owner's username)`,
-    );
+    throw new Error(`no account named "${botName}" (set PECKLIST_BOT to the key owner's username)`);
   return { target, bot };
 }
 
@@ -335,12 +333,12 @@ async function main() {
     );
     return;
   }
-  const url = env('PUNCHLIST_URL');
+  const url = env('PECKLIST_URL');
   const token =
-    process.env.PUNCHLIST_TOKEN ?? readFileSync(env('PUNCHLIST_TOKEN_FILE'), 'utf8').trim();
-  const targetName = env('PUNCHLIST_TARGET');
-  const zone = env('PUNCHLIST_ZONE', 'America/Chicago');
-  const statePath = env('PUNCHLIST_DRILL_STATE', '.notification-drill.json');
+    process.env.PECKLIST_TOKEN ?? readFileSync(env('PECKLIST_TOKEN_FILE'), 'utf8').trim();
+  const targetName = env('PECKLIST_TARGET');
+  const zone = env('PECKLIST_ZONE', 'America/Chicago');
+  const statePath = env('PECKLIST_DRILL_STATE', '.notification-drill.json');
   const state = loadState(statePath);
   const server = new Server(url, token);
   const { target, bot } = await people(server, targetName);

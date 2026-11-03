@@ -19,7 +19,7 @@ Server (`server/`, .NET 10 SDK from `mise.toml`; in Git Bash put the mise dotnet
 
 ```bash
 cd server && dotnet test     # xUnit v3 on Microsoft.Testing.Platform (opted in via global.json)
-docker build -t punchlist:dev .   # repo root; chiseled, non-root (uid 1654), /data volume
+docker build -t pecklist:dev .   # repo root; chiseled, non-root (uid 1654), /data volume
 ```
 
 If a test run fails with "An Application Control policy has blocked this file", Windows Smart App Control refused the freshly built test .exe (xUnit v3 needs one); it is intermittent, so rerun.
@@ -38,5 +38,5 @@ Vite's native file watcher on Windows missed edits (git branch switches, scripte
 - Trunk-based: short branches, squash merges, Conventional Commits with `Refs: PL-xxx`. Local commits only; never push unless Ben asks.
 - All user-facing strings go through `t()` in `web/src/app/i18n`.
 - Never use em dashes in docs or UI copy.
-- Icons: Punchlist's own SVG icons live in `web/src/app/icons/icons.tsx` (24 x 24 grid, 1.75 round strokes, no fills, `currentColor`). Ben wants our own icons for a consistent theme: draw new ones there in that style rather than reaching for a Material icon, and replace Material icons with ours as screens get reworked.
+- Icons: PeckList's own SVG icons live in `web/src/app/icons/icons.tsx` (24 x 24 grid, 1.75 round strokes, no fills, `currentColor`). Ben wants our own icons for a consistent theme: draw new ones there in that style rather than reaching for a Material icon, and replace Material icons with ours as screens get reworked.
 - Do not assume Ben's homelab: the app is self-hosted by others with any OIDC provider, proxy and database.

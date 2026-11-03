@@ -9,7 +9,7 @@ namespace PeckList.Server.Tests;
 /// <summary>Hosts the server against a throwaway web build.</summary>
 public sealed class ServerFixture : IDisposable
 {
-    public string WebRoot { get; } = Directory.CreateTempSubdirectory("punchlist-web-").FullName;
+    public string WebRoot { get; } = Directory.CreateTempSubdirectory("pecklist-web-").FullName;
 
     public ServerFixture()
     {

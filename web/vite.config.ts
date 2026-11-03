@@ -10,9 +10,9 @@ import { precompress } from './precompress.ts';
 
 // The version the app shows under its menu: what a release or CI build stamps (the Dockerfile's
 // VERSION), else package.json's. A plain dev stamp falls back too.
-const stamped = process.env.PUNCHLIST_VERSION;
+const stamped = process.env.PECKLIST_VERSION;
 const version = stamped && !stamped.startsWith('0.0.0') ? stamped : pkg.version;
-const revision = (process.env.PUNCHLIST_REVISION ?? '').slice(0, 7);
+const revision = (process.env.PECKLIST_REVISION ?? '').slice(0, 7);
 
 export default defineConfig({
   define: {
@@ -26,13 +26,13 @@ export default defineConfig({
     // Native file events on Windows miss edits (branch switches, scripted edits, the pre-commit
     // hook rewriting files), leaving the browser on stale modules. Polling is reliable there.
     ...(process.platform === 'win32' ? { watch: { usePolling: true, interval: 300 } } : {}),
-    // `PUNCHLIST_SERVER=http://localhost:5000 pnpm dev` talks to a running server; without it the
+    // `PECKLIST_SERVER=http://localhost:5000 pnpm dev` talks to a running server; without it the
     // app runs standalone, as a static PWA does.
-    ...(process.env.PUNCHLIST_SERVER
+    ...(process.env.PECKLIST_SERVER
       ? {
           proxy: {
-            '/api': { target: process.env.PUNCHLIST_SERVER, changeOrigin: true },
-            '/auth': { target: process.env.PUNCHLIST_SERVER, changeOrigin: true },
+            '/api': { target: process.env.PECKLIST_SERVER, changeOrigin: true },
+            '/auth': { target: process.env.PECKLIST_SERVER, changeOrigin: true },
           },
         }
       : {}),

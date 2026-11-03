@@ -77,10 +77,10 @@ public sealed class DemoModeSettingsTests
         var settings = Read(new()
         {
             ["DEMO_MODE"] = "on",
-            ["DEMO_ACCOUNTS"] = "Demo-Sam:try-punchlist-sam, demo-alex:try-punchlist-alex",
+            ["DEMO_ACCOUNTS"] = "Demo-Sam:try-pecklist-sam, demo-alex:try-pecklist-alex",
             ["DEMO_RESET_TIME"] = "03:30",
         });
-        Assert.Equal([new DemoAccount("demo-sam", "try-punchlist-sam"), new DemoAccount("demo-alex", "try-punchlist-alex")], settings.DemoAccounts);
+        Assert.Equal([new DemoAccount("demo-sam", "try-pecklist-sam"), new DemoAccount("demo-alex", "try-pecklist-alex")], settings.DemoAccounts);
         Assert.Equal("03:30", settings.DemoResetTime);
         Assert.Equal("04:00", Read(new() { ["DEMO_MODE"] = "on" }).DemoResetTime);
         Assert.Equal(1440, Read(new() { ["DEMO_MODE"] = "on" }).DemoResetEvery);

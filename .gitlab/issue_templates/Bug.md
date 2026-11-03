@@ -10,7 +10,7 @@
 
 ## Environment
 
-- Punchlist version (`punchlist --version`, or `/api/info`):
+- PeckList version (`pecklist --version`, or `/api/info`):
 - Installed with: Docker / Compose / Linux / Windows / from source
 - Database: SQLite / PostgreSQL
 - Browser and device:
@@ -18,7 +18,7 @@
 
 ## Logs
 
-<!-- Attach a debug dump (Admin > Logs > Download debug dump, or `punchlist debug-dump`). It holds
+<!-- Attach a debug dump (Admin > Logs > Download debug dump, or `pecklist debug-dump`). It holds
 no task content, passwords or keys. Or paste the relevant log lines. -->
 
 /label ~bug

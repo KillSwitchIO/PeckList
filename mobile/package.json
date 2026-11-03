@@ -1,12 +1,12 @@
 {
-  "name": "@punchlist/mobile",
+  "name": "@pecklist/mobile",
   "private": true,
   "license": "AGPL-3.0-or-later",
   "version": "0.1.0",
   "type": "module",
-  "description": "Android shell around the Punchlist web app (Capacitor)",
+  "description": "Android shell around the PeckList web app (Capacitor)",
   "scripts": {
-    "build:web": "pnpm --filter @punchlist/web build",
+    "build:web": "pnpm --filter @pecklist/web build",
     "sync": "cap sync android",
     "apk": "pnpm build:web && cap sync android && node scripts/gradle.mjs assembleDebug",
     "test:android": "node scripts/gradle.mjs testDebugUnitTest",

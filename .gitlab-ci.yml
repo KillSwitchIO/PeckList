@@ -1,4 +1,4 @@
-# Punchlist CI/CD
+# PeckList CI/CD
 #
 #   merge requests   check, test (web, server, e2e), image build (amd64, not pushed), docs build,
 #                    then approval: red until APPROVERS approve the merge request
@@ -170,7 +170,7 @@ web-test:
     max: 1
     when: script_failure
   script:
-    - pnpm --filter @punchlist/web exec vitest run --coverage
+    - pnpm --filter @pecklist/web exec vitest run --coverage
       --reporter=default --reporter=junit --outputFile.junit=junit.xml
       --coverage.reporter=text-summary --coverage.reporter=cobertura
   coverage: '/^Lines\s*:\s*(\d+(?:\.\d+)?)%/'
@@ -203,7 +203,7 @@ server-test:
   variables:
     POSTGRES_USER: postgres
     POSTGRES_PASSWORD: postgres-ci-only
-    PUNCHLIST_TEST_POSTGRES: Host=postgres;Username=postgres;Password=postgres-ci-only;Database=postgres
+    PECKLIST_TEST_POSTGRES: Host=postgres;Username=postgres;Password=postgres-ci-only;Database=postgres
   script:
     - cd server
     - dotnet test --configuration Release
@@ -275,7 +275,7 @@ container-image:
     ATTEST: --sbom=true --provenance=mode=min
   before_script:
     - echo "$CI_REGISTRY_PASSWORD" | docker login "$CI_REGISTRY" -u "$CI_REGISTRY_USER" --password-stdin
-    - docker buildx create --name punchlist-ci --driver docker-container --use 2>/dev/null || docker buildx use punchlist-ci
+    - docker buildx create --name pecklist-ci --driver docker-container --use 2>/dev/null || docker buildx use pecklist-ci
   script:
     - |
       set -eu
@@ -360,7 +360,7 @@ web-build:
   timeout: 15m
   resource_group: heavy-build
   script:
-    - export PUNCHLIST_VERSION="$(sh scripts/build-version.sh)" PUNCHLIST_REVISION="$CI_COMMIT_SHA"
+    - export PECKLIST_VERSION="$(sh scripts/build-version.sh)" PECKLIST_REVISION="$CI_COMMIT_SHA"
     - pnpm build
   artifacts:
     paths: [web/dist]
@@ -395,8 +395,8 @@ android-apk:
     - job: ci-images
       optional: true
   script:
-    - pnpm --filter @punchlist/mobile apk
-    - pnpm --filter @punchlist/mobile test:android
+    - pnpm --filter @pecklist/mobile apk
+    - pnpm --filter @pecklist/mobile test:android
   artifacts:
     paths: [mobile/android/app/build/outputs/apk/debug/app-debug.apk]
     expire_in: 30 days
@@ -433,7 +433,7 @@ android-release:
         case "$SHA" in *[!0-9]*) ;; *) SHA="g$SHA" ;; esac
         VERSION="$(sed -n 's:.*<Version>\(.*\)</Version>.*:\1:p' server/Directory.Build.props)-edge.$SHA"
       fi
-      export PUNCHLIST_VERSION="$VERSION" PUNCHLIST_VERSION_CODE="$CI_PIPELINE_IID" PUNCHLIST_REVISION="$CI_COMMIT_SHA"
+      export PECKLIST_VERSION="$VERSION" PECKLIST_VERSION_CODE="$CI_PIPELINE_IID" PECKLIST_REVISION="$CI_COMMIT_SHA"
       export ANDROID_KEYSTORE_FILE="$CI_PROJECT_DIR/release-key.p12"
       echo "$ANDROID_KEYSTORE_BASE64" | base64 -d > "$ANDROID_KEYSTORE_FILE"
       # web/dist comes from web-build.
@@ -445,7 +445,7 @@ android-release:
       "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --print-certs "$APK" | grep -E 'DN|SHA-256'
       mkdir -p dist-android
       cp "$APK" dist-android/pecklist-android.apk
-      echo "Built pecklist-android.apk $VERSION (code $PUNCHLIST_VERSION_CODE)"
+      echo "Built pecklist-android.apk $VERSION (code $PECKLIST_VERSION_CODE)"
   after_script:
     - rm -f "$CI_PROJECT_DIR/release-key.p12"
   artifacts:
@@ -498,14 +498,14 @@ e2e-server:
     when: script_failure
   services:
     - name: $IMAGE:sha-$CI_COMMIT_SHORT_SHA
-      alias: punchlist
+      alias: pecklist
   variables:
     # Services get the job's variables: this is the test server's admin password, nothing real.
     ADMIN_PASSWORD: e2e-admin-password-ci
     # A CI server is not an install: it sends no usage report.
     TELEMETRY: 'false'
     E2E_ADMIN_PASSWORD: e2e-admin-password-ci
-    E2E_BASE_URL: http://punchlist:8080
+    E2E_BASE_URL: http://pecklist:8080
     E2E_BROWSERS: chrome
   script:
     - pnpm e2e:server

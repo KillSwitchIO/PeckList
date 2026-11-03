@@ -67,7 +67,7 @@ public abstract class IdentityStoreContract : IAsyncLifetime
             Username = "kim",
             DisplayName = "Kim Lee",
             Email = "kim@example.com",
-            Groups = ["family", "punchlist"],
+            Groups = ["family", "pecklist"],
             FirstSeen = Monday,
             LastSeen = Monday,
         };

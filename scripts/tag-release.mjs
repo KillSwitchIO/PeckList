@@ -52,5 +52,5 @@ if (dryRun) {
   console.log(`Would tag ${git('rev-parse', '--short', 'HEAD')} as ${tag}:\n\n${notes}`);
   process.exit(0);
 }
-git('tag', '-a', tag, '-m', `Punchlist ${version}\n\n${notes}`);
+git('tag', '-a', tag, '-m', `PeckList ${version}\n\n${notes}`);
 console.log(`Tagged ${tag}. Then: git push origin ${tag}`);

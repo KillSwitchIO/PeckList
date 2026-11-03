@@ -1,7 +1,7 @@
 // Keeps the docs in step with the server:
 //   - every setting in SettingsCatalog.cs is described in docs/configuration/reference.md
 //   - every command in the CLI's usage text has a section in docs/reference/cli.md
-//   - docs/reference/cli-usage.txt is exactly the usage text `punchlist help` prints
+//   - docs/reference/cli-usage.txt is exactly the usage text `pecklist help` prints
 //   node scripts/check-docs.mjs           check (CI)
 //   node scripts/check-docs.mjs --write   refresh cli-usage.txt after changing the CLI
 

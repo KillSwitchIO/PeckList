@@ -63,8 +63,8 @@ if (outFlag >= 0) {
   // Everything but the git folder goes: pages that left the docs leave the wiki.
   for (const name of readdirSync(dir))
     if (name !== '.git') rmSync(join(dir, name), { recursive: true });
-  git(dir, 'config', 'user.name', 'Punchlist CI');
-  git(dir, 'config', 'user.email', 'ci@punchlist.invalid');
+  git(dir, 'config', 'user.name', 'PeckList CI');
+  git(dir, 'config', 'user.email', 'ci@pecklist.invalid');
   process.on('exit', () => rmSync(dir, { recursive: true, force: true }));
 }
 

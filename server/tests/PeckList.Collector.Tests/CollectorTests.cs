@@ -10,12 +10,12 @@ using Testcontainers.PostgreSql;
 namespace PeckList.Collector.Tests;
 
 /// <summary>
-/// A PostgreSQL server for the tests: the one PUNCHLIST_TEST_POSTGRES names (CI's service), else a
+/// A PostgreSQL server for the tests: the one PECKLIST_TEST_POSTGRES names (CI's service), else a
 /// container of its own (Testcontainers; needs Docker).
 /// </summary>
 public sealed class PostgresServer : IAsyncLifetime
 {
-    private static readonly string? Given = Environment.GetEnvironmentVariable("PUNCHLIST_TEST_POSTGRES");
+    private static readonly string? Given = Environment.GetEnvironmentVariable("PECKLIST_TEST_POSTGRES");
     private readonly PostgreSqlContainer? container = string.IsNullOrEmpty(Given) ? new PostgreSqlBuilder("postgres:15-alpine").Build() : null;
 
     public async ValueTask InitializeAsync()
