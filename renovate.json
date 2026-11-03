@@ -1,6 +1,6 @@
 {
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
-  "description": "Punchlist's dependency updates. Renovate runs weekly from homelab-killswitch/renovate-runner. Patches and minors merge themselves once the merge request's pipeline passes; majors wait for a person.",
+  "description": "PeckList's dependency updates. Renovate runs weekly from homelab-killswitch/renovate-runner. Patches and minors merge themselves once the merge request's pipeline passes; majors wait for a person.",
   "extends": ["config:recommended", ":semanticCommits", ":semanticCommitTypeAll(chore)"],
   "labels": ["renovate"],
   "rangeStrategy": "pin",

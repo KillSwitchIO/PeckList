@@ -14,7 +14,7 @@ const resolved = `\0${id}`;
  */
 export function workspaceValidator(schemaPath: string): Plugin {
   return {
-    name: 'punchlist-workspace-validator',
+    name: 'pecklist-workspace-validator',
     resolveId: (source) => (source === id ? resolved : undefined),
     load(loading) {
       if (loading !== resolved) return undefined;

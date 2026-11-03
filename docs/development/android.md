@@ -114,7 +114,7 @@ You need JDK 21 and the Android SDK (platform 36, build tools 36). Point `ANDROI
 
 ```bash
 pnpm install
-pnpm --filter @punchlist/mobile apk
+pnpm --filter @pecklist/mobile apk
 ```
 
 That builds the web app, copies it into the Android project (`cap sync`) and builds
@@ -146,12 +146,12 @@ A PKCS12 keystore has one password for the store and the key.
 
 `mobile/android/app/build.gradle` signs a release build when `ANDROID_KEYSTORE_FILE` is set, with
 `ANDROID_KEYSTORE_PASSWORD` and `ANDROID_KEY_ALIAS` (and `ANDROID_KEY_PASSWORD` if it ever differs).
-`PUNCHLIST_VERSION` sets the version name and `PUNCHLIST_VERSION_CODE` the version code; CI uses
+`PECKLIST_VERSION` sets the version name and `PECKLIST_VERSION_CODE` the version code; CI uses
 the pipeline number, which only grows. A signed build by hand:
 
 ```bash
 export ANDROID_KEYSTORE_FILE=/path/to/pecklist-release.p12 ANDROID_KEYSTORE_PASSWORD=...
-PUNCHLIST_VERSION=0.2.0 PUNCHLIST_VERSION_CODE=1000 pnpm --filter @punchlist/mobile exec node scripts/gradle.mjs assembleRelease
+PECKLIST_VERSION=0.2.0 PECKLIST_VERSION_CODE=1000 pnpm --filter @pecklist/mobile exec node scripts/gradle.mjs assembleRelease
 apksigner verify --print-certs mobile/android/app/build/outputs/apk/release/app-release.apk
 ```
 
@@ -182,13 +182,13 @@ watches the device and presses the buttons on the notifications; `status` then s
 presses did on the server, and `cleanup` deletes everything the drill made.
 
 ```bash
-PUNCHLIST_URL=https://tasks.example.com PUNCHLIST_TOKEN_FILE=~/.pecklist-drill.token PUNCHLIST_TARGET=ben node scripts/notification-drill.mjs setup
+PECKLIST_URL=https://tasks.example.com PECKLIST_TOKEN_FILE=~/.pecklist-drill.token PECKLIST_TARGET=ben node scripts/notification-drill.mjs setup
 node scripts/notification-drill.mjs reminder 7          # reminds in 7 minutes
 node scripts/notification-drill.mjs reminder 7 --constant
 node scripts/notification-drill.mjs --help
 ```
 
-`PUNCHLIST_ZONE` (default `America/Chicago`) must be the person's time zone, since reminders are
+`PECKLIST_ZONE` (default `America/Chicago`) must be the person's time zone, since reminders are
 local times. The Android app learns of a reminder at its next check-in, so leave more than the
 check-in interval before the time; a browser with push on gets it from the server at the time.
 Every entity the drill pushes is checked against `schema/workspace.schema.json` first, because a

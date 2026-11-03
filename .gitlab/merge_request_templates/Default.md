@@ -1,6 +1,6 @@
 ## What and why
 
-<!-- What changes for people using or running Punchlist, and why. Link the issue: Closes #123 -->
+<!-- What changes for people using or running PeckList, and why. Link the issue: Closes #123 -->
 
 ## How it was tested
 

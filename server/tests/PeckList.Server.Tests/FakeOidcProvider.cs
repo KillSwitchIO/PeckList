@@ -15,7 +15,7 @@ namespace PeckList.Server.Tests;
 public sealed class FakeOidcProvider : HttpMessageHandler
 {
     public const string Authority = "https://id.test";
-    public const string ClientId = "punchlist";
+    public const string ClientId = "pecklist";
 
     private readonly RsaSecurityKey key = new(RSA.Create(2048)) { KeyId = "test-key" };
     private readonly Dictionary<string, (Dictionary<string, object> Claims, string Nonce)> codes = [];

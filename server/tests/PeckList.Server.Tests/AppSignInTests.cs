@@ -17,7 +17,7 @@ namespace PeckList.Server.Tests;
 /// </summary>
 public sealed class AppSignInTests(ServerFixture fixture) : IClassFixture<ServerFixture>
 {
-    private const string Scheme = "com.example.punchlist";
+    private const string Scheme = "com.example.pecklist";
 
     private static CancellationToken Token => TestContext.Current.CancellationToken;
 

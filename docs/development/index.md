@@ -20,7 +20,7 @@ the house style, the checks and the shared pieces to reach for are in [Coding st
 
 Node.js 24 with pnpm, and the .NET 10 SDK. [mise](https://mise.jdx.dev/) installs both from
 `mise.toml`: `mise install`. Docker for the PostgreSQL tests and the image (or set
-`PUNCHLIST_TEST_POSTGRES` to a connection string for a PostgreSQL server the tests may create
+`PECKLIST_TEST_POSTGRES` to a connection string for a PostgreSQL server the tests may create
 databases on). Chrome and Firefox for end-to-end tests.
 
 ```bash
@@ -39,10 +39,10 @@ pnpm build && pnpm e2e # end-to-end, against a production build
 E2E_BASE_URL=http://localhost:6183 E2E_ADMIN_PASSWORD=... pnpm e2e:server
 # the web client's own code (store, sync engine, HTTP) as several people against a real server:
 # friends, groups, sharing, hand-over, account removal, refusals, concurrent edits
-PUNCHLIST_URL=http://localhost:6183 PUNCHLIST_ADMIN_PASSWORD=... pnpm --filter @punchlist/web exec vitest run src/integration
+PECKLIST_URL=http://localhost:6183 PECKLIST_ADMIN_PASSWORD=... pnpm --filter @pecklist/web exec vitest run src/integration
 ```
 
-The `src/integration` tests are skipped unless `PUNCHLIST_URL` is set. Run them against a fresh
+The `src/integration` tests are skipped unless `PECKLIST_URL` is set. Run them against a fresh
 server: each run adds accounts.
 
 ### Staying quick with thousands of tasks

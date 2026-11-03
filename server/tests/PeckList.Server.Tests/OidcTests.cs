@@ -97,7 +97,7 @@ public sealed class OidcTests(ServerFixture fixture) : IClassFixture<ServerFixtu
         Assert.Equal(HttpStatusCode.Forbidden,
             (await kim.PostAsJsonAsync("/auth/password", new { current = "x", next = "a brand new password" }, Token)).StatusCode);
 
-        // The way back in for an admin: a one-time sign-in link (punchlist admin login-link).
+        // The way back in for an admin: a one-time sign-in link (pecklist admin login-link).
         var tab = Browser(server);
         Assert.Equal(HttpStatusCode.Redirect, (await tab.GetAsync(new Uri(link.Url).PathAndQuery, Token)).StatusCode);
         var me = await tab.GetFromJsonAsync<Me>("/auth/me", Token);
@@ -125,12 +125,12 @@ public sealed class OidcTests(ServerFixture fixture) : IClassFixture<ServerFixtu
     [Fact]
     public async Task Only_the_required_groups_get_in()
     {
-        using var server = Server(("OIDC_FAKE_AUTO_CREATE", "true"), ("OIDC_FAKE_REQUIRED_GROUPS", "punchlist"));
+        using var server = Server(("OIDC_FAKE_AUTO_CREATE", "true"), ("OIDC_FAKE_REQUIRED_GROUPS", "pecklist"));
         var browser = Browser(server);
         Assert.Equal("/login?error=oidc_not_allowed", await SignIn(browser, Kim("family")));
         Assert.Equal(HttpStatusCode.Unauthorized, (await browser.GetAsync("/auth/me", Token)).StatusCode);
 
-        Assert.Equal("/", await SignIn(browser, Kim("family", "punchlist")));
+        Assert.Equal("/", await SignIn(browser, Kim("family", "pecklist")));
         Assert.Equal(HttpStatusCode.OK, (await browser.GetAsync("/auth/me", Token)).StatusCode);
     }
 

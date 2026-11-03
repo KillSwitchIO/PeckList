@@ -2,7 +2,7 @@
 //
 //   node scripts/demo-seed.mts <file> [--today YYYY-MM-DD]
 //
-// Dates are laid out around --today (default: today, UTC). `punchlist import --shift-dates` moves
+// Dates are laid out around --today (default: today, UTC). `pecklist import --shift-dates` moves
 // them on to the day of the import, so the seed made with the image stays current every night.
 // Accounts come without passwords: DEMO_ACCOUNTS gives them theirs when the server starts.
 import { writeFileSync } from 'node:fs';

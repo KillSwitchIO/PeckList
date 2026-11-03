@@ -14,7 +14,7 @@ const COMPRESSIBLE = /\.(js|mjs|css|html|svg|json|webmanifest|txt)$/;
 export function precompress(): Plugin {
   let outDir = 'dist';
   return {
-    name: 'punchlist-precompress',
+    name: 'pecklist-precompress',
     apply: 'build',
     configResolved(config) {
       outDir = config.build.outDir;

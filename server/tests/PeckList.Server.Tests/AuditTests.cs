@@ -178,7 +178,7 @@ public sealed class AuditTests(ServerFixture fixture) : IClassFixture<ServerFixt
     [Fact]
     public async Task Old_entries_are_pruned_and_archived_first_when_asked()
     {
-        var dir = Directory.CreateTempSubdirectory("punchlist-audit-").FullName;
+        var dir = Directory.CreateTempSubdirectory("pecklist-audit-").FullName;
         try
         {
             var database = new SqliteDatabase(Path.Combine(dir, "audit.db"));

@@ -15,7 +15,7 @@ namespace PeckList.Server.Tests;
 public sealed class DemoModeTests(ServerFixture fixture) : IClassFixture<ServerFixture>
 {
     private const string AdminPassword = "correct horse battery";
-    private const string SamPassword = "try-punchlist-sam";
+    private const string SamPassword = "try-pecklist-sam";
     private const string Password = "a long enough password";
 
     private static CancellationToken Token => TestContext.Current.CancellationToken;
@@ -24,7 +24,7 @@ public sealed class DemoModeTests(ServerFixture fixture) : IClassFixture<ServerF
         fixture.Factory([
             ("ADMIN_PASSWORD", AdminPassword),
             ("DEMO_MODE", "true"),
-            ("DEMO_ACCOUNTS", $"demo-sam:{SamPassword},demo-alex:try-punchlist-alex"),
+            ("DEMO_ACCOUNTS", $"demo-sam:{SamPassword},demo-alex:try-pecklist-alex"),
             .. more,
         ]);
 
@@ -43,7 +43,7 @@ public sealed class DemoModeTests(ServerFixture fixture) : IClassFixture<ServerF
         using var server = Demo(("DEMO_RESET_TIME", "03:30"), ("DEMO_RESET_EVERY", "60"));
         var info = await server.CreateClient().GetFromJsonAsync<ServerInfo>("/api/info", Token);
         Assert.Equal(("03:30", 60), (info!.Demo!.ResetTime, info.Demo.ResetEveryMinutes));
-        Assert.Equal([new DemoLogin("demo-sam", SamPassword), new DemoLogin("demo-alex", "try-punchlist-alex")], info.Demo.Accounts);
+        Assert.Equal([new DemoLogin("demo-sam", SamPassword), new DemoLogin("demo-alex", "try-pecklist-alex")], info.Demo.Accounts);
 
         using var ordinary = Ordinary();
         Assert.Null((await ordinary.CreateClient().GetFromJsonAsync<ServerInfo>("/api/info", Token))!.Demo);
@@ -203,7 +203,7 @@ public sealed class DemoModeTests(ServerFixture fixture) : IClassFixture<ServerF
     [Fact]
     public async Task The_seed_import_moves_its_dates_to_today()
     {
-        var folder = Directory.CreateTempSubdirectory("punchlist-seed-").FullName;
+        var folder = Directory.CreateTempSubdirectory("pecklist-seed-").FullName;
         try
         {
             var exported = DateTimeOffset.UtcNow.Date.AddDays(-10);

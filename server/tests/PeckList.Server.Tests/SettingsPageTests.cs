@@ -80,7 +80,7 @@ public sealed class SettingsPageTests(ServerFixture fixture) : IClassFixture<Ser
                 {
                     ["OIDC_PROVIDERS"] = "pocket",
                     ["OIDC_POCKET_AUTHORITY"] = "https://id.example.com",
-                    ["OIDC_POCKET_CLIENT_ID"] = "punchlist",
+                    ["OIDC_POCKET_CLIENT_ID"] = "pecklist",
                     ["OIDC_POCKET_CLIENT_SECRET"] = "very secret",
                 },
             }, Token);
@@ -165,7 +165,7 @@ public sealed class SettingsPageTests(ServerFixture fixture) : IClassFixture<Ser
                 ["PUBLIC_URL"] = "https://tasks.example.com",
                 ["OIDC_PROVIDERS"] = "pocket",
                 ["OIDC_POCKET_AUTHORITY"] = "https://id.example.com",
-                ["OIDC_POCKET_CLIENT_ID"] = "punchlist",
+                ["OIDC_POCKET_CLIENT_ID"] = "pecklist",
                 ["OIDC_POCKET_CLIENT_SECRET"] = "wizard-secret-31f",
                 ["OIDC_POCKET_DISPLAY_NAME"] = "Pocket ID",
                 ["OIDC_POCKET_AUTO_CREATE"] = "true",

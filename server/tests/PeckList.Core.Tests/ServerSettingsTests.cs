@@ -147,11 +147,11 @@ public sealed class ServerSettingsTests
         {
             ["OIDC_PROVIDERS"] = "pocket, Home-SSO",
             ["OIDC_POCKET_AUTHORITY"] = "https://id.example.com/",
-            ["OIDC_POCKET_CLIENT_ID"] = "punchlist",
+            ["OIDC_POCKET_CLIENT_ID"] = "pecklist",
             ["OIDC_POCKET_CLIENT_SECRET"] = "s3cret",
-            ["OIDC_POCKET_REQUIRED_GROUPS"] = "punchlist, family",
+            ["OIDC_POCKET_REQUIRED_GROUPS"] = "pecklist, family",
             ["OIDC_POCKET_AUTO_CREATE"] = "yes",
-            ["OIDC_POCKET_ROLE_MAP"] = "punchlist-admins=admin, owners=super-admin",
+            ["OIDC_POCKET_ROLE_MAP"] = "pecklist-admins=admin, owners=super-admin",
             ["OIDC_POCKET_GROUP_MAP"] = "family=Family",
             ["OIDC_POCKET_SESSION_HOURS"] = "0",
             ["OIDC_HOME_SSO_AUTHORITY"] = "http://keycloak:8080/realms/home",
@@ -165,9 +165,9 @@ public sealed class ServerSettingsTests
         var pocket = settings.OidcProviders[0];
         Assert.Equal(("pocket", "Pocket", "https://id.example.com/"), (pocket.Name, pocket.DisplayName, pocket.Authority.ToString()));
         Assert.Equal("s3cret", pocket.ClientSecret);
-        Assert.Equal(["punchlist", "family"], pocket.RequiredGroups);
+        Assert.Equal(["pecklist", "family"], pocket.RequiredGroups);
         Assert.True(pocket.AutoCreate);
-        Assert.Equal(Role.Admin, pocket.RoleMap["PUNCHLIST-ADMINS"]);
+        Assert.Equal(Role.Admin, pocket.RoleMap["PECKLIST-ADMINS"]);
         Assert.Equal(Role.SuperAdmin, pocket.RoleMap["owners"]);
         Assert.Equal("Family", pocket.GroupMap["family"]);
         Assert.Equal(["openid", "profile", "email", "groups"], pocket.Scopes);
@@ -275,7 +275,7 @@ public sealed class ServerSettingsTests
             ["AUTH_MODE"] = "none",
             ["OIDC_PROVIDERS"] = "pocket",
             ["OIDC_POCKET_AUTHORITY"] = "https://id.example.com",
-            ["OIDC_POCKET_CLIENT_ID"] = "punchlist",
+            ["OIDC_POCKET_CLIENT_ID"] = "pecklist",
         }));
         Assert.Contains("OIDC_PROVIDERS needs AUTH_MODE=local", error.Message);
         Assert.Contains("LOCAL_LOGIN=disabled needs an OIDC provider",
@@ -295,7 +295,7 @@ public sealed class ServerSettingsTests
         {
             ["OIDC_PROVIDERS"] = "pocket",
             ["OIDC_POCKET_AUTHORITY"] = "https://id.example.com",
-            ["OIDC_POCKET_CLIENT_ID"] = "punchlist",
+            ["OIDC_POCKET_CLIENT_ID"] = "pecklist",
         };
         if (value is not null) env["LOCAL_LOGIN"] = value;
         var settings = Read(env);
@@ -343,7 +343,7 @@ public sealed class ServerSettingsTests
             ["LOG_LOKI_URL"] = "loki:3100",
             ["LOG_GELF_ADDRESS"] = "graylog",
             ["LOG_SYSLOG_ADDRESS"] = "http://rsyslog",
-            ["LOG_ELASTIC_INDEX"] = "Logs Punchlist",
+            ["LOG_ELASTIC_INDEX"] = "Logs PeckList",
             ["LOG_FILE_KEEP_DAYS"] = "0",
         }));
         foreach (var name in new[] { "LOG_LEVEL_OVERRIDES", "LOG_FORMAT", "LOG_LOKI_URL", "LOG_GELF_ADDRESS", "LOG_SYSLOG_ADDRESS", "LOG_ELASTIC_INDEX", "LOG_FILE_KEEP_DAYS" })

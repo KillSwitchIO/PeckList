@@ -1,6 +1,6 @@
 // @vitest-environment node
 // Three people on a real server: friends, a group, a shared list, a group chore. Runs only when
-// PUNCHLIST_URL and PUNCHLIST_ADMIN_PASSWORD name a server (see harness.ts).
+// PECKLIST_URL and PECKLIST_ADMIN_PASSWORD name a server (see harness.ts).
 import { describe, expect, it } from 'vitest';
 import { addAttachment, attachmentsOf } from '../core/attachments.ts';
 import { addComment, commentsOf } from '../core/comments.ts';

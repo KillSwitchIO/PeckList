@@ -19,12 +19,12 @@ RUN corepack enable
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY web/package.json web/
 COPY e2e/package.json e2e/
-RUN pnpm install --frozen-lockfile --filter "@punchlist/web..."
+RUN pnpm install --frozen-lockfile --filter "@pecklist/web..."
 COPY schema schema
 COPY web web
 ARG VERSION
 ARG REVISION
-RUN PUNCHLIST_VERSION="$VERSION" PUNCHLIST_REVISION="$REVISION" pnpm --filter @punchlist/web build
+RUN PECKLIST_VERSION="$VERSION" PECKLIST_REVISION="$REVISION" pnpm --filter @pecklist/web build
 # The demo server's seed (PL-117), made by this version's own code so its schema always matches.
 # A fixed day keeps the build reproducible; `pecklist import --shift-dates` moves it to today.
 COPY scripts/demo-seed.mts scripts/
