@@ -1,8 +1,41 @@
 # Changelog
 
-All notable changes to Punchlist. Generated from [Conventional Commits](https://www.conventionalcommits.org/)
+All notable changes to PeckList. Generated from [Conventional Commits](https://www.conventionalcommits.org/)
 by `pnpm changelog`; the version follows [Semantic Versioning](https://semver.org/). Before 1.0.0 a
 minor release may break things; every break is listed under **Breaking changes** with what to do.
+
+## [0.6.0] - 2026-11-03
+
+### Breaking changes
+
+- Punchlist is now PeckList. The image is `registry.gitlab.com/killswitch10/pecklist` (the project moved, and the old image path gets no new versions): change `image:` in your compose file or `docker run`. The command is `pecklist` (the image keeps `punchlist` as another name for it), a new install uses `pecklist.db` and `/etc/pecklist/pecklist.conf`, and a server that finds `punchlist.db` keeps using it. The Linux and Windows installers move an existing Punchlist install over.
+- Everyone signs in once more after upgrading: the session cookie has the new name.
+- Android: PeckList is a new app (`com.killswitch10.pecklist`) that installs beside Punchlist. Install it, connect and sign in, then remove the old one (and its Obtainium entry). The Punchlist app keeps connecting to a 0.6.0 server in the meantime.
+
+### Added
+
+- **demo:** Reset on any schedule, hourly or nightly
+- **mail:** The server sends email over SMTP, with a test button
+- **ci:** Each release goes to the public demo
+- **auth:** A Google sign-in preset with Google's own button
+- **telemetry:** Totals private, reports to telemetry.pecklist.com
+- The app is called PeckList
+- **android:** The app is com.killswitch10.pecklist
+- **server:** PeckList everywhere the server names itself
+- **web:** The web app keeps its things under pecklist
+
+### Fixed
+
+- **calendar:** Days gone by show what was done on them
+- **server:** Apps from before the rename still connect
+
+### Documentation
+
+- The docs live at pecklist.com/docs
+
+### Changed
+
+- **server:** The .NET code is PeckList.*
 
 ## [0.5.0] - 2026-11-02
 
