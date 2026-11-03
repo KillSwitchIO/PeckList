@@ -1,19 +1,19 @@
-# Punchlist with SQLite (the default): one container, data in a named volume.
+# PeckList with SQLite (the default): one container, data in a named volume.
 #   docker compose up -d
-#   docker compose logs punchlist      # the first admin password is printed here, once
+#   docker compose logs pecklist      # the first admin password is printed here, once
 # Then open http://localhost:8080. Docs: docs/install/docker-compose.md
 
 services:
-  punchlist:
+  pecklist:
     image: registry.gitlab.com/killswitch10/punchlist:latest
-    container_name: punchlist
+    container_name: pecklist
     restart: unless-stopped
     ports:
       - '8080:8080'
     volumes:
-      - punchlist-data:/data
+      - pecklist-data:/data
       # Attached files, apart from the database.
-      - punchlist-files:/files
+      - pecklist-files:/files
     environment:
       # Months in stats and "today" on the server follow this time zone.
       TZ: Etc/UTC
@@ -23,5 +23,5 @@ services:
       # ADMIN_PASSWORD_FILE: /run/secrets/admin_password
 
 volumes:
-  punchlist-data:
-  punchlist-files:
+  pecklist-data:
+  pecklist-files:

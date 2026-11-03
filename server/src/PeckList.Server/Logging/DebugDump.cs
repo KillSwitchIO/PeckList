@@ -37,7 +37,7 @@ public sealed class DebugDump(LayeredSettings layers, ServerSettings settings, I
 
         await AddJsonAsync(zip, "about.json", new
         {
-            App = "punchlist",
+            App = "pecklist",
             ServerApp.Version,
             Build = ServerApp.FullVersion,
             SchemaVersion = WorkspaceSchema.CurrentVersion,

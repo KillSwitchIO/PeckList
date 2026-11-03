@@ -1,17 +1,17 @@
-# Punchlist behind Caddy with automatic HTTPS (Let's Encrypt).
+# PeckList behind Caddy with automatic HTTPS (Let's Encrypt).
 # Point a DNS name at this machine, open ports 80 and 443, put the name in Caddyfile and below, then:
 #   docker compose -f compose.caddy.yaml up -d
-# Only Caddy is published; Punchlist is reachable on the compose network alone.
+# Only Caddy is published; PeckList is reachable on the compose network alone.
 
 services:
-  punchlist:
+  pecklist:
     image: registry.gitlab.com/killswitch10/punchlist:latest
-    container_name: punchlist
+    container_name: pecklist
     restart: unless-stopped
     volumes:
-      - punchlist-data:/data
+      - pecklist-data:/data
       # Attached files, apart from the database.
-      - punchlist-files:/files
+      - pecklist-files:/files
     environment:
       TZ: Etc/UTC
       PUBLIC_URL: https://tasks.example.com
@@ -29,7 +29,7 @@ services:
       - caddy-config:/config
 
 volumes:
-  punchlist-data:
-  punchlist-files:
+  pecklist-data:
+  pecklist-files:
   caddy-data:
   caddy-config:

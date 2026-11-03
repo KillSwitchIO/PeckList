@@ -11,12 +11,12 @@ On any systemd distribution (Debian, Ubuntu, Fedora, Arch, ...):
 ```bash
 ARCH=x64   # or arm64
 BASE=https://gitlab.com/killswitch10/punchlist/-/releases/permalink/latest/downloads
-curl -LO "$BASE/punchlist-linux-$ARCH.tar.gz"
+curl -LO "$BASE/pecklist-linux-$ARCH.tar.gz"
 curl -LO "$BASE/SHA256SUMS"
 sha256sum --check --ignore-missing SHA256SUMS
-tar -xzf "punchlist-linux-$ARCH.tar.gz"
-sudo "punchlist-linux-$ARCH/examples/install.sh"
-sudo journalctl -u punchlist   # the first admin password, printed once
+tar -xzf "pecklist-linux-$ARCH.tar.gz"
+sudo "pecklist-linux-$ARCH/examples/install.sh"
+sudo journalctl -u pecklist   # the first admin password, printed once
 ```
 
 That takes the newest release. For a particular one, download the files from its
@@ -26,23 +26,23 @@ The install script:
 
 | Path                                    | What                                                             | On upgrade |
 | --------------------------------------- | ---------------------------------------------------------------- | ---------- |
-| `/opt/punchlist`                        | The program                                                      | Replaced   |
-| `/etc/punchlist/punchlist.conf`         | Your settings ([settings file](../configuration/config-file.md)) | Kept       |
-| `/var/lib/punchlist`                    | Database, snapshots, logs                                        | Kept       |
-| `/etc/systemd/system/punchlist.service` | The service                                                      | Replaced   |
+| `/opt/pecklist`                        | The program                                                      | Replaced   |
+| `/etc/pecklist/pecklist.conf`         | Your settings ([settings file](../configuration/config-file.md)) | Kept       |
+| `/var/lib/pecklist`                    | Database, snapshots, logs                                        | Kept       |
+| `/etc/systemd/system/pecklist.service` | The service                                                      | Replaced   |
 
-It makes a `punchlist` system user, and the service runs as that user with systemd's sandboxing on:
-it can write only `/var/lib/punchlist`.
+It makes a `pecklist` system user, and the service runs as that user with systemd's sandboxing on:
+it can write only `/var/lib/pecklist`.
 
-```ini title="punchlist.service"
---8<-- "examples/linux/punchlist.service"
+```ini title="pecklist.service"
+--8<-- "examples/linux/pecklist.service"
 ```
 
 The server listens on port **8080** on all addresses. Put it behind a
 [reverse proxy](reverse-proxy.md) for HTTPS, or change the port with an override:
 
 ```bash
-sudo systemctl edit punchlist
+sudo systemctl edit pecklist
 # [Service]
 # Environment=ASPNETCORE_HTTP_PORTS=9000
 ```
@@ -50,24 +50,24 @@ sudo systemctl edit punchlist
 ## Day to day
 
 ```bash
-sudo systemctl status punchlist
-sudo journalctl -u punchlist -f                     # logs
-sudo systemctl restart punchlist                    # after editing /etc/punchlist/punchlist.conf
-sudo -u punchlist env DB_PATH=/var/lib/punchlist/punchlist.db CONFIG_FILE=/etc/punchlist/punchlist.conf \
-  /opt/punchlist/punchlist snapshot                 # any CLI command, as the service user
+sudo systemctl status pecklist
+sudo journalctl -u pecklist -f                     # logs
+sudo systemctl restart pecklist                    # after editing /etc/pecklist/pecklist.conf
+sudo -u pecklist env DB_PATH=/var/lib/pecklist/pecklist.db CONFIG_FILE=/etc/pecklist/pecklist.conf \
+  /opt/pecklist/pecklist snapshot                 # any CLI command, as the service user
 ```
 
 The CLI must see the same `DB_PATH` (and `CONFIG_FILE`) as the service. A small wrapper saves
 typing:
 
 ```bash
-sudo tee /usr/local/bin/punchlist >/dev/null <<'EOF'
+sudo tee /usr/local/bin/pecklist >/dev/null <<'EOF'
 #!/bin/sh
-exec sudo -u punchlist env DB_PATH=/var/lib/punchlist/punchlist.db \
-  CONFIG_FILE=/etc/punchlist/punchlist.conf /opt/punchlist/punchlist "$@"
+exec sudo -u pecklist env DB_PATH=/var/lib/pecklist/pecklist.db \
+  CONFIG_FILE=/etc/pecklist/pecklist.conf /opt/pecklist/pecklist "$@"
 EOF
-sudo chmod +x /usr/local/bin/punchlist
-punchlist --version
+sudo chmod +x /usr/local/bin/pecklist
+pecklist --version
 ```
 
 ## Upgrade
@@ -80,8 +80,8 @@ starts it again; the database is upgraded on start. Read [upgrading](../guides/u
 No systemd, or just trying it? The program runs from the unpacked folder:
 
 ```bash
-cd punchlist-linux-x64
-ASPNETCORE_HTTP_PORTS=8080 ./punchlist
+cd pecklist-linux-x64
+ASPNETCORE_HTTP_PORTS=8080 ./pecklist
 ```
 
 Without `DB_PATH`, the data goes to `./data` in the current folder.
@@ -89,9 +89,9 @@ Without `DB_PATH`, the data goes to `./data` in the current folder.
 ## Uninstall
 
 ```bash
-sudo systemctl disable --now punchlist
-sudo rm -rf /opt/punchlist /etc/systemd/system/punchlist.service
+sudo systemctl disable --now pecklist
+sudo rm -rf /opt/pecklist /etc/systemd/system/pecklist.service
 sudo systemctl daemon-reload
 # and when you are sure (this is your data):
-sudo rm -rf /var/lib/punchlist /etc/punchlist && sudo userdel punchlist
+sudo rm -rf /var/lib/pecklist /etc/pecklist && sudo userdel pecklist
 ```

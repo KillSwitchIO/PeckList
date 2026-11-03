@@ -10,7 +10,7 @@ PeckList stores everything in one database: **SQLite** (the default, a single fi
 | Setup               | Nothing                                                     | A PostgreSQL server and a database               |
 | Good for            | A household, a club, a small company                        | Larger servers, or if you already run PostgreSQL |
 | Backups             | PeckList's snapshots, or copy the file while it is stopped | Snapshots, or your usual `pg_dump`               |
-| Moving between them | `punchlist migrate-db` either way                           |                                                  |
+| Moving between them | `pecklist migrate-db` either way                           |                                                  |
 
 SQLite is not a toy here: many people syncing at once is fine. Choose PostgreSQL for operational
 reasons (your existing backups, a separate database host), not for speed.
@@ -19,7 +19,7 @@ reasons (your existing backups, a separate database host), not for speed.
 
 ```bash
 DB_PROVIDER=sqlite             # the default
-DB_PATH=/data/punchlist.db     # the default in the image
+DB_PATH=/data/pecklist.db      # the default in the image
 ```
 
 The file sits with its `-wal` and `-shm` companions. Keep it on a local disk: SQLite over NFS or
@@ -30,14 +30,14 @@ SMB can corrupt. Copying the file while the server runs can give a broken copy; 
 
 ```bash
 DB_PROVIDER=postgres
-DB_CONNECTION_STRING=Host=db;Port=5432;Username=punchlist;Password=...;Database=punchlist
+DB_CONNECTION_STRING=Host=db;Port=5432;Username=pecklist;Password=...;Database=pecklist
 ```
 
 Create an empty database owned by the user; PeckList creates its tables at the first start.
 
 ```sql
-CREATE ROLE punchlist LOGIN PASSWORD '...';
-CREATE DATABASE punchlist OWNER punchlist;
+CREATE ROLE pecklist LOGIN PASSWORD '...';
+CREATE DATABASE pecklist OWNER pecklist;
 ```
 
 Use `DB_CONNECTION_STRING_FILE` to keep the password out of the environment
@@ -72,8 +72,8 @@ before (see [upgrading](../guides/upgrading.md)).
 database, while the server keeps running:
 
 ```bash
-docker exec punchlist punchlist migrate-db --to postgres \
-  --connection "Host=db;Username=punchlist;Password=...;Database=punchlist"
+docker exec pecklist pecklist migrate-db --to postgres \
+  --connection "Host=db;Username=pecklist;Password=...;Database=pecklist"
 ```
 
 Then switch the settings (`DB_PROVIDER=postgres`, `DB_CONNECTION_STRING`) and restart. Nobody has
@@ -81,5 +81,5 @@ to sign in again or resync. Changes made between the copy and the restart are lo
 quiet time, or stop people from using it first. The other way round:
 
 ```bash
-docker exec punchlist punchlist migrate-db --to sqlite --path /data/punchlist-new.db
+docker exec pecklist pecklist migrate-db --to sqlite --path /data/pecklist-new.db
 ```

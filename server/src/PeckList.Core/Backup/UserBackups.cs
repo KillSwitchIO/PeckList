@@ -26,7 +26,9 @@ public sealed class UserBackups(
     ServerClock clock,
     TimeProvider time)
 {
-    public const string Format = "punchlist-user-backup";
+    public const string Format = "pecklist-user-backup";
+    /// <summary>What person backups were called before the rename (PL-127); still read.</summary>
+    public const string LegacyFormat = "punchlist-user-backup";
     public const int FormatVersion = 1;
 
     private static readonly JsonWriterOptions WriterOptions = new()
@@ -44,7 +46,7 @@ public sealed class UserBackups(
             ["format"] = Format,
             ["formatVersion"] = FormatVersion,
             ["schemaVersion"] = WorkspaceSchema.CurrentVersion,
-            ["app"] = new JsonObject { ["name"] = "punchlist", ["version"] = appVersion },
+            ["app"] = new JsonObject { ["name"] = "pecklist", ["version"] = appVersion },
             ["exportedAt"] = time.GetUtcNow().ToString("O", CultureInfo.InvariantCulture),
             ["account"] = new JsonObject
             {
@@ -98,12 +100,12 @@ public sealed class UserBackups(
         JsonArray links;
         switch ((string?)root["format"])
         {
-            case Format:
+            case Format or LegacyFormat:
                 accountNode = root["account"]?.AsObject() ?? throw new BackupException("the backup has no account");
                 saved = Entities(root, owner: null);
                 links = root["identities"] as JsonArray ?? [];
                 break;
-            case BackupService.Format:
+            case BackupService.Format or BackupService.LegacyFormat:
                 if (string.IsNullOrWhiteSpace(username)) throw new BackupException("say whose data to restore from this server backup");
                 accountNode = (root["accounts"] as JsonArray ?? [])
                     .OfType<JsonObject>()

@@ -68,7 +68,7 @@ generated. **Where:** env.
 sign-on: the sign-in page has no password form, and the server refuses passwords on every route
 (`POST /auth/login`, sign-up and password changes answer `403 local_login_disabled`). Password
 sessions already open end at once; provider sessions go on. To get an admin back in, make a
-one-time link with [`punchlist admin login-link`](../reference/cli.md#admin-login-link). Needs at
+one-time link with [`pecklist admin login-link`](../reference/cli.md#admin-login-link). Needs at
 least one provider. `shown` and `hidden`, the names before 0.2.1, still work as `enabled` and
 `disabled`. **Default:** `enabled`. **Where:** any, live.
 
@@ -95,7 +95,7 @@ and dashes; each gets the settings below with its name in capitals and dashes as
 | `OIDC_<NAME>_AUTO_CREATE`      | `false`                             | Make an account at a first sign-in. Off: the person waits for an admin's approval.                                                  |
 | `OIDC_<NAME>_LINK_BY_EMAIL`    | `false`                             | Join a first sign-in to the one existing account with the same **verified** email.                                                  |
 | `OIDC_<NAME>_LINK_BY_USERNAME` | `false`                             | `true`: a first sign-in joins the same-named plain user account with no link to this provider. `all`: admins too.                   |
-| `OIDC_<NAME>_USER_MAP`         | none                                | `provideruser=punchlistuser,...`: that provider user always signs into that account, moving an existing link.                       |
+| `OIDC_<NAME>_USER_MAP`         | none                                | `provideruser=pecklistuser,...`: that provider user always signs into that account, moving an existing link.                       |
 | `OIDC_<NAME>_ICON`             | the provider's favicon              | An `https` address or a file: the icon shown on the profile picture of people signed in through it.                                 |
 | `OIDC_<NAME>_ROLE_MAP`         | none                                | `group=role,...` with roles `user`, `admin`, `superadmin`. The highest match wins at every sign-in; no match means `user`.          |
 | `OIDC_<NAME>_GROUP_MAP`        | none                                | `group=Server group,...`, or `*` to mirror every provider group as a server group.                                                  |
@@ -126,13 +126,14 @@ image). **Where:** env.
 
 ### `DB_PATH`
 
-The SQLite file. **Default:** `/data/punchlist.db` in the image, `./data/punchlist.db` elsewhere.
+The SQLite file. **Default:** `/data/pecklist.db` in the image, `./data/pecklist.db` elsewhere. A server
+from before the rename that already has `punchlist.db` there keeps using it.
 **Where:** env.
 
 ### `DB_CONNECTION_STRING`
 
 The PostgreSQL connection string, in [Npgsql's format](https://www.npgsql.org/doc/connection-string-parameters.html):
-`Host=db;Username=punchlist;Password=...;Database=punchlist`. Required with `DB_PROVIDER=postgres`.
+`Host=db;Username=pecklist;Password=...;Database=pecklist`. Required with `DB_PROVIDER=postgres`.
 **Where:** env.
 
 ### `DB_MIGRATE_ON_START`
@@ -239,7 +240,7 @@ and the page a robots meta tag. Needs `AUTH_MODE=local`. **Default:** `false`. *
 ### `DEMO_ACCOUNTS`
 
 Pre-made accounts the banner shows with their passwords, so visitors can try sharing without
-inviting anyone: `demo-sam:try-punchlist-sam,demo-alex:try-punchlist-alex`. Each start makes
+inviting anyone: `demo-sam:try-pecklist-sam,demo-alex:try-pecklist-alex`. Each start makes
 them, or puts them back as plain users with these passwords. Wrong guesses lock nobody out, and
 nobody can change their password. The names must match the accounts in the seed the nightly
 reset loads (the image's seed has `demo-sam`, `demo-alex` and `demo-jordan`); passwords need 12
@@ -328,7 +329,7 @@ All are live.
 | `LOG_LOKI_TENANT`      | Loki tenant (`X-Scope-OrgID`)                                                    |
 | `LOG_GELF_ADDRESS`     | Graylog GELF input: `udp://graylog:12201`, `tcp://...` or `http://graylog:12201` |
 | `LOG_ELASTIC_URL`      | Elasticsearch or OpenSearch: `https://es:9200`                                   |
-| `LOG_ELASTIC_INDEX`    | Index or data stream. **Default:** `logs-punchlist-default`                      |
+| `LOG_ELASTIC_INDEX`    | Index or data stream. **Default:** `logs-pecklist-default`                      |
 | `LOG_ELASTIC_USERNAME` | Basic auth user                                                                  |
 | `LOG_ELASTIC_PASSWORD` | Basic auth password (secret)                                                     |
 | `LOG_ELASTIC_API_KEY`  | An API key instead of user and password (secret)                                 |
@@ -363,7 +364,7 @@ A [settings file](config-file.md) to read. **Default:** none. **Where:** env.
 ### `CONFIG_KEY`
 
 The key for `enc:v1:...` [encrypted values](index.md#encrypted-values); make one with
-`punchlist config key`. Prefer `CONFIG_KEY_FILE`. **Default:** none. **Where:** env.
+`pecklist config key`. Prefer `CONFIG_KEY_FILE`. **Default:** none. **Where:** env.
 
 ## Development
 

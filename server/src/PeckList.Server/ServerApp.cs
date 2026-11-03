@@ -29,7 +29,7 @@ public static partial class ServerApp
         var builder = WebApplication.CreateBuilder(args);
         // Both do nothing unless the server runs under that service manager: a Windows service
         // (start/stop and the event log's lifetime messages), or a systemd Type=notify unit.
-        builder.Host.UseWindowsService(options => options.ServiceName = "Punchlist");
+        builder.Host.UseWindowsService(options => options.ServiceName = "PeckList");
         builder.Host.UseSystemd();
         var config = builder.Configuration;
         // Configuration holds the environment variables (and test overrides); NAME_FILE works too.
@@ -57,7 +57,7 @@ public static partial class ServerApp
         builder.Services.AddSingleton(StartupWait.Default);
         builder.Services.AddEntityStore(settings);
         // After the store: its startup (migrations) runs before the admin is made.
-        builder.Services.AddPunchlistAuth(settings);
+        builder.Services.AddPeckListAuth(settings);
         builder.Services.AddSingleton<IChangeNotifier, InProcessChangeNotifier>();
         builder.Services.AddSingleton<PeckList.Core.Sharing.SharingState>();
         builder.Services.AddSingleton<ServerClock>();
@@ -89,7 +89,7 @@ public static partial class ServerApp
         builder.Services.AddHttpClient("updates", client =>
         {
             client.Timeout = TimeSpan.FromSeconds(20);
-            client.DefaultRequestHeaders.UserAgent.ParseAdd($"Punchlist/{Version}");
+            client.DefaultRequestHeaders.UserAgent.ParseAdd($"PeckList/{Version}");
         });
         builder.Services.AddSingleton<IReleaseFeed, GitLabReleaseFeed>();
         builder.Services.AddSingleton<UpdateStatus>();
@@ -97,7 +97,7 @@ public static partial class ServerApp
         builder.Services.AddHttpClient("telemetry", client =>
         {
             client.Timeout = TimeSpan.FromSeconds(30);
-            client.DefaultRequestHeaders.UserAgent.ParseAdd($"Punchlist/{Version}");
+            client.DefaultRequestHeaders.UserAgent.ParseAdd($"PeckList/{Version}");
         });
         builder.Services.AddSingleton<ITelemetrySender, HttpTelemetrySender>();
         builder.Services.AddSingleton<TelemetryReport>();
@@ -170,7 +170,7 @@ public static partial class ServerApp
         app.MapHealthChecks("/healthz");
         app.MapApiDocs();
         app.MapGet("/api/info", (LiveSettings live) =>
-            new ServerInfo("punchlist", Version, WorkspaceSchema.CurrentVersion, TimeZoneInfo.Local.Id, live.Current.AttachmentMaxMb,
+            new ServerInfo("pecklist", Version, WorkspaceSchema.CurrentVersion, TimeZoneInfo.Local.Id, live.Current.AttachmentMaxMb,
                 AppSignIn: settings.AuthMode != AuthMode.None, Demo: Demo.Info(settings)));
         app.MapAuth();
         app.MapGroup("/api").RequireAuthorization().RequirePasswordChanged().EnsureProfiles().MapSync().MapFriends().MapAccount().MapAttachments().MapNotifications().MapHistory().MapPush().MapProviderPicture().MapAppCheck().MapUpdates().MapApiKeys();

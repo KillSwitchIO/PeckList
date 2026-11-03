@@ -1,4 +1,4 @@
-Usage: punchlist <command>
+Usage: pecklist <command>
 
   export [file]                 Write a full backup as JSON (to stdout without a file).
   export --user <user> [file]   Write one person's data (to stdout without a file).

@@ -28,13 +28,15 @@ public sealed class ConsoleSink(TextWriter output, LogFormat format) : ILogSink
 }
 
 /// <summary>
-/// JSON lines in <c>LOG_DIR</c> (spec: Logging): <c>punchlist-YYYYMMDD-NNN.log</c>, a new file at
+/// JSON lines in <c>LOG_DIR</c> (spec: Logging): <c>pecklist-YYYYMMDD-NNN.log</c>, a new file at
 /// midnight UTC or past the size limit. Earlier files are gzipped when one rolls (and at start), and
 /// archives older than the keep window are deleted.
 /// </summary>
 public sealed class FileSink : ILogSink
 {
-    public const string Prefix = "punchlist-";
+    public const string Prefix = "pecklist-";
+    // Files written before the rename (PL-127) are still archived and expired.
+    private static readonly string[] Prefixes = [Prefix, "punchlist-"];
 
     private readonly string dir;
     private readonly long maxBytes;
@@ -103,7 +105,7 @@ public sealed class FileSink : ILogSink
     /// <summary>Gzip every finished file and delete archives past the keep window.</summary>
     private async Task ArchiveAsync(CancellationToken cancellation)
     {
-        foreach (var path in Directory.EnumerateFiles(dir, Prefix + "*.log"))
+        foreach (var path in Prefixes.SelectMany(prefix => Directory.EnumerateFiles(dir, prefix + "*.log")))
         {
             if (path == currentPath) continue;
             try
@@ -123,10 +125,11 @@ public sealed class FileSink : ILogSink
             }
         }
         var oldest = time.GetUtcNow().UtcDateTime.Date.AddDays(-keepDays).ToString("yyyyMMdd", CultureInfo.InvariantCulture);
-        foreach (var path in Directory.EnumerateFiles(dir, Prefix + "*.log.gz"))
+        foreach (var prefix in Prefixes)
+        foreach (var path in Directory.EnumerateFiles(dir, prefix + "*.log.gz"))
         {
             var name = Path.GetFileName(path);
-            if (name.Length >= Prefix.Length + 8 && string.CompareOrdinal(name.Substring(Prefix.Length, 8), oldest) < 0) File.Delete(path);
+            if (name.Length >= prefix.Length + 8 && string.CompareOrdinal(name.Substring(prefix.Length, 8), oldest) < 0) File.Delete(path);
         }
     }
 

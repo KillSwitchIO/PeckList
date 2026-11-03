@@ -31,26 +31,26 @@ public static class OidcSetup
     public static string CallbackPath(string provider) => $"/auth/oidc/{provider}/callback";
 
     /// <summary>Set on a challenge that links a provider account to the signed-in user instead of signing in.</summary>
-    private const string LinkAccountItem = "punchlist.link_account";
+    private const string LinkAccountItem = "pecklist.link_account";
 
     /// <summary>
     /// Set (with the app's URL scheme) on a link started from the Android app (AppSignIn): the
     /// browser tab has no session, the one-time code stood in for it, and the outcome goes back to
     /// the app. Only the server sets it; the state it travels in is encrypted.
     /// </summary>
-    private const string AppLinkItem = "punchlist.app_link_scheme";
+    private const string AppLinkItem = "pecklist.app_link_scheme";
 
     /// <summary>On a session from a provider that ends its own session too: which provider (with the ID token kept).</summary>
-    public const string ProviderItem = "punchlist.provider";
+    public const string ProviderItem = "pecklist.provider";
 
     /// <summary>On sessions a provider signed in: its name, for the provider badge on the avatar.</summary>
-    public const string ProviderClaim = "punchlist:provider";
+    public const string ProviderClaim = "pecklist:provider";
 
     /// <summary>The provider's picture of the person (its URL), for the app to bring in when they have no photo.</summary>
-    public const string PictureClaim = "punchlist:picture";
+    public const string PictureClaim = "pecklist:picture";
 
     /// <summary>Set on a sign-in started from an invite link: a new provider account may come in on it.</summary>
-    private const string InviteItem = "punchlist.invite";
+    private const string InviteItem = "pecklist.invite";
 
     /// <summary>Where linking reports back: the settings page, with <c>?link=</c> saying how it went.</summary>
     private const string LinkReturn = "/settings";
@@ -161,7 +161,7 @@ public static class OidcSetup
         }).RequireAuthorization();
 
         // A one-time sign-in link from an admin.
-        // It stays the way back in while LOCAL_LOGIN=disabled (punchlist admin login-link); then no
+        // It stays the way back in while LOCAL_LOGIN=disabled (pecklist admin login-link); then no
         // password is asked for, so a temporary one cannot stand in the way.
         auth.MapGet("/link/{token}", async (string token, LoginLinks links, LiveSettings live, HttpContext context) =>
         {
@@ -213,7 +213,7 @@ public static class OidcSetup
         }
         catch (Exception error) when (error is HttpRequestException or InvalidOperationException or IOException)
         {
-            // The provider cannot be reached: signing out of Punchlist still works.
+            // The provider cannot be reached: signing out of PeckList still works.
             context.RequestServices.GetRequiredService<ILoggerFactory>().CreateLogger("PeckList.Auth")
                 .LogWarning("Could not end the {Provider} session: {Message}", name, error.Message);
             return null;

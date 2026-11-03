@@ -4,7 +4,7 @@
 #
 # Multi-arch without emulation: the web and server stages always run on the build machine's own
 # platform, and .NET cross-publishes for the target (-a $TARGETARCH). The final stage only copies.
-#   docker buildx build --platform linux/amd64,linux/arm64 -t punchlist .
+#   docker buildx build --platform linux/amd64,linux/arm64 -t pecklist .
 #
 # Release builds pass the version: --build-arg VERSION=0.2.0 --build-arg REVISION=$(git rev-parse HEAD)
 #   --build-arg CREATED=2026-10-23T00:00:00Z
@@ -26,7 +26,7 @@ ARG VERSION
 ARG REVISION
 RUN PUNCHLIST_VERSION="$VERSION" PUNCHLIST_REVISION="$REVISION" pnpm --filter @punchlist/web build
 # The demo server's seed (PL-117), made by this version's own code so its schema always matches.
-# A fixed day keeps the build reproducible; `punchlist import --shift-dates` moves it to today.
+# A fixed day keeps the build reproducible; `pecklist import --shift-dates` moves it to today.
 COPY scripts/demo-seed.mts scripts/
 RUN mkdir -p /src/demo && node scripts/demo-seed.mts /src/demo/seed.json --today 2026-01-01
 
@@ -47,13 +47,14 @@ COPY server/src src
 RUN if [ "$VERSION" = "0.0.0-dev" ]; then STAMP=""; else STAMP="-p:Version=$VERSION -p:PeckListStamped=true"; fi \
     && dotnet publish src/PeckList.Server/PeckList.Server.csproj -c Release -a $TARGETARCH --self-contained false \
        -o /app --no-restore $STAMP -p:SourceRevisionId=$REVISION \
-    && mkdir -p /data /files && chown 1654:1654 /data /files
+    && mkdir -p /data /files && chown 1654:1654 /data /files \
+    && ln -s pecklist /app/punchlist
 
 FROM mcr.microsoft.com/dotnet/aspnet:10.0-noble-chiseled
 ARG VERSION
 ARG REVISION
 ARG CREATED
-LABEL org.opencontainers.image.title="Punchlist" \
+LABEL org.opencontainers.image.title="PeckList" \
       org.opencontainers.image.description="Self-hosted, offline-first tasks and calendar" \
       org.opencontainers.image.url="https://gitlab.com/killswitch10/punchlist" \
       org.opencontainers.image.source="https://gitlab.com/killswitch10/punchlist" \
@@ -73,14 +74,16 @@ COPY --from=server /usr/share/zoneinfo /usr/share/zoneinfo
 # folder can live on other storage than the database.
 COPY --from=server --chown=1654:1654 /data /data
 COPY --from=server --chown=1654:1654 /files /files
-# `punchlist` is on the PATH for the CLI: docker exec <container> punchlist export ...
+# `pecklist` is on the PATH for the CLI: docker exec <container> pecklist export ... (`punchlist`,
+# its name before the rename, is a link to it, so older scripts and compose files keep working).
+# No DB_PATH here: the server picks /data/pecklist.db, or the punchlist.db a container from before
+# the rename already has in its volume.
 ENV ASPNETCORE_HTTP_PORTS=8080 \
-    DB_PATH=/data/punchlist.db \
     ATTACHMENT_DIR=/files \
     PATH=/app:$PATH
 VOLUME /data /files
 EXPOSE 8080
 USER 1654
 HEALTHCHECK --interval=30s --timeout=10s --start-period=10s --retries=3 \
-    CMD ["punchlist", "healthcheck"]
-ENTRYPOINT ["punchlist"]
+    CMD ["pecklist", "healthcheck"]
+ENTRYPOINT ["pecklist"]

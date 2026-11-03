@@ -11,7 +11,7 @@ namespace PeckList.Server.Logging;
 /// <summary>Who is sending: put on every shipped entry.</summary>
 public sealed record LogSource(string Service, string Version, string Host)
 {
-    public static LogSource Current { get; } = new("punchlist", ServerApp.Version, Environment.MachineName);
+    public static LogSource Current { get; } = new("pecklist", ServerApp.Version, Environment.MachineName);
 }
 
 /// <summary>An HTTP log server: its own client (no framework logging of its requests), 10 s per request.</summary>
@@ -248,7 +248,7 @@ public sealed class LokiSink(Uri baseUrl, string? username, string? password, st
 
 /// <summary>
 /// Elasticsearch and OpenSearch through the bulk API, with ECS field names. The default index
-/// <c>logs-punchlist-default</c> lands in Elasticsearch's built-in <c>logs</c> data streams.
+/// <c>logs-pecklist-default</c> lands in Elasticsearch's built-in <c>logs</c> data streams.
 /// </summary>
 public sealed class ElasticSink(
     Uri baseUrl, string index, string? username, string? password, string? apiKey, LogSource source, HttpMessageHandler? handler = null)
@@ -588,7 +588,7 @@ public sealed class SyslogSink(LogAddress address, LogSource source) : ILogSink
             .Append(Environment.ProcessId.ToString(CultureInfo.InvariantCulture)).Append(' ')
             .Append(record.EventName is { } name ? Token(name, 32) : "-").Append(' ');
         // 32473 is the enterprise number RFC 5612 sets aside for examples and private use.
-        line.Append("[punchlist@32473");
+        line.Append("[pecklist@32473");
         Param(line, "category", record.Category);
         Param(line, "level", record.ShortLevel);
         if (record.EventId != 0) Param(line, "eventId", record.EventId.ToString(CultureInfo.InvariantCulture));

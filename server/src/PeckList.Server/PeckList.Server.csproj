@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk.Web">
   <PropertyGroup>
-    <!-- The container's command: `punchlist export`, `punchlist admin reset-password`, ... -->
-    <AssemblyName>punchlist</AssemblyName>
+    <!-- The container's command: `pecklist export`, `pecklist admin reset-password`, ... -->
+    <AssemblyName>pecklist</AssemblyName>
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="..\PeckList.Core\PeckList.Core.csproj" />

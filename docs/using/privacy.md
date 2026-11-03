@@ -17,7 +17,7 @@ from GitLab: a minute after it starts, then every 12 hours.
 - **What it asks**: one `GET` of
   `https://gitlab.com/api/v4/projects/killswitch10%2Fpunchlist/releases/permalink/latest`,
   with no token, no cookie and no install id. GitLab sees what any web request shows: your
-  server's public IP address and a `User-Agent` of `Punchlist/<version>`.
+  server's public IP address and a `User-Agent` of `PeckList/<version>`.
 - **What it does with the answer**: keeps the newest version, its date and its release page in
   memory, and shows the notice in the app when it is newer than the server or someone's Android
   app. People's browsers and phones only ever ask your server, never GitLab.

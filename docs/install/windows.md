@@ -9,26 +9,26 @@ In an **elevated** PowerShell (Run as administrator), from the folder you downlo
 
 ```powershell
 $base = 'https://gitlab.com/killswitch10/punchlist/-/releases/permalink/latest/downloads'
-Invoke-WebRequest "$base/punchlist-win-x64.zip" -OutFile punchlist-win-x64.zip
+Invoke-WebRequest "$base/pecklist-win-x64.zip" -OutFile pecklist-win-x64.zip
 Invoke-WebRequest "$base/SHA256SUMS" -OutFile SHA256SUMS
 # The two hashes must match:
-(Get-FileHash punchlist-win-x64.zip -Algorithm SHA256).Hash.ToLower()
+(Get-FileHash pecklist-win-x64.zip -Algorithm SHA256).Hash.ToLower()
 Select-String 'win-x64' SHA256SUMS
-Expand-Archive punchlist-win-x64.zip -DestinationPath .
-& .\punchlist-win-x64\examples\install-service.ps1
+Expand-Archive pecklist-win-x64.zip -DestinationPath .
+& .\pecklist-win-x64\examples\install-service.ps1
 ```
 
-The script installs and starts the **Punchlist** service and prints the admin password to sign in
+The script installs and starts the **PeckList** service and prints the admin password to sign in
 with (and change). Options: `-Port 9000` for another port, `-OpenFirewall` to allow the port from
 your private network.
 
 | Path                                      | What                                                             | On upgrade |
 | ----------------------------------------- | ---------------------------------------------------------------- | ---------- |
-| `C:\Program Files\Punchlist`              | The program                                                      | Replaced   |
-| `C:\ProgramData\Punchlist\punchlist.conf` | Your settings ([settings file](../configuration/config-file.md)) | Kept       |
-| `C:\ProgramData\Punchlist`                | Database, snapshots, logs                                        | Kept       |
+| `C:\Program Files\PeckList`              | The program                                                      | Replaced   |
+| `C:\ProgramData\PeckList\pecklist.conf` | Your settings ([settings file](../configuration/config-file.md)) | Kept       |
+| `C:\ProgramData\PeckList`                | Database, snapshots, logs                                        | Kept       |
 
-The service runs as its own virtual account, `NT SERVICE\Punchlist`, which may change only the data
+The service runs as its own virtual account, `NT SERVICE\PeckList`, which may change only the data
 folder. It starts with Windows and restarts by itself after a crash.
 
 ??? example "install-service.ps1"
@@ -39,9 +39,9 @@ folder. It starts with Windows and restarts by itself after a crash.
 ## Day to day
 
 ```powershell
-Get-Service Punchlist
-Restart-Service Punchlist          # after editing C:\ProgramData\Punchlist\punchlist.conf
-Get-Content C:\ProgramData\Punchlist\logs\*.log -Tail 50   # log files (JSON lines)
+Get-Service PeckList
+Restart-Service PeckList          # after editing C:\ProgramData\PeckList\pecklist.conf
+Get-Content C:\ProgramData\PeckList\logs\*.log -Tail 50   # log files (JSON lines)
 ```
 
 Start, stop and crash messages are also in **Event Viewer > Windows Logs > Application**.
@@ -49,10 +49,10 @@ Start, stop and crash messages are also in **Event Viewer > Windows Logs > Appli
 Run CLI commands with the service's settings, in an elevated PowerShell:
 
 ```powershell
-$env:DB_PATH = 'C:\ProgramData\Punchlist\punchlist.db'
-$env:CONFIG_FILE = 'C:\ProgramData\Punchlist\punchlist.conf'
-& 'C:\Program Files\Punchlist\punchlist.exe' snapshot
-& 'C:\Program Files\Punchlist\punchlist.exe' admin reset-password
+$env:DB_PATH = 'C:\ProgramData\PeckList\pecklist.db'
+$env:CONFIG_FILE = 'C:\ProgramData\PeckList\pecklist.conf'
+& 'C:\Program Files\PeckList\pecklist.exe' snapshot
+& 'C:\Program Files\PeckList\pecklist.exe' admin reset-password
 ```
 
 ## Upgrade
@@ -63,9 +63,9 @@ program and starts it again. Read [upgrading](../guides/upgrading.md) first.
 ## Run it by hand
 
 ```powershell
-cd punchlist-win-x64
+cd pecklist-win-x64
 $env:ASPNETCORE_HTTP_PORTS = '8080'
-.\punchlist.exe
+.\pecklist.exe
 ```
 
 The first admin password is printed in that window. Data goes to `.\data`.
@@ -79,13 +79,13 @@ itself:
 ```powershell
 # In the service's environment (registry) or your session:
 ASPNETCORE_URLS=https://+:8443
-ASPNETCORE_Kestrel__Certificates__Default__Path=C:\ProgramData\Punchlist\cert.pfx
+ASPNETCORE_Kestrel__Certificates__Default__Path=C:\ProgramData\PeckList\cert.pfx
 ASPNETCORE_Kestrel__Certificates__Default__Password=...
 ```
 
 ## Uninstall
 
 ```powershell
-& 'C:\Program Files\Punchlist\examples\uninstall-service.ps1'              # keeps your data
-& 'C:\Program Files\Punchlist\examples\uninstall-service.ps1' -RemoveData  # removes it too
+& 'C:\Program Files\PeckList\examples\uninstall-service.ps1'              # keeps your data
+& 'C:\Program Files\PeckList\examples\uninstall-service.ps1' -RemoveData  # removes it too
 ```

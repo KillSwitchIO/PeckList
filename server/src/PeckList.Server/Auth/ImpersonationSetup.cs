@@ -11,13 +11,15 @@ public sealed record ImpersonationRequest(string? Reason);
 
 /// <summary>
 /// Impersonation on the wire (spec: Account management). A request with the
-/// <c>X-Punchlist-Impersonate</c> header from the super admin who started it runs as the user. It
+/// <c>X-PeckList-Impersonate</c> header from the super admin who started it runs as the user. It
 /// may only sync and look people up; everything else is refused, and the admin's session cookie is
 /// never touched, so their other tabs stay theirs.
 /// </summary>
 public static class ImpersonationSetup
 {
-    public const string Header = "X-Punchlist-Impersonate";
+    public const string Header = "X-PeckList-Impersonate";
+    /// <summary>The header before the rename (PL-127), from a web app that has not reloaded yet.</summary>
+    public const string LegacyHeader = "X-Punchlist-Impersonate";
     public const string ByClaim = "impersonator";
     public const string ByNameClaim = "impersonator_name";
     public const string ReasonClaim = "impersonation_reason";
@@ -38,7 +40,7 @@ public static class ImpersonationSetup
     public static IApplicationBuilder UseImpersonation(this IApplicationBuilder app) =>
         app.Use(async (context, next) =>
         {
-            if (context.Request.Headers[Header].FirstOrDefault() is not { Length: > 0 } token)
+            if ((context.Request.Headers[Header].FirstOrDefault() ?? context.Request.Headers[LegacyHeader].FirstOrDefault()) is not { Length: > 0 } token)
             {
                 await next(context);
                 return;
@@ -79,7 +81,7 @@ public static class ImpersonationSetup
     public static void MapImpersonation(this RouteGroupBuilder auth) =>
         auth.MapDelete("/impersonation", async (HttpContext context, Impersonations impersonations) =>
         {
-            if (context.Request.Headers[Header].FirstOrDefault() is { Length: > 0 } token)
+            if ((context.Request.Headers[Header].FirstOrDefault() ?? context.Request.Headers[LegacyHeader].FirstOrDefault()) is { Length: > 0 } token)
             {
                 await impersonations.EndAsync(token, context.RequestAborted);
             }

@@ -1,14 +1,14 @@
-# Punchlist with PostgreSQL 15+ instead of the built-in SQLite.
+# PeckList with PostgreSQL 15+ instead of the built-in SQLite.
 # Secrets come from files (every setting also works as NAME_FILE). Make them first:
 #   mkdir -p secrets
 #   openssl rand -hex 24 > secrets/db_password
-#   printf 'Host=db;Username=punchlist;Password=%s;Database=punchlist' "$(cat secrets/db_password)" > secrets/db_connection
+#   printf 'Host=db;Username=pecklist;Password=%s;Database=pecklist' "$(cat secrets/db_password)" > secrets/db_connection
 #   docker compose -f compose.postgres.yaml up -d
 
 services:
-  punchlist:
+  pecklist:
     image: registry.gitlab.com/killswitch10/punchlist:latest
-    container_name: punchlist
+    container_name: pecklist
     restart: unless-stopped
     ports:
       - '8080:8080'
@@ -20,9 +20,9 @@ services:
       - db_connection
     volumes:
       # Snapshots, logs and audit archives still go to /data, attached files to /files.
-      - punchlist-data:/data
+      - pecklist-data:/data
       # Attached files, apart from the database.
-      - punchlist-files:/files
+      - pecklist-files:/files
     depends_on:
       db:
         condition: service_healthy
@@ -31,15 +31,15 @@ services:
     image: postgres:17-alpine
     restart: unless-stopped
     environment:
-      POSTGRES_USER: punchlist
-      POSTGRES_DB: punchlist
+      POSTGRES_USER: pecklist
+      POSTGRES_DB: pecklist
       POSTGRES_PASSWORD_FILE: /run/secrets/db_password
     volumes:
       - db-data:/var/lib/postgresql/data
     secrets:
       - db_password
     healthcheck:
-      test: ['CMD', 'pg_isready', '-U', 'punchlist']
+      test: ['CMD', 'pg_isready', '-U', 'pecklist']
       interval: 10s
       retries: 5
 
@@ -50,6 +50,6 @@ secrets:
     file: secrets/db_connection
 
 volumes:
-  punchlist-data:
-  punchlist-files:
+  pecklist-data:
+  pecklist-files:
   db-data:

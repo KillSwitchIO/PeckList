@@ -40,7 +40,7 @@ public static class BackupEndpoints
 
         admin.MapGet("/export", async (HttpContext context, BackupService backup, TimeProvider time) =>
         {
-            Attach(context, $"punchlist-{Stamp(time)}.json");
+            Attach(context, $"pecklist-{Stamp(time)}.json");
             await backup.ExportAsync(context.Response.Body, ServerApp.Version, context.RequestAborted);
         }).RequirePermission(Permission.ManageSecurity).Audited("backup.exported", targetRoute: null);
 
@@ -48,7 +48,7 @@ public static class BackupEndpoints
             string id, ClaimsPrincipal user, HttpContext context, UserBackups users, IAccountStore accounts, TimeProvider time) =>
             await AdminEndpoints.OnAccountAsync(id, user, accounts, async account =>
             {
-                Attach(context, $"punchlist-{account.Username}-{Stamp(time)}.json");
+                Attach(context, $"pecklist-{account.Username}-{Stamp(time)}.json");
                 await users.ExportAsync(id, context.Response.Body, ServerApp.Version, context.RequestAborted);
                 return Results.Empty;
             }, context.RequestAborted)).RequirePermission(Permission.ManageBackups).Audited("backup.user-exported");

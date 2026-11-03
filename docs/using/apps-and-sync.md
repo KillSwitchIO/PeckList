@@ -49,7 +49,7 @@ deletes it, so download a copy now and then.
 ## Your data as a file
 
 **Settings > Your data > Download a copy** saves everything on this device as one JSON file
-(`punchlist-2026-10-23.json`). **Import a file** brings one back, into this device or another:
+(`pecklist-2026-10-23.json`). **Import a file** brings one back, into this device or another:
 
 - It adds to what is here, never replaces it. Where both have the same task, the newer edit wins,
   so an old copy cannot undo newer work.

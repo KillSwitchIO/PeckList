@@ -30,7 +30,7 @@ public static class AuditEndpoints
         {
             var query = Query(context.Request, limit: 100_000, oldestFirst: true);
             var page = await store.QueryAsync(query, context.RequestAborted);
-            var name = $"punchlist-{query.Kind}-{time.FileStamp()}.csv";
+            var name = $"pecklist-{query.Kind}-{time.FileStamp()}.csv";
             context.Response.ContentType = "text/csv; charset=utf-8";
             context.Response.Headers.ContentDisposition = $"attachment; filename=\"{name}\"";
             await using var writer = new StreamWriter(context.Response.Body, new UTF8Encoding(false));

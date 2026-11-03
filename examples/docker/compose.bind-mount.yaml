@@ -1,15 +1,15 @@
-# Punchlist with its data in folders next to this file instead of named volumes: the database,
+# PeckList with its data in folders next to this file instead of named volumes: the database,
 # snapshots and logs in ./data, attached files in ./files (the one that grows: point it at bigger
-# storage if you like, say /mnt/storage/punchlist-files).
+# storage if you like, say /mnt/storage/pecklist-files).
 #
 # The container runs as uid 1654 (the image's non-root "app" user), so the folders must belong to it:
 #   mkdir -p data files && sudo chown 1654:1654 data files
 # Or run as your own user (and own the folders yourself) by uncommenting `user:` below.
 
 services:
-  punchlist:
+  pecklist:
     image: registry.gitlab.com/killswitch10/punchlist:latest
-    container_name: punchlist
+    container_name: pecklist
     restart: unless-stopped
     # user: '1000:1000'
     ports:

@@ -35,7 +35,7 @@ public static partial class AppSignIn
     public const string Kind = "app-handoff";
     public const string LinkKind = "app-link";
     public static readonly TimeSpan CodeLifetime = TimeSpan.FromMinutes(2);
-    private const string Purpose = "punchlist.app-handoff.v1";
+    private const string Purpose = "pecklist.app-handoff.v1";
 
     /// <summary>PKCE S256: 32 bytes of SHA-256 as unpadded base64url.</summary>
     [GeneratedRegex("^[A-Za-z0-9_-]{43}$")]
@@ -221,7 +221,7 @@ public static partial class AppSignIn
             <head>
             <meta charset="utf-8">
             <meta name="viewport" content="width=device-width, initial-scale=1">
-            <title>Open Punchlist</title>
+            <title>Open PeckList</title>
             <style>
               :root { color-scheme: light dark; --bg: #FAFAF7; --card: #FFFFFF; --text: #1F2421; --muted: #5E6662; --line: #DADDD8; --accent: #4F8F87; --on-accent: #FFFFFF; }
               @media (prefers-color-scheme: dark) { :root { --bg: #151816; --card: #1D211F; --text: #E6E9E6; --muted: #A3ABA7; --line: #333A36; --accent: #7FBFB6; --on-accent: #0E1A18; } }

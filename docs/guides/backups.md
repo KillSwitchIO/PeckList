@@ -35,11 +35,11 @@ See [users and roles](users-and-roles.md#roles).
 ## From the command line
 
 ```bash
-docker exec punchlist punchlist snapshot                                  # a snapshot now
-docker exec punchlist punchlist export /data/backup.json                  # full backup to a file
-docker exec punchlist punchlist export > backup.json                      # ... or to stdout
-docker exec punchlist punchlist import /data/backup.json                  # into an EMPTY database
-docker exec punchlist punchlist import /data/backup.json --replace        # delete what is there first
+docker exec pecklist pecklist snapshot                                  # a snapshot now
+docker exec pecklist pecklist export /data/backup.json                  # full backup to a file
+docker exec pecklist pecklist export > backup.json                      # ... or to stdout
+docker exec pecklist pecklist import /data/backup.json                  # into an EMPTY database
+docker exec pecklist pecklist import /data/backup.json --replace        # delete what is there first
 ```
 
 `import` refuses a database that already has data unless you pass `--replace`. After an import,
@@ -56,9 +56,9 @@ Export and restore a single person's data (their lists, tasks, tags and settings
 undo a mistake without touching anyone else:
 
 ```bash
-docker exec punchlist punchlist export --user sam /data/sam.json
-docker exec punchlist punchlist import --user /data/sam.json             # put Sam back as the file had it
-docker exec punchlist punchlist import --user /data/full-backup.json sam # Sam's part of a full backup
+docker exec pecklist pecklist export --user sam /data/sam.json
+docker exec pecklist pecklist import --user /data/sam.json             # put Sam back as the file had it
+docker exec pecklist pecklist import --user /data/full-backup.json sam # Sam's part of a full backup
 ```
 
 Restart after `import --user`. The admin page does the same under **Admin > Users > Export their
@@ -68,12 +68,12 @@ data** and **Admin > Backups**.
 
 1. Install PeckList the same way (same version or newer).
 2. Before the first start, put the backup file somewhere the server can read.
-3. Start once so the database exists, stop, then `punchlist import <file> --replace`, and start
+3. Start once so the database exists, stop, then `pecklist import <file> --replace`, and start
    again. Or start it and use **Admin > Backups > Restore** with the upload.
 
 Moving between SQLite and PostgreSQL is `migrate-db`; see [database](../configuration/database.md).
 
 ## SQLite file copies
 
-If you prefer copying the database file: stop the server first, then copy `punchlist.db` (and any
+If you prefer copying the database file: stop the server first, then copy `pecklist.db` (and any
 `-wal` and `-shm` files next to it). A copy taken while it runs may not open.

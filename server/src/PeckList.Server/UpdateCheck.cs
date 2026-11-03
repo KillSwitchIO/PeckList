@@ -13,10 +13,10 @@ public interface IReleaseFeed
     Task<ReleaseInfo?> LatestAsync(CancellationToken cancellation);
 }
 
-/// <summary>Punchlist's releases on GitLab: the API's latest-release permalink.</summary>
+/// <summary>PeckList's releases on GitLab: the API's latest-release permalink.</summary>
 public sealed class GitLabReleaseFeed(IHttpClientFactory http) : IReleaseFeed
 {
-    public const string LatestUrl = "https://gitlab.com/api/v4/projects/killswitch10%2Fpunchlist/releases/permalink/latest";
+    public const string LatestUrl = "https://gitlab.com/api/v4/projects/87938160/releases/permalink/latest";
 
     public async Task<ReleaseInfo?> LatestAsync(CancellationToken cancellation)
     {

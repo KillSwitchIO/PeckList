@@ -106,7 +106,7 @@ public sealed class BackupCenterTests(ServerFixture fixture) : IClassFixture<Ser
         Assert.Equal(HttpStatusCode.NotFound, (await admin.GetAsync("/api/admin/backups/..%2Fpunchlist.db", Token)).StatusCode);
 
         var export = await admin.GetAsync("/api/admin/export", Token);
-        Assert.StartsWith("attachment; filename=\"punchlist-", export.Content.Headers.ContentDisposition!.ToString());
+        Assert.StartsWith("attachment; filename=\"pecklist-", export.Content.Headers.ContentDisposition!.ToString());
         Assert.Contains(BackupService.Format, await export.Content.ReadAsStringAsync(Token));
     }
 

@@ -133,7 +133,7 @@ public sealed class AuditTests(ServerFixture fixture) : IClassFixture<ServerFixt
         var started = await admin.PostAsJsonAsync($"/api/admin/users/{samId}/impersonate", new { reason = "checking a bug report" }, Token);
         var token = (string)(await started.Content.ReadFromJsonAsync<JsonObject>(Token))!["token"]!;
         var viewing = await LogIn(server, "admin", AdminPassword);
-        viewing.DefaultRequestHeaders.Add("X-Punchlist-Impersonate", token);
+        viewing.DefaultRequestHeaders.Add("X-PeckList-Impersonate", token);
         (await viewing.GetAsync("/auth/me", Token)).EnsureSuccessStatusCode();
         (await viewing.DeleteAsync("/auth/impersonation", Token)).EnsureSuccessStatusCode();
 

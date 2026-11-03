@@ -51,13 +51,13 @@ A real workspace of 4,500 tasks is about 9 MB of JSON, most of it per-field cloc
 app quick at that size, and what to keep in mind when changing it:
 
 - **Storage, one record per entity.** `adapters/indexeddb-storage.ts` keeps each entity as its own
-  IndexedDB record (database `punchlist-records`) plus a small header with the workspace fields
+  IndexedDB record (database `pecklist-records`) plus a small header with the workspace fields
   and each collection's order. A save writes the entities that are new objects since storage was
   last read or written: entities are never changed in place, so a changed one is a new object. A
   workspace an older version saved as one JSON text is read once and moved over on the next save.
 - **No read-back while no other tab saved.** Each save leaves a stamp (`meta:workspace-generation`).
   While the stamp is still this tab's own, the store saves without reading storage back and
-  merging. Other tabs' saves arrive on the `punchlist` BroadcastChannel, heard only on the channel
+  merging. Other tabs' saves arrive on the `pecklist` BroadcastChannel, heard only on the channel
   the tab saves on (a channel never hears itself).
 - **Data from the server is checked by what changed.** `keepValid` validates the changed entities
   only, and the clock moves on from those alone (`changedEntities`, `maxHlcOf`).

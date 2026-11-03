@@ -88,7 +88,7 @@ public sealed class PushSender(
             DefaultAuthentication = new VapidAuthentication(publicKey, privateKey)
             {
                 // Push services ask who to contact about the sender: this server's address.
-                Subject = settings.PublicUrl is { } url ? url.GetLeftPart(UriPartial.Authority) : "mailto:punchlist@localhost",
+                Subject = settings.PublicUrl is { } url ? url.GetLeftPart(UriPartial.Authority) : "mailto:pecklist@localhost",
             },
         };
         var message = new PushMessage(JsonSerializer.Serialize(payload, Json))

@@ -99,8 +99,8 @@ The tag pipeline then:
 
 1. Runs `check:version` against the tag (the checks and tests ran on `main`).
 2. Builds and pushes the release images for amd64 and arm64.
-3. Builds the native downloads (`punchlist-linux-x64.tar.gz`, `punchlist-linux-arm64.tar.gz`,
-   `punchlist-win-x64.zip`) and `SHA256SUMS`.
+3. Builds the native downloads (`pecklist-linux-x64.tar.gz`, `pecklist-linux-arm64.tar.gz`,
+   `pecklist-win-x64.zip`) and `SHA256SUMS`.
 4. Builds the signed Android app, `pecklist-android.apk`, and adds it to the downloads and
    `SHA256SUMS` ([Android app](android.md#release-signing)).
 5. Uploads them to the package registry and creates the release, with the changelog section as its
@@ -116,5 +116,5 @@ always at `https://gitlab.com/killswitch10/punchlist/-/releases/permalink/latest
       `Requires-Android` / `Supports-Web` footers where the apps are affected.
 - [ ] Schema changes have a note in `docs/migrations/`.
 - [ ] After the tag pipeline: the release page, `docker pull ...:X.Y.Z`, and a native download's
-      `punchlist --version`.
+      `pecklist --version`.
 - [ ] The APK installs over the previous release on a phone (same signing key, higher version code).

@@ -34,7 +34,7 @@ public sealed class ConfigCipher
         {
             // Reported below.
         }
-        throw new SettingsException($"{name} is not a key (punchlist config key makes one)");
+        throw new SettingsException($"{name} is not a key (pecklist config key makes one)");
     }
 
     public static string NewKeyText() => Convert.ToBase64String(RandomNumberGenerator.GetBytes(32));

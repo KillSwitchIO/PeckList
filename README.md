@@ -42,9 +42,9 @@ Productivity (including what they do better): [why PeckList](docs/about/why.md) 
 ## Quick start
 
 ```bash
-docker run -d --name punchlist -p 8080:8080 -v punchlist-data:/data -v punchlist-files:/files \
+docker run -d --name pecklist -p 8080:8080 -v pecklist-data:/data -v pecklist-files:/files \
   registry.gitlab.com/killswitch10/punchlist:latest
-docker logs punchlist     # the first admin password, printed once
+docker logs pecklist     # the first admin password, printed once
 ```
 
 Open <http://localhost:8080>, sign in as `admin` with that password, and choose a new one. The

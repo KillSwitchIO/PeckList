@@ -10,7 +10,7 @@ using PeckList.Server.Logging;
 namespace PeckList.Server;
 
 /// <summary>
-/// The commands in the container (<c>docker exec &lt;container&gt; punchlist ...</c>). They read the
+/// The commands in the container (<c>docker exec &lt;container&gt; pecklist ...</c>). They read the
 /// same settings as the server and work while it runs.
 /// </summary>
 public static class Cli
@@ -18,7 +18,7 @@ public static class Cli
     public static readonly string[] Commands = ["export", "import", "migrate-db", "upgrade-db", "snapshot", "admin", "oidc", "config", "debug-dump", "help", "--help", "-h"];
 
     public const string Usage = """
-        Usage: punchlist <command>
+        Usage: pecklist <command>
 
           export [file]                 Write a full backup as JSON (to stdout without a file).
           export --user <user> [file]   Write one person's data (to stdout without a file).
@@ -101,7 +101,7 @@ public static class Cli
                 case "import":
                 {
                     var path = args.Skip(1).FirstOrDefault(arg => !arg.StartsWith("--", StringComparison.Ordinal));
-                    if (path is null) return await Fail(errors, "import needs a file: punchlist import <file> [--replace] [--shift-dates]");
+                    if (path is null) return await Fail(errors, "import needs a file: pecklist import <file> [--replace] [--shift-dates]");
                     await using var file = File.OpenRead(path);
                     var summary = await backup.ImportAsync(file, replace: args.Contains("--replace"), shiftDates: args.Contains("--shift-dates"));
                     await output.WriteLineAsync($"Imported {summary.Accounts} accounts and {summary.Entities} entities.");
@@ -137,7 +137,7 @@ public static class Cli
                 case "admin" when args.Length > 1 && args[1] == "add-user":
                 {
                     var username = args.Skip(2).FirstOrDefault(arg => !arg.StartsWith("--", StringComparison.Ordinal));
-                    if (username is null) return await Fail(errors, "admin add-user needs a username: punchlist admin add-user <user> [--admin]");
+                    if (username is null) return await Fail(errors, "admin add-user needs a username: pecklist admin add-user <user> [--admin]");
                     var accounts = Accounts(database);
                     var password = Core.Ids.NewPassword();
                     var role = args.Contains("--admin") ? Role.Admin : Role.User;
@@ -150,7 +150,7 @@ public static class Cli
                 {
                     if (args.Length < 4 || !Roles.TryParse(args[3], out var role))
                     {
-                        return await Fail(errors, "admin set-role needs a user and a role: punchlist admin set-role <user> <user|admin|superadmin>");
+                        return await Fail(errors, "admin set-role needs a user and a role: pecklist admin set-role <user> <user|admin|superadmin>");
                     }
                     var account = await UserAsync(database, args[2]);
                     await Accounts(database).SetRoleAsync(account.Id, role);
@@ -159,7 +159,7 @@ public static class Cli
                 }
                 case "admin" when args.Length > 1 && args[1] == "login-link":
                 {
-                    if (args.Length < 3) return await Fail(errors, "admin login-link needs a user: punchlist admin login-link <user>");
+                    if (args.Length < 3) return await Fail(errors, "admin login-link needs a user: pecklist admin login-link <user>");
                     var account = await UserAsync(database, args[2]);
                     var (token, expires) = await new LoginLinks(new SqlSecretStore(database), new SqlAccountStore(database), TimeProvider.System).CreateAsync(account.Id);
                     var origin = settings.PublicUrl?.ToString().TrimEnd('/') ?? "<server address>";
@@ -201,7 +201,7 @@ public static class Cli
             {
                 if (environment.Get("CONFIG_KEY") is not { } key) return await Fail(errors, "config encrypt needs CONFIG_KEY (or CONFIG_KEY_FILE)");
                 var value = args.Length > 2 ? args[2] : (await input.ReadToEndAsync()).TrimEnd('\r', '\n');
-                if (value.Length == 0) return await Fail(errors, "config encrypt needs a value: punchlist config encrypt <value>");
+                if (value.Length == 0) return await Fail(errors, "config encrypt needs a value: pecklist config encrypt <value>");
                 await output.WriteLineAsync(ConfigCipher.FromText(key).Encrypt(value));
                 return 0;
             }
@@ -244,7 +244,7 @@ public static class Cli
                 await output.WriteLineAsync($"Detached {gone} provider account(s) from {account.Username}.");
                 if (!await signIn.CanSignInAsync((await store.FindByIdAsync(account.Id))!))
                 {
-                    await output.WriteLineAsync($"{account.Username} has no way to sign in now: give them a link with punchlist admin login-link {account.Username}");
+                    await output.WriteLineAsync($"{account.Username} has no way to sign in now: give them a link with pecklist admin login-link {account.Username}");
                 }
                 return 0;
             }
@@ -325,7 +325,7 @@ public static class Cli
         var users = new UserBackups(entities, accounts, new SqlIdentityStore(database), sync, new Core.Sync.ServerClock(TimeProvider.System), TimeProvider.System);
         if (command == "export")
         {
-            if (rest.Length == 0) return await Fail(errors, "export --user needs a username: punchlist export --user <user> [file]");
+            if (rest.Length == 0) return await Fail(errors, "export --user needs a username: pecklist export --user <user> [file]");
             var account = await UserAsync(database, rest[0]);
             int count;
             if (rest.Length > 1)
@@ -340,7 +340,7 @@ public static class Cli
             await errors.WriteLineAsync($"Exported {account.Username}: {count} entities.");
             return 0;
         }
-        if (rest.Length == 0) return await Fail(errors, "import --user needs a file: punchlist import --user <file> [user]");
+        if (rest.Length == 0) return await Fail(errors, "import --user needs a file: pecklist import --user <file> [user]");
         await using (var file = File.OpenRead(rest[0]))
         {
             var result = await users.RestoreAsync(file, rest.Length > 1 ? rest[1] : null, mayRestoreAdmins: true);

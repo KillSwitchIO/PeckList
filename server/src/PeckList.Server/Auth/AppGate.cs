@@ -14,7 +14,7 @@ namespace PeckList.Server.Auth;
 /// carrying the gate's cookies, and after a confirm, as for app sign-in, we send them back to the
 /// app encrypted to that key (RSA-OAEP-SHA256 around AES-256-GCM), for its WebView to use.
 /// <para>
-/// Only cookies that are not Punchlist's own go: the gate's. They were sent to this server by this
+/// Only cookies that are not PeckList's own go: the gate's. They were sent to this server by this
 /// browser anyway; the confirm keeps another app from collecting them unasked.
 /// </para>
 /// </summary>
@@ -57,7 +57,8 @@ public static partial class AppSignIn
 
     /// <summary>Ours: the session and the sign-in flow's own (correlation, nonce).</summary>
     private static bool OwnCookie(string name) =>
-        name.StartsWith("punchlist", StringComparison.OrdinalIgnoreCase)
+        name.StartsWith("pecklist", StringComparison.OrdinalIgnoreCase)
+        || name.StartsWith("punchlist", StringComparison.OrdinalIgnoreCase)
         || name.StartsWith(".AspNetCore.", StringComparison.OrdinalIgnoreCase);
 
     private static RSA? PublicKeyOf(string? key)

@@ -14,7 +14,7 @@ people comfortably.
 
 ```bash
 docker compose up -d
-docker compose logs punchlist   # the first admin password, printed once
+docker compose logs pecklist   # the first admin password, printed once
 ```
 
 Open <http://localhost:8080>. Read [first start](../getting-started/first-start.md) for what comes
@@ -70,10 +70,10 @@ Provider by provider: [single sign-on](../guides/single-sign-on.md).
 
 ```bash
 docker compose pull && docker compose up -d       # upgrade (read the changelog first)
-docker compose logs -f punchlist                  # follow the logs
-docker compose exec punchlist punchlist --version
-docker compose exec punchlist punchlist snapshot  # a backup now
-docker compose restart punchlist                  # after changing a setting that needs it
+docker compose logs -f pecklist                  # follow the logs
+docker compose exec pecklist pecklist --version
+docker compose exec pecklist pecklist snapshot  # a backup now
+docker compose restart pecklist                  # after changing a setting that needs it
 ```
 
 The **Restart now** button on the admin settings page stops the server; the `restart:` policy in
