@@ -1,6 +1,6 @@
 # Run a demo server
 
-A demo server is a public Punchlist anyone can try without installing anything: they sign up,
+A demo server is a public PeckList anyone can try without installing anything: they sign up,
 or sign in to one of the pre-made accounts, and every night the server forgets it all and starts
 again from a seed. [`DEMO_MODE`](../configuration/reference.md#demo_mode) does the rest.
 

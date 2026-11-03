@@ -206,7 +206,7 @@ public sealed class AppSignInTests(ServerFixture fixture) : IClassFixture<Server
         Assert.Equal(HttpStatusCode.BadRequest, (await tab.GetAsync($"/auth/app/gate?key={key}&scheme=https", Token)).StatusCode);
         var page = await tab.GetAsync($"/auth/app/gate?key={key}&scheme={Scheme}", Token);
         Assert.Equal(HttpStatusCode.OK, page.StatusCode);
-        Assert.Contains("Let the Punchlist app in?", await page.Content.ReadAsStringAsync(Token));
+        Assert.Contains("Let the PeckList app in?", await page.Content.ReadAsStringAsync(Token));
 
         HttpRequestMessage Confirm(string site)
         {

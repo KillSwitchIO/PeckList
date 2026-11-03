@@ -1,6 +1,6 @@
-# Why Punchlist
+# Why PeckList
 
-Punchlist is a task and calendar app you run yourself, built to feel like the polished hosted
+PeckList is a task and calendar app you run yourself, built to feel like the polished hosted
 apps (TickTick, Todoist) rather than like a database with a form in front of it. It was written by
 someone who used TickTick every day and wanted the same comfort on a server of their own, for a
 household and a few friends.
@@ -50,10 +50,10 @@ Honest limits, so you do not find them the hard way:
   offline, and Safari delivers web push reminders only to an installed web app on iOS 16.4 or
   later. A native iOS app is on the
   [roadmap](roadmap.md), last.
-- **No habits, Pomodoro timer or Eisenhower matrix.** TickTick has all three; Punchlist plans them
+- **No habits, Pomodoro timer or Eisenhower matrix.** TickTick has all three; PeckList plans them
   for after 1.0.
 - **No Kanban board and no Gantt chart** yet.
-- **No CalDAV.** Punchlist does not speak CalDAV, so Apple Reminders, Thunderbird or tasks.org
+- **No CalDAV.** PeckList does not speak CalDAV, so Apple Reminders, Thunderbird or tasks.org
   cannot sync with it directly. iCalendar files import and export.
 - **English only** for now.
 - **No hosted version.** You need somewhere to run it. A public demo server is planned for 1.0.

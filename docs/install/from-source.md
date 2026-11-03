@@ -36,5 +36,5 @@ scripts/package.sh 0.0.0-local osx-arm64     # writes dist/punchlist-osx-arm64.t
 docker build -t punchlist:local .
 ```
 
-Developing on Punchlist itself (tests, dev servers, conventions): see
+Developing on PeckList itself (tests, dev servers, conventions): see
 [developing](../development/index.md).

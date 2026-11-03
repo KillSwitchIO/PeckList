@@ -46,6 +46,6 @@ describe('viewing as someone', () => {
     );
     expect(await screen.findByRole('heading', { name: 'This view has ended' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Back to admin' })).toBeInTheDocument();
-    expect(screen.queryByRole('heading', { name: 'Sign in to Punchlist' })).toBeNull();
+    expect(screen.queryByRole('heading', { name: 'Sign in to PeckList' })).toBeNull();
   });
 });

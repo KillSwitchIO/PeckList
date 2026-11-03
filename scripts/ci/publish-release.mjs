@@ -80,7 +80,7 @@ const existing = await call('GET', `${api}/releases/${encodeURIComponent(tag)}`)
 if (existing.status === 404) {
   await call('POST', `${api}/releases`, {
     tag_name: tag,
-    name: `Punchlist ${version}`,
+    name: `PeckList ${version}`,
     description,
     assets: { links },
   });
@@ -88,7 +88,7 @@ if (existing.status === 404) {
 } else {
   // A re-run: refresh the notes, and add any link the first run did not get to.
   await call('PUT', `${api}/releases/${encodeURIComponent(tag)}`, {
-    name: `Punchlist ${version}`,
+    name: `PeckList ${version}`,
     description,
   });
   const have = new Set((await existing.json()).assets.links.map((link) => link.name));

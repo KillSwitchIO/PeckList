@@ -96,7 +96,7 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
               kind: 'news',
               category: each.kind,
               vibrate: vibrates(settings),
-              title: 'Punchlist',
+              title: 'PeckList',
               body: notificationSentence(latest.current, item),
               tag: each.id,
               url: notificationUrl(item),

@@ -462,7 +462,7 @@ export function createWorkspaceStore(deps: StoreDependencies): WorkspaceStore {
         const { workspace: next, skipped } = keepValid(workspace, merged, (document) =>
           deps.validator.validate(document),
         );
-        if (skipped.length > 0) console.warn('Punchlist left out entities it cannot read', skipped);
+        if (skipped.length > 0) console.warn('PeckList left out entities it cannot read', skipped);
         for (const id of ids) authoritative.add(id);
         // Only what arrived can be newer than the clock (scanning everything took 100 ms).
         const arrived = Object.values(changedEntities(workspace, next)).flat();

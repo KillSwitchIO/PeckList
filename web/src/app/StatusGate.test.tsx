@@ -35,7 +35,7 @@ describe('StatusGate', () => {
     const newer = CURRENT_SCHEMA_VERSION + 1;
     await renderWith({ schemaVersion: newer });
     expect(
-      await screen.findByText('This data needs a newer version of Punchlist'),
+      await screen.findByText('This data needs a newer version of PeckList'),
     ).toBeInTheDocument();
     expect(
       screen.getByText(
@@ -75,7 +75,7 @@ describe('StatusGate', () => {
 
   it('explains invalid data', async () => {
     await renderWith({ schemaVersion: CURRENT_SCHEMA_VERSION });
-    expect(await screen.findByText('Punchlist could not open your data')).toBeInTheDocument();
+    expect(await screen.findByText('PeckList could not open your data')).toBeInTheDocument();
   });
 
   it('explains storage failures', async () => {

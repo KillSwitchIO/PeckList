@@ -19,7 +19,7 @@ pointer back here.
 
 ## License and contributions
 
-Punchlist is released under the [AGPL-3.0-or-later](LICENSE). To keep the project able to offer a
+PeckList is released under the [AGPL-3.0-or-later](LICENSE). To keep the project able to offer a
 [commercial license](COMMERCIAL-LICENSE.md) alongside it, contributions come in under a more
 permissive license than the one the project ships with:
 

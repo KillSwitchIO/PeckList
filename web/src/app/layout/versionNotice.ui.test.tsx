@@ -60,7 +60,7 @@ describe('the update notice (R-FB-148)', () => {
     await serverApp(backend);
     const notice = await screen.findByRole('status', { name: 'Update available' }, slow);
     expect(
-      within(notice).getByText('Punchlist 0.2.8 is out. This server runs 0.2.7.'),
+      within(notice).getByText('PeckList 0.2.8 is out. This server runs 0.2.7.'),
     ).toBeInTheDocument();
     expect(within(notice).getByRole('link', { name: 'Release page' })).toHaveAttribute(
       'href',

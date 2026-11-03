@@ -1,8 +1,8 @@
 # Telemetry collector
 
-Punchlist servers send one anonymous usage report a day (on by default, easy to turn off; see the
+PeckList servers send one anonymous usage report a day (on by default, easy to turn off; see the
 privacy page once it lands). The collector is the service the project runs to take those reports in
-and total them for the project. A Punchlist server never runs it, and nobody self-hosting Punchlist needs
+and total them for the project. A PeckList server never runs it, and nobody self-hosting PeckList needs
 it.
 
 The code is `server/src/Punchlist.Collector`; the report it reads is `TelemetryPing` in

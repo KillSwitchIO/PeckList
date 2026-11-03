@@ -1,6 +1,6 @@
 # The Android app
 
-The Android app is Punchlist in a native shell: the same app as in the browser, plus reminders
+The Android app is PeckList in a native shell: the same app as in the browser, plus reminders
 that arrive on time with the app closed, buttons on the notifications, a background check-in with
 your server, and sign-in through your real browser. It needs Android 7.0 or later.
 
@@ -47,7 +47,7 @@ made yourself, or a debug build, has a different key: uninstall it first.
 The app asks where your server is, or runs on the phone alone:
 
 - **Connect**: type the address (`tasks.example.com`, or `192.168.1.20:8080` at home). The app
-  checks that a Punchlist server answers there, then runs that server's own copy of the app, so
+  checks that a PeckList server answers there, then runs that server's own copy of the app, so
   the app and the server never disagree about versions. An address without `https://` is tried
   with HTTPS first, then plain HTTP, which it warns about before using.
 - **Use on this device only**: no account and no sync, like the web app without a server. If you
@@ -57,7 +57,7 @@ The app asks where your server is, or runs on the phone alone:
 
 **Settings > Server** shows where the app is connected; **Change** or **Disconnect** moves it.
 Disconnecting leaves your tasks on the server. If a server will not let you in at all, long-press
-the Punchlist icon on the home screen and pick **Change server**.
+the PeckList icon on the home screen and pick **Change server**.
 
 ## Signing in through your browser
 
@@ -68,7 +68,7 @@ instead:
 1. Tap **Continue with ...**. A browser tab opens on your server.
 2. Sign in to the provider there, if the browser is not signed in already. Passkeys, saved
    passwords and your password manager all work, because this is your real browser.
-3. Punchlist asks **Open Punchlist on this device?** and names the account. Tap **Continue**.
+3. PeckList asks **Open PeckList on this device?** and names the account. Tap **Continue**.
 4. The tab closes and the app is signed in.
 
 Why the detour: passkeys do not work inside an app's own web view, and some providers refuse to
@@ -78,7 +78,7 @@ be sent back with a secret the app made and never left the phone.
 
 The **Continue** page is the safety catch. Any app on the phone can open a browser tab, so without
 it another app could quietly get a session for whoever is signed in to that browser. **If you see
-"Open Punchlist on this device?" without having just tapped a sign-in button in the app, close the
+"Open PeckList on this device?" without having just tapped a sign-in button in the app, close the
 tab.**
 
 The app's session is a copy of the browser's, so it ends when your server's provider session
@@ -114,7 +114,7 @@ Servers with a certificate from your own CA work once that CA is installed on th
   Notifications > Manage on the phone** opens them.
 - After you sign in, the app asks to send notifications and to run in the background. Allow both,
   or reminders and check-ins come late or not at all.
-- On a Samsung phone, also add Punchlist to **Never sleeping apps** (Settings > Battery >
+- On a Samsung phone, also add PeckList to **Never sleeping apps** (Settings > Battery >
   Background usage limits). Other brands have similar battery savers; see
   [dontkillmyapp.com](https://dontkillmyapp.com/) for yours.
 
@@ -123,7 +123,7 @@ Servers with a certificate from your own CA work once that CA is installed on th
 When a newer release is out than your app, a box at the bottom of the sidebar (at the end of
 **More** on a phone) says so, with **Release page** for its notes and the APK. Your server finds
 out through its [update check](privacy.md#the-update-check); Obtainium also tells you on its own. Most changes need no app update at
-all, since the app runs your server's copy of Punchlist. When one does, the release notes say so
+all, since the app runs your server's copy of PeckList. When one does, the release notes say so
 under **Compatibility**, and an app that is too old for the server is signed out until it updates.
 
 ## Everyday use

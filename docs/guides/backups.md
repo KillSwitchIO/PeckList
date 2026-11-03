@@ -66,7 +66,7 @@ data** and **Admin > Backups**.
 
 ## Restoring onto a new machine
 
-1. Install Punchlist the same way (same version or newer).
+1. Install PeckList the same way (same version or newer).
 2. Before the first start, put the backup file somewhere the server can read.
 3. Start once so the database exists, stop, then `punchlist import <file> --replace`, and start
    again. Or start it and use **Admin > Backups > Restore** with the upload.

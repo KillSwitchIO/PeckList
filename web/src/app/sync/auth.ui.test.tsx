@@ -153,9 +153,7 @@ describe('signing in to a server', () => {
     const backend = new FakeBackend();
     backend.addAccount('ben', 'correct horse battery');
     await serverApp(backend);
-    expect(
-      await screen.findByRole('heading', { name: 'Sign in to Punchlist' }),
-    ).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: 'Sign in to PeckList' })).toBeInTheDocument();
 
     await userEvent.type(screen.getByLabelText(/Username/), 'ben');
     await userEvent.type(screen.getByLabelText(/^Password/), 'nope');
@@ -285,9 +283,7 @@ describe('signing in to a server', () => {
 
     await userEvent.click(screen.getByRole('button', { name: /^Account: / }));
     await userEvent.click(await screen.findByRole('menuitem', { name: 'Log out' }));
-    expect(
-      await screen.findByRole('heading', { name: 'Sign in to Punchlist' }),
-    ).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: 'Sign in to PeckList' })).toBeInTheDocument();
   });
 
   it('logging out with changes the server has not taken asks first, then clears the device', async () => {
@@ -320,7 +316,7 @@ describe('signing in to a server', () => {
     const backend = new FakeBackend();
     backend.addAccount('ben', 'correct horse battery');
     const { store } = await serverApp(backend);
-    await screen.findByRole('heading', { name: 'Sign in to Punchlist' });
+    await screen.findByRole('heading', { name: 'Sign in to PeckList' });
     // Someone else's standalone tasks on this computer.
     store.getState().apply((ctx, ws) => {
       const inbox = ws.entities.lists.find((list) => list.isInbox)!.id;
@@ -371,7 +367,7 @@ describe('making an account', () => {
     const backend = new FakeBackend();
     backend.signIn = { providers: [], localLogin: true, registration: 'invite' };
     await serverApp(backend);
-    await screen.findByRole('heading', { name: 'Sign in to Punchlist' });
+    await screen.findByRole('heading', { name: 'Sign in to PeckList' });
     expect(screen.queryByRole('button', { name: 'Create an account' })).toBeNull();
     cleanup();
 
@@ -380,9 +376,7 @@ describe('making an account', () => {
     expect(await screen.findByText(/by invite only/)).toBeInTheDocument();
     expect(screen.queryByLabelText(/Username/)).toBeNull();
     await userEvent.click(screen.getByRole('button', { name: 'Sign in' }));
-    expect(
-      await screen.findByRole('heading', { name: 'Sign in to Punchlist' }),
-    ).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: 'Sign in to PeckList' })).toBeInTheDocument();
   });
 
   it('an invite link lets someone in once, with a password or through a provider', async () => {

@@ -183,7 +183,7 @@ describe('settings: your data', () => {
       within(data).getByLabelText('Import a file'),
       new File(['not json'], 'notes.txt', { type: 'application/json' }),
     );
-    expect(await within(data).findByText(/is not a Punchlist export/)).toBeInTheDocument();
+    expect(await within(data).findByText(/is not a PeckList export/)).toBeInTheDocument();
   });
 });
 
@@ -317,7 +317,7 @@ describe('palette presets', () => {
     const store = testStore();
     await renderApp('/settings', store);
     const palettes = await screen.findByRole('radiogroup', { name: 'Palettes' });
-    expect(within(palettes).getByRole('radio', { name: 'Punchlist' })).toBeChecked();
+    expect(within(palettes).getByRole('radio', { name: 'PeckList' })).toBeChecked();
     await userEvent.click(within(palettes).getByRole('radio', { name: 'Ocean' }));
     expect(within(palettes).getByRole('radio', { name: 'Ocean' })).toBeChecked();
     expect(store.getState().workspace!.entities.settings[0]!.palettePreset).toBe('ocean');

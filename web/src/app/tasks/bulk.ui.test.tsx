@@ -52,7 +52,7 @@ describe('picking many tasks', () => {
     await userEvent.click(await screen.findByRole('menuitem', { name: 'Select' }));
     // The tabs give way to the actions.
     const bar = await screen.findByRole('toolbar', { name: 'Picked tasks' });
-    expect(screen.queryByRole('navigation', { name: 'Punchlist' })).toBeNull();
+    expect(screen.queryByRole('navigation', { name: 'PeckList' })).toBeNull();
     expect(within(bar).getByText('0 selected')).toBeInTheDocument();
 
     await userEvent.click(screen.getByRole('checkbox', { name: /Select all in Overdue/ }));

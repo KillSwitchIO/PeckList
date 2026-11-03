@@ -1,7 +1,7 @@
 # Mutual TLS (client certificates)
 
 A reverse proxy can ask every device for a **client certificate** before it lets a request
-through to Punchlist: only devices you gave a certificate get as far as the sign-in page. Punchlist
+through to PeckList: only devices you gave a certificate get as far as the sign-in page. PeckList
 itself needs nothing for this (TLS ends at the proxy); browsers and the Android app answer the
 proxy's request.
 

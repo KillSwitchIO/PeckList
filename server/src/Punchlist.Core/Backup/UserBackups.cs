@@ -118,7 +118,7 @@ public sealed class UserBackups(
                     .ToArray());
                 break;
             default:
-                throw new BackupException("not a Punchlist backup");
+                throw new BackupException("not a PeckList backup");
         }
 
         var userId = (string?)accountNode["id"] ?? throw new BackupException("the account has no id");

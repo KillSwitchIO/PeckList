@@ -1,7 +1,7 @@
 # HTTP API
 
 The web app talks to the server over JSON. That API is usable from scripts, but it is **not yet a
-stable public API**: it can change in any minor version. Pin the Punchlist version if you script
+stable public API**: it can change in any minor version. Pin the PeckList version if you script
 against it, and read the changelog when upgrading.
 
 ## Swagger and OpenAPI

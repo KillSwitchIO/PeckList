@@ -92,8 +92,8 @@ public static partial class AppSignIn
 
     private static string GatePage(string key, string scheme) =>
         ConfirmationPage(
-            "Let the Punchlist app in?",
-            "You got past this server's sign-in page. Continue to let the Punchlist app on this device past it too. "
+            "Let the PeckList app in?",
+            "You got past this server's sign-in page. Continue to let the PeckList app on this device past it too. "
             + "If you did not just ask for this in the app, close this tab.",
             "/auth/app/gate",
             ("key", key), ("scheme", scheme));

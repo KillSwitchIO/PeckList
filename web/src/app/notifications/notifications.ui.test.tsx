@@ -140,7 +140,7 @@ describe('notifications', () => {
       kind: 'news',
       category: 'groupAssigned',
       vibrate: true,
-      title: 'Punchlist',
+      title: 'PeckList',
       body: expect.stringMatching(/assigned Mow the lawn to your group$/) as string,
       tag: 'N2',
       url: `/today?task=${taskId}`,

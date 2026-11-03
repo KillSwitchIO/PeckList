@@ -328,7 +328,7 @@ export function exportIcal(
       [
         'BEGIN:VCALENDAR',
         'VERSION:2.0',
-        'PRODID:-//Punchlist//Punchlist//EN',
+        'PRODID:-//PeckList//PeckList//EN',
         `X-WR-CALNAME:${escapeText(entry.name)}`,
         ...entry.lines,
         'END:VCALENDAR',

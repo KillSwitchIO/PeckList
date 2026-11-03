@@ -48,7 +48,7 @@ async function failure(promise: Promise<unknown>): Promise<SyncFailure> {
 afterEach(() => vi.unstubAllGlobals());
 
 describe('HTTP sync transport', () => {
-  it('tells a Punchlist server from a static host', async () => {
+  it('tells a PeckList server from a static host', async () => {
     const info = { name: 'punchlist', version: '0.1.0', schemaVersion: 4 };
     const { fetcher } = fakeFetch(
       { status: 200, body: info },

@@ -59,18 +59,18 @@ The debug dump's `about.json` shows the zone the server uses.
 
 ## Notifications do not arrive with the app closed
 
-Turn on **Settings > Notifications > Notify me when Punchlist is closed** on each device. Then check:
+Turn on **Settings > Notifications > Notify me when PeckList is closed** on each device. Then check:
 
 - **HTTPS**: browsers only take pushes from a site served over HTTPS (`PUBLIC_URL` with `https://`).
 - **Getting out**: the server sends pushes to the browsers' push services (Google's, Mozilla's,
   Apple's), so it needs to reach the internet over HTTPS; a firewall that blocks outgoing traffic
   stops them. The log says "A push to one of ...'s devices failed" when one does not go through.
-- **iPhone and iPad**: pushes only reach Punchlist added to the Home Screen (iOS 16.4 or later);
+- **iPhone and iPad**: pushes only reach PeckList added to the Home Screen (iOS 16.4 or later);
   turn the setting on from there.
 - **Permission**: if the browser or the phone blocks notifications for the site, allow them in its
   settings and turn the switch off and on again.
 
-Reminders still appear while Punchlist is open or in the background without any of this.
+Reminders still appear while PeckList is open or in the background without any of this.
 
 ## Logs to a log server do not arrive
 

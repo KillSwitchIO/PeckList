@@ -1,6 +1,6 @@
 # Docker Compose
 
-The recommended way to run Punchlist. All examples are in
+The recommended way to run PeckList. All examples are in
 [`examples/docker`](https://gitlab.com/killswitch10/punchlist/-/tree/main/examples/docker).
 
 ## SQLite (the default)

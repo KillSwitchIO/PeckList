@@ -150,7 +150,7 @@ describe('HTTP admin', () => {
           headers: { 'content-type': 'application/json' },
         },
       ),
-      new Response(JSON.stringify({ error: 'bad_backup', message: 'not a Punchlist backup' }), {
+      new Response(JSON.stringify({ error: 'bad_backup', message: 'not a PeckList backup' }), {
         status: 400,
         headers: { 'content-type': 'application/json' },
       }),
@@ -169,7 +169,7 @@ describe('HTTP admin', () => {
     expect((forms[0]!.get('file') as File).name).toBe('sam.json');
     expect(await admin.restoreUser({ backup: 'punchlist-1.json' }, 'kim')).toEqual({
       ok: false,
-      message: 'not a Punchlist backup',
+      message: 'not a PeckList backup',
     });
     expect([forms[1]!.get('backup'), forms[1]!.get('username')]).toEqual([
       'punchlist-1.json',

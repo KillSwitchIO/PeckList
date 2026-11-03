@@ -32,10 +32,10 @@ public static class ApiDocs
             {
                 document.Info = new OpenApiInfo
                 {
-                    Title = "Punchlist API",
+                    Title = "PeckList API",
                     Version = ServerApp.Version,
                     Description =
-                        "The HTTP API of a Punchlist server. Sign in with an API key from Settings > API keys " +
+                        "The HTTP API of a PeckList server. Sign in with an API key from Settings > API keys " +
                         "(Authorize, then the key as it was shown: pl_...). In a browser signed in to this server, " +
                         "the session works too. Tasks, lists and the rest of the workspace are written through " +
                         "POST /api/sync with per-field clocks; see the docs' Data model and sync page.",
@@ -92,8 +92,8 @@ public static class ApiDocs
         {
             options.RoutePrefix = PagePath.TrimStart('/');
             // Relative to the page (/api/docs/index.html), so it holds behind any proxy.
-            options.SwaggerEndpoint("../openapi/v1.json", "Punchlist API");
-            options.DocumentTitle = "Punchlist API";
+            options.SwaggerEndpoint("../openapi/v1.json", "PeckList API");
+            options.DocumentTitle = "PeckList API";
         });
     }
 

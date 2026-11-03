@@ -25,7 +25,7 @@ public sealed class ApiDocsTests(ServerFixture fixture) : IClassFixture<ServerFi
         var document = await Document(server.CreateClient());
 
         Assert.StartsWith("3.", document.GetProperty("openapi").GetString());
-        Assert.Equal("Punchlist API", document.GetProperty("info").GetProperty("title").GetString());
+        Assert.Equal("PeckList API", document.GetProperty("info").GetProperty("title").GetString());
         Assert.Equal(ServerApp.Version, document.GetProperty("info").GetProperty("version").GetString());
         var paths = document.GetProperty("paths").EnumerateObject().Select(each => each.Name).ToList();
         Assert.Contains("/api/sync", paths);

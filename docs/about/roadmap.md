@@ -1,6 +1,6 @@
 # Roadmap
 
-Where Punchlist is and where it is going. Plans change; the
+Where PeckList is and where it is going. Plans change; the
 [changelog](https://gitlab.com/killswitch10/punchlist/-/blob/main/CHANGELOG.md) is the record of
 what actually shipped. Ideas and votes are welcome as
 [feature requests](https://gitlab.com/killswitch10/punchlist/-/issues/new?issuable_template=Feature%20request).
@@ -34,7 +34,7 @@ What the current release does, built up over the 0.x versions:
 1.0 is the first stable release: from then on, the data format is fixed as the base every later
 version reads, and breaking changes wait for a major version.
 
-- **The public name.** "Punchlist" is the working name and may change before 1.0.
+- **The public name.** "PeckList" is the working name and may change before 1.0.
 - **Hardening**: the remaining items from a security and bug audit (the server deciding authorship
   and ownership itself, signing out clearing the device, Android fixes).
 - **Testing on real installs**: every install path followed from the docs alone, notifications on
@@ -57,6 +57,6 @@ Roughly in this order, and none of it promised:
   connector so Claude, ChatGPT and other assistants can work with your own server.
 - **Notifications without a server round trip (1.1)**: reminders scheduled on the device, and
   UnifiedPush for phones without Google services.
-- **Federation**: sharing between people on different Punchlist servers.
+- **Federation**: sharing between people on different PeckList servers.
 - **Habits**, a **Pomodoro** focus timer and an **Eisenhower matrix**.
 - **iOS app**: last, since the web app already installs on iPhone and iPad.

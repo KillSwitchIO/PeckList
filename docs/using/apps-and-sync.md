@@ -2,19 +2,19 @@
 
 ## Install the app
 
-Punchlist is a web app you can install. Once installed it opens in its own window, starts from the
+PeckList is a web app you can install. Once installed it opens in its own window, starts from the
 home screen or start menu, and works offline. Installing needs HTTPS (or `localhost`).
 
 | Device                                   | How                                                                  |
 | ---------------------------------------- | -------------------------------------------------------------------- |
 | Android (Chrome, Edge, Samsung Internet) | The browser offers **Install app**, or menu > **Install app**        |
 | iPhone, iPad                             | Safari > **Share** > **Add to Home Screen**                          |
-| Windows, macOS, Linux (Chrome, Edge)     | The install icon in the address bar, or menu > **Install Punchlist** |
+| Windows, macOS, Linux (Chrome, Edge)     | The install icon in the address bar, or menu > **Install PeckList** |
 | Firefox desktop                          | No install; use it in a tab (it still works offline once loaded)     |
 
 ## The Android app
 
-The Android app is the same Punchlist in a native shell, with reminders that arrive on time with
+The Android app is the same PeckList in a native shell, with reminders that arrive on time with
 the app closed and sign-in through your real browser. Installing it (from the release page or
 with Obtainium), connecting, the browser sign-in and notifications are on their own page:
 [the Android app](android-app.md).
@@ -42,7 +42,7 @@ connection: add, edit, complete, move. Changes wait on the device and sync when 
 
 ## Without a server
 
-Opened from a plain web server (or `pnpm dev`), with no Punchlist server behind it, the app keeps
+Opened from a plain web server (or `pnpm dev`), with no PeckList server behind it, the app keeps
 everything in this browser only: no accounts, no sync, no sharing. Clearing the browser's site data
 deletes it, so download a copy now and then.
 
@@ -55,7 +55,7 @@ deletes it, so download a copy now and then.
   so an old copy cannot undo newer work.
 - A file from another person or another device without an account becomes yours, and its Mess
   Drawer tasks move into yours.
-- A file from a newer Punchlist is refused until the app updates; an older one is upgraded.
+- A file from a newer PeckList is refused until the app updates; an older one is upgraded.
 - One import is one step: the undo toast takes it all back.
 
 Signed in to a server, what an import adds syncs like anything else. Server admins have
@@ -64,7 +64,7 @@ Signed in to a server, what an import adds syncs like anything else. Server admi
 ## Moving from or to another app
 
 **Settings > Your data > Import from another app** reads another app's export. Pick the app, choose
-its file, and Punchlist shows what it found (lists, open and closed tasks, tags) and anything it
+its file, and PeckList shows what it found (lists, open and closed tasks, tags) and anything it
 cannot keep before anything changes. Then pick one:
 
 - **Merge with what you have**: the import lands beside your tasks. With **Add to lists with the
@@ -90,14 +90,14 @@ What comes over: lists, tasks with their notes, dates and times, priorities, tag
 reminders, subtasks, and done and won't-do tasks closed as they were (Todoist and Things only deal
 in open tasks). What does not:
 
-- **Sections, kanban columns and folders**: Punchlist has none, so their tasks stay in the list.
+- **Sections, kanban columns and folders**: PeckList has none, so their tasks stay in the list.
 - **TickTick checklists** stay checklists, in the task's notes, ticked items ticked (and go back
   to TickTick as checklists).
 - **Done means done**: a task left open under a completed one (an unticked item of a completed
   TickTick task, say) comes in completed with it.
 - **When tasks were made** comes over where the app exports it (TickTick, iCalendar).
 - **Todoist comments**: they go into the task's notes.
-- **Repeats Punchlist cannot follow** (such as TickTick's "these dates"): the task comes in
+- **Repeats PeckList cannot follow** (such as TickTick's "these dates"): the task comes in
   without one.
 - **Things**: no priorities or repeats, and a tag only if Things already has one of that name.
   Things takes no file, so open the links in order on the device that has Things: the first

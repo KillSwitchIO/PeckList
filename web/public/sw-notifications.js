@@ -1,5 +1,5 @@
 // Loaded into the app's service worker (vite.config.ts, workbox importScripts). A click on a
-// Punchlist notification focuses an open window on its task, or opens one.
+// PeckList notification focuses an open window on its task, or opens one.
 // A constant reminder's Dismiss or Snooze (spec: R-FB-70). Its tag is "<task id>@<first time>".
 // An open window does the work (it marks the repeats done here and, for Snooze, adds a reminder
 // that syncs); with none open, the server does.
@@ -55,10 +55,10 @@ self.addEventListener('push', (event) => {
   try {
     payload = event.data ? event.data.json() : {};
   } catch {
-    payload = { title: 'Punchlist', body: event.data ? event.data.text() : '' };
+    payload = { title: 'PeckList', body: event.data ? event.data.text() : '' };
   }
   event.waitUntil(
-    self.registration.showNotification(payload.title || 'Punchlist', {
+    self.registration.showNotification(payload.title || 'PeckList', {
       body: payload.body || '',
       tag: payload.tag,
       data: { url: payload.url || '/today', actions: payload.actions || [] },

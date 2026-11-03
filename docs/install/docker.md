@@ -1,6 +1,6 @@
 # Docker
 
-Punchlist ships as one image that serves both the web app and the API.
+PeckList ships as one image that serves both the web app and the API.
 
 ```text
 registry.gitlab.com/killswitch10/punchlist

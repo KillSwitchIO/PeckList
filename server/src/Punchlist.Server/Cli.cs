@@ -78,7 +78,7 @@ public static class Cli
             switch (command)
             {
                 case "upgrade-db":
-                    await output.WriteLineAsync($"The {settings.DbProvider.ToString().ToLowerInvariant()} database is up to date for Punchlist {ServerApp.Version}.");
+                    await output.WriteLineAsync($"The {settings.DbProvider.ToString().ToLowerInvariant()} database is up to date for PeckList {ServerApp.Version}.");
                     return 0;
                 case "export" when args.Contains("--user"):
                 case "import" when args.Contains("--user"):

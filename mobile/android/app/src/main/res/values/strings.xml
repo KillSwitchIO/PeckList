@@ -1,22 +1,22 @@
 <?xml version='1.0' encoding='utf-8'?>
 <resources>
-    <string name="app_name">Punchlist</string>
-    <string name="title_activity_main">Punchlist</string>
+    <string name="app_name">PeckList</string>
+    <string name="title_activity_main">PeckList</string>
     <string name="package_name">com.killswitch10.punchlist</string>
     <string name="custom_url_scheme">com.killswitch10.punchlist</string>
     <!-- The page shown when the server cannot be reached on a start with nothing cached (ShellWebViewClient). -->
     <string name="offline_title">"Can't reach your server"</string>
-    <string name="offline_body">Punchlist could not reach %1$s. Check your connection, or whether the server is running.</string>
+    <string name="offline_body">PeckList could not reach %1$s. Check your connection, or whether the server is running.</string>
     <string name="offline_retry">Try again</string>
     <string name="offline_other">Use another server</string>
     <!-- A sign-in page in front of the server (Pangolin, Cloudflare Access...; Gate). -->
     <string name="gate_title">Sign in to reach your server</string>
-    <string name="gate_body">%1$s asks you to sign in before Punchlist opens. Sign in in your browser, then come back here.</string>
+    <string name="gate_body">%1$s asks you to sign in before PeckList opens. Sign in in your browser, then come back here.</string>
     <string name="gate_sign_in">Sign in</string>
     <string name="gate_here">Sign in here instead</string>
     <string name="gate_link_hint">Behind Pangolin? Paste a share link for this server instead:</string>
     <string name="gate_link_use">Use the link</string>
-    <!-- Notification channels, as Settings > Apps > Punchlist > Notifications lists them (PL-115). -->
+    <!-- Notification channels, as Settings > Apps > PeckList > Notifications lists them (PL-115). -->
     <string name="channel_reminders">Reminders</string>
     <string name="channel_assignments">Assignments and dibs</string>
     <string name="channel_shares">Shared lists</string>
@@ -34,7 +34,7 @@
     <string name="snooze_done">Snoozed until %1$s</string>
     <string name="reminder_body">Reminder for %1$s</string>
     <!-- Back with nothing left to go back to (MainActivity). -->
-    <string name="back_again">Press Back again to leave Punchlist</string>
+    <string name="back_again">Press Back again to leave PeckList</string>
     <!-- The launcher icon's long-press shortcut: back to the connect page, whatever the server runs. -->
     <string name="shortcut_server_short">Change server</string>
     <string name="shortcut_server_long">Change server or use without one</string>
