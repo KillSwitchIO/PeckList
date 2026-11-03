@@ -278,7 +278,7 @@ export const en = {
   'connect.problem.invalid': 'That is not a web address.',
   'connect.problem.unreachable': 'Could not reach that address. Check it and your connection.',
   'connect.problem.certificate': "The server's certificate is not trusted on this device.",
-  'connect.problem.not-punchlist': 'That address does not run a PeckList server.',
+  'connect.problem.not-pecklist': 'That address does not run a PeckList server.',
   'connect.problem.gated': 'That address asks you to sign in first.',
   'connect.gated':
     'This server is behind a sign-in page (like Pangolin or Cloudflare Access). Continue, then sign in to it when the app asks.',

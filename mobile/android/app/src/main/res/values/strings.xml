@@ -2,8 +2,8 @@
 <resources>
     <string name="app_name">PeckList</string>
     <string name="title_activity_main">PeckList</string>
-    <string name="package_name">com.killswitch10.punchlist</string>
-    <string name="custom_url_scheme">com.killswitch10.punchlist</string>
+    <string name="package_name">com.killswitch10.pecklist</string>
+    <string name="custom_url_scheme">com.killswitch10.pecklist</string>
     <!-- The page shown when the server cannot be reached on a start with nothing cached (ShellWebViewClient). -->
     <string name="offline_title">"Can't reach your server"</string>
     <string name="offline_body">PeckList could not reach %1$s. Check your connection, or whether the server is running.</string>

@@ -67,7 +67,7 @@ The same docs are published as a site from `main` (GitLab Pages).
 
 Each [release](https://gitlab.com/killswitch10/punchlist/-/releases) has the image
 (`registry.gitlab.com/killswitch10/punchlist:<version>`, amd64 and arm64), self-contained Linux
-(x64, arm64) and Windows (x64) downloads, the signed Android app (`punchlist-android.apk`, also
+(x64, arm64) and Windows (x64) downloads, the signed Android app (`pecklist-android.apk`, also
 through [Obtainium](docs/using/android-app.md#install)), and `SHA256SUMS`.
 
 ## Help and community

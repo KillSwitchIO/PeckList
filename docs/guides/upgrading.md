@@ -34,7 +34,9 @@ The Android app runs your server's own copy of the web app, so most server upgra
 from people's phones. When a release does need a newer app, its changelog section starts with a
 **Compatibility** note (`Requires-Android: X.Y.Z`): update the apps first, since an app older than
 that is signed out until it updates. Obtainium updates the app by itself; otherwise install the
-new `punchlist-android.apk` over the old one ([the Android app](../using/android-app.md#install)).
+new `pecklist-android.apk` over the old one ([the Android app](../using/android-app.md#install)).
+The first PeckList APK is the one exception: it is a new app beside the old Punchlist app, not an
+update of it ([coming from the Punchlist app](../using/android-app.md#install)).
 
 ## What happens on start
 

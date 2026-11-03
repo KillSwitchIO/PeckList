@@ -34,10 +34,13 @@ export function handleBack(): boolean {
 
 declare global {
   interface Window {
+    pecklistBack?: () => boolean;
+    /** The same, for an APK from before the rename (PL-127). */
     punchlistBack?: () => boolean;
   }
 }
 
 export function installBackHandler(): void {
+  window.pecklistBack = handleBack;
   window.punchlistBack = handleBack;
 }

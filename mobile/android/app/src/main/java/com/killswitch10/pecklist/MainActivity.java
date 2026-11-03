@@ -1,4 +1,4 @@
-package com.killswitch10.punchlist;
+package com.killswitch10.pecklist;
 
 import android.content.Context;
 import android.content.Intent;
@@ -19,10 +19,10 @@ import com.getcapacitor.Logger;
 public class MainActivity extends BridgeActivity {
 
     /** Asks the web app to use Back (web/src/app/native/back.ts): true, false, or null from an older build without it. */
-    private static final String ASK_WEB_APP = "typeof window.punchlistBack === 'function' ? window.punchlistBack() === true : null";
+    private static final String ASK_WEB_APP = "typeof window.pecklistBack === 'function' ? window.pecklistBack() === true : null";
 
     /** The launcher shortcut (res/xml/shortcuts.xml): back to the connect page, whatever the server runs. */
-    static final String CHOOSE_SERVER = "com.killswitch10.punchlist.CHOOSE_SERVER";
+    static final String CHOOSE_SERVER = "com.killswitch10.pecklist.CHOOSE_SERVER";
 
     /** A second Back within this long leaves the app. */
     private static final long BACK_AGAIN_MS = 2000;
@@ -81,7 +81,7 @@ public class MainActivity extends BridgeActivity {
         if (server == null) return;
         new Thread(() -> {
             if (Gate.gated(this, server) && bridge != null) client.showGate(bridge.getWebView());
-        }, "punchlist-gate").start();
+        }, "pecklist-gate").start();
     }
 
     /**
@@ -125,7 +125,7 @@ public class MainActivity extends BridgeActivity {
         super.onResume();
         showing = true;
         Context app = getApplicationContext();
-        new Thread(() -> ReminderReceiver.retryPending(app), "punchlist-pending").start();
+        new Thread(() -> ReminderReceiver.retryPending(app), "pecklist-pending").start();
     }
 
     @Override
@@ -146,7 +146,7 @@ public class MainActivity extends BridgeActivity {
             return;
         }
         webView.evaluateJavascript(ASK_WEB_APP, (used) -> {
-            Logger.debug("Punchlist", "Back: the web app answered " + used);
+            Logger.debug("PeckList", "Back: the web app answered " + used);
             if ("true".equals(used)) return;
             if ("null".equals(used) && webView.canGoBack()) webView.goBack();
             else leaveOnSecondPress();

@@ -1,4 +1,4 @@
-package com.killswitch10.punchlist;
+package com.killswitch10.pecklist;
 
 import android.content.BroadcastReceiver;
 import android.content.Context;
@@ -25,10 +25,10 @@ public class CheckReceiver extends BroadcastReceiver {
             try {
                 BackgroundCheck.run(app);
             } catch (Exception error) {
-                Logger.warn("Punchlist: background check failed: " + error);
+                Logger.warn("PeckList: background check failed: " + error);
             } finally {
                 pending.finish();
             }
-        }, "punchlist-check").start();
+        }, "pecklist-check").start();
     }
 }

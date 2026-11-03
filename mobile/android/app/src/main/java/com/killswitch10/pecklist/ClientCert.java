@@ -1,4 +1,4 @@
-package com.killswitch10.punchlist;
+package com.killswitch10.pecklist;
 
 import android.app.Activity;
 import android.content.Context;
@@ -30,7 +30,7 @@ import javax.net.ssl.X509KeyManager;
  * asking again; leaving the server forgets it.
  */
 final class ClientCert {
-    private static final String PREFS = "punchlist.clientcert";
+    private static final String PREFS = "pecklist.clientcert";
     private static final String ALIAS = "alias";
     private static final Executor KEYS = Executors.newSingleThreadExecutor();
 
@@ -92,7 +92,7 @@ final class ClientCert {
             request.proceed(key, chain);
             return true;
         } catch (KeyChainException | InterruptedException error) {
-            Logger.warn("Punchlist", "Client certificate " + alias + " unavailable: " + error.getMessage());
+            Logger.warn("PeckList", "Client certificate " + alias + " unavailable: " + error.getMessage());
             return false;
         }
     }
@@ -137,7 +137,7 @@ final class ClientCert {
             tls.init(new KeyManager[] { new Fixed(alias, key, chain) }, null, null);
             return tls.getSocketFactory();
         } catch (Exception error) {
-            Logger.warn("Punchlist", "Client certificate " + alias + " unavailable: " + error.getMessage());
+            Logger.warn("PeckList", "Client certificate " + alias + " unavailable: " + error.getMessage());
             return null;
         }
     }

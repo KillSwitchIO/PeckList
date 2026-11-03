@@ -444,8 +444,8 @@ android-release:
       APK=mobile/android/app/build/outputs/apk/release/app-release.apk
       "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --print-certs "$APK" | grep -E 'DN|SHA-256'
       mkdir -p dist-android
-      cp "$APK" dist-android/punchlist-android.apk
-      echo "Built punchlist-android.apk $VERSION (code $PUNCHLIST_VERSION_CODE)"
+      cp "$APK" dist-android/pecklist-android.apk
+      echo "Built pecklist-android.apk $VERSION (code $PUNCHLIST_VERSION_CODE)"
   after_script:
     - rm -f "$CI_PROJECT_DIR/release-key.p12"
   artifacts:
@@ -621,8 +621,8 @@ release:
   script:
     - node scripts/check-version.mjs
     # The signed APK joins the native downloads and their checksums.
-    - cp dist-android/punchlist-android.apk dist/
-    - (cd dist && sha256sum punchlist-android.apk >> SHA256SUMS)
+    - cp dist-android/pecklist-android.apk dist/
+    - (cd dist && sha256sum pecklist-android.apk >> SHA256SUMS)
     - node scripts/ci/publish-release.mjs dist
   rules:
     - *on-tag

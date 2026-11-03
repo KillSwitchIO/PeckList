@@ -1,4 +1,4 @@
-package com.killswitch10.punchlist;
+package com.killswitch10.pecklist;
 
 import android.content.Context;
 import android.content.SharedPreferences;
@@ -15,7 +15,7 @@ import org.json.JSONObject;
  */
 final class Pending {
 
-    private static final String PREFS = "punchlist.pending";
+    private static final String PREFS = "pecklist.pending";
     private static final String ALL = "all";
     private static final long KEEP_MS = 7L * 24 * 60 * 60 * 1000;
 

@@ -1,4 +1,4 @@
-package com.killswitch10.punchlist;
+package com.killswitch10.pecklist;
 
 import android.content.BroadcastReceiver;
 import android.content.Context;
@@ -41,11 +41,11 @@ public class ReminderReceiver extends BroadcastReceiver {
             try {
                 press(app, button, Reminders.Reminder.of(new JSONObject(stored)), Reminders.SNOOZE_MINUTES);
             } catch (Exception error) {
-                Logger.warn("Punchlist: reminder button failed: " + error);
+                Logger.warn("PeckList: reminder button failed: " + error);
             } finally {
                 pending.finish();
             }
-        }, "punchlist-reminder").start();
+        }, "pecklist-reminder").start();
     }
 
     /** Complete, or Snooze for {@code minutes}. Network: call off the main thread. */
@@ -70,7 +70,7 @@ public class ReminderReceiver extends BroadcastReceiver {
             Held.add(context, button, reminder.taskId(), minutes);
             return;
         }
-        Logger.info("Punchlist", "Reminder " + button + ": the server answered " + status + "; trying again later");
+        Logger.info("PeckList", "Reminder " + button + ": the server answered " + status + "; trying again later");
         // Unreachable or signed out: later. Refused (the task is gone, or not theirs): nothing to do.
         if (status == 0 || status == 401 || status == 403 || status >= 500) {
             Pending.add(context, button, reminder.taskId(), reminder.first(), minutes);
@@ -136,7 +136,7 @@ public class ReminderReceiver extends BroadcastReceiver {
                 connection.disconnect();
             }
         } catch (Exception error) {
-            Logger.warn("Punchlist: could not reach " + server + ": " + error.getMessage());
+            Logger.warn("PeckList: could not reach " + server + ": " + error.getMessage());
             return 0;
         }
     }

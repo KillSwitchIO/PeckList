@@ -1,4 +1,4 @@
-package com.killswitch10.punchlist;
+package com.killswitch10.pecklist;
 
 import android.content.Context;
 import java.io.ByteArrayOutputStream;
@@ -15,7 +15,7 @@ import org.json.JSONException;
 import org.json.JSONObject;
 
 /**
- * Asks an address whether it is a Punchlist server ({@code GET /api/info}) before the app moves to
+ * Asks an address whether it is a PeckList server ({@code GET /api/info}) before the app moves to
  * it. Done natively: the bundled page runs on another origin, and the server sends no CORS headers.
  * Follows up to three redirects across schemes, so {@code http://} to {@code https://} lands on the
  * address the server really answers on.
@@ -72,15 +72,15 @@ final class ServerCheck {
                     // Off to another host: a sign-in page in front of the server (Gate), passed once connected.
                     if (Gate.elsewhere(origin, target)) throw new Failure("gated", "a sign-in page first");
                     String next = ServerChoice.normalize(target);
-                    if (next == null) throw new Failure("not-punchlist", "redirected away");
+                    if (next == null) throw new Failure("not-pecklist", "redirected away");
                     current = next;
                     continue;
                 }
-                if (status != 200) throw new Failure("not-punchlist", "status " + status);
+                if (status != 200) throw new Failure("not-pecklist", "status " + status);
                 String type = connection.getContentType();
-                if (type == null || !type.contains("json")) throw new Failure("not-punchlist", "not json");
+                if (type == null || !type.contains("json")) throw new Failure("not-pecklist", "not json");
                 JSONObject info = new JSONObject(read(connection.getInputStream()));
-                if (!"punchlist".equals(info.optString("name"))) throw new Failure("not-punchlist", "another app");
+                if (!isOurs(info.optString("name"))) throw new Failure("not-pecklist", "another app");
                 return new Result(current, info);
             } catch (IOException error) {
                 // A handshake that fails on the certificate is a trust problem; any other TLS
@@ -88,12 +88,17 @@ final class ServerCheck {
                 boolean trust = isCertificateProblem(error);
                 throw new Failure(trust ? "certificate" : "unreachable", error.getMessage(), !trust && isTls(error));
             } catch (JSONException error) {
-                throw new Failure("not-punchlist", "bad json");
+                throw new Failure("not-pecklist", "bad json");
             } finally {
                 if (connection != null) connection.disconnect();
             }
         }
-        throw new Failure("not-punchlist", "too many redirects");
+        throw new Failure("not-pecklist", "too many redirects");
+    }
+
+    /** What /api/info calls the app: pecklist, or punchlist on servers from before the rename (PL-127). */
+    static boolean isOurs(String name) {
+        return "pecklist".equals(name) || "punchlist".equals(name);
     }
 
     private static boolean isTls(Throwable error) {

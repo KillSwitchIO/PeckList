@@ -1,4 +1,4 @@
-package com.killswitch10.punchlist;
+package com.killswitch10.pecklist;
 
 import android.content.Context;
 import android.content.SharedPreferences;
@@ -31,7 +31,7 @@ import org.json.JSONObject;
  */
 final class Gate {
 
-    private static final String PREFS = "punchlist.gate";
+    private static final String PREFS = "pecklist.gate";
     private static final String KEY = "key";
     private static final String SERVER = "server";
     private static final String STARTED = "started";

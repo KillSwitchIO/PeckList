@@ -8,10 +8,10 @@ def releaseKeystore = System.getenv('ANDROID_KEYSTORE_FILE')
 def keystorePassword = System.getenv('ANDROID_KEYSTORE_PASSWORD')
 
 android {
-    namespace = "com.killswitch10.punchlist"
+    namespace = "com.killswitch10.pecklist"
     compileSdk = rootProject.ext.compileSdkVersion
     defaultConfig {
-        applicationId "com.killswitch10.punchlist"
+        applicationId "com.killswitch10.pecklist"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
         versionCode((System.getenv('PUNCHLIST_VERSION_CODE') ?: '1') as Integer)
