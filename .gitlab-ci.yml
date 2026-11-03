@@ -512,7 +512,7 @@ e2e-server:
   rules:
     - *on-main
 
-# The test server follows main: the compose repository's tag for punchlist-test is bumped to this
+# The test server follows main: the compose repository's tag for pecklist-test is bumped to this
 # image and its pipeline released (scripts/ci/deploy-test.mjs). Production never moves from here.
 deploy-test:
   image: $NODE_IMAGE
@@ -524,7 +524,7 @@ deploy-test:
     - node scripts/ci/deploy-test.mjs
   environment:
     name: test
-    url: https://punchlist-test.killswitch10.com
+    url: https://pecklist-test.killswitch10.com
   rules:
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $GITLAB_API_TOKEN
 
@@ -548,7 +548,7 @@ deploy-demo:
   timeout: 10m
   interruptible: false
   variables:
-    COMPOSE_SERVICE: punchlist-demo
+    COMPOSE_SERVICE: pecklist-demo
   script:
     - node scripts/ci/deploy-test.mjs
   environment:

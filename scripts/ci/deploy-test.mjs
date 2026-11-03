@@ -2,7 +2,7 @@
 // compose repository and start its pipeline with the release switched on. Runs with
 // GITLAB_API_TOKEN (api scope) and the CI_* variables. By default the test server, with main's
 // sha-<commit> image after e2e-server; COMPOSE_SERVICE and IMAGE point it at another service, such
-// as the website (pecklist-site) or the demo (punchlist-demo, from a release tag: its version).
+// as the website (pecklist-site) or the demo (pecklist-demo, from a release tag: its version).
 //
 // The compose repository stays the record of what runs where: the bump is a commit on its main,
 // with [skip ci] so the push starts nothing; the pipeline is started by this script instead, with
@@ -17,7 +17,7 @@ const {
   CI_COMMIT_SHA,
   CI_PIPELINE_URL,
   COMPOSE_PROJECT = 'homelab-killswitch/compose',
-  COMPOSE_SERVICE = 'punchlist-test',
+  COMPOSE_SERVICE = 'pecklist-test',
   IMAGE = 'registry.gitlab.com/killswitch10/punchlist',
 } = process.env;
 
