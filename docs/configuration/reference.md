@@ -222,6 +222,29 @@ Where the report goes. **Default:** `https://telemetry.pecklist.com/api/public/v
 [convention](https://consoledonottrack.com/) across all their tools. **Default:** `false`.
 **Where:** environment.
 
+## Visit counts
+
+Optional counts of who uses the web app, from your own [Umami](https://umami.is) server. Off
+unless `UMAMI_URL` and `UMAMI_WEBSITE_ID` are both set. The page then loads Umami's tracker from
+that server and the browser reports page views there; the server itself sends nothing, and the
+page's security policy is opened for that one address only. Umami keeps no cookies. Tell your
+users (see [privacy](../using/privacy.md)).
+
+### `UMAMI_URL`
+
+The Umami server, as visitors' browsers reach it: `https://stats.example.com`. The page loads
+`/script.js` from it and reports to `/api/send` (and the recorder to `/api/record`), so those
+must be reachable from wherever your users are. **Default:** none. **Where:** env.
+
+### `UMAMI_WEBSITE_ID`
+
+The website's id in Umami (Settings, Websites). **Default:** none. **Where:** env.
+
+### `UMAMI_RECORDER`
+
+`true` adds Umami's session recorder, for replays of visits. It masks what people type. Needs
+`UMAMI_URL` and `UMAMI_WEBSITE_ID`. **Default:** `false`. **Where:** env.
+
 ## Demo server
 
 A public trial server that resets every night: see [run a demo server](../install/demo.md).

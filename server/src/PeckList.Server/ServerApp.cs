@@ -156,7 +156,7 @@ public static partial class ServerApp
         // Times every request; who made it is known by the time it is recorded.
         Audit.AuditLog.UseAuditLog(app);
         app.UseForwardedHeaders();
-        app.UseResponseHardening();
+        app.UseResponseHardening(Analytics.ContentSecurityPolicy(settings.Umami));
         SharingStartup.UseSharingStartup(app);
         app.UseDemoMode(settings);
         app.UseAuthentication();
@@ -177,7 +177,7 @@ public static partial class ServerApp
         app.MapGroup("/api/admin").RequireAuthorization().RequirePasswordChanged().MapAdmin().MapSettings().MapBackups().MapLogging().MapAudit().MapStats().MapSetup().MapTelemetry();
 
         var webRoot = settings.WebRoot ?? Path.Combine(AppContext.BaseDirectory, "wwwroot");
-        app.UseStaticSite(webRoot, app.Logger, noindex: settings.DemoMode);
+        app.UseStaticSite(webRoot, app.Logger, noindex: settings.DemoMode, umami: settings.Umami);
         return app;
     }
 }

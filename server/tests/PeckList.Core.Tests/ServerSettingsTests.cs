@@ -65,6 +65,36 @@ public sealed class ServerSettingsTests
     }
 
     [Fact]
+    public void Umami_is_off_unless_its_address_and_website_are_both_set()
+    {
+        Assert.Null(Read([]).Umami);
+        var umami = Read(new() { ["UMAMI_URL"] = "https://stats.example.test/", ["UMAMI_WEBSITE_ID"] = "2af69a04-8c9a-4cac-9a19-390ad57c4840" }).Umami;
+        Assert.Equal("https://stats.example.test/", umami!.Url.ToString());
+        Assert.Equal("https://stats.example.test", umami.Origin);
+        Assert.False(umami.Recorder);
+        Assert.True(Read(new() { ["UMAMI_URL"] = "https://stats.example.test", ["UMAMI_WEBSITE_ID"] = "2af69a04-8c9a-4cac-9a19-390ad57c4840", ["UMAMI_RECORDER"] = "true" }).Umami!.Recorder);
+    }
+
+    [Theory]
+    [InlineData("https://stats.example.test", null)]
+    [InlineData(null, "2af69a04-8c9a-4cac-9a19-390ad57c4840")]
+    [InlineData("stats.example.test", "2af69a04-8c9a-4cac-9a19-390ad57c4840")]
+    [InlineData("https://stats.example.test", "my-site")]
+    public void Umami_settings_that_cannot_work_stop_the_start(string? url, string? website)
+    {
+        var env = new Dictionary<string, string>();
+        if (url is not null) env["UMAMI_URL"] = url;
+        if (website is not null) env["UMAMI_WEBSITE_ID"] = website;
+        Assert.Throws<SettingsException>(() => Read(env));
+    }
+
+    [Fact]
+    public void The_umami_recorder_needs_umami()
+    {
+        Assert.Throws<SettingsException>(() => Read(new() { ["UMAMI_RECORDER"] = "true" }));
+    }
+
+    [Fact]
     public void Outside_a_container_the_database_sits_in_a_local_data_folder()
     {
         Assert.Equal(Path.Combine("data", "pecklist.db"), Read([], inContainer: false).DbPath);

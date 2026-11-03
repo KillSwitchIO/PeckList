@@ -130,6 +130,9 @@ public sealed record ServerSettings
     /// <summary>Email (<c>SMTP_*</c>, PL-122); null without <c>SMTP_HOST</c>, and always on a demo server.</summary>
     public MailSettings? Mail { get; init; }
 
+    /// <summary>Visit counts from an Umami server (<c>UMAMI_*</c>); null unless set.</summary>
+    public UmamiSettings? Umami { get; init; }
+
     /// <summary>Where archives go: <c>audit</c> next to the SQLite file.</summary>
     public string AuditArchiveDir { get; init; } = "/data/audit";
 
@@ -289,6 +292,8 @@ public sealed record ServerSettings
             }
         }
 
+        var umami = UmamiSettings.Read(Get, Flag, errors);
+
         var demoMode = Flag("DEMO_MODE", false);
         var demoAccounts = DemoAccount.ReadAll(Get("DEMO_ACCOUNTS"), errors);
         var demoResetTime = Get("DEMO_RESET_TIME")?.Trim() ?? "04:00";
@@ -333,6 +338,7 @@ public sealed record ServerSettings
             Telemetry = Flag("TELEMETRY", true) && !Flag("DO_NOT_TRACK", false),
             TelemetryUrl = telemetryUrl,
             Mail = mail,
+            Umami = umami,
             AuditArchiveDir = Get("AUDIT_ARCHIVE_DIR")
                 ?? Path.Combine(Path.GetDirectoryName(dbPath) is { Length: > 0 } auditDir ? auditDir : ".", "audit"),
             DemoMode = demoMode,
