@@ -6,15 +6,15 @@ A good report gets fixed quickly. This page is also the text of the pinned
 ## Before you report
 
 1. **Update.** Only the latest release is supported, and your bug may be fixed already: check
-   the [changelog](https://gitlab.com/killswitch10/punchlist/-/blob/main/CHANGELOG.md).
-2. **Search** the [open issues](https://gitlab.com/killswitch10/punchlist/-/issues). If yours is
+   the [changelog](https://gitlab.com/killswitch10/pecklist/-/blob/main/CHANGELOG.md).
+2. **Search** the [open issues](https://gitlab.com/killswitch10/pecklist/-/issues). If yours is
    there, add what you know to it (and a thumbs-up) rather than opening another.
 3. **Security problem?** Do not open a public issue. Follow the
-   [security policy](https://gitlab.com/killswitch10/punchlist/-/blob/main/SECURITY.md).
+   [security policy](https://gitlab.com/killswitch10/pecklist/-/blob/main/SECURITY.md).
 
 ## What to include
 
-Open a [new issue with the Bug template](https://gitlab.com/killswitch10/punchlist/-/issues/new?issuable_template=Bug)
+Open a [new issue with the Bug template](https://gitlab.com/killswitch10/pecklist/-/issues/new?issuable_template=Bug)
 and fill in:
 
 - **What happened**: what you did, what you expected, and what happened instead. A screenshot or a

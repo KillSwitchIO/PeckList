@@ -1,6 +1,6 @@
 # Linux (without Docker)
 
-Each [release](https://gitlab.com/killswitch10/punchlist/-/releases) has a self-contained download
+Each [release](https://gitlab.com/killswitch10/pecklist/-/releases) has a self-contained download
 for **x64** and **arm64**: the server with everything it needs built in. No .NET, Node or database
 server to install.
 
@@ -10,7 +10,7 @@ On any systemd distribution (Debian, Ubuntu, Fedora, Arch, ...):
 
 ```bash
 ARCH=x64   # or arm64
-BASE=https://gitlab.com/killswitch10/punchlist/-/releases/permalink/latest/downloads
+BASE=https://gitlab.com/killswitch10/pecklist/-/releases/permalink/latest/downloads
 curl -LO "$BASE/pecklist-linux-$ARCH.tar.gz"
 curl -LO "$BASE/SHA256SUMS"
 sha256sum --check --ignore-missing SHA256SUMS
@@ -20,7 +20,7 @@ sudo journalctl -u pecklist   # the first admin password, printed once
 ```
 
 That takes the newest release. For a particular one, download the files from its
-[release page](https://gitlab.com/killswitch10/punchlist/-/releases) instead.
+[release page](https://gitlab.com/killswitch10/pecklist/-/releases) instead.
 
 The install script:
 

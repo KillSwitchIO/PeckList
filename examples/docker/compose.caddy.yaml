@@ -5,7 +5,7 @@
 
 services:
   pecklist:
-    image: registry.gitlab.com/killswitch10/punchlist:latest
+    image: registry.gitlab.com/killswitch10/pecklist:latest
     container_name: pecklist
     restart: unless-stopped
     volumes:

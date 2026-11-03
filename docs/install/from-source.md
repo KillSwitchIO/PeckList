@@ -13,7 +13,7 @@ For development, or a platform without a download (macOS, Linux on another archi
 ## Build and run
 
 ```bash
-git clone https://gitlab.com/killswitch10/punchlist.git
+git clone https://gitlab.com/killswitch10/pecklist.git
 cd pecklist
 pnpm install
 pnpm build                                   # the web app, into web/dist

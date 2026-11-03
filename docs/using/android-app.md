@@ -17,11 +17,11 @@ The app is not in the Play Store yet. Two ways in, both with the same signed app
     pages and tells you when there is a new version.
 
     1. Install Obtainium.
-    2. On the phone, open [this Obtainium link](obtainium://add/https://gitlab.com/killswitch10/punchlist), or in
+    2. On the phone, open [this Obtainium link](obtainium://add/https://gitlab.com/killswitch10/pecklist), or in
        Obtainium tap **Add app** and paste:
 
         ```text
-        https://gitlab.com/killswitch10/punchlist
+        https://gitlab.com/killswitch10/pecklist
         ```
 
     3. Obtainium finds the GitLab releases. If it asks which file to install, pick
@@ -31,7 +31,7 @@ The app is not in the Play Store yet. Two ways in, both with the same signed app
 
 === "Download the APK"
 
-    1. Open the [latest release](https://gitlab.com/killswitch10/punchlist/-/releases) on the phone.
+    1. Open the [latest release](https://gitlab.com/killswitch10/pecklist/-/releases) on the phone.
     2. Download `pecklist-android.apk`.
     3. Open it and allow your browser to install apps when Android asks.
 

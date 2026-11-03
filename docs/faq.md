@@ -35,8 +35,8 @@ off ([privacy](using/privacy.md)). Other outside services are only those you con
 single sign-on or log shipping.
 
 **Which license is it under?**
-The [GNU AGPL-3.0-or-later](https://gitlab.com/killswitch10/punchlist/-/blob/main/LICENSE): free
+The [GNU AGPL-3.0-or-later](https://gitlab.com/killswitch10/pecklist/-/blob/main/LICENSE): free
 to use, host, change and share, for personal or commercial use. If you change it and run it for
 other people over a network, offer them the modified source. Organizations that cannot work under
 the AGPL can buy a
-[commercial license](https://gitlab.com/killswitch10/punchlist/-/blob/main/COMMERCIAL-LICENSE.md).
+[commercial license](https://gitlab.com/killswitch10/pecklist/-/blob/main/COMMERCIAL-LICENSE.md).

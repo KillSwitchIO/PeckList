@@ -1,6 +1,6 @@
 # Workspace file format
 
-The canonical data format is one JSON document per user, defined by [`schema/workspace.schema.json`](https://gitlab.com/killswitch10/punchlist/-/blob/main/schema/workspace.schema.json) (JSON Schema draft 2020-12). In standalone mode it holds everything; with a server it holds exactly what that user may see.
+The canonical data format is one JSON document per user, defined by [`schema/workspace.schema.json`](https://gitlab.com/killswitch10/pecklist/-/blob/main/schema/workspace.schema.json) (JSON Schema draft 2020-12). In standalone mode it holds everything; with a server it holds exactly what that user may see.
 
 ## Top level
 
@@ -30,7 +30,7 @@ The canonical data format is one JSON document per user, defined by [`schema/wor
 - Entities present on only one side are kept.
 - Manual order uses fractional index keys (`order`), compared as plain strings.
 
-The rules are pinned by [`schema/fixtures/merge`](https://gitlab.com/killswitch10/punchlist/-/tree/main/schema/fixtures/merge); every implementation must pass them.
+The rules are pinned by [`schema/fixtures/merge`](https://gitlab.com/killswitch10/pecklist/-/tree/main/schema/fixtures/merge); every implementation must pass them.
 
 ## Dates
 

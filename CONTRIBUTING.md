@@ -5,14 +5,14 @@ and performance habits, what to test) are in
 [docs/development/standards.md](docs/development/standards.md); read it before a change.
 
 Everyone taking part follows the [code of conduct](CODE_OF_CONDUCT.md). New here? Issues labelled
-[`good first issue`](https://gitlab.com/killswitch10/punchlist/-/issues/?label_name%5B%5D=good%20first%20issue)
+[`good first issue`](https://gitlab.com/killswitch10/pecklist/-/issues/?label_name%5B%5D=good%20first%20issue)
 are small and well described, and
-[`help wanted`](https://gitlab.com/killswitch10/punchlist/-/issues/?label_name%5B%5D=help%20wanted)
+[`help wanted`](https://gitlab.com/killswitch10/pecklist/-/issues/?label_name%5B%5D=help%20wanted)
 ones are where a hand is most welcome. Say on the issue that you are taking it, so two people do
 not do the same work.
 
 Changes, issues and reviews happen on GitLab,
-[gitlab.com/killswitch10/punchlist](https://gitlab.com/killswitch10/punchlist). The GitHub
+[gitlab.com/killswitch10/pecklist](https://gitlab.com/killswitch10/pecklist). The GitHub
 repository [KillSwitchIO/PeckList](https://github.com/KillSwitchIO/PeckList) is a one-way mirror
 of `main` and the release tags: pull requests opened there are closed automatically with a
 pointer back here.

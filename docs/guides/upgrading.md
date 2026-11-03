@@ -2,7 +2,7 @@
 
 ## Before you upgrade
 
-1. Read the [changelog](https://gitlab.com/killswitch10/punchlist/-/blob/main/CHANGELOG.md) for
+1. Read the [changelog](https://gitlab.com/killswitch10/pecklist/-/blob/main/CHANGELOG.md) for
    every version between yours and the new one. Before 1.0, a minor version (`0.3` to `0.4`) may
    change things; each one you have to act on is under **Breaking changes**, with what to do.
 2. Take a snapshot: **Admin > Backups > Take a backup now**, or `pecklist snapshot`. Going back to
@@ -53,5 +53,5 @@ If the server's database user may not change the schema (`DB_MIGRATE_ON_START=fa
 1. Stop the new version.
 2. Restore the snapshot you took into the old version's database
    (`pecklist import <file> --replace`), or put back the database file you copied.
-3. Start the old version, and [open an issue](https://gitlab.com/killswitch10/punchlist/-/issues)
+3. Start the old version, and [open an issue](https://gitlab.com/killswitch10/pecklist/-/issues)
    with a [debug dump](logging.md#debug-dump).

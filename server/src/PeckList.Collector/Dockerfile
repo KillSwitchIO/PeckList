@@ -17,7 +17,7 @@ RUN dotnet publish src/PeckList.Collector/PeckList.Collector.csproj -c Release -
 
 FROM mcr.microsoft.com/dotnet/aspnet:10.0-noble-chiseled
 LABEL org.opencontainers.image.title="PeckList telemetry collector" \
-      org.opencontainers.image.source="https://gitlab.com/killswitch10/punchlist"
+      org.opencontainers.image.source="https://gitlab.com/killswitch10/pecklist"
 WORKDIR /app
 COPY --from=build /app .
 ENV ASPNETCORE_URLS=http://+:8080

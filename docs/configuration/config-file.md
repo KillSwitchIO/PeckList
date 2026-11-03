@@ -47,4 +47,4 @@ Every setting the file can hold, with its default, commented out. Uncomment what
 ```
 
 The same file ships in every native download (`examples/pecklist.conf`) and is in the repository
-at [`examples/config/pecklist.conf`](https://gitlab.com/killswitch10/punchlist/-/blob/main/examples/config/punchlist.conf).
+at [`examples/config/pecklist.conf`](https://gitlab.com/killswitch10/pecklist/-/blob/main/examples/config/pecklist.conf).

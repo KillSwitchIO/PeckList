@@ -37,7 +37,7 @@ only) and the totals at `telemetry.killswitch10.com`, on its own network only (C
 
 ```bash
 docker run -d -p 8080:8080 -e COLLECTOR_DB="Host=db;Username=collector;Password=...;Database=collector" \
-  registry.gitlab.com/killswitch10/punchlist/collector:edge
+  registry.gitlab.com/killswitch10/pecklist/collector:edge
 ```
 
 `COLLECTOR_DB` is a PostgreSQL connection string; the tables are made on start. To keep the

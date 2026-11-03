@@ -2,6 +2,6 @@ This repository is a **read-only mirror**. Pull requests here are closed automat
 merged: the mirror is overwritten from GitLab on every change.
 
 Please open a merge request on GitLab instead:
-https://gitlab.com/killswitch10/punchlist/-/merge_requests
+https://gitlab.com/killswitch10/pecklist/-/merge_requests
 
-Issues go there too: https://gitlab.com/killswitch10/punchlist/-/issues. Thank you!
+Issues go there too: https://gitlab.com/killswitch10/pecklist/-/issues. Thank you!

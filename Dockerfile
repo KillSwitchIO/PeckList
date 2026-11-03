@@ -56,9 +56,9 @@ ARG REVISION
 ARG CREATED
 LABEL org.opencontainers.image.title="PeckList" \
       org.opencontainers.image.description="Self-hosted, offline-first tasks and calendar" \
-      org.opencontainers.image.url="https://gitlab.com/killswitch10/punchlist" \
-      org.opencontainers.image.source="https://gitlab.com/killswitch10/punchlist" \
-      org.opencontainers.image.documentation="https://gitlab.com/killswitch10/punchlist/-/tree/main/docs" \
+      org.opencontainers.image.url="https://gitlab.com/killswitch10/pecklist" \
+      org.opencontainers.image.source="https://gitlab.com/killswitch10/pecklist" \
+      org.opencontainers.image.documentation="https://gitlab.com/killswitch10/pecklist/-/tree/main/docs" \
       org.opencontainers.image.version="$VERSION" \
       org.opencontainers.image.revision="$REVISION" \
       org.opencontainers.image.created="$CREATED"

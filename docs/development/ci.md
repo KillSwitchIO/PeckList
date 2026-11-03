@@ -1,6 +1,6 @@
 # CI and runners
 
-The pipeline is in [`.gitlab-ci.yml`](https://gitlab.com/killswitch10/punchlist/-/blob/main/.gitlab-ci.yml).
+The pipeline is in [`.gitlab-ci.yml`](https://gitlab.com/killswitch10/pecklist/-/blob/main/.gitlab-ci.yml).
 
 ## When it runs
 
@@ -37,8 +37,8 @@ job) has approved, and "Pipelines must succeed" then keeps the merge request fro
   The NuGet cache works the same way: `server-test` writes, the others read. Archives use the
   fastest compression (`FF_USE_FASTZIP`, `CACHE_COMPRESSION_LEVEL`).
 - **Tool images instead of `apt-get`.** The browsers, the JDK and Android SDK, and MkDocs come
-  from images built out of [`ci/`](https://gitlab.com/killswitch10/punchlist/-/tree/main/ci)
-  into `registry.gitlab.com/killswitch10/punchlist/ci/{browsers,android,docs}` by the
+  from images built out of [`ci/`](https://gitlab.com/killswitch10/pecklist/-/tree/main/ci)
+  into `registry.gitlab.com/killswitch10/pecklist/ci/{browsers,android,docs}` by the
   `ci-images` job: when one of those files changes, weekly, or on demand.
 - **Heavy jobs one at a time.** `web-build`, `android-release` and `packages` share a
   `resource_group`, so a release does not run four builds against each other on one runner;
@@ -70,7 +70,7 @@ not appear. The same token lets `wiki` push.
 ## The docs in the wiki
 
 `wiki` runs on `main` after `docs` and mirrors `docs/` into the
-[project wiki](https://gitlab.com/killswitch10/punchlist/-/wikis/home): the same pages, with
+[project wiki](https://gitlab.com/killswitch10/pecklist/-/wikis/home): the same pages, with
 the MkDocs-only syntax rewritten for GitLab (admonitions as alerts, tabs as bold headings,
 `--8<--` snippets pasted in, `++key++` as `<kbd>`) and the links pointed at wiki pages
 (`scripts/wiki-pages.mjs`, tested in `scripts/wiki-pages.test.mjs`). Each page starts with a
@@ -94,7 +94,7 @@ on our own server.
 
 ## Container registry
 
-Images go to the project's registry, `registry.gitlab.com/killswitch10/punchlist`, using the job's
+Images go to the project's registry, `registry.gitlab.com/killswitch10/pecklist`, using the job's
 own registry credentials: nothing to configure. Each image is built for `linux/amd64` and
 `linux/arm64` (cross-compiled, no emulation), with an SBOM and provenance attached, and the layer
 cache kept at `:buildcache`.

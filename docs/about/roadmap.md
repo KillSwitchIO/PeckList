@@ -1,9 +1,9 @@
 # Roadmap
 
 Where PeckList is and where it is going. Plans change; the
-[changelog](https://gitlab.com/killswitch10/punchlist/-/blob/main/CHANGELOG.md) is the record of
+[changelog](https://gitlab.com/killswitch10/pecklist/-/blob/main/CHANGELOG.md) is the record of
 what actually shipped. Ideas and votes are welcome as
-[feature requests](https://gitlab.com/killswitch10/punchlist/-/issues/new?issuable_template=Feature%20request).
+[feature requests](https://gitlab.com/killswitch10/pecklist/-/issues/new?issuable_template=Feature%20request).
 
 ## Already here
 

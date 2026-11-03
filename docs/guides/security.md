@@ -56,7 +56,7 @@ Do these before the server is reachable from the internet.
       server is its owner. It is only for a proxy that signs people in itself, on a network where
       everyone may see and change everything.
 - [ ] **Keep up to date.** Only the latest release gets fixes. Watch the
-      [releases](https://gitlab.com/killswitch10/punchlist/-/releases) and read
+      [releases](https://gitlab.com/killswitch10/pecklist/-/releases) and read
       [Upgrading](upgrading.md).
 
 ## Recommended
@@ -117,5 +117,5 @@ Not needed for PeckList to work, but each one closes a real gap for little effor
 ## Reporting a vulnerability
 
 Please do not open a public issue. See
-[SECURITY.md](https://gitlab.com/killswitch10/punchlist/-/blob/main/SECURITY.md) for how to report
+[SECURITY.md](https://gitlab.com/killswitch10/pecklist/-/blob/main/SECURITY.md) for how to report
 privately and what to expect.

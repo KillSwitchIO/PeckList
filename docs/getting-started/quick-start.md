@@ -4,7 +4,7 @@ The fastest way to see PeckList: one container, data in a Docker volume.
 
 ```bash
 docker run -d --name pecklist -p 8080:8080 -v pecklist-data:/data -v pecklist-files:/files \
-  registry.gitlab.com/killswitch10/punchlist:latest
+  registry.gitlab.com/killswitch10/pecklist:latest
 docker logs pecklist
 ```
 

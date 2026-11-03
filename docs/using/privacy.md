@@ -15,7 +15,7 @@ So the app can tell you when a new release is out, the server reads PeckList's l
 from GitLab: a minute after it starts, then every 12 hours.
 
 - **What it asks**: one `GET` of
-  `https://gitlab.com/api/v4/projects/killswitch10%2Fpunchlist/releases/permalink/latest`,
+  `https://gitlab.com/api/v4/projects/killswitch10%2Fpecklist/releases/permalink/latest`,
   with no token, no cookie and no install id. GitLab sees what any web request shows: your
   server's public IP address and a `User-Agent` of `PeckList/<version>`.
 - **What it does with the answer**: keeps the newest version, its date and its release page in

@@ -23,6 +23,6 @@ jobs:
           REPOSITORY: ${{ github.repository }}
           MESSAGE: >-
             Thanks for this! This repository is a read-only mirror of
-            https://gitlab.com/killswitch10/punchlist and is overwritten from there, so pull
+            https://gitlab.com/killswitch10/pecklist and is overwritten from there, so pull
             requests here cannot be merged. Please open a merge request on GitLab:
-            https://gitlab.com/killswitch10/punchlist/-/merge_requests
+            https://gitlab.com/killswitch10/pecklist/-/merge_requests

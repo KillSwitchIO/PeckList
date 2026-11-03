@@ -32,7 +32,7 @@ if (!process.argv.includes('--skip-pipeline-check')) {
   // token that can read the project) is sent, else the API answers 404 and nothing is found.
   const token = process.env.GITLAB_TOKEN;
   const pipelines = await fetch(
-    `https://gitlab.com/api/v4/projects/killswitch10%2Fpunchlist/pipelines?sha=${sha}&ref=main`,
+    `https://gitlab.com/api/v4/projects/killswitch10%2Fpecklist/pipelines?sha=${sha}&ref=main`,
     token ? { headers: { 'PRIVATE-TOKEN': token } } : {},
   ).then((response) => (response.ok ? response.json() : []));
   const green = pipelines.some((pipeline) => pipeline.status === 'success');

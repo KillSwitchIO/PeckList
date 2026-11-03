@@ -50,7 +50,7 @@ node scripts/demo-seed.mts seed.json --today 2026-11-01
 
 ## With Docker Compose
 
-[`examples/demo`](https://gitlab.com/killswitch10/punchlist/-/tree/main/examples/demo) has the
+[`examples/demo`](https://gitlab.com/killswitch10/pecklist/-/tree/main/examples/demo) has the
 server and a `reset` service whose cron runs the nightly reset.
 
 === "compose.yaml"

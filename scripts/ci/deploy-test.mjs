@@ -18,7 +18,7 @@ const {
   CI_PIPELINE_URL,
   COMPOSE_PROJECT = 'homelab-killswitch/compose',
   COMPOSE_SERVICE = 'pecklist-test',
-  IMAGE = 'registry.gitlab.com/killswitch10/punchlist',
+  IMAGE = 'registry.gitlab.com/killswitch10/pecklist',
 } = process.env;
 
 if (!GITLAB_API_TOKEN || !CI_COMMIT_SHORT_SHA) {
