@@ -104,7 +104,14 @@ export interface SyncInvalid {
 /** Ways to sign in on this server (`/auth/providers`). */
 export interface SignInOptions {
   /** Identity providers, each with the address that starts its sign-in. */
-  providers: { name: string; displayName: string; url: string; icon?: string }[];
+  providers: {
+    name: string;
+    displayName: string;
+    url: string;
+    icon?: string;
+    /** A known provider with a button of its own (PL-124): `google`. */
+    preset?: string | null;
+  }[];
   /** False when the server turns password sign-in off (`LOCAL_LOGIN=disabled`). */
   localLogin: boolean;
   /** Who may make an account: anyone, people with an invite link, or nobody (older servers: closed). */

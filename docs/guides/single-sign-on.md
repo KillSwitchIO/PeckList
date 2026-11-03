@@ -141,6 +141,26 @@ in gets a one-time link: `punchlist admin login-link kim`.
 
 ## Provider notes
 
+=== "Google"
+
+    "Continue with Google" for anyone with a Google account, with no groups. Name the provider
+    `google` and only the client id and secret are needed: the authority
+    (`https://accounts.google.com`), the button and its label come filled in. A provider with
+    another name gets the same with `OIDC_<NAME>_PRESET=google`.
+
+    ```yaml
+    OIDC_PROVIDERS: google
+    OIDC_GOOGLE_CLIENT_ID: 123-abc.apps.googleusercontent.com
+    OIDC_GOOGLE_CLIENT_SECRET_FILE: /run/secrets/google_client_secret
+    OIDC_GOOGLE_AUTO_CREATE: 'true'   # or let an admin approve each new person
+    ```
+
+    In the [Google Cloud console](https://console.cloud.google.com/apis/credentials): set up the
+    OAuth consent screen (External, with your server's address as an authorized domain), then
+    **Create credentials > OAuth client ID > Web application**, with the callback URL above as an
+    authorized redirect URI. Google has no username claim: a new account takes the part of the
+    email before the `@`. The Android app signs in through the browser, which Google requires.
+
 === "Pocket ID"
 
     Create an OIDC client with the callback URL. Groups come with the `groups` scope; nothing else

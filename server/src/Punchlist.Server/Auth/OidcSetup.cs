@@ -12,7 +12,8 @@ using Punchlist.Core.Sharing;
 namespace Punchlist.Server.Auth;
 
 /// <summary><paramref name="Icon"/>: where the server serves the provider's icon (404 when it has none).</summary>
-public sealed record SignInProvider(string Name, string DisplayName, string Icon);
+/// <summary>A sign-in button: <paramref name="Preset"/> names a provider with a button of its own (<c>google</c>).</summary>
+public sealed record SignInProvider(string Name, string DisplayName, string Icon, string? Preset = null);
 
 /// <summary><paramref name="Registration"/>: who may make an account here (<c>open</c>, <c>invite</c>, <c>closed</c>).</summary>
 public sealed record SignInOptions(IReadOnlyList<SignInProvider> Providers, bool LocalLogin, string Registration = "closed");
@@ -130,7 +131,7 @@ public static class OidcSetup
     public static void MapOidc(this RouteGroupBuilder auth, ServerSettings settings)
     {
         auth.MapGet("/providers", (SelfSignUp signUp, LiveSettings live) => new SignInOptions(
-            settings.OidcProviders.Select(provider => new SignInProvider(provider.Name, provider.DisplayName, IconPath(provider.Name))).ToList(),
+            settings.OidcProviders.Select(provider => new SignInProvider(provider.Name, provider.DisplayName, IconPath(provider.Name), provider.Preset)).ToList(),
             !live.Current.LocalLoginDisabled,
             signUp.InvitesWork ? signUp.Policy.ToString().ToLowerInvariant() : "closed"));
 

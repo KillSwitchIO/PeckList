@@ -77,7 +77,7 @@ export class FakeBackend {
   readonly identities = new Map<string, SignInMethods['identities']>();
   /** What `/auth/providers` answers. */
   signIn: {
-    providers: { name: string; displayName: string }[];
+    providers: { name: string; displayName: string; preset?: string | null }[];
     localLogin: boolean;
     registration?: 'open' | 'invite' | 'closed';
   } = {

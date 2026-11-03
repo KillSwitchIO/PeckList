@@ -53,6 +53,18 @@ describe('signing in with an identity provider', () => {
     expect(screen.getByLabelText(/Username/)).toBeInTheDocument();
   });
 
+  it("draws Google's own button for the Google preset (PL-124)", async () => {
+    const backend = new FakeBackend();
+    backend.signIn = {
+      providers: [{ name: 'google', displayName: 'Google', preset: 'google' }],
+      localLogin: true,
+    };
+    await serverApp(backend);
+    const google = await screen.findByRole('link', { name: 'Continue with Google' });
+    expect(google).toHaveAttribute('href', expect.stringMatching(/^\/auth\/oidc\/google\/login/));
+    expect(google.querySelector('svg path[fill="#4285F4"]')).not.toBeNull();
+  });
+
   it('shows no password form when the server turns passwords off, whatever the address says', async () => {
     const backend = new FakeBackend();
     backend.signIn = {

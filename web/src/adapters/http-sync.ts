@@ -165,7 +165,7 @@ export function createHttpSync(
       }
       if (!response.ok) return fail(response);
       const options = (await response.json()) as {
-        providers: { name: string; displayName: string; icon?: string }[];
+        providers: { name: string; displayName: string; icon?: string; preset?: string | null }[];
         localLogin: boolean;
         registration?: 'open' | 'invite' | 'closed';
       };

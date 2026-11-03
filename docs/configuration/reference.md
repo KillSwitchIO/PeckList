@@ -83,7 +83,8 @@ and dashes; each gets the settings below with its name in capitals and dashes as
 
 | Setting                        | Default                             | Meaning                                                                                                                             |
 | ------------------------------ | ----------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
-| `OIDC_<NAME>_AUTHORITY`        | required                            | The issuer URL (where `/.well-known/openid-configuration` lives).                                                                   |
+| `OIDC_<NAME>_PRESET`           | the name, if it is a preset         | `google` fills in the authority and the label and draws Google's own button. A provider named `google` gets it without this.        |
+| `OIDC_<NAME>_AUTHORITY`        | required (a preset fills it in)     | The issuer URL (where `/.well-known/openid-configuration` lives).                                                                   |
 | `OIDC_<NAME>_CLIENT_ID`        | required                            | The client id registered for Punchlist.                                                                                             |
 | `OIDC_<NAME>_CLIENT_SECRET`    | none                                | The client secret. None: a public client. PKCE is always used.                                                                      |
 | `OIDC_<NAME>_DISPLAY_NAME`     | the name                            | The sign-in button's label ("Continue with ...").                                                                                   |
