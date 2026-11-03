@@ -1,6 +1,8 @@
-// Put the image main just built on the test server (docs/development/ci.md): bump the tag in the
-// compose repository and start its pipeline with the release switched on. Runs on main after
-// e2e-server passed, with GITLAB_API_TOKEN (api scope) and the CI_* variables.
+// Put the image a pipeline just built on a server (docs/development/ci.md): bump the tag in the
+// compose repository and start its pipeline with the release switched on. Runs with
+// GITLAB_API_TOKEN (api scope) and the CI_* variables. By default the test server, with main's
+// sha-<commit> image after e2e-server; COMPOSE_SERVICE and IMAGE point it at another service, such
+// as the website (pecklist-site) or the demo (punchlist-demo, from a release tag: its version).
 //
 // The compose repository stays the record of what runs where: the bump is a commit on its main,
 // with [skip ci] so the push starts nothing; the pipeline is started by this script instead, with
@@ -11,6 +13,7 @@ const {
   GITLAB_API_TOKEN,
   CI_API_V4_URL = 'https://gitlab.com/api/v4',
   CI_COMMIT_SHORT_SHA,
+  CI_COMMIT_TAG,
   CI_COMMIT_SHA,
   CI_PIPELINE_URL,
   COMPOSE_PROJECT = 'homelab-killswitch/compose',
@@ -37,7 +40,10 @@ async function api(path, init = {}) {
   return response.json();
 }
 
-const tag = `sha-${CI_COMMIT_SHORT_SHA}`;
+// A release tag (v1.2.3+20261102) deploys the version's image; main deploys its commit's.
+const tag = CI_COMMIT_TAG
+  ? CI_COMMIT_TAG.replace(/^v/, '').replace(/\+.*$/, '')
+  : `sha-${CI_COMMIT_SHORT_SHA}`;
 const current = Buffer.from(
   (await api(`repository/files/${encodeURIComponent(file)}?ref=main`)).content,
   'base64',
@@ -55,7 +61,7 @@ if (match[2] === tag) {
       branch: 'main',
       commit_message:
         `feat(${COMPOSE_SERVICE}): run ${tag} [skip ci]\n\n` +
-        `Punchlist main at ${CI_COMMIT_SHA}, deployed by its pipeline ${CI_PIPELINE_URL ?? ''}.\n` +
+        `Punchlist ${CI_COMMIT_TAG ?? 'main'} at ${CI_COMMIT_SHA}, deployed by its pipeline ${CI_PIPELINE_URL ?? ''}.\n` +
         `Was ${match[2]}.`,
       actions: [{ action: 'update', file_path: file, content: updated }],
     }),

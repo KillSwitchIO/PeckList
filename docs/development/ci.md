@@ -81,6 +81,15 @@ The rendered site at <https://killswitch10.gitlab.io/punchlist/> stays the canon
 has the search, the tabs and the strict link check the wiki cannot give.
 `node scripts/ci/wiki-sync.mjs --out some-dir` writes the pages locally to look at them.
 
+## The website and the demo
+
+- The website, <https://pecklist.com>, is its own repository,
+  [killswitch10/pecklist.com](https://gitlab.com/killswitch10/pecklist.com): a landing page
+  published by GitLab Pages, which Pangolin proxies. Its docs links go to this project's wiki.
+- `deploy-demo` (release tags, not pre-releases) runs `scripts/ci/deploy-test.mjs` with
+  `COMPOSE_SERVICE=punchlist-demo`: the release goes to <https://demo.pecklist.com>, which resets
+  every hour (`DEMO_RESET_EVERY`, PL-117).
+
 ## Container registry
 
 Images go to the project's registry, `registry.gitlab.com/killswitch10/punchlist`, using the job's
