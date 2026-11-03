@@ -540,6 +540,24 @@ pages:
   rules:
     - *on-main
 
+# The public demo (demo.pecklist.com, PL-117) follows releases: a release tag puts its version there.
+deploy-demo:
+  image: $NODE_IMAGE
+  stage: publish
+  needs: [container-image]
+  timeout: 10m
+  interruptible: false
+  variables:
+    COMPOSE_SERVICE: punchlist-demo
+  script:
+    - node scripts/ci/deploy-test.mjs
+  environment:
+    name: demo
+    url: https://demo.pecklist.com
+  rules:
+    # Releases only, not pre-releases (v1.2.3-rc.1).
+    - if: $CI_COMMIT_TAG =~ /^v\d+\.\d+\.\d+\+/ && $GITLAB_API_TOKEN
+
 # The same docs as wiki pages (scripts/wiki-pages.mjs), for reading inside GitLab.
 wiki:
   extends: .node
