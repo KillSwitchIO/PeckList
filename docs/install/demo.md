@@ -53,17 +53,22 @@ node scripts/demo-seed.mts seed.json --today 2026-11-01
 [`examples/demo`](https://gitlab.com/killswitch10/pecklist/-/tree/main/examples/demo) has the
 server and a `reset` service whose cron runs the nightly reset.
 
-=== "compose.yaml"
+<Tabs>
+<TabItem value="compose-yaml" label="compose.yaml">
 
-    ```yaml
-    --8<-- "examples/demo/compose.yaml"
-    ```
+```yaml
+--8<-- "examples/demo/compose.yaml"
+```
 
-=== "reset.sh"
+</TabItem>
+<TabItem value="reset-sh" label="reset.sh">
 
-    ```sh
-    --8<-- "examples/demo/reset.sh"
-    ```
+```sh
+--8<-- "examples/demo/reset.sh"
+```
+
+</TabItem>
+</Tabs>
 
 ```bash
 mkdir pecklist-demo && cd pecklist-demo   # with compose.yaml and reset.sh in it
@@ -72,13 +77,15 @@ docker compose up -d
 sh reset.sh                                  # the first load; then every night at 04:00 UTC
 ```
 
-Open <http://localhost:8080>: the banner is at the bottom, and `demo-sam` with
+Open [http://localhost:8080](http://localhost:8080): the banner is at the bottom, and `demo-sam` with
 `try-pecklist-sam` signs you in to Sam's lists.
 
 The reset stops the server, deletes the `data` and `files` volumes, makes them again with the
 seed in, and starts the server. It takes a few seconds, and everyone signed in is signed out.
 
-!!! warning "The reset service holds the Docker socket"
+:::warning[The reset service holds the Docker socket]
+
+:::
 With `/var/run/docker.sock` mounted, the `reset` container can do anything Docker can on this
 host. On a host that runs other things, leave the `reset` service out and run the same script
 from the host's cron instead:

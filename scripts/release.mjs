@@ -11,6 +11,7 @@
 import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { versionDocs } from './docs-version.mjs';
 import { releaseNotes } from './release-notes.mjs';
 import { SEMVER, nextVersion, readVersions, root, writeVersion } from './versions.mjs';
 
@@ -87,6 +88,9 @@ if (dryRun) {
 }
 
 writeVersion(version);
+// A release gets its own copy of the docs (docs.pecklist.com shows the newest); a pre-release does not.
+const docsVersion = !version.includes('-');
+if (docsVersion) versionDocs(version);
 cliff('--tag', tag, '--output', 'CHANGELOG.md');
 const notes = releaseNotes(readFileSync(join(root, 'CHANGELOG.md'), 'utf8'), version) ?? '';
 git(
@@ -95,6 +99,9 @@ git(
   'web/package.json',
   'web/src/core/workspace.ts',
   'server/Directory.Build.props',
+  ...(docsVersion
+    ? ['website/versions.json', 'website/versioned_docs', 'website/versioned_sidebars']
+    : []),
 );
 git('commit', '-m', `chore(release): ${version}`);
 if (noTag) {

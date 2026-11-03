@@ -13,6 +13,9 @@ export default tseslint.config(
       '**/node_modules',
       'CHANGELOG.md',
       'mobile/android',
+      'website/build',
+      'website/.docusaurus',
+      'website/versioned_docs',
     ],
   },
   js.configs.recommended,
@@ -60,6 +63,11 @@ export default tseslint.config(
   {
     files: ['**/*.{mjs,ts}'],
     ignores: ['web/src/**'],
+    languageOptions: { globals: globals.node },
+  },
+  // The docs site's config and build plugins run in Node.
+  {
+    files: ['website/*.js', 'website/src/remark/**/*.js'],
     languageOptions: { globals: globals.node },
   },
   // Scripts the service worker imports as they are (not bundled): service-worker globals.

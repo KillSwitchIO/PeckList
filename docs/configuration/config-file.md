@@ -3,24 +3,30 @@
 Keep settings in one file instead of many environment variables. Point the server at it with
 `CONFIG_FILE`:
 
-=== "Docker Compose"
+<Tabs>
+<TabItem value="docker-compose" label="Docker Compose">
 
-    ```yaml
-    services:
-      pecklist:
-        environment:
-          CONFIG_FILE: /config/pecklist.conf
-        volumes:
-          - ./pecklist.conf:/config/pecklist.conf:ro
-    ```
+```yaml
+services:
+  pecklist:
+    environment:
+      CONFIG_FILE: /config/pecklist.conf
+    volumes:
+      - ./pecklist.conf:/config/pecklist.conf:ro
+```
 
-=== "Linux service"
+</TabItem>
+<TabItem value="linux-service" label="Linux service">
 
-    The install script already sets `CONFIG_FILE=/etc/pecklist/pecklist.conf`.
+The install script already sets `CONFIG_FILE=/etc/pecklist/pecklist.conf`.
 
-=== "Windows service"
+</TabItem>
+<TabItem value="windows-service" label="Windows service">
 
-    The install script already sets `CONFIG_FILE=C:\ProgramData\PeckList\pecklist.conf`.
+The install script already sets `CONFIG_FILE=C:\ProgramData\PeckList\pecklist.conf`.
+
+</TabItem>
+</Tabs>
 
 ## Format
 

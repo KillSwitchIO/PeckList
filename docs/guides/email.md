@@ -20,27 +20,34 @@ SMTP_FROM: PeckList <you@example.com>
 
 ## Provider notes
 
-=== "Gmail"
+<Tabs>
+<TabItem value="gmail" label="Gmail">
 
-    `SMTP_HOST: smtp.gmail.com`, your Gmail address as `SMTP_USER`, and an
-    [app password](https://myaccount.google.com/apppasswords) as `SMTP_PASSWORD` (it needs 2-step
-    verification on the account). `SMTP_FROM` must be that address. Gmail limits a personal
-    account to a few hundred emails a day, plenty for a household.
+`SMTP_HOST: smtp.gmail.com`, your Gmail address as `SMTP_USER`, and an
+[app password](https://myaccount.google.com/apppasswords) as `SMTP_PASSWORD` (it needs 2-step
+verification on the account). `SMTP_FROM` must be that address. Gmail limits a personal
+account to a few hundred emails a day, plenty for a household.
 
-=== "Fastmail"
+</TabItem>
+<TabItem value="fastmail" label="Fastmail">
 
-    `SMTP_HOST: smtp.fastmail.com`, your address as `SMTP_USER` and an app password (Settings >
-    Privacy & Security > App passwords, with SMTP access) as `SMTP_PASSWORD`.
+`SMTP_HOST: smtp.fastmail.com`, your address as `SMTP_USER` and an app password (Settings >
+Privacy & Security > App passwords, with SMTP access) as `SMTP_PASSWORD`.
 
-=== "A relay"
+</TabItem>
+<TabItem value="a-relay" label="A relay">
 
-    A mail relay on the same host or network (Postfix, an SMTP relay container) often needs no
-    login: set `SMTP_HOST`, `SMTP_PORT` and, if it has no TLS, `SMTP_TLS: none`.
+A mail relay on the same host or network (Postfix, an SMTP relay container) often needs no
+login: set `SMTP_HOST`, `SMTP_PORT` and, if it has no TLS, `SMTP_TLS: none`.
 
-=== "A sending service"
+</TabItem>
+<TabItem value="a-sending-service" label="A sending service">
 
-    Services such as Postmark, Resend, Mailgun or Amazon SES all take SMTP: use the host, port,
-    user and password they give you, and send from an address on a domain you verified with them.
+Services such as Postmark, Resend, Mailgun or Amazon SES all take SMTP: use the host, port,
+user and password they give you, and send from an address on a domain you verified with them.
+
+</TabItem>
+</Tabs>
 
 ## When it does not work
 

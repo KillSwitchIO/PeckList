@@ -12,7 +12,7 @@ the house style, the checks and the shared pieces to reach for are in [Coding st
 | `server/`   | The ASP.NET Core server: `src/PeckList.Core` (domain), `PeckList.Server` (HTTP, auth, logging, CLI), `PeckList.Storage.*` (SQL, SQLite, PostgreSQL); `tests/`. |
 | `schema/`   | The workspace JSON Schema and fixtures both sides must pass (merge, migrations).                                                                                  |
 | `e2e/`      | WebdriverIO end-to-end tests in real browsers.                                                                                                                    |
-| `docs/`     | This site (MkDocs).                                                                                                                                               |
+| `docs/`     | This site's pages (Docusaurus, built from `website/`).                                                                                                                                               |
 | `examples/` | Compose files, a settings file, proxy configs, service files.                                                                                                     |
 | `scripts/`  | Release, packaging and checks.                                                                                                                                    |
 
@@ -91,10 +91,21 @@ WEB_ROOT=../web/dist dotnet run --project src/PeckList.Server   # serves the bui
 ## Docs
 
 ```bash
-pip install -r docs/requirements.txt
-mkdocs serve           # http://localhost:8000, reloads on save
-pnpm check:docs        # the settings and CLI pages cover everything
+pnpm --filter @pecklist/docs start   # http://localhost:3000/next/, reloads on save
+pnpm --filter @pecklist/docs build   # what CI runs: broken links and #anchors fail it
+pnpm check:docs                      # the settings and CLI pages cover everything
 ```
+
+The pages are Markdown read as MDX: `:::note[Title]` for a callout, `<Tabs>` and
+`<TabItem value="x" label="X">` for tabs (no import needed), `<kbd>` for keys, and a
+`--8<-- "examples/..."` line alone in a code block to show a repository file as it is. The
+sidebar is `website/sidebars.json`. MDX is stricter than Markdown: `{` and `<` in running text
+need code spans, and links are `[text](url)`, never `<url>`.
+
+The site is versioned: the root shows the newest release, `/next/` shows `main`. `pnpm release`
+copies the docs as that version (`website/versioned_docs`, with the example files pasted in, so
+an old version shows the examples it shipped with). Edit `docs/`; fix a released copy only for
+something wrong in that release.
 
 Adding a setting means a line in `SettingsCatalog.cs` **and** a section in
 `docs/configuration/reference.md`; changing the CLI's usage text means running

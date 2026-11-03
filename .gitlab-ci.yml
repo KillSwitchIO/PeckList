@@ -104,7 +104,7 @@ default:
 
 # --- check -----------------------------------------------------------------------------------
 
-# The tool images the e2e, docs and Android jobs run in (ci/*.Dockerfile): built when one of their
+# The tool images the e2e and Android jobs run in (ci/*.Dockerfile): built when one of their
 # inputs changes, and weekly, so base images and Debian packages move on their own. A merge
 # request builds and pushes them too, so the jobs after it in the same pipeline use the new ones.
 ci-images:
@@ -117,7 +117,7 @@ ci-images:
   script:
     - |
       set -eu
-      for name in browsers docs android; do
+      for name in browsers android; do
         echo "=== $CI_IMAGES/$name"
         docker build --pull -f "ci/$name.Dockerfile" -t "$CI_IMAGES/$name:latest" .
         docker push "$CI_IMAGES/$name:latest"
@@ -128,7 +128,6 @@ ci-images:
     - if: $CI_PIPELINE_SOURCE == "web" && $CI_IMAGES_BUILD == "true"
     - changes:
         - ci/*.Dockerfile
-        - docs/requirements.txt
         - scripts/ci/android-sdk.sh
 
 lint:
@@ -237,17 +236,16 @@ e2e:
     - *on-main
     - if: $CI_PIPELINE_SOURCE == "web"
 
+# The docs site (Docusaurus, website/): broken links and #anchors fail the build.
 docs:
-  image: $CI_IMAGES/docs:latest
+  extends: .node
   stage: test
-  needs:
-    - job: ci-images
-      optional: true
-  timeout: 10m
+  needs: []
+  timeout: 15m
   script:
-    - mkdocs build --strict --site-dir site
+    - pnpm --filter @pecklist/docs build
   artifacts:
-    paths: [site]
+    paths: [website/build]
     expire_in: 1 week
   rules:
     - *not-on-tag
@@ -534,7 +532,7 @@ pages:
   stage: publish
   needs: [docs]
   script:
-    - mv site public
+    - mv website/build public
   artifacts:
     paths: [public]
   rules:

@@ -7,22 +7,27 @@ way ([the other apps](apps-and-sync.md#moving-from-or-to-another-app)).
 
 ## 1. Get the export
 
-=== "TickTick"
+<Tabs>
+<TabItem value="ticktick" label="TickTick">
 
-    TickTick's backup is one `.csv` file with every list.
+TickTick's backup is one `.csv` file with every list.
 
-    1. Sign in at [ticktick.com](https://ticktick.com) in a browser.
-    2. **Settings > Account > Backup**, then **Generate backup**.
-    3. Keep the `.csv` it downloads.
+1. Sign in at [ticktick.com](https://ticktick.com) in a browser.
+2. **Settings > Account > Backup**, then **Generate backup**.
+3. Keep the `.csv` it downloads.
 
-=== "Todoist"
+</TabItem>
+<TabItem value="todoist" label="Todoist">
 
-    Todoist exports one `.csv` file a project. Either:
+Todoist exports one `.csv` file a project. Either:
 
-    - **Everything**: **Settings > Backups**, and download the latest. It is a `.zip` with a file
-      for each project; give PeckList the `.zip` as it is.
-    - **One project**: the project's **...** menu > **Export as a CSV file**. You can choose several
-      such files at once.
+- **Everything**: **Settings > Backups**, and download the latest. It is a `.zip` with a file
+  for each project; give PeckList the `.zip` as it is.
+- **One project**: the project's **...** menu > **Export as a CSV file**. You can choose several
+  such files at once.
+
+</TabItem>
+</Tabs>
 
 ## 2. Import it
 

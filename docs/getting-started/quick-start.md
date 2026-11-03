@@ -19,12 +19,15 @@ The log shows a box like this, once:
 ============================================================
 ```
 
-Open <http://localhost:8080>, sign in as `admin` with that password, and choose a new one. A short
+Open [http://localhost:8080](http://localhost:8080), sign in as `admin` with that password, and choose a new one. A short
 setup follows (the address people will use, single sign-on if you want it). You can skip it and
 come back from **Admin**.
 
-!!! tip "Missed the password?"
-    `docker exec pecklist pecklist admin reset-password` prints a new one.
+:::tip[Missed the password?]
+
+`docker exec pecklist pecklist admin reset-password` prints a new one.
+
+:::
 
 ## Next steps
 

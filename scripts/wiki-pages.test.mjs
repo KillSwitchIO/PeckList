@@ -1,7 +1,14 @@
 // pnpm test:scripts
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { convertPage, parseNav, rewriteLink, sidebar, wikiPages, wikiPath } from './wiki-pages.mjs';
+import {
+  convertPage,
+  parseSidebar,
+  rewriteLink,
+  sidebar,
+  wikiPages,
+  wikiPath,
+} from './wiki-pages.mjs';
 
 const read = (path) =>
   ({ 'examples/a.conf': 'key = 1\n# two\n' })[path] ?? assert.fail(`no ${path}`);
@@ -40,28 +47,36 @@ test('images in the docs point at the repository file, since the wiki has no cop
   );
 });
 
-test('admonitions become alerts, tabs become bold headings, snippets are pasted in, keys get kbd', () => {
+test('admonitions become alerts, tabs become bold headings, snippets are pasted in', () => {
   const page = [
     '# Title',
     '',
-    '!!! tip "Missed it?"',
+    ':::tip[Missed it?]',
     '',
-    '    Run `pecklist admin reset-password` ([the CLI](../reference/cli.md#admin)).',
+    'Run `pecklist admin reset-password` ([the CLI](../reference/cli.md#admin)).',
     '',
-    '    ```bash',
-    '    pecklist admin reset-password',
-    '    ```',
+    '```bash',
+    'pecklist admin reset-password',
+    '```',
     '',
-    '=== "compose.yaml"',
+    ':::',
     '',
-    '    ```yaml title="compose.yaml"',
-    '    --8<-- "examples/a.conf"',
-    '    ```',
+    '<Tabs>',
+    '<TabItem value="compose-yaml" label="compose.yaml">',
     '',
-    '=== "Other"',
+    '```yaml title="compose.yaml"',
+    '--8<-- "examples/a.conf"',
+    '```',
     '',
-    '    Press ++ctrl+k++ or ++alt+arrow-up++.',
+    '</TabItem>',
+    '<TabItem value="other" label="Other">',
     '',
+    'Press <kbd>Ctrl</kbd>+<kbd>K</kbd>.',
+    '',
+    '</TabItem>',
+    '</Tabs>',
+    '',
+    '{/* a note for whoever edits this */}',
     'Done.',
     '',
   ].join('\n');
@@ -88,7 +103,7 @@ test('admonitions become alerts, tabs become bold headings, snippets are pasted 
       '',
       '**Other**',
       '',
-      'Press <kbd>Ctrl</kbd>+<kbd>K</kbd> or <kbd>Alt</kbd>+<kbd>Up</kbd>.',
+      'Press <kbd>Ctrl</kbd>+<kbd>K</kbd>.',
       '',
       'Done.',
       '',
@@ -101,19 +116,20 @@ test('links inside fenced code are left alone', () => {
   assert.equal(convertPage('docs/b/c.md', page, read), '```text\nsee [x](../a.md)\n```\n[y](/a)\n');
 });
 
-test('the nav becomes the sidebar, sections bold and pages as root links', () => {
-  const mkdocs = [
-    'site_name: X',
-    'nav:',
-    '  - Home: index.md',
-    '  - Install:',
-    '      - Docker: install/docker.md',
-    '      - Linux: install/linux.md',
-    '  - FAQ: faq.md',
-    'plugins:',
-    '  - search',
-  ].join('\n');
-  assert.deepEqual(parseNav(mkdocs), [
+test('the site sidebar becomes the wiki sidebar, sections bold and pages as root links', () => {
+  const items = [
+    { type: 'doc', id: 'index', label: 'Home' },
+    {
+      type: 'category',
+      label: 'Install',
+      items: [
+        { type: 'doc', id: 'install/docker', label: 'Docker' },
+        { type: 'doc', id: 'install/linux', label: 'Linux' },
+      ],
+    },
+    { type: 'doc', id: 'faq', label: 'FAQ' },
+  ];
+  assert.deepEqual(parseSidebar(items), [
     { title: 'Home', path: 'index.md' },
     {
       title: 'Install',
@@ -125,7 +141,7 @@ test('the nav becomes the sidebar, sections bold and pages as root links', () =>
     { title: 'FAQ', path: 'faq.md' },
   ]);
   assert.equal(
-    sidebar(parseNav(mkdocs)),
+    sidebar(parseSidebar(items)),
     '- [Home](/home)\n- **Install**\n  - [Docker](/install/docker)\n  - [Linux](/install/linux)\n- [FAQ](/faq)\n',
   );
 });
@@ -136,10 +152,13 @@ test('every doc becomes a page with a banner, plus the sidebar', () => {
       ['docs/index.md', '# Hi\n'],
       ['docs/install/docker.md', '# Docker\n'],
     ]),
-    mkdocs: 'nav:\n  - Home: index.md\n  - Docker: install/docker.md\n',
+    sidebar: [
+      { type: 'doc', id: 'index', label: 'Home' },
+      { type: 'doc', id: 'install/docker', label: 'Docker' },
+    ],
     read,
   });
   assert.deepEqual([...pages.keys()], ['home', 'install/docker', '_sidebar']);
   assert.match(pages.get('home'), /^> This page is a copy of \[`docs\/index.md`\]/);
-  assert.match(pages.get('install/docker'), /https:\/\/docs.pecklist.com\/install\/docker\//);
+  assert.match(pages.get('install/docker'), /https:\/\/docs.pecklist.com\/next\/install\/docker\//);
 });

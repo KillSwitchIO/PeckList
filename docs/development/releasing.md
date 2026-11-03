@@ -69,11 +69,14 @@ On an up-to-date `main` with a green pipeline:
 
 ```bash
 pnpm release --dry-run          # the version the commits call for, and the changelog section
-pnpm release                    # bump versions, regenerate CHANGELOG.md, commit, tag
+pnpm release                    # bump versions, copy the docs as this version, regenerate CHANGELOG.md, commit, tag
 pnpm release 1.0.0              # a major, named by hand
 git show                        # review; amend the changelog wording if needed, then re-tag
 git push origin main --follow-tags
 ```
+
+A release (not a pre-release) also gets its own copy of the docs (`website/versioned_docs`), which
+becomes what docs.pecklist.com shows; `main`'s docs move on under `/next/`.
 
 ### Through a merge request
 

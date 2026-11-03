@@ -1,12 +1,13 @@
-// The docs (MkDocs Material, docs/ and mkdocs.yml) as GitLab wiki pages: the same pages, with the
-// MkDocs-only syntax turned into what GitLab renders (alerts for admonitions, bold headings for
-// tabs, the example files pasted in place of snippet lines, <kbd> for keys) and the links pointed
-// at wiki pages. The rendered site stays the home of the docs; the wiki is a mirror that CI
-// refreshes on every merge (scripts/ci/wiki-sync.mjs, docs/development/ci.md).
+// The docs (docs/, the Docusaurus site in website/) as GitLab wiki pages: the same pages, with the
+// site-only syntax turned into what GitLab renders (alerts for admonitions, bold headings for tabs,
+// the example files pasted in place of snippet lines) and the links pointed at wiki pages. The
+// rendered site stays the home of the docs; the wiki is a mirror of main's docs that CI refreshes
+// on every merge (scripts/ci/wiki-sync.mjs, docs/development/ci.md).
 //
 // Pure: takes the files, returns the pages. The git work is in scripts/ci/wiki-sync.mjs.
 
-const SITE = 'https://docs.pecklist.com/';
+// main's docs are the site's "Next" version; the root shows the newest release.
+const SITE = 'https://docs.pecklist.com/next/';
 const SOURCE = 'https://gitlab.com/killswitch10/pecklist/-/blob/main/';
 const RAW = 'https://gitlab.com/killswitch10/pecklist/-/raw/main/';
 const IMAGE = /\.(png|jpe?g|gif|svg|webp)$/i;
@@ -15,6 +16,7 @@ const IMAGE = /\.(png|jpe?g|gif|svg|webp)$/i;
 const ALERTS = {
   note: 'note',
   tip: 'tip',
+  info: 'note',
   warning: 'warning',
   danger: 'caution',
   important: 'important',
@@ -22,7 +24,7 @@ const ALERTS = {
 
 /** `docs/install/docker.md` -> `install/docker`; a section's `index.md` is the section's page. */
 export function wikiPath(docPath) {
-  const path = docPath.replace(/^docs\//, '').replace(/\.md$/, '');
+  const path = docPath.replace(/^docs\//, '').replace(/\.mdx?$/, '');
   if (path === 'index') return 'home';
   return path.replace(/\/index$/, '');
 }
@@ -33,29 +35,16 @@ export function sitePath(docPath) {
   return path === 'home' ? SITE : `${SITE}${path}/`;
 }
 
-/** The `nav:` of mkdocs.yml as a tree: { title, path } leaves, { title, children } sections. */
-export function parseNav(mkdocsYaml) {
-  const lines = mkdocsYaml.split(/\r?\n/);
-  const start = lines.findIndex((line) => /^nav:\s*$/.test(line));
-  if (start < 0) throw new Error('mkdocs.yml has no nav');
-  const items = [];
-  for (const line of lines.slice(start + 1)) {
-    if (!line.trim() || line.trim().startsWith('#')) continue;
-    const match = /^(\s*)- (.+?):\s*(\S.*)?$/.exec(line);
-    if (!match) break;
-    items.push({ depth: match[1].length, title: match[2].trim(), path: match[3]?.trim() ?? null });
-  }
-  const build = (from, depth) => {
-    const nodes = [];
-    while (from.index < items.length && items[from.index].depth === depth) {
-      const item = items[from.index++];
-      if (item.path) nodes.push({ title: item.title, path: item.path });
-      else
-        nodes.push({ title: item.title, children: build(from, items[from.index]?.depth ?? depth) });
-    }
-    return nodes;
-  };
-  return build({ index: 0 }, items[0]?.depth ?? 0);
+/**
+ * The site's sidebar (website/sidebars.json, `docs`) as a tree: { title, path } leaves,
+ * { title, children } sections. Doc ids are paths under docs/ without `.md`.
+ */
+export function parseSidebar(items) {
+  return items.map((item) =>
+    item.type === 'category'
+      ? { title: item.label, children: parseSidebar(item.items) }
+      : { title: item.label ?? item.id, path: `${item.id}.md` },
+  );
 }
 
 /** The `_sidebar` page: the site's navigation as nested links. */
@@ -83,7 +72,7 @@ export function rewriteLink(target, docPath) {
   if (/^[a-z]+:/i.test(target) || target.startsWith('#') || target.startsWith('/')) return target;
   const [file, fragment] = target.split('#');
   const isImage = IMAGE.test(file);
-  if (!file.endsWith('.md') && !isImage) return target;
+  if (!/\.mdx?$/.test(file) && !isImage) return target;
   const parts = docPath.split('/').slice(0, -1);
   for (const piece of file.split('/')) {
     if (piece === '..') parts.pop();
@@ -93,54 +82,32 @@ export function rewriteLink(target, docPath) {
   return `/${wikiPath(parts.join('/'))}${fragment ? `#${fragment}` : ''}`;
 }
 
-const KEY_NAMES = {
-  'arrow-up': 'Up',
-  'arrow-down': 'Down',
-  'arrow-left': 'Left',
-  'arrow-right': 'Right',
-  ctrl: 'Ctrl',
-  alt: 'Alt',
-  shift: 'Shift',
-  cmd: 'Cmd',
-  enter: 'Enter',
-  space: 'Space',
-  esc: 'Esc',
-  tab: 'Tab',
-  del: 'Del',
-  backspace: 'Backspace',
-};
-
-/** `++ctrl+k++` -> <kbd>Ctrl</kbd>+<kbd>K</kbd>. */
-function keys(line) {
-  return line.replace(/\+\+([a-z0-9-]+(?:\+[a-z0-9-]+)*)\+\+/g, (_, combo) =>
-    combo
-      .split('+')
-      .map((key) => `<kbd>${KEY_NAMES[key] ?? key.toUpperCase()}</kbd>`)
-      .join('+'),
-  );
-}
-
-const dedent = (line) => (line.startsWith('    ') ? line.slice(4) : line.trimStart());
+const TABS = /^\s*<\/?Tabs>\s*$/;
+const TAB_END = /^\s*<\/TabItem>\s*$/;
+const TAB = /^\s*<TabItem\b[^>]*\blabel="([^"]+)"[^>]*>\s*$/;
+const COMMENT = /^\s*\{\/\*.*\*\/\}\s*$/;
+const ADMONITION = /^:::(\w+)(?:\[([^\]]*)\])?\s*$/;
 
 /**
- * One page: the MkDocs syntax replaced, the links rewritten, a line at the top saying where the
- * page comes from. `read(path)` returns a repo file for the `--8<--` snippet lines.
+ * One page: the site's syntax replaced, the links rewritten. `read(path)` returns a repo file for
+ * the `--8<--` snippet lines. `<details>` and `<kbd>` stay: GitLab renders them.
  */
 export function convertPage(docPath, text, read) {
   const out = [];
   const lines = text.split(/\r?\n/);
   let i = 0;
   let inFence = false;
-  const indentedBlock = () => {
-    // The body of a tab or admonition: blank lines and lines indented by four, until the first
-    // line that is neither (the body may contain fenced code, indented along with it).
+  const admonitionBody = () => {
+    // Up to the closing `:::`, without the blank lines around the body.
     const body = [];
-    while (i < lines.length && (lines[i].trim() === '' || lines[i].startsWith('    '))) {
+    while (i < lines.length && lines[i].trim() !== ':::') {
       body.push(lines[i]);
       i += 1;
     }
+    i += 1;
+    while (body.length > 0 && body[0].trim() === '') body.shift();
     while (body.length > 0 && body[body.length - 1].trim() === '') body.pop();
-    return body.map(dedent);
+    return body;
   };
   while (i < lines.length) {
     const line = lines[i];
@@ -169,28 +136,27 @@ export function convertPage(docPath, text, read) {
       i += 1;
       continue;
     }
-    const tab = /^=== "([^"]+)"\s*$/.exec(line);
-    if (tab) {
+    if (TABS.test(line) || TAB_END.test(line) || COMMENT.test(line)) {
       i += 1;
-      out.push(
-        `**${tab[1]}**`,
-        '',
-        ...convertPage(docPath, indentedBlock().join('\n'), read).trimEnd().split('\n'),
-        '',
-      );
       continue;
     }
-    const admonition = /^(?:!!!|\?\?\?\+?) (\w+)(?: "([^"]*)")?\s*$/.exec(line);
+    const tab = TAB.exec(line);
+    if (tab) {
+      out.push(`**${tab[1]}**`, '');
+      i += 1;
+      continue;
+    }
+    const admonition = ADMONITION.exec(line);
     if (admonition) {
       i += 1;
       const kind = ALERTS[admonition[1]] ?? 'note';
-      const body = convertPage(docPath, indentedBlock().join('\n'), read).trimEnd().split('\n');
+      const body = convertPage(docPath, admonitionBody().join('\n'), read).trimEnd().split('\n');
       out.push(`> [!${kind}]${admonition[2] ? ` **${admonition[2]}**` : ''}`);
       out.push(...body.map((each) => (each ? `> ${each}` : '>')), '');
       continue;
     }
     out.push(
-      keys(line).replace(/\]\(([^)\s]+)\)/g, (whole, target) => {
+      line.replace(/\]\(([^)\s]+)\)/g, (whole, target) => {
         const rewritten = rewriteLink(target, docPath);
         return rewritten === target ? whole : `](${rewritten})`;
       }),
@@ -214,14 +180,15 @@ export function banner(docPath) {
 }
 
 /**
- * Every wiki page from the docs: `docs` maps doc paths (`docs/index.md`) to their text, `mkdocs`
- * is mkdocs.yml, `read` fetches a repo file for snippets. Returns wiki path -> page markdown.
+ * Every wiki page from the docs: `docs` maps doc paths (`docs/index.md`) to their text, `sidebar`
+ * is the `docs` list of website/sidebars.json, `read` fetches a repo file for snippets. Returns wiki
+ * path -> page markdown.
  */
-export function wikiPages({ docs, mkdocs, read }) {
+export function wikiPages({ docs, sidebar: items, read }) {
   const pages = new Map();
   for (const [docPath, text] of [...docs.entries()].sort()) {
     pages.set(wikiPath(docPath), banner(docPath) + convertPage(docPath, text, read));
   }
-  pages.set('_sidebar', sidebar(parseNav(mkdocs)));
+  pages.set('_sidebar', sidebar(parseSidebar(items)));
   return pages;
 }

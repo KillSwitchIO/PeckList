@@ -17,31 +17,39 @@ docker compose up -d
 docker compose logs pecklist   # the first admin password, printed once
 ```
 
-Open <http://localhost:8080>. Read [first start](../getting-started/first-start.md) for what comes
+Open [http://localhost:8080](http://localhost:8080). Read [first start](../getting-started/first-start.md) for what comes
 next.
 
-!!! note "Data in a folder instead of a volume"
-    [`compose.bind-mount.yaml`](https://gitlab.com/killswitch10/pecklist/-/blob/main/examples/docker/compose.bind-mount.yaml)
-    keeps the data in `./data` and attached files in `./files` (point that one at bigger storage if
-    you like). Both folders must belong to uid 1654 (`sudo chown 1654:1654 data files`), or run the
-    container as your own user with `user:`.
+:::note[Data in a folder instead of a volume]
+
+[`compose.bind-mount.yaml`](https://gitlab.com/killswitch10/pecklist/-/blob/main/examples/docker/compose.bind-mount.yaml)
+keeps the data in `./data` and attached files in `./files` (point that one at bigger storage if
+you like). Both folders must belong to uid 1654 (`sudo chown 1654:1654 data files`), or run the
+container as your own user with `user:`.
+
+:::
 
 ## With HTTPS (Caddy)
 
 Caddy gets and renews a certificate by itself. Point a DNS name at the machine, open ports 80 and
 443, and put the name in both files.
 
-=== "compose.caddy.yaml"
+<Tabs>
+<TabItem value="compose-caddy-yaml" label="compose.caddy.yaml">
 
-    ```yaml
-    --8<-- "examples/docker/compose.caddy.yaml"
-    ```
+```yaml
+--8<-- "examples/docker/compose.caddy.yaml"
+```
 
-=== "Caddyfile"
+</TabItem>
+<TabItem value="caddyfile" label="Caddyfile">
 
-    ```text
-    --8<-- "examples/docker/Caddyfile"
-    ```
+```text
+--8<-- "examples/docker/Caddyfile"
+```
+
+</TabItem>
+</Tabs>
 
 Behind Traefik instead: [`compose.traefik.yaml`](https://gitlab.com/killswitch10/pecklist/-/blob/main/examples/docker/compose.traefik.yaml).
 Other proxies: [reverse proxy and HTTPS](reverse-proxy.md).

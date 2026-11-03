@@ -4,9 +4,12 @@ The apps people name most when they look for a task app, and where each one is t
 choice. Written by the PeckList project, so read it with that in mind; corrections are welcome as
 an [issue](https://gitlab.com/killswitch10/pecklist/-/issues).
 
-!!! note "Checked on 2026-10-30"
-    Prices, limits and features below come from each app's own site on that date (linked under
-    [sources](#sources)). They change; check the app's site before you decide.
+:::note[Checked on 2026-10-30]
+
+Prices, limits and features below come from each app's own site on that date (linked under
+[sources](#sources)). They change; check the app's site before you decide.
+
+:::
 
 ## At a glance
 

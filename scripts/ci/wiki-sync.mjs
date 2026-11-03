@@ -36,7 +36,7 @@ for (const path of walk(join(root, 'docs'))) {
 }
 const pages = wikiPages({
   docs,
-  mkdocs: readFileSync(join(root, 'mkdocs.yml'), 'utf8'),
+  sidebar: JSON.parse(readFileSync(join(root, 'website', 'sidebars.json'), 'utf8')).docs,
   read: (path) => readFileSync(join(root, path), 'utf8'),
 });
 

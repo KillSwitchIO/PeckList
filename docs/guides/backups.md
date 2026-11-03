@@ -46,9 +46,12 @@ docker exec pecklist pecklist import /data/backup.json --replace        # delete
 restart the server. A restored backup keeps sessions and every device's sync position, so nobody
 has to sign in again or start over.
 
-!!! tip "Windows Git Bash"
-    Prefix the commands with `MSYS_NO_PATHCONV=1` so `/data/...` paths reach the container
-    unchanged.
+:::tip[Windows Git Bash]
+
+Prefix the commands with `MSYS_NO_PATHCONV=1` so `/data/...` paths reach the container
+unchanged.
+
+:::
 
 ## One person
 
