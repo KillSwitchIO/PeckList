@@ -2,7 +2,7 @@
 // server re-checks provider sessions, spec: Accounts & Admin, OIDC), the sign-in page goes back
 // through that provider by itself. Signing out or a refused sign-in forgets it.
 
-const KEY = 'punchlist.signInWith';
+const KEY = 'pecklist.signInWith';
 
 export function rememberedProvider(): string | null {
   try {
@@ -21,7 +21,7 @@ export function rememberProvider(name: string | null): void {
   }
 }
 
-const AUTO_KEY = 'punchlist.signInWith.autoAt';
+const AUTO_KEY = 'pecklist.signInWith.autoAt';
 /** How long after going back through a provider by itself the sign-in page waits to do it again. */
 const AUTO_PAUSE_MS = 60_000;
 

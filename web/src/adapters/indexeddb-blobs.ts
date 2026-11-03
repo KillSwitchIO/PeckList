@@ -12,7 +12,7 @@ interface Stored {
  * Files in their own IndexedDB database, apart from the workspace. Kept as bytes plus a type, not
  * as Blobs: some browsers (older Safari) cannot store a Blob in IndexedDB.
  */
-export function createIndexedDbBlobs(databaseName = 'punchlist-files'): BlobStore {
+export function createIndexedDbBlobs(databaseName = 'pecklist-files'): BlobStore {
   let db: Promise<IDBPDatabase> | null = null;
   const open = () =>
     (db ??= openDB(databaseName, 1, {

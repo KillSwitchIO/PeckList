@@ -43,7 +43,7 @@ export function OccurrenceRow({ task, occurrence }: { task: Task; occurrence: Oc
   const title = task.title || t('task.untitled');
   const day = formatDay(occurrence.date, today);
   const time = task.schedule && !task.schedule.allDay ? timePart(task.schedule.start) : null;
-  const ring = theme.punchlist.priority[PRIORITY_KEY[task.priority]].fill;
+  const ring = theme.pecklist.priority[PRIORITY_KEY[task.priority]].fill;
   const close = (status: 'done' | 'wontdo') =>
     apply(
       (ctx, ws) => closeOccurrence(ctx, ws, series.id, occurrence.date, status),

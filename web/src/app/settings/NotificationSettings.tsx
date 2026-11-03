@@ -18,7 +18,7 @@ const PHONE_SETTINGS_API = 5;
 
 /**
  * Settings > Notifications (spec: PL-061): Web Push for this device, so reminders and
- * notifications arrive with Punchlist closed. Each device turns it on for itself. The Android app
+ * notifications arrive with PeckList closed. Each device turns it on for itself. The Android app
  * has no Web Push and checks in with the server instead.
  */
 export function NotificationSettings() {

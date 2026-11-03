@@ -103,7 +103,7 @@ export const MIGRATIONS: MigrationRegistry = {
   // 10: settings may hold newTask (what a new task starts with). Optional (missing: the old
   // behavior), so documents change only in version.
   10: (document) => document,
-  // 11: settings may name a palette preset (palettePreset). Optional (missing: the Punchlist
+  // 11: settings may name a palette preset (palettePreset). Optional (missing: the PeckList
   // colors), so documents change only in version.
   11: (document) => document,
   // 12: tasks may hold reminders, and new task defaults a reminder default. Optional (missing:

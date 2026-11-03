@@ -77,7 +77,7 @@ describe('swiping task rows', () => {
 
   it('follows the swipe settings: buttons, their order, and the full swipe', async () => {
     localStorage.setItem(
-      'punchlist.swipes',
+      'pecklist.swipes',
       JSON.stringify({
         right: { buttons: [], full: 'complete' },
         left: { buttons: ['pin', 'wontDo'], full: null },

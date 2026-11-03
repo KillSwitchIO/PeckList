@@ -6,7 +6,7 @@
 function reminderAction(event) {
   const [taskId, first] = String(event.notification.tag || '').split('@');
   const message = {
-    type: 'punchlist-reminder',
+    type: 'pecklist-reminder',
     action: event.action,
     taskId,
     first: Number(first),

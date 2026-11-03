@@ -12,7 +12,7 @@ export function SyncNoticeToast() {
   const dismiss = useSyncState((state) => state.dismissNotice);
   const theme = useTheme();
   const actionColor =
-    theme.palette.mode === 'light' ? theme.punchlist.accentContainer : theme.punchlist.accent.on;
+    theme.palette.mode === 'light' ? theme.pecklist.accentContainer : theme.pecklist.accent.on;
   return (
     <Snackbar
       open={notice !== null}

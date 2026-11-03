@@ -1,7 +1,7 @@
 // Node ids for HLC timestamps: one stable id per device (browser profile), plus a per-tab
 // suffix so two tabs never produce identical timestamps.
 
-const DEVICE_KEY = 'punchlist.deviceId';
+const DEVICE_KEY = 'pecklist.deviceId';
 const ALPHABET = 'ABCDEFGHJKMNPQRSTVWXYZabcdefghjkmnpqrstvwxyz0123456789';
 
 export function randomId(length: number, random: () => number = Math.random): string {

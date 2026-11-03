@@ -89,7 +89,7 @@ describe('signing in with an identity provider', () => {
       providers: [{ name: 'pocket', displayName: 'Pocket ID' }],
       localLogin: true,
     };
-    localStorage.setItem('punchlist.signInWith', 'pocket');
+    localStorage.setItem('pecklist.signInWith', 'pocket');
     leaveFor.mockClear();
     window.history.replaceState(null, '', '/today');
     await serverApp(backend);
@@ -103,8 +103,8 @@ describe('signing in with an identity provider', () => {
       providers: [{ name: 'pocket', displayName: 'Pocket ID' }],
       localLogin: true,
     };
-    localStorage.setItem('punchlist.signInWith', 'pocket');
-    sessionStorage.setItem('punchlist.signInWith.autoAt', String(Date.now() - 5_000));
+    localStorage.setItem('pecklist.signInWith', 'pocket');
+    sessionStorage.setItem('pecklist.signInWith.autoAt', String(Date.now() - 5_000));
     leaveFor.mockClear();
     window.history.replaceState(null, '', '/today');
     await serverApp(backend);
@@ -120,7 +120,7 @@ describe('signing in with an identity provider', () => {
       providers: [{ name: 'pocket', displayName: 'Pocket ID' }],
       localLogin: true,
     };
-    localStorage.setItem('punchlist.signInWith', 'pocket');
+    localStorage.setItem('pecklist.signInWith', 'pocket');
     leaveFor.mockClear();
     window.history.replaceState(null, '', '/login?error=oidc_not_allowed');
     await serverApp(backend);
@@ -128,7 +128,7 @@ describe('signing in with an identity provider', () => {
       await screen.findByRole('link', { name: 'Continue with Pocket ID' }),
     ).toBeInTheDocument();
     expect(leaveFor).not.toHaveBeenCalled();
-    expect(localStorage.getItem('punchlist.signInWith')).toBeNull();
+    expect(localStorage.getItem('pecklist.signInWith')).toBeNull();
   });
 
   it('explains why a provider sign-in came back, once', async () => {
@@ -235,12 +235,12 @@ describe('signing in to a server', () => {
   it('signing out of a provider session goes on to end it at the provider', async () => {
     const backend = new FakeBackend();
     backend.addAccount('ben', 'correct horse battery');
-    backend.signOutRedirect = 'https://id.example.com/logout?client_id=punchlist';
+    backend.signOutRedirect = 'https://id.example.com/logout?client_id=pecklist';
     await serverApp(backend, 'ben');
     await userEvent.click(await screen.findByRole('button', { name: /^Account: / }));
     await userEvent.click(await screen.findByRole('menuitem', { name: 'Log out' }));
     await waitFor(() =>
-      expect(leaveFor).toHaveBeenCalledWith('https://id.example.com/logout?client_id=punchlist'),
+      expect(leaveFor).toHaveBeenCalledWith('https://id.example.com/logout?client_id=pecklist'),
     );
   });
 

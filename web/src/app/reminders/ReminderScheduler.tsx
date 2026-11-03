@@ -25,7 +25,7 @@ const AHEAD_MS = 14 * 86_400_000;
 const AHEAD_MAX = 100;
 /** How long the workspace must stay still before the reminders ahead are handed over again. */
 const AHEAD_SETTLE_MS = 1_000;
-const FIRED_KEY = 'punchlist.firedReminders';
+const FIRED_KEY = 'pecklist.firedReminders';
 
 function firedKeys(): Record<string, number> {
   try {
@@ -78,7 +78,7 @@ export function ReminderScheduler({ now = Date.now }: { now?: () => number }) {
     const onMessage = (event: MessageEvent) => {
       const data = event.data as
         { type?: string; action?: string; taskId?: string; first?: number } | undefined;
-      if (data?.type !== 'punchlist-reminder' || !data.taskId || !data.first) return;
+      if (data?.type !== 'pecklist-reminder' || !data.taskId || !data.first) return;
       const tag = `${data.taskId}@${data.first}`;
       const at = now();
       for (let again = 1; again < CONSTANT_TIMES; again += 1) markFired(`${tag}#${again}`, at);

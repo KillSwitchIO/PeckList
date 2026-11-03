@@ -6,5 +6,5 @@ describeBlobsContract('memory', () => createMemoryBlobs());
 
 let counter = 0;
 describeBlobsContract('indexeddb', () =>
-  createIndexedDbBlobs(`punchlist-files-test-${(counter += 1)}`),
+  createIndexedDbBlobs(`pecklist-files-test-${(counter += 1)}`),
 );

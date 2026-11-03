@@ -49,7 +49,7 @@ async function chores() {
     return next;
   });
   await store.getState().flush();
-  localStorage.setItem('punchlist.listGrouping', JSON.stringify({ [listId]: 'none' }));
+  localStorage.setItem('pecklist.listGrouping', JSON.stringify({ [listId]: 'none' }));
   await renderApp(`/lists/${listId}`, store);
   await screen.findByRole('button', { name: 'Open Fold' });
   const outline = () => {

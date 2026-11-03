@@ -896,7 +896,7 @@ export const en = {
   'palette.preview': 'Preview',
   'palette.default': 'Default',
   'palette.presets': 'Palettes',
-  'palette.preset.punchlist': 'PeckList',
+  'palette.preset.pecklist': 'PeckList',
   'palette.preset.ocean': 'Ocean',
   'palette.preset.forest': 'Forest',
   'palette.preset.sunset': 'Sunset',

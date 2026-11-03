@@ -212,7 +212,7 @@ export function TaskDetail({
       ? shifted(task, daysBetween(datePart(task.schedule.start), shownOn)).schedule
       : task.schedule;
   const state = dateState(task, today, workspace.entities.settings[0]?.dueSoonDays ?? 2);
-  const colors = theme.punchlist.dateState;
+  const colors = theme.pecklist.dateState;
   // Color the row that causes the state: the due date when there is one, else the schedule.
   const dueColor = task.due
     ? state === 'late'

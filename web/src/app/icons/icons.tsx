@@ -1,4 +1,4 @@
-// Punchlist's own icons, drawn here as SVG so they share one look and follow the theme:
+// PeckList's own icons, drawn here as SVG so they share one look and follow the theme:
 // a 24 x 24 grid, 1.75 strokes with round ends and joins, no fills, `currentColor` (so they take
 // the text or accent color of where they sit). Add new icons in this style; keep them simple.
 

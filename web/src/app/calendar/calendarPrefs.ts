@@ -20,9 +20,9 @@ export const MIN_HOUR = 24;
 export const MIN_WEEKS = 1;
 export const MAX_WEEKS = 12;
 export const MAX_HOUR = 160;
-const KEY = 'punchlist.calendar';
+const KEY = 'pecklist.calendar';
 /** Before PL-093: month, week, threeDays or day. */
-const OLD_MODE_KEY = 'punchlist.calendar.mode';
+const OLD_MODE_KEY = 'pecklist.calendar.mode';
 const OLD_DAYS: Record<string, number> = { week: 7, threeDays: 3, day: 1 };
 
 export function defaultPrefs(phone: boolean): CalendarPrefs {

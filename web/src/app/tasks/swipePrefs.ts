@@ -32,7 +32,7 @@ export const DEFAULT_SWIPES: SwipePrefs = {
   left: { buttons: ['date', 'move', 'delete'], full: 'date' },
 };
 
-const KEY = 'punchlist.swipes';
+const KEY = 'pecklist.swipes';
 const listeners = new Set<() => void>();
 let memory: string | null = null;
 

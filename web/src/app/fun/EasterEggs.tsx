@@ -33,7 +33,7 @@ const WINK_MS = 2_400;
 const STREAK = 5;
 const STREAK_MS = 120_000;
 /** The day the fireworks last went off in this tab: once a day on arriving at a finished Today. */
-const FIREWORKS_KEY = 'punchlist-fireworks-day';
+const FIREWORKS_KEY = 'pecklist-fireworks-day';
 
 const fireworksDay = () => {
   try {

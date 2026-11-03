@@ -5,7 +5,7 @@ const PURPLE = '#4B2A8A';
 const GREY = '#A8A6A3';
 const SIZE = 72;
 
-/** Punchlist's checklist logo (public/icon.svg), in the given colors. */
+/** PeckList's checklist logo (public/icon.svg), in the given colors. */
 function Logo({ tile, mark }: { tile: string; mark: string }) {
   return (
     <svg viewBox="0 0 64 64" width={SIZE} height={SIZE} aria-hidden>
@@ -48,7 +48,7 @@ function Check({ tile, mark }: { tile: string; mark: string }) {
 }
 
 /**
- * The mark over an empty view: Punchlist's logo for a moment, then it flips round to a big check
+ * The mark over an empty view: PeckList's logo for a moment, then it flips round to a big check
  * that draws itself in with a little pop: all done here. The logo's own colors, turned round in a
  * light theme as the favicon is. With reduced motion asked for, just the check.
  */

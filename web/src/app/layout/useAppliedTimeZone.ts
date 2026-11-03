@@ -2,7 +2,7 @@ import { localTimeZone, setTimeZone } from '../../core/dates.ts';
 import { useStoreState } from '../store/hooks.ts';
 import { useSyncState } from '../sync/syncContext.ts';
 
-const SERVER_ZONE_KEY = 'punchlist.serverTimeZone';
+const SERVER_ZONE_KEY = 'pecklist.serverTimeZone';
 
 function remembered(): string | null {
   try {

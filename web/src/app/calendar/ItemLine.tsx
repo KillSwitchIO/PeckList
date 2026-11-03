@@ -90,7 +90,7 @@ export function ItemLine({
       style={
         {
           '--item-color': item.color,
-          ...(priority ? { '--priority-color': theme.punchlist.priority[priority].fill } : {}),
+          ...(priority ? { '--priority-color': theme.pecklist.priority[priority].fill } : {}),
         } as CSSProperties
       }
       title={label}

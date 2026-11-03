@@ -58,7 +58,7 @@ export function createHttpSync(
         ...init,
         credentials: 'same-origin',
         signal: control.signal,
-        headers: { ...init.headers, ...(device ? { 'X-Punchlist-Device': device } : {}) },
+        headers: { ...init.headers, ...(device ? { 'X-PeckList-Device': device } : {}) },
       });
     } catch (error) {
       throw new SyncFailure(

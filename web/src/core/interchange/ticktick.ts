@@ -116,7 +116,7 @@ export function parseTickTick(text: string, options: TickTickOptions): ImportPla
       });
     }
     if (row['Folder Name']?.trim()) folders = true;
-    // Kanban columns: Punchlist has no sections (PL-011).
+    // Kanban columns: PeckList has no sections (PL-011).
     const column = row['Column Name']?.trim();
     if (column && column !== 'Not Sectioned') columns.add(JSON.stringify([listName, column]));
     if (row.projectKind === 'NOTE' || row.Kind === 'NOTE') note(plan, 'notesAsTasks');

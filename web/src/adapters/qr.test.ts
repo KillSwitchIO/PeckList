@@ -3,7 +3,7 @@ import { encodeQr } from './qrcode-generator.ts';
 
 describe('QR encoder', () => {
   it('makes a square code with the three finder patterns', () => {
-    const modules = encodeQr('https://punchlist.example/f/7QM4-K2XP');
+    const modules = encodeQr('https://pecklist.example/f/7QM4-K2XP');
     const size = modules.length;
     // Versions run 21, 25, 29 ... modules wide.
     expect((size - 21) % 4).toBe(0);

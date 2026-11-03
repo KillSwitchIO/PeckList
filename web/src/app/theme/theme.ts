@@ -6,14 +6,14 @@ export const POPUP_RADIUS = 18;
 
 declare module '@mui/material/styles' {
   interface Theme {
-    punchlist: ModePalette;
+    pecklist: ModePalette;
   }
   interface ThemeOptions {
-    punchlist?: ModePalette;
+    pecklist?: ModePalette;
   }
 }
 
-/** MUI theme built from the Punchlist color tokens. Components read `theme.punchlist` for meaning-bearing colors. */
+/** MUI theme built from the PeckList color tokens. Components read `theme.pecklist` for meaning-bearing colors. */
 export function createAppTheme(
   mode: 'light' | 'dark',
   overrides: Record<string, string> = {},
@@ -21,7 +21,7 @@ export function createAppTheme(
 ): Theme {
   const p = buildPalette(mode, overrides, tint);
   return createTheme({
-    punchlist: p,
+    pecklist: p,
     palette: {
       mode,
       primary: { main: p.accent.fill, contrastText: p.accent.on },

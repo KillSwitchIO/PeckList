@@ -1,6 +1,7 @@
 /**
- * Android's Back button inside the app (ADR-0017). The shell asks `window.punchlistBack()` first;
- * true means the app used it. Otherwise the shell goes back in the WebView or leaves the app.
+ * Android's Back button inside the app (ADR-0017). The shell asks `window.pecklistBack()` first
+ * (`punchlistBack` in an APK from before the rename); true means the app used it. Otherwise the
+ * shell goes back in the WebView or leaves the app.
  */
 
 /** The topmost open menu, dialog, popover or drawer (MUI renders each as a modal). */

@@ -54,7 +54,7 @@ export function CompleteCheckbox({
   const ring =
     task.priority === 0
       ? theme.palette.text.secondary
-      : theme.punchlist.priority[PRIORITY_KEY[task.priority]].fill;
+      : theme.pecklist.priority[PRIORITY_KEY[task.priority]].fill;
   // Everything takes the priority's color: the box, the fill, the check's contrast and the
   // burst. No priority uses the accent.
   const tone = task.priority === 0 ? theme.palette.primary.main : ring;

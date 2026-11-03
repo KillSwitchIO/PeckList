@@ -61,7 +61,7 @@ export function PriorityCheckbox({
   const { pathname } = useLocation();
   // The bird is still flying: the task is not written as done yet, and another tap waits.
   const flying = useRef(false);
-  const ring = theme.punchlist.priority[PRIORITY_KEY[task.priority]].fill;
+  const ring = theme.pecklist.priority[PRIORITY_KEY[task.priority]].fill;
   const done = task.status !== 'open';
   const title = task.title || t('task.untitled');
   return (

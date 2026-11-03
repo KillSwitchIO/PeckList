@@ -240,7 +240,7 @@ export function BulkBar({ phone }: { phone: boolean }) {
               <FlagIcon
                 filled={priority > 0}
                 fontSize="small"
-                sx={{ color: theme.punchlist.priority[PRIORITY_KEY[priority]].on }}
+                sx={{ color: theme.pecklist.priority[PRIORITY_KEY[priority]].on }}
               />
             </ListItemIcon>
             {t(`priority.${priority}`)}

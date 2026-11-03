@@ -133,6 +133,6 @@ describe('washed palettes (R-FB-123)', () => {
     for (const id of ['neon', 'arcade', 'bubblegum', 'rose-gold'] as const) {
       expect(PRESET_TINTS[id]).toBeGreaterThan(0);
     }
-    expect(PRESET_TINTS.punchlist).toBeUndefined();
+    expect(PRESET_TINTS.pecklist).toBeUndefined();
   });
 });

@@ -281,9 +281,9 @@ describe('task details', () => {
     fireEvent.pointerDown(handle, { clientX: 900, pointerId: 1 });
     fireEvent.pointerMove(handle, { clientX: 800, pointerId: 1 });
     fireEvent.pointerUp(handle, { clientX: 800, pointerId: 1 });
-    expect(Number(localStorage.getItem('punchlist.detailWidth'))).toBeGreaterThan(0);
+    expect(Number(localStorage.getItem('pecklist.detailWidth'))).toBeGreaterThan(0);
     await userEvent.dblClick(handle);
-    expect(localStorage.getItem('punchlist.detailWidth')).toBeNull();
+    expect(localStorage.getItem('pecklist.detailWidth')).toBeNull();
   });
 
   it('opens details full screen and back', async () => {
@@ -545,7 +545,7 @@ describe('lists and sections', () => {
     });
     await store.getState().flush();
     localStorage.setItem(
-      'punchlist.listGrouping',
+      'pecklist.listGrouping',
       JSON.stringify({ [inboxList(store.getState().workspace!).id]: 'section' }),
     );
     await renderApp('/inbox', store);

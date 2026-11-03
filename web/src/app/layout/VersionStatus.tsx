@@ -9,7 +9,7 @@ import { useShellInfo } from '../native/shell.ts';
 import { useSyncState } from '../sync/syncContext.ts';
 
 /** Where "Skip this release" is remembered on this device. */
-const SKIPPED_KEY = 'punchlist.skippedRelease';
+const SKIPPED_KEY = 'pecklist.skippedRelease';
 /** How often the menu asks the server again. */
 const RECHECK_MS = 6 * 60 * 60 * 1000;
 
@@ -98,7 +98,7 @@ function useLatestRelease(): UpdateInfo | null {
 }
 
 /**
- * At the foot of the menu, as Immich does (R-FB-148): a newer Punchlist release is out than this
+ * At the foot of the menu, as Immich does (R-FB-148): a newer PeckList release is out than this
  * server or this Android app runs. "Skip this release" hides it until the next one; "Release page"
  * opens its notes and downloads. Nothing shows while the server finds no release (the check off,
  * offline, or the project not public yet).

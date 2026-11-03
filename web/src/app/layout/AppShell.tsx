@@ -72,7 +72,7 @@ import { noteArrival } from '../views/emptyMarkPlays.ts';
 const PURGE_EVERY_MS = 6 * 3_600_000;
 
 const DRAWER_WIDTH = 232;
-const COLLAPSED_KEY = 'punchlist.sidebarCollapsed';
+const COLLAPSED_KEY = 'pecklist.sidebarCollapsed';
 
 /** Whether the desktop sidebar is folded away (per device). */
 function useSidebarCollapsed(): [boolean, (collapsed: boolean) => void] {

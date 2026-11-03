@@ -1,4 +1,4 @@
-// What any app's export becomes before it lands in Punchlist (spec: PL-063): lists, and tasks
+// What any app's export becomes before it lands in PeckList (spec: PL-063): lists, and tasks
 // with their place, dates, repeat, reminders, priority, status and tags by name. Each format reads
 // its own file into this; one importer adds it to the workspace.
 
@@ -70,7 +70,7 @@ export const emptyPlan = (source: InterchangeSource): ImportPlan => ({
   notes: {},
 });
 
-/** RRULE text without Punchlist's own parts (X-PL-...), for another app. */
+/** RRULE text without PeckList's own parts (X-PL-...), for another app. */
 export const plainRule = (rule: string) =>
   rule
     .replace(/^RRULE:/i, '')

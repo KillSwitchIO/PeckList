@@ -39,7 +39,7 @@ export function paletteOverrides(workspace: WorkspaceFile): Partial<Record<Palet
   ) as Partial<Record<PaletteSlot, string>>;
 }
 
-/** The preset the colors start from (an unknown one, say from a newer app: Punchlist's). */
+/** The preset the colors start from (an unknown one, say from a newer app: PeckList's). */
 export function palettePreset(workspace: WorkspaceFile): PalettePreset {
   const saved = workspace.entities.settings[0]?.palettePreset;
   return saved && saved in PALETTE_PRESETS ? (saved as PalettePreset) : DEFAULT_PRESET;
@@ -126,7 +126,7 @@ export function resetPalette(ctx: OpContext, workspace: WorkspaceFile): Workspac
 const FAINT = 1.6;
 
 /**
- * Whether a color is too faint to show as picked. Punchlist always keeps text at 4.5:1 and
+ * Whether a color is too faint to show as picked. PeckList always keeps text at 4.5:1 and
  * rings at 3:1 (WCAG AA) by darkening pale colors on the light background, which the default
  * pastels rely on; a pick paler than FAINT needs so much darkening that it no longer looks like
  * itself, and the editor says so.

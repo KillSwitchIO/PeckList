@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef } from 'react';
 import { useLocation, useNavigate, useSearchParams } from 'react-router';
 
 /** Set on the history entry that opening a task added, so closing it can go back over it. */
-const OPENED = 'punchlistOpenedTask';
+const OPENED = 'pecklistOpenedTask';
 
 /**
  * The open task lives in the URL (`?task=<id>`) so it survives reloads and back navigation;

@@ -137,7 +137,7 @@ describe('dragging tasks between groups', () => {
     });
     await store.getState().flush();
     localStorage.setItem(
-      'punchlist.listGrouping',
+      'pecklist.listGrouping',
       JSON.stringify({ [listId]: { group: 'none', sort: 'title' } }),
     );
     await renderApp(`/lists/${listId}`, store);
@@ -150,7 +150,7 @@ describe('dragging tasks between groups', () => {
     // Into the slot above the first row (its top edge; its middle would nest it).
     dragOnto(sorted[2]!, sorted[0]!, -16);
     await waitFor(() => expect(titles()[0]).toBe(sorted[2]));
-    expect(JSON.parse(localStorage.getItem('punchlist.listGrouping')!)[listId]).toMatchObject({
+    expect(JSON.parse(localStorage.getItem('pecklist.listGrouping')!)[listId]).toMatchObject({
       sort: 'manual',
     });
   });

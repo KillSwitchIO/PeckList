@@ -1,5 +1,5 @@
 // The demo server's seed (PL-117): three people who share lists, as a whole-server backup that
-// `punchlist import` loads into an empty database. Built with the app's own core operations, so
+// `pecklist import` loads into an empty database. Built with the app's own core operations, so
 // every entity is what the app itself would write. Grown from the demo data of 2026-10-23.
 // `scripts/demo-seed.mts` writes it; Node runs this file as it is, so only erasable TypeScript here.
 import { HlcClock } from '../core/hlc.ts';
@@ -27,9 +27,9 @@ import type { WorkspaceFile } from '../core/types.ts';
 export const DEMO_USERNAMES = ['demo-sam', 'demo-alex', 'demo-jordan'] as const;
 
 export interface DemoSeed {
-  /** The `punchlist-server-backup` document. */
+  /** The `pecklist-server-backup` document. */
   file: {
-    format: 'punchlist-server-backup';
+    format: 'pecklist-server-backup';
     schemaVersion: number;
     exportedAt: string;
     accounts: { id: string; username: string; passwordHash: null; role: 'user' }[];
@@ -41,7 +41,7 @@ export interface DemoSeed {
 
 /**
  * The seed with its dates laid out around <today> (YYYY-MM-DD). The same day gives the same file.
- * `punchlist import --shift-dates` moves the dates on to the day of the import.
+ * `pecklist import --shift-dates` moves the dates on to the day of the import.
  */
 export function buildDemoSeed(TODAY: string): DemoSeed {
   // --- deterministic randomness: the same day gives the same file ---------------------------------
@@ -757,10 +757,10 @@ export function buildDemoSeed(TODAY: string): DemoSeed {
     }
   }
   const file = {
-    format: 'punchlist-server-backup' as const,
+    format: 'pecklist-server-backup' as const,
     formatVersion: 1,
     schemaVersion: CURRENT_SCHEMA_VERSION,
-    app: { name: 'punchlist', version: 'demo-seed' },
+    app: { name: 'pecklist', version: 'demo-seed' },
     exportedAt: new Date(NOW).toISOString(),
     cursor: entities.length,
     accounts: (Object.keys(people) as Who[]).map((who) => ({

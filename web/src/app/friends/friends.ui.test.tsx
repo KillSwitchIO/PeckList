@@ -41,11 +41,11 @@ describe('friends page', () => {
     const backend = new FakeBackend();
     backend.addAccount('sam', 'sams own password');
     await signedIn('/friends', backend);
-    expect(await screen.findByDisplayValue('https://punchlist.test/f/BEN')).toBeInTheDocument();
+    expect(await screen.findByDisplayValue('https://pecklist.test/f/BEN')).toBeInTheDocument();
     expect(screen.getByText(/No friends yet/)).toBeInTheDocument();
     await userEvent.click(screen.getByRole('button', { name: 'QR code' }));
     expect(
-      await screen.findByRole('img', { name: 'QR code for https://punchlist.test/f/BEN' }),
+      await screen.findByRole('img', { name: 'QR code for https://pecklist.test/f/BEN' }),
     ).toBeInTheDocument();
     await userEvent.click(screen.getByRole('button', { name: 'Done' }));
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
@@ -88,10 +88,10 @@ describe('friends page', () => {
         {
           collection: 'users',
           entity: entity('01JBSAM0000000000000000001', {
-            handle: 'sam@punchlist.test',
+            handle: 'sam@pecklist.test',
             displayName: 'Sam',
             avatarColor: '#A7C7E7',
-            homeServer: 'punchlist.test',
+            homeServer: 'pecklist.test',
           }),
         },
         {
@@ -107,7 +107,7 @@ describe('friends page', () => {
     });
     await signedIn('/friends', backend);
     const list = await screen.findByRole('region', { name: 'Your friends' });
-    expect(await within(list).findByText('sam@punchlist.test · Made by kim')).toBeInTheDocument();
+    expect(await within(list).findByText('sam@pecklist.test · Made by kim')).toBeInTheDocument();
   });
 
   it('says friends need a server when there is none', async () => {
@@ -150,10 +150,10 @@ describe('what you share', () => {
           ws,
           'users',
           createEntity<User>(ctx, {
-            handle: 'sam@punchlist.test',
+            handle: 'sam@pecklist.test',
             displayName: 'Sam',
             avatarColor: '#A7C7E7',
-            homeServer: 'punchlist.test',
+            homeServer: 'pecklist.test',
           }),
         );
         const made = next.entities.users.at(-1)!;

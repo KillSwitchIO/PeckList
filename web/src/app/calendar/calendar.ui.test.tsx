@@ -120,7 +120,7 @@ describe('calendar', () => {
         .getAllByRole('group', { name: /./ })
         .filter((each) => each.hasAttribute('data-cal-slots')),
     ).toHaveLength(3);
-    expect(JSON.parse(localStorage.getItem('punchlist.calendar')!)).toMatchObject({
+    expect(JSON.parse(localStorage.getItem('pecklist.calendar')!)).toMatchObject({
       mode: 'days',
       days: 3,
     });
@@ -171,7 +171,7 @@ describe('calendar', () => {
     fireEvent.pointerUp(window, { clientX: 198, clientY: 198, ...touch });
     expect(dial).toHaveAttribute('aria-expanded', 'false');
     expect(dial).toHaveAttribute('aria-valuenow', '14');
-    expect(JSON.parse(localStorage.getItem('punchlist.calendar')!)).toMatchObject({ days: 14 });
+    expect(JSON.parse(localStorage.getItem('pecklist.calendar')!)).toMatchObject({ days: 14 });
 
     // A tap leaves it open to tap a number.
     fireEvent.pointerDown(dial, { clientX: 0, clientY: 0, button: 0, ...touch });
@@ -185,7 +185,7 @@ describe('calendar', () => {
   });
 
   it('takes the old Week and Day choices over as Days', async () => {
-    localStorage.setItem('punchlist.calendar.mode', 'week');
+    localStorage.setItem('pecklist.calendar.mode', 'week');
     await calendarWith();
     expect(await screen.findByRole('slider', { name: 'Days shown' })).toHaveAttribute(
       'aria-valuenow',
@@ -214,7 +214,7 @@ describe('calendar', () => {
 
   it('adds a task at a tapped time in Days', async () => {
     localStorage.setItem(
-      'punchlist.calendar',
+      'pecklist.calendar',
       JSON.stringify({ mode: 'days', days: 1, hourHeight: 48 }),
     );
     const { store, today } = await calendarWith();
@@ -288,7 +288,7 @@ describe('calendar', () => {
 
   it('stretches a task from its top edge and its bottom edge', async () => {
     localStorage.setItem(
-      'punchlist.calendar',
+      'pecklist.calendar',
       JSON.stringify({ mode: 'days', days: 1, hourHeight: 48 }),
     );
     const { today, task, standup } = await calendarWith();
@@ -315,7 +315,7 @@ describe('calendar', () => {
 
   it('shows the times a task would get while it is stretched or dragged', async () => {
     localStorage.setItem(
-      'punchlist.calendar',
+      'pecklist.calendar',
       JSON.stringify({ mode: 'days', days: 1, hourHeight: 48 }),
     );
     const { today } = await calendarWith();
@@ -354,7 +354,7 @@ describe('calendar', () => {
 
   it('opens big time grips on a long hold, for tasks too short to grab by the edge', async () => {
     localStorage.setItem(
-      'punchlist.calendar',
+      'pecklist.calendar',
       JSON.stringify({ mode: 'days', days: 1, hourHeight: 48 }),
     );
     const { today, task, standup } = await calendarWith();

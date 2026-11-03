@@ -346,11 +346,11 @@ function memoryAdmin(benId: string) {
     backups: () => Promise.resolve([...state.backups]),
     backUpNow: () => {
       state.backups.unshift({
-        name: 'punchlist-20261022-120000.json',
+        name: 'pecklist-20261022-120000.json',
         taken: '2026-10-22T12:00:00Z',
         size: 2048,
       });
-      return Promise.resolve('punchlist-20261022-120000.json');
+      return Promise.resolve('pecklist-20261022-120000.json');
     },
     backupUrl: (name) => `/api/admin/backups/${name}`,
     exportUrl: () => '/api/admin/export',
@@ -825,11 +825,11 @@ describe('admin', () => {
     expect(await within(scheduled).findByText('No backups yet.')).toBeInTheDocument();
     await userEvent.click(within(scheduled).getByRole('button', { name: 'Back up now' }));
     const row = await within(scheduled).findByRole('listitem', {
-      name: 'punchlist-20261022-120000.json',
+      name: 'pecklist-20261022-120000.json',
     });
     expect(within(row).getByRole('link', { name: 'Download' })).toHaveAttribute(
       'href',
-      '/api/admin/backups/punchlist-20261022-120000.json',
+      '/api/admin/backups/pecklist-20261022-120000.json',
     );
     expect(screen.getByRole('link', { name: 'Download the whole server' })).toHaveAttribute(
       'href',
@@ -870,7 +870,7 @@ describe('admin', () => {
     const scheduled = await screen.findByRole('region', { name: 'Backups on the server' });
     await userEvent.click(within(scheduled).getByRole('button', { name: 'Back up now' }));
     const row = await within(scheduled).findByRole('listitem', {
-      name: 'punchlist-20261022-120000.json',
+      name: 'pecklist-20261022-120000.json',
     });
     expect(within(row).queryByRole('link', { name: 'Download' })).not.toBeInTheDocument();
     expect(
@@ -1045,7 +1045,7 @@ describe('admin', () => {
       'Pocket ID',
     );
     await userEvent.type(within(wizard).getByLabelText('Issuer address'), 'https://id.example.com');
-    await userEvent.type(within(wizard).getByLabelText('Client ID'), 'punchlist');
+    await userEvent.type(within(wizard).getByLabelText('Client ID'), 'pecklist');
     expect(
       within(wizard).getByText(
         'Register this callback address with the provider: https://tasks.example.com/auth/oidc/pocket-id/callback',
@@ -1062,7 +1062,7 @@ describe('admin', () => {
       PUBLIC_URL: 'https://tasks.example.com',
       OIDC_PROVIDERS: 'pocket-id',
       OIDC_POCKET_ID_AUTHORITY: 'https://id.example.com',
-      OIDC_POCKET_ID_CLIENT_ID: 'punchlist',
+      OIDC_POCKET_ID_CLIENT_ID: 'pecklist',
       OIDC_POCKET_ID_DISPLAY_NAME: 'Pocket ID',
       OIDC_POCKET_ID_AUTO_CREATE: 'true',
       REGISTRATION: 'closed',

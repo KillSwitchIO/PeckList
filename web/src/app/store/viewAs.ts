@@ -8,7 +8,7 @@ export interface ViewAs {
   username: string;
 }
 
-const KEY = 'punchlist.viewAs';
+const KEY = 'pecklist.viewAs';
 const HASH = /^#view-as=([^&]+)&name=([^&]+)$/;
 
 /**

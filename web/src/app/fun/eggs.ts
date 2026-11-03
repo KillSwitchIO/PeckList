@@ -41,7 +41,7 @@ export const EGGS: readonly { egg: Egg; trigger: string }[] = [
   { egg: 'mascot', trigger: 'Completing 5 tasks within 2 minutes' },
 ];
 
-const EVENT = 'punchlist-egg';
+const EVENT = 'pecklist-egg';
 
 /** Words that, typed into search, set off a surprise. */
 const WORDS: Record<string, Egg> = {

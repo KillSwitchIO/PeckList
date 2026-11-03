@@ -34,7 +34,7 @@ const sameIds = (a: readonly string[] | undefined, b: readonly string[]) =>
  * workspace saved by an older version: read and taken in like another tab's save (merged), and
  * dropped by the next save while it is still the text that was read.
  */
-export function createIndexedDbStorage(databaseName = 'punchlist'): StorageAdapter {
+export function createIndexedDbStorage(databaseName = 'pecklist'): StorageAdapter {
   let db: Promise<IDBPDatabase> | null = null;
   let records: Promise<IDBPDatabase> | null = null;
   const open = () =>

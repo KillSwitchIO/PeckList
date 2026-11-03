@@ -69,7 +69,7 @@ export function createWorkspace(ctx: OpContext, options: NewWorkspaceOptions = {
   entities.settings.push(settings);
   return {
     schemaVersion: CURRENT_SCHEMA_VERSION,
-    app: { name: 'punchlist', version: APP_VERSION },
+    app: { name: 'pecklist', version: APP_VERSION },
     owner: ctx.userId,
     node: ctx.clock.node,
     entities,

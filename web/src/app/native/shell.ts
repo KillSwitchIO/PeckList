@@ -53,7 +53,7 @@ export function forgetServiceWorker(): void {
     .then((registrations) => registrations.forEach((each) => void each.unregister()));
 }
 
-const STANDALONE_KEY = 'punchlist.native.standalone';
+const STANDALONE_KEY = 'pecklist.native.standalone';
 
 /** Whether the person chose to use the app without a server, so the connect page stays away. */
 export function choseStandalone(): boolean {

@@ -268,7 +268,7 @@ export interface HistoryEntry {
   after: string | null;
 }
 
-/** The newest Punchlist release the server knows of (`/api/updates`, R-FB-148). */
+/** The newest PeckList release the server knows of (`/api/updates`, R-FB-148). */
 export interface UpdateInfo {
   /** Whether the server looks for releases at all (`UPDATE_CHECK`). */
   enabled: boolean;
@@ -323,7 +323,7 @@ export class SyncFailure extends Error {
  * throws a `SyncFailure`.
  */
 export interface SyncTransport {
-  /** The server's info, or null when this origin serves no Punchlist server (a static PWA). */
+  /** The server's info, or null when this origin serves no PeckList server (a static PWA). */
   info(): Promise<ServerInfo | null>;
   /** The signed-in account, or null when not signed in. */
   me(): Promise<Account | null>;

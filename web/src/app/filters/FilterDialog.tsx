@@ -226,7 +226,7 @@ export function FilterDialog({
                           color: `${
                             priority === 0
                               ? theme.palette.text.secondary
-                              : theme.punchlist.priority[PRIORITY_KEY[priority]].fill
+                              : theme.pecklist.priority[PRIORITY_KEY[priority]].fill
                           } !important`,
                         }}
                       />

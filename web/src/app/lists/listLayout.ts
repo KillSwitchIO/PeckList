@@ -5,8 +5,8 @@ import type { ListLayout } from '../views/SortGroupButton.tsx';
 // Each list's view, List or Timeline (spec: R-FB-56), and how the timeline is laid out: kept on
 // this device, like the other view choices, and remembered per list.
 
-const LAYOUTS = 'punchlist.listLayouts';
-const TIMELINE = 'punchlist.timeline';
+const LAYOUTS = 'pecklist.listLayouts';
+const TIMELINE = 'pecklist.timeline';
 
 export interface TimelinePrefs {
   /** Fit bars that do not overlap onto shared rows, rather than one row per task */

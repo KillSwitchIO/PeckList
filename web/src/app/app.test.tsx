@@ -167,7 +167,7 @@ describe('app shell', () => {
       'true',
     );
     await userEvent.click(within(theme).getByRole('button', { name: 'Light' }));
-    expect(localStorage.getItem('punchlist.themeMode')).toBe('light');
+    expect(localStorage.getItem('pecklist.themeMode')).toBe('light');
     expect(within(theme).getByRole('button', { name: 'Light' })).toHaveAttribute(
       'aria-pressed',
       'true',
@@ -176,7 +176,7 @@ describe('app shell', () => {
 
   it('carries a theme mode picked in this browser into the synced settings', async () => {
     mockViewport('desktop');
-    localStorage.setItem('punchlist.themeMode', 'dark');
+    localStorage.setItem('pecklist.themeMode', 'dark');
     const store = testStore();
     await renderApp('/today', store);
     await waitFor(() =>

@@ -8,7 +8,7 @@ import { NarrowButton } from './NarrowButton.tsx';
 // What each view is narrowed to, kept on this device like the other view choices.
 export type NarrowView = 'today' | 'upcoming' | 'calendar';
 
-const keyOf = (view: NarrowView) => `punchlist.narrow.${view}`;
+const keyOf = (view: NarrowView) => `pecklist.narrow.${view}`;
 const listeners = new Set<() => void>();
 const memory = new Map<string, string | null>();
 
