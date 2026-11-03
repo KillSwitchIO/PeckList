@@ -77,9 +77,11 @@ the MkDocs-only syntax rewritten for GitLab (admonitions as alerts, tabs as bold
 line saying where it comes from. The wiki is a copy: edit `docs/`, and the next merge refreshes
 it. Pages that leave `docs/` leave the wiki.
 
-The rendered site at <https://killswitch10.gitlab.io/punchlist/> stays the canonical docs: it
-has the search, the tabs and the strict link check the wiki cannot give.
-`node scripts/ci/wiki-sync.mjs --out some-dir` writes the pages locally to look at them.
+The rendered site at <https://docs.pecklist.com> stays the canonical docs: it has the search, the
+tabs and the strict link check the wiki cannot give. GitLab Pages builds it from main (`pages`, at
+<https://punchlist-c58cd3.gitlab.io>), and Pangolin proxies `docs.pecklist.com` to it. The website
+itself, <https://pecklist.com>, is [killswitch10/pecklist.com](https://gitlab.com/killswitch10/pecklist.com)
+on our own server.
 
 ## The website and the demo
 

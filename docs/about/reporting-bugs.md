@@ -65,7 +65,7 @@ problems privately (see SECURITY.md), never here.
 
 **Never include** passwords, API keys, client secrets, cookies, backups or other people's data.
 
-The full guide: https://killswitch10.gitlab.io/punchlist/about/reporting-bugs/
+The full guide: https://docs.pecklist.com/about/reporting-bugs/
 
 This issue is locked; open a new one for your report.
 ```

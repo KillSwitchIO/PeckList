@@ -3,7 +3,7 @@
 [![pipeline](https://gitlab.com/killswitch10/punchlist/badges/main/pipeline.svg)](https://gitlab.com/killswitch10/punchlist/-/pipelines)
 [![release](https://gitlab.com/killswitch10/punchlist/-/badges/release.svg)](https://gitlab.com/killswitch10/punchlist/-/releases)
 [![license: AGPL-3.0-or-later](https://img.shields.io/badge/license-AGPL--3.0--or--later-blue)](LICENSE)
-[![docs](https://img.shields.io/badge/docs-killswitch10.gitlab.io-indigo)](https://killswitch10.gitlab.io/punchlist/)
+[![docs](https://img.shields.io/badge/docs-docs.pecklist.com-indigo)](https://docs.pecklist.com/)
 [![Android: Obtainium](https://img.shields.io/badge/Android-Obtainium-6750a4)](docs/using/android-app.md#install)
 
 A self-hosted, offline-first task and calendar app. Lists, subtasks, tags, dates and a calendar you
