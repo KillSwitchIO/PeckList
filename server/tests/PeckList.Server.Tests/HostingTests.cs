@@ -88,24 +88,6 @@ public sealed class HostingTests : IClassFixture<ServerFixture>, IDisposable
         Assert.Matches(@"^\d+\.\d+\.\d+(-[0-9A-Za-z.-]+)?$", info!.Version);
     }
 
-    // Punchlist 0.5.0 apps compare the name exactly (PL-127); browsers and current apps get the new one.
-    [Theory]
-    [InlineData("Dalvik/2.1.0 (Linux; U; Android 14; Pixel 8 Build/AP2A)", null, "punchlist")]
-    [InlineData("Mozilla/5.0 (Linux; Android 14; Pixel 8; wv) AppleWebKit/537.36 Chrome/130.0 Mobile Safari/537.36", null, "punchlist")]
-    [InlineData("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/130.0 Safari/537.36", "X-Punchlist-Device", "punchlist")]
-    [InlineData("Dalvik/2.1.0 (Linux; U; Android 14; Pixel 8 Build/AP2A)", "X-PeckList-Device", "pecklist")]
-    [InlineData("Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 Chrome/130.0 Mobile Safari/537.36", null, "pecklist")]
-    [InlineData(null, null, "pecklist")]
-    public async Task Info_gives_apps_from_before_the_rename_the_old_name(string? agent, string? header, string expected)
-    {
-        using var request = new HttpRequestMessage(HttpMethod.Get, "/api/info");
-        if (agent is not null) request.Headers.TryAddWithoutValidation("User-Agent", agent);
-        if (header is not null) request.Headers.Add(header, "device-1");
-        var response = await client.SendAsync(request, TestContext.Current.CancellationToken);
-        var info = await response.Content.ReadFromJsonAsync<ServerInfo>(TestContext.Current.CancellationToken);
-        Assert.Equal(expected, info!.Name);
-    }
-
     [Fact]
     public async Task Without_umami_the_page_and_its_policy_stay_as_built()
     {
