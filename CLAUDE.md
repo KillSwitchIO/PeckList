@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-Guidance for Claude Code in this repo. The product spec, roadmap, decisions (ADR-xxxx) and feature notes (PL-xxx) live in Ben's Obsidian vault at `C:\Users\KillSwitch\Syncthing\obsidian\KillSwitch\Punchlist\`. Read the relevant feature note before starting work and update it (checkboxes, `status`, hub progress log) when work lands.
+Guidance for Claude Code in this repo. The product spec, roadmap, decisions (ADR-xxxx) and feature notes (PL-xxx) live in Ben's Obsidian vault at `C:\Users\KillSwitch\Syncthing\obsidian\KillSwitch\PeckList\`. Read the relevant feature note before starting work and update it (checkboxes, `status`, hub progress log) when work lands.
 
 ## Commands
 
