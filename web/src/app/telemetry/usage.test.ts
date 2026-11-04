@@ -125,6 +125,7 @@ describe('the Android shell in usage counts (PL-116)', () => {
 
   it("adds the shell's reminder counts and permission states to a report, and nothing else it says", async () => {
     setNativeShell({
+      info: () => Promise.resolve({ api: 4, server: null, version: '0.8.0' }),
       usage: () =>
         Promise.resolve({
           counts: { 'reminder.onTime': 5, 'reminder.lateMore': 1, 'Groceries for Sam': 9 },
@@ -141,5 +142,7 @@ describe('the Android shell in usage counts (PL-116)', () => {
     expect(report?.platform).toBe('android');
     expect(report?.features).toEqual({ 'reminder.onTime': 5, 'reminder.lateMore': 1 });
     expect([report?.notify, report?.exact, report?.battery]).toEqual(['on', 'off', 'on']);
+    // The versions: the web app's, and the Android app's around it.
+    expect([report?.web, report?.app]).toEqual([__APP_VERSION__, '0.8.0']);
   });
 });

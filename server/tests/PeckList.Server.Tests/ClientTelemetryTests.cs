@@ -60,6 +60,8 @@ public sealed class ClientTelemetryTests(ServerFixture fixture) : IClassFixture<
         notify = "on",
         exact = "off",
         battery = "maybe",
+        web = "0.8.0-edge.1a2b3c4d",
+        app = "0.8.0; rm -rf /",
         features = new Dictionary<string, int> { ["view.today"] = 3, ["view.calendar"] = 1, ["reminder.late1m"] = 2, ["Groceries for zebrafinch"] = 9 },
         errors = new Dictionary<string, int> { ["deadbeef"] = 2, ["not a fingerprint"] = 4 },
         timings = new Dictionary<string, int[]> { ["sync"] = [120, 200, 250], ["zebra"] = [1] },
@@ -85,6 +87,9 @@ public sealed class ClientTelemetryTests(ServerFixture fixture) : IClassFixture<
         Assert.Equal(["reminder.late1m", "view.calendar", "view.today"], clients.Features.Keys.Order());
         Assert.Equal(("2-5", "2-5"), (clients.Devices["notify:on"], clients.Devices["exact:off"]));
         Assert.DoesNotContain(clients.Devices.Keys, kind => kind.StartsWith("battery:", StringComparison.Ordinal));
+        // The apps' versions (schema 3): a version, or nothing.
+        Assert.Equal("2-5", clients.Devices["web:0.8.0-edge.1a2b3c4d"]);
+        Assert.DoesNotContain(clients.Devices.Keys, kind => kind.StartsWith("app:", StringComparison.Ordinal));
         Assert.Equal(["deadbeef"], clients.Errors.Keys);
         Assert.Equal("100-300ms", clients.Timings["sync"]);
         var text = await (await admin.GetAsync("/api/admin/telemetry", Token)).Content.ReadAsStringAsync(Token);

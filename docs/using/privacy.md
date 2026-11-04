@@ -39,8 +39,11 @@ Everything in it is a range or a switch. An admin can see the report exactly as 
 | ------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Install | A random install id (made on the server's first start; an admin can make a new one), the version, its channel (release, pre-release, edge, dev), days since install |
 | Runtime | Operating system family (linux, windows, macos), CPU architecture, whether it runs in a container, the .NET version, SQLite or PostgreSQL, database size range      |
-| Setup   | Password sign-in on or off, no-auth mode, how many identity providers, the registration mode, the backup schedule, the update check on or off, API keys in use (a range), any push subscriptions |
+| Setup   | Password sign-in on or off, no-auth mode, how many identity providers and whether each is a preset (Google) or another, the registration mode, the backup schedule, the update check on or off, API keys in use (a range), any push subscriptions, email off or on and the mail provider preset's name (Gmail, SendGrid, ...; "custom" for any other server), passkeys on or off, whether `PUBLIC_URL` is HTTPS, whether `TRUSTED_PROXIES` is set, which log outputs are on (file, OTLP, Loki, GELF, Elasticsearch, syslog), crash reports on or off, demo mode |
 | Scale   | Ranges of people, lists, shared lists, open tasks, closed tasks and stored data                                                                                     |
+| Machine | Processor count, the memory the server may use (a container's limit when it has one) and the memory it uses, its average processor use since it started, how long it has run, the kernel's version (major.minor, such as 6.12), the container runtime (Docker, Podman, Kubernetes), and the time zone setting (such as `Europe/Berlin`). All ranges but the last three |
+| Storage | Size ranges of the database, attachments, snapshots and log files, and of the free space where the data lives |
+| Rows    | A range for each kind of record: synced records by collection (tasks, lists, tags, comments, ...) and the server's own tables (accounts, passkeys, notifications, the event log, ...) |
 | Apps    | From the people who share (see below), added up on the server: how many people and devices, devices by kind (browser tab, installed app or Android app; browser and system family; phone, tablet or desktop; light or dark; the language's two letters), how often each view and feature on a fixed list was used, errors by fingerprint, and the median time to start, sync and search. All ranges |
 
 Ranges are 0, 1, 2-5, 6-20, 21-100, 101-500, 501-2000 and more; sizes are under 1 MB, 1-10 MB,
@@ -56,7 +59,8 @@ added and completed, which quick-add words were used (a date, a tag, a list, a p
 reschedule, undo, keyboard shortcuts, swipes and the easter eggs. The Android app adds how late
 each reminder showed against when it was due (on time, under a minute, under five minutes, later)
 and whether the three things reminders need are allowed (notifications, exact alarms, no battery
-limits), as on or off. An **error fingerprint** is a
+limits), as on or off. Each device also says which version of the web app it runs, and the
+Android app its own version, so the report shows how many devices run each. An **error fingerprint** is a
 short hash of the error's kind and the place in the app's code it came from: never its message,
 and never your server's address. A device sends its counts at most every six hours, with a random
 device id that stays on your server (only the number of devices goes on).
@@ -91,7 +95,9 @@ turns crash reports off for everyone: nothing is offered, kept or sent.
 
 Task, list or tag names, notes, comments, attachments, people's names, usernames or emails, the
 server's address or name, identity provider addresses, or any id but the random install id. The
-collector does not read or keep the sender's IP address.
+collector does not read or keep the sender's IP address. It keeps the **country** the report came
+from, which Cloudflare (in front of the collector) works out and passes on as two letters; the
+address it was worked out from never reaches the collector.
 
 ## Turning it off
 

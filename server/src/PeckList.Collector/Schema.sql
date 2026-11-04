@@ -14,6 +14,10 @@ CREATE TABLE IF NOT EXISTS pings (
 
 CREATE INDEX IF NOT EXISTS pings_day ON pings (day);
 
+-- The country the report came from (schema 3 era), as Cloudflare's CF-IPCountry header names it:
+-- two letters, never the address it was worked out from.
+ALTER TABLE pings ADD COLUMN IF NOT EXISTS country text;
+
 -- Crash reports the people chose to send (PL-116), kept as long as the pings. No IP address, ever.
 CREATE TABLE IF NOT EXISTS crashes (
     id          bigserial   PRIMARY KEY,

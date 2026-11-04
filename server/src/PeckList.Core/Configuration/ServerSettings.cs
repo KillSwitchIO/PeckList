@@ -139,6 +139,9 @@ public sealed record ServerSettings
     /// <summary>Email (<c>SMTP_*</c>, PL-122); null without <c>SMTP_HOST</c>, and always on a demo server.</summary>
     public MailSettings? Mail { get; init; }
 
+    /// <summary>The <c>SMTP_PROVIDER</c> preset in use, if any (for the usage report: its name only).</summary>
+    public string? MailProvider { get; init; }
+
     /// <summary>Visit counts from an Umami server (<c>UMAMI_*</c>); null unless set.</summary>
     public UmamiSettings? Umami { get; init; }
 
@@ -380,6 +383,7 @@ public sealed record ServerSettings
             CrashReports = Flag("CRASH_REPORTS", true),
             TelemetryUrl = telemetryUrl,
             Mail = mail,
+            MailProvider = mail is null ? null : provider?.Name,
             Umami = umami,
             AuditArchiveDir = Get("AUDIT_ARCHIVE_DIR")
                 ?? Path.Combine(Path.GetDirectoryName(dbPath) is { Length: > 0 } auditDir ? auditDir : ".", "audit"),

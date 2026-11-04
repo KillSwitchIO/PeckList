@@ -160,6 +160,9 @@ export interface ClientReport {
   notify?: 'on' | 'off';
   exact?: 'on' | 'off';
   battery?: 'on' | 'off';
+  /** This web app's version, and the Android app's around it (schema 3). */
+  web?: string;
+  app?: string;
 }
 
 /** Usage counts and the person's choices about them (optional: older servers have none). */

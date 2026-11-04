@@ -39,11 +39,49 @@ public sealed class PingStore(NpgsqlDataSource data)
             ('users', p.payload->'scale'->>'users'),
             ('openTasks', p.payload->'scale'->>'openTasks'),
             ('localLogin', p.payload->'setup'->>'localLogin'),
-            ('oidc', CASE WHEN (p.payload->'setup'->>'oidcProviders')::int > 0 THEN 'true' ELSE 'false' END)
+            ('oidc', CASE WHEN (p.payload->'setup'->>'oidcProviders')::int > 0 THEN 'true' ELSE 'false' END),
+            ('country', p.country),
+            ('timeZone', p.payload->'host'->>'timeZone'),
+            ('cpus', p.payload->'host'->>'cpus'),
+            ('memory', p.payload->'host'->>'memory'),
+            ('containerRuntime', p.payload->'host'->>'containerRuntime'),
+            ('kernel', p.payload->'host'->>'kernel'),
+            ('email', p.payload->'setup'->>'email'),
+            ('passkeys', p.payload->'setup'->>'passkeys'),
+            ('storage', p.payload->'storage'->>'attachments'),
+            ('diskFree', p.payload->'storage'->>'diskFree')
         ) AS d(dimension, value)
         """;
 
     private static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web);
+
+    /// <summary>The read-only role dashboards sign in as (<c>COLLECTOR_READER_PASSWORD_FILE</c>).</summary>
+    public const string ReaderRole = "telemetry_reader";
+
+    /// <summary>
+    /// Make or update <see cref="ReaderRole"/> with <paramref name="password"/>: it may sign in and
+    /// read every table, now and later, and change nothing. For Grafana and the like.
+    /// </summary>
+    public async Task EnsureReaderAsync(string password, CancellationToken cancellation = default)
+    {
+        await using var connection = await data.OpenConnectionAsync(cancellation);
+        // A role's password cannot be a parameter; quoted as a literal, it cannot end the statement.
+        var literal = "'" + password.Replace("'", "''", StringComparison.Ordinal) + "'";
+        await connection.ExecuteAsync(new CommandDefinition(
+            $"""
+            DO $$ BEGIN
+                IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = '{ReaderRole}') THEN
+                    CREATE ROLE {ReaderRole} LOGIN;
+                END IF;
+            END $$;
+            ALTER ROLE {ReaderRole} WITH LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE PASSWORD {literal};
+            GRANT CONNECT ON DATABASE "{connection.Database}" TO {ReaderRole};
+            GRANT USAGE ON SCHEMA public TO {ReaderRole};
+            GRANT SELECT ON ALL TABLES IN SCHEMA public TO {ReaderRole};
+            ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT ON TABLES TO {ReaderRole};
+            """,
+            cancellationToken: cancellation));
+    }
 
     public async Task MigrateAsync(CancellationToken cancellation = default)
     {
@@ -54,17 +92,20 @@ public sealed class PingStore(NpgsqlDataSource data)
         await connection.ExecuteAsync(new CommandDefinition(await reader.ReadToEndAsync(cancellation), cancellationToken: cancellation));
     }
 
-    /// <summary>Keep <paramref name="ping"/> as its install's ping for the day it came in (a later one that day replaces it).</summary>
-    public async Task SaveAsync(TelemetryPing ping, DateTimeOffset received, CancellationToken cancellation = default)
+    /// <summary>
+    /// Keep <paramref name="ping"/> as its install's ping for the day it came in (a later one that
+    /// day replaces it), with the <paramref name="country"/> it came from when known.
+    /// </summary>
+    public async Task SaveAsync(TelemetryPing ping, DateTimeOffset received, CancellationToken cancellation = default, string? country = null)
     {
         await using var connection = await data.OpenConnectionAsync(cancellation);
         await connection.ExecuteAsync(new CommandDefinition(
             """
-            INSERT INTO pings (install_id, day, received_at, schema, version, channel, payload)
-            VALUES (@Install, @Day::date, @Received, @Schema, @Version, @Channel, @Payload::jsonb)
+            INSERT INTO pings (install_id, day, received_at, schema, version, channel, payload, country)
+            VALUES (@Install, @Day::date, @Received, @Schema, @Version, @Channel, @Payload::jsonb, @Country)
             ON CONFLICT (install_id, day) DO UPDATE SET
                 received_at = excluded.received_at, schema = excluded.schema, version = excluded.version,
-                channel = excluded.channel, payload = excluded.payload
+                channel = excluded.channel, payload = excluded.payload, country = excluded.country
             """,
             new
             {
@@ -76,6 +117,7 @@ public sealed class PingStore(NpgsqlDataSource data)
                 ping.Channel,
                 // The checked record, not the request's body: a field the collector does not know is not kept.
                 Payload = JsonSerializer.Serialize(ping, Json),
+                Country = country,
             },
             cancellationToken: cancellation));
     }
@@ -110,7 +152,7 @@ public sealed class PingStore(NpgsqlDataSource data)
         var rows = (await connection.QueryAsync<(string Dimension, string? Value, int Installs)>(new CommandDefinition(
             $"""
             WITH p AS (
-                SELECT DISTINCT ON (install_id) version, channel, payload
+                SELECT DISTINCT ON (install_id) version, channel, payload, country
                 FROM pings WHERE day >= @Since::date ORDER BY install_id, day DESC
             )
             SELECT d.dimension, d.value, count(*)::int FROM p {Dimensions}
