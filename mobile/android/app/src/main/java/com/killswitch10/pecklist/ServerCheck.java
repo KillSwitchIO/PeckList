@@ -27,15 +27,22 @@ final class ServerCheck {
         final String code;
         /** The TLS handshake failed for another reason than trust: often a client certificate wanted. */
         final boolean tls;
+        /** Where the problem was found, when it is worth saying (installed-ca); else null. */
+        final String origin;
 
         Failure(String code, String message) {
             this(code, message, false);
         }
 
         Failure(String code, String message, boolean tls) {
+            this(code, message, tls, null);
+        }
+
+        Failure(String code, String message, boolean tls, String origin) {
             super(message);
             this.code = code;
             this.tls = tls;
+            this.origin = origin;
         }
     }
 
@@ -81,6 +88,11 @@ final class ServerCheck {
                 if (type == null || !type.contains("json")) throw new Failure("not-pecklist", "not json");
                 JSONObject info = new JSONObject(read(connection.getInputStream()));
                 if (!isOurs(info.optString("name"))) throw new Failure("not-pecklist", "another app");
+                // Vouched for only by an authority installed on this phone: the person says yes
+                // to that server first (audit A2).
+                if (InstalledCa.reliedOn(connection) && !ServerChoice.installedCaAgreed(context, current)) {
+                    throw new Failure("installed-ca", "an installed authority", false, current);
+                }
                 return new Result(current, info);
             } catch (IOException error) {
                 // A handshake that fails on the certificate is a trust problem; any other TLS

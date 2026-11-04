@@ -37,7 +37,7 @@ import java.util.concurrent.Executors;
 public class ShellPlugin extends Plugin {
 
     /** Bumped when a method is added; the web app checks it before calling a newer one. */
-    private static final int API = 7;
+    private static final int API = 8;
 
     static final String NOTIFICATIONS = "notifications";
 
@@ -120,7 +120,8 @@ public class ShellPlugin extends Plugin {
                 try {
                     result = checkWithCertificate(origin);
                 } catch (ServerCheck.Failure failure) {
-                    if (schemeTyped || failure.code.equals("certificate") || failure.code.equals("gated")) throw failure;
+                    if (schemeTyped || failure.code.equals("certificate") || failure.code.equals("gated")
+                        || failure.code.equals("installed-ca")) throw failure;
                     String plain = ServerChoice.normalize("http://" + typed.trim());
                     try {
                         result = ServerCheck.check(getContext(), plain);
@@ -137,7 +138,7 @@ public class ShellPlugin extends Plugin {
                 call.resolve(answer);
             } catch (ServerCheck.Failure failure) {
                 JSObject where = new JSObject();
-                where.put("url", tried[0]);
+                where.put("url", failure.origin != null ? failure.origin : tried[0]);
                 call.reject(failure.getMessage(), failure.code, where);
             } catch (Exception error) {
                 call.reject(String.valueOf(error.getMessage()), "unreachable");
@@ -145,7 +146,11 @@ public class ShellPlugin extends Plugin {
         });
     }
 
-    /** Use this server from now on: the app restarts on it. */
+    /**
+     * Use this server from now on: the app restarts on it. {@code plainHttp} and {@code installedCa}
+     * say what the person agreed to on the connect page (api 8, audit A2). A server's page gets the
+     * app's own dialog first (audit A4); a no rejects with "cancelled".
+     */
     @PluginMethod
     public void connect(PluginCall call) {
         String origin = ServerChoice.normalize(call.getString("url"));
@@ -153,22 +158,88 @@ public class ShellPlugin extends Plugin {
             call.reject("not an address", "invalid");
             return;
         }
+        boolean plain = origin.startsWith("http://");
+        boolean installedCa = Boolean.TRUE.equals(call.getBoolean("installedCa", false));
+        boolean plainAgreed = Boolean.TRUE.equals(call.getBoolean("plainHttp", false));
+        switch (Consent.toConnect(ServerChoice.get(getContext()) != null, plain, plainAgreed)) {
+            case REFUSE_PLAIN:
+                call.reject("plain http was not agreed to", "plain-http");
+                return;
+            case ASK:
+                String message = getContext().getString(R.string.confirm_connect_body, hostOf(origin)) +
+                    (plain ? "\n\n" + getContext().getString(R.string.confirm_connect_plain) : "") +
+                    (installedCa ? "\n\n" + getContext().getString(R.string.confirm_connect_installed_ca) : "");
+                // A no reloads the page: a server's web build from before api 8 waits on
+                // "Connecting..." for good otherwise.
+                confirm(call, R.string.confirm_connect_title, message, R.string.confirm_connect_yes,
+                    () -> moveTo(call, origin, plain, installedCa), () -> getBridge().getWebView().reload());
+                return;
+            default:
+                moveTo(call, origin, plain, installedCa);
+        }
+    }
+
+    private void moveTo(PluginCall call, String origin, boolean plain, boolean installedCa) {
         // Another server: a certificate picked for the last one is not offered to it.
         if (!origin.equals(ServerChoice.get(getContext()))) ClientCert.forget(getContext());
+        if (plain) ServerChoice.agreePlain(getContext(), origin);
+        if (installedCa) ServerChoice.agreeInstalledCa(getContext(), origin);
         ServerChoice.set(getContext(), origin);
         BackgroundCheck.forgetServer(getContext());
         call.resolve();
         restart();
     }
 
-    /** Back to the app on its own (standalone): the app restarts without a server. */
+    /** Back to the app on its own (standalone): the app restarts without a server. Asked first on a server's page (audit A4). */
     @PluginMethod
     public void disconnect(PluginCall call) {
+        String server = ServerChoice.get(getContext());
+        if (Consent.toDisconnect(server != null) == Consent.Answer.ASK) {
+            confirm(call, R.string.confirm_disconnect_title,
+                getContext().getString(R.string.confirm_disconnect_body, hostOf(server)),
+                R.string.confirm_disconnect_yes, () -> leave(call), () -> {});
+            return;
+        }
+        leave(call);
+    }
+
+    private void leave(PluginCall call) {
         ServerChoice.chooseStandalone(getContext());
         BackgroundCheck.forgetServer(getContext());
         ClientCert.forget(getContext());
         call.resolve();
         restart();
+    }
+
+    /** One question at a time: a page asking again while one is open gets a no. */
+    private volatile boolean asking;
+
+    /** The app's own dialog, which no page can answer: yes runs {@code onYes}; anything else rejects, then runs {@code onNo}. */
+    private void confirm(PluginCall call, int title, String message, int yes, Runnable onYes, Runnable onNo) {
+        android.app.Activity activity = getActivity();
+        if (activity == null || asking) {
+            call.reject("not asked", "cancelled");
+            return;
+        }
+        asking = true;
+        activity.runOnUiThread(() -> new androidx.appcompat.app.AlertDialog.Builder(activity)
+            .setTitle(title)
+            .setMessage(message)
+            .setPositiveButton(yes, (dialog, which) -> onYes.run())
+            .setNegativeButton(android.R.string.cancel, (dialog, which) -> {
+                call.reject("cancelled", "cancelled");
+                onNo.run();
+            })
+            .setOnCancelListener((dialog) -> {
+                call.reject("cancelled", "cancelled");
+                onNo.run();
+            })
+            .setOnDismissListener((dialog) -> asking = false)
+            .show());
+    }
+
+    private static String hostOf(String origin) {
+        return origin.replaceFirst("^https?://", "");
     }
 
     /**

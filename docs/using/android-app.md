@@ -66,14 +66,17 @@ The app asks where your server is, or runs on the phone alone:
 - **Connect**: type the address (`tasks.example.com`, or `192.168.1.20:8080` at home). The app
   checks that a PeckList server answers there, then runs that server's own copy of the app, so
   the app and the server never disagree about versions. An address without `https://` is tried
-  with HTTPS first, then plain HTTP, which it warns about before using.
+  with HTTPS first, then plain HTTP, which it warns about before using. If the address sends the
+  app on to another one, the app shows where before going there.
 - **Use on this device only**: no account and no sync, like the web app without a server. If you
   connect to a server later, the tasks you made go along: after you sign in, the app asks
   whether to **Add them to my account** or **Leave them on the phone** (they stay there either
   way, for whenever you use the app without a server again).
 
-**Settings > Account > Server** shows where the app is connected; **Change** or **Disconnect** moves it.
-Disconnecting leaves your tasks on the server. If a server will not let you in at all, long-press
+**Settings > Account > Server** shows where the app is connected; **Change** or **Disconnect** moves
+it. Either asks in the app's own dialog first (**Switch servers?**, **Use PeckList without a
+server?**), which a web page cannot answer, so a server that was taken over cannot move the app
+to a lookalike. Disconnecting leaves your tasks on the server. If a server will not let you in at all, long-press
 the PeckList icon on the home screen and pick **Change server**.
 
 ## Signing in through your browser
@@ -120,7 +123,12 @@ under **Behind Pangolin?**, and the app is let in as a browser would be, for as 
 session lasts.
 
 Servers with a certificate from your own CA work once that CA is installed on the phone
-(Settings > Security > Encryption & credentials > Install a certificate).
+(Settings > Security > Encryption & credentials > Install a certificate). The connect page then
+says the certificate comes from an authority installed on the phone; tap **Trust it**. The app
+trusts installed authorities only for servers you said yes to: if a server you use starts
+answering with a certificate from one you did not (someone reading the traffic on the way, say),
+the app stops and asks at its next start, and the background check-in pauses until then. Plain
+HTTP is the same: the yes you gave on the connect page is for that server only.
 
 ## Reminders and notifications
 

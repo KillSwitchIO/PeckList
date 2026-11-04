@@ -17,7 +17,23 @@ export interface ShellInfo {
 }
 
 /** Why an address cannot be used. */
-export type ServerProblem = 'invalid' | 'unreachable' | 'certificate' | 'not-pecklist' | 'gated';
+export type ServerProblem =
+  | 'invalid'
+  | 'unreachable'
+  | 'certificate'
+  | 'not-pecklist'
+  | 'gated'
+  /** Trusted only through a certificate authority installed on this phone (api 8, audit A2). */
+  | 'installed-ca';
+
+/**
+ * What the person agreed to on the connect page (api 8, audit A2): plain http, or a certificate
+ * from an authority installed on this phone. The shell keeps each per server.
+ */
+export interface ConnectTrust {
+  plainHttp?: boolean;
+  installedCa?: boolean;
+}
 
 export type ServerCheck =
   | { ok: true; url: string; info: ServerInfo }
@@ -72,9 +88,13 @@ export interface NativeShell {
   lastCrash?(): Promise<ShellCrash | null>;
   /** Whether an address is a PeckList server, and the origin it answers on. */
   checkServer(address: string): Promise<ServerCheck>;
-  /** Run on this server from now on. The app restarts on it, so this never really returns. */
-  connect(url: string): Promise<void>;
-  /** Run standalone from now on. The app restarts. */
+  /**
+   * Run on this server from now on. The app restarts on it, so this never really returns. From
+   * api 8 the shell asks in its own dialog first when a server's page calls it (audit A4), and
+   * rejects when the person says no.
+   */
+  connect(url: string, trust?: ConnectTrust): Promise<void>;
+  /** Run standalone from now on. The app restarts. From api 8 the shell asks first, as connect. */
   disconnect(): Promise<void>;
   /** Api 2 and up (check info().api first). */
   backgroundCheck(): Promise<BackgroundCheck>;

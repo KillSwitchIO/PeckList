@@ -4,7 +4,9 @@ import android.content.Context;
 import android.content.SharedPreferences;
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.util.HashSet;
 import java.util.Locale;
+import java.util.Set;
 
 /**
  * The server this device uses, if any (ADR-0017). Null means standalone: the bundled web build with
@@ -16,6 +18,12 @@ final class ServerChoice {
     private static final String PREFS = "pecklist.shell";
     private static final String SERVER = "server";
     private static final String STANDALONE = "standalone";
+    /** Servers the person agreed to use over plain http (audit A2). */
+    private static final String PLAIN = "plain";
+    /** Servers the person agreed to trust through an authority installed on the phone (audit A2). */
+    private static final String INSTALLED_CA = "installedCa";
+    /** Set once the two above exist: an install from before them keeps its server as it was. */
+    private static final String AGREEMENTS = "agreements";
 
     private ServerChoice() {}
 
@@ -38,6 +46,46 @@ final class ServerChoice {
 
     static boolean choseStandalone(Context context) {
         return prefs(context).getBoolean(STANDALONE, false);
+    }
+
+    static boolean plainAgreed(Context context, String origin) {
+        return prefs(context).getStringSet(PLAIN, new HashSet<>()).contains(origin);
+    }
+
+    static void agreePlain(Context context, String origin) {
+        add(context, PLAIN, origin);
+    }
+
+    static boolean installedCaAgreed(Context context, String origin) {
+        return prefs(context).getStringSet(INSTALLED_CA, new HashSet<>()).contains(origin);
+    }
+
+    static void agreeInstalledCa(Context context, String origin) {
+        add(context, INSTALLED_CA, origin);
+    }
+
+    /**
+     * An install from before the per-server agreements (shell api 8) keeps its server working as it
+     * did: the person was warned about plain http when they connected, and its certificate, from
+     * whatever authority, was trusted then.
+     */
+    static void keepEarlierAgreements(Context context) {
+        SharedPreferences prefs = prefs(context);
+        if (prefs.getBoolean(AGREEMENTS, false)) return;
+        String server = get(context);
+        if (server != null) {
+            if (server.startsWith("http://")) agreePlain(context, server);
+            agreeInstalledCa(context, server);
+        }
+        prefs.edit().putBoolean(AGREEMENTS, true).apply();
+    }
+
+    private static void add(Context context, String key, String origin) {
+        SharedPreferences prefs = prefs(context);
+        // A copy: the set Android hands out must not be changed.
+        Set<String> origins = new HashSet<>(prefs.getStringSet(key, new HashSet<>()));
+        origins.add(origin);
+        prefs.edit().putStringSet(key, origins).apply();
     }
 
     /**

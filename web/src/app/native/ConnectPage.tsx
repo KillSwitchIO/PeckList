@@ -6,14 +6,19 @@ import { CenteredCard } from '../layout/CenteredCard.tsx';
 import { serializeWorkspace } from '../../core/workspace.ts';
 import { useWorkspaceStore } from '../store/hooks.ts';
 import { hasOwnData } from '../sync/syncEngine.ts';
-import { CARRY_API, rememberStandalone, useShellInfo } from './shell.ts';
+import { CARRY_API, hostOf, rememberStandalone, useShellInfo } from './shell.ts';
+import type { ConnectTrust } from '../../ports/nativeShell.ts';
 
 type Step =
   | { kind: 'typing' }
   | { kind: 'checking' }
   | { kind: 'problem'; problem: ServerProblem }
+  /** Found at another address than the one typed (a redirect): show it before going (audit E3). */
+  | { kind: 'moved'; url: string }
   /** Found, but on plain http: say what that means before going there. */
   | { kind: 'plain-http'; url: string }
+  /** Trusted only through an authority installed on this phone: say so first (audit A2). */
+  | { kind: 'installed-ca'; url: string }
   /** Behind a sign-in page (Pangolin, Cloudflare Access...): passed once connected. */
   | { kind: 'gated'; url: string }
   | { kind: 'connecting'; url: string };
@@ -31,7 +36,7 @@ export function ConnectPage({ onBack }: { onBack: () => void }) {
   const [step, setStep] = useState<Step>({ kind: 'typing' });
   const onServer = info?.server != null;
 
-  const go = async (url: string) => {
+  const go = async (url: string, trust: ConnectTrust = {}) => {
     setStep({ kind: 'connecting', url });
     // Tasks made on this phone without a server go along; the server's app asks about them after
     // signing in (PL-070). They also stay here, for "this device only" later.
@@ -44,7 +49,14 @@ export function ConnectPage({ onBack }: { onBack: () => void }) {
       hasOwnData(workspace)
     )
       await shell.carry(serializeWorkspace(workspace), url).catch(() => undefined);
-    await shell?.connect(url);
+    // The shell's own dialog said no (api 8): back to the address.
+    await shell?.connect(url, trust).catch(() => setStep({ kind: 'typing' }));
+  };
+
+  /** On to an address the check found: plain http is said first. */
+  const onTo = async (url: string) => {
+    if (url.startsWith('http://')) setStep({ kind: 'plain-http', url });
+    else await go(url);
   };
 
   const submit = async (event: FormEvent) => {
@@ -54,9 +66,11 @@ export function ConnectPage({ onBack }: { onBack: () => void }) {
     const answer = await shell.checkServer(address);
     if (!answer.ok && answer.problem === 'gated' && answer.url)
       setStep({ kind: 'gated', url: answer.url });
+    else if (!answer.ok && answer.problem === 'installed-ca' && answer.url)
+      setStep({ kind: 'installed-ca', url: answer.url });
     else if (!answer.ok) setStep({ kind: 'problem', problem: answer.problem });
-    else if (answer.url.startsWith('http://')) setStep({ kind: 'plain-http', url: answer.url });
-    else await go(answer.url);
+    else if (hostOf(answer.url) !== hostOf(address)) setStep({ kind: 'moved', url: answer.url });
+    else await onTo(answer.url);
   };
 
   const busy = step.kind === 'checking' || step.kind === 'connecting';
@@ -101,17 +115,51 @@ export function ConnectPage({ onBack }: { onBack: () => void }) {
             {t('connect.gated')}
           </Alert>
         )}
+        {step.kind === 'moved' && (
+          <Alert
+            severity="info"
+            sx={{ mt: 2 }}
+            action={
+              <Button color="inherit" size="small" onClick={() => void onTo(step.url)}>
+                {t('connect.continue')}
+              </Button>
+            }
+          >
+            {t('connect.moved', { url: step.url })}
+          </Alert>
+        )}
         {step.kind === 'plain-http' && (
           <Alert
             severity="warning"
             sx={{ mt: 2 }}
             action={
-              <Button color="inherit" size="small" onClick={() => void go(step.url)}>
+              <Button
+                color="inherit"
+                size="small"
+                onClick={() => void go(step.url, { plainHttp: true })}
+              >
                 {t('connect.anyway')}
               </Button>
             }
           >
             {t('connect.plainHttp')}
+          </Alert>
+        )}
+        {step.kind === 'installed-ca' && (
+          <Alert
+            severity="warning"
+            sx={{ mt: 2 }}
+            action={
+              <Button
+                color="inherit"
+                size="small"
+                onClick={() => void go(step.url, { installedCa: true })}
+              >
+                {t('connect.trustIt')}
+              </Button>
+            }
+          >
+            {t('connect.installedCa', { url: step.url })}
           </Alert>
         )}
         <Button
@@ -120,7 +168,12 @@ export function ConnectPage({ onBack }: { onBack: () => void }) {
           variant="contained"
           disableElevation
           disabled={
-            busy || address.trim() === '' || step.kind === 'plain-http' || step.kind === 'gated'
+            busy ||
+            address.trim() === '' ||
+            step.kind === 'moved' ||
+            step.kind === 'plain-http' ||
+            step.kind === 'installed-ca' ||
+            step.kind === 'gated'
           }
           sx={{ mt: 2 }}
         >
