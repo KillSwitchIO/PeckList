@@ -48,6 +48,110 @@ async function failure(promise: Promise<unknown>): Promise<SyncFailure> {
 afterEach(() => vi.unstubAllGlobals());
 
 describe('HTTP sync transport', () => {
+  it('asks for reset links, checks them and sets a new password (PL-122)', async () => {
+    const { fetcher, calls } = fakeFetch(
+      { status: 202 },
+      { status: 429 },
+      { status: 404 },
+      { status: 200, body: { username: 'sam' } },
+      { status: 404 },
+      { status: 200, body: { username: 'sam' } },
+      { status: 404 },
+      { status: 400, body: { error: 'too_short' } },
+      { status: 400, body: { error: 'demo_account' } },
+      { status: 429 },
+    );
+    const http = createHttpSync('', fetcher);
+    expect(await http.forgotPassword?.('sam')).toBe('sent');
+    expect(calls[0]?.init.body).toBe(JSON.stringify({ login: 'sam' }));
+    expect(await http.forgotPassword?.('sam')).toBe('too-many');
+    expect(await http.forgotPassword?.('sam')).toBe('unavailable');
+    expect(await http.checkResetLink?.('a b')).toBe('sam');
+    expect(calls[3]?.url).toBe('/auth/reset/a%20b');
+    expect(await http.checkResetLink?.('spent')).toBeNull();
+    expect(await http.resetPassword?.('t', 'a brand new password')).toEqual({
+      kind: 'ok',
+      username: 'sam',
+    });
+    expect(await http.resetPassword?.('t', 'x')).toEqual({ kind: 'expired' });
+    expect(await http.resetPassword?.('t', 'x')).toEqual({ kind: 'too-short' });
+    expect(await http.resetPassword?.('t', 'x')).toEqual({ kind: 'demo' });
+    expect(await http.resetPassword?.('t', 'x')).toEqual({ kind: 'too-many' });
+  });
+
+  it("keeps the account's email (PL-122)", async () => {
+    const email = { email: 'sam@example.com', confirmed: false, mailWorks: true, sent: true };
+    const { fetcher, calls } = fakeFetch(
+      { status: 200, body: email },
+      { status: 200, body: email },
+      { status: 400, body: { error: 'invalid_email' } },
+      { status: 200, body: email },
+    );
+    const account = createHttpSync('', fetcher).account!;
+    expect(await account.email?.()).toEqual(email);
+    expect(await account.setEmail?.('sam@example.com')).toEqual(email);
+    expect(calls[1]?.init.method).toBe('PUT');
+    expect(await account.setEmail?.('nope')).toBe('invalid');
+    expect(await account.resendConfirmation?.()).toEqual(email);
+    expect(calls[3]?.url).toBe('/api/account/email/confirm');
+  });
+
+  it('signs in with passkeys and manages them (PL-123)', async () => {
+    const ceremony = { ceremony: 'c1', options: { challenge: 'AAAA' } };
+    const passkey = {
+      id: 'k1',
+      name: 'Pixel',
+      createdAt: '2026-11-04T09:00:00Z',
+      lastUsedAt: null,
+      synced: true,
+    };
+    const { fetcher, calls } = fakeFetch(
+      { status: 200, body: ceremony },
+      { status: 404 },
+      { status: 200, body: account },
+      { status: 401 },
+      { status: 429 },
+      { status: 200, body: ceremony },
+      { status: 404 },
+      { status: 200, body: { back: 'com.example.app://link?result=passkey_added' } },
+      { status: 400 },
+      { status: 200, body: { available: true, password: true, passkeys: [passkey] } },
+      { status: 200, body: ceremony },
+      { status: 200, body: passkey },
+      { status: 400 },
+      { status: 200, body: passkey },
+      { status: 204 },
+      { status: 409 },
+      { status: 204 },
+      { status: 409 },
+      { status: 400 },
+    );
+    const http = createHttpSync('', fetcher);
+    expect(await http.passkeySignInOptions?.()).toEqual(ceremony);
+    expect(await http.passkeySignInOptions?.()).toBeNull();
+    expect(await http.passkeySignIn?.('c1', { id: 'k1' })).toEqual({ kind: 'ok', account });
+    expect(await http.passkeySignIn?.('c1', {})).toEqual({ kind: 'invalid' });
+    expect(await http.passkeySignIn?.('c1', {})).toEqual({ kind: 'too-many' });
+    expect(await http.passkeyEnrollOptions?.('tok')).toEqual(ceremony);
+    expect(await http.passkeyEnrollOptions?.('tok')).toBeNull();
+    expect(await http.passkeyEnroll?.('tok', 'c1', {}, 'Phone')).toBe(
+      'com.example.app://link?result=passkey_added',
+    );
+    expect(await http.passkeyEnroll?.('tok', 'c1', {}, 'Phone')).toBeNull();
+    const mine = http.account!;
+    expect((await mine.passkeys?.())?.passkeys).toEqual([passkey]);
+    expect(await mine.passkeyOptions?.()).toEqual(ceremony);
+    expect(await mine.addPasskey?.('c1', {}, 'Pixel')).toEqual(passkey);
+    expect(await mine.addPasskey?.('c1', {}, 'Pixel')).toBe('invalid');
+    await mine.renamePasskey?.('k1', 'Phone');
+    expect(calls[13]?.url).toBe('/api/account/passkeys/k1');
+    expect(await mine.removePasskey?.('k1')).toBe('ok');
+    expect(await mine.removePasskey?.('k1')).toBe('last-way-in');
+    expect(await mine.removePassword?.('secret')).toBe('ok');
+    expect(await mine.removePassword?.('secret')).toBe('last-way-in');
+    expect(await mine.removePassword?.('secret')).toBe('wrong-password');
+  });
+
   it('tells a PeckList server from a static host', async () => {
     const info = { name: 'pecklist', version: '0.1.0', schemaVersion: 4 };
     const { fetcher } = fakeFetch(
@@ -112,6 +216,7 @@ describe('HTTP sync transport', () => {
       localLogin: false,
       registration: 'closed',
       passwordReset: false,
+      passkeys: false,
     });
     expect(calls[0]?.url).toBe('/auth/providers');
     // A server from before OIDC answers with the app's page: passwords only.

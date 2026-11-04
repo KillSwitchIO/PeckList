@@ -1,5 +1,6 @@
 import { Suspense } from 'react';
-import { Navigate, Route, Routes, useLocation, useNavigate } from 'react-router';
+import { Navigate, Route, Routes, useLocation, useNavigate, useSearchParams } from 'react-router';
+import { PasskeyEnroll } from './sync/AuthPages.tsx';
 import { t } from './i18n/i18n.ts';
 import { DayView } from './views/DayView.tsx';
 import { AppShell } from './layout/AppShell.tsx';
@@ -75,6 +76,7 @@ export function AppRoutes() {
         <Route path="/join/:token" element={<SignedInAlready />} />
         <Route path="/forgot" element={<SignedInAlready />} />
         <Route path="/reset/:token" element={<SignedInAlready />} />
+        <Route path="/passkey/add" element={<PasskeyEnrollRoute />} />
         <Route path="/connect" element={<ConnectRoute />} />
         <Route element={<AppShell />}>
           <Route path="/today" element={<TodayView />} />
@@ -107,4 +109,10 @@ export function AppRoutes() {
       </Routes>
     </Suspense>
   );
+}
+
+/** Adding a passkey from the Android app's browser tab, signed in there or not (PL-123). */
+function PasskeyEnrollRoute() {
+  const [params] = useSearchParams();
+  return <PasskeyEnroll token={params.get('token') ?? ''} />;
 }

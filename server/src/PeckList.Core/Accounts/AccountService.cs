@@ -368,6 +368,21 @@ public sealed class AccountService(IAccountStore store, IPasswordHasher hasher, 
         return (PasswordChange.Changed, updated);
     }
 
+    /// <summary>
+    /// Do without a password (PL-123), confirmed with the current one; the caller has made sure
+    /// another way in remains. Other password sessions end.
+    /// </summary>
+    public async Task<(PasswordChange Result, Account? Account)> RemovePasswordAsync(
+        string id, string current, CancellationToken cancellation = default)
+    {
+        var account = await store.FindByIdAsync(id, cancellation) ?? throw new KeyNotFoundException($"no account {id}");
+        if (IsDemo(account)) return (PasswordChange.DemoAccount, null);
+        if (account.PasswordHash is null || !hasher.Verify(account.PasswordHash, current, out _)) return (PasswordChange.WrongPassword, null);
+        var updated = account with { PasswordHash = null, MustChangePassword = false, SecurityStamp = Ids.NewUlid(time) };
+        await store.UpdateAsync(updated, cancellation);
+        return (PasswordChange.Changed, updated);
+    }
+
     private Account NewAccount(string username, Role role) => new()
     {
         Id = Ids.NewUlid(time),

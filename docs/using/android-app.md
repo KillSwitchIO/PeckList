@@ -101,6 +101,12 @@ tab.**
 The app's session is a copy of the browser's, so it ends when your server's provider session
 setting says (`OIDC_<NAME>_SESSION_HOURS`, 12 hours by default).
 
+**Passkeys** go the same way: **Sign in with a passkey** opens the server's sign-in page in a
+browser tab, where your phone (or your password manager) offers the passkey, and the tab hands you
+back to the app as above. **Add a passkey** under **Settings > Passkeys** opens a page in a browser
+tab that makes one for your account and comes back to the app; the tab needs no sign-in of its
+own.
+
 ### Servers behind their own sign-in page
 
 If your server sits behind a gate such as Cloudflare Access, Authelia or Authentik's proxy, the app

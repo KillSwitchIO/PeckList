@@ -9,6 +9,7 @@
     <ProjectReference Include="..\PeckList.Storage.Sqlite\PeckList.Storage.Sqlite.csproj" />
   </ItemGroup>
   <ItemGroup>
+    <PackageReference Include="Fido2" />
     <PackageReference Include="Lib.Net.Http.WebPush" />
     <PackageReference Include="MailKit" />
     <PackageReference Include="Microsoft.AspNetCore.Authentication.OpenIdConnect" />

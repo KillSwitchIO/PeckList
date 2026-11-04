@@ -46,6 +46,7 @@ public static class SettingsCatalog
         new("SMTP_PASSWORD", "email", SettingKind.Secret, Live: true),
         new("SMTP_FROM", "email", SettingKind.Text, Live: true),
         new("LOCAL_LOGIN", "sign-in", SettingKind.Choice, "enabled", ["enabled", "disabled"], Live: true),
+        new("PASSKEYS", "sign-in", SettingKind.Choice, "on", ["on", "off"], Live: true),
         new("OIDC_PROVIDERS", "sign-in", SettingKind.List),
         new("BACKUP_SCHEDULE", "backups", SettingKind.Choice, "daily", ["off", "hourly", "daily", "weekly"], Live: true),
         new("SNAPSHOT_KEEP", "backups", SettingKind.Number, "7", Live: true),
@@ -138,7 +139,7 @@ public static class SettingsCatalog
 
     private static readonly HashSet<string> SignInKeys = new(StringComparer.Ordinal)
     {
-        "PUBLIC_URL", "REGISTRATION", "LOCAL_LOGIN", "TRUSTED_PROXIES",
+        "PUBLIC_URL", "REGISTRATION", "LOCAL_LOGIN", "PASSKEYS", "TRUSTED_PROXIES",
     };
 
     /// <summary>

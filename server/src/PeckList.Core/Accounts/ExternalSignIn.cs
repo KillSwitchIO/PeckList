@@ -71,7 +71,8 @@ public sealed class ExternalSignIn(
     IIdentityStore identities,
     IServerGroupStore groups,
     ISecretStore secrets,
-    TimeProvider time)
+    TimeProvider time,
+    IPasskeyStore? passkeys = null)
 {
     public const int MaxUsernameLength = 32;
 
@@ -209,9 +210,13 @@ public sealed class ExternalSignIn(
         return (count, stranded);
     }
 
-    /// <summary>Whether the account has a password or any linked provider account.</summary>
+    /// <summary>Whether the account has a password, any linked provider account, or a passkey.</summary>
     public async Task<bool> CanSignInAsync(Account account, CancellationToken cancellation = default) =>
-        account.PasswordHash is not null || (await IdentitiesOfAsync(account.Id, cancellation)).Count > 0;
+        account.PasswordHash is not null || (await IdentitiesOfAsync(account.Id, cancellation)).Count > 0
+        || await HasPasskeyAsync(account.Id, cancellation);
+
+    private async Task<bool> HasPasskeyAsync(string accountId, CancellationToken cancellation) =>
+        passkeys is not null && (await passkeys.ListAsync(accountId, cancellation)).Count > 0;
 
     /// <summary>Whether the account already has an account of this provider linked.</summary>
     private async Task<bool> LinkedToAsync(string accountId, string provider, CancellationToken cancellation) =>
@@ -220,7 +225,7 @@ public sealed class ExternalSignIn(
     private async Task<bool> HasOtherWayInAsync(string accountId, LinkedIdentity leaving, CancellationToken cancellation)
     {
         var account = await accounts.FindByIdAsync(accountId, cancellation);
-        if (account?.PasswordHash is not null) return true;
+        if (account?.PasswordHash is not null || await HasPasskeyAsync(accountId, cancellation)) return true;
         return (await IdentitiesOfAsync(accountId, cancellation))
             .Any(identity => identity.Provider != leaving.Provider || identity.Subject != leaving.Subject);
     }

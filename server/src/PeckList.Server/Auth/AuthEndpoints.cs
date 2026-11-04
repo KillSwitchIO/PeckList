@@ -145,6 +145,8 @@ public static class AuthEndpoints
 
         // Forgot password, reset links and email confirmation (PL-122).
         auth.MapEmailAuth();
+        // Passkeys (PL-123).
+        auth.MapPasskeyAuth(mode);
     }
 
     /// <summary>A lasting password session for the account, and who they are now.</summary>
@@ -180,7 +182,7 @@ public static class AuthEndpoints
                 ? Results.Json(new AuthError("password_change_required"), statusCode: StatusCodes.Status403Forbidden)
                 : await next(context));
 
-    private static Me MeOf(ClaimsPrincipal user, string mode) => new(
+    internal static Me MeOf(ClaimsPrincipal user, string mode) => new(
         user.UserId(),
         user.FindFirstValue(ClaimTypes.Name) ?? "",
         user.FindFirstValue(ClaimTypes.Role) ?? "user",

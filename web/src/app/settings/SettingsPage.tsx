@@ -45,6 +45,7 @@ import { NotificationSettings } from './NotificationSettings.tsx';
 import { PresetPicker } from './PresetPicker.tsx';
 import { Section, SettingRow } from './settingsLayout.tsx';
 import { EmailSection } from './EmailSection.tsx';
+import { PasskeysSection } from './PasskeysSection.tsx';
 import { SignInSection } from './SignInSection.tsx';
 import { ProfileSection } from './ProfileSection.tsx';
 import { SwipeSection } from './SwipeSection.tsx';
@@ -222,6 +223,7 @@ export function SettingsPage() {
       <Stack spacing={4}>
         <ServerSection />
         <EmailSection />
+        <PasskeysSection />
         <SignInSection />
         <ProfileSection />
         <Section title={t('manage.title')}>

@@ -25,7 +25,7 @@ public sealed record BackupSummary(int Accounts, int Entities, long Cursor);
 /// </summary>
 public sealed class BackupService(
     IDatabase database, IEntityStore entities, IAccountStore accounts, IServerGroupStore groups, IIdentityStore identities,
-    ISecretStore secrets, TimeProvider time)
+    ISecretStore secrets, TimeProvider time, IPasskeyStore? passkeys = null)
 {
     public const string Format = "pecklist-server-backup";
     /// <summary>What server backups were called before the rename (PL-127); still read.</summary>
@@ -143,6 +143,13 @@ public sealed class BackupService(
             json.WriteString("linkedAt", identity.LinkedAt.ToString("O", CultureInfo.InvariantCulture));
             json.WriteString("lastUsedAt", identity.LastUsedAt.ToString("O", CultureInfo.InvariantCulture));
             json.WriteEndObject();
+        }
+        json.WriteEndArray();
+        // Passkeys (PL-123): only their public keys, like the identities a way to sign in.
+        json.WriteStartArray("passkeys");
+        foreach (var passkey in passkeys is null ? [] : await passkeys.AllAsync(cancellation))
+        {
+            WritePasskey(json, passkey);
         }
         json.WriteEndArray();
         json.WriteStartArray("identityMappings");
@@ -265,6 +272,10 @@ public sealed class BackupService(
                 LastUsedAt = Time(item, "lastUsedAt"),
             }, cancellation);
         }
+        if (passkeys is not null)
+        {
+            foreach (var node in OptionalArray(root, "passkeys")) await passkeys.AddAsync(ReadPasskey(node.AsObject()), cancellation);
+        }
         foreach (var node in OptionalArray(root, "identityMappings"))
         {
             var item = node.AsObject();
@@ -346,6 +357,34 @@ public sealed class BackupService(
 
     private static string Required(JsonObject item, string name) =>
         (string?)item[name] ?? throw new BackupException($"an item without \"{name}\"");
+
+    internal static void WritePasskey(Utf8JsonWriter json, Passkey passkey)
+    {
+        json.WriteStartObject();
+        json.WriteString("id", passkey.Id);
+        json.WriteString("accountId", passkey.AccountId);
+        json.WriteString("name", passkey.Name);
+        json.WriteString("publicKey", passkey.PublicKey);
+        json.WriteNumber("signCount", passkey.SignCount);
+        if (passkey.Transports is { } transports) json.WriteString("transports", transports);
+        json.WriteBoolean("backedUp", passkey.BackedUp);
+        json.WriteString("createdAt", passkey.CreatedAt.ToString("O", CultureInfo.InvariantCulture));
+        if (passkey.LastUsedAt is { } used) json.WriteString("lastUsedAt", used.ToString("O", CultureInfo.InvariantCulture));
+        json.WriteEndObject();
+    }
+
+    internal static Passkey ReadPasskey(JsonObject item, string? accountId = null) => new()
+    {
+        Id = Required(item, "id"),
+        AccountId = accountId ?? Required(item, "accountId"),
+        Name = Required(item, "name"),
+        PublicKey = Required(item, "publicKey"),
+        SignCount = (long?)item["signCount"] ?? 0,
+        Transports = (string?)item["transports"],
+        BackedUp = (bool?)item["backedUp"] ?? false,
+        CreatedAt = DateTimeOffset.Parse(Required(item, "createdAt"), CultureInfo.InvariantCulture),
+        LastUsedAt = item["lastUsedAt"] is null ? null : DateTimeOffset.Parse(Required(item, "lastUsedAt"), CultureInfo.InvariantCulture),
+    };
 
     private static Account ReadAccount(JsonNode node)
     {

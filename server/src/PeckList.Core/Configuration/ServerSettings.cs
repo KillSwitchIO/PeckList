@@ -175,6 +175,12 @@ public sealed record ServerSettings
     public bool LocalLoginDisabled { get; init; }
 
     /// <summary>
+    /// Passkeys in PeckList itself (<c>PASSKEYS</c>, PL-123): on by default; they also need a secure
+    /// address (HTTPS, or localhost), which the server checks per request.
+    /// </summary>
+    public bool Passkeys { get; init; } = true;
+
+    /// <summary>
     /// Read and check every setting. All problems are reported at once, so a broken config is
     /// fixed in one pass. <paramref name="inContainer"/> picks the default database path:
     /// <c>/data</c> in the image, <c>./data</c> next to a developer's checkout.
@@ -216,6 +222,20 @@ public sealed record ServerSettings
                 default:
                     errors.Add($"LOCAL_LOGIN: '{raw}' is not enabled or disabled");
                     return false;
+            }
+        }
+        bool PasskeysOn()
+        {
+            var raw = Get("PASSKEYS");
+            switch (raw?.Trim().ToLowerInvariant())
+            {
+                case null or "" or "on" or "true":
+                    return true;
+                case "off" or "false":
+                    return false;
+                default:
+                    errors.Add($"PASSKEYS: '{raw}' is not on or off");
+                    return true;
             }
         }
         bool Flag(string name, bool fallback)
@@ -340,6 +360,7 @@ public sealed record ServerSettings
             WebRoot = Get("WEB_ROOT"),
             OidcProviders = OidcProviderSettings.ReadAll(Get, errors),
             LocalLoginDisabled = LocalLoginOff(),
+            Passkeys = PasskeysOn(),
             AccountDeleteGraceDays = Count("ACCOUNT_DELETE_GRACE_DAYS", 7, 0),
             AuditRetentionDays = Count("AUDIT_RETENTION_DAYS", 90, 1),
             AccessLogRetentionDays = Count("ACCESS_LOG_RETENTION_DAYS", 14, 1),
@@ -376,6 +397,10 @@ public sealed record ServerSettings
                 Telemetry = false,
                 Mail = null,
             };
+        }
+        if (settings.OidcProviders.Any(provider => provider.Name == "passkey"))
+        {
+            errors.Add("OIDC_PROVIDERS: the name passkey is taken (passkeys use it); call the provider something else");
         }
         if (settings.OidcProviders.Count > 0 && settings.AuthMode == AuthMode.None)
         {

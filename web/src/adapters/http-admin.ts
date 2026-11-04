@@ -23,7 +23,7 @@ import type {
   TelemetryView,
 } from '../ports/admin.ts';
 import type { ServerStats } from '../ports/stats.ts';
-import { SyncFailure } from '../ports/sync.ts';
+import { SyncFailure, type PasskeyInfo } from '../ports/sync.ts';
 import { messageOf } from '../core/errors.ts';
 
 /** The server's error names, as the app reads them. */
@@ -170,6 +170,9 @@ export function createHttpAdmin(
       if (response.status === 502) return { ok: false, reason: 'mail-failed' };
       return result(response, none);
     },
+    passkeys: async (id) => json<PasskeyInfo[]>(await call(`/users/${segment(id)}/passkeys`)),
+    removePasskey: async (id, passkeyId) =>
+      result(await call(`/users/${segment(id)}/passkeys/${segment(passkeyId)}`, 'DELETE'), none),
     invites: async () => json<InviteList>(await call('/invites')),
     createInvite: async ({ days, uses, note, sendTo }) =>
       result(

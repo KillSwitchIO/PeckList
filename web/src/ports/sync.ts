@@ -118,6 +118,31 @@ export interface SignInOptions {
   registration?: Registration;
   /** The sign-in page offers "Forgot your password?": the server sends reset links (PL-122). */
   passwordReset?: boolean;
+  /** The sign-in page offers "Sign in with a passkey" (PL-123). */
+  passkeys?: boolean;
+}
+
+/** A WebAuthn ceremony the server started (PL-123): its id, and the options for the browser as JSON. */
+export interface PasskeyCeremony {
+  ceremony: string;
+  options: Record<string, unknown>;
+}
+
+/** A passkey as its owner sees it: never its key. Times are ISO instants. */
+export interface PasskeyInfo {
+  id: string;
+  name: string;
+  createdAt: string;
+  lastUsedAt: string | null;
+  /** Synced across the person's devices (a password manager, iCloud Keychain, Google Password Manager). */
+  synced: boolean;
+}
+
+/** The account's passkeys, whether the server offers them here, and whether there is a password. */
+export interface PasskeyList {
+  available: boolean;
+  password: boolean;
+  passkeys: PasskeyInfo[];
 }
 
 /** The signed-in person's email (PL-122). `sent` and `problem` answer a change or a resend. */
@@ -208,6 +233,21 @@ export interface AccountApi {
   setEmail?(email: string): Promise<AccountEmail | 'invalid'>;
   /** Send the confirmation link again. */
   resendConfirmation?(): Promise<AccountEmail>;
+  /** The account's passkeys (optional: older servers have none). */
+  passkeys?(): Promise<PasskeyList>;
+  /** Start adding a passkey: the options for `navigator.credentials.create()`. */
+  passkeyOptions?(): Promise<PasskeyCeremony>;
+  /** Keep the new passkey; `invalid` when the server could not verify it. */
+  addPasskey?(
+    ceremony: string,
+    credential: unknown,
+    name: string,
+  ): Promise<PasskeyInfo | 'invalid'>;
+  renamePasskey?(id: string, name: string): Promise<void>;
+  /** `last-way-in` when it is the account's only way to sign in, so it stays. */
+  removePasskey?(id: string): Promise<'ok' | 'last-way-in'>;
+  /** Do without a password, confirmed with it; `last-way-in` without a passkey or provider. */
+  removePassword?(current: string): Promise<'ok' | 'wrong-password' | 'last-way-in'>;
 }
 
 /** What an API key may do (R-FB-157). */
@@ -367,6 +407,19 @@ export interface SyncTransport {
   checkResetLink?(token: string): Promise<string | null>;
   /** Set a new password through a reset link; every session of the account ends. */
   resetPassword?(token: string, password: string): Promise<ResetOutcome>;
+  /** Start signing in with a passkey (PL-123); null when the server does not offer them here. */
+  passkeySignInOptions?(): Promise<PasskeyCeremony | null>;
+  /** Finish it with what `navigator.credentials.get()` answered. */
+  passkeySignIn?(ceremony: string, credential: unknown): Promise<LoginOutcome>;
+  /** Adding a passkey from the Android app's browser tab, with the page's token instead of a session. */
+  passkeyEnrollOptions?(token: string): Promise<PasskeyCeremony | null>;
+  /** Where to go back to (the app) once added; null when the token or the passkey did not work. */
+  passkeyEnroll?(
+    token: string,
+    ceremony: string,
+    credential: unknown,
+    name: string,
+  ): Promise<string | null>;
   /**
    * End the session. A session from a provider set to sign out there too answers with the
    * provider's end-session address, for the browser to go to next.

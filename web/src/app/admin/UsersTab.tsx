@@ -25,6 +25,7 @@ import { ConfirmDialog, SecretDialog } from './AdminDialogs.tsx';
 import { DeleteUserDialog } from './DeleteUserDialog.tsx';
 import { LinkIdentityDialog } from './LinkIdentityDialog.tsx';
 import { FriendsDialog } from './FriendsDialog.tsx';
+import { PasskeysDialog } from './PasskeysDialog.tsx';
 import { HandOverDialog } from './HandOverDialog.tsx';
 import { InviteDialog, InvitesList } from './InvitesSection.tsx';
 import { describeInvite, inviteReach } from './inviteText.ts';
@@ -150,6 +151,7 @@ export function UsersTab({ api }: { api: AdminApi }) {
   const [menu, setMenu] = useState<{ anchor: HTMLElement; user: AdminUser } | null>(null);
   const [identities, setIdentities] = useState<AdminIdentity[]>([]);
   const [friendsOf, setFriendsOf] = useState<AdminUser | null>(null);
+  const [passkeysOf, setPasskeysOf] = useState<AdminUser | null>(null);
   const [handingOver, setHandingOver] = useState<AdminUser | null>(null);
   const [deleting, setDeleting] = useState<AdminUser | null>(null);
   const [linking, setLinking] = useState<AdminUser | null>(null);
@@ -315,6 +317,16 @@ export function UsersTab({ api }: { api: AdminApi }) {
             }}
           >
             {t('admin.users.friends')}
+          </MenuItem>
+        )}
+        {target && canTouch && (target.passkeys ?? 0) > 0 && (
+          <MenuItem
+            onClick={() => {
+              setMenu(null);
+              setPasskeysOf(target);
+            }}
+          >
+            {t('admin.users.passkeys', { count: target.passkeys ?? 0 })}
           </MenuItem>
         )}
         {target && canTouch && (
@@ -536,6 +548,14 @@ export function UsersTab({ api }: { api: AdminApi }) {
           users={users ?? []}
           onClose={() => setHandingOver(null)}
           onDone={(moved) => setNotice(t('admin.handOver.done', { count: moved }))}
+        />
+      )}
+      {passkeysOf && (
+        <PasskeysDialog
+          api={api}
+          user={passkeysOf}
+          onClose={() => setPasskeysOf(null)}
+          onChanged={reload}
         />
       )}
       {friendsOf && (

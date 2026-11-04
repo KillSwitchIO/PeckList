@@ -1,5 +1,6 @@
 // What admins manage on a server (spec: Accounts & Admin, Admin UI). Adapter: HTTP to /api/admin.
 import type { ServerStats } from './stats.ts';
+import type { PasskeyInfo } from './sync.ts';
 
 export type AccountRole = 'superadmin' | 'admin' | 'user';
 
@@ -23,6 +24,8 @@ export interface AdminUser {
   /** The person's email and whether they confirmed it (PL-122); reset links go only to a confirmed one. */
   email?: string | null;
   emailConfirmed?: boolean;
+  /** How many passkeys the account has (PL-123). */
+  passkeys?: number;
 }
 
 export interface AdminIdentity {
@@ -307,6 +310,9 @@ export interface AdminApi {
   loginLink(id: string): Promise<AdminResult<{ url: string; expires: string }>>;
   /** Email a password reset link to the person's confirmed email (PL-122). */
   sendResetLink(id: string): Promise<AdminResult>;
+  /** Someone's passkeys (PL-123), to remove a lost one. */
+  passkeys(id: string): Promise<PasskeyInfo[]>;
+  removePasskey(id: string, passkeyId: string): Promise<AdminResult>;
   /** Invite links that still work, and whether sign-up takes them. */
   invites(): Promise<InviteList>;
   /** A new invite link: lasts `days`, for `uses` people (null: any number). */

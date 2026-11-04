@@ -2,6 +2,9 @@ import type { UserStats } from '../ports/stats.ts';
 import type {
   Account,
   AccountEmail,
+  PasskeyCeremony,
+  PasskeyInfo,
+  PasskeyList,
   ChangeEvent,
   ProfilePreview,
   ServerNotification,
@@ -172,12 +175,14 @@ export function createHttpSync(
         localLogin: boolean;
         registration?: 'open' | 'invite' | 'closed';
         passwordReset?: boolean;
+        passkeys?: boolean;
       };
       const withInvite = invite ? `&invite=${encodeURIComponent(invite)}` : '';
       return {
         localLogin: options.localLogin,
         registration: options.registration ?? 'closed',
         passwordReset: options.passwordReset ?? false,
+        passkeys: options.passkeys ?? false,
         providers: options.providers.map((provider) => ({
           ...provider,
           ...(provider.icon ? { icon: `${base}${provider.icon}` } : {}),
@@ -273,6 +278,44 @@ export function createHttpSync(
       return fail(response);
     },
 
+    async passkeySignInOptions() {
+      const response = await call('/auth/passkey/sign-in/options', { method: 'POST', body: {} });
+      if (response.status === 404) return null;
+      if (!response.ok) return fail(response);
+      return (await response.json()) as PasskeyCeremony;
+    },
+
+    async passkeySignIn(ceremony, credential): Promise<LoginOutcome> {
+      const response = await call('/auth/passkey/sign-in', {
+        method: 'POST',
+        body: { ceremony, credential },
+      });
+      if (response.ok) return { kind: 'ok', account: (await response.json()) as Account };
+      if (response.status === 401) return { kind: 'invalid' };
+      if (response.status === 429) return { kind: 'too-many' };
+      return fail(response);
+    },
+
+    async passkeyEnrollOptions(token) {
+      const response = await call('/auth/passkey/enroll/options', {
+        method: 'POST',
+        body: { token },
+      });
+      if (response.status === 404) return null;
+      if (!response.ok) return fail(response);
+      return (await response.json()) as PasskeyCeremony;
+    },
+
+    async passkeyEnroll(token, ceremony, credential, name) {
+      const response = await call('/auth/passkey/enroll', {
+        method: 'POST',
+        body: { token, ceremony, credential, name },
+      });
+      if (response.status === 404 || response.status === 400) return null;
+      if (!response.ok) return fail(response);
+      return ((await response.json()) as { back: string }).back;
+    },
+
     async logout() {
       const response = await call('/auth/logout', { method: 'POST' });
       if (!response.ok && response.status !== 401) await fail(response);
@@ -339,6 +382,50 @@ export function createHttpSync(
         const response = await call('/api/account/email/confirm', { method: 'POST' });
         if (!response.ok) return fail(response);
         return (await response.json()) as AccountEmail;
+      },
+      async passkeys() {
+        const response = await call('/api/account/passkeys');
+        if (!response.ok) return fail(response);
+        return (await response.json()) as PasskeyList;
+      },
+      async passkeyOptions() {
+        const response = await call('/api/account/passkeys/options', { method: 'POST', body: {} });
+        if (!response.ok) return fail(response);
+        return (await response.json()) as PasskeyCeremony;
+      },
+      async addPasskey(ceremony, credential, name) {
+        const response = await call('/api/account/passkeys', {
+          method: 'POST',
+          body: { ceremony, credential, name },
+        });
+        if (response.status === 400) return 'invalid';
+        if (!response.ok) return fail(response);
+        return (await response.json()) as PasskeyInfo;
+      },
+      async renamePasskey(id, name) {
+        const response = await call(`/api/account/passkeys/${encodeURIComponent(id)}`, {
+          method: 'PUT',
+          body: { name },
+        });
+        if (!response.ok) await fail(response);
+      },
+      async removePasskey(id) {
+        const response = await call(`/api/account/passkeys/${encodeURIComponent(id)}`, {
+          method: 'DELETE',
+        });
+        if (response.status === 409) return 'last-way-in';
+        if (!response.ok && response.status !== 404) return fail(response);
+        return 'ok';
+      },
+      async removePassword(current) {
+        const response = await call('/api/account/password/remove', {
+          method: 'POST',
+          body: { current },
+        });
+        if (response.status === 409) return 'last-way-in';
+        if (response.status === 400) return 'wrong-password';
+        if (!response.ok) return fail(response);
+        return 'ok';
       },
     },
 

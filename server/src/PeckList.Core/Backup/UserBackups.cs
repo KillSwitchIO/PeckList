@@ -24,7 +24,8 @@ public sealed class UserBackups(
     IIdentityStore identities,
     SyncService sync,
     ServerClock clock,
-    TimeProvider time)
+    TimeProvider time,
+    IPasskeyStore? passkeys = null)
 {
     public const string Format = "pecklist-user-backup";
     /// <summary>What person backups were called before the rename (PL-127); still read.</summary>
@@ -65,6 +66,18 @@ public sealed class UserBackups(
             links.Add(new JsonObject { ["provider"] = identity.Provider, ["subject"] = identity.Subject, ["email"] = identity.Email });
         }
         root["identities"] = links;
+        // Passkeys (PL-123): their public keys, so a person who signs in only with one gets back in.
+        var keys = new JsonArray();
+        foreach (var passkey in passkeys is null ? [] : await passkeys.ListAsync(userId, cancellation))
+        {
+            keys.Add(new JsonObject
+            {
+                ["id"] = passkey.Id, ["name"] = passkey.Name, ["publicKey"] = passkey.PublicKey, ["signCount"] = passkey.SignCount,
+                ["transports"] = passkey.Transports, ["backedUp"] = passkey.BackedUp,
+                ["createdAt"] = passkey.CreatedAt.ToString("O", CultureInfo.InvariantCulture),
+            });
+        }
+        root["passkeys"] = keys;
         var owned = new JsonArray();
         await foreach (var entity in entities.AllAsync(cancellation))
         {
@@ -100,12 +113,14 @@ public sealed class UserBackups(
         JsonObject accountNode;
         List<(string Collection, JsonObject Doc)> saved;
         JsonArray links;
+        JsonArray keys;
         switch ((string?)root["format"])
         {
             case Format or LegacyFormat:
                 accountNode = root["account"]?.AsObject() ?? throw new BackupException("the backup has no account");
                 saved = Entities(root, owner: null);
                 links = root["identities"] as JsonArray ?? [];
+                keys = root["passkeys"] as JsonArray ?? [];
                 break;
             case BackupService.Format or BackupService.LegacyFormat:
                 if (string.IsNullOrWhiteSpace(username)) throw new BackupException("say whose data to restore from this server backup");
@@ -116,6 +131,11 @@ public sealed class UserBackups(
                 var id = (string)accountNode["id"]!;
                 saved = Entities(root, owner: id);
                 links = new JsonArray((root["identities"] as JsonArray ?? [])
+                    .OfType<JsonObject>()
+                    .Where(each => (string?)each["accountId"] == id)
+                    .Select(each => (JsonNode)each.DeepClone())
+                    .ToArray());
+                keys = new JsonArray((root["passkeys"] as JsonArray ?? [])
                     .OfType<JsonObject>()
                     .Where(each => (string?)each["accountId"] == id)
                     .Select(each => (JsonNode)each.DeepClone())
@@ -163,6 +183,11 @@ public sealed class UserBackups(
                 {
                     Provider = provider, Subject = subject, AccountId = userId, Email = (string?)link["email"], LinkedAt = now, LastUsedAt = now,
                 }, cancellation);
+            }
+            foreach (var key in passkeys is null ? [] : keys.OfType<JsonObject>())
+            {
+                if ((string?)key["id"] is not { } keyId || await passkeys!.FindAsync(keyId, cancellation) is not null) continue;
+                await passkeys!.AddAsync(BackupService.ReadPasskey(key, userId), cancellation);
             }
         }
 

@@ -1,3 +1,4 @@
+import KeyRounded from '@mui/icons-material/KeyRounded';
 import { Box, Button, Divider, Link, TextField, Typography } from '@mui/material';
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { messageOf } from '../../core/errors.ts';
@@ -18,8 +19,10 @@ import {
 import { passwordProblem, usePasswordDraft } from './passwordChange.ts';
 import { PasswordChangeFields } from './PasswordChangeFields.tsx';
 import { useSyncState } from './syncContext.ts';
+import { autofillWorks, cancelled, createPasskey, getPasskey, passkeysWork } from './webauthn.ts';
 
 type Entry =
+  | { page: 'passkey-add'; token: string }
   | { page: 'sign-in' }
   | { page: 'sign-up' }
   | { page: 'join'; invite: string }
@@ -33,6 +36,12 @@ function entryOf(pathname: string): Entry {
   const reset = /^\/reset\/([^/]+)\/?$/.exec(pathname);
   if (reset?.[1]) return { page: 'reset', token: decodeURIComponent(reset[1]) };
   if (pathname === '/forgot') return { page: 'forgot' };
+  if (pathname === '/passkey/add') {
+    return {
+      page: 'passkey-add',
+      token: new URLSearchParams(window.location.search).get('token') ?? '',
+    };
+  }
   return pathname === '/signup' ? { page: 'sign-up' } : { page: 'sign-in' };
 }
 
@@ -52,6 +61,7 @@ export function AuthPages({ phase }: { phase: 'signed-out' | 'password-change' }
   if (entry.page === 'join') return <SignUp invite={entry.invite} onSignIn={() => go('/login')} />;
   if (entry.page === 'sign-up') return <SignUp onSignIn={() => go('/login')} />;
   if (entry.page === 'forgot') return <Forgot onSignIn={() => go('/login')} />;
+  if (entry.page === 'passkey-add') return <PasskeyEnroll token={entry.token} />;
   if (entry.page === 'reset') {
     return (
       <Reset token={entry.token} onSignIn={() => go('/login')} onAgain={() => go('/forgot')} />
@@ -251,7 +261,7 @@ function CredentialsFields({
         label={t('auth.username')}
         value={username}
         onChange={(event) => onUsername(event.target.value)}
-        autoComplete="username"
+        autoComplete={newAccount ? 'username' : 'username webauthn'}
         autoFocus
         required
         {...(newAccount ? { helperText: t('auth.signUp.usernameHint') } : {})}
@@ -295,6 +305,102 @@ function SwitchLine({
   );
 }
 
+/**
+ * Where a passkey sign-in in a browser tab goes next: back to the Android app's hand-off
+ * (`/login?passkey=1&returnUrl=/auth/app/handoff...`), or nowhere (the app itself loads).
+ */
+function handoffAfterPasskey(): string | null {
+  if (window.location.pathname !== '/login') return null;
+  const returnUrl = new URLSearchParams(window.location.search).get('returnUrl');
+  return returnUrl?.startsWith('/auth/app/handoff?') ? returnUrl : null;
+}
+
+/**
+ * Signing in with a passkey (PL-123). In the Android app the WebView has no WebAuthn, so the
+ * button is a link the app turns into its browser hand-off; elsewhere the browser asks at once,
+ * and the username field offers passkeys in its autofill too.
+ */
+function usePasskeySignIn(serverOffers: boolean, onProblem: (problem: string | null) => void) {
+  const transport = useSyncState((state) => state.transport);
+  const signIn = useSyncState((state) => state.signInWithPasskey);
+  const [busy, setBusy] = useState(false);
+  const autofill = useRef<AbortController | null>(null);
+  const native = nativeShell() !== null;
+  const offered = serverOffers && (native || passkeysWork());
+
+  const finish = async (ceremony: string, credential: unknown) => {
+    const next = handoffAfterPasskey();
+    // The router starts once this page goes away: at the app, not at the sign-in page.
+    if (!next) window.history.replaceState(null, '', '/');
+    const outcome = await signIn(ceremony, credential);
+    if (outcome.kind === 'ok') {
+      if (next) leaveFor(next);
+      return;
+    }
+    onProblem(t(outcome.kind === 'too-many' ? 'auth.tooMany' : 'auth.passkey.invalid'));
+  };
+
+  // Offered in the username field's autofill while the page is open.
+  useEffect(() => {
+    if (!offered || native || !transport.passkeySignInOptions) return;
+    const controller = new AbortController();
+    autofill.current = controller;
+    void (async () => {
+      if (!(await autofillWorks())) return;
+      const started = await transport.passkeySignInOptions?.();
+      if (!started || controller.signal.aborted) return;
+      const credential = await getPasskey(started.options, {
+        signal: controller.signal,
+        autofill: true,
+      });
+      await finish(started.ceremony, credential);
+    })().catch((error: unknown) => {
+      if (!cancelled(error)) onProblem(problemOf(error));
+    });
+    return () => controller.abort();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- once per page, as the server offers
+  }, [offered, native, transport]);
+
+  const start = async () => {
+    if (native) return;
+    autofill.current?.abort();
+    setBusy(true);
+    onProblem(null);
+    try {
+      const started = await transport.passkeySignInOptions?.();
+      if (!started) {
+        onProblem(t('auth.passkey.off'));
+        return;
+      }
+      await finish(started.ceremony, await getPasskey(started.options));
+    } catch (error) {
+      if (!cancelled(error)) onProblem(problemOf(error));
+    } finally {
+      setBusy(false);
+    }
+  };
+  return { offered, busy, start: () => void start() };
+}
+
+/** "Sign in with a passkey": the browser's own prompt, or in the Android app a link to its hand-off. */
+function PasskeyButton({ busy, onClick }: { busy: boolean; onClick: () => void }) {
+  const native = nativeShell() !== null;
+  return (
+    <Button
+      variant="outlined"
+      size="large"
+      startIcon={<KeyRounded />}
+      disabled={busy}
+      {...(native
+        ? { href: `/auth/oidc/passkey/login?returnUrl=${encodeURIComponent(returnUrl())}` }
+        : { onClick })}
+      sx={{ textTransform: 'none' }}
+    >
+      {t('auth.passkey.signIn')}
+    </Button>
+  );
+}
+
 function SignIn({ onSignUp, onForgot }: { onSignUp: () => void; onForgot: () => void }) {
   const signIn = useSyncState((state) => state.signIn);
   // The Android app: maybe this is the wrong server (ADR-0017).
@@ -309,6 +415,7 @@ function SignIn({ onSignUp, onForgot }: { onSignUp: () => void; onForgot: () => 
 
   const providers = options?.providers ?? [];
   const showForm = options !== null && options.localLogin;
+  const passkeys = usePasskeySignIn(options?.passkeys === true, setProblem);
   // Signed in with a provider before and its session ran out: straight back through it.
   // Not in the Android app, where a provider opens in a browser tab: popping that up unasked on
   // start is jarring, so the buttons show instead.
@@ -360,13 +467,14 @@ function SignIn({ onSignUp, onForgot }: { onSignUp: () => void; onForgot: () => 
 
   return (
     <CenteredCard title={t('auth.title')} subtitle={t('auth.subtitle')}>
-      {providers.length > 0 && (
+      {(providers.length > 0 || passkeys.offered) && (
         <Box sx={{ display: 'grid', gap: 1.5 }}>
+          {passkeys.offered && <PasskeyButton busy={passkeys.busy} onClick={passkeys.start} />}
           <ProviderButtons providers={providers} onPick={rememberProvider} />
           {!showForm && <ProblemAlert problem={problem} />}
         </Box>
       )}
-      {providers.length > 0 && showForm && (
+      {(providers.length > 0 || passkeys.offered) && showForm && (
         <Divider sx={{ my: 2.5, color: 'text.secondary', typography: 'body2' }}>
           {t('auth.or')}
         </Divider>
@@ -778,6 +886,79 @@ function Reset({
         <ProblemAlert problem={problem} />
         <Button type="submit" variant="contained" size="large" disableElevation disabled={busy}>
           {t('auth.reset.save')}
+        </Button>
+      </Box>
+    </CenteredCard>
+  );
+}
+
+/**
+ * Adding a passkey from the Android app (PL-123): the app opens this page in a browser tab with a
+ * token for the account (`/passkey/add?token=...`); once added, the tab goes back to the app.
+ */
+export function PasskeyEnroll({ token }: { token: string }) {
+  const transport = useSyncState((state) => state.transport);
+  const [name, setName] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [problem, setProblem] = useState<string | null>(null);
+  const [expired, setExpired] = useState(false);
+
+  const submit = async (event: FormEvent) => {
+    event.preventDefault();
+    if (!transport.passkeyEnrollOptions || !transport.passkeyEnroll) return;
+    setBusy(true);
+    setProblem(null);
+    try {
+      const started = await transport.passkeyEnrollOptions(token);
+      if (!started) {
+        setExpired(true);
+        return;
+      }
+      const credential = await createPasskey(started.options);
+      const back = await transport.passkeyEnroll(token, started.ceremony, credential, name.trim());
+      if (!back) {
+        setExpired(true);
+        return;
+      }
+      window.location.assign(back);
+    } catch (error) {
+      if (!cancelled(error)) setProblem(problemOf(error));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  if (expired || !token) {
+    return (
+      <CenteredCard title={t('auth.passkey.addTitle')} subtitle={t('auth.passkey.addExpired')}>
+        {null}
+      </CenteredCard>
+    );
+  }
+  return (
+    <CenteredCard title={t('auth.passkey.addTitle')} subtitle={t('auth.passkey.addSubtitle')}>
+      <Box
+        component="form"
+        onSubmit={(event) => void submit(event)}
+        sx={{ display: 'grid', gap: 2 }}
+      >
+        <TextField
+          label={t('settings.passkeys.name')}
+          placeholder={t('settings.passkeys.namePlaceholder')}
+          value={name}
+          onChange={(event) => setName(event.target.value)}
+          slotProps={{ htmlInput: { maxLength: 60 } }}
+        />
+        <ProblemAlert problem={problem} />
+        <Button
+          type="submit"
+          variant="contained"
+          size="large"
+          disableElevation
+          disabled={busy}
+          startIcon={<KeyRounded />}
+        >
+          {t('auth.passkey.add')}
         </Button>
       </Box>
     </CenteredCard>

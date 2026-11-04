@@ -83,6 +83,7 @@ From the **...** menu on a person in **Admin > Users**:
 | ----------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
 | **Reset password**                  | Shows a new password to hand over; they must change it at the next sign-in. Their other sessions end.              |
 | **Sign-in link**                    | A link that signs them in once, within 24 hours. For someone with no password and no working provider.             |
+| **Passkeys**                        | Shows the passkeys the account has, each with **Remove**: for a lost phone. Then send a **Sign-in link** if it was their only way in. |
 | **Email a reset link**              | Emails a link to set a new password (30 minutes, once). Only for someone with a confirmed email, on a server that sends [email](email.md). |
 | **Turn off** / **Turn on**          | A turned-off account cannot sign in and its sessions end at once. Data stays.                                      |
 | **Make user / admin / super admin** | Change the role. Only super admins manage admins.                                                                  |

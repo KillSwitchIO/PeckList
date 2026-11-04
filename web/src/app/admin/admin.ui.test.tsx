@@ -39,9 +39,18 @@ function memoryAdmin(benId: string) {
   const state = {
     users: [
       user(benId, 'ben', 'superadmin'),
-      { ...user('U2', 'sam'), email: 'sam@example.com', emailConfirmed: true },
+      { ...user('U2', 'sam'), email: 'sam@example.com', emailConfirmed: true, passkeys: 1 },
     ],
     resetLinks: [] as string[],
+    passkeys: [
+      {
+        id: 'pk1',
+        name: 'Pixel',
+        createdAt: '2026-11-01T08:00:00Z',
+        lastUsedAt: null,
+        synced: true,
+      },
+    ],
     mailedInvites: [] as string[],
     groups: [] as AdminGroup[],
     friendships: [] as [string, string][],
@@ -265,6 +274,11 @@ function memoryAdmin(benId: string) {
     loginLink: () => ok({ url: 'https://tasks.example.com/auth/link/abc', expires: '' }),
     sendResetLink: (id) => {
       state.resetLinks.push(id);
+      return ok(undefined);
+    },
+    passkeys: () => Promise.resolve([...state.passkeys]),
+    removePasskey: (_, passkeyId) => {
+      state.passkeys = state.passkeys.filter((each) => each.id !== passkeyId);
       return ok(undefined);
     },
     invites: () =>
@@ -808,6 +822,18 @@ describe('admin', () => {
     await userEvent.click(within(dialog).getByRole('button', { name: 'Create link' }));
     expect(await screen.findByText(/^Sent to friend@example\.com\./)).toBeInTheDocument();
     expect(state.mailedInvites).toEqual(['friend@example.com']);
+  });
+
+  it("shows someone's passkeys and removes a lost one (PL-123)", async () => {
+    const { state } = await adminApp('superadmin', '/admin/users');
+    const list = await screen.findByRole('list', { name: 'Users' });
+    await userEvent.click(within(list).getByRole('button', { name: 'Actions for sam' }));
+    await userEvent.click(await screen.findByRole('menuitem', { name: 'Passkeys (1)' }));
+    const dialog = await screen.findByRole('dialog', { name: "sam's passkeys" });
+    expect(within(dialog).getByText('Pixel')).toBeInTheDocument();
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Remove Pixel' }));
+    expect(await within(dialog).findByText('No passkeys left.')).toBeInTheDocument();
+    expect(state.passkeys).toEqual([]);
   });
 
   it("changes server settings, leaves the environment's alone, and restarts to apply them", async () => {
