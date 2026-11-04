@@ -22,7 +22,8 @@ public sealed record AdminUser(
     DateTimeOffset? RemovedAt = null,
     IReadOnlyList<string>? PeopleGroups = null,
     string? Email = null,
-    bool EmailConfirmed = false);
+    bool EmailConfirmed = false,
+    int Passkeys = 0);
 
 public sealed record NewUserRequest(string? Username, string? Role);
 
@@ -100,8 +101,9 @@ public static class AdminEndpoints
     {
         admin.MapGet("/users", async (
             IAccountStore accounts, ServerGroupService groups, IIdentityStore identities, AccountRemoval removal, SharingState sharing,
-            CancellationToken cancellation) =>
+            IPasskeyStore passkeys, CancellationToken cancellation) =>
         {
+            var keys = (await passkeys.AllAsync(cancellation)).GroupBy(each => each.AccountId).ToDictionary(each => each.Key, each => each.Count());
             var index = sharing.Index;
             var all = await accounts.ListAsync(cancellation);
             var views = await groups.ListAsync(cancellation);
@@ -120,7 +122,8 @@ public static class AdminEndpoints
                 account.DeletedAt is null ? null : removal.RemovedAt(account),
                 index.GroupNamesOf(account.Id),
                 account.Email,
-                account.EmailVerifiedAt is not null));
+                account.EmailVerifiedAt is not null,
+                keys.GetValueOrDefault(account.Id)));
         }).RequirePermission(Permission.ManageUsers);
 
         // Delete: turned off at once, removed for good after the grace period, restorable until then.

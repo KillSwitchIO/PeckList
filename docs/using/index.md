@@ -322,6 +322,15 @@ linked accounts, **Lists and tags**, and **Your data** ([download or import a co
 [move from or to another app](apps-and-sync.md#moving-from-or-to-another-app): TickTick, Todoist, Google Tasks,
 Microsoft To Do, iCalendar and Things).
 
+**Passkeys** (on a server with accounts, on an HTTPS address) sign you in with your fingerprint,
+face or screen lock instead of a password. **Add a passkey** under **Settings > Passkeys**: your
+phone, computer or password manager keeps it, synced to your other devices when it is iCloud
+Keychain, Google Password Manager, 1Password, Bitwarden and the like. Then **Sign in with a
+passkey** on the sign-in page needs no username (the browser may also offer it right in the
+username field). Name, rename and remove them there; with one, **Remove password** lets you do
+without a password altogether. Removing your last way in is refused. Lost a phone with your only
+passkey? An admin removes it and sends you a sign-in link.
+
 **API keys** (on a server with accounts) let a script or another app use PeckList as you:
 give each a name, an expiry (or none) and only the permissions it needs (read or change tasks,
 download or upload attachments, notifications, and admin for admins), copy it once, and revoke it

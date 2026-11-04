@@ -173,8 +173,8 @@ public static partial class ServerApp
             new ServerInfo("pecklist", Version, WorkspaceSchema.CurrentVersion, TimeZoneInfo.Local.Id, live.Current.AttachmentMaxMb,
                 AppSignIn: settings.AuthMode != AuthMode.None, Demo: Demo.Info(settings)));
         app.MapAuth();
-        app.MapGroup("/api").RequireAuthorization().RequirePasswordChanged().EnsureProfiles().MapSync().MapFriends().MapAccount().MapAccountEmail().MapAttachments().MapNotifications().MapHistory().MapPush().MapProviderPicture().MapAppCheck().MapUpdates().MapApiKeys();
-        app.MapGroup("/api/admin").RequireAuthorization().RequirePasswordChanged().MapAdmin().MapAdminEmail().MapSettings().MapBackups().MapLogging().MapAudit().MapStats().MapSetup().MapTelemetry();
+        app.MapGroup("/api").RequireAuthorization().RequirePasswordChanged().EnsureProfiles().MapSync().MapFriends().MapAccount().MapAccountEmail().MapAccountPasskeys().MapAttachments().MapNotifications().MapHistory().MapPush().MapProviderPicture().MapAppCheck().MapUpdates().MapApiKeys();
+        app.MapGroup("/api/admin").RequireAuthorization().RequirePasswordChanged().MapAdmin().MapAdminEmail().MapAdminPasskeys().MapSettings().MapBackups().MapLogging().MapAudit().MapStats().MapSetup().MapTelemetry();
 
         var webRoot = settings.WebRoot ?? Path.Combine(AppContext.BaseDirectory, "wwwroot");
         app.UseStaticSite(webRoot, app.Logger, noindex: settings.DemoMode, umami: settings.Umami);

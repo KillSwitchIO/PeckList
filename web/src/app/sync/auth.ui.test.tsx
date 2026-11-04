@@ -6,6 +6,7 @@ import { FakeBackend } from '../../test/fakeTransport.ts';
 import { mockViewport, renderApp, testStore } from '../../test/renderApp.tsx';
 import { createTask } from '../../core/tasks.ts';
 import { createSyncEngine } from './syncEngine.ts';
+import { fakeWebAuthn, noWebAuthn } from '../../test/fakeWebAuthn.ts';
 
 const leaveFor = vi.hoisted(() => vi.fn());
 vi.mock('./signInWith.ts', async (importOriginal) => ({
@@ -468,5 +469,78 @@ describe('a forgotten password (PL-122)', () => {
     expect(await screen.findByText('This link no longer works')).toBeInTheDocument();
     await userEvent.click(screen.getByRole('button', { name: 'Ask for a new link' }));
     expect(await screen.findByRole('button', { name: 'Send the link' })).toBeInTheDocument();
+  });
+});
+
+describe('passkeys (PL-123)', () => {
+  afterEach(() => {
+    noWebAuthn();
+    window.history.replaceState(null, '', '/');
+  });
+
+  const pixel = {
+    id: 'cred-1',
+    name: 'Pixel',
+    createdAt: '2026-11-04T09:00:00Z',
+    lastUsedAt: null,
+    synced: true,
+  };
+
+  it('signs in with a passkey, no username needed', async () => {
+    const backend = new FakeBackend();
+    backend.passkeysOn = true;
+    backend.addAccount('sam', 'a long enough password');
+    backend.passkeys.set('cred-1', { username: 'sam', info: pixel });
+    const browser = fakeWebAuthn('cred-1');
+    const { transport } = await serverApp(backend);
+    await userEvent.click(await screen.findByRole('button', { name: 'Sign in with a passkey' }));
+    await waitFor(() => expect(transport.session).toBe('sam'));
+    expect(browser.get).toHaveBeenCalledOnce();
+    await waitFor(() =>
+      expect(screen.queryByRole('button', { name: 'Sign in with a passkey' })).toBeNull(),
+    );
+  });
+
+  it('says so when the passkey is not one the server knows', async () => {
+    const backend = new FakeBackend();
+    backend.passkeysOn = true;
+    fakeWebAuthn('somewhere-else');
+    await serverApp(backend);
+    await userEvent.click(await screen.findByRole('button', { name: 'Sign in with a passkey' }));
+    expect(
+      await screen.findByText(/That passkey is not one this server knows/),
+    ).toBeInTheDocument();
+  });
+
+  it("goes back to the Android app's hand-off after signing in in its browser tab", async () => {
+    const backend = new FakeBackend();
+    backend.passkeysOn = true;
+    backend.addAccount('sam', 'a long enough password');
+    backend.passkeys.set('cred-1', { username: 'sam', info: pixel });
+    fakeWebAuthn('cred-1');
+    leaveFor.mockClear();
+    const handoff = '/auth/app/handoff?provider=passkey&challenge=abc&scheme=com.example.app';
+    window.history.replaceState(
+      null,
+      '',
+      `/login?passkey=1&returnUrl=${encodeURIComponent(handoff)}`,
+    );
+    await serverApp(backend);
+    await userEvent.click(await screen.findByRole('button', { name: 'Sign in with a passkey' }));
+    await waitFor(() => expect(leaveFor).toHaveBeenCalledWith(handoff));
+  });
+
+  it('offers no passkey button when the server or the browser has none', async () => {
+    const backend = new FakeBackend();
+    fakeWebAuthn();
+    await serverApp(backend);
+    await screen.findByLabelText(/Username/);
+    expect(screen.queryByRole('button', { name: 'Sign in with a passkey' })).toBeNull();
+    cleanup();
+    noWebAuthn();
+    backend.passkeysOn = true;
+    await serverApp(backend);
+    await screen.findByLabelText(/Username/);
+    expect(screen.queryByRole('button', { name: 'Sign in with a passkey' })).toBeNull();
   });
 });

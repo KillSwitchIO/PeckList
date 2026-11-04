@@ -180,3 +180,13 @@ public sealed class PostgresApiKeyStoreTests(PostgresServer server) : ApiKeyStor
 {
     protected override async Task<IApiKeyStore> CreateAsync() => new SqlApiKeyStore(await server.NewDatabaseAsync());
 }
+
+public sealed class SqlitePasskeyStoreTests(SqliteFiles files) : PasskeyStoreContract, IClassFixture<SqliteFiles>
+{
+    protected override async Task<IPasskeyStore> CreateAsync() => new SqlPasskeyStore(await files.NewDatabaseAsync());
+}
+
+public sealed class PostgresPasskeyStoreTests(PostgresServer server) : PasskeyStoreContract, IClassFixture<PostgresServer>
+{
+    protected override async Task<IPasskeyStore> CreateAsync() => new SqlPasskeyStore(await server.NewDatabaseAsync());
+}

@@ -97,6 +97,8 @@ export interface SyncState {
 
   start(): Promise<void>;
   signIn(username: string, password: string): Promise<LoginOutcome>;
+  /** Sign in with what the browser's passkey prompt answered for a server ceremony (PL-123). */
+  signInWithPasskey(ceremony: string, credential: unknown): Promise<LoginOutcome>;
   /** Make an account (open sign-up, or with an invite link) and sign in to it. */
   signUp(username: string, password: string, invite?: string): Promise<SignUpOutcome>;
   /**
@@ -710,6 +712,13 @@ export function createSyncEngine(deps: SyncEngineDependencies): SyncEngine {
 
       async signIn(username, password) {
         const outcome = await transport.login(username, password);
+        if (outcome.kind === 'ok') await enter(outcome.account);
+        return outcome;
+      },
+
+      async signInWithPasskey(ceremony, credential) {
+        if (!transport.passkeySignIn) return { kind: 'invalid' };
+        const outcome = await transport.passkeySignIn(ceremony, credential);
         if (outcome.kind === 'ok') await enter(outcome.account);
         return outcome;
       },

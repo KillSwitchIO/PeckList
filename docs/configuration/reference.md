@@ -72,6 +72,15 @@ one-time link with [`pecklist admin login-link`](../reference/cli.md#admin-login
 least one provider. `shown` and `hidden`, the names before 0.2.1, still work as `enabled` and
 `disabled`. **Default:** `enabled`. **Where:** any, live.
 
+### `PASSKEYS`
+
+`on` or `off`. On, people add passkeys under **Settings > Passkeys** and the sign-in page offers
+**Sign in with a passkey** (and passkeys in the username field's autofill). Passkeys belong to
+[`PUBLIC_URL`](#public_url)'s host (or the host the request came in on, without it), and browsers
+only use them on a secure address: HTTPS, or `localhost`. On a plain `http://` address they stay
+hidden whatever this says. Changing the host later leaves existing passkeys behind: people add
+new ones. **Default:** `on`. **Where:** any, live.
+
 ### `OIDC_PROVIDERS`
 
 The identity providers to offer, comma separated: `pocket,keycloak`. Names are letters, digits

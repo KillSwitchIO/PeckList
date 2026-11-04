@@ -19,6 +19,7 @@ public sealed class LiveSettings(ServerSettings start)
         {
             Registration = next.Registration,
             LocalLoginDisabled = next.LocalLoginDisabled,
+            Passkeys = next.Passkeys,
             AccountDeleteGraceDays = next.AccountDeleteGraceDays,
             AttachmentMaxMb = next.AttachmentMaxMb,
             SignUpRateLimit = next.SignUpRateLimit,

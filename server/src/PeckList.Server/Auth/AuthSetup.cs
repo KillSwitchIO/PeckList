@@ -26,12 +26,13 @@ public static class AuthSetup
     public const string StampClaim = "stamp";
     public const string MustChangeClaim = "must_change_password";
 
-    /// <summary>How the session was made: <see cref="ByPassword"/>, <see cref="ByProvider"/> or <see cref="ByLink"/>.</summary>
+    /// <summary>How the session was made: <see cref="ByPassword"/>, <see cref="ByProvider"/>, <see cref="ByLink"/> or <see cref="ByPasskey"/>.</summary>
     public const string MethodClaim = "pecklist:method";
 
     public const string ByPassword = "password";
     public const string ByProvider = "provider";
     public const string ByLink = "link";
+    public const string ByPasskey = "passkey";
 
     public static IServiceCollection AddPeckListAuth(this IServiceCollection services, ServerSettings settings)
     {

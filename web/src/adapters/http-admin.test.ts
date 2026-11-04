@@ -50,6 +50,41 @@ describe('HTTP admin', () => {
     });
   });
 
+  it('emails reset links and manages passkeys and invites by email (PL-122, PL-123)', async () => {
+    const passkey = {
+      id: 'k1',
+      name: 'Pixel',
+      createdAt: '2026-11-04T09:00:00Z',
+      lastUsedAt: null,
+      synced: true,
+    };
+    const { fetcher, calls } = fakeFetch(
+      { status: 204 },
+      { status: 409, body: { error: 'no_confirmed_email' } },
+      { status: 409, body: { error: 'mail_not_set_up' } },
+      { status: 502, body: { error: 'mail_failed' } },
+      { status: 200, body: [passkey] },
+      { status: 204 },
+      { status: 200, body: { url: 'https://x/join/t', invite: { id: 'I1' }, sent: true } },
+    );
+    const admin = createHttpAdmin('', fetcher);
+    expect(await admin.sendResetLink('U1')).toEqual({ ok: true, value: undefined });
+    expect(await admin.sendResetLink('U1')).toEqual({ ok: false, reason: 'no-email' });
+    expect(await admin.sendResetLink('U1')).toEqual({ ok: false, reason: 'mail-off' });
+    expect(await admin.sendResetLink('U1')).toEqual({ ok: false, reason: 'mail-failed' });
+    expect(await admin.passkeys('U1')).toEqual([passkey]);
+    expect(await admin.removePasskey('U1', 'k1')).toEqual({ ok: true, value: undefined });
+    expect(calls[5]?.url).toBe('/api/admin/users/U1/passkeys/k1');
+    const made = await admin.createInvite({
+      days: 7,
+      uses: 1,
+      note: '',
+      sendTo: 'friend@example.com',
+    });
+    expect(made.ok && made.value.sent).toBe(true);
+    expect((calls[6]?.body as { sendTo?: string }).sendTo).toBe('friend@example.com');
+  });
+
   it('answers with what the server made', async () => {
     const { fetcher, calls } = fakeFetch(
       { status: 201, body: { id: 'U3', username: 'zoe', role: 'user', password: 'secret' } },

@@ -5,6 +5,7 @@ import {
   SyncFailure,
   type Account,
   type AccountEmail,
+  type PasskeyInfo,
   type ChangeEvent,
   type AccountApi,
   type FileApi,
@@ -98,6 +99,16 @@ export class FakeBackend {
   readonly resetLinks = new Map<string, string>();
   /** What the server emailed: to whom, and what. */
   readonly sentMail: { to: string; kind: 'reset' | 'confirm' }[] = [];
+  /** The sign-in page offers passkeys (PL-123). */
+  passkeysOn = false;
+  /** Passkeys by credential id: whose, and as listed. */
+  readonly passkeys = new Map<string, { username: string; info: PasskeyInfo }>();
+
+  passkeysOf(username: string): PasskeyInfo[] {
+    return [...this.passkeys.values()]
+      .filter((each) => each.username === username)
+      .map((each) => each.info);
+  }
 
   /** The email view of an account, as `/api/account/email` answers. */
   emailOf(username: string, sent?: boolean): AccountEmail {
@@ -199,6 +210,63 @@ export class FakeTransport implements SyncTransport {
           .filter((provider) => !linked.some((each) => each.provider === provider.name))
           .map((provider) => ({ ...provider, url: `/auth/oidc/${provider.name}/link` })),
       });
+    },
+    passkeys: () => {
+      const found = this.current();
+      if (!found) return Promise.reject(new SyncFailure('signed-out', 'signed out'));
+      return Promise.resolve({
+        available: this.backend.passkeysOn,
+        password: found.password !== '',
+        passkeys: this.backend.passkeysOf(found.account.username),
+      });
+    },
+    passkeyOptions: () =>
+      Promise.resolve({
+        ceremony: 'register-1',
+        options: {
+          challenge: 'AAAA',
+          rp: { id: 'localhost', name: 'PeckList' },
+          user: { id: 'dXNlcg', name: this.current()?.account.username ?? '', displayName: '' },
+          pubKeyCredParams: [{ type: 'public-key', alg: -7 }],
+          excludeCredentials: [],
+        },
+      }),
+    addPasskey: (_ceremony, credential, name) => {
+      const found = this.current();
+      if (!found) return Promise.reject(new SyncFailure('signed-out', 'signed out'));
+      const id = (credential as { id: string }).id;
+      const info = {
+        id,
+        name: name || 'Passkey',
+        createdAt: '2026-11-04T09:00:00Z',
+        lastUsedAt: null,
+        synced: true,
+      };
+      this.backend.passkeys.set(id, { username: found.account.username, info });
+      return Promise.resolve(info);
+    },
+    renamePasskey: (id, name) => {
+      const kept = this.backend.passkeys.get(id);
+      if (kept) kept.info = { ...kept.info, name };
+      return Promise.resolve();
+    },
+    removePasskey: (id) => {
+      const found = this.current();
+      if (!found) return Promise.reject(new SyncFailure('signed-out', 'signed out'));
+      if (found.password === '' && this.backend.passkeysOf(found.account.username).length <= 1) {
+        return Promise.resolve('last-way-in' as const);
+      }
+      this.backend.passkeys.delete(id);
+      return Promise.resolve('ok' as const);
+    },
+    removePassword: (current) => {
+      const found = this.current();
+      if (!found) return Promise.reject(new SyncFailure('signed-out', 'signed out'));
+      if (this.backend.passkeysOf(found.account.username).length === 0)
+        return Promise.resolve('last-way-in' as const);
+      if (found.password !== current) return Promise.resolve('wrong-password' as const);
+      found.password = '';
+      return Promise.resolve('ok' as const);
     },
     email: () => {
       const found = this.current();
@@ -392,11 +460,30 @@ export class FakeTransport implements SyncTransport {
       localLogin,
       registration: registration ?? 'closed',
       passwordReset: this.backend.passwordReset,
+      passkeys: this.backend.passkeysOn,
       providers: providers.map((provider) => ({
         ...provider,
         url: `/auth/oidc/${provider.name}/login?returnUrl=${encodeURIComponent(returnUrl)}${withInvite}`,
       })),
     });
+  }
+
+  passkeySignInOptions() {
+    this.check();
+    if (!this.backend.passkeysOn) return Promise.resolve(null);
+    return Promise.resolve({
+      ceremony: 'sign-in-1',
+      options: { challenge: 'AAAA', allowCredentials: [] },
+    });
+  }
+
+  passkeySignIn(_ceremony: string, credential: unknown) {
+    this.check();
+    const kept = this.backend.passkeys.get((credential as { id?: string }).id ?? '');
+    const found = kept ? this.backend.accounts.get(kept.username) : undefined;
+    if (!kept || !found) return Promise.resolve({ kind: 'invalid' as const });
+    this.session = kept.username;
+    return Promise.resolve({ kind: 'ok' as const, account: found.account });
   }
 
   forgotPassword(login: string) {

@@ -64,6 +64,12 @@ public static partial class AppSignIn
             var session = await context.AuthenticateAsync(CookieAuthenticationDefaults.AuthenticationScheme);
             if (session.Principal?.Identity?.IsAuthenticated != true)
             {
+                // A passkey: the web sign-in page in this tab, then back here to confirm (PL-123).
+                if (provider == PasskeyEndpoints.ProviderName)
+                {
+                    var back = context.Request.Path + context.Request.QueryString;
+                    return Results.Redirect($"/login?passkey=1&returnUrl={Uri.EscapeDataString(back)}");
+                }
                 if (settings.Provider(provider) is not { Name: var name }) return Results.NotFound();
                 var here = context.Request.Path + context.Request.QueryString;
                 var login = $"/auth/oidc/{Uri.EscapeDataString(name)}/login?returnUrl={Uri.EscapeDataString(here)}";
@@ -122,7 +128,8 @@ public static partial class AppSignIn
         auth.MapPost("/app/link-start", async (LinkStartRequest request, ClaimsPrincipal user, ISecretStore secrets,
             IDataProtectionProvider protection, TimeProvider time, HttpContext context) =>
         {
-            if (settings.Provider(request.Provider) is not { Name: var provider }) return Results.NotFound();
+            var provider = request.Provider == PasskeyEndpoints.ProviderName ? PasskeyEndpoints.ProviderName : settings.Provider(request.Provider)?.Name;
+            if (provider is null) return Results.NotFound();
             if (request.Scheme is not { } scheme || !SchemePattern().IsMatch(scheme)) return Results.BadRequest(new AuthError("invalid_request"));
             var code = Tokens.New();
             var start = new LinkStart(user.UserId(), provider, scheme, time.GetUtcNow() + CodeLifetime);
@@ -134,7 +141,8 @@ public static partial class AppSignIn
         auth.MapGet("/app/link", async (string? code, ISecretStore secrets, IDataProtectionProvider protection, TimeProvider time, HttpContext context) =>
         {
             var start = await TakeAsync<LinkStart>(secrets, protection, LinkKind, code ?? "", context.RequestAborted);
-            if (start is null || start.Expires <= time.GetUtcNow() || settings.Provider(start.Provider) is null)
+            var passkey = start?.Provider == PasskeyEndpoints.ProviderName;
+            if (start is null || start.Expires <= time.GetUtcNow() || (!passkey && settings.Provider(start.Provider) is null))
             {
                 return Results.Content(
                     "<!doctype html><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width\">" +
@@ -142,6 +150,8 @@ public static partial class AppSignIn
                     "Close this tab and press Link again in the PeckList app.</p>",
                     "text/html; charset=utf-8", statusCode: StatusCodes.Status400BadRequest);
             }
+            // Adding a passkey: a page in this tab that needs no session here, then back to the app.
+            if (passkey) return Results.Redirect(await PasskeyEndpoints.EnrolLink(start.AccountId, start.Scheme, secrets, protection, time, context.RequestAborted));
             return Results.Challenge(OidcSetup.LinkProperties(start.AccountId, start.Scheme), [OidcSetup.Scheme(start.Provider)]);
         });
     }

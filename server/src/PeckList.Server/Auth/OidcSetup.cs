@@ -16,8 +16,12 @@ namespace PeckList.Server.Auth;
 public sealed record SignInProvider(string Name, string DisplayName, string Icon, string? Preset = null);
 
 /// <summary><paramref name="Registration"/>: who may make an account here (<c>open</c>, <c>invite</c>, <c>closed</c>).</summary>
-/// <summary>Ways to sign in; <paramref name="PasswordReset"/>: the sign-in page offers "Forgot your password?" (PL-122).</summary>
-public sealed record SignInOptions(IReadOnlyList<SignInProvider> Providers, bool LocalLogin, string Registration = "closed", bool PasswordReset = false);
+/// <summary>
+/// Ways to sign in; <paramref name="PasswordReset"/>: the sign-in page offers "Forgot your
+/// password?" (PL-122); <paramref name="Passkeys"/>: "Sign in with a passkey" (PL-123).
+/// </summary>
+public sealed record SignInOptions(
+    IReadOnlyList<SignInProvider> Providers, bool LocalLogin, string Registration = "closed", bool PasswordReset = false, bool Passkeys = false);
 
 /// <summary>
 /// OIDC sign-in (spec: Accounts &amp; Admin, OIDC). The server runs the code flow with PKCE and keeps
@@ -131,11 +135,12 @@ public static class OidcSetup
 
     public static void MapOidc(this RouteGroupBuilder auth, ServerSettings settings)
     {
-        auth.MapGet("/providers", (SelfSignUp signUp, LiveSettings live, Core.Mail.IMailSender mail) => new SignInOptions(
+        auth.MapGet("/providers", (SelfSignUp signUp, LiveSettings live, Core.Mail.IMailSender mail, HttpContext context) => new SignInOptions(
             settings.OidcProviders.Select(provider => new SignInProvider(provider.Name, provider.DisplayName, IconPath(provider.Name), provider.Preset)).ToList(),
             !live.Current.LocalLoginDisabled,
             signUp.InvitesWork ? signUp.Policy.ToString().ToLowerInvariant() : "closed",
-            settings.AuthMode != AuthMode.None && EmailEndpoints.ResetsWork(mail, live)));
+            settings.AuthMode != AuthMode.None && EmailEndpoints.ResetsWork(mail, live),
+            settings.AuthMode != AuthMode.None && PasskeyEndpoints.Origin(live, context) is not null));
 
         auth.MapGet("/providers/{name}/icon", async (string name, ProviderIcons icons, HttpContext context, CancellationToken cancellation) =>
         {
@@ -149,6 +154,11 @@ public static class OidcSetup
 
         auth.MapGet("/oidc/{name}/login", (string name, string? returnUrl, string? invite) =>
         {
+            // The app's hand-offs name passkeys like a provider; a browser lands on the sign-in page.
+            if (name == PasskeyEndpoints.ProviderName)
+            {
+                return Results.Redirect($"/login?passkey=1&returnUrl={Uri.EscapeDataString(ReturnUrls.Safe(returnUrl))}");
+            }
             if (settings.Provider(name) is null) return Results.NotFound();
             var properties = new AuthenticationProperties { RedirectUri = ReturnUrls.Safe(returnUrl), IsPersistent = true };
             if (!string.IsNullOrWhiteSpace(invite)) properties.Items[InviteItem] = invite.Trim();
@@ -158,6 +168,7 @@ public static class OidcSetup
         // Link a provider account to the signed-in user (their settings page).
         auth.MapGet("/oidc/{name}/link", (string name, ClaimsPrincipal user) =>
         {
+            if (name == PasskeyEndpoints.ProviderName) return Results.Redirect("/settings");
             if (settings.Provider(name) is null) return Results.NotFound();
             return Results.Challenge(LinkProperties(user.UserId(), appScheme: null), [Scheme(name)]);
         }).RequireAuthorization();

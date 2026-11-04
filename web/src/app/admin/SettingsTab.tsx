@@ -13,6 +13,7 @@ const LABELS: Record<string, MessageKey> = {
   PUBLIC_URL: 'serverSettings.PUBLIC_URL',
   REGISTRATION: 'serverSettings.REGISTRATION',
   LOCAL_LOGIN: 'serverSettings.LOCAL_LOGIN',
+  PASSKEYS: 'serverSettings.PASSKEYS',
   OIDC_PROVIDERS: 'serverSettings.OIDC_PROVIDERS',
   BACKUP_SCHEDULE: 'serverSettings.SNAPSHOT_SCHEDULE',
   SNAPSHOT_KEEP: 'serverSettings.SNAPSHOT_KEEP',
