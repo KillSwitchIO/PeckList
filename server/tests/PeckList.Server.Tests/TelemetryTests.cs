@@ -36,7 +36,7 @@ public sealed class TelemetryTests(ServerFixture fixture) : IClassFixture<Server
 
     private static async Task<HttpClient> LogIn(WebApplicationFactory<Program> server)
     {
-        var client = server.CreateClient();
+        var client = server.Browser();
         (await client.PostAsJsonAsync("/auth/login", new { username = "admin", password = AdminPassword }, Token)).EnsureSuccessStatusCode();
         return client;
     }

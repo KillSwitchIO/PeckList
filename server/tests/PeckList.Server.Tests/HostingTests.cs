@@ -174,3 +174,13 @@ public sealed class HostingTests : IClassFixture<ServerFixture>, IDisposable
         Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
     }
 }
+
+public static class TestClients
+{
+    /// <summary>
+    /// A client on https://localhost, as a browser on a server whose <c>PUBLIC_URL</c> is https:
+    /// there the session cookie is always Secure (audit S8), and a plain-http client would drop it.
+    /// </summary>
+    public static HttpClient Browser(this WebApplicationFactory<Program> server, bool allowAutoRedirect = true) =>
+        server.CreateClient(new WebApplicationFactoryClientOptions { BaseAddress = new Uri("https://localhost"), AllowAutoRedirect = allowAutoRedirect });
+}

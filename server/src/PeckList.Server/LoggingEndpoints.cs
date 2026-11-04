@@ -27,7 +27,7 @@ public static class LoggingEndpoints
             HealthCheckService health, Snapshots snapshots, TimeProvider time) =>
         {
             var cancellation = context.RequestAborted;
-            var layers = loaded.Layers.WithPage(await SettingsLoader.ReadPageAsync(secrets, cancellation));
+            var layers = loaded.Layers.WithPage(await SettingsLoader.ReadPageAsync(secrets, loaded.Layers.Cipher, cancellation));
             var dump = new DebugDump(layers, loaded.Settings, database, loaded.InContainer, time)
             {
                 Pipeline = pipeline,

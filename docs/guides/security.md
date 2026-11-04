@@ -4,8 +4,10 @@
 
 - **Passwords** are hashed (ASP.NET Core Identity's PBKDF2). Five wrong attempts lock an account for
   15 minutes; each address gets ten attempts a minute.
-- **Sessions** are HttpOnly, SameSite cookies, signed with keys kept in the database. Changing a
-  password, turning an account off or deleting it ends its sessions at once.
+- **Sessions** are HttpOnly, SameSite cookies, signed with keys kept in the database, and always
+  `Secure` when `PUBLIC_URL` is https. A session ends after 30 days unused, and 90 days after its
+  sign-in however often it is used. Changing a password, turning an account off or deleting it ends
+  its sessions at once.
 - **Single sign-on** always uses PKCE, checks required groups at every sign-in, and never takes over
   an existing account by username alone. With `LOCAL_LOGIN=disabled` no password works at all.
 - **Sign-in settings** (`OIDC_*`, `LOCAL_LOGIN`, `REGISTRATION`, `TRUSTED_PROXIES`, `PUBLIC_URL`) and
@@ -86,10 +88,13 @@ Not needed for PeckList to work, but each one closes a real gap for little effor
 - [ ] **Backups are as sensitive as the server.** Snapshots and exports hold every password hash
       and the keys that sign sessions: anyone with a copy could sign in as anyone. Keep them as
       private as the database, and encrypt off-site copies.
-- [ ] **Secrets in the environment or in files, not on the settings page, when backups leave the
-      machine.** Secrets saved on the settings page are encrypted with a key kept in the same
-      database, so a backup holds both. An OIDC client secret given as `NAME_FILE` or as an
-      [encrypted value](../configuration/index.md#encrypted-values) is not in the database at all.
+- [ ] **[`CONFIG_KEY`](../configuration/reference.md#config_key) set, and kept outside the
+      database.** With it, the keys that sign sessions and the key that encrypts settings-page
+      secrets are kept locked with it, so a copy of the database or a backup alone can neither
+      forge a session nor read those secrets. Without it, both keys sit in the same database (and
+      the same backup) as what they protect. Keys stored before are locked the first time the
+      server starts with it. Keep `CONFIG_KEY` with your other secrets: without it the server
+      starts, but people sign in again and settings-page secrets stay locked until it is back.
 
 ## Optional
 

@@ -22,7 +22,7 @@ public sealed class PasskeyTests(ServerFixture fixture) : IClassFixture<ServerFi
         fixture.Factory([("ADMIN_PASSWORD", AdminPassword), ("PUBLIC_URL", Site), .. extra]);
 
     private static HttpClient Browser(WebApplicationFactory<Program> server) =>
-        server.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
+        server.Browser(allowAutoRedirect: false);
 
     private static async Task<HttpClient> LogIn(WebApplicationFactory<Program> server, string username, string password)
     {

@@ -38,7 +38,16 @@ public static class SettingsLoader
     {
         var layers = LayeredSettings.FromEnvironment(environment);
         var bootstrap = ServerSettings.Read(layers, inContainer);
-        var page = ReadPage(bootstrap);
+        Dictionary<string, string> page;
+        try
+        {
+            page = ReadPage(bootstrap, layers.Cipher);
+        }
+        catch (SettingsException error)
+        {
+            // The settings key needs CONFIG_KEY (or another one): start without the page values.
+            return new LoadedSettings(bootstrap, layers, inContainer, new Dictionary<string, string>(), error.Message);
+        }
         if (page.Count == 0) return new LoadedSettings(bootstrap, layers, inContainer, page, null);
         var withPage = layers.WithPage(page);
         try
@@ -52,7 +61,7 @@ public static class SettingsLoader
     }
 
     /// <summary>The page's saved values (secrets opened), or none when the database is not there yet.</summary>
-    public static Dictionary<string, string> ReadPage(ServerSettings settings)
+    public static Dictionary<string, string> ReadPage(ServerSettings settings, ConfigCipher? configKey = null)
     {
         // Never create a SQLite file just to look: a first start makes it with its migrations.
         if (settings.DbProvider == DbProvider.Sqlite && !File.Exists(settings.DbPath)) return [];
@@ -61,7 +70,7 @@ public static class SettingsLoader
             : new SqliteDatabase(settings.DbPath);
         try
         {
-            return ReadPageAsync(new SqlSecretStore(database)).GetAwaiter().GetResult();
+            return ReadPageAsync(new SqlSecretStore(database), configKey).GetAwaiter().GetResult();
         }
         catch (Exception error) when (error is DbException or InvalidOperationException or IOException)
         {
@@ -69,7 +78,8 @@ public static class SettingsLoader
         }
     }
 
-    public static async Task<Dictionary<string, string>> ReadPageAsync(ISecretStore secrets, CancellationToken cancellation = default)
+    public static async Task<Dictionary<string, string>> ReadPageAsync(
+        ISecretStore secrets, ConfigCipher? configKey, CancellationToken cancellation = default)
     {
         var rows = await secrets.ListAsync(PageKind, cancellation);
         if (rows.Count == 0) return [];
@@ -80,7 +90,7 @@ public static class SettingsLoader
             if (value.Length == 0) continue;
             if (value.StartsWith(PageSecret, StringComparison.Ordinal))
             {
-                cipher ??= await PageCipherAsync(secrets, cancellation);
+                cipher ??= await PageCipherAsync(secrets, configKey, cancellation);
                 page[name] = cipher.Decrypt(value[PageSecret.Length..], name);
             }
             else
@@ -93,7 +103,8 @@ public static class SettingsLoader
 
     /// <summary>Save page values: a value per key, empty to clear it; secrets are encrypted.</summary>
     public static async Task SavePageAsync(
-        ISecretStore secrets, IReadOnlyDictionary<string, string?> changes, Func<string, bool> isSecret, CancellationToken cancellation = default)
+        ISecretStore secrets, IReadOnlyDictionary<string, string?> changes, Func<string, bool> isSecret, ConfigCipher? configKey,
+        CancellationToken cancellation = default)
     {
         ConfigCipher? cipher = null;
         foreach (var (key, value) in changes)
@@ -101,19 +112,38 @@ public static class SettingsLoader
             var stored = value ?? "";
             if (stored.Length > 0 && isSecret(key) && !ConfigCipher.IsEncrypted(stored))
             {
-                cipher ??= await PageCipherAsync(secrets, cancellation);
+                cipher ??= await PageCipherAsync(secrets, configKey, cancellation);
                 stored = PageSecret + cipher.Encrypt(stored);
             }
             await secrets.PutAsync(PageKind, key, stored, cancellation);
         }
     }
 
-    private static async Task<ConfigCipher> PageCipherAsync(ISecretStore secrets, CancellationToken cancellation)
+    /// <summary>
+    /// The key page secrets are encrypted with. It sits in the same table (and the same backup) as
+    /// they do, so with <c>CONFIG_KEY</c> set it is kept wrapped with that (audit S8): a copy of the
+    /// database alone then opens nothing. A key stored plain is wrapped once <c>CONFIG_KEY</c> is set.
+    /// </summary>
+    /// <exception cref="SettingsException">The key is wrapped and <c>CONFIG_KEY</c> is not set, or is another.</exception>
+    private static async Task<ConfigCipher> PageCipherAsync(ISecretStore secrets, ConfigCipher? configKey, CancellationToken cancellation)
     {
+        const string Name = "the settings key";
         var existing = (await secrets.ListAsync(KeyKind, cancellation)).FirstOrDefault().Value;
-        if (existing is not null) return ConfigCipher.FromText(existing, "the settings key");
+        if (existing is not null)
+        {
+            if (ConfigCipher.IsEncrypted(existing))
+            {
+                if (configKey is null)
+                {
+                    throw new SettingsException("the settings page's secrets are locked with CONFIG_KEY, which is not set");
+                }
+                return ConfigCipher.FromText(configKey.Decrypt(existing, Name), Name);
+            }
+            if (configKey is not null) await secrets.PutAsync(KeyKind, "v1", configKey.Encrypt(existing), cancellation);
+            return ConfigCipher.FromText(existing, Name);
+        }
         var key = ConfigCipher.NewKeyText();
-        await secrets.PutAsync(KeyKind, "v1", key, cancellation);
-        return ConfigCipher.FromText(key, "the settings key");
+        await secrets.PutAsync(KeyKind, "v1", configKey is null ? key : configKey.Encrypt(key), cancellation);
+        return ConfigCipher.FromText(key, Name);
     }
 }
