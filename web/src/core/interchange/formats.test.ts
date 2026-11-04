@@ -15,7 +15,7 @@ import type { ImportPlan } from './model.ts';
 import { exportOutlook, parseOutlook } from './outlook.ts';
 import { exportThings, THINGS_BATCH, thingsUrl } from './things.ts';
 import { exportTodoist, parseTodoist, projectName } from './todoist.ts';
-import { isZip, readZip, streamOf, writeZip } from './zip.ts';
+import { isZip, readZip, streamOf, writeZip, ZIP_LIMITS } from './zip.ts';
 
 const ZONE = 'America/Chicago';
 // A Sunday, so "every monday" is the next day.
@@ -397,6 +397,37 @@ describe('zip archives', () => {
     view.setUint16(central + 10, 8, true);
     const [entry] = await readZip(stored);
     expect(new TextDecoder().decode(entry!.bytes)).toBe(text);
+  });
+
+  it('refuses an archive that lies about its offsets, has too many files or inflates too far (audit W4)', async () => {
+    const good = writeZip([{ name: 'a.txt', text: 'hello' }]);
+    // The central directory pointing past the end.
+    const pastEnd = good.slice();
+    new DataView(pastEnd.buffer).setUint32(pastEnd.length - 22 + 16, pastEnd.length + 100, true);
+    await expect(readZip(pastEnd)).rejects.toThrow('damaged zip archive');
+    // An entry whose local header is past the end.
+    const badLocal = good.slice();
+    const central = 30 + 5 + 5;
+    new DataView(badLocal.buffer).setUint32(central + 42, 1_000_000, true);
+    await expect(readZip(badLocal)).rejects.toThrow('damaged zip archive');
+
+    const three = writeZip(['a', 'b', 'c'].map((name) => ({ name: `${name}.txt`, text: name })));
+    await expect(readZip(three, { ...ZIP_LIMITS, entries: 2 })).rejects.toThrow('too many files');
+
+    // A small deflated entry that expands past the cap, whatever the header says.
+    const zeros = new Uint8Array(100_000);
+    const deflated = new Uint8Array(
+      await new Response(
+        streamOf(zeros).pipeThrough(new CompressionStream('deflate-raw')),
+      ).arrayBuffer(),
+    );
+    const bomb = writeZip([{ name: 'z.bin', text: 'x'.repeat(deflated.length) }]);
+    const view = new DataView(bomb.buffer);
+    bomb.set(deflated, 30 + 5);
+    view.setUint16(8, 8, true);
+    view.setUint16(30 + 5 + deflated.length + 10, 8, true);
+    await expect(readZip(bomb, { ...ZIP_LIMITS, entryBytes: 10_000 })).rejects.toThrow('too large');
+    expect((await readZip(bomb))[0]!.bytes.length).toBe(100_000);
   });
 });
 
