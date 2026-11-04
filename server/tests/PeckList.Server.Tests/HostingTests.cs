@@ -2,7 +2,10 @@ using System.Net;
 using System.Net.Http.Json;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.AspNetCore.TestHost;
+using Microsoft.Extensions.DependencyInjection;
 using PeckList.Core;
+using PeckList.Core.Telemetry;
 
 namespace PeckList.Server.Tests;
 
@@ -31,7 +34,21 @@ public sealed class ServerFixture : IDisposable
             // Nor sends usage reports; the telemetry tests turn it on with a fake sender.
             host.UseSetting("TELEMETRY", "off");
             foreach (var (key, value) in settings) host.UseSetting(key, value);
+            // And a test that turns them on never reaches the project's collector: these senders
+            // drop everything unless the test puts in its own (registered later, so it wins).
+            host.ConfigureTestServices(services =>
+            {
+                services.AddSingleton<ITelemetrySender, NoSender>();
+                services.AddSingleton<ICrashSender, NoSender>();
+            });
         });
+
+    private sealed class NoSender : ITelemetrySender, ICrashSender
+    {
+        public Task SendAsync(Uri url, TelemetryPing ping, CancellationToken cancellation) => Task.CompletedTask;
+
+        public Task SendAsync(Uri url, CrashReport report, CancellationToken cancellation) => Task.CompletedTask;
+    }
 
     /// <summary>A fresh SQLite file for one server.</summary>
     public string NewDbPath() => Path.Combine(WebRoot, "data", $"{Guid.NewGuid():N}.db");
