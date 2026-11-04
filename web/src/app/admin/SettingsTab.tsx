@@ -1,6 +1,6 @@
 import { Alert, Box, Button, MenuItem, Switch, TextField, Typography } from '@mui/material';
 import { useState } from 'react';
-import type { AdminApi, ServerSetting, ServerSettingsView } from '../../ports/admin.ts';
+import type { AdminApi, MailPreset, ServerSetting, ServerSettingsView } from '../../ports/admin.ts';
 import type { MessageKey } from '../i18n/en.ts';
 import { t } from '../i18n/i18n.ts';
 import { ProblemAlert } from '../layout/ProblemAlert.tsx';
@@ -131,14 +131,23 @@ function sourceText(setting: ServerSetting): string {
     : setting.key;
 }
 
+/** The mail provider picked (typed or saved), when it is a preset rather than "custom". */
+function mailPreset(view: ServerSettingsView, edits: Record<string, string>): MailPreset | null {
+  const setting = view.settings.find((each) => each.key === 'SMTP_PROVIDER');
+  const name = (edits.SMTP_PROVIDER ?? setting?.value ?? setting?.default ?? '').toLowerCase();
+  return view.mailProviders?.find((each) => each.name === name) ?? null;
+}
+
 function SettingControl({
   setting,
   value,
   onChange,
+  choiceLabel = (choice: string) => choice,
 }: {
   setting: ServerSetting;
   value: string;
   onChange: (value: string) => void;
+  choiceLabel?: ((choice: string) => string) | undefined;
 }) {
   const label = labelOf(setting);
   if (setting.kind === 'flag') {
@@ -164,7 +173,7 @@ function SettingControl({
       >
         {(setting.choices ?? []).map((choice) => (
           <MenuItem key={choice} value={choice}>
-            {choice}
+            {choiceLabel(choice)}
           </MenuItem>
         ))}
       </TextField>
@@ -214,6 +223,38 @@ export function SettingsTab({ api }: { api: AdminApi }) {
   const [restarting, setRestarting] = useState(false);
 
   if (!view) return null;
+  // Picking a mail provider fills in its server: those fields show its values, greyed out (an
+  // environment or config file value still wins, and shows as it does anywhere else).
+  const preset = mailPreset(view, edits);
+  const presetValue = (setting: ServerSetting) =>
+    setting.locked ? undefined : preset?.sets[setting.key];
+  const providerName = (choice: string) =>
+    choice === 'custom'
+      ? t('serverSettings.SMTP_PROVIDER.custom')
+      : (view.mailProviders?.find((each) => each.name === choice)?.displayName ?? choice);
+  const change = (setting: ServerSetting, value: string) => {
+    if (setting.key !== 'SMTP_PROVIDER') {
+      setEdits({ ...edits, [setting.key]: value });
+      return;
+    }
+    const picked = view.mailProviders?.find((each) => each.name === value);
+    // The provider decides its fields now: what was typed there goes.
+    const next: Record<string, string> = Object.fromEntries(
+      Object.entries(edits).filter(([key]) => !picked || !(key in picked.sets)),
+    );
+    next.SMTP_PROVIDER = value;
+    for (const each of view.settings) {
+      if (each.locked) continue;
+      if (picked && each.key in picked.sets) {
+        // A value saved here would win over the provider's, so it goes too.
+        if (each.source === 'page') next[each.key] = '';
+      } else if (!picked && preset && each.key in preset.sets && !(each.key in edits)) {
+        // To "Other": start from what the provider used.
+        if (each.source !== 'page') next[each.key] = preset.sets[each.key]!;
+      }
+    }
+    setEdits(next);
+  };
   // A locked field shows the value in force (greyed out); an editable one what is saved here.
   const shown = (setting: ServerSetting) => {
     const typed = edits[setting.key];
@@ -274,36 +315,52 @@ export function SettingsTab({ api }: { api: AdminApi }) {
           </Typography>
           {view.settings
             .filter((setting) => setting.group === group)
-            .map((setting) => (
-              <Box
-                key={setting.key}
-                sx={{
-                  display: 'flex',
-                  flexWrap: { xs: 'wrap', sm: 'nowrap' },
-                  alignItems: 'center',
-                  gap: { xs: 1, sm: 2 },
-                  px: 1,
-                  py: 1,
-                  opacity: setting.locked ? 0.7 : 1,
-                }}
-              >
-                <Box sx={{ flexGrow: 1, minWidth: 0 }}>
-                  <Typography>{labelOf(setting)}</Typography>
-                  <Typography variant="caption" color="text.secondary" component="div">
-                    {sourceText(setting)}
-                    {setting.locked && setting.saved && ` · ${t('serverSettings.overrides')}`}
-                    {setting.superAdminOnly &&
-                      !superAdmin &&
-                      ` · ${t('serverSettings.superAdminOnly')}`}
-                  </Typography>
+            .map((setting) => {
+              const fixed = presetValue(setting);
+              const suggested = preset?.suggests[setting.key];
+              const control =
+                fixed !== undefined
+                  ? { ...setting, locked: true }
+                  : suggested !== undefined
+                    ? { ...setting, default: suggested }
+                    : setting;
+              return (
+                <Box
+                  key={setting.key}
+                  sx={{
+                    display: 'flex',
+                    flexWrap: { xs: 'wrap', sm: 'nowrap' },
+                    alignItems: 'center',
+                    gap: { xs: 1, sm: 2 },
+                    px: 1,
+                    py: 1,
+                    opacity: control.locked ? 0.7 : 1,
+                  }}
+                >
+                  <Box sx={{ flexGrow: 1, minWidth: 0 }}>
+                    <Typography>{labelOf(setting)}</Typography>
+                    <Typography variant="caption" color="text.secondary" component="div">
+                      {fixed !== undefined && preset
+                        ? t('serverSettings.from.provider', {
+                            key: setting.key,
+                            provider: preset.displayName,
+                          })
+                        : sourceText(control)}
+                      {setting.locked && setting.saved && ` · ${t('serverSettings.overrides')}`}
+                      {setting.superAdminOnly &&
+                        !superAdmin &&
+                        ` · ${t('serverSettings.superAdminOnly')}`}
+                    </Typography>
+                  </Box>
+                  <SettingControl
+                    setting={control}
+                    value={fixed ?? shown(setting)}
+                    onChange={(value) => change(setting, value)}
+                    choiceLabel={setting.key === 'SMTP_PROVIDER' ? providerName : undefined}
+                  />
                 </Box>
-                <SettingControl
-                  setting={setting}
-                  value={shown(setting)}
-                  onChange={(value) => setEdits({ ...edits, [setting.key]: value })}
-                />
-              </Box>
-            ))}
+              );
+            })}
           {group === 'email' && <MailTestPanel api={api} />}
           {group === 'telemetry' && (
             <TelemetryPanel view={telemetry.data} api={api} onChange={telemetry.reload} />

@@ -34,6 +34,16 @@ admin).
 from the proxy. Set `PUBLIC_URL` to the `https://` address, and make sure the proxy sends
 `X-Forwarded-Proto` and is in `TRUSTED_PROXIES`.
 
+**No "Forgot your password?" link.** It shows only once the server can send email and knows its
+address: set up [email](email.md) and [`PUBLIC_URL`](../configuration/reference.md#public_url).
+Each person also needs a confirmed email (**Settings > Email**); without one, an admin sends them
+a sign-in link instead.
+
+**No "Sign in with a passkey", or no Passkeys in Settings.** Browsers use passkeys only on HTTPS
+(or `localhost`): open PeckList at its `https://` address, and set `PUBLIC_URL` to it. Check that
+[`PASSKEYS`](../configuration/reference.md#passkeys) is not `off`, and that local accounts are on
+(`AUTH_MODE: local`).
+
 **Single sign-on problems**: see [single sign-on](single-sign-on.md#troubleshooting).
 
 ## The app

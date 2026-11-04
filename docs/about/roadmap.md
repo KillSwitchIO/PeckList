@@ -19,12 +19,14 @@ What the current release does, built up over the 0.x versions:
 - **Sharing**: friends, groups, shared lists with roles, assignment to people and groups, dibs.
 - **Server**: one container or a native program on Linux and Windows, SQLite or PostgreSQL,
   settings from the environment, a file or the admin page, with encrypted secrets.
-- **Accounts and sign-in**: local accounts, single sign-on with any OpenID Connect provider (group
-  checks, role and group mapping, account linking, moving between providers), roles and server
-  groups, account management and view-as for support, a first-start setup.
+- **Accounts and sign-in**: local accounts, passkeys, single sign-on with any OpenID Connect
+  provider (group checks, role and group mapping, account linking, moving between providers),
+  roles and server groups, account management and view-as for support, a first-start setup.
+- **Email**: password resets, reset links from an admin and emailed invites, through Gmail, other
+  common providers and sending services, or your own mail server ([email](../guides/email.md)).
 - **Operations**: scheduled backups with whole-server and per-person restore, logs and log
-  shipping, an access and event log, usage stats, an update notice, and an anonymous usage report
-  you can turn off ([privacy](../using/privacy.md)).
+  shipping, an access and event log, usage stats, an update notice, an anonymous usage report you
+  can turn off, and crash reports sent only when you say so ([privacy](../using/privacy.md)).
 - **Moving in and out**: imports from TickTick, Todoist, Google Tasks, Microsoft To Do and
   iCalendar, and exports for most of them.
 - **Android app**: reminders with the app closed, sign-in through the browser, signed releases.

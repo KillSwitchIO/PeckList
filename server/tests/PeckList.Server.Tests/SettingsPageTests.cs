@@ -40,6 +40,22 @@ public sealed class SettingsPageTests(ServerFixture fixture) : IClassFixture<Ser
     }
 
     [Fact]
+    public async Task Lists_what_each_mail_provider_fills_in_for_the_page_to_show()
+    {
+        using var server = Server(fixture.NewDbPath());
+        var view = (await (await Admin(server)).GetFromJsonAsync<SettingsView>("/api/admin/settings", Token))!;
+        var gmail = view.MailProviders!.Single(each => each.Name == "gmail");
+        Assert.Equal(("Gmail", "smtp.gmail.com", "587", "starttls"),
+            (gmail.DisplayName, gmail.Sets["SMTP_HOST"], gmail.Sets["SMTP_PORT"], gmail.Sets["SMTP_TLS"]));
+        Assert.False(gmail.Sets.ContainsKey("SMTP_USER"));
+        Assert.Equal("apikey", view.MailProviders!.Single(each => each.Name == "sendgrid").Sets["SMTP_USER"]);
+        // Amazon SES's host depends on the region: suggested, left to the admin.
+        var ses = view.MailProviders!.Single(each => each.Name == "amazon-ses");
+        Assert.False(ses.Sets.ContainsKey("SMTP_HOST"));
+        Assert.Equal("email-smtp.us-east-1.amazonaws.com", ses.Suggests["SMTP_HOST"]);
+    }
+
+    [Fact]
     public async Task Saves_page_values_checked_like_the_environments_and_applies_them_after_a_restart()
     {
         var db = fixture.NewDbPath();

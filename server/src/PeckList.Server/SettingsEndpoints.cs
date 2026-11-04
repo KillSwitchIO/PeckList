@@ -21,7 +21,21 @@ public sealed record SettingView(
     bool Live,
     bool SuperAdminOnly = false);
 
-public sealed record SettingsView(IReadOnlyList<SettingView> Settings, bool PendingRestart, string? Problem);
+public sealed record SettingsView(
+    IReadOnlyList<SettingView> Settings, bool PendingRestart, string? Problem, IReadOnlyList<MailPresetView>? MailProviders = null);
+
+/// <summary>
+/// A mail provider the admin can pick (<c>SMTP_PROVIDER</c>): the settings it fills in, which the
+/// page shows greyed out with these values, and what it only suggests (Amazon SES's regional host).
+/// </summary>
+public sealed record MailPresetView(string Name, string DisplayName, IReadOnlyDictionary<string, string> Sets, IReadOnlyDictionary<string, string> Suggests)
+{
+    public static IReadOnlyList<MailPresetView> All { get; } =
+    [
+        .. MailProviders.All.Select(each => new MailPresetView(each.Name, each.DisplayName, each.Sets,
+            each.HostVaries ? new Dictionary<string, string> { ["SMTP_HOST"] = each.Host } : new Dictionary<string, string>())),
+    ];
+}
 
 public sealed record SettingsChange(Dictionary<string, string?>? Values);
 
@@ -167,6 +181,6 @@ public static class SettingsEndpoints
         bool Live(string key) => SettingsCatalog.Find(layers, key)?.Live == true;
         var pending = saved.Keys.Union(loaded.PageAtStart.Keys).Where(key => !Live(key)).Any(key =>
             saved.TryGetValue(key, out var now) != loaded.PageAtStart.TryGetValue(key, out var before) || now != before);
-        return new SettingsView(list, pending, loaded.PageProblem);
+        return new SettingsView(list, pending, loaded.PageProblem, MailPresetView.All);
     }
 }

@@ -252,6 +252,25 @@ public sealed class ServerSettingsTests
             Assert.Throws<SettingsException>(() => Read(new() { ["SMTP_PROVIDER"] = "hotmail" })).Message);
     }
 
+    [Fact]
+    public void What_the_settings_page_shows_a_provider_filling_in_is_what_the_server_uses()
+    {
+        foreach (var provider in MailProviders.All)
+        {
+            var mail = Read(new() { ["SMTP_PROVIDER"] = provider.Name, ["SMTP_FROM"] = "tasks@example.com" }).Mail!;
+            var used = new Dictionary<string, string>
+            {
+                ["SMTP_HOST"] = mail.Host,
+                ["SMTP_PORT"] = mail.Port.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                ["SMTP_TLS"] = mail.Tls.ToString().ToLowerInvariant(),
+            };
+            if (mail.User is not null) used["SMTP_USER"] = mail.User;
+            Assert.All(provider.Sets, pair => Assert.Equal(pair.Value, used[pair.Key]));
+            // Only a host that varies by region is left to the admin.
+            Assert.Equal(provider.HostVaries, !provider.Sets.ContainsKey("SMTP_HOST"));
+        }
+    }
+
     [Theory]
     [InlineData("SMTP_FROM", "", "SMTP_FROM is required")]
     [InlineData("SMTP_FROM", "tasks", "is not an email address")]

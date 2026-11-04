@@ -164,6 +164,18 @@ export interface ServerSettingsView {
   pendingRestart: boolean;
   /** Why the saved values were set aside at the last start, if they were. */
   problem: string | null;
+  /** The mail providers SMTP_PROVIDER can pick, and what each fills in. */
+  mailProviders?: MailPreset[];
+}
+
+/** A mail provider preset: the settings it fills in, and those it only suggests. */
+export interface MailPreset {
+  name: string;
+  displayName: string;
+  /** Setting key to the value picking this provider gives it (shown greyed out). */
+  sets: Record<string, string>;
+  /** Setting key to a suggested value the admin may change (Amazon SES's regional host). */
+  suggests: Record<string, string>;
 }
 
 /** One place the server's logs go, and how it is keeping up (spec: Logging). */
