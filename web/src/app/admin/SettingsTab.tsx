@@ -276,6 +276,21 @@ export function SettingsTab({ api }: { api: AdminApi }) {
     setSaved(result.value);
     setEdits({});
   };
+  // Email settings typed but not saved: the test email saves them first (they apply at once).
+  const emailKeys = view.settings.filter((each) => each.group === 'email').map((each) => each.key);
+  const unsavedEmail = Object.keys(edits).filter((key) => emailKeys.includes(key));
+  const saveEmail = async (): Promise<string | null> => {
+    const result = await api.saveSettings(
+      Object.fromEntries(unsavedEmail.map((key) => [key, edits[key]!])),
+    );
+    if (!result.ok) return result.message;
+    setSaved(result.value);
+    setEdits(
+      Object.fromEntries(Object.entries(edits).filter(([key]) => !unsavedEmail.includes(key))),
+    );
+    return null;
+  };
+  const dirty = Object.keys(edits).length > 0;
 
   return (
     <Box
@@ -361,24 +376,38 @@ export function SettingsTab({ api }: { api: AdminApi }) {
                 </Box>
               );
             })}
-          {group === 'email' && <MailTestPanel api={api} />}
+          {group === 'email' && (
+            <MailTestPanel api={api} saveFirst={unsavedEmail.length > 0 ? saveEmail : undefined} />
+          )}
           {group === 'telemetry' && (
             <TelemetryPanel view={telemetry.data} api={api} onChange={telemetry.reload} />
           )}
         </Box>
       ))}
       <ProblemAlert problem={problem} />
-      <Box sx={{ display: 'flex', gap: 1 }}>
-        <Button
-          variant="contained"
-          disableElevation
-          disabled={Object.keys(edits).length === 0}
-          onClick={() => void save()}
-        >
+      {/* Kept in sight while something is unsaved: the page is long, and a change made at the top
+          is easy to leave unsaved. */}
+      <Box
+        sx={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 1,
+          ...(dirty && {
+            position: 'sticky',
+            bottom: 0,
+            zIndex: 1,
+            py: 1.5,
+            bgcolor: 'background.default',
+            borderTop: 1,
+            borderColor: 'divider',
+          }),
+        }}
+      >
+        <Button variant="contained" disableElevation disabled={!dirty} onClick={() => void save()}>
           {t('admin.save')}
         </Button>
         <Button
-          disabled={Object.keys(edits).length === 0}
+          disabled={!dirty}
           onClick={() => {
             setEdits({});
             setProblem(null);
