@@ -456,7 +456,7 @@ public class ShellPlugin extends Plugin {
     @PluginMethod
     public void scheduleReminders(PluginCall call) {
         try {
-            Reminders.handOver(getContext(), Reminders.parse(call.getArray("reminders", new com.getcapacitor.JSArray())));
+            Reminders.handOver(getContext(), Reminders.parse(call.getArray("reminders", new com.getcapacitor.JSArray())), false);
             call.resolve();
         } catch (JSONException error) {
             call.reject("bad reminders: " + error.getMessage(), "invalid");

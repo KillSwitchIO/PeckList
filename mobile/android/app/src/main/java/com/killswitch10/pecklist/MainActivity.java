@@ -53,8 +53,9 @@ public class MainActivity extends BridgeActivity {
             bridge.getWebView().setOverScrollMode(View.OVER_SCROLL_NEVER);
         }
         keepClearOfSystemBars();
-        // Force-stopping the app clears its alarms; opening it again sets the check-in again.
-        BackgroundCheck.schedule(this);
+        // Force-stopping the app clears its alarms; opening it again sets the check-in again, and
+        // one stopped after a sign-out (or slowed by failures) starts afresh.
+        BackgroundCheck.resume(this);
         getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {
             @Override
             public void handleOnBackPressed() {

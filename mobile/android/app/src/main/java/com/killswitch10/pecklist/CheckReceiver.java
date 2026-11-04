@@ -27,6 +27,9 @@ public class CheckReceiver extends BroadcastReceiver {
             } catch (Exception error) {
                 Logger.warn("PeckList: background check failed: " + error);
             } finally {
+                // Again, now that this one's outcome is known: stopped after a sign-out, or later
+                // after a failure (audit E1).
+                BackgroundCheck.schedule(app);
                 pending.finish();
             }
         }, "pecklist-check").start();

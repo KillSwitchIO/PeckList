@@ -79,6 +79,7 @@ describe('the Android app with its own reminders', () => {
           url: '/today?task=T1',
           constant: true,
           repeats: false,
+          local: false,
         },
       ],
     ]);
