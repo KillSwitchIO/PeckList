@@ -142,6 +142,9 @@ public static class AuthEndpoints
             AuthSetup.ForgetStamp(cache, account!.Id);
             return await SignedInAsync(context, account, mode);
         }).RequireAuthorization().RequireRateLimiting(AuthSetup.LoginRateLimit).Audited("auth.password-changed", targetRoute: null);
+
+        // Forgot password, reset links and email confirmation (PL-122).
+        auth.MapEmailAuth();
     }
 
     /// <summary>A lasting password session for the account, and who they are now.</summary>

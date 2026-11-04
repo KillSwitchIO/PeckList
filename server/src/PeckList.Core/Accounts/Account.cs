@@ -38,6 +38,18 @@ public sealed record Account
 
     /// <summary>The code in this account's friend link (<c>/f/7QM4K2XP</c>); null until first asked for.</summary>
     public string? FriendCode { get; init; }
+
+    /// <summary>The person's email, lowercase; null when none (PL-122).</summary>
+    public string? Email { get; init; }
+
+    /// <summary>
+    /// When <see cref="Email"/> was confirmed: a link in it opened, or an identity provider that
+    /// vouches for it. Null until then; reset links only ever go to a confirmed email.
+    /// </summary>
+    public DateTimeOffset? EmailVerifiedAt { get; init; }
+
+    /// <summary>The email, when it is confirmed.</summary>
+    public string? VerifiedEmail => EmailVerifiedAt is null ? null : Email;
 }
 
 /// <summary>Logins (never synced). Every adapter passes the same contract suite.</summary>
@@ -54,6 +66,13 @@ public interface IAccountStore
     Task<Account?> FindByUsernameAsync(string username, CancellationToken cancellation = default);
 
     Task<Account?> FindByFriendCodeAsync(string code, CancellationToken cancellation = default);
+
+    /// <summary>Accounts with this email, confirmed or not (case-insensitive); oldest first.</summary>
+    async Task<IReadOnlyList<Account>> FindByEmailAsync(string email, CancellationToken cancellation = default)
+    {
+        var wanted = email.Trim().ToLowerInvariant();
+        return (await ListAsync(cancellation)).Where(account => account.Email == wanted).ToList();
+    }
 
     /// <exception cref="DuplicateUsernameException">The username is taken.</exception>
     Task CreateAsync(Account account, CancellationToken cancellation = default);

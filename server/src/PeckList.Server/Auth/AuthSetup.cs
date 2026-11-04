@@ -45,6 +45,7 @@ public static class AuthSetup
         services.AddSingleton<SignUpThrottle>();
         services.AddSingleton<ExternalSignIn>();
         services.AddSingleton<LoginLinks>();
+        services.AddSingleton<AccountEmails>();
         services.AddSingleton<ProviderIcons>();
         services.AddSingleton<SignupInvites>();
         services.AddSingleton<SelfSignUp>();

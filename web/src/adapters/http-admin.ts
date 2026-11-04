@@ -42,6 +42,9 @@ const REFUSALS: Record<string, AdminRefusal> = {
   taken: 'linked-elsewhere',
   registration_closed: 'registration-closed',
   set_by_settings: 'set-by-settings',
+  no_confirmed_email: 'no-email',
+  mail_not_set_up: 'mail-off',
+  invalid_email: 'invalid-email',
 };
 
 /** The query string for an audit query: only the filters that are set. */
@@ -161,11 +164,29 @@ export function createHttpAdmin(
         await call(`/users/${segment(id)}/login-link`, 'POST'),
         async (response) => (await response.json()) as { url: string; expires: string },
       ),
+    sendResetLink: async (id) => {
+      const response = await call(`/users/${segment(id)}/reset-link`, 'POST');
+      // The mail server said no: what it said is on Settings > Email's test.
+      if (response.status === 502) return { ok: false, reason: 'mail-failed' };
+      return result(response, none);
+    },
     invites: async () => json<InviteList>(await call('/invites')),
-    createInvite: async ({ days, uses, note }) =>
+    createInvite: async ({ days, uses, note, sendTo }) =>
       result(
-        await call('/invites', 'POST', { days, uses, anyNumber: uses === null, note }),
-        async (response) => (await response.json()) as { url: string; invite: AdminInvite },
+        await call('/invites', 'POST', {
+          days,
+          uses,
+          anyNumber: uses === null,
+          note,
+          sendTo: sendTo ?? null,
+        }),
+        async (response) =>
+          (await response.json()) as {
+            url: string;
+            invite: AdminInvite;
+            sent?: boolean | null;
+            mailProblem?: string | null;
+          },
       ),
     revokeInvite: async (id) => accept(await call(`/invites/${segment(id)}`, 'DELETE'), 404),
     impersonate: async (id, reason) =>

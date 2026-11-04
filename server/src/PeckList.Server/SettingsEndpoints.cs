@@ -108,7 +108,7 @@ public static class SettingsEndpoints
         // to the address given; the mail server's own answer comes back in words when it fails.
         admin.MapPost("/mail/test", async (TestMailRequest request, IMailSender mail, LiveSettings live, CancellationToken cancellation) =>
         {
-            if (!mail.Configured) return Results.Conflict(new AdminError("mail_not_set_up", "Set SMTP_HOST and SMTP_FROM first."));
+            if (!mail.Configured) return Results.Conflict(new AdminError("mail_not_set_up", "Pick a provider or set SMTP_HOST, and SMTP_FROM, first."));
             if (string.IsNullOrWhiteSpace(request.To) || !request.To.Contains('@'))
             {
                 return Results.BadRequest(new AdminError("invalid_address", "Give an email address to send the test to."));

@@ -58,7 +58,8 @@ decides who may make their own account:
 | `closed`           | Nobody. Only admins add people, and invite links stop working until this changes.   |
 
 An **invite link** comes from **Admin > Users > Invite**: who it is for (a note only admins see),
-how long it lasts (1, 7 or 30 days) and how many people may use it (1, 5, 25 or any number). The
+an email to send it to as well (when the server sends [email](email.md)), how long it lasts (1, 7
+or 30 days) and how many people may use it (1, 5, 25 or any number). The
 link, `https://tasks.example.com/join/...`, is shown once with a Copy button; only a hash of it is
 kept, so make a new one if it is lost. Opening it shows **Create your account**: a username
 (lowercase letters, digits, dots, dashes and underscores) and a password of at least 12
@@ -82,6 +83,7 @@ From the **...** menu on a person in **Admin > Users**:
 | ----------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
 | **Reset password**                  | Shows a new password to hand over; they must change it at the next sign-in. Their other sessions end.              |
 | **Sign-in link**                    | A link that signs them in once, within 24 hours. For someone with no password and no working provider.             |
+| **Email a reset link**              | Emails a link to set a new password (30 minutes, once). Only for someone with a confirmed email, on a server that sends [email](email.md). |
 | **Turn off** / **Turn on**          | A turned-off account cannot sign in and its sessions end at once. Data stays.                                      |
 | **Make user / admin / super admin** | Change the role. Only super admins manage admins.                                                                  |
 | **Friends**                         | Make people friends with each other (so they can share), or end a friendship.                                      |

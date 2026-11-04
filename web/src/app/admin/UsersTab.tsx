@@ -396,6 +396,22 @@ export function UsersTab({ api }: { api: AdminApi }) {
             >
               {t('admin.users.signInLink')}
             </MenuItem>,
+            target.emailConfirmed && (
+              <MenuItem
+                key="reset-link"
+                onClick={() =>
+                  void act(async () => {
+                    const result = await api.sendResetLink(target.id);
+                    if (result.ok) {
+                      setNotice(t('admin.users.resetLinkSent', { email: target.email ?? '' }));
+                    }
+                    return result;
+                  })
+                }
+              >
+                {t('admin.users.sendResetLink')}
+              </MenuItem>
+            ),
             target.id !== me && (
               <MenuItem
                 key="off"
@@ -497,12 +513,17 @@ export function UsersTab({ api }: { api: AdminApi }) {
         open={inviting}
         registration={invites?.registration}
         onClose={() => setInviting(false)}
-        onCreated={(url, invite) => {
+        onCreated={(url, invite, mailed) => {
           reloadInvites();
+          const reach = t('admin.invites.linkHint', { reach: inviteReach(invite) });
           setSecret({
             title: t('admin.invites.linkTitle'),
             value: url,
-            hint: t('admin.invites.linkHint', { reach: inviteReach(invite) }),
+            hint: !mailed
+              ? reach
+              : mailed.sent
+                ? `${t('admin.invites.mailed', { email: mailed.to })} ${reach}`
+                : `${t('admin.invites.notMailed', { problem: mailed.problem ?? '' })} ${reach}`,
           });
         }}
       />

@@ -16,7 +16,8 @@ namespace PeckList.Server.Auth;
 public sealed record SignInProvider(string Name, string DisplayName, string Icon, string? Preset = null);
 
 /// <summary><paramref name="Registration"/>: who may make an account here (<c>open</c>, <c>invite</c>, <c>closed</c>).</summary>
-public sealed record SignInOptions(IReadOnlyList<SignInProvider> Providers, bool LocalLogin, string Registration = "closed");
+/// <summary>Ways to sign in; <paramref name="PasswordReset"/>: the sign-in page offers "Forgot your password?" (PL-122).</summary>
+public sealed record SignInOptions(IReadOnlyList<SignInProvider> Providers, bool LocalLogin, string Registration = "closed", bool PasswordReset = false);
 
 /// <summary>
 /// OIDC sign-in (spec: Accounts &amp; Admin, OIDC). The server runs the code flow with PKCE and keeps
@@ -130,10 +131,11 @@ public static class OidcSetup
 
     public static void MapOidc(this RouteGroupBuilder auth, ServerSettings settings)
     {
-        auth.MapGet("/providers", (SelfSignUp signUp, LiveSettings live) => new SignInOptions(
+        auth.MapGet("/providers", (SelfSignUp signUp, LiveSettings live, Core.Mail.IMailSender mail) => new SignInOptions(
             settings.OidcProviders.Select(provider => new SignInProvider(provider.Name, provider.DisplayName, IconPath(provider.Name), provider.Preset)).ToList(),
             !live.Current.LocalLoginDisabled,
-            signUp.InvitesWork ? signUp.Policy.ToString().ToLowerInvariant() : "closed"));
+            signUp.InvitesWork ? signUp.Policy.ToString().ToLowerInvariant() : "closed",
+            settings.AuthMode != AuthMode.None && EmailEndpoints.ResetsWork(mail, live)));
 
         auth.MapGet("/providers/{name}/icon", async (string name, ProviderIcons icons, HttpContext context, CancellationToken cancellation) =>
         {
@@ -277,6 +279,11 @@ public static class OidcSetup
                 }
                 await services.GetRequiredService<ProviderPhoto>().ImportAsync(
                     success.Account.Id, Claim("picture"), context.HttpContext.RequestAborted);
+                // A provider that vouches for the email gives the account its confirmed email (PL-122).
+                if (identity.EmailVerified)
+                {
+                    await services.GetRequiredService<AccountEmails>().VouchedAsync(success.Account, identity.Email, context.HttpContext.RequestAborted);
+                }
                 note.Actor(success.Account).On(null, null).Anonymous = false;
                 // The provider's groups may have changed this person's server groups.
                 await services.GetRequiredService<ServerGroupProjection>().ProjectAsync(context.HttpContext.RequestAborted);

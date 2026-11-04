@@ -20,6 +20,9 @@ export interface AdminUser {
   /** When an admin deleted it; it is removed for good at `removedAt` unless restored. */
   deletedAt?: string | null;
   removedAt?: string | null;
+  /** The person's email and whether they confirmed it (PL-122); reset links go only to a confirmed one. */
+  email?: string | null;
+  emailConfirmed?: boolean;
 }
 
 export interface AdminIdentity {
@@ -274,7 +277,11 @@ export type AdminRefusal =
   | 'admins-only'
   | 'linked-elsewhere'
   | 'registration-closed'
-  | 'set-by-settings';
+  | 'set-by-settings'
+  | 'no-email'
+  | 'mail-off'
+  | 'mail-failed'
+  | 'invalid-email';
 
 export type AdminResult<T = void> = { ok: true; value: T } | { ok: false; reason: AdminRefusal };
 
@@ -298,6 +305,8 @@ export interface AdminApi {
   /** A generated password the person must change; shown once. */
   resetPassword(id: string): Promise<AdminResult<string>>;
   loginLink(id: string): Promise<AdminResult<{ url: string; expires: string }>>;
+  /** Email a password reset link to the person's confirmed email (PL-122). */
+  sendResetLink(id: string): Promise<AdminResult>;
   /** Invite links that still work, and whether sign-up takes them. */
   invites(): Promise<InviteList>;
   /** A new invite link: lasts `days`, for `uses` people (null: any number). */
@@ -305,7 +314,16 @@ export interface AdminApi {
     days: number;
     uses: number | null;
     note: string;
-  }): Promise<AdminResult<{ url: string; invite: AdminInvite }>>;
+    /** Email the link here as well (PL-122). */
+    sendTo?: string;
+  }): Promise<
+    AdminResult<{
+      url: string;
+      invite: AdminInvite;
+      sent?: boolean | null;
+      mailProblem?: string | null;
+    }>
+  >;
   revokeInvite(id: string): Promise<void>;
   identities(id: string): Promise<AdminIdentity[]>;
   /** Start viewing the app as someone (super admins); the token goes to a new tab only. */

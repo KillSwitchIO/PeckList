@@ -21,7 +21,8 @@ public sealed class AuditTests(ServerFixture fixture) : IClassFixture<ServerFixt
 
     private static CancellationToken Token => TestContext.Current.CancellationToken;
 
-    private WebApplicationFactory<Program> Server() => fixture.Factory(("ADMIN_PASSWORD", AdminPassword));
+    // No scheduled snapshot: on a slow runner it lands among the events a test compares (it starts 30 s in).
+    private WebApplicationFactory<Program> Server() => fixture.Factory(("ADMIN_PASSWORD", AdminPassword), ("SNAPSHOT_SCHEDULE", "off"));
 
     private static async Task<HttpClient> LogIn(WebApplicationFactory<Program> server, string username, string password, string agent = "Mozilla/5.0 Firefox/131.0")
     {

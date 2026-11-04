@@ -346,6 +346,28 @@ public sealed class AccountService(IAccountStore store, IPasswordHasher hasher, 
         return password;
     }
 
+    /// <summary>
+    /// A person sets a new password without the old one, through a reset link (PL-122). The account
+    /// is unlocked and every session ends.
+    /// </summary>
+    public async Task<(PasswordChange Result, Account? Account)> ResetOwnPasswordAsync(
+        string id, string next, CancellationToken cancellation = default)
+    {
+        var account = await store.FindByIdAsync(id, cancellation) ?? throw new KeyNotFoundException($"no account {id}");
+        if (IsDemo(account)) return (PasswordChange.DemoAccount, null);
+        if (next.Length < MinPasswordLength) return (PasswordChange.TooShort, null);
+        var updated = account with
+        {
+            PasswordHash = hasher.Hash(next),
+            MustChangePassword = false,
+            FailedLogins = 0,
+            LockedUntil = null,
+            SecurityStamp = Ids.NewUlid(time),
+        };
+        await store.UpdateAsync(updated, cancellation);
+        return (PasswordChange.Changed, updated);
+    }
+
     private Account NewAccount(string username, Role role) => new()
     {
         Id = Ids.NewUlid(time),

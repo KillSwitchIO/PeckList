@@ -20,7 +20,9 @@ public sealed record AdminUser(
     IReadOnlyList<string> Providers,
     DateTimeOffset? DeletedAt = null,
     DateTimeOffset? RemovedAt = null,
-    IReadOnlyList<string>? PeopleGroups = null);
+    IReadOnlyList<string>? PeopleGroups = null,
+    string? Email = null,
+    bool EmailConfirmed = false);
 
 public sealed record NewUserRequest(string? Username, string? Role);
 
@@ -76,13 +78,15 @@ public sealed record AdminShare(string Kind, string Id, string Name, int People)
 public sealed record HandOverRequest(string? To, IReadOnlyList<string>? Ids);
 
 /// <summary>A new invite: lasts <paramref name="Days"/> (7), for <paramref name="Uses"/> people (1; null for any number).</summary>
-public sealed record InviteRequest(double? Days, int? Uses, string? Note, bool AnyNumber = false);
+/// <paramref name="SendTo"/>: an email to send the link to as well (PL-122).
+public sealed record InviteRequest(double? Days, int? Uses, string? Note, bool AnyNumber = false, string? SendTo = null);
 
 public sealed record AdminInvite(
     string Id, string? Note, string CreatedBy, DateTimeOffset CreatedAt, DateTimeOffset Expires, int? MaxUses, int Uses, IReadOnlyList<string> UsedBy);
 
 /// <summary>A just-made invite: its link is shown this once.</summary>
-public sealed record NewInvite(string Url, AdminInvite Invite);
+/// <summary>A just-made invite: its link is shown this once. <paramref name="Sent"/>: emailed to the address asked for; <paramref name="MailProblem"/>: why not.</summary>
+public sealed record NewInvite(string Url, AdminInvite Invite, bool? Sent = null, string? MailProblem = null);
 
 public sealed record InviteList(string Registration, IReadOnlyList<AdminInvite> Invites);
 
@@ -114,7 +118,9 @@ public static class AdminEndpoints
                 links.Where(link => link.AccountId == account.Id).Select(link => link.Provider).Distinct().ToList(),
                 account.DeletedAt,
                 account.DeletedAt is null ? null : removal.RemovedAt(account),
-                index.GroupNamesOf(account.Id)));
+                index.GroupNamesOf(account.Id),
+                account.Email,
+                account.EmailVerifiedAt is not null));
         }).RequirePermission(Permission.ManageUsers);
 
         // Delete: turned off at once, removed for good after the grace period, restorable until then.
@@ -467,17 +473,39 @@ public static class AdminEndpoints
 
         admin.MapPost("/invites", async (
             InviteRequest request, ClaimsPrincipal user, SelfSignUp signUp, SignupInvites invites, IAccountStore accounts, HttpContext context,
-            CancellationToken cancellation) =>
+            Core.Mail.IMailSender mail, LiveSettings live, CancellationToken cancellation) =>
         {
             context.Audit().On(null, request.Note);
             if (!signUp.InvitesWork) return Results.Conflict(new AdminError("registration_closed", "sign-up is closed (REGISTRATION=closed)"));
+            var sendTo = string.IsNullOrWhiteSpace(request.SendTo) ? null : AccountEmails.Normalize(request.SendTo);
+            if (!string.IsNullOrWhiteSpace(request.SendTo) && sendTo is null)
+            {
+                return Results.BadRequest(new AdminError("invalid_email", "that is not an email address"));
+            }
+            if (sendTo is not null && !EmailEndpoints.LinksWork(mail, live))
+            {
+                return Results.Conflict(new AdminError("mail_not_set_up", "Set up email and PUBLIC_URL first."));
+            }
             try
             {
                 var (token, invite) = await invites.CreateAsync(user.UserId(), TimeSpan.FromDays(request.Days ?? 7),
                     request.AnyNumber ? null : request.Uses ?? 1, request.Note, cancellation);
                 context.Audit().On(invite.Id, invite.Note).Detail =
                     $"{(invite.MaxUses is { } most ? $"{most} {(most == 1 ? "person" : "people")}" : "any number of people")} until {invite.Expires:yyyy-MM-dd HH:mm}Z";
-                return Results.Ok(new NewInvite($"{ServerApp.Origin(context)}/join/{token}", View(invite, await NamesAsync(accounts, cancellation))));
+                var url = $"{ServerApp.Origin(context)}/join/{token}";
+                var made = new NewInvite(url, View(invite, await NamesAsync(accounts, cancellation)));
+                if (sendTo is null) return Results.Ok(made);
+                try
+                {
+                    var from = (await accounts.FindByIdAsync(user.UserId(), cancellation))?.Username ?? "An admin";
+                    await mail.SendAsync(Core.Mail.MailTemplates.Invite(sendTo, live.Current.PublicUrl?.Host ?? "your server", from, url, invite.Expires), cancellation);
+                    context.Audit().Detail += $", emailed to {sendTo}";
+                    return Results.Ok(made with { Sent = true });
+                }
+                catch (Core.Mail.MailException error)
+                {
+                    return Results.Ok(made with { Sent = false, MailProblem = error.Message });
+                }
             }
             catch (ArgumentException error)
             {

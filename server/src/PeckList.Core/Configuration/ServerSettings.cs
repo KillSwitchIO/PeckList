@@ -258,11 +258,20 @@ public sealed record ServerSettings
         }
 
         MailSettings? mail = null;
-        if (Get("SMTP_HOST")?.Trim() is { Length: > 0 } smtpHost)
+        // A provider preset (SMTP_PROVIDER) fills in what is not set explicitly.
+        var providerName = Get("SMTP_PROVIDER")?.Trim();
+        var provider = MailProviders.Find(providerName);
+        if (providerName is { Length: > 0 } && provider is null && !providerName.Equals("custom", StringComparison.OrdinalIgnoreCase))
         {
+            errors.Add($"SMTP_PROVIDER: '{providerName}' is not one of custom, {string.Join(", ", MailProviders.Names)}");
+        }
+        if ((Get("SMTP_HOST")?.Trim() is { Length: > 0 } explicitHost ? explicitHost : provider?.Host) is { } smtpHost)
+        {
+            var tlsSet = !string.IsNullOrWhiteSpace(Get("SMTP_TLS"));
             var tls = Get("SMTP_TLS")?.Trim().ToLowerInvariant() switch
             {
-                null or "" or "starttls" => MailTls.StartTls,
+                null or "" => provider?.Tls ?? MailTls.StartTls,
+                "starttls" => MailTls.StartTls,
                 "tls" or "ssl" => MailTls.Tls,
                 "none" => MailTls.None,
                 var other => Bad($"SMTP_TLS: '{other}' is not one of starttls, tls, none"),
@@ -272,13 +281,14 @@ public sealed record ServerSettings
                 errors.Add(message);
                 return MailTls.StartTls;
             }
-            var port = Count("SMTP_PORT", tls == MailTls.Tls ? 465 : 587, 1);
+            var port = Count("SMTP_PORT", provider is not null && !tlsSet ? provider.Port : tls == MailTls.Tls ? 465 : 587, 1);
             if (port > 65535) errors.Add($"SMTP_PORT: '{port}' is not a port");
-            var from = Get("SMTP_FROM")?.Trim();
+            var user = Get("SMTP_USER")?.Trim() is { Length: > 0 } typed ? typed : provider?.User;
+            // A mailbox login is its address: mail comes from it unless SMTP_FROM says otherwise.
+            var from = Get("SMTP_FROM")?.Trim() is { Length: > 0 } given ? given : user is not null && user.Contains('@') ? $"PeckList <{user}>" : null;
             if (string.IsNullOrEmpty(from)) errors.Add("SMTP_FROM is required with SMTP_HOST (the address email comes from)");
             else if (!from.Contains('@')) errors.Add($"SMTP_FROM: '{from}' is not an email address");
-            mail = new MailSettings(smtpHost, port, Get("SMTP_USER")?.Trim() is { Length: > 0 } user ? user : null,
-                Get("SMTP_PASSWORD"), from ?? "", tls);
+            mail = new MailSettings(smtpHost, port, user, Get("SMTP_PASSWORD"), from ?? "", tls);
         }
 
         var telemetryUrl = DefaultTelemetryUrl;
