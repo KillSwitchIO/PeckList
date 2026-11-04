@@ -26,7 +26,7 @@ public sealed class MailTests(ServerFixture fixture) : IClassFixture<ServerFixtu
 
     private static async Task<HttpClient> Admin(WebApplicationFactory<Program> server)
     {
-        var client = server.CreateClient();
+        var client = server.Browser();
         (await client.PostAsJsonAsync("/auth/login", new { username = "admin", password = AdminPassword }, Token)).EnsureSuccessStatusCode();
         return client;
     }

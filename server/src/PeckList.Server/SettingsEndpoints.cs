@@ -56,7 +56,7 @@ public static class SettingsEndpoints
     public static RouteGroupBuilder MapSettings(this RouteGroupBuilder admin)
     {
         admin.MapGet("/settings", async (LoadedSettings loaded, Core.Accounts.ISecretStore secrets, ClaimsPrincipal user, CancellationToken cancellation) =>
-            View(loaded, await SettingsLoader.ReadPageAsync(secrets, cancellation), MaySaveSignIn(user)))
+            View(loaded, await SettingsLoader.ReadPageAsync(secrets, loaded.Layers.Cipher, cancellation), MaySaveSignIn(user)))
             .RequirePermission(Permission.ManageSettings);
 
         admin.MapPut("/settings", async (
@@ -64,7 +64,7 @@ public static class SettingsEndpoints
             ClaimsPrincipal user, HttpContext context,
             CancellationToken cancellation) =>
         {
-            var saved = await SettingsLoader.ReadPageAsync(secrets, cancellation);
+            var saved = await SettingsLoader.ReadPageAsync(secrets, loaded.Layers.Cipher, cancellation);
             var page = new Dictionary<string, string>(saved, StringComparer.Ordinal);
             // A secret sent back as shown means "unchanged".
             var values = (change.Values ?? []).Where(pair => pair.Value != Hidden).ToDictionary(pair => pair.Key, pair => pair.Value);
@@ -100,7 +100,7 @@ public static class SettingsEndpoints
                 return Results.BadRequest(new AdminError("invalid", error.Message));
             }
             await SettingsLoader.SavePageAsync(secrets, values,
-                key => SettingsCatalog.Find(layers, key)?.Kind == SettingKind.Secret, cancellation);
+                key => SettingsCatalog.Find(layers, key)?.Kind == SettingKind.Secret, loaded.Layers.Cipher, cancellation);
             // Live settings apply at once; the rest at the next restart.
             if (values.Keys.Any(key => SettingsCatalog.Find(layers, key)?.Live == true))
             {

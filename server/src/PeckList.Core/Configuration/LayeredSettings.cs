@@ -22,6 +22,12 @@ public sealed class LayeredSettings(
 {
     public IReadOnlyDictionary<string, string> Page => page;
 
+    /// <summary>
+    /// <c>CONFIG_KEY</c> as a cipher, or null when it is not set: it also wraps the keys the server
+    /// keeps in its own database (session keys, the page settings key; audit S8).
+    /// </summary>
+    public ConfigCipher? Cipher => cipher;
+
     /// <summary>Settings that were renamed: the old name still works, in each layer, after the new one.</summary>
     public static readonly IReadOnlyDictionary<string, string> OldNames = new Dictionary<string, string>
     {

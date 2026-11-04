@@ -57,7 +57,7 @@ public static partial class ServerApp
         builder.Services.AddSingleton(StartupWait.Default);
         builder.Services.AddEntityStore(settings);
         // After the store: its startup (migrations) runs before the admin is made.
-        builder.Services.AddPeckListAuth(settings);
+        builder.Services.AddPeckListAuth(settings, loaded.Layers.Cipher);
         builder.Services.AddSingleton<IChangeNotifier, InProcessChangeNotifier>();
         builder.Services.AddSingleton<PeckList.Core.Sharing.SharingState>();
         builder.Services.AddSingleton<ServerClock>();

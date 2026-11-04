@@ -34,7 +34,7 @@ public sealed partial class EmailLinkTests(ServerFixture fixture) : IClassFixtur
 
     private static async Task<HttpClient> LogIn(WebApplicationFactory<Program> server, string username, string password)
     {
-        var client = server.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
+        var client = server.Browser(allowAutoRedirect: false);
         (await client.PostAsJsonAsync("/auth/login", new { username, password }, Token)).EnsureSuccessStatusCode();
         return client;
     }

@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Security.Claims;
 using System.Text.Encodings.Web;
 using System.Threading.RateLimiting;
@@ -34,7 +35,18 @@ public static class AuthSetup
     public const string ByLink = "link";
     public const string ByPasskey = "passkey";
 
-    public static IServiceCollection AddPeckListAuth(this IServiceCollection services, ServerSettings settings)
+    /// <summary>
+    /// The longest a session lasts from its sign-in, however often it is used (audit S8): the
+    /// cookie slides for <see cref="SessionIdle"/> of not being used, and ends after this either way.
+    /// </summary>
+    public static readonly TimeSpan SessionMaxAge = TimeSpan.FromDays(90);
+
+    public static readonly TimeSpan SessionIdle = TimeSpan.FromDays(30);
+
+    /// <summary>When the session was signed in to, in Unix seconds (<see cref="SessionMaxAge"/>).</summary>
+    public const string SinceClaim = "pecklist:since";
+
+    public static IServiceCollection AddPeckListAuth(this IServiceCollection services, ServerSettings settings, ConfigCipher? configKey = null)
     {
         services.AddSingleton(TimeProvider.System);
         services.AddSingleton<IPasswordHasher, AspNetPasswordHasher>();
@@ -61,7 +73,7 @@ public static class AuthSetup
         // PostgreSQL setup needs no volume for them.
         services.AddDataProtection().SetApplicationName("pecklist");
         services.AddOptions<KeyManagementOptions>()
-            .Configure<Core.Accounts.ISecretStore>((options, secrets) => options.XmlRepository = new SecretStoreXmlRepository(secrets));
+            .Configure<Core.Accounts.ISecretStore>((options, secrets) => options.XmlRepository = new SecretStoreXmlRepository(secrets, configKey));
 
         if (settings.AuthMode == AuthMode.None)
         {
@@ -78,8 +90,12 @@ public static class AuthSetup
                     options.Cookie.Name = "pecklist_session";
                     options.Cookie.HttpOnly = true;
                     options.Cookie.SameSite = SameSiteMode.Lax;
-                    options.Cookie.SecurePolicy = CookieSecurePolicy.SameAsRequest;
-                    options.ExpireTimeSpan = TimeSpan.FromDays(30);
+                    // On an https address, never without Secure: a proxy that forgets X-Forwarded-Proto
+                    // must not get the cookie sent over plain http (audit S8).
+                    options.Cookie.SecurePolicy = settings.PublicUrl?.Scheme == Uri.UriSchemeHttps
+                        ? CookieSecurePolicy.Always
+                        : CookieSecurePolicy.SameAsRequest;
+                    options.ExpireTimeSpan = SessionIdle;
                     options.SlidingExpiration = true;
                     // An API: answer 401/403 instead of redirecting to a login page.
                     options.Events.OnRedirectToLogin = context => Status(context, StatusCodes.Status401Unauthorized);
@@ -109,9 +125,11 @@ public static class AuthSetup
     }
 
     /// <param name="method">How the person proved who they are (<see cref="MethodClaim"/>); null for requests that are no session.</param>
-    public static ClaimsPrincipal Principal(Account account, string scheme, string? method = null) => new(new ClaimsIdentity(
+    /// <param name="since">When the session was signed in to (<see cref="SinceClaim"/>); now when not given.</param>
+    public static ClaimsPrincipal Principal(Account account, string scheme, string? method = null, DateTimeOffset? since = null) => new(new ClaimsIdentity(
     [
         new Claim(ClaimTypes.NameIdentifier, account.Id),
+        new Claim(SinceClaim, (since ?? DateTimeOffset.UtcNow).ToUnixTimeSeconds().ToString(CultureInfo.InvariantCulture)),
         new Claim(ClaimTypes.Name, account.Username),
         new Claim(ClaimTypes.Role, account.Role.Name()),
         new Claim(StampClaim, account.SecurityStamp),
@@ -174,13 +192,28 @@ public static class AuthSetup
         var passwordsOff = context.Principal is { } session
             && context.HttpContext.RequestServices.GetRequiredService<LiveSettings>().Current.LocalLoginDisabled
             && IsPasswordSession(session);
-        if (current is null || current.Stamp != stamp || passwordsOff)
+        // However often it is used, a session ends SessionMaxAge after its sign-in (audit S8).
+        var now = context.HttpContext.RequestServices.GetRequiredService<TimeProvider>().GetUtcNow();
+        var since = long.TryParse(context.Principal?.FindFirstValue(SinceClaim), NumberStyles.None, CultureInfo.InvariantCulture, out var seconds)
+            ? DateTimeOffset.FromUnixTimeSeconds(seconds)
+            : (DateTimeOffset?)null;
+        var tooOld = since is { } signedIn && now - signedIn > SessionMaxAge;
+        if (current is null || current.Stamp != stamp || passwordsOff || tooOld)
         {
             context.RejectPrincipal();
             await context.HttpContext.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
             return;
         }
         var principal = context.Principal!;
+        if (since is null)
+        {
+            // A session from before the limit: its count starts now, not at a sign-in nobody recorded.
+            principal = new ClaimsPrincipal(new ClaimsIdentity(
+                principal.Claims.Append(new Claim(SinceClaim, now.ToUnixTimeSeconds().ToString(CultureInfo.InvariantCulture))),
+                context.Scheme.Name));
+            context.ReplacePrincipal(principal);
+            context.ShouldRenew = true;
+        }
         if (principal.FindFirstValue(ClaimTypes.Role) != current.Role)
         {
             var claims = principal.Claims.Where(claim => claim.Type != ClaimTypes.Role)
@@ -192,17 +225,47 @@ public static class AuthSetup
 
     private sealed record SessionCheck(string Stamp, string Role);
 
-    /// <summary>Data protection keys in the <c>server_secrets</c> table.</summary>
-    private sealed class SecretStoreXmlRepository(Core.Accounts.ISecretStore secrets) : IXmlRepository
+    /// <summary>
+    /// Data protection keys (what session cookies are signed and sealed with) in the
+    /// <c>server_secrets</c> table. With <c>CONFIG_KEY</c> set they are kept wrapped with it (audit
+    /// S8), so a copy of the database alone cannot forge a session; keys stored plain before are
+    /// wrapped the first time they are read. A wrapped key that will not open (no CONFIG_KEY, or
+    /// another one) is left out: the server makes a new key, and people sign in again.
+    /// </summary>
+    private sealed class SecretStoreXmlRepository(Core.Accounts.ISecretStore secrets, ConfigCipher? configKey) : IXmlRepository
     {
         private const string Kind = "dataprotection";
 
         // The interface is synchronous; keys are read rarely (start, then on rotation).
-        public IReadOnlyCollection<XElement> GetAllElements() =>
-            secrets.ListAsync(Kind).GetAwaiter().GetResult().Select(each => XElement.Parse(each.Value)).ToList();
+        public IReadOnlyCollection<XElement> GetAllElements()
+        {
+            var elements = new List<XElement>();
+            foreach (var (name, value) in secrets.ListAsync(Kind).GetAwaiter().GetResult())
+            {
+                if (ConfigCipher.IsEncrypted(value))
+                {
+                    if (configKey is null) continue;
+                    try
+                    {
+                        elements.Add(XElement.Parse(configKey.Decrypt(value, "a session key")));
+                    }
+                    catch (SettingsException)
+                    {
+                        // Wrapped with another CONFIG_KEY.
+                    }
+                    continue;
+                }
+                elements.Add(XElement.Parse(value));
+                if (configKey is not null) secrets.PutAsync(Kind, name, configKey.Encrypt(value)).GetAwaiter().GetResult();
+            }
+            return elements;
+        }
 
-        public void StoreElement(XElement element, string friendlyName) =>
-            secrets.PutAsync(Kind, friendlyName, element.ToString(SaveOptions.DisableFormatting)).GetAwaiter().GetResult();
+        public void StoreElement(XElement element, string friendlyName)
+        {
+            var text = element.ToString(SaveOptions.DisableFormatting);
+            secrets.PutAsync(Kind, friendlyName, configKey is null ? text : configKey.Encrypt(text)).GetAwaiter().GetResult();
+        }
     }
 
     /// <summary>The account every request uses when AUTH_MODE is none (set at startup).</summary>

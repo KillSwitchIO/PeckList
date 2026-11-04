@@ -425,7 +425,12 @@ A [settings file](config-file.md) to read. **Default:** none. **Where:** env.
 ### `CONFIG_KEY`
 
 The key for `enc:v1:...` [encrypted values](index.md#encrypted-values); make one with
-`pecklist config key`. Prefer `CONFIG_KEY_FILE`. **Default:** none. **Where:** env.
+`pecklist config key`. Prefer `CONFIG_KEY_FILE`. When set, it also locks the keys the server keeps
+in its own database: the keys that sign sessions and the key for secrets saved on the settings
+page, so a copy of the database alone opens neither ([security](../guides/security.md)). Keys
+stored before are locked at the next start. Lose it and the server still starts: people sign in
+again, and settings-page secrets stay locked (the settings page says so) until it is back.
+**Default:** none. **Where:** env.
 
 ## Development
 
