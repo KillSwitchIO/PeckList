@@ -778,7 +778,7 @@ describe('admin', () => {
     const general = await screen.findByRole('region', { name: 'General' });
     expect(within(general).getByText('REGISTRATION · default: invite')).toBeInTheDocument();
     const backups = screen.getByRole('region', { name: 'Backups' });
-    const kept = within(backups).getByRole('spinbutton', { name: 'Backups kept' });
+    const kept = within(backups).getByRole('spinbutton', { name: 'Newest backups kept' });
     expect(kept).toBeDisabled();
     expect(kept).toHaveValue(5);
     expect(within(backups).getByText('SNAPSHOT_KEEP · set by the environment')).toBeInTheDocument();

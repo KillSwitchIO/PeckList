@@ -111,7 +111,12 @@ How often the server writes a full snapshot: `off`, `hourly`, `daily` or `weekly
 
 ### `SNAPSHOT_KEEP`
 
-How many snapshots to keep; older ones are deleted. At least 1. **Default:** `14`. **Where:** any, live.
+How many of the newest snapshots to keep. At least 1. **Default:** `7`. **Where:** any, live.
+
+### `SNAPSHOT_KEEP_WEEKLY`
+
+How many weeks before those keep one snapshot each, the newest of that week; older ones are
+deleted. `0` keeps only the newest `SNAPSHOT_KEEP`. **Default:** `4`. **Where:** any, live.
 
 ### `SNAPSHOT_DIR`
 

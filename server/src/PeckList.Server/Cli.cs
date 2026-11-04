@@ -102,7 +102,7 @@ public static class Cli
                 {
                     var path = args.Skip(1).FirstOrDefault(arg => !arg.StartsWith("--", StringComparison.Ordinal));
                     if (path is null) return await Fail(errors, "import needs a file: pecklist import <file> [--replace] [--shift-dates]");
-                    await using var file = File.OpenRead(path);
+                    await using var file = Snapshots.OpenRead(path);
                     var summary = await backup.ImportAsync(file, replace: args.Contains("--replace"), shiftDates: args.Contains("--shift-dates"));
                     await output.WriteLineAsync($"Imported {summary.Accounts} accounts and {summary.Entities} entities.");
                     return 0;
@@ -114,7 +114,7 @@ public static class Cli
                     var loaded = SettingsLoader.Load(environment, inContainer);
                     var dump = new DebugDump(loaded.Layers, settings, database, inContainer, TimeProvider.System)
                     {
-                        Snapshots = new Snapshots(backup, settings.SnapshotDir, () => settings.SnapshotKeep, TimeProvider.System),
+                        Snapshots = new Snapshots(backup, settings.SnapshotDir, () => settings.SnapshotKeep, TimeProvider.System, () => settings.SnapshotKeepWeekly),
                         MadeBy = "cli",
                     };
                     if (args.Length > 1)
@@ -130,7 +130,7 @@ public static class Cli
                 }
                 case "snapshot":
                 {
-                    var snapshots = new Snapshots(backup, settings.SnapshotDir, () => settings.SnapshotKeep, TimeProvider.System);
+                    var snapshots = new Snapshots(backup, settings.SnapshotDir, () => settings.SnapshotKeep, TimeProvider.System, () => settings.SnapshotKeepWeekly);
                     await output.WriteLineAsync($"Snapshot written to {await snapshots.TakeAsync(ServerApp.Version)}");
                     return 0;
                 }
@@ -341,7 +341,7 @@ public static class Cli
             return 0;
         }
         if (rest.Length == 0) return await Fail(errors, "import --user needs a file: pecklist import --user <file> [user]");
-        await using (var file = File.OpenRead(rest[0]))
+        await using (var file = Snapshots.OpenRead(rest[0]))
         {
             var result = await users.RestoreAsync(file, rest.Length > 1 ? rest[1] : null, mayRestoreAdmins: true);
             await output.WriteLineAsync(

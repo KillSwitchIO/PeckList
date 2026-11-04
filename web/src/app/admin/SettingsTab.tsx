@@ -16,6 +16,7 @@ const LABELS: Record<string, MessageKey> = {
   OIDC_PROVIDERS: 'serverSettings.OIDC_PROVIDERS',
   BACKUP_SCHEDULE: 'serverSettings.SNAPSHOT_SCHEDULE',
   SNAPSHOT_KEEP: 'serverSettings.SNAPSHOT_KEEP',
+  SNAPSHOT_KEEP_WEEKLY: 'serverSettings.SNAPSHOT_KEEP_WEEKLY',
   TRUSTED_PROXIES: 'serverSettings.TRUSTED_PROXIES',
   LOG_LEVEL: 'serverSettings.LOG_LEVEL',
   LOG_LEVEL_OVERRIDES: 'serverSettings.LOG_LEVEL_OVERRIDES',

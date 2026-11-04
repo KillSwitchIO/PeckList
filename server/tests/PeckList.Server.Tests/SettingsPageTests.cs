@@ -107,7 +107,7 @@ public sealed class SettingsPageTests(ServerFixture fixture) : IClassFixture<Ser
         using (var first = Server(db)) await Admin(first);
         await new SqlSecretStore(new SqliteDatabase(db)).PutAsync(SettingsLoader.PageKind, "SNAPSHOT_KEEP", "0", Token);
         using var server = Server(db);
-        Assert.Equal(14, server.Services.GetRequiredService<ServerSettings>().SnapshotKeep);
+        Assert.Equal(7, server.Services.GetRequiredService<ServerSettings>().SnapshotKeep);
         var view = (await (await Admin(server)).GetFromJsonAsync<SettingsView>("/api/admin/settings", Token))!;
         Assert.Contains("SNAPSHOT_KEEP", view.Problem);
     }

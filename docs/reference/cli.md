@@ -64,7 +64,7 @@ pecklist import --user <file> [username]
 
 Loads a full backup into an **empty** database; `--replace` deletes what is there first. With
 `--user`, puts one person back as the file had them; from a whole-server backup, say who. Restart
-the server afterwards.
+the server afterwards. The file may be plain JSON or a snapshot as written (`.json.gz`).
 
 `--shift-dates` moves every date in the file's tasks, lists and comments on by the days between
 the file's `exportedAt` and today, so a seed made once reads as if made today. The
@@ -72,7 +72,8 @@ the file's `exportedAt` and today, so a seed made once reads as if made today. T
 
 ### `snapshot`
 
-Takes a snapshot now, into `SNAPSHOT_DIR`, and prunes old ones to `SNAPSHOT_KEEP`.
+Takes a snapshot now, into `SNAPSHOT_DIR`, and prunes old ones to `SNAPSHOT_KEEP` and
+`SNAPSHOT_KEEP_WEEKLY`.
 
 ## Database
 

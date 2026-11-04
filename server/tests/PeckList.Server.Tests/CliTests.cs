@@ -91,8 +91,13 @@ public sealed class CliTests : IDisposable
             // Snapshot names carry the second they were taken.
             await Task.Delay(1100, TestContext.Current.CancellationToken);
         }
-        // SNAPSHOT_KEEP=2.
-        Assert.Equal(2, Directory.GetFiles(Path.Combine(folder, "snapshots"), "pecklist-*.json").Length);
+        // SNAPSHOT_KEEP=2, compressed.
+        var kept = Directory.GetFiles(Path.Combine(folder, "snapshots"), "pecklist-*.json.gz");
+        Assert.Equal(2, kept.Length);
+        // A snapshot imports as written.
+        var restored = await Run(settings, "import", kept[0], "--replace");
+        Assert.Equal(0, restored.Code);
+        Assert.Contains("Imported 1 accounts", restored.Output);
     }
 
     private static async Task<Core.Accounts.AccountService> MakeAdminAsync(ServerSettings settings)

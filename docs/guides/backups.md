@@ -3,10 +3,12 @@
 ## Scheduled snapshots
 
 The server writes a full backup, a **snapshot**, on `BACKUP_SCHEDULE` (`daily` by default;
-`hourly`, `weekly` or `off`) to `SNAPSHOT_DIR` (`/data/snapshots` in the image), keeping the newest
-`SNAPSHOT_KEEP` (14).
+`hourly`, `weekly` or `off`) to `SNAPSHOT_DIR` (`/data/snapshots` in the image). It keeps the
+newest `SNAPSHOT_KEEP` (7), plus one from each of the `SNAPSHOT_KEEP_WEEKLY` (4) weeks before
+those: with the defaults, a week of dailies and a month of weeklies.
 
-A snapshot is one JSON file with everything: accounts (with password hashes), every task and list,
+A snapshot is one gzip-compressed JSON file (`pecklist-YYYYMMDD-HHMMSS.json.gz`, about a tenth of
+the plain size) with everything: accounts (with password hashes), every task and list,
 sharing, and the keys that sign session cookies. **Treat
 snapshots like the database itself**: anyone with one can read everyone's data.
 
@@ -21,7 +23,7 @@ change once written, so an incremental backup tool copies each one once.
 
 ## Admin > Backups
 
-- **Take a backup now**, and download any snapshot.
+- **Take a backup now**, and download any snapshot (`.json.gz`; `gunzip` it to read the JSON).
 - **Export** the whole server or one person.
 - **Restore** from a file you upload or from one of the scheduled snapshots: the whole server, or
   one person within it. A whole-server restore is applied at the next start, before anything loads,
@@ -71,8 +73,8 @@ data** and **Admin > Backups**.
 
 1. Install PeckList the same way (same version or newer).
 2. Before the first start, put the backup file somewhere the server can read.
-3. Start once so the database exists, stop, then `pecklist import <file> --replace`, and start
-   again. Or start it and use **Admin > Backups > Restore** with the upload.
+3. Start once so the database exists, stop, then `pecklist import <file> --replace` (a `.json` export
+   or a `.json.gz` snapshot), and start again. Or start it and use **Admin > Backups > Restore** with the upload.
 
 Moving between SQLite and PostgreSQL is `migrate-db`; see [database](../configuration/database.md).
 

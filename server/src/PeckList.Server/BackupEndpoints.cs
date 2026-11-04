@@ -35,7 +35,7 @@ public static class BackupEndpoints
         admin.MapGet("/backups/{name}", (string name, Snapshots snapshots) =>
         {
             if (Find(snapshots, name) is not { } path) return Results.NotFound();
-            return Results.File(path, "application/json", name);
+            return Results.File(path, path.EndsWith(".gz", StringComparison.Ordinal) ? "application/gzip" : "application/json", name);
         }).RequirePermission(Permission.ManageSecurity).Audited("backup.downloaded", "name", AuditTarget.Name);
 
         admin.MapGet("/export", async (HttpContext context, BackupService backup, TimeProvider time) =>
@@ -115,8 +115,19 @@ public static class BackupEndpoints
     /// <summary>The backup a restore form names: an uploaded file (field "file") or one on the server (field "backup"); null for neither.</summary>
     private static Stream? OpenBackup(IFormCollection form, Snapshots snapshots)
     {
-        if (form.Files["file"] is { } file) return file.OpenReadStream();
-        return form["backup"].FirstOrDefault() is { } name && Find(snapshots, name) is { } path ? File.OpenRead(path) : null;
+        if (form.Files["file"] is { } file) return Uncompressed(file.OpenReadStream());
+        return form["backup"].FirstOrDefault() is { } name && Find(snapshots, name) is { } path ? Snapshots.OpenRead(path) : null;
+    }
+
+    /// <summary>An uploaded backup as JSON: a downloaded snapshot (<c>.json.gz</c>) is unpacked, plain JSON passes through.</summary>
+    private static Stream Uncompressed(Stream upload)
+    {
+        Span<byte> magic = stackalloc byte[2];
+        var read = upload.ReadAtLeast(magic, 2, throwOnEndOfStream: false);
+        upload.Position = 0;
+        return read == 2 && magic[0] == 0x1f && magic[1] == 0x8b
+            ? new System.IO.Compression.GZipStream(upload, System.IO.Compression.CompressionMode.Decompress)
+            : upload;
     }
 
     private static IResult NoBackup() => Results.BadRequest(new AdminError("no_backup", "upload a backup file or pick one on the server"));

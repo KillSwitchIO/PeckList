@@ -29,6 +29,7 @@ public sealed class LiveSettings(ServerSettings start)
             Mail = next.Mail,
             SnapshotSchedule = next.SnapshotSchedule,
             SnapshotKeep = next.SnapshotKeep,
+            SnapshotKeepWeekly = next.SnapshotKeepWeekly,
             AuditRetentionDays = next.AuditRetentionDays,
             AccessLogRetentionDays = next.AccessLogRetentionDays,
             AuditArchive = next.AuditArchive,
