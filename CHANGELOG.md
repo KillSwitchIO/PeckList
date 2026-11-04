@@ -4,13 +4,27 @@ All notable changes to PeckList. Generated from [Conventional Commits](https://w
 by `pnpm changelog`; the version follows [Semantic Versioning](https://semver.org/). Before 1.0.0 a
 minor release may break things; every break is listed under **Breaking changes** with what to do.
 
-## [0.6.0] - 2026-11-03
+## [0.7.0] - 2026-11-04
 
 ### Breaking changes
 
-- Punchlist is now PeckList. The image is `registry.gitlab.com/killswitch10/pecklist` (the project moved, and the old image path gets no new versions): change `image:` in your compose file or `docker run`. The command is `pecklist` (the image keeps `punchlist` as another name for it), a new install uses `pecklist.db` and `/etc/pecklist/pecklist.conf`, and a server that finds `punchlist.db` keeps using it. The Linux and Windows installers move an existing Punchlist install over.
-- Everyone signs in once more after upgrading: the session cookie has the new name.
-- Android: PeckList is a new app (`com.killswitch10.pecklist`) that installs beside Punchlist. Install it, connect and sign in, then remove the old one (and its Obtainium entry). The Punchlist app keeps connecting to a 0.6.0 server in the meantime.
+- **server:** /api/info no longer answers the old name to Punchlist apps. The Punchlist Android app (0.5.0 and older) no longer connects. Install the PeckList app, sign in, then remove Punchlist; let Punchlist sync any offline changes before upgrading the server.
+
+### Added
+
+- **server:** Optional visit counts with Umami
+- **docs:** Docusaurus instead of MkDocs, with versions
+
+### Fixed
+
+- **demo:** The demo accounts say which is the username and the password
+- **server:** /api/info no longer answers the old name to Punchlist apps
+
+### Documentation
+
+- Count visits to docs.pecklist.com with Umami
+
+## [0.6.0] - 2026-11-03
 
 ### Added
 
@@ -21,7 +35,7 @@ minor release may break things; every break is listed under **Breaking changes**
 - **telemetry:** Totals private, reports to telemetry.pecklist.com
 - The app is called PeckList
 - **android:** The app is com.killswitch10.pecklist
-- **server:** PeckList everywhere the server names itself
+- **server:** Pecklist everywhere the server names itself
 - **web:** The web app keeps its things under pecklist
 
 ### Fixed
