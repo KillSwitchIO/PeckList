@@ -45,6 +45,15 @@ public sealed class TelemetryTests(ServerFixture fixture) : IClassFixture<Server
         server.Services.GetServices<Microsoft.Extensions.Hosting.IHostedService>().OfType<TelemetryService>().Single();
 
     [Fact]
+    public void A_test_server_never_reaches_the_projects_collector()
+    {
+        // A test that turns reports on without its own fake once sent real ones, counted as installs.
+        using var server = fixture.Factory(("ADMIN_PASSWORD", AdminPassword), ("TELEMETRY", "on"), ("CRASH_REPORTS", "true"));
+        Assert.IsNotType<HttpTelemetrySender>(server.Services.GetRequiredService<ITelemetrySender>());
+        Assert.IsNotType<HttpCrashSender>(server.Services.GetRequiredService<ICrashSender>());
+    }
+
+    [Fact]
     public async Task The_report_holds_buckets_and_switches_and_nothing_that_names_anyone()
     {
         var (server, _) = Start(("PUBLIC_URL", "https://tasks.zebra-example.test"));
