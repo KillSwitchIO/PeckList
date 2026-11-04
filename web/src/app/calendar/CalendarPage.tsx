@@ -326,7 +326,7 @@ export function CalendarPage() {
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
           {narrowButton}
           {/* Upcoming is in the menu; no shortcut to it here (R-FB-101). Unscheduled is an icon
-              (R-FB-104). */}
+              (R-FB-104): here a sheet on a phone; elsewhere a toggle in the calendar's row. */}
           {phone && (
             <Tooltip title={t('calendar.unscheduled')}>
               <IconButton aria-label={t('calendar.unscheduled')} onClick={() => setDrawer(true)}>
@@ -395,6 +395,25 @@ export function CalendarPage() {
               label={t('calendar.weeksShown')}
               caption={(count) => t('calendar.weeks', { count })}
             />
+          )}
+          {!phone && (
+            // The side panel, shown or hidden (hidden at first), beside the view's own buttons.
+            <Tooltip
+              title={
+                prefs.unscheduled ? t('calendar.hideUnscheduled') : t('calendar.showUnscheduled')
+              }
+            >
+              <ToggleButton
+                value="unscheduled"
+                size="small"
+                selected={prefs.unscheduled}
+                aria-label={t('calendar.unscheduled')}
+                onChange={() => setPrefs({ unscheduled: !prefs.unscheduled })}
+                sx={{ flexShrink: 0, px: 0.75 }}
+              >
+                <EventBusyOutlined fontSize="small" />
+              </ToggleButton>
+            </Tooltip>
           )}
           <ToggleButtonGroup
             exclusive
@@ -495,7 +514,9 @@ export function CalendarPage() {
               />
             )}
           </Box>
-          {!phone && <Box sx={{ borderLeft: 1, borderColor: 'divider' }}>{panel}</Box>}
+          {!phone && prefs.unscheduled && (
+            <Box sx={{ borderLeft: 1, borderColor: 'divider' }}>{panel}</Box>
+          )}
         </Box>
       </Box>
       {phone && (

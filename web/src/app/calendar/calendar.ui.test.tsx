@@ -63,8 +63,19 @@ describe('calendar', () => {
     expect(within(day).getByRole('button', { name: /Standup$/ })).toBeInTheDocument();
     expect(within(day).getByRole('button', { name: 'Due: Dentist' })).toBeInTheDocument();
     expect(day).toHaveAttribute('data-cal-day', today);
+    // Unscheduled is hidden at first; its button shows it, and the choice is remembered.
+    expect(screen.queryByRole('list', { name: 'Unscheduled' })).toBeNull();
+    const toggle = screen.getByRole('button', { name: 'Unscheduled' });
+    expect(toggle).toHaveAttribute('aria-pressed', 'false');
+    await userEvent.click(toggle);
+    expect(toggle).toHaveAttribute('aria-pressed', 'true');
     const waiting = screen.getByRole('list', { name: 'Unscheduled' });
     expect(within(waiting).getByRole('listitem')).toHaveTextContent('Someday');
+    expect(JSON.parse(localStorage.getItem('pecklist.calendar') ?? '{}')).toMatchObject({
+      unscheduled: true,
+    });
+    await userEvent.click(toggle);
+    expect(screen.queryByRole('list', { name: 'Unscheduled' })).toBeNull();
   });
 
   it('shows what was done on days gone by, but not from today on (Ben, 2026-11-02)', async () => {

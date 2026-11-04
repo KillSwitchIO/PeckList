@@ -369,6 +369,9 @@ export function MonthView({
           gridTemplateColumns: 'repeat(7, minmax(0, 1fr))',
           borderBottom: 1,
           borderColor: 'divider',
+          // Its overflow (besideScrolling) lets a flex child shrink to nothing: the weeks below
+          // would squash the weekday names away.
+          flexShrink: 0,
           ...besideScrolling,
         }}
       >
