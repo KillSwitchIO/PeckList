@@ -95,6 +95,8 @@ describe('dragging on the calendar', () => {
     await browser.url('/inbox');
     await addTasks(['Calendar probe']);
     await browser.url('/calendar');
+    // Unscheduled is hidden at first; its toggle sits in the calendar's row.
+    await $("button[aria-label='Unscheduled']").click();
     const waiting = $(
       "//*[@role='list'][@aria-label='Unscheduled']//*[@data-task-id][normalize-space()='Calendar probe']",
     );

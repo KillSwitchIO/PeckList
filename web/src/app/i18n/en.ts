@@ -30,6 +30,8 @@ export const en = {
   'calendar.allDay': 'All day',
   'calendar.unscheduled': 'Unscheduled',
   'calendar.unscheduledHint': 'Drag a task onto a day or a time (on a phone, hold it first).',
+  'calendar.showUnscheduled': 'Show unscheduled tasks',
+  'calendar.hideUnscheduled': 'Hide unscheduled tasks',
   'calendar.allScheduled': 'Every open task has a date.',
   'calendar.dueFlag': 'Due: {title}',
   'nav.completed': 'Closed',

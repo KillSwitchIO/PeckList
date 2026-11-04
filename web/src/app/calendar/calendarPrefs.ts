@@ -13,6 +13,8 @@ export interface CalendarPrefs {
   weeks: number;
   /** Pixels per hour in the Days view */
   hourHeight: number;
+  /** The Unscheduled panel beside the calendar, on wider screens (hidden at first; Ben, 2026-11-04) */
+  unscheduled: boolean;
 }
 
 export const MIN_HOUR = 24;
@@ -27,7 +29,7 @@ const OLD_DAYS: Record<string, number> = { week: 7, threeDays: 3, day: 1 };
 
 export function defaultPrefs(phone: boolean): CalendarPrefs {
   // Four weeks on first open; after that, whatever was picked last (R-FB-102).
-  return { mode: 'month', days: phone ? 3 : 7, weeks: 4, hourHeight: 48 };
+  return { mode: 'month', days: phone ? 3 : 7, weeks: 4, hourHeight: 48, unscheduled: false };
 }
 
 const clamp = (value: number, low: number, high: number) => Math.min(high, Math.max(low, value));
@@ -43,6 +45,7 @@ export function loadPrefs(phone: boolean): CalendarPrefs {
         days: clamp(Math.round(Number(saved.days) || base.days), MIN_DAYS, MAX_DAYS),
         weeks: clamp(Math.round(Number(saved.weeks) || base.weeks), MIN_WEEKS, MAX_WEEKS),
         hourHeight: clamp(Number(saved.hourHeight) || base.hourHeight, MIN_HOUR, MAX_HOUR),
+        unscheduled: saved.unscheduled === true,
       };
     }
     const old = localStorage.getItem(OLD_MODE_KEY);
