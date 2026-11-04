@@ -11,4 +11,7 @@ public interface ITelemetrySource
 
     /// <summary>The database's size on disk in bytes.</summary>
     Task<long> DatabaseBytesAsync(CancellationToken cancellation = default);
+
+    /// <summary>Rows by <see cref="TelemetryRows.Names"/>: synced records not deleted, by collection, and the server's tables.</summary>
+    Task<IReadOnlyDictionary<string, long>> RowCountsAsync(CancellationToken cancellation = default);
 }

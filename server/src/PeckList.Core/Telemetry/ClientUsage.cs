@@ -32,7 +32,9 @@ public sealed record ClientReport(
     IReadOnlyDictionary<string, int[]>? Timings = null,
     string? Notify = null,
     string? Exact = null,
-    string? Battery = null);
+    string? Battery = null,
+    string? Web = null,
+    string? App = null);
 
 /// <summary>
 /// The names client counts may use, and how a day of reports becomes the report's
@@ -76,6 +78,10 @@ public static partial class ClientUsage
     [GeneratedRegex("^[A-Za-z0-9_-]{8,64}$")]
     private static partial Regex DeviceId();
 
+    /// <summary>A release, pre-release or build version (0.7.1, 0.7.1-rc.1, 0.7.1-edge.1a2b3c4d), nothing longer.</summary>
+    [GeneratedRegex(@"^[0-9]{1,4}\.[0-9]{1,4}\.[0-9]{1,6}(-[a-z]{1,8}(\.[0-9a-z]{1,40})?)?$")]
+    private static partial Regex AppVersion();
+
     /// <summary>A median time in buckets.</summary>
     public static string Duration(double milliseconds) => milliseconds switch
     {
@@ -99,6 +105,9 @@ public static partial class ClientUsage
         if (report.Notify is { } notify && Switches.Contains(notify)) yield return $"notify:{notify}";
         if (report.Exact is { } exact && Switches.Contains(exact)) yield return $"exact:{exact}";
         if (report.Battery is { } battery && Switches.Contains(battery)) yield return $"battery:{battery}";
+        // The web app's version, and the Android app's around it (schema 3).
+        if (report.Web is { } web && AppVersion().IsMatch(web)) yield return $"web:{web}";
+        if (report.App is { } app && AppVersion().IsMatch(app)) yield return $"app:{app}";
     }
 
     /** Whether a dimension:value pair is one <see cref="Kinds"/> can make. */
@@ -107,7 +116,8 @@ public static partial class ClientUsage
         string? Value(string dimension) => kind.StartsWith(dimension + ":", StringComparison.Ordinal) ? kind[(dimension.Length + 1)..] : null;
         return Kinds(new ClientReport(
             Platform: Value("platform"), Browser: Value("browser"), Os: Value("os"), Screen: Value("screen"), Theme: Value("theme"),
-            Language: Value("language"), Notify: Value("notify"), Exact: Value("exact"), Battery: Value("battery"))).Contains(kind);
+            Language: Value("language"), Notify: Value("notify"), Exact: Value("exact"), Battery: Value("battery"),
+            Web: Value("web"), App: Value("app"))).Contains(kind);
     }
 
     /// <summary>The report with everything not on the lists dropped and counts capped; null when its device id is no good.</summary>

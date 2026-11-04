@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Globalization;
 using System.Runtime.InteropServices;
 using PeckList.Core.Accounts;
@@ -96,6 +97,7 @@ public sealed class TelemetryReport(
         var now = time.GetUtcNow();
         var (id, since) = await InstallAsync(cancellation);
         var totals = await stats.GetAsync(cancellation);
+        var databaseBytes = await source.DatabaseBytesAsync(cancellation);
         return new TelemetryPing
         {
             InstallId = id,
@@ -108,7 +110,7 @@ public sealed class TelemetryReport(
                 Environment.GetEnvironmentVariable("DOTNET_RUNNING_IN_CONTAINER") == "true",
                 Environment.Version.ToString(),
                 settings.DbProvider.ToString().ToLowerInvariant(),
-                TelemetryBuckets.Bytes(await source.DatabaseBytesAsync(cancellation))),
+                TelemetryBuckets.Bytes(databaseBytes)),
             Setup = new TelemetrySetup(
                 settings.AuthMode == AuthMode.Local && !settings.LocalLoginDisabled,
                 settings.AuthMode == AuthMode.None,
@@ -117,7 +119,15 @@ public sealed class TelemetryReport(
                 settings.SnapshotSchedule.ToString().ToLowerInvariant(),
                 settings.UpdateCheck,
                 TelemetryBuckets.Count(await source.ActiveApiKeysAsync(now, cancellation)),
-                await source.AnyPushSubscriptionAsync(cancellation)),
+                await source.AnyPushSubscriptionAsync(cancellation),
+                Email: settings.Mail is null ? "off" : settings.MailProvider ?? "custom",
+                Passkeys: settings.Passkeys,
+                HttpsAddress: settings.PublicUrl?.Scheme == Uri.UriSchemeHttps,
+                BehindProxy: !string.IsNullOrWhiteSpace(settings.TrustedProxies),
+                LogOutputs: LogOutputs(settings.Logging),
+                CrashReports: settings.CrashReports,
+                OidcPresets: [.. settings.OidcProviders.Select(provider => provider.Preset is "google" ? "google" : "custom")],
+                Demo: settings.DemoMode),
             Scale = new TelemetryScale(
                 TelemetryBuckets.Count(totals.Users),
                 TelemetryBuckets.Count(totals.Lists),
@@ -126,8 +136,26 @@ public sealed class TelemetryReport(
                 TelemetryBuckets.Count(totals.ClosedTasks),
                 TelemetryBuckets.Bytes(totals.StorageBytes)),
             Clients = clients is null ? null : await clients.SummaryAsync(cancellation),
+            Host = Machine.Facts(now),
+            Storage = new TelemetryStorage(
+                TelemetryBuckets.Bytes(databaseBytes),
+                TelemetryBuckets.Bytes(totals.StorageBytes),
+                TelemetryBuckets.Bytes(Machine.FolderBytes(settings.SnapshotDir)),
+                TelemetryBuckets.Bytes(settings.Logging.Files ? Machine.FolderBytes(settings.Logging.Dir) : 0),
+                TelemetryBuckets.Disk(Machine.FreeBytes(settings.DbProvider == DbProvider.Sqlite ? settings.DbPath : settings.AttachmentDir))),
+            Rows = (await source.RowCountsAsync(cancellation))
+                .ToDictionary(each => each.Key, each => TelemetryBuckets.Count(each.Value), StringComparer.Ordinal),
         };
     }
+
+    private static IReadOnlyList<string> LogOutputs(LoggingSettings logging) =>
+    [
+        .. new (bool On, string Name)[]
+        {
+            (logging.Files, "file"), (logging.OtlpEndpoint is not null, "otlp"), (logging.LokiUrl is not null, "loki"),
+            (logging.Gelf is not null, "gelf"), (logging.ElasticUrl is not null, "elastic"), (logging.Syslog is not null, "syslog"),
+        }.Where(each => each.On).Select(each => each.Name),
+    ];
 
     private static string Os() =>
         OperatingSystem.IsLinux() ? "linux"
@@ -146,6 +174,66 @@ public sealed class TelemetryReport(
         await secrets.PutAsync(Kind, "install-id", id, cancellation);
         await secrets.PutAsync(Kind, "installed-at", since.ToString("O", CultureInfo.InvariantCulture), cancellation);
         return (id, since);
+    }
+}
+
+/// <summary>The machine's facts for the report (schema 3), each read so that a failure only leaves it "unknown".</summary>
+internal static class Machine
+{
+    public static TelemetryHost Facts(DateTimeOffset now)
+    {
+        using var process = Process.GetCurrentProcess();
+        var running = now - new DateTimeOffset(process.StartTime.ToUniversalTime(), TimeSpan.Zero);
+        var cpus = Environment.ProcessorCount;
+        var share = running.TotalSeconds > 0 ? process.TotalProcessorTime.TotalSeconds / (running.TotalSeconds * cpus) : 0;
+        return new TelemetryHost(
+            TelemetryBuckets.Cpus(cpus),
+            TelemetryBuckets.Memory(GC.GetGCMemoryInfo().TotalAvailableMemoryBytes),
+            TelemetryBuckets.ProcessMemory(Environment.WorkingSet),
+            TelemetryBuckets.CpuUse(share),
+            TelemetryBuckets.Uptime(running),
+            Environment.OSVersion.Version is { Major: > 0 } kernel ? $"{kernel.Major}.{kernel.Minor}" : "unknown",
+            ContainerRuntime(),
+            TimeZoneInfo.Local.Id is { Length: > 0 and <= 40 } zone ? zone : "unknown");
+    }
+
+    private static string ContainerRuntime()
+    {
+        if (Environment.GetEnvironmentVariable("KUBERNETES_SERVICE_HOST") is { Length: > 0 }) return "kubernetes";
+        if (File.Exists("/run/.containerenv")) return "podman";
+        if (File.Exists("/.dockerenv")) return "docker";
+        return Environment.GetEnvironmentVariable("DOTNET_RUNNING_IN_CONTAINER") == "true" ? "other" : "none";
+    }
+
+    /// <summary>The bytes the files under a folder take; 0 when it is missing or cannot be read.</summary>
+    public static long FolderBytes(string path)
+    {
+        try
+        {
+            return Directory.Exists(path)
+                ? new DirectoryInfo(path).EnumerateFiles("*", new EnumerationOptions { RecurseSubdirectories = true, IgnoreInaccessible = true })
+                    .Sum(file => file.Length)
+                : 0;
+        }
+        catch (Exception error) when (error is IOException or UnauthorizedAccessException)
+        {
+            return 0;
+        }
+    }
+
+    /// <summary>Free space on the disk a path is on; 0 when it cannot be told.</summary>
+    public static long FreeBytes(string path)
+    {
+        try
+        {
+            var folder = Path.GetDirectoryName(Path.GetFullPath(path)) ?? path;
+            while (!Directory.Exists(folder) && Path.GetDirectoryName(folder) is { } parent) folder = parent;
+            return new DriveInfo(folder).AvailableFreeSpace;
+        }
+        catch (Exception error) when (error is IOException or UnauthorizedAccessException or ArgumentException)
+        {
+            return 0;
+        }
     }
 }
 

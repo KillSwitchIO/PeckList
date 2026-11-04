@@ -74,6 +74,14 @@ public sealed class TelemetryTests(ServerFixture fixture) : IClassFixture<Server
         Assert.Equal("2-5", info.Report.Scale.Users);
         Assert.Equal("sqlite", info.Report.Runtime.Database);
         Assert.True(info.Report.Setup.LocalLogin);
+        // Schema 3: the machine, sizes, rows and more of the setup, all buckets or names off a list.
+        Assert.Equal(TelemetryPing.CurrentSchema, info.Report.Schema);
+        Assert.Equal(("off", true, true, false), (info.Report.Setup.Email, info.Report.Setup.Passkeys, info.Report.Setup.HttpsAddress, info.Report.Setup.BehindProxy));
+        Assert.NotNull(info.Report.Host);
+        Assert.NotEqual("unknown", info.Report.Host.TimeZone);
+        Assert.NotNull(info.Report.Storage);
+        Assert.Equal("2-5", info.Report.Rows!["accounts"]);
+        Assert.True(info.Report.Rows.Keys.All(TelemetryRows.Names.Contains));
 
         // The same install id until an admin asks for a new one.
         var again = (await admin.GetFromJsonAsync<TelemetryInfo>("/api/admin/telemetry", Token))!;

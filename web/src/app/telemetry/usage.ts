@@ -207,6 +207,7 @@ async function flush(now = false): Promise<void> {
   const report: ClientReport = {
     device: deviceId(),
     ...deviceKind(),
+    web: __APP_VERSION__,
     features: kept.features,
     errors: kept.errors,
     timings: kept.timings,
@@ -222,6 +223,11 @@ async function flush(now = false): Promise<void> {
     report.exact = shell.permissions.exact;
     report.battery = shell.permissions.battery;
   }
+  const app = await nativeShell()
+    ?.info()
+    .then((info) => info.version)
+    .catch(() => undefined);
+  if (app) report.app = app;
   const before = kept;
   kept = empty();
   save();

@@ -12,9 +12,12 @@ The code is `server/src/PeckList.Collector`; the report it reads is `TelemetryPi
 
 - **One row per install per day** (UTC): the day's last report from that install, checked against
   `TelemetryPing` and stored as the checked record, so a field it does not know is dropped, not
-  kept. No IP address is read or stored.
+  kept. No IP address is read or stored. Next to it, the **country** from Cloudflare's
+  `CF-IPCountry` header (two letters; none for `XX`, `T1` or no header).
+- **Crash reports** people chose to send, scrubbed, one row each.
 - **Daily totals**: installs per version, channel, database, OS, architecture, container, users,
-  open tasks, local sign-in and OIDC, for every finished day.
+  open tasks, local sign-in, OIDC, country, time zone, processors, memory, container runtime,
+  kernel, mail provider, passkeys, stored data and free disk, for every finished day.
 - Reports are kept 90 days; the daily totals made from them stay.
 
 ## Endpoints
@@ -42,6 +45,10 @@ docker run -d -p 8080:8080 -e COLLECTOR_DB="Host=db;Username=collector;Password=
 
 `COLLECTOR_DB` is a PostgreSQL connection string; the tables are made on start. To keep the
 password out of the environment, leave it out of the string and set `COLLECTOR_DB_PASSWORD_FILE` to
-a file holding it (a Docker secret, say). CI builds the
+a file holding it (a Docker secret, say).
+
+For dashboards, set `COLLECTOR_READER_PASSWORD_FILE` to a file holding a password: on start the
+collector makes (or updates) the role `telemetry_reader` with it, which may read every table and
+change nothing. The project's Grafana signs in as that role through a PostgreSQL data source. CI builds the
 image when the collector or the report changes (`collector-image`) and pushes `:edge` and
 `:sha-<commit>` from `main`. It belongs behind a TLS proxy that does not log client addresses.

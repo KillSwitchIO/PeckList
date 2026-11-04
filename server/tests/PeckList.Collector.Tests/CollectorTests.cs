@@ -198,6 +198,79 @@ public sealed class CollectorTests(PostgresServer server) : IClassFixture<Postgr
     }
 
     [Fact]
+    public async Task A_schema_3_report_is_kept_with_the_country_cloudflare_names_and_nothing_finer()
+    {
+        var (factory, connection) = await StartAsync();
+        using var client = factory.CreateClient();
+        async Task<HttpStatusCode> Send(TelemetryPing ping, string? country)
+        {
+            using var request = new HttpRequestMessage(HttpMethod.Post, "/api/public/v1/ping") { Content = JsonContent.Create(ping) };
+            if (country is not null) request.Headers.Add("CF-IPCountry", country);
+            return (await client.SendAsync(request, Cancel)).StatusCode;
+        }
+
+        Assert.Equal(HttpStatusCode.Accepted, await Send(Full(), "DE"));
+        // Cloudflare's "unknown" and "Tor", and anything that is not two capitals, keep no country.
+        Assert.Equal(HttpStatusCode.Accepted, await Send(Full(), "XX"));
+        Assert.Equal(HttpStatusCode.Accepted, await Send(Full(), "T1"));
+        Assert.Equal(HttpStatusCode.Accepted, await Send(Full(), "Berlin"));
+        Assert.Equal(HttpStatusCode.Accepted, await Send(Full(), null));
+
+        await using var db = new NpgsqlConnection(connection);
+        Assert.Equal(new string?[] { "DE", null, null, null, null },
+            (await db.QueryAsync<string?>("SELECT country FROM pings ORDER BY received_at")).ToArray());
+        var stored = await db.ExecuteScalarAsync<string>("SELECT payload::text FROM pings WHERE country = 'DE'");
+        Assert.Contains("\"timeZone\": \"Europe/Berlin\"", stored);
+        Assert.Contains("\"tasks\": \"101-500\"", stored);
+
+        // A name off the lists, or a value that is not a bucket, is refused.
+        Assert.Equal(HttpStatusCode.BadRequest, await Send(Full() with { Rows = new Dictionary<string, string> { ["secrets"] = "1" } }, null));
+        Assert.Equal(HttpStatusCode.BadRequest, await Send(Full() with { Host = Full().Host! with { TimeZone = "Ben's house" } }, null));
+        Assert.Equal(HttpStatusCode.BadRequest, await Send(Full() with { Setup = Full().Setup with { Email = "smtp.example.com" } }, null));
+    }
+
+    [Fact]
+    public async Task The_public_totals_break_down_by_country_and_machine()
+    {
+        var (_, connection) = await StartAsync();
+        var store = Store(connection);
+        for (var i = 0; i < 5; i++) await store.SaveAsync(Full(), Now, Cancel, "US");
+
+        var stats = await store.StatsAsync(Now, Cancel);
+        Assert.Equal([new StatValue("US", 5)], stats.Breakdown["country"]);
+        Assert.Equal([new StatValue("Europe/Berlin", 5)], stats.Breakdown["timeZone"]);
+        Assert.Equal([new StatValue("5-8", 5)], stats.Breakdown["cpus"]);
+        Assert.Equal([new StatValue("gmail", 5)], stats.Breakdown["email"]);
+    }
+
+    [Fact]
+    public async Task Dashboards_get_a_role_that_reads_everything_and_changes_nothing()
+    {
+        var connection = await server.NewDatabaseAsync();
+        var file = Path.GetTempFileName();
+        await File.WriteAllTextAsync(file, "it's a reader password\n", Cancel);
+        try
+        {
+            using var factory = new WebApplicationFactory<Program>().WithWebHostBuilder(host => host
+                .UseSetting("COLLECTOR_DB", connection)
+                .UseSetting("COLLECTOR_READER_PASSWORD_FILE", file));
+            using var client = factory.CreateClient();
+            Assert.Equal(HttpStatusCode.Accepted, (await client.PostAsJsonAsync("/api/public/v1/ping", Ping(), Cancel)).StatusCode);
+
+            var reader = new NpgsqlConnectionStringBuilder(connection) { Username = PingStore.ReaderRole, Password = "it's a reader password" };
+            await using var db = new NpgsqlConnection(reader.ToString());
+            Assert.Equal(1, await db.ExecuteScalarAsync<int>("SELECT count(*) FROM pings"));
+            Assert.Equal(0, await db.ExecuteScalarAsync<int>("SELECT count(*) FROM daily_totals"));
+            var refused = await Assert.ThrowsAsync<PostgresException>(() => db.ExecuteAsync("DELETE FROM pings"));
+            Assert.Equal(PostgresErrorCodes.InsufficientPrivilege, refused.SqlState);
+        }
+        finally
+        {
+            File.Delete(file);
+        }
+    }
+
+    [Fact]
     public async Task The_database_password_can_come_from_a_file()
     {
         var connection = await server.NewDatabaseAsync();
@@ -241,5 +314,16 @@ public sealed class CollectorTests(PostgresServer server) : IClassFixture<Postgr
         Runtime = new TelemetryRuntime("linux", "x64", true, "10.0.0", "sqlite", "1-10MB"),
         Setup = new TelemetrySetup(true, false, 1, "invite", "daily", true, "0", false),
         Scale = new TelemetryScale("2-5", "6-20", "1", "21-100", "101-500", "1-10MB"),
+    };
+
+    /// <summary>A schema 3 report, with everything it may carry.</summary>
+    private static TelemetryPing Full() => Ping("0.8.0") with
+    {
+        Setup = new TelemetrySetup(true, false, 1, "invite", "daily", true, "0", false,
+            Email: "gmail", Passkeys: true, HttpsAddress: true, BehindProxy: true, LogOutputs: ["file", "loki"], CrashReports: true,
+            OidcPresets: ["google"], Demo: false),
+        Host = new TelemetryHost("5-8", "4-8GB", "100-250MB", "1-5%", "7-30d", "6.12", "docker", "Europe/Berlin"),
+        Storage = new TelemetryStorage("1-10MB", "10-100MB", "100MB-1GB", "1-10MB", "100GB-1TB"),
+        Rows = new Dictionary<string, string> { ["tasks"] = "101-500", ["lists"] = "6-20", ["passkeys"] = "1" },
     };
 }

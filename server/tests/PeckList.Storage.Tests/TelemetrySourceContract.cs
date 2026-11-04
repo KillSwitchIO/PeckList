@@ -1,5 +1,7 @@
+using System.Text.Json.Nodes;
 using PeckList.Core.Accounts;
 using PeckList.Core.Push;
+using PeckList.Core.Storage;
 using PeckList.Core.Telemetry;
 using PeckList.Storage.Sql;
 
@@ -39,6 +41,25 @@ public abstract class TelemetrySourceContract : IAsyncLifetime
         Assert.Equal(2, await source.ActiveApiKeysAsync(Now, Token));
         Assert.True(await source.AnyPushSubscriptionAsync(Token));
         Assert.True(await source.DatabaseBytesAsync(Token) > 0);
+    }
+
+    [Fact]
+    public async Task Counts_rows_by_collection_without_the_deleted_and_the_servers_tables()
+    {
+        static IncomingEntity Entity(string collection, string id, string? deletedAt = null) =>
+            new(collection, new JsonObject { ["id"] = id, ["title"] = "Feed the zebra finches", ["deletedAt"] = deletedAt });
+        static JsonObject Take(StoredEntity? _, IncomingEntity incoming) => (JsonObject)incoming.Doc.DeepClone();
+        await new SqlEntityStore(database).WriteAsync("01JBACCT000000000000000001",
+            [Entity("tasks", "T1"), Entity("tasks", "T2"), Entity("tasks", "T3", "2026-10-21T11:00:00.000Z"), Entity("lists", "L1"),
+             Entity("zebraNotes", "Z1")],
+            Take, cancellation: Token);
+        await new SqlApiKeyStore(database).AddAsync(Key("works", null), Token);
+
+        var rows = await new SqlTelemetrySource(database).RowCountsAsync(Token);
+        Assert.Equal((2, 1, 1), (rows["tasks"], rows["lists"], rows["apiKeys"]));
+        // Only names off the report's list: never a collection it does not know.
+        Assert.True(rows.Keys.All(TelemetryRows.Names.Contains));
+        Assert.Equal(TelemetryRows.Tables.Count, rows.Keys.Count(TelemetryRows.Tables.ContainsKey));
     }
 
     private static ApiKey Key(string id, DateTimeOffset? expires) => new()
