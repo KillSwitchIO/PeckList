@@ -80,6 +80,29 @@ public sealed class PingStore(NpgsqlDataSource data)
             cancellationToken: cancellation));
     }
 
+    /// <summary>Keep a crash report as it came, checked (a field the collector does not know is not kept).</summary>
+    public async Task SaveCrashAsync(CrashReport report, DateTimeOffset received, CancellationToken cancellation = default)
+    {
+        await using var connection = await data.OpenConnectionAsync(cancellation);
+        await connection.ExecuteAsync(new CommandDefinition(
+            """
+            INSERT INTO crashes (received_at, install_id, source, version, channel, kind, fingerprint, payload)
+            VALUES (@Received, @Install, @Source, @Version, @Channel, @Kind, @Fingerprint, @Payload::jsonb)
+            """,
+            new
+            {
+                Received = received.UtcDateTime,
+                Install = report.InstallId is { } id ? Guid.Parse(id) : (Guid?)null,
+                report.Source,
+                report.Version,
+                report.Channel,
+                report.Kind,
+                report.Fingerprint,
+                Payload = JsonSerializer.Serialize(report, Json),
+            },
+            cancellationToken: cancellation));
+    }
+
     public async Task<PublicStats> StatsAsync(DateTimeOffset now, CancellationToken cancellation = default)
     {
         var since = DateOnly.FromDateTime(now.UtcDateTime).AddDays(-(WindowDays - 1));
@@ -132,6 +155,8 @@ public sealed class PingStore(NpgsqlDataSource data)
             new { Today = Iso(today) }, transaction, cancellationToken: cancellation));
         await connection.ExecuteAsync(new CommandDefinition(
             "DELETE FROM pings WHERE day < @Oldest::date", new { Oldest = Iso(today.AddDays(-KeepDays)) }, transaction, cancellationToken: cancellation));
+        await connection.ExecuteAsync(new CommandDefinition(
+            "DELETE FROM crashes WHERE received_at < @Oldest::date", new { Oldest = Iso(today.AddDays(-KeepDays)) }, transaction, cancellationToken: cancellation));
         await transaction.CommitAsync(cancellation);
     }
 

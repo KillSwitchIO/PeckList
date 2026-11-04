@@ -97,6 +97,29 @@ public sealed class CollectorTests(PostgresServer server) : IClassFixture<Postgr
     }
 
     [Fact]
+    public async Task A_crash_report_is_kept_scrubbed_and_a_malformed_one_refused()
+    {
+        var (factory, connection) = await StartAsync();
+        await using var _ = factory;
+        var client = factory.CreateClient();
+        var report = new CrashReport
+        {
+            InstallId = Guid.NewGuid().ToString(), Source = "web", Version = "0.8.0", Channel = "release",
+            Kind = "TypeError", Fingerprint = "a1b2c3d4", Stack = "at render (https://tasks.zebra-example.test/assets/index.js:1:2)",
+        };
+        Assert.Equal(HttpStatusCode.Accepted, (await client.PostAsJsonAsync("/api/public/v1/crash", report, Cancel)).StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest,
+            (await client.PostAsJsonAsync("/api/public/v1/crash", report with { Fingerprint = "not hex" }, Cancel)).StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest,
+            (await client.PostAsJsonAsync("/api/public/v1/crash", report with { Source = "printer" }, Cancel)).StatusCode);
+
+        await using var db = new NpgsqlConnection(connection);
+        var kept = await db.QuerySingleAsync<string>(new CommandDefinition("SELECT payload::text FROM crashes", cancellationToken: Cancel));
+        Assert.DoesNotContain("zebra", kept);
+        Assert.Contains("/assets/index.js:1:2", kept);
+    }
+
+    [Fact]
     public async Task The_public_totals_fold_values_fewer_than_five_installs_share()
     {
         var (factory, connection) = await StartAsync();

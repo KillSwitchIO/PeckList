@@ -238,6 +238,15 @@ collector, with counts in ranges and switches, never names, titles, addresses or
 wrote. Turn it off and nothing is sent. The admin settings page shows the report exactly as it
 would go. **Default:** `true`. **Where:** any, live.
 
+### `CRASH_REPORTS`
+
+`true` or `false`. On, the apps offer to send a crash report when they hit an error they cannot get
+past (the person sees it and chooses each time, or always, or never), and the server keeps its own
+unhandled errors for the admins to send or not. Reports go through the server to the collector
+next to [`TELEMETRY_URL`](#telemetry_url) (`.../v1/crash`). Separate from `TELEMETRY`: crash reports
+can be on with the usage report off. **Default:** `true`. **Where:** any, live. See
+[privacy](../using/privacy.md#crash-reports).
+
 ### `TELEMETRY_URL`
 
 Where the report goes. **Default:** `https://telemetry.pecklist.com/api/public/v1/ping`. **Where:** any, live.

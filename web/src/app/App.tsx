@@ -11,6 +11,7 @@ import { preloadEditor } from './editor/preloadEditor.ts';
 import { preloadPages } from './lazyPages.ts';
 import { loadSymbolCatalog } from './lists/listSymbols.ts';
 import { AppRoutes } from './routes.tsx';
+import { CrashBoundary, NativeCrashOffer } from './telemetry/CrashBoundary.tsx';
 import { createBrowserApp } from './store/browserStore.ts';
 import { ViewAsContext } from './store/viewAs.ts';
 import { ViewAsBanner } from './sync/ViewAsBanner.tsx';
@@ -38,8 +39,11 @@ export function App() {
     <ViewAsContext.Provider value={viewAs}>
       <AppProviders store={store} sync={sync}>
         <BrowserRouter>
-          <AppRoutes />
+          <CrashBoundary>
+            <AppRoutes />
+          </CrashBoundary>
           <NativeFirstRun />
+          <NativeCrashOffer />
           <NotificationOpen />
           <BackgroundCheckPrompt />
         </BrowserRouter>

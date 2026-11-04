@@ -67,6 +67,7 @@ import { useHoldToHatch } from '../fun/useHoldToHatch.ts';
 import { UpdateNotice } from './VersionStatus.tsx';
 import { PeekSidebar } from './PeekSidebar.tsx';
 import { noteArrival } from '../views/emptyMarkPlays.ts';
+import { countUse, viewOf } from '../telemetry/usage.ts';
 
 /** How often the trash is checked for things to erase. */
 const PURGE_EVERY_MS = 6 * 3_600_000;
@@ -113,6 +114,15 @@ function SidebarTitle() {
     );
   }
   return <SidebarEditBar />;
+}
+
+/** Each view opened counts once (PL-116). */
+function useCountViews() {
+  const { pathname } = useLocation();
+  useEffect(() => {
+    const view = viewOf(pathname);
+    if (view) countUse(view);
+  }, [pathname]);
 }
 
 function Sidebar({ onNavigate }: { onNavigate: (path: string) => void }) {
@@ -535,6 +545,7 @@ function AppFrame() {
 
 /** The frame, with my notifications at hand for the profile button and the notifications page. */
 export function AppShell() {
+  useCountViews();
   return (
     <NotificationsProvider>
       <BulkSelectProvider>

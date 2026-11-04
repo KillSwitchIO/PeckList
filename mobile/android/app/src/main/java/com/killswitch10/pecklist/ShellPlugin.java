@@ -60,6 +60,32 @@ public class ShellPlugin extends Plugin {
 
     private static final long PROVIDER_IN_WEBVIEW_MS = 10 * 60 * 1000;
 
+    /** The shell's counts since the last ask, and the permission states (PL-116). */
+    @PluginMethod
+    public void usage(PluginCall call) {
+        try {
+            JSObject result = new JSObject();
+            result.put("counts", Usage.countsOnly(Usage.takeCounts(getContext())));
+            result.put("permissions", Usage.permissions(getContext()));
+            call.resolve(result);
+        } catch (org.json.JSONException error) {
+            call.reject(error.getMessage());
+        }
+    }
+
+    /** The crash since the last start, if any (kind and stack), used up by asking (PL-116). */
+    @PluginMethod
+    public void lastCrash(PluginCall call) {
+        org.json.JSONObject crash = Usage.takeCrash(getContext());
+        JSObject result = new JSObject();
+        try {
+            result.put("crash", crash == null ? JSONObject.NULL : JSObject.fromJSONObject(crash));
+        } catch (org.json.JSONException error) {
+            result.put("crash", JSONObject.NULL);
+        }
+        call.resolve(result);
+    }
+
     @PluginMethod
     public void info(PluginCall call) {
         JSObject result = new JSObject();

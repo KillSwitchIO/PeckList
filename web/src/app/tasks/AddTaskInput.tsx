@@ -26,6 +26,7 @@ import { newTaskAssignees } from './newTaskAssignees.ts';
 import { useTaskSelection } from './selection.ts';
 import { markDraft } from './drafts.ts';
 import { useSyncState } from '../sync/syncContext.ts';
+import { countUse } from '../telemetry/usage.ts';
 
 // The date parser loads on first use, keeping it out of the app's first load.
 let parserPromise: Promise<DateParser> | null = null;
@@ -157,6 +158,13 @@ export function AddTaskInput({
     }
     setTitle('');
     setIgnore(new Set());
+    countUse('task.added');
+    if (quick && parsed) {
+      if (parsed.schedule || parsed.due) countUse('quickAdd.date');
+      if (parsed.tags.length > 0) countUse('quickAdd.tag');
+      if (parsed.listId) countUse('quickAdd.list');
+      if (parsed.priority !== null) countUse('quickAdd.priority');
+    }
     return id;
   };
   const submit = () => void make();

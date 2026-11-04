@@ -20,6 +20,7 @@ import type {
   SyncRequest,
   SyncResponse,
   SyncTransport,
+  TelemetryStatus,
 } from '../ports/sync.ts';
 import { SyncFailure } from '../ports/sync.ts';
 import { messageOf } from '../core/errors.ts';
@@ -346,6 +347,27 @@ export function createHttpSync(
     },
 
     admin: createHttpAdmin(base, fetcher),
+
+    telemetry: {
+      async status() {
+        const response = await call('/api/telemetry');
+        if (!response.ok) return fail(response);
+        return (await response.json()) as TelemetryStatus;
+      },
+      async choose(choice) {
+        const response = await call('/api/telemetry/choice', { method: 'PUT', body: choice });
+        if (!response.ok) return fail(response);
+        return (await response.json()) as TelemetryStatus;
+      },
+      async report(report) {
+        const response = await call('/api/telemetry', { method: 'POST', body: report });
+        if (!response.ok) await fail(response);
+      },
+      async crash(report) {
+        const response = await call('/api/crash-reports', { method: 'POST', body: report });
+        if (!response.ok && response.status !== 404) await fail(response);
+      },
+    },
 
     account: {
       async signInMethods() {

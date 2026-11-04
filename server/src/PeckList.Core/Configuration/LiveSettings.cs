@@ -26,6 +26,7 @@ public sealed class LiveSettings(ServerSettings start)
             UpdateCheck = next.UpdateCheck,
             ApiDocs = next.ApiDocs,
             Telemetry = next.Telemetry,
+            CrashReports = next.CrashReports,
             TelemetryUrl = next.TelemetryUrl,
             Mail = next.Mail,
             SnapshotSchedule = next.SnapshotSchedule,

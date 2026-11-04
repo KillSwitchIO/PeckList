@@ -10,7 +10,8 @@ namespace PeckList.Core.Telemetry;
 /// </summary>
 public sealed record TelemetryPing
 {
-    public const int CurrentSchema = 1;
+    /// <summary>2 added <see cref="Clients"/>.</summary>
+    public const int CurrentSchema = 2;
 
     public int Schema { get; init; } = CurrentSchema;
 
@@ -30,6 +31,9 @@ public sealed record TelemetryPing
     public required TelemetrySetup Setup { get; init; }
 
     public required TelemetryScale Scale { get; init; }
+
+    /// <summary>What the server's apps reported (schema 2); null when no one shared any.</summary>
+    public TelemetryClients? Clients { get; init; }
 }
 
 /// <summary>Where the server runs. <see cref="DatabaseSize"/> is a bucket.</summary>
@@ -108,8 +112,26 @@ public static partial class TelemetryBuckets
         ];
         if (texts.Any(text => text is null || text.Length > 40)) return "text";
         if (ping.Setup.OidcProviders is < 0 or > 1000) return "oidcProviders";
+        if (ping.Clients is { } clients && ClientsProblem(clients) is { } problem) return problem;
         return null;
     }
+
+    /// <summary>Every name on its list and every value a bucket, so nothing else can ride along.</summary>
+    private static string? ClientsProblem(TelemetryClients clients)
+    {
+        static bool Bucket(string? value) => value is { Length: > 0 and <= 12 } && BucketText().IsMatch(value);
+        if (!Bucket(clients.People)) return "clients.people";
+        if (clients.Devices is null || clients.Features is null || clients.Errors is null || clients.Timings is null) return "clients";
+        if (clients.Devices.Any(each => !ClientUsage.KnownKind(each.Key) || !Bucket(each.Value))) return "clients.devices";
+        if (clients.Features.Any(each => !ClientUsage.Features.Contains(each.Key) || !Bucket(each.Value))) return "clients.features";
+        if (clients.Errors.Count > ClientUsage.MaxErrors
+            || clients.Errors.Any(each => !ClientUsage.Fingerprint().IsMatch(each.Key) || !Bucket(each.Value))) return "clients.errors";
+        if (clients.Timings.Any(each => !ClientUsage.Timings.Contains(each.Key) || !Bucket(each.Value))) return "clients.timings";
+        return null;
+    }
+
+    [GeneratedRegex(@"^[0-9a-zA-Z<+.-]+$")]
+    private static partial Regex BucketText();
 
     [GeneratedRegex(@"^[0-9A-Za-z.+-]+$")]
     private static partial Regex VersionText();

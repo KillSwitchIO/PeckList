@@ -6,6 +6,7 @@ import { JoinQuestion } from './JoinQuestion.tsx';
 import { ViewEnded } from './ViewAsBanner.tsx';
 import { SyncContext, useSyncState } from './syncContext.ts';
 import type { SyncEngine } from './syncEngine.ts';
+import { startUsage, stopUsage } from '../telemetry/usage.ts';
 
 /**
  * Starts the sync engine once the workspace is open and shows the sign-in or password pages when
@@ -21,10 +22,24 @@ export function SyncProvider({ engine, children }: { engine: SyncEngine; childre
   return (
     <SyncContext.Provider value={engine}>
       <AuthGate>{children}</AuthGate>
+      <UsageCounting />
       {/* Over the sign-in pages and the app alike (PL-117). */}
       <DemoBanner />
     </SyncContext.Provider>
   );
+}
+
+/** Usage counts (PL-116) for a signed-in session, when the server and the person allow them. */
+function UsageCounting() {
+  const phase = useSyncState((state) => state.phase);
+  const transport = useSyncState((state) => state.transport);
+  const accountId = useSyncState((state) => state.account?.id);
+  useEffect(() => {
+    if (phase !== 'ready' || !accountId) return;
+    void startUsage(transport);
+    return () => stopUsage();
+  }, [phase, transport, accountId]);
+  return null;
 }
 
 function AuthGate({ children }: { children: ReactNode }) {

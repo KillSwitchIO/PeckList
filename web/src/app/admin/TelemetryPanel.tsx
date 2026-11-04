@@ -8,8 +8,9 @@ import {
   DialogTitle,
   Typography,
 } from '@mui/material';
-import { useState } from 'react';
-import type { AdminApi, TelemetryView } from '../../ports/admin.ts';
+import { useCallback, useState } from 'react';
+import type { AdminApi, ServerCrash, TelemetryView } from '../../ports/admin.ts';
+import { useLoaded } from './useAdmin.ts';
 import { t } from '../i18n/i18n.ts';
 
 /** The usage report exactly as it would go, as JSON (PL-116: nothing hidden). */
@@ -88,6 +89,76 @@ export function TelemetryPanel({
         </Button>
       </Box>
       <ReportDialog open={open} view={view} onClose={() => setOpen(false)} />
+      <ServerCrashes api={api} />
+    </Box>
+  );
+}
+
+/** The server's own crashes (PL-116): each with what it would send, Send and Forget. */
+function ServerCrashes({ api }: { api: AdminApi }) {
+  const load = useCallback(
+    () => api.crashReports?.() ?? Promise.resolve({ enabled: false, crashes: [] as ServerCrash[] }),
+    [api],
+  );
+  const { data, reload } = useLoaded(load);
+  const [looking, setLooking] = useState<ServerCrash | null>(null);
+  if (!data?.enabled || data.crashes.length === 0) return null;
+  return (
+    <Box
+      component="section"
+      aria-label={t('telemetry.crashes')}
+      sx={{ mt: 1, display: 'grid', gap: 1 }}
+    >
+      <Typography variant="subtitle2">{t('telemetry.crashes')}</Typography>
+      <Typography variant="body2" color="text.secondary">
+        {t('telemetry.crashesHint')}
+      </Typography>
+      {data.crashes.map((crash) => (
+        <Box
+          key={crash.fingerprint}
+          sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}
+        >
+          <Box sx={{ flexGrow: 1, minWidth: 0 }}>
+            <Typography noWrap>{crash.report.kind}</Typography>
+            <Typography variant="caption" color="text.secondary">
+              {t('telemetry.crashSeen', {
+                count: crash.count,
+                when: new Date(crash.lastAt).toLocaleString(),
+              })}
+            </Typography>
+          </Box>
+          <Button size="small" onClick={() => setLooking(crash)}>
+            {t('telemetry.crashShow')}
+          </Button>
+          <Button
+            size="small"
+            variant="outlined"
+            onClick={() => void api.sendCrashReport?.(crash.fingerprint).then(reload)}
+          >
+            {t('crash.send')}
+          </Button>
+          <Button
+            size="small"
+            onClick={() => void api.forgetCrashReport?.(crash.fingerprint).then(reload)}
+          >
+            {t('telemetry.forget')}
+          </Button>
+        </Box>
+      ))}
+      <Dialog open={looking !== null} onClose={() => setLooking(null)} fullWidth maxWidth="sm">
+        <DialogTitle>{t('crash.report')}</DialogTitle>
+        <DialogContent>
+          <Box
+            component="pre"
+            sx={{ m: 0, fontSize: 12, whiteSpace: 'pre-wrap', wordBreak: 'break-all' }}
+          >
+            {looking && JSON.stringify(looking.report, null, 2)}
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setLooking(null)}>{t('telemetry.close')}</Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 }

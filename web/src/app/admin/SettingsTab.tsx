@@ -45,6 +45,7 @@ const LABELS: Record<string, MessageKey> = {
   UPDATE_CHECK: 'serverSettings.UPDATE_CHECK',
   API_DOCS: 'serverSettings.API_DOCS',
   TELEMETRY: 'serverSettings.TELEMETRY',
+  CRASH_REPORTS: 'serverSettings.CRASH_REPORTS',
   TELEMETRY_URL: 'serverSettings.TELEMETRY_URL',
   DO_NOT_TRACK: 'serverSettings.DO_NOT_TRACK',
   SIGNUP_RATE_LIMIT: 'serverSettings.SIGNUP_RATE_LIMIT',

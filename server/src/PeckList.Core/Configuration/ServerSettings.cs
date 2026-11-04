@@ -127,6 +127,12 @@ public sealed record ServerSettings
     /// </summary>
     public bool Telemetry { get; init; } = true;
 
+    /// <summary>
+    /// Offer crash reports (<c>CRASH_REPORTS</c>, on by default; PL-116): the apps ask the person
+    /// before sending one, and the server keeps its own for the admin. Off: never offered or sent.
+    /// </summary>
+    public bool CrashReports { get; init; } = true;
+
     /// <summary>Where the daily usage report goes (<c>TELEMETRY_URL</c>).</summary>
     public Uri TelemetryUrl { get; init; } = DefaultTelemetryUrl;
 
@@ -371,6 +377,7 @@ public sealed record ServerSettings
             UpdateCheck = Flag("UPDATE_CHECK", true),
             ApiDocs = Flag("API_DOCS", true),
             Telemetry = Flag("TELEMETRY", true) && !Flag("DO_NOT_TRACK", false),
+            CrashReports = Flag("CRASH_REPORTS", true),
             TelemetryUrl = telemetryUrl,
             Mail = mail,
             Umami = umami,
