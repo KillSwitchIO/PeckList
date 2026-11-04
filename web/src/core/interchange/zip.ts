@@ -22,14 +22,55 @@ export const streamOf = (data: Uint8Array<ArrayBuffer>) =>
     },
   });
 
-async function inflate(data: Uint8Array): Promise<Uint8Array> {
-  const stream = streamOf(data.slice()).pipeThrough(new DecompressionStream('deflate-raw'));
-  return new Uint8Array(await new Response(stream).arrayBuffer());
+/**
+ * What an archive may hold (audit W4): its header sizes are the archive's own word, so a crafted
+ * one could declare a gigabyte entry and take the tab down inflating it. Far above any real
+ * export (a large Todoist backup is a few MB).
+ */
+export const ZIP_LIMITS = {
+  entries: 10_000,
+  entryBytes: 256 * 1024 * 1024,
+  totalBytes: 512 * 1024 * 1024,
+};
+
+export type ZipLimits = typeof ZIP_LIMITS;
+
+/** Inflate, stopping as soon as the output passes `cap` bytes, whatever the header said. */
+async function inflate(data: Uint8Array, cap: number): Promise<Uint8Array> {
+  const reader = streamOf(data.slice())
+    .pipeThrough(new DecompressionStream('deflate-raw'))
+    .getReader();
+  const chunks: Uint8Array[] = [];
+  let length = 0;
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    length += value.length;
+    if (length > cap) {
+      await reader.cancel();
+      throw new Error('zip entry too large');
+    }
+    chunks.push(value);
+  }
+  const out = new Uint8Array(length);
+  let at = 0;
+  for (const chunk of chunks) {
+    out.set(chunk, at);
+    at += chunk.length;
+  }
+  return out;
 }
 
-/** Every file in a zip archive (folders left out). */
-export async function readZip(bytes: Uint8Array): Promise<ZipEntry[]> {
+/** Every file in a zip archive (folders left out), within `limits`. */
+export async function readZip(
+  bytes: Uint8Array,
+  limits: ZipLimits = ZIP_LIMITS,
+): Promise<ZipEntry[]> {
   const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+  const damaged = () => new Error('damaged zip archive');
+  /** `length` bytes from `from` lie inside the archive. */
+  const inside = (from: number, length: number) =>
+    from >= 0 && length >= 0 && from + length <= bytes.length;
   // The end record sits in the last 64 KiB (after it, at most a comment).
   let end = -1;
   for (let i = bytes.length - 22; i >= Math.max(0, bytes.length - 65557); i -= 1) {
@@ -40,23 +81,39 @@ export async function readZip(bytes: Uint8Array): Promise<ZipEntry[]> {
   }
   if (end < 0) throw new Error('not a zip archive');
   const count = view.getUint16(end + 10, true);
+  if (count > limits.entries) throw new Error('zip archive with too many files');
   let at = view.getUint32(end + 16, true);
   const entries: ZipEntry[] = [];
+  let total = 0;
   for (let n = 0; n < count; n += 1) {
-    if (view.getUint32(at, true) !== 0x02014b50) throw new Error('damaged zip archive');
+    if (!inside(at, 46) || view.getUint32(at, true) !== 0x02014b50) throw damaged();
     const method = view.getUint16(at + 10, true);
     const size = view.getUint32(at + 20, true);
     const nameLength = view.getUint16(at + 28, true);
     const extraLength = view.getUint16(at + 30, true);
     const commentLength = view.getUint16(at + 32, true);
     const local = view.getUint32(at + 42, true);
+    if (!inside(at + 46, nameLength)) throw damaged();
     const name = utf8.decode(bytes.subarray(at + 46, at + 46 + nameLength));
     at += 46 + nameLength + extraLength + commentLength;
     if (name.endsWith('/')) continue;
+    if (!inside(local, 30)) throw damaged();
     const start = local + 30 + view.getUint16(local + 26, true) + view.getUint16(local + 28, true);
+    if (!inside(start, size)) throw damaged();
     const data = bytes.subarray(start, start + size);
-    if (method === 0) entries.push({ name, bytes: data });
-    else if (method === 8) entries.push({ name, bytes: await inflate(data) });
+    const left = limits.totalBytes - total;
+    const cap = Math.min(limits.entryBytes, left);
+    let entry: Uint8Array | null = null;
+    if (method === 0) {
+      if (size > cap) throw new Error('zip entry too large');
+      entry = data;
+    } else if (method === 8) {
+      entry = await inflate(data, cap);
+    }
+    if (entry) {
+      total += entry.length;
+      entries.push({ name, bytes: entry });
+    }
   }
   return entries;
 }

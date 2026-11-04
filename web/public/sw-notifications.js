@@ -25,6 +25,12 @@ function reminderAction(event) {
   });
 }
 
+// A path on this server, or Today: a push (or a button in it) never opens another site (audit
+// W2), as the Android app's notifications already do. "//host" and "/\host" are other sites too.
+function hereOnly(url) {
+  return typeof url === 'string' && /^\/(?![/\\])/.test(url) ? url : '/today';
+}
+
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
   if (event.action === 'dismiss' || event.action === 'snooze') {
@@ -35,10 +41,8 @@ self.addEventListener('notificationclick', (event) => {
   const pressed = (event.notification.data?.actions || []).find(
     (each) => each.action === event.action,
   );
-  const url = new URL(
-    pressed?.url || event.notification.data?.url || '/today',
-    self.location.origin,
-  ).href;
+  const url = new URL(hereOnly(pressed?.url || event.notification.data?.url), self.location.origin)
+    .href;
   event.waitUntil(
     self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((windows) => {
       const open = windows.find((each) => new URL(each.url).origin === self.location.origin);
