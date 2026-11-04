@@ -10,7 +10,8 @@ public sealed class SqlAccountStore(SqlDatabase database) : IAccountStore
     private const string Columns =
         "id, username, password_hash AS passwordHash, role, must_change_password AS mustChangePassword, " +
         "failed_logins AS failedLogins, locked_until AS lockedUntil, security_stamp AS securityStamp, " +
-        "disabled, created_at AS createdAt, friend_code AS friendCode, deleted_at AS deletedAt";
+        "disabled, created_at AS createdAt, friend_code AS friendCode, deleted_at AS deletedAt, " +
+        "email, email_verified_at AS emailVerifiedAt";
 
     public async Task<int> CountAsync(CancellationToken cancellation = default)
     {
@@ -35,6 +36,15 @@ public sealed class SqlAccountStore(SqlDatabase database) : IAccountStore
     public Task<Account?> FindByFriendCodeAsync(string code, CancellationToken cancellation = default) =>
         FindAsync("friend_code = @value", code, cancellation);
 
+    public async Task<IReadOnlyList<Account>> FindByEmailAsync(string email, CancellationToken cancellation = default)
+    {
+        await using var connection = await database.OpenAsync(cancellation);
+        var rows = await connection.QueryAsync<Row>(new CommandDefinition(
+            $"SELECT {Columns} FROM accounts WHERE email = @value ORDER BY created_at, id",
+            new { value = email.Trim().ToLowerInvariant() }, cancellationToken: cancellation));
+        return rows.Select(row => row.ToAccount()).ToList();
+    }
+
     private async Task<Account?> FindAsync(string where, string value, CancellationToken cancellation)
     {
         await using var connection = await database.OpenAsync(cancellation);
@@ -51,9 +61,9 @@ public sealed class SqlAccountStore(SqlDatabase database) : IAccountStore
             await connection.ExecuteAsync(new CommandDefinition(
                 """
                 INSERT INTO accounts (id, username, password_hash, role, must_change_password, failed_logins,
-                    locked_until, security_stamp, disabled, created_at, friend_code, deleted_at)
+                    locked_until, security_stamp, disabled, created_at, friend_code, deleted_at, email, email_verified_at)
                 VALUES (@Id, @Username, @PasswordHash, @Role, @MustChangePassword, @FailedLogins,
-                    @LockedUntil, @SecurityStamp, @Disabled, @CreatedAt, @FriendCode, @DeletedAt)
+                    @LockedUntil, @SecurityStamp, @Disabled, @CreatedAt, @FriendCode, @DeletedAt, @Email, @EmailVerifiedAt)
                 """,
                 Row.From(account),
                 cancellationToken: cancellation));
@@ -72,7 +82,7 @@ public sealed class SqlAccountStore(SqlDatabase database) : IAccountStore
             UPDATE accounts SET username = @Username, password_hash = @PasswordHash, role = @Role,
                 must_change_password = @MustChangePassword, failed_logins = @FailedLogins,
                 locked_until = @LockedUntil, security_stamp = @SecurityStamp, disabled = @Disabled,
-                friend_code = @FriendCode, deleted_at = @DeletedAt
+                friend_code = @FriendCode, deleted_at = @DeletedAt, email = @Email, email_verified_at = @EmailVerifiedAt
             WHERE id = @Id
             """,
             Row.From(account),
@@ -101,6 +111,8 @@ public sealed class SqlAccountStore(SqlDatabase database) : IAccountStore
         public string CreatedAt { get; set; } = "";
         public string? FriendCode { get; set; }
         public string? DeletedAt { get; set; }
+        public string? Email { get; set; }
+        public string? EmailVerifiedAt { get; set; }
 
         public static Row From(Account account) => new()
         {
@@ -116,6 +128,8 @@ public sealed class SqlAccountStore(SqlDatabase database) : IAccountStore
             CreatedAt = SqlTime.Text(account.CreatedAt),
             FriendCode = account.FriendCode,
             DeletedAt = SqlTime.Text(account.DeletedAt),
+            Email = account.Email?.ToLowerInvariant(),
+            EmailVerifiedAt = SqlTime.Text(account.EmailVerifiedAt),
         };
 
         public Account ToAccount() => new()
@@ -132,6 +146,8 @@ public sealed class SqlAccountStore(SqlDatabase database) : IAccountStore
             CreatedAt = SqlTime.Parse(CreatedAt),
             FriendCode = FriendCode,
             DeletedAt = SqlTime.ParseOrNull(DeletedAt),
+            Email = Email,
+            EmailVerifiedAt = SqlTime.ParseOrNull(EmailVerifiedAt),
         };
     }
 }

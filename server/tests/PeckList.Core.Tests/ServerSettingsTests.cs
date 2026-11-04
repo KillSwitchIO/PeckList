@@ -231,6 +231,27 @@ public sealed class ServerSettingsTests
         Assert.DoesNotContain("app password", mail.ToString());
     }
 
+    [Fact]
+    public void A_mail_provider_fills_in_its_server_and_a_mailbox_sends_from_its_own_address()
+    {
+        var gmail = Read(new() { ["SMTP_PROVIDER"] = "gmail", ["SMTP_USER"] = "ben@gmail.com", ["SMTP_PASSWORD"] = "app password" }).Mail!;
+        Assert.Equal(("smtp.gmail.com", 587, MailTls.StartTls, "ben@gmail.com", "PeckList <ben@gmail.com>"),
+            (gmail.Host, gmail.Port, gmail.Tls, gmail.User, gmail.From));
+        // Services with a fixed login name fill it in; what is set explicitly wins.
+        var resend = Read(new() { ["SMTP_PROVIDER"] = "Resend", ["SMTP_PASSWORD"] = "re_key", ["SMTP_FROM"] = "PeckList <tasks@example.com>" }).Mail!;
+        Assert.Equal(("smtp.resend.com", 465, MailTls.Tls, "resend"), (resend.Host, resend.Port, resend.Tls, resend.User));
+        var ses = Read(new()
+        {
+            ["SMTP_PROVIDER"] = "amazon-ses", ["SMTP_HOST"] = "email-smtp.eu-west-1.amazonaws.com", ["SMTP_TLS"] = "tls",
+            ["SMTP_USER"] = "AKIA", ["SMTP_FROM"] = "tasks@example.com",
+        }).Mail!;
+        Assert.Equal(("email-smtp.eu-west-1.amazonaws.com", 465, MailTls.Tls), (ses.Host, ses.Port, ses.Tls));
+        // "custom" is no preset at all.
+        Assert.Null(Read(new() { ["SMTP_PROVIDER"] = "custom" }).Mail);
+        Assert.Contains("SMTP_PROVIDER: 'hotmail' is not one of custom, gmail",
+            Assert.Throws<SettingsException>(() => Read(new() { ["SMTP_PROVIDER"] = "hotmail" })).Message);
+    }
+
     [Theory]
     [InlineData("SMTP_FROM", "", "SMTP_FROM is required")]
     [InlineData("SMTP_FROM", "tasks", "is not an email address")]

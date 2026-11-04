@@ -280,6 +280,13 @@ one. The server looks twice a day ([`UPDATE_CHECK`](../configuration/reference.m
 **Change password** asks for the new password twice. Every password field has an eye at its right
 end that shows what you typed.
 
+**Forgot your password?** shows under the sign-in form when the server sends email
+([email](../guides/email.md)). Type your username or email and a link to set a new one arrives,
+working once for 30 minutes; setting it signs you in and ends your other sessions. The link only
+goes to a **confirmed** email: add yours under **Settings > Email**, then open the link it sends.
+An account from an identity provider that marks its email as verified (Google and most
+others do) has it confirmed already.
+
 **Notifications** lists reminders, @mentions, comments, tasks someone assigned you or a group
 you are in, dibs called on a group's task, and lists someone shared with you, newest first; a red
 dot on your picture means some are new. **Settings > Tell me about** picks which of those kinds

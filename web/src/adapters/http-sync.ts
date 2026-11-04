@@ -1,12 +1,14 @@
 import type { UserStats } from '../ports/stats.ts';
 import type {
   Account,
+  AccountEmail,
   ChangeEvent,
   ProfilePreview,
   ServerNotification,
   HistoryEntry,
   LoginOutcome,
   PasswordOutcome,
+  ResetOutcome,
   ServerInfo,
   UpdateInfo,
   ApiKeyInfo,
@@ -169,11 +171,13 @@ export function createHttpSync(
         providers: { name: string; displayName: string; icon?: string; preset?: string | null }[];
         localLogin: boolean;
         registration?: 'open' | 'invite' | 'closed';
+        passwordReset?: boolean;
       };
       const withInvite = invite ? `&invite=${encodeURIComponent(invite)}` : '';
       return {
         localLogin: options.localLogin,
         registration: options.registration ?? 'closed',
+        passwordReset: options.passwordReset ?? false,
         providers: options.providers.map((provider) => ({
           ...provider,
           ...(provider.icon ? { icon: `${base}${provider.icon}` } : {}),
@@ -238,6 +242,37 @@ export function createHttpSync(
       return (await response.json()) as { expires: string };
     },
 
+    async forgotPassword(login) {
+      const response = await call('/auth/forgot', { method: 'POST', body: { login } });
+      if (response.status === 202) return 'sent';
+      if (response.status === 429) return 'too-many';
+      if (response.status === 404) return 'unavailable';
+      return fail(response);
+    },
+
+    async checkResetLink(token) {
+      const response = await call(`/auth/reset/${encodeURIComponent(token)}`);
+      if (response.status === 404) return null;
+      if (!response.ok) return fail(response);
+      if (!response.headers.get('content-type')?.includes('json')) return null;
+      return ((await response.json()) as { username: string }).username;
+    },
+
+    async resetPassword(token, password): Promise<ResetOutcome> {
+      const response = await call('/auth/reset', { method: 'POST', body: { token, password } });
+      if (response.ok) {
+        return { kind: 'ok', username: ((await response.json()) as { username: string }).username };
+      }
+      if (response.status === 404) return { kind: 'expired' };
+      if (response.status === 429) return { kind: 'too-many' };
+      if (response.status === 400) {
+        return (await errorOf(response)).error === 'too_short'
+          ? { kind: 'too-short' }
+          : { kind: 'demo' };
+      }
+      return fail(response);
+    },
+
     async logout() {
       const response = await call('/auth/logout', { method: 'POST' });
       if (!response.ok && response.status !== 401) await fail(response);
@@ -288,6 +323,22 @@ export function createHttpSync(
         const response = await call('/api/account/stats');
         if (!response.ok) return fail(response);
         return (await response.json()) as UserStats;
+      },
+      async email() {
+        const response = await call('/api/account/email');
+        if (!response.ok) return fail(response);
+        return (await response.json()) as AccountEmail;
+      },
+      async setEmail(email) {
+        const response = await call('/api/account/email', { method: 'PUT', body: { email } });
+        if (response.status === 400) return 'invalid';
+        if (!response.ok) return fail(response);
+        return (await response.json()) as AccountEmail;
+      },
+      async resendConfirmation() {
+        const response = await call('/api/account/email/confirm', { method: 'POST' });
+        if (!response.ok) return fail(response);
+        return (await response.json()) as AccountEmail;
       },
     },
 

@@ -73,6 +73,8 @@ export function AppRoutes() {
         <Route path="/login" element={<SignedInAlready />} />
         <Route path="/signup" element={<SignedInAlready />} />
         <Route path="/join/:token" element={<SignedInAlready />} />
+        <Route path="/forgot" element={<SignedInAlready />} />
+        <Route path="/reset/:token" element={<SignedInAlready />} />
         <Route path="/connect" element={<ConnectRoute />} />
         <Route element={<AppShell />}>
           <Route path="/today" element={<TodayView />} />

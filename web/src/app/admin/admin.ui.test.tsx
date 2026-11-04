@@ -37,7 +37,12 @@ function memoryAdmin(benId: string) {
     providers: [],
   });
   const state = {
-    users: [user(benId, 'ben', 'superadmin'), user('U2', 'sam')],
+    users: [
+      user(benId, 'ben', 'superadmin'),
+      { ...user('U2', 'sam'), email: 'sam@example.com', emailConfirmed: true },
+    ],
+    resetLinks: [] as string[],
+    mailedInvites: [] as string[],
     groups: [] as AdminGroup[],
     friendships: [] as [string, string][],
     page: {} as Record<string, string>,
@@ -258,9 +263,13 @@ function memoryAdmin(benId: string) {
     },
     resetPassword: () => ok('reset-secret-2'),
     loginLink: () => ok({ url: 'https://tasks.example.com/auth/link/abc', expires: '' }),
+    sendResetLink: (id) => {
+      state.resetLinks.push(id);
+      return ok(undefined);
+    },
     invites: () =>
       Promise.resolve({ registration: state.registration, invites: [...state.invites] }),
-    createInvite: ({ days, uses, note }) => {
+    createInvite: ({ days, uses, note, sendTo }) => {
       if (state.registration === 'closed') {
         return Promise.resolve({ ok: false as const, reason: 'registration-closed' as const });
       }
@@ -275,7 +284,12 @@ function memoryAdmin(benId: string) {
         usedBy: [],
       };
       state.invites.unshift(invite);
-      return ok({ url: `https://tasks.example.com/join/token-${invite.id}`, invite });
+      if (sendTo) state.mailedInvites.push(sendTo);
+      return ok({
+        url: `https://tasks.example.com/join/token-${invite.id}`,
+        invite,
+        ...(sendTo ? { sent: true } : {}),
+      });
     },
     revokeInvite: (id) => {
       state.invites = state.invites.filter((each) => each.id !== id);
@@ -771,6 +785,29 @@ describe('admin', () => {
     await screen.findByRole('menuitem', { name: 'Reset password' });
     expect(screen.queryByRole('menuitem', { name: /View as/ })).toBeNull();
     open.mockRestore();
+  });
+
+  it('emails a reset link to someone with a confirmed email, and an invite to an address (PL-122)', async () => {
+    const { state } = await adminApp('superadmin', '/admin/users');
+    const list = await screen.findByRole('list', { name: 'Users' });
+    await userEvent.click(within(list).getByRole('button', { name: 'Actions for sam' }));
+    await userEvent.click(await screen.findByRole('menuitem', { name: 'Email a reset link' }));
+    expect(
+      await screen.findByText('A reset link went to sam@example.com. It works for 30 minutes.'),
+    ).toBeInTheDocument();
+    expect(state.resetLinks).toEqual(['U2']);
+    // Ben has no confirmed email: no such item.
+    await userEvent.click(within(list).getByRole('button', { name: 'Actions for ben' }));
+    await screen.findByRole('menuitem', { name: 'Sign-in link' });
+    expect(screen.queryByRole('menuitem', { name: 'Email a reset link' })).toBeNull();
+    await userEvent.keyboard('{Escape}');
+
+    await userEvent.click(screen.getByRole('button', { name: 'Invite' }));
+    const dialog = await screen.findByRole('dialog', { name: 'Invite people' });
+    await userEvent.type(within(dialog).getByLabelText(/Email it to/), 'friend@example.com');
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Create link' }));
+    expect(await screen.findByText(/^Sent to friend@example\.com\./)).toBeInTheDocument();
+    expect(state.mailedInvites).toEqual(['friend@example.com']);
   });
 
   it("changes server settings, leaves the environment's alone, and restarts to apply them", async () => {

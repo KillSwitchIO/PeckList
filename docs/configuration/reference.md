@@ -178,33 +178,45 @@ volume, `/files`. **Default:** `attachments` next to the SQLite file; `/files` i
 
 ## Email
 
-No email is sent until `SMTP_HOST` is set; without it, nothing that needs email shows. All of these
-are **Live**: saved on the settings page, they apply at once. Guide: [email](../guides/email.md).
+No email is sent until `SMTP_PROVIDER` or `SMTP_HOST` is set; without them, nothing that needs
+email shows. Reset and confirmation links also need [`PUBLIC_URL`](#public_url): they are never
+built from the address a request came in on. All of these are **Live**: saved on the settings
+page, they apply at once. Guide, with the steps for each provider: [email](../guides/email.md).
+
+### `SMTP_PROVIDER`
+
+A provider preset that fills in the server, port and TLS (and the login name where the provider
+fixes one): `gmail`, `google-workspace`, `icloud`, `yahoo`, `fastmail`, `zoho`, `zoho-eu`,
+`proton`, `sendgrid`, `mailgun`, `mailgun-eu`, `postmark`, `brevo`, `resend`, `amazon-ses`, or
+`custom` for none. Anything set explicitly below wins over the preset. **Default:** `custom`.
+**Where:** any.
 
 ### `SMTP_HOST`
 
-The mail server email goes out through (SMTP submission). **Default:** none (no email). **Where:**
-any.
+The mail server email goes out through (SMTP submission). **Default:** the provider's, else none
+(no email). **Where:** any.
 
 ### `SMTP_PORT`
 
-**Default:** `587`, or `465` with `SMTP_TLS=tls`. **Where:** any.
+**Default:** the provider's; else `587`, or `465` with `SMTP_TLS=tls`. **Where:** any.
 
 ### `SMTP_TLS`
 
 `starttls` (plain, then TLS: port 587), `tls` (TLS from the start: port 465) or `none` (only for a
-relay on the same host or a private network). **Default:** `starttls`. **Where:** any.
+relay on the same host or a private network). **Default:** the provider's, else `starttls`.
+**Where:** any.
 
 ### `SMTP_USER`, `SMTP_PASSWORD`
 
 The login at the mail server, if it wants one (most do). `SMTP_PASSWORD_FILE` reads the password
-from a file. **Default:** none. **Where:** any.
+from a file. **Default:** the provider's fixed login name (`apikey` for SendGrid, `resend` for
+Resend), else none. **Where:** any.
 
 ### `SMTP_FROM`
 
-The address email comes from, with a name if you like: `PeckList <tasks@example.com>`. Required
-with `SMTP_HOST`; most mail servers only send from addresses the login owns. **Default:** none.
-**Where:** any.
+The address email comes from, with a name if you like: `PeckList <tasks@example.com>`. Most mail
+servers only send from addresses the login owns. **Default:** `PeckList <SMTP_USER>` when the
+login is an email address (a mailbox such as Gmail); otherwise required. **Where:** any.
 
 ## Telemetry
 

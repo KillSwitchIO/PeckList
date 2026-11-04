@@ -47,6 +47,7 @@ const LABELS: Record<string, MessageKey> = {
   TELEMETRY_URL: 'serverSettings.TELEMETRY_URL',
   DO_NOT_TRACK: 'serverSettings.DO_NOT_TRACK',
   SIGNUP_RATE_LIMIT: 'serverSettings.SIGNUP_RATE_LIMIT',
+  SMTP_PROVIDER: 'serverSettings.SMTP_PROVIDER',
   SMTP_HOST: 'serverSettings.SMTP_HOST',
   SMTP_PORT: 'serverSettings.SMTP_PORT',
   SMTP_TLS: 'serverSettings.SMTP_TLS',

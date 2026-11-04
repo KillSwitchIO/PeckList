@@ -412,3 +412,61 @@ describe('making an account', () => {
     expect(screen.queryByLabelText(/Username/)).toBeNull();
   });
 });
+
+describe('a forgotten password (PL-122)', () => {
+  afterEach(() => window.history.replaceState(null, '', '/'));
+
+  it('offers the reset link only when the server sends them', async () => {
+    const backend = new FakeBackend();
+    await serverApp(backend);
+    await screen.findByLabelText(/Username/);
+    expect(screen.queryByRole('button', { name: 'Forgot your password?' })).toBeNull();
+    cleanup();
+    backend.passwordReset = true;
+    await serverApp(backend);
+    expect(
+      await screen.findByRole('button', { name: 'Forgot your password?' }),
+    ).toBeInTheDocument();
+  });
+
+  it('asks for a link, then sets a new password through it and signs in', async () => {
+    const backend = new FakeBackend();
+    backend.passwordReset = true;
+    backend.addAccount('sam', 'the old password');
+    backend.emails.set('sam', { email: 'sam@example.com', confirmed: true });
+    await serverApp(backend);
+    await userEvent.click(await screen.findByRole('button', { name: 'Forgot your password?' }));
+    expect(window.location.pathname).toBe('/forgot');
+    await userEvent.type(screen.getByLabelText(/Username or email/), 'sam@example.com');
+    await userEvent.click(screen.getByRole('button', { name: 'Send the link' }));
+    expect(await screen.findByText('Look in your email')).toBeInTheDocument();
+    expect(backend.sentMail).toEqual([{ to: 'sam@example.com', kind: 'reset' }]);
+    cleanup();
+
+    window.history.replaceState(null, '', '/reset/reset-sam');
+    await serverApp(backend);
+    expect(await screen.findByText(/^For sam\./)).toBeInTheDocument();
+    const [first, second] = screen.getAllByLabelText(/New password/);
+    await userEvent.type(first!, 'a brand new password');
+    await userEvent.type(second!, 'a different password');
+    await userEvent.click(screen.getByRole('button', { name: 'Set password and sign in' }));
+    expect(await screen.findByText("The new passwords don't match.")).toBeInTheDocument();
+    await userEvent.clear(second!);
+    await userEvent.type(second!, 'a brand new password');
+    await userEvent.click(screen.getByRole('button', { name: 'Set password and sign in' }));
+    await waitFor(() => expect(screen.queryByText(/^For sam\./)).toBeNull());
+    expect(backend.accounts.get('sam')?.password).toBe('a brand new password');
+    expect(backend.resetLinks.size).toBe(0);
+    expect(window.location.pathname).not.toMatch(/^\/reset/);
+  });
+
+  it('says when a link no longer works, and offers a new one', async () => {
+    const backend = new FakeBackend();
+    backend.passwordReset = true;
+    window.history.replaceState(null, '', '/reset/spent');
+    await serverApp(backend);
+    expect(await screen.findByText('This link no longer works')).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Ask for a new link' }));
+    expect(await screen.findByRole('button', { name: 'Send the link' })).toBeInTheDocument();
+  });
+});

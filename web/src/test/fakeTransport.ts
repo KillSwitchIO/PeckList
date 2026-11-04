@@ -4,6 +4,7 @@ import { CURRENT_SCHEMA_VERSION } from '../core/migrations.ts';
 import {
   SyncFailure,
   type Account,
+  type AccountEmail,
   type ChangeEvent,
   type AccountApi,
   type FileApi,
@@ -20,6 +21,7 @@ import {
   type DemoInfo,
   type ServerInfo,
   type SignInMethods,
+  type ResetOutcome,
   type SignUpOutcome,
   type SyncTransport,
 } from '../ports/sync.ts';
@@ -86,6 +88,27 @@ export class FakeBackend {
   };
   /** Where signing out sends the browser next (a provider's end-session address), if anywhere. */
   signOutRedirect: string | null = null;
+  /** The sign-in page offers "Forgot your password?" (PL-122). */
+  passwordReset = false;
+  /** Whether the server sends email at all. */
+  mailWorks = true;
+  /** Each account's email, by username. */
+  readonly emails = new Map<string, { email: string; confirmed: boolean }>();
+  /** Reset links that still work: token to username. */
+  readonly resetLinks = new Map<string, string>();
+  /** What the server emailed: to whom, and what. */
+  readonly sentMail: { to: string; kind: 'reset' | 'confirm' }[] = [];
+
+  /** The email view of an account, as `/api/account/email` answers. */
+  emailOf(username: string, sent?: boolean): AccountEmail {
+    const kept = this.emails.get(username);
+    return {
+      email: kept?.email ?? null,
+      confirmed: kept?.confirmed ?? false,
+      mailWorks: this.mailWorks,
+      ...(sent === undefined ? {} : { sent }),
+    };
+  }
   /** Invite links that still work: token to the uses left. */
   readonly invites = new Map<string, number>();
   schemaVersion = CURRENT_SCHEMA_VERSION;
@@ -176,6 +199,35 @@ export class FakeTransport implements SyncTransport {
           .filter((provider) => !linked.some((each) => each.provider === provider.name))
           .map((provider) => ({ ...provider, url: `/auth/oidc/${provider.name}/link` })),
       });
+    },
+    email: () => {
+      const found = this.current();
+      if (!found) return Promise.reject(new SyncFailure('signed-out', 'signed out'));
+      return Promise.resolve(this.backend.emailOf(found.account.username));
+    },
+    setEmail: (email) => {
+      const found = this.current();
+      if (!found) return Promise.reject(new SyncFailure('signed-out', 'signed out'));
+      const name = found.account.username;
+      const typed = email.trim().toLowerCase();
+      if (typed === '') {
+        this.backend.emails.delete(name);
+        return Promise.resolve(this.backend.emailOf(name));
+      }
+      if (!/^[^@\s]+@[^@\s]+$/.test(typed)) return Promise.resolve('invalid' as const);
+      if (this.backend.emails.get(name)?.email === typed)
+        return Promise.resolve(this.backend.emailOf(name));
+      this.backend.emails.set(name, { email: typed, confirmed: false });
+      if (!this.backend.mailWorks) return Promise.resolve(this.backend.emailOf(name));
+      this.backend.sentMail.push({ to: typed, kind: 'confirm' });
+      return Promise.resolve(this.backend.emailOf(name, true));
+    },
+    resendConfirmation: () => {
+      const found = this.current();
+      if (!found) return Promise.reject(new SyncFailure('signed-out', 'signed out'));
+      const kept = this.backend.emails.get(found.account.username);
+      if (kept) this.backend.sentMail.push({ to: kept.email, kind: 'confirm' });
+      return Promise.resolve(this.backend.emailOf(found.account.username, true));
     },
     unlink: (provider, subject) => {
       const found = this.current();
@@ -339,11 +391,40 @@ export class FakeTransport implements SyncTransport {
     return Promise.resolve({
       localLogin,
       registration: registration ?? 'closed',
+      passwordReset: this.backend.passwordReset,
       providers: providers.map((provider) => ({
         ...provider,
         url: `/auth/oidc/${provider.name}/login?returnUrl=${encodeURIComponent(returnUrl)}${withInvite}`,
       })),
     });
+  }
+
+  forgotPassword(login: string) {
+    this.check();
+    if (!this.backend.passwordReset) return Promise.resolve('unavailable' as const);
+    const typed = login.trim().toLowerCase();
+    for (const [username, kept] of this.backend.emails) {
+      if (!kept.confirmed || (username !== typed && kept.email !== typed)) continue;
+      this.backend.resetLinks.set(`reset-${username}`, username);
+      this.backend.sentMail.push({ to: kept.email, kind: 'reset' });
+    }
+    return Promise.resolve('sent' as const);
+  }
+
+  checkResetLink(token: string) {
+    this.check();
+    return Promise.resolve(this.backend.resetLinks.get(token) ?? null);
+  }
+
+  resetPassword(token: string, password: string): Promise<ResetOutcome> {
+    this.check();
+    const username = this.backend.resetLinks.get(token);
+    const found = username ? this.backend.accounts.get(username) : undefined;
+    if (!username || !found) return Promise.resolve({ kind: 'expired' });
+    if (password.length < 12) return Promise.resolve({ kind: 'too-short' });
+    found.password = password;
+    this.backend.resetLinks.delete(token);
+    return Promise.resolve({ kind: 'ok', username });
   }
 
   checkInvite(token: string) {

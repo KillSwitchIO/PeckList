@@ -37,9 +37,14 @@ export function InviteDialog({
   open: boolean;
   registration: InviteList['registration'] | undefined;
   onClose: () => void;
-  onCreated: (url: string, invite: AdminInvite) => void;
+  onCreated: (
+    url: string,
+    invite: AdminInvite,
+    mailed?: { to: string; sent: boolean; problem?: string | null },
+  ) => void;
 }) {
   const [note, setNote] = useState('');
+  const [sendTo, setSendTo] = useState('');
   const [days, setDays] = useState<number>(7);
   const [uses, setUses] = useState<number | null>(1);
   const [problem, setProblem] = useState<string | null>(null);
@@ -47,6 +52,7 @@ export function InviteDialog({
   const closed = registration === 'closed';
   const close = () => {
     setNote('');
+    setSendTo('');
     setDays(7);
     setUses(1);
     setProblem(null);
@@ -56,13 +62,25 @@ export function InviteDialog({
     event.preventDefault();
     setBusy(true);
     try {
-      const result = await api.createInvite({ days, uses, note: note.trim() });
+      const to = sendTo.trim();
+      const result = await api.createInvite({
+        days,
+        uses,
+        note: note.trim(),
+        ...(to ? { sendTo: to } : {}),
+      });
       if (!result.ok) {
         setProblem(refusalText(result.reason));
         return;
       }
       close();
-      onCreated(result.value.url, result.value.invite);
+      onCreated(
+        result.value.url,
+        result.value.invite,
+        to
+          ? { to, sent: result.value.sent === true, problem: result.value.mailProblem ?? null }
+          : undefined,
+      );
     } finally {
       setBusy(false);
     }
@@ -89,6 +107,15 @@ export function InviteDialog({
             disabled={closed}
             autoFocus={!closed}
             slotProps={{ htmlInput: { maxLength: 100 } }}
+          />
+          <TextField
+            type="email"
+            label={t('admin.invites.sendTo')}
+            helperText={t('admin.invites.sendToHint')}
+            value={sendTo}
+            onChange={(event) => setSendTo(event.target.value)}
+            disabled={closed}
+            slotProps={{ htmlInput: { maxLength: 254 } }}
           />
           <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2 }}>
             <TextField

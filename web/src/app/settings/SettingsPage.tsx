@@ -44,6 +44,7 @@ import { NewTaskSection } from './NewTaskSection.tsx';
 import { NotificationSettings } from './NotificationSettings.tsx';
 import { PresetPicker } from './PresetPicker.tsx';
 import { Section, SettingRow } from './settingsLayout.tsx';
+import { EmailSection } from './EmailSection.tsx';
 import { SignInSection } from './SignInSection.tsx';
 import { ProfileSection } from './ProfileSection.tsx';
 import { SwipeSection } from './SwipeSection.tsx';
@@ -220,6 +221,7 @@ export function SettingsPage() {
     <Page title={t('nav.settings')}>
       <Stack spacing={4}>
         <ServerSection />
+        <EmailSection />
         <SignInSection />
         <ProfileSection />
         <Section title={t('manage.title')}>

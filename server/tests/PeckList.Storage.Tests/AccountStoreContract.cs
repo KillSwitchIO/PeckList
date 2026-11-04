@@ -74,10 +74,27 @@ public abstract class AccountStoreContract : IAsyncLifetime
             LockedUntil = new DateTimeOffset(2026, 10, 21, 10, 0, 0, TimeSpan.Zero),
             SecurityStamp = "stamp2",
             Disabled = true,
+            Email = "ben@example.com",
+            EmailVerifiedAt = new DateTimeOffset(2026, 11, 4, 9, 0, 0, TimeSpan.Zero),
         };
         await Accounts.UpdateAsync(changed, Token);
         Assert.Equal(changed, await Accounts.FindByIdAsync("U1", Token));
         await Assert.ThrowsAsync<KeyNotFoundException>(() => Accounts.UpdateAsync(Sample("U9"), Token));
+    }
+
+    [Fact]
+    public async Task Keeps_an_email_and_when_it_was_confirmed_and_finds_accounts_by_it()
+    {
+        var confirmed = new DateTimeOffset(2026, 11, 4, 9, 0, 0, TimeSpan.Zero);
+        await Accounts.CreateAsync(Sample() with { Email = "Ben@Example.com", EmailVerifiedAt = confirmed }, Token);
+        await Accounts.CreateAsync(Sample("U2", "kim") with { Email = "ben@example.com", CreatedAt = Sample().CreatedAt.AddDays(1) }, Token);
+        await Accounts.CreateAsync(Sample("U3", "pat"), Token);
+        var ben = await Accounts.FindByIdAsync("U1", Token);
+        Assert.Equal(("ben@example.com", (DateTimeOffset?)confirmed), (ben!.Email, ben.EmailVerifiedAt));
+        Assert.Equal(["U1", "U2"], (await Accounts.FindByEmailAsync(" BEN@example.com", Token)).Select(each => each.Id));
+        Assert.Empty(await Accounts.FindByEmailAsync("pat@example.com", Token));
+        await Accounts.UpdateAsync(ben with { Email = null, EmailVerifiedAt = null }, Token);
+        Assert.Equal(["U2"], (await Accounts.FindByEmailAsync("ben@example.com", Token)).Select(each => each.Id));
     }
 
     [Fact]

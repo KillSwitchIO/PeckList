@@ -55,6 +55,8 @@ public sealed class UserBackups(
                 ["passwordHash"] = account.PasswordHash,
                 ["role"] = account.Role.Name(),
                 ["createdAt"] = account.CreatedAt.ToString("O", CultureInfo.InvariantCulture),
+                ["email"] = account.Email,
+                ["emailVerifiedAt"] = account.EmailVerifiedAt?.ToString("O", CultureInfo.InvariantCulture),
             },
         };
         var links = new JsonArray();
@@ -146,6 +148,9 @@ public sealed class UserBackups(
                 Role = mayRestoreAdmins && Roles.TryParse((string?)accountNode["role"], out var role) && role != Role.SuperAdmin ? role : Role.User,
                 SecurityStamp = Ids.NewUlid(time),
                 CreatedAt = DateTimeOffset.TryParse((string?)accountNode["createdAt"], CultureInfo.InvariantCulture, DateTimeStyles.None, out var at) ? at : time.GetUtcNow(),
+                Email = (string?)accountNode["email"],
+                EmailVerifiedAt = DateTimeOffset.TryParse((string?)accountNode["emailVerifiedAt"], CultureInfo.InvariantCulture, DateTimeStyles.None, out var verified)
+                    ? verified : null,
             }, cancellation);
             created = true;
             foreach (var link in links.OfType<JsonObject>())

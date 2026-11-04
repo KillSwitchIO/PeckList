@@ -116,7 +116,27 @@ export interface SignInOptions {
   localLogin: boolean;
   /** Who may make an account: anyone, people with an invite link, or nobody (older servers: closed). */
   registration?: Registration;
+  /** The sign-in page offers "Forgot your password?": the server sends reset links (PL-122). */
+  passwordReset?: boolean;
 }
+
+/** The signed-in person's email (PL-122). `sent` and `problem` answer a change or a resend. */
+export interface AccountEmail {
+  email: string | null;
+  confirmed: boolean;
+  /** Whether the server sends email at all (set up, with a public address). */
+  mailWorks: boolean;
+  sent?: boolean | null;
+  problem?: string | null;
+}
+
+/** How setting a new password through a reset link went. */
+export type ResetOutcome =
+  | { kind: 'ok'; username: string }
+  | { kind: 'expired' }
+  | { kind: 'too-short' }
+  | { kind: 'too-many' }
+  | { kind: 'demo' };
 
 export type Registration = 'open' | 'invite' | 'closed';
 
@@ -182,6 +202,12 @@ export interface AccountApi {
   unlink(provider: string, subject: string): Promise<'ok' | 'last-way-in'>;
   /** This account's own numbers, the same as on the admin's stats page. */
   stats(): Promise<UserStats>;
+  /** The account's email (optional: older servers keep none). */
+  email?(): Promise<AccountEmail>;
+  /** Set it, or remove it with `''`; a new one gets a confirmation link. `invalid`: not an email. */
+  setEmail?(email: string): Promise<AccountEmail | 'invalid'>;
+  /** Send the confirmation link again. */
+  resendConfirmation?(): Promise<AccountEmail>;
 }
 
 /** What an API key may do (R-FB-157). */
@@ -335,6 +361,12 @@ export interface SyncTransport {
   signUp?(username: string, password: string, invite?: string): Promise<SignUpOutcome>;
   /** When an invite link stops working, or null when it already has (used, revoked, expired). */
   checkInvite?(token: string): Promise<{ expires: string } | null>;
+  /** Ask for a reset link for a username or email; the answer is the same whoever it is (PL-122). */
+  forgotPassword?(login: string): Promise<'sent' | 'unavailable' | 'too-many'>;
+  /** Whose password a reset link sets, or null when the link no longer works. */
+  checkResetLink?(token: string): Promise<string | null>;
+  /** Set a new password through a reset link; every session of the account ends. */
+  resetPassword?(token: string, password: string): Promise<ResetOutcome>;
   /**
    * End the session. A session from a provider set to sign out there too answers with the
    * provider's end-session address, for the browser to go to next.

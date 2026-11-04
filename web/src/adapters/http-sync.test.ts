@@ -111,6 +111,7 @@ describe('HTTP sync transport', () => {
       ],
       localLogin: false,
       registration: 'closed',
+      passwordReset: false,
     });
     expect(calls[0]?.url).toBe('/auth/providers');
     // A server from before OIDC answers with the app's page: passwords only.

@@ -19,12 +19,20 @@ import { passwordProblem, usePasswordDraft } from './passwordChange.ts';
 import { PasswordChangeFields } from './PasswordChangeFields.tsx';
 import { useSyncState } from './syncContext.ts';
 
-type Entry = { page: 'sign-in' } | { page: 'sign-up' } | { page: 'join'; invite: string };
+type Entry =
+  | { page: 'sign-in' }
+  | { page: 'sign-up' }
+  | { page: 'join'; invite: string }
+  | { page: 'forgot' }
+  | { page: 'reset'; token: string };
 
-/** Which page the address asks for: `/join/<invite>`, `/signup`, else signing in. */
+/** Which page the address asks for: `/join/<invite>`, `/signup`, `/forgot`, `/reset/<token>`, else signing in. */
 function entryOf(pathname: string): Entry {
   const join = /^\/join\/([^/]+)\/?$/.exec(pathname);
   if (join?.[1]) return { page: 'join', invite: decodeURIComponent(join[1]) };
+  const reset = /^\/reset\/([^/]+)\/?$/.exec(pathname);
+  if (reset?.[1]) return { page: 'reset', token: decodeURIComponent(reset[1]) };
+  if (pathname === '/forgot') return { page: 'forgot' };
   return pathname === '/signup' ? { page: 'sign-up' } : { page: 'sign-in' };
 }
 
@@ -37,13 +45,19 @@ export function AuthPages({ phase }: { phase: 'signed-out' | 'password-change' }
     return () => window.removeEventListener('popstate', onBack);
   }, []);
   if (phase === 'password-change') return <ChangePassword />;
-  const go = (path: '/login' | '/signup') => {
+  const go = (path: '/login' | '/signup' | '/forgot') => {
     window.history.pushState(null, '', path);
     setEntry(entryOf(path));
   };
   if (entry.page === 'join') return <SignUp invite={entry.invite} onSignIn={() => go('/login')} />;
   if (entry.page === 'sign-up') return <SignUp onSignIn={() => go('/login')} />;
-  return <SignIn onSignUp={() => go('/signup')} />;
+  if (entry.page === 'forgot') return <Forgot onSignIn={() => go('/login')} />;
+  if (entry.page === 'reset') {
+    return (
+      <Reset token={entry.token} onSignIn={() => go('/login')} onAgain={() => go('/forgot')} />
+    );
+  }
+  return <SignIn onSignUp={() => go('/signup')} onForgot={() => go('/forgot')} />;
 }
 
 /** When a lock ends, as a time of day. */
@@ -281,7 +295,7 @@ function SwitchLine({
   );
 }
 
-function SignIn({ onSignUp }: { onSignUp: () => void }) {
+function SignIn({ onSignUp, onForgot }: { onSignUp: () => void; onForgot: () => void }) {
   const signIn = useSyncState((state) => state.signIn);
   // The Android app: maybe this is the wrong server (ADR-0017).
   const [connecting, setConnecting] = useState(false);
@@ -373,6 +387,17 @@ function SignIn({ onSignUp }: { onSignUp: () => void }) {
           <Button type="submit" variant="contained" size="large" disableElevation disabled={busy}>
             {busy ? t('auth.signingIn') : t('auth.signIn')}
           </Button>
+          {options?.passwordReset && (
+            <Link
+              component="button"
+              type="button"
+              variant="body2"
+              onClick={onForgot}
+              sx={{ justifySelf: 'center' }}
+            >
+              {t('auth.forgot.link')}
+            </Link>
+          )}
         </Box>
       )}
       {options?.registration === 'open' && options.localLogin && (
@@ -562,6 +587,197 @@ function ChangePassword() {
         <ProblemAlert problem={problem} />
         <Button type="submit" variant="contained" size="large" disableElevation disabled={busy}>
           {t('auth.change')}
+        </Button>
+      </Box>
+    </CenteredCard>
+  );
+}
+
+/** "Forgot your password?" (PL-122): a username or email, and the same answer whoever it is. */
+function Forgot({ onSignIn }: { onSignIn: () => void }) {
+  const transport = useSyncState((state) => state.transport);
+  const [login, setLogin] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [sent, setSent] = useState(false);
+  const [problem, setProblem] = useState<string | null>(null);
+
+  const submit = async (event: FormEvent) => {
+    event.preventDefault();
+    if (!transport.forgotPassword) return;
+    setBusy(true);
+    setProblem(null);
+    try {
+      const answer = await transport.forgotPassword(login.trim());
+      if (answer === 'sent') setSent(true);
+      else setProblem(t(answer === 'too-many' ? 'auth.tooMany' : 'auth.forgot.unavailable'));
+    } catch (error) {
+      setProblem(problemOf(error));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const back = (
+    <SwitchLine text={t('auth.forgot.remembered')} action={t('auth.signIn')} onClick={onSignIn} />
+  );
+  if (sent) {
+    return (
+      <CenteredCard title={t('auth.forgot.sentTitle')} subtitle={t('auth.forgot.sent')}>
+        {back}
+      </CenteredCard>
+    );
+  }
+  return (
+    <CenteredCard title={t('auth.forgot.title')} subtitle={t('auth.forgot.subtitle')}>
+      <Box
+        component="form"
+        onSubmit={(event) => void submit(event)}
+        sx={{ display: 'grid', gap: 2 }}
+      >
+        <TextField
+          label={t('auth.forgot.login')}
+          value={login}
+          onChange={(event) => setLogin(event.target.value)}
+          autoComplete="username"
+          autoFocus
+          required
+          slotProps={{ htmlInput: { autoCapitalize: 'none', spellCheck: false, maxLength: 254 } }}
+        />
+        <ProblemAlert problem={problem} />
+        <Button type="submit" variant="contained" size="large" disableElevation disabled={busy}>
+          {t('auth.forgot.send')}
+        </Button>
+      </Box>
+      {back}
+    </CenteredCard>
+  );
+}
+
+const RESET_PROBLEMS: Record<'too-short' | 'too-many' | 'demo', MessageKey> = {
+  'too-short': 'auth.tooShort',
+  'too-many': 'auth.tooMany',
+  demo: 'auth.reset.demo',
+};
+
+/** A reset link (`/reset/<token>`): a new password, then straight in with it. */
+function Reset({
+  token,
+  onSignIn,
+  onAgain,
+}: {
+  token: string;
+  onSignIn: () => void;
+  onAgain: () => void;
+}) {
+  const transport = useSyncState((state) => state.transport);
+  const signIn = useSyncState((state) => state.signIn);
+  // Whose password this sets; null while asking, false when the link no longer works.
+  const [username, setUsername] = useState<string | false | null>(null);
+  const [password, setPassword] = useState('');
+  const [again, setAgain] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [problem, setProblem] = useState<string | null>(null);
+
+  useEffect(() => {
+    let live = true;
+    const check = transport.checkResetLink?.(token) ?? Promise.resolve(null);
+    check.then(
+      (answer) => live && setUsername(answer ?? false),
+      () => live && setUsername(false),
+    );
+    return () => {
+      live = false;
+    };
+  }, [transport, token]);
+
+  const submit = async (event: FormEvent) => {
+    event.preventDefault();
+    if (!transport.resetPassword || !username) return;
+    if (again !== password) {
+      setProblem(t('auth.mismatch'));
+      return;
+    }
+    setBusy(true);
+    setProblem(null);
+    try {
+      const outcome = await transport.resetPassword(token, password);
+      if (outcome.kind === 'expired') {
+        setUsername(false);
+        return;
+      }
+      if (outcome.kind !== 'ok') {
+        setProblem(t(RESET_PROBLEMS[outcome.kind]));
+        return;
+      }
+      // The router starts once this page goes away: at the app, not at the spent link.
+      window.history.replaceState(null, '', '/');
+      await signIn(outcome.username, password);
+    } catch (error) {
+      setProblem(problemOf(error));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  if (username === null) {
+    return (
+      <CenteredCard title={t('auth.reset.title')} subtitle={t('auth.signUp.checking')}>
+        {null}
+      </CenteredCard>
+    );
+  }
+  if (username === false) {
+    return (
+      <CenteredCard title={t('auth.reset.expiredTitle')} subtitle={t('auth.reset.expired')}>
+        <Button variant="contained" size="large" disableElevation onClick={onAgain} fullWidth>
+          {t('auth.reset.again')}
+        </Button>
+        <SwitchLine
+          text={t('auth.forgot.remembered')}
+          action={t('auth.signIn')}
+          onClick={onSignIn}
+        />
+      </CenteredCard>
+    );
+  }
+  return (
+    <CenteredCard
+      title={t('auth.reset.title')}
+      subtitle={t('auth.reset.subtitle', { name: username })}
+    >
+      <Box
+        component="form"
+        onSubmit={(event) => void submit(event)}
+        sx={{ display: 'grid', gap: 2 }}
+      >
+        {/* For password managers: whose password this is. */}
+        <input
+          type="text"
+          name="username"
+          autoComplete="username"
+          value={username}
+          readOnly
+          hidden
+        />
+        <PasswordField
+          label={t('auth.reset.new')}
+          value={password}
+          onChange={(event) => setPassword(event.target.value)}
+          autoComplete="new-password"
+          helperText={t('auth.newHint')}
+          autoFocus
+          required
+        />
+        <PasswordField
+          label={t('auth.reset.repeat')}
+          value={again}
+          onChange={(event) => setAgain(event.target.value)}
+          autoComplete="new-password"
+          required
+        />
+        <ProblemAlert problem={problem} />
+        <Button type="submit" variant="contained" size="large" disableElevation disabled={busy}>
+          {t('auth.reset.save')}
         </Button>
       </Box>
     </CenteredCard>
