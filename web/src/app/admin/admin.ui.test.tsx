@@ -1036,6 +1036,19 @@ describe('admin', () => {
     ).toBeInTheDocument();
   });
 
+  it('saves email settings typed but not saved before sending the test (PL-122)', async () => {
+    const { state } = await adminApp('admin', '/admin/settings');
+    const email = await screen.findByRole('region', { name: 'Email' });
+    await userEvent.type(within(email).getByLabelText('Port'), '2525');
+    await userEvent.type(within(email).getByLabelText('Send a test to'), 'ben@example.com');
+    await userEvent.click(within(email).getByRole('button', { name: 'Save and send test email' }));
+    expect(await within(email).findByText(/^Sent to ben@example.com/)).toBeInTheDocument();
+    expect(state.page.SMTP_PORT).toBe('2525');
+    // Saved: nothing left to save, and the button says plain "Send" again.
+    expect(screen.getByRole('button', { name: 'Save' })).toBeDisabled();
+    expect(within(email).getByRole('button', { name: 'Send test email' })).toBeInTheDocument();
+  });
+
   it('greys out what a picked mail provider fills in, showing its values (PL-122)', async () => {
     const { state } = await adminApp('admin', '/admin/settings');
     const email = await screen.findByRole('region', { name: 'Email' });

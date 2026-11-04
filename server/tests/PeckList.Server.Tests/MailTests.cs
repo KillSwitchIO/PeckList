@@ -1,6 +1,7 @@
 using System.Net;
 using System.Net.Http.Json;
 using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace PeckList.Server.Tests;
 
@@ -59,6 +60,49 @@ public sealed class MailTests(ServerFixture fixture) : IClassFixture<ServerFixtu
             var response = await (await Admin(server)).PostAsJsonAsync("/api/admin/mail/test", new { to = "ben@example.com" }, Token);
             Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
         }
+    }
+
+    [Fact]
+    public async Task Email_saved_on_the_settings_page_works_at_once()
+    {
+        await using var smtp = new FakeSmtpServer();
+        using var server = Server(("PUBLIC_URL", "https://tasks.example.com"));
+        var admin = await Admin(server);
+        var saved = await admin.PutAsJsonAsync("/api/admin/settings", new
+        {
+            values = new Dictionary<string, string?>
+            {
+                ["SMTP_PROVIDER"] = "custom",
+                ["SMTP_HOST"] = "127.0.0.1",
+                ["SMTP_PORT"] = smtp.Port.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                ["SMTP_TLS"] = "none",
+                ["SMTP_FROM"] = "PeckList <tasks@example.com>",
+            },
+        }, Token);
+        Assert.Equal(HttpStatusCode.OK, saved.StatusCode);
+        var response = await admin.PostAsJsonAsync("/api/admin/mail/test", new { to = "ben@example.com" }, Token);
+        Assert.Equal(HttpStatusCode.NoContent, response.StatusCode);
+        Assert.Single(smtp.Messages);
+    }
+
+    [Fact]
+    public async Task A_provider_saved_on_the_settings_page_with_a_login_is_set_up()
+    {
+        using var server = Server(("PUBLIC_URL", "https://tasks.example.com"));
+        var admin = await Admin(server);
+        var saved = await admin.PutAsJsonAsync("/api/admin/settings", new
+        {
+            values = new Dictionary<string, string?>
+            {
+                ["SMTP_PROVIDER"] = "gmail",
+                ["SMTP_USER"] = "ben@gmail.com",
+                ["SMTP_PASSWORD"] = "abcd efgh ijkl mnop",
+            },
+        }, Token);
+        Assert.Equal(HttpStatusCode.OK, saved.StatusCode);
+        var mail = server.Services.GetRequiredService<PeckList.Core.Configuration.LiveSettings>().Current.Mail;
+        Assert.NotNull(mail);
+        Assert.Equal(("smtp.gmail.com", "PeckList <ben@gmail.com>"), (mail.Host, mail.From));
     }
 
     [Fact]

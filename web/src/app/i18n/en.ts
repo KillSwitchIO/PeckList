@@ -530,6 +530,7 @@ export const en = {
   'serverSettings.SMTP_FROM': 'Sent from (address)',
   'mail.testTo': 'Send a test to',
   'mail.sendTest': 'Send test email',
+  'mail.saveAndSendTest': 'Save and send test email',
   'mail.testSent': 'Sent to {to}. If it is not there in a minute, look in spam.',
   'settings.email': 'Email',
   'settings.email.empty': 'No email',
