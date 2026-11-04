@@ -6,7 +6,25 @@ namespace PeckList.Core.Mail;
 /// (<c>SMTP_HOST</c>, <c>SMTP_PORT</c>, <c>SMTP_TLS</c>, <c>SMTP_USER</c>) wins over the preset.
 /// The setup steps for each are in the email guide.
 /// </summary>
-public sealed record MailProvider(string Name, string DisplayName, string Host, int Port, MailTls Tls, string? User = null);
+public sealed record MailProvider(string Name, string DisplayName, string Host, int Port, MailTls Tls, string? User = null, bool HostVaries = false)
+{
+    /// <summary>
+    /// The settings picking this provider fills in, with their values (Admin > Settings shows them
+    /// greyed out): host (unless it varies by region), port, TLS, and the user when fixed.
+    /// </summary>
+    public IReadOnlyDictionary<string, string> Sets
+    {
+        get
+        {
+            var sets = new Dictionary<string, string>(StringComparer.Ordinal);
+            if (!HostVaries) sets["SMTP_HOST"] = Host;
+            sets["SMTP_PORT"] = Port.ToString(System.Globalization.CultureInfo.InvariantCulture);
+            sets["SMTP_TLS"] = Tls.ToString().ToLowerInvariant();
+            if (User is not null) sets["SMTP_USER"] = User;
+            return sets;
+        }
+    }
+}
 
 public static class MailProviders
 {
@@ -29,7 +47,7 @@ public static class MailProviders
         new("brevo", "Brevo", "smtp-relay.brevo.com", 587, MailTls.StartTls),
         new("resend", "Resend", "smtp.resend.com", 465, MailTls.Tls, "resend"),
         // Its region is in the host: SMTP_HOST says which when it is not us-east-1.
-        new("amazon-ses", "Amazon SES", "email-smtp.us-east-1.amazonaws.com", 587, MailTls.StartTls),
+        new("amazon-ses", "Amazon SES", "email-smtp.us-east-1.amazonaws.com", 587, MailTls.StartTls, HostVaries: true),
     ];
 
     public static IReadOnlyList<string> Names { get; } = All.Select(each => each.Name).ToList();

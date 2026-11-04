@@ -194,6 +194,20 @@ function memoryAdmin(benId: string) {
   const settingsView = () => ({
     pendingRestart: Object.keys(state.page).length > 0,
     problem: null,
+    mailProviders: [
+      {
+        name: 'gmail',
+        displayName: 'Gmail',
+        sets: { SMTP_HOST: 'smtp.gmail.com', SMTP_PORT: '587', SMTP_TLS: 'starttls' },
+        suggests: {},
+      },
+      {
+        name: 'amazon-ses',
+        displayName: 'Amazon SES',
+        sets: { SMTP_PORT: '587', SMTP_TLS: 'starttls' },
+        suggests: { SMTP_HOST: 'email-smtp.us-east-1.amazonaws.com' },
+      },
+    ],
     settings: [
       {
         key: 'REGISTRATION',
@@ -207,6 +221,32 @@ function memoryAdmin(benId: string) {
         saved: Boolean(state.page.REGISTRATION),
         live: false,
         superAdminOnly: true,
+      },
+      {
+        key: 'SMTP_PROVIDER',
+        group: 'email',
+        kind: 'choice' as const,
+        choices: ['custom', 'gmail', 'amazon-ses'],
+        default: 'custom',
+        value: state.page.SMTP_PROVIDER ?? null,
+        source: state.page.SMTP_PROVIDER ? ('page' as const) : ('default' as const),
+        locked: false,
+        saved: Boolean(state.page.SMTP_PROVIDER),
+        live: true,
+        superAdminOnly: false,
+      },
+      {
+        key: 'SMTP_PORT',
+        group: 'email',
+        kind: 'number' as const,
+        choices: null,
+        default: '587',
+        value: state.page.SMTP_PORT || null,
+        source: state.page.SMTP_PORT ? ('page' as const) : ('default' as const),
+        locked: false,
+        saved: Boolean(state.page.SMTP_PORT),
+        live: true,
+        superAdminOnly: false,
       },
       {
         key: 'SMTP_HOST',
@@ -994,6 +1034,41 @@ describe('admin', () => {
     expect(
       await within(email).findByText('The mail server said no: 550 relay denied'),
     ).toBeInTheDocument();
+  });
+
+  it('greys out what a picked mail provider fills in, showing its values (PL-122)', async () => {
+    const { state } = await adminApp('admin', '/admin/settings');
+    const email = await screen.findByRole('region', { name: 'Email' });
+    const port = within(email).getByLabelText('Port');
+    await userEvent.type(port, '2525');
+    await userEvent.click(screen.getByRole('button', { name: 'Save' }));
+    await waitFor(() => expect(state.page.SMTP_PORT).toBe('2525'));
+
+    await userEvent.click(within(email).getByRole('combobox', { name: 'Provider' }));
+    await userEvent.click(await screen.findByRole('option', { name: 'Gmail' }));
+    expect(within(email).getByLabelText('Mail server (SMTP host)')).toBeDisabled();
+    expect(within(email).getByLabelText('Mail server (SMTP host)')).toHaveValue('smtp.gmail.com');
+    expect(within(email).getByLabelText('Port')).toBeDisabled();
+    expect(within(email).getByLabelText('Port')).toHaveValue(587);
+    expect(within(email).getByText('SMTP_PORT · set by Gmail')).toBeInTheDocument();
+    // The port saved here would win over Gmail's, so saving clears it.
+    await userEvent.click(screen.getByRole('button', { name: 'Save' }));
+    await waitFor(() => expect(state.page.SMTP_PROVIDER).toBe('gmail'));
+    expect(state.page.SMTP_PORT).toBe('');
+
+    // Amazon SES only suggests its host (the region varies).
+    await userEvent.click(within(email).getByRole('combobox', { name: 'Provider' }));
+    await userEvent.click(await screen.findByRole('option', { name: 'Amazon SES' }));
+    const host = within(email).getByLabelText('Mail server (SMTP host)');
+    expect(host).toBeEnabled();
+    expect(host).toHaveAttribute('placeholder', 'email-smtp.us-east-1.amazonaws.com');
+
+    // Back to "Other": the fields open up again.
+    await userEvent.click(within(email).getByRole('combobox', { name: 'Provider' }));
+    await userEvent.click(
+      await screen.findByRole('option', { name: 'Other (set the server below)' }),
+    );
+    expect(within(email).getByLabelText('Port')).toBeEnabled();
   });
 
   it('shows a plain admin the sign-in settings locked to super admins', async () => {

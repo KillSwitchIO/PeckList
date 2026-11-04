@@ -14,21 +14,28 @@ A good report gets fixed quickly. This page is also the text of the pinned
 
 ## What to include
 
-Open a [new issue with the Bug template](https://gitlab.com/killswitch10/pecklist/-/issues/new?issuable_template=Bug)
-and fill in:
+Open a [new issue with the Bug
+template](https://gitlab.com/killswitch10/pecklist/-/issues/new?issuable_template=Bug) and fill in:
 
 - **What happened**: what you did, what you expected, and what happened instead. A screenshot or a
   short screen recording helps a lot.
 - **Steps to reproduce**: the shortest list of steps that makes it happen again, starting from
   something anyone can do ("open a list, add a task with a due date, ...").
-- **Versions**: the server's (`pecklist --version`, the version label in the sidebar, or `/api/info`), and
-  the Android app's if it is involved.
+- **Versions**: the server's (`pecklist --version`, the version label in the sidebar, or
+  `/api/info`), and the Android app's if it is involved.
 - **How you run it**: Docker, Compose, Linux, Windows or from source; SQLite or PostgreSQL; the
   reverse proxy in front, if any; single sign-on and which provider, if it is about signing in.
 - **Where**: the browser and device, or the Android app and phone model.
 - **A debug dump**: **Admin > Logs > Download debug dump**, or `pecklist debug-dump`. It carries
   logs, settings and versions, but no task content, passwords or keys. If you are not the admin,
   ask yours for one, or paste the error from the browser's console.
+
+## Crash reports
+
+When PeckList crashes, it may offer to send a crash report
+([privacy](../using/privacy.md#crash-reports)). Sending one helps, but it is anonymous: nobody can
+reply to it or ask you how it happened. For a crash you can make happen again, open an issue too,
+and say that you sent a report and when.
 
 ## What not to include
 

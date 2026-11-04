@@ -197,7 +197,10 @@ page, they apply at once. Guide, with the steps for each provider: [email](../gu
 A provider preset that fills in the server, port and TLS (and the login name where the provider
 fixes one): `gmail`, `google-workspace`, `icloud`, `yahoo`, `fastmail`, `zoho`, `zoho-eu`,
 `proton`, `sendgrid`, `mailgun`, `mailgun-eu`, `postmark`, `brevo`, `resend`, `amazon-ses`, or
-`custom` for none. Anything set explicitly below wins over the preset. **Default:** `custom`.
+`custom` for none (**Other** on the settings page). Anything set explicitly below in the
+environment or config file wins over the preset; on the settings page, the fields a preset fills
+in show its values, greyed out (Amazon SES leaves the host open for its region). **Default:**
+`custom`.
 **Where:** any.
 
 ### `SMTP_HOST`
