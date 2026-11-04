@@ -16,7 +16,7 @@ public static class Backups
         {
             var live = provider.GetRequiredService<LiveSettings>();
             return new Snapshots(provider.GetRequiredService<BackupService>(), settings.SnapshotDir, () => live.Current.SnapshotKeep,
-                provider.GetRequiredService<TimeProvider>());
+                provider.GetRequiredService<TimeProvider>(), () => live.Current.SnapshotKeepWeekly);
         });
         // Always running: the schedule can change (or be turned off) while the server runs.
         services.AddHostedService<SnapshotScheduler>();

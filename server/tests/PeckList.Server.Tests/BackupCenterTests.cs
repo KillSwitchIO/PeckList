@@ -101,8 +101,15 @@ public sealed class BackupCenterTests(ServerFixture fixture) : IClassFixture<Ser
         Assert.Equal(name, Assert.Single(listed!).Name);
         Assert.True(listed![0].Size > 0);
 
+        // Snapshots are written gzip-compressed and handed out as they are.
+        Assert.EndsWith(".json.gz", name);
         var download = await admin.GetAsync($"/api/admin/backups/{name}", Token);
-        Assert.Contains(BackupService.Format, await download.Content.ReadAsStringAsync(Token));
+        Assert.Equal("application/gzip", download.Content.Headers.ContentType!.MediaType);
+        await using (var unpacked = new System.IO.Compression.GZipStream(await download.Content.ReadAsStreamAsync(Token),
+            System.IO.Compression.CompressionMode.Decompress))
+        {
+            Assert.Contains(BackupService.Format, await new StreamReader(unpacked).ReadToEndAsync(Token));
+        }
         Assert.Equal(HttpStatusCode.NotFound, (await admin.GetAsync("/api/admin/backups/..%2Fpunchlist.db", Token)).StatusCode);
 
         var export = await admin.GetAsync("/api/admin/export", Token);
@@ -165,6 +172,28 @@ public sealed class BackupCenterTests(ServerFixture fixture) : IClassFixture<Ser
         var held = await Sync(sam2);
         Assert.Equal("Mow", (string?)held["T1"]["title"]);
         Assert.DoesNotContain("M1", held.Keys);
+    }
+
+    [Fact]
+    public async Task A_downloaded_snapshot_uploads_back_as_it_was()
+    {
+        byte[] snapshot;
+        using (var old = Server())
+        {
+            var admin = await LogIn(old, "admin", AdminPassword);
+            var (sam, _) = await NewUser(old, "sam");
+            await Sync(sam, ("lists", Entity("L1", new JsonObject { ["name"] = "Chores", ["visibility"] = "private" })), Task("T1", "L1", "Mow"));
+            var taken = await admin.PostAsync("/api/admin/backups", null, Token);
+            var name = (string)(await taken.Content.ReadFromJsonAsync<JsonObject>(Token))!["name"]!;
+            snapshot = await (await admin.GetAsync($"/api/admin/backups/{name}", Token)).Content.ReadAsByteArrayAsync(Token);
+        }
+        Assert.Equal([0x1f, 0x8b], snapshot[..2]);
+        using var fresh = Server();
+        var newAdmin = await LogIn(fresh, "admin", AdminPassword);
+        var result = await Restore(newAdmin, snapshot, "sam");
+        Assert.Equal(("sam", true), (result.Username, result.Created));
+        var held = await Sync(await LogIn(fresh, "sam", Password));
+        Assert.Equal("Mow", (string?)held["T1"]["title"]);
     }
 
     [Fact]

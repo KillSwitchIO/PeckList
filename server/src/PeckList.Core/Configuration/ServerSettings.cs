@@ -67,8 +67,11 @@ public sealed record ServerSettings
     /// <summary>Where snapshots go: <c>snapshots</c> next to the SQLite file, or <c>/data/snapshots</c>.</summary>
     public string SnapshotDir { get; init; } = "/data/snapshots";
 
-    /// <summary>How many snapshots to keep.</summary>
-    public int SnapshotKeep { get; init; } = 14;
+    /// <summary>How many of the newest snapshots to keep.</summary>
+    public int SnapshotKeep { get; init; } = 7;
+
+    /// <summary>How many weeks before those keep one snapshot each (the newest of the week); 0 for none.</summary>
+    public int SnapshotKeepWeekly { get; init; } = 4;
     public string? TrustedProxies { get; init; }
     public string? WebRoot { get; init; }
 
@@ -321,7 +324,8 @@ public sealed record ServerSettings
             SnapshotSchedule = Choice(Get("BACKUP_SCHEDULE") is not null ? "BACKUP_SCHEDULE" : "SNAPSHOT_SCHEDULE", SnapshotSchedule.Daily),
             SnapshotDir = Get("SNAPSHOT_DIR")
                 ?? Path.Combine(Path.GetDirectoryName(dbPath) is { Length: > 0 } folder ? folder : ".", "snapshots"),
-            SnapshotKeep = Count("SNAPSHOT_KEEP", 14, 1),
+            SnapshotKeep = Count("SNAPSHOT_KEEP", 7, 1),
+            SnapshotKeepWeekly = Count("SNAPSHOT_KEEP_WEEKLY", 4, 0),
             TrustedProxies = Get("TRUSTED_PROXIES"),
             WebRoot = Get("WEB_ROOT"),
             OidcProviders = OidcProviderSettings.ReadAll(Get, errors),

@@ -79,7 +79,7 @@ public static class AuditExtensions
 
 /// <summary>
 /// Writes the access and event log: entries queue (up to 10,000, then dropped and counted) and a
-/// background writer stores them in batches, so a request never waits on it. Each entry also goes to
+/// background writer stores them in batches (gathered for <see cref="Gather"/>), so a request never waits on it. Each entry also goes to
 /// the logs (<c>PeckList.Audit</c>, <c>PeckList.Access</c>), and so to any log server.
 /// </summary>
 public sealed class AuditLog : BackgroundService
@@ -93,6 +93,15 @@ public sealed class AuditLog : BackgroundService
     private readonly ILogger access;
     private int pending;
     private long dropped;
+
+    /// <summary>
+    /// How long the writer gathers entries before storing them, so the few requests of one app
+    /// exchange share one database write instead of one each (PL-095).
+    /// </summary>
+    internal static readonly TimeSpan Gather = TimeSpan.FromSeconds(2);
+    private const int BatchSize = 500;
+    // Completed by FlushAsync: store what is queued now instead of waiting out the gather.
+    private volatile TaskCompletionSource hurry = new(TaskCreationOptions.RunContinuationsAsynchronously);
 
     private readonly Logging.Redaction redaction;
 
@@ -207,7 +216,11 @@ public sealed class AuditLog : BackgroundService
     public async Task FlushAsync(CancellationToken cancellation = default)
     {
         var deadline = DateTime.UtcNow.AddSeconds(10);
-        while (Volatile.Read(ref pending) > 0 && DateTime.UtcNow < deadline) await Task.Delay(10, cancellation);
+        while (Volatile.Read(ref pending) > 0 && DateTime.UtcNow < deadline)
+        {
+            hurry.TrySetResult();
+            await Task.Delay(10, cancellation);
+        }
     }
 
     protected override async Task ExecuteAsync(CancellationToken stopping)
@@ -217,6 +230,9 @@ public sealed class AuditLog : BackgroundService
         {
             while (await queue.Reader.WaitToReadAsync(stopping))
             {
+                var now = hurry;
+                if (queue.Reader.Count < BatchSize) await Task.WhenAny(Task.Delay(Gather, stopping), now.Task);
+                if (now.Task.IsCompleted) hurry = new(TaskCreationOptions.RunContinuationsAsynchronously);
                 await DrainAsync(batch, CancellationToken.None);
             }
         }
@@ -231,7 +247,7 @@ public sealed class AuditLog : BackgroundService
         while (true)
         {
             batch.Clear();
-            while (batch.Count < 500 && queue.Reader.TryRead(out var entry)) batch.Add(entry);
+            while (batch.Count < BatchSize && queue.Reader.TryRead(out var entry)) batch.Add(entry);
             if (batch.Count == 0) return;
             for (var attempt = 1; ; attempt++)
             {

@@ -235,7 +235,7 @@ export function BackupsTab({ api }: { api: AdminApi }) {
             <input
               hidden
               type="file"
-              accept=".json,application/json"
+              accept=".json,.gz,application/json,application/gzip"
               aria-label={t('admin.backups.fromFile')}
               onChange={(event) => {
                 const file = event.target.files?.[0];
