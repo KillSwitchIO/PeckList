@@ -8,9 +8,10 @@ const password = process.env.E2E_ADMIN_PASSWORD!;
 // A run id keeps reruns against the same server apart.
 const run = Date.now().toString(36);
 
+// "username webauthn" on the sign-in page since PL-123, so match the word.
 async function signIn(device: WebdriverIO.Browser): Promise<void> {
   await device.url('/');
-  const username = await device.$('input[autocomplete="username"]');
+  const username = await device.$('input[autocomplete~="username"]');
   await username.waitForDisplayed({ timeout: 30_000 });
   await username.setValue('admin');
   await device.$('input[autocomplete="current-password"]').setValue(password);
