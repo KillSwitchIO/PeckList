@@ -52,9 +52,10 @@ made yourself, or a debug build, has a different key: uninstall it first.
 The app was called Punchlist before the rename (`com.killswitch10.punchlist`); PeckList is a
 new app on Android (`com.killswitch10.pecklist`), so it installs beside the old one instead of
 over it. Install PeckList, connect it to your server and sign in, then uninstall Punchlist.
-Your tasks are on the server, so nothing is lost; changes made in the old app while it was
-offline sync once it is online, so open it with a connection before you remove it. In
-Obtainium, add PeckList as a new app the same way and remove the Punchlist entry.
+Your tasks are on the server, so nothing is lost. The Punchlist app does not connect to a
+PeckList 0.7.0 server or newer: if it holds changes made offline, open it with a connection
+before the server is upgraded, so they sync. In Obtainium, add PeckList as a new app the same
+way and remove the Punchlist entry.
 
 :::
 

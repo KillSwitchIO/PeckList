@@ -169,8 +169,8 @@ public static partial class ServerApp
 
         app.MapHealthChecks("/healthz");
         app.MapApiDocs();
-        app.MapGet("/api/info", (HttpRequest request, LiveSettings live) =>
-            new ServerInfo(LegacyClients.WantsOldName(request) ? LegacyClients.OldName : "pecklist", Version, WorkspaceSchema.CurrentVersion, TimeZoneInfo.Local.Id, live.Current.AttachmentMaxMb,
+        app.MapGet("/api/info", (LiveSettings live) =>
+            new ServerInfo("pecklist", Version, WorkspaceSchema.CurrentVersion, TimeZoneInfo.Local.Id, live.Current.AttachmentMaxMb,
                 AppSignIn: settings.AuthMode != AuthMode.None, Demo: Demo.Info(settings)));
         app.MapAuth();
         app.MapGroup("/api").RequireAuthorization().RequirePasswordChanged().EnsureProfiles().MapSync().MapFriends().MapAccount().MapAttachments().MapNotifications().MapHistory().MapPush().MapProviderPicture().MapAppCheck().MapUpdates().MapApiKeys();
