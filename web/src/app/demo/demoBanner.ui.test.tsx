@@ -67,6 +67,33 @@ describe('the demo server banner (PL-117)', () => {
     expect(within(popover).getByText('try-pecklist-alex')).toBeInTheDocument();
   });
 
+  it('says which is the username and which the password, and copies either', async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    vi.stubGlobal('navigator', { ...navigator, clipboard: { writeText } });
+    await serverApp(demoServer(), 'ben');
+    const banner = await screen.findByRole('status', { name: 'Demo server' }, slow);
+    await userEvent.click(within(banner).getByRole('button', { name: 'Demo accounts' }));
+    const popover = await screen.findByRole('presentation');
+    const headers = within(popover)
+      .getAllByRole('columnheader')
+      .map((cell) => cell.textContent);
+    expect(headers).toEqual(['Username', 'Password']);
+    const row = within(popover).getByRole('row', { name: /demo-alex/ });
+    expect(
+      within(row)
+        .getAllByRole('cell')
+        .map((cell) => cell.textContent),
+    ).toEqual(['demo-alex', 'try-pecklist-alex']);
+    await userEvent.click(
+      within(popover).getByRole('button', { name: 'Copy the password for demo-alex' }),
+    );
+    expect(writeText).toHaveBeenCalledWith('try-pecklist-alex');
+    await userEvent.click(
+      within(popover).getByRole('button', { name: 'Copy the username demo-sam' }),
+    );
+    expect(writeText).toHaveBeenLastCalledWith('demo-sam');
+  });
+
   it('on a phone, a short line opens the same accounts', async () => {
     mockViewport('phone');
     await serverApp(demoServer(), 'ben');

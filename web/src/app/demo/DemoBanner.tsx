@@ -1,19 +1,30 @@
-import { Box, Button, ButtonBase, IconButton, Paper, Popover, Typography } from '@mui/material';
+import {
+  Box,
+  Button,
+  ButtonBase,
+  IconButton,
+  Paper,
+  Popover,
+  Tooltip,
+  Typography,
+} from '@mui/material';
 import { useState } from 'react';
 import { t } from '../i18n/i18n.ts';
-import { CloseIcon } from '../icons/icons.tsx';
+import { CloseIcon, CopyIcon } from '../icons/icons.tsx';
 import { useSyncState } from '../sync/syncContext.ts';
 import { bannerDismissed, dismissBanner, resetWording } from './demoBanner.ts';
 
 /**
  * On a demo server (`DEMO_MODE`, PL-117): one line saying it resets every night and anyone can
  * sign up, the demo accounts behind a button, and a close that lasts the session. It floats, so
- * nothing on the page moves when it comes or goes.
+ * nothing on the page moves when it comes or goes. The accounts are a small table that says which
+ * value is the username and which the password, each with a copy button.
  */
 export function DemoBanner() {
   const demo = useSyncState((state) => state.server?.demo);
   const [hidden, setHidden] = useState(bannerDismissed);
   const [anchor, setAnchor] = useState<HTMLElement | null>(null);
+  const [copied, setCopied] = useState<string | null>(null);
   if (!demo || hidden) return null;
   const accounts = demo.accounts;
   const words = resetWording(demo);
@@ -92,26 +103,80 @@ export function DemoBanner() {
         >
           {accounts.length > 0 ? words.accounts : words.noAccounts}
         </Typography>
-        <Box
-          component="dl"
-          sx={{ display: 'grid', gridTemplateColumns: 'auto 1fr', columnGap: 2, rowGap: 0.5, m: 0 }}
-        >
-          {accounts.map((account) => (
-            <Box key={account.username} sx={{ display: 'contents' }}>
-              <Typography component="dt" variant="body2" sx={{ fontWeight: 600 }}>
-                {account.username}
-              </Typography>
-              <Typography
-                component="dd"
-                variant="body2"
-                sx={{ m: 0, fontFamily: 'monospace', userSelect: 'all' }}
-              >
-                {account.password}
-              </Typography>
-            </Box>
-          ))}
-        </Box>
+        {accounts.length > 0 && (
+          <Box
+            component="table"
+            sx={{
+              borderCollapse: 'collapse',
+              width: '100%',
+              '& td, & th': { p: 0, pr: 1.5, py: 0.25 },
+            }}
+          >
+            <thead>
+              <tr>
+                <Typography component="th" variant="caption" color="text.secondary" align="left">
+                  {t('demo.username')}
+                </Typography>
+                <Typography component="th" variant="caption" color="text.secondary" align="left">
+                  {t('demo.password')}
+                </Typography>
+              </tr>
+            </thead>
+            <tbody>
+              {accounts.map((account) => (
+                <tr key={account.username}>
+                  <td>
+                    <Copyable
+                      value={account.username}
+                      label={t('demo.copyUsername', { name: account.username })}
+                      copied={copied === `u:${account.username}`}
+                      onCopied={() => setCopied(`u:${account.username}`)}
+                    />
+                  </td>
+                  <td>
+                    <Copyable
+                      value={account.password}
+                      label={t('demo.copyPassword', { name: account.username })}
+                      copied={copied === `p:${account.username}`}
+                      onCopied={() => setCopied(`p:${account.username}`)}
+                    />
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </Box>
+        )}
       </Popover>
     </Paper>
+  );
+}
+
+/** One value to type in, in monospace and selectable at a click, with a button that copies it. */
+function Copyable({
+  value,
+  label,
+  copied,
+  onCopied,
+}: {
+  value: string;
+  label: string;
+  copied: boolean;
+  onCopied: () => void;
+}) {
+  return (
+    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.25 }}>
+      <Typography variant="body2" sx={{ fontFamily: 'monospace', userSelect: 'all' }}>
+        {value}
+      </Typography>
+      <Tooltip title={copied ? t('demo.copied') : label}>
+        <IconButton
+          size="small"
+          aria-label={label}
+          onClick={() => void navigator.clipboard?.writeText(value).then(onCopied, () => undefined)}
+        >
+          <CopyIcon sx={{ fontSize: 16 }} />
+        </IconButton>
+      </Tooltip>
+    </Box>
   );
 }
