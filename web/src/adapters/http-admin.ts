@@ -2,6 +2,7 @@ import type {
   AccountRole,
   AdminApi,
   AdminFriend,
+  ServerCrash,
   AdminGroup,
   AdminIdentity,
   AdminInvite,
@@ -276,6 +277,12 @@ export function createHttpAdmin(
     telemetry: async () => json<TelemetryView>(await call('/telemetry')),
     renewTelemetryId: async () => accept(await call('/telemetry/new-id', 'POST')),
     telemetryNoticeSeen: async () => accept(await call('/telemetry/notice-seen', 'POST')),
+    crashReports: async () =>
+      json<{ enabled: boolean; crashes: ServerCrash[] }>(await call('/crash-reports')),
+    sendCrashReport: async (fingerprint) =>
+      accept(await call(`/crash-reports/${segment(fingerprint)}/send`, 'POST')),
+    forgetCrashReport: async (fingerprint) =>
+      accept(await call(`/crash-reports/${segment(fingerprint)}`, 'DELETE')),
     logging: async () => json<LoggingView>(await call('/logging')),
     debugDumpUrl: () => `${base}/api/admin/debug-dump`,
     audit: async (query) => json<AuditPage>(await call(`/audit?${auditParams(query)}`)),

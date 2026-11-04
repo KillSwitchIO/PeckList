@@ -31,12 +31,11 @@ public sealed class AuditBatchingTests
         var store = new CountingStore();
         using var audit = new AuditLog(store, TimeProvider.System, NullLoggerFactory.Instance);
         await audit.StartAsync(Token);
-        for (var index = 0; index < 3; index++)
-        {
-            audit.RecordSystem("test.entry");
-            await Task.Delay(100, Token);
-        }
-        await Task.Delay(AuditLog.Gather + TimeSpan.FromSeconds(1), Token);
+        // Back to back, as the requests of one app exchange come: a busy machine must not spread
+        // them past the gather window.
+        for (var index = 0; index < 3; index++) audit.RecordSystem("test.entry");
+        for (var wait = 0; wait < 200 && store.Writes.Count == 0; wait++) await Task.Delay(50, Token);
+        await Task.Delay(200, Token);
         Assert.Equal([3], store.Writes);
         await audit.StopAsync(Token);
     }

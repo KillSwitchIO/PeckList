@@ -187,6 +187,7 @@ final class Reminders {
         if (due == null) return;
         save(context, all);
         show(context, due);
+        Usage.delivered(context, due.at);
     }
 
     /** Forget a task's reminders still to come (it was completed from a notification). */

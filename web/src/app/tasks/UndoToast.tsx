@@ -3,6 +3,7 @@ import { Box, ButtonBase, CircularProgress, Tooltip } from '@mui/material';
 import { useEffect, useRef, useState } from 'react';
 import { t } from '../i18n/i18n.ts';
 import { useStoreState } from '../store/hooks.ts';
+import { countUse } from '../telemetry/usage.ts';
 
 /** How long Undo stays. */
 const SHOW_MS = 6000;
@@ -121,6 +122,7 @@ export function UndoToast({
           onPointerDown={press}
           onClick={() => {
             if (swiped.current) return;
+            countUse('undo');
             undo(entry.id);
           }}
           sx={{

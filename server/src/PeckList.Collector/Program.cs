@@ -69,6 +69,13 @@ app.MapPost("/api/public/v1/ping", async (TelemetryPing ping, PingStore store, T
     return Results.Accepted();
 }).RequireRateLimiting("ping");
 
+app.MapPost("/api/public/v1/crash", async (CrashReport report, PingStore store, TimeProvider time, CancellationToken cancellation) =>
+{
+    if (CrashReports.Problem(report) is { } problem) return Results.BadRequest(new { problem });
+    await store.SaveCrashAsync(CrashReports.Clean(report), time.GetUtcNow(), cancellation);
+    return Results.Accepted();
+}).RequireRateLimiting("ping");
+
 // The totals are the project's own (Ben, 2026-11-02): inside only, never through the public proxy.
 app.MapGet("/api/private/v1/stats", async (StatsCache stats, CancellationToken cancellation) =>
     Results.Ok(await stats.GetAsync(cancellation)));

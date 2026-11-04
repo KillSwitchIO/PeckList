@@ -5,6 +5,10 @@ import {
   SyncFailure,
   type Account,
   type AccountEmail,
+  type ClientReport,
+  type CrashChoice,
+  type CrashReportDraft,
+  type TelemetryApi,
   type PasskeyInfo,
   type ChangeEvent,
   type AccountApi,
@@ -101,6 +105,18 @@ export class FakeBackend {
   readonly sentMail: { to: string; kind: 'reset' | 'confirm' }[] = [];
   /** The sign-in page offers passkeys (PL-123). */
   passkeysOn = false;
+  /** Whether the server sends its daily usage report (PL-116); off by default, as in tests. */
+  telemetryOn = false;
+  /** Each person's usage choice, by username. */
+  readonly shareUsage = new Map<string, boolean>();
+  /** The usage reports devices sent. */
+  readonly usageReports: ClientReport[] = [];
+  /** Whether the server takes crash reports (`CRASH_REPORTS`). */
+  crashReportsOn = false;
+  /** Each person's crash report choice, by username. */
+  readonly crashChoice = new Map<string, CrashChoice>();
+  /** The crash reports sent. */
+  readonly crashes: CrashReportDraft[] = [];
   /** Passkeys by credential id: whose, and as listed. */
   readonly passkeys = new Map<string, { username: string; info: PasskeyInfo }>();
 
@@ -197,6 +213,38 @@ export class FakeTransport implements SyncTransport {
 
   /** Admin actions; tests that need them put a stand-in here. */
   admin?: AdminApi;
+
+  readonly telemetry: TelemetryApi = {
+    status: () => Promise.resolve(this.usageStatus()),
+    choose: (choice) => {
+      const name = this.current()?.account.username;
+      if (name && choice.shareUsage !== undefined)
+        this.backend.shareUsage.set(name, choice.shareUsage);
+      if (name && choice.crashReports) {
+        this.backend.crashChoice.set(name, choice.crashReports);
+        if (choice.crashReports === 'never') this.backend.shareUsage.set(name, false);
+      }
+      return Promise.resolve(this.usageStatus());
+    },
+    crash: (report) => {
+      this.backend.crashes.push(report);
+      return Promise.resolve();
+    },
+    report: (report) => {
+      this.backend.usageReports.push(report);
+      return Promise.resolve();
+    },
+  };
+
+  private usageStatus() {
+    const name = this.current()?.account.username ?? '';
+    return {
+      enabled: this.backend.telemetryOn,
+      shareUsage: this.backend.shareUsage.get(name) ?? true,
+      crashReports: this.backend.crashChoice.get(name) ?? ('ask' as const),
+      crashReportsEnabled: this.backend.crashReportsOn,
+    };
+  }
 
   readonly account: AccountApi = {
     signInMethods: () => {

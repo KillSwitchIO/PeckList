@@ -100,6 +100,9 @@ public static partial class ServerApp
             client.DefaultRequestHeaders.UserAgent.ParseAdd($"PeckList/{Version}");
         });
         builder.Services.AddSingleton<ITelemetrySender, HttpTelemetrySender>();
+        builder.Services.AddSingleton<ClientTelemetry>();
+        builder.Services.AddSingleton<ICrashSender, HttpCrashSender>();
+        builder.Services.AddSingleton<CrashReporting>();
         builder.Services.AddSingleton<TelemetryReport>();
         builder.Services.AddHostedService<TelemetryService>();
         builder.Services.AddSingleton<Auth.ProviderPhoto>();
@@ -155,6 +158,8 @@ public static partial class ServerApp
         LogPipeline.UseLogContext(app, user: false);
         // Times every request; who made it is known by the time it is recorded.
         Audit.AuditLog.UseAuditLog(app);
+        // Inside the access log, so the 500 is logged as before; the crash is kept for the admin too.
+        app.UseServerCrashes();
         app.UseForwardedHeaders();
         app.UseResponseHardening(Analytics.ContentSecurityPolicy(settings.Umami));
         SharingStartup.UseSharingStartup(app);
@@ -173,8 +178,8 @@ public static partial class ServerApp
             new ServerInfo("pecklist", Version, WorkspaceSchema.CurrentVersion, TimeZoneInfo.Local.Id, live.Current.AttachmentMaxMb,
                 AppSignIn: settings.AuthMode != AuthMode.None, Demo: Demo.Info(settings)));
         app.MapAuth();
-        app.MapGroup("/api").RequireAuthorization().RequirePasswordChanged().EnsureProfiles().MapSync().MapFriends().MapAccount().MapAccountEmail().MapAccountPasskeys().MapAttachments().MapNotifications().MapHistory().MapPush().MapProviderPicture().MapAppCheck().MapUpdates().MapApiKeys();
-        app.MapGroup("/api/admin").RequireAuthorization().RequirePasswordChanged().MapAdmin().MapAdminEmail().MapAdminPasskeys().MapSettings().MapBackups().MapLogging().MapAudit().MapStats().MapSetup().MapTelemetry();
+        app.MapGroup("/api").RequireAuthorization().RequirePasswordChanged().EnsureProfiles().MapSync().MapFriends().MapAccount().MapAccountEmail().MapAccountPasskeys().MapAttachments().MapNotifications().MapHistory().MapPush().MapProviderPicture().MapAppCheck().MapUpdates().MapApiKeys().MapClientTelemetry().MapCrashReports();
+        app.MapGroup("/api/admin").RequireAuthorization().RequirePasswordChanged().MapAdmin().MapAdminEmail().MapAdminPasskeys().MapSettings().MapBackups().MapLogging().MapAudit().MapStats().MapSetup().MapTelemetry().MapAdminCrashReports();
 
         var webRoot = settings.WebRoot ?? Path.Combine(AppContext.BaseDirectory, "wwwroot");
         app.UseStaticSite(webRoot, app.Logger, noindex: settings.DemoMode, umami: settings.Umami);

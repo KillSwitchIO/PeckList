@@ -30,7 +30,8 @@ public sealed class HttpTelemetrySender(IHttpClientFactory http) : ITelemetrySen
 /// install id, all counts bucketed. Kept small values in the secret store under <see cref="Kind"/>:
 /// the install id, when it was made, when a report last went, and whether an admin has seen the notice.
 /// </summary>
-public sealed class TelemetryReport(ISecretStore secrets, StatsService stats, ITelemetrySource source, LiveSettings live, TimeProvider time)
+public sealed class TelemetryReport(
+    ISecretStore secrets, StatsService stats, ITelemetrySource source, LiveSettings live, TimeProvider time, ClientTelemetry? clients = null)
 {
     public const string Kind = "telemetry";
 
@@ -75,8 +76,12 @@ public sealed class TelemetryReport(ISecretStore secrets, StatsService stats, IT
             ? when
             : null;
 
-    public Task MarkSentAsync(DateTimeOffset at, CancellationToken cancellation) =>
-        secrets.PutAsync(Kind, "sent-at", at.ToString("O", CultureInfo.InvariantCulture), cancellation);
+    /// <summary>The report went: note when, and start the next day's client counts.</summary>
+    public async Task MarkSentAsync(DateTimeOffset at, CancellationToken cancellation)
+    {
+        await secrets.PutAsync(Kind, "sent-at", at.ToString("O", CultureInfo.InvariantCulture), cancellation);
+        if (clients is not null) await clients.ResetAsync(cancellation);
+    }
 
     public async Task<bool> NoticeSeenAsync(CancellationToken cancellation) =>
         (await ValuesAsync(cancellation)).ContainsKey("notice-seen");
@@ -120,6 +125,7 @@ public sealed class TelemetryReport(ISecretStore secrets, StatsService stats, IT
                 TelemetryBuckets.Count(totals.OpenTasks),
                 TelemetryBuckets.Count(totals.ClosedTasks),
                 TelemetryBuckets.Bytes(totals.StorageBytes)),
+            Clients = clients is null ? null : await clients.SummaryAsync(cancellation),
         };
     }
 
@@ -149,7 +155,8 @@ public sealed class TelemetryReport(ISecretStore secrets, StatsService stats, IT
 /// is logged quietly (a server with no internet should not fill its log) and tried at the next look.
 /// </summary>
 public sealed class TelemetryService(
-    TelemetryReport report, ITelemetrySender sender, LiveSettings live, TimeProvider time, ILogger<TelemetryService> logger)
+    TelemetryReport report, ITelemetrySender sender, LiveSettings live, TimeProvider time, ILogger<TelemetryService> logger,
+    CrashReporting? crashes = null)
     : PeriodicService("Usage report", TimeSpan.FromMinutes(5), TimeSpan.FromHours(1), time, logger, LogLevel.Debug)
 {
     /// <summary>A report goes when the last one is at least this old (a day, less a little drift).</summary>
@@ -160,6 +167,8 @@ public sealed class TelemetryService(
     protected override async Task RunAsync(CancellationToken stopping)
     {
         var settings = live.Current;
+        // Crash reports that could not go wait for this hourly look, usage reports on or not.
+        if (crashes is not null) await crashes.RetryAsync(stopping);
         if (!settings.Telemetry) return;
         if (await report.SentAtAsync(stopping) is { } last && Time.GetUtcNow() - last < Gap) return;
         var ping = await report.BuildAsync(stopping);

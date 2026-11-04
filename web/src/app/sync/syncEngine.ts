@@ -31,6 +31,7 @@ import {
   type SyncTransport,
 } from '../../ports/sync.ts';
 import type { WorkspaceStore } from '../store/workspaceStore.ts';
+import { noteTiming } from '../telemetry/usage.ts';
 
 /** What signing out did: done, or stopped by changes the server has not taken yet. */
 export type SignOutOutcome =
@@ -480,11 +481,13 @@ export function createSyncEngine(deps: SyncEngineDependencies): SyncEngine {
           if (!current) return;
           const pending = deps.readOnly ? [] : pendingChanges(current, meta.acks);
           const batch = await withFiles(pending.slice(0, BATCH));
+          const asked = performance.now();
           const response = await transport.sync({
             schemaVersion: CURRENT_SCHEMA_VERSION,
             cursor: meta.cursor,
             changes: batch,
           });
+          noteTiming('sync', performance.now() - asked);
           // The server's data was restored from a backup: this device's pending changes went
           // with this request; now it starts over from what the server has.
           if (response.epoch && meta.epoch && response.epoch !== meta.epoch) {

@@ -122,6 +122,55 @@ export interface SignInOptions {
   passkeys?: boolean;
 }
 
+/** What a person does with crash reports (PL-116): asked each time, always sent, or never. */
+export type CrashChoice = 'ask' | 'always' | 'never';
+
+/** Whether the server reports usage at all, and what this person chose (PL-116). */
+export interface TelemetryStatus {
+  enabled: boolean;
+  shareUsage: boolean;
+  crashReports: CrashChoice;
+  /** The server offers crash reports at all (`CRASH_REPORTS`). */
+  crashReportsEnabled?: boolean;
+}
+
+/** A crash report as the app sends it, once the person said yes (PL-116). Shown to them in full first. */
+export interface CrashReportDraft {
+  source: 'web' | 'android';
+  version: string;
+  kind: string;
+  fingerprint: string;
+  stack: string;
+  device: string[];
+}
+
+/** One device's counts since it last reported (PL-116); names off the server's lists are dropped there. */
+export interface ClientReport {
+  device: string;
+  platform: 'tab' | 'pwa' | 'android';
+  browser: string;
+  os: string;
+  screen: 'phone' | 'tablet' | 'desktop';
+  theme: 'light' | 'dark';
+  language: string;
+  features: Record<string, number>;
+  errors: Record<string, number>;
+  timings: Record<string, number[]>;
+  /** The Android app: the permissions reminders need. */
+  notify?: 'on' | 'off';
+  exact?: 'on' | 'off';
+  battery?: 'on' | 'off';
+}
+
+/** Usage counts and the person's choices about them (optional: older servers have none). */
+export interface TelemetryApi {
+  status(): Promise<TelemetryStatus>;
+  choose(choice: { shareUsage?: boolean; crashReports?: CrashChoice }): Promise<TelemetryStatus>;
+  report(report: ClientReport): Promise<void>;
+  /** Send a crash report through the server. */
+  crash?(report: CrashReportDraft): Promise<void>;
+}
+
 /** A WebAuthn ceremony the server started (PL-123): its id, and the options for the browser as JSON. */
 export interface PasskeyCeremony {
   ceremony: string;
@@ -442,6 +491,8 @@ export interface SyncTransport {
   /** Release check (optional: older servers make none). */
   updates?: UpdatesApi;
   account?: AccountApi;
+  /** Usage counts (PL-116). */
+  telemetry?: TelemetryApi;
   /** API keys (optional: older servers have none). */
   apiKeys?: ApiKeysApi;
   /** Attached files (optional: older servers keep none). */

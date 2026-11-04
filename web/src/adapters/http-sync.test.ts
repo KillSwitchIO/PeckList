@@ -152,6 +152,56 @@ describe('HTTP sync transport', () => {
     expect(await mine.removePassword?.('secret')).toBe('wrong-password');
   });
 
+  it('reads and changes the usage choice, and sends counts and crash reports (PL-116)', async () => {
+    const status = {
+      enabled: true,
+      shareUsage: true,
+      crashReports: 'ask',
+      crashReportsEnabled: true,
+    };
+    const { fetcher, calls } = fakeFetch(
+      { status: 200, body: status },
+      { status: 200, body: { ...status, shareUsage: false } },
+      { status: 204 },
+      { status: 204 },
+      { status: 404 },
+    );
+    const telemetry = createHttpSync('', fetcher).telemetry!;
+    expect(await telemetry.status()).toEqual(status);
+    expect((await telemetry.choose({ shareUsage: false })).shareUsage).toBe(false);
+    expect(calls[1]?.init.method).toBe('PUT');
+    await telemetry.report({
+      device: 'd',
+      platform: 'tab',
+      browser: 'firefox',
+      os: 'linux',
+      screen: 'desktop',
+      theme: 'dark',
+      language: 'en',
+      features: {},
+      errors: {},
+      timings: {},
+    });
+    const crash = {
+      source: 'web' as const,
+      version: '0.8.0',
+      kind: 'TypeError',
+      fingerprint: 'a1b2c3d4',
+      stack: '',
+      device: [],
+    };
+    await telemetry.crash?.(crash);
+    // A server that takes no crash reports: nothing to say.
+    await telemetry.crash?.(crash);
+    expect(calls.map((each) => each.url)).toEqual([
+      '/api/telemetry',
+      '/api/telemetry/choice',
+      '/api/telemetry',
+      '/api/crash-reports',
+      '/api/crash-reports',
+    ]);
+  });
+
   it('tells a PeckList server from a static host', async () => {
     const info = { name: 'pecklist', version: '0.1.0', schemaVersion: 4 };
     const { fetcher } = fakeFetch(

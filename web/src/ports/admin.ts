@@ -4,6 +4,18 @@ import type { PasskeyInfo } from './sync.ts';
 
 export type AccountRole = 'superadmin' | 'admin' | 'user';
 
+/** A crash on the server itself (PL-116): the same bug counts up; the report is what would go. */
+export interface ServerCrash {
+  fingerprint: string;
+  count: number;
+  firstAt: string;
+  lastAt: string;
+  report: { kind: string; version: string; stack: string; logs: string[] } & Record<
+    string,
+    unknown
+  >;
+}
+
 export interface AdminUser {
   id: string;
   username: string;
@@ -390,6 +402,12 @@ export interface AdminApi {
   renewTelemetryId(): Promise<void>;
   /** Stop the first-start notice about the usage report. */
   telemetryNoticeSeen(): Promise<void>;
+  /** The server's own crashes (PL-116), newest first, and whether crash reports are on. */
+  crashReports?(): Promise<{ enabled: boolean; crashes: ServerCrash[] }>;
+  /** Send one to the project (then it leaves the list). */
+  sendCrashReport?(fingerprint: string): Promise<void>;
+  /** Take one off the list without sending it. */
+  forgetCrashReport?(fingerprint: string): Promise<void>;
 
   logging(): Promise<LoggingView>;
   /** Downloads a zip of recent logs, settings (secrets hidden), versions and counts. */

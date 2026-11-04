@@ -42,6 +42,16 @@ function memoryAdmin(benId: string) {
       { ...user('U2', 'sam'), email: 'sam@example.com', emailConfirmed: true, passkeys: 1 },
     ],
     resetLinks: [] as string[],
+    serverCrashes: [
+      {
+        fingerprint: 'a1b2c3d4',
+        count: 3,
+        firstAt: '2026-11-03T08:00:00Z',
+        lastAt: '2026-11-04T08:00:00Z',
+        report: { kind: 'NullReferenceException', version: '0.8.0', stack: 'at Sync', logs: [] },
+      },
+    ],
+    sentCrashes: [] as string[],
     passkeys: [
       {
         id: 'pk1',
@@ -440,6 +450,16 @@ function memoryAdmin(benId: string) {
     },
     telemetryNoticeSeen: () => {
       state.telemetry.noticeSeen = true;
+      return Promise.resolve();
+    },
+    crashReports: () => Promise.resolve({ enabled: true, crashes: [...state.serverCrashes] }),
+    sendCrashReport: (fingerprint) => {
+      state.sentCrashes.push(fingerprint);
+      state.serverCrashes = state.serverCrashes.filter((each) => each.fingerprint !== fingerprint);
+      return Promise.resolve();
+    },
+    forgetCrashReport: (fingerprint) => {
+      state.serverCrashes = state.serverCrashes.filter((each) => each.fingerprint !== fingerprint);
       return Promise.resolve();
     },
     logging: () =>
@@ -856,6 +876,18 @@ describe('admin', () => {
     expect(state.page).toEqual({ REGISTRATION: 'open' });
     await userEvent.click(screen.getByRole('button', { name: 'Restart now' }));
     expect(state.restarted).toBe(true);
+  });
+
+  it("lists the server's own crashes and sends one only when asked (PL-116)", async () => {
+    const { state } = await adminApp('superadmin', '/admin/settings');
+    const crashes = await screen.findByRole('region', { name: 'Server crashes' });
+    expect(within(crashes).getByText('NullReferenceException')).toBeInTheDocument();
+    expect(state.sentCrashes).toEqual([]);
+    await userEvent.click(within(crashes).getByRole('button', { name: 'Send' }));
+    await waitFor(() => expect(state.sentCrashes).toEqual(['a1b2c3d4']));
+    await waitFor(() =>
+      expect(screen.queryByRole('region', { name: 'Server crashes' })).toBeNull(),
+    );
   });
 
   it('tells the admin once that the server reports, shows the report as it goes, and renews the install id', async () => {

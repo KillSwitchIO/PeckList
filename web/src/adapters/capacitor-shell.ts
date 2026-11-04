@@ -5,13 +5,17 @@ import type {
   NativeShell,
   ServerCheck,
   ServerProblem,
+  ShellCrash,
   ShellInfo,
+  ShellUsage,
 } from '../ports/nativeShell.ts';
 import type { ServerInfo } from '../ports/sync.ts';
 
 /** `ShellPlugin.java` in mobile/android: what it takes and answers. */
 interface ShellPlugin {
   info(): Promise<ShellInfo>;
+  usage(): Promise<ShellUsage>;
+  lastCrash(): Promise<{ crash?: ShellCrash | null }>;
   checkServer(options: { url: string }): Promise<{ url: string; info: ServerInfo }>;
   connect(options: { url: string }): Promise<void>;
   disconnect(): Promise<void>;
@@ -93,6 +97,9 @@ export function createCapacitorShell(): NativeShell | null {
         };
       }
     },
+    // A shell from before PL-116 answers these with an error: nothing to tell.
+    usage: () => plugin.usage().catch(() => null),
+    lastCrash: async () => (await plugin.lastCrash().catch(() => ({ crash: null }))).crash ?? null,
     connect: (url) => plugin.connect({ url }),
     disconnect: () => plugin.disconnect(),
     backgroundCheck: () => plugin.backgroundCheck(),

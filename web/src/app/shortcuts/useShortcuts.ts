@@ -10,6 +10,7 @@ import { useWorkspaceStore } from '../store/hooks.ts';
 import { focusAddTask } from '../tasks/focusAddTask.ts';
 import { useTaskSelection } from '../tasks/selection.ts';
 import { matchShortcut, type ShortcutAction } from './shortcuts.ts';
+import { countUse } from '../telemetry/usage.ts';
 
 /** How long G waits for its second key. */
 const SEQUENCE_MS = 1200;
@@ -126,7 +127,10 @@ export function useShortcuts(): { helpOpen: boolean; openHelp: () => void; close
       }
       pending.current = null;
       if (!found) return;
-      if (run(found.action)) event.preventDefault();
+      if (run(found.action)) {
+        event.preventDefault();
+        countUse('shortcut');
+      }
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);

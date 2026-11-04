@@ -40,6 +40,8 @@ public class MainActivity extends BridgeActivity {
     protected void onCreate(Bundle savedInstanceState) {
         boolean choosing = leaveServerIfAsked(getIntent());
         registerPlugin(ShellPlugin.class);
+        // A crash is kept for the next start, where the web app offers a report (PL-116).
+        Usage.watchForCrashes(this);
         config = RuntimeConfig.load(this, ServerChoice.get(this));
         super.onCreate(savedInstanceState);
         if (bridge != null) {

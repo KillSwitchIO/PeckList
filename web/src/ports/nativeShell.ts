@@ -52,8 +52,24 @@ export interface HeldPress {
   at: number;
 }
 
+/** What the Android shell counted for the usage report (PL-116), and the permissions reminders need. */
+export interface ShellUsage {
+  counts: Record<string, number>;
+  permissions: { notify: 'on' | 'off'; exact: 'on' | 'off'; battery: 'on' | 'off' };
+}
+
+/** A crash or ANR the shell noticed since the app last ran (PL-116). */
+export interface ShellCrash {
+  kind: string;
+  stack: string;
+}
+
 export interface NativeShell {
   info(): Promise<ShellInfo>;
+  /** The shell's counts since the last ask (asking starts them afresh); older shells have none. */
+  usage?(): Promise<ShellUsage | null>;
+  /** The crash since the last start, used up by asking; older shells have none. */
+  lastCrash?(): Promise<ShellCrash | null>;
   /** Whether an address is a PeckList server, and the origin it answers on. */
   checkServer(address: string): Promise<ServerCheck>;
   /** Run on this server from now on. The app restarts on it, so this never really returns. */
