@@ -33,9 +33,10 @@ job) has approved, and "Pipelines must succeed" then keeps the merge request fro
 ## What keeps it quick
 
 - **One pnpm store, written once.** Every Node job restores the store from the runner's cache
-  (keyed by the lockfile) and only `lint` writes it back, with the eslint and prettier caches.
-  The NuGet cache works the same way: `server-test` writes, the others read. Archives use the
-  fastest compression (`FF_USE_FASTZIP`, `CACHE_COMPRESSION_LEVEL`).
+  (keyed by the lockfile) and only `lint` writes it back. The eslint and prettier caches have an
+  archive of their own, because they change on every run and the store does not. The NuGet cache
+  works the same way: `server-test` writes, the others read. Archives use the fastest compression
+  (`FF_USE_FASTZIP`, `CACHE_COMPRESSION_LEVEL`).
 - **Tool images instead of `apt-get`.** The browsers and the JDK and Android SDK come
   from images built out of [`ci/`](https://gitlab.com/killswitch10/pecklist/-/tree/main/ci)
   into `registry.gitlab.com/killswitch10/pecklist/ci/{browsers,android}` by the
@@ -43,6 +44,9 @@ job) has approved, and "Pipelines must succeed" then keeps the merge request fro
 - **Heavy jobs one at a time.** `web-build`, `android-release` and `packages` share a
   `resource_group`, so a release does not run four builds against each other on one runner;
   each finishes in minutes alone where they took the better part of an hour together.
+- **One copy of a suite at a time.** `web-test`, `server-test` and `e2e` each have a
+  `resource_group`, so queued merge requests take turns instead of slowing each other until
+  tests fail on load. A job waiting for its turn holds no runner slot.
 - **Merge requests build less.** The image is amd64 only, without SBOM or provenance; both
   architectures and the attestations come with `main` and tags. The build cache export is
   `mode=min`.

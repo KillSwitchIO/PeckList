@@ -84,7 +84,7 @@ default:
   when: never
 
 # The pnpm store, read by every Node job and written back by lint alone (the lockfile is its key,
-# so the archive only changes when the lockfile does).
+# so its files only change when the lockfile does, and the runner then skips saving it).
 .node:
   image: $NODE_IMAGE
   cache:
@@ -138,7 +138,12 @@ lint:
   cache:
     - key:
         files: [pnpm-lock.yaml]
-      paths: [.pnpm-store, .eslintcache, .prettiercache]
+      paths: [.pnpm-store]
+      policy: pull-push
+    # Apart from the store: these change on every run, and in one archive they made the runner
+    # zip the 50 000-file store again each time, 2 to 3 minutes against 80 s of checks.
+    - key: lint-tools
+      paths: [.eslintcache, .prettiercache]
       policy: pull-push
   script:
     # The three slow checks at once; the quick ones after.
@@ -169,6 +174,8 @@ web-test:
     max: 1
     when: script_failure
   script:
+    # The demo seed runs inside the image build; a change that breaks it should fail here first.
+    - node scripts/demo-seed.mts "$CI_PROJECT_DIR/demo-seed.json" --today 2026-01-01
     - pnpm --filter @pecklist/web exec vitest run --coverage
       --reporter=default --reporter=junit --outputFile.junit=junit.xml
       --coverage.reporter=text-summary --coverage.reporter=cobertura
@@ -190,6 +197,8 @@ server-test:
   stage: test
   needs: []
   timeout: 20m
+  # One suite at a time across pipelines, like web-test: two at once slow each other and fail on load.
+  resource_group: server-test
   cache:
     - <<: *nuget-cache
       policy: pull-push
@@ -219,6 +228,8 @@ e2e:
     - job: ci-images
       optional: true
   timeout: 20m
+  # One suite at a time across pipelines, like web-test.
+  resource_group: e2e
   retry:
     max: 1
     when: script_failure
