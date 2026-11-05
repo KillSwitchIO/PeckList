@@ -159,6 +159,19 @@ lint:
     - *not-on-schedule
     - when: on_success
 
+# Whether main's tree is the tree a merge request's pipeline passed (scripts/verify-tested.mjs).
+# Only reports for now: nothing depends on it until merges have to be up to date.
+verify-tested:
+  image: $NODE_IMAGE
+  stage: check
+  needs: []
+  timeout: 5m
+  allow_failure: true
+  script:
+    - node scripts/verify-tested.mjs
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $GITLAB_API_TOKEN
+
 # --- test ------------------------------------------------------------------------------------
 
 web-test:
