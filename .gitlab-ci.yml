@@ -1,7 +1,7 @@
 # PeckList CI/CD
 #
-#   merge requests   check, test (web, server, e2e), image build (amd64, not pushed), docs build,
-#                    then approval: red until APPROVERS approve the merge request
+#   merge requests   check, then what the files can affect: test (web, server, e2e), image build
+#                    (amd64, not pushed), docs build, then approval: red until APPROVERS approve
 #   main             no test suites: a merge must be up to date, so its tree is the tree its merge
 #                    request passed, and verify-tested checks that. Then the :edge image for both
 #                    architectures, two devices syncing through it (e2e-server), the test server
@@ -80,7 +80,7 @@ default:
 .on-main: &on-main
   if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
 
-# A tag re-tests nothing: it was made on a main commit whose pipeline passed (release:tag checks).
+# A tag re-tests nothing: its commit's main pipeline tested it, and cut-release checks that.
 .not-on-tag: &not-on-tag
   if: $CI_COMMIT_TAG
   when: never
@@ -111,6 +111,13 @@ default:
 
 .not-on-schedule: &not-on-schedule
   if: $CI_PIPELINE_SOURCE == "schedule"
+  when: never
+
+# A merge request runs the suites its files can affect, and the weekly run on main runs them all.
+# A merge request's rule is its job's own changes list and then this, so a job that does not apply is
+# left out; other pipelines fall through to the job's last rule.
+.not-affected: &not-affected
+  if: $CI_PIPELINE_SOURCE == "merge_request_event"
   when: never
 
 # The pnpm store, read by every Node job and written back by lint alone (the lockfile is its key,
@@ -202,7 +209,7 @@ verify-tested:
   # this has one.
   retry:
     max: 2
-    when: [job_execution_timeout, runner_system_failure, api_failure]
+    when: [server_timeout_running, runner_system_failure, api_failure]
   variables:
     GIT_DEPTH: 1
   script:
@@ -242,6 +249,19 @@ web-test:
     - *not-on-release-branch
     - *not-on-tag
     - *not-on-main
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+      changes:
+        - web/**/*
+        - .gitlab-ci.yml
+        - package.json
+        - pnpm-lock.yaml
+        - pnpm-workspace.yaml
+        - mise.toml
+        - .npmrc
+        - schema/**/*
+        - scripts/**/*
+        - ci/**/*
+    - *not-affected
     - when: on_success
 
 server-test:
@@ -271,6 +291,19 @@ server-test:
     - *not-on-release-branch
     - *not-on-tag
     - *not-on-main
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+      changes:
+        - server/**/*
+        - .gitlab-ci.yml
+        - package.json
+        - pnpm-lock.yaml
+        - pnpm-workspace.yaml
+        - mise.toml
+        - .npmrc
+        - schema/**/*
+        - scripts/**/*
+        - ci/**/*
+    - *not-affected
     - when: on_success
 
 e2e:
@@ -299,6 +332,19 @@ e2e:
     - *not-on-main
     - *not-on-release-branch
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+      changes:
+        - web/**/*
+        - e2e/**/*
+        - .gitlab-ci.yml
+        - package.json
+        - pnpm-lock.yaml
+        - pnpm-workspace.yaml
+        - mise.toml
+        - .npmrc
+        - schema/**/*
+        - scripts/**/*
+        - ci/**/*
+    - *not-affected
     - *on-main
     - if: $CI_PIPELINE_SOURCE == "web"
 
@@ -318,6 +364,25 @@ docs:
     - if: $CI_COMMIT_TAG =~ /^v\d+\.\d+\.\d+\+/
     - *not-on-tag
     - *not-on-schedule
+    # A release merge request's copy of the docs must build too.
+    - if: $CI_MERGE_REQUEST_SOURCE_BRANCH_NAME =~ /^release\//
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+      changes:
+        - docs/**/*
+        - website/**/*
+        - examples/**/*
+        - README.md
+        - CONTRIBUTING.md
+        - .gitlab-ci.yml
+        - package.json
+        - pnpm-lock.yaml
+        - pnpm-workspace.yaml
+        - mise.toml
+        - .npmrc
+        - schema/**/*
+        - scripts/**/*
+        - ci/**/*
+    - *not-affected
     - when: on_success
 
 # --- build -----------------------------------------------------------------------------------
@@ -396,10 +461,31 @@ container-image:
     - *legacy-tag
     - if: $CI_COMMIT_TAG
       when: never
+    # On a merge request, only what could break the build itself: main builds the image once anyway,
+    # and the code is compiled by the test jobs.
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+      changes:
+        - Dockerfile
+        - .dockerignore
+        - server/**/*.csproj
+        - server/Directory.*
+        - server/global.json
+        - web/package.json
+        - e2e/package.json
+        - web/src/demo/**/*
+        - .gitlab-ci.yml
+        - package.json
+        - pnpm-lock.yaml
+        - pnpm-workspace.yaml
+        - mise.toml
+        - .npmrc
+        - schema/**/*
+        - scripts/**/*
+        - ci/**/*
       variables:
         PLATFORMS: linux/amd64
         ATTEST: --sbom=false --provenance=false
+    - *not-affected
     - <<: *release-commit
       interruptible: false
     - when: on_success

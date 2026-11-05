@@ -59,6 +59,10 @@ job) has approved, and "Pipelines must succeed" then keeps the merge request fro
 - **One copy of a suite at a time.** `web-test`, `server-test` and `e2e` each have a
   `resource_group`, so queued merge requests take turns instead of slowing each other until
   tests fail on load. A job waiting for its turn holds no runner slot.
+- **A merge request runs what its files can affect.** `web-test`, `server-test`, `e2e`, `docs` and
+  the image build each list their inputs in `rules: changes`, and CI files, lockfiles, `schema/` and
+  `scripts/` run everything. The weekly run on `main` runs every suite, the safety net for a list
+  that missed a dependency. A run from the UI runs every suite too.
 - **Merge requests build less.** The image is amd64 only, without SBOM or provenance; both
   architectures and the attestations come with `main` and tags. The build cache export is
   `mode=min`.
