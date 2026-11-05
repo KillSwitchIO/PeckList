@@ -12,6 +12,11 @@ import { useIsSuperAdmin, useLoaded } from './useAdmin.ts';
 const LABELS: Record<string, MessageKey> = {
   PUBLIC_URL: 'serverSettings.PUBLIC_URL',
   REGISTRATION: 'serverSettings.REGISTRATION',
+  ACCOUNT_DELETE_GRACE_DAYS: 'serverSettings.ACCOUNT_DELETE_GRACE_DAYS',
+  ATTACHMENT_DIR: 'serverSettings.ATTACHMENT_DIR',
+  UMAMI_URL: 'serverSettings.UMAMI_URL',
+  UMAMI_WEBSITE_ID: 'serverSettings.UMAMI_WEBSITE_ID',
+  UMAMI_RECORDER: 'serverSettings.UMAMI_RECORDER',
   LOCAL_LOGIN: 'serverSettings.LOCAL_LOGIN',
   PASSKEYS: 'serverSettings.PASSKEYS',
   OIDC_PROVIDERS: 'serverSettings.OIDC_PROVIDERS',
@@ -106,7 +111,32 @@ const GROUPS: Record<string, MessageKey> = {
   environment: 'serverSettings.group.environment',
 };
 
+/** Choices with a name of their own; any other shows as the server spells it. */
+const CHOICE_LABELS = new Set<string>([
+  'REGISTRATION',
+  'LOCAL_LOGIN',
+  'PASSKEYS',
+  'BACKUP_SCHEDULE',
+  'LOG_LEVEL',
+  'LOG_FORMAT',
+  'SMTP_TLS',
+  'AUTH_MODE',
+  'DB_PROVIDER',
+]);
+
 const SECRET_SHOWN = '********';
+
+function choiceText(key: string, choice: string): string {
+  return CHOICE_LABELS.has(key) ? t(`serverSettings.${key}.${choice}` as MessageKey) : choice;
+}
+
+/** A default as the admin knows it: the choice's name, or on and off for a switch. */
+function defaultText(setting: ServerSetting): string {
+  const value = setting.default ?? '';
+  if (setting.kind === 'flag')
+    return t(value === 'true' ? 'serverSettings.flagOn' : 'serverSettings.flagOff');
+  return setting.kind === 'choice' ? choiceText(setting.key, value) : value;
+}
 
 function labelOf(setting: ServerSetting): string {
   const fixed = LABELS[setting.key];
@@ -129,7 +159,7 @@ function sourceText(setting: ServerSetting): string {
   if (setting.source === 'file') return t('serverSettings.from.file', { key: setting.key });
   if (setting.source === 'page') return t('serverSettings.from.page', { key: setting.key });
   return setting.default
-    ? t('serverSettings.from.default', { key: setting.key, value: setting.default })
+    ? t('serverSettings.from.default', { key: setting.key, value: defaultText(setting) })
     : setting.key;
 }
 
@@ -144,7 +174,7 @@ function SettingControl({
   setting,
   value,
   onChange,
-  choiceLabel = (choice: string) => choice,
+  choiceLabel = (choice: string) => choiceText(setting.key, choice),
 }: {
   setting: ServerSetting;
   value: string;
