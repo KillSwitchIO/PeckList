@@ -8,8 +8,9 @@ afterEach(() => {
 });
 
 // Pages that load on first visit (app/lazyPages.ts) appear a moment after the click; on a busy
-// runner with coverage that moment passed findBy's default second.
-configure({ asyncUtilTimeout: 3000 });
+// runner with coverage that moment passed findBy's default second, and even 3 s for Settings.
+// Only a wait that fails takes the whole time.
+configure({ asyncUtilTimeout: process.env.CI ? 15_000 : 3000 });
 
 // jsdom has no layout. The notes editor (ProseMirror) asks where things are on screen; answer
 // with empty boxes so it can run.
