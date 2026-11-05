@@ -65,59 +65,57 @@ no claim: nothing changed in what it needs.
 
 ## Making a release
 
-On an up-to-date `main` with a green pipeline:
+A release is one image, built once. Nothing is rebuilt when it is published.
 
-```bash
-pnpm release --dry-run          # the version the commits call for, and the changelog section
-pnpm release                    # bump versions, copy the docs as this version, regenerate CHANGELOG.md, commit, tag
-pnpm release 1.0.0              # a major, named by hand
-git show                        # review; amend the changelog wording if needed, then re-tag
-git push origin main --follow-tags
-```
+1. **Prepare.** On any green `main` pipeline, press `prepare-release` (set `RELEASE_VERSION` to name
+   a pre-release or a major), or on your own machine run:
 
-A release (not a pre-release) also gets its own copy of the docs (`website/versioned_docs`), which
-becomes what docs.pecklist.com shows; `main`'s docs move on under `/next/`.
+   ```bash
+   pnpm release --dry-run               # the version the commits call for, and the changelog section
+   git switch -c release/0.4.0
+   pnpm release --any-branch --no-tag   # bump versions, copy the docs, regenerate CHANGELOG.md, commit
+   git push -u origin release/0.4.0     # and open the merge request, titled chore(release): 0.4.0
+   ```
 
-### Through a merge request
+2. **Merge the release merge request.** It runs `release-guard`, `docs` and `approval`, and no test
+   suites: the guard fails unless it holds only the version, the changelog and the docs copy, so
+   its tree is the last tested one.
+3. **Look at the test server.** The merge's pipeline builds the one image, stamped exactly `0.4.0`,
+   runs `e2e-server` against it and puts it on the test server. It also builds the native downloads
+   and the signed APK, from the web app inside that image, so you can try the APK before publishing.
+4. **Press `cut-release`** on that pipeline when you are happy. It checks the commit, the image and
+   that the test server took it, then creates the tag `v0.4.0+<date>` and the whole release page in
+   one call, as whoever pressed it. Only someone allowed to create `v*` tags can.
+5. **The tag's pipeline** builds nothing. `promote-image` puts `:0.4.0`, `:0.4` and `:latest` on the
+   digest step 3 built, by copying its manifest, and refuses an image stamped with another version
+   or commit. The docs site moves to this version, and the demo follows. The mirror carries the tag
+   to GitHub, where a workflow makes the matching release page with links to the files here.
 
-`main` is protected, so the usual way is a merge request:
+A pre-release (`0.4.0-rc.1`) goes the same way, without `:latest`, the docs copy or the demo.
 
-```bash
-git switch -c release/0.4.0
-pnpm release --any-branch --no-tag   # bump versions, regenerate CHANGELOG.md, commit
-git push -u origin release/0.4.0           # open the merge request, review, merge
-git switch main && git pull
-pnpm release:tag                            # tag main's head with the version and its notes
-git push origin v0.4.0+<date>               # the tag `pnpm release:tag` printed
-```
+If the image is wrong on the test server, do not cut it. Fix it on `main` and prepare again: a
+version that was never cut is prepared again rather than skipped over. Two builds may then say
+`0.4.0`, and only the one you cut gets the name.
 
-`pnpm release:tag` checks that main holds one version in every file, that it is not tagged yet,
-that `CHANGELOG.md` has its section (which becomes the tag message and the release notes), and
-that the commit's `main` pipeline passed: the tag pipeline builds and publishes without running
-the checks and tests again (`--skip-pipeline-check` if you know better). While the project is
-private, the check needs `GITLAB_TOKEN` set to a token that can read it (the API answers 404
-without one).
+A newer merge can overtake a release commit's `deploy-test`. `cut-release` then says so: retry
+`deploy-test` on the release commit, which reuses the image.
 
-The tag pipeline then:
+Re-running a job of the tag's pipeline is safe: `promote-image` copies the same bytes again.
+Download names carry no version, so the newest release's files are always at
+`https://gitlab.com/killswitch10/pecklist/-/releases/permalink/latest/downloads/<file>`.
 
-1. Runs `check:version` against the tag (the checks and tests ran on `main`).
-2. Builds and pushes the release images for amd64 and arm64.
-3. Builds the native downloads (`pecklist-linux-x64.tar.gz`, `pecklist-linux-arm64.tar.gz`,
-   `pecklist-win-x64.zip`) and `SHA256SUMS`.
-4. Builds the signed Android app, `pecklist-android.apk`, and adds it to the downloads and
-   `SHA256SUMS` ([Android app](android.md#release-signing)).
-5. Uploads them to the package registry and creates the release, with the changelog section as its
-   notes, the downloads as assets, and the image.
+### If the new way fails
 
-Re-running the `release` job updates the release instead of failing. The newest release's files are
-always at `https://gitlab.com/killswitch10/pecklist/-/releases/permalink/latest/downloads/<file>`.
+Set the CI/CD variable `LEGACY_TAG_BUILD=true` and push a tag made with `pnpm release:tag`, and the
+tag's pipeline builds and publishes everything itself, as it used to. That image is then not the
+one the test server ran.
 
 ## Checklist
 
-- [ ] The pipeline on `main` is green, including e2e.
+- [ ] The pipeline on `main` is green.
 - [ ] Breaking changes have upgrade steps in their commit footers (they become the notes), and
       `Requires-Android` / `Supports-Web` footers where the apps are affected.
 - [ ] Schema changes have a note in `docs/migrations/`.
-- [ ] After the tag pipeline: the release page, `docker pull ...:X.Y.Z`, and a native download's
-      `pecklist --version`.
+- [ ] After the tag pipeline: the release page, `docker pull ...:X.Y.Z` has the digest on the page,
+      and a native download's `pecklist --version`.
 - [ ] The APK installs over the previous release on a phone (same signing key, higher version code).

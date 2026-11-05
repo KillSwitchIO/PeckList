@@ -9,9 +9,12 @@
 #                    of the docs (wiki). FULL_CHECK=true on a run from the UI runs the suites too
 #   by hand          android-apk: the Android app's debug APK (merge requests, main);
 #                    android-release, web-build, packages (main)
-#   tags v1.2.3+...  no re-testing (the tag goes on a green main commit, which release:tag checks):
-#                    release images (:1.2.3, :1.2, :latest), native downloads, the signed APK, and
-#                    the GitLab release with notes from CHANGELOG.md
+#   release/*        a merge request holding only a release: release-guard, docs and approval
+#   a release commit on main, also: its downloads and the signed APK, and the cut-release button
+#                    that makes the tag and the release page. prepare-release, on any main pipeline,
+#                    opens that commit's merge request
+#   tags v1.2.3+...  no re-testing and no build: the release's names on the image main built
+#                    (:1.2.3, :1.2, :latest), the docs, the demo
 #   schedule         weekly: every test suite on main, the CI images rebuilt, dependency and image
 #                    audits
 #
@@ -87,6 +90,24 @@ default:
 .not-on-main: &not-on-main
   if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $FULL_CHECK != "true" && $CI_PIPELINE_SOURCE != "schedule"
   when: never
+
+# The commit `pnpm release` made, merged: its one build carries the release's exact version
+# (scripts/build-version.sh) and is what a release later names.
+.release-commit: &release-commit
+  if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $CI_COMMIT_MESSAGE =~ /^chore\(release\): \d/m'
+
+# A release merge request holds no code (release-guard checks that), so it runs no test suites.
+.not-on-release-branch: &not-on-release-branch
+  if: $CI_MERGE_REQUEST_SOURCE_BRANCH_NAME =~ /^release\//
+  when: never
+
+# A tag's pipeline names the image main built. Set LEGACY_TAG_BUILD=true to build on the tag instead,
+# the way it was done before: the way back until a real release has gone the new way.
+.legacy-tag: &legacy-tag
+  if: $CI_COMMIT_TAG && $LEGACY_TAG_BUILD == "true"
+
+.new-tag-only: &new-tag-only
+  if: $CI_COMMIT_TAG && $LEGACY_TAG_BUILD != "true"
 
 .not-on-schedule: &not-on-schedule
   if: $CI_PIPELINE_SOURCE == "schedule"
@@ -164,6 +185,7 @@ lint:
     - pnpm check:docs
     - pnpm test:scripts
   rules:
+    - *not-on-release-branch
     - *not-on-tag
     - *not-on-main
     - when: on_success
@@ -217,6 +239,7 @@ web-test:
         coverage_format: cobertura
         path: web/coverage/cobertura-coverage.xml
   rules:
+    - *not-on-release-branch
     - *not-on-tag
     - *not-on-main
     - when: on_success
@@ -245,6 +268,7 @@ server-test:
     - cd server
     - dotnet test --configuration Release
   rules:
+    - *not-on-release-branch
     - *not-on-tag
     - *not-on-main
     - when: on_success
@@ -273,6 +297,7 @@ e2e:
     expire_in: 7 days
   rules:
     - *not-on-main
+    - *not-on-release-branch
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
     - *on-main
     - if: $CI_PIPELINE_SOURCE == "web"
@@ -289,6 +314,8 @@ docs:
     paths: [website/build]
     expire_in: 1 week
   rules:
+    # A release's docs go live with the release, not when its commit merges.
+    - if: $CI_COMMIT_TAG =~ /^v\d+\.\d+\.\d+\+/
     - *not-on-tag
     - *not-on-schedule
     - when: on_success
@@ -365,10 +392,16 @@ container-image:
       dotenv: build.env
   rules:
     - *not-on-schedule
+    - *not-on-release-branch
+    - *legacy-tag
+    - if: $CI_COMMIT_TAG
+      when: never
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
       variables:
         PLATFORMS: linux/amd64
         ATTEST: --sbom=false --provenance=false
+    - <<: *release-commit
+      interruptible: false
     - when: on_success
 
 # The telemetry collector's image (PL-116), when its code or the ping it reads changes: built on a
@@ -404,8 +437,8 @@ collector-image:
         - server/Directory.Packages.props
         - server/global.json
 
-# The web app once per pipeline, for the native downloads and the Android app (the image builds
-# its own, inside Docker). Stamped like the image is.
+# The web app, by hand on main, for trying the native downloads or the Android app from any commit
+# (the image builds its own, inside Docker). Stamped like the image is. A release uses web-dist.
 web-build:
   extends: .node
   stage: build
@@ -423,10 +456,39 @@ web-build:
     paths: [web/dist]
     expire_in: 1 day
   rules:
-    - *on-tag
+    - *legacy-tag
+    - if: $CI_COMMIT_TAG
+      when: never
+    # A release commit has web-dist, and the jobs after it must not wait for this button.
+    - <<: *release-commit
+      when: never
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
       when: manual
       allow_failure: true
+
+# On a release commit: the web app out of the image this commit built, for the native downloads and
+# the APK, so all of them carry the one web build the test server ran.
+web-dist:
+  image: $DOCKER_IMAGE
+  stage: build
+  needs:
+    - job: container-image
+      artifacts: true
+  timeout: 10m
+  interruptible: false
+  before_script:
+    - echo "$CI_REGISTRY_PASSWORD" | docker login "$CI_REGISTRY" -u "$CI_REGISTRY_USER" --password-stdin
+  script:
+    - docker pull --quiet "$IMAGE@$IMAGE_DIGEST"
+    - CONTAINER=$(docker create "$IMAGE@$IMAGE_DIGEST")
+    - mkdir -p web
+    - docker cp "$CONTAINER:/app/wwwroot" web/dist
+    - docker rm "$CONTAINER"
+  artifacts:
+    paths: [web/dist]
+    expire_in: 1 day
+  rules:
+    - *release-commit
 
 # The Android app (mobile/, ADR-0017), in the image with the JDK and the SDK (ci/android.Dockerfile).
 .android:
@@ -475,21 +537,17 @@ android-apk:
 android-release:
   extends: .android
   needs:
-    - web-build
+    - job: web-build
+      optional: true
+    - job: web-dist
+      optional: true
     - job: lint
       optional: true
   resource_group: heavy-build
   script:
     - |
       set -eu
-      if [ -n "${CI_COMMIT_TAG:-}" ]; then
-        VERSION=$(echo "$CI_COMMIT_TAG" | sed 's/^v//; s/+.*//')
-      else
-        # A digits-only hash gets a letter, as in scripts/build-version.sh (SemVer forbids 0123).
-        SHA=$CI_COMMIT_SHORT_SHA
-        case "$SHA" in *[!0-9]*) ;; *) SHA="g$SHA" ;; esac
-        VERSION="$(sed -n 's:.*<Version>\(.*\)</Version>.*:\1:p' server/Directory.Build.props)-edge.$SHA"
-      fi
+      VERSION=$(sh scripts/build-version.sh)
       export PECKLIST_VERSION="$VERSION" PECKLIST_VERSION_CODE="$CI_PIPELINE_IID" PECKLIST_REVISION="$CI_COMMIT_SHA"
       export ANDROID_KEYSTORE_FILE="$CI_PROJECT_DIR/release-key.p12"
       echo "$ANDROID_KEYSTORE_BASE64" | base64 -d > "$ANDROID_KEYSTORE_FILE"
@@ -509,7 +567,11 @@ android-release:
     paths: [dist-android]
     expire_in: 30 days
   rules:
-    - *on-tag
+    - *legacy-tag
+    - if: $CI_COMMIT_TAG
+      when: never
+    - <<: *release-commit
+      interruptible: false
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
       when: manual
       allow_failure: true
@@ -519,7 +581,10 @@ packages:
   image: $DOTNET_IMAGE
   stage: build
   needs:
-    - web-build
+    - job: web-build
+      optional: true
+    - job: web-dist
+      optional: true
     - job: server-test
       optional: true
   timeout: 30m
@@ -536,7 +601,11 @@ packages:
     paths: [dist]
     expire_in: 30 days
   rules:
-    - *on-tag
+    - *legacy-tag
+    - if: $CI_COMMIT_TAG
+      when: never
+    - <<: *release-commit
+      interruptible: false
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
       when: manual
       allow_failure: true
@@ -567,6 +636,8 @@ e2e-server:
   script:
     - pnpm e2e:server
   rules:
+    - <<: *release-commit
+      interruptible: false
     - *on-main
 
 # The test server follows main: the compose repository's pin for pecklist-test moves to this image
@@ -602,13 +673,21 @@ pages:
   artifacts:
     paths: [public]
   rules:
+    # A release's docs go live with the release (docs job above).
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $CI_COMMIT_MESSAGE =~ /^chore\(release\): \d+\.\d+\.\d+$/m'
+      when: never
     - *on-main
+    - if: $CI_COMMIT_TAG =~ /^v\d+\.\d+\.\d+\+/
 
 # The public demo (demo.pecklist.com, PL-117) follows releases: a release tag puts its version there.
 deploy-demo:
   image: $NODE_IMAGE
   stage: publish
-  needs: [container-image]
+  needs:
+    - job: promote-image
+      optional: true
+    - job: container-image
+      optional: true
   timeout: 30m
   interruptible: false
   variables:
@@ -677,6 +756,96 @@ audit-image:
 
 # --- release ---------------------------------------------------------------------------------
 
+# Prepare a release: make its commit and open its merge request (scripts/ci/prepare-release.mjs). The
+# number follows the rule in pnpm release; RELEASE_VERSION names another, such as a pre-release.
+prepare-release:
+  extends: .node
+  image: node:24-bookworm
+  stage: release
+  needs: [e2e-server]
+  timeout: 15m
+  interruptible: false
+  allow_failure: true
+  variables:
+    GIT_DEPTH: 0
+  script:
+    - git config user.name "$GITLAB_USER_NAME"
+    - git config user.email "$GITLAB_USER_EMAIL"
+    - node scripts/ci/prepare-release.mjs
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "schedule"
+      when: never
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $GITLAB_API_TOKEN
+      when: manual
+
+# What keeps a release merge request honest, since it runs no test suites (scripts/release-guard.mjs).
+release-guard:
+  image: node:24-bookworm
+  stage: check
+  needs: []
+  timeout: 5m
+  variables:
+    GIT_DEPTH: 50
+  script:
+    - node scripts/release-guard.mjs
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event" && $CI_MERGE_REQUEST_SOURCE_BRANCH_NAME =~ /^release\//
+
+# The downloads of a release commit, ready for the release page.
+upload-downloads:
+  image: $NODE_IMAGE
+  stage: release
+  needs: [packages, android-release]
+  timeout: 10m
+  interruptible: false
+  script:
+    # The signed APK joins the native downloads and their checksums.
+    - cp dist-android/pecklist-android.apk dist/
+    - (cd dist && sha256sum pecklist-android.apk >> SHA256SUMS)
+    - node scripts/ci/upload-downloads.mjs dist
+  artifacts:
+    paths: [dist/SHA256SUMS]
+    expire_in: 90 days
+  rules:
+    - *release-commit
+
+# The button that publishes a release: its protected tag and whole release page, in one call
+# (scripts/ci/cut-release.mjs). Needs nobody's token: it acts as whoever pressed it.
+cut-release:
+  image: $NODE_IMAGE
+  stage: release
+  needs:
+    - job: container-image
+      artifacts: true
+    - e2e-server
+    - job: upload-downloads
+      artifacts: true
+  timeout: 5m
+  interruptible: false
+  allow_failure: true
+  script:
+    - node scripts/ci/cut-release.mjs
+  rules:
+    - <<: *release-commit
+      when: manual
+
+# A tag's pipeline: the release's names on the digest main built, with no build
+# (scripts/ci/promote-image.mjs).
+promote-image:
+  image: $NODE_IMAGE
+  stage: build
+  needs: []
+  timeout: 5m
+  interruptible: false
+  script:
+    - node scripts/ci/promote-image.mjs
+  artifacts:
+    reports:
+      dotenv: promote.env
+  rules:
+    - *new-tag-only
+
+# Only for a tag built the old way (LEGACY_TAG_BUILD=true).
 release:
   image: $NODE_IMAGE
   stage: release
@@ -689,7 +858,7 @@ release:
     - (cd dist && sha256sum pecklist-android.apk >> SHA256SUMS)
     - node scripts/ci/publish-release.mjs dist
   rules:
-    - *on-tag
+    - *legacy-tag
 
 # --- approve ---------------------------------------------------------------------------------
 

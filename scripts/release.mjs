@@ -13,7 +13,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { versionDocs } from './docs-version.mjs';
 import { releaseNotes } from './release-notes.mjs';
-import { SEMVER, nextVersion, readVersions, root, writeVersion } from './versions.mjs';
+import { SEMVER, plannedVersion, readVersions, root, writeVersion } from './versions.mjs';
 
 const args = process.argv.slice(2);
 const asked = args.find((arg) => !arg.startsWith('--'));
@@ -57,7 +57,7 @@ const messages = git(
   .split('\0')
   .map((message) => message.trim())
   .filter(Boolean);
-const expected = nextVersion(current, messages);
+const expected = plannedVersion(current, messages, Boolean(git('tag', '--list', `v${current}+*`)));
 const features = messages.filter((message) => /^feat(\([^)]*\))?!?:/.test(message));
 const coreOf = (value) => value.replace(/-.*/, '');
 const majorOf = (value) => Number(value.split('.')[0]);

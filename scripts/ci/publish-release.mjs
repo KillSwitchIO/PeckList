@@ -1,10 +1,12 @@
-// CI, tag pipelines only: upload the native downloads to the project's generic package registry
-// and create (or update) the GitLab release for the tag, with notes from CHANGELOG.md.
+// CI, only for a tag built the old way (LEGACY_TAG_BUILD=true): upload the native downloads to the
+// project's generic package registry and create (or update) the GitLab release for the tag, with
+// notes from CHANGELOG.md. A normal release goes through cut-release.mjs instead.
 // Uses the job token, so no secret needs configuring. Run from the repository root:
 //   node scripts/ci/publish-release.mjs dist
 
 import { readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
+import { describeRelease, downloadLinks, packageUrl } from './release-page.mjs';
 import { releaseNotes } from '../release-notes.mjs';
 import { parseTag, root } from '../versions.mjs';
 
@@ -40,18 +42,11 @@ const files = readdirSync(dir).filter(
   (file) => /^pecklist-.+\.(tar\.gz|zip|apk)$/.test(file) || file === 'SHA256SUMS',
 );
 if (files.length === 0) throw new Error(`nothing to publish in ${dir}`);
-const links = [];
 for (const file of files) {
-  const url = `${api}/packages/generic/pecklist/${encodeURIComponent(version)}/${file}`;
-  await call('PUT', url, new Uint8Array(readFileSync(join(dir, file))));
+  await call('PUT', packageUrl(api, version, file), new Uint8Array(readFileSync(join(dir, file))));
   console.log(`uploaded ${file}`);
-  links.push({
-    name: file === 'SHA256SUMS' ? 'SHA256SUMS (checksums)' : file,
-    url,
-    direct_asset_path: `/${file}`,
-    link_type: file === 'SHA256SUMS' ? 'other' : 'package',
-  });
 }
+const links = downloadLinks(api, version, files);
 links.push({
   name: `Container image ${image}:${version}`,
   url: `${projectUrl}/container_registry`,
@@ -60,21 +55,7 @@ links.push({
 
 // 2. The release.
 const notes = releaseNotes(readFileSync(join(root, 'CHANGELOG.md'), 'utf8'), version) ?? '';
-const description = `${notes}
-
-## Install
-
-\`\`\`bash
-docker pull ${image}:${version}
-\`\`\`
-
-Native downloads for Linux and Windows, and the Android app (\`pecklist-android.apk\`), are below; check them against \`SHA256SUMS\`. The newest
-release's files are always at \`${projectUrl}/-/releases/permalink/latest/downloads/<file>\`. Setup, upgrade
-steps and every setting are in the [documentation](${projectUrl}/-/tree/main/docs).${
-  prerelease
-    ? '\n\nThis is a pre-release: try it, but keep using the latest release for real data.'
-    : ''
-}`;
+const description = describeRelease({ notes, image, version, prerelease, projectUrl });
 
 const existing = await call('GET', `${api}/releases/${encodeURIComponent(tag)}`);
 if (existing.status === 404) {

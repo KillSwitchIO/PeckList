@@ -4,7 +4,7 @@
 // pasted in place, so an old version keeps showing the examples it shipped with.
 //   node scripts/docs-version.mjs 0.7.0
 import { execFileSync } from 'node:child_process';
-import { readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { root } from './versions.mjs';
@@ -38,8 +38,22 @@ function pages(dir) {
   });
 }
 
+/** Removes a copy made earlier for this version: a release prepared again copies the docs again. */
+function dropVersion(version) {
+  const website = join(root, 'website');
+  rmSync(join(website, 'versioned_docs', `version-${version}`), { recursive: true, force: true });
+  rmSync(join(website, 'versioned_sidebars', `version-${version}-sidebars.json`), { force: true });
+  const list = join(website, 'versions.json');
+  if (!existsSync(list)) return;
+  const versions = JSON.parse(readFileSync(list, 'utf8'));
+  if (!versions.includes(version)) return;
+  const kept = versions.filter((each) => each !== version);
+  writeFileSync(list, `${JSON.stringify(kept, null, 2)}\n`);
+}
+
 /** Copies docs/ and the sidebar as `version` (website/versioned_docs/version-<v>) and pastes the snippets in. */
 export function versionDocs(version) {
+  dropVersion(version);
   execFileSync(
     'pnpm',
     ['--filter', '@pecklist/docs', 'exec', 'docusaurus', 'docs:version', version],

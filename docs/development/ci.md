@@ -8,7 +8,9 @@ The pipeline is in [`.gitlab-ci.yml`](https://gitlab.com/killswitch10/pecklist/-
 | --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Merge request         | `lint` (lint, format and typecheck at once, then versions, docs coverage, script tests), `web-test`, `server-test`, `e2e`, `docs`, `container-image` (amd64 only, built, not pushed). `ci-images` first when a tool image's inputs changed. `approval` last ([approval](#approval)).                                                                                                      |
 | `main` | No test suites: a merge must be up to date, so its tree is the tree its merge request passed, and `verify-tested` checks that before anything is built. Then the `:edge` and `:sha-<commit>` images for amd64 and arm64 (version `<next patch>-edge.<commit>`, [releasing](releasing.md#versions)), two devices syncing through that image (`e2e-server`), the test server updated to it (`deploy-test`), the docs site (`pages`) and the docs in the wiki (`wiki`). By hand: `web-build`, `packages`, `android-release`, `android-apk`. |
-| Tag `vX.Y.Z+YYYYMMDD` | No checks or tests (the tag goes on a main commit whose pipeline passed; `pnpm release:tag` refuses otherwise): release images (`:X.Y.Z`, `:X.Y`, `:latest`), native downloads, the signed APK, and the GitLab release (`release`).                                                                                                          |
+| A release commit on `main` | The same as `main`, with the image stamped exactly `X.Y.Z`, plus `web-dist`, `packages`, `android-release` and `upload-downloads`, and the `cut-release` button ([releasing](releasing.md)). |
+| `release/*` merge request | `release-guard`, `docs`, `approval`. No test suites: the guard fails on anything but the version, the changelog and the docs copy. |
+| Tag `vX.Y.Z+YYYYMMDD` | No checks, tests or builds: `promote-image` (`:X.Y.Z`, `:X.Y`, `:latest` on the digest main built), `docs` and `pages`, `deploy-demo`. |
 | Weekly schedule       | Every test suite on `main`, `ci-images` rebuilt on current base images, `audit-web` (`pnpm audit`), `audit-server` (vulnerable NuGet packages), `audit-image` (Trivy on `:edge`).                                                                                                                                                                                              |
 | Run pipeline (web UI) | Like a merge request, on any branch. `CI_IMAGES_BUILD=true` rebuilds the tool images too.                                                                                                                                                                                                                                                         |
 
@@ -60,8 +62,8 @@ job) has approved, and "Pipelines must succeed" then keeps the merge request fro
 - **Merge requests build less.** The image is amd64 only, without SBOM or provenance; both
   architectures and the attestations come with `main` and tags. The build cache export is
   `mode=min`.
-- **A tag does not re-test.** Its commit was tested as `main`; `pnpm release:tag` checks that
-  pipeline was green before making the tag.
+- **A tag builds nothing.** Its image was built, tested and put on the test server when its commit
+  merged, and the tag only names it.
 - Each job has a `timeout`, and the jsdom and browser test jobs retry once on a script failure
   (a stopgap for the timeouts a busy runner causes; a real flake still fails twice).
 
