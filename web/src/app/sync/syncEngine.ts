@@ -123,6 +123,10 @@ export interface SyncState {
   dismissNotice(): void;
 }
 
+/** How soon a tab whose server did not answer at the first load asks again, and the longest wait. */
+export const FIRST_LOAD_RETRY_MS = 5_000;
+export const FIRST_LOAD_RETRY_MAX_MS = 60_000;
+
 export interface SyncNotice {
   /** How many of this device's changes the server refused. */
   refused: number;
@@ -654,6 +658,30 @@ export function createSyncEngine(deps: SyncEngineDependencies): SyncEngine {
       if (typeof document === 'undefined' || document.visibilityState === 'visible') void syncNow();
     };
 
+    // A server that did not answer at the first load (a restart, a flaky network) is asked again,
+    // so the tab does not stay standalone until it is reloaded (audit C5): after 5 s, then twice as
+    // long each time up to a minute, and as soon as the browser is back online. A host that is no
+    // PeckList server at all (no info) stays standalone for good.
+    let firstLoad: ReturnType<typeof setTimeout> | null = null;
+    let firstLoadDelay = FIRST_LOAD_RETRY_MS;
+    const retryFirstLoad = () => {
+      if (get().phase === 'standalone') void get().start();
+    };
+    const askAgainLater = () => {
+      if (firstLoad) clearTimeout(firstLoad);
+      firstLoad = setTimeout(() => {
+        firstLoad = null;
+        retryFirstLoad();
+      }, firstLoadDelay);
+      firstLoadDelay = Math.min(firstLoadDelay * 2, FIRST_LOAD_RETRY_MAX_MS);
+      if (typeof window !== 'undefined') window.addEventListener('online', retryFirstLoad);
+    };
+    const stopAskingAgain = () => {
+      if (firstLoad) clearTimeout(firstLoad);
+      firstLoad = null;
+      if (typeof window !== 'undefined') window.removeEventListener('online', retryFirstLoad);
+    };
+
     return {
       transport,
       blobs,
@@ -673,6 +701,7 @@ export function createSyncEngine(deps: SyncEngineDependencies): SyncEngine {
       async start() {
         try {
           const info = await transport.info();
+          stopAskingAgain();
           if (!info) {
             set({ phase: 'standalone' });
             return;
@@ -707,6 +736,7 @@ export function createSyncEngine(deps: SyncEngineDependencies): SyncEngine {
           }
           if (error instanceof SyncFailure && error.kind === 'offline') {
             set({ phase: 'standalone' });
+            askAgainLater();
             return;
           }
           fail(error);
@@ -806,6 +836,7 @@ export function createSyncEngine(deps: SyncEngineDependencies): SyncEngine {
       },
 
       stop() {
+        stopAskingAgain();
         closeEventStream();
         unsubscribe?.();
         unsubscribe = null;

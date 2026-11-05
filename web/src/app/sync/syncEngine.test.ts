@@ -1,5 +1,5 @@
 import { waitFor } from '@testing-library/react';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createAjvValidator } from '../../adapters/ajv-validator.ts';
 import { createMemoryStorage } from '../../adapters/memory-storage.ts';
 import { createUlidGenerator } from '../../adapters/ulid-ids.ts';
@@ -12,6 +12,8 @@ import { createWorkspaceStore, type WorkspaceStore } from '../store/workspaceSto
 import { serializeWorkspace } from '../../core/workspace.ts';
 import {
   createSyncEngine,
+  FIRST_LOAD_RETRY_MAX_MS,
+  FIRST_LOAD_RETRY_MS,
   STALE_SYNC_MS,
   type SyncEngine,
   type SyncEngineDependencies,
@@ -77,11 +79,43 @@ function addTask(store: WorkspaceStore, title: string): string {
 
 describe('sync engine', () => {
   it('stays out of the way without a server', async () => {
+    vi.useFakeTimers();
     const backend = new FakeBackend();
     const { engine, transport } = await device(backend, 'dev1');
-    transport.info = () => Promise.resolve(null);
-    await engine.getState().start();
-    expect(engine.getState().phase).toBe('standalone');
+    try {
+      const info = vi.fn(() => Promise.resolve(null));
+      transport.info = info;
+      await engine.getState().start();
+      expect(engine.getState().phase).toBe('standalone');
+      // No PeckList server here: nothing to ask again.
+      await vi.advanceTimersByTimeAsync(FIRST_LOAD_RETRY_MAX_MS * 2);
+      expect(info).toHaveBeenCalledTimes(1);
+    } finally {
+      engine.getState().stop();
+      vi.useRealTimers();
+    }
+  });
+
+  it('keeps asking a server that did not answer at the first load (audit C5)', async () => {
+    vi.useFakeTimers();
+    const backend = new FakeBackend();
+    backend.addAccount('ben', 'correct horse battery');
+    const { engine, transport } = await device(backend, 'dev1');
+    try {
+      // The server is restarting as the tab opens.
+      transport.offline = true;
+      await engine.getState().start();
+      expect(engine.getState().phase).toBe('standalone');
+      await vi.advanceTimersByTimeAsync(FIRST_LOAD_RETRY_MS);
+      expect(engine.getState().phase).toBe('standalone');
+      // Back: the next look finds it, as a reload would.
+      transport.offline = false;
+      await vi.advanceTimersByTimeAsync(FIRST_LOAD_RETRY_MS * 2);
+      expect(engine.getState().phase).toBe('signed-out');
+    } finally {
+      engine.getState().stop();
+      vi.useRealTimers();
+    }
   });
 
   it('asks for a login, then joins the device to the account', async () => {
