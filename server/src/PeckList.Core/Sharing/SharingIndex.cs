@@ -894,6 +894,9 @@ public sealed class SharingIndex
         return task.Owner == userId || index.Assigned(task).Contains(userId);
     }
 
+    /// <summary>What a purged comment or attachment holds. Must match <c>ERASED</c> in web/src/core/trash.ts.</summary>
+    public const string Erased = "-";
+
     /// <summary>
     /// Whether <paramref name="userId"/> may write <paramref name="after"/> over <paramref name="before"/>
     /// (null: a new entity). <paramref name="after"/> must already be applied to this index (try changes
@@ -940,22 +943,22 @@ public sealed class SharingIndex
                 // Writing on a task needs the right to change it: owners, editors, assignees.
                 // A task made in the same push is in this index only.
                 if (before is null) return after.OwnerId == userId && MayEditTask(beforeIndex.Contains(taskId) ? beforeIndex : this, userId, taskId);
-                // The author changes or deletes it; the list's owner may delete it.
+                // The author changes or deletes it; the list's owner may delete it, and a purge erases it.
                 if (before.OwnerId == userId) return true;
                 var listId = beforeIndex.byId.TryGetValue(taskId, out var task) ? task.Get("listId") : null;
                 return listId is not null && beforeIndex.ListRole(userId, listId) == "owner"
-                    && doc["deletedAt"] is not null && !Changed("body");
+                    && doc["deletedAt"] is not null && (!Changed("body") || Field(doc, "body") == Erased);
             }
             case "attachments":
             {
                 var taskId = Field(doc, "taskId");
                 if (taskId is null || (before is not null && (Changed("taskId") || Changed("sha256") || Changed("size")))) return false;
                 if (before is null) return after.OwnerId == userId && MayEditTask(beforeIndex.Contains(taskId) ? beforeIndex : this, userId, taskId);
-                // Who added it renames or removes it; the list's owner may remove it.
+                // Who added it renames or removes it; the list's owner may remove it, and a purge erases it.
                 if (before.OwnerId == userId) return true;
                 var listId = beforeIndex.byId.TryGetValue(taskId, out var task) ? task.Get("listId") : null;
                 return listId is not null && beforeIndex.ListRole(userId, listId) == "owner"
-                    && doc["deletedAt"] is not null && !Changed("name");
+                    && doc["deletedAt"] is not null && (!Changed("name") || Field(doc, "name") == Erased);
             }
             case "lists":
                 // Only owners change a list; a new list is the writer's own. Only the server hands

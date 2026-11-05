@@ -357,7 +357,10 @@ public sealed class SharingTests(ServerFixture fixture) : IClassFixture<ServerFi
         Assert.Equal(["C2"], (await ben.SyncAsync(Comment("C2", "T1", "Purple"))).Rejected);
         // The author edits; the list's owner may delete it.
         Assert.Empty((await sam.SyncAsync(Comment("C2", "T1", "Green, or grey"))).Rejected);
+        Assert.Equal(["C2"], (await ben.SyncAsync(Comment("C2", "T1", "Purple", deleted: true))).Rejected);
         Assert.Empty((await ben.SyncAsync(Comment("C2", "T1", "Green, or grey", deleted: true))).Rejected);
+        // Purging the trash erases the words, and that is all the owner may change them to.
+        Assert.Empty((await ben.SyncAsync(Comment("C2", "T1", Core.Sharing.SharingIndex.Erased, deleted: true))).Rejected);
 
         // A comment pushed with its brand-new task is fine.
         Assert.Empty((await sam.SyncAsync(Task("T2", "L1", "Buy brushes"), Comment("C4", "T2", "Two of them"))).Rejected);
