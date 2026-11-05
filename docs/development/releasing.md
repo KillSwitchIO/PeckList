@@ -106,6 +106,18 @@ Re-running a job of the tag's pipeline is safe: `promote-image` copies the same 
 Download names carry no version, so the newest release's files are always at
 `https://gitlab.com/killswitch10/pecklist/-/releases/permalink/latest/downloads/<file>`.
 
+## Production
+
+Only a release reaches production. Its tag's pipeline has a `deploy-prod` button, pressed by hand,
+never automatic, and a pre-release does not have one. The compose repository then checks who pressed
+it, that the release exists and names this digest, and that the registry agrees, before it contacts
+the host. It trials the image on a copy of the live data and only then deploys. A failure before
+that leaves production untouched.
+
+To roll back, press `deploy-prod` on an older release's pipeline. If the schema changed since, the
+trial fails, because an older server refuses a database a newer one upgraded: going back then means
+restoring a snapshot ([upgrading](../guides/upgrading.md#if-something-goes-wrong)).
+
 ### If the new way fails
 
 Set the CI/CD variable `LEGACY_TAG_BUILD=true` and push a tag made with `pnpm release:tag`, and the
