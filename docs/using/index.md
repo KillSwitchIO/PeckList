@@ -12,7 +12,7 @@
 | **Calendar**                            | Month, and 1 to 14 days on a time grid.                          |
 | **Assigned to me** / **Shared with me** | Tasks others gave you, and lists shared with you.                |
 | **Closed**                              | Done and won't-do tasks.                                         |
-| **Trash**                               | Deleted tasks and lists, restorable for 30 days.                 |
+| **Trash**                               | Deleted tasks and lists, restorable for 30 days unless you change it. |
 | **Search**                              | Finds tasks by their words, ranked best first (see below).       |
 | **Lists**, **Tags**, **Filters**        | Your own lists, nested tags, and saved filters.                  |
 
@@ -354,6 +354,12 @@ shows them in, and from each row change its name, icon and color (tap it), who i
 people and groups (the share button), pin it to the top of the menu, archive it or delete it.
 Archived lists wait at the end with Unarchive. Tags the same: tap one to rename it, nest it or
 change its color, pin it, or delete it.
+
+**Clean up after** (Settings > Your data): how long deleted and won't-do tasks stay, 30 days unless you
+change it. Pick 7 or 15 days, or 2 months up to a year. A won't-do task moves to the Trash after that
+long, unless it has an open subtask, and you can still restore it from there. What is in the Trash is
+erased for good after the same time. Picking a shorter time asks first if it would erase anything right
+away.
 
 **Start over** (last on the page): **Delete all lists, tasks and tags** moves every list, task and tag
 of yours to the Trash at once (lists others share with you stay), and Undo brings them back. Tick

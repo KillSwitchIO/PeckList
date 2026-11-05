@@ -28,9 +28,11 @@ import {
 } from '../../core/queries.ts';
 import { ALL_TASKS } from '../../core/filters.ts';
 import { restoreTask } from '../../core/tasks.ts';
+import { purgeDaysOf } from '../../core/settings.ts';
 import { emptyTrash, purgeTask } from '../../core/trash.ts';
 import type { Task, WorkspaceFile } from '../../core/types.ts';
 import { ConfirmDialog } from '../lists/ListDialog.tsx';
+import { purgePeriod } from '../settings/purgePeriod.ts';
 import { formatDay } from '../format.ts';
 import { useNow, useToday } from '../hooks/useToday.ts';
 import { t } from '../i18n/i18n.ts';
@@ -327,13 +329,13 @@ export function TrashView() {
       {tasks.length === 0 ? (
         <EmptyState
           title={t('trash.empty')}
-          hint={t('trash.hint')}
+          hint={t('trash.hint', { period: purgePeriod(purgeDaysOf(workspace)) })}
           icon={<DeleteOutlineRounded />}
         />
       ) : (
         <>
           <Typography color="text.secondary" sx={{ px: 1 }}>
-            {t('trash.hint')}
+            {t('trash.hint', { period: purgePeriod(purgeDaysOf(workspace)) })}
           </Typography>
           <List>
             {tasks.slice(0, limit).map((task) => {

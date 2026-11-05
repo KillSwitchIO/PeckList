@@ -6,7 +6,7 @@ import { inboxList } from '../../core/lists.ts';
 import { paletteOverrides } from '../../core/paletteSettings.ts';
 import { COLOR_FAMILIES } from '../../core/palette.ts';
 import { themeSwatches } from '../../core/themeColors.ts';
-import { createTask } from '../../core/tasks.ts';
+import { createTask, deleteTask } from '../../core/tasks.ts';
 import { updateSettings } from '../../core/settings.ts';
 import { createList } from '../../core/lists.ts';
 import { mockViewport, renderApp, testStore } from '../../test/renderApp.tsx';
@@ -70,6 +70,81 @@ describe('settings: colors', () => {
     await userEvent.click(screen.getByRole('combobox', { name: 'Calendar length' }));
     await userEvent.click(await screen.findByRole('option', { name: '1 hour' }));
     expect(settings().pointEventMinutes).toBe(60);
+  });
+
+  it('the clean-up time offers days and months up to a year, 30 days to start', async () => {
+    const store = testStore();
+    await renderApp('/settings/data', store);
+    const settings = () => store.getState().workspace!.entities.settings[0]!;
+    const menu = await screen.findByRole('combobox', { name: 'Clean up after' });
+    expect(menu).toHaveTextContent('30 days');
+    await userEvent.click(menu);
+    const names = (await screen.findAllByRole('option')).map((option) => option.textContent);
+    expect(names).toEqual([
+      '7 days',
+      '15 days',
+      '30 days',
+      '2 months',
+      '3 months',
+      '4 months',
+      '5 months',
+      '6 months',
+      '7 months',
+      '8 months',
+      '9 months',
+      '10 months',
+      '11 months',
+      '1 year',
+    ]);
+    await userEvent.click(screen.getByRole('option', { name: '6 months' }));
+    expect(settings().purgeAfterDays).toBe(180);
+  });
+
+  it('the Trash says how long it keeps things', async () => {
+    const store = testStore();
+    await store.getState().init();
+    store.getState().apply((ctx, ws) => updateSettings(ctx, ws, { purgeAfterDays: 15 }));
+    await store.getState().flush();
+    await renderApp('/trash', store);
+    expect(await screen.findByText('Deleted tasks stay here for 15 days.')).toBeInTheDocument();
+  });
+
+  it('asks before a shorter clean-up time erases what is in the Trash', async () => {
+    const store = testStore();
+    await store.getState().init();
+    store.getState().apply((ctx, ws) => {
+      const made = createTask(ctx, ws, { title: 'Old trash', listId: inboxList(ws).id });
+      const gone = deleteTask(ctx, made.workspace, made.task.id);
+      return {
+        ...gone,
+        entities: {
+          ...gone.entities,
+          tasks: gone.entities.tasks.map((task) =>
+            task.id === made.task.id
+              ? { ...task, deletedAt: new Date(Date.now() - 10 * 86_400_000).toISOString() }
+              : task,
+          ),
+        },
+      };
+    });
+    await store.getState().flush();
+    await renderApp('/settings/data', store);
+    const settings = () => store.getState().workspace!.entities.settings[0]!;
+    await userEvent.click(await screen.findByRole('combobox', { name: 'Clean up after' }));
+    await userEvent.click(await screen.findByRole('option', { name: '7 days' }));
+
+    const dialog = await screen.findByRole('dialog');
+    expect(dialog).toHaveTextContent(
+      'Tasks in the Trash older than 7 days will be erased for good (1)',
+    );
+    expect(settings().purgeAfterDays).toBeUndefined();
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Cancel' }));
+    expect(settings().purgeAfterDays).toBeUndefined();
+
+    await userEvent.click(screen.getByRole('combobox', { name: 'Clean up after' }));
+    await userEvent.click(await screen.findByRole('option', { name: '7 days' }));
+    await userEvent.click(await screen.findByRole('button', { name: 'Erase and shorten' }));
+    expect(settings().purgeAfterDays).toBe(7);
   });
 
   it('24-hour clock and Monday weeks show everywhere at once', async () => {

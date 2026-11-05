@@ -244,14 +244,16 @@ function AppFrame() {
     return () => window.removeEventListener('keydown', onKey);
   }, [selectedId, close]);
 
-  // Things in the trash for more than 30 days are erased: at start, then every few hours.
+  // Things in the trash past the person's time are erased: at start, every few hours, and as soon
+  // as they pick another time.
   const apply = useApply();
+  const purgeDays = useStoreState((state) => state.workspace?.entities.settings[0]?.purgeAfterDays);
   useEffect(() => {
     const purge = () => apply((ctx, ws) => purgeExpired(ctx, ws, Date.now()));
     purge();
     const timer = window.setInterval(purge, PURGE_EVERY_MS);
     return () => window.clearInterval(timer);
-  }, [apply]);
+  }, [apply, purgeDays]);
 
   // Sections were dropped (PL-011): what old data has, or an older app on another device still
   // syncs in, folds into its lists. Lists this person may not change stay as they are.
