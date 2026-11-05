@@ -9,7 +9,12 @@ namespace PeckList.Core.Sync;
 /// <summary>One entity on the wire: which collection it belongs to and its JSON.</summary>
 public sealed record SyncEntity(string Collection, JsonObject Entity);
 
-public sealed record SyncRequest(int SchemaVersion, long? Cursor, IReadOnlyList<SyncEntity>? Changes);
+/// <param name="Epoch">
+/// The life of the server's data the device last saw (audit C6). When the data has been restored
+/// since, the server writes none of the device's changes and answers with the new epoch, so the
+/// device starts over first. Older apps send none: they are taken as before.
+/// </param>
+public sealed record SyncRequest(int SchemaVersion, long? Cursor, IReadOnlyList<SyncEntity>? Changes, string? Epoch = null);
 
 /// <param name="Cursor">Send it back next time.</param>
 /// <param name="More">More changes wait: sync again straight away.</param>

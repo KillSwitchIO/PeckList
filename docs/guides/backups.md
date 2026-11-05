@@ -27,7 +27,8 @@ change once written, so an incremental backup tool copies each one once.
 - **Export** the whole server or one person.
 - **Restore** from a file you upload or from one of the scheduled snapshots: the whole server, or
   one person within it. A whole-server restore is applied at the next start, before anything loads,
-  and the page offers the restart.
+  and the page offers the restart. Every device then starts over from the restored data at its
+  next sync; changes a device made before it noticed are not written over the restored data.
 
 Downloading, exporting and restoring the whole server is for super admins: those files hold every
 password hash and the keys that sign sessions. Admins take backups, see the list, and export and

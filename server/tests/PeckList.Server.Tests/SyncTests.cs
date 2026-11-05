@@ -278,6 +278,30 @@ public sealed class SyncTests(ServerFixture fixture) : IClassFixture<ServerFixtu
     }
 
     [Fact]
+    public async Task A_device_from_before_a_restore_writes_nothing_over_the_restored_data()
+    {
+        // Audit C6: its changes belong to the data before; it hears the new epoch and starts over.
+        var client = await SignedIn();
+        var before = (await Sync(client, null)).Epoch!;
+        await ServerEpoch.RenewAsync(factory.Services.GetRequiredService<ISecretStore>(), Token);
+        async Task<SyncResponse> Push(string epoch) =>
+            (await (await client.PostAsJsonAsync("/api/sync", new
+            {
+                schemaVersion = WorkspaceSchema.CurrentVersion,
+                cursor = (long?)null,
+                changes = new[] { new { collection = "tasks", entity = Task("S1", "Typed before the restore") } },
+                epoch,
+            }, Token)).Content.ReadFromJsonAsync<SyncResponse>(Token))!;
+
+        var stale = await Push(before);
+        Assert.NotEqual(before, stale.Epoch);
+        Assert.Empty(stale.Changes);
+        Assert.Null(await factory.Services.GetRequiredService<PeckList.Core.Storage.IEntityStore>().GetAsync("S1", Token));
+        // Once it has the new epoch, the same push goes through.
+        Assert.Equal("Typed before the restore", Title(await Push(stale.Epoch!), "S1"));
+    }
+
+    [Fact]
     public async Task Takes_a_change_stamped_a_little_ahead_and_says_what_time_the_server_has()
     {
         var client = await SignedIn();

@@ -59,6 +59,11 @@ export interface SyncRequest {
   schemaVersion: number;
   cursor: number | null;
   changes: SyncChange[];
+  /**
+   * The server data's epoch this device last saw (audit C6): after a restore the server writes
+   * none of these changes and answers with the new epoch, so the device starts over first.
+   */
+  epoch?: string | null;
 }
 
 /** The server says the user's data changed (another device synced). */
