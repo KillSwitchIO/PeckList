@@ -899,7 +899,7 @@ describe('admin', () => {
   it("changes server settings, leaves the environment's alone, and restarts to apply them", async () => {
     const { state } = await adminApp('superadmin', '/admin/settings');
     const general = await screen.findByRole('region', { name: 'General' });
-    expect(within(general).getByText('REGISTRATION · default: invite')).toBeInTheDocument();
+    expect(within(general).getByText('REGISTRATION · default: Invited people')).toBeInTheDocument();
     const backups = screen.getByRole('region', { name: 'Backups' });
     const kept = within(backups).getByRole('spinbutton', { name: 'Newest backups kept' });
     expect(kept).toBeDisabled();
@@ -910,7 +910,7 @@ describe('admin', () => {
     expect(within(environment).getByLabelText('Database connection')).toHaveValue('');
 
     await userEvent.click(within(general).getByRole('combobox', { name: 'Who can join' }));
-    await userEvent.click(await screen.findByRole('option', { name: 'open' }));
+    await userEvent.click(await screen.findByRole('option', { name: 'Anyone' }));
     await userEvent.click(screen.getByRole('button', { name: 'Save' }));
     expect(await within(general).findByText('REGISTRATION · saved here')).toBeInTheDocument();
     expect(state.page).toEqual({ REGISTRATION: 'open' });
@@ -1092,7 +1092,7 @@ describe('admin', () => {
     });
     const general = await screen.findByRole('region', { name: 'General' });
     expect(
-      within(general).getByText('REGISTRATION · default: invite · super admins only'),
+      within(general).getByText('REGISTRATION · default: Invited people · super admins only'),
     ).toBeInTheDocument();
     expect(within(general).getByRole('combobox', { name: 'Who can join' })).toHaveAttribute(
       'aria-disabled',
