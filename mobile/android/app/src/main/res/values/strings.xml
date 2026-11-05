@@ -9,6 +9,21 @@
     <string name="offline_body">PeckList could not reach %1$s. Check your connection, or whether the server is running.</string>
     <string name="offline_retry">Try again</string>
     <string name="offline_other">Use another server</string>
+
+    <!-- Asked in the app's own dialog when a server's page moves the app (audit A4). -->
+    <string name="confirm_connect_title">Switch servers?</string>
+    <string name="confirm_connect_body">PeckList will use %1$s from now on.</string>
+    <string name="confirm_connect_plain">It uses plain http, so anyone on the network can read what is sent.</string>
+    <string name="confirm_connect_installed_ca">Its certificate comes from an authority installed on this phone, which PeckList will trust for it.</string>
+    <string name="confirm_connect_yes">Switch</string>
+    <string name="confirm_disconnect_title">Use PeckList without a server?</string>
+    <string name="confirm_disconnect_body">PeckList stops using %1$s. Your tasks stay on the server.</string>
+    <string name="confirm_disconnect_yes">Disconnect</string>
+
+    <!-- The chosen server is now vouched for by an authority installed on the phone (audit A2). -->
+    <string name="installed_ca_title">Check this server\'s certificate</string>
+    <string name="installed_ca_body">%1$s now uses a certificate from an authority installed on this phone, not one Android trusts by default. Someone may be reading what PeckList sends. Trust it only if you installed that authority for this server.</string>
+    <string name="installed_ca_trust">Trust it</string>
     <!-- A sign-in page in front of the server (Pangolin, Cloudflare Access...; Gate). -->
     <string name="gate_title">Sign in to reach your server</string>
     <string name="gate_body">%1$s asks you to sign in before PeckList opens. Sign in in your browser, then come back here.</string>

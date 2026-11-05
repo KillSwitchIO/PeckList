@@ -186,6 +186,13 @@ final class BackgroundCheck {
                 failed(context);
                 return;
             }
+            if (InstalledCa.reliedOn(connection) && !ServerChoice.installedCaAgreed(context, server)) {
+                // Someone else's authority vouches for the server now: nothing is used, and the
+                // app asks at its next start (audit A2).
+                Logger.warn("PeckList", "Background check: the server's certificate comes from an installed authority; stopped");
+                prefs(context).edit().putBoolean(STOPPED, true).apply();
+                return;
+            }
             prefs(context).edit().remove(FAILURES).apply();
             // The session slides forward on use: keep the renewed cookie, as the WebView would.
             List<String> renewed = connection.getHeaderFields().get("Set-Cookie");

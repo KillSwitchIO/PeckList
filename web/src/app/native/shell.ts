@@ -10,6 +10,22 @@ export const CARRY_API = 6;
 /** The shell api that holds a reminder's Complete and Snooze for the app instead of opening it. */
 export const HELD_API = 7;
 
+/**
+ * The shell api that asks in its own dialog before a server's page connects it elsewhere or
+ * disconnects it (audit A4), so the page need not ask as well.
+ */
+export const CONFIRM_API = 8;
+
+/** The host (and port) an address names, read as the shell reads it: https when none is typed. */
+export function hostOf(address: string): string | null {
+  const text = address.trim();
+  try {
+    return new URL(text.includes('://') ? text : `https://${text}`).host.toLowerCase();
+  } catch {
+    return null;
+  }
+}
+
 /** The Android shell around the app, or null in a browser (tests swap in a fake). */
 export function nativeShell(): NativeShell | null {
   if (current === undefined) current = createCapacitorShell();

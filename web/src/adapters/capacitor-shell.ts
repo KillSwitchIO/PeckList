@@ -1,6 +1,7 @@
 import { Capacitor, registerPlugin, type PluginListenerHandle } from '@capacitor/core';
 import type {
   BackgroundCheck,
+  ConnectTrust,
   HeldPress,
   NativeShell,
   ServerCheck,
@@ -17,7 +18,7 @@ interface ShellPlugin {
   usage(): Promise<ShellUsage>;
   lastCrash(): Promise<{ crash?: ShellCrash | null }>;
   checkServer(options: { url: string }): Promise<{ url: string; info: ServerInfo }>;
-  connect(options: { url: string }): Promise<void>;
+  connect(options: { url: string } & ConnectTrust): Promise<void>;
   disconnect(): Promise<void>;
   backgroundCheck(): Promise<BackgroundCheck>;
   setBackgroundCheck(options: { enabled?: boolean; minutes?: number }): Promise<BackgroundCheck>;
@@ -54,6 +55,7 @@ const PROBLEMS: readonly ServerProblem[] = [
   'certificate',
   'not-pecklist',
   'gated',
+  'installed-ca',
 ];
 
 /** A rejected call's code, as the plugin names the problem; anything else is "unreachable". */
@@ -100,7 +102,7 @@ export function createCapacitorShell(): NativeShell | null {
     // A shell from before PL-116 answers these with an error: nothing to tell.
     usage: () => plugin.usage().catch(() => null),
     lastCrash: async () => (await plugin.lastCrash().catch(() => ({ crash: null }))).crash ?? null,
-    connect: (url) => plugin.connect({ url }),
+    connect: (url, trust) => plugin.connect({ url, ...trust }),
     disconnect: () => plugin.disconnect(),
     backgroundCheck: () => plugin.backgroundCheck(),
     setBackgroundCheck: (change) => plugin.setBackgroundCheck(change),

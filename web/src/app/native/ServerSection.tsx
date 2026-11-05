@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router';
 import { ConfirmDialog } from '../admin/AdminDialogs.tsx';
 import { t } from '../i18n/i18n.ts';
 import { Section, SettingRow } from '../settings/settingsLayout.tsx';
-import { useShellInfo } from './shell.ts';
+import { CONFIRM_API, useShellInfo } from './shell.ts';
 
 /** Settings > Server, in the Android app only: which server it runs on, and moving off it. */
 export function ServerSection() {
@@ -30,7 +30,14 @@ export function ServerSection() {
             <Button size="small" onClick={connect}>
               {t('settings.server.change')}
             </Button>
-            <Button size="small" color="error" onClick={() => setConfirming(true)}>
+            <Button
+              size="small"
+              color="error"
+              onClick={() =>
+                // From api 8 the shell asks in its own dialog (audit A4).
+                info.api >= CONFIRM_API ? void shell.disconnect() : setConfirming(true)
+              }
+            >
               {t('settings.server.disconnect')}
             </Button>
           </Box>

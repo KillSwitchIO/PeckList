@@ -8,6 +8,7 @@ import android.view.View;
 import android.webkit.WebView;
 import android.widget.Toast;
 import androidx.activity.OnBackPressedCallback;
+import androidx.appcompat.app.AlertDialog;
 import androidx.core.content.ContextCompat;
 import androidx.core.graphics.Insets;
 import androidx.core.view.ViewCompat;
@@ -38,6 +39,7 @@ public class MainActivity extends BridgeActivity {
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
+        ServerChoice.keepEarlierAgreements(this);
         boolean choosing = leaveServerIfAsked(getIntent());
         registerPlugin(ShellPlugin.class);
         // A crash is kept for the next start, where the web app offers a report (PL-116).
@@ -83,8 +85,34 @@ public class MainActivity extends BridgeActivity {
         String server = ServerChoice.get(this);
         if (server == null) return;
         new Thread(() -> {
+            // Vouched for now by an authority installed on this phone that the person never
+            // agreed to (audit A2): stop, and ask.
+            if (InstalledCa.unagreed(this, server)) {
+                runOnUiThread(() -> askAboutInstalledCa(server));
+                return;
+            }
             if (Gate.gated(this, server) && bridge != null) client.showGate(bridge.getWebView());
         }, "pecklist-gate").start();
+    }
+
+    /** Trust the installed authority for this server, or leave it for the connect page. */
+    private void askAboutInstalledCa(String server) {
+        if (isFinishing() || isDestroyed()) return;
+        if (bridge != null) bridge.getWebView().loadUrl("about:blank");
+        new AlertDialog.Builder(this)
+            .setTitle(R.string.installed_ca_title)
+            .setMessage(getString(R.string.installed_ca_body, server.replaceFirst("^https?://", "")))
+            .setCancelable(false)
+            .setPositiveButton(R.string.installed_ca_trust, (dialog, which) -> {
+                ServerChoice.agreeInstalledCa(this, server);
+                BackgroundCheck.resume(this);
+                recreate();
+            })
+            .setNegativeButton(R.string.offline_other, (dialog, which) -> {
+                setIntent(new Intent(this, MainActivity.class).setAction(CHOOSE_SERVER));
+                recreate();
+            })
+            .show();
     }
 
     /**

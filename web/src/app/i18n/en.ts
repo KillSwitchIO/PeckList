@@ -292,11 +292,17 @@ export const en = {
   'connect.plainHttp':
     'This server uses plain http, so anyone on the network can read what is sent. Fine at home, not on public Wi-Fi.',
   'connect.anyway': 'Connect anyway',
+  'connect.moved': 'That address sends the app on to {url}. Continue only if you expected that.',
+  'connect.installedCa':
+    '{url} uses a certificate from an authority installed on this phone, not one Android trusts by default. Trust it only if you installed it for this server.',
+  'connect.trustIt': 'Trust it',
   'connect.problem.invalid': 'That is not a web address.',
   'connect.problem.unreachable': 'Could not reach that address. Check it and your connection.',
   'connect.problem.certificate': "The server's certificate is not trusted on this device.",
   'connect.problem.not-pecklist': 'That address does not run a PeckList server.',
   'connect.problem.gated': 'That address asks you to sign in first.',
+  'connect.problem.installed-ca':
+    'That server uses a certificate from an authority installed on this phone.',
   'connect.gated':
     'This server is behind a sign-in page (like Pangolin or Cloudflare Access). Continue, then sign in to it when the app asks.',
   'connect.continue': 'Continue',

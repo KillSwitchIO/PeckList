@@ -3,7 +3,13 @@ import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { problemOf } from '../../adapters/capacitor-shell.ts';
-import type { HeldPress, NativeShell, ServerCheck, ShellInfo } from '../../ports/nativeShell.ts';
+import type {
+  ConnectTrust,
+  HeldPress,
+  NativeShell,
+  ServerCheck,
+  ShellInfo,
+} from '../../ports/nativeShell.ts';
 import { createTask } from '../../core/tasks.ts';
 import { renderApp, testStore } from '../../test/renderApp.tsx';
 import { AppProviders } from '../providers.tsx';
@@ -47,8 +53,15 @@ class FakeShell implements NativeShell {
   checkServer(address: string): Promise<ServerCheck> {
     return Promise.resolve(this.servers.get(address) ?? { ok: false, problem: 'unreachable' });
   }
-  connect(url: string): Promise<void> {
+  /** What the person agreed to on each connect (api 8). */
+  trusted: ConnectTrust[] = [];
+  /** The shell's own dialog says no (api 8, audit A4). */
+  refuse = false;
+  connect(url: string, trust: ConnectTrust = {}): Promise<void> {
+    if (this.refuse)
+      return Promise.reject(Object.assign(new Error('cancelled'), { code: 'cancelled' }));
     this.went.push(url);
+    this.trusted.push(trust);
     return Promise.resolve();
   }
   disconnect(): Promise<void> {
@@ -178,6 +191,91 @@ describe('android: connecting to a server', () => {
       within(warning.closest('[role="alert"]')!).getByRole('button', { name: 'Connect anyway' }),
     );
     expect(shell.went).toEqual(['http://192.168.1.20:8080']);
+    // The shell keeps that yes for this server only (audit A2).
+    expect(shell.trusted).toEqual([{ plainHttp: true }]);
+  });
+
+  it('shows where a redirect leads before going there (audit E3)', async () => {
+    const shell = new FakeShell();
+    shell.servers.set('tasks.example.com', pecklist('https://elsewhere.example.net'));
+    setNativeShell(shell);
+    await renderApp('/connect');
+    await userEvent.type(
+      screen.getByRole('textbox', { name: 'Server address' }),
+      'tasks.example.com{Enter}',
+    );
+    const notice = await screen.findByText(/sends the app on to https:\/\/elsewhere\.example\.net/);
+    expect(shell.went).toEqual([]);
+    await userEvent.click(
+      within(notice.closest('[role="alert"]')!).getByRole('button', { name: 'Continue' }),
+    );
+    expect(shell.went).toEqual(['https://elsewhere.example.net']);
+  });
+
+  it('goes straight on when only the scheme changed', async () => {
+    const shell = new FakeShell();
+    shell.servers.set('http://tasks.example.com', pecklist('https://tasks.example.com'));
+    setNativeShell(shell);
+    await renderApp('/connect');
+    await userEvent.type(
+      screen.getByRole('textbox', { name: 'Server address' }),
+      'http://tasks.example.com{Enter}',
+    );
+    await screen.findByRole('button', { name: 'Connecting...' });
+    expect(shell.went).toEqual(['https://tasks.example.com']);
+  });
+
+  it('says plain http after a redirect to it, too', async () => {
+    const shell = new FakeShell();
+    shell.servers.set('tasks.example.com', pecklist('http://192.168.1.20:8080'));
+    setNativeShell(shell);
+    await renderApp('/connect');
+    await userEvent.type(
+      screen.getByRole('textbox', { name: 'Server address' }),
+      'tasks.example.com{Enter}',
+    );
+    const notice = await screen.findByText(/sends the app on to/);
+    await userEvent.click(
+      within(notice.closest('[role="alert"]')!).getByRole('button', { name: 'Continue' }),
+    );
+    expect(await screen.findByText(/plain http/)).toBeInTheDocument();
+    expect(shell.went).toEqual([]);
+  });
+
+  it('asks before trusting an authority installed on this phone (audit A2)', async () => {
+    const shell = new FakeShell(null, 8);
+    shell.servers.set('tasks.home.lan', {
+      ok: false,
+      problem: 'installed-ca',
+      url: 'https://tasks.home.lan',
+    });
+    setNativeShell(shell);
+    await renderApp('/connect');
+    await userEvent.type(
+      screen.getByRole('textbox', { name: 'Server address' }),
+      'tasks.home.lan{Enter}',
+    );
+    const warning = await screen.findByText(/authority installed on this phone/);
+    expect(shell.went).toEqual([]);
+    await userEvent.click(
+      within(warning.closest('[role="alert"]')!).getByRole('button', { name: 'Trust it' }),
+    );
+    expect(shell.went).toEqual(['https://tasks.home.lan']);
+    expect(shell.trusted).toEqual([{ installedCa: true }]);
+  });
+
+  it("goes back to the address when the shell's own dialog says no (audit A4)", async () => {
+    const shell = new FakeShell('https://tasks.example.com', 8);
+    shell.servers.set('other.example.com', pecklist('https://other.example.com'));
+    shell.refuse = true;
+    setNativeShell(shell);
+    await renderApp('/connect');
+    await userEvent.type(
+      screen.getByRole('textbox', { name: 'Server address' }),
+      'other.example.com{Enter}',
+    );
+    expect(await screen.findByRole('button', { name: 'Connect' })).toBeEnabled();
+    expect(shell.went).toEqual([]);
   });
 
   it('always offers a way off the server, even when connecting fails', async () => {
@@ -197,6 +295,7 @@ describe('android: connecting to a server', () => {
   it('names what is wrong with an address the shell refused', async () => {
     expect(problemOf({ code: 'certificate' })).toBe('certificate');
     expect(problemOf({ code: 'not-pecklist' })).toBe('not-pecklist');
+    expect(problemOf({ code: 'installed-ca' })).toBe('installed-ca');
     expect(problemOf(new Error('boom'))).toBe('unreachable');
     expect(problemOf(null)).toBe('unreachable');
   });
@@ -227,6 +326,16 @@ describe('android: settings > server', () => {
     const dialog = await screen.findByRole('dialog', { name: 'Use PeckList without a server?' });
     expect(shell.went).toEqual([]);
     await userEvent.click(within(dialog).getByRole('button', { name: 'Disconnect' }));
+    expect(shell.went).toEqual(['standalone']);
+  });
+
+  it('leaves the asking to a shell that asks in its own dialog (api 8, audit A4)', async () => {
+    const shell = new FakeShell('https://tasks.example.com', 8);
+    setNativeShell(shell);
+    await renderApp('/settings/account');
+    const section = await screen.findByRole('region', { name: 'Server' });
+    await userEvent.click(within(section).getByRole('button', { name: 'Disconnect' }));
+    expect(screen.queryByRole('dialog', { name: 'Use PeckList without a server?' })).toBeNull();
     expect(shell.went).toEqual(['standalone']);
   });
 });
