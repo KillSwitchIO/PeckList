@@ -4,6 +4,36 @@ All notable changes to PeckList. Generated from [Conventional Commits](https://w
 by `pnpm changelog`; the version follows [Semantic Versioning](https://semver.org/). Before 1.0.0 a
 minor release may break things; every break is listed under **Breaking changes** with what to do.
 
+## [0.8.0-rc.1] - 2026-11-05
+
+### Breaking changes
+
+- **server:** Trust forwarded headers from loopback and the container's networks. A reverse proxy on another machine, not on a network the container is on, is no longer trusted by default. Set TRUSTED_PROXIES to its address, or every request seems to come from the proxy.
+
+### Added
+
+- **backups:** Compressed snapshots and batched access-log writes
+- **accounts:** Password reset links by email, with mail provider presets
+- **accounts:** Native passkeys, with no identity provider in between
+- **telemetry:** The apps usage counts, crash reports and Android capture
+- **admin:** Grey out what a picked mail provider fills in
+- **telemetry:** Report schema 3 with the machine, sizes, rows and country
+- **calendar:** Weekday names on the month, and Unscheduled shown on asking
+- **attachments:** A daily upload allowance per person
+
+### Fixed
+
+- **e2e:** Match the sign-in username field by word
+- **tests:** Test servers never send reports to the real collector
+- **admin:** The test email saves the email settings typed first
+- **auth:** Secure cookie, a 90-day session cap, keys locked with CONFIG_KEY
+- **web:** Push links stay on the server, and the zip reader checks its archive
+- **sync:** Check pushed entities against the workspace schema and a size cap
+- **web:** Keep asking a server that did not answer at the first load
+- **server:** Trust forwarded headers from loopback and the container's networks
+- **sync:** A device from before a restore writes nothing over the restored data
+- **server:** Refuse to start on a database a newer version upgraded
+
 ## [0.7.0] - 2026-11-04
 
 ### Breaking changes
@@ -23,6 +53,7 @@ minor release may break things; every break is listed under **Breaking changes**
 ### Documentation
 
 - Count visits to docs.pecklist.com with Umami
+- The vault's PeckList folder in CLAUDE.md
 
 ## [0.6.0] - 2026-11-03
 
