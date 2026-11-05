@@ -31,7 +31,7 @@ export function MailTestPanel({
     }
   };
   return (
-    <Box sx={{ display: 'grid', gap: 1, px: 1, py: 1 }}>
+    <Box sx={{ display: 'grid', gap: 1, py: 1 }}>
       <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', alignItems: 'center' }}>
         <TextField
           size="small"

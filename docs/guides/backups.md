@@ -23,6 +23,7 @@ change once written, so an incremental backup tool copies each one once.
 
 ## Admin > Backups
 
+- **Backup schedule**: how often, and how many to keep.
 - **Take a backup now**, and download any snapshot (`.json.gz`; `gunzip` it to read the JSON).
 - **Export** the whole server or one person.
 - **Restore** from a file you upload or from one of the scheduled snapshots: the whole server, or

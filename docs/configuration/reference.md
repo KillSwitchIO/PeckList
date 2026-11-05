@@ -1,8 +1,8 @@
 # All settings
 
 Every setting the server reads. **Where** says where it may be set: _any_ means the environment,
-the [settings file](config-file.md) or **Admin > Settings**; _env_ means the environment only.
-**Live** settings saved on the settings page apply without a restart. Every setting also accepts
+the [settings file](config-file.md) or the **Admin** pages; _env_ means the environment only.
+**Live** settings saved on the admin pages apply without a restart. Every setting also accepts
 `NAME_FILE` (see [secrets in files](index.md#secrets-in-files)).
 
 A check in CI keeps this page in step with the server: a setting missing here fails the build.
@@ -196,16 +196,16 @@ volume, `/files`. **Default:** `attachments` next to the SQLite file; `/files` i
 
 No email is sent until `SMTP_PROVIDER` or `SMTP_HOST` is set; without them, nothing that needs
 email shows. Reset and confirmation links also need [`PUBLIC_URL`](#public_url): they are never
-built from the address a request came in on. All of these are **Live**: saved on the settings
-page, they apply at once. Guide, with the steps for each provider: [email](../guides/email.md).
+built from the address a request came in on. All of these are **Live**: saved under
+**Admin > Email**, they apply at once. Guide, with the steps for each provider: [email](../guides/email.md).
 
 ### `SMTP_PROVIDER`
 
 A provider preset that fills in the server, port and TLS (and the login name where the provider
 fixes one): `gmail`, `google-workspace`, `icloud`, `yahoo`, `fastmail`, `zoho`, `zoho-eu`,
 `proton`, `sendgrid`, `mailgun`, `mailgun-eu`, `postmark`, `brevo`, `resend`, `amazon-ses`, or
-`custom` for none (**Other** on the settings page). Anything set explicitly below in the
-environment or config file wins over the preset; on the settings page, the fields a preset fills
+`custom` for none (**Other** under **Admin > Email**). Anything set explicitly below in the
+environment or config file wins over the preset; on that page, the fields a preset fills
 in show its values, greyed out (Amazon SES leaves the host open for its region). **Default:**
 `custom`.
 **Where:** any.
@@ -245,7 +245,7 @@ What the daily usage report holds, and what it never holds: [privacy](../using/p
 
 Send the anonymous daily usage report: one request a day from the server to the project's
 collector, with counts in ranges and switches, never names, titles, addresses or anything people
-wrote. Turn it off and nothing is sent. The admin settings page shows the report exactly as it
+wrote. Turn it off and nothing is sent. **Admin > General** shows the report exactly as it
 would go. **Default:** `true`. **Where:** any, live.
 
 ### `CRASH_REPORTS`
@@ -434,10 +434,10 @@ A [settings file](config-file.md) to read. **Default:** none. **Where:** env.
 
 The key for `enc:v1:...` [encrypted values](index.md#encrypted-values); make one with
 `pecklist config key`. Prefer `CONFIG_KEY_FILE`. When set, it also locks the keys the server keeps
-in its own database: the keys that sign sessions and the key for secrets saved on the settings
-page, so a copy of the database alone opens neither ([security](../guides/security.md)). Keys
+in its own database: the keys that sign sessions and the key for secrets saved on the admin
+pages, so a copy of the database alone opens neither ([security](../guides/security.md)). Keys
 stored before are locked at the next start. Lose it and the server still starts: people sign in
-again, and settings-page secrets stay locked (the settings page says so) until it is back.
+again, and secrets saved there stay locked (the admin pages say so) until it is back.
 **Default:** none. **Where:** env.
 
 ## Development

@@ -63,7 +63,7 @@ export function TelemetryPanel({
       ? t('telemetry.sentAt', { when: new Date(view.sentAt).toLocaleString() })
       : t('telemetry.notSent');
   return (
-    <Box sx={{ px: 1, py: 1, display: 'grid', gap: 1 }}>
+    <Box sx={{ py: 1, display: 'grid', gap: 1 }}>
       <Typography variant="body2" color="text.secondary">
         {t('telemetry.about')} {status}
       </Typography>

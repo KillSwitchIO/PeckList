@@ -657,3 +657,53 @@ export function DataIcon(props: SvgIconProps) {
     </PunchIcon>
   );
 }
+
+/** General settings: two sliders. */
+export function SlidersIcon(props: SvgIconProps) {
+  return (
+    <PunchIcon {...props}>
+      <path d="M4 7h9M17 7h3M4 17h3M11 17h9" />
+      <circle cx="15" cy="7" r="2" />
+      <circle cx="9" cy="17" r="2" />
+    </PunchIcon>
+  );
+}
+
+/** Email: an envelope. */
+export function MailIcon(props: SvgIconProps) {
+  return (
+    <PunchIcon {...props}>
+      <rect x="3.5" y="5.5" width="17" height="13" rx="2.5" />
+      <path d="m4 7.5 8 6 8-6" />
+    </PunchIcon>
+  );
+}
+
+/** Backups: an archive box. */
+export function ArchiveIcon(props: SvgIconProps) {
+  return (
+    <PunchIcon {...props}>
+      <rect x="3.5" y="4.5" width="17" height="5" rx="1.5" />
+      <path d="M5 9.5V18a1.5 1.5 0 0 0 1.5 1.5h11A1.5 1.5 0 0 0 19 18V9.5M10 13.5h4" />
+    </PunchIcon>
+  );
+}
+
+/** Stats: three bars. */
+export function ChartIcon(props: SvgIconProps) {
+  return (
+    <PunchIcon {...props}>
+      <path d="M5 20v-9M12 20V5M19 20v-6" />
+    </PunchIcon>
+  );
+}
+
+/** Sign-in: a key. */
+export function KeyIcon(props: SvgIconProps) {
+  return (
+    <PunchIcon {...props}>
+      <circle cx="8" cy="15.5" r="4" />
+      <path d="m11 12.5 8.5-8.5M15.5 8l2.5 2.5" />
+    </PunchIcon>
+  );
+}

@@ -211,7 +211,7 @@ function memoryAdmin(benId: string) {
     settings: [
       {
         key: 'REGISTRATION',
-        group: 'general',
+        group: 'sign-in',
         kind: 'choice' as const,
         choices: ['open', 'invite', 'closed'],
         default: 'invite',
@@ -221,6 +221,32 @@ function memoryAdmin(benId: string) {
         saved: Boolean(state.page.REGISTRATION),
         live: false,
         superAdminOnly: true,
+      },
+      {
+        key: 'LOG_LEVEL',
+        group: 'logging',
+        kind: 'choice' as const,
+        choices: ['information', 'debug'],
+        default: 'information',
+        value: null,
+        source: 'default' as const,
+        locked: false,
+        saved: false,
+        live: true,
+        superAdminOnly: false,
+      },
+      {
+        key: 'LOG_LOKI_URL',
+        group: 'log-shipping',
+        kind: 'url' as const,
+        choices: null,
+        default: null,
+        value: null,
+        source: 'default' as const,
+        locked: false,
+        saved: false,
+        live: true,
+        superAdminOnly: false,
       },
       {
         key: 'SMTP_PROVIDER',
@@ -707,14 +733,27 @@ describe('admin', () => {
     ).toBeInTheDocument();
   });
 
-  it('on a phone the tab strip scrolls instead of cutting the last tabs off', async () => {
+  it('on a phone is a list of subjects, each a page with a way back (PL-128)', async () => {
     mockViewport('phone');
-    await adminApp('superadmin', '/admin/stats');
-    const tabs = await screen.findByRole('tablist');
-    // MUI's standard strip hides what does not fit; the scrollable one can be swiped.
-    expect(tabs.parentElement).toHaveClass('MuiTabs-scrollableX');
-    expect(screen.getByRole('tab', { name: 'Settings' })).toBeInTheDocument();
-    expect(screen.getByRole('tab', { name: 'Stats' })).toHaveAttribute('aria-selected', 'true');
+    await adminApp('superadmin', '/admin');
+    const nav = await screen.findByRole('navigation', { name: 'Admin' });
+    for (const name of [
+      'Users',
+      'Groups',
+      'Sign-in',
+      'General',
+      'Email',
+      'Backups',
+      'Logs',
+      'Stats',
+    ]) {
+      expect(within(nav).getByRole('link', { name: new RegExp(`^${name}`) })).toBeInTheDocument();
+    }
+    await userEvent.click(within(nav).getByRole('link', { name: /^Stats/ }));
+    expect(await screen.findByRole('heading', { name: 'Stats' })).toBeInTheDocument();
+    expect(await screen.findByRole('region', { name: 'Server totals' })).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('link', { name: 'Back' }));
+    expect(await screen.findByRole('navigation', { name: 'Admin' })).toBeInTheDocument();
   });
 
   it('adds people, resets passwords and turns accounts off', async () => {
@@ -896,30 +935,58 @@ describe('admin', () => {
     expect(state.passkeys).toEqual([]);
   });
 
-  it("changes server settings, leaves the environment's alone, and restarts to apply them", async () => {
-    const { state } = await adminApp('superadmin', '/admin/settings');
-    const general = await screen.findByRole('region', { name: 'General' });
-    expect(within(general).getByText('REGISTRATION · default: Invited people')).toBeInTheDocument();
-    const backups = screen.getByRole('region', { name: 'Backups' });
-    const kept = within(backups).getByRole('spinbutton', { name: 'Newest backups kept' });
-    expect(kept).toBeDisabled();
-    expect(kept).toHaveValue(5);
-    expect(within(backups).getByText('SNAPSHOT_KEEP · set by the environment')).toBeInTheDocument();
-    // Environment-only settings come last, secrets never shown.
-    const environment = screen.getByRole('region', { name: 'Set in the environment only' });
-    expect(within(environment).getByLabelText('Database connection')).toHaveValue('');
-
-    await userEvent.click(within(general).getByRole('combobox', { name: 'Who can join' }));
+  it('changes a server setting and restarts to apply it', async () => {
+    const { state } = await adminApp('superadmin', '/admin/sign-in');
+    const signIn = await screen.findByRole('region', { name: 'Sign-in' });
+    expect(within(signIn).getByText('Default: Invited people')).toBeInTheDocument();
+    // The variable's name is a hover or a tap away.
+    await userEvent.hover(within(signIn).getByText('Who can join'));
+    expect(await screen.findByRole('tooltip', { name: 'REGISTRATION' })).toBeInTheDocument();
+    await userEvent.click(within(signIn).getByRole('combobox', { name: 'Who can join' }));
     await userEvent.click(await screen.findByRole('option', { name: 'Anyone' }));
     await userEvent.click(screen.getByRole('button', { name: 'Save' }));
-    expect(await within(general).findByText('REGISTRATION · saved here')).toBeInTheDocument();
+    expect(await within(signIn).findByText('Saved here')).toBeInTheDocument();
     expect(state.page).toEqual({ REGISTRATION: 'open' });
     await userEvent.click(screen.getByRole('button', { name: 'Restart now' }));
     expect(state.restarted).toBe(true);
   });
 
+  it('puts each setting on the page about it, where the backups are (PL-128)', async () => {
+    await adminApp('superadmin', '/admin/backups');
+    expect(
+      await screen.findByRole('region', { name: 'Backups on the server' }),
+    ).toBeInTheDocument();
+    const schedule = await screen.findByRole('region', { name: 'Backup schedule' });
+    // What the environment decides is greyed out, and says which variable it is.
+    const kept = within(schedule).getByRole('spinbutton', { name: 'Newest backups kept' });
+    expect(kept).toBeDisabled();
+    expect(kept).toHaveValue(5);
+    expect(
+      within(schedule).getByText('SNAPSHOT_KEEP · set by the environment'),
+    ).toBeInTheDocument();
+  });
+
+  it('keeps what only the environment can set folded up, under General (PL-128)', async () => {
+    await adminApp('superadmin', '/admin/settings');
+    const environment = await screen.findByRole('region', { name: 'Set in the environment only' });
+    expect(within(environment).queryByLabelText('Database connection')).toBeNull();
+    await userEvent.click(within(environment).getByRole('button', { expanded: false }));
+    expect(await within(environment).findByLabelText('Database connection')).toHaveValue('');
+  });
+
+  it('sets log levels and log servers from Logs, each server folded up (PL-128)', async () => {
+    await adminApp('superadmin', '/admin/logs');
+    await userEvent.click(await screen.findByRole('button', { name: 'Settings' }));
+    expect(await screen.findByRole('region', { name: 'Logging' })).toBeInTheDocument();
+    const servers = screen.getByRole('region', { name: 'Log servers' });
+    const loki = within(servers).getByRole('region', { name: 'Loki' });
+    expect(within(loki).getByText('Not set up')).toBeInTheDocument();
+    await userEvent.click(within(loki).getByRole('button', { expanded: false }));
+    expect(await within(loki).findByLabelText('Loki address')).toBeInTheDocument();
+  });
+
   it("lists the server's own crashes and sends one only when asked (PL-116)", async () => {
-    const { state } = await adminApp('superadmin', '/admin/settings');
+    const { state } = await adminApp('superadmin', '/admin/general');
     const crashes = await screen.findByRole('region', { name: 'Server crashes' });
     expect(within(crashes).getByText('NullReferenceException')).toBeInTheDocument();
     expect(state.sentCrashes).toEqual([]);
@@ -931,7 +998,7 @@ describe('admin', () => {
   });
 
   it('tells the admin once that the server reports, shows the report as it goes, and renews the install id', async () => {
-    const { state } = await adminApp('superadmin', '/admin/settings');
+    const { state } = await adminApp('superadmin', '/admin/general');
     const notice = await screen.findByText(/sends an anonymous usage report once a day/);
     const telemetry = screen.getByRole('region', { name: 'Telemetry' });
     expect(within(telemetry).getByText(/Not sent yet/)).toBeInTheDocument();
@@ -1022,7 +1089,7 @@ describe('admin', () => {
   });
 
   it('sends a test email and says what the mail server answered (PL-122)', async () => {
-    await adminApp('admin', '/admin/settings');
+    await adminApp('admin', '/admin/email');
     const email = await screen.findByRole('region', { name: 'Email' });
     const to = within(email).getByLabelText('Send a test to');
     await userEvent.type(to, 'ben@example.com');
@@ -1037,7 +1104,7 @@ describe('admin', () => {
   });
 
   it('saves email settings typed but not saved before sending the test (PL-122)', async () => {
-    const { state } = await adminApp('admin', '/admin/settings');
+    const { state } = await adminApp('admin', '/admin/email');
     const email = await screen.findByRole('region', { name: 'Email' });
     await userEvent.type(within(email).getByLabelText('Port'), '2525');
     await userEvent.type(within(email).getByLabelText('Send a test to'), 'ben@example.com');
@@ -1050,7 +1117,7 @@ describe('admin', () => {
   });
 
   it('greys out what a picked mail provider fills in, showing its values (PL-122)', async () => {
-    const { state } = await adminApp('admin', '/admin/settings');
+    const { state } = await adminApp('admin', '/admin/email');
     const email = await screen.findByRole('region', { name: 'Email' });
     const port = within(email).getByLabelText('Port');
     await userEvent.type(port, '2525');
@@ -1085,16 +1152,16 @@ describe('admin', () => {
   });
 
   it('shows a plain admin the sign-in settings locked to super admins', async () => {
-    await adminApp('admin', '/admin/settings', {
+    await adminApp('admin', '/admin/sign-in', {
       prepare: (admin) => {
         admin.signInLocked = true;
       },
     });
-    const general = await screen.findByRole('region', { name: 'General' });
+    const signIn = await screen.findByRole('region', { name: 'Sign-in' });
     expect(
-      within(general).getByText('REGISTRATION · default: Invited people · super admins only'),
+      within(signIn).getByText('Default: Invited people · super admins only'),
     ).toBeInTheDocument();
-    expect(within(general).getByRole('combobox', { name: 'Who can join' })).toHaveAttribute(
+    expect(within(signIn).getByRole('combobox', { name: 'Who can join' })).toHaveAttribute(
       'aria-disabled',
       'true',
     );
@@ -1119,7 +1186,7 @@ describe('admin', () => {
     expect(state.linked).toEqual(['U2:pocket:sam-at-pocket']);
 
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
-    await userEvent.click(screen.getByRole('tab', { name: 'Sign-in' }));
+    await userEvent.click(screen.getByRole('link', { name: 'Sign-in' }));
     const waiting = await screen.findByRole('region', { name: 'Waiting to be let in' });
     await userEvent.click(
       await within(waiting).findByRole('button', { name: 'Link to an account' }),
@@ -1336,8 +1403,8 @@ describe('admin', () => {
       'href',
       '/api/admin/debug-dump',
     );
-    await userEvent.click(within(outputs).getByRole('link', { name: /Change levels/ }));
-    expect(await screen.findByRole('region', { name: 'General' })).toBeInTheDocument();
+    await userEvent.click(within(outputs).getByRole('button', { name: /Change levels/ }));
+    expect(await screen.findByRole('region', { name: 'Logging' })).toBeInTheDocument();
   });
 
   it('makes a group and fills it', async () => {

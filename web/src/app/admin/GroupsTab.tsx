@@ -202,6 +202,7 @@ export function GroupsTab({ api }: { api: AdminApi }) {
               color: 'inherit',
               font: 'inherit',
               cursor: 'pointer',
+              mx: -1,
               px: 1,
               py: 1,
               borderRadius: 2,
@@ -220,9 +221,7 @@ export function GroupsTab({ api }: { api: AdminApi }) {
           </Box>
         ))}
         {groups?.length === 0 && (
-          <Typography color="text.secondary" sx={{ px: 1 }}>
-            {t('admin.groups.none')}
-          </Typography>
+          <Typography color="text.secondary">{t('admin.groups.none')}</Typography>
         )}
       </Box>
       {open !== null && (

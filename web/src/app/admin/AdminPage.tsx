@@ -1,36 +1,39 @@
-import { Box, Tab, Tabs, Typography } from '@mui/material';
-import { useNavigate, useParams } from 'react-router';
+import { Box, Typography } from '@mui/material';
+import type { ReactNode } from 'react';
+import { Navigate, useParams } from 'react-router';
+import {
+  AccountIcon,
+  ArchiveIcon,
+  ChartIcon,
+  KeyIcon,
+  MailIcon,
+  NotesLinesIcon,
+  PeopleIcon,
+  SlidersIcon,
+} from '../icons/icons.tsx';
 import { t } from '../i18n/i18n.ts';
+import { CategoryPage, type PageCategory } from '../layout/CategoryPage.tsx';
 import { Page } from '../layout/Page.tsx';
 import { BackupsTab } from './BackupsTab.tsx';
 import { GroupsTab } from './GroupsTab.tsx';
 import { LogsTab } from './LogsTab.tsx';
-import { StatsTab } from './StatsTab.tsx';
+import { SetupCard } from './SetupCard.tsx';
+import { SETTINGS_ON } from './settingsGroups.ts';
 import { SettingsTab } from './SettingsTab.tsx';
 import { SetupWizard } from './SetupWizard.tsx';
 import { SignInTab } from './SignInTab.tsx';
+import { StatsTab } from './StatsTab.tsx';
 import { UsersTab } from './UsersTab.tsx';
-import { useAdminApi, useLoaded } from './useAdmin.ts';
-import type { AdminProvider } from '../../ports/admin.ts';
-
-const TABS = ['users', 'groups', 'sign-in', 'backups', 'logs', 'stats', 'settings'] as const;
-type AdminTab = (typeof TABS)[number];
-const isTab = (value: string | undefined): value is AdminTab => TABS.some((each) => each === value);
-const NO_PROVIDERS = (): Promise<AdminProvider[]> => Promise.resolve([]);
+import { useAdminApi } from './useAdmin.ts';
 
 /**
- * The admin area (spec: PL-034 Admin UI): users, server groups, sign-in, backups, logs, stats and
- * settings. The server checks every action too; this page only
- * shows for admins.
+ * The admin area (spec: PL-034 Admin UI, laid out by subject in PL-128). A server setting lives on
+ * the page about its subject: backups' schedule on Backups, log levels on Logs. The server checks
+ * every action too; this page only shows for admins.
  */
 export function AdminPage() {
   const api = useAdminApi();
   const params = useParams();
-  const navigate = useNavigate();
-  // Sign-in is about identity providers: without one there is nothing on it.
-  const providers = useLoaded(api?.providers ?? NO_PROVIDERS);
-  const tabs = TABS.filter((each) => each !== 'sign-in' || (providers.data?.length ?? 0) > 0);
-  const tab: AdminTab = isTab(params.tab) ? params.tab : 'users';
   if (!api) {
     return (
       <Page title={t('admin.title')}>
@@ -45,37 +48,77 @@ export function AdminPage() {
       </Page>
     );
   }
+  // Its old address.
+  if (params.tab === 'settings') return <Navigate to="/admin/general" replace />;
+  const padded = (content: ReactNode) => <Box sx={{ pb: 10 }}>{content}</Box>;
+  const categories: PageCategory[] = [
+    {
+      id: 'users',
+      label: t('admin.tab.users'),
+      hint: t('admin.tab.usersHint'),
+      heading: t('admin.heading.people'),
+      icon: <AccountIcon />,
+      content: () => padded(<UsersTab api={api} />),
+    },
+    {
+      id: 'groups',
+      label: t('admin.tab.groups'),
+      hint: t('admin.tab.groupsHint'),
+      icon: <PeopleIcon />,
+      content: () => padded(<GroupsTab api={api} />),
+    },
+    {
+      id: 'sign-in',
+      label: t('admin.tab.sign-in'),
+      hint: t('admin.tab.signInHint'),
+      icon: <KeyIcon />,
+      content: () => padded(<SignInTab api={api} />),
+    },
+    {
+      id: 'general',
+      label: t('admin.tab.general'),
+      hint: t('admin.tab.generalHint'),
+      heading: t('admin.heading.server'),
+      icon: <SlidersIcon />,
+      content: () => padded(<SettingsTab api={api} only={SETTINGS_ON.general} />),
+    },
+    {
+      id: 'email',
+      label: t('admin.tab.email'),
+      hint: t('admin.tab.emailHint'),
+      icon: <MailIcon />,
+      content: () => padded(<SettingsTab api={api} only={SETTINGS_ON.email} />),
+    },
+    {
+      id: 'backups',
+      label: t('admin.tab.backups'),
+      hint: t('admin.tab.backupsHint'),
+      icon: <ArchiveIcon />,
+      content: () => padded(<BackupsTab api={api} />),
+    },
+    {
+      id: 'logs',
+      label: t('admin.tab.logs'),
+      hint: t('admin.tab.logsHint'),
+      heading: t('admin.heading.activity'),
+      icon: <NotesLinesIcon />,
+      content: () => padded(<LogsTab api={api} />),
+    },
+    {
+      id: 'stats',
+      label: t('admin.tab.stats'),
+      hint: t('admin.tab.statsHint'),
+      icon: <ChartIcon />,
+      content: () => padded(<StatsTab api={api} />),
+    },
+  ];
   return (
-    <Page title={t('admin.title')}>
-      <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 2, maxWidth: 720 }}>
-        <Tabs
-          value={tabs.includes(tab) ? tab : false}
-          onChange={(_, next: AdminTab) =>
-            void navigate(next === 'users' ? '/admin' : `/admin/${next}`)
-          }
-          // Seven tabs do not fit a phone: the strip scrolls (a swipe, or the arrows) instead
-          // of cutting the last ones off.
-          variant="scrollable"
-          scrollButtons="auto"
-          allowScrollButtonsMobile
-        >
-          {tabs.map((each) => (
-            <Tab
-              key={each}
-              value={each}
-              label={t(`admin.tab.${each}`)}
-              sx={{ textTransform: 'none' }}
-            />
-          ))}
-        </Tabs>
-      </Box>
-      {tab === 'users' && <UsersTab api={api} />}
-      {tab === 'groups' && <GroupsTab api={api} />}
-      {tab === 'sign-in' && <SignInTab api={api} />}
-      {tab === 'backups' && <BackupsTab api={api} />}
-      {tab === 'logs' && <LogsTab api={api} />}
-      {tab === 'stats' && <StatsTab api={api} />}
-      {tab === 'settings' && <SettingsTab api={api} />}
-    </Page>
+    <CategoryPage
+      title={t('admin.title')}
+      base="/admin"
+      categories={categories}
+      current={params.tab}
+      phoneTop={<SetupCard api={api} />}
+    />
   );
 }

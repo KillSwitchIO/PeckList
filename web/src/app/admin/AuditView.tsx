@@ -78,6 +78,7 @@ function Row({ entry, when }: { entry: AuditEntry; when: (iso: string) => string
           display: 'flex',
           alignItems: 'flex-start',
           gap: 1.5,
+          mx: -1,
           px: 1,
           py: 0.75,
           borderRadius: 2,
@@ -290,11 +291,7 @@ export function AuditView({ api, kind }: { api: AdminApi; kind: AuditKind }) {
         {(entries ?? []).map((entry) => (
           <Row key={entry.id} entry={entry} when={when} />
         ))}
-        {entries?.length === 0 && (
-          <Typography color="text.secondary" sx={{ px: 1 }}>
-            {t('audit.none')}
-          </Typography>
-        )}
+        {entries?.length === 0 && <Typography color="text.secondary">{t('audit.none')}</Typography>}
       </Box>
       <Box sx={{ display: 'flex', gap: 1 }}>
         {hasMore && (

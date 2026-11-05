@@ -1,8 +1,26 @@
-import { Alert, Box, Button, MenuItem, Switch, TextField, Typography } from '@mui/material';
-import { useState } from 'react';
-import type { AdminApi, MailPreset, ServerSetting, ServerSettingsView } from '../../ports/admin.ts';
+import {
+  Alert,
+  Box,
+  Button,
+  ButtonBase,
+  Collapse,
+  MenuItem,
+  Switch,
+  TextField,
+  Tooltip,
+  Typography,
+} from '@mui/material';
+import { useState, type ReactNode } from 'react';
+import type {
+  AdminApi,
+  MailPreset,
+  ServerSetting,
+  ServerSettingsView,
+  TelemetryView,
+} from '../../ports/admin.ts';
 import type { MessageKey } from '../i18n/en.ts';
 import { t } from '../i18n/i18n.ts';
+import { ChevronRightIcon } from '../icons/icons.tsx';
 import { ProblemAlert } from '../layout/ProblemAlert.tsx';
 import { PasswordField } from '../layout/PasswordField.tsx';
 import { MailTestPanel } from './MailTestPanel.tsx';
@@ -124,6 +142,15 @@ const CHOICE_LABELS = new Set<string>([
   'DB_PROVIDER',
 ]);
 
+/** Log servers that take more than one setting fold up under their name. */
+const LOG_SERVERS: [prefix: string, name: MessageKey][] = [
+  ['LOG_OTLP_', 'admin.logs.output.otlp'],
+  ['LOG_LOKI_', 'admin.logs.output.loki'],
+  ['LOG_GELF_', 'admin.logs.output.gelf'],
+  ['LOG_ELASTIC_', 'admin.logs.output.elastic'],
+  ['LOG_SYSLOG_', 'admin.logs.output.syslog'],
+];
+
 const SECRET_SHOWN = '********';
 
 function choiceText(key: string, choice: string): string {
@@ -152,15 +179,72 @@ function groupTitle(group: string): string {
   return key ? t(key) : group;
 }
 
-/** Where the value comes from, under the setting's name. */
+/**
+ * Where the value comes from, under the setting's name. The variable's own name shows where it is
+ * the point: where the environment or the file decides, and for what only they can set. Everywhere
+ * else it is in the name's tooltip.
+ */
 function sourceText(setting: ServerSetting): string {
   if (setting.source === 'environment')
     return t('serverSettings.from.environment', { key: setting.key });
   if (setting.source === 'file') return t('serverSettings.from.file', { key: setting.key });
-  if (setting.source === 'page') return t('serverSettings.from.page', { key: setting.key });
-  return setting.default
-    ? t('serverSettings.from.default', { key: setting.key, value: defaultText(setting) })
-    : setting.key;
+  if (setting.source === 'page') return t('serverSettings.from.page');
+  const named = setting.group === 'environment';
+  if (setting.default)
+    return named
+      ? t('serverSettings.from.defaultNamed', { key: setting.key, value: defaultText(setting) })
+      : t('serverSettings.from.default', { value: defaultText(setting) });
+  return named ? setting.key : '';
+}
+
+const GROUP_ORDER = ['general', 'network', 'telemetry', 'logging', 'audit', 'log-shipping'];
+/** The fixed groups in order; what is left (a provider's) next, and the read-only ones last. */
+const rankOf = (group: string) =>
+  group === 'environment' ? 100 : GROUP_ORDER.includes(group) ? GROUP_ORDER.indexOf(group) : 50;
+
+/** Long or rarely needed settings, folded up under one row. */
+function Folded({ title, note, children }: { title: string; note?: string; children: ReactNode }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <Box component="section" aria-label={title}>
+      <ButtonBase
+        aria-expanded={open}
+        onClick={() => setOpen(!open)}
+        sx={{
+          display: 'flex',
+          width: 'calc(100% + 16px)',
+          mx: -1,
+          px: 1,
+          py: 1,
+          gap: 1,
+          justifyContent: 'flex-start',
+          textAlign: 'left',
+          borderRadius: 2,
+          '&:hover': { bgcolor: 'action.hover' },
+        }}
+      >
+        <ChevronRightIcon
+          fontSize="small"
+          sx={{
+            color: 'text.secondary',
+            transform: open ? 'rotate(90deg)' : 'none',
+            transition: 'transform 120ms',
+          }}
+        />
+        <Box sx={{ flexGrow: 1, minWidth: 0 }}>
+          <Typography>{title}</Typography>
+          {note && (
+            <Typography variant="caption" color="text.secondary" component="div">
+              {note}
+            </Typography>
+          )}
+        </Box>
+      </ButtonBase>
+      <Collapse in={open} unmountOnExit>
+        {children}
+      </Collapse>
+    </Box>
+  );
 }
 
 /** The mail provider picked (typed or saved), when it is a preset rather than "custom". */
@@ -233,20 +317,31 @@ function SettingControl({
       disabled={setting.locked}
       onChange={(event) => onChange(event.target.value)}
       slotProps={{ htmlInput: { 'aria-label': label, autoComplete: 'off', spellCheck: false } }}
-      sx={{ width: { xs: '100%', sm: 280 } }}
+      sx={{ width: setting.kind === 'number' ? 120 : { xs: '100%', sm: 280 } }}
     />
   );
 }
 
+const NO_TELEMETRY = (): Promise<TelemetryView | null> => Promise.resolve(null);
+
 /**
- * Admin > Settings (spec: Server settings): every setting, where it comes from, and the ones the
- * environment or config file decide shown greyed out. Logging applies when saved; the rest after
- * a restart.
+ * The server's settings (spec: Server settings) a page of Admin asks for: each one, where it comes
+ * from, and the ones the environment or config file decide shown greyed out. Logging applies when
+ * saved; the rest after a restart. `titled` names a group even when it is the page's only one.
  */
-export function SettingsTab({ api }: { api: AdminApi }) {
+export function SettingsTab({
+  api,
+  only,
+  titled = false,
+}: {
+  api: AdminApi;
+  only: (group: string) => boolean;
+  titled?: boolean;
+}) {
   const superAdmin = useIsSuperAdmin();
   const { data, reload } = useLoaded(api.settings);
-  const telemetry = useLoaded(api.telemetry);
+  const showsTelemetry = only('telemetry');
+  const telemetry = useLoaded(showsTelemetry ? api.telemetry : NO_TELEMETRY);
   const [saved, setSaved] = useState<ServerSettingsView | null>(null);
   const view = saved ?? data;
   // What the admin has typed, by key; a secret's field starts empty (never shown).
@@ -294,9 +389,9 @@ export function SettingsTab({ api }: { api: AdminApi }) {
     if (setting.kind === 'secret') return '';
     return setting.locked || setting.source === 'page' ? (setting.value ?? '') : '';
   };
-  const groups = [...new Set(view.settings.map((setting) => setting.group))].sort(
-    (a, b) => Number(a === 'environment') - Number(b === 'environment'),
-  );
+  const groups = [...new Set(view.settings.map((setting) => setting.group))]
+    .filter(only)
+    .sort((a, b) => rankOf(a) - rankOf(b));
 
   const save = async () => {
     setProblem(null);
@@ -324,16 +419,115 @@ export function SettingsTab({ api }: { api: AdminApi }) {
   };
   const dirty = Object.keys(edits).length > 0;
 
+  const row = (setting: ServerSetting) => {
+    const fixed = presetValue(setting);
+    const suggested = preset?.suggests[setting.key];
+    const control =
+      fixed !== undefined
+        ? { ...setting, locked: true }
+        : suggested !== undefined
+          ? { ...setting, default: suggested }
+          : setting;
+    const source =
+      fixed !== undefined && preset
+        ? t('serverSettings.from.provider', { key: setting.key, provider: preset.displayName })
+        : sourceText(control);
+    const notes = [
+      ...(source ? [source] : []),
+      ...(setting.locked && setting.saved ? [t('serverSettings.overrides')] : []),
+      ...(setting.superAdminOnly && !superAdmin ? [t('serverSettings.superAdminOnly')] : []),
+    ];
+    return (
+      <Box
+        key={setting.key}
+        sx={{
+          display: 'flex',
+          flexWrap: 'wrap',
+          alignItems: 'center',
+          columnGap: 2,
+          rowGap: 1,
+          py: 1,
+          opacity: control.locked ? 0.7 : 1,
+        }}
+      >
+        <Box sx={{ flex: '1 1 10rem', minWidth: 0 }}>
+          <Tooltip title={setting.key} placement="top-start" enterTouchDelay={0}>
+            <Typography sx={{ display: 'inline-block' }}>{labelOf(setting)}</Typography>
+          </Tooltip>
+          {notes.length > 0 && (
+            <Typography variant="caption" color="text.secondary" component="div">
+              {notes.join(' · ')}
+            </Typography>
+          )}
+        </Box>
+        <SettingControl
+          setting={control}
+          value={fixed ?? shown(setting)}
+          onChange={(value) => change(setting, value)}
+          choiceLabel={setting.key === 'SMTP_PROVIDER' ? providerName : undefined}
+        />
+      </Box>
+    );
+  };
+
+  const groupView = (group: string) => {
+    const settings = view.settings.filter((setting) => setting.group === group);
+    const title = groupTitle(group);
+    if (group === 'environment' || group.startsWith('provider:')) {
+      return (
+        <Folded
+          key={group}
+          title={title}
+          {...(group === 'environment' ? { note: t('serverSettings.environmentHint') } : {})}
+        >
+          {settings.map(row)}
+        </Folded>
+      );
+    }
+    // The only group on its page, or the page's own: the list beside it already names it.
+    const named = titled || (groups.length > 1 && group !== 'general' && group !== 'sign-in');
+    return (
+      <Box component="section" key={group} aria-label={title}>
+        {named && (
+          <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 0.5 }}>
+            {title}
+          </Typography>
+        )}
+        {group === 'log-shipping'
+          ? LOG_SERVERS.map(([prefix, name]) => {
+              const own = settings.filter((setting) => setting.key.startsWith(prefix));
+              const inUse = own.some((setting) => setting.source !== 'default');
+              return (
+                <Folded
+                  key={prefix}
+                  title={t(name)}
+                  note={t(inUse ? 'serverSettings.logServerOn' : 'serverSettings.logServerOff')}
+                >
+                  {own.map(row)}
+                </Folded>
+              );
+            })
+          : settings.map(row)}
+        {group === 'email' && (
+          <MailTestPanel api={api} saveFirst={unsavedEmail.length > 0 ? saveEmail : undefined} />
+        )}
+        {group === 'telemetry' && (
+          <TelemetryPanel view={telemetry.data} api={api} onChange={telemetry.reload} />
+        )}
+      </Box>
+    );
+  };
+
   return (
-    <Box
-      sx={{ maxWidth: 720, display: 'grid', gridTemplateColumns: 'minmax(0, 1fr)', gap: 3, pb: 10 }}
-    >
+    <Box sx={{ maxWidth: 720, display: 'grid', gridTemplateColumns: 'minmax(0, 1fr)', gap: 3 }}>
       {view.problem && (
         <Alert severity="error" variant="outlined">
           {t('serverSettings.setAside', { problem: view.problem })}
         </Alert>
       )}
-      <TelemetryNotice view={telemetry.data} api={api} onSeen={telemetry.reload} />
+      {showsTelemetry && (
+        <TelemetryNotice view={telemetry.data} api={api} onSeen={telemetry.reload} />
+      )}
       {view.pendingRestart && (
         <Alert
           severity="info"
@@ -355,67 +549,7 @@ export function SettingsTab({ api }: { api: AdminApi }) {
           {restarting ? t('serverSettings.restarting') : t('serverSettings.pending')}
         </Alert>
       )}
-      {groups.map((group) => (
-        <Box component="section" key={group} aria-label={groupTitle(group)}>
-          <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 0.5 }}>
-            {groupTitle(group)}
-          </Typography>
-          {view.settings
-            .filter((setting) => setting.group === group)
-            .map((setting) => {
-              const fixed = presetValue(setting);
-              const suggested = preset?.suggests[setting.key];
-              const control =
-                fixed !== undefined
-                  ? { ...setting, locked: true }
-                  : suggested !== undefined
-                    ? { ...setting, default: suggested }
-                    : setting;
-              return (
-                <Box
-                  key={setting.key}
-                  sx={{
-                    display: 'flex',
-                    flexWrap: { xs: 'wrap', sm: 'nowrap' },
-                    alignItems: 'center',
-                    gap: { xs: 1, sm: 2 },
-                    px: 1,
-                    py: 1,
-                    opacity: control.locked ? 0.7 : 1,
-                  }}
-                >
-                  <Box sx={{ flexGrow: 1, minWidth: 0 }}>
-                    <Typography>{labelOf(setting)}</Typography>
-                    <Typography variant="caption" color="text.secondary" component="div">
-                      {fixed !== undefined && preset
-                        ? t('serverSettings.from.provider', {
-                            key: setting.key,
-                            provider: preset.displayName,
-                          })
-                        : sourceText(control)}
-                      {setting.locked && setting.saved && ` · ${t('serverSettings.overrides')}`}
-                      {setting.superAdminOnly &&
-                        !superAdmin &&
-                        ` · ${t('serverSettings.superAdminOnly')}`}
-                    </Typography>
-                  </Box>
-                  <SettingControl
-                    setting={control}
-                    value={fixed ?? shown(setting)}
-                    onChange={(value) => change(setting, value)}
-                    choiceLabel={setting.key === 'SMTP_PROVIDER' ? providerName : undefined}
-                  />
-                </Box>
-              );
-            })}
-          {group === 'email' && (
-            <MailTestPanel api={api} saveFirst={unsavedEmail.length > 0 ? saveEmail : undefined} />
-          )}
-          {group === 'telemetry' && (
-            <TelemetryPanel view={telemetry.data} api={api} onChange={telemetry.reload} />
-          )}
-        </Box>
-      ))}
+      {groups.map(groupView)}
       <ProblemAlert problem={problem} />
       {/* Kept in sight while something is unsaved: the page is long, and a change made at the top
           is easy to leave unsaved. */}

@@ -8,6 +8,8 @@ import { t } from '../i18n/i18n.ts';
 import { ConfirmDialog } from './AdminDialogs.tsx';
 import { LinkIdentityDialog } from './LinkIdentityDialog.tsx';
 import { MapDialog, MoveDialog } from './OidcDialogs.tsx';
+import { SETTINGS_ON } from './settingsGroups.ts';
+import { SettingsTab } from './SettingsTab.tsx';
 import { useLoaded } from './useAdmin.ts';
 
 /** How long a migration window opened here stays open. */
@@ -18,7 +20,7 @@ function Row({ title, detail, children }: { title: string; detail: string; child
     <Box
       role="listitem"
       aria-label={title}
-      sx={{ display: 'flex', alignItems: 'center', gap: 1, px: 1, py: 1, borderRadius: 2 }}
+      sx={{ display: 'flex', alignItems: 'center', gap: 1, mx: -1, px: 1, py: 1, borderRadius: 2 }}
     >
       <Box sx={{ flexGrow: 1, minWidth: 0 }}>
         <Typography noWrap>{title}</Typography>
@@ -102,6 +104,7 @@ export function SignInTab({ api }: { api: AdminApi }) {
           {notice}
         </Alert>
       )}
+      <SettingsTab api={api} only={SETTINGS_ON.signIn} />
       <Box component="section" aria-label={t('admin.signIn.providers')}>
         <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 0.5 }}>
           {t('admin.signIn.providers')}
@@ -152,9 +155,7 @@ export function SignInTab({ api }: { api: AdminApi }) {
             </Row>
           ))}
           {providers.data?.length === 0 && (
-            <Typography color="text.secondary" sx={{ px: 1 }}>
-              {t('admin.signIn.noProviders')}
-            </Typography>
+            <Typography color="text.secondary">{t('admin.signIn.noProviders')}</Typography>
           )}
         </Box>
       </Box>
@@ -175,7 +176,7 @@ export function SignInTab({ api }: { api: AdminApi }) {
                   key={account.id}
                   role="listitem"
                   aria-label={account.username}
-                  sx={{ px: 1, py: 0.75, borderRadius: 2 }}
+                  sx={{ mx: -1, px: 1, py: 0.75, borderRadius: 2 }}
                 >
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                     <Typography noWrap sx={{ flexGrow: 1, minWidth: 0 }}>
@@ -281,9 +282,7 @@ export function SignInTab({ api }: { api: AdminApi }) {
                 );
               })}
               {overview.data.mappings.length === 0 && (
-                <Typography color="text.secondary" sx={{ px: 1 }}>
-                  {t('admin.signIn.noMappings')}
-                </Typography>
+                <Typography color="text.secondary">{t('admin.signIn.noMappings')}</Typography>
               )}
             </Box>
             <Button size="small" sx={{ mt: 0.5 }} onClick={() => setMapping({})}>
@@ -323,9 +322,7 @@ export function SignInTab({ api }: { api: AdminApi }) {
             </Row>
           ))}
           {pending.data?.length === 0 && (
-            <Typography color="text.secondary" sx={{ px: 1 }}>
-              {t('admin.signIn.nobodyWaiting')}
-            </Typography>
+            <Typography color="text.secondary">{t('admin.signIn.nobodyWaiting')}</Typography>
           )}
         </Box>
       </Box>

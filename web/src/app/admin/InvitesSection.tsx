@@ -175,7 +175,7 @@ export function InvitesList({
   if (invites.length === 0) return null;
   return (
     <Box component="section" aria-label={t('admin.invites.title')} sx={{ mt: 3 }}>
-      <Typography variant="overline" color="text.secondary" sx={{ px: 1 }}>
+      <Typography variant="overline" color="text.secondary">
         {t('admin.invites.title')}
       </Typography>
       <Box role="list" aria-label={t('admin.invites.title')}>
@@ -190,6 +190,7 @@ export function InvitesList({
                 display: 'flex',
                 alignItems: 'center',
                 gap: 1.5,
+                mx: -1,
                 px: 1,
                 py: 1,
                 borderRadius: 2,

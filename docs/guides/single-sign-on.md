@@ -28,7 +28,7 @@ environment:
   OIDC_POCKET_DISPLAY_NAME: Pocket ID
 ```
 
-3. Restart. Or do all of it from **Admin > Settings** (or the first-start setup), which shows the
+3. Restart. Or do all of it from **Admin > Sign-in** (or the first-start setup), which shows the
    redirect URI to register.
 
 Every `OIDC_<NAME>_*` setting is in [all settings](../configuration/reference.md#per-provider-oidc_name_).
@@ -102,7 +102,7 @@ Linking, mapping and moving only change which account a provider account signs i
 and shares never move from one account to another; an account that lost its link keeps everything
 and can be deleted or handed over from **Admin > Users**.
 
-**Admin > Sign-in** (shown when at least one provider is set) lists every account with the provider
+Once a provider is set, **Admin > Sign-in** lists every account with the provider
 accounts that sign into it: the provider, the username it sent, and when it was last used. From
 there an admin maps a provider username to an account, moves a provider account to another
 account, or unlinks it. Every change goes into the event log.

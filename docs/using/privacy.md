@@ -26,14 +26,14 @@ from GitLab: a minute after it starts, then every 12 hours.
   memory, and shows the notice in the app when it is newer than the server or someone's Android
   app. People's browsers and phones only ever ask your server, never GitLab.
 - **Turning it off**: `UPDATE_CHECK=false` in the environment or the settings file, or the
-  **Look for new releases** switch in **Admin > Settings > General**. It takes effect at once: the server
+  **Look for new releases** switch in **Admin > General**. It takes effect at once: the server
   makes no more requests, forgets what it found, and the app shows no notice. Watch for releases
   another way then (the GitLab release feed, Diun, Renovate).
 
 ## What the usage report holds
 
 Everything in it is a range or a switch. An admin can see the report exactly as it would go in
-**Admin > Settings > Telemetry > See what's sent**.
+**Admin > General > Telemetry > See what's sent**.
 
 | Part    | Fields                                                                                                                                                               |
 | ------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -86,7 +86,7 @@ email and long id taken out, on your device and again on the server. It goes thr
 which adds its random install id; if the project's collector cannot be reached, the server keeps
 the report and tries again within the hour.
 
-The server's own unhandled errors are kept for its admins in **Admin > Settings > Telemetry**,
+The server's own unhandled errors are kept for its admins in **Admin > General > Telemetry**,
 with the last 50 warnings of its log (redacted as every log line is), and go to the project only
 when an admin sends one. [`CRASH_REPORTS=false`](../configuration/reference.md#crash_reports)
 turns crash reports off for everyone: nothing is offered, kept or sent.
@@ -102,7 +102,7 @@ address it was worked out from never reaches the collector.
 ## Turning it off
 
 - For the whole server: `TELEMETRY=false`, or `DO_NOT_TRACK=1`, or the switch in **Admin >
-  Settings > Telemetry**. Nothing is sent from then on, and the apps stop counting.
+  General > Telemetry**. Nothing is sent from then on, and the apps stop counting.
 - For yourself: **Settings > Your data > Usage stats**. Your devices stop counting and your counts are left
   out of the server's report.
 - The report goes to [`TELEMETRY_URL`](../configuration/reference.md#telemetry_url); point it at

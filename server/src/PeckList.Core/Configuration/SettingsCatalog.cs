@@ -30,7 +30,7 @@ public static class SettingsCatalog
     public static readonly IReadOnlyList<SettingDefinition> Fixed =
     [
         new("PUBLIC_URL", "general", SettingKind.Url),
-        new("REGISTRATION", "general", SettingKind.Choice, "invite", ["open", "invite", "closed"], Live: true),
+        new("REGISTRATION", "sign-in", SettingKind.Choice, "invite", ["open", "invite", "closed"], Live: true),
         new("ACCOUNT_DELETE_GRACE_DAYS", "general", SettingKind.Number, "7", Live: true),
         new("ATTACHMENT_MAX_MB", "general", SettingKind.Number, "25", Live: true),
         new("ATTACHMENT_DAILY_MB", "general", SettingKind.Number, "1024", Live: true),
