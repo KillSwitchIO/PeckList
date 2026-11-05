@@ -7,6 +7,7 @@
   "prConcurrentLimit": 6,
   "prHourlyLimit": 3,
   "platformAutomerge": true,
+  "rebaseWhen": "behind-base-branch",
   "lockFileMaintenance": {
     "enabled": true,
     "automerge": true,
@@ -92,6 +93,12 @@
       "description": "The Android build's Gradle plugins and SDK levels: by hand (they track Capacitor's template)",
       "matchManagers": ["gradle", "gradle-wrapper"],
       "automerge": false
+    },
+    {
+      "description": "Every patch and minor in one merge request a week: merges must be up to date, so six at once would each wait for and rerun after the others. Last, so it wins over the groups above; majors keep those groups",
+      "matchUpdateTypes": ["minor", "patch", "pin", "digest"],
+      "matchManagers": ["npm", "nuget"],
+      "groupName": "all non-major dependencies"
     }
   ]
 }
