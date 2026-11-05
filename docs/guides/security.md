@@ -12,6 +12,10 @@
   an existing account by username alone. With `LOCAL_LOGIN=disabled` no password works at all.
 - **Sign-in settings** (`OIDC_*`, `LOCAL_LOGIN`, `REGISTRATION`, `TRUSTED_PROXIES`, `PUBLIC_URL`) and
   whole-server backups are for super admins only, so an admin cannot widen their own access.
+- **Synced data is checked**, not just stored: each record a device sends must match the
+  [workspace format](../schema.md) (the same check the apps make) and stay under 256 KB. One that
+  does not is set aside on its own; the rest of the sync goes through. The server also decides
+  who wrote a record and who it may be shared with, whatever a device claims.
 - **Browser protections** come with every answer: a strict Content-Security-Policy (only your
   server's own scripts run), HSTS on HTTPS, no framing by other sites, no content-type guessing and
   a same-origin referrer policy. See [security headers](../install/reverse-proxy.md#security-headers).
