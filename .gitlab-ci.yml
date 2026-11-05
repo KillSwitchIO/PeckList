@@ -2,15 +2,18 @@
 #
 #   merge requests   check, test (web, server, e2e), image build (amd64, not pushed), docs build,
 #                    then approval: red until APPROVERS approve the merge request
-#   main             the same, then the :edge image for both architectures, two devices syncing
-#                    through it (e2e-server), the test server updated to it (deploy-test), the docs
-#                    site (GitLab Pages) and the wiki mirror of the docs (wiki)
+#   main             no test suites: a merge must be up to date, so its tree is the tree its merge
+#                    request passed, and verify-tested checks that. Then the :edge image for both
+#                    architectures, two devices syncing through it (e2e-server), the test server
+#                    updated to it (deploy-test), the docs site (GitLab Pages) and the wiki mirror
+#                    of the docs (wiki). FULL_CHECK=true on a run from the UI runs the suites too
 #   by hand          android-apk: the Android app's debug APK (merge requests, main);
 #                    android-release, web-build, packages (main)
 #   tags v1.2.3+...  no re-testing (the tag goes on a green main commit, which release:tag checks):
 #                    release images (:1.2.3, :1.2, :latest), native downloads, the signed APK, and
 #                    the GitLab release with notes from CHANGELOG.md
-#   schedule         weekly: the CI images rebuilt, dependency and image audits
+#   schedule         weekly: every test suite on main, the CI images rebuilt, dependency and image
+#                    audits
 #
 # Jobs run on the runner tagged RUNNER_TAG (a self-hosted Docker runner with the host's Docker
 # socket, for image builds and the PostgreSQL tests). To use GitLab's shared runners instead, set the
@@ -77,6 +80,12 @@ default:
 # A tag re-tests nothing: it was made on a main commit whose pipeline passed (release:tag checks).
 .not-on-tag: &not-on-tag
   if: $CI_COMMIT_TAG
+  when: never
+
+# Main does not test the same tree again (verify-tested). The weekly run still does, the safety net
+# for a base image that moved or a test that depends on the date.
+.not-on-main: &not-on-main
+  if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $FULL_CHECK != "true" && $CI_PIPELINE_SOURCE != "schedule"
   when: never
 
 .not-on-schedule: &not-on-schedule
@@ -156,17 +165,24 @@ lint:
     - pnpm test:scripts
   rules:
     - *not-on-tag
-    - *not-on-schedule
+    - *not-on-main
     - when: on_success
 
-# Whether main's tree is the tree a merge request's pipeline passed (scripts/verify-tested.mjs).
-# Only reports for now: nothing depends on it until merges have to be up to date.
+# Whether main's tree is the tree a merge request's pipeline passed (scripts/verify-tested.mjs): what
+# lets main skip the test suites, so nothing is built when it fails. To recover, run a pipeline on
+# main from the UI with FULL_CHECK=true.
 verify-tested:
   image: $NODE_IMAGE
   stage: check
   needs: []
-  timeout: 5m
-  allow_failure: true
+  timeout: 15m
+  # A busy runner can spend minutes just on the clone. That is no verdict, and nothing builds until
+  # this has one.
+  retry:
+    max: 2
+    when: [job_execution_timeout, runner_system_failure, api_failure]
+  variables:
+    GIT_DEPTH: 1
   script:
     - node scripts/verify-tested.mjs
   rules:
@@ -178,7 +194,7 @@ web-test:
   extends: .node
   stage: test
   needs: []
-  timeout: 20m
+  timeout: 30m
   # One suite at a time across pipelines: every pipeline shares the one runner, and two or three
   # suites at once (Renovate opens its MRs together) time the jsdom UI tests out.
   resource_group: web-test
@@ -202,14 +218,14 @@ web-test:
         path: web/coverage/cobertura-coverage.xml
   rules:
     - *not-on-tag
-    - *not-on-schedule
+    - *not-on-main
     - when: on_success
 
 server-test:
   image: $DOTNET_IMAGE
   stage: test
   needs: []
-  timeout: 20m
+  timeout: 30m
   # One suite at a time across pipelines, like web-test: two at once slow each other and fail on load.
   resource_group: server-test
   cache:
@@ -230,7 +246,7 @@ server-test:
     - dotnet test --configuration Release
   rules:
     - *not-on-tag
-    - *not-on-schedule
+    - *not-on-main
     - when: on_success
 
 e2e:
@@ -240,7 +256,7 @@ e2e:
   needs:
     - job: ci-images
       optional: true
-  timeout: 20m
+  timeout: 30m
   # One suite at a time across pipelines, like web-test.
   resource_group: e2e
   retry:
@@ -256,6 +272,7 @@ e2e:
     paths: [e2e/preview.log, e2e/screenshots]
     expire_in: 7 days
   rules:
+    - *not-on-main
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
     - *on-main
     - if: $CI_PIPELINE_SOURCE == "web"
@@ -285,6 +302,8 @@ container-image:
   image: $DOCKER_IMAGE
   stage: build
   needs:
+    - job: verify-tested
+      optional: true
     - job: lint
       optional: true
     - job: web-test

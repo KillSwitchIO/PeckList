@@ -7,13 +7,23 @@ The pipeline is in [`.gitlab-ci.yml`](https://gitlab.com/killswitch10/pecklist/-
 | Pipeline              | Jobs                                                                                                                                                                                                                                                                                                                                              |
 | --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Merge request         | `lint` (lint, format and typecheck at once, then versions, docs coverage, script tests), `web-test`, `server-test`, `e2e`, `docs`, `container-image` (amd64 only, built, not pushed). `ci-images` first when a tool image's inputs changed. `approval` last ([approval](#approval)).                                                                                                      |
-| `main`                | The same, then the `:edge` and `:sha-<commit>` images for amd64 and arm64 (version `<next patch>-edge.<commit>`, [releasing](releasing.md#versions)), two devices syncing through that image (`e2e-server`), the test server updated to it (`deploy-test`), the docs site (`pages`) and the docs in the wiki (`wiki`). By hand: `web-build`, `packages`, `android-release`, `android-apk`. |
+| `main` | No test suites: a merge must be up to date, so its tree is the tree its merge request passed, and `verify-tested` checks that before anything is built. Then the `:edge` and `:sha-<commit>` images for amd64 and arm64 (version `<next patch>-edge.<commit>`, [releasing](releasing.md#versions)), two devices syncing through that image (`e2e-server`), the test server updated to it (`deploy-test`), the docs site (`pages`) and the docs in the wiki (`wiki`). By hand: `web-build`, `packages`, `android-release`, `android-apk`. |
 | Tag `vX.Y.Z+YYYYMMDD` | No checks or tests (the tag goes on a main commit whose pipeline passed; `pnpm release:tag` refuses otherwise): release images (`:X.Y.Z`, `:X.Y`, `:latest`), native downloads, the signed APK, and the GitLab release (`release`).                                                                                                          |
-| Weekly schedule       | `ci-images` rebuilt on current base images, `audit-web` (`pnpm audit`), `audit-server` (vulnerable NuGet packages), `audit-image` (Trivy on `:edge`).                                                                                                                                                                                              |
+| Weekly schedule       | Every test suite on `main`, `ci-images` rebuilt on current base images, `audit-web` (`pnpm audit`), `audit-server` (vulnerable NuGet packages), `audit-image` (Trivy on `:edge`).                                                                                                                                                                                              |
 | Run pipeline (web UI) | Like a merge request, on any branch. `CI_IMAGES_BUILD=true` rebuilds the tool images too.                                                                                                                                                                                                                                                         |
 
 Pushes to other branches do not start a pipeline; open a merge request. A newer push to a branch
 cancels the pipeline still running for the old one.
+
+## Merging
+
+Merge requests must be up to date with `main` (merge commits with semi-linear history). When
+`main` moves, rebase and the pipeline runs again, so what merges is exactly what passed. Do not turn
+on automatic rebase before merge: it merges a tree nothing tested.
+
+`verify-tested` checks this on every merge. If it ever fails, for example after a push straight to
+`main`, nothing is built. Run a pipeline on `main` from the UI with `FULL_CHECK=true`, which runs
+every test suite in that pipeline.
 
 ## Approval
 
