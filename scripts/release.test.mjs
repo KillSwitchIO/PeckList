@@ -99,6 +99,41 @@ test('a hash of digits only gets a letter, so the build is still a version', () 
   }
 });
 
+test('the release commit on main builds exactly its version, because the tag names that image', () => {
+  const merge =
+    "Merge branch 'release/0.8.0' into 'main'\n\nchore(release): 0.8.0\n\nSee merge request x!1";
+  const on = {
+    CI_COMMIT_BRANCH: 'main',
+    CI_DEFAULT_BRANCH: 'main',
+    CI_COMMIT_SHORT_SHA: 'abc12345',
+  };
+  assert.equal(buildVersion('0.8.0', { ...on, CI_COMMIT_MESSAGE: merge }), '0.8.0');
+  assert.equal(
+    buildVersion('0.8.0-rc.1', {
+      ...on,
+      CI_COMMIT_MESSAGE: 'chore(release): 0.8.0-rc.1',
+    }),
+    '0.8.0-rc.1',
+  );
+  // The next commit on main, the same message on a branch, or a passing mention stay as they were.
+  assert.equal(
+    buildVersion('0.8.0', { ...on, CI_COMMIT_MESSAGE: 'fix: y' }),
+    '0.8.1-edge.abc12345',
+  );
+  assert.equal(
+    buildVersion('0.8.0', { ...on, CI_COMMIT_BRANCH: 'release/0.8.0', CI_COMMIT_MESSAGE: merge }),
+    '0.8.1-dev.abc12345',
+  );
+  assert.equal(
+    buildVersion('0.8.0', { ...on, CI_COMMIT_MESSAGE: 'fix: after chore(release): 0.8.0' }),
+    '0.8.1-edge.abc12345',
+  );
+  assert.equal(
+    buildVersion('0.9.0', { ...on, CI_COMMIT_MESSAGE: 'chore(release): 0.8.0' }),
+    '0.9.1-edge.abc12345',
+  );
+});
+
 test('a release tag builds exactly its version', () => {
   assert.equal(buildVersion('0.2.0', { CI_COMMIT_TAG: 'v0.2.0+20261025' }), '0.2.0');
   assert.equal(buildVersion('0.3.0-rc.1', { CI_COMMIT_TAG: 'v0.3.0-rc.1+20261101' }), '0.3.0-rc.1');

@@ -57,6 +57,16 @@ export function nextVersion(current, messages) {
   return `${major}.${minor}.${patch + 1}`;
 }
 
+/**
+ * The version the next release takes. A version prepared but never released (its build failed on the
+ * test server, so nobody cut it) is prepared again rather than skipped over; a pre-release moves on
+ * to its release.
+ */
+export function plannedVersion(current, messages, currentReleased) {
+  if (!currentReleased && !current.includes('-')) return current;
+  return nextVersion(current, messages);
+}
+
 /** Each place with the version it holds. */
 export function readVersions() {
   return places.map(({ file, pattern }) => {

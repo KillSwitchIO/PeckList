@@ -1,0 +1,45 @@
+# The GitHub repository is a one-way mirror of GitLab (CONTRIBUTING.md), and the mirror carries tags
+# but not release pages. When a release tag arrives, this makes the matching page here from GitLab's
+# public API: its notes, and links to the files on GitLab. No secret is stored anywhere for this.
+name: Release page
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+
+jobs:
+  page:
+    if: github.repository == 'KillSwitchIO/PeckList'
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Make the release page from GitLab's
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPOSITORY: ${{ github.repository }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          set -eu
+          encoded=$(jq -rn --arg tag "$TAG" '$tag | @uri')
+          url="https://gitlab.com/api/v4/projects/killswitch10%2Fpecklist/releases/$encoded"
+          # The tag can arrive here before GitLab has finished the release.
+          for attempt in $(seq 1 40); do
+            if curl -fsS "$url" -o release.json; then break; fi
+            if [ "$attempt" = 40 ]; then echo "GitLab has no release for $TAG."; exit 1; fi
+            sleep 30
+          done
+          jq -r '
+            .description + "\n\n## Downloads\n\n"
+            + ([.assets.links[] | select(.name != "image-digest") | "- [\(.name)](\(.direct_asset_url // .url))"] | join("\n"))
+            + "\n\nThe files live on [GitLab](\(._links.self)), where this project is developed."
+          ' release.json > notes.md
+          name=$(jq -r .name release.json)
+          case "$TAG" in *-*) pre=--prerelease ;; *) pre= ;; esac
+          if gh release view "$TAG" --repo "$REPOSITORY" > /dev/null 2>&1; then
+            gh release edit "$TAG" --repo "$REPOSITORY" --title "$name" --notes-file notes.md $pre
+          else
+            gh release create "$TAG" --repo "$REPOSITORY" --title "$name" --notes-file notes.md --verify-tag $pre
+          fi

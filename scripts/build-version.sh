@@ -2,6 +2,8 @@
 # The version a build carries (POSIX sh: the CI jobs run it in the Docker and .NET images, which
 # have no Node). From GitLab's variables, or the same names set by hand:
 #   a release tag (CI_COMMIT_TAG=v0.2.0+20261025)   0.2.0, exactly the tag
+#   the release commit on main (chore(release): 0.2.0) 0.2.0, exactly: this build is the release, and
+#                                                      the tag cut later only names its image
 #   the default branch (main), between releases       0.2.1-edge.<sha>: the next patch, so it sorts
 #                                                      after the release it follows, before the next
 #   any other branch or merge request                 0.2.1-dev.<sha>
@@ -21,6 +23,11 @@ fi
 props=${VERSION_PROPS:-$(dirname "$0")/../server/Directory.Build.props}
 current=$(sed -n 's:.*<Version>\(.*\)</Version>.*:\1:p' "$props")
 [ -n "$current" ] || { echo "no <Version> in $props" >&2; exit 1; }
+if [ "${CI_COMMIT_BRANCH:-}" = "${CI_DEFAULT_BRANCH:-main}" ] \
+  && printf '%s\n' "${CI_COMMIT_MESSAGE:-}" | grep -qxF "chore(release): $current"; then
+  echo "$current"
+  exit 0
+fi
 sha=${CI_COMMIT_SHORT_SHA:?CI_COMMIT_SHORT_SHA is not set}
 # A hash of digits only is a numeric SemVer identifier, which may not start with 0
 # (`0.4.1-edge.03262935` is no version, and .NET refuses it): give it a letter, as git describe
