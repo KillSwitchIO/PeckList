@@ -74,7 +74,7 @@ If the provider cannot be reached, PeckList still signs out and only its own ses
 
 ## Linking accounts
 
-People link a provider to their existing account under **Settings > Sign-in**, and unlink it as
+People link a provider to their existing account under **Settings > Account > Sign-in**, and unlink it as
 long as another way to sign in remains. An admin can link one by hand (**Admin > Users > Link a
 provider account**, with the provider and the account's `sub`), or join a waiting sign-in to an
 existing person (**Admin > Sign-in > Link to an account**).

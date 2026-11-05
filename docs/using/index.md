@@ -87,7 +87,7 @@ their start; the due date is the deadline.
   the title on its own line, with the list and tags under it and the date at the right.
 - **Reminders**: in a task's details, **Reminders** opens a list like TickTick's: tick any of
   **On time**, 5 or 30 minutes, an hour or a day early (an all-day task: **On the day**, 1, 2 or 3
-  days or a week early, each at 9:00 or the time set in **Settings > New tasks > All-day reminder
+  days or a week early, each at 9:00 or the time set in **Settings > Date and time > All-day reminder
   time**), or **None**. **Custom** makes your own: the **Day** or **Week** tab picks how many days
   or weeks early and the wheels the time of day (60 days early at 4:00 PM, say); a timed task also
   has **Minute** and **Hour** tabs for minutes or hours early. It shows when the reminder will come, or that the time has passed. **Constant reminder** keeps a reminder
@@ -101,7 +101,7 @@ their start; the due date is the deadline.
   They appear while PeckList is open or in the background (offline too), and with a server and
   **Settings > Notifications > Notify me when PeckList is closed** turned on for the device, also
   with PeckList closed (on iPhone and iPad, from PeckList added to the Home Screen). A click
-  opens the task. A small bell on the row shows a task has reminders. **Settings > New tasks >
+  opens the task. A small bell on the row shows a task has reminders. **Settings > Tasks > New tasks >
   Reminder** opens the same list a new task shows (the all-day one at the all-day reminder time,
   or the timed one when new tasks start with a time) to give every new task reminders once it has
   a date.
@@ -156,7 +156,7 @@ their start; the due date is the deadline.
   lets go of the pin.
 - **Swipe** (phones and tablets, like TickTick): swipe a task right to complete it (or reopen a
   closed one); a short swipe left shows **Date**, **Move** and **Delete**, and a full one opens
-  the task's date. **Settings > Swipe actions** shows each side on a sample task and changes its
+  the task's date. **Settings > Tasks > Swipe actions** shows each side on a sample task and changes its
   buttons (up to three: Complete, Date, Move, Pin, Won't do or Delete; move them left
   or right, take one away, add another) and what a full swipe does, or turns the full swipe off;
   it is kept per device. Each change can be undone. Swiping up and down still scrolls. Holding a
@@ -260,7 +260,7 @@ provider when you signed in through one) opens a menu with **Notifications**,
 **Settings**, **Admin** (admins only), **Stats** (your own numbers, as the server counts them),
 **Friends and groups**, **Keyboard shortcuts**, **Change password** and **Log out**.
 
-**Settings > Profile** holds your photo: choose a picture, then drag it (or use the arrow keys) and pinch, scroll or use
+**Settings > Account > Profile** holds your photo: choose a picture, then drag it (or use the arrow keys) and pinch, scroll or use
 the slider to zoom until it sits in the circle, and **Save**. It is kept small on your profile, so
 friends and people you share with see it too. **Remove photo** goes back to your initials.
 Signed in through an identity provider with no photo of your own (never set, or removed): at
@@ -283,13 +283,13 @@ end that shows what you typed.
 **Forgot your password?** shows under the sign-in form when the server sends email
 ([email](../guides/email.md)). Type your username or email and a link to set a new one arrives,
 working once for 30 minutes; setting it signs you in and ends your other sessions. The link only
-goes to a **confirmed** email: add yours under **Settings > Email**, then open the link it sends.
+goes to a **confirmed** email: add yours under **Settings > Account > Email**, then open the link it sends.
 An account from an identity provider that marks its email as verified (Google and most
 others do) has it confirmed already.
 
 **Notifications** lists reminders, @mentions, comments, tasks someone assigned you or a group
 you are in, dibs called on a group's task, and lists someone shared with you, newest first; a red
-dot on your picture means some are new. **Settings > Tell me about** picks which of those kinds
+dot on your picture means some are new. **Settings > Notifications > Tell me about** picks which of those kinds
 reach you as a notification on any of your devices (reminders; assignments and dibs; shared lists;
 comments and mentions) and whether they vibrate; the page lists everything either way. The Android
 app also lists the same kinds under the phone's own notification settings for PeckList, where each
@@ -315,15 +315,23 @@ after the rest. `"quotes"` keep a phrase together, `-word` leaves out tasks with
 
 ## Settings
 
-**Settings** (the profile menu, or <kbd>G</kbd> <kbd>S</kbd>): appearance (light, dark or system theme, and
-colors), dates (your time zone, how dates show, 12 or 24-hour clock, the first day of the week,
-when a due date counts as soon, how long a task with only a start time shows on the calendar), sign-in methods and
-linked accounts, **Lists and tags**, and **Your data** ([download or import a copy](apps-and-sync.md#your-data-as-a-file), or
-[move from or to another app](apps-and-sync.md#moving-from-or-to-another-app): TickTick, Todoist, Google Tasks,
-Microsoft To Do, iCalendar and Things).
+**Settings** (the profile menu, or <kbd>G</kbd> <kbd>S</kbd>) goes by subject. On a wide screen the
+subjects stand in a list beside the one that is open; on a phone each opens as a page of its own.
+
+- **Account** (with a server): your photo, email, sign-in methods and linked accounts, passkeys and
+  API keys; in the Android app, the server too.
+- **Appearance**: light, dark or system theme, and colors.
+- **Date and time**: your time zone, how dates show, 12 or 24-hour clock, the first day of the week,
+  when a due date counts as soon, how long a task with only a start time shows on the calendar, and
+  when all-day reminders come.
+- **Tasks**: **Lists and tags**, the Closed group, what a new task starts with, and swipe actions.
+- **Notifications** (with a server): which kinds reach you, and this device.
+- **Your data**: [download or import a copy](apps-and-sync.md#your-data-as-a-file),
+  [move from or to another app](apps-and-sync.md#moving-from-or-to-another-app) (TickTick, Todoist,
+  Google Tasks, Microsoft To Do, iCalendar and Things), your usage stats choice, and start over.
 
 **Passkeys** (on a server with accounts, on an HTTPS address) sign you in with your fingerprint,
-face or screen lock instead of a password. **Add a passkey** under **Settings > Passkeys**: your
+face or screen lock instead of a password. **Add a passkey** under **Settings > Account > Passkeys**: your
 phone, computer or password manager keeps it, synced to your other devices when it is iCloud
 Keychain, Google Password Manager, 1Password, Bitwarden and the like. Then **Sign in with a
 passkey** on the sign-in page needs no username (the browser may also offer it right in the
@@ -371,5 +379,5 @@ zone (`TZ`), or your device's without a server; pick another one if you live som
 **New tasks**: what a new task starts with: a list (for tasks added outside a list), a priority, a
 date (none, today, tomorrow or in a week) with an optional time, reminders, the time all-day
 reminders come at, and on a server whether tasks you add to shared lists start assigned to you.
-Times are shown on your clock (Settings > Clock) and set with the same wheels as a task's date. Where you add a task still wins: in a list it goes to
+Times are shown on your clock (Settings > Date and time > Clock) and set with the same wheels as a task's date. Where you add a task still wins: in a list it goes to
 that list, in Today or on a day it gets that date, and what you type in quick add wins over both.

@@ -12,7 +12,7 @@ beforeEach(() => {
   mockViewport('desktop');
 });
 
-async function settingsAs(backend: FakeBackend, username: string, path = '/settings') {
+async function settingsAs(backend: FakeBackend, username: string, path = '/settings/account') {
   const store = testStore();
   const transport = backend.device();
   transport.session = username;

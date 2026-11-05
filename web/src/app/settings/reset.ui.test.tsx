@@ -15,7 +15,7 @@ beforeEach(() => {
 
 async function withSome() {
   const store = testStore();
-  await renderApp('/settings', store);
+  await renderApp('/settings/data', store);
   store.getState().apply((ctx, ws) => {
     const garden = createList(ctx, ws, { name: 'Garden', color: '#336699' });
     let next = createTask(ctx, garden.workspace, {

@@ -26,7 +26,7 @@ async function signedIn(backend: FakeBackend) {
     debounceMs: 60_000,
     intervalMs: 600_000,
   });
-  return renderApp('/settings', store, sync);
+  return renderApp('/settings/account', store, sync);
 }
 
 describe('API keys (R-FB-157)', () => {

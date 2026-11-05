@@ -284,7 +284,7 @@ function ManageLists() {
   const tags = tagTree(workspace);
 
   return (
-    <Page title={t('manage.title')}>
+    <Page title={t('manage.title')} backTo="/settings/tasks">
       <Stack spacing={4}>
         <Section
           title={t('nav.lists')}

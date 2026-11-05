@@ -204,13 +204,13 @@ describe('android: connecting to a server', () => {
 
 describe('android: settings > server', () => {
   it('is not there in a browser', async () => {
-    await renderApp('/settings');
+    await renderApp('/settings/account');
     expect(screen.queryByRole('region', { name: 'Server' })).toBeNull();
   });
 
   it('offers to connect when standalone', async () => {
     setNativeShell(new FakeShell());
-    await renderApp('/settings');
+    await renderApp('/settings/account');
     const section = await screen.findByRole('region', { name: 'Server' });
     expect(within(section).getByText('This device only')).toBeInTheDocument();
     await userEvent.click(within(section).getByRole('button', { name: 'Connect' }));
@@ -220,7 +220,7 @@ describe('android: settings > server', () => {
   it('shows the server and disconnects only after asking', async () => {
     const shell = new FakeShell('https://tasks.example.com');
     setNativeShell(shell);
-    await renderApp('/settings');
+    await renderApp('/settings/account');
     const section = await screen.findByRole('region', { name: 'Server' });
     expect(within(section).getByText('https://tasks.example.com')).toBeInTheDocument();
     await userEvent.click(within(section).getByRole('button', { name: 'Disconnect' }));

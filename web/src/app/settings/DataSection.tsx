@@ -1,11 +1,11 @@
-import { Alert, Box, Button } from '@mui/material';
+import { Alert, Button } from '@mui/material';
 import { useRef, useState } from 'react';
 import { parseJson } from '../../core/io.ts';
 import { serializeWorkspace } from '../../core/workspace.ts';
 import { t } from '../i18n/i18n.ts';
 import { useWorkspaceStore } from '../store/hooks.ts';
 import { ExportDialog, ImportDialog } from './InterchangeDialogs.tsx';
-import { Section } from './settingsLayout.tsx';
+import { Section, SettingRow } from './settingsLayout.tsx';
 
 /** `pecklist-2026-10-23.json`, by this device's date. */
 function fileName(now = new Date()): string {
@@ -64,13 +64,19 @@ export function DataSection() {
   };
 
   return (
-    <Section title={t('settings.data')} hint={t('settings.data.hint')}>
-      <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-        <Button variant="outlined" onClick={download}>
-          {t('settings.data.download')}
+    <Section title={t('settings.data')} plain>
+      <SettingRow label={t('settings.data.download')} hint={t('settings.data.downloadHint')}>
+        <Button variant="outlined" aria-label={t('settings.data.download')} onClick={download}>
+          {t('settings.data.downloadAction')}
         </Button>
-        <Button variant="outlined" onClick={() => input.current?.click()}>
-          {t('settings.data.import')}
+      </SettingRow>
+      <SettingRow label={t('settings.data.import')} hint={t('settings.data.importHint')}>
+        <Button
+          variant="outlined"
+          aria-label={t('settings.data.import')}
+          onClick={() => input.current?.click()}
+        >
+          {t('settings.data.importAction')}
         </Button>
         <input
           ref={input}
@@ -84,15 +90,25 @@ export function DataSection() {
             if (file) void bringIn(file);
           }}
         />
-      </Box>
-      <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', mt: 1 }}>
-        <Button variant="outlined" onClick={() => setOpen('import')}>
-          {t('settings.data.fromApp')}
+      </SettingRow>
+      <SettingRow label={t('settings.data.fromApp')} hint={t('settings.data.fromAppHint')}>
+        <Button
+          variant="outlined"
+          aria-label={t('settings.data.fromApp')}
+          onClick={() => setOpen('import')}
+        >
+          {t('settings.data.importAction')}
         </Button>
-        <Button variant="outlined" onClick={() => setOpen('export')}>
-          {t('settings.data.forApp')}
+      </SettingRow>
+      <SettingRow label={t('settings.data.forApp')} hint={t('settings.data.forAppHint')}>
+        <Button
+          variant="outlined"
+          aria-label={t('settings.data.forApp')}
+          onClick={() => setOpen('export')}
+        >
+          {t('settings.data.exportAction')}
         </Button>
-      </Box>
+      </SettingRow>
       {open === 'import' && (
         <ImportDialog
           onClose={() => setOpen(null)}
@@ -104,7 +120,7 @@ export function DataSection() {
         <Alert
           severity={notice.ok ? 'success' : 'error'}
           variant="outlined"
-          sx={{ mt: 1.5 }}
+          sx={{ mt: 1 }}
           onClose={() => setNotice(null)}
         >
           {notice.text}

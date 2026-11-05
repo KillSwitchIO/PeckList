@@ -36,7 +36,7 @@ from the proxy. Set `PUBLIC_URL` to the `https://` address, and make sure the pr
 
 **No "Forgot your password?" link.** It shows only once the server can send email and knows its
 address: set up [email](email.md) and [`PUBLIC_URL`](../configuration/reference.md#public_url).
-Each person also needs a confirmed email (**Settings > Email**); without one, an admin sends them
+Each person also needs a confirmed email (**Settings > Account > Email**); without one, an admin sends them
 a sign-in link instead.
 
 **No "Sign in with a passkey", or no Passkeys in Settings.** Browsers use passkeys only on HTTPS

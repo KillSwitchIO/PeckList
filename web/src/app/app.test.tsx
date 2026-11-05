@@ -159,9 +159,9 @@ describe('app shell', () => {
 
   it('picks the theme in settings and remembers it, with no theme button in the top bar', async () => {
     mockViewport('desktop', true);
-    await renderApp('/settings');
+    await renderApp('/settings/appearance');
     expect(screen.queryByRole('button', { name: /switch theme/i })).not.toBeInTheDocument();
-    const theme = screen.getByRole('group', { name: 'Theme' });
+    const theme = await screen.findByRole('group', { name: 'Theme' });
     expect(within(theme).getByRole('button', { name: 'System' })).toHaveAttribute(
       'aria-pressed',
       'true',

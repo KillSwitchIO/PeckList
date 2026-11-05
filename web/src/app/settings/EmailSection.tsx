@@ -125,7 +125,7 @@ export function EmailSection() {
         <Box
           component="form"
           onSubmit={(event) => void save(event)}
-          sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, alignItems: 'center', px: 1, py: 1 }}
+          sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, alignItems: 'center', py: 1 }}
         >
           <TextField
             type="email"

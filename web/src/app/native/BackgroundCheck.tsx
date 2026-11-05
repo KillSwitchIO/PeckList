@@ -42,7 +42,7 @@ export function BackgroundCheckSettings({ shell }: { shell: NativeShell }) {
     void shell.setBackgroundCheck(patch).then(setState, () => undefined);
 
   return (
-    <Section title={t('notifications.settings')}>
+    <Section title={t('notifications.thisDevice')}>
       <SettingRow label={t('backgroundCheck.label')} hint={t('backgroundCheck.hint')}>
         <Switch
           checked={state.enabled}

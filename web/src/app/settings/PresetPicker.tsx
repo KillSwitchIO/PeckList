@@ -157,7 +157,7 @@ export function PresetPicker() {
           );
         })}
       </Box>
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, px: 1, mb: 1 }}>
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
         <Box sx={{ flexGrow: 1 }}>
           <Typography>{t('palette.recolorToggle')}</Typography>
           <Typography variant="caption" color="text.secondary">

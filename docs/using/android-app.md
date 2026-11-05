@@ -72,7 +72,7 @@ The app asks where your server is, or runs on the phone alone:
   whether to **Add them to my account** or **Leave them on the phone** (they stay there either
   way, for whenever you use the app without a server again).
 
-**Settings > Server** shows where the app is connected; **Change** or **Disconnect** moves it.
+**Settings > Account > Server** shows where the app is connected; **Change** or **Disconnect** moves it.
 Disconnecting leaves your tasks on the server. If a server will not let you in at all, long-press
 the PeckList icon on the home screen and pick **Change server**.
 
@@ -103,7 +103,7 @@ setting says (`OIDC_<NAME>_SESSION_HOURS`, 12 hours by default).
 
 **Passkeys** go the same way: **Sign in with a passkey** opens the server's sign-in page in a
 browser tab, where your phone (or your password manager) offers the passkey, and the tab hands you
-back to the app as above. **Add a passkey** under **Settings > Passkeys** opens a page in a browser
+back to the app as above. **Add a passkey** under **Settings > Account > Passkeys** opens a page in a browser
 tab that makes one for your account and comes back to the app; the tab needs no sign-in of its
 own.
 

@@ -51,7 +51,7 @@ describe('hiding the Closed group (R-FB-159)', () => {
 
   it('Settings shows it again', async () => {
     localStorage.setItem('pecklist.hideCompleted', 'true');
-    await renderApp('/settings', testStore());
+    await renderApp('/settings/tasks', testStore());
     const toggle = await screen.findByRole(
       'switch',
       { name: 'Show the Closed group' },

@@ -2,7 +2,7 @@ import { Button, MenuItem, Switch, TextField } from '@mui/material';
 import { useState } from 'react';
 import { visibleLists } from '../../core/lists.ts';
 import { newTaskDefaultsOf } from '../../core/newTaskDefaults.ts';
-import { ALL_DAY_REMINDER_TIME, allDayReminderTimeOf } from '../../core/reminders.ts';
+import { allDayReminderTimeOf } from '../../core/reminders.ts';
 import { TimeField } from '../dates/TimeField.tsx';
 import { formatTime } from '../format.ts';
 import { ReminderSheet } from '../reminders/ReminderProperty.tsx';
@@ -136,17 +136,6 @@ export function NewTaskSection() {
             setReminderAnchor(null);
           }}
           onClose={() => setReminderAnchor(null)}
-        />
-      </SettingRow>
-      <SettingRow label={t('newTask.allDayTime')} hint={t('newTask.allDayTimeHint')}>
-        <TimeField
-          label={t('newTask.allDayTime')}
-          value={allDayTime}
-          onChange={(time) =>
-            apply((ctx, ws) =>
-              updateSettings(ctx, ws, { allDayReminderTime: time ?? ALL_DAY_REMINDER_TIME }),
-            )
-          }
         />
       </SettingRow>
       {phase === 'ready' && authMode === 'local' && (
