@@ -324,8 +324,9 @@ example's `RESET_CRON`). **Default:** `1440`. **Where:** env.
 ### `TRUSTED_PROXIES`
 
 The proxies allowed to set `X-Forwarded-For` and `X-Forwarded-Proto`: addresses or CIDR ranges,
-comma separated. **Default:** loopback and the private ranges (10/8, 172.16/12, 192.168/16,
-fc00::/7). **Where:** any. See [reverse proxy](../install/reverse-proxy.md#trusted-proxies).
+comma separated. At most three forwarded hops are believed. **Default:** loopback, and in a
+container the networks it is on (before 0.8: every private range). **Where:** any. See
+[reverse proxy](../install/reverse-proxy.md#trusted-proxies).
 
 ### `ASPNETCORE_HTTP_PORTS`
 

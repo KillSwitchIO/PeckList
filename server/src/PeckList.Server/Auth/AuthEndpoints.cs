@@ -59,11 +59,13 @@ public static class AuthEndpoints
 
         auth.MapAppSignIn(settings);
 
-        auth.MapPost("/login", async (LoginRequest request, AccountService accounts, LiveSettings live, HttpContext context) =>
+        auth.MapPost("/login", async (LoginRequest request, AccountService accounts, LiveSettings live, LoginAttempts attempts, HttpContext context) =>
         {
             context.Audit().On(null, Typed(request.Username)).Anonymous = true;
             // LOCAL_LOGIN=disabled: no password is checked at all, so nothing can be guessed here.
             if (live.Current.LocalLoginDisabled) return LocalLoginDisabled(context);
+            // Ten tries a minute per account name too, whatever address they claim (audit S6).
+            if (!attempts.TryTake(request.Username)) return Results.StatusCode(StatusCodes.Status429TooManyRequests);
             switch (await accounts.LoginAsync(request.Username ?? "", request.Password ?? "", context.RequestAborted))
             {
                 case LoginResult.Success success:

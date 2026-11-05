@@ -134,11 +134,11 @@ public static partial class ServerApp
         builder.Services.Configure<ForwardedHeadersOptions>(options =>
         {
             options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
-            // Walk back through every trusted hop, not just the last one.
-            options.ForwardLimit = null;
+            // Walk back through trusted hops, a few at most (audit S6).
+            options.ForwardLimit = ProxyTrust.ForwardLimit;
             options.KnownIPNetworks.Clear();
             options.KnownProxies.Clear();
-            foreach (var network in ProxyTrust.Parse(settings.TrustedProxies))
+            foreach (var network in ProxyTrust.Parse(settings.TrustedProxies, loaded.InContainer))
             {
                 options.KnownIPNetworks.Add(network);
             }
@@ -148,6 +148,13 @@ public static partial class ServerApp
         if (loaded.PageProblem is { } problem)
         {
             app.Logger.LogError("Settings saved on the admin page were not used: {Problem}", problem);
+        }
+        if (string.IsNullOrWhiteSpace(settings.TrustedProxies))
+        {
+            app.Logger.LogWarning(
+                "TRUSTED_PROXIES is not set: X-Forwarded-For and X-Forwarded-Proto are believed from {Networks}. " +
+                "Behind a reverse proxy, set TRUSTED_PROXIES to its address so nothing else is believed.",
+                string.Join(", ", ProxyTrust.Default(loaded.InContainer)));
         }
         if (settings.OidcProviders.Count > 0 && settings.PublicUrl is null)
         {
