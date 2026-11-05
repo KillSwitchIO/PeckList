@@ -229,7 +229,7 @@ e2e:
     - pnpm e2e
   artifacts:
     when: on_failure
-    paths: [e2e/preview.log]
+    paths: [e2e/preview.log, e2e/screenshots]
     expire_in: 7 days
   rules:
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"

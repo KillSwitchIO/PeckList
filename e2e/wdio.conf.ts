@@ -4,7 +4,7 @@
 // otherwise `vite preview` is started for the run.
 import { browser } from '@wdio/globals';
 import { spawn, spawnSync, type ChildProcess } from 'node:child_process';
-import { closeSync, existsSync, openSync, readFileSync } from 'node:fs';
+import { closeSync, existsSync, mkdirSync, openSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -95,6 +95,31 @@ export const config: WebdriverIO.Config = {
   // Window-size flags differ per browser; set the desktop viewport explicitly instead.
   async before() {
     await browser.setWindowSize(1400, 900);
+    // A cold browser on a busy CI runner can take longer than waitforTimeout to start the app the
+    // first time (the bundle parsed and compiled, the service worker installed): the first test
+    // then found no page at all. Start it once here, with room to spare, so tests begin warm.
+    await browser.url('/');
+    await browser.waitUntil(async () => (await browser.getUrl()).includes('/today'), {
+      timeout: 90_000,
+      interval: 500,
+      timeoutMsg: 'the app did not start within 90 s',
+    });
+  },
+  // A failed test leaves what the browser showed: a screenshot, the page and its address (kept by
+  // CI as job artifacts).
+  async afterTest(test, _context, { passed }) {
+    if (passed) return;
+    const name = `${browser.capabilities.browserName}-${test.title}`.replace(/[^a-z0-9]+/gi, '-');
+    const folder = join(here, 'screenshots');
+    mkdirSync(folder, { recursive: true });
+    try {
+      await browser.saveScreenshot(join(folder, `${name}.png`));
+      const url = await browser.getUrl();
+      const page = await browser.getPageSource();
+      writeFileSync(join(folder, `${name}.html`), `<!-- ${url} -->\n${page}`);
+    } catch (error) {
+      console.warn(`No screenshot of "${test.title}": ${(error as Error).message}`);
+    }
   },
   async onPrepare() {
     if (process.env.E2E_BASE_URL) return;
