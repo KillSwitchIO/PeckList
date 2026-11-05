@@ -3,7 +3,7 @@
 import { isLive } from './collections.ts';
 import { datePart } from './dates.ts';
 import { members } from './ops.ts';
-import { compareOrderKeys } from './ordering.ts';
+import { compareByOrder, compareOrderKeys } from './ordering.ts';
 import type { Id, Priority, Task, WorkspaceFile } from './types.ts';
 
 /**
@@ -25,7 +25,7 @@ export function sortDate(task: Task): string | null {
   return null;
 }
 
-const byOrder = (a: Task, b: Task) => compareOrderKeys(a.order, b.order);
+const byOrder = compareByOrder;
 const byPriority = (a: Task, b: Task) => b.priority - a.priority;
 const byDate = (a: Task, b: Task) => {
   const left = sortDate(a) ?? '9999-99-99';

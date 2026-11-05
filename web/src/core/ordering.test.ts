@@ -1,6 +1,12 @@
 import fc from 'fast-check';
 import { describe, expect, it } from 'vitest';
-import { compareOrderKeys, isOrderKey, keyBetween, keysBetween } from './ordering.ts';
+import {
+  compareByOrder,
+  compareOrderKeys,
+  isOrderKey,
+  keyBetween,
+  keysBetween,
+} from './ordering.ts';
 
 describe('keyBetween', () => {
   it('creates a first key', () => {
@@ -45,6 +51,59 @@ describe('keyBetween', () => {
     );
   });
 
+  it('stays short however many are added to the end or the start of a list', () => {
+    let last = keyBetween(null, null);
+    let first = last;
+    for (let i = 0; i < 20_000; i += 1) {
+      const nextLast = keyBetween(last, null);
+      expect(nextLast > last).toBe(true);
+      last = nextLast;
+      const nextFirst = keyBetween(null, first);
+      expect(nextFirst < first).toBe(true);
+      first = nextFirst;
+    }
+    expect(last.length).toBeLessThanOrEqual(5);
+    expect(first.length).toBeLessThanOrEqual(5);
+    expect(isOrderKey(last) && isOrderKey(first)).toBe(true);
+  });
+
+  it('stops a long key from an older version growing further', () => {
+    const old = `${'z'.repeat(528)}l`;
+    let key = old;
+    for (let i = 0; i < 5_000; i += 1) key = keyBetween(key, null);
+    expect(key > old).toBe(true);
+    expect(key.length).toBeLessThanOrEqual(old.length + 3);
+  });
+
+  it('finds a key past the top and below the bottom of the alphabet', () => {
+    expect(keyBetween('zzz', null) > 'zzz').toBe(true);
+    expect(isOrderKey(keyBetween('zzz', null))).toBe(true);
+    for (const key of ['1', '01', '0001', '10', '0zz1'].filter(isOrderKey)) {
+      const below = keyBetween(null, key);
+      expect(below < key).toBe(true);
+      expect(isOrderKey(below)).toBe(true);
+    }
+  });
+
+  it('always goes past either open end of any key (property)', () => {
+    const keyArb = fc.stringMatching(/^[0-9A-Za-z]{0,6}[1-9A-Za-z]$/);
+    fc.assert(
+      fc.property(keyArb, (key) => {
+        const above = keyBetween(key, null);
+        const below = keyBetween(null, key);
+        return above > key && below < key && isOrderKey(above) && isOrderKey(below);
+      }),
+    );
+  });
+
+  it('settles a shared key by id, the same on every device', () => {
+    const a = { order: 'V', id: '01A' };
+    const b = { order: 'V', id: '01B' };
+    const earlier = { order: 'U', id: '01Z' };
+    expect([b, a, earlier].sort(compareByOrder)).toEqual([earlier, a, b]);
+    expect([a, b, earlier].sort(compareByOrder)).toEqual([earlier, a, b]);
+  });
+
   it('survives repeated inserts at the front, back and middle', () => {
     let keys = [keyBetween(null, null)];
     for (let i = 0; i < 200; i += 1) {
@@ -63,6 +122,13 @@ describe('keysBetween', () => {
     expect(keys).toHaveLength(10);
     expect([...keys].sort(compareOrderKeys)).toEqual(keys);
     expect(new Set(keys).size).toBe(10);
+  });
+
+  it('stays short for a long list', () => {
+    const keys = keysBetween(null, null, 20_000);
+    expect(new Set(keys).size).toBe(20_000);
+    expect([...keys].sort(compareOrderKeys)).toEqual(keys);
+    expect(Math.max(...keys.map((key) => key.length))).toBeLessThanOrEqual(8);
   });
 
   it('returns nothing for zero', () => {
