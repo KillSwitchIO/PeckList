@@ -38,7 +38,8 @@ permissive license than the one the project ships with:
 
 - `main` is always releasable. Every commit on it passes lint, typecheck, tests and build.
 - Work on short-lived branches (hours to two days): `feat/`, `fix/`, `docs/`, `test/`, `refactor/`, `chore/`, `ci/` plus a slug, e.g. `feat/pl-022-quick-add`.
-- Merge by squash. Rebase on `main` first; no merge commits on `main`.
+- Merge by squash. A merge request must be up to date with `main`: rebase, and its pipeline runs
+  again, so what merges is what passed.
 - Unfinished work merges behind a feature flag rather than living on a long branch.
 - No release branches. Only the latest release is supported; fixes go forward on `main`.
 - Releases are tags on `main`: `vX.Y.Z+YYYYMMDD` (date as SemVer build metadata).
