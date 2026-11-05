@@ -182,7 +182,7 @@ public static class Cli
             }
         }
         catch (Exception error) when (error is SettingsException or BackupException or IOException or UnauthorizedAccessException
-            or KeyNotFoundException or ArgumentException or DuplicateUsernameException or LastSuperAdminException)
+            or KeyNotFoundException or ArgumentException or DuplicateUsernameException or LastSuperAdminException or NewerDatabaseException)
         {
             return await Fail(errors, error.Message);
         }
