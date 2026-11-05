@@ -134,6 +134,8 @@ export interface SyncNotice {
   lostLists: string[];
   /** Files the server would not take (too large): they stay on this device only. */
   filesKept?: string[];
+  /** Files that wait: the server takes no more uploads from this person today. Said once a session. */
+  filesWaiting?: string[];
   /**
    * Changes the server could not take as they are (malformed, or stamped too far ahead): kept on
    * this device, not sent again until they change.
@@ -381,6 +383,7 @@ export function createSyncEngine(deps: SyncEngineDependencies): SyncEngine {
       refused?: number;
       lostLists?: string[];
       filesKept?: string[];
+      filesWaiting?: string[];
       setAside?: number | undefined;
       clock?: 'ahead' | 'behind' | undefined;
     }) => {
@@ -393,6 +396,9 @@ export function createSyncEngine(deps: SyncEngineDependencies): SyncEngine {
           ...(news.filesKept
             ? { filesKept: [...(before?.filesKept ?? []), ...news.filesKept] }
             : {}),
+          ...(news.filesWaiting
+            ? { filesWaiting: [...(before?.filesWaiting ?? []), ...news.filesWaiting] }
+            : {}),
           ...(news.setAside ? { setAside: (before?.setAside ?? 0) + news.setAside } : {}),
           ...(news.clock ? { clock: news.clock } : {}),
         },
@@ -402,6 +408,8 @@ export function createSyncEngine(deps: SyncEngineDependencies): SyncEngine {
     // Files the server has (or refused), so each is asked about once per session.
     const onServer = new Set<string>();
     const refusedFiles = new Set<string>();
+    // Files told about as waiting for the daily allowance, so it is said once.
+    const toldWaiting = new Set<string>();
     /**
      * The batch, with each new attachment's file sent first, so no device ever learns of a file
      * the server cannot hand out. One the server refuses (too large) stays out of the batch and
@@ -412,6 +420,7 @@ export function createSyncEngine(deps: SyncEngineDependencies): SyncEngine {
       if (!files) return batch;
       const kept: SyncChange[] = [];
       const tooLarge: string[] = [];
+      const waiting: string[] = [];
       for (const change of batch) {
         const attachment =
           change.collection === 'attachments' ? (change.entity as Attachment) : null;
@@ -435,12 +444,19 @@ export function createSyncEngine(deps: SyncEngineDependencies): SyncEngine {
         if (outcome === 'stored') {
           onServer.add(attachment.sha256);
           kept.push(change);
+        } else if (outcome === 'later') {
+          // Over today's allowance: it stays queued and goes at a later sync.
+          if (!toldWaiting.has(attachment.sha256)) {
+            toldWaiting.add(attachment.sha256);
+            waiting.push(attachment.name);
+          }
         } else {
           refusedFiles.add(attachment.sha256);
           tooLarge.push(attachment.name);
         }
       }
       if (tooLarge.length > 0) tell({ filesKept: tooLarge });
+      if (waiting.length > 0) tell({ filesWaiting: waiting });
       return kept;
     };
 

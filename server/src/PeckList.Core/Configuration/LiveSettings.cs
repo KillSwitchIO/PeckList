@@ -22,6 +22,7 @@ public sealed class LiveSettings(ServerSettings start)
             Passkeys = next.Passkeys,
             AccountDeleteGraceDays = next.AccountDeleteGraceDays,
             AttachmentMaxMb = next.AttachmentMaxMb,
+            AttachmentDailyMb = next.AttachmentDailyMb,
             SignUpRateLimit = next.SignUpRateLimit,
             UpdateCheck = next.UpdateCheck,
             ApiDocs = next.ApiDocs,

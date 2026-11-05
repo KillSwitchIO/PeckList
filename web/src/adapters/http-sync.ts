@@ -143,6 +143,7 @@ export function createHttpSync(
         const response = await fileCall(sha256, 'PUT', file);
         if (response.ok) return 'stored';
         if (response.status === 413) return 'too-large';
+        if (response.status === 429) return 'later';
         if (response.status === 400 || response.status === 403) return 'refused';
         return fail(response);
       },

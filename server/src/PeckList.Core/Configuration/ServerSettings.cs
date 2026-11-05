@@ -97,6 +97,12 @@ public sealed record ServerSettings
     /// <summary>Where attachment files go (<c>ATTACHMENT_DIR</c>): <c>attachments</c> next to the SQLite file, <c>/files</c> in the image.</summary>
     public string AttachmentDir { get; init; } = "/data/attachments";
 
+    /// <summary>
+    /// How much one person may upload in 24 hours, in megabytes (<c>ATTACHMENT_DAILY_MB</c>, audit
+    /// S5); 0 for no limit. A file the server already has costs nothing.
+    /// </summary>
+    public int AttachmentDailyMb { get; init; } = 1024;
+
     /// <summary>The largest file people may attach, in megabytes (<c>ATTACHMENT_MAX_MB</c>).</summary>
     public int AttachmentMaxMb { get; init; } = 25;
 
@@ -172,6 +178,9 @@ public sealed record ServerSettings
 
     /// <summary>The largest attachment on a demo server, in megabytes: lower settings stay, higher ones come down to it.</summary>
     public const int DemoAttachmentMaxMb = 2;
+
+    /// <summary>A demo visitor's upload allowance a day.</summary>
+    public const int DemoAttachmentDailyMb = 20;
 
     /// <summary>Accounts one address may make by sign-up in an hour (<c>SIGNUP_RATE_LIMIT</c>; 0 turns the limit off).</summary>
     public int SignUpRateLimit { get; init; } = 5;
@@ -377,6 +386,7 @@ public sealed record ServerSettings
             AttachmentDir = Get("ATTACHMENT_DIR")
                 ?? Path.Combine(Path.GetDirectoryName(dbPath) is { Length: > 0 } attachmentDir ? attachmentDir : ".", "attachments"),
             AttachmentMaxMb = Count("ATTACHMENT_MAX_MB", 25, 1),
+            AttachmentDailyMb = Count("ATTACHMENT_DAILY_MB", 1024, 0),
             UpdateCheck = Flag("UPDATE_CHECK", true),
             ApiDocs = Flag("API_DOCS", true),
             Telemetry = Flag("TELEMETRY", true) && !Flag("DO_NOT_TRACK", false),
@@ -404,6 +414,7 @@ public sealed record ServerSettings
                 Registration = Registration.Open,
                 AccountDeleteGraceDays = 0,
                 AttachmentMaxMb = Math.Min(settings.AttachmentMaxMb, DemoAttachmentMaxMb),
+                AttachmentDailyMb = settings.AttachmentDailyMb == 0 ? DemoAttachmentDailyMb : Math.Min(settings.AttachmentDailyMb, DemoAttachmentDailyMb),
                 UpdateCheck = false,
                 Telemetry = false,
                 Mail = null,

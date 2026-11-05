@@ -32,18 +32,32 @@ public static class AttachmentEndpoints
                 ? Results.Ok()
                 : Results.NotFound());
 
-        api.MapPut("/attachments/{sha256}", async (string sha256, HttpContext context, IAttachmentStore store, LiveSettings live) =>
+        api.MapPut("/attachments/{sha256}", async (
+            string sha256, HttpContext context, ClaimsPrincipal user, IAttachmentStore store, LiveSettings live, UploadAllowance allowance) =>
         {
             if (!AttachmentHash.IsValid(sha256)) return Results.BadRequest(new AttachmentError("invalid_hash", "a lowercase hex SHA-256"));
             var max = live.Current.AttachmentMaxMb * 1024L * 1024L;
             if (context.Request.ContentLength > max) return TooLarge(live);
+            // Per person (audit S5): a few requests a second at most, and ATTACHMENT_DAILY_MB a day.
+            var person = user.UserId();
+            if (!allowance.TryRequest(person))
+            {
+                return Results.Json(new AttachmentError("too_many", "too many uploads at once; the rest go in a minute"),
+                    statusCode: StatusCodes.Status429TooManyRequests);
+            }
+            var daily = live.Current.AttachmentDailyMb * 1024L * 1024L;
             // The server's own body limit is for JSON; this endpoint checks its own.
             if (context.Features.Get<Microsoft.AspNetCore.Http.Features.IHttpMaxRequestBodySizeFeature>() is { IsReadOnly: false } limit)
             {
                 limit.MaxRequestBodySize = max + 1;
             }
+            // A file the server has already costs nothing.
             if (await store.ExistsAsync(sha256, context.RequestAborted)) return Results.NoContent();
-            return await store.PutAsync(sha256, context.Request.Body, max, context.RequestAborted) switch
+            if (!allowance.Fits(person, context.Request.ContentLength ?? 0, daily)) return DailyLimit(live);
+            var body = new CountingStream(context.Request.Body);
+            var result = await store.PutAsync(sha256, body, max, context.RequestAborted);
+            if (result == PutResult.Stored) allowance.Add(person, body.Count);
+            return result switch
             {
                 PutResult.Stored => Results.Created($"/api/attachments/{sha256}", null),
                 PutResult.TooLarge => TooLarge(live),
@@ -69,6 +83,10 @@ public static class AttachmentEndpoints
 
         return api;
     }
+
+    private static IResult DailyLimit(LiveSettings live) => Results.Json(
+        new AttachmentError("daily_limit", $"each person may upload {live.Current.AttachmentDailyMb} MB a day; the rest goes later"),
+        statusCode: StatusCodes.Status429TooManyRequests);
 
     private static IResult TooLarge(LiveSettings live) => Results.Json(
         new AttachmentError("too_large", $"files may be at most {live.Current.AttachmentMaxMb} MB"),

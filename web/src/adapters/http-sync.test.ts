@@ -79,6 +79,25 @@ describe('HTTP sync transport', () => {
     expect(await http.resetPassword?.('t', 'x')).toEqual({ kind: 'too-many' });
   });
 
+  it('reads what the server says to an upload (audit S5)', async () => {
+    const { fetcher, calls } = fakeFetch(
+      { status: 201 },
+      { status: 204 },
+      { status: 413, body: { error: 'too_large' } },
+      { status: 429, body: { error: 'daily_limit' } },
+      { status: 400, body: { error: 'hash_mismatch' } },
+    );
+    const files = createHttpSync('', fetcher).files!;
+    const file = new Blob(['red']);
+    expect(await files.upload('a'.repeat(64), file)).toBe('stored');
+    expect(await files.upload('a'.repeat(64), file)).toBe('stored');
+    expect(await files.upload('a'.repeat(64), file)).toBe('too-large');
+    // Over the day's allowance: not refused for good, only for now.
+    expect(await files.upload('a'.repeat(64), file)).toBe('later');
+    expect(await files.upload('a'.repeat(64), file)).toBe('refused');
+    expect(calls[0]?.init.method).toBe('PUT');
+  });
+
   it("keeps the account's email (PL-122)", async () => {
     const email = { email: 'sam@example.com', confirmed: false, mailWorks: true, sent: true };
     const { fetcher, calls } = fakeFetch(
