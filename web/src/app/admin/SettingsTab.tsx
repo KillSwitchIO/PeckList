@@ -17,6 +17,8 @@ const LABELS: Record<string, MessageKey> = {
   OIDC_PROVIDERS: 'serverSettings.OIDC_PROVIDERS',
   BACKUP_SCHEDULE: 'serverSettings.SNAPSHOT_SCHEDULE',
   SNAPSHOT_KEEP: 'serverSettings.SNAPSHOT_KEEP',
+  ATTACHMENT_MAX_MB: 'serverSettings.ATTACHMENT_MAX_MB',
+  ATTACHMENT_DAILY_MB: 'serverSettings.ATTACHMENT_DAILY_MB',
   SNAPSHOT_KEEP_WEEKLY: 'serverSettings.SNAPSHOT_KEEP_WEEKLY',
   TRUSTED_PROXIES: 'serverSettings.TRUSTED_PROXIES',
   LOG_LEVEL: 'serverSettings.LOG_LEVEL',

@@ -660,6 +660,8 @@ export const en = {
   'serverSettings.CRASH_REPORTS': 'Offer crash reports',
   'serverSettings.OIDC_PROVIDERS': 'Identity providers',
   'serverSettings.SNAPSHOT_SCHEDULE': 'Backup schedule',
+  'serverSettings.ATTACHMENT_MAX_MB': 'Largest file people may attach (MB)',
+  'serverSettings.ATTACHMENT_DAILY_MB': 'Uploads per person a day (MB, 0 for no limit)',
   'serverSettings.SNAPSHOT_KEEP': 'Newest backups kept',
   'serverSettings.SNAPSHOT_KEEP_WEEKLY': 'Weekly backups kept before those',
   'serverSettings.TRUSTED_PROXIES': 'Trusted proxies',
@@ -1343,6 +1345,10 @@ export const en = {
   'sync.notice.fileKept': '"{name}" is too large for the server, so it stays on this device only.',
   'sync.notice.filesKept':
     '"{name}" and {count} more files are too large for the server, so they stay on this device only.',
+  'sync.notice.fileWaiting':
+    '"{name}" waits to upload: you have reached today\'s upload allowance on this server. It goes later on its own.',
+  'sync.notice.filesWaiting':
+    '"{name}" and {count} more files wait to upload: you have reached today\'s upload allowance on this server. They go later on their own.',
   'sync.notice.refusedOne': 'The server did not accept one of your changes, so it was undone.',
   'sync.notice.refused': 'The server did not accept {count} of your changes, so they were undone.',
   'sync.notice.setAsideOne':

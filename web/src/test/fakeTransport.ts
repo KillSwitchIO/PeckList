@@ -45,6 +45,8 @@ export class FakeBackend {
   readonly files = new Map<string, Blob>();
   /** The largest file it takes, in bytes. */
   maxFileBytes = 25 * 1024 * 1024;
+  /** The server answers every upload "later" (its daily allowance is used up). */
+  uploadsWait = false;
   readonly accounts = new Map<string, FakeAccount>();
   /** Ids the server sets aside when pushed (as the real one does a malformed change), with why. */
   readonly invalid = new Map<string, 'invalid_change' | 'clock_drift'>();
@@ -205,6 +207,7 @@ export class FakeTransport implements SyncTransport {
     upload: (sha256, file) => {
       if (this.offline) return Promise.reject(new SyncFailure('offline', 'offline'));
       if (file.size > this.backend.maxFileBytes) return Promise.resolve('too-large' as const);
+      if (this.backend.uploadsWait) return Promise.resolve('later' as const);
       this.backend.files.set(sha256, file);
       return Promise.resolve('stored' as const);
     },

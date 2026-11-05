@@ -162,6 +162,13 @@ change the schema, and run the upgrade yourself. **Default:** `true`. **Where:**
 The largest file someone may attach to a task, in megabytes. Bigger uploads are refused and stay
 on the device that added them. **Default:** `25`. **Where:** any, live.
 
+### `ATTACHMENT_DAILY_MB`
+
+How much one person may upload in 24 hours, in megabytes; `0` for no limit. A file the server has
+already costs nothing. Past it, files wait on the device and upload on their own later (the app
+says so once); uploads are also limited to 60 requests a minute per person. On a demo server it is
+at most 20. **Default:** `1024`. **Where:** any, live.
+
 ### `UPDATE_CHECK`
 
 Look for newer PeckList releases: twice a day the server reads the latest release from

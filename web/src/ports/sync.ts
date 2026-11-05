@@ -27,7 +27,8 @@ export interface DemoInfo {
 }
 
 /** What became of a file sent to the server. */
-export type UploadOutcome = 'stored' | 'too-large' | 'refused';
+/** `later`: the server takes no more from this person for now (its daily allowance); try again later. */
+export type UploadOutcome = 'stored' | 'too-large' | 'refused' | 'later';
 
 /** Attached files on the server, by the SHA-256 of their bytes (spec: PL-051). */
 export interface FileApi {

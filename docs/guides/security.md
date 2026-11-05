@@ -86,9 +86,11 @@ Not needed for PeckList to work, but each one closes a real gap for little effor
       `LINK_BY_USERNAME` only while moving people over, and only if people cannot rename themselves
       at the provider: either would let someone sign into an account that is not theirs. See
       [Single sign-on](single-sign-on.md).
-- [ ] **Attachments limit.** [`ATTACHMENT_MAX_MB`](../configuration/reference.md#attachment_max_mb)
-      (25 MB by default) caps each file, but there is no total per person yet. Watch the free space
-      of the `/files` volume, or lower the limit, when you do not know everyone with an account.
+- [ ] **Attachments limits.** [`ATTACHMENT_MAX_MB`](../configuration/reference.md#attachment_max_mb)
+      (25 MB by default) caps each file, and
+      [`ATTACHMENT_DAILY_MB`](../configuration/reference.md#attachment_daily_mb) (1 GB by default)
+      what one person uploads in a day. There is no total per person. Lower them, and watch the
+      free space of the `/files` volume, when you do not know everyone with an account.
 - [ ] **Backups are as sensitive as the server.** Snapshots and exports hold every password hash
       and the keys that sign sessions: anyone with a copy could sign in as anyone. Keep them as
       private as the database, and encrypt off-site copies.

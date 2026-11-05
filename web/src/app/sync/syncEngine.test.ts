@@ -141,6 +141,44 @@ describe('sync engine', () => {
     expect(onServer.some((entity) => (entity as { title?: string }).title === 'Mow')).toBe(true);
   });
 
+  it('holds a file back while the server takes no more uploads today, and sends it later (audit S5)', async () => {
+    const backend = new FakeBackend();
+    backend.addAccount('ben', 'correct horse battery');
+    const laptop = await device(backend, 'laptop');
+    await laptop.engine.getState().start();
+    await laptop.engine.getState().signIn('ben', 'correct horse battery');
+    const task = addTask(laptop.store, 'Paint the fence');
+    const bytes = new TextEncoder().encode('red');
+    const sha256 = sha256Hex(bytes);
+    await laptop.engine.getState().blobs.put(sha256, new Blob([bytes], { type: 'text/plain' }));
+    laptop.store.getState().apply(
+      (ctx, ws) =>
+        addAttachment(ctx, ws, {
+          taskId: task,
+          name: 'colour.txt',
+          size: 3,
+          mime: 'text/plain',
+          sha256,
+        }).workspace,
+    );
+
+    backend.uploadsWait = true;
+    await laptop.engine.getState().syncNow();
+    expect(backend.files.has(sha256)).toBe(false);
+    expect(laptop.engine.getState().notice?.filesWaiting).toEqual(['colour.txt']);
+    // Not "too large": it is not kept back for good, and the attachment is not on the server yet.
+    expect(laptop.engine.getState().notice?.filesKept).toBeUndefined();
+    const onServer = () =>
+      [...backend.server.rows.values()].some((row) => row.change.collection === 'attachments');
+    expect(onServer()).toBe(false);
+
+    // The next day: it goes on its own.
+    backend.uploadsWait = false;
+    await laptop.engine.getState().syncNow();
+    expect(backend.files.has(sha256)).toBe(true);
+    expect(onServer()).toBe(true);
+  });
+
   it('sends a file before the attachment that names it, and keeps a too-large one on the device', async () => {
     const backend = new FakeBackend();
     backend.addAccount('ben', 'correct horse battery');

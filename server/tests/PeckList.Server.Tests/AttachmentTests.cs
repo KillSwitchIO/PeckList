@@ -70,6 +70,54 @@ public sealed class AttachmentTests(ServerFixture fixture) : IClassFixture<Serve
         }));
 
     [Fact]
+    public async Task Each_person_uploads_up_to_the_daily_allowance_and_a_file_already_here_costs_nothing()
+    {
+        // Audit S5: one account cannot fill the disk.
+        using var server = fixture.Factory(("ADMIN_PASSWORD", "correct horse battery"), ("DB_PATH", fixture.NewDbPath()),
+            ("ATTACHMENT_MAX_MB", "1"), ("ATTACHMENT_DAILY_MB", "1"));
+        async Task<HttpClient> Person(string username)
+        {
+            await server.Services.GetRequiredService<AccountService>()
+                .CreateUserAsync(username, "a long enough password", mustChangePassword: false, cancellation: Token);
+            var client = server.CreateClient();
+            (await client.PostAsJsonAsync("/auth/login", new { username, password = "a long enough password" }, Token)).EnsureSuccessStatusCode();
+            return client;
+        }
+        static Task<HttpResponseMessage> Put(HttpClient client, byte[] bytes) =>
+            client.PutAsync($"/api/attachments/{Sha(bytes)}", new ByteArrayContent(bytes), Token);
+        var sam = await Person("sam");
+        var first = new byte[600 * 1024];
+        var second = new byte[600 * 1024];
+        first[0] = 1;
+        second[0] = 2;
+
+        Assert.Equal(HttpStatusCode.Created, (await Put(sam, first)).StatusCode);
+        var over = await Put(sam, second);
+        Assert.Equal(HttpStatusCode.TooManyRequests, over.StatusCode);
+        Assert.Equal("daily_limit", (await over.Content.ReadFromJsonAsync<AttachmentError>(Token))!.Error);
+        // A file the server has already costs nothing, and another person has their own allowance.
+        Assert.Equal(HttpStatusCode.NoContent, (await Put(sam, first)).StatusCode);
+        Assert.Equal(HttpStatusCode.Created, (await Put(await Person("alex"), second)).StatusCode);
+    }
+
+    [Fact]
+    public void Uploads_are_limited_per_minute_and_the_day_rolls_over()
+    {
+        var time = new ManualTime(DateTimeOffset.UtcNow);
+        using var allowance = new UploadAllowance(time);
+        for (var i = 0; i < UploadAllowance.RequestsPerMinute; i++) Assert.True(allowance.TryRequest("sam"));
+        Assert.False(allowance.TryRequest("sam"));
+        Assert.True(allowance.TryRequest("alex"));
+
+        allowance.Add("sam", 900);
+        Assert.False(allowance.Fits("sam", 200, limitBytes: 1000));
+        Assert.True(allowance.Fits("sam", 200, limitBytes: 0));
+        time.Now = time.Now.Add(UploadAllowance.Window).AddSeconds(1);
+        Assert.Equal(0, allowance.Used("sam"));
+        Assert.True(allowance.Fits("sam", 200, limitBytes: 1000));
+    }
+
+    [Fact]
     public async Task Files_upload_under_their_hash_and_download_for_those_who_see_them()
     {
         var (ben, benId) = await SignIn("ben");

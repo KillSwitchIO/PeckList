@@ -27,6 +27,14 @@ export function noticeText(notice: SyncNotice): string {
         : t('sync.notice.filesKept', { name: file, count: moreFiles.length }),
     );
   }
+  const [waits, ...moreWaiting] = notice.filesWaiting ?? [];
+  if (waits !== undefined) {
+    parts.push(
+      moreWaiting.length === 0
+        ? t('sync.notice.fileWaiting', { name: waits })
+        : t('sync.notice.filesWaiting', { name: waits, count: moreWaiting.length }),
+    );
+  }
   if (notice.setAside) {
     parts.push(
       notice.setAside === 1
