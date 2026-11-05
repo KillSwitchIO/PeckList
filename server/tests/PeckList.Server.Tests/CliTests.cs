@@ -61,6 +61,25 @@ public sealed class CliTests : IDisposable
     }
 
     [Fact]
+    public async Task An_older_version_says_why_it_will_not_touch_a_newer_database()
+    {
+        var settings = Settings();
+        await Run(settings, "upgrade-db");
+        await using (var connection = new Microsoft.Data.Sqlite.SqliteConnection($"Data Source={settings.DbPath}"))
+        {
+            await connection.OpenAsync(TestContext.Current.CancellationToken);
+            await using var command = connection.CreateCommand();
+            command.CommandText = "INSERT INTO schema_migrations (version, applied_at) VALUES (99999, 'from a newer version')";
+            await command.ExecuteNonQueryAsync(TestContext.Current.CancellationToken);
+        }
+
+        var (code, _, errors, _) = await Run(settings, "export");
+
+        Assert.Equal(1, code);
+        Assert.Contains("upgraded by a newer PeckList", errors);
+    }
+
+    [Fact]
     public async Task Exports_imports_and_snapshots()
     {
         var settings = Settings();

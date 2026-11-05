@@ -43,7 +43,14 @@ public static partial class SqlMigrations
             cancellationToken: cancellation));
         var applied = (await connection.QueryAsync<int>(new CommandDefinition(
             "SELECT version FROM schema_migrations", cancellationToken: cancellation))).ToHashSet();
-        foreach (var (version, sql) in Load(assembly))
+        var migrations = Load(assembly);
+        // An older server would otherwise skip what it finds applied and run its old code on a schema
+        // it has never seen, which is how a rollback quietly damages data (spec: Versioning & Releases).
+        if (applied.Count > 0 && applied.Max() > migrations.Count)
+        {
+            throw new NewerDatabaseException(applied.Max(), migrations.Count);
+        }
+        foreach (var (version, sql) in migrations)
         {
             if (applied.Contains(version)) continue;
             await using var transaction = await connection.BeginTransactionAsync(cancellation);
@@ -57,3 +64,8 @@ public static partial class SqlMigrations
         }
     }
 }
+
+/// <summary>The database holds migrations this version does not know: a newer version upgraded it.</summary>
+public sealed class NewerDatabaseException(int database, int known) : Exception(
+    $"This database was upgraded by a newer PeckList (schema {database}; this version knows up to {known}). "
+    + "Run the newer version, or restore a backup into an empty database for this one: see Upgrading, If something goes wrong.");
