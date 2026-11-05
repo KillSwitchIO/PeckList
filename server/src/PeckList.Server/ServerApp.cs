@@ -111,6 +111,7 @@ public static partial class ServerApp
         builder.Services.AddSingleton<PeckList.Core.Mail.IMailSender, Mail.SmtpMailSender>();
         builder.Services.AddSingleton<ReminderSender>();
         builder.Services.AddHostedService(provider => provider.GetRequiredService<ReminderSender>());
+        builder.Services.AddSingleton<PeckList.Core.Sync.IEntityValidator>(_ => EntitySchema.Validator());
         builder.Services.AddSingleton<SyncService>();
         builder.Services.AddSingleton<PeckList.Core.Attachments.IAttachmentStore>(new Attachments.FileAttachmentStore(settings.AttachmentDir));
         builder.Services.AddHostedService<Attachments.AttachmentCleanup>();

@@ -40,8 +40,16 @@ public sealed class ServerFixture : IDisposable
             {
                 services.AddSingleton<ITelemetrySender, NoSender>();
                 services.AddSingleton<ICrashSender, NoSender>();
+                // Tests of other things push short entities (an id, a title, clocks); the schema
+                // checks (audit S4) have their own tests, which put the real validator back.
+                services.AddSingleton<PeckList.Core.Sync.IEntityValidator, AnyEntity>();
             });
         });
+
+    private sealed class AnyEntity : PeckList.Core.Sync.IEntityValidator
+    {
+        public string? Problem(string collection, System.Text.Json.Nodes.JsonObject entity) => null;
+    }
 
     private sealed class NoSender : ITelemetrySender, ICrashSender
     {

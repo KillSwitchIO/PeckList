@@ -60,7 +60,8 @@ public sealed partial class SyncService(
     ISharingChangeSink? sharingChanges = null,
     INotificationSink? notifications = null,
     ServerClock? clock = null,
-    History.ITaskHistorySink? history = null)
+    History.ITaskHistorySink? history = null,
+    IEntityValidator? entities = null)
 {
     public const int MaxChanges = 5000;
     // About 3.8 MB of JSON at a real workspace's ~2 KB a task, ~0.4 MB compressed: a first sync of
@@ -334,6 +335,11 @@ public sealed partial class SyncService(
         catch (InvalidOperationException)
         {
             throw new SyncRejected("invalid_text", $"{Where()} ({id}): text that is not valid Unicode");
+        }
+        // Its shape and size (audit S4): junk is refused here, not stored and synced to every viewer.
+        if (entities?.Problem(change.Collection, entity) is { } problem)
+        {
+            throw new SyncRejected("invalid_change", $"{Where()} ({id}): {problem}");
         }
         return new IncomingEntity(change.Collection, entity);
     }

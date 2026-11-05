@@ -43,6 +43,8 @@ COPY server/src/PeckList.Storage.Sqlite/PeckList.Storage.Sqlite.csproj src/PeckL
 COPY server/src/PeckList.Storage.Postgres/PeckList.Storage.Postgres.csproj src/PeckList.Storage.Postgres/
 RUN dotnet restore src/PeckList.Server/PeckList.Server.csproj -a $TARGETARCH
 COPY server/src src
+# The workspace schema the server checks pushed entities against (embedded from ../../../schema).
+COPY schema /schema
 # A dev build keeps the version in Directory.Build.props; a release build stamps its own.
 RUN if [ "$VERSION" = "0.0.0-dev" ]; then STAMP=""; else STAMP="-p:Version=$VERSION -p:PeckListStamped=true"; fi \
     && dotnet publish src/PeckList.Server/PeckList.Server.csproj -c Release -a $TARGETARCH --self-contained false \

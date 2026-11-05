@@ -2,6 +2,7 @@ using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json.Nodes;
 using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.DependencyInjection;
 using PeckList.Core;
 using PeckList.Core.Accounts;
@@ -232,6 +233,48 @@ public sealed class SyncTests(ServerFixture fixture) : IClassFixture<ServerFixtu
         Assert.Contains(message, aside.Reason);
         Assert.Equal("Still syncs", Title(result, "G1"));
         Assert.DoesNotContain(result.Changes, each => (string?)each.Entity["id"] == "X1");
+    }
+
+    [Fact]
+    public async Task Sets_aside_an_entity_of_the_wrong_shape_or_size_and_keeps_a_whole_one()
+    {
+        // Audit S4, with the server's own validator (the fixture swaps in one that takes anything).
+        using var server = fixture.Factory(("ADMIN_PASSWORD", Password), ("DB_PATH", fixture.NewDbPath()))
+            .WithWebHostBuilder(host => host.ConfigureTestServices(services => services.AddSingleton(EntitySchema.Validator())));
+        var client = server.CreateClient();
+        (await client.PostAsJsonAsync("/auth/login", new { username = "admin", password = Password }, Token)).EnsureSuccessStatusCode();
+        var me = (await client.GetFromJsonAsync<JsonObject>("/auth/me", Token))!["id"]!.GetValue<string>();
+        var clock = "2026-10-21T10:00:00.000Z-0000-dev1";
+        JsonObject Whole(string id, string title) => new()
+        {
+            ["id"] = id, ["createdAt"] = "2026-10-21T10:00:00.000Z", ["createdBy"] = me, ["deletedAt"] = null, ["origin"] = "local",
+            ["title"] = title, ["notes"] = "", ["listId"] = "01DEV100000000000000000005", ["sectionId"] = null, ["parentId"] = null,
+            ["order"] = "V", ["status"] = "open", ["completedAt"] = null, ["completedBy"] = null, ["priority"] = 0,
+            ["schedule"] = null, ["due"] = null, ["tags"] = new JsonObject(), ["assignees"] = new JsonObject(),
+            ["blockedBy"] = new JsonObject(), ["recurrence"] = null, ["progress"] = 0,
+            ["_hlc"] = new JsonObject { ["title"] = clock },
+        };
+        var wrong = Whole("01DEV1000000000000000000B1", "Wrong");
+        wrong["status"] = "maybe";
+        var huge = Whole("01DEV1000000000000000000B2", "Huge");
+        huge["notes"] = new string('x', PeckList.Core.Sync.WorkspaceEntityValidator.MaxEntityBytes);
+        var body = new JsonObject
+        {
+            ["schemaVersion"] = WorkspaceSchema.CurrentVersion,
+            ["changes"] = new JsonArray(
+                new JsonObject { ["collection"] = "tasks", ["entity"] = wrong },
+                new JsonObject { ["collection"] = "tasks", ["entity"] = huge },
+                new JsonObject { ["collection"] = "tasks", ["entity"] = Whole("01DEV1000000000000000000B3", "Whole") }),
+        };
+        var response = await client.PostAsync("/api/sync", new StringContent(body.ToJsonString(), System.Text.Encoding.UTF8, "application/json"), Token);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var result = (await response.Content.ReadFromJsonAsync<SyncResponse>(Token))!;
+        Assert.Equal([(0, "invalid_change"), (1, "invalid_change")], result.Invalid!.Select(each => (each.Index, each.Code)));
+        Assert.Contains("/status must be one of the allowed values", result.Invalid![0].Reason);
+        Assert.Contains("too large", result.Invalid![1].Reason);
+        // The whole one passes the checks (index 2 is not set aside); the sharing rules then decide
+        // where it may go, as for any task.
     }
 
     [Fact]
