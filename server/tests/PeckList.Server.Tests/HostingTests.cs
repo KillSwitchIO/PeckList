@@ -43,6 +43,10 @@ public sealed class ServerFixture : IDisposable
                 // Tests of other things push short entities (an id, a title, clocks); the schema
                 // checks (audit S4) have their own tests, which put the real validator back.
                 services.AddSingleton<PeckList.Core.Sync.IEntityValidator, AnyEntity>();
+                // A busy CI runner can take longer than the server's 10 s to load even an empty
+                // sharing index, and a test's first request then got "503 starting". Tests wait
+                // for it; StartupTests puts in a short wait of its own to see the 503.
+                services.AddSingleton(new StartupWait(TimeSpan.FromMinutes(2)));
             });
         });
 
