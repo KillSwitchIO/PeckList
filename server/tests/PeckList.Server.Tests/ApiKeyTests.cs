@@ -3,6 +3,7 @@ using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json.Nodes;
 using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.Extensions.DependencyInjection;
 using PeckList.Core;
 using PeckList.Server.Auth;
 
@@ -74,6 +75,13 @@ public sealed class ApiKeyTests(ServerFixture fixture) : IClassFixture<ServerFix
         Assert.Equal(HttpStatusCode.NoContent, (await session.DeleteAsync($"/api/account/api-keys/{created.Key.Id}", Token)).StatusCode);
         Assert.Equal(HttpStatusCode.Unauthorized, (await Sync(key, withChange: false)).StatusCode);
         Assert.Equal(HttpStatusCode.Unauthorized, (await Sync(WithKey(server, "pl_nope_nothing"), withChange: false)).StatusCode);
+    }
+
+    [Fact]
+    public void Revoked_keys_are_cleared_while_the_server_runs()
+    {
+        using var server = fixture.Factory(("ADMIN_PASSWORD", AdminPassword), ("DB_PATH", fixture.NewDbPath()));
+        Assert.Contains(server.Services.GetServices<Microsoft.Extensions.Hosting.IHostedService>(), service => service is ApiKeyRetention);
     }
 
     [Fact]

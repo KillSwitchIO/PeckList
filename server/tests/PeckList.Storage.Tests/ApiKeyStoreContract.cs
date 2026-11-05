@@ -60,4 +60,20 @@ public abstract class ApiKeyStoreContract : IAsyncLifetime
         Assert.Empty(await Keys.ListAsync("sam", Token));
         Assert.Single(await Keys.ListAsync("jo", Token));
     }
+
+    [Fact]
+    public async Task Prunes_only_keys_revoked_before_the_time_given()
+    {
+        await Keys.AddAsync(Key("old", "sam", 0), Token);
+        await Keys.AddAsync(Key("new", "sam", 0), Token);
+        await Keys.AddAsync(Key("working", "sam", 0), Token);
+        await Keys.RevokeAsync("old", Monday.AddDays(1), Token);
+        await Keys.RevokeAsync("new", Monday.AddDays(3), Token);
+
+        Assert.Equal(1, await Keys.PruneRevokedAsync(Monday.AddDays(2), Token));
+        Assert.Null(await Keys.FindAsync("old", Token));
+        Assert.NotNull(await Keys.FindAsync("new", Token));
+        Assert.NotNull(await Keys.FindAsync("working", Token));
+        Assert.Equal(0, await Keys.PruneRevokedAsync(Monday.AddDays(2), Token));
+    }
 }

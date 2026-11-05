@@ -156,3 +156,14 @@ public static class ApiKeyAuth
 
     public sealed record CreatedKey(KeyView Key, string Token);
 }
+
+/// <summary>Clears revoked API keys once they are a week old, every hour.</summary>
+public sealed class ApiKeyRetention(ApiKeyService keys, TimeProvider time, ILogger<ApiKeyRetention> logger)
+    : PeriodicService("Clearing revoked API keys", TimeSpan.FromSeconds(30), TimeSpan.FromHours(1), time, logger, LogLevel.Warning)
+{
+    protected override async Task RunAsync(CancellationToken stopping)
+    {
+        var gone = await keys.ClearRevokedAsync(stopping);
+        if (gone > 0) Logger.LogInformation("Cleared {Count} revoked API keys", gone);
+    }
+}

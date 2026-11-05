@@ -53,6 +53,9 @@ public interface IApiKeyStore
 
     Task TouchAsync(string id, DateTimeOffset at, CancellationToken cancellation = default);
 
+    /// <summary>Forgets keys revoked before <paramref name="before"/>, and says how many.</summary>
+    Task<int> PruneRevokedAsync(DateTimeOffset before, CancellationToken cancellation = default);
+
     /// <summary>An account goes: its keys go with it.</summary>
     Task DeleteForUserAsync(string userId, CancellationToken cancellation = default);
 }
@@ -67,6 +70,8 @@ public sealed class ApiKeyService(IApiKeyStore keys, TimeProvider time)
     public const int MaxNameLength = 80;
     /// <summary>A person keeps at most this many working keys.</summary>
     public const int MaxKeys = 50;
+    /// <summary>A revoked key stays in its owner's list this long, then is forgotten.</summary>
+    public static readonly TimeSpan KeepRevoked = TimeSpan.FromDays(7);
 
     /// <summary>A new key and its token (shown to the person once, never kept).</summary>
     public async Task<(ApiKey Key, string Token)> CreateAsync(
@@ -128,6 +133,10 @@ public sealed class ApiKeyService(IApiKeyStore keys, TimeProvider time)
         if (key.RevokedAt is null) await keys.RevokeAsync(id, time.GetUtcNow(), cancellation);
         return true;
     }
+
+    /// <summary>Forget keys revoked more than <see cref="KeepRevoked"/> ago; how many went.</summary>
+    public Task<int> ClearRevokedAsync(CancellationToken cancellation = default) =>
+        keys.PruneRevokedAsync(time.GetUtcNow() - KeepRevoked, cancellation);
 
     public static string Hash(string secret) => Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(secret)));
 

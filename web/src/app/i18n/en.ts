@@ -230,7 +230,7 @@ export const en = {
   'apiKeys.createdOn': 'Made {date}',
   'apiKeys.expiresOn': 'expires {date}',
   'apiKeys.expiredOn': 'expired {date}',
-  'apiKeys.revokedOn': 'revoked {date}',
+  'apiKeys.revokedOn': 'revoked {date}, removed after 7 days',
   'apiKeys.neverExpires': 'never expires',
   'apiKeys.lastUsed': 'last used {date}',
   'apiKeys.neverUsed': 'not used yet',

@@ -45,7 +45,7 @@ within a few minutes). Making and revoking keys go in the event log.
 | ------------------------------------- | ---------------------------------------------------------------------------- |
 | `GET /api/account/api-keys`           | Your keys: `id`, `name`, `scopes`, `createdAt`, `expiresAt`, `lastUsedAt`, `revokedAt` |
 | `POST /api/account/api-keys`          | `{"name","scopes","expiresAt"}` (`expiresAt` null: never); answers `{"key","token"}` once |
-| `DELETE /api/account/api-keys/{id}`   | Revoke one at once                                                           |
+| `DELETE /api/account/api-keys/{id}`   | Revoke one at once. It stays in the list for 7 days, then is removed         |
 
 These three take a signed-in session, never a key. With `AUTH_MODE=none` there are no keys.
 
