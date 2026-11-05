@@ -10,6 +10,7 @@ import { localTimeZone } from '../../core/dates.ts';
 import { formatTime } from '../format.ts';
 import { t } from '../i18n/i18n.ts';
 import { useApply, useStoreState, useWorkspace } from '../store/hooks.ts';
+import { useSyncState } from '../sync/syncContext.ts';
 import { notificationAllowed } from '../../core/notificationSwitches.ts';
 import { localClock } from './clock.ts';
 import { notifier } from './notifier.ts';
@@ -59,6 +60,10 @@ function markFired(key: string, now: number): void {
 export function ReminderScheduler({ now = Date.now }: { now?: () => number }) {
   const workspace = useWorkspace();
   const me = useStoreState((state) => state.context().userId);
+  // What the server has had (audit E2): a reminder for a task it never acknowledged is marked
+  // local, so the Android app's background check-in, which knows only the server's, keeps it.
+  const acks = useSyncState((state) => state.acks);
+  const signedIn = useSyncState((state) => state.account !== null);
   const latest = useRef({ workspace, me });
   useEffect(() => {
     latest.current = { workspace, me };
@@ -158,11 +163,12 @@ export function ReminderScheduler({ now = Date.now }: { now?: () => number }) {
           repeats: Boolean(
             workspace.entities.tasks.find((task) => task.id === each.taskId)?.recurrence,
           ),
+          ...(signedIn && !(each.taskId in acks) ? { local: true } : {}),
         })),
       );
     }, AHEAD_SETTLE_MS);
     return () => clearTimeout(handle);
-  }, [workspace, me, now]);
+  }, [workspace, me, now, acks, signedIn]);
   return null;
 }
 

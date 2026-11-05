@@ -42,6 +42,10 @@ final class BackgroundCheck {
     private static final String MINUTES = "minutes";
     private static final String CURSOR = "cursor";
     private static final String ASKED = "asked";
+    private static final String FAILURES = "failures";
+    private static final String STOPPED = "stopped";
+    /** The longest wait between check-ins after repeated failures. */
+    static final int MAX_BACKOFF_MINUTES = 120;
     private static final int TIMEOUT_MS = 15000;
 
     private BackgroundCheck() {}
@@ -99,7 +103,27 @@ final class BackgroundCheck {
 
     /** A new server, or none: what was new on the old one means nothing here. */
     static void forgetServer(Context context) {
-        prefs(context).edit().remove(CURSOR).apply();
+        prefs(context).edit().remove(CURSOR).remove(FAILURES).remove(STOPPED).apply();
+    }
+
+    /**
+     * Minutes to the next check-in (audit E1): the chosen interval, twice as long after each failure
+     * in a row, at most MAX_BACKOFF_MINUTES (never shorter than the interval itself).
+     */
+    static int delayMinutes(int minutes, int failures) {
+        long delay = (long) minutes << Math.min(Math.max(failures, 0), 6);
+        return (int) Math.max(minutes, Math.min(delay, MAX_BACKOFF_MINUTES));
+    }
+
+    /** The app is open again: a stopped or slowed check-in starts afresh. */
+    static void resume(Context context) {
+        prefs(context).edit().remove(FAILURES).remove(STOPPED).apply();
+        schedule(context);
+    }
+
+    private static void failed(Context context) {
+        SharedPreferences prefs = prefs(context);
+        prefs.edit().putInt(FAILURES, prefs.getInt(FAILURES, 0) + 1).apply();
     }
 
     /** Set the next check-in, or clear it when there is no server or it is off. */
@@ -109,11 +133,12 @@ final class BackgroundCheck {
             new Intent(context, CheckReceiver.class).setAction(ACTION),
             PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
         if (alarms == null) return;
-        if (ServerChoice.get(context) == null || !enabled(context)) {
+        // Signed out (or the account gone): no waking the phone until the app runs again (audit E1).
+        if (ServerChoice.get(context) == null || !enabled(context) || prefs(context).getBoolean(STOPPED, false)) {
             alarms.cancel(wake);
             return;
         }
-        long at = System.currentTimeMillis() + minutes(context) * 60_000L;
+        long at = System.currentTimeMillis() + delayMinutes(minutes(context), prefs(context).getInt(FAILURES, 0)) * 60_000L;
         // Exact, and allowed while the phone is idle: the app has exact alarms for its reminders.
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S || alarms.canScheduleExactAlarms()) {
             alarms.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, at, wake);
@@ -143,11 +168,25 @@ final class BackgroundCheck {
             connection.setReadTimeout(TIMEOUT_MS);
             connection.setRequestProperty("Cookie", cookie);
             connection.setRequestProperty("Accept", "application/json");
-            int status = connection.getResponseCode();
-            if (status != 200) {
-                Logger.info("PeckList", "Background check: the server answered " + status);
+            int status;
+            try {
+                status = connection.getResponseCode();
+            } catch (IOException error) {
+                failed(context);
+                throw error;
+            }
+            if (status == 401 || status == 403) {
+                // The session is over: stop until the app is opened again.
+                Logger.info("PeckList", "Background check: signed out (" + status + "); stopped until the app runs");
+                prefs(context).edit().putBoolean(STOPPED, true).apply();
                 return;
             }
+            if (status != 200) {
+                Logger.info("PeckList", "Background check: the server answered " + status);
+                failed(context);
+                return;
+            }
+            prefs(context).edit().remove(FAILURES).apply();
             // The session slides forward on use: keep the renewed cookie, as the WebView would.
             List<String> renewed = connection.getHeaderFields().get("Set-Cookie");
             if (renewed != null) {
@@ -161,7 +200,7 @@ final class BackgroundCheck {
 
         // With the app on screen, the web app shows what is new and owns the reminders.
         if (!MainActivity.showing()) {
-            Reminders.handOver(context, Reminders.parse(answer.getJSONArray("reminders")));
+            Reminders.handOver(context, Reminders.parse(answer.getJSONArray("reminders")), true);
             Reminders.showNew(context, answer.getJSONArray("notifications"));
         }
         if (!answer.isNull("cursor")) prefs(context).edit().putString(CURSOR, answer.getString("cursor")).apply();

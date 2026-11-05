@@ -26,6 +26,11 @@ export interface ScheduledNotification extends AppNotification {
   at: number;
   /** Its task repeats: completing it moves the task on, which only the app does (Android) */
   repeats?: boolean;
+  /**
+   * Its task has not reached the server yet: the Android app's background check-in, which only
+   * knows the server's reminders, keeps it rather than cancelling it (audit E2).
+   */
+  local?: boolean;
 }
 
 /** A button on a reminder that finishes in the app (Android): close the task, or put it off. */

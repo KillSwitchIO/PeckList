@@ -48,6 +48,8 @@ interface ShellReminder {
   url: string;
   constant: boolean;
   repeats: boolean;
+  /** For a task the server has not had yet (audit E2). */
+  local?: boolean;
 }
 
 function stateOf({ display }: Display): NotificationPermissionState {
@@ -149,6 +151,7 @@ export function createShellNotifier(older: () => Notifier | null): Notifier | nu
           url: each.url,
           constant: each.sticky === true,
           repeats: each.repeats === true,
+          local: each.local === true,
         })),
       });
     },

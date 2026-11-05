@@ -88,6 +88,11 @@ export interface SyncState {
   server: ServerInfo | null;
   /** When the last sync finished (ms since epoch). */
   lastSynced: number | null;
+  /**
+   * The version of each entity the server has (what it acknowledged). A task not in here has
+   * never reached it: the Android app keeps its reminders through a check-in (audit E2).
+   */
+  acks: Readonly<Record<string, string>>;
   /** What went wrong last, when status is error. */
   error: string | null;
   /**
@@ -273,7 +278,10 @@ export function createSyncEngine(deps: SyncEngineDependencies): SyncEngine {
     };
   };
 
-  const saveMeta = (meta: SyncMeta) => storage.saveMeta(META, meta);
+  const saveMeta = (meta: SyncMeta) => {
+    engine.setState({ acks: meta.acks });
+    return storage.saveMeta(META, meta);
+  };
 
   const absorb = (
     transform: (local: WorkspaceFile) => WorkspaceFile,
@@ -708,6 +716,7 @@ export function createSyncEngine(deps: SyncEngineDependencies): SyncEngine {
       join: null,
       server: null,
       lastSynced: null,
+      acks: {},
       error: null,
       notice: null,
 

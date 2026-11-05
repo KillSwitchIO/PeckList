@@ -16,6 +16,7 @@ import com.capacitorjs.plugins.localnotifications.LocalNotification;
 import com.capacitorjs.plugins.localnotifications.NotificationStorage;
 import com.capacitorjs.plugins.localnotifications.TimedNotificationPublisher;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -77,8 +78,14 @@ final class Reminders {
         final String url;
         final boolean constant;
         final boolean repeats;
+        /** Set by the web app for a task the server has not had yet: a check-in keeps it (audit E2). */
+        final boolean local;
 
         Reminder(String key, String title, String body, long at, String url, boolean constant, boolean repeats) {
+            this(key, title, body, at, url, constant, repeats, false);
+        }
+
+        Reminder(String key, String title, String body, long at, String url, boolean constant, boolean repeats, boolean local) {
             this.key = key;
             this.title = title;
             this.body = body;
@@ -86,6 +93,7 @@ final class Reminders {
             this.url = url;
             this.constant = constant;
             this.repeats = repeats;
+            this.local = local;
         }
 
         static Reminder of(JSONObject json) throws JSONException {
@@ -96,7 +104,8 @@ final class Reminders {
                 json.getLong("at"),
                 json.getString("url"),
                 json.optBoolean("constant", false),
-                json.optBoolean("repeats", false)
+                json.optBoolean("repeats", false),
+                json.optBoolean("local", false)
             );
         }
 
@@ -108,7 +117,8 @@ final class Reminders {
                 .put("at", at)
                 .put("url", url)
                 .put("constant", constant)
-                .put("repeats", repeats);
+                .put("repeats", repeats)
+                .put("local", local);
         }
 
         /** What a constant reminder's repeats share: each replaces the last on screen. */
@@ -153,12 +163,18 @@ final class Reminders {
     }
 
     /** Replace the reminders set ahead with these. */
-    static synchronized void handOver(Context context, List<Reminder> wanted) {
-        migrateFromPlugin(context);
+    /**
+     * The reminders to keep: {@code wanted}, this phone's own quiet copies, and, when
+     * the list comes from the server (a check-in, {@code fromServer}), reminders the web app set for
+     * tasks the server does not have yet (audit E2): the server cannot list those, and dropping them
+     * lost the reminder until the task synced. The web app's own list replaces everything.
+     */
+    static Map<String, Reminder> merge(Collection<Reminder> current, List<Reminder> wanted, boolean fromServer, long now) {
         Map<String, Reminder> next = new LinkedHashMap<>();
-        for (Reminder old : load(context).values()) {
+        for (Reminder old : current) {
             // The quiet copies this phone made for its constant reminders are its own to keep.
             if (old.key.endsWith(QUIET)) next.put(old.key, old);
+            else if (fromServer && old.local && old.at > now) next.put(old.key, old);
         }
         for (Reminder each : wanted) {
             // A constant reminder's repeats are for browsers; here the notification itself keeps
@@ -166,6 +182,13 @@ final class Reminders {
             if (each.constant && each.key.contains("#")) continue;
             next.put(each.key, each);
         }
+        return next;
+    }
+
+    /** Replace the reminders to come: from the web app (its whole list), or from a check-in ({@code fromServer}). */
+    static synchronized void handOver(Context context, List<Reminder> wanted, boolean fromServer) {
+        migrateFromPlugin(context);
+        Map<String, Reminder> next = merge(load(context).values(), wanted, fromServer, System.currentTimeMillis());
         for (Reminder old : load(context).values()) {
             if (!next.containsKey(old.key)) cancelAlarm(context, old);
         }

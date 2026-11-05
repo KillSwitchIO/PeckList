@@ -12,6 +12,9 @@ import type {
   ScheduledNotification,
 } from '../../ports/notifier.ts';
 import { mockViewport, renderApp, testStore } from '../../test/renderApp.tsx';
+import { FakeBackend } from '../../test/fakeTransport.ts';
+import { createMemoryStorage } from '../../adapters/memory-storage.ts';
+import { createSyncEngine } from '../sync/syncEngine.ts';
 import { createBrowserNotifier } from '../../adapters/browser-notifier.ts';
 import { setNotifier } from './notifier.ts';
 
@@ -250,5 +253,41 @@ describe('reminders', () => {
     expect(new Set(last.map((each) => each.tag)).size).toBe(2);
     // The one due now is the system's to show; the page only notes it.
     expect(notifier.shown).toEqual([]);
+    // No server: nothing is waiting to reach one.
+    expect(last.some((each) => each.local)).toBe(false);
+  });
+
+  it('marks reminders for tasks the server has not had yet, for the Android check-in (audit E2)', async () => {
+    const handed: ScheduledNotification[][] = [];
+    setNotifier({
+      ...fakeNotifier(),
+      scheduleAhead: (notifications: ScheduledNotification[]) => {
+        handed.push(notifications);
+        return Promise.resolve();
+      },
+    });
+    const backend = new FakeBackend();
+    backend.addAccount('ben', 'correct horse battery');
+    const transport = backend.device();
+    transport.session = 'ben';
+    const store = testStore();
+    const sync = createSyncEngine({
+      transport,
+      workspace: store,
+      storage: createMemoryStorage(),
+      debounceMs: 60_000,
+      intervalMs: 600_000,
+    });
+    await renderApp('/inbox', store, sync);
+    await waitFor(() => expect(sync.getState().phase).toBe('ready'));
+    addTask(store, 'Synced', inMinutes(120), [{ before: 0 }]);
+    await act(() => sync.getState().syncNow());
+    transport.offline = true;
+    addTask(store, 'Added offline', inMinutes(180), [{ before: 0 }]);
+    await waitFor(
+      () => expect(handed.at(-1)?.map((each) => each.title)).toEqual(['Synced', 'Added offline']),
+      { timeout: 3000 },
+    );
+    expect(handed.at(-1)!.map((each) => each.local === true)).toEqual([false, true]);
   });
 });

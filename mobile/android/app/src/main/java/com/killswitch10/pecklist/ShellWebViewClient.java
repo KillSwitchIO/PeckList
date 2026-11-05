@@ -10,6 +10,7 @@ import android.webkit.WebResourceResponse;
 import android.webkit.WebView;
 import com.getcapacitor.Bridge;
 import com.getcapacitor.BridgeWebViewClient;
+import org.json.JSONObject;
 
 /**
  * Capacitor's WebView client, plus a page of our own when the server cannot be reached on a
@@ -74,11 +75,13 @@ class ShellWebViewClient extends BridgeWebViewClient {
         String server = ServerChoice.get(context);
         if (server == null || !ServerChoice.sameOrigin(server, request.getUrl().toString())) return;
         String host = server.replaceFirst("^https?://", "");
-        // The server address is only ever an origin (ServerChoice.normalize), so it is safe in JS.
+        // Quoted as JavaScript, then as an attribute (audit A5): safe whatever the address holds,
+        // not only because ServerChoice.normalize keeps it an origin.
+        String retry = TextUtils.htmlEncode("location.replace(" + JSONObject.quote(server + "/") + ")");
         view.loadDataWithBaseURL(server + "/", card(
             context.getString(R.string.offline_title),
             context.getString(R.string.offline_body, host),
-            "<button class=\"go\" onclick=\"location.replace('" + server + "/')\">" + E(R.string.offline_retry) + "</button>" +
+            "<button class=\"go\" onclick=\"" + retry + "\">" + E(R.string.offline_retry) + "</button>" +
             shellButton("other", R.string.offline_other, "chooseServer", "{}")
         ), "text/html", "utf-8", null);
     }
