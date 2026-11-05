@@ -27,6 +27,16 @@ on automatic rebase before merge: it merges a tree nothing tested.
 `main`, nothing is built. Run a pipeline on `main` from the UI with `FULL_CHECK=true`, which runs
 every test suite in that pipeline.
 
+## When a job goes red
+
+| Job               | What it means                                                                                                 | What to do                                                                                                                                |
+| ----------------- | ------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| `verify-tested`   | This commit's tree is not what a green merge request pipeline tested, for example after a push to `main`.     | Nothing was built. Run a pipeline on `main` from the UI with `FULL_CHECK=true`.                                                           |
+| `deploy-test`     | The test server did not take the image. Its log links the compose job.                                        | A problem on the server: retry it, which reuses the image. A problem in the code: fix it on `main`, and the next merge deploys.           |
+| `cut-release`     | The commit is not ready to publish. Its log lists each reason.                                                | If a newer merge overtook this commit's `deploy-test`, retry `deploy-test` on this commit first.                                          |
+| `promote-image`   | The tag has no release, or the image is stamped with another version or commit.                               | Nothing was published under those names. Use `cut-release` instead of pushing a tag by hand.                                              |
+| A timeout in a suite | The job ran out of time, usually because the runner is busy. It says nothing about the code.               | Retry it. Only a run that finished counts as a test result.                                                                               |
+
 ## Approval
 
 GitLab Free has an Approve button on merge requests but cannot require it, so the last job of a
