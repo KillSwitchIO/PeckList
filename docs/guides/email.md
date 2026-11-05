@@ -13,7 +13,7 @@ server: anything that takes SMTP submissions. Without email the server works as 
 1. Set [`PUBLIC_URL`](../configuration/reference.md#public_url) to the address people open
    PeckList at. Links in emails are built from it, never from the address a request came in on
    (anyone can send any address), so without it nothing is sent.
-2. On the admin **Settings** page, under **Email**, pick your **Provider** and fill in **Sign in
+2. Under **Admin > Email**, pick your **Provider** and fill in **Sign in
    as** and **Password** as its section below says. What the provider fills in (the mail server,
    port and encryption, and for some sending services the login name) shows its values, greyed
    out; a value saved there earlier is cleared when you save, so the provider's applies. Pick

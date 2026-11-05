@@ -24,7 +24,7 @@ again from a seed. [`DEMO_MODE`](../configuration/reference.md#demo_mode) does t
   nobody can change their passwords.
 
 The demo settings are read from the environment only, so nobody turns them off from
-**Admin > Settings**. Keep the admin password to yourself: visitors never need an admin.
+the **Admin** pages. Keep the admin password to yourself: visitors never need an admin.
 
 ## The seed
 

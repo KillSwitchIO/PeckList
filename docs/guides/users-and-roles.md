@@ -14,7 +14,7 @@ Some of that is for super admins only, because an admin who could do it could ma
 super admin:
 
 - **Sign-in settings**: identity providers (`OIDC_*`, role and user maps included), `LOCAL_LOGIN`,
-  `REGISTRATION`, `TRUSTED_PROXIES` and `PUBLIC_URL`. Admins see them on **Admin > Settings**,
+  `REGISTRATION`, `TRUSTED_PROXIES` and `PUBLIC_URL`. Admins see them on **Admin > Sign-in** and **Admin > General**,
   locked and marked _super admins only_.
 - **Whole-server backups**: downloading a snapshot, exporting the whole server and restoring it.
   They hold every password hash and the keys that sign sessions. Admins can still take a backup
@@ -48,7 +48,7 @@ With single sign-on, `OIDC_<NAME>_ROLE_MAP` sets roles from the provider's group
 
 ### Self sign-up and invite links
 
-[`REGISTRATION`](../configuration/reference.md#registration) (or **Admin > Settings > Who can join**)
+[`REGISTRATION`](../configuration/reference.md#registration) (or **Admin > Sign-in > Who can join**)
 decides who may make their own account:
 
 | Value              | Who can sign up                                                                     |

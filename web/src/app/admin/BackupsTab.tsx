@@ -20,6 +20,8 @@ import { formatWhen } from '../format.ts';
 import { useToday } from '../hooks/useToday.ts';
 import { t } from '../i18n/i18n.ts';
 import { ProblemAlert } from '../layout/ProblemAlert.tsx';
+import { SETTINGS_ON } from './settingsGroups.ts';
+import { SettingsTab } from './SettingsTab.tsx';
 import { useIsSuperAdmin, useLoaded } from './useAdmin.ts';
 
 function size(bytes: number): string {
@@ -185,6 +187,7 @@ export function BackupsTab({ api }: { api: AdminApi }) {
                 display: 'flex',
                 alignItems: 'center',
                 gap: 1,
+                mx: -1,
                 px: 1,
                 py: 0.75,
                 borderRadius: 2,
@@ -213,12 +216,12 @@ export function BackupsTab({ api }: { api: AdminApi }) {
             </Box>
           ))}
           {backups.data?.length === 0 && (
-            <Typography color="text.secondary" sx={{ px: 1 }}>
-              {t('admin.backups.none')}
-            </Typography>
+            <Typography color="text.secondary">{t('admin.backups.none')}</Typography>
           )}
         </Box>
       </Box>
+
+      <SettingsTab api={api} only={SETTINGS_ON.backups} titled />
 
       <Box component="section" aria-label={t('admin.backups.exportTitle')}>
         <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1 }}>

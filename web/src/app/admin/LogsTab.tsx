@@ -1,10 +1,11 @@
 import { Box, Button, Link, ToggleButton, ToggleButtonGroup, Typography } from '@mui/material';
 import { useState } from 'react';
-import { Link as RouterLink } from 'react-router';
 import type { AdminApi, LogOutput } from '../../ports/admin.ts';
 import type { MessageKey } from '../i18n/en.ts';
 import { t } from '../i18n/i18n.ts';
 import { AuditView } from './AuditView.tsx';
+import { SETTINGS_ON } from './settingsGroups.ts';
+import { SettingsTab } from './SettingsTab.tsx';
 import { useLoaded } from './useAdmin.ts';
 
 const OUTPUTS: Record<string, MessageKey> = {
@@ -23,7 +24,7 @@ function OutputRow({ output }: { output: LogOutput }) {
     <Box
       role="listitem"
       aria-label={label}
-      sx={{ display: 'flex', alignItems: 'flex-start', gap: 1.5, px: 1, py: 0.75 }}
+      sx={{ display: 'flex', alignItems: 'flex-start', gap: 1.5, py: 0.75 }}
     >
       <Box
         aria-hidden
@@ -62,7 +63,7 @@ function OutputRow({ output }: { output: LogOutput }) {
 }
 
 /** Where the server's logs go and whether each output keeps up, and the debug dump. */
-function OutputsView({ api }: { api: AdminApi }) {
+function OutputsView({ api, onChange }: { api: AdminApi; onChange: () => void }) {
   const { data, reload } = useLoaded(api.logging);
   return (
     <Box sx={{ display: 'grid', gap: 3 }}>
@@ -78,7 +79,7 @@ function OutputsView({ api }: { api: AdminApi }) {
         {data && (
           <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
             {t('admin.logs.level', { level: data.level })}{' '}
-            <Link component={RouterLink} to="/admin/settings">
+            <Link component="button" variant="body2" onClick={onChange}>
               {t('admin.logs.change')}
             </Link>
           </Typography>
@@ -105,16 +106,16 @@ function OutputsView({ api }: { api: AdminApi }) {
   );
 }
 
-type LogsView = 'event' | 'access' | 'outputs';
+type LogsView = 'event' | 'access' | 'outputs' | 'settings';
 
 /**
  * Admin > Logs (spec: Logging, Access and event log): what people did, every request, and where
- * the server's logs go. Levels and log servers are set on the Settings tab.
+ * the server's logs go, and the settings for all of that.
  */
 export function LogsTab({ api }: { api: AdminApi }) {
   const [view, setView] = useState<LogsView>('event');
   return (
-    <Box sx={{ maxWidth: 720, display: 'grid', gap: 2, pb: 10 }}>
+    <Box sx={{ maxWidth: 720, display: 'grid', gap: 2 }}>
       <ToggleButtonGroup
         exclusive
         size="small"
@@ -132,9 +133,14 @@ export function LogsTab({ api }: { api: AdminApi }) {
         <ToggleButton value="outputs" sx={{ textTransform: 'none', px: 2 }}>
           {t('admin.logs.outputsTab')}
         </ToggleButton>
+        <ToggleButton value="settings" sx={{ textTransform: 'none', px: 2 }}>
+          {t('admin.logs.settingsTab')}
+        </ToggleButton>
       </ToggleButtonGroup>
-      {view === 'outputs' ? (
-        <OutputsView api={api} />
+      {view === 'settings' ? (
+        <SettingsTab api={api} only={SETTINGS_ON.logs} />
+      ) : view === 'outputs' ? (
+        <OutputsView api={api} onChange={() => setView('settings')} />
       ) : (
         <AuditView key={view} api={api} kind={view} />
       )}

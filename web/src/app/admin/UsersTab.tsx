@@ -235,6 +235,7 @@ export function UsersTab({ api }: { api: AdminApi }) {
                 display: 'flex',
                 alignItems: 'center',
                 gap: 1.5,
+                mx: -1,
                 px: 1,
                 py: 1,
                 borderRadius: 2,

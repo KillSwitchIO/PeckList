@@ -17,7 +17,7 @@ Where they go:
 
 Levels: `LOG_LEVEL` (default `information`), and per category with
 `LOG_LEVEL_OVERRIDES=PeckList.Sync=debug,Microsoft=warning`. Levels and log servers saved in
-**Admin > Settings** apply at once, without a restart. **Admin > Logs > Outputs** shows each output,
+**Admin > Logs > Settings** apply at once, without a restart. **Admin > Logs > Outputs** shows each output,
 whether it keeps up, and how many entries it dropped.
 
 ## Sending logs to a log server

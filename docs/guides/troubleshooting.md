@@ -94,5 +94,5 @@ Docker network), and the credentials.
 docker exec pecklist pecklist config show      # every setting and where it comes from
 ```
 
-Raise the log level for one area without a restart: in **Admin > Settings**, set
+Raise the log level for one area without a restart: in **Admin > Logs > Settings**, set
 `LOG_LEVEL_OVERRIDES` to `PeckList=debug` (or `PeckList.Sync=debug`), reproduce, then remove it.

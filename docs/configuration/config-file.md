@@ -38,7 +38,7 @@ The Docker env-file format: one `NAME=value` per line.
 - Lines starting with `#` and blank lines are ignored.
 - [Encrypted values](index.md#encrypted-values) (`enc:v1:...`) work here.
 
-Environment variables override the file, and the file overrides the settings page. The
+Environment variables override the file, and the file overrides the admin pages. The
 environment-only settings (`AUTH_MODE`, `ADMIN_PASSWORD`, `DB_*`, `SNAPSHOT_DIR`, `LOG_DIR`,
 `AUDIT_ARCHIVE_DIR`, `WEB_ROOT`, `CONFIG_FILE`, `CONFIG_KEY`) cannot be set in it.
 

@@ -169,7 +169,7 @@ Reach for these before writing another copy:
   `ReturnUrls.Safe`, and HSTS behind a trusted proxy. The recommended proxy config is
   `reverse_proxy` alone; do not move protections to the proxy.
 - **Secrets**: tokens are stored hashed (`Tokens.Hash`), page-saved settings are encrypted at
-  rest, logs and audit details go through `Redaction`, the settings page shows `********` for a
+  rest, logs and audit details go through `Redaction`, the admin pages show `********` for a
   secret whether or not it is set, backups are treated like the database (they hold password
   hashes and signing keys, so whole-server backups are super-admin only).
 - **Every refusal has a test**: sign-in while disabled, the last super admin, an admin touching an

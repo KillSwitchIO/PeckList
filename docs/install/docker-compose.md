@@ -84,5 +84,5 @@ docker compose exec pecklist pecklist snapshot  # a backup now
 docker compose restart pecklist                  # after changing a setting that needs it
 ```
 
-The **Restart now** button on the admin settings page stops the server; the `restart:` policy in
+The **Restart now** button on the admin pages stops the server; the `restart:` policy in
 these files brings it back. Without one, the server stays stopped.
