@@ -1,10 +1,15 @@
 import { describe, expect, it } from 'vitest';
 import { createAjvValidator } from '../adapters/ajv-validator.ts';
 import { testContext } from '../test/fixtures.ts';
+import { addAttachment } from './attachments.ts';
+import { addComment } from './comments.ts';
 import { createList, deleteList, inboxList } from './lists.ts';
+import { members } from './ops.ts';
 import { trashedTasks } from './queries.ts';
+import { createSavedFilter, deleteSavedFilter } from './savedFilters.ts';
+import { createTag, deleteTag } from './tags.ts';
 import { createTask, deleteTask, updateTask } from './tasks.ts';
-import { emptyTrash, isPurged, purgeExpired, purgeTask } from './trash.ts';
+import { emptyTrash, ERASED, isPurged, PURGED_AT, purgeExpired, purgeTask } from './trash.ts';
 import type { WorkspaceFile } from './types.ts';
 import { createWorkspace } from './workspace.ts';
 
@@ -113,6 +118,129 @@ describe('trash purge', () => {
     expect(isPurged(find(s.ws, child.id))).toBe(true);
     // Trashed on its own earlier: still restorable.
     expect(find(s.ws, kept.id).title).toBe('Deleted earlier');
+  });
+
+  it('erases what a purged task carried: dates, reminders, tags and people', () => {
+    const s = setup();
+    const tag = createTag(s.ctx, s.ws, 'private');
+    s.ws = tag.workspace;
+    const task = s.add('Doctor');
+    s.ws = updateTask(s.ctx, s.ws, task.id, {
+      priority: 3,
+      schedule: { start: '2026-09-02', end: null, allDay: true, timeZone: 'America/Chicago' },
+      recurrence: 'FREQ=WEEKLY',
+      reminders: [{ before: 60 }],
+      tags: { [tag.tag.id]: { in: true, hlc: s.ctx.clock.tick() } },
+      assignees: { 'user:01ARZ3NDEKTSV4RRFFQ69G5FAV': { in: true, hlc: s.ctx.clock.tick() } },
+      status: 'done',
+      completedAt: '2026-09-01T10:00:00.000Z',
+      completedBy: s.ctx.userId,
+    });
+    s.ws = deleteTask(s.ctx, s.ws, task.id);
+    s.ws = purgeTask(s.ctx, s.ws, task.id);
+
+    const gone = find(s.ws, task.id);
+    expect(gone).toMatchObject({
+      status: 'open',
+      priority: 0,
+      schedule: null,
+      recurrence: null,
+      reminders: [],
+      completedAt: null,
+      completedBy: null,
+    });
+    expect(members(gone.tags)).toEqual([]);
+    expect(members(gone.assignees)).toEqual([]);
+    expect(createAjvValidator().validate(s.ws).errors).toEqual([]);
+  });
+
+  it('erases the comments and files on a purged task', () => {
+    const s = setup();
+    const task = s.add('With extras');
+    const other = s.add('Stays');
+    s.ws = addComment(s.ctx, s.ws, task.id, 'A private thought').workspace;
+    s.ws = addComment(s.ctx, s.ws, other.id, 'Still here').workspace;
+    const file = addAttachment(s.ctx, s.ws, {
+      taskId: task.id,
+      name: 'scan.pdf',
+      size: 10,
+      mime: 'application/pdf',
+      sha256: 'a'.repeat(64),
+    });
+    s.ws = file.workspace;
+    s.ws = deleteTask(s.ctx, s.ws, task.id);
+    s.ws = purgeTask(s.ctx, s.ws, task.id);
+
+    expect(s.ws.entities.comments.map((each) => [each.body, isPurged(each)])).toEqual([
+      [ERASED, true],
+      ['Still here', false],
+    ]);
+    const gone = s.ws.entities.attachments[0]!;
+    expect([gone.name, isPurged(gone)]).toEqual([ERASED, true]);
+    expect(createAjvValidator().validate(s.ws).errors).toEqual([]);
+  });
+
+  it('finishes tasks an older version purged, then has nothing left to do', () => {
+    const s = setup();
+    const task = s.add('Purged long ago');
+    s.ws = addComment(s.ctx, s.ws, task.id, 'Left behind').workspace;
+    s.ws = updateTask(s.ctx, s.ws, task.id, {
+      title: '',
+      notes: '',
+      priority: 2,
+      deletedAt: PURGED_AT,
+    });
+
+    s.ws = purgeExpired(s.ctx, s.ws, s.now);
+    expect(find(s.ws, task.id).priority).toBe(0);
+    expect(s.ws.entities.comments[0]!.body).toBe(ERASED);
+    expect(purgeExpired(s.ctx, s.ws, s.now)).toBe(s.ws);
+  });
+
+  it("leaves someone else's comment on a task in their list alone, and erases my own there", () => {
+    const s = setup();
+    const theirs = createList(s.ctx, s.ws, { name: 'Their list', color: '#A7C7E7' });
+    s.ws = theirs.workspace;
+    const made = createTask(s.ctx, s.ws, { title: 'Shared', listId: theirs.list.id });
+    s.ws = addComment(s.ctx, made.workspace, made.task.id, 'Mine').workspace;
+    s.ws = addComment(s.ctx, s.ws, made.task.id, 'Theirs').workspace;
+    const someone = '01SOMEONEELSE0000000000001';
+    s.ws = {
+      ...s.ws,
+      entities: {
+        ...s.ws.entities,
+        lists: s.ws.entities.lists.map((list) =>
+          list.id === theirs.list.id
+            ? { ...list, createdBy: someone, visibility: 'shared' as const }
+            : list,
+        ),
+        comments: s.ws.entities.comments.map((each) =>
+          each.body === 'Theirs' ? { ...each, createdBy: someone } : each,
+        ),
+      },
+    };
+    s.ws = deleteTask(s.ctx, s.ws, made.task.id);
+    s.ws = purgeTask(s.ctx, s.ws, made.task.id);
+    expect(s.ws.entities.comments.map((each) => each.body)).toEqual([ERASED, 'Theirs']);
+  });
+
+  it('erases the names of tags and saved filters deleted long enough ago', () => {
+    const s = setup();
+    const tag = createTag(s.ctx, s.ws, 'courtroom');
+    s.ws = deleteTag(s.ctx, tag.workspace, tag.tag.id);
+    const filter = createSavedFilter(s.ctx, s.ws, 'Secret', { lists: [inboxList(s.ws).id] });
+    s.ws = deleteSavedFilter(s.ctx, filter.workspace, filter.filter.id);
+    s.advance(20);
+    s.ws = purgeExpired(s.ctx, s.ws, s.now);
+    expect(s.ws.entities.tags.find((each) => each.id === tag.tag.id)!.name).toBe('courtroom');
+
+    s.advance(11);
+    s.ws = purgeExpired(s.ctx, s.ws, s.now);
+    const gone = s.ws.entities.tags.find((each) => each.id === tag.tag.id)!;
+    expect([gone.name, isPurged(gone)]).toEqual([ERASED, true]);
+    const filterGone = s.ws.entities.savedFilters.find((each) => each.id === filter.filter.id)!;
+    expect([filterGone.name, filterGone.query]).toEqual(['', {}]);
+    expect(createAjvValidator().validate(s.ws).errors).toEqual([]);
   });
 
   it('empties the trash, lists included', () => {

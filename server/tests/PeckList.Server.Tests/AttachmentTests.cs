@@ -8,6 +8,7 @@ using Microsoft.Extensions.DependencyInjection;
 using PeckList.Core;
 using PeckList.Core.Accounts;
 using PeckList.Core.Attachments;
+using PeckList.Core.Sharing;
 using PeckList.Server.Attachments;
 
 namespace PeckList.Server.Tests;
@@ -167,6 +168,34 @@ public sealed class AttachmentTests(ServerFixture fixture) : IClassFixture<Serve
         // A viewer adds no files.
         Assert.Equal(["A2"], (await Sync(sam, Attachment("A2", "T1", "mine.txt", bytes)))["rejected"]!.AsArray().Select(id => (string)id!));
         Assert.NotEqual(benId, samId);
+    }
+
+    [Fact]
+    public async Task A_lists_owner_erases_a_file_in_a_purge_and_its_bytes_are_no_longer_wanted()
+    {
+        var (olive, oliveId) = await SignIn("olive");
+        var (pete, peteId) = await SignIn("pete");
+        await factory.BefriendAsync(oliveId, peteId);
+        var bytes = Encoding.UTF8.GetBytes("a file olive purges");
+        Assert.Empty((await Sync(olive,
+            ("lists", Entity("L9", new JsonObject { ["name"] = "Shed", ["visibility"] = "shared" })),
+            ("listMembers", Entity("M9", new JsonObject { ["listId"] = "L9", ["principal"] = $"user:{peteId}", ["role"] = "editor" })),
+            ("tasks", Entity("T9", new JsonObject { ["listId"] = "L9", ["title"] = "Build it", ["parentId"] = null }))))["rejected"]!.AsArray());
+        Assert.Empty((await Sync(pete, Attachment("A9", "T9", "plan.txt", bytes)))["rejected"]!.AsArray());
+        var wanted = () => factory.Services.GetRequiredService<SharingState>().Index.WantedFiles(DateTimeOffset.UtcNow.AddDays(-30));
+        Assert.Contains(Sha(bytes), wanted());
+
+        (string, JsonObject) Removed(string name)
+        {
+            var file = Attachment("A9", "T9", name, bytes);
+            file.Item2["deletedAt"] = "1970-01-01T00:00:00.000Z";
+            return file;
+        }
+
+        // Removing it does not let the owner rename someone else's file; erasing it does.
+        Assert.Equal(["A9"], (await Sync(olive, Removed("other.txt")))["rejected"]!.AsArray().Select(id => (string)id!));
+        Assert.Empty((await Sync(olive, Removed(SharingIndex.Erased)))["rejected"]!.AsArray());
+        Assert.DoesNotContain(Sha(bytes), wanted());
     }
 
     [Fact]
