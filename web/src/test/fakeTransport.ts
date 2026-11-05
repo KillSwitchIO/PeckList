@@ -616,13 +616,25 @@ export class FakeTransport implements SyncTransport {
     return Promise.resolve({ kind: 'ok' as const, account: found.account });
   }
 
-  sync(request: Parameters<SyncTransport['sync']>[0]) {
+  sync(request: Parameters<SyncTransport['sync']>[0]): ReturnType<SyncTransport['sync']> {
     this.check();
     const found = this.current();
     if (!found) throw new SyncFailure('signed-out', 'signed out');
     if (found.account.mustChangePassword) throw new SyncFailure('password-change', 'change it');
     if (request.schemaVersion !== this.backend.schemaVersion) {
       throw new SyncFailure('schema', 'schema mismatch', this.backend.schemaVersion);
+    }
+    // From a device that has not seen a restore yet: nothing written, the new epoch said (audit C6).
+    if (request.epoch && this.backend.epoch && request.epoch !== this.backend.epoch) {
+      return Promise.resolve({
+        cursor: 0,
+        changes: [],
+        more: false,
+        revoked: [],
+        rejected: [],
+        corrections: [],
+        epoch: this.backend.epoch,
+      });
     }
     // A copy, as over the wire.
     const before = this.backend.server.calls;

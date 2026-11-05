@@ -490,10 +490,11 @@ export function createSyncEngine(deps: SyncEngineDependencies): SyncEngine {
             schemaVersion: CURRENT_SCHEMA_VERSION,
             cursor: meta.cursor,
             changes: batch,
+            epoch: meta.epoch ?? null,
           });
           noteTiming('sync', performance.now() - asked);
-          // The server's data was restored from a backup: this device's pending changes went
-          // with this request; now it starts over from what the server has.
+          // The server's data was restored from a backup: it took none of this request's changes
+          // (they belong to the data before), and this device starts over from what it has now.
           if (response.epoch && meta.epoch && response.epoch !== meta.epoch) {
             held = null;
             await startOver(account);

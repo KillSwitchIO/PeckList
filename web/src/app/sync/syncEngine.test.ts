@@ -608,16 +608,20 @@ describe('sync engine', () => {
     backend.server.rows.clear();
     for (const [id, row] of backup) backend.server.rows.set(id, row);
     backend.epoch = 'epoch-2';
+    // Meanwhile this device changed something of the data before the restore.
+    addTask(store, 'Typed before it noticed');
     await engine.getState().syncNow();
     expect(titles(store)).toEqual(['Kept']);
+    // None of it was written over the restored data (audit C6).
+    const onServer = () =>
+      [...backend.server.rows.values()].map(
+        (row) => (row.change.entity as { title?: string }).title,
+      );
+    expect(onServer()).not.toContain('Typed before it noticed');
     // And carries on normally.
     addTask(store, 'New');
     await engine.getState().syncNow();
-    expect(
-      [...backend.server.rows.values()].map(
-        (row) => (row.change.entity as { title?: string }).title,
-      ),
-    ).toContain('New');
+    expect(onServer()).toContain('New');
   });
 
   it('a password that must change comes first', async () => {

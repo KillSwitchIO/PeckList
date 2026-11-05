@@ -32,6 +32,13 @@ public static class SyncEndpoints
                     "{Admin} as {User} tried to write {Count} change(s); refused", admin, user.FindFirstValue(ClaimTypes.Name), request.Changes.Count);
                 return Results.Json(new AuthError("not_while_impersonating"), statusCode: StatusCodes.Status403Forbidden);
             }
+            // A device from before a restore writes nothing over the restored data (audit C6): it
+            // hears the new epoch and starts over from what the server has now.
+            var current = await context.RequestServices.GetRequiredService<ServerEpoch>().GetAsync(cancellation);
+            if (request.Epoch is { Length: > 0 } theirs && theirs != current)
+            {
+                return Results.Ok(new SyncResponse(0, [], false, [], [], [], Epoch: current));
+            }
             try
             {
                 var source = context.Request.Headers[DeviceHeader].FirstOrDefault() ?? context.Request.Headers[LegacyDeviceHeader].FirstOrDefault();
