@@ -74,7 +74,7 @@ least one provider. `shown` and `hidden`, the names before 0.2.1, still work as 
 
 ### `PASSKEYS`
 
-`on` or `off`. On, people add passkeys under **Settings > Passkeys** and the sign-in page offers
+`on` or `off`. On, people add passkeys under **Settings > Account > Passkeys** and the sign-in page offers
 **Sign in with a passkey** (and passkeys in the username field's autofill). Passkeys belong to
 [`PUBLIC_URL`](#public_url)'s host (or the host the request came in on, without it), and browsers
 only use them on a secure address: HTTPS, or `localhost`. On a plain `http://` address they stay

@@ -65,7 +65,7 @@ short hash of the error's kind and the place in the app's code it came from: nev
 and never your server's address. A device sends its counts at most every six hours, with a random
 device id that stays on your server (only the number of devices goes on).
 
-Nothing is counted on a server that sends no report, or for someone who turned **Settings > Usage
+Nothing is counted on a server that sends no report, or for someone who turned **Settings > Your data > Usage
 stats > Share anonymous usage stats** off: that one switch covers all their devices, and the server
 drops counts that arrive anyway.
 
@@ -77,7 +77,7 @@ the report in full first (**See what it holds**) and choose: **Send** (this one)
 **Always send** (this one and later ones, without asking) or **Never send** (no reports, and it
 turns your usage sharing off too). In the Android app, a crash or a freeze (the "app isn't
 responding" kind) is noticed by the app itself and offered the same way, as **PeckList closed
-unexpectedly**, the next time you open it. The same choice is under **Settings > Usage stats > Crash
+unexpectedly**, the next time you open it. The same choice is under **Settings > Your data > Usage stats > Crash
 reports**, for all your devices.
 
 A report holds the app's version and channel, the device's kind (as above), the error's kind, its
@@ -103,7 +103,7 @@ address it was worked out from never reaches the collector.
 
 - For the whole server: `TELEMETRY=false`, or `DO_NOT_TRACK=1`, or the switch in **Admin >
   Settings > Telemetry**. Nothing is sent from then on, and the apps stop counting.
-- For yourself: **Settings > Usage stats**. Your devices stop counting and your counts are left
+- For yourself: **Settings > Your data > Usage stats**. Your devices stop counting and your counts are left
   out of the server's report.
 - The report goes to [`TELEMETRY_URL`](../configuration/reference.md#telemetry_url); point it at
   your own collector if you run one.

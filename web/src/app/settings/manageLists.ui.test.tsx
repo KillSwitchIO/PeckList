@@ -22,7 +22,7 @@ const slow = { timeout: 10_000 };
 describe('Settings, Lists and tags', () => {
   it('opens from Settings and edits, pins, archives and deletes lists and tags', async () => {
     const store = testStore();
-    await renderApp('/settings', store);
+    await renderApp('/settings/tasks', store);
     store.getState().apply((ctx, ws) => {
       let next = createList(ctx, ws, { name: 'Moving house', color: '#F3E1A0' }).workspace;
       next = createList(ctx, next, { name: 'Garden', color: '#CFE3A3' }).workspace;

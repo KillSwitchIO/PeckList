@@ -80,7 +80,7 @@ export function NotificationSettings() {
   return (
     <>
       <NotificationKinds />
-      <Section title={t('notifications.settings')}>
+      <Section title={t('notifications.thisDevice')}>
         <SettingRow label={t('notifications.push')} hint={t('notifications.pushHint')}>
           <Switch
             checked={state === 'on'}
@@ -90,17 +90,17 @@ export function NotificationSettings() {
           />
         </SettingRow>
         {state === 'unsupported' && (
-          <Alert severity="info" variant="outlined" sx={{ mx: 1 }}>
+          <Alert severity="info" variant="outlined">
             {t('notifications.pushUnsupported')}
           </Alert>
         )}
         {state === 'blocked' && (
-          <Alert severity="warning" variant="outlined" sx={{ mx: 1 }}>
+          <Alert severity="warning" variant="outlined">
             {t('reminder.blocked')}
           </Alert>
         )}
         {state === 'failed' && (
-          <Alert severity="warning" variant="outlined" sx={{ mx: 1 }}>
+          <Alert severity="warning" variant="outlined">
             {t('notifications.pushFailed')}
           </Alert>
         )}

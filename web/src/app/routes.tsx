@@ -101,6 +101,7 @@ export function AppRoutes() {
           <Route path="/settings" element={<SettingsPage />} />
           <Route path="/settings/lists" element={<ManageListsPage />} />
           <Route path="/settings/api-keys" element={<ApiKeysPage />} />
+          <Route path="/settings/:section" element={<SettingsPage />} />
           <Route path="/stats" element={<StatsPage />} />
           <Route path="/admin" element={<AdminPage />} />
           <Route path="/admin/:tab" element={<AdminPage />} />

@@ -174,7 +174,7 @@ export function SwipeSection() {
     const { buttons, full } = prefs[side];
     const fullLabel = t(side === 'right' ? 'swipe.rightFull' : 'swipe.leftFull');
     return (
-      <Box component="section" aria-label={title} sx={{ px: 1, pt: 1, pb: 2 }}>
+      <Box component="section" aria-label={title} sx={{ pt: 1, pb: 2 }}>
         <Typography sx={{ fontWeight: 600 }}>{title}</Typography>
         <Preview side={side} buttons={buttons} full={full} />
         <Typography variant="caption" color="text.secondary">

@@ -20,7 +20,7 @@ beforeEach(() => {
 describe('settings: colors', () => {
   it('changes a color live, warns when it is too pale, and resets', async () => {
     const store = testStore();
-    await renderApp('/settings', store);
+    await renderApp('/settings/appearance', store);
     const colors = await screen.findByRole('region', { name: 'Colors' });
     expect(within(colors).getByRole('button', { name: 'Reset colors' })).toBeDisabled();
 
@@ -51,16 +51,20 @@ describe('settings: colors', () => {
     );
   });
 
-  it('theme and dates settings save to the workspace', async () => {
+  it('the theme saves to the workspace', async () => {
     const store = testStore();
-    await renderApp('/settings', store);
-    const settings = () => store.getState().workspace!.entities.settings[0]!;
+    await renderApp('/settings/appearance', store);
     const theme = await screen.findByRole('group', { name: 'Theme' });
     await userEvent.click(within(theme).getByRole('button', { name: 'Dark' }));
-    expect(settings().themeMode).toBe('dark');
+    expect(store.getState().workspace!.entities.settings[0]!.themeMode).toBe('dark');
     expect(localStorage.getItem('pecklist.themeMode')).toBe('dark');
+  });
 
-    await userEvent.click(screen.getByRole('combobox', { name: 'Due soon' }));
+  it('dates settings save to the workspace', async () => {
+    const store = testStore();
+    await renderApp('/settings/dates', store);
+    const settings = () => store.getState().workspace!.entities.settings[0]!;
+    await userEvent.click(await screen.findByRole('combobox', { name: 'Due soon' }));
     await userEvent.click(await screen.findByRole('option', { name: '5 days before' }));
     expect(settings().dueSoonDays).toBe(5);
     await userEvent.click(screen.getByRole('combobox', { name: 'Calendar length' }));
@@ -85,7 +89,7 @@ describe('settings: colors', () => {
         }).workspace,
     );
     await store.getState().flush();
-    await renderApp('/settings', store);
+    await renderApp('/settings/dates', store);
     const clock = await screen.findByRole('group', { name: 'Clock' });
     await userEvent.click(within(clock).getByRole('button', { name: '13:00' }));
     expect(store.getState().workspace!.entities.settings[0]!.clockFormat).toBe('24h');
@@ -118,7 +122,7 @@ describe('settings: date format', () => {
         }).workspace,
     );
     await store.getState().flush();
-    await renderApp('/settings', store);
+    await renderApp('/settings/dates', store);
     await userEvent.click(await screen.findByRole('combobox', { name: 'Date format' }));
     await userEvent.click(await screen.findByRole('option', { name: /\(YYYY-MM-DD\)$/ }));
     expect(store.getState().workspace!.entities.settings[0]!.dateFormat).toBe('YYYY-MM-DD');
@@ -139,7 +143,7 @@ describe('settings: date format', () => {
 describe('settings: your data', () => {
   it('downloads everything as JSON and imports a file, adding what is new', async () => {
     const store = testStore();
-    await renderApp('/settings', store);
+    await renderApp('/settings/data', store);
     const data = await screen.findByRole('region', { name: 'Your data' });
 
     const blobs: Blob[] = [];
@@ -171,7 +175,10 @@ describe('settings: your data', () => {
     const file = new File([JSON.stringify(withExtra)], 'pecklist.json', {
       type: 'application/json',
     });
-    await userEvent.upload(within(data).getByLabelText('Import a file'), file);
+    await userEvent.upload(
+      within(data).getByLabelText('Import a file', { selector: 'input' }),
+      file,
+    );
     expect(
       await within(data).findByText('Imported: 1 new tasks, 0 new lists and 0 new tags.'),
     ).toBeInTheDocument();
@@ -180,7 +187,7 @@ describe('settings: your data', () => {
     );
 
     await userEvent.upload(
-      within(data).getByLabelText('Import a file'),
+      within(data).getByLabelText('Import a file', { selector: 'input' }),
       new File(['not json'], 'notes.txt', { type: 'application/json' }),
     );
     expect(await within(data).findByText(/is not a PeckList export/)).toBeInTheDocument();
@@ -190,7 +197,7 @@ describe('settings: your data', () => {
 describe('settings: time zone', () => {
   it('follows the device until a zone is picked, then works in that one', async () => {
     const store = testStore();
-    await renderApp('/settings', store);
+    await renderApp('/settings/dates', store);
     const zone = await screen.findByRole('combobox', { name: 'Time zone' });
     expect(zone).toHaveValue(`This device's (${localTimeZone().replaceAll('_', ' ')})`);
 
@@ -216,7 +223,7 @@ describe('settings: time zone', () => {
 describe('new task defaults', () => {
   it('fill what the place leaves open: the list and date outside a list, priority everywhere', async () => {
     const store = testStore();
-    await renderApp('/settings', store);
+    await renderApp('/settings/tasks', store);
     let garden = '';
     store.getState().apply((ctx, ws) => {
       const made = createList(ctx, ws, { name: 'Garden', color: '#CFE3A3' });
@@ -265,7 +272,7 @@ describe('new task defaults', () => {
 describe('the new-task reminder', () => {
   it('is picked in the list a new all-day task shows, at the all-day time (R-FB-92)', async () => {
     const store = testStore();
-    await renderApp('/settings', store);
+    await renderApp('/settings/tasks', store);
     store.getState().apply((ctx, ws) => updateSettings(ctx, ws, { allDayReminderTime: '07:30' }));
     const section = await screen.findByRole('region', { name: 'New tasks' });
     await userEvent.click(within(section).getByRole('button', { name: 'Reminder: None' }));
@@ -293,8 +300,8 @@ describe('the new-task reminder', () => {
 describe('times in Settings', () => {
   it('are set with the wheels and shown on the clock the person uses (R-FB-97)', async () => {
     const store = testStore();
-    await renderApp('/settings', store);
-    const section = await screen.findByRole('region', { name: 'New tasks' });
+    await renderApp('/settings/dates', store);
+    const section = await screen.findByRole('region', { name: 'Dates' });
     await userEvent.click(
       within(section).getByRole('button', { name: 'All-day reminder time: 9:00 AM' }),
     );
@@ -315,7 +322,7 @@ describe('times in Settings', () => {
 describe('palette presets', () => {
   it('picks a palette and shows its colors as the starting point', async () => {
     const store = testStore();
-    await renderApp('/settings', store);
+    await renderApp('/settings/appearance', store);
     const palettes = await screen.findByRole('radiogroup', { name: 'Palettes' });
     expect(within(palettes).getByRole('radio', { name: 'PeckList' })).toBeChecked();
     await userEvent.click(within(palettes).getByRole('radio', { name: 'Ocean' }));
@@ -328,7 +335,7 @@ describe('palette presets', () => {
 
 describe('theme mode', () => {
   it('switches the whole page at once, not only the components', async () => {
-    await renderApp('/settings');
+    await renderApp('/settings/appearance');
     const page = () => getComputedStyle(document.body).backgroundColor;
     await userEvent.click(screen.getByRole('button', { name: 'Light' }));
     const light = page();
@@ -342,7 +349,7 @@ describe('theme mode', () => {
 
 describe('settings: swipe actions', () => {
   it('reorders, removes and adds buttons, sets the full swipe, shows it on a sample, and resets', async () => {
-    await renderApp('/settings');
+    await renderApp('/settings/tasks');
     const section = await screen.findByRole('region', { name: 'Swipe actions' });
     const left = within(section).getByRole('region', { name: 'Swipe left' });
     expect(within(left).getByRole('img')).toHaveAccessibleName(
@@ -381,7 +388,7 @@ describe('settings: changing the theme', () => {
       return made.workspace;
     });
     await store.getState().flush();
-    await renderApp('/settings', store);
+    await renderApp('/settings/appearance', store);
     const palettes = await screen.findByRole('radiogroup', { name: 'Palettes' });
     // On by default: the palette and the lists and tags change as one.
     expect(
@@ -398,5 +405,89 @@ describe('settings: changing the theme', () => {
     );
     await userEvent.click(within(palettes).getByRole('radio', { name: 'Ocean' }));
     expect(color()).toBe(themeSwatches('berry')[6]);
+  });
+});
+
+describe('settings by subject (PL-128)', () => {
+  const SUBJECTS = ['Appearance', 'Date and time', 'Tasks', 'Your data'];
+
+  it('on a wide screen opens the first subject beside the list, and each has an address', async () => {
+    await renderApp('/settings');
+    const nav = await screen.findByRole('navigation', { name: 'Settings' });
+    for (const name of SUBJECTS) {
+      expect(within(nav).getByRole('link', { name })).toBeInTheDocument();
+    }
+    expect(within(nav).getByRole('link', { name: 'Appearance' })).toHaveAttribute(
+      'aria-current',
+      'page',
+    );
+    expect(await screen.findByRole('group', { name: 'Theme' })).toBeInTheDocument();
+
+    await userEvent.click(within(nav).getByRole('link', { name: 'Your data' }));
+    expect(await screen.findByRole('button', { name: 'Download a copy' })).toBeInTheDocument();
+    expect(screen.queryByRole('group', { name: 'Theme' })).toBeNull();
+    expect(within(nav).getByRole('link', { name: 'Your data' })).toHaveAttribute(
+      'aria-current',
+      'page',
+    );
+  });
+
+  it('on a phone is a list of subjects, each a page with a way back', async () => {
+    mockViewport('phone');
+    await renderApp('/settings');
+    const nav = await screen.findByRole('navigation', { name: 'Settings' });
+    expect(screen.queryByRole('group', { name: 'Theme' })).toBeNull();
+
+    await userEvent.click(within(nav).getByRole('link', { name: /^Date and time/ }));
+    expect(await screen.findByRole('heading', { name: 'Date and time' })).toBeInTheDocument();
+    expect(await screen.findByRole('combobox', { name: 'Due soon' })).toBeInTheDocument();
+    expect(screen.queryByRole('navigation', { name: 'Settings' })).toBeNull();
+
+    await userEvent.click(screen.getByRole('link', { name: 'Back' }));
+    expect(await screen.findByRole('navigation', { name: 'Settings' })).toBeInTheDocument();
+    expect(screen.queryByRole('combobox', { name: 'Due soon' })).toBeNull();
+  });
+
+  it('leaves out Account and Notifications when there is no server', async () => {
+    await renderApp('/settings');
+    const nav = await screen.findByRole('navigation', { name: 'Settings' });
+    expect(within(nav).queryByRole('link', { name: 'Account' })).toBeNull();
+    expect(within(nav).queryByRole('link', { name: 'Notifications' })).toBeNull();
+  });
+
+  it('every setting on the old page has a place in a subject', async () => {
+    const found = async (route: string, names: [role: string, name: string | RegExp][]) => {
+      const { unmount } = await renderApp(route);
+      for (const [role, name] of names) {
+        expect(await screen.findByRole(role, { name })).toBeInTheDocument();
+      }
+      unmount();
+    };
+    await found('/settings/appearance', [
+      ['group', 'Theme'],
+      ['region', 'Colors'],
+    ]);
+    await found('/settings/dates', [
+      ['combobox', 'Time zone'],
+      ['combobox', 'Date format'],
+      ['group', 'Clock'],
+      ['group', 'Week starts on'],
+      ['combobox', 'Due soon'],
+      ['combobox', 'Calendar length'],
+      ['button', /^All-day reminder time/],
+    ]);
+    await found('/settings/tasks', [
+      ['link', /Lists and tags/],
+      ['switch', 'Show the Closed group'],
+      ['region', 'New tasks'],
+      ['region', 'Swipe actions'],
+    ]);
+    await found('/settings/data', [
+      ['button', 'Download a copy'],
+      ['button', 'Import a file'],
+      ['button', 'Import from another app'],
+      ['button', 'Export for another app'],
+      ['button', 'Delete all lists, tasks and tags'],
+    ]);
   });
 });

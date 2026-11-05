@@ -309,7 +309,7 @@ export function ApiKeysPage() {
     !key.revokedAt && (!key.expiresAt || Date.parse(key.expiresAt) > now);
 
   return (
-    <Page title={t('apiKeys.title')}>
+    <Page title={t('apiKeys.title')} backTo="/settings/account">
       <Section
         title={t('apiKeys.title')}
         hint={t('apiKeys.hint')}

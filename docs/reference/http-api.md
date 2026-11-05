@@ -17,7 +17,7 @@ Both are public, like the source code: they show what the API offers, never anyo
 
 ## Signing in from a script
 
-The easy way is an **API key**: make one in **Settings > API keys** with a name, an expiry (or
+The easy way is an **API key**: make one in **Settings > Account > API keys** with a name, an expiry (or
 none) and only the permissions the script needs, copy it (it is shown once), and send it with
 every request:
 

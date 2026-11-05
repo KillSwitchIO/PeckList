@@ -41,7 +41,7 @@ const titles = (store: ReturnType<typeof testStore>) =>
 describe('settings: import from another app', () => {
   it('previews a TickTick backup, merges it, and one undo takes it back', async () => {
     const store = testStore();
-    await renderApp('/settings', store);
+    await renderApp('/settings/data', store);
     const dialog = await openImport();
     expect(within(dialog).getByText(/Settings > Account > Backup/)).toBeInTheDocument();
     expect(within(dialog).getByRole('button', { name: 'Import' })).toBeDisabled();
@@ -78,7 +78,7 @@ describe('settings: import from another app', () => {
 
   it('replacing says what goes to the Trash, and does it', async () => {
     const store = testStore();
-    await renderApp('/settings', store);
+    await renderApp('/settings/data', store);
     store
       .getState()
       .apply(
@@ -100,7 +100,7 @@ describe('settings: import from another app', () => {
 
   it('knows a Todoist file when TickTick is picked, and reads it as Todoist', async () => {
     const store = testStore();
-    await renderApp('/settings', store);
+    await renderApp('/settings/data', store);
     const dialog = await openImport();
     await userEvent.upload(
       within(dialog).getByLabelText('Choose file'),
@@ -124,7 +124,7 @@ describe('settings: import from another app', () => {
 
   it('says so when the file is not that app’s', async () => {
     const store = testStore();
-    await renderApp('/settings', store);
+    await renderApp('/settings/data', store);
     const dialog = await openImport();
     await userEvent.upload(
       within(dialog).getByLabelText('Choose file'),
@@ -135,7 +135,7 @@ describe('settings: import from another app', () => {
 
   it('the same backup a second time: says what is already here, and adds nothing', async () => {
     const store = testStore();
-    await renderApp('/settings', store);
+    await renderApp('/settings/data', store);
     const upload = async () => {
       const dialog = await openImport();
       await userEvent.upload(
@@ -178,7 +178,7 @@ describe('settings: import from another app', () => {
         },
       },
     });
-    await renderApp('/settings', store);
+    await renderApp('/settings/data', store);
     const before = titles(store);
     const dialog = await openImport();
     await userEvent.upload(
@@ -210,7 +210,7 @@ describe('settings: export for another app', () => {
       },
       revokeObjectURL: () => undefined,
     });
-    await renderApp('/settings', store);
+    await renderApp('/settings/data', store);
     store
       .getState()
       .apply(

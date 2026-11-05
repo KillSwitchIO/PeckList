@@ -77,8 +77,8 @@ describe('notifications with the app closed', () => {
     setBrowserPush(push);
     const backend = new FakeBackend();
     backend.addAccount('ben', 'correct horse battery');
-    const { transport } = await signedIn('/settings', backend);
-    const section = await screen.findByRole('region', { name: 'Notifications' });
+    const { transport } = await signedIn('/settings/notifications', backend);
+    const section = await screen.findByRole('region', { name: 'On this device' });
     const toggle = within(section).getByRole('switch', {
       name: 'Notify me when PeckList is closed',
     });
@@ -97,7 +97,7 @@ describe('notifications with the app closed', () => {
     setBrowserPush(fakePush());
     const backend = new FakeBackend();
     backend.addAccount('ben', 'correct horse battery');
-    const { store } = await signedIn('/settings', backend);
+    const { store } = await signedIn('/settings/notifications', backend);
     const section = await screen.findByRole('region', { name: 'Tell me about' });
     const shares = within(section).getByRole('switch', { name: 'Shared lists' });
     expect(shares).toBeChecked();
@@ -121,7 +121,7 @@ describe('notifications with the app closed', () => {
     setBrowserPush(fakePush(false));
     const backend = new FakeBackend();
     backend.addAccount('ben', 'correct horse battery');
-    await signedIn('/settings', backend);
+    await signedIn('/settings/notifications', backend);
     expect(await screen.findByText(/add PeckList to your Home Screen/)).toBeInTheDocument();
     expect(
       screen.getByRole('switch', { name: 'Notify me when PeckList is closed' }),
@@ -269,7 +269,7 @@ describe('notifications in the Android app', () => {
     setNotifier(fakeNotifier('granted'));
     const backend = new FakeBackend();
     backend.addAccount('ben', 'correct horse battery');
-    await signedIn('/settings', backend);
+    await signedIn('/settings/notifications', backend);
     const kinds = await screen.findByRole('region', { name: 'Tell me about' });
     await userEvent.click(within(kinds).getByRole('button', { name: 'Manage on the phone' }));
     expect(shell.opened).toBe(1);
@@ -280,7 +280,7 @@ describe('notifications in the Android app', () => {
     setNotifier(fakeNotifier('granted'));
     const backend = new FakeBackend();
     backend.addAccount('ben', 'correct horse battery');
-    await signedIn('/settings', backend);
+    await signedIn('/settings/notifications', backend);
     const kinds = await screen.findByRole('region', { name: 'Tell me about' });
     expect(within(kinds).queryByRole('button', { name: 'Manage on the phone' })).toBeNull();
   });
@@ -291,8 +291,8 @@ describe('notifications in the Android app', () => {
     setNotifier(fakeNotifier('granted'));
     const backend = new FakeBackend();
     backend.addAccount('ben', 'correct horse battery');
-    await signedIn('/settings', backend);
-    const section = await screen.findByRole('region', { name: 'Notifications' });
+    await signedIn('/settings/notifications', backend);
+    const section = await screen.findByRole('region', { name: 'On this device' });
     const toggle = await within(section).findByRole('switch', {
       name: 'Check for updates in the background',
     });

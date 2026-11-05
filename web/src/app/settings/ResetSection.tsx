@@ -14,7 +14,7 @@ import { replaceable, trashMine } from '../../core/interchange/apply.ts';
 import { emptyTrash } from '../../core/trash.ts';
 import { t } from '../i18n/i18n.ts';
 import { useWorkspaceStore } from '../store/hooks.ts';
-import { Section } from './settingsLayout.tsx';
+import { Section, SettingRow } from './settingsLayout.tsx';
 
 /**
  * Settings > Start over, last on the page: every list, task and tag that is mine goes to the Trash
@@ -50,10 +50,17 @@ export function ResetSection() {
   };
 
   return (
-    <Section title={t('settings.reset')} hint={t('settings.reset.hint')}>
-      <Button variant="outlined" color="error" onClick={() => setOpen(true)}>
-        {t('settings.reset.action')}
-      </Button>
+    <Section title={t('settings.reset')}>
+      <SettingRow label={t('settings.reset.action')} hint={t('settings.reset.hint')}>
+        <Button
+          variant="outlined"
+          color="error"
+          aria-label={t('settings.reset.action')}
+          onClick={() => setOpen(true)}
+        >
+          {t('settings.reset')}
+        </Button>
+      </SettingRow>
       {notice && (
         <Alert
           severity="success"

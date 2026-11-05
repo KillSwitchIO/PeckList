@@ -23,7 +23,7 @@ async function settingsAs(backend: FakeBackend, username: string) {
     debounceMs: 60_000,
     intervalMs: 600_000,
   });
-  await renderApp('/settings', store, sync);
+  await renderApp('/settings/data', store, sync);
 }
 
 describe('settings: usage stats (PL-116)', () => {

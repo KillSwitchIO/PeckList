@@ -25,7 +25,7 @@ export function ProfileSection() {
   const name = me.displayName || (account.authMode === 'local' ? account.username : '');
   return (
     <Section title={t('profile.section')}>
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, px: 1, py: 1, flexWrap: 'wrap' }}>
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, py: 1, flexWrap: 'wrap' }}>
         <Avatar name={name} color={me.avatarColor ?? NO_COLOR} photo={me.photo} size={64} />
         <Box sx={{ flex: '1 1 10rem', minWidth: 0 }}>
           <Typography sx={{ fontWeight: 600 }} noWrap>

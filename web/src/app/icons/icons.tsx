@@ -627,3 +627,33 @@ export function ShieldIcon(props: SvgIconProps) {
     </PunchIcon>
   );
 }
+
+/** Appearance: a painter's palette. */
+export function PaletteIcon(props: SvgIconProps) {
+  return (
+    <PunchIcon {...props}>
+      <path d="M12 3.5a8.5 8.5 0 1 0 0 17c1.4 0 2-.9 2-1.8 0-1.2-1-1.6-1-2.7 0-.9.8-1.5 1.7-1.5h2.1c1.9 0 3.7-1.2 3.7-3.7 0-4-3.9-7.3-8.5-7.3Z" />
+      <path d="M7.5 12h.01M9.5 8h.01M14.5 8h.01" />
+    </PunchIcon>
+  );
+}
+
+/** Notifications: a bell. */
+export function BellIcon(props: SvgIconProps) {
+  return (
+    <PunchIcon {...props}>
+      <path d="M6 10a6 6 0 0 1 12 0c0 5 2 6.5 2 6.5H4S6 15 6 10Z" />
+      <path d="M10 20a2.2 2.2 0 0 0 4 0" />
+    </PunchIcon>
+  );
+}
+
+/** Your data: a stack of disks. */
+export function DataIcon(props: SvgIconProps) {
+  return (
+    <PunchIcon {...props}>
+      <ellipse cx="12" cy="6" rx="7.5" ry="3" />
+      <path d="M4.5 6v12c0 1.7 3.4 3 7.5 3s7.5-1.3 7.5-3V6M4.5 12c0 1.7 3.4 3 7.5 3s7.5-1.3 7.5-3" />
+    </PunchIcon>
+  );
+}
