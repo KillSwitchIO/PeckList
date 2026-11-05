@@ -56,6 +56,7 @@ public static class AuthSetup
             DemoUsernames = settings.DemoMode ? settings.DemoAccounts.Select(each => each.Username).ToHashSet(StringComparer.Ordinal) : new HashSet<string>(),
         });
         services.AddSingleton<SignUpThrottle>();
+        services.AddSingleton<LoginAttempts>();
         services.AddSingleton<ExternalSignIn>();
         services.AddSingleton<LoginLinks>();
         services.AddSingleton<AccountEmails>();

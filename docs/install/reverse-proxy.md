@@ -39,21 +39,29 @@ Then set [`PUBLIC_URL`](../configuration/reference.md#public_url) to the HTTPS a
 ## Trusted proxies
 
 The server believes `X-Forwarded-*` headers only from addresses in
-[`TRUSTED_PROXIES`](../configuration/reference.md#trusted_proxies). The default trusts loopback and
-every private range (10/8, 172.16/12, 192.168/16, fc00::/7), so that a proxy on the same host or
-Docker network works with no setting.
+[`TRUSTED_PROXIES`](../configuration/reference.md#trusted_proxies), and from at most three hops.
+The default trusts loopback, and in a container the networks the container is on, so that a proxy
+on the same host or in the same Docker network works with no setting. The log says what it trusts
+at every start while `TRUSTED_PROXIES` is not set.
 
-**Why narrow it:** anything on a private network that can reach port 8080 directly (another machine
-on your LAN, a VPN peer, another container on the same Docker network) can then send its own
-`X-Forwarded-For` and be believed. It can put any address it likes in the access log, and it gets
-around the per-address sign-in limit (ten tries a minute) by claiming a new address for every try.
-Account lockout still applies. With only the proxy's address set, nothing else is believed:
+**Why set it:** anything else on those networks that can reach port 8080 directly (another
+container on the same Docker network, or another machine on the same VLAN when the container has an
+address on it) can send its own `X-Forwarded-For` and be believed. It can put any address it likes
+in the access log, and claim a new address for every sign-in try. Sign-in tries are limited per
+account name as well as per address (ten a minute each), and wrong passwords lock the account, so
+guessing gets nowhere; the log is what it can spoil. With only the proxy's address set, nothing
+else is believed:
 
 ```text
 TRUSTED_PROXIES=127.0.0.1          # proxy on the same machine
 TRUSTED_PROXIES=172.30.0.2         # proxy container with a fixed address
 TRUSTED_PROXIES=10.0.0.5           # proxy on another machine
 ```
+
+**A proxy on another machine** (not on a network the container is on) is not trusted by default:
+set `TRUSTED_PROXIES` to its address, or every request seems to come from the proxy and the
+sign-in limit counts everyone as one. Before 0.8 the default trusted every private range, so a
+setup like this worked without it.
 
 **When the default is fine:** when nothing but the proxy can reach PeckList at all. In
 [`compose.caddy.yaml`](docker-compose.md#with-https-caddy) PeckList has no published port and

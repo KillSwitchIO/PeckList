@@ -3,7 +3,7 @@
 ## What PeckList does for you
 
 - **Passwords** are hashed (ASP.NET Core Identity's PBKDF2). Five wrong attempts lock an account for
-  15 minutes; each address gets ten attempts a minute.
+  15 minutes; each address, and each account name, gets ten attempts a minute.
 - **Sessions** are HttpOnly, SameSite cookies, signed with keys kept in the database, and always
   `Secure` when `PUBLIC_URL` is https. A session ends after 30 days unused, and 90 days after its
   sign-in however often it is used. Changing a password, turning an account off or deleting it ends
