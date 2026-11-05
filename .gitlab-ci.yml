@@ -323,6 +323,15 @@ container-image:
       CREATED=$(date -u +%Y-%m-%dT%H:%M:%SZ)
       # The tag's version, else the next patch -edge (main) or -dev (other branches).
       VERSION=$(sh scripts/build-version.sh)
+      echo "IMAGE_VERSION=$VERSION" > build.env
+      # One build per commit: a retry, or a new pipeline on the same commit, finds the image it made.
+      # A second build would give the same name a new digest.
+      if [ "${CI_COMMIT_BRANCH:-}" = "$CI_DEFAULT_BRANCH" ] \
+        && DIGEST=$(docker buildx imagetools inspect "$IMAGE:sha-$CI_COMMIT_SHORT_SHA" --format '{{json .Manifest.Digest}}' 2>/dev/null); then
+        echo "$IMAGE:sha-$CI_COMMIT_SHORT_SHA is already built: $DIGEST"
+        echo "IMAGE_DIGEST=$(echo "$DIGEST" | tr -d '"')" >> build.env
+        exit 0
+      fi
       TAGS=""
       PUSH=false
       if [ -n "${CI_COMMIT_TAG:-}" ]; then
@@ -347,6 +356,13 @@ container-image:
         --cache-from type=registry,ref="$IMAGE:buildcache" $CACHE_TO \
         $ATTEST \
         $TAGS --push="$PUSH" .
+      if [ "${CI_COMMIT_BRANCH:-}" = "$CI_DEFAULT_BRANCH" ]; then
+        DIGEST=$(docker buildx imagetools inspect "$IMAGE:sha-$CI_COMMIT_SHORT_SHA" --format '{{json .Manifest.Digest}}')
+        echo "IMAGE_DIGEST=$(echo "$DIGEST" | tr -d '"')" >> build.env
+      fi
+  artifacts:
+    reports:
+      dotenv: build.env
   rules:
     - *not-on-schedule
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
@@ -553,14 +569,21 @@ e2e-server:
   rules:
     - *on-main
 
-# The test server follows main: the compose repository's tag for pecklist-test is bumped to this
-# image and its pipeline released (scripts/ci/deploy-test.mjs). Production never moves from here.
+# The test server follows main: the compose repository's pin for pecklist-test moves to this image
+# by digest and its pipeline releases it (scripts/ci/deploy-test.mjs). Green means the server took
+# it. Production never moves from here.
 deploy-test:
   image: $NODE_IMAGE
   stage: publish
-  needs: [e2e-server]
-  timeout: 10m
+  needs:
+    - e2e-server
+    - job: container-image
+      artifacts: true
+  timeout: 30m
   interruptible: false
+  # One at a time, newest first (its process mode is set on the project): a merge right behind this
+  # one needs only the last of them on the server.
+  resource_group: deploy-test
   script:
     - node scripts/ci/deploy-test.mjs
   environment:
@@ -586,7 +609,7 @@ deploy-demo:
   image: $NODE_IMAGE
   stage: publish
   needs: [container-image]
-  timeout: 10m
+  timeout: 30m
   interruptible: false
   variables:
     COMPOSE_SERVICE: pecklist-demo

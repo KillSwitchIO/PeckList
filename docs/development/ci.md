@@ -70,11 +70,13 @@ lists `duration` and `queued_duration` for each.
 
 ## The test server follows main
 
-`deploy-test` runs on `main` after `e2e-server` passed. It bumps the image tag in the compose
-repository's `services/pecklist-test/compose.yaml` to `sha-<commit>` (a commit on its `main`,
-marked `[skip ci]`) and starts that repository's pipeline with `RELEASE=pecklist-test` and
-`AUTO_RELEASE=true`, which releases the service once its own checks pass. Production is never
-touched from here: it pins a release version and moves only by hand
+`deploy-test` runs on `main` after `e2e-server` passed. It pins the image in the compose
+repository's `services/pecklist-test/compose.yaml` to `sha-<commit>@<digest>` (a commit on its
+`main`, marked `[skip ci]`), starts that repository's pipeline with `RELEASE=pecklist-test` and
+`AUTO_RELEASE=true`, and waits for that pipeline's release job. So green means the test server
+took the image, and red means it did not. Retrying `container-image` or `deploy-test` reuses the
+image the commit already built, so a commit has one digest however often it is retried. Production
+is never touched from here: the script refuses it, and it moves only by a release
 ([releasing](releasing.md)).
 
 The job needs `GITLAB_API_TOKEN`: a personal access token with the `api` scope, stored as a
