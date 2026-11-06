@@ -289,5 +289,51 @@ describe('reminders', () => {
       { timeout: 3000 },
     );
     expect(handed.at(-1)!.map((each) => each.local === true)).toEqual([false, true]);
+
+    // A sync that reaches the task says it is local no longer.
+    transport.offline = false;
+    await act(() => sync.getState().syncNow());
+    await waitFor(() => expect(handed.at(-1)!.some((each) => each.local)).toBe(false), {
+      timeout: 3000,
+    });
+  });
+
+  it('hands reminders over only when they change, not at every sync', async () => {
+    const handed: ScheduledNotification[][] = [];
+    setNotifier({
+      ...fakeNotifier(),
+      scheduleAhead: (notifications: ScheduledNotification[]) => {
+        handed.push(notifications);
+        return Promise.resolve();
+      },
+    });
+    const backend = new FakeBackend();
+    backend.addAccount('ben', 'correct horse battery');
+    const transport = backend.device();
+    transport.session = 'ben';
+    const store = testStore();
+    const sync = createSyncEngine({
+      transport,
+      workspace: store,
+      storage: createMemoryStorage(),
+      debounceMs: 60_000,
+      intervalMs: 600_000,
+    });
+    await renderApp('/inbox', store, sync);
+    await waitFor(() => expect(sync.getState().phase).toBe('ready'));
+    addTask(store, 'Synced', inMinutes(120), [{ before: 0 }]);
+    await act(() => sync.getState().syncNow());
+    await waitFor(() => expect(handed.at(-1)?.map((each) => each.title)).toEqual(['Synced']), {
+      timeout: 3000,
+    });
+    await act(() => new Promise((settle) => setTimeout(settle, 1200)));
+    const before = handed.length;
+    expect(before).toBeGreaterThan(0);
+
+    // Nothing changed: the syncs that run every 30 s have nothing to hand over.
+    await act(() => sync.getState().syncNow());
+    await act(() => sync.getState().syncNow());
+    await act(() => new Promise((settle) => setTimeout(settle, 1200)));
+    expect(handed.length).toBe(before);
   });
 });
