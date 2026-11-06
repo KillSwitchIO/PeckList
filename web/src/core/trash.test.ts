@@ -342,13 +342,32 @@ describe('trash purge', () => {
     expect(find(s.ws, dropped.id).deletedAt).not.toBeNull();
   });
 
-  it("counts a won't-do task's time from when it was marked, not its old completed date", () => {
+  it("counts a won't-do task's time from its real date, so imported ones move on the first pass", () => {
+    const s = setup();
+    const imported = s.add('Imported from years ago');
+    const recent = s.add('Dropped this week');
+    s.ws = updateTask(s.ctx, s.ws, imported.id, {
+      status: 'wontdo',
+      completedAt: '2023-01-01T00:00:00.000Z',
+    });
+    s.ws = updateTask(s.ctx, s.ws, recent.id, {
+      status: 'wontdo',
+      completedAt: new Date(s.now).toISOString(),
+    });
+    s.ws = purgeExpired(s.ctx, s.ws, s.now);
+    expect(find(s.ws, imported.id).deletedAt).not.toBeNull();
+    expect(find(s.ws, recent.id).deletedAt).toBeNull();
+  });
+
+  it("gives an imported won't-do task the full time again when restored", () => {
     const s = setup();
     const imported = s.add('Imported from years ago');
     s.ws = updateTask(s.ctx, s.ws, imported.id, {
       status: 'wontdo',
       completedAt: '2023-01-01T00:00:00.000Z',
     });
+    s.ws = purgeExpired(s.ctx, s.ws, s.now);
+    s.ws = restoreTask(s.ctx, s.ws, imported.id);
     s.ws = purgeExpired(s.ctx, s.ws, s.now);
     expect(find(s.ws, imported.id).deletedAt).toBeNull();
   });

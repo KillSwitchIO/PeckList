@@ -191,9 +191,9 @@ export function erasedByShortening(workspace: WorkspaceFile, days: number, now: 
  * subtasks. A task stays while any subtask has time left or is open: that work is not over. So does
  * a completed subtask of a task that stays, which is part of its parent's record.
  *
- * A completed task counts from its completion date, imported history included (Ben, 2026-11-06).
- * A won't-do task counts from when it was marked, by the clock of that field. Either way a task
- * restored from the trash gets the full time again, or it would go straight back.
+ * A closed task counts from the date it was closed, imported history included (Ben, 2026-11-06),
+ * or from when its status was set if it has no date. A task restored from the trash gets the full
+ * time again, or it would go straight back.
  */
 function trashOldClosed(ctx: OpContext, workspace: WorkspaceFile, cutoff: string): WorkspaceFile {
   const live = workspace.entities.tasks.filter((task) => task.deletedAt === null);
@@ -206,9 +206,7 @@ function trashOldClosed(ctx: OpContext, workspace: WorkspaceFile, cutoff: string
   const restoredAt = (task: Task) =>
     task._hlc.deletedAt === task._hlc.createdAt ? 0 : wall(task._hlc.deletedAt);
   const closedAt = (task: Task) =>
-    task.status === 'done' && task.completedAt
-      ? Date.parse(task.completedAt)
-      : wall(task._hlc.status);
+    task.completedAt ? Date.parse(task.completedAt) : wall(task._hlc.status);
   const past = (task: Task) =>
     task.status !== 'open' && Math.max(closedAt(task), restoredAt(task)) < before;
 
