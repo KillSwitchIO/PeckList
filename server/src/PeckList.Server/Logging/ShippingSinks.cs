@@ -43,7 +43,7 @@ public abstract class HttpSink : ILogSink
             var body = await response.Content.ReadAsStringAsync(cancellation);
             if (response.IsSuccessStatusCode) return body;
             var code = (int)response.StatusCode;
-            var detail = body.Length > 200 ? body[..200] : body;
+            var detail = Core.SafeText.Cut(body, 200);
             throw new LogShipException($"{code} {response.ReasonPhrase}: {detail}".TrimEnd(' ', ':'), code is 408 or 429 or >= 500);
         }
     }

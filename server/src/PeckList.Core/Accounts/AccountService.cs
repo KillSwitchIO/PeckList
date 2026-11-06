@@ -68,8 +68,9 @@ public sealed class AccountService(IAccountStore store, IPasswordHasher hasher, 
 
     public async Task<LoginResult> LoginAsync(string username, string password, CancellationToken cancellation = default)
     {
-        // Too long to check: never hashed, and the same answer whoever is named.
-        if (password.Length > MaxTriedPasswordLength) return new LoginResult.Invalid();
+        // Too long to check, or a username with a NUL, which none holds: never hashed, never looked up,
+        // and the same answer whoever is named.
+        if (password.Length > MaxTriedPasswordLength || username.Contains('\0')) return new LoginResult.Invalid();
         var account = await store.FindByUsernameAsync(username.Trim(), cancellation);
         if (account?.PasswordHash is null || account.Disabled)
         {

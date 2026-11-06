@@ -163,8 +163,7 @@ public static class AuthEndpoints
     /// <summary>The username someone typed, for the log: trimmed, at most 100 characters.</summary>
     private static string Typed(string? username)
     {
-        var name = (username ?? "").Trim();
-        return name.Length > 100 ? name[..100] : name;
+        return Core.SafeText.Cut((username ?? "").Trim(), 100);
     }
 
     /// <summary>403 <c>local_login_disabled</c>: passwords are turned off (<c>LOCAL_LOGIN=disabled</c>).</summary>

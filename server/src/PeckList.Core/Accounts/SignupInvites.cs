@@ -50,7 +50,7 @@ public sealed class SignupInvites(ISecretStore secrets, TimeProvider time)
         if (length <= TimeSpan.Zero || length > MaxLifetime) throw new ArgumentException("an invite lasts between a minute and 90 days");
         if (maxUses is < 1 or > 1000) throw new ArgumentException("an invite is for 1 to 1000 people, or any number");
         note = string.IsNullOrWhiteSpace(note) ? null : note.Trim();
-        if (note?.Length > MaxNoteLength) note = note[..MaxNoteLength];
+        if (note is not null) note = SafeText.Cut(note, MaxNoteLength);
         var now = time.GetUtcNow();
         var token = Tokens.New(24);
         var invite = new SignupInvite

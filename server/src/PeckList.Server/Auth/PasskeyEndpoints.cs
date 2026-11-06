@@ -100,7 +100,7 @@ public static class PasskeyEndpoints
     {
         var name = (typed ?? "").Trim();
         if (name.Length == 0) return "Passkey";
-        return name.Length > NameLength ? name[..NameLength] : name;
+        return Core.SafeText.Cut(name, NameLength);
     }
 
     private static PasskeyView View(Passkey passkey) => new(passkey.Id, passkey.Name, passkey.CreatedAt, passkey.LastUsedAt, passkey.BackedUp);
