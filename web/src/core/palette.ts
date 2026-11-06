@@ -138,14 +138,14 @@ function ring(fill: string, surface: string): ColorToken {
 
 /** The colors a user can change (the palette editor's slots) and what each starts as. */
 export const PALETTE_DEFAULTS = {
-  accent: '#4F8F87',
-  accentContainer: '#CDE8E3',
-  priorityHigh: '#E8837E',
-  priorityMedium: '#F0B072',
-  priorityLow: '#8FA8E0',
+  accent: '#5A8A4E',
+  accentContainer: '#DCEBD3',
+  priorityHigh: '#D9776B',
+  priorityMedium: '#E3B068',
+  priorityLow: '#8DAA9B',
   priorityNone: '#B8BCC4',
-  late: '#E8837E',
-  slipped: '#F0B072',
+  late: '#D9776B',
+  slipped: '#E3B068',
 } as const;
 
 export type PaletteSlot = keyof typeof PALETTE_DEFAULTS;
@@ -155,7 +155,7 @@ export type PaletteSlot = keyof typeof PALETTE_DEFAULTS;
  * changes go on top. The pastel rings and text are darkened on screen as needed, like the defaults.
  */
 export const PALETTE_PRESETS = {
-  pecklist: PALETTE_DEFAULTS,
+  forest: PALETTE_DEFAULTS,
   ocean: {
     accent: '#3A7CA5',
     accentContainer: '#CFE3F2',
@@ -166,15 +166,16 @@ export const PALETTE_PRESETS = {
     late: '#E07A7A',
     slipped: '#E8B26A',
   },
-  forest: {
-    accent: '#5A8A4E',
-    accentContainer: '#DCEBD3',
-    priorityHigh: '#D9776B',
-    priorityMedium: '#E3B068',
-    priorityLow: '#8DAA9B',
+  // The app's first colors, until PeckList Forest took over as the default (2026-11-05).
+  seaglass: {
+    accent: '#4F8F87',
+    accentContainer: '#CDE8E3',
+    priorityHigh: '#E8837E',
+    priorityMedium: '#F0B072',
+    priorityLow: '#8FA8E0',
     priorityNone: '#B8BCC4',
-    late: '#D9776B',
-    slipped: '#E3B068',
+    late: '#E8837E',
+    slipped: '#F0B072',
   },
   sunset: {
     accent: '#C46A4A',
@@ -451,7 +452,7 @@ export const PALETTE_PRESETS = {
 } as const satisfies Record<string, Record<PaletteSlot, string>>;
 
 export type PalettePreset = keyof typeof PALETTE_PRESETS;
-export const DEFAULT_PRESET: PalettePreset = 'pecklist';
+export const DEFAULT_PRESET: PalettePreset = 'forest';
 
 /**
  * How strongly a palette washes the page and panels in its accent (0 to about 0.1; none for the

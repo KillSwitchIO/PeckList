@@ -39,9 +39,13 @@ export function paletteOverrides(workspace: WorkspaceFile): Partial<Record<Palet
   ) as Partial<Record<PaletteSlot, string>>;
 }
 
-/** The preset the colors start from (an unknown one, say from a newer app: PeckList's). */
+/** Presets that were renamed: what people picked under the old name stays what they see. */
+const RENAMED_PRESETS: Record<string, PalettePreset> = { pecklist: 'seaglass' };
+
+/** The preset the colors start from (an unknown one, say from a newer app: the default). */
 export function palettePreset(workspace: WorkspaceFile): PalettePreset {
-  const saved = workspace.entities.settings[0]?.palettePreset;
+  const stored = workspace.entities.settings[0]?.palettePreset;
+  const saved = (stored && RENAMED_PRESETS[stored]) ?? stored;
   return saved && saved in PALETTE_PRESETS ? (saved as PalettePreset) : DEFAULT_PRESET;
 }
 

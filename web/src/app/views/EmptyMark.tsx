@@ -1,29 +1,60 @@
 import { Box, useTheme } from '@mui/material';
 import { useMarkPlays } from './emptyMarkPlays.ts';
 
-const PURPLE = '#4B2A8A';
-const GREY = '#A8A6A3';
 const SIZE = 72;
 
-/** PeckList's checklist logo (public/icon.svg), in the given colors. */
-function Logo({ tile, mark }: { tile: string; mark: string }) {
+/** The logo's own colors (public/icon.svg, and favicon.svg for the light theme). */
+const LOGO = {
+  dark: { tile: '#3C5436', mark: '#A6ADA4', wire: '#ECEFEC', eye: '#FFFFFF' },
+  light: { tile: '#DCEBD3', mark: '#4D6746', wire: '#476440', eye: '#374E32' },
+};
+
+const BIRD_FACETS = [
+  '6,42 16,36 22,44',
+  '16,36 26,27 30,35',
+  '16,36 30,35 22,44',
+  '26,27 34,17 30,35',
+  '34,17 42,12 41,20',
+  '42,12 49,16 41,20',
+  '34,17 41,20 30,35',
+  '41,20 49,21 46,27',
+  '41,20 46,27 30,35',
+  '46,27 46,36 30,35',
+  '46,36 36,45 30,35',
+  '36,45 22,44 30,35',
+];
+
+/** PeckList's logo (public/icon.svg): the wireframe bird heading the list. */
+function Logo({ tile, mark, wire, eye }: (typeof LOGO)['dark']) {
   return (
     <svg viewBox="0 0 64 64" width={SIZE} height={SIZE} aria-hidden>
       <rect width="64" height="64" rx="14" fill={tile} />
-      <rect x="14" y="15" width="10" height="10" rx="3" fill={mark} />
+      <g
+        transform="translate(4.9 -0.2) scale(0.52)"
+        fill="none"
+        stroke={wire}
+        strokeWidth="1.5"
+        strokeLinejoin="round"
+      >
+        {BIRD_FACETS.map((points) => (
+          <polygon key={points} points={points} />
+        ))}
+        <polygon fill={mark} points="49,16 58,19 49,21" />
+        <circle fill={eye} stroke="none" cx="44" cy="17" r="1.6" />
+      </g>
+      <rect x="39" y="13" width="16" height="4" rx="2" fill={mark} />
+      <rect x="14" y="28" width="10" height="10" rx="3" fill={mark} />
       <path
-        d="M16.5 20l2 2 3.5-4"
+        d="M16.5 33l2 2 3.5-4"
         fill="none"
         stroke={tile}
         strokeWidth="2"
         strokeLinecap="round"
         strokeLinejoin="round"
       />
-      <rect x="28" y="18" width="22" height="4" rx="2" fill={mark} />
-      <rect x="14" y="29" width="10" height="10" rx="3" fill="none" stroke={mark} strokeWidth="2" />
-      <rect x="28" y="32" width="18" height="4" rx="2" fill={mark} opacity=".7" />
-      <rect x="14" y="43" width="10" height="10" rx="3" fill="none" stroke={mark} strokeWidth="2" />
-      <rect x="28" y="46" width="14" height="4" rx="2" fill={mark} opacity=".7" />
+      <rect x="28" y="31" width="18" height="4" rx="2" fill={mark} />
+      <rect x="14" y="42" width="10" height="10" rx="3" fill="none" stroke={mark} strokeWidth="2" />
+      <rect x="28" y="45" width="14" height="4" rx="2" fill={mark} opacity=".7" />
     </svg>
   );
 }
@@ -61,9 +92,7 @@ export function EmptyMark() {
     '& .pl-empty-check': { animation: 'none', strokeDashoffset: 0 },
     '& .pl-empty-back svg': { animation: 'none' },
   };
-  const dark = theme.palette.mode === 'dark';
-  const tile = dark ? PURPLE : GREY;
-  const mark = dark ? GREY : PURPLE;
+  const colors = LOGO[theme.palette.mode];
   return (
     <Box
       aria-hidden
@@ -107,10 +136,10 @@ export function EmptyMark() {
     >
       <div className="pl-empty-card">
         <div className="pl-empty-face">
-          <Logo tile={tile} mark={mark} />
+          <Logo {...colors} />
         </div>
         <div className="pl-empty-face pl-empty-back">
-          <Check tile={tile} mark={mark} />
+          <Check tile={colors.tile} mark={colors.mark} />
         </div>
       </div>
     </Box>

@@ -50,7 +50,7 @@ describe('palette presets', () => {
   it('start the colors from a named palette, with changes on top and reset back to it', () => {
     const ctx = testContext();
     let ws = createWorkspace(ctx);
-    expect(palettePreset(ws)).toBe('pecklist');
+    expect(palettePreset(ws)).toBe('forest');
     ws = setPalettePreset(ctx, ws, 'ocean');
     expect(paletteColor(ws, 'accent')).toBe(PALETTE_PRESETS.ocean.accent);
     // The theme draws with the preset where it differs from the defaults.
@@ -85,7 +85,14 @@ describe('palette presets', () => {
       ...ws,
       entities: { ...ws.entities, settings: [{ ...settings, palettePreset: 'not-a-palette' }] },
     };
-    expect(palettePreset(odd)).toBe('pecklist');
+    expect(palettePreset(odd)).toBe('forest');
+    // Whoever picked the first default keeps those colors, under their new name.
+    const renamed: typeof ws = {
+      ...ws,
+      entities: { ...ws.entities, settings: [{ ...settings, palettePreset: 'pecklist' }] },
+    };
+    expect(palettePreset(renamed)).toBe('seaglass');
+    expect(paletteColor(renamed, 'accent')).toBe('#4F8F87');
   });
 
   it('keep every preset readable: no ring or text color is too faint', () => {

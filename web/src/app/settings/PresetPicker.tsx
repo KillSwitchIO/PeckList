@@ -11,9 +11,9 @@ import { useApply, useWorkspace } from '../store/hooks.ts';
 
 // Calm first, then soft, then bright, then deep and earthy.
 const ORDER: PalettePreset[] = [
-  'pecklist',
-  'ocean',
   'forest',
+  'ocean',
+  'seaglass',
   'graphite',
   'rose',
   'blossom',

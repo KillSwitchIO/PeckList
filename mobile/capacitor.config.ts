@@ -20,7 +20,7 @@ const config: CapacitorConfig = {
     // Reminders (web/src/adapters/capacitor-notifier.ts): our status bar icon, in the accent.
     LocalNotifications: {
       smallIcon: 'ic_stat_pecklist',
-      iconColor: '#4F8F87',
+      iconColor: '#5A8A4E',
     },
   },
 };

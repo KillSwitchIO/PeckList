@@ -371,8 +371,8 @@ of yours to the Trash at once (lists others share with you stay), and Undo bring
 and `[text]` as is. It shows today's date in the pattern as you type. Today, Tomorrow and
 Yesterday keep their names.
 
-**Colors**: pick one of 30 palettes, from calm (PeckList, Ocean, Forest, Graphite) and soft (Rose,
-Blossom, Peach, Lavender, Mint) to bright (Electric, Tropical, Citrus, Berry) and deep (Sunset,
+**Colors**: pick one of 30 palettes, from calm (PeckList Forest, the default, then Ocean, Sea glass,
+Graphite) and soft (Rose, Blossom, Peach, Lavender, Mint) to bright (Electric, Tropical, Citrus, Berry) and deep (Sunset,
 Midnight, Coffee), loud (Neon, Arcade, Fiesta, Volt, Rainbow, Lagoon, Sunburst) and pretty
 (Bubblegum, Cotton candy, Lilac, Rose gold, Peony, Orchid, Champagne), then change any of its
 colors. The loud and pretty ones also wash the page in their color. **Reset colors** goes back to the palette's own colors. Picking
