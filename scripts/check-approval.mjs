@@ -2,14 +2,24 @@
 // Free has the Approve button but no required approvals). The `approval` job runs this last, so
 // after approving, retry that job (or push again) and the pipeline goes green.
 //   APPROVERS            usernames whose approval counts, comma or space separated
+//   BOT_APPROVERS        usernames whose approval counts only on routine Renovate merge requests
 //   APPROVAL_READ_TOKEN  optional, a read_api token: with it, an approval only counts when it came
 //                        after the last push (Free keeps approvals when commits are added)
 // Without the token it reads the approvals anonymously, which works on a public project.
 
 import { pathToFileURL } from 'node:url';
 
+const RENOVATE_BRANCH = /^renovate\//;
 const APPROVED = /^approved this merge request/;
 const UNAPPROVED = /^unapproved this merge request/;
+
+/**
+ * Whether this is Renovate's routine work, which a bot's approval may pass: a major needs a person.
+ * @param {{ sourceBranch: string, labels: string[] }} input
+ */
+export function isRoutineRenovate({ sourceBranch, labels }) {
+  return RENOVATE_BRANCH.test(sourceBranch) && !labels.includes('major');
+}
 
 /**
  * Whether the merge request may pass.
@@ -80,6 +90,12 @@ async function main() {
     console.error('Set APPROVERS to the usernames whose approval counts.');
     process.exit(1);
   }
+  const bots = (process.env.BOT_APPROVERS ?? '').split(/[\s,]+/).filter(Boolean);
+  const routine = isRoutineRenovate({
+    sourceBranch: process.env.CI_MERGE_REQUEST_SOURCE_BRANCH_NAME ?? '',
+    labels: (process.env.CI_MERGE_REQUEST_LABELS ?? '').split(','),
+  });
+  if (routine) approvers.push(...bots);
   const token = process.env.APPROVAL_READ_TOKEN || undefined;
   const mr = `merge_requests/${iid}`;
   const approvals = await get(`${mr}/approvals`, token);
