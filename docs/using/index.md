@@ -355,11 +355,13 @@ people and groups (the share button), pin it to the top of the menu, archive it 
 Archived lists wait at the end with Unarchive. Tags the same: tap one to rename it, nest it or
 change its color, pin it, or delete it.
 
-**Clean up after** (Settings > Your data): how long deleted and won't-do tasks stay, 30 days unless you
-change it. Pick 7 or 15 days, or 2 months up to a year. A won't-do task moves to the Trash after that
-long, unless it has an open subtask, and you can still restore it from there. What is in the Trash is
-erased for good after the same time. Picking a shorter time asks first if it would erase anything right
-away.
+**Clean up after** (Settings > Your data): how long deleted, completed and won't-do tasks stay, 30 days
+unless you change it. Pick 7 or 15 days, or 2 months up to a year. A completed or won't-do task moves to
+the Trash after that long, and you can still restore it from there. What is in the Trash is erased for
+good after the same time. Completed tasks count from the day they were completed, so old history you
+import moves to the Trash the next time the app opens: pick a longer time first if you want to keep it.
+A task stays while one of its subtasks is open or has time left, and a completed subtask stays with a
+task that stays. Picking a shorter time asks first if it would erase anything right away.
 
 **Start over** (last on the page): **Delete all lists, tasks and tags** moves every list, task and tag
 of yours to the Trash at once (lists others share with you stay), and Undo brings them back. Tick

@@ -1,7 +1,7 @@
 // Purging the trash (spec: PL-019, PL-130): deleted things stay restorable for the time the person
 // picked (purgeDaysOf), then their content is erased. The tombstone itself stays (id, clocks, a
 // deletedAt) so every device still learns of the delete; its deletedAt moves to the epoch, which
-// keeps it out of the trash for good. Won't-do tasks go to the trash after the same time.
+// keeps it out of the trash for good. Completed and won't-do tasks go to the trash after the same time.
 
 import { putEntities } from './collections.ts';
 import { parseHlc } from './hlc.ts';
@@ -142,13 +142,13 @@ export function emptyTrash(ctx: OpContext, workspace: WorkspaceFile): WorkspaceF
 }
 
 /**
- * Erase everything deleted longer ago than the person's time, and move won't-do tasks that old to
- * the trash. Returns the same workspace when there is nothing to do, so running it on every start
+ * Erase everything deleted longer ago than the person's time, and move completed and won't-do
+ * tasks that old to the trash. Returns the same workspace when there is nothing to do, so running it on every start
  * costs nothing.
  */
 export function purgeExpired(ctx: OpContext, workspace: WorkspaceFile, now: number): WorkspaceFile {
   const cutoff = new Date(now - purgeDaysOf(workspace) * 86_400_000).toISOString();
-  return trashOldWontDo(ctx, purgeOlderThan(ctx, workspace, cutoff), cutoff);
+  return trashOldClosed(ctx, purgeOlderThan(ctx, workspace, cutoff), cutoff);
 }
 
 /** How many of my tasks in the trash a shorter time would erase at once, for the Settings page to ask. */
@@ -164,48 +164,61 @@ export function erasedByShortening(workspace: WorkspaceFile, days: number, now: 
 }
 
 /**
- * Won't-do tasks past the time go to the trash, still restorable, with their subtasks. A task with
- * an open subtask stays: that work is not over.
+ * Completed and won't-do tasks past the time go to the trash, still restorable, with their
+ * subtasks. A task stays while any subtask has time left or is open: that work is not over. So does
+ * a completed subtask of a task that stays, which is part of its parent's record.
  *
- * The time counts from when it was marked won't do or last came back from the trash, by the
- * clocks of those fields. completedAt would not do: an imported task's is years old, and a restored
- * task would go straight back.
+ * A completed task counts from its completion date, imported history included (Ben, 2026-11-06).
+ * A won't-do task counts from when it was marked, by the clock of that field. Either way a task
+ * restored from the trash gets the full time again, or it would go straight back.
  */
-function trashOldWontDo(ctx: OpContext, workspace: WorkspaceFile, cutoff: string): WorkspaceFile {
-  const closed = workspace.entities.tasks.filter(
-    (task) => task.deletedAt === null && task.status === 'wontdo',
-  );
+function trashOldClosed(ctx: OpContext, workspace: WorkspaceFile, cutoff: string): WorkspaceFile {
+  const live = workspace.entities.tasks.filter((task) => task.deletedAt === null);
+  const closed = live.filter((task) => task.status === 'done' || task.status === 'wontdo');
   if (closed.length === 0) return workspace;
   const { mine } = eraseRules(ctx, workspace);
   const before = Date.parse(cutoff);
-  const old = (clock: string | undefined) => clock === undefined || parseHlc(clock).wall < before;
+  const wall = (clock: string | undefined) => (clock === undefined ? 0 : parseHlc(clock).wall);
+  // A delete's clock differs from the task's first one only once it has been deleted and restored.
+  const restoredAt = (task: Task) =>
+    task._hlc.deletedAt === task._hlc.createdAt ? 0 : wall(task._hlc.deletedAt);
+  const closedAt = (task: Task) =>
+    task.status === 'done' && task.completedAt
+      ? Date.parse(task.completedAt)
+      : wall(task._hlc.status);
+  const past = (task: Task) =>
+    task.status !== 'open' && Math.max(closedAt(task), restoredAt(task)) < before;
+
+  const parents = new Map(live.map((task) => [task.id, task]));
   const children = new Map<Id, Task[]>();
-  for (const task of workspace.entities.tasks) {
-    if (task.deletedAt === null && task.parentId !== null) {
-      children.set(task.parentId, [...(children.get(task.parentId) ?? []), task]);
-    }
+  for (const task of live) {
+    if (task.parentId === null) continue;
+    const peers = children.get(task.parentId);
+    if (peers) peers.push(task);
+    else children.set(task.parentId, [task]);
   }
   const below = (id: Id): Task[] =>
     (children.get(id) ?? []).flatMap((child) => [child, ...below(child.id)]);
   const due = new Set(
     closed
-      .filter(
-        (task) =>
-          old(task._hlc.status) &&
-          old(task._hlc.deletedAt) &&
-          mine(task.listId) &&
-          !below(task.id).some((each) => each.status === 'open'),
-      )
+      .filter((task) => past(task) && mine(task.listId) && below(task.id).every(past))
       .map((task) => task.id),
   );
-  if (due.size === 0) return workspace;
+  const startsAMove = (task: Task) => {
+    if (!due.has(task.id)) return false;
+    const parent = task.parentId === null ? undefined : parents.get(task.parentId);
+    if (parent === undefined) return true;
+    return !due.has(parent.id) && task.status !== 'done';
+  };
+  const moving = closed.filter(startsAMove);
+  if (moving.length === 0) return workspace;
   // One moment for each subtree, which is how a restore finds what went together.
   const at = isoNow(ctx);
-  const moved = closed
-    .filter((task) => due.has(task.id) && !(task.parentId !== null && due.has(task.parentId)))
-    .flatMap((task) => [task, ...below(task.id)])
-    .map((task) => softDelete(ctx, task, at));
-  return putEntities(workspace, 'tasks', moved);
+  return putEntities(
+    workspace,
+    'tasks',
+    moving.flatMap((task) => [task, ...below(task.id)]).map((task) => softDelete(ctx, task, at)),
+  );
 }
 
 /**
