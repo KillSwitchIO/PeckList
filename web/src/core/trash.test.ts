@@ -211,7 +211,29 @@ describe('trash purge', () => {
     expect(purgeExpired(s.ctx, s.ws, s.now)).toBe(s.ws);
   });
 
-  it("leaves someone else's comment on a task in their list alone, and erases my own there", () => {
+  it("does not erase a task in someone else's list when asked to delete it forever", () => {
+    const s = setup();
+    const theirs = createList(s.ctx, s.ws, { name: 'Their list', color: '#A7C7E7' });
+    s.ws = theirs.workspace;
+    const made = createTask(s.ctx, s.ws, { title: 'Shared', listId: theirs.list.id });
+    s.ws = addComment(s.ctx, made.workspace, made.task.id, 'Mine').workspace;
+    s.ws = {
+      ...s.ws,
+      entities: {
+        ...s.ws.entities,
+        lists: s.ws.entities.lists.map((list) =>
+          list.id === theirs.list.id
+            ? { ...list, createdBy: '01SOMEONEELSE0000000000001', visibility: 'shared' as const }
+            : list,
+        ),
+      },
+    };
+    s.ws = deleteTask(s.ctx, s.ws, made.task.id);
+    expect(purgeTask(s.ctx, s.ws, made.task.id)).toBe(s.ws);
+    expect(find(s.ws, made.task.id).title).toBe('Shared');
+  });
+
+  it("erases my own comment deleted in someone else's list, and leaves theirs", () => {
     const s = setup();
     const theirs = createList(s.ctx, s.ws, { name: 'Their list', color: '#A7C7E7' });
     s.ws = theirs.workspace;
@@ -229,12 +251,13 @@ describe('trash purge', () => {
             : list,
         ),
         comments: s.ws.entities.comments.map((each) =>
-          each.body === 'Theirs' ? { ...each, createdBy: someone } : each,
+          each.body === 'Theirs'
+            ? { ...each, createdBy: someone, deletedAt: '2026-08-01T00:00:00.000Z' }
+            : { ...each, deletedAt: '2026-08-01T00:00:00.000Z' },
         ),
       },
     };
-    s.ws = deleteTask(s.ctx, s.ws, made.task.id);
-    s.ws = purgeTask(s.ctx, s.ws, made.task.id);
+    s.ws = purgeExpired(s.ctx, s.ws, s.now);
     expect(s.ws.entities.comments.map((each) => each.body)).toEqual([ERASED, 'Theirs']);
   });
 

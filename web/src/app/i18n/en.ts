@@ -1982,6 +1982,8 @@ export const en = {
   'undo.dueChanged': 'Due dates changed',
   'completed.empty': 'Nothing completed yet.',
   'trash.empty': 'The trash is empty.',
+  'trash.othersLists': 'In lists others own',
+  'trash.othersListsHint': "Their owner's device erases these, so Empty trash leaves them.",
   'trash.hint': 'Deleted tasks stay here for {period}.',
   'trash.deletedOn': 'Deleted {date}',
   'trash.deleteForever': 'Delete forever',
