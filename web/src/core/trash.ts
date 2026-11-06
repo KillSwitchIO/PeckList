@@ -105,10 +105,16 @@ function eraseOnTasks(
 
 const never = () => false;
 
+/** Whether this trashed task is mine to erase: only the list's owner erases its trash (audit C2). */
+export function mayErase(workspace: WorkspaceFile, me: Id, task: Task): boolean {
+  return myRole(workspace, me, task.listId) === 'owner';
+}
+
 /** Delete a task in the trash for good, with the subtasks that were deleted along with it. */
 export function purgeTask(ctx: OpContext, workspace: WorkspaceFile, id: Id): WorkspaceFile {
   const task = workspace.entities.tasks.find((each) => each.id === id);
   if (!task || task.deletedAt === null || isPurged(task)) return workspace;
+  if (!mayErase(workspace, ctx.userId, task)) return workspace;
   const together = new Set([id]);
   // Walk down: children deleted at the same moment went to the trash with it.
   let grew = true;

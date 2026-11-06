@@ -29,7 +29,7 @@ import {
 import { ALL_TASKS } from '../../core/filters.ts';
 import { restoreTask } from '../../core/tasks.ts';
 import { purgeDaysOf } from '../../core/settings.ts';
-import { emptyTrash, purgeTask } from '../../core/trash.ts';
+import { emptyTrash, mayErase, purgeTask } from '../../core/trash.ts';
 import type { Task, WorkspaceFile } from '../../core/types.ts';
 import { ConfirmDialog } from '../lists/ListDialog.tsx';
 import { purgePeriod } from '../settings/purgePeriod.ts';
@@ -309,14 +309,22 @@ export function TrashView() {
   const apply = useApply();
   const today = useToday();
   const now = useNow();
+  const me = useStoreState((state) => state.context().userId);
   const tasks = trashedTasks(workspace, now);
+  // Only a list's owner erases its trash, so what others own stays apart: Empty trash leaves it.
+  const mine = tasks.filter((task) => mayErase(workspace, me, task));
+  const others = tasks.filter((task) => !mayErase(workspace, me, task));
   // Deleting forever cannot be undone, so it asks first.
   const [confirm, setConfirm] = useState<'all' | Task | null>(null);
   const [limit, setLimit] = useState(TRASH_PAGE);
   // The groups as far as the rows shown so far reach.
   const groups: { key: string; title: string; total: number; rows: typeof tasks }[] = [];
   let left = limit;
-  for (const group of groupDeleted(tasks, today)) {
+  const groupsOfAll = [
+    ...groupDeleted(mine, today),
+    ...(others.length > 0 ? [{ key: 'others', title: t('trash.othersLists'), tasks: others }] : []),
+  ];
+  for (const group of groupsOfAll) {
     if (left <= 0) break;
     const rows = group.tasks.slice(0, left);
     left -= rows.length;
@@ -325,7 +333,7 @@ export function TrashView() {
   return (
     <Page
       title={t('nav.trash')}
-      {...(tasks.length > 0
+      {...(mine.length > 0
         ? {
             actions: (
               <Button color="error" onClick={() => setConfirm('all')}>
@@ -353,6 +361,11 @@ export function TrashView() {
               title={group.title}
               count={group.total}
             >
+              {group.key === 'others' && (
+                <Typography variant="caption" color="text.secondary" sx={{ px: 1 }}>
+                  {t('trash.othersListsHint')}
+                </Typography>
+              )}
               <List>
                 {group.rows.map((task) => {
                   const list = getEntity(workspace, 'lists', task.listId);
@@ -371,17 +384,19 @@ export function TrashView() {
                           >
                             {t('task.restore')}
                           </Button>
-                          <Tooltip title={t('trash.deleteForever')}>
-                            <IconButton
-                              size="small"
-                              aria-label={t('trash.deleteForeverOf', {
-                                title: task.title || t('task.untitled'),
-                              })}
-                              onClick={() => setConfirm(task)}
-                            >
-                              <DeleteForeverOutlined fontSize="small" />
-                            </IconButton>
-                          </Tooltip>
+                          {group.key !== 'others' && (
+                            <Tooltip title={t('trash.deleteForever')}>
+                              <IconButton
+                                size="small"
+                                aria-label={t('trash.deleteForeverOf', {
+                                  title: task.title || t('task.untitled'),
+                                })}
+                                onClick={() => setConfirm(task)}
+                              >
+                                <DeleteForeverOutlined fontSize="small" />
+                              </IconButton>
+                            </Tooltip>
+                          )}
                         </Box>
                       }
                     >

@@ -1,7 +1,7 @@
 import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { inboxList } from '../../core/lists.ts';
+import { createList, inboxList } from '../../core/lists.ts';
 import { createTask, deleteTask } from '../../core/tasks.ts';
 import { isPurged } from '../../core/trash.ts';
 import { mockViewport, renderApp, testStore } from '../../test/renderApp.tsx';
@@ -25,7 +25,7 @@ async function trashWithTwo() {
     return next;
   });
   const tasks = () => store.getState().workspace!.entities.tasks;
-  return { tasks };
+  return { tasks, store };
 }
 
 describe('trash', () => {
@@ -52,6 +52,39 @@ describe('trash', () => {
     expect(today).toHaveTextContent('2');
     expect(screen.getByText('Old receipt')).toBeInTheDocument();
     expect(screen.getByText('Spare key')).toBeInTheDocument();
+  });
+
+  it("keeps trash in a list someone else owns apart: Empty trash leaves it, and it can't be erased", async () => {
+    const { tasks, store } = await trashWithTwo();
+    store.getState().apply((ctx, ws) => {
+      const list = createList(ctx, ws, { name: 'Their list', color: '#A7C7E7' });
+      const made = createTask(ctx, list.workspace, { title: 'Their task', listId: list.list.id });
+      const gone = deleteTask(ctx, made.workspace, made.task.id);
+      return {
+        ...gone,
+        entities: {
+          ...gone.entities,
+          lists: gone.entities.lists.map((each) =>
+            each.id === list.list.id
+              ? { ...each, createdBy: '01ARZ3NDEKTSV4RRFFQ69G5FAV', visibility: 'shared' as const }
+              : each,
+          ),
+        },
+      };
+    });
+
+    await screen.findByRole('button', { name: /In lists others own/ });
+    expect(await screen.findByText('Their task')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Delete Their task forever' })).toBeNull();
+
+    await userEvent.click(screen.getByRole('button', { name: 'Empty trash' }));
+    const dialog = await screen.findByRole('dialog');
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Empty trash' }));
+    await waitFor(() => expect(screen.queryByText('Old receipt')).toBeNull());
+    expect(screen.getByText('Their task')).toBeInTheDocument();
+    expect(tasks().find((task) => task.title === 'Their task')!.deletedAt).not.toBeNull();
+    // Nothing left of mine to empty: the button goes.
+    expect(screen.queryByRole('button', { name: 'Empty trash' })).toBeNull();
   });
 
   it('empties the trash', async () => {

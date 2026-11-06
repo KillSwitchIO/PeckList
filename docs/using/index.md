@@ -358,7 +358,8 @@ change its color, pin it, or delete it.
 **Clean up after** (Settings > Your data): how long deleted, completed and won't-do tasks stay, 30 days
 unless you change it. Pick 7 or 15 days, or 2 months up to a year. A completed or won't-do task moves to
 the Trash after that long, and you can still restore it from there. What is in the Trash is erased for
-good after the same time. Completed tasks count from the day they were completed, so old history you
+good after the same time, and **Empty trash** does it now. Only a list's owner can erase its trash, so
+tasks from lists others own sit in their own group, and Empty trash leaves them. Completed tasks count from the day they were completed, so old history you
 import moves to the Trash the next time the app opens: pick a longer time first if you want to keep it.
 A task stays while one of its subtasks is open or has time left, and a completed subtask stays with a
 task that stays. Picking a shorter time asks first if it would erase anything right away.
