@@ -1,7 +1,7 @@
 // pnpm test:scripts: the checks a release passes on its way from commit to published.
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { cutProblems } from './ci/cut-release.mjs';
+import { cutProblems, releasedAtFor } from './ci/cut-release.mjs';
 import { labelProblem, promotedTags } from './ci/promote-image.mjs';
 import { digestOfRelease, downloadLinks, imageDigestLink } from './ci/release-page.mjs';
 import { releaseProblems } from './release-guard.mjs';
@@ -92,6 +92,16 @@ test('a version already released cannot be cut again', () => {
 
 test('a commit the test server never took cannot be cut, and says what to do', () => {
   assert.match(cutProblems(cut({ deployedToTest: false }))[0], /retry deploy-test/);
+});
+
+test('a pre-release is dated before the latest release, so it never becomes the latest', () => {
+  const latest = { released_at: '2026-11-04T01:41:47.568Z' };
+  assert.equal(releasedAtFor(true, latest), '2026-11-04T01:41:46.568Z');
+});
+
+test('a release is dated now, and so is a pre-release with no release before it', () => {
+  assert.equal(releasedAtFor(false, { released_at: '2026-11-04T01:41:47.568Z' }), undefined);
+  assert.equal(releasedAtFor(true, null), undefined);
 });
 
 test('a release names its digest in the link the compose repository and promote-image read', () => {
