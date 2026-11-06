@@ -13,7 +13,8 @@ A check in CI keeps this page in step with the server: a setting missing here fa
 
 The address people open, such as `https://tasks.example.com`. Single sign-on uses it for the
 callback address, and links the server makes (login links, sharing) use it. Without it, the server
-uses the address each request came in on. **Default:** none. **Where:** any.
+uses the address each request came in on. Handles carry its host too (`sam@tasks.example.com`): after
+you change it, the next start updates everyone's. **Default:** none. **Where:** any.
 
 ### `ACCOUNT_DELETE_GRACE_DAYS`
 

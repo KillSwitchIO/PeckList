@@ -14,7 +14,7 @@ namespace PeckList.Server;
 /// then answer 503 (<see cref="UseSharingStartup"/>). If loading fails the server stops, as before.
 /// </summary>
 public sealed class SharingStartup(
-    SharingState sharing, Groups groups, Invites invites, ServerGroupProjection serverGroups, IEntityStore store, IAccountStore accounts,
+    SharingState sharing, Groups groups, Invites invites, ServerGroupProjection serverGroups, Friends friends, IEntityStore store, IAccountStore accounts,
     IHostApplicationLifetime lifetime, ILogger<SharingStartup> logger)
     : IHostedService
 {
@@ -49,6 +49,8 @@ public sealed class SharingStartup(
             if (invited > 0) logger.LogInformation("Settled invite assignments on {Count} tasks", invited);
             var projected = await serverGroups.ProjectAsync(stopping);
             if (projected > 0) logger.LogInformation("Brought {Count} server group entries in the app up to date", projected);
+            var handles = await friends.RefreshHandlesAsync(stopping);
+            if (handles > 0) logger.LogInformation("Brought {Count} handles in line with this server's address", handles);
         }
         catch (OperationCanceledException) when (stopping.IsCancellationRequested)
         {

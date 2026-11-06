@@ -55,6 +55,28 @@ public sealed class Friends(AccountService accounts, IAccountStore store, SyncSe
         await sync.WriteAsServerAsync(account.Id, [new IncomingEntity("users", New(account.Id, account.Id, stamp, fields))], cancellation);
     }
 
+    /// <summary>
+    /// Bring handles in line with the server's address. A profile is written once, so one made before
+    /// <c>PUBLIC_URL</c> changed, or was set, would name the old address for good. Only these two
+    /// fields change; without an address there is nothing to bring them in line with.
+    /// </summary>
+    public async Task<int> RefreshHandlesAsync(CancellationToken cancellation = default)
+    {
+        if (Host is null) return 0;
+        var changed = 0;
+        foreach (var account in await store.ListAsync(cancellation))
+        {
+            if (sharing.Index.LiveDocOf(account.Id, "users") is not { } profile) continue;
+            var handle = HandleOf(account);
+            if ((string?)profile["handle"] == handle && (string?)profile["homeServer"] == Host) continue;
+            var fields = new JsonObject { ["handle"] = handle, ["homeServer"] = Host };
+            await sync.WriteAsServerAsync(account.Id,
+                [new IncomingEntity("users", ServerEntities.Changed(profile, clock.Next(), fields))], cancellation);
+            changed++;
+        }
+        return changed;
+    }
+
     public async Task<string> CodeAsync(string userId, bool rotate = false, CancellationToken cancellation = default) =>
         Format(await accounts.FriendCodeAsync(userId, rotate, cancellation));
 
