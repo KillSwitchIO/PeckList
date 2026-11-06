@@ -3,7 +3,7 @@
 
 import { MAX_DAYS, MIN_DAYS } from '../../core/calendarLayout.ts';
 
-export type CalendarMode = 'month' | 'days';
+export type CalendarMode = 'month' | 'days' | 'year';
 
 export interface CalendarPrefs {
   mode: CalendarMode;
@@ -41,7 +41,7 @@ export function loadPrefs(phone: boolean): CalendarPrefs {
     if (raw) {
       const saved = JSON.parse(raw) as Partial<CalendarPrefs>;
       return {
-        mode: saved.mode === 'days' ? 'days' : 'month',
+        mode: saved.mode === 'days' || saved.mode === 'year' ? saved.mode : 'month',
         days: clamp(Math.round(Number(saved.days) || base.days), MIN_DAYS, MAX_DAYS),
         weeks: clamp(Math.round(Number(saved.weeks) || base.weeks), MIN_WEEKS, MAX_WEEKS),
         hourHeight: clamp(Number(saved.hourHeight) || base.hourHeight, MIN_HOUR, MAX_HOUR),
@@ -75,7 +75,12 @@ export function askedFor(params: URLSearchParams): {
   const days = Number(params.get('days'));
   return {
     date: date && /^\d{4}-\d{2}-\d{2}$/.test(date) ? date : null,
-    mode: view === 'month' ? 'month' : view === 'days' || view in OLD_DAYS ? 'days' : null,
+    mode:
+      view === 'month' || view === 'year'
+        ? view
+        : view === 'days' || view in OLD_DAYS
+          ? 'days'
+          : null,
     days:
       view in OLD_DAYS
         ? OLD_DAYS[view]!

@@ -9,7 +9,7 @@
 | **Due dates**                           | Tasks with a deadline, by when; select many to move their dates. |
 | **Mess Drawer**                         | Tasks not yet put in a list: the place quick ideas land.         |
 | **All**                                 | Every open task.                                                 |
-| **Calendar**                            | Month, and 1 to 14 days on a time grid.                          |
+| **Calendar**                            | Month, 1 to 14 days, and a year at a glance.                     |
 | **Assigned to me** / **Shared with me** | Tasks others gave you, and lists shared with you.                |
 | **Closed**                              | Done and won't-do tasks.                                         |
 | **Trash**                               | Deleted tasks and lists, restorable for 30 days unless you change it. |
@@ -226,8 +226,13 @@ in a tag's menu; subtasks inherit their parent's tags.
 
 ## Calendar
 
-Two views, switched at the top right:
+Three views, switched at the top right:
 
+- **Year**: twelve small months, each day shaded by how many open tasks fall on it, from free to
+  busy, so free weeks and crowded days stand out. The shades are relative to that year, and the
+  exact count is in the day's tooltip and screen reader label. Click a day to open it in Days, or
+  a month's name to open that month. The arrows move a year at a time. Year is for looking ahead,
+  so tasks don't drag here and Unscheduled steps aside until you switch back.
 - **Month**: the weeks run on without breaks, so the next weeks are always in sight at the end of
   a month. It scrolls freely, a flick carrying it on, and settles with a week at the top (with a
   mouse; on a phone it stays wherever the flick leaves it). Done tasks stay off the calendar. Each day

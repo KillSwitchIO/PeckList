@@ -533,6 +533,22 @@ export function buildPalette(
 }
 
 /**
+ * The year view's shades for busier days (spec: PL-093), from the palette's accent, and the text
+ * that reads on each. A free day has no shade, only the surface, so all of them hold in light,
+ * dark and any palette, a person's own included. Any color reads on black or on white, so the
+ * search always ends.
+ */
+export function heatShades(palette: ModePalette): { fill: string; on: string }[] {
+  return [0.22, 0.5, 1].map((amount) => {
+    const fill = mix(palette.surface, palette.accent.fill, amount);
+    const on = [palette.text, palette.accent.on, '#FFFFFF', '#000000'].find(
+      (color) => contrastRatio(color, fill) >= WCAG_TEXT,
+    )!;
+    return { fill, on };
+  });
+}
+
+/**
  * Soft pill colors for a user-chosen fill (tag chips): a tinted background with text that
  * passes AA on it, in either mode.
  */
