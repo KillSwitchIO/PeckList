@@ -1,5 +1,6 @@
 // Read-side queries: smart views, list contents, date states.
 
+import { purgeDaysOf } from './settings.ts';
 import { isLive } from './collections.ts';
 import { daysBetween, localDayOf } from './dates.ts';
 import {
@@ -15,8 +16,6 @@ import {
 import { compareOrderKeys } from './ordering.ts';
 import { visibleTags } from './tags.ts';
 import type { Id, Task, WorkspaceFile } from './types.ts';
-
-export const TRASH_DAYS = 30;
 
 /** Built-in date views. Neither shows undated tasks. */
 export const TODAY_FILTER: TaskFilter = { start: { to: 0 } };
@@ -145,9 +144,9 @@ export function completedTasks(workspace: WorkspaceFile, listId?: Id): Task[] {
     .sort((a, b) => (b.completedAt ?? '').localeCompare(a.completedAt ?? ''));
 }
 
-/** Tasks in the trash for at most TRASH_DAYS, top of each deleted subtree only, newest first. */
+/** Tasks still in the trash (see purgeDaysOf), top of each deleted subtree only, newest first. */
 export function trashedTasks(workspace: WorkspaceFile, now: number): Task[] {
-  const cutoff = new Date(now - TRASH_DAYS * 86_400_000).toISOString();
+  const cutoff = new Date(now - purgeDaysOf(workspace) * 86_400_000).toISOString();
   const byId = new Map(workspace.entities.tasks.map((task) => [task.id, task]));
   return workspace.entities.tasks
     .filter((task) => {

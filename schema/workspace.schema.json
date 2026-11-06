@@ -8,7 +8,7 @@
   "additionalProperties": false,
   "properties": {
     "schemaVersion": {
-      "const": 17
+      "const": 18
     },
     "app": {
       "type": "object",
@@ -846,6 +846,10 @@
               "items": { "$ref": "#/$defs/reminder" }
             }
           }
+        },
+        "purgeAfterDays": {
+          "description": "How long deleted and won't-do tasks stay, in days; months count 30 days and a year 365 (schema 18). Absent: 30.",
+          "enum": [7, 15, 30, 60, 90, 120, 150, 180, 210, 240, 270, 300, 330, 365]
         },
         "notifications": {
           "description": "Which kinds of notification reach this person, and whether they vibrate (schema 17, PL-115). Absent, or an absent field: on. The Notifications page lists every kind regardless.",

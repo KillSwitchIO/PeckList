@@ -71,6 +71,15 @@ export const en = {
   'settings.category.tasksHint': 'Lists, new tasks and swipes',
   'settings.category.notificationsHint': 'What reaches you, and on this device',
   'settings.category.dataHint': 'Download, import and start over',
+  'settings.data.purge': 'Clean up after',
+  'settings.data.purgeHint':
+    "Won't-do tasks move to the Trash after this long, and what is in the Trash is erased for good after the same time.",
+  'settings.data.purge.days': '{days} days',
+  'settings.data.purge.months': '{months} months',
+  'settings.data.purge.year': '1 year',
+  'settings.data.purgeConfirm':
+    'Tasks in the Trash older than {period} will be erased for good ({tasks}). This cannot be undone.',
+  'settings.data.purgeGo': 'Erase and shorten',
   'settings.data.download': 'Download a copy',
   'settings.data.import': 'Import a file',
   'settings.data.imported': 'Imported: {tasks} new tasks, {lists} new lists and {tags} new tags.',
@@ -83,7 +92,7 @@ export const en = {
   'settings.reset.action': 'Delete all lists, tasks and tags',
   'settings.reset.title': 'Start over?',
   'settings.reset.confirm':
-    'Your {lists} lists, {tasks} tasks and {tags} tags go to the Trash. Undo brings them back, and the Trash keeps them for 30 days.',
+    'Your {lists} lists, {tasks} tasks and {tags} tags go to the Trash. Undo brings them back, and the Trash keeps them for {period}.',
   'settings.reset.purge': 'Also empty the Trash',
   'settings.reset.purgeWarning':
     'Everything in the Trash, these and what was there before, is deleted forever. This cannot be undone.',
@@ -1973,7 +1982,7 @@ export const en = {
   'undo.dueChanged': 'Due dates changed',
   'completed.empty': 'Nothing completed yet.',
   'trash.empty': 'The trash is empty.',
-  'trash.hint': 'Deleted tasks stay here for 30 days.',
+  'trash.hint': 'Deleted tasks stay here for {period}.',
   'trash.deletedOn': 'Deleted {date}',
   'trash.deleteForever': 'Delete forever',
   'trash.deleteForeverOf': 'Delete {title} forever',

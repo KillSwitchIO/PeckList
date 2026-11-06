@@ -11,9 +11,11 @@ import {
 } from '@mui/material';
 import { useMemo, useState } from 'react';
 import { replaceable, trashMine } from '../../core/interchange/apply.ts';
+import { DEFAULT_PURGE_DAYS, purgeDaysOf } from '../../core/settings.ts';
 import { emptyTrash } from '../../core/trash.ts';
 import { t } from '../i18n/i18n.ts';
 import { useWorkspaceStore } from '../store/hooks.ts';
+import { purgePeriod } from './purgePeriod.ts';
 import { Section, SettingRow } from './settingsLayout.tsx';
 
 /**
@@ -74,7 +76,12 @@ export function ResetSection() {
       <Dialog open={open} onClose={close} maxWidth="xs" fullWidth>
         <DialogTitle>{t('settings.reset.title')}</DialogTitle>
         <DialogContent>
-          <DialogContentText>{t('settings.reset.confirm', counts)}</DialogContentText>
+          <DialogContentText>
+            {t('settings.reset.confirm', {
+              ...counts,
+              period: purgePeriod(workspace ? purgeDaysOf(workspace) : DEFAULT_PURGE_DAYS),
+            })}
+          </DialogContentText>
           <FormControlLabel
             sx={{ mt: 1.5 }}
             control={

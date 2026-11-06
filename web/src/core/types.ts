@@ -193,6 +193,8 @@ export interface Settings extends BaseEntity {
   allDayReminderTime?: string;
   /** Which kinds of notification reach them, and whether they vibrate (schema 17, PL-115); absent: all on */
   notifications?: NotificationSwitches;
+  /** How long deleted and won't-do tasks stay, in days (schema 18, PL-130); absent: 30 */
+  purgeAfterDays?: number;
 }
 
 /** Each absent switch is on. The Notifications page lists every kind regardless. */

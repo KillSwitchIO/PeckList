@@ -3,7 +3,7 @@
 
 import { keyBetween } from './ordering.ts';
 
-export const CURRENT_SCHEMA_VERSION = 17;
+export const CURRENT_SCHEMA_VERSION = 18;
 
 export type Migration = (document: Record<string, unknown>) => Record<string, unknown>;
 
@@ -124,6 +124,9 @@ export const MIGRATIONS: MigrationRegistry = {
   // 17: settings may say which kinds of notification reach the person and whether they vibrate
   // (notifications). Optional (missing: all on), so documents change only in version.
   17: (document) => document,
+  // 18: settings may say how long deleted and won't-do tasks stay (purgeAfterDays). Optional
+  // (missing: 30 days), so documents change only in version.
+  18: (document) => document,
 };
 
 export type VersionCheck =

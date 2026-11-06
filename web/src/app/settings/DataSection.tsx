@@ -5,6 +5,7 @@ import { serializeWorkspace } from '../../core/workspace.ts';
 import { t } from '../i18n/i18n.ts';
 import { useWorkspaceStore } from '../store/hooks.ts';
 import { ExportDialog, ImportDialog } from './InterchangeDialogs.tsx';
+import { PurgeSetting } from './PurgeSetting.tsx';
 import { Section, SettingRow } from './settingsLayout.tsx';
 
 /** `pecklist-2026-10-23.json`, by this device's date. */
@@ -109,6 +110,7 @@ export function DataSection() {
           {t('settings.data.exportAction')}
         </Button>
       </SettingRow>
+      <PurgeSetting />
       {open === 'import' && (
         <ImportDialog
           onClose={() => setOpen(null)}

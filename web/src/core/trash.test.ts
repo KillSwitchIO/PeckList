@@ -2,14 +2,24 @@ import { describe, expect, it } from 'vitest';
 import { createAjvValidator } from '../adapters/ajv-validator.ts';
 import { testContext } from '../test/fixtures.ts';
 import { addAttachment } from './attachments.ts';
+import { HlcClock } from './hlc.ts';
 import { addComment } from './comments.ts';
 import { createList, deleteList, inboxList } from './lists.ts';
 import { members } from './ops.ts';
 import { trashedTasks } from './queries.ts';
 import { createSavedFilter, deleteSavedFilter } from './savedFilters.ts';
+import { updateSettings } from './settings.ts';
 import { createTag, deleteTag } from './tags.ts';
-import { createTask, deleteTask, updateTask } from './tasks.ts';
-import { emptyTrash, ERASED, isPurged, PURGED_AT, purgeExpired, purgeTask } from './trash.ts';
+import { createTask, deleteTask, restoreTask, updateTask } from './tasks.ts';
+import {
+  emptyTrash,
+  erasedByShortening,
+  ERASED,
+  isPurged,
+  PURGED_AT,
+  purgeExpired,
+  purgeTask,
+} from './trash.ts';
 import type { WorkspaceFile } from './types.ts';
 import { createWorkspace } from './workspace.ts';
 
@@ -18,7 +28,11 @@ const DAY = 86_400_000;
 /** A clock the test moves; every operation stamps with it. */
 function setup() {
   let now = Date.parse('2026-09-01T10:00:00.000Z');
-  const ctx = { ...testContext(), now: () => now };
+  const ctx = {
+    ...testContext(),
+    now: () => now,
+    clock: new HlcClock({ node: 'dev1', now: () => now }),
+  };
   let ws: WorkspaceFile = createWorkspace(ctx);
   const inbox = inboxList(ws).id;
   const add = (title: string, parentId: string | null = null) => {
@@ -241,6 +255,136 @@ describe('trash purge', () => {
     const filterGone = s.ws.entities.savedFilters.find((each) => each.id === filter.filter.id)!;
     expect([filterGone.name, filterGone.query]).toEqual(['', {}]);
     expect(createAjvValidator().validate(s.ws).errors).toEqual([]);
+  });
+
+  it('purges after the time the person picked, not 30 days', () => {
+    const s = setup();
+    s.ws = updateSettings(s.ctx, s.ws, { purgeAfterDays: 7 });
+    const soon = s.add('Gone in a week');
+    s.ws = deleteTask(s.ctx, s.ws, soon.id);
+    s.advance(6);
+    s.ws = purgeExpired(s.ctx, s.ws, s.now);
+    expect(find(s.ws, soon.id).title).toBe('Gone in a week');
+    s.advance(2);
+    expect(trashedTasks(s.ws, s.now)).toEqual([]);
+    s.ws = purgeExpired(s.ctx, s.ws, s.now);
+    expect(isPurged(find(s.ws, soon.id))).toBe(true);
+    expect(createAjvValidator().validate(s.ws).errors).toEqual([]);
+  });
+
+  it('keeps the trash for up to a year when asked', () => {
+    const s = setup();
+    s.ws = updateSettings(s.ctx, s.ws, { purgeAfterDays: 365 });
+    const kept = s.add('Kept a while');
+    s.ws = deleteTask(s.ctx, s.ws, kept.id);
+    s.advance(364);
+    s.ws = purgeExpired(s.ctx, s.ws, s.now);
+    expect(trashedTasks(s.ws, s.now).map((task) => task.title)).toEqual(['Kept a while']);
+    s.advance(2);
+    s.ws = purgeExpired(s.ctx, s.ws, s.now);
+    expect(isPurged(find(s.ws, kept.id))).toBe(true);
+  });
+
+  it("moves won't-do tasks to the trash after the time, restorable, then erases them", () => {
+    const s = setup();
+    const dropped = s.add('Not doing this');
+    const fresh = s.add('Dropped later');
+    const done = s.add('Done long ago');
+    s.ws = updateTask(s.ctx, s.ws, dropped.id, { status: 'wontdo' });
+    s.ws = updateTask(s.ctx, s.ws, done.id, { status: 'done' });
+    s.advance(20);
+    s.ws = updateTask(s.ctx, s.ws, fresh.id, { status: 'wontdo' });
+    s.advance(11);
+
+    s.ws = purgeExpired(s.ctx, s.ws, s.now);
+    expect(find(s.ws, dropped.id).deletedAt).not.toBeNull();
+    expect(find(s.ws, dropped.id).title).toBe('Not doing this');
+    expect(find(s.ws, fresh.id).deletedAt).toBeNull();
+    expect(find(s.ws, done.id).deletedAt).toBeNull();
+
+    s.advance(31);
+    s.ws = purgeExpired(s.ctx, s.ws, s.now);
+    expect(isPurged(find(s.ws, dropped.id))).toBe(true);
+  });
+
+  it("gives a restored won't-do task the full time again", () => {
+    const s = setup();
+    const dropped = s.add('Not doing this');
+    s.ws = updateTask(s.ctx, s.ws, dropped.id, { status: 'wontdo' });
+    s.advance(31);
+    s.ws = purgeExpired(s.ctx, s.ws, s.now);
+    s.ws = restoreTask(s.ctx, s.ws, dropped.id);
+
+    s.ws = purgeExpired(s.ctx, s.ws, s.now);
+    expect(find(s.ws, dropped.id).deletedAt).toBeNull();
+    s.advance(31);
+    s.ws = purgeExpired(s.ctx, s.ws, s.now);
+    expect(find(s.ws, dropped.id).deletedAt).not.toBeNull();
+  });
+
+  it("counts a won't-do task's time from when it was marked, not its old completed date", () => {
+    const s = setup();
+    const imported = s.add('Imported from years ago');
+    s.ws = updateTask(s.ctx, s.ws, imported.id, {
+      status: 'wontdo',
+      completedAt: '2023-01-01T00:00:00.000Z',
+    });
+    s.ws = purgeExpired(s.ctx, s.ws, s.now);
+    expect(find(s.ws, imported.id).deletedAt).toBeNull();
+  });
+
+  it("leaves a won't-do task with an open subtask, and takes closed ones along", () => {
+    const s = setup();
+    const parent = s.add('Parent dropped');
+    const open = s.add('Still open', parent.id);
+    const other = s.add('Other dropped');
+    const closed = s.add('Closed child', other.id);
+    s.ws = updateTask(s.ctx, s.ws, parent.id, { status: 'wontdo' });
+    s.ws = updateTask(s.ctx, s.ws, other.id, { status: 'wontdo' });
+    s.ws = updateTask(s.ctx, s.ws, closed.id, { status: 'done' });
+    s.advance(31);
+
+    s.ws = purgeExpired(s.ctx, s.ws, s.now);
+    expect(find(s.ws, parent.id).deletedAt).toBeNull();
+    expect(find(s.ws, open.id).deletedAt).toBeNull();
+    expect(find(s.ws, other.id).deletedAt).not.toBeNull();
+    expect(find(s.ws, closed.id).deletedAt).toBe(find(s.ws, other.id).deletedAt);
+    // Restoring brings back what went together.
+    s.ws = restoreTask(s.ctx, s.ws, other.id);
+    expect(find(s.ws, closed.id).deletedAt).toBeNull();
+  });
+
+  it("leaves a won't-do task in someone else's list to them", () => {
+    const s = setup();
+    const theirs = createList(s.ctx, s.ws, { name: 'Their list', color: '#A7C7E7' });
+    const made = createTask(s.ctx, theirs.workspace, { title: 'Theirs', listId: theirs.list.id });
+    s.ws = updateTask(s.ctx, made.workspace, made.task.id, { status: 'wontdo' });
+    s.ws = {
+      ...s.ws,
+      entities: {
+        ...s.ws.entities,
+        lists: s.ws.entities.lists.map((list) =>
+          list.id === theirs.list.id
+            ? { ...list, createdBy: '01SOMEONEELSE0000000000001', visibility: 'shared' as const }
+            : list,
+        ),
+      },
+    };
+    s.advance(31);
+    s.ws = purgeExpired(s.ctx, s.ws, s.now);
+    expect(find(s.ws, made.task.id).deletedAt).toBeNull();
+  });
+
+  it('counts what a shorter time would erase', () => {
+    const s = setup();
+    const old = s.add('Ten days in the trash');
+    const recent = s.add('Two days in the trash');
+    s.ws = deleteTask(s.ctx, s.ws, old.id);
+    s.advance(8);
+    s.ws = deleteTask(s.ctx, s.ws, recent.id);
+    s.advance(2);
+    expect(erasedByShortening(s.ws, 15, s.now)).toBe(0);
+    expect(erasedByShortening(s.ws, 7, s.now)).toBe(1);
   });
 
   it('empties the trash, lists included', () => {
