@@ -676,6 +676,43 @@ describe('sync engine', () => {
     expect(engine.getState().phase).toBe('ready');
   });
 
+  it('finds its account again when a synced device opened while the server was down (audit C5)', async () => {
+    vi.useFakeTimers();
+    const backend = new FakeBackend();
+    backend.addAccount('ben', 'correct horse battery');
+    const { engine, transport, store, storage } = await device(backend, 'dev1');
+    let again: SyncEngine | null = null;
+    try {
+      await engine.getState().start();
+      await engine.getState().signIn('ben', 'correct horse battery');
+      engine.getState().stop();
+
+      // The tab opens with the server restarting: it works offline, with no account to show yet.
+      transport.offline = true;
+      again = createSyncEngine({
+        transport,
+        device: 'dev1',
+        workspace: store,
+        storage,
+        debounceMs: 60_000,
+        intervalMs: 600_000,
+      });
+      await again.getState().start();
+      expect(again.getState().phase).toBe('ready');
+      expect(again.getState().account).toBeNull();
+
+      // Back: the next look brings the account back, as only a reload used to.
+      transport.offline = false;
+      await vi.advanceTimersByTimeAsync(FIRST_LOAD_RETRY_MS);
+      expect(again.getState().account?.username).toBe('ben');
+      expect(again.getState().status).toBe('idle');
+    } finally {
+      again?.getState().stop();
+      engine.getState().stop();
+      vi.useRealTimers();
+    }
+  });
+
   it('keeps working offline after an earlier sync', async () => {
     const backend = new FakeBackend();
     backend.addAccount('ben', 'correct horse battery');
