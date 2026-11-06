@@ -26,9 +26,11 @@ public abstract record ExternalSignInResult
     /// <summary>
     /// <paramref name="JoinedBy"/> when this sign-in joined an existing account: <c>mapping</c>,
     /// <c>migration</c>, <c>username</c> or <c>email</c>; <c>remap</c> when a mapping moved the link
-    /// from another account.
+    /// from another account. <paramref name="RoleBefore"/>: the role before this sign-in applied the
+    /// role map. <paramref name="LastSuperAdminSpared"/>: the map would have lowered the only super
+    /// admin, so it did not. An admin should hear about both.
     /// </summary>
-    public sealed record Success(Account Account, bool Created, string? JoinedBy = null) : ExternalSignInResult;
+    public sealed record Success(Account Account, bool Created, string? JoinedBy = null, Role? RoleBefore = null, bool LastSuperAdminSpared = false) : ExternalSignInResult;
 
     /// <summary>In none of the provider's required groups: no account, nothing stored.</summary>
     public sealed record NotAllowed : ExternalSignInResult;
@@ -154,9 +156,10 @@ public sealed class ExternalSignIn(
         }
         if (account.Disabled) return new ExternalSignInResult.Disabled();
 
-        account = await ApplyRoleMapAsync(provider, identity, account, cancellation);
+        var before = account.Role;
+        (account, var spared) = await ApplyRoleMapAsync(provider, identity, account, cancellation);
         await ApplyGroupMapAsync(provider, identity, account, cancellation);
-        return new ExternalSignInResult.Success(account, created, joinedBy);
+        return new ExternalSignInResult.Success(account, created, joinedBy, before, spared);
     }
 
     /// <summary>
@@ -410,7 +413,7 @@ public sealed class ExternalSignIn(
         };
         var account = await CreateAsync(provider, identity, pending.Username, cancellation);
         await identities.RemovePendingAsync(provider.Name, subject, cancellation);
-        account = await ApplyRoleMapAsync(provider, identity, account, cancellation);
+        (account, _) = await ApplyRoleMapAsync(provider, identity, account, cancellation);
         await ApplyGroupMapAsync(provider, identity, account, cancellation);
         return account;
     }
@@ -423,23 +426,28 @@ public sealed class ExternalSignIn(
         return account;
     }
 
-    /// <summary>The highest role the provider's groups map to, or user; the last super admin is never demoted.</summary>
-    private async Task<Account> ApplyRoleMapAsync(
+    /// <summary>
+    /// The highest role the provider's groups map to, or user; the last super admin is never demoted.
+    /// No groups at all counts as no match, on purpose (audit S10): some providers send nothing for a
+    /// person in no groups, and that must not leave a removed admin as admin. A provider that dropped
+    /// the claim by mistake costs less: the next sign-in with the groups restores the role.
+    /// </summary>
+    private async Task<(Account Account, bool Spared)> ApplyRoleMapAsync(
         OidcProviderSettings provider, ExternalIdentity identity, Account account, CancellationToken cancellation)
     {
-        if (provider.RoleMap.Count == 0) return account;
+        if (provider.RoleMap.Count == 0) return (account, false);
         var role = identity.Groups
             .Select(group => provider.RoleMap.TryGetValue(group, out var mapped) ? mapped : Role.User)
             .DefaultIfEmpty(Role.User)
             .Max();
-        if (role == account.Role) return account;
+        if (role == account.Role) return (account, false);
         try
         {
-            return await accountService.SetRoleAsync(account.Id, role, cancellation);
+            return (await accountService.SetRoleAsync(account.Id, role, cancellation), false);
         }
         catch (LastSuperAdminException)
         {
-            return account;
+            return (account, true);
         }
     }
 

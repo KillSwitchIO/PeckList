@@ -142,6 +142,65 @@ public sealed class ExternalSignInTests(SqliteFiles files) : IClassFixture<Sqlit
     }
 
     [Fact]
+    public async Task A_sign_in_with_no_groups_lowers_the_role_says_so_and_the_next_with_the_group_restores_it()
+    {
+        var provider = Pocket() with
+        {
+            RoleMap = new Dictionary<string, Role>(StringComparer.OrdinalIgnoreCase) { ["pl-admins"] = Role.Admin },
+        };
+        await accountService.CreateUserAsync("ann", "correct horse battery", Role.SuperAdmin, cancellation: Token);
+        var kim = await SignedIn(provider, Kim("pl-admins"));
+        Assert.Equal(Role.Admin, kim.Role);
+
+        var lowered = Assert.IsType<ExternalSignInResult.Success>(await signIn.SignInAsync(provider, Kim(), Token));
+        Assert.Equal(Role.User, lowered.Account.Role);
+        Assert.Equal(Role.Admin, lowered.RoleBefore);
+        Assert.Equal(Role.User, (await accounts.FindByIdAsync(kim.Id, Token))!.Role);
+
+        var restored = Assert.IsType<ExternalSignInResult.Success>(await signIn.SignInAsync(provider, Kim("pl-admins"), Token));
+        Assert.Equal(Role.Admin, restored.Account.Role);
+        Assert.Equal(Role.User, restored.RoleBefore);
+        Assert.Equal(Role.Admin, (await accounts.FindByIdAsync(kim.Id, Token))!.Role);
+
+        // Groups were sent and match nothing: lowered just the same.
+        var otherGroups = Assert.IsType<ExternalSignInResult.Success>(await signIn.SignInAsync(provider, Kim("family"), Token));
+        Assert.Equal(Role.User, otherGroups.Account.Role);
+        Assert.Equal(Role.Admin, otherGroups.RoleBefore);
+
+        // Nothing changed: already a plain user.
+        var same = Assert.IsType<ExternalSignInResult.Success>(await signIn.SignInAsync(provider, Kim(), Token));
+        Assert.Equal(same.Account.Role, same.RoleBefore);
+    }
+
+    [Fact]
+    public async Task The_last_super_admin_signing_in_with_no_groups_keeps_the_role_and_it_is_said()
+    {
+        var provider = Pocket() with
+        {
+            RoleMap = new Dictionary<string, Role>(StringComparer.OrdinalIgnoreCase) { ["pl-owners"] = Role.SuperAdmin },
+        };
+        await SignedIn(provider, Kim("pl-owners"));
+        var spared = Assert.IsType<ExternalSignInResult.Success>(await signIn.SignInAsync(provider, Kim(), Token));
+        Assert.Equal(Role.SuperAdmin, spared.Account.Role);
+        Assert.True(spared.LastSuperAdminSpared);
+    }
+
+    [Fact]
+    public async Task Required_groups_refuse_a_sign_in_with_no_groups_before_any_role_changes()
+    {
+        var provider = Pocket() with
+        {
+            RequiredGroups = ["pl-admins"],
+            RoleMap = new Dictionary<string, Role>(StringComparer.OrdinalIgnoreCase) { ["pl-admins"] = Role.Admin },
+        };
+        await accountService.CreateUserAsync("ann", "correct horse battery", Role.SuperAdmin, cancellation: Token);
+        var kim = await SignedIn(provider, Kim("pl-admins"));
+
+        Assert.IsType<ExternalSignInResult.NotAllowed>(await signIn.SignInAsync(provider, Kim(), Token));
+        Assert.Equal(Role.Admin, (await accounts.FindByIdAsync(kim.Id, Token))!.Role);
+    }
+
+    [Fact]
     public async Task Group_maps_keep_the_providers_memberships_in_step_and_leave_manual_ones()
     {
         var provider = Pocket() with
