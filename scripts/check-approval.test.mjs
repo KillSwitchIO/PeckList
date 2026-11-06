@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { approvalVerdict } from './check-approval.mjs';
+import { approvalVerdict, isRoutineRenovate } from './check-approval.mjs';
 
 const approvers = ['hambone0'];
 const note = (username, body, at) => ({ username, body, at });
@@ -11,6 +11,15 @@ test('a merge request passes only once an approver has approved it', () => {
   const passed = approvalVerdict({ approvers, approvedBy: ['someone-else', 'hambone0'] });
   assert.equal(passed.ok, true);
   assert.match(passed.message, /hambone0/);
+});
+
+test("only Renovate's routine merge requests are a bot's to pass", () => {
+  const routine = (sourceBranch, labels = ['renovate']) =>
+    isRoutineRenovate({ sourceBranch, labels });
+  assert.equal(routine('renovate/all-non-major-dependencies'), true);
+  assert.equal(routine('renovate/react-20.x', ['renovate', 'major']), false);
+  assert.equal(routine('fix/renovate/not-really'), false);
+  assert.equal(routine('feat/purge-window', []), false);
 });
 
 test('with the push time known, an approval made before the last push does not count', () => {

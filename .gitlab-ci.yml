@@ -988,7 +988,21 @@ approval:
   timeout: 5m
   variables:
     APPROVERS: hambone0
+    BOT_APPROVERS: punchlist-bot
   script:
     - node scripts/check-approval.mjs
   rules:
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+
+# Approves Renovate's routine merge requests as the bot (scripts/ci/approve-renovate.mjs). On main,
+# since its token is protected and must not reach a merge request pipeline. It never holds main up.
+approve-renovate:
+  image: $NODE_IMAGE
+  stage: check
+  needs: []
+  timeout: 5m
+  allow_failure: true
+  script:
+    - node scripts/ci/approve-renovate.mjs
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $GITLAB_API_TOKEN

@@ -46,6 +46,8 @@ job) has approved, and "Pipelines must succeed" then keeps the merge request fro
 - Approve while the pipeline is still running and `approval` passes when it gets there.
 - Approve after it failed, then retry the `approval` job; a merge request set to merge when the
   pipeline succeeds then merges.
+- `punchlist-bot` (`BOT_APPROVERS` on the job) counts too, but only on a routine Renovate merge
+  request: from a `renovate/` branch and not a major. See [Dependency updates](#dependency-updates).
 - On Free an approval stays when more commits are pushed. With a `read_api` token in the CI/CD
   variable `APPROVAL_READ_TOKEN` (masked, not protected, since merge request pipelines run on
   unprotected branches), an approval only counts if it came after the last push: unapprove and
@@ -187,8 +189,10 @@ or with [gitlab-ci-local](https://github.com/firecow/gitlab-ci-local).
 [Renovate](https://docs.renovatebot.com/) opens merge requests for updates once a week, run from
 the `homelab-killswitch/renovate-runner` project's schedule (Fridays). The rules are in
 `renovate.json`: patches and minors merge themselves once their pipeline passes, which takes an
-[approval](#approval) like any merge request; majors (and the Android Gradle setup, which follows
-Capacitor's template) also wait for a closer look, related packages
+[approval](#approval) like any merge request. `approve-renovate`, on every main pipeline, gives that
+approval as `punchlist-bot` and retries one failed pipeline a run. It takes only a `renovate/` branch
+that is not a major and changes nothing but dependency files. Majors (and the Android Gradle setup,
+which follows Capacitor's template) wait for a person, related packages
 come together (MUI, Tiptap, Capacitor, React, test and lint tools, .NET packages), at most six
 are open at a time, and the lockfile is refreshed on Mondays. Base images keep floating on their
 major tags (`node:24`, `dotnet/sdk:10.0`), so only a new major shows up for those.
