@@ -144,7 +144,10 @@ async function main() {
       }),
       assets: {
         links: [
-          ...downloadLinks(api, `${version}-${CI_COMMIT_SHORT_SHA}`, [...files, 'SHA256SUMS']),
+          ...downloadLinks(api, `${version}-${CI_COMMIT_SHORT_SHA}`, version, [
+            ...files,
+            'SHA256SUMS',
+          ]),
           imageDigestLink(CI_REGISTRY_IMAGE, version, IMAGE_DIGEST),
         ],
       },

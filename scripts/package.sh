@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # Build the native downloads: a self-contained server (no .NET install needed) with the web app in
 # wwwroot, the docs that matter offline, and the service examples. One archive per platform, plus
-# SHA256SUMS. File names carry no version (pecklist-linux-x64.tar.gz), so the release's
-# "latest" download links never change; `pecklist --version` says which one it is.
+# SHA256SUMS. The names here carry no version (pecklist-linux-x64.tar.gz): the release adds it to
+# what people download, and keeps these names as its "latest" links (scripts/ci/release-page.mjs).
 #   scripts/package.sh <version> [rid ...]     default rids: linux-x64 linux-arm64 win-x64
 # Needs: the .NET 10 SDK, the web build in web/dist (pnpm build), and zip for Windows archives.
 # Set REVISION to the commit to stamp it into `pecklist --version`.

@@ -606,8 +606,9 @@ android-apk:
     - export PECKLIST_VERSION="$(sh scripts/build-version.sh)" PECKLIST_VERSION_CODE="$CI_PIPELINE_IID" PECKLIST_REVISION="$CI_COMMIT_SHA"
     - pnpm --filter @pecklist/mobile apk
     - pnpm --filter @pecklist/mobile test:android
+    - cp mobile/android/app/build/outputs/apk/debug/app-debug.apk "pecklist-android-$PECKLIST_VERSION-debug.apk"
   artifacts:
-    paths: [mobile/android/app/build/outputs/apk/debug/app-debug.apk]
+    paths: ['pecklist-android-*-debug.apk']
     expire_in: 30 days
   rules:
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
@@ -649,8 +650,8 @@ android-release:
       APK=mobile/android/app/build/outputs/apk/release/app-release.apk
       "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --print-certs "$APK" | grep -E 'DN|SHA-256'
       mkdir -p dist-android
-      cp "$APK" dist-android/pecklist-android.apk
-      echo "Built pecklist-android.apk $VERSION (code $PECKLIST_VERSION_CODE)"
+      cp "$APK" "dist-android/pecklist-android-$VERSION.apk"
+      echo "Built pecklist-android-$VERSION.apk (code $PECKLIST_VERSION_CODE)"
   after_script:
     - rm -f "$CI_PROJECT_DIR/release-key.p12"
   artifacts:
@@ -890,7 +891,7 @@ upload-downloads:
   interruptible: false
   script:
     # The signed APK joins the native downloads and their checksums.
-    - cp dist-android/pecklist-android.apk dist/
+    - cp dist-android/pecklist-android-*.apk dist/pecklist-android.apk
     - (cd dist && sha256sum pecklist-android.apk >> SHA256SUMS)
     - node scripts/ci/upload-downloads.mjs dist
   artifacts:
@@ -971,7 +972,7 @@ release:
   script:
     - node scripts/check-version.mjs
     # The signed APK joins the native downloads and their checksums.
-    - cp dist-android/pecklist-android.apk dist/
+    - cp dist-android/pecklist-android-*.apk dist/pecklist-android.apk
     - (cd dist && sha256sum pecklist-android.apk >> SHA256SUMS)
     - node scripts/ci/publish-release.mjs dist
   rules:

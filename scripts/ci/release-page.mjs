@@ -4,14 +4,39 @@
 export const packageUrl = (api, packageVersion, file) =>
   `${api}/packages/generic/pecklist/${encodeURIComponent(packageVersion)}/${file}`;
 
-/** The release's links for its downloads. Their names keep `latest` download links stable. */
-export function downloadLinks(api, packageVersion, files) {
-  return files.map((file) => ({
-    name: file === 'SHA256SUMS' ? 'SHA256SUMS (checksums)' : file,
-    url: packageUrl(api, packageVersion, file),
-    direct_asset_path: `/${file}`,
-    link_type: file === 'SHA256SUMS' ? 'other' : 'package',
-  }));
+/** A download's name with its version: pecklist-android.apk is pecklist-android-0.8.0.apk. */
+export function versionedName(file, version) {
+  const parts = /^(pecklist-.+?)(\.tar\.gz|\.zip|\.apk)$/.exec(file);
+  return parts ? `${parts[1]}-${version}${parts[2]}` : file;
+}
+
+/**
+ * SHA256SUMS naming each file both ways: a file saved from the release page has the version in its
+ * name, and one fetched through a `latest` link, as the install guides do, does not.
+ */
+export function versionedSums(sums, version) {
+  const lines = sums.split('\n').filter(Boolean);
+  const named = lines.map((line) => {
+    const [hash, file] = line.trim().split(/\s+/);
+    return `${hash}  ${versionedName(file.replace(/^\*/, ''), version)}`;
+  });
+  return `${[...lines, ...named].join('\n')}\n`;
+}
+
+/**
+ * The release's links for its downloads. People see and save the versioned name, while the stable
+ * path keeps `latest` download links working from one release to the next.
+ */
+export function downloadLinks(api, packageVersion, version, files) {
+  return files.map((file) => {
+    const saved = versionedName(file, version);
+    return {
+      name: file === 'SHA256SUMS' ? 'SHA256SUMS (checksums)' : saved,
+      url: packageUrl(api, packageVersion, saved),
+      direct_asset_path: `/${file}`,
+      link_type: file === 'SHA256SUMS' ? 'other' : 'package',
+    };
+  });
 }
 
 /** The release page's text around the changelog section. */
@@ -24,7 +49,7 @@ export function describeRelease({ notes, image, version, prerelease, projectUrl 
 docker pull ${image}:${version}
 \`\`\`
 
-Native downloads for Linux and Windows, and the Android app (\`pecklist-android.apk\`), are below; check them against \`SHA256SUMS\`. The newest
+Native downloads for Linux and Windows, and the Android app (\`pecklist-android-${version}.apk\`), are below; check them against \`SHA256SUMS\`. The newest
 release's files are always at \`${projectUrl}/-/releases/permalink/latest/downloads/<file>\`. Setup, upgrade
 steps and every setting are in the [documentation](${projectUrl}/-/tree/main/docs).${
     prerelease

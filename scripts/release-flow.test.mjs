@@ -3,7 +3,13 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { cutProblems, releasedAtFor } from './ci/cut-release.mjs';
 import { labelProblem, promotedTags } from './ci/promote-image.mjs';
-import { digestOfRelease, downloadLinks, imageDigestLink } from './ci/release-page.mjs';
+import {
+  digestOfRelease,
+  downloadLinks,
+  versionedName,
+  versionedSums,
+  imageDigestLink,
+} from './ci/release-page.mjs';
 import { releaseProblems } from './release-guard.mjs';
 import { plannedVersion } from './versions.mjs';
 
@@ -149,14 +155,43 @@ test('a release with no digest link, or a malformed one, names nothing', () => {
   assert.equal(digestOfRelease(null), null);
 });
 
-test('download links keep the stable paths that latest-download links use', () => {
-  const [apk, sums] = downloadLinks('https://api', '0.8.0-abc', [
+test('a download shows its version, and keeps the stable path that latest-download links use', () => {
+  const [apk, sums] = downloadLinks('https://api', '0.8.0-abc', '0.8.0', [
     'pecklist-android.apk',
     'SHA256SUMS',
   ]);
+  assert.equal(apk.name, 'pecklist-android-0.8.0.apk');
   assert.equal(apk.direct_asset_path, '/pecklist-android.apk');
-  assert.equal(apk.url, 'https://api/packages/generic/pecklist/0.8.0-abc/pecklist-android.apk');
+  assert.equal(
+    apk.url,
+    'https://api/packages/generic/pecklist/0.8.0-abc/pecklist-android-0.8.0.apk',
+  );
   assert.equal(sums.name, 'SHA256SUMS (checksums)');
+  assert.equal(sums.direct_asset_path, '/SHA256SUMS');
+  assert.ok(sums.url.endsWith('/SHA256SUMS'));
+});
+
+test('every kind of download takes its version before the extension', () => {
+  const names = {
+    'pecklist-android.apk': 'pecklist-android-0.8.0-rc.2.apk',
+    'pecklist-linux-x64.tar.gz': 'pecklist-linux-x64-0.8.0-rc.2.tar.gz',
+    'pecklist-linux-arm64.tar.gz': 'pecklist-linux-arm64-0.8.0-rc.2.tar.gz',
+    'pecklist-win-x64.zip': 'pecklist-win-x64-0.8.0-rc.2.zip',
+    SHA256SUMS: 'SHA256SUMS',
+  };
+  for (const [file, saved] of Object.entries(names)) {
+    assert.equal(versionedName(file, '0.8.0-rc.2'), saved);
+  }
+});
+
+test('the checksums cover a file by either name', () => {
+  const sums = versionedSums('aaa  pecklist-win-x64.zip\nbbb  pecklist-android.apk\n', '0.8.0');
+  assert.deepEqual(sums.trim().split('\n'), [
+    'aaa  pecklist-win-x64.zip',
+    'bbb  pecklist-android.apk',
+    'aaa  pecklist-win-x64-0.8.0.zip',
+    'bbb  pecklist-android-0.8.0.apk',
+  ]);
 });
 
 test('a release gets its version, its minor line and latest; a pre-release only its own name', () => {

@@ -5,7 +5,7 @@
 
 import { readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
-import { packageUrl } from './release-page.mjs';
+import { packageUrl, versionedName, versionedSums } from './release-page.mjs';
 import { readVersions } from '../versions.mjs';
 
 const { CI_API_V4_URL, CI_PROJECT_ID, CI_JOB_TOKEN, CI_COMMIT_SHORT_SHA } = process.env;
@@ -19,12 +19,17 @@ const files = readdirSync(dir).filter(
 );
 if (files.length === 0) throw new Error(`nothing to upload in ${dir}`);
 for (const file of files) {
-  const response = await fetch(packageUrl(api, packageVersion, file), {
+  const saved = versionedName(file, version);
+  const bytes = readFileSync(join(dir, file));
+  const response = await fetch(packageUrl(api, packageVersion, saved), {
     method: 'PUT',
     headers: { 'JOB-TOKEN': CI_JOB_TOKEN },
-    body: new Uint8Array(readFileSync(join(dir, file))),
+    body:
+      file === 'SHA256SUMS'
+        ? versionedSums(bytes.toString('utf8'), version)
+        : new Uint8Array(bytes),
   });
   if (!response.ok)
-    throw new Error(`Uploading ${file}: ${response.status} ${await response.text()}`);
-  console.log(`uploaded ${file}`);
+    throw new Error(`Uploading ${saved}: ${response.status} ${await response.text()}`);
+  console.log(`uploaded ${saved}`);
 }
