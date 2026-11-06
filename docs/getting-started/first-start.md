@@ -13,7 +13,7 @@ With the default `AUTH_MODE=local`, the first start makes one account, `admin`, 
 
 It goes to the console only, never to log files or a log server. Sign in and change it: until
 you do, the server refuses everything else. To choose it yourself instead, set `ADMIN_PASSWORD`
-(12 characters or more) or `ADMIN_PASSWORD_FILE` before the first start. Lost it later?
+(12 to 256 characters) or `ADMIN_PASSWORD_FILE` before the first start. Lost it later?
 
 ```bash
 docker exec <container> pecklist admin reset-password

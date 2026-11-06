@@ -147,6 +147,21 @@ public sealed class AppSignInTests(ServerFixture fixture) : IClassFixture<Server
         Assert.Equal(HttpStatusCode.BadRequest, answer.StatusCode);
     }
 
+    [Fact]
+    public async Task A_provider_this_server_does_not_have_gets_no_confirm_page()
+    {
+        using var server = Server();
+        var tab = Browser(server);
+        var challenge = AppSignIn.ChallengeOf(NewVerifier());
+        await ConfirmInBrowser(tab, challenge);
+
+        string Page(string query) => $"/auth/app/handoff?{query}challenge={challenge}&scheme={Scheme}";
+        Assert.Equal(HttpStatusCode.NotFound, (await tab.GetAsync(Page("provider=nope&"), Token)).StatusCode);
+        Assert.Equal(HttpStatusCode.OK, (await tab.GetAsync(Page("provider=fake&"), Token)).StatusCode);
+        Assert.Equal(HttpStatusCode.OK, (await tab.GetAsync(Page("provider=passkey&"), Token)).StatusCode);
+        Assert.Equal(HttpStatusCode.OK, (await tab.GetAsync(Page(""), Token)).StatusCode);
+    }
+
     private async Task<HttpClient> SignedInAdmin(WebApplicationFactory<Program> server)
     {
         var admin = Browser(server);

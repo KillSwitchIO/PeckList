@@ -24,6 +24,7 @@ public enum PasswordChange
     Changed,
     WrongPassword,
     TooShort,
+    TooLong,
     Unchanged,
 
     /// <summary>A demo account's password is the one the banner shows (PL-117).</summary>
@@ -35,6 +36,9 @@ public sealed class AccountService(IAccountStore store, IPasswordHasher hasher, 
 {
     public const string AdminUsername = "admin";
     public const int MinPasswordLength = 12;
+
+    /// <summary>Long enough for any password manager; beyond it, hashing is only work for someone else's benefit (audit S17).</summary>
+    public const int MaxPasswordLength = 256;
     public const int MaxFailedLogins = 5;
     public static readonly TimeSpan LockoutTime = TimeSpan.FromMinutes(15);
 
@@ -56,6 +60,8 @@ public sealed class AccountService(IAccountStore store, IPasswordHasher hasher, 
 
     public async Task<LoginResult> LoginAsync(string username, string password, CancellationToken cancellation = default)
     {
+        // No password can be this long: never hashed, and the same answer whoever is named.
+        if (password.Length > MaxPasswordLength) return new LoginResult.Invalid();
         var account = await store.FindByUsernameAsync(username.Trim(), cancellation);
         if (account?.PasswordHash is null || account.Disabled)
         {
@@ -93,8 +99,12 @@ public sealed class AccountService(IAccountStore store, IPasswordHasher hasher, 
     {
         var account = await store.FindByIdAsync(id, cancellation) ?? throw new KeyNotFoundException($"no account {id}");
         if (IsDemo(account)) return (PasswordChange.DemoAccount, null);
-        if (account.PasswordHash is null || !hasher.Verify(account.PasswordHash, current, out _)) return (PasswordChange.WrongPassword, null);
+        if (account.PasswordHash is null || current.Length > MaxPasswordLength || !hasher.Verify(account.PasswordHash, current, out _))
+        {
+            return (PasswordChange.WrongPassword, null);
+        }
         if (next.Length < MinPasswordLength) return (PasswordChange.TooShort, null);
+        if (next.Length > MaxPasswordLength) return (PasswordChange.TooLong, null);
         if (next == current) return (PasswordChange.Unchanged, null);
         var updated = account with
         {
@@ -268,7 +278,7 @@ public sealed class AccountService(IAccountStore store, IPasswordHasher hasher, 
     public async Task<Account> CreateUserAsync(
         string username, string password, Role role = Role.User, bool mustChangePassword = true, CancellationToken cancellation = default)
     {
-        if (password.Length < MinPasswordLength) throw new ArgumentException($"passwords need at least {MinPasswordLength} characters");
+        CheckLength(password);
         var account = NewAccount(username.Trim(), role) with
         {
             PasswordHash = hasher.Hash(password),
@@ -306,6 +316,14 @@ public sealed class AccountService(IAccountStore store, IPasswordHasher hasher, 
         return false;
     }
 
+    private static void CheckLength(string password)
+    {
+        if (password.Length is < MinPasswordLength or > MaxPasswordLength)
+        {
+            throw new ArgumentException($"passwords need {MinPasswordLength} to {MaxPasswordLength} characters");
+        }
+    }
+
     /// <summary>An account that signs in through an identity provider only.</summary>
     /// <exception cref="DuplicateUsernameException">The username is taken.</exception>
     public async Task<Account> CreateWithoutPasswordAsync(string username, CancellationToken cancellation = default)
@@ -326,13 +344,10 @@ public sealed class AccountService(IAccountStore store, IPasswordHasher hasher, 
     /// An admin sets a password (or has one generated) that must be changed at the next sign-in. The
     /// account is unlocked and its sessions end. Returns the password, to show once.
     /// </summary>
-    /// <exception cref="ArgumentException">A typed password is too short.</exception>
+    /// <exception cref="ArgumentException">A typed password is too short or too long.</exception>
     public async Task<string> SetPasswordAsync(string id, string? password, CancellationToken cancellation = default)
     {
-        if (password is not null && password.Length < MinPasswordLength)
-        {
-            throw new ArgumentException($"passwords need at least {MinPasswordLength} characters");
-        }
+        if (password is not null) CheckLength(password);
         var account = await store.FindByIdAsync(id, cancellation) ?? throw new KeyNotFoundException($"no account {id}");
         password ??= Ids.NewPassword();
         await store.UpdateAsync(account with
@@ -356,6 +371,7 @@ public sealed class AccountService(IAccountStore store, IPasswordHasher hasher, 
         var account = await store.FindByIdAsync(id, cancellation) ?? throw new KeyNotFoundException($"no account {id}");
         if (IsDemo(account)) return (PasswordChange.DemoAccount, null);
         if (next.Length < MinPasswordLength) return (PasswordChange.TooShort, null);
+        if (next.Length > MaxPasswordLength) return (PasswordChange.TooLong, null);
         var updated = account with
         {
             PasswordHash = hasher.Hash(next),
@@ -377,7 +393,10 @@ public sealed class AccountService(IAccountStore store, IPasswordHasher hasher, 
     {
         var account = await store.FindByIdAsync(id, cancellation) ?? throw new KeyNotFoundException($"no account {id}");
         if (IsDemo(account)) return (PasswordChange.DemoAccount, null);
-        if (account.PasswordHash is null || !hasher.Verify(account.PasswordHash, current, out _)) return (PasswordChange.WrongPassword, null);
+        if (account.PasswordHash is null || current.Length > MaxPasswordLength || !hasher.Verify(account.PasswordHash, current, out _))
+        {
+            return (PasswordChange.WrongPassword, null);
+        }
         var updated = account with { PasswordHash = null, MustChangePassword = false, SecurityStamp = Ids.NewUlid(time) };
         await store.UpdateAsync(updated, cancellation);
         return (PasswordChange.Changed, updated);

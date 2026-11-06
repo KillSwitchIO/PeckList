@@ -15,6 +15,7 @@ public abstract record SignUpResult
     public static readonly Refused PasswordsDisabled = new("local_login_disabled");
     public static readonly Refused InvalidUsername = new("invalid_username");
     public static readonly Refused TooShort = new("too_short");
+    public static readonly Refused TooLong = new("too_long");
     public static readonly Refused UsernameTaken = new("username_taken");
 }
 
@@ -45,6 +46,7 @@ public sealed class SelfSignUp(AccountService accounts, SignupInvites invites, L
         username = username.Trim().ToLowerInvariant();
         if (!AccountService.IsValidUsername(username)) return SignUpResult.InvalidUsername;
         if (password.Length < AccountService.MinPasswordLength) return SignUpResult.TooShort;
+        if (password.Length > AccountService.MaxPasswordLength) return SignUpResult.TooLong;
 
         Task<Account> Create() => accounts.CreateUserAsync(username, password, Role.User, mustChangePassword: false, cancellation);
         try

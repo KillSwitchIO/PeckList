@@ -61,6 +61,8 @@ public static partial class AppSignIn
         auth.MapGet("/app/handoff", async (string? provider, string? challenge, string? scheme, string? returnUrl, string? invite, HttpContext context) =>
         {
             if (!ValidRequest(challenge, scheme)) return Results.BadRequest(new AuthError("invalid_request"));
+            // Signed in or not, a provider this server does not have gets no confirm page (audit S17).
+            if (provider is not null && provider != PasskeyEndpoints.ProviderName && settings.Provider(provider) is null) return Results.NotFound();
             var session = await context.AuthenticateAsync(CookieAuthenticationDefaults.AuthenticationScheme);
             if (session.Principal?.Identity?.IsAuthenticated != true)
             {

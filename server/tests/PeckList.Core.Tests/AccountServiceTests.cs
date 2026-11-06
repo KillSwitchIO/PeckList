@@ -75,6 +75,19 @@ public sealed class AccountServiceTests
     private Account Admin => store.ById.Values.Single(each => each.Username == "admin");
 
     [Fact]
+    public async Task A_password_over_the_cap_is_never_hashed_when_tried()
+    {
+        var sam = await accounts.CreateUserAsync("sam", "correct horse battery", cancellation: Token);
+        var tooLong = new string('x', AccountService.MaxPasswordLength + 1);
+
+        Assert.IsType<LoginResult.Invalid>(await accounts.LoginAsync("sam", tooLong, Token));
+        Assert.IsType<LoginResult.Invalid>(await accounts.LoginAsync("nobody", tooLong, Token));
+        Assert.Equal(PasswordChange.WrongPassword, (await accounts.ChangePasswordAsync(sam.Id, tooLong, "a brand new password", Token)).Result);
+        Assert.Equal(PasswordChange.WrongPassword, (await accounts.RemovePasswordAsync(sam.Id, tooLong, Token)).Result);
+        Assert.Equal(0, hasher.Verifications);
+    }
+
+    [Fact]
     public async Task First_start_makes_an_admin_with_a_generated_password_to_change()
     {
         var password = await accounts.EnsureAdminAsync(null, Token);

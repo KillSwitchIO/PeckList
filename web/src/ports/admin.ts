@@ -301,6 +301,7 @@ export type AdminRefusal =
   | 'taken'
   | 'invalid'
   | 'too-short'
+  | 'too-long'
   | 'admins-only'
   | 'linked-elsewhere'
   | 'registration-closed'

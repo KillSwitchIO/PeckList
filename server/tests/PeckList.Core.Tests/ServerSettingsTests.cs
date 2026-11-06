@@ -167,7 +167,7 @@ public sealed class ServerSettingsTests
         Assert.Contains("PUBLIC_URL: 'tasks.example.com' is not an http or https address", error.Message);
         Assert.Contains("SNAPSHOT_SCHEDULE: '2' is not one of off, hourly, daily", error.Message);
         Assert.Contains("DB_PATH_FILE: cannot read /missing", error.Message);
-        Assert.Contains("ADMIN_PASSWORD must be at least 12 characters", error.Message);
+        Assert.Contains("ADMIN_PASSWORD must be 12 to 256 characters", error.Message);
     }
 
     [Fact]
@@ -335,6 +335,14 @@ public sealed class ServerSettingsTests
         Assert.Contains("'owner' is not one of user, admin, superadmin", error.Message);
         Assert.Contains("'broken' is not group=value", error.Message);
         Assert.Contains("OIDC_POCKET_AUTO_CREATE: 'sometimes' is not true or false", error.Message);
+    }
+
+    [Fact]
+    public void An_admin_password_over_the_cap_is_refused_at_startup()
+    {
+        var error = Assert.Throws<SettingsException>(() => Read(new() { ["ADMIN_PASSWORD"] = new string('x', AccountService.MaxPasswordLength + 1) }));
+        Assert.Contains("ADMIN_PASSWORD must be 12 to 256 characters", error.Message);
+        Assert.NotNull(Read(new() { ["ADMIN_PASSWORD"] = new string('x', AccountService.MaxPasswordLength) }).AdminPassword);
     }
 
     [Fact]
