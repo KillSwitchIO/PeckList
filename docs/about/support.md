@@ -19,7 +19,8 @@ covers its costs:
 
 [![ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/S6S7P3FVW)
 
-Or use the tip panel on [pecklist.com/support](https://pecklist.com/support/).
+Or use the tip panel on [pecklist.com/support](https://pecklist.com/support/). The app has the same
+link under **Settings > Support PeckList**, or from the heart beside the version in the sidebar.
 
 ## Community chat
 

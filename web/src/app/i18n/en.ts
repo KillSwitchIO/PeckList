@@ -78,6 +78,10 @@ export const en = {
   'settings.category.tasksHint': 'Lists, new tasks and swipes',
   'settings.category.notificationsHint': 'What reaches you, and on this device',
   'settings.category.dataHint': 'Download, import and start over',
+  'settings.category.supportHint': 'Say thanks with a tip',
+  'support.title': 'Support PeckList',
+  'support.thanks': 'Thank you for using PeckList. It is free, and a tip helps keep it going.',
+  'support.give': 'Support on {name}',
   'settings.data.purge': 'Clean up after',
   'settings.data.purgeHint':
     "Completed and won't-do tasks move to the Trash after this long, and what is in the Trash is erased for good after the same time.",

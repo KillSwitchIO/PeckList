@@ -334,6 +334,7 @@ subjects stand in a list beside the one that is open; on a phone each opens as a
 - **Your data**: [download or import a copy](apps-and-sync.md#your-data-as-a-file),
   [move from or to another app](apps-and-sync.md#moving-from-or-to-another-app) (TickTick, Todoist,
   Google Tasks, Microsoft To Do, iCalendar and Things), your usage stats choice, and start over.
+- **Support PeckList**: a thank you, and a link to give a tip.
 
 **Passkeys** (on a server with accounts, on an HTTPS address) sign you in with your fingerprint,
 face or screen lock instead of a password. **Add a passkey** under **Settings > Account > Passkeys**: your
