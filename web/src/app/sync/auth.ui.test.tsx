@@ -1,10 +1,13 @@
-import { cleanup, screen, waitFor, within } from '@testing-library/react';
+import { cleanup, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { MemoryRouter } from 'react-router';
 import { createMemoryStorage } from '../../adapters/memory-storage.ts';
 import { FakeBackend } from '../../test/fakeTransport.ts';
 import { mockViewport, renderApp, testStore } from '../../test/renderApp.tsx';
 import { createTask } from '../../core/tasks.ts';
+import { AppProviders } from '../providers.tsx';
+import { AppRoutes } from '../routes.tsx';
 import { createSyncEngine } from './syncEngine.ts';
 import { fakeWebAuthn, noWebAuthn } from '../../test/fakeWebAuthn.ts';
 
@@ -413,6 +416,27 @@ describe('making an account', () => {
     expect(screen.queryByLabelText(/Username/)).toBeNull();
   });
 
+  it('an invite link waits with the loading state while the server answers', async () => {
+    const store = testStore();
+    const transport = new FakeBackend().device();
+    transport.info = () => new Promise(() => undefined);
+    const sync = createSyncEngine({
+      transport,
+      workspace: store,
+      storage: createMemoryStorage(),
+      debounceMs: 60_000,
+      intervalMs: 600_000,
+    });
+    render(
+      <AppProviders store={store} sync={sync}>
+        <MemoryRouter initialEntries={['/join/tok-1']}>
+          <AppRoutes />
+        </MemoryRouter>
+      </AppProviders>,
+    );
+    expect(await screen.findByRole('progressbar', { name: 'Loading' })).toBeInTheDocument();
+  });
+
   it('a mangled invite link says it has run out rather than leave a blank page', async () => {
     window.history.replaceState(null, '', '/join/%E0');
     await serverApp(new FakeBackend());
@@ -544,6 +568,39 @@ describe('passkeys (PL-123)', () => {
     await serverApp(backend);
     await userEvent.click(await screen.findByRole('button', { name: 'Sign in with a passkey' }));
     await waitFor(() => expect(leaveFor).toHaveBeenCalledWith(handoff));
+  });
+
+  it('shows no problem when the browser refuses the autofill offer, and a password still works', async () => {
+    const backend = new FakeBackend();
+    backend.addAccount('sam', 'correct horse battery');
+    backend.passkeysOn = true;
+    const { get } = fakeWebAuthn();
+    vi.stubGlobal(
+      'PublicKeyCredential',
+      Object.assign(function PublicKeyCredential() {}, {
+        isConditionalMediationAvailable: () => Promise.resolve(true),
+      }),
+    );
+    get.mockRejectedValue(new DOMException('This is an invalid domain.', 'SecurityError'));
+    await serverApp(backend);
+    await screen.findByLabelText(/Username/);
+    await waitFor(() => expect(get).toHaveBeenCalled());
+
+    await userEvent.type(screen.getByLabelText(/Username/), 'sam');
+    await userEvent.type(screen.getByLabelText(/Password/), 'correct horse battery');
+    expect(screen.queryByText(/This is an invalid domain/)).toBeNull();
+    await userEvent.click(screen.getByRole('button', { name: 'Sign in' }));
+    await waitFor(() => expect(screen.queryByLabelText(/Password/)).toBeNull());
+  });
+
+  it('still says why when asked by the button and the browser refuses', async () => {
+    const backend = new FakeBackend();
+    backend.passkeysOn = true;
+    const { get } = fakeWebAuthn();
+    get.mockRejectedValue(new DOMException('This is an invalid domain.', 'SecurityError'));
+    await serverApp(backend);
+    await userEvent.click(await screen.findByRole('button', { name: 'Sign in with a passkey' }));
+    expect(await screen.findByText(/This is an invalid domain/)).toBeInTheDocument();
   });
 
   it('offers no passkey button when the server or the browser has none', async () => {

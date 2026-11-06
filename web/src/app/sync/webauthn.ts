@@ -28,12 +28,15 @@ function descriptors(list: unknown): PublicKeyCredentialDescriptor[] {
   }));
 }
 
-/** Whether this browser does passkeys at all. */
-export function passkeysWork(): boolean {
+/**
+ * Whether passkeys can work here: a browser that does them, on an address with a name. WebAuthn
+ * refuses IP addresses outright, and `http://127.0.0.1` still counts as secure, so the browser's
+ * API is there on such a page and only fails when called.
+ */
+export function passkeysWork(host = window.location.hostname): boolean {
+  const onIpAddress = /^\d+\.\d+\.\d+\.\d+$/.test(host) || host.startsWith('[');
   return (
-    typeof window !== 'undefined' &&
-    typeof window.PublicKeyCredential === 'function' &&
-    !!navigator.credentials
+    !onIpAddress && typeof window.PublicKeyCredential === 'function' && !!navigator.credentials
   );
 }
 

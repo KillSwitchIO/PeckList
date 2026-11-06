@@ -1,9 +1,10 @@
 import ErrorOutlineRounded from '@mui/icons-material/ErrorOutlineRounded';
 import SystemUpdateAltRounded from '@mui/icons-material/SystemUpdateAltRounded';
 import UpgradeRounded from '@mui/icons-material/UpgradeRounded';
-import { alpha, Box, Button, CircularProgress, Typography, useTheme } from '@mui/material';
+import { alpha, Box, Button, Typography, useTheme } from '@mui/material';
 import { useState, type ReactNode } from 'react';
 import { t } from './i18n/i18n.ts';
+import { LoadingScreen } from './layout/LoadingScreen.tsx';
 import { useStoreState } from './store/hooks.ts';
 
 /** Renders the app only once the workspace is open; explains anything that stops it opening. */
@@ -15,13 +16,7 @@ export function StatusGate({ children }: { children: ReactNode }) {
   const [upgrading, setUpgrading] = useState(false);
 
   if (status === 'ready') return <>{children}</>;
-  if (status === 'loading') {
-    return (
-      <Box sx={{ display: 'grid', placeItems: 'center', minHeight: '100dvh' }}>
-        <CircularProgress aria-label={t('status.loading')} />
-      </Box>
-    );
-  }
+  if (status === 'loading') return <LoadingScreen label={t('status.loading')} />;
 
   const details =
     problem?.kind === 'needs-app-update'
