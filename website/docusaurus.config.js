@@ -70,6 +70,12 @@ export default {
         logo: { alt: '', src: 'img/icon.svg' },
         items: [
           { type: 'docsVersionDropdown', position: 'right' },
+          {
+            href: 'https://pecklist.com/support/',
+            label: 'Support',
+            position: 'right',
+            className: 'navbar-support',
+          },
           { href: 'https://pecklist.com', label: 'pecklist.com', position: 'right' },
           { href: repo, label: 'GitLab', position: 'right' },
         ],

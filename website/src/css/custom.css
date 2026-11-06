@@ -19,3 +19,20 @@
   --ifm-color-primary-lighter: #a4be9d;
   --ifm-color-primary-lightest: #b4caae;
 }
+
+/* The Support button, as on pecklist.com: the bird's beak color. */
+.navbar__item.navbar-support {
+  background: #e8a33d;
+  color: #241a05;
+  font-weight: 700;
+  border-radius: 999px;
+  padding: 4px 14px;
+  margin: 0 8px;
+}
+.navbar__item.navbar-support:hover {
+  background: #f0b75c;
+  color: #241a05;
+}
+.navbar__item.navbar-support svg {
+  display: none;
+}
