@@ -4,6 +4,39 @@ All notable changes to PeckList. Generated from [Conventional Commits](https://w
 by `pnpm changelog`; the version follows [Semantic Versioning](https://semver.org/). Before 1.0.0 a
 minor release may break things; every break is listed under **Breaking changes** with what to do.
 
+## [0.8.0-rc.2] - 2026-11-06
+
+### Added
+
+- **settings:** Lay Settings out by subject
+- **admin:** Lay Admin out by subject, each setting on the page about it
+- **api-keys:** Revoked keys clear out after 7 days
+- **trash:** Pick how long deleted and won't-do tasks stay
+- **brand:** The wireframe bird icon, and PeckList Forest as the default colors
+- **release:** An image tag for each pre-release type
+- **trash:** Group the Trash by the day things were deleted
+- **trash:** Completed tasks follow Clean up after
+
+### Fixed
+
+- **admin:** Name every server setting and its choices in plain words
+- **android:** The check-in backs off, keeps unsynced reminders, quotes its page
+- **android:** Ask natively before a page moves the app, and per-server trust
+- **trash:** A purge erases comments, files, tag names and task details
+- **ci:** A pre-release does not become the latest release
+- **order:** Keys stay short however long a list gets
+- **friends:** Handles follow the server's address
+- **android:** A test APK says its real version, not 0.1.0
+- **web:** A synced device finds its account again after opening offline
+- **android:** Reminders are handed over when they change, not at every sync
+- **trash:** What others own sits apart, and only its owner erases it
+
+### Documentation
+
+- **ci:** What to do when a pipeline job goes red
+- A merge request must be up to date with main
+- A Support button in the top bar, and Ko-fi links
+
 ## [0.8.0-rc.1] - 2026-11-05
 
 ### Breaking changes
