@@ -30,6 +30,13 @@ public sealed class MemoryApiKeyStore : IApiKeyStore
         return Task.CompletedTask;
     }
 
+    public Task<int> PruneRevokedAsync(DateTimeOffset before, CancellationToken cancellation = default)
+    {
+        var gone = ById.Values.Where(key => key.RevokedAt < before).Select(key => key.Id).ToList();
+        foreach (var id in gone) ById.Remove(id);
+        return Task.FromResult(gone.Count);
+    }
+
     public Task DeleteForUserAsync(string userId, CancellationToken cancellation = default)
     {
         foreach (var id in ById.Values.Where(key => key.UserId == userId).Select(key => key.Id).ToList()) ById.Remove(id);
@@ -74,6 +81,25 @@ public sealed class ApiKeyServiceTests
         Assert.NotNull(await Keys.CheckAsync(second, Token));
         Assert.True(await Keys.RevokeAsync("sam", other.Id, Token));
         Assert.Null(await Keys.CheckAsync(second, Token));
+    }
+
+    [Fact]
+    public async Task A_revoked_key_is_forgotten_after_seven_days_and_a_working_one_never()
+    {
+        var (revoked, _) = await Keys.CreateAsync("sam", Role.User, "Old script", [ApiScopes.TasksRead], null, Token);
+        var (kept, _) = await Keys.CreateAsync("sam", Role.User, "Home Assistant", [ApiScopes.TasksRead], null, Token);
+        await Keys.RevokeAsync("sam", revoked.Id, Token);
+
+        clock.Now = Monday.AddDays(7);
+        Assert.Equal(0, await Keys.ClearRevokedAsync(Token));
+        Assert.Equal(2, (await Keys.ListAsync("sam", Token)).Count);
+
+        clock.Now = Monday.AddDays(7).AddMinutes(1);
+        Assert.Equal(1, await Keys.ClearRevokedAsync(Token));
+        Assert.Equal([kept.Id], (await Keys.ListAsync("sam", Token)).Select(key => key.Id));
+
+        clock.Now = Monday.AddYears(1);
+        Assert.Equal(0, await Keys.ClearRevokedAsync(Token));
     }
 
     [Fact]

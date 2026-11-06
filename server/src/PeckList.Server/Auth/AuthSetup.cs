@@ -65,6 +65,7 @@ public static class AuthSetup
         services.AddSingleton<SelfSignUp>();
         services.AddSingleton<Impersonations>();
         services.AddSingleton<ApiKeyService>();
+        services.AddHostedService<ApiKeyRetention>();
         services.AddSingleton<OwnerAccount>();
         services.AddMemoryCache();
         services.AddSingleton(new StartupConsole(Console.Out));

@@ -48,6 +48,17 @@ public sealed class SqlApiKeyStore(SqlDatabase database) : IApiKeyStore
         WriteAsync("UPDATE api_keys SET last_used_at = @at WHERE id = @id",
             new { id, at = at.ToUnixTimeMilliseconds() }, cancellation);
 
+    public async Task<int> PruneRevokedAsync(DateTimeOffset before, CancellationToken cancellation = default)
+    {
+        await using var connection = await database.OpenAsync(cancellation);
+        await using var transaction = await database.BeginWriteAsync(connection, cancellation);
+        var gone = await connection.ExecuteAsync(new CommandDefinition(
+            "DELETE FROM api_keys WHERE revoked_at IS NOT NULL AND revoked_at < @before",
+            new { before = before.ToUnixTimeMilliseconds() }, transaction, cancellationToken: cancellation));
+        await transaction.CommitAsync(cancellation);
+        return gone;
+    }
+
     public Task DeleteForUserAsync(string userId, CancellationToken cancellation = default) =>
         WriteAsync("DELETE FROM api_keys WHERE user_id = @userId", new { userId }, cancellation);
 
