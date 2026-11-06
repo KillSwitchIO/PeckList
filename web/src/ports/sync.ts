@@ -218,6 +218,7 @@ export type ResetOutcome =
   | { kind: 'ok'; username: string }
   | { kind: 'expired' }
   | { kind: 'too-short' }
+  | { kind: 'too-long' }
   | { kind: 'too-many' }
   | { kind: 'demo' };
 
@@ -230,6 +231,7 @@ export type SignUpOutcome =
         | 'username-taken'
         | 'invalid-username'
         | 'too-short'
+        | 'too-long'
         | 'invite-invalid'
         | 'closed'
         | 'too-many'
@@ -248,7 +250,7 @@ export type LoginOutcome =
 export type PasswordOutcome =
   | { kind: 'ok'; account: Account }
   /** `demo-account`: a demo server's pre-made account keeps the password its banner shows. */
-  | { kind: 'wrong-password' | 'too-short' | 'unchanged' | 'demo-account' };
+  | { kind: 'wrong-password' | 'too-short' | 'too-long' | 'unchanged' | 'demo-account' };
 
 /** Who someone is, before becoming friends (a friend link or a lookup). */
 export interface ProfilePreview {

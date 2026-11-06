@@ -60,7 +60,7 @@ same single owner. **Default:** `local`. **Where:** env.
 ### `ADMIN_PASSWORD`
 
 The `admin` account's first password, used only when the account is created at the first start
-(12 characters or more). Without it a password is generated and printed once. **Default:**
+(12 to 256 characters). Without it a password is generated and printed once. **Default:**
 generated. **Where:** env.
 
 ### `LOCAL_LOGIN`

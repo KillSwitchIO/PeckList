@@ -135,6 +135,7 @@ public static class AuthEndpoints
                 {
                     PasswordChange.WrongPassword => "wrong_password",
                     PasswordChange.TooShort => "too_short",
+                    PasswordChange.TooLong => "too_long",
                     PasswordChange.DemoAccount => "demo_account",
                     _ => "unchanged",
                 };

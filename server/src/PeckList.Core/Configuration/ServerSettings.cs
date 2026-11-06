@@ -436,9 +436,9 @@ public sealed record ServerSettings
         {
             errors.Add("DB_CONNECTION_STRING is required when DB_PROVIDER is postgres");
         }
-        if (settings.AdminPassword is { Length: < 12 })
+        if (settings.AdminPassword is { Length: < Accounts.AccountService.MinPasswordLength or > Accounts.AccountService.MaxPasswordLength })
         {
-            errors.Add("ADMIN_PASSWORD must be at least 12 characters");
+            errors.Add($"ADMIN_PASSWORD must be {Accounts.AccountService.MinPasswordLength} to {Accounts.AccountService.MaxPasswordLength} characters");
         }
         if (errors.Count > 0)
         {

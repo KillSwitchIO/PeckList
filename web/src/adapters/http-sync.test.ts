@@ -325,12 +325,14 @@ describe('HTTP sync transport', () => {
       { status: 200, body: account },
       { status: 400, body: { error: 'wrong_password' } },
       { status: 400, body: { error: 'too_short' } },
+      { status: 400, body: { error: 'too_long' } },
       { status: 400, body: { error: 'unchanged' } },
     );
     const http = createHttpSync('', fetcher);
     expect((await http.changePassword('a', 'b')).kind).toBe('ok');
     expect((await http.changePassword('a', 'b')).kind).toBe('wrong-password');
     expect((await http.changePassword('a', 'b')).kind).toBe('too-short');
+    expect((await http.changePassword('a', 'b')).kind).toBe('too-long');
     expect((await http.changePassword('a', 'b')).kind).toBe('unchanged');
   });
 

@@ -541,6 +541,7 @@ const SIGN_UP_PROBLEMS: Record<
   'username-taken': 'auth.signUp.taken',
   'invalid-username': 'auth.signUp.invalidUsername',
   'too-short': 'auth.tooShort',
+  'too-long': 'auth.tooLong',
   closed: 'auth.signUp.closed',
   'too-many': 'auth.tooMany',
   'signup-limited': 'auth.signUp.limited',
@@ -773,8 +774,9 @@ function Forgot({ onSignIn }: { onSignIn: () => void }) {
   );
 }
 
-const RESET_PROBLEMS: Record<'too-short' | 'too-many' | 'demo', MessageKey> = {
+const RESET_PROBLEMS: Record<'too-short' | 'too-long' | 'too-many' | 'demo', MessageKey> = {
   'too-short': 'auth.tooShort',
+  'too-long': 'auth.tooLong',
   'too-many': 'auth.tooMany',
   demo: 'auth.reset.demo',
 };

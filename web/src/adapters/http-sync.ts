@@ -227,6 +227,8 @@ export function createHttpSync(
           return { kind: 'invalid-username' };
         case 'too_short':
           return { kind: 'too-short' };
+        case 'too_long':
+          return { kind: 'too-long' };
         case 'invite_invalid':
           return { kind: 'invite-invalid' };
         case 'registration_closed':
@@ -273,9 +275,10 @@ export function createHttpSync(
       if (response.status === 404) return { kind: 'expired' };
       if (response.status === 429) return { kind: 'too-many' };
       if (response.status === 400) {
-        return (await errorOf(response)).error === 'too_short'
-          ? { kind: 'too-short' }
-          : { kind: 'demo' };
+        const { error } = await errorOf(response);
+        if (error === 'too_short') return { kind: 'too-short' };
+        if (error === 'too_long') return { kind: 'too-long' };
+        return { kind: 'demo' };
       }
       return fail(response);
     },
@@ -335,6 +338,7 @@ export function createHttpSync(
         const { error } = await errorOf(response);
         if (error === 'wrong_password') return { kind: 'wrong-password' };
         if (error === 'too_short') return { kind: 'too-short' };
+        if (error === 'too_long') return { kind: 'too-long' };
         if (error === 'unchanged') return { kind: 'unchanged' };
         if (error === 'demo_account') return { kind: 'demo-account' };
       }

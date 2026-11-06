@@ -37,6 +37,7 @@ const REFUSALS: Record<string, AdminRefusal> = {
   invalid_name: 'invalid',
   invalid_role: 'invalid',
   too_short: 'too-short',
+  too_long: 'too-long',
   admins_only_by_super_admins: 'admins-only',
   not_allowed: 'not-allowed',
   reason_required: 'reason-required',

@@ -104,7 +104,12 @@ public static class EmailEndpoints
             var (result, updated) = await accounts.ResetOwnPasswordAsync(account.Id, request.Password ?? "", cancellation);
             if (result != PasswordChange.Changed)
             {
-                return Results.BadRequest(new AuthError(result == PasswordChange.TooShort ? "too_short" : "demo_account"));
+                return Results.BadRequest(new AuthError(result switch
+                {
+                    PasswordChange.TooShort => "too_short",
+                    PasswordChange.TooLong => "too_long",
+                    _ => "demo_account",
+                }));
             }
             await emails.SpendResetAsync(token, cancellation);
             // Every session of the account ends: the stamp changed.

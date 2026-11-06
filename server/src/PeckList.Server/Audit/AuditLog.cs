@@ -177,12 +177,15 @@ public sealed class AuditLog : BackgroundService
         RequestId = context?.TraceIdentifier,
     });
 
+    /// <summary>The longest detail kept in the audit log and written to the logs.</summary>
+    public const int MaxDetailLength = 1000;
+
     public void Record(AuditEntry entry)
     {
         // Notes come from requests and providers: the same masking as the logs.
         entry = entry with
         {
-            Detail = entry.Detail is null ? null : redaction.Text(entry.Detail),
+            Detail = entry.Detail is null ? null : Capped(redaction.Text(entry.Detail)),
             Device = entry.Device is null ? null : redaction.Text(entry.Device),
         };
         Interlocked.Increment(ref pending);
@@ -193,6 +196,17 @@ public sealed class AuditLog : BackgroundService
             Interlocked.Increment(ref dropped);
         }
         WriteLog(entry);
+    }
+
+    /// <summary>
+    /// A detail can hold what someone else wrote (a provider's error, a typed reason). Cut after the
+    /// masking, so a cut can never leave half a secret unmasked (audit S17), and on a character boundary.
+    /// </summary>
+    private static string Capped(string detail)
+    {
+        if (detail.Length <= MaxDetailLength) return detail;
+        var end = char.IsHighSurrogate(detail[MaxDetailLength - 1]) ? MaxDetailLength - 1 : MaxDetailLength;
+        return detail[..end] + "...";
     }
 
     private void WriteLog(AuditEntry entry)

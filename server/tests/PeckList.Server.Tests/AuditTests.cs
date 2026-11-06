@@ -44,6 +44,36 @@ public sealed class AuditTests(ServerFixture fixture) : IClassFixture<ServerFixt
     }
 
     [Fact]
+    public async Task A_long_detail_is_cut_short()
+    {
+        using var server = Server();
+        server.Services.GetRequiredService<AuditLog>().RecordSystem("test.long", detail: new string('x', AuditLog.MaxDetailLength + 500));
+        var entry = (await Entries(server)).Single(each => each.Type == "test.long");
+        Assert.Equal(new string('x', AuditLog.MaxDetailLength) + "...", entry.Detail);
+    }
+
+    [Fact]
+    public async Task A_cut_never_splits_an_emoji()
+    {
+        using var server = Server();
+        var kept = new string('x', AuditLog.MaxDetailLength - 1);
+        server.Services.GetRequiredService<AuditLog>().RecordSystem("test.emoji", detail: kept + "\U0001F426" + "more");
+        var entry = (await Entries(server)).Single(each => each.Type == "test.emoji");
+        Assert.Equal(kept + "...", entry.Detail);
+    }
+
+    [Fact]
+    public async Task A_cut_never_leaves_part_of_a_secret_showing()
+    {
+        using var server = Server();
+        // The secret straddles the cut: masked first, none of it survives.
+        var detail = new string('x', AuditLog.MaxDetailLength - 5) + AdminPassword + new string('y', 50);
+        server.Services.GetRequiredService<AuditLog>().RecordSystem("test.secret", detail: detail);
+        var entry = (await Entries(server)).Single(each => each.Type == "test.secret");
+        Assert.DoesNotContain(AdminPassword[..5], entry.Detail);
+    }
+
+    [Fact]
     public async Task Sign_ins_are_recorded_with_who_from_where_and_how_they_ended()
     {
         using var server = Server();
