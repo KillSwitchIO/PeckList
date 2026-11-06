@@ -4,6 +4,17 @@ All notable changes to PeckList. Generated from [Conventional Commits](https://w
 by `pnpm changelog`; the version follows [Semantic Versioning](https://semver.org/). Before 1.0.0 a
 minor release may break things; every break is listed under **Breaking changes** with what to do.
 
+## [0.8.0] - 2026-11-06
+
+### Added
+
+- **release:** Every download says its version
+
+### Fixed
+
+- **ci:** Pre-releases list newest first and never become the latest
+- **trash:** The clean-up waits for a sync, and the menu shows the icon
+
 ## [0.8.0-rc.2] - 2026-11-06
 
 ### Added
