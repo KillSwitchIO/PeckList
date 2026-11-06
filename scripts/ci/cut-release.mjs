@@ -12,6 +12,16 @@ import { releaseNotes } from '../release-notes.mjs';
 import { readVersions, root } from '../versions.mjs';
 
 /**
+ * When a pre-release counts as released. GitLab's latest-release link goes by this date and knows
+ * nothing of pre-releases, and the server's update notice and the install docs both read that link,
+ * so a pre-release is dated just before the release it must not replace. A release is dated now.
+ */
+export function releasedAtFor(prerelease, latest) {
+  if (!prerelease || !latest?.released_at) return undefined;
+  return new Date(Date.parse(latest.released_at) - 1000).toISOString();
+}
+
+/**
  * What stands in the way of cutting this commit; empty when nothing does.
  * @param {object} input
  * @param {string[]} input.versions the version each version file holds
@@ -99,6 +109,7 @@ async function main() {
   const date = new Date().toISOString().slice(0, 10).replaceAll('-', '');
   const tag = `v${version}+${date}`;
   const prerelease = version.includes('-');
+  const latest = prerelease ? await get('releases/permalink/latest') : null;
   const response = await fetch(`${api}/releases`, {
     method: 'POST',
     headers: { ...headers, 'Content-Type': 'application/json' },
@@ -107,6 +118,7 @@ async function main() {
       ref: CI_COMMIT_SHA,
       tag_message: `PeckList ${version}\n\n${notes}`,
       name: `PeckList ${version}`,
+      released_at: releasedAtFor(prerelease, latest),
       description: describeRelease({
         notes,
         image: CI_REGISTRY_IMAGE,
