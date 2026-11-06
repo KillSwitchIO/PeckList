@@ -13,7 +13,7 @@ import {
   placeDate,
   type TaskFilter,
 } from './filters.ts';
-import { compareOrderKeys } from './ordering.ts';
+import { compareByOrder } from './ordering.ts';
 import { visibleTags } from './tags.ts';
 import type { Id, Task, WorkspaceFile } from './types.ts';
 
@@ -100,7 +100,7 @@ export function upcomingTasks(
 export function listTasks(workspace: WorkspaceFile, listId: Id): Task[] {
   return openTopLevel(workspace)
     .filter((task) => task.listId === listId)
-    .sort((a, b) => compareOrderKeys(a.order, b.order));
+    .sort(compareByOrder);
 }
 
 /** Live subtasks of a task in order (any status). */
@@ -117,8 +117,7 @@ function childrenByParent(tasks: readonly Task[]): Map<Id, Task[]> {
       if (siblings) siblings.push(task);
       else byParent.set(task.parentId, [task]);
     }
-    for (const siblings of byParent.values())
-      siblings.sort((a, b) => compareOrderKeys(a.order, b.order));
+    for (const siblings of byParent.values()) siblings.sort(compareByOrder);
     cached = { length: tasks.length, byParent };
     childrenCache.set(tasks, cached);
   }

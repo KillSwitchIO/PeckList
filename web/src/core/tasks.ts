@@ -3,7 +3,7 @@
 import { getEntity, isLive, putEntities, putEntity, requireEntity } from './collections.ts';
 import { addDays, datePart, daysBetween, localTimeZone, timePart, todayIn } from './dates.ts';
 import { advance, formatRule, parseRule } from './recurrence.ts';
-import { compareOrderKeys, keyBetween } from './ordering.ts';
+import { compareByOrder, compareOrderKeys, keyBetween } from './ordering.ts';
 import {
   createEntity,
   isoNow,
@@ -58,7 +58,7 @@ export function siblings(workspace: WorkspaceFile, listId: Id, parentId: Id | nu
         task.listId === listId &&
         (parentId ? task.parentId === parentId : task.parentId === null),
     )
-    .sort((a, b) => compareOrderKeys(a.order, b.order));
+    .sort(compareByOrder);
 }
 
 /** All live descendants of a task, depth first. */

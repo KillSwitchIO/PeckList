@@ -177,7 +177,7 @@ export function byDateThenOrder(workspace: WorkspaceFile): (a: Task, b: Task) =>
       const order = compareOrderKeys(x[i]!, y[i]!);
       if (order !== 0) return order;
     }
-    return x.length - y.length;
+    return x.length - y.length || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0);
   };
 }
 
