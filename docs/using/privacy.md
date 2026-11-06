@@ -11,7 +11,26 @@ both from the server (never from people's browsers or phones), and both can be t
 
 Visit counts are different: they are off unless you set up [`UMAMI_URL`](../configuration/reference.md#umami_url),
 and then people's browsers report page views to **your** Umami server, not to the project. If
-you turn it on, say so to the people who use your server.
+you turn it on, say so to the people who use your server. With
+[`UMAMI_RECORDER`](../configuration/reference.md#umami_recorder) it also records sessions, and
+those replays show what is on screen, people's task titles included.
+
+## These websites
+
+The websites are not the app you run, and they do record visits. pecklist.com,
+selfhosted.pecklist.com, docs.pecklist.com and demo.pecklist.com use
+[Umami](https://umami.is/), run by the project at `stats.pecklist.com`, with no third-party
+analytics:
+
+- **Page views**, with no cookies. Your IP address is not kept: Umami hashes it with a salt that
+  changes, for counting unique visitors, and reads your country from it.
+- **Session replays**: the pages you see, your clicks and your scrolling, recorded so the project
+  can see where people get stuck. Form fields are hidden, but other text on the page is recorded.
+  **On the demo, that includes tasks you add once they show on screen**, so keep real details out
+  of it.
+
+Cloudflare sits in front of these sites, and the [support page](https://pecklist.com/support/)
+loads Ko-fi's tip panel. None of this applies to a server you run yourself unless you set it up.
 
 ## The update check
 
