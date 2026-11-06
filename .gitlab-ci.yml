@@ -429,7 +429,9 @@ container-image:
       if [ -n "${CI_COMMIT_TAG:-}" ]; then
         TAGS="-t $IMAGE:$VERSION"
         case "$VERSION" in
-          *-*) ;;  # a pre-release gets its exact tag only
+          *-*) # a pre-release gets its exact tag and its type (rc), never latest
+             TYPE=$(echo "$VERSION" | sed -n 's/^[^-]*-\([a-z][a-z]*\).*/\1/p')
+             if [ -n "$TYPE" ]; then TAGS="$TAGS -t $IMAGE:$TYPE"; fi ;;
           *) MINOR=$(echo "$VERSION" | cut -d. -f1,2)
              TAGS="$TAGS -t $IMAGE:$MINOR -t $IMAGE:latest" ;;
         esac
