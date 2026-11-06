@@ -27,6 +27,81 @@ public sealed class SettingsPageTests(ServerFixture fixture) : IClassFixture<Ser
 
     private static SettingView Find(SettingsView view, string key) => view.Settings.Single(each => each.Key == key);
 
+    private static Task<HttpResponseMessage> Save(HttpClient admin, params (string Key, string? Value)[] values) =>
+        admin.PutAsJsonAsync("/api/admin/settings", new { values = values.ToDictionary(each => each.Key, each => each.Value) }, Token);
+
+    private static readonly (string Key, string? Value)[] Pocket =
+    [
+        ("OIDC_PROVIDERS", "pocket"),
+        ("OIDC_POCKET_AUTHORITY", "https://id.example.com"),
+        ("OIDC_POCKET_CLIENT_ID", "pecklist"),
+    ];
+
+    private static async Task Link(WebApplicationFactory<Program> server, HttpClient admin, string provider, string subject)
+    {
+        var me = (await admin.GetFromJsonAsync<PeckList.Server.Auth.Me>("/auth/me", Token))!;
+        await server.Services.GetRequiredService<PeckList.Core.Accounts.IIdentityStore>().LinkAsync(new PeckList.Core.Accounts.LinkedIdentity
+        {
+            Provider = provider,
+            Subject = subject,
+            AccountId = me.Id,
+            LinkedAt = DateTimeOffset.UtcNow,
+            LastUsedAt = DateTimeOffset.UtcNow,
+        }, Token);
+    }
+
+    [Fact]
+    public async Task A_provider_with_linked_accounts_cannot_be_removed_until_they_are_unbound()
+    {
+        using var server = Server(fixture.NewDbPath());
+        var admin = await Admin(server);
+        (await Save(admin, Pocket)).EnsureSuccessStatusCode();
+        await Link(server, admin, "pocket", "kim-subject");
+        await Link(server, admin, "pocket", "ben-subject");
+
+        var refused = await Save(admin, ("OIDC_PROVIDERS", null));
+        Assert.Equal(HttpStatusCode.Conflict, refused.StatusCode);
+        var why = (await refused.Content.ReadFromJsonAsync<AdminError>(Token))!;
+        Assert.Equal("provider_in_use", why.Error);
+        Assert.Contains("pocket (2 accounts)", why.Message);
+        Assert.Contains("pecklist oidc unbind-all", why.Message);
+
+        // Nothing was saved, and naming it differently is removing it too.
+        var view = (await admin.GetFromJsonAsync<SettingsView>("/api/admin/settings", Token))!;
+        Assert.Equal("pocket", Find(view, "OIDC_PROVIDERS").Value);
+        var renamed = await Save(admin, ("OIDC_PROVIDERS", "id"), ("OIDC_ID_AUTHORITY", "https://id.example.com"), ("OIDC_ID_CLIENT_ID", "pecklist"));
+        Assert.Equal(HttpStatusCode.Conflict, renamed.StatusCode);
+
+        // Other changes to the page, and keeping the provider, are fine.
+        (await Save(admin, ("REGISTRATION", "closed"))).EnsureSuccessStatusCode();
+
+        (await admin.PostAsync("/api/admin/providers/pocket/unbind-all", null, Token)).EnsureSuccessStatusCode();
+        (await Save(admin, ("OIDC_PROVIDERS", null))).EnsureSuccessStatusCode();
+        view = (await admin.GetFromJsonAsync<SettingsView>("/api/admin/settings", Token))!;
+        Assert.Null(Find(view, "OIDC_PROVIDERS").Value);
+    }
+
+    [Fact]
+    public async Task A_provider_nobody_is_linked_to_can_be_removed()
+    {
+        using var server = Server(fixture.NewDbPath());
+        var admin = await Admin(server);
+        (await Save(admin, Pocket)).EnsureSuccessStatusCode();
+        // A link to another provider says nothing about this one.
+        await Link(server, admin, "other", "kim-subject");
+        (await Save(admin, ("OIDC_PROVIDERS", null))).EnsureSuccessStatusCode();
+    }
+
+    [Fact]
+    public async Task Links_to_a_provider_already_gone_do_not_block_saving()
+    {
+        using var server = Server(fixture.NewDbPath());
+        var admin = await Admin(server);
+        await Link(server, admin, "gone", "kim-subject");
+        (await Save(admin, ("REGISTRATION", "closed"))).EnsureSuccessStatusCode();
+        (await Save(admin, Pocket)).EnsureSuccessStatusCode();
+    }
+
     [Fact]
     public async Task Shows_every_setting_with_where_it_comes_from()
     {
