@@ -130,7 +130,10 @@ test('download links keep the stable paths that latest-download links use', () =
 
 test('a release gets its version, its minor line and latest; a pre-release only its own name', () => {
   assert.deepEqual(promotedTags('0.8.0', false), ['0.8.0', '0.8', 'latest']);
-  assert.deepEqual(promotedTags('0.8.0-rc.1', true), ['0.8.0-rc.1']);
+  assert.deepEqual(promotedTags('0.8.0-rc.1', true), ['0.8.0-rc.1', 'rc']);
+  assert.deepEqual(promotedTags('0.9.0-beta.2', true), ['0.9.0-beta.2', 'beta']);
+  // A pre-release of no named type has only its exact tag: it names no type to hold.
+  assert.deepEqual(promotedTags('0.8.0-1', true), ['0.8.0-1']);
 });
 
 test('an image from another version or commit is not promoted', () => {

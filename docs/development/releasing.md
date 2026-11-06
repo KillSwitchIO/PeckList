@@ -15,7 +15,7 @@ release with notes.
   breaks the rule (a major, such as `1.0.0`, is always named by hand).
 - The tag carries the date as build metadata: `v0.4.0+20261023`. Images are tagged `0.4.0`, `0.4`
   and `latest` (`+` is not allowed in image tags).
-- A pre-release (`0.4.0-rc.1`) gets only its exact image tag, no `latest`, and is marked as a
+- A pre-release (`0.4.0-rc.1`) gets its exact image tag and its type (`rc`), no `latest`, and is marked as a
   pre-release.
 - The version lives in `web/package.json`, `web/src/core/workspace.ts` (`APP_VERSION`) and
   `server/Directory.Build.props`. `pnpm check:version` checks they agree, and in a tag pipeline
@@ -91,7 +91,8 @@ A release is one image, built once. Nothing is rebuilt when it is published.
    or commit. The docs site moves to this version, and the demo follows. The mirror carries the tag
    to GitHub, where a workflow makes the matching release page with links to the files here.
 
-A pre-release (`0.4.0-rc.1`) goes the same way, without `:latest`, the docs copy or the demo. It is
+A pre-release (`0.4.0-rc.1`) goes the same way, without `:latest`, the docs copy or the demo. It
+gets its exact tag and its type, `:rc` (or `:beta`, `:alpha`), which holds the newest of that type. It is
 dated just before the latest release, so its page shows a Historical release badge: GitLab's latest
 release link goes by date, and the update notice and the install docs read that link.
 

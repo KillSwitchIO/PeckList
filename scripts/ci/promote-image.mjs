@@ -1,4 +1,5 @@
-// A release tag's pipeline builds no image. This puts the release's names (X.Y.Z, X.Y, latest) on
+// A release tag's pipeline builds no image. This puts the release's names (X.Y.Z, X.Y, latest, or
+// for a pre-release its exact version and its type: rc, beta, alpha) on
 // the digest its main pipeline built and the test server ran, by copying the manifest's exact bytes,
 // which cannot change a digest. It refuses a tag with no release, or an image stamped with another
 // version or commit, so a tag pushed by hand on some other commit promotes nothing.
@@ -16,9 +17,15 @@ const MANIFESTS = [
   'application/vnd.docker.distribution.manifest.v2+json',
 ].join(', ');
 
-/** The tags a release gets: a pre-release only its exact one. */
+/**
+ * The tags a release gets. A pre-release: its exact one, and its type (0.8.0-rc.1 moves `rc`), which
+ * holds the newest of that type. Only a full release moves `latest`, which the install docs name.
+ */
 export function promotedTags(version, prerelease) {
-  if (prerelease) return [version];
+  if (prerelease) {
+    const type = /^[^-]+-([a-z]+)/.exec(version)?.[1];
+    return type ? [version, type] : [version];
+  }
   return [version, version.split('.').slice(0, 2).join('.'), 'latest'];
 }
 

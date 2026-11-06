@@ -10,9 +10,10 @@ registry.gitlab.com/killswitch10/pecklist
 
 | Tag           | What it is                                                                                     |
 | ------------- | ---------------------------------------------------------------------------------------------- |
-| `latest`      | The newest release.                                                                            |
+| `latest`      | The newest full release, never a pre-release.                                                  |
 | `0.2`         | The newest `0.2.x` release: fixes, never a breaking change. Recommended for automatic updates. |
 | `0.2.1`       | Exactly that release.                                                                          |
+| `rc`          | The newest release candidate (`beta` and `alpha` likewise). To try what comes next.             |
 | `edge`        | The current `main` branch, built on every merge. For testing; not for data you care about.     |
 | `sha-abc1234` | One `main` commit.                                                                             |
 
