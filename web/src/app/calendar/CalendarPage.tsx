@@ -344,17 +344,10 @@ export function CalendarPage() {
     setPrefs({ mode: 'month' });
   };
 
-  const title =
-    mode === 'month'
-      ? calendarTitle(
-          'month',
-          `${view?.month ?? today.slice(0, 7)}-01`,
-          prefs.days,
-          today,
-          undefined,
-          narrow,
-        )
-      : calendarTitle(mode, date, prefs.days, today);
+  const titleDate = mode === 'month' ? `${view?.month ?? today.slice(0, 7)}-01` : date;
+  const title = calendarTitle(mode, titleDate, prefs.days, today, undefined, narrow);
+  // A phone's short title can leave the year off days; their label keeps it.
+  const labelTitle = mode === 'days' ? calendarTitle(mode, titleDate, prefs.days, today) : title;
   const panel = (
     <Unscheduled
       source={shown}
@@ -409,7 +402,7 @@ export function CalendarPage() {
               size="small"
               color="inherit"
               aria-haspopup="dialog"
-              aria-label={t('calendar.pickDate', { title })}
+              aria-label={t('calendar.pickDate', { title: labelTitle })}
               onClick={(event) => setPicker(event.currentTarget)}
               endIcon={<ChevronDownIcon fontSize="small" />}
               sx={{

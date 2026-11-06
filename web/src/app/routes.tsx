@@ -4,6 +4,7 @@ import { PasskeyEnroll } from './sync/AuthPages.tsx';
 import { t } from './i18n/i18n.ts';
 import { DayView } from './views/DayView.tsx';
 import { AppShell } from './layout/AppShell.tsx';
+import { LoadingScreen } from './layout/LoadingScreen.tsx';
 import { Page } from './layout/Page.tsx';
 import { InboxView, ListView } from './lists/ListView.tsx';
 import { FilterView } from './filters/FilterView.tsx';
@@ -51,7 +52,7 @@ function NotFound() {
  */
 function SignedInAlready() {
   const phase = useSyncState((state) => state.phase);
-  return phase === 'checking' ? null : <Navigate to="/today" replace />;
+  return phase === 'checking' ? <LoadingScreen /> : <Navigate to="/today" replace />;
 }
 
 /** The Android app's connect page (ADR-0017); back to Settings when on a server, else Today. */
@@ -68,7 +69,7 @@ function ConnectRoute() {
 export function AppRoutes() {
   return (
     // Pages inside the shell wait inside it (AppShell); this covers the ones outside it.
-    <Suspense fallback={null}>
+    <Suspense fallback={<LoadingScreen />}>
       <Routes>
         <Route path="/" element={<Navigate to="/today" replace />} />
         <Route path="/login" element={<SignedInAlready />} />

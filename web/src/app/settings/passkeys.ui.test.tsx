@@ -1,4 +1,4 @@
-import { screen, waitFor, within } from '@testing-library/react';
+import { act, cleanup, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createMemoryStorage } from '../../adapters/memory-storage.ts';
@@ -14,7 +14,7 @@ beforeEach(() => {
 });
 afterEach(() => noWebAuthn());
 
-async function settingsAs(backend: FakeBackend, username: string, path = '/settings/account') {
+async function settingsPage(backend: FakeBackend, username: string, path = '/settings/account') {
   const store = testStore();
   const transport = backend.device();
   transport.session = username;
@@ -26,6 +26,10 @@ async function settingsAs(backend: FakeBackend, username: string, path = '/setti
     intervalMs: 600_000,
   });
   await renderApp(path, store, sync);
+}
+
+async function settingsAs(backend: FakeBackend, username: string, path = '/settings/account') {
+  await settingsPage(backend, username, path);
   return screen.findByRole('region', { name: 'Passkeys' });
 }
 
@@ -91,6 +95,23 @@ describe('settings: passkeys (PL-123)', () => {
       ),
     ).toBeInTheDocument();
     expect(within(section).getByText('Pixel')).toBeInTheDocument();
+  });
+
+  it('has no section where none can be added, but keeps the ones already made', async () => {
+    const backend = new FakeBackend();
+    backend.passkeysOn = true;
+    backend.addAccount('sam', 'a long enough password');
+    noWebAuthn();
+    await settingsPage(backend, 'sam');
+    await screen.findByRole('region', { name: 'Email' });
+    await act(() => new Promise((resolve) => setTimeout(resolve, 50)));
+    expect(screen.queryByRole('region', { name: 'Passkeys' })).toBeNull();
+    cleanup();
+
+    backend.passkeys.set('cred-0', { username: 'sam', info: pixel });
+    const section = await settingsAs(backend, 'sam');
+    expect(within(section).getByText('Pixel')).toBeInTheDocument();
+    expect(within(section).queryByRole('button', { name: 'Add a passkey' })).toBeNull();
   });
 
   it('says a passkey from the app was added when it comes back', async () => {

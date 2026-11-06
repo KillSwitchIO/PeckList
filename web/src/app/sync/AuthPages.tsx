@@ -367,7 +367,10 @@ function usePasskeySignIn(serverOffers: boolean, onProblem: (problem: string | n
       });
       await finish(started.ceremony, credential);
     })().catch((error: unknown) => {
-      if (!cancelled(error)) onProblem(problemOf(error));
+      // Nobody asked for this one. An address other than the server's own gives a SecurityError,
+      // and that is no reason to show a problem over a password form that works.
+      const refused = error instanceof DOMException && error.name === 'SecurityError';
+      if (!cancelled(error) && !refused) onProblem(problemOf(error));
     });
     return () => controller.abort();
     // eslint-disable-next-line react-hooks/exhaustive-deps -- once per page, as the server offers

@@ -27,8 +27,16 @@ describe('calendar title', () => {
     expect(calendarTitle('month', '2027-01-04', 7, TODAY, 'en-US')).toBe('January 2027');
     expect(calendarTitle('days', '2027-01-04', 1, TODAY, 'en-US')).toBe('Monday, Jan 4, 2027');
     expect(calendarTitle('days', '2027-01-04', 7, TODAY, 'en-US')).toBe('Jan 4 - 10, 2027');
-    expect(calendarTitle('days', '2026-12-28', 7, TODAY, 'en-US')).toBe(
-      'Dec 28, 2026 - Jan 3, 2027',
-    );
+  });
+
+  it('names a new year once, at the end of the days that cross it', () => {
+    expect(calendarTitle('days', '2026-12-28', 7, TODAY, 'en-US')).toBe('Dec 28 - Jan 3, 2027');
+    expect(calendarTitle('days', '2026-12-28', 7, '2027-01-02', 'en-US')).toBe('Dec 28 - Jan 3');
+  });
+
+  it('keeps both ends of days across two months on a narrow screen, not the year', () => {
+    expect(calendarTitle('days', '2026-12-28', 7, TODAY, 'en-US', true)).toBe('Dec 28 - Jan 3');
+    expect(calendarTitle('days', '2027-01-28', 7, TODAY, 'en-US', true)).toBe('Jan 28 - Feb 3');
+    expect(calendarTitle('days', '2027-01-04', 7, TODAY, 'en-US', true)).toBe('Jan 4 - 10, 2027');
   });
 });

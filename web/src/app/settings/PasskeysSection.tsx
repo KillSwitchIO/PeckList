@@ -70,8 +70,9 @@ export function PasskeysSection() {
   }, [api, version]);
 
   if (!api?.passkeys || !list) return null;
-  if (!list.available && list.passkeys.length === 0) return null;
   const canAdd = list.available && (native || passkeysWork());
+  // Nothing to show and no way to add one, as on an IP address: no section at all.
+  if (!canAdd && list.passkeys.length === 0) return null;
 
   const add = async () => {
     if (!api.passkeyOptions || !api.addPasskey) return;

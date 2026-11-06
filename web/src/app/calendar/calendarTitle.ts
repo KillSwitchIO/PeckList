@@ -4,9 +4,11 @@ import { dateTimeFormat } from '../../core/intl.ts';
 
 /**
  * The calendar's heading: "October" for the month view; for the Days view "Thursday, Oct 22" (one
- * day) or "Oct 22 - 28" (several), with the year only when it is not this one ("October 2027",
- * "Dec 28, 2026 - Jan 3, 2027"). The year view is always just its year. `narrow`: a month in another
- * year is "Sep 2027", because the phone's row of buttons leaves no room for "September 2027".
+ * day) or "Oct 22 - 28" (several), with the year only when it is not this one ("October 2027").
+ * Days across a new year name it once, at the end ("Dec 28 - Jan 3, 2027").
+ * The year view is always just its year. `narrow`, for the phone's row of buttons: a month in
+ * another year is "Sep 2027", as there is no room for "September 2027", and days across two months
+ * leave the year off ("Dec 28 - Jan 3"), since cutting the title would lose the end date.
  */
 export function calendarTitle(
   mode: 'month' | 'days' | 'year',
@@ -34,11 +36,11 @@ export function calendarTitle(
   const last = addDays(first, count - 1);
   const start = format(first, { month: 'short', day: 'numeric' });
   const year = last.slice(0, 4);
-  if (first.slice(0, 4) !== year)
-    return `${format(first, { month: 'short', day: 'numeric', year: 'numeric' })} - ${format(last, { month: 'short', day: 'numeric', year: 'numeric' })}`;
-  const end =
-    first.slice(5, 7) === last.slice(5, 7)
-      ? String(Number(last.slice(8, 10)))
-      : format(last, { month: 'short', day: 'numeric' });
-  return year === thisYear ? `${start} - ${end}` : `${start} - ${end}, ${year}`;
+  const sameMonth = first.slice(5, 7) === last.slice(5, 7);
+  const end = sameMonth
+    ? String(Number(last.slice(8, 10)))
+    : format(last, { month: 'short', day: 'numeric' });
+  return year === thisYear || (narrow && !sameMonth)
+    ? `${start} - ${end}`
+    : `${start} - ${end}, ${year}`;
 }

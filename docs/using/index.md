@@ -336,7 +336,7 @@ subjects stand in a list beside the one that is open; on a phone each opens as a
   Google Tasks, Microsoft To Do, iCalendar and Things), your usage stats choice, and start over.
 - **Support PeckList**: a thank you, and a link to give a tip.
 
-**Passkeys** (on a server with accounts, on an HTTPS address) sign you in with your fingerprint,
+**Passkeys** (on a server with accounts, on an HTTPS address with a name, not an IP address) sign you in with your fingerprint,
 face or screen lock instead of a password. **Add a passkey** under **Settings > Account > Passkeys**: your
 phone, computer or password manager keeps it, synced to your other devices when it is iCloud
 Keychain, Google Password Manager, 1Password, Bitwarden and the like. Then **Sign in with a

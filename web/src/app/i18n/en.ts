@@ -1228,6 +1228,7 @@ export const en = {
   'pwa.offlineReady': 'PeckList is ready to work offline.',
   'common.dismiss': 'Dismiss',
   'status.loading': 'Opening your workspace',
+  'status.waiting': 'Loading',
   'auth.title': 'Sign in to PeckList',
   'auth.subtitle': 'Your tasks sync with this server.',
   'auth.username': 'Username',
