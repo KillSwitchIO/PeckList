@@ -7,6 +7,11 @@ apply plugin: 'com.android.application'
 def releaseKeystore = System.getenv('ANDROID_KEYSTORE_FILE')
 def keystorePassword = System.getenv('ANDROID_KEYSTORE_PASSWORD')
 
+def localVersionName() {
+    def props = rootProject.file('../../server/Directory.Build.props').text
+    return (props =~ /<Version>(.*)<\/Version>/)[0][1] + '-dev'
+}
+
 android {
     namespace = "com.killswitch10.pecklist"
     compileSdk = rootProject.ext.compileSdkVersion
@@ -15,7 +20,8 @@ android {
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
         versionCode((System.getenv('PECKLIST_VERSION_CODE') ?: '1') as Integer)
-        versionName System.getenv('PECKLIST_VERSION') ?: '0.1.0'
+        // CI stamps it (scripts/build-version.sh); a build by hand says the repo's version, marked dev.
+        versionName System.getenv('PECKLIST_VERSION') ?: localVersionName()
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
              // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.

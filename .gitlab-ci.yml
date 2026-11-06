@@ -600,6 +600,8 @@ android-apk:
     - job: ci-images
       optional: true
   script:
+    # The version the image and web app from this commit carry, and a code that only grows.
+    - export PECKLIST_VERSION="$(sh scripts/build-version.sh)" PECKLIST_VERSION_CODE="$CI_PIPELINE_IID" PECKLIST_REVISION="$CI_COMMIT_SHA"
     - pnpm --filter @pecklist/mobile apk
     - pnpm --filter @pecklist/mobile test:android
   artifacts:

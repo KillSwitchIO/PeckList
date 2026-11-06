@@ -146,8 +146,10 @@ A PKCS12 keystore has one password for the store and the key.
 
 `mobile/android/app/build.gradle` signs a release build when `ANDROID_KEYSTORE_FILE` is set, with
 `ANDROID_KEYSTORE_PASSWORD` and `ANDROID_KEY_ALIAS` (and `ANDROID_KEY_PASSWORD` if it ever differs).
-`PECKLIST_VERSION` sets the version name and `PECKLIST_VERSION_CODE` the version code; CI uses
-the pipeline number, which only grows. A signed build by hand:
+`PECKLIST_VERSION` sets the version name and `PECKLIST_VERSION_CODE` the version code. CI uses
+`scripts/build-version.sh`, so a debug or release APK says the same version as the image from its
+commit (`0.8.0-rc.1.edge.818317a7`), and the pipeline number, which only grows. A build by hand
+without them says the repo's version with `-dev` (`0.8.0-rc.1-dev`). A signed build by hand:
 
 ```bash
 export ANDROID_KEYSTORE_FILE=/path/to/pecklist-release.p12 ANDROID_KEYSTORE_PASSWORD=...
