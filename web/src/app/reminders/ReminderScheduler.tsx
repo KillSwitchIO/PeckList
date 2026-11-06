@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   CONSTANT_TIMES,
   remindersBetween,
@@ -10,7 +10,7 @@ import { localTimeZone } from '../../core/dates.ts';
 import { formatTime } from '../format.ts';
 import { t } from '../i18n/i18n.ts';
 import { useApply, useStoreState, useWorkspace } from '../store/hooks.ts';
-import { useSyncState } from '../sync/syncContext.ts';
+import { useSyncEngine, useSyncState } from '../sync/syncContext.ts';
 import { notificationAllowed } from '../../core/notificationSwitches.ts';
 import { localClock } from './clock.ts';
 import { notifier } from './notifier.ts';
@@ -62,7 +62,11 @@ export function ReminderScheduler({ now = Date.now }: { now?: () => number }) {
   const me = useStoreState((state) => state.context().userId);
   // What the server has had (audit E2): a reminder for a task it never acknowledged is marked
   // local, so the Android app's background check-in, which knows only the server's, keeps it.
-  const acks = useSyncState((state) => state.acks);
+  // Every sync makes new acks, at least each 30 s: only one reaching a task handed over as local
+  // calls for handing them over again, not every sync.
+  const engine = useSyncEngine();
+  const [handedLocal, setHandedLocal] = useState<readonly string[]>([]);
+  const reached = useSyncState((state) => handedLocal.filter((id) => id in state.acks).length);
   const signedIn = useSyncState((state) => state.account !== null);
   const latest = useRef({ workspace, me });
   useEffect(() => {
@@ -146,6 +150,8 @@ export function ReminderScheduler({ now = Date.now }: { now?: () => number }) {
     if (!notifier().scheduleAhead) return;
     const handle = setTimeout(() => {
       const at = now();
+      const { acks } = engine.getState();
+      const isLocal = (taskId: string) => signedIn && !(taskId in acks);
       const ahead = (
         notificationAllowed(workspace.entities.settings[0], 'reminder')
           ? remindersBetween(workspace, me, at, at + AHEAD_MS, localTimeZone())
@@ -153,6 +159,8 @@ export function ReminderScheduler({ now = Date.now }: { now?: () => number }) {
       )
         .filter((each) => each.at > at)
         .slice(0, AHEAD_MAX);
+      const local = [...new Set(ahead.map((each) => each.taskId).filter(isLocal))];
+      setHandedLocal((before) => (local.length === 0 && before.length === 0 ? before : local));
       void notifier().scheduleAhead?.(
         // Each repeat of a constant reminder is its own alarm here, so its own key. A repeating
         // task is completed in the app, which works out its next date.
@@ -163,12 +171,12 @@ export function ReminderScheduler({ now = Date.now }: { now?: () => number }) {
           repeats: Boolean(
             workspace.entities.tasks.find((task) => task.id === each.taskId)?.recurrence,
           ),
-          ...(signedIn && !(each.taskId in acks) ? { local: true } : {}),
+          ...(isLocal(each.taskId) ? { local: true } : {}),
         })),
       );
     }, AHEAD_SETTLE_MS);
     return () => clearTimeout(handle);
-  }, [workspace, me, now, acks, signedIn]);
+  }, [workspace, me, now, engine, reached, signedIn]);
   return null;
 }
 
