@@ -11,14 +11,30 @@ import { describeRelease, downloadLinks, imageDigestLink } from './release-page.
 import { releaseNotes } from '../release-notes.mjs';
 import { readVersions, root } from '../versions.mjs';
 
+const HOUR = 3_600_000;
+const SECOND = 1000;
+
 /**
  * When a pre-release counts as released. GitLab's latest-release link goes by this date and knows
  * nothing of pre-releases, and the server's update notice and the install docs both read that link,
- * so a pre-release is dated just before the release it must not replace. A release is dated now.
+ * so a pre-release is dated just before the newest full release, whatever that link says now, and
+ * each one a second after the one before it, so the newest shows first. A release is dated now.
+ * @param {boolean} prerelease
+ * @param {{ tag_name: string, released_at: string }[]} releases the newest releases there are
  */
-export function releasedAtFor(prerelease, latest) {
-  if (!prerelease || !latest?.released_at) return undefined;
-  return new Date(Date.parse(latest.released_at) - 1000).toISOString();
+export function releasedAtFor(prerelease, releases) {
+  if (!prerelease) return undefined;
+  const isPre = (each) => each.tag_name.split('+')[0].includes('-');
+  const at = (each) => Date.parse(each.released_at);
+  const full = Math.max(...releases.filter((each) => !isPre(each)).map(at));
+  if (!Number.isFinite(full)) return undefined;
+  const start = full - HOUR;
+  const earlier = releases
+    .filter(isPre)
+    .map(at)
+    .filter((each) => each >= start && each < full);
+  const date = earlier.length > 0 ? Math.min(Math.max(...earlier) + SECOND, full - SECOND) : start;
+  return new Date(date).toISOString();
 }
 
 /**
@@ -109,7 +125,7 @@ async function main() {
   const date = new Date().toISOString().slice(0, 10).replaceAll('-', '');
   const tag = `v${version}+${date}`;
   const prerelease = version.includes('-');
-  const latest = prerelease ? await get('releases/permalink/latest') : null;
+  const releases = prerelease ? await get('releases?order_by=released_at&per_page=100') : [];
   const response = await fetch(`${api}/releases`, {
     method: 'POST',
     headers: { ...headers, 'Content-Type': 'application/json' },
@@ -118,7 +134,7 @@ async function main() {
       ref: CI_COMMIT_SHA,
       tag_message: `PeckList ${version}\n\n${notes}`,
       name: `PeckList ${version}`,
-      released_at: releasedAtFor(prerelease, latest),
+      released_at: releasedAtFor(prerelease, releases),
       description: describeRelease({
         notes,
         image: CI_REGISTRY_IMAGE,

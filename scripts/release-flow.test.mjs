@@ -94,14 +94,45 @@ test('a commit the test server never took cannot be cut, and says what to do', (
   assert.match(cutProblems(cut({ deployedToTest: false }))[0], /retry deploy-test/);
 });
 
-test('a pre-release is dated before the latest release, so it never becomes the latest', () => {
-  const latest = { released_at: '2026-11-04T01:41:47.568Z' };
-  assert.equal(releasedAtFor(true, latest), '2026-11-04T01:41:46.568Z');
+const v070 = { tag_name: 'v0.7.0+20261104', released_at: '2026-11-04T01:41:47.568Z' };
+const v060 = { tag_name: 'v0.6.0+20261103', released_at: '2026-11-03T18:36:21.468Z' };
+
+test('a pre-release is dated before the newest full release, so it never becomes the latest', () => {
+  assert.equal(releasedAtFor(true, [v070, v060]), '2026-11-04T00:41:47.568Z');
 });
 
-test('a release is dated now, and so is a pre-release with no release before it', () => {
-  assert.equal(releasedAtFor(false, { released_at: '2026-11-04T01:41:47.568Z' }), undefined);
-  assert.equal(releasedAtFor(true, null), undefined);
+test('each pre-release shows above the one before it, and still below the full release', () => {
+  const rc1 = { tag_name: 'v0.8.0-rc.1+20261106', released_at: '2026-11-04T00:41:47.568Z' };
+  const rc2 = { tag_name: 'v0.8.0-rc.2+20261106', released_at: '2026-11-04T00:41:48.568Z' };
+  const rc3 = releasedAtFor(true, [v070, rc2, rc1, v060]);
+  assert.equal(rc3, '2026-11-04T00:41:49.568Z');
+  assert.ok(Date.parse(rc3) > Date.parse(rc2.released_at));
+  assert.ok(Date.parse(rc3) < Date.parse(v070.released_at));
+});
+
+test('a pre-release dated after the full release does not pull the next one up with it', () => {
+  // What happened: rc.1 had its real date, so it was the latest, and rc.2 went below it.
+  const stray = { tag_name: 'v0.8.0-rc.1+20261106', released_at: '2026-11-06T01:41:32.454Z' };
+  assert.equal(releasedAtFor(true, [stray, v070, v060]), '2026-11-04T00:41:47.568Z');
+});
+
+test('pre-releases for an older release leave the next one where it starts', () => {
+  const older = { tag_name: 'v0.7.0-rc.1+20261103', released_at: '2026-11-03T17:36:21.468Z' };
+  assert.equal(releasedAtFor(true, [v070, v060, older]), '2026-11-04T00:41:47.568Z');
+});
+
+test('a pre-release never reaches the full release, however many there are', () => {
+  const last = { tag_name: 'v0.8.0-rc.9+20261106', released_at: '2026-11-04T01:41:46.568Z' };
+  assert.equal(releasedAtFor(true, [v070, last]), '2026-11-04T01:41:46.568Z');
+});
+
+test('a release is dated now, and so is a pre-release with no full release before it', () => {
+  assert.equal(releasedAtFor(false, [v070]), undefined);
+  assert.equal(releasedAtFor(true, []), undefined);
+  assert.equal(
+    releasedAtFor(true, [{ tag_name: 'v0.1.0-rc.1+1', released_at: v070.released_at }]),
+    undefined,
+  );
 });
 
 test('a release names its digest in the link the compose repository and promote-image read', () => {

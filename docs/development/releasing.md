@@ -93,8 +93,9 @@ A release is one image, built once. Nothing is rebuilt when it is published.
 
 A pre-release (`0.4.0-rc.1`) goes the same way, without `:latest`, the docs copy or the demo. It
 gets its exact tag and its type, `:rc` (or `:beta`, `:alpha`), which holds the newest of that type. It is
-dated just before the latest release, so its page shows a Historical release badge: GitLab's latest
-release link goes by date, and the update notice and the install docs read that link.
+dated just before the newest full release, each one a second after the last, so the page lists them
+newest first under that release. They show a Historical release badge: GitLab's latest release link
+goes by date, and the update notice and the install docs read that link.
 
 If the image is wrong on the test server, do not cut it. Fix it on `main` and prepare again: a
 version that was never cut is prepared again rather than skipped over. Two builds may then say
