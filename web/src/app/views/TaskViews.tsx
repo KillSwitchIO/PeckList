@@ -1,5 +1,5 @@
 import { pinnedFirst } from '../../core/tasks.ts';
-import { groupClosed } from './closedGroups.ts';
+import { groupClosed, groupDeleted } from './closedGroups.ts';
 import { useReveal } from './useReveal.tsx';
 import DeleteOutlineRounded from '@mui/icons-material/DeleteOutlineRounded';
 import DeleteForeverOutlined from '@mui/icons-material/DeleteForeverOutlined';
@@ -313,6 +313,15 @@ export function TrashView() {
   // Deleting forever cannot be undone, so it asks first.
   const [confirm, setConfirm] = useState<'all' | Task | null>(null);
   const [limit, setLimit] = useState(TRASH_PAGE);
+  // The groups as far as the rows shown so far reach.
+  const groups: { key: string; title: string; total: number; rows: typeof tasks }[] = [];
+  let left = limit;
+  for (const group of groupDeleted(tasks, today)) {
+    if (left <= 0) break;
+    const rows = group.tasks.slice(0, left);
+    left -= rows.length;
+    groups.push({ key: group.key, title: group.title, total: group.tasks.length, rows });
+  }
   return (
     <Page
       title={t('nav.trash')}
@@ -337,53 +346,62 @@ export function TrashView() {
           <Typography color="text.secondary" sx={{ px: 1 }}>
             {t('trash.hint', { period: purgePeriod(purgeDaysOf(workspace)) })}
           </Typography>
-          <List>
-            {tasks.slice(0, limit).map((task) => {
-              const list = getEntity(workspace, 'lists', task.listId);
-              return (
-                <ListItem
-                  key={task.id}
-                  divider
-                  secondaryAction={
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                      <Button
-                        size="small"
-                        startIcon={<RestoreRounded />}
-                        onClick={() =>
-                          apply((ctx, ws) => restoreTask(ctx, ws, task.id), t('undo.restored'))
-                        }
-                      >
-                        {t('task.restore')}
-                      </Button>
-                      <Tooltip title={t('trash.deleteForever')}>
-                        <IconButton
-                          size="small"
-                          aria-label={t('trash.deleteForeverOf', {
-                            title: task.title || t('task.untitled'),
-                          })}
-                          onClick={() => setConfirm(task)}
-                        >
-                          <DeleteForeverOutlined fontSize="small" />
-                        </IconButton>
-                      </Tooltip>
-                    </Box>
-                  }
-                >
-                  <ListItemText
-                    primary={task.title || t('task.untitled')}
-                    secondary={[
-                      list && listName(list, workspace),
-                      t('trash.deletedOn', {
-                        date: formatDay(task.deletedAt!.slice(0, 10), today),
-                      }),
-                    ]
-                      .filter(Boolean)
-                      .join(' . ')}
-                  />
-                </ListItem>
-              );
-            })}
-          </List>
+          {groups.map((group) => (
+            <GroupSection
+              key={group.key}
+              groupKey={`trash:${group.key}`}
+              title={group.title}
+              count={group.total}
+            >
+              <List>
+                {group.rows.map((task) => {
+                  const list = getEntity(workspace, 'lists', task.listId);
+                  return (
+                    <ListItem
+                      key={task.id}
+                      divider
+                      secondaryAction={
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                          <Button
+                            size="small"
+                            startIcon={<RestoreRounded />}
+                            onClick={() =>
+                              apply((ctx, ws) => restoreTask(ctx, ws, task.id), t('undo.restored'))
+                            }
+                          >
+                            {t('task.restore')}
+                          </Button>
+                          <Tooltip title={t('trash.deleteForever')}>
+                            <IconButton
+                              size="small"
+                              aria-label={t('trash.deleteForeverOf', {
+                                title: task.title || t('task.untitled'),
+                              })}
+                              onClick={() => setConfirm(task)}
+                            >
+                              <DeleteForeverOutlined fontSize="small" />
+                            </IconButton>
+                          </Tooltip>
+                        </Box>
+                      }
+                    >
+                      <ListItemText
+                        primary={task.title || t('task.untitled')}
+                        secondary={[
+                          list && listName(list, workspace),
+                          t('trash.deletedOn', {
+                            date: formatDay(task.deletedAt!.slice(0, 10), today),
+                          }),
+                        ]
+                          .filter(Boolean)
+                          .join(' . ')}
+                      />
+                    </ListItem>
+                  );
+                })}
+              </List>
+            </GroupSection>
+          ))}
           {tasks.length > limit && (
             <Button size="small" onClick={() => setLimit((current) => current + TRASH_PAGE)}>
               {t('tasks.showMore', { count: Math.min(tasks.length - limit, TRASH_PAGE) })}
