@@ -595,7 +595,8 @@ export function createSyncEngine(deps: SyncEngineDependencies): SyncEngine {
     };
 
     const syncNow = async (): Promise<void> => {
-      if (get().phase !== 'ready') return;
+      // Ready with no account: offline since the first load, and that retry finds it (audit C5).
+      if (get().phase !== 'ready' || !get().account) return;
       if (running && now() - runningSince < STALE_SYNC_MS) {
         // One at a time; a request during a sync runs once more right after it.
         again = true;
@@ -686,11 +687,13 @@ export function createSyncEngine(deps: SyncEngineDependencies): SyncEngine {
     // A server that did not answer at the first load (a restart, a flaky network) is asked again,
     // so the tab does not stay standalone until it is reloaded (audit C5): after 5 s, then twice as
     // long each time up to a minute, and as soon as the browser is back online. A host that is no
-    // PeckList server at all (no info) stays standalone for good.
+    // PeckList server at all (no info) stays standalone for good. A device that synced before
+    // works offline meanwhile, with no account until a look finds the server.
     let firstLoad: ReturnType<typeof setTimeout> | null = null;
     let firstLoadDelay = FIRST_LOAD_RETRY_MS;
     const retryFirstLoad = () => {
-      if (get().phase === 'standalone') void get().start();
+      const { phase, account } = get();
+      if (phase === 'standalone' || (phase === 'ready' && !account)) void get().start();
     };
     const askAgainLater = () => {
       if (firstLoad) clearTimeout(firstLoad);
@@ -758,6 +761,7 @@ export function createSyncEngine(deps: SyncEngineDependencies): SyncEngine {
           if (error instanceof SyncFailure && error.kind === 'offline' && meta?.account) {
             listen();
             set({ phase: 'ready', status: 'offline' });
+            askAgainLater();
             return;
           }
           if (error instanceof SyncFailure && error.kind === 'offline') {
