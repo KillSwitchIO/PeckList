@@ -6,7 +6,13 @@
 
 import { readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
-import { describeRelease, downloadLinks, packageUrl } from './release-page.mjs';
+import {
+  describeRelease,
+  downloadLinks,
+  packageUrl,
+  versionedName,
+  versionedSums,
+} from './release-page.mjs';
 import { releaseNotes } from '../release-notes.mjs';
 import { parseTag, root } from '../versions.mjs';
 
@@ -43,10 +49,18 @@ const files = readdirSync(dir).filter(
 );
 if (files.length === 0) throw new Error(`nothing to publish in ${dir}`);
 for (const file of files) {
-  await call('PUT', packageUrl(api, version, file), new Uint8Array(readFileSync(join(dir, file))));
-  console.log(`uploaded ${file}`);
+  const saved = versionedName(file, version);
+  const bytes = readFileSync(join(dir, file));
+  await call(
+    'PUT',
+    packageUrl(api, version, saved),
+    new Uint8Array(
+      file === 'SHA256SUMS' ? Buffer.from(versionedSums(bytes.toString('utf8'), version)) : bytes,
+    ),
+  );
+  console.log(`uploaded ${saved}`);
 }
-const links = downloadLinks(api, version, files);
+const links = downloadLinks(api, version, version, files);
 links.push({
   name: `Container image ${image}:${version}`,
   url: `${projectUrl}/container_registry`,

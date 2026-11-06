@@ -105,8 +105,10 @@ A newer merge can overtake a release commit's `deploy-test`. `cut-release` then 
 `deploy-test` on the release commit, which reuses the image.
 
 Re-running a job of the tag's pipeline is safe: `promote-image` copies the same bytes again.
-Download names carry no version, so the newest release's files are always at
-`https://gitlab.com/killswitch10/pecklist/-/releases/permalink/latest/downloads/<file>`.
+Each download's name carries its version (`pecklist-android-0.8.0.apk`). Its `latest` link does not,
+so the newest release's files are always at
+`https://gitlab.com/killswitch10/pecklist/-/releases/permalink/latest/downloads/<file>`, with `<file>`
+as `pecklist-android.apk`, `pecklist-linux-x64.tar.gz`, and so on. `SHA256SUMS` lists each file both ways.
 
 ## Production
 

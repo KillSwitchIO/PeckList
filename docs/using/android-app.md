@@ -26,18 +26,18 @@ pages and tells you when there is a new version.
     ```
 
 3. Obtainium finds the GitLab releases. If it asks which file to install, pick
-   `pecklist-android.apk` (to make it ask no more, set **Filter APKs by regular expression** to
-   `pecklist-android\.apk`).
+   `pecklist-android-<version>.apk` (to make it ask no more, set **Filter APKs by regular expression**
+   to `pecklist-android.*\.apk`). If you set the older filter, `pecklist-android\.apk`, change it to this.
 4. **Install**, and allow Obtainium to install apps when Android asks.
 
 </TabItem>
 <TabItem value="download-the-apk" label="Download the APK">
 
 1. Open the [latest release](https://gitlab.com/killswitch10/pecklist/-/releases) on the phone.
-2. Download `pecklist-android.apk`.
+2. Download `pecklist-android-<version>.apk`.
 3. Open it and allow your browser to install apps when Android asks.
 
-To check the download, compare its SHA-256 with the line for `pecklist-android.apk` in the
+To check the download, compare its SHA-256 with its line in the
 release's `SHA256SUMS`. For updates, download the next release's APK and install it over the
 old one; your data stays.
 
