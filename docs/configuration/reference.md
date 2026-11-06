@@ -288,8 +288,9 @@ The website's id in Umami (Settings, Websites). **Default:** none. **Where:** en
 
 ### `UMAMI_RECORDER`
 
-`true` adds Umami's session recorder, for replays of visits. It masks what people type. Needs
-`UMAMI_URL` and `UMAMI_WEBSITE_ID`. **Default:** `false`. **Where:** env.
+`true` adds Umami's session recorder, for replays of visits. It hides form fields, but records
+other text on screen, so replays show people's task titles and notes. Only turn it on where people
+know, such as a demo. Needs `UMAMI_URL` and `UMAMI_WEBSITE_ID`. **Default:** `false`. **Where:** env.
 
 ## Demo server
 
