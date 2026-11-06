@@ -37,7 +37,15 @@ catch (Exception error) when (error is SettingsException or FormatException)
     await Console.Error.WriteLineAsync(error.Message);
     return 2;
 }
-app.Run();
+try
+{
+    app.Run();
+}
+catch (SettingsException error)
+{
+    await Console.Error.WriteLineAsync(error.Message);
+    return 2;
+}
 return 0;
 
 /// <summary>Entry point, public so integration tests can host the app.</summary>

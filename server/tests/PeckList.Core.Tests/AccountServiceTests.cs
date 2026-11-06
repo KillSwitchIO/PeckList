@@ -75,10 +75,34 @@ public sealed class AccountServiceTests
     private Account Admin => store.ById.Values.Single(each => each.Username == "admin");
 
     [Fact]
+    public async Task A_long_admin_password_stops_a_first_start_and_makes_nothing()
+    {
+        var error = await Assert.ThrowsAsync<PeckList.Core.Configuration.SettingsException>(() =>
+            accounts.EnsureAdminAsync(new string('x', AccountService.MaxNewPasswordLength + 1), Token));
+        Assert.Contains("ADMIN_PASSWORD must be 12 to 64 characters", error.Message);
+        Assert.Empty(store.ById);
+    }
+
+    [Fact]
+    public async Task An_admin_password_that_could_never_sign_in_is_refused_wherever_it_would_be_used()
+    {
+        var tooLong = new string('x', AccountService.MaxTriedPasswordLength + 1);
+
+        // A server in use that lost its admin.
+        await accounts.CreateUserAsync("sam", "correct horse battery", cancellation: Token);
+        await Assert.ThrowsAsync<PeckList.Core.Configuration.SettingsException>(() => accounts.EnsureAdminAsync(tooLong, Token));
+
+        // A server moving from AUTH_MODE=none: an admin with no password.
+        await accounts.EnsureOwnerAsync(Token);
+        await Assert.ThrowsAsync<PeckList.Core.Configuration.SettingsException>(() => accounts.EnsureAdminAsync(tooLong, Token));
+        Assert.Null(Admin.PasswordHash);
+    }
+
+    [Fact]
     public async Task A_password_over_the_cap_is_never_hashed_when_tried()
     {
         var sam = await accounts.CreateUserAsync("sam", "correct horse battery", cancellation: Token);
-        var tooLong = new string('x', AccountService.MaxPasswordLength + 1);
+        var tooLong = new string('x', AccountService.MaxTriedPasswordLength + 1);
 
         Assert.IsType<LoginResult.Invalid>(await accounts.LoginAsync("sam", tooLong, Token));
         Assert.IsType<LoginResult.Invalid>(await accounts.LoginAsync("nobody", tooLong, Token));

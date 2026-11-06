@@ -436,9 +436,10 @@ public sealed record ServerSettings
         {
             errors.Add("DB_CONNECTION_STRING is required when DB_PROVIDER is postgres");
         }
-        if (settings.AdminPassword is { Length: < Accounts.AccountService.MinPasswordLength or > Accounts.AccountService.MaxPasswordLength })
+        // Too long is only refused when the admin is being made from it: see AccountService.EnsureAdminAsync.
+        if (settings.AdminPassword is { Length: < Accounts.AccountService.MinPasswordLength })
         {
-            errors.Add($"ADMIN_PASSWORD must be {Accounts.AccountService.MinPasswordLength} to {Accounts.AccountService.MaxPasswordLength} characters");
+            errors.Add($"ADMIN_PASSWORD must be at least {Accounts.AccountService.MinPasswordLength} characters");
         }
         if (errors.Count > 0)
         {
@@ -463,6 +464,11 @@ public sealed record DemoAccount(string Username, string Password)
             if (!Accounts.AccountService.IsValidUsername(username) || password.Length < Accounts.AccountService.MinPasswordLength)
             {
                 errors.Add($"DEMO_ACCOUNTS: '{(at > 0 ? username + ":..." : entry)}' is not name:password with a password of at least {Accounts.AccountService.MinPasswordLength} characters");
+                continue;
+            }
+            if (password.Length > Accounts.AccountService.MaxTriedPasswordLength)
+            {
+                errors.Add($"DEMO_ACCOUNTS: '{username}:...' has a password over {Accounts.AccountService.MaxTriedPasswordLength} characters, which could never sign in");
                 continue;
             }
             if (username == Accounts.AccountService.AdminUsername)

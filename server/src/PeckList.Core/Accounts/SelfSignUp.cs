@@ -46,7 +46,7 @@ public sealed class SelfSignUp(AccountService accounts, SignupInvites invites, L
         username = username.Trim().ToLowerInvariant();
         if (!AccountService.IsValidUsername(username)) return SignUpResult.InvalidUsername;
         if (password.Length < AccountService.MinPasswordLength) return SignUpResult.TooShort;
-        if (password.Length > AccountService.MaxPasswordLength) return SignUpResult.TooLong;
+        if (password.Length > AccountService.MaxNewPasswordLength) return SignUpResult.TooLong;
 
         Task<Account> Create() => accounts.CreateUserAsync(username, password, Role.User, mustChangePassword: false, cancellation);
         try
