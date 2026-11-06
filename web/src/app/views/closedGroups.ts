@@ -15,13 +15,17 @@ export function closedDay(task: Task, zone = localTimeZone()): string | null {
 }
 
 /**
- * Closed tasks (newest first) grouped by when they closed: each of the last seven days on its own
+ * Tasks (newest first) grouped by a day of theirs: each of the last seven days on its own
  * ("Wednesday, Today"), older ones by month ("September", or "September 2025" in other years), undated last.
  */
-export function groupClosed(tasks: Task[], today: string, zone = localTimeZone()): ClosedGroup[] {
+function groupByDay(
+  tasks: Task[],
+  dayOf: (task: Task) => string | null,
+  today: string,
+): ClosedGroup[] {
   const groups = new Map<string, ClosedGroup>();
   for (const task of tasks) {
-    const day = closedDay(task, zone);
+    const day = dayOf(task);
     let key = 'none';
     let title = '';
     if (day && daysBetween(day, today) < 7) {
@@ -36,4 +40,18 @@ export function groupClosed(tasks: Task[], today: string, zone = localTimeZone()
     groups.set(key, group);
   }
   return [...groups.values()];
+}
+
+/** Closed tasks by when they closed. */
+export function groupClosed(tasks: Task[], today: string, zone = localTimeZone()): ClosedGroup[] {
+  return groupByDay(tasks, (task) => closedDay(task, zone), today);
+}
+
+/** Tasks in the trash by when they were deleted. */
+export function groupDeleted(tasks: Task[], today: string, zone = localTimeZone()): ClosedGroup[] {
+  return groupByDay(
+    tasks,
+    (task) => (task.deletedAt ? localDayOf(task.deletedAt, zone) : null),
+    today,
+  );
 }

@@ -46,6 +46,14 @@ describe('trash', () => {
     ).toEqual(['']);
   });
 
+  it('groups what is in it by the day it was deleted, with a count', async () => {
+    await trashWithTwo();
+    const today = await screen.findByRole('button', { name: /, Today/ });
+    expect(today).toHaveTextContent('2');
+    expect(screen.getByText('Old receipt')).toBeInTheDocument();
+    expect(screen.getByText('Spare key')).toBeInTheDocument();
+  });
+
   it('empties the trash', async () => {
     const { tasks } = await trashWithTwo();
     await userEvent.click(await screen.findByRole('button', { name: 'Empty trash' }));
