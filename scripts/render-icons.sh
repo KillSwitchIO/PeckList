@@ -8,3 +8,5 @@ mkdir -p icons
 for size in 16 32 48 64 96 128 180 192 256 512 1024; do
   inkscape icon.svg --export-type=png --export-filename="icons/icon-$size.png" -w "$size" -h "$size"
 done
+# The maskable icon, for launchers that crop to their own shape.
+inkscape icon-maskable.svg --export-type=png --export-filename=icons/icon-maskable-512.png -w 512 -h 512

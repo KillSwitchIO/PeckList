@@ -3,8 +3,8 @@
 [![pipeline](https://gitlab.com/killswitch10/pecklist/badges/main/pipeline.svg)](https://gitlab.com/killswitch10/pecklist/-/pipelines)
 [![release](https://gitlab.com/killswitch10/pecklist/-/badges/release.svg)](https://gitlab.com/killswitch10/pecklist/-/releases)
 [![license: AGPL-3.0-or-later](https://img.shields.io/badge/license-AGPL--3.0--or--later-blue)](LICENSE)
-[![docs](https://img.shields.io/badge/docs-docs.pecklist.com-indigo)](https://docs.pecklist.com/)
-[![Android: Obtainium](https://img.shields.io/badge/Android-Obtainium-6750a4)](docs/using/android-app.md#install)
+[![docs](https://img.shields.io/badge/docs-docs.pecklist.com-5A8A4E)](https://docs.pecklist.com/)
+[![Android: Obtainium](https://img.shields.io/badge/Android-Obtainium-5A8A4E)](docs/using/android-app.md#install)
 
 A self-hosted, offline-first task and calendar app. Lists, subtasks, tags, dates and a calendar you
 drag tasks onto, shared with the people you choose, on every device, online or not. One small

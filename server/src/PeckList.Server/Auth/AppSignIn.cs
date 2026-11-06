@@ -233,8 +233,8 @@ public static partial class AppSignIn
             <meta name="viewport" content="width=device-width, initial-scale=1">
             <title>Open PeckList</title>
             <style>
-              :root { color-scheme: light dark; --bg: #FAFAF7; --card: #FFFFFF; --text: #1F2421; --muted: #5E6662; --line: #DADDD8; --accent: #4F8F87; --on-accent: #FFFFFF; }
-              @media (prefers-color-scheme: dark) { :root { --bg: #151816; --card: #1D211F; --text: #E6E9E6; --muted: #A3ABA7; --line: #333A36; --accent: #7FBFB6; --on-accent: #0E1A18; } }
+              :root { color-scheme: light dark; --bg: #FAFAF7; --card: #FFFFFF; --text: #1F2421; --muted: #5E6662; --line: #DADDD8; --accent: #548149; --on-accent: #FFFFFF; }
+              @media (prefers-color-scheme: dark) { :root { --bg: #151816; --card: #1D211F; --text: #E6E9E6; --muted: #A3ABA7; --line: #333A36; --accent: #94B38C; --on-accent: #0F1A0D; } }
               body { margin: 0; min-height: 100dvh; display: grid; place-items: center; background: var(--bg); color: var(--text); font: 16px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; padding: 16px; box-sizing: border-box; }
               main { width: 100%; max-width: 380px; background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 28px 24px; box-sizing: border-box; }
               h1 { font-size: 1.375rem; margin: 0 0 4px; }

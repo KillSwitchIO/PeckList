@@ -25,7 +25,7 @@ describe('settings: colors', () => {
     expect(within(colors).getByRole('button', { name: 'Reset colors' })).toBeDisabled();
 
     await userEvent.click(
-      within(colors).getByRole('button', { name: /^Change High priority, now #E8837E/ }),
+      within(colors).getByRole('button', { name: /^Change High priority, now #D9776B/ }),
     );
     const picker = await screen.findByRole('dialog', { name: 'High priority' });
     // The picker opens on your theme's colors; the families are a tap away.
@@ -399,7 +399,12 @@ describe('palette presets', () => {
     const store = testStore();
     await renderApp('/settings/appearance', store);
     const palettes = await screen.findByRole('radiogroup', { name: 'Palettes' });
-    expect(within(palettes).getByRole('radio', { name: 'PeckList' })).toBeChecked();
+    expect(within(palettes).getByRole('radio', { name: 'PeckList Forest' })).toBeChecked();
+    // The default leads; the first default keeps a place near the top under its new name.
+    const radios = within(palettes).getAllByRole('radio');
+    ['PeckList Forest', 'Ocean', 'Sea glass'].forEach((name, index) =>
+      expect(radios[index]).toBe(within(palettes).getByRole('radio', { name })),
+    );
     await userEvent.click(within(palettes).getByRole('radio', { name: 'Ocean' }));
     expect(within(palettes).getByRole('radio', { name: 'Ocean' })).toBeChecked();
     expect(store.getState().workspace!.entities.settings[0]!.palettePreset).toBe('ocean');

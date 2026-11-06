@@ -1,21 +1,21 @@
-/* PeckList's indigo, as the MkDocs site had it. */
+/* PeckList Forest: the app's accent, light and dark. */
 :root {
-  --ifm-color-primary: #3f51b5;
-  --ifm-color-primary-dark: #3949a3;
-  --ifm-color-primary-darker: #36459a;
-  --ifm-color-primary-darkest: #2c397f;
-  --ifm-color-primary-light: #5262bc;
-  --ifm-color-primary-lighter: #5c6bc0;
-  --ifm-color-primary-lightest: #7986cb;
+  --ifm-color-primary: #548149;
+  --ifm-color-primary-dark: #4c7442;
+  --ifm-color-primary-darker: #476e3e;
+  --ifm-color-primary-darkest: #3b5a33;
+  --ifm-color-primary-light: #658e5b;
+  --ifm-color-primary-lighter: #6e9464;
+  --ifm-color-primary-lightest: #87a780;
   --ifm-code-font-size: 95%;
 }
 
 [data-theme='dark'] {
-  --ifm-color-primary: #7986cb;
-  --ifm-color-primary-dark: #6575c4;
-  --ifm-color-primary-darker: #5c6bc0;
-  --ifm-color-primary-darkest: #4352ab;
-  --ifm-color-primary-light: #8d97d2;
-  --ifm-color-primary-lighter: #97a0d6;
-  --ifm-color-primary-lightest: #b5bce2;
+  --ifm-color-primary: #94b38c;
+  --ifm-color-primary-dark: #85a17e;
+  --ifm-color-primary-darker: #7e9877;
+  --ifm-color-primary-darkest: #687d62;
+  --ifm-color-primary-light: #9fbb98;
+  --ifm-color-primary-lighter: #a4be9d;
+  --ifm-color-primary-lightest: #b4caae;
 }
