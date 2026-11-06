@@ -19,6 +19,54 @@ public sealed class FriendsTests(ServerFixture fixture) : IClassFixture<ServerFi
 
     public void Dispose() => factory.Dispose();
 
+    [Fact]
+    public async Task A_new_server_address_reaches_handles_at_the_next_start_and_nothing_else_changes()
+    {
+        const string admin = "correct horse battery";
+        var path = fixture.NewDbPath();
+        string id;
+        using (var before = fixture.Factory(("ADMIN_PASSWORD", admin), ("DB_PATH", path), ("PUBLIC_URL", "https://old.example.com")))
+        {
+            _ = before.CreateClient();
+            var account = await before.Services.GetRequiredService<AccountService>()
+                .CreateUserAsync("olive", "a long enough password", mustChangePassword: false, cancellation: Token);
+            id = account.Id;
+            await before.Services.GetRequiredService<SharingState>().Loaded.WaitAsync(Token);
+            await before.Services.GetRequiredService<Friends>().EnsureProfileAsync(account, "Olive Oyl", Token);
+            var made = before.Services.GetRequiredService<SharingState>().Index.DocOf(id)!;
+            Assert.Equal("olive@old.example.com", (string?)made["handle"]);
+        }
+
+        using var after = fixture.Factory(("ADMIN_PASSWORD", admin), ("DB_PATH", path), ("PUBLIC_URL", "https://new.example.com"));
+        _ = after.CreateClient();
+        var sharing = after.Services.GetRequiredService<SharingState>();
+        await sharing.Loaded.WaitAsync(Token);
+        var friends = after.Services.GetRequiredService<Friends>();
+        for (var tries = 0; tries < 100 && (string?)sharing.Index.DocOf(id)?["handle"] != "olive@new.example.com"; tries++)
+        {
+            await Task.Delay(50, Token);
+        }
+
+        var profile = sharing.Index.DocOf(id)!;
+        Assert.Equal("olive@new.example.com", (string?)profile["handle"]);
+        Assert.Equal("new.example.com", (string?)profile["homeServer"]);
+        Assert.Equal("Olive Oyl", (string?)profile["displayName"]);
+        Assert.Equal("old.example.com", (string?)profile["origin"]);
+        // Once in line, a start writes nothing.
+        Assert.Equal(0, await friends.RefreshHandlesAsync(Token));
+    }
+
+    [Fact]
+    public async Task Without_an_address_handles_stay_as_they_are()
+    {
+        var (_, id) = await SignIn("nomad");
+        var friends = factory.Services.GetRequiredService<Friends>();
+        Assert.Null(friends.Host);
+        var before = factory.Services.GetRequiredService<SharingState>().Index.DocOf(id)?.ToJsonString();
+        Assert.Equal(0, await friends.RefreshHandlesAsync(Token));
+        Assert.Equal(before, factory.Services.GetRequiredService<SharingState>().Index.DocOf(id)?.ToJsonString());
+    }
+
     private async Task<(HttpClient Client, string Id)> SignIn(string username)
     {
         var accounts = factory.Services.GetRequiredService<AccountService>();
