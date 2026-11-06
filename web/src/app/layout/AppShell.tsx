@@ -22,6 +22,7 @@ import {
 import { Suspense, useEffect, useRef, useState } from 'react';
 import { Outlet, useLocation, useNavigate } from 'react-router';
 import { t } from '../i18n/i18n.ts';
+import { useSupportVisible } from '../support/useSupportVisible.ts';
 import { expandAddTask } from '../tasks/focusAddTask.ts';
 import { PullToRefresh } from '../sync/PullToRefresh.tsx';
 import { SyncNoticeToast } from '../sync/SyncNoticeToast.tsx';
@@ -35,7 +36,7 @@ import { useApply, useStoreState } from '../store/hooks.ts';
 import { HeaderSlotContext } from './headerSlot.ts';
 import { SidebarEditProvider } from './sidebarEdit.tsx';
 import { useSidebarEdit } from './sidebarEditContext.ts';
-import { PlusIcon } from '../icons/icons.tsx';
+import { HeartIcon, PlusIcon } from '../icons/icons.tsx';
 import { SidebarEditBar } from './SidebarEditBar.tsx';
 import { SidebarViews } from './SidebarViews.tsx';
 import { ResizeHandle } from './ResizeHandle.tsx';
@@ -142,6 +143,7 @@ function Sidebar({ onNavigate }: { onNavigate: (path: string) => void }) {
   const today = useToday();
   const openDay =
     /^\/day\/(\d{4}-\d{2}-\d{2})$/.exec(pathname)?.[1] ?? (pathname === '/today' ? today : null);
+  const supportVisible = useSupportVisible();
   return (
     <SidebarEditProvider>
       <Box
@@ -174,18 +176,39 @@ function Sidebar({ onNavigate }: { onNavigate: (path: string) => void }) {
         </Box>
         <MiniCalendar selected={openDay} onPick={(date) => onNavigate(dayPath(date, today))} />
         <UpdateNotice />
-        <Link
-          href={CHANGELOG_URL}
-          target="_blank"
-          rel="noreferrer"
-          variant="caption"
-          color="text.disabled"
-          underline="hover"
-          aria-label={t('app.versionLink', { version: APP_VERSION_LABEL })}
-          sx={{ px: 2.5, pb: 1, alignSelf: 'flex-start', fontSize: 11 }}
-        >
-          {APP_VERSION_LABEL}
-        </Link>
+        <Box sx={{ display: 'flex', alignItems: 'center', px: 2.5, pb: 1 }}>
+          <Link
+            href={CHANGELOG_URL}
+            target="_blank"
+            rel="noreferrer"
+            variant="caption"
+            color="text.disabled"
+            underline="hover"
+            aria-label={t('app.versionLink', { version: APP_VERSION_LABEL })}
+            sx={{ fontSize: 11 }}
+          >
+            {APP_VERSION_LABEL}
+          </Link>
+          {supportVisible && (
+            <Tooltip title={t('support.title')}>
+              {/* The margins give back the padding: a bigger target, and a line no taller. */}
+              <IconButton
+                size="small"
+                aria-label={t('support.title')}
+                onClick={() => onNavigate('/settings/support')}
+                sx={{
+                  p: '5px',
+                  my: '-5px',
+                  ml: 0.25,
+                  color: 'text.disabled',
+                  '&:hover': { color: 'text.secondary' },
+                }}
+              >
+                <HeartIcon sx={{ fontSize: 14, display: 'block' }} />
+              </IconButton>
+            </Tooltip>
+          )}
+        </Box>
       </Box>
     </SidebarEditProvider>
   );

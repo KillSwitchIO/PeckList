@@ -739,3 +739,12 @@ export function KeyIcon(props: SvgIconProps) {
     </PunchIcon>
   );
 }
+
+/** Supporting the project: a heart. */
+export function HeartIcon(props: SvgIconProps) {
+  return (
+    <PunchIcon {...props}>
+      <path d="M12 20.5 4.6 13a4.6 4.6 0 0 1 6.5-6.5l.9.9.9-.9a4.6 4.6 0 0 1 6.5 6.5z" />
+    </PunchIcon>
+  );
+}

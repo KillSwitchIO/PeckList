@@ -6,12 +6,15 @@ import {
   CalendarIcon,
   ChecklistIcon,
   DataIcon,
+  HeartIcon,
   PaletteIcon,
 } from '../icons/icons.tsx';
 import { t } from '../i18n/i18n.ts';
 import { CategoryPage, type PageCategory } from '../layout/CategoryPage.tsx';
 import { ServerSection } from '../native/ServerSection.tsx';
 import { useShellInfo } from '../native/shell.ts';
+import { SupportSection } from '../support/SupportSection.tsx';
+import { useSupportVisible } from '../support/useSupportVisible.ts';
 import { useSyncState } from '../sync/syncContext.ts';
 import { setHideCompleted, useHideCompleted } from '../views/completedPrefs.ts';
 import { AppearanceSection } from './AppearanceSection.tsx';
@@ -88,6 +91,7 @@ export function SettingsPage() {
   const canNotify = useSyncState(
     (state) => state.phase === 'ready' && Boolean(state.transport.push),
   );
+  const supportVisible = useSupportVisible();
   // The server sends confirmation and linking results to /settings: they belong to Account.
   if (!section && (params.has('email') || params.has('link'))) {
     return <Navigate to={`/settings/account?${params.toString()}`} replace />;
@@ -141,6 +145,18 @@ export function SettingsPage() {
       icon: <DataIcon />,
       content: () => <DataCategory />,
     },
+    // Left out rather than hidden: a hidden subject's address would still open it.
+    ...(supportVisible
+      ? [
+          {
+            id: 'support',
+            label: t('support.title'),
+            hint: t('settings.category.supportHint'),
+            icon: <HeartIcon />,
+            content: () => <SupportSection />,
+          },
+        ]
+      : []),
   ];
   return (
     <CategoryPage
