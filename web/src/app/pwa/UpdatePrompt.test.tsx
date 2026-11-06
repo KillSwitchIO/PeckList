@@ -1,7 +1,7 @@
 import { act, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import type { ReactNode } from 'react';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { useEffect, type ReactNode } from 'react';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { testStore } from '../../test/renderApp.tsx';
 import { SyncContext, standaloneSync } from '../sync/syncContext.ts';
 import { UpdatePrompt } from './UpdatePrompt.tsx';
@@ -17,7 +17,11 @@ const state = {
 
 vi.mock('virtual:pwa-register/react', () => ({
   useRegisterSW: (options?: { onRegisteredSW?: (url: string, found: unknown) => void }) => {
-    options?.onRegisteredSW?.('/sw.js', registration);
+    // As the real one does: once, after the page has started.
+    useEffect(() => {
+      options?.onRegisteredSW?.('/sw.js', registration);
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
     return {
       needRefresh: [state.needRefresh, state.setNeedRefresh],
       offlineReady: [state.offlineReady, state.setOfflineReady],
@@ -30,6 +34,9 @@ beforeEach(() => {
   state.needRefresh = false;
   state.offlineReady = false;
   vi.clearAllMocks();
+});
+afterEach(() => {
+  vi.useRealTimers();
 });
 
 function withSync() {
@@ -44,6 +51,26 @@ describe('UpdatePrompt', () => {
   it('renders nothing when there is no update', () => {
     render(<UpdatePrompt />, withSync());
     expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+  });
+
+  it('looks for a new version every hour while open, and stops when it goes away', () => {
+    vi.useFakeTimers();
+    const hour = 60 * 60 * 1000;
+    const { unmount } = render(<UpdatePrompt />, withSync());
+    vi.advanceTimersByTime(hour);
+    expect(registration.update).toHaveBeenCalledTimes(1);
+    vi.advanceTimersByTime(hour);
+    expect(registration.update).toHaveBeenCalledTimes(2);
+    unmount();
+    vi.advanceTimersByTime(3 * hour);
+    expect(registration.update).toHaveBeenCalledTimes(2);
+  });
+
+  it('looks for the update at once when the server was already ahead at registering', () => {
+    const { engine, wrapper } = withSync();
+    engine.setState({ status: 'app-update' });
+    render(<UpdatePrompt />, { wrapper });
+    expect(registration.update).toHaveBeenCalledTimes(1);
   });
 
   it('offers the update and applies it', async () => {

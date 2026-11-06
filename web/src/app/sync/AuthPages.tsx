@@ -29,12 +29,24 @@ type Entry =
   | { page: 'forgot' }
   | { page: 'reset'; token: string };
 
+/**
+ * A link's token from the address. A mangled one (`/join/%E0`) stays as it came rather than throw
+ * and leave a blank page: the server will not know it, so the page says the link no longer works.
+ */
+function tokenOf(segment: string): string {
+  try {
+    return decodeURIComponent(segment);
+  } catch {
+    return segment;
+  }
+}
+
 /** Which page the address asks for: `/join/<invite>`, `/signup`, `/forgot`, `/reset/<token>`, else signing in. */
 function entryOf(pathname: string): Entry {
   const join = /^\/join\/([^/]+)\/?$/.exec(pathname);
-  if (join?.[1]) return { page: 'join', invite: decodeURIComponent(join[1]) };
+  if (join?.[1]) return { page: 'join', invite: tokenOf(join[1]) };
   const reset = /^\/reset\/([^/]+)\/?$/.exec(pathname);
-  if (reset?.[1]) return { page: 'reset', token: decodeURIComponent(reset[1]) };
+  if (reset?.[1]) return { page: 'reset', token: tokenOf(reset[1]) };
   if (pathname === '/forgot') return { page: 'forgot' };
   if (pathname === '/passkey/add') {
     return {

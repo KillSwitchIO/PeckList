@@ -5,7 +5,8 @@ import { dateTimeFormat } from '../../core/intl.ts';
 /**
  * The calendar's heading: "October" for the month view; for the Days view "Thursday, Oct 22" (one
  * day) or "Oct 22 - 28" (several), with the year only when it is not this one ("October 2027",
- * "Dec 28, 2026 - Jan 3, 2027"). The year view is always just its year.
+ * "Dec 28, 2026 - Jan 3, 2027"). The year view is always just its year. `narrow`: a month in another
+ * year is "Sep 2027", because the phone's row of buttons leaves no room for "September 2027".
  */
 export function calendarTitle(
   mode: 'month' | 'days' | 'year',
@@ -13,13 +14,18 @@ export function calendarTitle(
   count: number,
   today: string,
   locale?: string,
+  narrow = false,
 ): string {
   const at = (day: string) => new Date(`${day}T12:00:00Z`);
   const format = (day: string, options: Intl.DateTimeFormatOptions) =>
     dateTimeFormat(locale, { ...options, timeZone: 'UTC' }).format(at(day));
   const thisYear = today.slice(0, 4);
   if (mode === 'year') return format(date, { year: 'numeric' });
-  if (mode === 'month') return formatMonth(date.slice(0, 7), today, locale);
+  if (mode === 'month') {
+    return narrow && date.slice(0, 4) !== thisYear
+      ? format(date, { month: 'short', year: 'numeric' })
+      : formatMonth(date.slice(0, 7), today, locale);
+  }
   if (count <= 1) {
     const year = date.slice(0, 4) === thisYear ? undefined : 'numeric';
     return format(date, { weekday: 'long', month: 'short', day: 'numeric', year });
