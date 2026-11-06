@@ -1,6 +1,9 @@
 import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { createMemoryStorage } from '../../adapters/memory-storage.ts';
+import { FakeBackend } from '../../test/fakeTransport.ts';
+import { createSyncEngine } from '../sync/syncEngine.ts';
 import { createList, inboxList } from '../../core/lists.ts';
 import { createTask, deleteTask } from '../../core/tasks.ts';
 import { isPurged } from '../../core/trash.ts';
@@ -29,6 +32,54 @@ async function trashWithTwo() {
 }
 
 describe('trash', () => {
+  it('cleans up only after hearing from the server, never from a stale copy', async () => {
+    const backend = new FakeBackend();
+    backend.addAccount('ben', 'correct horse battery');
+    const transport = backend.device();
+    transport.session = 'ben';
+    let release = () => {};
+    const held = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const sync = transport.sync.bind(transport);
+    transport.sync = async (request: Parameters<typeof sync>[0]) => {
+      await held;
+      return sync(request);
+    };
+    const store = testStore();
+    await store.getState().init();
+    let id = '';
+    store.getState().apply((ctx, ws) => {
+      const made = createTask(ctx, ws, { title: 'Old trash', listId: inboxList(ws).id });
+      id = made.task.id;
+      const gone = deleteTask(ctx, made.workspace, made.task.id);
+      return {
+        ...gone,
+        entities: {
+          ...gone.entities,
+          tasks: gone.entities.tasks.map((task) =>
+            task.id === id ? { ...task, deletedAt: '2020-01-01T00:00:00.000Z' } : task,
+          ),
+        },
+      };
+    });
+    await store.getState().flush();
+    const engine = createSyncEngine({
+      transport,
+      workspace: store,
+      storage: createMemoryStorage(),
+      debounceMs: 60_000,
+      intervalMs: 600_000,
+    });
+    const task = () => store.getState().workspace!.entities.tasks.find((each) => each.id === id);
+    await renderApp('/trash', store, engine);
+
+    expect(task()?.deletedAt).toBe('2020-01-01T00:00:00.000Z');
+    release();
+    await waitFor(() => expect(engine.getState().lastSynced).not.toBeNull());
+    await waitFor(() => expect(task() && isPurged(task()!)).toBe(true));
+  });
+
   it('deletes one task forever after asking', async () => {
     const { tasks } = await trashWithTwo();
     await userEvent.click(

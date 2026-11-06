@@ -60,6 +60,8 @@ import { BulkSelectProvider } from '../tasks/BulkSelectProvider.tsx';
 import { useBulkSelect } from '../tasks/bulkSelect.ts';
 import { TwoLineRowsContext, useNarrow } from './rowLayout.ts';
 import { SyncButton } from '../sync/SyncButton.tsx';
+import { AppLogo } from '../views/EmptyMark.tsx';
+import { mayCleanUp, useSyncState } from '../sync/syncContext.ts';
 import { BottomSheet } from './BottomSheet.tsx';
 import { NotificationLinks } from '../notifications/NotificationLinks.tsx';
 import { EasterEggs } from '../fun/EasterEggs.tsx';
@@ -106,8 +108,17 @@ function SidebarTitle() {
   const edit = useSidebarEdit();
   if (!edit.editing) {
     return (
-      <Toolbar>
-        <Typography variant="h2" component="div">
+      <Toolbar sx={{ containerType: 'inline-size' }}>
+        <Box sx={{ display: 'flex', flexShrink: 0, mr: 1 }}>
+          <AppLogo size={28} />
+        </Box>
+        {/* Only the icon when the name would not fit. */}
+        <Typography
+          variant="h2"
+          component="div"
+          noWrap
+          sx={{ '@container (max-width: 110px)': { display: 'none' } }}
+        >
           {t('app.name')}
         </Typography>
       </Toolbar>
@@ -244,16 +255,18 @@ function AppFrame() {
     return () => window.removeEventListener('keydown', onKey);
   }, [selectedId, close]);
 
-  // Things in the trash past the person's time are erased: at start, every few hours, and as soon
-  // as they pick another time.
+  // Things in the trash past the person's time are erased: every few hours, as soon as they pick
+  // another time, and at start once this device has heard from the server.
   const apply = useApply();
   const purgeDays = useStoreState((state) => state.workspace?.entities.settings[0]?.purgeAfterDays);
+  const cleanUp = useSyncState(mayCleanUp);
   useEffect(() => {
+    if (!cleanUp) return undefined;
     const purge = () => apply((ctx, ws) => purgeExpired(ctx, ws, Date.now()));
     purge();
     const timer = window.setInterval(purge, PURGE_EVERY_MS);
     return () => window.clearInterval(timer);
-  }, [apply, purgeDays]);
+  }, [apply, purgeDays, cleanUp]);
 
   // Sections were dropped (PL-011): what old data has, or an older app on another device still
   // syncs in, folds into its lists. Lists this person may not change stay as they are.

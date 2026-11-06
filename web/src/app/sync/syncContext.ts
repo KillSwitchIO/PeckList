@@ -17,6 +17,15 @@ export function useSyncState<T>(selector: (state: SyncState) => T): T {
   return useStore(useSyncEngine(), selector);
 }
 
+/**
+ * Whether this device knows what the server knows, so it may clean up. Moving something to the
+ * trash from a stale copy would write over what another device has already done (PL-130): after
+ * Empty trash elsewhere, that left erased tasks in the trash as blank rows.
+ */
+export function mayCleanUp(state: Pick<SyncState, 'phase' | 'lastSynced'>): boolean {
+  return state.phase === 'standalone' || (state.phase === 'ready' && state.lastSynced !== null);
+}
+
 /** A transport for builds without a server: every call says there is none. */
 export const NO_SERVER: SyncTransport = {
   info: () => Promise.resolve(null),

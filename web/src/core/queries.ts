@@ -1,6 +1,7 @@
 // Read-side queries: smart views, list contents, date states.
 
 import { purgeDaysOf } from './settings.ts';
+import { isBlankTombstone } from './trash.ts';
 import { isLive } from './collections.ts';
 import { daysBetween, localDayOf } from './dates.ts';
 import {
@@ -149,7 +150,7 @@ export function trashedTasks(workspace: WorkspaceFile, now: number): Task[] {
   const byId = new Map(workspace.entities.tasks.map((task) => [task.id, task]));
   return workspace.entities.tasks
     .filter((task) => {
-      if (!task.deletedAt || task.deletedAt < cutoff) return false;
+      if (!task.deletedAt || task.deletedAt < cutoff || isBlankTombstone(task)) return false;
       const parent = task.parentId ? byId.get(task.parentId) : undefined;
       // Hide subtasks that were deleted together with their parent.
       return !(parent && parent.deletedAt === task.deletedAt);
