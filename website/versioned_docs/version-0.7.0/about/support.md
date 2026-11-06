@@ -12,6 +12,15 @@ no paid support; these are the places to ask, and what each is for.
 | Ask a question, show your setup     | The community chat (below)                                                                                                               |
 | Help build it                       | [Contributing](https://gitlab.com/killswitch10/pecklist/-/blob/main/CONTRIBUTING.md) and [developing](../development/index.md)          |
 
+## Support PeckList
+
+PeckList is free and made in spare time. If it helps you, a donation helps keep it going and
+covers its costs:
+
+[![ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/S6S7P3FVW)
+
+Or use the tip panel on [pecklist.com/support](https://pecklist.com/support/).
+
 ## Community chat
 
 :::note[Not open yet]
