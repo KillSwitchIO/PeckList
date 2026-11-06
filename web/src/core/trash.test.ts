@@ -533,6 +533,57 @@ describe('trash purge', () => {
     });
   });
 
+  describe('a task erased on one device while another moved it to the trash', () => {
+    const blank = (s: ReturnType<typeof setup>, title: string) => {
+      const task = s.add(title);
+      // The erasing's fields, with the later delete date the other device's write left.
+      s.ws = updateTask(s.ctx, s.ws, task.id, {
+        title: '',
+        notes: '',
+        status: 'open',
+        completedAt: null,
+        schedule: null,
+        deletedAt: '2026-08-31T10:00:00.000Z',
+      });
+      return task;
+    };
+
+    it('does not show in the trash', () => {
+      const s = setup();
+      blank(s, 'Was erased');
+      const real = s.add('Really deleted');
+      s.ws = deleteTask(s.ctx, s.ws, real.id);
+      expect(trashedTasks(s.ws, s.now).map((task) => task.title)).toEqual(['Really deleted']);
+    });
+
+    it('gets its erased date back on the next pass, and that settles it', () => {
+      const s = setup();
+      const task = blank(s, 'Was erased');
+      s.ws = purgeExpired(s.ctx, s.ws, s.now);
+      expect(isPurged(find(s.ws, task.id))).toBe(true);
+      expect(purgeExpired(s.ctx, s.ws, s.now)).toBe(s.ws);
+    });
+
+    it('leaves a deleted task with anything in it alone', () => {
+      const s = setup();
+      const noted = s.add('');
+      s.ws = updateTask(s.ctx, s.ws, noted.id, { title: '', notes: 'Something' });
+      const done = s.add('');
+      s.ws = updateTask(s.ctx, s.ws, done.id, {
+        title: '',
+        notes: '',
+        status: 'done',
+        completedAt: new Date(s.now).toISOString(),
+      });
+      s.ws = deleteTask(s.ctx, s.ws, noted.id);
+      s.ws = deleteTask(s.ctx, s.ws, done.id);
+      s.ws = purgeExpired(s.ctx, s.ws, s.now);
+      expect(isPurged(find(s.ws, noted.id))).toBe(false);
+      expect(isPurged(find(s.ws, done.id))).toBe(false);
+      expect(trashedTasks(s.ws, s.now)).toHaveLength(2);
+    });
+  });
+
   it('counts what a shorter time would erase', () => {
     const s = setup();
     const old = s.add('Ten days in the trash');

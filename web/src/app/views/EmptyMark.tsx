@@ -25,9 +25,9 @@ const BIRD_FACETS = [
 ];
 
 /** PeckList's logo (public/icon.svg): the wireframe bird heading the list. */
-function Logo({ tile, mark, wire, eye }: (typeof LOGO)['dark']) {
+function Logo({ tile, mark, wire, eye, size = SIZE }: (typeof LOGO)['dark'] & { size?: number }) {
   return (
-    <svg viewBox="0 0 64 64" width={SIZE} height={SIZE} aria-hidden>
+    <svg viewBox="0 0 64 64" width={size} height={size} aria-hidden>
       <rect width="64" height="64" rx="14" fill={tile} />
       <g
         transform="translate(4.9 -0.2) scale(0.52)"
@@ -57,6 +57,12 @@ function Logo({ tile, mark, wire, eye }: (typeof LOGO)['dark']) {
       <rect x="28" y="45" width="14" height="4" rx="2" fill={mark} opacity=".7" />
     </svg>
   );
+}
+
+/** PeckList's icon at any size, in the colors of the theme (the sidebar's title). */
+export function AppLogo({ size }: { size: number }) {
+  const theme = useTheme();
+  return <Logo {...LOGO[theme.palette.mode]} size={size} />;
 }
 
 /** The other side: one big check, drawn in as it turns to face you. */

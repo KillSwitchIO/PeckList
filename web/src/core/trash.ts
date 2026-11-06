@@ -22,6 +22,23 @@ export const ERASED = '-';
 export const isPurged = (entity: { deletedAt: string | null }) => entity.deletedAt === PURGED_AT;
 
 /**
+ * A task erased on one device while another, not yet told, moved it to the trash. Fields merge one
+ * by one, so the erasing keeps its empty text and the later delete keeps its date: an "Untitled
+ * task" in the trash with nothing in it. It is erased already, and a pass puts its date right.
+ */
+export function isBlankTombstone(task: Task): boolean {
+  return (
+    task.deletedAt !== null &&
+    !isPurged(task) &&
+    task.title === '' &&
+    task.notes === '' &&
+    task.status === 'open' &&
+    task.completedAt === null &&
+    task.schedule === null
+  );
+}
+
+/**
  * A task with nothing of its content left: what it said, its dates, reminders, tags and people.
  * What stays places the tombstone (its list and parent, which sharing reads) and orders it.
  */
@@ -242,7 +259,7 @@ function purgeOlderThan(ctx: OpContext, workspace: WorkspaceFile, cutoff: string
     due(entity) && entity.createdBy === ctx.userId;
   let next = workspace;
   const purged = workspace.entities.tasks.filter(
-    (task) => (due(task) || isPurged(task)) && mine(task.listId),
+    (task) => (due(task) || isPurged(task) || isBlankTombstone(task)) && mine(task.listId),
   );
   const tasks = purged
     .map((task) => purgedTask(ctx, task))
