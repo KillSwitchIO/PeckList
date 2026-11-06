@@ -289,9 +289,7 @@ describe('trash purge', () => {
     const s = setup();
     const dropped = s.add('Not doing this');
     const fresh = s.add('Dropped later');
-    const done = s.add('Done long ago');
     s.ws = updateTask(s.ctx, s.ws, dropped.id, { status: 'wontdo' });
-    s.ws = updateTask(s.ctx, s.ws, done.id, { status: 'done' });
     s.advance(20);
     s.ws = updateTask(s.ctx, s.ws, fresh.id, { status: 'wontdo' });
     s.advance(11);
@@ -300,7 +298,6 @@ describe('trash purge', () => {
     expect(find(s.ws, dropped.id).deletedAt).not.toBeNull();
     expect(find(s.ws, dropped.id).title).toBe('Not doing this');
     expect(find(s.ws, fresh.id).deletedAt).toBeNull();
-    expect(find(s.ws, done.id).deletedAt).toBeNull();
 
     s.advance(31);
     s.ws = purgeExpired(s.ctx, s.ws, s.now);
@@ -373,6 +370,144 @@ describe('trash purge', () => {
     s.advance(31);
     s.ws = purgeExpired(s.ctx, s.ws, s.now);
     expect(find(s.ws, made.task.id).deletedAt).toBeNull();
+  });
+
+  describe('completed tasks', () => {
+    const complete = (s: ReturnType<typeof setup>, id: string, at: number) => {
+      s.ws = updateTask(s.ctx, s.ws, id, {
+        status: 'done',
+        completedAt: new Date(at).toISOString(),
+        completedBy: s.ctx.userId,
+      });
+    };
+
+    it('move to the trash after the time, restorable, then are erased', () => {
+      const s = setup();
+      const old = s.add('Finished');
+      const recent = s.add('Finished later');
+      const open = s.add('Still open');
+      complete(s, old.id, s.now);
+      s.advance(20);
+      complete(s, recent.id, s.now);
+      s.advance(11);
+
+      s.ws = purgeExpired(s.ctx, s.ws, s.now);
+      expect(find(s.ws, old.id).deletedAt).not.toBeNull();
+      expect(find(s.ws, old.id).title).toBe('Finished');
+      expect(find(s.ws, recent.id).deletedAt).toBeNull();
+      expect(find(s.ws, open.id).deletedAt).toBeNull();
+      expect(createAjvValidator().validate(s.ws).errors).toEqual([]);
+
+      s.advance(31);
+      s.ws = purgeExpired(s.ctx, s.ws, s.now);
+      expect(isPurged(find(s.ws, old.id))).toBe(true);
+    });
+
+    it('count from their real date, so imported history moves on the first pass', () => {
+      const s = setup();
+      const imported = s.add('Finished in 2023');
+      complete(s, imported.id, Date.parse('2023-03-01T12:00:00.000Z'));
+      s.ws = purgeExpired(s.ctx, s.ws, s.now);
+      expect(find(s.ws, imported.id).deletedAt).not.toBeNull();
+    });
+
+    it('follow the time the person picked', () => {
+      const s = setup();
+      s.ws = updateSettings(s.ctx, s.ws, { purgeAfterDays: 365 });
+      const task = s.add('Finished');
+      complete(s, task.id, s.now);
+      s.advance(364);
+      s.ws = purgeExpired(s.ctx, s.ws, s.now);
+      expect(find(s.ws, task.id).deletedAt).toBeNull();
+      s.advance(2);
+      s.ws = purgeExpired(s.ctx, s.ws, s.now);
+      expect(find(s.ws, task.id).deletedAt).not.toBeNull();
+    });
+
+    it('get the full time again when restored', () => {
+      const s = setup();
+      const task = s.add('Brought back');
+      complete(s, task.id, Date.parse('2023-03-01T12:00:00.000Z'));
+      s.ws = purgeExpired(s.ctx, s.ws, s.now);
+      s.ws = restoreTask(s.ctx, s.ws, task.id);
+
+      s.ws = purgeExpired(s.ctx, s.ws, s.now);
+      expect(find(s.ws, task.id).deletedAt).toBeNull();
+      s.advance(29);
+      s.ws = purgeExpired(s.ctx, s.ws, s.now);
+      expect(find(s.ws, task.id).deletedAt).toBeNull();
+      s.advance(2);
+      s.ws = purgeExpired(s.ctx, s.ws, s.now);
+      expect(find(s.ws, task.id).deletedAt).not.toBeNull();
+    });
+
+    it('stay under a task that stays, and go with it later', () => {
+      const s = setup();
+      const parent = s.add('Long job');
+      const step = s.add('First step', parent.id);
+      complete(s, step.id, s.now);
+      s.advance(31);
+      s.ws = purgeExpired(s.ctx, s.ws, s.now);
+      expect(find(s.ws, step.id).deletedAt).toBeNull();
+
+      complete(s, parent.id, s.now);
+      s.advance(31);
+      s.ws = purgeExpired(s.ctx, s.ws, s.now);
+      expect(find(s.ws, parent.id).deletedAt).not.toBeNull();
+      expect(find(s.ws, step.id).deletedAt).toBe(find(s.ws, parent.id).deletedAt);
+    });
+
+    it('wait for a subtask with time left, or an open one', () => {
+      const s = setup();
+      const waits = s.add('Waits for a recent subtask');
+      const recent = s.add('Done recently', waits.id);
+      const blocked = s.add('Has an open subtask');
+      s.add('Still open', blocked.id);
+      complete(s, waits.id, s.now);
+      complete(s, blocked.id, s.now);
+      s.advance(20);
+      complete(s, recent.id, s.now);
+      s.advance(11);
+
+      s.ws = purgeExpired(s.ctx, s.ws, s.now);
+      expect(find(s.ws, waits.id).deletedAt).toBeNull();
+      expect(find(s.ws, blocked.id).deletedAt).toBeNull();
+      s.advance(20);
+      s.ws = purgeExpired(s.ctx, s.ws, s.now);
+      expect(find(s.ws, waits.id).deletedAt).not.toBeNull();
+      expect(find(s.ws, blocked.id).deletedAt).toBeNull();
+    });
+
+    it("stay in someone else's list for its owner to clean up", () => {
+      const s = setup();
+      const theirs = createList(s.ctx, s.ws, { name: 'Their list', color: '#A7C7E7' });
+      const made = createTask(s.ctx, theirs.workspace, { title: 'Theirs', listId: theirs.list.id });
+      s.ws = made.workspace;
+      complete(s, made.task.id, s.now);
+      s.ws = {
+        ...s.ws,
+        entities: {
+          ...s.ws.entities,
+          lists: s.ws.entities.lists.map((list) =>
+            list.id === theirs.list.id
+              ? { ...list, createdBy: '01SOMEONEELSE0000000000001', visibility: 'shared' as const }
+              : list,
+          ),
+        },
+      };
+      s.advance(31);
+      s.ws = purgeExpired(s.ctx, s.ws, s.now);
+      expect(find(s.ws, made.task.id).deletedAt).toBeNull();
+    });
+
+    it('have nothing more to do once moved', () => {
+      const s = setup();
+      const task = s.add('Finished');
+      complete(s, task.id, s.now);
+      s.advance(31);
+      s.ws = purgeExpired(s.ctx, s.ws, s.now);
+      expect(purgeExpired(s.ctx, s.ws, s.now)).toBe(s.ws);
+    });
   });
 
   it('counts what a shorter time would erase', () => {

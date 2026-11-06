@@ -73,7 +73,7 @@ export const en = {
   'settings.category.dataHint': 'Download, import and start over',
   'settings.data.purge': 'Clean up after',
   'settings.data.purgeHint':
-    "Won't-do tasks move to the Trash after this long, and what is in the Trash is erased for good after the same time.",
+    "Completed and won't-do tasks move to the Trash after this long, and what is in the Trash is erased for good after the same time.",
   'settings.data.purge.days': '{days} days',
   'settings.data.purge.months': '{months} months',
   'settings.data.purge.year': '1 year',

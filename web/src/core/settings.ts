@@ -44,13 +44,13 @@ export function updateSettings(
 /** Choices the Settings page offers. */
 export const DUE_SOON_CHOICES = [0, 1, 2, 3, 5, 7] as const;
 export const POINT_EVENT_CHOICES = [15, 30, 45, 60, 90, 120] as const;
-/** Days deleted and won't-do tasks stay: 7, 15 or 30 days, or 2 to 12 months (a month is 30 days, a year 365). */
+/** Days deleted, completed and won't-do tasks stay: 7, 15 or 30 days, or 2 to 12 months (a month is 30 days, a year 365). */
 export const PURGE_CHOICES = [
   7, 15, 30, 60, 90, 120, 150, 180, 210, 240, 270, 300, 330, 365,
 ] as const;
 export const DEFAULT_PURGE_DAYS = 30;
 
-/** How long this person keeps deleted and won't-do tasks. */
+/** How long this person keeps deleted, completed and won't-do tasks. */
 export function purgeDaysOf(workspace: WorkspaceFile): number {
   return workspace.entities.settings[0]?.purgeAfterDays ?? DEFAULT_PURGE_DAYS;
 }

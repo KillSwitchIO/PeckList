@@ -9,7 +9,7 @@ import { purgePeriod } from './purgePeriod.ts';
 import { SettingRow } from './settingsLayout.tsx';
 
 /**
- * Settings > Your data (PL-130): how long deleted and won't-do tasks stay. A shorter time erases
+ * Settings > Your data (PL-130): how long deleted, completed and won't-do tasks stay. A shorter time erases
  * what the Trash holds beyond it at once and for good, so that asks first.
  */
 export function PurgeSetting() {
