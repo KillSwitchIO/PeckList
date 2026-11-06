@@ -4,6 +4,7 @@ using System.Security.Claims;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authentication.OpenIdConnect;
+using Microsoft.Extensions.Caching.Memory;
 using Microsoft.IdentityModel.Protocols.OpenIdConnect;
 using PeckList.Core.Accounts;
 using PeckList.Core.Configuration;
@@ -233,6 +234,32 @@ public static class OidcSetup
         }
     }
 
+    /// <summary>What the role map just did, for an admin: one event for any change, a warning when it needs a look.</summary>
+    private static void RecordRoleChange(HttpContext context, OidcProviderSettings provider, ExternalIdentity identity, ExternalSignInResult.Success success)
+    {
+        var services = context.RequestServices;
+        var (id, name, role) = (success.Account.Id, success.Account.Username, success.Account.Role);
+        var audit = services.GetRequiredService<AuditLog>();
+        var log = services.GetRequiredService<ILoggerFactory>().CreateLogger("PeckList.Auth");
+        if (success.LastSuperAdminSpared)
+        {
+            audit.RecordEvent(context, "auth.oidc-role-kept", id, name, id, name,
+                $"{provider.Name} would have lowered the only super admin, so the role stays. Make someone else a super admin, then lower this account in PeckList.");
+            log.LogWarning("ROLE_MAP on {Provider} would have lowered {Username}, the only super admin, so the role stays.", provider.Name, name);
+        }
+        if (success.RoleBefore is not { } before || before == role) return;
+        if (identity.Groups.Count == 0)
+        {
+            audit.RecordEvent(context, "auth.oidc-role-changed", id, name, id, name,
+                $"{provider.Name} sent no groups, so {before.Name()} became {role.Name()}. If the claim was dropped, a role from ROLE_MAP returns at the next sign-in with groups.");
+            log.LogWarning(
+                "{Provider} sent no groups for {Username}, so ROLE_MAP lowered {From} to {To}. If the claim was dropped, a role from ROLE_MAP returns at the next sign-in with groups.",
+                provider.Name, name, before.Name(), role.Name());
+            return;
+        }
+        audit.RecordEvent(context, "auth.oidc-role-changed", id, name, id, name, $"{provider.Name} groups changed {before.Name()} to {role.Name()}.");
+    }
+
     private static async Task SignInAsync(TicketReceivedContext context, OidcProviderSettings provider)
     {
         var services = context.HttpContext.RequestServices;
@@ -278,11 +305,14 @@ public static class OidcSetup
                 async () => await signIn.ApproveAsync(provider, subject, context.HttpContext.RequestAborted)
                     ?? throw new InvalidOperationException("the sign-in stopped waiting"),
                 account => account.Id, context.HttpContext.RequestAborted);
-            if (made is not null) result = new ExternalSignInResult.Success(made, Created: true, JoinedBy: "invite");
+            if (made is not null) result = new ExternalSignInResult.Success(made, Created: true, JoinedBy: "invite", RoleBefore: Role.User);
         }
         switch (result)
         {
             case ExternalSignInResult.Success success:
+                // The role map may have just changed the role: every session of theirs sees it now, not in 30 s.
+                AuthSetup.ForgetStamp(services.GetRequiredService<IMemoryCache>(), success.Account.Id);
+                RecordRoleChange(context.HttpContext, provider, identity, success);
                 if (success.Created)
                 {
                     await services.GetRequiredService<Friends>().EnsureProfileAsync(

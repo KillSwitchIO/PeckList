@@ -51,6 +51,31 @@ itself. The app's session is a copy of the browser's, so `OIDC_<NAME>_SESSION_HO
 | `OIDC_<NAME>_GROUP_MAP=family=Family`                       | Server group membership from provider groups. `*` mirrors every provider group.                               |
 | `LOCAL_LOGIN=disabled`                                      | No passwords at all, in the app or the API. An admin gets back in with `pecklist admin login-link`.          |
 
+When someone's groups match nothing in `ROLE_MAP`, they become a plain user at that sign-in.
+`ROLE_MAP` decides for everyone who signs in through that provider, so a role an admin gave by hand
+goes the same way and does not come back. Every role a sign-in changes, up or down, is in the audit
+log as `auth.oidc-role-changed`. The only super admin never loses the role: the server needs one, so
+that sign-in logs a warning and an `auth.oidc-role-kept` audit event instead.
+
+`ROLE_MAP` acts only when someone signs in through that provider. A person taken out of the admin
+group who does not sign in there again keeps the role, through an API key, a password or a passkey.
+To take a role away now, remove them from the group and also lower or disable the account in
+PeckList. Both steps matter: lowered by hand only, the next sign-in with the group puts the role back.
+
+A provider may also send no groups at all. It may have dropped the claim from one sign-in, or it may
+leave the claim out for someone in no groups, as Microsoft Entra ID and Okta reportedly do. PeckList
+cannot tell these apart, so a sign-in with no groups lowers the role either way. It logs a warning,
+and the audit event names the account and the provider. If the claim was dropped, a role from
+`ROLE_MAP` returns at the next sign-in with groups. `GROUP_MAP` treats a sign-in with no groups the
+same way, without a warning or an event: the server groups it gave are taken away, and come back at
+the next sign-in with groups.
+
+To have a sign-in with no groups refused instead, so a dropped claim lowers nobody, set
+`OIDC_<NAME>_REQUIRED_GROUPS` to a group everyone stays in. The catch: someone taken out of every
+group then cannot sign in through the provider, and the account keeps its role. A session they
+already have, an API key, a password or a passkey all go on working with that role, so lower or
+disable the account as above.
+
 A new account never takes over an existing one with the same username: it gets a number after the
 name, unless you turn on [username linking](#linking-accounts). Usernames come from
 `preferred_username` (`OIDC_<NAME>_USERNAME_CLAIM`), else the email.

@@ -135,6 +135,96 @@ public sealed class OidcTests(ServerFixture fixture) : IClassFixture<ServerFixtu
     }
 
     [Fact]
+    public async Task A_sign_in_with_no_groups_lowers_the_role_everywhere_at_once_and_the_next_with_the_group_restores_it()
+    {
+        using var server = Server(("OIDC_FAKE_AUTO_CREATE", "true"), ("OIDC_FAKE_ROLE_MAP", "pl-admins=admin"));
+        var kim = Browser(server);
+        await SignIn(kim, Kim("pl-admins"));
+        var phone = Browser(server);
+        await SignIn(phone, Kim("pl-admins"));
+        Assert.Equal("admin", (await phone.GetFromJsonAsync<Me>("/auth/me", Token))!.Role);
+
+        await SignIn(kim, Kim());
+        Assert.Equal("user", (await kim.GetFromJsonAsync<Me>("/auth/me", Token))!.Role);
+        Assert.Equal("user", (await phone.GetFromJsonAsync<Me>("/auth/me", Token))!.Role);
+
+        await SignIn(kim, Kim("pl-admins"));
+        Assert.Equal("admin", (await kim.GetFromJsonAsync<Me>("/auth/me", Token))!.Role);
+        Assert.Equal("admin", (await phone.GetFromJsonAsync<Me>("/auth/me", Token))!.Role);
+    }
+
+    private static async Task<List<string?>> RoleEvents(WebApplicationFactory<Program> server)
+    {
+        // A request is recorded just after its answer goes out.
+        await Task.Delay(100, Token);
+        await server.Services.GetRequiredService<PeckList.Server.Audit.AuditLog>().FlushAsync(Token);
+        var audit = await server.Services.GetRequiredService<PeckList.Core.Audit.IAuditStore>()
+            .QueryAsync(new PeckList.Core.Audit.AuditQuery { Ascending = true }, Token);
+        return [.. audit.Entries.Where(entry => entry.Type.StartsWith("auth.oidc-role-", StringComparison.Ordinal)).Select(entry => $"{entry.Type} {entry.TargetName}: {entry.Detail}")];
+    }
+
+    [Fact]
+    public async Task Every_role_a_sign_in_changes_is_in_the_audit_log()
+    {
+        using var server = Server(("OIDC_FAKE_AUTO_CREATE", "true"), ("OIDC_FAKE_ROLE_MAP", "pl-admins=admin"));
+        var kim = Browser(server);
+        await SignIn(kim, Kim("pl-admins"));
+        await SignIn(kim, Kim("pl-admins"));
+        await SignIn(kim, Kim());
+        await SignIn(kim, Kim("pl-admins"));
+        await SignIn(kim, Kim("family"));
+
+        Assert.Equal([
+            "auth.oidc-role-changed kim: fake groups changed user to admin.",
+            "auth.oidc-role-changed kim: fake sent no groups, so admin became user. If the claim was dropped, a role from ROLE_MAP returns at the next sign-in with groups.",
+            "auth.oidc-role-changed kim: fake groups changed user to admin.",
+            "auth.oidc-role-changed kim: fake groups changed admin to user.",
+        ], await RoleEvents(server));
+    }
+
+    [Fact]
+    public async Task A_role_an_invite_or_an_approval_gives_from_the_map_is_in_the_audit_log()
+    {
+        using var server = Server(("OIDC_FAKE_ROLE_MAP", "pl-admins=admin"));
+        var admin = Browser(server);
+        (await admin.PostAsJsonAsync("/auth/login", new { username = "admin", password = AdminPassword }, Token)).EnsureSuccessStatusCode();
+        var invite = (await (await admin.PostAsJsonAsync("/api/admin/invites", new { note = "Kim" }, Token))
+            .Content.ReadFromJsonAsync<NewInvite>(Token))!;
+
+        var kim = Browser(server);
+        await SignIn(kim, Kim("pl-admins"), invite: invite.Url[(invite.Url.LastIndexOf('/') + 1)..]);
+        Assert.Equal("admin", (await kim.GetFromJsonAsync<Me>("/auth/me", Token))!.Role);
+        Assert.Equal(["auth.oidc-role-changed kim: fake groups changed user to admin."], await RoleEvents(server));
+
+        var lee = new Dictionary<string, object>(Kim("pl-admins")) { ["sub"] = "lee-subject", ["preferred_username"] = "lee" };
+        Assert.Equal("/login?error=oidc_pending", await SignIn(Browser(server), lee));
+        (await admin.PostAsync("/api/admin/pending-signins/fake/lee-subject/approve", null, Token)).EnsureSuccessStatusCode();
+        await Task.Delay(100, Token);
+        await server.Services.GetRequiredService<PeckList.Server.Audit.AuditLog>().FlushAsync(Token);
+        var audit = await server.Services.GetRequiredService<PeckList.Core.Audit.IAuditStore>()
+            .QueryAsync(new PeckList.Core.Audit.AuditQuery { Ascending = true }, Token);
+        var approved = Assert.Single(audit.Entries, entry => entry.Type == "admin.pending-approved");
+        Assert.Equal(("lee", "fake, role admin"), (approved.TargetName, approved.Detail));
+    }
+
+    [Fact]
+    public async Task A_sign_in_that_would_lower_the_only_super_admin_is_in_the_audit_log()
+    {
+        using var server = Server(("OIDC_FAKE_AUTO_CREATE", "true"), ("OIDC_FAKE_ROLE_MAP", "pl-owners=superadmin"));
+        var kim = Browser(server);
+        await SignIn(kim, Kim("pl-owners"));
+        var service = server.Services.GetRequiredService<AccountService>();
+        await service.SetRoleAsync((await server.Services.GetRequiredService<IAccountStore>().FindByUsernameAsync("admin", Token))!.Id, Role.User, Token);
+
+        await SignIn(kim, Kim());
+
+        Assert.Equal("superadmin", (await kim.GetFromJsonAsync<Me>("/auth/me", Token))!.Role);
+        Assert.Equal(
+            "auth.oidc-role-kept kim: fake would have lowered the only super admin, so the role stays. Make someone else a super admin, then lower this account in PeckList.",
+            (await RoleEvents(server))[^1]);
+    }
+
+    [Fact]
     public async Task Without_auto_create_an_admin_lets_them_in()
     {
         using var server = Server(("OIDC_FAKE_ROLE_MAP", "pl-admins=admin"));

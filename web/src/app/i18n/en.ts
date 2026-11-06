@@ -522,6 +522,8 @@ export const en = {
   'audit.type.admin.crash-report-sent': '{actor} sent a server crash report',
   'audit.type.auth.oidc-sign-in': '{actor} signed in with a provider',
   'audit.type.auth.oidc-linked': '{actor} linked a provider account',
+  'audit.type.auth.oidc-role-changed': "A sign-in changed {actor}'s role",
+  'audit.type.auth.oidc-role-kept': 'A sign-in would have lowered {actor}, the only super admin',
   'audit.type.auth.login-link-used': '{actor} used a sign-in link',
   'audit.type.auth.app-handoff': '{actor} confirmed signing in to the Android app',
   'audit.type.auth.app-signed-in': '{actor} signed in to the Android app',

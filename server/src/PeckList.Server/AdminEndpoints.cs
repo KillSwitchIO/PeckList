@@ -533,7 +533,7 @@ public static class AdminEndpoints
             context.Audit().Detail = provider;
             if (settings.Provider(provider) is not { } found) return Results.NotFound();
             if (await signIn.ApproveAsync(found, subject, cancellation) is not { } account) return Results.NotFound();
-            context.Audit().On(account.Id, account.Username);
+            context.Audit().On(account.Id, account.Username).Detail = $"{provider}, role {account.Role.Name()}";
             return Results.Ok(new { account.Id, account.Username, Role = account.Role.Name() });
         }).RequirePermission(Permission.ManageUsers).ProjectsServerGroups().Audited("admin.pending-approved", targetRoute: null);
 
