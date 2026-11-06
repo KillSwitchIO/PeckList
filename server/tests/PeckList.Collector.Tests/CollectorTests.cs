@@ -124,15 +124,17 @@ public sealed class CollectorTests(PostgresServer server) : IClassFixture<Postgr
     {
         var (factory, connection) = await StartAsync();
         var store = Store(connection);
-        for (var i = 0; i < 6; i++) await store.SaveAsync(Ping(version: "0.3.0"), Now, Cancel);
-        for (var i = 0; i < 3; i++) await store.SaveAsync(Ping(version: "0.2.9"), Now, Cancel);
+        // The page below reads the real clock, so a fixed date falls out of its window a week on.
+        var now = DateTimeOffset.UtcNow;
+        for (var i = 0; i < 6; i++) await store.SaveAsync(Ping(version: "0.3.0"), now, Cancel);
+        for (var i = 0; i < 3; i++) await store.SaveAsync(Ping(version: "0.2.9"), now, Cancel);
 
-        var stats = await store.StatsAsync(Now, Cancel);
+        var stats = await store.StatsAsync(now, Cancel);
         Assert.Equal(9, stats.Installs);
         Assert.Equal(new[] { new StatValue("0.3.0", 6) }, stats.Breakdown["version"]);
 
-        for (var i = 0; i < 2; i++) await store.SaveAsync(Ping(version: "0.2.8"), Now, Cancel);
-        stats = await store.StatsAsync(Now, Cancel);
+        for (var i = 0; i < 2; i++) await store.SaveAsync(Ping(version: "0.2.8"), now, Cancel);
+        stats = await store.StatsAsync(now, Cancel);
         Assert.Equal(new[] { new StatValue("0.3.0", 6), new StatValue("other", 5) }, stats.Breakdown["version"]);
 
         using var client = factory.CreateClient();
