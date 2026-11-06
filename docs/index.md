@@ -22,7 +22,7 @@ serves the app and keeps everyone's data, in SQLite or PostgreSQL.
   spans, rich notes and checklists. Type a whole task in one line:
   `Call the vet tomorrow 3pm #pets !high`.
 - **Views**: Today, Upcoming, Due dates, All, Closed, Assigned to me, Shared with me, saved filters,
-  search, and a calendar (a continuous month, and 1 to 14 days on a time grid) to drag tasks in, move them and stretch them.
+  search, and a calendar (a continuous month, 1 to 14 days on a time grid, and a year shaded by how busy each day is) to drag tasks in, move them and stretch them.
 - **Offline first**: an installable web app (PWA) that keeps working without a connection and
   merges changes from every device without conflicts.
 - **Sharing**: friends, groups and shared lists; assign tasks to people or groups.

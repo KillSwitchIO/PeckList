@@ -1,7 +1,5 @@
 import RadioButtonUncheckedRounded from '@mui/icons-material/RadioButtonUncheckedRounded';
-import CalendarViewMonthOutlined from '@mui/icons-material/CalendarViewMonthOutlined';
 import EventBusyOutlined from '@mui/icons-material/EventBusyOutlined';
-import ViewWeekOutlined from '@mui/icons-material/ViewWeekOutlined';
 import {
   Box,
   Button,
@@ -25,7 +23,13 @@ import {
   unscheduledTasks,
   type CalendarItem,
 } from '../../core/calendar.ts';
-import { atMinutes, itemsByDay, MAX_DAYS, MIN_DAYS } from '../../core/calendarLayout.ts';
+import {
+  atMinutes,
+  itemsByDay,
+  MAX_DAYS,
+  MIN_DAYS,
+  openCountsByDay,
+} from '../../core/calendarLayout.ts';
 import {
   addDays,
   datePart,
@@ -41,7 +45,14 @@ import type { Schedule, WorkspaceFile } from '../../core/types.ts';
 import { useToday } from '../hooks/useToday.ts';
 import { MonthPickerPopover } from '../dates/MonthPickerPopover.tsx';
 import { weekStart as preferredWeekStart } from '../format.ts';
-import { ChevronDownIcon, ChevronLeftIcon, ChevronRightIcon } from '../icons/icons.tsx';
+import {
+  ChevronDownIcon,
+  ChevronLeftIcon,
+  ChevronRightIcon,
+  DaysViewIcon,
+  MonthViewIcon,
+  YearViewIcon,
+} from '../icons/icons.tsx';
 import { t } from '../i18n/i18n.ts';
 import { BottomSheet } from '../layout/BottomSheet.tsx';
 import { Page } from '../layout/Page.tsx';
@@ -63,6 +74,7 @@ import { DaysView } from './DaysView.tsx';
 import { MonthView, type MonthViewInfo } from './MonthView.tsx';
 import { NumberDial } from './NumberDial.tsx';
 import { useCalendarDrag, type DragPayload, type DropTarget } from './useCalendarDrag.ts';
+import { YearView } from './YearView.tsx';
 import { useNarrowed } from '../views/useNarrowed.tsx';
 
 /** How many unscheduled tasks show at first (and more on asking). */
@@ -138,10 +150,11 @@ const DAY_CHOICES = Array.from({ length: MAX_DAYS - MIN_DAYS + 1 }, (_, i) => MI
 const WEEK_CHOICES = Array.from({ length: MAX_WEEKS - MIN_WEEKS + 1 }, (_, i) => MIN_WEEKS + i);
 
 /**
- * Calendar (spec: PL-093, like Business Calendar 2): Month, a continuous run of weeks, and Days,
- * 1 to 14 days on a time grid. Tasks move by dragging; days picked by dragging across them show
- * on their own or become a task's span; Unscheduled tasks drag in from the side (a sheet on
- * phones). Upcoming, the agenda, is in the menu.
+ * Calendar (spec: PL-093, like Business Calendar 2): Month, a continuous run of weeks; Days, 1 to
+ * 14 days on a time grid; and Year, twelve small months shaded by how busy each day is. Tasks move
+ * by dragging; days picked by dragging across them show on their own or become a task's span;
+ * Unscheduled tasks drag in from the side (a sheet on phones). Year is for reading, so nothing
+ * drags there and Unscheduled steps aside. Upcoming, the agenda, is in the menu.
  */
 export function CalendarPage() {
   const theme = useTheme();
@@ -194,19 +207,31 @@ export function CalendarPage() {
   }
   // What is done is off the calendar from today on (R-FB-141), but days gone by show what was
   // done on them, drawn as done (Ben, 2026-11-02).
+  // Year counts for itself over the whole year, so Month's window stays unworked while it shows.
+  const inYear = mode === 'year';
   const items = useMemo(
     () =>
-      win
+      win && !inYear
         ? calendarItems(shown, win.from, win.to, settings?.pointEventMinutes ?? 60, (task) =>
             canEditTask(workspace, me, task),
           ).filter((item) => !item.done || datePart(item.end ?? item.start) < today)
         : [],
-    [shown, workspace, win, settings?.pointEventMinutes, me, today],
+    [shown, workspace, win, inYear, settings?.pointEventMinutes, me, today],
   );
   const byDay = useMemo(
     () => (win ? itemsByDay(items, win.from, win.to) : new Map<string, CalendarItem[]>()),
     [items, win],
   );
+  const year = date.slice(0, 4);
+  const yearCounts = useMemo(() => {
+    if (!inYear) return new Map<string, number>();
+    const [from, to] = [`${year}-01-01`, `${year}-12-31`];
+    return openCountsByDay(
+      calendarItems(shown, from, to, settings?.pointEventMinutes ?? 60),
+      from,
+      to,
+    );
+  }, [shown, inYear, year, settings?.pointEventMinutes]);
 
   const [drawer, setDrawer] = useState(false);
   const [popup, setPopup] = useState<{
@@ -290,6 +315,8 @@ export function CalendarPage() {
     if (mode === 'month') {
       const month = view?.month ?? today.slice(0, 7);
       setTarget({ date: shiftMonths(`${month}-01`, direction), seq: target.seq + 1 });
+    } else if (mode === 'year') {
+      setDate(shiftMonths(date, direction * 12));
     } else {
       setDate(addDays(date, direction * prefs.days));
     }
@@ -299,18 +326,27 @@ export function CalendarPage() {
     setPrefs({ mode: 'days', days: Math.min(MAX_DAYS, Math.max(MIN_DAYS, count)) });
   };
   const switchMode = (next: CalendarMode) => {
-    // Days start where the month is looking; the month comes back to the days shown.
-    if (next === 'days' && view) {
+    // Days and Year start where the month is looking; the month comes back to the day they left.
+    if (mode === 'month' && view) {
       setDate(view.month === today.slice(0, 7) ? today : `${view.month}-01`);
     }
     if (next === 'month') setTarget({ date, seq: target.seq + 1 });
     setPrefs({ mode: next });
   };
+  // Keeps the Days count picked last: the day comes first, with the days after it beside it.
+  const openDay = (day: string) => {
+    setDate(day);
+    setPrefs({ mode: 'days' });
+  };
+  const openMonth = (month: string) => {
+    goTo(`${month}-01`);
+    setPrefs({ mode: 'month' });
+  };
 
   const title =
     mode === 'month'
       ? calendarTitle('month', `${view?.month ?? today.slice(0, 7)}-01`, prefs.days, today)
-      : calendarTitle('days', date, prefs.days, today);
+      : calendarTitle(mode, date, prefs.days, today);
   const panel = (
     <Unscheduled
       source={shown}
@@ -329,7 +365,12 @@ export function CalendarPage() {
               (R-FB-104): here a sheet on a phone; elsewhere a toggle in the calendar's row. */}
           {phone && (
             <Tooltip title={t('calendar.unscheduled')}>
-              <IconButton aria-label={t('calendar.unscheduled')} onClick={() => setDrawer(true)}>
+              {/* Hidden rather than gone in Year, so the buttons beside it stay where they are. */}
+              <IconButton
+                aria-label={t('calendar.unscheduled')}
+                onClick={() => setDrawer(true)}
+                sx={inYear ? { visibility: 'hidden' } : {}}
+              >
                 <EventBusyOutlined />
               </IconButton>
             </Tooltip>
@@ -347,7 +388,8 @@ export function CalendarPage() {
       >
         {/* One row that never wraps, so nothing moves as the title changes length. Laid out as
             Upcoming's (R-FB-72): the title (a date picker) left, the arrows round the today icon
-            at the right, the dial and Month/Days between. */}
+            at the right, the dial and Year/Month/Days between (Year has no dial, and the title
+            just takes its room). */}
         <Box sx={{ display: 'flex', alignItems: 'center', gap: { xs: 0.25, sm: 0.5 }, mb: 1 }}>
           <Typography
             component="h2"
@@ -377,7 +419,7 @@ export function CalendarPage() {
               </Box>
             </Button>
           </Typography>
-          {mode === 'days' ? (
+          {mode === 'days' && (
             <NumberDial
               values={DAY_CHOICES}
               value={prefs.days}
@@ -387,7 +429,8 @@ export function CalendarPage() {
                 count === 1 ? t('calendar.oneDay') : t('calendar.dayCount', { count })
               }
             />
-          ) : (
+          )}
+          {mode === 'month' && (
             <NumberDial
               values={WEEK_CHOICES}
               value={prefs.weeks}
@@ -396,7 +439,7 @@ export function CalendarPage() {
               caption={(count) => t('calendar.weeks', { count })}
             />
           )}
-          {!phone && (
+          {!phone && !inYear && (
             // The side panel, shown or hidden (hidden at first), beside the view's own buttons.
             <Tooltip
               title={
@@ -424,18 +467,25 @@ export function CalendarPage() {
             sx={{ flexShrink: 0 }}
           >
             <ToggleButton
+              value="year"
+              aria-label={t('calendar.year')}
+              sx={{ px: phone ? 0.75 : 1.5 }}
+            >
+              {phone ? <YearViewIcon fontSize="small" /> : t('calendar.year')}
+            </ToggleButton>
+            <ToggleButton
               value="month"
               aria-label={t('calendar.month')}
               sx={{ px: phone ? 0.75 : 1.5 }}
             >
-              {phone ? <CalendarViewMonthOutlined fontSize="small" /> : t('calendar.month')}
+              {phone ? <MonthViewIcon fontSize="small" /> : t('calendar.month')}
             </ToggleButton>
             <ToggleButton
               value="days"
               aria-label={t('calendar.days')}
               sx={{ px: phone ? 0.75 : 1.5 }}
             >
-              {phone ? <ViewWeekOutlined fontSize="small" /> : t('calendar.days')}
+              {phone ? <DaysViewIcon fontSize="small" /> : t('calendar.days')}
             </ToggleButton>
           </ToggleButtonGroup>
           <IconButton size="small" aria-label={t('calendar.previous')} onClick={() => step(-1)}>
@@ -470,7 +520,17 @@ export function CalendarPage() {
               overflow: 'hidden',
             }}
           >
-            {mode === 'month' ? (
+            {mode === 'year' ? (
+              <YearView
+                date={date}
+                seq={target.seq}
+                today={today}
+                weekStart={weekStart}
+                counts={yearCounts}
+                onOpenDay={openDay}
+                onOpenMonth={openMonth}
+              />
+            ) : mode === 'month' ? (
               <MonthView
                 today={today}
                 weekStart={weekStart}
@@ -514,7 +574,7 @@ export function CalendarPage() {
               />
             )}
           </Box>
-          {!phone && prefs.unscheduled && (
+          {!phone && !inYear && prefs.unscheduled && (
             <Box sx={{ borderLeft: 1, borderColor: 'divider' }}>{panel}</Box>
           )}
         </Box>

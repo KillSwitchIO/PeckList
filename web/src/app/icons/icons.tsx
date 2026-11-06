@@ -72,6 +72,38 @@ export function CalendarIcon({ badge, ...props }: SvgIconProps & { badge?: strin
   );
 }
 
+/** The calendar's Month view: a page of weeks. */
+export function MonthViewIcon(props: SvgIconProps) {
+  return (
+    <PunchIcon {...props}>
+      <rect x="4" y="4" width="16" height="16" rx="3" />
+      <path d="M4 9.33h16M4 14.67h16M9.33 4v16M14.67 4v16" />
+    </PunchIcon>
+  );
+}
+
+/** The calendar's Days view: days side by side. */
+export function DaysViewIcon(props: SvgIconProps) {
+  return (
+    <PunchIcon {...props}>
+      <rect x="4" y="4" width="16" height="16" rx="3" />
+      <path d="M9.33 4v16M14.67 4v16" />
+    </PunchIcon>
+  );
+}
+
+/** The calendar's Year view: small months. */
+export function YearViewIcon(props: SvgIconProps) {
+  return (
+    <PunchIcon {...props}>
+      <rect x="4" y="4" width="6.5" height="6.5" rx="1.5" />
+      <rect x="13.5" y="4" width="6.5" height="6.5" rx="1.5" />
+      <rect x="4" y="13.5" width="6.5" height="6.5" rx="1.5" />
+      <rect x="13.5" y="13.5" width="6.5" height="6.5" rx="1.5" />
+    </PunchIcon>
+  );
+}
+
 /**
  * Next month: a calendar page with a circled right arrow in its lower right corner. The page is
  * cut away around the circle so the arrow reads cleanly at small sizes.

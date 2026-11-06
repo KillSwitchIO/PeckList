@@ -1,7 +1,23 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import { loadPrefs, MAX_WEEKS, MIN_WEEKS, savePrefs } from './calendarPrefs.ts';
+import { askedFor, loadPrefs, MAX_WEEKS, MIN_WEEKS, savePrefs } from './calendarPrefs.ts';
 
 beforeEach(() => localStorage.clear());
+
+describe('calendar mode (spec: PL-093)', () => {
+  it('remembers Year on this device, and reads an unknown mode as Month', () => {
+    savePrefs({ ...loadPrefs(false), mode: 'year' });
+    expect(loadPrefs(false).mode).toBe('year');
+    localStorage.setItem('pecklist.calendar', JSON.stringify({ mode: 'agenda' }));
+    expect(loadPrefs(false).mode).toBe('month');
+  });
+
+  it('opens Year when the address asks for it', () => {
+    expect(askedFor(new URLSearchParams('view=year&date=2027-03-01'))).toMatchObject({
+      mode: 'year',
+      date: '2027-03-01',
+    });
+  });
+});
 
 describe('calendar weeks (R-FB-102)', () => {
   it('shows four weeks on first open, then whatever was picked last', () => {

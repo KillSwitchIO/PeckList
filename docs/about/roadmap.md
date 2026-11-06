@@ -12,7 +12,8 @@ What the current release does, built up over the 0.x versions:
 - **Tasks**: lists, subtasks, nested tags, priorities, start and due dates with times and spans,
   rich notes and checklists, pinned tasks, repeats, reminders, comments and attachments, quick add
   in one line, keyboard shortcuts, search, smart views and saved filters, and a Trash with undo.
-- **Calendar**: a continuous month and 1 to 14 days on a time grid, with tasks dragged in, moved
+- **Calendar**: a continuous month, 1 to 14 days on a time grid and a year shaded by how busy each
+  day is, with tasks dragged in, moved
   and stretched.
 - **Offline and sync**: a full copy on every device, merged field by field across devices and
   people.

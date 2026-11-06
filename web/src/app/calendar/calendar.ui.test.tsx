@@ -1,9 +1,9 @@
 import { act, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { addDays, localTimeZone, todayIn } from '../../core/dates.ts';
+import { addDays, localTimeZone, shiftMonths, todayIn } from '../../core/dates.ts';
 import { inboxList } from '../../core/lists.ts';
-import { createTask, setTaskStatus } from '../../core/tasks.ts';
+import { createTask, setTaskStatus, updateTask } from '../../core/tasks.ts';
 import { mockViewport, renderApp, testStore } from '../../test/renderApp.tsx';
 
 beforeEach(() => {
@@ -407,6 +407,141 @@ describe('calendar', () => {
     fireEvent.pointerUp(window, { clientX: 10, clientY: 15 * 48 });
     expect(document.querySelector('[data-cal-big-grip]')).toBeNull();
     expect(screen.queryByRole('dialog')).toBeNull();
+  });
+
+  describe('Year', () => {
+    async function yearWith() {
+      const made = await calendarWith();
+      const modes = await screen.findByRole('group', { name: 'Calendar view' });
+      await userEvent.click(within(modes).getByRole('button', { name: 'Year' }));
+      return { ...made, modes };
+    }
+    const dayIn = (date: string) => document.querySelector(`[data-year-day="${date}"]`)!;
+
+    it('draws twelve months, says how busy each day is, and is remembered', async () => {
+      const { today, modes } = await yearWith();
+      const year = today.slice(0, 4);
+      expect(screen.getByRole('heading', { level: 2 })).toHaveTextContent(year);
+      // Widest view to narrowest (Ben, 2026-11-06).
+      expect(
+        within(modes)
+          .getAllByRole('button')
+          .map((button) => button.getAttribute('aria-label')),
+      ).toEqual(['Year', 'Month', 'Days']);
+      expect(within(modes).getByRole('button', { name: 'Year' })).toHaveAttribute(
+        'aria-pressed',
+        'true',
+      );
+      expect(document.querySelectorAll('[data-year-month]')).toHaveLength(12);
+      expect(screen.getByRole('grid', { name: 'March' })).toBeInTheDocument();
+      // Dentist (scheduled and due today, counted once) and Standup; Someday has no date.
+      const day = dayIn(today);
+      expect(day).toHaveAccessibleName(expect.stringMatching(/^Today, .+, 2 open tasks$/));
+      expect(day).toHaveAttribute('data-today');
+      expect(day.getAttribute('data-heat')).not.toBe('0');
+      const free = dayIn(today.endsWith('-06-15') ? `${year}-06-16` : `${year}-06-15`);
+      expect(free).toHaveAttribute('data-heat', '0');
+      expect(free.getAttribute('aria-label')).toMatch(/no open tasks$/);
+      expect(JSON.parse(localStorage.getItem('pecklist.calendar')!)).toMatchObject({
+        mode: 'year',
+      });
+    });
+
+    it('leaves out what is done, and follows the calendar as tasks change', async () => {
+      const { store, today, dentist } = await yearWith();
+      act(() => store.getState().apply((ctx, ws) => setTaskStatus(ctx, ws, dentist, 'done')));
+      await waitFor(() =>
+        expect(dayIn(today)).toHaveAccessibleName(
+          expect.stringMatching(/^Today, .+, 1 open task$/),
+        ),
+      );
+    });
+
+    it('counts a repeating task on the dates to come, and names each day with its weekday', async () => {
+      const { store, today, standup } = await yearWith();
+      act(() =>
+        store
+          .getState()
+          .apply((ctx, ws) => updateTask(ctx, ws, standup, { recurrence: 'FREQ=DAILY' })),
+      );
+      const next = Number(today.slice(0, 4)) + 1;
+      await userEvent.click(screen.getByRole('button', { name: 'Next' }));
+      const day = `${next}-03-10`;
+      const weekday = new Intl.DateTimeFormat(undefined, {
+        weekday: 'long',
+        timeZone: 'UTC',
+      }).format(new Date(`${day}T12:00:00Z`));
+      await waitFor(() =>
+        expect(dayIn(day)).toHaveAccessibleName(
+          expect.stringMatching(new RegExp(`^${weekday}, .+${next}, 1 open task$`)),
+        ),
+      );
+    });
+
+    it('opens a day in Days, keeping the count of days picked', async () => {
+      const { today } = await yearWith();
+      const year = today.slice(0, 4);
+      await userEvent.click(dayIn(`${year}-03-10`));
+      expect(screen.getByRole('slider', { name: 'Days shown' })).toHaveAttribute(
+        'aria-valuenow',
+        '7',
+      );
+      expect(document.querySelector('[data-cal-slots]')).toHaveAttribute(
+        'data-cal-slots',
+        `${year}-03-10`,
+      );
+    });
+
+    it('opens a month by its name', async () => {
+      const { today } = await yearWith();
+      await userEvent.click(screen.getByRole('button', { name: 'Open March' }));
+      expect(await screen.findByRole('grid', { name: 'Month' })).toBeInTheDocument();
+      expect(document.querySelector(`[data-cal-day="${today.slice(0, 4)}-03-01"]`)).not.toBeNull();
+      expect(screen.getByRole('slider', { name: 'Weeks shown' })).toBeInTheDocument();
+    });
+
+    it('pages by a year, comes back with Today, and takes that year to Month', async () => {
+      const { today, modes } = await yearWith();
+      const year = Number(today.slice(0, 4));
+      await userEvent.click(screen.getByRole('button', { name: 'Next' }));
+      expect(screen.getByRole('heading', { level: 2 })).toHaveTextContent(String(year + 1));
+      expect(dayIn(`${year + 1}-01-01`)).not.toBeNull();
+      await userEvent.click(screen.getByRole('button', { name: 'Go to today' }));
+      expect(screen.getByRole('heading', { level: 2 })).toHaveTextContent(String(year));
+      await userEvent.click(screen.getByRole('button', { name: 'Previous' }));
+      await userEvent.click(within(modes).getByRole('button', { name: 'Month' }));
+      expect(document.querySelector(`[data-cal-day="${shiftMonths(today, -12)}"]`)).not.toBeNull();
+    });
+
+    it('walks the days with the arrow keys from a single Tab stop', async () => {
+      const { today } = await yearWith();
+      const stops = document.querySelectorAll('[data-year-day][tabindex="0"]');
+      expect(stops).toHaveLength(1);
+      expect(stops[0]).toBe(dayIn(today));
+      const start = `${today.slice(0, 4)}-06-15`;
+      (dayIn(start) as HTMLElement).focus();
+      await userEvent.keyboard('{ArrowRight}{ArrowDown}');
+      expect(document.activeElement).toBe(dayIn(addDays(start, 8)));
+      expect(document.querySelectorAll('[data-year-day][tabindex="0"]')).toHaveLength(1);
+      await userEvent.keyboard('{Enter}');
+      expect(document.querySelector('[data-cal-slots]')).toHaveAttribute(
+        'data-cal-slots',
+        addDays(start, 8),
+      );
+    });
+
+    it('sets Unscheduled and the dial aside, and brings them back', async () => {
+      await calendarWith();
+      await userEvent.click(screen.getByRole('button', { name: 'Unscheduled' }));
+      expect(screen.getByRole('list', { name: 'Unscheduled' })).toBeInTheDocument();
+      const modes = screen.getByRole('group', { name: 'Calendar view' });
+      await userEvent.click(within(modes).getByRole('button', { name: 'Year' }));
+      expect(screen.queryByRole('list', { name: 'Unscheduled' })).toBeNull();
+      expect(screen.queryByRole('button', { name: 'Unscheduled' })).toBeNull();
+      expect(screen.queryByRole('slider')).toBeNull();
+      await userEvent.click(within(modes).getByRole('button', { name: 'Month' }));
+      expect(screen.getByRole('list', { name: 'Unscheduled' })).toBeInTheDocument();
+    });
   });
 
   it('picks days by dragging across them, and shows just those', async () => {

@@ -6,8 +6,10 @@ import {
   findFamilyColor,
   contrastRatio,
   ensureContrast,
+  heatShades,
   hexToRgb,
   mix,
+  PALETTE_PRESETS,
   PASTEL_NAMES,
   PRESET_TINTS,
   rgbToHex,
@@ -114,6 +116,31 @@ describe.each(['light', 'dark'] as const)('%s accent container', (mode) => {
   it('keeps today and the current pick readable', () => {
     const p = buildPalette(mode);
     expect(contrastRatio(p.onAccentContainer, p.accentContainer)).toBeGreaterThanOrEqual(WCAG_TEXT);
+  });
+});
+
+describe('year view shades (PL-093)', () => {
+  it('grow with how busy a day is and keep its number readable, in every palette and mode', () => {
+    for (const [id, preset] of Object.entries(PALETTE_PRESETS)) {
+      for (const mode of ['light', 'dark'] as const) {
+        const tint = PRESET_TINTS[id as keyof typeof PRESET_TINTS] ?? 0;
+        const palette = buildPalette(mode, preset, tint);
+        const away = (color: string) => contrastRatio(color, palette.surface);
+        const [few, some, busy] = heatShades(palette) as [
+          { fill: string; on: string },
+          { fill: string; on: string },
+          { fill: string; on: string },
+        ];
+        const where = `${id} ${mode}`;
+        expect(away(few.fill), where).toBeGreaterThan(1);
+        expect(away(some.fill), where).toBeGreaterThan(away(few.fill));
+        expect(away(busy.fill), where).toBeGreaterThan(away(some.fill));
+        expect(away(busy.fill), where).toBeGreaterThanOrEqual(WCAG_UI);
+        for (const shade of [few, some, busy]) {
+          expect(contrastRatio(shade.on, shade.fill), where).toBeGreaterThanOrEqual(WCAG_TEXT);
+        }
+      }
+    }
   });
 });
 

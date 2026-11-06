@@ -5,10 +5,10 @@ import { dateTimeFormat } from '../../core/intl.ts';
 /**
  * The calendar's heading: "October" for the month view; for the Days view "Thursday, Oct 22" (one
  * day) or "Oct 22 - 28" (several), with the year only when it is not this one ("October 2027",
- * "Dec 28, 2026 - Jan 3, 2027").
+ * "Dec 28, 2026 - Jan 3, 2027"). The year view is always just its year.
  */
 export function calendarTitle(
-  mode: 'month' | 'days',
+  mode: 'month' | 'days' | 'year',
   date: string,
   count: number,
   today: string,
@@ -18,6 +18,7 @@ export function calendarTitle(
   const format = (day: string, options: Intl.DateTimeFormatOptions) =>
     dateTimeFormat(locale, { ...options, timeZone: 'UTC' }).format(at(day));
   const thisYear = today.slice(0, 4);
+  if (mode === 'year') return format(date, { year: 'numeric' });
   if (mode === 'month') return formatMonth(date.slice(0, 7), today, locale);
   if (count <= 1) {
     const year = date.slice(0, 4) === thisYear ? undefined : 'numeric';

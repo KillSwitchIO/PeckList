@@ -3,8 +3,11 @@ import type { CalendarItem } from './calendar.ts';
 import {
   atMinutes,
   daysFrom,
+  heatLevel,
+  heatScale,
   itemsByDay,
   minutesOf,
+  openCountsByDay,
   snap,
   timedBlocks,
   weekStartOf,
@@ -41,6 +44,46 @@ describe('calendar layout', () => {
     expect(atMinutes('2026-10-24', 1440)).toBe('2026-10-25T00:00');
     expect(snap(37)).toBe(30);
     expect(snap(38)).toBe(45);
+  });
+
+  it('counts open tasks per day: spans on every day, once a task, nothing done', () => {
+    const counts = openCountsByDay(
+      [
+        item({ start: '2026-03-01' }),
+        // Its due flag on the same day adds nothing, but on another day it does.
+        item({ taskId: 'both', start: '2026-03-01' }),
+        item({ taskId: 'both', id: 'due:both', kind: 'due', start: '2026-03-01' }),
+        item({ taskId: 'late', start: '2026-03-01' }),
+        item({ taskId: 'late', id: 'due:late', kind: 'due', start: '2026-03-02' }),
+        item({ start: '2026-03-01', done: true }),
+        // A span runs up to the edge of the year and no further.
+        item({ start: '2026-12-30', end: '2027-01-02' }),
+        // A timed task ending at midnight does not reach into the next day.
+        item({ start: '2026-05-01T22:00', end: '2026-05-02T00:00' }),
+      ],
+      '2026-01-01',
+      '2026-12-31',
+    );
+    expect(Object.fromEntries(counts)).toEqual({
+      '2026-03-01': 3,
+      '2026-03-02': 1,
+      '2026-05-01': 1,
+      '2026-12-30': 1,
+      '2026-12-31': 1,
+    });
+  });
+
+  it('shades days against the year: free is level 0, the busiest third level 3', () => {
+    const scale = heatScale([0, 1, 1, 2, 3, 5, 8, 40]);
+    expect([0, 1, 2, 3, 5, 8, 40].map((count) => heatLevel(count, scale))).toEqual([
+      0, 1, 1, 2, 2, 3, 3,
+    ]);
+    // One huge day does not wash out the others.
+    expect(heatLevel(5, heatScale([1, 2, 3, 4, 5, 6, 500]))).toBe(2);
+    // A year with one kind of day has no busier ones.
+    const even = heatScale([4, 4, 4]);
+    expect(heatLevel(4, even)).toBe(1);
+    expect(heatLevel(0, heatScale([]))).toBe(0);
   });
 
   it('lists each day’s items: spans on every day, all day first, then by time, due flags last', () => {

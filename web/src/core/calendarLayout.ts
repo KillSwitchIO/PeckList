@@ -88,6 +88,61 @@ export function itemsByDay(
   return byDay;
 }
 
+/**
+ * How many open tasks fall on each day from `from` to `to`, for the year view (spec: PL-093). Days
+ * as in `itemsByDay`, but a task counts once a day, so a due flag on a day it is also scheduled
+ * adds nothing. No lists and no sorting: this runs over a whole year of items.
+ */
+export function openCountsByDay(
+  items: readonly CalendarItem[],
+  from: string,
+  to: string,
+): Map<string, number> {
+  const counts = new Map<string, number>();
+  const counted = new Set<string>();
+  for (const item of items) {
+    if (item.done) continue;
+    const { first, last } = daysOf(item);
+    const start = first < from ? from : first;
+    const end = last > to ? to : last;
+    for (let day = start; day <= end; day = addDays(day, 1)) {
+      const key = `${item.taskId}|${day}`;
+      if (counted.has(key)) continue;
+      counted.add(key);
+      counts.set(day, (counts.get(day) ?? 0) + 1);
+    }
+  }
+  return counts;
+}
+
+/** How busy a day reads: 0 is free, 3 is among the busiest. */
+export type HeatLevel = 0 | 1 | 2 | 3;
+
+/** The most tasks a day can have and still read as level 1, and as level 2. */
+export interface HeatScale {
+  few: number;
+  some: number;
+}
+
+/**
+ * The scale for a year's day counts: its days with anything on them, split in three. Relative to
+ * the year rather than fixed numbers, so a busy account still shows its free weeks and a quiet one
+ * its busier days, and one huge day (an import) does not wash out the rest as a share of the
+ * largest count would.
+ */
+export function heatScale(counts: Iterable<number>): HeatScale {
+  const sorted = [...counts].filter((count) => count > 0).sort((a, b) => a - b);
+  const at = (share: number) => sorted[Math.floor((sorted.length - 1) * share)] ?? 0;
+  return { few: at(1 / 3), some: at(2 / 3) };
+}
+
+/** The level a day with `count` open tasks reads as. */
+export function heatLevel(count: number, scale: HeatScale): HeatLevel {
+  if (count <= 0) return 0;
+  if (count <= scale.few) return 1;
+  return count <= scale.some ? 2 : 3;
+}
+
 /** Whether an item started before `day` (it continues from the day before). */
 export function continuesFrom(item: CalendarItem, day: string): boolean {
   return datePart(item.start) < day;
