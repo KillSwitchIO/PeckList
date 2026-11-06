@@ -35,7 +35,7 @@ Vite's native file watcher on Windows missed edits (git branch switches, scripte
 - Schema changes: bump `schemaVersion`, add a migration, fixtures and `docs/migrations/<N>.md`.
 - Merge changes must keep `schema/fixtures/merge` passing; add a fixture for any new rule.
 - Tests pin behavior. Coverage thresholds are a safety net, not a target; do not chase the number.
-- Trunk-based: short branches, squash merges, Conventional Commits with `Refs: PL-xxx`. Local commits only; never push unless Ben asks.
+- Trunk-based: short branches, squash merges, Conventional Commits with `Refs: PL-xxx`. Push your branch and land it through the merge queue in the vault's `PeckList/Agents/Agent Playbook.md`; never merge by hand. Production moves only when Ben asks for it by name.
 - All user-facing strings go through `t()` in `web/src/app/i18n`.
 - Never use em dashes in docs or UI copy.
 - Icons: PeckList's own SVG icons live in `web/src/app/icons/icons.tsx` (24 x 24 grid, 1.75 round strokes, no fills, `currentColor`). Ben wants our own icons for a consistent theme: draw new ones there in that style rather than reaching for a Material icon, and replace Material icons with ours as screens get reworked.
