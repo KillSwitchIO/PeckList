@@ -412,6 +412,14 @@ describe('making an account', () => {
     ).toBeInTheDocument();
     expect(screen.queryByLabelText(/Username/)).toBeNull();
   });
+
+  it('a mangled invite link says it has run out rather than leave a blank page', async () => {
+    window.history.replaceState(null, '', '/join/%E0');
+    await serverApp(new FakeBackend());
+    expect(
+      await screen.findByRole('heading', { name: 'This invite has run out' }),
+    ).toBeInTheDocument();
+  });
 });
 
 describe('a forgotten password (PL-122)', () => {
@@ -469,6 +477,14 @@ describe('a forgotten password (PL-122)', () => {
     expect(await screen.findByText('This link no longer works')).toBeInTheDocument();
     await userEvent.click(screen.getByRole('button', { name: 'Ask for a new link' }));
     expect(await screen.findByRole('button', { name: 'Send the link' })).toBeInTheDocument();
+  });
+
+  it('a mangled reset link says it no longer works rather than leave a blank page', async () => {
+    const backend = new FakeBackend();
+    backend.passwordReset = true;
+    window.history.replaceState(null, '', '/reset/%E0');
+    await serverApp(backend);
+    expect(await screen.findByText('This link no longer works')).toBeInTheDocument();
   });
 });
 

@@ -159,6 +159,7 @@ const WEEK_CHOICES = Array.from({ length: MAX_WEEKS - MIN_WEEKS + 1 }, (_, i) =>
 export function CalendarPage() {
   const theme = useTheme();
   const phone = useMediaQuery(theme.breakpoints.down('md'));
+  const narrow = useMediaQuery(theme.breakpoints.down('sm'));
   const workspace = useWorkspace();
   const { workspace: shown, button: narrowButton } = useNarrowed('calendar');
   const apply = useApply();
@@ -345,7 +346,14 @@ export function CalendarPage() {
 
   const title =
     mode === 'month'
-      ? calendarTitle('month', `${view?.month ?? today.slice(0, 7)}-01`, prefs.days, today)
+      ? calendarTitle(
+          'month',
+          `${view?.month ?? today.slice(0, 7)}-01`,
+          prefs.days,
+          today,
+          undefined,
+          narrow,
+        )
       : calendarTitle(mode, date, prefs.days, today);
   const panel = (
     <Unscheduled
@@ -412,6 +420,7 @@ export function CalendarPage() {
                 maxWidth: '100%',
                 justifyContent: 'flex-start',
                 '& > span:first-of-type': { overflow: 'hidden', textOverflow: 'ellipsis' },
+                '& .MuiButton-endIcon': { ml: { xs: 0.25, sm: 1 } },
               }}
             >
               <Box component="span" sx={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>
@@ -469,21 +478,21 @@ export function CalendarPage() {
             <ToggleButton
               value="year"
               aria-label={t('calendar.year')}
-              sx={{ px: phone ? 0.75 : 1.5 }}
+              sx={{ px: narrow ? 0.5 : phone ? 0.75 : 1.5 }}
             >
               {phone ? <YearViewIcon fontSize="small" /> : t('calendar.year')}
             </ToggleButton>
             <ToggleButton
               value="month"
               aria-label={t('calendar.month')}
-              sx={{ px: phone ? 0.75 : 1.5 }}
+              sx={{ px: narrow ? 0.5 : phone ? 0.75 : 1.5 }}
             >
               {phone ? <MonthViewIcon fontSize="small" /> : t('calendar.month')}
             </ToggleButton>
             <ToggleButton
               value="days"
               aria-label={t('calendar.days')}
-              sx={{ px: phone ? 0.75 : 1.5 }}
+              sx={{ px: narrow ? 0.5 : phone ? 0.75 : 1.5 }}
             >
               {phone ? <DaysViewIcon fontSize="small" /> : t('calendar.days')}
             </ToggleButton>

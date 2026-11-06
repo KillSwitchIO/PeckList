@@ -12,6 +12,12 @@ describe('calendar title', () => {
     expect(calendarTitle('days', '2026-10-31', 3, TODAY, 'en-US')).toBe('Oct 31 - Nov 2');
   });
 
+  it('shortens only a month in another year on a narrow screen', () => {
+    expect(calendarTitle('month', '2027-09-15', 7, TODAY, 'en-US', true)).toBe('Sep 2027');
+    expect(calendarTitle('month', '2026-09-15', 7, TODAY, 'en-US', true)).toBe('September');
+    expect(calendarTitle('month', '2027-09-15', 7, TODAY, 'en-US')).toBe('September 2027');
+  });
+
   it('names the year in the year view, this one too', () => {
     expect(calendarTitle('year', '2026-10-22', 7, TODAY, 'en-US')).toBe('2026');
     expect(calendarTitle('year', '2027-01-04', 7, TODAY, 'en-US')).toBe('2027');

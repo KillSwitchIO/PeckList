@@ -1,5 +1,5 @@
 import { Button, Snackbar } from '@mui/material';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useRegisterSW } from 'virtual:pwa-register/react';
 import { t } from '../i18n/i18n.ts';
 import { useSyncState } from '../sync/syncContext.ts';
@@ -13,25 +13,32 @@ const CHECK_EVERY_MS = 60 * 60 * 1000;
  * stopped, so it says so plainly, looks for the new version at once, and reloads into it.
  */
 export function UpdatePrompt() {
-  const registration = useRef<ServiceWorkerRegistration | null>(null);
+  const [registration, setRegistration] = useState<ServiceWorkerRegistration | null>(null);
   const {
     needRefresh: [needRefresh, setNeedRefresh],
     offlineReady: [offlineReady, setOfflineReady],
     updateServiceWorker,
   } = useRegisterSW({
     onRegisteredSW(_url, found) {
-      if (!found) return;
-      registration.current = found;
-      setInterval(() => void found.update().catch(() => undefined), CHECK_EVERY_MS);
+      if (found) setRegistration(found);
     },
   });
   const tooOld = useSyncState((state) => state.status === 'app-update');
   const [laterTooOld, setLaterTooOld] = useState(false);
 
+  useEffect(() => {
+    if (!registration) return;
+    const timer = setInterval(
+      () => void registration.update().catch(() => undefined),
+      CHECK_EVERY_MS,
+    );
+    return () => clearInterval(timer);
+  }, [registration]);
+
   // The server is ahead: fetch the new version now rather than at the next hourly check.
   useEffect(() => {
-    if (tooOld) void registration.current?.update().catch(() => undefined);
-  }, [tooOld]);
+    if (tooOld) void registration?.update().catch(() => undefined);
+  }, [tooOld, registration]);
 
   const close = () => {
     setNeedRefresh(false);
