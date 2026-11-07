@@ -44,6 +44,20 @@ const reader = () => {
 };
 
 describe('dates as words', () => {
+  it.each([
+    ['behind', 'Pacific/Pago_Pago', '2026-11-07', '2026-11-07T09:00'],
+    ['ahead of', 'Pacific/Kiritimati', '2026-11-09', '2026-11-08T09:00'],
+  ])('counts from a zone %s the browser', (_where, timeZone, tomorrow, nineAm) => {
+    const read = dateReader({
+      workspace: createWorkspace(testContext()),
+      parser: createChronoDateParser(),
+      reference: new Date('2026-11-07T10:30:00Z'),
+      timeZone,
+    });
+    expect(read('tomorrow')?.schedule?.start).toBe(tomorrow);
+    expect(read('9am')?.schedule?.start).toBe(nineAm);
+  });
+
   it('reads the dates and repeats Todoist writes, and writes ours back as it reads them', () => {
     const read = reader();
     expect(read('2026-11-04')).toEqual({

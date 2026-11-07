@@ -3,7 +3,7 @@ import OpenInFullRounded from '@mui/icons-material/OpenInFullRounded';
 import AddRounded from '@mui/icons-material/AddRounded';
 import { Box, Chip, IconButton, InputBase, Tooltip } from '@mui/material';
 import { useState, type ReactElement } from 'react';
-import { localTimeZone } from '../../core/dates.ts';
+import { localTimeZone, wallClock } from '../../core/dates.ts';
 import {
   createFromQuickAdd,
   parseQuickAdd,
@@ -115,7 +115,13 @@ export function AddTaskInput({
       : [];
   const parsed =
     parser && title.trim()
-      ? parseQuickAdd(title, { workspace, parser, reference: new Date(), people, ignore })
+      ? parseQuickAdd(title, {
+          workspace,
+          parser,
+          reference: wallClock(localTimeZone(), new Date()),
+          people,
+          ignore,
+        })
       : null;
   const quick = parsed !== null && parsed.tokens.length > 0 && parsed.title !== '';
 
