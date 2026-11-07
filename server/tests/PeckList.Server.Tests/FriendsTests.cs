@@ -183,4 +183,74 @@ public sealed class FriendsTests(ServerFixture fixture) : IClassFixture<ServerFi
         Assert.Null(back["deletedAt"]);
         Assert.Equal("accepted", (string?)back["state"]);
     }
+
+    private static string Later(int seconds = 1) =>
+        $"{DateTimeOffset.UtcNow.AddSeconds(seconds):yyyy-MM-dd'T'HH:mm:ss.fff'Z'}-0000-dev1";
+
+    private static async Task<IReadOnlyList<string>> Push(HttpClient client, JsonObject friendship)
+    {
+        var answer = await client.PostAsJsonAsync("/api/sync", new
+        {
+            schemaVersion = WorkspaceSchema.CurrentVersion,
+            changes = new[] { new { collection = "friendships", entity = friendship } },
+        }, Token);
+        answer.EnsureSuccessStatusCode();
+        return (await answer.Content.ReadFromJsonAsync<JsonObject>(Token))!["rejected"]!.AsArray().Select(id => (string)id!).ToList();
+    }
+
+    /// <summary>Two people made friends by a link, and <paramref name="ender"/> ending it. Returns the row's id.</summary>
+    private async Task<string> EndedFriendship(HttpClient linkOwner, HttpClient other, HttpClient ender)
+    {
+        var code = (await linkOwner.GetFromJsonAsync<FriendCode>("/api/friends/code", Token))!.Code;
+        var id = (await (await other.PostAsync($"/api/friends/link/{code}", null, Token)).Content.ReadFromJsonAsync<FriendshipAccepted>(Token))!.FriendshipId;
+        var friendship = (await PullAll(ender))[id];
+        friendship["deletedAt"] = "2026-10-21T12:00:00.000Z";
+        friendship["_hlc"]!["deletedAt"] = Later(0);
+        Assert.Empty(await Push(ender, friendship));
+        return id;
+    }
+
+    private bool Know(string a, string b) => factory.Services.GetRequiredService<SharingState>().Index.Knows(a, b);
+
+    [Fact]
+    public async Task After_an_end_and_a_new_request_the_live_friendship_is_the_one_used()
+    {
+        var (ben, benId) = await SignIn("ben9");
+        var (sam, samId) = await SignIn("sam9");
+        var friends = factory.Services.GetRequiredService<Friends>();
+        var sharing = factory.Services.GetRequiredService<SharingState>();
+        var ended = await EndedFriendship(ben, sam, ben);
+
+        var request = (await PullAll(sam))[ended].DeepClone().AsObject();
+        var live = Ids.NewUlid();
+        request["id"] = live;
+        request["userA"] = samId;
+        request["userB"] = benId;
+        request["state"] = "pending";
+        request["createdBy"] = samId;
+        request["deletedAt"] = null;
+        foreach (var clock in request["_hlc"]!.AsObject().Select(pair => pair.Key).ToList()) request["_hlc"]![clock] = Later(0);
+        Assert.Empty(await Push(sam, request));
+        var asked = (await PullAll(ben))[live];
+        asked["state"] = "accepted";
+        asked["_hlc"]!["state"] = Later();
+        Assert.Empty(await Push(ben, asked));
+
+        // A friend link and an admin both find the live one, and the ended one stays ended.
+        var code = (await ben.GetFromJsonAsync<FriendCode>("/api/friends/code", Token))!.Code;
+        Assert.Equal(live, (await (await sam.PostAsync($"/api/friends/link/{code}", null, Token)).Content.ReadFromJsonAsync<FriendshipAccepted>(Token))!.FriendshipId);
+        await Task.Delay(1100, Token);
+        Assert.Equal(live, await friends.MakeFriendsAsync(benId, samId, cancellation: Token));
+        Assert.NotNull((await PullAll(ben))[ended]["deletedAt"]);
+
+        Assert.Single(sharing.Index.FriendshipsOf(benId), each => each.Other == samId);
+        Assert.Equal("accepted", (await ben.GetFromJsonAsync<ProfilePreview>("/api/users/lookup?q=sam9", Token))!.Friendship);
+
+        // An admin can end it, and then there is nothing left to end.
+        Assert.True(await friends.EndFriendshipAsync(benId, samId, Token));
+        Assert.False(Know(benId, samId));
+        Assert.Empty(sharing.Index.FriendshipsOf(benId));
+        Assert.False(await friends.EndFriendshipAsync(benId, samId, Token));
+        Assert.Null((await ben.GetFromJsonAsync<ProfilePreview>("/api/users/lookup?q=sam9", Token))!.Friendship);
+    }
 }
