@@ -40,7 +40,7 @@ export interface QuickAdd {
 export interface QuickAddContext {
   workspace: WorkspaceFile;
   parser: DateParser;
-  /** "Now", for relative dates */
+  /** Now, as the person's wall clock (`wallClock`): "today" and "9am" count from its local parts. */
   reference: Date;
   /** Who @ can name (the assignee picker's people); none without a server */
   people?: readonly AssigneeOption[];

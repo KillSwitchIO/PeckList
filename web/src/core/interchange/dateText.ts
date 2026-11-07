@@ -2,7 +2,7 @@
 // quick add reads them (spec: PL-022, PL-063), and ours written back as words those apps read.
 
 import type { DateParser } from '../../ports/dateParser.ts';
-import { addDays, datePart, localDayOf, timePart } from '../dates.ts';
+import { addDays, datePart, localDayOf, timePart, wallClock } from '../dates.ts';
 import { parseQuickAdd } from '../quickAdd.ts';
 import { formatRule, nextOccurrence, parseRule, type Recurrence } from '../recurrence.ts';
 import type { Schedule, WorkspaceFile } from '../types.ts';
@@ -24,6 +24,7 @@ export function dateReader(options: {
   reference: Date;
   timeZone: string;
 }): DateReader {
+  const reference = wallClock(options.timeZone, options.reference);
   return (text) => {
     const clean = text.trim();
     if (!clean) return null;
@@ -53,16 +54,16 @@ export function dateReader(options: {
       parseQuickAdd(rest!, {
         workspace: options.workspace,
         parser: options.parser,
-        reference: options.reference,
+        reference,
       });
     let at = parsed.schedule ?? (parsed.due ? { start: parsed.due, end: null } : null);
     const starting = startingText
-      ? options.parser.find(startingText, options.reference)[0]?.start
+      ? options.parser.find(startingText, reference)[0]?.start
       : undefined;
     if (starting) at = { start: { date: starting.date, time: at?.start.time ?? null }, end: null };
     if (!at && !parsed.recurrence) return null;
     let recurrence = parsed.recurrence;
-    const until = untilText ? options.parser.find(untilText, options.reference)[0]?.start : null;
+    const until = untilText ? options.parser.find(untilText, reference)[0]?.start : null;
     if (recurrence && (fromCompletion || until)) {
       const rule = parseRule(recurrence);
       if (rule) {
@@ -142,7 +143,9 @@ function monthlyRepeat(
   }
   if (!rule) return null;
   // Anything after it must be a time ("at 9am"), or it is some other kind of date.
-  const time = tail.trim() ? options.parser.find(tail, options.reference)[0] : undefined;
+  const time = tail.trim()
+    ? options.parser.find(tail, wallClock(options.timeZone, options.reference))[0]
+    : undefined;
   if (tail.trim() && !time?.start.time) return null;
   const today = localDayOf(options.reference.toISOString(), options.timeZone);
   const first = nextOccurrence(rule, today, addDays(today, -1)) ?? today;

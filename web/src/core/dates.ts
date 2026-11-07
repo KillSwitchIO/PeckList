@@ -89,6 +89,19 @@ export function isTimeZone(zone: string): boolean {
   }
 }
 
+/**
+ * `now` as a Date whose local parts read the wall clock in `timeZone`. A date parser reads local
+ * parts, so this is what makes its "today" and "9am" the person's and not the browser's. It is not
+ * the real instant: use it only to read parts from. A time the browser's own zone skips moves
+ * forward an hour, which changes the date only where a zone skips the hour before midnight.
+ */
+export function wallClock(timeZone: string, now: Date): Date {
+  const [year, month, day, hour, minute] = localDateTimeOf(now.toISOString(), timeZone)
+    .split(/[-T:]/)
+    .map(Number) as [number, number, number, number, number];
+  return new Date(year, month - 1, day, hour, minute);
+}
+
 /** The device's own time zone. */
 export function deviceTimeZone(): string {
   return Intl.DateTimeFormat().resolvedOptions().timeZone;

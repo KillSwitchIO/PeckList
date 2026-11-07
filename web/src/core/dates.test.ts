@@ -5,6 +5,7 @@ import {
   joinDateTime,
   localDateTimeOf,
   monthGrid,
+  wallClock,
   monthOf,
   shiftMonths,
   weekday,
@@ -12,6 +13,24 @@ import {
   localTimeZone,
   setTimeZone,
 } from './dates.ts';
+
+describe('wallClock', () => {
+  it('reads the zone behind or ahead of the browser, not the browser', () => {
+    const now = new Date('2026-11-07T10:30:00Z');
+    const read = (zone: string) => {
+      const clock = wallClock(zone, now);
+      return [
+        clock.getFullYear(),
+        clock.getMonth() + 1,
+        clock.getDate(),
+        clock.getHours(),
+        clock.getMinutes(),
+      ];
+    };
+    expect(read('Pacific/Pago_Pago')).toEqual([2026, 11, 6, 23, 30]);
+    expect(read('Pacific/Kiritimati')).toEqual([2026, 11, 8, 0, 30]);
+  });
+});
 
 describe('calendar helpers', () => {
   it('shifts months across years and finds weekdays', () => {
