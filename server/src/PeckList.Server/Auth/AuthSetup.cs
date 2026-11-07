@@ -12,6 +12,7 @@ using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Options;
 using PeckList.Core.Accounts;
 using PeckList.Core.Configuration;
+using PeckList.Server.Audit;
 
 namespace PeckList.Server.Auth;
 
@@ -288,7 +289,8 @@ public static class AuthSetup
 
     /// <summary>After migrations: the admin (local) or the owner (none).</summary>
     private sealed class AccountStartup(
-        AccountService accounts, ServerSettings settings, OwnerAccount owner, StartupConsole console, ILogger<AccountStartup> logger)
+        AccountService accounts, IAccountStore store, ExternalSignIn signIn, AuditLog audit, ServerSettings settings,
+        OwnerAccount owner, StartupConsole console, ILogger<AccountStartup> logger)
         : IHostedService
     {
         public async Task StartAsync(CancellationToken cancellation)
@@ -299,7 +301,14 @@ public static class AuthSetup
                 logger.LogWarning("AUTH_MODE=none: no login. Anyone who can reach this server has full access to its data.");
                 return;
             }
-            var password = await accounts.EnsureAdminAsync(settings.AdminPassword, cancellation);
+            var admin = await store.FindByUsernameAsync(AccountService.AdminUsername, cancellation);
+            var withoutPassword = admin is { PasswordHash: null };
+            var otherWayIn = withoutPassword && await signIn.CanSignInAsync(admin!, cancellation);
+            var password = await accounts.EnsureAdminAsync(settings.AdminPassword, otherWayIn, cancellation);
+            if (withoutPassword && !otherWayIn)
+            {
+                audit.RecordSystem("auth.admin-password-given", detail: settings.AdminPassword is null ? "source=generated" : "source=setting");
+            }
             if (password is not null)
             {
                 // Shown once, on purpose (spec: Accounts & Admin, Default admin). Straight to the

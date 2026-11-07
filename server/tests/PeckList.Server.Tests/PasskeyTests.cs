@@ -2,8 +2,11 @@ using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json.Nodes;
 using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.DependencyInjection;
 using PeckList.Core.Accounts;
+using PeckList.Core.Audit;
+using PeckList.Server.Audit;
 using PeckList.Server.Auth;
 
 namespace PeckList.Server.Tests;
@@ -109,6 +112,66 @@ public sealed class PasskeyTests(ServerFixture fixture) : IClassFixture<ServerFi
         Assert.Equal(HttpStatusCode.OK, (await stranger.PostAsJsonAsync("/auth/passkey/sign-in", new { ceremony, credential = answer }, Token)).StatusCode);
         Assert.Equal(HttpStatusCode.Unauthorized,
             (await Browser(server).PostAsJsonAsync("/auth/passkey/sign-in", new { ceremony, credential = answer }, Token)).StatusCode);
+    }
+
+    private static async Task<IReadOnlyList<AuditEntry>> AuditEntries(WebApplicationFactory<Program> server)
+    {
+        await server.Services.GetRequiredService<AuditLog>().FlushAsync(Token);
+        return (await server.Services.GetRequiredService<IAuditStore>().QueryAsync(new AuditQuery { Ascending = true }, Token)).Entries;
+    }
+
+    [Theory]
+    [InlineData("the old value")]
+    [InlineData("no value")]
+    [InlineData("a value too long to check")]
+    public async Task An_admin_that_gave_up_its_password_stays_without_one_at_a_restart(string setting)
+    {
+        var db = fixture.NewDbPath();
+        using var phone = new SoftAuthenticator(Site);
+        string stamp;
+        using (var first = Server(("DB_PATH", db)))
+        {
+            var admin = await LogIn(first, "admin", AdminPassword);
+            await AddPasskey(admin, phone);
+            Assert.Equal(HttpStatusCode.NoContent,
+                (await admin.PostAsJsonAsync("/api/account/password/remove", new { current = AdminPassword }, Token)).StatusCode);
+            stamp = (await first.Services.GetRequiredService<IAccountStore>().FindByUsernameAsync("admin", Token))!.SecurityStamp;
+        }
+
+        (string, string)[] settings = setting switch
+        {
+            "the old value" => [("ADMIN_PASSWORD", AdminPassword)],
+            "no value" => [],
+            _ => [("ADMIN_PASSWORD", new string('x', AccountService.MaxTriedPasswordLength + 1))],
+        };
+        var console = new StringWriter();
+        using var restarted = fixture.Factory([("PUBLIC_URL", Site), ("DB_PATH", db), .. settings])
+            .WithWebHostBuilder(host => host.ConfigureTestServices(services => services.AddSingleton(new StartupConsole(console))));
+
+        var after = (await restarted.Services.GetRequiredService<IAccountStore>().FindByUsernameAsync("admin", Token))!;
+        Assert.Null(after.PasswordHash);
+        Assert.Equal(stamp, after.SecurityStamp);
+        Assert.Equal(string.Empty, console.ToString());
+        Assert.Equal(HttpStatusCode.Unauthorized,
+            (await Browser(restarted).PostAsJsonAsync("/auth/login", new { username = "admin", password = AdminPassword }, Token)).StatusCode);
+        Assert.Equal(HttpStatusCode.OK, (await SignInWith(Browser(restarted), phone)).StatusCode);
+        Assert.DoesNotContain(await AuditEntries(restarted), entry => entry.Type == "auth.admin-password-given");
+    }
+
+    [Fact]
+    public async Task An_admin_with_no_way_in_gets_a_password_at_a_start_and_the_audit_log_says_so()
+    {
+        var db = fixture.NewDbPath();
+        using (var open = fixture.Factory(("AUTH_MODE", "none"), ("DB_PATH", db)))
+        {
+            Assert.NotNull(open.Services);
+        }
+
+        using var local = Server(("DB_PATH", db));
+
+        await LogIn(local, "admin", AdminPassword);
+        var given = Assert.Single(await AuditEntries(local), entry => entry.Type == "auth.admin-password-given");
+        Assert.Equal("source=setting", given.Detail);
     }
 
     [Fact]

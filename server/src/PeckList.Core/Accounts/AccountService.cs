@@ -128,14 +128,20 @@ public sealed class AccountService(IAccountStore store, IPasswordHasher hasher, 
     /// <summary>
     /// Make sure the admin exists and can log in. Returns the password to show once when one was
     /// generated, else null. <paramref name="configuredPassword"/> (ADMIN_PASSWORD) is used instead
-    /// of generating one, and needs no change on first login.
+    /// of generating one, and needs no change on first login. With <paramref name="keepWithoutPassword"/>
+    /// an admin that has no password stays that way: it has another way in, and doing without a password
+    /// was its own choice.
     /// </summary>
-    public async Task<string?> EnsureAdminAsync(string? configuredPassword, CancellationToken cancellation = default)
+    public async Task<string?> EnsureAdminAsync(string? configuredPassword, bool keepWithoutPassword, CancellationToken cancellation = default)
     {
-        var password = await EnsureAdminPasswordAsync(configuredPassword, cancellation);
+        var password = keepWithoutPassword ? null : await EnsureAdminPasswordAsync(configuredPassword, cancellation);
         await EnsureSuperAdminAsync(cancellation);
         return password;
     }
+
+    /// <inheritdoc cref="EnsureAdminAsync(string?, bool, CancellationToken)"/>
+    public Task<string?> EnsureAdminAsync(string? configuredPassword, CancellationToken cancellation = default) =>
+        EnsureAdminAsync(configuredPassword, keepWithoutPassword: false, cancellation);
 
     private async Task<string?> EnsureAdminPasswordAsync(string? configuredPassword, CancellationToken cancellation)
     {
@@ -159,7 +165,7 @@ public sealed class AccountService(IAccountStore store, IPasswordHasher hasher, 
         }
         else
         {
-            // Made while AUTH_MODE was none: give it a password now.
+            // No way in at all, as when made while AUTH_MODE was none: give it a password now.
             await store.UpdateAsync(admin with
             {
                 PasswordHash = hasher.Hash(password),
