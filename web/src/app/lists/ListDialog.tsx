@@ -10,7 +10,7 @@ import {
   Typography,
 } from '@mui/material';
 import { submitOnShiftEnter } from '../hooks/keys.ts';
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import { buildPalette } from '../../core/palette.ts';
 import type { List } from '../../core/types.ts';
 import { ColorPicker } from '../colors/ColorPicker.tsx';
@@ -142,17 +142,21 @@ export function ConfirmDialog({
   confirmLabel,
   onClose,
   onConfirm,
+  children,
 }: {
   open: boolean;
   message: string;
   confirmLabel: string;
   onClose: () => void;
   onConfirm: () => void;
+  /** Choices that go with the question, under it. */
+  children?: ReactNode;
 }) {
   return (
     <Dialog open={open} onClose={onClose} maxWidth="xs">
       <DialogContent>
         <Typography>{message}</Typography>
+        {children}
       </DialogContent>
       <DialogActions>
         <Button onClick={onClose}>{t('common.cancel')}</Button>

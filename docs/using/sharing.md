@@ -11,7 +11,11 @@ You share with friends, so start there:
   sign in, accept, and you are friends. **New link** stops the old one from working.
 - **Add a friend**: type their exact username and **Ask to be friends**. They accept or decline under
   **Requests**; you can take a request back while it waits.
-- **Unfriend** ends it.
+- **Unfriend** ends it. If they are on lists you own, or have tasks of yours assigned to them, it
+  also offers to remove them from those, ticked by default. Leave it ticked and those disappear from
+  their devices; untick it and the shares stay. Lists they own or that you only joined stay as they
+  are, and so does anything they reach through a group. Anyone with your friend link, including
+  someone you unfriended, can use it again to become friends, unless you press **New link**.
 
 An admin can also make two people friends (**Admin > Users > Friends**).
 
