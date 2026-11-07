@@ -1527,6 +1527,11 @@ export const en = {
   'undo.stoppedSharing': 'Stopped sharing',
   'friends.madeBy': 'Made by {name}',
   'friends.unfriendConfirm': 'Stop being friends with {name}?',
+  'friends.unfriendLinkHint':
+    'Anyone with your friend link can use it again to become friends, unless you press New link.',
+  'friends.unfriendShares': 'Also remove {name} from the lists and tasks you own',
+  'friends.unfriendSharesHint':
+    'Lists they own or that you only joined stay as they are, and so does anything they reach through a group.',
   'friends.needsServer':
     'Friends need a PeckList server. On this device, PeckList runs on its own.',
   'friendLink.title': 'Friend request',

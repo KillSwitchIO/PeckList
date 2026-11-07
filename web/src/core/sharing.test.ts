@@ -1,10 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import { createAjvValidator } from '../adapters/ajv-validator.ts';
 import { sampleTask, testContext } from '../test/fixtures.ts';
-import { putEntity } from './collections.ts';
+import { isLive, putEntity } from './collections.ts';
 import { acceptGroupInvite, createGroup, inviteToGroup } from './groups.ts';
-import { createList } from './lists.ts';
-import { createEntity } from './ops.ts';
+import { createList, deleteList, inboxList, restoreList } from './lists.ts';
+import { createEntity, type OpContext } from './ops.ts';
 import {
   acceptFriendship,
   assigneesOf,
@@ -21,13 +21,16 @@ import {
   isShared,
   listMembersOf,
   makePrivate,
+  mySharesWith,
   removeMember,
   roleOn,
   sendFriendRequest,
   setAssignee,
   shareList,
   sharedWithMe,
+  unfriend,
 } from './sharing.ts';
+import { createTask, deleteTask, restoreTask } from './tasks.ts';
 import type { GroupMember, User, WorkspaceFile } from './types.ts';
 import { createWorkspace } from './workspace.ts';
 
@@ -117,6 +120,91 @@ describe('list sharing', () => {
     const { ben, workspace } = benWorld();
     const inbox = workspace.entities.lists.find((list) => list.isInbox)!;
     expect(shareList(ben, workspace, inbox.id, `user:${SAM}`, 'editor')).toBe(workspace);
+  });
+
+  describe('unfriending', () => {
+    const friendship = (workspace: WorkspaceFile, ctx: OpContext) => {
+      const asked = sendFriendRequest(ctx, workspace, SAM);
+      return { workspace: asked, friendship: asked.entities.friendships.at(-1)! };
+    };
+
+    it('takes back what is in the Trash too, so restoring it shares nothing', () => {
+      const { ben, workspace, list } = benWorld();
+      const asked = friendship(workspace, ben);
+      const shared = shareList(ben, asked.workspace, list.id, `user:${SAM}`, 'editor');
+      const made = createTask(ben, shared, { title: 'Binned', listId: inboxList(shared).id });
+      const assigned = setAssignee(ben, made.workspace, made.task.id, `user:${SAM}`, true);
+      const binned = deleteTask(ben, deleteList(ben, assigned, list.id), made.task.id);
+      expect(mySharesWith(binned, BEN, SAM).members).toHaveLength(1);
+      expect(mySharesWith(binned, BEN, SAM).tasks).toHaveLength(1);
+
+      const after = unfriend(ben, binned, { friendship: asked.friendship, userId: SAM }, true);
+      const back = restoreTask(ben, restoreList(ben, after, list.id), made.task.id);
+      expect(roleOn(back, SAM, list.id)).toBeNull();
+      expect(assigneesOf(getTask(back, made.task.id)!)).toEqual([]);
+    });
+
+    it('takes back my lists and tasks in one change, and ends the friendship', () => {
+      const { ben, workspace, list } = benWorld();
+      const asked = friendship(workspace, ben);
+      let world = shareList(ben, asked.workspace, list.id, `user:${SAM}`, 'editor');
+      world = shareList(ben, world, list.id, `user:${JO}`, 'editor');
+      const made = createTask(ben, world, { title: 'On the list', listId: list.id });
+      world = setAssignee(ben, made.workspace, made.task.id, `user:${SAM}`, true);
+      world = setAssignee(ben, world, made.task.id, `user:${JO}`, true);
+      const drawer = createTask(ben, world, { title: 'In my drawer', listId: inboxList(world).id });
+      world = setAssignee(ben, drawer.workspace, drawer.task.id, `user:${SAM}`, true);
+      expect(mySharesWith(world, BEN, SAM).members).toHaveLength(1);
+      expect(mySharesWith(world, BEN, SAM).tasks).toHaveLength(2);
+
+      const after = unfriend(ben, world, { friendship: asked.friendship, userId: SAM }, true);
+      expect(roleOn(after, SAM, list.id)).toBeNull();
+      expect(assigneesOf(getTask(after, made.task.id)!)).toEqual([`user:${JO}`]);
+      expect(assigneesOf(getTask(after, drawer.task.id)!)).toEqual([]);
+      expect(mySharesWith(after, BEN, SAM)).toEqual({ members: [], tasks: [] });
+      expect(isLive(after.entities.friendships.find((f) => f.id === asked.friendship.id)!)).toBe(
+        false,
+      );
+      // Someone else on the list keeps their place.
+      expect(roleOn(after, JO, list.id)).toBe('editor');
+    });
+
+    it('leaves the shares alone when asked to', () => {
+      const { ben, workspace, list } = benWorld();
+      const asked = friendship(workspace, ben);
+      let world = shareList(ben, asked.workspace, list.id, `user:${SAM}`, 'editor');
+      const made = createTask(ben, world, { title: 'On the list', listId: list.id });
+      world = setAssignee(ben, made.workspace, made.task.id, `user:${SAM}`, true);
+
+      const after = unfriend(ben, world, { friendship: asked.friendship, userId: SAM }, false);
+      expect(roleOn(after, SAM, list.id)).toBe('editor');
+      expect(assigneesOf(getTask(after, made.task.id)!)).toEqual([`user:${SAM}`]);
+      expect(isLive(after.entities.friendships.find((f) => f.id === asked.friendship.id)!)).toBe(
+        false,
+      );
+    });
+
+    it('does not touch lists they own, or that I only joined', () => {
+      const { ben, workspace } = benWorld();
+      const asked = friendship(workspace, ben);
+      const sam = as(SAM);
+      // Sam's list, shared with me: I am on it, and so is Sam's task on it.
+      const theirs = createList(sam, asked.workspace, { name: 'Theirs', color: '#CFE3A3' });
+      let world = shareList(sam, theirs.workspace, theirs.list.id, `user:${BEN}`, 'owner');
+      const task = createTask(sam, world, { title: 'Sam has this', listId: theirs.list.id });
+      world = setAssignee(sam, task.workspace, task.task.id, `user:${SAM}`, true);
+      // Jo's list, with both of us on it.
+      const jo = as(JO);
+      const other = createList(jo, world, { name: 'Jo', color: '#CFE3A3' });
+      world = shareList(jo, other.workspace, other.list.id, `user:${BEN}`, 'editor');
+      world = shareList(jo, world, other.list.id, `user:${SAM}`, 'editor');
+
+      expect(mySharesWith(world, BEN, SAM)).toEqual({ members: [], tasks: [] });
+      const after = unfriend(ben, world, { friendship: asked.friendship, userId: SAM }, true);
+      expect(roleOn(after, BEN, theirs.list.id)).toBe('owner');
+      expect(roleOn(after, SAM, other.list.id)).toBe('editor');
+      expect(assigneesOf(getTask(after, task.task.id)!)).toEqual([`user:${SAM}`]);
+    });
   });
 
   it('members leave or are removed; making it private removes everyone', () => {

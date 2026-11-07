@@ -9,7 +9,7 @@ import { createSyncEngine } from '../sync/syncEngine.ts';
 import { putEntity } from '../../core/collections.ts';
 import { createList, inboxList } from '../../core/lists.ts';
 import { createEntity } from '../../core/ops.ts';
-import { setAssignee, shareList } from '../../core/sharing.ts';
+import { assigneesOf, sendFriendRequest, setAssignee, shareList } from '../../core/sharing.ts';
 import { createTask } from '../../core/tasks.ts';
 import type { User } from '../../core/types.ts';
 
@@ -113,6 +113,81 @@ describe('friends page', () => {
   it('says friends need a server when there is none', async () => {
     await renderApp('/friends');
     expect(await screen.findByText(/Friends need a PeckList server/)).toBeInTheDocument();
+  });
+});
+
+describe('unfriending', () => {
+  const samId = '01JBSAM0000000000000000001';
+
+  /** Ben and Sam as friends; `shared` also puts Sam on a list of Ben's, with a task assigned. */
+  async function friends(shared: boolean) {
+    const result = await signedIn('/friends');
+    const { store } = result;
+    act(() =>
+      store.getState().apply((ctx, ws) => {
+        let next = putEntity(ws, 'users', {
+          ...createEntity<User>(ctx, {
+            handle: 'sam@pecklist.test',
+            displayName: 'Sam',
+            avatarColor: '#A7C7E7',
+            homeServer: 'pecklist.test',
+          }),
+          id: samId,
+        });
+        const asked = sendFriendRequest(ctx, next, samId);
+        const made = asked.entities.friendships.at(-1)!;
+        next = putEntity(asked, 'friendships', { ...made, state: 'accepted' });
+        if (!shared) return next;
+        const garden = createList(ctx, next, { name: 'Garden', color: '#CFE3A3' });
+        next = shareList(ctx, garden.workspace, garden.list.id, `user:${samId}`, 'editor');
+        const job = createTask(ctx, next, { title: 'Water it', listId: garden.list.id });
+        return setAssignee(ctx, job.workspace, job.task.id, `user:${samId}`, true);
+      }),
+    );
+    const list = await screen.findByRole('region', { name: 'Your friends' });
+    await userEvent.click(await within(list).findByRole('button', { name: 'Unfriend' }));
+    return { store, dialog: await screen.findByRole('dialog') };
+  }
+
+  const stateOf = (store: Awaited<ReturnType<typeof friends>>['store']) => {
+    const ws = store.getState().workspace!;
+    return {
+      friends: ws.entities.friendships.filter((each) => each.deletedAt === null).length,
+      members: ws.entities.listMembers.filter(
+        (each) => each.deletedAt === null && each.principal === `user:${samId}`,
+      ).length,
+      assigned: ws.entities.tasks.filter((each) => assigneesOf(each).includes(`user:${samId}`))
+        .length,
+    };
+  };
+
+  it('removes them from what you own by default', async () => {
+    const { store, dialog } = await friends(true);
+    expect(stateOf(store)).toEqual({ friends: 1, members: 1, assigned: 1 });
+    const choice = within(dialog).getByRole('checkbox', {
+      name: 'Also remove Sam from the lists and tasks you own',
+    });
+    expect(choice).toBeChecked();
+    expect(within(dialog).getByText(/unless you press New link/)).toBeInTheDocument();
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Unfriend' }));
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    expect(stateOf(store)).toEqual({ friends: 0, members: 0, assigned: 0 });
+  });
+
+  it('keeps the shares when unticked', async () => {
+    const { store, dialog } = await friends(true);
+    await userEvent.click(within(dialog).getByRole('checkbox'));
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Unfriend' }));
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    expect(stateOf(store)).toEqual({ friends: 0, members: 1, assigned: 1 });
+  });
+
+  it('asks nothing more when there is nothing of yours to take back', async () => {
+    const { store, dialog } = await friends(false);
+    expect(within(dialog).getByText('Stop being friends with Sam?')).toBeInTheDocument();
+    expect(within(dialog).queryByRole('checkbox')).toBeNull();
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Unfriend' }));
+    await waitFor(() => expect(stateOf(store).friends).toBe(0));
   });
 });
 

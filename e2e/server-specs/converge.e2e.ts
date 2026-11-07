@@ -1,5 +1,5 @@
 import { $, browser, expect } from '@wdio/globals';
-import { remote } from 'webdriverio';
+import { secondDevice, signIn as signInAs } from './devices.ts';
 
 // Two devices of one account against a real server (PL-032): what one does reaches the other.
 // The second device is a separate browser session (its own storage), like a second phone.
@@ -7,17 +7,7 @@ import { remote } from 'webdriverio';
 const password = process.env.E2E_ADMIN_PASSWORD!;
 // A run id keeps reruns against the same server apart.
 const run = Date.now().toString(36);
-
-// "username webauthn" on the sign-in page since PL-123, so match the word.
-async function signIn(device: WebdriverIO.Browser): Promise<void> {
-  await device.url('/');
-  const username = await device.$('input[autocomplete~="username"]');
-  await username.waitForDisplayed({ timeout: 30_000 });
-  await username.setValue('admin');
-  await device.$('input[autocomplete="current-password"]').setValue(password);
-  await device.$('button[type="submit"]').click();
-  await device.$('[data-add-task]').waitForDisplayed({ timeout: 30_000 });
-}
+const signIn = (device: WebdriverIO.Browser) => signInAs(device, 'admin', password);
 
 async function addTask(device: WebdriverIO.Browser, title: string): Promise<void> {
   const field = await device.$('[data-add-task]');
@@ -31,24 +21,7 @@ describe('two devices', () => {
   let second: WebdriverIO.Browser;
 
   before(async () => {
-    // The same browser and flags, but nothing that ties it to the first session (its profile).
-    const asked = browser.requestedCapabilities as WebdriverIO.Capabilities;
-    const capabilities: WebdriverIO.Capabilities = { browserName: asked.browserName! };
-    for (const key of ['goog:chromeOptions', 'moz:firefoxOptions', 'ms:edgeOptions'] as const) {
-      const options = asked[key] as { args?: string[]; binary?: string } | undefined;
-      if (options) {
-        (capabilities as Record<string, unknown>)[key] = {
-          args: (options.args ?? []).filter((arg) => !arg.startsWith('--user-data-dir')),
-          ...(options.binary ? { binary: options.binary } : {}),
-        };
-      }
-    }
-    second = await remote({
-      capabilities,
-      baseUrl: browser.options.baseUrl!,
-      logLevel: 'warn',
-    });
-    await second.setWindowSize(1400, 900);
+    second = await secondDevice();
   });
 
   after(async () => {

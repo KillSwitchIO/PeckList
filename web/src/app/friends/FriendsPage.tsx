@@ -2,11 +2,13 @@ import {
   Alert,
   Box,
   Button,
+  Checkbox,
   Dialog,
   DialogActions,
   DialogContent,
   DialogTitle,
   Divider,
+  FormControlLabel,
   List,
   ListItem,
   ListItemText,
@@ -19,8 +21,10 @@ import {
   acceptFriendship,
   endFriendship,
   friendsOf,
+  mySharesWith,
   nameOf,
   sendFriendRequest,
+  unfriend,
   type Friend,
 } from '../../core/sharing.ts';
 import type { ProfilePreview } from '../../ports/sync.ts';
@@ -303,8 +307,55 @@ function Requests() {
   );
 }
 
-function YourFriends() {
+/**
+ * Stop being friends, and by default take back what they reach through me (spec: Unfriending). The
+ * choice shows only when there is something of mine to take back: lists they own, or that I only
+ * joined, are not mine to change.
+ */
+function UnfriendDialog({ friend, onClose }: { friend: Friend; onClose: () => void }) {
   const apply = useApply();
+  const workspace = useWorkspace();
+  const me = useStoreState((state) => state.context().userId);
+  const [removeShares, setRemoveShares] = useState(true);
+  const name = nameOf(friend.user, friend.userId);
+  const shares = mySharesWith(workspace, me, friend.userId);
+  const anyShares = shares.members.length + shares.tasks.length > 0;
+  return (
+    <ConfirmDialog
+      open
+      message={t('friends.unfriendConfirm', { name })}
+      confirmLabel={t('friends.unfriend')}
+      onClose={onClose}
+      onConfirm={() => {
+        apply((ctx, ws) => unfriend(ctx, ws, friend, anyShares && removeShares));
+        onClose();
+      }}
+    >
+      {anyShares && (
+        <>
+          <FormControlLabel
+            sx={{ mt: 1.5 }}
+            control={
+              <Checkbox
+                checked={removeShares}
+                onChange={(event) => setRemoveShares(event.target.checked)}
+              />
+            }
+            label={t('friends.unfriendShares', { name })}
+          />
+          <Typography variant="caption" color="text.secondary" component="div">
+            {t('friends.unfriendSharesHint')}
+          </Typography>
+        </>
+      )}
+      <Typography variant="caption" color="text.secondary" component="div" sx={{ mt: 1.5 }}>
+        {t('friends.unfriendLinkHint')}
+      </Typography>
+    </ConfirmDialog>
+  );
+}
+
+function YourFriends() {
   const friends = useFriends().filter((friend) => friend.state === 'accepted');
   const [ending, setEnding] = useState<Friend | null>(null);
   return (
@@ -327,18 +378,7 @@ function YourFriends() {
           ))}
         </List>
       )}
-      {ending && (
-        <ConfirmDialog
-          open
-          message={t('friends.unfriendConfirm', { name: nameOf(ending.user, ending.userId) })}
-          confirmLabel={t('friends.unfriend')}
-          onClose={() => setEnding(null)}
-          onConfirm={() => {
-            apply((ctx, ws) => endFriendship(ctx, ws, ending.friendship.id));
-            setEnding(null);
-          }}
-        />
-      )}
+      {ending && <UnfriendDialog friend={ending} onClose={() => setEnding(null)} />}
     </Section>
   );
 }

@@ -206,6 +206,54 @@ export function makePrivate(ctx: OpContext, workspace: WorkspaceFile, listId: Id
   return next;
 }
 
+/**
+ * What someone can reach through me alone: their place on lists I own, and tasks of mine assigned
+ * to them (the Mess Drawer is always mine). Lists they own, or that I only joined, are not mine to
+ * take back. Tasks count whether or not they are done, since an assignee keeps seeing either, and
+ * so does what is in the Trash, or restoring it would share it again.
+ */
+export function mySharesWith(
+  workspace: WorkspaceFile,
+  me: Id,
+  other: Id,
+): { members: ListMember[]; tasks: Task[] } {
+  const principal = `user:${other}`;
+  const mine = new Set(
+    workspace.entities.lists
+      .filter((list) => list.isInbox || listOwner(list) === me)
+      .map((list) => list.id),
+  );
+  return {
+    members: workspace.entities.listMembers.filter(
+      (member) => isLive(member) && mine.has(member.listId) && member.principal === principal,
+    ),
+    tasks: workspace.entities.tasks.filter(
+      (task) => mine.has(task.listId) && assigneesOf(task).includes(principal),
+    ),
+  };
+}
+
+/**
+ * Unfriend someone, and with `removeShares` take back what they reach through me, all in one change
+ * (spec: Unfriending). Both parts of that are needed: an assignee keeps seeing a task after leaving
+ * its list.
+ */
+export function unfriend(
+  ctx: OpContext,
+  workspace: WorkspaceFile,
+  friend: Pick<Friend, 'friendship' | 'userId'>,
+  removeShares: boolean,
+): WorkspaceFile {
+  let next = workspace;
+  if (removeShares) {
+    const { members: places, tasks } = mySharesWith(workspace, ctx.userId, friend.userId);
+    for (const member of places) next = removeMember(ctx, next, member.id);
+    for (const task of tasks)
+      next = setAssignee(ctx, next, task.id, `user:${friend.userId}`, false);
+  }
+  return endFriendship(ctx, next, friend.friendship.id);
+}
+
 // Tasks -----------------------------------------------------------------------------------------
 
 /** Assign a task to someone (`user:<id>` or `group:<id>`) or take the assignment off. */
