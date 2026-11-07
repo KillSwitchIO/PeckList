@@ -128,14 +128,14 @@ public static class SettingsCatalog
     }
 
     /// <summary>The fixed settings plus those of each provider the layers name.</summary>
-    public static IReadOnlyList<SettingDefinition> For(ISecretSource source)
-    {
-        var providers = (source.Get("OIDC_PROVIDERS") ?? "")
+    public static IReadOnlyList<SettingDefinition> For(ISecretSource source) => [.. Fixed, .. ProviderNames(source).SelectMany(ForProvider)];
+
+    /// <summary>The providers the layers name in <c>OIDC_PROVIDERS</c>, whether or not each is fully set up.</summary>
+    public static IEnumerable<string> ProviderNames(ISecretSource source) =>
+        (source.Get("OIDC_PROVIDERS") ?? "")
             .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
             .Select(name => name.ToLowerInvariant())
             .Distinct();
-        return [.. Fixed, .. providers.SelectMany(ForProvider)];
-    }
 
     public static SettingDefinition? Find(ISecretSource source, string key) => For(source).FirstOrDefault(each => each.Key == key);
 

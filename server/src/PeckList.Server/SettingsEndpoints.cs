@@ -60,7 +60,7 @@ public static class SettingsEndpoints
             .RequirePermission(Permission.ManageSettings);
 
         admin.MapPut("/settings", async (
-            SettingsChange change, LoadedSettings loaded, Core.Accounts.ISecretStore secrets, LogPipeline logging, LiveSettings live,
+            SettingsChange change, LoadedSettings loaded, Core.Accounts.ISecretStore secrets, IIdentityStore identities, LogPipeline logging, LiveSettings live,
             ClaimsPrincipal user, HttpContext context,
             CancellationToken cancellation) =>
         {
@@ -99,6 +99,7 @@ public static class SettingsEndpoints
             {
                 return Results.BadRequest(new AdminError("invalid", error.Message));
             }
+            if (await RemovedProviderInUseAsync(loaded.Layers.WithPage(saved), next, identities, cancellation) is { } inUse) return Results.Conflict(inUse);
             await SettingsLoader.SavePageAsync(secrets, values,
                 key => SettingsCatalog.Find(layers, key)?.Kind == SettingKind.Secret, loaded.Layers.Cipher, cancellation);
             // Live settings apply at once; the rest at the next restart.
@@ -145,6 +146,28 @@ public static class SettingsEndpoints
     }
 
     private static bool MaySaveSignIn(ClaimsPrincipal user) => user.AccountRole().Can(Permission.ManageSecurity);
+
+    /// <summary>
+    /// A provider still holding linked accounts cannot be taken off this page, renaming included (spec:
+    /// Linking): those people would lose a way in without anyone having chosen that. Only a provider
+    /// this save removes counts, so links left by one the environment dropped never block other saves.
+    /// </summary>
+    private static async Task<AdminError?> RemovedProviderInUseAsync(
+        ISecretSource before, ServerSettings next, IIdentityStore identities, CancellationToken cancellation)
+    {
+        var removed = SettingsCatalog.ProviderNames(before).Except(next.OidcProviders.Select(provider => provider.Name)).ToHashSet();
+        if (removed.Count == 0) return null;
+        var linked = (await identities.ListAsync(cancellation))
+            .Where(identity => removed.Contains(identity.Provider))
+            .GroupBy(identity => identity.Provider)
+            .OrderBy(group => group.Key, StringComparer.Ordinal)
+            .Select(group => $"{group.Key} ({group.Count()} {(group.Count() == 1 ? "account" : "accounts")})")
+            .ToList();
+        if (linked.Count == 0) return null;
+        return new AdminError("provider_in_use",
+            $"Still linked: {string.Join(", ", linked)}. Use Unbind all under Admin > Sign-in, or pecklist oidc unbind-all, then remove it. " +
+            "Accounts and their data stay. To move people to another provider first, see the single sign-on guide.");
+    }
 
     private static SettingsView View(LoadedSettings loaded, IReadOnlyDictionary<string, string> saved, bool maySaveSignIn)
     {

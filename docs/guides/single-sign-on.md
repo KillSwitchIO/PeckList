@@ -190,6 +190,19 @@ account either (someone could rename themselves at the new provider to take it),
 `OIDC_<NAME>_LINK_BY_USERNAME=all`; map admins with a `sub:` entry in `USER_MAP` instead. Someone left with no way
 in gets a one-time link: `pecklist admin login-link kim`.
 
+**Admin > Settings** refuses to remove or rename a provider that still has accounts linked, and says
+how many: those people would lose a way in without anyone having chosen that. Use **Unbind all**
+under **Admin > Sign-in** or `pecklist oidc unbind-all` first (accounts and their data stay), then
+remove it. PeckList cannot refuse a provider taken out of the environment or the config file. Its
+links then stay in the database and no longer sign anyone in, and `unbind-all` still clears them.
+
+Removing a provider takes effect at the restart: until then people can still sign in with it.
+Sessions it already made carry on until they end, and neither **Unbind all** nor the removal stops
+them. If you are removing a provider because you no longer trust it, restart at once and disable the
+accounts that matter.
+
+Links go by the provider's name and subject, so use a new name for a different identity server.
+
 ## Provider notes
 
 <Tabs>
