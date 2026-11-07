@@ -14,14 +14,29 @@ export function StoreProvider({ store, children }: { store: WorkspaceStore; chil
       store.getState().journal();
       void store.getState().flush();
     };
+    // Kept for the back button, the page stops where it stands. A save started now can be given the
+    // lock all tabs share just as it stops, and Firefox then holds that lock until it drops the
+    // page: nothing saves, in any tab. The note is enough; a new page, or this one's return, saves.
+    let kept = false;
+    const onPageHide = (event: PageTransitionEvent) => {
+      kept = event.persisted;
+      if (kept) store.getState().journal();
+      else flush();
+    };
+    const onPageShow = (event: PageTransitionEvent) => {
+      kept = false;
+      if (event.persisted) void store.getState().flush();
+    };
     const onHide = () => {
-      if (document.visibilityState === 'hidden') flush();
+      if (document.visibilityState === 'hidden' && !kept) flush();
     };
     document.addEventListener('visibilitychange', onHide);
-    window.addEventListener('pagehide', flush);
+    window.addEventListener('pagehide', onPageHide);
+    window.addEventListener('pageshow', onPageShow);
     return () => {
       document.removeEventListener('visibilitychange', onHide);
-      window.removeEventListener('pagehide', flush);
+      window.removeEventListener('pagehide', onPageHide);
+      window.removeEventListener('pageshow', onPageShow);
     };
   }, [store]);
 
