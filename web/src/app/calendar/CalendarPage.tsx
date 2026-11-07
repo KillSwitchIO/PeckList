@@ -314,7 +314,7 @@ export function CalendarPage() {
   })();
 
   // Where Year was left, to come back to from a day or a month it opened. Not kept past this visit
-  // to the calendar, and Today or a picked date, asked for anywhere here, go ahead of it.
+  // to the calendar, and Today, a picked date or the arrows, used anywhere here, go ahead of it.
   const [yearLeft, setYearLeft] = useState<YearStay | null>(null);
   const goToday = () => {
     setYearLeft(null);
@@ -333,6 +333,7 @@ export function CalendarPage() {
     goTo(day);
   };
   const step = (direction: 1 | -1) => {
+    setYearLeft(null);
     if (mode === 'month') {
       const month = view?.month ?? today.slice(0, 7);
       setTarget({ date: shiftMonths(`${month}-01`, direction), seq: target.seq + 1 });
