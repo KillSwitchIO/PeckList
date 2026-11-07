@@ -1,17 +1,33 @@
 import { Box, ButtonBase, Typography, useTheme } from '@mui/material';
-import { memo, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import {
-  daysFrom,
-  heatLevel,
-  heatScale,
-  weekStartOf,
-  type HeatScale,
-} from '../../core/calendarLayout.ts';
+import { memo, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { daysFrom, heatLevel, weekStartOf, type HeatScale } from '../../core/calendarLayout.ts';
 import { addDays, monthGrid } from '../../core/dates.ts';
 import { dateTimeFormat } from '../../core/intl.ts';
 import { heatShades } from '../../core/palette.ts';
 import { t } from '../i18n/i18n.ts';
+import { dateHeading, rowRule } from './calendarLook.ts';
 import { scrolling } from './scrollbars.ts';
+import {
+  monthAt,
+  SPAN_YEARS,
+  stayAt,
+  stayTop,
+  yearAt,
+  yearLayout,
+  yearParts,
+  type YearStay,
+} from './yearLayout.ts';
+
+/** A year's open tasks per day, and how they shade: each year against itself. */
+export interface YearHeat {
+  counts: Map<string, number>;
+  scale: HeatScale;
+}
+
+/** A year whose shades have not been worked out yet. */
+const NO_HEAT: YearHeat = { counts: new Map(), scale: { few: 0, some: 0 } };
+/** How long the scrolling must have stopped for before a year's shades are worked out. */
+const SHADE_AFTER_MS = 120;
 
 /** How far the arrow keys move in a year's days. */
 const KEY_STEPS: Record<string, number> = {
@@ -61,6 +77,12 @@ const MonthBlock = memo(function MonthBlock({
   const name = dateTimeFormat(undefined, { month: 'long', timeZone: 'UTC' }).format(
     at(`${month}-15`),
   );
+  // Several years are on the page: as with the days, a month in another one says which.
+  const fullName = month.startsWith(today.slice(0, 4))
+    ? name
+    : dateTimeFormat(undefined, { month: 'long', year: 'numeric', timeZone: 'UTC' }).format(
+        at(`${month}-15`),
+      );
   const days = monthGrid(`${month}-01`, weekStart);
   const narrow = dateTimeFormat(undefined, { weekday: 'narrow', timeZone: 'UTC' });
   return (
@@ -68,7 +90,7 @@ const MonthBlock = memo(function MonthBlock({
       <ButtonBase
         className="year-month-name"
         data-year-open-month={month}
-        aria-label={t('calendar.openMonth', { month: name })}
+        aria-label={t('calendar.openMonth', { month: fullName })}
       >
         {name}
       </ButtonBase>
@@ -78,7 +100,7 @@ const MonthBlock = memo(function MonthBlock({
           <span key={day}>{narrow.format(at(day))}</span>
         ))}
       </div>
-      <div className="year-weeks" role="grid" aria-label={name}>
+      <div className="year-weeks" role="grid" aria-label={fullName}>
         {[0, 1, 2, 3, 4, 5].map((week) => (
           <div key={week} className="year-week" role="row">
             {days.slice(week * 7, week * 7 + 7).map((day) => {
@@ -113,17 +135,27 @@ const MonthBlock = memo(function MonthBlock({
 // Styles once for the whole view; each day only says what it is on data attributes, as in the
 // month view (R-FB-94: a style object per day was most of that view's render time).
 const yearStyles = {
-  '& .year-months': {
+  '& .year-months': { position: 'relative' },
+  '& .year-row': {
+    position: 'absolute',
+    left: 0,
+    right: 0,
     display: 'grid',
-    minHeight: '100%',
-    gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
-    gridAutoRows: 'minmax(196px, 1fr)',
-    // By the room the calendar has, not the window's: the side panel and the menu take from it.
-    '@container (min-width: 560px)': { gridTemplateColumns: 'repeat(3, minmax(0, 1fr))' },
-    '@container (min-width: 840px)': {
-      gridTemplateColumns: 'repeat(4, minmax(0, 1fr))',
-      gridAutoRows: 'minmax(148px, 1fr)',
-    },
+    boxSizing: 'border-box',
+  },
+  // A year ends as Month's rows do: a line under its last months, and nothing else.
+  '& .year-row[data-year-end]': rowRule,
+  '& .year-heading': {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    m: 0,
+    px: 1.5,
+    display: 'flex',
+    alignItems: 'flex-end',
+    pb: 0.25,
+    lineHeight: '24px',
+    ...dateHeading,
   },
   '& .year-month': { minWidth: 0, minHeight: 0, display: 'flex', flexDirection: 'column', p: 1 },
   '& .year-month-name': {
@@ -190,37 +222,50 @@ const yearStyles = {
 } as const;
 
 /**
- * The year view (spec: PL-093, Business Calendar 2's heat map): twelve small months, each day
- * shaded by how many open tasks fall on it, to find free and crowded days at a glance. A day opens
- * in Days, a month's name opens Month. Every day is drawn, so it stays this plain: no component or
- * handler per day, and the arrow keys walk the days with one Tab stop rather than 365.
+ * The year view (spec: PL-093, Business Calendar 2's heat map): small months in one scrolling run
+ * from year to year, each day shaded by how many open tasks fall on it, to find free and crowded
+ * days at a glance. A day opens in Days, a month's name opens Month. Only what is near the view is
+ * drawn, and it stays this plain: no component or handler per day, and the arrow keys walk the days
+ * with one Tab stop rather than hundreds.
  */
 export function YearView({
   date,
-  seq,
+  left,
+  target,
   today,
   weekStart,
-  counts,
+  heatOf,
   onOpenDay,
   onOpenMonth,
+  onYear,
+  onLeave,
 }: {
-  /** A day in the year shown; a phone scrolls to its month */
+  /** The day it opens on, scrolled to its month, if it has not been left somewhere */
   date: string;
-  /** Changes for each new request to go to `date` (Today, the date picker) */
-  seq: number;
+  /** Where it was left, to come back to */
+  left: YearStay | null;
+  /** Where to go, for each new `seq` after opening (Today, the arrows, the date picker) */
+  target: { date: string; seq: number };
   today: string;
   weekStart: number;
-  /** Open tasks per day (`openCountsByDay`) */
-  counts: Map<string, number>;
+  /** A year's open tasks per day: asked only for the years drawn, and not during a scroll */
+  heatOf: (year: string) => YearHeat;
   onOpenDay: (day: string) => void;
   onOpenMonth: (month: string) => void;
+  /** The year in view has changed */
+  onYear: (year: string) => void;
+  /** It is going away, leaving the view here */
+  onLeave: (stay: YearStay) => void;
 }) {
-  const year = date.slice(0, 4);
-  const months = useMemo(
-    () => Array.from({ length: 12 }, (_, i) => `${year}-${String(i + 1).padStart(2, '0')}`),
-    [year],
+  const [firstYear] = useState(() => Number(today.slice(0, 4)) - SPAN_YEARS);
+  const [size, setSize] = useState({ width: 0, height: 600 });
+  const layout = useMemo(
+    () => yearLayout(size.width, size.height, firstYear),
+    [size.width, size.height, firstYear],
   );
-  const scale = useMemo(() => heatScale(counts.values()), [counts]);
+  // The scroll position, to the nearest row: it only redraws when a row has gone by.
+  const [opened] = useState<YearStay>(() => left ?? { sent: date.slice(0, 7) });
+  const [scrolled, setScrolled] = useState(() => stayTop(layout, opened));
 
   const theme = useTheme();
   const shades = useMemo(() => {
@@ -232,18 +277,124 @@ export function YearView({
     return vars;
   }, [theme]);
 
-  // The one day Tab lands on: the last one focused, else the day the view was opened for.
-  const [cursor, setCursor] = useState(date);
-  const active = cursor.startsWith(year) ? cursor : date;
-
   const scroller = useRef<HTMLDivElement>(null);
   useLayoutEffect(() => {
     const element = scroller.current;
-    const block = element?.querySelector<HTMLElement>(`[data-year-month="${date.slice(0, 7)}"]`);
-    if (element && block) element.scrollTop = block.offsetTop;
-    // Only on opening and for a new request: the arrows change the year and leave the scroll.
+    if (!element) return;
+    const measure = () =>
+      setSize({ width: element.clientWidth, height: element.clientHeight || 600 });
+    measure();
+    if (typeof ResizeObserver === 'undefined') return;
+    const observer = new ResizeObserver(measure);
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, []);
+
+  const report = useRef(onYear);
+  useEffect(() => {
+    report.current = onYear;
+  });
+  const lastYear = useRef(date.slice(0, 4));
+  /** Bring the drawing and the year in view up to where it has scrolled. */
+  const follow = (at: number) => {
+    setScrolled(Math.round(at / layout.rowHeight) * layout.rowHeight);
+    const year = String(yearAt(layout, at));
+    if (year !== lastYear.current) {
+      lastYear.current = year;
+      report.current(year);
+    }
+  };
+
+  // Where the view stays: it never moves on its own, nothing snaps, and new data leaves it alone.
+  // Only Today, the arrows and the date picker send it anywhere, and a new shape keeps the place.
+  const stay = useRef(opened);
+  // Where it put itself, so that move is not taken for scrolling.
+  const placed = useRef<number | null>(null);
+  useLayoutEffect(() => () => onLeave(stay.current), [onLeave]);
+  // The one day Tab lands on: the last one focused or gone to.
+  const [cursor, setCursor] = useState(date);
+  const [seenSeq, setSeenSeq] = useState(target.seq);
+  if (target.seq !== seenSeq) {
+    setSeenSeq(target.seq);
+    setCursor(target.date);
+  }
+  const wentSeq = useRef(target.seq);
+  useLayoutEffect(() => {
+    const element = scroller.current;
+    if (!element) return;
+    if (wentSeq.current !== target.seq) {
+      wentSeq.current = target.seq;
+      stay.current = { sent: target.date.slice(0, 7) };
+    }
+    const top = stayTop(layout, stay.current);
+    placed.current = top;
+    element.scrollTop = top;
+    follow(top);
+    // Only for a new request or a new shape: scrolling itself runs `onScroll`.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [seq]);
+  }, [target.seq, layout]);
+
+  const frame = useRef<number | null>(null);
+  useEffect(
+    () => () => {
+      if (frame.current !== null) cancelAnimationFrame(frame.current);
+    },
+    [],
+  );
+  const lastScroll = useRef(0);
+  const onScroll = () => {
+    lastScroll.current = performance.now();
+    if (frame.current !== null) return;
+    frame.current = requestAnimationFrame(() => {
+      frame.current = null;
+      const element = scroller.current;
+      if (!element) return;
+      const at = element.scrollTop;
+      if (placed.current === null || Math.abs(at - placed.current) > 1) {
+        placed.current = null;
+        stay.current = stayAt(layout, at);
+      }
+      follow(at);
+    });
+  };
+
+  // Near the view: a screen either way, so a fling meets months already drawn.
+  const reach = Math.max(size.height, layout.rowHeight * 2);
+  const { rows, headings } = useMemo(
+    () => yearParts(layout, scrolled - reach, scrolled + size.height + reach),
+    [layout, scrolled, reach, size.height],
+  );
+
+  // A year's shades can take a while on a busy workspace, so a scroll never waits for them: the
+  // year it opens on has them at once, the others once the scrolling stops, and a change to the
+  // tasks keeps the old shades until then. A shade is only a color, so nothing moves when it comes.
+  const [heats, setHeats] = useState(() => {
+    const year = date.slice(0, 4);
+    return new Map([[year, { of: heatOf, heat: heatOf(year) }]]);
+  });
+  useEffect(() => {
+    const drawn = rows.flatMap((row) => row.months).map((month) => month.slice(0, 4));
+    const due = [String(yearAt(layout, scrolled)), ...drawn].find(
+      (year) => heats.get(year)?.of !== heatOf,
+    );
+    if (!due) return;
+    let timer: ReturnType<typeof setTimeout>;
+    const whenStill = () => {
+      const left = lastScroll.current + SHADE_AFTER_MS - performance.now();
+      if (left > 0) {
+        timer = setTimeout(whenStill, left);
+        return;
+      }
+      const heat = heatOf(due);
+      setHeats((now) => new Map(now).set(due, { of: heatOf, heat }));
+    };
+    timer = setTimeout(whenStill);
+    return () => clearTimeout(timer);
+  }, [rows, layout, scrolled, heats, heatOf]);
+
+  // Scrolled far from that day, Tab lands on the first of the months in view instead.
+  const near = rows.some((row) => row.months.includes(cursor.slice(0, 7)));
+  const active = near ? cursor : `${monthAt(layout, scrolled)}-01`;
 
   const onClick = (event: React.MouseEvent<HTMLElement>) => {
     const found = (event.target as HTMLElement).closest<HTMLElement>(
@@ -275,27 +426,49 @@ export function YearView({
     >
       <Box
         ref={scroller}
+        onScroll={onScroll}
         sx={{
           flexGrow: 1,
           minHeight: 0,
           overflowY: 'auto',
           position: 'relative',
-          containerType: 'inline-size',
           userSelect: 'none',
+          overflowAnchor: 'none',
           ...scrolling,
         }}
       >
-        <div className="year-months">
-          {months.map((month) => (
-            <MonthBlock
-              key={month}
-              month={month}
-              today={today}
-              weekStart={weekStart}
-              counts={counts}
-              scale={scale}
-              active={active.startsWith(month) ? active : null}
-            />
+        <div className="year-months" style={{ height: layout.total }}>
+          {headings.map(({ year, top }) => (
+            <h3 key={year} className="year-heading" style={{ top, height: layout.headingHeight }}>
+              {year}
+            </h3>
+          ))}
+          {rows.map(({ months, top }) => (
+            <div
+              key={months[0]}
+              className="year-row"
+              data-year-end={months.at(-1)?.endsWith('-12') ? '' : undefined}
+              style={{
+                top,
+                height: layout.rowHeight,
+                gridTemplateColumns: `repeat(${layout.columns}, minmax(0, 1fr))`,
+              }}
+            >
+              {months.map((month) => {
+                const { counts, scale } = heats.get(month.slice(0, 4))?.heat ?? NO_HEAT;
+                return (
+                  <MonthBlock
+                    key={month}
+                    month={month}
+                    today={today}
+                    weekStart={weekStart}
+                    counts={counts}
+                    scale={scale}
+                    active={active.startsWith(month) ? active : null}
+                  />
+                );
+              })}
+            </div>
           ))}
         </div>
       </Box>

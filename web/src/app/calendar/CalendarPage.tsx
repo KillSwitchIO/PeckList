@@ -28,6 +28,7 @@ import {
   itemsByDay,
   MAX_DAYS,
   MIN_DAYS,
+  heatScale,
   openCountsByDay,
 } from '../../core/calendarLayout.ts';
 import {
@@ -74,7 +75,9 @@ import { DaysView } from './DaysView.tsx';
 import { MonthView, type MonthViewInfo } from './MonthView.tsx';
 import { NumberDial } from './NumberDial.tsx';
 import { useCalendarDrag, type DragPayload, type DropTarget } from './useCalendarDrag.ts';
-import { YearView } from './YearView.tsx';
+import { dateHeading } from './calendarLook.ts';
+import type { YearStay } from './yearLayout.ts';
+import { YearView, type YearHeat } from './YearView.tsx';
 import { useNarrowed } from '../views/useNarrowed.tsx';
 
 /** How many unscheduled tasks show at first (and more on asking). */
@@ -208,7 +211,7 @@ export function CalendarPage() {
   }
   // What is done is off the calendar from today on (R-FB-141), but days gone by show what was
   // done on them, drawn as done (Ben, 2026-11-02).
-  // Year counts for itself over the whole year, so Month's window stays unworked while it shows.
+  // Year counts for itself a year at a time, so Month's window stays unworked while it shows.
   const inYear = mode === 'year';
   const items = useMemo(
     () =>
@@ -223,16 +226,25 @@ export function CalendarPage() {
     () => (win ? itemsByDay(items, win.from, win.to) : new Map<string, CalendarItem[]>()),
     [items, win],
   );
-  const year = date.slice(0, 4);
-  const yearCounts = useMemo(() => {
-    if (!inYear) return new Map<string, number>();
-    const [from, to] = [`${year}-01-01`, `${year}-12-31`];
-    return openCountsByDay(
-      calendarItems(shown, from, to, settings?.pointEventMinutes ?? 60),
-      from,
-      to,
-    );
-  }, [shown, inYear, year, settings?.pointEventMinutes]);
+  // Only the years drawn are worked out, each once until the tasks change: many years must not
+  // slow it down, and shading each against itself keeps a day's shade from moving as it scrolls.
+  const heatOf = useMemo(() => {
+    const years = new Map<string, YearHeat>();
+    return (year: string) => {
+      let heat = years.get(year);
+      if (!heat) {
+        const [from, to] = [`${year}-01-01`, `${year}-12-31`];
+        const counts = openCountsByDay(
+          calendarItems(shown, from, to, settings?.pointEventMinutes ?? 60),
+          from,
+          to,
+        );
+        heat = { counts, scale: heatScale(counts.values()) };
+        years.set(year, heat);
+      }
+      return heat;
+    };
+  }, [shown, settings?.pointEventMinutes]);
 
   const [drawer, setDrawer] = useState(false);
   const [popup, setPopup] = useState<{
@@ -301,7 +313,11 @@ export function CalendarPage() {
     };
   })();
 
+  // Where Year was left, to come back to from a day or a month it opened. Not kept past this visit
+  // to the calendar, and Today or a picked date, asked for anywhere here, go ahead of it.
+  const [yearLeft, setYearLeft] = useState<YearStay | null>(null);
   const goToday = () => {
+    setYearLeft(null);
     setDate(today);
     setTarget({ date: today, seq: target.seq + 1 });
   };
@@ -312,12 +328,18 @@ export function CalendarPage() {
     setDate(day);
     setTarget({ date: day, seq: target.seq + 1 });
   };
+  const pickDate = (day: string) => {
+    setYearLeft(null);
+    goTo(day);
+  };
   const step = (direction: 1 | -1) => {
     if (mode === 'month') {
       const month = view?.month ?? today.slice(0, 7);
       setTarget({ date: shiftMonths(`${month}-01`, direction), seq: target.seq + 1 });
     } else if (mode === 'year') {
-      setDate(shiftMonths(date, direction * 12));
+      const next = shiftMonths(date, direction * 12);
+      setDate(next);
+      setTarget({ date: `${next.slice(0, 4)}-01-01`, seq: target.seq + 1 });
     } else {
       setDate(addDays(date, direction * prefs.days));
     }
@@ -339,6 +361,9 @@ export function CalendarPage() {
     setDate(day);
     setPrefs({ mode: 'days' });
   };
+  // The title follows the year scrolled to, and Month and the arrows carry on from it.
+  const followYear = (shownYear: string) =>
+    setDate((day) => shiftMonths(day, (Number(shownYear) - Number(day.slice(0, 4))) * 12));
   const openMonth = (month: string) => {
     goTo(`${month}-01`);
     setPrefs({ mode: 'month' });
@@ -383,8 +408,10 @@ export function CalendarPage() {
         sx={{
           display: 'flex',
           flexDirection: 'column',
-          height: 'calc(100dvh - 140px)',
-          minHeight: 420,
+          // What the bars and the page's padding take: more on a phone, with its tabs below.
+          height: narrow ? 'calc(100dvh - 153px)' : 'calc(100dvh - 140px)',
+          // Year scrolls for itself and has no end, so the page around it never needs to.
+          minHeight: inYear ? 0 : 420,
         }}
       >
         {/* One row that never wraps, so nothing moves as the title changes length. Laid out as
@@ -406,8 +433,7 @@ export function CalendarPage() {
               onClick={(event) => setPicker(event.currentTarget)}
               endIcon={<ChevronDownIcon fontSize="small" />}
               sx={{
-                fontWeight: 600,
-                fontSize: { xs: 15, sm: 16 },
+                ...dateHeading,
                 px: 0.5,
                 minWidth: 0,
                 maxWidth: '100%',
@@ -509,7 +535,7 @@ export function CalendarPage() {
           selected={mode === 'month' && view ? `${view.month}-01` : date}
           today={today}
           weekStartsOn={preferredWeekStart()}
-          onSelect={goTo}
+          onSelect={pickDate}
         />
         <Box sx={{ display: 'flex', flexGrow: 1, minHeight: 0, gap: 1 }}>
           <Box
@@ -525,12 +551,15 @@ export function CalendarPage() {
             {mode === 'year' ? (
               <YearView
                 date={date}
-                seq={target.seq}
+                left={yearLeft}
+                target={target}
                 today={today}
                 weekStart={weekStart}
-                counts={yearCounts}
+                heatOf={heatOf}
                 onOpenDay={openDay}
                 onOpenMonth={openMonth}
+                onYear={followYear}
+                onLeave={setYearLeft}
               />
             ) : mode === 'month' ? (
               <MonthView
