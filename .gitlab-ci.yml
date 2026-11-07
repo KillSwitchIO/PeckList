@@ -92,9 +92,10 @@ default:
   when: never
 
 # The commit `pnpm release` made, merged: its one build carries the release's exact version
-# (scripts/build-version.sh) and is what a release later names.
+# (scripts/build-version.sh) and is what a release later names. A weekly run that finds one at main's
+# tip is still only the weekly run: it builds no image, so nothing here could have what it needs.
 .release-commit: &release-commit
-  if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $CI_COMMIT_MESSAGE =~ /^chore\(release\): \d/m'
+  if: '$CI_PIPELINE_SOURCE != "schedule" && $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $CI_COMMIT_MESSAGE =~ /^chore\(release\): \d/m'
 
 # A release merge request holds no code (release-guard checks that), so it runs no test suites.
 .not-on-release-branch: &not-on-release-branch
@@ -727,6 +728,7 @@ e2e-server:
   script:
     - pnpm e2e:server
   rules:
+    - *not-on-schedule
     - <<: *release-commit
       interruptible: false
     - *on-main
@@ -752,6 +754,7 @@ deploy-test:
     name: test
     url: https://pecklist-test.killswitch10.com
   rules:
+    - *not-on-schedule
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $GITLAB_API_TOKEN
 
 # The docs site, from main.
@@ -764,6 +767,7 @@ pages:
   artifacts:
     paths: [public]
   rules:
+    - *not-on-schedule
     # A release's docs go live with the release (docs job above).
     - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $CI_COMMIT_MESSAGE =~ /^chore\(release\): \d+\.\d+\.\d+$/m'
       when: never
@@ -803,6 +807,7 @@ wiki:
   script:
     - node scripts/ci/wiki-sync.mjs
   rules:
+    - *not-on-schedule
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $GITLAB_API_TOKEN
 
 # --- weekly audits (the scheduled pipeline) --------------------------------------------------
