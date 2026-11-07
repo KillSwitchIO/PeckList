@@ -245,6 +245,35 @@ describe('the calendar year view', () => {
       await backToYear();
       await near(opened);
     });
+
+    it('moves to where the arrows of Month or Days paged to', async () => {
+      await openYear();
+      const shown = (month: string) => $(`[data-year-month='${month}']`);
+
+      let left = await leaveItMidRow();
+      await firstInView('[data-year-open-month]');
+      const month = (await picked().getAttribute('data-year-open-month'))!;
+      await picked().click();
+      await drawn('[data-cal-day]');
+      await $("button[aria-label='Next']").click();
+      await backToYear();
+      const next = new Date(`${month}-01T12:00:00Z`);
+      next.setUTCMonth(next.getUTCMonth() + 1);
+      await expect(shown(next.toISOString().slice(0, 7))).toBeDisplayed();
+      await expect(await scrollTop()).not.toBe(left);
+
+      left = await leaveItMidRow();
+      await firstInView('[data-year-day]');
+      await picked().click();
+      await drawn('[data-cal-slots]');
+      await $("button[aria-label='Next']").click();
+      const day = await browser.execute(() =>
+        document.querySelector('[data-cal-slots]')!.getAttribute('data-cal-slots')!,
+      );
+      await backToYear();
+      await expect(shown(day.slice(0, 7))).toBeDisplayed();
+      await expect(await scrollTop()).not.toBe(left);
+    });
   });
 
   it('parts the years with the line Month draws between its rows', async () => {
