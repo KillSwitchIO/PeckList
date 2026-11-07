@@ -231,7 +231,7 @@ Three views, switched at the top right:
 - **Year**: twelve small months, each day shaded by how many open tasks fall on it, from free to
   busy, so free weeks and crowded days stand out. The shades are relative to that year, and the
   exact count is in the day's tooltip and screen reader label. Click a day to open it in Days, or
-  a month's name to open that month. The arrows move a year at a time. Year is for looking ahead,
+  a month's name to open that month. It scrolls on from one year into the next and back, with each year's heading between them and the title following the year in view. The arrows go to the start of the next or previous year. Year is for looking ahead,
   so tasks don't drag here and Unscheduled steps aside until you switch back.
 - **Month**: the weeks run on without breaks, so the next weeks are always in sight at the end of
   a month. It scrolls freely, a flick carrying it on, and settles with a week at the top (with a

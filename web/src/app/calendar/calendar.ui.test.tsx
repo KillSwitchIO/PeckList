@@ -5,6 +5,7 @@ import { addDays, localTimeZone, shiftMonths, todayIn } from '../../core/dates.t
 import { inboxList } from '../../core/lists.ts';
 import { createTask, setTaskStatus, updateTask } from '../../core/tasks.ts';
 import { mockViewport, renderApp, testStore } from '../../test/renderApp.tsx';
+import { monthTop, SPAN_YEARS, yearLayout } from './yearLayout.ts';
 
 beforeEach(() => {
   localStorage.clear();
@@ -417,8 +418,18 @@ describe('calendar', () => {
       return { ...made, modes };
     }
     const dayIn = (date: string) => document.querySelector(`[data-year-day="${date}"]`)!;
+    /** Scroll a month (`YYYY-MM`) into view, as a finger or a wheel would. */
+    async function showMonth(month: string) {
+      const box = document.querySelector('.year-months')!.parentElement!;
+      const thisYear = new Date().getFullYear();
+      box.scrollTop = monthTop(yearLayout(0, 600, thisYear - SPAN_YEARS), month);
+      fireEvent.scroll(box);
+      await waitFor(() =>
+        expect(document.querySelector(`[data-year-month="${month}"]`)).not.toBeNull(),
+      );
+    }
 
-    it('draws twelve months, says how busy each day is, and is remembered', async () => {
+    it('draws the months near the view, says how busy each day is, and is remembered', async () => {
       const { today, modes } = await yearWith();
       const year = today.slice(0, 4);
       expect(screen.getByRole('heading', { level: 2 })).toHaveTextContent(year);
@@ -432,13 +443,13 @@ describe('calendar', () => {
         'aria-pressed',
         'true',
       );
-      expect(document.querySelectorAll('[data-year-month]')).toHaveLength(12);
-      expect(screen.getByRole('grid', { name: 'March' })).toBeInTheDocument();
+      expect(document.querySelector(`[data-year-month="${today.slice(0, 7)}"]`)).not.toBeNull();
       // Dentist (scheduled and due today, counted once) and Standup; Someday has no date.
       const day = dayIn(today);
       expect(day).toHaveAccessibleName(expect.stringMatching(/^Today, .+, 2 open tasks$/));
       expect(day).toHaveAttribute('data-today');
       expect(day.getAttribute('data-heat')).not.toBe('0');
+      await showMonth(`${year}-06`);
       const free = dayIn(today.endsWith('-06-15') ? `${year}-06-16` : `${year}-06-15`);
       expect(free).toHaveAttribute('data-heat', '0');
       expect(free.getAttribute('aria-label')).toMatch(/no open tasks$/);
@@ -481,6 +492,7 @@ describe('calendar', () => {
     it('opens a day in Days, keeping the count of days picked', async () => {
       const { today } = await yearWith();
       const year = today.slice(0, 4);
+      await showMonth(`${year}-03`);
       await userEvent.click(dayIn(`${year}-03-10`));
       expect(screen.getByRole('slider', { name: 'Days shown' })).toHaveAttribute(
         'aria-valuenow',
@@ -494,6 +506,7 @@ describe('calendar', () => {
 
     it('opens a month by its name', async () => {
       const { today } = await yearWith();
+      await showMonth(`${today.slice(0, 4)}-03`);
       await userEvent.click(screen.getByRole('button', { name: 'Open March' }));
       expect(await screen.findByRole('grid', { name: 'Month' })).toBeInTheDocument();
       expect(document.querySelector(`[data-cal-day="${today.slice(0, 4)}-03-01"]`)).not.toBeNull();
@@ -519,6 +532,7 @@ describe('calendar', () => {
       expect(stops).toHaveLength(1);
       expect(stops[0]).toBe(dayIn(today));
       const start = `${today.slice(0, 4)}-06-15`;
+      await showMonth(start.slice(0, 7));
       (dayIn(start) as HTMLElement).focus();
       await userEvent.keyboard('{ArrowRight}{ArrowDown}');
       expect(document.activeElement).toBe(dayIn(addDays(start, 8)));
@@ -528,6 +542,69 @@ describe('calendar', () => {
         'data-cal-slots',
         addDays(start, 8),
       );
+    });
+
+    it('scrolls on into the next year and back, and the title follows', async () => {
+      const { today } = await yearWith();
+      const year = Number(today.slice(0, 4));
+      const title = () => screen.getByRole('heading', { level: 2 });
+      await showMonth(`${year + 1}-03`);
+      await waitFor(() => expect(title()).toHaveTextContent(String(year + 1)));
+      expect(screen.getByRole('heading', { level: 3, name: String(year + 1) })).toBeInTheDocument();
+      // A month away from this year says which year it is.
+      expect(screen.getByRole('grid', { name: `March ${year + 1}` })).toBeInTheDocument();
+      // Only what is near is there, however far it goes.
+      expect(document.querySelectorAll('[data-year-month]').length).toBeLessThanOrEqual(24);
+      // It is still one Tab stop, on a day in view.
+      expect(document.querySelectorAll('[data-year-day][tabindex="0"]')).toHaveLength(1);
+
+      await showMonth(`${year + 40}-12`);
+      await waitFor(() => expect(title()).toHaveTextContent(String(year + 40)));
+      await showMonth(`${year - 1}-07`);
+      await waitFor(() => expect(title()).toHaveTextContent(String(year - 1)));
+      await userEvent.click(screen.getByRole('button', { name: 'Next' }));
+      expect(title()).toHaveTextContent(String(year));
+      expect(dayIn(`${year}-01-01`)).not.toBeNull();
+    });
+
+    it('shades another year only once the scrolling has stopped', async () => {
+      const { store, today, zone } = await yearWith();
+      const year = Number(today.slice(0, 4));
+      const busy = `${year + 1}-03-10`;
+      act(() =>
+        store.getState().apply(
+          (ctx, ws) =>
+            createTask(ctx, ws, {
+              title: 'Next year',
+              listId: inboxList(ws).id,
+              schedule: { start: busy, end: null, allDay: true, timeZone: zone },
+            }).workspace,
+        ),
+      );
+      const box = document.querySelector('.year-months')!.parentElement!;
+      const top = monthTop(yearLayout(0, 600, year - SPAN_YEARS), `${year + 1}-03`);
+      vi.useFakeTimers({
+        toFake: [
+          'setTimeout',
+          'clearTimeout',
+          'performance',
+          'requestAnimationFrame',
+          'cancelAnimationFrame',
+        ],
+      });
+      try {
+        // A scroll that keeps going: the months are drawn, and nothing is worked out for them.
+        for (const step of [3, 2, 1, 0]) {
+          box.scrollTop = top - step;
+          fireEvent.scroll(box);
+          act(() => vi.advanceTimersByTime(50));
+        }
+        expect(dayIn(busy)).toHaveAttribute('data-heat', '0');
+        act(() => vi.advanceTimersByTime(200));
+        expect(dayIn(busy).getAttribute('data-heat')).not.toBe('0');
+      } finally {
+        vi.useRealTimers();
+      }
     });
 
     it('sets Unscheduled and the dial aside, and brings them back', async () => {

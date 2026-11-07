@@ -6,6 +6,7 @@ import { addDays, daysBetween, monthOf } from '../../core/dates.ts';
 import { mix } from '../../core/palette.ts';
 import { formatDay } from '../format.ts';
 import { t } from '../i18n/i18n.ts';
+import { rowRule } from './calendarLook.ts';
 import { ItemLine } from './ItemLine.tsx';
 import { besideScrolling, scrolling } from './scrollbars.ts';
 
@@ -137,8 +138,7 @@ const dayStyles = {
     minWidth: 0,
     overflow: 'hidden',
     borderRight: 1,
-    borderBottom: 1,
-    borderColor: 'divider',
+    ...rowRule,
     px: 0.25,
     cursor: 'pointer',
     '&:last-of-type': { borderRight: 0 },
@@ -367,8 +367,7 @@ export function MonthView({
         sx={{
           display: 'grid',
           gridTemplateColumns: 'repeat(7, minmax(0, 1fr))',
-          borderBottom: 1,
-          borderColor: 'divider',
+          ...rowRule,
           // Its overflow (besideScrolling) lets a flex child shrink to nothing: the weeks below
           // would squash the weekday names away.
           flexShrink: 0,
