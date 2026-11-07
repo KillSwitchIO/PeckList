@@ -82,7 +82,7 @@ existing person (**Admin > Sign-in > Link to an account**).
 A first sign-in can also find its account by itself. PeckList tries these in order, and the first
 that matches wins:
 
-1. **A mapping.** `OIDC_<NAME>_USER_MAP=ben=bendimit,kim.lee=kim` sends the provider user on the
+1. **A mapping.** `OIDC_<NAME>_USER_MAP=sam=samlee,kim.lee=kim` sends the provider user on the
    left to the PeckList account on the right, every time. Admins add more on **Admin > Sign-in >
    Mappings** (the setting wins when both name the same provider user). A mapping also moves a link:
    someone already linked to another account lands in the mapped one at their next sign-in.

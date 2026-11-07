@@ -30,8 +30,8 @@ else is under `/api/private/`, for the project's own network. The proxy in front
 | `GET /api/private/`         | The same totals as a page for people (no scripts, light and dark). `/` redirects here.                                                                                             |
 | `GET /api/private/healthz`  | `ok` when it is up.                                                                                                                                                                |
 
-The project runs it with reports arriving at `telemetry.pecklist.com` (Pangolin, `/api/public/*`
-only) and the totals at `telemetry.killswitch10.com`, on its own network only (Caddy).
+To run one, publish only `/api/public/*` to the internet, through a proxy, and keep everything under
+`/api/private/` on a private network.
 
 ## Running it
 

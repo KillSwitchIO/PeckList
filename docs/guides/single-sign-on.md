@@ -109,7 +109,7 @@ that matches wins:
 
 1. **A mapping.** `OIDC_<NAME>_USER_MAP` sends a provider account to a PeckList account, in one of
    two forms:
-   - `sub:auth0|abc123=ben` names the provider's subject, which never changes for a person. It
+   - `sub:auth0|abc123=sam` names the provider's subject, which never changes for a person. It
      decides every time, works for admin accounts, and moves a link: someone already linked to
      another account lands in this one at their next sign-in. **Prefer this form, and always use it
      for admins.** A subject with a comma in it cannot be written here: link it by hand instead, and
