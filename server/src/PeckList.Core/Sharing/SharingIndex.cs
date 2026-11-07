@@ -1028,6 +1028,9 @@ public sealed class SharingIndex
                 if (before is null) return a == userId && b is not null && b != userId && Field(doc, "state") == "pending";
                 if (Changed("userA") || Changed("userB")) return false;
                 if (a != userId && b != userId) return false;
+                // An ended one stays ended here: a new request makes a new row, which the other side
+                // accepts. A friend link and an admin bring one back as the server, not through this.
+                if (before.Doc["deletedAt"] is not null && doc["deletedAt"] is null) return false;
                 // Only the asked side accepts; either side may end it.
                 return !Changed("state") || (Field(doc, "state") == "accepted" && b == userId) || doc["deletedAt"] is not null;
             }
