@@ -388,10 +388,17 @@ public sealed class SharingIndex
     public IReadOnlyList<(string Id, JsonObject Doc)> MembershipRowsOf(string groupId) =>
         [.. Each(By.Group, groupId).Select(each => (each.Id, each.Doc))];
 
-    /// <summary>The friendship between two people in either direction, deleted ones too.</summary>
+    /// <summary>
+    /// The friendship between two people in either direction: a live accepted one, then a live
+    /// pending one, then an ended one. A new request makes another row, so several can exist.
+    /// </summary>
     public (string Id, JsonObject Doc)? FriendshipBetween(string a, string b)
     {
-        foreach (var facts in Each(By.User, a).OrderBy(each => each.Id, StringComparer.Ordinal))
+        var best = Each(By.User, a)
+            .OrderBy(each => each.Deleted)
+            .ThenBy(each => each.Get("state") != "accepted")
+            .ThenBy(each => each.Id, StringComparer.Ordinal);
+        foreach (var facts in best)
         {
             if (facts.Collection != "friendships") continue;
             var userA = facts.Get("userA");

@@ -571,6 +571,42 @@ public sealed class SharingTests(ServerFixture fixture) : IClassFixture<ServerFi
     }
 
     [Fact]
+    public async Task An_invite_assignment_waits_for_a_new_request_after_an_ended_friendship()
+    {
+        var ben = await SignIn("ben6");
+        var sam = await SignIn("sam6");
+        await ben.SyncAsync(
+            List("L1", "private"),
+            Friendship("F1", ben.UserId, sam.UserId, "pending", ended: true),
+            Friendship("F2", ben.UserId, sam.UserId, "pending"),
+            Invited("T1", "L1", "Paint fence", sam.UserId, ben.UserId));
+        await ben.SyncAsync();
+        Assert.True((bool?)ben.Seen["T1"]["assignees"]![$"invite:{sam.UserId}:{ben.UserId}"]!["in"]);
+
+        await sam.SyncAsync(Friendship("F2", ben.UserId, sam.UserId, "accepted"));
+        await sam.SyncAsync();
+        Assert.True((bool?)sam.Seen["T1"]["assignees"]![$"user:{sam.UserId}"]!["in"]);
+    }
+
+    [Fact]
+    public async Task Two_requests_with_one_accepted_count_as_friends_and_an_admin_ends_that_one()
+    {
+        var ben = await SignIn("ben6");
+        var sam = await SignIn("sam6");
+        await ben.SyncAsync(Friendship("F1", ben.UserId, sam.UserId, "pending"));
+        await sam.SyncAsync(Friendship("F2", sam.UserId, ben.UserId, "pending"));
+        await ben.SyncAsync(Friendship("F2", sam.UserId, ben.UserId, "accepted"));
+
+        var preview = await ben.Client.GetFromJsonAsync<ProfilePreview>("/api/users/lookup?q=sam6", Token);
+        Assert.Equal("accepted", preview!.Friendship);
+
+        var sharing = factory.Services.GetRequiredService<SharingState>();
+        Assert.True(sharing.Index.Knows(ben.UserId, sam.UserId));
+        Assert.True(await factory.Services.GetRequiredService<Friends>().EndFriendshipAsync(ben.UserId, sam.UserId, Token));
+        Assert.False(sharing.Index.Knows(ben.UserId, sam.UserId));
+    }
+
+    [Fact]
     public async Task An_admin_hands_shared_lists_and_groups_to_someone_else()
     {
         var ben = await SignIn("ben9");
