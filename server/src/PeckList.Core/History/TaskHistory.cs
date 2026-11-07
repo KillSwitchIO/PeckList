@@ -107,6 +107,6 @@ public static class HistoryRules
             return JsonSerializer.Serialize(current);
         }
         var text = node.ToJsonString();
-        return text.Length > MaxValue ? text[..MaxValue] : text;
+        return SafeText.Cut(text, MaxValue);
     }
 }

@@ -182,11 +182,23 @@ public sealed class AuditLog : BackgroundService
 
     public void Record(AuditEntry entry)
     {
-        // Notes come from requests and providers: the same masking as the logs.
+        // Notes come from requests and providers: the same masking as the logs, as text the store takes.
         entry = entry with
         {
-            Detail = entry.Detail is null ? null : Capped(redaction.Text(entry.Detail)),
-            Device = entry.Device is null ? null : redaction.Text(entry.Device),
+            Type = SafeText.Clean(entry.Type),
+            Outcome = SafeText.Clean(entry.Outcome),
+            ActorId = SafeText.Clean(entry.ActorId),
+            ActorName = SafeText.Clean(entry.ActorName),
+            ImpersonatorId = SafeText.Clean(entry.ImpersonatorId),
+            ImpersonatorName = SafeText.Clean(entry.ImpersonatorName),
+            TargetId = SafeText.Clean(entry.TargetId),
+            TargetName = SafeText.Clean(entry.TargetName),
+            Ip = SafeText.Clean(entry.Ip),
+            Method = SafeText.Clean(entry.Method),
+            Route = SafeText.Clean(entry.Route),
+            RequestId = SafeText.Clean(entry.RequestId),
+            Detail = entry.Detail is null ? null : Capped(redaction.Text(SafeText.Clean(entry.Detail))),
+            Device = entry.Device is null ? null : redaction.Text(SafeText.Clean(entry.Device)),
         };
         Interlocked.Increment(ref pending);
         // A full queue drops the entry (counted by the queue's callback); a closed one at shutdown too.
@@ -200,14 +212,9 @@ public sealed class AuditLog : BackgroundService
 
     /// <summary>
     /// A detail can hold what someone else wrote (a provider's error, a typed reason). Cut after the
-    /// masking, so a cut can never leave half a secret unmasked (audit S17), and on a character boundary.
+    /// masking, so a cut can never leave half a secret unmasked (audit S17).
     /// </summary>
-    private static string Capped(string detail)
-    {
-        if (detail.Length <= MaxDetailLength) return detail;
-        var end = char.IsHighSurrogate(detail[MaxDetailLength - 1]) ? MaxDetailLength - 1 : MaxDetailLength;
-        return detail[..end] + "...";
-    }
+    private static string Capped(string detail) => detail.Length <= MaxDetailLength ? detail : SafeText.Cut(detail, MaxDetailLength) + "...";
 
     private void WriteLog(AuditEntry entry)
     {
@@ -277,13 +284,45 @@ public sealed class AuditLog : BackgroundService
                 }
                 catch (Exception error)
                 {
-                    events.LogError(error, "Dropped {Count} audit entries that could not be stored", batch.Count);
-                    Interlocked.Add(ref dropped, batch.Count);
+                    var lost = await StoreOneByOneAsync(batch, cancellation);
+                    if (lost > 0)
+                    {
+                        events.LogError(error, "Dropped {Count} of {Batch} audit entries that could not be stored", lost, batch.Count);
+                        Interlocked.Add(ref dropped, lost);
+                    }
                     break;
                 }
             }
             Interlocked.Add(ref pending, -batch.Count);
         }
+    }
+
+    /// <summary>
+    /// After a batch failed for good: one entry the store refuses should not cost the others. A few
+    /// failures in a row means the store is down, so the rest are not tried. How many were lost.
+    /// </summary>
+    private async Task<int> StoreOneByOneAsync(List<AuditEntry> batch, CancellationToken cancellation)
+    {
+        var (lost, inARow) = (0, 0);
+        foreach (var entry in batch)
+        {
+            if (inARow >= 3)
+            {
+                lost++;
+                continue;
+            }
+            try
+            {
+                await store.AppendAsync([entry], cancellation);
+                inARow = 0;
+            }
+            catch (Exception)
+            {
+                lost++;
+                inARow++;
+            }
+        }
+        return lost;
     }
 
     /// <summary>The entries one request makes: an access entry, and an event when the endpoint is one.</summary>
@@ -361,7 +400,7 @@ public sealed class AuditLog : BackgroundService
     /// <summary>The browser or app, from the user agent, cut to <see cref="DeviceLength"/>; null without one.</summary>
     private static string? DeviceOf(HttpContext context) =>
         context.Request.Headers.UserAgent.ToString() is { Length: > 0 } agent
-            ? agent.Length > DeviceLength ? agent[..DeviceLength] : agent
+            ? SafeText.Cut(agent, DeviceLength)
             : null;
 
     private static string? Address(IPAddress? address) =>

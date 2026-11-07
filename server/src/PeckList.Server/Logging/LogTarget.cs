@@ -166,7 +166,7 @@ public sealed class LogTarget : IAsyncDisposable
                 Interlocked.Increment(ref failures);
                 lastFailure = time.GetUtcNow();
                 var message = redact(error is LogShipException ? error.Message : $"{error.GetType().Name}: {error.Message}");
-                lastError = message.Length > 300 ? message[..300] : message;
+                lastError = Core.SafeText.Cut(message, 300);
                 SetHealthy(false);
                 if (error is LogShipException { Retry: false } || draining)
                 {

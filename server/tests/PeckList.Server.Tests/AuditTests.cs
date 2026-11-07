@@ -52,6 +52,54 @@ public sealed class AuditTests(ServerFixture fixture) : IClassFixture<ServerFixt
         Assert.Equal(new string('x', AuditLog.MaxDetailLength) + "...", entry.Detail);
     }
 
+    /// <summary>A store that refuses any batch holding an entry whose detail says so, and keeps the rest.</summary>
+    private sealed class PickyStore(Func<AuditEntry, bool> refuses) : IAuditStore
+    {
+        public List<AuditEntry> Kept { get; } = [];
+        public int Calls { get; private set; }
+
+        public Task AppendAsync(IReadOnlyList<AuditEntry> entries, CancellationToken cancellation = default)
+        {
+            Calls++;
+            if (entries.Any(refuses)) throw new InvalidOperationException("refused");
+            Kept.AddRange(entries);
+            return Task.CompletedTask;
+        }
+
+        public Task<AuditPage> QueryAsync(AuditQuery query, CancellationToken cancellation = default) => throw new NotSupportedException();
+
+        public Task<IReadOnlyList<AuditEntry>> OlderAsync(string kind, DateTimeOffset before, int limit, CancellationToken cancellation = default) => throw new NotSupportedException();
+
+        public Task<int> PruneAsync(string kind, DateTimeOffset before, CancellationToken cancellation = default) => throw new NotSupportedException();
+    }
+
+    private static async Task Store(PickyStore store, params string[] details)
+    {
+        var log = new AuditLog(store, TimeProvider.System, Microsoft.Extensions.Logging.Abstractions.NullLoggerFactory.Instance);
+        foreach (var detail in details) log.RecordSystem("test.batch", detail: detail);
+        await log.StartAsync(Token);
+        await log.FlushAsync(Token);
+        await log.StopAsync(Token);
+    }
+
+    [Fact]
+    public async Task One_entry_the_store_refuses_does_not_cost_the_others()
+    {
+        var store = new PickyStore(entry => entry.Detail == "bad");
+        await Store(store, "one", "bad", "two", "three");
+        Assert.Equal(["one", "two", "three"], store.Kept.Select(entry => entry.Detail));
+    }
+
+    [Fact]
+    public async Task A_store_that_is_down_is_not_tried_for_every_entry()
+    {
+        var store = new PickyStore(_ => true);
+        await Store(store, [.. Enumerable.Range(0, 50).Select(number => $"entry {number}")]);
+        Assert.Empty(store.Kept);
+        // Three tries of the batch, then three of the entries on their own.
+        Assert.Equal(6, store.Calls);
+    }
+
     [Fact]
     public async Task A_cut_never_splits_an_emoji()
     {

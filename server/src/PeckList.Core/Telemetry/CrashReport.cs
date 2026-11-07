@@ -78,12 +78,8 @@ public static partial class CrashReports
         var stack = Scrub(report.Stack ?? "");
         return report with
         {
-            Stack = stack.Length > CrashReport.MaxStack ? stack[..CrashReport.MaxStack] : stack,
-            Logs = [.. (report.Logs ?? []).TakeLast(CrashReport.MaxLogLines).Select(line =>
-            {
-                var clean = Scrub(line);
-                return clean.Length > CrashReport.MaxLogLine ? clean[..CrashReport.MaxLogLine] : clean;
-            })],
+            Stack = SafeText.Cut(stack, CrashReport.MaxStack),
+            Logs = [.. (report.Logs ?? []).TakeLast(CrashReport.MaxLogLines).Select(line => SafeText.Cut(Scrub(line), CrashReport.MaxLogLine))],
             Device = [.. (report.Device ?? []).Where(ClientUsage.KnownKind)],
         };
     }

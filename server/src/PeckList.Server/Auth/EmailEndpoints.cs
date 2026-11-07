@@ -60,8 +60,8 @@ public static class EmailEndpoints
         auth.MapPost("/forgot", (ForgotRequest request, AccountEmails emails, IMailSender mail, LiveSettings live, IMemoryCache cache,
             ILoggerFactory logs, HttpContext context) =>
         {
-            var login = (request.Login ?? "").Trim();
-            context.Audit().On(null, login.Length > 100 ? login[..100] : login).Anonymous = true;
+            var login = Core.SafeText.Clean(request.Login ?? "").Trim();
+            context.Audit().On(null, Core.SafeText.Cut(login, 100)).Anonymous = true;
             if (!ResetsWork(mail, live)) return Results.NotFound(new AuthError("reset_unavailable"));
             if (login.Length > 0)
             {
