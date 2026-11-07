@@ -45,6 +45,8 @@ public sealed class SelfSignUp(AccountService accounts, SignupInvites invites, L
         if (!hasInvite && Settings.Registration != Registration.Open) return SignUpResult.InviteNeeded;
         username = username.Trim().ToLowerInvariant();
         if (!AccountService.IsValidUsername(username)) return SignUpResult.InvalidUsername;
+        // The server's own name, free or not: the same answer as when the account is there.
+        if (username == AccountService.AdminUsername) return SignUpResult.UsernameTaken;
         if (password.Length < AccountService.MinPasswordLength) return SignUpResult.TooShort;
         if (password.Length > AccountService.MaxNewPasswordLength) return SignUpResult.TooLong;
 

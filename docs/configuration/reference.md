@@ -66,7 +66,10 @@ Without it a password is generated and printed once. An `admin` that removed its
 passkey or a provider stays without one. Only an `admin` with no way in at all, such as one made
 under `AUTH_MODE=none`, is given a password at a later start, with an `auth.admin-password-given`
 audit event. If that other way in stops working, `pecklist admin reset-password` gives it a password
-again. **Default:** generated. **Where:** env.
+again. A deleted `admin` is not made again while another super admin is active. With none active, a
+start makes it once the deleted one is removed, with an `auth.admin-created` audit event. See
+[`admin reset-password`](../reference/cli.md#admin-reset-password) for getting back in.
+**Default:** generated. **Where:** env.
 
 ### `LOCAL_LOGIN`
 

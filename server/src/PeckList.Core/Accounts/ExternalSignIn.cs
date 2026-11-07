@@ -583,10 +583,13 @@ public sealed class ExternalSignIn(
 
     private static string? Fold(char letter) => Folds.GetValueOrDefault(letter);
 
-    /// <summary><paramref name="wanted"/>, or with 2, 3... after it when taken. Never someone else's account.</summary>
+    /// <summary>
+    /// <paramref name="wanted"/>, or with 2, 3... after it when taken. Never someone else's account, and
+    /// never the server's own name, which counts as taken even when free.
+    /// </summary>
     private async Task<string> FreeUsernameAsync(string wanted, CancellationToken cancellation)
     {
-        if (await accounts.FindByUsernameAsync(wanted, cancellation) is null) return wanted;
+        if (wanted != AccountService.AdminUsername && await accounts.FindByUsernameAsync(wanted, cancellation) is null) return wanted;
         for (var number = 2; ; number++)
         {
             var suffix = number.ToString(CultureInfo.InvariantCulture);

@@ -147,6 +147,8 @@ public sealed class AccountService(IAccountStore store, IPasswordHasher hasher, 
     {
         var admin = await store.FindByUsernameAsync(AdminUsername, cancellation);
         if (admin?.PasswordHash is not null) return null;
+        // Removed on purpose: the name only comes back to rescue a server with no working super admin.
+        if (admin is null && (await store.ListAsync(cancellation)).Any(IsActiveSuperAdmin)) return null;
         // Over the limit only stops a first start, with nothing to lose: a server in use would go down.
         // Past what can be checked, the account could never sign in, so it stops wherever it is used.
         if (configuredPassword?.Length > MaxTriedPasswordLength
@@ -176,6 +178,9 @@ public sealed class AccountService(IAccountStore store, IPasswordHasher hasher, 
         return configuredPassword is null ? password : null;
     }
 
+    /// <summary>A deleted account in its grace period is disabled, so it does not count.</summary>
+    private static bool IsActiveSuperAdmin(Account account) => account.Role == Role.SuperAdmin && !account.Disabled;
+
     /// <summary>The one account used when AUTH_MODE is none: the admin, made without a password if missing.</summary>
     public async Task<Account> EnsureOwnerAsync(CancellationToken cancellation = default)
     {
@@ -192,7 +197,7 @@ public sealed class AccountService(IAccountStore store, IPasswordHasher hasher, 
     public async Task EnsureSuperAdminAsync(CancellationToken cancellation = default)
     {
         var all = await store.ListAsync(cancellation);
-        if (all.Any(account => account.Role == Role.SuperAdmin && !account.Disabled)) return;
+        if (all.Any(IsActiveSuperAdmin)) return;
         var pick = all.FirstOrDefault(account => account.Username == AdminUsername && !account.Disabled)
             ?? all.FirstOrDefault(account => account.Role == Role.Admin && !account.Disabled);
         if (pick is not null) await store.UpdateAsync(pick with { Role = Role.SuperAdmin }, cancellation);

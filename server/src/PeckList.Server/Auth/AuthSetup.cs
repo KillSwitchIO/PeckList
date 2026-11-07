@@ -305,9 +305,13 @@ public static class AuthSetup
             var withoutPassword = admin is { PasswordHash: null };
             var otherWayIn = withoutPassword && await signIn.CanSignInAsync(admin!, cancellation);
             var password = await accounts.EnsureAdminAsync(settings.AdminPassword, otherWayIn, cancellation);
-            if (withoutPassword && !otherWayIn)
+            var source = settings.AdminPassword is null ? "source=generated" : "source=setting";
+            if (withoutPassword && !otherWayIn) audit.RecordSystem("auth.admin-password-given", detail: source);
+            if (admin is null && await store.FindByUsernameAsync(AccountService.AdminUsername, cancellation) is not null)
             {
-                audit.RecordSystem("auth.admin-password-given", detail: settings.AdminPassword is null ? "source=generated" : "source=setting");
+                audit.RecordSystem("auth.admin-created", detail: source);
+                // A generated password says so below.
+                if (password is null) logger.LogWarning("Admin account {Username} created from ADMIN_PASSWORD.", AccountService.AdminUsername);
             }
             if (password is not null)
             {
