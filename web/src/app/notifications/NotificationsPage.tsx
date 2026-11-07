@@ -5,7 +5,7 @@ import GroupsOutlined from '@mui/icons-material/GroupsOutlined';
 import CloseRounded from '@mui/icons-material/CloseRounded';
 import NotificationsNoneRounded from '@mui/icons-material/NotificationsNoneRounded';
 import { Box, Button, ButtonBase, IconButton, Tooltip, Typography } from '@mui/material';
-import { useEffect, type ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { useNavigate } from 'react-router';
 import { getEntity } from '../../core/collections.ts';
 import { localDateTimeOf, localTimeZone } from '../../core/dates.ts';
@@ -50,6 +50,8 @@ export function NotificationsPage() {
   const apply = useApply();
   const me = useStoreState((state) => state.context().userId);
   const syncNow = useSyncState((state) => state.syncNow);
+  // Thumbs up already given from here: a double tap leaves one.
+  const [liked, setLiked] = useState<ReadonlySet<string>>(new Set());
 
   // Seen once the page shows them (after a moment, so they show as new first).
   useEffect(() => {
@@ -82,7 +84,9 @@ export function NotificationsPage() {
           key="like"
           size="small"
           aria-label={t('notifications.like')}
+          disabled={liked.has(item.id)}
           onClick={() => {
+            setLiked((current) => new Set(current).add(item.id));
             if (!item.read) read([item.id]);
             apply(
               (ctx, ws) => addComment(ctx, ws, task.id, THUMBS_UP).workspace,
