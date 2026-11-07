@@ -81,8 +81,9 @@ their start; the due date is the deadline.
   view too, with the title ready to type into; on a phone it fills the screen, and closing it
   closes the task. At the bottom: the
   comments, the task's history and when it was made and last changed. On a phone those wait
-  behind a bar at the bottom: tap it, or swipe up on it or past the end of the task, and a panel
-  as tall as the task's slides up with the comments and, below them, the history. When the task
+  behind a bar at the bottom: tap it, or pull up on it or past the end of the task, and a panel
+  as tall as the task's comes up with your finger with the comments and, below them, the history.
+  Pull it about a third of the way, or flick it, and it stays; otherwise it slides back. When the task
   was made shows at the left and when it last changed at the right. Panels that slide up close with a swipe down or a tap outside them. Phone rows put
   the title on its own line, with the list and tags under it and the date at the right.
 - **Reminders**: in a task's details, **Reminders** opens a list like TickTick's: tick any of

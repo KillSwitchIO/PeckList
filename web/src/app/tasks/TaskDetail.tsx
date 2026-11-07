@@ -33,8 +33,8 @@ import { completionInstant } from './completion.ts';
 import { DetailFooter } from './DetailFooter.tsx';
 import { ParentTrail, SubtaskEditor } from './Subtasks.tsx';
 import { Comments } from './Comments.tsx';
-import { PhoneTaskMore, SWIPE_UP_PX, TaskDates } from './TaskInfo.tsx';
-import { touchInside } from './touchInside.ts';
+import { PhoneTaskMore, TaskDates } from './TaskInfo.tsx';
+import { usePullUp } from './usePullUp.ts';
 import { TaskHistory } from './TaskHistory.tsx';
 import { TaskMenu, type TaskMenuAnchor } from './TaskMenu.tsx';
 import { fromDateValue, toDateValue } from '../dates/dateValue.ts';
@@ -172,11 +172,19 @@ export function TaskDetail({
   const task = getEntity(workspace, 'tasks', taskId);
   const [menu, setMenu] = useState<TaskMenuAnchor | null>(null);
   // The phone's comments and history panel: open at once from a notification about a comment
-  // (R-FB-106), or by a swipe up past the end (R-FB-109).
+  // (R-FB-106), or pulled up past the end of the details (R-FB-109).
   const [params] = useSearchParams();
   const { open } = useTaskSelection();
   const [moreOpen, setMoreOpen] = useState(() => params.get('comment') !== null);
-  const pull = useRef<number | null>(null);
+  const pull = usePullUp(moreOpen, setMoreOpen);
+  const details = useRef<HTMLDivElement | null>(null);
+  const hasTask = task !== undefined;
+  const { attach: pullFrom } = pull;
+  useEffect(() => {
+    const box = details.current;
+    if (!phone || !box) return;
+    return pullFrom(box, () => box.scrollTop + box.clientHeight >= box.scrollHeight - 2);
+  }, [pullFrom, phone, hasTask]);
   const titleLongPress = useLongPress((position) => setMenu({ position }));
   const phase = useSyncState((state) => state.phase);
   const authMode = useSyncState((state) => state.account?.authMode);
@@ -345,24 +353,8 @@ export function TaskDetail({
             scroll area would cut it off (R-FB-81). */}
         <Stack
           spacing={2}
-          // On a phone, a swipe up past the end opens the comments and history (R-FB-109).
-          {...(phone
-            ? {
-                onTouchStart: (event: React.TouchEvent<HTMLDivElement>) => {
-                  const box = event.currentTarget;
-                  const atEnd = box.scrollTop + box.clientHeight >= box.scrollHeight - 2;
-                  pull.current =
-                    atEnd && touchInside(event) ? (event.touches[0]?.clientY ?? null) : null;
-                },
-                onTouchMove: (event: React.TouchEvent<HTMLDivElement>) => {
-                  const y = event.touches[0]?.clientY;
-                  if (pull.current !== null && y !== undefined && pull.current - y > SWIPE_UP_PX) {
-                    pull.current = null;
-                    setMoreOpen(true);
-                  }
-                },
-              }
-            : {})}
+          // On a phone, pulling up past the end brings up the comments and history (R-FB-109).
+          ref={details}
           sx={{ flexGrow: 1, minHeight: 0, overflowY: 'auto', px: 2, pb: 2, pt: 1.5 }}
         >
           <ParentTrail task={task} />
@@ -470,7 +462,7 @@ export function TaskDetail({
             </>
           )}
         </Stack>
-        {phone && <PhoneTaskMore task={task} open={moreOpen} setOpen={setMoreOpen} />}
+        {phone && <PhoneTaskMore task={task} open={moreOpen} setOpen={setMoreOpen} pull={pull} />}
         <DetailFooter task={task} />
       </Box>
     </TaskReadOnly>

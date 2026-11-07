@@ -379,7 +379,7 @@ describe('notifications', () => {
     expect(lines[1]).toMatch(/^Someone created this task/);
   });
 
-  it('a phone swipes up from the bottom bar to the comments and history (R-FB-109)', async () => {
+  it('a phone pulls up from the bottom bar to the comments and history (R-FB-109)', async () => {
     mockViewport('phone');
     const store = testStore();
     await renderApp('/inbox', store);
@@ -394,7 +394,8 @@ describe('notifications', () => {
     await userEvent.click(await screen.findByRole('button', { name: 'Open Water plants' }));
     const bar = await screen.findByRole('button', { name: 'Comments and history' });
     fireEvent.touchStart(bar, { touches: [{ clientX: 100, clientY: 700 }] });
-    fireEvent.touchMove(bar, { touches: [{ clientX: 100, clientY: 600 }] });
+    fireEvent.touchMove(bar, { touches: [{ clientX: 100, clientY: 300 }] });
+    fireEvent.touchEnd(bar);
     const panel = await screen.findByRole('dialog', { name: 'Comments and history' });
     expect(within(panel).getByRole('region', { name: 'History' })).toBeInTheDocument();
   });
@@ -425,7 +426,8 @@ describe('notifications', () => {
     await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Repeat' })).toBeNull());
     const bar = screen.getByRole('button', { name: 'Comments and history' });
     fireEvent.touchStart(bar, { touches: [{ clientX: 100, clientY: 700 }] });
-    fireEvent.touchMove(bar, { touches: [{ clientX: 100, clientY: 600 }] });
+    fireEvent.touchMove(bar, { touches: [{ clientX: 100, clientY: 300 }] });
+    fireEvent.touchEnd(bar);
     expect(await screen.findByRole('dialog', { name: 'Comments and history' })).toBeInTheDocument();
   });
 });
