@@ -253,4 +253,62 @@ public sealed class FriendsTests(ServerFixture fixture) : IClassFixture<ServerFi
         Assert.False(await friends.EndFriendshipAsync(benId, samId, Token));
         Assert.Null((await ben.GetFromJsonAsync<ProfilePreview>("/api/users/lookup?q=sam9", Token))!.Friendship);
     }
+
+    [Fact]
+    public async Task An_ended_friendship_stays_ended_whichever_side_pushes_it()
+    {
+        var (ben, benId) = await SignIn("ben6");
+        var (sam, samId) = await SignIn("sam6");
+        var id = await EndedFriendship(ben, sam, ben);
+
+        foreach (var client in new[] { sam, ben })
+        {
+            var row = (await PullAll(client))[id];
+            row["deletedAt"] = null;
+            row["_hlc"]!["deletedAt"] = Later();
+            Assert.Equal([id], await Push(client, row));
+            Assert.NotNull((await PullAll(ben))[id]["deletedAt"]);
+            Assert.NotNull((await PullAll(sam))[id]["deletedAt"]);
+            Assert.False(Know(benId, samId));
+        }
+    }
+
+    [Fact]
+    public async Task After_an_end_a_new_request_the_other_side_accepts_makes_friends_again()
+    {
+        var (ben, benId) = await SignIn("ben7");
+        var (sam, samId) = await SignIn("sam7");
+        var id = await EndedFriendship(ben, sam, ben);
+
+        var request = (await PullAll(sam))[id].DeepClone().AsObject();
+        request["id"] = Ids.NewUlid();
+        request["userA"] = samId;
+        request["userB"] = benId;
+        request["state"] = "pending";
+        request["createdBy"] = samId;
+        request["deletedAt"] = null;
+        foreach (var clock in request["_hlc"]!.AsObject().Select(pair => pair.Key).ToList()) request["_hlc"]![clock] = Later(0);
+        Assert.Empty(await Push(sam, request));
+        Assert.False(Know(benId, samId));
+
+        var asked = (await PullAll(ben))[(string)request["id"]!];
+        asked["state"] = "accepted";
+        asked["_hlc"]!["state"] = Later();
+        Assert.Empty(await Push(ben, asked));
+        Assert.True(Know(benId, samId));
+    }
+
+    [Fact]
+    public async Task An_admin_can_still_make_an_ended_friendship_again()
+    {
+        var (ben, benId) = await SignIn("ben8");
+        var (sam, samId) = await SignIn("sam8");
+        var id = await EndedFriendship(ben, sam, sam);
+
+        await Task.Delay(1100, Token);
+        Assert.Equal(id, await factory.Services.GetRequiredService<Friends>().MakeFriendsAsync(benId, samId, cancellation: Token));
+
+        Assert.Null((await PullAll(sam))[id]["deletedAt"]);
+        Assert.True(Know(benId, samId));
+    }
 }
