@@ -62,6 +62,7 @@ final class Reminders {
     static final String EXTRA_MINUTES = "pecklist.minutes";
     static final String EXTRA_SHOWN = "pecklist.shown";
     static final String EXTRA_REMINDER = "pecklist.reminder";
+    static final String EXTRA_PRESS = "pecklist.press";
 
     private static final String PREFS = "pecklist.reminders";
     private static final String ALL = "all";
@@ -304,7 +305,8 @@ final class Reminders {
             .setAction("com.killswitch10.pecklist.OPEN." + id)
             .addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP)
             .putExtra(EXTRA_URL, url)
-            .putExtra(EXTRA_SHOWN, id);
+            .putExtra(EXTRA_SHOWN, id)
+            .putExtra(EXTRA_PRESS, Presses.newId());
         NotificationCompat.Builder built = base(context, channel, title, body)
             .setCategory(NotificationCompat.CATEGORY_SOCIAL)
             .setContentIntent(PendingIntent.getActivity(context, id, intent, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE));
@@ -316,7 +318,8 @@ final class Reminders {
                 .setAction("com.killswitch10.pecklist.OPEN." + code)
                 .addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP)
                 .putExtra(EXTRA_URL, action.getString("url"))
-                .putExtra(EXTRA_SHOWN, id);
+                .putExtra(EXTRA_SHOWN, id)
+                .putExtra(EXTRA_PRESS, Presses.newId());
             built.addAction(0, action.getString("title"),
                 PendingIntent.getActivity(context, code, press, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE));
         }
@@ -344,7 +347,8 @@ final class Reminders {
             .setData(Uri.parse("pecklist-reminder://" + reminder.alarm()))
             .addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP)
             .putExtra(EXTRA_URL, reminder.url)
-            .putExtra(EXTRA_SHOWN, reminder.shown());
+            .putExtra(EXTRA_SHOWN, reminder.shown())
+            .putExtra(EXTRA_PRESS, Presses.newId());
         return PendingIntent.getActivity(context, reminder.alarm(), intent, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
     }
 
