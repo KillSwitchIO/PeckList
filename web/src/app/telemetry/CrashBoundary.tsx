@@ -11,6 +11,7 @@ import {
 import { Component, useEffect, useState, type ErrorInfo, type ReactNode } from 'react';
 import type { CrashChoice, CrashReportDraft } from '../../ports/sync.ts';
 import { t } from '../i18n/i18n.ts';
+import { isLoadFailure } from '../loadOnce.ts';
 import { CenteredCard } from '../layout/CenteredCard.tsx';
 import { nativeShell } from '../native/shell.ts';
 import { useSyncState } from '../sync/syncContext.ts';
@@ -23,23 +24,42 @@ import { countError } from './usage.ts';
  */
 export class CrashBoundary extends Component<
   { children: ReactNode },
-  { report: CrashReportDraft | null }
+  { report: CrashReportDraft | null; loadFailed: boolean }
 > {
-  override state: { report: CrashReportDraft | null } = { report: null };
+  override state = { report: null as CrashReportDraft | null, loadFailed: false };
 
-  static getDerivedStateFromError(error: unknown): { report: CrashReportDraft } {
-    return { report: crashReport(error) };
+  static getDerivedStateFromError(error: unknown) {
+    return { report: crashReport(error), loadFailed: isLoadFailure(error) };
   }
 
   override componentDidCatch(error: unknown, info: ErrorInfo) {
+    if (isLoadFailure(error)) return;
     countError(error);
     // With where in the app it broke.
     this.setState({ report: crashReport(error, info.componentStack) });
   }
 
   override render() {
+    if (this.state.loadFailed) return <LoadFailedScreen />;
     return this.state.report ? <CrashScreen report={this.state.report} /> : this.props.children;
   }
+}
+
+/** A part of the app could not be fetched: nothing has broken, so there is nothing to report. */
+function LoadFailedScreen() {
+  return (
+    <CenteredCard title={t('crash.loadTitle')} subtitle={t('crash.loadSubtitle')}>
+      <Button
+        variant="contained"
+        size="large"
+        disableElevation
+        fullWidth
+        onClick={() => window.location.reload()}
+      >
+        {t('crash.reload')}
+      </Button>
+    </CenteredCard>
+  );
 }
 
 /** The page after a crash: Reload, and the report offer. */

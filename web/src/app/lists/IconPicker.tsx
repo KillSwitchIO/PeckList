@@ -80,7 +80,9 @@ export function IconPicker({
       .then(() => import('./iconCatalog.ts'))
       .then((loaded) => {
         if (live) setCatalog(loaded);
-      });
+      })
+      // Not fetched: the picker shows what it has, and opening it again tries again.
+      .catch(() => undefined);
     return () => {
       live = false;
     };

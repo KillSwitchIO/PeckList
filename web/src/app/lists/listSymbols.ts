@@ -41,6 +41,7 @@ import SmartphoneOutlined from '@mui/icons-material/SmartphoneOutlined';
 import SportsEsportsOutlined from '@mui/icons-material/SportsEsportsOutlined';
 import StarBorderRounded from '@mui/icons-material/StarBorderRounded';
 import WorkOutlineRounded from '@mui/icons-material/WorkOutlineRounded';
+import { loadOnce } from '../loadOnce.ts';
 
 export const SYMBOL_PREFIX = 'symbol:';
 
@@ -90,17 +91,15 @@ export const LIST_SYMBOLS: Readonly<Record<string, SvgIconComponent>> = {
 // The rest of the catalog (R-FB-117) loads on its own after start-up (and offline, from the
 // app's cache); a list wearing one of those shows its color dot for that moment.
 let more: Readonly<Record<string, SvgIconComponent>> | null = null;
-let loading: Promise<void> | null = null;
 const listeners = new Set<() => void>();
 
 /** Load the full catalog of icons and emoji (once). */
-export function loadSymbolCatalog(): Promise<void> {
-  loading ??= import('./iconCatalog.ts').then((catalog) => {
+export const loadSymbolCatalog = loadOnce(() =>
+  import('./iconCatalog.ts').then((catalog) => {
     more = catalog.MORE_SYMBOLS;
     for (const listener of listeners) listener();
-  });
-  return loading;
-}
+  }),
+);
 
 const subscribe = (listener: () => void) => {
   listeners.add(listener);
@@ -120,7 +119,8 @@ export function useListSymbol(icon: string | null | undefined): SvgIconComponent
   const Symbol = symbolOf(icon);
   const waiting = Symbol === null && loaded === null && icon?.startsWith(SYMBOL_PREFIX) === true;
   useEffect(() => {
-    if (waiting) void loadSymbolCatalog();
+    // Failed, the dot stays for now: the next list to want an icon tries again.
+    if (waiting) loadSymbolCatalog().catch(() => undefined);
   }, [waiting]);
   return Symbol;
 }

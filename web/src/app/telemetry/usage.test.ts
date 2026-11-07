@@ -102,6 +102,26 @@ describe('usage counts (PL-116)', () => {
     expect(localStorage.getItem('pecklist.usage')).toBeNull();
   });
 
+  it('counts an uncaught fault, but not a part of the app that could not be fetched', async () => {
+    const { fake } = transport({ ...on });
+    await startUsage(fake);
+    const rejected = (reason: unknown) =>
+      window.dispatchEvent(
+        Object.assign(new Event('unhandledrejection'), { reason }) as PromiseRejectionEvent,
+      );
+    rejected(new TypeError('Failed to fetch dynamically imported module: /assets/icons-abc.js'));
+    window.dispatchEvent(
+      new ErrorEvent('error', {
+        error: new TypeError('error loading dynamically imported module'),
+      }),
+    );
+    expect(JSON.parse(localStorage.getItem('pecklist.usage') ?? '{"errors":{}}').errors).toEqual(
+      {},
+    );
+    rejected(new RangeError('a'));
+    expect(Object.values(JSON.parse(localStorage.getItem('pecklist.usage')!).errors)).toEqual([1]);
+  });
+
   it('names views by their first path part, and leaves the rest out', () => {
     expect(viewOf('/today')).toBe('view.today');
     expect(viewOf('/day/2026-11-04')).toBe('view.day');

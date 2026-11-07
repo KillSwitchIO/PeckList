@@ -4,6 +4,7 @@
 // (Settings > Usage stats), and only names on the list below: no titles, text or ids, ever.
 
 import type { ClientReport, SyncTransport, TelemetryStatus } from '../../ports/sync.ts';
+import { isLoadFailure } from '../loadOnce.ts';
 import { nativeShell } from '../native/shell.ts';
 
 /** Everything the app counts; the server drops any other name. */
@@ -259,12 +260,14 @@ export function applyStatus(status: TelemetryStatus | null): void {
   }
 }
 
+// A part of the app that could not be fetched is the network, not a fault, so it is not counted.
 function onError(event: ErrorEvent): void {
-  countError(event.error ?? new Error(event.message));
+  const error = event.error ?? new Error(event.message);
+  if (!isLoadFailure(error)) countError(error);
 }
 
 function onRejection(event: PromiseRejectionEvent): void {
-  countError(event.reason);
+  if (!isLoadFailure(event.reason)) countError(event.reason);
 }
 
 /** Start counting for a signed-in session (when the server and the person allow it). */

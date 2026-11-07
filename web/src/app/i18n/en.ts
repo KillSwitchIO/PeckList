@@ -637,6 +637,9 @@ export const en = {
   'crash.subtitle':
     'PeckList hit an error it could not get past. Your tasks are safe; reloading usually fixes it.',
   'crash.reload': 'Reload',
+  'crash.loadTitle': 'This page could not load',
+  'crash.loadSubtitle':
+    'PeckList may have been updated, or the connection dropped. Your tasks are safe; reloading gets it.',
   'crash.offer':
     'Send a crash report to the PeckList project? It says where the app broke: the error and the device kind, never your tasks or your server.',
   'crash.show': 'See what it holds',
