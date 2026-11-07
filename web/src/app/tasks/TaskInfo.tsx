@@ -1,6 +1,6 @@
 import ExpandLessRounded from '@mui/icons-material/ExpandLessRounded';
 import { Box, ButtonBase, Typography } from '@mui/material';
-import { useRef } from 'react';
+import { useEffect, useRef } from 'react';
 import { commentsOf } from '../../core/comments.ts';
 import { localDateTimeOf, localTimeZone } from '../../core/dates.ts';
 import { lastChangedAt } from '../../core/tasks.ts';
@@ -12,10 +12,7 @@ import { useWorkspace } from '../store/hooks.ts';
 import { Comments } from './Comments.tsx';
 import { BottomSheet } from '../layout/BottomSheet.tsx';
 import { TaskHistory } from './TaskHistory.tsx';
-import { touchInside } from './touchInside.ts';
-
-/** How far a finger swipes up to open the comments (R-FB-109). */
-export const SWIPE_UP_PX = 40;
+import type { PullUp } from './usePullUp.ts';
 
 /**
  * "Created Thu, Oct 22 9:00 AM" at the left and "Updated Today 2:15 PM" at the right (spec:
@@ -44,19 +41,26 @@ export function TaskDates({ task }: { task: Task }) {
 /**
  * On phones the details keep to the title, dates and notes: when it was made and changed, the
  * comments and the history (R-FB-105) wait behind a bar at the bottom that slides a panel up,
- * like TickTick (spec: PL-088). A tap or a swipe up on the bar opens it (R-FB-109).
+ * like TickTick (spec: PL-088). A tap opens it, and pulling up on the bar brings it up with the
+ * finger (R-FB-109).
  */
 export function PhoneTaskMore({
   task,
   open,
   setOpen,
+  pull,
 }: {
   task: Task;
   open: boolean;
   setOpen: (open: boolean) => void;
+  pull: PullUp;
 }) {
   const workspace = useWorkspace();
-  const swipe = useRef<number | null>(null);
+  const bar = useRef<HTMLButtonElement | null>(null);
+  const { attach } = pull;
+  useEffect(() => {
+    if (bar.current) return attach(bar.current, () => true);
+  }, [attach]);
   const comments = commentsOf(workspace, task.id).length;
   const label =
     comments === 0
@@ -67,17 +71,8 @@ export function PhoneTaskMore({
   return (
     <>
       <ButtonBase
+        ref={bar}
         onClick={() => setOpen(true)}
-        onTouchStart={(event) => {
-          swipe.current = touchInside(event) ? (event.touches[0]?.clientY ?? null) : null;
-        }}
-        onTouchMove={(event) => {
-          const y = event.touches[0]?.clientY;
-          if (swipe.current !== null && y !== undefined && swipe.current - y > SWIPE_UP_PX) {
-            swipe.current = null;
-            setOpen(true);
-          }
-        }}
         aria-label={label}
         aria-haspopup="dialog"
         sx={{
@@ -91,6 +86,8 @@ export function PhoneTaskMore({
           typography: 'body2',
           color: 'text.secondary',
           flexShrink: 0,
+          // It never scrolls, so the browser must not start a scroll that would make a slow pull step.
+          touchAction: 'none',
         }}
       >
         <ExpandLessRounded fontSize="small" />
@@ -99,9 +96,10 @@ export function PhoneTaskMore({
         </Box>
       </ButtonBase>
       <BottomSheet
-        open={open}
+        open={open || pull.showing}
         onClose={() => setOpen(false)}
         label={t('task.moreTitle')}
+        pull={pull}
         // As tall as the task sheet it opens over.
         paperSx={{ height: '92dvh', px: 2, pb: 'calc(16px + env(safe-area-inset-bottom))' }}
       >
