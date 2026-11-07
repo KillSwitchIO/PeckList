@@ -550,6 +550,76 @@ public sealed class OidcTests(ServerFixture fixture) : IClassFixture<ServerFixtu
         Assert.Equal(["resources/x/favicon.ico"], ProviderIcons.IconLinks("<LINK REL=\"shortcut icon\" HREF=resources/x/favicon.ico>"));
     }
 
+    private static async Task<List<PeckList.Core.Audit.AuditEntry>> MappingEvents(WebApplicationFactory<Program> server)
+    {
+        // A request is recorded just after its answer goes out.
+        await Task.Delay(100, Token);
+        await server.Services.GetRequiredService<PeckList.Server.Audit.AuditLog>().FlushAsync(Token);
+        var audit = await server.Services.GetRequiredService<PeckList.Core.Audit.IAuditStore>()
+            .QueryAsync(new PeckList.Core.Audit.AuditQuery { Ascending = true }, Token);
+        return [.. audit.Entries.Where(entry => entry.Type.StartsWith("auth.oidc-mapping-", StringComparison.Ordinal))];
+    }
+
+    [Fact]
+    public async Task A_refused_mapping_tells_an_admin_what_to_do_without_naming_the_subject()
+    {
+        using var server = Server(("OIDC_FAKE_AUTO_CREATE", "true"), ("OIDC_FAKE_USER_MAP", "kim=admin"));
+        var kim = Browser(server);
+        await SignIn(kim, Kim());
+        Assert.Equal("user", (await kim.GetFromJsonAsync<Me>("/auth/me", Token))!.Role);
+
+        var note = Assert.Single(await MappingEvents(server));
+        Assert.Equal(("auth.oidc-mapping-refused", "admin"), (note.Type, note.TargetName));
+        Assert.Contains("Admin > Sign-in", note.Detail);
+        Assert.Contains("OIDC_FAKE_USER_MAP", note.Detail);
+        Assert.Contains("OIDC_FAKE_LINK_BY_USERNAME=all", note.Detail);
+        Assert.DoesNotContain("kim-subject", note.Detail);
+    }
+
+    [Fact]
+    public async Task A_sub_entry_signs_an_admin_in_and_shows_on_the_page()
+    {
+        using var server = Server(("OIDC_FAKE_AUTO_CREATE", "true"), ("OIDC_FAKE_USER_MAP", "sub:kim-subject=admin"));
+        var kim = Browser(server);
+        await SignIn(kim, Kim());
+        Assert.Equal("admin", (await kim.GetFromJsonAsync<Me>("/auth/me", Token))!.Username);
+
+        var overview = await kim.GetFromJsonAsync<OidcOverview>("/api/admin/oidc", Token);
+        var shown = Assert.Single(overview!.Mappings);
+        Assert.Equal(("sub:kim-subject", "admin", "settings"), (shown.ProviderUsername, shown.AccountUsername, shown.Source));
+        Assert.Empty(await MappingEvents(server));
+    }
+
+    [Fact]
+    public async Task A_saved_mapping_refuses_an_admin_account_and_a_subject_and_says_when_it_is_used()
+    {
+        using var server = Server(("OIDC_FAKE_AUTO_CREATE", "true"));
+        var admin = Browser(server);
+        (await admin.PostAsJsonAsync("/auth/login", new { username = "admin", password = AdminPassword }, Token)).EnsureSuccessStatusCode();
+        var accounts = server.Services.GetRequiredService<AccountService>();
+        var kimberly = await accounts.CreateUserAsync("kimberly", "a long enough password", cancellation: Token);
+        var boss = await accounts.CreateUserAsync("boss", "a long enough password", Role.Admin, cancellation: Token);
+        Task<HttpResponseMessage> Save(string username, string accountId) =>
+            admin.PutAsJsonAsync("/api/admin/oidc/mappings", new { provider = "fake", providerUsername = username, accountId }, Token);
+
+        var refused = await Save("kim", boss.Id);
+        Assert.Equal(HttpStatusCode.Conflict, refused.StatusCode);
+        Assert.Contains("admin_needs_subject", await refused.Content.ReadAsStringAsync(Token));
+        var subject = await Save("SUB:kim-subject", kimberly.Id);
+        Assert.Equal(HttpStatusCode.BadRequest, subject.StatusCode);
+        Assert.Contains("subject_not_username", await subject.Content.ReadAsStringAsync(Token));
+
+        Assert.Equal(HttpStatusCode.NoContent, (await Save("kim", kimberly.Id)).StatusCode);
+        var kim = Browser(server);
+        await SignIn(kim, Kim());
+        Assert.Equal("kimberly", (await kim.GetFromJsonAsync<Me>("/auth/me", Token))!.Username);
+
+        var note = Assert.Single(await MappingEvents(server));
+        Assert.Equal(("auth.oidc-mapping-used", "kim"), (note.Type, note.TargetName));
+        Assert.DoesNotContain("kim-subject", note.Detail);
+        Assert.Empty((await admin.GetFromJsonAsync<OidcOverview>("/api/admin/oidc", Token))!.Mappings);
+    }
+
     [Fact]
     public async Task Admins_see_who_is_paired_with_what_and_map_remap_and_unmap()
     {

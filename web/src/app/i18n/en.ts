@@ -524,6 +524,9 @@ export const en = {
   'audit.type.auth.oidc-linked': '{actor} linked a provider account',
   'audit.type.auth.oidc-role-changed': "A sign-in changed {actor}'s role",
   'audit.type.auth.oidc-role-kept': 'A sign-in would have lowered {actor}, the only super admin',
+  'audit.type.auth.oidc-mapping-refused':
+    'A username mapping did not join the admin account {target}',
+  'audit.type.auth.oidc-mapping-used': 'The saved mapping for {target} was used and deleted',
   'audit.type.auth.login-link-used': '{actor} used a sign-in link',
   'audit.type.auth.app-handoff': '{actor} confirmed signing in to the Android app',
   'audit.type.auth.app-signed-in': '{actor} signed in to the Android app',
@@ -873,6 +876,10 @@ export const en = {
   'admin.refused.invalid-email': 'That is not an email address.',
   'admin.refused.set-by-settings':
     'The server settings (OIDC_..._USER_MAP) make this mapping; change it there.',
+  'admin.refused.admin-needs-subject':
+    'A username can change hands at a provider, so an admin account cannot be mapped by one. Use Link a provider account under Admin > Users.',
+  'admin.refused.subject-not-username':
+    'This list takes usernames. To link a subject, use Link a provider account under Admin > Users.',
   'admin.refused.registration-closed':
     'Sign-up is closed on this server, so invite links do not work. Change "Who can join" under Sign-in first.',
   'admin.invites.invite': 'Invite',
@@ -1011,7 +1018,7 @@ export const en = {
   'admin.signIn.showAll': 'Show accounts without a provider account',
   'admin.signIn.mappings': 'Mappings',
   'admin.signIn.mappingsHint':
-    'A provider username that always signs into the same account, even one linked elsewhere.',
+    'The first sign-in with exactly this provider username, from someone not linked yet, joins the account if it has no link to that provider. A saved mapping is then deleted, and the link decides.',
   'admin.signIn.noMappings': 'No mappings.',
   'admin.signIn.addMapping': 'Add mapping',
   'admin.signIn.fromSettings': 'From the server settings',
@@ -1028,7 +1035,7 @@ export const en = {
     'Their next sign-in through the provider is treated as a first one. The account and its data stay.',
   'admin.map.title': 'Map a provider username',
   'admin.map.text':
-    'From their next sign-in, this provider user lands in the account you pick. Nothing moves between accounts.',
+    'The first sign-in with exactly this username, from someone not linked yet, lands in the account you pick if it has no link to that provider. Nothing moves between accounts.',
   'admin.map.providerUsername': 'Username at the provider',
   'admin.map.account': 'Signs into',
   'admin.map.save': 'Save mapping',

@@ -23,6 +23,12 @@ public sealed record ExternalIdentity
 
 public abstract record ExternalSignInResult
 {
+    /// <summary>The admin account a username mapping named and did not join, which an admin should hear about.</summary>
+    public string? MappingRefusedTo { get; init; }
+
+    /// <summary>The saved mapping this sign-in finished with, now deleted.</summary>
+    public string? MappingUsed { get; init; }
+
     /// <summary>
     /// <paramref name="JoinedBy"/> when this sign-in joined an existing account: <c>mapping</c>,
     /// <c>migration</c>, <c>username</c> or <c>email</c>; <c>remap</c> when a mapping moved the link
@@ -96,22 +102,28 @@ public sealed class ExternalSignIn(
             await identities.UnlinkAsync(provider.Name, identity.Subject, cancellation);
             link = null;
         }
-        if (await MappedAccountAsync(provider, identity, cancellation) is { } mapped && mapped.Id != account?.Id)
+        var mapping = await ReadMappingsAsync(provider, identity, account, cancellation);
+        string? mappingUsed = null;
+        if (mapping.Row is { } finished && mapping.Target?.Id == account?.Id)
+        {
+            // Already where it points, so the link says all the mapping did.
+            if (await identities.RemoveMappingAsync(provider.Name, finished, cancellation)) mappingUsed = finished;
+        }
+        var claiming = mapping.Target is not null && mapping.Target.Id != account?.Id;
+        var claimed = claiming && await ClaimAsync(provider, identity, link, mapping.Target!, mapping.Row, cancellation);
+        if (claiming && !claimed)
+        {
+            // Another sign-in used the saved mapping first, perhaps this same person's in another tab.
+            link = await identities.FindAsync(provider.Name, identity.Subject, cancellation);
+            account = link is null ? null : await accounts.FindByIdAsync(link.AccountId, cancellation);
+        }
+        if (claimed)
         {
             // An admin said where this provider user belongs. Only the link moves; whatever the
             // other account owns stays with it.
-            if (link is not null)
-            {
-                await identities.UpdateAsync(
-                    link with { AccountId = mapped.Id, Email = identity.Email, Username = identity.Username, LastUsedAt = now }, cancellation);
-                joinedBy = "remap";
-            }
-            else
-            {
-                await AttachAsync(provider, identity, mapped.Id, cancellation);
-                joinedBy = "mapping";
-            }
-            account = mapped;
+            joinedBy = link is null ? "mapping" : "remap";
+            mappingUsed = mapping.Row;
+            account = mapping.Target!;
         }
         else if (account is null && await MigrationMatchAsync(provider, identity, cancellation) is { } matched)
         {
@@ -145,7 +157,7 @@ public sealed class ExternalSignIn(
                     FirstSeen = waiting?.FirstSeen ?? now,
                     LastSeen = now,
                 }, cancellation);
-                return new ExternalSignInResult.Pending();
+                return new ExternalSignInResult.Pending { MappingRefusedTo = mapping.RefusedTo };
             }
             account = await CreateAsync(provider, identity, UsernameBase(identity), cancellation);
             created = true;
@@ -154,12 +166,12 @@ public sealed class ExternalSignIn(
         {
             await identities.UpdateAsync(link with { Email = identity.Email, Username = identity.Username, LastUsedAt = now }, cancellation);
         }
-        if (account.Disabled) return new ExternalSignInResult.Disabled();
+        if (account.Disabled) return new ExternalSignInResult.Disabled { MappingRefusedTo = mapping.RefusedTo, MappingUsed = mappingUsed };
 
         var before = account.Role;
         (account, var spared) = await ApplyRoleMapAsync(provider, identity, account, cancellation);
         await ApplyGroupMapAsync(provider, identity, account, cancellation);
-        return new ExternalSignInResult.Success(account, created, joinedBy, before, spared);
+        return new ExternalSignInResult.Success(account, created, joinedBy, before, spared) { MappingRefusedTo = mapping.RefusedTo, MappingUsed = mappingUsed };
     }
 
     /// <summary>
@@ -272,33 +284,88 @@ public sealed class ExternalSignIn(
     }
 
     /// <summary>
-    /// The account a mapping sends this provider user to: <c>USER_MAP</c> from the settings first,
-    /// then the mappings admins saved. Matches the username claim as sent and as a new account's
-    /// username would be made from it, ignoring case. Null when unmapped or the account is gone.
+    /// What the mappings say. <paramref name="Target"/>: the account this sign-in belongs in, null when
+    /// they say nothing. <paramref name="Row"/>: the saved mapping behind it. <paramref name="RefusedTo"/>:
+    /// an admin account a username mapping named and may not join.
     /// </summary>
-    public async Task<Account?> MappedAccountAsync(OidcProviderSettings provider, ExternalIdentity identity, CancellationToken cancellation = default)
+    private sealed record MappingAnswer(Account? Target = null, string? Row = null, string? RefusedTo = null);
+
+    /// <summary>
+    /// A <c>sub:</c> entry always decides. A username mapping (<c>USER_MAP</c> from the settings first,
+    /// then the ones admins saved) is only a first claim, for a subject with no link yet on an account
+    /// with no link to this provider yet: after that the link decides (audit S9). It matches the username
+    /// claim exactly, apart from spaces around it and ASCII and other simple case differences. An
+    /// ordinal comparison, so a letter that merely lowers to the same one is another name, and there
+    /// is no falling back on the email. An admin account needs <c>LINK_BY_USERNAME=all</c> as well.
+    /// A setting entry for a name ends the search even when its account is gone: the Mappings page
+    /// shows only that entry, so a saved row under it must not act where nobody can see or delete it.
+    /// </summary>
+    private async Task<MappingAnswer> ReadMappingsAsync(
+        OidcProviderSettings provider, ExternalIdentity identity, Account? current, CancellationToken cancellation)
     {
-        var names = new[] { identity.Username?.Trim().ToLowerInvariant(), UsernameBase(identity) }
-            .Where(name => !string.IsNullOrEmpty(name))
-            .Select(name => name!)
-            .Distinct()
-            .ToList();
-        foreach (var name in names)
+        if (provider.SubjectMap.TryGetValue(identity.Subject, out var named)
+            && await accounts.FindByUsernameAsync(named, cancellation) is { DeletedAt: null } bySubject)
         {
-            if (provider.UserMap.TryGetValue(name, out var target)
-                && await accounts.FindByUsernameAsync(target, cancellation) is { DeletedAt: null } account)
+            return new MappingAnswer(bySubject);
+        }
+        var name = identity.Username?.Trim();
+        if (string.IsNullOrEmpty(name)) return new MappingAnswer();
+        bool Same(string other) => string.Equals(other, name, StringComparison.OrdinalIgnoreCase);
+
+        Account? target;
+        string? rowName = null;
+        var entry = provider.UserMap.FirstOrDefault(pair => Same(pair.Key));
+        if (entry.Value is not null)
+        {
+            target = await accounts.FindByUsernameAsync(entry.Value, cancellation);
+        }
+        else
+        {
+            var row = (await identities.ListMappingsAsync(cancellation)).FirstOrDefault(each => each.Provider == provider.Name && Same(each.ProviderUsername));
+            if (row is null) return new MappingAnswer();
+            target = await accounts.FindByIdAsync(row.AccountId, cancellation);
+            rowName = row.ProviderUsername;
+        }
+        if (target is not { DeletedAt: null }) return new MappingAnswer();
+
+        if (target.Id == current?.Id) return new MappingAnswer(target, rowName);
+        if (current is not null || await LinkedToAsync(target.Id, provider.Name, cancellation)) return new MappingAnswer();
+        return target.Role != Role.User && provider.LinkByUsername != UsernameLinking.All
+            ? new MappingAnswer(RefusedTo: target.Username)
+            : new MappingAnswer(target, rowName);
+    }
+
+    /// <summary>Point this provider account at the mapped account. False when a saved mapping was used by another sign-in first.</summary>
+    private async Task<bool> ClaimAsync(
+        OidcProviderSettings provider, ExternalIdentity identity, LinkedIdentity? link, Account target, string? row, CancellationToken cancellation)
+    {
+        var now = time.GetUtcNow();
+        var next = link is null
+            ? new LinkedIdentity
             {
-                return account;
+                Provider = provider.Name,
+                Subject = identity.Subject,
+                AccountId = target.Id,
+                Email = identity.Email,
+                Username = identity.Username,
+                LinkedAt = now,
+                LastUsedAt = now,
             }
-        }
-        var saved = (await identities.ListMappingsAsync(cancellation))
-            .Where(each => each.Provider == provider.Name && names.Contains(each.ProviderUsername))
-            .ToList();
-        foreach (var mapping in saved)
+            : link with { AccountId = target.Id, Email = identity.Email, Username = identity.Username, LastUsedAt = now };
+        if (row is not null)
         {
-            if (await accounts.FindByIdAsync(mapping.AccountId, cancellation) is { DeletedAt: null } account) return account;
+            if (!await identities.LinkByMappingAsync(next, row, cancellation)) return false;
         }
-        return null;
+        else if (link is null)
+        {
+            await identities.LinkAsync(next, cancellation);
+        }
+        else
+        {
+            await identities.UpdateAsync(next, cancellation);
+        }
+        await identities.RemovePendingAsync(provider.Name, identity.Subject, cancellation);
+        return true;
     }
 
     /// <summary>

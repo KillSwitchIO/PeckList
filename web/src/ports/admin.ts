@@ -72,7 +72,7 @@ export interface OidcOverview {
   mappings: OidcMapping[];
 }
 
-/** A provider username that always signs into one account. */
+/** A provider username that joins an account at its first sign-in, or a `sub:` subject that always signs into it. */
 export interface OidcMapping {
   provider: string;
   providerUsername: string;
@@ -306,6 +306,8 @@ export type AdminRefusal =
   | 'linked-elsewhere'
   | 'registration-closed'
   | 'set-by-settings'
+  | 'admin-needs-subject'
+  | 'subject-not-username'
   | 'no-email'
   | 'mail-off'
   | 'mail-failed'

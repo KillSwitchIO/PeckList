@@ -159,6 +159,32 @@ public sealed class SqlIdentityStore(SqlDatabase database) : IIdentityStore
             new { provider, username = providerUsername.ToLowerInvariant() }, cancellationToken: cancellation)) > 0;
     }
 
+    public async Task<bool> LinkByMappingAsync(LinkedIdentity identity, string providerUsername, CancellationToken cancellation = default)
+    {
+        var row = Row.From(identity);
+        await using var connection = await database.OpenAsync(cancellation);
+        await using var transaction = await database.BeginWriteAsync(connection, cancellation);
+        var used = await connection.ExecuteAsync(new CommandDefinition(
+            "DELETE FROM identity_mappings WHERE provider = @provider AND provider_username = @username",
+            new { provider = identity.Provider, username = providerUsername.ToLowerInvariant() }, transaction, cancellationToken: cancellation));
+        if (used == 0) return false;
+        try
+        {
+            await connection.ExecuteAsync(new CommandDefinition(
+                """
+                INSERT INTO identities (provider, subject, account_id, email, username, linked_at, last_used_at)
+                VALUES (@Provider, @Subject, @AccountId, @Email, @Username, @LinkedAt, @LastUsedAt)
+                """,
+                row, transaction, cancellationToken: cancellation));
+        }
+        catch (DbException error) when (SqlDatabase.IsUniqueViolation(error))
+        {
+            throw new IdentityTakenException(identity.Provider, identity.Subject);
+        }
+        await transaction.CommitAsync(cancellation);
+        return true;
+    }
+
     private sealed class Row
     {
         public string Provider { get; set; } = "";
