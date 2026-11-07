@@ -107,17 +107,43 @@ existing person (**Admin > Sign-in > Link to an account**).
 A first sign-in can also find its account by itself. PeckList tries these in order, and the first
 that matches wins:
 
-1. **A mapping.** `OIDC_<NAME>_USER_MAP=ben=bendimit,kim.lee=kim` sends the provider user on the
-   left to the PeckList account on the right, every time. Admins add more on **Admin > Sign-in >
-   Mappings** (the setting wins when both name the same provider user). A mapping also moves a link:
-   someone already linked to another account lands in the mapped one at their next sign-in.
+1. **A mapping.** `OIDC_<NAME>_USER_MAP` sends a provider account to a PeckList account, in one of
+   two forms:
+   - `sub:auth0|abc123=ben` names the provider's subject, which never changes for a person. It
+     decides every time, works for admin accounts, and moves a link: someone already linked to
+     another account lands in this one at their next sign-in. **Prefer this form, and always use it
+     for admins.** A subject with a comma in it cannot be written here: link it by hand instead, and
+     check the list under **Admin > Sign-in > Mappings** shows what you meant.
+   - `kim.lee=kim` names a provider username, and is a first claim only: for someone with no link
+     yet, on an account with no link to this provider yet. After that the link decides, so renaming
+     yourself at the provider claims nothing. Before that first sign-in, whoever holds the username
+     gets the account. Where people can rename themselves at the provider, anyone can take an entry
+     nobody has claimed yet, including someone who already has an account here. Use a `sub:` entry
+     there. An admin account also needs `LINK_BY_USERNAME=all`; without it the sign-in goes on to the
+     next step, and an `auth.oidc-mapping-refused` audit event says what to do.
+
+   A username entry matches the name the provider sends exactly, ignoring only upper and lower case
+   and spaces around it. A provider that sends `kim@corp.example` needs that written in full, and a
+   sign-in with no username claim matches nothing here, whatever its email.
+
+   A username entry in the setting stays there. Whenever its account has no link to this provider,
+   the entry works as a first claim again: after the person removes their own link, after an admin
+   unlinks them or moves the link, and for everyone at once after **Unbind all**. Take it out of the
+   setting once the person has signed in.
+
+   Someone re-created at the provider has a new subject. A username entry no longer finds their old
+   account once it is linked, so they land in a new one. Move the link by hand, or use a `sub:` entry.
+
+   Admins add username mappings on **Admin > Sign-in > Mappings** (the setting wins when both name
+   the same provider user, even when the account it names is gone). A saved one is deleted once
+   used, with an `auth.oidc-mapping-used` audit event, and the account's link takes over.
 2. **A migration window**, while one is open (see [moving to another provider](#moving-to-another-provider)).
 3. **The same username**, with `OIDC_<NAME>_LINK_BY_USERNAME`:
    - `true` joins the account named like the provider's username, if that account has no link to
      this provider yet, and only when it is a plain user account.
    - `all` joins admin accounts too. Use it only when people cannot change their own username at
      the provider: Pocket ID, for one, lets them by default, which would let anyone sign in as an
-     admin by renaming themselves. Map admins with `USER_MAP` instead.
+     admin by renaming themselves. Map admins with a `sub:` entry in `USER_MAP` instead.
 4. **The same verified email**, with `OIDC_<NAME>_LINK_BY_EMAIL=true`: the one account that already
    has that email from another provider. Off by default: a provider that does not truly verify
    emails would let someone take over an account.
@@ -161,7 +187,7 @@ docker exec pecklist pecklist oidc migration-window keycloak close
 A migration window never joins an account that already has a keycloak link, and it matches
 usernames only, so check that both providers hand out the same usernames. It never joins an admin
 account either (someone could rename themselves at the new provider to take it), unless
-`OIDC_<NAME>_LINK_BY_USERNAME=all`; map admins with `USER_MAP` instead. Someone left with no way
+`OIDC_<NAME>_LINK_BY_USERNAME=all`; map admins with a `sub:` entry in `USER_MAP` instead. Someone left with no way
 in gets a one-time link: `pecklist admin login-link kim`.
 
 ## Provider notes

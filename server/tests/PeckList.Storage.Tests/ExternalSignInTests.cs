@@ -411,7 +411,7 @@ public sealed class ExternalSignInTests(SqliteFiles files) : IClassFixture<Sqlit
     }
 
     [Fact]
-    public async Task A_user_map_joins_and_remaps_without_moving_anything()
+    public async Task A_subject_map_joins_and_remaps_without_moving_anything()
     {
         var ben = await accountService.CreateUserAsync("bendimit", "correct horse battery", cancellation: Token);
         await accountService.SetRoleAsync(ben.Id, Role.SuperAdmin, Token);
@@ -421,7 +421,7 @@ public sealed class ExternalSignInTests(SqliteFiles files) : IClassFixture<Sqlit
         var stray = await SignedIn(Pocket(), benAtPocket);
         Assert.NotEqual(ben.Id, stray.Id);
 
-        var mapped = Pocket() with { UserMap = new Dictionary<string, string> { ["ben"] = "bendimit" } };
+        var mapped = Pocket() with { SubjectMap = new Dictionary<string, string> { ["sub-ben"] = "bendimit" } };
         var result = Assert.IsType<ExternalSignInResult.Success>(await signIn.SignInAsync(mapped, benAtPocket, Token));
         Assert.Equal((ben.Id, "remap"), (result.Account.Id, result.JoinedBy));
         Assert.Equal(ben.Id, (await identities.FindAsync("pocket", "sub-ben", Token))!.AccountId);
@@ -431,6 +431,299 @@ public sealed class ExternalSignInTests(SqliteFiles files) : IClassFixture<Sqlit
 
         // From then on a plain sign-in.
         Assert.Null(Assert.IsType<ExternalSignInResult.Success>(await signIn.SignInAsync(mapped, benAtPocket, Token)).JoinedBy);
+    }
+
+    private OidcProviderSettings Mapping(string username, string account, UsernameLinking linking = UsernameLinking.Off) =>
+        Pocket() with { LinkByUsername = linking, UserMap = new Dictionary<string, string> { [username] = account } };
+
+    private static ExternalIdentity Holding(string subject, string username) => Kim() with { Subject = subject, Username = username };
+
+    private async Task<ExternalSignInResult.Success> Success(OidcProviderSettings provider, ExternalIdentity identity) =>
+        Assert.IsType<ExternalSignInResult.Success>(await signIn.SignInAsync(provider, identity, Token));
+
+    private Task Saved(string username, string accountId) => identities.PutMappingAsync(new IdentityMapping
+    {
+        Provider = "pocket", ProviderUsername = username, AccountId = accountId, CreatedAt = DateTimeOffset.UtcNow,
+    }, Token);
+
+    [Fact]
+    public async Task A_username_that_changes_hands_after_the_first_sign_in_claims_nothing()
+    {
+        var kim = await accountService.CreateUserAsync("kimberly", "correct horse battery", cancellation: Token);
+        var provider = Mapping("kim", "kimberly");
+        Assert.Equal((kim.Id, "mapping"), (await Success(provider, Holding("sub-kim", "kim")) is var first ? (first.Account.Id, first.JoinedBy) : default));
+
+        // Kim renames at the provider, and someone else takes the name.
+        var other = await Success(provider, Holding("sub-other", "kim"));
+        Assert.NotEqual(kim.Id, other.Account.Id);
+        Assert.True(other.Created);
+        Assert.Equal(kim.Id, (await identities.FindAsync("pocket", "sub-kim", Token))!.AccountId);
+
+        // Kim's link still decides, whatever Kim is called now.
+        Assert.Equal(kim.Id, (await Success(provider, Holding("sub-kim", "kimmy"))).Account.Id);
+    }
+
+    [Fact]
+    public async Task Unlinking_someone_opens_a_username_entry_in_the_setting_to_a_first_claim_again()
+    {
+        // The setting cannot be emptied from here, so the guide says to take the entry out.
+        var kim = await accountService.CreateUserAsync("kimberly", "correct horse battery", cancellation: Token);
+        var provider = Mapping("kim", "kimberly");
+        await SignedIn(provider, Holding("sub-kim", "kim"));
+        Assert.Equal(UnlinkResult.Unlinked, await signIn.UnlinkAsync(kim.Id, "pocket", "sub-kim", selfService: false, Token));
+
+        Assert.Equal(kim.Id, (await SignedIn(provider, Holding("sub-other", "kim"))).Id);
+    }
+
+    [Fact]
+    public async Task A_username_mapping_never_joins_an_admin_account_without_all_and_says_so()
+    {
+        var boss = await accountService.CreateUserAsync("boss", "correct horse battery", Role.Admin, cancellation: Token);
+
+        var newAccount = await Success(Mapping("rob", "boss"), Holding("sub-rob", "rob"));
+        Assert.True(newAccount.Created);
+        Assert.NotEqual(boss.Id, newAccount.Account.Id);
+        Assert.Equal("boss", newAccount.MappingRefusedTo);
+
+        // Linking by username being on for plain users is not enough.
+        var plainUsers = await Success(Mapping("sam", "boss", UsernameLinking.Users), Holding("sub-sam", "sam"));
+        Assert.NotEqual(boss.Id, plainUsers.Account.Id);
+
+        var waiting = await signIn.SignInAsync(Mapping("ann", "boss") with { AutoCreate = false }, Holding("sub-ann", "ann"), Token);
+        Assert.Equal("boss", Assert.IsType<ExternalSignInResult.Pending>(waiting).MappingRefusedTo);
+
+        var all = await Success(Mapping("kim", "boss", UsernameLinking.All), Holding("sub-kim", "kim"));
+        Assert.Equal((boss.Id, "mapping"), (all.Account.Id, all.JoinedBy));
+        Assert.Null(all.MappingRefusedTo);
+    }
+
+    [Fact]
+    public async Task Someone_already_linked_with_a_matching_username_mapping_signs_in_and_nothing_changes()
+    {
+        var ben = await accountService.CreateUserAsync("ben", "correct horse battery", Role.SuperAdmin, cancellation: Token);
+        var firstIn = Mapping("ben", "ben", UsernameLinking.All);
+        await SignedIn(firstIn, Holding("sub-ben", "ben"));
+        var before = await identities.FindAsync("pocket", "sub-ben", Token);
+
+        foreach (var linking in new[] { UsernameLinking.All, UsernameLinking.Users, UsernameLinking.Off })
+        {
+            var again = await Success(Mapping("ben", "ben", linking), Holding("sub-ben", "ben"));
+            Assert.Equal((ben.Id, false, null, null), (again.Account.Id, again.Created, again.JoinedBy, again.MappingRefusedTo));
+            Assert.Equal(Role.SuperAdmin, again.Account.Role);
+        }
+        var after = await identities.FindAsync("pocket", "sub-ben", Token);
+        Assert.Equal((before!.AccountId, before.Username, before.LinkedAt), (after!.AccountId, after.Username, after.LinkedAt));
+        Assert.Single(await signIn.IdentitiesOfAsync(ben.Id, Token));
+    }
+
+    [Fact]
+    public async Task A_subject_entry_decides_and_a_username_shaped_like_one_does_not()
+    {
+        var boss = await accountService.CreateUserAsync("boss", "correct horse battery", Role.Admin, cancellation: Token);
+        var provider = Pocket() with { SubjectMap = new Dictionary<string, string> { ["auth0|abc"] = "boss" } };
+
+        var renamed = await Success(provider, Holding("sub-other", "auth0|abc"));
+        Assert.NotEqual(boss.Id, renamed.Account.Id);
+        var prefixed = await Success(provider, Holding("sub-third", "sub:auth0|abc"));
+        Assert.NotEqual(boss.Id, prefixed.Account.Id);
+
+        // Exact, so a subject differing in case is another person.
+        Assert.NotEqual(boss.Id, (await Success(provider, Holding("AUTH0|ABC", "nobody"))).Account.Id);
+        Assert.Equal((boss.Id, "mapping"), (await Success(provider, Holding("auth0|abc", "anything")) is var real ? (real.Account.Id, real.JoinedBy) : default));
+    }
+
+    [Fact]
+    public async Task A_saved_mapping_is_deleted_once_used_and_cannot_be_claimed_again()
+    {
+        var kim = await accountService.CreateUserAsync("kimberly", "correct horse battery", cancellation: Token);
+        await Saved("kim", kim.Id);
+
+        var used = await Success(Pocket(), Holding("sub-kim", "kim"));
+        Assert.Equal((kim.Id, "mapping", "kim"), (used.Account.Id, used.JoinedBy, used.MappingUsed));
+        Assert.Empty(await identities.ListMappingsAsync(Token));
+
+        Assert.NotEqual(kim.Id, (await Success(Pocket(), Holding("sub-other", "kim"))).Account.Id);
+    }
+
+    /// <summary>Another sign-in wins the mapping just before this one gets to it.</summary>
+    private class Beaten : System.Reflection.DispatchProxy
+    {
+        public IIdentityStore Inner { get; set; } = null!;
+
+        /// <summary>Whose sign-in won.</summary>
+        public string Winner { get; set; } = "";
+
+        protected override object? Invoke(System.Reflection.MethodInfo? method, object?[]? args)
+        {
+            if (method!.Name != nameof(IIdentityStore.LinkByMappingAsync)) return method.Invoke(Inner, args);
+            Inner.LinkByMappingAsync((LinkedIdentity)args![0]! with { Subject = Winner }, (string)args[1]!, Token).GetAwaiter().GetResult();
+            return Task.FromResult(false);
+        }
+    }
+
+    private ExternalSignIn BeatenBy(string winner)
+    {
+        var beaten = System.Reflection.DispatchProxy.Create<IIdentityStore, Beaten>();
+        ((Beaten)(object)beaten).Inner = identities;
+        ((Beaten)(object)beaten).Winner = winner;
+        return new ExternalSignIn(accounts, accountService, beaten, groups, secrets, TimeProvider.System);
+    }
+
+    [Fact]
+    public async Task The_same_person_signing_in_twice_at_once_makes_no_second_account()
+    {
+        var kim = await accountService.CreateUserAsync("kimberly", "correct horse battery", cancellation: Token);
+        await Saved("kim", kim.Id);
+        var before = await accounts.CountAsync(Token);
+
+        var result = Assert.IsType<ExternalSignInResult.Success>(await BeatenBy("sub-kim").SignInAsync(Pocket(), Holding("sub-kim", "kim"), Token));
+
+        Assert.Equal((kim.Id, false), (result.Account.Id, result.Created));
+        Assert.Equal(before, await accounts.CountAsync(Token));
+    }
+
+    [Fact]
+    public async Task Someone_else_winning_the_mapping_leaves_this_sign_in_to_the_usual_steps()
+    {
+        var kim = await accountService.CreateUserAsync("kimberly", "correct horse battery", cancellation: Token);
+        await Saved("kim", kim.Id);
+
+        var result = Assert.IsType<ExternalSignInResult.Success>(await BeatenBy("sub-winner").SignInAsync(Pocket(), Holding("sub-loser", "kim"), Token));
+
+        Assert.True(result.Created);
+        Assert.NotEqual(kim.Id, result.Account.Id);
+        Assert.Null(result.MappingUsed);
+        Assert.Equal(kim.Id, (await identities.FindAsync("pocket", "sub-winner", Token))!.AccountId);
+    }
+
+    [Fact]
+    public async Task A_disabled_account_still_reports_the_saved_mapping_it_used()
+    {
+        var kim = await accountService.CreateUserAsync("kimberly", "correct horse battery", cancellation: Token);
+        await accountService.SetDisabledAsync(kim.Id, true, Token);
+        await Saved("kim", kim.Id);
+
+        var result = await signIn.SignInAsync(Pocket(), Holding("sub-kim", "kim"), Token);
+        Assert.Equal("kim", Assert.IsType<ExternalSignInResult.Disabled>(result).MappingUsed);
+        Assert.Empty(await identities.ListMappingsAsync(Token));
+    }
+
+    [Fact]
+    public async Task A_saved_mapping_for_someone_already_there_is_deleted_at_their_next_sign_in()
+    {
+        var kim = await accountService.CreateUserAsync("kimberly", "correct horse battery", cancellation: Token);
+        await signIn.LinkByAdminAsync("pocket", "sub-kim", kim.Id, Token);
+        await Saved("kim", kim.Id);
+
+        var again = await Success(Pocket(), Holding("sub-kim", "kim"));
+        Assert.Equal((kim.Id, null, "kim"), (again.Account.Id, again.JoinedBy, again.MappingUsed));
+        Assert.Empty(await identities.ListMappingsAsync(Token));
+    }
+
+    [Fact]
+    public async Task A_saved_mapping_whose_account_is_linked_to_someone_else_does_nothing()
+    {
+        var kim = await accountService.CreateUserAsync("kimberly", "correct horse battery", cancellation: Token);
+        await signIn.LinkByAdminAsync("pocket", "sub-kim", kim.Id, Token);
+        await Saved("kim", kim.Id);
+
+        var other = await Success(Pocket(), Holding("sub-other", "kim"));
+        Assert.NotEqual(kim.Id, other.Account.Id);
+        Assert.Null(other.MappingUsed);
+        Assert.Single(await identities.ListMappingsAsync(Token));
+    }
+
+    [Fact]
+    public async Task Someone_already_linked_who_takes_a_mapped_name_stays_where_they_are()
+    {
+        var kim = await accountService.CreateUserAsync("kimberly", "correct horse battery", cancellation: Token);
+        var boss = await accountService.CreateUserAsync("boss", "correct horse battery", Role.Admin, cancellation: Token);
+        var own = await SignedIn(Pocket(), Holding("sub-other", "other"));
+        await Saved("saved", kim.Id);
+
+        foreach (var (provider, name) in new[] { (Mapping("kim", "kimberly"), "kim"), (Pocket(), "saved"), (Mapping("big", "boss", UsernameLinking.All), "big") })
+        {
+            var result = await Success(provider, Holding("sub-other", name));
+            Assert.Equal((own.Id, null, null, null), (result.Account.Id, result.JoinedBy, result.MappingUsed, result.MappingRefusedTo));
+        }
+        Assert.Empty(await signIn.IdentitiesOfAsync(kim.Id, Token));
+        Assert.Empty(await signIn.IdentitiesOfAsync(boss.Id, Token));
+
+        // The real Kim still gets in, and the saved mapping is still there for them.
+        Assert.Equal(kim.Id, (await SignedIn(Pocket(), Holding("sub-saved", "saved"))).Id);
+    }
+
+    [Theory]
+    [InlineData("kim@evil.example")]
+    [InlineData(".kim.")]
+    [InlineData("-kim_")]
+    [InlineData("k\u00EFm")]
+    [InlineData("\u212Aim")]
+    [InlineData("kim2")]
+    public async Task A_mapping_matches_the_exact_name_and_nothing_near_it(string name)
+    {
+        var kim = await accountService.CreateUserAsync("kimberly", "correct horse battery", cancellation: Token);
+        Assert.NotEqual(kim.Id, (await SignedIn(Mapping("kim", "kimberly"), Holding("sub-near", name))).Id);
+        Assert.Empty(await signIn.IdentitiesOfAsync(kim.Id, Token));
+    }
+
+    [Fact]
+    public async Task A_mapping_never_falls_back_on_the_email()
+    {
+        var kim = await accountService.CreateUserAsync("kimberly", "correct horse battery", cancellation: Token);
+        var noName = Kim() with { Subject = "sub-near", Username = null, Email = "kim@evil.example" };
+        Assert.NotEqual(kim.Id, (await SignedIn(Mapping("kim", "kimberly"), noName)).Id);
+        Assert.Empty(await signIn.IdentitiesOfAsync(kim.Id, Token));
+    }
+
+    [Theory]
+    [InlineData("KIM")]
+    [InlineData(" kim ")]
+    public async Task A_mapping_ignores_case_and_spaces_around_the_name(string name)
+    {
+        var kim = await accountService.CreateUserAsync("kimberly", "correct horse battery", cancellation: Token);
+        Assert.Equal(kim.Id, (await SignedIn(Mapping("kim", "kimberly"), Holding("sub-kim", name))).Id);
+    }
+
+    [Fact]
+    public async Task A_provider_that_sends_an_email_as_the_username_needs_it_written_in_full()
+    {
+        var kim = await accountService.CreateUserAsync("kimberly", "correct horse battery", cancellation: Token);
+        Assert.Equal(kim.Id, (await SignedIn(Mapping("kim@corp.example", "kimberly"), Holding("sub-kim", "kim@corp.example"))).Id);
+    }
+
+    [Fact]
+    public async Task Someone_removing_their_own_link_opens_a_username_entry_to_a_first_claim_again()
+    {
+        var kim = await accountService.CreateUserAsync("kimberly", "correct horse battery", cancellation: Token);
+        var provider = Mapping("kim", "kimberly");
+        await SignedIn(provider, Holding("sub-kim", "kim"));
+        Assert.Equal(UnlinkResult.Unlinked, await signIn.UnlinkAsync(kim.Id, "pocket", "sub-kim", selfService: true, Token));
+
+        Assert.Equal(kim.Id, (await SignedIn(provider, Holding("sub-other", "kim"))).Id);
+    }
+
+    [Fact]
+    public async Task Someone_re_created_at_the_provider_lands_in_a_new_account()
+    {
+        var kim = await accountService.CreateUserAsync("kimberly", "correct horse battery", cancellation: Token);
+        var provider = Mapping("kim", "kimberly");
+        await SignedIn(provider, Holding("sub-kim", "kim"));
+
+        Assert.NotEqual(kim.Id, (await SignedIn(provider, Holding("sub-kim-again", "kim"))).Id);
+    }
+
+    [Fact]
+    public async Task A_setting_naming_an_account_that_is_gone_stops_there_and_a_saved_mapping_under_it_does_not_act()
+    {
+        var kim = await accountService.CreateUserAsync("kimberly", "correct horse battery", cancellation: Token);
+        await Saved("kim", kim.Id);
+
+        var result = await Success(Mapping("kim", "nobody"), Holding("sub-kim", "kim"));
+
+        Assert.NotEqual(kim.Id, result.Account.Id);
+        Assert.Null(result.MappingUsed);
+        Assert.Single(await identities.ListMappingsAsync(Token));
     }
 
     [Fact]
@@ -445,8 +738,11 @@ public sealed class ExternalSignInTests(SqliteFiles files) : IClassFixture<Sqlit
         var result = Assert.IsType<ExternalSignInResult.Success>(await signIn.SignInAsync(Pocket(), Kim(), Token));
         Assert.Equal((kim.Id, "mapping"), (result.Account.Id, result.JoinedBy));
 
+        // Both name the same provider user: the setting wins, and the saved one stays unused.
+        await Saved("kim.lee", kim.Id);
         var overridden = Pocket() with { UserMap = new Dictionary<string, string> { ["kim.lee"] = "someone" } };
-        Assert.Equal(other.Id, (await SignedIn(overridden, Kim())).Id);
+        Assert.Equal(other.Id, (await SignedIn(overridden, Kim() with { Subject = "sub-other" })).Id);
+        Assert.Single(await identities.ListMappingsAsync(Token));
 
         // A mapping to an account that is gone is ignored.
         var gone = Pocket() with { UserMap = new Dictionary<string, string> { ["newbie"] = "nobody" } };

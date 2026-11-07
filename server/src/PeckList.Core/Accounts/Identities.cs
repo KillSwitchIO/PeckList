@@ -41,8 +41,9 @@ public sealed record PendingSignIn
 }
 
 /// <summary>
-/// An admin's mapping: whoever signs in through <see cref="Provider"/> with this username lands in
-/// <see cref="AccountId"/>, even when linked elsewhere (spec: Accounts &amp; Admin, Linking).
+/// An admin's mapping: the first with no link yet to sign in through <see cref="Provider"/> with this
+/// username joins <see cref="AccountId"/>, if that account has no link there yet (spec: Accounts &amp; Admin, Linking).
+/// The link then holds the provider's subject, so the mapping is deleted.
 /// </summary>
 public sealed record IdentityMapping
 {
@@ -90,6 +91,13 @@ public interface IIdentityStore
     Task PutMappingAsync(IdentityMapping mapping, CancellationToken cancellation = default);
 
     Task<bool> RemoveMappingAsync(string provider, string providerUsername, CancellationToken cancellation = default);
+
+    /// <summary>
+    /// A saved mapping is used: add this link and delete the mapping, together. False, with nothing
+    /// changed, when the mapping is gone: another sign-in used it first.
+    /// </summary>
+    /// <exception cref="IdentityTakenException">That provider subject was linked in the meantime.</exception>
+    Task<bool> LinkByMappingAsync(LinkedIdentity identity, string providerUsername, CancellationToken cancellation = default);
 }
 
 public sealed class IdentityTakenException(string provider, string subject)

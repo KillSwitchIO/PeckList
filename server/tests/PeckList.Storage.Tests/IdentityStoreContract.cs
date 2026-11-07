@@ -93,4 +93,35 @@ public abstract class IdentityStoreContract : IAsyncLifetime
         Assert.False(await Identities.RemoveMappingAsync("pocket", "kim", Token));
         Assert.Single(await Identities.ListMappingsAsync(Token));
     }
+
+    [Fact]
+    public async Task Using_a_mapping_links_and_deletes_it_together()
+    {
+        var mapping = new IdentityMapping { Provider = "pocket", ProviderUsername = "kim", AccountId = "U1", CreatedAt = Monday };
+        var link = new LinkedIdentity { Provider = "pocket", Subject = "sub-1", AccountId = "U1", Email = "a@example.com", LinkedAt = Monday, LastUsedAt = Monday };
+
+        // Nothing to use: nothing changes.
+        Assert.False(await Identities.LinkByMappingAsync(link, "kim", Token));
+        Assert.Null(await Identities.FindAsync("pocket", "sub-1", Token));
+
+        await Identities.PutMappingAsync(mapping, Token);
+        await Identities.PutMappingAsync(mapping with { Provider = "keycloak" }, Token);
+        Assert.True(await Identities.LinkByMappingAsync(link, "KIM", Token));
+        Assert.Equal("U1", (await Identities.FindAsync("pocket", "sub-1", Token))!.AccountId);
+        Assert.Equal("keycloak", Assert.Single(await Identities.ListMappingsAsync(Token)).Provider);
+    }
+
+    [Fact]
+    public async Task A_mapping_stays_when_its_link_is_refused()
+    {
+        var mapping = new IdentityMapping { Provider = "pocket", ProviderUsername = "kim", AccountId = "U2", CreatedAt = Monday };
+        var link = new LinkedIdentity { Provider = "pocket", Subject = "sub-1", AccountId = "U1", LinkedAt = Monday, LastUsedAt = Monday };
+        await Identities.LinkAsync(link, Token);
+        await Identities.PutMappingAsync(mapping, Token);
+
+        await Assert.ThrowsAsync<IdentityTakenException>(() => Identities.LinkByMappingAsync(link with { AccountId = "U2" }, "kim", Token));
+
+        Assert.Single(await Identities.ListMappingsAsync(Token));
+        Assert.Equal("U1", (await Identities.FindAsync("pocket", "sub-1", Token))!.AccountId);
+    }
 }

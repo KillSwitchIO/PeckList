@@ -44,6 +44,8 @@ const REFUSALS: Record<string, AdminRefusal> = {
   taken: 'linked-elsewhere',
   registration_closed: 'registration-closed',
   set_by_settings: 'set-by-settings',
+  admin_needs_subject: 'admin-needs-subject',
+  subject_not_username: 'subject-not-username',
   no_confirmed_email: 'no-email',
   mail_not_set_up: 'mail-off',
   invalid_email: 'invalid-email',

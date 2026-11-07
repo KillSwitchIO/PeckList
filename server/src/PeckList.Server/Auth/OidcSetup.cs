@@ -260,6 +260,29 @@ public static class OidcSetup
         audit.RecordEvent(context, "auth.oidc-role-changed", id, name, id, name, $"{provider.Name} groups changed {before.Name()} to {role.Name()}.");
     }
 
+    /// <summary>
+    /// For an admin: what a mapping did or could not do. Names no subject, since the one signing in may
+    /// not be who the username says, and the Sign-in page gets an admin there without one.
+    /// </summary>
+    private static void RecordMappingOutcome(HttpContext context, OidcProviderSettings provider, ExternalIdentity identity, ExternalSignInResult result)
+    {
+        var audit = context.RequestServices.GetRequiredService<AuditLog>();
+        if (result.MappingRefusedTo is { } admin)
+        {
+            var setting = $"OIDC_{provider.Name.ToUpperInvariant().Replace('-', '_')}_";
+            audit.RecordEvent(context, "auth.oidc-mapping-refused", null, null, null, admin,
+                $"A sign-in through {provider.Name} as {ExternalSignIn.UsernameBase(identity)} matched a username mapping to {admin} and did not join it: "
+                + "that is an admin account, and a username can change hands at a provider. If it really is them, a super admin can move the link or join the waiting sign-in on "
+                + $"Admin > Sign-in. To have it happen by itself, use a sub: entry in {setting}USER_MAP, or {setting}LINK_BY_USERNAME=all if people cannot change their username there.");
+        }
+        if (result.MappingUsed is { } used)
+        {
+            var account = (result as ExternalSignInResult.Success)?.Account;
+            audit.RecordEvent(context, "auth.oidc-mapping-used", account?.Id, account?.Username, null, used,
+                $"{provider.Name}: the saved mapping for {used} was used and is now deleted. The link decides from here.");
+        }
+    }
+
     private static async Task SignInAsync(TicketReceivedContext context, OidcProviderSettings provider)
     {
         var services = context.HttpContext.RequestServices;
@@ -296,6 +319,7 @@ public static class OidcSetup
         }
         var signIn = services.GetRequiredService<ExternalSignIn>();
         var result = await signIn.SignInAsync(provider, identity, context.HttpContext.RequestAborted);
+        RecordMappingOutcome(context.HttpContext, provider, identity, result);
         if (result is ExternalSignInResult.Pending
             && context.Properties?.Items.TryGetValue(InviteItem, out var invite) == true && invite is not null
             && services.GetRequiredService<SelfSignUp>().InvitesWork)

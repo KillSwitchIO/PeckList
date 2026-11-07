@@ -306,6 +306,10 @@ public static class AdminEndpoints
             var mappings = new List<OidcMappingView>();
             foreach (var provider in settings.OidcProviders)
             {
+                foreach (var (subject, target) in provider.SubjectMap.OrderBy(pair => pair.Key, StringComparer.Ordinal))
+                {
+                    mappings.Add(new OidcMappingView(provider.Name, OidcProviderSettings.SubjectPrefix + subject, byName.GetValueOrDefault(target)?.Id, target, "settings", null));
+                }
                 foreach (var (providerUser, target) in provider.UserMap.OrderBy(pair => pair.Key, StringComparer.Ordinal))
                 {
                     mappings.Add(new OidcMappingView(provider.Name, providerUser, byName.GetValueOrDefault(target)?.Id, target, "settings", null));
@@ -326,7 +330,7 @@ public static class AdminEndpoints
                 mappings);
         }).RequirePermission(Permission.ManageUsers);
 
-        // Map a provider username to an account: their next sign-in lands there, even when linked elsewhere.
+        // Map a provider username to an account: a first claim, deleted once used. By subject is linking by hand.
         admin.MapPut("/oidc/mappings", async (
             MappingRequest request, ClaimsPrincipal user, ServerSettings settings, IIdentityStore identities, IAccountStore accounts,
             TimeProvider time, HttpContext context, CancellationToken cancellation) =>
@@ -341,9 +345,17 @@ public static class AdminEndpoints
             {
                 return Results.Conflict(new AdminError("set_by_settings", $"OIDC_..._USER_MAP already maps {name}"));
             }
+            if (name.StartsWith(OidcProviderSettings.SubjectPrefix, StringComparison.Ordinal))
+            {
+                return Results.BadRequest(new AdminError("subject_not_username", "this list takes usernames: link a subject under Admin > Users"));
+            }
             return await OnAccountAsync(request.AccountId, user, accounts, async account =>
             {
                 context.Audit().Detail = $"{provider.Name}: {name} to {account.Username}";
+                if (account.Role != Role.User && provider.LinkByUsername != UsernameLinking.All)
+                {
+                    return Results.Conflict(new AdminError("admin_needs_subject", "an admin account cannot be mapped by username: link it by subject under Admin > Users"));
+                }
                 await identities.PutMappingAsync(new IdentityMapping
                 {
                     Provider = provider.Name,

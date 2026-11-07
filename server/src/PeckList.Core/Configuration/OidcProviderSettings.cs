@@ -70,10 +70,17 @@ public sealed partial record OidcProviderSettings
     public UsernameLinking LinkByUsername { get; init; }
 
     /// <summary>
-    /// Provider username (lowercase) to PeckList username: that provider user always signs into
-    /// that account, and an existing link elsewhere moves there. Admins add more on the OIDC page.
+    /// Provider username (lowercase) to PeckList username: a first claim, for someone with no link yet
+    /// on an account with no link to this provider yet, because a username can change hands at the
+    /// provider. An admin account also needs <c>LINK_BY_USERNAME=all</c>. Admins add more on the OIDC page.
     /// </summary>
     public IReadOnlyDictionary<string, string> UserMap { get; init; } = new Dictionary<string, string>();
+
+    /// <summary>
+    /// Provider subject (exact) to PeckList username, from <c>sub:</c> entries in <c>USER_MAP</c>: that
+    /// provider account always signs into that account, an admin's included, and a link elsewhere moves there.
+    /// </summary>
+    public IReadOnlyDictionary<string, string> SubjectMap { get; init; } = new Dictionary<string, string>();
 
     /// <summary>
     /// The provider's icon: an http(s) address or a file. Null: the provider's own <c>/favicon.ico</c>.
@@ -91,6 +98,9 @@ public sealed partial record OidcProviderSettings
 
     /// <summary>Whether this provider's groups matter (and so the groups scope is asked for by default).</summary>
     public bool UsesGroups => RequiredGroups.Count > 0 || RoleMap.Count > 0 || GroupMap.Count > 0 || MirrorGroups;
+
+    /// <summary>How a <c>USER_MAP</c> entry says its left side is a subject.</summary>
+    public const string SubjectPrefix = "sub:";
 
     [GeneratedRegex("^[a-z0-9]([a-z0-9-]{0,30}[a-z0-9])?$")]
     private static partial Regex NamePattern();
@@ -185,11 +195,7 @@ public sealed partial record OidcProviderSettings
                         break;
                 }
             }
-            var userMap = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-            foreach (var (providerUser, account) in Pairs(Value("USER_MAP"), prefix + "USER_MAP", errors, "provideruser=pecklistuser"))
-            {
-                userMap[providerUser.ToLowerInvariant()] = account.ToLowerInvariant();
-            }
+            var (userMap, subjectMap) = ReadUserMap(Value("USER_MAP"), prefix + "USER_MAP", errors);
             var autoCreate = Flag("AUTO_CREATE");
             var linkByEmail = Flag("LINK_BY_EMAIL");
             var signOut = Flag("SIGN_OUT");
@@ -224,6 +230,7 @@ public sealed partial record OidcProviderSettings
                 LinkByEmail = linkByEmail,
                 LinkByUsername = linkByUsername,
                 UserMap = userMap,
+                SubjectMap = subjectMap,
                 Icon = Value("ICON") is { Length: > 0 } icon ? icon.Trim() : null,
                 SignOut = signOut,
                 SessionLength = sessionLength,
@@ -251,6 +258,47 @@ public sealed partial record OidcProviderSettings
 
     private static IReadOnlyList<string> Split(string? raw) =>
         (raw ?? "").Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+
+    /// <summary>
+    /// <c>provideruser=pecklistuser</c> and <c>sub:subject=pecklistuser</c>. Split at the last <c>=</c>,
+    /// since a subject may hold one and a PeckList username never does. What starts with <c>sub:</c> is
+    /// always a subject and never a username. A subject with a comma cannot be written in a list. Most
+    /// such values leave a piece that is plainly wrong, with no <c>=</c> or a username holding one, and
+    /// stop the start. <c>sub:a=x,b=y</c> cannot be told from two good entries, so the guide says to
+    /// link those by hand and check the Mappings page.
+    /// </summary>
+    private static (Dictionary<string, string> Users, Dictionary<string, string> Subjects) ReadUserMap(string? raw, string name, List<string> errors)
+    {
+        var users = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        var subjects = new Dictionary<string, string>(StringComparer.Ordinal);
+        foreach (var item in Split(raw))
+        {
+            var isSubject = item.StartsWith(SubjectPrefix, StringComparison.OrdinalIgnoreCase);
+            var from = isSubject ? SubjectPrefix.Length : 0;
+            var at = item.LastIndexOf('=');
+            var left = at >= from ? item[from..at].Trim() : "";
+            var right = at >= from ? item[(at + 1)..].Trim().ToLowerInvariant() : "";
+            if (left.Length == 0 || right.Length == 0)
+            {
+                errors.Add(isSubject
+                    ? $"{name}: '{item}' is not sub:subject=pecklistuser. A subject with a comma cannot be written here: link that account by hand under Admin > Users."
+                    : $"{name}: '{item}' is not provideruser=pecklistuser");
+            }
+            else if (!isSubject && left.Contains('='))
+            {
+                errors.Add($"{name}: '{item}' has a username holding =. If it is part of a subject with a comma, link that account by hand under Admin > Users.");
+            }
+            else if (!isSubject)
+            {
+                users[left.ToLowerInvariant()] = right;
+            }
+            else if (!subjects.TryAdd(left, right))
+            {
+                errors.Add($"{name}: 'sub:{left}' is listed twice");
+            }
+        }
+        return (users, subjects);
+    }
 
     /// <summary><c>a=b,c=d</c>; the left side may not be empty.</summary>
     private static IEnumerable<(string Key, string Value)> Pairs(string? raw, string name, List<string> errors, string shape = "group=value")
