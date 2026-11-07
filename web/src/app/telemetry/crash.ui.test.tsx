@@ -17,7 +17,7 @@ function Bomb(): never {
   throw new TypeError('cannot read the title of "Groceries"');
 }
 
-function app(backend: FakeBackend) {
+function app(backend: FakeBackend, Child: () => never = Bomb) {
   const transport = backend.device();
   transport.session = 'sam';
   const engine = createSyncEngine({
@@ -31,7 +31,7 @@ function app(backend: FakeBackend) {
   return render(
     <SyncContext.Provider value={engine}>
       <CrashBoundary>
-        <Bomb />
+        <Child />
       </CrashBoundary>
     </SyncContext.Provider>,
   );
@@ -93,6 +93,19 @@ describe('crash reports (PL-116)', () => {
     expect(screen.getByRole('button', { name: 'Reload' })).toBeInTheDocument();
     await new Promise((resolve) => setTimeout(resolve, 50));
     expect(screen.queryByRole('button', { name: 'Send' })).toBeNull();
+  });
+});
+
+describe('a part of the app that could not be fetched', () => {
+  it('offers a reload and no crash report', async () => {
+    function Gone(): never {
+      throw new TypeError('Failed to fetch dynamically imported module: https://x/assets/a.js');
+    }
+    app(new FakeBackend(), Gone);
+    expect(await screen.findByRole('button', { name: 'Reload' })).toBeInTheDocument();
+    expect(screen.getByText('This page could not load')).toBeInTheDocument();
+    expect(screen.queryByText('Something went wrong')).toBeNull();
+    expect(screen.queryByRole('button', { name: 'See what it holds' })).toBeNull();
   });
 });
 

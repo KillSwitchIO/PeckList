@@ -29,10 +29,11 @@ export function App() {
       typeof requestIdleCallback === 'function'
         ? requestIdleCallback(work, { timeout: 5000 })
         : setTimeout(work, 2000);
+    // Only ahead of time: what fails here is fetched again when it is wanted.
     later(() => {
-      void preloadEditor();
-      void preloadPages();
-      void loadSymbolCatalog();
+      for (const fetchAhead of [preloadEditor, preloadPages, loadSymbolCatalog]) {
+        fetchAhead().catch(() => undefined);
+      }
     });
   }, []);
   return (
