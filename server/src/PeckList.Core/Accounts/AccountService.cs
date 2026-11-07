@@ -1,3 +1,5 @@
+using PeckList.Core.Configuration;
+
 namespace PeckList.Core.Accounts;
 
 /// <summary>Hashes and checks passwords (the server uses ASP.NET Core Identity's PBKDF2 hasher).</summary>
@@ -37,8 +39,14 @@ public sealed class AccountService(IAccountStore store, IPasswordHasher hasher, 
     public const string AdminUsername = "admin";
     public const int MinPasswordLength = 12;
 
-    /// <summary>Long enough for any password manager; beyond it, hashing is only work for someone else's benefit (audit S17).</summary>
-    public const int MaxPasswordLength = 256;
+    /// <summary>The longest password anyone can set from now on.</summary>
+    public const int MaxNewPasswordLength = 64;
+
+    /// <summary>
+    /// The longest password worth checking, so one set before <see cref="MaxNewPasswordLength"/> still
+    /// signs in; beyond it, hashing is only work for someone else's benefit (audit S17).
+    /// </summary>
+    public const int MaxTriedPasswordLength = 256;
     public const int MaxFailedLogins = 5;
     public static readonly TimeSpan LockoutTime = TimeSpan.FromMinutes(15);
 
@@ -60,8 +68,8 @@ public sealed class AccountService(IAccountStore store, IPasswordHasher hasher, 
 
     public async Task<LoginResult> LoginAsync(string username, string password, CancellationToken cancellation = default)
     {
-        // No password can be this long: never hashed, and the same answer whoever is named.
-        if (password.Length > MaxPasswordLength) return new LoginResult.Invalid();
+        // Too long to check: never hashed, and the same answer whoever is named.
+        if (password.Length > MaxTriedPasswordLength) return new LoginResult.Invalid();
         var account = await store.FindByUsernameAsync(username.Trim(), cancellation);
         if (account?.PasswordHash is null || account.Disabled)
         {
@@ -99,12 +107,12 @@ public sealed class AccountService(IAccountStore store, IPasswordHasher hasher, 
     {
         var account = await store.FindByIdAsync(id, cancellation) ?? throw new KeyNotFoundException($"no account {id}");
         if (IsDemo(account)) return (PasswordChange.DemoAccount, null);
-        if (account.PasswordHash is null || current.Length > MaxPasswordLength || !hasher.Verify(account.PasswordHash, current, out _))
+        if (account.PasswordHash is null || current.Length > MaxTriedPasswordLength || !hasher.Verify(account.PasswordHash, current, out _))
         {
             return (PasswordChange.WrongPassword, null);
         }
         if (next.Length < MinPasswordLength) return (PasswordChange.TooShort, null);
-        if (next.Length > MaxPasswordLength) return (PasswordChange.TooLong, null);
+        if (next.Length > MaxNewPasswordLength) return (PasswordChange.TooLong, null);
         if (next == current) return (PasswordChange.Unchanged, null);
         var updated = account with
         {
@@ -132,6 +140,13 @@ public sealed class AccountService(IAccountStore store, IPasswordHasher hasher, 
     {
         var admin = await store.FindByUsernameAsync(AdminUsername, cancellation);
         if (admin?.PasswordHash is not null) return null;
+        // Over the limit only stops a first start, with nothing to lose: a server in use would go down.
+        // Past what can be checked, the account could never sign in, so it stops wherever it is used.
+        if (configuredPassword?.Length > MaxTriedPasswordLength
+            || (configuredPassword?.Length > MaxNewPasswordLength && admin is null && await store.CountAsync(cancellation) == 0))
+        {
+            throw new SettingsException($"ADMIN_PASSWORD must be {MinPasswordLength} to {MaxNewPasswordLength} characters");
+        }
         var password = configuredPassword ?? Ids.NewPassword();
         if (admin is null)
         {
@@ -297,7 +312,8 @@ public sealed class AccountService(IAccountStore store, IPasswordHasher hasher, 
         var account = await store.FindByUsernameAsync(username, cancellation);
         if (account is null)
         {
-            await CreateUserAsync(username, password, Role.User, mustChangePassword: false, cancellation);
+            // Not held to the limit for new passwords: it is the server's own setting, and nobody picks or changes it.
+            await store.CreateAsync(NewAccount(username.Trim(), Role.User) with { PasswordHash = hasher.Hash(password), MustChangePassword = false }, cancellation);
             return true;
         }
         var samePassword = account.PasswordHash is not null && hasher.Verify(account.PasswordHash, password, out _);
@@ -318,9 +334,9 @@ public sealed class AccountService(IAccountStore store, IPasswordHasher hasher, 
 
     private static void CheckLength(string password)
     {
-        if (password.Length is < MinPasswordLength or > MaxPasswordLength)
+        if (password.Length is < MinPasswordLength or > MaxNewPasswordLength)
         {
-            throw new ArgumentException($"passwords need {MinPasswordLength} to {MaxPasswordLength} characters");
+            throw new ArgumentException($"passwords need {MinPasswordLength} to {MaxNewPasswordLength} characters");
         }
     }
 
@@ -371,7 +387,7 @@ public sealed class AccountService(IAccountStore store, IPasswordHasher hasher, 
         var account = await store.FindByIdAsync(id, cancellation) ?? throw new KeyNotFoundException($"no account {id}");
         if (IsDemo(account)) return (PasswordChange.DemoAccount, null);
         if (next.Length < MinPasswordLength) return (PasswordChange.TooShort, null);
-        if (next.Length > MaxPasswordLength) return (PasswordChange.TooLong, null);
+        if (next.Length > MaxNewPasswordLength) return (PasswordChange.TooLong, null);
         var updated = account with
         {
             PasswordHash = hasher.Hash(next),
@@ -393,7 +409,7 @@ public sealed class AccountService(IAccountStore store, IPasswordHasher hasher, 
     {
         var account = await store.FindByIdAsync(id, cancellation) ?? throw new KeyNotFoundException($"no account {id}");
         if (IsDemo(account)) return (PasswordChange.DemoAccount, null);
-        if (account.PasswordHash is null || current.Length > MaxPasswordLength || !hasher.Verify(account.PasswordHash, current, out _))
+        if (account.PasswordHash is null || current.Length > MaxTriedPasswordLength || !hasher.Verify(account.PasswordHash, current, out _))
         {
             return (PasswordChange.WrongPassword, null);
         }

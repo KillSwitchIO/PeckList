@@ -60,7 +60,9 @@ same single owner. **Default:** `local`. **Where:** env.
 ### `ADMIN_PASSWORD`
 
 The `admin` account's first password, used only when the account is created at the first start
-(12 to 256 characters). Without it a password is generated and printed once. **Default:**
+(12 to 64 characters; a longer one stops that first start, and a server that already has accounts
+starts anyway). Over 256 characters it stops any start that would use it, since it could never sign in.
+Without it a password is generated and printed once. **Default:**
 generated. **Where:** env.
 
 ### `LOCAL_LOGIN`

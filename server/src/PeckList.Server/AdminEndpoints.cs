@@ -200,7 +200,7 @@ public static class AdminEndpoints
                 }
                 catch (ArgumentException error)
                 {
-                    var code = request.Password?.Length > AccountService.MaxPasswordLength ? "too_long" : "too_short";
+                    var code = request.Password?.Length > AccountService.MaxNewPasswordLength ? "too_long" : "too_short";
                     return Results.BadRequest(new AdminError(code, error.Message));
                 }
             }, cancellation)).RequirePermission(Permission.ManageUsers).Audited("admin.password-reset");
