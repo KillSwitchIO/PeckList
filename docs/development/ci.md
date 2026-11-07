@@ -75,6 +75,11 @@ job) has approved, and "Pipelines must succeed" then keeps the merge request fro
   the image build each list their inputs in `rules: changes`, and CI files, lockfiles, `schema/` and
   `scripts/` run everything. The weekly run on `main` runs every suite, the safety net for a list
   that missed a dependency. A run from the UI runs every suite too.
+- **The public docs stay free of private details.** `docs` fails when a forbidden term appears in the
+  docs' sources or the built site, and `pages` and `wiki` need it, so nothing publishes. The terms
+  are in `scripts/check-docs-public.mjs`, plus an optional CI variable, `DOCS_PRIVATE_TERMS`, for names
+  that should not be written in a public repository. A report names the file, never a term from the
+  variable. It must not be a protected variable, or merge requests would skip that part.
 - **Merge requests build less.** The image is amd64 only, without SBOM or provenance; both
   architectures and the attestations come with `main` and tags. The build cache export is
   `mode=min`.
