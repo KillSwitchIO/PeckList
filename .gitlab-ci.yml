@@ -752,7 +752,7 @@ deploy-test:
     - node scripts/ci/deploy-test.mjs
   environment:
     name: test
-    url: https://pecklist-test.killswitch10.com
+    url: $PECKLIST_TEST_ENV_URL
   rules:
     - *not-on-schedule
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $GITLAB_API_TOKEN
@@ -961,7 +961,7 @@ deploy-prod:
     strategy: mirror
   environment:
     name: production
-    url: https://pecklist.killswitch10.com
+    url: $PECKLIST_PROD_ENV_URL
   rules:
     # Releases only, not pre-releases (v1.2.3-rc.1).
     - if: $CI_COMMIT_TAG =~ /^v\d+\.\d+\.\d+\+/ && $LEGACY_TAG_BUILD != "true"
