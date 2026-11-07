@@ -113,7 +113,7 @@ as `pecklist-android.apk`, `pecklist-linux-x64.tar.gz`, and so on. `SHA256SUMS` 
 ## Production
 
 Only a release reaches production. Its tag's pipeline has a `deploy-prod` button, pressed by hand,
-never automatic, and a pre-release does not have one. The compose repository then checks who pressed
+never automatic, and a pre-release does not have one. The deployment pipeline then checks who pressed
 it, that the release exists and names this digest, and that the registry agrees, before it contacts
 the host. It trials the image on a copy of the live data and only then deploys. A failure before
 that leaves production untouched.

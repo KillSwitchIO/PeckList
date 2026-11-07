@@ -9,7 +9,7 @@ one to come back to while writing.
 :::note[The project notes point here]
 
 :::
-The planning notes (the Obsidian vault: spec, roadmap, feature notes `PL-xxx`, decisions
+The planning notes (spec, roadmap, feature notes `PL-xxx`, decisions
 `ADR-xxxx`) say _what_ to build and _why_. This page says _how_ the code is written. When the
 two disagree, the notes win on behavior and this page wins on code; fix whichever is stale.
 

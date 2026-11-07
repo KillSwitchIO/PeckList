@@ -56,10 +56,8 @@ lists `duration` and `queued_duration` for each.
 
 ## The test server follows main
 
-`deploy-test` runs on `main` after `e2e-server` passed. It bumps the image tag in the compose
-repository's `services/pecklist-test/compose.yaml` to `sha-<commit>` (a commit on its `main`,
-marked `[skip ci]`) and starts that repository's pipeline with `RELEASE=pecklist-test` and
-`AUTO_RELEASE=true`, which releases the service once its own checks pass. Production is never
+`deploy-test` runs on `main` after `e2e-server` passed. It starts the project's deployment
+pipeline with the image `sha-<commit>`, which puts it on the test server once its own checks pass. Production is never
 touched from here: it pins a release version and moves only by hand
 ([releasing](releasing.md)).
 
@@ -78,18 +76,14 @@ line saying where it comes from. The wiki is a copy: edit `docs/`, and the next 
 it. Pages that leave `docs/` leave the wiki.
 
 The rendered site at [https://docs.pecklist.com](https://docs.pecklist.com) stays the canonical docs: it has the search, the
-tabs and the strict link check the wiki cannot give. GitLab Pages builds it from main (`pages`, at
-[https://pecklist-c58cd3.gitlab.io](https://pecklist-c58cd3.gitlab.io)), and Pangolin proxies `docs.pecklist.com` to it. The website
-itself, [https://pecklist.com](https://pecklist.com), is [killswitch10/pecklist.com](https://gitlab.com/killswitch10/pecklist.com)
-on our own server.
+tabs and the strict link check the wiki cannot give. GitLab Pages builds it from main (`pages`).
 
 ## The website and the demo
 
-- The website, [https://pecklist.com](https://pecklist.com), is its own repository,
-  [killswitch10/pecklist.com](https://gitlab.com/killswitch10/pecklist.com): a landing page
-  published by GitLab Pages, which Pangolin proxies. Its docs links go to this project's wiki.
-- `deploy-demo` (release tags, not pre-releases) runs `scripts/ci/deploy-test.mjs` with
-  `COMPOSE_SERVICE=pecklist-demo`: the release goes to [https://demo.pecklist.com](https://demo.pecklist.com), which resets
+- The website, [https://pecklist.com](https://pecklist.com), is its own repository: a landing page.
+  Its docs links go to this project's wiki.
+- `deploy-demo` (release tags, not pre-releases) puts the release on
+  [https://demo.pecklist.com](https://demo.pecklist.com), which resets
   every hour (`DEMO_RESET_EVERY`, PL-117).
 
 ## Container registry
@@ -105,7 +99,8 @@ host that pulls.
 
 ## Runners
 
-Every job runs on the runner tagged by the `RUNNER_TAG` variable (default `homelab`). It must be a
+Every job runs on the runner tagged by the `RUNNER_TAG` variable, so set that to your runner's tag
+(**Settings > CI/CD > Variables**). It must be a
 **Docker executor** that mounts the host's Docker socket (`/var/run/docker.sock`), because the
 `container-image` and `ci-images` jobs build with Docker. The PostgreSQL tests use a `postgres`
 service in CI (`PECKLIST_TEST_POSTGRES` names it), not a container they start: a container
@@ -114,7 +109,7 @@ usually drops.
 
 ### A self-hosted runner
 
-1. In GitLab: the group (or project) > **Build > Runners > New group runner**. Tags: `homelab`.
+1. In GitLab: the group (or project) > **Build > Runners > New group runner**. Tags: the value of `RUNNER_TAG`, say `my-runner`.
    Leave **Run untagged jobs** off. Create it and copy the token (`glrt-...`).
 2. On the machine, register it with GitLab Runner 17 or later:
 
@@ -152,7 +147,7 @@ or with [gitlab-ci-local](https://github.com/firecow/gitlab-ci-local).
 ## Dependency updates
 
 [Renovate](https://docs.renovatebot.com/) opens merge requests for updates once a week, run from
-the `homelab-killswitch/renovate-runner` project's schedule (Fridays). The rules are in
+a separate project's pipeline schedule (Fridays). The rules are in
 `renovate.json`: patches and minors merge themselves once their pipeline passes, which takes an
 [approval](#approval) like any merge request; majors (and the Android Gradle setup, which follows
 Capacitor's template) also wait for a closer look, related packages

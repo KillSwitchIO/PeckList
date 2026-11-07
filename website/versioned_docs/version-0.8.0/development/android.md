@@ -184,7 +184,7 @@ watches the device and presses the buttons on the notifications; `status` then s
 presses did on the server, and `cleanup` deletes everything the drill made.
 
 ```bash
-PECKLIST_URL=https://tasks.example.com PECKLIST_TOKEN_FILE=~/.pecklist-drill.token PECKLIST_TARGET=ben node scripts/notification-drill.mjs setup
+PECKLIST_URL=https://tasks.example.com PECKLIST_TOKEN_FILE=~/.pecklist-drill.token PECKLIST_TARGET=sam node scripts/notification-drill.mjs setup
 node scripts/notification-drill.mjs reminder 7          # reminds in 7 minutes
 node scripts/notification-drill.mjs reminder 7 --constant
 node scripts/notification-drill.mjs --help
