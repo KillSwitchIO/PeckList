@@ -357,6 +357,7 @@ docs:
   timeout: 15m
   script:
     - pnpm --filter @pecklist/docs build
+    - node scripts/check-docs-public.mjs docs website/versioned_docs website/build
   artifacts:
     paths: [website/build]
     expire_in: 1 week
