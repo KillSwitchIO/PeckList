@@ -585,6 +585,10 @@ public class ShellPlugin extends Plugin {
     private boolean opened(Intent intent) {
         String url = intent == null ? null : intent.getStringExtra(Reminders.EXTRA_URL);
         if (url == null || !url.startsWith("/")) return false;
+        if (!firstPress(intent, url)) {
+            intent.removeExtra(Reminders.EXTRA_URL);
+            return true;
+        }
         Reminders.cancelShown(getContext(), intent.getIntExtra(Reminders.EXTRA_SHOWN, 0));
         JSObject event = new JSObject();
         event.put("url", url);
@@ -598,6 +602,16 @@ public class ShellPlugin extends Plugin {
         intent.removeExtra(Reminders.EXTRA_URL);
         notifyListeners("notificationOpen", event, true);
         return true;
+    }
+
+    /**
+     * False for a press handled before, which Android hands back when the app returns from Recents
+     * after its process died.
+     */
+    private boolean firstPress(Intent intent, String url) {
+        String press = intent.getStringExtra(Reminders.EXTRA_PRESS);
+        if (press == null) press = Presses.idFrom(intent.getAction(), intent.getDataString(), url);
+        return Presses.first(getContext(), press);
     }
 
     /** A provider sign-in coming back: trade the code for a session in the WebView. A link: show how it went. */
