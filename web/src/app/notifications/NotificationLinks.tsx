@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { useSearchParams } from 'react-router';
 import { getEntity } from '../../core/collections.ts';
 import { addComment, canComment } from '../../core/comments.ts';
@@ -14,6 +14,11 @@ export const THUMBS_UP = '👍';
  * What a notification's button asks of the task it opens (R-FB-106, R-FB-107): `like=1` answers
  * the comment with a thumbs up, `dibs=1` calls dibs on a group's task. Done once, as soon as the
  * task is here, and the address forgets it, so Back or a reload does not do it again.
+ *
+ * The address forgets at once, but BrowserRouter hands the news to React as a transition, later
+ * than the store's own update. Until it lands this still reads the button from the old address, so
+ * `handled` is what makes it once: without it, every comment changes the workspace, which runs this
+ * again, until React gives up with "Maximum update depth exceeded".
  */
 export function NotificationLinks() {
   const [params, setParams] = useSearchParams();
@@ -25,9 +30,15 @@ export function NotificationLinks() {
   const like = params.get('like') === '1';
   const dibs = params.get('dibs') === '1';
   const task = taskId ? getEntity(workspace, 'tasks', taskId) : undefined;
+  const handled = useRef(false);
 
   useEffect(() => {
-    if (!task || (!like && !dibs)) return;
+    if (!like && !dibs) {
+      handled.current = false;
+      return;
+    }
+    if (!task || handled.current) return;
+    handled.current = true;
     if (like && canComment(workspace, me, task)) {
       apply(
         (ctx, ws) => addComment(ctx, ws, task.id, THUMBS_UP).workspace,

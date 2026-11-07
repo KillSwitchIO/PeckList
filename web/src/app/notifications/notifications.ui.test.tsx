@@ -299,6 +299,45 @@ describe('notifications', () => {
     expect(new URL(window.location.href).searchParams.get('comment') ?? commentId).toBe(commentId);
   });
 
+  it('a double tap on the thumbs up leaves one', async () => {
+    const backend = new FakeBackend();
+    backend.addAccount('ben', 'correct horse battery');
+    const sam = backend.addAccount('sam', 'sams own password');
+    const { store, sync } = await signedIn('/notifications', backend);
+    let taskId = '';
+    let commentId = '';
+    act(() =>
+      store.getState().apply((ctx, ws) => {
+        const made = createTask(ctx, ws, { title: 'Paint the shed', listId: inboxList(ws).id });
+        taskId = made.task.id;
+        const said = addComment(ctx, made.workspace, taskId, 'Blue or green?');
+        commentId = said.comment.id;
+        return said.workspace;
+      }),
+    );
+    backend.notifications.set('ben', [
+      {
+        id: 'N2',
+        kind: 'commented',
+        at: '2026-10-24T15:00:00.000Z',
+        actorId: sam.id,
+        taskId,
+        listId: null,
+        commentId,
+        read: false,
+      },
+    ]);
+    await act(() => sync.getState().syncNow());
+    const like = await screen.findByRole('button', { name: 'Thumbs up' });
+    fireEvent.click(like);
+    fireEvent.click(like);
+    const bodies = store
+      .getState()
+      .workspace!.entities.comments.filter((each) => each.taskId === taskId)
+      .map((each) => each.body);
+    expect(bodies).toEqual(['Blue or green?', '👍']);
+  });
+
   it('a task shows its history under the comments (R-FB-105)', async () => {
     const backend = new FakeBackend();
     backend.addAccount('ben', 'correct horse battery');
