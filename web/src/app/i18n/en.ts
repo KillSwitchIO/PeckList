@@ -527,6 +527,8 @@ export const en = {
   'audit.type.auth.oidc-mapping-refused':
     'A username mapping did not join the admin account {target}',
   'audit.type.auth.oidc-mapping-used': 'The saved mapping for {target} was used and deleted',
+  'audit.type.auth.admin-password-given':
+    'The admin account had no way in, so a start gave it a password',
   'audit.type.auth.login-link-used': '{actor} used a sign-in link',
   'audit.type.auth.app-handoff': '{actor} confirmed signing in to the Android app',
   'audit.type.auth.app-signed-in': '{actor} signed in to the Android app',

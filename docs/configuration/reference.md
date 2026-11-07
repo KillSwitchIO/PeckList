@@ -62,8 +62,11 @@ same single owner. **Default:** `local`. **Where:** env.
 The `admin` account's first password, used only when the account is created at the first start
 (12 to 64 characters; a longer one stops that first start, and a server that already has accounts
 starts anyway). Over 256 characters it stops any start that would use it, since it could never sign in.
-Without it a password is generated and printed once. **Default:**
-generated. **Where:** env.
+Without it a password is generated and printed once. An `admin` that removed its password and has a
+passkey or a provider stays without one. Only an `admin` with no way in at all, such as one made
+under `AUTH_MODE=none`, is given a password at a later start, with an `auth.admin-password-given`
+audit event. If that other way in stops working, `pecklist admin reset-password` gives it a password
+again. **Default:** generated. **Where:** env.
 
 ### `LOCAL_LOGIN`
 
