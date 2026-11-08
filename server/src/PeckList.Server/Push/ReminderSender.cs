@@ -35,6 +35,9 @@ public sealed class ReminderSender(
     /// <summary>Each person's zone at the last run, to see it move (a trip, a new pick).</summary>
     private readonly Dictionary<string, string> zonesBefore = new(StringComparer.Ordinal);
 
+    /// <summary>Task and person pairs whose failure was logged as a warning; after that, only at Debug.</summary>
+    private readonly HashSet<string> failuresLogged = new(StringComparer.Ordinal);
+
     /// <summary>
     /// A reminder as a person sees it, for the Android app to set ahead. <paramref name="Key"/> is the
     /// web app's key for it (web/src/core/reminders.ts): taskId@first, and #n on a constant
@@ -72,40 +75,50 @@ public sealed class ReminderSender(
             if (task["reminders"] is not JsonArray { Count: > 0 } || (string?)task["status"] != "open") continue;
             foreach (var userId in ServerReminders.Recipients(task, index))
             {
-                var mine = settings.GetValueOrDefault(userId);
-                if (!NotificationSwitches.Allows(mine, NotificationKind.Reminder)) continue;
-                var (zone, before) = ZonesOf(userId);
-                // Both zones give the same reminders in the same order, so the i-th is the same one.
-                var instants = ServerReminders.Instants(task, zone).ToList();
-                var earlier = before is null ? null : ServerReminders.Instants(task, before).ToList();
-                for (var i = 0; i < instants.Count; i++)
+                // A failure with one person's reminders for a task does not hold up anyone else's.
+                try
                 {
-                    var (at, first, constant) = instants[i];
-                    // When the zone moved later (flying east), a reminder can now be due before this run
-                    // while in the old zone no run had sent it yet (its old time is in this run or after):
-                    // it goes now rather than never. Its repeats keep their new times.
-                    var overtaken = earlier is not null && at == first && at <= from && earlier[i].At > from;
-                    if (!overtaken && (at <= from || at > to)) continue;
-                    // Repeats share the first one's tag (each replaces the last), but go once each.
-                    var tag = $"{taskId}@{first.ToUnixTimeMilliseconds()}";
-                    var sent = at == first ? tag : $"{tag}#{at.ToUnixTimeMilliseconds()}";
-                    if (!await store.MarkReminderSentAsync($"{userId}|{sent}", to, cancellation)) continue;
-                    var payload = new PushPayload(TitleOf(task), $"Reminder for {Clock(first, zone, mine)}", tag, $"/today?task={taskId}", constant);
-                    if (at != first)
+                    var mine = settings.GetValueOrDefault(userId);
+                    if (!NotificationSwitches.Allows(mine, NotificationKind.Reminder)) continue;
+                    var (zone, before) = ZonesOf(userId);
+                    // Both zones give the same reminders in the same order, so the i-th is the same one.
+                    var instants = ServerReminders.Instants(task, zone).ToList();
+                    var earlier = before is null ? null : ServerReminders.Instants(task, before).ToList();
+                    for (var i = 0; i < instants.Count; i++)
                     {
+                        var (at, first, constant) = instants[i];
+                        // When the zone moved later (flying east), a reminder can now be due before this run
+                        // while in the old zone no run had sent it yet (its old time is in this run or after):
+                        // it goes now rather than never. Its repeats keep their new times.
+                        var overtaken = earlier is not null && at == first && at <= from && earlier[i].At > from;
+                        if (!overtaken && (at <= from || at > to)) continue;
+                        // Repeats share the first one's tag (each replaces the last), but go once each.
+                        var tag = $"{taskId}@{first.ToUnixTimeMilliseconds()}";
+                        var sent = at == first ? tag : $"{tag}#{at.ToUnixTimeMilliseconds()}";
+                        if (!await store.MarkReminderSentAsync($"{userId}|{sent}", to, cancellation)) continue;
+                        var payload = new PushPayload(TitleOf(task), $"Reminder for {Clock(first, zone, mine)}", tag, $"/today?task={taskId}", constant);
+                        if (at != first)
+                        {
+                            await push.SendAsync(userId, payload, cancellation);
+                            continue;
+                        }
+                        await notifications.AddAsync([new Notification
+                        {
+                            Id = Ids.NewUlid(Time),
+                            UserId = userId,
+                            Kind = NotificationKind.Reminder,
+                            At = at,
+                            TaskId = taskId,
+                            ListId = (string?)task["listId"],
+                        }], cancellation);
                         await push.SendAsync(userId, payload, cancellation);
-                        continue;
                     }
-                    await notifications.AddAsync([new Notification
-                    {
-                        Id = Ids.NewUlid(Time),
-                        UserId = userId,
-                        Kind = NotificationKind.Reminder,
-                        At = at,
-                        TaskId = taskId,
-                        ListId = (string?)task["listId"],
-                    }], cancellation);
-                    await push.SendAsync(userId, payload, cancellation);
+                }
+                catch (Exception error) when (error is not OperationCanceledException)
+                {
+                    // Each run tries again, so a lasting failure warns once and then only shows at Debug.
+                    var level = failuresLogged.Add($"{taskId}|{userId}") ? LogLevel.Warning : LogLevel.Debug;
+                    Logger.Log(level, error, "Could not send the reminders of task {Task} for person {User}", taskId, userId);
                 }
             }
         }

@@ -20,8 +20,16 @@ public sealed class PushTests(ServerFixture fixture) : IClassFixture<ServerFixtu
     {
         public List<(string UserId, PushPayload Payload)> Sent { get; } = [];
 
+        /// <summary>The next send fails, as a push service that is down would.</summary>
+        public bool FailNext { get; set; }
+
         public Task SendAsync(string userId, PushPayload payload, CancellationToken cancellation = default)
         {
+            if (FailNext)
+            {
+                FailNext = false;
+                throw new HttpRequestException("push service down");
+            }
             lock (Sent) Sent.Add((userId, payload));
             return Task.CompletedTask;
         }
@@ -80,6 +88,39 @@ public sealed class PushTests(ServerFixture fixture) : IClassFixture<ServerFixtu
         Assert.Single(await store.ForUserAsync(benId, Token));
         (await ben.PostAsJsonAsync("/api/push/unsubscribe", new { endpoint = "https://push.example/ben" }, Token)).EnsureSuccessStatusCode();
         Assert.Empty(await store.ForUserAsync(benId, Token));
+    }
+
+    [Fact]
+    public async Task A_reminder_that_fails_does_not_hold_up_the_rest()
+    {
+        using var server = Server();
+        var (ben, benId) = await SignIn(server, "ben-f");
+        JsonObject Reminded(string id) => Entity(id, benId, new JsonObject
+        {
+            ["listId"] = "FL1",
+            ["title"] = id,
+            ["parentId"] = null,
+            ["status"] = "open",
+            ["assignees"] = new JsonObject(),
+            ["reminders"] = new JsonArray(new JsonObject { ["at"] = "2026-10-26T09:00" }),
+        });
+        (await ben.PostAsJsonAsync("/api/sync", new
+        {
+            schemaVersion = WorkspaceSchema.CurrentVersion,
+            cursor = (long?)null,
+            changes = new object[]
+            {
+                new { collection = "lists", entity = Entity("FL1", benId, new JsonObject { ["name"] = "Home", ["visibility"] = "private" }) },
+                new { collection = "tasks", entity = Reminded("FT1") },
+                new { collection = "tasks", entity = Reminded("FT2") },
+            },
+        }, Token)).EnsureSuccessStatusCode();
+
+        // The first of the two fails; the run goes on with the other.
+        push.FailNext = true;
+        var sender = server.Services.GetRequiredService<ReminderSender>();
+        await sender.SendDueAsync(new DateTimeOffset(2026, 10, 25, 0, 0, 0, TimeSpan.Zero), new DateTimeOffset(2026, 10, 28, 0, 0, 0, TimeSpan.Zero), Token);
+        Assert.Single(push.Sent);
     }
 
     [Fact]

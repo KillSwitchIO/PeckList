@@ -102,20 +102,32 @@ public static class ServerReminders
         return people;
     }
 
-    /// <summary>A local date (all day: 9:00) or date-time, without a zone.</summary>
+    /// <summary>A local date (all day: 9:00) or date-time, without a zone; none outside 1900 to 2200, where no reminder is meant.</summary>
     private static DateTime? Local(string value)
     {
         string[] formats = ["yyyy-MM-dd'T'HH:mm", "yyyy-MM-dd'T'HH:mm:ss", "yyyy-MM-dd"];
         if (!DateTime.TryParseExact(value, formats, CultureInfo.InvariantCulture, DateTimeStyles.None, out var parsed)) return null;
+        if (parsed.Year is < 1900 or > 2200) return null;
         return value.Length == 10 ? parsed + AllDayTime : parsed;
     }
 
     private static DateTimeOffset InZone(DateTime local, TimeZoneInfo zone)
     {
         var unspecified = DateTime.SpecifyKind(local, DateTimeKind.Unspecified);
-        // A time the clocks skip (spring forward) happens an hour later.
-        if (zone.IsInvalidTime(unspecified)) unspecified = unspecified.AddHours(1);
-        return new DateTimeOffset(TimeZoneInfo.ConvertTimeToUtc(unspecified, zone), TimeSpan.Zero);
+        if (!zone.IsInvalidTime(unspecified)) return new DateTimeOffset(TimeZoneInfo.ConvertTimeToUtc(unspecified, zone), TimeSpan.Zero);
+        // A time the clocks skip (spring forward) counts at the offset from before the jump, so it
+        // happens as much later as the clocks jumped, however far that is.
+        return new DateTimeOffset(DateTime.SpecifyKind(unspecified - OffsetBefore(unspecified, zone), DateTimeKind.Utc), TimeSpan.Zero);
+    }
+
+    /// <summary>The zone's offset at the last time before <paramref name="skipped"/> that its clocks show.</summary>
+    private static TimeSpan OffsetBefore(DateTime skipped, TimeZoneInfo zone)
+    {
+        for (var earlier = skipped.AddMinutes(-15); earlier > skipped.AddDays(-2); earlier = earlier.AddMinutes(-15))
+        {
+            if (!zone.IsInvalidTime(earlier)) return zone.GetUtcOffset(earlier);
+        }
+        return zone.BaseUtcOffset;
     }
 
     private static string? Text(JsonNode? node) => node is JsonValue value && value.TryGetValue<string>(out var text) ? text : null;
