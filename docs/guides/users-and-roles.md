@@ -25,7 +25,8 @@ super admin:
 
 The first account, `admin`, is a super admin. There is always at least one active super admin: the
 last one cannot be turned off, deleted or lose the role (from the page, the command line or a
-single sign-on role map).
+single sign-on role map). A deleted `admin` stays deleted while another super admin is active; the
+way back in from a shell is under [Troubleshooting](troubleshooting.md#signing-in).
 
 Change a role under **Admin > Users > ... > Make admin**, or:
 

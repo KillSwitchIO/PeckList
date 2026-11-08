@@ -24,7 +24,14 @@ folder is not writable by the container's user (uid 1654). With a bind mount:
 
 **I never saw the admin password.** `docker exec pecklist pecklist admin reset-password` prints a
 new one. With `ADMIN_PASSWORD` set, that was the password (it is used only when the account is
-first made; changing the variable later does nothing). If `admin` was deleted, see
+first made; changing the variable later does nothing).
+
+**`no user 'admin'`.** The `admin` account was deleted. Once its grace period is over it stays
+deleted, and a start makes it again only when no super admin is active. From a shell on the server,
+name another account: `docker exec pecklist pecklist admin reset-password kim`, or
+`docker exec pecklist pecklist admin login-link kim`. Or make a new super admin, run the same way:
+`pecklist admin add-user rescue`, then `pecklist admin set-role rescue superadmin`. During the grace
+period, a super admin can restore `admin` from **Admin > Users** instead. See
 [`admin reset-password`](../reference/cli.md#admin-reset-password).
 
 **"Too many attempts".** Five wrong passwords lock the account for 15 minutes, and each address gets

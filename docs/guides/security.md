@@ -78,7 +78,9 @@ Not needed for PeckList to work, but each one closes a real gap for little effor
 - [ ] **With single sign-on, [`LOCAL_LOGIN=disabled`](../configuration/reference.md#local_login).**
       Then nobody can guess a password, through the app or straight at the API: there is none to
       guess. Password sessions end at once; provider sessions go on. Keep a way back in for when
-      the provider is down: `pecklist admin login-link admin` prints a one-time sign-in link.
+      the provider is down: `pecklist admin login-link admin` prints a one-time sign-in link. A
+      deleted `admin` stays deleted while another super admin is active, so name an account that
+      exists; [Troubleshooting](troubleshooting.md#signing-in) has the other ways back in.
       _Not needed_ when you use passwords only; the attempt limits and lockout above protect
       long passwords well.
 - [ ] **Single sign-on settings.** Use `OIDC_<NAME>_REQUIRED_GROUPS` so only the provider's
