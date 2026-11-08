@@ -38,7 +38,8 @@ public sealed class PostgresServer : IAsyncLifetime
             await admin.OpenAsync(TestContext.Current.CancellationToken);
             await admin.ExecuteAsync($"CREATE DATABASE {name}");
         }
-        return new NpgsqlConnectionStringBuilder(server) { Database = name }.ToString();
+        // CI's PostgreSQL serves the server suite at the same time: allow a slow statement.
+        return new NpgsqlConnectionStringBuilder(server) { Database = name, CommandTimeout = 120 }.ToString();
     }
 }
 

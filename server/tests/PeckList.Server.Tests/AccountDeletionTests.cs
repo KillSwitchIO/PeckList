@@ -112,7 +112,8 @@ public sealed class AccountDeletionTests(ServerFixture fixture) : IClassFixture<
         }, Token)).EnsureSuccessStatusCode();
 
         (await admin.DeleteAsync($"/api/admin/users/{samId}", Token)).EnsureSuccessStatusCode();
-        Assert.Equal(1, await server.Services.GetRequiredService<AccountRemoval>().RemoveDueAsync(Token));
+        // The hourly sweep's first run (30 seconds in) may get there first on a slow machine.
+        await server.Services.GetRequiredService<AccountRemoval>().RemoveDueAsync(Token);
 
         Assert.Null(await server.Services.GetRequiredService<IAccountStore>().FindByIdAsync(samId, Token));
         Assert.DoesNotContain((await admin.GetFromJsonAsync<AdminUser[]>("/api/admin/users", Token))!, user => user.Id == samId);
@@ -211,7 +212,9 @@ public sealed class AccountDeletionTests(ServerFixture fixture) : IClassFixture<
             Change("tasks", new JsonObject { ["id"] = "T3", ["listId"] = "L1", ["title"] = "Kim's chore", ["parentId"] = null, ["createdBy"] = kimId }));
 
         (await admin.DeleteAsync($"/api/admin/users/{samId}", Token)).EnsureSuccessStatusCode();
-        Assert.Equal(1, await server.Services.GetRequiredService<AccountRemoval>().RemoveDueAsync(Token));
+        // The hourly sweep's first run (30 seconds in) may get there first on a slow machine.
+        await server.Services.GetRequiredService<AccountRemoval>().RemoveDueAsync(Token);
+        Assert.Null(await server.Services.GetRequiredService<IAccountStore>().FindByIdAsync(samId, Token));
 
         // Kim edits, so Kim owns the list now (the higher role wins over Lee's longer stay), with
         // everything in it; the group is Kim's too. Sam's private list went with Sam.

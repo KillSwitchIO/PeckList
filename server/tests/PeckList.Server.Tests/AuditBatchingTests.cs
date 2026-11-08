@@ -44,13 +44,16 @@ public sealed class AuditBatchingTests
     public async Task A_flush_stores_at_once_and_stopping_stores_the_rest()
     {
         var store = new CountingStore();
-        using var audit = new AuditLog(store, TimeProvider.System, NullLoggerFactory.Instance);
+        // A gather far longer than the flush gives itself (10 seconds): stored means it hurried,
+        // however slow the machine is.
+        var gather = TimeSpan.FromMinutes(5);
+        using var audit = new AuditLog(store, TimeProvider.System, NullLoggerFactory.Instance, gather);
         await audit.StartAsync(Token);
         audit.RecordSystem("test.flushed");
         var clock = Stopwatch.StartNew();
         await audit.FlushAsync(Token);
-        Assert.True(clock.Elapsed < AuditLog.Gather, $"the flush took {clock.Elapsed}");
         Assert.Equal([1], store.Writes);
+        Assert.True(clock.Elapsed < gather, $"the flush took {clock.Elapsed}");
 
         audit.RecordSystem("test.at-stop");
         await audit.StopAsync(Token);
