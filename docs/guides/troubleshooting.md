@@ -49,6 +49,16 @@ address: set up [email](email.md) and [`PUBLIC_URL`](../configuration/reference.
 Each person also needs a confirmed email (**Settings > Account > Email**); without one, an admin sends them
 a sign-in link instead.
 
+**A sign-in link or invite says the server needs `PUBLIC_URL`.** Without
+[`PUBLIC_URL`](../configuration/reference.md#public_url), the server makes links only from the
+address a request came in on, and only when that is a home-network name: `localhost`, a private
+address such as `192.168.1.20`, a name with no dot, or one under `.local`, `.lan`, `.home.arpa` or
+`.internal`. On any other address (a public name such as `tasks.example.com`), sign-in links and
+invites are refused with `409 public_url_required`, because a request can claim any address and a
+link must not lead somewhere else. Set `PUBLIC_URL` to the address people open, such as
+`https://tasks.example.com`, and restart. On a home-network name, links work without it. Friend
+links still work meanwhile: the Friends page builds them from the address you opened it on.
+
 **No "Sign in with a passkey", or no Passkeys in Settings.** Browsers use passkeys only on HTTPS
 (or `localhost`): open PeckList at its `https://` address, and set `PUBLIC_URL` to it. Check that
 [`PASSKEYS`](../configuration/reference.md#passkeys) is not `off`, and that local accounts are on
