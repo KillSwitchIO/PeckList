@@ -4,57 +4,6 @@ All notable changes to PeckList. Generated from [Conventional Commits](https://w
 by `pnpm changelog`; the version follows [Semantic Versioning](https://semver.org/). Before 1.0.0 a
 minor release may break things; every break is listed under **Breaking changes** with what to do.
 
-## [0.9.0] - 2026-11-08
-
-### Breaking changes
-
-- **accounts:** Cap passwords at 256 characters, and two small audit items. A password longer than 256 characters no longer signs in. Have an admin reset it (pecklist admin reset-password), or use a reset link. An ADMIN_PASSWORD longer than 256 characters now stops the server at startup: shorten it.
-- **accounts:** Limit new passwords to 64 characters. New passwords are limited to 64 characters. Existing longer passwords keep working until the next change. An ADMIN_PASSWORD over 64 characters stops a first start on an empty database: shorten it. A server that already has accounts starts as usual, unless an ADMIN_PASSWORD over 256 characters would be used to give the admin a password, or a demo account's password is over 256: shorten those.
-- **oidc:** Map accounts by subject, and usernames only for a first claim. A username mapping to an admin account that has no link to that provider yet no longer applies without OIDC_<NAME>_LINK_BY_USERNAME=all, and a new one cannot be saved. Use a sub: entry in OIDC_<NAME>_USER_MAP, or link the account under Admin > Users. A username mapping now matches the exact name the provider sends, ignoring only case and spaces around it: a provider that sends kim@corp.example needs that written in full, or a sub: entry. A username mapping no longer moves someone who is already linked: use a sub: entry or move the link by hand. A USER_MAP username holding = now stops the start. Accounts already linked are not affected.
-- **accounts:** Keep a deleted admin gone, and reserve its name. A deleted admin account is no longer made again at a start while another super admin is active. To get back in from a shell, name another account for admin reset-password or admin login-link, or use admin add-user and then admin set-role. Without a shell, a restart no longer recovers this. Sign-up and a provider's first sign-in can no longer take the name admin. If you removed the admin password on an earlier version and have restarted since, check whether it has a password again, and remove it if so. Check Admin > Users for an admin you did not expect.
-
-### Added
-
-- **calendar:** Add a Year view that shades days by how busy they are
-- **support:** Add the Support PeckList card and sidebar heart
-- **web:** The Year view scrolls on through the years
-- **web:** The comments panel comes up with the finger on a phone
-- **web:** Lists and tags can go on the phone's bottom bar
-- **web:** The bottom bar is picked from the sidebar's own rows
-
-### Fixed
-
-- **trash:** Won't-do tasks count from their real date too
-- **web:** Mangled links, the hourly update check, phone Month title
-- **accounts:** Cap passwords at 256 characters, and two small audit items
-- **oidc:** Record every role a sign-in changes
-- **web:** Keep the end date on phones, passkeys off IP hosts, no blank wait
-- **accounts:** Limit new passwords to 64 characters
-- **oidc:** Map accounts by subject, and usernames only for a first claim
-- **ci:** Let the weekly scheduled pipeline be created
-- **audit:** Cut text on a character boundary
-- A thumbs up from a notification leaves one comment
-- **accounts:** Keep an admin without a password that way at a start
-- Unfriending offers to remove what you shared with them
-- Quick add counts today from the person's time zone
-- **oidc:** Refuse to remove a provider that still has accounts linked
-- **android:** A notification press does not act again after a restart
-- **sharing:** Use the live friendship when an ended one also exists
-- **sharing:** Keep an ended friendship ended
-- **web:** Leaving a page Firefox keeps no longer stops all saving
-- **web:** A failed fetch of a part of the app is tried again
-- **web:** The arrows of Month or Days move the Year view along
-- **accounts:** Keep a deleted admin gone, and reserve its name
-- **web:** The bottom bar never saves more than four tabs
-- **oidc:** Unbind all takes a super admin when another admin is linked
-
-### Documentation
-
-- Say the websites record visits, and what session replays show
-- Say how work lands in CLAUDE.md
-- Describe the project's hosting in general terms only
-- Say how to get back in when the admin account is gone
-
 ## [0.8.0] - 2026-11-06
 
 ### Added
