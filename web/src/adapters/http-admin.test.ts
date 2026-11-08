@@ -50,6 +50,23 @@ describe('HTTP admin', () => {
     });
   });
 
+  it('reads a server without PUBLIC_URL as a reason, for sign-in links and invites (S16)', async () => {
+    const needs = {
+      status: 409,
+      body: {
+        error: 'public_url_required',
+        message: 'Set PUBLIC_URL to this server address first',
+      },
+    };
+    const { fetcher } = fakeFetch(needs, needs);
+    const admin = createHttpAdmin('', fetcher);
+    expect(await admin.loginLink('U1')).toEqual({ ok: false, reason: 'needs-public-url' });
+    expect(await admin.createInvite({ days: 7, uses: 1, note: '' })).toEqual({
+      ok: false,
+      reason: 'needs-public-url',
+    });
+  });
+
   it('emails reset links and manages passkeys and invites by email (PL-122, PL-123)', async () => {
     const passkey = {
       id: 'k1',

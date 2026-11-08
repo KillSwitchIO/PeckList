@@ -50,6 +50,8 @@ export class FakeBackend {
   readonly accounts = new Map<string, FakeAccount>();
   /** Ids the server sets aside when pushed (as the real one does a malformed change), with why. */
   readonly invalid = new Map<string, 'invalid_change' | 'clock_drift'>();
+  /** No PUBLIC_URL on a public name: friend codes come without a link (S16). */
+  noLinks = false;
   /** The server's time sent with every sync (ms since epoch); null sends none. */
   serverTime: number | null = null;
 
@@ -455,7 +457,9 @@ export class FakeTransport implements SyncTransport {
     code: () =>
       Promise.resolve({
         code: (this.session ?? '').toUpperCase(),
-        link: `https://pecklist.test/f/${(this.session ?? '').toUpperCase()}`,
+        link: this.backend.noLinks
+          ? null
+          : `https://pecklist.test/f/${(this.session ?? '').toUpperCase()}`,
       }),
     preview: (code) => {
       const found = this.backend.accounts.get(code.toLowerCase());

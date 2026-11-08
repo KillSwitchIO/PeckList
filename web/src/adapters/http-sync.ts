@@ -460,7 +460,7 @@ export function createHttpSync(
       async code(rotate = false) {
         const response = await call('/api/friends/code', rotate ? { method: 'POST' } : undefined);
         if (!response.ok) return fail(response);
-        return (await response.json()) as { code: string; link: string };
+        return (await response.json()) as { code: string; link: string | null };
       },
       async preview(code) {
         const response = await call(`/api/friends/link/${encodeURIComponent(code)}`);

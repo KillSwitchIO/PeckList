@@ -312,7 +312,8 @@ export type AdminRefusal =
   | 'no-email'
   | 'mail-off'
   | 'mail-failed'
-  | 'invalid-email';
+  | 'invalid-email'
+  | 'needs-public-url';
 
 export type AdminResult<T = void> = { ok: true; value: T } | { ok: false; reason: AdminRefusal };
 

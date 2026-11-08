@@ -63,6 +63,16 @@ describe('friends page', () => {
     expect(within(requests).getByText('Waiting for them')).toBeInTheDocument();
   });
 
+  it('makes the link from this address when the server sends the code alone (S16)', async () => {
+    const backend = new FakeBackend();
+    backend.noLinks = true;
+    await signedIn('/friends', backend);
+    const link = `${window.location.origin}/f/BEN`;
+    expect(await screen.findByDisplayValue(link)).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'QR code' }));
+    expect(await screen.findByRole('img', { name: `QR code for ${link}` })).toBeInTheDocument();
+  });
+
   it('says which admin made a friendship', async () => {
     const backend = new FakeBackend();
     const ben = backend.addAccount('ben', 'correct horse battery');
