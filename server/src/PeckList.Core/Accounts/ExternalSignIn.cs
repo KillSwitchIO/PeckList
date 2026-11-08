@@ -159,8 +159,7 @@ public sealed class ExternalSignIn(
                 }, cancellation);
                 return new ExternalSignInResult.Pending { MappingRefusedTo = mapping.RefusedTo };
             }
-            account = await CreateAsync(provider, identity, UsernameBase(identity), cancellation);
-            created = true;
+            (account, created) = await CreateAsync(provider, identity, UsernameBase(identity), cancellation);
         }
         else if (link is not null)
         {
@@ -370,10 +369,11 @@ public sealed class ExternalSignIn(
 
     /// <summary>
     /// The username claim as mappings and <c>LINK_BY_USERNAME</c> match it: as sent, apart from
-    /// spaces around it. Null when there is none; there is no falling back on the email.
+    /// plain spaces and tabs around it (not other Unicode spaces, which would let a near name past a
+    /// provider's unique names). Null when there is none; there is no falling back on the email.
     /// </summary>
     private static string? ClaimedUsername(ExternalIdentity identity) =>
-        identity.Username?.Trim() is { Length: > 0 } name ? name : null;
+        identity.Username?.Trim(' ', '\t') is { Length: > 0 } name ? name : null;
 
     /// <summary>
     /// Two usernames are the same apart from ASCII and other simple case differences. An ordinal
@@ -503,19 +503,34 @@ public sealed class ExternalSignIn(
             Email = pending.Email,
             Groups = pending.Groups,
         };
-        var account = await CreateAsync(provider, identity, pending.Username, cancellation);
+        var (account, _) = await CreateAsync(provider, identity, pending.Username, cancellation);
         await identities.RemovePendingAsync(provider.Name, subject, cancellation);
         (account, _) = await ApplyRoleMapAsync(provider, identity, account, cancellation);
         await ApplyGroupMapAsync(provider, identity, account, cancellation);
         return account;
     }
 
-    private async Task<Account> CreateAsync(
+    /// <summary>
+    /// A new account for this provider account, linked to it. When another sign-in of the same
+    /// person (another tab) linked the provider account first, the new one goes again, unseen, and
+    /// theirs is the answer (<paramref name="Created"/> false), so no stray account keeps the name.
+    /// </summary>
+    private async Task<(Account Account, bool Created)> CreateAsync(
         OidcProviderSettings provider, ExternalIdentity identity, string wanted, CancellationToken cancellation)
     {
         var account = await accountService.CreateWithoutPasswordAsync(await FreeUsernameAsync(wanted, cancellation), cancellation);
-        await AttachAsync(provider, identity, account.Id, cancellation);
-        return account;
+        try
+        {
+            await AttachAsync(provider, identity, account.Id, cancellation);
+            return (account, true);
+        }
+        catch (IdentityTakenException)
+        {
+            await accounts.DeleteAsync(account.Id, cancellation);
+            var link = await identities.FindAsync(provider.Name, identity.Subject, cancellation);
+            if (link is not null && await accounts.FindByIdAsync(link.AccountId, cancellation) is { } theirs) return (theirs, false);
+            throw;
+        }
     }
 
     /// <summary>

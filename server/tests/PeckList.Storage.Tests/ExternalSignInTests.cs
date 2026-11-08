@@ -317,6 +317,70 @@ public sealed class ExternalSignInTests(SqliteFiles files) : IClassFixture<Sqlit
         Assert.Empty(await signIn.IdentitiesOfAsync(gone.Id, Token));
     }
 
+    [Theory]
+    [InlineData("kim\u00A0")]
+    [InlineData("\u2003kim")]
+    [InlineData("kim\u3000")]
+    public async Task Only_plain_spaces_and_tabs_around_a_name_are_ignored(string name)
+    {
+        var kimberly = await accountService.CreateUserAsync("kimberly", "correct horse battery", cancellation: Token);
+        var kim = await accountService.CreateUserAsync("kim", "correct horse battery", cancellation: Token);
+        var both = Mapping("kim", "kimberly", UsernameLinking.Users);
+        var near = await SignedIn(both, Holding("sub-near", name));
+        Assert.NotEqual(kimberly.Id, near.Id);
+        Assert.NotEqual(kim.Id, near.Id);
+
+        Assert.Equal(kimberly.Id, (await SignedIn(both, Holding("sub-tab", "\tkim \t"))).Id);
+    }
+
+    /// <summary>An account store that, once armed, lets another sign-in link the provider account first.</summary>
+    private sealed class RacingAccounts(IAccountStore inner, Func<Task> before) : IAccountStore
+    {
+        public bool Armed { get; set; }
+
+        public Task<int> CountAsync(CancellationToken cancellation = default) => inner.CountAsync(cancellation);
+        public Task<IReadOnlyList<Account>> ListAsync(CancellationToken cancellation = default) => inner.ListAsync(cancellation);
+        public Task<Account?> FindByIdAsync(string id, CancellationToken cancellation = default) => inner.FindByIdAsync(id, cancellation);
+        public Task<Account?> FindByUsernameAsync(string username, CancellationToken cancellation = default) => inner.FindByUsernameAsync(username, cancellation);
+        public Task<Account?> FindByFriendCodeAsync(string code, CancellationToken cancellation = default) => inner.FindByFriendCodeAsync(code, cancellation);
+        public Task UpdateAsync(Account account, CancellationToken cancellation = default) => inner.UpdateAsync(account, cancellation);
+        public Task<bool> DeleteAsync(string id, CancellationToken cancellation = default) => inner.DeleteAsync(id, cancellation);
+
+        public async Task CreateAsync(Account account, CancellationToken cancellation = default)
+        {
+            if (Armed)
+            {
+                Armed = false;
+                await before();
+            }
+            await inner.CreateAsync(account, cancellation);
+        }
+    }
+
+    [Fact]
+    public async Task Two_tabs_signing_in_at_once_leave_no_stray_account()
+    {
+        var kim = await accountService.CreateUserAsync("kimberly", "correct horse battery", cancellation: Token);
+        RacingAccounts racing = null!;
+        // The other tab links this provider account to Kim's account just as this one makes a new one.
+        racing = new RacingAccounts(accounts, () => identities.LinkAsync(new LinkedIdentity
+        {
+            Provider = "pocket",
+            Subject = "sub-kim",
+            AccountId = kim.Id,
+            LinkedAt = DateTimeOffset.UtcNow,
+            LastUsedAt = DateTimeOffset.UtcNow,
+        }, Token));
+        var racingService = new AccountService(racing, new NoHasher(), TimeProvider.System);
+        var tab = new ExternalSignIn(racing, racingService, identities, groups, secrets, TimeProvider.System);
+        var before = await accounts.CountAsync(Token);
+
+        racing.Armed = true;
+        var result = Assert.IsType<ExternalSignInResult.Success>(await tab.SignInAsync(Pocket(), Kim(), Token));
+        Assert.Equal((kim.Id, false), (result.Account.Id, result.Created));
+        Assert.Equal(before, await accounts.CountAsync(Token));
+    }
+
     [Fact]
     public async Task A_migration_window_never_hands_over_an_admin_unless_only_admins_set_usernames()
     {
