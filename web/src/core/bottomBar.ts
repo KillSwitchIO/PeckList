@@ -47,8 +47,9 @@ export function toggleTab(tabs: readonly string[], id: string): string[] {
 }
 
 /**
- * Save the tabs. The saved list and tag tabs that are hidden now are kept after them: they were
- * never shown to be taken out, and they come back with their list or tag if there is room.
+ * Save the tabs. The saved list and tag tabs that are hidden now are kept after them while the bar
+ * has room: they were never shown to be taken out, and they come back with their list or tag. A
+ * full bar has no room, so they go first; the schema holds four.
  */
 export function setBottomBar(
   ctx: OpContext,
@@ -66,6 +67,34 @@ export function setBottomBar(
   return putEntity(
     workspace,
     'settings',
-    updateEntity(ctx, settings, { bottomBar: [...tabs, ...hidden] }),
+    updateEntity(ctx, settings, { bottomBar: [...tabs, ...hidden].slice(0, MAX_TABS) }),
   );
+}
+
+/**
+ * Stored data whose bar holds more tabs than the schema allows, cut to four so it still opens.
+ * Only a device that saved a hidden tab onto a full bar has one (the server refuses it); the hidden
+ * tabs are last, so they go. Anything else comes back as it was.
+ */
+export function capStoredBottomBar(document: unknown): unknown {
+  const entities = (document as { entities?: { settings?: unknown } } | null)?.entities;
+  const settings = entities?.settings;
+  if (!Array.isArray(settings)) return document;
+  const over = (each: unknown) => {
+    const bar = (each as { bottomBar?: unknown } | null)?.bottomBar;
+    return Array.isArray(bar) && bar.length > MAX_TABS;
+  };
+  if (!settings.some(over)) return document;
+  const capped = settings.map((each: unknown) =>
+    over(each)
+      ? {
+          ...(each as Record<string, unknown>),
+          bottomBar: (each as { bottomBar: unknown[] }).bottomBar.slice(0, MAX_TABS),
+        }
+      : each,
+  );
+  return {
+    ...(document as Record<string, unknown>),
+    entities: { ...entities, settings: capped },
+  };
 }

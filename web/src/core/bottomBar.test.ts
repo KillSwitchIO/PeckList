@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { createAjvValidator } from '../adapters/ajv-validator.ts';
 import { testContext } from '../test/fixtures.ts';
 import {
   bottomBarOf,
@@ -57,25 +58,41 @@ describe('bottom bar', () => {
     expect(bottomBarOf(noTag, VIEWS)).toEqual(['today', listTab, 'search']);
   });
 
-  it('keeps a hidden tab through an edit of the bar, so restoring its list still brings it back', () => {
+  it('keeps a hidden tab through an edit of the bar while there is room, so restoring brings it back', () => {
     const ctx = testContext();
     const made = createList(ctx, createWorkspace(ctx), { name: 'Garden', color: '#A7C7E7' });
     const listTab = `list:${made.list.id}`;
-    const ws = setBottomBar(ctx, made.workspace, ['today', listTab, 'inbox', 'calendar']);
+    const ws = setBottomBar(ctx, made.workspace, ['today', listTab, 'calendar']);
     const deleted = deleteList(ctx, ws, made.list.id);
     // The editor only ever sees the tabs shown, and the person adds Search.
     const shown = bottomBarOf(deleted, VIEWS);
-    expect(shown).toEqual(['today', 'inbox', 'calendar']);
+    expect(shown).toEqual(['today', 'calendar']);
     const edited = setBottomBar(ctx, deleted, [...shown, 'search']);
-    expect(bottomBarOf(edited, VIEWS)).toEqual(['today', 'inbox', 'calendar', 'search']);
-    // Back with room for it once a tab is taken out.
-    const roomy = setBottomBar(ctx, edited, ['today', 'inbox', 'search']);
-    expect(bottomBarOf(restoreList(ctx, roomy, made.list.id), VIEWS)).toEqual([
+    expect(bottomBarOf(edited, VIEWS)).toEqual(['today', 'calendar', 'search']);
+    expect(bottomBarOf(restoreList(ctx, edited, made.list.id), VIEWS)).toEqual([
       'today',
-      'inbox',
+      'calendar',
       'search',
       listTab,
     ]);
+  });
+
+  it('never saves more tabs than the data allows: on a full bar the hidden one goes', () => {
+    const ctx = testContext();
+    const made = createList(ctx, createWorkspace(ctx), { name: 'Garden', color: '#A7C7E7' });
+    const listTab = `list:${made.list.id}`;
+    const ws = setBottomBar(ctx, made.workspace, ['today', 'inbox', 'calendar', listTab]);
+    const deleted = deleteList(ctx, ws, made.list.id);
+    const edited = setBottomBar(ctx, deleted, [...bottomBarOf(deleted, VIEWS), 'search']);
+    expect(edited.entities.settings[0]?.bottomBar).toEqual([
+      'today',
+      'inbox',
+      'calendar',
+      'search',
+    ]);
+    expect(createAjvValidator().validate(edited).valid).toBe(true);
+    // Restored, it has no tab: the person took its place with Search.
+    expect(bottomBarOf(restoreList(ctx, edited, made.list.id), VIEWS)).not.toContain(listTab);
   });
 
   it('an id it cannot place is no tab, nor is the Mess Drawer as a list', () => {

@@ -23,6 +23,28 @@ describe('openDocument', () => {
     expect(openDocument(reopened, validator)).toEqual({ kind: 'ok', workspace });
   });
 
+  it('opens data saved with a hidden tab on a full bottom bar, cut to the four the bar holds', () => {
+    const workspace = sampleWorkspace();
+    const stored = JSON.parse(serializeWorkspace(workspace)) as {
+      entities: { settings: Record<string, unknown>[] };
+    };
+    stored.entities.settings[0]!.bottomBar = ['today', 'inbox', 'calendar', 'search', 'list:gone'];
+    const result = openDocument(stored, validator);
+    expect(result.kind).toBe('ok');
+    if (result.kind !== 'ok') return;
+    expect(result.workspace.entities.settings[0]?.bottomBar).toEqual([
+      'today',
+      'inbox',
+      'calendar',
+      'search',
+    ]);
+    // Everything else as it was.
+    expect({
+      ...result.workspace,
+      entities: { ...result.workspace.entities, settings: [] },
+    }).toEqual({ ...workspace, entities: { ...workspace.entities, settings: [] } });
+  });
+
   it('reports schema errors', () => {
     const workspace = sampleWorkspace();
     (workspace.entities.tasks[0] as unknown as Record<string, unknown>).priority = 7;
