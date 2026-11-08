@@ -5,7 +5,7 @@ import { mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { test } from 'node:test';
-import { releaseNotes } from './release-notes.mjs';
+import { releaseNotes, withSection } from './release-notes.mjs';
 import { SEMVER, nextVersion, parseTag, readVersions, releaseKind } from './versions.mjs';
 
 test('a release tag carries the version and the date as build metadata', () => {
@@ -47,6 +47,51 @@ test('release notes are one version section of the changelog, without its headin
   assert.equal(releaseNotes(changelog, '0.3.0'), '### Added\n\n- Newer thing');
   assert.equal(releaseNotes(changelog, '0.2.0'), '### Fixed\n\n- Older fix');
   assert.equal(releaseNotes(changelog, '0.1.0'), null);
+});
+
+test('a release adds its section on top, and every older section stays as it was', () => {
+  const header = '# Changelog\n\nAll notable changes.\n\n';
+  const older = [
+    '## [0.9.0-rc.1] - 2026-11-08',
+    '',
+    '### Added',
+    '',
+    '- Year view',
+    '',
+    '## [0.8.0] - 2026-11-06',
+    '',
+    '### Added',
+    '- Hooks',
+    '',
+    '## [0.8.0-rc.2] - 2026-11-06',
+    '',
+    '### Fixed',
+    '',
+    '- A fix',
+    '',
+  ].join('\n');
+  // git-cliff's output for a final release carries its release candidates' entries.
+  const section = '## [0.9.0] - 2026-11-08\n\n### Added\n\n- Year view\n\n\n';
+  const updated = withSection(header + older, '0.9.0', section);
+  assert.equal(updated, `${header}## [0.9.0] - 2026-11-08\n\n### Added\n\n- Year view\n\n${older}`);
+  assert.equal(releaseNotes(updated, '0.9.0'), '### Added\n\n- Year view');
+  assert.equal(releaseNotes(updated, '0.9.0-rc.1'), '### Added\n\n- Year view');
+  assert.equal(releaseNotes(updated, '0.8.0-rc.2'), '### Fixed\n\n- A fix');
+
+  // Prepared again, or after `Unreleased`: the section is replaced, not doubled.
+  assert.equal(withSection(updated, '0.9.0', section), updated);
+  const unreleased = `${header}## Unreleased\n\n### Fixed\n\n- Pending\n\n${older}`;
+  assert.equal(withSection(unreleased, '0.9.0', section), updated);
+
+  // The first release, and a file with Windows line endings.
+  assert.equal(
+    withSection(header, '0.1.0', '## [0.1.0] - 2026-10-01\n\n- First\n'),
+    `${header}## [0.1.0] - 2026-10-01\n\n- First\n\n`,
+  );
+  assert.equal(
+    withSection((header + older).replaceAll('\n', '\r\n'), '0.9.0', section),
+    updated.replaceAll('\n', '\r\n'),
+  );
 });
 
 test('every place that holds the version holds the same one', () => {
