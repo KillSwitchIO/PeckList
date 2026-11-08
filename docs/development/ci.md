@@ -72,9 +72,13 @@ job) has approved, and "Pipelines must succeed" then keeps the merge request fro
   `resource_group`, so queued merge requests take turns instead of slowing each other until
   tests fail on load. A job waiting for its turn holds no runner slot.
 - **A merge request runs what its files can affect.** `web-test`, `server-test`, `e2e`, `docs` and
-  the image build each list their inputs in `rules: changes`, and CI files, lockfiles, `schema/` and
-  `scripts/` run everything. The weekly run on `main` runs every suite, the safety net for a list
-  that missed a dependency. A run from the UI runs every suite too.
+  the image build each list their inputs in `rules: changes`, and `.gitlab-ci.yml`, `package.json`,
+  the lockfile and workspace, `mise.toml`, `.npmrc` and `schema/` run everything. Of `scripts/` and
+  `ci/`, each job lists only what it uses: `web-test` the demo seed, `e2e` its browsers image, `docs`
+  the docs guard, the image build the demo seed and `build-version.sh`. So a change to a CI or
+  release script runs `lint` alone, which runs the script tests on every merge request. The weekly
+  run on `main` runs every suite, the safety net for a list that missed a dependency. A run from the
+  UI runs every suite too.
 - **The public docs stay free of private details.** `docs` fails when a forbidden term appears in the
   docs' sources or the built site, and `pages` and `wiki` need it, so nothing publishes. The terms
   are in `scripts/check-docs-public.mjs`, plus an optional CI variable, `DOCS_PRIVATE_TERMS`, for names
