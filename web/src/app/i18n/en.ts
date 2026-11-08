@@ -883,6 +883,8 @@ export const en = {
   'admin.refused.mail-failed':
     'The mail server refused it. Send a test email under Admin > Email to see why.',
   'admin.refused.invalid-email': 'That is not an email address.',
+  'admin.refused.needs-public-url':
+    'This server needs PUBLIC_URL set to its address before it can make links. Ask whoever runs it to set it.',
   'admin.refused.set-by-settings':
     'The server settings (OIDC_..._USER_MAP) make this mapping; change it there.',
   'admin.refused.admin-needs-subject':

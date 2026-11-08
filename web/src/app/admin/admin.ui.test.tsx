@@ -92,6 +92,8 @@ function memoryAdmin(benId: string) {
       },
     ] as OidcMapping[],
     registration: 'invite' as 'open' | 'invite' | 'closed',
+    /** No PUBLIC_URL on a public name: the server makes no links (S16). */
+    noPublicUrl: false,
     invites: [] as AdminInvite[],
     pending: [
       {
@@ -348,7 +350,10 @@ function memoryAdmin(benId: string) {
       return ok(undefined);
     },
     resetPassword: () => ok('reset-secret-2'),
-    loginLink: () => ok({ url: 'https://tasks.example.com/auth/link/abc', expires: '' }),
+    loginLink: () =>
+      state.noPublicUrl
+        ? Promise.resolve({ ok: false as const, reason: 'needs-public-url' as const })
+        : ok({ url: 'https://tasks.example.com/auth/link/abc', expires: '' }),
     sendResetLink: (id) => {
       state.resetLinks.push(id);
       return ok(undefined);
@@ -363,6 +368,9 @@ function memoryAdmin(benId: string) {
     createInvite: ({ days, uses, note, sendTo }) => {
       if (state.registration === 'closed') {
         return Promise.resolve({ ok: false as const, reason: 'registration-closed' as const });
+      }
+      if (state.noPublicUrl) {
+        return Promise.resolve({ ok: false as const, reason: 'needs-public-url' as const });
       }
       const invite: AdminInvite = {
         id: `I${state.invites.length + 1}`,
@@ -838,6 +846,26 @@ describe('admin', () => {
     const make = await screen.findByRole('dialog', { name: 'Invite people' });
     expect(make).toHaveTextContent('Sign-up is closed on this server');
     expect(within(make).getByRole('button', { name: 'Create link' })).toBeDisabled();
+  });
+
+  it('says a server without PUBLIC_URL makes no sign-in or invite links (S16)', async () => {
+    const { state } = await adminApp('superadmin', '/admin/users', {
+      prepare: (state) => {
+        state.noPublicUrl = true;
+      },
+    });
+    const needs =
+      'This server needs PUBLIC_URL set to its address before it can make links. Ask whoever runs it to set it.';
+    const list = await screen.findByRole('list', { name: 'Users' });
+    await userEvent.click(within(list).getByRole('button', { name: 'Actions for sam' }));
+    await userEvent.click(await screen.findByRole('menuitem', { name: 'Sign-in link' }));
+    expect(await screen.findByText(needs)).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole('button', { name: 'Invite' }));
+    const make = await screen.findByRole('dialog', { name: 'Invite people' });
+    await userEvent.click(within(make).getByRole('button', { name: 'Create link' }));
+    expect(await within(make).findByText(needs)).toBeInTheDocument();
+    expect(state.invites).toEqual([]);
   });
 
   it('an admin leaves admin accounts to super admins', async () => {

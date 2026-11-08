@@ -344,8 +344,11 @@ export interface ApiKeysApi {
 
 /** Friend links and lookups (servers only). */
 export interface FriendsApi {
-  /** This account's friend link; `rotate` makes a new one and retires the old. */
-  code(rotate?: boolean): Promise<{ code: string; link: string }>;
+  /**
+   * This account's friend code and link; `rotate` makes a new one and retires the old. The link
+   * is null from a server that has no address to make it from (no PUBLIC_URL on a public name).
+   */
+  code(rotate?: boolean): Promise<{ code: string; link: string | null }>;
   /** Who a link belongs to, or null for an unknown or retired code. */
   preview(code: string): Promise<ProfilePreview | null>;
   /** Accept a link: friends at once. Returns the friendship id, or null when the code leads nowhere. */

@@ -78,6 +78,15 @@ function Section({ title, children }: { title: string; children: React.ReactNode
   );
 }
 
+/**
+ * The link to share. A server with no address to make it from (no PUBLIC_URL on a public name)
+ * sends the code alone: the link is then made from this page's own address, which the person
+ * reached the server by. The app is served from the server, at its root.
+ */
+function linkOf(code: { code: string; link: string | null }): string {
+  return code.link ?? `${window.location.origin}/f/${encodeURIComponent(code.code)}`;
+}
+
 function YourLink() {
   const friends = useSyncState((state) => state.transport.friends)!;
   const [link, setLink] = useState<string | null>(null);
@@ -87,7 +96,7 @@ function YourLink() {
     let live = true;
     void friends
       .code()
-      .then((code) => live && setLink(code.link))
+      .then((code) => live && setLink(linkOf(code)))
       .catch(() => undefined);
     return () => {
       live = false;
@@ -123,7 +132,7 @@ function YourLink() {
         >
           {t('friends.qr')}
         </Button>
-        <Button onClick={() => void friends.code(true).then((code) => setLink(code.link))}>
+        <Button onClick={() => void friends.code(true).then((code) => setLink(linkOf(code)))}>
           {t('friends.newLink')}
         </Button>
       </Box>

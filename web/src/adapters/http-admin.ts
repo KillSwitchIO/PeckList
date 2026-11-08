@@ -50,6 +50,7 @@ const REFUSALS: Record<string, AdminRefusal> = {
   no_confirmed_email: 'no-email',
   mail_not_set_up: 'mail-off',
   invalid_email: 'invalid-email',
+  public_url_required: 'needs-public-url',
 };
 
 /** The query string for an audit query: only the filters that are set. */
