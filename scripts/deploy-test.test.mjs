@@ -56,10 +56,28 @@ test('production is refused before anything is touched', () => {
       ...process.env,
       GITLAB_API_TOKEN: 'unused',
       CI_COMMIT_SHORT_SHA: 'abc12345',
+      PECKLIST_COMPOSE_PROJECT: 'group/compose',
       COMPOSE_SERVICE: 'pecklist',
       CI_API_V4_URL: 'http://127.0.0.1:9',
     },
   });
   assert.equal(result.status, 2);
   assert.match(result.stderr, /only moves through a release/);
+});
+
+test('without the compose project it stops before anything is touched', () => {
+  // CI sets the variable for every job, so take it out of this run's copy.
+  const env = {
+    ...process.env,
+    GITLAB_API_TOKEN: 'unused',
+    CI_COMMIT_SHORT_SHA: 'abc12345',
+    CI_API_V4_URL: 'http://127.0.0.1:9',
+  };
+  delete env.PECKLIST_COMPOSE_PROJECT;
+  const result = spawnSync(process.execPath, [join(import.meta.dirname, 'ci', 'deploy-test.mjs')], {
+    encoding: 'utf8',
+    env,
+  });
+  assert.equal(result.status, 2);
+  assert.match(result.stderr, /needs .*PECKLIST_COMPOSE_PROJECT/);
 });

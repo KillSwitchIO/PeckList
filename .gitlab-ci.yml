@@ -957,7 +957,8 @@ deploy-prod:
     IMAGE: $CI_REGISTRY_IMAGE:$IMAGE_VERSION@$IMAGE_DIGEST
     RELEASE_TAG: $CI_COMMIT_TAG
   trigger:
-    project: homelab-killswitch/compose
+    # From a CI variable, so this public file names no private project.
+    project: $PECKLIST_COMPOSE_PROJECT
     branch: main
     strategy: mirror
   environment:
