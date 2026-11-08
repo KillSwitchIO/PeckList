@@ -398,6 +398,41 @@ public sealed class ExternalSignInTests(SqliteFiles files) : IClassFixture<Sqlit
         Assert.NotEqual(kim.Id, (await SignedIn(keycloak, Kim() with { Subject = "other" })).Id);
     }
 
+    [Theory]
+    [InlineData("kim@evil.example")]
+    [InlineData(".kim.")]
+    [InlineData("-kim_")]
+    [InlineData("k\u00EFm")]
+    [InlineData("\u212Aim")]
+    [InlineData("kim2")]
+    public async Task Linking_by_username_takes_the_exact_name_and_nothing_near_it(string name)
+    {
+        var kim = await accountService.CreateUserAsync("kim", "correct horse battery", cancellation: Token);
+        var users = Pocket() with { LinkByUsername = UsernameLinking.Users };
+        Assert.NotEqual(kim.Id, (await SignedIn(users, Holding("sub-near", name))).Id);
+        Assert.Empty(await signIn.IdentitiesOfAsync(kim.Id, Token));
+    }
+
+    [Fact]
+    public async Task Linking_by_username_never_falls_back_on_the_email()
+    {
+        var kim = await accountService.CreateUserAsync("kim", "correct horse battery", cancellation: Token);
+        var users = Pocket() with { LinkByUsername = UsernameLinking.Users };
+        var noName = Kim() with { Subject = "sub-near", Username = null, Email = "kim@evil.example" };
+        Assert.NotEqual(kim.Id, (await SignedIn(users, noName)).Id);
+        Assert.Empty(await signIn.IdentitiesOfAsync(kim.Id, Token));
+    }
+
+    [Theory]
+    [InlineData("KIM")]
+    [InlineData(" kim ")]
+    public async Task Linking_by_username_ignores_case_and_spaces_around_the_name(string name)
+    {
+        var kim = await accountService.CreateUserAsync("kim", "correct horse battery", cancellation: Token);
+        var users = Pocket() with { LinkByUsername = UsernameLinking.Users };
+        Assert.Equal(kim.Id, (await SignedIn(users, Holding("sub-kim", name))).Id);
+    }
+
     [Fact]
     public async Task A_matching_username_joins_an_admin_only_with_all()
     {

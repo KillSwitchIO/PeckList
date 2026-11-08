@@ -308,9 +308,8 @@ public sealed class ExternalSignIn(
         {
             return new MappingAnswer(bySubject);
         }
-        var name = identity.Username?.Trim();
-        if (string.IsNullOrEmpty(name)) return new MappingAnswer();
-        bool Same(string other) => string.Equals(other, name, StringComparison.OrdinalIgnoreCase);
+        if (ClaimedUsername(identity) is not { } name) return new MappingAnswer();
+        bool Same(string other) => SameUsername(other, name);
 
         Account? target;
         string? rowName = null;
@@ -369,15 +368,29 @@ public sealed class ExternalSignIn(
     }
 
     /// <summary>
-    /// With <c>LINK_BY_USERNAME</c> on: the account named like the provider's username, when it has
-    /// no link to this provider yet. <c>true</c> never joins an admin: many providers let people
-    /// change their own username, which would hand them an admin account.
+    /// The username claim as mappings and <c>LINK_BY_USERNAME</c> match it: as sent, apart from
+    /// spaces around it. Null when there is none; there is no falling back on the email.
+    /// </summary>
+    private static string? ClaimedUsername(ExternalIdentity identity) =>
+        identity.Username?.Trim() is { Length: > 0 } name ? name : null;
+
+    /// <summary>
+    /// Two usernames are the same apart from ASCII and other simple case differences. An ordinal
+    /// comparison, so a letter that merely lowers to the same one is another name.
+    /// </summary>
+    private static bool SameUsername(string one, string other) => string.Equals(one, other, StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// With <c>LINK_BY_USERNAME</c> on: the account with exactly the provider's username, as a
+    /// username mapping matches it (<see cref="ClaimedUsername"/>), when it has no link to this
+    /// provider yet. <c>true</c> never joins an admin: many providers let people change their own
+    /// username, which would hand them an admin account.
     /// </summary>
     private async Task<Account?> UsernameMatchAsync(OidcProviderSettings provider, ExternalIdentity identity, CancellationToken cancellation)
     {
-        if (provider.LinkByUsername == UsernameLinking.Off) return null;
-        var account = await accounts.FindByUsernameAsync(UsernameBase(identity), cancellation);
-        if (account is null || account.DeletedAt is not null) return null;
+        if (provider.LinkByUsername == UsernameLinking.Off || ClaimedUsername(identity) is not { } name) return null;
+        var account = await accounts.FindByUsernameAsync(name, cancellation);
+        if (account is null || account.DeletedAt is not null || !SameUsername(account.Username, name)) return null;
         if (provider.LinkByUsername == UsernameLinking.Users && account.Role != Role.User) return null;
         if (await LinkedToAsync(account.Id, provider.Name, cancellation)) return null;
         await AttachAsync(provider, identity, account.Id, cancellation);
