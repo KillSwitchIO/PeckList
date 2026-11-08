@@ -449,7 +449,7 @@ export interface AdminApi {
     subject: string,
     accountId: string,
   ): Promise<AdminResult<{ stranded: string[] }>>;
-  unbindAll(provider: string): Promise<{ unbound: number; stranded: string[] }>;
+  unbindAll(provider: string): Promise<AdminResult<{ unbound: number; stranded: string[] }>>;
   openMigrationWindow(provider: string, hours: number): Promise<string>;
   closeMigrationWindow(provider: string): Promise<void>;
   pending(): Promise<PendingSignIn[]>;

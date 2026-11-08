@@ -265,8 +265,23 @@ public static class AdminEndpoints
         }).RequirePermission(Permission.ManageUsers);
 
         // Unbinding works for providers no longer configured too: that is how their links are cleared.
-        admin.MapPost("/providers/{name}/unbind-all", async (string name, ExternalSignIn signIn, HttpContext context, CancellationToken cancellation) =>
+        admin.MapPost("/providers/{name}/unbind-all", async (
+            string name, ClaimsPrincipal user, ExternalSignIn signIn, IIdentityStore identities, IAccountStore accounts,
+            HttpContext context, CancellationToken cancellation) =>
         {
+            // The same rule as one unlink: only a super admin acts on another admin.
+            if (!user.AccountRole().Can(Permission.ManageAdmins))
+            {
+                var admins = (await accounts.ListAsync(cancellation))
+                    .Where(account => account.Role != Role.User && account.Id != user.UserId())
+                    .Select(account => account.Id)
+                    .ToHashSet(StringComparer.Ordinal);
+                if ((await identities.ListAsync(cancellation)).Any(each => each.Provider == name && admins.Contains(each.AccountId)))
+                {
+                    context.Audit().Detail = "another admin is linked";
+                    return Results.Json(new AdminError("admins_only_by_super_admins"), statusCode: StatusCodes.Status403Forbidden);
+                }
+            }
             var (unbound, stranded) = await signIn.UnbindProviderAsync(name, cancellation);
             context.Audit().Detail = $"{unbound} accounts detached";
             return Results.Ok(new UnbindResult(unbound, stranded));
