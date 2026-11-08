@@ -414,8 +414,9 @@ public static class AdminEndpoints
             string id, ClaimsPrincipal user, IAccountStore accounts, LoginLinks links, HttpContext context, CancellationToken cancellation) =>
             await OnAccountAsync(id, user, accounts, async _ =>
             {
+                if (ServerApp.LinkOrigin(context) is not { } origin) return ServerApp.PublicUrlRequired();
                 var (token, expires) = await links.CreateAsync(id, cancellation: cancellation);
-                return Results.Ok(new LoginLinkView($"{ServerApp.Origin(context)}/auth/link/{token}", expires));
+                return Results.Ok(new LoginLinkView($"{origin}/auth/link/{token}", expires));
             }, cancellation)).RequirePermission(Permission.ManageUsers).Audited("admin.login-link-created");
 
         // Friendships admins set up or end for people (spec: Account management).
@@ -517,13 +518,14 @@ public static class AdminEndpoints
             {
                 return Results.Conflict(new AdminError("mail_not_set_up", "Set up email and PUBLIC_URL first."));
             }
+            if (ServerApp.LinkOrigin(context) is not { } origin) return ServerApp.PublicUrlRequired();
             try
             {
                 var (token, invite) = await invites.CreateAsync(user.UserId(), TimeSpan.FromDays(request.Days ?? 7),
                     request.AnyNumber ? null : request.Uses ?? 1, request.Note, cancellation);
                 context.Audit().On(invite.Id, invite.Note).Detail =
                     $"{(invite.MaxUses is { } most ? $"{most} {(most == 1 ? "person" : "people")}" : "any number of people")} until {invite.Expires:yyyy-MM-dd HH:mm}Z";
-                var url = $"{ServerApp.Origin(context)}/join/{token}";
+                var url = $"{origin}/join/{token}";
                 var made = new NewInvite(url, View(invite, await NamesAsync(accounts, cancellation)));
                 if (sendTo is null) return Results.Ok(made);
                 try

@@ -12,8 +12,12 @@ A check in CI keeps this page in step with the server: a setting missing here fa
 ### `PUBLIC_URL`
 
 The address people open, such as `https://tasks.example.com`. Single sign-on uses it for the
-callback address, and links the server makes (login links, sharing) use it. Without it, the server
-uses the address each request came in on. Handles carry its host too (`sam@tasks.example.com`): after
+callback address, and links the server makes (login links, invites, friend links) use it. Without
+it, sign-in callbacks use the address each request came in on, and so do links, but only when that
+address is a home-network name: `localhost`, a private address, a name with no dot, or one under
+`.local`, `.lan`, `.home.arpa` or `.internal`. On any other address, login links and invites ask
+for `PUBLIC_URL`, a friend code comes without its link, and signing out of a provider stays on the
+provider's page. Handles carry its host too (`sam@tasks.example.com`): after
 you change it, the next start updates everyone's. **Default:** none. **Where:** any.
 
 ### `ACCOUNT_DELETE_GRACE_DAYS`

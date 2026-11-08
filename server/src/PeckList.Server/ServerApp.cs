@@ -198,10 +198,55 @@ public static partial class ServerApp
 
 public static partial class ServerApp
 {
-    /// <summary>This server's address for links people open: PUBLIC_URL, else the request's own.</summary>
+    /// <summary>This server's address as the request sees it: PUBLIC_URL, else the request's own.</summary>
     public static string Origin(HttpContext context) =>
         context.RequestServices.GetRequiredService<ServerSettings>().PublicUrl?.ToString().TrimEnd('/')
         ?? $"{context.Request.Scheme}://{context.Request.Host}";
+
+    /// <summary>
+    /// The address to put in links people are given (friend links, sign-in links, invites, the
+    /// return from a provider's sign-out): PUBLIC_URL, else the request's own only when it names a
+    /// home network (<see cref="IsHomeNetworkHost"/>). Null otherwise: a request's Host can say
+    /// anything, and a link must not lead somewhere else (audit S16).
+    /// </summary>
+    public static string? LinkOrigin(HttpContext context)
+    {
+        if (context.RequestServices.GetRequiredService<ServerSettings>().PublicUrl is { } publicUrl) return publicUrl.ToString().TrimEnd('/');
+        return IsHomeNetworkHost(context.Request.Host.Host) ? $"{context.Request.Scheme}://{context.Request.Host}" : null;
+    }
+
+    /// <summary>
+    /// A name or address only a home or private network uses: localhost, a loopback, private,
+    /// shared (100.64/10) or link-local address, a name with no dot, or one under .local, .lan,
+    /// .home.arpa or .internal.
+    /// </summary>
+    public static bool IsHomeNetworkHost(string host)
+    {
+        var name = host.Trim('[', ']').TrimEnd('.');
+        if (name.Length == 0) return false;
+        if (System.Net.IPAddress.TryParse(name, out var address))
+        {
+            if (System.Net.IPAddress.IsLoopback(address)) return true;
+            if (address.IsIPv4MappedToIPv6) address = address.MapToIPv4();
+            if (address.AddressFamily == System.Net.Sockets.AddressFamily.InterNetworkV6)
+            {
+                return address.IsIPv6LinkLocal || address.IsIPv6UniqueLocal || address.IsIPv6SiteLocal;
+            }
+            var bytes = address.GetAddressBytes();
+            return bytes[0] == 10
+                || (bytes[0] == 172 && bytes[1] is >= 16 and <= 31)
+                || (bytes[0] == 192 && bytes[1] == 168)
+                || (bytes[0] == 169 && bytes[1] == 254)
+                || (bytes[0] == 100 && bytes[1] is >= 64 and <= 127);
+        }
+        if (!name.Contains('.')) return true;
+        string[] homeSuffixes = [".localhost", ".local", ".lan", ".home.arpa", ".internal"];
+        return homeSuffixes.Any(suffix => name.EndsWith(suffix, StringComparison.OrdinalIgnoreCase));
+    }
+
+    /// <summary>The answer when a link is asked for and <see cref="LinkOrigin"/> has none.</summary>
+    public static IResult PublicUrlRequired() => Results.Conflict(new AdminError("public_url_required",
+        "Set PUBLIC_URL to this server's address first: links are only made from the address a request came in on for home-network names."));
 
     /// <summary>
     /// Stop the server once the answer is out (a restart to apply settings, or to restore a backup).
