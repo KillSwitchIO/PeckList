@@ -269,14 +269,15 @@ public sealed class ExternalSignIn(
     }
 
     /// <summary>
-    /// During a migration window: the same-named account with no link to this provider yet, now
-    /// linked. Never an admin's, unless <c>LINK_BY_USERNAME=all</c> says only admins set usernames
-    /// there: a provider that lets people rename themselves would hand them the admin account (audit S9).
+    /// During a migration window: the account with exactly the provider's username, as
+    /// <c>LINK_BY_USERNAME</c> matches it, with no link to this provider yet, now linked. Never an
+    /// admin's, unless <c>LINK_BY_USERNAME=all</c> says only admins set usernames there: a provider
+    /// that lets people rename themselves would hand them the admin account (audit S9).
     /// </summary>
     private async Task<Account?> MigrationMatchAsync(OidcProviderSettings provider, ExternalIdentity identity, CancellationToken cancellation)
     {
         if (await MigrationWindowAsync(provider.Name, cancellation) is null) return null;
-        var account = await accounts.FindByUsernameAsync(UsernameBase(identity), cancellation);
+        var account = await SameUsernameAccountAsync(identity, cancellation);
         if (account is null || await LinkedToAsync(account.Id, provider.Name, cancellation)) return null;
         if (account.Role != Role.User && provider.LinkByUsername != UsernameLinking.All) return null;
         await AttachAsync(provider, identity, account.Id, cancellation);
@@ -381,6 +382,17 @@ public sealed class ExternalSignIn(
     private static bool SameUsername(string one, string other) => string.Equals(one, other, StringComparison.OrdinalIgnoreCase);
 
     /// <summary>
+    /// The account, not deleted, whose name is exactly the provider's username claim
+    /// (<see cref="ClaimedUsername"/>, <see cref="SameUsername"/>). Null when there is none, or no claim.
+    /// </summary>
+    private async Task<Account?> SameUsernameAccountAsync(ExternalIdentity identity, CancellationToken cancellation)
+    {
+        if (ClaimedUsername(identity) is not { } name) return null;
+        var account = await accounts.FindByUsernameAsync(name, cancellation);
+        return account is { DeletedAt: null } && SameUsername(account.Username, name) ? account : null;
+    }
+
+    /// <summary>
     /// With <c>LINK_BY_USERNAME</c> on: the account with exactly the provider's username, as a
     /// username mapping matches it (<see cref="ClaimedUsername"/>), when it has no link to this
     /// provider yet. <c>true</c> never joins an admin: many providers let people change their own
@@ -388,9 +400,9 @@ public sealed class ExternalSignIn(
     /// </summary>
     private async Task<Account?> UsernameMatchAsync(OidcProviderSettings provider, ExternalIdentity identity, CancellationToken cancellation)
     {
-        if (provider.LinkByUsername == UsernameLinking.Off || ClaimedUsername(identity) is not { } name) return null;
-        var account = await accounts.FindByUsernameAsync(name, cancellation);
-        if (account is null || account.DeletedAt is not null || !SameUsername(account.Username, name)) return null;
+        if (provider.LinkByUsername == UsernameLinking.Off) return null;
+        var account = await SameUsernameAccountAsync(identity, cancellation);
+        if (account is null) return null;
         if (provider.LinkByUsername == UsernameLinking.Users && account.Role != Role.User) return null;
         if (await LinkedToAsync(account.Id, provider.Name, cancellation)) return null;
         await AttachAsync(provider, identity, account.Id, cancellation);

@@ -186,8 +186,14 @@ docker exec pecklist pecklist oidc unbind-all pocket
 docker exec pecklist pecklist oidc migration-window keycloak close
 ```
 
-A migration window never joins an account that already has a keycloak link, and it matches
-usernames only, so check that both providers hand out the same usernames. It never joins an admin
+A migration window never joins an account that already has a keycloak link, and it matches the
+username exactly, as `LINK_BY_USERNAME` does: only upper and lower case and spaces around it may
+differ, and a sign-in with no username claim, or one that sends an email address as its username,
+joins nothing. The match is against the PeckList username shown under **Admin > Users**, not the
+old provider's: an account the old provider made may have a simplified one (`José` became `jose`).
+Check that the new provider sends those usernames; for a provider that sends
+emails, add a `USER_MAP` entry for each person, or have each person link it from their account
+before the move. It never joins an admin
 account either (someone could rename themselves at the new provider to take it), unless
 `OIDC_<NAME>_LINK_BY_USERNAME=all`; map admins with a `sub:` entry in `USER_MAP` instead. Someone left with no way
 in gets a one-time link: `pecklist admin login-link kim`.
