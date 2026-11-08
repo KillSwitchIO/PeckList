@@ -64,17 +64,26 @@ public sealed class AuthTests(ServerFixture fixture) : IClassFixture<ServerFixtu
         var locked = await Login(client, "admin", "nope");
         Assert.Equal(HttpStatusCode.Locked, locked.StatusCode);
         Assert.Equal("locked", (await locked.Content.ReadFromJsonAsync<AuthError>(Token))!.Error);
-        Assert.Equal(HttpStatusCode.Locked, (await Login(client, "admin", Password)).StatusCode);
+        // It says how long the lock lasts, and so does a try during it.
+        Assert.InRange(RetryAfter(locked), 1, (long)AccountService.LockoutTime.TotalSeconds);
+        var during = await Login(client, "admin", Password);
+        Assert.Equal(HttpStatusCode.Locked, during.StatusCode);
+        Assert.InRange(RetryAfter(during), 1, (long)AccountService.LockoutTime.TotalSeconds);
     }
+
+    private static long RetryAfter(HttpResponseMessage response) =>
+        (long)Assert.IsType<TimeSpan>(response.Headers.RetryAfter?.Delta).TotalSeconds;
 
     [Fact]
     public async Task Limits_login_attempts_per_address()
     {
         using var factory = Local();
         var client = factory.CreateClient();
-        var statuses = new List<HttpStatusCode>();
-        for (var attempt = 0; attempt < 11; attempt++) statuses.Add((await Login(client, $"user{attempt}", "nope")).StatusCode);
-        Assert.Equal(HttpStatusCode.TooManyRequests, statuses[^1]);
+        var answers = new List<HttpResponseMessage>();
+        for (var attempt = 0; attempt < 11; attempt++) answers.Add(await Login(client, $"user{attempt}", "nope"));
+        Assert.Equal(HttpStatusCode.TooManyRequests, answers[^1].StatusCode);
+        // With how long to wait: at most the minute.
+        Assert.InRange(RetryAfter(answers[^1]), 1, 60);
     }
 
     [Fact]
