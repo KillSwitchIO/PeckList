@@ -875,6 +875,8 @@ export const en = {
   'admin.passkeys.unused': 'Not used yet',
   'admin.users.turnOff': 'Turn off',
   'admin.refused.linked-elsewhere': 'That provider account is linked to someone else.',
+  'admin.refused.admin-linked':
+    'Another admin is linked to this provider, so only a super admin can unbind it.',
   'admin.refused.no-email': 'This person has no confirmed email.',
   'admin.refused.mail-off':
     'This server does not send email yet: set it up under Admin > Email, with a public address.',

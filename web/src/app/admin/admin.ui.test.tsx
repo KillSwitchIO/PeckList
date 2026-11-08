@@ -612,7 +612,7 @@ function memoryAdmin(benId: string) {
     unbindAll: () =>
       Promise.resolve(
         state.unbindRefused
-          ? { ok: false as const, reason: 'admins-only' as const }
+          ? { ok: false as const, reason: 'admin-linked' as const }
           : { ok: true as const, value: { unbound: 2, stranded: ['kim'] } },
       ),
     openMigrationWindow: () => {
@@ -1465,7 +1465,9 @@ describe('admin', () => {
       within(await screen.findByRole('dialog')).getByRole('button', { name: 'Unbind all' }),
     );
     expect(
-      await screen.findByText("Only a super admin can change an admin's account."),
+      await screen.findByText(
+        'Another admin is linked to this provider, so only a super admin can unbind it.',
+      ),
     ).toBeInTheDocument();
   });
 
