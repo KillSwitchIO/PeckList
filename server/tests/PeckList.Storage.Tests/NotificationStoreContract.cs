@@ -85,4 +85,19 @@ public abstract class NotificationStoreContract : IAsyncLifetime
         await Push.PruneSentRemindersAsync(Monday.AddDays(1), Token);
         Assert.True(await Push.MarkReminderSentAsync("ben|T1@1", Monday, Token));
     }
+
+    [Fact]
+    public async Task Keeps_each_persons_last_reported_zone_until_their_account_goes()
+    {
+        Assert.Null(await Push.DeviceZoneAsync("ben", Token));
+        await Push.SetDeviceZoneAsync("ben", "America/Chicago", Token);
+        await Push.SetDeviceZoneAsync("ben", "Asia/Tokyo", Token);
+        await Push.SetDeviceZoneAsync("kim", "Europe/Paris", Token);
+        Assert.Equal("Asia/Tokyo", await Push.DeviceZoneAsync("ben", Token));
+        Assert.Equal(new Dictionary<string, string> { ["ben"] = "Asia/Tokyo", ["kim"] = "Europe/Paris" }, await Push.DeviceZonesAsync(Token));
+
+        await Push.RemoveUserAsync("ben", Token);
+        Assert.Null(await Push.DeviceZoneAsync("ben", Token));
+        Assert.Equal("Europe/Paris", await Push.DeviceZoneAsync("kim", Token));
+    }
 }

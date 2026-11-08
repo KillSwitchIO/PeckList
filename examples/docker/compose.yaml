@@ -14,13 +14,14 @@ services:
       - pecklist-data:/data
       # Attached files, apart from the database.
       - pecklist-files:/files
-    environment:
-      # Months in stats and "today" on the server follow this time zone.
-      TZ: Etc/UTC
-      # The address people open, once it is behind a reverse proxy with HTTPS.
-      # PUBLIC_URL: https://tasks.example.com
-      # Choose the first admin password instead of reading it from the logs (12+ characters).
-      # ADMIN_PASSWORD_FILE: /run/secrets/admin_password
+    # To set any of these, uncomment `environment:` as well.
+    # environment:
+    #   # Without TZ, apps use the zone of the device they run on, and the server uses UTC.
+    #   TZ: Europe/Berlin
+    #   # The address people open, once it is behind a reverse proxy with HTTPS.
+    #   PUBLIC_URL: https://tasks.example.com
+    #   # Choose the first admin password instead of reading it from the logs (12+ characters).
+    #   ADMIN_PASSWORD_FILE: /run/secrets/admin_password
 
 volumes:
   pecklist-data:

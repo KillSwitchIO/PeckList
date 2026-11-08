@@ -46,9 +46,10 @@ every sign-in and sign-up route allows still apply on top. Further sign-ups answ
 ### `TZ`
 
 The server's time zone (an IANA name such as `Europe/Berlin`), used for months in stats and for
-the server's own "today". It is also the time zone people's apps start out in; each person can
-pick their own under **Settings**. **Default:** UTC in the
-image, the system's elsewhere. **Where:** env.
+the server's own "today". When it is set, it is also the time zone people's apps and their server
+reminders use; when it is not, both follow the zone of the device each person is on. Either way,
+each person can pick their own under **Settings**. **Default:** not set: the server uses UTC in the image and the system's zone
+elsewhere. **Where:** env.
 
 ## Sign-in
 

@@ -26,7 +26,6 @@ docker run -d --name pecklist --restart unless-stopped \
   -p 8080:8080 \
   -v pecklist-data:/data \
   -v pecklist-files:/files \
-  -e TZ=Europe/Berlin \
   registry.gitlab.com/killswitch10/pecklist:latest
 ```
 

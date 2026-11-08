@@ -29,7 +29,7 @@ let clock = Date.UTC(2026, 9, 21, 9);
 async function device(
   backend: FakeBackend,
   node: string,
-  options: Partial<Pick<SyncEngineDependencies, 'readOnly' | 'phoneTasks'>> = {},
+  options: Partial<Pick<SyncEngineDependencies, 'readOnly' | 'phoneTasks' | 'deviceZone'>> = {},
 ) {
   const storage = createMemoryStorage();
   const store = createWorkspaceStore({
@@ -497,6 +497,40 @@ describe('sync engine', () => {
     expect(backend.server.rows.size).toBe(rows);
     await laptop.engine.getState().syncNow();
     expect(titles(laptop.store)).toEqual(['Mow']);
+  });
+
+  it("tells the server the device's zone, and again only when it moves", async () => {
+    const backend = new FakeBackend();
+    backend.addAccount('ben', 'correct horse battery');
+    let zone = 'America/Chicago';
+    const phone = await device(backend, 'phone', { deviceZone: () => zone });
+    const sent = vi.spyOn(phone.transport, 'sync');
+    const zones = () => sent.mock.calls.map(([request]) => request.zone).filter(Boolean);
+    await phone.engine.getState().start();
+    await phone.engine.getState().signIn('ben', 'correct horse battery');
+    await phone.engine.getState().syncNow();
+    expect(zones()).toEqual(['America/Chicago']);
+
+    // Unchanged: nothing more, however often it syncs. A laptop left at home stays quiet this way.
+    addTask(phone.store, 'Pack');
+    await phone.engine.getState().syncNow();
+    expect(zones()).toEqual(['America/Chicago']);
+
+    zone = 'Asia/Tokyo';
+    await phone.engine.getState().syncNow();
+    await phone.engine.getState().syncNow();
+    expect(zones()).toEqual(['America/Chicago', 'Asia/Tokyo']);
+
+    // An admin viewing as Ben says nothing about where Ben is.
+    const viewing = await device(backend, 'viewas', {
+      readOnly: true,
+      deviceZone: () => 'Europe/Paris',
+    });
+    const viewed = vi.spyOn(viewing.transport, 'sync');
+    await viewing.engine.getState().start();
+    await viewing.engine.getState().signIn('ben', 'correct horse battery');
+    await viewing.engine.getState().syncNow();
+    expect(viewed.mock.calls.some(([request]) => request.zone)).toBe(false);
   });
 
   it("a first sign-in leaves a device's own tasks out when told to (audit W5)", async () => {

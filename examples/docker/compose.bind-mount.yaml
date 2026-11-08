@@ -17,5 +17,6 @@ services:
     volumes:
       - ./data:/data
       - ./files:/files
-    environment:
-      TZ: Etc/UTC
+    # environment:
+    #   # Without TZ, apps use the zone of the device they run on, and the server uses UTC.
+    #   TZ: Europe/Berlin

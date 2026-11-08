@@ -389,8 +389,18 @@ colors. The loud and pretty ones also wash the page in their color. **Reset colo
 another palette asks whether to recolor your lists and tags too: each moves to the same spot in
 the new palette's set (grays, and lists you cannot change, stay as they are).
 
-**Time zone**: "today", due dates and the calendar follow it. It starts out as the server's time
-zone (`TZ`), or your device's without a server; pick another one if you live somewhere else.
+**Time zone**: "today", due dates, the calendar and reminders follow it. Until you pick one, it is
+the server's when its admin set `TZ`, and otherwise the zone of the device you are on, so it follows
+you when you travel. Pick one to keep it fixed wherever you are.
+
+Your apps tell the server their device's zone when it changes, so with no zone picked, reminders
+from the server and snoozing from a notification follow you too. The server keeps only the latest,
+which says roughly where you are. It is not shown in the app, to admins or anyone else, and it is not
+in backups or exports; whoever runs the server can still read its database. It goes when your
+account does. A reminder whose new time has already passed when you arrive somewhere later in the day
+comes at once; one that already went comes again at the new time if the task is still open. If two
+of your devices are in different zones, the server follows whichever told it last, so a reminder can
+come twice.
 
 **New tasks**: what a new task starts with: a list (for tasks added outside a list), a priority, a
 date (none, today, tomorrow or in a week) with an optional time, reminders, the time all-day

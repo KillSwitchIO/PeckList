@@ -64,7 +64,7 @@ public static class PushEndpoints
         // moves to its next date as the app moves it (RepeatingTask), so the app need not open.
         api.MapPost("/reminders/act", async (
             ReminderAct request, ClaimsPrincipal user, SharingState sharing, IPushStore store, SyncService sync,
-            IEntityStore entities, ServerClock clock, TimeProvider time, CancellationToken cancellation) =>
+            IEntityStore entities, ServerClock clock, TimeProvider time, Core.Configuration.ServerSettings settings, CancellationToken cancellation) =>
         {
             var userId = user.UserId();
             var index = sharing.Index;
@@ -83,7 +83,7 @@ public static class PushEndpoints
                     && await entities.GetAsync(found.Id, cancellation) is { } stored)
                 {
                     // Its next date counts from the day it was done, where the person is.
-                    var zone = ReminderSender.ZoneOf(ReminderSender.SettingsOf(index, userId));
+                    var zone = await DeviceZones.ZoneForAsync(index, userId, store, settings, cancellation);
                     var doneOn = DateOnly.FromDateTime(TimeZoneInfo.ConvertTime(time.GetUtcNow(), zone).DateTime);
                     var subtasks = Subtasks(index, found.Id).Select(each => each.Doc);
                     if (RepeatingTask.Complete(stored.Doc, subtasks, userId, completedAt, doneOn, Ids.NewUlid(), clock.Next) is { } moved)
@@ -112,7 +112,7 @@ public static class PushEndpoints
             }
             if (request.Action == "snooze")
             {
-                var zone = ReminderSender.ZoneOf(ReminderSender.SettingsOf(index, userId));
+                var zone = await DeviceZones.ZoneForAsync(index, userId, store, settings, cancellation);
                 var local = TimeZoneInfo.ConvertTime(now, zone);
                 var nowText = local.ToString("yyyy-MM-dd'T'HH:mm", CultureInfo.InvariantCulture);
                 // Up to a week: "tomorrow morning" from late at night is more than a day.

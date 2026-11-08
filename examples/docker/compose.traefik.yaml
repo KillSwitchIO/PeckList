@@ -12,7 +12,8 @@ services:
       # Attached files, apart from the database.
       - pecklist-files:/files
     environment:
-      TZ: Etc/UTC
+      # Without TZ, apps use the zone of the device they run on, and the server uses UTC.
+      # TZ: Europe/Berlin
       PUBLIC_URL: https://tasks.example.com
     networks:
       - proxy
