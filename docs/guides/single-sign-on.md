@@ -140,7 +140,9 @@ that matches wins:
 2. **A migration window**, while one is open (see [moving to another provider](#moving-to-another-provider)).
 3. **The same username**, with `OIDC_<NAME>_LINK_BY_USERNAME`:
    - `true` joins the account named like the provider's username, if that account has no link to
-     this provider yet, and only when it is a plain user account.
+     this provider yet, and only when it is a plain user account. The name must match exactly, as a
+     username mapping does: only upper and lower case and spaces around it may differ, and a
+     sign-in with no username claim matches nothing here, whatever its email.
    - `all` joins admin accounts too. Use it only when people cannot change their own username at
      the provider: Pocket ID, for one, lets them by default, which would let anyone sign in as an
      admin by renaming themselves. Map admins with a `sub:` entry in `USER_MAP` instead.
