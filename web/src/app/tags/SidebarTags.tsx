@@ -30,6 +30,7 @@ import { useApply, useWorkspace } from '../store/hooks.ts';
 import { editingRowSx, useSidebarEdit, type SidebarDraft } from '../layout/sidebarEditContext.ts';
 import { SectionHeader } from '../layout/SectionHeader.tsx';
 import { useSortableRows } from '../layout/useSortableRows.ts';
+import { BarButton } from '../layout/BarButton.tsx';
 import { PinButton } from '../layout/PinButton.tsx';
 import { tagIconColor } from './tagColors.ts';
 import { TagDialog } from './TagDialog.tsx';
@@ -78,13 +79,16 @@ function TagLink({
     </IconButton>
   ) : undefined;
   const pinButton = editing ? (
-    <PinButton
-      pinned={edit.current.layout.order.includes(pin)}
-      name={node.tag.name}
-      onToggle={() =>
-        edit.update((draft) => ({ ...draft, layout: togglePinned(draft.layout, pin) }))
-      }
-    />
+    <>
+      <BarButton id={pin} name={node.tag.name} />
+      <PinButton
+        pinned={edit.current.layout.order.includes(pin)}
+        name={node.tag.name}
+        onToggle={() =>
+          edit.update((draft) => ({ ...draft, layout: togglePinned(draft.layout, pin) }))
+        }
+      />
+    </>
   ) : null;
   return (
     <ListItem
@@ -106,7 +110,7 @@ function TagLink({
         })}
         sx={{
           pl: 2 + node.depth * 2,
-          pr: (node.hasChildren ? 6 : 2) + (editing ? 4 : 0),
+          pr: (node.hasChildren ? 6 : 2) + (editing ? 4 : 0) + (editing && edit.editsBar ? 4 : 0),
           ...editingRowSx(editing, sortable.dragging === node.tag.id, index),
           ...(dropParent && {
             bgcolor: 'action.selected',

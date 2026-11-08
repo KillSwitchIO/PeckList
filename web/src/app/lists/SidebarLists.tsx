@@ -19,6 +19,7 @@ import type { List as ListEntity } from '../../core/types.ts';
 import { useCollapsedSet } from '../hooks/useCollapsedSet.ts';
 import { t } from '../i18n/i18n.ts';
 import { editingRowSx, useSidebarEdit } from '../layout/sidebarEditContext.ts';
+import { BarButton } from '../layout/BarButton.tsx';
 import { PinButton } from '../layout/PinButton.tsx';
 import { SectionHeader } from '../layout/SectionHeader.tsx';
 import { useSortableRows } from '../layout/useSortableRows.ts';
@@ -114,6 +115,7 @@ export function SidebarLists({ onNavigate }: { onNavigate: (path: string) => voi
                   primary={listName(list, workspace)}
                   slotProps={{ primary: { noWrap: true } }}
                 />
+                <BarButton id={pin} name={listName(list, workspace)} />
                 {editing ? (
                   <PinButton
                     pinned={edit.current.layout.order.includes(pin)}

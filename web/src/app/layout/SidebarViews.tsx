@@ -45,6 +45,7 @@ import { listName } from '../lists/listName.ts';
 import { ListMark } from '../lists/ListMark.tsx';
 import { useApply, useStoreState, useWorkspace } from '../store/hooks.ts';
 import { tagIconColor } from '../tags/tagColors.ts';
+import { BarButton } from './BarButton.tsx';
 import { VIEW_ITEMS } from './navigation.tsx';
 import { editingRowSx, useSidebarEdit } from './sidebarEditContext.ts';
 import { useSortableRows } from './useSortableRows.ts';
@@ -222,6 +223,7 @@ export function SidebarViews({
             {item.count}
           </Box>
         )}
+        <BarButton id={id} name={item.label} />
         {editing &&
           (item.pinned ? (
             <Tooltip title={t('nav.unpin')}>
