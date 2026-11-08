@@ -620,7 +620,7 @@ public sealed class OidcTests(ServerFixture fixture) : IClassFixture<ServerFixtu
         await Link(other.Id, "other-1");
         var refused = await UnbindAll(plain);
         Assert.Equal(HttpStatusCode.Forbidden, refused.StatusCode);
-        Assert.Contains("admins_only_by_super_admins", await refused.Content.ReadAsStringAsync(Token));
+        Assert.Contains("admin_linked", await refused.Content.ReadAsStringAsync(Token));
         Assert.Equal(2, await Links());
         Assert.Equal(2, (await (await UnbindAll(admin)).Content.ReadFromJsonAsync<UnbindResult>(Token))!.Unbound);
         Assert.Equal(0, await Links());

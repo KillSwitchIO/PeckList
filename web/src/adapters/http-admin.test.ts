@@ -111,6 +111,12 @@ describe('HTTP admin', () => {
     expect(calls[2]?.method).toBe('DELETE');
   });
 
+  it('an Unbind all refused because another admin is linked says so', async () => {
+    const { fetcher } = fakeFetch({ status: 403, body: { error: 'admin_linked' } });
+    const admin = createHttpAdmin('', fetcher);
+    expect(await admin.unbindAll('auth0')).toEqual({ ok: false, reason: 'admin-linked' });
+  });
+
   it('a lost session or a broken server is a failure, not a refusal', async () => {
     const { fetcher } = fakeFetch(
       { status: 401 },

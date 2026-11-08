@@ -279,7 +279,7 @@ public static class AdminEndpoints
                 if ((await identities.ListAsync(cancellation)).Any(each => each.Provider == name && admins.Contains(each.AccountId)))
                 {
                     context.Audit().Detail = "another admin is linked";
-                    return Results.Json(new AdminError("admins_only_by_super_admins"), statusCode: StatusCodes.Status403Forbidden);
+                    return Results.Json(new AdminError("admin_linked"), statusCode: StatusCodes.Status403Forbidden);
                 }
             }
             var (unbound, stranded) = await signIn.UnbindProviderAsync(name, cancellation);

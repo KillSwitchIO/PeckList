@@ -303,6 +303,7 @@ export type AdminRefusal =
   | 'too-short'
   | 'too-long'
   | 'admins-only'
+  | 'admin-linked'
   | 'linked-elsewhere'
   | 'registration-closed'
   | 'set-by-settings'
