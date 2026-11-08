@@ -59,19 +59,24 @@ public static class AuthEndpoints
 
         auth.MapAppSignIn(settings);
 
-        auth.MapPost("/login", async (LoginRequest request, AccountService accounts, LiveSettings live, LoginAttempts attempts, HttpContext context) =>
+        auth.MapPost("/login", async (LoginRequest request, AccountService accounts, LiveSettings live, LoginAttempts attempts, TimeProvider time, HttpContext context) =>
         {
             context.Audit().On(null, Typed(request.Username)).Anonymous = true;
             // LOCAL_LOGIN=disabled: no password is checked at all, so nothing can be guessed here.
             if (live.Current.LocalLoginDisabled) return LocalLoginDisabled(context);
             // Ten tries a minute per account name too, whatever address they claim (audit S6).
-            if (!attempts.TryTake(request.Username)) return Results.StatusCode(StatusCodes.Status429TooManyRequests);
+            if (!attempts.TryTake(request.Username, out var wait))
+            {
+                AuthSetup.RetryAfter(context.Response, wait);
+                return Results.StatusCode(StatusCodes.Status429TooManyRequests);
+            }
             switch (await accounts.LoginAsync(request.Username ?? "", request.Password ?? "", context.RequestAborted))
             {
                 case LoginResult.Success success:
                     context.Audit().Actor(success.Account).On(null, null).Anonymous = false;
                     return await SignedInAsync(context, success.Account, mode);
                 case LoginResult.Locked locked:
+                    AuthSetup.RetryAfter(context.Response, locked.Until - time.GetUtcNow());
                     return Results.Json(new AuthError("locked", locked.Until), statusCode: StatusCodes.Status423Locked);
                 default:
                     return Results.Json(new AuthError("invalid"), statusCode: StatusCodes.Status401Unauthorized);

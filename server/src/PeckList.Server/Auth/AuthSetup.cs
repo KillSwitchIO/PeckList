@@ -119,6 +119,12 @@ public static class AuthSetup
         services.AddRateLimiter(options =>
         {
             options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+            // Say how long to wait at most (a fixed window gives its whole length); a refused try takes nothing.
+            options.OnRejected = (rejected, _) =>
+            {
+                if (rejected.Lease.TryGetMetadata(MetadataName.RetryAfter, out var after)) RetryAfter(rejected.HttpContext.Response, after);
+                return ValueTask.CompletedTask;
+            };
             // Ten tries a minute per address, on top of the per-account lockout.
             options.AddPolicy(LoginRateLimit, context => RateLimitPartition.GetFixedWindowLimiter(
                 context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
@@ -126,6 +132,10 @@ public static class AuthSetup
         });
         return services;
     }
+
+    /// <summary>A <c>Retry-After</c> header: whole seconds, rounded up, at least one.</summary>
+    public static void RetryAfter(HttpResponse response, TimeSpan wait) =>
+        response.Headers.RetryAfter = Math.Max(1, (long)Math.Ceiling(wait.TotalSeconds)).ToString(CultureInfo.InvariantCulture);
 
     /// <param name="method">How the person proved who they are (<see cref="MethodClaim"/>); null for requests that are no session.</param>
     /// <param name="since">When the session was signed in to (<see cref="SinceClaim"/>); now when not given.</param>

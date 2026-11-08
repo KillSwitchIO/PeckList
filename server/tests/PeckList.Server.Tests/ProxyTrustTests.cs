@@ -63,7 +63,9 @@ public sealed class ProxyTrustTests
         using var attempts = new LoginAttempts();
         for (var i = 0; i < LoginAttempts.PerMinute; i++) Assert.True(attempts.TryTake("Sam"));
         // The eleventh, however the name is written.
-        Assert.False(attempts.TryTake(" sam "));
+        Assert.False(attempts.TryTake(" sam ", out var wait));
+        // How long to wait, for the Retry-After header: at most the minute.
+        Assert.InRange(wait, TimeSpan.FromSeconds(1), TimeSpan.FromMinutes(1));
         Assert.True(attempts.TryTake("alex"));
     }
 }

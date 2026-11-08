@@ -36,7 +36,9 @@ period, a super admin can restore `admin` from **Admin > Users** instead. See
 
 **"Too many attempts".** Five wrong passwords lock the account for 15 minutes, and each address gets
 ten attempts a minute. Wait it out, or sign in another way (single sign-on, a sign-in link from an
-admin).
+admin). Each refusal carries a `Retry-After` header with the longest you need to wait. A try refused
+for too many attempts does not count, so after that wait you can try again, unless others on the
+same address used the new minute's tries first or the account is locked.
 
 **Single sign-on sends people to `http://...` instead of `https://...`.** The server sees plain HTTP
 from the proxy. Set `PUBLIC_URL` to the `https://` address, and make sure the proxy sends
