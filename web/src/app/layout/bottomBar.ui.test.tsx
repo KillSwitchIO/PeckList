@@ -1,4 +1,4 @@
-import { act, screen, within } from '@testing-library/react';
+import { act, fireEvent, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { setBottomBar } from '../../core/bottomBar.ts';
@@ -36,29 +36,38 @@ async function withGarden(path: string) {
 }
 
 describe('lists and tags on the bottom bar (R-FB-164)', () => {
-  it('are added on More, in groups, and open their page from the bar', async () => {
+  it('are put on the bar from their own rows on More, and open their page from the bar', async () => {
     const { store, listId, tagId } = await withGarden('/more');
     await userEvent.click(screen.getByRole('button', { name: 'Edit sidebar' }));
-    const add = screen.getByRole('list', { name: 'Add to the bottom bar' });
-    expect(within(add).getByText('Lists')).toBeInTheDocument();
-    expect(within(add).getByText('Tags')).toBeInTheDocument();
+    // One list, no second one for the bar.
+    expect(screen.queryByRole('list', { name: 'Bottom bar' })).toBeNull();
     // The Mess Drawer is offered once, as the view it is, and it is on the bar already.
     expect(screen.queryByRole('button', { name: 'Add Mess Drawer to the bottom bar' })).toBeNull();
+    expect(
+      screen.getAllByRole('button', { name: 'Remove Mess Drawer from the bottom bar' }),
+    ).toHaveLength(1);
 
-    const editor = screen.getByRole('list', { name: 'Bottom bar' });
     for (const name of ['Calendar', 'Search']) {
       await userEvent.click(
-        within(editor).getByRole('button', { name: `Remove ${name} from the bottom bar` }),
+        screen.getByRole('button', { name: `Remove ${name} from the bottom bar` }),
       );
     }
-    // Taken out, Search is offered once.
+    // Taken out, Search is offered once, on its own row.
     expect(screen.getAllByRole('button', { name: 'Add Search to the bottom bar' })).toHaveLength(1);
-    await userEvent.click(screen.getByRole('button', { name: 'Add Garden to the bottom bar' }));
+    await userEvent.click(
+      within(screen.getByRole('list', { name: 'Lists' })).getByRole('button', {
+        name: 'Add Garden to the bottom bar',
+      }),
+    );
     // A tag is named in full here, where two of the same last name can be told apart.
     await userEvent.click(screen.getByRole('button', { name: 'Add home/beds to the bottom bar' }));
+    // On the bar, each row shows which tab it is: they go on in the order they were added.
+    const beds = screen.getByRole('button', { name: 'Remove home/beds from the bottom bar' });
+    expect(beds).toHaveAttribute('aria-pressed', 'true');
+    expect(beds).toHaveTextContent('4');
     expect(
-      within(editor).getByRole('button', { name: 'Remove home/beds from the bottom bar' }),
-    ).toBeInTheDocument();
+      screen.getByRole('button', { name: 'Remove Garden from the bottom bar' }),
+    ).toHaveTextContent('3');
     await userEvent.click(
       within(screen.getByRole('toolbar', { name: 'Edit sidebar' })).getByRole('button', {
         name: 'Done',
@@ -97,5 +106,18 @@ describe('lists and tags on the bottom bar (R-FB-164)', () => {
 
     act(() => store.getState().apply((ctx, ws) => restoreList(ctx, ws, listId)));
     expect(tabs()).toEqual(['Today', 'Yard', 'More']);
+  });
+
+  it('are not offered while editing the sidebar on a computer, which has no bottom bar', async () => {
+    mockViewport('desktop');
+    await withGarden('/today');
+    const nav = screen.getAllByRole('navigation')[0]!;
+    // Right-click starts editing, as a hold or a drag does.
+    fireEvent.contextMenu(within(nav).getByText('Calendar'));
+    expect(within(nav).getByRole('toolbar', { name: 'Edit sidebar' })).toBeInTheDocument();
+    expect(within(nav).getByRole('button', { name: 'Pin Garden' })).toBeInTheDocument();
+    expect(
+      screen.queryAllByRole('button', { name: /to the bottom bar|from the bottom bar/ }),
+    ).toEqual([]);
   });
 });

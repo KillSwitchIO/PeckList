@@ -513,6 +513,36 @@ export function PinIcon({ filled = false, ...props }: SvgIconProps & { filled?: 
   );
 }
 
+/**
+ * The phone's bottom bar: a phone with its bar along the bottom. On the bar (`tab` given), the bar
+ * is filled and the phone shows which tab it is.
+ */
+export function BottomBarIcon({ tab, ...props }: SvgIconProps & { tab?: number | undefined }) {
+  return (
+    <PunchIcon {...props}>
+      <rect x="6" y="2.5" width="12" height="19" rx="2.5" />
+      {tab === undefined ? (
+        <path d="M6 17h12" />
+      ) : (
+        <>
+          <path d="M6 17h12v2a2.5 2.5 0 0 1-2.5 2.5h-7A2.5 2.5 0 0 1 6 19z" fill="currentColor" />
+          <text
+            x="12"
+            y="13.25"
+            textAnchor="middle"
+            fontSize="8"
+            fontWeight="700"
+            fill="currentColor"
+            stroke="none"
+          >
+            {tab}
+          </text>
+        </>
+      )}
+    </PunchIcon>
+  );
+}
+
 /** Unpin: a pushpin struck through. */
 export function PinOffIcon(props: SvgIconProps) {
   return (

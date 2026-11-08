@@ -23,7 +23,14 @@ import { SidebarEditContext, type SidebarDraft, type SidebarEdit } from './sideb
 
 const same = (a: readonly string[], b: readonly string[]) => a.join() === b.join();
 
-export function SidebarEditProvider({ children }: { children: ReactNode }) {
+export function SidebarEditProvider({
+  children,
+  editsBar = false,
+}: {
+  children: ReactNode;
+  /** Rows get a button to go on or off the phone's bottom bar (the More page). */
+  editsBar?: boolean;
+}) {
   const workspace = useWorkspace();
   const apply = useApply();
   const views = useViewIds();
@@ -89,6 +96,7 @@ export function SidebarEditProvider({ children }: { children: ReactNode }) {
       setDraft(null);
     },
     saveLayout: (layout: SidebarLayout) => apply((ctx, ws) => setSidebar(ctx, ws, layout)),
+    editsBar,
     creatingFilter,
     setCreatingFilter,
   };

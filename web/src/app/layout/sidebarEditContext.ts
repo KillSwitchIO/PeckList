@@ -27,6 +27,8 @@ export interface SidebarEdit {
   done: () => void;
   /** Save a layout change right away (opening or closing the More group). */
   saveLayout: (layout: SidebarLayout) => void;
+  /** Rows also put themselves on or off the phone's bottom bar (the More page). */
+  editsBar: boolean;
   /** The New filter dialog (opened from the edit bar). */
   creatingFilter: boolean;
   setCreatingFilter: (open: boolean) => void;

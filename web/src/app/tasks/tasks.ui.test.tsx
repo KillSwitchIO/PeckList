@@ -702,7 +702,7 @@ describe('phone', () => {
     expect(screen.getByRole('button', { name: 'Upcoming' })).toBeInTheDocument();
   });
 
-  it('the bottom bar is picked and ordered on More: take one out, add another', async () => {
+  it('the bottom bar is picked on More, row by row: take one out, add another', async () => {
     mockViewport('phone');
     const store = testStore();
     await renderApp('/more', store);
@@ -714,13 +714,19 @@ describe('phone', () => {
     expect(tabs()).toEqual(['Today', 'Mess Drawer', 'Calendar', 'Search', 'More']);
 
     await userEvent.click(screen.getByRole('button', { name: 'Edit sidebar' }));
-    const editor = screen.getByRole('list', { name: 'Bottom bar' });
-    expect(within(editor).getByText('Calendar')).toBeInTheDocument();
-    // Full: nothing more can be added until one comes out.
-    expect(screen.getByRole('button', { name: 'Add Upcoming to the bottom bar' })).toBeDisabled();
-    await userEvent.click(
-      within(editor).getByRole('button', { name: 'Remove Calendar from the bottom bar' }),
-    );
+    // One list: the rows themselves say whether they are on the bar.
+    expect(screen.queryByRole('list', { name: 'Bottom bar' })).toBeNull();
+    const calendar = screen.getByRole('button', { name: 'Remove Calendar from the bottom bar' });
+    expect(calendar).toHaveAttribute('aria-pressed', 'true');
+    // Full: a tap on another says so and adds nothing.
+    const upcoming = screen.getByRole('button', { name: 'Add Upcoming to the bottom bar' });
+    expect(upcoming).toHaveAttribute('aria-pressed', 'false');
+    await userEvent.click(upcoming);
+    const full = 'The bar holds 4 tabs and More. Take one out to add another.';
+    expect(screen.getAllByRole('status').map((status) => status.textContent)).toContain(full);
+    expect(await screen.findByRole('tooltip')).toHaveTextContent(full);
+    expect(upcoming).toHaveAttribute('aria-pressed', 'false');
+    await userEvent.click(calendar);
     await userEvent.click(screen.getByRole('button', { name: 'Add Due dates to the bottom bar' }));
     // Nothing changes until Done.
     expect(tabs()).toContain('Calendar');
