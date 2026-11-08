@@ -7,7 +7,8 @@ using PeckList.Server.Auth;
 
 namespace PeckList.Server;
 
-public sealed record FriendCode(string Code, string Link);
+/// <summary>A friend code, and its link when this server may make one (<see cref="ServerApp.LinkOrigin"/>).</summary>
+public sealed record FriendCode(string Code, string? Link);
 
 public sealed record FriendshipAccepted(string FriendshipId);
 
@@ -42,7 +43,7 @@ public static class FriendEndpoints
 
     private static FriendCode Code(HttpContext context, string code)
     {
-        return new FriendCode(code, $"{ServerApp.Origin(context)}/f/{code}");
+        return new FriendCode(code, ServerApp.LinkOrigin(context) is { } origin ? $"{origin}/f/{code}" : null);
     }
 
     /// <summary>The account's profile is written on its first sync (cheap after that: the index has it).</summary>

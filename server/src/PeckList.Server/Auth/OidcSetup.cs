@@ -218,12 +218,14 @@ public static class OidcSetup
         {
             var configuration = await options.ConfigurationManager!.GetConfigurationAsync(context.RequestAborted);
             if (string.IsNullOrEmpty(configuration.EndSessionEndpoint)) return null;
-            return Microsoft.AspNetCore.WebUtilities.QueryHelpers.AddQueryString(configuration.EndSessionEndpoint, new Dictionary<string, string?>
+            var query = new Dictionary<string, string?>
             {
                 ["id_token_hint"] = idToken,
                 ["client_id"] = provider.ClientId,
-                ["post_logout_redirect_uri"] = $"{ServerApp.Origin(context)}/login",
-            });
+            };
+            // Back to the sign-in page only at an address links may use; else the provider's own page.
+            if (ServerApp.LinkOrigin(context) is { } origin) query["post_logout_redirect_uri"] = $"{origin}/login";
+            return Microsoft.AspNetCore.WebUtilities.QueryHelpers.AddQueryString(configuration.EndSessionEndpoint, query);
         }
         catch (Exception error) when (error is HttpRequestException or InvalidOperationException or IOException)
         {
