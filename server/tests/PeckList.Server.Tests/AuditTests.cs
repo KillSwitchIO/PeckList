@@ -136,7 +136,7 @@ public sealed class AuditTests(ServerFixture fixture) : IClassFixture<ServerFixt
         var admin = await LogIn(server, "admin", AdminPassword);
         await admin.PostAsJsonAsync("/auth/login", new { username = "kim", password = "wrong" }, Token);
 
-        var events = (await Entries(server)).Where(entry => entry.Type.StartsWith("auth.", StringComparison.Ordinal)).ToList();
+        var events = (await Entries(server)).Where(entry => entry.Type.StartsWith("auth.", StringComparison.Ordinal) && entry.Type != "auth.admin-created").ToList();
         Assert.Equal(["auth.sign-in failed", "auth.sign-in ok", "auth.sign-out ok", "auth.sign-in ok", "auth.sign-in failed"],
             events.Select(entry => $"{entry.Type} {entry.Outcome}"));
         Assert.Equal((null, "kim"), (events[4].ActorName, events[4].TargetName));

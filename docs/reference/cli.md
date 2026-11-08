@@ -104,6 +104,14 @@ pecklist admin reset-password [username]     # default: admin
 Prints a new password that must be changed at the next sign-in, and ends the account's other
 sessions.
 
+Once a deleted `admin` is removed at the end of its grace period, it is not made again while another
+super admin is active, so this command with no name answers `no user 'admin'`. Name another account,
+or use `admin add-user rescue` and then `admin set-role rescue superadmin`, or
+`admin login-link <username>`. All of these need a shell on the server: without one, an operator
+locked out of the remaining super admin cannot recover by restarting. During the grace period the
+command still prints a password, but it cannot sign in until the account is restored from
+**Admin > Users**.
+
 ### `admin add-user`
 
 ```bash

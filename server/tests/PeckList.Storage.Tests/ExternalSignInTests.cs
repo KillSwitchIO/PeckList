@@ -748,4 +748,16 @@ public sealed class ExternalSignInTests(SqliteFiles files) : IClassFixture<Sqlit
         var gone = Pocket() with { UserMap = new Dictionary<string, string> { ["newbie"] = "nobody" } };
         Assert.Equal("newbie", (await SignedIn(gone, Kim() with { Subject = "sub-new", Username = "newbie" })).Username);
     }
+
+    [Theory]
+    [InlineData("admin", null)]
+    [InlineData("ADMIN", null)]
+    [InlineData(null, "admin@example.com")]
+    public async Task A_first_sign_in_never_makes_the_account_called_admin_even_when_the_name_is_free(string? username, string? email)
+    {
+        var account = await SignedIn(Pocket(), Kim() with { Username = username, Email = email });
+
+        Assert.Equal("admin2", account.Username);
+        Assert.Equal(Role.User, account.Role);
+    }
 }

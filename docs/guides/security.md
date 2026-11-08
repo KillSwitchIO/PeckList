@@ -50,7 +50,8 @@ Do these before the server is reachable from the internet.
 - [ ] **A real password for `admin`, and a normal account for every day.** A generated first
       password must be changed at the first sign-in; one set with
       [`ADMIN_PASSWORD`](../configuration/reference.md#admin_password) is kept as it is, so make it
-      long and take it out of the environment after the first start (it is only read then). Keep
+      long and take it out of the environment after the first start (after that it is read only to
+      rescue a server with no super admin). Keep
       `admin` (a super admin) for administration and use a plain account for your tasks, so a
       stolen everyday session cannot change who may sign in.
 - [ ] **[`REGISTRATION`](../configuration/reference.md#registration) at `invite` (the default) or

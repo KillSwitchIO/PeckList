@@ -145,9 +145,9 @@ public sealed class PasswordLengthTests(ServerFixture fixture) : IClassFixture<S
         {
             var store = first.Services.GetRequiredService<IAccountStore>();
             var accounts = first.Services.GetRequiredService<AccountService>();
-            await accounts.CreateUserAsync("sam", AdminPassword, Role.SuperAdmin, cancellation: Token);
+            await accounts.CreateUserAsync("sam", AdminPassword, cancellation: Token);
             var admin = (await store.FindByUsernameAsync(AccountService.AdminUsername, Token))!;
-            await store.UpdateAsync(admin with { Username = "renamed" }, Token);
+            await store.UpdateAsync(admin with { Username = "renamed", Role = Role.User }, Token);
         }
         using var again = fixture.Factory(("ADMIN_PASSWORD", TooLong), ("DB_PATH", database));
         var client = again.CreateClient();

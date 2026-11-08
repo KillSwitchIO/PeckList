@@ -24,7 +24,8 @@ folder is not writable by the container's user (uid 1654). With a bind mount:
 
 **I never saw the admin password.** `docker exec pecklist pecklist admin reset-password` prints a
 new one. With `ADMIN_PASSWORD` set, that was the password (it is used only when the account is
-first made; changing the variable later does nothing).
+first made; changing the variable later does nothing). If `admin` was deleted, see
+[`admin reset-password`](../reference/cli.md#admin-reset-password).
 
 **"Too many attempts".** Five wrong passwords lock the account for 15 minutes, and each address gets
 ten attempts a minute. Wait it out, or sign in another way (single sign-on, a sign-in link from an

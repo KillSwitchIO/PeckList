@@ -46,6 +46,9 @@ With single sign-on, `OIDC_<NAME>_ROLE_MAP` sets roles from the provider's group
   Without it, the person waits under **Admin > Sign-in** until an admin approves them (or joins them
   to an existing account).
 
+The name `admin` belongs to the server. Sign-up refuses it, and a provider's first sign-in gets a
+different name, even after the `admin` account is deleted. An admin can still add it by hand.
+
 ### Self sign-up and invite links
 
 [`REGISTRATION`](../configuration/reference.md#registration) (or **Admin > Sign-in > Who can join**)
