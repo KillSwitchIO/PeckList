@@ -116,7 +116,10 @@ default:
 
 # A merge request runs the suites its files can affect, and the weekly run on main runs them all.
 # A merge request's rule is its job's own changes list and then this, so a job that does not apply is
-# left out; other pipelines fall through to the job's last rule.
+# left out; other pipelines fall through to the job's last rule. A changes list names only the scripts
+# and tool images its job uses (lint runs the script tests on every merge request), and keeps the
+# files every job shares: this file, package.json, the lockfile and workspace, mise.toml, .npmrc and
+# the schema.
 .not-affected: &not-affected
   if: $CI_PIPELINE_SOURCE == "merge_request_event"
   when: never
@@ -260,8 +263,7 @@ web-test:
         - mise.toml
         - .npmrc
         - schema/**/*
-        - scripts/**/*
-        - ci/**/*
+        - scripts/demo-seed.mts
     - *not-affected
     - when: on_success
 
@@ -302,8 +304,6 @@ server-test:
         - mise.toml
         - .npmrc
         - schema/**/*
-        - scripts/**/*
-        - ci/**/*
     - *not-affected
     - when: on_success
 
@@ -343,8 +343,7 @@ e2e:
         - mise.toml
         - .npmrc
         - schema/**/*
-        - scripts/**/*
-        - ci/**/*
+        - ci/browsers.Dockerfile
     - *not-affected
     - *on-main
     - if: $CI_PIPELINE_SOURCE == "web"
@@ -382,8 +381,7 @@ docs:
         - mise.toml
         - .npmrc
         - schema/**/*
-        - scripts/**/*
-        - ci/**/*
+        - scripts/check-docs-public.mjs
     - *not-affected
     - when: on_success
 
@@ -484,8 +482,8 @@ container-image:
         - mise.toml
         - .npmrc
         - schema/**/*
-        - scripts/**/*
-        - ci/**/*
+        - scripts/build-version.sh
+        - scripts/demo-seed.mts
       variables:
         PLATFORMS: linux/amd64
         ATTEST: --sbom=false --provenance=false
