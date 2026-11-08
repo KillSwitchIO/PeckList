@@ -16,8 +16,17 @@ public interface IPushStore
 
     Task RemoveAsync(string endpoint, CancellationToken cancellation = default);
 
-    /// <summary>All of a person's subscriptions go (signing out everywhere, account removal).</summary>
+    /// <summary>All of a person's subscriptions go, and the zone their apps reported (account removal).</summary>
     Task RemoveUserAsync(string userId, CancellationToken cancellation = default);
+
+    /// <summary>The zone a person's apps report (the device's own), replacing the last one.</summary>
+    Task SetDeviceZoneAsync(string userId, string zone, CancellationToken cancellation = default);
+
+    /// <summary>A person's last reported zone, if their apps reported one.</summary>
+    Task<string?> DeviceZoneAsync(string userId, CancellationToken cancellation = default);
+
+    /// <summary>Every person's last reported zone, by user id.</summary>
+    Task<IReadOnlyDictionary<string, string>> DeviceZonesAsync(CancellationToken cancellation = default);
 
     /// <summary>Note a reminder as sent; false when it already was (so it goes out once).</summary>
     Task<bool> MarkReminderSentAsync(string key, DateTimeOffset at, CancellationToken cancellation = default);

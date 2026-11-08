@@ -13,7 +13,8 @@ services:
     ports:
       - '8080:8080'
     environment:
-      TZ: Etc/UTC
+      # Without TZ, apps use the zone of the device they run on, and the server uses UTC.
+      # TZ: Europe/Berlin
       DB_PROVIDER: postgres
       DB_CONNECTION_STRING_FILE: /run/secrets/db_connection
     secrets:

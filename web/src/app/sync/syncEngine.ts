@@ -158,6 +158,8 @@ export interface SyncMeta {
   acks: Acks;
   /** The server data's epoch last seen (null before one was seen). */
   epoch?: string | null;
+  /** The device zone this device last told the server (it says it again only when it changes). */
+  zone?: string | null;
 }
 
 export interface SyncEngineDependencies {
@@ -187,6 +189,8 @@ export interface SyncEngineDependencies {
   onSignedOut?: () => Promise<void>;
   /** The Android app's handed-over tasks (absent in a browser). */
   phoneTasks?: PhoneTasks;
+  /** The device's own time zone (tests); the browser's by default. */
+  deviceZone?: () => string | undefined;
 }
 
 const META = 'sync';
@@ -248,6 +252,15 @@ export function hasOwnData(workspace: WorkspaceFile): boolean {
 
 export function createSyncEngine(deps: SyncEngineDependencies): SyncEngine {
   const now = deps.now ?? Date.now;
+  const deviceZone =
+    deps.deviceZone ??
+    (() => {
+      try {
+        return Intl.DateTimeFormat().resolvedOptions().timeZone || undefined;
+      } catch {
+        return undefined;
+      }
+    });
   const withLock = deps.withLock ?? ((run) => run());
   const debounceMs = deps.debounceMs ?? 1500;
   const intervalMs = deps.intervalMs ?? 30_000;
@@ -275,6 +288,7 @@ export function createSyncEngine(deps: SyncEngineDependencies): SyncEngine {
       cursor: stored?.cursor ?? 0,
       acks: stored?.acks ?? {},
       epoch: stored?.epoch ?? null,
+      zone: stored?.zone ?? null,
     };
   };
 
@@ -510,11 +524,15 @@ export function createSyncEngine(deps: SyncEngineDependencies): SyncEngine {
           const pending = deps.readOnly ? [] : pendingChanges(current, meta.acks);
           const batch = await withFiles(pending.slice(0, BATCH));
           const asked = performance.now();
+          // Only when it moved: a laptop left at home stays quiet while the phone abroad reports.
+          const zone = deps.readOnly ? undefined : deviceZone();
+          const report = zone && zone !== meta.zone ? zone : undefined;
           const response = await transport.sync({
             schemaVersion: CURRENT_SCHEMA_VERSION,
             cursor: meta.cursor,
             changes: batch,
             epoch: meta.epoch ?? null,
+            ...(report ? { zone: report } : {}),
           });
           noteTiming('sync', performance.now() - asked);
           // The server's data was restored from a backup: it took none of this request's changes
@@ -535,6 +553,7 @@ export function createSyncEngine(deps: SyncEngineDependencies): SyncEngine {
             cursor: response.cursor,
             acks,
             epoch: response.epoch ?? meta.epoch ?? null,
+            zone: report ?? meta.zone ?? null,
           };
           // Only data, and more to come: hold it (the first page always goes in at once, so the
           // lists fill straight away). Held pages skip the notices below; nothing they could raise

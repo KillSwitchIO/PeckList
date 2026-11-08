@@ -3,6 +3,7 @@ using System.Text.Json;
 using PeckList.Core.Sharing;
 using PeckList.Core.Sync;
 using PeckList.Server.Auth;
+using PeckList.Server.Push;
 
 namespace PeckList.Server;
 
@@ -43,6 +44,7 @@ public static class SyncEndpoints
             {
                 var source = context.Request.Headers[DeviceHeader].FirstOrDefault() ?? context.Request.Headers[LegacyDeviceHeader].FirstOrDefault();
                 var response = await sync.SyncAsync(user.UserId(), request, source, cancellation);
+                await DeviceZones.ReportAsync(context.RequestServices.GetRequiredService<Core.Push.IPushStore>(), user, request.Zone, cancellation);
                 // An owner who just left hands the group on; everyone concerned hears of it.
                 if (request.Changes is { Count: > 0 })
                 {

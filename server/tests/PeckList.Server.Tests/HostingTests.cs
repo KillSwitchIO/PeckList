@@ -33,6 +33,8 @@ public sealed class ServerFixture : IDisposable
             host.UseSetting("UPDATE_CHECK", "off");
             // Nor sends usage reports; the telemetry tests turn it on with a fake sender.
             host.UseSetting("TELEMETRY", "off");
+            // Whatever the machine running the tests has set.
+            host.UseSetting("TZ", "");
             foreach (var (key, value) in settings) host.UseSetting(key, value);
             // And a test that turns them on never reaches the project's collector: these senders
             // drop everything unless the test puts in its own (registered later, so it wins).
@@ -108,13 +110,21 @@ public sealed class HostingTests : IClassFixture<ServerFixture>, IDisposable
     }
 
     [Fact]
-    public async Task Info_reports_the_schema_version_time_zone_and_app_sign_in()
+    public async Task Info_reports_the_schema_version_and_app_sign_in_and_no_time_zone_nobody_set()
     {
         var info = await client.GetFromJsonAsync<ServerInfo>("/api/info", TestContext.Current.CancellationToken);
         // The version is the build's own (Directory.Build.props, or the release build's), never a fixed one.
         // AppSignIn: the Android app opens providers in a browser tab only on a server that says so.
-        Assert.Equal(new ServerInfo("pecklist", ServerApp.Version, WorkspaceSchema.CurrentVersion, TimeZoneInfo.Local.Id, 25, AppSignIn: true), info);
+        Assert.Equal(new ServerInfo("pecklist", ServerApp.Version, WorkspaceSchema.CurrentVersion, null, 25, AppSignIn: true), info);
         Assert.Matches(@"^\d+\.\d+\.\d+(-[0-9A-Za-z.-]+)?$", info!.Version);
+    }
+
+    [Fact]
+    public async Task Info_reports_the_time_zone_when_the_operator_set_tz()
+    {
+        using var server = fixture.Factory(("TZ", "Europe/Berlin"));
+        var info = await server.CreateClient().GetFromJsonAsync<ServerInfo>("/api/info", TestContext.Current.CancellationToken);
+        Assert.Equal(TimeZoneInfo.Local.Id, info!.TimeZone);
     }
 
     [Fact]

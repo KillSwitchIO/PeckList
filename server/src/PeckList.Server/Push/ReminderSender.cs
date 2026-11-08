@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Text.Json.Nodes;
 using PeckList.Core;
+using PeckList.Core.Configuration;
 using PeckList.Core.Notifications;
 using PeckList.Core.Push;
 using PeckList.Core.Sharing;
@@ -11,11 +12,12 @@ namespace PeckList.Server.Push;
 /// <summary>
 /// Sends reminders from the server (spec: PL-061), so they arrive with the app closed: every half
 /// minute it looks for reminders that came due, and each person gets each one once, as a
-/// notification and a push. Times follow the person's time zone setting, else the server's.
+/// notification and a push. Times follow the person's zone (<see cref="ZoneOf"/>).
 /// </summary>
 public sealed class ReminderSender(
     SharingState sharing,
     IPushStore store,
+    ServerSettings server,
     INotificationStore notifications,
     IPushSender push,
     TimeProvider time,
@@ -29,6 +31,9 @@ public sealed class ReminderSender(
 
     /// <summary>Where the last run got to; the next sends what came due since.</summary>
     private DateTimeOffset? since;
+
+    /// <summary>Each person's zone at the last run, to see it move (a trip, a new pick).</summary>
+    private readonly Dictionary<string, string> zonesBefore = new(StringComparer.Ordinal);
 
     /// <summary>
     /// A reminder as a person sees it, for the Android app to set ahead. <paramref name="Key"/> is the
@@ -52,6 +57,16 @@ public sealed class ReminderSender(
         await sharing.Loaded.WaitAsync(cancellation);
         var index = sharing.Index;
         var settings = SettingsByUser(index);
+        var devices = server.TimeZoneChosen ? new Dictionary<string, string>() : await store.DeviceZonesAsync(cancellation);
+        var zones = new Dictionary<string, (TimeZoneInfo Now, TimeZoneInfo? Before)>(StringComparer.Ordinal);
+        (TimeZoneInfo Now, TimeZoneInfo? Before) ZonesOf(string userId)
+        {
+            if (zones.TryGetValue(userId, out var known)) return known;
+            var now = ZoneOf(settings.GetValueOrDefault(userId), devices.GetValueOrDefault(userId), server.TimeZoneChosen);
+            var before = zonesBefore.TryGetValue(userId, out var name) && name != now.Id
+                && TimeZoneInfo.TryFindSystemTimeZoneById(name, out var was) ? was : null;
+            return zones[userId] = (now, before);
+        }
         foreach (var (taskId, _, task) in index.LiveTasksWithReminders())
         {
             if (task["reminders"] is not JsonArray { Count: > 0 } || (string?)task["status"] != "open") continue;
@@ -59,10 +74,18 @@ public sealed class ReminderSender(
             {
                 var mine = settings.GetValueOrDefault(userId);
                 if (!NotificationSwitches.Allows(mine, NotificationKind.Reminder)) continue;
-                var zone = ZoneOf(mine);
-                foreach (var (at, first, constant) in ServerReminders.Instants(task, zone))
+                var (zone, before) = ZonesOf(userId);
+                // Both zones give the same reminders in the same order, so the i-th is the same one.
+                var instants = ServerReminders.Instants(task, zone).ToList();
+                var earlier = before is null ? null : ServerReminders.Instants(task, before).ToList();
+                for (var i = 0; i < instants.Count; i++)
                 {
-                    if (at <= from || at > to) continue;
+                    var (at, first, constant) = instants[i];
+                    // When the zone moved later (flying east), a reminder can now be due before this run
+                    // while in the old zone no run had sent it yet (its old time is in this run or after):
+                    // it goes now rather than never. Its repeats keep their new times.
+                    var overtaken = earlier is not null && at == first && at <= from && earlier[i].At > from;
+                    if (!overtaken && (at <= from || at > to)) continue;
                     // Repeats share the first one's tag (each replaces the last), but go once each.
                     var tag = $"{taskId}@{first.ToUnixTimeMilliseconds()}";
                     var sent = at == first ? tag : $"{tag}#{at.ToUnixTimeMilliseconds()}";
@@ -86,19 +109,19 @@ public sealed class ReminderSender(
                 }
             }
         }
+        foreach (var (userId, (zone, _)) in zones) zonesBefore[userId] = zone.Id;
     }
 
     /// <summary>
-    /// A person's reminders in (<paramref name="from"/>, <paramref name="to"/>], soonest first.
-    /// <paramref name="deviceZone"/> stands in when they set no time zone.
+    /// A person's reminders in (<paramref name="from"/>, <paramref name="to"/>], soonest first, in
+    /// their zone by <see cref="ZoneOf"/>, with <paramref name="deviceZone"/> as the device's.
     /// </summary>
-    public static IReadOnlyList<Upcoming> UpcomingFor(SharingIndex index, string userId, DateTimeOffset from, DateTimeOffset to, string? deviceZone)
+    public static IReadOnlyList<Upcoming> UpcomingFor(
+        SharingIndex index, string userId, DateTimeOffset from, DateTimeOffset to, string? deviceZone, bool serverZoneChosen)
     {
         var mine = SettingsOf(index, userId);
         if (!NotificationSwitches.Allows(mine, NotificationKind.Reminder)) return [];
-        var zone = mine?["timeZone"] is JsonValue ? ZoneOf(mine)
-            : deviceZone is not null && TimeZoneInfo.TryFindSystemTimeZoneById(deviceZone, out var device) ? device
-            : TimeZoneInfo.Local;
+        var zone = ZoneOf(mine, deviceZone, serverZoneChosen);
         var found = new List<Upcoming>();
         foreach (var (taskId, _, task) in index.LiveTasksWithReminders())
         {
@@ -142,12 +165,22 @@ public sealed class ReminderSender(
 
     private static string TitleOf(JsonObject task) => (string?)task["title"] is { Length: > 0 } named ? named : "Untitled task";
 
-    internal static TimeZoneInfo ZoneOf(JsonObject? settings)
+    /// <summary>
+    /// The zone the server works in for a person, in the apps' order (Device Time Zone Design): their
+    /// pick under Settings, else the server's when the operator set TZ, else the zone their apps last
+    /// reported (<paramref name="deviceZone"/>), else the server's own. A name the server does not know
+    /// falls to the next.
+    /// </summary>
+    internal static TimeZoneInfo ZoneOf(JsonObject? settings, string? deviceZone, bool serverZoneChosen)
     {
         if (settings?["timeZone"] is JsonValue value && value.TryGetValue<string>(out var name)
-            && TimeZoneInfo.TryFindSystemTimeZoneById(name, out var zone))
+            && TimeZoneInfo.TryFindSystemTimeZoneById(name, out var picked))
         {
-            return zone;
+            return picked;
+        }
+        if (!serverZoneChosen && deviceZone is not null && TimeZoneInfo.TryFindSystemTimeZoneById(deviceZone, out var device))
+        {
+            return device;
         }
         return TimeZoneInfo.Local;
     }

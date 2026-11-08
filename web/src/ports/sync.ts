@@ -65,6 +65,11 @@ export interface SyncRequest {
    * none of these changes and answers with the new epoch, so the device starts over first.
    */
   epoch?: string | null;
+  /**
+   * The device's own time zone, sent when it changed since this device last said. The server
+   * works in it for what it does for the person (reminders, snooze) when they picked no zone.
+   */
+  zone?: string;
 }
 
 /** The server says the user's data changed (another device synced). */

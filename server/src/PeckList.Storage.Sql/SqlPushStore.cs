@@ -3,7 +3,7 @@ using PeckList.Core.Push;
 
 namespace PeckList.Storage.Sql;
 
-/// <summary>Web Push subscriptions in <c>push_subscriptions</c>, sent reminders in <c>sent_reminders</c>.</summary>
+/// <summary>Web Push subscriptions in <c>push_subscriptions</c>, sent reminders in <c>sent_reminders</c>, reported zones in <c>device_zones</c>.</summary>
 public sealed class SqlPushStore(SqlDatabase database, TimeProvider time) : IPushStore
 {
     public async Task SaveAsync(PushSubscription subscription, CancellationToken cancellation = default)
@@ -33,8 +33,34 @@ public sealed class SqlPushStore(SqlDatabase database, TimeProvider time) : IPus
     public Task RemoveAsync(string endpoint, CancellationToken cancellation = default) =>
         ExecuteAsync("DELETE FROM push_subscriptions WHERE endpoint = @endpoint", new { endpoint }, cancellation);
 
-    public Task RemoveUserAsync(string userId, CancellationToken cancellation = default) =>
-        ExecuteAsync("DELETE FROM push_subscriptions WHERE user_id = @userId", new { userId }, cancellation);
+    public async Task RemoveUserAsync(string userId, CancellationToken cancellation = default)
+    {
+        await ExecuteAsync("DELETE FROM push_subscriptions WHERE user_id = @userId", new { userId }, cancellation);
+        await ExecuteAsync("DELETE FROM device_zones WHERE user_id = @userId", new { userId }, cancellation);
+    }
+
+    public Task SetDeviceZoneAsync(string userId, string zone, CancellationToken cancellation = default) =>
+        ExecuteAsync(
+            """
+            INSERT INTO device_zones (user_id, zone, reported_at) VALUES (@userId, @zone, @at)
+            ON CONFLICT (user_id) DO UPDATE SET zone = excluded.zone, reported_at = excluded.reported_at
+            """,
+            new { userId, zone, at = time.GetUtcNow().ToUnixTimeMilliseconds() }, cancellation);
+
+    public async Task<string?> DeviceZoneAsync(string userId, CancellationToken cancellation = default)
+    {
+        await using var connection = await database.OpenAsync(cancellation);
+        return await connection.QuerySingleOrDefaultAsync<string?>(new CommandDefinition(
+            "SELECT zone FROM device_zones WHERE user_id = @userId", new { userId }, cancellationToken: cancellation));
+    }
+
+    public async Task<IReadOnlyDictionary<string, string>> DeviceZonesAsync(CancellationToken cancellation = default)
+    {
+        await using var connection = await database.OpenAsync(cancellation);
+        var rows = await connection.QueryAsync<(string UserId, string Zone)>(new CommandDefinition(
+            "SELECT user_id, zone FROM device_zones", cancellationToken: cancellation));
+        return rows.ToDictionary(row => row.UserId, row => row.Zone, StringComparer.Ordinal);
+    }
 
     public async Task<bool> MarkReminderSentAsync(string key, DateTimeOffset at, CancellationToken cancellation = default)
     {

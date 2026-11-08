@@ -57,6 +57,9 @@ public sealed record ServerSettings
     /// <summary>The first admin's password; generated and logged once when not set.</summary>
     public string? AdminPassword { get; init; }
 
+    /// <summary>Whether the operator set <c>TZ</c>: the image sets none, so an unset one means nobody chose.</summary>
+    public bool TimeZoneChosen { get; init; }
+
     public DbProvider DbProvider { get; init; } = DbProvider.Sqlite;
     public string DbPath { get; init; } = "/data/pecklist.db";
     public string? DbConnectionString { get; init; }
@@ -363,6 +366,7 @@ public sealed record ServerSettings
             AuthMode = Choice("AUTH_MODE", AuthMode.Local),
             PublicUrl = publicUrl,
             AdminPassword = Get("ADMIN_PASSWORD"),
+            TimeZoneChosen = !string.IsNullOrWhiteSpace(Get("TZ")),
             DbProvider = Choice("DB_PROVIDER", DbProvider.Sqlite),
             DbPath = dbPath,
             DbConnectionString = Get("DB_CONNECTION_STRING"),

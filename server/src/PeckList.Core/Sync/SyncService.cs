@@ -14,7 +14,12 @@ public sealed record SyncEntity(string Collection, JsonObject Entity);
 /// since, the server writes none of the device's changes and answers with the new epoch, so the
 /// device starts over first. Older apps send none: they are taken as before.
 /// </param>
-public sealed record SyncRequest(int SchemaVersion, long? Cursor, IReadOnlyList<SyncEntity>? Changes, string? Epoch = null);
+/// <param name="Zone">
+/// The device's own time zone, sent when it changed since the device last said (Device Time Zone
+/// Design). The server keeps the latest per person, for what it works out for them when they picked
+/// no zone and TZ is not set. Older apps send none.
+/// </param>
+public sealed record SyncRequest(int SchemaVersion, long? Cursor, IReadOnlyList<SyncEntity>? Changes, string? Epoch = null, string? Zone = null);
 
 /// <param name="Cursor">Send it back next time.</param>
 /// <param name="More">More changes wait: sync again straight away.</param>

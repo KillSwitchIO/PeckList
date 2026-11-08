@@ -184,7 +184,7 @@ public static partial class ServerApp
         app.MapHealthChecks("/healthz");
         app.MapApiDocs();
         app.MapGet("/api/info", (LiveSettings live) =>
-            new ServerInfo("pecklist", Version, WorkspaceSchema.CurrentVersion, TimeZoneInfo.Local.Id, live.Current.AttachmentMaxMb,
+            new ServerInfo("pecklist", Version, WorkspaceSchema.CurrentVersion, settings.TimeZoneChosen ? TimeZoneInfo.Local.Id : null, live.Current.AttachmentMaxMb,
                 AppSignIn: settings.AuthMode != AuthMode.None, Demo: Demo.Info(settings)));
         app.MapAuth();
         app.MapGroup("/api").RequireAuthorization().RequirePasswordChanged().EnsureProfiles().MapSync().MapFriends().MapAccount().MapAccountEmail().MapAccountPasskeys().MapAttachments().MapNotifications().MapHistory().MapPush().MapProviderPicture().MapAppCheck().MapUpdates().MapApiKeys().MapClientTelemetry().MapCrashReports();
@@ -213,7 +213,8 @@ public static partial class ServerApp
 
 /// <summary>
 /// What clients check before syncing: which app and schema version this server runs.
-/// <paramref name="TimeZone"/>: the server's (<c>TZ</c>), the default for people who pick none.
+/// <paramref name="TimeZone"/>: the server's when the operator set <c>TZ</c>, the default for people who
+/// pick none. Otherwise null, and apps use the device's.
 /// <paramref name="AppSignIn"/>: the Android app may sign in and link providers through a browser
 /// tab (<c>/auth/app/*</c>); the app checks it, since an older server has no such pages.
 /// <paramref name="Demo"/>: set on a demo server, for the app's banner (PL-117).

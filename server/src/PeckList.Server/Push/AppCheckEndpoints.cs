@@ -34,9 +34,13 @@ public static class AppCheckEndpoints
     public static RouteGroupBuilder MapAppCheck(this RouteGroupBuilder api)
     {
         api.MapGet("/app/check", async (string? after, string? zone, ClaimsPrincipal user, INotificationStore store,
-            IAccountStore accounts, SharingState sharing, TimeProvider time, CancellationToken cancellation) =>
+            IAccountStore accounts, SharingState sharing, TimeProvider time, Core.Push.IPushStore push,
+            Core.Configuration.ServerSettings settings, CancellationToken cancellation) =>
         {
             var me = user.UserId();
+            // The Android app sends its device's zone with every check: the server keeps it, so it
+            // follows a trip without the app being opened.
+            await DeviceZones.ReportAsync(push, user, zone, cancellation);
             var index = sharing.Index;
             var mine = ReminderSender.SettingsOf(index, me);
             // A first check starts from now (a ULID sorts by time), taken before looking so nothing slips past.
@@ -67,7 +71,9 @@ public static class AppCheckEndpoints
             }
 
             var now = time.GetUtcNow();
-            var reminders = ReminderSender.UpcomingFor(index, me, now, now + Ahead, zone)
+            // This check's own zone is the freshest word from the device.
+            var device = DeviceZones.Valid(zone) ?? (settings.TimeZoneChosen ? null : await push.DeviceZoneAsync(me, cancellation));
+            var reminders = ReminderSender.UpcomingFor(index, me, now, now + Ahead, device, settings.TimeZoneChosen)
                 .Take(AheadMax)
                 .Select(each => new AppCheckReminder(each.Key, each.Title, each.Body, each.At.ToUnixTimeMilliseconds(), each.Url, each.Constant, each.Repeats))
                 .ToList();
