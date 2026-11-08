@@ -89,7 +89,7 @@ public static partial class AppSignIn
         {
             var form = await context.Request.ReadFormAsync(context.RequestAborted);
             string challenge = form["challenge"].ToString(), scheme = form["scheme"].ToString();
-            if (!ValidRequest(challenge, scheme) || !SameSite(context)) return Results.BadRequest(new AuthError("invalid_request"));
+            if (!ValidRequest(challenge, scheme) || !SameOriginGuard.Allows(context)) return Results.BadRequest(new AuthError("invalid_request"));
             var session = await context.AuthenticateAsync(CookieAuthenticationDefaults.AuthenticationScheme);
             if (session.Principal?.Identity?.IsAuthenticated != true || session.Ticket is null) return Results.Unauthorized();
             Note(context, session.Principal);
@@ -189,17 +189,6 @@ public static partial class AppSignIn
     private static bool ValidRequest(string? challenge, string? scheme) =>
         challenge is not null && ChallengePattern().IsMatch(challenge) && scheme is not null && SchemePattern().IsMatch(scheme);
 
-    /// <summary>The confirm button only works from our own page: no other site may press it.</summary>
-    private static bool SameSite(HttpContext context)
-    {
-        var fetchSite = context.Request.Headers["Sec-Fetch-Site"].ToString();
-        if (fetchSite.Length > 0 && fetchSite != "same-origin") return false;
-        var origin = context.Request.Headers.Origin.ToString();
-        return origin.Length == 0
-            || string.Equals(origin, ServerApp.Origin(context), StringComparison.OrdinalIgnoreCase)
-            || string.Equals(origin, $"{context.Request.Scheme}://{context.Request.Host}", StringComparison.OrdinalIgnoreCase);
-    }
-
     /// <summary>Not framed (the button must not be clicked through another page), no script, and the form may only lead back to the app.</summary>
     private static void Protect(HttpContext context, string scheme)
     {
@@ -223,7 +212,7 @@ public static partial class AppSignIn
     /// One of our confirm pages, in the app's own look: a heading, a line (HTML the caller has
     /// escaped) and a form of hidden fields with one Continue button that posts to <paramref name="action"/>.
     /// </summary>
-    private static string ConfirmationPage(string heading, string textHtml, string action, params (string Name, string Value)[] fields)
+    internal static string ConfirmationPage(string heading, string textHtml, string action, params (string Name, string Value)[] fields)
     {
         static string E(string text) => WebUtility.HtmlEncode(text);
         var inputs = string.Concat(fields.Select(field => $"<input type=\"hidden\" name=\"{E(field.Name)}\" value=\"{E(field.Value)}\">\n    "));
@@ -233,7 +222,7 @@ public static partial class AppSignIn
             <head>
             <meta charset="utf-8">
             <meta name="viewport" content="width=device-width, initial-scale=1">
-            <title>Open PeckList</title>
+            <title>{{E(heading)}}</title>
             <style>
               :root { color-scheme: light dark; --bg: #FAFAF7; --card: #FFFFFF; --text: #1F2421; --muted: #5E6662; --line: #DADDD8; --accent: #548149; --on-accent: #FFFFFF; }
               @media (prefers-color-scheme: dark) { :root { --bg: #151816; --card: #1D211F; --text: #E6E9E6; --muted: #A3ABA7; --line: #333A36; --accent: #94B38C; --on-accent: #0F1A0D; } }

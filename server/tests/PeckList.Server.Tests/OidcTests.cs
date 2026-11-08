@@ -99,7 +99,7 @@ public sealed class OidcTests(ServerFixture fixture) : IClassFixture<ServerFixtu
 
         // The way back in for an admin: a one-time sign-in link (pecklist admin login-link).
         var tab = Browser(server);
-        Assert.Equal(HttpStatusCode.Redirect, (await tab.GetAsync(new Uri(link.Url).PathAndQuery, Token)).StatusCode);
+        Assert.Equal(HttpStatusCode.Redirect, (await tab.PostAsync(new Uri(link.Url).PathAndQuery, null, Token)).StatusCode);
         var me = await tab.GetFromJsonAsync<Me>("/auth/me", Token);
         Assert.Equal(("admin", false), (me!.Username, me.MustChangePassword));
     }
@@ -431,9 +431,9 @@ public sealed class OidcTests(ServerFixture fixture) : IClassFixture<ServerFixtu
         var link = await (await admin.PostAsync($"/api/admin/users/{kimId}/login-link", null, Token)).Content.ReadFromJsonAsync<LoginLinkView>(Token);
         var path = new Uri(link!.Url).PathAndQuery;
         var phone = Browser(server);
-        Assert.Equal("/settings", (await phone.GetAsync(path, Token)).Headers.Location!.ToString());
+        Assert.Equal("/settings", (await phone.PostAsync(path, null, Token)).Headers.Location!.ToString());
         Assert.Equal(kimId, (await phone.GetFromJsonAsync<Me>("/auth/me", Token))!.Id);
-        Assert.Equal("/login?error=link_expired", (await Browser(server).GetAsync(path, Token)).Headers.Location!.ToString());
+        Assert.Equal("/login?error=link_expired", (await Browser(server).PostAsync(path, null, Token)).Headers.Location!.ToString());
     }
 
     [Fact]

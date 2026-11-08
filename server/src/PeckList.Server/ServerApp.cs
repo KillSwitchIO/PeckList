@@ -171,6 +171,8 @@ public static partial class ServerApp
         app.UseServerCrashes();
         app.UseForwardedHeaders();
         app.UseResponseHardening(Analytics.ContentSecurityPolicy(settings.Umami));
+        // After the forwarded headers, so the request's own address is the one people use.
+        app.UseSameOriginGuard();
         SharingStartup.UseSharingStartup(app);
         app.UseDemoMode(settings);
         app.UseAuthentication();

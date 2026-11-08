@@ -7,7 +7,8 @@
 - **Sessions** are HttpOnly, SameSite cookies, signed with keys kept in the database, and always
   `Secure` when `PUBLIC_URL` is https. A session ends after 30 days unused, and 90 days after its
   sign-in however often it is used. Changing a password, turning an account off or deleting it ends
-  its sessions at once.
+  its sessions at once. A request that changes something is refused when the browser says another
+  site sent it (`Sec-Fetch-Site`, or `Origin` from older browsers).
 - **Single sign-on** always uses PKCE, checks required groups at every sign-in, and never takes over
   an existing account by username alone. With `LOCAL_LOGIN=disabled` no password works at all.
 - **Sign-in settings** (`OIDC_*`, `LOCAL_LOGIN`, `REGISTRATION`, `TRUSTED_PROXIES`, `PUBLIC_URL`) and

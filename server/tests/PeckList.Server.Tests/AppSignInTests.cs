@@ -132,7 +132,8 @@ public sealed class AppSignInTests(ServerFixture fixture) : IClassFixture<Server
         };
         forged.Headers.Add("Sec-Fetch-Site", "cross-site");
         forged.Headers.Add("Origin", "https://evil.example");
-        Assert.Equal(HttpStatusCode.BadRequest, (await tab.SendAsync(forged, Token)).StatusCode);
+        // Refused before it reaches the button's own check (audit S11).
+        Assert.Equal(HttpStatusCode.Forbidden, (await tab.SendAsync(forged, Token)).StatusCode);
     }
 
     [Theory]
@@ -234,7 +235,7 @@ public sealed class AppSignInTests(ServerFixture fixture) : IClassFixture<Server
         }
 
         // Only from our own page.
-        Assert.Equal(HttpStatusCode.BadRequest, (await tab.SendAsync(Confirm("cross-site"), Token)).StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, (await tab.SendAsync(Confirm("cross-site"), Token)).StatusCode);
 
         var back = await tab.SendAsync(Confirm("same-origin"), Token);
         Assert.Equal(HttpStatusCode.Redirect, back.StatusCode);

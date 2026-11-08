@@ -38,7 +38,7 @@ public static partial class AppSignIn
             var key = form["key"].ToString();
             var scheme = form["scheme"].ToString();
             using var rsa = PublicKeyOf(key);
-            if (rsa is null || !SchemePattern().IsMatch(scheme) || !SameSite(context)) return Results.BadRequest(new AuthError("invalid_request"));
+            if (rsa is null || !SchemePattern().IsMatch(scheme) || !SameOriginGuard.Allows(context)) return Results.BadRequest(new AuthError("invalid_request"));
             var cookies = context.Request.Cookies
                 .Where(each => !OwnCookie(each.Key))
                 .Select(each => new GateCookie(each.Key, each.Value))
