@@ -1,6 +1,7 @@
 // Opening a workspace document from any source: version check, migration, validation.
 
 import type { SchemaValidator } from '../ports/validator.ts';
+import { capStoredBottomBar } from './bottomBar.ts';
 import { messageOf } from './errors.ts';
 import {
   checkVersion,
@@ -53,9 +54,10 @@ export function openDocument(
         document: document as Record<string, unknown>,
       };
     case 'open': {
-      const result = validator.validate(document);
+      const repaired = capStoredBottomBar(document);
+      const result = validator.validate(repaired);
       return result.valid
-        ? { kind: 'ok', workspace: document as WorkspaceFile }
+        ? { kind: 'ok', workspace: repaired as WorkspaceFile }
         : { kind: 'invalid', errors: result.errors };
     }
   }
