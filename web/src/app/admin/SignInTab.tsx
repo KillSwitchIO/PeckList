@@ -10,7 +10,7 @@ import { LinkIdentityDialog } from './LinkIdentityDialog.tsx';
 import { MapDialog, MoveDialog } from './OidcDialogs.tsx';
 import { SETTINGS_ON } from './settingsGroups.ts';
 import { SettingsTab } from './SettingsTab.tsx';
-import { useLoaded } from './useAdmin.ts';
+import { refusalText, useLoaded } from './useAdmin.ts';
 
 /** How long a migration window opened here stays open. */
 const WINDOW_HOURS = 24;
@@ -403,13 +403,18 @@ export function SignInTab({ api }: { api: AdminApi }) {
             action: t('admin.signIn.unbindAll'),
             run: () =>
               void api.unbindAll(unbinding.name).then((result) => {
+                if (!result.ok) {
+                  setNotice(refusalText(result.reason));
+                  return;
+                }
+                const { unbound, stranded } = result.value;
                 setNotice(
-                  result.stranded.length > 0
+                  stranded.length > 0
                     ? t('admin.signIn.unboundStranded', {
-                        count: result.unbound,
-                        names: result.stranded.join(', '),
+                        count: unbound,
+                        names: stranded.join(', '),
                       })
-                    : t('admin.signIn.unbound', { count: result.unbound }),
+                    : t('admin.signIn.unbound', { count: unbound }),
                 );
                 providers.reload();
               }),

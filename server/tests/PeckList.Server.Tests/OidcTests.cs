@@ -591,6 +591,42 @@ public sealed class OidcTests(ServerFixture fixture) : IClassFixture<ServerFixtu
     }
 
     [Fact]
+    public async Task Unbind_all_needs_a_super_admin_when_another_admin_is_linked()
+    {
+        using var server = Server();
+        var admin = Browser(server);
+        (await admin.PostAsJsonAsync("/auth/login", new { username = "admin", password = AdminPassword }, Token)).EnsureSuccessStatusCode();
+        const string password = "a long enough password";
+        var accounts = server.Services.GetRequiredService<AccountService>();
+        var person = await accounts.CreateUserAsync("person", password, mustChangePassword: false, cancellation: Token);
+        var boss = await accounts.CreateUserAsync("boss", password, Role.Admin, mustChangePassword: false, cancellation: Token);
+        var other = await accounts.CreateUserAsync("other", password, Role.Admin, mustChangePassword: false, cancellation: Token);
+        var plain = Browser(server);
+        (await plain.PostAsJsonAsync("/auth/login", new { username = "boss", password }, Token)).EnsureSuccessStatusCode();
+
+        async Task Link(string id, string subject) =>
+            (await admin.PostAsJsonAsync($"/api/admin/users/{id}/identities", new { provider = "fake", subject }, Token)).EnsureSuccessStatusCode();
+        Task<HttpResponseMessage> UnbindAll(HttpClient who) => who.PostAsync("/api/admin/providers/fake/unbind-all", null, Token);
+        async Task<int> Links() => (await server.Services.GetRequiredService<IIdentityStore>().ListAsync(Token)).Count;
+
+        // People and a plain admin's own link: that admin may.
+        await Link(person.Id, "person-1");
+        await Link(boss.Id, "boss-1");
+        Assert.Equal(2, (await (await UnbindAll(plain)).Content.ReadFromJsonAsync<UnbindResult>(Token))!.Unbound);
+        Assert.Equal(0, await Links());
+
+        // Another admin's link: refused whole, and a super admin may.
+        await Link(person.Id, "person-2");
+        await Link(other.Id, "other-1");
+        var refused = await UnbindAll(plain);
+        Assert.Equal(HttpStatusCode.Forbidden, refused.StatusCode);
+        Assert.Contains("admins_only_by_super_admins", await refused.Content.ReadAsStringAsync(Token));
+        Assert.Equal(2, await Links());
+        Assert.Equal(2, (await (await UnbindAll(admin)).Content.ReadFromJsonAsync<UnbindResult>(Token))!.Unbound);
+        Assert.Equal(0, await Links());
+    }
+
+    [Fact]
     public async Task A_saved_mapping_refuses_an_admin_account_and_a_subject_and_says_when_it_is_used()
     {
         using var server = Server(("OIDC_FAKE_AUTO_CREATE", "true"));

@@ -315,8 +315,9 @@ export function createHttpAdmin(
         }),
       ),
     unbindAll: async (provider) =>
-      json<{ unbound: number; stranded: string[] }>(
+      result(
         await call(`/providers/${segment(provider)}/unbind-all`, 'POST'),
+        async (response) => (await response.json()) as { unbound: number; stranded: string[] },
       ),
     openMigrationWindow: async (provider, hours) =>
       (

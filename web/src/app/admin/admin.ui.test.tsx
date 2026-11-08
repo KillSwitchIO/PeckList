@@ -76,6 +76,7 @@ function memoryAdmin(benId: string) {
     linked: [] as string[],
     handedOver: [] as { from: string; to: string; ids: string[] }[],
     window: null as string | null,
+    unbindRefused: false,
     /** Provider accounts: who they sign into. */
     identities: [
       { provider: 'pocket', subject: 'kim-sub-1', username: 'kim', accountId: 'U2' },
@@ -608,7 +609,12 @@ function memoryAdmin(benId: string) {
       Promise.resolve([
         { name: 'pocket', displayName: 'Pocket ID', linked: 2, migrationWindowUntil: state.window },
       ]),
-    unbindAll: () => Promise.resolve({ unbound: 2, stranded: ['kim'] }),
+    unbindAll: () =>
+      Promise.resolve(
+        state.unbindRefused
+          ? { ok: false as const, reason: 'admins-only' as const }
+          : { ok: true as const, value: { unbound: 2, stranded: ['kim'] } },
+      ),
     openMigrationWindow: () => {
       state.window = '2026-10-23T08:00:00Z';
       return Promise.resolve(state.window);
@@ -1445,6 +1451,22 @@ describe('admin', () => {
       within(await screen.findByRole('dialog')).getByRole('button', { name: 'Unbind all' }),
     );
     expect(await screen.findByText(/No way to sign in now: kim/)).toBeInTheDocument();
+  });
+
+  it('says so when Unbind all is refused', async () => {
+    await adminApp('superadmin', '/admin/sign-in', {
+      prepare: (state) => {
+        state.unbindRefused = true;
+      },
+    });
+    const providers = await screen.findByRole('region', { name: 'Identity providers' });
+    await userEvent.click(await within(providers).findByRole('button', { name: 'Unbind all' }));
+    await userEvent.click(
+      within(await screen.findByRole('dialog')).getByRole('button', { name: 'Unbind all' }),
+    );
+    expect(
+      await screen.findByText("Only a super admin can change an admin's account."),
+    ).toBeInTheDocument();
   });
 
   it('shows who signs in with which provider account and maps, moves and unlinks them', async () => {
