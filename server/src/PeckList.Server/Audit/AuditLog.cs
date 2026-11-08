@@ -99,6 +99,7 @@ public sealed class AuditLog : BackgroundService
     /// exchange share one database write instead of one each (PL-095).
     /// </summary>
     internal static readonly TimeSpan Gather = TimeSpan.FromSeconds(2);
+    private readonly TimeSpan gather;
     private const int BatchSize = 500;
     // Completed by FlushAsync: store what is queued now instead of waiting out the gather.
     private volatile TaskCompletionSource hurry = new(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -106,7 +107,14 @@ public sealed class AuditLog : BackgroundService
     private readonly Logging.Redaction redaction;
 
     public AuditLog(IAuditStore store, TimeProvider time, ILoggerFactory logs, Logging.LogPipeline? pipeline = null)
+        : this(store, time, logs, Gather, pipeline)
     {
+    }
+
+    /// <param name="gather">How long the writer waits for more entries; tests set a long one.</param>
+    internal AuditLog(IAuditStore store, TimeProvider time, ILoggerFactory logs, TimeSpan gather, Logging.LogPipeline? pipeline = null)
+    {
+        this.gather = gather;
         redaction = pipeline?.Redaction ?? new Logging.Redaction();
         this.store = store;
         this.time = time;
@@ -252,7 +260,7 @@ public sealed class AuditLog : BackgroundService
             while (await queue.Reader.WaitToReadAsync(stopping))
             {
                 var now = hurry;
-                if (queue.Reader.Count < BatchSize) await Task.WhenAny(Task.Delay(Gather, stopping), now.Task);
+                if (queue.Reader.Count < BatchSize) await Task.WhenAny(Task.Delay(gather, stopping), now.Task);
                 if (now.Task.IsCompleted) hurry = new(TaskCreationOptions.RunContinuationsAsynchronously);
                 await DrainAsync(batch, CancellationToken.None);
             }

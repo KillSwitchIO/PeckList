@@ -151,9 +151,10 @@ public sealed class LogTarget : IAsyncDisposable
             try
             {
                 await sink.WriteAsync(batch, stopping.Token);
-                Interlocked.Add(ref sent, batch.Count);
+                // Health first, then the count: whoever sees the count also sees the health.
                 lastSent = time.GetUtcNow();
                 SetHealthy(true);
+                Interlocked.Add(ref sent, batch.Count);
                 return;
             }
             catch (OperationCanceledException) when (stopping.IsCancellationRequested)
@@ -163,11 +164,11 @@ public sealed class LogTarget : IAsyncDisposable
             }
             catch (Exception error)
             {
-                Interlocked.Increment(ref failures);
                 lastFailure = time.GetUtcNow();
                 var message = redact(error is LogShipException ? error.Message : $"{error.GetType().Name}: {error.Message}");
                 lastError = Core.SafeText.Cut(message, 300);
                 SetHealthy(false);
+                Interlocked.Increment(ref failures);
                 if (error is LogShipException { Retry: false } || draining)
                 {
                     Interlocked.Add(ref dropped, batch.Count);
