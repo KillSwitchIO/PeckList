@@ -6,7 +6,7 @@ import { keyBetween } from './ordering.ts';
 import { createEntity, type OpContext } from './ops.ts';
 import type { Entities, List, Settings, User, WorkspaceFile } from './types.ts';
 
-export const APP_VERSION = '0.8.0';
+export const APP_VERSION = '0.9.0-rc.1';
 
 export function emptyEntities(): Entities {
   return {

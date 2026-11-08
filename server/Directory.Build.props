@@ -6,6 +6,6 @@
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
     <InvariantGlobalization>true</InvariantGlobalization>
     <!-- Ships with the web app; keep in step with web/package.json. -->
-    <Version>0.8.0</Version>
+    <Version>0.9.0-rc.1</Version>
   </PropertyGroup>
 </Project>
