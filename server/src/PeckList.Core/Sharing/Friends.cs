@@ -121,12 +121,19 @@ public sealed class Friends(AccountService accounts, IAccountStore store, SyncSe
         return await BefriendAsync(first, second, admin, cancellation);
     }
 
-    /// <summary>An admin ends a friendship. False when there was none.</summary>
+    /// <summary>
+    /// An admin ends a friendship, or an account's removal does: every live row between the two, so
+    /// none is left behind where two requests made two. False when there was none.
+    /// </summary>
     public async Task<bool> EndFriendshipAsync(string a, string b, CancellationToken cancellation = default)
     {
-        if (sharing.Index.FriendshipBetween(a, b) is not { } found || found.Doc["deletedAt"] is not null) return false;
-        var ended = ServerEntities.Changed(found.Doc, clock.Next(), new JsonObject { ["deletedAt"] = clock.Now() });
-        await sync.WriteAsServerAsync((string?)found.Doc["userA"] ?? a, [new IncomingEntity("friendships", ended)], cancellation);
+        var live = sharing.Index.LiveFriendshipsBetween(a, b);
+        if (live.Count == 0) return false;
+        var ended = live
+            .Select(found => new IncomingEntity("friendships",
+                ServerEntities.Changed(found.Doc, clock.Next(), new JsonObject { ["deletedAt"] = clock.Now() })))
+            .ToList();
+        await sync.WriteAsServerAsync((string?)live[0].Doc["userA"] ?? a, ended, cancellation);
         return true;
     }
 

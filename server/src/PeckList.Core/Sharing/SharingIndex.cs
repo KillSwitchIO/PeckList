@@ -408,6 +408,17 @@ public sealed class SharingIndex
         return null;
     }
 
+    /// <summary>
+    /// Every live friendship row between two people, in either direction. Usually one; two offline
+    /// requests made before the server refused a second one left some pairs with two.
+    /// </summary>
+    public IReadOnlyList<(string Id, JsonObject Doc)> LiveFriendshipsBetween(string a, string b) =>
+        [.. EachLive(By.User, a)
+            .Where(each => each.Collection == "friendships"
+                && ((each.Get("userA") == a && each.Get("userB") == b) || (each.Get("userA") == b && each.Get("userB") == a)))
+            .OrderBy(each => each.Id, StringComparer.Ordinal)
+            .Select(each => (each.Id, each.Doc))];
+
     /// <summary>A user's live friendships (not ended): the other person and the state.</summary>
     public IReadOnlyList<(string Id, string Other, string State)> FriendshipsOf(string userId)
     {
@@ -1025,7 +1036,14 @@ public sealed class SharingIndex
             {
                 var a = Field(doc, "userA");
                 var b = Field(doc, "userB");
-                if (before is null) return a == userId && b is not null && b != userId && Field(doc, "state") == "pending";
+                // A new request, unless the two already have a live row (made earlier, or earlier in
+                // this push): two offline requests would otherwise leave two, and ending one would
+                // keep them friends through the other.
+                if (before is null)
+                {
+                    return a == userId && b is not null && b != userId && Field(doc, "state") == "pending"
+                        && LiveFriendshipsBetween(a, b).All(each => each.Id == after.Id);
+                }
                 if (Changed("userA") || Changed("userB")) return false;
                 if (a != userId && b != userId) return false;
                 // An ended one stays ended here: a new request makes a new row, which the other side

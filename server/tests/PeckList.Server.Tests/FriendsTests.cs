@@ -6,6 +6,7 @@ using Microsoft.Extensions.DependencyInjection;
 using PeckList.Core;
 using PeckList.Core.Accounts;
 using PeckList.Core.Sharing;
+using PeckList.Core.Storage;
 using PeckList.Core.Sync;
 
 namespace PeckList.Server.Tests;
@@ -296,6 +297,65 @@ public sealed class FriendsTests(ServerFixture fixture) : IClassFixture<ServerFi
         asked["_hlc"]!["state"] = Later();
         Assert.Empty(await Push(ben, asked));
         Assert.True(Know(benId, samId));
+    }
+
+    /// <summary>A new pending request from <paramref name="fromId"/> to <paramref name="toId"/>, shaped like <paramref name="template"/>.</summary>
+    private static JsonObject Request(JsonObject template, string fromId, string toId)
+    {
+        var request = template.DeepClone().AsObject();
+        request["id"] = Ids.NewUlid();
+        request["userA"] = fromId;
+        request["userB"] = toId;
+        request["state"] = "pending";
+        request["createdBy"] = fromId;
+        request["deletedAt"] = null;
+        foreach (var clock in request["_hlc"]!.AsObject().Select(pair => pair.Key).ToList()) request["_hlc"]![clock] = Later(0);
+        return request;
+    }
+
+    [Fact]
+    public async Task A_second_live_request_between_two_people_is_refused_and_an_end_closes_every_row()
+    {
+        var (ben, benId) = await SignIn("ben10");
+        var (sam, samId) = await SignIn("sam10");
+        var friends = factory.Services.GetRequiredService<Friends>();
+        var sharing = factory.Services.GetRequiredService<SharingState>();
+        var ended = await EndedFriendship(ben, sam, ben);
+        var template = (await PullAll(ben))[ended];
+
+        // A pair that got two live rows before the server refused the second, one each way.
+        var first = Request(template, samId, benId);
+        var second = Request(template, benId, samId);
+        await factory.Services.GetRequiredService<SyncService>().WriteAsServerAsync(samId,
+            [new IncomingEntity("friendships", first), new IncomingEntity("friendships", second)], Token);
+        Assert.Equal(2, sharing.Index.LiveFriendshipsBetween(benId, samId).Count);
+
+        // A third is refused while those are live.
+        var third = Request(template, samId, benId);
+        Assert.Equal([(string)third["id"]!], await Push(sam, third));
+        Assert.Equal(2, sharing.Index.LiveFriendshipsBetween(benId, samId).Count);
+
+        // One end closes both, so nothing keeps them friends.
+        Assert.True(await friends.EndFriendshipAsync(benId, samId, Token));
+        Assert.Empty(sharing.Index.LiveFriendshipsBetween(benId, samId));
+        Assert.Empty(sharing.Index.FriendshipsOf(benId));
+        Assert.False(Know(benId, samId));
+        var rows = await PullAll(ben);
+        Assert.NotNull(rows[(string)first["id"]!]["deletedAt"]);
+        Assert.NotNull(rows[(string)second["id"]!]["deletedAt"]);
+
+        // With nothing live, a request goes through again; a second one in the same push does not.
+        var again = Request(template, samId, benId);
+        var twice = Request(template, samId, benId);
+        var answer = await sam.PostAsJsonAsync("/api/sync", new
+        {
+            schemaVersion = WorkspaceSchema.CurrentVersion,
+            changes = new[] { new { collection = "friendships", entity = again }, new { collection = "friendships", entity = twice } },
+        }, Token);
+        answer.EnsureSuccessStatusCode();
+        var rejected = (await answer.Content.ReadFromJsonAsync<JsonObject>(Token))!["rejected"]!.AsArray().Select(id => (string)id!);
+        Assert.Equal([(string)twice["id"]!], rejected);
+        Assert.Equal([(string)again["id"]!], sharing.Index.LiveFriendshipsBetween(benId, samId).Select(each => each.Id));
     }
 
     [Fact]
