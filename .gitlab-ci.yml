@@ -41,6 +41,9 @@ variables:
   IMAGE: $CI_REGISTRY_IMAGE
   # Images with the tools some jobs need, built from ci/*.Dockerfile by the ci-images job.
   CI_IMAGES: $CI_REGISTRY_IMAGE/ci
+  # Which build of them a job runs: main's (latest), or a merge request's own (mr-<iid>), set by the
+  # job's rules on the merge request that changes them.
+  CI_IMAGES_TAG: latest
   # pnpm and NuGet caches inside the project folder, so GitLab can cache them.
   PNPM_STORE_DIR: $CI_PROJECT_DIR/.pnpm-store
   NUGET_PACKAGES: $CI_PROJECT_DIR/.nuget
@@ -146,8 +149,11 @@ default:
 # --- check -----------------------------------------------------------------------------------
 
 # The tool images the e2e and Android jobs run in (ci/*.Dockerfile): built when one of their
-# inputs changes, and weekly, so base images and Debian packages move on their own. A merge
-# request builds and pushes them too, so the jobs after it in the same pipeline use the new ones.
+# inputs changes, and weekly, so base images and Debian packages move on their own. Only main moves
+# :latest, which every other pipeline runs. A merge request that changes them pushes :mr-<iid> and
+# nothing else, not even a local :latest (the runner shares the host's Docker): its own e2e and
+# Android jobs run that, and an unmerged image reaches nobody else. A run from the UI on another
+# branch pushes :ref-<branch>.
 ci-images:
   image: $DOCKER_IMAGE
   stage: check
@@ -158,10 +164,17 @@ ci-images:
   script:
     - |
       set -eu
+      if [ "$CI_PIPELINE_SOURCE" = "merge_request_event" ]; then
+        TAG="mr-$CI_MERGE_REQUEST_IID"
+      elif [ "${CI_COMMIT_BRANCH:-}" = "$CI_DEFAULT_BRANCH" ]; then
+        TAG=latest
+      else
+        TAG="ref-$CI_COMMIT_REF_SLUG"
+      fi
       for name in browsers android; do
-        echo "=== $CI_IMAGES/$name"
-        docker build --pull -f "ci/$name.Dockerfile" -t "$CI_IMAGES/$name:latest" .
-        docker push "$CI_IMAGES/$name:latest"
+        echo "=== $CI_IMAGES/$name:$TAG"
+        docker build --pull -f "ci/$name.Dockerfile" -t "$CI_IMAGES/$name:$TAG" .
+        docker push "$CI_IMAGES/$name:$TAG"
       done
   rules:
     - *not-on-tag
@@ -309,7 +322,7 @@ server-test:
 
 e2e:
   extends: .node
-  image: $CI_IMAGES/browsers:latest
+  image: $CI_IMAGES/browsers:$CI_IMAGES_TAG
   stage: test
   needs:
     - job: ci-images
@@ -332,6 +345,12 @@ e2e:
   rules:
     - *not-on-main
     - *not-on-release-branch
+    # This merge request's own browsers image, which its ci-images job pushed.
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+      changes:
+        - ci/browsers.Dockerfile
+      variables:
+        CI_IMAGES_TAG: mr-$CI_MERGE_REQUEST_IID
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
       changes:
         - web/**/*
@@ -581,7 +600,7 @@ web-dist:
 # The Android app (mobile/, ADR-0017), in the image with the JDK and the SDK (ci/android.Dockerfile).
 .android:
   extends: .node
-  image: $CI_IMAGES/android:latest
+  image: $CI_IMAGES/android:$CI_IMAGES_TAG
   stage: build
   timeout: 45m
   variables:
@@ -611,6 +630,15 @@ android-apk:
     paths: ['pecklist-android-*-debug.apk']
     expire_in: 30 days
   rules:
+    # This merge request's own Android image, which its ci-images job pushed.
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+      changes:
+        - ci/android.Dockerfile
+        - scripts/ci/android-sdk.sh
+      when: manual
+      allow_failure: true
+      variables:
+        CI_IMAGES_TAG: mr-$CI_MERGE_REQUEST_IID
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
       when: manual
       allow_failure: true
@@ -706,9 +734,14 @@ packages:
 # Two devices against the image main just pushed (server-specs): sync, live updates between them.
 e2e-server:
   extends: .node
-  image: $CI_IMAGES/browsers:latest
+  image: $CI_IMAGES/browsers:$CI_IMAGES_TAG
   stage: publish
-  needs: [container-image]
+  # After ci-images too, when this pipeline runs it, so a main push that changes the browsers image
+  # tests with the new :latest.
+  needs:
+    - container-image
+    - job: ci-images
+      optional: true
   timeout: 20m
   retry:
     max: 1

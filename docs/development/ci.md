@@ -64,7 +64,11 @@ job) has approved, and "Pipelines must succeed" then keeps the merge request fro
 - **Tool images instead of `apt-get`.** The browsers and the JDK and Android SDK come
   from images built out of [`ci/`](https://gitlab.com/killswitch10/pecklist/-/tree/main/ci)
   into `registry.gitlab.com/killswitch10/pecklist/ci/{browsers,android}` by the
-  `ci-images` job: when one of those files changes, weekly, or on demand.
+  `ci-images` job: when one of those files changes, weekly, or on demand. Only `main` moves
+  `:latest`, which every pipeline runs. A merge request that changes one pushes `:mr-<iid>` instead,
+  and only its own e2e and Android jobs run that, so an unmerged image reaches no one else. A run from
+  the UI on another branch pushes `:ref-<branch>`, but that run's own jobs still use `:latest` unless
+  `CI_IMAGES_TAG=ref-<branch>` is set as a pipeline variable too.
 - **Heavy jobs one at a time.** `web-build`, `android-release` and `packages` share a
   `resource_group`, so a release does not run four builds against each other on one runner;
   each finishes in minutes alone where they took the better part of an hour together.
