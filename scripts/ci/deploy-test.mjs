@@ -55,15 +55,18 @@ async function main() {
     CI_COMMIT_SHA,
     CI_ENVIRONMENT_URL,
     CI_PIPELINE_URL,
-    COMPOSE_PROJECT = 'homelab-killswitch/compose',
+    // The compose repository's path, from a CI variable so the public file names no private project.
+    PECKLIST_COMPOSE_PROJECT: COMPOSE_PROJECT,
     COMPOSE_SERVICE = 'pecklist-test',
     IMAGE = 'registry.gitlab.com/killswitch10/pecklist',
     IMAGE_DIGEST,
     IMAGE_VERSION,
   } = process.env;
 
-  if (!GITLAB_API_TOKEN || !CI_COMMIT_SHORT_SHA) {
-    console.error('deploy-test needs GITLAB_API_TOKEN and CI_COMMIT_SHORT_SHA.');
+  if (!GITLAB_API_TOKEN || !CI_COMMIT_SHORT_SHA || !COMPOSE_PROJECT) {
+    console.error(
+      'deploy-test needs GITLAB_API_TOKEN, CI_COMMIT_SHORT_SHA and PECKLIST_COMPOSE_PROJECT.',
+    );
     process.exit(2);
   }
   if (SERVICES_REFUSED.has(COMPOSE_SERVICE)) {
