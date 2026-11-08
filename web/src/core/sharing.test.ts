@@ -31,7 +31,7 @@ import {
   unfriend,
 } from './sharing.ts';
 import { createTask, deleteTask, restoreTask } from './tasks.ts';
-import type { GroupMember, User, WorkspaceFile } from './types.ts';
+import type { Friendship, GroupMember, User, WorkspaceFile } from './types.ts';
 import { createWorkspace } from './workspace.ts';
 
 const getTask = (workspace: WorkspaceFile, id: string) =>
@@ -76,6 +76,25 @@ describe('friends', () => {
     expect(friendsOf(putEntity(workspace, 'users', sam), BEN)[0]!.user?.displayName).toBe('Sam');
 
     expect(friendsOf(endFriendship(as(SAM), workspace, id), BEN)).toEqual([]);
+  });
+
+  it('ending a friendship ends every live row between the two, and only those', () => {
+    const ben = testContext('ben', undefined, BEN);
+    // Two requests made offline, one each way, that both reached the device; and one with Jo.
+    let workspace = sendFriendRequest(ben, createWorkspace(ben), SAM);
+    const second = createEntity<Friendship>(as(SAM), { userA: SAM, userB: BEN, state: 'pending' });
+    workspace = putEntity(workspace, 'friendships', second);
+    workspace = sendFriendRequest(ben, workspace, JO);
+    const first = workspace.entities.friendships[0]!.id;
+    workspace = acceptFriendship(as(SAM), workspace, first);
+    expect(friendsOf(workspace, BEN).filter((friend) => friend.userId === SAM)).toHaveLength(2);
+
+    const ended = endFriendship(ben, workspace, first);
+    expect(friendsOf(ended, BEN).map((friend) => friend.userId)).toEqual([JO]);
+    // Unfriend goes the same way.
+    const sam = friendsOf(workspace, BEN).find((friend) => friend.state === 'accepted')!;
+    const unfriended = unfriend(ben, workspace, sam, false);
+    expect(friendsOf(unfriended, BEN).map((friend) => friend.userId)).toEqual([JO]);
   });
 });
 

@@ -79,11 +79,23 @@ export function acceptFriendship(ctx: OpContext, workspace: WorkspaceFile, id: I
   return putEntity(workspace, 'friendships', updateEntity(ctx, friendship, { state: 'accepted' }));
 }
 
-/** Decline a request, take one back, or unfriend. */
+/**
+ * Decline a request, take one back, or unfriend: every live row between the two goes, since two
+ * requests made offline may have made two, and one left behind would keep them friends.
+ */
 export function endFriendship(ctx: OpContext, workspace: WorkspaceFile, id: Id): WorkspaceFile {
   const friendship = getEntity(workspace, 'friendships', id);
   if (!friendship) return workspace;
-  return putEntity(workspace, 'friendships', softDelete(ctx, friendship));
+  const pair = new Set([friendship.userA, friendship.userB]);
+  const rows = workspace.entities.friendships.filter(
+    (each) =>
+      each.id === id ||
+      (isLive(each) && pair.has(each.userA) && pair.has(each.userB) && each.userA !== each.userB),
+  );
+  return rows.reduce(
+    (next, row) => putEntity(next, 'friendships', softDelete(ctx, row)),
+    workspace,
+  );
 }
 
 // Lists -----------------------------------------------------------------------------------------

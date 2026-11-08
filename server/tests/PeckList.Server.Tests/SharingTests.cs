@@ -1,4 +1,5 @@
 using PeckList.Core.Sharing;
+using PeckList.Core.Storage;
 using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json.Nodes;
@@ -589,13 +590,17 @@ public sealed class SharingTests(ServerFixture fixture) : IClassFixture<ServerFi
     }
 
     [Fact]
-    public async Task Two_requests_with_one_accepted_count_as_friends_and_an_admin_ends_that_one()
+    public async Task Two_live_rows_with_one_accepted_count_as_friends_and_an_admin_ends_both()
     {
         var ben = await SignIn("ben6");
         var sam = await SignIn("sam6");
         await ben.SyncAsync(Friendship("F1", ben.UserId, sam.UserId, "pending"));
-        await sam.SyncAsync(Friendship("F2", sam.UserId, ben.UserId, "pending"));
-        await ben.SyncAsync(Friendship("F2", sam.UserId, ben.UserId, "accepted"));
+        // A second request while F1 is live is refused.
+        Assert.Equal(["F2"], (await sam.SyncAsync(Friendship("F2", sam.UserId, ben.UserId, "pending"))).Rejected);
+        // A pair from before that refusal can still have two live rows, one of them accepted.
+        var (collection, second) = Friendship("F2", sam.UserId, ben.UserId, "accepted");
+        await factory.Services.GetRequiredService<SyncService>().WriteAsServerAsync(
+            sam.UserId, [new IncomingEntity(collection, second)], Token);
 
         var preview = await ben.Client.GetFromJsonAsync<ProfilePreview>("/api/users/lookup?q=sam6", Token);
         Assert.Equal("accepted", preview!.Friendship);
@@ -604,6 +609,7 @@ public sealed class SharingTests(ServerFixture fixture) : IClassFixture<ServerFi
         Assert.True(sharing.Index.Knows(ben.UserId, sam.UserId));
         Assert.True(await factory.Services.GetRequiredService<Friends>().EndFriendshipAsync(ben.UserId, sam.UserId, Token));
         Assert.False(sharing.Index.Knows(ben.UserId, sam.UserId));
+        Assert.Empty(sharing.Index.LiveFriendshipsBetween(ben.UserId, sam.UserId));
     }
 
     [Fact]
