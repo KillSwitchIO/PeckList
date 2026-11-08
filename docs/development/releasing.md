@@ -88,11 +88,15 @@ A release is one image, built once. Nothing is rebuilt when it is published.
    one call, as whoever pressed it. Only someone allowed to create `v*` tags can.
 5. **The tag's pipeline** builds nothing. `promote-image` puts `:0.4.0`, `:0.4` and `:latest` on the
    digest step 3 built, by copying its manifest, and refuses an image stamped with another version
-   or commit. The docs site moves to this version, and the demo follows. The mirror carries the tag
-   to GitHub, where a workflow makes the matching release page with links to the files here.
+   or commit. `dockerhub-image` then copies that same digest to Docker Hub (`hambone0/pecklist`)
+   under the same three names and checks the digest there; if Docker Hub is down it fails on its
+   own and holds nothing up. The docs site moves to this version, and the demo follows. The mirror
+   carries the tag to GitHub, where a workflow makes the matching release page with links to the
+   files here.
 
 A pre-release (`0.4.0-rc.1`) goes the same way, without `:latest`, the docs copy or the demo. It
-gets its exact tag and its type, `:rc` (or `:beta`, `:alpha`), which holds the newest of that type. It is
+gets its exact tag and its type, `:rc` (or `:beta`, `:alpha`), which holds the newest of that type.
+Docker Hub gets the same two names. It is
 dated just before the newest full release, each one a second after the last, so the page lists them
 newest first under that release. They show a Historical release badge: GitLab's latest release link
 goes by date, and the update notice and the install docs read that link.
@@ -104,7 +108,8 @@ version that was never cut is prepared again rather than skipped over. Two build
 A newer merge can overtake a release commit's `deploy-test`. `cut-release` then says so: retry
 `deploy-test` on the release commit, which reuses the image.
 
-Re-running a job of the tag's pipeline is safe: `promote-image` copies the same bytes again.
+Re-running a job of the tag's pipeline is safe: `promote-image` and `dockerhub-image` copy the same
+bytes again.
 Each download's name carries its version (`pecklist-android-0.8.0.apk`). Its `latest` link does not,
 so the newest release's files are always at
 `https://gitlab.com/killswitch10/pecklist/-/releases/permalink/latest/downloads/<file>`, with `<file>`

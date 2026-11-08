@@ -973,6 +973,67 @@ promote-image:
   rules:
     - *new-tag-only
 
+# The images on Docker Hub too (PL-009), for people who pull from there, with the names the GitLab
+# registry has: the same digest, copied as it is (no build), and checked after. A final X.Y.Z gets
+# X.Y.Z, X.Y and then latest; a pre-release its exact tag and its type (rc, beta, alpha), never
+# latest or X.Y; each main build edge (no sha-<commit> names, one per commit). It needs
+# DOCKERHUB_TOKEN, a protected variable, so only protected refs run it: v* tags and main. Docker Hub
+# being down must not hold anything up: it may fail, and nothing waits on it (cut-release made the
+# release before the tag, and deploy-prod and deploy-test need only the GitLab image).
+dockerhub-image:
+  image: ghcr.io/regclient/regctl:v0.11.2-alpine@sha256:9aa2a8c71b6f687aad188475162bd6c4c00366c19ba648ae6c70018d096c92ab
+  stage: release
+  needs:
+    # The digest and version: promote-image's on a tag, container-image's on main.
+    - job: promote-image
+      artifacts: true
+      optional: true
+    - job: container-image
+      artifacts: true
+      optional: true
+  timeout: 15m
+  interruptible: false
+  allow_failure: true
+  variables:
+    GIT_STRATEGY: none
+    DOCKERHUB_IMAGE: docker.io/hambone0/pecklist
+    DOCKERHUB_USER: hambone0
+  script:
+    # No set -x: the tokens go in through stdin, never on a command line.
+    - |
+      set -eu
+      if [ -z "${IMAGE_DIGEST:-}" ]; then
+        echo "No image digest from this pipeline: nothing to copy."
+        exit 1
+      fi
+      if [ -n "${CI_COMMIT_TAG:-}" ]; then
+        case "$IMAGE_VERSION" in
+          *-*) TYPE=$(echo "$IMAGE_VERSION" | sed -n 's/^[^-]*-\([a-z][a-z]*\).*/\1/p')
+               TAGS="$IMAGE_VERSION $TYPE" ;;
+          *) TAGS="$IMAGE_VERSION $(echo "$IMAGE_VERSION" | cut -d. -f1,2) latest" ;;
+        esac
+      else
+        TAGS="edge"
+      fi
+      printf '%s' "$CI_REGISTRY_PASSWORD" | regctl registry login "$CI_REGISTRY" -u "$CI_REGISTRY_USER" --pass-stdin
+      printf '%s' "$DOCKERHUB_TOKEN" | regctl registry login docker.io -u "$DOCKERHUB_USER" --pass-stdin
+      for TAG in $TAGS; do
+        regctl image copy "$CI_REGISTRY_IMAGE@$IMAGE_DIGEST" "$DOCKERHUB_IMAGE:$TAG"
+        GOT=$(regctl image digest "$DOCKERHUB_IMAGE:$TAG")
+        if [ "$GOT" != "$IMAGE_DIGEST" ]; then
+          echo "$DOCKERHUB_IMAGE:$TAG is $GOT, not $IMAGE_DIGEST"
+          exit 1
+        fi
+        echo "$DOCKERHUB_IMAGE:$TAG -> $GOT"
+      done
+  after_script:
+    - regctl registry logout docker.io || true
+  rules:
+    - if: $DOCKERHUB_TOKEN == null || $DOCKERHUB_TOKEN == ""
+      when: never
+    - *new-tag-only
+    - if: $CI_PIPELINE_SOURCE != "schedule" && $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+
 # The production button, on a release's tag only and always by hand: compose checks the person, the
 # release and the digest again, trials the image on a copy of the live data, and only then touches
 # production. The job shows compose's own result. Production is never automatic (releasing.md).
