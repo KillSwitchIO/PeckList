@@ -506,6 +506,54 @@ public sealed class SharingTests(ServerFixture fixture) : IClassFixture<ServerFi
         Assert.DoesNotContain("T1", sam.Seen.Keys);
     }
 
+    [Fact]
+    public async Task A_group_whose_owner_left_waits_for_open_invitations_before_it_is_archived()
+    {
+        var ben = await SignIn("ben7");
+        var jo = await SignIn("jo7");
+        var sam = await SignIn("sam7");
+        await Befriend(ben, jo, sam);
+        await ben.SyncAsync(
+            ("groups", Entity("G7", new JsonObject { ["name"] = "Allotment", ["color"] = "#A7C7E7", ["ownerId"] = ben.UserId, ["archived"] = false })),
+            GroupMember("G7B", "G7", ben.UserId, "2026-10-21T09:00:00.000Z", "active"),
+            GroupMember("G7J", "G7", jo.UserId, "2026-10-21T09:05:00.000Z", "invited"),
+            GroupMember("G7S", "G7", sam.UserId, "2026-10-21T09:10:00.000Z", "invited"));
+
+        // Ben leaves while Jo and Sam have not answered: the group waits for them.
+        await ben.SyncAsync(GroupMember("G7B", "G7", ben.UserId, "2026-10-21T09:00:00.000Z", "active", left: true));
+        await jo.SyncAsync();
+        Assert.False((bool?)jo.Seen["G7"]["archived"]);
+        Assert.Equal(ben.UserId, (string?)jo.Seen["G7"]["ownerId"]);
+
+        // Jo declines; Sam is still invited, so it still waits. Sam accepts and takes it.
+        await jo.SyncAsync(GroupMember("G7J", "G7", jo.UserId, "2026-10-21T09:05:00.000Z", "invited", left: true));
+        await sam.SyncAsync();
+        Assert.False((bool?)sam.Seen["G7"]["archived"]);
+        await sam.SyncAsync(GroupMember("G7S", "G7", sam.UserId, "2026-10-21T09:10:00.000Z", "active"));
+        await sam.SyncAsync();
+        Assert.Equal(sam.UserId, (string?)sam.Seen["G7"]["ownerId"]);
+        Assert.False((bool?)sam.Seen["G7"]["archived"]);
+    }
+
+    [Fact]
+    public async Task A_group_whose_owner_left_is_archived_once_the_last_invitation_is_declined()
+    {
+        var ben = await SignIn("ben8");
+        var jo = await SignIn("jo8");
+        await Befriend(ben, jo);
+        await ben.SyncAsync(
+            ("groups", Entity("G8", new JsonObject { ["name"] = "Choir", ["color"] = "#A7C7E7", ["ownerId"] = ben.UserId, ["archived"] = false })),
+            GroupMember("G8B", "G8", ben.UserId, "2026-10-21T09:00:00.000Z", "active"),
+            GroupMember("G8J", "G8", jo.UserId, "2026-10-21T09:05:00.000Z", "invited"));
+        await ben.SyncAsync(GroupMember("G8B", "G8", ben.UserId, "2026-10-21T09:00:00.000Z", "active", left: true));
+        await ben.SyncAsync();
+        Assert.False((bool?)ben.Seen["G8"]["archived"]);
+
+        await jo.SyncAsync(GroupMember("G8J", "G8", jo.UserId, "2026-10-21T09:05:00.000Z", "invited", left: true));
+        await ben.SyncAsync();
+        Assert.True((bool?)ben.Seen["G8"]["archived"]);
+    }
+
     private static (string, JsonObject) Friendship(string id, string a, string b, string state, bool ended = false) =>
         ("friendships", Entity(id, new JsonObject
         {
