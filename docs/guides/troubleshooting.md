@@ -53,7 +53,11 @@ a sign-in link instead.
 [`PUBLIC_URL`](../configuration/reference.md#public_url), the server makes links only from the
 address a request came in on, and only when that is a home-network name: `localhost`, a private
 address such as `192.168.1.20`, a name with no dot, or one under `.local`, `.lan`, `.home.arpa` or
-`.internal`. On any other address (a public name such as `tasks.example.com`), sign-in links and
+`.internal`. Tailscale and NetBird addresses count too: a `100.x` address from either, a Tailscale
+`fd7a:` address, and their default names under `.ts.net`, `.netbird.cloud` and `.netbird.selfhosted`.
+A custom tailnet, Headscale or NetBird domain cannot be told from a public name, so set `PUBLIC_URL`
+for it. With Tailscale Funnel the server is reachable from the internet: set `PUBLIC_URL` to its
+`https://<name>.ts.net` address, as for any public server. On any other address (a public name such as `tasks.example.com`), sign-in links and
 invites are refused with `409 public_url_required`, because a request can claim any address and a
 link must not lead somewhere else. Set `PUBLIC_URL` to the address people open, such as
 `https://tasks.example.com`, and restart. On a home-network name, links work without it. Friend
