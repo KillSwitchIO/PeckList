@@ -252,9 +252,9 @@ describe('task details', () => {
       expect(screen.getAllByRole('button', { name: 'Open Undated' })).toHaveLength(1);
       expect(screen.queryByRole('button', { name: 'Open Not pinned' })).toBeNull();
     }
-    // Pinned undated tasks are not today's work: Today still says it is punched out.
+    // Pinned undated tasks are not today's work: Today still says it is pecked out.
     await userEvent.click(within(nav).getByRole('button', { name: /^Today/ }));
-    expect(await screen.findByText('All punched out.')).toBeInTheDocument();
+    expect(await screen.findByText('All pecked out.')).toBeInTheDocument();
   });
 
   it('opens the notes in the full editor, with the formatting toolbar, and keeps what was typed', async () => {

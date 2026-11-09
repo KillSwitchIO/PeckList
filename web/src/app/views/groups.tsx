@@ -261,7 +261,7 @@ export function GroupedTasks({
           : null;
   const groups = grouped && inOrder(grouped, groupsReversed);
   // Every pinned task of `tasks` is in `open` too, so empty means nothing of the view's own is
-  // open: pinned undated tasks on top (pinnedOnly) don't stop Today from being punched out.
+  // open: pinned undated tasks on top (pinnedOnly) don't stop Today from being pecked out.
   useNoteEmpty(open.length === 0);
   return (
     <TaskDragProvider>

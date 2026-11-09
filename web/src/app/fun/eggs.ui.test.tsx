@@ -65,14 +65,14 @@ describe('easter eggs in the app (R-FB-122)', () => {
     expect(await findLine('Mess Drawer empty!', {}, { timeout: 5000 })).toBeInTheDocument();
   });
 
-  it('five completions in a row bring Punchy out', async () => {
+  it('five completions in a row bring Pecky out', async () => {
     await withTasks(['One', 'Two', 'Three', 'Four', 'Five']);
     for (const title of ['One', 'Two', 'Three', 'Four', 'Five']) {
       await userEvent.click(
         await screen.findByRole('checkbox', { name: new RegExp(`^Complete ${title}`) }),
       );
     }
-    expect(await findLine('Punchy says: 5 in a row!')).toBeInTheDocument();
+    expect(await findLine('Pecky says: 5 in a row!')).toBeInTheDocument();
   });
 
   it('a task called clickety clack starts typewriter mode', async () => {
@@ -162,7 +162,7 @@ describe('easter eggs in the app (R-FB-122)', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Mess Drawer' }));
     await screen.findByRole('heading', { level: 1, name: 'Mess Drawer' });
     await userEvent.click(screen.getByRole('button', { name: 'Today' }));
-    await screen.findByText('All punched out.');
+    await screen.findByText('All pecked out.');
     expect(eggs.filter((egg) => egg === 'fireworks')).toHaveLength(1);
     stop();
   });

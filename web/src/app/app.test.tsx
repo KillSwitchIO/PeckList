@@ -18,7 +18,7 @@ describe('app shell', () => {
     mockViewport('desktop');
     await renderApp('/');
     expect(screen.getByRole('heading', { level: 1, name: 'Today' })).toBeInTheDocument();
-    expect(screen.getByText('All punched out.')).toBeInTheDocument();
+    expect(screen.getByText('All pecked out.')).toBeInTheDocument();
   });
 
   it('shows the permanent sidebar on desktop and navigates', async () => {

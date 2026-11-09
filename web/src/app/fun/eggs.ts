@@ -33,7 +33,7 @@ export const EGGS: readonly { egg: Egg; trigger: string }[] = [
   },
   { egg: 'duck', trigger: 'Posting the comment "quack"' },
   { egg: 'wink', trigger: 'Tapping Today 5 times quickly' },
-  { egg: 'disco', trigger: 'Picking 5 palettes within 20 seconds' },
+  { egg: 'disco', trigger: 'Picking 5 palettes in a row, each within half a second of the last' },
   { egg: 'season', trigger: 'Pulling to refresh 3 times in a row' },
   { egg: 'trophy', trigger: 'Emptying the Mess Drawer' },
   { egg: 'matrix', trigger: '"follow the white rabbit" in search' },
