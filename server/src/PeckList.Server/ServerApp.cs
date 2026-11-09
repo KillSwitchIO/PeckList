@@ -157,7 +157,12 @@ public static partial class ServerApp
         });
 
         var app = builder.Build();
-        if (loaded.PageProblem is { } problem)
+        if (loaded.PageLeftOut is { Count: > 0 } leftOut)
+        {
+            app.Logger.LogError("Some settings saved on the admin page were not used ({Settings}); the rest were: {Problem}",
+                string.Join(", ", leftOut), loaded.PageProblem);
+        }
+        else if (loaded.PageProblem is { } problem)
         {
             app.Logger.LogError("Settings saved on the admin page were not used: {Problem}", problem);
         }

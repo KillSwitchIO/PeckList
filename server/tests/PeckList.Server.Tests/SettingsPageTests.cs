@@ -204,6 +204,29 @@ public sealed class SettingsPageTests(ServerFixture fixture) : IClassFixture<Ser
     }
 
     [Fact]
+    public async Task One_saved_value_that_does_not_work_leaves_out_only_that_one()
+    {
+        var db = fixture.NewDbPath();
+        using (var first = Server(db)) await Admin(first);
+        var secrets = new SqlSecretStore(new SqliteDatabase(db));
+        await secrets.PutAsync(SettingsLoader.PageKind, "SNAPSHOT_KEEP", "0", Token);
+        await secrets.PutAsync(SettingsLoader.PageKind, "SIGNUP_RATE_LIMIT", "lots", Token);
+        await secrets.PutAsync(SettingsLoader.PageKind, "ROLE_MAP_RENEW_DAYS", "3", Token);
+        await secrets.PutAsync(SettingsLoader.PageKind, "ATTACHMENT_MAX_MB", "7", Token);
+
+        using var server = Server(db);
+        var settings = server.Services.GetRequiredService<ServerSettings>();
+        // The two that work are used; the two that do not fall back to their defaults.
+        Assert.Equal((3, 7), (settings.RoleMapRenewDays, settings.AttachmentMaxMb));
+        Assert.Equal((7, 5), (settings.SnapshotKeep, settings.SignUpRateLimit));
+        var loaded = server.Services.GetRequiredService<LoadedSettings>();
+        Assert.Equal(["SIGNUP_RATE_LIMIT", "SNAPSHOT_KEEP"], loaded.PageLeftOut);
+        var view = (await (await Admin(server)).GetFromJsonAsync<SettingsView>("/api/admin/settings", Token))!;
+        Assert.Contains("SNAPSHOT_KEEP", view.Problem);
+        Assert.Contains("SIGNUP_RATE_LIMIT", view.Problem);
+    }
+
+    [Fact]
     public async Task A_config_file_sits_between_the_environment_and_the_page()
     {
         var key = ConfigCipher.NewKeyText();
