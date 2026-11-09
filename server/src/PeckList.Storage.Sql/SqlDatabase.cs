@@ -48,6 +48,12 @@ public abstract class SqlDatabase : IDatabase
         await SqlMigrations.RunAsync(connection, GetType().Assembly, cancellation);
     }
 
+    public async Task<(int Database, int Known)?> NewerSchemaAsync(CancellationToken cancellation = default)
+    {
+        await using var connection = await OpenAsync(cancellation);
+        return await SqlMigrations.NewerAsync(connection, GetType().Assembly, cancellation);
+    }
+
     public async Task<bool> IsEmptyAsync(CancellationToken cancellation = default)
     {
         await using var connection = await OpenAsync(cancellation);

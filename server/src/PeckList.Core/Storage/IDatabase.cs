@@ -6,6 +6,12 @@ public interface IDatabase
     /// <summary>Create or upgrade the schema of every store.</summary>
     Task MigrateAsync(CancellationToken cancellation = default);
 
+    /// <summary>
+    /// When a newer version upgraded this database: the schema it holds and the newest this version
+    /// knows. Null otherwise, or when it has no schema yet. Reads only.
+    /// </summary>
+    Task<(int Database, int Known)?> NewerSchemaAsync(CancellationToken cancellation = default);
+
     /// <summary>Whether the database answers (health check).</summary>
     Task<bool> PingAsync(CancellationToken cancellation = default);
 

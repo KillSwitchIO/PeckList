@@ -1,0 +1,50 @@
+using Dapper;
+using Microsoft.Extensions.DependencyInjection;
+using PeckList.Core.Storage;
+using PeckList.Storage.Sqlite;
+
+namespace PeckList.Server.Tests;
+
+/// <summary>An older server on a database a newer one upgraded stops with one line, before it starts.</summary>
+public sealed class NewerDatabaseTests : IDisposable
+{
+    private static CancellationToken Token => TestContext.Current.CancellationToken;
+
+    private readonly string folder = Directory.CreateTempSubdirectory("pecklist-newer-").FullName;
+
+    public void Dispose()
+    {
+        Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools();
+        Directory.Delete(folder, recursive: true);
+    }
+
+    private static IServiceProvider With(IDatabase database) =>
+        new ServiceCollection().AddSingleton(database).BuildServiceProvider();
+
+    [Fact]
+    public async Task A_database_a_newer_version_upgraded_gives_one_line_to_stop_with()
+    {
+        var database = new SqliteDatabase(Path.Combine(folder, "pecklist.db"));
+        await database.MigrateAsync(Token);
+        Assert.Null(await StartupChecks.NewerDatabaseAsync(With(database), cancellation: Token));
+
+        await using (var connection = await database.OpenAsync(Token))
+        {
+            await connection.ExecuteAsync("INSERT INTO schema_migrations (version, applied_at) VALUES (99999, 'from a newer version')");
+        }
+        var line = await StartupChecks.NewerDatabaseAsync(With(database), cancellation: Token);
+
+        Assert.NotNull(line);
+        Assert.Contains("upgraded by a newer PeckList (schema 99999", line);
+        Assert.Contains("restore a backup from before the upgrade", line);
+        Assert.DoesNotContain("\n", line);
+    }
+
+    [Fact]
+    public async Task A_new_database_or_one_that_cannot_be_opened_is_left_to_the_normal_start()
+    {
+        Assert.Null(await StartupChecks.NewerDatabaseAsync(With(new SqliteDatabase(Path.Combine(folder, "new.db"))), cancellation: Token));
+        Assert.Null(await StartupChecks.NewerDatabaseAsync(
+            With(new SqliteDatabase(Path.Combine(folder, "no such folder", "pecklist.db"))), cancellation: Token));
+    }
+}

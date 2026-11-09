@@ -29,6 +29,30 @@ public abstract class MigrationContract
         Assert.Contains("upgraded by a newer PeckList", error.Message);
         Assert.Contains("99999", error.Message);
     }
+
+    [Fact]
+    public async Task The_newer_schema_check_reads_what_a_newer_version_left_and_changes_nothing()
+    {
+        var database = await CreateAsync();
+        var token = TestContext.Current.CancellationToken;
+        Assert.Null(await database.NewerSchemaAsync(token));
+
+        await using (var connection = await database.OpenAsync(token))
+        {
+            await connection.ExecuteAsync("INSERT INTO schema_migrations (version, applied_at) VALUES (99999, 'from a newer version')");
+        }
+        var newer = await database.NewerSchemaAsync(token);
+        Assert.NotNull(newer);
+        Assert.Equal(99999, newer.Value.Database);
+        Assert.True(newer.Value.Known is > 0 and < 99999);
+
+        // A database with no schema yet: nothing to say.
+        await using (var connection = await database.OpenAsync(token))
+        {
+            await connection.ExecuteAsync("DROP TABLE schema_migrations");
+        }
+        Assert.Null(await database.NewerSchemaAsync(token));
+    }
 }
 
 public sealed class SqliteMigrationTests(SqliteFiles files) : MigrationContract, IClassFixture<SqliteFiles>
