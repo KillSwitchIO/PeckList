@@ -168,7 +168,8 @@ Reach for these before writing another copy:
   a sandbox, HTML pages built with `WebUtility.HtmlEncode` on every value, return URLs through
   `ReturnUrls.Safe`, and HSTS behind a trusted proxy. The recommended proxy config is
   `reverse_proxy` alone; do not move protections to the proxy.
-- **Secrets**: tokens are stored hashed (`Tokens.Hash`), page-saved settings are encrypted at
+- **Secrets**: tokens are stored hashed (`Tokens.Hash`); a one-time token is taken in one step
+  (`ISecretStore.TakeAsync`) when used, and expired ones are pruned daily; page-saved settings are encrypted at
   rest, logs and audit details go through `Redaction`, the admin pages show `********` for a
   secret whether or not it is set, backups are treated like the database (they hold password
   hashes and signing keys, so whole-server backups are super-admin only).

@@ -83,7 +83,7 @@ public sealed class CrashReporting(
             if (value.Length == 0) continue;
             var report = JsonSerializer.Deserialize<CrashReport>(value, Json);
             if (report is not null) await sender.SendAsync(Url, report, cancellation);
-            await secrets.PutAsync(QueueKind, name, "", cancellation);
+            await secrets.DeleteAsync(QueueKind, name, cancellation);
         }
     }
 

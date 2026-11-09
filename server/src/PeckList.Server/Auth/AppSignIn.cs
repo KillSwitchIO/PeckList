@@ -163,15 +163,32 @@ public static partial class AppSignIn
         where T : class
     {
         if (code.Length is 0 or > 100) return null;
-        var key = Tokens.Hash(code);
-        var stored = (await secrets.ListAsync(kind, cancellation)).FirstOrDefault(each => each.Name == key).Value;
+        // Taken, not marked: a used code leaves no row, and two tries at once cannot both have it.
+        var stored = await secrets.TakeAsync(kind, Tokens.Hash(code), cancellation);
         if (string.IsNullOrEmpty(stored)) return null;
-        await secrets.PutAsync(kind, key, "", cancellation);
         try
         {
             return JsonSerializer.Deserialize<T>(protection.CreateProtector(Purpose).Unprotect(stored));
         }
         catch (CryptographicException)
+        {
+            return null;
+        }
+    }
+
+    /// <summary>When a stored hand-off or link code runs out; null when it cannot be read.</summary>
+    public static DateTimeOffset? ExpiresOf(IDataProtectionProvider protection, string stored) =>
+        ProtectedExpiry(protection.CreateProtector(Purpose), stored);
+
+    /// <summary>The <c>Expires</c> of a protected JSON value; null when it cannot be read.</summary>
+    public static DateTimeOffset? ProtectedExpiry(IDataProtector protector, string stored)
+    {
+        try
+        {
+            using var json = JsonDocument.Parse(protector.Unprotect(stored));
+            return json.RootElement.TryGetProperty("Expires", out var expires) && expires.TryGetDateTimeOffset(out var at) ? at : null;
+        }
+        catch (Exception error) when (error is CryptographicException or JsonException or FormatException)
         {
             return null;
         }

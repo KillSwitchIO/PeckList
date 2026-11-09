@@ -129,6 +129,8 @@ public static partial class ServerApp
         builder.Services.AddHostedService(provider => provider.GetRequiredService<Audit.AuditLog>());
         builder.Services.AddHostedService<Audit.AuditRetention>();
         builder.Services.AddSingleton<AccountRemoval>();
+        builder.Services.AddSingleton<Auth.OneTimeSecretPrune>();
+        builder.Services.AddHostedService(provider => provider.GetRequiredService<Auth.OneTimeSecretPrune>());
         builder.Services.AddHostedService(provider => provider.GetRequiredService<AccountRemoval>());
         builder.Services.AddResponseHardening();
         builder.Services.AddDemoMode(settings);

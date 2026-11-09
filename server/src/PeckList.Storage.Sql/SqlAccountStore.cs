@@ -182,4 +182,26 @@ public sealed class SqlSecretStore(SqlDatabase database) : ISecretStore
             new { kind, name, value },
             cancellationToken: cancellation));
     }
+
+    public async Task<string?> GetAsync(string kind, string name, CancellationToken cancellation = default)
+    {
+        await using var connection = await database.OpenAsync(cancellation);
+        return await connection.QuerySingleOrDefaultAsync<string?>(new CommandDefinition(
+            "SELECT value FROM server_secrets WHERE kind = @kind AND name = @name", new { kind, name }, cancellationToken: cancellation));
+    }
+
+    public async Task<string?> TakeAsync(string kind, string name, CancellationToken cancellation = default)
+    {
+        await using var connection = await database.OpenAsync(cancellation);
+        // One statement: the row goes to whichever caller deletes it, never to two.
+        return await connection.QuerySingleOrDefaultAsync<string?>(new CommandDefinition(
+            "DELETE FROM server_secrets WHERE kind = @kind AND name = @name RETURNING value", new { kind, name }, cancellationToken: cancellation));
+    }
+
+    public async Task DeleteAsync(string kind, string name, CancellationToken cancellation = default)
+    {
+        await using var connection = await database.OpenAsync(cancellation);
+        await connection.ExecuteAsync(new CommandDefinition(
+            "DELETE FROM server_secrets WHERE kind = @kind AND name = @name", new { kind, name }, cancellationToken: cancellation));
+    }
 }

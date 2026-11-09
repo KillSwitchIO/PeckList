@@ -96,4 +96,16 @@ public interface ISecretStore
 
     /// <summary>Add or replace a value.</summary>
     Task PutAsync(string kind, string name, string value, CancellationToken cancellation = default);
+
+    /// <summary>One value by its kind and name (the table's key, so no list is read), or null.</summary>
+    Task<string?> GetAsync(string kind, string name, CancellationToken cancellation = default);
+
+    /// <summary>
+    /// Remove a value and return it, in one step: of two callers at once, only one gets it. Null when
+    /// there was none. For one-time tokens, so a used one leaves nothing behind (audit S14).
+    /// </summary>
+    Task<string?> TakeAsync(string kind, string name, CancellationToken cancellation = default);
+
+    /// <summary>Remove a value; nothing happens when there is none.</summary>
+    Task DeleteAsync(string kind, string name, CancellationToken cancellation = default);
 }
