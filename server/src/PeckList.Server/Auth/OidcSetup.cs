@@ -176,8 +176,21 @@ public static class OidcSetup
 
         // A one-time sign-in link from an admin.
         // It stays the way back in while LOCAL_LOGIN=disabled (pecklist admin login-link); then no
-        // password is asked for, so a temporary one cannot stand in the way.
-        auth.MapGet("/link/{token}", async (string token, LoginLinks links, LiveSettings live, HttpContext context) =>
+        // password is asked for, so a temporary one cannot stand in the way. Opening it only asks
+        // (a link preview or a prefetch must not use it up); the button posts, and that signs in (S11).
+        auth.MapGet("/link/{token}", (string token, HttpContext context) =>
+        {
+            var headers = context.Response.Headers;
+            headers.ContentSecurityPolicy = "default-src 'none'; style-src 'unsafe-inline'; form-action 'self'; frame-ancestors 'none'; base-uri 'none'";
+            headers.XFrameOptions = "DENY";
+            headers.CacheControl = "no-store";
+            headers["Referrer-Policy"] = "same-origin";
+            return Results.Content(AppSignIn.ConfirmationPage(
+                "Sign in to PeckList?",
+                "This one-time link from an admin signs you in. It works once. If you did not expect it, close this tab.",
+                $"/auth/link/{Uri.EscapeDataString(token)}"), "text/html; charset=utf-8");
+        });
+        auth.MapPost("/link/{token}", async (string token, LoginLinks links, LiveSettings live, HttpContext context) =>
         {
             if (await links.RedeemAsync(token, context.RequestAborted) is not { } account)
             {
