@@ -37,6 +37,12 @@ catch (Exception error) when (error is SettingsException or FormatException)
     await Console.Error.WriteLineAsync(error.Message);
     return 2;
 }
+// A database a newer version upgraded: one line and exit code 1, before anything starts on it.
+if (await StartupChecks.NewerDatabaseAsync(app.Services) is { } newer)
+{
+    await Console.Error.WriteLineAsync(newer);
+    return 1;
+}
 try
 {
     app.Run();

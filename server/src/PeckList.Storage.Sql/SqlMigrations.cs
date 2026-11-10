@@ -36,6 +36,24 @@ public static partial class SqlMigrations
         return migrations;
     }
 
+    /// <summary>The schema a newer version left and the newest this one knows, or null (reads only).</summary>
+    public static async Task<(int Database, int Known)?> NewerAsync(DbConnection connection, Assembly assembly, CancellationToken cancellation)
+    {
+        int? newest;
+        try
+        {
+            newest = await connection.ExecuteScalarAsync<int?>(new CommandDefinition(
+                "SELECT MAX(version) FROM schema_migrations", cancellationToken: cancellation));
+        }
+        catch (DbException)
+        {
+            // No schema_migrations yet: a new database.
+            return null;
+        }
+        var known = Load(assembly).Count;
+        return newest is { } database && database > known ? (database, known) : null;
+    }
+
     public static async Task RunAsync(DbConnection connection, Assembly assembly, CancellationToken cancellation)
     {
         await connection.ExecuteAsync(new CommandDefinition(
@@ -66,6 +84,10 @@ public static partial class SqlMigrations
 }
 
 /// <summary>The database holds migrations this version does not know: a newer version upgraded it.</summary>
-public sealed class NewerDatabaseException(int database, int known) : Exception(
-    $"This database was upgraded by a newer PeckList (schema {database}; this version knows up to {known}). "
-    + "Run the newer version, or restore a backup into an empty database for this one: see Upgrading, If something goes wrong.");
+public sealed class NewerDatabaseException(int database, int known) : Exception(Text(database, known))
+{
+    /// <summary>What the server says, in one line, when it will not start on such a database.</summary>
+    public static string Text(int database, int known) =>
+        $"This database was upgraded by a newer PeckList (schema {database}; this version knows up to {known}). "
+        + "Run that version or newer, or restore a backup from before the upgrade into an empty database: see Upgrading, If something goes wrong.";
+}

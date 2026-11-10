@@ -14,6 +14,11 @@ folder is not writable by the container's user (uid 1654). With a bind mount:
 `sudo chown -R 1654:1654 ./data`, or run as your own user (`user: "1000:1000"`). On Linux native:
 `sudo chown -R pecklist:pecklist /var/lib/pecklist`.
 
+**`This database was upgraded by a newer PeckList`.** The server stops with exit code 1 rather
+than run on a schema it does not know. Run the version that upgraded it (or newer), or restore a
+backup from before the upgrade into an empty database: see
+[If something goes wrong](upgrading.md#if-something-goes-wrong).
+
 **Port already in use.** Another program has 8080. Map another host port (`-p 9000:8080`), or set
 `ASPNETCORE_HTTP_PORTS`.
 
