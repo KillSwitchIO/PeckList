@@ -79,7 +79,9 @@ links still work meanwhile: the Friends page builds them from the address you op
 
 **Changes from another device take a while to show.** Live updates come over `/api/events`. A proxy
 that buffers it delays them (the app still syncs every 30 seconds and on focus). See
-[reverse proxy](../install/reverse-proxy.md#what-the-proxy-must-do).
+[reverse proxy](../install/reverse-proxy.md#what-the-proxy-must-do). One account gets live updates
+on at most 25 tabs and devices at once; any more fall back to the sync timer and reconnect on a
+later sync once another stream closes.
 
 **"Install app" is missing, or offline does not work.** Browsers allow both only on HTTPS (or
 `localhost`).

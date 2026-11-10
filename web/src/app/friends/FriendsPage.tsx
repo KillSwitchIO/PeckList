@@ -27,7 +27,7 @@ import {
   unfriend,
   type Friend,
 } from '../../core/sharing.ts';
-import type { ProfilePreview } from '../../ports/sync.ts';
+import { TooManyRequests, waitText, type ProfilePreview } from '../../ports/sync.ts';
 import { copyOrSelect } from '../copy.ts';
 import { CopyByHand } from '../CopyByHand.tsx';
 import { t } from '../i18n/i18n.ts';
@@ -38,6 +38,7 @@ import { useApply, useStoreState, useWorkspace } from '../store/hooks.ts';
 import { useSyncState } from '../sync/syncContext.ts';
 import { Avatar } from './Avatar.tsx';
 import { Groups } from './Groups.tsx';
+import { tooManyText } from './tooMany.ts';
 import { QrCode } from './QrCode.tsx';
 import { WhatYouShare } from './WhatYouShare.tsx';
 
@@ -177,12 +178,24 @@ function AddFriend() {
   const apply = useApply();
   const [query, setQuery] = useState('');
   const [found, setFound] = useState<ProfilePreview | null | undefined>(undefined);
+  const [problem, setProblem] = useState<string | null>(null);
   const [asked, setAsked] = useState(false);
 
   const find = async (event: FormEvent) => {
     event.preventDefault();
     setAsked(false);
-    setFound(await friends.lookup(query.trim()));
+    setProblem(null);
+    try {
+      setFound(await friends.lookup(query.trim()));
+    } catch (error) {
+      // Too many lookups this minute (audit S13), or no answer: say so, never fail silently.
+      setFound(undefined);
+      setProblem(
+        error instanceof TooManyRequests
+          ? waitText(error, (minutes) => tooManyText(minutes))
+          : t('friends.lookupFailed'),
+      );
+    }
   };
 
   return (
@@ -195,6 +208,7 @@ function AddFriend() {
           onChange={(event) => {
             setQuery(event.target.value);
             setFound(undefined);
+            setProblem(null);
           }}
           slotProps={{ htmlInput: { autoCapitalize: 'none', spellCheck: false } }}
           sx={{ flexGrow: 1 }}
@@ -206,6 +220,11 @@ function AddFriend() {
       {found === null && (
         <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
           {t('friends.notFound')}
+        </Typography>
+      )}
+      {problem && (
+        <Typography role="status" variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+          {problem}
         </Typography>
       )}
       {found && (

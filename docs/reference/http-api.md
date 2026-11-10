@@ -89,7 +89,8 @@ does. Every admin route needs the matching [role](../guides/users-and-roles.md#r
 `/auth/password` answer `403 local_login_disabled`. A
 refused sign-up answers `403` (`registration_closed`, `invite_required`, `local_login_disabled`),
 `409 username_taken` or `400` (`invalid_username`, `too_short`, `invite_invalid`). Sign-up shares
-the sign-in rate limit.
+the sign-in rate limit, and so do using a one-time sign-in link (`POST /auth/link/{token}`) and
+the app's hand-off code (`POST /auth/app/redeem`).
 
 ## The app
 
@@ -102,6 +103,12 @@ the sign-in rate limit.
 | `GET /api/notifications`, `POST .../read`, `.../clear` | Your notifications; mark read or clear (`{"ids": [...]}`, or `null` for all) |
 | `GET /api/tasks/{id}/history`                        | A task's changes, newest first: `at`, `actorId`, `field`, `before`, `after` (JSON values); 404 for a task you cannot see |
 | `GET /api/push/key`, `POST /api/push/subscriptions`, `POST /api/push/unsubscribe` | Web Push: the server's VAPID key, this browser's subscription |
+
+Finding someone by name (`/api/users/lookup`) and opening or accepting a friend link
+(`/api/friends/link/{code}`) share a limit of 30 requests a minute per account; saving the settings
+page (`PUT /api/admin/settings`) has its own 30 a minute. Past it they answer `429` with
+`Retry-After`. An account holds at most 25 `/api/events` streams at once: one more answers `429`,
+and that device syncs on its timer instead until a later sync finds a place free.
 
 ## Admin (`/api/admin`)
 

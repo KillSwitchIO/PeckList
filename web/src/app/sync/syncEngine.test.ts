@@ -354,6 +354,23 @@ describe('sync engine', () => {
     }
   });
 
+  it('opens live updates again after a sync once the stream ended for good', async () => {
+    const backend = new FakeBackend();
+    backend.addAccount('ben', 'correct horse battery');
+    const laptop = await device(backend, 'laptop');
+    await laptop.engine.getState().start();
+    await laptop.engine.getState().signIn('ben', 'correct horse battery');
+    expect(backend.listeners.size).toBe(1);
+    // The stream cap's 429, or a proxy's 502 during a deploy.
+    backend.endStreams();
+    expect(backend.listeners.size).toBe(0);
+    await laptop.engine.getState().syncNow();
+    expect(backend.listeners.size).toBe(1);
+    // A sync while it is open opens no second one.
+    await laptop.engine.getState().syncNow();
+    expect(backend.listeners.size).toBe(1);
+  });
+
   it('starts over when a sync has hung, instead of queueing behind it forever', async () => {
     const backend = new FakeBackend();
     backend.addAccount('ben', 'correct horse battery');

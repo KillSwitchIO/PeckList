@@ -23,9 +23,10 @@ public interface IChangeNotifier
 
     /// <summary>
     /// Start hearing about <paramref name="userId"/>'s changes now: anything notified after this call
-    /// returns is queued, so announce the stream as open only after subscribing.
+    /// returns is queued, so announce the stream as open only after subscribing. Null when the user
+    /// already has <paramref name="most"/> open.
     /// </summary>
-    IChangeSubscription Subscribe(string userId);
+    IChangeSubscription? Subscribe(string userId, int most = int.MaxValue);
 }
 
 /// <summary>Within one server process.</summary>
@@ -39,13 +40,18 @@ public sealed class InProcessChangeNotifier : IChangeNotifier
         foreach (var channel in channels.Values) channel.Writer.TryWrite(change);
     }
 
-    public IChangeSubscription Subscribe(string userId)
+    public IChangeSubscription? Subscribe(string userId, int most = int.MaxValue)
     {
         // A slow reader only needs to know that something changed: keep the latest few.
         var channel = Channel.CreateBounded<ChangeEvent>(new BoundedChannelOptions(4) { FullMode = BoundedChannelFullMode.DropOldest });
         var id = Guid.NewGuid();
         var channels = subscribers.GetOrAdd(userId, _ => new());
-        channels[id] = channel;
+        // Counting and adding together, so two opening at once cannot both take the last place.
+        lock (channels)
+        {
+            if (channels.Count >= most) return null;
+            channels[id] = channel;
+        }
         return new Subscription(channel.Reader, () =>
         {
             channels.TryRemove(id, out _);

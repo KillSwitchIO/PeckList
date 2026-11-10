@@ -25,6 +25,13 @@ public static class AuthSetup
 {
     public const string NoLoginScheme = "none";
     public const string LoginRateLimit = "login";
+    /// <summary>Per account: lookups by name or friend code, and saving the settings page (audit S13).</summary>
+    public const string AccountRateLimit = "account";
+
+    /// <summary>The admin settings save: its own <see cref="AccountPerMinute"/> a minute, so other use never fails a save.</summary>
+    public const string SettingsRateLimit = "settings";
+    /// <summary>How many <see cref="AccountRateLimit"/> requests an account may make a minute.</summary>
+    public const int AccountPerMinute = 30;
     public const string StampClaim = "stamp";
     public const string MustChangeClaim = "must_change_password";
 
@@ -129,6 +136,18 @@ public static class AuthSetup
             options.AddPolicy(LoginRateLimit, context => RateLimitPartition.GetFixedWindowLimiter(
                 context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
                 _ => new FixedWindowRateLimiterOptions { PermitLimit = 10, Window = TimeSpan.FromMinutes(1) }));
+            // Thirty a minute per account, shared by the endpoints that take it: far more than a person
+            // typing, far too few to walk through names or friend codes (audit S13).
+            options.AddPolicy(AccountRateLimit, context => RateLimitPartition.GetFixedWindowLimiter(
+                context.User.Identity?.IsAuthenticated == true
+                    ? "account:" + context.User.UserId()
+                    : "address:" + (context.Connection.RemoteIpAddress?.ToString() ?? "unknown"),
+                _ => new FixedWindowRateLimiterOptions { PermitLimit = AccountPerMinute, Window = TimeSpan.FromMinutes(1) }));
+            options.AddPolicy(SettingsRateLimit, context => RateLimitPartition.GetFixedWindowLimiter(
+                "settings:" + (context.User.Identity?.IsAuthenticated == true
+                    ? context.User.UserId()
+                    : context.Connection.RemoteIpAddress?.ToString() ?? "unknown"),
+                _ => new FixedWindowRateLimiterOptions { PermitLimit = AccountPerMinute, Window = TimeSpan.FromMinutes(1) }));
         });
         return services;
     }

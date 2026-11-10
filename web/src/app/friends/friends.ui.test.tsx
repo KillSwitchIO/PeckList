@@ -99,6 +99,37 @@ describe('friends page', () => {
     }
   });
 
+  it('says when there were too many lookups, and how long to wait (audit S13)', async () => {
+    const backend = new FakeBackend();
+    backend.addAccount('sam', 'sams own password');
+    backend.tooManyLookups = null;
+    await signedIn('/friends', backend);
+    const add = screen.getByRole('region', { name: 'Add a friend' });
+    await userEvent.type(within(add).getByLabelText('Their exact username'), 'sam{Enter}');
+    expect(
+      await within(add).findByText('Too many lookups. Try again in a minute.'),
+    ).toBeInTheDocument();
+    backend.tooManyLookups = 150;
+    await userEvent.click(within(add).getByRole('button', { name: 'Find' }));
+    expect(
+      await within(add).findByText('Too many lookups. Try again in 3 minutes.'),
+    ).toBeInTheDocument();
+    backend.tooManyLookups = undefined;
+    await userEvent.click(within(add).getByRole('button', { name: 'Find' }));
+    expect(
+      await within(add).findByRole('button', { name: 'Ask to be friends' }),
+    ).toBeInTheDocument();
+    expect(within(add).queryByText(/Too many lookups/)).toBeNull();
+  });
+
+  it('says a friend link was opened too often, not that it is gone (audit S13)', async () => {
+    const backend = new FakeBackend();
+    backend.addAccount('sam', 'sams own password');
+    backend.tooManyLookups = 30;
+    await signedIn('/f/SAM', backend);
+    expect(await screen.findByText('Too many lookups. Try again in a minute.')).toBeInTheDocument();
+  });
+
   it('says which admin made a friendship', async () => {
     const backend = new FakeBackend();
     const ben = backend.addAccount('ben', 'correct horse battery');

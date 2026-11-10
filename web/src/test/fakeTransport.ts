@@ -4,6 +4,7 @@ import type { Snooze } from '../core/reminders.ts';
 import { CURRENT_SCHEMA_VERSION } from '../core/migrations.ts';
 import {
   SyncFailure,
+  TooManyRequests,
   type Account,
   type AccountEmail,
   type ClientReport,
@@ -55,6 +56,8 @@ export class FakeBackend {
   readonly invalid = new Map<string, 'invalid_change' | 'clock_drift'>();
   /** No PUBLIC_URL on a public name: friend codes come without a link (S16). */
   noLinks = false;
+  /** Lookups and friend links answer 429 (audit S13), with this Retry-After; undefined: they don't. */
+  tooManyLookups: number | null | undefined = undefined;
   /** The server's time sent with every sync (ms since epoch); null sends none. */
   serverTime: number | null = null;
   /** Each person's snoozes (audit B3), by username. */
@@ -168,7 +171,19 @@ export class FakeBackend {
   /** The newest release the server knows of (tests set it). */
   latestRelease: { version: string; url: string } | null = null;
   /** Event listeners of every device, by account username. */
-  readonly listeners = new Set<{ username: string; onChange: (change: ChangeEvent) => void }>();
+  readonly listeners = new Set<{
+    username: string;
+    onChange: (change: ChangeEvent) => void;
+    onClosed?: () => void;
+  }>();
+
+  /** Every live-update stream ends for good, as a 429 or a proxy's 502 ends one. */
+  endStreams(): void {
+    for (const listener of [...this.listeners]) {
+      this.listeners.delete(listener);
+      listener.onClosed?.();
+    }
+  }
 
   addAccount(username: string, password: string, extra: Partial<Account> = {}): Account {
     const account: Account = {
@@ -500,6 +515,9 @@ export class FakeTransport implements SyncTransport {
           : `https://pecklist.test/f/${(this.session ?? '').toUpperCase()}`,
       }),
     preview: (code) => {
+      if (this.backend.tooManyLookups !== undefined) {
+        return Promise.reject(new TooManyRequests(this.backend.tooManyLookups));
+      }
       const found = this.backend.accounts.get(code.toLowerCase());
       return Promise.resolve(found ? this.previewOf(found) : null);
     },
@@ -508,13 +526,16 @@ export class FakeTransport implements SyncTransport {
       return Promise.resolve(this.backend.accounts.has(code.toLowerCase()) ? 'F-ACCEPTED' : null);
     },
     lookup: (query) => {
+      if (this.backend.tooManyLookups !== undefined) {
+        return Promise.reject(new TooManyRequests(this.backend.tooManyLookups));
+      }
       const found = this.backend.accounts.get(query.toLowerCase());
       return Promise.resolve(found ? this.previewOf(found) : null);
     },
   };
 
-  events(onChange: (change: ChangeEvent) => void) {
-    const listener = { username: this.session ?? '', onChange };
+  events(onChange: (change: ChangeEvent) => void, onClosed?: () => void) {
+    const listener = { username: this.session ?? '', onChange, ...(onClosed ? { onClosed } : {}) };
     this.backend.listeners.add(listener);
     return () => {
       this.backend.listeners.delete(listener);
