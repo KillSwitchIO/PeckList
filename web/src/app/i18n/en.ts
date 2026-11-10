@@ -1568,6 +1568,8 @@ export const en = {
   'status.error.title': 'PeckList could not open your data',
   'notFound.title': 'Page not found',
   'common.back': 'Back',
+  'copy.press': 'Could not copy. It is selected: press {keys} to copy it.',
+  'copy.hold': 'Could not copy. It is selected: press and hold it to copy.',
   'common.cancel': 'Cancel',
   'common.save': 'Save',
   'common.create': 'Create',

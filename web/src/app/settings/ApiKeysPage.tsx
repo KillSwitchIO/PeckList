@@ -18,9 +18,11 @@ import {
   Tooltip,
   Typography,
 } from '@mui/material';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { addDays, localDayOf, localTimeZone } from '../../core/dates.ts';
 import type { ApiKeyInfo, ApiScope } from '../../ports/sync.ts';
+import { copyOrSelect } from '../copy.ts';
+import { CopyByHand } from '../CopyByHand.tsx';
 import { formatDay } from '../format.ts';
 import { useToday } from '../hooks/useToday.ts';
 import { t } from '../i18n/i18n.ts';
@@ -195,6 +197,8 @@ function NewKeyDialog({
 /** The token, once: copy it now. */
 function TokenDialog({ token, onClose }: { token: string; onClose: () => void }) {
   const [copied, setCopied] = useState(false);
+  const [byHand, setByHand] = useState(false);
+  const field = useRef<HTMLInputElement>(null);
   return (
     <Dialog open onClose={onClose} fullWidth maxWidth="sm">
       <DialogTitle>{t('apiKeys.madeTitle')}</DialogTitle>
@@ -206,6 +210,7 @@ function TokenDialog({ token, onClose }: { token: string; onClose: () => void })
           <TextField
             fullWidth
             value={token}
+            inputRef={field}
             slotProps={{
               htmlInput: {
                 readOnly: true,
@@ -218,10 +223,9 @@ function TokenDialog({ token, onClose }: { token: string; onClose: () => void })
           <Tooltip title={copied ? t('apiKeys.copied') : t('apiKeys.copy')}>
             <IconButton
               aria-label={t('apiKeys.copy')}
-              onClick={() =>
-                void navigator.clipboard?.writeText(token).then(
-                  () => setCopied(true),
-                  () => undefined,
+              onClick={(event) =>
+                void copyOrSelect(token, field.current, event.currentTarget).then((result) =>
+                  result === 'copied' ? setCopied(true) : setByHand(true),
                 )
               }
             >
@@ -229,6 +233,7 @@ function TokenDialog({ token, onClose }: { token: string; onClose: () => void })
             </IconButton>
           </Tooltip>
         </Box>
+        <CopyByHand open={byHand} onClose={() => setByHand(false)} />
         <Typography variant="body2" color="text.secondary" sx={{ mt: 2 }}>
           {t('apiKeys.howToUse')}
         </Typography>

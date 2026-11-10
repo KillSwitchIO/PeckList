@@ -8,7 +8,9 @@ import {
   Tooltip,
   Typography,
 } from '@mui/material';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
+import { copyOrSelect } from '../copy.ts';
+import { CopyByHand } from '../CopyByHand.tsx';
 import { t } from '../i18n/i18n.ts';
 import { CloseIcon, CopyIcon } from '../icons/icons.tsx';
 import { useSyncState } from '../sync/syncContext.ts';
@@ -163,20 +165,27 @@ function Copyable({
   copied: boolean;
   onCopied: () => void;
 }) {
+  const field = useRef<HTMLElement>(null);
+  const [byHand, setByHand] = useState(false);
   return (
     <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.25 }}>
-      <Typography variant="body2" sx={{ fontFamily: 'monospace', userSelect: 'all' }}>
+      <Typography ref={field} variant="body2" sx={{ fontFamily: 'monospace', userSelect: 'all' }}>
         {value}
       </Typography>
       <Tooltip title={copied ? t('demo.copied') : label}>
         <IconButton
           size="small"
           aria-label={label}
-          onClick={() => void navigator.clipboard?.writeText(value).then(onCopied, () => undefined)}
+          onClick={(event) =>
+            void copyOrSelect(value, field.current, event.currentTarget).then((result) =>
+              result === 'copied' ? onCopied() : setByHand(true),
+            )
+          }
         >
           <CopyIcon sx={{ fontSize: 16 }} />
         </IconButton>
       </Tooltip>
+      <CopyByHand open={byHand} onClose={() => setByHand(false)} />
     </Box>
   );
 }

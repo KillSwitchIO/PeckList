@@ -16,7 +16,7 @@ import {
   TextField,
   Typography,
 } from '@mui/material';
-import { useEffect, useState, type FormEvent } from 'react';
+import { useEffect, useRef, useState, type FormEvent } from 'react';
 import {
   acceptFriendship,
   endFriendship,
@@ -28,6 +28,8 @@ import {
   type Friend,
 } from '../../core/sharing.ts';
 import type { ProfilePreview } from '../../ports/sync.ts';
+import { copyOrSelect } from '../copy.ts';
+import { CopyByHand } from '../CopyByHand.tsx';
 import { t } from '../i18n/i18n.ts';
 import { CopyIcon, QrIcon } from '../icons/icons.tsx';
 import { Page } from '../layout/Page.tsx';
@@ -91,6 +93,8 @@ function YourLink() {
   const friends = useSyncState((state) => state.transport.friends)!;
   const [link, setLink] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  const [byHand, setByHand] = useState(false);
+  const field = useRef<HTMLInputElement>(null);
   const [showQr, setShowQr] = useState(false);
   useEffect(() => {
     let live = true;
@@ -109,6 +113,7 @@ function YourLink() {
         <TextField
           size="small"
           value={link ?? ''}
+          inputRef={field}
           slotProps={{ htmlInput: { readOnly: true, 'aria-label': t('friends.yourLink') } }}
           onFocus={(event) => event.target.select()}
           sx={{ flexGrow: 1, minWidth: 240 }}
@@ -117,9 +122,11 @@ function YourLink() {
           variant="outlined"
           startIcon={<CopyIcon />}
           disabled={!link}
-          onClick={() => {
+          onClick={(event) => {
             if (!link) return;
-            void navigator.clipboard?.writeText(link).then(() => setCopied(true));
+            void copyOrSelect(link, field.current, event.currentTarget).then((result) =>
+              result === 'copied' ? setCopied(true) : setByHand(true),
+            );
           }}
         >
           {t('friends.copy')}
@@ -159,6 +166,7 @@ function YourLink() {
         onClose={() => setCopied(false)}
         message={t('friends.copied')}
       />
+      <CopyByHand open={byHand} onClose={() => setByHand(false)} />
     </Section>
   );
 }
