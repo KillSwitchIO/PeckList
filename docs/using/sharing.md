@@ -28,6 +28,8 @@ first (assigning a task to someone you found by name does that for you).
 A group shares lists and chores with several people at once. **New group**, then **Invite a
 friend**; they **Join** from **Group invites**. The owner can **Make owner** someone else. When the
 owner leaves, the next member becomes the owner; when the last member leaves, the group is archived.
+While someone invited has not answered yet, it waits for them instead: the first to accept becomes
+the owner.
 
 **Server groups** are made by an admin and appear here marked as such: you can share with them and
 assign to them, but only admins change who is in them.

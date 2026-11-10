@@ -830,7 +830,9 @@ public sealed class SharingIndex
     /// <summary>
     /// Groups whose owner has left (their membership is deleted and none is active), and what
     /// happens to each: the longest-standing active member takes over, or with nobody left the
-    /// group is archived and the tasks assigned to it lose that assignee.
+    /// group is archived and the tasks assigned to it lose that assignee. With no active member but
+    /// invitations still open, it waits (audit B7): the first to accept takes it, and it is archived
+    /// only once nobody is left to answer.
     /// </summary>
     public IReadOnlyList<GroupSuccession> PendingSuccessions()
     {
@@ -848,6 +850,7 @@ public sealed class SharingIndex
                 .ThenBy(each => each.Id, StringComparer.Ordinal)
                 .Select(each => each.Get("userId"))
                 .FirstOrDefault();
+            if (heir is null && rows.Any(each => !each.Deleted && each.Get("state") == "invited" && each.Get("userId") != owner)) continue;
             var assigned = heir is null
                 ? EachLive(By.Assignee, $"group:{group.Id}").Where(task => task.Collection == "tasks").Select(task => (task.Id, task.Doc)).ToList()
                 : [];
