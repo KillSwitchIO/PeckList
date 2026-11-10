@@ -57,10 +57,24 @@ goes the same way and does not come back. Every role a sign-in changes, up or do
 log as `auth.oidc-role-changed`. The only super admin never loses the role: the server needs one, so
 that sign-in logs a warning and an `auth.oidc-role-kept` audit event instead.
 
-`ROLE_MAP` acts only when someone signs in through that provider. A person taken out of the admin
-group who does not sign in there again keeps the role, through an API key, a password or a passkey.
-To take a role away now, remove them from the group and also lower or disable the account in
+A role from `ROLE_MAP` lasts while that provider keeps renewing it: each sign-in through it does.
+When nobody signs in there for [`ROLE_MAP_RENEW_DAYS`](../configuration/reference.md#role_map_renew_days)
+(14 by default), the role drops to `user`, with an `auth.role-lease-lapsed` audit event and a log
+line. So a person taken out of the admin group who never signs in there again loses the role within
+that time, along with everything that acts with it: their API keys, a password, a passkey, a sign-in
+through a provider with no `ROLE_MAP`. A sign-in that `REQUIRED_GROUPS` refuses renews nothing. A
+role an admin sets by hand, under **Admin > Users** or with `pecklist admin set-role`, is not renewed
+and does not lapse, unless they sign in through a provider whose `ROLE_MAP` then sets it. To keep the
+role someone already has without a lease (an automation account, say), run
+`pecklist admin set-role <name> <role>` with that same role: the menu under **Admin > Users** offers
+only the other roles.
+The only super admin keeps the role, with an `auth.role-lease-kept` event and a warning once a day.
+
+To take a role away at once, remove them from the group and also lower or disable the account in
 PeckList. Both steps matter: lowered by hand only, the next sign-in with the group puts the role back.
+
+Upgrading from a version without renewal, a role a linked provider's `ROLE_MAP` can give starts
+renewal on the first start, counted from that day.
 
 A provider may also send no groups at all. It may have dropped the claim from one sign-in, or it may
 leave the claim out for someone in no groups, as Microsoft Entra ID and Okta reportedly do. PeckList

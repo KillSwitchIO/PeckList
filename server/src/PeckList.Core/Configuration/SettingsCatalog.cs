@@ -50,6 +50,7 @@ public static class SettingsCatalog
         new("LOCAL_LOGIN", "sign-in", SettingKind.Choice, "enabled", ["enabled", "disabled"], Live: true),
         new("PASSKEYS", "sign-in", SettingKind.Choice, "on", ["on", "off"], Live: true),
         new("OIDC_PROVIDERS", "sign-in", SettingKind.List),
+        new("ROLE_MAP_RENEW_DAYS", "sign-in", SettingKind.Number, "14", Live: true),
         new("BACKUP_SCHEDULE", "backups", SettingKind.Choice, "daily", ["off", "hourly", "daily", "weekly"], Live: true),
         new("SNAPSHOT_KEEP", "backups", SettingKind.Number, "7", Live: true),
         new("SNAPSHOT_KEEP_WEEKLY", "backups", SettingKind.Number, "4", Live: true),

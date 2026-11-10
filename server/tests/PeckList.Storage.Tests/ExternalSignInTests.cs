@@ -117,6 +117,22 @@ public sealed class ExternalSignInTests(SqliteFiles files) : IClassFixture<Sqlit
     }
 
     [Fact]
+    public async Task An_approved_role_is_leased_from_when_the_provider_last_saw_them()
+    {
+        var seen = DateTimeOffset.FromUnixTimeSeconds(DateTimeOffset.UtcNow.AddDays(-3).ToUnixTimeSeconds());
+        await identities.PutPendingAsync(new PendingSignIn
+        {
+            Provider = "pocket", Subject = "sub-kim", Username = "kim.lee", Groups = ["pl-admins"], FirstSeen = seen, LastSeen = seen,
+        }, Token);
+        var provider = Pocket(autoCreate: false) with
+        {
+            RoleMap = new Dictionary<string, Role>(StringComparer.OrdinalIgnoreCase) { ["pl-admins"] = Role.Admin },
+        };
+        var approved = (await signIn.ApproveAsync(provider, "sub-kim", Token))!;
+        Assert.Equal((Role.Admin, "pocket", seen), (approved.Role, approved.RoleProvider, approved.RoleRenewedAt));
+    }
+
+    [Fact]
     public async Task A_disabled_account_stays_out()
     {
         var kim = await SignedIn(Pocket(), Kim());
@@ -139,6 +155,69 @@ public sealed class ExternalSignInTests(SqliteFiles files) : IClassFixture<Sqlit
         var other = await accountService.CreateUserAsync("ann", "correct horse battery", Role.SuperAdmin, cancellation: Token);
         Assert.Equal(Role.User, (await SignedIn(provider, Kim("family"))).Role);
         Assert.Equal(Role.SuperAdmin, (await accounts.FindByIdAsync(other.Id, Token))!.Role);
+    }
+
+    [Fact]
+    public async Task A_role_from_the_role_map_is_leased_renewed_at_each_sign_in_and_let_go_when_set_by_hand()
+    {
+        // Audit S10 follow-up R1: the role lasts while sign-ins through the provider renew it.
+        var clock = new MovableClock();
+        var service = new AccountService(accounts, new NoHasher(), clock);
+        var leasing = new ExternalSignIn(accounts, service, identities, groups, secrets, clock);
+        var provider = Pocket() with
+        {
+            RoleMap = new Dictionary<string, Role>(StringComparer.OrdinalIgnoreCase) { ["pl-admins"] = Role.Admin },
+        };
+        await service.CreateUserAsync("ann", "correct horse battery", Role.SuperAdmin, cancellation: Token);
+        async Task<Account> Through(OidcProviderSettings via, params string[] groups) =>
+            Assert.IsType<ExternalSignInResult.Success>(await leasing.SignInAsync(via, Kim(groups), Token)).Account;
+        DateTimeOffset? At(DateTimeOffset at) => at;
+
+        var kim = await Through(provider, "pl-admins");
+        Assert.Equal((Role.Admin, (string?)"pocket", At(clock.Now)), Lease(kim));
+        clock.Now += TimeSpan.FromDays(10);
+        Assert.Equal(At(clock.Now), (await Through(provider, "pl-admins")).RoleRenewedAt);
+        Assert.Equal(At(clock.Now), (await accounts.FindByIdAsync(kim.Id, Token))!.RoleRenewedAt);
+        Assert.Equal(At(clock.Now + TimeSpan.FromDays(14)), RoleLease.Ends((await accounts.FindByIdAsync(kim.Id, Token))!, 14));
+
+        // A second provider with no ROLE_MAP renews nothing.
+        clock.Now += TimeSpan.FromDays(1);
+        var github = Pocket() with { Name = "github" };
+        await identities.LinkAsync(new LinkedIdentity { Provider = "github", Subject = "sub-kim", AccountId = kim.Id, LinkedAt = clock.Now, LastUsedAt = clock.Now }, Token);
+        await Through(github);
+        Assert.Equal(At(clock.Now - TimeSpan.FromDays(1)), (await accounts.FindByIdAsync(kim.Id, Token))!.RoleRenewedAt);
+
+        // Lowered by the map: no lease left. Raised again: a new one.
+        Assert.Equal((Role.User, (string?)null, (DateTimeOffset?)null), Lease(await Through(provider, "family")));
+        Assert.Equal((Role.Admin, (string?)"pocket", At(clock.Now)), Lease(await Through(provider, "pl-admins")));
+        // Set by hand, the same role or another: not leased.
+        Assert.Equal((Role.Admin, (string?)null, (DateTimeOffset?)null), Lease(await service.SetRoleAsync(kim.Id, Role.Admin, Token)));
+        Assert.Null(RoleLease.Ends((await accounts.FindByIdAsync(kim.Id, Token))!, 14));
+
+        static (Role, string?, DateTimeOffset?) Lease(Account account) => (account.Role, account.RoleProvider, account.RoleRenewedAt);
+    }
+
+    [Fact]
+    public async Task A_lease_nobody_renewed_lowers_the_role_once_and_spares_the_last_super_admin()
+    {
+        var clock = new MovableClock();
+        var service = new AccountService(accounts, new NoHasher(), clock);
+        var ann = await service.CreateUserAsync("ann", "correct horse battery", Role.SuperAdmin, cancellation: Token);
+        var kim = await service.CreateUserAsync("kim", "correct horse battery", Role.Admin, cancellation: Token);
+        await accounts.UpdateAsync((await accounts.FindByIdAsync(kim.Id, Token))! with { RoleProvider = "pocket", RoleRenewedAt = clock.Now }, Token);
+
+        // Not yet, and never with 0.
+        Assert.False((await service.LapseRoleAsync(kim.Id, clock.Now + TimeSpan.FromDays(14) - TimeSpan.FromSeconds(1), 14, Token)).Lowered);
+        Assert.False((await service.LapseRoleAsync(kim.Id, clock.Now + TimeSpan.FromDays(400), 0, Token)).Lowered);
+        var (lowered, did) = await service.LapseRoleAsync(kim.Id, clock.Now + TimeSpan.FromDays(14), 14, Token);
+        Assert.True(did);
+        Assert.Equal((Role.User, (string?)null), (lowered.Role, lowered.RoleProvider));
+        Assert.False((await service.LapseRoleAsync(kim.Id, clock.Now + TimeSpan.FromDays(15), 14, Token)).Lowered);
+
+        // The only super admin keeps the role.
+        await accounts.UpdateAsync((await accounts.FindByIdAsync(ann.Id, Token))! with { RoleProvider = "pocket", RoleRenewedAt = clock.Now }, Token);
+        await Assert.ThrowsAsync<LastSuperAdminException>(() => service.LapseRoleAsync(ann.Id, clock.Now + TimeSpan.FromDays(30), 14, Token));
+        Assert.Equal(Role.SuperAdmin, (await accounts.FindByIdAsync(ann.Id, Token))!.Role);
     }
 
     [Fact]
