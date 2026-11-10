@@ -35,6 +35,7 @@ public sealed class SqlIdentityStore(SqlDatabase database) : IIdentityStore
     public async Task LinkAsync(LinkedIdentity identity, CancellationToken cancellation = default)
     {
         await using var connection = await database.OpenAsync(cancellation);
+        await using var transaction = await database.BeginWriteAsync(connection, cancellation);
         try
         {
             await connection.ExecuteAsync(new CommandDefinition(
@@ -43,13 +44,25 @@ public sealed class SqlIdentityStore(SqlDatabase database) : IIdentityStore
                 VALUES (@Provider, @Subject, @AccountId, @Email, @Username, @LinkedAt, @LastUsedAt)
                 """,
                 Row.From(identity),
+                transaction,
                 cancellationToken: cancellation));
         }
         catch (DbException error) when (SqlDatabase.IsUniqueViolation(error))
         {
             throw new IdentityTakenException(identity.Provider, identity.Subject);
         }
+        await ForgetMappingsAsync(connection, transaction, identity, cancellation);
+        await transaction.CommitAsync(cancellation);
     }
+
+    /// <summary>
+    /// An account linked to a provider never uses a saved mapping to it again, so its rows for that
+    /// provider go when a link is made or moved to it (M4), not wait behind the link.
+    /// </summary>
+    private static Task ForgetMappingsAsync(DbConnection connection, DbTransaction? transaction, LinkedIdentity identity, CancellationToken cancellation) =>
+        connection.ExecuteAsync(new CommandDefinition(
+            "DELETE FROM identity_mappings WHERE provider = @Provider AND account_id = @AccountId",
+            new { identity.Provider, identity.AccountId }, transaction, cancellationToken: cancellation));
 
     public async Task UpdateAsync(LinkedIdentity identity, CancellationToken cancellation = default)
     {
@@ -62,6 +75,8 @@ public sealed class SqlIdentityStore(SqlDatabase database) : IIdentityStore
             Row.From(identity),
             cancellationToken: cancellation));
         if (changed == 0) throw new KeyNotFoundException($"no {identity.Provider} identity {identity.Subject}");
+        // A link moved to an account counts as one made there.
+        await ForgetMappingsAsync(connection, null, identity, cancellation);
     }
 
     public async Task<bool> UnlinkAsync(string provider, string subject, CancellationToken cancellation = default)
@@ -181,6 +196,7 @@ public sealed class SqlIdentityStore(SqlDatabase database) : IIdentityStore
         {
             throw new IdentityTakenException(identity.Provider, identity.Subject);
         }
+        await ForgetMappingsAsync(connection, transaction, identity, cancellation);
         await transaction.CommitAsync(cancellation);
         return true;
     }

@@ -111,6 +111,9 @@ public sealed class ExternalSignIn(
             if (await identities.RemoveMappingAsync(provider.Name, finished, cancellation)) mappingUsed = finished;
         }
         var claiming = mapping.Target is not null && mapping.Target.Id != account?.Id;
+        // A first claim on a disabled account links nothing (M7): the saved mapping waits, and the
+        // first sign-in after an admin enables the account uses it.
+        if (claiming && mapping.Target!.Disabled) return new ExternalSignInResult.Disabled { MappingRefusedTo = mapping.RefusedTo };
         var claimed = claiming && await ClaimAsync(provider, identity, link, mapping.Target!, mapping.Row, cancellation);
         if (claiming && !claimed)
         {
@@ -291,7 +294,8 @@ public sealed class ExternalSignIn(
         var account = await SameUsernameAccountAsync(identity, cancellation);
         if (account is null || await LinkedToAsync(account.Id, provider.Name, cancellation)) return null;
         if (account.Role != Role.User && provider.LinkByUsername != UsernameLinking.All) return null;
-        await AttachAsync(provider, identity, account.Id, cancellation);
+        // Disabled: refused below, and not linked first (M7).
+        if (!account.Disabled) await AttachAsync(provider, identity, account.Id, cancellation);
         return account;
     }
 
@@ -417,7 +421,8 @@ public sealed class ExternalSignIn(
         if (account is null) return null;
         if (provider.LinkByUsername == UsernameLinking.Users && account.Role != Role.User) return null;
         if (await LinkedToAsync(account.Id, provider.Name, cancellation)) return null;
-        await AttachAsync(provider, identity, account.Id, cancellation);
+        // Disabled: refused below, and not linked first (M7).
+        if (!account.Disabled) await AttachAsync(provider, identity, account.Id, cancellation);
         return account;
     }
 
@@ -449,7 +454,8 @@ public sealed class ExternalSignIn(
         if (owners.Count != 1) return null;
         var account = await accounts.FindByIdAsync(owners[0], cancellation);
         if (account is null || await LinkedToAsync(account.Id, provider.Name, cancellation)) return null;
-        await AttachAsync(provider, identity, account.Id, cancellation);
+        // Disabled: refused below, and not linked first (M7).
+        if (!account.Disabled) await AttachAsync(provider, identity, account.Id, cancellation);
         return account;
     }
 

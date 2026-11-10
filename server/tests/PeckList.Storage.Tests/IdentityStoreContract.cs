@@ -112,6 +112,31 @@ public abstract class IdentityStoreContract : IAsyncLifetime
     }
 
     [Fact]
+    public async Task Making_or_moving_a_link_deletes_the_accounts_mappings_for_that_provider()
+    {
+        Task Save(string provider, string username, string accountId) => Identities.PutMappingAsync(
+            new IdentityMapping { Provider = provider, ProviderUsername = username, AccountId = accountId, CreatedAt = Monday }, Token);
+        await Save("pocket", "kim", "U1");
+        await Save("pocket", "kimmy", "U1");
+        await Save("keycloak", "kim", "U1");
+        await Save("pocket", "sam", "U2");
+        var link = new LinkedIdentity { Provider = "pocket", Subject = "sub-1", AccountId = "U1", LinkedAt = Monday, LastUsedAt = Monday };
+
+        await Identities.LinkAsync(link, Token);
+        Assert.Equal([("keycloak", "kim", "U1"), ("pocket", "sam", "U2")],
+            (await Identities.ListMappingsAsync(Token)).Select(each => (each.Provider, each.ProviderUsername, each.AccountId)));
+
+        await Identities.UpdateAsync(link with { AccountId = "U2" }, Token);
+        Assert.Equal([("keycloak", "kim", "U1")],
+            (await Identities.ListMappingsAsync(Token)).Select(each => (each.Provider, each.ProviderUsername, each.AccountId)));
+
+        await Save("pocket", "lee", "U3");
+        await Save("pocket", "lee2", "U3");
+        Assert.True(await Identities.LinkByMappingAsync(link with { Subject = "sub-3", AccountId = "U3" }, "lee", Token));
+        Assert.DoesNotContain(await Identities.ListMappingsAsync(Token), each => each.AccountId == "U3");
+    }
+
+    [Fact]
     public async Task A_mapping_stays_when_its_link_is_refused()
     {
         var mapping = new IdentityMapping { Provider = "pocket", ProviderUsername = "kim", AccountId = "U2", CreatedAt = Monday };

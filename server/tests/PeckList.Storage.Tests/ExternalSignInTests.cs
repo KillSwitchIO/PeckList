@@ -832,15 +832,33 @@ public sealed class ExternalSignInTests(SqliteFiles files) : IClassFixture<Sqlit
     }
 
     [Fact]
-    public async Task A_disabled_account_still_reports_the_saved_mapping_it_used()
+    public async Task A_first_claim_on_a_disabled_account_links_nothing_and_the_mapping_waits_for_it()
     {
         var kim = await accountService.CreateUserAsync("kimberly", "correct horse battery", cancellation: Token);
         await accountService.SetDisabledAsync(kim.Id, true, Token);
         await Saved("kim", kim.Id);
 
         var result = await signIn.SignInAsync(Pocket(), Holding("sub-kim", "kim"), Token);
-        Assert.Equal("kim", Assert.IsType<ExternalSignInResult.Disabled>(result).MappingUsed);
+        Assert.Null(Assert.IsType<ExternalSignInResult.Disabled>(result).MappingUsed);
+        Assert.Null(await identities.FindAsync("pocket", "sub-kim", Token));
+        Assert.Single(await identities.ListMappingsAsync(Token));
+
+        // Enabled again: the next sign-in uses the mapping.
+        await accountService.SetDisabledAsync(kim.Id, false, Token);
+        var signedIn = await Success(Pocket(), Holding("sub-kim", "kim"));
+        Assert.Equal((kim.Id, "kim"), (signedIn.Account.Id, signedIn.MappingUsed));
         Assert.Empty(await identities.ListMappingsAsync(Token));
+    }
+
+    [Fact]
+    public async Task A_username_match_on_a_disabled_account_links_nothing()
+    {
+        var kim = await accountService.CreateUserAsync("kimberly", "correct horse battery", cancellation: Token);
+        await accountService.SetDisabledAsync(kim.Id, true, Token);
+
+        var result = await signIn.SignInAsync(Pocket() with { LinkByUsername = UsernameLinking.Users }, Holding("sub-kim", "kimberly"), Token);
+        Assert.IsType<ExternalSignInResult.Disabled>(result);
+        Assert.Null(await identities.FindAsync("pocket", "sub-kim", Token));
     }
 
     [Fact]
