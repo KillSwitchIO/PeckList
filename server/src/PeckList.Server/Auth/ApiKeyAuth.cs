@@ -43,7 +43,7 @@ public static class ApiKeyAuth
 
     private sealed class Handler(
         IOptionsMonitor<AuthenticationSchemeOptions> options, ILoggerFactory logger, UrlEncoder encoder,
-        ApiKeyService keys, IApiKeyStore store, IAccountStore accounts, IMemoryCache cache, TimeProvider time)
+        ApiKeyService keys, IApiKeyStore store, IAccountStore accounts, RoleLeases leases, IMemoryCache cache, TimeProvider time)
         : AuthenticationHandler<AuthenticationSchemeOptions>(options, logger, encoder)
     {
         protected override async Task<AuthenticateResult> HandleAuthenticateAsync()
@@ -53,6 +53,8 @@ public static class ApiKeyAuth
             if (key is null) return AuthenticateResult.Fail("unknown, revoked or expired key");
             var account = await accounts.FindByIdAsync(key.UserId, Context.RequestAborted);
             if (account is null || account.Disabled) return AuthenticateResult.Fail("the key's account cannot sign in");
+            // A key acts with its account's role: one from ROLE_MAP nobody renewed in time goes first.
+            account = await leases.CheckAsync(account, Context.RequestAborted);
             // Last used: kept to within a few minutes, not written on every request.
             if (cache.TryGetValue($"key-used:{key.Id}", out _) is false)
             {

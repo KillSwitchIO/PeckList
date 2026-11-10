@@ -258,14 +258,47 @@ public sealed class AccountService(IAccountStore store, IPasswordHasher hasher, 
     /// Give an account a role. Sessions continue; the new role applies from the next request.
     /// </summary>
     /// <exception cref="LastSuperAdminException">It is the last active super admin and would lose the role.</exception>
+    /// <summary>A role set by hand: it is not leased, so a role a provider gave stops lapsing (S10 follow-up).</summary>
     public async Task<Account> SetRoleAsync(string id, Role role, CancellationToken cancellation = default)
     {
         var account = await store.FindByIdAsync(id, cancellation) ?? throw new KeyNotFoundException($"no account {id}");
-        if (account.Role == role) return account;
-        await EnsureNotLastSuperAdminAsync(account, cancellation);
-        var updated = account with { Role = role };
+        if (account.Role == role && account.RoleProvider is null) return account;
+        if (account.Role != role) await EnsureNotLastSuperAdminAsync(account, cancellation);
+        var updated = account with { Role = role, RoleProvider = null, RoleRenewedAt = null };
         await store.UpdateAsync(updated, cancellation);
         return updated;
+    }
+
+    /// <summary>
+    /// The role <paramref name="provider"/>'s <c>ROLE_MAP</c> gives at a sign-in at <paramref name="at"/>:
+    /// above user it is leased to the provider and renewed now; plain user carries no lease.
+    /// </summary>
+    /// <exception cref="LastSuperAdminException">It would lower the last active super admin.</exception>
+    public async Task<Account> SetMappedRoleAsync(string id, Role role, string provider, DateTimeOffset at, CancellationToken cancellation = default)
+    {
+        var account = await store.FindByIdAsync(id, cancellation) ?? throw new KeyNotFoundException($"no account {id}");
+        var updated = role > Role.User
+            ? account with { Role = role, RoleProvider = provider, RoleRenewedAt = at }
+            : account with { Role = role, RoleProvider = null, RoleRenewedAt = null };
+        if (updated == account) return account;
+        if (account.Role != role) await EnsureNotLastSuperAdminAsync(account, cancellation);
+        await store.UpdateAsync(updated, cancellation);
+        return updated;
+    }
+
+    /// <summary>
+    /// Lower a leased role nobody renewed within <paramref name="renewDays"/> to user. The stored
+    /// account is read again, so of two requests at once only one lowers it (<c>Lowered</c>).
+    /// </summary>
+    /// <exception cref="LastSuperAdminException">It is the last active super admin: the role stays.</exception>
+    public async Task<(Account Account, bool Lowered)> LapseRoleAsync(string id, DateTimeOffset now, int renewDays, CancellationToken cancellation = default)
+    {
+        var account = await store.FindByIdAsync(id, cancellation) ?? throw new KeyNotFoundException($"no account {id}");
+        if (!RoleLease.Lapsed(account, now, renewDays)) return (account, false);
+        await EnsureNotLastSuperAdminAsync(account, cancellation);
+        var updated = account with { Role = Role.User, RoleProvider = null, RoleRenewedAt = null };
+        await store.UpdateAsync(updated, cancellation);
+        return (updated, true);
     }
 
     /// <summary>The server needs one active super admin: refuse to turn off, delete or demote the last.</summary>

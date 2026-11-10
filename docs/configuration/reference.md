@@ -106,6 +106,16 @@ and dashes; each gets the settings below with its name in capitals and dashes as
 (`pocket-id` becomes `OIDC_POCKET_ID_...`). Needs `AUTH_MODE=local`. **Default:** none.
 **Where:** any. Guide: [single sign-on](../guides/single-sign-on.md).
 
+### `ROLE_MAP_RENEW_DAYS`
+
+Days a role from a provider's `ROLE_MAP` lasts without a sign-in through that provider to renew it.
+Then it drops to `user`, for the account's sessions and API keys alike, with an audit event. A role
+set by hand does not lapse, unless they sign in through a provider whose `ROLE_MAP` then sets it;
+`pecklist admin set-role` keeps a role someone already has that way. The only super admin keeps the
+role. `0`: roles from `ROLE_MAP`
+never lapse. **Default:** `14`. **Where:** any, live. Guide:
+[who gets in](../guides/single-sign-on.md#who-gets-in).
+
 ### Per provider: `OIDC_<NAME>_...`
 
 | Setting                        | Default                             | Meaning                                                                                                                             |
@@ -124,7 +134,7 @@ and dashes; each gets the settings below with its name in capitals and dashes as
 | `OIDC_<NAME>_LINK_BY_USERNAME` | `false`                             | `true`: a first sign-in joins the same-named plain user account with no link to this provider. `all`: admins too.                   |
 | `OIDC_<NAME>_USER_MAP`         | none                                | `sub:subject=pecklistuser,...`: that provider account always signs into that account, moving a link. Prefer it. `provideruser=pecklistuser`: a first claim only, on the exact name, and admins need `LINK_BY_USERNAME=all`. |
 | `OIDC_<NAME>_ICON`             | the provider's favicon              | An `https` address or a file: the icon shown on the profile picture of people signed in through it.                                 |
-| `OIDC_<NAME>_ROLE_MAP`         | none                                | `group=role,...` with roles `user`, `admin`, `superadmin`. The highest match wins at every sign-in; no match means `user`.          |
+| `OIDC_<NAME>_ROLE_MAP`         | none                                | `group=role,...` with roles `user`, `admin`, `superadmin`. The highest match wins at every sign-in; no match means `user`. A role above `user` lasts [`ROLE_MAP_RENEW_DAYS`](#role_map_renew_days) unless a sign-in renews it. |
 | `OIDC_<NAME>_GROUP_MAP`        | none                                | `group=Server group,...`, or `*` to mirror every provider group as a server group.                                                  |
 | `OIDC_<NAME>_SIGN_OUT`         | `false`                             | Signing out of PeckList also ends the provider session. Register `<PUBLIC_URL>/login` as a post-logout redirect URI first.         |
 | `OIDC_<NAME>_SESSION_HOURS`    | `12`                                | How long a session from this provider lasts (0 to 720) before the app goes back through the provider. `0`: 30 days, like passwords. |

@@ -11,7 +11,7 @@ public sealed class SqlAccountStore(SqlDatabase database) : IAccountStore
         "id, username, password_hash AS passwordHash, role, must_change_password AS mustChangePassword, " +
         "failed_logins AS failedLogins, locked_until AS lockedUntil, security_stamp AS securityStamp, " +
         "disabled, created_at AS createdAt, friend_code AS friendCode, deleted_at AS deletedAt, " +
-        "email, email_verified_at AS emailVerifiedAt";
+        "email, email_verified_at AS emailVerifiedAt, role_provider AS roleProvider, role_renewed_at AS roleRenewedAt";
 
     public async Task<int> CountAsync(CancellationToken cancellation = default)
     {
@@ -61,9 +61,11 @@ public sealed class SqlAccountStore(SqlDatabase database) : IAccountStore
             await connection.ExecuteAsync(new CommandDefinition(
                 """
                 INSERT INTO accounts (id, username, password_hash, role, must_change_password, failed_logins,
-                    locked_until, security_stamp, disabled, created_at, friend_code, deleted_at, email, email_verified_at)
+                    locked_until, security_stamp, disabled, created_at, friend_code, deleted_at, email, email_verified_at,
+                    role_provider, role_renewed_at)
                 VALUES (@Id, @Username, @PasswordHash, @Role, @MustChangePassword, @FailedLogins,
-                    @LockedUntil, @SecurityStamp, @Disabled, @CreatedAt, @FriendCode, @DeletedAt, @Email, @EmailVerifiedAt)
+                    @LockedUntil, @SecurityStamp, @Disabled, @CreatedAt, @FriendCode, @DeletedAt, @Email, @EmailVerifiedAt,
+                    @RoleProvider, @RoleRenewedAt)
                 """,
                 Row.From(account),
                 cancellationToken: cancellation));
@@ -82,7 +84,8 @@ public sealed class SqlAccountStore(SqlDatabase database) : IAccountStore
             UPDATE accounts SET username = @Username, password_hash = @PasswordHash, role = @Role,
                 must_change_password = @MustChangePassword, failed_logins = @FailedLogins,
                 locked_until = @LockedUntil, security_stamp = @SecurityStamp, disabled = @Disabled,
-                friend_code = @FriendCode, deleted_at = @DeletedAt, email = @Email, email_verified_at = @EmailVerifiedAt
+                friend_code = @FriendCode, deleted_at = @DeletedAt, email = @Email, email_verified_at = @EmailVerifiedAt,
+                role_provider = @RoleProvider, role_renewed_at = @RoleRenewedAt
             WHERE id = @Id
             """,
             Row.From(account),
@@ -113,6 +116,8 @@ public sealed class SqlAccountStore(SqlDatabase database) : IAccountStore
         public string? DeletedAt { get; set; }
         public string? Email { get; set; }
         public string? EmailVerifiedAt { get; set; }
+        public string? RoleProvider { get; set; }
+        public string? RoleRenewedAt { get; set; }
 
         public static Row From(Account account) => new()
         {
@@ -130,6 +135,8 @@ public sealed class SqlAccountStore(SqlDatabase database) : IAccountStore
             DeletedAt = SqlTime.Text(account.DeletedAt),
             Email = account.Email?.ToLowerInvariant(),
             EmailVerifiedAt = SqlTime.Text(account.EmailVerifiedAt),
+            RoleProvider = account.RoleProvider,
+            RoleRenewedAt = SqlTime.Text(account.RoleRenewedAt),
         };
 
         public Account ToAccount() => new()
@@ -148,6 +155,8 @@ public sealed class SqlAccountStore(SqlDatabase database) : IAccountStore
             DeletedAt = SqlTime.ParseOrNull(DeletedAt),
             Email = Email,
             EmailVerifiedAt = SqlTime.ParseOrNull(EmailVerifiedAt),
+            RoleProvider = RoleProvider,
+            RoleRenewedAt = SqlTime.ParseOrNull(RoleRenewedAt),
         };
     }
 }

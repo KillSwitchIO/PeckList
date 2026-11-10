@@ -199,6 +199,11 @@ public static class AuthSetup
         {
             entry.AbsoluteExpirationRelativeToNow = TimeSpan.FromSeconds(30);
             var account = await accounts.FindByIdAsync(id, context.HttpContext.RequestAborted);
+            // A role from ROLE_MAP nobody renewed in time goes now, whatever way the session began.
+            if (account is not null)
+            {
+                account = await context.HttpContext.RequestServices.GetRequiredService<RoleLeases>().CheckAsync(account, context.HttpContext.RequestAborted);
+            }
             return account is null || account.Disabled ? null : new SessionCheck(account.SecurityStamp, account.Role.Name());
         });
         // LOCAL_LOGIN=disabled ends password sessions at once (a live setting), not when they expire.

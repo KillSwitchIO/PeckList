@@ -505,7 +505,8 @@ public sealed class ExternalSignIn(
         };
         var (account, _) = await CreateAsync(provider, identity, pending.Username, cancellation);
         await identities.RemovePendingAsync(provider.Name, subject, cancellation);
-        (account, _) = await ApplyRoleMapAsync(provider, identity, account, cancellation);
+        // Leased from when the provider last vouched for those groups, not from the approval.
+        (account, _) = await ApplyRoleMapAsync(provider, identity, account, cancellation, renewedAt: pending.LastSeen);
         await ApplyGroupMapAsync(provider, identity, account, cancellation);
         return account;
     }
@@ -537,20 +538,21 @@ public sealed class ExternalSignIn(
     /// The highest role the provider's groups map to, or user; the last super admin is never demoted.
     /// No groups at all counts as no match, on purpose (audit S10): some providers send nothing for a
     /// person in no groups, and that must not leave a removed admin as admin. A provider that dropped
-    /// the claim by mistake costs less: the next sign-in with the groups restores the role.
+    /// the claim by mistake costs less: the next sign-in with the groups restores the role. A role
+    /// above user is leased to the provider, and each sign-in through it renews the lease (R1).
     /// </summary>
     private async Task<(Account Account, bool Spared)> ApplyRoleMapAsync(
-        OidcProviderSettings provider, ExternalIdentity identity, Account account, CancellationToken cancellation)
+        OidcProviderSettings provider, ExternalIdentity identity, Account account, CancellationToken cancellation,
+        DateTimeOffset? renewedAt = null)
     {
         if (provider.RoleMap.Count == 0) return (account, false);
         var role = identity.Groups
             .Select(group => provider.RoleMap.TryGetValue(group, out var mapped) ? mapped : Role.User)
             .DefaultIfEmpty(Role.User)
             .Max();
-        if (role == account.Role) return (account, false);
         try
         {
-            return (await accountService.SetRoleAsync(account.Id, role, cancellation), false);
+            return (await accountService.SetMappedRoleAsync(account.Id, role, provider.Name, renewedAt ?? time.GetUtcNow(), cancellation), false);
         }
         catch (LastSuperAdminException)
         {

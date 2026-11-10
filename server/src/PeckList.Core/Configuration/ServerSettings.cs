@@ -88,6 +88,12 @@ public sealed record ServerSettings
     /// <summary>Days a deleted account can be restored before it is removed for good (<c>ACCOUNT_DELETE_GRACE_DAYS</c>).</summary>
     public int AccountDeleteGraceDays { get; init; } = 7;
 
+    /// <summary>
+    /// Days a role from <c>ROLE_MAP</c> lasts without a sign-in through its provider to renew it; then
+    /// it drops to user (<c>ROLE_MAP_RENEW_DAYS</c>, audit S10 follow-up R1). 0: it never lapses.
+    /// </summary>
+    public int RoleMapRenewDays { get; init; } = 14;
+
     /// <summary>Days the event log keeps entries (<c>AUDIT_RETENTION_DAYS</c>).</summary>
     public int AuditRetentionDays { get; init; } = 90;
 
@@ -384,6 +390,7 @@ public sealed record ServerSettings
             LocalLoginDisabled = LocalLoginOff(),
             Passkeys = PasskeysOn(),
             AccountDeleteGraceDays = Count("ACCOUNT_DELETE_GRACE_DAYS", 7, 0),
+            RoleMapRenewDays = Count("ROLE_MAP_RENEW_DAYS", 14, 0),
             AuditRetentionDays = Count("AUDIT_RETENTION_DAYS", 90, 1),
             AccessLogRetentionDays = Count("ACCESS_LOG_RETENTION_DAYS", 14, 1),
             AuditArchive = Flag("AUDIT_ARCHIVE", false),

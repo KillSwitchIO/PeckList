@@ -50,6 +50,16 @@ public sealed record Account
 
     /// <summary>The email, when it is confirmed.</summary>
     public string? VerifiedEmail => EmailVerifiedAt is null ? null : Email;
+
+    /// <summary>
+    /// The provider whose <c>ROLE_MAP</c> gave <see cref="Role"/>: the role lasts while sign-ins through
+    /// it renew it (<c>ROLE_MAP_RENEW_DAYS</c>, audit S10 follow-up R1). Null for a role set by hand,
+    /// or plain user.
+    /// </summary>
+    public string? RoleProvider { get; init; }
+
+    /// <summary>When <see cref="RoleProvider"/> last gave the role (a sign-in through it).</summary>
+    public DateTimeOffset? RoleRenewedAt { get; init; }
 }
 
 /// <summary>Logins (never synced). Every adapter passes the same contract suite.</summary>

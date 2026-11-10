@@ -77,6 +77,9 @@ public sealed class BackupService(
             // Only when set, likewise (PL-122).
             if (account.Email is { } email) json.WriteString("email", email);
             if (account.EmailVerifiedAt is { } verified) json.WriteString("emailVerifiedAt", verified.ToString("O", CultureInfo.InvariantCulture));
+            // A role a provider renews keeps its lease across a restore (audit S10 follow-up).
+            if (account.RoleProvider is { } roleProvider) json.WriteString("roleProvider", roleProvider);
+            if (account.RoleRenewedAt is { } renewed) json.WriteString("roleRenewedAt", renewed.ToString("O", CultureInfo.InvariantCulture));
             json.WriteEndObject();
         }
         json.WriteEndArray();
@@ -406,6 +409,8 @@ public sealed class BackupService(
             DeletedAt = item["deletedAt"] is null ? null : Time("deletedAt"),
             Email = (string?)item["email"],
             EmailVerifiedAt = item["emailVerifiedAt"] is null ? null : Time("emailVerifiedAt"),
+            RoleProvider = (string?)item["roleProvider"],
+            RoleRenewedAt = item["roleRenewedAt"] is null ? null : Time("roleRenewedAt"),
         };
     }
 }
