@@ -219,8 +219,13 @@ public static partial class ServerApp
 
     /// <summary>
     /// A name or address only a home or private network uses: localhost, a loopback, private,
-    /// shared (100.64/10) or link-local address, a name with no dot, or one under .local, .lan,
-    /// .home.arpa or .internal.
+    /// shared (100.64/10, which Tailscale and NetBird give their devices) or link-local address, an
+    /// IPv6 unique local (fc00::/7, Tailscale's included) or link-local one, a name with no dot, one
+    /// under .local, .lan, .home.arpa or .internal, or a Tailscale or NetBird default name (.ts.net,
+    /// .netbird.cloud, .netbird.selfhosted). A custom tailnet or Headscale domain cannot be told
+    /// from a public one, so it needs PUBLIC_URL. A name here can still be anyone's (ts.net
+    /// subdomains are free): use it only for links that go back to the requester, never for a
+    /// cookie, CORS or trust decision.
     /// </summary>
     public static bool IsHomeNetworkHost(string host)
     {
@@ -242,7 +247,7 @@ public static partial class ServerApp
                 || (bytes[0] == 100 && bytes[1] is >= 64 and <= 127);
         }
         if (!name.Contains('.')) return true;
-        string[] homeSuffixes = [".localhost", ".local", ".lan", ".home.arpa", ".internal"];
+        string[] homeSuffixes = [".localhost", ".local", ".lan", ".home.arpa", ".internal", ".ts.net", ".netbird.cloud", ".netbird.selfhosted"];
         return homeSuffixes.Any(suffix => name.EndsWith(suffix, StringComparison.OrdinalIgnoreCase));
     }
 
