@@ -46,7 +46,8 @@ Invalid settings:
 ```
 
 A value saved on the admin pages that stops working (say, after an upgrade) never keeps the
-server down: it starts without those values and the pages say what was wrong.
+server down: it starts without that value, using the rest of what was saved, and the pages say
+what was wrong.
 
 ## Value formats
 

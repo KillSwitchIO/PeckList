@@ -16,14 +16,16 @@ public sealed record LoadedSettings(
     LayeredSettings Layers,
     bool InContainer,
     IReadOnlyDictionary<string, string> PageAtStart,
-    string? PageProblem);
+    string? PageProblem,
+    IReadOnlyList<string>? PageLeftOut = null);
 
 /// <summary>
 /// Reads settings in two steps (spec: Server settings): environment and <c>CONFIG_FILE</c> first,
 /// which say where the database is, then the values saved on the settings page. A saved value that
-/// does not work never stops the server: it starts without the page values and says why.
+/// does not work never stops the server: it starts without that value (N5), or without the page
+/// values when the problem names none of them, and says why.
 /// </summary>
-public static class SettingsLoader
+public static partial class SettingsLoader
 {
     /// <summary>Page values in <c>server_secrets</c>: one row per setting.</summary>
     public const string PageKind = "setting";
@@ -56,9 +58,38 @@ public static class SettingsLoader
         }
         catch (SettingsException error)
         {
+            // Leave out the saved values the problem names, and try again, a few rounds at most.
+            var leftOut = new SortedSet<string>(StringComparer.Ordinal);
+            var problem = error.Message;
+            for (var round = 0; round < 5; round++)
+            {
+                var named = Named(problem, page.Keys).Where(key => !leftOut.Contains(key)).ToList();
+                if (named.Count == 0) break;
+                leftOut.UnionWith(named);
+                var fewer = layers.WithPage(page.Where(pair => !leftOut.Contains(pair.Key)).ToDictionary(StringComparer.Ordinal));
+                try
+                {
+                    return new LoadedSettings(ServerSettings.Read(fewer, inContainer), fewer, inContainer, page,
+                        $"Not used: {string.Join(", ", leftOut)}. {error.Message}", [.. leftOut]);
+                }
+                catch (SettingsException next)
+                {
+                    problem = next.Message;
+                }
+            }
             return new LoadedSettings(bootstrap, layers, inContainer, page, error.Message);
         }
     }
+
+    /// <summary>The saved settings a problem's text names (by their exact names).</summary>
+    private static IEnumerable<string> Named(string problem, IEnumerable<string> saved)
+    {
+        var words = SettingName().Matches(problem).Select(match => match.Value).ToHashSet(StringComparer.Ordinal);
+        return saved.Where(words.Contains);
+    }
+
+    [System.Text.RegularExpressions.GeneratedRegex(@"\b[A-Z][A-Z0-9_]*[A-Z0-9]\b")]
+    private static partial System.Text.RegularExpressions.Regex SettingName();
 
     /// <summary>The page's saved values (secrets opened), or none when the database is not there yet.</summary>
     public static Dictionary<string, string> ReadPage(ServerSettings settings, ConfigCipher? configKey = null)
