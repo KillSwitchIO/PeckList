@@ -43,7 +43,7 @@ A task that spans days (a start and an end) is not overdue while it runs: from i
 end it shows under today, and only once its end has passed does it count as overdue.
 Its row shows both dates, start then end (on a phone, the end under the start).
 
-**Today** says all punched out once nothing is left open or overdue, with what you finished today
+**Today** says all pecked out once nothing is left open or overdue, with what you finished today
 still listed under it.
 
 **Upcoming** lists today and every day after it, empty days included, under a strip of the week's

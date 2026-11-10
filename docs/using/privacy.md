@@ -74,8 +74,8 @@ The web app and the Android app count a fixed list of things and send the counts
 server**, never anywhere else; the server adds them into its next daily report. The list: each
 view opened (Today, Inbox, Upcoming, Due dates, All, Calendar, a day, Search, Completed, Trash, a
 list, a tag, a saved filter, Assigned, Shared, Friends, Notifications, Stats, Settings), tasks
-added and completed, which quick-add words were used (a date, a tag, a list, a priority), drag to
-reschedule, undo, keyboard shortcuts, swipes and the easter eggs. The Android app adds how late
+added, which quick-add words were used (a date, a tag, a list, a priority), undo and keyboard
+shortcuts. The Android app adds how late
 each reminder showed against when it was due (on time, under a minute, under five minutes, later)
 and whether the three things reminders need are allowed (notifications, exact alarms, no battery
 limits), as on or off. Each device also says which version of the web app it runs, and the

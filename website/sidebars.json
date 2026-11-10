@@ -187,6 +187,11 @@
           "type": "doc",
           "id": "using/android-app",
           "label": "The Android app"
+        },
+        {
+          "type": "doc",
+          "id": "using/easter-eggs",
+          "label": "Easter eggs"
         }
       ]
     },
