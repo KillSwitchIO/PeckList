@@ -150,7 +150,9 @@ that matches wins:
 
    Admins add username mappings on **Admin > Sign-in > Mappings** (the setting wins when both name
    the same provider user, even when the account it names is gone). A saved one is deleted once
-   used, with an `auth.oidc-mapping-used` audit event, and the account's link takes over.
+   used, with an `auth.oidc-mapping-used` audit event, and the account's link takes over. One for
+   an account already linked to this provider is refused, since it would never be used, and an
+   account's saved ones for a provider go once it is linked to that provider.
 2. **A migration window**, while one is open (see [moving to another provider](#moving-to-another-provider)).
 3. **The same username**, with `OIDC_<NAME>_LINK_BY_USERNAME`:
    - `true` joins the account named like the provider's username, if that account has no link to
@@ -164,6 +166,9 @@ that matches wins:
    has that email from another provider. Off by default: a provider that does not truly verify
    emails would let someone take over an account.
 5. Otherwise a new account (`AUTO_CREATE`) or a wait for an admin.
+
+A disabled account is refused before any of these steps links it. A saved mapping to it waits, and
+the first sign-in after an admin enables the account uses it.
 
 Linking, mapping and moving only change which account a provider account signs into. Tasks, lists
 and shares never move from one account to another; an account that lost its link keeps everything

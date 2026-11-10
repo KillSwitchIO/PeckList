@@ -650,6 +650,11 @@ public sealed class OidcTests(ServerFixture fixture) : IClassFixture<ServerFixtu
         await SignIn(kim, Kim());
         Assert.Equal("kimberly", (await kim.GetFromJsonAsync<Me>("/auth/me", Token))!.Username);
 
+        // Linked now: another name for the same account would never be used (M4).
+        var linked = await Save("kimmy", kimberly.Id);
+        Assert.Equal(HttpStatusCode.Conflict, linked.StatusCode);
+        Assert.Contains("already_linked", await linked.Content.ReadAsStringAsync(Token));
+
         var note = Assert.Single(await MappingEvents(server));
         Assert.Equal(("auth.oidc-mapping-used", "kim"), (note.Type, note.TargetName));
         Assert.DoesNotContain("kim-subject", note.Detail);
@@ -680,14 +685,15 @@ public sealed class OidcTests(ServerFixture fixture) : IClassFixture<ServerFixtu
         await SignIn(browser, Kim());
         Assert.Equal("kimberly", (await browser.GetFromJsonAsync<Me>("/auth/me", Token))!.Username);
 
-        // A saved mapping; one the settings make cannot be changed here.
+        // A saved mapping (for an account not linked to the provider); one the settings make cannot be changed here.
+        var samantha = await accounts.CreateUserAsync("samantha", "a long enough password", cancellation: Token);
         Assert.Equal(HttpStatusCode.NoContent, (await admin.PutAsJsonAsync("/api/admin/oidc/mappings",
-            new { provider = "fake", providerUsername = "Sam", accountId = kimberly.Id }, Token)).StatusCode);
+            new { provider = "fake", providerUsername = "Sam", accountId = samantha.Id }, Token)).StatusCode);
         Assert.Equal(HttpStatusCode.Conflict, (await admin.PutAsJsonAsync("/api/admin/oidc/mappings",
             new { provider = "fake", providerUsername = "boss", accountId = kimberly.Id }, Token)).StatusCode);
         Assert.Equal(HttpStatusCode.Conflict, (await admin.DeleteAsync("/api/admin/oidc/mappings/fake/boss", Token)).StatusCode);
         overview = await admin.GetFromJsonAsync<OidcOverview>("/api/admin/oidc", Token);
-        Assert.Contains(overview!.Mappings, mapping => mapping is { ProviderUsername: "sam", AccountUsername: "kimberly", Source: "admin" });
+        Assert.Contains(overview!.Mappings, mapping => mapping is { ProviderUsername: "sam", AccountUsername: "samantha", Source: "admin" });
         Assert.Equal(HttpStatusCode.NoContent, (await admin.DeleteAsync("/api/admin/oidc/mappings/fake/sam", Token)).StatusCode);
 
         // Unmap: the existing unlink.

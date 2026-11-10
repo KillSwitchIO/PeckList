@@ -381,6 +381,11 @@ public static class AdminEndpoints
                 {
                     return Results.Conflict(new AdminError("admin_needs_subject", "an admin account cannot be mapped by username: link it by subject under Admin > Users"));
                 }
+                // Linked already: a sign-in for it never reads a mapping, so one saved now would only wait (M4).
+                if ((await identities.ListAsync(cancellation)).Any(each => each.Provider == provider.Name && each.AccountId == account.Id))
+                {
+                    return Results.Conflict(new AdminError("already_linked", $"{account.Username} is already linked to {provider.Name}"));
+                }
                 await identities.PutMappingAsync(new IdentityMapping
                 {
                     Provider = provider.Name,
