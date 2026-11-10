@@ -7,7 +7,7 @@ describe('smoke', () => {
     await browser.url('/');
     await expect(browser).toHaveUrl(expect.stringContaining('/today'));
     await expect($('h1')).toHaveText('Today');
-    await expect($("//p[contains(., 'All punched out')]")).toBeDisplayed();
+    await expect($("//p[contains(., 'All pecked out')]")).toBeDisplayed();
   });
 
   it('navigates from the sidebar', async () => {

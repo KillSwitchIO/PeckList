@@ -126,7 +126,7 @@ export function TodayView() {
   // Pinned tasks with no date have no day to sit in, so they show in Pinned only.
   const undated = undatedPinned(workspace, today);
   const done = completedOn(workspace, today, localTimeZone());
-  // All punched out once nothing is open or overdue, whatever got done today (R-FB-135). Pinned
+  // All pecked out once nothing is open or overdue, whatever got done today (R-FB-135). Pinned
   // undated tasks aren't today's work, so they don't count against it.
   const empty = groups.overdue.length === 0 && groups.today.length === 0;
   useNoteEmpty(empty);

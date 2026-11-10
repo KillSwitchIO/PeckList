@@ -29,7 +29,7 @@ const RETRO_MS = 60_000;
 const DISCO_MS = 2_000;
 const TYPEWRITER_MS = 120_000;
 const WINK_MS = 2_400;
-/** A quick run of completions that brings Punchy out. */
+/** A quick run of completions that brings Pecky out. */
 const STREAK = 5;
 const STREAK_MS = 120_000;
 /** The day the fireworks last went off in this tab: once a day on arriving at a finished Today. */
@@ -101,7 +101,7 @@ function blip() {
 
 type Critter = 'duck' | 'trophy' | 'mascot';
 
-/** The little characters: the rubber duck, the trophy and Punchy (the dog is its own). */
+/** The little characters: the rubber duck, the trophy and Pecky, the PeckList bird (the dog is its own). */
 function CritterShow({ critter, onDone }: { critter: Critter; onDone: () => void }) {
   useEffect(() => {
     const timer = setTimeout(onDone, critter === 'duck' ? 7000 : 4200);
@@ -134,7 +134,7 @@ function CritterShow({ critter, onDone }: { critter: Critter; onDone: () => void
   const content = {
     duck: { face: '🦆', words: t('fun.duckSays') },
     trophy: { face: '🏆', words: t('fun.trophySays') },
-    mascot: { face: '🥊', words: t('fun.mascotSays') },
+    mascot: { face: '🐦', words: t('fun.mascotSays') },
   }[critter];
   return (
     <Box

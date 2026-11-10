@@ -14,7 +14,7 @@ beforeEach(() => {
 const today = () => todayIn(localTimeZone(), Date.now());
 
 describe('feedback 2026-10-28 (second round)', () => {
-  it('Today is all punched out once nothing is open, with today’s completed tasks still listed', async () => {
+  it('Today is all pecked out once nothing is open, with today’s completed tasks still listed', async () => {
     const store = testStore();
     await renderApp('/today', store);
     store.getState().apply((ctx, ws) => {
@@ -25,7 +25,7 @@ describe('feedback 2026-10-28 (second round)', () => {
       });
       return setTaskStatus(ctx, made.workspace, made.task.id, 'done');
     });
-    expect(await screen.findByText('All punched out.')).toBeInTheDocument();
+    expect(await screen.findByText('All pecked out.')).toBeInTheDocument();
     expect(await screen.findByRole('button', { name: 'Open Walk the dog' })).toBeInTheDocument();
   });
 
