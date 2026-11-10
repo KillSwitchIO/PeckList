@@ -1,5 +1,5 @@
 # git-cliff: CHANGELOG.md from Conventional Commits (https://git-cliff.org).
-#   pnpm changelog          regenerate it, with what is not released yet under Unreleased
+#   pnpm changelog          show the section the next release would add, writing nothing
 #   pnpm release <version>  used by the release script; see docs/development/releasing.md
 # A commit footer `Requires-Android: 0.2.6` or `Supports-Web: 0.2.3` puts a Compatibility block at
 # the top of the release's section (docs/development/releasing.md).
@@ -8,8 +8,8 @@
 header = """
 # Changelog
 
-All notable changes to PeckList. Generated from [Conventional Commits](https://www.conventionalcommits.org/)
-by `pnpm changelog`; the version follows [Semantic Versioning](https://semver.org/). Before 1.0.0 a
+All notable changes to PeckList. Each release adds its section from [Conventional Commits](https://www.conventionalcommits.org/)
+with `pnpm release`; the version follows [Semantic Versioning](https://semver.org/). Before 1.0.0 a
 minor release may break things; every break is listed under **Breaking changes** with what to do.
 
 """

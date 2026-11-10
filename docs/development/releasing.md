@@ -40,7 +40,10 @@ Commits marked breaking (`feat!:`, or a `BREAKING CHANGE:` footer with the upgra
 first, under **Breaking changes**, whatever their type. Write commit summaries for the people who
 will read the changelog.
 
-`pnpm changelog` regenerates it, with unreleased work under **Unreleased**.
+Each release adds its own section at the top and leaves the rest as it is. A full release holds
+everything since the last full release, so it repeats what its release candidates said; each
+release candidate keeps its own section too. `pnpm changelog` shows the section the next release
+would add, and changes nothing (it is `pnpm release --dry-run`).
 
 ### Compatibility
 
@@ -73,7 +76,7 @@ A release is one image, built once. Nothing is rebuilt when it is published.
    ```bash
    pnpm release --dry-run               # the version the commits call for, and the changelog section
    git switch -c release/0.4.0
-   pnpm release --any-branch --no-tag   # bump versions, copy the docs, regenerate CHANGELOG.md, commit
+   pnpm release --any-branch --no-tag   # bump versions, copy the docs, add the changelog section, commit
    git push -u origin release/0.4.0     # and open the merge request, titled chore(release): 0.4.0
    ```
 

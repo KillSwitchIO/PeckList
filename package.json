@@ -21,7 +21,7 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "prepare": "simple-git-hooks",
-    "changelog": "git-cliff --output CHANGELOG.md",
+    "changelog": "node scripts/release.mjs --dry-run",
     "release": "node scripts/release.mjs",
     "release:tag": "node scripts/tag-release.mjs",
     "check:version": "node scripts/check-version.mjs",
