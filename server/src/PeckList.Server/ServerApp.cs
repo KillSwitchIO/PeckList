@@ -132,6 +132,8 @@ public static partial class ServerApp
         builder.Services.AddSingleton<Auth.RoleLeases>();
         builder.Services.AddSingleton<Auth.RoleLeaseCheck>();
         builder.Services.AddHostedService(provider => provider.GetRequiredService<Auth.RoleLeaseCheck>());
+        builder.Services.AddSingleton<Auth.OrphanedLinks>();
+        builder.Services.AddHostedService(provider => provider.GetRequiredService<Auth.OrphanedLinks>());
         builder.Services.AddSingleton<Auth.OneTimeSecretPrune>();
         builder.Services.AddHostedService(provider => provider.GetRequiredService<Auth.OneTimeSecretPrune>());
         builder.Services.AddHostedService(provider => provider.GetRequiredService<AccountRemoval>());

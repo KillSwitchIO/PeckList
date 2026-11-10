@@ -217,7 +217,9 @@ how many: those people would lose a way in without anyone having chosen that. Us
 under **Admin > Sign-in** or `pecklist oidc unbind-all` first (accounts and their data stay), then
 remove it. While another admin is linked to the provider, **Unbind all** takes a super admin. PeckList
 cannot refuse a provider taken out of the environment or the config file. Its links then stay in the
-database and no longer sign anyone in, and `unbind-all` still clears them.
+database and sign nobody in, so they no longer count as a way in: someone with only such a link left
+cannot remove their password, as with no way in at all. Each start logs a warning for every such
+provider, with how many links it still has, and `pecklist oidc unbind-all <name>` clears them.
 
 Removing a provider takes effect at the restart: until then people can still sign in with it.
 Sessions it already made carry on until they end, and neither **Unbind all** nor the removal stops

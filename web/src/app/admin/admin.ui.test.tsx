@@ -617,12 +617,13 @@ function memoryAdmin(benId: string) {
       Promise.resolve([
         { name: 'pocket', displayName: 'Pocket ID', linked: 2, migrationWindowUntil: state.window },
       ]),
-    unbindAll: () =>
-      Promise.resolve(
-        state.unbindRefused
-          ? { ok: false as const, reason: 'admin-linked' as const }
-          : { ok: true as const, value: { unbound: 2, stranded: ['kim'] } },
-      ),
+    unbindAll: (provider) => {
+      if (state.unbindRefused) {
+        return Promise.resolve({ ok: false as const, reason: 'admin-linked' as const });
+      }
+      state.identities = state.identities.filter((each) => each.provider !== provider);
+      return Promise.resolve({ ok: true as const, value: { unbound: 2, stranded: ['kim'] } });
+    },
     openMigrationWindow: () => {
       state.window = '2026-10-23T08:00:00Z';
       return Promise.resolve(state.window);
@@ -1474,11 +1475,24 @@ describe('admin', () => {
     expect(await within(waiting).findByText('Nobody is waiting.')).toBeInTheDocument();
     expect(state.pending).toEqual([]);
 
+    const linked = await screen.findByRole('region', {
+      name: 'Accounts and their provider accounts',
+    });
+    expect(await within(linked).findByRole('listitem', { name: 'sam' })).toBeInTheDocument();
     await userEvent.click(within(providers).getByRole('button', { name: 'Unbind all' }));
     await userEvent.click(
       within(await screen.findByRole('dialog')).getByRole('button', { name: 'Unbind all' }),
     );
     expect(await screen.findByText(/No way to sign in now: kim/)).toBeInTheDocument();
+    // The account list shows it at once, without a reload (PL-046 follow-up): sam's only link
+    // was kim's provider account, so sam goes from the list of linked accounts.
+    await waitFor(async () =>
+      expect(
+        within(
+          await screen.findByRole('region', { name: 'Accounts and their provider accounts' }),
+        ).queryByRole('listitem', { name: 'sam' }),
+      ).toBeNull(),
+    );
   });
 
   it('says so when Unbind all is refused', async () => {
