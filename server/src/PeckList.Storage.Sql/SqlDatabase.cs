@@ -79,7 +79,7 @@ public abstract class SqlDatabase : IDatabase
     {
         await using var connection = await OpenAsync(cancellation);
         await using var transaction = await BeginWriteAsync(connection, cancellation);
-        foreach (var table in new[] { "visibility", "revocations", "entities", "server_group_members", "server_groups", "identities", "identity_mappings", "pending_signins", "accounts", "server_secrets", "notifications", "push_subscriptions", "sent_reminders", "device_zones", "passkeys" })
+        foreach (var table in new[] { "visibility", "revocations", "entities", "server_group_members", "server_groups", "identities", "identity_mappings", "pending_signins", "accounts", "server_secrets", "notifications", "push_subscriptions", "sent_reminders", "device_zones", "reminder_snoozes", "passkeys" })
         {
             await connection.ExecuteAsync(new CommandDefinition($"DELETE FROM {table}", transaction: transaction, cancellationToken: cancellation));
         }

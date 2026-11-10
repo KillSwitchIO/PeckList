@@ -31,9 +31,18 @@ public interface IPushStore
     /// <summary>Note a reminder as sent; false when it already was (so it goes out once).</summary>
     Task<bool> MarkReminderSentAsync(string key, DateTimeOffset at, CancellationToken cancellation = default);
 
-    /// <summary>Forget sent reminders older than <paramref name="before"/>.</summary>
+    /// <summary>Forget sent reminders, and snoozes due, before <paramref name="before"/>.</summary>
     Task PruneSentRemindersAsync(DateTimeOffset before, CancellationToken cancellation = default);
+
+    /// <summary>A person's reminder for a task, put off to <paramref name="at"/> for them alone (audit B3).</summary>
+    Task SnoozeAsync(string userId, string taskId, DateTimeOffset at, CancellationToken cancellation = default);
+
+    /// <summary>Everyone's snoozes due in (<paramref name="from"/>, <paramref name="to"/>], or only <paramref name="userId"/>'s.</summary>
+    Task<IReadOnlyList<ReminderSnooze>> SnoozesAsync(DateTimeOffset from, DateTimeOffset to, string? userId = null, CancellationToken cancellation = default);
 }
+
+/// <summary>A reminder <paramref name="UserId"/> snoozed: it comes again for them at <paramref name="At"/>.</summary>
+public sealed record ReminderSnooze(string UserId, string TaskId, DateTimeOffset At);
 
 /// <summary>
 /// Reminders on the server (spec: PL-061), the same rules as the app (web/src/core/reminders.ts):
@@ -55,17 +64,24 @@ public static class ServerReminders
     /// When the task's reminders fire, in the given time zone: each one, and for a constant reminder
     /// its repeats too (<see cref="ReminderTime.First"/> is the reminder each belongs to).
     /// </summary>
-    public static IEnumerable<ReminderTime> Instants(JsonObject task, TimeZoneInfo zone)
+    public static IEnumerable<ReminderTime> Instants(JsonObject task, TimeZoneInfo zone) =>
+        FirstInstants(task, zone).SelectMany(first => Snoozed(task, first));
+
+    /// <summary>
+    /// When a reminder of the task due at <paramref name="first"/> fires: then, and on a constant
+    /// reminder its repeats. A snooze (audit B3) comes back this way, as a reminder set for then would.
+    /// </summary>
+    public static IEnumerable<ReminderTime> Snoozed(JsonObject task, DateTimeOffset first)
     {
         var constant = task["constantReminder"] is JsonValue flag && flag.TryGetValue<bool>(out var on) && on;
-        foreach (var first in FirstInstants(task, zone))
+        for (var again = 0; again < (constant ? ConstantTimes : 1); again++)
         {
-            for (var again = 0; again < (constant ? ConstantTimes : 1); again++)
-            {
-                yield return new ReminderTime(first + again * ConstantEvery, first, constant);
-            }
+            yield return new ReminderTime(first + again * ConstantEvery, first, constant);
         }
     }
+
+    /// <summary>How long after its first time a reminder's last repeat can come.</summary>
+    public static readonly TimeSpan RepeatsLast = (ConstantTimes - 1) * ConstantEvery;
 
     private static IEnumerable<DateTimeOffset> FirstInstants(JsonObject task, TimeZoneInfo zone)
     {

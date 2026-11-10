@@ -86,51 +86,86 @@ public sealed class ReminderSender(
                     var earlier = before is null ? null : ServerReminders.Instants(task, before).ToList();
                     for (var i = 0; i < instants.Count; i++)
                     {
-                        var (at, first, constant) = instants[i];
+                        var (at, first, _) = instants[i];
                         // When the zone moved later (flying east), a reminder can now be due before this run
                         // while in the old zone no run had sent it yet (its old time is in this run or after):
                         // it goes now rather than never. Its repeats keep their new times.
                         var overtaken = earlier is not null && at == first && at <= from && earlier[i].At > from;
                         if (!overtaken && (at <= from || at > to)) continue;
-                        // Repeats share the first one's tag (each replaces the last), but go once each.
-                        var tag = $"{taskId}@{first.ToUnixTimeMilliseconds()}";
-                        var sent = at == first ? tag : $"{tag}#{at.ToUnixTimeMilliseconds()}";
-                        if (!await store.MarkReminderSentAsync($"{userId}|{sent}", to, cancellation)) continue;
-                        var payload = new PushPayload(TitleOf(task), $"Reminder for {Clock(first, zone, mine)}", tag, $"/today?task={taskId}", constant);
-                        if (at != first)
-                        {
-                            await push.SendAsync(userId, payload, cancellation);
-                            continue;
-                        }
-                        await notifications.AddAsync([new Notification
-                        {
-                            Id = Ids.NewUlid(Time),
-                            UserId = userId,
-                            Kind = NotificationKind.Reminder,
-                            At = at,
-                            TaskId = taskId,
-                            ListId = (string?)task["listId"],
-                        }], cancellation);
-                        await push.SendAsync(userId, payload, cancellation);
+                        await SendAsync(taskId, task, userId, instants[i], zone, mine, to, cancellation);
                     }
                 }
                 catch (Exception error) when (error is not OperationCanceledException)
                 {
-                    // Each run tries again, so a lasting failure warns once and then only shows at Debug.
-                    var level = failuresLogged.Add($"{taskId}|{userId}") ? LogLevel.Warning : LogLevel.Debug;
-                    Logger.Log(level, error, "Could not send the reminders of task {Task} for person {User}", taskId, userId);
+                    Failed(error, taskId, userId);
                 }
             }
         }
+        // Snoozes (audit B3): each for the one person who snoozed, while the task is open and theirs.
+        foreach (var snooze in await store.SnoozesAsync(from - ServerReminders.RepeatsLast, to, cancellation: cancellation))
+        {
+            if (index.LiveDocOf(snooze.TaskId, "tasks") is not { } task || (string?)task["status"] != "open") continue;
+            if (!ServerReminders.Recipients(task, index).Contains(snooze.UserId)) continue;
+            try
+            {
+                var mine = settings.GetValueOrDefault(snooze.UserId);
+                if (!NotificationSwitches.Allows(mine, NotificationKind.Reminder)) continue;
+                var (zone, _) = ZonesOf(snooze.UserId);
+                foreach (var time in ServerReminders.Snoozed(task, snooze.At))
+                {
+                    if (time.At <= from || time.At > to) continue;
+                    await SendAsync(snooze.TaskId, task, snooze.UserId, time, zone, mine, to, cancellation);
+                }
+            }
+            catch (Exception error) when (error is not OperationCanceledException)
+            {
+                Failed(error, snooze.TaskId, snooze.UserId);
+            }
+        }
         foreach (var (userId, (zone, _)) in zones) zonesBefore[userId] = zone.Id;
+    }
+
+    /// <summary>One time a reminder fires, for one person: once, as a notification (the first time) and a push.</summary>
+    private async Task SendAsync(
+        string taskId, JsonObject task, string userId, ReminderTime time, TimeZoneInfo zone, JsonObject? mine, DateTimeOffset now,
+        CancellationToken cancellation)
+    {
+        var (at, first, constant) = time;
+        // Repeats share the first one's tag (each replaces the last), but go once each.
+        var tag = $"{taskId}@{first.ToUnixTimeMilliseconds()}";
+        var sent = at == first ? tag : $"{tag}#{at.ToUnixTimeMilliseconds()}";
+        if (!await store.MarkReminderSentAsync($"{userId}|{sent}", now, cancellation)) return;
+        var payload = new PushPayload(TitleOf(task), $"Reminder for {Clock(first, zone, mine)}", tag, $"/today?task={taskId}", constant);
+        if (at == first)
+        {
+            await notifications.AddAsync([new Notification
+            {
+                Id = Ids.NewUlid(Time),
+                UserId = userId,
+                Kind = NotificationKind.Reminder,
+                At = at,
+                TaskId = taskId,
+                ListId = (string?)task["listId"],
+            }], cancellation);
+        }
+        await push.SendAsync(userId, payload, cancellation);
+    }
+
+    /// <summary>Each run tries again, so a lasting failure warns once and then only shows at Debug.</summary>
+    private void Failed(Exception error, string taskId, string userId)
+    {
+        var level = failuresLogged.Add($"{taskId}|{userId}") ? LogLevel.Warning : LogLevel.Debug;
+        Logger.Log(level, error, "Could not send the reminders of task {Task} for person {User}", taskId, userId);
     }
 
     /// <summary>
     /// A person's reminders in (<paramref name="from"/>, <paramref name="to"/>], soonest first, in
     /// their zone by <see cref="ZoneOf"/>, with <paramref name="deviceZone"/> as the device's.
     /// </summary>
+    /// <paramref name="snoozes"/>: the person's snoozes (audit B3), which come as reminders do.
     public static IReadOnlyList<Upcoming> UpcomingFor(
-        SharingIndex index, string userId, DateTimeOffset from, DateTimeOffset to, string? deviceZone, bool serverZoneChosen)
+        SharingIndex index, string userId, DateTimeOffset from, DateTimeOffset to, string? deviceZone, bool serverZoneChosen,
+        IReadOnlyCollection<ReminderSnooze>? snoozes = null)
     {
         var mine = SettingsOf(index, userId);
         if (!NotificationSwitches.Allows(mine, NotificationKind.Reminder)) return [];
@@ -140,9 +175,22 @@ public sealed class ReminderSender(
         {
             if (task["reminders"] is not JsonArray { Count: > 0 } || (string?)task["status"] != "open") continue;
             if (!ServerReminders.Recipients(task, index).Contains(userId)) continue;
+            Add(taskId, task, ServerReminders.Instants(task, zone));
+        }
+        foreach (var snooze in snoozes ?? [])
+        {
+            if (snooze.UserId != userId || index.LiveDocOf(snooze.TaskId, "tasks") is not { } task) continue;
+            if ((string?)task["status"] != "open" || !ServerReminders.Recipients(task, index).Contains(userId)) continue;
+            Add(snooze.TaskId, task, ServerReminders.Snoozed(task, snooze.At));
+        }
+        // A snooze at a time one of the task's reminders already has is that reminder.
+        return [.. found.DistinctBy(each => each.Key).OrderBy(each => each.At)];
+
+        void Add(string taskId, JsonObject task, IEnumerable<ReminderTime> times)
+        {
             var title = TitleOf(task);
             var repeats = (string?)task["recurrence"] is { Length: > 0 };
-            foreach (var (at, first, constant) in ServerReminders.Instants(task, zone))
+            foreach (var (at, first, constant) in times)
             {
                 if (at <= from || at > to) continue;
                 var tag = $"{taskId}@{first.ToUnixTimeMilliseconds()}";
@@ -151,7 +199,6 @@ public sealed class ReminderSender(
                     $"Reminder for {Clock(first, zone, mine)}", at, $"/today?task={taskId}", constant, repeats));
             }
         }
-        return [.. found.OrderBy(each => each.At)];
     }
 
     /// <summary>A person's settings entity (time zone, clock format), if they have one.</summary>

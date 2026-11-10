@@ -1,8 +1,9 @@
 // Loaded into the app's service worker (vite.config.ts, workbox importScripts). A click on a
 // PeckList notification focuses an open window on its task, or opens one.
 // A constant reminder's Dismiss or Snooze (spec: R-FB-70). Its tag is "<task id>@<first time>".
-// An open window does the work (it marks the repeats done here and, for Snooze, adds a reminder
-// that syncs); with none open, the server does.
+// An open window does the work (it marks the repeats done here and tells the server, which keeps
+// a snooze for this person alone; with no server, Snooze adds a reminder to the task); with none
+// open, the server does.
 function reminderAction(event) {
   const [taskId, first] = String(event.notification.tag || '').split('@');
   const message = {

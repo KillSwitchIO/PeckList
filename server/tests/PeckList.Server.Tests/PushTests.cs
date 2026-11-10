@@ -223,7 +223,7 @@ public sealed class PushTests(ServerFixture fixture) : IClassFixture<ServerFixtu
     }
 
     [Fact]
-    public async Task Dismiss_stops_a_constant_reminders_repeats_and_snooze_adds_one_to_the_task()
+    public async Task Dismiss_stops_a_constant_reminders_repeats_and_snooze_brings_it_back_without_changing_the_task()
     {
         using var server = Server();
         var (ben, benId) = await SignIn(server, "ben-d");
@@ -254,11 +254,23 @@ public sealed class PushTests(ServerFixture fixture) : IClassFixture<ServerFixtu
         await sender.SendDueAsync(first.AddMinutes(1), first.AddMinutes(60), Token);
         Assert.Single(push.Sent);
 
+        var before = DateTimeOffset.UtcNow;
         (await ben.PostAsJsonAsync("/api/reminders/act", new { taskId = "DT1", first = first.ToUnixTimeMilliseconds(), action = "snooze" }, Token)).EnsureSuccessStatusCode();
+        // The task is as it was (audit B3); the snooze is Ben's alone.
         var stored = server.Services.GetRequiredService<SharingState>().Index.LiveOf("tasks").Single(each => each.Id == "DT1").Doc;
-        var reminders = Assert.IsType<JsonArray>(stored["reminders"]);
-        Assert.Equal(2, reminders.Count);
-        Assert.NotNull(reminders[1]!["at"]);
+        Assert.Single(Assert.IsType<JsonArray>(stored["reminders"]));
+        var snooze = Assert.Single((await ben.GetFromJsonAsync<List<SnoozedReminder>>("/api/reminders/snoozes", Token))!);
+        Assert.Equal("DT1", snooze.TaskId);
+        var at = DateTimeOffset.FromUnixTimeMilliseconds(snooze.At);
+        Assert.InRange((at - before.AddMinutes(PushEndpoints.SnoozeMinutes)).TotalMinutes, -1.5, 1.5);
+        Assert.Equal(0, at.Second);
+        // It comes back ten minutes on, and as the task's reminder is constant, so is the snooze.
+        await sender.SendDueAsync(at.AddMinutes(-1), at.AddMinutes(30), Token);
+        Assert.Equal(1 + ServerReminders.ConstantTimes, push.Sent.Count);
+        Assert.All(push.Sent.Skip(1), sent => Assert.Equal($"DT1@{snooze.At}", sent.Payload.Tag));
+        // Once each.
+        await sender.SendDueAsync(at.AddMinutes(-1), at.AddMinutes(30), Token);
+        Assert.Equal(1 + ServerReminders.ConstantTimes, push.Sent.Count);
 
         // Not someone else's.
         var (sam, _) = await SignIn(server, "sam-d");
@@ -400,10 +412,76 @@ public sealed class PushTests(ServerFixture fixture) : IClassFixture<ServerFixtu
         // stored copy, so the rest stays (audit P1).
         Assert.All(["AT1", "AT2", "AT3", "AT4"], id => Assert.Equal($"notes of {id}", (string?)tasks[id]["notes"]));
         Assert.True((bool?)tasks["AT3"]["tags"]!["TG1"]!["in"]);
-        // Snoozed an hour, on the server's clock (Ben set no time zone).
-        var snoozed = DateTime.ParseExact((string)tasks["AT3"]["reminders"]!.AsArray().Last()!["at"]!, "yyyy-MM-dd'T'HH:mm", CultureInfo.InvariantCulture);
-        var expected = TimeZoneInfo.ConvertTime(before, TimeZoneInfo.Local).DateTime.AddMinutes(60);
-        Assert.InRange((snoozed - expected).TotalMinutes, -1.5, 1.5);
+        // Snoozed an hour for Ben: the task keeps its own reminders, and the app's next check sets it.
+        Assert.Single(tasks["AT3"]["reminders"]!.AsArray());
+        var check = (await ben.GetFromJsonAsync<AppCheck>("/api/app/check", Token))!;
+        var snoozed = Assert.Single(check.Reminders, each => each.Tag.StartsWith("AT3@", StringComparison.Ordinal));
+        Assert.Equal($"AT3@{snoozed.At}", snoozed.Tag);
+        Assert.InRange((DateTimeOffset.FromUnixTimeMilliseconds(snoozed.At) - before.AddMinutes(60)).TotalMinutes, -1.5, 1.5);
+    }
+
+    [Fact]
+    public async Task A_snooze_on_a_shared_task_is_only_for_the_person_who_snoozed()
+    {
+        using var server = Server();
+        var (sam, samId) = await SignIn(server, "sam-z");
+        var (ben, benId) = await SignIn(server, "ben-z");
+        await server.BefriendAsync(samId, benId);
+        const string stamp = "2026-10-24T10:00:00.000Z-0000-dev1";
+        var task = Entity("ZT1", samId, new JsonObject
+        {
+            ["listId"] = "ZL1",
+            ["title"] = "Bins",
+            ["parentId"] = null,
+            ["status"] = "open",
+            ["assignees"] = new JsonObject
+            {
+                [$"user:{samId}"] = new JsonObject { ["in"] = true, ["hlc"] = stamp },
+                [$"user:{benId}"] = new JsonObject { ["in"] = true, ["hlc"] = stamp },
+            },
+            ["reminders"] = new JsonArray(new JsonObject { ["at"] = "2026-10-26T09:00" }),
+        });
+        (await sam.PostAsJsonAsync("/api/sync", new
+        {
+            schemaVersion = WorkspaceSchema.CurrentVersion,
+            cursor = (long?)null,
+            changes = new object[]
+            {
+                new { collection = "lists", entity = Entity("ZL1", samId, new JsonObject { ["name"] = "Chores", ["visibility"] = "shared" }) },
+                new { collection = "listMembers", entity = Entity("ZM1", samId, new JsonObject { ["listId"] = "ZL1", ["principal"] = $"user:{benId}", ["role"] = "editor" }) },
+                new { collection = "tasks", entity = task },
+            },
+        }, Token)).EnsureSuccessStatusCode();
+
+        (await ben.PostAsJsonAsync("/api/reminders/act", new { taskId = "ZT1", first = 0L, action = "snooze", minutes = 30 }, Token)).EnsureSuccessStatusCode();
+        var snooze = Assert.Single((await ben.GetFromJsonAsync<List<SnoozedReminder>>("/api/reminders/snoozes", Token))!);
+        Assert.Empty((await sam.GetFromJsonAsync<List<SnoozedReminder>>("/api/reminders/snoozes", Token))!);
+        var at = DateTimeOffset.FromUnixTimeMilliseconds(snooze.At);
+        // Only the reminder counts here (the share sent Ben its own notices).
+        push.Sent.Clear();
+        await server.Services.GetRequiredService<ReminderSender>().SendDueAsync(at.AddMinutes(-1), at.AddMinutes(1), Token);
+        var sent = Assert.Single(push.Sent);
+        Assert.Equal((benId, $"ZT1@{snooze.At}"), (sent.UserId, sent.Payload.Tag));
+        Assert.Single((await ben.GetFromJsonAsync<NotificationFeed>("/api/notifications", Token))!.Items, each => each.Kind == "reminder");
+        Assert.DoesNotContain((await sam.GetFromJsonAsync<NotificationFeed>("/api/notifications", Token))!.Items, each => each.Kind == "reminder");
+        Assert.Empty((await sam.GetFromJsonAsync<AppCheck>("/api/app/check", Token))!.Reminders);
+
+        // Once Ben is no longer on it, a snooze of his does not come.
+        (await ben.PostAsJsonAsync("/api/reminders/act", new { taskId = "ZT1", first = 0L, action = "snooze", minutes = 90 }, Token)).EnsureSuccessStatusCode();
+        var later = DateTimeOffset.FromUnixTimeMilliseconds(
+            (await ben.GetFromJsonAsync<List<SnoozedReminder>>("/api/reminders/snoozes", Token))!.Max(each => each.At));
+        var unassigned = task.DeepClone().AsObject();
+        unassigned["assignees"]![$"user:{benId}"] = new JsonObject { ["in"] = false, ["hlc"] = "2026-10-24T11:00:00.000Z-0000-dev1" };
+        (await sam.PostAsJsonAsync("/api/sync", new
+        {
+            schemaVersion = WorkspaceSchema.CurrentVersion,
+            cursor = (long?)null,
+            changes = new object[] { new { collection = "tasks", entity = unassigned } },
+        }, Token)).EnsureSuccessStatusCode();
+        Assert.Empty((await ben.GetFromJsonAsync<List<SnoozedReminder>>("/api/reminders/snoozes", Token))!);
+        push.Sent.Clear();
+        await server.Services.GetRequiredService<ReminderSender>().SendDueAsync(later.AddMinutes(-1), later.AddMinutes(1), Token);
+        Assert.Empty(push.Sent);
     }
 
     [Fact]

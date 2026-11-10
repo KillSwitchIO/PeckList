@@ -124,39 +124,55 @@ export function allDayReminder(
   return { before: days * 1440 + (h * 60 + m) - (th * 60 + tm) };
 }
 
-/** My reminders that fire in [from, to), soonest first. */
+/**
+ * A reminder this person snoozed from a notification on a server (audit B3): it comes again for
+ * them alone at `at` (ms since the epoch). The server keeps it apart from the task, so nobody
+ * else on the task gets it.
+ */
+export interface Snooze {
+  taskId: Id;
+  at: number;
+}
+
+/**
+ * My reminders that fire in [from, to), soonest first. `snoozes` (mine, from the server) come as
+ * a reminder set for their time would, while the task is open and mine; one at a time the task
+ * already reminds at is that reminder.
+ */
 export function remindersBetween(
   workspace: WorkspaceFile,
   me: Id,
   from: number,
   to: number,
   timeZone: string,
+  snoozes: readonly Snooze[] = [],
 ): DueReminder[] {
-  const found: DueReminder[] = [];
+  const found = new Map<string, DueReminder>();
+  const add = (task: Task, first: number) => {
+    const constant = task.constantReminder === true;
+    const times = constant ? CONSTANT_TIMES : 1;
+    for (let again = 0; again < times; again += 1) {
+      const at = first + again * CONSTANT_EVERY_MINUTES * 60_000;
+      if (at < from || at >= to) continue;
+      const tag = `${task.id}@${first}`;
+      const key = again === 0 ? tag : `${tag}#${again}`;
+      found.set(key, { key, tag, taskId: task.id, title: task.title, at, constant });
+    }
+  };
+  const mine = (task: Task | undefined): task is Task =>
+    task !== undefined && isLive(task) && task.status === 'open' && remindsMe(workspace, task, me);
   for (const task of workspace.entities.tasks) {
-    if (!task.reminders?.length || !isLive(task) || task.status !== 'open') continue;
-    if (!remindsMe(workspace, task, me)) continue;
+    if (!task.reminders?.length || !mine(task)) continue;
     for (const reminder of task.reminders) {
       const first = reminderInstant(task, reminder, timeZone);
-      if (first === null) continue;
-      const constant = task.constantReminder === true;
-      const times = constant ? CONSTANT_TIMES : 1;
-      for (let again = 0; again < times; again += 1) {
-        const at = first + again * CONSTANT_EVERY_MINUTES * 60_000;
-        if (at < from || at >= to) continue;
-        const tag = `${task.id}@${first}`;
-        found.push({
-          key: again === 0 ? tag : `${tag}#${again}`,
-          tag,
-          taskId: task.id,
-          title: task.title,
-          at,
-          constant,
-        });
-      }
+      if (first !== null) add(task, first);
     }
   }
-  return found.sort((a, b) => a.at - b.at);
+  for (const snooze of snoozes) {
+    const task = workspace.entities.tasks.find((each) => each.id === snooze.taskId);
+    if (mine(task)) add(task, snooze.at);
+  }
+  return [...found.values()].sort((a, b) => a.at - b.at);
 }
 
 /** The same reminder twice is one. */
@@ -171,8 +187,9 @@ export const MAX_REMINDERS = 10;
 export const SNOOZE_MINUTES = 10;
 
 /**
- * Snooze (spec: R-FB-70): the task gets a one-time reminder at `at` (local "YYYY-MM-DDTHH:mm"),
- * and set times already past (earlier snoozes) go, so they do not pile up.
+ * Snooze (spec: R-FB-70) with no server: the task gets a one-time reminder at `at` (local
+ * "YYYY-MM-DDTHH:mm"), and set times already past (earlier snoozes) go, so they do not pile up.
+ * On a server a snooze is the person's own instead ({@link Snooze}), and the task stays as it is.
  */
 export function snoozeReminder(
   ctx: OpContext,

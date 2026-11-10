@@ -27,6 +27,9 @@ public sealed record PushUnsubscribe(string? Endpoint);
 /// </summary>
 public sealed record ReminderAct(string? TaskId, long First, string? Action, int? Minutes = null);
 
+/// <summary>A reminder the person snoozed (audit B3): it comes again for them at <paramref name="At"/> (ms since the epoch).</summary>
+public sealed record SnoozedReminder(string TaskId, long At);
+
 /// <summary>Web Push (spec: PL-061): the server's key, and this browser's subscription.</summary>
 public static class PushEndpoints
 {
@@ -58,10 +61,11 @@ public static class PushEndpoints
         });
 
         // Dismiss or Snooze pressed on a constant reminder with the app closed (spec: R-FB-70): its
-        // repeats stop for this person; Snooze adds a one-time reminder in ten minutes, written to
-        // the task so every device has it. The task's other reminders come as before. Complete
-        // (the Android app's notifications) closes the task and its open subtasks; a repeating task
-        // moves to its next date as the app moves it (RepeatingTask), so the app need not open.
+        // repeats stop for this person; Snooze brings it back for them alone in ten minutes (audit
+        // B3: the task is not changed, so nobody else gets it). The task's other reminders come as
+        // before. Complete (the Android app's notifications) closes the task and its open subtasks;
+        // a repeating task moves to its next date as the app moves it (RepeatingTask), so the app
+        // need not open.
         api.MapPost("/reminders/act", async (
             ReminderAct request, ClaimsPrincipal user, SharingState sharing, IPushStore store, SyncService sync,
             IEntityStore entities, ServerClock clock, TimeProvider time, Core.Configuration.ServerSettings settings, CancellationToken cancellation) =>
@@ -112,31 +116,35 @@ public static class PushEndpoints
             }
             if (request.Action == "snooze")
             {
-                var zone = await DeviceZones.ZoneForAsync(index, userId, store, settings, cancellation);
-                var local = TimeZoneInfo.ConvertTime(now, zone);
-                var nowText = local.ToString("yyyy-MM-dd'T'HH:mm", CultureInfo.InvariantCulture);
-                // Up to a week: "tomorrow morning" from late at night is more than a day.
+                // Up to a week: "tomorrow morning" from late at night is more than a day. On the
+                // minute, as a reminder's set time is, so the apps' keys for it agree.
                 var minutes = Math.Clamp(request.Minutes ?? SnoozeMinutes, 1, 7 * 24 * 60);
-                var later = local.AddMinutes(minutes).ToString("yyyy-MM-dd'T'HH:mm", CultureInfo.InvariantCulture);
-                var reminders = new JsonArray();
-                if (found.Doc["reminders"] is JsonArray existing)
-                {
-                    foreach (var each in existing.OfType<JsonObject>())
-                    {
-                        // Set times already past (earlier snoozes) go.
-                        if ((string?)each["at"] is { } setAt && string.CompareOrdinal(setAt, nowText) <= 0) continue;
-                        reminders.Add(each.DeepClone());
-                    }
-                }
-                reminders.Add(new JsonObject { ["at"] = later });
-                var doc = ServerEntities.Changed(found.Doc, clock.Next(), new JsonObject { ["reminders"] = reminders });
-                await sync.WriteAsServerAsync((string?)found.Doc["createdBy"] ?? userId, [new IncomingEntity("tasks", doc)], cancellation);
+                var later = now.AddMinutes(minutes);
+                await store.SnoozeAsync(userId, found.Id, later.AddTicks(-(later.UtcTicks % TimeSpan.TicksPerMinute)), cancellation);
             }
             return Results.NoContent();
         });
 
+        // The person's snoozes still to come (audit B3), for an open app to fire them itself: only
+        // their own, and only on tasks still open and theirs. A constant reminder's repeats count.
+        api.MapGet("/reminders/snoozes", async (ClaimsPrincipal user, SharingState sharing, IPushStore store, TimeProvider time, CancellationToken cancellation) =>
+        {
+            var userId = user.UserId();
+            var index = sharing.Index;
+            var now = time.GetUtcNow();
+            var snoozes = await store.SnoozesAsync(now - ServerReminders.RepeatsLast, now + SnoozesAhead, userId, cancellation);
+            return snoozes
+                .Where(each => index.LiveDocOf(each.TaskId, "tasks") is { } task && (string?)task["status"] == "open"
+                    && ServerReminders.Recipients(task, index).Contains(userId))
+                .Select(each => new SnoozedReminder(each.TaskId, each.At.ToUnixTimeMilliseconds()))
+                .ToList();
+        });
+
         return api;
     }
+
+    /// <summary>A snooze is at most a week; a little more covers a constant reminder's repeats.</summary>
+    private static readonly TimeSpan SnoozesAhead = TimeSpan.FromDays(8);
 
     /// <summary>How long Snooze puts a constant reminder off (the app's SNOOZE_MINUTES).</summary>
     public const int SnoozeMinutes = 10;

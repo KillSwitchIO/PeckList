@@ -337,3 +337,222 @@ describe('reminders', () => {
     expect(handed.length).toBe(before);
   });
 });
+
+/** The page's service worker, as far as the app listens to it: its messages. */
+function fakeServiceWorker() {
+  const listeners: ((event: MessageEvent) => void)[] = [];
+  Object.defineProperty(navigator, 'serviceWorker', {
+    configurable: true,
+    value: {
+      addEventListener: (type: string, listener: (event: MessageEvent) => void) => {
+        if (type === 'message') listeners.push(listener);
+      },
+      removeEventListener: () => undefined,
+    },
+  });
+  return {
+    press(data: { action: 'dismiss' | 'snooze'; taskId: string; first: number }) {
+      const event = new MessageEvent('message', { data: { type: 'pecklist-reminder', ...data } });
+      act(() => listeners.forEach((listener) => listener(event)));
+    },
+  };
+}
+
+async function onServer(prepare: (backend: FakeBackend) => void = () => undefined) {
+  const backend = new FakeBackend();
+  backend.addAccount('ben', 'correct horse battery');
+  prepare(backend);
+  const transport = backend.device();
+  transport.session = 'ben';
+  const store = testStore();
+  const sync = createSyncEngine({
+    transport,
+    workspace: store,
+    storage: createMemoryStorage(),
+    debounceMs: 60_000,
+    intervalMs: 600_000,
+  });
+  await renderApp('/inbox', store, sync);
+  await waitFor(() => expect(sync.getState().phase).toBe('ready'));
+  return { backend, transport, store, sync };
+}
+
+describe('snoozing a reminder (audit B3)', () => {
+  afterEach(() => {
+    delete (navigator as { serviceWorker?: unknown }).serviceWorker;
+    vi.restoreAllMocks();
+    localStorage.clear();
+  });
+
+  it('on a server is mine alone: the server keeps it, the task stays, and it fires here', async () => {
+    const worker = fakeServiceWorker();
+    const notifier = fakeNotifier();
+    setNotifier(notifier);
+    const { backend, store, sync } = await onServer();
+    const id = addTask(store, 'Take the pills', inMinutes(120), [{ before: 0 }]);
+    await act(() => sync.getState().syncNow());
+    const reminders = () =>
+      store.getState().workspace!.entities.tasks.find((task) => task.id === id)!.reminders;
+    const before = reminders();
+    // The server's clock is ten minutes behind, so the snooze is due now and fires at once.
+    backend.now = () => Date.now() - 10 * 60_000;
+    const first = Date.now() - 60_000;
+    worker.press({ action: 'snooze', taskId: id, first });
+    await waitFor(() =>
+      expect(backend.reminderPresses).toEqual([
+        { taskId: id, first, action: 'snooze', username: 'ben' },
+      ]),
+    );
+    const at = backend.snoozes.get('ben')![0]!.at;
+    await waitFor(() =>
+      expect(notifier.shown.map((each) => [each.title, each.tag])).toEqual([
+        ['Take the pills', `${id}@${at}`],
+      ]),
+    );
+    expect(reminders()).toEqual(before);
+    expect(await screen.findByText('Reminder snoozed 10 minutes')).toBeInTheDocument();
+
+    // Dismiss is sent as itself and snoozes nothing.
+    worker.press({ action: 'dismiss', taskId: id, first });
+    await waitFor(() => expect(backend.reminderPresses.at(-1)?.action).toBe('dismiss'));
+    expect(backend.snoozes.get('ben')).toHaveLength(1);
+  });
+
+  it('missed by the server still comes back here, and the server hears it after a sync', async () => {
+    const worker = fakeServiceWorker();
+    const notifier = fakeNotifier();
+    setNotifier(notifier);
+    const { backend, store, sync } = await onServer();
+    const id = addTask(store, 'Take the pills', inMinutes(120), [{ before: 0 }]);
+    await act(() => sync.getState().syncNow());
+    // Offline, or the server restarting.
+    backend.failReminderPresses = true;
+    const first = Date.now() - 60_000;
+    const pressed = Date.now();
+    worker.press({ action: 'snooze', taskId: id, first });
+    expect(await screen.findByText('Reminder snoozed 10 minutes')).toBeInTheDocument();
+    const at = Math.floor(pressed / 60_000) * 60_000 + 10 * 60_000;
+    expect(backend.reminderPresses).toEqual([]);
+    expect(notifier.shown).toEqual([]);
+
+    // Ten minutes on (the page looks again on any change): it comes back on this device.
+    const real = Date.now.bind(Date);
+    vi.spyOn(Date, 'now').mockImplementation(() => real() + 10 * 60_000 + 1_000);
+    addTask(store, 'Unrelated', inMinutes(600));
+    await waitFor(() =>
+      expect(notifier.shown.map((each) => [each.title, each.tag])).toEqual([
+        ['Take the pills', `${id}@${at}`],
+      ]),
+    );
+
+    // The server is back: told after the next sync. Its time has passed, so only the repeats stop.
+    backend.failReminderPresses = false;
+    await act(() => sync.getState().syncNow());
+    await waitFor(() =>
+      expect(backend.reminderPresses).toEqual([
+        { taskId: id, first, action: 'dismiss', username: 'ben' },
+      ]),
+    );
+    expect(backend.snoozes.get('ben') ?? []).toEqual([]);
+  });
+
+  it('missed by the server is told again with the minutes left, so it comes back on time', async () => {
+    const worker = fakeServiceWorker();
+    setNotifier(fakeNotifier());
+    const { backend, transport, store, sync } = await onServer();
+    const id = addTask(store, 'Take the pills', inMinutes(120), [{ before: 0 }]);
+    await act(() => sync.getState().syncNow());
+    backend.failReminderPresses = true;
+    const first = Date.now() - 60_000;
+    const pressed = Date.now();
+    worker.press({ action: 'snooze', taskId: id, first });
+    await screen.findByText('Reminder snoozed 10 minutes');
+    const at = Math.floor(pressed / 60_000) * 60_000 + 10 * 60_000;
+    // A sync that does not get through tells nothing.
+    transport.offline = true;
+    await act(() => sync.getState().syncNow());
+    expect(backend.reminderPresses).toEqual([]);
+
+    transport.offline = false;
+    backend.failReminderPresses = false;
+    await act(() => sync.getState().syncNow());
+    await waitFor(() => expect(backend.snoozes.get('ben')).toEqual([{ taskId: id, at }]));
+    expect(backend.reminderPresses).toHaveLength(1);
+    expect(backend.reminderPresses[0]).toMatchObject({ taskId: id, first, action: 'snooze' });
+    // Told once: the next sync sends nothing more.
+    await act(() => sync.getState().syncNow());
+    expect(backend.reminderPresses).toHaveLength(1);
+  });
+
+  it('with no server adds a reminder to the task, as before', async () => {
+    const worker = fakeServiceWorker();
+    setNotifier(fakeNotifier());
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(() => Promise.reject(new Error('no server'))),
+    );
+    const store = testStore();
+    await renderApp('/inbox', store);
+    const id = addTask(store, 'Take the pills', inMinutes(120), [{ before: 0 }]);
+    worker.press({ action: 'snooze', taskId: id, first: Date.now() - 60_000 });
+    await waitFor(() =>
+      expect(
+        store.getState().workspace!.entities.tasks.find((task) => task.id === id)!.reminders,
+      ).toEqual([{ before: 0 }, { at: inMinutes(10) }]),
+    );
+  });
+
+  it('in the Android app go to the system with the reminders ahead, asked for before each hand-over', async () => {
+    const handed: ScheduledNotification[][] = [];
+    setNotifier({
+      ...fakeNotifier(),
+      scheduleAhead: (notifications: ScheduledNotification[]) => {
+        handed.push(notifications);
+        return Promise.resolve();
+      },
+    });
+    const { backend, store, sync } = await onServer();
+    const id = addTask(store, 'Call mum', inMinutes(120), [{ before: 0 }]);
+    await act(() => sync.getState().syncNow());
+    await waitFor(() => expect(handed.at(-1)?.map((each) => each.title)).toEqual(['Call mum']), {
+      timeout: 3000,
+    });
+    // Snoozed on the phone a moment ago: the server has it, this page has not synced since.
+    const snoozedAt = Math.floor(Date.now() / 60_000) * 60_000 + 30 * 60_000;
+    backend.snoozes.set('ben', [{ taskId: id, at: snoozedAt }]);
+    addTask(store, 'Unrelated', inMinutes(300));
+    await waitFor(
+      () =>
+        expect(handed.at(-1)?.map((each) => [each.title, each.at])).toContainEqual([
+          'Call mum',
+          snoozedAt,
+        ]),
+      { timeout: 3000 },
+    );
+  });
+
+  it('in the Android app are not handed over before the list was ever had', async () => {
+    const handed: ScheduledNotification[][] = [];
+    setNotifier({
+      ...fakeNotifier(),
+      scheduleAhead: (notifications: ScheduledNotification[]) => {
+        handed.push(notifications);
+        return Promise.resolve();
+      },
+    });
+    // Offline for snoozes since the page opened: an empty list would take the phone's away.
+    const { backend, store, sync } = await onServer((it) => {
+      it.failSnoozes = true;
+    });
+    addTask(store, 'Call mum', inMinutes(120), [{ before: 0 }]);
+    await act(() => sync.getState().syncNow());
+    await act(() => new Promise((resolve) => setTimeout(resolve, 1_500)));
+    expect(handed).toEqual([]);
+
+    backend.failSnoozes = false;
+    await act(() => sync.getState().syncNow());
+    await waitFor(() => expect(handed.at(-1)?.map((each) => each.title)).toEqual(['Call mum']), {
+      timeout: 3000,
+    });
+  });
+});
