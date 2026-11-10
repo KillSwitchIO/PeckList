@@ -1,0 +1,93 @@
+{
+  "description": "Which names an @mention in a comment body names, in order. The web app's commentText rule and the server's NotificationRules read the same: paragraphs left to right, `code` and a link's label skipped, bold and italic read inside, and an @ at the start or after a space or an opening bracket, then a letter or digit, then letters, digits, dots, dashes and underscores, not ending in a mark (audit D3).",
+  "cases": [
+    {
+      "body": "Which color, @ben-m? Ask @lee-m too",
+      "names": ["ben-m", "lee-m"]
+    },
+    {
+      "body": "Thanks @sam.",
+      "names": ["sam"]
+    },
+    {
+      "body": "(@jo) and @kim_r, then @al.b!",
+      "names": ["jo", "kim_r", "al.b"]
+    },
+    {
+      "body": "@sam's turn",
+      "names": ["sam"]
+    },
+    {
+      "body": "First line\n@sam on the next",
+      "names": ["sam"]
+    },
+    {
+      "body": "@názov and @émile",
+      "names": ["názov", "émile"]
+    },
+    {
+      "body": "@123 counts",
+      "names": ["123"]
+    },
+    {
+      "body": "Mail ben@example.com",
+      "names": []
+    },
+    {
+      "body": "x@sam and @@sam",
+      "names": []
+    },
+    {
+      "body": "@-sam and @_sam and @ alone",
+      "names": []
+    },
+    {
+      "body": "@a",
+      "names": ["a"]
+    },
+    {
+      "body": "Ask `@sam` about it, @kim",
+      "names": ["kim"]
+    },
+    {
+      "body": "Run `ping @sam` now, @kim",
+      "names": ["kim"]
+    },
+    {
+      "body": "`(@sam) and @lee`",
+      "names": []
+    },
+    {
+      "body": "``@sam`` and `a @lee c`",
+      "names": ["lee"]
+    },
+    {
+      "body": "`unclosed @sam",
+      "names": ["sam"]
+    },
+    {
+      "body": "Code `x`@sam",
+      "names": []
+    },
+    {
+      "body": "`multi\nline @sam`",
+      "names": ["sam"]
+    },
+    {
+      "body": "**@sam** and *@kim* and _@lee_",
+      "names": ["sam", "kim", "lee"]
+    },
+    {
+      "body": "[@sam](https://example.com) and [@kim](ftp://example.com)",
+      "names": []
+    },
+    {
+      "body": "See https://example.com/@sam then @kim",
+      "names": ["kim"]
+    },
+    {
+      "body": "Line one\r\n\r\n@sam",
+      "names": ["sam"]
+    }
+  ]
+}

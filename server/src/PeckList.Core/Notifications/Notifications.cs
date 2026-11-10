@@ -86,8 +86,89 @@ public static partial class NotificationRules
     /// <summary>The collections whose changes may notify someone.</summary>
     public static bool Watched(string collection) => collection is "tasks" or "listMembers" or "comments";
 
-    [GeneratedRegex(@"(?<![\w@])@([A-Za-z0-9._-]{1,64})")]
+    // The web app's comment text (web/src/core/commentText.ts), read the same way here (audit D3):
+    // paragraphs, then left to right, `code` and a link's label skipped, **bold** and *italic* read
+    // inside, and an @ where a word begins (the start, after a space or "("): a letter or digit, then
+    // letters, digits and . _ -, not ending in a mark, so "@sam." names sam. Both read
+    // schema/fixtures/mentions/cases.json in their tests.
+    [GeneratedRegex(@"\G`[^`\n]+`")]
+    private static partial Regex CodeSpan();
+
+    [GeneratedRegex(@"\G\[[^\]\n]+\]\(([^)\s]+)\)")]
+    private static partial Regex LinkSpan();
+
+    [GeneratedRegex(@"^(https?://|mailto:)", RegexOptions.IgnoreCase)]
+    private static partial Regex FollowedHref();
+
+    [GeneratedRegex(@"\G\*\*(?=\S)([^\n]*?\S)\*\*")]
+    private static partial Regex Bold();
+
+    [GeneratedRegex(@"\G\*(?=\S)([^*\n]*?\S)\*")]
+    private static partial Regex Italic();
+
+    [GeneratedRegex(@"\G_(?=\S)([^_\n]*?\S)_(?![\p{L}\p{N}])")]
+    private static partial Regex UnderscoreItalic();
+
+    [GeneratedRegex(@"\Ghttps?://[^\s<>()]+[^\s<>().,;:!?'""]")]
+    private static partial Regex BareLink();
+
+    [GeneratedRegex(@"\G@([\p{L}\p{N}](?:[\p{L}\p{N}._-]*[\p{L}\p{N}])?)")]
     private static partial Regex Mention();
+
+    [GeneratedRegex(@"\r\n?")]
+    private static partial Regex LineEnd();
+
+    [GeneratedRegex(@"\n{2,}")]
+    private static partial Regex ParagraphBreak();
+
+    /// <summary>The names a comment body @mentions, in order (repeats kept).</summary>
+    public static IReadOnlyList<string> MentionedNames(string body)
+    {
+        var names = new List<string>();
+        foreach (var paragraph in ParagraphBreak().Split(LineEnd().Replace(body, "\n")))
+        {
+            var text = paragraph.Trim();
+            if (text.Length > 0) MentionsIn(text, names);
+        }
+        return names;
+    }
+
+    private static void MentionsIn(string text, List<string> names)
+    {
+        var at = 0;
+        while (at < text.Length)
+        {
+            var wordStart = at == 0 || char.IsWhiteSpace(text[at - 1]) || text[at - 1] == '(';
+            var skip = CodeSpan().Match(text, at);
+            if (!skip.Success && LinkSpan().Match(text, at) is { Success: true } link && FollowedHref().IsMatch(link.Groups[1].Value)) skip = link;
+            if (skip.Success)
+            {
+                at += skip.Length;
+                continue;
+            }
+            var inner = Bold().Match(text, at);
+            if (!inner.Success) inner = Italic().Match(text, at);
+            if (!inner.Success && wordStart) inner = UnderscoreItalic().Match(text, at);
+            if (inner.Success)
+            {
+                MentionsIn(inner.Groups[1].Value, names);
+                at += inner.Length;
+                continue;
+            }
+            if (wordStart && BareLink().Match(text, at) is { Success: true } bare)
+            {
+                at += bare.Length;
+                continue;
+            }
+            if (wordStart && Mention().Match(text, at) is { Success: true } mention)
+            {
+                names.Add(mention.Groups[1].Value);
+                at += mention.Length;
+                continue;
+            }
+            at++;
+        }
+    }
 
     public sealed record Found(string UserId, string Kind, string? TaskId, string? ListId, string? CommentId);
 
@@ -164,8 +245,8 @@ public static partial class NotificationRules
     {
         if (Field(change.After, "taskId") is not { } taskId || Field(change.After, "body") is not { } body) return [];
         var viewers = index.Viewers(taskId);
-        return Mention().Matches(body)
-            .Select(match => userByName(match.Groups[1].Value))
+        return MentionedNames(body)
+            .Select(userByName)
             .OfType<string>()
             .Where(viewers.Contains)
             .Select(user => new Found(user, NotificationKind.Mentioned, taskId, null, change.Id));
