@@ -357,8 +357,14 @@ public static class OidcSetup
                     await services.GetRequiredService<Friends>().EnsureProfileAsync(
                         success.Account, identity.DisplayName, context.HttpContext.RequestAborted);
                 }
-                await services.GetRequiredService<ProviderPhoto>().ImportAsync(
-                    success.Account.Id, Claim("picture"), context.HttpContext.RequestAborted);
+                // Fetched after the sign-in, not during it (audit B2): it reaches their devices on the next sync.
+                var photos = services.GetRequiredService<ProviderPhoto>();
+                var (photoFor, picture) = (success.Account.Id, Claim("picture"));
+                if (picture is not null)
+                {
+                    services.GetRequiredService<BackgroundQueue>().Enqueue(
+                        "Fetching a provider's picture", stopping => photos.ImportAsync(photoFor, picture, stopping));
+                }
                 // A provider that vouches for the email gives the account its confirmed email (PL-122).
                 if (identity.EmailVerified)
                 {

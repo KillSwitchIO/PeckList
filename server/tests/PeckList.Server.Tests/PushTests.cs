@@ -23,21 +23,32 @@ public sealed class PushTests(ServerFixture fixture) : IClassFixture<ServerFixtu
         /// <summary>The next send fails, as a push service that is down would.</summary>
         public bool FailNext { get; set; }
 
-        public Task SendAsync(string userId, PushPayload payload, CancellationToken cancellation = default)
+        /// <summary>While set, sends wait for it, as a slow push service would.</summary>
+        public TaskCompletionSource? Hold { get; set; }
+
+        /// <summary>Sends to these people never answer, as a dead browser's push service might.</summary>
+        public HashSet<string> Hung { get; } = [];
+
+        public async Task SendAsync(string userId, PushPayload payload, CancellationToken cancellation = default)
         {
+            if (Hold is { } hold) await hold.Task.WaitAsync(cancellation);
+            if (Hung.Contains(userId)) await Task.Delay(Timeout.Infinite, cancellation);
             if (FailNext)
             {
                 FailNext = false;
                 throw new HttpRequestException("push service down");
             }
             lock (Sent) Sent.Add((userId, payload));
-            return Task.CompletedTask;
         }
     }
 
     private readonly FakePush push = new();
 
     private static CancellationToken Token => TestContext.Current.CancellationToken;
+
+    /// <summary>Notification pushes go out after the request (audit B2): wait for them.</summary>
+    private static Task Pushed(WebApplicationFactory<Program> server) =>
+        server.Services.GetRequiredService<BackgroundQueue>().IdleAsync(Token);
 
     private async Task<(HttpClient Client, string Id)> SignIn(WebApplicationFactory<Program> server, string username)
     {
@@ -458,6 +469,7 @@ public sealed class PushTests(ServerFixture fixture) : IClassFixture<ServerFixtu
         Assert.Empty((await sam.GetFromJsonAsync<List<SnoozedReminder>>("/api/reminders/snoozes", Token))!);
         var at = DateTimeOffset.FromUnixTimeMilliseconds(snooze.At);
         // Only the reminder counts here (the share sent Ben its own notices).
+        await Pushed(server);
         push.Sent.Clear();
         await server.Services.GetRequiredService<ReminderSender>().SendDueAsync(at.AddMinutes(-1), at.AddMinutes(1), Token);
         var sent = Assert.Single(push.Sent);
@@ -479,9 +491,74 @@ public sealed class PushTests(ServerFixture fixture) : IClassFixture<ServerFixtu
             changes = new object[] { new { collection = "tasks", entity = unassigned } },
         }, Token)).EnsureSuccessStatusCode();
         Assert.Empty((await ben.GetFromJsonAsync<List<SnoozedReminder>>("/api/reminders/snoozes", Token))!);
+        await Pushed(server);
         push.Sent.Clear();
         await server.Services.GetRequiredService<ReminderSender>().SendDueAsync(later.AddMinutes(-1), later.AddMinutes(1), Token);
         Assert.Empty(push.Sent);
+    }
+
+    [Fact]
+    public async Task A_slow_push_service_does_not_hold_up_the_sync_that_notifies()
+    {
+        using var server = Server();
+        var (_, benId) = await SignIn(server, "ben-q");
+        var (sam, samId) = await SignIn(server, "sam-q");
+        await server.BefriendAsync(samId, benId);
+        await Pushed(server);
+        push.Hold = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        var list = Entity("QL1", samId, new JsonObject { ["name"] = "Errands", ["visibility"] = "shared" });
+        var member = Entity("QM1", samId, new JsonObject { ["listId"] = "QL1", ["principal"] = $"user:{benId}", ["role"] = "editor" });
+        var shared = sam.PostAsJsonAsync("/api/sync", new
+        {
+            schemaVersion = WorkspaceSchema.CurrentVersion,
+            cursor = (long?)null,
+            changes = new object[]
+            {
+                new { collection = "lists", entity = list },
+                new { collection = "listMembers", entity = member },
+            },
+        }, Token);
+        // The sync answers while Ben's push is still waiting on the push service.
+        var answered = await Task.WhenAny(shared, Task.Delay(TimeSpan.FromSeconds(10), Token));
+        Assert.Same(shared, answered);
+        (await shared).EnsureSuccessStatusCode();
+        Assert.Empty(push.Sent);
+
+        push.Hold.SetResult();
+        await Pushed(server);
+        Assert.Equal(["sam-q shared Errands with you"], push.Sent.Where(each => each.UserId == benId).Select(each => each.Payload.Body));
+    }
+
+    [Fact]
+    public async Task A_push_that_never_answers_for_one_person_does_not_stop_another_persons()
+    {
+        using var server = Server();
+        var (_, benId) = await SignIn(server, "ben-h");
+        var (_, kimId) = await SignIn(server, "kim-h");
+        var (sam, samId) = await SignIn(server, "sam-h");
+        await server.BefriendAsync(samId, benId);
+        await server.BefriendAsync(samId, kimId);
+        await Pushed(server);
+        server.Services.GetRequiredService<BackgroundQueue>().Limit = TimeSpan.FromSeconds(1);
+        push.Hung.Add(benId);
+
+        // One change tells both, Ben first.
+        (await sam.PostAsJsonAsync("/api/sync", new
+        {
+            schemaVersion = WorkspaceSchema.CurrentVersion,
+            cursor = (long?)null,
+            changes = new object[]
+            {
+                new { collection = "lists", entity = Entity("HL1", samId, new JsonObject { ["name"] = "Errands", ["visibility"] = "shared" }) },
+                new { collection = "listMembers", entity = Entity("HM1", samId, new JsonObject { ["listId"] = "HL1", ["principal"] = $"user:{benId}", ["role"] = "editor" }) },
+                new { collection = "listMembers", entity = Entity("HM2", samId, new JsonObject { ["listId"] = "HL1", ["principal"] = $"user:{kimId}", ["role"] = "editor" }) },
+            },
+        }, Token)).EnsureSuccessStatusCode();
+        await Pushed(server);
+
+        Assert.Equal(["sam-h shared Errands with you"], push.Sent.Where(each => each.UserId == kimId).Select(each => each.Payload.Body));
+        Assert.DoesNotContain(push.Sent, each => each.UserId == benId);
     }
 
     [Fact]
@@ -536,6 +613,7 @@ public sealed class PushTests(ServerFixture fixture) : IClassFixture<ServerFixtu
         }, Token)).EnsureSuccessStatusCode();
 
         // The share went out (shares are on); the assignment did not.
+        await Pushed(server);
         Assert.Equal(["sam-s shared Chores with you"], push.Sent.Where(each => each.UserId == benId).Select(each => each.Payload.Body));
         var check = (await ben.GetFromJsonAsync<AppCheck>($"/api/app/check?after={first.Cursor}", Token))!;
         Assert.Equal(["sam-s shared Chores with you"], check.Notifications.Select(each => each.Body));
