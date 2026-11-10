@@ -2,6 +2,7 @@ using System.Security.Claims;
 using PeckList.Core;
 using PeckList.Core.Accounts;
 using PeckList.Core.Notifications;
+using PeckList.Core.Push;
 using PeckList.Core.Sharing;
 using PeckList.Server.Auth;
 
@@ -73,7 +74,8 @@ public static class AppCheckEndpoints
             var now = time.GetUtcNow();
             // This check's own zone is the freshest word from the device.
             var device = DeviceZones.Valid(zone) ?? (settings.TimeZoneChosen ? null : await push.DeviceZoneAsync(me, cancellation));
-            var reminders = ReminderSender.UpcomingFor(index, me, now, now + Ahead, device, settings.TimeZoneChosen)
+            var snoozes = await push.SnoozesAsync(now - ServerReminders.RepeatsLast, now + Ahead, me, cancellation);
+            var reminders = ReminderSender.UpcomingFor(index, me, now, now + Ahead, device, settings.TimeZoneChosen, snoozes)
                 .Take(AheadMax)
                 .Select(each => new AppCheckReminder(each.Key, each.Title, each.Body, each.At.ToUnixTimeMilliseconds(), each.Url, each.Constant, each.Repeats))
                 .ToList();

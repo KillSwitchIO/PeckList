@@ -100,4 +100,25 @@ public abstract class NotificationStoreContract : IAsyncLifetime
         Assert.Null(await Push.DeviceZoneAsync("ben", Token));
         Assert.Equal("Europe/Paris", await Push.DeviceZoneAsync("kim", Token));
     }
+
+    [Fact]
+    public async Task Keeps_each_persons_snoozes_until_a_week_after_they_are_due_or_their_account_goes()
+    {
+        await Push.SnoozeAsync("ben", "T1", Monday.AddMinutes(10), Token);
+        await Push.SnoozeAsync("ben", "T1", Monday.AddMinutes(10), Token);
+        await Push.SnoozeAsync("ben", "T2", Monday.AddMinutes(30), Token);
+        await Push.SnoozeAsync("kim", "T1", Monday.AddMinutes(20), Token);
+
+        Assert.Equal(
+            [new ReminderSnooze("ben", "T1", Monday.AddMinutes(10)), new ReminderSnooze("kim", "T1", Monday.AddMinutes(20)), new ReminderSnooze("ben", "T2", Monday.AddMinutes(30))],
+            await Push.SnoozesAsync(Monday, Monday.AddHours(1), cancellation: Token));
+        // Due after the start and up to the end, as reminders are.
+        Assert.Equal(["T1"], (await Push.SnoozesAsync(Monday.AddMinutes(10), Monday.AddMinutes(20), cancellation: Token)).Select(each => each.TaskId));
+        Assert.Equal(["T1", "T2"], (await Push.SnoozesAsync(Monday, Monday.AddHours(1), "ben", Token)).Select(each => each.TaskId));
+
+        await Push.PruneSentRemindersAsync(Monday.AddMinutes(25), Token);
+        Assert.Equal([new ReminderSnooze("ben", "T2", Monday.AddMinutes(30))], await Push.SnoozesAsync(Monday, Monday.AddHours(1), cancellation: Token));
+        await Push.RemoveUserAsync("ben", Token);
+        Assert.Empty(await Push.SnoozesAsync(Monday, Monday.AddHours(1), cancellation: Token));
+    }
 }

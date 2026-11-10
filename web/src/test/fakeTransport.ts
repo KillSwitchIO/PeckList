@@ -1,5 +1,6 @@
 // A SyncTransport over the in-memory server, with accounts and a switch to go offline.
 import type { UserStats } from '../ports/stats.ts';
+import type { Snooze } from '../core/reminders.ts';
 import { CURRENT_SCHEMA_VERSION } from '../core/migrations.ts';
 import {
   SyncFailure,
@@ -21,6 +22,8 @@ import {
   type HistoryEntry,
   type NotificationsApi,
   type PushApi,
+  type ReminderPress,
+  type RemindersApi,
   type ServerNotification,
   type ProfilePreview,
   type DemoInfo,
@@ -54,6 +57,15 @@ export class FakeBackend {
   noLinks = false;
   /** The server's time sent with every sync (ms since epoch); null sends none. */
   serverTime: number | null = null;
+  /** Each person's snoozes (audit B3), by username. */
+  readonly snoozes = new Map<string, Snooze[]>();
+  /** Dismiss and Snooze presses the server heard, with whose. */
+  readonly reminderPresses: (ReminderPress & { username: string })[] = [];
+  /** The server's clock for a snooze's time (ms since epoch). */
+  now: () => number = () => Date.now();
+  /** Presses and the snooze list answer as an unreachable server would. */
+  failReminderPresses = false;
+  failSnoozes = false;
 
   /** An account's numbers as the server would count them: its live tasks by status. */
   stats(id: string, username: string): UserStats {
@@ -379,6 +391,32 @@ export class FakeTransport implements SyncTransport {
     },
     unsubscribe: (endpoint) => {
       this.pushed.delete(endpoint);
+      return Promise.resolve();
+    },
+  };
+
+  readonly reminders: RemindersApi = {
+    snoozes: () => {
+      const found = this.current();
+      if (!found) return Promise.reject(new SyncFailure('signed-out', 'signed out'));
+      if (this.backend.failSnoozes) return Promise.reject(new SyncFailure('offline', 'no answer'));
+      return Promise.resolve([...(this.backend.snoozes.get(found.account.username) ?? [])]);
+    },
+    act: (press) => {
+      const found = this.current();
+      if (!found) return Promise.reject(new SyncFailure('signed-out', 'signed out'));
+      if (this.backend.failReminderPresses) {
+        return Promise.reject(new SyncFailure('offline', 'no answer'));
+      }
+      const username = found.account.username;
+      this.backend.reminderPresses.push({ ...press, username });
+      if (press.action === 'snooze') {
+        // That many minutes on (ten unless said), on the minute, as the real server keeps it.
+        const later = this.backend.now() + (press.minutes ?? 10) * 60_000;
+        const at = Math.floor(later / 60_000) * 60_000;
+        const mine = this.backend.snoozes.get(username) ?? [];
+        this.backend.snoozes.set(username, [...mine, { taskId: press.taskId, at }]);
+      }
       return Promise.resolve();
     },
   };

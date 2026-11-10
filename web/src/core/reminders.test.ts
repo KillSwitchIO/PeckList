@@ -103,6 +103,49 @@ describe('reminders', () => {
     expect(new Set(due.map((each) => each.key)).size).toBe(6);
     expect(due.every((each) => each.constant)).toBe(true);
   });
+
+  it("bring a server's snoozes back as reminders while the task is open and mine (audit B3)", () => {
+    const s = setup();
+    const pills = s.add('Pills', { schedule: timed, reminders: [{ before: 0 }] });
+    const theirs = s.add('Theirs', { schedule: timed });
+    s.ws = setAssignee(s.ctx, s.ws, theirs.id, `user:${SAM}`, true);
+    const done = s.add('Done', { schedule: timed });
+    s.ws = toggleTaskDone(s.ctx, s.ws, done.id);
+    const snoozes = [
+      { taskId: pills.id, at: at('2026-10-26T10:45') },
+      // At a time the task already reminds at: that reminder, once.
+      { taskId: pills.id, at: at('2026-10-26T10:30') },
+      { taskId: theirs.id, at: at('2026-10-26T10:40') },
+      { taskId: done.id, at: at('2026-10-26T10:40') },
+      { taskId: 'gone', at: at('2026-10-26T10:40') },
+    ];
+    const due = remindersBetween(
+      s.ws,
+      ME,
+      at('2026-10-26T10:00'),
+      at('2026-10-26T12:00'),
+      TZ,
+      snoozes,
+    );
+    expect(due.map((each) => [each.title, each.at, each.key])).toEqual([
+      ['Pills', at('2026-10-26T10:30'), `${pills.id}@${at('2026-10-26T10:30')}`],
+      ['Pills', at('2026-10-26T10:45'), `${pills.id}@${at('2026-10-26T10:45')}`],
+    ]);
+    // A constant reminder's snooze repeats as the reminder does, under its own tag.
+    s.ws = updateTask(s.ctx, s.ws, pills.id, { constantReminder: true, reminders: [] });
+    const constant = remindersBetween(
+      s.ws,
+      ME,
+      at('2026-10-26T10:00'),
+      at('2026-10-26T12:00'),
+      TZ,
+      snoozes.slice(0, 1),
+    );
+    expect(constant).toHaveLength(6);
+    expect(new Set(constant.map((each) => each.tag))).toEqual(
+      new Set([`${pills.id}@${at('2026-10-26T10:45')}`]),
+    );
+  });
 });
 
 describe('all-day reminders at a time of day', () => {

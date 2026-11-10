@@ -1,10 +1,12 @@
-import { useEffect, useRef, useState } from 'react';
+import { Snackbar } from '@mui/material';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   CONSTANT_TIMES,
   remindersBetween,
   SNOOZE_MINUTES,
   snoozeReminder,
   type DueReminder,
+  type Snooze,
 } from '../../core/reminders.ts';
 import { localTimeZone } from '../../core/dates.ts';
 import { formatTime } from '../format.ts';
@@ -16,6 +18,7 @@ import { localClock } from './clock.ts';
 import { notifier } from './notifier.ts';
 import { logReminder } from './reminderLog.ts';
 import { dateTimeFormat } from '../../core/intl.ts';
+import type { ReminderPress, RemindersApi } from '../../ports/sync.ts';
 
 /** How late a reminder may still fire (the app was closed or asleep at the time). */
 const GRACE_MS = 15 * 60_000;
@@ -27,6 +30,41 @@ const AHEAD_MAX = 100;
 /** How long the workspace must stay still before the reminders ahead are handed over again. */
 const AHEAD_SETTLE_MS = 1_000;
 const FIRED_KEY = 'pecklist.firedReminders';
+const HELD_KEY = 'pecklist.heldReminderPresses';
+/** A week on, a press the server never heard goes: the task has long been dealt with. */
+const HELD_KEEP_MS = 7 * 86_400_000;
+
+/**
+ * A Dismiss or Snooze the server could not be told of (offline, restarting): told again after the
+ * next sync that gets through, as the Android app keeps its own. A snooze also stays here, so this
+ * device brings it back meanwhile.
+ */
+interface Held {
+  user: string;
+  press: ReminderPress;
+  /** When it was pressed */
+  at: number;
+  /** A snooze: when it comes back */
+  snooze?: number;
+}
+
+function heldPresses(now: number): Held[] {
+  try {
+    const all = JSON.parse(localStorage.getItem(HELD_KEY) ?? '[]') as Held[];
+    return all.filter((each) => each.at > now - HELD_KEEP_MS);
+  } catch {
+    return [];
+  }
+}
+
+function saveHeld(all: readonly Held[]): void {
+  try {
+    if (all.length === 0) localStorage.removeItem(HELD_KEY);
+    else localStorage.setItem(HELD_KEY, JSON.stringify(all));
+  } catch {
+    // Private windows: kept while the page is open.
+  }
+}
 
 function firedKeys(): Record<string, number> {
   try {
@@ -68,18 +106,80 @@ export function ReminderScheduler({ now = Date.now }: { now?: () => number }) {
   const [handedLocal, setHandedLocal] = useState<readonly string[]>([]);
   const reached = useSyncState((state) => handedLocal.filter((id) => id in state.acks).length);
   const signedIn = useSyncState((state) => state.account !== null);
-  const latest = useRef({ workspace, me });
-  useEffect(() => {
-    latest.current = { workspace, me };
+  // My snoozes on the server (audit B3): they fire here as reminders do, and go to the Android
+  // app with the reminders ahead, whose list replaces the phone's (a snooze left out would go).
+  // Fetched again after each sync, and right before each hand-over.
+  const reminders = useSyncState((state) =>
+    state.account ? state.transport.reminders : undefined,
+  );
+  const lastSynced = useSyncState((state) => state.lastSynced);
+  const [fetchedSnoozes, setSnoozes] = useState<readonly Snooze[]>(NO_SNOOZES);
+  // Whether the server's list was ever had: until then, handing over none would drop the phone's.
+  const [had, setHad] = useState(false);
+  const keep = useRef((found: readonly Snooze[]) => {
+    setHad(true);
+    setSnoozes((before) => (sameSnoozes(before, found) ? before : found));
   });
+  // Signed out, or into another server: what was had is no one's now.
+  const [hadFrom, setHadFrom] = useState(reminders);
+  if (hadFrom !== reminders) {
+    setHadFrom(reminders);
+    setHad(false);
+    setSnoozes(NO_SNOOZES);
+  }
+  const [held, setHeld] = useState<readonly Held[]>(() => heldPresses(now()));
+  const heldRef = useRef(held);
+  const changeHeld = useRef((change: (before: readonly Held[]) => readonly Held[]) => {
+    heldRef.current = change(heldRef.current);
+    saveHeld(heldRef.current);
+    setHeld(heldRef.current);
+  });
+  // The server's snoozes, and mine it has not heard of yet.
+  const waiting = useMemo(
+    () =>
+      held.flatMap((each) =>
+        each.user === me && each.snooze !== undefined
+          ? [{ taskId: each.press.taskId, at: each.snooze }]
+          : [],
+      ),
+    [held, me],
+  );
+  const snoozes = useMemo(
+    () => (waiting.length === 0 ? fetchedSnoozes : [...fetchedSnoozes, ...waiting]),
+    [fetchedSnoozes, waiting],
+  );
+  const latest = useRef({ workspace, me, snoozes, now });
+  useEffect(() => {
+    latest.current = { workspace, me, snoozes, now };
+  });
+  // After a sync gets through: presses the server missed first, then its list (with them in).
+  useEffect(() => {
+    if (!reminders) return;
+    let live = true;
+    void (async () => {
+      const { me: user, now: clockNow } = latest.current;
+      await tellAgain(reminders, user, clockNow(), heldRef.current, (done) =>
+        changeHeld.current((before) => before.filter((each) => each !== done)),
+      );
+      const found = await reminders.snoozes();
+      if (live) keep.current(found);
+    })().catch(() => undefined);
+    return () => {
+      live = false;
+    };
+  }, [reminders, lastSynced]);
+  const [snoozed, setSnoozed] = useState(false);
 
   // Dismiss or Snooze on a constant reminder (from the service worker, spec: R-FB-70): its
-  // repeats stop here and on the server; Snooze also adds a reminder that syncs. The task's other
-  // reminders come as before.
+  // repeats stop here and on the server. On a server, Snooze is mine alone (audit B3): the server
+  // keeps it and the task stays as it is. With none, Snooze adds a reminder to the task. The
+  // task's other reminders come as before.
   const apply = useApply();
   const act = useRef(apply);
+  const remindersRef = useRef(reminders);
   useEffect(() => {
     act.current = apply;
+    remindersRef.current = reminders;
   });
   useEffect(() => {
     const worker = navigator.serviceWorker;
@@ -91,6 +191,35 @@ export function ReminderScheduler({ now = Date.now }: { now?: () => number }) {
       const tag = `${data.taskId}@${data.first}`;
       const at = now();
       for (let again = 1; again < CONSTANT_TIMES; again += 1) markFired(`${tag}#${again}`, at);
+      const server = remindersRef.current;
+      if (server) {
+        const press = {
+          taskId: data.taskId,
+          first: data.first,
+          action: data.action === 'snooze' ? ('snooze' as const) : ('dismiss' as const),
+        };
+        void server
+          .act(press)
+          .then(
+            () => {
+              if (press.action === 'snooze') setSnoozed(true);
+              return server.snoozes().then((found) => keep.current(found));
+            },
+            () => {
+              // Not heard (offline, the server restarting): it still comes back here, and the
+              // server is told after the next sync that gets through.
+              const user = latest.current.me;
+              const snooze = Math.floor(at / 60_000) * 60_000 + SNOOZE_MINUTES * 60_000;
+              changeHeld.current((before) => [
+                ...before,
+                { user, press, at, ...(press.action === 'snooze' ? { snooze } : {}) },
+              ]);
+              if (press.action === 'snooze') setSnoozed(true);
+            },
+          )
+          .catch(() => undefined);
+        return;
+      }
       void fetch('/api/reminders/act', {
         method: 'POST',
         credentials: 'same-origin',
@@ -123,10 +252,10 @@ export function ReminderScheduler({ now = Date.now }: { now?: () => number }) {
       timer = null;
       if (notifier().permission() !== 'granted') return;
       const at = now();
-      const { workspace: ws, me: user } = latest.current;
+      const { workspace: ws, me: user, snoozes: mine } = latest.current;
       const fired = firedKeys();
       const due = notificationAllowed(ws.entities.settings[0], 'reminder')
-        ? remindersBetween(ws, user, at - GRACE_MS, at + 86_400_000, localTimeZone())
+        ? remindersBetween(ws, user, at - GRACE_MS, at + 86_400_000, localTimeZone(), mine)
         : [];
       // Woken late with a constant reminder's repeats piled up: the latest one only.
       const waiting = due.filter((each) => each.at <= at && !(each.key in fired));
@@ -144,17 +273,19 @@ export function ReminderScheduler({ now = Date.now }: { now?: () => number }) {
     return () => {
       if (timer) clearTimeout(timer);
     };
-  }, [workspace, me, now]);
+  }, [workspace, me, now, snoozes]);
 
   useEffect(() => {
     if (!notifier().scheduleAhead) return;
-    const handle = setTimeout(() => {
+    let live = true;
+    const handOver = (mine: readonly Snooze[]) => {
+      if (!live) return;
       const at = now();
       const { acks } = engine.getState();
       const isLocal = (taskId: string) => signedIn && !(taskId in acks);
       const ahead = (
         notificationAllowed(workspace.entities.settings[0], 'reminder')
-          ? remindersBetween(workspace, me, at, at + AHEAD_MS, localTimeZone())
+          ? remindersBetween(workspace, me, at, at + AHEAD_MS, localTimeZone(), mine)
           : []
       )
         .filter((each) => each.at > at)
@@ -174,10 +305,75 @@ export function ReminderScheduler({ now = Date.now }: { now?: () => number }) {
           ...(isLocal(each.taskId) ? { local: true } : {}),
         })),
       );
+    };
+    const handle = setTimeout(() => {
+      // A snooze pressed on the phone a moment ago is on the server, not yet here: ask first.
+      if (!reminders) handOver(snoozes);
+      else
+        void reminders.snoozes().then(
+          (found) => {
+            handOver([...found, ...waiting]);
+            keep.current(found);
+          },
+          // The list was never had (offline since the page opened): handing over without it
+          // would take the phone's own snoozes off its alarms. The phone keeps what it has.
+          () => {
+            if (had) handOver(snoozes);
+          },
+        );
     }, AHEAD_SETTLE_MS);
-    return () => clearTimeout(handle);
-  }, [workspace, me, now, engine, reached, signedIn]);
-  return null;
+    return () => {
+      live = false;
+      clearTimeout(handle);
+    };
+  }, [workspace, me, now, engine, reached, signedIn, reminders, snoozes, waiting, had]);
+  return (
+    <Snackbar
+      open={snoozed}
+      autoHideDuration={4000}
+      onClose={(_, reason) => {
+        if (reason !== 'clickaway') setSnoozed(false);
+      }}
+      message={t('reminder.snoozed', { minutes: SNOOZE_MINUTES })}
+      // At the top, as the sync notices: clear of the undo button and the + button.
+      anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
+    />
+  );
+}
+
+/**
+ * Tell the server of my presses it missed, oldest first, stopping at the first it still misses.
+ * A snooze asks for the minutes left to its time here, so it comes back when it would have; one
+ * whose time has passed (this device brought it back) only stops the repeats, as Dismiss does.
+ */
+async function tellAgain(
+  server: RemindersApi,
+  user: string,
+  now: number,
+  all: readonly Held[],
+  done: (each: Held) => void,
+): Promise<void> {
+  for (const each of all) {
+    if (each.user !== user) continue;
+    const left = each.snooze === undefined ? 0 : Math.ceil((each.snooze - now) / 60_000);
+    await server.act(
+      each.snooze === undefined
+        ? each.press
+        : left > 0
+          ? { ...each.press, minutes: left }
+          : { ...each.press, action: 'dismiss' },
+    );
+    done(each);
+  }
+}
+
+const NO_SNOOZES: readonly Snooze[] = [];
+
+function sameSnoozes(a: readonly Snooze[], b: readonly Snooze[]): boolean {
+  return (
+    a.length === b.length &&
+    a.every((each, i) => each.taskId === b[i]?.taskId && each.at === b[i]?.at)
+  );
 }
 
 function notificationOf(due: DueReminder) {

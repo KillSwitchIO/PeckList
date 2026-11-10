@@ -22,6 +22,7 @@ import type {
   SyncTransport,
   TelemetryStatus,
 } from '../ports/sync.ts';
+import type { Snooze } from '../core/reminders.ts';
 import { SyncFailure } from '../ports/sync.ts';
 import { messageOf } from '../core/errors.ts';
 import { createHttpAdmin } from './http-admin.ts';
@@ -559,6 +560,22 @@ export function createHttpSync(
           method: 'POST',
           body: { endpoint },
         });
+        if (!response.ok) return fail(response);
+      },
+    },
+
+    reminders: {
+      async snoozes() {
+        const response = await call('/api/reminders/snoozes');
+        // A server from before per-person snoozes (audit B3) keeps them in the task instead.
+        if (response.status === 404) return [];
+        if (!response.ok) return fail(response);
+        return (await response.json()) as Snooze[];
+      },
+      async act(press) {
+        const response = await call('/api/reminders/act', { method: 'POST', body: press });
+        // The task is gone or no longer mine: nothing to stop.
+        if (response.status === 404) return;
         if (!response.ok) return fail(response);
       },
     },

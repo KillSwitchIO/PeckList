@@ -3,7 +3,10 @@ using PeckList.Core.Push;
 
 namespace PeckList.Storage.Sql;
 
-/// <summary>Web Push subscriptions in <c>push_subscriptions</c>, sent reminders in <c>sent_reminders</c>, reported zones in <c>device_zones</c>.</summary>
+/// <summary>
+/// Web Push subscriptions in <c>push_subscriptions</c>, sent reminders in <c>sent_reminders</c>, reported zones in
+/// <c>device_zones</c>, snoozes in <c>reminder_snoozes</c>.
+/// </summary>
 public sealed class SqlPushStore(SqlDatabase database, TimeProvider time) : IPushStore
 {
     public async Task SaveAsync(PushSubscription subscription, CancellationToken cancellation = default)
@@ -37,6 +40,7 @@ public sealed class SqlPushStore(SqlDatabase database, TimeProvider time) : IPus
     {
         await ExecuteAsync("DELETE FROM push_subscriptions WHERE user_id = @userId", new { userId }, cancellation);
         await ExecuteAsync("DELETE FROM device_zones WHERE user_id = @userId", new { userId }, cancellation);
+        await ExecuteAsync("DELETE FROM reminder_snoozes WHERE user_id = @userId", new { userId }, cancellation);
     }
 
     public Task SetDeviceZoneAsync(string userId, string zone, CancellationToken cancellation = default) =>
@@ -73,8 +77,27 @@ public sealed class SqlPushStore(SqlDatabase database, TimeProvider time) : IPus
         return added > 0;
     }
 
-    public Task PruneSentRemindersAsync(DateTimeOffset before, CancellationToken cancellation = default) =>
-        ExecuteAsync("DELETE FROM sent_reminders WHERE at < @before", new { before = before.ToUnixTimeMilliseconds() }, cancellation);
+    public async Task PruneSentRemindersAsync(DateTimeOffset before, CancellationToken cancellation = default)
+    {
+        await ExecuteAsync("DELETE FROM sent_reminders WHERE at < @before", new { before = before.ToUnixTimeMilliseconds() }, cancellation);
+        await ExecuteAsync("DELETE FROM reminder_snoozes WHERE at < @before", new { before = before.ToUnixTimeMilliseconds() }, cancellation);
+    }
+
+    public Task SnoozeAsync(string userId, string taskId, DateTimeOffset at, CancellationToken cancellation = default) =>
+        ExecuteAsync(
+            "INSERT INTO reminder_snoozes (user_id, task_id, at) VALUES (@userId, @taskId, @at) ON CONFLICT (user_id, task_id, at) DO NOTHING",
+            new { userId, taskId, at = at.ToUnixTimeMilliseconds() }, cancellation);
+
+    public async Task<IReadOnlyList<ReminderSnooze>> SnoozesAsync(
+        DateTimeOffset from, DateTimeOffset to, string? userId = null, CancellationToken cancellation = default)
+    {
+        await using var connection = await database.OpenAsync(cancellation);
+        var rows = await connection.QueryAsync<(string UserId, string TaskId, long At)>(new CommandDefinition(
+            "SELECT user_id, task_id, at FROM reminder_snoozes WHERE at > @from AND at <= @to"
+                + (userId is null ? "" : " AND user_id = @userId") + " ORDER BY at, user_id, task_id",
+            new { from = from.ToUnixTimeMilliseconds(), to = to.ToUnixTimeMilliseconds(), userId }, cancellationToken: cancellation));
+        return [.. rows.Select(row => new ReminderSnooze(row.UserId, row.TaskId, DateTimeOffset.FromUnixTimeMilliseconds(row.At)))];
+    }
 
     private async Task ExecuteAsync(string sql, object parameters, CancellationToken cancellation)
     {

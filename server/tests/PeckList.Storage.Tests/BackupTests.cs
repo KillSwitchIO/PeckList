@@ -141,13 +141,16 @@ public sealed class BackupTests(SqliteFiles files, PostgresServer postgres) : IC
         var exported = await ExportAsync(source);
         var error = await Assert.ThrowsAsync<BackupException>(() => ImportAsync(source, exported));
         Assert.Contains("--replace", error.Message);
-        // A zone an app reported is not in the backup, so replacing drops it with the rest.
+        // A zone an app reported and a snooze are not in the backup, so replacing drops them with the rest.
         var push = new SqlPushStore(source, new Clock());
         await push.SetDeviceZoneAsync("01JBACCT000000000000000001", "Asia/Tokyo", Token);
+        var due = DateTimeOffset.UnixEpoch.AddYears(60);
+        await push.SnoozeAsync("01JBACCT000000000000000001", "01JBTASK000000000000000001", due, Token);
 
         await ImportAsync(source, exported, replace: true);
         Assert.Equal(exported, await ExportAsync(source));
         Assert.Null(await push.DeviceZoneAsync("01JBACCT000000000000000001", Token));
+        Assert.Empty(await push.SnoozesAsync(due.AddDays(-1), due.AddDays(1), cancellation: Token));
     }
 
     [Fact]

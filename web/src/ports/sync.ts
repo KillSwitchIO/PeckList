@@ -1,5 +1,6 @@
 import type { UserStats } from './stats.ts';
 import type { SyncChange } from '../core/sync.ts';
+import type { Snooze } from '../core/reminders.ts';
 import type { AdminApi } from './admin.ts';
 
 /** What `/api/info` says about the server. */
@@ -424,6 +425,24 @@ export interface HistoryApi {
   task(taskId: string): Promise<HistoryEntry[]>;
 }
 
+/** A constant reminder's Dismiss or Snooze, pressed in the app (spec: R-FB-70, audit B3). */
+export interface ReminderPress {
+  taskId: string;
+  /** The reminder's first time (ms since the epoch): its notification tag is "<task>@<first>". */
+  first: number;
+  action: 'dismiss' | 'snooze';
+  /** How long Snooze puts it off (the server's default: ten minutes). */
+  minutes?: number;
+}
+
+/** A person's own reminder state on the server (optional: older servers keep none). */
+export interface RemindersApi {
+  /** My snoozes still to come, on tasks still open and mine; empty from an older server. */
+  snoozes(): Promise<Snooze[]>;
+  /** Dismiss: the repeats stop for me. Snooze: that too, and it comes again for me alone. */
+  act(press: ReminderPress): Promise<void>;
+}
+
 /** Web Push on the server (spec: PL-061): its key, and this browser's subscription. */
 export interface PushApi {
   /** The server's VAPID public key (base64url). */
@@ -505,6 +524,8 @@ export interface SyncTransport {
   notifications?: NotificationsApi;
   /** Web Push (optional: older servers send none). */
   push?: PushApi;
+  /** Snoozes and reminder presses (audit B3). */
+  reminders?: RemindersApi;
   /** Task history (optional: older servers keep none). */
   history?: HistoryApi;
   /** Release check (optional: older servers make none). */

@@ -97,7 +97,8 @@ their start; the due date is the deadline.
   open it, dismiss it or press a button, going quiet after 30 minutes; in a browser it comes back
   every 5 minutes for 30 minutes. Its
   **Dismiss** stops that reminder (the task's other reminders still come) and **Snooze 10 min**
-  adds a one-time reminder ten minutes on. Nothing
+  brings it back ten minutes on, for you alone: others on the task are not reminded and the task
+  does not change (without a server, it adds a one-time reminder to the task). Nothing
   changes until **OK**. The first reminder asks your browser for permission to show notifications.
   Reminders go to the people the task is assigned to, or to whoever made it when nobody is.
   They appear while PeckList is open or in the background (offline too), and with a server and
