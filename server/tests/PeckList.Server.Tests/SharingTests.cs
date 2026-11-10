@@ -374,6 +374,126 @@ public sealed class SharingTests(ServerFixture fixture) : IClassFixture<ServerFi
     }
 
     [Fact]
+    public async Task Someone_taken_off_a_list_can_no_longer_change_their_comments_or_files_on_it()
+    {
+        var ben = await SignIn("ben-u");
+        var sam = await SignIn("sam-u");
+        await Befriend(ben, sam);
+        await ben.SyncAsync(List("UL1", "shared"), Member("UO1", "UL1", ben.UserId, "owner"), Member("UM1", "UL1", sam.UserId, "editor"),
+            Task("UT1", "UL1", "Paint the shed"));
+        var file = ("attachments", Entity("UA1", new JsonObject
+        {
+            ["taskId"] = "UT1",
+            ["name"] = "colours.txt",
+            ["size"] = 4,
+            ["mime"] = "text/plain",
+            ["sha256"] = new string('a', 64),
+        }));
+        Assert.Empty((await sam.SyncAsync(Comment("UC1", "UT1", "Blue?"), file)).Rejected);
+
+        // Down to viewer: Sam still sees the task, so Sam's own words are still Sam's to change.
+        await ben.SyncAsync(Member("UM1", "UL1", sam.UserId, "viewer"));
+        Assert.Empty((await sam.SyncAsync(Comment("UC1", "UT1", "Blue, or green?"))).Rejected);
+
+        // Taken off the list: not any more.
+        var gone = Member("UM1", "UL1", sam.UserId, "viewer");
+        gone.Item2["deletedAt"] = "2026-10-21T12:00:00.000Z";
+        await ben.SyncAsync(gone);
+        var renamed = ("attachments", Entity("UA1", new JsonObject
+        {
+            ["taskId"] = "UT1",
+            ["name"] = "something else.txt",
+            ["size"] = 4,
+            ["mime"] = "text/plain",
+            ["sha256"] = new string('a', 64),
+        }));
+        Assert.Equal(["UC1", "UA1"], (await sam.SyncAsync(Comment("UC1", "UT1", "Something else"), renamed)).Rejected);
+        await ben.SyncAsync();
+        Assert.Equal("Blue, or green?", (string?)ben.Seen["UC1"]["body"]);
+        Assert.Equal("colours.txt", (string?)ben.Seen["UA1"]["name"]);
+    }
+
+    [Fact]
+    public async Task A_section_someone_made_on_a_list_leaves_them_with_the_list()
+    {
+        var ben = await SignIn("ben-x");
+        var sam = await SignIn("sam-x");
+        await Befriend(ben, sam);
+        await ben.SyncAsync(List("XL1", "shared"), Member("XO1", "XL1", ben.UserId, "owner"), Member("XM1", "XL1", sam.UserId, "editor"));
+        await sam.SyncAsync(("sections", Entity("XS1", new JsonObject { ["listId"] = "XL1", ["name"] = "Shed", ["order"] = "a" })));
+        await ben.SyncAsync();
+        Assert.Contains("XS1", ben.Seen.Keys);
+
+        var gone = Member("XM1", "XL1", sam.UserId, "editor");
+        gone.Item2["deletedAt"] = "2026-10-21T12:00:00.000Z";
+        await ben.SyncAsync(gone);
+        Assert.Contains("XS1", (await sam.SyncAsync()).Revoked);
+        // Ben's rename does not reach Sam, nor a new device of Sam's.
+        await ben.SyncAsync(("sections", Entity("XS1", new JsonObject { ["listId"] = "XL1", ["name"] = "Garden", ["order"] = "a" })));
+        await sam.SyncAsync();
+        Assert.DoesNotContain("XS1", sam.Seen.Keys);
+        var fresh = new Device(sam.Client, sam.UserId);
+        await fresh.SyncAsync();
+        Assert.DoesNotContain("XS1", fresh.Seen.Keys);
+        // Ben still has it.
+        await ben.SyncAsync();
+        Assert.Equal("Garden", (string?)ben.Seen["XS1"]["name"]);
+    }
+
+    private static string Stamp(TimeSpan from) => $"{DateTime.UtcNow.Add(from):yyyy-MM-ddTHH:mm:ss.fff}Z-0000-dev1";
+
+    /// <summary>The same entity with every field stamped <paramref name="stamp"/>.</summary>
+    private static (string, JsonObject) Stamped((string Collection, JsonObject Doc) entity, string stamp)
+    {
+        var doc = (JsonObject)entity.Doc.DeepClone();
+        foreach (var (field, _) in ((JsonObject)doc["_hlc"]!).ToList()) doc["_hlc"]![field] = stamp;
+        return (entity.Collection, doc);
+    }
+
+    [Fact]
+    public async Task An_assignment_stamped_ahead_does_not_outlast_its_removal()
+    {
+        var ben = await SignIn("ben-w");
+        var sam = await SignIn("sam-w");
+        await Befriend(ben, sam);
+        await ben.SyncAsync(List("WL1", "shared"), Member("WO1", "WL1", ben.UserId, "owner"), Member("WM1", "WL1", sam.UserId, "editor"),
+            Task("WT1", "WL1", "Mow", sam.UserId));
+        // Sam stamps the assignment 50 minutes ahead (inside the hour the server allows).
+        var planted = Task("WT1", "WL1", "Mow", sam.UserId);
+        planted.Item2["assignees"]![$"user:{sam.UserId}"]!["hlc"] = Stamp(TimeSpan.FromMinutes(50));
+        Assert.Empty((await sam.SyncAsync(planted)).Rejected);
+
+        // Ben, whose device has not seen that stamp, takes Sam off at the true time: it holds.
+        var removal = Task("WT1", "WL1", "Mow");
+        removal.Item2["assignees"] = new JsonObject
+        {
+            [$"user:{sam.UserId}"] = new JsonObject { ["in"] = false, ["hlc"] = Stamp(TimeSpan.Zero) },
+        };
+        Assert.Empty((await ben.SyncAsync(removal)).Rejected);
+        await ben.SyncAsync();
+        Assert.False((bool?)ben.Seen["WT1"]["assignees"]![$"user:{sam.UserId}"]!["in"]);
+    }
+
+    [Fact]
+    public async Task A_friendship_stamped_ahead_does_not_outlast_its_end()
+    {
+        var ben = await SignIn("ben-v");
+        var sam = await SignIn("sam-v");
+        await ben.SyncAsync(Friendship("VF1", ben.UserId, sam.UserId, "pending"));
+        await sam.SyncAsync(Friendship("VF1", ben.UserId, sam.UserId, "accepted"));
+        // While still friends, Sam stamps the row 50 minutes ahead.
+        Assert.Empty((await sam.SyncAsync(Stamped(Friendship("VF1", ben.UserId, sam.UserId, "accepted"), Stamp(TimeSpan.FromMinutes(50))))).Rejected);
+
+        // Ben ends it at the true time: it ends.
+        Assert.Empty((await ben.SyncAsync(Stamped(Friendship("VF1", ben.UserId, sam.UserId, "accepted", ended: true), Stamp(TimeSpan.Zero)))).Rejected);
+        await ben.SyncAsync();
+        Assert.NotNull(ben.Seen["VF1"]["deletedAt"]);
+        // And they no longer know each other: Ben cannot share with Sam.
+        var share = await ben.SyncAsync(List("VL1", "shared"), Member("VM1", "VL1", sam.UserId, "editor"));
+        Assert.Contains("VM1", share.Rejected);
+    }
+
+    [Fact]
     public async Task Sharing_through_sync_is_in_the_event_log()
     {
         var ben = await SignIn("ben");

@@ -129,7 +129,7 @@ public sealed partial class SyncService(
                     incoming,
                     (stored, arrived) =>
                     {
-                        var merged = Resolve(userId, stored, arrived, before, after, rejected);
+                        var merged = Resolve(userId, stored, arrived, before, after, rejected, time.GetUtcNow());
                         if (merged is not null && SharingChanges.Watched(arrived.Collection))
                         {
                             shared.Add(new SharingChange(arrived.Collection, arrived.Id, stored?.Doc, merged));
@@ -270,12 +270,49 @@ public sealed partial class SyncService(
     }
 
     /// <summary>
+    /// A removal of access beats a stamp from the future (audit U4). Devices may stamp up to an hour
+    /// ahead of the server, so a planted stamp could outlast an honest removal made at the true time:
+    /// an assignment taken off a task, or a friendship, list or group membership ended. When the
+    /// stored stamp it would lose to is ahead of the server's clock, the removal gets the stamp just
+    /// after it. Anything else merges by its stamps as before, and the change must still be allowed.
+    /// </summary>
+    internal static JsonObject RemovalsWin(string collection, JsonObject stored, JsonObject arrived, DateTimeOffset now)
+    {
+        JsonObject? result = null;
+        static bool? In(JsonObject item) => item["in"] is JsonValue value && value.TryGetValue<bool>(out var included) ? included : null;
+        bool Planted(string? mine, string? theirs) =>
+            Hlc.IsValid(mine) && Hlc.IsValid(theirs) && Hlc.WallTime(theirs!) > now && Hlc.Compare(mine, theirs) <= 0;
+        if (collection == "tasks" && arrived["assignees"] is JsonObject set && stored["assignees"] is JsonObject oldSet)
+        {
+            foreach (var (element, state) in set)
+            {
+                if (state is not JsonObject item || In(item) != false) continue;
+                if (oldSet[element] is not JsonObject oldItem || In(oldItem) != true) continue;
+                var theirs = (string?)oldItem["hlc"];
+                if (!Planted((string?)item["hlc"], theirs)) continue;
+                result ??= (JsonObject)arrived.DeepClone();
+                result["assignees"]![element]!["hlc"] = Hlc.After(theirs!, ServerClock.Node);
+            }
+        }
+        if (collection is "friendships" or "listMembers" or "groupMembers"
+            && arrived["deletedAt"] is JsonValue && stored["deletedAt"] is null
+            && arrived["_hlc"] is JsonObject clocks && stored["_hlc"] is JsonObject oldClocks
+            && Planted((string?)clocks["deletedAt"], (string?)oldClocks["deletedAt"]))
+        {
+            result ??= (JsonObject)arrived.DeepClone();
+            result["_hlc"]!["deletedAt"] = Hlc.After((string)oldClocks["deletedAt"]!, ServerClock.Node);
+        }
+        return result ?? arrived;
+    }
+
+    /// <summary>
     /// What to store for one pushed entity, or null to leave things as they are. The change is tried
     /// on <paramref name="after"/> (so later entities in the same push see it, e.g. tasks in a list
     /// made in the same push); a change the user may not make is undone there and reported.
     /// </summary>
     private static JsonObject? Resolve(
-        string userId, StoredEntity? stored, IncomingEntity arrived, SharingIndex before, SharingIndex after, List<string> rejected)
+        string userId, StoredEntity? stored, IncomingEntity arrived, SharingIndex before, SharingIndex after, List<string> rejected,
+        DateTimeOffset now)
     {
         if (stored is not null && stored.Collection != arrived.Collection)
         {
@@ -284,7 +321,7 @@ public sealed partial class SyncService(
         }
         var merged = stored is null
             ? arrived.Doc
-            : Merge.Entity(stored.Doc, arrived.Doc, WorkspaceSchema.ElementSetFields(arrived.Collection));
+            : Merge.Entity(stored.Doc, RemovalsWin(arrived.Collection, stored.Doc, arrived.Doc, now), WorkspaceSchema.ElementSetFields(arrived.Collection));
         // Nothing new: keep the seq, so the change feed does not grow on every sync.
         if (stored is not null && JsonNode.DeepEquals(merged, stored.Doc)) return null;
 
