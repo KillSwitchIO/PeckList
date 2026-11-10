@@ -1,4 +1,4 @@
-import { act, screen, waitFor, within } from '@testing-library/react';
+import { act, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { createMemoryStorage } from '../../adapters/memory-storage.ts';
@@ -71,6 +71,32 @@ describe('friends page', () => {
     expect(await screen.findByDisplayValue(link)).toBeInTheDocument();
     await userEvent.click(screen.getByRole('button', { name: 'QR code' }));
     expect(await screen.findByRole('img', { name: `QR code for ${link}` })).toBeInTheDocument();
+  });
+
+  it('copies the link with no clipboard API (plain http), else selects it and says to press Ctrl+C', async () => {
+    let copies = true;
+    const execCommand = vi.fn(() => copies);
+    Object.defineProperty(document, 'execCommand', { configurable: true, value: execCommand });
+    try {
+      await signedIn('/friends');
+      const field = await screen.findByDisplayValue('https://pecklist.test/f/BEN');
+      expect(navigator.clipboard).toBeUndefined();
+      // fireEvent, since user-event puts in a clipboard of its own.
+      fireEvent.click(screen.getByRole('button', { name: 'Copy link' }));
+      expect(await screen.findByText('Link copied')).toBeInTheDocument();
+      expect(execCommand).toHaveBeenCalledWith('copy');
+
+      copies = false;
+      fireEvent.click(screen.getByRole('button', { name: 'Copy link' }));
+      expect(
+        await screen.findByText('Could not copy. It is selected: press Ctrl+C to copy it.'),
+      ).toBeInTheDocument();
+      const input = field as HTMLInputElement;
+      expect(document.activeElement).toBe(input);
+      expect([input.selectionStart, input.selectionEnd]).toEqual([0, input.value.length]);
+    } finally {
+      delete (document as { execCommand?: unknown }).execCommand;
+    }
   });
 
   it('says which admin made a friendship', async () => {

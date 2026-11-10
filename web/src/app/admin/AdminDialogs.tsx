@@ -7,8 +7,10 @@ import {
   DialogContentText,
   DialogTitle,
 } from '@mui/material';
-import { useState, type FormEvent, type ReactNode } from 'react';
+import { useRef, useState, type FormEvent, type ReactNode } from 'react';
 import type { AdminResult } from '../../ports/admin.ts';
+import { copyOrSelect } from '../copy.ts';
+import { CopyByHand } from '../CopyByHand.tsx';
 import { t } from '../i18n/i18n.ts';
 import { CopyIcon } from '../icons/icons.tsx';
 import { ProblemAlert } from '../layout/ProblemAlert.tsx';
@@ -86,8 +88,11 @@ export function SecretDialog({
   onClose: () => void;
 }) {
   const [copied, setCopied] = useState(false);
+  const [byHand, setByHand] = useState(false);
+  const field = useRef<HTMLDivElement>(null);
   const close = () => {
     setCopied(false);
+    setByHand(false);
     onClose();
   };
   return (
@@ -97,6 +102,7 @@ export function SecretDialog({
           <DialogTitle>{secret.title}</DialogTitle>
           <DialogContent>
             <Box
+              ref={field}
               aria-label={secret.title}
               sx={{
                 fontFamily: 'monospace',
@@ -117,8 +123,10 @@ export function SecretDialog({
           <DialogActions>
             <Button
               startIcon={<CopyIcon />}
-              onClick={() =>
-                void navigator.clipboard?.writeText(secret.value).then(() => setCopied(true))
+              onClick={(event) =>
+                void copyOrSelect(secret.value, field.current, event.currentTarget).then(
+                  (result) => (result === 'copied' ? setCopied(true) : setByHand(true)),
+                )
               }
             >
               {copied ? t('admin.copied') : t('admin.copy')}
@@ -127,6 +135,7 @@ export function SecretDialog({
               {t('admin.done')}
             </Button>
           </DialogActions>
+          <CopyByHand open={byHand} onClose={() => setByHand(false)} />
         </>
       )}
     </Dialog>
