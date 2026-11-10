@@ -416,7 +416,8 @@ export function SignInTab({ api }: { api: AdminApi }) {
                       })
                     : t('admin.signIn.unbound', { count: unbound }),
                 );
-                providers.reload();
+                // The accounts below lost those links too (PL-046 follow-up).
+                reload();
               }),
           }
         }

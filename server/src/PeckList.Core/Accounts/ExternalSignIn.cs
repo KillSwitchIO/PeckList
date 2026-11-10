@@ -80,7 +80,8 @@ public sealed class ExternalSignIn(
     IServerGroupStore groups,
     ISecretStore secrets,
     TimeProvider time,
-    IPasskeyStore? passkeys = null)
+    IPasskeyStore? passkeys = null,
+    ServerSettings? settings = null)
 {
     public const int MaxUsernameLength = 32;
 
@@ -224,10 +225,21 @@ public sealed class ExternalSignIn(
         return (count, stranded);
     }
 
-    /// <summary>Whether the account has a password, any linked provider account, or a passkey.</summary>
+    /// <summary>Whether the account has a password, a linked account of a provider set up now, or a passkey.</summary>
     public async Task<bool> CanSignInAsync(Account account, CancellationToken cancellation = default) =>
-        account.PasswordHash is not null || (await IdentitiesOfAsync(account.Id, cancellation)).Count > 0
+        account.PasswordHash is not null || await HasWorkingLinkAsync(account.Id, cancellation)
         || await HasPasskeyAsync(account.Id, cancellation);
+
+    /// <summary>Whether the account has a linked account of a provider set up now: one that signs in.</summary>
+    public async Task<bool> HasWorkingLinkAsync(string accountId, CancellationToken cancellation = default) =>
+        (await IdentitiesOfAsync(accountId, cancellation)).Any(SignsIn);
+
+    /// <summary>
+    /// Whether a link is a way in: its provider is set up now (PL-046 P2). A link to a provider no
+    /// longer configured stays in the database and signs nobody in. Without the server's settings
+    /// (the shell's commands, tests) every link counts.
+    /// </summary>
+    private bool SignsIn(LinkedIdentity link) => settings is null || settings.Provider(link.Provider) is not null;
 
     private async Task<bool> HasPasskeyAsync(string accountId, CancellationToken cancellation) =>
         passkeys is not null && (await passkeys.ListAsync(accountId, cancellation)).Count > 0;
@@ -241,7 +253,7 @@ public sealed class ExternalSignIn(
         var account = await accounts.FindByIdAsync(accountId, cancellation);
         if (account?.PasswordHash is not null || await HasPasskeyAsync(accountId, cancellation)) return true;
         return (await IdentitiesOfAsync(accountId, cancellation))
-            .Any(identity => identity.Provider != leaving.Provider || identity.Subject != leaving.Subject);
+            .Any(identity => SignsIn(identity) && (identity.Provider != leaving.Provider || identity.Subject != leaving.Subject));
     }
 
     /// <summary>

@@ -348,7 +348,7 @@ public static class PasskeyEndpoints
             var account = (await accounts.FindByIdAsync(passkey.AccountId, cancellation))!;
             var otherWayIn = account.PasswordHash is not null
                 || (await passkeys.ListAsync(account.Id, cancellation)).Count > 1
-                || (await signIn.IdentitiesOfAsync(account.Id, cancellation)).Count > 0;
+                || await signIn.HasWorkingLinkAsync(account.Id, cancellation);
             if (!otherWayIn) return Results.Conflict(new AdminError("last_way_in", "this is your only way to sign in"));
             await passkeys.DeleteAsync(id, cancellation);
             return Results.NoContent();

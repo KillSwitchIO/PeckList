@@ -158,6 +158,32 @@ public sealed class ExternalSignInTests(SqliteFiles files) : IClassFixture<Sqlit
     }
 
     [Fact]
+    public async Task A_link_to_a_provider_no_longer_set_up_is_no_way_in()
+    {
+        // PL-046 P2: pocket is set up, the old provider is not.
+        var configured = new ExternalSignIn(accounts, accountService, identities, groups, secrets, TimeProvider.System,
+            settings: new ServerSettings { OidcProviders = [Pocket()] });
+        var kim = await accountService.CreateUserAsync("kim", "correct horse battery", cancellation: Token);
+        async Task Link(string provider, string subject) => await identities.LinkAsync(new LinkedIdentity
+        {
+            Provider = provider, Subject = subject, AccountId = kim.Id, LinkedAt = DateTimeOffset.UtcNow, LastUsedAt = DateTimeOffset.UtcNow,
+        }, Token);
+        await Link("authelia", "sub-old");
+        var withoutPassword = kim with { PasswordHash = null };
+        Assert.False(await configured.CanSignInAsync(withoutPassword, Token));
+        Assert.False(await configured.HasWorkingLinkAsync(kim.Id, Token));
+        // Without the server's settings (the shell's commands) every link still counts.
+        Assert.True(await signIn.CanSignInAsync(withoutPassword, Token));
+
+        await Link("pocket", "sub-kim");
+        Assert.True(await configured.CanSignInAsync(withoutPassword, Token));
+        // Unlinking pocket herself: the old link left is no way in.
+        await accounts.UpdateAsync(withoutPassword, Token);
+        Assert.Equal(UnlinkResult.LastWayIn, await configured.UnlinkAsync(kim.Id, "pocket", "sub-kim", selfService: true, Token));
+        Assert.Equal(UnlinkResult.Unlinked, await configured.UnlinkAsync(kim.Id, "authelia", "sub-old", selfService: true, Token));
+    }
+
+    [Fact]
     public async Task A_role_from_the_role_map_is_leased_renewed_at_each_sign_in_and_let_go_when_set_by_hand()
     {
         // Audit S10 follow-up R1: the role lasts while sign-ins through the provider renew it.
