@@ -14,6 +14,7 @@ import {
 import { lazy, Suspense, useState } from 'react';
 import type { RichTextEditorProps } from '../../ports/richText.ts';
 import { t } from '../i18n/i18n.ts';
+import { LoadBoundary } from '../layout/LoadBoundary.tsx';
 import { preloadEditor } from './preloadEditor.ts';
 
 // The editor library loads on first use, keeping it out of the app's first load; the app fetches
@@ -36,6 +37,30 @@ function Fallback({ value, placeholder }: { value: string; placeholder: string |
   );
 }
 
+/** The editor could not be fetched: the notes as text, and Reload to get the editor back. */
+function LoadFailed({ value, placeholder }: { value: string; placeholder: string | undefined }) {
+  return (
+    <Box>
+      <Fallback value={value} placeholder={placeholder} />
+      <Box
+        sx={{
+          display: 'flex',
+          flexWrap: 'wrap',
+          alignItems: 'center',
+          columnGap: 1,
+          typography: 'caption',
+          color: 'text.secondary',
+        }}
+      >
+        {t('editor.loadFailed')}
+        <Button size="small" onClick={() => window.location.reload()}>
+          {t('crash.reload')}
+        </Button>
+      </Box>
+    </Box>
+  );
+}
+
 /**
  * The notes (the RichTextEditor port, backed by TipTap), like TickTick's: always editable where
  * they are, with no edit mode, and a small button in the bottom right that opens the full editor
@@ -48,9 +73,11 @@ export function NotesEditor(props: RichTextEditorProps & { title?: string }) {
   const [full, setFull] = useState(false);
   return (
     <Box sx={{ position: 'relative' }}>
-      <Suspense fallback={<Fallback value={editor.value} placeholder={editor.placeholder} />}>
-        <Editor {...editor} />
-      </Suspense>
+      <LoadBoundary fallback={<LoadFailed value={editor.value} placeholder={editor.placeholder} />}>
+        <Suspense fallback={<Fallback value={editor.value} placeholder={editor.placeholder} />}>
+          <Editor {...editor} />
+        </Suspense>
+      </LoadBoundary>
       {!editor.readOnly && (
         <Tooltip title={t('editor.openFull')}>
           <IconButton
@@ -67,9 +94,15 @@ export function NotesEditor(props: RichTextEditorProps & { title?: string }) {
         <Dialog open onClose={() => setFull(false)} fullScreen={phone} fullWidth maxWidth="md">
           <DialogTitle sx={{ pb: 1 }}>{title || t('editor.fullTitle')}</DialogTitle>
           <DialogContent>
-            <Suspense fallback={<Fallback value={editor.value} placeholder={editor.placeholder} />}>
-              <Editor {...editor} expanded />
-            </Suspense>
+            <LoadBoundary
+              fallback={<LoadFailed value={editor.value} placeholder={editor.placeholder} />}
+            >
+              <Suspense
+                fallback={<Fallback value={editor.value} placeholder={editor.placeholder} />}
+              >
+                <Editor {...editor} expanded />
+              </Suspense>
+            </LoadBoundary>
           </DialogContent>
           <DialogActions>
             <Button onClick={() => setFull(false)}>{t('common.done')}</Button>
