@@ -73,11 +73,14 @@ public static partial class ServerApp
         builder.Services.AddHostedService<SharingStartup>();
         builder.Services.AddHttpContextAccessor();
         builder.Services.AddSingleton<ISharingChangeSink, Audit.SharingAudit>();
+        builder.Services.AddSingleton<BackgroundQueue>();
+        builder.Services.AddHostedService(provider => provider.GetRequiredService<BackgroundQueue>());
         builder.Services.AddSingleton<PeckList.Core.Notifications.INotificationSink, NotificationRecorder>();
         builder.Services.AddHostedService<NotificationRetention>();
         builder.Services.AddSingleton<PeckList.Core.History.ITaskHistorySink, TaskHistoryRecorder>();
         builder.Services.AddHostedService<HistoryRetention>();
-        builder.Services.AddHttpClient("push");
+        // A push service that does not answer is given up on, so it holds no queued job long.
+        builder.Services.AddHttpClient("push", client => client.Timeout = TimeSpan.FromSeconds(10));
         // Provider pictures: public addresses (or the providers' own hosts) only, every redirect
         // checked again by ProviderPhoto (audit S2).
         builder.Services.AddHttpClient("photos").ConfigurePrimaryHttpMessageHandler(services => new SocketsHttpHandler

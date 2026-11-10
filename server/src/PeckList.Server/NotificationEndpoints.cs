@@ -54,7 +54,7 @@ public static class NotificationEndpoints
 /// @mention in a comment. Whoever pushed the change is never told about it.
 /// </summary>
 public sealed class NotificationRecorder(
-    INotificationStore store, IAccountStore accounts, SharingState sharing, Push.IPushSender push, TimeProvider time)
+    INotificationStore store, IAccountStore accounts, SharingState sharing, Push.IPushSender push, BackgroundQueue background, TimeProvider time)
     : INotificationSink
 {
     public async Task ChangedAsync(string userId, IReadOnlyList<NotableChange> changes, CancellationToken cancellation = default)
@@ -83,17 +83,21 @@ public sealed class NotificationRecorder(
         await store.AddAsync(found, cancellation);
         if (found.Count == 0) return;
 
-        // And to their devices, with names: the push is encrypted for each browser.
+        // And to their devices, with names: the push is encrypted for each browser. The words are
+        // settled now; sending waits for no one's sync (audit B2), so a slow push service slows nobody.
         var actor = (await accounts.FindByIdAsync(userId, cancellation))?.Username;
+        var pushes = new List<(string UserId, Push.PushPayload Payload)>();
         foreach (var each in found)
         {
             // Switched off in their settings: recorded in the feed, but not pushed (PL-115).
             if (!NotificationSwitches.Allows(Push.ReminderSender.SettingsOf(sharing.Index, each.UserId), each.Kind)) continue;
             var (body, url) = NotificationText.Of(each, actor, sharing.Index);
-            await push.SendAsync(
-                each.UserId,
-                new Push.PushPayload("PeckList", body, each.Id, url, Actions: NotificationText.ActionsOf(each, url)),
-                cancellation);
+            pushes.Add((each.UserId, new Push.PushPayload("PeckList", body, each.Id, url, Actions: NotificationText.ActionsOf(each, url))));
+        }
+        // One job each: one person's browser that never answers costs only them their push.
+        foreach (var (to, payload) in pushes)
+        {
+            background.Enqueue("Sending a notification", stopping => push.SendAsync(to, payload, stopping));
         }
     }
 }
