@@ -28,6 +28,19 @@ export function revertChange(
   current: WorkspaceFile,
 ): WorkspaceFile {
   let next = current;
+  // Back into the Trash (undoing a restore): at a fresh time, not the old one, the same for all
+  // this write puts back that had one time, so a task and what came back with it still match.
+  // Something held back on the server (a file it could not take) may still sit in the Trash at the
+  // old time, and the server refuses a task at a time something on it already has (audit B5).
+  const retrashed = new Map<string, string>();
+  const freshFor = (was: string): string => {
+    let at = retrashed.get(was);
+    if (at === undefined) {
+      at = new Date(ctx.now() + retrashed.size).toISOString();
+      retrashed.set(was, at);
+    }
+    return at;
+  };
   for (const name of COLLECTIONS) {
     const sets = new Set(ELEMENT_SET_FIELDS[name]);
     const previous = new Map<string, BaseEntity>(
@@ -63,6 +76,12 @@ export function revertChange(
             if (wasIn !== (is[element]?.in ?? false)) set = setElement(ctx, set, element, wasIn);
           }
           reverted = { ...reverted, [field]: set };
+        } else if (
+          field === 'deletedAt' &&
+          newFields[field] === null &&
+          typeof oldFields[field] === 'string'
+        ) {
+          patch[field] = freshFor(oldFields[field]);
         } else {
           patch[field] = oldFields[field];
         }

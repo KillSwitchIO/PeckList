@@ -1,11 +1,20 @@
 import { describe, expect, it } from 'vitest';
 import { testContext } from '../test/fixtures.ts';
+import { addAttachment } from './attachments.ts';
 import { getEntity } from './collections.ts';
+import { addComment } from './comments.ts';
 import { compareHlc } from './hlc.ts';
-import { inboxList } from './lists.ts';
+import { createList, deleteList, inboxList, restoreList } from './lists.ts';
 import { mergeWorkspaces } from './merge.ts';
 import { members } from './ops.ts';
-import { createTask, deleteTask, setTaskTag, toggleTaskDone, updateTask } from './tasks.ts';
+import {
+  createTask,
+  deleteTask,
+  restoreTask,
+  setTaskTag,
+  toggleTaskDone,
+  updateTask,
+} from './tasks.ts';
 import { revertChange } from './undo.ts';
 import { createWorkspace } from './workspace.ts';
 
@@ -43,6 +52,52 @@ describe('revertChange', () => {
     const deleted = deleteTask(ctx, created.workspace, created.task.id);
     const undoneDelete = revertChange(ctx, created.workspace, deleted, deleted);
     expect(getEntity(undoneDelete, 'tasks', created.task.id)?.deletedAt).toBeNull();
+  });
+
+  // Audit B5: undoing a restore must not put the task back at its old time. A file held back on
+  // the server may still be in the Trash at that time, and the server refuses a task at a time
+  // something on it already has, so the undo would be refused.
+  it('puts a restored task back in the Trash at a fresh time, with what came back with it', () => {
+    const { ctx, ws, task } = setup();
+    const commented = addComment(ctx, ws, task.id, 'Paint it');
+    const filed = addAttachment(ctx, commented.workspace, {
+      taskId: task.id,
+      name: 'plan.pdf',
+      size: 1,
+      mime: 'application/pdf',
+      sha256: 'a'.repeat(64),
+    });
+    const deleted = deleteTask(ctx, filed.workspace, task.id);
+    const wentAt = getEntity(deleted, 'tasks', task.id)!.deletedAt;
+    const restored = restoreTask(ctx, deleted, task.id);
+    expect(getEntity(restored, 'comments', commented.comment.id)!.deletedAt).toBeNull();
+
+    const undone = revertChange(ctx, deleted, restored, restored);
+    const times = [
+      getEntity(undone, 'tasks', task.id)!.deletedAt,
+      getEntity(undone, 'comments', commented.comment.id)!.deletedAt,
+      getEntity(undone, 'attachments', filed.attachment.id)!.deletedAt,
+    ];
+    expect(times[0]).not.toBeNull();
+    expect(times[0]).not.toBe(wentAt);
+    expect(times).toEqual([times[0], times[0], times[0]]);
+  });
+
+  it('puts a restored list and its tasks back in the Trash together, at one fresh time', () => {
+    const { ctx, ws } = setup();
+    const made = createList(ctx, ws, { name: 'Shed', color: '#A7C7E7' });
+    const first = createTask(ctx, made.workspace, { title: 'Paint', listId: made.list.id });
+    const second = createTask(ctx, first.workspace, { title: 'Sand', listId: made.list.id });
+    const deleted = deleteList(ctx, second.workspace, made.list.id);
+    const wentAt = getEntity(deleted, 'lists', made.list.id)!.deletedAt;
+    const restored = restoreList(ctx, deleted, made.list.id);
+
+    const undone = revertChange(ctx, deleted, restored, restored);
+    const list = getEntity(undone, 'lists', made.list.id)!.deletedAt;
+    expect(list).not.toBeNull();
+    expect(list).not.toBe(wentAt);
+    expect(getEntity(undone, 'tasks', first.task.id)!.deletedAt).toBe(list);
+    expect(getEntity(undone, 'tasks', second.task.id)!.deletedAt).toBe(list);
   });
 
   it('reverts element-set changes per element', () => {
