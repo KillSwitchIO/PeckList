@@ -286,6 +286,37 @@ public sealed class ExternalSignInTests(SqliteFiles files) : IClassFixture<Sqlit
         Assert.NotEqual(kim.Id, impostor.Id);
     }
 
+    [Theory]
+    [InlineData("kim@evil.example")]
+    [InlineData(".kim.")]
+    [InlineData("-kim_")]
+    [InlineData("k\u00EFm")]
+    [InlineData("\u212Aim")]
+    [InlineData("kim2")]
+    public async Task A_migration_window_takes_the_exact_name_and_nothing_near_it(string name)
+    {
+        var kim = await accountService.CreateUserAsync("kim", "correct horse battery", cancellation: Token);
+        await signIn.OpenMigrationWindowAsync("pocket", TimeSpan.FromHours(1), Token);
+        Assert.NotEqual(kim.Id, (await SignedIn(Pocket(), Holding("sub-near", name))).Id);
+        Assert.Empty(await signIn.IdentitiesOfAsync(kim.Id, Token));
+        // The exact name, in any case and with spaces around it, still joins.
+        Assert.Equal(kim.Id, (await SignedIn(Pocket(), Holding("sub-kim", " KIM "))).Id);
+    }
+
+    [Fact]
+    public async Task A_migration_window_never_falls_back_on_the_email_or_joins_a_deleted_account()
+    {
+        var kim = await accountService.CreateUserAsync("kim", "correct horse battery", cancellation: Token);
+        await signIn.OpenMigrationWindowAsync("pocket", TimeSpan.FromHours(1), Token);
+        var noName = Kim() with { Subject = "sub-near", Username = null, Email = "kim@evil.example" };
+        Assert.NotEqual(kim.Id, (await SignedIn(Pocket(), noName)).Id);
+
+        var gone = await accountService.CreateUserAsync("gone", "correct horse battery", cancellation: Token);
+        await accountService.DeleteAsync(gone.Id, Token);
+        Assert.NotEqual(gone.Id, (await SignedIn(Pocket(), Holding("sub-gone", "gone"))).Id);
+        Assert.Empty(await signIn.IdentitiesOfAsync(gone.Id, Token));
+    }
+
     [Fact]
     public async Task A_migration_window_never_hands_over_an_admin_unless_only_admins_set_usernames()
     {
