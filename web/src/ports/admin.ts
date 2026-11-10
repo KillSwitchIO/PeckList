@@ -38,6 +38,14 @@ export interface AdminUser {
   emailConfirmed?: boolean;
   /** How many passkeys the account has (PL-123). */
   passkeys?: number;
+  /**
+   * When a role from a provider's ROLE_MAP drops to user unless a sign-in through that provider
+   * renews it first (an instant); null for a role set by hand, a plain user, or with
+   * ROLE_MAP_RENEW_DAYS at 0. Older servers send none.
+   */
+  roleRenewsBy?: string | null;
+  /** The provider whose ROLE_MAP gave the role, when it renews. */
+  roleProvider?: string | null;
 }
 
 export interface AdminIdentity {

@@ -730,6 +730,9 @@ export const en = {
   'serverSettings.REGISTRATION.invite': 'Invited people',
   'serverSettings.REGISTRATION.closed': 'No one new',
   'serverSettings.ACCOUNT_DELETE_GRACE_DAYS': 'Days a deleted account can be restored',
+  'serverSettings.ROLE_MAP_RENEW_DAYS': 'Provider roles expire after (days)',
+  'serverSettings.ROLE_MAP_RENEW_DAYS.help':
+    "A role from a provider's groups lasts this long without a sign-in through that provider. 0 keeps it forever.",
   'serverSettings.ATTACHMENT_DIR': 'Attachment folder',
   'serverSettings.UMAMI_URL': 'Umami address',
   'serverSettings.UMAMI_WEBSITE_ID': 'Umami website id',
@@ -953,6 +956,7 @@ export const en = {
   'admin.users.handOverFirst': 'Hand over first',
   'admin.users.delete': 'Delete',
   'admin.users.deleted': 'Deleted, removed for good {date}',
+  'admin.users.renewsBy': 'Renews by {date}',
   'admin.users.deletedNotice':
     "{name}'s account is deleted. You can restore it until it is removed for good.",
   'admin.users.restore': 'Restore account',

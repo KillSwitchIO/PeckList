@@ -96,6 +96,22 @@ public sealed class RoleLeaseTests(ServerFixture fixture) : IClassFixture<Server
     }
 
     [Fact]
+    public async Task Admin_users_shows_when_a_leased_role_lapses_and_nothing_for_one_set_by_hand()
+    {
+        using var server = Server();
+        var (session, kim) = await Admin(server, "kim-v");
+        var (_, mo) = await Admin(server, "mo-v");
+        await Renewed(server, kim.Id, TimeSpan.FromDays(3));
+        var renewed = (await server.Services.GetRequiredService<IAccountStore>().FindByIdAsync(kim.Id, Token))!.RoleRenewedAt!.Value;
+
+        var users = (await session.GetFromJsonAsync<List<AdminUser>>("/api/admin/users", Token))!;
+        var leased = users.Single(each => each.Id == kim.Id);
+        Assert.Equal((renewed.AddDays(14), "pocket"), (leased.RoleRenewsBy!.Value, leased.RoleProvider));
+        var byHand = users.Single(each => each.Id == mo.Id);
+        Assert.Equal(((DateTimeOffset?)null, (string?)null), (byHand.RoleRenewsBy, byHand.RoleProvider));
+    }
+
+    [Fact]
     public async Task With_renew_days_at_zero_a_role_never_lapses()
     {
         using var server = Server(("ROLE_MAP_RENEW_DAYS", "0"));

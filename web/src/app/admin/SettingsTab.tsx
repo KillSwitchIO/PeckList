@@ -96,6 +96,12 @@ const LABELS: Record<string, MessageKey> = {
   WEB_ROOT: 'serverSettings.WEB_ROOT',
   CONFIG_FILE: 'serverSettings.CONFIG_FILE',
   CONFIG_KEY: 'serverSettings.CONFIG_KEY',
+  ROLE_MAP_RENEW_DAYS: 'serverSettings.ROLE_MAP_RENEW_DAYS',
+};
+
+/** A line under a setting whose label alone does not say what it does. */
+const HELP: Record<string, MessageKey> = {
+  ROLE_MAP_RENEW_DAYS: 'serverSettings.ROLE_MAP_RENEW_DAYS.help',
 };
 
 /** Labels for each provider's settings, by the part after OIDC_<NAME>_. */
@@ -432,6 +438,7 @@ export function SettingsTab({
       fixed !== undefined && preset
         ? t('serverSettings.from.provider', { key: setting.key, provider: preset.displayName })
         : sourceText(control);
+    const help = HELP[setting.key];
     const notes = [
       ...(source ? [source] : []),
       ...(setting.locked && setting.saved ? [t('serverSettings.overrides')] : []),
@@ -454,6 +461,11 @@ export function SettingsTab({
           <Tooltip title={setting.key} placement="top-start" enterTouchDelay={0}>
             <Typography sx={{ display: 'inline-block' }}>{labelOf(setting)}</Typography>
           </Tooltip>
+          {help && (
+            <Typography variant="caption" color="text.secondary" component="div">
+              {t(help)}
+            </Typography>
+          )}
           {notes.length > 0 && (
             <Typography variant="caption" color="text.secondary" component="div">
               {notes.join(' · ')}

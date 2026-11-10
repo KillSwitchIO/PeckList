@@ -8,6 +8,11 @@ using PeckList.Server.Auth;
 
 namespace PeckList.Server;
 
+/// <summary>
+/// An account as Admin > Users shows it. <paramref name="RoleRenewsBy"/>: when a role from a provider's
+/// ROLE_MAP lapses to user unless a sign-in through it renews it first (S10 follow-up), with
+/// <paramref name="RoleProvider"/> the provider; both null for a role set by hand, or plain user.
+/// </summary>
 public sealed record AdminUser(
     string Id,
     string Username,
@@ -23,7 +28,9 @@ public sealed record AdminUser(
     IReadOnlyList<string>? PeopleGroups = null,
     string? Email = null,
     bool EmailConfirmed = false,
-    int Passkeys = 0);
+    int Passkeys = 0,
+    DateTimeOffset? RoleRenewsBy = null,
+    string? RoleProvider = null);
 
 public sealed record NewUserRequest(string? Username, string? Role);
 
@@ -101,8 +108,9 @@ public static class AdminEndpoints
     {
         admin.MapGet("/users", async (
             IAccountStore accounts, ServerGroupService groups, IIdentityStore identities, AccountRemoval removal, SharingState sharing,
-            IPasskeyStore passkeys, CancellationToken cancellation) =>
+            IPasskeyStore passkeys, LiveSettings live, CancellationToken cancellation) =>
         {
+            var renewDays = live.Current.RoleMapRenewDays;
             var keys = (await passkeys.AllAsync(cancellation)).GroupBy(each => each.AccountId).ToDictionary(each => each.Key, each => each.Count());
             var index = sharing.Index;
             var all = await accounts.ListAsync(cancellation);
@@ -123,7 +131,9 @@ public static class AdminEndpoints
                 index.GroupNamesOf(account.Id),
                 account.Email,
                 account.EmailVerifiedAt is not null,
-                keys.GetValueOrDefault(account.Id)));
+                keys.GetValueOrDefault(account.Id),
+                RoleLease.Ends(account, renewDays),
+                RoleLease.Ends(account, renewDays) is null ? null : account.RoleProvider));
         }).RequirePermission(Permission.ManageUsers);
 
         // Delete: turned off at once, removed for good after the grace period, restorable until then.

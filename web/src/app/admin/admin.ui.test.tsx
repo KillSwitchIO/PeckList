@@ -226,6 +226,19 @@ function memoryAdmin(benId: string) {
         superAdminOnly: true,
       },
       {
+        key: 'ROLE_MAP_RENEW_DAYS',
+        group: 'sign-in',
+        kind: 'number' as const,
+        choices: null,
+        default: '14',
+        value: null,
+        source: 'default' as const,
+        locked: state.signInLocked,
+        saved: false,
+        live: true,
+        superAdminOnly: true,
+      },
+      {
         key: 'LOG_LEVEL',
         group: 'logging',
         kind: 'choice' as const,
@@ -771,6 +784,37 @@ describe('admin', () => {
     expect(await screen.findByRole('navigation', { name: 'Admin' })).toBeInTheDocument();
   });
 
+  it("shows when a provider's role renews by, in plain text (S10)", async () => {
+    await adminApp('superadmin', '/admin', {
+      prepare: (state) => {
+        state.users.push({
+          id: 'U9',
+          username: 'lee',
+          role: 'admin',
+          disabled: false,
+          createdAt: '2026-10-22T08:00:00Z',
+          groups: [],
+          hasPassword: false,
+          mustChangePassword: false,
+          providers: ['pocket'],
+          roleRenewsBy: '2026-11-23T08:00:00Z',
+          roleProvider: 'pocket',
+        });
+      },
+    });
+    const list = await screen.findByRole('list', { name: 'Users' });
+    const renews = new Date('2026-11-23T08:00:00Z').toLocaleDateString(undefined, {
+      month: 'short',
+      day: 'numeric',
+      ...(new Date().getFullYear() !== 2026 ? { year: 'numeric' } : {}),
+    });
+    expect(await within(list).findByRole('listitem', { name: 'lee' })).toHaveTextContent(
+      `Admin · Renews by ${renews} · pocket`,
+    );
+    // A role set by hand says nothing of renewing.
+    expect(within(list).getByRole('listitem', { name: 'sam' })).not.toHaveTextContent(/Renews/);
+  });
+
   it('adds people, resets passwords and turns accounts off', async () => {
     const { state } = await adminApp('superadmin');
     const list = await screen.findByRole('list', { name: 'Users' });
@@ -1200,6 +1244,18 @@ describe('admin', () => {
       'aria-disabled',
       'true',
     );
+  });
+
+  it('names the provider role lease setting and says what it does (S10)', async () => {
+    await adminApp('superadmin', '/admin/sign-in');
+    const signIn = await screen.findByRole('region', { name: 'Sign-in' });
+    expect(within(signIn).getByText('Provider roles expire after (days)')).toBeInTheDocument();
+    expect(
+      within(signIn).getByText(
+        "A role from a provider's groups lasts this long without a sign-in through that provider. 0 keeps it forever.",
+      ),
+    ).toBeInTheDocument();
+    expect(within(signIn).queryByText('ROLE_MAP_RENEW_DAYS')).toBeNull();
   });
 
   it('links a provider account by hand, to a person or from a waiting sign-in', async () => {
