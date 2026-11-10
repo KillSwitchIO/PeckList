@@ -4,6 +4,8 @@
 // keeps it out of the trash for good. Completed and won't-do tasks go to the trash after the same time.
 
 import { putEntities } from './collections.ts';
+import { ERASED } from './erased.ts';
+import { followIntoTrash } from './followTask.ts';
 import { parseHlc } from './hlc.ts';
 import { members, setElement, softDelete, updateEntity, isoNow, type OpContext } from './ops.ts';
 import { purgeDaysOf } from './settings.ts';
@@ -13,11 +15,7 @@ import type { ElementSet, Id, Task, WorkspaceFile } from './types.ts';
 /** The deletedAt of a purged entity: before anything was ever deleted. */
 export const PURGED_AT = '1970-01-01T00:00:00.000Z';
 
-/**
- * What an erased comment, attachment or tag holds: the schema wants at least one character there.
- * Must match <c>SharingIndex.Erased</c> on the server.
- */
-export const ERASED = '-';
+export { ERASED } from './erased.ts';
 
 export const isPurged = (entity: { deletedAt: string | null }) => entity.deletedAt === PURGED_AT;
 
@@ -235,10 +233,16 @@ function trashOldClosed(ctx: OpContext, workspace: WorkspaceFile, cutoff: string
   if (moving.length === 0) return workspace;
   // One moment for each subtree, which is how a restore finds what went together.
   const at = isoNow(ctx);
-  return putEntities(
-    workspace,
-    'tasks',
-    moving.flatMap((task) => [task, ...below(task.id)]).map((task) => softDelete(ctx, task, at)),
+  const going = moving.flatMap((task) => [task, ...below(task.id)]);
+  return followIntoTrash(
+    ctx,
+    putEntities(
+      workspace,
+      'tasks',
+      going.map((task) => softDelete(ctx, task, at)),
+    ),
+    new Set(going.map((task) => task.id)),
+    at,
   );
 }
 

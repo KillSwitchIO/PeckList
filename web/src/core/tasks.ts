@@ -2,6 +2,7 @@
 
 import { getEntity, isLive, putEntities, putEntity, requireEntity } from './collections.ts';
 import { addDays, datePart, daysBetween, localTimeZone, timePart, todayIn } from './dates.ts';
+import { followIntoTrash, followOutOfTrash } from './followTask.ts';
 import { advance, formatRule, parseRule } from './recurrence.ts';
 import { compareByOrder, compareOrderKeys, keyBetween } from './ordering.ts';
 import {
@@ -393,17 +394,25 @@ export function deleteTask(ctx: OpContext, workspace: WorkspaceFile, id: Id): Wo
   const task = requireEntity(workspace, 'tasks', id);
   const all = [task, ...descendants(workspace, id)];
   const at = isoNow(ctx);
-  return putEntities(
-    workspace,
-    'tasks',
-    all.map((target) => softDelete(ctx, target, at)),
+  // Their comments and files go with them (audit B5); a subtask already in the trash keeps its own.
+  const going = new Set(all.filter((target) => target.deletedAt === null).map((each) => each.id));
+  return followIntoTrash(
+    ctx,
+    putEntities(
+      workspace,
+      'tasks',
+      all.map((target) => softDelete(ctx, target, at)),
+    ),
+    going,
+    at,
   );
 }
 
 /** Restore from the trash, with the subtasks that were deleted together with it. */
 export function restoreTask(ctx: OpContext, workspace: WorkspaceFile, id: Id): WorkspaceFile {
   const task = requireEntity(workspace, 'tasks', id);
-  if (task.deletedAt === null) return workspace;
+  const wentAt = task.deletedAt;
+  if (wentAt === null) return workspace;
   const together = descendants(workspace, id, true).filter(
     (child) => child.deletedAt === task.deletedAt,
   );
@@ -411,6 +420,12 @@ export function restoreTask(ctx: OpContext, workspace: WorkspaceFile, id: Id): W
     workspace,
     'tasks',
     [task, ...together].map((target) => restore(ctx, target)),
+  );
+  // With the comments and files that went with them (audit B5).
+  next = followOutOfTrash(
+    ctx,
+    next,
+    [task, ...together].map((each) => ({ id: each.id, wentAt })),
   );
   // A restored subtask whose parent is still in the trash moves to the top level.
   if (task.parentId) {

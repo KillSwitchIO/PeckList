@@ -58,6 +58,41 @@ export function pendingChanges(workspace: WorkspaceFile, acks: Acks): SyncChange
   return pending;
 }
 
+/** The most changes the server takes in one push (SyncService.MaxChanges). */
+export const SERVER_MAX_CHANGES = 5000;
+
+/**
+ * The next push: the first `size` pending changes, in order, plus the comments and files of each
+ * task in it that fall after the cut, so a task and what hangs on it never go apart (audit B5:
+ * the server takes another person's comment back from the Trash only in the push that restores
+ * its task). Tasks come before comments and files, so they follow their task. A task whose
+ * comments and files would take the push past what the server takes waits for the next one.
+ */
+export function pushBatch(
+  pending: readonly SyncChange[],
+  size: number,
+  max = SERVER_MAX_CHANGES,
+): SyncChange[] {
+  if (pending.length <= size) return [...pending];
+  const later = new Map<string, SyncChange[]>();
+  for (const change of pending.slice(size)) {
+    if (change.collection !== 'comments' && change.collection !== 'attachments') continue;
+    const taskId = (change.entity as unknown as { taskId: string }).taskId;
+    const hangers = later.get(taskId);
+    if (hangers) hangers.push(change);
+    else later.set(taskId, [change]);
+  }
+  const batch: SyncChange[] = [];
+  const along: SyncChange[] = [];
+  for (const change of pending.slice(0, size)) {
+    const hangers = change.collection === 'tasks' ? (later.get(change.entity.id) ?? []) : [];
+    if (batch.length > 0 && batch.length + along.length + 1 + hangers.length > max) break;
+    batch.push(change);
+    along.push(...hangers);
+  }
+  return [...batch, ...along];
+}
+
 /** Acks after the server has these versions (pushed and taken, or sent to us). */
 export function acknowledge(acks: Acks, changes: readonly SyncChange[]): Acks {
   const next = { ...acks };

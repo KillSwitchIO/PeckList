@@ -205,7 +205,9 @@ they show what the API offers, never anyone's data. Turn it off and both answer 
 ### `ATTACHMENT_DIR`
 
 Where attached files are kept, one file per content hash. Back this folder up with the database.
-Files no task uses any more are removed 30 days after the last task let go of them. It is the
+Files no task uses any more are removed 30 days after the last task let go of them. A file on a
+task in the Trash is kept as long as the task can still come back (a Trash keeps tasks up to 365
+days), and one erased when the Trash is emptied goes within a day. It is the
 folder that grows, so it can sit on other storage than the database: the image keeps it in its own
 volume, `/files`. **Default:** `attachments` next to the SQLite file; `/files` in the image.
 **Where:** env.
