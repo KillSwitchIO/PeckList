@@ -159,7 +159,9 @@ Reach for these before writing another copy:
 - **Identity and access**: an HttpOnly, SameSite=Lax session cookie checked against the account's
   security stamp, so a disabled account or a changed password ends every session; permissions,
   not role names, at every admin endpoint; a per-address rate limit and a per-account lockout on
-  sign-in; super admins only for what would let someone make themselves one.
+  sign-in, the same per-address limit on one-time links and codes, and a per-account limit on
+  finding people and on live-update streams; super admins only for what would let someone make
+  themselves one.
 - **Input at the edge**: ids match `^[0-9A-Za-z_-]{1,64}$`, a file's hash is checked against its
   bytes, an upload is cut off at `ATTACHMENT_MAX_MB` before it is stored, a sync
   push is validated change by change so one bad change never blocks the rest.

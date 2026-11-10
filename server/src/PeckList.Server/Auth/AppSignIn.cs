@@ -121,7 +121,7 @@ public static partial class AppSignIn
             ticket.Properties.IssuedUtc = time.GetUtcNow();
             await context.SignInAsync(CookieAuthenticationDefaults.AuthenticationScheme, ticket.Principal, ticket.Properties);
             return Results.Redirect(handoff.ReturnUrl);
-        }).Audited("auth.app-signed-in", targetRoute: null);
+        }).RequireRateLimiting(AuthSetup.LoginRateLimit).Audited("auth.app-signed-in", targetRoute: null);
 
         // Linking a provider account from the app's Settings. The browser tab the provider runs in is
         // not signed in as the app is, so the app first asks, with its own session, for a one-time

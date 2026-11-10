@@ -9,6 +9,8 @@ import {
   Typography,
 } from '@mui/material';
 import { useState } from 'react';
+import { TooManyRequests, waitText } from '../../ports/sync.ts';
+import { tooManyText } from '../friends/tooMany.ts';
 import {
   assigneeCandidates,
   assigneesOf,
@@ -42,6 +44,8 @@ export function AssigneeProperty({ task }: { task: Task }) {
   const [anchor, setAnchor] = useState<HTMLElement | null>(null);
   const [query, setQuery] = useState('');
   const [lookup, setLookup] = useState<'idle' | 'looking' | 'missing'>('idle');
+  // A lookup that got no answer: too many this minute (audit S13), or none at all.
+  const [problem, setProblem] = useState<string | null>(null);
   const readOnly = useReadOnly();
 
   const assigned = assigneesOf(task).map((principal) => describePrincipal(workspace, principal));
@@ -80,6 +84,7 @@ export function AssigneeProperty({ task }: { task: Task }) {
     setAnchor(null);
     setQuery('');
     setLookup('idle');
+    setProblem(null);
   };
   const toggle = (principal: string, on: boolean) => {
     apply((ctx, ws) => setAssignee(ctx, ws, task.id, principal, !on));
@@ -88,7 +93,18 @@ export function AssigneeProperty({ task }: { task: Task }) {
   const invite = async () => {
     if (!friendsApi) return;
     setLookup('looking');
-    const found = await friendsApi.lookup(query.trim()).catch(() => null);
+    setProblem(null);
+    let found;
+    try {
+      found = await friendsApi.lookup(query.trim());
+    } catch (error) {
+      // Not "nobody goes by that name": say why, and how long to wait.
+      setProblem(
+        error instanceof TooManyRequests ? waitText(error, tooManyText) : t('friends.lookupFailed'),
+      );
+      setLookup('idle');
+      return;
+    }
     if (!found) {
       setLookup('missing');
       return;
@@ -144,6 +160,7 @@ export function AssigneeProperty({ task }: { task: Task }) {
             onChange={(event) => {
               setQuery(event.target.value);
               setLookup('idle');
+              setProblem(null);
             }}
             onKeyDown={(event) => {
               if (event.key !== 'Enter') return;
@@ -205,10 +222,13 @@ export function AssigneeProperty({ task }: { task: Task }) {
                 <ListItemText
                   primary={t('assignee.invite', { name: query.trim() })}
                   secondary={
-                    lookup === 'missing' ? t('friends.notFound') : t('assignee.inviteHint')
+                    problem ??
+                    (lookup === 'missing' ? t('friends.notFound') : t('assignee.inviteHint'))
                   }
                   slotProps={{
-                    secondary: { color: lookup === 'missing' ? 'error' : 'text.secondary' },
+                    secondary: {
+                      color: problem || lookup === 'missing' ? 'error' : 'text.secondary',
+                    },
                   }}
                 />
               </ListItemButton>

@@ -203,7 +203,7 @@ public static class OidcSetup
                 AuthSetup.Principal(signedIn, CookieAuthenticationDefaults.AuthenticationScheme, AuthSetup.ByLink),
                 new AuthenticationProperties { IsPersistent = true });
             return Results.Redirect(LinkReturn);
-        }).Audited("auth.login-link-used", targetRoute: null);
+        }).RequireRateLimiting(AuthSetup.LoginRateLimit).Audited("auth.login-link-used", targetRoute: null);
     }
 
     /// <summary>A challenge that links the provider account to <paramref name="accountId"/>; from the app when <paramref name="appScheme"/> is set.</summary>

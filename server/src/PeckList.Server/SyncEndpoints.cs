@@ -76,6 +76,14 @@ public static class SyncEndpoints
     private static readonly TimeSpan Heartbeat = TimeSpan.FromSeconds(25);
 
     /// <summary>
+    /// Live-update streams one account may hold open at once (audit S13): more than anyone's devices
+    /// and tabs, with room for streams whose client vanished without closing them. One more is
+    /// refused with 429, which a browser does not retry; the app syncs on its timer and opens the
+    /// stream again on a later sync. A stream ends when its client goes away, so its place comes back.
+    /// </summary>
+    public const int MaxStreams = 25;
+
+    /// <summary>
     /// <c>GET /api/events</c>: Server-Sent Events. <c>event: changed</c> with <c>{cursor, source}</c>
     /// whenever the user's data changes; a comment line every 25 s keeps proxies from closing it.
     /// </summary>
@@ -87,13 +95,19 @@ public static class SyncEndpoints
         using var ending = CancellationTokenSource.CreateLinkedTokenSource(requestAborted, lifetime.ApplicationStopping);
         var cancellation = ending.Token;
         var response = context.Response;
+        // Subscribe before saying the stream is open: a change made right after the client hears
+        // "connected" must not slip through.
+        using var subscription = notifier.Subscribe(user.UserId(), MaxStreams);
+        if (subscription is null)
+        {
+            response.StatusCode = StatusCodes.Status429TooManyRequests;
+            AuthSetup.RetryAfter(response, Heartbeat);
+            return;
+        }
         response.ContentType = "text/event-stream";
         response.Headers.CacheControl = "no-cache";
         // nginx and friends would buffer the stream otherwise.
         response.Headers["X-Accel-Buffering"] = "no";
-        // Subscribe before saying the stream is open: a change made right after the client hears
-        // "connected" must not slip through.
-        using var subscription = notifier.Subscribe(user.UserId());
         try
         {
             await response.WriteAsync(": connected\n\n", cancellation);

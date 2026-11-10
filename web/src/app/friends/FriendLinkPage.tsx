@@ -1,11 +1,12 @@
 import { Alert, Box, Button, CircularProgress, Paper, Typography } from '@mui/material';
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router';
-import type { ProfilePreview } from '../../ports/sync.ts';
+import { TooManyRequests, waitText, type ProfilePreview } from '../../ports/sync.ts';
 import { t } from '../i18n/i18n.ts';
 import { Page } from '../layout/Page.tsx';
 import { useSyncState } from '../sync/syncContext.ts';
 import { Avatar } from './Avatar.tsx';
+import { tooManyText } from './tooMany.ts';
 
 /**
  * `/f/<code>`: the confirmation screen a friend link opens (spec: Sharing & Permissions). It shows
@@ -18,6 +19,7 @@ export function FriendLinkPage() {
   const friends = useSyncState((state) => state.transport.friends);
   const syncNow = useSyncState((state) => state.syncNow);
   const [preview, setPreview] = useState<ProfilePreview | null | undefined>(undefined);
+  const [busy, setBusy] = useState<string | null>(null);
   const [done, setDone] = useState(false);
 
   useEffect(() => {
@@ -26,7 +28,12 @@ export function FriendLinkPage() {
     void friends
       .preview(code)
       .then((found) => live && setPreview(found))
-      .catch(() => live && setPreview(null));
+      .catch((error: unknown) => {
+        if (!live) return;
+        // Too many links opened this minute (audit S13) is not a dead link: say to wait.
+        if (error instanceof TooManyRequests) setBusy(waitText(error, tooManyText));
+        else setPreview(null);
+      });
     return () => {
       live = false;
     };
@@ -37,6 +44,12 @@ export function FriendLinkPage() {
   let body: React.ReactNode;
   if (phase !== 'ready' || !friends) {
     body = <Typography color="text.secondary">{t('friends.needsServer')}</Typography>;
+  } else if (busy) {
+    body = (
+      <Alert severity="info" variant="outlined">
+        {busy}
+      </Alert>
+    );
   } else if (preview === undefined) {
     body = <CircularProgress aria-label={t('status.loading')} />;
   } else if (preview === null) {

@@ -23,7 +23,7 @@ import type {
   TelemetryStatus,
 } from '../ports/sync.ts';
 import type { Snooze } from '../core/reminders.ts';
-import { SyncFailure } from '../ports/sync.ts';
+import { SyncFailure, TooManyRequests } from '../ports/sync.ts';
 import { messageOf } from '../core/errors.ts';
 import { createHttpAdmin } from './http-admin.ts';
 
@@ -117,6 +117,16 @@ export function createHttpSync(
       throw new SyncFailure('offline', `server unavailable (${response.status})`);
     }
     throw new SyncFailure('server', body.message ?? `server error ${response.status}`);
+  };
+
+  /** A 429: Retry-After in seconds, or as a date (RFC 9110), when the server sends it. */
+  const tooMany = (response: Response): TooManyRequests => {
+    const said = response.headers.get('Retry-After');
+    if (said === null) return new TooManyRequests(null);
+    const seconds = /^\d+$/.test(said.trim())
+      ? Number(said)
+      : (Date.parse(said) - Date.now()) / 1000;
+    return new TooManyRequests(Number.isFinite(seconds) ? Math.max(0, Math.round(seconds)) : null);
   };
 
   const providerIcon = (name: string) => `${base}/auth/providers/${encodeURIComponent(name)}/icon`;
@@ -465,6 +475,7 @@ export function createHttpSync(
       },
       async preview(code) {
         const response = await call(`/api/friends/link/${encodeURIComponent(code)}`);
+        if (response.status === 429) throw tooMany(response);
         if (response.status === 404) return null;
         if (!response.ok) return fail(response);
         return (await response.json()) as ProfilePreview;
@@ -479,6 +490,7 @@ export function createHttpSync(
       },
       async lookup(query) {
         const response = await call(`/api/users/lookup?q=${encodeURIComponent(query)}`);
+        if (response.status === 429) throw tooMany(response);
         if (response.status === 404) return null;
         if (!response.ok) return fail(response);
         return (await response.json()) as ProfilePreview;
@@ -580,10 +592,15 @@ export function createHttpSync(
       },
     },
 
-    events(onChange) {
-      // Server-Sent Events; the browser reconnects by itself after a drop.
+    events(onChange, onClosed) {
+      // Server-Sent Events; the browser reconnects by itself after a drop, but not after an
+      // answer that is not a stream (a 429 from the stream cap, a proxy's 502): it closes.
       if (typeof EventSource === 'undefined') return () => undefined;
       const source = new EventSource(`${base}/api/events`, { withCredentials: true });
+      source.addEventListener('error', () => {
+        // 2 is EventSource.CLOSED; while it reconnects it is 0 (CONNECTING).
+        if (source.readyState === 2) onClosed?.();
+      });
       source.addEventListener('changed', (event) => {
         try {
           onChange(JSON.parse((event as MessageEvent<string>).data) as ChangeEvent);

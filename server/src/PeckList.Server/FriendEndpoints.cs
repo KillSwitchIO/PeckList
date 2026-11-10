@@ -26,17 +26,19 @@ public static class FriendEndpoints
             .Audited("sharing.friend-link-renewed", targetRoute: null);
 
         api.MapGet("/friends/link/{code}", async (string code, ClaimsPrincipal user, Friends friends, CancellationToken cancellation) =>
-            await friends.PreviewByCodeAsync(user.UserId(), code, cancellation) is { } preview ? Results.Ok(preview) : Results.NotFound());
+            await friends.PreviewByCodeAsync(user.UserId(), code, cancellation) is { } preview ? Results.Ok(preview) : Results.NotFound())
+            .RequireRateLimiting(AuthSetup.AccountRateLimit);
 
         api.MapPost("/friends/link/{code}", async (string code, ClaimsPrincipal user, Friends friends, Invites invites, CancellationToken cancellation) =>
         {
             if (await friends.AcceptLinkAsync(user.UserId(), code, cancellation) is not { } id) return Results.NotFound();
             await invites.SettleAsync(cancellation);
             return Results.Ok(new FriendshipAccepted(id));
-        }).Audited("sharing.friend-added", targetRoute: null);
+        }).RequireRateLimiting(AuthSetup.AccountRateLimit).Audited("sharing.friend-added", targetRoute: null);
 
         api.MapGet("/users/lookup", async (string q, ClaimsPrincipal user, Friends friends, CancellationToken cancellation) =>
-            await friends.LookupAsync(user.UserId(), q, cancellation) is { } preview ? Results.Ok(preview) : Results.NotFound());
+            await friends.LookupAsync(user.UserId(), q, cancellation) is { } preview ? Results.Ok(preview) : Results.NotFound())
+            .RequireRateLimiting(AuthSetup.AccountRateLimit);
 
         return api;
     }

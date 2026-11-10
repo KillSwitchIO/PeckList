@@ -109,7 +109,7 @@ public static class SettingsEndpoints
                 logging.Apply(next.Logging);
             }
             return Results.Ok(View(loaded, page, MaySaveSignIn(user)));
-        }).RequirePermission(Permission.ManageSettings).Audited("settings.saved", targetRoute: null);
+        }).RequirePermission(Permission.ManageSettings).RequireRateLimiting(AuthSetup.SettingsRateLimit).Audited("settings.saved", targetRoute: null);
 
         // Stops the server; a container with a restart policy (restart: unless-stopped) comes back
         // with the saved values.

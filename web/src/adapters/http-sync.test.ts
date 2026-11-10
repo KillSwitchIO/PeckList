@@ -1,8 +1,8 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { SyncFailure } from '../ports/sync.ts';
+import { SyncFailure, TooManyRequests } from '../ports/sync.ts';
 import { createHttpSync } from './http-sync.ts';
 
-type Reply = { status: number; body?: unknown; type?: string };
+type Reply = { status: number; body?: unknown; type?: string; headers?: Record<string, string> };
 
 /** A fetch that answers from a script and remembers what it was asked. */
 function fakeFetch(...replies: (Reply | Error)[]) {
@@ -20,7 +20,7 @@ function fakeFetch(...replies: (Reply | Error)[]) {
     return Promise.resolve(
       new Response(reply.status === 204 ? null : body, {
         status: reply.status,
-        headers: { 'content-type': reply.type ?? 'application/json' },
+        headers: { 'content-type': reply.type ?? 'application/json', ...reply.headers },
       }),
     );
   });
@@ -96,6 +96,30 @@ describe('HTTP sync transport', () => {
     expect(await files.upload('a'.repeat(64), file)).toBe('later');
     expect(await files.upload('a'.repeat(64), file)).toBe('refused');
     expect(calls[0]?.init.method).toBe('PUT');
+  });
+
+  it('reads too many lookups and friend links as such, with how long to wait (audit S13)', async () => {
+    const later = new Date(Date.now() + 90_000).toUTCString();
+    const { fetcher } = fakeFetch(
+      { status: 429, headers: { 'Retry-After': '120' } },
+      { status: 429, headers: { 'Retry-After': later } },
+      { status: 429 },
+    );
+    const friends = createHttpSync('', fetcher).friends!;
+    const waited = async (promise: Promise<unknown>) => {
+      try {
+        await promise;
+      } catch (error) {
+        if (error instanceof TooManyRequests) return error.retryAfterSeconds;
+        throw error;
+      }
+      throw new Error('expected too many requests');
+    };
+    expect(await waited(friends.lookup('sam'))).toBe(120);
+    const fromDate = await waited(friends.preview('BEN'));
+    expect(fromDate).toBeGreaterThan(80);
+    expect(fromDate).toBeLessThanOrEqual(90);
+    expect(await waited(friends.lookup('sam'))).toBeNull();
   });
 
   it("keeps the account's email (PL-122)", async () => {
@@ -460,6 +484,30 @@ describe('HTTP sync transport', () => {
     expect(onChange).toHaveBeenCalledExactlyOnceWith({ cursor: 7, source: 'dev2' });
     stop();
     expect(close).toHaveBeenCalled();
+  });
+
+  it('says when the stream ends for good, not while the browser reconnects', () => {
+    const listeners = new Map<string, () => void>();
+    const source = { readyState: 0 };
+    class FakeEventSource {
+      get readyState() {
+        return source.readyState;
+      }
+      addEventListener(type: string, listener: () => void) {
+        listeners.set(type, listener);
+      }
+      close = vi.fn();
+    }
+    vi.stubGlobal('EventSource', FakeEventSource);
+    const onClosed = vi.fn();
+    createHttpSync('', fakeFetch().fetcher).events!(() => undefined, onClosed);
+    // A dropped connection: the browser tries again by itself.
+    listeners.get('error')!();
+    expect(onClosed).not.toHaveBeenCalled();
+    // A 429 or a 502: closed for good.
+    source.readyState = 2;
+    listeners.get('error')!();
+    expect(onClosed).toHaveBeenCalledOnce();
   });
 
   it('does without events where the browser has none', () => {

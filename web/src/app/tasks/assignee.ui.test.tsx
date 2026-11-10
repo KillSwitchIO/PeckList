@@ -160,6 +160,29 @@ describe('assigning a task', () => {
     ).toHaveAttribute('aria-checked', 'true');
   });
 
+  it('says when there were too many lookups, not that nobody goes by that name (audit S13)', async () => {
+    const { task, backend, me } = await setup();
+    const kim = backend.addAccount('kim', 'kims own password');
+    backend.tooManyLookups = 150;
+    const details = await screen.findByRole('region', { name: 'Task details' });
+    await userEvent.click(within(details).getByRole('button', { name: 'Assigned: Nobody' }));
+    const picker = await screen.findByRole('dialog', { name: 'Assign to' });
+    const search = within(picker).getByRole('textbox', { name: 'Search or invite by username' });
+    await userEvent.type(search, 'kim');
+    await userEvent.click(within(picker).getByRole('button', { name: /Invite "kim"/ }));
+    expect(
+      await within(picker).findByText('Too many lookups. Try again in 3 minutes.'),
+    ).toBeInTheDocument();
+    expect(within(picker).queryByText('Nobody here goes by that name.')).toBeNull();
+    expect(assigneesOf(task())).toEqual([]);
+
+    // The wait is over: the same invite goes through.
+    backend.tooManyLookups = undefined;
+    await userEvent.click(within(picker).getByRole('button', { name: /Invite "kim"/ }));
+    await waitFor(() => expect(assigneesOf(task())).toEqual([`invite:${kim.id}:${me()}`]));
+    expect(within(picker).queryByText(/Too many lookups/)).toBeNull();
+  });
+
   it('dibs takes a group chore for me', async () => {
     const group = '01JBGR0000000000000000000G';
     const { task } = await setup(false, (ctx, ws, taskId) => {

@@ -652,12 +652,21 @@ export function createSyncEngine(deps: SyncEngineDependencies): SyncEngine {
     /** Sync as soon as another device changes something (when the server can say so). */
     const openEvents = () => {
       closeEvents?.();
-      closeEvents =
-        transport.events?.((change) => {
-          if (change.source !== null && change.source === deps.device) return;
-          if (eventDebounce) clearTimeout(eventDebounce);
-          eventDebounce = setTimeout(() => void syncNow(), 250);
-        }) ?? null;
+      const stop =
+        transport.events?.(
+          (change) => {
+            if (change.source !== null && change.source === deps.device) return;
+            if (eventDebounce) clearTimeout(eventDebounce);
+            eventDebounce = setTimeout(() => void syncNow(), 250);
+          },
+          // Ended for good (a 429 from the stream cap, a 502 during a deploy): forget it, so
+          // the next sync that gets through opens a new one instead of leaving the tab on its
+          // timer until a reload.
+          () => {
+            if (closeEvents === stop) closeEvents = null;
+          },
+        ) ?? null;
+      closeEvents = stop;
     };
     const closeEventStream = () => {
       closeEvents?.();

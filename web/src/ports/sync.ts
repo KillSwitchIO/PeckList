@@ -344,17 +344,34 @@ export interface ApiKeysApi {
 }
 
 /** Friend links and lookups (servers only). */
+/**
+ * The server's answer to too many requests in a short time (429, audit S13: lookups and friend
+ * links per account), with how many seconds to wait when it says.
+ */
+export class TooManyRequests extends Error {
+  constructor(readonly retryAfterSeconds: number | null) {
+    super('too many requests');
+    this.name = 'TooManyRequests';
+  }
+}
+
+/** "Try again in a minute", or in N minutes as the server's Retry-After says. */
+export function waitText(error: TooManyRequests, t: (minutes: number) => string): string {
+  const seconds = error.retryAfterSeconds;
+  return t(seconds === null ? 1 : Math.max(1, Math.ceil(seconds / 60)));
+}
+
 export interface FriendsApi {
   /**
    * This account's friend code and link; `rotate` makes a new one and retires the old. The link
    * is null from a server that has no address to make it from (no PUBLIC_URL on a public name).
    */
   code(rotate?: boolean): Promise<{ code: string; link: string | null }>;
-  /** Who a link belongs to, or null for an unknown or retired code. */
+  /** Who a link belongs to, or null for an unknown or retired code. Throws TooManyRequests. */
   preview(code: string): Promise<ProfilePreview | null>;
   /** Accept a link: friends at once. Returns the friendship id, or null when the code leads nowhere. */
   accept(code: string): Promise<string | null>;
-  /** Someone by exact username or handle, or null. */
+  /** Someone by exact username or handle, or null. Throws TooManyRequests. */
   lookup(query: string): Promise<ProfilePreview | null>;
 }
 
@@ -516,9 +533,11 @@ export interface SyncTransport {
   sync(request: SyncRequest): Promise<SyncResponse>;
   /**
    * Hear about changes as they happen (optional: without it the app syncs on its timer). Returns
-   * a function that stops listening. Reconnecting after a drop is the transport's job.
+   * a function that stops listening. Reconnecting after a drop is the transport's job, until the
+   * stream ends for good (a refusal such as a 429, or a proxy's 502 during a deploy): then
+   * `onClosed`, and the app opens a new one after its next sync.
    */
-  events?(onChange: (change: ChangeEvent) => void): () => void;
+  events?(onChange: (change: ChangeEvent) => void, onClosed?: () => void): () => void;
   friends?: FriendsApi;
   /** Notifications (optional: older servers keep none). */
   notifications?: NotificationsApi;
