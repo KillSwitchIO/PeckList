@@ -598,8 +598,17 @@ public sealed class SharingIndex
                 viewers.Add(entity.Owner);
                 break;
             case "sections":
-                viewers.UnionWith(entity.Get("listId") is { } sectionList ? ListPeople(sectionList) : []);
-                viewers.Add(entity.Owner);
+                // As tasks (U3): the list's people, and its maker only while the list is gone from the
+                // index, so someone taken off a list stops hearing of the sections they made there.
+                if (entity.Get("listId") is { } sectionList)
+                {
+                    viewers.UnionWith(ListPeople(sectionList));
+                    if (!byId.ContainsKey(sectionList)) viewers.Add(entity.Owner);
+                }
+                else
+                {
+                    viewers.Add(entity.Owner);
+                }
                 break;
             case "tasks":
                 if (entity.Get("listId") is { } taskList)
@@ -1039,8 +1048,9 @@ public sealed class SharingIndex
                 // Writing on a task needs the right to change it: owners, editors, assignees.
                 // A task made in the same push is in this index only.
                 if (before is null) return after.OwnerId == userId && MayEditTask(beforeIndex.Contains(taskId) ? beforeIndex : this, userId, taskId);
-                // The author changes or deletes it; the list's owner may delete it, and a purge erases it.
-                if (before.OwnerId == userId) return true;
+                // The author changes or deletes it while they still see the task (U2); the list's
+                // owner may delete it, and a purge erases it.
+                if (before.OwnerId == userId && beforeIndex.Viewers(before.Id).Contains(userId)) return true;
                 if (FollowsTask(userId, before.Doc, doc, taskId, "body", beforeIndex)) return true;
                 var listId = beforeIndex.byId.TryGetValue(taskId, out var task) ? task.Get("listId") : null;
                 return listId is not null && beforeIndex.ListRole(userId, listId) == "owner"
@@ -1051,8 +1061,9 @@ public sealed class SharingIndex
                 var taskId = Field(doc, "taskId");
                 if (taskId is null || (before is not null && (Changed("taskId") || Changed("sha256") || Changed("size")))) return false;
                 if (before is null) return after.OwnerId == userId && MayEditTask(beforeIndex.Contains(taskId) ? beforeIndex : this, userId, taskId);
-                // Who added it renames or removes it; the list's owner may remove it, and a purge erases it.
-                if (before.OwnerId == userId) return true;
+                // Who added it renames or removes it while they still see the task (U2); the list's
+                // owner may remove it, and a purge erases it.
+                if (before.OwnerId == userId && beforeIndex.Viewers(before.Id).Contains(userId)) return true;
                 if (FollowsTask(userId, before.Doc, doc, taskId, "name", beforeIndex)) return true;
                 var listId = beforeIndex.byId.TryGetValue(taskId, out var task) ? task.Get("listId") : null;
                 return listId is not null && beforeIndex.ListRole(userId, listId) == "owner"
