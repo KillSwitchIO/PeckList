@@ -88,6 +88,38 @@
     {
       "body": "Line one\r\n\r\n@sam",
       "names": ["sam"]
+    },
+    {
+      "body": "A byte-order mark (U+FEFF, a paste can carry one) is a space: hi\ufeff@sam",
+      "names": ["sam"]
+    },
+    {
+      "body": "\ufeff@sam at the start",
+      "names": ["sam"]
+    },
+    {
+      "body": "A next-line mark is not a space: a\u0085@sam",
+      "names": []
+    },
+    {
+      "body": "**\ufeff@sam** is not bold, @sam still is a mention",
+      "names": ["sam", "sam"]
+    },
+    {
+      "body": "An astral letter joins the name: @sam\ud840\udc00 and @\ud840\udc00kim",
+      "names": ["sam\ud840\udc00", "\ud840\udc00kim"]
+    },
+    {
+      "body": "An astral digit too: @lee\ud835\udfce, but not an emoji: @kim\ud83d\ude00",
+      "names": ["lee\ud835\udfce", "kim"]
+    },
+    {
+      "body": "Not after an astral letter: \ud840\udc00@sam",
+      "names": []
+    },
+    {
+      "body": "_@sam_\ud840\udc00 is no italic (a letter follows), so no mention",
+      "names": []
     }
   ]
 }
