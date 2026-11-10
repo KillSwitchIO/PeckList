@@ -260,9 +260,9 @@ public static class PasskeyEndpoints
     {
         if (token is not { Length: > 0 and <= 100 }) return null;
         var key = Tokens.Hash(token);
-        var stored = (await secrets.ListAsync(EnrollKind, cancellation)).FirstOrDefault(each => each.Name == key).Value;
+        // Spending takes the row, so a used token leaves nothing and two tries cannot both have it.
+        var stored = spend ? await secrets.TakeAsync(EnrollKind, key, cancellation) : await secrets.GetAsync(EnrollKind, key, cancellation);
         if (string.IsNullOrEmpty(stored)) return null;
-        if (spend) await secrets.PutAsync(EnrollKind, key, "", cancellation);
         try
         {
             var enrolment = JsonSerializer.Deserialize<Enrolment>(protection.CreateProtector(EnrollPurpose).Unprotect(stored));
@@ -273,6 +273,10 @@ public static class PasskeyEndpoints
             return null;
         }
     }
+
+    /// <summary>When a stored enrolment token runs out; null when it cannot be read.</summary>
+    public static DateTimeOffset? ExpiresOf(IDataProtectionProvider protection, string stored) =>
+        AppSignIn.ProtectedExpiry(protection.CreateProtector(EnrollPurpose), stored);
 
     /// <summary>
     /// The page that adds a passkey in the app's browser tab, for an account the app is signed in to:

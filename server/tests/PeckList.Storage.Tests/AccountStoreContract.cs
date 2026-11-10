@@ -107,4 +107,32 @@ public abstract class AccountStoreContract : IAsyncLifetime
         Assert.Equal([("a", "one again"), ("b", "two")], await Secrets.ListAsync("keys", Token));
         Assert.Empty(await Secrets.ListAsync("none", Token));
     }
+
+    [Fact]
+    public async Task Gets_takes_and_deletes_one_secret_by_kind_and_name()
+    {
+        await Secrets.PutAsync("once", "a", "one", Token);
+        await Secrets.PutAsync("once", "b", "two", Token);
+        await Secrets.PutAsync("other", "a", "elsewhere", Token);
+        Assert.Equal("one", await Secrets.GetAsync("once", "a", Token));
+        Assert.Null(await Secrets.GetAsync("once", "c", Token));
+
+        // Taken once: the row is gone, and a second take has nothing.
+        Assert.Equal("one", await Secrets.TakeAsync("once", "a", Token));
+        Assert.Null(await Secrets.TakeAsync("once", "a", Token));
+        Assert.Null(await Secrets.GetAsync("once", "a", Token));
+
+        await Secrets.DeleteAsync("once", "b", Token);
+        await Secrets.DeleteAsync("once", "none", Token);
+        Assert.Empty(await Secrets.ListAsync("once", Token));
+        Assert.Equal("elsewhere", await Secrets.GetAsync("other", "a", Token));
+    }
+
+    [Fact]
+    public async Task Of_many_takes_at_once_only_one_gets_the_secret()
+    {
+        await Secrets.PutAsync("once", "race", "the value", Token);
+        var takes = await Task.WhenAll(Enumerable.Range(0, 8).Select(_ => Task.Run(() => Secrets.TakeAsync("once", "race", Token), Token)));
+        Assert.Equal("the value", Assert.Single(takes, each => each is not null));
+    }
 }

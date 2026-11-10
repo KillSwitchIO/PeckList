@@ -26,17 +26,15 @@ public sealed class LoginLinks(ISecretStore secrets, IAccountStore accounts, Tim
     /// <summary>The account the token signs in, using it up; null when unknown, used, expired or the account is disabled.</summary>
     public async Task<Account?> RedeemAsync(string token, CancellationToken cancellation = default)
     {
-        var key = Tokens.Hash(token);
-        var value = (await secrets.ListAsync(Kind, cancellation)).FirstOrDefault(each => each.Name == key).Value;
-        if (string.IsNullOrEmpty(value)) return null;
-        await secrets.PutAsync(Kind, key, "", cancellation);
-        var parts = value.Split(' ');
-        if (parts.Length != 2
-            || !DateTimeOffset.TryParse(parts[1], CultureInfo.InvariantCulture, DateTimeStyles.None, out var expires)
-            || expires <= time.GetUtcNow())
-        {
-            return null;
-        }
-        return await accounts.FindByIdAsync(parts[0], cancellation) is { Disabled: false } account ? account : null;
+        // Taken, not marked: a used link leaves no row, and two tries at once cannot both have it.
+        var value = await secrets.TakeAsync(Kind, Tokens.Hash(token), cancellation);
+        if (string.IsNullOrEmpty(value) || ExpiresOf(value) is not { } expires || expires <= time.GetUtcNow()) return null;
+        return await accounts.FindByIdAsync(value.Split(' ')[0], cancellation) is { Disabled: false } account ? account : null;
     }
+
+    /// <summary>When a stored link runs out; null when the value is not one.</summary>
+    public static DateTimeOffset? ExpiresOf(string value) =>
+        value.Split(' ') is [_, var at] && DateTimeOffset.TryParse(at, CultureInfo.InvariantCulture, DateTimeStyles.None, out var expires)
+            ? expires
+            : null;
 }

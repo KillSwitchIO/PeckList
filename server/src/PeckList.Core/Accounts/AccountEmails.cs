@@ -108,7 +108,7 @@ public sealed class AccountEmails(IAccountStore accounts, ISecretStore secrets, 
 
     /// <summary>Use up a reset token once the new password is set.</summary>
     public Task SpendResetAsync(string token, CancellationToken cancellation = default) =>
-        secrets.PutAsync(ResetKind, Tokens.Hash(token), "", cancellation);
+        secrets.DeleteAsync(ResetKind, Tokens.Hash(token), cancellation);
 
     private async Task<Account?> ActiveAsync(string id, string stamp, CancellationToken cancellation) =>
         await accounts.FindByIdAsync(id, cancellation) is { Disabled: false, DeletedAt: null } account && account.SecurityStamp == stamp
@@ -124,25 +124,20 @@ public sealed class AccountEmails(IAccountStore accounts, ISecretStore secrets, 
     }
 
     /// <summary>What a live token was issued for (its words, without the expiry); null when unknown, used or expired.</summary>
-    private async Task<string[]?> ReadAsync(string kind, string token, CancellationToken cancellation)
-    {
-        var key = Tokens.Hash(token);
-        var value = (await secrets.ListAsync(kind, cancellation)).FirstOrDefault(each => each.Name == key).Value;
-        if (string.IsNullOrEmpty(value)) return null;
-        var parts = value.Split(' ');
-        if (parts.Length < 2
-            || !DateTimeOffset.TryParse(parts[^1], CultureInfo.InvariantCulture, DateTimeStyles.None, out var expires)
-            || expires <= time.GetUtcNow())
-        {
-            return null;
-        }
-        return parts[..^1];
-    }
+    private async Task<string[]?> ReadAsync(string kind, string token, CancellationToken cancellation) =>
+        Live(await secrets.GetAsync(kind, Tokens.Hash(token), cancellation));
 
-    private async Task<string[]?> RedeemAsync(string kind, string token, CancellationToken cancellation)
-    {
-        var parts = await ReadAsync(kind, token, cancellation);
-        if (parts is not null) await secrets.PutAsync(kind, Tokens.Hash(token), "", cancellation);
-        return parts;
-    }
+    /// <summary>Taken, not marked: a used token leaves no row, and two tries at once cannot both have it.</summary>
+    private async Task<string[]?> RedeemAsync(string kind, string token, CancellationToken cancellation) =>
+        Live(await secrets.TakeAsync(kind, Tokens.Hash(token), cancellation));
+
+    private string[]? Live(string? value) =>
+        !string.IsNullOrEmpty(value) && ExpiresOf(value) is { } expires && expires > time.GetUtcNow() ? value.Split(' ')[..^1] : null;
+
+    /// <summary>When a stored token runs out (its last word); null when the value is not one.</summary>
+    public static DateTimeOffset? ExpiresOf(string value) =>
+        value.Split(' ') is { Length: >= 2 } parts
+        && DateTimeOffset.TryParse(parts[^1], CultureInfo.InvariantCulture, DateTimeStyles.None, out var expires)
+            ? expires
+            : null;
 }

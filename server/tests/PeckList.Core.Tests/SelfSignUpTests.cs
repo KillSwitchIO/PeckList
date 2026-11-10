@@ -19,6 +19,18 @@ public sealed class MemorySecretStore : ISecretStore
         values[(kind, name)] = value;
         return Task.CompletedTask;
     }
+
+    public Task<string?> GetAsync(string kind, string name, CancellationToken cancellation = default) =>
+        Task.FromResult(values.GetValueOrDefault((kind, name)));
+
+    public Task<string?> TakeAsync(string kind, string name, CancellationToken cancellation = default) =>
+        Task.FromResult(values.Remove((kind, name), out var value) ? value : null);
+
+    public Task DeleteAsync(string kind, string name, CancellationToken cancellation = default)
+    {
+        values.Remove((kind, name));
+        return Task.CompletedTask;
+    }
 }
 
 public sealed class SelfSignUpTests

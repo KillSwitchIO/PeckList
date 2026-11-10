@@ -74,7 +74,7 @@ public sealed class SignupInvites(ISecretStore secrets, TimeProvider time)
         foreach (var (name, invite) in await AllAsync(cancellation))
         {
             if (invite.Usable(now)) live.Add(invite);
-            else await secrets.PutAsync(Kind, name, "", cancellation);
+            else await secrets.DeleteAsync(Kind, name, cancellation);
         }
         return live.OrderByDescending(invite => invite.CreatedAt).ToList();
     }
@@ -101,8 +101,8 @@ public sealed class SignupInvites(ISecretStore secrets, TimeProvider time)
             if (invite?.Usable(time.GetUtcNow()) != true) return null;
             var made = await create();
             var used = invite with { Uses = invite.Uses + 1, UsedBy = [.. invite.UsedBy, accountId(made)] };
-            await secrets.PutAsync(Kind, Tokens.Hash(token),
-                used.Usable(time.GetUtcNow()) ? JsonSerializer.Serialize(used, Json) : "", cancellation);
+            if (used.Usable(time.GetUtcNow())) await secrets.PutAsync(Kind, Tokens.Hash(token), JsonSerializer.Serialize(used, Json), cancellation);
+            else await secrets.DeleteAsync(Kind, Tokens.Hash(token), cancellation);
             return made;
         }
         finally
@@ -117,7 +117,7 @@ public sealed class SignupInvites(ISecretStore secrets, TimeProvider time)
         foreach (var (name, invite) in await AllAsync(cancellation))
         {
             if (invite.Id != id) continue;
-            await secrets.PutAsync(Kind, name, "", cancellation);
+            await secrets.DeleteAsync(Kind, name, cancellation);
             return invite;
         }
         return null;
@@ -126,8 +126,24 @@ public sealed class SignupInvites(ISecretStore secrets, TimeProvider time)
     private async Task<SignupInvite?> ByTokenAsync(string token, CancellationToken cancellation)
     {
         if (string.IsNullOrWhiteSpace(token)) return null;
-        var key = Tokens.Hash(token.Trim());
-        return (await AllAsync(cancellation)).FirstOrDefault(each => each.Name == key).Invite;
+        return Read(await secrets.GetAsync(Kind, Tokens.Hash(token.Trim()), cancellation));
+    }
+
+    /// <summary>When a stored invite runs out; null when the value is not one.</summary>
+    public static DateTimeOffset? ExpiresOf(string value) => Read(value)?.Expires;
+
+    private static SignupInvite? Read(string? value)
+    {
+        if (string.IsNullOrEmpty(value)) return null;
+        try
+        {
+            return JsonSerializer.Deserialize<SignupInvite>(value, Json);
+        }
+        catch (JsonException)
+        {
+            // Not ours to read: leave it.
+            return null;
+        }
     }
 
     private async Task<List<(string Name, SignupInvite Invite)>> AllAsync(CancellationToken cancellation)
@@ -135,15 +151,7 @@ public sealed class SignupInvites(ISecretStore secrets, TimeProvider time)
         var all = new List<(string, SignupInvite)>();
         foreach (var (name, value) in await secrets.ListAsync(Kind, cancellation))
         {
-            if (string.IsNullOrEmpty(value)) continue;
-            try
-            {
-                if (JsonSerializer.Deserialize<SignupInvite>(value, Json) is { } invite) all.Add((name, invite));
-            }
-            catch (JsonException)
-            {
-                // Not ours to read: leave it.
-            }
+            if (Read(value) is { } invite) all.Add((name, invite));
         }
         return all;
     }

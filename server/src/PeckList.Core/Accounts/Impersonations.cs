@@ -35,19 +35,19 @@ public sealed class Impersonations(ISecretStore secrets, IAccountStore accounts,
     /// <summary>The impersonation a token stands for, while it lasts.</summary>
     public async Task<Impersonation?> FindAsync(string token, CancellationToken cancellation = default)
     {
-        var key = Tokens.Hash(token);
-        var value = (await secrets.ListAsync(Kind, cancellation)).FirstOrDefault(each => each.Name == key).Value;
-        if (string.IsNullOrEmpty(value)) return null;
+        var value = await secrets.GetAsync(Kind, Tokens.Hash(token), cancellation);
+        if (string.IsNullOrEmpty(value) || ExpiresOf(value) is not { } expires || expires <= time.GetUtcNow()) return null;
         var parts = value.Split(' ', 4);
-        if (parts.Length != 4
-            || !DateTimeOffset.TryParse(parts[2], CultureInfo.InvariantCulture, DateTimeStyles.None, out var expires)
-            || expires <= time.GetUtcNow())
-        {
-            return null;
-        }
         return new Impersonation(parts[0], parts[1], parts[3], expires);
     }
 
+    /// <summary>Ended: the token's row goes.</summary>
     public Task EndAsync(string token, CancellationToken cancellation = default) =>
-        secrets.PutAsync(Kind, Tokens.Hash(token), "", cancellation);
+        secrets.DeleteAsync(Kind, Tokens.Hash(token), cancellation);
+
+    /// <summary>When a stored impersonation ends; null when the value is not one.</summary>
+    public static DateTimeOffset? ExpiresOf(string value) =>
+        value.Split(' ', 4) is [_, _, var at, _] && DateTimeOffset.TryParse(at, CultureInfo.InvariantCulture, DateTimeStyles.None, out var expires)
+            ? expires
+            : null;
 }
