@@ -5,7 +5,9 @@ import { createMemoryStorage } from '../../adapters/memory-storage.ts';
 import { createUlidGenerator } from '../../adapters/ulid-ids.ts';
 import { addAttachment } from '../../core/attachments.ts';
 import { sha256Hex } from '../../core/sha256.ts';
-import { createTask, updateTask } from '../../core/tasks.ts';
+import { addComment } from '../../core/comments.ts';
+import type { SyncChange } from '../../core/sync.ts';
+import { createTask, deleteTask, restoreTask, updateTask } from '../../core/tasks.ts';
 import type { WorkspaceFile } from '../../core/types.ts';
 import { FakeBackend } from '../../test/fakeTransport.ts';
 import { createWorkspaceStore, type WorkspaceStore } from '../store/workspaceStore.ts';
@@ -305,6 +307,51 @@ describe('sync engine', () => {
     pages = 0;
     await phone.engine.getState().syncNow();
     expect(pages).toBe(1);
+  });
+
+  it('pushes a big restore with each task and its comments in the same push (audit B5)', async () => {
+    const backend = new FakeBackend();
+    backend.addAccount('ben', 'correct horse battery');
+    const laptop = await device(backend, 'laptop');
+    await laptop.engine.getState().start();
+    await laptop.engine.getState().signIn('ben', 'correct horse battery');
+    const ids: string[] = [];
+    laptop.store.getState().apply((ctx, ws) => {
+      let next = ws;
+      for (let index = 0; index < 1001; index += 1) {
+        const made = createTask(ctx, next, { title: `Task ${index}`, listId: inboxOf(next) });
+        ids.push(made.task.id);
+        next = addComment(ctx, made.workspace, made.task.id, `Note ${index}`).workspace;
+      }
+      return next;
+    });
+    await laptop.engine.getState().syncNow();
+    laptop.store
+      .getState()
+      .apply((ctx, ws) => ids.reduce((next, id) => deleteTask(ctx, next, id), ws));
+    await laptop.engine.getState().syncNow();
+
+    const pushes: SyncChange[][] = [];
+    const sync = laptop.transport.sync.bind(laptop.transport);
+    laptop.transport.sync = (request) => {
+      if (request.changes.length > 0) pushes.push(request.changes);
+      return sync(request);
+    };
+    laptop.store
+      .getState()
+      .apply((ctx, ws) => ids.reduce((next, id) => restoreTask(ctx, next, id), ws));
+    await laptop.engine.getState().syncNow();
+    // More than one push (over 1000 changes), and never a comment apart from its task.
+    expect(pushes.length).toBeGreaterThan(1);
+    expect(pushes.flat()).toHaveLength(2002);
+    for (const push of pushes) {
+      const tasks = new Set(
+        push.filter((each) => each.collection === 'tasks').map((each) => each.entity.id),
+      );
+      for (const each of push.filter((change) => change.collection === 'comments')) {
+        expect(tasks.has((each.entity as unknown as { taskId: string }).taskId)).toBe(true);
+      }
+    }
   });
 
   it('starts over when a sync has hung, instead of queueing behind it forever', async () => {

@@ -95,13 +95,16 @@ public static class AttachmentEndpoints
 
 /// <summary>
 /// Removes stored files nothing wants any more (no live attachment, nor one deleted in the last 30
-/// days, which can still come back), daily. Files younger than a day stay: a device uploads a file
-/// just before it syncs the attachment naming it.
+/// days, nor one on a task the Trash can still give back, up to its longest period), daily. Files
+/// younger than a day stay: a device uploads a file just before it syncs the attachment naming it.
 /// </summary>
 public sealed class AttachmentCleanup(IAttachmentStore store, SharingState sharing, TimeProvider time, ILogger<AttachmentCleanup> logger)
     : PeriodicService("Cleaning attachment files", TimeSpan.FromMinutes(5), TimeSpan.FromDays(1), time, logger)
 {
     public static readonly TimeSpan KeepDeleted = TimeSpan.FromDays(30);
+
+    /// <summary>The longest a Trash keeps a task (purgeAfterDays at most 365, schema 18).</summary>
+    public static readonly TimeSpan KeepInTrash = TimeSpan.FromDays(365);
 
     protected override async Task RunAsync(CancellationToken stopping)
     {
@@ -114,7 +117,7 @@ public sealed class AttachmentCleanup(IAttachmentStore store, SharingState shari
         // An index still loading wants nothing: every file would look unused.
         await sharing.Loaded.WaitAsync(cancellation);
         var now = Time.GetUtcNow();
-        var wanted = sharing.Index.WantedFiles(now - KeepDeleted);
+        var wanted = sharing.Index.WantedFiles(now - KeepDeleted, now - KeepInTrash);
         var removed = 0;
         await foreach (var (sha256, written) in store.ListAsync(cancellation))
         {

@@ -713,15 +713,31 @@ public sealed class SharingIndex
 
     /// <summary>
     /// File hashes still wanted: live attachments, and deleted ones newer than <paramref name="keepDeletedSince"/>
-    /// (they can still be restored from the trash or undone).
+    /// (they can still be undone). A file on a task in the Trash, live or gone with it (audit B5), is
+    /// kept while its task deleted after <paramref name="keepInTrashSince"/> can still come back; one
+    /// erased when the Trash was emptied is wanted no more.
     /// </summary>
-    public HashSet<string> WantedFiles(DateTimeOffset keepDeletedSince) =>
-        Each(By.Collection, "attachments")
-            .Where(each => !each.Deleted || (DateTimeOffset.TryParse(each.Get("deletedAt"), System.Globalization.CultureInfo.InvariantCulture,
-                System.Globalization.DateTimeStyles.AssumeUniversal, out var at) && at >= keepDeletedSince))
+    public HashSet<string> WantedFiles(DateTimeOffset keepDeletedSince, DateTimeOffset keepInTrashSince)
+    {
+        static bool Since(string? deletedAt, DateTimeOffset since) =>
+            DateTimeOffset.TryParse(deletedAt, System.Globalization.CultureInfo.InvariantCulture,
+                System.Globalization.DateTimeStyles.AssumeUniversal, out var at) && at >= since;
+        bool Wanted(Facts each)
+        {
+            if (each.Deleted && each.Get("name") == Erased) return false;
+            if (each.Get("taskId") is { } taskId && byId.TryGetValue(taskId, out var task) && task.Deleted)
+            {
+                var taskGone = task.Get("deletedAt");
+                if (!each.Deleted || each.Get("deletedAt") == taskGone) return Since(taskGone, keepInTrashSince);
+            }
+            return !each.Deleted || Since(each.Get("deletedAt"), keepDeletedSince);
+        }
+        return Each(By.Collection, "attachments")
+            .Where(Wanted)
             .Select(each => each.Get("sha256"))
             .OfType<string>()
             .ToHashSet(StringComparer.Ordinal);
+    }
 
     /// <summary>Every entity id the user may see (a whole scan: tests and checks; writes use <see cref="Dependents"/>).</summary>
     public HashSet<string> VisibleTo(string userId) =>
@@ -916,6 +932,57 @@ public sealed class SharingIndex
     public const string Erased = "-";
 
     /// <summary>
+    /// The <c>deletedAt</c> a purge writes, the same for everything it empties. Must match
+    /// <c>PURGED_AT</c> in web/src/core/trash.ts.
+    /// </summary>
+    public const string PurgedAt = "1970-01-01T00:00:00.000Z";
+
+    /// <summary>
+    /// A comment or file following its task into the Trash and back (audit B5), written by someone who
+    /// may change the task: a live one goes when the task goes, stamped with the task's own
+    /// <c>deletedAt</c>; while there, whoever may empty that Trash may erase it
+    /// (<paramref name="content"/> to <see cref="Erased"/>), as the app's mayErase: a task's owner
+    /// when it has no list (a list's owner has their own rule); and it comes back with the task only
+    /// if it went with it (its <c>deletedAt</c> was the task's), so one its author deleted stays
+    /// deleted. Nothing else changes, and the content's stamp only when it is erased. The task is
+    /// written first in the same push, so this index has it as it is now; a restore comes in the
+    /// same push as its task.
+    /// </summary>
+    private bool FollowsTask(string userId, JsonObject before, JsonObject after, string taskId, string content, SharingIndex beforeIndex)
+    {
+        if (!MayEditTask(beforeIndex, userId, taskId)) return false;
+        string? Text(JsonObject doc, string name) => doc[name] is JsonValue value && value.TryGetValue<string>(out var text) ? text : null;
+        var erased = !JsonNode.DeepEquals(before[content], after[content]) && Text(after, content) == Erased;
+        if (erased && !(beforeIndex.byId.TryGetValue(taskId, out var owned) && owned.Get("listId") is null && owned.Owner == userId)) return false;
+        bool Moves(string name) => name is "deletedAt" || (erased && name == content);
+        foreach (var name in before.Select(pair => pair.Key).Union(after.Select(pair => pair.Key)))
+        {
+            if (name == "_hlc" || Moves(name)) continue;
+            if (!JsonNode.DeepEquals(before[name], after[name])) return false;
+        }
+        var clocksBefore = before["_hlc"] as JsonObject ?? [];
+        var clocksAfter = after["_hlc"] as JsonObject ?? [];
+        foreach (var name in clocksBefore.Select(pair => pair.Key).Union(clocksAfter.Select(pair => pair.Key)))
+        {
+            if (!Moves(name) && !JsonNode.DeepEquals(clocksBefore[name], clocksAfter[name])) return false;
+        }
+        var deletedAt = Text(after, "deletedAt");
+        var wentAt = Text(before, "deletedAt");
+        var task = byId.GetValueOrDefault(taskId);
+        // Into the Trash only from live, and there it keeps the task's time; when the task moves to
+        // another time (trashed on two devices before they synced), what went with it moves too.
+        if (deletedAt is not null)
+        {
+            return task is not null && task.Get("deletedAt") == deletedAt
+                && (wentAt is null || wentAt == deletedAt
+                    || (beforeIndex.byId.TryGetValue(taskId, out var had) && had.Get("deletedAt") == wentAt));
+        }
+        // Back: only what went with it, and only with the task back too, nothing erased.
+        return wentAt is not null && beforeIndex.byId.TryGetValue(taskId, out var was) && was.Get("deletedAt") == wentAt
+            && task is not null && task.Get("deletedAt") is null && Text(after, content) != Erased;
+    }
+
+    /// <summary>
     /// Whether <paramref name="userId"/> may write <paramref name="after"/> over <paramref name="before"/>
     /// (null: a new entity). <paramref name="after"/> must already be applied to this index (try changes
     /// on a <see cref="Clone"/>); <paramref name="before"/> is checked against the index as it was.
@@ -937,6 +1004,14 @@ public sealed class SharingIndex
             case "tasks":
             case "sections":
             {
+                // Into the Trash at a time of its own (B5): only what goes with a task shares its time,
+                // so not at the time something on it was already deleted, or that would come back with it.
+                // A purge writes one time for all it empties; what it emptied is erased and never comes back.
+                if (after.Collection == "tasks" && Field(doc, "deletedAt") is { } trashedAt && trashedAt != PurgedAt && Changed("deletedAt")
+                    && beforeIndex.Each(By.Task, after.Id).Any(each => each.Deleted && each.Get("deletedAt") == trashedAt))
+                {
+                    return false;
+                }
                 if (!PrincipalsAllowed(userId, AddedMembers(before, doc, "assignees"), beforeIndex)) return false;
                 // Its list (old and new) must be editable, or the task assigned to this user.
                 bool CanEditIn(SharingIndex index, string? listId, string id) =>
@@ -963,6 +1038,7 @@ public sealed class SharingIndex
                 if (before is null) return after.OwnerId == userId && MayEditTask(beforeIndex.Contains(taskId) ? beforeIndex : this, userId, taskId);
                 // The author changes or deletes it; the list's owner may delete it, and a purge erases it.
                 if (before.OwnerId == userId) return true;
+                if (FollowsTask(userId, before.Doc, doc, taskId, "body", beforeIndex)) return true;
                 var listId = beforeIndex.byId.TryGetValue(taskId, out var task) ? task.Get("listId") : null;
                 return listId is not null && beforeIndex.ListRole(userId, listId) == "owner"
                     && doc["deletedAt"] is not null && (!Changed("body") || Field(doc, "body") == Erased);
@@ -974,6 +1050,7 @@ public sealed class SharingIndex
                 if (before is null) return after.OwnerId == userId && MayEditTask(beforeIndex.Contains(taskId) ? beforeIndex : this, userId, taskId);
                 // Who added it renames or removes it; the list's owner may remove it, and a purge erases it.
                 if (before.OwnerId == userId) return true;
+                if (FollowsTask(userId, before.Doc, doc, taskId, "name", beforeIndex)) return true;
                 var listId = beforeIndex.byId.TryGetValue(taskId, out var task) ? task.Get("listId") : null;
                 return listId is not null && beforeIndex.ListRole(userId, listId) == "owner"
                     && doc["deletedAt"] is not null && (!Changed("name") || Field(doc, "name") == Erased);

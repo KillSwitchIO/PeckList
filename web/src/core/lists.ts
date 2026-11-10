@@ -1,6 +1,7 @@
 // Lists. (Folders were dropped on 2026-10-20 and sections on 2026-10-23: organization is lists + tags.)
 
 import { isLive, putEntities, putEntity, requireEntity } from './collections.ts';
+import { followIntoTrash, followOutOfTrash } from './followTask.ts';
 import { compareOrderKeys, keyBetween, keysBetween } from './ordering.ts';
 import {
   createEntity,
@@ -88,11 +89,13 @@ export function deleteList(ctx: OpContext, workspace: WorkspaceFile, id: Id): Wo
     'sections',
     sections.map((section) => softDelete(ctx, section, at)),
   );
-  return putEntities(
+  next = putEntities(
     next,
     'tasks',
     tasks.map((task) => softDelete(ctx, task, at)),
   );
+  // Their comments and files go with them (audit B5).
+  return followIntoTrash(ctx, next, new Set(tasks.map((task) => task.id)), at);
 }
 
 /** Restore a list and everything that was deleted together with it. */
@@ -110,10 +113,15 @@ export function restoreList(ctx: OpContext, workspace: WorkspaceFile, id: Id): W
     'sections',
     sections.map((section) => restore(ctx, section)),
   );
-  return putEntities(
+  next = putEntities(
     next,
     'tasks',
     tasks.map((task) => restore(ctx, task)),
+  );
+  return followOutOfTrash(
+    ctx,
+    next,
+    tasks.map((task) => ({ id: task.id, wentAt: when })),
   );
 }
 

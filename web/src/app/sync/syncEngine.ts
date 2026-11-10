@@ -13,6 +13,7 @@ import {
   joinAccount,
   mergeRemote,
   pendingChanges,
+  pushBatch,
   type Acks,
   type SyncChange,
 } from '../../core/sync.ts';
@@ -522,7 +523,9 @@ export function createSyncEngine(deps: SyncEngineDependencies): SyncEngine {
           const current = workspace.getState().workspace;
           if (!current) return;
           const pending = deps.readOnly ? [] : pendingChanges(current, meta.acks);
-          const batch = await withFiles(pending.slice(0, BATCH));
+          const outgoing = pushBatch(pending, BATCH);
+          const sentAll = outgoing.length === pending.length;
+          const batch = await withFiles(outgoing);
           const asked = performance.now();
           // Only when it moved: a laptop left at home stays quiet while the phone abroad reports.
           const zone = deps.readOnly ? undefined : deviceZone();
@@ -605,7 +608,7 @@ export function createSyncEngine(deps: SyncEngineDependencies): SyncEngine {
           }
           await saveMeta(next);
           meta = next;
-          if (!response.more && pending.length <= BATCH) break;
+          if (!response.more && sentAll) break;
         }
         await takeInHeld();
       });
