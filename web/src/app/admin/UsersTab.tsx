@@ -40,6 +40,16 @@ function groupsOf(user: AdminUser, serverGroups: Map<string, string>): string[] 
   return [...user.groups.map((id) => serverGroups.get(id) ?? id), ...(user.peopleGroups ?? [])];
 }
 
+/** "Nov 23", with the year when it is another year. */
+function shortDate(at: string): string {
+  const date = new Date(at);
+  return date.toLocaleDateString(undefined, {
+    month: 'short',
+    day: 'numeric',
+    ...(date.getFullYear() !== new Date().getFullYear() ? { year: 'numeric' } : {}),
+  });
+}
+
 /** One line under the name: role, how they sign in, and anything that needs attention. */
 function describe(user: AdminUser): string {
   if (user.removedAt) {
@@ -50,6 +60,9 @@ function describe(user: AdminUser): string {
     return `${t(`admin.role.${user.role}`)} · ${t('admin.users.deleted', { date: day })}`;
   }
   const parts = [t(`admin.role.${user.role}`)];
+  // A role a provider's groups gave lapses unless they sign in there again (S10 role lease).
+  if (user.roleRenewsBy)
+    parts.push(t('admin.users.renewsBy', { date: shortDate(user.roleRenewsBy) }));
   if (user.hasPassword) parts.push(t('admin.users.password'));
   parts.push(...user.providers);
   if (user.disabled) parts.push(t('admin.users.off'));
