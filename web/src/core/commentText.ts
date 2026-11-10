@@ -99,3 +99,20 @@ export function commentParagraphs(body: string): Inline[][] {
     .filter(Boolean)
     .map(inline);
 }
+
+/**
+ * The names a comment @mentions, in order (repeats kept), as the comment shows them: not in
+ * `code` or a link's label, and inside bold and italic. The server reads mentions the same way
+ * to notify (audit D3); schema/fixtures/mentions/cases.json pins both sides.
+ */
+export function mentionedNames(body: string): string[] {
+  const names: string[] = [];
+  const walk = (tokens: readonly Inline[]) => {
+    for (const token of tokens) {
+      if (token.kind === 'mention') names.push(token.name);
+      else if (token.kind === 'bold' || token.kind === 'italic') walk(token.children);
+    }
+  };
+  for (const paragraph of commentParagraphs(body)) walk(paragraph);
+  return names;
+}
