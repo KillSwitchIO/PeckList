@@ -36,6 +36,15 @@ password hash and the keys that sign sessions. Admins take backups, see the list
 restore people who are not admins; someone an admin restores always comes back as a plain user.
 See [users and roles](users-and-roles.md#roles).
 
+A whole-server export made with an API key (such as the client's remote `export`) leaves out the
+server's session and one-time secrets, and the passwords saved on the settings page (the mail
+password and sign-in providers' client secrets; the other settings stay). Restoring it signs
+everyone out, and sign-in links, invites and reset links made before it stop working. Enter those
+passwords again on **Admin > Settings** afterwards. An export made signed in, a snapshot and the
+server's own `export` command hold everything. Because snapshots hold everything, a key can take
+one and list them but not download one: sign in to download it, or use export. Restoring the
+whole server always needs someone signed in; a key can restore one person.
+
 ## From the command line
 
 ```bash
@@ -48,7 +57,7 @@ docker exec pecklist pecklist import /data/backup.json --replace        # delete
 
 `import` refuses a database that already has data unless you pass `--replace`. After an import,
 restart the server. A restored backup keeps sessions and every device's sync position, so nobody
-has to sign in again or start over.
+has to sign in again or start over (except from an export made with an API key, as above).
 
 :::tip[Windows Git Bash]
 

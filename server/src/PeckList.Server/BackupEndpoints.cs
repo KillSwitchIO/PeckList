@@ -19,6 +19,28 @@ public sealed record BackupFile(string Name, DateTimeOffset Taken, long Size);
 /// </summary>
 public static class BackupEndpoints
 {
+    /// <summary>
+    /// The secret kinds a whole-server export made with an API key leaves out: the keys that sign
+    /// sessions, the one-time secrets, and the key the settings page's secrets are sealed with.
+    /// </summary>
+    private static readonly IReadOnlySet<string> KindsLeftOutByKey = new HashSet<string>(StringComparer.Ordinal)
+    {
+        AuthSetup.DataProtectionKind,
+        LoginLinks.Kind, Impersonations.Kind, AppSignIn.Kind, SignupInvites.Kind,
+        // The other one-time links and codes: the same kind of thing, so left out with them.
+        AccountEmails.ResetKind, AccountEmails.ConfirmKind, AppSignIn.LinkKind, PasskeyEndpoints.EnrollKind,
+        SettingsLoader.KeyKind,
+    };
+
+    /// <summary>
+    /// What a whole-server export made with an API key leaves out. A key is easier to lose than a
+    /// signed-in browser, so its export holds no way into anyone's session and none of the
+    /// passwords saved on the settings page (the plain settings stay). Restoring it signs everyone
+    /// out, and those passwords are entered again. One made signed in stays whole.
+    /// </summary>
+    internal static bool LeftOutByKey(string kind, string value) =>
+        KindsLeftOutByKey.Contains(kind) || (kind == SettingsLoader.PageKind && SettingsLoader.IsPageSecret(value));
+
     public static RouteGroupBuilder MapBackups(this RouteGroupBuilder admin)
     {
         admin.MapGet("/backups", (Snapshots snapshots) =>
@@ -32,16 +54,19 @@ public static class BackupEndpoints
             return Results.Ok(new { Name = Path.GetFileName(path) });
         }).RequirePermission(Permission.ManageBackups).Audited("backup.taken", targetRoute: null);
 
-        admin.MapGet("/backups/{name}", (string name, Snapshots snapshots) =>
+        admin.MapGet("/backups/{name}", (string name, ClaimsPrincipal user, Snapshots snapshots) =>
         {
+            // A snapshot holds every secret, so a key gets an export instead (see LeftOutByKey).
+            if (user.ByKey()) return NotWithAKey("an API key cannot download snapshots; use export (GET /api/admin/export) instead");
             if (Find(snapshots, name) is not { } path) return Results.NotFound();
             return Results.File(path, path.EndsWith(".gz", StringComparison.Ordinal) ? "application/gzip" : "application/json", name);
         }).RequirePermission(Permission.ManageSecurity).Audited("backup.downloaded", "name", AuditTarget.Name);
 
-        admin.MapGet("/export", async (HttpContext context, BackupService backup, TimeProvider time) =>
+        admin.MapGet("/export", async (HttpContext context, ClaimsPrincipal user, BackupService backup, TimeProvider time) =>
         {
             Attach(context, $"pecklist-{Stamp(time)}.json");
-            await backup.ExportAsync(context.Response.Body, ServerApp.Version, context.RequestAborted);
+            await backup.ExportAsync(context.Response.Body, ServerApp.Version, context.RequestAborted,
+                user.ByKey() ? LeftOutByKey : (Func<string, string, bool>?)null);
         }).RequirePermission(Permission.ManageSecurity).Audited("backup.exported", targetRoute: null);
 
         admin.MapGet("/users/{id}/export", async (
@@ -85,8 +110,11 @@ public static class BackupEndpoints
         // The whole server back as a backup had it: checked now, restored at a restart (a safety
         // backup first). Devices notice the new epoch and start over from what the server has.
         admin.MapPost("/restore", async (
-            HttpRequest request, PendingRestore pending, Snapshots snapshots, IHostApplicationLifetime lifetime, CancellationToken cancellation) =>
+            HttpRequest request, ClaimsPrincipal user, PendingRestore pending, Snapshots snapshots, IHostApplicationLifetime lifetime,
+            CancellationToken cancellation) =>
         {
+            // Replacing the whole server (and the keys that sign sessions) needs someone signed in.
+            if (user.ByKey()) return NotWithAKey("an API key cannot restore the whole server; sign in to do it");
             if (OpenBackup(await request.ReadFormAsync(cancellation), snapshots) is not { } input) return NoBackup();
             await using (input)
             {
@@ -107,6 +135,9 @@ public static class BackupEndpoints
 
         return admin;
     }
+
+    private static IResult NotWithAKey(string message) =>
+        Results.Json(new AdminError("not_with_a_key", message), statusCode: StatusCodes.Status403Forbidden);
 
     /// <summary>A scheduled backup by its file name; nothing outside the backup folder.</summary>
     private static string? Find(Snapshots snapshots, string name) =>

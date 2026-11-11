@@ -31,10 +31,13 @@ public static partial class SettingsLoader
     public const string PageKind = "setting";
 
     /// <summary>The key page secrets are encrypted with, made on first use.</summary>
-    private const string KeyKind = "settings-key";
+    public const string KeyKind = "settings-key";
 
     /// <summary>Page secrets at rest: this prefix, then the cipher's own text.</summary>
     private const string PageSecret = "page:";
+
+    /// <summary>Whether a saved page value is a secret (sealed with the settings key).</summary>
+    public static bool IsPageSecret(string value) => value.StartsWith(PageSecret, StringComparison.Ordinal);
 
     public static LoadedSettings Load(ISecretSource environment, bool inContainer)
     {
@@ -124,7 +127,7 @@ public static partial class SettingsLoader
         foreach (var (name, value) in rows)
         {
             if (value.Length == 0) continue;
-            if (value.StartsWith(PageSecret, StringComparison.Ordinal))
+            if (IsPageSecret(value))
             {
                 cipher ??= await PageCipherAsync(secrets, configKey, cancellation);
                 page[name] = cipher.Decrypt(value[PageSecret.Length..], name);

@@ -338,6 +338,10 @@ decides the rest, as on the admin pages. Each one is in
 the event log under the account, with the key that made it. `config key`, `config encrypt`,
 `import`, `migrate-db` and `upgrade-db` only run on the server.
 
+A remote `export` is made with a key, so it leaves out the server's session and one-time secrets
+and the passwords saved on the settings page: restoring it signs everyone out, and those passwords
+are entered again on the settings page. See [backups](../guides/backups.md).
+
 ### Profiles, output and exit codes
 
 `--profile NAME` (or `PECKLIST_PROFILE`) keeps several servers or accounts side by side:
