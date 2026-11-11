@@ -26,7 +26,7 @@ public static class ImpersonationSetup
     public const string UntilClaim = "impersonation_until";
 
     /// <summary>Paths an impersonated request may reach: the app's data and who's who, nothing about accounts.</summary>
-    private static readonly string[] Allowed = ["/api/sync", "/api/attachments", "/api/friends", "/api/users/lookup", "/api/info", "/auth/me", "/auth/impersonation"];
+    private static readonly string[] Allowed = ["/api/sync", "/api/attachments", "/api/friends", "/api/users/lookup", "/api/info", "/auth/me", "/auth/impersonation", "/api/v1"];
 
     /// <summary>
     /// Viewing as someone only looks (audit S12): reads anywhere above, a sync that pulls (it refuses
@@ -48,6 +48,13 @@ public static class ImpersonationSetup
             var services = context.RequestServices;
             var view = await services.GetRequiredService<Impersonations>().FindAsync(token, context.RequestAborted);
             var admin = context.User;
+            // View-as is the browser's: a key would read the other account past its own scopes.
+            if (admin.ByKey())
+            {
+                context.Response.StatusCode = StatusCodes.Status403Forbidden;
+                await context.Response.WriteAsJsonAsync(new AuthError("not_with_a_key"));
+                return;
+            }
             var target = view is null ? null : await services.GetRequiredService<IAccountStore>().FindByIdAsync(view.TargetId, context.RequestAborted);
             if (view is null || admin.Identity?.IsAuthenticated != true || admin.UserId() != view.AdminId
                 || !admin.AccountRole().Can(Permission.Impersonate) || target is null || target.Disabled || target.Role == Role.SuperAdmin)
@@ -58,6 +65,11 @@ public static class ImpersonationSetup
             }
             if (!Allowed.Any(path => context.Request.Path.StartsWithSegments(path)) || !Looks(context.Request))
             {
+                if (Api.ApiProblems.IsV1(context.Request.Path))
+                {
+                    await Api.ApiProblems.WriteAsync(context, StatusCodes.Status403Forbidden, "not_while_impersonating", "viewing as someone only reads");
+                    return;
+                }
                 context.Response.StatusCode = StatusCodes.Status403Forbidden;
                 await context.Response.WriteAsJsonAsync(new AuthError("not_while_impersonating"));
                 return;

@@ -81,6 +81,9 @@ public static class ApiKeyAuth
     /// <see cref="ApiScopes.TasksRead"/>; pushing changes also needs <see cref="ApiScopes.TasksWrite"/>
     /// (checked by the sync endpoint, which reads the body).
     /// </summary>
+    /// <summary>A route any working key may use, whatever its scopes.</summary>
+    public const string AnyScope = "*";
+
     public static string? ScopeFor(string method, PathString path)
     {
         var get = HttpMethods.IsGet(method) || HttpMethods.IsHead(method);
@@ -90,6 +93,13 @@ public static class ApiKeyAuth
         if (path.StartsWithSegments("/api/attachments")) return get ? ApiScopes.FilesRead : HttpMethods.IsPut(method) ? ApiScopes.FilesWrite : null;
         if (path.StartsWithSegments("/api/notifications")) return ApiScopes.Notifications;
         if (path.StartsWithSegments("/api/admin")) return ApiScopes.Admin;
+        // The task API (PL-137): reads with tasks:read, writes with tasks:write; who am I with any key.
+        if (path.Equals("/api/v1/me")) return get ? AnyScope : null;
+        if (path.StartsWithSegments("/api/v1"))
+        {
+            if (get) return ApiScopes.TasksRead;
+            return HttpMethods.IsPost(method) || HttpMethods.IsPatch(method) || HttpMethods.IsDelete(method) ? ApiScopes.TasksWrite : null;
+        }
         return null;
     }
 
@@ -100,13 +110,19 @@ public static class ApiKeyAuth
         if (context.User.ByKey() && !path.Equals("/api/info"))
         {
             var scope = path.StartsWithSegments("/api") ? ScopeFor(context.Request.Method, path) : null;
-            if (scope is null || !context.User.KeyMay(scope))
+            if (scope is null || (scope != AnyScope && !context.User.KeyMay(scope)))
             {
+                var message = scope is null ? "API keys cannot use this" : $"this key lacks the {scope} permission";
+                if (Api.ApiProblems.IsV1(path))
+                {
+                    await Api.ApiProblems.WriteAsync(context, StatusCodes.Status403Forbidden, "scope", message);
+                    return;
+                }
                 context.Response.StatusCode = StatusCodes.Status403Forbidden;
                 await context.Response.WriteAsJsonAsync(new
                 {
                     error = "scope",
-                    message = scope is null ? "API keys cannot use this" : $"this key lacks the {scope} permission",
+                    message,
                 });
                 return;
             }

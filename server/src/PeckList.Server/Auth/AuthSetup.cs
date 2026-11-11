@@ -143,6 +143,17 @@ public static class AuthSetup
                     ? "account:" + context.User.UserId()
                     : "address:" + (context.Connection.RemoteIpAddress?.ToString() ?? "unknown"),
                 _ => new FixedWindowRateLimiterOptions { PermitLimit = AccountPerMinute, Window = TimeSpan.FromMinutes(1) }));
+            // The task API (PL-137): per account, all its keys and sessions together, so holding many
+            // keys does not multiply it.
+            static string Caller(HttpContext context) =>
+                context.User.Identity?.IsAuthenticated == true ? "account:" + context.User.UserId()
+                : "address:" + (context.Connection.RemoteIpAddress?.ToString() ?? "unknown");
+            options.AddPolicy(Api.TaskApiEndpoints.ReadRateLimit, context => RateLimitPartition.GetFixedWindowLimiter(
+                "read:" + Caller(context),
+                _ => new FixedWindowRateLimiterOptions { PermitLimit = Api.TaskApiEndpoints.ReadsPerMinute, Window = TimeSpan.FromMinutes(1) }));
+            options.AddPolicy(Api.TaskApiEndpoints.WriteRateLimit, context => RateLimitPartition.GetFixedWindowLimiter(
+                "write:" + Caller(context),
+                _ => new FixedWindowRateLimiterOptions { PermitLimit = Api.TaskApiEndpoints.WritesPerMinute, Window = TimeSpan.FromMinutes(1) }));
             options.AddPolicy(SettingsRateLimit, context => RateLimitPartition.GetFixedWindowLimiter(
                 "settings:" + (context.User.Identity?.IsAuthenticated == true
                     ? context.User.UserId()

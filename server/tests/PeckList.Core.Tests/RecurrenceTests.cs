@@ -44,5 +44,16 @@ public sealed class RecurrenceTests
     [Fact]
     public void There_are_fixtures() => Assert.True(AdvanceCases().Count >= 20);
 
+    [Theory]
+    [InlineData("FREQ=YEARLY;INTERVAL=1000;BYMONTH=2;BYMONTHDAY=30")]
+    [InlineData("FREQ=DAILY;INTERVAL=2000000000;X-PL-FROM=COMPLETION")]
+    [InlineData("FREQ=WEEKLY;INTERVAL=2000000000;X-PL-FROM=COMPLETION")]
+    [InlineData("FREQ=YEARLY;INTERVAL=9000;X-PL-FROM=COMPLETION")]
+    public void A_series_that_runs_past_the_last_date_there_is_has_ended(string text)
+    {
+        var rule = Recurrence.Parse(text)!;
+        Assert.Null(rule.Advance(new DateOnly(2026, 11, 10), new DateOnly(2026, 11, 10)));
+    }
+
     private static DateOnly Date(JsonNode? value) => DateOnly.ParseExact((string)value!, "yyyy-MM-dd", CultureInfo.InvariantCulture);
 }

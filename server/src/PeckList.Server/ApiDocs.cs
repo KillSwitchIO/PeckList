@@ -13,6 +13,9 @@ public static class ApiDocs
     public const string DocumentPath = "/api/openapi/v1.json";
     public const string PagePath = "/api/docs";
 
+    /// <summary>The JSON body a route takes, for the document (the route reads it itself).</summary>
+    public sealed record Body(Type Type, bool Optional = false);
+
     /// <summary>The name the API key scheme has in the document.</summary>
     public const string KeyScheme = "apiKey";
 
@@ -28,6 +31,21 @@ public static class ApiDocs
                 operation.Tags = new HashSet<OpenApiTagReference> { new(Area(context.Description.RelativePath), context.Document) };
                 return Task.CompletedTask;
             });
+            // A route that reads its JSON itself says what it takes with Body.
+            options.AddOperationTransformer(async (operation, context, cancellation) =>
+            {
+                if (context.Description.ActionDescriptor.EndpointMetadata.OfType<Body>().FirstOrDefault() is not { } body) return;
+                var schema = await context.GetOrCreateSchemaAsync(body.Type, null, cancellation);
+                context.Document!.AddComponent(body.Type.Name, schema);
+                operation.RequestBody = new OpenApiRequestBody
+                {
+                    Required = !body.Optional,
+                    Content = new Dictionary<string, OpenApiMediaType>
+                    {
+                        ["application/json"] = new() { Schema = new OpenApiSchemaReference(body.Type.Name, context.Document) },
+                    },
+                };
+            });
             options.AddDocumentTransformer((document, _, _) =>
             {
                 document.Info = new OpenApiInfo
@@ -37,8 +55,9 @@ public static class ApiDocs
                     Description =
                         "The HTTP API of a PeckList server. Sign in with an API key from Settings > API keys " +
                         "(Authorize, then the key as it was shown: pl_...). In a browser signed in to this server, " +
-                        "the session works too. Tasks, lists and the rest of the workspace are written through " +
-                        "POST /api/sync with per-field clocks; see the docs' Data model and sync page.",
+                        "the session works too. For tasks, lists, sections and tags use the task API under " +
+                        "/api/v1: plain JSON, versioned, errors as problem+json with a stable code. POST /api/sync " +
+                        "is the apps' internal sync protocol and changes with them.",
                 };
                 // The areas the operations were put in, in order, instead of the generator's own.
                 document.Tags = new HashSet<OpenApiTag>(
@@ -62,15 +81,16 @@ public static class ApiDocs
             });
         });
 
-    /// <summary>"api/admin/settings/{key}" is "Admin: settings", "api/friends/code" is "Friends".</summary>
+    /// <summary>"api/admin/settings/{key}" is "Admin: settings", "api/v1/tasks/{id}" is "v1: tasks", "api/friends/code" is "Friends".</summary>
     internal static string Area(string? relativePath)
     {
         var parts = (relativePath ?? "").Split('/', StringSplitOptions.RemoveEmptyEntries).Skip(1).ToList();
         var admin = parts.FirstOrDefault() == "admin";
-        var area = (admin ? parts.Skip(1) : parts).FirstOrDefault(part => !part.StartsWith('{')) ?? "server";
+        var v1 = parts.FirstOrDefault() == "v1";
+        var area = (admin || v1 ? parts.Skip(1) : parts).FirstOrDefault(part => !part.StartsWith('{')) ?? "server";
         area = Path.GetFileNameWithoutExtension(area);
         area = char.ToUpperInvariant(area[0]) + area[1..];
-        return admin ? $"Admin: {area.ToLowerInvariant()}" : area;
+        return admin ? $"Admin: {area.ToLowerInvariant()}" : v1 ? $"v1: {area.ToLowerInvariant()}" : area;
     }
 
     /// <summary>Before the endpoints: the off switch, then the Swagger UI page (its own middleware).</summary>

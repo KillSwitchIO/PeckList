@@ -132,7 +132,16 @@ public sealed partial record Recurrence(
         do
         {
             if (left is <= 1) return null;
-            DateOnly? next = FromCompletion ? NextFromCompletion(date == current ? doneOn : date) : NextOccurrence(current, date);
+            DateOnly? next;
+            try
+            {
+                next = FromCompletion ? NextFromCompletion(date == current ? doneOn : date) : NextOccurrence(current, date);
+            }
+            catch (Exception error) when (error is ArgumentOutOfRangeException or OverflowException)
+            {
+                // Past the last date there is (a huge INTERVAL): the series has ended.
+                return null;
+            }
             if (next is not { } found || (UntilDate is { } until && found > until)) return null;
             date = found;
             if (left is { } count) left = count - 1;
@@ -147,7 +156,7 @@ public sealed partial record Recurrence(
     /// <summary>The date after <paramref name="after"/> the series falls on, counted from <paramref name="start"/>.</summary>
     public DateOnly? NextOccurrence(DateOnly start, DateOnly after)
     {
-        var limit = LookAheadDays * Interval;
+        var limit = (long)LookAheadDays * Interval;
         var date = after.AddDays(1);
         for (var step = 0; step < limit; step++, date = date.AddDays(1))
         {
@@ -161,7 +170,7 @@ public sealed partial record Recurrence(
     public DateOnly NextFromCompletion(DateOnly done) => Freq switch
     {
         "DAILY" => done.AddDays(Interval),
-        "WEEKLY" => done.AddDays(Interval * 7),
+        "WEEKLY" => done.AddDays(checked(Interval * 7)),
         "MONTHLY" => Clamped(done.Year, done.Month - 1 + Interval, done.Day),
         _ => Clamped(done.Year + Interval, done.Month - 1, done.Day),
     };

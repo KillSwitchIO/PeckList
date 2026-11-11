@@ -200,7 +200,7 @@ public static class AdminEndpoints
 
         admin.MapPost("/users/{id}/password", async (
             string id, PasswordResetRequest request, ClaimsPrincipal user, IAccountStore store, AccountService accounts, IMemoryCache cache, CancellationToken cancellation) =>
-            await OnAccountAsync(id, user, store, async _ =>
+            KeyOnItsOwnAccount(user, id) ?? await OnAccountAsync(id, user, store, async _ =>
             {
                 try
                 {
@@ -249,7 +249,7 @@ public static class AdminEndpoints
         admin.MapPost("/users/{id}/identities", async (
             string id, LinkRequest request, ClaimsPrincipal user, ExternalSignIn signIn, IAccountStore accounts, ServerSettings settings,
             HttpContext context, CancellationToken cancellation) =>
-            await OnAccountAsync(id, user, accounts, async _ =>
+            KeyOnItsOwnAccount(user, id) ?? await OnAccountAsync(id, user, accounts, async _ =>
             {
                 var subject = request.Subject?.Trim() ?? "";
                 context.Audit().Detail = request.Provider;
@@ -362,6 +362,8 @@ public static class AdminEndpoints
         {
             var name = request.ProviderUsername?.Trim().ToLowerInvariant() ?? "";
             context.Audit().Detail = $"{request.Provider}: {name}";
+            // A key never gives its own account another way in (security Must 2).
+            if (KeyOnItsOwnAccount(user, request.AccountId ?? "") is { } refused) return refused;
             if (settings.Provider(request.Provider) is not { } provider || name.Length is 0 or > 255 || string.IsNullOrEmpty(request.AccountId))
             {
                 return Results.BadRequest(new AdminError("invalid", "a configured provider, a provider username and an account"));
@@ -414,6 +416,8 @@ public static class AdminEndpoints
             string provider, string subject, MoveRequest request, ClaimsPrincipal user, ExternalSignIn signIn, IIdentityStore identities,
             IAccountStore accounts, HttpContext context, CancellationToken cancellation) =>
         {
+            // A key never moves a provider sign-in onto its own account (security Must 2).
+            if (KeyOnItsOwnAccount(user, request.AccountId ?? "") is { } refused) return refused;
             if (await identities.FindAsync(provider, subject, cancellation) is not { } link) return Results.NotFound();
             return await OnAccountAsync(link.AccountId, user, accounts, from =>
                 OnAccountAsync(request.AccountId ?? "", user, accounts, async to =>
@@ -427,7 +431,7 @@ public static class AdminEndpoints
 
         admin.MapPost("/users/{id}/login-link", async (
             string id, ClaimsPrincipal user, IAccountStore accounts, LoginLinks links, HttpContext context, CancellationToken cancellation) =>
-            await OnAccountAsync(id, user, accounts, async _ =>
+            KeyOnItsOwnAccount(user, id) ?? await OnAccountAsync(id, user, accounts, async _ =>
             {
                 if (ServerApp.LinkOrigin(context) is not { } origin) return ServerApp.PublicUrlRequired();
                 var (token, expires) = await links.CreateAsync(id, cancellation: cancellation);
@@ -494,6 +498,8 @@ public static class AdminEndpoints
             string id, ImpersonationRequest request, ClaimsPrincipal user, Impersonations impersonations, HttpContext context,
             CancellationToken cancellation) =>
         {
+            // View-as is the browser's: a key never starts it (it would read past the key's scopes).
+            if (user.ByKey()) return NotWithAKey();
             try
             {
                 if (await impersonations.StartAsync(user.UserId(), id, request.Reason ?? "", cancellation) is not { } started)
@@ -651,6 +657,17 @@ public static class AdminEndpoints
             await context.HttpContext.RequestServices.GetRequiredService<ServerGroupProjection>().ProjectAsync(context.HttpContext.RequestAborted);
             return result;
         });
+
+    /// <summary>
+    /// An API key never makes a sign-in link, a password or a provider link for its own account:
+    /// any of them would outlast the key's revocation, and keys never sign in or change an account
+    /// (R-FB-157). Acting on other people stays as the role allows.
+    /// </summary>
+    private static IResult? KeyOnItsOwnAccount(ClaimsPrincipal user, string id) =>
+        user.ByKey() && id == user.UserId() ? NotWithAKey() : null;
+
+    private static IResult NotWithAKey() =>
+        Results.Json(new AdminError("not_with_a_key", "sign in to do this; an API key cannot"), statusCode: StatusCodes.Status403Forbidden);
 
     /// <summary>
     /// Run an action on someone else's account: 404 when there is none, and 403 when it is an admin's

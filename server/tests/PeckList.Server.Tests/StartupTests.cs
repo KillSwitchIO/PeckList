@@ -26,6 +26,10 @@ public sealed class StartupTests(ServerFixture fixture) : IClassFixture<ServerFi
         public Task ApplyVisibilityAsync(VisibilityPlan plan, CancellationToken cancellation = default) => inner.ApplyVisibilityAsync(plan, cancellation);
         public Task<ChangePage> ChangesAsync(string userId, long after, int limit, CancellationToken cancellation = default) =>
             inner.ChangesAsync(userId, after, limit, cancellation);
+        public Task<IReadOnlyList<string>> VisibleIdsAsync(string userId, string collection, bool deleted, CancellationToken cancellation = default) =>
+            inner.VisibleIdsAsync(userId, collection, deleted, cancellation);
+        public Task<IReadOnlyList<StoredEntity>> GetManyAsync(IReadOnlyCollection<string> ids, CancellationToken cancellation = default) =>
+            inner.GetManyAsync(ids, cancellation);
         public IAsyncEnumerable<(string UserId, string EntityId)> VisibilityAsync(CancellationToken cancellation = default) => inner.VisibilityAsync(cancellation);
         public Task RestoreAsync(IReadOnlyList<StoredEntity> entities, IReadOnlyList<(string UserId, string EntityId)> visibility, long cursor,
             CancellationToken cancellation = default) => inner.RestoreAsync(entities, visibility, cursor, cancellation);

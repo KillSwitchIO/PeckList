@@ -14,7 +14,8 @@ public static class RepeatingTask
 {
     /// <summary>
     /// What to write, or null when the task does not repeat, has no date to count from, or this
-    /// was its last time (it then closes like any task). <paramref name="task"/> is the whole
+    /// was its last time (it then closes like any task). <paramref name="status"/> is what the closed
+    /// copy says (<c>done</c> or <c>wontdo</c>, as the app). <paramref name="task"/> is the whole
     /// stored task; <paramref name="subtasks"/> its live subtasks at any depth.
     /// </summary>
     public static IReadOnlyList<JsonObject>? Complete(
@@ -24,7 +25,8 @@ public static class RepeatingTask
         string doneAt,
         DateOnly doneOn,
         string historyId,
-        Func<string> stamp)
+        Func<string> stamp,
+        string status = "done")
     {
         var rule = Recurrence.Parse(Text(task, "recurrence"));
         var schedule = task["schedule"] as JsonObject;
@@ -49,7 +51,7 @@ public static class RepeatingTask
             ["sectionId"] = null,
             ["parentId"] = Copy(task, "parentId"),
             ["order"] = Copy(task, "order"),
-            ["status"] = "done",
+            ["status"] = status,
             ["completedAt"] = doneAt,
             ["completedBy"] = userId,
             ["priority"] = Copy(task, "priority"),

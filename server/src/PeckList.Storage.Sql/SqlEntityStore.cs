@@ -242,6 +242,37 @@ public sealed class SqlEntityStore(SqlDatabase database) : IEntityStore
             page.Where(item => item.Revoked is not null).Select(item => item.Revoked!).ToList());
     }
 
+    public async Task<IReadOnlyList<string>> VisibleIdsAsync(string userId, string collection, bool deleted, CancellationToken cancellation = default)
+    {
+        await using var connection = await database.OpenAsync(cancellation);
+        var ids = (await connection.QueryAsync<string>(new CommandDefinition(
+            """
+            SELECT e.id FROM entities e JOIN visibility v ON v.entity_id = e.id
+            WHERE v.user_id = @userId AND e.collection = @collection AND e.deleted = @deleted
+            """,
+            new { userId, collection, deleted },
+            cancellationToken: cancellation))).ToList();
+        // Sorted here, not by the database: SQLite and PostgreSQL collations differ.
+        ids.Sort(StringComparer.Ordinal);
+        return ids;
+    }
+
+    public async Task<IReadOnlyList<StoredEntity>> GetManyAsync(IReadOnlyCollection<string> ids, CancellationToken cancellation = default)
+    {
+        if (ids.Count == 0) return [];
+        await using var connection = await database.OpenAsync(cancellation);
+        var found = new List<StoredEntity>(ids.Count);
+        foreach (var chunk in ids.Distinct().Chunk(Chunk))
+        {
+            var rows = await connection.QueryAsync<Row>(new CommandDefinition(
+                $"SELECT collection, id, owner_id AS ownerId, seq, {DocColumn} AS doc FROM entities WHERE {database.IdInList}",
+                new { ids = chunk },
+                cancellationToken: cancellation));
+            found.AddRange(rows.Select(row => row.ToEntity()));
+        }
+        return found;
+    }
+
     public async IAsyncEnumerable<StoredEntity> AllAsync([EnumeratorCancellation] CancellationToken cancellation = default)
     {
         await using var connection = await database.OpenAsync(cancellation);
