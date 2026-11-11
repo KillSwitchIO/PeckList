@@ -15,6 +15,29 @@ async function addTasks(titles: string[]) {
 }
 
 /**
+ * Wait until an element stands still: nothing moving on it, inside it, or around it. A menu grows
+ * in from its button, so a click aimed at an item while it grows lands higher up once it has
+ * grown, on the item above or a heading; on a busy machine that window is long enough to hit.
+ * Animations elsewhere (the undo toast's countdown) and spinners that never stop don't count.
+ */
+async function settled(element: WebdriverIO.Element) {
+  await browser.waitUntil(
+    () =>
+      browser.execute(
+        (at) =>
+          document.getAnimations().every((each) => {
+            if (each.playState !== 'running') return true;
+            if (each.effect?.getTiming().iterations === Infinity) return true;
+            const target = (each.effect as KeyframeEffect | null)?.target;
+            return !target || !(target.contains(at) || at.contains(target));
+          }),
+        element as unknown as HTMLElement,
+      ),
+    { timeout: 5000, timeoutMsg: 'it never stopped moving' },
+  );
+}
+
+/**
  * Press, travel in steps (drags start after a few pixels), let go. Task rows read sideways travel
  * as indent, so the pointer keeps its column unless `across` aims it at the target's middle.
  */
@@ -23,6 +46,9 @@ async function drag(
   to: WebdriverIO.Element,
   offset: { y?: number; across?: boolean } = {},
 ) {
+  // Where they are once they stand still, not halfway through a move.
+  await settled(from);
+  await settled(to);
   const start = await from.getLocation();
   const size = await from.getSize();
   const end = await to.getLocation();
@@ -66,10 +92,16 @@ describe('dragging tasks', () => {
     await addTasks(['Wash', 'Dry', 'Fold']);
     // The list's own order: no grouping.
     await $("//button[@aria-label='View options']").click();
-    await $("//*[@role='menuitem'][normalize-space()='None']").click();
+    // A click while the menu still grows picks Tag, or a heading: then the list stays grouped,
+    // Fold still reorders within its group, and Dry is never nested.
+    const none = await $("//*[@role='menuitem'][normalize-space()='None']");
+    await none.waitForDisplayed();
+    await settled(none);
+    await none.click();
     // The menu's backdrop takes pointer presses until it has faded out.
     await $("//*[@role='menu']").waitForExist({ reverse: true });
-    await expect($('[data-drag-zone]')).toBeDisplayed();
+    // The list's own order: its rows are one zone for the list, not groups.
+    await expect($('[data-drag-zone][data-list]')).toBeDisplayed();
     await expect(row('Fold')).toBeDisplayed();
 
     // Fold to the top: drop on the upper edge of the first row.
