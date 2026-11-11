@@ -183,6 +183,45 @@ public sealed partial class SyncService(
             ServerTime: clock?.Now() ?? time.GetUtcNow().UtcDateTime.ToString("yyyy-MM-dd'T'HH:mm:ss.fff'Z'", System.Globalization.CultureInfo.InvariantCulture));
     }
 
+    /// <summary>
+    /// PostgreSQL cannot store a NUL character in text (M6). It is taken out of every value it is in,
+    /// and each field it was taken from is stamped just after the device's own stamp: the stripped
+    /// text then wins on every device, the sending one included, instead of that device keeping its
+    /// own copy at the same clock, while an edit stamped after the device's still wins over it.
+    /// </summary>
+    private void StripNul(JsonObject entity, JsonObject clocks)
+    {
+        foreach (var (field, value) in entity.ToList())
+        {
+            if (field is "id" or "_hlc" || !HoldsNul(value)) continue;
+            entity[field] = Stripped(value);
+            if (clocks[field] is JsonValue stamp && stamp.TryGetValue<string>(out var old)) clocks[field] = Hlc.After(old, ServerClock.Node);
+        }
+    }
+
+    private static bool HoldsNul(JsonNode? node) => node switch
+    {
+        JsonObject map => map.Any(each => HoldsNul(each.Value)),
+        JsonArray list => list.Any(HoldsNul),
+        JsonValue value => value.TryGetValue<string>(out var text) && text.Contains('\0'),
+        _ => false,
+    };
+
+    private static bool NamesHoldNul(JsonNode? node) => node switch
+    {
+        JsonObject map => map.Any(each => each.Key.Contains('\0') || NamesHoldNul(each.Value)),
+        JsonArray list => list.Any(NamesHoldNul),
+        _ => false,
+    };
+
+    private static JsonNode? Stripped(JsonNode? node) => node switch
+    {
+        JsonObject map => new JsonObject(map.Select(each => KeyValuePair.Create(each.Key, Stripped(each.Value)))),
+        JsonArray list => new JsonArray([.. list.Select(Stripped)]),
+        JsonValue value when value.TryGetValue<string>(out var text) => JsonValue.Create(text.Replace("\0", "")),
+        _ => node?.DeepClone(),
+    };
+
     private static string? IdOf(SyncEntity change) =>
         change.Entity?["id"] is JsonValue value && value.TryGetValue<string>(out var id) ? id : null;
 
@@ -383,6 +422,13 @@ public sealed partial class SyncService(
         {
             throw new SyncRejected("invalid_text", $"{Where()} ({id}): text that is not valid Unicode");
         }
+        if (NamesHoldNul(entity)) throw new SyncRejected("invalid_text", $"{Where()} ({id}): a name with a NUL character");
+        // A set keeps its stamps in each element, so a stripped element could not be restamped.
+        if (WorkspaceSchema.ElementSetFields(change.Collection).Any(field => HoldsNul(entity[field])))
+        {
+            throw new SyncRejected("invalid_text", $"{Where()} ({id}): a set holding a NUL character");
+        }
+        StripNul(entity, clocks);
         // Its shape and size (audit S4): junk is refused here, not stored and synced to every viewer.
         if (entities?.Problem(change.Collection, entity) is { } problem)
         {

@@ -98,7 +98,7 @@ public static class PasskeyEndpoints
 
     private static string NameOf(string? typed)
     {
-        var name = (typed ?? "").Trim();
+        var name = Core.SafeText.Clean(typed ?? "").Trim();
         if (name.Length == 0) return "Passkey";
         return Core.SafeText.Cut(name, NameLength);
     }
