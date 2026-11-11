@@ -4,6 +4,24 @@ All notable changes to PeckList. Each release adds its section from [Conventiona
 with `pnpm release`; the version follows [Semantic Versioning](https://semver.org/). Before 1.0.0 a
 minor release may break things; every break is listed under **Breaking changes** with what to do.
 
+## [0.10.0-rc.2] - 2026-11-11
+
+### Added
+
+- **api:** Task API v1 with routes, changes feed, quick add and OpenAPI
+- **cli:** CLI sign-in by browser approval, client commands and downloads
+- **api:** Quick add on the server runs the app's own code
+
+### Fixed
+
+- **sync:** Schema check reads numbers set in code, refuses huge ones
+- **sharing:** Moving a task to another list needs owner or editor on both
+- **backup:** Key-made exports leave out secrets; keys can't restore the server
+- **notifications:** Mentions read U+FEFF and letters beyond U+FFFF as the app does
+- **sharing:** Undoing a restore puts it back in the Trash at a fresh time
+- **web:** A page that could not load says so in the page area
+- **web:** A part of the app that could not load is fetched again
+
 ## [0.10.0-rc.1] - 2026-11-11
 
 ### Breaking changes
