@@ -141,7 +141,8 @@ public static class Cli
                     var accounts = Accounts(database);
                     var password = Core.Ids.NewPassword();
                     var role = args.Contains("--admin") ? Role.Admin : Role.User;
-                    await accounts.CreateUserAsync(username, password, role);
+                    var added = await accounts.CreateUserAsync(username, password, role);
+                    await RecordAsync(database, "admin.user-created", added, role.Name());
                     await output.WriteLineAsync($"Added {username.Trim().ToLowerInvariant()} ({role.Name()}). Password: {password}");
                     await output.WriteLineAsync("It must be changed at the first login.");
                     return 0;
@@ -154,6 +155,7 @@ public static class Cli
                     }
                     var account = await UserAsync(database, args[2]);
                     await Accounts(database).SetRoleAsync(account.Id, role);
+                    await RecordAsync(database, "admin.role-changed", account, $"{account.Role.Name()} to {role.Name()}");
                     await output.WriteLineAsync($"{account.Username} is now {role.Name()}. It applies from their next request.");
                     return 0;
                 }
@@ -162,6 +164,7 @@ public static class Cli
                     if (args.Length < 3) return await Fail(errors, "admin login-link needs a user: pecklist admin login-link <user>");
                     var account = await UserAsync(database, args[2]);
                     var (token, expires) = await new LoginLinks(new SqlSecretStore(database), new SqlAccountStore(database), TimeProvider.System).CreateAsync(account.Id);
+                    await RecordAsync(database, "admin.login-link-created", account, $"until {expires:yyyy-MM-dd HH:mm} UTC");
                     var origin = settings.PublicUrl?.ToString().TrimEnd('/') ?? "<server address>";
                     await output.WriteLineAsync($"{origin}/auth/link/{token}");
                     await output.WriteLineAsync($"Signs {account.Username} in once, until {expires:yyyy-MM-dd HH:mm} UTC.");
@@ -173,6 +176,7 @@ public static class Cli
                 {
                     var username = args.Length > 2 ? args[2] : AccountService.AdminUsername;
                     var password = await Accounts(database).ResetPasswordAsync(username);
+                    await RecordAsync(database, "admin.password-reset", await UserAsync(database, username));
                     await output.WriteLineAsync($"New password for {username}: {password}");
                     await output.WriteLineAsync("It must be changed at the next login. Other sessions of this account have ended.");
                     return 0;
@@ -239,6 +243,7 @@ public static class Cli
                 {
                     if (args.Length > 3 && identity.Provider != args[3]) continue;
                     await signIn.UnlinkAsync(account.Id, identity.Provider, identity.Subject, selfService: false);
+                    await RecordAsync(database, "admin.identity-unlinked", account, identity.Provider);
                     gone++;
                 }
                 await output.WriteLineAsync($"Detached {gone} provider account(s) from {account.Username}.");
@@ -251,6 +256,7 @@ public static class Cli
             case "unbind-all" when args.Length > 2:
             {
                 var (unbound, stranded) = await signIn.UnbindProviderAsync(args[2]);
+                await RecordAsync(database, "admin.provider-unbound", null, $"{args[2]}, {unbound} accounts");
                 await output.WriteLineAsync($"Detached {unbound} account(s) from {args[2]}.");
                 if (stranded.Count > 0)
                 {
@@ -262,6 +268,7 @@ public static class Cli
                 if (args[3] == "close")
                 {
                     await signIn.CloseMigrationWindowAsync(args[2]);
+                    await RecordAsync(database, "admin.migration-window-closed", null, args[2]);
                     await output.WriteLineAsync($"Migration window for {args[2]} closed.");
                     return 0;
                 }
@@ -271,6 +278,7 @@ public static class Cli
                     return await Fail(errors, "the window needs a number of hours (up to 720) or close");
                 }
                 var until = await signIn.OpenMigrationWindowAsync(args[2], TimeSpan.FromHours(hours));
+                await RecordAsync(database, "admin.migration-window-opened", null, $"{args[2]}, until {until:yyyy-MM-dd HH:mm} UTC");
                 await output.WriteLineAsync($"Until {until:yyyy-MM-dd HH:mm} UTC, a first sign-in through {args[2]} joins the account with the same username.");
                 return 0;
             default:
@@ -357,6 +365,31 @@ public static class Cli
         await errors.WriteLineAsync(message);
         return 1;
     }
+
+    /// <summary>
+    /// A shell command that changed an account or sign-in leaves an event like the admin pages' own,
+    /// by "shell" (audit Y3). Someone with a shell could change the database anyway; this is for an
+    /// operator explaining later what happened.
+    /// </summary>
+    private static Task RecordAsync(SqlDatabase database, string type, Account? target, string? detail = null) =>
+        new SqlAuditStore(database).AppendAsync(
+        [
+            new Core.Audit.AuditEntry
+            {
+                Id = Core.Ids.NewUlid(TimeProvider.System),
+                Time = TimeProvider.System.GetUtcNow(),
+                Kind = Core.Audit.AuditKind.Event,
+                Type = type,
+                Outcome = Core.Audit.AuditOutcome.Ok,
+                ActorName = ShellActor,
+                TargetId = target?.Id,
+                TargetName = target?.Username,
+                Detail = detail,
+            },
+        ]);
+
+    /// <summary>Who the audit log says made a change from the shell.</summary>
+    public const string ShellActor = "shell";
 
     private static AccountService Accounts(SqlDatabase database) =>
         new(new SqlAccountStore(database), new AspNetPasswordHasher(), TimeProvider.System);

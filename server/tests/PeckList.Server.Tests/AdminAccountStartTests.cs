@@ -75,6 +75,40 @@ public sealed class AdminAccountStartTests(ServerFixture fixture) : IClassFixtur
         return database;
     }
 
+    private static async Task<IReadOnlyList<AuditEntry>> Restored(WebApplicationFactory<Program> server)
+    {
+        await server.Services.GetRequiredService<AuditLog>().FlushAsync(Token);
+        var entries = (await server.Services.GetRequiredService<IAuditStore>().QueryAsync(new AuditQuery { Ascending = true }, Token)).Entries;
+        return entries.Where(entry => entry.Type == "auth.super-admin-restored").ToList();
+    }
+
+    [Theory]
+    [MemberData(nameof(Databases))]
+    public async Task A_start_with_no_super_admin_left_raises_the_oldest_admin_before_a_plain_user_admin_and_says_so(string kind)
+    {
+        var database = await NewDatabase(kind);
+        string bossId;
+        using (var first = StartWithValue(database))
+        {
+            var store = first.Services.GetRequiredService<IAccountStore>();
+            bossId = (await first.Services.GetRequiredService<AccountService>()
+                .CreateUserAsync("boss", Password, Role.Admin, mustChangePassword: false, cancellation: Token)).Id;
+            // As a database edited by hand might leave it: admin a plain user, no super admin at all.
+            await store.UpdateAsync((await Admin(first))! with { Role = Role.User }, Token);
+        }
+
+        using var restarted = StartWithValue(database);
+        var accounts = restarted.Services.GetRequiredService<IAccountStore>();
+        Assert.Equal(Role.SuperAdmin, (await accounts.FindByIdAsync(bossId, Token))!.Role);
+        Assert.Equal(Role.User, (await Admin(restarted))!.Role);
+        var restored = Assert.Single(await Restored(restarted));
+        Assert.Equal(("boss", "was admin: no active super admin was left"), (restored.TargetName, restored.Detail));
+
+        // Once there is one again, nothing more is said.
+        using var again = StartWithValue(database);
+        Assert.Single(await Restored(again));
+    }
+
     [Theory]
     [MemberData(nameof(Databases))]
     public async Task A_first_start_makes_the_admin_and_says_so_once(string kind)

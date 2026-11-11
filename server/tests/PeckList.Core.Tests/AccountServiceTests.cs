@@ -230,6 +230,18 @@ public sealed class AccountServiceTests
         Assert.IsType<LoginResult.Success>(await accounts.LoginAsync("admin", password, Token));
         await Assert.ThrowsAsync<KeyNotFoundException>(() => accounts.ResetPasswordAsync("nobody", Token));
     }
+
+    [Fact]
+    public async Task Reset_refuses_a_deleted_account_and_leaves_its_password_as_it_was()
+    {
+        var kim = await accounts.CreateUserAsync("kim", "a long enough password", cancellation: Token);
+        await accounts.DeleteAsync(kim.Id, Token);
+        var before = (await store.FindByIdAsync(kim.Id, Token))!;
+
+        var refused = await Assert.ThrowsAsync<ArgumentException>(() => accounts.ResetPasswordAsync("kim", Token));
+        Assert.Contains("was deleted", refused.Message);
+        Assert.Equal((before.PasswordHash, before.SecurityStamp), ((await store.FindByIdAsync(kim.Id, Token))!.PasswordHash, (await store.FindByIdAsync(kim.Id, Token))!.SecurityStamp));
+    }
 }
 
 public sealed class RoleTests
@@ -287,6 +299,19 @@ public sealed class RoleTests
         await accounts.EnsureAdminAsync(null, Token);
         Assert.Equal(Role.SuperAdmin, (await store.FindByUsernameAsync("admin", Token))!.Role);
         Assert.Equal(Role.Admin, (await store.FindByUsernameAsync("ann", Token))!.Role);
+    }
+
+    [Fact]
+    public async Task The_admin_promoted_to_super_admin_has_no_lease_and_one_being_deleted_is_passed_over()
+    {
+        var gone = await AddAsync("ann", Role.Admin);
+        await store.UpdateAsync(gone with { DeletedAt = clock.Now }, Token);
+        var bob = await AddAsync("bob", Role.Admin);
+        await store.UpdateAsync(bob with { RoleProvider = "pocket", RoleRenewedAt = clock.Now }, Token);
+        await accounts.EnsureSuperAdminAsync(Token);
+        Assert.Equal(Role.Admin, (await store.FindByUsernameAsync("ann", Token))!.Role);
+        var raised = (await store.FindByUsernameAsync("bob", Token))!;
+        Assert.Equal((Role.SuperAdmin, null, null), (raised.Role, raised.RoleProvider, raised.RoleRenewedAt));
     }
 
     [Fact]

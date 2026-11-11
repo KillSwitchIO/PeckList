@@ -31,6 +31,39 @@ public sealed class CliTests : IDisposable
     }
 
     [Fact]
+    public async Task Recovery_from_the_shell_leaves_audit_events()
+    {
+        var settings = Settings();
+        await Run(settings, "upgrade-db");
+        await Run(settings, "admin", "add-user", "sam");
+        await Run(settings, "admin", "set-role", "sam", "admin");
+        await Run(settings, "admin", "login-link", "sam");
+        await Run(settings, "admin", "reset-password", "sam");
+        await Run(settings, "oidc", "migration-window", "pocket", "2");
+        await Run(settings, "oidc", "migration-window", "pocket", "close");
+
+        var entries = (await new PeckList.Storage.Sql.SqlAuditStore(new PeckList.Storage.Sqlite.SqliteDatabase(settings.DbPath))
+            .QueryAsync(new Core.Audit.AuditQuery { Ascending = true }, TestContext.Current.CancellationToken)).Entries;
+        Assert.All(entries, entry => Assert.Equal(Cli.ShellActor, entry.ActorName));
+        // Which events, not their order: commands run back to back here can share a millisecond,
+        // and ids within one are in no order (each command is its own process in real use).
+        (string, string?, string?)[] expected =
+        [
+            ("admin.user-created", "sam", "user"),
+            ("admin.role-changed", "sam", "user to admin"),
+            ("admin.login-link-created", "sam", null),
+            ("admin.password-reset", "sam", null),
+            ("admin.migration-window-opened", null, null),
+            ("admin.migration-window-closed", null, "pocket"),
+        ];
+        Assert.Equal(expected.Order(), entries
+            .Select(entry => (entry.Type, entry.TargetName, entry.Type is "admin.login-link-created" or "admin.migration-window-opened" ? null : entry.Detail))
+            .Order());
+        // Nothing secret in them: neither the link nor the new password.
+        Assert.All(entries, entry => Assert.DoesNotContain("/auth/link/", entry.Detail ?? ""));
+    }
+
+    [Fact]
     public async Task Prints_help()
     {
         var (code, output, _, _) = await Run(Settings(), "help");

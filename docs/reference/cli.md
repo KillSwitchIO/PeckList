@@ -1,7 +1,10 @@
 # Command line
 
 The server program is also the maintenance tool. Every command reads the same settings as the
-server (environment, `CONFIG_FILE`), and works while the server runs.
+server (environment, `CONFIG_FILE`), and works while the server runs. Commands that change an
+account or sign-in (`admin add-user`, `set-role`, `login-link`, `reset-password`, and the `oidc`
+ones) leave an entry in the [event log](../guides/logging.md#access-and-event-log), by `shell`, as
+the admin pages do.
 
 <Tabs>
 <TabItem value="docker" label="Docker">
@@ -102,7 +105,8 @@ pecklist admin reset-password [username]     # default: admin
 ```
 
 Prints a new password that must be changed at the next sign-in, and ends the account's other
-sessions.
+sessions. An account that is deleted but still in its grace period is refused and left as it is,
+since it cannot sign in: restore it under **Admin > Users** first, or name another account.
 
 Once a deleted `admin` is removed at the end of its grace period, it is not made again while another
 super admin is active, so this command with no name answers `no user 'admin'`. Name another account,
