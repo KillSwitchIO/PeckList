@@ -37,7 +37,7 @@ public static class FriendEndpoints
         }).RequireRateLimiting(AuthSetup.AccountRateLimit).Audited("sharing.friend-added", targetRoute: null);
 
         api.MapGet("/users/lookup", async (string q, ClaimsPrincipal user, Friends friends, CancellationToken cancellation) =>
-            await friends.LookupAsync(user.UserId(), q, cancellation) is { } preview ? Results.Ok(preview) : Results.NotFound())
+            await friends.LookupAsync(user.UserId(), Core.SafeText.Clean(q), cancellation) is { } preview ? Results.Ok(preview) : Results.NotFound())
             .RequireRateLimiting(AuthSetup.AccountRateLimit);
 
         return api;
