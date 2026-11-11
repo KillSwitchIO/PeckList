@@ -32,7 +32,7 @@ public sealed class SharingIndexTests
         return set;
     }
 
-    private StoredEntity Task(string id, string owner, string list, string? parent = null, JsonObject? assignees = null) =>
+    private StoredEntity Task(string id, string owner, string? list, string? parent = null, JsonObject? assignees = null) =>
         Put("tasks", id, owner, new JsonObject
         {
             ["title"] = id,
@@ -137,6 +137,28 @@ public sealed class SharingIndexTests
         // Moving it into the private list of someone else is not Sam's to do.
         List("L2", Kim);
         Assert.False(May(Sam, assigned, With(assigned, doc => doc["listId"] = "L2")));
+        // Nor into Sam's own: that takes it out of Ben's list, which needs owner or editor there.
+        List("L3", Sam);
+        Assert.False(May(Sam, assigned, With(assigned, doc => doc["listId"] = "L3")));
+    }
+
+    [Fact]
+    public void Moving_a_task_between_lists_needs_owner_or_editor_on_both()
+    {
+        List("L1", Ben, "shared");
+        Member("M1", Ben, "L1", $"user:{Sam}", "editor");
+        Member("M2", Ben, "L1", $"user:{Jo}", "viewer");
+        List("L2", Sam);
+        List("L3", Jo);
+        var task = Task("T1", Ben, "L1", assignees: Set($"user:{Jo}"));
+
+        Assert.True(May(Sam, task, With(task, doc => doc["listId"] = "L2")));
+        Assert.True(May(Jo, task, With(task, doc => doc["title"] = "Jo's words")));
+        Assert.False(May(Jo, task, With(task, doc => doc["listId"] = "L3")));
+        Assert.False(May(Ben, task, With(task, doc => doc["listId"] = null)));
+        // A personal task (no list) moves into a list only by its owner.
+        var personal = Task("T2", Kim, null, assignees: Set($"user:{Sam}"));
+        Assert.False(May(Sam, personal, With(personal, doc => doc["listId"] = "L2")));
     }
 
     [Fact]

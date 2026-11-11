@@ -21,7 +21,8 @@ import { t } from '../i18n/i18n.ts';
 import { CheckIcon, ChevronUpIcon, FlagIcon, TrayIcon } from '../icons/icons.tsx';
 import { listName } from '../lists/listName.ts';
 import { ListMark as ListIconOrDot } from '../lists/ListMark.tsx';
-import { useApply, useWorkspace } from '../store/hooks.ts';
+import { canMoveTask } from '../../core/sharing.ts';
+import { useApply, useStoreState, useWorkspace } from '../store/hooks.ts';
 import { useReadOnly } from './readOnly.ts';
 import { TaskTagPills } from '../tags/TaskTags.tsx';
 
@@ -76,7 +77,9 @@ function ListPicker({ task }: { task: Task }) {
   const workspace = useWorkspace();
   const apply = useApply();
   const [anchor, setAnchor] = useState<HTMLElement | null>(null);
-  const readOnly = useReadOnly();
+  const me = useStoreState((state) => state.context().userId);
+  // Assigned on a list I can't edit: the task stays in its list, so there is nothing to pick.
+  const readOnly = useReadOnly() || !canMoveTask(workspace, me, task);
   const lists = visibleLists(workspace);
   const list = lists.find((each) => each.id === task.listId);
   const current = list ? listName(list, workspace) : '';

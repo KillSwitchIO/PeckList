@@ -33,7 +33,8 @@ import {
 } from '../../core/bulk.ts';
 import { localTimeZone } from '../../core/dates.ts';
 import { visibleLists } from '../../core/lists.ts';
-import { canEditList } from '../../core/sharing.ts';
+import { getEntity } from '../../core/collections.ts';
+import { canEditList, canMoveTask } from '../../core/sharing.ts';
 import { visibleTags } from '../../core/tags.ts';
 import type { Priority } from '../../core/types.ts';
 import { DatePickerPanel } from '../dates/DatePickerPanel.tsx';
@@ -70,6 +71,11 @@ export function BulkBar({ phone }: { phone: boolean }) {
   );
   const ids = [...bulk.picked].filter((id) => live.has(id));
   const none = ids.length === 0;
+  // Moving takes a task out of its list: not offered when any picked one is on a list I can't edit.
+  const movable = ids.every((id) => {
+    const task = getEntity(workspace, 'tasks', id);
+    return !task || canMoveTask(workspace, me, task);
+  });
   // Everything the page shows (R-FB-124): Select all, then Deselect all once it is all picked.
   const onPage = [...bulk.rows].filter((id) => live.has(id));
   const allPicked = onPage.length > 0 && onPage.every((id) => bulk.picked.has(id));
@@ -84,12 +90,13 @@ export function BulkBar({ phone }: { phone: boolean }) {
     icon: ReactNode,
     onClick: (anchor: HTMLElement) => void,
     color?: string,
+    disabled = false,
   ) => (
     <Tooltip title={label} disableInteractive>
       <span>
         <ButtonBase
           aria-label={label}
-          disabled={none}
+          disabled={none || disabled}
           onClick={(event) => onClick(event.currentTarget)}
           sx={{
             flexDirection: 'column',
@@ -171,7 +178,13 @@ export function BulkBar({ phone }: { phone: boolean }) {
             run((ctx, ws) => completeTasks(ctx, ws, ids), changed),
           )}
           {action(t('bulk.date'), <CalendarIcon />, setDateAnchor)}
-          {action(t('bulk.move'), <DriveFileMoveOutlined />, () => setMoving(true))}
+          {action(
+            t('bulk.move'),
+            <DriveFileMoveOutlined />,
+            () => setMoving(true),
+            undefined,
+            !movable,
+          )}
           {action(t('bulk.tag'), <LocalOfferOutlined />, setTagAnchor)}
           {action(t('bulk.priority'), <FlagIcon />, setPriorityAnchor)}
           {action(t('bulk.pin'), <PinIcon />, () =>

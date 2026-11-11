@@ -13,6 +13,7 @@ import {
   canEditList,
   canClaim,
   canEditTask,
+  canMoveTask,
   claimTask,
   describePrincipal,
   inviteAndAssign,
@@ -30,7 +31,7 @@ import {
   sharedWithMe,
   unfriend,
 } from './sharing.ts';
-import { createTask, deleteTask, restoreTask } from './tasks.ts';
+import { createTask, deleteTask, moveTask, restoreTask } from './tasks.ts';
 import type { Friendship, GroupMember, User, WorkspaceFile } from './types.ts';
 import { createWorkspace } from './workspace.ts';
 
@@ -432,5 +433,36 @@ describe('assignment', () => {
     expect(
       assigneeCandidates(next, JO, getTask(next, task.id)).map((each) => each.principal),
     ).toContain(`user:${BEN}`);
+  });
+});
+
+describe('moving tasks between lists', () => {
+  it('needs owner or editor on the list it leaves, even when assigned there', () => {
+    const { ben, workspace, list } = benWorld();
+    const task = sampleTask(ben, list.id, 'Fix fence');
+    let next = putEntity(workspace, 'tasks', task);
+    next = shareList(ben, next, list.id, `user:${SAM}`, 'editor');
+    next = shareList(ben, next, list.id, `user:${JO}`, 'viewer');
+    next = setAssignee(ben, next, task.id, `user:${JO}`, true);
+    const jo = as(JO);
+    const { workspace: withJos, list: jos } = createList(jo, next, {
+      name: 'Mine',
+      color: '#CFE3A3',
+    });
+    const assigned = getTask(withJos, task.id);
+
+    expect(canEditTask(withJos, JO, assigned)).toBe(true);
+    expect(canMoveTask(withJos, JO, assigned)).toBe(false);
+    expect(canMoveTask(withJos, SAM, assigned)).toBe(true);
+    expect(canMoveTask(withJos, BEN, assigned)).toBe(true);
+    // The assignee's move does nothing; a reorder in the same list still works.
+    expect(moveTask(jo, withJos, task.id, { listId: jos.id })).toBe(withJos);
+    expect(getTask(moveTask(jo, withJos, task.id, { listId: list.id }), task.id).listId).toBe(
+      list.id,
+    );
+    expect(
+      getTask(moveTask(as(SAM), withJos, task.id, { listId: inboxList(withJos).id }), task.id)
+        .listId,
+    ).not.toBe(list.id);
   });
 });
