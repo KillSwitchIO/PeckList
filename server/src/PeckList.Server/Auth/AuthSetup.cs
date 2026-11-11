@@ -134,33 +134,56 @@ public static class AuthSetup
             };
             // Ten tries a minute per address, on top of the per-account lockout.
             options.AddPolicy(LoginRateLimit, context => RateLimitPartition.GetFixedWindowLimiter(
-                context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+                AddressKey(context),
                 _ => new FixedWindowRateLimiterOptions { PermitLimit = 10, Window = TimeSpan.FromMinutes(1) }));
             // Thirty a minute per account, shared by the endpoints that take it: far more than a person
             // typing, far too few to walk through names or friend codes (audit S13).
             options.AddPolicy(AccountRateLimit, context => RateLimitPartition.GetFixedWindowLimiter(
                 context.User.Identity?.IsAuthenticated == true
                     ? "account:" + context.User.UserId()
-                    : "address:" + (context.Connection.RemoteIpAddress?.ToString() ?? "unknown"),
+                    : "address:" + AddressKey(context),
                 _ => new FixedWindowRateLimiterOptions { PermitLimit = AccountPerMinute, Window = TimeSpan.FromMinutes(1) }));
             // The task API (PL-137): per account, all its keys and sessions together, so holding many
             // keys does not multiply it.
             static string Caller(HttpContext context) =>
                 context.User.Identity?.IsAuthenticated == true ? "account:" + context.User.UserId()
-                : "address:" + (context.Connection.RemoteIpAddress?.ToString() ?? "unknown");
+                : "address:" + AddressKey(context);
             options.AddPolicy(Api.TaskApiEndpoints.ReadRateLimit, context => RateLimitPartition.GetFixedWindowLimiter(
                 "read:" + Caller(context),
                 _ => new FixedWindowRateLimiterOptions { PermitLimit = Api.TaskApiEndpoints.ReadsPerMinute, Window = TimeSpan.FromMinutes(1) }));
             options.AddPolicy(Api.TaskApiEndpoints.WriteRateLimit, context => RateLimitPartition.GetFixedWindowLimiter(
                 "write:" + Caller(context),
                 _ => new FixedWindowRateLimiterOptions { PermitLimit = Api.TaskApiEndpoints.WritesPerMinute, Window = TimeSpan.FromMinutes(1) }));
+            // Signing the CLI in: per address, as nobody is signed in yet.
+            options.AddPolicy(Api.CliSignInEndpoints.StartRateLimit, context => RateLimitPartition.GetFixedWindowLimiter(
+                "cli-start:" + AddressKey(context),
+                _ => new FixedWindowRateLimiterOptions { PermitLimit = Api.CliSignInEndpoints.StartsPerMinute, Window = TimeSpan.FromMinutes(1) }));
+            options.AddPolicy(Api.CliSignInEndpoints.PollRateLimit, context => RateLimitPartition.GetFixedWindowLimiter(
+                "cli-poll:" + AddressKey(context),
+                _ => new FixedWindowRateLimiterOptions { PermitLimit = Api.CliSignInEndpoints.PollsPerMinute, Window = TimeSpan.FromMinutes(1) }));
             options.AddPolicy(SettingsRateLimit, context => RateLimitPartition.GetFixedWindowLimiter(
                 "settings:" + (context.User.Identity?.IsAuthenticated == true
                     ? context.User.UserId()
-                    : context.Connection.RemoteIpAddress?.ToString() ?? "unknown"),
+                    : AddressKey(context)),
                 _ => new FixedWindowRateLimiterOptions { PermitLimit = AccountPerMinute, Window = TimeSpan.FromMinutes(1) }));
         });
         return services;
+    }
+
+    /// <summary>
+    /// Who a per-address limit counts: an IPv4 address as it is, an IPv6 one by its /64, the block
+    /// one home or host is usually given, so a host can't step past a limit by changing the low bits.
+    /// </summary>
+    public static string AddressKey(HttpContext context) => AddressKey(context.Connection.RemoteIpAddress);
+
+    public static string AddressKey(System.Net.IPAddress? address)
+    {
+        if (address is null) return "unknown";
+        if (address.IsIPv4MappedToIPv6) address = address.MapToIPv4();
+        if (address.AddressFamily != System.Net.Sockets.AddressFamily.InterNetworkV6) return address.ToString();
+        var bytes = address.GetAddressBytes();
+        Array.Clear(bytes, 8, 8);
+        return new System.Net.IPAddress(bytes) + "/64";
     }
 
     /// <summary>A <c>Retry-After</c> header: whole seconds, rounded up, at least one.</summary>

@@ -1561,6 +1561,36 @@ export const en = {
   'friendLink.already': 'You are already friends with {name}.',
   'friendLink.done': 'You and {name} are friends now.',
   'friendLink.toFriends': 'See your friends',
+  'cliSignIn.title': 'Sign in a terminal',
+  'cliSignIn.intro': 'Type the code your terminal shows after pecklist login.',
+  'cliSignIn.code': 'Code',
+  'cliSignIn.continue': 'Continue',
+  'cliSignIn.warning':
+    'Only approve a code you just started in your own terminal. Whoever holds the terminal can then use your account.',
+  'cliSignIn.device': '{name} wants to sign in',
+  'cliSignIn.asked': 'Asked at {time} from {address}',
+  'cliSignIn.askedNoAddress': 'Asked at {time}',
+  'cliSignIn.youAre': 'You are at {address}',
+  'cliSignIn.otherAddress':
+    'The request came from another address than yours. Deny it unless you started it on another network or machine.',
+  'cliSignIn.mayDo': 'It will be able to read and change your tasks, lists, sections and tags.',
+  'cliSignIn.admin': 'Also use the admin pages as your role allows',
+  'cliSignIn.adminHint':
+    'The terminal asked for this. Leave it off unless you run admin commands from it.',
+  'cliSignIn.approve': 'Approve',
+  'cliSignIn.deny': 'Deny',
+  'cliSignIn.approved':
+    'Approved. Your terminal signs in within a few seconds. The key is listed under API keys as {name}, where you can revoke it.',
+  'cliSignIn.denied': 'Denied. The terminal was told, and no key was made.',
+  'cliSignIn.notFound':
+    'No terminal is waiting with this code. Check it, or run pecklist login again: a code lasts 10 minutes.',
+  'cliSignIn.tooMany': 'Too many wrong codes. Wait a few minutes and try again.',
+  'cliSignIn.notAllowed':
+    'Only you, signed in as yourself, can approve this: not while viewing as someone, and not before changing a password you were asked to change.',
+  'cliSignIn.failed': 'That did not work. Try again.',
+  'cliSignIn.needsServer': 'Signing in a terminal needs a PeckList server with accounts.',
+  'cliSignIn.another': 'Sign in another terminal',
+  'cliSignIn.toKeys': 'See API keys',
   'status.needsAppUpdate.title': 'This data needs a newer version of PeckList',
   'status.needsAppUpdate.body':
     'Your data uses schema {file}; this app supports up to {app}. Update the app to open it. Nothing has been changed.',

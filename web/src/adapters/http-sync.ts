@@ -15,6 +15,8 @@ import type {
   ServerInfo,
   UpdateInfo,
   ApiKeyInfo,
+  CliSignInProblem,
+  CliSignInRequest,
   SignInMethods,
   SignUpOutcome,
   SyncRequest,
@@ -536,6 +538,32 @@ export function createHttpSync(
       },
     },
 
+    cliSignIn: {
+      async lookup(code) {
+        const response = await call('/api/v1/cli/lookup', {
+          method: 'POST',
+          body: { userCode: code },
+        });
+        if (!response.ok) return { problem: cliProblem(response.status) };
+        return (await response.json()) as CliSignInRequest;
+      },
+      async approve(code, admin) {
+        const response = await call('/api/v1/cli/approve', {
+          method: 'POST',
+          body: { userCode: code, admin },
+        });
+        if (!response.ok) return { problem: cliProblem(response.status) };
+        return (await response.json()) as { keyName: string };
+      },
+      async deny(code) {
+        const response = await call('/api/v1/cli/deny', {
+          method: 'POST',
+          body: { userCode: code },
+        });
+        return response.ok ? null : { problem: cliProblem(response.status) };
+      },
+    },
+
     updates: {
       async latest() {
         const response = await call('/api/updates');
@@ -611,4 +639,12 @@ export function createHttpSync(
       return () => source.close();
     },
   };
+}
+
+/** A refused code, as the /cli page explains it. */
+function cliProblem(status: number): CliSignInProblem {
+  if (status === 404) return 'not_found';
+  if (status === 429) return 'too_many_tries';
+  if (status === 401 || status === 403) return 'not_allowed';
+  return 'failed';
 }

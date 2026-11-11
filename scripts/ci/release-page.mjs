@@ -51,7 +51,13 @@ docker pull ${image}:${version}
 
 Native downloads for Linux and Windows, and the Android app (\`pecklist-android-${version}.apk\`), are below; check them against \`SHA256SUMS\`. The newest
 release's files are always at \`${projectUrl}/-/releases/permalink/latest/downloads/<file>\`. Setup, upgrade
-steps and every setting are in the [documentation](${projectUrl}/-/tree/main/docs).${
+steps and every setting are in the [documentation](${projectUrl}/-/tree/main/docs).
+
+### Command line
+
+The \`pecklist-cli-<platform>\` downloads are the command line on its own, for any machine that talks to a
+server: \`pecklist login --server https://...\`, then \`pecklist tasks add ...\`. No server and no .NET install
+in them; see the [command line docs](${projectUrl}/-/blob/main/docs/reference/cli.md).${
     prerelease
       ? '\n\nThis is a pre-release: try it, but keep using the latest release for real data.'
       : ''

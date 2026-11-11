@@ -1,0 +1,27 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- The client download (PL-133): the same `pecklist` commands as the server program's client
+       side, without the server, the web app or the database drivers. scripts/package.sh publishes
+       it per platform as one self-contained, trimmed file. -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <AssemblyName>pecklist</AssemblyName>
+    <RootNamespace>PeckList.Cli</RootNamespace>
+    <JsonSerializerIsReflectionEnabledByDefault>false</JsonSerializerIsReflectionEnabledByDefault>
+    <UseSystemResourceKeys>true</UseSystemResourceKeys>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(RuntimeIdentifier)' != ''">
+    <SelfContained>true</SelfContained>
+    <PublishSingleFile>true</PublishSingleFile>
+    <PublishTrimmed>true</PublishTrimmed>
+    <EnableCompressionInSingleFile>true</EnableCompressionInSingleFile>
+    <DebugType>none</DebugType>
+    <CopyOutputSymbolsToPublishDirectory>false</CopyOutputSymbolsToPublishDirectory>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\PeckList.Client\PeckList.Client.csproj" />
+  </ItemGroup>
+  <!-- A build CI stamped with its version, as the server's. -->
+  <ItemGroup Condition="'$(PeckListStamped)' == 'true'">
+    <AssemblyMetadata Include="PeckListStamped" Value="true" />
+  </ItemGroup>
+</Project>

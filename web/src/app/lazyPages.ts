@@ -33,6 +33,9 @@ export const ManageListsPage = lazyPage(() =>
 export const ApiKeysPage = lazyPage(() =>
   import('./settings/ApiKeysPage.tsx').then((m) => m.ApiKeysPage),
 );
+export const CliSignInPage = lazyPage(() =>
+  import('./settings/CliSignInPage.tsx').then((m) => m.CliSignInPage),
+);
 export const StatsPage = lazyPage(() =>
   import('./settings/StatsSection.tsx').then((m) => m.StatsPage),
 );

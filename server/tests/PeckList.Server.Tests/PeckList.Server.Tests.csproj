@@ -12,5 +12,6 @@
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\src\PeckList.Server\PeckList.Server.csproj" />
+    <ProjectReference Include="..\..\src\PeckList.Client\PeckList.Client.csproj" />
   </ItemGroup>
 </Project>
