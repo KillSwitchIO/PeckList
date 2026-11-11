@@ -41,7 +41,7 @@ import SmartphoneOutlined from '@mui/icons-material/SmartphoneOutlined';
 import SportsEsportsOutlined from '@mui/icons-material/SportsEsportsOutlined';
 import StarBorderRounded from '@mui/icons-material/StarBorderRounded';
 import WorkOutlineRounded from '@mui/icons-material/WorkOutlineRounded';
-import { loadOnce } from '../loadOnce.ts';
+import { importAgain, loadOnce } from '../loadOnce.ts';
 
 export const SYMBOL_PREFIX = 'symbol:';
 
@@ -95,7 +95,7 @@ const listeners = new Set<() => void>();
 
 /** Load the full catalog of icons and emoji (once). */
 export const loadSymbolCatalog = loadOnce(() =>
-  import('./iconCatalog.ts').then((catalog) => {
+  importAgain(() => import('./iconCatalog.ts')).then((catalog) => {
     more = catalog.MORE_SYMBOLS;
     for (const listener of listeners) listener();
   }),

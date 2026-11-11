@@ -11,15 +11,17 @@ import {
   useMediaQuery,
   useTheme,
 } from '@mui/material';
-import { lazy, Suspense, useState } from 'react';
+import { Suspense, useState } from 'react';
 import type { RichTextEditorProps } from '../../ports/richText.ts';
 import { t } from '../i18n/i18n.ts';
+import { lazyAgain } from '../lazyAgain.tsx';
 import { LoadBoundary } from '../layout/LoadBoundary.tsx';
 import { preloadEditor } from './preloadEditor.ts';
 
 // The editor library loads on first use, keeping it out of the app's first load; the app fetches
-// it ahead once idle (preloadEditor), so opening a task does not wait for it.
-const Editor = lazy(preloadEditor);
+// it ahead once idle (preloadEditor), so opening a task does not wait for it. One that could not
+// load is asked for again the next time a task opens.
+const Editor = lazyAgain(preloadEditor);
 
 function Fallback({ value, placeholder }: { value: string; placeholder: string | undefined }) {
   return (

@@ -1,4 +1,4 @@
 // The notes editor (TipTap) is split off the app's first load; this fetches it, once.
-import { loadOnce } from '../loadOnce.ts';
+import { importAgain, loadOnce } from '../loadOnce.ts';
 
-export const preloadEditor = loadOnce(() => import('./TiptapEditor.tsx'));
+export const preloadEditor = loadOnce(() => importAgain(() => import('./TiptapEditor.tsx')));
