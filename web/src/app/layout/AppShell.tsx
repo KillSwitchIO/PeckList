@@ -34,6 +34,7 @@ import { canEditList } from '../../core/sharing.ts';
 import { useApply, useStoreState } from '../store/hooks.ts';
 
 import { HeaderSlotContext } from './headerSlot.ts';
+import { LoadBoundary, PageLoadFailed } from './LoadBoundary.tsx';
 import { SidebarEditProvider } from './sidebarEdit.tsx';
 import { useSidebarEdit } from './sidebarEditContext.ts';
 import { HeartIcon, PlusIcon } from '../icons/icons.tsx';
@@ -427,10 +428,13 @@ function AppFrame() {
           >
             <HeaderSlotContext.Provider value={headerSlot}>
               <TwoLineRowsContext.Provider value={isPhone || narrowMain}>
-                {/* A page loading on first visit (R-FB-94): the shell stays, the page fills in. */}
-                <Suspense fallback={null}>
-                  <Outlet />
-                </Suspense>
+                {/* A page loading on first visit (R-FB-94): the shell stays, the page fills in.
+                    One that could not be fetched says so here, and the rest of the app still works. */}
+                <LoadBoundary resetKey={pathname} fallback={<PageLoadFailed />}>
+                  <Suspense fallback={null}>
+                    <Outlet />
+                  </Suspense>
+                </LoadBoundary>
               </TwoLineRowsContext.Provider>
             </HeaderSlotContext.Provider>
           </Box>

@@ -1416,6 +1416,7 @@ export const en = {
   'task.moreTitle': 'Comments and history',
   'editor.openFull': 'Full editor',
   'editor.fullTitle': 'Notes',
+  'editor.loadFailed': 'The editor could not load. Your notes are safe; reloading gets it.',
   'nav.hideSidebar': 'Hide the sidebar',
   'nav.showSidebar': 'Show the sidebar',
   'app.versionLink': 'PeckList {version}: what changed',
