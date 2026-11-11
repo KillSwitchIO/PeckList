@@ -118,7 +118,7 @@ public static class TaskApiEndpoints
         v1.MapPost("/tasks", (HttpContext context, ClaimsPrincipal user, TaskWrites writes, CancellationToken cancellation) =>
             WithBody(context, body => writes.CreateTaskAsync(user.UserId(), body, cancellation))).Write<ApiTaskInput, ApiTask>("Make a task (the same id again answers 200 with the task as it is)", StatusCodes.Status201Created);
         v1.MapPost("/tasks/quick", (HttpContext context, ClaimsPrincipal user, TaskWrites writes, CancellationToken cancellation) =>
-            WithBody(context, body => writes.QuickAddAsync(user.UserId(), body, cancellation))).Write<ApiQuickAddInput, TaskWrites.QuickAddAnswer>("Make a task from a line of text, read as the app's quick add reads it", StatusCodes.Status201Created);
+            WithBody(context, body => writes.QuickAddAsync(user.UserId(), body, cancellation))).Write<ApiQuickAddInput, TaskWrites.QuickAddAnswer>("Make a task from a line of text, read as the app's quick add reads it", StatusCodes.Status201Created).Problems(StatusCodes.Status503ServiceUnavailable);
         v1.MapPatch("/tasks/{id}", (string id, HttpContext context, ClaimsPrincipal user, TaskWrites writes, CancellationToken cancellation) =>
             WithBody(context, body => writes.UpdateTaskAsync(user.UserId(), id, body, cancellation))).Write<ApiTaskInput, ApiTask>("Change a task's fields; the ones left out are left alone");
         v1.MapPost("/tasks/{id}/complete", (string id, HttpContext context, ClaimsPrincipal user, TaskWrites writes, CancellationToken cancellation) =>

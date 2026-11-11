@@ -77,6 +77,7 @@ Every error is a problem document (`application/problem+json`) with a stable `co
 | 413    | `too_large`                 | The body is over 1 MB                                                |
 | 429    | `rate_limited`              | Too many requests: wait as the `Retry-After` header says             |
 | 503    | `starting`                  | The server is starting up                                            |
+| 503    | `busy`                      | Quick add is reading many lines at once, or could not get ready: try again as `Retry-After` says |
 
 Match on `code`, not on `detail`: the wording of `detail` can change.
 
@@ -186,7 +187,8 @@ doesn't repeat (or has run out).
 
 ### Quick add
 
-`POST /api/v1/tasks/quick` reads a line the way the app's add box does:
+`POST /api/v1/tasks/quick` reads a line the way the app's add box does. The server runs the app's own
+quick add code, so a line gives the same task in both:
 
 ```bash
 curl -H 'Authorization: Bearer pl_...' -H 'Content-Type: application/json' \

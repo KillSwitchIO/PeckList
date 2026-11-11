@@ -49,6 +49,15 @@ public sealed class ServerFixture : IDisposable
                 // sharing index, and a test's first request then got "503 starting". Tests wait
                 // for it; StartupTests puts in a short wait of its own to see the 503.
                 services.AddSingleton(new StartupWait(TimeSpan.FromMinutes(2)));
+                // Test servers start by the hundred and few read a line, so none gets a quick add
+                // engine ready at startup; one is made when a test first reads (QuickAddTests covers
+                // the startup one).
+                services.Remove(services.Single(each => each.ImplementationType == typeof(Api.QuickAddPrewarm)));
+                // Quick add's wall-clock backstop is 5 s; a loaded CI runner reading an ordinary line
+                // can come near it, so test servers get 30 s (the statement limit is unchanged, and
+                // QuickAddTests covers the limits themselves).
+                services.AddSingleton<PeckList.Core.Api.IQuickAddReader>(provider =>
+                    new Api.JsQuickAdd(new Api.JsQuickAddLimits { Time = TimeSpan.FromSeconds(30) }));
             });
         });
 

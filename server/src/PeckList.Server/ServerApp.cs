@@ -118,6 +118,9 @@ public static partial class ServerApp
         builder.Services.AddSingleton<PeckList.Core.Sync.IEntityValidator>(_ => EntitySchema.Validator());
         builder.Services.AddSingleton<SyncService>();
         builder.Services.AddSingleton<PeckList.Core.Api.TaskQueries>();
+        builder.Services.AddSingleton<PeckList.Core.Api.IQuickAddReader>(provider =>
+            new Api.JsQuickAdd(new Api.JsQuickAddLimits(), provider.GetRequiredService<ILogger<Api.JsQuickAdd>>()));
+        builder.Services.AddHostedService<Api.QuickAddPrewarm>();
         builder.Services.AddSingleton<TaskWrites>();
         builder.Services.AddSingleton<CliSignIns>();
         builder.Services.AddHostedService<CliSignInSweeper>();

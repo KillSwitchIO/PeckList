@@ -26,6 +26,8 @@
     "release:tag": "node scripts/tag-release.mjs",
     "check:version": "node scripts/check-version.mjs",
     "check:docs": "node scripts/check-docs.mjs",
+    "build:quick-add": "node scripts/build-quick-add.mjs",
+    "check:quick-add": "node scripts/build-quick-add.mjs --check",
     "test:scripts": "node --test \"scripts/*.test.mjs\""
   },
   "simple-git-hooks": {

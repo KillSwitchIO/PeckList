@@ -16,6 +16,8 @@ export default tseslint.config(
       'website/build',
       'website/.docusaurus',
       'website/versioned_docs',
+      // Built from web/src by scripts/build-quick-add.mjs.
+      'server/src/PeckList.Server/Api/quickadd.js',
     ],
   },
   js.configs.recommended,
