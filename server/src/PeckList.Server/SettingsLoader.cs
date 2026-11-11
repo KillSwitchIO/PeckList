@@ -107,6 +107,11 @@ public static partial class SettingsLoader
         {
             return [];
         }
+        finally
+        {
+            // Its own connection pool, used once: closed now rather than left idle until it times out.
+            if (database is IAsyncDisposable disposable) disposable.DisposeAsync().AsTask().GetAwaiter().GetResult();
+        }
     }
 
     public static async Task<Dictionary<string, string>> ReadPageAsync(

@@ -258,21 +258,32 @@ public sealed class SyncTests(ServerFixture fixture) : IClassFixture<ServerFixtu
         wrong["status"] = "maybe";
         var huge = Whole("01DEV1000000000000000000B2", "Huge");
         huge["notes"] = new string('x', PeckList.Core.Sync.WorkspaceEntityValidator.MaxEntityBytes);
+        // Numbers past what a decimal holds, as a device's JSON could carry them: set aside, not a 500.
+        string[] farOut = ["1e30", "1e400", "-1e30", "79228162514264337593543950336"];
+        var outOfRange = farOut.Select((text, i) =>
+        {
+            var task = Whole($"01DEV1000000000000000000C{i + 1}", "Far out");
+            task["priority"] = JsonNode.Parse(text);
+            return (JsonNode)new JsonObject { ["collection"] = "tasks", ["entity"] = task };
+        });
         var body = new JsonObject
         {
             ["schemaVersion"] = WorkspaceSchema.CurrentVersion,
-            ["changes"] = new JsonArray(
+            ["changes"] = new JsonArray([
                 new JsonObject { ["collection"] = "tasks", ["entity"] = wrong },
                 new JsonObject { ["collection"] = "tasks", ["entity"] = huge },
-                new JsonObject { ["collection"] = "tasks", ["entity"] = Whole("01DEV1000000000000000000B3", "Whole") }),
+                new JsonObject { ["collection"] = "tasks", ["entity"] = Whole("01DEV1000000000000000000B3", "Whole") },
+                .. outOfRange]),
         };
         var response = await client.PostAsync("/api/sync", new StringContent(body.ToJsonString(), System.Text.Encoding.UTF8, "application/json"), Token);
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         var result = (await response.Content.ReadFromJsonAsync<SyncResponse>(Token))!;
-        Assert.Equal([(0, "invalid_change"), (1, "invalid_change")], result.Invalid!.Select(each => (each.Index, each.Code)));
+        Assert.Equal([0, 1, 3, 4, 5, 6], result.Invalid!.Select(each => each.Index));
+        Assert.All(result.Invalid!, each => Assert.Equal("invalid_change", each.Code));
         Assert.Contains("/status must be one of the allowed values", result.Invalid![0].Reason);
         Assert.Contains("too large", result.Invalid![1].Reason);
+        Assert.All(result.Invalid!.Skip(2), each => Assert.Contains("/priority", each.Reason));
         // The whole one passes the checks (index 2 is not set aside); the sharing rules then decide
         // where it may go, as for any task.
     }

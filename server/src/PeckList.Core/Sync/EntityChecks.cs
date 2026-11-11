@@ -155,10 +155,13 @@ public sealed class JsonSchemaSubset
         }
         if (kind == JsonValueKind.Number)
         {
-            var number = instance!.GetValue<decimal>();
-            if (schema["minimum"] is { } minimum && number < minimum.GetValue<decimal>()) Fail($"must be at least {minimum}");
-            if (schema["maximum"] is { } maximum && number > maximum.GetValue<decimal>()) Fail($"must be at most {maximum}");
-            if (schema["multipleOf"] is { } step && number % step.GetValue<decimal>() != 0) Fail($"must be a multiple of {step}");
+            if (Number(instance!) is not { } number) Fail("must be a number in range");
+            else
+            {
+                if (schema["minimum"] is { } minimum && number < Limit(minimum)) Fail($"must be at least {minimum}");
+                if (schema["maximum"] is { } maximum && number > Limit(maximum)) Fail($"must be at most {maximum}");
+                if (schema["multipleOf"] is { } step && number % Limit(step) != 0) Fail($"must be a multiple of {step}");
+            }
         }
         if (instance is JsonArray array)
         {
@@ -260,13 +263,52 @@ public sealed class JsonSchemaSubset
 
     private static JsonValueKind Kind(JsonNode? node) => node is null ? JsonValueKind.Null : node.GetValueKind();
 
+    /// <summary>
+    /// A JSON number, however its node was made: parsed from text, or set in code from an
+    /// <c>int</c>, <c>long</c>, <c>double</c> and the like (the task API builds entities that way).
+    /// <c>GetValue&lt;decimal&gt;</c> alone only reads the first. Null when the number is beyond
+    /// what a decimal holds (1e30, 1e400), which no field of ours means: the caller refuses it.
+    /// </summary>
+    private static decimal? Number(JsonNode node)
+    {
+        var value = node.AsValue();
+        if (value.TryGetValue(out decimal exact)) return exact;
+        if (value.TryGetValue(out long whole)) return whole;
+        if (value.TryGetValue(out int small)) return small;
+        if (value.TryGetValue(out short smaller)) return smaller;
+        if (value.TryGetValue(out byte tiny)) return tiny;
+        if (value.TryGetValue(out ulong large)) return large;
+        if (value.TryGetValue(out uint unsigned)) return unsigned;
+        if (value.TryGetValue(out double real)) return InRange(real);
+        if (value.TryGetValue(out float single)) return InRange(single);
+        return null;
+    }
+
+    private static decimal? InRange(double real)
+    {
+        // A double near decimal.MaxValue rounds either way, so the conversion itself decides.
+        if (!double.IsFinite(real)) return null;
+        try
+        {
+            return (decimal)real;
+        }
+        catch (OverflowException)
+        {
+            return null;
+        }
+    }
+
+    /// <summary>A number in the schema itself; ours are all small.</summary>
+    private static decimal Limit(JsonNode node) =>
+        Number(node) ?? throw new NotSupportedException($"schema number {node} is out of range");
+
     private static bool Is(string type, JsonNode? instance, JsonValueKind kind) => type switch
     {
         "null" => kind == JsonValueKind.Null,
         "boolean" => kind is JsonValueKind.True or JsonValueKind.False,
         "string" => kind == JsonValueKind.String,
         "number" => kind == JsonValueKind.Number,
-        "integer" => kind == JsonValueKind.Number && instance!.GetValue<decimal>() % 1 == 0,
+        "integer" => kind == JsonValueKind.Number && Number(instance!) is { } whole && whole % 1 == 0,
         "array" => kind == JsonValueKind.Array,
         "object" => kind == JsonValueKind.Object,
         _ => throw new NotSupportedException($"JSON Schema type '{type}' is not handled"),

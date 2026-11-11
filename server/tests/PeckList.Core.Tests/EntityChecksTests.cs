@@ -71,6 +71,47 @@ public sealed class EntityChecksTests
     }
 
     [Fact]
+    public void Numbers_set_in_code_are_checked_as_numbers_parsed_from_text_are()
+    {
+        // The task API builds entities in code, so their numbers are ints and longs, not parsed text.
+        var task = Task();
+        task["priority"] = 3;
+        task["progress"] = 40L;
+        Assert.Null(Validator.Problem("tasks", task));
+
+        task["progress"] = (short)30;
+        Assert.Null(Validator.Problem("tasks", task));
+        task["progress"] = 30.0;
+        Assert.Null(Validator.Problem("tasks", task));
+
+        task["progress"] = 45;
+        Assert.Contains("multiple of 10", Validator.Problem("tasks", task));
+        task["progress"] = 110L;
+        Assert.Contains("at most 100", Validator.Problem("tasks", task));
+        task["progress"] = 12.5;
+        Assert.NotNull(Validator.Problem("tasks", task));
+    }
+
+    [Theory]
+    [InlineData("1e30")]
+    [InlineData("1e400")]
+    [InlineData("-1e30")]
+    [InlineData("79228162514264337593543950336")]
+    public void A_number_past_what_a_decimal_holds_is_refused_not_thrown(string text)
+    {
+        var parsed = Task();
+        parsed["priority"] = JsonNode.Parse(text);
+        Assert.Contains("/priority", Validator.Problem("tasks", parsed));
+
+        if (double.Parse(text, System.Globalization.CultureInfo.InvariantCulture) is var real && double.IsFinite(real))
+        {
+            var built = Task();
+            built["priority"] = real;
+            Assert.Contains("/priority", Validator.Problem("tasks", built));
+        }
+    }
+
+    [Fact]
     public void Lengths_count_characters_not_utf16_units()
     {
         // A schema's maxLength counts code points: an emoji is one, as ajv counts it.
