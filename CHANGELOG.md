@@ -4,6 +4,69 @@ All notable changes to PeckList. Each release adds its section from [Conventiona
 with `pnpm release`; the version follows [Semantic Versioning](https://semver.org/). Before 1.0.0 a
 minor release may break things; every break is listed under **Breaking changes** with what to do.
 
+## [0.10.0] - 2026-11-11
+
+### Breaking changes
+
+- **settings:** Apps and server reminders use the device's time zone unless TZ is set. Apps, and the reminders the server sends, now use the zone of the device each person is on, unless TZ is set on the server or the person picked a zone under Settings. A server with TZ set behaves as before. An existing install that copied TZ=Etc/UTC from an old example stays on UTC until its owner removes that line.
+- **oidc:** LINK_BY_USERNAME matches the username exactly, as mappings do. With OIDC_<NAME>_LINK_BY_USERNAME on, a first sign-in joins an existing account only when the provider's username is that account's name exactly, ignoring only case and spaces around it. A provider that sends an email address, or a name that differs in other ways, no longer joins an account by itself: add a USER_MAP entry for it, or have the person link the provider from their account. People already linked are not affected.
+- **links:** Make links from PUBLIC_URL, or from the request only on a home network. A server reached at a public name without PUBLIC_URL no longer makes login links or invites, and its friend codes come without a link, until PUBLIC_URL is set to its address. Servers with PUBLIC_URL, and ones reached at localhost or a home-network name or address, are not affected.
+- **oidc:** A migration window matches the username exactly, as LINK_BY_USERNAME does. During a migration window, a first sign-in through the new provider joins an existing account only when the provider's username is that account's name exactly, ignoring only case and spaces around it. A provider that sends an email address, or a name that differs in other ways, no longer joins an account by itself: add a USER_MAP entry for each person, or have each person link the new provider from their account before the move.
+- **oidc:** A role from ROLE_MAP lapses unless a sign-in renews it. An admin or super admin role that came from ROLE_MAP now drops to user after ROLE_MAP_RENEW_DAYS (14) without a sign-in through that provider, and their API keys lose it too. This includes, from the first start after the upgrade, a role set by hand on an account linked to such a provider. Anyone who should keep a role without signing in there (an automation account, for example) needs it set by hand with `pecklist admin set-role <name> <role>`, which keeps the role they already have, or set ROLE_MAP_RENEW_DAYS=0 to keep the old behaviour. A role set by hand is leased again if they later sign in through a provider whose ROLE_MAP sets it.
+
+### Added
+
+- **admin:** Admin > Users shows when a leased role lapses
+- **api:** Task API v1 with routes, changes feed, quick add and OpenAPI
+- **cli:** CLI sign-in by browser approval, client commands and downloads
+- **api:** Quick add on the server runs the app's own code
+
+### Fixed
+
+- **logging:** A log output's count changes after its health, and steady four tests
+- **oidc:** Say why Unbind all was refused
+- **sharing:** Ending a friendship ends every live row between the two
+- **settings:** Apps and server reminders use the device's time zone unless TZ is set
+- **reminders:** Handle every clock change and isolate failures
+- **oidc:** LINK_BY_USERNAME matches the username exactly, as mappings do
+- **auth:** Sign-in limits and locks say how long to wait
+- **web:** Friend links and admin links on a server without PUBLIC_URL
+- **links:** Make links from PUBLIC_URL, or from the request only on a home network
+- **oidc:** A migration window matches the username exactly, as LINK_BY_USERNAME does
+- **oidc:** Match usernames with only plain spaces trimmed, and leave no stray account
+- **auth:** Refuse changes another site sends, and confirm sign-in links with a button
+- **links:** Count Tailscale and NetBird names as home-network names
+- **reminders:** A snooze from a notification is for the person who pressed it
+- **sharing:** Comments and files go to the Trash with their task and come back
+- **server:** Used one-time tokens are deleted, and expired ones pruned daily
+- **oidc:** A role from ROLE_MAP lapses unless a sign-in renews it
+- **web:** Pecky the bird and "All pecked out." replace the old punch wording
+- **oidc:** A link to a provider no longer set up is no way in, and each start says so
+- **server:** An older server on a newer database stops with one line
+- **web:** Copy buttons work on plain http, else select the text
+- **server:** Limits on lookups, friend codes, one-time tokens and live streams
+- **server:** Notification pushes and provider pictures no longer hold up requests
+- **sharing:** A group whose owner left waits for open invitations
+- **notifications:** The server reads @mentions as the app shows them
+- **sharing:** Someone taken off a list can no longer change their comments, files or sections on it
+- **oidc:** A mapping for an account already linked is refused, and a disabled account is not linked
+- **settings:** One saved setting that does not work leaves out only that one
+- **accounts:** Recovery from the shell is audited and refuses deleted accounts, and a restored super admin is told
+- **server:** Text with a NUL character no longer stops sync on PostgreSQL
+- **notifications:** No reminders worked out for an app on screen, and freed memory given back sooner
+- **sync:** Schema check reads numbers set in code, refuses huge ones
+- **sharing:** Moving a task to another list needs owner or editor on both
+- **backup:** Key-made exports leave out secrets; keys can't restore the server
+- **notifications:** Mentions read U+FEFF and letters beyond U+FFFF as the app does
+- **sharing:** Undoing a restore puts it back in the Trash at a fresh time
+- **web:** A page that could not load says so in the page area
+- **web:** A part of the app that could not load is fetched again
+
+### Documentation
+
+- Troubleshooting entry for links that need PUBLIC_URL
+- Pages for the Easter eggs and for what the apps count
+
 ## [0.10.0-rc.2] - 2026-11-11
 
 ### Added
