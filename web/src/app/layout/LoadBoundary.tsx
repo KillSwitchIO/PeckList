@@ -1,14 +1,16 @@
 import { Box, Button, Typography } from '@mui/material';
 import { Component, type ReactNode } from 'react';
 import { t } from '../i18n/i18n.ts';
+import { forgetFailedLoads } from '../lazyAgain.tsx';
 import { isLoadFailure } from '../loadOnce.ts';
 
 /**
  * Around a part of the screen that loads on first use (a page, the notes editor). When that part
  * could not be fetched, `fallback` says so there and the rest of the app goes on working: the
  * sidebar, other pages, the task's other fields. Any other error is a fault in the app and goes on
- * to CrashBoundary, which offers a report. A new `resetKey` (the page's address) starts it clean,
- * so going to another page and back tries again.
+ * to CrashBoundary, which offers a report. Starting over asks again for what could not load: a
+ * new `resetKey` (the page's address, so another page and back), or a new boundary on screen (the
+ * notes of another task).
  */
 export class LoadBoundary extends Component<
   { children: ReactNode; fallback: ReactNode; resetKey?: string },
@@ -16,12 +18,18 @@ export class LoadBoundary extends Component<
 > {
   override state = { failed: null as { error: unknown } | null };
 
+  constructor(props: { children: ReactNode; fallback: ReactNode; resetKey?: string }) {
+    super(props);
+    forgetFailedLoads();
+  }
+
   static getDerivedStateFromError(error: unknown) {
     return { failed: { error } };
   }
 
   override componentDidUpdate(previous: { resetKey?: string }) {
     if (this.state.failed && previous.resetKey !== this.props.resetKey) {
+      forgetFailedLoads();
       this.setState({ failed: null });
     }
   }
