@@ -12,5 +12,7 @@ website/versioned_sidebars
 website/versions.json
 website/build
 website/.docusaurus
+# Built from web/src by scripts/build-quick-add.mjs.
+server/src/PeckList.Server/Api/quickadd.js
 # Native Android project: Gradle and Android Studio own its formatting.
 mobile/android

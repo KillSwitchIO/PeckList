@@ -258,8 +258,9 @@ Someone who sends you a code and asks you to approve it is asking for a key to y
 :::
 
 With `--token` it saves an API key you made under Settings > Account > API keys, read from the
-keyboard without echo, or from standard input when piped. `--api-key KEY` saves the key given on
-the command line. The CLI never asks for your password.
+keyboard without echo, or from standard input when piped. Use `--token` to save a key:
+`login --api-key KEY` saves it too, but leaves it in your shell history. The CLI never asks for
+your password.
 
 The key is kept for your user only: on Linux in `~/.config/pecklist/cli.json` (or under
 `XDG_CONFIG_HOME`) with mode `600`, which the CLI checks before reading; on Windows in
@@ -274,7 +275,8 @@ these that is set wins:
 2. `PECKLIST_TOKEN` in the environment;
 3. the saved sign-in, for the server it was made on.
 
-A key given by flag or environment is never saved. A flag can end up in your shell history and is
+Given to any command but `login`, a key from the flag or the environment is used for that command
+only and never saved. A flag can end up in your shell history and is
 visible to other users of the machine in its process list, so on a shared machine prefer
 `PECKLIST_TOKEN` or a saved sign-in.
 

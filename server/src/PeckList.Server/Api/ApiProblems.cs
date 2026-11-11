@@ -24,7 +24,20 @@ public static class ApiProblems
     public sealed record Problem(string Type, string Title, int Status, string Code, string Detail, IReadOnlyDictionary<string, string[]>? Errors = null);
 
     public static Problem Of(int status, string code, string detail, IReadOnlyDictionary<string, string[]>? errors = null) =>
-        new("about:blank", Titles.GetValueOrDefault(status, "Error"), status, code, detail, errors);
+        new("about:blank", code == "busy" ? "Busy" : Titles.GetValueOrDefault(status, "Error"), status, code, detail, errors);
+
+    /// <summary>A <c>503 busy</c> with a <c>Retry-After</c>, so a client knows when to try again.</summary>
+    public static IResult Busy(string detail, TimeSpan retryAfter) =>
+        new RetryLater(Result(StatusCodes.Status503ServiceUnavailable, "busy", detail), retryAfter);
+
+    private sealed class RetryLater(IResult problem, TimeSpan wait) : IResult
+    {
+        public Task ExecuteAsync(HttpContext context)
+        {
+            Auth.AuthSetup.RetryAfter(context.Response, wait);
+            return problem.ExecuteAsync(context);
+        }
+    }
 
     public static IResult Result(int status, string code, string detail, IReadOnlyDictionary<string, string[]>? errors = null) =>
         Results.Json(Of(status, code, detail, errors), contentType: ContentType, statusCode: status);

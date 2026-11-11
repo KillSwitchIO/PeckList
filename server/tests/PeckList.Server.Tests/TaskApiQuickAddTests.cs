@@ -2,6 +2,10 @@ using System.Globalization;
 using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json.Nodes;
+using Microsoft.AspNetCore.TestHost;
+using Microsoft.Extensions.DependencyInjection;
+using PeckList.Core.Accounts;
+using PeckList.Core.Api;
 using static PeckList.Server.Tests.TaskApiWorld;
 
 namespace PeckList.Server.Tests;
@@ -123,6 +127,32 @@ public sealed class TaskApiQuickAddTests(ServerFixture fixture) : IClassFixture<
         Assert.Equal("scope", (string?)(await Expect(reader, new { text = "Mow" }, HttpStatusCode.Forbidden))["code"]);
         var writer = await world.KeyAsync(ben, "tasks:write");
         Assert.Equal("Mow", (string?)(await Expect(writer, new { text = "Mow" }, HttpStatusCode.Created))["task"]!["title"]);
+    }
+
+    [Fact]
+    public async Task A_busy_quick_add_says_when_to_try_again()
+    {
+        using var world = await StartAsync(fixture, Sqlite);
+        using var busy = world.Server.WithWebHostBuilder(host =>
+            host.ConfigureTestServices(services => services.AddSingleton<IQuickAddReader>(new BusyReader())));
+        await busy.Services.GetRequiredService<AccountService>()
+            .CreateUserAsync("ben", "a long enough password", mustChangePassword: false, cancellation: Token);
+        var client = busy.CreateClient();
+        (await client.PostAsJsonAsync("/auth/login", new { username = "ben", password = "a long enough password" }, Token)).EnsureSuccessStatusCode();
+
+        var response = await client.PostAsJsonAsync("/api/v1/tasks/quick", new { text = "Mow" }, Token);
+
+        Assert.Equal(HttpStatusCode.ServiceUnavailable, response.StatusCode);
+        Assert.Equal(TimeSpan.FromSeconds(1), response.Headers.RetryAfter?.Delta);
+        var problem = JsonNode.Parse(await response.Content.ReadAsStringAsync(Token))!;
+        Assert.Equal("busy", (string?)problem["code"]);
+        Assert.Equal("Busy", (string?)problem["title"]);
+    }
+
+    private sealed class BusyReader : IQuickAddReader
+    {
+        public Task<QuickAddResult> ReadAsync(string text, QuickAddContext context, CancellationToken cancellation = default) =>
+            throw new QuickAddBusyException();
     }
 
     private static string? Field(JsonObject problem) => problem["errors"] is JsonObject errors ? errors.Select(pair => pair.Key).FirstOrDefault() : null;

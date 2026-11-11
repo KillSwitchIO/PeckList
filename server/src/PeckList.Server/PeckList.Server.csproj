@@ -11,6 +11,7 @@
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="Fido2" />
+    <PackageReference Include="Jint" />
     <PackageReference Include="Lib.Net.Http.WebPush" />
     <PackageReference Include="MailKit" />
     <PackageReference Include="Microsoft.AspNetCore.Authentication.OpenIdConnect" />
@@ -30,6 +31,12 @@
   <!-- What pushed entities are checked against (audit S4): the same file the apps check with. -->
   <ItemGroup>
     <EmbeddedResource Include="..\..\..\schema\workspace.schema.json" LogicalName="workspace.schema.json" />
+  </ItemGroup>
+  <!-- The app's quick add, built from web/src by scripts/build-quick-add.mjs (PL-137). -->
+  <ItemGroup>
+    <Content Remove="Api\quickadd.js" />
+    <None Remove="Api\quickadd.js" />
+    <EmbeddedResource Include="Api\quickadd.js" LogicalName="PeckList.Server.quickadd.js" />
   </ItemGroup>
   <!-- A build CI stamped with its version (the image, the native packages): the usage report
        names its channel from the version; any other build is a developer's (channel dev). -->

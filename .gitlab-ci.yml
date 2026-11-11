@@ -207,6 +207,7 @@ lint:
       "pnpm typecheck"
     - pnpm check:version
     - pnpm check:docs
+    - pnpm check:quick-add
     - pnpm test:scripts
   rules:
     - *not-on-release-branch

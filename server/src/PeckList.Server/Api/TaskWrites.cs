@@ -27,7 +27,8 @@ public sealed class TaskWrites(
     Invites invites,
     IPushStore push,
     ServerSettings settings,
-    TimeProvider time)
+    TimeProvider time,
+    IQuickAddReader quickAdd)
 {
     public const string Origin = "api";
     public const int MaxSubtaskDepth = 5;
@@ -349,7 +350,7 @@ public sealed class TaskWrites(
         {
             return FieldProblem("text", "is required: the line to read");
         }
-        if (text.Length > QuickAdd.MaxText) return FieldProblem("text", $"must be at most {QuickAdd.MaxText} characters");
+        if (text.Length > IQuickAddReader.MaxText) return FieldProblem("text", $"must be at most {IQuickAddReader.MaxText} characters");
         string zone;
         if (body["timeZone"] is null) zone = await ZoneAsync(userId, cancellation);
         else if (body["timeZone"] is JsonValue zoneValue && zoneValue.TryGetValue<string>(out var given)
@@ -363,12 +364,16 @@ public sealed class TaskWrites(
         QuickAddResult parsed;
         try
         {
-            parsed = QuickAdd.Parse(text, context);
+            parsed = await quickAdd.ReadAsync(text, context, cancellation);
         }
-        catch (System.Text.RegularExpressions.RegexMatchTimeoutException)
+        catch (QuickAddTooSlowException)
         {
-            // Every pattern has a time limit; a line built to make one crawl is refused.
+            // Each reading has a time and memory limit; a line built to make one crawl is refused.
             return FieldProblem("text", "could not be read in time; send a shorter or plainer line");
+        }
+        catch (QuickAddBusyException)
+        {
+            return ApiProblems.Busy("quick add is busy; try again in a moment", TimeSpan.FromSeconds(1));
         }
         // Nothing left but the recognised words: the app keeps such a line as the title.
         var title = parsed.Title.Length > 0 ? parsed.Title : null;
@@ -415,7 +420,7 @@ public sealed class TaskWrites(
             .OrderByDescending(list => Flag(list.Doc, "isInbox"))
             .ThenBy(list => ApiShapes.Text(list.Doc, "order") ?? "", StringComparer.Ordinal)
             .ThenBy(list => list.Id, StringComparer.Ordinal)
-            .Select(list => new QuickList(list.Id, ApiShapes.Text(list.Doc, "name")!))
+            .Select(list => new QuickList(list.Id, ApiShapes.Text(list.Doc, "name")!, Flag(list.Doc, "isInbox")))
             .ToList();
 
         var tags = (await queries.TagsAsync(userId, cancellation))
