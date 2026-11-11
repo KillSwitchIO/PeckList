@@ -329,6 +329,20 @@ public static class AuthSetup
     {
         public async Task StartAsync(CancellationToken cancellation)
         {
+            // Who was a super admin before, so a promotion below is told (Y4).
+            var before = (await store.ListAsync(cancellation)).ToDictionary(each => each.Id, each => each.Role, StringComparer.Ordinal);
+            await StartAccountsAsync(cancellation);
+            foreach (var account in await store.ListAsync(cancellation))
+            {
+                if (account.Role != Role.SuperAdmin || !before.TryGetValue(account.Id, out var was) || was == Role.SuperAdmin) continue;
+                audit.RecordEvent(null, "auth.super-admin-restored", null, "system", account.Id, account.Username,
+                    $"was {was.Name()}: no active super admin was left");
+                logger.LogWarning("No active super admin was left, so {Username} (was {Role}) is one now.", account.Username, was.Name());
+            }
+        }
+
+        private async Task StartAccountsAsync(CancellationToken cancellation)
+        {
             if (settings.AuthMode == AuthMode.None)
             {
                 owner.Account = await accounts.EnsureOwnerAsync(cancellation);

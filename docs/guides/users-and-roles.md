@@ -26,7 +26,10 @@ super admin:
 The first account, `admin`, is a super admin. There is always at least one active super admin: the
 last one cannot be turned off, deleted or lose the role (from the page, the command line or a
 single sign-on role map). A deleted `admin` stays deleted while another super admin is active; the
-way back in from a shell is under [Troubleshooting](troubleshooting.md#signing-in).
+way back in from a shell is under [Troubleshooting](troubleshooting.md#signing-in). If a database
+is left with no active super admin (edited by hand, say), the next start makes one: `admin`, unless
+it is a plain user, else the oldest admin. It logs a warning and leaves an
+`auth.super-admin-restored` audit event naming the account and the role it had.
 
 Change a role under **Admin > Users > ... > Make admin**, or:
 

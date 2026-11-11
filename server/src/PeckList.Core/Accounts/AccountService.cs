@@ -192,15 +192,20 @@ public sealed class AccountService(IAccountStore store, IPasswordHasher hasher, 
 
     /// <summary>
     /// There is always an active super admin. Servers from before roles had only admins: the
-    /// bootstrap admin (else the oldest admin) is promoted.
+    /// bootstrap admin (else the oldest admin) is promoted. An <c>admin</c> someone made a plain user
+    /// comes after every admin (Y4), and is promoted only when there is none.
     /// </summary>
     public async Task EnsureSuperAdminAsync(CancellationToken cancellation = default)
     {
         var all = await store.ListAsync(cancellation);
         if (all.Any(IsActiveSuperAdmin)) return;
-        var pick = all.FirstOrDefault(account => account.Username == AdminUsername && !account.Disabled)
-            ?? all.FirstOrDefault(account => account.Role == Role.Admin && !account.Disabled);
-        if (pick is not null) await store.UpdateAsync(pick with { Role = Role.SuperAdmin }, cancellation);
+        // Not one in its delete grace period: it cannot sign in.
+        var bootstrap = all.FirstOrDefault(account => account.Username == AdminUsername && !account.Disabled && account.DeletedAt is null);
+        var pick = (bootstrap is { Role: not Role.User } ? bootstrap : null)
+            ?? all.FirstOrDefault(account => account.Role == Role.Admin && !account.Disabled && account.DeletedAt is null)
+            ?? bootstrap;
+        // The server picked the role, not a provider's map: no lease.
+        if (pick is not null) await store.UpdateAsync(pick with { Role = Role.SuperAdmin, RoleProvider = null, RoleRenewedAt = null }, cancellation);
     }
 
     /// <summary>
@@ -395,9 +400,15 @@ public sealed class AccountService(IAccountStore store, IPasswordHasher hasher, 
     }
 
     /// <summary>Give an account a new generated password it must change on login (CLI: admin reset-password).</summary>
+    /// <exception cref="ArgumentException">The account is deleted (in its grace period): a password would not sign in.</exception>
     public async Task<string> ResetPasswordAsync(string username, CancellationToken cancellation = default)
     {
         var account = await store.FindByUsernameAsync(username, cancellation) ?? throw new KeyNotFoundException($"no user '{username}'");
+        if (account.DeletedAt is { } deleted)
+        {
+            throw new ArgumentException(
+                $"'{account.Username}' was deleted on {deleted:yyyy-MM-dd} and cannot sign in: restore it under Admin > Users first, or name another account");
+        }
         return await SetPasswordAsync(account.Id, null, cancellation);
     }
 
