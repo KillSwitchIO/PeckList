@@ -36,7 +36,7 @@ import {
   moveTask,
 } from '../../core/tasks.ts';
 import { visibleLists } from '../../core/lists.ts';
-import { canEditList } from '../../core/sharing.ts';
+import { canEditList, canMoveTask } from '../../core/sharing.ts';
 import type { Task } from '../../core/types.ts';
 import { useToday } from '../hooks/useToday.ts';
 import { t } from '../i18n/i18n.ts';
@@ -141,8 +141,12 @@ function NestUnderDialog({ task, onClose }: { task: Task; onClose: () => void })
   const workspace = useWorkspace();
   const apply = useApply();
   const today = useToday();
-  const candidates = filterTasks(workspace, ALL_TASKS, today).filter((other) =>
-    canNestUnder(workspace, task.id, other.id),
+  const me = useStoreState((state) => state.context().userId);
+  // A task I can't move out of its list nests only under tasks in the same list.
+  const movable = canMoveTask(workspace, me, task);
+  const candidates = filterTasks(workspace, ALL_TASKS, today).filter(
+    (other) =>
+      canNestUnder(workspace, task.id, other.id) && (movable || other.listId === task.listId),
   );
   const choose = (parent: Task) => {
     apply(
@@ -257,6 +261,9 @@ export function TaskMenu({
     setDraft(task.progress);
   }
   const readOnly = useReadOnly();
+  const workspace = useWorkspace();
+  const me = useStoreState((state) => state.context().userId);
+  const movable = canMoveTask(workspace, me, task);
   const closeMenu = onClose;
   const run = (action: () => void) => () => {
     closeMenu();
@@ -373,12 +380,14 @@ export function TaskMenu({
           </Typography>
         </Box>
         <Divider />
-        <MenuItem onClick={run(() => setMoving(true))}>
-          <ListItemIcon>
-            <DriveFileMoveOutlined fontSize="small" />
-          </ListItemIcon>
-          {t('task.moveTo')}
-        </MenuItem>
+        {movable && (
+          <MenuItem onClick={run(() => setMoving(true))}>
+            <ListItemIcon>
+              <DriveFileMoveOutlined fontSize="small" />
+            </ListItemIcon>
+            {t('task.moveTo')}
+          </MenuItem>
+        )}
         <MenuItem onClick={run(() => setNesting(true))}>
           <ListItemIcon>
             <AccountTreeOutlined fontSize="small" />

@@ -1038,8 +1038,13 @@ public sealed class SharingIndex
                 if (before is null) return CanEditIn(this, newList, after.Id) || (newList is not null && beforeIndex.ListRole(userId, newList) is "owner" or "editor");
                 var oldList = Field(before.Doc, "listId");
                 if (!CanEditIn(beforeIndex, oldList, before.Id)) return false;
-                // Moving needs the destination too.
-                return oldList == newList || (newList is not null && ListRole(userId, newList) is "owner" or "editor");
+                if (oldList == newList) return true;
+                // Moving takes it out of its list: owner or editor there (being assigned is not
+                // enough; out of no list, its owner), and owner or editor on the destination.
+                var mayLeave = oldList is null
+                    ? before.OwnerId == userId
+                    : beforeIndex.ListRole(userId, oldList) is "owner" or "editor";
+                return mayLeave && newList is not null && ListRole(userId, newList) is "owner" or "editor";
             }
             case "comments":
             {

@@ -4,6 +4,7 @@ import { getEntity, isLive, putEntities, putEntity, requireEntity } from './coll
 import { addDays, datePart, daysBetween, localTimeZone, timePart, todayIn } from './dates.ts';
 import { followIntoTrash, followOutOfTrash } from './followTask.ts';
 import { advance, formatRule, parseRule } from './recurrence.ts';
+import { canMoveTask } from './sharing.ts';
 import { compareByOrder, compareOrderKeys, keyBetween } from './ordering.ts';
 import {
   createEntity,
@@ -460,6 +461,8 @@ export function moveTask(
   }
   const parent = parentId ? requireEntity(workspace, 'tasks', parentId) : null;
   const listId = parent?.listId ?? target.listId;
+  // Out of a list I can't edit (assigned to me there): it stays put, as the server would keep it.
+  if (listId !== task.listId && !canMoveTask(workspace, ctx.userId, task)) return workspace;
   const peers = siblings(workspace, listId, parentId).filter((peer) => peer.id !== id);
 
   let before: string | null;

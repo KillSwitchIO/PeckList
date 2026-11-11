@@ -154,6 +154,14 @@ export function canEditTask(workspace: WorkspaceFile, me: Id, task: Task): boole
   );
 }
 
+/**
+ * Whether I may move a task to another list: that takes it out of its list, so it needs owner or
+ * editor there (as the server rules). An assignee who can't edit the list changes the task in place.
+ */
+export function canMoveTask(workspace: WorkspaceFile, me: Id, task: Task): boolean {
+  return canEditList(workspace, me, task.listId);
+}
+
 /** Me and the groups I am an active member of, as principals. */
 function principalsOf(workspace: WorkspaceFile, me: Id): string[] {
   return [

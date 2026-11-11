@@ -1,14 +1,14 @@
-import { screen, waitFor, within } from '@testing-library/react';
+import { fireEvent, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { createMemoryStorage } from '../../adapters/memory-storage.ts';
 import { putEntity } from '../../core/collections.ts';
 import { createList } from '../../core/lists.ts';
-import { createEntity } from '../../core/ops.ts';
+import { createEntity, updateEntity } from '../../core/ops.ts';
 import { assigneesOf, setAssignee } from '../../core/sharing.ts';
 import { createTask } from '../../core/tasks.ts';
 import type { OpContext } from '../../core/ops.ts';
-import type { Friendship, GroupMember, User, WorkspaceFile } from '../../core/types.ts';
+import type { Friendship, GroupMember, ListMember, User, WorkspaceFile } from '../../core/types.ts';
 import { FakeBackend } from '../../test/fakeTransport.ts';
 import { mockViewport, renderApp, testStore } from '../../test/renderApp.tsx';
 import { createSyncEngine } from '../sync/syncEngine.ts';
@@ -136,6 +136,35 @@ describe('assigning a task', () => {
     await userEvent.click(await screen.findByRole('button', { name: 'Open Water beans' }));
     const details = await screen.findByRole('region', { name: 'Task details' });
     expect(within(details).getByText("Someone else's list")).toBeInTheDocument();
+  });
+
+  it('offers no move out of a list I only view, though the task is assigned to me', async () => {
+    const store = testStore();
+    await store.getState().init();
+    store.getState().apply((ctx, ws) => {
+      const made = createList(ctx, ws, { name: 'Theirs', color: '#CFE3A3' });
+      // Sam's list, shared with me as a viewer.
+      const list = updateEntity(ctx, made.list, { ownerId: SAM, visibility: 'shared' });
+      const member = createEntity<ListMember>(ctx, {
+        listId: list.id,
+        principal: `user:${ctx.userId}`,
+        role: 'viewer',
+      });
+      const withList = putEntity(putEntity(made.workspace, 'lists', list), 'listMembers', member);
+      const created = createTask(ctx, withList, { title: 'Water beans', listId: list.id });
+      return setAssignee(ctx, created.workspace, created.task.id, `user:${ctx.userId}`, true);
+    });
+    await store.getState().flush();
+    await renderApp('/assigned', store);
+    const row = await screen.findByRole('button', { name: 'Open Water beans' });
+    fireEvent.contextMenu(row);
+    const menu = await screen.findByRole('menu');
+    expect(within(menu).queryByRole('menuitem', { name: 'Move to list...' })).toBeNull();
+    await userEvent.keyboard('{Escape}');
+
+    await userEvent.click(row);
+    const details = await screen.findByRole('region', { name: 'Task details' });
+    expect(within(details).getByRole('button', { name: /^List: Theirs/ })).toBeDisabled();
   });
 
   it('invites someone by username: a friend request, and the task waits for them', async () => {
