@@ -64,6 +64,8 @@ public static class Cli
         if (command is "help" or "--help" or "-h")
         {
             await output.WriteLineAsync(Usage);
+            await output.WriteLineAsync();
+            await output.WriteLineAsync(PeckList.Client.ClientCli.Usage);
             return 0;
         }
         environment ??= FileAwareSecretSource.FromEnvironment();

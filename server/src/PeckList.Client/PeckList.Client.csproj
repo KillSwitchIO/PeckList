@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- The command line's client side (PL-133): the task API and admin API over HTTP, the token
+       store and the commands. No ASP.NET, so the client download stays small; the server program
+       references it and hands it the commands it does not run itself. -->
+  <PropertyGroup>
+    <IsTrimmable>true</IsTrimmable>
+    <IsAotCompatible>true</IsAotCompatible>
+    <!-- DPAPI through LibraryImport (Windows token file). -->
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+  </PropertyGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="PeckList.Client.Tests" />
+    <InternalsVisibleTo Include="PeckList.Server.Tests" />
+  </ItemGroup>
+</Project>

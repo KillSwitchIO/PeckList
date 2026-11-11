@@ -14,6 +14,12 @@ if (args is ["--version" or "version", ..])
     return 0;
 }
 
+// The client commands (PL-133), and any command aimed at a server elsewhere (--server, --profile).
+if (PeckList.Client.ClientCli.Handles(args))
+{
+    return await PeckList.Client.ClientCli.RunAsync(args, PeckList.Client.ClientIo.FromConsole(), serverBuild: true);
+}
+
 if (args.Length > 0 && Cli.Commands.Contains(args[0]))
 {
     return await Cli.RunAsync(args, Console.Out, Console.Error, Console.OpenStandardOutput());

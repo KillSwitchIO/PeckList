@@ -343,6 +343,30 @@ export interface ApiKeysApi {
   revoke(id: string): Promise<void>;
 }
 
+/** A terminal waiting to be signed in (PL-133): what the /cli page shows before Approve. */
+export interface CliSignInRequest {
+  userCode: string;
+  name: string;
+  requestedAt: string;
+  address: string | null;
+  yourAddress: string | null;
+  adminAsked: boolean;
+  mayGrantAdmin: boolean;
+}
+
+/** Why a code could not be used: none waiting, too many wrong ones, or not this kind of session. */
+export type CliSignInProblem = 'not_found' | 'too_many_tries' | 'not_allowed' | 'failed';
+
+/** Signing the command line in (servers with accounts). */
+export interface CliSignInApi {
+  lookup(code: string): Promise<CliSignInRequest | { problem: CliSignInProblem }>;
+  approve(
+    code: string,
+    admin: boolean,
+  ): Promise<{ keyName: string } | { problem: CliSignInProblem }>;
+  deny(code: string): Promise<{ problem: CliSignInProblem } | null>;
+}
+
 /** Friend links and lookups (servers only). */
 /**
  * The server's answer to too many requests in a short time (429, audit S13: lookups and friend
@@ -554,6 +578,8 @@ export interface SyncTransport {
   telemetry?: TelemetryApi;
   /** API keys (optional: older servers have none). */
   apiKeys?: ApiKeysApi;
+  /** Approving a terminal's sign-in (optional: older servers have none). */
+  cliSignIn?: CliSignInApi;
   /** Attached files (optional: older servers keep none). */
   files?: FileApi;
   /** Admin actions; the server refuses them for anyone without the permission. */

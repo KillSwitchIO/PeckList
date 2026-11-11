@@ -34,6 +34,7 @@ import {
   SettingsPage,
   ManageListsPage,
   ApiKeysPage,
+  CliSignInPage,
   StatsPage,
 } from './lazyPages.ts';
 
@@ -102,6 +103,7 @@ export function AppRoutes() {
           <Route path="/settings" element={<SettingsPage />} />
           <Route path="/settings/lists" element={<ManageListsPage />} />
           <Route path="/settings/api-keys" element={<ApiKeysPage />} />
+          <Route path="/cli" element={<CliSignInPage />} />
           <Route path="/settings/:section" element={<SettingsPage />} />
           <Route path="/stats" element={<StatsPage />} />
           <Route path="/admin" element={<AdminPage />} />

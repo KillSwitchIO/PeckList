@@ -177,6 +177,8 @@ test('every kind of download takes its version before the extension', () => {
     'pecklist-linux-x64.tar.gz': 'pecklist-linux-x64-0.8.0-rc.2.tar.gz',
     'pecklist-linux-arm64.tar.gz': 'pecklist-linux-arm64-0.8.0-rc.2.tar.gz',
     'pecklist-win-x64.zip': 'pecklist-win-x64-0.8.0-rc.2.zip',
+    'pecklist-cli-linux-x64.tar.gz': 'pecklist-cli-linux-x64-0.8.0-rc.2.tar.gz',
+    'pecklist-cli-win-x64.zip': 'pecklist-cli-win-x64-0.8.0-rc.2.zip',
     SHA256SUMS: 'SHA256SUMS',
   };
   for (const [file, saved] of Object.entries(names)) {

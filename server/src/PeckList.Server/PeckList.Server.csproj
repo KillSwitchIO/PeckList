@@ -4,6 +4,7 @@
     <AssemblyName>pecklist</AssemblyName>
   </PropertyGroup>
   <ItemGroup>
+    <ProjectReference Include="..\PeckList.Client\PeckList.Client.csproj" />
     <ProjectReference Include="..\PeckList.Core\PeckList.Core.csproj" />
     <ProjectReference Include="..\PeckList.Storage.Postgres\PeckList.Storage.Postgres.csproj" />
     <ProjectReference Include="..\PeckList.Storage.Sqlite\PeckList.Storage.Sqlite.csproj" />

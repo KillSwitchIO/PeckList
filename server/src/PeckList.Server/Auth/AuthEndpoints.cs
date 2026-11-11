@@ -95,7 +95,7 @@ public static class AuthEndpoints
             context.Audit().On(null, Typed(request.Username)).Anonymous = true;
             var hasInvite = !string.IsNullOrWhiteSpace(request.Invite);
             context.Audit().Detail = hasInvite ? "with an invite" : "open sign-up";
-            var address = context.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+            var address = AuthSetup.AddressKey(context);
             if (!throttle.Allows(address))
             {
                 context.Audit().Detail = "too many accounts from one address";

@@ -405,11 +405,20 @@ public sealed class AuditLog : BackgroundService
     /// <summary>The full template with route parameter names, never values.</summary>
     private static string Template(RoutePattern pattern) => "/" + (pattern.RawText ?? "").TrimStart('/');
 
-    /// <summary>The browser or app, from the user agent, cut to <see cref="DeviceLength"/>; null without one.</summary>
-    private static string? DeviceOf(HttpContext context) =>
-        context.Request.Headers.UserAgent.ToString() is { Length: > 0 } agent
-            ? SafeText.Cut(agent, DeviceLength)
-            : null;
+    /// <summary>
+    /// The browser or app, from the user agent, cut to <see cref="DeviceLength"/>; null without one.
+    /// A request signed in by an API key names the key first, so what a key did can be told apart
+    /// (a CLI's export, a script's writes) and the key revoked.
+    /// </summary>
+    private static string? DeviceOf(HttpContext context)
+    {
+        var agent = context.Request.Headers.UserAgent.ToString();
+        if (context.User.ByKey() && context.User.FindFirstValue(ApiKeyAuth.KeyClaim) is { } key)
+        {
+            agent = agent.Length > 0 ? $"API key {key}; {agent}" : $"API key {key}";
+        }
+        return agent.Length > 0 ? SafeText.Cut(agent, DeviceLength) : null;
+    }
 
     private static string? Address(IPAddress? address) =>
         address is null ? null : (address.IsIPv4MappedToIPv6 ? address.MapToIPv4() : address).ToString();

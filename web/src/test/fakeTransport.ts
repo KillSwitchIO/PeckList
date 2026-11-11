@@ -20,6 +20,8 @@ import {
   type UpdatesApi,
   type ApiKeyInfo,
   type ApiKeysApi,
+  type CliSignInApi,
+  type CliSignInRequest,
   type HistoryEntry,
   type NotificationsApi,
   type PushApi,
@@ -164,6 +166,11 @@ export class FakeBackend {
   readonly history = new Map<string, HistoryEntry[]>();
   /** Each account's API keys, by username (the fake keeps them as listed). */
   readonly apiKeys = new Map<string, ApiKeyInfo[]>();
+  /** Terminals waiting to sign in, by code as stored (no dash); tests add them. */
+  readonly cliSignIns = new Map<
+    string,
+    CliSignInRequest & { state: 'pending' | 'approved' | 'denied'; admin?: boolean }
+  >();
   /** The version the server says it runs. */
   serverVersion = '0.1.0';
   /** What a demo server (`DEMO_MODE`) tells the app; null on an ordinary one. */
@@ -463,6 +470,28 @@ export class FakeTransport implements SyncTransport {
         ),
       );
       return Promise.resolve();
+    },
+  };
+
+  readonly cliSignIn: CliSignInApi = {
+    lookup: (code) => {
+      const found = this.backend.cliSignIns.get(code.toUpperCase().replace(/[-\s]/g, ''));
+      return Promise.resolve(
+        found?.state === 'pending' ? found : { problem: 'not_found' as const },
+      );
+    },
+    approve: (code, admin) => {
+      const found = this.backend.cliSignIns.get(code.toUpperCase().replace(/[-\s]/g, ''));
+      if (found?.state !== 'pending') return Promise.resolve({ problem: 'not_found' as const });
+      found.state = 'approved';
+      found.admin = admin;
+      return Promise.resolve({ keyName: `CLI: ${found.name}` });
+    },
+    deny: (code) => {
+      const found = this.backend.cliSignIns.get(code.toUpperCase().replace(/[-\s]/g, ''));
+      if (found?.state !== 'pending') return Promise.resolve({ problem: 'not_found' as const });
+      found.state = 'denied';
+      return Promise.resolve(null);
     },
   };
 

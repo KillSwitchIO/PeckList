@@ -69,6 +69,8 @@ public sealed class CliTests : IDisposable
         var (code, output, _, _) = await Run(Settings(), "help");
         Assert.Equal(0, code);
         Assert.Contains("admin reset-password", output);
+        Assert.Contains("Client commands", output);
+        Assert.Contains("tasks add TEXT", output);
     }
 
     [Fact]

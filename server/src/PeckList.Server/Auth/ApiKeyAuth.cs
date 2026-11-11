@@ -95,6 +95,8 @@ public static class ApiKeyAuth
         if (path.StartsWithSegments("/api/admin")) return ApiScopes.Admin;
         // The task API (PL-137): reads with tasks:read, writes with tasks:write; who am I with any key.
         if (path.Equals("/api/v1/me")) return get ? AnyScope : null;
+        // Signing the CLI in is never a key's (approving makes keys); signing out is any key's own.
+        if (path.StartsWithSegments("/api/v1/cli")) return path.Equals("/api/v1/cli/sign-in") && HttpMethods.IsDelete(method) ? AnyScope : null;
         if (path.StartsWithSegments("/api/v1"))
         {
             if (get) return ApiScopes.TasksRead;

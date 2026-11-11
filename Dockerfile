@@ -37,6 +37,7 @@ ARG REVISION
 WORKDIR /src
 COPY server/global.json server/Directory.Build.props server/Directory.Packages.props ./
 COPY server/src/PeckList.Core/PeckList.Core.csproj src/PeckList.Core/
+COPY server/src/PeckList.Client/PeckList.Client.csproj src/PeckList.Client/
 COPY server/src/PeckList.Server/PeckList.Server.csproj src/PeckList.Server/
 COPY server/src/PeckList.Storage.Sql/PeckList.Storage.Sql.csproj src/PeckList.Storage.Sql/
 COPY server/src/PeckList.Storage.Sqlite/PeckList.Storage.Sqlite.csproj src/PeckList.Storage.Sqlite/

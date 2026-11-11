@@ -232,8 +232,12 @@ public sealed class TaskApiWriteTests(ServerFixture fixture) : IClassFixture<Ser
         foreach (var (method, pattern) in routes)
         {
             var path = pattern.Replace("{id}", "NOPE", StringComparison.Ordinal);
+            // Signing out revokes the calling key: CliSignInTests covers it.
+            if (path == "/api/v1/cli/sign-in" && method == "DELETE") continue;
             var isRead = method == "GET";
-            foreach (var (key, may) in new[] { (reader, isRead), (other, path == "/api/v1/me") })
+            // Signing the CLI in is never a key's.
+            var cli = path.StartsWith("/api/v1/cli/", StringComparison.Ordinal);
+            foreach (var (key, may) in new[] { (reader, isRead && !cli), (other, path == "/api/v1/me") })
             {
                 var (status, body) = await Send(key, new HttpMethod(method), path, isRead ? null : new { });
                 var refused = status == HttpStatusCode.Forbidden && (string?)body["code"] == "scope";

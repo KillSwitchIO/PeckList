@@ -119,6 +119,8 @@ public static partial class ServerApp
         builder.Services.AddSingleton<SyncService>();
         builder.Services.AddSingleton<PeckList.Core.Api.TaskQueries>();
         builder.Services.AddSingleton<TaskWrites>();
+        builder.Services.AddSingleton<CliSignIns>();
+        builder.Services.AddHostedService<CliSignInSweeper>();
         builder.Services.AddSingleton<PeckList.Core.Attachments.IAttachmentStore>(new Attachments.FileAttachmentStore(settings.AttachmentDir));
         builder.Services.AddSingleton<Attachments.UploadAllowance>();
         builder.Services.AddHostedService<Attachments.AttachmentCleanup>();
@@ -211,6 +213,7 @@ public static partial class ServerApp
         app.MapAuth();
         app.MapGroup("/api").RequireAuthorization().RequirePasswordChanged().EnsureProfiles().MapSync().MapFriends().MapAccount().MapAccountEmail().MapAccountPasskeys().MapAttachments().MapNotifications().MapHistory().MapPush().MapProviderPicture().MapAppCheck().MapUpdates().MapApiKeys().MapClientTelemetry().MapCrashReports();
         app.MapGroup("/api/v1").RequireAuthorization().RequirePasswordChanged().EnsureProfiles().MapTaskApi();
+        app.MapCliSignIn();
         app.MapGroup("/api/admin").RequireAuthorization().RequirePasswordChanged().MapAdmin().MapAdminEmail().MapAdminPasskeys().MapSettings().MapBackups().MapLogging().MapAudit().MapStats().MapSetup().MapTelemetry().MapAdminCrashReports();
 
         var webRoot = settings.WebRoot ?? Path.Combine(AppContext.BaseDirectory, "wwwroot");
