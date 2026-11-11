@@ -34,7 +34,7 @@ public static class AppCheckEndpoints
 
     public static RouteGroupBuilder MapAppCheck(this RouteGroupBuilder api)
     {
-        api.MapGet("/app/check", async (string? after, string? zone, ClaimsPrincipal user, INotificationStore store,
+        api.MapGet("/app/check", async (string? after, string? zone, string? reminders, ClaimsPrincipal user, INotificationStore store,
             IAccountStore accounts, SharingState sharing, TimeProvider time, Core.Push.IPushStore push,
             Core.Configuration.ServerSettings settings, CancellationToken cancellation) =>
         {
@@ -71,15 +71,21 @@ public static class AppCheckEndpoints
                 notifications.Add(new AppCheckNotification(each.Id, each.Kind, "PeckList", body, url, NotificationText.ActionsOf(each, url)));
             }
 
+            // With the app on screen it asks for none (reminders=0): the web app sets them then, and
+            // working them out walks every task (P7).
+            if (reminders is "0" || string.Equals(reminders, "false", StringComparison.OrdinalIgnoreCase))
+            {
+                return new AppCheck(cursor, notifications, []);
+            }
             var now = time.GetUtcNow();
             // This check's own zone is the freshest word from the device.
             var device = DeviceZones.Valid(zone) ?? (settings.TimeZoneChosen ? null : await push.DeviceZoneAsync(me, cancellation));
             var snoozes = await push.SnoozesAsync(now - ServerReminders.RepeatsLast, now + Ahead, me, cancellation);
-            var reminders = ReminderSender.UpcomingFor(index, me, now, now + Ahead, device, settings.TimeZoneChosen, snoozes)
+            var upcoming = ReminderSender.UpcomingFor(index, me, now, now + Ahead, device, settings.TimeZoneChosen, snoozes)
                 .Take(AheadMax)
                 .Select(each => new AppCheckReminder(each.Key, each.Title, each.Body, each.At.ToUnixTimeMilliseconds(), each.Url, each.Constant, each.Repeats))
                 .ToList();
-            return new AppCheck(cursor, notifications, reminders);
+            return new AppCheck(cursor, notifications, upcoming);
         });
 
         return api;

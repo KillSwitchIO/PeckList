@@ -34,7 +34,21 @@ async function signedIn(path: string, backend: FakeBackend) {
   });
   const result = await renderApp(path, store, sync);
   await waitFor(() => expect(sync.getState().phase).toBe('ready'));
-  return { ...result, sync };
+  return { ...result, sync, transport };
+}
+
+/**
+ * Waits until no sync has finished for a while and the fetch after the last one has gone:
+ * signing in runs a few syncs, which settle into one first look (audit P7).
+ */
+async function settled(sync: { getState(): { lastSynced: number | null } }) {
+  let last = sync.getState().lastSynced;
+  for (let quiet = 0; quiet < 2;) {
+    await act(() => new Promise((settle) => setTimeout(settle, 250)));
+    const now = sync.getState().lastSynced;
+    quiet = now === last ? quiet + 1 : 0;
+    last = now;
+  }
 }
 
 describe('notifications', () => {
@@ -121,6 +135,7 @@ describe('notifications', () => {
       read: false,
     });
     // Signing in was the first look (nothing there); what the next sync brings is news.
+    await settled(sync);
     expect(shown).toEqual([]);
     backend.notifications.set('ben', [news('N1', 'assigned')]);
     await act(() => sync.getState().syncNow());
@@ -154,6 +169,91 @@ describe('notifications', () => {
     await act(() => sync.getState().syncNow());
     await new Promise((resolve) => setTimeout(resolve, 50));
     expect(shown).toHaveLength(2);
+  });
+
+  it('are fetched once for syncs close together, and not while the page is hidden (audit P7)', async () => {
+    const backend = new FakeBackend();
+    backend.addAccount('ben', 'correct horse battery');
+    const { sync, transport } = await signedIn('/today', backend);
+    const notifications = transport.notifications;
+    let fetches = 0;
+    const list = notifications.list.bind(notifications);
+    notifications.list = () => {
+      fetches += 1;
+      return list();
+    };
+    await settled(sync);
+    fetches = 0;
+    // Three syncs in a row, as signing in runs: one fetch.
+    await act(() => sync.getState().syncNow());
+    await act(() => sync.getState().syncNow());
+    await act(() => sync.getState().syncNow());
+    await settled(sync);
+    expect(fetches).toBe(1);
+
+    // A hidden tab keeps syncing but fetches nothing; shown again, it syncs and fetches once.
+    const hidden = vi.spyOn(document, 'visibilityState', 'get').mockReturnValue('hidden');
+    act(() => {
+      document.dispatchEvent(new Event('visibilitychange'));
+    });
+    await act(() => sync.getState().syncNow());
+    await act(() => sync.getState().syncNow());
+    await settled(sync);
+    expect(fetches).toBe(1);
+    hidden.mockRestore();
+    act(() => {
+      document.dispatchEvent(new Event('visibilitychange'));
+    });
+    await settled(sync);
+    expect(fetches).toBe(2);
+  });
+
+  it('news that came while the page was hidden is not shown again once it is shown (audit P7)', async () => {
+    const shown: { tag?: string }[] = [];
+    setNotifier({
+      ...browser,
+      permission: () => 'granted',
+      show: (notification) => {
+        shown.push(notification);
+        return Promise.resolve();
+      },
+    });
+    const backend = new FakeBackend();
+    backend.addAccount('ben', 'correct horse battery');
+    const sam = backend.addAccount('sam', 'sams own password');
+    const { sync } = await signedIn('/today', backend);
+    const news = (id: string) => ({
+      id,
+      kind: 'assigned' as const,
+      at: '2026-10-24T15:00:00.000Z',
+      actorId: sam.id,
+      taskId: null,
+      listId: null,
+      commentId: null,
+      read: false,
+    });
+    await settled(sync);
+    // Hidden: a sync brings news, which the server sent as a Web Push.
+    const hidden = vi.spyOn(document, 'visibilityState', 'get').mockReturnValue('hidden');
+    act(() => {
+      document.dispatchEvent(new Event('visibilitychange'));
+    });
+    backend.notifications.set('ben', [news('N1')]);
+    await act(() => sync.getState().syncNow());
+    await settled(sync);
+    // Shown again: listed, not popped up a second time.
+    hidden.mockRestore();
+    act(() => {
+      document.dispatchEvent(new Event('visibilitychange'));
+    });
+    await screen.findByRole('button', { name: /1 new notification/ });
+    await settled(sync);
+    expect(shown).toEqual([]);
+
+    // News while it is on screen shows as before.
+    backend.notifications.set('ben', [news('N2'), news('N1')]);
+    await act(() => sync.getState().syncNow());
+    await waitFor(() => expect(shown.map((each) => each.tag)).toEqual(['N2']));
   });
 
   it('a task opened before the first sync says it is being looked for, then that it is gone', async () => {
@@ -221,6 +321,7 @@ describe('notifications', () => {
       commentId: null,
       read: false,
     });
+    await settled(sync);
     backend.notifications.set('ben', [news('N1', 'assigned'), news('N2', 'shared')]);
     await act(() => sync.getState().syncNow());
     await screen.findByRole('button', { name: /2 new notifications/ });

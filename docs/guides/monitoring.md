@@ -25,6 +25,20 @@ Only counts, never titles or other content. Months follow the server's time zone
 numbers are worked out again after a sync changes data, or every five minutes. Everyone sees their
 own numbers under **Stats** in their profile menu.
 
+## Memory
+
+The server's runtime sizes its heap from the memory it is allowed: a container's memory limit, or a
+service's `MemoryMax=`, and with neither the whole machine. Give it a limit, so it fits alongside
+everything else on the host and gives memory back under pressure:
+
+- `docker run --memory 512m ...`, or `mem_limit: 512m` under the service in Compose.
+- A native install under systemd: `sudo systemctl edit pecklist`, then `MemoryMax=512M` under
+  `[Service]`.
+
+The server already gives freed memory back more readily than the runtime's default. For a hard cap
+on the heap itself, below the limit, set `DOTNET_GCHeapHardLimitPercent`; its value is hexadecimal,
+so `0x4B` is 75%.
+
 ## Logs and alerts
 
 Ship [logs](logging.md) to Loki, Elasticsearch, Graylog or an OpenTelemetry collector and alert on

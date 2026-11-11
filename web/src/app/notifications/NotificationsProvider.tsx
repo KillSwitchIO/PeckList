@@ -48,9 +48,19 @@ function subscribe(changed: () => void): () => void {
   };
 }
 
+/** Syncs this close together (signing in runs a few) make one fetch. */
+const SETTLE_MS = 300;
+
+function pageVisible(): boolean {
+  return typeof document === 'undefined' || document.visibilityState !== 'hidden';
+}
+
 /**
- * My notifications (spec: PL-061): the server's (assignments, shares, mentions), fetched after
- * every sync, and the reminders that fired on this device. Reading or clearing goes to both.
+ * My notifications (spec: PL-061): the server's (assignments, shares, mentions), fetched once
+ * after a sync (audit P7: it was three times at sign-in and again at every sync, in a hidden tab
+ * too; now syncs close together make one fetch, and a hidden tab fetches nothing until the sync
+ * that showing it again runs), and
+ * the reminders that fired on this device. Reading or clearing goes to both.
  * News that arrives while the app is on screen shows as a system notification too, worded as the
  * server's push would be, so a share or an assignment is seen without waiting for the next
  * check-in (the drill of 2026-10-29); what is there at the first look is not news.
@@ -70,45 +80,68 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
   }, [workspace]);
   // The ids seen so far, null before the first look.
   const known = useRef<Set<string> | null>(null);
+  // The sync the last fetch followed: one fetch for each.
+  const fetchedAfter = useRef<number | null>(null);
+  // A sync passed by while hidden: what it brought went out as a Web Push then, so the first look
+  // after the tab is shown takes it in without showing it again (one dismissed would pop back).
+  const missedHidden = useRef(false);
 
   useEffect(() => {
     if (!api || !ready) {
       known.current = null;
+      fetchedAfter.current = null;
+      missedHidden.current = false;
       return;
     }
+    if (synced === null || synced === fetchedAfter.current) return;
     let current = true;
-    api.list().then(
-      (feed) => {
-        if (!current) return;
-        setServer(feed.items);
-        const seen = known.current;
-        known.current = new Set(feed.items.map((each) => each.id));
-        if (!seen || typeof document === 'undefined' || document.visibilityState !== 'visible') {
-          return;
-        }
-        const settings = latest.current.entities.settings[0];
-        for (const each of feed.items) {
-          if (seen.has(each.id) || each.read || each.kind === 'reminder') continue;
-          if (!notificationAllowed(settings, each.kind)) continue;
-          const item = itemOf(each);
-          void notifier()
-            .show({
-              kind: 'news',
-              category: each.kind,
-              vibrate: vibrates(settings),
-              title: 'PeckList',
-              body: notificationSentence(latest.current, item),
-              tag: each.id,
-              url: notificationUrl(item),
-              actions: notificationActions(item),
-            })
-            .catch(() => undefined);
-        }
-      },
-      () => undefined,
-    );
+    const timer = setTimeout(() => {
+      // A hidden tab keeps syncing but leaves this; shown again, its wake-up sync fetches.
+      if (!pageVisible()) {
+        missedHidden.current = true;
+        return;
+      }
+      fetchedAfter.current = synced;
+      const quiet = missedHidden.current;
+      missedHidden.current = false;
+      void fetchNow(quiet);
+    }, SETTLE_MS);
+    const fetchNow = (quiet: boolean) =>
+      api.list().then(
+        (feed) => {
+          if (!current) return;
+          setServer(feed.items);
+          const seen = known.current;
+          known.current = new Set(feed.items.map((each) => each.id));
+          if (quiet || !seen || typeof document === 'undefined') return;
+          if (document.visibilityState !== 'visible') return;
+          const settings = latest.current.entities.settings[0];
+          for (const each of feed.items) {
+            if (seen.has(each.id) || each.read || each.kind === 'reminder') continue;
+            if (!notificationAllowed(settings, each.kind)) continue;
+            const item = itemOf(each);
+            void notifier()
+              .show({
+                kind: 'news',
+                category: each.kind,
+                vibrate: vibrates(settings),
+                title: 'PeckList',
+                body: notificationSentence(latest.current, item),
+                tag: each.id,
+                url: notificationUrl(item),
+                actions: notificationActions(item),
+              })
+              .catch(() => undefined);
+          }
+        },
+        () => {
+          // Not had: the next fetch is still the first look since the tab was hidden.
+          if (quiet) missedHidden.current = true;
+        },
+      );
     return () => {
       current = false;
+      clearTimeout(timer);
     };
   }, [api, ready, synced]);
 
