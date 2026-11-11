@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Text.Json.Nodes;
 using System.Text.RegularExpressions;
 using PeckList.Core.Sharing;
@@ -91,25 +92,32 @@ public static partial class NotificationRules
     // inside, and an @ where a word begins (the start, after a space or "("): a letter or digit, then
     // letters, digits and . _ -, not ending in a mark, so "@sam." names sam. Both read
     // schema/fixtures/mentions/cases.json in their tests.
+    // Spaces are JavaScript's (its \s and trim), not .NET's: U+FEFF counts, U+0085 doesn't. A letter
+    // or digit beyond U+FFFF is a letter, as the app's Unicode patterns read it (see Shadow).
+    private const string Space = @"\t\n\v\f\r \u00A0\u1680\u2000-\u200A\u2028\u2029\u202F\u205F\u3000\uFEFF";
+
+    private static readonly char[] SpaceChars =
+        [.. "\t\n\v\f\r \u00A0\u1680\u2028\u2029\u202F\u205F\u3000\uFEFF", .. Enumerable.Range(0x2000, 11).Select(each => (char)each)];
+
     [GeneratedRegex(@"\G`[^`\n]+`")]
     private static partial Regex CodeSpan();
 
-    [GeneratedRegex(@"\G\[[^\]\n]+\]\(([^)\s]+)\)")]
+    [GeneratedRegex(@"\G\[[^\]\n]+\]\(([^)" + Space + @"]+)\)")]
     private static partial Regex LinkSpan();
 
     [GeneratedRegex(@"^(https?://|mailto:)", RegexOptions.IgnoreCase)]
     private static partial Regex FollowedHref();
 
-    [GeneratedRegex(@"\G\*\*(?=\S)([^\n]*?\S)\*\*")]
+    [GeneratedRegex(@"\G\*\*(?=[^" + Space + @"])([^\n]*?[^" + Space + @"])\*\*")]
     private static partial Regex Bold();
 
-    [GeneratedRegex(@"\G\*(?=\S)([^*\n]*?\S)\*")]
+    [GeneratedRegex(@"\G\*(?=[^" + Space + @"])([^*\n]*?[^" + Space + @"])\*")]
     private static partial Regex Italic();
 
-    [GeneratedRegex(@"\G_(?=\S)([^_\n]*?\S)_(?![\p{L}\p{N}])")]
+    [GeneratedRegex(@"\G_(?=[^" + Space + @"])([^_\n]*?[^" + Space + @"])_(?![\p{L}\p{N}])")]
     private static partial Regex UnderscoreItalic();
 
-    [GeneratedRegex(@"\Ghttps?://[^\s<>()]+[^\s<>().,;:!?'""]")]
+    [GeneratedRegex(@"\Ghttps?://[^" + Space + @"<>()]+[^" + Space + @"<>().,;:!?'""]")]
     private static partial Regex BareLink();
 
     [GeneratedRegex(@"\G@([\p{L}\p{N}](?:[\p{L}\p{N}._-]*[\p{L}\p{N}])?)")]
@@ -127,42 +135,66 @@ public static partial class NotificationRules
         var names = new List<string>();
         foreach (var paragraph in ParagraphBreak().Split(LineEnd().Replace(body, "\n")))
         {
-            var text = paragraph.Trim();
-            if (text.Length > 0) MentionsIn(text, names);
+            var text = paragraph.Trim(SpaceChars);
+            if (text.Length > 0) MentionsIn(text, Shadow(text), names);
         }
         return names;
     }
 
-    private static void MentionsIn(string text, List<string> names)
+    /// <summary>
+    /// The text with each letter or digit beyond U+FFFF (two UTF-16 units) written as "aa", for the
+    /// patterns to match on: .NET's \p{L} sees one unit at a time, the app's Unicode patterns the
+    /// whole character. The same length, so a match is at the same place in the text itself.
+    /// </summary>
+    private static string Shadow(string text)
+    {
+        char[]? shadow = null;
+        for (var at = 0; at + 1 < text.Length; at++)
+        {
+            if (!char.IsSurrogatePair(text[at], text[at + 1])) continue;
+            var category = CharUnicodeInfo.GetUnicodeCategory(char.ConvertToUtf32(text[at], text[at + 1]));
+            if (category is <= UnicodeCategory.OtherLetter or (>= UnicodeCategory.DecimalDigitNumber and <= UnicodeCategory.OtherNumber))
+            {
+                shadow ??= text.ToCharArray();
+                shadow[at] = shadow[at + 1] = 'a';
+            }
+            at++;
+        }
+        return shadow is null ? text : new string(shadow);
+    }
+
+    private static void MentionsIn(string text, string shadow, List<string> names)
     {
         var at = 0;
         while (at < text.Length)
         {
-            var wordStart = at == 0 || char.IsWhiteSpace(text[at - 1]) || text[at - 1] == '(';
-            var skip = CodeSpan().Match(text, at);
-            if (!skip.Success && LinkSpan().Match(text, at) is { Success: true } link && FollowedHref().IsMatch(link.Groups[1].Value)) skip = link;
+            var wordStart = at == 0 || SpaceChars.Contains(shadow[at - 1]) || shadow[at - 1] == '(';
+            var skip = CodeSpan().Match(shadow, at);
+            if (!skip.Success && LinkSpan().Match(shadow, at) is { Success: true } link && FollowedHref().IsMatch(link.Groups[1].Value)) skip = link;
             if (skip.Success)
             {
                 at += skip.Length;
                 continue;
             }
-            var inner = Bold().Match(text, at);
-            if (!inner.Success) inner = Italic().Match(text, at);
-            if (!inner.Success && wordStart) inner = UnderscoreItalic().Match(text, at);
+            var inner = Bold().Match(shadow, at);
+            if (!inner.Success) inner = Italic().Match(shadow, at);
+            if (!inner.Success && wordStart) inner = UnderscoreItalic().Match(shadow, at);
             if (inner.Success)
             {
-                MentionsIn(inner.Groups[1].Value, names);
+                var part = inner.Groups[1];
+                MentionsIn(text.Substring(part.Index, part.Length), part.Value, names);
                 at += inner.Length;
                 continue;
             }
-            if (wordStart && BareLink().Match(text, at) is { Success: true } bare)
+            if (wordStart && BareLink().Match(shadow, at) is { Success: true } bare)
             {
                 at += bare.Length;
                 continue;
             }
-            if (wordStart && Mention().Match(text, at) is { Success: true } mention)
+            if (wordStart && Mention().Match(shadow, at) is { Success: true } mention)
             {
-                names.Add(mention.Groups[1].Value);
+                var name = mention.Groups[1];
+                names.Add(text.Substring(name.Index, name.Length));
                 at += mention.Length;
                 continue;
             }
