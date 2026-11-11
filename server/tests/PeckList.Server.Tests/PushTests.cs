@@ -429,6 +429,11 @@ public sealed class PushTests(ServerFixture fixture) : IClassFixture<ServerFixtu
         var snoozed = Assert.Single(check.Reminders, each => each.Tag.StartsWith("AT3@", StringComparison.Ordinal));
         Assert.Equal($"AT3@{snoozed.At}", snoozed.Tag);
         Assert.InRange((DateTimeOffset.FromUnixTimeMilliseconds(snoozed.At) - before.AddMinutes(60)).TotalMinutes, -1.5, 1.5);
+        // With the app on screen it asks for none (P7); the cursor still comes back.
+        var onScreen = (await ben.GetFromJsonAsync<AppCheck>("/api/app/check?reminders=0", Token))!;
+        Assert.Empty(onScreen.Reminders);
+        Assert.NotNull(onScreen.Cursor);
+        Assert.NotEmpty((await ben.GetFromJsonAsync<AppCheck>("/api/app/check?reminders=1", Token))!.Reminders);
     }
 
     [Fact]

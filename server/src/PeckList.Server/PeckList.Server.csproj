@@ -21,6 +21,11 @@
   <ItemGroup>
     <InternalsVisibleTo Include="PeckList.Server.Tests" />
   </ItemGroup>
+  <!-- Give freed memory back more readily (audit P7): the heap's cap comes from the container's
+       or service's memory limit, see the monitoring guide. DOTNET_GCConserveMemory overrides it. -->
+  <ItemGroup>
+    <RuntimeHostConfigurationOption Include="System.GC.ConserveMemory" Value="5" />
+  </ItemGroup>
   <!-- What pushed entities are checked against (audit S4): the same file the apps check with. -->
   <ItemGroup>
     <EmbeddedResource Include="..\..\..\schema\workspace.schema.json" LogicalName="workspace.schema.json" />

@@ -21,6 +21,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Locale;
 import java.util.TimeZone;
+import java.util.function.UnaryOperator;
 import org.json.JSONObject;
 
 /**
@@ -147,6 +148,26 @@ final class BackgroundCheck {
         }
     }
 
+    /**
+     * The check-in's address. With the app on screen the web app owns the reminders and the answer's
+     * would go unused, so it asks for none: the server then skips walking every task for them
+     * (audit P7). A server from before that sends them anyway, and they are left as before.
+     */
+    /**
+     * Whether an answer's reminders replace the phone's alarms: only when the check asked for them
+     * (the app was off screen as it went) and the app is still off screen (else the web app owns
+     * them). An answer to a check that asked for none has none, and would wipe every alarm.
+     */
+    static boolean handsOverReminders(boolean showingWhenAsked, boolean showingNow) {
+        return !showingWhenAsked && !showingNow;
+    }
+
+    static String checkAddress(String server, String zone, String after, boolean showing, UnaryOperator<String> encode) {
+        return server + "/api/app/check?zone=" + encode.apply(zone)
+            + (after == null ? "" : "&after=" + encode.apply(after))
+            + (showing ? "&reminders=0" : "");
+    }
+
     /** One check-in. Network: call off the main thread. Signed out or offline, it waits for the next. */
     static void run(Context context) throws Exception {
         String server = ServerChoice.get(context);
@@ -157,8 +178,9 @@ final class BackgroundCheck {
         // Presses made offline first, so the reminders that come back already reflect them.
         ReminderReceiver.retryPending(context);
         String after = prefs(context).getString(CURSOR, null);
-        String address = server + "/api/app/check?zone=" + Uri.encode(TimeZone.getDefault().getID())
-            + (after == null ? "" : "&after=" + Uri.encode(after));
+        // Read once: the answer's reminders are what this request asked for (audit P7).
+        boolean showing = MainActivity.showing();
+        String address = checkAddress(server, TimeZone.getDefault().getID(), after, showing, Uri::encode);
 
         HttpURLConnection connection = (HttpURLConnection) new URL(address).openConnection();
         ClientCert.apply(context, connection);
@@ -206,10 +228,11 @@ final class BackgroundCheck {
         }
 
         // With the app on screen, the web app shows what is new and owns the reminders.
-        if (!MainActivity.showing()) {
+        boolean showingNow = MainActivity.showing();
+        if (handsOverReminders(showing, showingNow)) {
             Reminders.handOver(context, Reminders.parse(answer.getJSONArray("reminders")), true);
-            Reminders.showNew(context, answer.getJSONArray("notifications"));
         }
+        if (!showingNow) Reminders.showNew(context, answer.getJSONArray("notifications"));
         if (!answer.isNull("cursor")) prefs(context).edit().putString(CURSOR, answer.getString("cursor")).apply();
     }
 
