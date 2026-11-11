@@ -84,8 +84,15 @@ public sealed partial class SyncService(
     [GeneratedRegex("^[0-9A-Za-z_-]{1,64}$")]
     private static partial Regex IdPattern();
 
+    /// <summary>Thrown inside a write to roll back an all-or-nothing push.</summary>
+    private sealed class RefusedAll : Exception;
+
     /// <param name="source">The pushing device, passed on to the user's other devices' change events.</param>
-    public async Task<SyncResponse> SyncAsync(string userId, SyncRequest request, string? source = null, CancellationToken cancellation = default)
+    /// <param name="allOrNothing">
+    /// For the task API: when any change is invalid or refused, none is written (the apps' pushes
+    /// keep the rest, so one bad change never holds a device back).
+    /// </param>
+    public async Task<SyncResponse> SyncAsync(string userId, SyncRequest request, string? source = null, CancellationToken cancellation = default, bool allOrNothing = false)
     {
         // Nothing reads or writes sharing before the index has loaded (the server listens meanwhile).
         await sharing.Loaded.WaitAsync(cancellation);
@@ -117,19 +124,25 @@ public sealed partial class SyncService(
         var corrections = new List<SyncEntity>();
         var shared = new List<SharingChange>();
         var notable = new List<NotableChange>();
-        if (incoming.Count > 0)
+        // All or nothing: one invalid change, and nothing is written.
+        if (incoming.Count > 0 && !(allOrNothing && invalid.Count > 0))
         {
             await sharing.Gate.WaitAsync(cancellation);
             try
             {
                 var before = sharing.Index;
                 var after = before.Clone();
-                var written = await store.WriteAsync(
+                IReadOnlyList<StoredEntity> written;
+                try
+                {
+                    written = await store.WriteAsync(
                     userId,
                     incoming,
                     (stored, arrived) =>
                     {
                         var merged = Resolve(userId, stored, arrived, before, after, rejected, time.GetUtcNow());
+                        // Every change is decided before anything is written, so this rolls back the lot.
+                        if (allOrNothing && rejected.Count > 0) throw new RefusedAll();
                         if (merged is not null && SharingChanges.Watched(arrived.Collection))
                         {
                             shared.Add(new SharingChange(arrived.Collection, arrived.Id, stored?.Doc, merged));
@@ -142,6 +155,14 @@ public sealed partial class SyncService(
                     },
                     plan: entities => SharingState.Plan(before, after, entities),
                     cancellation: cancellation);
+                }
+                catch (RefusedAll)
+                {
+                    // Nothing was written, and the index stays as it was.
+                    shared.Clear();
+                    notable.Clear();
+                    return new SyncResponse(request.Cursor ?? 0, [], false, [], rejected.Distinct().ToList(), [], Invalid: invalid);
+                }
                 sharing.Index = after;
                 foreach (var id in rejected.Distinct())
                 {

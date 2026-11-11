@@ -1,0 +1,2676 @@
+{
+  "description": "Quick add (PL-022) read the same in the app and on the server (PL-137). Each case is one line of text and what it becomes: the title left over, the tokens recognised (where they sit), the start and end, the due date, priority, list, tags (an existing one by id, a new one by name), assignees and the repeat rule. The web suite runs these through parseQuickAdd with chrono; the server suite through its C# port. The reference is the person's wall clock: Wednesday 2026-10-21 10:00. Only forms both sides read belong here; a phrase only chrono knows stays in the title on the server.",
+  "reference": "2026-10-21T10:00",
+  "lists": [
+    {
+      "id": "IN",
+      "name": "Inbox",
+      "isInbox": true
+    },
+    {
+      "id": "L1",
+      "name": "Garden Plans",
+      "isInbox": false
+    },
+    {
+      "id": "L2",
+      "name": "Work Stuff",
+      "isInbox": false
+    }
+  ],
+  "tags": [
+    {
+      "id": "G1",
+      "name": "home/yard"
+    },
+    {
+      "id": "G2",
+      "name": "errands"
+    },
+    {
+      "id": "G3",
+      "name": "home"
+    }
+  ],
+  "people": [
+    {
+      "principal": "user:01JBSAM0000000000000000002",
+      "name": "Sam Smith",
+      "handle": "sam"
+    },
+    {
+      "principal": "group:01JBGRP0000000000000000003",
+      "name": "Chores Crew",
+      "handle": null
+    }
+  ],
+  "cases": [
+    {
+      "text": "Call mom tomorrow 3pm",
+      "title": "Call mom",
+      "tokens": [
+        {
+          "kind": "date",
+          "start": 9,
+          "end": 21,
+          "text": "tomorrow 3pm"
+        }
+      ],
+      "schedule": {
+        "start": {
+          "date": "2026-10-22",
+          "time": "15:00"
+        },
+        "end": null
+      },
+      "due": null,
+      "priority": null,
+      "listId": null,
+      "tags": [],
+      "assignees": [],
+      "recurrence": null
+    },
+    {
+      "text": "Mow the lawn tomorrow #yard ^Garden !high",
+      "title": "Mow the lawn",
+      "tokens": [
+        {
+          "kind": "date",
+          "start": 13,
+          "end": 21,
+          "text": "tomorrow"
+        },
+        {
+          "kind": "tag",
+          "start": 22,
+          "end": 27,
+          "text": "#yard"
+        },
+        {
+          "kind": "list",
+          "start": 28,
+          "end": 35,
+          "text": "^Garden"
+        },
+        {
+          "kind": "priority",
+          "start": 36,
+          "end": 41,
+          "text": "!high"
+        }
+      ],
+      "schedule": {
+        "start": {
+          "date": "2026-10-22",
+          "time": null
+        },
+        "end": null
+      },
+      "due": null,
+      "priority": 3,
+      "listId": "L1",
+      "tags": [
+        {
+          "id": "G1",
+          "name": "home/yard"
+        }
+      ],
+      "assignees": [],
+      "recurrence": null
+    },
+    {
+      "text": "Workshop fri 9am to 11am",
+      "title": "Workshop",
+      "tokens": [
+        {
+          "kind": "date",
+          "start": 9,
+          "end": 24,
+          "text": "fri 9am to 11am"
+        }
+      ],
+      "schedule": {
+        "start": {
+          "date": "2026-10-23",
+          "time": "09:00"
+        },
+        "end": {
+          "date": "2026-10-23",
+          "time": "11:00"
+        }
+      },
+      "due": null,
+      "priority": null,
+      "listId": null,
+      "tags": [],
+      "assignees": [],
+      "recurrence": null
+    },
+    {
+      "text": "Taxes due oct 30",
+      "title": "Taxes",
+      "tokens": [
+        {
+          "kind": "due",
+          "start": 6,
+          "end": 16,
+          "text": "due oct 30"
+        }
+      ],
+      "schedule": null,
+      "due": {
+        "date": "2026-10-30",
+        "time": null
+      },
+      "priority": null,
+      "listId": null,
+      "tags": [],
+      "assignees": [],
+      "recurrence": null
+    },
+    {
+      "text": "Draft report monday due by friday",
+      "title": "Draft report",
+      "tokens": [
+        {
+          "kind": "date",
+          "start": 13,
+          "end": 19,
+          "text": "monday"
+        },
+        {
+          "kind": "due",
+          "start": 20,
+          "end": 33,
+          "text": "due by friday"
+        }
+      ],
+      "schedule": {
+        "start": {
+          "date": "2026-10-26",
+          "time": null
+        },
+        "end": null
+      },
+      "due": {
+        "date": "2026-10-23",
+        "time": null
+      },
+      "priority": null,
+      "listId": null,
+      "tags": [],
+      "assignees": [],
+      "recurrence": null
+    },
+    {
+      "text": "Pay rent every month",
+      "title": "Pay rent",
+      "tokens": [
+        {
+          "kind": "repeat",
+          "start": 9,
+          "end": 20,
+          "text": "every month"
+        }
+      ],
+      "schedule": {
+        "start": {
+          "date": "2026-10-21",
+          "time": null
+        },
+        "end": null
+      },
+      "due": null,
+      "priority": null,
+      "listId": null,
+      "tags": [],
+      "assignees": [],
+      "recurrence": "FREQ=MONTHLY"
+    },
+    {
+      "text": "Standup every weekday 9:30am",
+      "title": "Standup",
+      "tokens": [
+        {
+          "kind": "repeat",
+          "start": 8,
+          "end": 21,
+          "text": "every weekday"
+        },
+        {
+          "kind": "date",
+          "start": 22,
+          "end": 28,
+          "text": "9:30am"
+        }
+      ],
+      "schedule": {
+        "start": {
+          "date": "2026-10-22",
+          "time": "09:30"
+        },
+        "end": null
+      },
+      "due": null,
+      "priority": null,
+      "listId": null,
+      "tags": [],
+      "assignees": [],
+      "recurrence": "FREQ=WEEKLY;BYDAY=MO,TU,WE,TH,FR"
+    },
+    {
+      "text": "Water plants every other monday",
+      "title": "Water plants",
+      "tokens": [
+        {
+          "kind": "repeat",
+          "start": 13,
+          "end": 31,
+          "text": "every other monday"
+        }
+      ],
+      "schedule": {
+        "start": {
+          "date": "2026-10-26",
+          "time": null
+        },
+        "end": null
+      },
+      "due": null,
+      "priority": null,
+      "listId": null,
+      "tags": [],
+      "assignees": [],
+      "recurrence": "FREQ=WEEKLY;INTERVAL=2;BYDAY=MO"
+    },
+    {
+      "text": "Gym every mon, wed and fri",
+      "title": "Gym",
+      "tokens": [
+        {
+          "kind": "repeat",
+          "start": 4,
+          "end": 26,
+          "text": "every mon, wed and fri"
+        }
+      ],
+      "schedule": {
+        "start": {
+          "date": "2026-10-21",
+          "time": null
+        },
+        "end": null
+      },
+      "due": null,
+      "priority": null,
+      "listId": null,
+      "tags": [],
+      "assignees": [],
+      "recurrence": "FREQ=WEEKLY;BYDAY=MO,WE,FR"
+    },
+    {
+      "text": "Call @sam about the trip",
+      "title": "Call about the trip",
+      "tokens": [
+        {
+          "kind": "person",
+          "start": 5,
+          "end": 9,
+          "text": "@sam"
+        }
+      ],
+      "schedule": null,
+      "due": null,
+      "priority": null,
+      "listId": null,
+      "tags": [],
+      "assignees": ["user:01JBSAM0000000000000000002"],
+      "recurrence": null
+    },
+    {
+      "text": "Buy milk #errands #errands !2",
+      "title": "Buy milk #errands",
+      "tokens": [
+        {
+          "kind": "tag",
+          "start": 9,
+          "end": 17,
+          "text": "#errands"
+        },
+        {
+          "kind": "priority",
+          "start": 27,
+          "end": 29,
+          "text": "!2"
+        }
+      ],
+      "schedule": null,
+      "due": null,
+      "priority": 2,
+      "listId": null,
+      "tags": [
+        {
+          "id": "G2",
+          "name": "errands"
+        }
+      ],
+      "assignees": [],
+      "recurrence": null
+    },
+    {
+      "text": "Plain old task",
+      "title": "Plain old task",
+      "tokens": [],
+      "schedule": null,
+      "due": null,
+      "priority": null,
+      "listId": null,
+      "tags": [],
+      "assignees": [],
+      "recurrence": null
+    },
+    {
+      "text": "Dentist nov 12 at 2:30pm",
+      "title": "Dentist",
+      "tokens": [
+        {
+          "kind": "date",
+          "start": 8,
+          "end": 24,
+          "text": "nov 12 at 2:30pm"
+        }
+      ],
+      "schedule": {
+        "start": {
+          "date": "2026-11-12",
+          "time": "14:30"
+        },
+        "end": null
+      },
+      "due": null,
+      "priority": null,
+      "listId": null,
+      "tags": [],
+      "assignees": [],
+      "recurrence": null
+    },
+    {
+      "text": "Party 12 november",
+      "title": "Party",
+      "tokens": [
+        {
+          "kind": "date",
+          "start": 6,
+          "end": 17,
+          "text": "12 november"
+        }
+      ],
+      "schedule": {
+        "start": {
+          "date": "2026-11-12",
+          "time": null
+        },
+        "end": null
+      },
+      "due": null,
+      "priority": null,
+      "listId": null,
+      "tags": [],
+      "assignees": [],
+      "recurrence": null
+    },
+    {
+      "text": "Conference november 12th 2027",
+      "title": "Conference",
+      "tokens": [
+        {
+          "kind": "date",
+          "start": 11,
+          "end": 29,
+          "text": "november 12th 2027"
+        }
+      ],
+      "schedule": {
+        "start": {
+          "date": "2027-11-12",
+          "time": null
+        },
+        "end": null
+      },
+      "due": null,
+      "priority": null,
+      "listId": null,
+      "tags": [],
+      "assignees": [],
+      "recurrence": null
+    },
+    {
+      "text": "Renew passport 2026-12-01",
+      "title": "Renew passport",
+      "tokens": [
+        {
+          "kind": "date",
+          "start": 15,
+          "end": 25,
+          "text": "2026-12-01"
+        }
+      ],
+      "schedule": {
+        "start": {
+          "date": "2026-12-01",
+          "time": null
+        },
+        "end": null
+      },
+      "due": null,
+      "priority": null,
+      "listId": null,
+      "tags": [],
+      "assignees": [],
+      "recurrence": null
+    },
+    {
+      "text": "Report 11/12",
+      "title": "Report",
+      "tokens": [
+        {
+          "kind": "date",
+          "start": 7,
+          "end": 12,
+          "text": "11/12"
+        }
+      ],
+      "schedule": {
+        "start": {
+          "date": "2026-11-12",
+          "time": null
+        },
+        "end": null
+      },
+      "due": null,
+      "priority": null,
+      "listId": null,
+      "tags": [],
+      "assignees": [],
+      "recurrence": null
+    },
+    {
+      "text": "Lunch today noon",
+      "title": "Lunch",
+      "tokens": [
+        {
+          "kind": "date",
+          "start": 6,
+          "end": 16,
+          "text": "today noon"
+        }
+      ],
+      "schedule": {
+        "start": {
+          "date": "2026-10-21",
+          "time": "12:00"
+        },
+        "end": null
+      },
+      "due": null,
+      "priority": null,
+      "listId": null,
+      "tags": [],
+      "assignees": [],
+      "recurrence": null
+    },
+    {
+      "text": "Read in 3 days",
+      "title": "Read",
+      "tokens": [
+        {
+          "kind": "date",
+          "start": 5,
+          "end": 14,
+          "text": "in 3 days"
+        }
+      ],
+      "schedule": {
+        "start": {
+          "date": "2026-10-24",
+          "time": null
+        },
+        "end": null
+      },
+      "due": null,
+      "priority": null,
+      "listId": null,
+      "tags": [],
+      "assignees": [],
+      "recurrence": null
+    },
+    {
+      "text": "Plan next week",
+      "title": "Plan",
+      "tokens": [
+        {
+          "kind": "date",
+          "start": 5,
+          "end": 14,
+          "text": "next week"
+        }
+      ],
+      "schedule": {
+        "start": {
+          "date": "2026-10-28",
+          "time": null
+        },
+        "end": null
+      },
+      "due": null,
+      "priority": null,
+      "listId": null,
+      "tags": [],
+      "assignees": [],
+      "recurrence": null
+    },
+    {
+      "text": "Review next month",
+      "title": "Review",
+      "tokens": [
+        {
+          "kind": "date",
+          "start": 7,
+          "end": 17,
+          "text": "next month"
+        }
+      ],
+      "schedule": {
+        "start": {
+          "date": "2026-11-21",
+          "time": null
+        },
+        "end": null
+      },
+      "due": null,
+      "priority": null,
+      "listId": null,
+      "tags": [],
+      "assignees": [],
+      "recurrence": null
+    },
+    {
+      "text": "Pick up kid this friday",
+      "title": "Pick up kid",
+      "tokens": [
+        {
+          "kind": "date",
+          "start": 12,
+          "end": 23,
+          "text": "this friday"
+        }
+      ],
+      "schedule": {
+        "start": {
+          "date": "2026-10-23",
+          "time": null
+        },
+        "end": null
+      },
+      "due": null,
+      "priority": null,
+      "listId": null,
+      "tags": [],
+      "assignees": [],
+      "recurrence": null
+    },
+    {
+      "text": "Meet next tuesday 10am",
+      "title": "Meet",
+      "tokens": [
+        {
+          "kind": "date",
+          "start": 5,
+          "end": 22,
+          "text": "next tuesday 10am"
+        }
+      ],
+      "schedule": {
+        "start": {
+          "date": "2026-10-27",
+          "time": "10:00"
+        },
+        "end": null
+      },
+      "due": null,
+      "priority": null,
+      "listId": null,
+      "tags": [],
+      "assignees": [],
+      "recurrence": null
+    },
+    {
+      "text": "Hike oct 28 - oct 30",
+      "title": "Hike",
+      "tokens": [
+        {
+          "kind": "date",
+          "start": 5,
+          "end": 20,
+          "text": "oct 28 - oct 30"
+        }
+      ],
+      "schedule": {
+        "start": {
+          "date": "2026-10-28",
+          "time": null
+        },
+        "end": {
+          "date": "2026-10-30",
+          "time": null
+        }
+      },
+      "due": null,
+      "priority": null,
+      "listId": null,
+      "tags": [],
+      "assignees": [],
+      "recurrence": null
+    },
+    {
+      "text": "Call 3pm to 5pm",
+      "title": "Call",
+      "tokens": [
+        {
+          "kind": "date",
+          "start": 5,
+          "end": 15,
+          "text": "3pm to 5pm"
+        }
+      ],
+      "schedule": {
+        "start": {
+          "date": "2026-10-21",
+          "time": "15:00"
+        },
+        "end": {
+          "date": "2026-10-21",
+          "time": "17:00"
+        }
+      },
+      "due": null,
+      "priority": null,
+      "listId": null,
+      "tags": [],
+      "assignees": [],
+      "recurrence": null
+    },
+    {
+      "text": "Email boss at 9",
+      "title": "Email boss",
+      "tokens": [
+        {
+          "kind": "date",
+          "start": 11,
+          "end": 15,
+          "text": "at 9"
+        }
+      ],
+      "schedule": {
+        "start": {
+          "date": "2026-10-22",
+          "time": "09:00"
+        },
+        "end": null
+      },
+      "due": null,
+      "priority": null,
+      "listId": null,
+      "tags": [],
+      "assignees": [],
+      "recurrence": null
+    },
+    {
+      "text": "Bake tonight",
+      "title": "Bake",
+      "tokens": [
+        {
+          "kind": "date",
+          "start": 5,
+          "end": 12,
+          "text": "tonight"
+        }
+      ],
+      "schedule": {
+        "start": {
+          "date": "2026-10-21",
+          "time": null
+        },
+        "end": null
+      },
+      "due": null,
+      "priority": null,
+      "listId": null,
+      "tags": [],
+      "assignees": [],
+      "recurrence": null
+    },
+    {
+      "text": "Work on #new-tag ^work",
+      "title": "Work on",
+      "tokens": [
+        {
+          "kind": "tag",
+          "start": 8,
+          "end": 16,
+          "text": "#new-tag"
+        },
+        {
+          "kind": "list",
+          "start": 17,
+          "end": 22,
+          "text": "^work"
+        }
+      ],
+      "schedule": null,
+      "due": null,
+      "priority": null,
+      "listId": "L2",
+      "tags": [
+        {
+          "id": null,
+          "name": "new-tag"
+        }
+      ],
+      "assignees": [],
+      "recurrence": null
+    },
+    {
+      "text": "Fix #Home/Yard thing",
+      "title": "Fix thing",
+      "tokens": [
+        {
+          "kind": "tag",
+          "start": 4,
+          "end": 14,
+          "text": "#Home/Yard"
+        }
+      ],
+      "schedule": null,
+      "due": null,
+      "priority": null,
+      "listId": null,
+      "tags": [
+        {
+          "id": "G1",
+          "name": "home/yard"
+        }
+      ],
+      "assignees": [],
+      "recurrence": null
+    },
+    {
+      "text": "Sweep due tomorrow 5pm !low",
+      "title": "Sweep",
+      "tokens": [
+        {
+          "kind": "due",
+          "start": 6,
+          "end": 22,
+          "text": "due tomorrow 5pm"
+        },
+        {
+          "kind": "priority",
+          "start": 23,
+          "end": 27,
+          "text": "!low"
+        }
+      ],
+      "schedule": null,
+      "due": {
+        "date": "2026-10-22",
+        "time": "17:00"
+      },
+      "priority": 1,
+      "listId": null,
+      "tags": [],
+      "assignees": [],
+      "recurrence": null
+    },
+    {
+      "text": "Something !urgent",
+      "title": "Something !urgent",
+      "tokens": [],
+      "schedule": null,
+      "due": null,
+      "priority": null,
+      "listId": null,
+      "tags": [],
+      "assignees": [],
+      "recurrence": null
+    },
+    {
+      "text": "Email someone@example.com",
+      "title": "Email someone@example.com",
+      "tokens": [],
+      "schedule": null,
+      "due": null,
+      "priority": null,
+      "listId": null,
+      "tags": [],
+      "assignees": [],
+      "recurrence": null
+    },
+    {
+      "text": "Floss every day",
+      "title": "Floss",
+      "tokens": [
+        {
+          "kind": "repeat",
+          "start": 6,
+          "end": 15,
+          "text": "every day"
+        }
+      ],
+      "schedule": {
+        "start": {
+          "date": "2026-10-21",
+          "time": null
+        },
+        "end": null
+      },
+      "due": null,
+      "priority": null,
+      "listId": null,
+      "tags": [],
+      "assignees": [],
+      "recurrence": "FREQ=DAILY"
+    },
+    {
+      "text": "Trip oct 1",
+      "title": "Trip",
+      "tokens": [
+        {
+          "kind": "date",
+          "start": 5,
+          "end": 10,
+          "text": "oct 1"
+        }
+      ],
+      "schedule": {
+        "start": {
+          "date": "2027-10-01",
+          "time": null
+        },
+        "end": null
+      },
+      "due": null,
+      "priority": null,
+      "listId": null,
+      "tags": [],
+      "assignees": [],
+      "recurrence": null
+    },
+    {
+      "text": "monday",
+      "title": "",
+      "tokens": [
+        {
+          "kind": "date",
+          "start": 0,
+          "end": 6,
+          "text": "monday"
+        }
+      ],
+      "schedule": {
+        "start": {
+          "date": "2026-10-26",
+          "time": null
+        },
+        "end": null
+      },
+      "due": null,
+      "priority": null,
+      "listId": null,
+      "tags": [],
+      "assignees": [],
+      "recurrence": null
+    },
+    {
+      "text": "Thing 15:00",
+      "title": "Thing",
+      "tokens": [
+        {
+          "kind": "date",
+          "start": 6,
+          "end": 11,
+          "text": "15:00"
+        }
+      ],
+      "schedule": {
+        "start": {
+          "date": "2026-10-21",
+          "time": "15:00"
+        },
+        "end": null
+      },
+      "due": null,
+      "priority": null,
+      "listId": null,
+      "tags": [],
+      "assignees": [],
+      "recurrence": null
+    },
+    {
+      "text": "Doc nov 12 9-11am",
+      "title": "Doc",
+      "tokens": [
+        {
+          "kind": "date",
+          "start": 4,
+          "end": 17,
+          "text": "nov 12 9-11am"
+        }
+      ],
+      "schedule": {
+        "start": {
+          "date": "2026-11-12",
+          "time": "09:00"
+        },
+        "end": {
+          "date": "2026-11-12",
+          "time": "11:00"
+        }
+      },
+      "due": null,
+      "priority": null,
+      "listId": null,
+      "tags": [],
+      "assignees": [],
+      "recurrence": null
+    },
+    {
+      "text": "Order parts in 2 weeks",
+      "title": "Order parts",
+      "tokens": [
+        {
+          "kind": "date",
+          "start": 12,
+          "end": 22,
+          "text": "in 2 weeks"
+        }
+      ],
+      "schedule": {
+        "start": {
+          "date": "2026-11-04",
+          "time": null
+        },
+        "end": null
+      },
+      "due": null,
+      "priority": null,
+      "listId": null,
+      "tags": [],
+      "assignees": [],
+      "recurrence": null
+    },
+    {
+      "text": "Book flights by friday",
+      "title": "Book flights by",
+      "tokens": [
+        {
+          "kind": "date",
+          "start": 16,
+          "end": 22,
+          "text": "friday"
+        }
+      ],
+      "schedule": {
+        "start": {
+          "date": "2026-10-23",
+          "time": null
+        },
+        "end": null
+      },
+      "due": null,
+      "priority": null,
+      "listId": null,
+      "tags": [],
+      "assignees": [],
+      "recurrence": null
+    },
+    {
+      "text": "Ask @chores-crew to tidy",
+      "title": "Ask to tidy",
+      "tokens": [
+        {
+          "kind": "person",
+          "start": 4,
+          "end": 16,
+          "text": "@chores-crew"
+        }
+      ],
+      "schedule": null,
+      "due": null,
+      "priority": null,
+      "listId": null,
+      "tags": [],
+      "assignees": ["group:01JBGRP0000000000000000003"],
+      "recurrence": null
+    },
+    {
+      "text": "Fix fence @Sam tomorrow",
+      "title": "Fix fence",
+      "tokens": [
+        {
+          "kind": "person",
+          "start": 10,
+          "end": 14,
+          "text": "@Sam"
+        },
+        {
+          "kind": "date",
+          "start": 15,
+          "end": 23,
+          "text": "tomorrow"
+        }
+      ],
+      "schedule": {
+        "start": {
+          "date": "2026-10-22",
+          "time": null
+        },
+        "end": null
+      },
+      "due": null,
+      "priority": null,
+      "listId": null,
+      "tags": [],
+      "assignees": ["user:01JBSAM0000000000000000002"],
+      "recurrence": null
+    },
+    {
+      "text": "Clean gutters every 3 weeks",
+      "title": "Clean gutters",
+      "tokens": [
+        {
+          "kind": "repeat",
+          "start": 14,
+          "end": 27,
+          "text": "every 3 weeks"
+        }
+      ],
+      "schedule": {
+        "start": {
+          "date": "2026-10-21",
+          "time": null
+        },
+        "end": null
+      },
+      "due": null,
+      "priority": null,
+      "listId": null,
+      "tags": [],
+      "assignees": [],
+      "recurrence": "FREQ=WEEKLY;INTERVAL=3"
+    },
+    {
+      "text": "Due fri file report",
+      "title": "file report",
+      "tokens": [
+        {
+          "kind": "due",
+          "start": 0,
+          "end": 7,
+          "text": "Due fri"
+        }
+      ],
+      "schedule": null,
+      "due": {
+        "date": "2026-10-23",
+        "time": null
+      },
+      "priority": null,
+      "listId": null,
+      "tags": [],
+      "assignees": [],
+      "recurrence": null
+    },
+    {
+      "text": "Weed beds sat",
+      "title": "Weed beds",
+      "tokens": [
+        {
+          "kind": "date",
+          "start": 10,
+          "end": 13,
+          "text": "sat"
+        }
+      ],
+      "schedule": {
+        "start": {
+          "date": "2026-10-24",
+          "time": null
+        },
+        "end": null
+      },
+      "due": null,
+      "priority": null,
+      "listId": null,
+      "tags": [],
+      "assignees": [],
+      "recurrence": null
+    },
+    {
+      "text": "Wrap gifts dec 24 6pm",
+      "title": "Wrap gifts",
+      "tokens": [
+        {
+          "kind": "date",
+          "start": 11,
+          "end": 21,
+          "text": "dec 24 6pm"
+        }
+      ],
+      "schedule": {
+        "start": {
+          "date": "2026-12-24",
+          "time": "18:00"
+        },
+        "end": null
+      },
+      "due": null,
+      "priority": null,
+      "listId": null,
+      "tags": [],
+      "assignees": [],
+      "recurrence": null
+    },
+    {
+      "text": "Thursday chores #yard",
+      "title": "chores",
+      "tokens": [
+        {
+          "kind": "date",
+          "start": 0,
+          "end": 8,
+          "text": "Thursday"
+        },
+        {
+          "kind": "tag",
+          "start": 16,
+          "end": 21,
+          "text": "#yard"
+        }
+      ],
+      "schedule": {
+        "start": {
+          "date": "2026-10-22",
+          "time": null
+        },
+        "end": null
+      },
+      "due": null,
+      "priority": null,
+      "listId": null,
+      "tags": [
+        {
+          "id": "G1",
+          "name": "home/yard"
+        }
+      ],
+      "assignees": [],
+      "recurrence": null
+    },
+    {
+      "text": "Garage every saturday",
+      "title": "Garage",
+      "tokens": [
+        {
+          "kind": "repeat",
+          "start": 7,
+          "end": 21,
+          "text": "every saturday"
+        }
+      ],
+      "schedule": {
+        "start": {
+          "date": "2026-10-24",
+          "time": null
+        },
+        "end": null
+      },
+      "due": null,
+      "priority": null,
+      "listId": null,
+      "tags": [],
+      "assignees": [],
+      "recurrence": "FREQ=WEEKLY;BYDAY=SA"
+    },
+    {
+      "text": "Note for ^nope",
+      "title": "Note for ^nope",
+      "tokens": [],
+      "schedule": null,
+      "due": null,
+      "priority": null,
+      "listId": null,
+      "tags": [],
+      "assignees": [],
+      "recurrence": null
+    },
+    {
+      "text": "Call 9am",
+      "title": "Call",
+      "tokens": [
+        {
+          "kind": "date",
+          "start": 5,
+          "end": 8,
+          "text": "9am"
+        }
+      ],
+      "schedule": {
+        "start": {
+          "date": "2026-10-22",
+          "time": "09:00"
+        },
+        "end": null
+      },
+      "due": null,
+      "priority": null,
+      "listId": null,
+      "tags": [],
+      "assignees": [],
+      "recurrence": null
+    },
+    {
+      "text": "Task with #home",
+      "title": "Task with",
+      "tokens": [
+        {
+          "kind": "tag",
+          "start": 10,
+          "end": 15,
+          "text": "#home"
+        }
+      ],
+      "schedule": null,
+      "due": null,
+      "priority": null,
+      "listId": null,
+      "tags": [
+        {
+          "id": "G3",
+          "name": "home"
+        }
+      ],
+      "assignees": [],
+      "recurrence": null
+    },
+    {
+      "text": "Pay bills every 2 months !med",
+      "title": "Pay bills",
+      "tokens": [
+        {
+          "kind": "repeat",
+          "start": 10,
+          "end": 24,
+          "text": "every 2 months"
+        },
+        {
+          "kind": "priority",
+          "start": 25,
+          "end": 29,
+          "text": "!med"
+        }
+      ],
+      "schedule": {
+        "start": {
+          "date": "2026-10-21",
+          "time": null
+        },
+        "end": null
+      },
+      "due": null,
+      "priority": 2,
+      "listId": null,
+      "tags": [],
+      "assignees": [],
+      "recurrence": "FREQ=MONTHLY;INTERVAL=2"
+    },
+    {
+      "text": "Pack sun",
+      "title": "Pack",
+      "tokens": [
+        {
+          "kind": "date",
+          "start": 5,
+          "end": 8,
+          "text": "sun"
+        }
+      ],
+      "schedule": {
+        "start": {
+          "date": "2026-10-25",
+          "time": null
+        },
+        "end": null
+      },
+      "due": null,
+      "priority": null,
+      "listId": null,
+      "tags": [],
+      "assignees": [],
+      "recurrence": null
+    },
+    {
+      "text": "Buy flowers wednesday",
+      "title": "Buy flowers",
+      "tokens": [
+        {
+          "kind": "date",
+          "start": 12,
+          "end": 21,
+          "text": "wednesday"
+        }
+      ],
+      "schedule": {
+        "start": {
+          "date": "2026-10-21",
+          "time": null
+        },
+        "end": null
+      },
+      "due": null,
+      "priority": null,
+      "listId": null,
+      "tags": [],
+      "assignees": [],
+      "recurrence": null
+    },
+    {
+      "text": "Oil change in 1 month",
+      "title": "Oil change",
+      "tokens": [
+        {
+          "kind": "date",
+          "start": 11,
+          "end": 21,
+          "text": "in 1 month"
+        }
+      ],
+      "schedule": {
+        "start": {
+          "date": "2026-11-21",
+          "time": null
+        },
+        "end": null
+      },
+      "due": null,
+      "priority": null,
+      "listId": null,
+      "tags": [],
+      "assignees": [],
+      "recurrence": null
+    },
+    {
+      "text": "Return books tues",
+      "title": "Return books tues",
+      "tokens": [],
+      "schedule": null,
+      "due": null,
+      "priority": null,
+      "listId": null,
+      "tags": [],
+      "assignees": [],
+      "recurrence": null
+    },
+    {
+      "text": "Call tue",
+      "title": "Call",
+      "tokens": [
+        {
+          "kind": "date",
+          "start": 5,
+          "end": 8,
+          "text": "tue"
+        }
+      ],
+      "schedule": {
+        "start": {
+          "date": "2026-10-27",
+          "time": null
+        },
+        "end": null
+      },
+      "due": null,
+      "priority": null,
+      "listId": null,
+      "tags": [],
+      "assignees": [],
+      "recurrence": null
+    },
+    {
+      "text": "Call thu",
+      "title": "Call",
+      "tokens": [
+        {
+          "kind": "date",
+          "start": 5,
+          "end": 8,
+          "text": "thu"
+        }
+      ],
+      "schedule": {
+        "start": {
+          "date": "2026-10-22",
+          "time": null
+        },
+        "end": null
+      },
+      "due": null,
+      "priority": null,
+      "listId": null,
+      "tags": [],
+      "assignees": [],
+      "recurrence": null
+    },
+    {
+      "text": "Call wed",
+      "title": "Call",
+      "tokens": [
+        {
+          "kind": "date",
+          "start": 5,
+          "end": 8,
+          "text": "wed"
+        }
+      ],
+      "schedule": {
+        "start": {
+          "date": "2026-10-21",
+          "time": null
+        },
+        "end": null
+      },
+      "due": null,
+      "priority": null,
+      "listId": null,
+      "tags": [],
+      "assignees": [],
+      "recurrence": null
+    },
+    {
+      "text": "Call thur",
+      "title": "Call",
+      "tokens": [
+        {
+          "kind": "date",
+          "start": 5,
+          "end": 9,
+          "text": "thur"
+        }
+      ],
+      "schedule": {
+        "start": {
+          "date": "2026-10-22",
+          "time": null
+        },
+        "end": null
+      },
+      "due": null,
+      "priority": null,
+      "listId": null,
+      "tags": [],
+      "assignees": [],
+      "recurrence": null
+    },
+    {
+      "text": "Call thurs",
+      "title": "Call",
+      "tokens": [
+        {
+          "kind": "date",
+          "start": 5,
+          "end": 10,
+          "text": "thurs"
+        }
+      ],
+      "schedule": {
+        "start": {
+          "date": "2026-10-22",
+          "time": null
+        },
+        "end": null
+      },
+      "due": null,
+      "priority": null,
+      "listId": null,
+      "tags": [],
+      "assignees": [],
+      "recurrence": null
+    },
+    {
+      "text": "Call weds",
+      "title": "Call weds",
+      "tokens": [],
+      "schedule": null,
+      "due": null,
+      "priority": null,
+      "listId": null,
+      "tags": [],
+      "assignees": [],
+      "recurrence": null
+    },
+    {
+      "text": "Call jan 5",
+      "title": "Call",
+      "tokens": [
+        {
+          "kind": "date",
+          "start": 5,
+          "end": 10,
+          "text": "jan 5"
+        }
+      ],
+      "schedule": {
+        "start": {
+          "date": "2027-01-05",
+          "time": null
+        },
+        "end": null
+      },
+      "due": null,
+      "priority": null,
+      "listId": null,
+      "tags": [],
+      "assignees": [],
+      "recurrence": null
+    },
+    {
+      "text": "Call january 5th",
+      "title": "Call",
+      "tokens": [
+        {
+          "kind": "date",
+          "start": 5,
+          "end": 16,
+          "text": "january 5th"
+        }
+      ],
+      "schedule": {
+        "start": {
+          "date": "2027-01-05",
+          "time": null
+        },
+        "end": null
+      },
+      "due": null,
+      "priority": null,
+      "listId": null,
+      "tags": [],
+      "assignees": [],
+      "recurrence": null
+    },
+    {
+      "text": "Call 5 jan 2027",
+      "title": "Call",
+      "tokens": [
+        {
+          "kind": "date",
+          "start": 5,
+          "end": 15,
+          "text": "5 jan 2027"
+        }
+      ],
+      "schedule": {
+        "start": {
+          "date": "2027-01-05",
+          "time": null
+        },
+        "end": null
+      },
+      "due": null,
+      "priority": null,
+      "listId": null,
+      "tags": [],
+      "assignees": [],
+      "recurrence": null
+    },
+    {
+      "text": "Call tomorrow at noon",
+      "title": "Call",
+      "tokens": [
+        {
+          "kind": "date",
+          "start": 5,
+          "end": 21,
+          "text": "tomorrow at noon"
+        }
+      ],
+      "schedule": {
+        "start": {
+          "date": "2026-10-22",
+          "time": "12:00"
+        },
+        "end": null
+      },
+      "due": null,
+      "priority": null,
+      "listId": null,
+      "tags": [],
+      "assignees": [],
+      "recurrence": null
+    },
+    {
+      "text": "Call 12/25",
+      "title": "Call",
+      "tokens": [
+        {
+          "kind": "date",
+          "start": 5,
+          "end": 10,
+          "text": "12/25"
+        }
+      ],
+      "schedule": {
+        "start": {
+          "date": "2026-12-25",
+          "time": null
+        },
+        "end": null
+      },
+      "due": null,
+      "priority": null,
+      "listId": null,
+      "tags": [],
+      "assignees": [],
+      "recurrence": null
+    },
+    {
+      "text": "Call in 10 days",
+      "title": "Call",
+      "tokens": [
+        {
+          "kind": "date",
+          "start": 5,
+          "end": 15,
+          "text": "in 10 days"
+        }
+      ],
+      "schedule": {
+        "start": {
+          "date": "2026-10-31",
+          "time": null
+        },
+        "end": null
+      },
+      "due": null,
+      "priority": null,
+      "listId": null,
+      "tags": [],
+      "assignees": [],
+      "recurrence": null
+    },
+    {
+      "text": "Call tomorrow 9-10am",
+      "title": "Call",
+      "tokens": [
+        {
+          "kind": "date",
+          "start": 5,
+          "end": 20,
+          "text": "tomorrow 9-10am"
+        }
+      ],
+      "schedule": {
+        "start": {
+          "date": "2026-10-22",
+          "time": "09:00"
+        },
+        "end": {
+          "date": "2026-10-22",
+          "time": "10:00"
+        }
+      },
+      "due": null,
+      "priority": null,
+      "listId": null,
+      "tags": [],
+      "assignees": [],
+      "recurrence": null
+    },
+    {
+      "text": "Call 3:30",
+      "title": "Call",
+      "tokens": [
+        {
+          "kind": "date",
+          "start": 5,
+          "end": 9,
+          "text": "3:30"
+        }
+      ],
+      "schedule": {
+        "start": {
+          "date": "2026-10-22",
+          "time": "03:30"
+        },
+        "end": null
+      },
+      "due": null,
+      "priority": null,
+      "listId": null,
+      "tags": [],
+      "assignees": [],
+      "recurrence": null
+    },
+    {
+      "text": "Call 10pm tomorrow",
+      "title": "Call",
+      "tokens": [
+        {
+          "kind": "date",
+          "start": 5,
+          "end": 18,
+          "text": "10pm tomorrow"
+        }
+      ],
+      "schedule": {
+        "start": {
+          "date": "2026-10-22",
+          "time": "22:00"
+        },
+        "end": null
+      },
+      "due": null,
+      "priority": null,
+      "listId": null,
+      "tags": [],
+      "assignees": [],
+      "recurrence": null
+    },
+    {
+      "text": "Call mon 9am to 5pm",
+      "title": "Call",
+      "tokens": [
+        {
+          "kind": "date",
+          "start": 5,
+          "end": 19,
+          "text": "mon 9am to 5pm"
+        }
+      ],
+      "schedule": {
+        "start": {
+          "date": "2026-10-26",
+          "time": "09:00"
+        },
+        "end": {
+          "date": "2026-10-26",
+          "time": "17:00"
+        }
+      },
+      "due": null,
+      "priority": null,
+      "listId": null,
+      "tags": [],
+      "assignees": [],
+      "recurrence": null
+    },
+    {
+      "text": "Call midnight",
+      "title": "Call",
+      "tokens": [
+        {
+          "kind": "date",
+          "start": 5,
+          "end": 13,
+          "text": "midnight"
+        }
+      ],
+      "schedule": {
+        "start": {
+          "date": "2026-10-22",
+          "time": "00:00"
+        },
+        "end": null
+      },
+      "due": null,
+      "priority": null,
+      "listId": null,
+      "tags": [],
+      "assignees": [],
+      "recurrence": null
+    },
+    {
+      "text": "Call next friday",
+      "title": "Call",
+      "tokens": [
+        {
+          "kind": "date",
+          "start": 5,
+          "end": 16,
+          "text": "next friday"
+        }
+      ],
+      "schedule": {
+        "start": {
+          "date": "2026-10-30",
+          "time": null
+        },
+        "end": null
+      },
+      "due": null,
+      "priority": null,
+      "listId": null,
+      "tags": [],
+      "assignees": [],
+      "recurrence": null
+    },
+    {
+      "text": "Call next wednesday",
+      "title": "Call",
+      "tokens": [
+        {
+          "kind": "date",
+          "start": 5,
+          "end": 19,
+          "text": "next wednesday"
+        }
+      ],
+      "schedule": {
+        "start": {
+          "date": "2026-10-28",
+          "time": null
+        },
+        "end": null
+      },
+      "due": null,
+      "priority": null,
+      "listId": null,
+      "tags": [],
+      "assignees": [],
+      "recurrence": null
+    },
+    {
+      "text": "Call this wednesday",
+      "title": "Call",
+      "tokens": [
+        {
+          "kind": "date",
+          "start": 5,
+          "end": 19,
+          "text": "this wednesday"
+        }
+      ],
+      "schedule": {
+        "start": {
+          "date": "2026-10-21",
+          "time": null
+        },
+        "end": null
+      },
+      "due": null,
+      "priority": null,
+      "listId": null,
+      "tags": [],
+      "assignees": [],
+      "recurrence": null
+    },
+    {
+      "text": "Call 9:00",
+      "title": "Call",
+      "tokens": [
+        {
+          "kind": "date",
+          "start": 5,
+          "end": 9,
+          "text": "9:00"
+        }
+      ],
+      "schedule": {
+        "start": {
+          "date": "2026-10-22",
+          "time": "09:00"
+        },
+        "end": null
+      },
+      "due": null,
+      "priority": null,
+      "listId": null,
+      "tags": [],
+      "assignees": [],
+      "recurrence": null
+    },
+    {
+      "text": "Call at 3pm",
+      "title": "Call",
+      "tokens": [
+        {
+          "kind": "date",
+          "start": 5,
+          "end": 11,
+          "text": "at 3pm"
+        }
+      ],
+      "schedule": {
+        "start": {
+          "date": "2026-10-21",
+          "time": "15:00"
+        },
+        "end": null
+      },
+      "due": null,
+      "priority": null,
+      "listId": null,
+      "tags": [],
+      "assignees": [],
+      "recurrence": null
+    },
+    {
+      "text": "Call 2027-01-05 10:00",
+      "title": "Call",
+      "tokens": [
+        {
+          "kind": "date",
+          "start": 5,
+          "end": 21,
+          "text": "2027-01-05 10:00"
+        }
+      ],
+      "schedule": {
+        "start": {
+          "date": "2027-01-05",
+          "time": "10:00"
+        },
+        "end": null
+      },
+      "due": null,
+      "priority": null,
+      "listId": null,
+      "tags": [],
+      "assignees": [],
+      "recurrence": null
+    },
+    {
+      "text": "Call 12/25/2027",
+      "title": "Call",
+      "tokens": [
+        {
+          "kind": "date",
+          "start": 5,
+          "end": 15,
+          "text": "12/25/2027"
+        }
+      ],
+      "schedule": {
+        "start": {
+          "date": "2027-12-25",
+          "time": null
+        },
+        "end": null
+      },
+      "due": null,
+      "priority": null,
+      "listId": null,
+      "tags": [],
+      "assignees": [],
+      "recurrence": null
+    },
+    {
+      "text": "Call dec 25 2026",
+      "title": "Call",
+      "tokens": [
+        {
+          "kind": "date",
+          "start": 5,
+          "end": 16,
+          "text": "dec 25 2026"
+        }
+      ],
+      "schedule": {
+        "start": {
+          "date": "2026-12-25",
+          "time": null
+        },
+        "end": null
+      },
+      "due": null,
+      "priority": null,
+      "listId": null,
+      "tags": [],
+      "assignees": [],
+      "recurrence": null
+    },
+    {
+      "text": "Call tmrw",
+      "title": "Call",
+      "tokens": [
+        {
+          "kind": "date",
+          "start": 5,
+          "end": 9,
+          "text": "tmrw"
+        }
+      ],
+      "schedule": {
+        "start": {
+          "date": "2026-10-22",
+          "time": null
+        },
+        "end": null
+      },
+      "due": null,
+      "priority": null,
+      "listId": null,
+      "tags": [],
+      "assignees": [],
+      "recurrence": null
+    },
+    {
+      "text": "Call tomorrow 3 pm",
+      "title": "Call",
+      "tokens": [
+        {
+          "kind": "date",
+          "start": 5,
+          "end": 18,
+          "text": "tomorrow 3 pm"
+        }
+      ],
+      "schedule": {
+        "start": {
+          "date": "2026-10-22",
+          "time": "15:00"
+        },
+        "end": null
+      },
+      "due": null,
+      "priority": null,
+      "listId": null,
+      "tags": [],
+      "assignees": [],
+      "recurrence": null
+    },
+    {
+      "text": "Call 7AM",
+      "title": "Call",
+      "tokens": [
+        {
+          "kind": "date",
+          "start": 5,
+          "end": 8,
+          "text": "7AM"
+        }
+      ],
+      "schedule": {
+        "start": {
+          "date": "2026-10-22",
+          "time": "07:00"
+        },
+        "end": null
+      },
+      "due": null,
+      "priority": null,
+      "listId": null,
+      "tags": [],
+      "assignees": [],
+      "recurrence": null
+    },
+    {
+      "text": "Call sept 3",
+      "title": "Call",
+      "tokens": [
+        {
+          "kind": "date",
+          "start": 5,
+          "end": 11,
+          "text": "sept 3"
+        }
+      ],
+      "schedule": {
+        "start": {
+          "date": "2027-09-03",
+          "time": null
+        },
+        "end": null
+      },
+      "due": null,
+      "priority": null,
+      "listId": null,
+      "tags": [],
+      "assignees": [],
+      "recurrence": null
+    },
+    {
+      "text": "Call sep 3",
+      "title": "Call",
+      "tokens": [
+        {
+          "kind": "date",
+          "start": 5,
+          "end": 10,
+          "text": "sep 3"
+        }
+      ],
+      "schedule": {
+        "start": {
+          "date": "2027-09-03",
+          "time": null
+        },
+        "end": null
+      },
+      "due": null,
+      "priority": null,
+      "listId": null,
+      "tags": [],
+      "assignees": [],
+      "recurrence": null
+    },
+    {
+      "text": "Call 1st",
+      "title": "Call 1st",
+      "tokens": [],
+      "schedule": null,
+      "due": null,
+      "priority": null,
+      "listId": null,
+      "tags": [],
+      "assignees": [],
+      "recurrence": null
+    },
+    {
+      "text": "Call yesterday",
+      "title": "Call",
+      "tokens": [
+        {
+          "kind": "date",
+          "start": 5,
+          "end": 14,
+          "text": "yesterday"
+        }
+      ],
+      "schedule": {
+        "start": {
+          "date": "2026-10-20",
+          "time": null
+        },
+        "end": null
+      },
+      "due": null,
+      "priority": null,
+      "listId": null,
+      "tags": [],
+      "assignees": [],
+      "recurrence": null
+    },
+    {
+      "text": "Call today at 4",
+      "title": "Call",
+      "tokens": [
+        {
+          "kind": "date",
+          "start": 5,
+          "end": 15,
+          "text": "today at 4"
+        }
+      ],
+      "schedule": {
+        "start": {
+          "date": "2026-10-21",
+          "time": "04:00"
+        },
+        "end": null
+      },
+      "due": null,
+      "priority": null,
+      "listId": null,
+      "tags": [],
+      "assignees": [],
+      "recurrence": null
+    },
+    {
+      "text": "Call in 1 week",
+      "title": "Call",
+      "tokens": [
+        {
+          "kind": "date",
+          "start": 5,
+          "end": 14,
+          "text": "in 1 week"
+        }
+      ],
+      "schedule": {
+        "start": {
+          "date": "2026-10-28",
+          "time": null
+        },
+        "end": null
+      },
+      "due": null,
+      "priority": null,
+      "listId": null,
+      "tags": [],
+      "assignees": [],
+      "recurrence": null
+    },
+    {
+      "text": "Call next mon",
+      "title": "Call",
+      "tokens": [
+        {
+          "kind": "date",
+          "start": 5,
+          "end": 13,
+          "text": "next mon"
+        }
+      ],
+      "schedule": {
+        "start": {
+          "date": "2026-10-26",
+          "time": null
+        },
+        "end": null
+      },
+      "due": null,
+      "priority": null,
+      "listId": null,
+      "tags": [],
+      "assignees": [],
+      "recurrence": null
+    },
+    {
+      "text": "Call friday 3pm to saturday",
+      "title": "Call",
+      "tokens": [
+        {
+          "kind": "date",
+          "start": 5,
+          "end": 27,
+          "text": "friday 3pm to saturday"
+        }
+      ],
+      "schedule": {
+        "start": {
+          "date": "2026-10-23",
+          "time": "15:00"
+        },
+        "end": {
+          "date": "2026-10-24",
+          "time": null
+        }
+      },
+      "due": null,
+      "priority": null,
+      "listId": null,
+      "tags": [],
+      "assignees": [],
+      "recurrence": null
+    },
+    {
+      "text": "Call 3-5pm",
+      "title": "Call",
+      "tokens": [
+        {
+          "kind": "date",
+          "start": 5,
+          "end": 10,
+          "text": "3-5pm"
+        }
+      ],
+      "schedule": {
+        "start": {
+          "date": "2026-10-21",
+          "time": "15:00"
+        },
+        "end": {
+          "date": "2026-10-21",
+          "time": "17:00"
+        }
+      },
+      "due": null,
+      "priority": null,
+      "listId": null,
+      "tags": [],
+      "assignees": [],
+      "recurrence": null
+    },
+    {
+      "text": "Call oct 30th",
+      "title": "Call",
+      "tokens": [
+        {
+          "kind": "date",
+          "start": 5,
+          "end": 13,
+          "text": "oct 30th"
+        }
+      ],
+      "schedule": {
+        "start": {
+          "date": "2026-10-30",
+          "time": null
+        },
+        "end": null
+      },
+      "due": null,
+      "priority": null,
+      "listId": null,
+      "tags": [],
+      "assignees": [],
+      "recurrence": null
+    },
+    {
+      "text": "Call the 30th",
+      "title": "Call the 30th",
+      "tokens": [],
+      "schedule": null,
+      "due": null,
+      "priority": null,
+      "listId": null,
+      "tags": [],
+      "assignees": [],
+      "recurrence": null
+    },
+    {
+      "text": "Call aug 31 to sep 2",
+      "title": "Call",
+      "tokens": [
+        {
+          "kind": "date",
+          "start": 5,
+          "end": 20,
+          "text": "aug 31 to sep 2"
+        }
+      ],
+      "schedule": {
+        "start": {
+          "date": "2027-08-31",
+          "time": null
+        },
+        "end": {
+          "date": "2027-09-02",
+          "time": null
+        }
+      },
+      "due": null,
+      "priority": null,
+      "listId": null,
+      "tags": [],
+      "assignees": [],
+      "recurrence": null
+    },
+    {
+      "text": "Call 2026/12/01",
+      "title": "Call",
+      "tokens": [
+        {
+          "kind": "date",
+          "start": 5,
+          "end": 15,
+          "text": "2026/12/01"
+        }
+      ],
+      "schedule": {
+        "start": {
+          "date": "2026-12-01",
+          "time": null
+        },
+        "end": null
+      },
+      "due": null,
+      "priority": null,
+      "listId": null,
+      "tags": [],
+      "assignees": [],
+      "recurrence": null
+    },
+    {
+      "text": "Call at noon tomorrow",
+      "title": "Call at",
+      "tokens": [
+        {
+          "kind": "date",
+          "start": 8,
+          "end": 21,
+          "text": "noon tomorrow"
+        }
+      ],
+      "schedule": {
+        "start": {
+          "date": "2026-10-22",
+          "time": "12:00"
+        },
+        "end": null
+      },
+      "due": null,
+      "priority": null,
+      "listId": null,
+      "tags": [],
+      "assignees": [],
+      "recurrence": null
+    },
+    {
+      "text": "Call 12pm",
+      "title": "Call",
+      "tokens": [
+        {
+          "kind": "date",
+          "start": 5,
+          "end": 9,
+          "text": "12pm"
+        }
+      ],
+      "schedule": {
+        "start": {
+          "date": "2026-10-21",
+          "time": "12:00"
+        },
+        "end": null
+      },
+      "due": null,
+      "priority": null,
+      "listId": null,
+      "tags": [],
+      "assignees": [],
+      "recurrence": null
+    },
+    {
+      "text": "Call 12am",
+      "title": "Call",
+      "tokens": [
+        {
+          "kind": "date",
+          "start": 5,
+          "end": 9,
+          "text": "12am"
+        }
+      ],
+      "schedule": {
+        "start": {
+          "date": "2026-10-22",
+          "time": "00:00"
+        },
+        "end": null
+      },
+      "due": null,
+      "priority": null,
+      "listId": null,
+      "tags": [],
+      "assignees": [],
+      "recurrence": null
+    },
+    {
+      "text": "Call 0:30",
+      "title": "Call",
+      "tokens": [
+        {
+          "kind": "date",
+          "start": 5,
+          "end": 9,
+          "text": "0:30"
+        }
+      ],
+      "schedule": {
+        "start": {
+          "date": "2026-10-22",
+          "time": "00:30"
+        },
+        "end": null
+      },
+      "due": null,
+      "priority": null,
+      "listId": null,
+      "tags": [],
+      "assignees": [],
+      "recurrence": null
+    },
+    {
+      "text": "Call 23:59",
+      "title": "Call",
+      "tokens": [
+        {
+          "kind": "date",
+          "start": 5,
+          "end": 10,
+          "text": "23:59"
+        }
+      ],
+      "schedule": {
+        "start": {
+          "date": "2026-10-21",
+          "time": "23:59"
+        },
+        "end": null
+      },
+      "due": null,
+      "priority": null,
+      "listId": null,
+      "tags": [],
+      "assignees": [],
+      "recurrence": null
+    },
+    {
+      "text": "Call next sunday",
+      "title": "Call",
+      "tokens": [
+        {
+          "kind": "date",
+          "start": 5,
+          "end": 16,
+          "text": "next sunday"
+        }
+      ],
+      "schedule": {
+        "start": {
+          "date": "2026-11-01",
+          "time": null
+        },
+        "end": null
+      },
+      "due": null,
+      "priority": null,
+      "listId": null,
+      "tags": [],
+      "assignees": [],
+      "recurrence": null
+    },
+    {
+      "text": "Call next saturday",
+      "title": "Call",
+      "tokens": [
+        {
+          "kind": "date",
+          "start": 5,
+          "end": 18,
+          "text": "next saturday"
+        }
+      ],
+      "schedule": {
+        "start": {
+          "date": "2026-10-31",
+          "time": null
+        },
+        "end": null
+      },
+      "due": null,
+      "priority": null,
+      "listId": null,
+      "tags": [],
+      "assignees": [],
+      "recurrence": null
+    },
+    {
+      "text": "Gym every fri and mon",
+      "title": "Gym",
+      "tokens": [
+        {
+          "kind": "repeat",
+          "start": 4,
+          "end": 21,
+          "text": "every fri and mon"
+        }
+      ],
+      "schedule": {
+        "start": {
+          "date": "2026-10-23",
+          "time": null
+        },
+        "end": null
+      },
+      "due": null,
+      "priority": null,
+      "listId": null,
+      "tags": [],
+      "assignees": [],
+      "recurrence": "FREQ=WEEKLY;BYDAY=FR,MO"
+    },
+    {
+      "text": "Call sunday",
+      "title": "Call",
+      "tokens": [
+        {
+          "kind": "date",
+          "start": 5,
+          "end": 11,
+          "text": "sunday"
+        }
+      ],
+      "schedule": {
+        "start": {
+          "date": "2026-10-25",
+          "time": null
+        },
+        "end": null
+      },
+      "due": null,
+      "priority": null,
+      "listId": null,
+      "tags": [],
+      "assignees": [],
+      "recurrence": null
+    },
+    {
+      "text": "Read 10 pages every 2 days",
+      "title": "Read 10 pages",
+      "tokens": [
+        {
+          "kind": "repeat",
+          "start": 14,
+          "end": 26,
+          "text": "every 2 days"
+        }
+      ],
+      "schedule": {
+        "start": {
+          "date": "2026-10-21",
+          "time": null
+        },
+        "end": null
+      },
+      "due": null,
+      "priority": null,
+      "listId": null,
+      "tags": [],
+      "assignees": [],
+      "recurrence": "FREQ=DAILY;INTERVAL=2"
+    }
+  ]
+}

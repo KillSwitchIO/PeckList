@@ -1,4 +1,5 @@
 using PeckList.Server.Push;
+using PeckList.Server.Api;
 using System.Reflection;
 using Microsoft.AspNetCore.HttpOverrides;
 using PeckList.Core;
@@ -116,6 +117,8 @@ public static partial class ServerApp
         builder.Services.AddHostedService(provider => provider.GetRequiredService<ReminderSender>());
         builder.Services.AddSingleton<PeckList.Core.Sync.IEntityValidator>(_ => EntitySchema.Validator());
         builder.Services.AddSingleton<SyncService>();
+        builder.Services.AddSingleton<PeckList.Core.Api.TaskQueries>();
+        builder.Services.AddSingleton<TaskWrites>();
         builder.Services.AddSingleton<PeckList.Core.Attachments.IAttachmentStore>(new Attachments.FileAttachmentStore(settings.AttachmentDir));
         builder.Services.AddSingleton<Attachments.UploadAllowance>();
         builder.Services.AddHostedService<Attachments.AttachmentCleanup>();
@@ -188,6 +191,8 @@ public static partial class ServerApp
         app.UseResponseHardening(Analytics.ContentSecurityPolicy(settings.Umami));
         // After the forwarded headers, so the request's own address is the one people use.
         app.UseSameOriginGuard();
+        // The task API answers every error as a problem, the 503s and 401s of what follows too.
+        app.UseApiProblems();
         SharingStartup.UseSharingStartup(app);
         app.UseDemoMode(settings);
         app.UseAuthentication();
@@ -205,6 +210,7 @@ public static partial class ServerApp
                 AppSignIn: settings.AuthMode != AuthMode.None, Demo: Demo.Info(settings)));
         app.MapAuth();
         app.MapGroup("/api").RequireAuthorization().RequirePasswordChanged().EnsureProfiles().MapSync().MapFriends().MapAccount().MapAccountEmail().MapAccountPasskeys().MapAttachments().MapNotifications().MapHistory().MapPush().MapProviderPicture().MapAppCheck().MapUpdates().MapApiKeys().MapClientTelemetry().MapCrashReports();
+        app.MapGroup("/api/v1").RequireAuthorization().RequirePasswordChanged().EnsureProfiles().MapTaskApi();
         app.MapGroup("/api/admin").RequireAuthorization().RequirePasswordChanged().MapAdmin().MapAdminEmail().MapAdminPasskeys().MapSettings().MapBackups().MapLogging().MapAudit().MapStats().MapSetup().MapTelemetry().MapAdminCrashReports();
 
         var webRoot = settings.WebRoot ?? Path.Combine(AppContext.BaseDirectory, "wwwroot");

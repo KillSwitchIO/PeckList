@@ -62,7 +62,11 @@ public static class SyncEndpoints
                     new SyncError(rejected.Code, rejected.Message, rejected.ServerSchemaVersion),
                     statusCode: rejected.Code == "schema_mismatch" ? StatusCodes.Status409Conflict : StatusCodes.Status400BadRequest);
             }
-        });
+        })
+        .WithSummary("Internal: the apps' sync")
+        .WithDescription(
+            "The protocol the PeckList apps sync with: whole entities with per-field clocks. It is internal and " +
+            "changes with the apps; scripts and other tools use the task API under /api/v1, which is versioned.");
 
         api.MapGet("/events", StreamEventsAsync);
         return api;

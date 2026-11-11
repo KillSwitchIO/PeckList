@@ -244,6 +244,11 @@
         },
         {
           "type": "doc",
+          "id": "reference/task-api",
+          "label": "Task API"
+        },
+        {
+          "type": "doc",
           "id": "schema",
           "label": "Workspace schema"
         },

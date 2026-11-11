@@ -1,8 +1,10 @@
 # HTTP API
 
-The web app talks to the server over JSON. That API is usable from scripts, but it is **not yet a
-stable public API**: it can change in any minor version. Pin the PeckList version if you script
-against it, and read the changelog when upgrading.
+The server's HTTP API, route by route. **For scripts and other tools, use the
+[task API](task-api.md)** under `/api/v1`: it is versioned and keeps working across releases.
+The other routes on this page serve the apps and the admin pages. They are usable from scripts,
+but they can change in any minor version: pin the PeckList version if you script against them, and
+read the changelog when upgrading.
 
 ## Swagger and OpenAPI
 
@@ -22,14 +24,13 @@ none) and only the permissions the script needs, copy it (it is shown once), and
 every request:
 
 ```bash
-curl -H 'Authorization: Bearer pl_...' https://tasks.example.com/api/sync \
-  -H 'Content-Type: application/json' -d '{"schemaVersion":16,"cursor":null,"changes":[]}'
+curl -H 'Authorization: Bearer pl_...' https://tasks.example.com/api/v1/tasks
 ```
 
 | Permission      | Lets the key                                                               |
 | --------------- | -------------------------------------------------------------------------- |
-| `tasks:read`    | Sync without changes (everything you can see), `/api/events`, task history |
-| `tasks:write`   | Push changes through `/api/sync` (comes with `tasks:read`)                 |
+| `tasks:read`    | The task API's reads; sync without changes, `/api/events`, task history    |
+| `tasks:write`   | The task API's writes; push changes through `/api/sync` (comes with `tasks:read`) |
 | `files:read`    | Download attachments                                                       |
 | `files:write`   | Upload attachments (comes with `files:read`)                               |
 | `notifications` | List notifications, mark them read, clear them                             |
@@ -37,8 +38,8 @@ curl -H 'Authorization: Bearer pl_...' https://tasks.example.com/api/sync \
 
 A key works as you, so it never sees more than you do. It cannot do anything outside its
 permissions: no sign-in or password routes, no account settings, no friends, and it cannot make
-or revoke keys. Anything else answers `403 {"error":"scope"}`; an unknown, revoked or expired key
-answers `401`. The server keeps only a hash of the secret, and when each key was last used (to
+or revoke keys. Anything else answers `403` with the code `scope`; an unknown, revoked or expired
+key answers `401`. The server keeps only a hash of the secret, and when each key was last used (to
 within a few minutes). Making and revoking keys go in the event log.
 
 | Route                                 |                                                                              |
@@ -96,7 +97,7 @@ the app's hand-off code (`POST /auth/app/redeem`).
 
 | Route                                                |                                                 |
 | ---------------------------------------------------- | ----------------------------------------------- |
-| `POST /api/sync`                                     | Send changes and receive others' since a cursor |
+| `POST /api/sync`                                     | Internal: the apps' sync. Send changes and receive others' since a cursor |
 | `GET /api/events`                                    | Server-sent events: something changed, sync now |
 | `GET /api/account/sign-in`, `GET /api/account/stats` | Your sign-in methods, your stats                |
 | `/api/friends/...`, `GET /api/users/lookup`          | Friend links and requests, finding people       |
@@ -124,6 +125,7 @@ and that device syncs on its timer instead until a later sync finds a place free
 | Logs     | `GET /logging`, `GET /debug-dump`, `GET /audit`, `GET /audit.csv`                                                                                                                                                                 |
 | Stats    | `GET /stats`                                                                                                                                                                                                                      |
 
+`/api/sync` is the apps' own protocol and changes with them; scripts use the [task API](task-api.md).
 The workspace data that `/api/sync` carries is described by the [workspace schema](../schema.md).
 Each pushed change is checked on its own: one the server cannot take as it is (malformed, or
 stamped more than an hour ahead of its clock) is listed in the response's `invalid` with its index,

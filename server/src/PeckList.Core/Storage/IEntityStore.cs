@@ -73,6 +73,16 @@ public interface IEntityStore
     /// <summary>Entities <paramref name="userId"/> may see, changed after <paramref name="after"/>, oldest first.</summary>
     Task<ChangePage> ChangesAsync(string userId, long after, int limit, CancellationToken cancellation = default);
 
+    /// <summary>
+    /// The ids of one collection that <paramref name="userId"/> may see, live ones or (with
+    /// <paramref name="deleted"/>) deleted ones only, in ordinal id order. Ids only, so a whole
+    /// workspace stays cheap: the task API pages and filters on these (PL-137).
+    /// </summary>
+    Task<IReadOnlyList<string>> VisibleIdsAsync(string userId, string collection, bool deleted, CancellationToken cancellation = default);
+
+    /// <summary>The entities with these ids that exist, in no particular order.</summary>
+    Task<IReadOnlyList<StoredEntity>> GetManyAsync(IReadOnlyCollection<string> ids, CancellationToken cancellation = default);
+
     /// <summary>Every entity, in seq order (export, snapshots, moving between databases).</summary>
     IAsyncEnumerable<StoredEntity> AllAsync(CancellationToken cancellation = default);
 

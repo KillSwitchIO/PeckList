@@ -39,12 +39,49 @@ public sealed class ApiDocsTests(ServerFixture fixture) : IClassFixture<ServerFi
         Assert.DoesNotContain("pecklist", tags);
     }
 
+    [Fact]
+    public async Task The_task_api_says_what_it_takes_and_answers_and_sync_says_it_is_internal()
+    {
+        using var server = fixture.Factory(("DB_PATH", fixture.NewDbPath()));
+        var document = await Document(server.CreateClient());
+        var paths = document.GetProperty("paths");
+
+        // Every reference has its schema.
+        var schemas = document.GetProperty("components").GetProperty("schemas");
+        static IEnumerable<string> Refs(JsonElement node) => node.ValueKind switch
+        {
+            JsonValueKind.Object => node.EnumerateObject().SelectMany(pair =>
+                pair.Name == "$ref" && pair.Value.ValueKind == JsonValueKind.String ? [pair.Value.GetString()!] : Refs(pair.Value)),
+            JsonValueKind.Array => node.EnumerateArray().SelectMany(Refs),
+            _ => [],
+        };
+        Assert.All(Refs(document).Where(each => each.StartsWith("#/components/schemas/", StringComparison.Ordinal)).Distinct(),
+            each => Assert.True(schemas.TryGetProperty(each["#/components/schemas/".Length..], out _), each));
+
+        static string Schema(JsonElement content) =>
+            content.GetProperty("application/json").GetProperty("schema").GetProperty("$ref").GetString()!;
+        var list = paths.GetProperty("/api/v1/tasks").GetProperty("get");
+        Assert.EndsWith("/ApiPageOfApiTask", Schema(list.GetProperty("responses").GetProperty("200").GetProperty("content")));
+        Assert.True(list.GetProperty("responses").TryGetProperty("429", out var limited));
+        Assert.True(limited.GetProperty("content").TryGetProperty("application/problem+json", out _));
+        Assert.Equal("v1: tasks", list.GetProperty("tags")[0].GetString());
+
+        var quick = paths.GetProperty("/api/v1/tasks/quick").GetProperty("post");
+        Assert.EndsWith("/ApiQuickAddInput", Schema(quick.GetProperty("requestBody").GetProperty("content")));
+        Assert.EndsWith("/QuickAddAnswer", Schema(quick.GetProperty("responses").GetProperty("201").GetProperty("content")));
+        Assert.True(paths.GetProperty("/api/v1/tasks/{id}").GetProperty("delete").GetProperty("responses").TryGetProperty("204", out _));
+
+        Assert.StartsWith("Internal", paths.GetProperty("/api/sync").GetProperty("post").GetProperty("summary").GetString());
+    }
+
     [Theory]
     [InlineData("api/friends/code", "Friends")]
     [InlineData("api/attachments/{sha256}", "Attachments")]
     [InlineData("api/admin/settings/{key}", "Admin: settings")]
     [InlineData("api/admin/users/{id}/hand-over", "Admin: users")]
     [InlineData("api/admin/audit.csv", "Admin: audit")]
+    [InlineData("api/v1/tasks/{id}/complete", "v1: tasks")]
+    [InlineData("api/v1/me", "v1: me")]
     public void Operations_group_by_area(string path, string area) => Assert.Equal(area, ApiDocs.Area(path));
 
     [Fact]

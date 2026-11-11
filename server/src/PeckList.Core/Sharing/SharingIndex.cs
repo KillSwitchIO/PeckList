@@ -1172,6 +1172,8 @@ public sealed class SharingIndex
     /// <see cref="Knows"/>), groups they are in, and invites in their own name. Anything else would
     /// show a stranger's tasks to them, and them to the list's people, with a notice they never asked for.
     /// </summary>
+    public bool MayAssign(string userId, IEnumerable<string> principals) => PrincipalsAllowed(userId, principals, this);
+
     private bool PrincipalsAllowed(string userId, IEnumerable<string> principals, SharingIndex beforeIndex)
     {
         foreach (var principal in principals)

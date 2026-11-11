@@ -42,6 +42,34 @@ public abstract class EntityStoreContract : IAsyncLifetime
     }
 
     [Fact]
+    public async Task Visible_ids_are_one_collection_that_one_person_sees_live_or_deleted_in_id_order()
+    {
+        var gone = Task("Tc", "Rake");
+        gone.Doc["deletedAt"] = "2026-10-21T11:00:00.000Z";
+        var list = new IncomingEntity("lists", new JsonObject { ["id"] = "L1", ["name"] = "Home", ["deletedAt"] = null, ["_hlc"] = new JsonObject() });
+        await Store.WriteAsync("u1", [Task("Tb", "Mow"), Task("Ta", "Weed"), gone, list], TakeIncoming, cancellation: Token);
+        await Store.WriteAsync("u2", [Task("Td", "Theirs")], TakeIncoming, cancellation: Token);
+
+        Assert.Equal(["Ta", "Tb"], await Store.VisibleIdsAsync("u1", "tasks", deleted: false, Token));
+        Assert.Equal(["Tc"], await Store.VisibleIdsAsync("u1", "tasks", deleted: true, Token));
+        Assert.Equal(["L1"], await Store.VisibleIdsAsync("u1", "lists", deleted: false, Token));
+        Assert.Equal(["Td"], await Store.VisibleIdsAsync("u2", "tasks", deleted: false, Token));
+        Assert.Empty(await Store.VisibleIdsAsync("u3", "tasks", deleted: false, Token));
+
+        var many = await Store.GetManyAsync(["Ta", "nope", "Td", "Ta"], Token);
+        Assert.Equal(["Ta", "Td"], many.Select(each => each.Id).Order(StringComparer.Ordinal));
+        Assert.Equal("Theirs", (string?)many.Single(each => each.Id == "Td").Doc["title"]);
+        Assert.Empty(await Store.GetManyAsync([], Token));
+    }
+
+    [Fact]
+    public async Task Visible_ids_sort_by_ordinal_whatever_the_database_collation()
+    {
+        await Store.WriteAsync("u1", [Task("b", "1"), Task("B", "2"), Task("a_", "3"), Task("a-", "4"), Task("A", "5")], TakeIncoming, cancellation: Token);
+        Assert.Equal(["A", "B", "a-", "a_", "b"], await Store.VisibleIdsAsync("u1", "tasks", deleted: false, Token));
+    }
+
+    [Fact]
     public async Task Migrating_twice_changes_nothing()
     {
         await Store.WriteAsync("u1", [Task("T1", "Mow")], TakeIncoming, cancellation: Token);

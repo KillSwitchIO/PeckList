@@ -100,4 +100,61 @@ public sealed class ApiKeyTests(ServerFixture fixture) : IClassFixture<ServerFix
         var refused = await session.PostAsJsonAsync("/api/account/api-keys", new { name = "x", scopes = Array.Empty<string>() }, Token);
         Assert.Equal(HttpStatusCode.BadRequest, refused.StatusCode);
     }
+
+    [Fact]
+    public async Task An_admin_key_does_not_view_as_anyone_nor_sign_its_own_account_in_some_other_way()
+    {
+        using var server = fixture.Factory(("ADMIN_PASSWORD", AdminPassword), ("DB_PATH", fixture.NewDbPath()));
+        var session = await LogIn(server);
+        var sam = await server.Services.GetRequiredService<Core.Accounts.AccountService>()
+            .CreateUserAsync("sam", "a long enough password", mustChangePassword: false, cancellation: Token);
+        var me = (await session.GetFromJsonAsync<JsonObject>("/auth/me", Token))!;
+        var myId = (string)me["id"]!;
+        var made = await session.PostAsJsonAsync("/api/account/api-keys", new { name = "Admin only", scopes = new[] { "admin" } }, Token);
+        var key = WithKey(server, (await made.Content.ReadFromJsonAsync<ApiKeyAuth.CreatedKey>(Token))!.Token);
+
+        // View-as is the browser's: a key neither starts one nor rides one a session started.
+        var start = await key.PostAsJsonAsync($"/api/admin/users/{sam.Id}/impersonate", new { reason = "help" }, Token);
+        Assert.Equal(HttpStatusCode.Forbidden, start.StatusCode);
+        Assert.Contains("not_with_a_key", await start.Content.ReadAsStringAsync(Token));
+        var started = await session.PostAsJsonAsync($"/api/admin/users/{sam.Id}/impersonate", new { reason = "help" }, Token);
+        Assert.Equal(HttpStatusCode.OK, started.StatusCode);
+        var view = (await started.Content.ReadFromJsonAsync<JsonObject>(Token))!["token"]!.GetValue<string>();
+        using (var request = new HttpRequestMessage(HttpMethod.Get, "/auth/me"))
+        {
+            request.Headers.Add(ImpersonationSetup.Header, view);
+            var riding = await key.SendAsync(request, Token);
+            Assert.Equal(HttpStatusCode.Forbidden, riding.StatusCode);
+            Assert.Contains("not_with_a_key", await riding.Content.ReadAsStringAsync(Token));
+        }
+
+        // Nothing that would outlast the key: no sign-in link, password or provider link for its own account.
+        foreach (var (path, body) in new (string, object?)[]
+        {
+            ($"/api/admin/users/{myId}/login-link", null),
+            ($"/api/admin/users/{myId}/password", new { password = "another long password" }),
+            ($"/api/admin/users/{myId}/identities", new { provider = "any", subject = "someone" }),
+        })
+        {
+            var refused = await key.PostAsJsonAsync(path, body, Token);
+            Assert.Equal(HttpStatusCode.Forbidden, refused.StatusCode);
+            Assert.Contains("not_with_a_key", await refused.Content.ReadAsStringAsync(Token));
+        }
+        foreach (var (path, body) in new (string, object)[]
+        {
+            ("/api/admin/oidc/mappings", new { provider = "any", providerUsername = "someone", accountId = myId }),
+            ("/api/admin/oidc/identities/any/someone/account", new { accountId = myId }),
+        })
+        {
+            var refused = await key.PutAsJsonAsync(path, body, Token);
+            Assert.Equal(HttpStatusCode.Forbidden, refused.StatusCode);
+            Assert.Contains("not_with_a_key", await refused.Content.ReadAsStringAsync(Token));
+            // The session gets past that check (to "no such provider" or "no such link").
+            Assert.NotEqual(HttpStatusCode.Forbidden, (await session.PutAsJsonAsync(path, body, Token)).StatusCode);
+        }
+        // The session still may; the key still acts on other people as the role allows.
+        Assert.NotEqual(HttpStatusCode.Forbidden, (await key.PostAsync($"/api/admin/users/{sam.Id}/login-link", null, Token)).StatusCode);
+        Assert.NotEqual(HttpStatusCode.Forbidden, (await session.PostAsync($"/api/admin/users/{myId}/login-link", null, Token)).StatusCode);
+        Assert.Equal(HttpStatusCode.OK, (await key.PostAsJsonAsync($"/api/admin/users/{sam.Id}/password", new { password = "another long password" }, Token)).StatusCode);
+    }
 }
