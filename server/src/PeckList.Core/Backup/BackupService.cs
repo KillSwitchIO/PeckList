@@ -38,7 +38,13 @@ public sealed class BackupService(
         Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
     };
 
-    public async Task<BackupSummary> ExportAsync(Stream output, string appVersion, CancellationToken cancellation = default)
+    /// <param name="leaveOut">
+    /// Given a server secret's kind and value, whether to leave it out. Restoring such a file makes
+    /// new ones or goes without, so whatever they backed (sessions, one-time links, saved
+    /// passwords) stops working.
+    /// </param>
+    public async Task<BackupSummary> ExportAsync(
+        Stream output, string appVersion, CancellationToken cancellation = default, Func<string, string, bool>? leaveOut = null)
     {
         await using var json = new Utf8JsonWriter(output, WriterOptions);
         json.WriteStartObject();
@@ -189,6 +195,7 @@ public sealed class BackupService(
         json.WriteStartArray("secrets");
         foreach (var (kind, name, value) in await secrets.AllAsync(cancellation))
         {
+            if (leaveOut?.Invoke(kind, value) == true) continue;
             json.WriteStartObject();
             json.WriteString("kind", kind);
             json.WriteString("name", name);

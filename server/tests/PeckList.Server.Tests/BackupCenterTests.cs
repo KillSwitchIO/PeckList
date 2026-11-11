@@ -26,6 +26,187 @@ public sealed class BackupCenterTests(ServerFixture fixture) : IClassFixture<Ser
             ("SNAPSHOT_DIR", Path.ChangeExtension(db, ".backups")));
     }
 
+    /// <summary>The session and one-time secret kinds a key-made export leaves out.</summary>
+    private static readonly string[] SessionAndOneTimeKinds =
+    [
+        "dataprotection", "login-link", "impersonation", "app-handoff", "signup-invite",
+        "password-reset", "email-confirm", "app-link", "passkey-enroll",
+    ];
+
+    /// <summary>
+    /// A server with the admin signed in (and a bare session cookie of theirs for later), a row of
+    /// each one-time kind, and a scheduled backup's folder of its own.
+    /// </summary>
+    private async Task<(WebApplicationFactory<Program> Server, HttpClient Admin, string Cookie)> ServerWithSecrets(string db)
+    {
+        var server = Server(db);
+        var admin = await LogIn(server, "admin", AdminPassword);
+        var bare = server.CreateClient(new WebApplicationFactoryClientOptions { HandleCookies = false });
+        var login = await bare.PostAsJsonAsync("/auth/login", new { username = "admin", password = AdminPassword }, Token);
+        login.EnsureSuccessStatusCode();
+        var cookie = Assert.Single(login.Headers.GetValues("Set-Cookie"), each => each.StartsWith("pecklist_session=", StringComparison.Ordinal)).Split(';')[0];
+        var secrets = server.Services.GetRequiredService<ISecretStore>();
+        foreach (var kind in SessionAndOneTimeKinds.Where(kind => kind != "dataprotection"))
+        {
+            await secrets.PutAsync(kind, $"test-{kind}", "unused", Token);
+        }
+        return (server, admin, cookie);
+    }
+
+    private static async Task<JsonObject> ExportWith(HttpClient client)
+    {
+        var export = await client.GetAsync("/api/admin/export", Token);
+        Assert.Equal(HttpStatusCode.OK, export.StatusCode);
+        return JsonNode.Parse(await export.Content.ReadAsStringAsync(Token))!.AsObject();
+    }
+
+    private static HashSet<string> KindsIn(JsonObject backup) =>
+        [.. backup["secrets"]!.AsArray().Select(secret => (string)secret!["kind"]!)];
+
+    /// <summary>Restores a whole-server backup at a restart; then whether the old cookie still signs in.</summary>
+    private async Task<HttpStatusCode> CookieAfterRestore(string db, WebApplicationFactory<Program> server, HttpClient admin, string cookie, JsonObject backup)
+    {
+        using (server)
+        {
+            using var form = new MultipartFormDataContent { { new StringContent(backup.ToJsonString()), "file", "backup.json" } };
+            Assert.Equal(HttpStatusCode.Accepted, (await admin.PostAsync("/api/admin/restore", form, Token)).StatusCode);
+        }
+        using var restarted = Server(db);
+        var request = new HttpRequestMessage(HttpMethod.Get, "/auth/me");
+        request.Headers.Add("Cookie", cookie);
+        var client = restarted.CreateClient(new WebApplicationFactoryClientOptions { HandleCookies = false });
+        return (await client.SendAsync(request, Token)).StatusCode;
+    }
+
+    [Fact]
+    public async Task An_export_made_signed_in_holds_every_secret_and_keeps_sessions_when_restored()
+    {
+        var db = fixture.NewDbPath();
+        var (server, admin, cookie) = await ServerWithSecrets(db);
+
+        var backup = await ExportWith(admin);
+
+        Assert.Empty(SessionAndOneTimeKinds.Except(KindsIn(backup)));
+        Assert.Equal(HttpStatusCode.OK, await CookieAfterRestore(db, server, admin, cookie, backup));
+    }
+
+    [Fact]
+    public async Task An_export_made_with_an_api_key_leaves_out_the_session_and_one_time_secrets()
+    {
+        var db = fixture.NewDbPath();
+        var (server, admin, cookie) = await ServerWithSecrets(db);
+        var made = await admin.PostAsJsonAsync("/api/account/api-keys", new { name = "Backups", scopes = new[] { ApiScopes.Admin } }, Token);
+        made.EnsureSuccessStatusCode();
+        var key = server.CreateClient();
+        key.DefaultRequestHeaders.Authorization = new("Bearer", (await made.Content.ReadFromJsonAsync<Auth.ApiKeyAuth.CreatedKey>(Token))!.Token);
+
+        var whole = await ExportWith(admin);
+        var byKey = await ExportWith(key);
+
+        Assert.Empty(KindsIn(byKey).Intersect(SessionAndOneTimeKinds));
+        // Everything else is there as it is in an export made signed in.
+        Assert.Equal(KindsIn(whole).Except(SessionAndOneTimeKinds).ToHashSet(), KindsIn(byKey));
+        Assert.Equal(whole["accounts"]!.AsArray().Count, byKey["accounts"]!.AsArray().Count);
+        // Restoring it signs everyone out: the keys that signed their sessions are gone.
+        Assert.Equal(HttpStatusCode.Unauthorized, await CookieAfterRestore(db, server, admin, cookie, byKey));
+    }
+
+    [Fact]
+    public async Task An_export_made_with_an_api_key_leaves_out_the_settings_passwords_but_keeps_the_plain_settings()
+    {
+        var db = fixture.NewDbPath();
+        var (server, admin, _) = await ServerWithSecrets(db);
+        var saved = await admin.PutAsJsonAsync("/api/admin/settings", new
+        {
+            values = new Dictionary<string, string?>
+            {
+                ["SMTP_PROVIDER"] = "gmail",
+                ["SMTP_USER"] = "ben@gmail.com",
+                ["SMTP_PASSWORD"] = "abcd efgh ijkl mnop",
+            },
+        }, Token);
+        Assert.Equal(HttpStatusCode.OK, saved.StatusCode);
+        var made = await admin.PostAsJsonAsync("/api/account/api-keys", new { name = "Backups", scopes = new[] { ApiScopes.Admin } }, Token);
+        made.EnsureSuccessStatusCode();
+        var key = server.CreateClient();
+        key.DefaultRequestHeaders.Authorization = new("Bearer", (await made.Content.ReadFromJsonAsync<Auth.ApiKeyAuth.CreatedKey>(Token))!.Token);
+
+        var whole = await ExportWith(admin);
+        var byKey = await ExportWith(key);
+
+        Assert.NotNull(Secret(whole, "settings-key"));
+        Assert.StartsWith("page:", Secret(whole, "setting", "SMTP_PASSWORD"));
+        Assert.Null(Secret(byKey, "settings-key"));
+        Assert.Null(Secret(byKey, "setting", "SMTP_PASSWORD"));
+        Assert.Equal("ben@gmail.com", Secret(byKey, "setting", "SMTP_USER"));
+        Assert.Equal("gmail", Secret(byKey, "setting", "SMTP_PROVIDER"));
+
+        // Restored, the saved settings keep the plain values and have no password until it is entered again.
+        using (server)
+        {
+            using var form = new MultipartFormDataContent { { new StringContent(byKey.ToJsonString()), "file", "backup.json" } };
+            Assert.Equal(HttpStatusCode.Accepted, (await admin.PostAsync("/api/admin/restore", form, Token)).StatusCode);
+        }
+        using var restarted = Server(db);
+        await LogIn(restarted, "admin", AdminPassword);
+        var page = await SettingsLoader.ReadPageAsync(restarted.Services.GetRequiredService<ISecretStore>(), null, Token);
+        Assert.Equal("ben@gmail.com", page["SMTP_USER"]);
+        Assert.False(page.ContainsKey("SMTP_PASSWORD"));
+    }
+
+    /// <summary>A server secret's value in a backup file: the first of its kind, or the one with that name.</summary>
+    private static string? Secret(JsonObject backup, string kind, string? name = null) =>
+        (string?)backup["secrets"]!.AsArray()
+            .FirstOrDefault(secret => (string?)secret!["kind"] == kind && (name is null || (string?)secret["name"] == name))?["value"];
+
+    [Fact]
+    public async Task A_key_cannot_download_a_snapshot_but_a_signed_in_super_admin_can()
+    {
+        var (server, admin, _) = await ServerWithSecrets(fixture.NewDbPath());
+        using var _s = server;
+        var made = await admin.PostAsJsonAsync("/api/account/api-keys", new { name = "Backups", scopes = new[] { ApiScopes.Admin } }, Token);
+        made.EnsureSuccessStatusCode();
+        var key = server.CreateClient();
+        key.DefaultRequestHeaders.Authorization = new("Bearer", (await made.Content.ReadFromJsonAsync<Auth.ApiKeyAuth.CreatedKey>(Token))!.Token);
+        // A key may still take one and see the list.
+        var taken = await key.PostAsync("/api/admin/backups", null, Token);
+        Assert.Equal(HttpStatusCode.OK, taken.StatusCode);
+        var name = (string)(await taken.Content.ReadFromJsonAsync<JsonObject>(Token))!["name"]!;
+        Assert.Equal(name, Assert.Single((await key.GetFromJsonAsync<BackupFile[]>("/api/admin/backups", Token))!).Name);
+
+        var refused = await key.GetAsync($"/api/admin/backups/{name}", Token);
+
+        Assert.Equal(HttpStatusCode.Forbidden, refused.StatusCode);
+        var problem = (await refused.Content.ReadFromJsonAsync<JsonObject>(Token))!;
+        Assert.Equal("not_with_a_key", (string?)problem["error"]);
+        Assert.Contains("export", (string?)problem["message"]);
+        Assert.Equal(HttpStatusCode.OK, (await admin.GetAsync($"/api/admin/backups/{name}", Token)).StatusCode);
+    }
+
+    [Fact]
+    public async Task A_key_cannot_restore_the_whole_server()
+    {
+        var db = fixture.NewDbPath();
+        var (server, admin, _) = await ServerWithSecrets(db);
+        using var _s = server;
+        var made = await admin.PostAsJsonAsync("/api/account/api-keys", new { name = "Backups", scopes = new[] { ApiScopes.Admin } }, Token);
+        made.EnsureSuccessStatusCode();
+        var key = server.CreateClient();
+        key.DefaultRequestHeaders.Authorization = new("Bearer", (await made.Content.ReadFromJsonAsync<Auth.ApiKeyAuth.CreatedKey>(Token))!.Token);
+        var backup = await ExportWith(admin);
+        var (_, samId) = await NewUser(server, "sam");
+
+        using var form = new MultipartFormDataContent { { new StringContent(backup.ToJsonString()), "file", "backup.json" } };
+        var refused = await key.PostAsync("/api/admin/restore", form, Token);
+
+        Assert.Equal(HttpStatusCode.Forbidden, refused.StatusCode);
+        Assert.Equal("not_with_a_key", (string?)(await refused.Content.ReadFromJsonAsync<JsonObject>(Token))!["error"]);
+        // Nothing was parked, and no safety backup taken: the server still runs as it was.
+        Assert.Empty((await admin.GetFromJsonAsync<BackupFile[]>("/api/admin/backups", Token))!);
+        Assert.Equal(HttpStatusCode.OK, (await admin.GetAsync("/auth/me", Token)).StatusCode);
+        Assert.NotNull(await server.Services.GetRequiredService<IAccountStore>().FindByIdAsync(samId, Token));
+    }
+
     private static async Task<string> EpochOf(HttpClient client)
     {
         var response = await client.PostAsJsonAsync("/api/sync", new { schemaVersion = WorkspaceSchema.CurrentVersion, cursor = (long?)null }, Token);

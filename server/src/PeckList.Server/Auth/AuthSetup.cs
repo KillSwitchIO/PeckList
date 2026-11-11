@@ -296,6 +296,9 @@ public static class AuthSetup
 
     private sealed record SessionCheck(string Stamp, string Role);
 
+    /// <summary>The <c>server_secrets</c> kind the data protection keys are kept under.</summary>
+    public const string DataProtectionKind = "dataprotection";
+
     /// <summary>
     /// Data protection keys (what session cookies are signed and sealed with) in the
     /// <c>server_secrets</c> table. With <c>CONFIG_KEY</c> set they are kept wrapped with it (audit
@@ -305,7 +308,7 @@ public static class AuthSetup
     /// </summary>
     private sealed class SecretStoreXmlRepository(Core.Accounts.ISecretStore secrets, ConfigCipher? configKey) : IXmlRepository
     {
-        private const string Kind = "dataprotection";
+        private const string Kind = DataProtectionKind;
 
         // The interface is synchronous; keys are read rarely (start, then on rotation).
         public IReadOnlyCollection<XElement> GetAllElements()
