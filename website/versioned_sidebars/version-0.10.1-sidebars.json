@@ -1,0 +1,305 @@
+{
+  "docs": [
+    {
+      "type": "doc",
+      "id": "index",
+      "label": "Home"
+    },
+    {
+      "type": "category",
+      "label": "Getting started",
+      "collapsed": false,
+      "items": [
+        {
+          "type": "doc",
+          "id": "getting-started/quick-start",
+          "label": "Quick start"
+        },
+        {
+          "type": "doc",
+          "id": "getting-started/first-start",
+          "label": "First start"
+        }
+      ]
+    },
+    {
+      "type": "category",
+      "label": "Install",
+      "collapsed": false,
+      "items": [
+        {
+          "type": "doc",
+          "id": "install/docker",
+          "label": "Docker"
+        },
+        {
+          "type": "doc",
+          "id": "install/docker-compose",
+          "label": "Docker Compose"
+        },
+        {
+          "type": "doc",
+          "id": "install/linux",
+          "label": "Linux"
+        },
+        {
+          "type": "doc",
+          "id": "install/windows",
+          "label": "Windows"
+        },
+        {
+          "type": "doc",
+          "id": "install/from-source",
+          "label": "From source"
+        },
+        {
+          "type": "doc",
+          "id": "install/reverse-proxy",
+          "label": "Reverse proxy and HTTPS"
+        },
+        {
+          "type": "doc",
+          "id": "install/demo",
+          "label": "Demo server"
+        }
+      ]
+    },
+    {
+      "type": "category",
+      "label": "Configuration",
+      "collapsed": false,
+      "items": [
+        {
+          "type": "doc",
+          "id": "configuration/index",
+          "label": "How settings work"
+        },
+        {
+          "type": "doc",
+          "id": "configuration/reference",
+          "label": "All settings"
+        },
+        {
+          "type": "doc",
+          "id": "configuration/config-file",
+          "label": "Settings file"
+        },
+        {
+          "type": "doc",
+          "id": "configuration/database",
+          "label": "Database"
+        }
+      ]
+    },
+    {
+      "type": "category",
+      "label": "Guides",
+      "collapsed": false,
+      "items": [
+        {
+          "type": "doc",
+          "id": "guides/users-and-roles",
+          "label": "Users, roles and groups"
+        },
+        {
+          "type": "doc",
+          "id": "guides/single-sign-on",
+          "label": "Single sign-on (OIDC)"
+        },
+        {
+          "type": "doc",
+          "id": "guides/email",
+          "label": "Email"
+        },
+        {
+          "type": "doc",
+          "id": "guides/mutual-tls",
+          "label": "Mutual TLS (client certificates)"
+        },
+        {
+          "type": "doc",
+          "id": "guides/backups",
+          "label": "Backups and restore"
+        },
+        {
+          "type": "doc",
+          "id": "guides/logging",
+          "label": "Logs and audit"
+        },
+        {
+          "type": "doc",
+          "id": "guides/monitoring",
+          "label": "Monitoring and stats"
+        },
+        {
+          "type": "doc",
+          "id": "guides/upgrading",
+          "label": "Upgrading"
+        },
+        {
+          "type": "doc",
+          "id": "guides/security",
+          "label": "Security"
+        },
+        {
+          "type": "doc",
+          "id": "guides/troubleshooting",
+          "label": "Troubleshooting"
+        }
+      ]
+    },
+    {
+      "type": "category",
+      "label": "Using PeckList",
+      "collapsed": false,
+      "items": [
+        {
+          "type": "doc",
+          "id": "using/index",
+          "label": "Tour"
+        },
+        {
+          "type": "doc",
+          "id": "using/quick-add-and-shortcuts",
+          "label": "Quick add and shortcuts"
+        },
+        {
+          "type": "doc",
+          "id": "using/sharing",
+          "label": "Sharing"
+        },
+        {
+          "type": "doc",
+          "id": "using/apps-and-sync",
+          "label": "Apps, offline and sync"
+        },
+        {
+          "type": "doc",
+          "id": "using/privacy",
+          "label": "Privacy and telemetry"
+        },
+        {
+          "type": "doc",
+          "id": "using/moving-from-ticktick-or-todoist",
+          "label": "Moving from TickTick or Todoist"
+        },
+        {
+          "type": "doc",
+          "id": "using/android-app",
+          "label": "The Android app"
+        },
+        {
+          "type": "doc",
+          "id": "using/easter-eggs",
+          "label": "Easter eggs"
+        }
+      ]
+    },
+    {
+      "type": "category",
+      "label": "About",
+      "collapsed": false,
+      "items": [
+        {
+          "type": "doc",
+          "id": "about/why",
+          "label": "Why PeckList"
+        },
+        {
+          "type": "doc",
+          "id": "about/comparison",
+          "label": "Compared with others"
+        },
+        {
+          "type": "doc",
+          "id": "about/roadmap",
+          "label": "Roadmap"
+        },
+        {
+          "type": "doc",
+          "id": "about/support",
+          "label": "Getting help"
+        },
+        {
+          "type": "doc",
+          "id": "about/reporting-bugs",
+          "label": "Reporting a bug"
+        }
+      ]
+    },
+    {
+      "type": "category",
+      "label": "Reference",
+      "collapsed": false,
+      "items": [
+        {
+          "type": "doc",
+          "id": "reference/cli",
+          "label": "Command line"
+        },
+        {
+          "type": "doc",
+          "id": "reference/http-api",
+          "label": "HTTP API"
+        },
+        {
+          "type": "doc",
+          "id": "reference/task-api",
+          "label": "Task API"
+        },
+        {
+          "type": "doc",
+          "id": "schema",
+          "label": "Workspace schema"
+        },
+        {
+          "type": "doc",
+          "id": "migrations/README",
+          "label": "Schema migrations"
+        },
+        {
+          "type": "doc",
+          "id": "faq",
+          "label": "FAQ"
+        }
+      ]
+    },
+    {
+      "type": "category",
+      "label": "Development",
+      "collapsed": false,
+      "items": [
+        {
+          "type": "doc",
+          "id": "development/index",
+          "label": "Developing"
+        },
+        {
+          "type": "doc",
+          "id": "development/standards",
+          "label": "Coding standards"
+        },
+        {
+          "type": "doc",
+          "id": "development/ci",
+          "label": "CI and runners"
+        },
+        {
+          "type": "doc",
+          "id": "development/releasing",
+          "label": "Releasing"
+        },
+        {
+          "type": "doc",
+          "id": "development/android",
+          "label": "Android app"
+        },
+        {
+          "type": "doc",
+          "id": "development/telemetry-collector",
+          "label": "Telemetry collector"
+        }
+      ]
+    }
+  ]
+}
