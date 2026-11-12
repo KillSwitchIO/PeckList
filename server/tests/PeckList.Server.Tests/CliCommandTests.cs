@@ -76,8 +76,11 @@ public sealed partial class CliCommandTests(ServerFixture fixture) : IClassFixtu
         var listed = await Run(world, store, null, "tasks", "list", "--list", "home");
         Assert.Contains("Water plants #garden", listed.Out);
         Assert.Contains("!!!", listed.Out);
-        var json = JsonNode.Parse((await Run(world, store, null, "tasks", "list", "--json")).Out)!.AsArray();
+        var json = JsonNode.Parse((await Run(world, store, null, "tasks", "list", "--json")).Out)!["items"]!.AsArray();
         Assert.Equal(id, (string?)json.Single()!["id"]);
+        // Short options and grouping say the same as the long ones (PL-138).
+        Assert.Equal((await Run(world, store, null, "tasks", "list", "--all", "--list", "Home", "--tag", "garden", "--json")).Out,
+            (await Run(world, store, null, "tasks", "ls", "-aj", "-lHome", "-t", "garden")).Out);
 
         Assert.Equal(0, (await Run(world, store, null, "tasks", "edit", id, "--title", "Water the plants", "--due", "2026-12-01", "--tag", "+outside,-garden")).Code);
         var shown = await Run(world, store, null, "tasks", "show", id);
@@ -156,8 +159,14 @@ public sealed partial class CliCommandTests(ServerFixture fixture) : IClassFixtu
 
         // A key that may only read.
         Assert.Equal(0, (await Run(world, store, await KeyTokenAsync(ben.Session, "tasks:read"), "login", "--server", Server, "--token")).Code);
-        Assert.Equal(ClientCli.NotAllowed, (await Run(world, store, null, "tasks", "add", "Nope")).Code);
-        Assert.Equal(ClientCli.NotAllowed, (await Run(world, store, null, "admin", "add-user", "sam")).Code);
+        var readOnly = await Run(world, store, null, "tasks", "add", "Nope");
+        Assert.Equal(ClientCli.NotAllowed, readOnly.Code);
+        // It says what the key lacks, not to sign in as an admin (QA, 0.10.0).
+        Assert.Contains("tasks:write", readOnly.Err);
+        Assert.DoesNotContain("--admin", readOnly.Err);
+        var adminCommand = await Run(world, store, null, "admin", "add-user", "sam");
+        Assert.Equal(ClientCli.NotAllowed, adminCommand.Code);
+        Assert.Contains("login --admin", adminCommand.Err);
         Assert.Equal(ClientCli.Failed, (await Run(world, store, null, "tasks", "show", "NOPE")).Code);
         Assert.Equal(ClientCli.Failed, (await Run(world, store, null, "tasks", "list", "--list", "nowhere")).Code);
 
@@ -260,9 +269,70 @@ public sealed partial class CliCommandTests(ServerFixture fixture) : IClassFixtu
         Assert.True(settings.Code == 0, settings.Err);
         Assert.Contains("DB_PROVIDER", settings.Out);
         Assert.DoesNotContain(AdminPassword, settings.Out);
+        var settingsJson = await Run(world, store, null, "config", "show", "-j");
+        Assert.IsType<JsonArray>(Assert.IsType<JsonObject>(JsonNode.Parse(settingsJson.Out))["settings"]);
         // A key's own account gets no sign-in link this way.
         Assert.Equal(ClientCli.NotAllowed, (await Run(world, store, null, "admin", "login-link", "admin")).Code);
         Assert.Equal(ClientCli.Failed, (await Run(world, store, null, "admin", "set-role", "nobody", "admin")).Code);
+    }
+
+    /// <summary>
+    /// --json is the API's shape in every command that has it (PL-138): anything listed is an object
+    /// with items (tasks list too, a bare array in 0.10.0), one thing is that thing.
+    /// </summary>
+    [Fact]
+    public async Task Json_lists_things_as_items_and_one_thing_as_itself_in_every_command()
+    {
+        using var world = await StartAsync(fixture, Sqlite);
+        var ben = await world.PersonAsync("ben");
+        await PushAsync(ben, List("IN", "Inbox", inbox: true), List("L1", "Home"));
+        var store = new MemoryTokenStore();
+        Assert.Equal(0, (await Run(world, store, await KeyTokenAsync(ben.Session, "tasks:write"), "login", "--server", Server, "--token")).Code);
+
+        async Task<JsonObject> JsonOf(params string[] args)
+        {
+            var ran = await Run(world, store, null, args);
+            Assert.True(ran.Code == 0, $"{string.Join(' ', args)}: {ran.Err}");
+            return Assert.IsType<JsonObject>(JsonNode.Parse(ran.Out));
+        }
+        static void Listed(JsonObject json) => Assert.IsType<JsonArray>(json["items"]);
+
+        var tested = new HashSet<string>();
+        Assert.NotNull((await JsonOf("whoami", "-j"))["username"]);
+        tested.Add("whoami");
+        var added = await JsonOf("tasks", "add", "Water plants #garden", "-l", "Home", "-j");
+        var id = (string)(added["task"] ?? added)["id"]!;
+        tested.Add("tasks add");
+        Listed(await JsonOf("tasks", "list", "-j"));
+        tested.Add("tasks list");
+        Assert.Equal(id, (string?)(await JsonOf("tasks", "show", id, "-j"))["id"]);
+        tested.Add("tasks show");
+        Assert.Equal("Water roses", (string?)(await JsonOf("tasks", "edit", id, "-T", "Water roses", "-j"))["title"]);
+        tested.Add("tasks edit");
+        Assert.NotNull((await JsonOf("tasks", "done", id, "-j"))["completed"]);
+        tested.Add("tasks done");
+        Assert.Equal(id, (string?)(await JsonOf("tasks", "reopen", id, "-j"))["id"]);
+        tested.Add("tasks reopen");
+        Assert.Equal(0, (await Run(world, store, null, "tasks", "rm", id)).Code);
+        Assert.Equal(id, (string?)(await JsonOf("tasks", "restore", id, "-j"))["id"]);
+        tested.Add("tasks restore");
+        Listed(await JsonOf("lists", "list", "-j"));
+        tested.Add("lists list");
+        Assert.Equal("Garden", (string?)(await JsonOf("lists", "add", "Garden", "-j"))["name"]);
+        tested.Add("lists add");
+        Assert.Equal("Veg garden", (string?)(await JsonOf("lists", "rename", "Garden", "Veg garden", "-j"))["name"]);
+        tested.Add("lists rename");
+        var section = await JsonOf("sections", "add", "Veg garden", "Beds", "-j");
+        tested.Add("sections add");
+        Listed(await JsonOf("sections", "list", "Veg garden", "-j"));
+        tested.Add("sections list");
+        Assert.Equal("Raised", (string?)(await JsonOf("sections", "rename", (string)section["id"]!, "Raised", "-j"))["name"]);
+        tested.Add("sections rename");
+        Listed(await JsonOf("tags", "list", "-j"));
+        tested.Add("tags list");
+        // config show is pinned in the admin test; every other command with --json is above.
+        tested.Add("config show");
+        Assert.Equal(CommandTable.Commands.Where(command => command.Options.Any(use => use.Long == "--json")).Select(command => command.Path).Order(), tested.Order());
     }
 
     [GeneratedRegex(@"Added: .*  (\S+)")]

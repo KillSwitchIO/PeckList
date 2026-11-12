@@ -80,7 +80,7 @@ Git hooks (installed by `pnpm install`): pre-commit runs lint-staged and typeche
 The documentation site lives in `docs/` (Docusaurus, built from `website/`; see [developing](docs/development/index.md)). A change people will notice comes with its docs:
 
 - A new or changed setting: its section in `docs/configuration/reference.md`. `pnpm check:docs` (also in CI) fails when a setting in `SettingsCatalog.cs` is missing there.
-- A CLI change: run `node scripts/check-docs.mjs --write` to refresh the usage text, and describe the command in `docs/reference/cli.md`.
+- A CLI change: for the server's maintenance commands, run `node scripts/check-docs.mjs --write` to refresh the usage text and describe the command in `docs/reference/cli.md`. The client commands come from `server/src/PeckList.Client/CommandTable.cs`: after changing it, run `PECKLIST_WRITE_GENERATED=1 dotnet test tests/PeckList.Client.Tests --filter CommandTableTests` in `server/` to refresh their docs section and completion scripts.
 
 ## Releases
 

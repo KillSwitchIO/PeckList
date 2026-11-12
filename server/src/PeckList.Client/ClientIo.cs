@@ -23,6 +23,10 @@ public sealed class ClientIo
     public Func<string?> ReadSecret { get; init; } = ConsoleSecret.Read;
     public Func<Stream>? StandardOutput { get; init; }
     public string HostName { get; init; } = System.Environment.MachineName;
+    public Func<DateTimeOffset> Now { get; init; } = () => DateTimeOffset.UtcNow;
+
+    /// <summary>How long shell completion may take before it gives up and prints nothing (PL-138).</summary>
+    public TimeSpan CompletionLimit { get; init; } = TimeSpan.FromSeconds(1);
 
     public static ClientIo FromConsole() => new()
     {
