@@ -108,8 +108,12 @@ an old version shows the examples it shipped with). Edit `docs/`; fix a released
 something wrong in that release.
 
 Adding a setting means a line in `SettingsCatalog.cs` **and** a section in
-`docs/configuration/reference.md`; changing the CLI's usage text means running
-`node scripts/check-docs.mjs --write`. CI fails otherwise.
+`docs/configuration/reference.md`; changing the server's CLI usage text means running
+`node scripts/check-docs.mjs --write`. The client commands' help, completion scripts and the
+client command reference in `docs/reference/cli.md` are all made from one table
+(`server/src/PeckList.Client/CommandTable.cs`): after changing it, run
+`PECKLIST_WRITE_GENERATED=1 dotnet test tests/PeckList.Client.Tests --filter CommandTableTests` in
+`server/` and commit what changed. CI fails otherwise.
 
 ## Checks before pushing
 

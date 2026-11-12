@@ -311,6 +311,8 @@ server-test:
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
       changes:
         - server/**/*
+        # The client commands' part of the CLI page is checked against their table (PL-138).
+        - docs/reference/cli.md
         - .gitlab-ci.yml
         - package.json
         - pnpm-lock.yaml

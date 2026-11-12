@@ -20,63 +20,14 @@ public static partial class ClientCli
     public const int SignedOut = 3;
     public const int NotAllowed = 4;
 
-    /// <summary>Commands that only ever talk to a server over HTTP.</summary>
-    public static readonly string[] Commands = ["login", "logout", "whoami", "tasks", "lists", "sections", "tags"];
-
-    private static readonly Dictionary<string, string[]> Subcommands = new(StringComparer.Ordinal)
-    {
-        ["tasks"] = ["", "list", "add", "show", "edit", "done", "reopen", "delete", "restore"],
-        ["lists"] = ["", "list", "add", "rename"],
-        ["sections"] = ["", "list", "add", "rename"],
-        ["tags"] = ["", "list"],
-        ["admin"] = ["add-user", "set-role", "login-link", "reset-password"],
-        ["oidc"] = ["unlink", "unbind-all", "migration-window"],
-    };
+    /// <summary>Commands that only ever talk to a server over HTTP (or print what the client knows).</summary>
+    public static readonly string[] Commands = ["login", "logout", "whoami", "tasks", "add", "lists", "sections", "tags", "completion", "__complete"];
 
     /// <summary>Commands that only work on the server's own machine, with the server download.</summary>
     public static readonly string[] ServerOnly = ["import", "migrate-db", "upgrade-db", "debug-dump", "healthcheck"];
 
-    public const string Usage = """
-        Client commands (any machine, through the server's API):
-
-          login [--server URL] [--admin] [--token | --api-key KEY]
-                                        Sign in: approve a code in the browser, or save an API key
-                                        (--token reads it from the keyboard, or standard input when
-                                        piped). Never a password. --admin asks for the admin
-                                        permission too.
-          logout                        Revoke this CLI's key and forget it here.
-          whoami                        The server, account, role and key permissions.
-          tasks list [--list L] [--section S] [--tag T] [--status open|done|wontdo|all]
-                     [--due-before DATE] [--due-after DATE] [--all] [--deleted]
-          tasks add TEXT [--list L] [--plain]
-                                        Quick add: dates, #tags, ^list, !priority, @person and
-                                        "every ..." are read as in the app; --plain takes TEXT as
-                                        the title as it is.
-          tasks show ID
-          tasks edit ID [--title T] [--notes N] [--list L] [--section S] [--priority none|low|medium|high]
-                        [--due DATE|none] [--start DATE|none] [--tag +a,-b] [--repeat RRULE|none]
-                        [--progress 0-100]
-          tasks done ID [--wontdo]      Close a task (a repeating one moves on to its next date).
-          tasks reopen ID
-          tasks delete ID               Into the trash; tasks restore ID brings it back.
-          tasks restore ID
-          lists list [--all]            lists add NAME [--color #RRGGBB]    lists rename L NAME
-          sections list L               sections add L NAME                 sections rename ID NAME
-          tags list
-
-        With --server or --profile (and always in the client download), these run through the admin
-        API as the signed-in account's role allows (sign in with --admin):
-          admin add-user, admin set-role, admin login-link, admin reset-password,
-          oidc unlink, oidc unbind-all, oidc migration-window, snapshot, export, config show
-
-        Options: --server URL, --profile NAME (several servers side by side), --api-key KEY, --json
-        (the API's own JSON), --insecure-http (allow http:// to an address other than this machine).
-        Environment: PECKLIST_SERVER, PECKLIST_PROFILE, PECKLIST_TOKEN (a key).
-        The key used: --api-key, then PECKLIST_TOKEN, then the saved sign-in.
-        L is a list id or name (exact, then a unique start, as ^list matches). DATE is 2026-11-30 or
-        2026-11-30T09:00.
-        Exit codes: 0 done, 1 failed, 2 bad usage, 3 not signed in, 4 not allowed.
-        """;
+    /// <summary>The full help, as <c>pecklist help</c> prints it (made from <see cref="CommandTable"/>).</summary>
+    public static string Usage => Help.Full();
 
     /// <summary>
     /// Text as it may reach a terminal: control characters (C0 but tab, DEL, C1) and the bidi
@@ -108,58 +59,98 @@ public static partial class ClientCli
     /// command aimed at a server elsewhere (<c>--server</c>, <c>--profile</c>).
     /// </summary>
     public static bool Handles(IReadOnlyList<string> args) =>
-        args.Count > 0 && (Commands.Contains(args[0]) || ClientArgs.NamesARemote(args));
+        args.Count > 0 && (Commands.Contains(args[0]) || ClientArgs.NamesARemote(args)
+            || (args[0] == "help" && args.Count > 1 && Commands.Contains(args[1])));
 
     public static async Task<int> RunAsync(IReadOnlyList<string> args, ClientIo io, bool serverBuild, CancellationToken cancellation = default)
     {
-        if (args.Count == 0 || args[0] is "help" or "--help" or "-h")
+        if (args.Count == 0)
         {
-            await io.Out.WriteLineAsync(Usage);
-            return Done;
-        }
-        if (args[0] is "--version" or "version")
-        {
-            await io.Out.WriteLineAsync($"pecklist {Remote.Version} (client)");
+            await io.Out.WriteAsync(Help.Short());
             return Done;
         }
         try
         {
-            var parsed = ClientArgs.Parse(args);
-            var session = new Session(io, parsed, cancellation);
-            var command = parsed.Word(0);
-            var sub = parsed.Word(1);
-            // A wrong sub-command is bad usage, before anything asks the server.
-            if (Subcommands.TryGetValue(command, out var known) && !known.Contains(sub))
+            // Completion never fails and never prints an error: it answers what it can, or nothing.
+            if (args[0] == "__complete") return await Completer.RunAsync([.. args.Skip(1)], io, cancellation);
+            // Help first, wherever -h or --help is: nothing signs in, calls the server or runs.
+            if (ClientArgs.WantsHelp(args)) return await ShowHelpAsync(io, ClientArgs.Parse(args, lenient: true).Words);
+            ClientArgs parsed;
+            try
             {
-                throw new UsageException($"unknown {command} command '{sub}'; one of: {string.Join(", ", known.Where(each => each.Length > 0))}");
+                parsed = ClientArgs.Parse(args);
             }
-            if (ServerOnly.Contains(command) || (command == "config" && sub is "key" or "encrypt"))
+            catch (UsageException wrong) when (wrong.Command is null)
             {
-                var name = command == "config" ? $"config {sub}" : command;
-                throw new UsageException(serverBuild
-                    ? $"`{name}` runs on this machine against its own database; leave out --server and --profile"
-                    : $"`{name}` runs on the server's machine, with the server download");
+                // An unknown option or a missing value: with the usage line of the command it was for.
+                var (about, _) = CommandTable.Resolve(ClientArgs.Parse(args, lenient: true).Words);
+                throw new UsageException(wrong.Message) { Command = about.Path.Length > 0 ? about : null };
             }
-            return command switch
+            if (parsed.Word(0) == "help") return await ShowHelpAsync(io, [.. parsed.Words.Skip(1)]);
+            ServerOnlyCheck(parsed.Words, serverBuild);
+            var (command, used) = CommandTable.Resolve(parsed.Words);
+            if (used < parsed.Words.Count && (command.Path.Length == 0 || CommandTable.IsGroup(command)))
             {
+                // tasks help [add] is help too.
+                if (parsed.Words[used] == "help") return await ShowHelpAsync(io, [.. command.Words, .. parsed.Words.Skip(used + 1)]);
+                throw Unknown(command, parsed.Words[used]);
+            }
+            if (command.Path.Length == 0)
+            {
+                if (parsed.Flag("--version")) return await VersionAsync(io);
+                await io.Out.WriteAsync(Help.Short());
+                return Done;
+            }
+            if (CommandTable.IsGroup(command))
+            {
+                if (parsed.Given.Count == 0)
+                {
+                    await io.Out.WriteAsync(Help.For(command));
+                    return Done;
+                }
+                throw new UsageException($"{command.Path} needs a command") { Command = command };
+            }
+            if (parsed.Given.FirstOrDefault(name => !CommandTable.Takes(command, name)) is { } stray)
+            {
+                throw new UsageException($"{command.Path} does not take {stray}") { Command = command };
+            }
+            parsed.Arguments = [.. parsed.Words.Skip(used)];
+            if (command.Arguments.Where(argument => argument.Required).Skip(parsed.Arguments.Count).FirstOrDefault() is { } missing)
+            {
+                throw new UsageException($"{command.Path} needs {missing.Name}") { Command = command };
+            }
+            if (!command.Arguments.Any(argument => argument.Many) && parsed.Arguments.Count > command.Arguments.Length)
+            {
+                throw new UsageException($"{command.Path} takes {(command.Arguments.Length == 0 ? "no arguments" : $"at most {command.Arguments.Length}")}, not '{parsed.Arguments[command.Arguments.Length]}'") { Command = command };
+            }
+            var session = new Session(io, parsed, command, cancellation);
+            var words = command.Words;
+            var sub = words.Length > 1 ? words[1] : "";
+            return words[0] switch
+            {
+                "version" => await VersionAsync(io),
+                "completion" => await CompletionAsync(io, parsed.Argument(0), command),
                 "login" => await session.LoginAsync(),
                 "logout" => await session.LogoutAsync(),
                 "whoami" => await session.WhoAmIAsync(),
                 "tasks" => await session.TasksAsync(sub),
                 "lists" => await session.ListsAsync(sub),
                 "sections" => await session.SectionsAsync(sub),
-                "tags" when sub is "list" or "" => await session.TagsAsync(),
+                "tags" => await session.TagsAsync(),
                 "admin" => await session.AdminAsync(sub),
                 "oidc" => await session.OidcAsync(sub),
                 "snapshot" => await session.SnapshotAsync(),
                 "export" => await session.ExportAsync(),
-                "config" when sub == "show" => await session.ConfigShowAsync(),
-                _ => throw new UsageException($"unknown command '{string.Join(' ', args)}'"),
+                "config" => await session.ConfigShowAsync(),
+                _ => throw Unknown(CommandTable.Root, words[0]),
             };
         }
         catch (UsageException usage)
         {
-            await io.Err.WriteLineAsync($"pecklist: {Printable(usage.Message)}\nRun `pecklist help` for the commands.");
+            var how = usage.Command is { } about
+                ? $"usage: {Help.UsageLine(about)}\nRun `pecklist help {about.Path}` for details."
+                : "Run `pecklist help` for the commands.";
+            await io.Err.WriteLineAsync($"pecklist: {Printable(usage.Message)}\n{how}");
             return BadUsage;
         }
         catch (SignedOutException signedOut)
@@ -175,8 +166,7 @@ public static partial class ClientCli
                     await io.Err.WriteLineAsync("pecklist: not signed in, or the key no longer works. Run `pecklist login`.");
                     return SignedOut;
                 case 403:
-                    await io.Err.WriteLineAsync($"pecklist: not allowed: {Printable(problem.Message)}" +
-                        (problem.Code == "scope" ? " (sign in again with `pecklist login --admin` for admin commands)" : ""));
+                    await io.Err.WriteLineAsync($"pecklist: not allowed: {Printable(problem.Message)}" + ScopeHint(problem));
                     return NotAllowed;
                 default:
                     await io.Err.WriteLineAsync($"pecklist: {Printable(problem.Message)}");
@@ -190,17 +180,123 @@ public static partial class ClientCli
         }
     }
 
+    /// <summary>
+    /// What to do about a key without the permission: a read-only key that tried to change
+    /// something needs tasks:write (a new key or sign-in), an admin command needs --admin.
+    /// </summary>
+    internal static string ScopeHint(ApiProblem problem)
+    {
+        if (problem.Code != "scope") return "";
+        if (problem.Message.Contains(ApiScopeNames.TasksWrite, StringComparison.Ordinal))
+        {
+            return $" (the key may only read: sign in again with `pecklist login`, or use a key with the {ApiScopeNames.TasksWrite} permission)";
+        }
+        if (problem.Message.Contains(ApiScopeNames.Admin, StringComparison.Ordinal))
+        {
+            return " (sign in again with `pecklist login --admin` for admin commands)";
+        }
+        return "";
+    }
+
+    private static class ApiScopeNames
+    {
+        public const string TasksWrite = "tasks:write";
+        public const string Admin = "admin";
+    }
+
+    private static async Task<int> VersionAsync(ClientIo io)
+    {
+        await io.Out.WriteLineAsync($"pecklist {Remote.Version} (client)");
+        return Done;
+    }
+
+    private static async Task<int> CompletionAsync(ClientIo io, string shell, CliCommand command)
+    {
+        var script = shell switch
+        {
+            "bash" => Completion.Bash(),
+            "zsh" => Completion.Zsh(),
+            "fish" => Completion.Fish(),
+            "powershell" or "pwsh" => Completion.PowerShell(),
+            _ => throw new UsageException($"no completion for '{shell}'; one of: {string.Join(", ", CommandTable.Shells)}") { Command = command },
+        };
+        await io.Out.WriteAsync(script);
+        return Done;
+    }
+
+    /// <summary>Help for the command the words name; the words after a command (its arguments) do not matter.</summary>
+    private static async Task<int> ShowHelpAsync(ClientIo io, IReadOnlyList<string> words)
+    {
+        if (words.Count == 0)
+        {
+            await io.Out.WriteAsync(Help.Full());
+            return Done;
+        }
+        if (ServerOnly.Contains(words[0]))
+        {
+            await io.Out.WriteLineAsync($"`{words[0]}` runs on the server's machine with the server program: there, run pecklist help.");
+            return Done;
+        }
+        var (command, used) = CommandTable.Resolve(words);
+        if (used < words.Count && (command.Path.Length == 0 || CommandTable.IsGroup(command)) && words[used] != "help") throw Unknown(command, words[used]);
+        await io.Out.WriteAsync(Help.For(command));
+        return Done;
+    }
+
+    /// <summary>An unknown command, with the nearest one it may have meant. Never a guess that runs.</summary>
+    private static UsageException Unknown(CliCommand group, string word)
+    {
+        var near = CommandTable.Nearest(group, word);
+        if (group.Path.Length == 0)
+        {
+            return new UsageException($"unknown command '{word}'" + (near is null ? "" : $"; did you mean `{near}`?"));
+        }
+        var known = string.Join(", ", CommandTable.Children(group).Select(command => command.Words[^1]));
+        return new UsageException($"unknown {group.Path} command '{word}'" + (near is null ? $"; one of: {known}" : $"; did you mean `{group.Path} {near}`?"))
+        {
+            Command = group,
+        };
+    }
+
+    private static void ServerOnlyCheck(IReadOnlyList<string> words, bool serverBuild)
+    {
+        var command = words.Count > 0 ? words[0] : "";
+        var sub = words.Count > 1 ? words[1] : "";
+        if (ServerOnly.Contains(command) || (command == "config" && sub is "key" or "encrypt"))
+        {
+            var name = command == "config" ? $"config {sub}" : command;
+            throw new UsageException(serverBuild
+                ? $"`{name}` runs on this machine against its own database; leave out --server and --profile"
+                : $"`{name}` runs on the server's machine, with the server download");
+        }
+    }
+
     [GeneratedRegex(@"^\d{4}-\d{2}-\d{2}(T\d{2}:\d{2})?$")]
     internal static partial Regex MomentPattern();
 
     internal static string? Text(JsonNode? node, string key) =>
         node is JsonObject json && json[key] is JsonValue value && value.TryGetValue<string>(out var text) ? text : null;
 
+    /// <summary>
+    /// A server address as commands use it (http(s), nothing but a path, plain http only to this
+    /// machine unless allowed), or null when it is not one.
+    /// </summary>
+    internal static Uri? ServerAddress(string text, bool insecureHttp)
+    {
+        if (!Uri.TryCreate(text.Trim(), UriKind.Absolute, out var uri) || uri.Scheme is not ("http" or "https")
+            || uri.UserInfo.Length > 0 || uri.Query.Length > 0 || uri.Fragment.Length > 0)
+        {
+            return null;
+        }
+        if (uri.Scheme == "http" && !uri.IsLoopback && !insecureHttp) return null;
+        return new Uri(uri.GetLeftPart(UriPartial.Path).TrimEnd('/'));
+    }
+
     /// <summary>A list name compared as ^list does: lower case, no spaces, dashes or underscores.</summary>
     internal static string Compact(string text) => new([.. text.ToLowerInvariant().Where(c => !char.IsWhiteSpace(c) && c is not ('-' or '_'))]);
 
     /// <summary>One command line's work: which server, which sign-in, and the commands.</summary>
-    private sealed class Session(ClientIo io, ClientArgs args, CancellationToken cancellation)
+    private sealed class Session(ClientIo io, ClientArgs args, CliCommand command, CancellationToken cancellation)
     {
         private readonly ITokenStore store = io.Store ?? FileTokenStore.ForThisUser(io.Environment);
         private string Profile => args.Value("--profile") ?? io.Environment("PECKLIST_PROFILE") ?? "default";
@@ -211,16 +307,12 @@ public static partial class ClientCli
         /// <summary>An http(s) address with nothing but a path; plain http only to this machine unless allowed.</summary>
         private Uri ServerUri(string text)
         {
-            if (!Uri.TryCreate(text.Trim(), UriKind.Absolute, out var uri) || uri.Scheme is not ("http" or "https")
-                || uri.UserInfo.Length > 0 || uri.Query.Length > 0 || uri.Fragment.Length > 0)
+            if (ServerAddress(text, args.Flag("--insecure-http")) is { } server) return server;
+            if (ServerAddress(text, insecureHttp: true) is { } plain)
             {
-                throw new UsageException($"'{text}' is not a server address such as https://tasks.example.com");
+                throw new UsageException($"{plain.Host} over plain http would send your key unencrypted; use https, or --insecure-http on a network you trust");
             }
-            if (uri.Scheme == "http" && !uri.IsLoopback && !args.Flag("--insecure-http"))
-            {
-                throw new UsageException($"{uri.Host} over plain http would send your key unencrypted; use https, or --insecure-http on a network you trust");
-            }
-            return new Uri(uri.GetLeftPart(UriPartial.Path).TrimEnd('/'));
+            throw new UsageException($"'{text}' is not a server address such as https://tasks.example.com");
         }
 
         private static string Show(Uri server) => server.AbsoluteUri.TrimEnd('/');
@@ -391,28 +483,36 @@ public static partial class ClientCli
 
         public async Task<int> TasksAsync(string sub)
         {
+            // Standard input is read before signing in, so a wrong call fails without the network.
+            var text = sub == "add" ? await TaskTextAsync() : "";
             using var remote = await ConnectAsync();
             switch (sub)
             {
-                case "list" or "":
+                case "list":
                     return await TaskListAsync(remote);
                 case "add":
                 {
-                    var text = string.Join(' ', args.Words.Skip(2)).Trim();
-                    if (text.Length == 0) throw new UsageException("tasks add needs the task: pecklist tasks add \"Water the plants tomorrow\"");
                     var listId = args.Value("--list") is { } list ? await ListIdAsync(remote, list) : null;
                     JsonNode? made;
-                    if (args.Flag("--plain"))
+                    try
                     {
-                        var body = new JsonObject { ["title"] = text };
-                        if (listId is not null) body["listId"] = listId;
-                        made = await remote.SendAsync(HttpMethod.Post, "api/v1/tasks", body, cancellation);
+                        if (args.Flag("--plain"))
+                        {
+                            var body = new JsonObject { ["title"] = text };
+                            if (listId is not null) body["listId"] = listId;
+                            made = await remote.SendAsync(HttpMethod.Post, "api/v1/tasks", body, cancellation);
+                        }
+                        else
+                        {
+                            var body = new JsonObject { ["text"] = text };
+                            if (listId is not null) body["listId"] = listId;
+                            made = await remote.SendAsync(HttpMethod.Post, "api/v1/tasks/quick", body, cancellation);
+                        }
                     }
-                    else
+                    catch (ApiProblem problem) when (listId is null && problem.Status is 400 or 422 && problem.Message.Contains("listId", StringComparison.Ordinal))
                     {
-                        var body = new JsonObject { ["text"] = text };
-                        if (listId is not null) body["listId"] = listId;
-                        made = await remote.SendAsync(HttpMethod.Post, "api/v1/tasks/quick", body, cancellation);
+                        // No inbox yet (a new account): the API wants a list, so say how to name one.
+                        throw new CliFailure($"{problem.Message}. Name a list with -l/--list (see `pecklist lists list`, or make one with `pecklist lists add NAME`)");
                     }
                     if (Json)
                     {
@@ -420,6 +520,11 @@ public static partial class ClientCli
                         return Done;
                     }
                     var task = made?["task"] ?? made;
+                    if (args.Flag("--quiet"))
+                    {
+                        await Say(Text(task, "id") ?? "");
+                        return Done;
+                    }
                     await Say($"Added: {Text(task, "title")}  {Text(task, "id")}");
                     if (made?["tokens"] is JsonArray { Count: > 0 } tokens)
                     {
@@ -429,14 +534,14 @@ public static partial class ClientCli
                 }
                 case "show":
                 {
-                    var task = await remote.GetAsync($"api/v1/tasks/{Id(2)}", cancellation);
+                    var task = await remote.GetAsync($"api/v1/tasks/{Id()}", cancellation);
                     if (Json) await PrintJson(task);
                     else await ShowTaskAsync(remote, task!);
                     return Done;
                 }
                 case "edit":
                 {
-                    var id = Id(2);
+                    var id = Id();
                     var body = await EditBodyAsync(remote);
                     var task = await remote.SendAsync(HttpMethod.Patch, $"api/v1/tasks/{id}", body, cancellation);
                     if (Json) await PrintJson(task);
@@ -445,7 +550,7 @@ public static partial class ClientCli
                 }
                 case "done":
                 {
-                    var closed = await remote.SendAsync(HttpMethod.Post, $"api/v1/tasks/{Id(2)}/complete",
+                    var closed = await remote.SendAsync(HttpMethod.Post, $"api/v1/tasks/{Id()}/complete",
                         new JsonObject { ["status"] = args.Flag("--wontdo") ? "wontdo" : "done" }, cancellation);
                     if (Json)
                     {
@@ -458,21 +563,21 @@ public static partial class ClientCli
                 }
                 case "reopen":
                 {
-                    var task = await remote.SendAsync(HttpMethod.Post, $"api/v1/tasks/{Id(2)}/reopen", null, cancellation);
+                    var task = await remote.SendAsync(HttpMethod.Post, $"api/v1/tasks/{Id()}/reopen", null, cancellation);
                     if (Json) await PrintJson(task);
                     else await Say($"Reopened: {Text(task, "title")}");
                     return Done;
                 }
                 case "delete":
                 {
-                    var id = Id(2);
+                    var id = Id();
                     await remote.SendAsync(HttpMethod.Delete, $"api/v1/tasks/{id}", null, cancellation);
                     await Say($"Deleted. Bring it back with: pecklist tasks restore {id}");
                     return Done;
                 }
                 case "restore":
                 {
-                    var task = await remote.SendAsync(HttpMethod.Post, $"api/v1/tasks/{Id(2)}/restore", null, cancellation);
+                    var task = await remote.SendAsync(HttpMethod.Post, $"api/v1/tasks/{Id()}/restore", null, cancellation);
                     if (Json) await PrintJson(task);
                     else await Say($"Restored: {Text(task, "title")}");
                     return Done;
@@ -482,8 +587,24 @@ public static partial class ClientCli
             }
         }
 
-        private string Id(int at) =>
-            args.Word(at) is { Length: > 0 } id ? Uri.EscapeDataString(id) : throw new UsageException($"{args.Word(0)} {args.Word(1)} needs a task id");
+        private string Id(int at = 0) =>
+            args.Argument(at) is { Length: > 0 } id ? Uri.EscapeDataString(id) : throw new UsageException($"{command.Path} needs a task id") { Command = command };
+
+        /// <summary>The task's text: the words given, or standard input for <c>-</c> (one line).</summary>
+        private async Task<string> TaskTextAsync()
+        {
+            if (args.Arguments is not ["-"]) return string.Join(' ', args.Arguments).Trim() is { Length: > 0 } given
+                ? given
+                : throw new UsageException($"{command.Path} needs TEXT") { Command = command };
+            if (!io.InputRedirected) throw new UsageException("- reads the task from standard input, but nothing is piped in") { Command = command };
+            var lines = (await io.In.ReadToEndAsync(cancellation)).Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+            return lines.Length switch
+            {
+                0 => throw new UsageException("standard input is empty: no task to add") { Command = command },
+                1 => lines[0],
+                _ => throw new UsageException($"standard input has {lines.Length} lines; add one task at a time") { Command = command },
+            };
+        }
 
         private static string? When(JsonNode task) => Text(task["schedule"], "start") ?? Text(task["due"], "at");
 
@@ -514,7 +635,8 @@ public static partial class ClientCli
             while (cursor is not null);
             if (Json)
             {
-                await PrintJson(items);
+                // The API's shape, with every page in it (PL-138; 0.10.0 printed a bare array).
+                await PrintJson(new JsonObject { ["items"] = items });
                 return Done;
             }
             if (items.Count == 0)
@@ -682,7 +804,7 @@ public static partial class ClientCli
                 }
                 case "add":
                 {
-                    var name = args.Word(2);
+                    var name = args.Argument(0);
                     if (name.Length == 0) throw new UsageException("lists add needs a name: pecklist lists add \"Garden\"");
                     var body = new JsonObject { ["name"] = name };
                     if (args.Value("--color") is { } color) body["color"] = color;
@@ -693,9 +815,9 @@ public static partial class ClientCli
                 }
                 case "rename":
                 {
-                    if (args.Word(2).Length == 0 || args.Word(3).Length == 0) throw new UsageException("lists rename needs the list and a name: pecklist lists rename Garden \"Veg garden\"");
-                    var id = await ListIdAsync(remote, args.Word(2));
-                    var body = new JsonObject { ["name"] = args.Word(3) };
+                    if (args.Argument(0).Length == 0 || args.Argument(1).Length == 0) throw new UsageException("lists rename needs the list and a name: pecklist lists rename Garden \"Veg garden\"");
+                    var id = await ListIdAsync(remote, args.Argument(0));
+                    var body = new JsonObject { ["name"] = args.Argument(1) };
                     if (args.Value("--color") is { } color) body["color"] = color;
                     var changed = await remote.SendAsync(HttpMethod.Patch, $"api/v1/lists/{Uri.EscapeDataString(id)}", body, cancellation);
                     if (Json) await PrintJson(changed);
@@ -715,7 +837,7 @@ public static partial class ClientCli
                 case "list" or "":
                 {
                     var path = "api/v1/sections";
-                    if (args.Word(2).Length > 0) path += $"?listId={Uri.EscapeDataString(await ListIdAsync(remote, args.Word(2)))}";
+                    if (args.Argument(0).Length > 0) path += $"?listId={Uri.EscapeDataString(await ListIdAsync(remote, args.Argument(0)))}";
                     var sections = await remote.GetAsync(path, cancellation);
                     if (Json)
                     {
@@ -729,18 +851,18 @@ public static partial class ClientCli
                 }
                 case "add":
                 {
-                    if (args.Word(2).Length == 0 || args.Word(3).Length == 0) throw new UsageException("sections add needs the list and a name: pecklist sections add Garden \"Beds\"");
-                    var listId = await ListIdAsync(remote, args.Word(2));
-                    var made = await remote.SendAsync(HttpMethod.Post, "api/v1/sections", new JsonObject { ["listId"] = listId, ["name"] = args.Word(3) }, cancellation);
+                    if (args.Argument(0).Length == 0 || args.Argument(1).Length == 0) throw new UsageException("sections add needs the list and a name: pecklist sections add Garden \"Beds\"");
+                    var listId = await ListIdAsync(remote, args.Argument(0));
+                    var made = await remote.SendAsync(HttpMethod.Post, "api/v1/sections", new JsonObject { ["listId"] = listId, ["name"] = args.Argument(1) }, cancellation);
                     if (Json) await PrintJson(made);
                     else await Say($"Added section {Text(made, "name")}  {Text(made, "id")}");
                     return Done;
                 }
                 case "rename":
                 {
-                    if (args.Word(2).Length == 0 || args.Word(3).Length == 0) throw new UsageException("sections rename needs the section id and a name");
-                    var changed = await remote.SendAsync(HttpMethod.Patch, $"api/v1/sections/{Uri.EscapeDataString(args.Word(2))}",
-                        new JsonObject { ["name"] = args.Word(3) }, cancellation);
+                    if (args.Argument(0).Length == 0 || args.Argument(1).Length == 0) throw new UsageException("sections rename needs the section id and a name");
+                    var changed = await remote.SendAsync(HttpMethod.Patch, $"api/v1/sections/{Uri.EscapeDataString(args.Argument(0))}",
+                        new JsonObject { ["name"] = args.Argument(1) }, cancellation);
                     if (Json) await PrintJson(changed);
                     else await Say($"Renamed to {Text(changed, "name")}");
                     return Done;
@@ -783,25 +905,25 @@ public static partial class ClientCli
             {
                 case "add-user":
                 {
-                    if (args.Word(2).Length == 0) throw new UsageException("admin add-user needs a username: pecklist admin add-user <user> [--admin]");
+                    if (args.Argument(0).Length == 0) throw new UsageException("admin add-user needs a username: pecklist admin add-user <user> [--admin]");
                     var made = await remote.SendAsync(HttpMethod.Post, "api/admin/users",
-                        new JsonObject { ["username"] = args.Word(2), ["role"] = args.Flag("--admin") ? "admin" : "user" }, cancellation);
+                        new JsonObject { ["username"] = args.Argument(0), ["role"] = args.Flag("--admin") ? "admin" : "user" }, cancellation);
                     await Say($"Added {Text(made, "username")} ({Text(made, "role")}). Password: {Text(made, "password")}");
                     await Say("It must be changed at the first login.");
                     return Done;
                 }
                 case "set-role":
                 {
-                    if (args.Word(2).Length == 0 || args.Word(3).Length == 0) throw new UsageException("admin set-role needs a user and a role: pecklist admin set-role <user> <user|admin|superadmin>");
-                    var (id, username) = await AccountAsync(remote, args.Word(2));
-                    var changed = await remote.SendAsync(HttpMethod.Put, $"api/admin/users/{id}/role", new JsonObject { ["role"] = args.Word(3) }, cancellation);
+                    if (args.Argument(0).Length == 0 || args.Argument(1).Length == 0) throw new UsageException("admin set-role needs a user and a role: pecklist admin set-role <user> <user|admin|superadmin>");
+                    var (id, username) = await AccountAsync(remote, args.Argument(0));
+                    var changed = await remote.SendAsync(HttpMethod.Put, $"api/admin/users/{id}/role", new JsonObject { ["role"] = args.Argument(1) }, cancellation);
                     await Say($"{username} is now {Text(changed, "role")}. It applies from their next request.");
                     return Done;
                 }
                 case "login-link":
                 {
-                    if (args.Word(2).Length == 0) throw new UsageException("admin login-link needs a user: pecklist admin login-link <user>");
-                    var (id, username) = await AccountAsync(remote, args.Word(2));
+                    if (args.Argument(0).Length == 0) throw new UsageException("admin login-link needs a user: pecklist admin login-link <user>");
+                    var (id, username) = await AccountAsync(remote, args.Argument(0));
                     var link = await remote.SendAsync(HttpMethod.Post, $"api/admin/users/{id}/login-link", null, cancellation);
                     await Say(Text(link, "url") ?? "");
                     await Say($"Signs {username} in once, until {Text(link, "expires")}.");
@@ -809,7 +931,7 @@ public static partial class ClientCli
                 }
                 case "reset-password":
                 {
-                    var (id, username) = await AccountAsync(remote, args.Word(2) is { Length: > 0 } user ? user : "admin");
+                    var (id, username) = await AccountAsync(remote, args.Argument(0) is { Length: > 0 } user ? user : "admin");
                     var reset = await remote.SendAsync(HttpMethod.Post, $"api/admin/users/{id}/password", new JsonObject(), cancellation);
                     await Say($"New password for {username}: {Text(reset, "password")}");
                     await Say("It must be changed at the next login. Other sessions of this account have ended.");
@@ -825,10 +947,10 @@ public static partial class ClientCli
             using var remote = await ConnectAsync();
             switch (sub)
             {
-                case "unlink" when args.Word(2).Length > 0:
+                case "unlink" when args.Argument(0).Length > 0:
                 {
-                    var (id, username) = await AccountAsync(remote, args.Word(2));
-                    var provider = args.Word(3);
+                    var (id, username) = await AccountAsync(remote, args.Argument(0));
+                    var provider = args.Argument(1);
                     var identities = (await remote.GetAsync($"api/admin/users/{id}/identities", cancellation))?.AsArray() ?? [];
                     var unlinked = 0;
                     var stranded = false;
@@ -844,26 +966,26 @@ public static partial class ClientCli
                     if (stranded) await Say($"{username} has no way left to sign in: give them a password or a sign-in link.");
                     return Done;
                 }
-                case "unbind-all" when args.Word(2).Length > 0:
+                case "unbind-all" when args.Argument(0).Length > 0:
                 {
-                    var result = await remote.SendAsync(HttpMethod.Post, $"api/admin/providers/{Uri.EscapeDataString(args.Word(2))}/unbind-all", null, cancellation);
-                    await Say($"Detached {result?["unbound"]} account(s) from {args.Word(2)}.");
+                    var result = await remote.SendAsync(HttpMethod.Post, $"api/admin/providers/{Uri.EscapeDataString(args.Argument(0))}/unbind-all", null, cancellation);
+                    await Say($"Detached {result?["unbound"]} account(s) from {args.Argument(0)}.");
                     if (result?["stranded"] is JsonArray { Count: > 0 } stranded)
                     {
                         await Say($"No way left to sign in: {string.Join(", ", stranded.Select(each => (string?)each))}");
                     }
                     return Done;
                 }
-                case "migration-window" when args.Word(2).Length > 0 && args.Word(3).Length > 0:
+                case "migration-window" when args.Argument(0).Length > 0 && args.Argument(1).Length > 0:
                 {
-                    var path = $"api/admin/providers/{Uri.EscapeDataString(args.Word(2))}/migration-window";
-                    if (args.Word(3) == "close")
+                    var path = $"api/admin/providers/{Uri.EscapeDataString(args.Argument(0))}/migration-window";
+                    if (args.Argument(1) == "close")
                     {
                         await remote.SendAsync(HttpMethod.Delete, path, null, cancellation);
-                        await Say($"The migration window for {args.Word(2)} is closed.");
+                        await Say($"The migration window for {args.Argument(0)} is closed.");
                         return Done;
                     }
-                    if (!double.TryParse(args.Word(3), NumberStyles.Float, CultureInfo.InvariantCulture, out var hours)) throw new UsageException("migration-window takes hours or close");
+                    if (!double.TryParse(args.Argument(1), NumberStyles.Float, CultureInfo.InvariantCulture, out var hours)) throw new UsageException("migration-window takes hours or close");
                     var opened = await remote.SendAsync(HttpMethod.Put, path, new JsonObject { ["hours"] = hours }, cancellation);
                     await Say($"Open until {Text(opened, "until")}.");
                     return Done;
@@ -886,7 +1008,7 @@ public static partial class ClientCli
             using var remote = await ConnectAsync();
             var path = "api/admin/export";
             if (args.Value("--user") is { } user) path = $"api/admin/users/{(await AccountAsync(remote, user)).Id}/export";
-            var file = args.Word(1);
+            var file = args.Argument(0);
             if (file.Length > 0)
             {
                 await DownloadToFileAsync(remote, path, file);

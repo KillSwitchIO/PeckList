@@ -44,8 +44,8 @@ $env:CONFIG_FILE = 'C:\ProgramData\PeckList\pecklist.conf'
 Run with no command (or one the program does not know as a command), it starts the server. Exit
 codes: `0` done, `1` the command failed (the reason is printed), `2` invalid settings.
 
-`pecklist help` prints the summary below; this page has the detail. A check in CI keeps this page
-listing every command.
+In the server program, `pecklist help` prints the maintenance summary below, then the client
+commands' help; this page has the detail. Checks in CI keep this page listing every command.
 
 ```text
 --8<-- "docs/reference/cli-usage.txt"
@@ -220,7 +220,9 @@ Prints the version and the commit it was built from: `pecklist 0.2.0+4f1c2e9...`
 
 These talk to a server over HTTPS, as the signed-in account, and can do what that account can do
 in the app. They need no settings file or database, so they run from a laptop, a script or a CI
-job as well as on the server.
+job as well as on the server. Every command and option is in the
+[client command reference](#client-command-reference) below, made from the same table as the
+CLI's own help.
 
 ### Getting the client
 
@@ -235,10 +237,47 @@ tar -xzf pecklist-cli-linux-x64-*.tar.gz
 sudo install pecklist-cli-linux-x64/pecklist /usr/local/bin/pecklist
 ```
 
+On Linux it needs OpenSSL (`libssl3`) for `https://` servers. Nearly every system has it, but a
+minimal container image may not: there, install it first (`apt-get install libssl3` on Debian).
+
 On Windows, unzip it and put `pecklist.exe` in a folder on your `PATH`. The server program takes
 the same client commands, so on the server itself you can use the one you have.
 
-### `login`
+### Help
+
+`pecklist` on its own lists the commands. `pecklist help`, `pecklist -h` and `pecklist --help`
+print everything. Each command and group has its own help, by any of these:
+
+```bash
+pecklist tasks              # a group on its own shows its commands
+pecklist tasks -h
+pecklist help tasks add
+pecklist tasks add --help
+```
+
+`-h` or `--help` anywhere on a line shows help and runs nothing, so
+`pecklist tasks delete 01HX... --help` deletes nothing. A command missing an argument prints its
+usage line, and a mistyped command suggests the nearest one (`did you mean tasks?`) without running
+anything. Help goes to standard output with exit code `0`; mistakes go to standard error with exit
+code `2`.
+
+### Short options and aliases
+
+Common options have a letter, and a letter means the same thing in every command: `-l` list,
+`-s` section, `-t` tag, `-a` all, `-d` due, `-p` priority, `-T` title, `-n` notes, `-j` JSON,
+`-q` quiet, `-h` help, and `-v` version (on its own). Letters group (`-aj`), and a value can follow
+with or without a space (`-l Yard`, `-lYard`, `--list Yard`, `--list=Yard`). `--` ends the options,
+so a task can start with a dash: `pecklist add -- "-5 degrees tonight"`. A `-` as the task reads it
+from standard input:
+
+```bash
+echo "Buy milk #home" | pecklist tasks add -
+id=$(pecklist add -q "Call the plumber friday")
+```
+
+`tasks ls` is `tasks list`, `tasks rm` is `tasks delete`, and `pecklist add` is `pecklist tasks add`.
+
+### Signing in
 
 ```bash
 pecklist login --server https://tasks.example.com
@@ -258,15 +297,14 @@ Someone who sends you a code and asks you to approve it is asking for a key to y
 :::
 
 With `--token` it saves an API key you made under Settings > Account > API keys, read from the
-keyboard without echo, or from standard input when piped. Use `--token` to save a key:
-`login --api-key KEY` saves it too, but leaves it in your shell history. The CLI never asks for
-your password.
+keyboard without echo, or from standard input when piped (`pecklist login --token < key.txt`). The
+CLI never asks for your password.
 
 The key is kept for your user only: on Linux in `~/.config/pecklist/cli.json` (or under
 `XDG_CONFIG_HOME`) with mode `600`, which the CLI checks before reading; on Windows in
 `%APPDATA%\PeckList\cli.json`, encrypted for your Windows account.
 
-#### Which key a command uses
+### Which key a command uses
 
 Every command can also take a key without signing in, which suits scripts and CI. The first of
 these that is set wins:
@@ -275,10 +313,10 @@ these that is set wins:
 2. `PECKLIST_TOKEN` in the environment;
 3. the saved sign-in, for the server it was made on.
 
-Given to any command but `login`, a key from the flag or the environment is used for that command
-only and never saved. A flag can end up in your shell history and is
-visible to other users of the machine in its process list, so on a shared machine prefer
-`PECKLIST_TOKEN` or a saved sign-in.
+**Prefer `PECKLIST_TOKEN` or `login --token`.** A key given as `--api-key KEY` shows in the process
+list (`ps`) to other users of the machine, and stays in your shell history. `--api-key` keeps
+working, for scripts that already use it. Given to any command but `login`, a key from the flag or
+the environment is used for that command only and never saved.
 
 A saved key is only ever sent to the server it was made on. A key from `--api-key` or
 `PECKLIST_TOKEN` is not tied to a server: it goes to whichever server the command names
@@ -286,47 +324,37 @@ A saved key is only ever sent to the server it was made on. A key from `--api-ke
 someone else's address. The CLI refuses `http://` to anything
 but this machine unless you add `--insecure-http`, since the key would cross the network as it is.
 
-### `logout`
+A key that may only read (`tasks:read`) is refused when a command changes something, and the CLI
+says the key lacks `tasks:write`: make a key with that permission, or sign in again.
 
-Revokes the key in use on the server (picked as above, so a key from `--api-key` or
-`PECKLIST_TOKEN` is revoked too) and forgets the saved one here. If you set `PECKLIST_TOKEN`,
-unset it as well.
+### Shell completion
 
-### `whoami`
-
-The server, the account and its role, and the key's permissions.
-
-### `tasks`
+`pecklist completion bash`, `zsh`, `fish` and `powershell` print a completion script. Install it
+once:
 
 ```bash
-pecklist tasks list --list Home --due-before 2026-11-30
-pecklist tasks add "Pay rent on the 1st every month ^Home !high #bills"
-pecklist tasks add "Read: 'every day' as a phrase" --plain
-pecklist tasks edit 01HX... --due none --tag +errands,-later
-pecklist tasks done 01HX...
-pecklist tasks delete 01HX...
+# bash (with the bash-completion package)
+pecklist completion bash > ~/.local/share/bash-completion/completions/pecklist
+# zsh: a file named _pecklist in a folder on $fpath, then start a new shell
+pecklist completion zsh > "${fpath[1]}/_pecklist"
+# fish
+pecklist completion fish > ~/.config/fish/completions/pecklist.fish
 ```
 
-`tasks list` shows the open tasks you can see, filtered by list, section, tag, status and due
-dates; `--all` is every status, and `--deleted` lists the trash. `tasks add` reads the text the way the
-app's quick add does (dates, `#tags`, `^list`, `!priority`, `@person`, `every ...`), and `--plain`
-takes it as the title as it is. `tasks done` on a repeating task moves it to its next date, as in
-the app; `--wontdo` closes it as won't do. `delete` moves a task to the trash and `restore` brings
-it back.
+In PowerShell, add `pecklist completion powershell | Out-String | Invoke-Expression` to your
+`$PROFILE`.
 
-### `lists`
+Tab then completes commands, options and their fixed values (`--status`, `--priority`). After
+`-l`, `-s` and `-t` it offers the names of your lists, sections (of the list named earlier on the
+line) and tags, asked of the server with your saved sign-in (or `--profile`). That asking never
+prompts and never prints an error, and gives up after about a second: signed out, offline or slow,
+you get the commands and options only. The names are kept for a minute in
+`~/.cache/pecklist` (or under `XDG_CACHE_HOME`; `%LOCALAPPDATA%\PeckList\cache` on Windows), in a
+file only you can read (mode `600`); names asked for with a key from `PECKLIST_TOKEN` or
+`--api-key` are not kept. Task ids are never completed.
 
-`lists list` shows your lists (`--all` adds archived ones), `lists add NAME [--color #RRGGBB]`
-makes one and `lists rename L NAME` renames one.
-
-### `sections`
-
-`sections list L`, `sections add L NAME` and `sections rename ID NAME`, for the sections in a list.
-
-### `tags`
-
-`tags list` shows your tags. Tags you name in `tasks add` or `tasks edit` that do not exist yet are
-made for you.
+Since Tab runs before you decide to run a line, a key in `PECKLIST_TOKEN` is only sent to
+`PECKLIST_SERVER` or your saved server at Tab, never to a `--server` typed (or pasted) on the line.
 
 ### Remote admin commands
 
@@ -346,7 +374,480 @@ are entered again on the settings page. See [backups](../guides/backups.md).
 
 `--profile NAME` (or `PECKLIST_PROFILE`) keeps several servers or accounts side by side:
 `pecklist login --profile work --server https://work.example.com`, then
-`pecklist tasks list --profile work`. `--json` prints the API's own JSON, for scripts.
+`pecklist tasks list --profile work`.
+
+`-j` or `--json` prints the API's own JSON, for scripts. Anything that lists things prints an
+object with an `items` array, as the API does (`tasks list` gathers every page into it); a command
+about one thing prints that thing. `tasks list --json` printed a bare array in 0.10.0, and now
+prints `items` like the rest.
 
 Exit codes: `0` done, `1` the command failed, `2` bad usage, `3` not signed in (or the key no longer
 works), `4` the account or key is not allowed to do that.
+
+## Client command reference
+
+Made from the CLI's own command table, the one `pecklist help <command>` prints from, so the two
+always agree. Every command also takes `-h`, `--help` (show its help and run nothing), `--server URL`,
+`--profile NAME`, `--api-key KEY` and `--insecure-http`: see
+[which key a command uses](#which-key-a-command-uses). `pecklist -v` or `pecklist --version` prints the
+version. Exit codes: 0 done, 1 failed, 2 bad usage, 3 not signed in, 4 not allowed.
+
+### `login`
+
+Sign in: approve a code in the browser, or save an API key. Never a password.
+
+```text
+pecklist login [--admin] [--token]
+```
+
+Without --token it prints a code and the address of your server's sign-in page, and opens it where it can. Approve the code there and the CLI saves a key named for this machine. Only enter a code you just asked for here.
+
+| Option | What it does |
+| --- | --- |
+| `--admin` | Ask for the admin permission too (owners and admins). |
+| `--token` | Save an API key, read from the keyboard, or from standard input when piped. |
+
+```bash
+pecklist login --server https://tasks.example.com
+pecklist login --server https://tasks.example.com --admin
+pecklist login --server https://tasks.example.com --token < key.txt
+```
+
+### `logout`
+
+Revoke this CLI's key on the server and forget it here.
+
+```text
+pecklist logout
+```
+
+The key in use is revoked, so a key from --api-key or PECKLIST_TOKEN is revoked too. If PECKLIST_TOKEN is set, unset it as well.
+
+```bash
+pecklist logout
+pecklist logout --profile work
+```
+
+### `whoami`
+
+The server, the account, its role and the key's permissions.
+
+```text
+pecklist whoami [-j]
+```
+
+| Option | What it does |
+| --- | --- |
+| `-j`, `--json` | Print the API's JSON: one thing as an object, a list of things as `{"items": [...]}`. |
+
+```bash
+pecklist whoami
+pecklist whoami -j
+```
+
+### `tasks`
+
+List, add, change and close tasks.
+
+```text
+pecklist tasks <command> [options]
+```
+
+| Command | What it does |
+| --- | --- |
+| [`tasks list`](#tasks-list) (`tasks ls`) | List the open tasks you can see, filtered by list, section, tag, status and due dates. |
+| [`tasks add`](#tasks-add) (`add`) | Add a task, reading dates, #tags, ^list, !priority, @person and "every ..." as the app's quick add does. |
+| [`tasks show`](#tasks-show) | Show one task. |
+| [`tasks edit`](#tasks-edit) | Change a task: only what you name changes. |
+| [`tasks done`](#tasks-done) | Close a task. A repeating one moves on to its next date, as in the app. |
+| [`tasks reopen`](#tasks-reopen) | Open a closed task again. |
+| [`tasks delete`](#tasks-delete) (`tasks rm`) | Move a task to the trash. tasks restore brings it back. |
+| [`tasks restore`](#tasks-restore) | Bring a task back from the trash. |
+
+```bash
+pecklist tasks list -l Home
+pecklist tasks add "Pay rent on the 1st every month ^Home !high"
+pecklist tasks done 01HX...
+```
+
+### `tasks list`
+
+List the open tasks you can see, filtered by list, section, tag, status and due dates.
+
+```text
+pecklist tasks list [options]
+pecklist tasks ls [options]
+```
+
+| Option | What it does |
+| --- | --- |
+| `-l`, `--list L` | The list: an id or a name (exact, then a unique start, as ^list matches). |
+| `-s`, `--section S` | The section: an id or a name. |
+| `-t`, `--tag TAG` | Only tasks with this tag. |
+| `--status STATUS` | Only tasks with this status: open, done, wontdo or all. |
+| `--due-before DATE` | Only tasks due before this date. |
+| `--due-after DATE` | Only tasks due after this date. |
+| `-a`, `--all` | Every status, not only open tasks. |
+| `--deleted` | The trash instead. |
+| `-j`, `--json` | Print the API's JSON: one thing as an object, a list of things as `{"items": [...]}`. |
+
+```bash
+pecklist tasks list -l Home -t errands
+pecklist tasks ls -a --due-before 2026-11-30
+pecklist tasks list --deleted -j
+```
+
+### `tasks add`
+
+Add a task, reading dates, #tags, ^list, !priority, @person and "every ..." as the app's quick add does.
+
+```text
+pecklist tasks add TEXT... [options]
+pecklist add TEXT... [options]
+```
+
+A single - as TEXT reads the task from standard input (one line). Put -- before a task that starts with a dash.
+
+| Option | What it does |
+| --- | --- |
+| `-l`, `--list L` | The list to add it to (without one, your inbox). |
+| `--plain` | Take the text as the title as it is, without reading dates or tags. |
+| `-q`, `--quiet` | Print only the new task's id. |
+| `-j`, `--json` | Print the API's JSON: one thing as an object, a list of things as `{"items": [...]}`. |
+
+```bash
+pecklist tasks add "Water the plants tomorrow #home" -l Yard
+id=$(pecklist add -q "Call the plumber friday !high")
+echo "Buy milk #home" | pecklist tasks add -
+```
+
+### `tasks show`
+
+Show one task.
+
+```text
+pecklist tasks show ID [-j]
+```
+
+| Option | What it does |
+| --- | --- |
+| `-j`, `--json` | Print the API's JSON: one thing as an object, a list of things as `{"items": [...]}`. |
+
+```bash
+pecklist tasks show 01HX...
+pecklist tasks show 01HX... -j
+```
+
+### `tasks edit`
+
+Change a task: only what you name changes.
+
+```text
+pecklist tasks edit ID [options]
+```
+
+| Option | What it does |
+| --- | --- |
+| `-T`, `--title TEXT` | The new title. |
+| `-n`, `--notes TEXT` | The new notes. |
+| `-l`, `--list L` | Move it to this list. |
+| `-s`, `--section S` | Move it to this section, or none. |
+| `-p`, `--priority LEVEL` | The priority: none, low, medium or high. |
+| `-d`, `--due DATE\|none` | The due date (2026-11-30 or 2026-11-30T09:00), or none. |
+| `--start DATE\|none` | The start date, or none. |
+| `-t`, `--tag TAG` | Add (+name) and remove (-name) tags, comma separated. |
+| `--repeat RRULE\|none` | How it repeats (an RRULE such as FREQ=WEEKLY), or none. |
+| `--progress 0-100` | Progress in percent. |
+| `-j`, `--json` | Print the API's JSON: one thing as an object, a list of things as `{"items": [...]}`. |
+
+```bash
+pecklist tasks edit 01HX... -T "Water the roses" -d 2026-12-01
+pecklist tasks edit 01HX... --due none -t +errands,-later
+pecklist tasks edit 01HX... -p high -l Home -s Garden
+```
+
+### `tasks done`
+
+Close a task. A repeating one moves on to its next date, as in the app.
+
+```text
+pecklist tasks done ID [--wontdo] [-j]
+```
+
+| Option | What it does |
+| --- | --- |
+| `--wontdo` | Close it as won't do. |
+| `-j`, `--json` | Print the API's JSON: one thing as an object, a list of things as `{"items": [...]}`. |
+
+```bash
+pecklist tasks done 01HX...
+pecklist tasks done 01HX... --wontdo
+```
+
+### `tasks reopen`
+
+Open a closed task again.
+
+```text
+pecklist tasks reopen ID [-j]
+```
+
+| Option | What it does |
+| --- | --- |
+| `-j`, `--json` | Print the API's JSON: one thing as an object, a list of things as `{"items": [...]}`. |
+
+```bash
+pecklist tasks reopen 01HX...
+```
+
+### `tasks delete`
+
+Move a task to the trash. tasks restore brings it back.
+
+```text
+pecklist tasks delete ID
+pecklist tasks rm ID
+```
+
+```bash
+pecklist tasks delete 01HX...
+pecklist tasks rm 01HX...
+```
+
+### `tasks restore`
+
+Bring a task back from the trash.
+
+```text
+pecklist tasks restore ID [-j]
+```
+
+| Option | What it does |
+| --- | --- |
+| `-j`, `--json` | Print the API's JSON: one thing as an object, a list of things as `{"items": [...]}`. |
+
+```bash
+pecklist tasks restore 01HX...
+```
+
+### `lists`
+
+Your lists.
+
+```text
+pecklist lists <command> [options]
+```
+
+| Command | What it does |
+| --- | --- |
+| [`lists list`](#lists-list) | Show your lists. |
+| [`lists add`](#lists-add) | Make a list. |
+| [`lists rename`](#lists-rename) | Rename a list. |
+
+```bash
+pecklist lists list
+pecklist lists add Garden --color "#3a7d44"
+```
+
+### `lists list`
+
+Show your lists.
+
+```text
+pecklist lists list [-a] [-j]
+```
+
+| Option | What it does |
+| --- | --- |
+| `-a`, `--all` | Archived lists too. |
+| `-j`, `--json` | Print the API's JSON: one thing as an object, a list of things as `{"items": [...]}`. |
+
+```bash
+pecklist lists list
+pecklist lists list -a -j
+```
+
+### `lists add`
+
+Make a list.
+
+```text
+pecklist lists add NAME [--color #RRGGBB] [-j]
+```
+
+| Option | What it does |
+| --- | --- |
+| `--color #RRGGBB` | The list's colour. |
+| `-j`, `--json` | Print the API's JSON: one thing as an object, a list of things as `{"items": [...]}`. |
+
+```bash
+pecklist lists add Garden
+pecklist lists add Garden --color "#3a7d44"
+```
+
+### `lists rename`
+
+Rename a list.
+
+```text
+pecklist lists rename L NAME [--color #RRGGBB] [-j]
+```
+
+| Option | What it does |
+| --- | --- |
+| `--color #RRGGBB` | The list's colour. |
+| `-j`, `--json` | Print the API's JSON: one thing as an object, a list of things as `{"items": [...]}`. |
+
+```bash
+pecklist lists rename Garden "Veg garden"
+```
+
+### `sections`
+
+The sections in a list.
+
+```text
+pecklist sections <command> [options]
+```
+
+| Command | What it does |
+| --- | --- |
+| [`sections list`](#sections-list) | Show the sections, in one list or in all of them. |
+| [`sections add`](#sections-add) | Make a section in a list. |
+| [`sections rename`](#sections-rename) | Rename a section. |
+
+```bash
+pecklist sections list Garden
+pecklist sections add Garden Beds
+```
+
+### `sections list`
+
+Show the sections, in one list or in all of them.
+
+```text
+pecklist sections list [L] [-j]
+```
+
+| Option | What it does |
+| --- | --- |
+| `-j`, `--json` | Print the API's JSON: one thing as an object, a list of things as `{"items": [...]}`. |
+
+```bash
+pecklist sections list
+pecklist sections list Garden -j
+```
+
+### `sections add`
+
+Make a section in a list.
+
+```text
+pecklist sections add L NAME [-j]
+```
+
+| Option | What it does |
+| --- | --- |
+| `-j`, `--json` | Print the API's JSON: one thing as an object, a list of things as `{"items": [...]}`. |
+
+```bash
+pecklist sections add Garden Beds
+```
+
+### `sections rename`
+
+Rename a section.
+
+```text
+pecklist sections rename ID NAME [-j]
+```
+
+| Option | What it does |
+| --- | --- |
+| `-j`, `--json` | Print the API's JSON: one thing as an object, a list of things as `{"items": [...]}`. |
+
+```bash
+pecklist sections rename 01HX... "Raised beds"
+```
+
+### `tags`
+
+Your tags.
+
+```text
+pecklist tags <command> [options]
+```
+
+| Command | What it does |
+| --- | --- |
+| [`tags list`](#tags-list) | Show your tags. Tags named in tasks add or tasks edit are made when needed. |
+
+```bash
+pecklist tags list
+```
+
+### `tags list`
+
+Show your tags. Tags named in tasks add or tasks edit are made when needed.
+
+```text
+pecklist tags list [-j]
+```
+
+| Option | What it does |
+| --- | --- |
+| `-j`, `--json` | Print the API's JSON: one thing as an object, a list of things as `{"items": [...]}`. |
+
+```bash
+pecklist tags list
+pecklist tags list -j
+```
+
+### `completion`
+
+Print the shell completion script for bash, zsh, fish or powershell.
+
+```text
+pecklist completion SHELL
+```
+
+Tab then completes commands and options, and the names of your lists, sections and tags after -l, -s and -t (asked of the server, for at most a second, and kept for a minute in a file only you can read).
+
+`SHELL` is one of: `bash`, `zsh`, `fish`, `powershell`.
+
+```bash
+pecklist completion bash > ~/.local/share/bash-completion/completions/pecklist
+pecklist completion zsh > ~/.zfunc/_pecklist
+pecklist completion fish > ~/.config/fish/completions/pecklist.fish
+```
+
+### `help`
+
+Show help for a command.
+
+```text
+pecklist help [COMMAND]...
+```
+
+```bash
+pecklist help
+pecklist help tasks add
+```
+
+### Remote admin command options
+
+These run through the admin API (see [remote admin commands](#remote-admin-commands)); each
+links to its description with the server's commands.
+
+| Command | Usage | Options |
+| --- | --- | --- |
+| [`admin add-user`](#admin-add-user) | `pecklist admin add-user USER [--admin]` | `--admin`: Make it an admin |
+| [`admin set-role`](#admin-set-role) | `pecklist admin set-role USER ROLE` |  |
+| [`admin login-link`](#admin-login-link) | `pecklist admin login-link USER` |  |
+| [`admin reset-password`](#admin-reset-password) | `pecklist admin reset-password [USER]` |  |
+| [`oidc unlink`](#oidc-unlink) | `pecklist oidc unlink USER [PROVIDER]` |  |
+| [`oidc unbind-all`](#oidc-unbind-all) | `pecklist oidc unbind-all PROVIDER` |  |
+| [`oidc migration-window`](#oidc-migration-window) | `pecklist oidc migration-window PROVIDER HOURS\|close` |  |
+| [`snapshot`](#snapshot) | `pecklist snapshot` |  |
+| [`export`](#export) | `pecklist export [FILE] [--user USER]` | `--user USER`: Only this account's data |
+| [`config show`](#config-show) | `pecklist config show [-j]` | `--json`: Print the API's JSON: one thing as an object, a list of things as `{"items": [...]}` |

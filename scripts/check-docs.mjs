@@ -1,8 +1,9 @@
 // Keeps the docs in step with the server:
 //   - every setting in SettingsCatalog.cs is described in docs/configuration/reference.md
-//   - every command in the CLI's usage text has a section in docs/reference/cli.md
-//   - docs/reference/cli-usage.txt is exactly the usage text `pecklist help` prints (the server's,
-//     then the client's from PeckList.Client/ClientCli.cs)
+//   - every command in the server's usage text has a section in docs/reference/cli.md
+//   - docs/reference/cli-usage.txt is exactly the server's usage text (Cli.cs)
+// The client commands' part of cli.md is made from their command table (PL-138) and checked by
+// CommandTableTests in server/tests/PeckList.Client.Tests, which also says how to refresh it.
 //   node scripts/check-docs.mjs           check (CI)
 //   node scripts/check-docs.mjs --write   refresh cli-usage.txt after changing the CLI
 
@@ -27,7 +28,7 @@ for (const key of [...fixed, ...perProvider]) {
   }
 }
 
-// The CLI's usage text, as the program prints it: the server's, then the client's.
+// The server's usage text, as the server program prints it before the client's help.
 const usageOf = (path) => {
   const block = /Usage = """\n([\s\S]*?)\n\s*""";/.exec(read(path));
   if (!block) return null;
@@ -36,11 +37,10 @@ const usageOf = (path) => {
   return `${lines.map((line) => line.slice(indent)).join('\n')}\n`;
 };
 const serverUsage = usageOf('server/src/PeckList.Server/Cli.cs');
-const clientUsage = usageOf('server/src/PeckList.Client/ClientCli.cs');
-if (!serverUsage || !clientUsage) {
-  problems.push('could not read the usage text in Cli.cs or ClientCli.cs');
+if (!serverUsage) {
+  problems.push('could not read the usage text in Cli.cs');
 } else {
-  const usage = `${serverUsage}\n${clientUsage}`;
+  const usage = serverUsage;
   const usageFile = 'docs/reference/cli-usage.txt';
   if (process.argv.includes('--write')) {
     writeFileSync(join(root, usageFile), usage);
@@ -49,16 +49,9 @@ if (!serverUsage || !clientUsage) {
     problems.push(`${usageFile} differs from Cli.cs: run node scripts/check-docs.mjs --write`);
   }
 
-  // Each command (a line starting with two spaces and a lowercase word) has a ### heading. The
-  // client's: one heading per command word; its remote admin line repeats server commands.
+  // Each command (a line starting with two spaces and a lowercase word) has a ### heading.
   const page = read('docs/reference/cli.md');
-  const commands = new Set(
-    clientUsage
-      .split('\n')
-      .filter((line) => /^ {2}[a-z-]/.test(line))
-      .map((line) => line.trim().split(/[\s,]+/)[0])
-      .filter((word) => !['admin', 'oidc'].includes(word)),
-  );
+  const commands = new Set();
   const serverCommands = new Set(
     serverUsage
       .split('\n')

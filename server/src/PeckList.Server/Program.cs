@@ -8,7 +8,7 @@ if (args is ["healthcheck", ..])
     return await HealthCheckCommand.RunAsync(Environment.GetEnvironmentVariable("ASPNETCORE_HTTP_PORTS"));
 }
 
-if (args is ["--version" or "version", ..])
+if (args is ["--version" or "-v" or "version", ..])
 {
     Console.WriteLine($"pecklist {ServerApp.FullVersion}");
     return 0;
