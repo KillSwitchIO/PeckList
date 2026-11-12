@@ -4,6 +4,12 @@ All notable changes to PeckList. Each release adds its section from [Conventiona
 with `pnpm release`; the version follows [Semantic Versioning](https://semver.org/). Before 1.0.0 a
 minor release may break things; every break is listed under **Breaking changes** with what to do.
 
+## [0.10.1] - 2026-11-12
+
+### Fixed
+
+- **deps:** Pin System.Formats.Cbor 9.0.24 for GHSA-vmv3-wvjp-wqpj
+
 ## [0.10.1-rc.1] - 2026-11-12
 
 ### Fixed
