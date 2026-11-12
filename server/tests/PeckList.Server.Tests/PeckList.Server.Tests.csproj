@@ -6,6 +6,8 @@
   <ItemGroup>
     <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" />
     <PackageReference Include="xunit.v3" />
+    <!-- Fido2 (through the server) would bring the vulnerable 9.0.0 here: see Directory.Packages.props. -->
+    <PackageReference Include="System.Formats.Cbor" />
   </ItemGroup>
   <ItemGroup>
     <Using Include="Xunit" />

@@ -14,6 +14,10 @@
     <PackageVersion Include="Microsoft.Extensions.Hosting.Systemd" Version="10.0.14" />
     <PackageVersion Include="Microsoft.Extensions.Hosting.WindowsServices" Version="10.0.14" />
     <PackageVersion Include="Npgsql" Version="10.0.3" />
+    <!-- Fido2 asks for 9.0.0, which has a CBOR hash-flooding DoS (GHSA-vmv3-wvjp-wqpj, fixed in
+         9.0.24). The server runs on the shared framework's copy; the test project gets the package,
+         so it is named there at the fixed version. Drop it once Fido2 asks for a fixed one. -->
+    <PackageVersion Include="System.Formats.Cbor" Version="9.0.24" />
     <PackageVersion Include="Swashbuckle.AspNetCore.SwaggerUI" Version="10.3.1" />
     <!-- Runs the app's quick add on the server (PL-137): pure .NET, no native parts. -->
     <PackageVersion Include="Jint" Version="4.4.1" />
