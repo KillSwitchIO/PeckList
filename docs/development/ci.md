@@ -214,3 +214,12 @@ which follows Capacitor's template) wait for a person, related packages
 come together (MUI, Tiptap, Capacitor, React, test and lint tools, .NET packages), at most six
 are open at a time, and the lockfile is refreshed on Mondays. Base images keep floating on their
 major tags (`node:24`, `dotnet/sdk:10.0`), so only a new major shows up for those.
+
+`audit-web` fails on a high or critical finding. When the fix is in a dependency's dependency that
+the direct one has not taken up yet, the root `package.json` pins the fixed version under
+`pnpm.overrides`, one line per advisory, limited to the vulnerable range so a later upgrade replaces
+it. Remove a line once nothing resolves to the old range (`pnpm why <package>`). In November 2026
+these were Docusaurus's `tinypool` and `serialize-javascript`, plus `uuid`, `glob` and `minimatch`
+under the dev server, mocha, workbox and eslint; the web build, the docs site, lint and mocha were
+checked on the new versions. A finding with no fixed version stays in the report until one exists
+(`deepmerge`, low, below the threshold).
