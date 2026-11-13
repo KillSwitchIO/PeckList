@@ -610,6 +610,13 @@ public static partial class ClientCli
 
         private async Task<int> TaskListAsync(Remote remote)
         {
+            // --all is --status all, so it can't sit beside another status (PL-141: it used to win quietly).
+            // Checked first, so a wrong line asks the server nothing, not even for the lists.
+            var status = args.Value("--status");
+            if (args.Flag("--all") && status is not null && status != "all")
+            {
+                throw new UsageException($"-a/--all means every status, so it can't go with --status {status}: drop one of them") { Command = command };
+            }
             var query = new List<string>();
             void Add(string name, string? value)
             {
@@ -619,7 +626,7 @@ public static partial class ClientCli
             if (args.Value("--list") is { } list) Add("listId", listId = await ListIdAsync(remote, list));
             if (args.Value("--section") is { } section) Add("sectionId", await SectionIdAsync(remote, section, listId));
             Add("tag", args.Value("--tag"));
-            Add("status", args.Flag("--all") ? "all" : args.Value("--status"));
+            Add("status", args.Flag("--all") ? "all" : status);
             Add("dueBefore", args.Value("--due-before"));
             Add("dueAfter", args.Value("--due-after"));
             if (args.Flag("--deleted")) Add("deleted", "true");

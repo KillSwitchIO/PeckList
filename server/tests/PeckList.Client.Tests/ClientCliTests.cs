@@ -181,6 +181,38 @@ public sealed class ClientCliTests
     }
 
     [Fact]
+    public async Task Status_is_sent_as_given_and_all_beside_another_status_is_refused()
+    {
+        // PL-141: --all quietly replaced --status, so `--all --status open` listed every status.
+        var api = Api();
+        api.Answers["api/v1/tasks?status=open&limit=500"] = """{"items":[],"next":null}""";
+        api.Answers["api/v1/tasks?status=done&limit=500"] = """{"items":[],"next":null}""";
+        api.Answers["api/v1/tasks?status=all&limit=500"] = """{"items":[],"next":null}""";
+        var store = await SignedInAsync();
+
+        Assert.Equal(0, (await Cli.RunAsync(api, store, "tasks", "list", "--status", "done")).Code);
+        Assert.Contains("GET /api/v1/tasks?status=done&limit=500", api.Requests);
+        Assert.Equal(0, (await Cli.RunAsync(api, store, "tasks", "list", "-a")).Code);
+        Assert.Contains("GET /api/v1/tasks?status=all&limit=500", api.Requests);
+        Assert.Equal(0, (await Cli.RunAsync(api, store, "tasks", "list", "-a", "--status", "all")).Code);
+
+        api.Requests.Clear();
+        foreach (var line in new[]
+        {
+            new[] { "tasks", "list", "--all", "--status", "open" }, ["tasks", "ls", "--status=done", "-a"], ["tasks", "list", "-aj", "--status", "wontdo"],
+            ["tasks", "list", "-l", "Home", "-a", "--status", "done"],
+        })
+        {
+            var refused = await Cli.RunAsync(api, store, line);
+            Assert.Equal(ClientCli.BadUsage, refused.Code);
+            Assert.Contains("--all means every status", refused.Err);
+            Assert.Contains("usage: pecklist tasks list", refused.Err);
+        }
+        // Not even the lists are asked for.
+        Assert.Empty(api.Requests);
+    }
+
+    [Fact]
     public async Task Adding_with_no_inbox_says_to_name_a_list()
     {
         var api = Api();

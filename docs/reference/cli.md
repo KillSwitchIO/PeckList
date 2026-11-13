@@ -484,10 +484,10 @@ pecklist tasks ls [options]
 | `-l`, `--list L` | The list: an id or a name (exact, then a unique start, as ^list matches). |
 | `-s`, `--section S` | The section: an id or a name. |
 | `-t`, `--tag TAG` | Only tasks with this tag. |
-| `--status STATUS` | Only tasks with this status: open, done, wontdo or all. |
+| `--status STATUS` | Only tasks with this status: open (the default), done, wontdo or all. -a is --status all. |
 | `--due-before DATE` | Only tasks due before this date. |
 | `--due-after DATE` | Only tasks due after this date. |
-| `-a`, `--all` | Every status, not only open tasks. |
+| `-a`, `--all` | Every status, not only open tasks: the same as --status all. |
 | `--deleted` | The trash instead. |
 | `-j`, `--json` | Print the API's JSON: one thing as an object, a list of things as `{"items": [...]}`. |
 
