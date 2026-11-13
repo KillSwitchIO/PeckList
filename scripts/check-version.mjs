@@ -2,7 +2,13 @@
 // between the code and the tag being released.
 //   node scripts/check-version.mjs [tag]
 
-import { parseTag, readVersions } from './versions.mjs';
+import {
+  ANDROID_VERSION_FILE,
+  androidVersionCode,
+  parseTag,
+  readAndroidVersionCode,
+  readVersions,
+} from './versions.mjs';
 
 const found = readVersions();
 const versions = new Set(found.map((each) => each.version));
@@ -11,6 +17,16 @@ if (versions.size !== 1) {
   console.error('The version differs between files:');
   for (const { file, version } of found) console.error(`  ${version}  ${file}`);
   ok = false;
+}
+if (ok) {
+  const [version] = versions;
+  const code = readAndroidVersionCode();
+  if (code !== androidVersionCode(version)) {
+    console.error(
+      `${ANDROID_VERSION_FILE} has versionCode=${code}; ${version} is ${androidVersionCode(version)}.`,
+    );
+    ok = false;
+  }
 }
 const tag = process.argv[2] ?? process.env.CI_COMMIT_TAG;
 if (ok && tag) {

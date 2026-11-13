@@ -1,0 +1,20 @@
+PeckList is a task app for you and the people you live with, on a server you run yourself. Your lists, your reminders and who does which chore stay on your own machine, and the app works offline: changes sync within seconds once it is back online.
+
+<b>You need a PeckList server.</b> The app connects to one: run your own (Docker, Linux packages or Windows; it is free software, AGPL-3.0), or use one someone runs for you. To try it first, sign up on the demo server at demo.pecklist.com, which resets every night.
+
+<b>What it does</b>
+<ul>
+<li>Lists, folders, sections, subtasks, tags, priorities and due dates</li>
+<li>Quick add that reads dates, repeats, tags and people from what you type</li>
+<li>Today, Upcoming and a calendar of your tasks</li>
+<li>Reminders that arrive on time with the app closed, with Complete and Snooze on the notification</li>
+<li>Shared lists with friends and groups: assign a task, or let a group's members call dibs</li>
+<li>Comments with @mentions and attached files</li>
+<li>Import from TickTick and Todoist, iCalendar import and export</li>
+<li>Sign-in through your own browser, so passkeys and single sign-on work</li>
+</ul>
+
+<b>Privacy</b>
+The app talks only to the server you connect it to. If it crashes, it offers to send a crash report, which you can read first; it goes through your server to the project, with no task names or personal details in it. You can turn reports off for all your devices, and a server admin can turn them off for everyone.
+
+Documentation: docs.pecklist.com

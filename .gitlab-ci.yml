@@ -683,7 +683,8 @@ android-apk:
 # Signed release APK: on tags (attached to the release), by hand on main (run web-build first). The
 # key comes from the protected variables ANDROID_KEYSTORE_BASE64, ANDROID_KEYSTORE_PASSWORD and
 # ANDROID_KEY_ALIAS, so only main and v* tags can sign (docs/development/android.md). The version
-# code is the pipeline number, which only grows.
+# code follows from the version (mobile/android/app/build.gradle), so F-Droid's build of the release
+# tag gets the same APK, byte for byte.
 android-release:
   extends: .android
   needs:
@@ -698,7 +699,7 @@ android-release:
     - |
       set -eu
       VERSION=$(sh scripts/build-version.sh)
-      export PECKLIST_VERSION="$VERSION" PECKLIST_VERSION_CODE="$CI_PIPELINE_IID" PECKLIST_REVISION="$CI_COMMIT_SHA"
+      export PECKLIST_VERSION="$VERSION" PECKLIST_REVISION="$CI_COMMIT_SHA"
       export ANDROID_KEYSTORE_FILE="$CI_PROJECT_DIR/release-key.p12"
       echo "$ANDROID_KEYSTORE_BASE64" | base64 -d > "$ANDROID_KEYSTORE_FILE"
       # web/dist comes from web-build.
@@ -710,7 +711,7 @@ android-release:
       "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --print-certs "$APK" | grep -E 'DN|SHA-256'
       mkdir -p dist-android
       cp "$APK" "dist-android/pecklist-android-$VERSION.apk"
-      echo "Built pecklist-android-$VERSION.apk (code $PECKLIST_VERSION_CODE)"
+      echo "Built pecklist-android-$VERSION.apk"
   after_script:
     - rm -f "$CI_PROJECT_DIR/release-key.p12"
   artifacts:

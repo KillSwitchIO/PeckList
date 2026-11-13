@@ -149,14 +149,28 @@ A PKCS12 keystore has one password for the store and the key.
 
 `mobile/android/app/build.gradle` signs a release build when `ANDROID_KEYSTORE_FILE` is set, with
 `ANDROID_KEYSTORE_PASSWORD` and `ANDROID_KEY_ALIAS` (and `ANDROID_KEY_PASSWORD` if it ever differs).
-`PECKLIST_VERSION` sets the version name and `PECKLIST_VERSION_CODE` the version code. CI uses
-`scripts/build-version.sh`, so a debug or release APK says the same version as the image from its
-commit (`0.8.0-rc.1.edge.818317a7`), and the pipeline number, which only grows. A build by hand
-without them says the repo's version with `-dev` (`0.8.0-rc.1-dev`). A signed build by hand:
+The version name is in `mobile/android/app/version.properties`, which `pnpm release` writes with
+the other version files, and `PECKLIST_VERSION` overrides it: CI sets it from
+`scripts/build-version.sh`, so an APK says the same version as the image from its commit
+(`0.8.0-rc.1.edge.818317a7`). A debug build by hand adds `-dev`. The version code follows from the
+version name, so every release has a higher one and an rc sorts before its release:
+
+| Version         | Version code                                      |
+| --------------- | ------------------------------------------------- |
+| `0.12.0-rc.2`   | `1200002`: MAJOR × 10,000,000 + MINOR × 100,000 + PATCH × 1,000 + N |
+| `0.12.0`        | `1200999`: the release itself is 999              |
+| `0.12.1-edge.…` | `1201000`: a build between releases is 0          |
+
+`version.properties` holds the code too, for F-Droid, and `pnpm check:version` and the release
+guard fail when the two disagree. Signed builds between releases (`android-release` by hand on
+`main`) share one code until the next release, since the code ignores the commit: each installs
+over the other, newer or older, so keep them for trying a build, never for anyone's phone. The
+debug APKs set `PECKLIST_VERSION_CODE` to the pipeline number instead, so each installs over the
+one before. A signed build by hand:
 
 ```bash
 export ANDROID_KEYSTORE_FILE=/path/to/pecklist-release.p12 ANDROID_KEYSTORE_PASSWORD=...
-PECKLIST_VERSION=0.2.0 PECKLIST_VERSION_CODE=1000 pnpm --filter @pecklist/mobile exec node scripts/gradle.mjs assembleRelease
+pnpm --filter @pecklist/mobile exec node scripts/gradle.mjs assembleRelease
 apksigner verify --print-certs mobile/android/app/build/outputs/apk/release/app-release.apk
 ```
 
@@ -169,6 +183,33 @@ base64 -w0 pecklist-release.p12   # the value of ANDROID_KEYSTORE_BASE64
 ```
 
 If the app goes on Google Play, enrol in Play App Signing with this key as the upload key.
+
+## F-Droid
+
+F-Droid builds each release tag from source and ships our own signed APK when its build matches
+ours byte for byte apart from the signature (a reproducible build). Its recipe sets nothing but the
+revision, so what a release APK holds must come from the tagged files alone:
+
+- **The version** from `version.properties`, as above. The release job stamps the same version.
+- **No build-specific data**: the release build leaves out the commit hash (`vcsInfo`) and
+  Google's encrypted dependency block (`dependenciesInfo`), and nothing from Google Play Services.
+- **The same web app**: F-Droid builds `web/` with the same lockfile and Node 24, and sets
+  `PECKLIST_REVISION` to the tagged commit as CI does. The recipe pins a Node patch release while
+  the image's `node:24` floats; Vite's output has not depended on the patch so far, but if a
+  release ever fails F-Droid's check, set the recipe to the version the image used and look there
+  first.
+- **Where to find ours**: a final release's APK is also uploaded under its plain version
+  (`packages/generic/pecklist/<version>/pecklist-android-<version>.apk`), the address in the
+  recipe's `Binaries:` line. It is for F-Droid only: people download from the release page, and
+  the release checklist compares that file with the signed `SHA256SUMS`.
+
+To check a change keeps the build reproducible, build the release APK unsigned twice, in different
+folders and with nothing stamped the second time, and compare the two files: they must be
+identical.
+
+The store listing is in `fastlane/metadata/android/en-US/` at the top of the repository: the
+title, the short description (80 characters at most), the full description (4,000), the icon and
+the phone screenshots (1170×2532, the demo seed signed in as `demo-sam`).
 
 ## Trying it against a local server
 

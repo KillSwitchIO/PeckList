@@ -5,12 +5,21 @@
 
 import { execFileSync } from 'node:child_process';
 import { pathToFileURL } from 'node:url';
-import { readVersions, root } from './versions.mjs';
+import {
+  ANDROID_VERSION_FILE,
+  androidVersionCode,
+  readAndroidVersionCode,
+  readVersions,
+  root,
+} from './versions.mjs';
 
-const VERSION_FILES = new Set([
-  'web/package.json',
-  'web/src/core/workspace.ts',
-  'server/Directory.Build.props',
+/** Each version file, and how many lines a release changes in it. */
+const VERSION_FILES = new Map([
+  ['web/package.json', 1],
+  ['web/src/core/workspace.ts', 1],
+  ['server/Directory.Build.props', 1],
+  // The version and its version code.
+  [ANDROID_VERSION_FILE, 2],
 ]);
 const OTHER_PATHS = [
   /^CHANGELOG\.md$/,
@@ -25,17 +34,27 @@ const OTHER_PATHS = [
  * @param {{ path: string, added: number, removed: number }[]} input.changes the diff's numstat
  * @param {string} input.title the merge request's title
  * @param {string[]} input.versions the version each version file holds
+ * @param {number} [input.androidCode] the version code version.properties holds (a release merge
+ *   request skips lint, so check:version does not run on it)
  */
-export function releaseProblems({ changes, title, versions }) {
+export function releaseProblems({ changes, title, versions, androidCode }) {
   const problems = [];
   const unique = [...new Set(versions)];
   if (unique.length !== 1) problems.push(`The version files differ: ${unique.join(', ')}.`);
+  else if (androidCode !== undefined && androidCode !== androidVersionCode(unique[0])) {
+    problems.push(
+      `${ANDROID_VERSION_FILE} has versionCode=${androidCode}; ${unique[0]} is ${androidVersionCode(unique[0])}.`,
+    );
+  }
   if (title !== `chore(release): ${unique[0]}`) {
     problems.push(`The title must be "chore(release): ${unique[0]}", which stamps the build.`);
   }
   for (const { path, added, removed } of changes) {
     if (VERSION_FILES.has(path)) {
-      if (added !== 1 || removed !== 1) problems.push(`${path} changes more than its version.`);
+      const lines = VERSION_FILES.get(path);
+      if (added !== lines || removed !== lines) {
+        problems.push(`${path} changes more than its version.`);
+      }
     } else if (!OTHER_PATHS.some((allowed) => allowed.test(path))) {
       problems.push(`${path} is not part of a release: put it in its own merge request.`);
     }
@@ -60,6 +79,7 @@ function main() {
     changes,
     title: process.env.CI_MERGE_REQUEST_TITLE,
     versions: readVersions().map((each) => each.version),
+    androidCode: readAndroidVersionCode(),
   });
   if (problems.length > 0) {
     for (const problem of problems) console.error(problem);
