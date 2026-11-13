@@ -133,14 +133,21 @@ A task looks like this:
   "schedule": { "start": "2026-11-14T09:00", "end": null, "allDay": false, "timeZone": "America/Chicago" },
   "due": null,
   "tags": ["home/yard"],
-  "assignees": [],
+  "assignees": ["user:01JC8R3M1Q2W3E4R5T6Y7U8I9O"],
   "recurrence": null,
   "progress": 0,
   "pinned": false,
   "createdAt": "2026-11-10T15:04:05.000Z",
   "createdBy": "01JC8R3M1Q2W3E4R5T6Y7U8I9O",
   "updatedAt": "2026-11-10T15:04:05.000Z",
-  "deletedAt": null
+  "deletedAt": null,
+  "listName": "Home",
+  "sectionName": null,
+  "assigneeNames": { "user:01JC8R3M1Q2W3E4R5T6Y7U8I9O": "Ben" },
+  "createdByName": "Ben",
+  "completedByName": null,
+  "reminders": [{ "before": 30 }, { "at": "2026-11-14T08:00" }],
+  "constantReminder": false
 }
 ```
 
@@ -159,15 +166,27 @@ then the people you can see, by name.
 ```json
 {
   "items": [
-    { "id": "user:01JC8R3M1Q2W3E4R5T6Y7U8I9O", "kind": "user", "name": "Ben", "handle": "ben", "me": true, "assignable": true },
-    { "id": "group:01JC8R6H2K4M6P8R0T2V4X6Z8B", "kind": "group", "name": "Household", "handle": null, "me": false, "assignable": true },
-    { "id": "user:01JC8R7N3P5R7T9V1X3Z5B7D9F", "kind": "user", "name": "Sam", "handle": "sam", "me": false, "assignable": true }
+    { "id": "user:01JC8R3M1Q2W3E4R5T6Y7U8I9O", "kind": "user", "name": "Ben", "handle": "ben", "me": true, "assignable": true, "avatarColor": "#8BA3C2", "photo": null },
+    { "id": "group:01JC8R6H2K4M6P8R0T2V4X6Z8B", "kind": "group", "name": "Household", "handle": null, "me": false, "assignable": true, "avatarColor": "#F2A7B5", "photo": null },
+    { "id": "user:01JC8R7N3P5R7T9V1X3Z5B7D9F", "kind": "user", "name": "Sam", "handle": "sam", "me": false, "assignable": true, "avatarColor": null, "photo": null }
   ]
 }
 ```
 
 `assignable` says whether you may put them in a task's `assignees`; someone you can see but are not
-friends with is listed, so their name can be shown, but cannot be assigned by you.
+friends with is listed, so their name can be shown, but cannot be assigned by you. People appear
+after their first sign-in.
+
+Each also has `avatarColor`, the colour of their initials (a group's own colour), and `photo`.
+`photo` is `null` unless you ask with `?photos=true`; then it is the person's picture as a PNG,
+JPEG or WebP data URL (up to 80 KB each), or `null` when they have none. Photos change rarely, so
+fetch them once and keep them.
+
+The names a task points at come with it, as you see them: `listName`, `sectionName`,
+`assigneeNames` (by assignee), `createdByName` and `completedByName`. A name you can't see, such
+as the list of a task assigned to you in someone else's private list, is `null` or left out.
+`reminders` are minutes `before` the task's date (an all-day task counts from 9:00), or a set local
+date-time `at`; `constantReminder` repeats them every 5 minutes for an hour until it is done.
 
 ### Finding tasks
 
@@ -175,18 +194,23 @@ friends with is listed, so their name can be shown, but cannot be assigned by yo
 
 | Parameter   |                                                                 |
 | ----------- | --------------------------------------------------------------- |
-| `listId`    | In this list                                                    |
+| `listId`    | In this list; repeat it, or separate ids with commas, for any of several |
 | `sectionId` | In this section                                                 |
 | `parentId`  | Subtasks of this task; `none` for top-level tasks only          |
 | `status`    | `open` (the default), `done`, `wontdo` or `all`                 |
-| `tag`       | With this tag or one under it (`home` matches `home/yard`)      |
+| `tag`       | With this tag or one under it (`home` matches `home/yard`); repeat it for any of several |
 | `dueBefore` | Due on or before this date (`2026-11-30`)                       |
 | `dueAfter`  | Due on or after this date                                       |
 | `deleted`   | `true` for deleted tasks instead of live ones                   |
+| `priority`  | `none`, `low`, `medium` or `high` (or `0` to `3`); repeat it, or use commas, for any of several |
+| `assignee`  | `me` (you, or a group you are in), `none` (nobody), or a `user:<id>` or `group:<id>` from `/api/v1/people` |
+| `q`         | Words that must all be in the title or notes, in any order and any case (at most 200 characters and 8 different words) |
+| `idSuffix`  | The id ends with this: 4 to 26 letters and digits, any case     |
 | `limit`     | Tasks a page, 1 to 500 (default 100)                            |
 | `cursor`    | The `next` of the page before                                   |
 
-An unknown parameter is a `400`, so a typo never silently widens a query.
+Filters combine: every one given must match. An unknown parameter is a `400`, so a typo never
+silently widens a query.
 
 ### Making and changing tasks
 
@@ -198,7 +222,9 @@ parent's list and starts with its tags), `priority`, `schedule`, `due`, `tags`, 
 
 `PATCH /api/v1/tasks/{id}` changes only the fields you send; `null` clears one. To change tags
 without sending the whole set, send `addTags` and `removeTags` instead of `tags`. Moving a task to
-another list (`listId`) takes its subtasks along.
+another list (`listId`) takes its subtasks along. A task you read can be sent back whole: the
+fields a write can't change (the dates it was made, closed and changed, who did it, the names and
+the reminders) are left as they are.
 
 Each field keeps its own clock: a change you send wins over what was there, field by field, and
 fields you don't send keep any edit made meanwhile on a phone or another computer. There is no

@@ -264,8 +264,9 @@ code `2`.
 ### Short options and aliases
 
 Common options have a letter, and a letter means the same thing in every command: `-l` list,
-`-s` section, `-t` tag, `-a` all, `-d` due, `-p` priority, `-T` title, `-n` notes, `-j` JSON,
-`-q` quiet, `-h` help, and `-v` version (on its own). Letters group (`-aj`), and a value can follow
+`-s` section, `-t` tag, `-a` all, `-d` due, `-p` priority, `-u` assigned, `-S` search, `-o` sort,
+`-w` wide, `-T` title, `-n` notes, `-j` JSON, `-q` quiet, `-h` help, and `-v` version (on its own).
+Letters group (`-aj`), and a value can follow
 with or without a space (`-l Yard`, `-lYard`, `--list Yard`, `--list=Yard`). `--` ends the options,
 so a task can start with a dash: `pecklist add -- "-5 degrees tonight"`. A `-` as the task reads it
 from standard input:
@@ -276,6 +277,49 @@ id=$(pecklist add -q "Call the plumber friday")
 ```
 
 `tasks ls` is `tasks list`, `tasks rm` is `tasks delete`, and `pecklist add` is `pecklist tasks add`.
+
+### Reading the task list
+
+`pecklist tasks list` shows a table:
+
+```text
+ID      STATUS    DATE              PRI     LIST       TITLE            TAGS
+F0PB8W  done      Mon 9 Nov                 Home       Fix the gate
+9KD3TA  open      Tue 10 Nov, late  medium  Groceries  Oat milk         #errands
+4QH7ZK  open      today 09:00       high    Yard       Water the roses  #garden
+VX2M0D  open      Sat 14 Nov                Yard         - Buy a hose   #errands
+J3N9VE  won't do                    low     Work / Q4  Send the report
+5 tasks: 3 open, 1 done, 1 won't do
+```
+
+- **ID** is the end of the task's id. Every command takes it as well as the whole id, so
+  `pecklist tasks done 4QH7ZK` works. When two tasks shown end alike, the column grows until they
+  differ.
+- **STATUS** is open, done, won't do, or deleted (in the trash).
+- **DATE** is the due date, or else the start date, as people say it. An open task whose day has
+  gone says "late".
+- **LIST** is the list's name, and its section after a slash.
+- Subtasks sit under their parent. A subtask whose parent isn't shown says which task it belongs
+  to: `Buy a hose (in: Water the roses)`.
+- The table is sorted by date, soonest first and undated last. Choose another order with `-o`:
+  priority, title, list, status, created or updated; `-o -updated` puts the most recently changed
+  first.
+- Long titles are cut to fit the terminal, but never when the output goes to a file or a pipe.
+- `-w` adds the start and due dates apart, who it's assigned to, how it repeats, progress, when it
+  was made and changed, and the whole id. For everything about one task, `pecklist tasks show ID`.
+
+Filters combine, and every one given must match:
+
+```bash
+pecklist tasks list -l Home -l Yard -t errands     # in either list, tagged errands
+pecklist tasks list -d overdue -p medium+          # late, medium or high priority
+pecklist tasks list -d 2026-12-01..2026-12-31 -u me
+pecklist tasks list -a -S "kitchen tap"            # every status, both words in the title or notes
+pecklist tasks list --status deleted               # the trash
+```
+
+`--json` prints the same tasks in the same order, as the API gives them, with each one's list,
+section and people by name.
 
 ### Signing in
 
@@ -455,9 +499,9 @@ pecklist tasks <command> [options]
 
 | Command | What it does |
 | --- | --- |
-| [`tasks list`](#tasks-list) (`tasks ls`) | List the open tasks you can see, filtered by list, section, tag, status and due dates. |
+| [`tasks list`](#tasks-list) (`tasks ls`) | List tasks with their status, date, priority, list and tags; filter by list, tag, status, due date, priority, person and words. |
 | [`tasks add`](#tasks-add) (`add`) | Add a task, reading dates, #tags, ^list, !priority, @person and "every ..." as the app's quick add does. |
-| [`tasks show`](#tasks-show) | Show one task. |
+| [`tasks show`](#tasks-show) | Show everything about one task: its list, dates, reminders, repeat, people, checklist, subtasks and notes. |
 | [`tasks edit`](#tasks-edit) | Change a task: only what you name changes. |
 | [`tasks done`](#tasks-done) | Close a task. A repeating one moves on to its next date, as in the app. |
 | [`tasks reopen`](#tasks-reopen) | Open a closed task again. |
@@ -472,29 +516,40 @@ pecklist tasks done 01HX...
 
 ### `tasks list`
 
-List the open tasks you can see, filtered by list, section, tag, status and due dates.
+List tasks with their status, date, priority, list and tags; filter by list, tag, status, due date, priority, person and words.
 
 ```text
 pecklist tasks list [options]
 pecklist tasks ls [options]
 ```
 
+The table shows each task's status (open, done, won't do or deleted), its due date or else its start date, its priority, its list (and section), its title and its tags. Subtasks sit under their parent; one whose parent is not shown names it. The ID column is the end of each task's id: every command takes it as well as the whole id. Filters combine: a task is shown when it matches every one given. Long titles are cut to fit the terminal, but never when the output goes to a file or a pipe.
+
 | Option | What it does |
 | --- | --- |
-| `-l`, `--list L` | The list: an id or a name (exact, then a unique start, as ^list matches). |
+| `-l`, `--list L` | Only tasks in this list; repeat it for any of several. |
 | `-s`, `--section S` | The section: an id or a name. |
-| `-t`, `--tag TAG` | Only tasks with this tag. |
-| `--status STATUS` | Only tasks with this status: open (the default), done, wontdo or all. -a is --status all. |
-| `--due-before DATE` | Only tasks due before this date. |
-| `--due-after DATE` | Only tasks due after this date. |
-| `-a`, `--all` | Every status, not only open tasks: the same as --status all. |
-| `--deleted` | The trash instead. |
-| `-j`, `--json` | Print the API's JSON: one thing as an object, a list of things as `{"items": [...]}`. |
+| `-t`, `--tag TAG` | Only tasks with this tag or one under it; repeat it for any of several. |
+| `--status STATUS` | Only tasks with this status: open (the default), done, wontdo, deleted (the trash) or all. -a is --status all. |
+| `-a`, `--all` | Every status, not only open tasks: the same as --status all. Deleted tasks need --status deleted. |
+| `-d`, `--due WHEN` | Only tasks due today, tomorrow, overdue, week (today and the 6 days after), on a date (2026-11-30), or in a range (2026-11-01..2026-11-30; leave an end off for open-ended). |
+| `--due-before DATE` | Only tasks due on or before this date. |
+| `--due-after DATE` | Only tasks due on or after this date. |
+| `-p`, `--priority LEVEL` | Only these priorities: high, medium, low or none, comma separated, or medium+ for medium and high. |
+| `-u`, `--assigned WHO` | Only tasks assigned to me (to you or a group you are in), none (to nobody), or a person or group by name: it matches anyone you can see on your lists. People appear after their first sign-in. |
+| `-S`, `--search WORDS` | Only tasks with all these words (up to 8) in the title or notes, any case. |
+| `-o`, `--sort KEY` | Sort by due (the default: soonest first, undated last), priority, title, list, status, created or updated; a - in front reverses it (-o -updated). |
+| `--limit N` | Show at most N tasks. |
+| `-w`, `--wide` | More columns: start and due apart, who it is assigned to, how it repeats, progress, created and changed, and the whole id. |
+| `--deleted` | The trash instead (with --status, only that status in the trash). |
+| `-j`, `--json` | Print the tasks as the API gives them, in the order shown: `{"items": [...]}`, with their list, section and people by name. |
 
 ```bash
-pecklist tasks list -l Home -t errands
-pecklist tasks ls -a --due-before 2026-11-30
-pecklist tasks list --deleted -j
+pecklist tasks list -l Home -l Yard -t errands
+pecklist tasks ls -d overdue -p high
+pecklist tasks list -a -S plumber -o -updated --limit 10
+pecklist tasks list -u me -w
+pecklist tasks list --status deleted -j
 ```
 
 ### `tasks add`
@@ -523,18 +578,20 @@ echo "Buy milk #home" | pecklist tasks add -
 
 ### `tasks show`
 
-Show one task.
+Show everything about one task: its list, dates, reminders, repeat, people, checklist, subtasks and notes.
 
 ```text
 pecklist tasks show ID [-j]
 ```
+
+ID is the whole id or its end, as tasks list shows it. The checklist is the notes' checkbox lines (- [ ] and - [x]).
 
 | Option | What it does |
 | --- | --- |
 | `-j`, `--json` | Print the API's JSON: one thing as an object, a list of things as `{"items": [...]}`. |
 
 ```bash
-pecklist tasks show 01HX...
+pecklist tasks show 4QH7ZK
 pecklist tasks show 01HX... -j
 ```
 
@@ -553,7 +610,7 @@ pecklist tasks edit ID [options]
 | `-l`, `--list L` | Move it to this list. |
 | `-s`, `--section S` | Move it to this section, or none. |
 | `-p`, `--priority LEVEL` | The priority: none, low, medium or high. |
-| `-d`, `--due DATE\|none` | The due date (2026-11-30 or 2026-11-30T09:00), or none. |
+| `-d`, `--due WHEN` | The due date (2026-11-30 or 2026-11-30T09:00), or none. |
 | `--start DATE\|none` | The start date, or none. |
 | `-t`, `--tag TAG` | Add (+name) and remove (-name) tags, comma separated. |
 | `--repeat RRULE\|none` | How it repeats (an RRULE such as FREQ=WEEKLY), or none. |

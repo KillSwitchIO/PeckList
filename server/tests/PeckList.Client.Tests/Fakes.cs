@@ -65,7 +65,15 @@ internal static class Cli
     public static async Task<Ran> RunAsync(HttpMessageHandler handler, ITokenStore store, params string[] args) =>
         await RunAsync(handler, store, null, new Dictionary<string, string>(), args);
 
-    public static async Task<Ran> RunAsync(HttpMessageHandler handler, ITokenStore store, string? input, Dictionary<string, string> environment, params string[] args)
+    public static Task<Ran> RunAsync(HttpMessageHandler handler, ITokenStore store, string? input, Dictionary<string, string> environment, params string[] args) =>
+        RunAsync(handler, store, input, environment, () => DateTimeOffset.UtcNow, TimeZoneInfo.Local, null, args);
+
+    /// <summary>At a set moment, in UTC, and (with <paramref name="width"/>) at a terminal that wide.</summary>
+    public static Task<Ran> RunAtAsync(HttpMessageHandler handler, ITokenStore store, DateTimeOffset now, int? width, params string[] args) =>
+        RunAsync(handler, store, null, [], () => now, TimeZoneInfo.Utc, width, args);
+
+    private static async Task<Ran> RunAsync(HttpMessageHandler handler, ITokenStore store, string? input, Dictionary<string, string> environment,
+        Func<DateTimeOffset> now, TimeZoneInfo zone, int? width, string[] args)
     {
         var output = new StringWriter();
         var errors = new StringWriter();
@@ -82,6 +90,9 @@ internal static class Cli
             ReadSecret = () => throw new InvalidOperationException("no prompt"),
             Delay = (_, _) => Task.CompletedTask,
             HostName = "test-box",
+            Now = now,
+            Zone = zone,
+            Width = () => width,
         };
         var code = await ClientCli.RunAsync(args, io, serverBuild: false, Token);
         return new Ran(code, output.ToString().ReplaceLineEndings("\n"), errors.ToString().ReplaceLineEndings("\n"));

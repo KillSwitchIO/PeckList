@@ -51,15 +51,24 @@ public static class TaskApiEndpoints
             Results.Ok(new ApiItems<ApiTag>(await queries.TagListAsync(user.UserId(), cancellation))))
             .Read<ApiItems<ApiTag>>("Your tags");
 
-        v1.MapGet("/people", async (ClaimsPrincipal user, TaskWrites writes, CancellationToken cancellation) =>
-            Results.Ok(new ApiItems<ApiPerson>(await writes.PeopleAsync(user.UserId(), cancellation))))
-            .Read<ApiItems<ApiPerson>>("The people and groups a task's assignees can name, with their names");
+        v1.MapGet("/people", async (HttpContext context, ClaimsPrincipal user, TaskWrites writes, CancellationToken cancellation) =>
+        {
+            var photos = false;
+            if (context.Request.Query["photos"].FirstOrDefault() is { Length: > 0 } flag && !bool.TryParse(flag, out photos)) return ApiProblems.Invalid("photos must be true or false");
+            return Results.Ok(new ApiItems<ApiPerson>(await writes.PeopleAsync(user.UserId(), photos, cancellation)));
+        })
+            .Read<ApiItems<ApiPerson>>("The people and groups a task's assignees can name, with their names", badRequest: true)
+            .Queries(new ApiDocs.QueryParameter("photos", "true adds each person's photo as a data URL (up to 80 KB each); otherwise photo is null", Microsoft.OpenApi.JsonSchemaType.Boolean));
 
         v1.MapGet("/tasks", async (HttpContext context, ClaimsPrincipal user, TaskQueries queries, CancellationToken cancellation) =>
         {
             var query = context.Request.Query;
             string? One(string name) => query[name].FirstOrDefault() is { Length: > 0 } value ? value : null;
-            var known = new HashSet<string>(StringComparer.Ordinal) { "listId", "sectionId", "parentId", "status", "tag", "dueBefore", "dueAfter", "deleted", "limit", "cursor" };
+            // Several values: the parameter repeated, or (for ids and priorities) comma separated.
+            List<string>? Many(string name, bool commas) =>
+                query[name].OfType<string>().SelectMany(value => commas ? value.Split(',', StringSplitOptions.TrimEntries) : [value])
+                    .Where(value => value.Length > 0).ToList() is { Count: > 0 } values ? values : null;
+            var known = new HashSet<string>(StringComparer.Ordinal) { "listId", "sectionId", "parentId", "status", "tag", "dueBefore", "dueAfter", "deleted", "priority", "assignee", "q", "idSuffix", "limit", "cursor" };
             if (query.Keys.FirstOrDefault(key => !known.Contains(key)) is { } unknown)
             {
                 return ApiProblems.Invalid($"unknown query parameter '{unknown}'", new Dictionary<string, string[]> { [unknown] = ["not a filter of this route"] });
@@ -72,16 +81,38 @@ public static class TaskApiEndpoints
             bool deleted = false;
             if (One("deleted") is { } flag && !bool.TryParse(flag, out deleted)) return ApiProblems.Invalid("deleted must be true or false");
             var status = One("status") ?? "open";
+            List<int>? priorities = null;
+            if (Many("priority", commas: true) is { } levels)
+            {
+                priorities = [];
+                foreach (var level in levels)
+                {
+                    int? number = level.ToLowerInvariant() switch
+                    {
+                        "none" or "0" => 0,
+                        "low" or "1" => 1,
+                        "medium" or "2" => 2,
+                        "high" or "3" => 3,
+                        _ => null,
+                    };
+                    if (number is null) return ApiProblems.Invalid("priority must be none, low, medium or high (or 0 to 3)", new Dictionary<string, string[]> { ["priority"] = [$"'{level}' is not a priority"] });
+                    priorities.Add(number.Value);
+                }
+            }
             var filter = new TaskFilter
             {
-                ListId = One("listId"),
+                ListIds = Many("listId", commas: true),
                 SectionId = One("sectionId"),
                 ParentId = One("parentId"),
                 Status = status == "all" ? null : status,
-                Tag = One("tag"),
+                Tags = Many("tag", commas: false),
                 DueBefore = One("dueBefore"),
                 DueAfter = One("dueAfter"),
                 Deleted = deleted,
+                Priorities = priorities,
+                Assignee = One("assignee"),
+                Text = One("q"),
+                IdSuffix = One("idSuffix"),
             };
             try
             {
@@ -93,14 +124,18 @@ public static class TaskApiEndpoints
             }
         }).Read<ApiPage<ApiTask>>("Tasks, filtered, a page at a time (next is the cursor for the following page)", badRequest: true)
             .Queries(
-                new("listId", "In this list"),
+                new("listId", "In this list; repeat it, or separate ids with commas, for any of several", Many: true),
                 new("sectionId", "In this section"),
                 new("parentId", "Subtasks of this task; none for top-level tasks only"),
                 new("status", "open (the default), done, wontdo or all"),
-                new("tag", "With this tag or one under it (home matches home/yard)"),
+                new("tag", "With this tag or one under it (home matches home/yard); repeat it for any of several", Many: true),
                 new("dueBefore", "Due on or before this date (2026-11-30)"),
                 new("dueAfter", "Due on or after this date"),
                 new("deleted", "true for deleted tasks instead of live ones", Microsoft.OpenApi.JsonSchemaType.Boolean),
+                new("priority", "With this priority: none, low, medium or high (or 0 to 3); repeat it, or use commas, for any of several", Many: true),
+                new("assignee", "Assigned to me (to you, or a group you are in), none (to nobody), or user:<id> or group:<id> (see /api/v1/people)"),
+                new("q", $"Words that must all be in the title or notes, any case (at most {TaskFilter.MaxText} characters and {TaskFilter.MaxWords} different words)"),
+                new("idSuffix", "The id ends with this: 4 to 26 letters and digits, any case"),
                 new("limit", $"Tasks per page, 1 to {TaskQueries.MaxPage} ({TaskQueries.DefaultPage} by default)", Microsoft.OpenApi.JsonSchemaType.Integer),
                 new("cursor", "The next of the page before"));
 

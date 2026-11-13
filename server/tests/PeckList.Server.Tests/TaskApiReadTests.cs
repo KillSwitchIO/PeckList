@@ -188,6 +188,11 @@ public sealed class TaskApiReadTests(ServerFixture fixture) : IClassFixture<Serv
         Assert.All(people, person => Assert.True((bool)person!["assignable"]!));
         Assert.Equal(["ben", "sam"], people.Select(person => (string?)person!["name"]));
         Assert.Equal("sam", (string?)people[1]!["handle"]);
+        // The colour of their initials always; photos only when asked (PL-142; none here), and photos is true or false.
+        Assert.All(people, person => Assert.StartsWith("#", (string?)person!["avatarColor"]));
+        Assert.All(people, person => Assert.Null((string?)person!["photo"]));
+        Assert.Equal(2, (await Get(ben.Session, "/api/v1/people?photos=true"))["items"]!.AsArray().Count);
+        Assert.Equal("invalid_request", (string?)(await Get(ben.Session, "/api/v1/people?photos=maybe", HttpStatusCode.BadRequest))["code"]);
 
         // A key that may read tasks may read their people.
         var key = await world.KeyAsync(ben, "tasks:read");
@@ -270,5 +275,118 @@ public sealed class TaskApiReadTests(ServerFixture fixture) : IClassFixture<Serv
         Assert.Equal("invalid_request", (string?)(await Get(ben.Session, "/api/v1/tasks?limit=501", HttpStatusCode.BadRequest))["code"]);
         Assert.Equal("invalid_request", (string?)(await Get(ben.Session, "/api/v1/tasks?dueBefore=friday", HttpStatusCode.BadRequest))["code"]);
         Assert.Equal("invalid_cursor", (string?)(await Get(ben.Session, "/api/v1/tasks?cursor=no%20such", HttpStatusCode.BadRequest))["code"]);
+    }
+
+    [Fact]
+    public void Only_an_image_data_url_passes_as_a_photo()
+    {
+        static JsonObject Profile(string photo) => new() { ["photo"] = photo };
+        Assert.Equal("data:image/png;base64,iVBORw0KGgo=", PeckList.Core.Api.ApiShapes.Photo(Profile("data:image/png;base64,iVBORw0KGgo=")));
+        Assert.NotNull(PeckList.Core.Api.ApiShapes.Photo(Profile("data:image/jpeg;base64,/9j/4AAQ")));
+        Assert.NotNull(PeckList.Core.Api.ApiShapes.Photo(Profile("data:image/webp;base64,UklGRg==")));
+        foreach (var other in new[] { "", "https://evil.example/x.png", "data:text/html;base64,PHNjcmlwdD4=", "data:image/svg+xml;base64,PHN2Zz4=", "data:image/png;base64,abc\"onerror=x", "data:image/png,raw" })
+        {
+            Assert.Null(PeckList.Core.Api.ApiShapes.Photo(Profile(other)));
+        }
+        Assert.Null(PeckList.Core.Api.ApiShapes.Photo([]));
+        // As long as the schema allows, and not a character more.
+        var longest = "data:image/png;base64," + new string('A', PeckList.Core.Api.ApiShapes.MaxPhoto - 22);
+        Assert.Equal(longest, PeckList.Core.Api.ApiShapes.Photo(Profile(longest)));
+        Assert.Null(PeckList.Core.Api.ApiShapes.Photo(Profile(longest + "A")));
+    }
+
+    /// <summary>A field set after <see cref="Entity"/>, with a clock of its own.</summary>
+    private static void With(JsonObject entity, string field, JsonNode? value)
+    {
+        entity[field] = value;
+        entity["_hlc"]![field] = entity["_hlc"]!["title"]!.DeepClone();
+    }
+
+    [Theory]
+    [MemberData(nameof(Databases), MemberType = typeof(TaskApiWorld))]
+    public async Task Tasks_carry_the_names_they_point_at_and_their_reminders(string kind)
+    {
+        // PL-142: a task names its list, section, assignees and maker, so a reader needs no second lookup.
+        var (world, ben) = await Seeded(fixture, kind);
+        using var _ = world;
+        var sam = await world.PersonAsync("sam");
+        await world.BefriendAsync(ben, sam);
+        var call = Task("T9", "L2", "Call the plumber", priority: 2);
+        call.Item2["assignees"] = Set($"user:{sam.Id}");
+        With(call.Item2, "createdBy", ben.Id);
+        With(call.Item2, "reminders", new JsonArray(new JsonObject { ["before"] = 30 }, new JsonObject { ["at"] = "2026-11-14T08:00" }));
+        With(call.Item2, "constantReminder", true);
+        await PushAsync(ben, call);
+
+        var task = await Get(ben.Session, "/api/v1/tasks/T9");
+        Assert.Equal("Work", (string?)task["listName"]);
+        Assert.Null((string?)task["sectionName"]);
+        Assert.Equal([$"user:{sam.Id}"], task["assignees"]!.AsArray().Select(each => (string)each!));
+        Assert.Equal("sam", (string?)task["assigneeNames"]![$"user:{sam.Id}"]);
+        Assert.Equal("ben", (string?)task["createdByName"]);
+        Assert.Null((string?)task["completedByName"]);
+        Assert.Equal("""[{"before":30},{"at":"2026-11-14T08:00"}]""", task["reminders"]!.ToJsonString());
+        Assert.True((bool)task["constantReminder"]!);
+
+        // The same names in the list route, and a section's name.
+        var listed = (await Get(ben.Session, "/api/v1/tasks?listId=L1"))["items"]!.AsArray();
+        var mow = listed.Single(each => (string?)each!["id"] == "T1")!;
+        Assert.Equal("Home", (string?)mow["listName"]);
+        Assert.Equal("Outside", (string?)mow["sectionName"]);
+        Assert.Empty(mow["assigneeNames"]!.AsObject());
+        Assert.Empty(mow["reminders"]!.AsArray());
+        Assert.False((bool)mow["constantReminder"]!);
+
+        // Sam, assigned, sees the task but not Ben's private list: no list name for what he can't see.
+        var samTask = await Get(sam.Session, "/api/v1/tasks/T9");
+        Assert.Equal("L2", (string?)samTask["listId"]);
+        Assert.Null((string?)samTask["listName"]);
+    }
+
+    [Theory]
+    [MemberData(nameof(Databases), MemberType = typeof(TaskApiWorld))]
+    public async Task Tasks_filter_by_several_lists_and_tags_priority_assignee_words_and_id_end(string kind)
+    {
+        var (world, ben) = await Seeded(fixture, kind);
+        using var _ = world;
+        var sam = await world.PersonAsync("sam");
+        await world.BefriendAsync(ben, sam);
+        var call = Task("T9", "L2", "Call the plumber about the leak", priority: 2);
+        call.Item2["assignees"] = Set($"user:{sam.Id}");
+        call.Item2["notes"] = "Ask about the kitchen tap";
+        var water = Task("TA", "L1", "Water the plants");
+        water.Item2["assignees"] = Set($"user:{ben.Id}");
+        await PushAsync(ben, call, water, Task("01JD4QH7ZK0000000000ABCDEF", "L1", "A long id"));
+        var api = ben.Session;
+
+        Assert.Equal(["01JD4QH7ZK0000000000ABCDEF", "T1", "T2", "T3", "T4", "T9", "TA"], Ids(await Get(api, "/api/v1/tasks?listId=L1&listId=L2")));
+        Assert.Equal(["T3", "T9"], Ids(await Get(api, "/api/v1/tasks?listId=L2")));
+        Assert.Equal(["01JD4QH7ZK0000000000ABCDEF", "T1", "T2", "T3", "T4", "T9", "TA"], Ids(await Get(api, "/api/v1/tasks?listId=L1,L2")));
+        Assert.Equal(["T1", "T3"], Ids(await Get(api, "/api/v1/tasks?tag=errands&tag=home/yard")));
+
+        Assert.Equal(["T1"], Ids(await Get(api, "/api/v1/tasks?priority=high")));
+        Assert.Equal(["T1", "T9"], Ids(await Get(api, "/api/v1/tasks?priority=medium,3")));
+        Assert.Equal(["T1", "T9"], Ids(await Get(api, "/api/v1/tasks?priority=2&priority=high")));
+        Assert.Equal(["T9"], Ids(await Get(api, "/api/v1/tasks?priority=medium&listId=L2")));
+
+        Assert.Equal(["TA"], Ids(await Get(api, "/api/v1/tasks?assignee=me")));
+        Assert.Equal(["T9"], Ids(await Get(api, $"/api/v1/tasks?assignee=user:{sam.Id}")));
+        Assert.Equal(["01JD4QH7ZK0000000000ABCDEF", "T1", "T2", "T3", "T4"], Ids(await Get(api, "/api/v1/tasks?assignee=none")));
+        Assert.Equal(["T9"], Ids(await Get(sam.Session, "/api/v1/tasks?assignee=me")));
+
+        // Every word, in the title or the notes, any case, any order.
+        Assert.Equal(["T9"], Ids(await Get(api, "/api/v1/tasks?q=kitchen")));
+        Assert.Equal(["T9"], Ids(await Get(api, "/api/v1/tasks?q=LEAK%20plumber")));
+        Assert.Empty(Ids(await Get(api, "/api/v1/tasks?q=plumber%20roof")));
+        // The same word in any case counts once against the cap of 8.
+        Assert.Equal(["T9"], Ids(await Get(api, "/api/v1/tasks?q=leak%20Leak%20LEAK%20leaK%20lEak%20LEak%20leAK%20LeAk%20kitchen")));
+
+        Assert.Equal(["01JD4QH7ZK0000000000ABCDEF"], Ids(await Get(api, "/api/v1/tasks?idSuffix=abcdef")));
+        Assert.Empty(Ids(await Get(api, "/api/v1/tasks?idSuffix=ZZZZ")));
+
+        foreach (var bad in new[] { "priority=urgent", "assignee=sam", "assignee=user:", "idSuffix=ab", "idSuffix=ab-cd", "listId=a%20b", $"q={new string('x', 201)}", "q=a%20b%20c%20d%20e%20f%20g%20h%20i" })
+        {
+            Assert.Equal("invalid_request", (string?)(await Get(api, $"/api/v1/tasks?{bad}", HttpStatusCode.BadRequest))["code"]);
+        }
     }
 }

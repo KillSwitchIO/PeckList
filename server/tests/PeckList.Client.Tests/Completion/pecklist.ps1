@@ -71,7 +71,7 @@ Register-ArgumentCompleter -Native -CommandName pecklist, pecklist.exe -ScriptBl
         'login' = @('--admin', '--token', '-h', '--help', '--server', '--profile', '--api-key', '--insecure-http')
         'logout' = @('-h', '--help', '--server', '--profile', '--api-key', '--insecure-http')
         'whoami' = @('-j', '--json', '-h', '--help', '--server', '--profile', '--api-key', '--insecure-http')
-        'tasks list' = @('-l', '--list', '-s', '--section', '-t', '--tag', '--status', '--due-before', '--due-after', '-a', '--all', '--deleted', '-j', '--json', '-h', '--help', '--server', '--profile', '--api-key', '--insecure-http')
+        'tasks list' = @('-l', '--list', '-s', '--section', '-t', '--tag', '--status', '-a', '--all', '-d', '--due', '--due-before', '--due-after', '-p', '--priority', '-u', '--assigned', '-S', '--search', '-o', '--sort', '--limit', '-w', '--wide', '--deleted', '-j', '--json', '-h', '--help', '--server', '--profile', '--api-key', '--insecure-http')
         'tasks add' = @('-l', '--list', '--plain', '-q', '--quiet', '-j', '--json', '-h', '--help', '--server', '--profile', '--api-key', '--insecure-http')
         'tasks show' = @('-j', '--json', '-h', '--help', '--server', '--profile', '--api-key', '--insecure-http')
         'tasks edit' = @('-T', '--title', '-n', '--notes', '-l', '--list', '-s', '--section', '-p', '--priority', '-d', '--due', '--start', '-t', '--tag', '--repeat', '--progress', '-j', '--json', '-h', '--help', '--server', '--profile', '--api-key', '--insecure-http')
@@ -100,11 +100,13 @@ Register-ArgumentCompleter -Native -CommandName pecklist, pecklist.exe -ScriptBl
         'completion' = @('-h', '--help', '--server', '--profile', '--api-key', '--insecure-http')
         'help' = @('-h', '--help', '--server', '--profile', '--api-key', '--insecure-http')
     }
-    $valued = @('-l', '--list', '-s', '--section', '-t', '--tag', '-d', '--due', '-p', '--priority', '-T', '--title', '-n', '--notes', '--start', '--repeat', '--progress', '--status', '--due-before', '--due-after', '--color', '--user', '--server', '--profile', '--api-key')
+    $valued = @('-l', '--list', '-s', '--section', '-t', '--tag', '-d', '--due', '-p', '--priority', '-T', '--title', '-n', '--notes', '--start', '--repeat', '--progress', '--status', '--due-before', '--due-after', '-u', '--assigned', '-S', '--search', '-o', '--sort', '--limit', '--color', '--user', '--server', '--profile', '--api-key')
     $values = @{
         '-p' = @('none', 'low', 'medium', 'high')
         '--priority' = @('none', 'low', 'medium', 'high')
-        '--status' = @('open', 'done', 'wontdo', 'all')
+        '--status' = @('open', 'done', 'wontdo', 'deleted', 'all')
+        '-o' = @('due', 'priority', 'title', 'list', 'status', 'created', 'updated')
+        '--sort' = @('due', 'priority', 'title', 'list', 'status', 'created', 'updated')
     }
     $lookups = @{
         '-l' = 'lists'

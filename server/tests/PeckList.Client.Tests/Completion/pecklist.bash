@@ -75,7 +75,7 @@ _pecklist_options() {
         'login') printf '%s\n' --admin --token -h --help --server --profile --api-key --insecure-http ;;
         'logout') printf '%s\n' -h --help --server --profile --api-key --insecure-http ;;
         'whoami') printf '%s\n' -j --json -h --help --server --profile --api-key --insecure-http ;;
-        'tasks list') printf '%s\n' -l --list -s --section -t --tag --status --due-before --due-after -a --all --deleted -j --json -h --help --server --profile --api-key --insecure-http ;;
+        'tasks list') printf '%s\n' -l --list -s --section -t --tag --status -a --all -d --due --due-before --due-after -p --priority -u --assigned -S --search -o --sort --limit -w --wide --deleted -j --json -h --help --server --profile --api-key --insecure-http ;;
         'tasks add') printf '%s\n' -l --list --plain -q --quiet -j --json -h --help --server --profile --api-key --insecure-http ;;
         'tasks show') printf '%s\n' -j --json -h --help --server --profile --api-key --insecure-http ;;
         'tasks edit') printf '%s\n' -T --title -n --notes -l --list -s --section -p --priority -d --due --start -t --tag --repeat --progress -j --json -h --help --server --profile --api-key --insecure-http ;;
@@ -108,7 +108,7 @@ _pecklist_options() {
 
 _pecklist_valued() {
     case "$1" in
-        -l|--list|-s|--section|-t|--tag|-d|--due|-p|--priority|-T|--title|-n|--notes|--start|--repeat|--progress|--status|--due-before|--due-after|--color|--user|--server|--profile|--api-key) return 0 ;;
+        -l|--list|-s|--section|-t|--tag|-d|--due|-p|--priority|-T|--title|-n|--notes|--start|--repeat|--progress|--status|--due-before|--due-after|-u|--assigned|-S|--search|-o|--sort|--limit|--color|--user|--server|--profile|--api-key) return 0 ;;
     esac
     return 1
 }
@@ -123,7 +123,8 @@ _pecklist_values() {
         -s|--section) _pecklist_lookup sections ;;
         -t|--tag) _pecklist_lookup tags ;;
         -p|--priority) printf '%s\n' none low medium high ;;
-        --status) printf '%s\n' open done wontdo all ;;
+        --status) printf '%s\n' open done wontdo deleted all ;;
+        -o|--sort) printf '%s\n' due priority title list status created updated ;;
     esac
 }
 

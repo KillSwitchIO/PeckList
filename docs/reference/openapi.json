@@ -2546,6 +2546,16 @@
         ],
         "summary": "The people and groups a task's assignees can name, with their names",
         "description": "An API key needs the tasks:read scope.",
+        "parameters": [
+          {
+            "name": "photos",
+            "in": "query",
+            "description": "true adds each person's photo as a data URL (up to 80 KB each); otherwise photo is null",
+            "schema": {
+              "type": "boolean"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": "OK",
@@ -2553,6 +2563,16 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/ApiItemsOfApiPerson"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
                 }
               }
             }
@@ -2601,9 +2621,12 @@
           {
             "name": "listId",
             "in": "query",
-            "description": "In this list",
+            "description": "In this list; repeat it, or separate ids with commas, for any of several",
             "schema": {
-              "type": "string"
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
             }
           },
           {
@@ -2633,9 +2656,12 @@
           {
             "name": "tag",
             "in": "query",
-            "description": "With this tag or one under it (home matches home/yard)",
+            "description": "With this tag or one under it (home matches home/yard); repeat it for any of several",
             "schema": {
-              "type": "string"
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
             }
           },
           {
@@ -2660,6 +2686,41 @@
             "description": "true for deleted tasks instead of live ones",
             "schema": {
               "type": "boolean"
+            }
+          },
+          {
+            "name": "priority",
+            "in": "query",
+            "description": "With this priority: none, low, medium or high (or 0 to 3); repeat it, or use commas, for any of several",
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          },
+          {
+            "name": "assignee",
+            "in": "query",
+            "description": "Assigned to me (to you, or a group you are in), none (to nobody), or user:<id> or group:<id> (see /api/v1/people)",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "q",
+            "in": "query",
+            "description": "Words that must all be in the title or notes, any case (at most 200 characters and 8 different words)",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "idSuffix",
+            "in": "query",
+            "description": "The id ends with this: 4 to 26 letters and digits, any case",
+            "schema": {
+              "type": "string"
             }
           },
           {
@@ -8061,6 +8122,18 @@
           },
           "assignable": {
             "type": "boolean"
+          },
+          "avatarColor": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "photo": {
+            "type": [
+              "null",
+              "string"
+            ]
           }
         }
       },
@@ -8094,6 +8167,28 @@
               "string"
             ],
             "description": "The zone dates are read in; left out, the account's zone."
+          }
+        }
+      },
+      "ApiReminder": {
+        "required": [
+          "before",
+          "at"
+        ],
+        "type": "object",
+        "properties": {
+          "before": {
+            "type": [
+              "null",
+              "integer"
+            ],
+            "format": "int32"
+          },
+          "at": {
+            "type": [
+              "null",
+              "string"
+            ]
           }
         }
       },
@@ -8266,7 +8361,14 @@
           "createdAt",
           "createdBy",
           "updatedAt",
-          "deletedAt"
+          "deletedAt",
+          "listName",
+          "sectionName",
+          "assigneeNames",
+          "createdByName",
+          "completedByName",
+          "reminders",
+          "constantReminder"
         ],
         "type": "object",
         "properties": {
@@ -8384,6 +8486,45 @@
               "null",
               "string"
             ]
+          },
+          "listName": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "sectionName": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "assigneeNames": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            }
+          },
+          "createdByName": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "completedByName": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "reminders": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ApiReminder"
+            }
+          },
+          "constantReminder": {
+            "type": "boolean"
           },
           "order": {
             "type": [

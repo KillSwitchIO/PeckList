@@ -72,8 +72,9 @@ internal static class CommandTable
 {
     public const string DocsUrl = "https://docs.pecklist.com/reference/cli";
 
-    private static readonly string[] Statuses = ["open", "done", "wontdo", "all"];
+    private static readonly string[] Statuses = ["open", "done", "wontdo", "deleted", "all"];
     private static readonly string[] Priorities = ["none", "low", "medium", "high"];
+    public static readonly string[] Sorts = ["due", "priority", "title", "list", "status", "created", "updated"];
     public static readonly string[] Shells = ["bash", "zsh", "fish", "powershell"];
 
     /// <summary>Every option, once. Commands name the ones they take.</summary>
@@ -86,18 +87,23 @@ internal static class CommandTable
         new("--list", 'l', "L", "The list: an id or a name (exact, then a unique start, as ^list matches).", Lookup: Lookup.Lists),
         new("--section", 's', "S", "The section: an id or a name.", Lookup: Lookup.Sections),
         new("--tag", 't', "TAG", "Only tasks with this tag.", Lookup: Lookup.Tags),
-        new("--all", 'a', null, "Every status, not only open tasks: the same as --status all."),
-        new("--due", 'd', "DATE|none", "The due date (2026-11-30 or 2026-11-30T09:00), or none."),
+        new("--all", 'a', null, "Every status, not only open tasks: the same as --status all. Deleted tasks need --status deleted."),
+        new("--due", 'd', "WHEN", "The due date (2026-11-30 or 2026-11-30T09:00), or none."),
         new("--priority", 'p', "LEVEL", "The priority: none, low, medium or high.", Priorities),
         new("--title", 'T', "TEXT", "The new title."),
         new("--notes", 'n', "TEXT", "The new notes."),
         new("--start", null, "DATE|none", "The start date, or none."),
         new("--repeat", null, "RRULE|none", "How it repeats (an RRULE such as FREQ=WEEKLY), or none."),
         new("--progress", null, "0-100", "Progress in percent."),
-        new("--status", null, "STATUS", "Only tasks with this status: open (the default), done, wontdo or all. -a is --status all.", Statuses),
-        new("--due-before", null, "DATE", "Only tasks due before this date."),
-        new("--due-after", null, "DATE", "Only tasks due after this date."),
-        new("--deleted", null, null, "The trash instead."),
+        new("--status", null, "STATUS", "Only tasks with this status: open (the default), done, wontdo, deleted (the trash) or all. -a is --status all.", Statuses),
+        new("--due-before", null, "DATE", "Only tasks due on or before this date."),
+        new("--due-after", null, "DATE", "Only tasks due on or after this date."),
+        new("--deleted", null, null, "The trash instead (with --status, only that status in the trash)."),
+        new("--assigned", 'u', "WHO", "Only tasks assigned to me (to you or a group you are in), none (to nobody), or a person or group by name: it matches anyone you can see on your lists. People appear after their first sign-in."),
+        new("--search", 'S', "WORDS", "Only tasks with all these words (up to 8) in the title or notes, any case."),
+        new("--sort", 'o', "KEY", "Sort by due (the default: soonest first, undated last), priority, title, list, status, created or updated; a - in front reverses it (-o -updated).", Sorts),
+        new("--limit", null, "N", "Show at most N tasks."),
+        new("--wide", 'w', null, "More columns: start and due apart, who it is assigned to, how it repeats, progress, created and changed, and the whole id."),
         new("--wontdo", null, null, "Close it as won't do."),
         new("--plain", null, null, "Take the text as the title as it is, without reading dates or tags."),
         new("--color", null, "#RRGGBB", "The list's colour."),
@@ -163,15 +169,32 @@ internal static class CommandTable
             "pecklist tasks add \"Pay rent on the 1st every month ^Home !high\"",
             "pecklist tasks done 01HX...",
         ]),
-        new("tasks list", "List the open tasks you can see, filtered by list, section, tag, status and due dates.",
+        new("tasks list", "List tasks with their status, date, priority, list and tags; filter by list, tag, status, due date, priority, person and words.",
         [
-            "pecklist tasks list -l Home -t errands",
-            "pecklist tasks ls -a --due-before 2026-11-30",
-            "pecklist tasks list --deleted -j",
+            "pecklist tasks list -l Home -l Yard -t errands",
+            "pecklist tasks ls -d overdue -p high",
+            "pecklist tasks list -a -S plumber -o -updated --limit 10",
+            "pecklist tasks list -u me -w",
+            "pecklist tasks list --status deleted -j",
         ])
         {
             Aliases = ["tasks ls"],
-            Options = [new("--list"), new("--section"), new("--tag"), new("--status"), new("--due-before"), new("--due-after"), new("--all"), new("--deleted"), new("--json")],
+            Options =
+            [
+                new("--list", "Only tasks in this list; repeat it for any of several."),
+                new("--section"),
+                new("--tag", "Only tasks with this tag or one under it; repeat it for any of several."),
+                new("--status"), new("--all"),
+                new("--due", "Only tasks due today, tomorrow, overdue, week (today and the 6 days after), on a date (2026-11-30), or in a range (2026-11-01..2026-11-30; leave an end off for open-ended)."),
+                new("--due-before"), new("--due-after"),
+                new("--priority", "Only these priorities: high, medium, low or none, comma separated, or medium+ for medium and high."),
+                new("--assigned"), new("--search"), new("--sort"), new("--limit"), new("--wide"), new("--deleted"),
+                new("--json", "Print the tasks as the API gives them, in the order shown: `{\"items\": [...]}`, with their list, section and people by name."),
+            ],
+            Details = "The table shows each task's status (open, done, won't do or deleted), its due date or else its start date, its priority, "
+                + "its list (and section), its title and its tags. Subtasks sit under their parent; one whose parent is not shown names it. "
+                + "The ID column is the end of each task's id: every command takes it as well as the whole id. "
+                + "Filters combine: a task is shown when it matches every one given. Long titles are cut to fit the terminal, but never when the output goes to a file or a pipe.",
         },
         new("tasks add", "Add a task, reading dates, #tags, ^list, !priority, @person and \"every ...\" as the app's quick add does.",
         [
@@ -185,14 +208,15 @@ internal static class CommandTable
             Options = [new("--list", "The list to add it to (without one, your inbox)."), new("--plain"), new("--quiet"), new("--json")],
             Details = "A single - as TEXT reads the task from standard input (one line). Put -- before a task that starts with a dash.",
         },
-        new("tasks show", "Show one task.",
+        new("tasks show", "Show everything about one task: its list, dates, reminders, repeat, people, checklist, subtasks and notes.",
         [
-            "pecklist tasks show 01HX...",
+            "pecklist tasks show 4QH7ZK",
             "pecklist tasks show 01HX... -j",
         ])
         {
             Arguments = [Id],
             Options = Use("--json"),
+            Details = "ID is the whole id or its end, as tasks list shows it. The checklist is the notes' checkbox lines (- [ ] and - [x]).",
         },
         new("tasks edit", "Change a task: only what you name changes.",
         [

@@ -25,6 +25,12 @@ public sealed class ClientIo
     public string HostName { get; init; } = System.Environment.MachineName;
     public Func<DateTimeOffset> Now { get; init; } = () => DateTimeOffset.UtcNow;
 
+    /// <summary>The zone dates are shown in and "today" means (PL-142).</summary>
+    public TimeZoneInfo Zone { get; init; } = TimeZoneInfo.Local;
+
+    /// <summary>The terminal's width, or null when the output goes to a file or a pipe (then nothing is cut).</summary>
+    public Func<int?> Width { get; init; } = () => null;
+
     /// <summary>How long shell completion may take before it gives up and prints nothing (PL-138).</summary>
     public TimeSpan CompletionLimit { get; init; } = TimeSpan.FromSeconds(1);
 
@@ -35,7 +41,21 @@ public sealed class ClientIo
         In = Console.In,
         InputRedirected = Console.IsInputRedirected,
         StandardOutput = Console.OpenStandardOutput,
+        Width = ConsoleWidth,
     };
+
+    private static int? ConsoleWidth()
+    {
+        if (Console.IsOutputRedirected) return null;
+        try
+        {
+            return Console.WindowWidth is > 20 and var width ? width : null;
+        }
+        catch (Exception failure) when (failure is IOException or PlatformNotSupportedException or InvalidOperationException)
+        {
+            return null;
+        }
+    }
 }
 
 /// <summary>A key typed at a prompt, not shown.</summary>

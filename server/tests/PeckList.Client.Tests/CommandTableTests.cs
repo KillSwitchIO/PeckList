@@ -47,11 +47,12 @@ public sealed class CommandTableTests
             var used = CommandTable.OptionsOf(command).Where(each => each.Option.Short is not null).Select(each => each.Option.Short).ToList();
             Assert.Equal(used.Count, used.Distinct().Count());
         }
-        // The letters Ben agreed to (PL-138), so a change to one is deliberate.
+        // The letters Ben agreed to (PL-138, and the task list's in PL-142), so a change to one is deliberate.
         var agreed = new Dictionary<char, string>
         {
             ['h'] = "--help", ['v'] = "--version", ['j'] = "--json", ['q'] = "--quiet", ['l'] = "--list", ['s'] = "--section",
             ['t'] = "--tag", ['a'] = "--all", ['d'] = "--due", ['p'] = "--priority", ['T'] = "--title", ['n'] = "--notes",
+            ['u'] = "--assigned", ['S'] = "--search", ['o'] = "--sort", ['w'] = "--wide",
         };
         Assert.Equal(agreed.OrderBy(pair => pair.Key).ToList(), letters.ToDictionary(option => option.Short!.Value, option => option.Long).OrderBy(pair => pair.Key).ToList());
     }

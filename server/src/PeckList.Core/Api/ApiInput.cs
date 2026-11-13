@@ -44,8 +44,15 @@ public sealed partial class TaskInput
     public const int MaxTags = 100;
     public const int MaxInterval = 999;
 
-    /// <summary>Fields a client may send back as it read them; they are not changed by a write.</summary>
-    private static readonly HashSet<string> ReadOnly = ["completedAt", "completedBy", "createdAt", "createdBy", "updatedAt", "deletedAt", "order"];
+    /// <summary>
+    /// Fields a client may send back as it read them; they are not changed by a write. The names
+    /// and reminders a task carries since PL-142 are among them (reminders are set in the apps).
+    /// </summary>
+    private static readonly HashSet<string> ReadOnly =
+    [
+        "completedAt", "completedBy", "createdAt", "createdBy", "updatedAt", "deletedAt", "order",
+        "listName", "sectionName", "assigneeNames", "createdByName", "completedByName", "reminders", "constantReminder",
+    ];
 
     private static readonly HashSet<string> Known =
     [
