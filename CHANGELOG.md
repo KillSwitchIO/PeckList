@@ -4,6 +4,22 @@ All notable changes to PeckList. Each release adds its section from [Conventiona
 with `pnpm release`; the version follows [Semantic Versioning](https://semver.org/). Before 1.0.0 a
 minor release may break things; every break is listed under **Breaking changes** with what to do.
 
+## [0.11.0] - 2026-11-13
+
+### Breaking changes
+
+- **cli:** Help at every level, short options and shell completion. `pecklist tasks list --json` prints `{"items": [...]}`, as the API and the other list commands do, instead of 0.10.0's bare array. Scripts that read it take `.items`.
+
+### Added
+
+- **cli:** Help at every level, short options and shell completion
+- **api:** People, order keys and notification events in v1
+
+### Fixed
+
+- **cli:** -a/--all no longer hides --status
+- **deps:** Pin fixed transitive versions so the weekly audit passes
+
 ## [0.11.0-rc.2] - 2026-11-13
 
 ### Added
