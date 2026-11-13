@@ -91,7 +91,18 @@ public static class TaskApiEndpoints
             {
                 return ApiProblems.Result(StatusCodes.Status400BadRequest, bad.Code, bad.Message);
             }
-        }).Read<ApiPage<ApiTask>>("Tasks, filtered, a page at a time (next is the cursor for the following page)", badRequest: true);
+        }).Read<ApiPage<ApiTask>>("Tasks, filtered, a page at a time (next is the cursor for the following page)", badRequest: true)
+            .Queries(
+                new("listId", "In this list"),
+                new("sectionId", "In this section"),
+                new("parentId", "Subtasks of this task; none for top-level tasks only"),
+                new("status", "open (the default), done, wontdo or all"),
+                new("tag", "With this tag or one under it (home matches home/yard)"),
+                new("dueBefore", "Due on or before this date (2026-11-30)"),
+                new("dueAfter", "Due on or after this date"),
+                new("deleted", "true for deleted tasks instead of live ones", Microsoft.OpenApi.JsonSchemaType.Boolean),
+                new("limit", $"Tasks per page, 1 to {TaskQueries.MaxPage} ({TaskQueries.DefaultPage} by default)", Microsoft.OpenApi.JsonSchemaType.Integer),
+                new("cursor", "The next of the page before"));
 
         v1.MapGet("/tasks/{id}", async (string id, ClaimsPrincipal user, TaskQueries queries, CancellationToken cancellation) =>
             await queries.TaskAsync(user.UserId(), id, cancellation) is { } task ? Results.Ok(task) : ApiProblems.NotFound("task", id))

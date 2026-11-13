@@ -18,15 +18,18 @@ public static class FriendEndpoints
     public static RouteGroupBuilder MapFriends(this RouteGroupBuilder api)
     {
         api.MapGet("/friends/code", async (ClaimsPrincipal user, Friends friends, HttpContext context, CancellationToken cancellation) =>
-            Code(context, await friends.CodeAsync(user.UserId(), cancellation: cancellation)));
+            Code(context, await friends.CodeAsync(user.UserId(), cancellation: cancellation)))
+            .WithSummary("Your friend code, and its link when this server knows its public address");
 
         // A new code: links shared before stop working.
         api.MapPost("/friends/code", async (ClaimsPrincipal user, Friends friends, HttpContext context, CancellationToken cancellation) =>
             Code(context, await friends.CodeAsync(user.UserId(), rotate: true, cancellation)))
+            .WithSummary("A new friend code: links shared before stop working")
             .Audited("sharing.friend-link-renewed", targetRoute: null);
 
         api.MapGet("/friends/link/{code}", async (string code, ClaimsPrincipal user, Friends friends, CancellationToken cancellation) =>
             await friends.PreviewByCodeAsync(user.UserId(), code, cancellation) is { } preview ? Results.Ok(preview) : Results.NotFound())
+            .Doc<ProfilePreview>("Who a friend code belongs to, before you accept it").Missing()
             .RequireRateLimiting(AuthSetup.AccountRateLimit);
 
         api.MapPost("/friends/link/{code}", async (string code, ClaimsPrincipal user, Friends friends, Invites invites, CancellationToken cancellation) =>
@@ -34,10 +37,12 @@ public static class FriendEndpoints
             if (await friends.AcceptLinkAsync(user.UserId(), code, cancellation) is not { } id) return Results.NotFound();
             await invites.SettleAsync(cancellation);
             return Results.Ok(new FriendshipAccepted(id));
-        }).RequireRateLimiting(AuthSetup.AccountRateLimit).Audited("sharing.friend-added", targetRoute: null);
+        }).Doc<FriendshipAccepted>("Accept a friend code: you and its owner become friends").Missing()
+            .RequireRateLimiting(AuthSetup.AccountRateLimit).Audited("sharing.friend-added", targetRoute: null);
 
         api.MapGet("/users/lookup", async (string q, ClaimsPrincipal user, Friends friends, CancellationToken cancellation) =>
             await friends.LookupAsync(user.UserId(), Core.SafeText.Clean(q), cancellation) is { } preview ? Results.Ok(preview) : Results.NotFound())
+            .Doc<ProfilePreview>("Find someone on this server by exact username or handle (@name or @name@host)").Missing()
             .RequireRateLimiting(AuthSetup.AccountRateLimit);
 
         return api;

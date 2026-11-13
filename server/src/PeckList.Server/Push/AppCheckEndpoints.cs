@@ -86,7 +86,7 @@ public static class AppCheckEndpoints
                 .Select(each => new AppCheckReminder(each.Key, each.Title, each.Body, each.At.ToUnixTimeMilliseconds(), each.Url, each.Constant, each.Repeats))
                 .ToList();
             return new AppCheck(cursor, notifications, upcoming);
-        });
+        }).WithSummary("The Android app's background check-in: notifications since after, and the reminders ahead");
 
         return api;
     }

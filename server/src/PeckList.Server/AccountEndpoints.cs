@@ -31,11 +31,12 @@ public static class AccountEndpoints
                     .Where(provider => linked.All(identity => identity.Provider != provider.Name))
                     .Select(provider => new LinkOption(provider.Name, provider.DisplayName, $"/auth/oidc/{provider.Name}/link"))
                     .ToList()));
-        });
+        }).Doc<SignInMethods>("How you sign in: a password, linked provider accounts, and the providers you could link").Missing();
 
         // The person's own numbers, the same as on the admin's stats page (spec: Server stats).
         api.MapGet("/account/stats", async (ClaimsPrincipal user, Core.Stats.StatsService stats, CancellationToken cancellation) =>
-            await stats.ForAsync(user.UserId(), cancellation) is { } mine ? Results.Ok(mine) : Results.NotFound());
+            await stats.ForAsync(user.UserId(), cancellation) is { } mine ? Results.Ok(mine) : Results.NotFound())
+            .Doc<Core.Stats.UserStats>("Your own numbers: tasks, lists, files and the space they take").Missing();
 
         api.MapDelete("/account/identities/{provider}/{subject}", async (
             string provider, string subject, ClaimsPrincipal user, ExternalSignIn signIn, HttpContext context, CancellationToken cancellation) =>
@@ -47,7 +48,8 @@ public static class AccountEndpoints
                 UnlinkResult.LastWayIn => Results.Conflict(new AdminError("last_way_in", "this is your only way to sign in")),
                 _ => Results.NotFound(),
             };
-        }).Audited("account.identity-unlinked", targetRoute: null);
+        }).Doc("Unlink a provider account from yours").Refuses(StatusCodes.Status409Conflict).Missing()
+            .Audited("account.identity-unlinked", targetRoute: null);
 
         return api;
     }

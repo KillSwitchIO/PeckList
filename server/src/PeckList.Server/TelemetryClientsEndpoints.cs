@@ -114,7 +114,7 @@ public static class TelemetryClientsEndpoints
         {
             var choice = await clients.ChoiceAsync(user.UserId(), cancellation);
             return new TelemetryStatus(live.Current.Telemetry, choice.ShareUsage, choice.CrashReports, live.Current.CrashReports);
-        });
+        }).WithSummary("Whether telemetry is on for this server, and your own choices");
 
         api.MapPut("/telemetry/choice", async (TelemetryChoiceRequest request, ClaimsPrincipal user, ClientTelemetry clients, LiveSettings live,
             CancellationToken cancellation) =>
@@ -131,7 +131,7 @@ public static class TelemetryClientsEndpoints
             if (request.CrashReports == "never") choice = choice with { ShareUsage = false };
             await clients.SetChoiceAsync(user.UserId(), choice, cancellation);
             return Results.Ok(new TelemetryStatus(live.Current.Telemetry, choice.ShareUsage, choice.CrashReports, live.Current.CrashReports));
-        });
+        }).Doc<TelemetryStatus>("Change your own telemetry choices: usage counts, and crash reports (ask, always, never)").Refuses(StatusCodes.Status400BadRequest);
 
         api.MapPost("/telemetry", async (ClientReport report, ClaimsPrincipal user, ClientTelemetry clients, LiveSettings live,
             CancellationToken cancellation) =>
@@ -142,7 +142,7 @@ public static class TelemetryClientsEndpoints
             if (ClientUsage.Clean(report) is not { } clean) return Results.BadRequest(new AuthError("invalid"));
             await clients.AddAsync(user.UserId(), clean, cancellation);
             return Results.NoContent();
-        });
+        }).Doc("An app's anonymous usage counts, when telemetry is on and you share usage").Refuses(StatusCodes.Status400BadRequest);
         return api;
     }
 }

@@ -212,7 +212,8 @@ public static partial class ServerApp
         app.MapApiDocs();
         app.MapGet("/api/info", (LiveSettings live) =>
             new ServerInfo("pecklist", Version, WorkspaceSchema.CurrentVersion, settings.TimeZoneChosen ? TimeZoneInfo.Local.Id : null, live.Current.AttachmentMaxMb,
-                AppSignIn: settings.AuthMode != AuthMode.None, Demo: Demo.Info(settings)));
+                AppSignIn: settings.AuthMode != AuthMode.None, Demo: Demo.Info(settings)))
+            .WithSummary("What this server is: its version, data schema, time zone, file size limit, and whether sign-in and demo mode are on");
         app.MapAuth();
         app.MapGroup("/api").RequireAuthorization().RequirePasswordChanged().EnsureProfiles().MapSync().MapFriends().MapAccount().MapAccountEmail().MapAccountPasskeys().MapAttachments().MapNotifications().MapHistory().MapPush().MapProviderPicture().MapAppCheck().MapUpdates().MapApiKeys().MapClientTelemetry().MapCrashReports();
         app.MapGroup("/api/v1").RequireAuthorization().RequirePasswordChanged().EnsureProfiles().MapTaskApi();

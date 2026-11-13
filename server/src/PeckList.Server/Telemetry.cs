@@ -284,19 +284,19 @@ public static class TelemetryEndpoints
                 await report.SentAtAsync(cancellation),
                 await report.NoticeSeenAsync(cancellation),
                 await report.BuildAsync(cancellation));
-        }).RequirePermission(Permission.ManageSettings);
+        }).WithSummary("Telemetry: whether it is on, where it goes, when it last went, and the report it sends").RequirePermission(Permission.ManageSettings);
 
         admin.MapPost("/telemetry/new-id", async (TelemetryReport report, CancellationToken cancellation) =>
         {
             await report.NewInstallIdAsync(cancellation);
             return Results.NoContent();
-        }).RequirePermission(Permission.ManageSettings).Audited("admin.telemetry-id-renewed", targetRoute: null);
+        }).Doc("A new anonymous server id for telemetry").RequirePermission(Permission.ManageSettings).Audited("admin.telemetry-id-renewed", targetRoute: null);
 
         admin.MapPost("/telemetry/notice-seen", async (TelemetryReport report, CancellationToken cancellation) =>
         {
             await report.MarkNoticeSeenAsync(cancellation);
             return Results.NoContent();
-        }).RequirePermission(Permission.ManageSettings);
+        }).Doc("Mark the telemetry notice seen, so the admin pages stop showing it").RequirePermission(Permission.ManageSettings);
         return admin;
     }
 }

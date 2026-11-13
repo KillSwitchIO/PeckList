@@ -31,19 +31,19 @@ public static class NotificationEndpoints
                 [.. items.Select(each => new NotificationView(
                     each.Id, each.Kind, each.At, each.ActorId, each.TaskId, each.ListId, each.CommentId, each.ReadAt is not null))],
                 unread);
-        });
+        }).WithSummary($"Your latest {FeedSize} notifications and how many are unread");
 
         api.MapPost("/notifications/read", async (NotificationIds request, ClaimsPrincipal user, INotificationStore store, TimeProvider time, CancellationToken cancellation) =>
         {
             await store.MarkReadAsync(user.UserId(), request.Ids, time.GetUtcNow(), cancellation);
             return Results.NoContent();
-        });
+        }).Doc("Mark notifications read (all of yours when ids is left out)");
 
         api.MapPost("/notifications/clear", async (NotificationIds request, ClaimsPrincipal user, INotificationStore store, CancellationToken cancellation) =>
         {
             await store.DeleteAsync(user.UserId(), request.Ids, cancellation);
             return Results.NoContent();
-        });
+        }).Doc("Clear notifications (all of yours when ids is left out)");
 
         return api;
     }

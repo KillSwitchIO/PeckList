@@ -81,6 +81,7 @@ The documentation site lives in `docs/` (Docusaurus, built from `website/`; see 
 
 - A new or changed setting: its section in `docs/configuration/reference.md`. `pnpm check:docs` (also in CI) fails when a setting in `SettingsCatalog.cs` is missing there.
 - A CLI change: for the server's maintenance commands, run `node scripts/check-docs.mjs --write` to refresh the usage text and describe the command in `docs/reference/cli.md`. The client commands come from `server/src/PeckList.Client/CommandTable.cs`: after changing it, run `PECKLIST_WRITE_GENERATED=1 dotnet test tests/PeckList.Client.Tests --filter CommandTableTests` in `server/` to refresh their docs section and completion scripts.
+- An HTTP API change: refresh the committed OpenAPI document with `PECKLIST_WRITE_GENERATED=1 dotnet test tests/PeckList.Server.Tests --filter FullyQualifiedName~The_committed_document` in `server/`, and commit `docs/reference/openapi.json`.
 
 ## Releases
 

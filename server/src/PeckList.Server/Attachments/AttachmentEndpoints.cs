@@ -30,7 +30,8 @@ public static class AttachmentEndpoints
         api.MapMethods("/attachments/{sha256}", ["HEAD"], async (string sha256, ClaimsPrincipal user, SharingState sharing, IAttachmentStore store, CancellationToken cancellation) =>
             AttachmentHash.IsValid(sha256) && sharing.Index.SeesFile(user.UserId(), sha256) && await store.ExistsAsync(sha256, cancellation)
                 ? Results.Ok()
-                : Results.NotFound());
+                : Results.NotFound())
+            .Doc("Whether the server has a file you can see (200) or not (404)", StatusCodes.Status200OK).Missing();
 
         api.MapPut("/attachments/{sha256}", async (
             string sha256, HttpContext context, ClaimsPrincipal user, IAttachmentStore store, LiveSettings live, UploadAllowance allowance) =>
@@ -63,7 +64,11 @@ public static class AttachmentEndpoints
                 PutResult.TooLarge => TooLarge(live),
                 _ => Results.BadRequest(new AttachmentError("hash_mismatch", "the bytes do not match their SHA-256")),
             };
-        });
+        })
+            .WithSummary("Upload a file under its SHA-256 (the raw bytes as the body): 201 stored, 204 already here")
+            .Takes<Stream>(contentType: "application/octet-stream").Produces(StatusCodes.Status201Created).Produces(StatusCodes.Status204NoContent)
+            .Produces<AttachmentError>(StatusCodes.Status400BadRequest).Produces<AttachmentError>(StatusCodes.Status413PayloadTooLarge)
+            .Produces<AttachmentError>(StatusCodes.Status429TooManyRequests);
 
         api.MapGet("/attachments/{sha256}", async (
             string sha256, string? name, string? type, ClaimsPrincipal user, SharingState sharing, IAttachmentStore store,
@@ -79,7 +84,8 @@ public static class AttachmentEndpoints
             context.Response.Headers.ContentSecurityPolicy = "sandbox; default-src 'none'";
             return Results.File(file, inline ? mime : "application/octet-stream",
                 fileDownloadName: inline ? null : (string.IsNullOrWhiteSpace(name) ? sha256 : name), enableRangeProcessing: true);
-        });
+        })
+            .DocFile("Download a file you can see; name and type say what to call it and how to show it", "application/octet-stream").Missing();
 
         return api;
     }

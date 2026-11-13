@@ -28,8 +28,11 @@ public sealed class HttpCrashSender(IHttpClientFactory http) : ICrashSender
 /// <summary>A crash on the server itself, kept for the admin to look at and send (or not).</summary>
 public sealed record ServerCrash(string Fingerprint, int Count, DateTimeOffset FirstAt, DateTimeOffset LastAt, CrashReport Report);
 
+/// <summary>The server's crash reports for the admin page, and whether sending them is on.</summary>
+public sealed record ServerCrashes(bool Enabled, IReadOnlyList<ServerCrash> Crashes);
+
 /// <summary>What an app sends when the person chose to send a report.</summary>
-public sealed record AppCrash(string? Source, string? Version, string? Kind, string? Fingerprint, string? Stack, IReadOnlyList<string>? Device);
+public sealed record AppCrash(string? Source = null, string? Version = null, string? Kind = null, string? Fingerprint = null, string? Stack = null, IReadOnlyList<string>? Device = null);
 
 /// <summary>
 /// Crash reports (PL-116): from the apps when the person says so, and the server's own unhandled
@@ -200,7 +203,7 @@ public static class CrashReportEndpoints
                 return Results.BadRequest(new AuthError("invalid"));
             }
             return Results.NoContent();
-        });
+        }).Doc("An app's crash report, when crash reports are on (404 crash_reports_off when not)").Refuses(StatusCodes.Status400BadRequest, StatusCodes.Status404NotFound);
         return api;
     }
 
@@ -208,7 +211,8 @@ public static class CrashReportEndpoints
     public static RouteGroupBuilder MapAdminCrashReports(this RouteGroupBuilder admin)
     {
         admin.MapGet("/crash-reports", async (CrashReporting crashes, CancellationToken cancellation) =>
-            Results.Ok(new { enabled = crashes.Enabled, crashes = await crashes.ServerCrashesAsync(cancellation) }))
+            Results.Ok(new ServerCrashes(crashes.Enabled, await crashes.ServerCrashesAsync(cancellation))))
+            .Doc<ServerCrashes>("The server's own crash reports, and whether sending them is on")
             .RequirePermission(Permission.ManageSettings);
 
         admin.MapPost("/crash-reports/{fingerprint}/send", async (string fingerprint, CrashReporting crashes, CancellationToken cancellation) =>
@@ -221,13 +225,13 @@ public static class CrashReportEndpoints
             await crashes.SendOrQueueAsync(crash.Report, cancellation);
             await crashes.ForgetServerCrashAsync(fingerprint, cancellation);
             return Results.NoContent();
-        }).RequirePermission(Permission.ManageSettings).Audited("admin.crash-report-sent", targetRoute: null);
+        }).Doc("Send one of the server's crash reports to the project").Refuses(StatusCodes.Status404NotFound).RequirePermission(Permission.ManageSettings).Audited("admin.crash-report-sent", targetRoute: null);
 
         admin.MapDelete("/crash-reports/{fingerprint}", async (string fingerprint, CrashReporting crashes, CancellationToken cancellation) =>
         {
             await crashes.ForgetServerCrashAsync(fingerprint, cancellation);
             return Results.NoContent();
-        }).RequirePermission(Permission.ManageSettings);
+        }).Doc("Forget one of the server's crash reports").RequirePermission(Permission.ManageSettings);
         return admin;
     }
 }

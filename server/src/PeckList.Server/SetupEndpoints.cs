@@ -20,13 +20,13 @@ public static class SetupEndpoints
     {
         admin.MapGet("/setup", async (ISecretStore secrets, CancellationToken cancellation) =>
             new SetupState(await DoneAsync(secrets, cancellation)))
-            .RequirePermission(Permission.ManageSettings);
+            .WithSummary("Whether the first-run setup is done").RequirePermission(Permission.ManageSettings);
 
         admin.MapPut("/setup", async (SetupState state, ISecretStore secrets, CancellationToken cancellation) =>
         {
             await secrets.PutAsync(Kind, Name, state.Done ? "done" : "", cancellation);
             return new SetupState(state.Done);
-        }).RequirePermission(Permission.ManageSettings).Audited("settings.setup-finished", targetRoute: null);
+        }).WithSummary("Mark the first-run setup done (or not)").RequirePermission(Permission.ManageSettings).Audited("settings.setup-finished", targetRoute: null);
 
         return admin;
     }

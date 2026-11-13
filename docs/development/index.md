@@ -115,6 +115,13 @@ client command reference in `docs/reference/cli.md` are all made from one table
 `PECKLIST_WRITE_GENERATED=1 dotnet test tests/PeckList.Client.Tests --filter CommandTableTests` in
 `server/` and commit what changed. CI fails otherwise.
 
+The OpenAPI document is committed too, as `docs/reference/openapi.json`. A change to a route, or
+to a record it takes or answers with, changes it: run
+`PECKLIST_WRITE_GENERATED=1 dotnet test tests/PeckList.Server.Tests --filter FullyQualifiedName~The_committed_document`
+in `server/` and commit the new file, so the change shows in the merge request. CI fails otherwise. A
+new route says what it does and answers with the helpers in `ApiDocs.cs` (`Doc`, `Refuses`,
+`Missing`, `Takes`, `Queries`); a test fails for one that does not.
+
 ## Checks before pushing
 
 The hooks run them: lint-staged and typecheck before each commit, the unit tests with coverage
