@@ -1,0 +1,8 @@
+#!/bin/sh
+# The PeckList command line as an AppImage (PL-132): the same program as the single file
+# pecklist-cli-<rid>, for people who keep their tools as AppImages.
+#   ./pecklist-cli-linux-x64.AppImage login https://tasks.example.com
+#   ./pecklist-cli-linux-x64.AppImage tasks
+set -eu
+here=$(dirname "$(readlink -f "$0")")
+exec "$here/usr/bin/pecklist" "$@"

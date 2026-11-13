@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=PeckList command line
+Comment=Work with a PeckList server from a terminal
+Exec=AppRun
+Icon=pecklist
+Terminal=true
+NoDisplay=true
+Categories=Office;ProjectManagement;

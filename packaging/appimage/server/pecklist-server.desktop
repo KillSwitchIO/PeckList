@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=PeckList Server
+Comment=Run a PeckList server in a terminal, without installing it
+Exec=AppRun
+Icon=pecklist
+Terminal=true
+Categories=Office;ProjectManagement;
