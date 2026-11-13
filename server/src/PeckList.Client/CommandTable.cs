@@ -319,6 +319,20 @@ internal static class CommandTable
             Options = Use("--json"),
         },
 
+        new("people", "Who tasks can be assigned to.",
+        [
+            "pecklist people list",
+        ]),
+        new("people list", "Show the people and groups a task can be assigned to, with the id to use.",
+        [
+            "pecklist people list",
+            "pecklist people list -j",
+        ])
+        {
+            Details = "The list has you, your groups and the people you share with. An id is user:... or group:..., as a task's assignees use.",
+            Options = Use("--json"),
+        },
+
         new("admin", "Accounts, through the admin API (sign in with --admin).",
         [
             "pecklist admin add-user sam",

@@ -45,7 +45,7 @@ public sealed partial class TaskInput
     public const int MaxInterval = 999;
 
     /// <summary>Fields a client may send back as it read them; they are not changed by a write.</summary>
-    private static readonly HashSet<string> ReadOnly = ["completedAt", "completedBy", "createdAt", "createdBy", "updatedAt", "deletedAt"];
+    private static readonly HashSet<string> ReadOnly = ["completedAt", "completedBy", "createdAt", "createdBy", "updatedAt", "deletedAt", "order"];
 
     private static readonly HashSet<string> Known =
     [

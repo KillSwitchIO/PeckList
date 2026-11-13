@@ -21,7 +21,7 @@ public static partial class ClientCli
     public const int NotAllowed = 4;
 
     /// <summary>Commands that only ever talk to a server over HTTP (or print what the client knows).</summary>
-    public static readonly string[] Commands = ["login", "logout", "whoami", "tasks", "add", "lists", "sections", "tags", "completion", "__complete"];
+    public static readonly string[] Commands = ["login", "logout", "whoami", "tasks", "add", "lists", "sections", "tags", "people", "completion", "__complete"];
 
     /// <summary>Commands that only work on the server's own machine, with the server download.</summary>
     public static readonly string[] ServerOnly = ["import", "migrate-db", "upgrade-db", "debug-dump", "healthcheck"];
@@ -137,6 +137,7 @@ public static partial class ClientCli
                 "lists" => await session.ListsAsync(sub),
                 "sections" => await session.SectionsAsync(sub),
                 "tags" => await session.TagsAsync(),
+                "people" => await session.PeopleAsync(),
                 "admin" => await session.AdminAsync(sub),
                 "oidc" => await session.OidcAsync(sub),
                 "snapshot" => await session.SnapshotAsync(),
@@ -891,6 +892,30 @@ public static partial class ClientCli
             var items = tags?["items"]?.AsArray() ?? [];
             if (items.Count == 0) await Say("No tags.");
             foreach (var tag in items) await Say(Text(tag, "name") ?? "");
+            return Done;
+        }
+
+        public async Task<int> PeopleAsync()
+        {
+            using var remote = await ConnectAsync();
+            var people = await remote.GetAsync("api/v1/people", cancellation);
+            if (Json)
+            {
+                await PrintJson(people);
+                return Done;
+            }
+            var items = people?["items"]?.AsArray() ?? [];
+            if (items.Count == 0) await Say("No people.");
+            foreach (var person in items)
+            {
+                var notes = new List<string>();
+                if (person?["me"]?.GetValue<bool>() == true) notes.Add("you");
+                if (Text(person, "kind") == "group") notes.Add("group");
+                if (person?["assignable"]?.GetValue<bool>() == false) notes.Add("cannot be assigned");
+                var handle = Text(person, "handle") is { Length: > 0 } given ? $" @{given}" : "";
+                var note = notes.Count > 0 ? $" ({string.Join(", ", notes)})" : "";
+                await Say($"{Text(person, "id"),-32}  {Text(person, "name")}{handle}{note}");
+            }
             return Done;
         }
 

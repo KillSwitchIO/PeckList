@@ -103,6 +103,7 @@ public sealed partial class CliCommandTests(ServerFixture fixture) : IClassFixtu
         Assert.Contains("Added section Beds", (await Run(world, store, null, "sections", "add", "Veg garden", "Beds")).Out);
         Assert.Contains("Beds", (await Run(world, store, null, "sections", "list", "veg")).Out);
         Assert.Contains("outside", (await Run(world, store, null, "tags", "list")).Out);
+        Assert.Contains("(you)", (await Run(world, store, null, "people", "list")).Out);
         var lists = await Run(world, store, null, "lists", "list");
         Assert.Contains("Inbox (inbox)", lists.Out);
         Assert.Contains("owner", lists.Out);
@@ -330,6 +331,8 @@ public sealed partial class CliCommandTests(ServerFixture fixture) : IClassFixtu
         tested.Add("sections rename");
         Listed(await JsonOf("tags", "list", "-j"));
         tested.Add("tags list");
+        Listed(await JsonOf("people", "list", "-j"));
+        tested.Add("people list");
         // config show is pinned in the admin test; every other command with --json is above.
         tested.Add("config show");
         Assert.Equal(CommandTable.Commands.Where(command => command.Options.Any(use => use.Long == "--json")).Select(command => command.Path).Order(), tested.Order());

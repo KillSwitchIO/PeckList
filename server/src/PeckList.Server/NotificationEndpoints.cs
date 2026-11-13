@@ -54,7 +54,8 @@ public static class NotificationEndpoints
 /// @mention in a comment. Whoever pushed the change is never told about it.
 /// </summary>
 public sealed class NotificationRecorder(
-    INotificationStore store, IAccountStore accounts, SharingState sharing, Push.IPushSender push, BackgroundQueue background, TimeProvider time)
+    INotificationStore store, IAccountStore accounts, SharingState sharing, Push.IPushSender push, BackgroundQueue background, TimeProvider time,
+    Core.Sync.IChangeNotifier notifier)
     : INotificationSink
 {
     public async Task ChangedAsync(string userId, IReadOnlyList<NotableChange> changes, CancellationToken cancellation = default)
@@ -82,6 +83,8 @@ public sealed class NotificationRecorder(
             .ToList();
         await store.AddAsync(found, cancellation);
         if (found.Count == 0) return;
+        // Open streams hear at once (the task API's listeners: Home Assistant, scripts).
+        Core.Sync.InProcessChangeNotifier.Notify(notifier, found);
 
         // And to their devices, with names: the push is encrypted for each browser. The words are
         // settled now; sending waits for no one's sync (audit B2), so a slow push service slows nobody.

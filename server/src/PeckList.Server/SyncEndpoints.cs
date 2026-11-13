@@ -89,7 +89,7 @@ public static class SyncEndpoints
 
     /// <summary>
     /// <c>GET /api/events</c>: Server-Sent Events. <c>event: changed</c> with <c>{cursor, source}</c>
-    /// whenever the user's data changes; a comment line every 25 s keeps proxies from closing it.
+    /// whenever the user's data changes, <c>event: notification</c> when a notification is made for them; a comment line every 25 s keeps proxies from closing it.
     /// </summary>
     private static async Task StreamEventsAsync(
         ClaimsPrincipal user, IChangeNotifier notifier, HttpContext context, IHostApplicationLifetime lifetime, CancellationToken requestAborted)
@@ -134,7 +134,13 @@ public static class SyncEndpoints
                 if (!ready) break;
                 while (subscription.Events.TryRead(out var change))
                 {
-                    var data = JsonSerializer.Serialize(change, JsonSerializerOptions.Web);
+                    if (change.Notice is { } notice)
+                    {
+                        var told = JsonSerializer.Serialize(notice, JsonSerializerOptions.Web);
+                        await response.WriteAsync($"event: notification\ndata: {told}\n\n", cancellation);
+                        continue;
+                    }
+                    var data = JsonSerializer.Serialize(new { change.Cursor, change.Source }, JsonSerializerOptions.Web);
                     await response.WriteAsync($"event: changed\ndata: {data}\n\n", cancellation);
                 }
                 await response.Body.FlushAsync(cancellation);

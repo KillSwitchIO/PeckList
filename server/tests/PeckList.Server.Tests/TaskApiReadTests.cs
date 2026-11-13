@@ -57,7 +57,7 @@ public sealed class TaskApiReadTests(ServerFixture fixture) : IClassFixture<Serv
         Assert.False((bool)task["pinned"]!);
         Assert.NotNull((string?)task["updatedAt"]);
         Assert.Null(task["_hlc"]);
-        Assert.Null(task["order"]);
+        Assert.NotNull((string?)task["order"]);
 
         // Open is the default; all, done and wontdo pick.
         Assert.Equal(["T1", "T2", "T3", "T4"], Ids(await Get(api, "/api/v1/tasks")));
@@ -99,6 +99,103 @@ public sealed class TaskApiReadTests(ServerFixture fixture) : IClassFixture<Serv
         Assert.Equal(["T7"], Ids(await Get(ben.Session, "/api/v1/tasks?deleted=true&status=all")));
         Assert.Equal("2026-10-21T12:00:00.000Z", (string?)(await Get(ben.Session, "/api/v1/tasks/T7"))["deletedAt"]);
         Assert.DoesNotContain("T7", Ids(await Get(ben.Session, "/api/v1/tasks?status=all")));
+    }
+
+    [Theory]
+    [MemberData(nameof(Databases), MemberType = typeof(TaskApiWorld))]
+    public async Task Lists_sections_and_tasks_carry_the_apps_order_and_a_lists_icon(string kind)
+    {
+        using var world = await StartAsync(fixture, kind);
+        var ben = await world.PersonAsync("ben");
+        var api = ben.Session;
+        async Task<JsonObject> Make(string path, object body)
+        {
+            var made = await api.PostAsJsonAsync(path, body, Token);
+            Assert.Equal(HttpStatusCode.Created, made.StatusCode);
+            return (await made.Content.ReadFromJsonAsync<JsonObject>(Token))!;
+        }
+
+        var list = await Make("/api/v1/lists", new { name = "Home" });
+        var section = await Make("/api/v1/sections", new { name = "Outside", listId = (string)list["id"]! });
+        var first = await Make("/api/v1/tasks", new { title = "First", listId = (string)list["id"]!, tags = new[] { "yard" } });
+        var second = await Make("/api/v1/tasks", new { title = "Second", listId = (string)list["id"]! });
+
+        // The key the apps sort by: later ones sort after earlier ones, compared byte by byte.
+        Assert.False(string.IsNullOrEmpty((string?)list["order"]));
+        Assert.False(string.IsNullOrEmpty((string?)section["order"]));
+        Assert.True(string.CompareOrdinal((string?)first["order"], (string?)second["order"]) < 0);
+        Assert.True(list.ContainsKey("icon"));
+
+        // The same fields in every place the things come from.
+        var read = await Get(api, $"/api/v1/tasks/{(string)first["id"]!}");
+        Assert.Equal((string?)first["order"], (string?)read["order"]);
+        var changes = await Get(api, "/api/v1/changes");
+        Assert.All(changes["tasks"]!.AsArray(), task => Assert.False(string.IsNullOrEmpty((string?)task!["order"])));
+        Assert.All(changes["lists"]!.AsArray(), each => Assert.True(each!.AsObject().ContainsKey("icon")));
+        Assert.All((await Get(api, "/api/v1/tags"))["items"]!.AsArray(), tag => Assert.False(string.IsNullOrEmpty((string?)tag!["order"])));
+    }
+
+    [Theory]
+    [MemberData(nameof(Databases), MemberType = typeof(TaskApiWorld))]
+    public async Task The_event_stream_tells_of_a_notification_made_for_you(string kind)
+    {
+        var (world, ben) = await Seeded(fixture, kind);
+        using var _ = world;
+        var sam = await world.PersonAsync("sam");
+        await world.BefriendAsync(ben, sam);
+        await PushAsync(ben, List("L3", "Shared chores", visibility: "shared"), Member("M1", "L3", sam.Id, "editor"), Task("T8", "L3", "Dishes"));
+
+        // Sam listens with a key that may read tasks.
+        var key = await world.KeyAsync(sam, "tasks:read");
+        using var events = await key.GetAsync("/api/events", HttpCompletionOption.ResponseHeadersRead, Token);
+        using var reader = new StreamReader(await events.Content.ReadAsStreamAsync(Token));
+        Assert.Equal(": connected", await reader.ReadLineAsync(Token));
+
+        // Ben assigns the task to Sam.
+        var patch = await ben.Session.PatchAsJsonAsync("/api/v1/tasks/T8", new { assignees = new[] { $"user:{sam.Id}" } }, Token);
+        Assert.Equal(HttpStatusCode.OK, patch.StatusCode);
+
+        using var patience = CancellationTokenSource.CreateLinkedTokenSource(Token);
+        patience.CancelAfter(TimeSpan.FromSeconds(10));
+        string? line;
+        do line = await reader.ReadLineAsync(patience.Token); while (line is not null && line != "event: notification");
+        Assert.Equal("event: notification", line);
+        var data = await reader.ReadLineAsync(patience.Token);
+        Assert.StartsWith("data: ", data);
+        var notice = JsonNode.Parse(data![6..])!.AsObject();
+        Assert.Equal("assigned", (string?)notice["kind"]);
+        Assert.Equal("T8", (string?)notice["taskId"]);
+        Assert.Equal("L3", (string?)notice["listId"]);
+        Assert.Equal(ben.Id, (string?)notice["actorId"]);
+        Assert.False(string.IsNullOrEmpty((string?)notice["id"]));
+    }
+
+    [Theory]
+    [MemberData(nameof(Databases), MemberType = typeof(TaskApiWorld))]
+    public async Task People_names_who_assignees_are_and_says_who_may_be_assigned(string kind)
+    {
+        var (world, ben) = await Seeded(fixture, kind);
+        using var _ = world;
+        var sam = await world.PersonAsync("sam");
+        var lee = await world.PersonAsync("lee");
+        await world.BefriendAsync(ben, sam);
+
+        // Ben first, then the people he can see, by name. Lee is nobody to him.
+        var people = (await Get(ben.Session, "/api/v1/people"))["items"]!.AsArray();
+        Assert.Equal([$"user:{ben.Id}", $"user:{sam.Id}"], people.Select(person => (string)person!["id"]!));
+        Assert.Equal([true, false], people.Select(person => (bool)person!["me"]!));
+        Assert.All(people, person => Assert.Equal("user", (string?)person!["kind"]));
+        Assert.All(people, person => Assert.True((bool)person!["assignable"]!));
+        Assert.Equal(["ben", "sam"], people.Select(person => (string?)person!["name"]));
+        Assert.Equal("sam", (string?)people[1]!["handle"]);
+
+        // A key that may read tasks may read their people.
+        var key = await world.KeyAsync(ben, "tasks:read");
+        Assert.Equal(2, (await Get(key, "/api/v1/people"))["items"]!.AsArray().Count);
+
+        // Lee shares with nobody: only Lee.
+        var alone = (await Get(lee.Session, "/api/v1/people"))["items"]!.AsArray();
+        Assert.Equal([$"user:{lee.Id}"], alone.Select(person => (string)person!["id"]!));
     }
 
     [Theory]

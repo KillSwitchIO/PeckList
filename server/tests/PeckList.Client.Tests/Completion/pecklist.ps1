@@ -29,6 +29,8 @@ Register-ArgumentCompleter -Native -CommandName pecklist, pecklist.exe -ScriptBl
         'sections rename' = 'sections rename'
         'tags' = 'tags'
         'tags list' = 'tags list'
+        'people' = 'people'
+        'people list' = 'people list'
         'admin' = 'admin'
         'admin add-user' = 'admin add-user'
         'admin set-role' = 'admin set-role'
@@ -46,11 +48,12 @@ Register-ArgumentCompleter -Native -CommandName pecklist, pecklist.exe -ScriptBl
         'help' = 'help'
     }
     $children = @{
-        '' = @('login', 'logout', 'whoami', 'tasks', 'lists', 'sections', 'tags', 'admin', 'oidc', 'snapshot', 'export', 'config', 'completion', 'help', 'add')
+        '' = @('login', 'logout', 'whoami', 'tasks', 'lists', 'sections', 'tags', 'people', 'admin', 'oidc', 'snapshot', 'export', 'config', 'completion', 'help', 'add')
         'tasks' = @('list', 'ls', 'add', 'show', 'edit', 'done', 'reopen', 'delete', 'rm', 'restore')
         'lists' = @('list', 'add', 'rename')
         'sections' = @('list', 'add', 'rename')
         'tags' = @('list')
+        'people' = @('list')
         'admin' = @('add-user', 'set-role', 'login-link', 'reset-password')
         'oidc' = @('unlink', 'unbind-all', 'migration-window')
         'config' = @('show')
@@ -61,6 +64,7 @@ Register-ArgumentCompleter -Native -CommandName pecklist, pecklist.exe -ScriptBl
         'lists' = @('-h', '--help', '--server', '--profile', '--api-key', '--insecure-http')
         'sections' = @('-h', '--help', '--server', '--profile', '--api-key', '--insecure-http')
         'tags' = @('-h', '--help', '--server', '--profile', '--api-key', '--insecure-http')
+        'people' = @('-h', '--help', '--server', '--profile', '--api-key', '--insecure-http')
         'admin' = @('-h', '--help', '--server', '--profile', '--api-key', '--insecure-http')
         'oidc' = @('-h', '--help', '--server', '--profile', '--api-key', '--insecure-http')
         'config' = @('-h', '--help', '--server', '--profile', '--api-key', '--insecure-http')
@@ -82,6 +86,7 @@ Register-ArgumentCompleter -Native -CommandName pecklist, pecklist.exe -ScriptBl
         'sections add' = @('-j', '--json', '-h', '--help', '--server', '--profile', '--api-key', '--insecure-http')
         'sections rename' = @('-j', '--json', '-h', '--help', '--server', '--profile', '--api-key', '--insecure-http')
         'tags list' = @('-j', '--json', '-h', '--help', '--server', '--profile', '--api-key', '--insecure-http')
+        'people list' = @('-j', '--json', '-h', '--help', '--server', '--profile', '--api-key', '--insecure-http')
         'admin add-user' = @('--admin', '-h', '--help', '--server', '--profile', '--api-key', '--insecure-http')
         'admin set-role' = @('-h', '--help', '--server', '--profile', '--api-key', '--insecure-http')
         'admin login-link' = @('-h', '--help', '--server', '--profile', '--api-key', '--insecure-http')
