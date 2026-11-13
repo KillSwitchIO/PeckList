@@ -1,0 +1,41 @@
+# Which CI job runs which PeckList.Server.Tests classes (scripts/ci/server-test-shard.sh).
+# Shards 1 and 2 run the classes listed here; shard 3 runs every class not listed, plus the other
+# test projects. So a new or renamed class always runs somewhere (in shard 3); this list only
+# balances the time. Balanced 2026-11-13 from per-class times with 4 threads each.
+1 AccountDeletionTests
+1 AdminAccountStartTests
+1 ApiDocsTests
+1 ApiKeyTests
+1 AppSignInTests
+1 AuditBatchingTests
+1 AuditTests
+1 CliCommandTests
+1 CrashReportTests
+1 DeviceZoneTests
+1 MailTests
+1 NewerDatabaseTests
+1 ProviderPhotoTests
+1 PushTests
+1 RateLimitTests
+1 ResponseHardeningTests
+1 RoleLeaseTests
+1 SessionHardeningTests
+2 AttachmentTests
+2 AuditTextTests
+2 AuthTests
+2 CliSignInTests
+2 ClientTelemetryTests
+2 DemoModeTests
+2 EmailLinkTests
+2 LogShippingTests
+2 LoggingTests
+2 NulTextTests
+2 QuickAddTests
+2 RoleEscalationTests
+2 StatsTests
+2 SyncTests
+2 TaskApiQuickAddTests
+2 TaskApiReadTests
+2 TaskApiSchemaTests
+2 TaskApiWriteTests
+2 TelemetryTests
