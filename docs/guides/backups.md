@@ -87,6 +87,21 @@ data** and **Admin > Backups**.
 3. Start once so the database exists, stop, then `pecklist import <file> --replace` (a `.json` export
    or a `.json.gz` snapshot), and start again. Or start it and use **Admin > Backups > Restore** with the upload.
 
+With Docker the server is stopped, so run the import in a one-off container with the same volumes,
+with the backup file in the data folder:
+
+```sh
+docker compose stop pecklist
+docker compose run --rm pecklist import /data/backup.json.gz --replace
+docker compose start pecklist
+```
+
+Without compose, the same is
+`docker run --rm --env-file <the container's env file> -v <your data volume or folder>:/data <image> import /data/backup.json.gz --replace`.
+Give it the same settings as the container (the same env file, or the same `-e` options): with
+PostgreSQL or a non-default data path, the import otherwise writes to a fresh SQLite file instead.
+The image starts the `pecklist` program, so the command is just `import ...`.
+
 Moving between SQLite and PostgreSQL is `migrate-db`; see [database](../configuration/database.md).
 
 ## SQLite file copies

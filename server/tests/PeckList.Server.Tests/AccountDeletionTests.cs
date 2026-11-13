@@ -233,4 +233,58 @@ public sealed class AccountDeletionTests(ServerFixture fixture) : IClassFixture<
         Assert.Null(leeSees["T3"]["deletedAt"]);
         Assert.Null(leeSees["M1"]["deletedAt"]);
     }
+
+    [Fact]
+    public async Task A_person_removed_for_good_leaves_the_lists_they_were_on_and_their_profile_goes()
+    {
+        // QA pass 6: after "Delete now", Kim's "What you share" still showed "sam, Can edit" and
+        // Sam's profile still came down in everyone's sync.
+        using var server = fixture.Factory(("ADMIN_PASSWORD", AdminPassword));
+        var admin = await LogIn(server, "admin", AdminPassword);
+        var (_, samId) = await NewUser(server, "sam");
+        var (kim, kimId) = await NewUser(server, "kim");
+        (await admin.PostAsJsonAsync("/api/admin/friendships", new { userA = samId, userB = kimId }, Token)).EnsureSuccessStatusCode();
+        await Push(kim,
+            Change("lists", new JsonObject { ["id"] = "KL", ["name"] = "House chores", ["visibility"] = "shared", ["createdBy"] = kimId }),
+            Change("listMembers", new JsonObject { ["id"] = "KM", ["listId"] = "KL", ["principal"] = $"user:{samId}", ["role"] = "editor", ["createdBy"] = kimId, ["createdAt"] = "2026-10-01T00:00:00.000Z" }));
+        var before = await PullFrom(kim, null);
+        Assert.Null(before.Changes[samId]["deletedAt"]);
+        Assert.Null(before.Changes["KM"]["deletedAt"]);
+
+        (await admin.DeleteAsync($"/api/admin/users/{samId}", Token)).EnsureSuccessStatusCode();
+        Assert.Equal(HttpStatusCode.NoContent, (await admin.PostAsync($"/api/admin/users/{samId}/remove-now", null, Token)).StatusCode);
+
+        // Kim's devices hear that both went (a tombstone or a revoke), and a fresh device never sees them live.
+        var after = await PullFrom(kim, before.Cursor);
+        foreach (var id in new[] { samId, "KM" })
+        {
+            Assert.True(after.Revoked.Contains(id) || (after.Changes.TryGetValue(id, out var row) && row["deletedAt"] is not null), $"{id} still reaches Kim");
+        }
+        var fresh = await PullFrom(kim, null);
+        foreach (var id in new[] { samId, "KM" })
+        {
+            Assert.False(fresh.Changes.TryGetValue(id, out var row) && row["deletedAt"] is null, $"{id} is still live for a new device");
+        }
+        var store = server.Services.GetRequiredService<Core.Storage.IEntityStore>();
+        Assert.NotNull((await store.GetAsync("KM", Token))!.Doc["deletedAt"]);
+        Assert.NotNull((await store.GetAsync(samId, Token))!.Doc["deletedAt"]);
+        // Kim's list itself stays.
+        Assert.Null(fresh.Changes["KL"]["deletedAt"]);
+    }
+
+    private static async Task<(long Cursor, Dictionary<string, JsonObject> Changes, HashSet<string> Revoked)> PullFrom(HttpClient client, long? cursor)
+    {
+        var changes = new Dictionary<string, JsonObject>();
+        var revoked = new HashSet<string>();
+        while (true)
+        {
+            var response = await client.PostAsJsonAsync("/api/sync", new { schemaVersion = WorkspaceSchema.CurrentVersion, cursor }, Token);
+            response.EnsureSuccessStatusCode();
+            var body = (await response.Content.ReadFromJsonAsync<JsonObject>(Token))!;
+            foreach (var each in body["changes"]!.AsArray()) changes[(string)each!["entity"]!["id"]!] = each["entity"]!.AsObject();
+            foreach (var each in body["revoked"]!.AsArray()) revoked.Add((string)each!);
+            cursor = (long)body["cursor"]!;
+            if (body["more"] is not JsonValue more || !more.GetValue<bool>()) return (cursor.Value, changes, revoked);
+        }
+    }
 }

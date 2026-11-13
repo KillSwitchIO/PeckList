@@ -98,8 +98,9 @@ public static class BackupEndpoints
             if (OpenBackup(form, snapshots) is not { } input) return NoBackup();
             await using (input)
             {
-                // A way back if the restore was not what was wanted.
-                var safety = await snapshots.TakeAsync(ServerApp.Version, cancellation);
+                // A way back if the restore was not what was wanted. No pruning: it could take the
+                // backup being restored from.
+                var safety = await snapshots.TakeAsync(ServerApp.Version, prune: false, cancellation);
                 try
                 {
                     var result = await users.RestoreAsync(input, form["username"].FirstOrDefault(),
@@ -138,7 +139,7 @@ public static class BackupEndpoints
                     return Results.BadRequest(new AdminError("bad_backup", error.Message));
                 }
             }
-            var safety = await snapshots.TakeAsync(ServerApp.Version, cancellation);
+            var safety = await snapshots.TakeAsync(ServerApp.Version, prune: false, cancellation);
             request.HttpContext.Audit().Detail = $"safety backup {Path.GetFileName(safety)}; restarting";
             ServerApp.StopSoon(lifetime);
             return Results.Accepted(value: new RestoreStarted(Path.GetFileName(safety)));

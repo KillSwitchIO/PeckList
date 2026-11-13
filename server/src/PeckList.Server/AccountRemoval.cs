@@ -10,9 +10,9 @@ namespace PeckList.Server;
 
 /// <summary>
 /// Removes deleted accounts for good once their grace period is over (spec: Users, delete with grace
-/// period and restore), checking every hour: friendships end, everything the person owns is deleted
-/// (devices hear of it like any deletion), provider links and server group memberships go, then
-/// the account itself. Shared lists and groups go to the next person in them first (audit B4), and
+/// period and restore), checking every hour: friendships end; everything the person owns is deleted
+/// (devices hear of it like any deletion), and so is their place on lists and in groups others own;
+/// provider links and server group memberships go; then the account itself. Shared lists and groups go to the next person in them first (audit B4), and
 /// what is inside them stays: removing one person must not take the others' work with it.
 /// </summary>
 public sealed class AccountRemoval(
@@ -105,10 +105,18 @@ public sealed class AccountRemoval(
             "groupMembers" => (string?)entity.Doc["groupId"] is { } group && keptGroups.Contains(group) && (string?)entity.Doc["userId"] != account.Id,
             _ => false,
         };
+        // The person's place on lists and in groups others own: the row belongs to whoever added
+        // them, so it would stay behind, still naming them to everyone else there (QA pass 6).
+        bool Theirs(StoredEntity entity) => entity.OwnerId == account.Id || entity.Collection switch
+        {
+            "listMembers" => (string?)entity.Doc["principal"] == $"user:{account.Id}",
+            "groupMembers" => (string?)entity.Doc["userId"] == account.Id,
+            _ => false,
+        };
         var writes = new List<IncomingEntity>();
         await foreach (var entity in entities.AllAsync(cancellation))
         {
-            if (entity.OwnerId != account.Id || entity.Doc["deletedAt"] is not null || Kept(entity)) continue;
+            if (!Theirs(entity) || entity.Doc["deletedAt"] is not null || Kept(entity)) continue;
             writes.Add(new IncomingEntity(entity.Collection, ServerEntities.Tombstone(entity.Id, clock)));
         }
         if (writes.Count > 0) await sync.WriteAsServerAsync(account.Id, writes, cancellation);
