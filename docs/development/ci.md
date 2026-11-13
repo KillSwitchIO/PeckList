@@ -76,6 +76,15 @@ job) has approved, and "Pipelines must succeed" then keeps the merge request fro
 - **One copy of a suite at a time.** `web-test`, `server-test` and `e2e` each have a
   `resource_group`, so queued merge requests take turns instead of slowing each other until
   tests fail on load. A job waiting for its turn holds no runner slot.
+- **The server tests run in three shards.** `server-test` is three jobs at once
+  (`scripts/ci/server-test-shard.sh`), each running its share of the classes with 4 test threads.
+  `server/tests/PeckList.Server.Tests/shards.txt` lists the classes of shards 1 and 2; shard 3
+  runs every other class and the other test projects, so a new class always runs somewhere. The
+  suite contends past a few threads (the thread pool and the garbage collector), so one run of
+  everything took up to 45 minutes on a busy runner where three shards take a few. Rebalance the
+  list from a run's per-class times when one shard grows much longer than the others. With `lint`
+  and `web-test`, a merge request starts five jobs at once against PeckList's four runner slots,
+  so one waits briefly; more shards would only queue longer, not finish sooner.
 - **A merge request runs what its files can affect.** `web-test`, `server-test`, `e2e`, `docs` and
   the image build each list their inputs in `rules: changes`, and `.gitlab-ci.yml`, `package.json`,
   the lockfile and workspace, `mise.toml`, `.npmrc` and `schema/` run everything. Of `scripts/` and

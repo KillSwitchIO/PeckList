@@ -286,11 +286,24 @@ server-test:
   stage: test
   needs: []
   timeout: 45m
-  # One suite at a time across pipelines, like web-test: two at once slow each other and fail on load.
-  resource_group: server-test
+  # Three shards at once (scripts/ci/server-test-shard.sh, classes in
+  # server/tests/PeckList.Server.Tests/shards.txt), each with 4 test threads: the suite contends
+  # past that, and one run of every class took up to 45 minutes where three shards take a few.
+  # A job that needs server-test waits for all three.
+  # Only shard 3, which builds every project, saves the NuGet cache: three uploads of the same
+  # cache per pipeline cost runner disk and the last one wins anyway.
+  parallel:
+    matrix:
+      - SHARD: ['1', '2']
+        NUGET_CACHE_POLICY: pull
+      - SHARD: '3'
+        NUGET_CACHE_POLICY: pull-push
+  # One copy of each shard at a time across pipelines, like web-test: two at once slow each other
+  # and fail on load.
+  resource_group: server-test-$SHARD
   cache:
     - <<: *nuget-cache
-      policy: pull-push
+      policy: $NUGET_CACHE_POLICY
   # The PostgreSQL tests use this service rather than starting a container of their own: a job
   # container reaches a service by name, while a container it starts through the host's Docker sits
   # behind the host's firewall (Testcontainers connects through the bridge gateway).
@@ -302,8 +315,7 @@ server-test:
     POSTGRES_PASSWORD: postgres-ci-only
     PECKLIST_TEST_POSTGRES: Host=postgres;Username=postgres;Password=postgres-ci-only;Database=postgres
   script:
-    - cd server
-    - dotnet test --configuration Release
+    - sh scripts/ci/server-test-shard.sh "$SHARD"
   rules:
     - *not-on-release-branch
     - *not-on-tag
@@ -311,6 +323,7 @@ server-test:
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
       changes:
         - server/**/*
+        - scripts/ci/server-test-shard.sh
         # The client commands' part of the CLI page is checked against their table (PL-138).
         - docs/reference/cli.md
         - .gitlab-ci.yml
