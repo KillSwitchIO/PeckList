@@ -307,9 +307,22 @@ server-test:
   # The PostgreSQL tests use this service rather than starting a container of their own: a job
   # container reaches a service by name, while a container it starts through the host's Docker sits
   # behind the host's firewall (Testcontainers connects through the bridge gateway).
+  # Nothing it holds outlives the job, so it never waits on the disk: with three shards, other jobs
+  # and the runner's shared storage busy, a flush stalled reads past Npgsql's 30 s timeout and failed
+  # tests at random (the weekly pipeline of 2026-11-13).
   services:
     - name: postgres:15-alpine
       alias: postgres
+      command:
+        [
+          'postgres',
+          '-c',
+          'fsync=off',
+          '-c',
+          'synchronous_commit=off',
+          '-c',
+          'full_page_writes=off',
+        ]
   variables:
     POSTGRES_USER: postgres
     POSTGRES_PASSWORD: postgres-ci-only
