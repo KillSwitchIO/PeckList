@@ -143,7 +143,9 @@ build needs it uninstalled before the release one goes on.
 | GitLab, protected tags | `v*`, so tag pipelines get the protected variables (only `main` and `v*` tags can sign) |
 | A password manager | The keystore file and its password: the copy to restore from |
 
-The key: RSA 4096, alias `pecklist`, `CN=PeckList, O=killswitch10`, valid 100 years,
+The key: RSA 4096, alias `pecklist`, `CN=Punchlist, O=killswitch10` (made before the rename; the
+name in a certificate can't change without a new key, and every install would have to be removed
+for that), valid 100 years,
 certificate SHA-256 `18:C8:C5:CE:EE:2E:8C:5D:DD:2E:BE:E6:7A:F8:B6:AA:E5:88:0C:65:65:2D:0C:56:81:85:15:88:4F:3B:BD:CA`.
 A PKCS12 keystore has one password for the store and the key.
 

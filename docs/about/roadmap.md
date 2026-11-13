@@ -31,6 +31,8 @@ What the current release does, built up over the 0.x versions:
 - **Moving in and out**: imports from TickTick, Todoist, Google Tasks, Microsoft To Do and
   iCalendar, and exports for most of them.
 - **Android app**: reminders with the app closed, sign-in through the browser, signed releases.
+- **A public demo server** at [demo.pecklist.com](https://demo.pecklist.com) that anyone can sign
+  up on, reset every hour.
 
 ## Before 1.0
 
@@ -42,7 +44,6 @@ version reads, and breaking changes wait for a major version.
   and ownership itself, signing out clearing the device, Android fixes).
 - **Testing on real installs**: every install path followed from the docs alone, notifications on
   each platform, imports from real TickTick and Todoist accounts.
-- **A public demo server** that anyone can sign up on, reset every night.
 - **Distribution**: signed container images, a mirror on a better-known registry, the Android app
   through Obtainium and perhaps IzzyOnDroid and Google Play.
 - **Notification categories** on Android (a channel per kind, vibration, mute switches).

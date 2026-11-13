@@ -56,7 +56,8 @@ Honest limits, so you do not find them the hard way:
 - **No CalDAV.** PeckList does not speak CalDAV, so Apple Reminders, Thunderbird or tasks.org
   cannot sync with it directly. iCalendar files import and export.
 - **English only** for now.
-- **No hosted version.** You need somewhere to run it. A public demo server is planned for 1.0.
+- **No hosted version.** You need somewhere to run it. To try it first, sign up on the
+  [demo server](https://demo.pecklist.com), which resets every hour.
 - **Before 1.0.** It is in daily use, but a minor version may still change things. Every change you
   need to act on is under **Breaking changes** in the
   [changelog](https://gitlab.com/killswitch10/pecklist/-/blob/main/CHANGELOG.md).

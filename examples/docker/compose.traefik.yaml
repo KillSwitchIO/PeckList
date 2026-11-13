@@ -1,5 +1,7 @@
-# PeckList behind an existing Traefik v3 that watches Docker labels and has a `websecure`
-# entrypoint with a certificate resolver called `letsencrypt`. Adjust the names to your setup.
+# PeckList behind an existing Traefik v3 that watches Docker labels and has a `web` (port 80) and a
+# `websecure` entrypoint, with a certificate resolver called `letsencrypt`. Adjust the names to
+# your setup. If your `web` entrypoint already redirects everything to HTTPS, leave out the
+# `pecklist-http` router and the `pecklist-https` middleware.
 #   docker compose -f compose.traefik.yaml up -d
 
 services:
@@ -23,6 +25,12 @@ services:
       traefik.http.routers.pecklist.entrypoints: websecure
       traefik.http.routers.pecklist.tls.certresolver: letsencrypt
       traefik.http.services.pecklist.loadbalancer.server.port: '8080'
+      # Plain http:// sent on to https://, so the address works typed without it.
+      traefik.http.routers.pecklist-http.rule: Host(`tasks.example.com`)
+      traefik.http.routers.pecklist-http.entrypoints: web
+      traefik.http.routers.pecklist-http.middlewares: pecklist-https
+      traefik.http.middlewares.pecklist-https.redirectscheme.scheme: https
+      traefik.http.middlewares.pecklist-https.redirectscheme.permanent: 'true'
 
 networks:
   # The network Traefik is attached to.

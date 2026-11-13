@@ -17,7 +17,9 @@ You share with friends, so start there:
   are, and so does anything they reach through a group. Anyone with your friend link, including
   someone you unfriended, can use it again to become friends, unless you press **New link**.
 
-An admin can also make two people friends (**Admin > Users > Friends**).
+An admin can also make two people friends, or end a friendship (**Admin > Users > Friends**). An
+admin ending it ends only the friendship: lists and tasks they share stay shared, and the owner
+removes the person from those if they should go.
 
 The server holds to this too: a list, a task or a group invite goes only to your friends, to people
 in a group you are in, and to people on a shared list with you. Anyone else is asked to be friends
@@ -46,6 +48,11 @@ Open the list's **Share** button (on a phone it is in the list's **...** menu):
 
 Add friends or groups, change a role, or remove someone. **Make private** takes the list back from
 everyone (it disappears from their devices). Someone it is shared with can **Leave list**.
+
+A person you remove (or everyone, after **Make private**) still keeps a task of the list that is
+assigned to them, so they can finish it: they see and can change that task, its subtasks and its
+comments, but cannot move it to another list, and see nothing else on the list. To take it back
+too, unassign them. [What you share](#what-you-share) lists these tasks.
 
 Shared lists appear under **Shared with me** for the others. Changes reach everyone within seconds,
 and offline edits merge when the device reconnects.
