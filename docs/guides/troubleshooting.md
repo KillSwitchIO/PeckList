@@ -9,15 +9,26 @@ Start with the logs (`docker logs pecklist`, `journalctl -u pecklist`, or the fi
 **`Invalid settings:` followed by a list.** Each line names a setting and what is wrong with it. Fix
 them all and start again. See [all settings](../configuration/reference.md).
 
-**`SQLite Error 14: unable to open database file`** or **permission denied on `/data`.** The data
-folder is not writable by the container's user (uid 1654). With a bind mount:
+**`PeckList cannot write to` a folder.** The server checks the folders it writes to (the database
+folder, attachments, log files, and snapshots and the audit archive when they are on) before it
+starts, and stops with exit code 4 naming the first one it can't write and the setting that points
+there. Older versions showed **`SQLite Error 14: unable to open database file`** or **permission
+denied on `/data`** instead. The folder is not writable by the container's user (uid 1654). With a bind mount:
 `sudo chown -R 1654:1654 ./data`, or run as your own user (`user: "1000:1000"`). On Linux native:
 `sudo chown -R pecklist:pecklist /var/lib/pecklist`.
 
-**`This database was upgraded by a newer PeckList`.** The server stops with exit code 1 rather
+**`This database was upgraded by a newer PeckList`.** The server stops with exit code 3 rather
 than run on a schema it does not know. Run the version that upgraded it (or newer), or restore a
 backup from before the upgrade into an empty database: see
-[If something goes wrong](upgrading.md#if-something-goes-wrong).
+[If something goes wrong](upgrading.md#if-something-goes-wrong). Versions 0.8 and 0.9 refuse with the
+same message but then crash (exit code 139, with a crash dump); 0.10 and 0.11.0-rc.1 exit with code 1.
+Versions before 0.8 do not check, so never point them at a newer database.
+
+**Exit codes.** When the server refuses to start it says why in one line and exits with a code
+for the reason, so a service manager can stop restarting it: `2` a setting is wrong, `3` a newer
+PeckList upgraded the database, `4` a folder it writes to can't be written. `1` is anything else.
+With Docker's `restart: unless-stopped` the container still restarts on each of these, printing the
+same line each time; fix the cause, or stop it, rather than wait for it to come up.
 
 **Port already in use.** Another program has 8080. Map another host port (`-p 9000:8080`), or set
 `ASPNETCORE_HTTP_PORTS`.

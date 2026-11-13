@@ -377,6 +377,88 @@ public sealed class BackupCenterTests(ServerFixture fixture) : IClassFixture<Ser
         Assert.Equal("Mow", (string?)held["T1"]["title"]);
     }
 
+    /// <summary>
+    /// QA pass 5: names had one-second resolution, so a restore's safety backup taken in the same
+    /// second as the backup it restored from replaced that file. Now the second one gets -2.
+    /// </summary>
+    [Fact]
+    public async Task Two_backups_in_the_same_second_both_keep_their_file()
+    {
+        var db = fixture.NewDbPath();
+        using var server = Server(db);
+        _ = server.CreateClient();
+        var folder = Path.ChangeExtension(db, ".same-second");
+        var snapshots = new Snapshots(server.Services.GetRequiredService<BackupService>(), folder, () => 7,
+            new ManualTime(new DateTimeOffset(2026, 11, 12, 10, 2, 3, TimeSpan.Zero)));
+
+        var first = await snapshots.TakeAsync("test", Token);
+        var bytes = await File.ReadAllBytesAsync(first, Token);
+        var second = await snapshots.TakeAsync("test", Token);
+        var third = await snapshots.TakeAsync("test", Token);
+
+        Assert.Equal("pecklist-20261112-100203.json.gz", Path.GetFileName(first));
+        Assert.Equal("pecklist-20261112-100203-2.json.gz", Path.GetFileName(second));
+        Assert.Equal("pecklist-20261112-100203-3.json.gz", Path.GetFileName(third));
+        Assert.Equal(bytes, await File.ReadAllBytesAsync(first, Token));
+        // Newest first, the later ones of a second before the earlier.
+        Assert.Equal([third, second, first], snapshots.List().Select(each => each.Path));
+        Assert.Empty(Directory.GetFiles(folder, "*.partial"));
+    }
+
+    /// <summary>Dev 2's review: two at once (a manual one and the schedule) each get a file of their own.</summary>
+    [Fact]
+    public async Task Two_backups_at_once_both_finish_with_files_of_their_own()
+    {
+        var db = fixture.NewDbPath();
+        using var server = Server(db);
+        _ = server.CreateClient();
+        var folder = Path.ChangeExtension(db, ".at-once");
+        var snapshots = new Snapshots(server.Services.GetRequiredService<BackupService>(), folder, () => 7,
+            new ManualTime(new DateTimeOffset(2026, 11, 12, 10, 2, 3, TimeSpan.Zero)));
+
+        var both = await System.Threading.Tasks.Task.WhenAll(
+            System.Threading.Tasks.Task.Run(() => snapshots.TakeAsync("test", Token), Token),
+            System.Threading.Tasks.Task.Run(() => snapshots.TakeAsync("test", Token), Token));
+
+        Assert.NotEqual(both[0], both[1]);
+        Assert.All(both, path => Assert.True(File.Exists(path)));
+        Assert.Equal(2, snapshots.List().Count);
+    }
+
+    /// <summary>
+    /// Dev 2's review: pruning cleared every .partial, including one another snapshot (the CLI's,
+    /// say) was writing. Only an old one is a leftover; and a restore's safety backup prunes nothing,
+    /// so it cannot delete the backup being restored from.
+    /// </summary>
+    [Fact]
+    public async Task Pruning_leaves_partials_being_written_and_safety_backups_prune_nothing()
+    {
+        var db = fixture.NewDbPath();
+        using var server = Server(db);
+        _ = server.CreateClient();
+        var folder = Path.ChangeExtension(db, ".partials");
+        var time = new ManualTime(new DateTimeOffset(2026, 11, 12, 10, 2, 3, TimeSpan.Zero));
+        var snapshots = new Snapshots(server.Services.GetRequiredService<BackupService>(), folder, () => 1, time);
+        var oldest = await snapshots.TakeAsync("test", Token);
+        var writing = Path.Combine(folder, "pecklist-20261112-100500.json.gz.partial");
+        var leftover = Path.Combine(folder, "pecklist-20261111-100500.json.gz.partial");
+        await File.WriteAllTextAsync(writing, "x", Token);
+        await File.WriteAllTextAsync(leftover, "x", Token);
+        File.SetLastWriteTimeUtc(leftover, DateTime.UtcNow.AddHours(-2));
+
+        time.Now += TimeSpan.FromMinutes(1);
+        var safety = await snapshots.TakeAsync("test", prune: false, Token);
+        Assert.True(File.Exists(oldest));
+        Assert.True(File.Exists(leftover));
+
+        time.Now += TimeSpan.FromMinutes(1);
+        var next = await snapshots.TakeAsync("test", Token);
+        Assert.Equal([next], snapshots.List().Select(each => each.Path));
+        Assert.False(File.Exists(safety));
+        Assert.True(File.Exists(writing));
+        Assert.False(File.Exists(leftover));
+    }
+
     [Fact]
     public async Task The_whole_server_comes_back_from_a_backup_at_a_restart_and_devices_start_over()
     {

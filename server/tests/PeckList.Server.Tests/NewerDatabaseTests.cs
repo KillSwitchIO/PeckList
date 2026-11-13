@@ -47,4 +47,20 @@ public sealed class NewerDatabaseTests : IDisposable
         Assert.Null(await StartupChecks.NewerDatabaseAsync(
             With(new SqliteDatabase(Path.Combine(folder, "no such folder", "pecklist.db"))), cancellation: Token));
     }
+
+    [Fact]
+    public void A_refusal_found_while_starting_is_known_however_the_host_wrapped_it()
+    {
+        // The newer schema can also turn up while migrating (the early check found nothing in
+        // time); the host may hand it on as it is, wrapped, or in an aggregate.
+        var newer = new PeckList.Storage.Sql.NewerDatabaseException(18, 15);
+        Assert.Same(newer, StartupChecks.Find<PeckList.Storage.Sql.NewerDatabaseException>(newer));
+        Assert.Same(newer, StartupChecks.Find<PeckList.Storage.Sql.NewerDatabaseException>(new InvalidOperationException("starting", newer)));
+        Assert.Same(newer, StartupChecks.Find<PeckList.Storage.Sql.NewerDatabaseException>(
+            new AggregateException(new TimeoutException(), new AggregateException(newer))));
+        Assert.Null(StartupChecks.Find<PeckList.Storage.Sql.NewerDatabaseException>(new InvalidOperationException("other")));
+        Assert.NotEqual(StartupChecks.ExitCodes.NewerDatabase, StartupChecks.ExitCodes.Settings);
+        Assert.NotEqual(StartupChecks.ExitCodes.NewerDatabase, StartupChecks.ExitCodes.Unwritable);
+        Assert.DoesNotContain(1, new[] { StartupChecks.ExitCodes.Settings, StartupChecks.ExitCodes.NewerDatabase, StartupChecks.ExitCodes.Unwritable });
+    }
 }
