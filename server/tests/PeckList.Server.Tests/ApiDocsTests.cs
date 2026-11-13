@@ -74,6 +74,53 @@ public sealed class ApiDocsTests(ServerFixture fixture) : IClassFixture<ServerFi
         Assert.StartsWith("Internal", paths.GetProperty("/api/sync").GetProperty("post").GetProperty("summary").GetString());
     }
 
+    /// <summary>
+    /// Every operation says what it does and what it answers, so the generated client has a type
+    /// for each, and every signed-in one says who may call it. A new route without Doc or
+    /// Produces fails here rather than turning up as "200 any".
+    /// </summary>
+    [Fact]
+    public async Task Every_operation_says_what_it_answers_and_who_may_call_it()
+    {
+        using var server = fixture.Factory(("DB_PATH", fixture.NewDbPath()));
+        var document = await Document(server.CreateClient());
+
+        var gaps = new List<string>();
+        foreach (var path in document.GetProperty("paths").EnumerateObject())
+        {
+            foreach (var operation in path.Value.EnumerateObject())
+            {
+                var name = $"{operation.Name.ToUpperInvariant()} {path.Name}";
+                var responses = operation.Value.GetProperty("responses").EnumerateObject().ToList();
+                if (!operation.Value.TryGetProperty("summary", out var summary) || summary.GetString() is not { Length: > 0 }) gaps.Add($"{name}: no summary");
+                var ok = responses.Where(each => each.Name.StartsWith('2')).ToList();
+                // A success with a body names its type; 201, 202, 204 and a HEAD have none.
+                if (ok.Count == 0 || (operation.Name != "head" && ok.All(each => each.Name == "200" && !each.Value.TryGetProperty("content", out _)))) gaps.Add($"{name}: no answer type");
+                // The open routes: the server's info, and starting and polling a command line sign-in.
+                if (path.Name == "/api/info" || (path.Name.StartsWith("/api/v1/cli/sign-in", StringComparison.Ordinal) && operation.Name == "post")) continue;
+                if (responses.All(each => each.Name != "401")) gaps.Add($"{name}: no 401");
+                var description = operation.Value.TryGetProperty("description", out var text) ? text.GetString() ?? "" : "";
+                if (!description.Contains("API key", StringComparison.Ordinal)) gaps.Add($"{name}: no word on API keys");
+                if (path.Name.StartsWith("/api/admin/", StringComparison.Ordinal) && !description.Contains("Admin permission: ", StringComparison.Ordinal)) gaps.Add($"{name}: no permission");
+            }
+        }
+        Assert.Empty(gaps);
+
+        // What the access line says comes from the route's own rules.
+        var role = document.GetProperty("paths").GetProperty("/api/admin/users/{id}/role").GetProperty("put");
+        Assert.Contains("Admin permission: ManageAdmins.", role.GetProperty("description").GetString());
+        Assert.Contains("needs the admin scope", role.GetProperty("description").GetString());
+        var history = document.GetProperty("paths").GetProperty("/api/tasks/{id}/history").GetProperty("get");
+        Assert.Contains("needs the tasks:read scope", history.GetProperty("description").GetString());
+        var passkeys = document.GetProperty("paths").GetProperty("/api/account/passkeys").GetProperty("get");
+        Assert.Contains("API keys can't use this route", passkeys.GetProperty("description").GetString());
+        // Filters a route reads by hand are listed.
+        var filters = document.GetProperty("paths").GetProperty("/api/v1/tasks").GetProperty("get").GetProperty("parameters")
+            .EnumerateArray().Select(each => each.GetProperty("name").GetString()).ToList();
+        Assert.Contains("status", filters);
+        Assert.Contains("cursor", filters);
+    }
+
     [Theory]
     [InlineData("api/friends/code", "Friends")]
     [InlineData("api/attachments/{sha256}", "Attachments")]
@@ -110,6 +157,48 @@ public sealed class ApiDocsTests(ServerFixture fixture) : IClassFixture<ServerFi
         Assert.Contains("../openapi/v1.json", config);
         // The page lives under the server's own strict policy: its scripts are files, never inline.
         Assert.Contains("script-src 'self';", page.Headers.GetValues("Content-Security-Policy").Single());
+    }
+
+    /// <summary>
+    /// The committed copy, <c>docs/reference/openapi.json</c>, is the document as this build writes
+    /// it, so an API change shows in the merge request's diff and the TypeScript client is made from
+    /// what the server really answers. The version and the server address are left out: they change
+    /// with every release and every host, not with the API.
+    /// </summary>
+    [Fact]
+    public async Task The_committed_document_is_the_one_the_server_writes()
+    {
+        using var server = fixture.Factory(("DB_PATH", fixture.NewDbPath()));
+        var expected = Committable(await (await server.CreateClient().GetAsync(ApiDocs.DocumentPath, Token)).Content.ReadAsStringAsync(Token));
+        var file = Path.Combine(RepositoryRoot(), "docs", "reference", "openapi.json");
+        if (Environment.GetEnvironmentVariable("PECKLIST_WRITE_GENERATED") == "1")
+        {
+            File.WriteAllText(file, expected);
+            return;
+        }
+        var actual = File.Exists(file) ? File.ReadAllText(file).ReplaceLineEndings("\n") : "";
+        Assert.True(actual == expected,
+            "docs/reference/openapi.json differs from the document the server writes. Refresh it: " +
+            "PECKLIST_WRITE_GENERATED=1 dotnet test tests/PeckList.Server.Tests --filter FullyQualifiedName~The_committed_document (in server/).");
+    }
+
+    /// <summary>The document with its version and servers taken out, indented, LF, a final newline.</summary>
+    internal static string Committable(string json)
+    {
+        var document = System.Text.Json.Nodes.JsonNode.Parse(json)!.AsObject();
+        document.Remove("servers");
+        document["info"]!.AsObject()["version"] = "current";
+        var options = new JsonSerializerOptions { WriteIndented = true, Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping };
+        return document.ToJsonString(options).ReplaceLineEndings("\n") + "\n";
+    }
+
+    private static string RepositoryRoot()
+    {
+        for (var folder = new DirectoryInfo(AppContext.BaseDirectory); folder is not null; folder = folder.Parent)
+        {
+            if (File.Exists(Path.Combine(folder.FullName, "docs", "reference", "http-api.md"))) return folder.FullName;
+        }
+        throw new InvalidOperationException("the repository root (with docs/reference/http-api.md) was not found above " + AppContext.BaseDirectory);
     }
 
     [Fact]

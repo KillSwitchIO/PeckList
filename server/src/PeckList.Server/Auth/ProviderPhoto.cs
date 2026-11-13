@@ -25,7 +25,8 @@ public static class ProviderPhotoEndpoints
             return await photos.FetchAsync(url, cancellation) is { } picture
                 ? Results.File(picture.Bytes, picture.Type)
                 : Results.NotFound();
-        });
+        })
+            .DocFile("The picture your sign-in provider has for you, fetched through the server", "image/jpeg", "image/png", "image/webp", "image/gif").Missing();
         return api;
     }
 }

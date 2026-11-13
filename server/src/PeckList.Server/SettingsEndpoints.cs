@@ -57,7 +57,7 @@ public static class SettingsEndpoints
     {
         admin.MapGet("/settings", async (LoadedSettings loaded, Core.Accounts.ISecretStore secrets, ClaimsPrincipal user, CancellationToken cancellation) =>
             View(loaded, await SettingsLoader.ReadPageAsync(secrets, loaded.Layers.Cipher, cancellation), MaySaveSignIn(user)))
-            .RequirePermission(Permission.ManageSettings);
+            .WithSummary("Every setting: its value (secrets masked), where it comes from, and whether this page may change it").RequirePermission(Permission.ManageSettings);
 
         admin.MapPut("/settings", async (
             SettingsChange change, LoadedSettings loaded, Core.Accounts.ISecretStore secrets, IIdentityStore identities, LogPipeline logging, LiveSettings live,
@@ -109,7 +109,7 @@ public static class SettingsEndpoints
                 logging.Apply(next.Logging);
             }
             return Results.Ok(View(loaded, page, MaySaveSignIn(user)));
-        }).RequirePermission(Permission.ManageSettings).RequireRateLimiting(AuthSetup.SettingsRateLimit).Audited("settings.saved", targetRoute: null);
+        }).Doc<SettingsView>("Save settings from the admin page: values by key, null to clear one").Refuses(StatusCodes.Status400BadRequest, StatusCodes.Status409Conflict).RequirePermission(Permission.ManageSettings).RequireRateLimiting(AuthSetup.SettingsRateLimit).Audited("settings.saved", targetRoute: null);
 
         // Stops the server; a container with a restart policy (restart: unless-stopped) comes back
         // with the saved values.
@@ -117,7 +117,7 @@ public static class SettingsEndpoints
         {
             ServerApp.StopSoon(lifetime);
             return Results.Accepted();
-        }).RequirePermission(Permission.ManageSettings).Audited("server.restart", targetRoute: null);
+        }).Doc("Restart the server, to apply settings that need one", StatusCodes.Status202Accepted).RequirePermission(Permission.ManageSettings).Audited("server.restart", targetRoute: null);
 
         // Send test email (PL-122): with the settings as they apply now (a save applies at once),
         // to the address given; the mail server's own answer comes back in words when it fails.
@@ -140,7 +140,7 @@ public static class SettingsEndpoints
             {
                 return Results.Json(new AdminError("mail_failed", error.Message), statusCode: StatusCodes.Status502BadGateway);
             }
-        }).RequirePermission(Permission.ManageSettings).Audited("mail.test", targetRoute: null);
+        }).Doc("Send a test email to an address").Refuses(StatusCodes.Status400BadRequest, StatusCodes.Status409Conflict, StatusCodes.Status502BadGateway).RequirePermission(Permission.ManageSettings).Audited("mail.test", targetRoute: null);
 
         return admin;
     }

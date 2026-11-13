@@ -64,11 +64,16 @@ public static class SyncEndpoints
             }
         })
         .WithSummary("Internal: the apps' sync")
+        .Produces<SyncResponse>()
+        .Produces<SyncError>(StatusCodes.Status400BadRequest)
+        .Produces<SyncError>(StatusCodes.Status409Conflict)
         .WithDescription(
             "The protocol the PeckList apps sync with: whole entities with per-field clocks. It is internal and " +
             "changes with the apps; scripts and other tools use the task API under /api/v1, which is versioned.");
 
-        api.MapGet("/events", StreamEventsAsync);
+        api.MapGet("/events", StreamEventsAsync)
+            .DocFile("Live updates as Server-Sent Events: changed (with the cursor) whenever something you can see changes", "text/event-stream")
+            .Produces(StatusCodes.Status429TooManyRequests);
         return api;
     }
 

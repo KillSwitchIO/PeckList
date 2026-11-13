@@ -54,7 +54,8 @@ public static class CliSignInEndpoints
         })
             .AllowAnonymous().RequireRateLimiting(StartRateLimit)
             .WithSummary("Start signing the command line in: a code to type on the /cli page, and a token to poll with")
-            .Produces<CliStarted>().Produces<ApiProblems.Problem>(StatusCodes.Status429TooManyRequests, "application/problem+json");
+            .Produces<CliStarted>().Produces<ApiProblems.Problem>(StatusCodes.Status429TooManyRequests, "application/problem+json")
+            .ProblemAt(StatusCodes.Status503ServiceUnavailable);
 
         cli.MapPost("/sign-in/poll", async (CliPollRequest? request, CliSignIns signIns, CancellationToken cancellation) =>
         {
@@ -70,7 +71,8 @@ public static class CliSignInEndpoints
         })
             .AllowAnonymous().RequireRateLimiting(PollRateLimit)
             .WithSummary("Poll a sign-in: 428 pending, 429 slow_down, 403 denied, 410 expired, or the key once")
-            .Produces<CliCollected>();
+            .Produces<CliCollected>()
+            .ProblemAt(StatusCodes.Status403Forbidden, StatusCodes.Status410Gone, StatusCodes.Status428PreconditionRequired, StatusCodes.Status429TooManyRequests);
 
         cli.MapPost("/lookup", (CliCodeRequest? request, ClaimsPrincipal user, HttpContext context, CliSignIns signIns) =>
         {
@@ -81,7 +83,8 @@ public static class CliSignInEndpoints
         })
             .RequireAuthorization().RequireRateLimiting(AuthSetup.AccountRateLimit)
             .WithSummary("The sign-in a code names: the terminal's name, when and from where it asked")
-            .Produces<CliRequestView>();
+            .Produces<CliRequestView>()
+            .ProblemAt(StatusCodes.Status403Forbidden, StatusCodes.Status404NotFound, StatusCodes.Status429TooManyRequests);
 
         cli.MapPost("/approve", async (CliCodeRequest? request, ClaimsPrincipal user, HttpContext context, CliSignIns signIns, AuditLog audit,
             CancellationToken cancellation) =>
@@ -105,7 +108,8 @@ public static class CliSignInEndpoints
         })
             .RequireAuthorization().RequireRateLimiting(AuthSetup.AccountRateLimit)
             .WithSummary("Approve a sign-in: makes the CLI's API key")
-            .Produces<CliApproved>();
+            .Produces<CliApproved>()
+            .ProblemAt(StatusCodes.Status403Forbidden, StatusCodes.Status404NotFound, StatusCodes.Status409Conflict, StatusCodes.Status429TooManyRequests);
 
         cli.MapPost("/deny", (CliCodeRequest? request, ClaimsPrincipal user, CliSignIns signIns) =>
         {
@@ -116,7 +120,8 @@ public static class CliSignInEndpoints
             return Results.NoContent();
         })
             .RequireAuthorization().RequireRateLimiting(AuthSetup.AccountRateLimit)
-            .WithSummary("Deny a sign-in");
+            .Doc("Deny a sign-in")
+            .ProblemAt(StatusCodes.Status403Forbidden, StatusCodes.Status404NotFound, StatusCodes.Status429TooManyRequests);
 
         cli.MapDelete("/sign-in", async (ClaimsPrincipal user, HttpContext context, ApiKeyService keys, AuditLog audit, CancellationToken cancellation) =>
         {
@@ -130,7 +135,8 @@ public static class CliSignInEndpoints
             return Results.NoContent();
         })
             .RequireAuthorization()
-            .WithSummary("Sign the command line out: revokes the key this request is signed in with");
+            .Doc("Sign the command line out: revokes the key this request is signed in with")
+            .ProblemAt(StatusCodes.Status403Forbidden);
     }
 
     private static string? Address(HttpContext context) => context.Connection.RemoteIpAddress?.ToString();

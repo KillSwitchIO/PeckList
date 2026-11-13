@@ -30,6 +30,9 @@ public sealed record PasskeyList(bool Available, bool Password, IReadOnlyList<Pa
 /// <summary>Where an enrolment from the app goes back to once the passkey is added.</summary>
 public sealed record EnrollDone(string Back);
 
+/// <summary>What a passkey ceremony starts with: its id, and the WebAuthn options for the browser (for the document; written as text).</summary>
+public sealed record PasskeyCeremony(string Ceremony, JsonElement Options);
+
 /// <summary>
 /// Passkeys in PeckList itself (PL-123), with no identity provider in between: WebAuthn with
 /// discoverable credentials, so signing in needs no username. The relying party is
@@ -301,7 +304,7 @@ public static class PasskeyEndpoints
             if (await accounts.FindByIdAsync(user.UserId(), cancellation) is not { } account) return Results.NotFound();
             var mine = await passkeys.ListAsync(account.Id, cancellation);
             return Results.Ok(new PasskeyList(Origin(live, context) is not null, account.PasswordHash is not null, [.. mine.Select(View)]));
-        });
+        }).Doc<PasskeyList>("Your passkeys, whether passkeys work on this server, and whether you have a password").Missing();
 
         api.MapPost("/account/passkeys/options", async (ClaimsPrincipal user, IAccountStore accounts, IPasskeyStore passkeys, LiveSettings live,
             IMemoryCache cache, HttpContext context, CancellationToken cancellation) =>
@@ -310,7 +313,7 @@ public static class PasskeyEndpoints
             if (Origin(live, context) is not { } origin) return Off();
             if (await accounts.FindByIdAsync(user.UserId(), cancellation) is not { } account) return Results.NotFound();
             return await CreationOptionsAsync(account, origin, passkeys, cache, cancellation);
-        });
+        }).Doc<PasskeyCeremony>("Start adding a passkey: the WebAuthn creation options and a ceremony id (404 passkeys_off without PUBLIC_URL)").Refuses(StatusCodes.Status404NotFound);
 
         api.MapPost("/account/passkeys", async (PasskeyFinish request, ClaimsPrincipal user, LiveSettings live, IMemoryCache cache,
             IPasskeyStore passkeys, TimeProvider time, HttpContext context, CancellationToken cancellation) =>
@@ -327,7 +330,8 @@ public static class PasskeyEndpoints
             }
             context.Audit().On(passkey.Id, passkey.Name);
             return Results.Ok(View(passkey));
-        }).Audited("account.passkey-added", targetRoute: null);
+        }).Doc<PasskeyView>("Finish adding a passkey: the ceremony from options and the browser's credential").Refuses(StatusCodes.Status400BadRequest).Missing()
+            .Audited("account.passkey-added", targetRoute: null);
 
         api.MapPut("/account/passkeys/{id}", async (string id, PasskeyRename request, ClaimsPrincipal user, IPasskeyStore passkeys,
             CancellationToken cancellation) =>
@@ -337,7 +341,7 @@ public static class PasskeyEndpoints
             var renamed = passkey with { Name = NameOf(request.Name) };
             await passkeys.UpdateAsync(renamed, cancellation);
             return Results.Ok(View(renamed));
-        });
+        }).Doc<PasskeyView>("Rename one of your passkeys").Missing();
 
         api.MapDelete("/account/passkeys/{id}", async (string id, ClaimsPrincipal user, IPasskeyStore passkeys, IAccountStore accounts,
             ExternalSignIn signIn, HttpContext context, CancellationToken cancellation) =>
@@ -352,7 +356,8 @@ public static class PasskeyEndpoints
             if (!otherWayIn) return Results.Conflict(new AdminError("last_way_in", "this is your only way to sign in"));
             await passkeys.DeleteAsync(id, cancellation);
             return Results.NoContent();
-        }).Audited("account.passkey-removed", targetRoute: null);
+        }).Doc("Remove one of your passkeys (not your only way to sign in)").Refuses(StatusCodes.Status409Conflict).Missing()
+            .Audited("account.passkey-removed", targetRoute: null);
 
         // With a passkey (or a provider), a person may do without a password.
         api.MapPost("/account/password/remove", async (PasswordRemoval request, ClaimsPrincipal user, AccountService accounts,
@@ -372,7 +377,8 @@ public static class PasskeyEndpoints
             var principal = AuthSetup.Principal(updated, CookieAuthenticationDefaults.AuthenticationScheme, method);
             await context.SignInAsync(CookieAuthenticationDefaults.AuthenticationScheme, principal, new AuthenticationProperties { IsPersistent = true });
             return Results.NoContent();
-        }).RequireRateLimiting(AuthSetup.LoginRateLimit).Audited("account.password-removed", targetRoute: null);
+        }).Doc("Remove your password, keeping your passkeys (current is your password now)").Refuses(StatusCodes.Status400BadRequest, StatusCodes.Status409Conflict)
+            .RequireRateLimiting(AuthSetup.LoginRateLimit).Audited("account.password-removed", targetRoute: null);
 
         return api;
     }
@@ -381,7 +387,8 @@ public static class PasskeyEndpoints
     public static RouteGroupBuilder MapAdminPasskeys(this RouteGroupBuilder admin)
     {
         admin.MapGet("/users/{id}/passkeys", async (string id, IPasskeyStore passkeys, CancellationToken cancellation) =>
-            Results.Ok((await passkeys.ListAsync(id, cancellation)).Select(View))).RequirePermission(Permission.ManageUsers);
+            Results.Ok((await passkeys.ListAsync(id, cancellation)).Select(View)))
+            .Doc<IReadOnlyList<PasskeyView>>("Someone's passkeys").RequirePermission(Permission.ManageUsers);
 
         admin.MapDelete("/users/{id}/passkeys/{passkeyId}", async (string id, string passkeyId, ClaimsPrincipal user, IAccountStore store,
             IPasskeyStore passkeys, HttpContext context, CancellationToken cancellation) =>
@@ -391,7 +398,7 @@ public static class PasskeyEndpoints
                 await passkeys.DeleteAsync(passkeyId, cancellation);
                 context.Audit().Detail = passkey.Name;
                 return Results.NoContent();
-            }, cancellation)).RequirePermission(Permission.ManageUsers).Audited("admin.passkey-removed");
+            }, cancellation)).Doc("Remove one of someone's passkeys").Missing().RequirePermission(Permission.ManageUsers).Audited("admin.passkey-removed");
         return admin;
     }
 }

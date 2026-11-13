@@ -21,7 +21,7 @@ public static class HistoryEndpoints
             if (!sharing.Index.Viewers(id).Contains(user.UserId())) return Results.NotFound();
             var entries = await store.ListAsync(id, Size, cancellation);
             return Results.Ok(entries.Select(each => new HistoryView(each.Id, each.At, each.ActorId, each.Field, each.Before, each.After)));
-        });
+        }).Doc<IReadOnlyList<HistoryView>>($"A task's history, the latest {Size} entries, for anyone who can see the task").Missing();
         return api;
     }
 }

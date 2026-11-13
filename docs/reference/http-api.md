@@ -17,6 +17,13 @@ Bruno, an AI assistant's HTTP tool, a ChatGPT Custom GPT action.
 Both are public, like the source code: they show what the API offers, never anyone's data.
 [`API_DOCS=off`](../configuration/reference.md#api_docs) turns them off.
 
+Each operation says what it takes and answers, the errors it can give, and who may call it: the
+admin permission it needs, and the API key permission (or that keys can't use it). The same
+document, as of this version, is in the repository as
+[`docs/reference/openapi.json`](https://gitlab.com/killswitch10/pecklist/-/blob/main/docs/reference/openapi.json),
+for generating a client without a running server. Its `version` reads `current`; a server's own
+copy has its real version.
+
 ## Signing in from a script
 
 The easy way is an **API key**: make one in **Settings > Account > API keys** with a name, an expiry (or

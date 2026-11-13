@@ -140,7 +140,8 @@ public static class ApiKeyAuth
     {
         var group = api.MapGroup("/account/api-keys");
         group.MapGet("", async (ClaimsPrincipal user, ApiKeyService keys, CancellationToken cancellation) =>
-            (await keys.ListAsync(user.UserId(), cancellation)).Select(View));
+            (await keys.ListAsync(user.UserId(), cancellation)).Select(View))
+            .WithSummary("Your API keys, revoked ones included until they are cleared");
         group.MapPost("", async (NewKey request, ClaimsPrincipal user, ApiKeyService keys, AuditLog audit, HttpContext context, CancellationToken cancellation) =>
         {
             try
@@ -155,20 +156,20 @@ public static class ApiKeyAuth
             {
                 return Results.BadRequest(new { error = "invalid", message = $"An API key needs {rejected.Message}." });
             }
-        });
+        }).Doc<CreatedKey>("Make an API key: a name, its scopes and an optional expiry; the token is shown once").Refuses(StatusCodes.Status400BadRequest);
         group.MapDelete("/{id}", async (string id, ClaimsPrincipal user, ApiKeyService keys, AuditLog audit, HttpContext context, CancellationToken cancellation) =>
         {
             if (!await keys.RevokeAsync(user.UserId(), id, cancellation)) return Results.NotFound();
             audit.RecordEvent(context, "account.api-key-revoked", user.UserId(), user.FindFirstValue(ClaimTypes.Name), id, null, null);
             return Results.NoContent();
-        });
+        }).Doc("Revoke one of your API keys").Missing();
         return api;
     }
 
     private static KeyView View(ApiKey key) =>
         new(key.Id, key.Name, key.Scopes, key.CreatedAt, key.ExpiresAt, key.LastUsedAt, key.RevokedAt);
 
-    public sealed record NewKey(string? Name, IReadOnlyList<string>? Scopes, DateTimeOffset? ExpiresAt);
+    public sealed record NewKey(string? Name, IReadOnlyList<string>? Scopes, DateTimeOffset? ExpiresAt = null);
 
     public sealed record KeyView(
         string Id, string Name, IReadOnlyList<string> Scopes, DateTimeOffset CreatedAt, DateTimeOffset? ExpiresAt,

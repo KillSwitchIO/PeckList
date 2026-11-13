@@ -135,7 +135,8 @@ public static class EmailEndpoints
         api.MapGet("/account/email", async (ClaimsPrincipal user, IAccountStore accounts, IMailSender mail, LiveSettings live, CancellationToken cancellation) =>
             await accounts.FindByIdAsync(user.UserId(), cancellation) is { } account
                 ? Results.Ok(new AccountEmailView(account.Email, account.EmailVerifiedAt is not null, LinksWork(mail, live)))
-                : Results.NotFound());
+                : Results.NotFound())
+            .Doc<AccountEmailView>("Your email, whether it is confirmed, and whether this server can send mail").Missing();
 
         api.MapPut("/account/email", async (EmailRequest request, ClaimsPrincipal user, AccountEmails emails, IMailSender mail, LiveSettings live,
             HttpContext context, CancellationToken cancellation) =>
@@ -155,7 +156,8 @@ public static class EmailEndpoints
             context.Audit().On(null, account.Email ?? "(removed)");
             if (account.Email == before.Email) return Results.Ok(new AccountEmailView(account.Email, account.EmailVerifiedAt is not null, LinksWork(mail, live)));
             return Results.Ok(await ConfirmViewAsync(account, emails, mail, live, cancellation));
-        }).Audited("account.email-changed", targetRoute: null);
+        }).Doc<AccountEmailView>("Change your email; a new one gets a confirmation email when mail is set up").Refuses(StatusCodes.Status400BadRequest).Missing()
+            .Audited("account.email-changed", targetRoute: null);
 
         api.MapPost("/account/email/confirm", async (ClaimsPrincipal user, IAccountStore accounts, AccountEmails emails, IMailSender mail,
             LiveSettings live, CancellationToken cancellation) =>
@@ -165,7 +167,8 @@ public static class EmailEndpoints
                 return Results.Conflict(new AuthError("nothing_to_confirm"));
             }
             return Results.Ok(await ConfirmViewAsync(account, emails, mail, live, cancellation));
-        }).RequireRateLimiting(AuthSetup.LoginRateLimit);
+        }).Doc<AccountEmailView>("Send the confirmation email again").Refuses(StatusCodes.Status409Conflict).Missing()
+            .RequireRateLimiting(AuthSetup.LoginRateLimit);
 
         return api;
     }
@@ -206,7 +209,8 @@ public static class EmailEndpoints
                 {
                     return Results.Json(new AdminError("mail_failed", error.Message), statusCode: StatusCodes.Status502BadGateway);
                 }
-            }, cancellation)).RequirePermission(Permission.ManageUsers).Audited("admin.reset-link-sent");
+            }, cancellation)).Doc("Email someone a password reset link (needs mail, PUBLIC_URL and a confirmed email)").Refuses(StatusCodes.Status404NotFound, StatusCodes.Status409Conflict, StatusCodes.Status502BadGateway)
+            .RequirePermission(Permission.ManageUsers).Audited("admin.reset-link-sent");
         return admin;
     }
 }

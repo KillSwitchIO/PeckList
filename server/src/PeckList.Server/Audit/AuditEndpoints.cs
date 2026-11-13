@@ -19,11 +19,27 @@ public static class AuditEndpoints
         "method", "route", "status", "durationMs", "requestId", "detail",
     ];
 
+    /// <summary>The filters <see cref="Query"/> reads, for the document.</summary>
+    private static readonly ApiDocs.QueryParameter[] AuditFilters =
+    [
+        new("kind", "event (the default) or access"),
+        new("text", "words anywhere in the entry"),
+        new("user", "who acted, or who it was done to"),
+        new("type", "the event type, such as admin.user-created"),
+        new("outcome", "ok, failed, denied, refused or throttled"),
+        new("ip", "the address the request came from"),
+        new("from", "entries at or after this time (ISO 8601, UTC unless it says)"),
+        new("to", "entries before this time"),
+        new("order", "asc (oldest first) or desc"),
+        new("offset", "entries to skip", Microsoft.OpenApi.JsonSchemaType.Integer),
+        new("limit", "entries to return, at most the route's own limit", Microsoft.OpenApi.JsonSchemaType.Integer),
+    ];
+
     public static RouteGroupBuilder MapAudit(this RouteGroupBuilder admin)
     {
         admin.MapGet("/audit", async (HttpRequest request, IAuditStore store, CancellationToken cancellation) =>
             await store.QueryAsync(Query(request, limit: 100, oldestFirst: false), cancellation))
-            .RequirePermission(Permission.ViewLogs);
+            .WithSummary("Audit entries, newest first unless order=asc, 100 at a time").Queries(AuditFilters).RequirePermission(Permission.ViewLogs);
 
         // The filtered set as CSV (up to 100,000 rows), oldest first unless asked otherwise.
         admin.MapGet("/audit.csv", async (HttpContext context, IAuditStore store, TimeProvider time) =>
@@ -46,7 +62,7 @@ public static class AuditEndpoints
                 ];
                 await writer.WriteLineAsync(string.Join(',', cells.Select(Csv)));
             }
-        }).RequirePermission(Permission.ViewLogs);
+        }).DocFile("The filtered audit entries as CSV, up to 100,000 rows, oldest first unless order=desc", "text/csv").Queries(AuditFilters).RequirePermission(Permission.ViewLogs);
 
         return admin;
     }

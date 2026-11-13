@@ -16,3 +16,5 @@ website/.docusaurus
 server/src/PeckList.Server/Api/quickadd.js
 # Native Android project: Gradle and Android Studio own its formatting.
 mobile/android
+# Written by the server test that checks it against the document the server makes (PL-118).
+docs/reference/openapi.json

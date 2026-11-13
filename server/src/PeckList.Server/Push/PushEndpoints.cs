@@ -36,7 +36,8 @@ public static class PushEndpoints
     public static RouteGroupBuilder MapPush(this RouteGroupBuilder api)
     {
         api.MapGet("/push/key", async (VapidKeys vapid, CancellationToken cancellation) =>
-            new PushKey((await vapid.GetAsync(cancellation)).Public));
+            new PushKey((await vapid.GetAsync(cancellation)).Public))
+            .WithSummary("The server's Web Push public key (VAPID), for subscribing a browser");
 
         api.MapPost("/push/subscriptions", async (PushSubscribe request, ClaimsPrincipal user, IPushStore store, CancellationToken cancellation) =>
         {
@@ -47,7 +48,7 @@ public static class PushEndpoints
             }
             await store.SaveAsync(new PushSubscription(user.UserId(), request.Endpoint!, request.Keys.P256dh, request.Keys.Auth), cancellation);
             return Results.NoContent();
-        });
+        }).Doc("Save this browser's push subscription, as PushSubscription.toJSON() gives it").Refuses(StatusCodes.Status400BadRequest);
 
         api.MapPost("/push/unsubscribe", async (PushUnsubscribe request, ClaimsPrincipal user, IPushStore store, CancellationToken cancellation) =>
         {
@@ -58,7 +59,7 @@ public static class PushEndpoints
                 await store.RemoveAsync(endpoint, cancellation);
             }
             return Results.NoContent();
-        });
+        }).Doc("Forget this browser's push subscription (only if it is yours)");
 
         // Dismiss or Snooze pressed on a constant reminder with the app closed (spec: R-FB-70): its
         // repeats stop for this person; Snooze brings it back for them alone in ten minutes (audit
@@ -123,7 +124,7 @@ public static class PushEndpoints
                 await store.SnoozeAsync(userId, found.Id, later.AddTicks(-(later.UtcTicks % TimeSpan.TicksPerMinute)), cancellation);
             }
             return Results.NoContent();
-        });
+        }).Doc("Press a reminder's button with the app closed: dismiss, snooze (minutes, ten by default) or complete").Refuses(StatusCodes.Status400BadRequest).Missing();
 
         // The person's snoozes still to come (audit B3), for an open app to fire them itself: only
         // their own, and only on tasks still open and theirs. A constant reminder's repeats count.
@@ -138,7 +139,7 @@ public static class PushEndpoints
                     && ServerReminders.Recipients(task, index).Contains(userId))
                 .Select(each => new SnoozedReminder(each.TaskId, each.At.ToUnixTimeMilliseconds()))
                 .ToList();
-        });
+        }).WithSummary("Your snoozed reminders still to come, for an open app to fire itself");
 
         return api;
     }

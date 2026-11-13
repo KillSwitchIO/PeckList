@@ -10,7 +10,7 @@ public static class StatsEndpoints
     public static RouteGroupBuilder MapStats(this RouteGroupBuilder admin)
     {
         admin.MapGet("/stats", async (StatsService stats, CancellationToken cancellation) => await stats.GetAsync(cancellation))
-            .RequirePermission(Permission.ViewStats);
+            .WithSummary("The server's numbers: accounts, tasks, lists, files, storage").RequirePermission(Permission.ViewStats);
         return admin;
     }
 }

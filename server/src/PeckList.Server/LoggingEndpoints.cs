@@ -20,7 +20,7 @@ public static class LoggingEndpoints
             pipeline.Settings.Level.ToString().ToLowerInvariant(),
             pipeline.Settings.Overrides.ToDictionary(pair => pair.Key, pair => pair.Value.ToString().ToLowerInvariant()),
             pipeline.Status))
-            .RequirePermission(Permission.ViewLogs);
+            .WithSummary("The log level, per-category overrides, and how each log output is doing").RequirePermission(Permission.ViewLogs);
 
         admin.MapGet("/debug-dump", async (
             HttpContext context, LoadedSettings loaded, ISecretStore secrets, IDatabase database, LogPipeline pipeline,
@@ -40,7 +40,7 @@ public static class LoggingEndpoints
             file.Position = 0;
             var name = $"pecklist-debug-{time.FileStamp()}.zip";
             return Results.File(file, "application/zip", name);
-        }).RequirePermission(Permission.ViewLogs).Audited("logs.debug-dump", targetRoute: null);
+        }).DocFile("A zip of recent logs, settings (secrets masked) and health, for a bug report", "application/zip").RequirePermission(Permission.ViewLogs).Audited("logs.debug-dump", targetRoute: null);
 
         return admin;
     }

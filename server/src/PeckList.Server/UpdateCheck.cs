@@ -116,7 +116,7 @@ public static class UpdateEndpoints
             var on = live.Current.UpdateCheck;
             var latest = on ? status.Latest : null;
             return new UpdateInfo(on, ServerApp.Version, latest?.Version, latest?.Url, latest?.PublishedAt, on ? status.CheckedAt : null);
-        });
+        }).WithSummary("This server's version and the newest release, when UPDATE_CHECK is on");
         return api;
     }
 }

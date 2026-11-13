@@ -87,7 +87,7 @@ public sealed record HandOverRequest(string? To, IReadOnlyList<string>? Ids);
 
 /// <summary>A new invite: lasts <paramref name="Days"/> (7), for <paramref name="Uses"/> people (1; null for any number).</summary>
 /// <paramref name="SendTo"/>: an email to send the link to as well (PL-122).
-public sealed record InviteRequest(double? Days, int? Uses, string? Note, bool AnyNumber = false, string? SendTo = null);
+public sealed record InviteRequest(double? Days = null, int? Uses = null, string? Note = null, bool AnyNumber = false, string? SendTo = null);
 
 public sealed record AdminInvite(
     string Id, string? Note, string CreatedBy, DateTimeOffset CreatedAt, DateTimeOffset Expires, int? MaxUses, int Uses, IReadOnlyList<string> UsedBy);
@@ -97,6 +97,21 @@ public sealed record AdminInvite(
 public sealed record NewInvite(string Url, AdminInvite Invite, bool? Sent = null, string? MailProblem = null);
 
 public sealed record InviteList(string Registration, IReadOnlyList<AdminInvite> Invites);
+
+/// <summary>A deleted account: restorable until <paramref name="RemovedAt"/>.</summary>
+public sealed record UserDeleted(DateTimeOffset RemovedAt);
+
+public sealed record RoleChanged(string Id, string Role);
+
+/// <summary>Sign-ins through the provider link by username until <paramref name="Until"/>.</summary>
+public sealed record MigrationWindow(DateTimeOffset Until);
+
+public sealed record FriendshipMade(string Id);
+
+/// <summary>How many shared lists and groups changed hands.</summary>
+public sealed record HandedOver(int Moved);
+
+public sealed record ApprovedAccount(string Id, string Username, string Role);
 
 /// <summary>
 /// <c>/api/admin</c>: users and server groups (spec: Accounts &amp; Admin). Every endpoint names the
@@ -134,7 +149,7 @@ public static class AdminEndpoints
                 keys.GetValueOrDefault(account.Id),
                 RoleLease.Ends(account, renewDays),
                 RoleLease.Ends(account, renewDays) is null ? null : account.RoleProvider));
-        }).RequirePermission(Permission.ManageUsers);
+        }).WithSummary("Every account: role, groups, sign-in methods, and whether it is turned off or deleted").RequirePermission(Permission.ManageUsers);
 
         // Delete: turned off at once, removed for good after the grace period, restorable until then.
         admin.MapDelete("/users/{id}", async (
@@ -145,8 +160,8 @@ public static class AdminEndpoints
                 if (account.Id == user.UserId()) return Results.Conflict(new AdminError("self", "you cannot delete your own account"));
                 var deleted = await accounts.DeleteAsync(id, cancellation);
                 AuthSetup.ForgetStamp(cache, id);
-                return Results.Ok(new { RemovedAt = removal.RemovedAt(deleted) });
-            }), cancellation)).RequirePermission(Permission.ManageUsers).ProjectsServerGroups().Audited("admin.user-deleted");
+                return Results.Ok(new UserDeleted(removal.RemovedAt(deleted)));
+            }), cancellation)).Doc<UserDeleted>("Delete an account: it can be restored until removedAt, then it is removed for good").Refuses(StatusCodes.Status409Conflict).Missing().RequirePermission(Permission.ManageUsers).ProjectsServerGroups().Audited("admin.user-deleted");
 
         admin.MapPost("/users/{id}/restore", async (
             string id, ClaimsPrincipal user, IAccountStore store, AccountService accounts, IMemoryCache cache, CancellationToken cancellation) =>
@@ -156,7 +171,7 @@ public static class AdminEndpoints
                 await accounts.RestoreAsync(id, cancellation);
                 AuthSetup.ForgetStamp(cache, id);
                 return Results.NoContent();
-            }, cancellation)).RequirePermission(Permission.ManageUsers).ProjectsServerGroups().Audited("admin.user-restored");
+            }, cancellation)).Doc("Restore a deleted account before it is removed").Refuses(StatusCodes.Status409Conflict).Missing().RequirePermission(Permission.ManageUsers).ProjectsServerGroups().Audited("admin.user-restored");
 
         // Delete now: a deleted account goes for good without waiting out its grace period.
         admin.MapPost("/users/{id}/remove-now", async (
@@ -166,7 +181,7 @@ public static class AdminEndpoints
                 if (account.DeletedAt is null) return Results.Conflict(new AdminError("not_deleted"));
                 await removal.RemoveNowAsync(id, cancellation);
                 return Results.NoContent();
-            }, cancellation)).RequirePermission(Permission.ManageUsers).Audited("admin.user-removed-now");
+            }, cancellation)).Doc("Remove a deleted account and its data now, without waiting").Refuses(StatusCodes.Status409Conflict).Missing().RequirePermission(Permission.ManageUsers).Audited("admin.user-removed-now");
 
         admin.MapPost("/users", (NewUserRequest request, ClaimsPrincipal user, AccountService accounts, HttpContext context, CancellationToken cancellation) =>
             AccountResult(async () =>
@@ -183,7 +198,7 @@ public static class AdminEndpoints
                 var account = await accounts.CreateUserAsync(username, password, role, mustChangePassword: true, cancellation);
                 context.Audit().On(account.Id, account.Username).Detail = $"role {role.Name()}";
                 return Results.Created($"/api/admin/users/{account.Id}", new NewUser(account.Id, account.Username, role.Name(), password));
-            })).RequirePermission(Permission.ManageUsers).Audited("admin.user-created", targetRoute: null);
+            })).Doc<NewUser>("Make an account with a generated first password, shown once", StatusCodes.Status201Created).Refuses(StatusCodes.Status400BadRequest, StatusCodes.Status409Conflict).RequirePermission(Permission.ManageUsers).Audited("admin.user-created", targetRoute: null);
 
         admin.MapPut("/users/{id}/disabled", async (
             string id, DisabledRequest request, ClaimsPrincipal user, IAccountStore store, AccountService accounts, IMemoryCache cache, HttpContext context,
@@ -196,7 +211,7 @@ public static class AdminEndpoints
                 await accounts.SetDisabledAsync(id, request.Disabled, cancellation);
                 AuthSetup.ForgetStamp(cache, id);
                 return Results.NoContent();
-            }), cancellation)).RequirePermission(Permission.ManageUsers).Audited("admin.user-disabled");
+            }), cancellation)).Doc("Turn an account off, or back on").Refuses(StatusCodes.Status409Conflict).Missing().RequirePermission(Permission.ManageUsers).Audited("admin.user-disabled");
 
         admin.MapPost("/users/{id}/password", async (
             string id, PasswordResetRequest request, ClaimsPrincipal user, IAccountStore store, AccountService accounts, IMemoryCache cache, CancellationToken cancellation) =>
@@ -213,7 +228,7 @@ public static class AdminEndpoints
                     var code = request.Password?.Length > AccountService.MaxNewPasswordLength ? "too_long" : "too_short";
                     return Results.BadRequest(new AdminError(code, error.Message));
                 }
-            }, cancellation)).RequirePermission(Permission.ManageUsers).Audited("admin.password-reset");
+            }, cancellation)).Doc<PasswordReset>("Set someone's password (one is made when it is left out); they change it at their next sign-in").Refuses(StatusCodes.Status400BadRequest).Missing().RequirePermission(Permission.ManageUsers).Audited("admin.password-reset");
 
         admin.MapPut("/users/{id}/role", (string id, RoleRequest request, AccountService accounts, IMemoryCache cache, HttpContext context, CancellationToken cancellation) =>
             AccountResult(async () =>
@@ -223,8 +238,8 @@ public static class AdminEndpoints
                 var account = await accounts.SetRoleAsync(id, role, cancellation);
                 // This process changed it: the next request already sees the new role.
                 AuthSetup.ForgetStamp(cache, id);
-                return Results.Ok(new { account.Id, Role = account.Role.Name() });
-            })).RequirePermission(Permission.ManageAdmins).Audited("admin.role-changed");
+                return Results.Ok(new RoleChanged(account.Id, account.Role.Name()));
+            })).Doc<RoleChanged>("Change someone's role").Refuses(StatusCodes.Status400BadRequest, StatusCodes.Status409Conflict).Missing().RequirePermission(Permission.ManageAdmins).Audited("admin.role-changed");
 
         // Linked provider accounts and moving between providers (spec: Linking and provider migration).
         admin.MapGet("/users/{id}/identities", async (
@@ -232,7 +247,7 @@ public static class AdminEndpoints
             await OnAccountAsync(id, user, accounts, async _ =>
                 Results.Ok((await signIn.IdentitiesOfAsync(id, cancellation)).Select(identity => AccountEndpoints.View(identity, settings)).ToList()),
                 cancellation))
-            .RequirePermission(Permission.ManageUsers);
+            .Doc<IReadOnlyList<IdentityView>>("Someone's linked provider accounts").Missing().RequirePermission(Permission.ManageUsers);
 
         admin.MapDelete("/users/{id}/identities/{provider}/{subject}", async (
             string id, string provider, string subject, ClaimsPrincipal user, ExternalSignIn signIn, IAccountStore accounts, HttpContext context,
@@ -243,7 +258,7 @@ public static class AdminEndpoints
                 if (await signIn.UnlinkAsync(id, provider, subject, selfService: false, cancellation) != UnlinkResult.Unlinked) return Results.NotFound();
                 var stranded = !await signIn.CanSignInAsync((await accounts.FindByIdAsync(id, cancellation))!, cancellation);
                 return Results.Ok(new UnbindResult(1, stranded ? [account.Username] : []));
-            }, cancellation)).RequirePermission(Permission.ManageUsers).Audited("admin.identity-unlinked");
+            }, cancellation)).Doc<UnbindResult>("Unlink one of someone's provider accounts; stranded names them if it was their last way in").Missing().RequirePermission(Permission.ManageUsers).Audited("admin.identity-unlinked");
 
         // Attach a provider account by hand: its subject, or a waiting sign-in's.
         admin.MapPost("/users/{id}/identities", async (
@@ -260,7 +275,7 @@ public static class AdminEndpoints
                 return await signIn.LinkByAdminAsync(request.Provider!, subject, id, cancellation) == LinkResult.Linked
                     ? Results.NoContent()
                     : Results.Conflict(new AdminError("taken", "that provider account is linked to someone else"));
-            }, cancellation)).RequirePermission(Permission.ManageUsers).Audited("admin.identity-linked");
+            }, cancellation)).Doc("Link a provider account to someone by its subject").Refuses(StatusCodes.Status400BadRequest, StatusCodes.Status409Conflict).Missing().RequirePermission(Permission.ManageUsers).Audited("admin.identity-linked");
 
         admin.MapGet("/providers", async (ServerSettings settings, ExternalSignIn signIn, IIdentityStore identities, CancellationToken cancellation) =>
         {
@@ -272,7 +287,7 @@ public static class AdminEndpoints
                     await signIn.MigrationWindowAsync(provider.Name, cancellation)));
             }
             return list;
-        }).RequirePermission(Permission.ManageUsers);
+        }).WithSummary("The configured sign-in providers, how many accounts each has linked, and any open migration window").RequirePermission(Permission.ManageUsers);
 
         // Unbinding works for providers no longer configured too: that is how their links are cleared.
         admin.MapPost("/providers/{name}/unbind-all", async (
@@ -295,7 +310,7 @@ public static class AdminEndpoints
             var (unbound, stranded) = await signIn.UnbindProviderAsync(name, cancellation);
             context.Audit().Detail = $"{unbound} accounts detached";
             return Results.Ok(new UnbindResult(unbound, stranded));
-        }).RequirePermission(Permission.ManageUsers).Audited("admin.provider-unbound", "name", AuditTarget.Name);
+        }).Doc<UnbindResult>("Detach every account from a provider, also one no longer configured").RequirePermission(Permission.ManageUsers).Audited("admin.provider-unbound", "name", AuditTarget.Name);
 
         admin.MapPut("/providers/{name}/migration-window", async (
             string name, WindowRequest request, ServerSettings settings, ExternalSignIn signIn, HttpContext context, CancellationToken cancellation) =>
@@ -304,14 +319,14 @@ public static class AdminEndpoints
             var hours = request.Hours ?? 24;
             context.Audit().Detail = $"{hours} hours";
             if (hours is <= 0 or > 24 * 30) return Results.BadRequest(new AdminError("invalid_hours", "between a minute and 30 days"));
-            return Results.Ok(new { Until = await signIn.OpenMigrationWindowAsync(name, TimeSpan.FromHours(hours), cancellation) });
-        }).RequirePermission(Permission.ManageUsers).Audited("admin.migration-window-opened", "name", AuditTarget.Name);
+            return Results.Ok(new MigrationWindow(await signIn.OpenMigrationWindowAsync(name, TimeSpan.FromHours(hours), cancellation)));
+        }).Doc<MigrationWindow>("Open a migration window: sign-ins through the provider link by username for the hours given (24 by default)").Refuses(StatusCodes.Status400BadRequest).Missing().RequirePermission(Permission.ManageUsers).Audited("admin.migration-window-opened", "name", AuditTarget.Name);
 
         admin.MapDelete("/providers/{name}/migration-window", async (string name, ExternalSignIn signIn, CancellationToken cancellation) =>
         {
             await signIn.CloseMigrationWindowAsync(name, cancellation);
             return Results.NoContent();
-        }).RequirePermission(Permission.ManageUsers).Audited("admin.migration-window-closed", "name", AuditTarget.Name);
+        }).Doc("Close a provider's migration window").RequirePermission(Permission.ManageUsers).Audited("admin.migration-window-closed", "name", AuditTarget.Name);
 
         // The OIDC page: who is paired with which provider account, and the mappings (spec: Linking).
         admin.MapGet("/oidc", async (
@@ -353,7 +368,7 @@ public static class AdminEndpoints
                         links[account.Id].Select(identity => AccountEndpoints.View(identity, settings)).ToList()))
                     .ToList(),
                 mappings);
-        }).RequirePermission(Permission.ManageUsers);
+        }).WithSummary("The OIDC page: providers, who is linked to what, and the username mappings").RequirePermission(Permission.ManageUsers);
 
         // Map a provider username to an account: a first claim, deleted once used. By subject is linking by hand.
         admin.MapPut("/oidc/mappings", async (
@@ -397,7 +412,7 @@ public static class AdminEndpoints
                 }, cancellation);
                 return Results.NoContent();
             }, cancellation);
-        }).RequirePermission(Permission.ManageUsers).Audited("admin.oidc-mapping-saved", targetRoute: null);
+        }).Doc("Map a provider username to an account").Refuses(StatusCodes.Status400BadRequest, StatusCodes.Status409Conflict).Missing().RequirePermission(Permission.ManageUsers).Audited("admin.oidc-mapping-saved", targetRoute: null);
 
         admin.MapDelete("/oidc/mappings/{provider}/{providerUsername}", async (
             string provider, string providerUsername, ServerSettings settings, IIdentityStore identities, HttpContext context,
@@ -409,7 +424,7 @@ public static class AdminEndpoints
                 return Results.Conflict(new AdminError("set_by_settings", "change OIDC_..._USER_MAP to remove this one"));
             }
             return await identities.RemoveMappingAsync(provider, providerUsername, cancellation) ? Results.NoContent() : Results.NotFound();
-        }).RequirePermission(Permission.ManageUsers).Audited("admin.oidc-mapping-removed", targetRoute: null);
+        }).Doc("Remove a username mapping (one set by USER_MAP stays)").Refuses(StatusCodes.Status409Conflict).Missing().RequirePermission(Permission.ManageUsers).Audited("admin.oidc-mapping-removed", targetRoute: null);
 
         // Remap: the provider account signs into another account from now on. Nothing the old account owns moves.
         admin.MapPut("/oidc/identities/{provider}/{subject}/account", async (
@@ -427,7 +442,7 @@ public static class AdminEndpoints
                     var stranded = !await signIn.CanSignInAsync(from, cancellation);
                     return Results.Ok(new UnbindResult(1, stranded ? [from.Username] : []));
                 }, cancellation), cancellation);
-        }).RequirePermission(Permission.ManageUsers).Audited("admin.identity-moved", targetRoute: null);
+        }).Doc<UnbindResult>("Move a provider account to another account; stranded names the one it left if that was its last way in").Missing().RequirePermission(Permission.ManageUsers).Audited("admin.identity-moved", targetRoute: null);
 
         admin.MapPost("/users/{id}/login-link", async (
             string id, ClaimsPrincipal user, IAccountStore accounts, LoginLinks links, HttpContext context, CancellationToken cancellation) =>
@@ -436,7 +451,7 @@ public static class AdminEndpoints
                 if (ServerApp.LinkOrigin(context) is not { } origin) return ServerApp.PublicUrlRequired();
                 var (token, expires) = await links.CreateAsync(id, cancellation: cancellation);
                 return Results.Ok(new LoginLinkView($"{origin}/auth/link/{token}", expires));
-            }, cancellation)).RequirePermission(Permission.ManageUsers).Audited("admin.login-link-created");
+            }, cancellation)).Doc<LoginLinkView>("A one-time sign-in link for someone (needs PUBLIC_URL for home-network names)").Refuses(StatusCodes.Status409Conflict).Missing().RequirePermission(Permission.ManageUsers).Audited("admin.login-link-created");
 
         // Friendships admins set up or end for people (spec: Account management).
         admin.MapGet("/users/{id}/friends", async (
@@ -449,7 +464,7 @@ public static class AdminEndpoints
                     .Select(each => new AdminFriend(each.Other, names[each.Other], each.State))
                     .OrderBy(friend => friend.Username)
                     .ToList());
-            }, cancellation)).RequirePermission(Permission.ManageUsers);
+            }, cancellation)).Doc<IReadOnlyList<AdminFriend>>("Someone's friendships and their state").Missing().RequirePermission(Permission.ManageUsers);
 
         // Pending task invites between the two settle as they would after a friend link.
         admin.MapPost("/friendships", async (
@@ -462,8 +477,8 @@ public static class AdminEndpoints
             var madeBy = await accounts.FindByIdAsync(user.UserId(), cancellation);
             if (await friends.MakeFriendsAsync(request.UserA ?? "", request.UserB ?? "", madeBy, cancellation) is not { } id) return Results.NotFound();
             await invites.SettleAsync(cancellation);
-            return Results.Ok(new { Id = id });
-        }).RequirePermission(Permission.ManageUsers).Audited("admin.friends-made", targetRoute: null);
+            return Results.Ok(new FriendshipMade(id));
+        }).Doc<FriendshipMade>("Make two people friends").Missing().RequirePermission(Permission.ManageUsers).Audited("admin.friends-made", targetRoute: null);
 
         admin.MapDelete("/friendships/{a}/{b}", async (
             string a, string b, Friends friends, Invites invites, IAccountStore accounts, HttpContext context, CancellationToken cancellation) =>
@@ -472,7 +487,7 @@ public static class AdminEndpoints
             if (!await friends.EndFriendshipAsync(a, b, cancellation)) return Results.NotFound();
             await invites.SettleAsync(cancellation);
             return Results.NoContent();
-        }).RequirePermission(Permission.ManageUsers).Audited("admin.friends-ended", "a");
+        }).Doc("End the friendship between two people").Missing().RequirePermission(Permission.ManageUsers).Audited("admin.friends-ended", "a");
 
         // Shared lists and groups someone owns, and handing them to another person.
         admin.MapGet("/users/{id}/shared", async (
@@ -480,7 +495,7 @@ public static class AdminEndpoints
             await OnAccountAsync(id, user, accounts, _ =>
                 Task.FromResult(Results.Ok(ownership.SharedBy(id).Select(share => new AdminShare(share.Kind, share.Id, share.Name, share.People)).ToList())),
                 cancellation))
-            .RequirePermission(Permission.ManageUsers);
+            .Doc<IReadOnlyList<AdminShare>>("What someone shares with others: lists and groups, and how many people each reaches").Missing().RequirePermission(Permission.ManageUsers);
 
         admin.MapPost("/users/{id}/hand-over", async (
             string id, HandOverRequest request, ClaimsPrincipal user, Ownership ownership, IAccountStore accounts, HttpContext context,
@@ -490,8 +505,8 @@ public static class AdminEndpoints
                 if (request.To is null || await accounts.FindByIdAsync(request.To, cancellation) is not { } to) return Results.NotFound();
                 var moved = await ownership.HandOverAsync(id, request.To, request.Ids, cancellation);
                 context.Audit().Detail = $"{moved} to {to.Username}";
-                return Results.Ok(new { Moved = moved });
-            }, cancellation)).RequirePermission(Permission.ManageUsers).Audited("admin.shares-handed-over");
+                return Results.Ok(new HandedOver(moved));
+            }, cancellation)).Doc<HandedOver>("Hand someone's shared lists and groups to another person").Missing().RequirePermission(Permission.ManageUsers).Audited("admin.shares-handed-over");
 
         // View the app as someone (super admins; spec: Account management, impersonation).
         admin.MapPost("/users/{id}/impersonate", async (
@@ -514,7 +529,7 @@ public static class AdminEndpoints
             {
                 return Results.BadRequest(new AdminError("reason_required", error.Message));
             }
-        }).RequirePermission(Permission.Impersonate).Audited("impersonation.started");
+        }).Doc<ImpersonationStart>("View the app as someone, for a reason and a limited time (a browser session only)").Refuses(StatusCodes.Status400BadRequest, StatusCodes.Status409Conflict).RequirePermission(Permission.Impersonate).Audited("impersonation.started");
 
         // Invite links for self sign-up (spec: Registration).
         admin.MapGet("/invites", async (SelfSignUp signUp, SignupInvites invites, IAccountStore accounts, CancellationToken cancellation) =>
@@ -522,7 +537,7 @@ public static class AdminEndpoints
             var names = await NamesAsync(accounts, cancellation);
             return new InviteList(signUp.InvitesWork ? signUp.Policy.ToString().ToLowerInvariant() : "closed",
                 (await invites.ListAsync(cancellation)).Select(invite => View(invite, names)).ToList());
-        }).RequirePermission(Permission.ManageUsers);
+        }).WithSummary("Sign-up invites, and whether sign-up is open, by invite or closed").RequirePermission(Permission.ManageUsers);
 
         admin.MapPost("/invites", async (
             InviteRequest request, ClaimsPrincipal user, SelfSignUp signUp, SignupInvites invites, IAccountStore accounts, HttpContext context,
@@ -565,17 +580,17 @@ public static class AdminEndpoints
             {
                 return Results.BadRequest(new AdminError("invalid", error.Message));
             }
-        }).RequirePermission(Permission.ManageUsers).Audited("admin.invite-created", targetRoute: null);
+        }).Doc<NewInvite>("Make a sign-up invite; its link is shown once, and emailed when sendTo is given").Refuses(StatusCodes.Status400BadRequest, StatusCodes.Status409Conflict).RequirePermission(Permission.ManageUsers).Audited("admin.invite-created", targetRoute: null);
 
         admin.MapDelete("/invites/{id}", async (string id, SignupInvites invites, HttpContext context, CancellationToken cancellation) =>
         {
             if (await invites.RevokeAsync(id, cancellation) is not { } invite) return Results.NotFound();
             context.Audit().On(invite.Id, invite.Note);
             return Results.NoContent();
-        }).RequirePermission(Permission.ManageUsers).Audited("admin.invite-revoked", targetRoute: null);
+        }).Doc("Revoke a sign-up invite").Missing().RequirePermission(Permission.ManageUsers).Audited("admin.invite-revoked", targetRoute: null);
 
         admin.MapGet("/pending-signins", async (IIdentityStore identities, CancellationToken cancellation) =>
-            await identities.ListPendingAsync(cancellation)).RequirePermission(Permission.ManageUsers);
+            await identities.ListPendingAsync(cancellation)).WithSummary("Provider sign-ins waiting for an admin's approval").RequirePermission(Permission.ManageUsers);
 
         admin.MapPost("/pending-signins/{provider}/{subject}/approve", async (
             string provider, string subject, ServerSettings settings, ExternalSignIn signIn, HttpContext context, CancellationToken cancellation) =>
@@ -584,8 +599,8 @@ public static class AdminEndpoints
             if (settings.Provider(provider) is not { } found) return Results.NotFound();
             if (await signIn.ApproveAsync(found, subject, cancellation) is not { } account) return Results.NotFound();
             context.Audit().On(account.Id, account.Username).Detail = $"{provider}, role {account.Role.Name()}";
-            return Results.Ok(new { account.Id, account.Username, Role = account.Role.Name() });
-        }).RequirePermission(Permission.ManageUsers).ProjectsServerGroups().Audited("admin.pending-approved", targetRoute: null);
+            return Results.Ok(new ApprovedAccount(account.Id, account.Username, account.Role.Name()));
+        }).Doc<ApprovedAccount>("Approve a waiting sign-in: its account is made").Missing().RequirePermission(Permission.ManageUsers).ProjectsServerGroups().Audited("admin.pending-approved", targetRoute: null);
 
         admin.MapDelete("/pending-signins/{provider}/{subject}", async (string provider, string subject, IIdentityStore identities, HttpContext context, CancellationToken cancellation) =>
         {
@@ -593,10 +608,10 @@ public static class AdminEndpoints
             context.Audit().On(null, waiting?.Username ?? subject).Detail = provider;
             return await identities.RemovePendingAsync(provider, subject, cancellation) ? Results.NoContent() : Results.NotFound();
         })
-            .RequirePermission(Permission.ManageUsers).Audited("admin.pending-dismissed", targetRoute: null);
+            .Doc("Dismiss a waiting sign-in").Missing().RequirePermission(Permission.ManageUsers).Audited("admin.pending-dismissed", targetRoute: null);
 
         admin.MapGet("/groups", async (ServerGroupService groups, CancellationToken cancellation) =>
-            (await groups.ListAsync(cancellation)).Select(View)).RequirePermission(Permission.ManageGroups);
+            (await groups.ListAsync(cancellation)).Select(View)).WithSummary("Server groups and their members").RequirePermission(Permission.ManageGroups);
 
         admin.MapPost("/groups", async (GroupRequest request, ServerGroupService groups, HttpContext context, CancellationToken cancellation) =>
             await GroupResult(async () =>
@@ -605,7 +620,7 @@ public static class AdminEndpoints
                 var group = await groups.CreateAsync(request.Name ?? "", request.OfferedForSharing ?? false, cancellation);
                 context.Audit().On(group.Id, group.Name);
                 return Results.Created($"/api/admin/groups/{group.Id}", View(new ServerGroupView(group, [])));
-            })).RequirePermission(Permission.ManageGroups).ProjectsServerGroups().Audited("admin.group-created", targetRoute: null);
+            })).Doc<AdminGroup>("Make a server group", StatusCodes.Status201Created).Refuses(StatusCodes.Status400BadRequest, StatusCodes.Status409Conflict).RequirePermission(Permission.ManageGroups).ProjectsServerGroups().Audited("admin.group-created", targetRoute: null);
 
         admin.MapPatch("/groups/{id}", async (string id, GroupRequest request, ServerGroupService groups, HttpContext context, CancellationToken cancellation) =>
             await GroupResult(async () =>
@@ -617,7 +632,7 @@ public static class AdminEndpoints
                 }.OfType<string>());
                 await groups.UpdateAsync(id, request.Name, request.OfferedForSharing, cancellation);
                 return Results.Ok((await groups.ListAsync(cancellation)).Where(view => view.Group.Id == id).Select(View).Single());
-            })).RequirePermission(Permission.ManageGroups).ProjectsServerGroups().Audited("admin.group-changed", "id", AuditTarget.Group);
+            })).Doc<AdminGroup>("Rename a server group, or change whether it is offered for sharing").Refuses(StatusCodes.Status400BadRequest, StatusCodes.Status409Conflict).Missing().RequirePermission(Permission.ManageGroups).ProjectsServerGroups().Audited("admin.group-changed", "id", AuditTarget.Group);
 
         admin.MapDelete("/groups/{id}", async (string id, ServerGroupService groups, IServerGroupStore store, HttpContext context, CancellationToken cancellation) =>
         {
@@ -625,7 +640,7 @@ public static class AdminEndpoints
             context.Audit().On(id, (await store.FindAsync(id, cancellation))?.Name);
             return await groups.DeleteAsync(id, cancellation) ? Results.NoContent() : Results.NotFound();
         })
-            .RequirePermission(Permission.ManageGroups).ProjectsServerGroups().Audited("admin.group-deleted", "id", AuditTarget.Group);
+            .Doc("Delete a server group").Missing().RequirePermission(Permission.ManageGroups).ProjectsServerGroups().Audited("admin.group-deleted", "id", AuditTarget.Group);
 
         // Members added by hand; ones from an identity provider come and go with its sign-ins.
         admin.MapPut("/groups/{id}/members/{accountId}", (
@@ -635,7 +650,7 @@ public static class AdminEndpoints
                 context.Audit().Detail = (await store.FindAsync(id, cancellation))?.Name ?? id;
                 await groups.SetManualMemberAsync(id, accountId, member: true, cancellation);
                 return Results.NoContent();
-            })).RequirePermission(Permission.ManageGroups).ProjectsServerGroups().Audited("admin.group-member-added", "accountId");
+            })).Doc("Add someone to a server group by hand").Missing().RequirePermission(Permission.ManageGroups).ProjectsServerGroups().Audited("admin.group-member-added", "accountId");
 
         admin.MapDelete("/groups/{id}/members/{accountId}", (
             string id, string accountId, ServerGroupService groups, IServerGroupStore store, HttpContext context, CancellationToken cancellation) =>
@@ -644,7 +659,7 @@ public static class AdminEndpoints
                 context.Audit().Detail = (await store.FindAsync(id, cancellation))?.Name ?? id;
                 await groups.SetManualMemberAsync(id, accountId, member: false, cancellation);
                 return Results.NoContent();
-            })).RequirePermission(Permission.ManageGroups).ProjectsServerGroups().Audited("admin.group-member-removed", "accountId");
+            })).Doc("Take someone out of a server group").Missing().RequirePermission(Permission.ManageGroups).ProjectsServerGroups().Audited("admin.group-member-removed", "accountId");
 
         return admin;
     }
