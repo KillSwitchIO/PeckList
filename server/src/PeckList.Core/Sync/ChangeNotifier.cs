@@ -3,8 +3,17 @@ using System.Threading.Channels;
 
 namespace PeckList.Core.Sync;
 
-/// <summary>A user's data changed. <see cref="Source"/> is the device that made the change, if it said.</summary>
-public sealed record ChangeEvent(long Cursor, string? Source);
+/// <summary>
+/// A user's data changed. <see cref="Source"/> is the device that made the change, if it said.
+/// With <see cref="Notice"/> it is not a change at all but a notification that was just made for them.
+/// </summary>
+public sealed record ChangeEvent(long Cursor, string? Source, NoticeEvent? Notice = null);
+
+/// <summary>
+/// A notification as the event stream tells it (<c>event: notification</c>): a reminder that came
+/// due, a task assigned, a list shared, a comment. Ids only; the listener knows its own tasks.
+/// </summary>
+public sealed record NoticeEvent(string Id, string Kind, DateTimeOffset At, string? TaskId, string? ListId, string? ActorId);
 
 /// <summary>An open subscription: changes queue in <see cref="Events"/> until it is disposed.</summary>
 public interface IChangeSubscription : IDisposable
@@ -38,6 +47,15 @@ public sealed class InProcessChangeNotifier : IChangeNotifier
     {
         if (!subscribers.TryGetValue(userId, out var channels)) return;
         foreach (var channel in channels.Values) channel.Writer.TryWrite(change);
+    }
+
+    /// <summary>Tell a user's open streams about notifications made for them. Best effort, like changes.</summary>
+    public static void Notify(IChangeNotifier notifier, IEnumerable<Notifications.Notification> made)
+    {
+        foreach (var each in made)
+        {
+            notifier.Notify(each.UserId, new ChangeEvent(0, null, new NoticeEvent(each.Id, each.Kind, each.At, each.TaskId, each.ListId, each.ActorId)));
+        }
     }
 
     public IChangeSubscription? Subscribe(string userId, int most = int.MaxValue)

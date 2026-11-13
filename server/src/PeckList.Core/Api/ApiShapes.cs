@@ -35,9 +35,13 @@ public sealed record ApiTask(
     string? CreatedAt,
     string? CreatedBy,
     string? UpdatedAt,
-    string? DeletedAt);
+    string? DeletedAt,
+    string? Order = null);
 
-/// <summary>A list, with the reader's role on it (<c>owner</c>, <c>editor</c> or <c>viewer</c>).</summary>
+/// <summary>
+/// A list, with the reader's role on it (<c>owner</c>, <c>editor</c> or <c>viewer</c>). <c>order</c>, here
+/// and on tasks, sections and tags, is the apps' sort key: compare the strings byte by byte.
+/// </summary>
 public sealed record ApiList(
     string Id,
     string Name,
@@ -49,11 +53,19 @@ public sealed record ApiList(
     string? Role,
     string? CreatedAt,
     string? UpdatedAt,
-    string? DeletedAt);
+    string? DeletedAt,
+    string? Icon = null,
+    string? Order = null);
 
-public sealed record ApiSection(string Id, string? ListId, string Name, string? CreatedAt, string? UpdatedAt, string? DeletedAt);
+public sealed record ApiSection(string Id, string? ListId, string Name, string? CreatedAt, string? UpdatedAt, string? DeletedAt, string? Order = null);
 
-public sealed record ApiTag(string Id, string Name, string? Color, string? CreatedAt, string? UpdatedAt, string? DeletedAt);
+public sealed record ApiTag(string Id, string Name, string? Color, string? CreatedAt, string? UpdatedAt, string? DeletedAt, string? Order = null);
+
+/// <summary>
+/// Someone a task's <c>assignees</c> can name: a person (<c>user:&lt;id&gt;</c>) or a group
+/// (<c>group:&lt;id&gt;</c>), with the name the apps show. <c>assignable</c>: you may assign them.
+/// </summary>
+public sealed record ApiPerson(string Id, string Kind, string Name, string? Handle, bool Me, bool Assignable);
 
 /// <summary>A page of results; <c>next</c> is the cursor for the next page, or null at the end.</summary>
 public sealed record ApiPage<T>(IReadOnlyList<T> Items, string? Next);
@@ -102,7 +114,8 @@ public static class ApiShapes
         CreatedAt: Text(doc, "createdAt"),
         CreatedBy: Text(doc, "createdBy"),
         UpdatedAt: UpdatedAt(doc),
-        DeletedAt: Text(doc, "deletedAt"));
+        DeletedAt: Text(doc, "deletedAt"),
+        Order: Text(doc, "order"));
 
     public static ApiList List(JsonObject doc, string? role) => new(
         Id: Text(doc, "id") ?? "",
@@ -115,13 +128,15 @@ public static class ApiShapes
         Role: role,
         CreatedAt: Text(doc, "createdAt"),
         UpdatedAt: UpdatedAt(doc),
-        DeletedAt: Text(doc, "deletedAt"));
+        DeletedAt: Text(doc, "deletedAt"),
+        Icon: Text(doc, "icon"),
+        Order: Text(doc, "order"));
 
     public static ApiSection Section(JsonObject doc) => new(
-        Text(doc, "id") ?? "", Text(doc, "listId"), Text(doc, "name") ?? "", Text(doc, "createdAt"), UpdatedAt(doc), Text(doc, "deletedAt"));
+        Text(doc, "id") ?? "", Text(doc, "listId"), Text(doc, "name") ?? "", Text(doc, "createdAt"), UpdatedAt(doc), Text(doc, "deletedAt"), Text(doc, "order"));
 
     public static ApiTag Tag(JsonObject doc) => new(
-        Text(doc, "id") ?? "", Text(doc, "name") ?? "", Text(doc, "color"), Text(doc, "createdAt"), UpdatedAt(doc), Text(doc, "deletedAt"));
+        Text(doc, "id") ?? "", Text(doc, "name") ?? "", Text(doc, "color"), Text(doc, "createdAt"), UpdatedAt(doc), Text(doc, "deletedAt"), Text(doc, "order"));
 
     /// <summary>The wall time of the newest clock on the document (its fields and set elements), or null when it has none.</summary>
     public static string? UpdatedAt(JsonObject doc)

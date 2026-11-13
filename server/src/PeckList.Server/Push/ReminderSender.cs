@@ -21,7 +21,8 @@ public sealed class ReminderSender(
     INotificationStore notifications,
     IPushSender push,
     TimeProvider time,
-    ILogger<ReminderSender> logger)
+    ILogger<ReminderSender> logger,
+    Core.Sync.IChangeNotifier notifier)
     : PeriodicService("Sending reminders", TimeSpan.Zero, Every, time, logger, LogLevel.Warning)
 {
     public static readonly TimeSpan Every = TimeSpan.FromSeconds(30);
@@ -138,7 +139,7 @@ public sealed class ReminderSender(
         var payload = new PushPayload(TitleOf(task), $"Reminder for {Clock(first, zone, mine)}", tag, $"/today?task={taskId}", constant);
         if (at == first)
         {
-            await notifications.AddAsync([new Notification
+            var made = new Notification
             {
                 Id = Ids.NewUlid(Time),
                 UserId = userId,
@@ -146,7 +147,10 @@ public sealed class ReminderSender(
                 At = at,
                 TaskId = taskId,
                 ListId = (string?)task["listId"],
-            }], cancellation);
+            };
+            await notifications.AddAsync([made], cancellation);
+            // Open streams hear at once: a Home Assistant automation can say the reminder aloud.
+            Core.Sync.InProcessChangeNotifier.Notify(notifier, [made]);
         }
         await push.SendAsync(userId, payload, cancellation);
     }

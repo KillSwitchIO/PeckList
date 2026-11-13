@@ -99,6 +99,7 @@ and sessions together. Past that it gets `429` with `Retry-After`.
 | `POST /api/v1/sections`            | Make a section: `name`, `listId`, optional `id`                    |
 | `PATCH /api/v1/sections/{id}`      | Rename a section                                                   |
 | `GET /api/v1/tags`                 | Your tags                                                          |
+| `GET /api/v1/people`               | The people and groups assignees can name, with their names         |
 | `GET /api/v1/tasks`                | Tasks, filtered and paged (below)                                  |
 | `GET /api/v1/tasks/{id}`           | One task                                                           |
 | `POST /api/v1/tasks`               | Make a task                                                        |
@@ -143,8 +144,30 @@ A task looks like this:
 }
 ```
 
+`order` is the key the apps sort by, within a list (or under a parent task): compare the strings
+byte by byte, smaller first. Lists, sections and tags carry one too, and a list also its `icon`
+(a name from the app's icon picker, or `null`).
+
 `status` is `open`, `done` or `wontdo`. `priority` is 0 (none) to 3 (high). `assignees` are
 `user:<id>` or `group:<id>`. `recurrence` is an RRULE such as `FREQ=WEEKLY;BYDAY=SA`.
+
+### People
+
+A task's `assignees` are ids. `GET /api/v1/people` answers who they are: you first, then your groups,
+then the people you can see, by name.
+
+```json
+{
+  "items": [
+    { "id": "user:01JC8R3M1Q2W3E4R5T6Y7U8I9O", "kind": "user", "name": "Ben", "handle": "ben", "me": true, "assignable": true },
+    { "id": "group:01JC8R6H2K4M6P8R0T2V4X6Z8B", "kind": "group", "name": "Household", "handle": null, "me": false, "assignable": true },
+    { "id": "user:01JC8R7N3P5R7T9V1X3Z5B7D9F", "kind": "user", "name": "Sam", "handle": "sam", "me": false, "assignable": true }
+  ]
+}
+```
+
+`assignable` says whether you may put them in a task's `assignees`; someone you can see but are not
+friends with is listed, so their name can be shown, but cannot be assigned by you.
 
 ### Finding tasks
 
@@ -230,6 +253,32 @@ Deleted things come with `deletedAt` set. `revoked` lists ids you can no longer 
 because a list stopped being shared with you: drop them from your copy. While `more` is `true`,
 call again straight away with the new cursor; a page can be empty and still say `more`. Store the
 cursor only after you have applied the page.
+
+### Hearing about changes and notifications
+
+`GET /api/events` is a [Server-Sent Events](https://developer.mozilla.org/docs/Web/API/Server-sent_events)
+stream, open to a key with `tasks:read`. It says when to read `/api/v1/changes` again, so a tool
+need not poll:
+
+```text
+: connected
+
+event: changed
+data: {"cursor":48214,"source":null}
+
+event: notification
+data: {"id":"01JC9...","kind":"reminder","at":"2026-11-14T15:00:00+00:00","taskId":"01JC8R5K2Z4N6PX0M3WQ7HB9TA","listId":"01JC8R4V0ZB8Q4D9C2M7K1XJ5E","actorId":null}
+```
+
+- `changed`: something you can see changed. Read the changes feed from your cursor.
+- `notification`: a notification was made for you, as the apps show them. `kind` is `reminder` (a
+  task's reminder came due), `assigned`, `groupAssigned`, `claimed`, `shared`, `commented`,
+  `commentEdited` or `mentioned`; more kinds can arrive later. It carries ids only.
+- A comment line (`: ping`) comes every 25 seconds to keep proxies from closing the stream.
+
+The stream is a nudge, not a record: events that happen while you are not connected are not sent
+again. Keep polling the changes feed now and then (once a minute at most) as a fallback. An account
+may hold 25 streams open at once; one more gets `429`.
 
 ## Examples
 

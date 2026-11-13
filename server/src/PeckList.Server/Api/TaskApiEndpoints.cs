@@ -51,6 +51,10 @@ public static class TaskApiEndpoints
             Results.Ok(new ApiItems<ApiTag>(await queries.TagListAsync(user.UserId(), cancellation))))
             .Read<ApiItems<ApiTag>>("Your tags");
 
+        v1.MapGet("/people", async (ClaimsPrincipal user, TaskWrites writes, CancellationToken cancellation) =>
+            Results.Ok(new ApiItems<ApiPerson>(await writes.PeopleAsync(user.UserId(), cancellation))))
+            .Read<ApiItems<ApiPerson>>("The people and groups a task's assignees can name, with their names");
+
         v1.MapGet("/tasks", async (HttpContext context, ClaimsPrincipal user, TaskQueries queries, CancellationToken cancellation) =>
         {
             var query = context.Request.Query;

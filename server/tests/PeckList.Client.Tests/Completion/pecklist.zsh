@@ -27,6 +27,8 @@ _pecklist_canon() {
         'sections rename') print -rl -- 'sections rename' ;;
         'tags') print -rl -- 'tags' ;;
         'tags list') print -rl -- 'tags list' ;;
+        'people') print -rl -- 'people' ;;
+        'people list') print -rl -- 'people list' ;;
         'admin') print -rl -- 'admin' ;;
         'admin add-user') print -rl -- 'admin add-user' ;;
         'admin set-role') print -rl -- 'admin set-role' ;;
@@ -47,11 +49,12 @@ _pecklist_canon() {
 
 _pecklist_children() {
     case "$1" in
-        '') print -rl -- login logout whoami tasks lists sections tags admin oidc snapshot export config completion help add ;;
+        '') print -rl -- login logout whoami tasks lists sections tags people admin oidc snapshot export config completion help add ;;
         'tasks') print -rl -- list ls add show edit done reopen delete rm restore ;;
         'lists') print -rl -- list add rename ;;
         'sections') print -rl -- list add rename ;;
         'tags') print -rl -- list ;;
+        'people') print -rl -- list ;;
         'admin') print -rl -- add-user set-role login-link reset-password ;;
         'oidc') print -rl -- unlink unbind-all migration-window ;;
         'config') print -rl -- show ;;
@@ -65,6 +68,7 @@ _pecklist_options() {
         'lists') print -rl -- -h --help --server --profile --api-key --insecure-http ;;
         'sections') print -rl -- -h --help --server --profile --api-key --insecure-http ;;
         'tags') print -rl -- -h --help --server --profile --api-key --insecure-http ;;
+        'people') print -rl -- -h --help --server --profile --api-key --insecure-http ;;
         'admin') print -rl -- -h --help --server --profile --api-key --insecure-http ;;
         'oidc') print -rl -- -h --help --server --profile --api-key --insecure-http ;;
         'config') print -rl -- -h --help --server --profile --api-key --insecure-http ;;
@@ -86,6 +90,7 @@ _pecklist_options() {
         'sections add') print -rl -- -j --json -h --help --server --profile --api-key --insecure-http ;;
         'sections rename') print -rl -- -j --json -h --help --server --profile --api-key --insecure-http ;;
         'tags list') print -rl -- -j --json -h --help --server --profile --api-key --insecure-http ;;
+        'people list') print -rl -- -j --json -h --help --server --profile --api-key --insecure-http ;;
         'admin add-user') print -rl -- --admin -h --help --server --profile --api-key --insecure-http ;;
         'admin set-role') print -rl -- -h --help --server --profile --api-key --insecure-http ;;
         'admin login-link') print -rl -- -h --help --server --profile --api-key --insecure-http ;;
@@ -132,7 +137,7 @@ _pecklist_arguments() {
 _pecklist_describe() {
     case "$1" in
         '')
-            reply=('login:Sign in: approve a code in the browser, or save an API key. Never a password.' 'logout:Revoke this CLI'\''s key on the server and forget it here.' 'whoami:The server, the account, its role and the key'\''s permissions.' 'tasks:List, add, change and close tasks.' 'lists:Your lists.' 'sections:The sections in a list.' 'tags:Your tags.' 'admin:Accounts, through the admin API (sign in with --admin).' 'oidc:Single sign-on accounts, through the admin API.' 'snapshot:Take a snapshot on the server now.' 'export:Download a full backup, or one account'\''s data, to a file or standard output.' 'config:The server'\''s settings, through the admin API.' 'completion:Print the shell completion script for bash, zsh, fish or powershell.' 'help:Show help for a command.' 'add:Same as tasks add.') ;;
+            reply=('login:Sign in: approve a code in the browser, or save an API key. Never a password.' 'logout:Revoke this CLI'\''s key on the server and forget it here.' 'whoami:The server, the account, its role and the key'\''s permissions.' 'tasks:List, add, change and close tasks.' 'lists:Your lists.' 'sections:The sections in a list.' 'tags:Your tags.' 'people:Who tasks can be assigned to.' 'admin:Accounts, through the admin API (sign in with --admin).' 'oidc:Single sign-on accounts, through the admin API.' 'snapshot:Take a snapshot on the server now.' 'export:Download a full backup, or one account'\''s data, to a file or standard output.' 'config:The server'\''s settings, through the admin API.' 'completion:Print the shell completion script for bash, zsh, fish or powershell.' 'help:Show help for a command.' 'add:Same as tasks add.') ;;
         'tasks')
             reply=('list:List the open tasks you can see, filtered by list, section, tag, status and due dates.' 'ls:Same as tasks list.' 'add:Add a task, reading dates, #tags, ^list, !priority, @person and "every ..." as the app'\''s quick add does.' 'show:Show one task.' 'edit:Change a task: only what you name changes.' 'done:Close a task. A repeating one moves on to its next date, as in the app.' 'reopen:Open a closed task again.' 'delete:Move a task to the trash. tasks restore brings it back.' 'rm:Same as tasks delete.' 'restore:Bring a task back from the trash.') ;;
         'lists')
@@ -141,6 +146,8 @@ _pecklist_describe() {
             reply=('list:Show the sections, in one list or in all of them.' 'add:Make a section in a list.' 'rename:Rename a section.') ;;
         'tags')
             reply=('list:Show your tags. Tags named in tasks add or tasks edit are made when needed.') ;;
+        'people')
+            reply=('list:Show the people and groups a task can be assigned to, with the id to use.') ;;
         'admin')
             reply=('add-user:Add an account. Its generated password must be changed at the first login.' 'set-role:Make an account a user, admin or superadmin, from its next request.' 'login-link:Print a link that signs the account in once.' 'reset-password:Give an account (default: admin) a new password to change at login.') ;;
         'oidc')

@@ -409,10 +409,49 @@ public sealed class TaskWrites(
         };
     }
 
+    /// <summary>
+    /// <c>GET /api/v1/people</c>: the people and groups the account can see, in the assignee picker's
+    /// order (me first, groups, then the others by name), each saying whether it may be assigned.
+    /// </summary>
+    public async Task<IReadOnlyList<ApiPerson>> PeopleAsync(string userId, CancellationToken cancellation = default)
+    {
+        await sharing.Loaded.WaitAsync(cancellation);
+        return await PeopleListAsync(userId, cancellation);
+    }
+
+    private async Task<List<ApiPerson>> PeopleListAsync(string userId, CancellationToken cancellation)
+    {
+        var index = sharing.Index;
+        static bool Archived(JsonObject doc) => doc["archived"] is JsonValue value && value.TryGetValue<bool>(out var flag) && flag;
+
+        var profiles = await VisibleAsync(userId, "users", false, null, cancellation);
+        ApiPerson Person(StoredEntity profile) => new(
+            $"user:{profile.Id}",
+            "user",
+            ApiShapes.Text(profile.Doc, "displayName") ?? ApiShapes.Text(profile.Doc, "handle") ?? profile.Id,
+            ApiShapes.Text(profile.Doc, "handle"),
+            Me: profile.Id == userId,
+            // Yourself always: MayAssign is about other people.
+            Assignable: profile.Id == userId || index.MayAssign(userId, [$"user:{profile.Id}"]));
+
+        var people = new List<ApiPerson>();
+        if (profiles.FirstOrDefault(profile => profile.Id == userId) is { } me) people.Add(Person(me));
+        people.AddRange((await VisibleAsync(userId, "groups", false, null, cancellation))
+            .Where(group => !Archived(group.Doc))
+            .Select(group => new ApiPerson(
+                $"group:{group.Id}", "group", ApiShapes.Text(group.Doc, "name") ?? group.Id, null,
+                Me: false, Assignable: index.MayAssign(userId, [$"group:{group.Id}"])))
+            .OrderBy(group => group.Name, StringComparer.OrdinalIgnoreCase));
+        people.AddRange(profiles
+            .Where(profile => profile.Id != userId)
+            .Select(Person)
+            .OrderBy(person => person.Name, StringComparer.OrdinalIgnoreCase));
+        return people;
+    }
+
     /// <summary>What quick add may name: the person's lists (inbox first, then in order), tags and people, and their wall clock.</summary>
     private async Task<QuickAddContext> QuickContextAsync(string userId, string zone, CancellationToken cancellation)
     {
-        var index = sharing.Index;
         static bool Flag(JsonObject doc, string field) => doc[field] is JsonValue value && value.TryGetValue<bool>(out var flag) && flag;
 
         var lists = (await VisibleAsync(userId, "lists", false, null, cancellation))
@@ -431,22 +470,10 @@ public sealed class TaskWrites(
             .ToList();
 
         // As the assignee picker: me first, my groups, then everyone else I may assign, by name.
-        var people = new List<QuickPerson>();
-        var profiles = await VisibleAsync(userId, "users", false, null, cancellation);
-        QuickPerson Person(StoredEntity profile) => new(
-            $"user:{profile.Id}",
-            ApiShapes.Text(profile.Doc, "displayName") ?? ApiShapes.Text(profile.Doc, "handle") ?? profile.Id,
-            ApiShapes.Text(profile.Doc, "handle"));
-        if (profiles.FirstOrDefault(profile => profile.Id == userId) is { } me) people.Add(Person(me));
-        var groups = (await VisibleAsync(userId, "groups", false, null, cancellation))
-            .Where(group => !Flag(group.Doc, "archived") && index.MayAssign(userId, [$"group:{group.Id}"]))
-            .Select(group => new QuickPerson($"group:{group.Id}", ApiShapes.Text(group.Doc, "name") ?? group.Id, null))
-            .OrderBy(group => group.Name, StringComparer.OrdinalIgnoreCase);
-        people.AddRange(groups);
-        people.AddRange(profiles
-            .Where(profile => profile.Id != userId && index.MayAssign(userId, [$"user:{profile.Id}"]))
-            .Select(Person)
-            .OrderBy(person => person.Name, StringComparer.OrdinalIgnoreCase));
+        var people = (await PeopleListAsync(userId, cancellation))
+            .Where(person => person.Assignable)
+            .Select(person => new QuickPerson(person.Id, person.Name, person.Handle))
+            .ToList();
 
         var now = TimeZoneInfo.ConvertTime(time.GetUtcNow(), TimeZoneInfo.FindSystemTimeZoneById(zone));
         return new QuickAddContext(lists, tags, people, now.DateTime);

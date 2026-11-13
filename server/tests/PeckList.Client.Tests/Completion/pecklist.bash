@@ -27,6 +27,8 @@ _pecklist_canon() {
         'sections rename') printf '%s\n' 'sections rename' ;;
         'tags') printf '%s\n' 'tags' ;;
         'tags list') printf '%s\n' 'tags list' ;;
+        'people') printf '%s\n' 'people' ;;
+        'people list') printf '%s\n' 'people list' ;;
         'admin') printf '%s\n' 'admin' ;;
         'admin add-user') printf '%s\n' 'admin add-user' ;;
         'admin set-role') printf '%s\n' 'admin set-role' ;;
@@ -47,11 +49,12 @@ _pecklist_canon() {
 
 _pecklist_children() {
     case "$1" in
-        '') printf '%s\n' login logout whoami tasks lists sections tags admin oidc snapshot export config completion help add ;;
+        '') printf '%s\n' login logout whoami tasks lists sections tags people admin oidc snapshot export config completion help add ;;
         'tasks') printf '%s\n' list ls add show edit done reopen delete rm restore ;;
         'lists') printf '%s\n' list add rename ;;
         'sections') printf '%s\n' list add rename ;;
         'tags') printf '%s\n' list ;;
+        'people') printf '%s\n' list ;;
         'admin') printf '%s\n' add-user set-role login-link reset-password ;;
         'oidc') printf '%s\n' unlink unbind-all migration-window ;;
         'config') printf '%s\n' show ;;
@@ -65,6 +68,7 @@ _pecklist_options() {
         'lists') printf '%s\n' -h --help --server --profile --api-key --insecure-http ;;
         'sections') printf '%s\n' -h --help --server --profile --api-key --insecure-http ;;
         'tags') printf '%s\n' -h --help --server --profile --api-key --insecure-http ;;
+        'people') printf '%s\n' -h --help --server --profile --api-key --insecure-http ;;
         'admin') printf '%s\n' -h --help --server --profile --api-key --insecure-http ;;
         'oidc') printf '%s\n' -h --help --server --profile --api-key --insecure-http ;;
         'config') printf '%s\n' -h --help --server --profile --api-key --insecure-http ;;
@@ -86,6 +90,7 @@ _pecklist_options() {
         'sections add') printf '%s\n' -j --json -h --help --server --profile --api-key --insecure-http ;;
         'sections rename') printf '%s\n' -j --json -h --help --server --profile --api-key --insecure-http ;;
         'tags list') printf '%s\n' -j --json -h --help --server --profile --api-key --insecure-http ;;
+        'people list') printf '%s\n' -j --json -h --help --server --profile --api-key --insecure-http ;;
         'admin add-user') printf '%s\n' --admin -h --help --server --profile --api-key --insecure-http ;;
         'admin set-role') printf '%s\n' -h --help --server --profile --api-key --insecure-http ;;
         'admin login-link') printf '%s\n' -h --help --server --profile --api-key --insecure-http ;;

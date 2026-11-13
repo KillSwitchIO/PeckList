@@ -803,6 +803,41 @@ pecklist tags list
 pecklist tags list -j
 ```
 
+### `people`
+
+Who tasks can be assigned to.
+
+```text
+pecklist people <command> [options]
+```
+
+| Command | What it does |
+| --- | --- |
+| [`people list`](#people-list) | Show the people and groups a task can be assigned to, with the id to use. |
+
+```bash
+pecklist people list
+```
+
+### `people list`
+
+Show the people and groups a task can be assigned to, with the id to use.
+
+```text
+pecklist people list [-j]
+```
+
+The list has you, your groups and the people you share with. An id is user:... or group:..., as a task's assignees use.
+
+| Option | What it does |
+| --- | --- |
+| `-j`, `--json` | Print the API's JSON: one thing as an object, a list of things as `{"items": [...]}`. |
+
+```bash
+pecklist people list
+pecklist people list -j
+```
+
 ### `completion`
 
 Print the shell completion script for bash, zsh, fish or powershell.
