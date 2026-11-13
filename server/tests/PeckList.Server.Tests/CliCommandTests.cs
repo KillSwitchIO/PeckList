@@ -74,8 +74,14 @@ public sealed partial class CliCommandTests(ServerFixture fixture) : IClassFixtu
         Assert.Contains("tag \"#garden\"", added.Out);
 
         var listed = await Run(world, store, null, "tasks", "list", "--list", "home");
-        Assert.Contains("Water plants #garden", listed.Out);
-        Assert.Contains("!!!", listed.Out);
+        Assert.Matches(@"open\s+tomorrow\s+high\s+Home\s+Water plants\s+#garden", listed.Out);
+        Assert.Contains("1 task: 1 open", listed.Out);
+        // The task list's filters reach the real server (PL-142), and the short id works everywhere.
+        Assert.Contains("Water plants", (await Run(world, store, null, "tasks", "list", "-p", "medium+", "-S", "PLANTS", "-d", "week")).Out);
+        Assert.Contains("No open tasks match", (await Run(world, store, null, "tasks", "list", "-p", "low")).Out);
+        Assert.Contains("No open tasks match", (await Run(world, store, null, "tasks", "list", "-u", "me")).Out);
+        Assert.Contains("Water plants", (await Run(world, store, null, "tasks", "list", "-u", "none", "-l", "Inbox", "-l", "Home")).Out);
+        Assert.Contains("Water plants", (await Run(world, store, null, "tasks", "show", id[^6..])).Out);
         var json = JsonNode.Parse((await Run(world, store, null, "tasks", "list", "--json")).Out)!["items"]!.AsArray();
         Assert.Equal(id, (string?)json.Single()!["id"]);
         // Short options and grouping say the same as the long ones (PL-138).
@@ -85,14 +91,16 @@ public sealed partial class CliCommandTests(ServerFixture fixture) : IClassFixtu
         Assert.Equal(0, (await Run(world, store, null, "tasks", "edit", id, "--title", "Water the plants", "--due", "2026-12-01", "--tag", "+outside,-garden")).Code);
         var shown = await Run(world, store, null, "tasks", "show", id);
         Assert.Contains("Water the plants", shown.Out);
-        Assert.Contains("Due:       2026-12-01", shown.Out);
+        Assert.Matches(@"Due:\s+\w{3} 1 Dec", shown.Out);
         Assert.Contains("#outside", shown.Out);
         Assert.DoesNotContain("#garden", shown.Out);
-        Assert.Contains("List:      Home", shown.Out);
+        Assert.Matches(@"List:\s+Home", shown.Out);
+        Assert.Matches(@"Created:\s+\d{4}-\d{2}-\d{2} \d{2}:\d{2} by ben", shown.Out);
 
         Assert.Contains("Done: Water the plants", (await Run(world, store, null, "tasks", "done", id)).Out);
-        Assert.Contains("No tasks.", (await Run(world, store, null, "tasks", "list")).Out);
-        Assert.Contains("[x]", (await Run(world, store, null, "tasks", "list", "--all")).Out);
+        Assert.Contains("No open tasks match", (await Run(world, store, null, "tasks", "list")).Out);
+        Assert.Matches(@"\sdone\s", (await Run(world, store, null, "tasks", "list", "--all")).Out);
+        Assert.Contains("Water the plants", (await Run(world, store, null, "tasks", "list", "--status", "done")).Out);
         Assert.Contains("Reopened", (await Run(world, store, null, "tasks", "reopen", id)).Out);
         Assert.Contains("tasks restore", (await Run(world, store, null, "tasks", "delete", id)).Out);
         Assert.Contains("Restored", (await Run(world, store, null, "tasks", "restore", id)).Out);

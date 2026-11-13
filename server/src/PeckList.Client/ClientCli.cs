@@ -535,14 +535,14 @@ public static partial class ClientCli
                 }
                 case "show":
                 {
-                    var task = await remote.GetAsync($"api/v1/tasks/{Id()}", cancellation);
+                    var task = await remote.GetAsync($"api/v1/tasks/{await TaskIdAsync(remote)}", cancellation);
                     if (Json) await PrintJson(task);
                     else await ShowTaskAsync(remote, task!);
                     return Done;
                 }
                 case "edit":
                 {
-                    var id = Id();
+                    var id = await TaskIdAsync(remote);
                     var body = await EditBodyAsync(remote);
                     var task = await remote.SendAsync(HttpMethod.Patch, $"api/v1/tasks/{id}", body, cancellation);
                     if (Json) await PrintJson(task);
@@ -551,7 +551,7 @@ public static partial class ClientCli
                 }
                 case "done":
                 {
-                    var closed = await remote.SendAsync(HttpMethod.Post, $"api/v1/tasks/{Id()}/complete",
+                    var closed = await remote.SendAsync(HttpMethod.Post, $"api/v1/tasks/{await TaskIdAsync(remote)}/complete",
                         new JsonObject { ["status"] = args.Flag("--wontdo") ? "wontdo" : "done" }, cancellation);
                     if (Json)
                     {
@@ -564,21 +564,21 @@ public static partial class ClientCli
                 }
                 case "reopen":
                 {
-                    var task = await remote.SendAsync(HttpMethod.Post, $"api/v1/tasks/{Id()}/reopen", null, cancellation);
+                    var task = await remote.SendAsync(HttpMethod.Post, $"api/v1/tasks/{await TaskIdAsync(remote)}/reopen", null, cancellation);
                     if (Json) await PrintJson(task);
                     else await Say($"Reopened: {Text(task, "title")}");
                     return Done;
                 }
                 case "delete":
                 {
-                    var id = Id();
+                    var id = await TaskIdAsync(remote);
                     await remote.SendAsync(HttpMethod.Delete, $"api/v1/tasks/{id}", null, cancellation);
                     await Say($"Deleted. Bring it back with: pecklist tasks restore {id}");
                     return Done;
                 }
                 case "restore":
                 {
-                    var task = await remote.SendAsync(HttpMethod.Post, $"api/v1/tasks/{Id()}/restore", null, cancellation);
+                    var task = await remote.SendAsync(HttpMethod.Post, $"api/v1/tasks/{await TaskIdAsync(remote, trashFirst: true)}/restore", null, cancellation);
                     if (Json) await PrintJson(task);
                     else await Say($"Restored: {Text(task, "title")}");
                     return Done;
@@ -588,8 +588,42 @@ public static partial class ClientCli
             }
         }
 
-        private string Id(int at = 0) =>
-            args.Argument(at) is { Length: > 0 } id ? Uri.EscapeDataString(id) : throw new UsageException($"{command.Path} needs a task id") { Command = command };
+        /// <summary>
+        /// The task's id, escaped for a path: the whole id, or its end as tasks list shows it (PL-142),
+        /// looked up among live tasks and then the trash (the trash first for restore). Several
+        /// matches are refused; none, or a server too old to look, leaves the id as given.
+        /// </summary>
+        private async Task<string> TaskIdAsync(Remote remote, bool trashFirst = false)
+        {
+            var given = args.Argument(0);
+            if (given.Length == 0) throw new UsageException($"{command.Path} needs a task id") { Command = command };
+            if (!TaskView.ShortIdPattern().IsMatch(given)) return Uri.EscapeDataString(given);
+            foreach (var deleted in trashFirst ? new[] { true, false } : [false, true])
+            {
+                JsonNode? page;
+                try
+                {
+                    page = await remote.GetAsync($"api/v1/tasks?status=all&idSuffix={given}{(deleted ? "&deleted=true" : "")}&limit=10", cancellation);
+                }
+                catch (ApiProblem problem) when (problem.Status == 400)
+                {
+                    return Uri.EscapeDataString(given);
+                }
+                // Only ids that really end so count, whatever the server sent back.
+                var found = (page?["items"]?.AsArray() ?? []).Where(task => Text(task, "id") is { } each
+                    && each.EndsWith(given, StringComparison.OrdinalIgnoreCase)).ToList();
+                if (found.Count == 1 && Text(found[0], "id") is { } id) return Uri.EscapeDataString(id);
+                if (found.Count > 1)
+                {
+                    throw new CliFailure($"several tasks end with {given}: "
+                        + string.Join(", ", found.Take(5).Select(task => $"{TaskView.Short(Text(task, "id") ?? "", 10)} {Text(task, "title")}"))
+                        + "; give more of the id");
+                }
+            }
+            return Uri.EscapeDataString(given);
+        }
+
+        private DateOnly Today() => DateOnly.FromDateTime(TimeZoneInfo.ConvertTime(io.Now(), io.Zone).DateTime);
 
         /// <summary>The task's text: the words given, or standard input for <c>-</c> (one line).</summary>
         private async Task<string> TaskTextAsync()
@@ -609,59 +643,170 @@ public static partial class ClientCli
 
         private static string? When(JsonNode task) => Text(task["schedule"], "start") ?? Text(task["due"], "at");
 
+        private UsageException Usage(string message) => new(message) { Command = command };
+
+        /// <summary>
+        /// The task list (PL-142): filters sent to the API (which filters before it pages), every
+        /// page fetched, then sorted and cut here, and shown as a table with names and a clear status.
+        /// </summary>
+        /// <summary>The Task API's limits on <c>q</c> (TaskFilter.MaxText and MaxWords).</summary>
+        private const int MaxSearch = 200, MaxSearchWords = 8;
+
         private async Task<int> TaskListAsync(Remote remote)
         {
-            // --all is --status all, so it can't sit beside another status (PL-141: it used to win quietly).
-            // Checked first, so a wrong line asks the server nothing, not even for the lists.
-            var status = args.Value("--status");
-            if (args.Flag("--all") && status is not null && status != "all")
-            {
-                throw new UsageException($"-a/--all means every status, so it can't go with --status {status}: drop one of them") { Command = command };
-            }
+            var today = Today();
             var query = new List<string>();
             void Add(string name, string? value)
             {
                 if (value is not null) query.Add($"{name}={Uri.EscapeDataString(value)}");
             }
-            string? listId = null;
-            if (args.Value("--list") is { } list) Add("listId", listId = await ListIdAsync(remote, list));
-            if (args.Value("--section") is { } section) Add("sectionId", await SectionIdAsync(remote, section, listId));
-            Add("tag", args.Value("--tag"));
-            Add("status", args.Flag("--all") ? "all" : status);
-            Add("dueBefore", args.Value("--due-before"));
-            Add("dueAfter", args.Value("--due-after"));
-            if (args.Flag("--deleted")) Add("deleted", "true");
+
+            // Everything that can be wrong on the line is found before the first request.
+            var status = args.Value("--status");
+            if (status is not (null or "open" or "done" or "wontdo" or "deleted" or "all")) throw Usage("--status is open, done, wontdo, deleted or all");
+            // --all is --status all, so it can't sit beside another status (PL-141: it used to win quietly).
+            if (args.Flag("--all") && status is not null && status != "all") throw Usage($"-a/--all means every status, so it can't go with --status {status}: drop one of them");
+            var trash = args.Flag("--deleted") || status == "deleted";
+            var sort = args.Value("--sort");
+            int? limit = null;
+            if (args.Value("--limit") is { } limitText)
+            {
+                limit = int.TryParse(limitText, NumberStyles.None, CultureInfo.InvariantCulture, out var most) && most > 0 ? most : throw Usage("--limit is a number above 0");
+            }
+            var (after, before) = (args.Value("--due-after"), args.Value("--due-before"));
+            foreach (var (name, date) in new[] { ("--due-after", after), ("--due-before", before) })
+            {
+                if (date is not null && !DateOnly.TryParseExact(date, "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out _))
+                {
+                    throw Usage($"{name} '{date}' is not a date like 2026-11-30");
+                }
+            }
+            // The server's limits on q, said in the CLI's words (QA: it used to come back as "q must...").
+            if (args.Value("--search") is { } search)
+            {
+                if (search.Length > MaxSearch) throw Usage($"--search is at most {MaxSearch} characters");
+                if (search.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries).Distinct(StringComparer.OrdinalIgnoreCase).Count() > MaxSearchWords)
+                {
+                    throw Usage($"--search takes up to {MaxSearchWords} different words");
+                }
+            }
+            string? priorities = null;
+            try
+            {
+                TaskView.Sort([], sort);
+                if (args.Value("--due") is { } due)
+                {
+                    if (after is not null || before is not null) throw Usage("--due already says when: leave out --due-before and --due-after");
+                    (after, before) = TaskView.DueRange(due, today);
+                }
+                if (args.Value("--priority") is { } priority) priorities = TaskView.Priorities(priority);
+            }
+            catch (UsageException wrong) when (wrong.Command is null)
+            {
+                throw Usage(wrong.Message);
+            }
+
+            var listIds = new List<string>();
+            foreach (var list in args.All("--list"))
+            {
+                var id = await ListIdAsync(remote, list);
+                if (!listIds.Contains(id)) listIds.Add(id);
+            }
+            foreach (var id in listIds) Add("listId", id);
+            if (args.Value("--section") is { } section) Add("sectionId", await SectionIdAsync(remote, section, listIds.Count == 1 ? listIds[0] : null));
+            foreach (var tag in args.All("--tag")) Add("tag", tag);
+            Add("status", args.Flag("--all") || status is "all" or "deleted" ? "all" : status);
+            Add("dueBefore", before);
+            Add("dueAfter", after);
+            Add("priority", priorities);
+            if (args.Value("--assigned") is { } who) Add("assignee", await AssigneeAsync(remote, who));
+            Add("q", args.Value("--search"));
+            if (trash) Add("deleted", "true");
             Add("limit", "500");
-            var items = new JsonArray();
+
+            var items = new List<JsonNode>();
             string? cursor = null;
             do
             {
                 var page = await remote.GetAsync("api/v1/tasks?" + string.Join('&', query.Append(cursor is null ? "" : $"cursor={Uri.EscapeDataString(cursor)}").Where(each => each.Length > 0)), cancellation);
-                foreach (var item in page?["items"]?.AsArray() ?? []) items.Add(item?.DeepClone());
+                foreach (var item in page?["items"]?.AsArray() ?? []) if (item is not null) items.Add(item.DeepClone());
                 cursor = Text(page, "next");
             }
             while (cursor is not null);
+            await NameListsAsync(remote, items);
+            var all = TaskView.Sort(items, sort);
+            var shown = limit is { } count ? all.Take(count).ToList() : all;
             if (Json)
             {
-                // The API's shape, with every page in it (PL-138; 0.10.0 printed a bare array).
-                await PrintJson(new JsonObject { ["items"] = items });
+                // The API's shape, with every page in it, in the order shown (PL-138; 0.10.0 printed a bare array).
+                await PrintJson(new JsonObject { ["items"] = new JsonArray([.. shown]) });
                 return Done;
             }
-            if (items.Count == 0)
+            if (all.Count == 0)
             {
-                await Say("No tasks.");
+                await Say(status is null && !args.Flag("--all") && !trash ? "No open tasks match. Add -a for every status." : "No tasks match.");
                 return Done;
             }
-            var rows = items.Select(task => new[]
-            {
-                Text(task, "id") ?? "",
-                Text(task, "status") switch { "done" => "[x]", "wontdo" => "[-]", _ => "[ ]" },
-                (When(task!) ?? "").Replace('T', ' '),
-                (task?["priority"]?.GetValue<int>() ?? 0) switch { 3 => "!!!", 2 => "!!", 1 => "!", _ => "" },
-                Text(task, "title") + string.Concat((task?["tags"]?.AsArray() ?? []).Select(tag => $" #{(string?)tag}")),
-            }).ToList();
-            await Table(rows);
+            var rows = TaskView.Arrange(shown, await ParentTitlesAsync(remote, shown));
+            foreach (var line in TaskView.Table(rows, args.Flag("--wide"), today, io.Zone, io.Width())) await Say(line);
+            await Say(TaskView.Footer(all, shown.Count));
             return Done;
+        }
+
+        /// <summary>--assigned as the API's assignee: me, none, a user: or group: key, or someone from /api/v1/people by name or handle (exact, then a unique start).</summary>
+        private async Task<string> AssigneeAsync(Remote remote, string who)
+        {
+            if (who is "me" or "none" || who.StartsWith("user:", StringComparison.Ordinal) || who.StartsWith("group:", StringComparison.Ordinal)) return who;
+            var people = (await remote.GetAsync("api/v1/people", cancellation))?["items"]?.AsArray() ?? [];
+            var wanted = who.TrimStart('@');
+            var named = people.Where(person => string.Equals(Text(person, "name"), wanted, StringComparison.OrdinalIgnoreCase)
+                || string.Equals(Text(person, "handle"), wanted, StringComparison.OrdinalIgnoreCase)).ToList();
+            if (named.Count == 0) named = [.. people.Where(person => (Text(person, "name") ?? "").StartsWith(wanted, StringComparison.OrdinalIgnoreCase))];
+            return named.Count switch
+            {
+                1 => Text(named[0], "id")!,
+                0 => throw new CliFailure($"nobody matches '{who}'; use me, none, or a name from `pecklist people list`"),
+                _ => throw new CliFailure($"'{who}' matches several people: {string.Join(", ", named.Select(person => Text(person, "name")))}"),
+            };
+        }
+
+        /// <summary>The titles of the parents of subtasks whose parent is not among these (at most 20 looked up; others say "a task not shown").</summary>
+        private async Task<Dictionary<string, string>> ParentTitlesAsync(Remote remote, IReadOnlyList<JsonNode> tasks)
+        {
+            var shown = tasks.Select(task => Text(task, "id")).OfType<string>().ToHashSet(StringComparer.Ordinal);
+            var titles = new Dictionary<string, string>(StringComparer.Ordinal);
+            foreach (var parent in tasks.Select(task => Text(task, "parentId")).OfType<string>().Where(parent => !shown.Contains(parent)).Distinct().Take(20))
+            {
+                try
+                {
+                    if (Text(await remote.GetAsync($"api/v1/tasks/{Uri.EscapeDataString(parent)}", cancellation), "title") is { } title) titles[parent] = title;
+                }
+                catch (ApiProblem)
+                {
+                    // Gone or not ours to see: the row says "a task not shown".
+                }
+            }
+            return titles;
+        }
+
+        /// <summary>A server before PL-142 sends no list names: look them up once, so the table reads the same.</summary>
+        private async Task NameListsAsync(Remote remote, IReadOnlyList<JsonNode> tasks)
+        {
+            if (tasks.Count == 0 || tasks.All(task => task is JsonObject fields && fields.ContainsKey("listName"))) return;
+            JsonArray lists;
+            try
+            {
+                lists = (await remote.GetAsync("api/v1/lists?archived=true", cancellation))?["items"]?.AsArray() ?? [];
+            }
+            catch (ApiProblem)
+            {
+                return;
+            }
+            var names = lists.Where(list => Text(list, "id") is not null).ToDictionary(list => Text(list, "id")!, list => Text(list, "name"), StringComparer.Ordinal);
+            foreach (var task in tasks.OfType<JsonObject>().Where(task => !task.ContainsKey("listName")))
+            {
+                task["listName"] = Text(task, "listId") is { } id ? names.GetValueOrDefault(id) : null;
+            }
         }
 
         private async Task Table(IReadOnlyList<string[]> rows)
@@ -679,23 +824,91 @@ public static partial class ClientCli
             }
         }
 
+        /// <summary>Everything about one task (PL-142): names, dates in this zone, reminders, people, the checklist, subtasks and notes.</summary>
         private async Task ShowTaskAsync(Remote remote, JsonNode task)
         {
-            var lists = await remote.GetAsync("api/v1/lists?archived=true", cancellation);
-            var listName = lists?["items"]?.AsArray().FirstOrDefault(list => Text(list, "id") == Text(task, "listId")) is { } found ? Text(found, "name") : Text(task, "listId");
+            var today = Today();
+            var id = Text(task, "id") ?? "";
+            await NameListsAsync(remote, [task]);
+            async Task Line(string label, string? value)
+            {
+                if (!string.IsNullOrEmpty(value)) await Say($"  {label + ":",-11} {value}");
+            }
+            string Stamp(string? instant, string? who) => instant is null ? "" : TaskView.Local(instant, io.Zone) + (who is null ? "" : $" by {who}");
+            string Zone(JsonNode? moment) => Text(moment, "timeZone") is { Length: > 0 } zone ? $" ({zone})" : "";
+
             await Say(Text(task, "title") ?? "");
-            await Say($"  Id:        {Text(task, "id")}");
-            await Say($"  Status:    {Text(task, "status")}{(Text(task, "deletedAt") is { } deleted ? $" (deleted {deleted})" : "")}");
-            await Say($"  List:      {listName}");
-            if (Text(task, "parentId") is { } parent) await Say($"  Subtask of {parent}");
-            if (task["priority"]?.GetValue<int>() is > 0 and var priority) await Say($"  Priority:  {priority switch { 3 => "high", 2 => "medium", _ => "low" }}");
-            if (task["schedule"] is JsonObject schedule) await Say($"  Start:     {Text(schedule, "start")}{(Text(schedule, "end") is { } end ? $" to {end}" : "")} ({Text(schedule, "timeZone")})");
-            if (task["due"] is JsonObject due) await Say($"  Due:       {Text(due, "at")} ({Text(due, "timeZone")})");
-            if (Text(task, "recurrence") is { } rule) await Say($"  Repeats:   {rule}");
-            if (task["tags"] is JsonArray { Count: > 0 } tags) await Say($"  Tags:      {string.Join(' ', tags.Select(tag => $"#{(string?)tag}"))}");
-            if (task["assignees"] is JsonArray { Count: > 0 } people) await Say($"  Assigned:  {string.Join(", ", people.Select(each => (string?)each))}");
-            if (task["progress"]?.GetValue<int>() is > 0 and var progress) await Say($"  Progress:  {progress}%");
-            if (Text(task, "notes") is { Length: > 0 } notes) await SayLines($"  Notes:     {notes.ReplaceLineEndings("\n             ")}");
+            await Line("Id", id.Length > TaskView.ShortId ? $"{id} (short: {TaskView.Short(id)})" : id);
+            await Line("Status", TaskView.Status(task));
+            await Line("List", TaskView.ListLabel(task));
+            if (Text(task, "parentId") is { } parent)
+            {
+                string? title = null;
+                try
+                {
+                    title = Text(await remote.GetAsync($"api/v1/tasks/{Uri.EscapeDataString(parent)}", cancellation), "title");
+                }
+                catch (ApiProblem)
+                {
+                    // Not ours to see, or gone: the id alone.
+                }
+                await Line("Parent", title is null ? parent : $"{title} ({TaskView.Short(parent)})");
+            }
+            await Line("Priority", TaskView.Priority(task));
+            if (task["schedule"] is JsonObject schedule)
+            {
+                var end = Text(schedule, "end") is { } until ? $" to {TaskView.Day(until, today)}" : "";
+                await Line("Start", $"{TaskView.Day(Text(schedule, "start"), today)}{end}{Zone(schedule)}");
+            }
+            if (task["due"] is JsonObject due) await Line("Due", $"{TaskView.Day(Text(due, "at"), today)}{Zone(due)}");
+            await Line("Repeats", Text(task, "recurrence"));
+            if (task["reminders"] is JsonArray { Count: > 0 } reminders)
+            {
+                var again = task["constantReminder"] is JsonValue constant && constant.TryGetValue<bool>(out var on) && on ? ", again every 5 minutes for an hour until done" : "";
+                await Line("Reminders", string.Join("; ", reminders.OfType<JsonNode>().Select(reminder => TaskView.Reminder(reminder, today))) + again);
+            }
+            await Line("Tags", TaskView.Tags(task));
+            await Line("Assigned", TaskView.Assigned(task));
+            if (task["progress"] is JsonValue progressValue && progressValue.TryGetValue<int>(out var progress) && progress > 0) await Line("Progress", $"{progress}%");
+            if (task["pinned"] is JsonValue pinnedValue && pinnedValue.TryGetValue<bool>(out var pinned) && pinned) await Line("Pinned", "yes");
+            await Line("Created", Stamp(Text(task, "createdAt"), Text(task, "createdByName")));
+            await Line("Changed", Stamp(Text(task, "updatedAt"), null));
+            if (Text(task, "status") is "done" or "wontdo") await Line(Text(task, "status") == "done" ? "Done" : "Won't do", Stamp(Text(task, "completedAt"), Text(task, "completedByName")));
+            await Line("Deleted", Stamp(Text(task, "deletedAt"), null));
+
+            var notes = Text(task, "notes") ?? "";
+            var checklist = TaskView.Checklist(notes);
+            if (checklist.Count > 0)
+            {
+                await Line("Checklist", $"{checklist.Count(item => item.Done)} of {checklist.Count} done");
+                foreach (var (done, text) in checklist) await Say($"    [{(done ? "x" : " ")}] {text}");
+            }
+            if (id.Length > 0)
+            {
+                List<JsonNode> subtasks;
+                try
+                {
+                    subtasks = (await remote.GetAsync($"api/v1/tasks?parentId={Uri.EscapeDataString(id)}&status=all&limit=500", cancellation))?["items"]?.AsArray().OfType<JsonNode>().ToList() ?? [];
+                }
+                catch (ApiProblem)
+                {
+                    subtasks = [];
+                }
+                if (subtasks.Count > 0)
+                {
+                    await Line("Subtasks", $"{subtasks.Count(sub => TaskView.Status(sub) == "open")} of {subtasks.Count} open");
+                    var shortLength = TaskView.ShortLength(subtasks.Select(sub => Text(sub, "id") ?? ""));
+                    foreach (var sub in TaskView.Sort(subtasks, null))
+                    {
+                        await Say($"    {TaskView.Status(sub),-8}  {TaskView.Short(Text(sub, "id") ?? "", shortLength)}  {Text(sub, "title")}");
+                    }
+                }
+            }
+            if (TaskView.NotesWithoutChecklist(notes) is { Length: > 0 } rest)
+            {
+                await Say("  Notes:");
+                await SayLines("    " + rest.Replace("\n", "\n    ", StringComparison.Ordinal));
+            }
         }
 
         private async Task<JsonObject> EditBodyAsync(Remote remote)

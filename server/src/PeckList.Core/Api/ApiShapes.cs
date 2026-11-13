@@ -1,8 +1,46 @@
 using System.Globalization;
 using System.Text.Json.Nodes;
+using System.Text.Json.Serialization;
 using PeckList.Core.Sync;
 
 namespace PeckList.Core.Api;
+
+/// <summary>A reminder: minutes before the task's date, or a set local date-time.</summary>
+public sealed record ApiReminder(
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] int? Before,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? At);
+
+/// <summary>
+/// The names a task's ids point at, as one reader sees them (PL-142): tags, lists and sections by
+/// id, people by <c>user:&lt;id&gt;</c> or <c>group:&lt;id&gt;</c>. A name the reader can't see is absent.
+/// </summary>
+public sealed record ApiNames(
+    IReadOnlyDictionary<string, string> Tags,
+    IReadOnlyDictionary<string, string> Lists,
+    IReadOnlyDictionary<string, string> Sections,
+    IReadOnlyDictionary<string, string> People)
+{
+    /// <summary>The names in a set of stored entities (tags, lists, sections, users and groups; others are ignored).</summary>
+    public static ApiNames Of(IEnumerable<Storage.StoredEntity> entities)
+    {
+        var tags = new Dictionary<string, string>(StringComparer.Ordinal);
+        var lists = new Dictionary<string, string>(StringComparer.Ordinal);
+        var sections = new Dictionary<string, string>(StringComparer.Ordinal);
+        var people = new Dictionary<string, string>(StringComparer.Ordinal);
+        foreach (var each in entities)
+        {
+            switch (each.Collection)
+            {
+                case "tags" when ApiShapes.Text(each.Doc, "name") is { } name: tags[each.Id] = name; break;
+                case "lists" when ApiShapes.Text(each.Doc, "name") is { } name: lists[each.Id] = name; break;
+                case "sections" when ApiShapes.Text(each.Doc, "name") is { } name: sections[each.Id] = name; break;
+                case "users": people[$"user:{each.Id}"] = ApiShapes.PersonName(each.Doc, each.Id); break;
+                case "groups": people[$"group:{each.Id}"] = ApiShapes.Text(each.Doc, "name") ?? each.Id; break;
+            }
+        }
+        return new ApiNames(tags, lists, sections, people);
+    }
+}
 
 /// <summary>A task's start and end, as the workspace keeps them (local dates or date-times, and a zone).</summary>
 public sealed record ApiSchedule(string Start, string? End, bool AllDay, string TimeZone);
@@ -12,7 +50,8 @@ public sealed record ApiDue(string At, bool AllDay, string TimeZone);
 
 /// <summary>
 /// A task in the task API (PL-137): the workspace fields without clocks, tags by name, and an
-/// <c>updatedAt</c> from its newest clock. v1 only ever gains fields.
+/// <c>updatedAt</c> from its newest clock. v1 only ever gains fields. Since PL-142 it also carries
+/// the names its ids point at (list, section, assignees, who made and closed it) and its reminders.
 /// </summary>
 public sealed record ApiTask(
     string Id,
@@ -36,6 +75,13 @@ public sealed record ApiTask(
     string? CreatedBy,
     string? UpdatedAt,
     string? DeletedAt,
+    string? ListName,
+    string? SectionName,
+    IReadOnlyDictionary<string, string> AssigneeNames,
+    string? CreatedByName,
+    string? CompletedByName,
+    IReadOnlyList<ApiReminder> Reminders,
+    bool ConstantReminder,
     string? Order = null);
 
 /// <summary>
@@ -64,8 +110,10 @@ public sealed record ApiTag(string Id, string Name, string? Color, string? Creat
 /// <summary>
 /// Someone a task's <c>assignees</c> can name: a person (<c>user:&lt;id&gt;</c>) or a group
 /// (<c>group:&lt;id&gt;</c>), with the name the apps show. <c>assignable</c>: you may assign them.
+/// Since PL-142 also the colour of their initials (a group's own colour) and, when asked for, their
+/// photo as an image data URL (null otherwise, and when they have none).
 /// </summary>
-public sealed record ApiPerson(string Id, string Kind, string Name, string? Handle, bool Me, bool Assignable);
+public sealed record ApiPerson(string Id, string Kind, string Name, string? Handle, bool Me, bool Assignable, string? AvatarColor = null, string? Photo = null);
 
 /// <summary>A page of results; <c>next</c> is the cursor for the next page, or null at the end.</summary>
 public sealed record ApiPage<T>(IReadOnlyList<T> Items, string? Next);
@@ -89,7 +137,55 @@ public sealed record ApiChanges(
 /// <summary>Workspace documents shaped for the task API. Lenient: a field that is missing takes its empty value.</summary>
 public static class ApiShapes
 {
-    public static ApiTask Task(JsonObject doc, IReadOnlyDictionary<string, string> tagNames) => new(
+    public static ApiTask Task(JsonObject doc, ApiNames names)
+    {
+        string? Name(IReadOnlyDictionary<string, string> named, string? id) => id is not null && named.TryGetValue(id, out var name) ? name : null;
+        var bare = Task(doc, names.Tags);
+        return bare with
+        {
+            ListName = Name(names.Lists, Text(doc, "listId")),
+            SectionName = Name(names.Sections, Text(doc, "sectionId")),
+            AssigneeNames = bare.Assignees.Where(names.People.ContainsKey).ToDictionary(key => key, key => names.People[key], StringComparer.Ordinal),
+            CreatedByName = Name(names.People, Text(doc, "createdBy") is { } maker ? $"user:{maker}" : null),
+            CompletedByName = Name(names.People, Text(doc, "completedBy") is { } closer ? $"user:{closer}" : null),
+            Reminders = Reminders(doc),
+            ConstantReminder = Flag(doc, "constantReminder"),
+        };
+    }
+
+    /// <summary>A task's reminders, as the workspace keeps them (anything else in the array is left out).</summary>
+    public static IReadOnlyList<ApiReminder> Reminders(JsonObject doc) =>
+        doc["reminders"] is JsonArray reminders
+            ? [.. reminders.OfType<JsonObject>().Select(reminder =>
+                    Text(reminder, "at") is { } at ? new ApiReminder(null, at)
+                    : reminder["before"] is JsonValue before && before.TryGetValue<int>(out var minutes) ? new ApiReminder(minutes, null)
+                    : null).OfType<ApiReminder>()]
+            : [];
+
+    /// <summary>A task's priority, 0 (none) to 3 (high).</summary>
+    public static int PriorityOf(JsonObject doc) => Number(doc, "priority");
+
+    /// <summary>The longest photo a profile may hold (the workspace schema's <c>maxLength</c>).</summary>
+    public const int MaxPhoto = 80_000;
+
+    /// <summary>
+    /// A profile's photo when it is a PNG, JPEG or WebP data URL of at most <see cref="MaxPhoto"/>
+    /// characters, as the apps store it; anything else is null (writes are held to the same by the
+    /// schema; this also covers data from before it).
+    /// </summary>
+    public static string? Photo(JsonObject profile) =>
+        Text(profile, "photo") is { Length: > 0 and <= MaxPhoto } photo
+            && (photo.StartsWith("data:image/png;base64,", StringComparison.Ordinal)
+                || photo.StartsWith("data:image/jpeg;base64,", StringComparison.Ordinal)
+                || photo.StartsWith("data:image/webp;base64,", StringComparison.Ordinal))
+            && photo.AsSpan(photo.IndexOf(',') + 1).IndexOfAnyExcept("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=") < 0
+            ? photo
+            : null;
+
+    /// <summary>A profile's name as the apps show it: its display name, else its handle.</summary>
+    public static string PersonName(JsonObject profile, string id) => Text(profile, "displayName") ?? Text(profile, "handle") ?? id;
+
+    private static ApiTask Task(JsonObject doc, IReadOnlyDictionary<string, string> tagNames) => new(
         Id: Text(doc, "id") ?? "",
         Title: Text(doc, "title") ?? "",
         Notes: Text(doc, "notes") ?? "",
@@ -115,6 +211,13 @@ public static class ApiShapes
         CreatedBy: Text(doc, "createdBy"),
         UpdatedAt: UpdatedAt(doc),
         DeletedAt: Text(doc, "deletedAt"),
+        ListName: null,
+        SectionName: null,
+        AssigneeNames: new Dictionary<string, string>(),
+        CreatedByName: null,
+        CompletedByName: null,
+        Reminders: [],
+        ConstantReminder: false,
         Order: Text(doc, "order"));
 
     public static ApiList List(JsonObject doc, string? role) => new(

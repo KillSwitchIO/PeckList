@@ -411,15 +411,17 @@ public sealed class TaskWrites(
 
     /// <summary>
     /// <c>GET /api/v1/people</c>: the people and groups the account can see, in the assignee picker's
-    /// order (me first, groups, then the others by name), each saying whether it may be assigned.
+    /// order (me first, groups, then the others by name), each saying whether it may be assigned,
+    /// with the colour of their initials (a group's own colour). <paramref name="photos"/> adds each
+    /// person's photo (PL-142, for the Home Assistant card): an image data URL of up to 80 KB.
     /// </summary>
-    public async Task<IReadOnlyList<ApiPerson>> PeopleAsync(string userId, CancellationToken cancellation = default)
+    public async Task<IReadOnlyList<ApiPerson>> PeopleAsync(string userId, bool photos = false, CancellationToken cancellation = default)
     {
         await sharing.Loaded.WaitAsync(cancellation);
-        return await PeopleListAsync(userId, cancellation);
+        return await PeopleListAsync(userId, photos, cancellation);
     }
 
-    private async Task<List<ApiPerson>> PeopleListAsync(string userId, CancellationToken cancellation)
+    private async Task<List<ApiPerson>> PeopleListAsync(string userId, bool photos, CancellationToken cancellation)
     {
         var index = sharing.Index;
         static bool Archived(JsonObject doc) => doc["archived"] is JsonValue value && value.TryGetValue<bool>(out var flag) && flag;
@@ -428,11 +430,13 @@ public sealed class TaskWrites(
         ApiPerson Person(StoredEntity profile) => new(
             $"user:{profile.Id}",
             "user",
-            ApiShapes.Text(profile.Doc, "displayName") ?? ApiShapes.Text(profile.Doc, "handle") ?? profile.Id,
+            ApiShapes.PersonName(profile.Doc, profile.Id),
             ApiShapes.Text(profile.Doc, "handle"),
             Me: profile.Id == userId,
             // Yourself always: MayAssign is about other people.
-            Assignable: profile.Id == userId || index.MayAssign(userId, [$"user:{profile.Id}"]));
+            Assignable: profile.Id == userId || index.MayAssign(userId, [$"user:{profile.Id}"]),
+            AvatarColor: ApiShapes.Text(profile.Doc, "avatarColor"),
+            Photo: photos ? ApiShapes.Photo(profile.Doc) : null);
 
         var people = new List<ApiPerson>();
         if (profiles.FirstOrDefault(profile => profile.Id == userId) is { } me) people.Add(Person(me));
@@ -440,7 +444,7 @@ public sealed class TaskWrites(
             .Where(group => !Archived(group.Doc))
             .Select(group => new ApiPerson(
                 $"group:{group.Id}", "group", ApiShapes.Text(group.Doc, "name") ?? group.Id, null,
-                Me: false, Assignable: index.MayAssign(userId, [$"group:{group.Id}"])))
+                Me: false, Assignable: index.MayAssign(userId, [$"group:{group.Id}"]), AvatarColor: ApiShapes.Text(group.Doc, "color")))
             .OrderBy(group => group.Name, StringComparer.OrdinalIgnoreCase));
         people.AddRange(profiles
             .Where(profile => profile.Id != userId)
@@ -470,7 +474,7 @@ public sealed class TaskWrites(
             .ToList();
 
         // As the assignee picker: me first, my groups, then everyone else I may assign, by name.
-        var people = (await PeopleListAsync(userId, cancellation))
+        var people = (await PeopleListAsync(userId, photos: false, cancellation))
             .Where(person => person.Assignable)
             .Select(person => new QuickPerson(person.Id, person.Name, person.Handle))
             .ToList();
@@ -590,10 +594,9 @@ public sealed class TaskWrites(
         {
             return ApiProblems.NotFound("task", id);
         }
-        var names = TaskQueries.TagNames(await queries.TagsAsync(userId, cancellation));
         if ((ApiShapes.Text(stored.Doc, "status") ?? "open") != "open")
         {
-            return Results.Ok(new CompleteResult(ApiShapes.Task(stored.Doc, names), null));
+            return Results.Ok(new CompleteResult(ApiShapes.Task(stored.Doc, await queries.NamesAsync(userId, [stored.Doc], cancellation)), null));
         }
         var batch = new Batch();
         var now = clock.Now();

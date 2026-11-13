@@ -14,9 +14,8 @@ public sealed partial class TaskQueries
         if (cursor < 0) throw new ApiBadRequest("invalid_cursor", "not a cursor from this API");
         var index = await IndexAsync(cancellation);
         var page = await store.ChangesAsync(userId, cursor, limit, cancellation);
-        var tags = (await TagsAsync(userId, cancellation)).Concat(page.Entities.Where(each => each.Collection == "tags"));
-        var names = new Dictionary<string, string>(StringComparer.Ordinal);
-        foreach (var tag in tags) if (ApiShapes.Text(tag.Doc, "name") is { } name) names[tag.Id] = name;
+        // What the reader sees now, then this page's own (a list renamed on the page names its tasks so).
+        var names = ApiNames.Of((await NamedAsync(userId, page.Entities.Where(each => each.Collection == "tasks").Select(each => each.Doc), cancellation)).Concat(page.Entities));
         IReadOnlyList<StoredEntity> Of(string collection) => [.. page.Entities.Where(each => each.Collection == collection)];
         return new ApiChanges(
             page.Cursor.ToString(System.Globalization.CultureInfo.InvariantCulture),

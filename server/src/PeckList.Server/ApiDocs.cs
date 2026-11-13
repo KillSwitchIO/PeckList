@@ -55,8 +55,11 @@ public static class ApiDocs
         return route;
     }
 
-    /// <summary>A query parameter a route reads from the request itself, for the document.</summary>
-    public sealed record QueryParameter(string Name, string Description, JsonSchemaType Type = JsonSchemaType.String);
+    /// <summary>
+    /// A query parameter a route reads from the request itself, for the document. <paramref name="Many"/>:
+    /// it may be repeated (<c>?tag=a&amp;tag=b</c>), so it is an array of <paramref name="Type"/>.
+    /// </summary>
+    public sealed record QueryParameter(string Name, string Description, JsonSchemaType Type = JsonSchemaType.String, bool Many = false);
 
     /// <summary>The query parameters a route reads itself, so the document and the client list them.</summary>
     public static RouteHandlerBuilder Queries(this RouteHandlerBuilder route, params QueryParameter[] parameters)
@@ -161,7 +164,11 @@ public static class ApiDocs
                         Name = query.Name,
                         In = ParameterLocation.Query,
                         Description = query.Description,
-                        Schema = new OpenApiSchema { Type = query.Type },
+                        Schema = query.Many
+                            ? new OpenApiSchema { Type = JsonSchemaType.Array, Items = new OpenApiSchema { Type = query.Type } }
+                            : new OpenApiSchema { Type = query.Type },
+                        // Form style with explode (the default, so not written): a repeatable one is ?tag=a&tag=b.
+                        Explode = true,
                     });
                 }
                 return Task.CompletedTask;

@@ -31,7 +31,14 @@ internal sealed class ClientArgs
     /// <summary>The words after the command's own (its arguments), once the command is known.</summary>
     public List<string> Arguments { get; set; } = [];
 
+    /// <summary>Every value of an option given more than once (<c>-l Home -l Yard</c>), in order.</summary>
+    public Dictionary<string, List<string>> Repeated { get; } = new(StringComparer.Ordinal);
+
+    /// <summary>The last value given for the option.</summary>
     public string? Value(string name) => Values.GetValueOrDefault(name);
+
+    /// <summary>Every value given for the option, in order (none: empty).</summary>
+    public IReadOnlyList<string> All(string name) => Repeated.TryGetValue(name, out var values) ? values : [];
 
     public bool Flag(string name) => Flags.Contains(name);
 
@@ -115,8 +122,14 @@ internal sealed class ClientArgs
     private void Set(CliOption option, string? value)
     {
         Given.Add(option.Long);
-        if (value is null) Flags.Add(option.Long);
-        else Values[option.Long] = value;
+        if (value is null)
+        {
+            Flags.Add(option.Long);
+            return;
+        }
+        Values[option.Long] = value;
+        if (!Repeated.TryGetValue(option.Long, out var values)) Repeated[option.Long] = values = [];
+        values.Add(value);
     }
 
     /// <summary>
