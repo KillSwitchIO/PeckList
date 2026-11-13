@@ -1,0 +1,43 @@
+# Maintainer: PeckList <admin@pecklist.com>
+# The AUR package of the PeckList server, from the release's portable download (PL-132). Made from
+# packaging/aur/pecklist-bin in the PeckList repository by scripts/ci/aur-build.sh: edit it there.
+pkgname=pecklist-bin
+pkgver=@PKGVER@
+pkgrel=1
+pkgdesc='Self-hosted tasks and calendar for a household or a small team (server)'
+arch=('x86_64' 'aarch64')
+url='https://pecklist.com'
+license=('AGPL-3.0-or-later')
+depends=('ca-certificates' 'gcc-libs' 'glibc' 'openssl' 'systemd' 'util-linux')
+optdepends=('pecklist-cli-bin: the command line client')
+provides=('pecklist')
+conflicts=('pecklist')
+# pecklist.conf is not a package file: pecklist.install copies it in once, as the deb and rpm do, so
+# an install from the download archive (which made its own) is taken over without a file conflict.
+backup=('etc/pecklist/pecklist.env')
+install=pecklist.install
+# A self-contained .NET program: stripping breaks it, and it has no debug symbols to split off.
+options=('!strip' '!debug')
+_downloads='https://gitlab.com/killswitch10/pecklist/-/releases/@TAG@/downloads'
+source=('pecklist.service' 'pecklist.env' 'pecklist-server' 'pecklist.sysusers' 'pecklist.tmpfiles'
+        'pecklist.conf')
+source_x86_64=("pecklist-server-linux-x64-portable-$pkgver.tar.gz::$_downloads/pecklist-server-linux-x64-portable.tar.gz")
+source_aarch64=("pecklist-server-linux-arm64-portable-$pkgver.tar.gz::$_downloads/pecklist-server-linux-arm64-portable.tar.gz")
+@SUMS@
+
+package() {
+  local rid=linux-x64
+  [[ $CARCH == aarch64 ]] && rid=linux-arm64
+
+  install -d "$pkgdir/usr/lib/pecklist"
+  cp -a "pecklist-server-$rid/." "$pkgdir/usr/lib/pecklist/"
+  # The archive's install script and unit are for installs without a package.
+  rm -rf "$pkgdir/usr/lib/pecklist/examples"
+  install -Dm755 pecklist-server "$pkgdir/usr/bin/pecklist-server"
+  install -Dm644 pecklist.service "$pkgdir/usr/lib/systemd/system/pecklist.service"
+  install -Dm644 pecklist.sysusers "$pkgdir/usr/lib/sysusers.d/pecklist.conf"
+  install -Dm644 pecklist.tmpfiles "$pkgdir/usr/lib/tmpfiles.d/pecklist.conf"
+  # Group pecklist is set by pecklist.install, once the user exists.
+  install -Dm640 pecklist.env "$pkgdir/etc/pecklist/pecklist.env"
+  install -Dm644 pecklist.conf "$pkgdir/usr/share/pecklist/pecklist.conf"
+}

@@ -1,7 +1,8 @@
 # Linux, portable
 
-On Debian, Ubuntu, Fedora, RHEL or openSUSE, the packages are easier to install and upgrade:
-see [Debian and Ubuntu](debian-ubuntu.md) and [Fedora, RHEL and openSUSE](fedora-rhel-opensuse.md).
+On Debian, Ubuntu, Fedora, RHEL, openSUSE or Arch, the packages are easier to install and upgrade:
+see [Debian and Ubuntu](debian-ubuntu.md), [Fedora, RHEL and openSUSE](fedora-rhel-opensuse.md)
+and [Arch Linux](arch.md).
 This page is for any other distribution, and for running the server from a folder. To just try
 it on a desktop, the [AppImage](appimage.md) is one file to download and start.
 

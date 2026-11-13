@@ -229,7 +229,8 @@ CLI's own help.
 On Debian and Ubuntu, Fedora, RHEL and openSUSE, install the `pecklist-cli` package: it puts
 `pecklist` on your `PATH` with shell completion, and pulls in OpenSSL. See
 [Debian and Ubuntu](../install/debian-ubuntu.md) or [Fedora, RHEL and openSUSE](../install/fedora-rhel-opensuse.md),
-and install only `pecklist-cli`.
+and install only `pecklist-cli`. On Arch, it is `pecklist-cli-bin` in the AUR
+([Arch Linux](../install/arch.md)).
 
 Elsewhere, each release has the client as a portable download, listed in the same `SHA256SUMS`:
 `pecklist-cli-linux-x64-portable.tar.gz`, `pecklist-cli-linux-arm64-portable.tar.gz`,

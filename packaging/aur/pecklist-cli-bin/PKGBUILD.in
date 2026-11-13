@@ -1,0 +1,32 @@
+# Maintainer: PeckList <admin@pecklist.com>
+# The AUR package of the PeckList command line, from the release's portable download (PL-132). Made
+# from packaging/aur/pecklist-cli-bin in the PeckList repository by scripts/ci/aur-build.sh: edit it
+# there.
+pkgname=pecklist-cli-bin
+pkgver=@PKGVER@
+pkgrel=1
+pkgdesc='Command line for PeckList, the self-hosted tasks and calendar'
+arch=('x86_64' 'aarch64')
+url='https://pecklist.com'
+license=('AGPL-3.0-or-later')
+depends=('ca-certificates' 'gcc-libs' 'glibc' 'openssl')
+provides=('pecklist-cli')
+conflicts=('pecklist-cli')
+# A self-contained .NET program: stripping breaks it, and it has no debug symbols to split off.
+options=('!strip' '!debug')
+_downloads='https://gitlab.com/killswitch10/pecklist/-/releases/@TAG@/downloads'
+source=('pecklist.bash' 'pecklist.fish' 'pecklist.zsh')
+source_x86_64=("pecklist-cli-linux-x64-portable-$pkgver.tar.gz::$_downloads/pecklist-cli-linux-x64-portable.tar.gz")
+source_aarch64=("pecklist-cli-linux-arm64-portable-$pkgver.tar.gz::$_downloads/pecklist-cli-linux-arm64-portable.tar.gz")
+@SUMS@
+
+package() {
+  local rid=linux-x64
+  [[ $CARCH == aarch64 ]] && rid=linux-arm64
+
+  install -Dm755 "pecklist-cli-$rid/pecklist" "$pkgdir/usr/bin/pecklist"
+  install -Dm644 pecklist.bash "$pkgdir/usr/share/bash-completion/completions/pecklist"
+  install -Dm644 pecklist.fish "$pkgdir/usr/share/fish/vendor_completions.d/pecklist.fish"
+  install -Dm644 pecklist.zsh "$pkgdir/usr/share/zsh/site-functions/_pecklist"
+  install -Dm644 "pecklist-cli-$rid/README.md" "$pkgdir/usr/share/doc/pecklist-cli/README.md"
+}
