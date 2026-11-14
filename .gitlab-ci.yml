@@ -977,6 +977,11 @@ e2e-server-mr:
     E2E_BROWSERS: chrome
   script:
     - pnpm e2e:server
+  # A failed spec leaves a screenshot, the page and (the passkey spec) its console and API answers.
+  artifacts:
+    when: on_failure
+    paths: [e2e/screenshots]
+    expire_in: 7 days
   rules:
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
       changes:
