@@ -4,7 +4,7 @@ import type { CapacitorConfig } from '@capacitor/cli';
 // once the person connects to a server, MainActivity points the WebView at that server instead, so
 // the app always runs the web build its server ships. `server.url` is set at runtime, never here.
 const config: CapacitorConfig = {
-  appId: 'com.killswitch10.pecklist',
+  appId: 'com.pecklist.app',
   appName: 'PeckList',
   webDir: '../web/dist',
   android: {

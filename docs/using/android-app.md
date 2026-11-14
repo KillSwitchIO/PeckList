@@ -47,6 +47,19 @@ old one; your data stays.
 Every release APK is signed with the same key, so each one installs over the last. A build you
 made yourself, or a debug build, has a different key: uninstall it first.
 
+:::note[Moving to the new app ID]
+
+Releases after 0.11.0 have a new Android app ID, `com.pecklist.app` (it was
+`com.killswitch10.pecklist`). Android treats it as a different app, so the new one installs
+beside the old one instead of updating it. Until you uninstall the old one, both show as PeckList
+in the launcher; long-press an icon and open **App info** to see which ID it has. Install the new
+release, connect it to your server and sign in, then uninstall the old PeckList app; your tasks are on the server, so nothing is lost. If
+the old app holds changes made offline, open it with a connection first, so they sync. Servers keep
+accepting sign-ins from both apps. In Obtainium, remove the old entry if it does not pick up the new
+app, and add PeckList again.
+
+:::
+
 :::note[Coming from the Punchlist app]
 
 The app was called Punchlist before the rename (`com.killswitch10.punchlist`); PeckList is a

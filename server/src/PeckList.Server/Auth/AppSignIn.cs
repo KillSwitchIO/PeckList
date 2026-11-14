@@ -217,13 +217,29 @@ public static partial class AppSignIn
         headers["Referrer-Policy"] = "same-origin";
     }
 
-    private static string ConfirmPage(string username, string challenge, string scheme, string returnUrl) =>
-        ConfirmationPage(
-            "Open PeckList on this device?",
-            $"You are signed in as <strong>{WebUtility.HtmlEncode(username)}</strong>. Continue to sign in to the PeckList app with this account. "
-            + "If you did not just ask for this, close this tab.",
-            "/auth/app/handoff",
+    /// <summary>The PeckList app's IDs, new and old (PL-070): their URL schemes are the IDs.</summary>
+    internal static readonly IReadOnlySet<string> PeckListApps = new HashSet<string>(StringComparer.Ordinal)
+    {
+        "com.pecklist.app",
+        "com.killswitch10.pecklist",
+    };
+
+    /// <summary>
+    /// The confirm page names the app the session goes to. Any reverse-domain scheme is taken (forks
+    /// and builds of one's own), so another app could open this hand-off itself: the person must see
+    /// that it is not PeckList before one tap gives it their session.
+    /// </summary>
+    private static string ConfirmPage(string username, string challenge, string scheme, string returnUrl)
+    {
+        var who = $"You are signed in as <strong>{WebUtility.HtmlEncode(username)}</strong>.";
+        var (heading, text) = PeckListApps.Contains(scheme)
+            ? ("Open PeckList on this device?", $"{who} Continue to sign in to the PeckList app with this account. ")
+            : ("Sign in to another app?",
+                $"{who} The app <strong>{WebUtility.HtmlEncode(scheme)}</strong> asks to sign in with this account. "
+                + "It is not the PeckList app: continue only if you installed it yourself and trust it. ");
+        return ConfirmationPage(heading, text + "If you did not just ask for this, close this tab.", "/auth/app/handoff",
             ("challenge", challenge), ("scheme", scheme), ("returnUrl", returnUrl));
+    }
 
     /// <summary>
     /// One of our confirm pages, in the app's own look: a heading, a line (HTML the caller has

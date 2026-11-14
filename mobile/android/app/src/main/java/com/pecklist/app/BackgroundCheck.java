@@ -1,4 +1,4 @@
-package com.killswitch10.pecklist;
+package com.pecklist.app;
 
 import android.app.AlarmManager;
 import android.app.PendingIntent;
@@ -34,7 +34,7 @@ import org.json.JSONObject;
  */
 final class BackgroundCheck {
 
-    static final String ACTION = "com.killswitch10.pecklist.CHECK";
+    static final String ACTION = "com.pecklist.app.CHECK";
     static final int[] CHOICES = {5, 15, 30, 60};
     static final int DEFAULT_MINUTES = 5;
 

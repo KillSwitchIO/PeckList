@@ -1,4 +1,4 @@
-package com.killswitch10.pecklist;
+package com.pecklist.app;
 
 /**
  * Whether a page may move the app to a server (audit A2, A4). On a server, the pages are the
