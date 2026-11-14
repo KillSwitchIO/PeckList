@@ -4,10 +4,16 @@
 // only someone allowed to create v* tags can do it. No image is built: the tag's pipeline names the
 // digest this commit's pipeline already built and tested.
 
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
-import { describeRelease, downloadLinks, imageDigestLink } from './release-page.mjs';
+import {
+  IMAGE_SIGNED_MARKER,
+  SUMS_BUNDLE,
+  describeRelease,
+  downloadLinks,
+  imageDigestLink,
+} from './release-page.mjs';
 import { releaseNotes } from '../release-notes.mjs';
 import { readVersions, root } from '../versions.mjs';
 
@@ -122,6 +128,10 @@ async function main() {
     .split('\n')
     .filter(Boolean)
     .map((line) => line.trim().split(/\s+/)[1].replace(/^\*/, ''));
+  // upload-downloads leaves the bundle, and sign-image its marker, only when signing worked and
+  // verified (scripts/ci/sigstore.sh); the page says which is signed and which is not.
+  const signed = existsSync(join(root, 'dist', SUMS_BUNDLE));
+  const imageSigned = existsSync(join(root, 'dist', IMAGE_SIGNED_MARKER));
   const date = new Date().toISOString().slice(0, 10).replaceAll('-', '');
   const tag = `v${version}+${date}`;
   const prerelease = version.includes('-');
@@ -141,12 +151,15 @@ async function main() {
         version,
         prerelease,
         projectUrl: CI_PROJECT_URL,
+        signed,
+        imageSigned,
       }),
       assets: {
         links: [
           ...downloadLinks(api, `${version}-${CI_COMMIT_SHORT_SHA}`, version, [
             ...files,
             'SHA256SUMS',
+            ...(signed ? [SUMS_BUNDLE] : []),
           ]),
           imageDigestLink(CI_REGISTRY_IMAGE, version, IMAGE_DIGEST),
         ],

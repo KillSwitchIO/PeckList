@@ -4,6 +4,12 @@
 export const packageUrl = (api, packageVersion, file) =>
   `${api}/packages/generic/pecklist/${encodeURIComponent(packageVersion)}/${file}`;
 
+/** The Sigstore bundle that signs SHA256SUMS (scripts/ci/sigstore.sh); a release without it is unsigned. */
+export const SUMS_BUNDLE = 'SHA256SUMS.sigstore.json';
+
+/** The file sign-image leaves (its artifact) once the image's signature is made and checked. */
+export const IMAGE_SIGNED_MARKER = 'IMAGE_SIGNED';
+
 /** A download's name with its version: pecklist-android.apk is pecklist-android-0.8.0.apk. */
 export function versionedName(file, version) {
   const parts = /^(pecklist-.+?)(\.tar\.gz|\.zip|\.apk)$/.exec(file);
@@ -30,17 +36,47 @@ export function versionedSums(sums, version) {
 export function downloadLinks(api, packageVersion, version, files) {
   return files.map((file) => {
     const saved = versionedName(file, version);
+    const names = {
+      SHA256SUMS: 'SHA256SUMS (checksums)',
+      [SUMS_BUNDLE]: `${SUMS_BUNDLE} (their signature)`,
+    };
     return {
-      name: file === 'SHA256SUMS' ? 'SHA256SUMS (checksums)' : saved,
+      name: names[file] ?? saved,
       url: packageUrl(api, packageVersion, saved),
       direct_asset_path: `/${file}`,
-      link_type: file === 'SHA256SUMS' ? 'other' : 'package',
+      link_type: file in names ? 'other' : 'package',
     };
   });
 }
 
+/**
+ * What the page says about signatures (scripts/ci/sigstore.sh). Signing fails open, so the page says
+ * plainly when one is missing: that tells "Sigstore was down" apart from "someone removed the bundle".
+ * Nothing at all for a release from before signing (a legacy tag rebuild passes neither flag).
+ * @param {{ sums?: boolean, image?: boolean, projectUrl: string }} signed
+ */
+export function signatureText({ sums, image, projectUrl }) {
+  if (sums === undefined && image === undefined) return '';
+  const check = `To check: [verifying downloads and images](${projectUrl}/-/blob/main/docs/install/verifying.md).`;
+  const sumsLine = sums
+    ? `\`SHA256SUMS\` is signed by this project's release pipeline with Sigstore (\`${SUMS_BUNDLE}\`).`
+    : '`SHA256SUMS` is not signed: signing did not complete when this release was made. It still checks the files.';
+  const imageLine = image
+    ? 'The image is signed by its digest.'
+    : 'The image is not signed: signing did not complete when this release was made.';
+  return `\n\n${sumsLine} ${imageLine} ${check}`;
+}
+
 /** The release page's text around the changelog section. */
-export function describeRelease({ notes, image, version, prerelease, projectUrl }) {
+export function describeRelease({
+  notes,
+  image,
+  version,
+  prerelease,
+  projectUrl,
+  signed = undefined,
+  imageSigned = undefined,
+}) {
   return `${notes}
 
 ## Install
@@ -57,7 +93,9 @@ steps and every setting are in the [documentation](${projectUrl}/-/tree/main/doc
 
 The \`pecklist-cli-<platform>\` downloads are the command line on its own, for any machine that talks to a
 server: \`pecklist login --server https://...\`, then \`pecklist tasks add ...\`. No server and no .NET install
-in them; see the [command line docs](${projectUrl}/-/blob/main/docs/reference/cli.md).${
+in them; see the [command line docs](${projectUrl}/-/blob/main/docs/reference/cli.md).${signatureText(
+    { sums: signed, image: imageSigned, projectUrl },
+  )}${
     prerelease
       ? '\n\nThis is a pre-release: try it, but keep using the latest release for real data.'
       : ''

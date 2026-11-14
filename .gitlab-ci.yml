@@ -957,14 +957,78 @@ upload-downloads:
   needs: [packages, android-release]
   timeout: 10m
   interruptible: false
+  # Keyless signing of SHA256SUMS (scripts/ci/sigstore.sh): one signature covers every download.
+  # The identity people check is any job of a main pipeline with a token: never give one to a job
+  # that installs dependencies (pnpm install, dotnet restore) or runs code a merge brought in unread.
+  id_tokens:
+    SIGSTORE_ID_TOKEN:
+      aud: sigstore
   script:
     # The signed APK joins the native downloads and their checksums.
     - cp dist-android/pecklist-android-*.apk dist/pecklist-android.apk
     - (cd dist && sha256sum pecklist-android.apk >> SHA256SUMS)
+    # SHA256SUMS as the release page serves it (each file named both ways), signed as it is served.
+    # Sigstore being down leaves the release without the bundle, never without its downloads.
+    - node scripts/ci/upload-downloads.mjs dist --sums-only
+    - sh scripts/ci/sigstore.sh blob dist/release/SHA256SUMS dist/SHA256SUMS.sigstore.json
     - node scripts/ci/upload-downloads.mjs dist
   artifacts:
-    paths: [dist/SHA256SUMS]
+    paths: [dist/SHA256SUMS, dist/SHA256SUMS.sigstore.json]
     expire_in: 90 days
+  rules:
+    - *release-commit
+
+# The release commit's image signed by digest (scripts/ci/sigstore.sh), so every name it gets later
+# (the version, latest, Docker Hub's copies) carries the signature. Sigstore being down must not hold
+# a release up: nothing waits on this job and it may fail.
+sign-image:
+  image: $DOCKER_IMAGE
+  stage: release
+  needs:
+    - job: container-image
+      artifacts: true
+  timeout: 10m
+  interruptible: false
+  allow_failure: true
+  # The same main-wide identity as upload-downloads: no dependency installs in this job.
+  id_tokens:
+    SIGSTORE_ID_TOKEN:
+      aud: sigstore
+  script:
+    - |
+      if [ -z "${IMAGE_DIGEST:-}" ]; then
+        echo "No image digest from container-image: nothing to sign." >&2
+        exit 1
+      fi
+    - SIGSTORE_REQUIRED=1 sh scripts/ci/sigstore.sh image "$IMAGE@$IMAGE_DIGEST"
+    # cut-release says the image is signed only when this marker came through.
+    - mkdir -p dist && echo "$IMAGE@$IMAGE_DIGEST" > dist/IMAGE_SIGNED
+  artifacts:
+    paths: [dist/IMAGE_SIGNED]
+    expire_in: 90 days
+  rules:
+    - *release-commit
+
+# A yellow warning before cut-release is pressed when SHA256SUMS went unsigned (Sigstore was down):
+# the release can still be cut, and its page will say it is not signed.
+sums-signed:
+  image: $NODE_IMAGE
+  stage: release
+  needs:
+    - job: upload-downloads
+      artifacts: true
+  timeout: 5m
+  allow_failure: true
+  variables:
+    GIT_STRATEGY: none
+  script:
+    - |
+      if [ ! -f dist/SHA256SUMS.sigstore.json ]; then
+        echo "SHA256SUMS is not signed (see upload-downloads' NOT SIGNED line). Cutting this release" >&2
+        echo "publishes it unsigned, and its page says so; or retry upload-downloads first." >&2
+        exit 1
+      fi
+      echo "SHA256SUMS is signed."
   rules:
     - *release-commit
 
@@ -979,6 +1043,10 @@ cut-release:
     - e2e-server
     - job: upload-downloads
       artifacts: true
+    # Its marker says whether the image is signed; a failed sign-image leaves none.
+    - job: sign-image
+      artifacts: true
+      optional: true
   timeout: 5m
   interruptible: false
   allow_failure: true
@@ -1049,7 +1117,8 @@ dockerhub-image:
       printf '%s' "$CI_REGISTRY_PASSWORD" | regctl registry login "$CI_REGISTRY" -u "$CI_REGISTRY_USER" --pass-stdin
       printf '%s' "$DOCKERHUB_TOKEN" | regctl registry login docker.io -u "$DOCKERHUB_USER" --pass-stdin
       for TAG in $TAGS; do
-        regctl image copy "$CI_REGISTRY_IMAGE@$IMAGE_DIGEST" "$DOCKERHUB_IMAGE:$TAG"
+        # With the Sigstore signature (sign-image), whichever way the registry stores it.
+        regctl image copy --digest-tags --referrers "$CI_REGISTRY_IMAGE@$IMAGE_DIGEST" "$DOCKERHUB_IMAGE:$TAG"
         GOT=$(regctl image digest "$DOCKERHUB_IMAGE:$TAG")
         if [ "$GOT" != "$IMAGE_DIGEST" ]; then
           echo "$DOCKERHUB_IMAGE:$TAG is $GOT, not $IMAGE_DIGEST"
