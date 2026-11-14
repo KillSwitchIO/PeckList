@@ -24,13 +24,18 @@ export async function secondDevice(): Promise<WebdriverIO.Browser> {
   return device;
 }
 
-/** Fill in the sign-in page. "username webauthn" on it since PL-123, so match the word. */
+/**
+ * Fill in the sign-in page. "username webauthn" on it since PL-123, so match the word. `start` is
+ * the page it opens first: the server's own address by default, or another origin for it (the
+ * passkey spec signs in through a forward on localhost, and a session belongs to its origin).
+ */
 export async function enterPassword(
   device: WebdriverIO.Browser,
   username: string,
   password: string,
+  start = '/',
 ): Promise<void> {
-  await device.url('/');
+  await device.url(start);
   const field = await device.$('input[autocomplete~="username"]');
   await field.waitForDisplayed({ timeout: 30_000 });
   await field.setValue(username);
