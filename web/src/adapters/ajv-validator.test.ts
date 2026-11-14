@@ -39,6 +39,27 @@ describe('the build-time validator', () => {
     );
   });
 
+  // maxLength counts characters with a helper the compiled code imports (asImports in
+  // workspace-validator.ts). If a later Ajv or Vite turned that import into the module object,
+  // every person with a photo would throw here instead of being judged.
+  it('refuses a photo over 80,000 characters with a length error, and keeps one under it', () => {
+    const document = read(join(FIXTURES, 'full.json')) as {
+      entities: { users: { photo: string }[] };
+    };
+    const person = document.entities.users[0];
+    if (!person) throw new Error('full.json has no person');
+    const head = 'data:image/png;base64,';
+    person.photo = head + 'A'.repeat(80_001 - head.length);
+    const tooLong = createAjvValidator().validate(document);
+    expect(tooLong.valid).toBe(false);
+    expect(tooLong.errors).toContain(
+      '/entities/users/0/photo must NOT have more than 80000 characters',
+    );
+
+    person.photo = head + 'A'.repeat(80_000 - head.length);
+    expect(createAjvValidator().validate(document)).toEqual({ valid: true, errors: [] });
+  });
+
   it('builds no code, so it needs no unsafe-eval', () => {
     const built = vi.spyOn(globalThis, 'Function');
     createAjvValidator().validate(read(join(FIXTURES, 'full.json')));

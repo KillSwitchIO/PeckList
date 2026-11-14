@@ -876,6 +876,36 @@ package-test-arm64:
 
 # --- publish ---------------------------------------------------------------------------------
 
+# A merge request that changes the server specs can run them before main does, by hand, against
+# main's newest image (edge): a merge request's own image is never pushed. Headless in CI, so the
+# passkey spec's virtual authenticator never runs on a desktop (it skips outside CI).
+e2e-server-mr:
+  extends: .node
+  image: $CI_IMAGES/browsers:$CI_IMAGES_TAG
+  stage: test
+  needs: []
+  timeout: 20m
+  resource_group: e2e
+  services:
+    - name: $IMAGE:edge
+      alias: pecklist
+  variables:
+    # Services get the job's variables: this is the test server's admin password, nothing real.
+    ADMIN_PASSWORD: e2e-admin-password-ci
+    TELEMETRY: 'false'
+    E2E_ADMIN_PASSWORD: e2e-admin-password-ci
+    E2E_BASE_URL: http://pecklist:8080
+    E2E_BROWSERS: chrome
+  script:
+    - pnpm e2e:server
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+      changes:
+        - e2e/server-specs/**/*
+        - e2e/wdio.server.conf.ts
+      when: manual
+      allow_failure: true
+
 # Two devices against the image main just pushed (server-specs): sync, live updates between them.
 e2e-server:
   extends: .node
@@ -1024,6 +1054,20 @@ audit-image:
     - docker pull --quiet "$IMAGE:edge"
     - docker run --rm -v /var/run/docker.sock:/var/run/docker.sock aquasec/trivy:0.76.1
       image --severity HIGH,CRITICAL --ignore-unfixed --exit-code 1 "$IMAGE:edge"
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "schedule"
+
+# A few web tests in real Chromium and Firefox (PL-002): IndexedDB and layout, which jsdom only
+# stands in for. Weekly only, not on merge requests: the one runner flakes under browser load.
+web-browser-tests:
+  extends: .node
+  image: $CI_IMAGES/browsers:$CI_IMAGES_TAG
+  stage: test
+  needs: []
+  timeout: 20m
+  resource_group: e2e
+  script:
+    - pnpm --dir web test:browser
   rules:
     - if: $CI_PIPELINE_SOURCE == "schedule"
 
