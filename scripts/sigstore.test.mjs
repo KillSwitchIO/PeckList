@@ -269,3 +269,28 @@ test('a bundle that signs other sums stops the upload before anything goes up', 
   assert.match(result.stderr, /signs a different SHA256SUMS than the one being uploaded/);
   assert.doesNotMatch(result.stdout, /uploaded/);
 });
+
+// --- When a pre-release was really published (its GitLab date is earlier on purpose) ---
+
+test('a pre-release page says when it was really published, and why GitLab shows an earlier date', async () => {
+  const { describeRelease } = await import('./ci/release-page.mjs');
+  const base = {
+    notes: '## 0.11.0-rc.1',
+    image: 'img',
+    version: '0.11.0-rc.1',
+    projectUrl: 'https://p',
+  };
+  const page = describeRelease({
+    ...base,
+    prerelease: true,
+    publishedAt: '2026-11-12T10:02:04.097Z',
+  });
+  assert.match(
+    page,
+    /Published 2026-11-12 10:02 UTC\. GitLab lists a pre-release just before the newest full release/,
+  );
+  assert.doesNotMatch(
+    describeRelease({ ...base, prerelease: false, publishedAt: '2026-11-12T10:02:04.097Z' }),
+    /Published/,
+  );
+});

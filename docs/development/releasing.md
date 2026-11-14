@@ -102,7 +102,9 @@ gets its exact tag and its type, `:rc` (or `:beta`, `:alpha`), which holds the n
 Docker Hub gets the same two names. It is
 dated just before the newest full release, each one a second after the last, so the page lists them
 newest first under that release. They show a Historical release badge: GitLab's latest release link
-goes by date, and the update notice and the install docs read that link.
+goes by date, and the update notice and the install docs read that link. The page's text says when
+it was really published. Giving pre-releases their real date would move that link to them, and
+installed servers would offer every release candidate as an update.
 
 If the image is wrong on the test server, do not cut it. Fix it on `main` and prepare again: a
 version that was never cut is prepared again rather than skipped over. Two builds may then say

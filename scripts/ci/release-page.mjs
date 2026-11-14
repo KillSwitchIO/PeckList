@@ -67,6 +67,14 @@ export function signatureText({ sums, image, projectUrl }) {
   return `\n\n${sumsLine} ${imageLine} ${check}`;
 }
 
+/**
+ * When a pre-release was really published, for its page: GitLab shows the earlier date cut-release
+ * gives it (releasedAtFor), so the latest-release link stays on a full release.
+ * @param {string} iso
+ */
+export const publishedLine = (iso) =>
+  `Published ${iso.slice(0, 10)} ${iso.slice(11, 16)} UTC. GitLab lists a pre-release just before the newest full release, hence the earlier date and the Historical release badge: that keeps GitLab's latest-release link, which installed servers and the install guides follow, on a full release.`;
+
 /** The release page's text around the changelog section. */
 export function describeRelease({
   notes,
@@ -76,6 +84,7 @@ export function describeRelease({
   projectUrl,
   signed = undefined,
   imageSigned = undefined,
+  publishedAt = new Date().toISOString(),
 }) {
   return `${notes}
 
@@ -97,7 +106,7 @@ in them; see the [command line docs](${projectUrl}/-/blob/main/docs/reference/cl
     { sums: signed, image: imageSigned, projectUrl },
   )}${
     prerelease
-      ? '\n\nThis is a pre-release: try it, but keep using the latest release for real data.'
+      ? `\n\nThis is a pre-release: try it, but keep using the latest release for real data. ${publishedLine(publishedAt)}`
       : ''
   }`;
 }
