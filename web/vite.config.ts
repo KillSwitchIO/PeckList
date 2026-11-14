@@ -1,6 +1,6 @@
-/// <reference types="vitest/config" />
 import { fileURLToPath } from 'node:url';
 import { defineConfig } from 'vite';
+import { configDefaults } from 'vitest/config';
 import react from '@vitejs/plugin-react';
 import { VitePWA } from 'vite-plugin-pwa';
 import pkg from './package.json' with { type: 'json' };
@@ -94,6 +94,8 @@ export default defineConfig({
     // slower again (a settings flow took 15 s there; with other jobs on the same runner, 30 s).
     testTimeout: process.env.CI ? 45_000 : 15_000,
     include: ['src/**/*.test.{ts,tsx}'],
+    // The real-browser tests run in vitest.browser.config.ts only: in jsdom there is no layout.
+    exclude: [...configDefaults.exclude, 'src/**/*.browser.test.{ts,tsx}'],
     coverage: {
       provider: 'v8',
       include: ['src/**/*.{ts,tsx}'],
