@@ -15,6 +15,11 @@ const script = join(import.meta.dirname, 'ci', 'sigstore.sh');
 const fakeCosign = `#!/bin/sh
 if [ "$1" = version ]; then echo "GitVersion:    v\${FAKE_VERSION:-3.1.4}"; exit 0; fi
 echo "$*" >> "$LOG"
+if [ -n "\${SSL_CERT_FILE:-}" ]; then
+  echo "$SSL_CERT_FILE $(grep -c 'BEGIN CERTIFICATE' "$SSL_CERT_FILE")" > "$LOG.ssl"
+else
+  echo "" > "$LOG.ssl"
+fi
 case "$1" in
   login) cat > "$LOG.password" ;;
 esac
@@ -33,7 +38,8 @@ exit 0
 // With offline, a curl that always fails comes first on PATH, so the cosign download fails the same
 // way on every machine (a dead proxy is not enough: Node's fetch, used without curl or wget, ignores
 // https_proxy).
-function run(args, env = {}, { offline = false } = {}) {
+// PATH_ONLY in env replaces the PATH after the stand-ins (to run without node).
+function run(args, { PATH_ONLY, ...env } = {}, { offline = false } = {}) {
   const dir = mkdtempSync(join(tmpdir(), 'sigstore-'));
   writeFileSync(join(dir, 'cosign'), fakeCosign);
   chmodSync(join(dir, 'cosign'), 0o755);
@@ -50,7 +56,7 @@ function run(args, env = {}, { offline = false } = {}) {
   const result = spawnSync('sh', [script, ...args.map((arg) => arg.replace('{sums}', sums))], {
     encoding: 'utf8',
     env: {
-      PATH: `${dir}:${process.env.PATH}`,
+      PATH: `${dir}:${PATH_ONLY ?? process.env.PATH}`,
       LOG: log,
       SIGSTORE_ID_TOKEN: 'token',
       SIGSTORE_RETRY_WAITS: '0 0',
@@ -63,7 +69,19 @@ function run(args, env = {}, { offline = false } = {}) {
   });
   const calls = existsSync(log) ? readFileSync(log, 'utf8').trim().split('\n') : [];
   const password = existsSync(`${log}.password`) ? readFileSync(`${log}.password`, 'utf8') : null;
-  return { ...result, calls, password, sums, bundle: `${sums}.sigstore.json` };
+  // What cosign was given as SSL_CERT_FILE, and how many certificates the file held while it ran.
+  const [certFile = null, certs = '0'] = existsSync(`${log}.ssl`)
+    ? readFileSync(`${log}.ssl`, 'utf8').trim().split(' ')
+    : [];
+  return {
+    ...result,
+    calls,
+    password,
+    certFile,
+    certs: Number(certs),
+    sums,
+    bundle: `${sums}.sigstore.json`,
+  };
 }
 
 test('a file is signed into a bundle beside it, then checked as main of this project', () => {
@@ -81,6 +99,53 @@ test('a file is signed into a bundle beside it, then checked as main of this pro
       '--certificate-oidc-issuer https://gitlab.com',
   );
   assert.match(result.stdout, /Signed .*SHA256SUMS/);
+});
+
+test("with no system CA bundle (the Node image), cosign gets Node's root certificates", () => {
+  const tmp = mkdtempSync(join(tmpdir(), 'sigstore-tmp-'));
+  const result = run(['blob', '{sums}'], {
+    SIGSTORE_SYSTEM_CA: join(tmp, 'none.crt'),
+    TMPDIR: tmp,
+  });
+  assert.equal(result.status, 0, result.stderr);
+  assert.ok(result.certFile, 'SSL_CERT_FILE was not set for cosign');
+  assert.ok(result.certs > 50, `only ${result.certs} roots`);
+  assert.match(result.stderr, /No system CA bundle: cosign uses Node's root certificates/);
+  assert.ok(!existsSync(result.certFile), 'the roots file was left behind');
+});
+
+test(
+  'with no system CA bundle and no node, it says why cosign may fail',
+  {
+    skip: process.platform === 'win32' || existsSync('/usr/bin/node') || existsSync('/bin/node'),
+  },
+  () => {
+    const tmp = mkdtempSync(join(tmpdir(), 'sigstore-tmp-'));
+    const result = run(['blob', '{sums}'], {
+      SIGSTORE_SYSTEM_CA: join(tmp, 'none.crt'),
+      TMPDIR: tmp,
+      PATH_ONLY: '/usr/bin:/bin',
+    });
+    assert.equal(result.status, 0, result.stderr);
+    assert.equal(result.certFile, '');
+    assert.match(result.stderr, /No system CA bundle and no node for root certificates/);
+  },
+);
+
+test('a system CA bundle, or an SSL_CERT_FILE of the job, is left as it is', () => {
+  const tmp = mkdtempSync(join(tmpdir(), 'sigstore-tmp-'));
+  const system = join(tmp, 'ca-certificates.crt');
+  writeFileSync(system, '-----BEGIN CERTIFICATE-----\n');
+  const withSystem = run(['blob', '{sums}'], { SIGSTORE_SYSTEM_CA: system, TMPDIR: tmp });
+  assert.equal(withSystem.status, 0, withSystem.stderr);
+  assert.equal(withSystem.certFile, '');
+  const own = run(['blob', '{sums}'], {
+    SIGSTORE_SYSTEM_CA: join(tmp, 'none.crt'),
+    SSL_CERT_FILE: system,
+    TMPDIR: tmp,
+  });
+  assert.equal(own.status, 0, own.stderr);
+  assert.equal(own.certFile, system);
 });
 
 test('the bundle can go somewhere else', () => {
