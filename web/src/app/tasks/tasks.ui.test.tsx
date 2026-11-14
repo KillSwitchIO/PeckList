@@ -2,6 +2,7 @@ import { fireEvent, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { putEntity } from '../../core/collections.ts';
+import { addDays, localTimeZone, todayIn, weekday } from '../../core/dates.ts';
 import { inboxList } from '../../core/lists.ts';
 import { createEntity, updateEntity } from '../../core/ops.ts';
 import { createTask } from '../../core/tasks.ts';
@@ -622,6 +623,39 @@ describe('smart views', () => {
     await addTasks('Water plants');
     expect(await screen.findByRole('heading', { level: 2, name: /^Overdue/ })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Open Water plants' })).toBeInTheDocument();
+  });
+
+  it('Postpone moves overdue tasks to today, and a weekly repeat to its next day', async () => {
+    const store = testStore();
+    await renderApp('/today', store);
+    const today = todayIn(localTimeZone(), Date.now());
+    const tomorrow = addDays(today, 1);
+    // Every week on tomorrow's weekday, last due six days ago.
+    const code = ['SU', 'MO', 'TU', 'WE', 'TH', 'FR', 'SA'][weekday(tomorrow)]!;
+    const day = (start: string) => ({ start, end: null, allDay: true, timeZone: 'UTC' });
+    store.getState().apply((ctx, ws) => {
+      const listId = inboxList(ws).id;
+      const weekly = createTask(ctx, ws, {
+        title: 'Bins out',
+        listId,
+        schedule: day(addDays(tomorrow, -7)),
+        recurrence: `FREQ=WEEKLY;BYDAY=${code}`,
+      }).workspace;
+      return createTask(ctx, weekly, {
+        title: 'Call back',
+        listId,
+        schedule: day(addDays(today, -2)),
+      }).workspace;
+    });
+    expect(await screen.findByRole('heading', { level: 2, name: /^Overdue/ })).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Postpone' }));
+    const start = (title: string) =>
+      store.getState().workspace!.entities.tasks.find((task) => task.title === title)!.schedule
+        ?.start;
+    expect(start('Call back')).toBe(today);
+    expect(start('Bins out')).toBe(tomorrow);
+    // The undo line says where each went.
+    expect(store.getState().lastUndoable?.label).toBe('Moved to today, and Bins out to tomorrow');
   });
 
   it('Upcoming, Completed and Trash with restore', async () => {

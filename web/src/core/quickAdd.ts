@@ -79,14 +79,18 @@ function sigilWords(text: string, sigil: string): { start: number; end: number; 
 const UNIT_FREQ = { day: 'DAILY', week: 'WEEKLY', month: 'MONTHLY', year: 'YEARLY' } as const;
 const DAY_NAMES = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
 const DAY_WORD = String.raw`(?:sun|mon|tues?|wed(?:nes)?|thu(?:rs?)?|fri|sat(?:ur)?)(?:day)?s?`;
+const DAY_LIST = String.raw`${DAY_WORD}(?:(?:\s*,\s*|\s*,?\s+(?:and|&)\s+)${DAY_WORD})*`;
 const REPEAT = new RegExp(
   String.raw`(^|\s)every\s+(?:(other)\s+|(\d{1,3})\s+)?` +
-    String.raw`(weekdays?|(?:day|week|month|year)s?|${DAY_WORD}(?:(?:\s*,\s*|\s*,?\s+(?:and|&)\s+)${DAY_WORD})*)` +
+    String.raw`(weekdays?|weeks?\s+(?:on\s+)?${DAY_LIST}|(?:day|week|month|year)s?|${DAY_LIST})` +
     String.raw`(?=$|[\s,.;!?])`,
   'i',
 );
 
-/** "every day", "every 3 weeks", "every other monday", "every mon, wed and fri", "every weekday". */
+/**
+ * "every day", "every 3 weeks", "every other monday", "every mon, wed and fri", "every weekday",
+ * and weeks with their days: "every 2 weeks tue" (as Todoist writes it), "every 3 weeks on monday".
+ */
 function findRepeat(text: string): { start: number; end: number; rule: Recurrence } | null {
   const match = REPEAT.exec(text);
   if (!match) return null;
@@ -103,7 +107,8 @@ function findRepeat(text: string): { start: number; end: number; rule: Recurrenc
   if (unit) {
     return { start, end, rule: { freq: UNIT_FREQ[unit[1] as keyof typeof UNIT_FREQ], interval } };
   }
-  const days = [...new Set(what.split(/\s*,\s*|\s+(?:and|&)\s+|\s+/).filter(Boolean))]
+  const dayList = what.replace(/^weeks?\s+(?:on\s+)?/, '');
+  const days = [...new Set(dayList.split(/\s*,\s*|\s+(?:and|&)\s+|\s+/).filter(Boolean))]
     .map((word) => DAY_NAMES.indexOf(word.slice(0, 3)))
     .filter((day) => day >= 0);
   if (!days.length) return null;

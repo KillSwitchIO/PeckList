@@ -179,6 +179,9 @@ function merged(source: ImportSource, plans: ImportPlan[]): ImportPlan {
         parentKey: task.parentKey ? key(task.parentKey) : null,
       })),
     );
+    if (plan.guessedStarts?.length) {
+      (out.guessedStarts ??= []).push(...plan.guessedStarts.map(key));
+    }
     for (const [what, count] of Object.entries(plan.notes)) {
       out.notes[what as keyof ImportPlan['notes']] =
         (out.notes[what as keyof ImportPlan['notes']] ?? 0) + (count ?? 0);

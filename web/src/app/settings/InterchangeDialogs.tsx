@@ -59,6 +59,30 @@ function loadParser(): Promise<DateParser> {
 
 const appName = (app: ImportSource | ExportTarget) => t(`interchange.app.${app}` as MessageKey);
 
+const GUESSED_SHOWN = 8;
+
+/**
+ * The repeating tasks whose start the import guessed, by title, for the result; null if none.
+ * Ones left out as already here are not named: this import did not touch them.
+ */
+function guessedTitles(plan: ImportPlan, skipped: readonly string[]): string | null {
+  const left = new Set(skipped);
+  const keys = new Set((plan.guessedStarts ?? []).filter((key) => !left.has(key)));
+  if (!keys.size) return null;
+  const titles = plan.tasks.filter((task) => keys.has(task.key)).map((task) => task.title);
+  const shown = titles.slice(0, GUESSED_SHOWN).join(', ');
+  return t('interchange.import.guessed', {
+    count: titles.length,
+    titles:
+      titles.length > GUESSED_SHOWN
+        ? t('interchange.import.guessedMore', {
+            titles: shown,
+            count: titles.length - GUESSED_SHOWN,
+          })
+        : shown,
+  });
+}
+
 /** Several files at once, for apps whose export is a file a list. */
 const MANY: ReadonlySet<ImportSource> = new Set(['todoist', 'ical', 'googleTasks']);
 
@@ -185,9 +209,11 @@ export function ImportDialog({
         mode === 'replace' ? 'interchange.import.doneReplaced' : 'interchange.import.done',
         { app: appName(source), tasks: done.tasks, lists: done.lists, tags: done.tags },
       );
-      onDone(
-        done.skipped ? `${text} ${t('interchange.import.skipped', { count: done.skipped })}` : text,
-      );
+      const parts = [text];
+      if (done.skipped) parts.push(t('interchange.import.skipped', { count: done.skipped }));
+      const guessed = guessedTitles(plan, done.skippedKeys);
+      if (guessed) parts.push(guessed);
+      onDone(parts.join(' '));
     }
     onClose();
   };

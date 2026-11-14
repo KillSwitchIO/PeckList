@@ -10,11 +10,19 @@ import type { Schedule, WorkspaceFile } from '../types.ts';
 export interface ReadDate {
   schedule: Schedule | null;
   recurrence: string | null;
+  /**
+   * A repeat whose text names no date its series can be counted from (every 2 days, every 6
+   * months, every! 2 weeks, every 2 weeks tue): it starts on the reference day, a guess.
+   */
+  guessed?: boolean;
 }
 
 /** Reads date text, or null when it holds no date or repeat. */
 export type DateReader = (text: string) => ReadDate | null;
 
+// A time of day with no day: "at 5:00 pm", "17:00", "at noon", "in the evening", "tonight".
+const TIME_ONLY =
+  /^(?:(?:at\s+)?(?:\d{1,2}(?::\d{2})?\s*(?:[ap]\.?m\.?)?|noon|midnight)|(?:in\s+the\s+)?(?:morning|afternoon|evening)|tonight)$/i;
 const ISO = /^(\d{4}-\d{2}-\d{2})(?:[T ](\d{2}:\d{2})(?::\d{2}(?:\.\d+)?)?)?$/;
 
 /** A reader in `timeZone`, relative to `reference` (for "tomorrow" or a bare weekday). */
@@ -49,13 +57,15 @@ export function dateReader(options: {
       ? words.split(/\s+(?:until|ending)\s+/i)
       : [words];
     const [rest, startingText] = repeatText!.split(/\s+starting\s+/i);
-    const parsed =
-      monthlyRepeat(rest!, options) ??
-      parseQuickAdd(rest!, {
-        workspace: options.workspace,
-        parser: options.parser,
-        reference,
-      });
+    const monthly = monthlyRepeat(rest!, options);
+    const quick = monthly
+      ? null
+      : parseQuickAdd(rest!, {
+          workspace: options.workspace,
+          parser: options.parser,
+          reference,
+        });
+    const parsed = monthly ?? quick!;
     let at = parsed.schedule ?? (parsed.due ? { start: parsed.due, end: null } : null);
     const starting = startingText
       ? options.parser.find(startingText, reference)[0]?.start
@@ -74,6 +84,18 @@ export function dateReader(options: {
         });
       }
     }
+    // A day in the text ("at 5:00 pm" alone is a time, not a day), or a rule whose days fix
+    // it (every tue, every day, every 15th).
+    const dated =
+      Boolean(starting) ||
+      Boolean(
+        quick?.tokens.some(
+          (token) =>
+            (token.kind === 'date' || token.kind === 'due') && !TIME_ONLY.test(token.text.trim()),
+        ),
+      );
+    const rule = recurrence ? parseRule(recurrence) : null;
+    const guessed = rule !== null && !dated && !countsFromItsDays(rule);
     const value = (moment: { date: string; time: string | null }) =>
       moment.time ? `${moment.date}T${moment.time}` : moment.date;
     return {
@@ -86,8 +108,19 @@ export function dateReader(options: {
           }
         : null,
       recurrence,
+      ...(guessed ? { guessed } : {}),
     };
   };
+}
+
+/**
+ * Whether any day the rule falls on is a right start: every day, every tuesday, every weekday,
+ * every 15th, every last friday. Not with an interval (which of them is a guess), from completion,
+ * or with no day of its own (every 6 months, every year).
+ */
+function countsFromItsDays(rule: Recurrence): boolean {
+  if (rule.fromCompletion || rule.interval !== 1) return false;
+  return rule.freq === 'DAILY' || Boolean(rule.byDay?.length || rule.byMonthDay?.length);
 }
 
 const ORDINALS: Record<string, number> = {

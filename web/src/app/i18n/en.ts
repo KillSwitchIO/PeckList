@@ -173,6 +173,9 @@ export const en = {
     'Imported from {app}: {tasks} tasks, {lists} new lists and {tags} new tags.',
   'interchange.import.doneReplaced':
     'Imported from {app}: {tasks} tasks, {lists} new lists and {tags} new tags. What was here is in the Trash.',
+  'interchange.import.guessed':
+    '{count} repeating tasks had no next date in the file, so they start today: {titles}. Check their dates.',
+  'interchange.import.guessedMore': '{titles} and {count} more',
   'interchange.import.skipped': '{count} tasks already here from an earlier import were left out.',
   'interchange.import.alreadyHere':
     'Already here from an earlier import, so left out: {count} tasks',
@@ -190,6 +193,8 @@ export const en = {
   'interchange.note.tooDeep': 'Subtasks nested deeper than PeckList goes, moved up: {count}',
   'interchange.note.dateUnread': 'Dates that could not be read: {count}',
   'interchange.note.commentsAsNotes': "Comments added to their task's notes: {count}",
+  'interchange.note.repeatStartGuessed':
+    'Repeating tasks with no next date in the file, so they start today: {count}',
   'interchange.note.sectionsDropped':
     'Sections are not kept; their tasks stay in the list. Sections: {count}',
   'interchange.export.title': 'Export for another app',
@@ -2301,6 +2306,12 @@ export const en = {
   'list.noTags': 'No tags',
   'tasks.showMore': 'Show {count} more',
   'undo.postponed': 'Moved to today',
+  'undo.postponedTo': 'Moved to {day}',
+  'undo.postponedOne': 'Moved to today, and {title} to {day}',
+  'undo.postponedSome': 'Moved to today, and {count} repeating tasks to {day}',
+  'undo.postponedSpread':
+    'Moved to today, and {count} repeating tasks to their next dates this week',
+  'undo.postponedSpreadAll': 'Moved {count} repeating tasks to their next dates this week',
 } as const;
 
 export type MessageKey = keyof typeof en;

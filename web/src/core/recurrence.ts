@@ -126,6 +126,16 @@ function nthOfMonth(date: string): { first: number; last: number } {
   return { first: Math.ceil(day / 7), last: -Math.ceil((daysInMonth(year, month) - day + 1) / 7) };
 }
 
+/**
+ * Whether the series is tied to days of its own (weekly on Tuesday, monthly on the 15th or the
+ * last Friday, yearly), so only those days are its dates. A plain interval (every 2 days, every
+ * 6 months, anything counted from completion) has no such day: any date can start it.
+ */
+export function fixedDays(rule: Recurrence): boolean {
+  if (rule.fromCompletion) return false;
+  return Boolean(rule.byDay?.length || rule.byMonthDay?.length) || rule.freq === 'YEARLY';
+}
+
 /** RFC 5545 weeks start on Monday unless WKST says otherwise. */
 const weekOf = (date: string) => addDays(date, -((weekday(date) + 6) % 7));
 

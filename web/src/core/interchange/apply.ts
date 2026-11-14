@@ -31,6 +31,8 @@ export interface ImportOutcome {
   tags: number;
   /** Tasks left out because an earlier import already brought them */
   skipped: number;
+  /** Their keys in the plan */
+  skippedKeys: string[];
   /** What replacing put in the Trash */
   trashed: { lists: number; tasks: number; tags: number };
 }
@@ -327,6 +329,7 @@ export function applyImport(
     // Nested names make their parents too.
     tags: ws.entities.tags.filter(isLive).length - tagsBefore,
     skipped: already.size,
+    skippedKeys: [...already.keys()],
     trashed: cleared?.trashed ?? { lists: 0, tasks: 0, tags: 0 },
   };
 }

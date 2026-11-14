@@ -26,6 +26,7 @@ import {
   isPinned,
   pinnedFirst,
   placeBetween,
+  postponeTo,
   setPinned,
   taskDepth,
   toggleTaskDone,
@@ -271,6 +272,111 @@ describe('rescheduleTo', () => {
       end: '2026-10-22T11:00',
     });
     expect(getEntity(s.ws, 'tasks', undated.id)?.schedule).toBeNull();
+  });
+});
+
+describe('postponeTo: the Overdue group, Postpone', () => {
+  // Saturday 2026-11-14; the tasks were due the Tuesday before, or earlier.
+  const today = '2026-11-14';
+  const day = (start: string) => ({
+    start,
+    end: null,
+    allDay: start.length === 10,
+    timeZone: 'UTC',
+  });
+  const after = (s: ReturnType<typeof setup>, id: string) => getEntity(s.ws, 'tasks', id)!;
+
+  it('moves a weekly repeat to its next date when that is within a week, never onto a day it does not have', () => {
+    const s = setup();
+    const tuesdays = s.add('Bins', {
+      schedule: day('2026-11-10'),
+      recurrence: 'FREQ=WEEKLY;BYDAY=TU',
+    });
+    const saturdays = s.add('Pills', {
+      schedule: day('2026-11-07'),
+      recurrence: 'FREQ=WEEKLY;BYDAY=SA',
+    });
+    s.ws = postponeTo(s.ctx, s.ws, [tuesdays.id, saturdays.id], today);
+    expect(after(s, tuesdays.id).schedule?.start).toBe('2026-11-17');
+    // Today is one of its days, so it is today.
+    expect(after(s, saturdays.id).schedule?.start).toBe('2026-11-14');
+    expect(after(s, tuesdays.id).recurrence).toBe('FREQ=WEEKLY;BYDAY=TU');
+  });
+
+  it('a weekly task postponed on Wednesday goes to the next Tuesday', () => {
+    const s = setup();
+    const bins = s.add('Bins', { schedule: day('2026-11-10'), recurrence: 'FREQ=WEEKLY;BYDAY=TU' });
+    s.ws = postponeTo(s.ctx, s.ws, [bins.id], '2026-11-11');
+    expect(after(s, bins.id).schedule?.start).toBe('2026-11-17');
+  });
+
+  it('a monthly or yearly one goes to today, rule as it was, however near its next date is', () => {
+    const rentOn = (today: string) => {
+      const s = setup();
+      const rent = s.add('Rent', {
+        schedule: day('2026-11-01'),
+        recurrence: 'FREQ=MONTHLY;BYMONTHDAY=1;COUNT=12',
+      });
+      const yearly = s.add('Register the car', {
+        schedule: day('2025-11-28T09:00'),
+        recurrence: 'FREQ=YEARLY',
+      });
+      s.ws = postponeTo(s.ctx, s.ws, [rent.id, yearly.id], today);
+      return { rent: after(s, rent.id), yearly: after(s, yearly.id) };
+    };
+    // November's rent stays in front of you instead of going to Dec 1.
+    const early = rentOn('2026-11-03');
+    expect(early.rent.schedule?.start).toBe('2026-11-03');
+    expect(early.rent.recurrence).toBe('FREQ=MONTHLY;BYMONTHDAY=1;COUNT=12');
+    // Still so five days before Dec 1, and two before the car's next date.
+    const late = rentOn('2026-11-26');
+    expect(late.rent.schedule?.start).toBe('2026-11-26');
+    expect(late.yearly.schedule?.start).toBe('2026-11-26T09:00');
+  });
+
+  it('keeps an every-other-week series on its own weeks', () => {
+    const s = setup();
+    const other = s.add('Book club', {
+      schedule: day('2026-11-03'),
+      recurrence: 'FREQ=WEEKLY;INTERVAL=2;BYDAY=TU',
+    });
+    s.ws = postponeTo(s.ctx, s.ws, [other.id], today);
+    // Nov 3, then Nov 17: never Nov 10 or Nov 24.
+    expect(after(s, other.id).schedule?.start).toBe('2026-11-17');
+  });
+
+  it('passes skipped dates and counts them off as completing would', () => {
+    const s = setup();
+    const skipping = s.add('Class', {
+      schedule: day('2026-11-03'),
+      recurrence: 'FREQ=WEEKLY;BYDAY=TU;COUNT=5;X-PL-SKIP=20261117',
+    });
+    s.ws = postponeTo(s.ctx, s.ws, [skipping.id], '2026-11-20');
+    // Five dates: Nov 3, Nov 10, Nov 17 (skipped, still one of the five), Nov 24, Dec 1.
+    expect(after(s, skipping.id).schedule?.start).toBe('2026-11-24');
+    expect(after(s, skipping.id).recurrence).toBe('FREQ=WEEKLY;BYDAY=TU;COUNT=2');
+  });
+
+  it('moves plain intervals, series that ended and tasks that do not repeat to today, times kept', () => {
+    const s = setup();
+    const everyOther = s.add('Water ferns', {
+      schedule: day('2026-11-10T17:00'),
+      recurrence: 'FREQ=DAILY;INTERVAL=2',
+    });
+    const fromDone = s.add('Oil change', {
+      schedule: day('2026-11-01'),
+      recurrence: 'FREQ=WEEKLY;INTERVAL=2;X-PL-FROM=COMPLETION',
+    });
+    const ended = s.add('Course', {
+      schedule: day('2026-11-03'),
+      recurrence: 'FREQ=WEEKLY;BYDAY=TU;UNTIL=20261110',
+    });
+    const once = s.add('Call', { schedule: day('2026-11-12T08:30') });
+    s.ws = postponeTo(s.ctx, s.ws, [everyOther.id, fromDone.id, ended.id, once.id], today);
+    expect(after(s, everyOther.id).schedule?.start).toBe('2026-11-14T17:00');
+    expect(after(s, fromDone.id).schedule?.start).toBe('2026-11-14');
+    expect(after(s, ended.id).schedule?.start).toBe('2026-11-14');
+    expect(after(s, once.id).schedule?.start).toBe('2026-11-14T08:30');
   });
 });
 

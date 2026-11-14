@@ -44,7 +44,12 @@ end it shows under today, and only once its end has passed does it count as over
 Its row shows both dates, start then end (on a phone, the end under the start).
 
 **Today** says all pecked out once nothing is left open or overdue, with what you finished today
-still listed under it.
+still listed under it. **Postpone** on the Overdue group moves its tasks to today, times kept. A
+task that repeats weekly on certain days (every Tuesday, say) whose next date is less than a week
+away goes there instead, so it never lands on a day it does not repeat on. Monthly and yearly ones
+always come to today, so a missed one stays in front of you; so does one that repeats every so
+many days, weeks or months with no day of its own, which counts on from there. The undo message
+says where each went.
 
 **Upcoming** lists today and every day after it, empty days included, under a strip of the week's
 days. More days load as you near the end, and the strip follows the day at the top of the list. On a
