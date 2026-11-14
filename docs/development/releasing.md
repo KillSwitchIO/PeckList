@@ -119,7 +119,18 @@ bytes again.
 Each download's name carries its version (`pecklist-android-0.8.0.apk`). Its `latest` link does not,
 so the newest release's files are always at
 `https://gitlab.com/killswitch10/pecklist/-/releases/permalink/latest/downloads/<file>`, with `<file>`
-as `pecklist-android.apk`, `pecklist-linux-x64.tar.gz`, and so on. `SHA256SUMS` lists each file both ways.
+as `pecklist-android.apk`, `pecklist-server-linux-x64-portable.tar.gz`, `pecklist_amd64.deb`
+(saved as `pecklist_0.8.0_amd64.deb`), `pecklist.x86_64.rpm` (saved as `pecklist-0.8.0.x86_64.rpm`),
+and so on. `SHA256SUMS` lists each file both ways.
+
+The `packages` job builds them all (`scripts/package.sh`): the deb and rpm packages with
+[nFPM](https://nfpm.goreleaser.com/) from `packaging/linux/`, and the portable archives.
+`package-test` then installs, upgrades and removes the packages in clean Debian, Ubuntu, Fedora,
+AlmaLinux and openSUSE containers with systemd running (`scripts/ci/package-test.sh`); a release's
+downloads wait for it. `package-test-arm64` runs the arm64 ones under QEMU. It is allowed to fail:
+on a runner without arm64 binfmt it stops at once and shows orange. Both wait for `e2e`, so they
+never load the runner at the same time. A merge request that changes the packaging runs them all
+for Linux. Locally, with Docker and the packages in `dist/`: `sh scripts/ci/package-test.sh dist debian`.
 
 ### Signatures
 

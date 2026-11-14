@@ -1,7 +1,8 @@
 # Windows
 
-Each [release](https://gitlab.com/killswitch10/pecklist/-/releases) has a self-contained download
-for **Windows x64** (Windows 10, 11, Server 2019 and later). Nothing else to install.
+Each [release](https://gitlab.com/killswitch10/pecklist/-/releases) has a portable download for
+**Windows x64** (Windows 10, 11, Server 2019 and later): the server in a folder, with everything it
+needs built in. Nothing else to install.
 
 ## Install as a service
 
@@ -9,13 +10,13 @@ In an **elevated** PowerShell (Run as administrator), from the folder you downlo
 
 ```powershell
 $base = 'https://gitlab.com/killswitch10/pecklist/-/releases/permalink/latest/downloads'
-Invoke-WebRequest "$base/pecklist-win-x64.zip" -OutFile pecklist-win-x64.zip
+Invoke-WebRequest "$base/pecklist-server-win-x64-portable.zip" -OutFile pecklist-server-win-x64-portable.zip
 Invoke-WebRequest "$base/SHA256SUMS" -OutFile SHA256SUMS
 # The two hashes must match:
-(Get-FileHash pecklist-win-x64.zip -Algorithm SHA256).Hash.ToLower()
-Select-String 'win-x64' SHA256SUMS
-Expand-Archive pecklist-win-x64.zip -DestinationPath .
-& .\pecklist-win-x64\examples\install-service.ps1
+(Get-FileHash pecklist-server-win-x64-portable.zip -Algorithm SHA256).Hash.ToLower()
+Select-String 'pecklist-server-win-x64-portable.zip' SHA256SUMS
+Expand-Archive pecklist-server-win-x64-portable.zip -DestinationPath .
+& .\pecklist-server-win-x64\examples\install-service.ps1
 ```
 
 The script installs and starts the **PeckList** service and prints the admin password to sign in
@@ -67,7 +68,7 @@ program and starts it again. Read [upgrading](../guides/upgrading.md) first.
 ## Run it by hand
 
 ```powershell
-cd pecklist-win-x64
+cd pecklist-server-win-x64
 $env:ASPNETCORE_HTTP_PORTS = '8080'
 .\pecklist.exe
 ```

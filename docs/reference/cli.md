@@ -226,19 +226,26 @@ CLI's own help.
 
 ### Getting the client
 
-Each release has `pecklist-cli-linux-x64.tar.gz`, `pecklist-cli-linux-arm64.tar.gz` and
-`pecklist-cli-win-x64.zip` beside the server downloads, listed in the same `SHA256SUMS`. Each holds
-one self-contained `pecklist` file (no .NET install needed), a README and the licence. It carries
-no server: maintenance commands such as `import` or `migrate-db` say so and stop.
+On Debian and Ubuntu, Fedora, RHEL and openSUSE, install the `pecklist-cli` package: it puts
+`pecklist` on your `PATH` with shell completion, and pulls in OpenSSL. See
+[Debian and Ubuntu](../install/debian-ubuntu.md) or [Fedora, RHEL and openSUSE](../install/fedora-rhel-opensuse.md),
+and install only `pecklist-cli`.
+
+Elsewhere, each release has the client as a portable download, listed in the same `SHA256SUMS`:
+`pecklist-cli-linux-x64-portable.tar.gz`, `pecklist-cli-linux-arm64-portable.tar.gz`,
+`pecklist-cli-win-x64-portable.zip` and `pecklist-cli-win-arm64-portable.zip`. Each holds one
+self-contained `pecklist` file (no .NET install needed), a README and the licence. It carries no
+server: maintenance commands such as `import` or `migrate-db` say so and stop.
 
 ```bash
 sha256sum --check --ignore-missing SHA256SUMS
-tar -xzf pecklist-cli-linux-x64-*.tar.gz
+tar -xzf pecklist-cli-linux-x64-portable-*.tar.gz
 sudo install pecklist-cli-linux-x64/pecklist /usr/local/bin/pecklist
 ```
 
-On Linux it needs OpenSSL (`libssl3`) for `https://` servers. Nearly every system has it, but a
-minimal container image may not: there, install it first (`apt-get install libssl3` on Debian).
+On Linux the portable client needs OpenSSL (`libssl3`) for `https://` servers. Nearly every system
+has it, but a minimal container image may not: there, install it first (`apt-get install libssl3`
+on Debian).
 
 On Windows, unzip it and put `pecklist.exe` in a folder on your `PATH`. The server program takes
 the same client commands, so on the server itself you can use the one you have.

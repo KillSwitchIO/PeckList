@@ -1,0 +1,35 @@
+#!/bin/sh
+# PeckList's maintenance commands on a packaged server: runs the server program as the service user,
+# with the service's settings, so a command sees the same database as the running server.
+#   sudo pecklist-server snapshot
+#   sudo pecklist-server admin reset-password admin
+#   sudo pecklist-server help
+# The client commands (pecklist login, pecklist tasks ...) are in the pecklist-cli package.
+set -eu
+
+program=/usr/lib/pecklist/pecklist
+if [ $# -eq 0 ]; then
+  # With no command the program would start a second server beside the service.
+  set -- help
+fi
+
+# The service's environment, with its defaults if the file is gone.
+ASPNETCORE_HTTP_PORTS=8080
+DB_PATH=/var/lib/pecklist/pecklist.db
+CONFIG_FILE=/etc/pecklist/pecklist.conf
+if [ -r /etc/pecklist/pecklist.env ]; then
+  set -a
+  . /etc/pecklist/pecklist.env
+  set +a
+fi
+export ASPNETCORE_HTTP_PORTS DB_PATH CONFIG_FILE
+
+cd /var/lib/pecklist 2>/dev/null || cd /
+if [ "$(id -u)" -eq 0 ]; then
+  exec env HOME=/var/lib/pecklist USER=pecklist LOGNAME=pecklist \
+    setpriv --reuid=pecklist --regid=pecklist --init-groups -- "$program" "$@"
+elif [ "$(id -un)" = pecklist ]; then
+  exec "$program" "$@"
+fi
+echo "pecklist-server runs as the pecklist user: sudo pecklist-server $*" >&2
+exit 1

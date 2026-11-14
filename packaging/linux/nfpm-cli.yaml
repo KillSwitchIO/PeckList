@@ -1,0 +1,69 @@
+# nFPM description of the PeckList command line package, deb and rpm (PL-132). It owns the
+# pecklist command; the server package's own command is pecklist-server, so both fit on one machine.
+# scripts/package.sh sets PKG_VERSION, PKG_ARCH, PKG_CLI (the one-file program) and PKG_MAINTAINER.
+name: pecklist-cli
+version: ${PKG_VERSION}
+version_schema: none
+release: '1'
+arch: ${PKG_ARCH}
+platform: linux
+section: utils
+priority: optional
+maintainer: ${PKG_MAINTAINER}
+vendor: PeckList
+homepage: https://pecklist.com
+license: AGPL-3.0-or-later
+description: |-
+  Command line for PeckList, the self-hosted tasks and calendar.
+  Talks to any PeckList server through its task API: pecklist login --server https://..., then
+  pecklist tasks add, list, done and the rest. With shell completion for bash, zsh and fish.
+
+contents:
+  - src: ${PKG_CLI}
+    dst: /usr/bin/pecklist
+    file_info:
+      mode: 0755
+  - src: server/tests/PeckList.Client.Tests/Completion/pecklist.bash
+    dst: /usr/share/bash-completion/completions/pecklist
+    file_info:
+      mode: 0644
+  - src: server/tests/PeckList.Client.Tests/Completion/pecklist.fish
+    dst: /usr/share/fish/vendor_completions.d/pecklist.fish
+    file_info:
+      mode: 0644
+  # zsh looks in vendor-completions on Debian and Ubuntu, and in site-functions on Fedora and
+  # openSUSE. (An override's contents would replace this list, not add to it.)
+  - src: server/tests/PeckList.Client.Tests/Completion/pecklist.zsh
+    dst: /usr/share/zsh/vendor-completions/_pecklist
+    file_info:
+      mode: 0644
+  - src: server/tests/PeckList.Client.Tests/Completion/pecklist.zsh
+    dst: /usr/share/zsh/site-functions/_pecklist
+    file_info:
+      mode: 0644
+  - src: server/src/PeckList.Cli/README.md
+    dst: /usr/share/doc/pecklist-cli/README.md
+    file_info:
+      mode: 0644
+
+overrides:
+  deb:
+    depends:
+      - libc6
+      - libgcc-s1
+      - libstdc++6
+      - ca-certificates
+      - libssl3t64 | libssl3 | libssl1.1
+  rpm:
+    depends:
+      - glibc
+      - (libstdc++ or libstdc++6)
+      - (openssl-libs or libopenssl3)
+      - ca-certificates
+
+rpm:
+  group: Applications/Productivity
+  summary: Command line for PeckList
+deb:
+  fields:
+    Bugs: https://gitlab.com/killswitch10/pecklist/-/issues

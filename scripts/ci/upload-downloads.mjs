@@ -10,6 +10,7 @@ import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 
 import { join } from 'node:path';
 import {
   SUMS_BUNDLE,
+  isDownload,
   packageUrl,
   uploadTargets,
   versionedName,
@@ -35,10 +36,7 @@ if (existsSync(join(dir, SUMS_BUNDLE)) && readFileSync(signedSums, 'utf8') !== s
   throw new Error(`${SUMS_BUNDLE} signs a different SHA256SUMS than the one being uploaded`);
 }
 
-const files = readdirSync(dir).filter(
-  (file) =>
-    /^pecklist-.+\.(tar\.gz|zip|apk)$/.test(file) || file === 'SHA256SUMS' || file === SUMS_BUNDLE,
-);
+const files = readdirSync(dir).filter((file) => isDownload(file) || file === SUMS_BUNDLE);
 if (files.length === 0) throw new Error(`nothing to upload in ${dir}`);
 for (const { file, packageVersion } of uploadTargets(files, version, CI_COMMIT_SHORT_SHA)) {
   const saved = versionedName(file, version);

@@ -6,6 +6,7 @@ import { labelProblem, promotedTags } from './ci/promote-image.mjs';
 import {
   digestOfRelease,
   downloadLinks,
+  isDownload,
   versionedName,
   versionedSums,
   imageDigestLink,
@@ -206,11 +207,17 @@ test('a download shows its version, and keeps the stable path that latest-downlo
 test('every kind of download takes its version before the extension', () => {
   const names = {
     'pecklist-android.apk': 'pecklist-android-0.8.0-rc.2.apk',
-    'pecklist-linux-x64.tar.gz': 'pecklist-linux-x64-0.8.0-rc.2.tar.gz',
-    'pecklist-linux-arm64.tar.gz': 'pecklist-linux-arm64-0.8.0-rc.2.tar.gz',
-    'pecklist-win-x64.zip': 'pecklist-win-x64-0.8.0-rc.2.zip',
-    'pecklist-cli-linux-x64.tar.gz': 'pecklist-cli-linux-x64-0.8.0-rc.2.tar.gz',
-    'pecklist-cli-win-x64.zip': 'pecklist-cli-win-x64-0.8.0-rc.2.zip',
+    'pecklist-server-linux-x64-portable.tar.gz':
+      'pecklist-server-linux-x64-portable-0.8.0-rc.2.tar.gz',
+    'pecklist-server-linux-arm64-portable.tar.gz':
+      'pecklist-server-linux-arm64-portable-0.8.0-rc.2.tar.gz',
+    'pecklist-server-win-x64-portable.zip': 'pecklist-server-win-x64-portable-0.8.0-rc.2.zip',
+    'pecklist-cli-linux-x64-portable.tar.gz': 'pecklist-cli-linux-x64-portable-0.8.0-rc.2.tar.gz',
+    'pecklist-cli-win-arm64-portable.zip': 'pecklist-cli-win-arm64-portable-0.8.0-rc.2.zip',
+    'pecklist_amd64.deb': 'pecklist_0.8.0-rc.2_amd64.deb',
+    'pecklist-cli_arm64.deb': 'pecklist-cli_0.8.0-rc.2_arm64.deb',
+    'pecklist.x86_64.rpm': 'pecklist-0.8.0-rc.2.x86_64.rpm',
+    'pecklist-cli.aarch64.rpm': 'pecklist-cli-0.8.0-rc.2.aarch64.rpm',
     SHA256SUMS: 'SHA256SUMS',
   };
   for (const [file, saved] of Object.entries(names)) {
@@ -218,12 +225,30 @@ test('every kind of download takes its version before the extension', () => {
   }
 });
 
+test('the downloads folder puts its packages, archives, APK and checksums on the page', () => {
+  const folder = [
+    'pecklist_amd64.deb',
+    'pecklist-cli.aarch64.rpm',
+    'pecklist-server-linux-x64-portable.tar.gz',
+    'pecklist-cli-win-arm64-portable.zip',
+    'pecklist-android.apk',
+    'SHA256SUMS',
+    'test',
+    'pecklist_i386.deb',
+    'notes.txt',
+  ];
+  assert.deepEqual(folder.filter(isDownload), folder.slice(0, 6));
+});
+
 test('the checksums cover a file by either name', () => {
-  const sums = versionedSums('aaa  pecklist-win-x64.zip\nbbb  pecklist-android.apk\n', '0.8.0');
+  const sums = versionedSums(
+    'aaa  pecklist-server-win-x64-portable.zip\nbbb  pecklist-android.apk\n',
+    '0.8.0',
+  );
   assert.deepEqual(sums.trim().split('\n'), [
-    'aaa  pecklist-win-x64.zip',
+    'aaa  pecklist-server-win-x64-portable.zip',
     'bbb  pecklist-android.apk',
-    'aaa  pecklist-win-x64-0.8.0.zip',
+    'aaa  pecklist-server-win-x64-portable-0.8.0.zip',
     'bbb  pecklist-android-0.8.0.apk',
   ]);
 });
