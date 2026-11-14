@@ -118,21 +118,54 @@ public sealed class QuickAddTests
     [Fact]
     public async Task Someone_with_thousands_of_lists_and_tags_can_still_quick_add()
     {
-        // The app's code looks through every list and tag, so the count a plain line runs grows with
-        // them; the limit grows too (StatementsPerContextItem). Without that this line is refused.
+        // The app's code looks through every list and tag, so the count a line runs grows with them;
+        // the limit grows too (StatementsPerContextItem). Without that this line is refused.
         var big = new QuickAddContext(
             [new QuickList("inbox", "Inbox", IsInbox: true), .. Enumerable.Range(0, 2000).Select(n => new QuickList($"L{n}", $"List {n}"))],
             [.. Enumerable.Range(0, 2000).Select(n => ($"T{n}", $"tag{n}"))],
             [],
             Context().Reference);
+        // A line that names a list and a tag, so the app looks through them all (a plain line no
+        // longer does: the lookups are made only when the line has a ^ or # word).
+        const string line = "Water plants tomorrow 9am ^list1999 #tag1999";
         var reader = new JsQuickAdd(Generous);
-        var read = await reader.ReadAsync("Water plants tomorrow 9am", big, Token);
+        var read = await reader.ReadAsync(line, big, Token);
         Assert.Equal("Water plants", read.Title);
         Assert.NotNull(read.Schedule);
+        Assert.Equal("L1999", read.ListId);
+        Assert.Equal("T1999", Assert.Single(read.Tags).Id);
 
         var flat = new JsQuickAdd(Generous with { StatementsPerContextItem = 0 });
-        var refused = await Assert.ThrowsAsync<QuickAddTooSlowException>(() => flat.ReadAsync("Water plants tomorrow 9am", big, Token));
+        var refused = await Assert.ThrowsAsync<QuickAddTooSlowException>(() => flat.ReadAsync(line, big, Token));
         Assert.IsType<TooMuchWorkException>(refused.InnerException);
+    }
+
+    [Fact]
+    public async Task A_long_line_of_names_reads_within_the_memory_limit_against_a_big_workspace()
+    {
+        // Security's probe (2026-11-11): a line of the same @handle against 1,000 people, or ^list
+        // against 1,000 lists, ran out of the 64 MB limit (which counts every string made) because
+        // each word went through every person or list again. The lookups are now made once.
+        var big = new QuickAddContext(
+            [new QuickList("inbox", "Inbox", IsInbox: true), .. Enumerable.Range(0, 1000).Select(n => new QuickList($"L{n}", $"List {n}"))],
+            [.. Enumerable.Range(0, 2000).Select(n => ($"T{n}", $"tag{n}"))],
+            [.. Enumerable.Range(0, 1000).Select(n => new QuickPerson($"user:u{n}", $"Person {n}", $"p{n}@example.com"))],
+            Context().Reference);
+        string Long(Func<int, string> word) =>
+            string.Concat(Enumerable.Range(0, IQuickAddReader.MaxText).Select(word)).Substring(0, IQuickAddReader.MaxText - 20).TrimEnd() + " water plants";
+        var reader = new JsQuickAdd(Generous);
+
+        var people = await reader.ReadAsync(Long(_ => "@p999 "), big, Token);
+        Assert.Equal(["user:u999"], people.Assignees);
+
+        var named = await reader.ReadAsync(Long(n => $"@person{n % 1000} "), big, Token);
+        Assert.Contains("user:u0", named.Assignees);
+
+        var lists = await reader.ReadAsync(Long(_ => "^list999 "), big, Token);
+        Assert.Equal("L999", lists.ListId);
+
+        var tags = await reader.ReadAsync(Long(n => $"#tag{n} "), big, Token);
+        Assert.Contains(tags.Tags, tag => tag.Id == "T0");
     }
 
     [Fact]

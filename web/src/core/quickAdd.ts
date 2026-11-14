@@ -6,12 +6,12 @@
 import { addDays, weekday } from './dates.ts';
 import { visibleLists } from './lists.ts';
 import { formatRule, type Recurrence } from './recurrence.ts';
-import { createTag, findTagByName, leafName, normalizeTagName, visibleTags } from './tags.ts';
+import { createTag, leafName, normalizeTagName, visibleTags } from './tags.ts';
 import { createTask, type TaskInput } from './tasks.ts';
 import { setAssignee, type AssigneeOption } from './sharing.ts';
 import type { DateParser, ParsedMoment } from '../ports/dateParser.ts';
 import type { OpContext } from './ops.ts';
-import type { Id, Priority, WorkspaceFile } from './types.ts';
+import type { Id, List, Priority, Tag, WorkspaceFile } from './types.ts';
 
 export type TokenKind = 'date' | 'due' | 'tag' | 'list' | 'priority' | 'person' | 'repeat';
 
@@ -126,6 +126,86 @@ function firstOn(rule: Recurrence, date: string): string {
   return at;
 }
 
+/** Lazily built once: the first value per key keeps the earliest item, as `find` would. */
+function firstBy<T>(
+  items: readonly T[],
+  keys: (item: T) => (string | undefined)[],
+): Map<string, T> {
+  const map = new Map<string, T>();
+  for (const item of items) {
+    for (const key of keys(item)) if (key !== undefined && !map.has(key)) map.set(key, item);
+  }
+  return map;
+}
+
+/** ^word: the first list whose compacted name is the word, else the first it starts. */
+function listFinder(workspace: WorkspaceFile) {
+  let named: { key: string; list: List }[] | null = null;
+  let exact: Map<string, { key: string; list: List }> | null = null;
+  const seen = new Map<string, List | undefined>();
+  return (wanted: string): List | undefined => {
+    if (seen.has(wanted)) return seen.get(wanted);
+    named ??= visibleLists(workspace).map((list) => ({ key: compact(list.name), list }));
+    exact ??= firstBy(named, (each) => [each.key]);
+    const found =
+      exact.get(wanted)?.list ?? named.find((each) => each.key.startsWith(wanted))?.list;
+    seen.set(wanted, found);
+    return found;
+  };
+}
+
+/** #name: a full path, else a unique leaf name ("#yard" for home/yard), else nothing (a new tag). */
+function tagFinder(workspace: WorkspaceFile) {
+  let byName: Map<string, Tag> | null = null;
+  let byLeaf: Map<string, Tag[]> | null = null;
+  return (name: string): Tag | undefined => {
+    if (!byName || !byLeaf) {
+      const known = visibleTags(workspace);
+      byName = firstBy(known, (tag) => [tag.name.toLowerCase()]);
+      byLeaf = new Map();
+      for (const tag of known) {
+        const leaf = leafName(tag.name).toLowerCase();
+        byLeaf.set(leaf, [...(byLeaf.get(leaf) ?? []), tag]);
+      }
+    }
+    const wanted = name.toLowerCase();
+    const leaves = byLeaf.get(wanted) ?? [];
+    return (
+      byName.get(normalizeTagName(name).toLowerCase()) ??
+      (leaves.length === 1 ? leaves[0] : undefined)
+    );
+  };
+}
+
+/**
+ * @word: the first person (not an open invite) whose name is the word, ignoring case, spaces,
+ * dashes and underscores, or whose handle (or its part before @) is the word.
+ */
+function personFinder(people: readonly AssigneeOption[]) {
+  let plain: Map<string, number> | null = null;
+  let compacted: Map<string, number> | null = null;
+  return (word: string): AssigneeOption | undefined => {
+    if (!plain || !compacted) {
+      plain = new Map();
+      compacted = new Map();
+      people.forEach((each, index) => {
+        if (each.principal.startsWith('invite:')) return;
+        const handle = each.user?.handle.toLowerCase();
+        for (const key of [each.name.toLowerCase(), handle, handle?.split('@')[0]]) {
+          if (key !== undefined && !plain!.has(key)) plain!.set(key, index);
+        }
+        const key = compact(each.name);
+        if (!compacted!.has(key)) compacted!.set(key, index);
+      });
+    }
+    const first = Math.min(
+      plain.get(word.toLowerCase()) ?? Infinity,
+      compacted.get(compact(word)) ?? Infinity,
+    );
+    return Number.isFinite(first) ? people[first] : undefined;
+  };
+}
+
 export function parseQuickAdd(text: string, context: QuickAddContext): QuickAdd {
   const { workspace, ignore = new Set<string>() } = context;
   const tokens: Token[] = [];
@@ -142,40 +222,31 @@ export function parseQuickAdd(text: string, context: QuickAddContext): QuickAdd 
     if (value !== undefined && priority === null && take('priority', start, end)) priority = value;
   }
 
+  // The lookups below are built once per reading, only when the line has that kind of word: a
+  // long line against a big workspace (1,000 lists or people) must not redo the whole list for
+  // every word. The server reads with a memory limit that counts every string made (PL-118).
   let listId: Id | null = null;
-  const lists = visibleLists(workspace);
+  const findList = listFinder(workspace);
   for (const { start, end, word } of sigilWords(text, '^')) {
-    const wanted = compact(word);
-    const list =
-      lists.find((each) => compact(each.name) === wanted) ??
-      lists.find((each) => compact(each.name).startsWith(wanted));
-    if (list && listId === null && take('list', start, end)) listId = list.id;
+    if (listId !== null) break;
+    const list = findList(compact(word));
+    if (list && take('list', start, end)) listId = list.id;
   }
 
   const tags: QuickAdd['tags'] = [];
-  const known = visibleTags(workspace);
+  const findTag = tagFinder(workspace);
   for (const { start, end, word } of sigilWords(text, '#')) {
     const name = normalizeTagName(word);
     if (!name || tags.some((tag) => tag.name === name)) continue;
-    // A full path, else a unique leaf name ("#yard" for home/yard), else a new tag.
-    const exact = findTagByName(workspace, name);
-    const leaves = known.filter((tag) => leafName(tag.name).toLowerCase() === name.toLowerCase());
-    const tag = exact ?? (leaves.length === 1 ? leaves[0] : undefined);
+    const tag = findTag(name);
     if (take('tag', start, end))
       tags.push(tag ? { id: tag.id, name: tag.name } : { id: null, name });
   }
 
   const assignees: string[] = [];
+  const findPerson = personFinder(context.people ?? []);
   for (const { start, end, word } of sigilWords(text, '@')) {
-    const wanted = word.toLowerCase();
-    const person = context.people?.find(
-      (each) =>
-        !each.principal.startsWith('invite:') &&
-        (each.name.toLowerCase() === wanted ||
-          compact(each.name) === compact(word) ||
-          each.user?.handle.toLowerCase() === wanted ||
-          each.user?.handle.toLowerCase().split('@')[0] === wanted),
-    );
+    const person = findPerson(word);
     if (person && !assignees.includes(person.principal) && take('person', start, end)) {
       assignees.push(person.principal);
     }
