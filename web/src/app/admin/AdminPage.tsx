@@ -5,6 +5,7 @@ import {
   AccountIcon,
   ArchiveIcon,
   ChartIcon,
+  HeartIcon,
   KeyIcon,
   MailIcon,
   NotesLinesIcon,
@@ -23,6 +24,7 @@ import { SettingsTab } from './SettingsTab.tsx';
 import { SetupWizard } from './SetupWizard.tsx';
 import { SignInTab } from './SignInTab.tsx';
 import { StatsTab } from './StatsTab.tsx';
+import { SupportTab } from './SupportTab.tsx';
 import { UsersTab } from './UsersTab.tsx';
 import { useAdminApi } from './useAdmin.ts';
 
@@ -95,6 +97,13 @@ export function AdminPage() {
       hint: t('admin.tab.backupsHint'),
       icon: <ArchiveIcon />,
       content: () => padded(<BackupsTab api={api} />),
+    },
+    {
+      id: 'support',
+      label: t('admin.tab.support'),
+      hint: t('admin.tab.supportHint'),
+      icon: <HeartIcon />,
+      content: () => padded(<SupportTab api={api} />),
     },
     {
       id: 'logs',

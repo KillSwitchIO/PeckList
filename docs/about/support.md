@@ -22,6 +22,32 @@ covers its costs:
 Or use the tip panel on [pecklist.com/support](https://pecklist.com/support/). The app has the same
 link under **Settings > Support PeckList**, or from the heart beside the version in the sidebar.
 
+### Supporter keys
+
+A supporter key is a one-time thank-you, bought on [pecklist.com/support](https://pecklist.com/support/).
+**It unlocks nothing**: every feature works without one, on every server, and nothing in PeckList
+ever stops working for want of a key. A key only says thank you, fills in the heart in the sidebar
+and hides the support reminder.
+
+There are two kinds:
+
+- **A supporter key** covers one person, on any server they use. Enter it under **Settings > Support
+  PeckList**.
+- **A server supporter key** covers everyone on one server. An admin enters it under
+  **Admin > Support**, and nobody on that server sees the reminder.
+
+The key arrives by email and looks like `PECKLIST-20261111-S-XXXXX-XXXXX-...`: the purchase date,
+then `S` for one person or `V` for a server. Paste it whole; line breaks from the email don't
+matter. Your server checks the key itself, offline, against PeckList's public signing key: it
+never calls out about a key, and the key says nothing about who bought it. Answers from the
+server never show a key again, and the event log records only its date and serial.
+
+People who aren't supporters see a one-line reminder in the sidebar. Its **x** hides it in that
+browser for 30 days or for good.
+
+A supporter key is not a commercial license: see
+[`COMMERCIAL-LICENSE.md`](https://gitlab.com/killswitch10/pecklist/-/blob/main/COMMERCIAL-LICENSE.md).
+
 ## Community chat
 
 :::note[Not open yet]

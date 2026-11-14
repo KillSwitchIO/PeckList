@@ -323,6 +323,11 @@
           "type": "doc",
           "id": "development/telemetry-collector",
           "label": "Telemetry collector"
+        },
+        {
+          "type": "doc",
+          "id": "development/supporter-key-service",
+          "label": "Supporter key service"
         }
       ]
     }

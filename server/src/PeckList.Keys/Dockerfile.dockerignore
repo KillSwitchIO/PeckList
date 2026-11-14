@@ -1,0 +1,5 @@
+# Used with Dockerfile (BuildKit reads <Dockerfile>.dockerignore beside it): the context is server/.
+**/bin
+**/obj
+tests
+TestResults

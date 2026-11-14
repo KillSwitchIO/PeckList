@@ -22,6 +22,8 @@ import {
 import { Suspense, useEffect, useRef, useState } from 'react';
 import { Outlet, useLocation, useNavigate } from 'react-router';
 import { t } from '../i18n/i18n.ts';
+import { SupporterReminder } from '../support/SupporterReminder.tsx';
+import { useSupporter } from '../support/useSupporter.ts';
 import { useSupportVisible } from '../support/useSupportVisible.ts';
 import { expandAddTask } from '../tasks/focusAddTask.ts';
 import { PullToRefresh } from '../sync/PullToRefresh.tsx';
@@ -145,6 +147,7 @@ function Sidebar({ onNavigate }: { onNavigate: (path: string) => void }) {
   const openDay =
     /^\/day\/(\d{4}-\d{2}-\d{2})$/.exec(pathname)?.[1] ?? (pathname === '/today' ? today : null);
   const supportVisible = useSupportVisible();
+  const { supporter } = useSupporter();
   return (
     <SidebarEditProvider>
       <Box
@@ -177,6 +180,7 @@ function Sidebar({ onNavigate }: { onNavigate: (path: string) => void }) {
         </Box>
         <MiniCalendar selected={openDay} onPick={(date) => onNavigate(dayPath(date, today))} />
         <UpdateNotice />
+        {supportVisible && <SupporterReminder onOpen={() => onNavigate('/settings/support')} />}
         <Box sx={{ display: 'flex', alignItems: 'center', px: 2.5, pb: 1 }}>
           <Link
             href={CHANGELOG_URL}
@@ -201,11 +205,18 @@ function Sidebar({ onNavigate }: { onNavigate: (path: string) => void }) {
                   p: '5px',
                   my: '-5px',
                   ml: 0.25,
-                  color: 'text.disabled',
-                  '&:hover': { color: 'text.secondary' },
+                  color: supporter ? 'primary.main' : 'text.disabled',
+                  '&:hover': { color: supporter ? 'primary.main' : 'text.secondary' },
                 }}
               >
-                <HeartIcon sx={{ fontSize: 14, display: 'block' }} />
+                {/* A supporter's heart is filled (PL-112). */}
+                <HeartIcon
+                  sx={{
+                    fontSize: 14,
+                    display: 'block',
+                    '& g': supporter ? { fill: 'currentColor' } : {},
+                  }}
+                />
               </IconButton>
             </Tooltip>
           )}

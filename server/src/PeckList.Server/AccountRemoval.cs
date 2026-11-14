@@ -33,6 +33,7 @@ public sealed class AccountRemoval(
     Core.Accounts.IApiKeyStore apiKeys,
     Core.Accounts.IPasskeyStore passkeys,
     Core.Push.IPushStore push,
+    Core.Supporters.SupporterKeys supporterKeys,
     LiveSettings live,
     TimeProvider time,
     ILogger<AccountRemoval> logger)
@@ -137,6 +138,7 @@ public sealed class AccountRemoval(
         await apiKeys.DeleteForUserAsync(account.Id, cancellation);
         await passkeys.DeleteAllAsync(account.Id, cancellation);
         await push.RemoveUserAsync(account.Id, cancellation);
+        await supporterKeys.RemoveAsync(account.Id, cancellation);
         await accounts.DeleteAsync(account.Id, cancellation);
         // Who sees what, groups whose owner left, and invites are worked out again without them.
         await sharing.LoadAsync(entities, (await accounts.ListAsync(cancellation)).Select(each => each.Id), cancellation);

@@ -19,6 +19,8 @@ import type {
   CliSignInRequest,
   SignInMethods,
   SignUpOutcome,
+  SupporterRefusal,
+  SupporterStatus,
   SyncRequest,
   SyncResponse,
   SyncTransport,
@@ -28,6 +30,7 @@ import type { Snooze } from '../core/reminders.ts';
 import { SyncFailure, TooManyRequests } from '../ports/sync.ts';
 import { messageOf } from '../core/errors.ts';
 import { createHttpAdmin } from './http-admin.ts';
+import { supporterRefusal } from './supporter.ts';
 
 interface ErrorBody {
   error?: string;
@@ -417,6 +420,22 @@ export function createHttpSync(
         if (response.status === 400) return 'invalid';
         if (!response.ok) return fail(response);
         return (await response.json()) as AccountEmail;
+      },
+      async supporter() {
+        const response = await call('/api/account/supporter');
+        if (!response.ok) return fail(response);
+        return (await response.json()) as SupporterStatus;
+      },
+      async enterSupporterKey(key): Promise<SupporterStatus | SupporterRefusal> {
+        const response = await call('/api/account/supporter', { method: 'PUT', body: { key } });
+        const refused = await supporterRefusal(response);
+        if (refused) return refused;
+        if (!response.ok) return fail(response);
+        return (await response.json()) as SupporterStatus;
+      },
+      async removeSupporterKey() {
+        const response = await call('/api/account/supporter', { method: 'DELETE' });
+        if (!response.ok) await fail(response);
       },
       async resendConfirmation() {
         const response = await call('/api/account/email/confirm', { method: 'POST' });

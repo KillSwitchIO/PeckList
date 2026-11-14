@@ -13,7 +13,7 @@ import type {
   OidcMapping,
   PendingSignIn,
 } from '../../ports/admin.ts';
-import { FakeBackend } from '../../test/fakeTransport.ts';
+import { FakeBackend, fakeSupporterKey, readFakeSupporterKey } from '../../test/fakeTransport.ts';
 import { mockViewport, renderApp, testStore } from '../../test/renderApp.tsx';
 import { createSyncEngine } from '../sync/syncEngine.ts';
 
@@ -52,6 +52,7 @@ function memoryAdmin(benId: string) {
       },
     ],
     sentCrashes: [] as string[],
+    serverSupporter: null as { purchased: string; kind: 'person' | 'server' } | null,
     passkeys: [
       {
         id: 'pk1',
@@ -538,6 +539,18 @@ function memoryAdmin(benId: string) {
     },
     telemetryNoticeSeen: () => {
       state.telemetry.noticeSeen = true;
+      return Promise.resolve();
+    },
+    serverSupporter: () => Promise.resolve(state.serverSupporter),
+    enterServerSupporterKey: (text) => {
+      const read = readFakeSupporterKey(text);
+      if (typeof read === 'string') return Promise.resolve(read);
+      if (read.kind !== 'server') return Promise.resolve('wrong-kind' as const);
+      state.serverSupporter = read;
+      return Promise.resolve(read);
+    },
+    removeServerSupporterKey: () => {
+      state.serverSupporter = null;
       return Promise.resolve();
     },
     crashReports: () => Promise.resolve({ enabled: true, crashes: [...state.serverCrashes] }),
@@ -1617,5 +1630,36 @@ describe('admin', () => {
       within(await screen.findByRole('dialog')).getByRole('button', { name: 'Unlink' }),
     );
     expect(await screen.findByText('Unlinked.')).toBeInTheDocument();
+  });
+});
+
+describe('admin: support (PL-112)', () => {
+  it('takes a server supporter key, turns away a person key, and can remove it', async () => {
+    const admin = await adminApp('superadmin', '/admin/support');
+    const page = await screen.findByRole('region', { name: 'Support' });
+    expect(within(page).getByRole('link', { name: 'Get a supporter key' })).toHaveAttribute(
+      'href',
+      'https://pecklist.com/support',
+    );
+
+    await userEvent.type(within(page).getByLabelText('Enter your key'), fakeSupporterKey('person'));
+    await userEvent.click(within(page).getByRole('button', { name: 'Enter' }));
+    expect(
+      await within(page).findByText(
+        "That's a key for one person. Enter it under Settings > Support PeckList.",
+      ),
+    ).toBeInTheDocument();
+
+    await userEvent.clear(within(page).getByLabelText('Enter your key'));
+    await userEvent.type(within(page).getByLabelText('Enter your key'), fakeSupporterKey('server'));
+    await userEvent.click(within(page).getByRole('button', { name: 'Enter' }));
+    expect(
+      await within(page).findByText(/This server supports PeckList, with a key from/),
+    ).toBeInTheDocument();
+    expect(admin.state.serverSupporter).toEqual({ purchased: '2026-11-11', kind: 'server' });
+
+    await userEvent.click(within(page).getByRole('button', { name: 'Remove the key' }));
+    expect(await within(page).findByLabelText('Enter your key')).toBeInTheDocument();
+    expect(admin.state.serverSupporter).toBeNull();
   });
 });

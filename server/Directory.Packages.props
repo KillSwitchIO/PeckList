@@ -17,6 +17,7 @@
     <!-- Fido2 asks for 9.0.0, which has a CBOR hash-flooding DoS (GHSA-vmv3-wvjp-wqpj, fixed in
          9.0.24). The server runs on the shared framework's copy; the test project gets the package,
          so it is named there at the fixed version. Drop it once Fido2 asks for a fixed one. -->
+    <PackageVersion Include="NSec.Cryptography" Version="25.4.0" />
     <PackageVersion Include="System.Formats.Cbor" Version="9.0.24" />
     <PackageVersion Include="Swashbuckle.AspNetCore.SwaggerUI" Version="10.3.1" />
     <!-- Runs the app's quick add on the server (PL-137): pure .NET, no native parts. -->

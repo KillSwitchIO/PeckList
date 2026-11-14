@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+  <!-- The supporter key service (PL-112): turns a paid Paddle order into signed supporter keys and
+       emails them. Deployed on its own, by the project; a PeckList server never runs it. It holds the
+       signing key; servers hold only the public half. -->
+  <PropertyGroup>
+    <AssemblyName>pecklist-keys</AssemblyName>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\PeckList.Core\PeckList.Core.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="Dapper" />
+    <PackageReference Include="MailKit" />
+    <PackageReference Include="Microsoft.Data.Sqlite" />
+    <PackageReference Include="NSec.Cryptography" />
+  </ItemGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="PeckList.Keys.Tests" />
+  </ItemGroup>
+</Project>

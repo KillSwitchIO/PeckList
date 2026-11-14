@@ -575,6 +575,39 @@ collector-image:
         - server/Directory.Packages.props
         - server/global.json
 
+# The supporter key service's image (PL-112), like the collector's: built on a merge request that
+# changes it, pushed from main as :edge and :sha-<commit>. amd64 only; the project runs it.
+keys-image:
+  image: $DOCKER_IMAGE
+  stage: build
+  needs:
+    - job: server-test
+      optional: true
+  timeout: 15m
+  variables:
+    KEYS_IMAGE: $CI_REGISTRY_IMAGE/keys
+  before_script:
+    - echo "$CI_REGISTRY_PASSWORD" | docker login "$CI_REGISTRY" -u "$CI_REGISTRY_USER" --password-stdin
+  script:
+    - |
+      set -eu
+      if [ "${CI_COMMIT_BRANCH:-}" = "$CI_DEFAULT_BRANCH" ]; then
+        docker build --pull -f server/src/PeckList.Keys/Dockerfile \
+          -t "$KEYS_IMAGE:edge" -t "$KEYS_IMAGE:sha-$CI_COMMIT_SHORT_SHA" server
+        docker push "$KEYS_IMAGE:edge"
+        docker push "$KEYS_IMAGE:sha-$CI_COMMIT_SHORT_SHA"
+      else
+        docker build --pull -f server/src/PeckList.Keys/Dockerfile -t "$KEYS_IMAGE:mr" server
+      fi
+  rules:
+    - *not-on-tag
+    - *not-on-schedule
+    - changes:
+        - server/src/PeckList.Keys/**/*
+        - server/src/PeckList.Core/Supporters/**/*
+        - server/Directory.Packages.props
+        - server/global.json
+
 # The web app, by hand on main, for trying the native downloads or the Android app from any commit
 # (the image builds its own, inside Docker). Stamped like the image is. A release uses web-dist.
 web-build:
@@ -1011,6 +1044,8 @@ prepare-release:
   script:
     - git config user.name "$GITLAB_USER_NAME"
     - git config user.email "$GITLAB_USER_EMAIL"
+    # Only real supporter public keys ship (scripts/supporter-keys.mjs, SUPPORTER_PUBLIC_KEYS).
+    - node scripts/supporter-keys.mjs
     - node scripts/ci/prepare-release.mjs
   rules:
     - if: $CI_PIPELINE_SOURCE == "schedule"
@@ -1028,6 +1063,7 @@ release-guard:
     GIT_DEPTH: 50
   script:
     - node scripts/release-guard.mjs
+    - node scripts/supporter-keys.mjs
   rules:
     - if: $CI_PIPELINE_SOURCE == "merge_request_event" && $CI_MERGE_REQUEST_SOURCE_BRANCH_NAME =~ /^release\//
 
