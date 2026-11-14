@@ -38,8 +38,13 @@ pl_snapshot() {
     setsid -w env HOME=/var/lib/pecklist USER=pecklist LOGNAME=pecklist \
       setpriv --reuid=pecklist --regid=pecklist --init-groups -- "$pl_program" snapshot </dev/null
   ); then
-    echo "PeckList: the snapshot before the upgrade failed, so nothing has changed. Fix the cause" \
-      "above, or run the upgrade again with PECKLIST_SKIP_SNAPSHOT=1 to go on without one." >&2
+    # pl_snapshot_failed: a package manager that cannot stop here (pacman) says what happens instead.
+    if [ -n "${pl_snapshot_failed:-}" ]; then
+      echo "$pl_snapshot_failed" >&2
+    else
+      echo "PeckList: the snapshot before the upgrade failed, so nothing has changed. Fix the cause" \
+        "above, or run the upgrade again with PECKLIST_SKIP_SNAPSHOT=1 to go on without one." >&2
+    fi
     return 1
   fi
 }

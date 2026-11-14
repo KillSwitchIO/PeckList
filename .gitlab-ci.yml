@@ -603,6 +603,7 @@ web-build:
         - scripts/package.sh
         - scripts/ci/package-test.sh
         - scripts/ci/appimage-*.sh
+        - scripts/ci/aur-*.sh
     - *not-affected
     - *legacy-tag
     - if: $CI_COMMIT_TAG
@@ -807,6 +808,7 @@ package-test:
   script:
     - sh scripts/ci/package-test.sh dist debian ubuntu fedora alma opensuse
     - sh scripts/ci/appimage-test.sh dist
+    - sh scripts/ci/aur-test.sh dist
   rules: &package-test-rules
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
       changes: *packaging-files
@@ -1147,6 +1149,27 @@ packages-repository:
   trigger:
     project: killswitch10/pecklist-packages
     branch: main
+  rules:
+    - if: $CI_COMMIT_TAG =~ /^v\d+\.\d+\.\d+(\+.*)?$/ && $LEGACY_TAG_BUILD != "true"
+
+# A final release's AUR packages, pecklist-bin and pecklist-cli-bin (PL-132): each folder as it goes
+# to the AUR, PKGBUILD and .SRCINFO, made by scripts/ci/aur-draft.sh from the SHA256SUMS on the
+# release page cut-release made, once its Sigstore bundle verifies (anything in the registry could
+# have been swapped by a job token; an unsigned release gets no draft). Only a draft: a maintainer
+# pushes the folders to the AUR by hand; nothing here holds an AUR key. Pre-releases never go to
+# the AUR.
+aur-draft:
+  image: archlinux:base@sha256:d4594bb2300cba11f41c2f27923eb56f63d9988909c402f9c95517d1e362c899
+  stage: release
+  needs: []
+  timeout: 10m
+  allow_failure: true
+  script:
+    - pacman -Syu --noconfirm --needed base-devel > /dev/null
+    - sh scripts/ci/aur-draft.sh "$CI_COMMIT_TAG" aur
+  artifacts:
+    paths: [aur]
+    expire_in: 90 days
   rules:
     - if: $CI_COMMIT_TAG =~ /^v\d+\.\d+\.\d+(\+.*)?$/ && $LEGACY_TAG_BUILD != "true"
 

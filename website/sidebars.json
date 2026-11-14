@@ -59,6 +59,11 @@
         },
         {
           "type": "doc",
+          "id": "install/arch",
+          "label": "Arch Linux"
+        },
+        {
+          "type": "doc",
           "id": "install/windows",
           "label": "Windows"
         },

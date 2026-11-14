@@ -1,0 +1,71 @@
+# --- pacman's install hooks for pecklist-bin. scripts/ci/aur-build.sh puts the deb and rpm
+# packages' shared functions (packaging/linux/scripts/lib.sh) in front of this, and these use them
+# the same way: pl_setup (user, data folder, settings file), the snapshot before an upgrade, and the
+# takeover of an install from the download archive in /opt/pecklist.
+# pacman runs these after each package's files change, before its own sysusers and tmpfiles hooks.
+# It cannot be stopped from here, and does not restart services: the new program touches the
+# database only when the service restarts.
+
+# What pl_snapshot says when it fails: lib.sh's own text says the upgrade stopped, which on pacman
+# it does not.
+pl_snapshot_failed="PeckList: the snapshot before the upgrade failed (see above). pacman goes on with\
+ the upgrade, but the service keeps the old program until it restarts: copy /var/lib/pecklist\
+ somewhere safe before you restart it."
+
+# An archive install whose /opt/pecklist holds data (or that an override points at) is left alone:
+# taking it over would delete that folder.
+_pl_archive_kept() {
+  echo "PeckList: the install from the download archive in /opt/pecklist holds a database, or an" \
+    "override in /etc/systemd/system/pecklist.service.d points at it, so it was left as it is. Its" \
+    "unit /etc/systemd/system/pecklist.service still hides this package's: move the data to" \
+    "/var/lib/pecklist (and DB_PATH with it), then remove /opt/pecklist and that unit, and run" \
+    "sudo systemctl daemon-reload." >&2
+}
+
+pre_install() {
+  if pl_archive_install; then
+    if pl_check_archive_takeover 2> /dev/null; then
+      pl_snapshot /opt/pecklist/pecklist || true
+    else
+      _pl_archive_kept
+    fi
+  fi
+}
+
+post_install() {
+  pl_setup
+  if pl_archive_install; then
+    if pl_check_archive_takeover 2> /dev/null; then
+      pl_take_over_archive_install
+    else
+      _pl_archive_kept
+    fi
+  fi
+  echo "PeckList: start it with  sudo systemctl enable --now pecklist"
+  echo "  then read the first admin password with  sudo journalctl -u pecklist"
+  echo "  It listens on port 8080 (/etc/pecklist/pecklist.env); settings in /etc/pecklist/pecklist.conf."
+}
+
+# Before the files change: a snapshot by the program installed now, the way back if the new one's
+# database upgrade fails.
+pre_upgrade() {
+  pl_snapshot /usr/lib/pecklist/pecklist || true
+}
+
+post_upgrade() {
+  # Also puts the settings files back to root:pecklist 640: pacman restores an unchanged
+  # pecklist.env as root's, and the server reads its settings as pecklist.
+  pl_setup
+  echo "PeckList: restart the service to run the new version (it upgrades the database on start):"
+  echo "  sudo systemctl restart pecklist"
+}
+
+pre_remove() {
+  systemctl disable --now pecklist.service 2> /dev/null || true
+}
+
+post_remove() {
+  # pacman removes an unedited backup file (pecklist.env) and keeps an edited one as .pacsave.
+  echo "PeckList: your data is still in /var/lib/pecklist and your settings in" \
+    "/etc/pecklist/pecklist.conf (an edited pecklist.env as pecklist.env.pacsave)."
+}
