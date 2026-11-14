@@ -9,6 +9,7 @@ import {
   versionedName,
   versionedSums,
   imageDigestLink,
+  uploadTargets,
 } from './ci/release-page.mjs';
 import { releaseProblems } from './release-guard.mjs';
 import { plannedVersion } from './versions.mjs';
@@ -22,12 +23,13 @@ const release = (overrides = {}) => ({
     { path: 'web/package.json', added: 1, removed: 1 },
     { path: 'web/src/core/workspace.ts', added: 1, removed: 1 },
     { path: 'server/Directory.Build.props', added: 1, removed: 1 },
+    { path: 'mobile/android/app/version.properties', added: 2, removed: 2 },
     { path: 'website/versions.json', added: 1, removed: 0 },
     { path: 'website/versioned_docs/version-0.8.0/index.md', added: 90, removed: 0 },
     { path: 'website/versioned_sidebars/version-0.8.0-sidebars.json', added: 30, removed: 0 },
   ],
   title: 'chore(release): 0.8.0',
-  versions: ['0.8.0', '0.8.0', '0.8.0'],
+  versions: ['0.8.0', '0.8.0', '0.8.0', '0.8.0'],
   ...overrides,
 });
 
@@ -49,6 +51,36 @@ test('a change hidden inside a version file fails the guard', () => {
   assert.match(problem, /changes more than its version/);
 });
 
+test("a final release's APK also goes under the plain version, for F-Droid", () => {
+  const files = ['pecklist-linux-x64.tar.gz', 'pecklist-android.apk', 'SHA256SUMS'];
+  assert.deepEqual(uploadTargets(files, '0.12.0', 'abc1234'), [
+    { file: 'pecklist-linux-x64.tar.gz', packageVersion: '0.12.0-abc1234' },
+    { file: 'pecklist-android.apk', packageVersion: '0.12.0-abc1234' },
+    { file: 'SHA256SUMS', packageVersion: '0.12.0-abc1234' },
+    { file: 'pecklist-android.apk', packageVersion: '0.12.0' },
+  ]);
+  // F-Droid ships finals only, so a release candidate's APK stays under its commit alone.
+  assert.equal(
+    uploadTargets(files, '0.12.0-rc.1', 'abc1234').filter(
+      (each) => !each.packageVersion.includes('abc'),
+    ).length,
+    0,
+  );
+});
+
+test('the Android version file may change its version and code, nothing more', () => {
+  const [problem] = releaseProblems(
+    release({ changes: [{ path: 'mobile/android/app/version.properties', added: 3, removed: 2 }] }),
+  );
+  assert.match(problem, /version\.properties changes more than its version/);
+});
+
+test('a version code that does not follow from the version fails the guard', () => {
+  assert.deepEqual(releaseProblems(release({ androidCode: 800_999 })), []);
+  const [problem] = releaseProblems(release({ androidCode: 800_001 }));
+  assert.match(problem, /versionCode=800001; 0\.8\.0 is 800999/);
+});
+
 test('a title that would not stamp the build fails the guard', () => {
   const [problem] = releaseProblems(release({ title: 'Release 0.8.0' }));
   assert.match(problem, /must be "chore\(release\): 0\.8\.0"/);
@@ -60,7 +92,7 @@ test('version files that disagree fail the guard', () => {
 });
 
 const cut = (overrides = {}) => ({
-  versions: ['0.8.0', '0.8.0', '0.8.0'],
+  versions: ['0.8.0', '0.8.0', '0.8.0', '0.8.0'],
   message:
     "Merge branch 'release/0.8.0' into 'main'\n\nchore(release): 0.8.0\n\nSee merge request x!1",
   imageVersion: '0.8.0',

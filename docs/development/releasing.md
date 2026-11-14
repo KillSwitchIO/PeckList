@@ -17,9 +17,10 @@ release with notes.
   and `latest` (`+` is not allowed in image tags).
 - A pre-release (`0.4.0-rc.1`) gets its exact image tag and its type (`rc`), no `latest`, and is marked as a
   pre-release.
-- The version lives in `web/package.json`, `web/src/core/workspace.ts` (`APP_VERSION`) and
-  `server/Directory.Build.props`. `pnpm check:version` checks they agree, and in a tag pipeline
-  that they match the tag.
+- The version lives in `web/package.json`, `web/src/core/workspace.ts` (`APP_VERSION`),
+  `server/Directory.Build.props` and `mobile/android/app/version.properties` (with the Android
+  version code that goes with it, [Android](android.md#release-signing)). `pnpm check:version`
+  checks they agree, and in a tag pipeline that they match the tag.
 - Builds between releases carry the **next** patch, so they sort after the release they follow and
   before the next one: after `0.2.0`, `main` builds `0.2.1-edge.<commit>` and other branches
   `0.2.1-dev.<commit>`. After a pre-release such as `0.3.0-rc.1` they are
@@ -170,3 +171,8 @@ one the test server ran.
 - [ ] After the tag pipeline: the release page, `docker pull ...:X.Y.Z` has the digest on the page,
       and a native download's `pecklist --version`.
 - [ ] The APK installs over the previous release on a phone (same signing key, higher version code).
+- [ ] For F-Droid (a final release): the SHA-256 of
+      `packages/generic/pecklist/X.Y.Z/pecklist-android-X.Y.Z.apk` matches the APK's line in the
+      release's signed `SHA256SUMS` (anyone with Developer access or a pipeline token could write
+      that path), and the Node version in the F-Droid recipe is still the one `node:24-bookworm-slim`
+      gives (`docker run --rm node:24-bookworm-slim node -v`), with its checksum from nodejs.org.

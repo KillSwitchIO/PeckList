@@ -6,7 +6,15 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { test } from 'node:test';
 import { releaseNotes, withSection } from './release-notes.mjs';
-import { SEMVER, nextVersion, parseTag, readVersions, releaseKind } from './versions.mjs';
+import {
+  SEMVER,
+  androidVersionCode,
+  nextVersion,
+  parseTag,
+  readAndroidVersionCode,
+  readVersions,
+  releaseKind,
+} from './versions.mjs';
 
 test('a release tag carries the version and the date as build metadata', () => {
   assert.deepEqual(parseTag('v0.4.0+20261023'), {
@@ -96,8 +104,27 @@ test('a release adds its section on top, and every older section stays as it was
 
 test('every place that holds the version holds the same one', () => {
   const versions = readVersions();
-  assert.equal(versions.length, 3);
+  assert.equal(versions.length, 4);
   assert.equal(new Set(versions.map((each) => each.version)).size, 1);
+  assert.equal(readAndroidVersionCode(), androidVersionCode(versions[0].version));
+});
+
+test('the Android version code grows with each release, and an rc sorts before its release', () => {
+  assert.equal(androidVersionCode('0.12.0-rc.1'), 1_200_001);
+  assert.equal(androidVersionCode('0.12.0-rc.2'), 1_200_002);
+  assert.equal(androidVersionCode('0.12.0'), 1_200_999);
+  // A build between releases: after the release it follows, before the next one's rc.
+  assert.equal(androidVersionCode('0.12.1-edge.abc1234'), 1_201_000);
+  assert.equal(androidVersionCode('1.0.0'), 10_000_999);
+  const order = ['0.11.0', '0.12.0-rc.1', '0.12.0', '0.12.1-dev.abc', '0.12.1', '0.13.0', '1.0.0'];
+  const codes = order.map(androidVersionCode);
+  assert.deepEqual(
+    [...codes].sort((a, b) => a - b),
+    codes,
+  );
+  // Past the room each part has, there is no code rather than a wrong one.
+  assert.throws(() => androidVersionCode('0.100.0'), /no Android version code/);
+  assert.throws(() => androidVersionCode('0.1.100'), /no Android version code/);
 });
 
 /** What scripts/build-version.sh says for a version file and GitLab's variables. */

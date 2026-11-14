@@ -10,6 +10,20 @@ export const SUMS_BUNDLE = 'SHA256SUMS.sigstore.json';
 /** The file sign-image leaves (its artifact) once the image's signature is made and checked. */
 export const IMAGE_SIGNED_MARKER = 'IMAGE_SIGNED';
 
+/**
+ * Where upload-downloads puts each file: every one under <version>-<commit>, and a final release's
+ * APK under the plain version too, the one address F-Droid can work out from the version alone
+ * (its Binaries: line), to check its own build against ours. A version prepared again replaces it.
+ */
+export function uploadTargets(files, version, commit) {
+  const targets = files.map((file) => ({ file, packageVersion: `${version}-${commit}` }));
+  const final = !version.includes('-');
+  for (const file of files) {
+    if (final && file.endsWith('.apk')) targets.push({ file, packageVersion: version });
+  }
+  return targets;
+}
+
 /** A download's name with its version: pecklist-android.apk is pecklist-android-0.8.0.apk. */
 export function versionedName(file, version) {
   const parts = /^(pecklist-.+?)(\.tar\.gz|\.zip|\.apk)$/.exec(file);

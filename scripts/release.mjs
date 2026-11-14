@@ -13,7 +13,14 @@ import { readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { versionDocs } from './docs-version.mjs';
 import { releaseNotes, withSection } from './release-notes.mjs';
-import { SEMVER, plannedVersion, readVersions, root, writeVersion } from './versions.mjs';
+import {
+  ANDROID_VERSION_FILE,
+  SEMVER,
+  plannedVersion,
+  readVersions,
+  root,
+  writeVersion,
+} from './versions.mjs';
 
 const args = process.argv.slice(2);
 const asked = args.find((arg) => !arg.startsWith('--'));
@@ -118,6 +125,7 @@ git(
   'web/package.json',
   'web/src/core/workspace.ts',
   'server/Directory.Build.props',
+  ANDROID_VERSION_FILE,
   ...(docsVersion
     ? ['website/versions.json', 'website/versioned_docs', 'website/versioned_sidebars']
     : []),

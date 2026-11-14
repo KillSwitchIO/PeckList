@@ -1,13 +1,18 @@
-// Where the app version lives. One version, written in three places because each build reads its
-// own: the web package, the web app's constant (stamped into workspace files), and the server's
-// MSBuild properties. `node scripts/check-version.mjs` keeps them equal; `pnpm release` bumps all
-// three together.
+// Where the app version lives. One version, written in four places because each build reads its
+// own: the web package, the web app's constant (stamped into workspace files), the server's MSBuild
+// properties and the Android app's version.properties (with its version code, which follows from
+// the version). `node scripts/check-version.mjs` keeps them equal; `pnpm release` bumps all of them
+// together.
 
 import { readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 export const root = join(dirname(fileURLToPath(import.meta.url)), '..');
+
+/** The Android app's version file: F-Droid builds a release tag from it with nothing set. */
+export const ANDROID_VERSION_FILE = 'mobile/android/app/version.properties';
+const ANDROID_CODE = /^(versionCode=)(.*?)()$/m;
 
 const places = [
   {
@@ -21,6 +26,10 @@ const places = [
   {
     file: 'server/Directory.Build.props',
     pattern: /(<Version>)([^<]+)(<\/Version>)/,
+  },
+  {
+    file: ANDROID_VERSION_FILE,
+    pattern: /^(versionName=)(.+?)()$/m,
   },
 ];
 
@@ -77,12 +86,40 @@ export function readVersions() {
   });
 }
 
-/** Write one version into every place. */
+/**
+ * The Android version code for a version, the same rule as mobile/android/app/build.gradle: it
+ * grows with every release, and an rc sorts before its release. MAJOR * 10,000,000 + MINOR *
+ * 100,000 + PATCH * 1,000, plus N for -rc.N, 999 for the release itself, 0 for any other
+ * pre-release (a build between releases).
+ */
+export function androidVersionCode(version) {
+  const match = SEMVER.exec(version);
+  if (!match) throw new Error(`not a version: ${version}`);
+  const [major, minor, patch] = [Number(match[1]), Number(match[2]), Number(match[3])];
+  const rc = match[4] === undefined ? 999 : Number(/^rc\.(\d+)/.exec(match[4])?.[1] ?? 0);
+  if (minor > 99 || patch > 99 || rc > 999 || major > 213) {
+    throw new Error(`no Android version code for ${version}`);
+  }
+  return major * 10_000_000 + minor * 100_000 + patch * 1_000 + rc;
+}
+
+/** The version code version.properties holds. */
+export function readAndroidVersionCode() {
+  const text = readFileSync(join(root, ANDROID_VERSION_FILE), 'utf8');
+  const match = ANDROID_CODE.exec(text);
+  if (!match) throw new Error(`no versionCode in ${ANDROID_VERSION_FILE}`);
+  return Number(match[2]);
+}
+
+/** Write one version into every place, and the Android version code that goes with it. */
 export function writeVersion(version) {
   for (const { file, pattern } of places) {
     const path = join(root, file);
-    const text = readFileSync(path, 'utf8');
-    writeFileSync(path, text.replace(pattern, `$1${version}$3`));
+    let text = readFileSync(path, 'utf8').replace(pattern, `$1${version}$3`);
+    if (file === ANDROID_VERSION_FILE) {
+      text = text.replace(ANDROID_CODE, `$1${androidVersionCode(version)}$3`);
+    }
+    writeFileSync(path, text);
   }
 }
 
