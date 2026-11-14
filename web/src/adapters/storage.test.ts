@@ -1,4 +1,4 @@
-import { openDB } from 'idb';
+import { deleteDB, openDB } from 'idb';
 import { describe, expect, it } from 'vitest';
 import { sampleWorkspace } from '../test/fixtures.ts';
 import { createIndexedDbStorage } from './indexeddb-storage.ts';
@@ -13,6 +13,16 @@ describeStorageContract('indexeddb', () =>
 );
 
 describe('IndexedDB storage, one record per entity', () => {
+  it('lets another tab delete its databases, and opens them again on next use', async () => {
+    const name = `pecklist-yield-${(counter += 1)}`;
+    const storage = createIndexedDbStorage(name);
+    await storage.save(sampleWorkspace());
+    // Each waits for every connection to close: this storage's must give way, not hold it up.
+    await deleteDB(`${name}-records`);
+    await deleteDB(name);
+    expect(await storage.load()).toBeNull();
+  });
+
   it('reads a workspace an older version saved as one text, then keeps it as records', async () => {
     const name = `pecklist-legacy-${(counter += 1)}`;
     const workspace = sampleWorkspace();

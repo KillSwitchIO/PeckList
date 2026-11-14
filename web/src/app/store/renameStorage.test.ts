@@ -1,6 +1,6 @@
 import { deleteDB, openDB } from 'idb';
-import { afterEach, describe, expect, it } from 'vitest';
-import { moveDatabases, moveKeys } from './renameStorage.ts';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { moveDatabases, moveDatabasesWithin, moveKeys } from './renameStorage.ts';
 
 const names = async () => (await indexedDB.databases()).map((each) => each.name).sort();
 
@@ -80,5 +80,46 @@ describe('moving storage from the old name (PL-127)', () => {
     expect(await kept.get('entities', 'tasks/t1')).toBe('newer');
     kept.close();
     await expect.poll(names).toEqual(['pecklist-records', 'punchlist-records']);
+  });
+
+  it('opens no old database where the browser has none: no writes before the app starts', async () => {
+    const open = vi.spyOn(indexedDB, 'open');
+    try {
+      await moveDatabases();
+      expect(open.mock.calls.map(([name]) => name)).toEqual([]);
+    } finally {
+      open.mockRestore();
+    }
+    expect(await names()).toEqual([]);
+  });
+
+  it('starts the app anyway when the move is held up, and moves at the next start', async () => {
+    const old = await openDB('punchlist-records', 1, {
+      upgrade: (db) => db.createObjectStore('entities'),
+    });
+    await old.put('entities', 'older', 'tasks/t1');
+    // A tab that never lets go of the database, and an upgrade waiting on it: every later open of
+    // that database waits behind the upgrade, for as long as the tab is open.
+    const upgrade = indexedDB.open('punchlist-records', 2);
+    const upgraded = new Promise<void>((resolve) => {
+      upgrade.onsuccess = () => {
+        upgrade.result.close();
+        resolve();
+      };
+    });
+
+    const started = Date.now();
+    await moveDatabasesWithin(50, 200);
+    expect(Date.now() - started).toBeLessThan(1_000);
+    expect(await names()).not.toContain('pecklist-records');
+
+    // The tab closes: the move held up then copies nothing, the next start's move does it.
+    old.close();
+    await upgraded;
+    await moveDatabasesWithin();
+    const moved = await openDB('pecklist-records');
+    expect(await moved.get('entities', 'tasks/t1')).toBe('older');
+    moved.close();
+    await expect.poll(names).toEqual(['pecklist-records']);
   });
 });
