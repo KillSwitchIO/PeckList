@@ -81,7 +81,7 @@ tasks of the same name in one file stay two.
 | Start and due dates, times   | Yes, all-day or timed, in each task's own time zone (the device's when the row names none); a span keeps its first and last day | Read from the date as Todoist writes it ("Nov 4 2026 9am"), in the task's own time zone when the export names one, else the device's |
 | Duration                     | A timed span keeps its end | A timed task's duration becomes its end time |
 | Deadlines                    | (TickTick has none) | Todoist's deadline becomes the task's due date |
-| Repeats                      | Yes, when the rule is one PeckList follows: daily, every weekday, weekly on days, monthly on a day, the last day or the last Friday, yearly, until a date or a count | Yes, from the date words: "every monday at 9am", "every weekday", "every 15th", "every last day", "every last friday", "every 2 weeks starting Nov 4", "every day until Dec 31"; `every!` repeats from when you finish it |
+| Repeats                      | Yes, when the rule is one PeckList follows: daily, every weekday, weekly on days, monthly on a day, the last day or the last Friday, yearly, until a date or a count | Yes, from the date words: "every monday at 9am", "every weekday", "every 15th", "every last day", "every last friday", "every 2 weeks Tue", "every 2 weeks starting Nov 4", "every day until Dec 31"; `every!` repeats from when you finish it. A weekly repeat starts on its next day |
 | Reminders                    | Yes, before a timed task, or at a time on an all-day one; up to 10 a task (more are counted in the preview) | Not in Todoist's export |
 | Completed tasks              | Yes, closed with the time they were done. The backup has no archived flag | Not in Todoist's export (it holds open tasks only, not completed or archived ones) |
 | Won't do                     | Yes, closed as won't do | (Todoist has none) |
@@ -101,6 +101,11 @@ A few more things work the way TickTick and Todoist mean them, not literally:
   without a repeat. The preview counts them.
 - **Dates PeckList cannot read** in a Todoist export come in without a date, and the preview
   counts them too.
+- **Repeats with no next date.** Todoist's export has a repeat's words but not the day it is next
+  due. "every Tue" or "every 15th" can only start on one day, but "every 2 days", "every 2 weeks
+  Tue", "every 6 months" and `every!` repeats could start on several: they start on the day you
+  import. The preview counts them, and the message after the import names them so you can set
+  each one's next date from Todoist.
 - **Reminders it cannot keep** (unreadable, or past the tenth on a task) are dropped and counted.
   One set more than a year before its task becomes a reminder at that date and time instead.
 

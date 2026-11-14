@@ -121,6 +121,12 @@ export function parseTodoist(
         tags,
       };
       plan.tasks.push(task);
+      // A repeat with no next date in the file (every 2 days): it starts today, which may be
+      // the wrong day of its series, so the import says which tasks to check.
+      if (read?.guessed && task.recurrence) {
+        (plan.guessedStarts ??= []).push(task.key);
+        note(plan, 'repeatStartGuessed');
+      }
       // Its own level (one under its parent, however far the file indents it).
       const level = parent ? parents.indexOf(parent) + 1 : 0;
       parents.length = level;

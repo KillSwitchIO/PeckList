@@ -48,6 +48,7 @@ export type ImportNote =
   | 'dateUnread'
   | 'commentsAsNotes'
   | 'sectionsDropped'
+  | 'repeatStartGuessed'
   | 'attachmentsLeft';
 
 export interface ImportPlan {
@@ -55,6 +56,11 @@ export interface ImportPlan {
   lists: ImportedList[];
   tasks: ImportedTask[];
   notes: Partial<Record<ImportNote, number>>;
+  /**
+   * Repeating tasks (their keys) whose file gave a rule but no next date, so they start on the
+   * day of the import: every 2 days, every 6 months, every! 2 weeks, every 2 weeks tue.
+   */
+  guessedStarts?: string[];
 }
 
 /** Count one more of a note. */

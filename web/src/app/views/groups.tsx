@@ -23,7 +23,9 @@ import {
   type DateGroup,
   type TaskFilter,
 } from '../../core/filters.ts';
-import { rescheduleTo } from '../../core/tasks.ts';
+import { addDays } from '../../core/dates.ts';
+import { postponeTarget, postponeTo } from '../../core/tasks.ts';
+import { formatDay } from '../format.ts';
 import type { Task } from '../../core/types.ts';
 import { useToday } from '../hooks/useToday.ts';
 import { t } from '../i18n/i18n.ts';
@@ -94,24 +96,54 @@ export function CompletedGroup({
   );
 }
 
-/** Moves every overdue task in a group to today, keeping times. */
+/**
+ * What Postpone did, for its undo line: "Moved to today", "Moved to Tue, Nov 17", or today and
+ * where the repeats that skipped ahead went.
+ */
+function postponedLabel(tasks: readonly Task[], today: string): string {
+  const later = tasks
+    .map((task) => ({ task, date: postponeTarget(task, today).date }))
+    .filter((each) => each.date !== today);
+  if (!later.length) return t('undo.postponed');
+  const dayOf = (date: string) => {
+    const day = formatDay(date, today);
+    return date === addDays(today, 1) ? day.toLowerCase() : day;
+  };
+  const all = later.length === tasks.length;
+  if (new Set(later.map((each) => each.date)).size > 1) {
+    return all
+      ? t('undo.postponedSpreadAll', { count: later.length })
+      : t('undo.postponedSpread', { count: later.length });
+  }
+  const day = dayOf(later[0]!.date);
+  if (all) return t('undo.postponedTo', { day });
+  return later.length === 1
+    ? t('undo.postponedOne', { title: later[0]!.task.title, day })
+    : t('undo.postponedSome', { count: later.length, day });
+}
+
+/**
+ * Moves every overdue task in a group to today, keeping times; a weekly repeat goes to its next
+ * date instead (core/tasks postponeTarget).
+ */
 export function PostponeButton({ tasks, today }: { tasks: Task[]; today: string }) {
   const apply = useApply();
   return (
     <Button
       size="small"
-      onClick={() =>
+      onClick={() => {
+        const own = tasks.filter(hasOwnDate);
         apply(
           (ctx, ws) =>
-            rescheduleTo(
+            postponeTo(
               ctx,
               ws,
-              tasks.filter(hasOwnDate).map((task) => task.id),
+              own.map((task) => task.id),
               today,
             ),
-          t('undo.postponed'),
-        )
-      }
+          postponedLabel(own, today),
+        );
+      }}
     >
       {t('group.postpone')}
     </Button>

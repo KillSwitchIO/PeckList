@@ -1110,6 +1110,81 @@
       "recurrence": "FREQ=WEEKLY;INTERVAL=3"
     },
     {
+      "text": "Paper bins every 2 weeks tue",
+      "title": "Paper bins",
+      "tokens": [
+        {
+          "kind": "repeat",
+          "start": 11,
+          "end": 28,
+          "text": "every 2 weeks tue"
+        }
+      ],
+      "schedule": {
+        "start": {
+          "date": "2026-10-27",
+          "time": null
+        },
+        "end": null
+      },
+      "due": null,
+      "priority": null,
+      "listId": null,
+      "tags": [],
+      "assignees": [],
+      "recurrence": "FREQ=WEEKLY;INTERVAL=2;BYDAY=TU"
+    },
+    {
+      "text": "Swim every 3 weeks on monday and friday",
+      "title": "Swim",
+      "tokens": [
+        {
+          "kind": "repeat",
+          "start": 5,
+          "end": 39,
+          "text": "every 3 weeks on monday and friday"
+        }
+      ],
+      "schedule": {
+        "start": {
+          "date": "2026-10-23",
+          "time": null
+        },
+        "end": null
+      },
+      "due": null,
+      "priority": null,
+      "listId": null,
+      "tags": [],
+      "assignees": [],
+      "recurrence": "FREQ=WEEKLY;INTERVAL=3;BYDAY=MO,FR"
+    },
+    {
+      "text": "Apply every week sun cream",
+      "title": "Apply cream",
+      "tokens": [
+        {
+          "kind": "repeat",
+          "start": 6,
+          "end": 20,
+          "text": "every week sun"
+        }
+      ],
+      "schedule": {
+        "start": {
+          "date": "2026-10-25",
+          "time": null
+        },
+        "end": null
+      },
+      "due": null,
+      "priority": null,
+      "listId": null,
+      "tags": [],
+      "assignees": [],
+      "recurrence": "FREQ=WEEKLY;BYDAY=SU"
+    },
+    {
       "text": "Due fri file report",
       "title": "file report",
       "tokens": [

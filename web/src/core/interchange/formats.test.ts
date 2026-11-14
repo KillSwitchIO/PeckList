@@ -146,6 +146,69 @@ describe('Todoist', () => {
     });
     expect(again.task('Rake leaves').recurrence).toContain('BYDAY=MO');
   });
+
+  // Todoist's DATE holds a repeat's words and never its next date.
+  describe('repeats, imported on a Saturday', () => {
+    const saturday = () =>
+      dateReader({
+        workspace: createWorkspace(testContext()),
+        parser: createChronoDateParser(),
+        reference: new Date('2026-11-14T20:25:00Z'),
+        timeZone: ZONE,
+      });
+    const repeats = [
+      header,
+      'task,Bins out,,4,1,,,every Tue,en,America/Chicago,,,,',
+      'task,Weigh in,,4,1,,,every Sat,en,America/Chicago,,,,',
+      'task,Paper bins,,4,1,,,every 2 weeks Tue,en,America/Chicago,,,,',
+      'task,Stretch,,4,1,,,every 2 days at 5:00 pm,en,America/Chicago,,,,',
+      'task,Walk the dog,,4,1,,,every day at 6:00 pm,en,America/Chicago,,,,',
+      'task,Oil change,,4,1,,,every! 2 weeks at 2:45 pm,en,America/Chicago,,,,',
+      'task,Gutters,,4,1,,,every 6 months,en,America/Chicago,,,,',
+      'task,Pay rent,,4,1,,,every 1st,en,America/Chicago,,,,',
+      'task,Dentist,,4,1,,,every 6 months starting Dec 3 2026,en,America/Chicago,,,,',
+      'task,Renew passport,,4,1,,,every year due Mar 3 2027,en,America/Chicago,,,,',
+      'task,Read aloud,,4,1,,,every 3 days at noon,en,America/Chicago,,,,',
+    ].join('\n');
+    const plan = () =>
+      parseTodoist([{ name: 'House.csv', text: repeats }], { readDate: saturday() });
+
+    it('starts each on a day of its own, and keeps the days of "every 2 weeks Tue"', () => {
+      const { task } = landed(plan());
+      const start = (title: string) => task(title).schedule?.start;
+      expect(start('Bins out')).toBe('2026-11-17');
+      expect(start('Weigh in')).toBe('2026-11-14');
+      expect(start('Paper bins')).toBe('2026-11-17');
+      expect(task('Paper bins').recurrence).toBe('FREQ=WEEKLY;INTERVAL=2;BYDAY=TU');
+      expect(start('Walk the dog')).toBe('2026-11-14T18:00');
+      expect(start('Pay rent')).toBe('2026-12-01');
+      expect(start('Dentist')).toBe('2026-12-03');
+    });
+
+    it('lists the repeats whose start it had to guess, and only those', () => {
+      const read = plan();
+      const titles = (read.guessedStarts ?? []).map(
+        (key) => read.tasks.find((task) => task.key === key)!.title,
+      );
+      expect(titles).toEqual(['Paper bins', 'Stretch', 'Oil change', 'Gutters', 'Read aloud']);
+      expect(read.notes.repeatStartGuessed).toBe(5);
+    });
+
+    it('reads back from its own export with the same starts and rules, and guesses none', () => {
+      const first = landed(plan());
+      const files = exportTodoist(first.ws);
+      const read = parseTodoist(files, { readDate: saturday() });
+      expect(read.guessedStarts ?? []).toEqual([]);
+      const again = landed(read);
+      for (const each of first.ws.entities.tasks.filter((task) => task.recurrence)) {
+        expect([
+          each.title,
+          again.task(each.title).schedule?.start,
+          again.task(each.title).recurrence,
+        ]).toEqual([each.title, each.schedule?.start, each.recurrence]);
+      }
+    });
+  });
 });
 
 describe('Google Tasks', () => {

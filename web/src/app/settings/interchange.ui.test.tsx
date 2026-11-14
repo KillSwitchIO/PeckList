@@ -122,6 +122,43 @@ describe('settings: import from another app', () => {
     expect(within(dialog).getByRole('combobox', { name: 'From' })).toHaveTextContent('Todoist');
   });
 
+  it('names the repeating tasks whose next date the file did not have', async () => {
+    const store = testStore();
+    await renderApp('/settings/data', store);
+    const house = [
+      'TYPE,CONTENT,DESCRIPTION,PRIORITY,INDENT,AUTHOR,RESPONSIBLE,DATE,DATE_LANG',
+      'task,Bins out,,4,1,,,every Tue,en',
+      'task,Stretch,,4,1,,,every 2 days at 5:00 pm,en',
+      'task,Gutters,,4,1,,,every 6 months,en',
+    ].join('\n');
+    let dialog = await openImport();
+    await userEvent.upload(
+      within(dialog).getByLabelText('Choose file'),
+      new File([house], 'House.csv', { type: 'text/csv' }),
+    );
+    expect(await within(dialog).findByTestId('import-preview')).toHaveTextContent(
+      'Repeating tasks with no next date in the file, so they start today: 2',
+    );
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Import' }));
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    expect(await screen.findByRole('region', { name: 'Your data' })).toHaveTextContent(
+      '2 repeating tasks had no next date in the file, so they start today: Stretch, Gutters. Check their dates.',
+    );
+
+    // The same file again: nothing comes in, so there is nothing to check.
+    dialog = await openImport();
+    await userEvent.upload(
+      within(dialog).getByLabelText('Choose file'),
+      new File([house], 'House.csv', { type: 'text/csv' }),
+    );
+    await within(dialog).findByTestId('import-preview');
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Import' }));
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    const data = await screen.findByRole('region', { name: 'Your data' });
+    await waitFor(() => expect(data).toHaveTextContent('3 tasks already here'));
+    expect(data).not.toHaveTextContent('Check their dates');
+  });
+
   it('says so when the file is not that app’s', async () => {
     const store = testStore();
     await renderApp('/settings/data', store);

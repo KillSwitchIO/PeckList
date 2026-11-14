@@ -3,7 +3,7 @@
 import { getEntity, isLive, putEntities, putEntity, requireEntity } from './collections.ts';
 import { addDays, datePart, daysBetween, localTimeZone, timePart, todayIn } from './dates.ts';
 import { followIntoTrash, followOutOfTrash } from './followTask.ts';
-import { advance, formatRule, parseRule } from './recurrence.ts';
+import { advance, fixedDays, formatRule, parseRule } from './recurrence.ts';
 import { canMoveTask } from './sharing.ts';
 import { compareByOrder, compareOrderKeys, keyBetween } from './ordering.ts';
 import {
@@ -525,15 +525,69 @@ export function rescheduleTo(
 ): WorkspaceFile {
   const changed = ids.map((id) => {
     const task = requireEntity(workspace, 'tasks', id);
+    return task.schedule ? updateEntity(ctx, task, movedTo(task.schedule, date)) : task;
+  });
+  return putEntities(workspace, 'tasks', changed);
+}
+
+/** A schedule moved to start on `date`, its time of day and range length kept. */
+function movedTo(schedule: Schedule, date: string): Pick<Task, 'schedule'> {
+  const shift = daysBetween(datePart(schedule.start), date);
+  const move = (value: string) => addDays(datePart(value), shift) + value.slice(10);
+  return {
+    schedule: {
+      ...schedule,
+      start: move(schedule.start),
+      end: schedule.end ? move(schedule.end) : null,
+    },
+  };
+}
+
+/** How near a weekly repeat's next date must be for Postpone to go there instead of to today. */
+export const POSTPONE_SKIP_DAYS = 7;
+
+/**
+ * Where Postpone (the Overdue group's button) sends a task: today, times kept, unless it repeats
+ * weekly on days of its own (every Tuesday, every other Mon and Thu) and its next date on or after
+ * today is less than a week away. Then it goes there, so it never sits on a day it does not
+ * repeat on, and the dates it passes (skipped ones and its count included) go as completing would
+ * take them. A monthly or yearly one always goes to today, so a missed rent stays in front of you
+ * however near the next one is; so does a plain interval (every 2 days, every! 2 weeks), which
+ * counts on from there, and a series that has ended.
+ */
+export function postponeTarget(task: Task, today: string): { date: string; recurrence?: string } {
+  const rule = parseRule(task.recurrence);
+  // Weekly on days (or daily on some weekdays, which is the same thing).
+  const weekly =
+    rule !== null && (rule.freq === 'WEEKLY' || (rule.freq === 'DAILY' && !!rule.byDay?.length));
+  if (!task.schedule || !rule || !weekly || !fixedDays(rule)) return { date: today };
+  let date = datePart(task.schedule.start);
+  let next = rule;
+  while (date < today) {
+    const step = advance(next, date, today);
+    if (!step) return { date: today };
+    date = step.date;
+    next = step.rule;
+  }
+  if (daysBetween(today, date) >= POSTPONE_SKIP_DAYS) return { date: today };
+  const recurrence = formatRule(next);
+  return recurrence === task.recurrence ? { date } : { date, recurrence };
+}
+
+/** Postpone: each task to its `postponeTarget`. */
+export function postponeTo(
+  ctx: OpContext,
+  workspace: WorkspaceFile,
+  ids: Id[],
+  today: string,
+): WorkspaceFile {
+  const changed = ids.map((id) => {
+    const task = requireEntity(workspace, 'tasks', id);
     if (!task.schedule) return task;
-    const shift = daysBetween(datePart(task.schedule.start), date);
-    const move = (value: string) => addDays(datePart(value), shift) + value.slice(10);
+    const target = postponeTarget(task, today);
     return updateEntity(ctx, task, {
-      schedule: {
-        ...task.schedule,
-        start: move(task.schedule.start),
-        end: task.schedule.end ? move(task.schedule.end) : null,
-      },
+      ...movedTo(task.schedule, target.date),
+      ...(target.recurrence ? { recurrence: target.recurrence } : {}),
     });
   });
   return putEntities(workspace, 'tasks', changed);

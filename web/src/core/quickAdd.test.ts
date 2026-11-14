@@ -118,6 +118,25 @@ describe('quick add', () => {
       'FREQ=WEEKLY;INTERVAL=2;BYDAY=MO,TH',
       { date: '2026-10-22', time: null },
     ]);
+    // Weeks with their days, as Todoist writes them: the days are kept, and it starts on the
+    // first of them (next Tuesday from this Wednesday).
+    expect(read('Bins every 2 weeks Tue')).toEqual([
+      'Bins',
+      'FREQ=WEEKLY;INTERVAL=2;BYDAY=TU',
+      { date: '2026-10-27', time: null },
+    ]);
+    expect(read('Swim every 3 weeks on monday and friday')).toEqual([
+      'Swim',
+      'FREQ=WEEKLY;INTERVAL=3;BYDAY=MO,FR',
+      { date: '2026-10-23', time: null },
+    ]);
+    expect(read('Plan every week on sunday at 6pm')).toEqual([
+      'Plan',
+      'FREQ=WEEKLY;BYDAY=SU',
+      { date: '2026-10-25', time: '18:00' },
+    ]);
+    // "Weeks" with no day after it is still the plain interval.
+    expect(read('Mop every 2 weeks')[1]).toBe('FREQ=WEEKLY;INTERVAL=2');
     expect(read('Rent every month')[1]).toBe('FREQ=MONTHLY');
     expect(read('Filters every 3 months')[1]).toBe('FREQ=MONTHLY;INTERVAL=3');
     expect(read('Trash every fri, mon')[1]).toBe('FREQ=WEEKLY;BYDAY=FR,MO');
