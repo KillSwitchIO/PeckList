@@ -27,7 +27,7 @@ release downloads, use the packaging script (it takes any .NET runtime identifie
 `osx-arm64` or `linux-musl-x64`):
 
 ```bash
-scripts/package.sh 0.0.0-local osx-arm64     # writes dist/pecklist-osx-arm64.tar.gz
+scripts/package.sh 0.0.0-local osx-arm64     # writes dist/pecklist-server-osx-arm64-portable.tar.gz
 ```
 
 ## The image

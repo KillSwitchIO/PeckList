@@ -4,8 +4,8 @@
 
 .DESCRIPTION
   Run from the unpacked download in an elevated PowerShell:
-    Expand-Archive pecklist-win-x64.zip -DestinationPath .
-    .\pecklist-win-x64\examples\install-service.ps1
+    Expand-Archive pecklist-server-win-x64-portable.zip -DestinationPath .
+    .\pecklist-server-win-x64\examples\install-service.ps1
 
   Program:  C:\Program Files\PeckList               (replaced on every run)
   Data:     C:\ProgramData\PeckList                 (database, snapshots, logs; kept)

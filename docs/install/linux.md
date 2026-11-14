@@ -1,21 +1,25 @@
-# Linux (without Docker)
+# Linux, portable
 
-Each [release](https://gitlab.com/killswitch10/pecklist/-/releases) has a self-contained download
-for **x64** and **arm64**: the server with everything it needs built in. No .NET, Node or database
+On Debian, Ubuntu, Fedora, RHEL or openSUSE, the packages are easier to install and upgrade:
+see [Debian and Ubuntu](debian-ubuntu.md) and [Fedora, RHEL and openSUSE](fedora-rhel-opensuse.md).
+This page is for any other distribution, and for running the server from a folder.
+
+Each [release](https://gitlab.com/killswitch10/pecklist/-/releases) has a portable download for
+**x64** and **arm64**: the server with everything it needs built in. No .NET, Node or database
 server to install.
 
 ## Install as a service
 
-On any systemd distribution (Debian, Ubuntu, Fedora, Arch, ...):
+On any systemd distribution:
 
 ```bash
 ARCH=x64   # or arm64
 BASE=https://gitlab.com/killswitch10/pecklist/-/releases/permalink/latest/downloads
-curl -LO "$BASE/pecklist-linux-$ARCH.tar.gz"
+curl -LO "$BASE/pecklist-server-linux-$ARCH-portable.tar.gz"
 curl -LO "$BASE/SHA256SUMS"
 sha256sum --check --ignore-missing SHA256SUMS
-tar -xzf "pecklist-linux-$ARCH.tar.gz"
-sudo "pecklist-linux-$ARCH/examples/install.sh"
+tar -xzf "pecklist-server-linux-$ARCH-portable.tar.gz"
+sudo "pecklist-server-linux-$ARCH/examples/install.sh"
 sudo journalctl -u pecklist   # the first admin password, printed once
 ```
 
@@ -80,7 +84,7 @@ starts it again; the database is upgraded on start. Read [upgrading](../guides/u
 No systemd, or just trying it? The program runs from the unpacked folder:
 
 ```bash
-cd pecklist-linux-x64
+cd pecklist-server-linux-x64
 ASPNETCORE_HTTP_PORTS=8080 ./pecklist
 ```
 

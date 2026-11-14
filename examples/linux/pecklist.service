@@ -19,6 +19,8 @@ WorkingDirectory=/var/lib/pecklist
 ExecStart=/opt/pecklist/pecklist
 Restart=on-failure
 RestartSec=5
+# Exits that a restart cannot fix: bad settings (2), a newer database (3), an unwritable folder (4).
+RestartPreventExitStatus=2 3 4
 
 Environment=ASPNETCORE_HTTP_PORTS=8080
 Environment=DB_PATH=/var/lib/pecklist/pecklist.db
@@ -26,7 +28,11 @@ Environment=CONFIG_FILE=/etc/pecklist/pecklist.conf
 # Logs go to the journal; the JSON log files stay off unless you want both.
 Environment=LOG_FILES=false
 
-# Hardening: the server only writes its own data folder.
+# Hardening: the server only writes its own data folder, needs no capabilities and no port below
+# 1024. Not set: MemoryDenyWriteExecute (.NET compiles code as it runs), ProcSubset=pid (.NET
+# reads /proc/meminfo and the cgroup files) and ProtectProc=invisible (.NET finds systemd by reading
+# PID 1 in /proc; hidden, it never says it is ready and the start times out).
+# Check with: systemd-analyze security pecklist
 NoNewPrivileges=true
 PrivateTmp=true
 PrivateDevices=true
@@ -34,9 +40,22 @@ ProtectSystem=strict
 ProtectHome=true
 ProtectKernelTunables=true
 ProtectKernelModules=true
+ProtectKernelLogs=true
 ProtectControlGroups=true
+ProtectClock=true
+ProtectHostname=true
 RestrictSUIDSGID=true
+RestrictNamespaces=true
+RestrictRealtime=true
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6 AF_NETLINK
 LockPersonality=true
+CapabilityBoundingSet=
+AmbientCapabilities=
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+SystemCallErrorNumber=EPERM
+RemoveIPC=true
+UMask=0027
 ReadWritePaths=/var/lib/pecklist
 
 [Install]

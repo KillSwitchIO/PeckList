@@ -24,11 +24,25 @@ export function uploadTargets(files, version, commit) {
   return targets;
 }
 
-/** A download's name with its version: pecklist-android.apk is pecklist-android-0.8.0.apk. */
+/**
+ * A download's name with its version: pecklist-android.apk is pecklist-android-0.8.0.apk. Linux
+ * packages take it where their tools put it: pecklist_amd64.deb is pecklist_0.8.0_amd64.deb, and
+ * pecklist.x86_64.rpm is pecklist-0.8.0.x86_64.rpm.
+ */
 export function versionedName(file, version) {
+  const deb = /^(pecklist(?:-cli)?)_(amd64|arm64)\.deb$/.exec(file);
+  if (deb) return `${deb[1]}_${version}_${deb[2]}.deb`;
+  const rpm = /^(pecklist(?:-cli)?)\.(x86_64|aarch64)\.rpm$/.exec(file);
+  if (rpm) return `${rpm[1]}-${version}.${rpm[2]}.rpm`;
   const parts = /^(pecklist-.+?)(\.tar\.gz|\.zip|\.apk)$/.exec(file);
   return parts ? `${parts[1]}-${version}${parts[2]}` : file;
 }
+
+/** The files of a release's downloads folder that go on its page. */
+export const isDownload = (file) =>
+  /^pecklist-.+\.(tar\.gz|zip|apk)$/.test(file) ||
+  /^pecklist(-cli)?(_(amd64|arm64)\.deb|\.(x86_64|aarch64)\.rpm)$/.test(file) ||
+  file === 'SHA256SUMS';
 
 /**
  * SHA256SUMS naming each file both ways: a file saved from the release page has the version in its
@@ -108,17 +122,24 @@ export function describeRelease({
 docker pull ${image}:${version}
 \`\`\`
 
-Native downloads for Linux and Windows, and the Android app (\`pecklist-android-${version}.apk\`), are below; check them against \`SHA256SUMS\`. The newest
-release's files are always at \`${projectUrl}/-/releases/permalink/latest/downloads/<file>\`. Setup, upgrade
-steps and every setting are in the [documentation](${projectUrl}/-/tree/main/docs).
+The downloads are below; check them against \`SHA256SUMS\`. The newest release's files are always at
+\`${projectUrl}/-/releases/permalink/latest/downloads/<file>\`. Setup, upgrade steps and every setting are in
+the [documentation](https://docs.pecklist.com/).
 
-### Command line
+- **Debian and Ubuntu:** \`pecklist_${version}_amd64.deb\` (the server, as a systemd service) and
+  \`pecklist-cli_${version}_amd64.deb\` (the command line), also for arm64.
+- **Fedora, RHEL and openSUSE:** \`pecklist-${version}.x86_64.rpm\` and \`pecklist-cli-${version}.x86_64.rpm\`,
+  also for aarch64.
+- **Portable:** \`pecklist-server-<platform>-portable\` (the server in a folder, any Linux or Windows) and
+  \`pecklist-cli-<platform>-portable\` (the command line as one file, also for Windows on ARM).
+- **Android:** \`pecklist-android-${version}.apk\`.
 
-The \`pecklist-cli-<platform>\` downloads are the command line on its own, for any machine that talks to a
-server: \`pecklist login --server https://...\`, then \`pecklist tasks add ...\`. No server and no .NET install
-in them; see the [command line docs](${projectUrl}/-/blob/main/docs/reference/cli.md).${signatureText(
-    { sums: signed, image: imageSigned, projectUrl },
-  )}${
+The command line talks to any server: \`pecklist login --server https://...\`, then \`pecklist tasks add ...\`; see
+the [command line docs](https://docs.pecklist.com/reference/cli).${signatureText({
+    sums: signed,
+    image: imageSigned,
+    projectUrl,
+  })}${
     prerelease
       ? `\n\nThis is a pre-release: try it, but keep using the latest release for real data. ${publishedLine(publishedAt)}`
       : ''

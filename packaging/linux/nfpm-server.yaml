@@ -1,0 +1,97 @@
+# nFPM description of the PeckList server package, deb and rpm (PL-132). scripts/package.sh runs
+# nfpm from the repository root with these set:
+#   PKG_VERSION  0.12.0, or 0.12.0~rc.1 for a pre-release (sorts before 0.12.0)
+#   PKG_ARCH     amd64 or arm64 (nfpm names them x86_64 and aarch64 in the rpm)
+#   PKG_ROOT     the server program: the self-contained publish with wwwroot beside it
+#   PKG_SCRIPTS  the folder of finished scripts (packaging/linux/scripts, each with lib.sh in front)
+#   PKG_MAINTAINER
+name: pecklist
+version: ${PKG_VERSION}
+version_schema: none
+release: '1'
+arch: ${PKG_ARCH}
+platform: linux
+section: web
+priority: optional
+maintainer: ${PKG_MAINTAINER}
+vendor: PeckList
+homepage: https://pecklist.com
+license: AGPL-3.0-or-later
+description: |-
+  Self-hosted tasks and calendar for a household or a small team.
+  The PeckList server with its web app, run by systemd as the pecklist user. Settings are in
+  /etc/pecklist and data in /var/lib/pecklist. Maintenance commands: sudo pecklist-server help.
+  The command line client is the pecklist-cli package.
+
+contents:
+  - src: ${PKG_ROOT}/
+    dst: /usr/lib/pecklist
+    type: tree
+  - src: packaging/linux/pecklist.service
+    dst: /usr/lib/systemd/system/pecklist.service
+    file_info:
+      mode: 0644
+  - src: packaging/linux/pecklist.env
+    dst: /etc/pecklist/pecklist.env
+    type: config|noreplace
+    file_info:
+      mode: 0640
+  - src: packaging/linux/pecklist-server
+    dst: /usr/bin/pecklist-server
+    file_info:
+      mode: 0755
+  - src: packaging/linux/sysusers.conf
+    dst: /usr/lib/sysusers.d/pecklist.conf
+    file_info:
+      mode: 0644
+  - src: packaging/linux/tmpfiles.conf
+    dst: /usr/lib/tmpfiles.d/pecklist.conf
+    file_info:
+      mode: 0644
+  # Copied to /etc/pecklist/pecklist.conf on the first install (scripts/lib.sh, pl_setup).
+  - src: examples/config/pecklist.conf
+    dst: /usr/share/pecklist/pecklist.conf
+    file_info:
+      mode: 0644
+  - dst: /etc/pecklist
+    type: dir
+    file_info:
+      mode: 0755
+
+overrides:
+  deb:
+    depends:
+      - libc6
+      - libgcc-s1
+      - libstdc++6
+      - ca-certificates
+      - libssl3t64 | libssl3 | libssl1.1
+      - init-system-helpers
+    recommends:
+      - pecklist-cli
+    scripts:
+      preinstall: ${PKG_SCRIPTS}/deb-preinst.sh
+      postinstall: ${PKG_SCRIPTS}/deb-postinst.sh
+      preremove: ${PKG_SCRIPTS}/deb-prerm.sh
+      postremove: ${PKG_SCRIPTS}/deb-postrm.sh
+  rpm:
+    depends:
+      - glibc
+      - (libstdc++ or libstdc++6)
+      - (openssl-libs or libopenssl3)
+      - ca-certificates
+      - /usr/bin/setpriv
+    recommends:
+      - pecklist-cli
+    scripts:
+      preinstall: ${PKG_SCRIPTS}/rpm-pre.sh
+      postinstall: ${PKG_SCRIPTS}/rpm-post.sh
+      preremove: ${PKG_SCRIPTS}/rpm-preun.sh
+      postremove: ${PKG_SCRIPTS}/rpm-postun.sh
+
+rpm:
+  group: Applications/Productivity
+  summary: Self-hosted tasks and calendar (server)
+deb:
+  fields:
+    Bugs: https://gitlab.com/killswitch10/pecklist/-/issues

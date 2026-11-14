@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # Install (or upgrade) the native Linux download as a systemd service. Run it from the unpacked
 # archive as root:
-#   tar -xzf pecklist-linux-x64.tar.gz
-#   sudo pecklist-linux-x64/examples/install.sh
+#   tar -xzf pecklist-server-linux-x64-portable.tar.gz
+#   sudo pecklist-server-linux-x64/examples/install.sh
 #
 #   /opt/pecklist            the program (replaced on every run)
 #   /etc/pecklist            pecklist.conf, your settings (kept)

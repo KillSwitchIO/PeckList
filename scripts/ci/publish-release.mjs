@@ -9,6 +9,7 @@ import { join } from 'node:path';
 import {
   describeRelease,
   downloadLinks,
+  isDownload,
   packageUrl,
   versionedName,
   versionedSums,
@@ -44,9 +45,7 @@ async function call(method, url, body) {
 }
 
 // 1. The downloads, as a generic package named after the version.
-const files = readdirSync(dir).filter(
-  (file) => /^pecklist-.+\.(tar\.gz|zip|apk)$/.test(file) || file === 'SHA256SUMS',
-);
+const files = readdirSync(dir).filter(isDownload);
 if (files.length === 0) throw new Error(`nothing to publish in ${dir}`);
 for (const file of files) {
   const saved = versionedName(file, version);

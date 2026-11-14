@@ -39,8 +39,18 @@
         },
         {
           "type": "doc",
+          "id": "install/debian-ubuntu",
+          "label": "Debian and Ubuntu"
+        },
+        {
+          "type": "doc",
+          "id": "install/fedora-rhel-opensuse",
+          "label": "Fedora, RHEL and openSUSE"
+        },
+        {
+          "type": "doc",
           "id": "install/linux",
-          "label": "Linux"
+          "label": "Linux, portable"
         },
         {
           "type": "doc",

@@ -67,8 +67,9 @@ The same docs are published as a site from `main` (GitLab Pages).
 ## Downloads
 
 Each [release](https://gitlab.com/killswitch10/pecklist/-/releases) has the image
-(`registry.gitlab.com/killswitch10/pecklist:<version>`, amd64 and arm64), self-contained Linux
-(x64, arm64) and Windows (x64) downloads, the signed Android app (`pecklist-android-<version>.apk`, also
+(`registry.gitlab.com/killswitch10/pecklist:<version>`, amd64 and arm64), deb and rpm packages
+of the server and the command line (x64, arm64), portable Linux and Windows downloads, the signed
+Android app (`pecklist-android-<version>.apk`, also
 through [Obtainium](docs/using/android-app.md#install)), and `SHA256SUMS`.
 
 ## Help and community

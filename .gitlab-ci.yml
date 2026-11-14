@@ -594,6 +594,15 @@ web-build:
     paths: [web/dist]
     expire_in: 1 day
   rules:
+    # For the Linux packages a merge request builds and tests (packages, package-test). Not on every
+    # CI change: package-test holds the heavy-build slot for up to 40 minutes. After a change to
+    # those jobs' definitions alone, press them on main (manual there) once it lands.
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+      changes: &packaging-files
+        - packaging/**/*
+        - scripts/package.sh
+        - scripts/ci/package-test.sh
+    - *not-affected
     - *legacy-tag
     - if: $CI_COMMIT_TAG
       when: never
@@ -727,7 +736,9 @@ android-release:
       when: manual
       allow_failure: true
 
-# Native downloads (tags, or by hand from main): self-contained Linux and Windows builds.
+# Native downloads (release commits, or by hand from main): the deb and rpm packages, and the
+# portable Linux and Windows builds (scripts/package.sh). A merge request that changes the packaging
+# builds the Linux ones, for package-test.
 packages:
   image: $DOTNET_IMAGE
   stage: build
@@ -743,15 +754,30 @@ packages:
   cache:
     - <<: *nuget-cache
       policy: pull
+  variables:
+    # nFPM makes the deb and rpm packages: one checked binary, no distro build tools.
+    NFPM_VERSION: 2.48.0
+    NFPM_SHA256: 6d7f9a28b2f397934403950fcbba83f598b08d02edbe79a0815b3b4897341750
+    LINUX_PACKAGES: '1'
+    PACKAGE_TEST_PREVIOUS: '1'
   script:
     - apt-get update -qq && apt-get install -y -qq --no-install-recommends zip > /dev/null
     - |
+      curl -fsSLo /tmp/nfpm.tar.gz "https://github.com/goreleaser/nfpm/releases/download/v${NFPM_VERSION}/nfpm_${NFPM_VERSION}_Linux_x86_64.tar.gz"
+      echo "$NFPM_SHA256  /tmp/nfpm.tar.gz" | sha256sum -c -
+      tar -xzf /tmp/nfpm.tar.gz -C /usr/local/bin nfpm
+    - |
       VERSION=$(sh scripts/build-version.sh)
-      REVISION=$CI_COMMIT_SHA bash scripts/package.sh "$VERSION"
+      REVISION=$CI_COMMIT_SHA bash scripts/package.sh "$VERSION" $PACKAGE_RIDS
   artifacts:
     paths: [dist]
     expire_in: 30 days
   rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+      changes: *packaging-files
+      variables:
+        PACKAGE_RIDS: linux-x64 linux-arm64
+    - *not-affected
     - *legacy-tag
     - if: $CI_COMMIT_TAG
       when: never
@@ -760,6 +786,54 @@ packages:
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
       when: manual
       allow_failure: true
+
+# The deb and rpm packages installed, upgraded and removed in clean containers of each distro, with
+# systemd running (scripts/ci/package-test.sh). A release's downloads wait for it. Needs the host's
+# Docker to run privileged containers. It waits for e2e, so the two never load the runner at once.
+package-test:
+  image: $DOCKER_IMAGE
+  stage: build
+  needs:
+    - job: packages
+      artifacts: true
+    - job: e2e
+      optional: true
+      artifacts: false
+  timeout: 40m
+  resource_group: heavy-build
+  script:
+    - sh scripts/ci/package-test.sh dist debian ubuntu fedora alma opensuse
+  rules: &package-test-rules
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+      changes: *packaging-files
+    - *not-affected
+    - if: $CI_COMMIT_TAG
+      when: never
+    - <<: *release-commit
+      interruptible: false
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+      when: manual
+      allow_failure: true
+
+# The arm64 packages under QEMU, on their own so a runner without arm64 binfmt shows an orange job
+# (it stops at once with "no arm64 binfmt on this runner") instead of failing package-test. Allowed
+# to fail until the runner has binfmt; nothing waits for it. heavy-build keeps it apart from
+# package-test, and it waits for e2e the same way.
+package-test-arm64:
+  image: $DOCKER_IMAGE
+  stage: build
+  needs:
+    - job: packages
+      artifacts: true
+    - job: e2e
+      optional: true
+      artifacts: false
+  timeout: 20m
+  resource_group: heavy-build
+  allow_failure: true
+  script:
+    - sh scripts/ci/package-test.sh dist arm64
+  rules: *package-test-rules
 
 # --- publish ---------------------------------------------------------------------------------
 
@@ -955,7 +1029,8 @@ release-guard:
 upload-downloads:
   image: $NODE_IMAGE
   stage: release
-  needs: [packages, android-release]
+  # package-test only gates: its packages are the ones in packages' dist.
+  needs: [packages, android-release, { job: package-test, artifacts: false }]
   timeout: 10m
   interruptible: false
   # Keyless signing of SHA256SUMS (scripts/ci/sigstore.sh): one signature covers every download.
@@ -1056,6 +1131,20 @@ cut-release:
   rules:
     - <<: *release-commit
       when: manual
+
+# A final release's tag rebuilds the APT and RPM repositories at packages.pecklist.com (PL-132):
+# that project's own pipeline downloads the release's deb and rpm files from the release page
+# cut-release made, checks them against SHA256SUMS and signs the repositories with its own key.
+# A multi-project trigger, so no token: it runs as whoever pressed cut-release. Pre-releases never
+# reach the repositories.
+packages-repository:
+  stage: release
+  needs: []
+  trigger:
+    project: killswitch10/pecklist-packages
+    branch: main
+  rules:
+    - if: $CI_COMMIT_TAG =~ /^v\d+\.\d+\.\d+(\+.*)?$/ && $LEGACY_TAG_BUILD != "true"
 
 # A tag's pipeline: the release's names on the digest main built, with no build
 # (scripts/ci/promote-image.mjs).
