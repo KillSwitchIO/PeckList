@@ -2209,7 +2209,7 @@ export const en = {
   'comments.you': 'You',
   'comments.someone': 'Someone',
   'comments.edited': 'edited',
-  'comments.people': 'People to mention',
+  'comments.people': 'People and groups to mention',
   'undo.tagDeleted': 'Tag deleted',
   'task.tags': 'Tags',
   'task.addTags': 'Add tags',

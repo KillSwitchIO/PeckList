@@ -56,4 +56,22 @@ describe('comments', () => {
     expect(mentionAt('mail me@home', 12)).toBeNull();
     expect(mentionAt('Thanks @sam done', 16)).toBeNull();
   });
+
+  // As the comment reader counts mentions (audit D3), so the picker offers no name the server
+  // would not notify.
+  it('opens only where the sent comment would count the name', () => {
+    expect(mentionAt('Ask (@jo', 8)).toEqual({ start: 5, query: 'jo' });
+    expect(mentionAt('**@jo**', 5)).toEqual({ start: 2, query: 'jo' });
+    expect(mentionAt('First\n\n@jo', 10)).toEqual({ start: 7, query: 'jo' });
+    expect(mentionAt('@sa and more', 3)).toEqual({ start: 0, query: 'sa' });
+    // In code, closed after the caret or not yet.
+    expect(mentionAt('Run `ping @jo` now', 13)).toBeNull();
+    // In a link's label.
+    expect(mentionAt('[ask @jo](https://example.com)', 8)).toBeNull();
+    // Not a name's first letter, or no word start.
+    expect(mentionAt('@.jo', 4)).toBeNull();
+    expect(mentionAt('@-', 2)).toBeNull();
+    expect(mentionAt('x@jo', 4)).toBeNull();
+    expect(mentionAt('@@jo', 4)).toBeNull();
+  });
 });

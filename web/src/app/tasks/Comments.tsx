@@ -1,3 +1,4 @@
+import GroupsRounded from '@mui/icons-material/GroupsRounded';
 import SendRounded from '@mui/icons-material/SendRounded';
 import {
   Box,
@@ -23,11 +24,12 @@ import {
   editComment,
   mentionAt,
   mentionCandidates,
+  mentionGroups,
   mentionName,
 } from '../../core/comments.ts';
 import { commentParagraphs, type Inline } from '../../core/commentText.ts';
 import { getEntity } from '../../core/collections.ts';
-import type { Comment, Task, User } from '../../core/types.ts';
+import type { Comment, Group, Task, User } from '../../core/types.ts';
 import { formatWhen } from '../format.ts';
 import { Avatar } from '../friends/Avatar.tsx';
 import { useToday } from '../hooks/useToday.ts';
@@ -93,9 +95,20 @@ export function CommentBody({ body }: { body: string }) {
   ));
 }
 
+/** A suggestion after an @: a person, or a group, which writes each member who can see the task. */
+type MentionChoice =
+  { kind: 'person'; person: User } | { kind: 'group'; group: Group; members: User[] };
+
+/** A group's members as they will be written: the first three @names, then how many more. */
+function groupNames(members: readonly User[]): string {
+  const shown = members.slice(0, 3).map((person) => `@${mentionName(person)}`);
+  const more = members.length - shown.length;
+  return more > 0 ? `${shown.join(' ')} +${more}` : shown.join(' ');
+}
+
 /**
  * Where a comment is written: a growing text field that posts on Ctrl+Enter (or the send button),
- * suggesting the people on the task after an @.
+ * suggesting the people on the task, and their groups, after an @.
  */
 function Composer({
   initial = '',
@@ -116,21 +129,37 @@ function Composer({
   const [caret, setCaret] = useState(initial.length);
   const [pick, setPick] = useState(0);
   const field = useRef<HTMLTextAreaElement>(null);
+  const workspace = useWorkspace();
   const typing = mentionAt(text, caret);
   const query = typing?.query.toLowerCase() ?? '';
-  const matches = typing
-    ? people
-        .filter(
-          (person) =>
-            mentionName(person).toLowerCase().startsWith(query) ||
-            person.displayName.toLowerCase().startsWith(query),
-        )
-        .slice(0, 6)
+  // Words of a name, for a query that starts a later one ("gar" finds "Home garden").
+  const startsAWord = (name: string) =>
+    name
+      .toLowerCase()
+      .split(/\s+/)
+      .some((word) => word.startsWith(query));
+  const matches: MentionChoice[] = typing
+    ? [
+        ...people
+          .filter(
+            (person) =>
+              mentionName(person).toLowerCase().startsWith(query) ||
+              person.displayName.toLowerCase().startsWith(query),
+          )
+          .slice(0, 6)
+          .map((person) => ({ kind: 'person' as const, person })),
+        ...mentionGroups(workspace, people)
+          .filter(({ group }) => startsAWord(group.name))
+          .slice(0, 3)
+          .map(({ group, members }) => ({ kind: 'group' as const, group, members })),
+      ]
     : [];
 
-  const choose = (person: User) => {
+  const choose = (choice: MentionChoice) => {
     if (!typing) return;
-    const name = `@${mentionName(person)} `;
+    // A group writes each of its members who can see the task: the server notifies by name.
+    const named = choice.kind === 'person' ? [choice.person] : choice.members;
+    const name = `${named.map((person) => `@${mentionName(person)}`).join(' ')} `;
     const next = text.slice(0, typing.start) + name + text.slice(caret);
     const at = typing.start + name.length;
     setText(next);
@@ -221,26 +250,43 @@ function Composer({
           sx={{ position: 'absolute', left: 8, bottom: '100%', mb: 0.5, zIndex: 2, minWidth: 200 }}
         >
           <MenuList dense aria-label={t('comments.people')}>
-            {matches.map((person, index) => (
+            {matches.map((choice, index) => (
               <MenuItem
-                key={person.id}
+                key={choice.kind === 'person' ? choice.person.id : choice.group.id}
                 selected={index === Math.min(pick, matches.length - 1)}
                 // Keep the focus in the text while choosing with the mouse.
                 onMouseDown={(event) => event.preventDefault()}
-                onClick={() => choose(person)}
+                onClick={() => choose(choice)}
               >
-                <Avatar
-                  name={person.displayName}
-                  color={person.avatarColor}
-                  photo={person.photo}
-                  size={20}
-                />
-                <Box component="span" sx={{ ml: 1 }}>
-                  {person.displayName}
-                </Box>
-                <Box component="span" sx={{ ml: 1, color: 'text.secondary' }}>
-                  @{mentionName(person)}
-                </Box>
+                {choice.kind === 'person' ? (
+                  <>
+                    <Avatar
+                      name={choice.person.displayName}
+                      color={choice.person.avatarColor}
+                      photo={choice.person.photo}
+                      size={20}
+                    />
+                    <Box component="span" sx={{ ml: 1 }}>
+                      {choice.person.displayName}
+                    </Box>
+                    <Box component="span" sx={{ ml: 1, color: 'text.secondary' }}>
+                      @{mentionName(choice.person)}
+                    </Box>
+                  </>
+                ) : (
+                  <>
+                    <GroupsRounded
+                      fontSize="small"
+                      sx={{ color: choice.group.color, width: 20, height: 20 }}
+                    />
+                    <Box component="span" sx={{ ml: 1 }}>
+                      {choice.group.name}
+                    </Box>
+                    <Box component="span" sx={{ ml: 1, color: 'text.secondary' }}>
+                      {groupNames(choice.members)}
+                    </Box>
+                  </>
+                )}
               </MenuItem>
             ))}
           </MenuList>
