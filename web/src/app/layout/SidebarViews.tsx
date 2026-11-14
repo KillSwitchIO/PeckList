@@ -19,7 +19,7 @@ import { useMemo, type ReactNode } from 'react';
 import { useLocation, useNavigate } from 'react-router';
 import { getEntity, isLive } from '../../core/collections.ts';
 import { filterTasks } from '../../core/filters.ts';
-import { inboxList } from '../../core/lists.ts';
+import { findInbox } from '../../core/lists.ts';
 import { createSavedFilter, filterOf, savedFiltersOf } from '../../core/savedFilters.ts';
 import { viewCounts } from '../../core/viewCounts.ts';
 import { openCounts, openTagCounts } from '../../core/queries.ts';
@@ -118,7 +118,9 @@ export function SidebarViews({
     const name = t(item.label);
     items[id] = { path: item.path, name, label: name, icon: item.icon, pinned: false };
   }
-  items.inbox = { ...items.inbox!, dropList: inboxList(workspace).id };
+  // Before the first sync there may be no Inbox yet: then it takes no drops.
+  const inbox = findInbox(workspace);
+  if (inbox) items.inbox = { ...items.inbox!, dropList: inbox.id };
   // Counts beside the views, as the lists have (R-FB-114).
   for (const [id, count] of Object.entries(counts)) {
     if (items[id] && count !== undefined) items[id] = { ...items[id], count };

@@ -2,13 +2,12 @@ import { ListItemIcon, MenuItem } from '@mui/material';
 import { useState } from 'react';
 import { useNavigate, useParams } from 'react-router';
 import { getEntity, isLive } from '../../core/collections.ts';
-import { inboxList } from '../../core/lists.ts';
 import { deleteSavedFilter, filterOf, updateSavedFilter } from '../../core/savedFilters.ts';
 import { t } from '../i18n/i18n.ts';
 import { DeleteIcon, EditIcon } from '../icons/icons.tsx';
 import { Page } from '../layout/Page.tsx';
 import { useApply, useWorkspace } from '../store/hooks.ts';
-import { AddTaskInput } from '../tasks/AddTaskInput.tsx';
+import { AddToInbox } from '../tasks/AddTaskInput.tsx';
 import { FilteredTasks } from '../views/groups.tsx';
 import { SortGroupButton } from '../views/SortGroupButton.tsx';
 import { useListView } from '../lists/listGrouping.ts';
@@ -70,7 +69,7 @@ export function FilterView() {
 
   return (
     <Page title={saved.name} actions={actions}>
-      <AddTaskInput defaults={{ listId: inboxList(workspace).id }} />
+      <AddToInbox />
       <FilteredTasks filter={filterOf(saved)} view={view} showList emptyTitle={t('filter.empty')} />
       {editing && (
         <FilterDialog

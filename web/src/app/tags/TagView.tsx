@@ -4,7 +4,7 @@ import { MenuItem } from '@mui/material';
 import { useState } from 'react';
 import { useNavigate, useParams } from 'react-router';
 import { getEntity, isLive } from '../../core/collections.ts';
-import { inboxList } from '../../core/lists.ts';
+import { findInbox } from '../../core/lists.ts';
 import { deleteTag, leafName, updateTag } from '../../core/tags.ts';
 import type { Tag } from '../../core/types.ts';
 import { t } from '../i18n/i18n.ts';
@@ -84,12 +84,15 @@ function TagContents({ tag }: { tag: Tag }) {
   const view = useListView(`tag:${tag.id}`);
   const workspace = useWorkspace();
   const name = leafName(tag.name);
+  const inbox = findInbox(workspace);
   return (
     <Page title={name} actions={<TagMenu tag={tag} view={view} />}>
-      <AddTaskInput
-        defaults={{ listId: inboxList(workspace).id, tags: [tag.id] }}
-        label={t('tag.addTo', { tag: name })}
-      />
+      {inbox && (
+        <AddTaskInput
+          defaults={{ listId: inbox.id, tags: [tag.id] }}
+          label={t('tag.addTo', { tag: name })}
+        />
+      )}
       <FilteredTasks filter={{ tags: [tag.id] }} view={view} showList emptyTitle={t('tag.empty')} />
     </Page>
   );

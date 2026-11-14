@@ -17,7 +17,7 @@ import {
 import { useState } from 'react';
 import { getEntity } from '../../core/collections.ts';
 import { localTimeZone } from '../../core/dates.ts';
-import { inboxList } from '../../core/lists.ts';
+import { findInbox } from '../../core/lists.ts';
 import {
   completedOn,
   completedTasks,
@@ -39,7 +39,7 @@ import { t } from '../i18n/i18n.ts';
 import { Page } from '../layout/Page.tsx';
 import { listName } from '../lists/listName.ts';
 import { useApply, useStoreState, useWorkspace } from '../store/hooks.ts';
-import { AddTaskInput } from '../tasks/AddTaskInput.tsx';
+import { AddTaskInput, AddToInbox } from '../tasks/AddTaskInput.tsx';
 import { TaskRows } from '../tasks/TaskRow.tsx';
 import { TaskTree } from '../tasks/TaskTree.tsx';
 import { useNoteEmpty } from './emptyMarkPlays.ts';
@@ -107,10 +107,12 @@ function OverdueAndToday({
 
 function AddForToday({ today }: { today: string }) {
   const workspace = useWorkspace();
+  const inbox = findInbox(workspace);
+  if (!inbox) return null;
   return (
     <AddTaskInput
       defaults={{
-        listId: inboxList(workspace).id,
+        listId: inbox.id,
         schedule: { start: today, end: null, allDay: true, timeZone: localTimeZone() },
       }}
     />
@@ -215,11 +217,10 @@ export function UpcomingView() {
 
 /** All: no filter at all. Every open task in date groups, then Completed. */
 export function AllView() {
-  const workspace = useWorkspace();
   const view = useListView('view:all');
   return (
     <Page title={t('nav.all')} actions={<SortGroupButton view={view} groupings={VIEW_GROUPINGS} />}>
-      <AddTaskInput defaults={{ listId: inboxList(workspace).id }} />
+      <AddToInbox />
       <FilteredTasks filter={ALL_TASKS} view={view} showList emptyTitle={t('all.empty')} />
     </Page>
   );

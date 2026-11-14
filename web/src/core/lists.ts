@@ -31,8 +31,17 @@ export function visibleLists(workspace: WorkspaceFile, includeArchived = false):
   return byOrder(lists).sort((a, b) => Number(b.isInbox) - Number(a.isInbox));
 }
 
+/**
+ * The Inbox, or undefined while this device has none yet: a new device, or a page opened before
+ * the first sync brings the account's. Views use this and show an empty state, never throw.
+ */
+export function findInbox(workspace: WorkspaceFile): List | undefined {
+  return workspace.entities.lists.find((list) => list.isInbox && isLive(list));
+}
+
+/** The Inbox, for changes that need one (an import, a move to it); throws when there is none. */
 export function inboxList(workspace: WorkspaceFile): List {
-  const inbox = workspace.entities.lists.find((list) => list.isInbox && isLive(list));
+  const inbox = findInbox(workspace);
   if (!inbox) throw new Error('workspace has no Inbox');
   return inbox;
 }

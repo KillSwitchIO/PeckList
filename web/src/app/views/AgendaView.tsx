@@ -12,7 +12,7 @@ import {
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { agendaDays } from '../../core/agenda.ts';
 import { addDays, daysBetween, localTimeZone, weekday } from '../../core/dates.ts';
-import { inboxList } from '../../core/lists.ts';
+import { findInbox } from '../../core/lists.ts';
 import { orderTasks, type ListSort } from '../../core/listView.ts';
 import { todayGroups, undatedPinned } from '../../core/queries.ts';
 import { pinnedFirst } from '../../core/tasks.ts';
@@ -110,12 +110,13 @@ export function AgendaView({
   const undated = useMemo(() => undatedPinned(source, today), [source, today]);
   const { pinned } = pinnedFirst([...overdue, ...days.flatMap((day) => day.tasks), ...undated]);
   const late = sorted(pinnedFirst(overdue).rest, sort);
-  const inbox = inboxList(workspace).id;
+  const inbox = findInbox(workspace)?.id;
   const zone = localTimeZone();
   const phone = useMediaQuery(useTheme().breakpoints.down('sm'), { noSsr: true });
   // The add bar adds to the day picked in the strip. Off a phone it sticks with the strip, so
   // picking a later day (which scrolls the list there) never scrolls it away (R-FB-143).
-  const addBar = (
+  // Nothing to add to before the first sync brings the Inbox.
+  const addBar = inbox && (
     <AddTaskInput
       defaults={{
         listId: inbox,
@@ -361,7 +362,7 @@ export function AgendaView({
                     </Tooltip>
                   }
                 >
-                  {adding === day.date && (
+                  {adding === day.date && inbox && (
                     <AddTaskInput
                       autoFocus
                       defaults={{

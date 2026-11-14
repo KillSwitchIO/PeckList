@@ -39,7 +39,7 @@ import {
   shiftMonths,
   timePart,
 } from '../../core/dates.ts';
-import { inboxList } from '../../core/lists.ts';
+import { findInbox } from '../../core/lists.ts';
 import { canEditTask } from '../../core/sharing.ts';
 import { createTask, updateTask } from '../../core/tasks.ts';
 import type { Schedule, WorkspaceFile } from '../../core/types.ts';
@@ -655,9 +655,12 @@ export function CalendarPage() {
             onClick={() => {
               let id = '';
               apply((ctx, ws) => {
+                // No Inbox before the first sync: nothing to add to yet.
+                const inbox = findInbox(ws);
+                if (!inbox) return ws;
                 const made = createTask(ctx, ws, {
                   title: '',
-                  listId: inboxList(ws).id,
+                  listId: inbox.id,
                   schedule: { start: range.first, end: range.last, allDay: true, timeZone: zone },
                 });
                 id = made.task.id;

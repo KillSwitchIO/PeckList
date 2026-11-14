@@ -36,4 +36,11 @@ describe('view counts (R-FB-114)', () => {
     expect(counts.calendar).toBeUndefined();
     expect(counts.trash).toBeUndefined();
   });
+
+  it('gives the Mess Drawer no count while the workspace has none yet (before the first sync)', () => {
+    const ws = createWorkspace(testContext());
+    const counts = viewCounts({ ...ws, entities: { ...ws.entities, lists: [] } }, TODAY, null);
+    expect(counts.inbox).toBeUndefined();
+    expect(counts.today).toBe(0);
+  });
 });

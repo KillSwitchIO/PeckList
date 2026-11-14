@@ -3,7 +3,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useLocation } from 'react-router';
 import { changedEntities, getEntity } from '../../core/collections.ts';
 import { localTimeZone } from '../../core/dates.ts';
-import { inboxList } from '../../core/lists.ts';
+import { findInbox } from '../../core/lists.ts';
 import { completedOn, openCounts, todayGroups } from '../../core/queries.ts';
 import type { Comment, Task, WorkspaceFile } from '../../core/types.ts';
 import { useToday } from '../hooks/useToday.ts';
@@ -478,7 +478,10 @@ export function EasterEggs() {
     }
     // Emptied by completing or moving its last task.
     if (mine) {
-      const drawer = (ws: WorkspaceFile) => openCounts(ws).get(inboxList(ws).id) ?? 0;
+      const drawer = (ws: WorkspaceFile) => {
+        const inbox = findInbox(ws);
+        return inbox ? (openCounts(ws).get(inbox.id) ?? 0) : 0;
+      };
       if (drawer(previous) > 0 && drawer(workspace) === 0) hatch('trophy');
     }
   }, [workspace, today, me, onToday]);

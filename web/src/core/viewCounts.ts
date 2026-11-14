@@ -3,7 +3,7 @@
 // Calendar, Trash and Search show no count.
 
 import { ALL_TASKS, filterTasks } from './filters.ts';
-import { inboxList } from './lists.ts';
+import { findInbox } from './lists.ts';
 import { completedTasks, openCounts, todayGroups, upcomingTasks } from './queries.ts';
 import type { Id, WorkspaceFile } from './types.ts';
 
@@ -15,9 +15,11 @@ export function viewCounts(
   const current = todayGroups(workspace, today);
   const now = current.overdue.length + current.today.length;
   const coming = upcomingTasks(workspace, today).reduce((sum, day) => sum + day.tasks.length, 0);
+  const inbox = findInbox(workspace);
   return {
     today: now,
-    inbox: openCounts(workspace).get(inboxList(workspace).id) ?? 0,
+    // No Inbox yet (before the first sync): no count beside it.
+    ...(inbox ? { inbox: openCounts(workspace).get(inbox.id) ?? 0 } : {}),
     upcoming: now + coming,
     due: filterTasks(workspace, { hasDue: true, closed: false }, today).length,
     all: filterTasks(workspace, ALL_TASKS, today).length,

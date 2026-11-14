@@ -15,7 +15,7 @@ import {
 import { useState } from 'react';
 import { useNavigate, useParams } from 'react-router';
 import { getEntity, isLive } from '../../core/collections.ts';
-import { deleteList, inboxList, updateList } from '../../core/lists.ts';
+import { deleteList, findInbox, updateList } from '../../core/lists.ts';
 import { filterClosedTasks } from '../../core/filters.ts';
 import { listTasks } from '../../core/queries.ts';
 import {
@@ -386,6 +386,14 @@ export function ListView() {
 
 export function InboxView() {
   const workspace = useWorkspace();
-  const inbox = inboxList(workspace);
+  const inbox = findInbox(workspace);
+  if (!inbox) {
+    // A new device before its first sync: the account's Inbox comes with it.
+    return (
+      <Page title={t('nav.inbox')}>
+        <EmptyState title={t('inbox.notYet')} />
+      </Page>
+    );
+  }
   return <ListContents key={inbox.id} list={inbox} />;
 }
