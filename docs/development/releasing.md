@@ -155,6 +155,15 @@ job of a `main` pipeline that has one, so never give it to a job that installs d
 top of the script. Using Sigstore's public service accepts its terms of use, and each signature,
 naming the project and the pipeline, goes into its public transparency log for good.
 
+The Windows installer (`pecklist-setup-x64.exe`, saved as `pecklist-setup-0.8.0-x64.exe`) comes from
+the portable Windows downloads: `windows-installer` compiles `packaging/windows/pecklist.iss` with
+[Inno Setup](https://jrsoftware.org/isinfo.php) under Wine (`ci/innosetup.Dockerfile`,
+`scripts/ci/windows-installer.sh`). `windows-test` then installs it silently on GitLab's hosted
+Windows runner, uses it, installs over it and uninstalls it (`scripts/ci/windows-test.ps1`); a
+release's downloads wait for it too. It is not code-signed. On a final release, `winget-drafts` writes
+the two winget manifests (`PeckList.PeckList` and `PeckList.CLI`) into its artifacts, laid out as
+[winget-pkgs](https://github.com/microsoft/winget-pkgs) has them, for the pull request there.
+
 ## Production
 
 Only a release reaches production. Its tag's pipeline has a `deploy-prod` button, pressed by hand,
@@ -187,3 +196,4 @@ one the test server ran.
       release's signed `SHA256SUMS` (anyone with Developer access or a pipeline token could write
       that path), and the Node version in the F-Droid recipe is still the one `node:24-bookworm-slim`
       gives (`docker run --rm node:24-bookworm-slim node -v`), with its checksum from nodejs.org.
+- [ ] A final release: the winget manifests from `winget-drafts` go to winget-pkgs as a pull request.

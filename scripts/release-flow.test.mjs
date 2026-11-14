@@ -220,6 +220,7 @@ test('every kind of download takes its version before the extension', () => {
     'pecklist-cli.aarch64.rpm': 'pecklist-cli-0.8.0-rc.2.aarch64.rpm',
     'pecklist-server-linux-x64.AppImage': 'pecklist-server-linux-x64-0.8.0-rc.2.AppImage',
     'pecklist-cli-linux-arm64.AppImage': 'pecklist-cli-linux-arm64-0.8.0-rc.2.AppImage',
+    'pecklist-setup-x64.exe': 'pecklist-setup-0.8.0-rc.2-x64.exe',
     SHA256SUMS: 'SHA256SUMS',
   };
   for (const [file, saved] of Object.entries(names)) {
@@ -227,7 +228,7 @@ test('every kind of download takes its version before the extension', () => {
   }
 });
 
-test('the downloads folder puts its packages, archives, AppImages, APK and checksums on the page', () => {
+test('the downloads folder puts its packages, archives, AppImages, APK, installer and checksums on the page', () => {
   const folder = [
     'pecklist_amd64.deb',
     'pecklist-cli.aarch64.rpm',
@@ -235,13 +236,15 @@ test('the downloads folder puts its packages, archives, AppImages, APK and check
     'pecklist-cli-win-arm64-portable.zip',
     'pecklist-server-linux-arm64.AppImage',
     'pecklist-android.apk',
+    'pecklist-setup-x64.exe',
     'SHA256SUMS',
     'test',
     'pecklist_i386.deb',
+    'pecklist-setup-arm64.exe',
     'notes.txt',
     'runtime-x86_64',
   ];
-  assert.deepEqual(folder.filter(isDownload), folder.slice(0, 7));
+  assert.deepEqual(folder.filter(isDownload), folder.slice(0, 8));
 });
 
 test('the checksums cover a file by either name', () => {
