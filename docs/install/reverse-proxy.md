@@ -151,6 +151,11 @@ or `headers` middleware either.
 --8<-- "examples/reverse-proxy/apache.conf"
 ```
 
+A file over the [upload limit](../configuration/reference.md) sent by a script that asks first
+(`Expect: 100-continue`, which `curl` does for large uploads) gets Apache's own 500 error page
+instead of PeckList's "too large" answer. The upload is refused either way. Browsers and the apps
+don't ask first, so they get PeckList's message.
+
 ## Others
 
 - **Nginx Proxy Manager**: add a proxy host to `pecklist:8080`, turn on _Websockets support_ (it

@@ -50,7 +50,7 @@ docker logs pecklist     # the first admin password, printed once
 
 Open <http://localhost:8080>, sign in as `admin` with that password, and choose a new one. The
 image is public: amd64 and arm64, tagged `latest`, a minor line (`0.3`) and each version (`0.3.0`).
-For real use, see the documentation:
+The same image is on Docker Hub as `hambone0/pecklist`. For real use, see the documentation:
 
 |           |                                                                                                                                                                                                                |
 | --------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -77,7 +77,8 @@ through [Obtainium](docs/using/android-app.md#install)), and `SHA256SUMS`.
 - Questions and problems: [getting help](docs/about/support.md). Bugs:
   [how to report one](docs/about/reporting-bugs.md).
 - Community chat: a Discord server opens with 1.0 (link to come).
-- Demo: a public demo server opens with 1.0 (link to come).
+- Demo: [demo.pecklist.com](https://demo.pecklist.com), a public server anyone can sign up on,
+  reset every hour.
 
 ## Contributing
 

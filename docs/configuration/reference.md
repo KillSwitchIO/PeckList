@@ -323,11 +323,11 @@ know, such as a demo. Needs `UMAMI_URL` and `UMAMI_WEBSITE_ID`. **Default:** `fa
 
 ## Demo server
 
-A public trial server that resets every night: see [run a demo server](../install/demo.md).
+A public trial server that starts over on a schedule (every night, or every hour): see [run a demo server](../install/demo.md).
 
 ### `DEMO_MODE`
 
-`true` makes this a demo server. It shows a banner (the nightly reset, that anyone can sign up,
+`true` makes this a demo server. It shows a banner (when it resets, that anyone can sign up,
 and the [demo accounts](#demo_accounts)) and forces, whatever else is set:
 [`REGISTRATION`](#registration) `open`, [`ACCOUNT_DELETE_GRACE_DAYS`](#account_delete_grace_days)
 `0`, [`ATTACHMENT_MAX_MB`](#attachment_max_mb) at most `2`, [`TELEMETRY`](#telemetry) and
@@ -341,8 +341,8 @@ and the page a robots meta tag. Needs `AUTH_MODE=local`. **Default:** `false`. *
 Pre-made accounts the banner shows with their passwords, so visitors can try sharing without
 inviting anyone: `demo-sam:try-pecklist-sam,demo-alex:try-pecklist-alex`. Each start makes
 them, or puts them back as plain users with these passwords. Wrong guesses lock nobody out, and
-nobody can change their password. The names must match the accounts in the seed the nightly
-reset loads (the image's seed has `demo-sam`, `demo-alex` and `demo-jordan`); passwords need 12
+nobody can change their password. The names must match the accounts in the seed the reset
+loads (the image's seed has `demo-sam`, `demo-alex` and `demo-jordan`); passwords need 12
 characters or more. Needs `DEMO_MODE`. **Default:** none. **Where:** env.
 
 ### `DEMO_RESET_TIME`
