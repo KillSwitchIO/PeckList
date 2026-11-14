@@ -4,6 +4,13 @@ All notable changes to PeckList. Each release adds its section from [Conventiona
 with `pnpm release`; the version follows [Semantic Versioning](https://semver.org/). Before 1.0.0 a
 minor release may break things; every break is listed under **Breaking changes** with what to do.
 
+## [0.12.0-rc.2] - 2026-11-14
+
+### Fixed
+
+- **release:** A wrapped footer line no longer cuts a breaking change short
+- **ci:** Cosign gets Node's root certificates where the image has none
+
 ## [0.12.0-rc.1] - 2026-11-14
 
 ### Breaking changes
