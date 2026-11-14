@@ -96,6 +96,9 @@ Not needed for PeckList to work, but each one closes a real gap for little effor
       [`ATTACHMENT_DAILY_MB`](../configuration/reference.md#attachment_daily_mb) (1 GB by default)
       what one person uploads in a day. There is no total per person. Lower them, and watch the
       free space of the `/files` volume, when you do not know everyone with an account.
+- [ ] **Check what you install.** Release downloads and images are signed by the project's release
+      pipeline with Sigstore: [verifying downloads and images](../install/verifying.md) has the
+      two `cosign` lines. _Not needed_ when you build from source.
 - [ ] **Backups are as sensitive as the server.** Snapshots and exports hold every password hash
       and the keys that sign sessions: anyone with a copy could sign in as anyone. Keep them as
       private as the database, and encrypt off-site copies.

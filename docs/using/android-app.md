@@ -38,7 +38,7 @@ pages and tells you when there is a new version.
 3. Open it and allow your browser to install apps when Android asks.
 
 To check the download, compare its SHA-256 with its line in the
-release's `SHA256SUMS`. For updates, download the next release's APK and install it over the
+release's `SHA256SUMS`, which is itself signed ([verifying downloads](../install/verifying.md)). For updates, download the next release's APK and install it over the
 old one; your data stays.
 
 </TabItem>

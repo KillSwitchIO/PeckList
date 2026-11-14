@@ -118,6 +118,29 @@ so the newest release's files are always at
 `https://gitlab.com/killswitch10/pecklist/-/releases/permalink/latest/downloads/<file>`, with `<file>`
 as `pecklist-android.apk`, `pecklist-linux-x64.tar.gz`, and so on. `SHA256SUMS` lists each file both ways.
 
+### Signatures
+
+The release commit's pipeline signs with Sigstore, keyless, as the pipeline's own GitLab identity
+(`.gitlab-ci.yml` on `main`), through one script, `scripts/ci/sigstore.sh`:
+
+- `upload-downloads` signs `SHA256SUMS` exactly as the release page serves it, and uploads
+  `SHA256SUMS.sigstore.json` beside it. That one signature covers every download. `cut-release`
+  links the bundle, and mentions it on the page, only when it is there.
+- `sign-image` signs the image by its digest, so the tags `promote-image` adds later and the Docker
+  Hub copies (`dockerhub-image` copies the signature with the image) carry it too.
+
+Each signature is checked straight after, with the identity the
+[verifying](../install/verifying.md) page gives. Sigstore being down never holds a release up: the
+script tries three times, then prints `NOT SIGNED:` and the reason. `upload-downloads` then goes on
+without the bundle and `sums-signed` turns yellow; `sign-image` turns yellow itself and leaves no
+`IMAGE_SIGNED` marker. Either way the release can still be cut, and `cut-release` writes on its page
+which part is signed and which is not, so a missing bundle never looks like a removed one. Retry the
+job before pressing `cut-release` to sign it after all; a release cut unsigned stays unsigned.
+Only `upload-downloads` and `sign-image` get the identity token: the identity people check covers any
+job of a `main` pipeline that has one, so never give it to a job that installs dependencies. The cosign version and its checksums are pinned at the
+top of the script. Using Sigstore's public service accepts its terms of use, and each signature,
+naming the project and the pipeline, goes into its public transparency log for good.
+
 ## Production
 
 Only a release reaches production. Its tag's pipeline has a `deploy-prod` button, pressed by hand,

@@ -54,6 +54,11 @@
         },
         {
           "type": "doc",
+          "id": "install/verifying",
+          "label": "Verifying downloads"
+        },
+        {
+          "type": "doc",
           "id": "install/reverse-proxy",
           "label": "Reverse proxy and HTTPS"
         },

@@ -18,6 +18,8 @@ registry.gitlab.com/killswitch10/pecklist
 | `sha-abc1234` | One `main` commit.                                                                             |
 
 Every image runs on `linux/amd64` and `linux/arm64` (a Raspberry Pi 4 or 5 with a 64-bit OS works).
+Release images are signed: [verifying downloads and images](verifying.md) shows the `cosign verify`
+line.
 
 ## Run it
 
