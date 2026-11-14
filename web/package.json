@@ -2,7 +2,7 @@
   "name": "@pecklist/web",
   "private": true,
   "license": "AGPL-3.0-or-later",
-  "version": "0.11.0",
+  "version": "0.12.0-rc.1",
   "type": "module",
   "scripts": {
     "dev": "vite",
