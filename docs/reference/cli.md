@@ -235,7 +235,9 @@ Elsewhere, each release has the client as a portable download, listed in the sam
 `pecklist-cli-linux-x64-portable.tar.gz`, `pecklist-cli-linux-arm64-portable.tar.gz`,
 `pecklist-cli-win-x64-portable.zip` and `pecklist-cli-win-arm64-portable.zip`. Each holds one
 self-contained `pecklist` file (no .NET install needed), a README and the licence. It carries no
-server: maintenance commands such as `import` or `migrate-db` say so and stop.
+server: maintenance commands such as `import` or `migrate-db` say so and stop. On a Linux desktop,
+the client also comes as an [AppImage](../install/appimage.md#the-command-line-client), one file
+with nothing to unpack.
 
 ```bash
 sha256sum --check --ignore-missing SHA256SUMS

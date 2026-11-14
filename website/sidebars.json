@@ -54,6 +54,11 @@
         },
         {
           "type": "doc",
+          "id": "install/appimage",
+          "label": "AppImage"
+        },
+        {
+          "type": "doc",
           "id": "install/windows",
           "label": "Windows"
         },

@@ -1,0 +1,46 @@
+#!/bin/sh
+# The PeckList server as an AppImage (PL-132): try it without installing anything.
+#   ./pecklist-server-linux-x64.AppImage              start the server on port 8080, in this terminal
+#   ./pecklist-server-linux-x64.AppImage snapshot     any maintenance command, on the same data
+#   ./pecklist-server-linux-x64.AppImage help         the list of them
+# Its data lives in ~/.local/share/pecklist (XDG_DATA_HOME), or PECKLIST_DATA if set. A settings
+# file there (pecklist.conf) is read when it exists. Ctrl+C stops it. For a server that runs all the
+# time, use a package, the container or the portable archive with its systemd unit.
+# It listens on this computer only (http://localhost:8080). ASPNETCORE_URLS=http://0.0.0.0:8080
+# opens it to the network, and so does ASPNETCORE_HTTP_PORTS, which means every address.
+set -eu
+
+# The data folder and database are the user's alone (password hashes, sessions, secrets).
+umask 077
+here=$(dirname "$(readlink -f "$0")")
+# Paths given relative to where it was started stay that way, whatever folder the server runs in.
+absolute() { case "$1" in /*) printf '%s' "$1" ;; *) printf '%s/%s' "$PWD" "$1" ;; esac; }
+data=${PECKLIST_DATA:-${XDG_DATA_HOME:-$HOME/.local/share}/pecklist}
+mkdir -p "$data"
+data=$(cd "$data" && pwd)
+DB_PATH=$(absolute "${DB_PATH:-$data/pecklist.db}")
+export DB_PATH
+if [ -z "${ASPNETCORE_URLS:-}" ] && [ -z "${ASPNETCORE_HTTP_PORTS:-}" ]; then
+  export ASPNETCORE_URLS=http://localhost:8080
+fi
+if [ -n "${CONFIG_FILE:-}" ]; then
+  CONFIG_FILE=$(absolute "$CONFIG_FILE")
+  export CONFIG_FILE
+elif [ -f "$data/pecklist.conf" ]; then
+  export CONFIG_FILE="$data/pecklist.conf"
+fi
+
+if [ $# -eq 0 ]; then
+  if [ -n "${ASPNETCORE_URLS:-}" ]; then
+    echo "PeckList on $ASPNETCORE_URLS (data in $data). Ctrl+C stops it."
+  else
+    echo "PeckList on port $ASPNETCORE_HTTP_PORTS of every address (data in $data). Ctrl+C stops it."
+  fi
+  if [ ! -e "$DB_PATH" ]; then
+    echo "This is its first start: sign in as admin with the password printed below."
+  fi
+  # The server keeps its own files (logs) beside its data. Maintenance commands stay where they
+  # were started, so `import backup.json` finds the file you meant.
+  cd "$data"
+fi
+exec "$here/usr/lib/pecklist/pecklist" "$@"

@@ -34,13 +34,13 @@ export function versionedName(file, version) {
   if (deb) return `${deb[1]}_${version}_${deb[2]}.deb`;
   const rpm = /^(pecklist(?:-cli)?)\.(x86_64|aarch64)\.rpm$/.exec(file);
   if (rpm) return `${rpm[1]}-${version}.${rpm[2]}.rpm`;
-  const parts = /^(pecklist-.+?)(\.tar\.gz|\.zip|\.apk)$/.exec(file);
+  const parts = /^(pecklist-.+?)(\.tar\.gz|\.zip|\.apk|\.AppImage)$/.exec(file);
   return parts ? `${parts[1]}-${version}${parts[2]}` : file;
 }
 
 /** The files of a release's downloads folder that go on its page. */
 export const isDownload = (file) =>
-  /^pecklist-.+\.(tar\.gz|zip|apk)$/.test(file) ||
+  /^pecklist-.+\.(tar\.gz|zip|apk|AppImage)$/.test(file) ||
   /^pecklist(-cli)?(_(amd64|arm64)\.deb|\.(x86_64|aarch64)\.rpm)$/.test(file) ||
   file === 'SHA256SUMS';
 
@@ -132,6 +132,8 @@ the [documentation](https://docs.pecklist.com/).
   also for aarch64.
 - **Portable:** \`pecklist-server-<platform>-portable\` (the server in a folder, any Linux or Windows) and
   \`pecklist-cli-<platform>-portable\` (the command line as one file, also for Windows on ARM).
+- **AppImage:** \`pecklist-server-linux-x64-${version}.AppImage\` (the server, to try on a desktop) and
+  \`pecklist-cli-linux-x64-${version}.AppImage\`, also for arm64.
 - **Android:** \`pecklist-android-${version}.apk\`.
 
 The command line talks to any server: \`pecklist login --server https://...\`, then \`pecklist tasks add ...\`; see

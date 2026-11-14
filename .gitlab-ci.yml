@@ -602,6 +602,7 @@ web-build:
         - packaging/**/*
         - scripts/package.sh
         - scripts/ci/package-test.sh
+        - scripts/ci/appimage-*.sh
     - *not-affected
     - *legacy-tag
     - if: $CI_COMMIT_TAG
@@ -761,7 +762,8 @@ packages:
     LINUX_PACKAGES: '1'
     PACKAGE_TEST_PREVIOUS: '1'
   script:
-    - apt-get update -qq && apt-get install -y -qq --no-install-recommends zip > /dev/null
+    # squashfs-tools for the AppImages (scripts/ci/appimage-build.sh).
+    - apt-get update -qq && apt-get install -y -qq --no-install-recommends zip squashfs-tools > /dev/null
     - |
       curl -fsSLo /tmp/nfpm.tar.gz "https://github.com/goreleaser/nfpm/releases/download/v${NFPM_VERSION}/nfpm_${NFPM_VERSION}_Linux_x86_64.tar.gz"
       echo "$NFPM_SHA256  /tmp/nfpm.tar.gz" | sha256sum -c -
@@ -769,6 +771,7 @@ packages:
     - |
       VERSION=$(sh scripts/build-version.sh)
       REVISION=$CI_COMMIT_SHA bash scripts/package.sh "$VERSION" $PACKAGE_RIDS
+    - sh scripts/ci/appimage-build.sh dist
   artifacts:
     paths: [dist]
     expire_in: 30 days
@@ -803,6 +806,7 @@ package-test:
   resource_group: heavy-build
   script:
     - sh scripts/ci/package-test.sh dist debian ubuntu fedora alma opensuse
+    - sh scripts/ci/appimage-test.sh dist
   rules: &package-test-rules
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
       changes: *packaging-files

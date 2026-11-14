@@ -2,7 +2,8 @@
 
 On Debian, Ubuntu, Fedora, RHEL or openSUSE, the packages are easier to install and upgrade:
 see [Debian and Ubuntu](debian-ubuntu.md) and [Fedora, RHEL and openSUSE](fedora-rhel-opensuse.md).
-This page is for any other distribution, and for running the server from a folder.
+This page is for any other distribution, and for running the server from a folder. To just try
+it on a desktop, the [AppImage](appimage.md) is one file to download and start.
 
 Each [release](https://gitlab.com/killswitch10/pecklist/-/releases) has a portable download for
 **x64** and **arm64**: the server with everything it needs built in. No .NET, Node or database
