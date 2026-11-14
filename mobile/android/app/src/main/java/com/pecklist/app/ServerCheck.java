@@ -1,4 +1,4 @@
-package com.killswitch10.pecklist;
+package com.pecklist.app;
 
 import android.content.Context;
 import java.io.ByteArrayOutputStream;

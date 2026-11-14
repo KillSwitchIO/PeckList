@@ -1,4 +1,4 @@
-package com.killswitch10.pecklist;
+package com.pecklist.app;
 
 import android.app.AlarmManager;
 import android.app.NotificationChannel;
@@ -51,7 +51,7 @@ final class Reminders {
     /** How long Snooze puts a reminder off (the web app's SNOOZE_MINUTES). */
     static final int SNOOZE_MINUTES = 10;
 
-    static final String FIRE = "com.killswitch10.pecklist.REMINDER";
+    static final String FIRE = "com.pecklist.app.REMINDER";
     static final String COMPLETE = "complete";
     static final String SNOOZE = "snooze";
 
@@ -302,7 +302,7 @@ final class Reminders {
             : channel.equals(COMMENTS) ? R.string.channel_comments : R.string.channel_assignments, NotificationManager.IMPORTANCE_DEFAULT);
         int id = idOf("news:" + newsId);
         Intent intent = new Intent(context, MainActivity.class)
-            .setAction("com.killswitch10.pecklist.OPEN." + id)
+            .setAction("com.pecklist.app.OPEN." + id)
             .addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP)
             .putExtra(EXTRA_URL, url)
             .putExtra(EXTRA_SHOWN, id)
@@ -315,7 +315,7 @@ final class Reminders {
             JSONObject action = actions.getJSONObject(a);
             int code = idOf("news:" + newsId + ":" + action.getString("action"));
             Intent press = new Intent(context, MainActivity.class)
-                .setAction("com.killswitch10.pecklist.OPEN." + code)
+                .setAction("com.pecklist.app.OPEN." + code)
                 .addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP)
                 .putExtra(EXTRA_URL, action.getString("url"))
                 .putExtra(EXTRA_SHOWN, id)
@@ -343,7 +343,7 @@ final class Reminders {
     /** Opens the app on the reminder's task. */
     private static PendingIntent open(Context context, Reminder reminder) {
         Intent intent = new Intent(context, MainActivity.class)
-            .setAction("com.killswitch10.pecklist.OPEN.")
+            .setAction("com.pecklist.app.OPEN.")
             .setData(Uri.parse("pecklist-reminder://" + reminder.alarm()))
             .addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP)
             .putExtra(EXTRA_URL, reminder.url)
@@ -368,7 +368,7 @@ final class Reminders {
     /** Acts without opening the app (ReminderReceiver). */
     private static PendingIntent act(Context context, Reminder reminder, String action) {
         Intent intent = new Intent(context, ReminderReceiver.class)
-            .setAction("com.killswitch10.pecklist." + action)
+            .setAction("com.pecklist.app." + action)
             .setData(Uri.parse("pecklist-reminder://" + reminder.alarm()));
         try {
             intent.putExtra(EXTRA_REMINDER, reminder.json().toString());

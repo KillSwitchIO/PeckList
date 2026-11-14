@@ -13,10 +13,10 @@ def localVersionName() {
 }
 
 android {
-    namespace = "com.killswitch10.pecklist"
+    namespace = "com.pecklist.app"
     compileSdk = rootProject.ext.compileSdkVersion
     defaultConfig {
-        applicationId "com.killswitch10.pecklist"
+        applicationId "com.pecklist.app"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
         versionCode((System.getenv('PECKLIST_VERSION_CODE') ?: '1') as Integer)

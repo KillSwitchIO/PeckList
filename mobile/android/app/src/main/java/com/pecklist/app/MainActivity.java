@@ -1,4 +1,4 @@
-package com.killswitch10.pecklist;
+package com.pecklist.app;
 
 import android.content.Context;
 import android.content.Intent;
@@ -23,7 +23,7 @@ public class MainActivity extends BridgeActivity {
     private static final String ASK_WEB_APP = "typeof window.pecklistBack === 'function' ? window.pecklistBack() === true : null";
 
     /** The launcher shortcut (res/xml/shortcuts.xml): back to the connect page, whatever the server runs. */
-    static final String CHOOSE_SERVER = "com.killswitch10.pecklist.CHOOSE_SERVER";
+    static final String CHOOSE_SERVER = "com.pecklist.app.CHOOSE_SERVER";
 
     /** A second Back within this long leaves the app. */
     private static final long BACK_AGAIN_MS = 2000;

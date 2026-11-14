@@ -8,8 +8,8 @@
         android:shortcutShortLabel="@string/shortcut_server_short"
         android:shortcutLongLabel="@string/shortcut_server_long">
         <intent
-            android:action="com.killswitch10.pecklist.CHOOSE_SERVER"
-            android:targetPackage="com.killswitch10.pecklist"
-            android:targetClass="com.killswitch10.pecklist.MainActivity" />
+            android:action="com.pecklist.app.CHOOSE_SERVER"
+            android:targetPackage="com.pecklist.app"
+            android:targetClass="com.pecklist.app.MainActivity" />
     </shortcut>
 </shortcuts>

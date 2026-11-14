@@ -17,7 +17,7 @@ public sealed class PasskeyTests(ServerFixture fixture) : IClassFixture<ServerFi
     private const string AdminPassword = "correct horse battery";
     private const string Password = "a long enough password";
     private const string Site = "https://tasks.example.com";
-    private const string App = "com.killswitch10.pecklist";
+    private const string App = "com.pecklist.app";
 
     private static CancellationToken Token => TestContext.Current.CancellationToken;
 

@@ -49,28 +49,30 @@ public sealed class AppSignInTests(ServerFixture fixture) : IClassFixture<Server
     private static string NewVerifier() =>
         Convert.ToBase64String(RandomNumberGenerator.GetBytes(32)).TrimEnd('=').Replace('+', '-').Replace('/', '_');
 
-    private static string HandoffUrl(string challenge, string returnUrl = "/today") =>
-        $"/auth/app/handoff?provider=fake&challenge={challenge}&scheme={Scheme}&returnUrl={Uri.EscapeDataString(returnUrl)}";
+    private static string HandoffUrl(string challenge, string returnUrl = "/today", string scheme = Scheme) =>
+        $"/auth/app/handoff?provider=fake&challenge={challenge}&scheme={scheme}&returnUrl={Uri.EscapeDataString(returnUrl)}";
 
     /// <summary>The browser tab's part: sign in through the provider, confirm, and get the app's link.</summary>
-    private async Task<Uri> ConfirmInBrowser(HttpClient tab, string challenge)
+    private async Task<Uri> ConfirmInBrowser(HttpClient tab, string challenge, string scheme = Scheme, Action<string>? onPage = null)
     {
-        var start = await tab.GetAsync(HandoffUrl(challenge), Token);
+        var start = await tab.GetAsync(HandoffUrl(challenge, scheme: scheme), Token);
         Assert.Equal(HttpStatusCode.Redirect, start.StatusCode);
         var login = await tab.GetAsync(start.Headers.Location!, Token);
         var back = await tab.GetAsync(provider.Authorize(login.Headers.Location!, Kim()), Token);
-        Assert.Equal(HandoffUrl(challenge), back.Headers.Location!.ToString());
+        Assert.Equal(HandoffUrl(challenge, scheme: scheme), back.Headers.Location!.ToString());
 
         var page = await tab.GetAsync(back.Headers.Location!, Token);
         Assert.Equal(HttpStatusCode.OK, page.StatusCode);
-        Assert.Contains("kim", await page.Content.ReadAsStringAsync(Token));
+        var html = await page.Content.ReadAsStringAsync(Token);
+        Assert.Contains("kim", html);
+        onPage?.Invoke(html);
         Assert.Contains("frame-ancestors 'none'", page.Headers.GetValues("Content-Security-Policy").Single());
 
         // As Chrome sends it: the page's referrer policy must keep the Origin header (not "null").
         Assert.Equal("same-origin", page.Headers.GetValues("Referrer-Policy").Single());
         var confirm = new HttpRequestMessage(HttpMethod.Post, "/auth/app/handoff")
         {
-            Content = Form(("challenge", challenge), ("scheme", Scheme), ("returnUrl", "/today")),
+            Content = Form(("challenge", challenge), ("scheme", scheme), ("returnUrl", "/today")),
         };
         confirm.Headers.Add("Origin", "http://localhost");
         confirm.Headers.Add("Sec-Fetch-Site", "same-origin");
@@ -98,6 +100,48 @@ public sealed class AppSignInTests(ServerFixture fixture) : IClassFixture<Server
         Assert.Equal("/today", redeemed.Headers.Location!.ToString());
         var me = await app.GetFromJsonAsync<Me>("/auth/me", Token);
         Assert.Equal(("kim", "fake"), (me!.Username, me.Provider));
+    }
+
+    /// <summary>
+    /// The Android app's id is its URL scheme. It moved from com.killswitch10.pecklist to
+    /// com.pecklist.app (a new app beside the old one), and both stay in use until people move over.
+    /// </summary>
+    [Theory]
+    [InlineData("com.pecklist.app")]
+    [InlineData("com.killswitch10.pecklist")]
+    public async Task Both_android_app_ids_get_their_sign_in_back(string scheme)
+    {
+        using var server = Server();
+        var verifier = NewVerifier();
+        // Both are simply PeckList to the person confirming: the ID shows only in the hidden field.
+        var appLink = await ConfirmInBrowser(Browser(server), AppSignIn.ChallengeOf(verifier), scheme, html =>
+        {
+            Assert.Contains("Open PeckList on this device?", html);
+            Assert.DoesNotContain(scheme, html.Replace($"value=\"{scheme}\"", ""));
+        });
+        Assert.Equal((scheme, "auth"), (appLink.Scheme, appLink.Host));
+
+        var app = Browser(server);
+        var redeemed = await app.PostAsync("/auth/app/redeem", Form(("code", CodeOf(appLink)), ("verifier", verifier)), Token);
+        Assert.Equal("/today", redeemed.Headers.Location!.ToString());
+    }
+
+    /// <summary>
+    /// Any reverse-domain scheme may start a hand-off (forks, one's own builds), so another app can
+    /// open it too: the confirm page names that app and says it is not PeckList (Security, PL-070).
+    /// </summary>
+    [Fact]
+    public async Task Another_app_is_named_on_the_confirm_page()
+    {
+        using var server = Server();
+        var verifier = NewVerifier();
+        await ConfirmInBrowser(Browser(server), AppSignIn.ChallengeOf(verifier), "com.example.notes", html =>
+        {
+            Assert.Contains("Sign in to another app?", html);
+            Assert.Contains("<strong>com.example.notes</strong>", html);
+            Assert.Contains("It is not the PeckList app", html);
+            Assert.DoesNotContain("Open PeckList on this device?", html);
+        });
     }
 
     [Fact]

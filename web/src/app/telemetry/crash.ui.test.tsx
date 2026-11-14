@@ -118,7 +118,7 @@ describe('a crash in the Android app (PL-116)', () => {
       Promise.resolve({
         kind: 'ANR',
         stack:
-          'Input dispatching timed out\n    at com.killswitch10.pecklist.Reminders.fire(Reminders.java:189)',
+          'Input dispatching timed out\n    at com.pecklist.app.Reminders.fire(Reminders.java:189)',
       }),
     );
     setNativeShell({
