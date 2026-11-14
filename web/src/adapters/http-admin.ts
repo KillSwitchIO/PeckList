@@ -24,7 +24,13 @@ import type {
   TelemetryView,
 } from '../ports/admin.ts';
 import type { ServerStats } from '../ports/stats.ts';
-import { SyncFailure, type PasskeyInfo } from '../ports/sync.ts';
+import {
+  SyncFailure,
+  type PasskeyInfo,
+  type SupporterKeyInfo,
+  type SupporterRefusal,
+} from '../ports/sync.ts';
+import { supporterRefusal } from './supporter.ts';
 import { messageOf } from '../core/errors.ts';
 
 /** The server's error names, as the app reads them. */
@@ -288,6 +294,15 @@ export function createHttpAdmin(
       accept(await call(`/crash-reports/${segment(fingerprint)}/send`, 'POST')),
     forgetCrashReport: async (fingerprint) =>
       accept(await call(`/crash-reports/${segment(fingerprint)}`, 'DELETE')),
+    serverSupporter: async () =>
+      (await json<{ key: SupporterKeyInfo | null }>(await call('/supporter'))).key,
+    enterServerSupporterKey: async (key): Promise<SupporterKeyInfo | SupporterRefusal> => {
+      const response = await call('/supporter', 'PUT', { key });
+      const refused = await supporterRefusal(response);
+      if (refused) return refused;
+      return (await json<{ key: SupporterKeyInfo }>(response)).key;
+    },
+    removeServerSupporterKey: async () => accept(await call('/supporter', 'DELETE')),
     logging: async () => json<LoggingView>(await call('/logging')),
     debugDumpUrl: () => `${base}/api/admin/debug-dump`,
     audit: async (query) => json<AuditPage>(await call(`/audit?${auditParams(query)}`)),

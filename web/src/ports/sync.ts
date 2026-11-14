@@ -286,6 +286,25 @@ export interface SignInMethods {
   canLink: { name: string; displayName: string; url: string }[];
 }
 
+/** What a supporter key says (PL-112): when it was bought and whom it covers. Never the key itself. */
+export interface SupporterKeyInfo {
+  /** The purchase date, `YYYY-MM-DD`. */
+  purchased: string;
+  kind: 'person' | 'server';
+}
+
+/** Your own supporter key and the server's: either one makes you a supporter here. */
+export interface SupporterStatus {
+  mine: SupporterKeyInfo | null;
+  server: SupporterKeyInfo | null;
+}
+
+/**
+ * Why a key was not taken: not a key at all, not issued by PeckList, or the other kind (a server
+ * key entered for one person, or the reverse).
+ */
+export type SupporterRefusal = 'not-a-key' | 'not-genuine' | 'wrong-kind';
+
 /** The signed-in user's own account (servers with accounts). */
 export interface AccountApi {
   signInMethods(): Promise<SignInMethods>;
@@ -314,6 +333,12 @@ export interface AccountApi {
   removePasskey?(id: string): Promise<'ok' | 'last-way-in'>;
   /** Do without a password, confirmed with it; `last-way-in` without a passkey or provider. */
   removePassword?(current: string): Promise<'ok' | 'wrong-password' | 'last-way-in'>;
+  /** Your supporter key and the server's (optional: older servers have none). */
+  supporter?(): Promise<SupporterStatus>;
+  /** Enter your own supporter key. */
+  enterSupporterKey?(key: string): Promise<SupporterStatus | SupporterRefusal>;
+  /** Remove your own supporter key from this server. */
+  removeSupporterKey?(): Promise<void>;
 }
 
 /** What an API key may do (R-FB-157). */

@@ -1,6 +1,6 @@
 // What admins manage on a server (spec: Accounts & Admin, Admin UI). Adapter: HTTP to /api/admin.
 import type { ServerStats } from './stats.ts';
-import type { PasskeyInfo } from './sync.ts';
+import type { PasskeyInfo, SupporterKeyInfo, SupporterRefusal } from './sync.ts';
 
 export type AccountRole = 'superadmin' | 'admin' | 'user';
 
@@ -433,6 +433,11 @@ export interface AdminApi {
   sendCrashReport?(fingerprint: string): Promise<void>;
   /** Take one off the list without sending it. */
   forgetCrashReport?(fingerprint: string): Promise<void>;
+  /** The server's supporter key (PL-112), if it has one (optional: older servers have none). */
+  serverSupporter?(): Promise<SupporterKeyInfo | null>;
+  /** Enter a server supporter key, which covers everyone on the server. */
+  enterServerSupporterKey?(key: string): Promise<SupporterKeyInfo | SupporterRefusal>;
+  removeServerSupporterKey?(): Promise<void>;
 
   logging(): Promise<LoggingView>;
   /** Downloads a zip of recent logs, settings (secrets hidden), versions and counts. */

@@ -14,6 +14,7 @@
     <PackageReference Include="Jint" />
     <PackageReference Include="Lib.Net.Http.WebPush" />
     <PackageReference Include="MailKit" />
+    <PackageReference Include="NSec.Cryptography" />
     <PackageReference Include="Microsoft.AspNetCore.Authentication.OpenIdConnect" />
     <PackageReference Include="Microsoft.AspNetCore.OpenApi" />
     <PackageReference Include="Microsoft.Extensions.Hosting.Systemd" />

@@ -1,0 +1,63 @@
+# The supporter key service (PL-112) as a compose service: an example to start from, not a
+# deployment. See docs/development/supporter-key-service.md.
+#
+# - Put it behind a TLS proxy that publishes only /api/public/*; it publishes no port of its own.
+# - The signing key lives in the keys-secrets volume, made once with
+#     docker compose run --rm -v keys-secrets:/secrets pecklist-keys generate-signing-key /secrets/signing-key
+#   (it prints only the public half). The other secrets are files on the host, readable by the
+#   image's user (uid 1654).
+# - Pin the image by its sha- tag or digest rather than edge.
+services:
+  pecklist-keys:
+    image: registry.gitlab.com/killswitch10/pecklist/keys:edge
+    restart: unless-stopped
+    read_only: true
+    tmpfs:
+      - /tmp
+    environment:
+      PADDLE_ENVIRONMENT: sandbox
+      PADDLE_PRICE_PERSON: pri_replace_me
+      PADDLE_PRICE_SERVER: pri_replace_me_too
+      KEYS_SITE_ORIGIN: https://pecklist.com
+      # The network the proxy reaches it on (or the tunnel agent, when the proxy runs on another
+      # machine), so rate limits count each caller. Only that and this service join it.
+      KEYS_TRUSTED_PROXIES: 172.30.0.0/24
+      SMTP_HOST: smtp.example.com
+      SMTP_USER: keys@example.com
+      SMTP_FROM: PeckList <keys@example.com>
+      KEYS_SIGNING_KEY_FILE: /secrets/signing-key
+      PADDLE_WEBHOOK_SECRET_FILE: /run/secrets/paddle_webhook_secret
+      PADDLE_API_KEY_FILE: /run/secrets/paddle_api_key
+      SMTP_PASSWORD_FILE: /run/secrets/smtp_password
+    secrets:
+      - paddle_webhook_secret
+      - paddle_api_key
+      - smtp_password
+    volumes:
+      - keys-data:/data
+      - keys-secrets:/secrets:ro
+    healthcheck:
+      test: ['CMD', 'dotnet', 'pecklist-keys.dll', 'healthcheck']
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    networks:
+      - keys
+
+networks:
+  keys:
+    ipam:
+      config:
+        - subnet: 172.30.0.0/24
+
+secrets:
+  paddle_webhook_secret:
+    file: ./secrets/paddle-webhook-secret
+  paddle_api_key:
+    file: ./secrets/paddle-api-key
+  smtp_password:
+    file: ./secrets/smtp-password
+
+volumes:
+  keys-data:
+  keys-secrets:

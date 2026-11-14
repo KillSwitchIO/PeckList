@@ -1790,6 +1790,117 @@
         }
       }
     },
+    "/api/account/supporter": {
+      "get": {
+        "tags": [
+          "Account"
+        ],
+        "summary": "Your supporter key and the server's, if there are any (what they say, never the keys)",
+        "description": "API keys can't use this route: sign in to the web app instead.",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SupporterView"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not a working one"
+          },
+          "403": {
+            "description": "Not allowed: password_change_required, a key without the scope (scope), or a missing permission",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Refusal"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "Account"
+        ],
+        "summary": "Enter your own supporter key",
+        "description": "API keys can't use this route: sign in to the web app instead.",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SupporterKeyRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SupporterView"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Refusal"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Refusal"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not a working one"
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Account"
+        ],
+        "summary": "Remove your supporter key from this server",
+        "description": "API keys can't use this route: sign in to the web app instead.",
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Refusal"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not a working one"
+          }
+        }
+      }
+    },
     "/api/account/api-keys": {
       "get": {
         "tags": [
@@ -7465,6 +7576,117 @@
           }
         }
       }
+    },
+    "/api/admin/supporter": {
+      "get": {
+        "tags": [
+          "Admin: supporter"
+        ],
+        "summary": "The server's supporter key, if it has one (what it says, never the key)",
+        "description": "Admin permission: ManageSettings. An API key needs the admin scope.",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ServerSupporterView"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not a working one"
+          },
+          "403": {
+            "description": "Not allowed: password_change_required, a key without the scope (scope), or a missing permission",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Refusal"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "Admin: supporter"
+        ],
+        "summary": "Enter a server supporter key, which covers everyone here",
+        "description": "Admin permission: ManageSettings. An API key needs the admin scope.",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SupporterKeyRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ServerSupporterView"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Refusal"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not a working one"
+          },
+          "403": {
+            "description": "Not allowed: password_change_required, a key without the scope (scope), or a missing permission",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Refusal"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Admin: supporter"
+        ],
+        "summary": "Remove the server's supporter key",
+        "description": "Admin permission: ManageSettings. An API key needs the admin scope.",
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not a working one"
+          },
+          "403": {
+            "description": "Not allowed: password_change_required, a key without the scope (scope), or a missing permission",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Refusal"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -11053,6 +11275,24 @@
           }
         }
       },
+      "ServerSupporterView": {
+        "required": [
+          "key"
+        ],
+        "type": "object",
+        "properties": {
+          "key": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/SupporterKeyView"
+              }
+            ]
+          }
+        }
+      },
       "SettingView": {
         "required": [
           "key",
@@ -11222,6 +11462,65 @@
       "Stream": {
         "type": "string",
         "format": "binary"
+      },
+      "SupporterKeyRequest": {
+        "required": [
+          "key"
+        ],
+        "type": "object",
+        "properties": {
+          "key": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
+      "SupporterKeyView": {
+        "required": [
+          "purchased",
+          "kind"
+        ],
+        "type": "object",
+        "properties": {
+          "purchased": {
+            "type": "string",
+            "format": "date"
+          },
+          "kind": {
+            "type": "string"
+          }
+        }
+      },
+      "SupporterView": {
+        "required": [
+          "mine",
+          "server"
+        ],
+        "type": "object",
+        "properties": {
+          "mine": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/SupporterKeyView"
+              }
+            ]
+          },
+          "server": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/SupporterKeyView"
+              }
+            ]
+          }
+        }
       },
       "SyncEntity": {
         "required": [
@@ -12109,6 +12408,9 @@
     },
     {
       "name": "Admin: stats"
+    },
+    {
+      "name": "Admin: supporter"
     },
     {
       "name": "Admin: telemetry"

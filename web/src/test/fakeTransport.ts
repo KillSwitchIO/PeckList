@@ -34,10 +34,34 @@ import {
   type SignInMethods,
   type ResetOutcome,
   type SignUpOutcome,
+  type SupporterKeyInfo,
+  type SupporterRefusal,
+  type SupporterStatus,
   type SyncTransport,
 } from '../ports/sync.ts';
 import type { AdminApi } from '../ports/admin.ts';
 import { FakeSyncServer } from './fakeSyncServer.ts';
+
+/**
+ * A supporter key as the fake server reads it (PL-112): the real shape, `PECKLIST-YYYYMMDD-S|V-...`,
+ * and genuine when what follows holds `GOOD` (the real signature check is the server's).
+ */
+export function readFakeSupporterKey(text: string): SupporterKeyInfo | SupporterRefusal {
+  const match = /^PECKLIST-(\d{4})(\d{2})(\d{2})-([SV])-([A-Z2-7-]+)$/.exec(
+    text.replace(/\s/g, '').toUpperCase(),
+  );
+  if (!match) return 'not-a-key';
+  if (!match[5]?.includes('GOOD')) return 'not-genuine';
+  return {
+    purchased: `${match[1]}-${match[2]}-${match[3]}`,
+    kind: match[4] === 'S' ? 'person' : 'server',
+  };
+}
+
+/** A key the fake server takes: one person's, or with `server` the server's. */
+export function fakeSupporterKey(kind: 'person' | 'server' = 'person', date = '20261111'): string {
+  return `PECKLIST-${date}-${kind === 'person' ? 'S' : 'V'}-GOODK-EY234`;
+}
 
 export interface FakeAccount {
   account: Account;
@@ -140,6 +164,10 @@ export class FakeBackend {
   readonly crashes: CrashReportDraft[] = [];
   /** Passkeys by credential id: whose, and as listed. */
   readonly passkeys = new Map<string, { username: string; info: PasskeyInfo }>();
+  /** Each person's supporter key (PL-112), by username: what it says, as the server answers. */
+  readonly supporterKeys = new Map<string, SupporterKeyInfo>();
+  /** The server's supporter key, if an admin entered one. */
+  serverSupporterKey: SupporterKeyInfo | null = null;
 
   passkeysOf(username: string): PasskeyInfo[] {
     return [...this.passkeys.values()]
@@ -275,6 +303,13 @@ export class FakeTransport implements SyncTransport {
     },
   };
 
+  private supporterStatus(username: string): SupporterStatus {
+    return {
+      mine: this.backend.supporterKeys.get(username) ?? null,
+      server: this.backend.serverSupporterKey,
+    };
+  }
+
   private usageStatus() {
     const name = this.current()?.account.username ?? '';
     return {
@@ -376,6 +411,26 @@ export class FakeTransport implements SyncTransport {
       if (!this.backend.mailWorks) return Promise.resolve(this.backend.emailOf(name));
       this.backend.sentMail.push({ to: typed, kind: 'confirm' });
       return Promise.resolve(this.backend.emailOf(name, true));
+    },
+    supporter: () => {
+      const found = this.current();
+      if (!found) return Promise.reject(new SyncFailure('signed-out', 'signed out'));
+      return Promise.resolve(this.supporterStatus(found.account.username));
+    },
+    enterSupporterKey: (key) => {
+      const found = this.current();
+      if (!found) return Promise.reject(new SyncFailure('signed-out', 'signed out'));
+      const read = readFakeSupporterKey(key);
+      if (typeof read === 'string') return Promise.resolve(read);
+      if (read.kind !== 'person') return Promise.resolve('wrong-kind' as const);
+      this.backend.supporterKeys.set(found.account.username, read);
+      return Promise.resolve(this.supporterStatus(found.account.username));
+    },
+    removeSupporterKey: () => {
+      const found = this.current();
+      if (!found) return Promise.reject(new SyncFailure('signed-out', 'signed out'));
+      this.backend.supporterKeys.delete(found.account.username);
+      return Promise.resolve();
     },
     resendConfirmation: () => {
       const found = this.current();

@@ -4,6 +4,7 @@
     <Project Path="src/PeckList.Client/PeckList.Client.csproj" />
     <Project Path="src/PeckList.Collector/PeckList.Collector.csproj" />
     <Project Path="src/PeckList.Core/PeckList.Core.csproj" />
+    <Project Path="src/PeckList.Keys/PeckList.Keys.csproj" />
     <Project Path="src/PeckList.Server/PeckList.Server.csproj" />
     <Project Path="src/PeckList.Storage.Postgres/PeckList.Storage.Postgres.csproj" />
     <Project Path="src/PeckList.Storage.Sql/PeckList.Storage.Sql.csproj" />
@@ -13,6 +14,7 @@
     <Project Path="tests/PeckList.Client.Tests/PeckList.Client.Tests.csproj" />
     <Project Path="tests/PeckList.Collector.Tests/PeckList.Collector.Tests.csproj" />
     <Project Path="tests/PeckList.Core.Tests/PeckList.Core.Tests.csproj" />
+    <Project Path="tests/PeckList.Keys.Tests/PeckList.Keys.Tests.csproj" />
     <Project Path="tests/PeckList.Server.Tests/PeckList.Server.Tests.csproj" />
     <Project Path="tests/PeckList.Storage.Tests/PeckList.Storage.Tests.csproj" />
   </Folder>
