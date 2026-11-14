@@ -1,7 +1,7 @@
 import { Box, Button, Typography } from '@mui/material';
 import type { CalendarItem } from '../../core/calendar.ts';
 import { localTimeZone } from '../../core/dates.ts';
-import { inboxList } from '../../core/lists.ts';
+import { findInbox } from '../../core/lists.ts';
 import { formatTime } from '../format.ts';
 import { t } from '../i18n/i18n.ts';
 import { useWorkspace } from '../store/hooks.ts';
@@ -40,7 +40,7 @@ export function DayPopup({
   /** Open this day in the Days view */
   onShowDays?: () => void;
 }) {
-  const workspace = useWorkspace();
+  const inbox = findInbox(useWorkspace());
   const title = `${longDay.format(new Date(`${day}T12:00:00Z`))}${time ? `, ${formatTime(time)}` : ''}`;
   return (
     <PropertySheet label={title} anchor={anchor} onClose={onClose}>
@@ -66,20 +66,22 @@ export function DayPopup({
             ))}
           </Box>
         )}
-        <AddTaskInput
-          key={`${day}${time ?? ''}`}
-          autoFocus
-          label={time ? t('calendar.addAt', { time: formatTime(time) }) : t('calendar.addToDay')}
-          defaults={{
-            listId: inboxList(workspace).id,
-            schedule: {
-              start: time ? `${day}T${time}` : day,
-              end: null,
-              allDay: time === null,
-              timeZone: localTimeZone(),
-            },
-          }}
-        />
+        {inbox && (
+          <AddTaskInput
+            key={`${day}${time ?? ''}`}
+            autoFocus
+            label={time ? t('calendar.addAt', { time: formatTime(time) }) : t('calendar.addToDay')}
+            defaults={{
+              listId: inbox.id,
+              schedule: {
+                start: time ? `${day}T${time}` : day,
+                end: null,
+                allDay: time === null,
+                timeZone: localTimeZone(),
+              },
+            }}
+          />
+        )}
         {onShowDays && !time && (
           <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
             <Button size="small" onClick={onShowDays}>

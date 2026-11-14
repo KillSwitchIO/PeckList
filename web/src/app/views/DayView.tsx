@@ -2,7 +2,7 @@ import { IconButton, Tooltip, useMediaQuery, useTheme } from '@mui/material';
 import { Navigate, useNavigate, useParams } from 'react-router';
 import { VIEW_GROUPINGS } from '../../core/listView.ts';
 import { addDays, localTimeZone } from '../../core/dates.ts';
-import { inboxList } from '../../core/lists.ts';
+import { findInbox } from '../../core/lists.ts';
 import { completedOn, dayTasks } from '../../core/queries.ts';
 import { useToday } from '../hooks/useToday.ts';
 import { t } from '../i18n/i18n.ts';
@@ -64,16 +64,19 @@ export function DayView() {
       <SortGroupButton view={view} groupings={VIEW_GROUPINGS} fixed={['date']} />
     </>
   );
+  const inbox = findInbox(workspace);
   return (
     <Page title={title} actions={actions}>
-      <AddTaskInput
-        key={date}
-        defaults={{
-          listId: inboxList(workspace).id,
-          schedule: { start: date, end: null, allDay: true, timeZone: localTimeZone() },
-        }}
-        label={t('day.addTo', { day: dayHeading(date, today) })}
-      />
+      {inbox && (
+        <AddTaskInput
+          key={date}
+          defaults={{
+            listId: inbox.id,
+            schedule: { start: date, end: null, allDay: true, timeZone: localTimeZone() },
+          }}
+          label={t('day.addTo', { day: dayHeading(date, today) })}
+        />
+      )}
       <PageDay.Provider value={date}>
         <GroupedTasks
           tasks={dayTasks(workspace, date, today)}

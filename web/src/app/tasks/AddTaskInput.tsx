@@ -10,6 +10,7 @@ import {
   type QuickAdd,
   type Token,
 } from '../../core/quickAdd.ts';
+import { findInbox } from '../../core/lists.ts';
 import { withNewTaskDefaults } from '../../core/newTaskDefaults.ts';
 import { assigneeCandidates } from '../../core/sharing.ts';
 import { createTask, type TaskInput } from '../../core/tasks.ts';
@@ -79,6 +80,12 @@ function chipFor(
         icon: <RepeatRounded sx={{ fontSize: 16 }} />,
       };
   }
+}
+
+/** The add bar of a view that adds to the Inbox; none before the first sync brings the Inbox. */
+export function AddToInbox() {
+  const inbox = findInbox(useWorkspace());
+  return inbox ? <AddTaskInput defaults={{ listId: inbox.id }} /> : null;
 }
 
 /**

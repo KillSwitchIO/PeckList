@@ -2054,6 +2054,7 @@ export const en = {
     'Delete "{name}" and its tasks? You can restore it from the trash for 30 days.',
   'list.empty': 'No tasks here. Add one above.',
   'list.notFound': 'This list no longer exists.',
+  'inbox.notYet': 'Your Mess Drawer shows up here once this device has synced.',
   'upcoming.empty': 'Nothing planned for the next 7 days.',
   'agenda.week': 'Days of the week',
   'agenda.previousWeek': 'Previous week',
