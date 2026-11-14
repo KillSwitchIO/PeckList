@@ -1,4 +1,4 @@
-import { openDB, type IDBPDatabase } from 'idb';
+import { yieldingConnection } from './idb-connection.ts';
 import type { BlobStore } from '../ports/blobs.ts';
 
 const STORE = 'blobs';
@@ -13,13 +13,9 @@ interface Stored {
  * as Blobs: some browsers (older Safari) cannot store a Blob in IndexedDB.
  */
 export function createIndexedDbBlobs(databaseName = 'pecklist-files'): BlobStore {
-  let db: Promise<IDBPDatabase> | null = null;
-  const open = () =>
-    (db ??= openDB(databaseName, 1, {
-      upgrade(database) {
-        database.createObjectStore(STORE);
-      },
-    }));
+  const open = yieldingConnection(databaseName, 1, (database) => {
+    database.createObjectStore(STORE);
+  });
   return {
     async get(sha256) {
       const stored = (await (await open()).get(STORE, sha256)) as Stored | undefined;

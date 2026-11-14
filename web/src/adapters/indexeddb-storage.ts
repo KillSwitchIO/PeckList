@@ -1,4 +1,4 @@
-import { openDB, type IDBPDatabase } from 'idb';
+import { yieldingConnection } from './idb-connection.ts';
 import { mergeWorkspaces } from '../core/merge.ts';
 import { COLLECTIONS, type WorkspaceFile } from '../core/types.ts';
 import type { StorageAdapter } from '../ports/storage.ts';
@@ -35,22 +35,14 @@ const sameIds = (a: readonly string[] | undefined, b: readonly string[]) =>
  * dropped by the next save while it is still the text that was read.
  */
 export function createIndexedDbStorage(databaseName = 'pecklist'): StorageAdapter {
-  let db: Promise<IDBPDatabase> | null = null;
-  let records: Promise<IDBPDatabase> | null = null;
-  const open = () =>
-    (db ??= openDB(databaseName, 1, {
-      upgrade(database) {
-        database.createObjectStore(STORE);
-      },
-    }));
+  const open = yieldingConnection(databaseName, 1, (database) => {
+    database.createObjectStore(STORE);
+  });
   // Its own database, so no tab of an older version blocks an upgrade of the first one.
-  const openRecords = () =>
-    (records ??= openDB(`${databaseName}-records`, 1, {
-      upgrade(database) {
-        database.createObjectStore(ENTITIES);
-        database.createObjectStore(DOC);
-      },
-    }));
+  const openRecords = yieldingConnection(`${databaseName}-records`, 1, (database) => {
+    database.createObjectStore(ENTITIES);
+    database.createObjectStore(DOC);
+  });
   let held: Held | null = null;
   // The old single-text copy as last read: a save drops it only while it is still that text.
   let legacySeen: string | null = null;
