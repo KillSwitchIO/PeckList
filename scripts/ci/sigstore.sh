@@ -85,6 +85,31 @@ if [ -z "$cosign" ]; then
   chmod +x "$cosign"
 fi
 
+# cosign is a Go program and trusts the system's CA bundle. The Node image has none (no
+# ca-certificates package), so cosign could not reach Sigstore at all there (0.12.0-rc.1: "x509:
+# certificate signed by unknown authority" from tuf-repo-cdn.sigstore.dev on every try). Node
+# carries Mozilla's roots, the same list ca-certificates ships: with no system bundle and no
+# SSL_CERT_FILE of the job's own, cosign gets Node's. Nothing is installed in a job with the token.
+# The files are Go's own list on Linux.
+system_ca=
+for file in ${SIGSTORE_SYSTEM_CA:-/etc/ssl/certs/ca-certificates.crt /etc/pki/tls/certs/ca-bundle.crt \
+  /etc/ssl/ca-bundle.pem /etc/pki/tls/cacert.pem /etc/pki/ca-trust/extracted/pem/tls-ca-bundle.pem /etc/ssl/cert.pem}; do
+  if [ -s "$file" ]; then
+    system_ca=$file
+    break
+  fi
+done
+if [ -z "${SSL_CERT_FILE:-}" ] && [ -z "$system_ca" ]; then
+  if command -v node > /dev/null && roots=$(mktemp "${TMPDIR:-/tmp}/sigstore-roots.XXXXXX") \
+    && trap 'rm -f "$roots"' EXIT \
+    && node -e 'require("fs").writeFileSync(process.argv[1], require("tls").rootCertificates.join("\n") + "\n")' "$roots"; then
+    export SSL_CERT_FILE="$roots"
+    echo "No system CA bundle: cosign uses Node's root certificates" >&2
+  else
+    echo "No system CA bundle and no node for root certificates: cosign may not reach Sigstore" >&2
+  fi
+fi
+
 # Three tries, a little apart: Sigstore's services are usually back within a minute.
 attempt() { # what, then the command
   what=$1
