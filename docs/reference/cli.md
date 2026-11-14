@@ -251,7 +251,9 @@ has it, but a minimal container image may not: there, install it first (`apt-get
 on Debian).
 
 On Windows, unzip it and put `pecklist.exe` in a folder on your `PATH`. The server program takes
-the same client commands, so on the server itself you can use the one you have.
+the same client commands, so on the server itself you can use the one you have. If Windows says an
+Application Control policy blocked the file, Smart App Control is on and doesn't trust this unsigned
+build: use the Linux download inside WSL instead. Signed Store builds may come after 1.0.
 
 ### Help
 

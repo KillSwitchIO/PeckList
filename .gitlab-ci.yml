@@ -171,7 +171,7 @@ ci-images:
       else
         TAG="ref-$CI_COMMIT_REF_SLUG"
       fi
-      for name in browsers android; do
+      for name in browsers android innosetup; do
         echo "=== $CI_IMAGES/$name:$TAG"
         docker build --pull -f "ci/$name.Dockerfile" -t "$CI_IMAGES/$name:$TAG" .
         docker push "$CI_IMAGES/$name:$TAG"
@@ -637,6 +637,13 @@ web-build:
         - scripts/ci/package-test.sh
         - scripts/ci/appimage-*.sh
         - scripts/ci/aur-*.sh
+    # For the Windows installer a merge request builds and tests (windows-installer, windows-test).
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+      changes: &windows-files
+        - packaging/windows/**/*
+        - examples/windows/**/*
+        - scripts/ci/windows-*
+        - ci/innosetup.Dockerfile
     - *not-affected
     - *legacy-tag
     - if: $CI_COMMIT_TAG
@@ -810,6 +817,11 @@ packages:
     paths: [dist]
     expire_in: 30 days
   rules:
+    # The Windows installer's merge requests need the Windows downloads too (windows-installer).
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+      changes: *windows-files
+      variables:
+        PACKAGE_RIDS: linux-x64 linux-arm64 win-x64 win-arm64
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
       changes: *packaging-files
       variables:
@@ -873,6 +885,73 @@ package-test-arm64:
   script:
     - sh scripts/ci/package-test.sh dist arm64
   rules: *package-test-rules
+
+# The Windows installer (PL-132): Inno Setup under Wine (ci/innosetup.Dockerfile), from the portable
+# Windows downloads packages built, into dist-windows/pecklist-setup-x64.exe. Unsigned: no free
+# certificate fits (PL-132), so SmartScreen asks once.
+windows-installer:
+  image: $CI_IMAGES/innosetup:$CI_IMAGES_TAG
+  stage: build
+  needs:
+    - job: packages
+      artifacts: true
+    # When this pipeline builds the image, after it.
+    - job: ci-images
+      optional: true
+      artifacts: false
+  timeout: 15m
+  script:
+    - sh scripts/ci/windows-installer.sh "$(sh scripts/build-version.sh)" dist dist-windows
+  artifacts:
+    paths: [dist-windows]
+    expire_in: 30 days
+  rules:
+    # This merge request's own image, which its ci-images job pushed.
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+      changes:
+        - ci/innosetup.Dockerfile
+      variables:
+        CI_IMAGES_TAG: mr-$CI_MERGE_REQUEST_IID
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+      changes: *windows-files
+    - *not-affected
+    - if: $CI_COMMIT_TAG
+      when: never
+    - <<: *release-commit
+      interruptible: false
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+      when: manual
+      allow_failure: true
+
+# The installer on a real Windows, GitLab's hosted Windows runner (the project's runner is Linux):
+# install silently, use it, install over the top, uninstall (scripts/ci/windows-test.ps1). A release's
+# downloads wait for it. It uses the account's compute minutes, a few each run.
+windows-test:
+  stage: build
+  needs:
+    - job: windows-installer
+      artifacts: true
+  tags: [saas-windows-medium-amd64]
+  timeout: 30m
+  variables:
+    GIT_DEPTH: 1
+  script:
+    - powershell -NoProfile -ExecutionPolicy Bypass -File scripts/ci/windows-test.ps1 dist-windows\pecklist-setup-x64.exe
+  artifacts:
+    when: on_failure
+    paths: ['install-*.log']
+    expire_in: 7 days
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+      changes: *windows-files
+    - *not-affected
+    - if: $CI_COMMIT_TAG
+      when: never
+    - <<: *release-commit
+      interruptible: false
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+      when: manual
+      allow_failure: true
 
 # --- publish ---------------------------------------------------------------------------------
 
@@ -1115,8 +1194,14 @@ release-guard:
 upload-downloads:
   image: $NODE_IMAGE
   stage: release
-  # package-test only gates: its packages are the ones in packages' dist.
-  needs: [packages, android-release, { job: package-test, artifacts: false }]
+  # package-test and windows-test only gate: what they tested is in packages' and
+  # windows-installer's artifacts.
+  needs:
+    - packages
+    - android-release
+    - windows-installer
+    - { job: package-test, artifacts: false }
+    - { job: windows-test, artifacts: false }
   timeout: 10m
   interruptible: false
   # Keyless signing of SHA256SUMS (scripts/ci/sigstore.sh): one signature covers every download.
@@ -1126,9 +1211,10 @@ upload-downloads:
     SIGSTORE_ID_TOKEN:
       aud: sigstore
   script:
-    # The signed APK joins the native downloads and their checksums.
+    # The signed APK and the Windows installer join the native downloads and their checksums.
     - cp dist-android/pecklist-android-*.apk dist/pecklist-android.apk
-    - (cd dist && sha256sum pecklist-android.apk >> SHA256SUMS)
+    - cp dist-windows/pecklist-setup-x64.exe dist/
+    - (cd dist && sha256sum pecklist-android.apk pecklist-setup-x64.exe >> SHA256SUMS)
     # SHA256SUMS as the release page serves it (each file named both ways), signed as it is served.
     # Sigstore being down leaves the release without the bundle, never without its downloads.
     - node scripts/ci/upload-downloads.mjs dist --sums-only
@@ -1191,6 +1277,27 @@ sums-signed:
         exit 1
       fi
       echo "SHA256SUMS is signed."
+  rules:
+    - *release-commit
+
+# A final release's winget manifests (scripts/ci/windows-winget.mjs), for Ben to send to
+# microsoft/winget-pkgs from GitHub: PeckList.PeckList (the installer) and PeckList.CLI. In the job's
+# artifacts, laid out as winget-pkgs has them. A release candidate gets none.
+winget-drafts:
+  image: $NODE_IMAGE
+  stage: release
+  needs: [upload-downloads]
+  timeout: 5m
+  script:
+    - |
+      VERSION=$(sh scripts/build-version.sh)
+      case "$VERSION" in
+        *-*) echo "$VERSION is a release candidate: winget gets final releases only." ;;
+        *) node scripts/ci/windows-winget.mjs dist/SHA256SUMS winget ;;
+      esac
+  artifacts:
+    paths: [winget]
+    expire_in: 90 days
   rules:
     - *release-commit
 

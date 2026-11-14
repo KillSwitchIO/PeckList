@@ -22,7 +22,11 @@ Get-NetFirewallRule -DisplayName $name -ErrorAction SilentlyContinue | Remove-Ne
 Set-Location $env:TEMP
 Remove-Item -Recurse -Force (Join-Path $env:ProgramFiles $name) -ErrorAction SilentlyContinue
 if ($RemoveData) {
-    Remove-Item -Recurse -Force (Join-Path $env:ProgramData $name)
+    # rd removes a junction or link inside without following it; Remove-Item -Recurse in Windows
+    # PowerShell 5.1 would delete what it points at.
+    $data = Join-Path $env:ProgramData $name
+    cmd /c "rd /s /q `"$data`""
+    if (Test-Path $data) { throw "Could not delete all of $data." }
     Write-Host 'Removed PeckList and its data.'
 } else {
     Write-Host "Removed PeckList. Your data is still in $(Join-Path $env:ProgramData $name)."

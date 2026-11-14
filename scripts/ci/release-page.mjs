@@ -34,6 +34,8 @@ export function versionedName(file, version) {
   if (deb) return `${deb[1]}_${version}_${deb[2]}.deb`;
   const rpm = /^(pecklist(?:-cli)?)\.(x86_64|aarch64)\.rpm$/.exec(file);
   if (rpm) return `${rpm[1]}-${version}.${rpm[2]}.rpm`;
+  // The Windows installer: pecklist-setup-x64.exe is pecklist-setup-0.8.0-x64.exe.
+  if (file === 'pecklist-setup-x64.exe') return `pecklist-setup-${version}-x64.exe`;
   const parts = /^(pecklist-.+?)(\.tar\.gz|\.zip|\.apk|\.AppImage)$/.exec(file);
   return parts ? `${parts[1]}-${version}${parts[2]}` : file;
 }
@@ -42,6 +44,7 @@ export function versionedName(file, version) {
 export const isDownload = (file) =>
   /^pecklist-.+\.(tar\.gz|zip|apk|AppImage)$/.test(file) ||
   /^pecklist(-cli)?(_(amd64|arm64)\.deb|\.(x86_64|aarch64)\.rpm)$/.test(file) ||
+  file === 'pecklist-setup-x64.exe' ||
   file === 'SHA256SUMS';
 
 /**
@@ -130,6 +133,8 @@ the [documentation](https://docs.pecklist.com/).
   \`pecklist-cli_${version}_amd64.deb\` (the command line), also for arm64.
 - **Fedora, RHEL and openSUSE:** \`pecklist-${version}.x86_64.rpm\` and \`pecklist-cli-${version}.x86_64.rpm\`,
   also for aarch64.
+- **Windows:** \`pecklist-setup-${version}-x64.exe\` (the server as a Windows service and the command line,
+  which is the arm64 build on Windows on ARM). It has no code signature, so SmartScreen asks once, under "More info".
 - **Portable:** \`pecklist-server-<platform>-portable\` (the server in a folder, any Linux or Windows) and
   \`pecklist-cli-<platform>-portable\` (the command line as one file, also for Windows on ARM).
 - **AppImage:** \`pecklist-server-linux-x64-${version}.AppImage\` (the server, to try on a desktop) and
