@@ -88,13 +88,18 @@ function Check({ tile, mark }: { tile: string; mark: string }) {
  * The mark over an empty view: PeckList's logo for a moment, then it flips round to a big check
  * that draws itself in with a little pop: all done here. The logo's own colors, turned round in a
  * light theme as the favicon is. With reduced motion asked for, just the check.
+ *
+ * The flip is flat: the logo narrows to nothing, then the check widens out from nothing. A 3D turn
+ * (a Y turn with hidden back faces) showed the logo mirrored, bird facing backwards, where a browser
+ * flattens the 3D, as some Android WebViews do.
  */
 export function EmptyMark() {
   const theme = useTheme();
   // On arriving, or when the view just emptied; otherwise the check, still (R-FB-152).
   const plays = useMarkPlays();
   const still = {
-    '& .pl-empty-card': { animation: 'none', transform: 'rotateY(180deg)' },
+    '& .pl-empty-front': { animation: 'none', visibility: 'hidden' },
+    '& .pl-empty-back': { animation: 'none', transform: 'none' },
     '& .pl-empty-check': { animation: 'none', strokeDashoffset: 0 },
     '& .pl-empty-back svg': { animation: 'none' },
   };
@@ -105,48 +110,40 @@ export function EmptyMark() {
       data-plays={plays ? 'true' : 'false'}
       data-testid="empty-mark"
       sx={{
+        position: 'relative',
         width: SIZE,
         height: SIZE,
-        perspective: 400,
-        '& .pl-empty-card': {
-          position: 'relative',
-          width: SIZE,
-          height: SIZE,
-          transformStyle: 'preserve-3d',
-          animation: 'pl-empty-flip 0.7s 0.9s cubic-bezier(0.5, -0.3, 0.3, 1.4) both',
-        },
         '& .pl-empty-face': {
           position: 'absolute',
           inset: 0,
-          backfaceVisibility: 'hidden',
           borderRadius: '22%',
           boxShadow: 3,
           lineHeight: 0,
         },
-        '& .pl-empty-back': { transform: 'rotateY(180deg)' },
+        '& .pl-empty-front': { animation: 'pl-empty-out 0.3s 0.9s ease-in forwards' },
+        '& .pl-empty-back': {
+          transform: 'scaleX(0)',
+          animation: 'pl-empty-in 0.4s 1.2s cubic-bezier(0.3, 0, 0.3, 1.4) forwards',
+        },
         '& .pl-empty-check': {
           strokeDasharray: 1,
           strokeDashoffset: 1,
           animation: 'pl-empty-draw 0.45s 1.45s ease-out forwards',
         },
         '& .pl-empty-back svg': { animation: 'pl-empty-pop 0.35s 1.85s ease-out' },
-        '@keyframes pl-empty-flip': {
-          from: { transform: 'rotateY(0deg)' },
-          to: { transform: 'rotateY(180deg)' },
-        },
+        '@keyframes pl-empty-out': { to: { transform: 'scaleX(0)', visibility: 'hidden' } },
+        '@keyframes pl-empty-in': { to: { transform: 'scaleX(1)' } },
         '@keyframes pl-empty-draw': { to: { strokeDashoffset: 0 } },
         '@keyframes pl-empty-pop': { '50%': { transform: 'scale(1.12)' } },
         '@media (prefers-reduced-motion: reduce)': still,
         ...(plays ? {} : still),
       }}
     >
-      <div className="pl-empty-card">
-        <div className="pl-empty-face">
-          <Logo {...colors} />
-        </div>
-        <div className="pl-empty-face pl-empty-back">
-          <Check tile={colors.tile} mark={colors.mark} />
-        </div>
+      <div className="pl-empty-face pl-empty-front">
+        <Logo {...colors} />
+      </div>
+      <div className="pl-empty-face pl-empty-back">
+        <Check tile={colors.tile} mark={colors.mark} />
       </div>
     </Box>
   );

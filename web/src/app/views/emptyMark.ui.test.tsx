@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs';
 import { act, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -54,5 +55,14 @@ describe('the empty view’s mark (R-FB-152)', () => {
     await userEvent.click(within(nav).getByText('Mess Drawer'));
     await userEvent.click(within(nav).getByText('Today'));
     await waitFor(() => expect(mark()).toHaveAttribute('data-plays', 'true'));
+  });
+
+  // Ben, 0.10.0: on search's "Nothing matches" the logo showed mirrored, bird facing backwards. A
+  // 3D turn with hidden back faces does that wherever a browser flattens the 3D, so the flip is
+  // flat (scaleX), and nothing in the mark turns round in 3D.
+  it('flips flat, so no browser can show the logo mirrored', () => {
+    const source = readFileSync('src/app/views/EmptyMark.tsx', 'utf8');
+    expect(source).not.toMatch(/rotateY|backfaceVisibility|preserve-3d/);
+    expect(source).toMatch(/scaleX\(0\)/);
   });
 });

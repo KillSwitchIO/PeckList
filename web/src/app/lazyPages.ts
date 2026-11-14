@@ -61,6 +61,7 @@ export function preloadPages(): Promise<unknown> {
       SettingsPage,
       ManageListsPage,
       ApiKeysPage,
+      CliSignInPage,
       StatsPage,
       AdminPage,
       NotificationsPage,

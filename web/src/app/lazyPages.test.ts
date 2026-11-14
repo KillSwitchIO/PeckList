@@ -18,4 +18,11 @@ describe('the pages that load on first visit', () => {
       expect(body).toMatch(/^\s*importAgain\(\(\) => import\(/);
     },
   );
+
+  // Fetched ahead once the app is idle, so each opens offline and without a wait (the CLI sign-in
+  // page was left out once).
+  it.each(pages.map(([, name]) => name))('%s is fetched ahead', (name) => {
+    const preloaded = /export function preloadPages[\s\S]*?\[([\s\S]*?)\]/.exec(source)?.[1] ?? '';
+    expect(preloaded.split(/[\s,]+/)).toContain(name);
+  });
 });
