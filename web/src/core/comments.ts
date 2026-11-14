@@ -3,9 +3,10 @@
 // server enforces the same rules.
 
 import { getEntity, isLive, putEntity, requireEntity } from './collections.ts';
+import { mentionedNames } from './commentText.ts';
 import { createEntity, isoNow, softDelete, updateEntity, type OpContext } from './ops.ts';
 import { canEditTask, listOwner, roleOn } from './sharing.ts';
-import type { Comment, Id, Task, User, WorkspaceFile } from './types.ts';
+import type { Comment, Group, Id, Task, User, WorkspaceFile } from './types.ts';
 
 export const MAX_COMMENT_LENGTH = 20000;
 
@@ -112,10 +113,47 @@ export function mentionCandidates(workspace: WorkspaceFile, me: Id, task: Task):
     .sort((a, b) => a.displayName.localeCompare(b.displayName));
 }
 
-/** The @word being typed at `caret` (after an @ at a word start), or null. */
+/**
+ * Groups to @mention at once: each live group with members among `people` (those who can see the
+ * task, without me), and those members. Choosing one writes an @name for each of them: the server
+ * notifies people by name only, and never someone who cannot see the task, so no one else is
+ * named (Ben, 2026-11-12).
+ */
+export function mentionGroups(
+  workspace: WorkspaceFile,
+  people: readonly User[],
+): { group: Group; members: User[] }[] {
+  return workspace.entities.groups
+    .filter((group) => isLive(group) && !group.archived)
+    .map((group) => {
+      const ids = new Set(
+        workspace.entities.groupMembers
+          .filter((member) => member.groupId === group.id && member.state === 'active')
+          .filter(isLive)
+          .map((member) => member.userId),
+      );
+      return { group, members: people.filter((person) => ids.has(person.id)) };
+    })
+    .filter(({ members }) => members.length > 0)
+    .sort((a, b) => a.group.name.localeCompare(b.group.name));
+}
+
+/** Letters put at the caret to ask the comment reader whether a name typed there would count. */
+const PROBE = 'Zq9';
+
+/**
+ * The @name being typed at `caret`, or null: only where the comment, once sent, would count it as a
+ * mention, so the picker never offers a name the server would not notify (audit D3). That is after
+ * an @ at the start, a space or an opening bracket, then a letter or digit (or nothing yet), and
+ * not in `code` or a link's label. Asked of the comment reader itself, with a probe name at the
+ * caret, so the picker and the reader cannot drift apart.
+ */
 export function mentionAt(text: string, caret: number): { start: number; query: string } | null {
   const before = text.slice(0, caret);
-  const match = /(^|\s)@([\p{L}\p{N}._-]*)$/u.exec(before);
+  const match = /@([\p{L}\p{N}._-]*)$/u.exec(before);
   if (!match) return null;
-  return { start: caret - match[2]!.length - 1, query: match[2]! };
+  const query = match[1]!;
+  const probed = mentionedNames(`${before}${PROBE}${text.slice(caret)}`);
+  if (!probed.some((name) => name.startsWith(query + PROBE))) return null;
+  return { start: caret - query.length - 1, query };
 }
