@@ -68,6 +68,12 @@ filter_commits = false
 tag_pattern = "^v[0-9]+\\.[0-9]+\\.[0-9]+"
 topo_order = false
 sort_commits = "oldest"
+# A wrapped footer line that starts with a lowercase word and a colon ("are: ...") would otherwise
+# read as a new footer and cut the one before it (0.12.0-rc.1's packages note). Footer tokens are
+# capitalized (BREAKING CHANGE, Refs, Requires-Android), so such a line joins the line above it.
+commit_preprocessors = [
+  { pattern = "\n([a-z][a-z-]*): ", replace = " ${1}: " },
+]
 commit_parsers = [
   { message = "^chore\\(release\\)", skip = true },
   { message = "^feat", group = "<!-- 0 -->Added" },
