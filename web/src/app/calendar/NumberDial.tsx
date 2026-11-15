@@ -1,6 +1,7 @@
 import { keyframes } from '@emotion/react';
 import { Box, Portal } from '@mui/material';
 import { useEffect, useRef, useState } from 'react';
+import { claimTouches, claimTouchesRef } from '../dnd/claimTouch.ts';
 
 /** Radius of the open dial, and of the ring its numbers sit on. */
 const RADIUS = 124;
@@ -67,6 +68,9 @@ export function NumberDial({
   const original = useRef(value);
   const stop = useRef<(() => void) | null>(null);
   useEffect(() => () => stop.current?.(), []);
+  // A finger on the dial turns the dial and nothing else: pull to refresh must not follow it down.
+  // Pointer events drive the dial, and they never stop the touch events other gestures hear.
+  useEffect(() => (button.current ? claimTouches(button.current) : undefined), []);
 
   const set = (next: number | null, touch: boolean) => {
     if (next === null || next === latest.current.value) return;
@@ -210,6 +214,7 @@ export function NumberDial({
       {dial && (
         <Portal>
           <Box
+            ref={claimTouchesRef}
             data-number-dial=""
             onPointerDown={(event) => {
               const dx = event.clientX - dial.x;
