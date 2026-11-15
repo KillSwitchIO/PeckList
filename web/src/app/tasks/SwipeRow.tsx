@@ -2,6 +2,7 @@ import { Box, ButtonBase } from '@mui/material';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { swipeLook } from './swipeLook.tsx';
 import { useSwipePrefs, type SwipeAction } from './swipePrefs.ts';
+import { DRAG_HOLD_MS, DRAG_START_PX } from './drag/dragContext.ts';
 
 /** Width of each button a short swipe shows. */
 const ACTION = 60;
@@ -25,12 +26,18 @@ const fill = (color: string) =>
  */
 export function SwipeRow({
   enabled,
+  holdDrags = false,
   done,
   pinned,
   run,
   children,
 }: {
   enabled: boolean;
+  /**
+   * A hold drags this row (TaskDrag): a finger held still that long, then moved sideways, is that
+   * drag (its indent), never also a swipe that opens buttons or completes the task.
+   */
+  holdDrags?: boolean;
   /** Closed: Complete reopens */
   done: boolean;
   pinned: boolean;
@@ -93,12 +100,23 @@ export function SwipeRow({
     const least = prefs.left.buttons.length || prefs.left.full ? -width : 0;
     let deciding = true;
     swiped.current = false;
+    // Undecided until the hold arms the row's drag: from then on the touch is the drag's.
+    let held = false;
+    const holdTimer = holdDrags
+      ? setTimeout(() => {
+          held = true;
+        }, DRAG_HOLD_MS)
+      : undefined;
 
     const move = (next: PointerEvent) => {
       if (next.pointerId !== id) return;
       const dx = next.clientX - origin.x;
       const dy = next.clientY - origin.y;
       if (deciding) {
+        if (held) return finish();
+        // Moved before the hold armed: the drag is off (TaskDrag lets it go), so the hold no
+        // longer takes this touch from the swipe.
+        if (Math.hypot(dx, dy) >= DRAG_START_PX) clearTimeout(holdTimer);
         if (Math.abs(dy) > DECIDE_PX && Math.abs(dy) > Math.abs(dx)) return finish();
         if (Math.abs(dx) < DECIDE_PX) return;
         deciding = false;
@@ -145,6 +163,7 @@ export function SwipeRow({
       setOffset(from);
     };
     const finish = () => {
+      clearTimeout(holdTimer);
       window.removeEventListener('pointermove', move);
       window.removeEventListener('pointerup', up);
       window.removeEventListener('pointercancel', cancel);

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { flushSync } from 'react-dom';
+import { touchClaimed } from '../dnd/claimTouch.ts';
 
 // How the comments panel comes up under a finger on a phone (R-FB-109). Change the feel here.
 /** It stays once pulled this share of its height. */
@@ -142,8 +143,14 @@ export function usePullUp(open: boolean, setOpen: (open: boolean) => void): Pull
         // From the first touch: a quick flick may only deliver one move.
         samples = touch ? [{ y: touch.clientY, at: event.timeStamp }] : [];
         const resting = event.timeStamp - scrolledAt >= PULL_REST_MS;
+        // A touch something under the finger claimed (a reorder handle) is its gesture, not a pull.
         anchor =
-          touch && event.touches.length === 1 && !openNow.current && resting && atEnd()
+          touch &&
+          event.touches.length === 1 &&
+          !openNow.current &&
+          resting &&
+          !touchClaimed(event) &&
+          atEnd()
             ? touch.clientY
             : null;
         startX = touch?.clientX ?? 0;

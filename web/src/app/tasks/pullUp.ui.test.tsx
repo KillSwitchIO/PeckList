@@ -2,6 +2,7 @@ import { act, createEvent, fireEvent, screen, waitFor, within } from '@testing-l
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { inboxList } from '../../core/lists.ts';
+import { claimTouches } from '../dnd/claimTouch.ts';
 import { createTask } from '../../core/tasks.ts';
 import { mockViewport, renderApp, testStore } from '../../test/renderApp.tsx';
 import {
@@ -345,6 +346,24 @@ describe('pulling up the comments and history (R-FB-109)', () => {
     expect(screen.queryByRole('dialog', PANEL)).toBeNull();
     expect(sheetDown(sheet)).toBeGreaterThan(0);
     fireEvent.touchEnd(box, lift());
+  });
+
+  it('a touch that something in the details claimed (a reorder handle) is never a pull', async () => {
+    const { details } = await taskOpen();
+    const box = longDetails(details, 1500);
+    const handle = document.createElement('span');
+    box.append(handle);
+    const stop = claimTouches(handle);
+    fireEvent.touchStart(handle, touch(700));
+    const move = createEvent.touchMove(handle, touch(600));
+    fireEvent(handle, move);
+    fireEvent.touchMove(handle, touch(500));
+    await wait(50);
+    expect(screen.queryByRole('dialog', PANEL)).toBeNull();
+    expect(move.defaultPrevented).toBe(false);
+    fireEvent.touchEnd(handle, lift());
+    stop();
+    handle.remove();
   });
 
   it('a sideways swipe is not a pull', async () => {

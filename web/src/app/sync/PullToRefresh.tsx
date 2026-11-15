@@ -5,12 +5,18 @@ import { RefreshIcon } from '../icons/icons.tsx';
 import { nativeShell } from '../native/shell.ts';
 import { useSyncState } from './syncContext.ts';
 import { notePull } from '../fun/eggs.ts';
+import { touchClaimed } from '../dnd/claimTouch.ts';
 
 /** How far to pull before letting go syncs, and the most the circle travels. */
 export const PULL_TRIGGER = 72;
 const PULL_MAX = 112;
 /** A touch held this long before moving is a drag (tasks move on a hold), not a pull. */
 const HOLD_MS = 350;
+/**
+ * Moving down less than this is a wobble, nobody's yet: a pull starts only past it, so a finger
+ * settling into a hold (a drag about to start) never starts one that then follows the drag.
+ */
+const PULL_SLOP_PX = 10;
 /** The spinner stays at least this long, so a quick sync still reads as one. */
 const MIN_SPIN_MS = 600;
 
@@ -62,8 +68,13 @@ export function PullToRefresh() {
     let distance = 0;
     const onStart = (event: TouchEvent) => {
       const touch = event.touches[0];
+      // A touch something under the finger claimed (a grip, a reorder handle) is not a pull.
       start =
-        event.touches.length === 1 && touch && !latest.current.syncing && pullable(event.target)
+        event.touches.length === 1 &&
+        touch &&
+        !latest.current.syncing &&
+        !touchClaimed(event) &&
+        pullable(event.target)
           ? { x: touch.clientX, y: touch.clientY, at: Date.now() }
           : null;
       distance = 0;
@@ -74,12 +85,17 @@ export function PullToRefresh() {
       const down = touch.clientY - start.y;
       // More sideways than down is a sideways scroll (the timeline, R-FB-155), never a pull.
       const sideways = Math.abs(touch.clientX - start.x) > down;
-      if (
-        distance === 0 &&
-        (down <= 0 || sideways || Date.now() - start.at > HOLD_MS || window.scrollY > 0)
-      ) {
-        start = null;
-        return;
+      if (distance === 0) {
+        if (Date.now() - start.at > HOLD_MS || window.scrollY > 0) {
+          start = null;
+          return;
+        }
+        // Inside the slop nothing is decided; the way it went is judged once, on leaving it.
+        if (Math.hypot(touch.clientX - start.x, down) < PULL_SLOP_PX) return;
+        if (down <= 0 || sideways) {
+          start = null;
+          return;
+        }
       }
       // Resists the further it goes, as a pull does.
       distance = Math.min(PULL_MAX, down * 0.5);

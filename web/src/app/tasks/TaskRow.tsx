@@ -406,6 +406,7 @@ function TaskRowContent({
       <SwipeRow
         // Not while its menu or date picker is open: dragging the progress slider is not a swipe.
         enabled={canEdit && !select && !menu && !swipeDate}
+        holdDrags={gesture !== null}
         done={done}
         pinned={isPinned(task)}
         run={(action, anchor) => {

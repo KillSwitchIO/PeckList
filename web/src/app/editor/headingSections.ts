@@ -9,6 +9,7 @@ import type { Node } from '@tiptap/pm/model';
 import { Plugin, PluginKey, type EditorState, type Transaction } from '@tiptap/pm/state';
 import { Decoration, DecorationSet } from '@tiptap/pm/view';
 import { followReorder } from '../dnd/followReorder.ts';
+import { claimTouches } from '../dnd/claimTouch.ts';
 
 /** A top-level heading: where it starts, its level, and where its section ends. */
 export interface Section {
@@ -88,6 +89,9 @@ export function headingSections(label: string, color: string) {
                       handle.setAttribute('role', 'button');
                       handle.setAttribute('aria-label', label);
                       handle.innerHTML = DOTS;
+                      // Its touch is the reorder's alone: in the task sheet, the sheet does not
+                      // swipe on it and the comments do not pull up from it.
+                      claimTouches(handle);
                       handle.addEventListener('pointerdown', (event) => {
                         if (event.button !== 0 || !view.editable) return;
                         event.preventDefault();

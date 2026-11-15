@@ -25,10 +25,16 @@ import type { Id, Task } from '../../../core/types.ts';
 import { t } from '../../i18n/i18n.ts';
 import { listName } from '../../lists/listName.ts';
 import { useApply, useWorkspace } from '../../store/hooks.ts';
-import { DRAG_INDENT, DragContext, type DragApi } from './dragContext.ts';
+import {
+  DRAG_HOLD_MS,
+  DRAG_INDENT,
+  DRAG_START_PX,
+  DragContext,
+  type DragApi,
+} from './dragContext.ts';
 
-const START_PX = 6;
-const HOLD_MS = 450;
+const START_PX = DRAG_START_PX;
+const HOLD_MS = DRAG_HOLD_MS;
 /** The middle of a row (this share of its height off each edge) drops onto it: a subtask. */
 const ONTO_EDGE = 0.3;
 
