@@ -53,6 +53,62 @@ function swipe(row: Element, x0: number, x1: number, dy = 0, pointerId = 1) {
 }
 
 describe('swiping task rows', () => {
+  it('a finger that drifts a little before the hold, then swipes, still swipes', async () => {
+    await inbox('Water plants', 'Feed cat');
+    const row = await screen.findByRole('button', { name: 'Open Feed cat' });
+    vi.useFakeTimers();
+    fireEvent.pointerDown(row, {
+      clientX: 20,
+      clientY: 20,
+      button: 0,
+      pointerType: 'touch',
+      pointerId: 6,
+    });
+    // 8 px: the drag is off (past 6), the swipe undecided (under 10).
+    act(() => vi.advanceTimersByTime(100));
+    fireEvent.pointerMove(window, { clientX: 28, clientY: 20, pointerType: 'touch', pointerId: 6 });
+    act(() => vi.advanceTimersByTime(500));
+    for (let x = 40; x <= 120; x += 20) {
+      fireEvent.pointerMove(window, {
+        clientX: x,
+        clientY: 20,
+        pointerType: 'touch',
+        pointerId: 6,
+      });
+    }
+    fireEvent.pointerUp(window, { clientX: 120, clientY: 20, pointerType: 'touch', pointerId: 6 });
+    vi.useRealTimers();
+    expect(await screen.findByRole('button', { name: 'Complete' })).toBeInTheDocument();
+  });
+
+  it('a row held until it drags, then moved sideways, is the drag: no buttons, no full swipe', async () => {
+    const { task } = await inbox('Water plants', 'Feed cat');
+    const row = await screen.findByRole('button', { name: 'Open Feed cat' });
+    vi.useFakeTimers();
+    fireEvent.pointerDown(row, {
+      clientX: 20,
+      clientY: 20,
+      button: 0,
+      pointerType: 'touch',
+      pointerId: 4,
+    });
+    act(() => vi.advanceTimersByTime(600));
+    // Past the full-swipe line, which would complete it.
+    for (let x = 40; x <= 340; x += 30) {
+      fireEvent.pointerMove(window, {
+        clientX: x,
+        clientY: 20,
+        pointerType: 'touch',
+        pointerId: 4,
+      });
+    }
+    fireEvent.pointerUp(window, { clientX: 340, clientY: 20, pointerType: 'touch', pointerId: 4 });
+    act(() => vi.advanceTimersByTime(400));
+    vi.useRealTimers();
+    expect(screen.queryByRole('button', { name: 'Complete' })).toBeNull();
+    expect(task('Feed cat').status).toBe('open');
+  });
+
   it('a short swipe right shows Complete and Pin', async () => {
     await inbox('Water plants');
     swipe(await screen.findByRole('button', { name: 'Open Water plants' }), 20, 120);

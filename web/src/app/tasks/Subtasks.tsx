@@ -47,6 +47,7 @@ import { DateButton } from './DateButton.tsx';
 import { TaskMenu, type TaskMenuAnchor } from './TaskMenu.tsx';
 import { PriorityCheckbox } from './TaskRow.tsx';
 import { useTaskSelection } from './selection.ts';
+import { claimTouchesRef } from '../dnd/claimTouch.ts';
 
 const inputId = (id: string) => `subtask-input-${id}`;
 const ADD_INPUT = 'subtask-input-new';
@@ -269,6 +270,9 @@ function SubtaskLine({
             className="subtask-open"
             role="button"
             aria-label={t('task.reorderSubtask', { title })}
+            // Its touch is the reorder's alone: the task sheet does not swipe on it and the
+            // comments do not pull up from it (pointer events alone would not keep them out).
+            ref={claimTouchesRef}
             onPointerDown={(event) => {
               if (event.button !== 0) return;
               event.preventDefault();

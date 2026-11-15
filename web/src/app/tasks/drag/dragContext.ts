@@ -4,6 +4,11 @@ import type { Id, Task } from '../../../core/types.ts';
 /** Indent per subtask level (matches the rows). */
 export const DRAG_INDENT = 24;
 
+/** A finger held still this long on a row arms its drag (and is no longer a row swipe). */
+export const DRAG_HOLD_MS = 450;
+/** A finger that moves this far before the hold has armed is a scroll or a swipe, never the drag. */
+export const DRAG_START_PX = 6;
+
 export interface DragApi {
   /** Ids dimmed while dragging (the task and its subtasks) */
   dimmed: ReadonlySet<Id>;
