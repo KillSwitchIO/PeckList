@@ -14,7 +14,15 @@ import {
 
 const PANEL = { name: 'Comments and history' };
 const wait = (ms: number) => act(() => new Promise((resolve) => setTimeout(resolve, ms)));
-const touch = (y: number) => ({ touches: [{ clientX: 100, clientY: y }] });
+// Page and client alike, as a real touch has both: the sheet's own swipe (MUI) reads the page ones.
+const finger = (y: number) => ({ clientX: 100, clientY: y, pageX: 100, pageY: y });
+let lastY = 0;
+const touch = (y: number) => {
+  lastY = y;
+  return { touches: [finger(y)] };
+};
+/** The finger lifting where it last was (a real touchend carries it; the sheet's swipe reads it). */
+const lift = () => ({ changedTouches: [finger(lastY)] });
 
 beforeEach(() => {
   localStorage.clear();
@@ -41,6 +49,19 @@ async function taskOpen() {
 
 const rootOf = (panel: HTMLElement) => panel.closest<HTMLElement>('.MuiDrawer-root')!;
 
+/** The task's own bottom sheet, given a height so its swipe has room to move. */
+function taskSheet(details: HTMLElement) {
+  const paper = details.closest<HTMLElement>('.MuiDrawer-paper')!;
+  Object.defineProperty(paper, 'clientHeight', { value: 700, configurable: true });
+  return paper;
+}
+
+/** How far the sheet's own swipe has moved it down, in px (0 when it has not). */
+function sheetDown(paper: HTMLElement) {
+  const match = /translate\(0(?:px)?, (-?[\d.]+)px\)/.exec(paper.style.transform);
+  return match ? Number(match[1]) : 0;
+}
+
 /** The details as a long scroll, scrolled to `top` (1500 is the end). */
 function longDetails(details: HTMLElement, top: number) {
   const box = details.querySelector<HTMLElement>('[data-add-subtask], .MuiStack-root')!;
@@ -61,7 +82,7 @@ describe('pulling up the comments and history (R-FB-109)', () => {
     fireEvent.touchMove(bar, touch(630));
     expect(rootOf(panel).style.getPropertyValue('--pull-px')).toBe('60px');
 
-    fireEvent.touchEnd(bar);
+    fireEvent.touchEnd(bar, lift());
     await waitFor(() => expect(screen.queryByRole('dialog', PANEL)).toBeNull());
   });
 
@@ -79,7 +100,7 @@ describe('pulling up the comments and history (R-FB-109)', () => {
       set(name, value);
     });
     // Straight from the browser, as a real finger is, not wrapped in a test's act().
-    bar.dispatchEvent(createEvent.touchEnd(bar));
+    bar.dispatchEvent(createEvent.touchEnd(bar, lift()));
     expect(glideAsItMoved).toContain(`${PULL_SETTLE_MS}ms`);
     await waitFor(() => expect(screen.queryByRole('dialog', PANEL)).toBeNull());
   });
@@ -95,7 +116,7 @@ describe('pulling up the comments and history (R-FB-109)', () => {
     fireEvent(bar, createEvent.touchMove(bar, { ...touch(600), cancelable: false }));
     expect(root.style.getPropertyValue('--pull-ease')).toBe('200ms');
     expect(getComputedStyle(screen.getByRole('dialog', PANEL)).transition).toContain('--pull-ease');
-    fireEvent.touchEnd(bar);
+    fireEvent.touchEnd(bar, lift());
   });
 
   it('a new pull just after one slid back is not ended by it', async () => {
@@ -103,7 +124,7 @@ describe('pulling up the comments and history (R-FB-109)', () => {
     fireEvent.touchStart(bar, touch(700));
     fireEvent.touchMove(bar, touch(640));
     await screen.findByRole('dialog', PANEL);
-    fireEvent.touchEnd(bar);
+    fireEvent.touchEnd(bar, lift());
     // Still sliding back when the finger comes down again.
     fireEvent.touchStart(bar, touch(700));
     fireEvent.touchMove(bar, touch(640));
@@ -111,7 +132,7 @@ describe('pulling up the comments and history (R-FB-109)', () => {
     await wait(PULL_SETTLE_MS + 100);
     const panel = screen.getByRole('dialog', PANEL);
     expect(getComputedStyle(panel).transform).toContain('--pull-px');
-    fireEvent.touchEnd(bar);
+    fireEvent.touchEnd(bar, lift());
     await waitFor(() => expect(screen.queryByRole('dialog', PANEL)).toBeNull());
   });
 
@@ -136,7 +157,7 @@ describe('pulling up the comments and history (R-FB-109)', () => {
     fireEvent.touchStart(bar, touch(700));
     fireEvent.touchMove(bar, touch(700 - needed - 20));
     await screen.findByRole('dialog', PANEL);
-    fireEvent.touchEnd(bar);
+    fireEvent.touchEnd(bar, lift());
     await wait(PULL_SETTLE_MS + 100);
     expect(screen.getByRole('dialog', PANEL)).toBeInTheDocument();
   });
@@ -149,7 +170,7 @@ describe('pulling up the comments and history (R-FB-109)', () => {
     fireEvent.touchMove(bar, touch(690));
     await screen.findByRole('dialog', PANEL);
     await wait(150);
-    fireEvent.touchEnd(bar);
+    fireEvent.touchEnd(bar, lift());
     await waitFor(() => expect(screen.queryByRole('dialog', PANEL)).toBeNull());
   });
 
@@ -161,7 +182,7 @@ describe('pulling up the comments and history (R-FB-109)', () => {
     // Well short of a third of the height, so only its speed can open it.
     fireEvent(bar, at(createEvent.touchMove(bar, touch(550)), 1040));
     await screen.findByRole('dialog', PANEL);
-    fireEvent(bar, at(createEvent.touchEnd(bar), 1045));
+    fireEvent(bar, at(createEvent.touchEnd(bar, lift()), 1045));
     await wait(PULL_SETTLE_MS + 100);
     expect(screen.getByRole('dialog', PANEL)).toBeInTheDocument();
   });
@@ -188,7 +209,7 @@ describe('pulling up the comments and history (R-FB-109)', () => {
     expect(screen.queryByRole('dialog', PANEL)).toBeNull();
     // Nor is the scroll taken from the browser.
     expect(move.defaultPrevented).toBe(false);
-    fireEvent.touchEnd(box);
+    fireEvent.touchEnd(box, lift());
   });
 
   it('a pull starts only from rest at the end, in a touch of its own', async () => {
@@ -201,7 +222,7 @@ describe('pulling up the comments and history (R-FB-109)', () => {
     fireEvent.touchMove(box, touch(600));
     await wait(50);
     expect(screen.queryByRole('dialog', PANEL)).toBeNull();
-    fireEvent.touchEnd(box);
+    fireEvent.touchEnd(box, lift());
 
     // At rest at the end, a new touch pulls.
     await wait(PULL_REST_MS + 50);
@@ -209,7 +230,7 @@ describe('pulling up the comments and history (R-FB-109)', () => {
     fireEvent.touchMove(box, touch(670));
     const panel = await screen.findByRole('dialog', PANEL);
     expect(rootOf(panel).style.getPropertyValue('--pull-px')).toBe('20px');
-    fireEvent.touchEnd(box);
+    fireEvent.touchEnd(box, lift());
     await waitFor(() => expect(screen.queryByRole('dialog', PANEL)).toBeNull());
   });
 
@@ -220,7 +241,7 @@ describe('pulling up the comments and history (R-FB-109)', () => {
     const first = createEvent.touchMove(box, touch(697));
     fireEvent(box, first);
     expect(first.defaultPrevented).toBe(true);
-    fireEvent.touchEnd(box);
+    fireEvent.touchEnd(box, lift());
   });
 
   it('a touch at the end that first scrolls back up is a scroll, even when it comes back down', async () => {
@@ -236,7 +257,7 @@ describe('pulling up the comments and history (R-FB-109)', () => {
     fireEvent.touchMove(box, touch(300));
     await wait(50);
     expect(screen.queryByRole('dialog', PANEL)).toBeNull();
-    fireEvent.touchEnd(box);
+    fireEvent.touchEnd(box, lift());
   });
 
   it('the details hold still while the panel comes up or is open, and scroll again once it closes', async () => {
@@ -253,7 +274,7 @@ describe('pulling up the comments and history (R-FB-109)', () => {
     fireEvent.touchMove(bar, touch(640));
     await screen.findByRole('dialog', PANEL);
     expect(held()).toBe(true);
-    fireEvent.touchEnd(bar);
+    fireEvent.touchEnd(bar, lift());
     await waitFor(() => expect(screen.queryByRole('dialog', PANEL)).toBeNull());
     await waitFor(() => expect(held()).toBe(false));
 
@@ -265,6 +286,67 @@ describe('pulling up the comments and history (R-FB-109)', () => {
     await waitFor(() => expect(held()).toBe(false));
   });
 
+  it('a pull that comes back down below where it started leaves the task sheet where it was', async () => {
+    const { details, bar } = await taskOpen();
+    const sheet = taskSheet(details);
+    fireEvent.touchStart(bar, touch(700));
+    fireEvent.touchMove(bar, touch(640));
+    await screen.findByRole('dialog', PANEL);
+    fireEvent.touchMove(bar, touch(700));
+    fireEvent.touchMove(bar, touch(780));
+    fireEvent.touchMove(bar, touch(820));
+    expect(sheetDown(sheet)).toBe(0);
+    fireEvent.touchEnd(bar, lift());
+    await waitFor(() => expect(screen.queryByRole('dialog', PANEL)).toBeNull());
+    expect(sheetDown(sheet)).toBe(0);
+    expect(screen.getByRole('region', { name: 'Task details' })).toBeInTheDocument();
+  });
+
+  it('a wobble down before the pull does not let the sheet close the task when it lets go far below', async () => {
+    const { details, bar } = await taskOpen();
+    const sheet = taskSheet(details);
+    fireEvent.touchStart(bar, touch(700));
+    fireEvent.touchMove(bar, touch(706));
+    fireEvent.touchMove(bar, touch(640));
+    await screen.findByRole('dialog', PANEL);
+    fireEvent.touchMove(bar, touch(900));
+    fireEvent.touchMove(bar, touch(1100));
+    fireEvent.touchEnd(bar, lift());
+    await waitFor(() => expect(screen.queryByRole('dialog', PANEL)).toBeNull());
+    await wait(300);
+    expect(sheetDown(sheet)).toBe(0);
+    expect(screen.getByRole('region', { name: 'Task details' })).toBeInTheDocument();
+  });
+
+  it('the same from the details of a short task: the sheet stays, the task stays open', async () => {
+    const { details } = await taskOpen();
+    const sheet = taskSheet(details);
+    const box = longDetails(details, 0);
+    Object.defineProperty(box, 'scrollHeight', { value: 500, configurable: true });
+    fireEvent.touchStart(box, touch(600));
+    fireEvent.touchMove(box, touch(540));
+    await screen.findByRole('dialog', PANEL);
+    fireEvent.touchMove(box, touch(700));
+    fireEvent.touchMove(box, touch(760));
+    expect(sheetDown(sheet)).toBe(0);
+    fireEvent.touchEnd(box, lift());
+    await waitFor(() => expect(screen.queryByRole('dialog', PANEL)).toBeNull());
+    expect(screen.getByRole('region', { name: 'Task details' })).toBeInTheDocument();
+  });
+
+  it('a swipe down that is no pull still moves the task sheet, as before', async () => {
+    const { details } = await taskOpen();
+    const sheet = taskSheet(details);
+    const box = longDetails(details, 0);
+    Object.defineProperty(box, 'scrollHeight', { value: 500, configurable: true });
+    fireEvent.touchStart(box, touch(400));
+    fireEvent.touchMove(box, touch(420));
+    fireEvent.touchMove(box, touch(480));
+    expect(screen.queryByRole('dialog', PANEL)).toBeNull();
+    expect(sheetDown(sheet)).toBeGreaterThan(0);
+    fireEvent.touchEnd(box, lift());
+  });
+
   it('a sideways swipe is not a pull', async () => {
     const { bar } = await taskOpen();
     fireEvent.touchStart(bar, { touches: [{ clientX: 100, clientY: 700 }] });
@@ -272,7 +354,7 @@ describe('pulling up the comments and history (R-FB-109)', () => {
     fireEvent.touchMove(bar, { touches: [{ clientX: 310, clientY: 500 }] });
     await wait(50);
     expect(screen.queryByRole('dialog', PANEL)).toBeNull();
-    fireEvent.touchEnd(bar);
+    fireEvent.touchEnd(bar, lift());
   });
 });
 
