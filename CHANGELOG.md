@@ -4,6 +4,12 @@ All notable changes to PeckList. Each release adds its section from [Conventiona
 with `pnpm release`; the version follows [Semantic Versioning](https://semver.org/). Before 1.0.0 a
 minor release may break things; every break is listed under **Breaking changes** with what to do.
 
+## [0.12.0-rc.3] - 2026-11-15
+
+### Fixed
+
+- **web:** The comments panel pulls up only from rest, one scroll at a time
+
 ## [0.12.0-rc.2] - 2026-11-14
 
 ### Fixed
