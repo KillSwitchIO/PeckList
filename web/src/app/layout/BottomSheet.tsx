@@ -78,6 +78,8 @@ export function BottomSheet({
               borderTopLeftRadius: POPUP_RADIUS,
               borderTopRightRadius: POPUP_RADIUS,
               pb: 'env(safe-area-inset-bottom)',
+              // Its own scroll ends at its edges: nothing under the sheet moves with it.
+              overscrollBehaviorY: 'contain',
             },
             ...(moving
               ? [
