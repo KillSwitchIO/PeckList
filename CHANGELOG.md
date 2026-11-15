@@ -4,6 +4,15 @@ All notable changes to PeckList. Each release adds its section from [Conventiona
 with `pnpm release`; the version follows [Semantic Versioning](https://semver.org/). Before 1.0.0 a
 minor release may break things; every break is listed under **Breaking changes** with what to do.
 
+## [0.12.0-rc.4] - 2026-11-15
+
+### Fixed
+
+- **web:** A pull that comes back down leaves the task sheet where it was
+- **web:** One touch, one gesture in the task details and the task list
+- **web:** Turning the calendar's dial is never also a pull to refresh
+- **web:** A row dragged by its grip is never also a pull to refresh
+
 ## [0.12.0-rc.3] - 2026-11-15
 
 ### Fixed
