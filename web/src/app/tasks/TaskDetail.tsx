@@ -180,6 +180,9 @@ export function TaskDetail({
   const details = useRef<HTMLDivElement | null>(null);
   const hasTask = task !== undefined;
   const { attach: pullFrom } = pull;
+  // One thing scrolls at a time: while the panel comes up or is open, the details under it hold
+  // still, and get their scroll back once it has gone.
+  const detailsHeld = phone && (moreOpen || pull.showing);
   useEffect(() => {
     const box = details.current;
     if (!phone || !box) return;
@@ -355,7 +358,17 @@ export function TaskDetail({
           spacing={2}
           // On a phone, pulling up past the end brings up the comments and history (R-FB-109).
           ref={details}
-          sx={{ flexGrow: 1, minHeight: 0, overflowY: 'auto', px: 2, pb: 2, pt: 1.5 }}
+          sx={{
+            flexGrow: 1,
+            minHeight: 0,
+            overflowY: detailsHeld ? 'hidden' : 'auto',
+            // A scroll that runs out here stops here, never carrying on into the page behind.
+            overscrollBehaviorY: 'contain',
+            ...(detailsHeld && { touchAction: 'none' }),
+            px: 2,
+            pb: 2,
+            pt: 1.5,
+          }}
         >
           <ParentTrail task={task} />
           {/* Right-click or long-press the title for Won't do, Progress and the other actions. */}

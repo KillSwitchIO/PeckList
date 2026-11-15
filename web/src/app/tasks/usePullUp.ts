@@ -10,6 +10,11 @@ export const PULL_FLING_SPEED = 1;
 export const PULL_FLING_MIN_PX = 80;
 /** Moving less than this is a tap or a wobble, not a pull. */
 const PULL_SLOP_PX = 10;
+/**
+ * A pull starts only from rest: a touch that begins at the end, with nothing scrolled for this
+ * long before it (a fling's momentum still running reports scrolls), never one that scrolled there.
+ */
+export const PULL_REST_MS = 150;
 /** How long it takes to finish rising or to slide back after the finger lets go. */
 export const PULL_SETTLE_MS = 225;
 /** How often the browser reports a finger once a scroll has started (Chrome on Android). */
@@ -35,7 +40,11 @@ export interface PullUp {
   sheet: (root: HTMLElement | null) => void;
   /** Whether the sheet should show because of a pull, whatever `open` says. */
   showing: boolean;
-  /** Make an element a place to pull from. Returns how to stop. */
+  /**
+   * Make an element a place to pull from. Returns how to stop. A pull starts only in a touch that
+   * begins with the element at rest at its end (`atEnd`): scrolling down to the end and on up is
+   * one scroll, and never hands its momentum to the sheet.
+   */
   attach: (element: HTMLElement, atEnd: () => boolean) => () => void;
 }
 
@@ -115,6 +124,10 @@ export function usePullUp(open: boolean, setOpen: (open: boolean) => void): Pull
       let startX = 0;
       let active = false;
       let samples: { y: number; at: number }[] = [];
+      let scrolledAt = Number.NEGATIVE_INFINITY;
+      const onScroll = (event: Event) => {
+        scrolledAt = event.timeStamp;
+      };
 
       // A pull cut off (a second finger, or the element going while one is held) settles, so
       // the sheet is never left half up and impossible to close.
@@ -128,7 +141,11 @@ export function usePullUp(open: boolean, setOpen: (open: boolean) => void): Pull
         const touch = event.touches[0];
         // From the first touch: a quick flick may only deliver one move.
         samples = touch ? [{ y: touch.clientY, at: event.timeStamp }] : [];
-        anchor = touch && event.touches.length === 1 && !openNow.current ? touch.clientY : null;
+        const resting = event.timeStamp - scrolledAt >= PULL_REST_MS;
+        anchor =
+          touch && event.touches.length === 1 && !openNow.current && resting && atEnd()
+            ? touch.clientY
+            : null;
         startX = touch?.clientX ?? 0;
       };
       const onMove = (event: TouchEvent) => {
@@ -142,18 +159,26 @@ export function usePullUp(open: boolean, setOpen: (open: boolean) => void): Pull
         }
         const y = touch.clientY;
         if (!active) {
-          // Scrolling comes first: the pull is measured from where the scroll ran out. Moving back
-          // down counts from there too, so only a move up can start it.
-          if (!atEnd() || y > anchor) {
-            anchor = y;
-            return;
-          }
-          const up = anchor - y;
-          if (up < PULL_SLOP_PX) return;
-          if (Math.abs(touch.clientX - startX) > up) {
+          // The details scrolled in this touch (it moved back down first): this touch is a scroll,
+          // and stays one even when it comes back to the end.
+          if (!atEnd()) {
             anchor = null;
             return;
           }
+          if (y > anchor) {
+            if (y - anchor > PULL_SLOP_PX) anchor = null;
+            return;
+          }
+          const up = anchor - y;
+          const sideways = Math.abs(touch.clientX - startX);
+          if (sideways > up) {
+            if (sideways >= PULL_SLOP_PX) anchor = null;
+            return;
+          }
+          // Up from rest at the end: nothing else may take this move. A scroll the browser started
+          // here would chain to what is behind and leave every later move unstoppable.
+          if (event.cancelable) event.preventDefault();
+          if (up < PULL_SLOP_PX) return;
           active = true;
           anchor -= PULL_SLOP_PX;
           pulled.current = 0;
@@ -190,6 +215,7 @@ export function usePullUp(open: boolean, setOpen: (open: boolean) => void): Pull
         release(event.type === 'touchcancel' ? 0 : speed);
       };
 
+      element.addEventListener('scroll', onScroll, { passive: true });
       element.addEventListener('touchstart', onStart, { passive: true });
       // Not passive: on a short task nothing else may scroll the page while the panel comes up.
       element.addEventListener('touchmove', onMove, { passive: false });
@@ -199,6 +225,7 @@ export function usePullUp(open: boolean, setOpen: (open: boolean) => void): Pull
         // Not `release`: this runs while React commits, where it cannot flush the glide.
         if (active) drop();
         active = false;
+        element.removeEventListener('scroll', onScroll);
         element.removeEventListener('touchstart', onStart);
         element.removeEventListener('touchmove', onMove);
         element.removeEventListener('touchend', onEnd);
