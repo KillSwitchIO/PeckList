@@ -148,6 +148,11 @@ export function usePullUp(open: boolean, setOpen: (open: boolean) => void): Pull
             : null;
         startX = touch?.clientX ?? 0;
       };
+      /** This move is the pull's: no scroll, and no swipe of the sheet behind (MUI's, on the document). */
+      const take = (event: TouchEvent) => {
+        if (event.cancelable) event.preventDefault();
+        event.stopPropagation();
+      };
       const onMove = (event: TouchEvent) => {
         const touch = event.touches[0];
         if (anchor === null || !touch) return;
@@ -166,7 +171,11 @@ export function usePullUp(open: boolean, setOpen: (open: boolean) => void): Pull
             return;
           }
           if (y > anchor) {
+            // Down past the slop: a scroll or the sheet's swipe, and theirs from here. Within it,
+            // still undecided: the browser may scroll, but the sheet must not start its swipe on
+            // a wobble that then turns into a pull (its touchend would close the task).
             if (y - anchor > PULL_SLOP_PX) anchor = null;
+            else event.stopPropagation();
             return;
           }
           const up = anchor - y;
@@ -176,8 +185,9 @@ export function usePullUp(open: boolean, setOpen: (open: boolean) => void): Pull
             return;
           }
           // Up from rest at the end: nothing else may take this move. A scroll the browser started
-          // here would chain to what is behind and leave every later move unstoppable.
-          if (event.cancelable) event.preventDefault();
+          // here would chain to what is behind and leave every later move unstoppable, and the
+          // task's own sheet (it swipes on the document) would take the touch for its swipe.
+          take(event);
           if (up < PULL_SLOP_PX) return;
           active = true;
           anchor -= PULL_SLOP_PX;
@@ -186,9 +196,11 @@ export function usePullUp(open: boolean, setOpen: (open: boolean) => void): Pull
           clearTimeout(timer.current);
           setPhase('drag');
         }
-        // Past the first move of a scroll the browser no longer lets this be stopped, and only
-        // reports the finger now and then: the sheet eases between reports instead of stepping.
-        if (event.cancelable) event.preventDefault();
+        // Every move of a pull is its own, back down below where it started too: the task's sheet
+        // never sees them, so it stays put. Past the first move of a scroll the browser no longer
+        // lets this be stopped, and only reports the finger now and then: the sheet eases between
+        // reports instead of stepping.
+        take(event);
         root.current?.style.setProperty(
           '--pull-ease',
           `${event.cancelable ? 0 : PULL_STEPPED_MS}ms`,
