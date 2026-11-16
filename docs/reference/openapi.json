@@ -473,6 +473,111 @@
         }
       }
     },
+    "/api/account/delete": {
+      "get": {
+        "tags": [
+          "Account"
+        ],
+        "summary": "What deleting your account means here: the days an admin can still restore it, and the proof it asks for",
+        "description": "API keys can't use this route: sign in to the web app instead.",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AccountDeletion"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found"
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not a working one"
+          },
+          "403": {
+            "description": "Not allowed: password_change_required, a key without the scope (scope), or a missing permission",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Refusal"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Account"
+        ],
+        "summary": "Delete your own account, with your password or a sign-in in the last 10 minutes: an admin can restore it until removedAt",
+        "description": "API keys can't use this route: sign in to the web app instead.",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AccountDeletionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserDeleted"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Refusal"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Refusal"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Refusal"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found"
+          },
+          "429": {
+            "description": "Too many requests: wait as Retry-After says"
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not a working one"
+          }
+        }
+      }
+    },
     "/api/account/email": {
       "get": {
         "tags": [
@@ -7691,6 +7796,47 @@
   },
   "components": {
     "schemas": {
+      "AccountDeletion": {
+        "required": [
+          "graceDays",
+          "proof",
+          "signedInRecently",
+          "blocked"
+        ],
+        "type": "object",
+        "properties": {
+          "graceDays": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "proof": {
+            "type": "string"
+          },
+          "signedInRecently": {
+            "type": "boolean"
+          },
+          "blocked": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
+      "AccountDeletionRequest": {
+        "required": [
+          "password"
+        ],
+        "type": "object",
+        "properties": {
+          "password": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
       "AccountEmailView": {
         "required": [
           "email",

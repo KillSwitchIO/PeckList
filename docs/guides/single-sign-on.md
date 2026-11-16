@@ -111,6 +111,26 @@ For that, the provider must:
 
 If the provider cannot be reached, PeckList still signs out and only its own session ends.
 
+## Confirming it is them
+
+For now, people delete their own account only in the Google Play app, under **Settings > Account >
+Delete my account**. Deleting an account that has no password needs a sign-in in the last 10
+minutes. A provider can sign someone in to PeckList from a session of its own that is days old, so
+for a provider account
+PeckList goes by the ID token's `auth_time` claim (when the provider last checked who it was), not
+by when PeckList signed them in. **Delete my account** then sends them through the provider again
+with `prompt=login` and `max_age=0`, which asks the provider to check again and say so.
+
+Not every provider sends `auth_time` (some only when the client asks for it as an optional claim):
+look in a decoded ID token. Without it, PeckList counts its own sign-in instead, which is only as
+strong as the provider's session: if the provider also ignores `prompt=login`, a phone already
+signed in to it passes.
+
+A provider that sends `auth_time` but ignores both `prompt=login` and `max_age=0` keeps sending the
+old time, so the sign-in never counts and the app says so. People on such a provider ask an admin,
+who deletes the account under **Admin > Users**. The provider's clock must also be right: one more
+than 10 minutes slow makes every `auth_time` look too old.
+
 ## Linking accounts
 
 People link a provider to their existing account under **Settings > Account > Sign-in**, and unlink it as

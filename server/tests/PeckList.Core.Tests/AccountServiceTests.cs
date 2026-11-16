@@ -17,8 +17,14 @@ public sealed class MemoryAccountStore : IAccountStore
 
     public Task<int> CountAsync(CancellationToken cancellation = default) => Task.FromResult(ById.Count);
 
-    public Task<IReadOnlyList<Account>> ListAsync(CancellationToken cancellation = default) =>
-        Task.FromResult<IReadOnlyList<Account>>(ById.Values.OrderBy(each => each.CreatedAt).ToList());
+    /// <summary>Waited on before every list: lets a test hold two changes in the middle at once.</summary>
+    public Func<Task>? BeforeList { get; set; }
+
+    public async Task<IReadOnlyList<Account>> ListAsync(CancellationToken cancellation = default)
+    {
+        if (BeforeList is { } wait) await wait();
+        return ById.Values.OrderBy(each => each.CreatedAt).ToList();
+    }
 
     public Task<Account?> FindByIdAsync(string id, CancellationToken cancellation = default) =>
         Task.FromResult(ById.GetValueOrDefault(id));
@@ -363,6 +369,33 @@ public sealed class DisableTests
         Assert.IsType<LoginResult.Success>(await accounts.LoginAsync("sam", "correct horse battery", Token));
 
         await Assert.ThrowsAsync<LastSuperAdminException>(() => accounts.SetDisabledAsync(root.Id, true, Token));
+    }
+
+    [Fact]
+    public async Task Two_super_admins_leaving_at_the_same_moment_still_leave_one()
+    {
+        var root = await accounts.CreateUserAsync("root", "correct horse battery", Role.SuperAdmin, cancellation: Token);
+        var kim = await accounts.CreateUserAsync("kim", "correct horse battery", Role.SuperAdmin, cancellation: Token);
+        // Each change is slow to look around, so without taking turns both would see the other still there.
+        store.BeforeList = () => Task.Delay(100, Token);
+
+        var both = await Task.WhenAll(Attempt(() => accounts.DeleteAsync(root.Id, Token)), Attempt(() => accounts.SetDisabledAsync(kim.Id, true, Token)));
+
+        Assert.Equal(1, both.Count(went => went));
+        Assert.Single(store.ById.Values, each => each.Role == Role.SuperAdmin && !each.Disabled);
+    }
+
+    private static async Task<bool> Attempt(Func<Task<Account>> change)
+    {
+        try
+        {
+            await change();
+            return true;
+        }
+        catch (LastSuperAdminException)
+        {
+            return false;
+        }
     }
 
     [Fact]

@@ -54,6 +54,20 @@ public static class AuthSetup
     /// <summary>When the session was signed in to, in Unix seconds (<see cref="SessionMaxAge"/>).</summary>
     public const string SinceClaim = "pecklist:since";
 
+    /// <summary>
+    /// On a session from before <see cref="SinceClaim"/>: its sign-in time is when it was first seen
+    /// since, not a sign-in, so it never counts as a recent sign-in (security review of self-delete, Low 1).
+    /// </summary>
+    public const string SinceAssumedClaim = "pecklist:since-assumed";
+
+    /// <summary>
+    /// On a provider session: when the provider last made the person prove who they are (the ID
+    /// token's <c>auth_time</c>), as Unix seconds. A provider may sign them in here from a session of
+    /// its own days old, so a recent sign-in goes by this, not <see cref="SinceClaim"/>, when the
+    /// provider says (security review of the fresh sign-in, Low 1).
+    /// </summary>
+    public const string AuthTimeClaim = "pecklist:auth-time";
+
     public static IServiceCollection AddPeckListAuth(this IServiceCollection services, ServerSettings settings, ConfigCipher? configKey = null)
     {
         services.AddSingleton(TimeProvider.System);
@@ -227,6 +241,32 @@ public static class AuthSetup
         where TBuilder : IEndpointConventionBuilder =>
         builder.RequireAuthorization(PolicyName(permission)).WithMetadata(new RequiresPermission(permission));
 
+    /// <summary>
+    /// <c>fresh=1</c> on the start of a sign-in (<c>/auth/oidc/{name}/login</c>,
+    /// <c>/auth/app/handoff</c>): the person is showing it is them (deleting their account needs a
+    /// sign-in in the last few minutes), so this browser's session ends first and the sign-in really
+    /// happens, rather than a session from long ago being reused. Only for a request the browser
+    /// says came from this server's pages or the person themselves (<c>Sec-Fetch-Site</c>
+    /// <c>same-origin</c> or <c>none</c>), so a link on another site cannot sign anyone out. A
+    /// browser that does not say (a GET never carries Origin) gets the ordinary sign-in. True when it applies.
+    /// </summary>
+    public static async Task<bool> EndForFreshSignInAsync(HttpContext context, string? fresh)
+    {
+        if (fresh != "1" || context.Request.Headers["Sec-Fetch-Site"].ToString() is not ("same-origin" or "none")) return false;
+        var session = await context.AuthenticateAsync(CookieAuthenticationDefaults.AuthenticationScheme);
+        if (session.Principal?.Identity?.IsAuthenticated == true)
+        {
+            await context.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
+        }
+        return true;
+    }
+
+    /// <summary>This request's path and query without <c>fresh</c>: where a fresh sign-in comes back to.</summary>
+    public static string WithoutFresh(HttpRequest request) =>
+        request.Path + QueryString.Create(request.Query
+            .Where(each => each.Key != "fresh")
+            .SelectMany(each => each.Value.Select(value => KeyValuePair.Create(each.Key, value))));
+
     /// <summary>Forget the cached stamp and role, e.g. right after this process changed them.</summary>
     public static void ForgetStamp(IMemoryCache cache, string accountId) => cache.Remove(StampKey(accountId));
 
@@ -278,10 +318,7 @@ public static class AuthSetup
         var principal = context.Principal!;
         if (since is null)
         {
-            // A session from before the limit: its count starts now, not at a sign-in nobody recorded.
-            principal = new ClaimsPrincipal(new ClaimsIdentity(
-                principal.Claims.Append(new Claim(SinceClaim, now.ToUnixTimeSeconds().ToString(CultureInfo.InvariantCulture))),
-                context.Scheme.Name));
+            principal = WithAssumedSince(principal, now, context.Scheme.Name);
             context.ReplacePrincipal(principal);
             context.ShouldRenew = true;
         }
@@ -295,6 +332,17 @@ public static class AuthSetup
     }
 
     private sealed record SessionCheck(string Stamp, string Role);
+
+    /// <summary>
+    /// A session from before the limit: its count starts now, not at a sign-in nobody recorded, and
+    /// it is marked so that it never passes for a recent sign-in.
+    /// </summary>
+    internal static ClaimsPrincipal WithAssumedSince(ClaimsPrincipal principal, DateTimeOffset now, string scheme) =>
+        new(new ClaimsIdentity(
+            principal.Claims
+                .Append(new Claim(SinceClaim, now.ToUnixTimeSeconds().ToString(CultureInfo.InvariantCulture)))
+                .Append(new Claim(SinceAssumedClaim, "true")),
+            scheme));
 
     /// <summary>The <c>server_secrets</c> kind the data protection keys are kept under.</summary>
     public const string DataProtectionKind = "dataprotection";

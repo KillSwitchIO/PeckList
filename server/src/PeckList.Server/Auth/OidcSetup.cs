@@ -153,16 +153,24 @@ public static class OidcSetup
             return Results.File(icon.Bytes, icon.ContentType);
         });
 
-        auth.MapGet("/oidc/{name}/login", (string name, string? returnUrl, string? invite) =>
+        auth.MapGet("/oidc/{name}/login", async (string name, string? returnUrl, string? invite, string? fresh, HttpContext context) =>
         {
+            if (name != PasskeyEndpoints.ProviderName && settings.Provider(name) is null) return Results.NotFound();
+            // fresh=1: showing it is them, so no session from before stands in, and the provider asks again.
+            var again = await AuthSetup.EndForFreshSignInAsync(context, fresh);
             // The app's hand-offs name passkeys like a provider; a browser lands on the sign-in page.
             if (name == PasskeyEndpoints.ProviderName)
             {
                 return Results.Redirect($"/login?passkey=1&returnUrl={Uri.EscapeDataString(ReturnUrls.Safe(returnUrl))}");
             }
-            if (settings.Provider(name) is null) return Results.NotFound();
-            var properties = new AuthenticationProperties { RedirectUri = ReturnUrls.Safe(returnUrl), IsPersistent = true };
+            var properties = new OpenIdConnectChallengeProperties { RedirectUri = ReturnUrls.Safe(returnUrl), IsPersistent = true };
             if (!string.IsNullOrWhiteSpace(invite)) properties.Items[InviteItem] = invite.Trim();
+            if (again)
+            {
+                // Both, as providers differ in which they honour: sign in now, and an auth_time that says so.
+                properties.Prompt = "login";
+                properties.MaxAge = TimeSpan.Zero;
+            }
             return Results.Challenge(properties, [Scheme(name)]);
         });
 
@@ -380,8 +388,15 @@ public static class OidcSetup
                 // No password was used, so a temporary one an admin set does not stand in the way: the
                 // account keeps the flag, and signing in with that password still asks for a new one.
                 var principal = AuthSetup.Principal(
-                    success.Account with { MustChangePassword = false }, CookieAuthenticationDefaults.AuthenticationScheme, AuthSetup.ByProvider);
+                    success.Account with { MustChangePassword = false }, CookieAuthenticationDefaults.AuthenticationScheme, AuthSetup.ByProvider,
+                    services.GetRequiredService<TimeProvider>().GetUtcNow());
                 ((ClaimsIdentity)principal.Identity!).AddClaim(new Claim(ProviderClaim, provider.Name));
+                // When the provider last checked it was them, which may be long before this sign-in.
+                if (long.TryParse(Claim("auth_time"), System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture, out var authTime))
+                {
+                    ((ClaimsIdentity)principal.Identity!).AddClaim(
+                        new Claim(AuthSetup.AuthTimeClaim, authTime.ToString(System.Globalization.CultureInfo.InvariantCulture)));
+                }
                 if (Claim("picture") is { } pictureUrl) ((ClaimsIdentity)principal.Identity!).AddClaim(new Claim(PictureClaim, pictureUrl));
                 context.Principal = principal;
                 context.Properties!.IsPersistent = true;

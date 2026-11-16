@@ -58,24 +58,28 @@ public static partial class AppSignIn
     public static void MapAppSignIn(this RouteGroupBuilder auth, ServerSettings settings)
     {
         // Step 1, in the browser tab: sign in with the provider if needed, then ask to confirm.
-        auth.MapGet("/app/handoff", async (string? provider, string? challenge, string? scheme, string? returnUrl, string? invite, HttpContext context) =>
+        auth.MapGet("/app/handoff", async (string? provider, string? challenge, string? scheme, string? returnUrl, string? invite, string? fresh,
+            HttpContext context) =>
         {
             if (!ValidRequest(challenge, scheme)) return Results.BadRequest(new AuthError("invalid_request"));
             // Signed in or not, a provider this server does not have gets no confirm page (audit S17).
             if (provider is not null && provider != PasskeyEndpoints.ProviderName && settings.Provider(provider) is null) return Results.NotFound();
             var session = await context.AuthenticateAsync(CookieAuthenticationDefaults.AuthenticationScheme);
-            if (session.Principal?.Identity?.IsAuthenticated != true)
+            // fresh=1 (shell api 9): the app wants a sign-in that happens now, to show it is the person
+            // (deleting their account). This tab's session would hand over its old sign-in time, so it ends.
+            var again = await AuthSetup.EndForFreshSignInAsync(context, fresh);
+            if (again || session.Principal?.Identity?.IsAuthenticated != true)
             {
+                var here = AuthSetup.WithoutFresh(context.Request);
                 // A passkey: the web sign-in page in this tab, then back here to confirm (PL-123).
                 if (provider == PasskeyEndpoints.ProviderName)
                 {
-                    var back = context.Request.Path + context.Request.QueryString;
-                    return Results.Redirect($"/login?passkey=1&returnUrl={Uri.EscapeDataString(back)}");
+                    return Results.Redirect($"/login?passkey=1&returnUrl={Uri.EscapeDataString(here)}");
                 }
                 if (settings.Provider(provider) is not { Name: var name }) return Results.NotFound();
-                var here = context.Request.Path + context.Request.QueryString;
                 var login = $"/auth/oidc/{Uri.EscapeDataString(name)}/login?returnUrl={Uri.EscapeDataString(here)}";
                 if (!string.IsNullOrWhiteSpace(invite)) login += $"&invite={Uri.EscapeDataString(invite)}";
+                if (again) login += "&fresh=1";
                 return Results.Redirect(login);
             }
             var user = session.Principal;

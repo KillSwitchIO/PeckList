@@ -81,6 +81,146 @@ public sealed class AppSignInTests(ServerFixture fixture) : IClassFixture<Server
         return confirmed.Headers.Location!;
     }
 
+    /// <summary>The confirm button on the tab's confirm page: the app's link with its code.</summary>
+    private static async Task<Uri> Confirm(HttpClient tab, string challenge)
+    {
+        var confirm = new HttpRequestMessage(HttpMethod.Post, "/auth/app/handoff")
+        {
+            Content = Form(("challenge", challenge), ("scheme", Scheme), ("returnUrl", "/today")),
+        };
+        confirm.Headers.Add("Origin", "http://localhost");
+        confirm.Headers.Add("Sec-Fetch-Site", "same-origin");
+        var confirmed = await tab.SendAsync(confirm, Token);
+        Assert.Equal(HttpStatusCode.Redirect, confirmed.StatusCode);
+        return confirmed.Headers.Location!;
+    }
+
+    /// <summary>The app's WebView redeeming a code: a client with the app's new session.</summary>
+    private static async Task<HttpClient> Redeem(WebApplicationFactory<Program> server, Uri appLink, string verifier)
+    {
+        var app = Browser(server);
+        var redeemed = await app.PostAsync("/auth/app/redeem", Form(("code", CodeOf(appLink)), ("verifier", verifier)), Token);
+        Assert.Equal("/today", redeemed.Headers.Location!.ToString());
+        return app;
+    }
+
+    private static async Task<bool> SignedInRecently(HttpClient app) =>
+        (await app.GetFromJsonAsync<AccountDeletion>("/api/account/delete", Token))!.SignedInRecently;
+
+    /// <summary>
+    /// Deleting a provider account in the app needs a sign-in in the last ten minutes, but the tab
+    /// the app signs in through is often still signed in from long ago, and the hand-off would copy
+    /// that old sign-in. With fresh=1 (shell api 9) the tab's session ends and the provider asks again.
+    /// </summary>
+    [Fact]
+    public async Task A_fresh_sign_in_from_the_app_goes_through_the_provider_again_even_with_a_browser_session()
+    {
+        var time = new ManualTime(DateTimeOffset.UtcNow);
+        using var server = Server().WithWebHostBuilder(host => host.ConfigureTestServices(services => services.AddSingleton<TimeProvider>(time)));
+        var tab = Browser(server);
+        var first = NewVerifier();
+        var app = await Redeem(server, await ConfirmInBrowser(tab, AppSignIn.ChallengeOf(first)), first);
+        Assert.True(await SignedInRecently(app));
+        time.Now = time.Now.AddMinutes(11);
+        Assert.False(await SignedInRecently(app));
+
+        // Signing in again as before: the tab is still signed in, goes straight to confirming, and
+        // the app gets that old sign-in once more.
+        var again = NewVerifier();
+        Assert.Equal(HttpStatusCode.OK, (await tab.GetAsync(HandoffUrl(AppSignIn.ChallengeOf(again)), Token)).StatusCode);
+        Assert.False(await SignedInRecently(await Redeem(server, await Confirm(tab, AppSignIn.ChallengeOf(again)), again)));
+
+        // Fresh: the tab is signed out, the provider is asked to sign them in again, and the app's
+        // new session is a sign-in from now, which deletes the account.
+        var fresh = NewVerifier();
+        var handoff = HandoffUrl(AppSignIn.ChallengeOf(fresh));
+        // As a Custom Tab opened by the app sends it.
+        using var opened = new HttpRequestMessage(HttpMethod.Get, handoff + "&fresh=1");
+        opened.Headers.Add("Sec-Fetch-Site", "none");
+        var start = await tab.SendAsync(opened, Token);
+        Assert.Equal($"/auth/oidc/fake/login?returnUrl={Uri.EscapeDataString(handoff)}&fresh=1", start.Headers.Location!.ToString());
+        Assert.Equal(HttpStatusCode.Unauthorized, (await tab.GetAsync("/auth/me", Token)).StatusCode);
+        // The tab follows the redirect, which keeps the request's Sec-Fetch-Site.
+        using var follow = new HttpRequestMessage(HttpMethod.Get, start.Headers.Location!);
+        follow.Headers.Add("Sec-Fetch-Site", "none");
+        var login = await tab.SendAsync(follow, Token);
+        Assert.Equal("login", QueryHelpers.ParseQuery(login.Headers.Location!.Query)["prompt"].ToString());
+        Assert.Equal("0", QueryHelpers.ParseQuery(login.Headers.Location!.Query)["max_age"].ToString());
+        var back = await tab.GetAsync(provider.Authorize(login.Headers.Location!, Kim()), Token);
+        Assert.Equal(handoff, back.Headers.Location!.ToString());
+        Assert.Equal(HttpStatusCode.OK, (await tab.GetAsync(back.Headers.Location!, Token)).StatusCode);
+        var signedIn = await Redeem(server, await Confirm(tab, AppSignIn.ChallengeOf(fresh)), fresh);
+        Assert.True(await SignedInRecently(signedIn));
+        Assert.Equal(HttpStatusCode.OK, (await signedIn.PostAsJsonAsync("/api/account/delete", new { password = (string?)null }, Token)).StatusCode);
+    }
+
+    /// <summary>
+    /// A provider can sign someone in from a session of its own that is days old. When it says when
+    /// it last checked (auth_time), that is what counts as proof, not when PeckList signed them in;
+    /// a fresh sign-in asks for max_age=0, and a provider that really asks again says so.
+    /// </summary>
+    [Fact]
+    public async Task A_provider_session_counts_as_recent_by_when_the_provider_last_checked()
+    {
+        var time = new ManualTime(DateTimeOffset.UtcNow);
+        using var server = Server().WithWebHostBuilder(host => host.ConfigureTestServices(services => services.AddSingleton<TimeProvider>(time)));
+        var stale = Kim();
+        stale["auth_time"] = time.Now.AddDays(-3).ToUnixTimeSeconds();
+
+        // Signed in to PeckList a moment ago, through a provider session three days old.
+        var tab = Browser(server);
+        var start = await tab.GetAsync("/auth/oidc/fake/login?returnUrl=/today", Token);
+        await tab.GetAsync(provider.Authorize(start.Headers.Location!, stale), Token);
+        Assert.False(await SignedInRecently(tab));
+        Assert.Equal("sign_in_again",
+            (await (await tab.PostAsJsonAsync("/api/account/delete", new { password = (string?)null }, Token)).Content.ReadFromJsonAsync<AdminError>(Token))!.Error);
+
+        // Fresh: the provider is asked for max_age=0, checks again and says so; that deletes.
+        using var own = new HttpRequestMessage(HttpMethod.Get, "/auth/oidc/fake/login?returnUrl=/today&fresh=1");
+        own.Headers.Add("Sec-Fetch-Site", "same-origin");
+        var fresh = await tab.SendAsync(own, Token);
+        Assert.Equal("0", QueryHelpers.ParseQuery(fresh.Headers.Location!.Query)["max_age"].ToString());
+        var now = Kim();
+        now["auth_time"] = time.Now.ToUnixTimeSeconds();
+        await tab.GetAsync(provider.Authorize(fresh.Headers.Location!, now), Token);
+        Assert.True(await SignedInRecently(tab));
+        Assert.Equal(HttpStatusCode.OK, (await tab.PostAsJsonAsync("/api/account/delete", new { password = (string?)null }, Token)).StatusCode);
+    }
+
+    /// <summary>A link on another site cannot sign anyone out with fresh=1; this server's own pages can.</summary>
+    [Fact]
+    public async Task Only_this_servers_pages_or_the_person_can_ask_for_a_fresh_sign_in()
+    {
+        using var server = Server();
+        var tab = Browser(server);
+        var verifier = NewVerifier();
+        await ConfirmInBrowser(tab, AppSignIn.ChallengeOf(verifier));
+
+        using (var elsewhere = new HttpRequestMessage(HttpMethod.Get, HandoffUrl(AppSignIn.ChallengeOf(verifier)) + "&fresh=1"))
+        {
+            elsewhere.Headers.Add("Sec-Fetch-Site", "cross-site");
+            Assert.Equal(HttpStatusCode.OK, (await tab.SendAsync(elsewhere, Token)).StatusCode);
+        }
+        using (var elsewhere = new HttpRequestMessage(HttpMethod.Get, "/auth/oidc/fake/login?returnUrl=/today&fresh=1"))
+        {
+            elsewhere.Headers.Add("Sec-Fetch-Site", "cross-site");
+            var login = await tab.SendAsync(elsewhere, Token);
+            Assert.False(QueryHelpers.ParseQuery(login.Headers.Location!.Query).ContainsKey("prompt"));
+        }
+        // A browser that does not say where a request came from (a GET never carries Origin) could
+        // be following a link elsewhere: the ordinary sign-in, nobody signed out.
+        var unsaid = await tab.GetAsync("/auth/oidc/fake/login?returnUrl=/today&fresh=1", Token);
+        Assert.False(QueryHelpers.ParseQuery(unsaid.Headers.Location!.Query).ContainsKey("prompt"));
+        Assert.Equal(HttpStatusCode.OK, (await tab.GetAsync("/auth/me", Token)).StatusCode);
+
+        // From the web app's own delete page, in a browser: signed out, and the provider asks again.
+        using var own = new HttpRequestMessage(HttpMethod.Get, "/auth/oidc/fake/login?returnUrl=/today&fresh=1");
+        own.Headers.Add("Sec-Fetch-Site", "same-origin");
+        var fresh = await tab.SendAsync(own, Token);
+        Assert.Equal("login", QueryHelpers.ParseQuery(fresh.Headers.Location!.Query)["prompt"].ToString());
+        Assert.Equal(HttpStatusCode.Unauthorized, (await tab.GetAsync("/auth/me", Token)).StatusCode);
+    }
+
     private static FormUrlEncodedContent Form(params (string Key, string Value)[] fields) =>
         new(fields.Select(field => new KeyValuePair<string, string>(field.Key, field.Value)));
 
