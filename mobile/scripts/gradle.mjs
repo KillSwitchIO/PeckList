@@ -1,5 +1,5 @@
 // Runs the Android project's Gradle wrapper with the given tasks, on Windows (gradlew.bat) or
-// anywhere else (./gradlew): `node scripts/gradle.mjs assembleDebug`.
+// anywhere else (./gradlew): `node scripts/gradle.mjs assembleFossDebug`.
 import { spawnSync } from 'node:child_process';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';

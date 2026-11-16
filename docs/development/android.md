@@ -55,7 +55,8 @@ app (ADR-0017 in the project notes). There is no second copy of the UI.
 - **Reminders**: the WebView has no notifications and no Web Push, so the app hands the next two
   weeks of reminders (at most 100) to the shell whenever they change
   (`web/src/adapters/shell-notifier.ts`, shell api 3; an older shell gets them through Capacitor's
-  Local Notifications instead). `Reminders` sets an exact alarm for each (`USE_EXACT_ALARM`) and
+  Local Notifications instead). `Reminders` sets an exact alarm for each (`ExactAlarms`; inexact
+  while the Play build waits for the person's allow, see [Two builds](#two-builds)) and
   shows it when it fires, in a "Reminders" channel, with **Complete** and **Snooze** as TickTick
   has. A constant reminder is insistent (it keeps sounding until touched) and a quiet copy
   replaces it after 30 minutes; its 5-minute repeats are for browsers and are skipped here.
@@ -83,10 +84,10 @@ app (ADR-0017 in the project notes). There is no second copy of the UI.
   only moves its cursor (it sends `reminders=0`, so the server skips working them out); news the web app's own sync brings then goes through `showNotification`
   with `news: true` (shell api 4), shown the same way and keyed by the same server id, so the two
   never show one piece of news twice. Once signed in, the app asks once to notify and to run without battery
-  optimization (`REQUEST_IGNORE_BATTERY_OPTIMIZATIONS`); without that, Android holds the alarm and
-  the network while the phone is idle. Samsung phones also need PeckList in **Never sleeping
-  apps**, which the settings say. Google Play allows that permission only for some kinds of app,
-  so a Play build would drop it and check every 15 minutes with WorkManager.
+  optimization (`REQUEST_IGNORE_BATTERY_OPTIMIZATIONS`; the Play build opens the list of apps
+  instead, see [Two builds](#two-builds)); without that, Android holds the alarm and the network
+  while the phone is idle. Samsung phones also need PeckList in **Never sleeping apps**, which the
+  settings say.
   `notificationSettings` (shell api 5) opens Android's notification settings for the app, where
   each channel has its own sound and vibration; Settings > Notifications offers it as **Manage on
   the phone**.
@@ -110,6 +111,49 @@ app (ADR-0017 in the project notes). There is no second copy of the UI.
   tab in through the provider, asks the person to confirm, and sends the tab to
   `<package>://auth?code=...`. The app posts the code and its verifier to `/auth/app/redeem` in the
   WebView, which gets a copy of the tab's session. See `server/src/PeckList.Server/Auth/AppSignIn.cs`.
+  A copy keeps the tab's sign-in time, which may be long ago, so deleting an account without a
+  password (it needs a sign-in in the last 10 minutes) starts the provider's sign-in with `fresh=1`:
+  the shell passes it on to the hand-off (shell api 9), which ends the tab's own session and has
+  the provider (or the passkey) sign the person in again.
+
+## Two builds
+
+The app is built two ways from the same code, as Gradle product flavors (`productFlavors` in
+`mobile/android/app/build.gradle`), with the same app ID (`com.pecklist.app`) and the same signing
+key, so either installs over the other and keeps its data:
+
+| | `foss` (the default) | `play` |
+| --- | --- | --- |
+| What | The APK on the GitLab releases, Obtainium, F-Droid and IzzyOnDroid | The bundle (AAB) uploaded to Google Play |
+| Exact reminders | `USE_EXACT_ALARM`, granted at install | `SCHEDULE_EXACT_ALARM` only: on Android 14 and later, off until the person allows it |
+| Battery optimization | Asks once with Android's dialog (`REQUEST_IGNORE_BATTERY_OPTIMIZATIONS`) | No permission: **Allow** opens Android's list of apps, where the person picks PeckList |
+| Payment links | Opened in the browser | Never opened (`PaymentLinks`) |
+
+Google Play allows `USE_EXACT_ALARM` and `REQUEST_IGNORE_BATTERY_OPTIMIZATIONS` only for some kinds
+of app, and lets an app take money only through Play. So the foss build's extra permissions are in
+`src/foss/AndroidManifest.xml`, and `src/play/AndroidManifest.xml` removes them whatever a library
+asks for. The release job checks the Play build's merged manifest holds neither.
+
+What changes in the Play build:
+
+- **Exact reminders.** Without leave, `Reminders` and the check-in set inexact alarms, which
+  Android may hold back a while. `exactAlarms` (shell api 9) says `{allowed, canAsk}`, and
+  `allowExactAlarms` opens Android's page for it (`ACTION_REQUEST_SCHEDULE_EXACT_ALARM`), then
+  answers with the new state. Allowing it sends `SCHEDULE_EXACT_ALARM_PERMISSION_STATE_CHANGED`, on
+  which `CheckReceiver` sets every alarm again, now exact. Allowed alarms use
+  `setExactAndAllowWhileIdle`, which fires during Doze even with battery optimization on.
+- **Battery optimization.** `allowBackground` opens `ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS`,
+  which needs no permission. Without it only the background check-in comes late while the phone is
+  idle; reminders do not depend on it.
+- **Payment links.** The web app comes from whichever server the app is on, so it is told which
+  build it runs in: `info().distribution` (shell api 9) is `play` or `foss`, and a web app hides
+  the donation and supporter key links and the app's own update notice in the Play build. When the
+  signal is missing (a browser, an older shell) it behaves as foss. A server older than this does
+  not know to ask, so `ShellWebViewClient` is the backstop: in the Play build it opens no link to,
+  and loads nothing (not even in a frame) from, the sites in `PaymentLinks` (every site in `web/src/app/support/links.ts`, and
+  `pecklist.com/support`) and quietly does nothing instead. `PaymentLinksTest` reads the web app's
+  support code and fails if a link there is not caught, so a new donation platform must be added
+  to `PaymentLinks` too.
 
 ## Building
 
@@ -120,16 +164,20 @@ pnpm install
 pnpm --filter @pecklist/mobile apk
 ```
 
-That builds the web app, copies it into the Android project (`cap sync`) and builds
-`mobile/android/app/build/outputs/apk/debug/app-debug.apk`. Install it with
-`adb install -r <apk>`. Unit tests for the native code:
+That builds the web app, copies it into the Android project (`cap sync`) and builds the foss debug
+APK, `mobile/android/app/build/outputs/apk/foss/debug/app-foss-debug.apk`. Install it with
+`adb install -r <apk>`. The Play build, for trying on a phone, is `assemblePlayDebug`
+(`outputs/apk/play/debug/app-play-debug.apk`). Unit tests for the native code, in both builds:
 
 ```bash
-cd mobile/android && ./gradlew testDebugUnitTest
+cd mobile/android && ./gradlew testFossDebugUnitTest testPlayDebugUnitTest
 ```
 
-CI builds the debug APK in the `android-apk` job (manual on main and merge requests), and the
-signed release APK in `android-release` (automatic on tags, manual on main).
+Tests for one build only go in `src/testFoss/` or `src/testPlay/`.
+
+CI builds the foss debug APK in the `android-apk` job (manual on main and merge requests), and the
+signed release APK and Play bundle in `android-release` (automatic on release commits, manual on
+main).
 
 ## Release signing
 
@@ -141,6 +189,7 @@ build needs it uninstalled before the release one goes on.
 | --- | --- |
 | GitLab, project CI/CD variables | `ANDROID_KEYSTORE_BASE64` (the PKCS12 keystore, base64; protected, masked), `ANDROID_KEYSTORE_PASSWORD` (protected, masked), `ANDROID_KEY_ALIAS` (`pecklist`, protected) |
 | GitLab, protected tags | `v*`, so tag pipelines get the protected variables (only `main` and `v*` tags can sign) |
+| Google Play Console | The same key, as the app's signing key (Play App Signing) |
 | A password manager | The keystore file and its password: the copy to restore from |
 
 The key: RSA 4096, alias `pecklist`, `CN=Punchlist, O=killswitch10` (made before the rename; the
@@ -149,8 +198,45 @@ for that), valid 100 years,
 certificate SHA-256 `18:C8:C5:CE:EE:2E:8C:5D:DD:2E:BE:E6:7A:F8:B6:AA:E5:88:0C:65:65:2D:0C:56:81:85:15:88:4F:3B:BD:CA`.
 A PKCS12 keystore has one password for the store and the key.
 
-`mobile/android/app/build.gradle` signs a release build when `ANDROID_KEYSTORE_FILE` is set, with
-`ANDROID_KEYSTORE_PASSWORD` and `ANDROID_KEY_ALIAS` (and `ANDROID_KEY_PASSWORD` if it ever differs).
+`mobile/android/app/build.gradle` signs every release build, the foss APK and the Play bundle
+alike, when `ANDROID_KEYSTORE_FILE` is set, with `ANDROID_KEYSTORE_PASSWORD` and
+`ANDROID_KEY_ALIAS` (and `ANDROID_KEY_PASSWORD` if it ever differs). The release job checks that
+the bundle's certificate is the APK's.
+
+### Google Play
+
+Google Play signs what it delivers with an app signing key it holds (Play App Signing). PeckList
+gives Play the existing release key for that, instead of letting Play make a new one, so the app
+Play installs has the same signature as the APK from GitLab: a Play install and a GitLab APK update
+each other, and someone can move between them without uninstalling and losing their data. With a
+key Play made, they would be two apps that cannot install over each other.
+
+Once, when the app is set up in Play Console:
+
+1. In **Test and release > App integrity > App signing** (Play Console asks for it with the first
+   release), choose **Use existing app signing key**, then **Export and upload a key from Java
+   keystore**.
+2. Download Google's PEPK tool and encryption key from that page, and run the command it shows on
+   a computer you trust, with the keystore from the password manager:
+
+   ```bash
+   java -jar pepk.jar --keystore=pecklist-release.p12 --alias=pecklist --output=pecklist-play-key.zip \
+     --include-cert --rsa-aes-encryption --encryption-key-path=encryption_public_key.pem
+   ```
+
+   It asks for the keystore password and writes the key, encrypted for Google only, to the zip.
+3. Upload the zip on that page, then delete it.
+4. Use the same key as the upload key: register no separate one. A separate upload key would sit in
+   the same CI variables as this one, so it would protect nothing, and the release bundle is
+   already signed with this key.
+
+Each release then has `pecklist-play-<version>.aab` among its downloads, which is uploaded to Play
+Console by hand. Play App Signing checks it is signed with the upload key, re-signs the APKs it
+makes from it with the app signing key (the same key), and refuses a version code that is not higher
+than every one it has had.
+
+### Version names and codes
+
 The version name is in `mobile/android/app/version.properties`, which `pnpm release` writes with
 the other version files, and `PECKLIST_VERSION` overrides it: CI sets it from
 `scripts/build-version.sh`, so an APK says the same version as the image from its commit
@@ -163,20 +249,24 @@ version name, so every release has a higher one and an rc sorts before its relea
 | `0.12.0`        | `1200999`: the release itself is 999              |
 | `0.12.1-edge.…` | `1201000`: a build between releases is 0          |
 
-`version.properties` holds the code too, for F-Droid, and `pnpm check:version` and the release
-guard fail when the two disagree. Signed builds between releases (`android-release` by hand on
-`main`) share one code until the next release, since the code ignores the commit: each installs
-over the other, newer or older, so keep them for trying a build, never for anyone's phone. The
-debug APKs set `PECKLIST_VERSION_CODE` to the pipeline number instead, so each installs over the
-one before. A signed build by hand:
+Both builds of a version have the same code. There is no `rc.999` (the build fails): it would be the
+release's own code, and Google Play refuses a code it has had. `version.properties` holds the code
+too, for F-Droid, and `pnpm check:version` and the release guard fail when the two disagree. Signed
+builds between releases (`android-release` by hand on `main`) share one code until the next
+release, since the code ignores the commit: each installs over the other, newer or older, so keep
+them for trying a build, never for anyone's phone, and never upload one to Play. The debug APKs set
+`PECKLIST_VERSION_CODE` to the pipeline number instead, so each installs over the one before. A
+signed build by hand:
 
 ```bash
 export ANDROID_KEYSTORE_FILE=/path/to/pecklist-release.p12 ANDROID_KEYSTORE_PASSWORD=...
-pnpm --filter @pecklist/mobile exec node scripts/gradle.mjs assembleRelease
-apksigner verify --print-certs mobile/android/app/build/outputs/apk/release/app-release.apk
+pnpm --filter @pecklist/mobile exec node scripts/gradle.mjs assembleFossRelease bundlePlayRelease
+apksigner verify --print-certs mobile/android/app/build/outputs/apk/foss/release/app-foss-release.apk
+keytool -printcert -jarfile mobile/android/app/build/outputs/bundle/playRelease/app-play-release.aab
 ```
 
-A new key (only if the old one is lost, and every install must then be removed first):
+A new key (only if the old one is lost, and every install must then be removed first; Play would
+need its key upgraded through Play Console):
 
 ```bash
 keytool -genkeypair -keystore pecklist-release.p12 -storetype PKCS12 -alias pecklist \
@@ -184,13 +274,12 @@ keytool -genkeypair -keystore pecklist-release.p12 -storetype PKCS12 -alias peck
 base64 -w0 pecklist-release.p12   # the value of ANDROID_KEYSTORE_BASE64
 ```
 
-If the app goes on Google Play, enrol in Play App Signing with this key as the upload key.
-
 ## F-Droid
 
 F-Droid builds each release tag from source and ships our own signed APK when its build matches
-ours byte for byte apart from the signature (a reproducible build). Its recipe sets nothing but the
-revision, so what a release APK holds must come from the tagged files alone:
+ours byte for byte apart from the signature (a reproducible build). Its recipe builds the foss
+flavor (`gradle: [foss]`) and sets nothing else but the revision, so what a release APK holds must
+come from the tagged files alone:
 
 - **The version** from `version.properties`, as above. The release job stamps the same version.
 - **No build-specific data**: the release build leaves out the commit hash (`vcsInfo`) and

@@ -191,6 +191,9 @@ one the test server ran.
 - [ ] After the tag pipeline: the release page, `docker pull ...:X.Y.Z` has the digest on the page,
       and a native download's `pecklist --version`.
 - [ ] The APK installs over the previous release on a phone (same signing key, higher version code).
+- [ ] Google Play: upload `pecklist-play-X.Y.Z.aab` from the release page in Play Console, by hand
+      for now ([Android](android.md#google-play)). Play refuses a version code it has had, so only
+      release and rc bundles go there.
 - [ ] For F-Droid (a final release): the SHA-256 of
       `packages/generic/pecklist/X.Y.Z/pecklist-android-X.Y.Z.apk` matches the APK's line in the
       release's signed `SHA256SUMS` (anyone with Developer access or a pipeline token could write

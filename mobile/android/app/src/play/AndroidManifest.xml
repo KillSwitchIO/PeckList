@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  The Google Play build (docs/development/android.md): never these two, whatever a library asks
+  for. Exact reminders wait for the person's allow (ExactAlarms); battery optimization is turned off
+  by hand from the list of apps (BackgroundCheck).
+-->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+    <uses-permission android:name="android.permission.USE_EXACT_ALARM" tools:node="remove" />
+    <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" tools:node="remove" />
+</manifest>

@@ -707,7 +707,7 @@ android-apk:
     - export PECKLIST_VERSION="$(sh scripts/build-version.sh)" PECKLIST_VERSION_CODE="$CI_PIPELINE_IID" PECKLIST_REVISION="$CI_COMMIT_SHA"
     - pnpm --filter @pecklist/mobile apk
     - pnpm --filter @pecklist/mobile test:android
-    - cp mobile/android/app/build/outputs/apk/debug/app-debug.apk "pecklist-android-$PECKLIST_VERSION-debug.apk"
+    - cp mobile/android/app/build/outputs/apk/foss/debug/app-foss-debug.apk "pecklist-android-$PECKLIST_VERSION-debug.apk"
   artifacts:
     paths: ['pecklist-android-*-debug.apk']
     expire_in: 30 days
@@ -731,11 +731,13 @@ android-apk:
       when: manual
       allow_failure: true
 
-# Signed release APK: on tags (attached to the release), by hand on main (run web-build first). The
-# key comes from the protected variables ANDROID_KEYSTORE_BASE64, ANDROID_KEYSTORE_PASSWORD and
-# ANDROID_KEY_ALIAS, so only main and v* tags can sign (docs/development/android.md). The version
-# code follows from the version (mobile/android/app/build.gradle), so F-Droid's build of the release
-# tag gets the same APK, byte for byte.
+# Signed release APK (the foss build) and Google Play bundle (the play build): on tags (attached to
+# the release), by hand on main (run web-build first). Both are signed with the one key, from the
+# protected variables ANDROID_KEYSTORE_BASE64, ANDROID_KEYSTORE_PASSWORD and ANDROID_KEY_ALIAS, so
+# only main and v* tags can sign (docs/development/android.md): Play holds the same key, so a Play
+# install and the APK update each other. The version code follows from the version
+# (mobile/android/app/build.gradle), so F-Droid's build of the release tag gets the same APK, byte
+# for byte.
 android-release:
   extends: .android
   needs:
@@ -756,13 +758,28 @@ android-release:
       # web/dist comes from web-build.
       cd mobile
       pnpm exec cap sync android
-      node scripts/gradle.mjs assembleRelease testDebugUnitTest
+      node scripts/gradle.mjs assembleFossRelease bundlePlayRelease testFossDebugUnitTest testPlayDebugUnitTest
       cd ..
-      APK=mobile/android/app/build/outputs/apk/release/app-release.apk
+      APK=mobile/android/app/build/outputs/apk/foss/release/app-foss-release.apk
+      AAB=mobile/android/app/build/outputs/bundle/playRelease/app-play-release.aab
       "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --print-certs "$APK" | grep -E 'DN|SHA-256'
+      # The bundle is signed with the same key as the APK, or Play would hold a different one.
+      APK_CERT=$("$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --print-certs "$APK" | sed -n 's/.*certificate SHA-256 digest: //p' | head -n 1)
+      AAB_CERT=$(keytool -printcert -jarfile "$AAB" | sed -n 's/^[[:space:]]*SHA256: //p' | head -n 1 | tr -d ':' | tr 'A-F' 'a-f')
+      if [ -z "$APK_CERT" ] || [ "$APK_CERT" != "$AAB_CERT" ]; then
+        echo "The Play bundle is not signed with the APK's key (APK $APK_CERT, bundle $AAB_CERT)"
+        exit 1
+      fi
+      # Never the two permissions Play refuses, whatever a library asks for (src/play/AndroidManifest.xml).
+      PLAY_MANIFESTS=$(find mobile/android/app/build/intermediates -path '*playRelease*' -name AndroidManifest.xml)
+      if [ -z "$PLAY_MANIFESTS" ] || grep -lE '<uses-permission[^>]*android\.permission\.(USE_EXACT_ALARM|REQUEST_IGNORE_BATTERY_OPTIMIZATIONS)"' $PLAY_MANIFESTS; then
+        echo "The Play build's manifest is missing or holds a permission Google Play refuses"
+        exit 1
+      fi
       mkdir -p dist-android
       cp "$APK" "dist-android/pecklist-android-$VERSION.apk"
-      echo "Built pecklist-android-$VERSION.apk"
+      cp "$AAB" "dist-android/pecklist-play-$VERSION.aab"
+      echo "Built pecklist-android-$VERSION.apk and pecklist-play-$VERSION.aab"
   after_script:
     - rm -f "$CI_PROJECT_DIR/release-key.p12"
   artifacts:
@@ -1216,10 +1233,12 @@ upload-downloads:
     SIGSTORE_ID_TOKEN:
       aud: sigstore
   script:
-    # The signed APK and the Windows installer join the native downloads and their checksums.
+    # The signed APK, the Play bundle and the Windows installer join the native downloads and their
+    # checksums.
     - cp dist-android/pecklist-android-*.apk dist/pecklist-android.apk
+    - cp dist-android/pecklist-play-*.aab dist/pecklist-play.aab
     - cp dist-windows/pecklist-setup-x64.exe dist/
-    - (cd dist && sha256sum pecklist-android.apk pecklist-setup-x64.exe >> SHA256SUMS)
+    - (cd dist && sha256sum pecklist-android.apk pecklist-play.aab pecklist-setup-x64.exe >> SHA256SUMS)
     # SHA256SUMS as the release page serves it (each file named both ways), signed as it is served.
     # Sigstore being down leaves the release without the bundle, never without its downloads.
     - node scripts/ci/upload-downloads.mjs dist --sums-only
@@ -1479,9 +1498,10 @@ release:
   interruptible: false
   script:
     - node scripts/check-version.mjs
-    # The signed APK joins the native downloads and their checksums.
+    # The signed APK and the Play bundle join the native downloads and their checksums.
     - cp dist-android/pecklist-android-*.apk dist/pecklist-android.apk
-    - (cd dist && sha256sum pecklist-android.apk >> SHA256SUMS)
+    - cp dist-android/pecklist-play-*.aab dist/pecklist-play.aab
+    - (cd dist && sha256sum pecklist-android.apk pecklist-play.aab >> SHA256SUMS)
     - node scripts/ci/publish-release.mjs dist
   rules:
     - *legacy-tag

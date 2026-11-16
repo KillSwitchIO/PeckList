@@ -7,7 +7,8 @@ import com.getcapacitor.Logger;
 
 /**
  * Wakes for the background check-in (BackgroundCheck), and after a restart or an app update, which
- * clear alarms, sets it and the reminders (Reminders) again.
+ * clear alarms, sets it and the reminders (Reminders) again. So too when exact alarms are allowed
+ * (ExactAlarms): the ones set inexact before become exact.
  */
 public class CheckReceiver extends BroadcastReceiver {
 

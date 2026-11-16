@@ -82,10 +82,21 @@ final class BackgroundCheck {
         prefs(context).edit().putBoolean(ASKED, true).apply();
     }
 
-    /** Android's own "let this app always run in the background?" dialog. */
+    /**
+     * Android's own "let this app always run in the background?" dialog. The Play build may not ask
+     * that (no REQUEST_IGNORE_BATTERY_OPTIMIZATIONS): it opens the list of apps instead, where the
+     * person picks PeckList and chooses not to optimize it.
+     */
     static Intent askToRunInBackground(Context context) {
-        return new Intent(android.provider.Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS)
-            .setData(Uri.parse("package:" + context.getPackageName()));
+        Intent intent = new Intent(batteryAction(Distribution.isPlay()));
+        return Distribution.isPlay() ? intent : intent.setData(Uri.parse("package:" + context.getPackageName()));
+    }
+
+    /** The settings action that lets PeckList run in the background, in each build. */
+    static String batteryAction(boolean play) {
+        return play
+            ? android.provider.Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS
+            : android.provider.Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS;
     }
 
     static JSObject state(Context context) {
@@ -140,8 +151,8 @@ final class BackgroundCheck {
             return;
         }
         long at = System.currentTimeMillis() + delayMinutes(minutes(context), prefs(context).getInt(FAILURES, 0)) * 60_000L;
-        // Exact, and allowed while the phone is idle: the app has exact alarms for its reminders.
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S || alarms.canScheduleExactAlarms()) {
+        // Exact, and allowed while the phone is idle, when the app may set exact alarms (ExactAlarms).
+        if (ExactAlarms.allowed(context)) {
             alarms.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, at, wake);
         } else {
             alarms.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, at, wake);

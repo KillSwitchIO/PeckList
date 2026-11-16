@@ -97,7 +97,8 @@ export function androidVersionCode(version) {
   if (!match) throw new Error(`not a version: ${version}`);
   const [major, minor, patch] = [Number(match[1]), Number(match[2]), Number(match[3])];
   const rc = match[4] === undefined ? 999 : Number(/^rc\.(\d+)/.exec(match[4])?.[1] ?? 0);
-  if (minor > 99 || patch > 99 || rc > 999 || major > 213) {
+  // No rc.999: it would be the release's own code, and Google Play takes only a higher one.
+  if (minor > 99 || patch > 99 || (match[4] !== undefined && rc > 998) || major > 213) {
     throw new Error(`no Android version code for ${version}`);
   }
   return major * 10_000_000 + minor * 100_000 + patch * 1_000 + rc;

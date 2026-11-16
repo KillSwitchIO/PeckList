@@ -37,7 +37,7 @@ import java.util.concurrent.Executors;
 public class ShellPlugin extends Plugin {
 
     /** Bumped when a method is added; the web app checks it before calling a newer one. */
-    private static final int API = 8;
+    private static final int API = 9;
 
     static final String NOTIFICATIONS = "notifications";
 
@@ -95,6 +95,9 @@ public class ShellPlugin extends Plugin {
         result.put("server", server == null ? JSONObject.NULL : server);
         result.put("version", versionName());
         result.put("choseStandalone", ServerChoice.choseStandalone(getContext()));
+        // Api 9: which build (Distribution), so the web app follows Google Play's rules in the Play one. Api 9
+        // also passes fresh=1 on from a provider's sign-in to the hand-off (NativeSignIn).
+        result.put("distribution", Distribution.NAME);
         call.resolve(result);
     }
 
@@ -404,6 +407,36 @@ public class ShellPlugin extends Plugin {
     @ActivityCallback
     private void backgroundAnswered(PluginCall call, ActivityResult result) {
         if (call != null) call.resolve(BackgroundCheck.state(getContext()));
+    }
+
+    /** Api 9: whether reminders can go off at the exact minute, and whether there is a page to allow it ({allowed, canAsk}). */
+    @PluginMethod
+    public void exactAlarms(PluginCall call) {
+        call.resolve(ExactAlarms.state(getContext()));
+    }
+
+    /** Api 9: Android's page to allow exact alarms (the Play build, Android 14 and up); resolves once it closes. */
+    @PluginMethod
+    public void allowExactAlarms(PluginCall call) {
+        if (!ExactAlarms.canAsk(Build.VERSION.SDK_INT, ExactAlarms.allowed(getContext()))) {
+            call.resolve(ExactAlarms.state(getContext()));
+            return;
+        }
+        try {
+            startActivityForResult(call, ExactAlarms.allowPage(getContext()), "exactAlarmsAnswered");
+        } catch (ActivityNotFoundException error) {
+            call.resolve(ExactAlarms.state(getContext()));
+        }
+    }
+
+    @ActivityCallback
+    private void exactAlarmsAnswered(PluginCall call, ActivityResult result) {
+        if (ExactAlarms.allowed(getContext())) {
+            // CheckReceiver does this too, on Android's broadcast; at once is sooner.
+            Reminders.restore(getContext());
+            BackgroundCheck.schedule(getContext());
+        }
+        if (call != null) call.resolve(ExactAlarms.state(getContext()));
     }
 
     /**

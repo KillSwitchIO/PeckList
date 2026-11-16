@@ -25,7 +25,8 @@ export function uploadTargets(files, version, commit) {
 }
 
 /**
- * A download's name with its version: pecklist-android.apk is pecklist-android-0.8.0.apk. Linux
+ * A download's name with its version: pecklist-android.apk is pecklist-android-0.8.0.apk, and the
+ * Google Play bundle pecklist-play.aab is pecklist-play-0.8.0.aab. Linux
  * packages take it where their tools put it: pecklist_amd64.deb is pecklist_0.8.0_amd64.deb, and
  * pecklist.x86_64.rpm is pecklist-0.8.0.x86_64.rpm.
  */
@@ -36,13 +37,13 @@ export function versionedName(file, version) {
   if (rpm) return `${rpm[1]}-${version}.${rpm[2]}.rpm`;
   // The Windows installer: pecklist-setup-x64.exe is pecklist-setup-0.8.0-x64.exe.
   if (file === 'pecklist-setup-x64.exe') return `pecklist-setup-${version}-x64.exe`;
-  const parts = /^(pecklist-.+?)(\.tar\.gz|\.zip|\.apk|\.AppImage)$/.exec(file);
+  const parts = /^(pecklist-.+?)(\.tar\.gz|\.zip|\.apk|\.aab|\.AppImage)$/.exec(file);
   return parts ? `${parts[1]}-${version}${parts[2]}` : file;
 }
 
 /** The files of a release's downloads folder that go on its page. */
 export const isDownload = (file) =>
-  /^pecklist-.+\.(tar\.gz|zip|apk|AppImage)$/.test(file) ||
+  /^pecklist-.+\.(tar\.gz|zip|apk|aab|AppImage)$/.test(file) ||
   /^pecklist(-cli)?(_(amd64|arm64)\.deb|\.(x86_64|aarch64)\.rpm)$/.test(file) ||
   file === 'pecklist-setup-x64.exe' ||
   file === 'SHA256SUMS';
@@ -139,7 +140,8 @@ the [documentation](https://docs.pecklist.com/).
   \`pecklist-cli-<platform>-portable\` (the command line as one file, also for Windows on ARM).
 - **AppImage:** \`pecklist-server-linux-x64-${version}.AppImage\` (the server, to try on a desktop) and
   \`pecklist-cli-linux-x64-${version}.AppImage\`, also for arm64.
-- **Android:** \`pecklist-android-${version}.apk\`.
+- **Android:** \`pecklist-android-${version}.apk\`. \`pecklist-play-${version}.aab\` is the same app as a bundle
+  for Google Play, which only the Play Console installs.
 
 The command line talks to any server: \`pecklist login --server https://...\`, then \`pecklist tasks add ...\`; see
 the [command line docs](https://docs.pecklist.com/reference/cli).${signatureText({
