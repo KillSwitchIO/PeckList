@@ -50,6 +50,24 @@ public sealed class AccountService(IAccountStore store, IPasswordHasher hasher, 
     public const int MaxFailedLogins = 5;
     public static readonly TimeSpan LockoutTime = TimeSpan.FromMinutes(15);
 
+    // Changes that could leave the server without an active super admin (turning off, deleting,
+    // changing a role) run one at a time, so two at once cannot each count the other as the one
+    // that stays (security review of self-delete, Low 3). The service is a singleton.
+    private readonly SemaphoreSlim superAdminChanges = new(1, 1);
+
+    private async Task<T> OneAtATimeAsync<T>(Func<Task<T>> change, CancellationToken cancellation)
+    {
+        await superAdminChanges.WaitAsync(cancellation);
+        try
+        {
+            return await change();
+        }
+        finally
+        {
+            superAdminChanges.Release();
+        }
+    }
+
     /// <summary>Lowercase letters, digits, dots, dashes and underscores, up to 32, not starting or ending with a mark.</summary>
     public static bool IsValidUsername(string username) =>
         username.Length is > 0 and <= ExternalSignIn.MaxUsernameLength
@@ -213,41 +231,43 @@ public sealed class AccountService(IAccountStore store, IPasswordHasher hasher, 
     /// shares and assignments stay.
     /// </summary>
     /// <exception cref="LastSuperAdminException">It is the last active super admin.</exception>
-    public async Task<Account> SetDisabledAsync(string id, bool disabled, CancellationToken cancellation = default)
-    {
-        var account = await store.FindByIdAsync(id, cancellation) ?? throw new KeyNotFoundException($"no account {id}");
-        if (account.Disabled == disabled) return account;
-        if (disabled) await EnsureNotLastSuperAdminAsync(account, cancellation);
-        var updated = account with
+    public Task<Account> SetDisabledAsync(string id, bool disabled, CancellationToken cancellation = default) =>
+        OneAtATimeAsync(async () =>
         {
-            Disabled = disabled,
-            SecurityStamp = disabled ? Ids.NewUlid(time) : account.SecurityStamp,
-            FailedLogins = 0,
-            LockedUntil = null,
-        };
-        await store.UpdateAsync(updated, cancellation);
-        return updated;
-    }
+            var account = await store.FindByIdAsync(id, cancellation) ?? throw new KeyNotFoundException($"no account {id}");
+            if (account.Disabled == disabled) return account;
+            if (disabled) await EnsureNotLastSuperAdminAsync(account, cancellation);
+            var updated = account with
+            {
+                Disabled = disabled,
+                SecurityStamp = disabled ? Ids.NewUlid(time) : account.SecurityStamp,
+                FailedLogins = 0,
+                LockedUntil = null,
+            };
+            await store.UpdateAsync(updated, cancellation);
+            return updated;
+        }, cancellation);
 
     /// <summary>
     /// Delete an account (spec: Users, delete with grace period and restore): it is turned off at
     /// once, its sessions end, and it is removed for good when the grace period is over.
     /// </summary>
     /// <exception cref="LastSuperAdminException">It is the last active super admin.</exception>
-    public async Task<Account> DeleteAsync(string id, CancellationToken cancellation = default)
-    {
-        var account = await store.FindByIdAsync(id, cancellation) ?? throw new KeyNotFoundException($"no account {id}");
-        if (account.DeletedAt is not null) return account;
-        await EnsureNotLastSuperAdminAsync(account, cancellation);
-        var updated = account with
+    public Task<Account> DeleteAsync(string id, CancellationToken cancellation = default) =>
+        OneAtATimeAsync(async () =>
         {
-            DeletedAt = time.GetUtcNow(),
-            Disabled = true,
-            SecurityStamp = Ids.NewUlid(time),
-        };
-        await store.UpdateAsync(updated, cancellation);
-        return updated;
-    }
+            var account = await store.FindByIdAsync(id, cancellation) ?? throw new KeyNotFoundException($"no account {id}");
+            if (account.DeletedAt is not null) return account;
+            await EnsureNotLastSuperAdminAsync(account, cancellation);
+            var updated = account with
+            {
+                DeletedAt = time.GetUtcNow(),
+                Disabled = true,
+                SecurityStamp = Ids.NewUlid(time),
+            };
+            await store.UpdateAsync(updated, cancellation);
+            return updated;
+        }, cancellation);
 
     /// <summary>Take back a deletion within the grace period: the account works again.</summary>
     public async Task<Account> RestoreAsync(string id, CancellationToken cancellation = default)
@@ -264,57 +284,73 @@ public sealed class AccountService(IAccountStore store, IPasswordHasher hasher, 
     /// </summary>
     /// <exception cref="LastSuperAdminException">It is the last active super admin and would lose the role.</exception>
     /// <summary>A role set by hand: it is not leased, so a role a provider gave stops lapsing (S10 follow-up).</summary>
-    public async Task<Account> SetRoleAsync(string id, Role role, CancellationToken cancellation = default)
-    {
-        var account = await store.FindByIdAsync(id, cancellation) ?? throw new KeyNotFoundException($"no account {id}");
-        if (account.Role == role && account.RoleProvider is null) return account;
-        if (account.Role != role) await EnsureNotLastSuperAdminAsync(account, cancellation);
-        var updated = account with { Role = role, RoleProvider = null, RoleRenewedAt = null };
-        await store.UpdateAsync(updated, cancellation);
-        return updated;
-    }
+    public Task<Account> SetRoleAsync(string id, Role role, CancellationToken cancellation = default) =>
+        OneAtATimeAsync(async () =>
+        {
+            var account = await store.FindByIdAsync(id, cancellation) ?? throw new KeyNotFoundException($"no account {id}");
+            if (account.Role == role && account.RoleProvider is null) return account;
+            if (account.Role != role) await EnsureNotLastSuperAdminAsync(account, cancellation);
+            var updated = account with { Role = role, RoleProvider = null, RoleRenewedAt = null };
+            await store.UpdateAsync(updated, cancellation);
+            return updated;
+        }, cancellation);
 
     /// <summary>
     /// The role <paramref name="provider"/>'s <c>ROLE_MAP</c> gives at a sign-in at <paramref name="at"/>:
     /// above user it is leased to the provider and renewed now; plain user carries no lease.
     /// </summary>
     /// <exception cref="LastSuperAdminException">It would lower the last active super admin.</exception>
-    public async Task<Account> SetMappedRoleAsync(string id, Role role, string provider, DateTimeOffset at, CancellationToken cancellation = default)
-    {
-        var account = await store.FindByIdAsync(id, cancellation) ?? throw new KeyNotFoundException($"no account {id}");
-        var updated = role > Role.User
-            ? account with { Role = role, RoleProvider = provider, RoleRenewedAt = at }
-            : account with { Role = role, RoleProvider = null, RoleRenewedAt = null };
-        if (updated == account) return account;
-        if (account.Role != role) await EnsureNotLastSuperAdminAsync(account, cancellation);
-        await store.UpdateAsync(updated, cancellation);
-        return updated;
-    }
+    public Task<Account> SetMappedRoleAsync(string id, Role role, string provider, DateTimeOffset at, CancellationToken cancellation = default) =>
+        OneAtATimeAsync(async () =>
+        {
+            var account = await store.FindByIdAsync(id, cancellation) ?? throw new KeyNotFoundException($"no account {id}");
+            var updated = role > Role.User
+                ? account with { Role = role, RoleProvider = provider, RoleRenewedAt = at }
+                : account with { Role = role, RoleProvider = null, RoleRenewedAt = null };
+            if (updated == account) return account;
+            if (account.Role != role) await EnsureNotLastSuperAdminAsync(account, cancellation);
+            await store.UpdateAsync(updated, cancellation);
+            return updated;
+        }, cancellation);
 
     /// <summary>
     /// Lower a leased role nobody renewed within <paramref name="renewDays"/> to user. The stored
     /// account is read again, so of two requests at once only one lowers it (<c>Lowered</c>).
     /// </summary>
     /// <exception cref="LastSuperAdminException">It is the last active super admin: the role stays.</exception>
-    public async Task<(Account Account, bool Lowered)> LapseRoleAsync(string id, DateTimeOffset now, int renewDays, CancellationToken cancellation = default)
-    {
-        var account = await store.FindByIdAsync(id, cancellation) ?? throw new KeyNotFoundException($"no account {id}");
-        if (!RoleLease.Lapsed(account, now, renewDays)) return (account, false);
-        await EnsureNotLastSuperAdminAsync(account, cancellation);
-        var updated = account with { Role = Role.User, RoleProvider = null, RoleRenewedAt = null };
-        await store.UpdateAsync(updated, cancellation);
-        return (updated, true);
-    }
+    public Task<(Account Account, bool Lowered)> LapseRoleAsync(string id, DateTimeOffset now, int renewDays, CancellationToken cancellation = default) =>
+        OneAtATimeAsync(async () =>
+        {
+            var account = await store.FindByIdAsync(id, cancellation) ?? throw new KeyNotFoundException($"no account {id}");
+            if (!RoleLease.Lapsed(account, now, renewDays)) return (account, false);
+            await EnsureNotLastSuperAdminAsync(account, cancellation);
+            var updated = account with { Role = Role.User, RoleProvider = null, RoleRenewedAt = null };
+            await store.UpdateAsync(updated, cancellation);
+            return (updated, true);
+        }, cancellation);
 
     /// <summary>The server needs one active super admin: refuse to turn off, delete or demote the last.</summary>
     /// <exception cref="LastSuperAdminException">It is the last active super admin.</exception>
     private async Task EnsureNotLastSuperAdminAsync(Account account, CancellationToken cancellation)
     {
-        if (account.Role != Role.SuperAdmin || account.Disabled) return;
-        var others = (await store.ListAsync(cancellation))
-            .Count(each => each.Id != account.Id && each.Role == Role.SuperAdmin && !each.Disabled);
-        if (others == 0) throw new LastSuperAdminException();
+        if (await IsLastSuperAdminAsync(account, cancellation)) throw new LastSuperAdminException();
     }
+
+    /// <summary>Whether the account is the last active super admin, the one the server cannot do without.</summary>
+    public async Task<bool> IsLastSuperAdminAsync(Account account, CancellationToken cancellation = default)
+    {
+        if (account.Role != Role.SuperAdmin || account.Disabled) return false;
+        return !(await store.ListAsync(cancellation))
+            .Any(each => each.Id != account.Id && each.Role == Role.SuperAdmin && !each.Disabled);
+    }
+
+    /// <summary>
+    /// Whether <paramref name="current"/> is the account's password: a person confirming it is them
+    /// before something that cannot be taken back (deleting their own account). An account without a
+    /// password never matches.
+    /// </summary>
+    public bool PasswordMatches(Account account, string current) =>
+        account.PasswordHash is not null && current.Length <= MaxTriedPasswordLength && hasher.Verify(account.PasswordHash, current, out _);
 
     /// <summary>
     /// The account's friend code, made on first use: 8 characters without look-alikes, shown as
