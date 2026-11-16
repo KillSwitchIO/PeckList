@@ -37,6 +37,7 @@ import {
   type SupporterKeyInfo,
   type SupporterRefusal,
   type SupporterStatus,
+  type AccountDeletion,
   type SyncTransport,
 } from '../ports/sync.ts';
 import type { AdminApi } from '../ports/admin.ts';
@@ -168,6 +169,12 @@ export class FakeBackend {
   readonly supporterKeys = new Map<string, SupporterKeyInfo>();
   /** The server's supporter key, if an admin entered one. */
   serverSupporterKey: SupporterKeyInfo | null = null;
+  /** `ACCOUNT_DELETE_GRACE_DAYS`; null: a server from before self-delete. */
+  deleteGraceDays: number | null = 7;
+  /** Whether each session's sign-in counts as recent (the 10 minutes), by username. */
+  readonly signedInRecently = new Map<string, boolean>();
+  /** Accounts deleted by their owners, by username: when each goes for good. */
+  readonly deleted = new Map<string, string>();
 
   passkeysOf(username: string): PasskeyInfo[] {
     return [...this.passkeys.values()]
@@ -303,6 +310,20 @@ export class FakeTransport implements SyncTransport {
     },
   };
 
+  private deletionOf(found: FakeAccount): AccountDeletion {
+    const superAdmins = [...this.backend.accounts.values()].filter(
+      (each) =>
+        each.account.role === 'superadmin' && !this.backend.deleted.has(each.account.username),
+    );
+    const last = found.account.role === 'superadmin' && superAdmins.length <= 1;
+    return {
+      graceDays: this.backend.deleteGraceDays ?? 0,
+      proof: found.password !== '' ? 'password' : 'sign-in',
+      signedInRecently: this.backend.signedInRecently.get(found.account.username) ?? false,
+      blocked: last ? 'last_super_admin' : null,
+    };
+  }
+
   private supporterStatus(username: string): SupporterStatus {
     return {
       mine: this.backend.supporterKeys.get(username) ?? null,
@@ -431,6 +452,31 @@ export class FakeTransport implements SyncTransport {
       if (!found) return Promise.reject(new SyncFailure('signed-out', 'signed out'));
       this.backend.supporterKeys.delete(found.account.username);
       return Promise.resolve();
+    },
+    deletion: () => {
+      const found = this.current();
+      if (!found) return Promise.reject(new SyncFailure('signed-out', 'signed out'));
+      if (this.backend.deleteGraceDays === null) return Promise.resolve(null);
+      return Promise.resolve(this.deletionOf(found));
+    },
+    deleteAccount: (password) => {
+      const found = this.current();
+      if (!found) return Promise.reject(new SyncFailure('signed-out', 'signed out'));
+      const deletion = this.deletionOf(found);
+      if (deletion.blocked === 'last_super_admin')
+        return Promise.resolve({ kind: 'last-super-admin' as const });
+      if (deletion.proof === 'password' && password !== found.password)
+        return Promise.resolve({ kind: 'wrong-password' as const });
+      if (deletion.proof === 'sign-in' && !deletion.signedInRecently)
+        return Promise.resolve({ kind: 'sign-in-again' as const });
+      const days = this.backend.deleteGraceDays ?? 0;
+      const removedAt = new Date(
+        Date.parse('2026-11-15T12:00:00Z') + days * 86_400_000,
+      ).toISOString();
+      this.backend.deleted.set(found.account.username, removedAt);
+      // Every session of theirs ends, this one too.
+      this.session = null;
+      return Promise.resolve({ kind: 'deleted' as const, removedAt });
     },
     resendConfirmation: () => {
       const found = this.current();

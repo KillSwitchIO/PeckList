@@ -1,5 +1,6 @@
 import { Box, Button, Link, Typography } from '@mui/material';
 import { t } from '../i18n/i18n.ts';
+import { usePlayBuild } from '../native/shell.ts';
 import { Section } from '../settings/settingsLayout.tsx';
 import { DONATION_PLATFORMS } from './links.ts';
 import { SupporterKeyBox, SupporterThanks } from './SupporterKeyBox.tsx';
@@ -8,17 +9,23 @@ import { useSupporter } from './useSupporter.ts';
 
 /**
  * Thanks and ways to give, and nothing more: it should never look like a nag (spec: PL-112). A
- * supporter key is bought on the website and only entered here; it unlocks nothing.
+ * supporter key is bought on the website and only entered here; it unlocks nothing. The Google
+ * Play build shows no way to pay or donate (Play's rules): a key someone has still goes in.
  */
 export function SupportSection() {
   const { api, status, update } = useSupporter();
+  const play = usePlayBuild();
   const mine = status?.mine ?? null;
   const server = status?.server ?? null;
   const enter = api?.enterSupporterKey;
   const remove = api?.removeSupporterKey;
 
   return (
-    <Section title={t('support.title')} hint={t('support.thanks')} plain>
+    <Section
+      title={t('support.title')}
+      hint={t(play ? 'support.thanksPlay' : 'support.thanks')}
+      plain
+    >
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2.5 }}>
         <Box component="section" aria-label={t('support.key.heading')}>
           <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 0.5 }}>
@@ -48,10 +55,15 @@ export function SupportSection() {
           {!mine && (
             <>
               <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
-                {t('support.key.about')}{' '}
-                <Link href={SUPPORTER_KEY_URL} target="_blank" rel="noreferrer">
-                  {t('support.key.get')}
-                </Link>
+                {t('support.key.about')}
+                {!play && (
+                  <>
+                    {' '}
+                    <Link href={SUPPORTER_KEY_URL} target="_blank" rel="noreferrer">
+                      {t('support.key.get')}
+                    </Link>
+                  </>
+                )}
               </Typography>
               {status && enter && (
                 <SupporterKeyBox
@@ -67,24 +79,26 @@ export function SupportSection() {
             </>
           )}
         </Box>
-        <Box component="section" aria-label={t('support.tip')}>
-          <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1 }}>
-            {t('support.tip')}
-          </Typography>
-          <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
-            {DONATION_PLATFORMS.map((platform) => (
-              <Button
-                key={platform.name}
-                variant="outlined"
-                href={platform.url}
-                target="_blank"
-                rel="noreferrer"
-              >
-                {t('support.give', { name: platform.name })}
-              </Button>
-            ))}
+        {!play && (
+          <Box component="section" aria-label={t('support.tip')}>
+            <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1 }}>
+              {t('support.tip')}
+            </Typography>
+            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+              {DONATION_PLATFORMS.map((platform) => (
+                <Button
+                  key={platform.name}
+                  variant="outlined"
+                  href={platform.url}
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  {t('support.give', { name: platform.name })}
+                </Button>
+              ))}
+            </Box>
           </Box>
-        </Box>
+        )}
       </Box>
     </Section>
   );

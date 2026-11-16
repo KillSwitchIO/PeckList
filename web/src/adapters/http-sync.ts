@@ -1,6 +1,8 @@
 import type { UserStats } from '../ports/stats.ts';
 import type {
   Account,
+  AccountDeleteOutcome,
+  AccountDeletion,
   AccountEmail,
   PasskeyCeremony,
   PasskeyInfo,
@@ -485,6 +487,32 @@ export function createHttpSync(
         if (response.status === 400) return 'wrong-password';
         if (!response.ok) return fail(response);
         return 'ok';
+      },
+      async deletion() {
+        const response = await call('/api/account/delete');
+        // A server from before it: nothing to offer.
+        if (response.status === 404) return null;
+        if (!response.ok) return fail(response);
+        return (await response.json()) as AccountDeletion;
+      },
+      async deleteAccount(password): Promise<AccountDeleteOutcome> {
+        const response = await call('/api/account/delete', {
+          method: 'POST',
+          body: { password: password ?? null },
+        });
+        if (response.ok) {
+          const { removedAt } = (await response.json()) as { removedAt: string };
+          return { kind: 'deleted', removedAt };
+        }
+        if (response.status === 400) return { kind: 'wrong-password' };
+        if (response.status === 409) return { kind: 'last-super-admin' };
+        if (response.status === 404) return { kind: 'gone' };
+        if (response.status === 429) return { kind: 'too-many' };
+        if (response.status === 403) {
+          const { error } = await errorOf(response);
+          return { kind: error === 'sign_in_again' ? 'sign-in-again' : 'refused' };
+        }
+        return fail(response);
       },
     },
 

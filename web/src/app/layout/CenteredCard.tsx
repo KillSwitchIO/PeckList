@@ -1,15 +1,20 @@
 import { Box, Paper, Typography } from '@mui/material';
 import type { ReactNode } from 'react';
 
-/** A page that is one card in the middle: signing in, making an account, connecting to a server. */
+/**
+ * A page that is one card in the middle: signing in, making an account, connecting to a server.
+ * `footer` goes under the card (the privacy policy link on the sign-in pages).
+ */
 export function CenteredCard({
   title,
   subtitle,
   children,
+  footer,
 }: {
   title: string;
   subtitle: string;
   children: ReactNode;
+  footer?: ReactNode;
 }) {
   return (
     <Box
@@ -24,18 +29,18 @@ export function CenteredCard({
         bgcolor: 'background.default',
       }}
     >
-      <Paper
-        variant="outlined"
-        sx={{ width: '100%', maxWidth: 380, p: { xs: 3, sm: 4 }, borderRadius: 3 }}
-      >
-        <Typography variant="h1" sx={{ fontSize: '1.375rem', mb: 0.5 }}>
-          {title}
-        </Typography>
-        <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-          {subtitle}
-        </Typography>
-        {children}
-      </Paper>
+      <Box sx={{ width: '100%', maxWidth: 380 }}>
+        <Paper variant="outlined" sx={{ p: { xs: 3, sm: 4 }, borderRadius: 3 }}>
+          <Typography variant="h1" sx={{ fontSize: '1.375rem', mb: 0.5 }}>
+            {title}
+          </Typography>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+            {subtitle}
+          </Typography>
+          {children}
+        </Paper>
+        {footer && <Box sx={{ mt: 1.5, textAlign: 'center' }}>{footer}</Box>}
+      </Box>
     </Box>
   );
 }

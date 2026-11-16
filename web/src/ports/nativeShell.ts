@@ -14,6 +14,21 @@ export interface ShellInfo {
   version: string;
   /** Left a server on purpose, so no connect page on start (api 3; older: absent). */
   choseStandalone?: boolean;
+  /**
+   * Which build of the app (api 9): `play`, the Google Play one, which follows Play's rules (no
+   * payment links, battery and exact alarms by hand), or `foss`. Absent (an older shell): foss.
+   */
+  distribution?: 'play' | 'foss';
+}
+
+/**
+ * Whether reminders can go off at the exact minute (api 9). `canAsk`: Android 12 and up has a page
+ * to allow it and it is not allowed yet (the Play build on Android 14 and up, until the person says
+ * yes).
+ */
+export interface ExactAlarms {
+  allowed: boolean;
+  canAsk: boolean;
 }
 
 /** Why an address cannot be used. */
@@ -116,4 +131,8 @@ export interface NativeShell {
   held(): Promise<HeldPress[]>;
   /** Api 7: `listener` runs whenever another press is held; returns a stop function. */
   onHeld(listener: () => void): () => void;
+  /** Api 9: whether exact alarms are allowed, and whether there is a page to allow them. */
+  exactAlarms?(): Promise<ExactAlarms>;
+  /** Api 9: Android's page to allow exact alarms; the state once it closes, or at once with nothing to ask. */
+  allowExactAlarms?(): Promise<ExactAlarms>;
 }

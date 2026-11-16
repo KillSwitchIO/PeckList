@@ -1,6 +1,6 @@
 import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createMemoryStorage } from '../../adapters/memory-storage.ts';
 import type {
   AccountRole,
@@ -16,6 +16,8 @@ import type {
 import { FakeBackend, fakeSupporterKey, readFakeSupporterKey } from '../../test/fakeTransport.ts';
 import { mockViewport, renderApp, testStore } from '../../test/renderApp.tsx';
 import { createSyncEngine } from '../sync/syncEngine.ts';
+import { FakeShell } from '../../test/fakeShell.ts';
+import { setNativeShell } from '../native/shell.ts';
 
 beforeEach(() => {
   localStorage.clear();
@@ -1661,5 +1663,26 @@ describe('admin: support (PL-112)', () => {
     await userEvent.click(within(page).getByRole('button', { name: 'Remove the key' }));
     expect(await within(page).findByLabelText('Enter your key')).toBeInTheDocument();
     expect(admin.state.serverSupporter).toBeNull();
+  });
+
+  describe('in the Android app', () => {
+    afterEach(() => setNativeShell(null));
+
+    it('the Google Play build takes the key without saying where to buy one', async () => {
+      setNativeShell(new FakeShell(9, 'play'));
+      await adminApp('superadmin', '/admin/support');
+      const page = await screen.findByRole('region', { name: 'Support' });
+      expect(within(page).getByLabelText('Enter your key')).toBeInTheDocument();
+      await waitFor(() =>
+        expect(within(page).queryByRole('link', { name: 'Get a supporter key' })).toBeNull(),
+      );
+    });
+
+    it('the foss build still links where to buy one', async () => {
+      setNativeShell(new FakeShell(9, 'foss'));
+      await adminApp('superadmin', '/admin/support');
+      const page = await screen.findByRole('region', { name: 'Support' });
+      expect(within(page).getByRole('link', { name: 'Get a supporter key' })).toBeInTheDocument();
+    });
   });
 });

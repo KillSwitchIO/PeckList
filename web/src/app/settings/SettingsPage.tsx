@@ -12,21 +12,23 @@ import {
 import { t } from '../i18n/i18n.ts';
 import { CategoryPage, type PageCategory } from '../layout/CategoryPage.tsx';
 import { ServerSection } from '../native/ServerSection.tsx';
-import { useShellInfo } from '../native/shell.ts';
+import { isPlayBuild, usePlayBuild, useShellInfo } from '../native/shell.ts';
 import { SupportSection } from '../support/SupportSection.tsx';
 import { useSupportVisible } from '../support/useSupportVisible.ts';
+import { PRIVACY_POLICY_URL } from '../legal.ts';
 import { useSyncState } from '../sync/syncContext.ts';
 import { setHideCompleted, useHideCompleted } from '../views/completedPrefs.ts';
 import { AppearanceSection } from './AppearanceSection.tsx';
 import { DataSection } from './DataSection.tsx';
 import { DateTimeSection } from './DateTimeSection.tsx';
+import { DeleteAccountSection } from './DeleteAccountSection.tsx';
 import { EmailSection } from './EmailSection.tsx';
 import { NewTaskSection } from './NewTaskSection.tsx';
 import { NotificationSettings } from './NotificationSettings.tsx';
 import { PasskeysSection } from './PasskeysSection.tsx';
 import { ProfileSection } from './ProfileSection.tsx';
 import { ResetSection } from './ResetSection.tsx';
-import { LinkRow, Section, SettingRow } from './settingsLayout.tsx';
+import { ExternalLinkRow, LinkRow, Section, SettingRow } from './settingsLayout.tsx';
 import { SignInSection } from './SignInSection.tsx';
 import { SwipeSection } from './SwipeSection.tsx';
 import { UsageSection } from './UsageSection.tsx';
@@ -48,6 +50,7 @@ function AccountCategory() {
           <LinkRow to="/settings/api-keys" label={t('apiKeys.open')} hint={t('apiKeys.openHint')} />
         </Section>
       )}
+      <DeleteAccountSection />
     </Stack>
   );
 }
@@ -73,10 +76,22 @@ function TasksCategory() {
 }
 
 function DataCategory() {
+  // 0.12.1: the Google Play build only (Play asks for it in the app); everyone from 0.13.0.
+  const play = usePlayBuild();
   return (
     <Stack spacing={4}>
       <DataSection />
       <UsageSection />
+      {/* With or without an account or a server: it is the project's, not the server's. */}
+      {play && (
+        <Section title={t('privacy.title')}>
+          <ExternalLinkRow
+            href={PRIVACY_POLICY_URL}
+            label={t('privacy.policy')}
+            hint={t('privacy.policyHint')}
+          />
+        </Section>
+      )}
       <ResetSection />
     </Stack>
   );
@@ -86,7 +101,7 @@ function DataCategory() {
 export function SettingsPage() {
   const { section } = useParams();
   const [params] = useSearchParams();
-  const { shell } = useShellInfo();
+  const { shell, info } = useShellInfo();
   const hasAccount = useSyncState((state) => state.account !== null);
   const canNotify = useSyncState(
     (state) => state.phase === 'ready' && Boolean(state.transport.push),
@@ -151,7 +166,11 @@ export function SettingsPage() {
           {
             id: 'support',
             label: t('support.title'),
-            hint: t('settings.category.supportHint'),
+            hint: t(
+              isPlayBuild(info)
+                ? 'settings.category.supportHintPlay'
+                : 'settings.category.supportHint',
+            ),
             icon: <HeartIcon />,
             content: () => <SupportSection />,
           },

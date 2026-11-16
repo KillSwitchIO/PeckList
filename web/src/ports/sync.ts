@@ -305,6 +305,31 @@ export interface SupporterStatus {
  */
 export type SupporterRefusal = 'not-a-key' | 'not-genuine' | 'wrong-kind';
 
+/**
+ * What deleting your own account means on this server (`GET /api/account/delete`): the days an
+ * admin can still restore it (0: it goes at once), the proof it asks for (the password, or a
+ * sign-in in the last 10 minutes for an account without one), whether this session's sign-in is
+ * that recent, and why it cannot be done, if it cannot.
+ */
+export interface AccountDeletion {
+  graceDays: number;
+  proof: 'password' | 'sign-in';
+  signedInRecently: boolean;
+  blocked: 'last_super_admin' | 'not_while_impersonating' | 'no_sign_in' | null;
+}
+
+/** How deleting your own account went. `removedAt`: when it goes for good (now, with no grace). */
+export type AccountDeleteOutcome =
+  | { kind: 'deleted'; removedAt: string }
+  | { kind: 'wrong-password' }
+  | { kind: 'sign-in-again' }
+  | { kind: 'last-super-admin' }
+  | { kind: 'too-many' }
+  /** Already deleted, or gone. */
+  | { kind: 'gone' }
+  /** Not from here: an admin viewing as them, or a server with no sign-in. */
+  | { kind: 'refused' };
+
 /** The signed-in user's own account (servers with accounts). */
 export interface AccountApi {
   signInMethods(): Promise<SignInMethods>;
@@ -339,6 +364,10 @@ export interface AccountApi {
   enterSupporterKey?(key: string): Promise<SupporterStatus | SupporterRefusal>;
   /** Remove your own supporter key from this server. */
   removeSupporterKey?(): Promise<void>;
+  /** What deleting this account means here; null on a server too old to offer it. */
+  deletion?(): Promise<AccountDeletion | null>;
+  /** Delete this account, with its password when the proof asked for is `password`. */
+  deleteAccount?(password?: string): Promise<AccountDeleteOutcome>;
 }
 
 /** What an API key may do (R-FB-157). */

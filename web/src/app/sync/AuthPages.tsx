@@ -1,15 +1,17 @@
 import KeyRounded from '@mui/icons-material/KeyRounded';
-import { Box, Button, Divider, Link, TextField, Typography } from '@mui/material';
+import { Alert, Box, Button, Divider, Link, TextField, Typography } from '@mui/material';
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { messageOf } from '../../core/errors.ts';
 import { SyncFailure, type SignInOptions, type SignUpOutcome } from '../../ports/sync.ts';
 import type { MessageKey } from '../i18n/en.ts';
 import { t } from '../i18n/i18n.ts';
 import { CenteredCard } from '../layout/CenteredCard.tsx';
+import { PRIVACY_POLICY_URL } from '../legal.ts';
+import { takeDeletedNotice } from '../settings/deleteAccount.ts';
 import { PasswordField } from '../layout/PasswordField.tsx';
 import { ProblemAlert } from '../layout/ProblemAlert.tsx';
 import { ConnectPage } from '../native/ConnectPage.tsx';
-import { nativeShell } from '../native/shell.ts';
+import { nativeShell, usePlayBuild } from '../native/shell.ts';
 import {
   leaveFor,
   mayContinueOnItsOwn,
@@ -147,6 +149,25 @@ function useSignInOptions(invite?: string): SignInOptions | null {
     };
   }, [transport, invite]);
   return options;
+}
+
+/**
+ * Under the sign-in and sign-up cards: the project's privacy policy, in a new tab. 0.12.1: the
+ * Google Play build only (`privacyFooter`), so elsewhere the cards sit exactly as in 0.12.0;
+ * everyone from 0.13.0.
+ */
+function PrivacyFooter() {
+  return (
+    <Link
+      href={PRIVACY_POLICY_URL}
+      target="_blank"
+      rel="noreferrer"
+      variant="caption"
+      color="text.secondary"
+    >
+      {t('privacy.policy')}
+    </Link>
+  );
 }
 
 /** A provider's icon on its button; gone when the provider has none. */
@@ -418,6 +439,7 @@ function PasskeyButton({ busy, onClick }: { busy: boolean; onClick: () => void }
 
 function SignIn({ onSignUp, onForgot }: { onSignUp: () => void; onForgot: () => void }) {
   const signIn = useSyncState((state) => state.signIn);
+  const privacyFooter = usePlayBuild() ? <PrivacyFooter /> : undefined;
   // The Android app: maybe this is the wrong server (ADR-0017).
   const [connecting, setConnecting] = useState(false);
   const [username, setUsername] = useState('');
@@ -425,6 +447,8 @@ function SignIn({ onSignUp, onForgot }: { onSignUp: () => void; onForgot: () => 
   const [busy, setBusy] = useState(false);
   const options = useSignInOptions();
   const [problem, setProblem] = useState<string | null>(takeSignInError);
+  // Just deleted their own account: say so once, here, where they land.
+  const [deleted] = useState(takeDeletedNotice);
   // Read after the error: a refused sign-in has forgotten it.
   const [remembered] = useState(rememberedProvider);
 
@@ -481,7 +505,12 @@ function SignIn({ onSignUp, onForgot }: { onSignUp: () => void; onForgot: () => 
   }
 
   return (
-    <CenteredCard title={t('auth.title')} subtitle={t('auth.subtitle')}>
+    <CenteredCard title={t('auth.title')} subtitle={t('auth.subtitle')} footer={privacyFooter}>
+      {deleted && (
+        <Alert severity="info" variant="outlined" sx={{ mb: 2.5 }}>
+          {deleted}
+        </Alert>
+      )}
       {(providers.length > 0 || passkeys.offered) && (
         <Box sx={{ display: 'grid', gap: 1.5 }}>
           {passkeys.offered && <PasskeyButton busy={passkeys.busy} onClick={passkeys.start} />}
@@ -557,6 +586,7 @@ const SIGN_UP_PROBLEMS: Record<
  */
 function SignUp({ invite, onSignIn }: { invite?: string; onSignIn: () => void }) {
   const signUp = useSyncState((state) => state.signUp);
+  const privacyFooter = usePlayBuild() ? <PrivacyFooter /> : undefined;
   const transport = useSyncState((state) => state.transport);
   const options = useSignInOptions(invite);
   const [username, setUsername] = useState('');
@@ -632,6 +662,7 @@ function SignUp({ invite, onSignIn }: { invite?: string; onSignIn: () => void })
   const { providers } = options;
   return (
     <CenteredCard
+      footer={privacyFooter}
       title={t('auth.signUp.title')}
       subtitle={t(invite === undefined ? 'auth.signUp.subtitle' : 'auth.signUp.invited')}
     >

@@ -16,6 +16,17 @@ export const HELD_API = 7;
  */
 export const CONFIRM_API = 8;
 
+/**
+ * The shell api that says which build it is (`distribution`: the Google Play one or foss), answers
+ * whether exact alarms are allowed, and takes a fresh sign-in (`fresh=1`) through to its browser tab.
+ */
+export const PLAY_API = 9;
+
+/** Whether this is the Google Play build of the app. Browsers, the PWA and older shells: no. */
+export function isPlayBuild(info: ShellInfo | null): boolean {
+  return info?.distribution === 'play';
+}
+
 /** The host (and port) an address names, read as the shell reads it: https when none is typed. */
 export function hostOf(address: string): string | null {
   const text = address.trim();
@@ -32,18 +43,27 @@ export function nativeShell(): NativeShell | null {
   return current;
 }
 
+/** What the shell last said about itself, so a later screen starts with it rather than blank. */
+let known: { shell: NativeShell; info: ShellInfo } | null = null;
+
 export function setNativeShell(next: NativeShell | null): void {
   current = next;
+  known = null;
 }
 
 /** The shell and what it says about itself; info is null while it answers (or in a browser). */
 export function useShellInfo(): { shell: NativeShell | null; info: ShellInfo | null } {
   const shell = nativeShell();
-  const [info, setInfo] = useState<ShellInfo | null>(null);
+  const [info, setInfo] = useState<ShellInfo | null>(() =>
+    known && known.shell === shell ? known.info : null,
+  );
   useEffect(() => {
     let live = true;
     shell?.info().then(
-      (answer) => live && setInfo(answer),
+      (answer) => {
+        known = { shell, info: answer };
+        if (live) setInfo(answer);
+      },
       () => undefined,
     );
     return () => {
@@ -51,6 +71,15 @@ export function useShellInfo(): { shell: NativeShell | null; info: ShellInfo | n
     };
   }, [shell]);
   return { shell, info };
+}
+
+/**
+ * Whether this is the Google Play build (api 9), which leaves out what Play does not allow: links
+ * to pay or donate, and the app's own update notice. False until the shell answers, and always in
+ * a browser.
+ */
+export function usePlayBuild(): boolean {
+  return isPlayBuild(useShellInfo().info);
 }
 
 /**

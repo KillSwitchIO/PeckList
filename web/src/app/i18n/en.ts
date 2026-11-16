@@ -79,9 +79,11 @@ export const en = {
   'settings.category.notificationsHint': 'What reaches you, and on this device',
   'settings.category.dataHint': 'Download, import and start over',
   'settings.category.supportHint': 'Say thanks with a tip',
+  'settings.category.supportHintPlay': 'Your supporter key',
   'support.title': 'Support PeckList',
   'support.thanks':
     'Thank you for using PeckList. It is free, and a supporter key or a tip helps keep it going.',
+  'support.thanksPlay': 'Thank you for using PeckList.',
   'support.give': 'Support on {name}',
   'support.tip': 'Or leave a tip',
   'support.key.heading': 'Supporter key',
@@ -1744,6 +1746,50 @@ export const en = {
   'backgroundCheck.restricted':
     'Android may put PeckList to sleep and hold back these checks. Let it run in the background so they come on time.',
   'backgroundCheck.allow': 'Allow',
+  'backgroundCheck.restrictedPlay':
+    'Android may put PeckList to sleep and hold back these checks. Open the list of apps, pick PeckList and choose not to optimize it, so they come on time.',
+  'backgroundCheck.openList': 'Open the list',
+  'exactAlarms.needed':
+    'Android may hold reminders back a few minutes until PeckList is allowed to set alarms for the exact time.',
+  'exactAlarms.allow': 'Allow exact reminders',
+  'privacy.title': 'Privacy',
+  'privacy.policy': 'PeckList privacy policy',
+  'privacy.policyHint':
+    'What reaches the PeckList project, how long it is kept and how to delete it. Your tasks stay on your server.',
+  'deleteAccount.title': 'Delete my account',
+  'deleteAccount.hint': 'Removes your account from this server, with everything only you use.',
+  'deleteAccount.open': 'Delete account',
+  'deleteAccount.dialog': 'Delete your account?',
+  'deleteAccount.whatGrace':
+    'Your account is turned off now and signed out everywhere. After {days} days it is removed for good, with your tasks, lists, tags, comments and files. Until then, an admin of this server can restore it.',
+  'deleteAccount.whatGraceOne':
+    'Your account is turned off now and signed out everywhere. After 1 day it is removed for good, with your tasks, lists, tags, comments and files. Until then, an admin of this server can restore it.',
+  'deleteAccount.whatNow':
+    'Your account is removed now, for good, with your tasks, lists, tags, comments and files. It cannot be restored.',
+  'deleteAccount.shared':
+    'A list or group you share goes to the next person in it, and what you added to other people\u2019s lists stays there.',
+  'deleteAccount.password': 'Your password',
+  'deleteAccount.wrongPassword': 'That password is not right.',
+  'deleteAccount.signInAgain': 'To show it is you, sign in again, then delete within 10 minutes.',
+  'deleteAccount.signInWith': 'Sign in with {name}',
+  'deleteAccount.signInPasskey': 'Sign in with a passkey',
+  'deleteAccount.stillNotRecent':
+    'That sign-in did not count: your sign-in provider let you in without asking you to show it is you. Try again, or ask an admin of this server to delete your account.',
+  'deleteAccount.useBrowser':
+    'To show it is you, open this server in your browser, sign in there and delete your account from Settings. This version of the app cannot sign you in again for it.',
+  'deleteAccount.noWayBack':
+    'This account has no way to sign in again here. Ask an admin of this server to delete it.',
+  'deleteAccount.lastSuperAdmin':
+    'You are the last super admin here. Make someone else a super admin first (Admin > Users).',
+  'deleteAccount.viewingAs':
+    'You are viewing the app as someone else. Their account cannot be deleted from here.',
+  'deleteAccount.noSignIn': 'This server has no sign-in, so there is no account to delete.',
+  'deleteAccount.tooMany': 'Too many tries. Wait a minute and try again.',
+  'deleteAccount.confirm': 'Delete my account',
+  'deleteAccount.deleting': 'Deleting...',
+  'deleteAccount.doneGrace':
+    'Your account is deleted. An admin of this server can restore it until {date}.',
+  'deleteAccount.doneNow': 'Your account is deleted.',
   'backgroundCheck.samsung':
     'On a Samsung phone, also add PeckList to Never sleeping apps (Settings > Battery > Background usage limits).',
   'backgroundCheck.notificationsOff': 'Notifications are off for PeckList, so nothing will show.',

@@ -1,3 +1,4 @@
+import OpenInNewRounded from '@mui/icons-material/OpenInNewRounded';
 import { Box, ButtonBase, Typography } from '@mui/material';
 import type { ReactNode } from 'react';
 import { Link as RouterLink } from 'react-router';
@@ -99,6 +100,41 @@ export function LinkRow({ to, label, hint }: { to: string; label: string; hint?:
     >
       <SettingRow label={label} {...(hint ? { hint } : {})}>
         <ChevronRightIcon sx={{ color: 'text.secondary', display: 'block' }} />
+      </SettingRow>
+    </ButtonBase>
+  );
+}
+
+/** A row that opens a page outside the app (a new tab, or the browser from the Android app). */
+export function ExternalLinkRow({
+  href,
+  label,
+  hint,
+}: {
+  href: string;
+  label: string;
+  hint?: string;
+}) {
+  return (
+    <ButtonBase
+      component="a"
+      href={href}
+      target="_blank"
+      rel="noreferrer"
+      sx={{
+        display: 'flex',
+        width: 'calc(100% + 16px)',
+        mx: -1,
+        px: 1,
+        justifyContent: 'flex-start',
+        textAlign: 'left',
+        borderRadius: 2,
+        '& > *': { flexGrow: 1 },
+        '&:hover': { bgcolor: 'action.hover' },
+      }}
+    >
+      <SettingRow label={label} {...(hint ? { hint } : {})}>
+        <OpenInNewRounded sx={{ fontSize: 20, color: 'text.secondary', display: 'block' }} />
       </SettingRow>
     </ButtonBase>
   );
