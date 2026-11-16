@@ -18,6 +18,7 @@ PeckList is free and made in spare time. If it helps you, a donation helps keep 
 covers its costs:
 
 [![ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/S6S7P3FVW)
+[![PayPal: donate](https://img.shields.io/badge/PayPal-donate-00457C?logo=paypal)](https://www.paypal.com/donate/?hosted_button_id=NF3EZPGC3NL86)
 
 Or use the tip panel on [pecklist.com/support](https://pecklist.com/support/). The app has the same
 link under **Settings > Support PeckList**, or from the heart beside the version in the sidebar.

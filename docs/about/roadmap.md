@@ -48,7 +48,8 @@ version reads, and breaking changes wait for a major version.
   through Obtainium and perhaps IzzyOnDroid and Google Play.
 - **Notification categories** on Android (a channel per kind, vibration, mute switches).
 - **Documentation and a website** with screenshots and the quick start.
-- **Ways to support the project**: donations are open [on Ko-fi](https://ko-fi.com/S6S7P3FVW), and a
+- **Ways to support the project**: donations are open [on Ko-fi](https://ko-fi.com/S6S7P3FVW) and
+  [on PayPal](https://www.paypal.com/donate/?hosted_button_id=NF3EZPGC3NL86), and a
   commercial license for organizations that cannot use the AGPL.
 - **Still being decided for 1.0**: a Kanban board, the Timeline and Gantt view, and working on a
   linked workspace file.
