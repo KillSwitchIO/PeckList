@@ -1,6 +1,8 @@
 /**
  * Every way to support PeckList, in one file so the app never disagrees with the site and the
  * README (spec: PL-112). Links leave the app: no payment runs in it, and nothing here is fetched.
+ * The Google Play build of the Android app never opens them: a new platform's site goes in the
+ * shell's PaymentLinks.java too (its test reads this folder and fails otherwise).
  */
 
 export interface DonationPlatform {

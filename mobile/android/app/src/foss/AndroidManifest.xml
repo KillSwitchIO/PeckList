@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The foss build (the GitLab APK, F-Droid): what Google Play would not allow (docs/development/android.md). -->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!--
+      Exact alarms granted at install, as Android grants an app with reminders: without it Android
+      14+ leaves them off until the person allows them in settings (ExactAlarms).
+    -->
+    <uses-permission android:name="android.permission.USE_EXACT_ALARM" />
+    <!--
+      The background check-in (BackgroundCheck) asks once to run without battery optimization, or
+      Android holds its alarms and network while the phone is idle.
+    -->
+    <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
+</manifest>

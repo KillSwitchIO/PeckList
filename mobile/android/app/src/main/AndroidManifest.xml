@@ -66,13 +66,17 @@
             android:name=".ReminderReceiver"
             android:exported="false" />
 
-        <!-- The background check-in's alarm, and setting it again after a restart or an update (BackgroundCheck). -->
+        <!--
+          The background check-in's alarm, and setting it again after a restart or an update
+          (BackgroundCheck), or once exact alarms are allowed (ExactAlarms).
+        -->
         <receiver
             android:name=".CheckReceiver"
             android:exported="false">
             <intent-filter>
                 <action android:name="android.intent.action.BOOT_COMPLETED" />
                 <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+                <action android:name="android.app.action.SCHEDULE_EXACT_ALARM_PERMISSION_STATE_CHANGED" />
             </intent-filter>
         </receiver>
 
@@ -91,16 +95,10 @@
 
     <uses-permission android:name="android.permission.INTERNET" />
     <!--
-      Reminders fire on time with exact alarms (Local Notifications schedules them). USE_EXACT_ALARM
-      is granted to apps with reminders and a calendar; without it Android 14+ denies exact alarms
-      until the person allows them in settings.
+      Reminders fire on time with exact alarms (ExactAlarms). Android 14+ leaves this one off until
+      the person allows it in settings; the foss build also holds USE_EXACT_ALARM, granted at
+      install (src/foss/AndroidManifest.xml). Both builds' permissions: docs/development/android.md.
     -->
-    <uses-permission android:name="android.permission.USE_EXACT_ALARM" />
-    <!--
-      The background check-in (BackgroundCheck) asks once to run without battery optimization, or
-      Android holds its alarms and network while the phone is idle. Google Play allows this only for
-      some kinds of app; a Play build would drop it and check less often.
-    -->
-    <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
+    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
 </manifest>

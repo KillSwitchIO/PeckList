@@ -77,6 +77,9 @@ final class NativeSignIn {
         if (returnUrl != null) handoff.appendQueryParameter("returnUrl", returnUrl);
         String invite = login.getQueryParameter("invite");
         if (invite != null) handoff.appendQueryParameter("invite", invite);
+        // Api 9: a sign-in that happens now, to show it is the person (deleting their account). The
+        // tab's own session, maybe from long ago, ends there first (AppSignIn, fresh=1).
+        if ("1".equals(login.getQueryParameter("fresh"))) handoff.appendQueryParameter("fresh", "1");
         return new Start(handoff.build());
     }
 

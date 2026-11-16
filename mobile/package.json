@@ -8,8 +8,8 @@
   "scripts": {
     "build:web": "pnpm --filter @pecklist/web build",
     "sync": "cap sync android",
-    "apk": "pnpm build:web && cap sync android && node scripts/gradle.mjs assembleDebug",
-    "test:android": "node scripts/gradle.mjs testDebugUnitTest",
+    "apk": "pnpm build:web && cap sync android && node scripts/gradle.mjs assembleFossDebug",
+    "test:android": "node scripts/gradle.mjs testFossDebugUnitTest testPlayDebugUnitTest",
     "typecheck": "tsc --noEmit -p tsconfig.json"
   },
   "dependencies": {

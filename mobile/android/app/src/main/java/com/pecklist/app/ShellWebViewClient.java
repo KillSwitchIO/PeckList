@@ -10,6 +10,7 @@ import android.webkit.WebResourceResponse;
 import android.webkit.WebView;
 import com.getcapacitor.Bridge;
 import com.getcapacitor.BridgeWebViewClient;
+import com.getcapacitor.Logger;
 import org.json.JSONObject;
 
 /**
@@ -28,6 +29,21 @@ class ShellWebViewClient extends BridgeWebViewClient {
         super(bridge);
         this.context = bridge.getContext();
         this.activity = bridge.getActivity();
+    }
+
+    /**
+     * The Play build loads nothing from a payment page (PaymentLinks), not even inside a frame,
+     * which {@link #shouldOverrideUrlLoading} does not reliably see: a donation widget an older or
+     * newer web app embeds stays empty.
+     */
+    @Override
+    public WebResourceResponse shouldInterceptRequest(WebView view, WebResourceRequest request) {
+        android.net.Uri url = request.getUrl();
+        if (PaymentLinks.blocked(Distribution.isPlay(), url.getScheme(), url.getHost(), url.getPath())) {
+            return new WebResourceResponse("text/plain", "utf-8", 403, "Forbidden", null,
+                new java.io.ByteArrayInputStream(new byte[0]));
+        }
+        return super.shouldInterceptRequest(view, request);
     }
 
     /** The server (or its proxy) wants a client certificate: mutual TLS (R-FB-158). */
@@ -63,6 +79,12 @@ class ShellWebViewClient extends BridgeWebViewClient {
         String server = ServerChoice.get(context);
         String url = request.getUrl().toString();
         String scheme = request.getUrl().getScheme();
+        // The Play build opens no page to pay or donate on (PaymentLinks): handled, by doing nothing,
+        // so a link in an older server's web app stays where it is.
+        if (PaymentLinks.blocked(Distribution.isPlay(), scheme, request.getUrl().getHost(), request.getUrl().getPath())) {
+            Logger.info("PeckList", "Not opening a payment link in the Google Play build");
+            return true;
+        }
         if (server != null && request.isForMainFrame() && request.isRedirect() && !ShellPlugin.lettingThrough()
             && ("https".equals(scheme) || "http".equals(scheme)) && Gate.elsewhere(server, url)) {
             showGate(view);

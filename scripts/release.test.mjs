@@ -125,6 +125,9 @@ test('the Android version code grows with each release, and an rc sorts before i
   // Past the room each part has, there is no code rather than a wrong one.
   assert.throws(() => androidVersionCode('0.100.0'), /no Android version code/);
   assert.throws(() => androidVersionCode('0.1.100'), /no Android version code/);
+  // rc.999 would be the release's own code, which Google Play refuses a second time.
+  assert.equal(androidVersionCode('0.12.0-rc.998'), 1_200_998);
+  assert.throws(() => androidVersionCode('0.12.0-rc.999'), /no Android version code/);
 });
 
 /** What scripts/build-version.sh says for a version file and GitLab's variables. */

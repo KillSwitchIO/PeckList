@@ -8,7 +8,6 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.net.Uri;
-import android.os.Build;
 import androidx.core.app.NotificationCompat;
 import androidx.core.app.NotificationManagerCompat;
 import androidx.core.content.ContextCompat;
@@ -390,7 +389,8 @@ final class Reminders {
         AlarmManager alarms = (AlarmManager) context.getSystemService(Context.ALARM_SERVICE);
         if (alarms == null) return;
         PendingIntent wake = alarmIntent(context, reminder, PendingIntent.FLAG_UPDATE_CURRENT);
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S || alarms.canScheduleExactAlarms()) {
+        // Inexact until exact alarms are allowed (ExactAlarms: the Play build on Android 14 and up).
+        if (ExactAlarms.allowed(context)) {
             alarms.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, reminder.at, wake);
         } else {
             alarms.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, reminder.at, wake);

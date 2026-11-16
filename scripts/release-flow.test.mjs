@@ -53,10 +53,17 @@ test('a change hidden inside a version file fails the guard', () => {
 });
 
 test("a final release's APK also goes under the plain version, for F-Droid", () => {
-  const files = ['pecklist-linux-x64.tar.gz', 'pecklist-android.apk', 'SHA256SUMS'];
+  const files = [
+    'pecklist-linux-x64.tar.gz',
+    'pecklist-android.apk',
+    'pecklist-play.aab',
+    'SHA256SUMS',
+  ];
+  // The Play bundle is for the Play Console, not F-Droid: under its commit only.
   assert.deepEqual(uploadTargets(files, '0.12.0', 'abc1234'), [
     { file: 'pecklist-linux-x64.tar.gz', packageVersion: '0.12.0-abc1234' },
     { file: 'pecklist-android.apk', packageVersion: '0.12.0-abc1234' },
+    { file: 'pecklist-play.aab', packageVersion: '0.12.0-abc1234' },
     { file: 'SHA256SUMS', packageVersion: '0.12.0-abc1234' },
     { file: 'pecklist-android.apk', packageVersion: '0.12.0' },
   ]);
@@ -207,6 +214,7 @@ test('a download shows its version, and keeps the stable path that latest-downlo
 test('every kind of download takes its version before the extension', () => {
   const names = {
     'pecklist-android.apk': 'pecklist-android-0.8.0-rc.2.apk',
+    'pecklist-play.aab': 'pecklist-play-0.8.0-rc.2.aab',
     'pecklist-server-linux-x64-portable.tar.gz':
       'pecklist-server-linux-x64-portable-0.8.0-rc.2.tar.gz',
     'pecklist-server-linux-arm64-portable.tar.gz':
@@ -228,7 +236,7 @@ test('every kind of download takes its version before the extension', () => {
   }
 });
 
-test('the downloads folder puts its packages, archives, AppImages, APK, installer and checksums on the page', () => {
+test('the downloads folder puts its packages, archives, AppImages, APK, Play bundle, installer and checksums on the page', () => {
   const folder = [
     'pecklist_amd64.deb',
     'pecklist-cli.aarch64.rpm',
@@ -236,6 +244,7 @@ test('the downloads folder puts its packages, archives, AppImages, APK, installe
     'pecklist-cli-win-arm64-portable.zip',
     'pecklist-server-linux-arm64.AppImage',
     'pecklist-android.apk',
+    'pecklist-play.aab',
     'pecklist-setup-x64.exe',
     'SHA256SUMS',
     'test',
@@ -244,7 +253,7 @@ test('the downloads folder puts its packages, archives, AppImages, APK, installe
     'notes.txt',
     'runtime-x86_64',
   ];
-  assert.deepEqual(folder.filter(isDownload), folder.slice(0, 8));
+  assert.deepEqual(folder.filter(isDownload), folder.slice(0, 9));
 });
 
 test('the checksums cover a file by either name', () => {
