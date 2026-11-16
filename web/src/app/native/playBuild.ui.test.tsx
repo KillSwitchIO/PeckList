@@ -71,6 +71,10 @@ describe('support links', () => {
       const box = await screen.findByRole('region', { name: 'Supporter key' }, slow);
       expect(within(box).getByRole('link', { name: 'Get a supporter key' })).toBeInTheDocument();
       expect(screen.getByRole('link', { name: 'Support on Ko-fi' })).toBeInTheDocument();
+      expect(screen.getByRole('link', { name: 'Support on PayPal' })).toHaveAttribute(
+        'href',
+        'https://www.paypal.com/donate/?hosted_button_id=NF3EZPGC3NL86',
+      );
       expect(await screen.findByRole('button', { name: 'Hide the reminder' })).toBeInTheDocument();
     },
   );
@@ -84,12 +88,15 @@ describe('support links', () => {
       expect(within(box).queryByRole('link', { name: 'Get a supporter key' })).toBeNull(),
     );
     expect(screen.queryByRole('link', { name: 'Support on Ko-fi' })).toBeNull();
+    expect(screen.queryByRole('link', { name: 'Support on PayPal' })).toBeNull();
     expect(screen.queryByRole('region', { name: 'Or leave a tip' })).toBeNull();
     expect(screen.queryByRole('button', { name: 'Hide the reminder' })).toBeNull();
     expect(screen.queryByText('Say thanks with a tip')).toBeNull();
     // Nothing on the page leads to a payment page.
     for (const link of screen.queryAllByRole('link')) {
-      expect(link.getAttribute('href') ?? '').not.toMatch(/ko-fi\.com|pecklist\.com\/support/);
+      expect(link.getAttribute('href') ?? '').not.toMatch(
+        /ko-fi\.com|paypal\.com|pecklist\.com\/support/,
+      );
     }
   });
 });

@@ -19,9 +19,10 @@ export interface CryptoAddress {
   explorerUrl: string;
 }
 
-/** Each entry gets a button on the card, in this order. PayPal joins here once it has a link. */
+/** Each entry gets a button on the card, in this order. */
 export const DONATION_PLATFORMS: readonly DonationPlatform[] = [
   { name: 'Ko-fi', url: 'https://ko-fi.com/S6S7P3FVW' },
+  { name: 'PayPal', url: 'https://www.paypal.com/donate/?hosted_button_id=NF3EZPGC3NL86' },
 ];
 
 /**
