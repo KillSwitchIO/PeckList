@@ -4,6 +4,47 @@ All notable changes to PeckList. Each release adds its section from [Conventiona
 with `pnpm release`; the version follows [Semantic Versioning](https://semver.org/). Before 1.0.0 a
 minor release may break things; every break is listed under **Breaking changes** with what to do.
 
+## [0.12.0] - 2026-11-16
+
+### Breaking changes
+
+- **android:** App ID com.pecklist.app. The Android app has a new ID, com.pecklist.app, so the new release installs beside the old app instead of updating it. Install it, connect to your server and sign in, then uninstall the old PeckList app. Let the old app sync any offline changes first. In Obtainium, add PeckList again if the old entry does not pick up the new app.
+- **packages:** Deb and rpm packages, and APT and RPM repositories. The portable downloads are renamed to say what they are: pecklist-linux-x64.tar.gz is now pecklist-server-linux-x64-portable.tar.gz (its folder pecklist-server-linux-x64), pecklist-win-x64.zip is pecklist-server-win-x64-portable.zip, and pecklist-cli-<platform> is pecklist-cli-<platform>-portable. Scripts that download through the latest links need the new names.
+
+### Added
+
+- **api:** Type every route in the OpenAPI document and commit it
+- **cli:** A task list people can read, with the filters to match
+- **release:** Sign the image and the downloads with Sigstore
+- **android:** App ID com.pecklist.app
+- **android:** F-Droid-ready release builds and store listing
+- **packages:** Deb and rpm packages, and APT and RPM repositories
+- **packaging:** AppImages for the server and the command line
+- **packaging:** AUR packages pecklist-bin and pecklist-cli-bin
+- **supporters:** Supporter keys, checked offline, and the service that issues them
+- **web:** Mention a group, and the picker opens only where a name counts
+- **packages:** Windows installer, its test on real Windows, winget drafts
+
+### Fixed
+
+- **server:** Backups keep their names, refused starts say why in one line
+- Pre-release pages say when they were published; quick add reads long lines within its memory limit
+- **web:** Start without waiting long on moving the old databases
+- **web:** The empty mark flips flat, and the CLI sign-in page loads ahead
+- **web:** Open every page with no Inbox yet instead of crashing
+- Postpone keeps weekly repeats on their days; imports name guesses
+- **release:** A wrapped footer line no longer cuts a breaking change short
+- **ci:** Cosign gets Node's root certificates where the image has none
+- **web:** The comments panel pulls up only from rest, one scroll at a time
+- **web:** A pull that comes back down leaves the task sheet where it was
+- **web:** One touch, one gesture in the task details and the task list
+- **web:** Turning the calendar's dial is never also a pull to refresh
+- **web:** A row dragged by its grip is never also a pull to refresh
+
+### Documentation
+
+- Sharing edge cases, proxy examples, demo link and the APK key name
+
 ## [0.12.0-rc.4] - 2026-11-15
 
 ### Fixed
