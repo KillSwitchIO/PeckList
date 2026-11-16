@@ -2,6 +2,7 @@ import { Capacitor, registerPlugin, type PluginListenerHandle } from '@capacitor
 import type {
   BackgroundCheck,
   ConnectTrust,
+  ExactAlarms,
   HeldPress,
   NativeShell,
   ServerCheck,
@@ -29,6 +30,8 @@ interface ShellPlugin {
   clearCarried(): Promise<void>;
   held(): Promise<{ presses?: unknown }>;
   addListener(event: 'held', listener: () => void): Promise<PluginListenerHandle>;
+  exactAlarms(): Promise<ExactAlarms>;
+  allowExactAlarms(): Promise<ExactAlarms>;
 }
 
 /** The presses the shell answered with, leaving out any it got wrong. */
@@ -84,7 +87,13 @@ export function createCapacitorShell(): NativeShell | null {
   return {
     async info() {
       const answer = await plugin.info();
-      return { ...answer, server: answer.server ?? null };
+      const { distribution, ...rest } = answer;
+      return {
+        ...rest,
+        server: answer.server ?? null,
+        // Only the two names it knows; anything else (or nothing, an older shell) is foss.
+        ...(distribution === 'play' || distribution === 'foss' ? { distribution } : {}),
+      };
     },
     async checkServer(address): Promise<ServerCheck> {
       try {
@@ -116,5 +125,7 @@ export function createCapacitorShell(): NativeShell | null {
       const listening = plugin.addListener('held', listener);
       return () => void listening.then((handle) => handle.remove());
     },
+    exactAlarms: () => plugin.exactAlarms(),
+    allowExactAlarms: () => plugin.allowExactAlarms(),
   };
 }

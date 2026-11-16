@@ -32,6 +32,7 @@ import { Wheel } from '../dates/Wheel.tsx';
 import { formatTime } from '../format.ts';
 import { useToday } from '../hooks/useToday.ts';
 import { t } from '../i18n/i18n.ts';
+import { ExactRemindersPrompt } from '../native/ExactReminders.tsx';
 import { useApply, useWorkspace } from '../store/hooks.ts';
 import { PropertyRow, PropertySheet } from '../tasks/PropertyRow.tsx';
 import { useReadOnly } from '../tasks/readOnly.ts';
@@ -313,6 +314,7 @@ export function ReminderSheet({
               {t('reminder.unsupported')}
             </Alert>
           )}
+          <ExactRemindersPrompt sx={{ mx: 2, mb: 1 }} />
           {custom ? (
             <CustomReminder
               task={task}

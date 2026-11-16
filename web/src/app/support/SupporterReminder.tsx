@@ -2,18 +2,20 @@ import { Box, ButtonBase, IconButton, Menu, MenuItem, Tooltip } from '@mui/mater
 import { useState } from 'react';
 import { CloseIcon, HeartIcon } from '../icons/icons.tsx';
 import { t } from '../i18n/i18n.ts';
+import { usePlayBuild } from '../native/shell.ts';
 import { useReminderHidden, useSupporter } from './useSupporter.ts';
 
 /**
  * The sidebar's one-line reminder (PL-112), like Immich's: only for people who aren't supporters
  * here, and hideable for 30 days or for good. It shows only once the server has said so, so a
- * failure or an older server shows nothing.
+ * failure or an older server shows nothing. Never in the Google Play build, which asks for no money.
  */
 export function SupporterReminder({ onOpen }: { onOpen: () => void }) {
   const { status, supporter } = useSupporter();
   const { hidden, hide } = useReminderHidden();
+  const play = usePlayBuild();
   const [menu, setMenu] = useState<HTMLElement | null>(null);
-  if (status === null || supporter || hidden) return null;
+  if (status === null || supporter || hidden || play) return null;
   return (
     <Box
       sx={{

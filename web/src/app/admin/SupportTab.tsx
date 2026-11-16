@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import type { AdminApi } from '../../ports/admin.ts';
 import type { SupporterKeyInfo } from '../../ports/sync.ts';
 import { t } from '../i18n/i18n.ts';
+import { usePlayBuild } from '../native/shell.ts';
 import { Section } from '../settings/settingsLayout.tsx';
 import { SupporterKeyBox, SupporterThanks } from '../support/SupporterKeyBox.tsx';
 import { purchasedText, SUPPORTER_KEY_URL } from '../support/supporterText.ts';
@@ -13,6 +14,7 @@ import { purchasedText, SUPPORTER_KEY_URL } from '../support/supporterText.ts';
  */
 export function SupportTab({ api }: { api: AdminApi }) {
   const [key, setKey] = useState<SupporterKeyInfo | null | undefined>(undefined);
+  const play = usePlayBuild();
 
   useEffect(() => {
     if (!api.serverSupporter) return;
@@ -48,10 +50,16 @@ export function SupportTab({ api }: { api: AdminApi }) {
       ) : (
         <Box>
           <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
-            {t('admin.support.about')}{' '}
-            <Link href={SUPPORTER_KEY_URL} target="_blank" rel="noreferrer">
-              {t('support.key.get')}
-            </Link>
+            {t('admin.support.about')}
+            {/* The Google Play build says nothing of where keys are bought. */}
+            {!play && (
+              <>
+                {' '}
+                <Link href={SUPPORTER_KEY_URL} target="_blank" rel="noreferrer">
+                  {t('support.key.get')}
+                </Link>
+              </>
+            )}
           </Typography>
           {enter && (
             <SupporterKeyBox

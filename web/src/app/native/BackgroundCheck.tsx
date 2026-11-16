@@ -5,7 +5,8 @@ import { t } from '../i18n/i18n.ts';
 import { notifier } from '../reminders/notifier.ts';
 import { Section, SettingRow } from '../settings/settingsLayout.tsx';
 import { useSyncState } from '../sync/syncContext.ts';
-import { useShellInfo } from './shell.ts';
+import { ExactRemindersPrompt } from './ExactReminders.tsx';
+import { isPlayBuild, useShellInfo } from './shell.ts';
 
 /** The first shell api with the background check-in. */
 export const CHECK_API = 2;
@@ -15,6 +16,8 @@ export const CHECK_API = 2;
  * checks in with the server in the background instead. On, every 5 minutes, unless changed here.
  */
 export function BackgroundCheckSettings({ shell }: { shell: NativeShell }) {
+  // The Google Play build may not ask Android's dialog: Allow opens the list of apps instead.
+  const play = isPlayBuild(useShellInfo().info);
   const [state, setState] = useState<BackgroundCheck | null>(null);
   const [permission, setPermission] = useState(() => notifier().permission());
 
@@ -92,13 +95,14 @@ export function BackgroundCheckSettings({ shell }: { shell: NativeShell }) {
               size="small"
               onClick={() => void shell.allowBackground().then(setState, () => undefined)}
             >
-              {t('backgroundCheck.allow')}
+              {t(play ? 'backgroundCheck.openList' : 'backgroundCheck.allow')}
             </Button>
           }
         >
-          {t('backgroundCheck.restricted')}
+          {t(play ? 'backgroundCheck.restrictedPlay' : 'backgroundCheck.restricted')}
         </Alert>
       )}
+      <ExactRemindersPrompt sx={{ mx: 1 }} />
       {state.enabled && state.maker === 'samsung' && (
         <Alert severity="info" variant="outlined" sx={{ mx: 1 }}>
           {t('backgroundCheck.samsung')}
@@ -111,11 +115,14 @@ export function BackgroundCheckSettings({ shell }: { shell: NativeShell }) {
 /**
  * Once signed in to a server, the Android app asks once for what the check-in needs: to show
  * notifications, and to run in the background. Each is Android's own dialog; Settings asks again.
+ * The Google Play build has no such dialog, only the whole list of apps, which is not something to
+ * open unasked: there it asks for notifications only, and Settings > Notifications says the rest.
  */
 export function BackgroundCheckPrompt() {
   const { shell, info } = useShellInfo();
   const ready = useSyncState((state) => state.phase === 'ready');
   const wanted = Boolean(shell && info?.server && info.api >= CHECK_API && ready);
+  const play = isPlayBuild(info);
   useEffect(() => {
     if (!wanted || !shell) return;
     let live = true;
@@ -123,11 +130,11 @@ export function BackgroundCheckPrompt() {
       const state = await shell.backgroundCheck();
       if (!live || state.asked || !state.enabled) return;
       await notifier().request();
-      if (live) await shell.allowBackground();
+      if (live && !play) await shell.allowBackground();
     })().catch(() => undefined);
     return () => {
       live = false;
     };
-  }, [wanted, shell]);
+  }, [wanted, shell, play]);
   return null;
 }
