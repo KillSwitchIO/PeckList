@@ -235,3 +235,21 @@ test('a release with a feature is a minor one; fixes and dependency bumps alone,
   // "feature" in a fix's words is not a feature.
   assert.equal(releaseKind('0.2.10', ['fix: the feature flag check']), 'patch');
 });
+
+test('a pre-release releases as its core unless what landed since needs a bigger step', () => {
+  // A patch's rc, then a feature: the minor (0.13.0-rc.1 after 0.12.1-rc.1, 2026-11-18).
+  assert.equal(nextVersion('0.12.1-rc.1', ['fix: y', 'feat: a Completed page']), '0.13.0');
+  assert.equal(nextVersion('0.12.1-rc.1', ['fix(sync): y', 'docs: z']), '0.12.1');
+  // A minor's rc takes more features as it is.
+  assert.equal(nextVersion('0.13.0-rc.1', ['feat: smart links']), '0.13.0');
+  // Breaking before 1.0 is a feature: a minor at most.
+  assert.equal(nextVersion('0.12.1-rc.1', ['fix!: drop the old route']), '0.13.0');
+  assert.equal(nextVersion('0.13.0-rc.2', ['fix!: drop the old route']), '0.13.0');
+  // From 1.0 on, breaking makes the major, unless the rc is a major's already.
+  assert.equal(nextVersion('1.4.2-rc.1', ['fix: x\n\nBREAKING CHANGE: gone']), '2.0.0');
+  assert.equal(nextVersion('1.5.0-rc.1', ['feat!: new sync']), '2.0.0');
+  assert.equal(nextVersion('2.0.0-rc.1', ['feat!: new sync']), '2.0.0');
+  assert.equal(nextVersion('1.4.2-rc.1', ['feat: x']), '1.5.0');
+  // A release, then a fix: the patch after it.
+  assert.equal(nextVersion('0.13.0', ['fix: y']), '0.13.1');
+});

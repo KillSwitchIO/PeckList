@@ -54,13 +54,22 @@ export function releaseKind(current, messages) {
   return 'patch';
 }
 
-/** The release after `current` for those commits. A pre-release (0.3.0-rc.1) releases as its core. */
+/**
+ * The release after `current` for those commits. A pre-release (0.3.0-rc.1) releases as its core,
+ * unless what landed since it needs a bigger step than the core gives: a feature after a patch's
+ * pre-release (0.12.1-rc.1) makes the minor (0.13.0), and a breaking change from 1.0 on makes the
+ * major, as it would from a release.
+ */
 export function nextVersion(current, messages) {
   const match = SEMVER.exec(current);
   if (!match) throw new Error(`not a version: ${current}`);
   const [major, minor, patch] = [Number(match[1]), Number(match[2]), Number(match[3])];
-  if (match[4]) return `${major}.${minor}.${patch}`;
   const kind = releaseKind(current, messages);
+  if (match[4]) {
+    if (kind === 'major' && (minor > 0 || patch > 0)) return `${major + 1}.0.0`;
+    if (kind === 'minor' && patch > 0) return `${major}.${minor + 1}.0`;
+    return `${major}.${minor}.${patch}`;
+  }
   if (kind === 'major') return `${major + 1}.0.0`;
   if (kind === 'minor') return `${major}.${minor + 1}.0`;
   return `${major}.${minor}.${patch + 1}`;
