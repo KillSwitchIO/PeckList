@@ -33,6 +33,7 @@
     <string name="gate_link_use">Use the link</string>
     <!-- Notification channels, as Settings > Apps > PeckList > Notifications lists them (PL-115). -->
     <string name="channel_reminders">Reminders</string>
+    <string name="channel_constant">Constant reminders</string>
     <string name="channel_assignments">Assignments and dibs</string>
     <string name="channel_shares">Shared lists</string>
     <string name="channel_comments">Comments and mentions</string>

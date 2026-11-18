@@ -118,7 +118,7 @@ their start; the due date is the deadline.
   time**), or **None**. **Custom** makes your own: the **Day** or **Week** tab picks how many days
   or weeks early and the wheels the time of day (60 days early at 4:00 PM, say); a timed task also
   has **Minute** and **Hour** tabs for minutes or hours early. It shows when the reminder will come, or that the time has passed. **Constant reminder** keeps a reminder
-  on screen until the task is done: on the Android app it keeps sounding and buzzing until you
+  on screen until the task is done: on the Android app it keeps buzzing, with no sound, until you
   open it, dismiss it or press a button, going quiet after 30 minutes; in a browser it comes back
   every 5 minutes for 30 minutes. Its
   **Dismiss** stops that reminder (the task's other reminders still come) and **Snooze 10 min**
