@@ -1,6 +1,5 @@
 import { pinnedFirst } from '../../core/tasks.ts';
-import { groupClosed, groupDeleted } from './closedGroups.ts';
-import { useReveal } from './useReveal.tsx';
+import { groupDeleted } from './closedGroups.ts';
 import DeleteOutlineRounded from '@mui/icons-material/DeleteOutlineRounded';
 import DeleteForeverOutlined from '@mui/icons-material/DeleteForeverOutlined';
 import RestoreRounded from '@mui/icons-material/RestoreRounded';
@@ -20,7 +19,6 @@ import { localTimeZone } from '../../core/dates.ts';
 import { findInbox } from '../../core/lists.ts';
 import {
   completedOn,
-  completedTasks,
   todayGroups,
   trashedTasks,
   undatedPinned,
@@ -40,7 +38,6 @@ import { Page } from '../layout/Page.tsx';
 import { listName } from '../lists/listName.ts';
 import { useApply, useStoreState, useWorkspace } from '../store/hooks.ts';
 import { AddTaskInput, AddToInbox } from '../tasks/AddTaskInput.tsx';
-import { TaskRows } from '../tasks/TaskRow.tsx';
 import { TaskTree } from '../tasks/TaskTree.tsx';
 import { useNoteEmpty } from './emptyMarkPlays.ts';
 import { EmptyState } from './EmptyState.tsx';
@@ -260,44 +257,6 @@ export function SharedView() {
         showList
         emptyTitle={t('shared.empty')}
       />
-    </Page>
-  );
-}
-
-export function CompletedView() {
-  const workspace = useWorkspace();
-  const today = useToday();
-  const tasks = completedTasks(workspace);
-  // Drawn as they scroll near, the whole list's height kept from the start (R-FB-94).
-  const { shown, spacer } = useReveal(tasks.length);
-  // The groups as far as the rows drawn so far reach.
-  const groups: { key: string; title: string; total: number; rows: typeof tasks }[] = [];
-  let left = shown;
-  for (const group of groupClosed(tasks, today)) {
-    if (left <= 0) break;
-    const rows = group.tasks.slice(0, left);
-    left -= rows.length;
-    groups.push({ key: group.key, title: group.title, total: group.tasks.length, rows });
-  }
-  return (
-    <Page title={t('nav.completed')}>
-      {tasks.length === 0 ? (
-        <EmptyState title={t('completed.empty')} />
-      ) : (
-        <>
-          {groups.map((group) => (
-            <GroupSection
-              key={group.key}
-              groupKey={`closed:${group.key}`}
-              title={group.title || t('group.noDate')}
-              count={group.total}
-            >
-              <TaskRows tasks={group.rows} showList />
-            </GroupSection>
-          ))}
-          {spacer}
-        </>
-      )}
     </Page>
   );
 }

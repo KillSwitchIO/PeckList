@@ -17,12 +17,12 @@ import {
   AllView,
   AssignedView,
   SharedView,
-  CompletedView,
   TodayView,
   TrashView,
   UpcomingView,
 } from './views/TaskViews.tsx';
 import { DueDatesView } from './views/DueDatesView.tsx';
+import { CompletedView } from './views/CompletedView.tsx';
 import { useShellInfo } from './native/shell.ts';
 import {
   AdminPage,

@@ -1,3 +1,4 @@
+import CheckRounded from '@mui/icons-material/CheckRounded';
 import { Box, ButtonBase, Typography, useMediaQuery, useTheme } from '@mui/material';
 import { memo, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import type { CalendarItem } from '../../core/calendar.ts';
@@ -50,6 +51,8 @@ interface DayCellProps {
   col: number;
   /** A task being dragged would land on this day (R-FB-78) */
   dropping: boolean;
+  /** Tasks done on it, with "Show completed" (PL-144); 0 shows nothing */
+  done: number;
 }
 
 const DayCell = memo(function DayCell({
@@ -65,6 +68,7 @@ const DayCell = memo(function DayCell({
   narrow,
   col,
   dropping,
+  done,
 }: DayCellProps) {
   const isToday = day === today;
   const first = day.endsWith('-01');
@@ -100,6 +104,18 @@ const DayCell = memo(function DayCell({
         >
           {first ? shortMonthDay.format(at(day)) : Number(day.slice(8))}
         </ButtonBase>
+        {done > 0 && (
+          <span
+            className="cal-day-done"
+            role="img"
+            aria-label={
+              done === 1 ? t('calendar.doneOne') : t('calendar.doneMany', { count: done })
+            }
+          >
+            <CheckRounded aria-hidden />
+            {done}
+          </span>
+        )}
       </div>
       <div className="cal-day-items">
         {shown.map((item) => (
@@ -160,6 +176,15 @@ const dayStyles = {
     '&[data-first]': { fontWeight: 700 },
     '&[data-today]': { fontWeight: 700, color: 'primary.contrastText', bgcolor: 'primary.main' },
   },
+  '& .cal-day-done': {
+    display: 'inline-flex',
+    alignItems: 'center',
+    ml: 'auto',
+    pr: 0.25,
+    fontSize: 11,
+    color: 'text.secondary',
+    '& svg': { fontSize: 12 },
+  },
   '& .cal-day-items': { display: 'grid', gap: '1px' },
   '& .cal-day-more': {
     height: 16,
@@ -190,6 +215,7 @@ export function MonthView({
   rangeOpen,
   onGrab,
   dropDay = null,
+  doneCounts = null,
 }: {
   today: string;
   weekStart: number;
@@ -207,6 +233,8 @@ export function MonthView({
   onGrab: (event: React.PointerEvent<HTMLElement>, item: CalendarItem) => void;
   /** The day a task being dragged would land on, outlined (R-FB-78) */
   dropDay?: string | null;
+  /** Tasks done per day, with "Show completed" (PL-144) */
+  doneCounts?: ReadonlyMap<string, number> | null;
 }) {
   const [origin] = useState(() => addDays(weekStartOf(today, weekStart), -7 * SPAN_WEEKS));
   const rows = SPAN_WEEKS * 2 + 1;
@@ -437,6 +465,7 @@ export function MonthView({
                     onGrab={onGrab}
                     narrow={narrow}
                     dropping={day === dropDay}
+                    done={doneCounts?.get(day) ?? 0}
                   />
                 ))}
               </Box>

@@ -6,7 +6,7 @@ import { useWorkspace } from '../store/hooks.ts';
 import { NarrowButton } from './NarrowButton.tsx';
 
 // What each view is narrowed to, kept on this device like the other view choices.
-export type NarrowView = 'today' | 'upcoming' | 'calendar';
+export type NarrowView = 'today' | 'upcoming' | 'calendar' | 'completed';
 
 const keyOf = (view: NarrowView) => `pecklist.narrow.${view}`;
 const listeners = new Set<() => void>();

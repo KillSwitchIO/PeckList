@@ -11,12 +11,12 @@
 | **All**                                 | Every open task.                                                 |
 | **Calendar**                            | Month, 1 to 14 days, and a year at a glance.                     |
 | **Assigned to me** / **Shared with me** | Tasks others gave you, and lists shared with you.                |
-| **Closed**                              | Done and won't-do tasks.                                         |
+| **Completed**                           | What got done: a heatmap, totals, and closed tasks by day.       |
 | **Trash**                               | Deleted tasks and lists, restorable for 30 days unless you change it. |
 | **Search**                              | Finds tasks by their words, ranked best first (see below).       |
 | **Lists**, **Tags**, **Filters**        | Your own lists, nested tags, and saved filters.                  |
 
-Views show how many open tasks they hold, as lists do, and Closed how many closed tasks it lists
+Views show how many open tasks they hold, as lists do, and Completed how many closed tasks it lists
 (Calendar, Trash and Search show none); so do lists and tags pinned among them. The Today icon shows today's date, and turns over at midnight.
 
 **Edit sidebar** pins, hides and moves views, Search included. While editing, drag a row by its
@@ -67,11 +67,31 @@ changes it in place. **Select** (or hold a row on a phone), pick tasks or a whol
 **Select all**, then move them all to **Today**, **Tomorrow**, **Next week** or a date you pick, or
 clear them. Each task keeps its own time of day, and **Undo** puts them back.
 
-**Filter** (the funnel at the top of Today, Upcoming and the Calendar) shows only some lists, tags
+**Filter** (the funnel at the top of Today, Upcoming, Completed and the Calendar) shows only some lists, tags
 and saved filters, in any mix: a task shows when it is in one of the lists picked, has one of the
 tags picked (or a tag under one) and matches one of the saved filters picked; a kind with nothing
-picked lets everything through. Each of the three keeps its own filter on this device, and the
+picked lets everything through. Each of them keeps its own filter on this device, and the
 funnel is colored while one is on. **Clear** shows everything again.
+
+### Completed
+
+What got done, and when:
+
+- **The heatmap** has one square per day, in weeks side by side, shaded by how many tasks were
+  done that day: the busiest day is the darkest. Each square's tooltip and screen reader label give
+  the exact count. On a phone it scrolls sideways, opening on the newest weeks. Click a day to see
+  only that day; click it again, or **Show all**, for everything.
+- **The totals** under it count today, this week, this month, and the days in a row with something
+  done (up to yesterday until you finish something today).
+- **The list** has every done and won't-do task by the day it closed, newest first. Each completed
+  time of a repeating task is there on its own. Open one to reopen it or change it.
+- **Completed by** (the person button at the top) shows only what one person completed. It is
+  there once someone else has completed tasks on a list you share.
+
+Won't do tasks are listed but not counted. Done tasks still count after they move to the Trash,
+until they are erased. Completed tasks move to the Trash after the time set in **Settings > Your
+data**, and are erased as long after that. So the heatmap goes back twice that time: a quarter at
+least, and a year when the setting is a year. Older history is gone.
 
 ## Tasks
 
@@ -157,7 +177,7 @@ their start; the due date is the deadline.
   its menu, or <kbd>Alt</kbd>+<kbd>Up</kbd> / <kbd>Alt</kbd>+<kbd>Down</kbd> / <kbd>Alt</kbd>+<kbd>Right</kbd> / <kbd>Alt</kbd>+<kbd>Left</kbd>.
 - **Groups**: a group's whole heading row (apart from its buttons) folds and unfolds it.
 - **Check off**: ticking a task's box sends the bird. On **Today** it pops out of the box and
-  carries the task to the **Closed** count; everywhere else it flies along the row, striking the
+  carries the task to the **Completed** count; everywhere else it flies along the row, striking the
   title through. It takes about half a second. With reduced motion on, the task closes at once.
 - **Pin**: **Pin to the top** in a task's menu (its **...** in the details) puts it in a **Pinned**
   group at the top of every view it shows in, and it stays in its own group too. Completing it
@@ -266,6 +286,11 @@ Phones show no scrollbars in the calendar: swipe to scroll. Drag tasks from **Un
 phone, the calendar-with-a-cross button at the top) onto a day (all day) or a time. A task dropped
 on a month day keeps its time. Each device remembers the view, days, weeks and hour height.
 
+**Show completed** (the round tick beside the view switch, in Month and Year) counts what got done
+on each day. Month puts a small tick and the count at the top of the day. Year shades each day by
+the tasks done on it, from fewer to more, instead of by open tasks. It is off at first, and each
+device remembers it.
+
 ## Your profile menu
 
 Your profile picture in the top right (your photo or initials, with a small icon of the sign-in
@@ -361,7 +386,7 @@ whenever you like. Each shows when it was made, when it expires and when it was 
 
 **Show the Closed group** (under Lists and tags) hides or shows the done and won't-do tasks
 under lists and views on this device; a long press (or right-click) on a **Closed** group's
-header hides it too. The **Closed** view and search always show them.
+header hides it too. The **Completed** view and search always show them.
 
 **Lists and tags** gathers them on one page: drag a list by its grip to set the order the menu
 shows them in, and from each row change its name, icon and color (tap it), who it is shared with,

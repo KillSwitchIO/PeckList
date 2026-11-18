@@ -1,5 +1,6 @@
 import RadioButtonUncheckedRounded from '@mui/icons-material/RadioButtonUncheckedRounded';
 import EventBusyOutlined from '@mui/icons-material/EventBusyOutlined';
+import TaskAltRounded from '@mui/icons-material/TaskAltRounded';
 import {
   Box,
   Button,
@@ -78,6 +79,7 @@ import { useCalendarDrag, type DragPayload, type DropTarget } from './useCalenda
 import { dateHeading } from './calendarLook.ts';
 import type { YearStay } from './yearLayout.ts';
 import { YearView, type YearHeat } from './YearView.tsx';
+import { doneByDay, doneScale } from '../../core/completions.ts';
 import { useNarrowed } from '../views/useNarrowed.tsx';
 
 /** How many unscheduled tasks show at first (and more on asking). */
@@ -228,10 +230,20 @@ export function CalendarPage() {
   );
   // Only the years drawn are worked out, each once until the tasks change: many years must not
   // slow it down, and shading each against itself keeps a day's shade from moving as it scrolls.
+  // With "Show completed" (PL-144): tasks done per day, for Month's days and Year's shades.
+  const doneCounts = useMemo(
+    () => (prefs.completed ? doneByDay(shown.entities.tasks, zone) : null),
+    [prefs.completed, shown, zone],
+  );
   const heatOf = useMemo(() => {
     const years = new Map<string, YearHeat>();
     return (year: string) => {
       let heat = years.get(year);
+      if (!heat && doneCounts) {
+        const counts = new Map([...doneCounts].filter(([day]) => day.startsWith(`${year}-`)));
+        heat = { counts, scale: doneScale(counts.values()) };
+        years.set(year, heat);
+      }
       if (!heat) {
         const [from, to] = [`${year}-01-01`, `${year}-12-31`];
         const counts = openCountsByDay(
@@ -244,7 +256,7 @@ export function CalendarPage() {
       }
       return heat;
     };
-  }, [shown, settings?.pointEventMinutes]);
+  }, [shown, settings?.pointEventMinutes, doneCounts]);
 
   const [drawer, setDrawer] = useState(false);
   const [popup, setPopup] = useState<{
@@ -487,6 +499,22 @@ export function CalendarPage() {
               </ToggleButton>
             </Tooltip>
           )}
+          {mode !== 'days' && (
+            <Tooltip
+              title={prefs.completed ? t('calendar.hideCompleted') : t('calendar.showCompleted')}
+            >
+              <ToggleButton
+                value="completed"
+                size="small"
+                selected={prefs.completed}
+                aria-label={t('calendar.completed')}
+                onChange={() => setPrefs({ completed: !prefs.completed })}
+                sx={{ flexShrink: 0, px: 0.75 }}
+              >
+                <TaskAltRounded fontSize="small" />
+              </ToggleButton>
+            </Tooltip>
+          )}
           <ToggleButtonGroup
             exclusive
             size="small"
@@ -557,6 +585,7 @@ export function CalendarPage() {
                 today={today}
                 weekStart={weekStart}
                 heatOf={heatOf}
+                counting={doneCounts ? 'done' : 'open'}
                 onOpenDay={openDay}
                 onOpenMonth={openMonth}
                 onYear={followYear}
@@ -576,6 +605,7 @@ export function CalendarPage() {
                 rangeOpen={range !== null}
                 onGrab={(event, item) => grabItem(event, item)}
                 dropDay={dropDay}
+                doneCounts={doneCounts}
               />
             ) : (
               <DaysView
