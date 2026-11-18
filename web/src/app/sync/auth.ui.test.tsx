@@ -206,6 +206,25 @@ describe('signing in to a server', () => {
     expect(await screen.findByRole('heading', { level: 1, name: 'Today' })).toBeInTheDocument();
   });
 
+  it('changing a password on a locked account says when the lock ends', async () => {
+    const backend = new FakeBackend();
+    backend.addAccount('admin', 'generated password', { mustChangePassword: true, role: 'admin' });
+    await serverApp(backend);
+    await userEvent.type(await screen.findByLabelText(/Username/), 'admin');
+    await userEvent.type(screen.getByLabelText(/^Password/), 'generated password{Enter}');
+    await screen.findByRole('heading', { name: 'Choose a new password' });
+    // Wrong passwords given elsewhere since (deleting the account, say) locked it.
+    backend.lockedUntil = '2026-11-17T15:30:00Z';
+    await userEvent.type(screen.getByLabelText(/Current password/), 'generated password');
+    await userEvent.type(screen.getByLabelText(/New password/), 'a brand new password');
+    await userEvent.type(
+      screen.getByLabelText(/Confirm new password/),
+      'a brand new password{Enter}',
+    );
+    expect(await screen.findByText(/This account is locked until/)).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Choose a new password' })).toBeInTheDocument();
+  });
+
   it('the first super admin goes on to set up the server once their password is chosen', async () => {
     window.history.replaceState(null, '', '/today');
     const backend = new FakeBackend();

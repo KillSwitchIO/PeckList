@@ -112,6 +112,24 @@ describe('delete my account', () => {
     );
   });
 
+  it('locked by too many wrong passwords: says until when, and deletes nothing', async () => {
+    const backend = new FakeBackend();
+    backend.addAccount('sam', 'a long enough password');
+    backend.lockedUntil = '2026-11-18T03:30:00Z';
+    await appAs(backend, 'sam');
+    const dialog = await openDialog();
+    await userEvent.type(within(dialog).getByLabelText(/Your password/), 'a long enough password');
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Delete my account' }));
+    const time = new Date('2026-11-18T03:30:00Z').toLocaleTimeString(undefined, {
+      hour: 'numeric',
+      minute: '2-digit',
+    });
+    expect(
+      await within(dialog).findByText(`Too many tries. This account is locked until ${time}.`),
+    ).toBeInTheDocument();
+    expect(backend.deleted.has('sam')).toBe(false);
+  });
+
   it('with no grace period, says it goes at once and cannot be restored', async () => {
     const backend = new FakeBackend();
     backend.deleteGraceDays = 0;

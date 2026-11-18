@@ -391,8 +391,11 @@ public class ShellPlugin extends Plugin {
     /** Api 2: Android's dialog to let PeckList run in the background; resolves once it closes. */
     @PluginMethod
     public void allowBackground(PluginCall call) {
+        boolean askedBefore = BackgroundCheck.asked(getContext());
         BackgroundCheck.markAsked(getContext());
-        if (BackgroundCheck.unrestricted(getContext())) {
+        boolean pressed = Boolean.TRUE.equals(call.getBoolean("pressed", false));
+        if (BackgroundCheck.unrestricted(getContext())
+            || !BackgroundCheck.opensSettings(Distribution.isPlay(), pressed, askedBefore)) {
             call.resolve(BackgroundCheck.state(getContext()));
             return;
         }

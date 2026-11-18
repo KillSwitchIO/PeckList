@@ -55,7 +55,10 @@ export class FakeShell implements NativeShell {
     this.background = { ...this.background, ...change };
     return this.backgroundCheck();
   }
-  allowBackground() {
+  /** Each allowBackground call's `pressed`. */
+  pressed: (boolean | undefined)[] = [];
+  allowBackground(pressed?: boolean) {
+    this.pressed.push(pressed);
     this.batteryOpened += 1;
     this.background = { ...this.background, asked: true };
     return this.backgroundCheck();

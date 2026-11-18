@@ -97,6 +97,24 @@ describe('settings: passkeys (PL-123)', () => {
     expect(within(section).getByText('Pixel')).toBeInTheDocument();
   });
 
+  it('removing the password on a locked account says when the lock ends', async () => {
+    const backend = new FakeBackend();
+    backend.passkeysOn = true;
+    backend.addAccount('sam', 'a long enough password');
+    backend.passkeys.set('cred-0', { username: 'sam', info: pixel });
+    backend.lockedUntil = '2026-11-17T15:30:00Z';
+    const section = await settingsAs(backend, 'sam');
+    await userEvent.click(await within(section).findByRole('button', { name: 'Remove password' }));
+    const dialog = await screen.findByRole('dialog', { name: 'Remove your password?' });
+    await userEvent.type(
+      within(dialog).getByLabelText(/Current password/),
+      'a long enough password',
+    );
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Remove password' }));
+    expect(await within(dialog).findByText(/This account is locked until/)).toBeInTheDocument();
+    expect(backend.accounts.get('sam')?.password).toBe('a long enough password');
+  });
+
   it('has no section where none can be added, but keeps the ones already made', async () => {
     const backend = new FakeBackend();
     backend.passkeysOn = true;

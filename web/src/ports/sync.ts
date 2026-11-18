@@ -256,7 +256,9 @@ export type LoginOutcome =
 export type PasswordOutcome =
   | { kind: 'ok'; account: Account }
   /** `demo-account`: a demo server's pre-made account keeps the password its banner shows. */
-  | { kind: 'wrong-password' | 'too-short' | 'too-long' | 'unchanged' | 'demo-account' };
+  | { kind: 'wrong-password' | 'too-short' | 'too-long' | 'unchanged' | 'demo-account' }
+  /** Too many wrong passwords, here or signing in: locked until then (ISO time). */
+  | { kind: 'locked'; until: string };
 
 /** Who someone is, before becoming friends (a friend link or a lookup). */
 export interface ProfilePreview {
@@ -322,6 +324,8 @@ export interface AccountDeletion {
 export type AccountDeleteOutcome =
   | { kind: 'deleted'; removedAt: string }
   | { kind: 'wrong-password' }
+  /** Too many wrong passwords, here or signing in: locked until then (ISO time). */
+  | { kind: 'locked'; until: string }
   | { kind: 'sign-in-again' }
   | { kind: 'last-super-admin' }
   | { kind: 'too-many' }
@@ -357,7 +361,9 @@ export interface AccountApi {
   /** `last-way-in` when it is the account's only way to sign in, so it stays. */
   removePasskey?(id: string): Promise<'ok' | 'last-way-in'>;
   /** Do without a password, confirmed with it; `last-way-in` without a passkey or provider. */
-  removePassword?(current: string): Promise<'ok' | 'wrong-password' | 'last-way-in'>;
+  removePassword?(
+    current: string,
+  ): Promise<'ok' | 'wrong-password' | 'last-way-in' | { kind: 'locked'; until: string }>;
   /** Your supporter key and the server's (optional: older servers have none). */
   supporter?(): Promise<SupporterStatus>;
   /** Enter your own supporter key. */

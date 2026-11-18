@@ -95,6 +95,56 @@ public sealed class SelfDeleteAccountTests(ServerFixture fixture) : IClassFixtur
         Assert.Equal(HttpStatusCode.OK, (await Pull(await LogIn(server, "sam", Password))).StatusCode);
     }
 
+    /// <summary>
+    /// Someone holding a signed-in session cannot use Delete my account to guess the password: wrong
+    /// ones lock the account as wrong sign-ins do (security review of self-delete, Low 2).
+    /// </summary>
+    [Fact]
+    public async Task Wrong_passwords_lock_the_account_as_at_sign_in()
+    {
+        using var server = fixture.Factory(("ADMIN_PASSWORD", AdminPassword));
+        await NewUser(server, "sam");
+        var sam = await LogIn(server, "sam", Password);
+
+        for (var attempt = 1; attempt < AccountService.MaxFailedLogins; attempt++)
+        {
+            Assert.Equal(HttpStatusCode.BadRequest, (await Delete(sam, $"guess {attempt}")).StatusCode);
+        }
+        var locked = await Delete(sam, "one more guess");
+        Assert.Equal(HttpStatusCode.Locked, locked.StatusCode);
+        var error = (await locked.Content.ReadFromJsonAsync<AuthError>(Token))!;
+        Assert.Equal("locked", error.Error);
+        Assert.NotNull(error.Until);
+        // With how long to wait, as sign-in says it.
+        Assert.InRange((long)Assert.IsType<TimeSpan>(locked.Headers.RetryAfter?.Delta).TotalSeconds, 1, (long)AccountService.LockoutTime.TotalSeconds);
+
+        // The right password waits too, here and at sign-in; the account and the session stay.
+        Assert.Equal(HttpStatusCode.Locked, (await Delete(sam, Password)).StatusCode);
+        Assert.Equal(HttpStatusCode.Locked,
+            (await server.CreateClient().PostAsJsonAsync("/auth/login", new { username = "sam", password = Password }, Token)).StatusCode);
+        Assert.Equal(HttpStatusCode.OK, (await Pull(sam)).StatusCode);
+    }
+
+    [Fact]
+    public async Task Passwords_given_when_signed_in_share_sign_in_s_tries_a_minute_per_name()
+    {
+        using var server = fixture.Factory(("ADMIN_PASSWORD", AdminPassword));
+        await NewUser(server, "sam");
+        var sam = await LogIn(server, "sam", Password);
+        // Sign-in's tries for this name used up (from other addresses, say): no guess goes ahead here.
+        var attempts = server.Services.GetRequiredService<LoginAttempts>();
+        while (attempts.TryTake("sam")) { }
+
+        var refused = await Delete(sam, "a guess");
+        Assert.Equal(HttpStatusCode.TooManyRequests, refused.StatusCode);
+        Assert.InRange((long)Assert.IsType<TimeSpan>(refused.Headers.RetryAfter?.Delta).TotalSeconds, 1, 60);
+        var change = await sam.PostAsJsonAsync("/auth/password", new { current = "a guess", next = "another long password" }, Token);
+        Assert.Equal(HttpStatusCode.TooManyRequests, change.StatusCode);
+        // Not counted toward the lockout: the right password still works once the minute is up.
+        var account = await server.Services.GetRequiredService<IAccountStore>().FindByUsernameAsync("sam", Token);
+        Assert.Equal(0, account!.FailedLogins);
+    }
+
     [Fact]
     public async Task Without_a_password_it_takes_a_sign_in_in_the_last_ten_minutes()
     {

@@ -16,6 +16,7 @@ import { t } from '../i18n/i18n.ts';
 import { PasswordField } from '../layout/PasswordField.tsx';
 import { ProblemAlert } from '../layout/ProblemAlert.tsx';
 import { PLAY_API, useShellInfo } from '../native/shell.ts';
+import { lockedProblem } from '../sync/passwordChange.ts';
 import { leaveFor, rememberProvider } from '../sync/signInWith.ts';
 import { useSyncState } from '../sync/syncContext.ts';
 import { freshSignInUrl, rememberDeleted } from './deleteAccount.ts';
@@ -170,6 +171,7 @@ function DeleteDialog({
         return;
       }
       if (outcome.kind === 'wrong-password') setProblem(t('deleteAccount.wrongPassword'));
+      else if (outcome.kind === 'locked') setProblem(lockedProblem(outcome.until));
       else if (outcome.kind === 'sign-in-again') setNeedSignIn(true);
       else if (outcome.kind === 'last-super-admin')
         setDeletion({ ...deletion, blocked: 'last_super_admin' });

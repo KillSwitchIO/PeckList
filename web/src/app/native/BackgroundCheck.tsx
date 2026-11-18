@@ -93,7 +93,7 @@ export function BackgroundCheckSettings({ shell }: { shell: NativeShell }) {
           action={
             <Button
               size="small"
-              onClick={() => void shell.allowBackground().then(setState, () => undefined)}
+              onClick={() => void shell.allowBackground(true).then(setState, () => undefined)}
             >
               {t(play ? 'backgroundCheck.openList' : 'backgroundCheck.allow')}
             </Button>

@@ -212,6 +212,8 @@ describe('running in the background', () => {
     ).toBeInTheDocument();
     await userEvent.click(within(section).getByRole('button', { name: 'Open the list' }));
     expect(shell.batteryOpened).toBe(1);
+    // Said to be a press: the Play shell opens the list only then, never for an older web app.
+    expect(shell.pressed).toEqual([true]);
   });
 });
 

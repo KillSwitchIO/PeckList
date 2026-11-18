@@ -29,6 +29,19 @@ public class BackgroundCheckTest {
             BackgroundCheck.checkAddress("https://tasks.example.com", "Europe/Oslo", "01J", true, each -> "[" + each + "]"));
     }
 
+    /** The Play build opens the list of apps only for a button pressed, never for an older web app's first run. */
+    @Test
+    public void thePlayBuildOpensTheListOfAppsOnlyWhenAsked() {
+        assertTrue(BackgroundCheck.opensSettings(true, true, false));
+        // An older server's web app: its first ask is the first-run prompt (no list), every later
+        // one is the button (the list).
+        assertFalse(BackgroundCheck.opensSettings(true, false, false));
+        assertTrue(BackgroundCheck.opensSettings(true, false, true));
+        // The foss build's dialog is a question: asked on the first run too, as before.
+        assertTrue(BackgroundCheck.opensSettings(false, false, false));
+        assertTrue(BackgroundCheck.opensSettings(false, true, false));
+    }
+
     /** Audit P7: a check that asked for no reminders never hands its empty list over as the alarms. */
     @Test
     public void onlyACheckThatAskedForRemindersHandsThemOver() {
