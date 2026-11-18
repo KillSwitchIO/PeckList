@@ -21,7 +21,7 @@ import { setHideCompleted, useHideCompleted } from '../views/completedPrefs.ts';
 import { AppearanceSection } from './AppearanceSection.tsx';
 import { DataSection } from './DataSection.tsx';
 import { DateTimeSection } from './DateTimeSection.tsx';
-import { DeleteAccountSection } from './DeleteAccountSection.tsx';
+import { AccountEndSection } from './AccountEndSection.tsx';
 import { EmailSection } from './EmailSection.tsx';
 import { NewTaskSection } from './NewTaskSection.tsx';
 import { NotificationSettings } from './NotificationSettings.tsx';
@@ -50,7 +50,7 @@ function AccountCategory() {
           <LinkRow to="/settings/api-keys" label={t('apiKeys.open')} hint={t('apiKeys.openHint')} />
         </Section>
       )}
-      <DeleteAccountSection />
+      <AccountEndSection />
     </Stack>
   );
 }

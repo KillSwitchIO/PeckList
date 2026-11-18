@@ -34,6 +34,7 @@ public sealed class AccountRemoval(
     Core.Accounts.IPasskeyStore passkeys,
     Core.Push.IPushStore push,
     Core.Supporters.SupporterKeys supporterKeys,
+    ISecretStore secrets,
     LiveSettings live,
     TimeProvider time,
     ILogger<AccountRemoval> logger)
@@ -137,6 +138,8 @@ public sealed class AccountRemoval(
         await history.ForgetActorAsync(account.Id, cancellation);
         await apiKeys.DeleteForUserAsync(account.Id, cancellation);
         await passkeys.DeleteAllAsync(account.Id, cancellation);
+        // Their own sync epoch, if they ever started over (PL-147).
+        await secrets.DeleteAsync(ServerEpoch.PersonKind, account.Id, cancellation);
         await push.RemoveUserAsync(account.Id, cancellation);
         await supporterKeys.RemoveAsync(account.Id, cancellation);
         await accounts.DeleteAsync(account.Id, cancellation);

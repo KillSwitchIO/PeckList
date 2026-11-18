@@ -68,7 +68,11 @@ function kimsServer() {
 }
 
 async function openDialog() {
-  const section = await screen.findByRole('region', { name: 'Delete my account' }, slow);
+  const section = await screen.findByRole(
+    'region',
+    { name: 'Start over or delete your account' },
+    slow,
+  );
   await userEvent.click(within(section).getByRole('button', { name: 'Delete account' }));
   return screen.findByRole('dialog', { name: 'Delete your account?' });
 }
@@ -234,14 +238,15 @@ describe('delete my account', () => {
     expect(within(dialog).getByLabelText(/Your password/)).toBeInTheDocument();
   });
 
-  it('a server from before self-delete shows no such section', async () => {
+  it('a server from before self-delete and Start over shows no such section', async () => {
     const backend = new FakeBackend();
     backend.deleteGraceDays = null;
+    backend.startOverOffered = false;
     backend.addAccount('sam', 'a long enough password');
     await appAs(backend, 'sam');
     await screen.findByRole('region', { name: 'Email' }, slow);
     await new Promise((resolve) => setTimeout(resolve, 50));
-    expect(screen.queryByRole('region', { name: 'Delete my account' })).toBeNull();
+    expect(screen.queryByRole('region', { name: 'Start over or delete your account' })).toBeNull();
   });
 });
 

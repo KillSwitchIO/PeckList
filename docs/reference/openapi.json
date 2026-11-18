@@ -588,6 +588,118 @@
         }
       }
     },
+    "/api/account/start-over": {
+      "get": {
+        "tags": [
+          "Account"
+        ],
+        "summary": "What starting over asks for here: the proof, and whether this sign-in is recent enough",
+        "description": "API keys can't use this route: sign in to the web app instead.",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StartOverInfo"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found"
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not a working one"
+          },
+          "403": {
+            "description": "Not allowed: password_change_required, a key without the scope (scope), or a missing permission",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Refusal"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Account"
+        ],
+        "summary": "Start over: erase your own tasks, lists, tags and comments and keep your account, with your password or a sign-in in the last 10 minutes",
+        "description": "API keys can't use this route: sign in to the web app instead.",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StartOverRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StartedOver"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Refusal"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Refusal"
+                }
+              }
+            }
+          },
+          "423": {
+            "description": "Locked",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Refusal"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too Many Requests",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Refusal"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found"
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not a working one"
+          }
+        }
+      }
+    },
     "/api/account/email": {
       "get": {
         "tags": [
@@ -11622,6 +11734,59 @@
           "at": {
             "type": "integer",
             "format": "int64"
+          }
+        }
+      },
+      "StartOverInfo": {
+        "required": [
+          "proof",
+          "signedInRecently",
+          "blocked"
+        ],
+        "type": "object",
+        "properties": {
+          "proof": {
+            "type": "string"
+          },
+          "signedInRecently": {
+            "type": "boolean"
+          },
+          "blocked": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
+      "StartOverRequest": {
+        "required": [
+          "password"
+        ],
+        "type": "object",
+        "properties": {
+          "password": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
+      "StartedOver": {
+        "required": [
+          "erased",
+          "handedOn"
+        ],
+        "type": "object",
+        "properties": {
+          "erased": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "handedOn": {
+            "type": "integer",
+            "format": "int32"
           }
         }
       },

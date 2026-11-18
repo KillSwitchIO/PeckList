@@ -107,6 +107,7 @@ the app's hand-off code (`POST /auth/app/redeem`).
 | `POST /api/sync`                                     | Internal: the apps' sync. Send changes and receive others' since a cursor |
 | `GET /api/events`                                    | Server-sent events: something changed, sync now |
 | `GET /api/account/sign-in`, `GET /api/account/stats` | Your sign-in methods, your stats                |
+| `GET/POST /api/account/delete`, `GET/POST /api/account/start-over` | Delete my account; Start over (erase your own tasks, lists, tags and comments, keep the account). The `GET` says which proof the `POST` wants: `{"password"}`, or a sign-in in the last 10 minutes. Both share the sign-in rate limit |
 | `/api/friends/...`, `GET /api/users/lookup`          | Friend links and requests, finding people       |
 | `GET /api/notifications`, `POST .../read`, `.../clear` | Your notifications; mark read or clear (`{"ids": [...]}`, or `null` for all) |
 | `GET /api/tasks/{id}/history`                        | A task's changes, newest first: `at`, `actorId`, `field`, `before`, `after` (JSON values); 404 for a task you cannot see |

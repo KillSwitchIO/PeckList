@@ -561,6 +561,7 @@ export const en = {
   'audit.type.account.passkey-added': '{actor} added the passkey {target}',
   'audit.type.account.passkey-removed': '{actor} removed the passkey {target}',
   'audit.type.account.password-removed': '{actor} removed their password',
+  'audit.type.account.started-over': '{actor} started over, erasing their own tasks and lists',
   'audit.type.admin.passkey-removed': "{actor} removed a passkey of {target}'s",
   'audit.type.admin.crash-report-sent': '{actor} sent a server crash report',
   'audit.type.auth.oidc-sign-in': '{actor} signed in with a provider',
@@ -1795,6 +1796,35 @@ export const en = {
   'deleteAccount.doneGrace':
     'Your account is deleted. An admin of this server can restore it until {date}.',
   'deleteAccount.doneNow': 'Your account is deleted.',
+  'accountEnd.title': 'Start over or delete your account',
+  'startOver.title': 'Start over',
+  'startOver.hint':
+    'Erases your tasks, lists, tags and comments, and keeps your account, its sign-in and your settings.',
+  'startOver.open': 'Start over',
+  'startOver.dialog': 'Start over?',
+  'startOver.what':
+    'Your tasks, lists, sections, tags, saved filters and comments are deleted from every device you use, and they can\u2019t be brought back in the app, not even by an admin of this server. Your account, its sign-in and your settings stay.',
+  'startOver.shared':
+    'A list you share goes to the next person in it, and you leave lists others share with you. Tasks you added to other people’s lists stay there, without your comments.',
+  'startOver.exportHint': 'Want a copy first? Download everything as a file you can import later.',
+  'startOver.export': 'Download a copy',
+  'startOver.exported': 'Downloaded',
+  'startOver.phrase': 'start over',
+  'startOver.type': 'Type {phrase} to confirm',
+  'startOver.signInAgain': 'To show it is you, sign in again, then start over within 10 minutes.',
+  'startOver.stillNotRecent':
+    'That sign-in did not count: your sign-in provider let you in without asking you to show it is you. Try again.',
+  'startOver.useBrowser':
+    'To show it is you, open this server in your browser, sign in there and start over from Settings. This version of the app cannot sign you in again for it.',
+  'startOver.noWayBack': 'This account has no way to sign in again here, so it cannot start over.',
+  'startOver.viewingAs':
+    'You are viewing the app as someone else. Only they can start over their account.',
+  'startOver.noSignIn': 'This server has no sign-in. Start over from Settings > Your data instead.',
+  'startOver.confirm': 'Start over',
+  'startOver.working': 'Starting over...',
+  'startOver.done': 'You have started over. Your account, its sign-in and your settings stay.',
+  'startOver.handedOne': 'One shared list went to the next person in it.',
+  'startOver.handedMany': '{count} shared lists went to the next person in them.',
   'backgroundCheck.samsung':
     'On a Samsung phone, also add PeckList to Never sleeping apps (Settings > Battery > Background usage limits).',
   'backgroundCheck.notificationsOff': 'Notifications are off for PeckList, so nothing will show.',

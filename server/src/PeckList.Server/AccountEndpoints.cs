@@ -146,7 +146,7 @@ public static class AccountEndpoints
     /// The proof deleting an account asks for: its password while it has one that signs in, or else
     /// (provider and passkey accounts, LOCAL_LOGIN=disabled) a recent sign-in.
     /// </summary>
-    private static string ProofFor(Account account, LiveSettings live) =>
+    internal static string ProofFor(Account account, LiveSettings live) =>
         account.PasswordHash is not null && !live.Current.LocalLoginDisabled ? ProofPassword : ProofSignIn;
 
     /// <summary>
@@ -160,7 +160,7 @@ public static class AccountEndpoints
         && long.TryParse(user.FindFirstValue(AuthSetup.AuthTimeClaim) ?? user.FindFirstValue(AuthSetup.SinceClaim), NumberStyles.None, CultureInfo.InvariantCulture, out var seconds)
         && time.GetUtcNow() - DateTimeOffset.FromUnixTimeSeconds(seconds) <= FreshSignIn;
 
-    private static IResult Refuse(int status, string error, string message) => Results.Json(new AdminError(error, message), statusCode: status);
+    internal static IResult Refuse(int status, string error, string message) => Results.Json(new AdminError(error, message), statusCode: status);
 
     public static IdentityView View(LinkedIdentity identity, ServerSettings settings) => new(
         identity.Provider,

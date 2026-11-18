@@ -33,9 +33,10 @@ public static class SyncEndpoints
                     "{Admin} as {User} tried to write {Count} change(s); refused", admin, user.FindFirstValue(ClaimTypes.Name), request.Changes.Count);
                 return Results.Json(new AuthError("not_while_impersonating"), statusCode: StatusCodes.Status403Forbidden);
             }
-            // A device from before a restore writes nothing over the restored data (audit C6): it
-            // hears the new epoch and starts over from what the server has now.
-            var current = await context.RequestServices.GetRequiredService<ServerEpoch>().GetAsync(cancellation);
+            // A device from before a restore, or from before its person started over (PL-147),
+            // writes nothing over the data (audit C6): it hears the new epoch and starts over from
+            // what the server has now.
+            var current = await context.RequestServices.GetRequiredService<ServerEpoch>().ForAsync(user.UserId(), cancellation);
             if (request.Epoch is { Length: > 0 } theirs && theirs != current)
             {
                 return Results.Ok(new SyncResponse(0, [], false, [], [], [], Epoch: current));
@@ -52,8 +53,9 @@ public static class SyncEndpoints
                     // A friend request just accepted (or declined) settles assignments waiting on it.
                     await invites.SettleAsync(cancellation);
                 }
-                // Which life of the data this is: devices start over when it changes (a restore).
-                var epoch = await context.RequestServices.GetRequiredService<ServerEpoch>().GetAsync(cancellation);
+                // Which life of the data this is: devices start over when it changes (a restore, or
+                // their person starting over).
+                var epoch = await context.RequestServices.GetRequiredService<ServerEpoch>().ForAsync(user.UserId(), cancellation);
                 return Results.Ok(response with { Epoch = epoch });
             }
             catch (SyncRejected rejected)

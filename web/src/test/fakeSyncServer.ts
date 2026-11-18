@@ -65,6 +65,33 @@ export class FakeSyncServer {
     };
   }
 
+  /**
+   * Start over (PL-147), as the server does it: tombstone what `userId` owns in these collections,
+   * but their Inbox list. Returns how many went.
+   */
+  eraseOwnedBy(userId: string, collections: readonly string[]): number {
+    let erased = 0;
+    for (const row of this.rows.values()) {
+      const { collection, entity } = row.change;
+      if (row.owner !== userId || entity.deletedAt !== null || !collections.includes(collection)) {
+        continue;
+      }
+      if (collection === 'lists' && (entity as { isInbox?: boolean }).isInbox) continue;
+      this.seq += 1;
+      row.seq = this.seq;
+      row.change = {
+        collection,
+        entity: {
+          ...entity,
+          deletedAt: '2026-11-17T12:00:00.000Z',
+          _hlc: { ...entity._hlc, deletedAt: '2099-01-01T00:00:00.000Z-0000-server' },
+        },
+      };
+      erased += 1;
+    }
+    return erased;
+  }
+
   entity(id: string): BaseEntity | undefined {
     return this.rows.get(id)?.change.entity;
   }

@@ -381,6 +381,42 @@ describe('HTTP sync transport', () => {
     ]);
   });
 
+  it('reads what starting over asks for, and each way it can go (PL-147)', async () => {
+    const info = { proof: 'password', signedInRecently: false, blocked: null };
+    const until = '2026-11-18T03:30:00Z';
+    const { fetcher, calls } = fakeFetch(
+      { status: 200, body: info },
+      { status: 404, body: {} },
+      { status: 200, body: { erased: 6, handedOn: 1 } },
+      { status: 400, body: { error: 'wrong_password' } },
+      { status: 423, body: { error: 'locked', until } },
+      { status: 429, body: {} },
+      { status: 404, body: {} },
+      { status: 403, body: { error: 'sign_in_again' } },
+      { status: 403, body: { error: 'not_while_impersonating' } },
+    );
+    const http = createHttpSync('', fetcher);
+    expect(await http.account!.startOverInfo?.()).toEqual(info);
+    // A server from before it.
+    expect(await http.account!.startOverInfo?.()).toBeNull();
+    expect(await http.account!.startOver?.('a')).toEqual({
+      kind: 'started-over',
+      erased: 6,
+      handedOn: 1,
+    });
+    expect(await http.account!.startOver?.('a')).toEqual({ kind: 'wrong-password' });
+    expect(await http.account!.startOver?.('a')).toEqual({ kind: 'locked', until });
+    expect(await http.account!.startOver?.('a')).toEqual({ kind: 'too-many' });
+    expect(await http.account!.startOver?.('a')).toEqual({ kind: 'gone' });
+    expect(await http.account!.startOver?.()).toEqual({ kind: 'sign-in-again' });
+    expect(await http.account!.startOver?.()).toEqual({ kind: 'refused' });
+    expect(calls.map((call) => call.url)).toEqual([
+      '/api/account/start-over',
+      '/api/account/start-over',
+      ...Array<string>(7).fill('/api/account/start-over'),
+    ]);
+  });
+
   it('gives up on a request that never answers, and reads it as offline', async () => {
     vi.useFakeTimers();
     try {
