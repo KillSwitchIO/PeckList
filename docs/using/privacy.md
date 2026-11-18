@@ -1,5 +1,8 @@
 # Privacy and telemetry
 
+The project's [privacy policy](https://docs.pecklist.com/privacy-policy/) sums up what reaches the
+project, how long it is kept and how to have it deleted. This page has the technical detail.
+
 Your tasks stay on your server. PeckList makes two kinds of request to the internet on its own,
 both from the server (never from people's browsers or phones), and both can be turned off:
 
@@ -28,6 +31,8 @@ analytics:
   can see where people get stuck. Form fields are hidden, but other text on the page is recorded.
   **On the demo, that includes tasks you add once they show on screen**, so keep real details out
   of it.
+
+Both are kept 30 days.
 
 Cloudflare sits in front of these sites, and the [support page](https://pecklist.com/support/)
 loads Ko-fi's tip panel. None of this applies to a server you run yourself unless you set it up.
@@ -129,7 +134,8 @@ address it was worked out from never reaches the collector.
 
 ## What the project does with it
 
-The reports are kept 90 days; totals per day are kept after that. Only the project sees them: the
+Usage reports and crash reports are kept 90 days; totals per day (how many installs had each
+value, with no install id) are kept after that. Only the project sees them: the
 collector takes reports from the internet and shows its totals on the project's own network, nowhere
 else. The collector's code is in the repository
 ([telemetry collector](../development/telemetry-collector.md)).

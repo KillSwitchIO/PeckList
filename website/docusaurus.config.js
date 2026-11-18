@@ -49,7 +49,9 @@ export default {
           remarkPlugins: [[snippets, { root }]],
         },
         blog: false,
-        pages: false,
+        // A few pages outside the versions (website/src/pages), at one address every version
+        // shares: the privacy policy and the account deletion page the app stores link to.
+        pages: {},
         theme: { customCss: './src/css/custom.css' },
       }),
     ],
@@ -82,6 +84,10 @@ export default {
       },
       footer: {
         style: 'dark',
+        links: [
+          { label: 'Privacy policy', to: '/privacy-policy/' },
+          { label: 'Deleting your account', to: '/delete-account/' },
+        ],
         copyright: `PeckList is free software under the AGPL-3.0-or-later. Source on <a href="${repo}">GitLab</a>.`,
       },
       prism: {

@@ -187,14 +187,15 @@ build needs it uninstalled before the release one goes on.
 
 | Where | What |
 | --- | --- |
-| GitLab, project CI/CD variables | `ANDROID_KEYSTORE_BASE64` (the PKCS12 keystore, base64; protected, masked), `ANDROID_KEYSTORE_PASSWORD` (protected, masked), `ANDROID_KEY_ALIAS` (`pecklist`, protected) |
+| GitLab, project CI/CD variables | `ANDROID_KEYSTORE_BASE64` (the PKCS12 keystore, base64; protected, masked), `ANDROID_KEYSTORE_PASSWORD` (protected, masked), `ANDROID_KEY_ALIAS` (`punchlist`, protected) |
 | GitLab, protected tags | `v*`, so tag pipelines get the protected variables (only `main` and `v*` tags can sign) |
 | Google Play Console | The same key, as the app's signing key (Play App Signing) |
 | A password manager | The keystore file and its password: the copy to restore from |
 
-The key: RSA 4096, alias `pecklist`, `CN=Punchlist, O=killswitch10` (made before the rename; the
-name in a certificate can't change without a new key, and every install would have to be removed
-for that), valid 100 years,
+The key: RSA 4096, alias `punchlist`, `CN=Punchlist, O=killswitch10` (made before the rename, as
+are its alias and the keystore's file name, `punchlist-release.p12`; the name in a certificate
+can't change without a new key, and every install would have to be removed for that), valid 100
+years,
 certificate SHA-256 `18:C8:C5:CE:EE:2E:8C:5D:DD:2E:BE:E6:7A:F8:B6:AA:E5:88:0C:65:65:2D:0C:56:81:85:15:88:4F:3B:BD:CA`.
 A PKCS12 keystore has one password for the store and the key.
 
@@ -220,7 +221,7 @@ Once, when the app is set up in Play Console:
    a computer you trust, with the keystore from the password manager:
 
    ```bash
-   java -jar pepk.jar --keystore=pecklist-release.p12 --alias=pecklist --output=pecklist-play-key.zip \
+   java -jar pepk.jar --keystore=punchlist-release.p12 --alias=punchlist --output=pecklist-play-key.zip \
      --include-cert --rsa-aes-encryption --encryption-key-path=encryption_public_key.pem
    ```
 
@@ -259,14 +260,14 @@ them for trying a build, never for anyone's phone, and never upload one to Play.
 signed build by hand:
 
 ```bash
-export ANDROID_KEYSTORE_FILE=/path/to/pecklist-release.p12 ANDROID_KEYSTORE_PASSWORD=...
+export ANDROID_KEYSTORE_FILE=/path/to/punchlist-release.p12 ANDROID_KEYSTORE_PASSWORD=...
 pnpm --filter @pecklist/mobile exec node scripts/gradle.mjs assembleFossRelease bundlePlayRelease
 apksigner verify --print-certs mobile/android/app/build/outputs/apk/foss/release/app-foss-release.apk
 keytool -printcert -jarfile mobile/android/app/build/outputs/bundle/playRelease/app-play-release.aab
 ```
 
 A new key (only if the old one is lost, and every install must then be removed first; Play would
-need its key upgraded through Play Console):
+need its key upgraded through Play Console, and `ANDROID_KEY_ALIAS` becomes `pecklist`):
 
 ```bash
 keytool -genkeypair -keystore pecklist-release.p12 -storetype PKCS12 -alias pecklist \

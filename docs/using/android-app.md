@@ -9,7 +9,9 @@ The native app is better at reminders.
 
 ## Install
 
-The app is not in the Play Store yet. Two ways in, both with the same signed app:
+{/* TODO(play-listing): once the Google Play listing is published, add it here as the first way in. */}
+
+Two ways in from the GitLab releases, both with the same signed app:
 
 <Tabs>
 <TabItem value="obtainium-updates-itself" label="Obtainium (updates itself)">
@@ -44,8 +46,10 @@ old one; your data stays.
 </TabItem>
 </Tabs>
 
-Every release APK is signed with the same key, so each one installs over the last. A build you
-made yourself, or a debug build, has a different key: uninstall it first.
+Every release APK is signed with the same key, so each one installs over the last. The Google Play
+build is the same app, with the same app ID and the same key, so it installs over a GitLab APK and
+the other way round, and your data stays. A build you made yourself, or a debug build, has a
+different key: uninstall it first.
 
 :::note[Moving to the new app ID]
 
@@ -161,6 +165,21 @@ HTTP is the same: the yes you gave on the connect page is for that server only.
 - On a Samsung phone, also add PeckList to **Never sleeping apps** (Settings > Battery >
   Background usage limits). Other brands have similar battery savers; see
   [dontkillmyapp.com](https://dontkillmyapp.com/) for yours.
+
+## The Google Play build
+
+The Google Play build follows Google Play's rules, so a few things differ from the GitLab APK:
+
+- **No donation links.** It shows no links to donate or to buy a supporter key. A key you already
+  have still goes in under **Settings > Support PeckList**.
+- **Battery optimization, by hand.** A Play app may not ask to be left out of Android's battery
+  optimization, so **Allow** under **Settings > Notifications** opens the phone's list of apps
+  instead: pick PeckList there and choose not to optimize it. Reminders don't depend on it;
+  without it, only the background check-in can come late while the phone is idle.
+- **Exact reminders need a one-time allow.** On Android 14 and later, a Play app may only set
+  alarms for an exact time once you allow it. Until then the app shows **Allow exact reminders**,
+  which opens the page to allow it; without it, Android may hold reminders back a while.
+- **No update notice.** Google Play updates the app, so it shows no **Update available** box.
 
 ## Updates
 
