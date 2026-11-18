@@ -778,3 +778,42 @@ export function HeartIcon(props: SvgIconProps) {
     </PeckIcon>
   );
 }
+
+/** Call: a phone handset. */
+export function PhoneIcon(props: SvgIconProps) {
+  return (
+    <PeckIcon {...props}>
+      <path d="M6.6 3.5h2.6l1.4 4-2 1.3a11 11 0 0 0 6.6 6.6l1.3-2 4 1.4v2.6a2 2 0 0 1-2.2 2A16.5 16.5 0 0 1 4.6 5.7a2 2 0 0 1 2-2.2z" />
+    </PeckIcon>
+  );
+}
+
+/** Text message: a speech bubble with lines. */
+export function MessageIcon(props: SvgIconProps) {
+  return (
+    <PeckIcon {...props}>
+      <path d="M5.5 4.5h13a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H10l-4.5 3.5v-3.5a2 2 0 0 1-2-2v-8a2 2 0 0 1 2-2z" />
+      <path d="M8 9h8M8 12h5" />
+    </PeckIcon>
+  );
+}
+
+/** A place on a map: a pin. */
+export function MapPinIcon(props: SvgIconProps) {
+  return (
+    <PeckIcon {...props}>
+      <path d="M12 20.5s6.5-5.6 6.5-11a6.5 6.5 0 0 0-13 0c0 5.4 6.5 11 6.5 11z" />
+      <circle cx="12" cy="9.5" r="2.25" />
+    </PeckIcon>
+  );
+}
+
+/** Open elsewhere: a box with an arrow out of it. */
+export function OpenOutsideIcon(props: SvgIconProps) {
+  return (
+    <PeckIcon {...props}>
+      <path d="M13.5 4.5h6v6M19.5 4.5l-8 8" />
+      <path d="M17.5 13.5v4a2 2 0 0 1-2 2h-9a2 2 0 0 1-2-2v-9a2 2 0 0 1 2-2h4" />
+    </PeckIcon>
+  );
+}

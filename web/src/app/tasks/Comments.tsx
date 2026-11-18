@@ -12,7 +12,7 @@ import {
   Paper,
   Typography,
 } from '@mui/material';
-import { Fragment, useEffect, useRef, useState, type KeyboardEvent, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type KeyboardEvent, type ReactNode } from 'react';
 import { useSearchParams } from 'react-router';
 import { localDateTimeOf, localTimeZone } from '../../core/dates.ts';
 import {
@@ -35,13 +35,15 @@ import { Avatar } from '../friends/Avatar.tsx';
 import { useToday } from '../hooks/useToday.ts';
 import { t } from '../i18n/i18n.ts';
 import { MoreIcon } from '../icons/icons.tsx';
+import { SmartText } from '../smartLinks/SmartText.tsx';
 import { useApply, useStoreState, useWorkspace } from '../store/hooks.ts';
 
 function Tokens({ tokens }: { tokens: Inline[] }): ReactNode {
   return tokens.map((token, index) => {
     switch (token.kind) {
       case 'text':
-        return <Fragment key={index}>{token.text}</Fragment>;
+        // Numbers, addresses and emails in it as smart links (PL-146).
+        return <SmartText key={index} text={token.text} />;
       case 'break':
         return <br key={index} />;
       case 'bold':

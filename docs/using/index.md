@@ -158,6 +158,17 @@ their start; the due date is the deadline.
   everything under it. It goes before any heading of its size or bigger, or to the end, so two
   top-level sections swap with their subsections, and a subsection moves within its section or
   into another.
+- **Smart links**: web and email addresses, phone numbers and street addresses in the notes (and
+  in comments) show as links. On a phone a tap starts the right app: the browser, email, the
+  dialer or maps. With a mouse a click offers the choices: **Call**, **Text** or **Copy** for a
+  number, Google Maps, Apple Maps, OpenStreetMap or **Copy** for an address, **Email** or
+  **Copy** for an email address, and **Open** or **Copy** for a web address. A long press offers
+  them anywhere; Ctrl or Cmd + click opens straight away. While you are typing in the notes, a
+  tap or click only puts the cursor there, so the text edits as before. They are found in the
+  app itself and nothing is looked up anywhere; phone numbers need a country code
+  (`+44 20 7946 0958`) or the North American shape (`(515) 555-0123`), and an address a house
+  number, a street name and a street word (`123 Main St`). Only web, email, phone, text message
+  and map addresses ever open.
 - **Assigned**: a task you add to a shared list starts assigned to you.
 - **Files**: the paperclip at the top of a task's details attaches files, or drop them on the
   details. Pictures show as thumbnails and open large; other files download. Everyone who sees the

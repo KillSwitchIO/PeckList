@@ -19,7 +19,7 @@ import {
 import type { Editor } from '@tiptap/core';
 import { EditorContent, useEditor, useEditorState } from '@tiptap/react';
 import type { SuggestionProps } from '@tiptap/suggestion';
-import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import type { RichTextEditorProps } from '../../ports/richText.ts';
 import { t } from '../i18n/i18n.ts';
 import {
@@ -49,6 +49,33 @@ import { headingSections } from './headingSections.ts';
 import { listItemHandles } from './listItemHandles.ts';
 import { isAllChecklist } from './linesChecklist.ts';
 import { editorMarkdown, linkHref, notesExtensions } from './tiptapMarkdown.ts';
+import { linkAsSmart } from '../../core/smartLinks.ts';
+import { createLongPress } from '../smartLinks/longPress.ts';
+import { mainHref, openOutside, touchClick } from '../smartLinks/openOutside.ts';
+import { SmartLinkMenu, type SmartTarget } from '../smartLinks/SmartLinkMenu.tsx';
+import { SmartLinks, smartItemAt } from './smartLinksPlugin.ts';
+import type { EditorView } from '@tiptap/pm/view';
+
+/**
+ * The smart link (PL-146) or link under a click in the notes: what it is, and where, to select it
+ * when nothing can be copied.
+ */
+function smartAt(
+  view: EditorView,
+  pos: number,
+  target: EventTarget | null,
+): (SmartTarget & { from: number; to: number }) | null {
+  if (!(target instanceof Element) || !view.dom.contains(target)) return null;
+  const link = target.closest('a');
+  if (link && view.dom.contains(link)) {
+    const item = linkAsSmart(link.getAttribute('href') ?? '');
+    if (!item) return null;
+    const from = view.posAtDOM(link, 0);
+    return { ...item, from, to: from + (link.textContent ?? '').length };
+  }
+  if (!target.closest('.smart-link')) return null;
+  return smartItemAt(view.state, pos);
+}
 
 const SLASH_ICONS: Record<SlashCommandId, ReactNode> = {
   heading1: <HeadingIcon fontSize="small" />,
@@ -95,6 +122,15 @@ export default function TiptapEditor({
   const [slash, setSlash] = useState<SlashMenu | null>(null);
   const slashRef = useRef<SlashMenu | null>(null);
   const [bridge] = useState(createSlashMenuBridge);
+  // The smart link whose choices are open (PL-146), where it is, and where the click was.
+  const [smart, setSmart] = useState<
+    (SmartTarget & { from: number; to: number; anchor: { top: number; left: number } }) | null
+  >(null);
+  const closeSmart = useCallback(() => setSmart(null), []);
+  const [longPress] = useState(createLongPress);
+  // Whether the notes were being edited when the pointer went down on them: a tap or click then
+  // only places the cursor, as on plain text (PL-146).
+  const editingAtDown = useRef(false);
   const menuHandlers: SlashMenuHandlers = {
     open: (props) => setSlash(fromSuggestion(props, 0)),
     update: (props) => setSlash(fromSuggestion(props, 0)),
@@ -141,6 +177,7 @@ export default function TiptapEditor({
       // A handle to move each list item (R-FB-80).
       listItemHandles(t('editor.moveItem'), theme.palette.primary.main),
       headingSections(t('editor.moveSection'), theme.palette.primary.main),
+      SmartLinks,
     ],
     content: value,
     contentType: 'markdown',
@@ -159,14 +196,74 @@ export default function TiptapEditor({
         view.dom.blur();
         return true;
       },
-      // Links edit like text; Ctrl or Cmd + click opens one.
-      handleClick: (_view, _pos, event) => {
-        const link = (event.target as HTMLElement).closest('a');
-        if (link?.href && (event.ctrlKey || event.metaKey)) {
-          window.open(link.href, '_blank', 'noopener,noreferrer');
+      // Links and smart links (PL-146), while the notes are not being edited: a tap does the main
+      // thing (call, open the page or the maps app); a click with the mouse offers the choices
+      // for it, in a popover that leaves the focus in the text and still places the cursor. While
+      // they are being edited, a tap or click only places the cursor, as on plain text. Ctrl or
+      // Cmd + click opens a link straight away; a long press offers the choices on any screen.
+      handleClick: (view, pos, event) => {
+        // The end of a long press, which opened the choices already.
+        if (longPress.takeFired()) return true;
+        if (event.button !== 0 || event.shiftKey || event.altKey) return false;
+        const item = smartAt(view, pos, event.target);
+        if (!item) return false;
+        const href = item.href ?? mainHref(item.kind, item.text);
+        if (event.ctrlKey || event.metaKey) {
+          openOutside(href);
           return true;
         }
+        if (editingAtDown.current) return false;
+        if (touchClick(event)) {
+          openOutside(href);
+          // No keyboard over the dialer or the map on the way back.
+          view.dom.blur();
+          return true;
+        }
+        // A double or triple click selects, as ever.
+        if (event.detail > 1) return false;
+        setSmart({ ...item, anchor: { top: event.clientY, left: event.clientX } });
         return false;
+      },
+      handleDOMEvents: {
+        // A long press on a touch screen offers the choices (longPress.ts).
+        pointerdown: (view, event) => {
+          editingAtDown.current = view.hasFocus();
+          const target = event.target;
+          if (!(target instanceof Element) || !view.dom.contains(target)) return false;
+          const item = smartAt(view, view.posAtDOM(target, 0), target);
+          if (!item) {
+            longPress.cancel();
+            longPress.takeFired();
+            return false;
+          }
+          const anchor = { top: event.clientY, left: event.clientX };
+          longPress.down(event, () => setSmart({ ...item, anchor }));
+          return false;
+        },
+        pointermove: (_view, event) => {
+          longPress.move(event);
+          return false;
+        },
+        pointerup: () => {
+          longPress.cancel();
+          return false;
+        },
+        pointercancel: () => {
+          longPress.cancel();
+          return false;
+        },
+        // A long press where the browser reports one as a context menu offers the choices; a
+        // right-click with the mouse keeps the browser's own menu (spelling, paste, copy link).
+        contextmenu: (view, event) => {
+          if (!touchClick(event)) return false;
+          const target = event.target;
+          if (!(target instanceof Element) || !view.dom.contains(target)) return false;
+          const item = smartAt(view, view.posAtDOM(target, 0), target);
+          if (!item) return false;
+          event.preventDefault();
+          setSmart({ ...item, anchor: { top: event.clientY, left: event.clientX } });
+          return true;
+        },
       },
     },
     onUpdate: ({ editor }) => {
@@ -325,7 +422,14 @@ export default function TiptapEditor({
               borderRadius: 1,
             },
           },
-          '& a': { color: 'primary.main', textDecoration: 'underline', cursor: 'text' },
+          // Links, and the smart links found in the text (PL-146): a click offers what to do.
+          '& a, & .smart-link': {
+            color: 'primary.main',
+            textDecoration: 'underline',
+            textDecorationThickness: '1px',
+            textUnderlineOffset: '2px',
+            cursor: 'pointer',
+          },
           '& code': {
             fontFamily: 'ui-monospace, SFMono-Regular, Consolas, monospace',
             fontSize: '0.9em',
@@ -418,6 +522,18 @@ export default function TiptapEditor({
     >
       {editor && expanded && !readOnly && <FormatToolbar editor={editor} />}
       <EditorContent editor={editor} className="content" />
+      <SmartLinkMenu
+        inText
+        target={smart}
+        anchor={smart?.anchor ?? null}
+        onClose={closeSmart}
+        onCopyFailed={() => {
+          // No clipboard here: the text selected, for a copy by hand.
+          if (editor && smart) {
+            editor.chain().focus().setTextSelection({ from: smart.from, to: smart.to }).run();
+          }
+        }}
+      />
       {slash && (
         <Popper
           open
