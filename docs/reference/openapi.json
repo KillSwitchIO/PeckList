@@ -11742,6 +11742,12 @@
           "at": {
             "type": "integer",
             "format": "int64"
+          },
+          "occurrence": {
+            "type": [
+              "null",
+              "string"
+            ]
           }
         }
       },

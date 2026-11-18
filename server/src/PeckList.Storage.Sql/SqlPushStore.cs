@@ -83,20 +83,23 @@ public sealed class SqlPushStore(SqlDatabase database, TimeProvider time) : IPus
         await ExecuteAsync("DELETE FROM reminder_snoozes WHERE at < @before", new { before = before.ToUnixTimeMilliseconds() }, cancellation);
     }
 
-    public Task SnoozeAsync(string userId, string taskId, DateTimeOffset at, CancellationToken cancellation = default) =>
+    public Task SnoozeAsync(string userId, string taskId, DateTimeOffset at, string? occurrence, CancellationToken cancellation = default) =>
         ExecuteAsync(
-            "INSERT INTO reminder_snoozes (user_id, task_id, at) VALUES (@userId, @taskId, @at) ON CONFLICT (user_id, task_id, at) DO NOTHING",
-            new { userId, taskId, at = at.ToUnixTimeMilliseconds() }, cancellation);
+            // The same time snoozed again holds the latest occurrence (a repeating task snoozed to the
+            // same minute on its next date).
+            "INSERT INTO reminder_snoozes (user_id, task_id, at, occurrence) VALUES (@userId, @taskId, @at, @occurrence)"
+                + " ON CONFLICT (user_id, task_id, at) DO UPDATE SET occurrence = excluded.occurrence",
+            new { userId, taskId, at = at.ToUnixTimeMilliseconds(), occurrence }, cancellation);
 
     public async Task<IReadOnlyList<ReminderSnooze>> SnoozesAsync(
         DateTimeOffset from, DateTimeOffset to, string? userId = null, CancellationToken cancellation = default)
     {
         await using var connection = await database.OpenAsync(cancellation);
-        var rows = await connection.QueryAsync<(string UserId, string TaskId, long At)>(new CommandDefinition(
-            "SELECT user_id, task_id, at FROM reminder_snoozes WHERE at > @from AND at <= @to"
+        var rows = await connection.QueryAsync<(string UserId, string TaskId, long At, string? Occurrence)>(new CommandDefinition(
+            "SELECT user_id, task_id, at, occurrence FROM reminder_snoozes WHERE at > @from AND at <= @to"
                 + (userId is null ? "" : " AND user_id = @userId") + " ORDER BY at, user_id, task_id",
             new { from = from.ToUnixTimeMilliseconds(), to = to.ToUnixTimeMilliseconds(), userId }, cancellationToken: cancellation));
-        return [.. rows.Select(row => new ReminderSnooze(row.UserId, row.TaskId, DateTimeOffset.FromUnixTimeMilliseconds(row.At)))];
+        return [.. rows.Select(row => new ReminderSnooze(row.UserId, row.TaskId, DateTimeOffset.FromUnixTimeMilliseconds(row.At), row.Occurrence))];
     }
 
     private async Task ExecuteAsync(string sql, object parameters, CancellationToken cancellation)

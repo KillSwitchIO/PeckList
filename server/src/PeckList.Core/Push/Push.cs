@@ -34,15 +34,22 @@ public interface IPushStore
     /// <summary>Forget sent reminders, and snoozes due, before <paramref name="before"/>.</summary>
     Task PruneSentRemindersAsync(DateTimeOffset before, CancellationToken cancellation = default);
 
-    /// <summary>A person's reminder for a task, put off to <paramref name="at"/> for them alone (audit B3).</summary>
-    Task SnoozeAsync(string userId, string taskId, DateTimeOffset at, CancellationToken cancellation = default);
+    /// <summary>
+    /// A person's reminder for a task, put off to <paramref name="at"/> for them alone (audit B3).
+    /// <paramref name="occurrence"/>: the task's date it was snoozed on (<see cref="ServerReminders.Occurrence"/>).
+    /// </summary>
+    Task SnoozeAsync(string userId, string taskId, DateTimeOffset at, string? occurrence, CancellationToken cancellation = default);
 
     /// <summary>Everyone's snoozes due in (<paramref name="from"/>, <paramref name="to"/>], or only <paramref name="userId"/>'s.</summary>
     Task<IReadOnlyList<ReminderSnooze>> SnoozesAsync(DateTimeOffset from, DateTimeOffset to, string? userId = null, CancellationToken cancellation = default);
 }
 
-/// <summary>A reminder <paramref name="UserId"/> snoozed: it comes again for them at <paramref name="At"/>.</summary>
-public sealed record ReminderSnooze(string UserId, string TaskId, DateTimeOffset At);
+/// <summary>
+/// A reminder <paramref name="UserId"/> snoozed: it comes again for them at <paramref name="At"/>.
+/// <paramref name="Occurrence"/>: the task's date when it was snoozed, null on a snooze from before
+/// it was kept (or on a task with no date).
+/// </summary>
+public sealed record ReminderSnooze(string UserId, string TaskId, DateTimeOffset At, string? Occurrence = null);
 
 /// <summary>
 /// Reminders on the server (spec: PL-061), the same rules as the app (web/src/core/reminders.ts):
@@ -79,6 +86,72 @@ public static class ServerReminders
             yield return new ReminderTime(first + again * ConstantEvery, first, constant);
         }
     }
+
+    /// <summary>
+    /// The occurrence a snooze is for: the moment the task's reminders count from (its start, else
+    /// its due date, as the app's occurrenceOf). A timed date is a moment written on its own zone's
+    /// clock, which the app moves to the viewer's as it shows it (spec: PL-020), so it is kept as UTC
+    /// ("yyyy-MM-ddTHH:mmZ") and the two agree; a whole day is the same date everywhere, and a time
+    /// with no zone stays as written.
+    /// </summary>
+    public static string? Occurrence(JsonObject task)
+    {
+        var (dated, at) = Dated(task);
+        if (at is null) return null;
+        if (at.Length <= 10 || Local(at) is not { } local || OwnZone(dated!) is not { } zone) return at;
+        return InZone(local, zone).UtcDateTime.ToString("yyyy-MM-dd'T'HH:mm", CultureInfo.InvariantCulture) + "Z";
+    }
+
+    /// <summary>
+    /// The first moment the task's current occurrence reminds: the earliest of its reminders, one
+    /// counted from its date read as <see cref="Occurrence"/> reads it (a timed date on its own zone's
+    /// clock, a whole day from 9:00 where the person is), a set time where the person is. Null when it
+    /// has none that counts from its date (no date, or only set times, which do not move with it). A
+    /// press of a reminder from before this is for an occurrence already gone.
+    /// </summary>
+    public static DateTimeOffset? OccurrenceStart(JsonObject task, TimeZoneInfo personZone)
+    {
+        if (task["reminders"] is not JsonArray reminders) return null;
+        var (dated, at) = Dated(task);
+        if (at is null || Local(at) is not { } local) return null;
+        var start = InZone(local, at.Length > 10 && OwnZone(dated!) is { } own ? own : personZone);
+        DateTimeOffset? fromDate = null, setTime = null;
+        foreach (var reminder in reminders.OfType<JsonObject>())
+        {
+            if (Text(reminder["at"]) is { } set && Local(set) is { } setLocal)
+            {
+                var when = InZone(setLocal, personZone);
+                if (setTime is null || when < setTime) setTime = when;
+            }
+            else if (reminder["before"] is JsonValue before && before.TryGetValue<int>(out var minutes))
+            {
+                var when = start - TimeSpan.FromMinutes(minutes);
+                if (fromDate is null || when < fromDate) fromDate = when;
+            }
+        }
+        if (fromDate is not { } first) return null;
+        return setTime is { } earlier && earlier < first ? earlier : first;
+    }
+
+    /// <summary>The date the task's reminders count from: its start, else its due date, with the object holding it.</summary>
+    private static (JsonObject? Of, string? At) Dated(JsonObject task) =>
+        task["schedule"] is JsonObject schedule && Text(schedule["start"]) is { } start ? (schedule, start)
+        : task["due"] is JsonObject due && Text(due["at"]) is { } at ? (due, at)
+        : (null, null);
+
+    private static TimeZoneInfo? OwnZone(JsonObject dated) =>
+        Text(dated["timeZone"]) is { } name && TimeZoneInfo.TryFindSystemTimeZoneById(name, out var zone) ? zone : null;
+
+    /// <summary>
+    /// Whether a snooze still comes back (Ben, 0.13.0-rc.2): the task is open, it still has a
+    /// reminder, and it is on the occurrence that was snoozed. Completing a repeating task leaves it
+    /// open on its next date, and that occurrence must not get the last one's snooze; nor does a task
+    /// moved to another date, or whose reminders were taken off.
+    /// </summary>
+    public static bool SnoozeHolds(JsonObject task, ReminderSnooze snooze) =>
+        (string?)task["status"] == "open"
+        && task["reminders"] is JsonArray { Count: > 0 }
+        && (snooze.Occurrence is null || snooze.Occurrence == Occurrence(task));
 
     /// <summary>How long after its first time a reminder's last repeat can come.</summary>
     public static readonly TimeSpan RepeatsLast = (ConstantTimes - 1) * ConstantEvery;

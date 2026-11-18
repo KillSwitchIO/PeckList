@@ -132,12 +132,69 @@ export function allDayReminder(
 export interface Snooze {
   taskId: Id;
   at: number;
+  /**
+   * The occurrence the snooze is for ({@link occurrenceOf} when it was snoozed). Absent or null
+   * from an older server, and on a task with no date: any.
+   */
+  occurrence?: string | null;
+}
+
+/**
+ * The occurrence a snooze is for: the moment the task's reminders count from (its start, else its
+ * due date), as the server keeps it. A timed date is a moment, and this app shows it on the
+ * viewer's clock (localized), not the clock it was written on, so it is compared as UTC
+ * ("YYYY-MM-DDTHH:mmZ"); a whole day is the same date everywhere.
+ *
+ * Where this and the server could read a time apart (a time in the hour the clocks repeat or skip,
+ * a zone only one of them knows), the two differ and this app drops the snooze: it then still comes
+ * as a push or from the Android check-in, which use the server's own reading. Rare by design.
+ */
+export function occurrenceOf(task: Task): string | null {
+  const dated = task.schedule?.start
+    ? { at: task.schedule.start, zone: task.schedule.timeZone }
+    : task.due?.at
+      ? { at: task.due.at, zone: task.due.timeZone }
+      : null;
+  if (!dated) return null;
+  const time = timePart(dated.at);
+  if (time === null || !dated.zone) return dated.at;
+  try {
+    return `${instantOf(datePart(dated.at), time, dated.zone).slice(0, 16)}Z`;
+  } catch {
+    // A zone this browser does not know: as written, as the server keeps it then.
+    return dated.at;
+  }
+}
+
+/**
+ * Whether a snooze still comes back (Ben, 0.13.0-rc.2): the task still has a reminder, and is on
+ * the occurrence that was snoozed. Completing a repeating task here moves it on at once, before the
+ * server hears, and its next date must not get the last one's snooze; nor does a task moved to
+ * another date, or whose reminders were taken off. (Open and mine is checked apart.)
+ */
+export function snoozeHolds(task: Task, snooze: Snooze): boolean {
+  if (!task.reminders?.length) return false;
+  return snooze.occurrence == null || snooze.occurrence === occurrenceOf(task);
+}
+
+/** The same list of snoozes (the app keeps what it has then, so nothing hands over again). */
+export function sameSnoozes(a: readonly Snooze[], b: readonly Snooze[]): boolean {
+  return (
+    a.length === b.length &&
+    // The occurrence too: the next one snoozed to the same minute replaces the last (rc.2).
+    a.every(
+      (each, i) =>
+        each.taskId === b[i]?.taskId &&
+        each.at === b[i]?.at &&
+        (each.occurrence ?? null) === (b[i]?.occurrence ?? null),
+    )
+  );
 }
 
 /**
  * My reminders that fire in [from, to), soonest first. `snoozes` (mine, from the server) come as
- * a reminder set for their time would, while the task is open and mine; one at a time the task
- * already reminds at is that reminder.
+ * a reminder set for their time would, while the task is open and mine and the snooze holds
+ * ({@link snoozeHolds}); one at a time the task already reminds at is that reminder.
  */
 export function remindersBetween(
   workspace: WorkspaceFile,
@@ -170,7 +227,7 @@ export function remindersBetween(
   }
   for (const snooze of snoozes) {
     const task = workspace.entities.tasks.find((each) => each.id === snooze.taskId);
-    if (mine(task)) add(task, snooze.at);
+    if (mine(task) && snoozeHolds(task, snooze)) add(task, snooze.at);
   }
   return [...found.values()].sort((a, b) => a.at - b.at);
 }

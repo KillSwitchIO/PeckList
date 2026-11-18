@@ -4,6 +4,7 @@ import {
   CONSTANT_TIMES,
   remindersBetween,
   SNOOZE_MINUTES,
+  sameSnoozes,
   snoozeReminder,
   type DueReminder,
   type Snooze,
@@ -368,13 +369,6 @@ async function tellAgain(
 }
 
 const NO_SNOOZES: readonly Snooze[] = [];
-
-function sameSnoozes(a: readonly Snooze[], b: readonly Snooze[]): boolean {
-  return (
-    a.length === b.length &&
-    a.every((each, i) => each.taskId === b[i]?.taskId && each.at === b[i]?.at)
-  );
-}
 
 function notificationOf(due: DueReminder) {
   return {

@@ -10,9 +10,12 @@ import {
   reminderInstant,
   remindersBetween,
   remindsAllDay,
+  occurrenceOf,
   remindsMe,
+  snoozeHolds,
   snoozeReminder,
 } from './reminders.ts';
+import { localized } from './localized.ts';
 import { updateSettings } from './settings.ts';
 import { setAssignee } from './sharing.ts';
 import { createTask, toggleTaskDone, updateTask } from './tasks.ts';
@@ -107,9 +110,9 @@ describe('reminders', () => {
   it("bring a server's snoozes back as reminders while the task is open and mine (audit B3)", () => {
     const s = setup();
     const pills = s.add('Pills', { schedule: timed, reminders: [{ before: 0 }] });
-    const theirs = s.add('Theirs', { schedule: timed });
+    const theirs = s.add('Theirs', { schedule: timed, reminders: [{ before: 0 }] });
     s.ws = setAssignee(s.ctx, s.ws, theirs.id, `user:${SAM}`, true);
-    const done = s.add('Done', { schedule: timed });
+    const done = s.add('Done', { schedule: timed, reminders: [{ before: 0 }] });
     s.ws = toggleTaskDone(s.ctx, s.ws, done.id);
     const snoozes = [
       { taskId: pills.id, at: at('2026-10-26T10:45') },
@@ -131,8 +134,12 @@ describe('reminders', () => {
       ['Pills', at('2026-10-26T10:30'), `${pills.id}@${at('2026-10-26T10:30')}`],
       ['Pills', at('2026-10-26T10:45'), `${pills.id}@${at('2026-10-26T10:45')}`],
     ]);
-    // A constant reminder's snooze repeats as the reminder does, under its own tag.
-    s.ws = updateTask(s.ctx, s.ws, pills.id, { constantReminder: true, reminders: [] });
+    // A constant reminder's snooze repeats as the reminder does, under its own tag (its own
+    // reminder a day early, out of the way).
+    s.ws = updateTask(s.ctx, s.ws, pills.id, {
+      constantReminder: true,
+      reminders: [{ before: 1440 }],
+    });
     const constant = remindersBetween(
       s.ws,
       ME,
@@ -145,6 +152,64 @@ describe('reminders', () => {
     expect(new Set(constant.map((each) => each.tag))).toEqual(
       new Set([`${pills.id}@${at('2026-10-26T10:45')}`]),
     );
+  });
+
+  it('drop a snooze once the task is done, moved on to its next date, or has no reminder left (Ben, 0.13.0-rc.2)', () => {
+    const s = setup();
+    const daily = s.add('Daily', {
+      schedule: timed,
+      recurrence: 'FREQ=DAILY',
+      reminders: [{ before: 0 }],
+    });
+    const once = s.add('Once', { schedule: timed, reminders: [{ before: 0 }] });
+    const bare = s.add('Bare', { schedule: timed, reminders: [{ before: 0 }] });
+    const old = s.add('Old server', {
+      schedule: timed,
+      recurrence: 'FREQ=DAILY',
+      reminders: [{ before: 0 }],
+    });
+    // 10:30 in Chicago, as the server keeps it: the moment in UTC.
+    const occurrence = '2026-10-26T15:30Z';
+    expect(occurrenceOf(daily)).toBe(occurrence);
+    const snoozedAt = at('2026-10-26T11:00');
+    const snoozes = [
+      { taskId: daily.id, at: snoozedAt, occurrence },
+      { taskId: once.id, at: snoozedAt, occurrence },
+      { taskId: bare.id, at: snoozedAt, occurrence },
+      // From a server before 0.13.0-rc.2: no occurrence, so any.
+      { taskId: old.id, at: snoozedAt },
+    ];
+    const titles = () =>
+      remindersBetween(s.ws, ME, at('2026-10-26T10:50'), at('2026-10-26T12:00'), TZ, snoozes).map(
+        (each) => each.title,
+      );
+    expect(titles()).toEqual(['Daily', 'Once', 'Bare', 'Old server']);
+
+    // Done here: the repeating one moves to tomorrow at once, still open; the other closes.
+    s.ws = toggleTaskDone(s.ctx, s.ws, daily.id);
+    const moved = s.ws.entities.tasks.find((each) => each.id === daily.id)!;
+    expect([moved.status, moved.schedule?.start]).toEqual(['open', '2026-10-27T10:30']);
+    s.ws = toggleTaskDone(s.ctx, s.ws, once.id);
+    s.ws = updateTask(s.ctx, s.ws, bare.id, { reminders: [] });
+    expect(titles()).toEqual(['Old server']);
+    expect(snoozeHolds(moved, snoozes[0]!)).toBe(false);
+    // The next occurrence snoozed holds.
+    expect(snoozeHolds(moved, { ...snoozes[0]!, occurrence: '2026-10-27T15:30Z' })).toBe(true);
+  });
+
+  it('keep a snooze on a task shown on another clock than it was written on (PL-020)', () => {
+    const s = setup();
+    // Written in UTC (another device, the API); this phone shows it on Chicago's clock.
+    const utc = { start: '2026-10-26T15:30', end: null, allDay: false, timeZone: 'UTC' };
+    const task = s.add('Elsewhere', { schedule: utc, reminders: [{ before: 0 }] });
+    const shown = localized(task, TZ);
+    expect(shown.schedule?.start).toBe('2026-10-26T10:30');
+    const snooze = { taskId: task.id, at: at('2026-10-26T11:00'), occurrence: '2026-10-26T15:30Z' };
+    expect(occurrenceOf(shown)).toBe(snooze.occurrence);
+    expect(snoozeHolds(shown, snooze)).toBe(true);
+    // A whole day is the same date everywhere; a time with no zone stays as written.
+    const day = s.add('Day', { schedule: allDay, reminders: [{ before: 0 }] });
+    expect(occurrenceOf(day)).toBe('2026-10-26');
   });
 });
 
