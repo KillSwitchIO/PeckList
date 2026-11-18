@@ -5,6 +5,18 @@ x64** (Windows 10, 11, Server 2019 and later; it also runs on Windows on ARM): t
 Windows service and the `pecklist` command line, with everything they need built in. A portable zip
 is there too, for running the server from a folder.
 
+## Not code-signed: Smart App Control
+
+The Windows installer, the server and the command line are not code-signed. Smart App Control, which
+a fresh install of Windows 11 turns on by default, blocks unsigned programs, and it has no exception
+for a single program. The only way past it is turning Smart App Control off in Windows Security, and
+on most Windows 11 versions it can't be turned back on without reinstalling Windows.
+
+A computer where Smart App Control is off, or was never on (Windows 10, Windows Server, a Windows 11
+upgraded from 10), isn't affected. To check: **Windows Security > App & browser control > Smart App
+Control**. Where it is on, run the server in [Docker Desktop](docker.md), or the
+[Linux install](linux.md) inside WSL, instead.
+
 ## Install
 
 Download `pecklist-setup-<version>-x64.exe` from the release page and run it. Both parts are ticked:
@@ -33,9 +45,9 @@ $hash -eq $listed   # True: the file is the one the release lists
 ### "An Application Control policy has blocked this file"
 
 If Windows says an Application Control policy blocked the file, Smart App Control is on and doesn't
-trust this unsigned build, and there is no **Run anyway**. Run the server in
-[Docker Desktop](docker.md) instead, or the [command line](../reference/cli.md) inside WSL (the
-Linux download). Signed Store builds may come after 1.0.
+trust this unsigned build, and there is no **Run anyway**: see
+[Not code-signed](#not-code-signed-smart-app-control). Run the server in
+[Docker Desktop](docker.md) instead, or the [Linux install](linux.md) inside WSL.
 
 ### Silent install
 
