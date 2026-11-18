@@ -1,6 +1,6 @@
 import { daysBetween, localDayOf, localTimeZone } from '../../core/dates.ts';
 import type { Task } from '../../core/types.ts';
-import { formatMonth } from '../format.ts';
+import { formatDay, formatMonth } from '../format.ts';
 import { dayTitle } from './dayLabels.ts';
 
 export interface ClosedGroup {
@@ -42,9 +42,21 @@ function groupByDay(
   return [...groups.values()];
 }
 
-/** Closed tasks by when they closed. */
+/**
+ * Closed tasks (newest first) by the day they closed, every day on its own as the Completed page
+ * shows them (PL-144): "Today", "Yesterday", "Mon, Nov 16" (with the year in other years); undated
+ * last.
+ */
 export function groupClosed(tasks: Task[], today: string, zone = localTimeZone()): ClosedGroup[] {
-  return groupByDay(tasks, (task) => closedDay(task, zone), today);
+  const groups = new Map<string, ClosedGroup>();
+  for (const task of tasks) {
+    const day = closedDay(task, zone);
+    const key = day ?? 'none';
+    const group = groups.get(key) ?? { key, title: day ? formatDay(day, today) : '', tasks: [] };
+    group.tasks.push(task);
+    groups.set(key, group);
+  }
+  return [...groups.values()];
 }
 
 /** Tasks in the trash by when they were deleted. */

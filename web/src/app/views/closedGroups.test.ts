@@ -6,7 +6,7 @@ const closedAt = (id: string, completedAt: string | null) =>
   ({ id, status: 'done', completedAt }) as unknown as Task;
 
 describe('Completed groups', () => {
-  it('splits the last week by day, older by month, undated last', () => {
+  it('one group per day, undated last', () => {
     const groups = groupClosed(
       [
         closedAt('a', '2026-10-21T15:00:00Z'),
@@ -21,11 +21,11 @@ describe('Completed groups', () => {
     expect(groups.map((group) => [group.key, group.tasks.map((task) => task.id)])).toEqual([
       ['2026-10-21', ['a', 'b']],
       ['2026-10-18', ['c']],
-      ['2026-09', ['d']],
+      ['2026-09-02', ['d']],
       ['none', ['e']],
     ]);
-    expect(groups[0]!.title).toMatch(/Today$/);
-    expect(groups[2]!.title).toBe('September');
+    expect(groups[0]!.title).toBe('Today');
+    expect(groups[2]!.title).toMatch(/Sep 2/);
   });
 });
 

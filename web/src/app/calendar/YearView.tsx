@@ -18,11 +18,17 @@ import {
   type YearStay,
 } from './yearLayout.ts';
 
-/** A year's open tasks per day, and how they shade: each year against itself. */
+/**
+ * A year's tasks per day, and how they shade: each year against itself. Open tasks falling on each
+ * day, or with "Show completed" the tasks done on it (PL-144).
+ */
 export interface YearHeat {
   counts: Map<string, number>;
   scale: HeatScale;
 }
+
+/** What the shades count: open tasks on each day, or tasks done on it. */
+export type YearCounting = 'open' | 'done';
 
 /** A year whose shades have not been worked out yet. */
 const NO_HEAT: YearHeat = { counts: new Map(), scale: { few: 0, some: 0 } };
@@ -39,7 +45,7 @@ const KEY_STEPS: Record<string, number> = {
 
 const at = (day: string) => new Date(`${day}T12:00:00Z`);
 
-function dayLabel(day: string, today: string, count: number): string {
+function dayLabel(day: string, today: string, count: number, counting: YearCounting): string {
   // Always with its weekday and whole, unlike `formatDay`: the letters over the columns are for
   // the eye only, and someone looking for a free Saturday has to hear it.
   const date = dateTimeFormat(undefined, {
@@ -50,6 +56,11 @@ function dayLabel(day: string, today: string, count: number): string {
     timeZone: 'UTC',
   }).format(at(day));
   const name = day === today ? `${t('date.today')}, ${date}` : date;
+  if (counting === 'done') {
+    if (count === 0) return t('completed.dayNone', { day: name });
+    if (count === 1) return t('completed.dayOne', { day: name });
+    return t('completed.dayMany', { day: name, count });
+  }
   if (count === 0) return t('calendar.yearDayFree', { day: name });
   if (count === 1) return t('calendar.yearDayOne', { day: name });
   return t('calendar.yearDayMany', { day: name, count });
@@ -62,6 +73,7 @@ interface MonthBlockProps {
   weekStart: number;
   counts: Map<string, number>;
   scale: HeatScale;
+  counting: YearCounting;
   /** The one day of this month that Tab lands on, if the year's is here */
   active: string | null;
 }
@@ -72,6 +84,7 @@ const MonthBlock = memo(function MonthBlock({
   weekStart,
   counts,
   scale,
+  counting,
   active,
 }: MonthBlockProps) {
   const name = dateTimeFormat(undefined, { month: 'long', timeZone: 'UTC' }).format(
@@ -107,7 +120,7 @@ const MonthBlock = memo(function MonthBlock({
               // Six weeks always, blank past the month's ends, so every month lines up.
               if (!day.startsWith(month)) return <span key={day} role="gridcell" />;
               const count = counts.get(day) ?? 0;
-              const label = dayLabel(day, today, count);
+              const label = dayLabel(day, today, count, counting);
               return (
                 <button
                   key={day}
@@ -235,6 +248,7 @@ export function YearView({
   today,
   weekStart,
   heatOf,
+  counting = 'open',
   onOpenDay,
   onOpenMonth,
   onYear,
@@ -250,6 +264,8 @@ export function YearView({
   weekStart: number;
   /** A year's open tasks per day: asked only for the years drawn, and not during a scroll */
   heatOf: (year: string) => YearHeat;
+  /** What `heatOf` counts, for each day's name and the key under the months */
+  counting?: YearCounting;
   onOpenDay: (day: string) => void;
   onOpenMonth: (month: string) => void;
   /** The year in view has changed */
@@ -464,6 +480,7 @@ export function YearView({
                     weekStart={weekStart}
                     counts={counts}
                     scale={scale}
+                    counting={counting}
                     active={active.startsWith(month) ? active : null}
                   />
                 );
@@ -488,13 +505,13 @@ export function YearView({
         }}
       >
         <Typography variant="caption" color="text.secondary" sx={{ mr: 0.5 }}>
-          {t('calendar.heatFree')}
+          {counting === 'done' ? t('completed.fewer') : t('calendar.heatFree')}
         </Typography>
         {[0, 1, 2, 3].map((level) => (
           <span key={level} className="year-swatch" data-heat={level} />
         ))}
         <Typography variant="caption" color="text.secondary" sx={{ ml: 0.5 }}>
-          {t('calendar.heatBusy')}
+          {counting === 'done' ? t('completed.more') : t('calendar.heatBusy')}
         </Typography>
       </Box>
     </Box>
