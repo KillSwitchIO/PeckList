@@ -295,4 +295,6 @@ test('a version prepared but never cut is prepared again, not skipped over', () 
   // A pre-release moves on to its release either way.
   assert.equal(plannedVersion('0.8.0-rc.1', ['fix: x'], false), '0.8.0');
   assert.equal(plannedVersion('0.8.0-rc.1', ['fix: x'], true), '0.8.0');
+  // A patch's pre-release with a feature since moves on to the minor.
+  assert.equal(plannedVersion('0.12.1-rc.1', ['feat: x'], true), '0.13.0');
 });
