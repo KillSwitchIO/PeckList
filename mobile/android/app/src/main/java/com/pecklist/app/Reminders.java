@@ -41,6 +41,13 @@ final class Reminders {
     static final String ASSIGNMENTS = "assignments.v2";
     static final String SHARES = "shares.v2";
     static final String COMMENTS = "comments.v2";
+    /**
+     * Constant reminders have their own channel, made with no sound: FLAG_INSISTENT repeats the
+     * channel's sound as well as its vibration, so on the Reminders channel they rang until touched
+     * when they should only buzz (PL-115: "should not stop buzzing the phone"). A sound the person
+     * gives this channel on the phone is theirs to choose.
+     */
+    static final String CONSTANT = "constant.v1";
     private static final String[] OLD_CHANNELS = { "reminders", "activity" };
 
     /** A constant reminder stops buzzing after this long (PL-115): a quiet copy replaces it. */
@@ -178,7 +185,7 @@ final class Reminders {
         }
         for (Reminder each : wanted) {
             // A constant reminder's repeats are for browsers; here the notification itself keeps
-            // sounding until touched (FLAG_INSISTENT), and goes quiet after QUIET_AFTER_MS.
+            // buzzing until touched (FLAG_INSISTENT), and goes quiet after QUIET_AFTER_MS.
             if (each.constant && each.key.contains("#")) continue;
             next.put(each.key, each);
         }
@@ -250,9 +257,11 @@ final class Reminders {
      */
     static void show(Context context, Reminder reminder) {
         if (!NotificationManagerCompat.from(context).areNotificationsEnabled()) return;
-        channel(context, CHANNEL, R.string.channel_reminders, NotificationManager.IMPORTANCE_HIGH);
+        String channel = channelFor(reminder);
+        channel(context, channel, channel.equals(CONSTANT) ? R.string.channel_constant : R.string.channel_reminders,
+            NotificationManager.IMPORTANCE_HIGH);
         boolean quiet = reminder.key.endsWith(QUIET);
-        NotificationCompat.Builder built = base(context, CHANNEL, reminder.title, reminder.body)
+        NotificationCompat.Builder built = base(context, channel, reminder.title, reminder.body)
             .setCategory(NotificationCompat.CATEGORY_REMINDER)
             .setPriority(NotificationCompat.PRIORITY_HIGH)
             .setWhen(reminder.at)
@@ -261,14 +270,29 @@ final class Reminders {
             .addAction(0, context.getString(R.string.action_complete), act(context, reminder, COMPLETE))
             .addAction(0, context.getString(R.string.action_snooze), snoozePicker(context, reminder));
         android.app.Notification made = built.build();
-        if (reminder.constant && !quiet) {
-            // Keeps sounding and buzzing until it is opened, dismissed or a button is pressed
-            // (spec: PL-115), and a quiet copy takes its place after QUIET_AFTER_MS.
+        if (insistent(reminder)) {
+            // Keeps buzzing until it is opened, dismissed or a button is pressed (spec: PL-115), with
+            // no sound on its channel (CONSTANT), and a quiet copy takes its place after QUIET_AFTER_MS.
             made.flags |= android.app.Notification.FLAG_INSISTENT;
             add(context, new Reminder(reminder.tag() + QUIET, reminder.title, reminder.body,
                 reminder.at + QUIET_AFTER_MS, reminder.url, true, reminder.repeats));
         }
         NotificationManagerCompat.from(context).notify(reminder.shown(), made);
+    }
+
+    /** The channel a reminder shows on: a constant one, and its quiet copy, on the soundless CONSTANT. */
+    static String channelFor(Reminder reminder) {
+        return reminder.constant ? CONSTANT : CHANNEL;
+    }
+
+    /** Whether it repeats its alert until touched: a constant reminder, but not its quiet copy. */
+    static boolean insistent(Reminder reminder) {
+        return reminder.constant && !reminder.key.endsWith(QUIET);
+    }
+
+    /** Whether a channel is made with no sound, only vibration. */
+    static boolean soundless(String channel) {
+        return CONSTANT.equals(channel);
     }
 
     /** What is new from other people ({id, kind, title, body, url} from the check-in), shown now. */
@@ -416,6 +440,7 @@ final class Reminders {
         // Vibration on from the start (PL-115); the person turns it off per channel on the phone.
         made.enableVibration(true);
         made.setVibrationPattern(new long[] { 0, 250, 150, 250 });
+        if (soundless(id)) made.setSound(null, null);
         made.enableLights(true);
         notifications.createNotificationChannel(made);
     }

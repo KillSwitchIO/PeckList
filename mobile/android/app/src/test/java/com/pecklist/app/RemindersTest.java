@@ -1,6 +1,8 @@
 package com.pecklist.app;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
 
 import java.util.Arrays;
 import java.util.Collections;
@@ -28,6 +30,34 @@ public class RemindersTest {
         // Repeats replace each other on screen; each has its own alarm.
         assertEquals(Reminders.idOf("01JTASK@1793037600000"), repeat.shown());
         assertEquals(Reminders.idOf("01JTASK@1793037600000#3"), repeat.alarm());
+    }
+
+    /**
+     * Ben, 0.13.0: a constant reminder rang until touched when it should only buzz. FLAG_INSISTENT
+     * repeats the channel's sound too, so it goes on its own channel made with no sound.
+     */
+    @Test
+    public void aConstantReminderBuzzesOnASoundlessChannel() {
+        Reminders.Reminder constant = new Reminders.Reminder("T1@1793037600000", "t", "b", 1793037600000L, "/today", true, false);
+        assertEquals(Reminders.CONSTANT, Reminders.channelFor(constant));
+        assertTrue(Reminders.insistent(constant));
+        assertTrue(Reminders.soundless(Reminders.channelFor(constant)));
+
+        // Its quiet copy after 30 minutes replaces it on the same channel, and stops repeating.
+        Reminders.Reminder quiet = new Reminders.Reminder("T1@1793037600000" + Reminders.QUIET, "t", "b",
+            1793037600000L + Reminders.QUIET_AFTER_MS, "/today", true, false);
+        assertEquals(Reminders.CONSTANT, Reminders.channelFor(quiet));
+        assertFalse(Reminders.insistent(quiet));
+        assertEquals(constant.shown(), quiet.shown());
+
+        // Other reminders keep the Reminders channel and its sound, alerting once.
+        Reminders.Reminder plain = new Reminders.Reminder("T2@1793037600000", "t", "b", 1793037600000L, "/today", false, false);
+        assertEquals(Reminders.CHANNEL, Reminders.channelFor(plain));
+        assertFalse(Reminders.insistent(plain));
+        assertFalse(Reminders.soundless(Reminders.CHANNEL));
+        for (String news : Arrays.asList(Reminders.ASSIGNMENTS, Reminders.SHARES, Reminders.COMMENTS)) {
+            assertFalse(Reminders.soundless(news));
+        }
     }
 
     private static Reminders.Reminder at(String key, long at, boolean local) {

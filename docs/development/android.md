@@ -58,8 +58,10 @@ app (ADR-0017 in the project notes). There is no second copy of the UI.
   Local Notifications instead). `Reminders` sets an exact alarm for each (`ExactAlarms`; inexact
   while the Play build waits for the person's allow, see [Two builds](#two-builds)) and
   shows it when it fires, in a "Reminders" channel, with **Complete** and **Snooze** as TickTick
-  has. A constant reminder is insistent (it keeps sounding until touched) and a quiet copy
-  replaces it after 30 minutes; its 5-minute repeats are for browsers and are skipped here.
+  has. A constant reminder is insistent (it keeps buzzing until touched) on its own "Constant
+  reminders" channel (`constant.v1`), made with no sound because `FLAG_INSISTENT` repeats the
+  channel's sound as well as its vibration; a quiet copy replaces it on that channel after 30
+  minutes. Its 5-minute repeats are for browsers and are skipped here.
   News goes to a channel per kind ("Assignments and dibs", "Shared lists", "Comments and
   mentions"), all with vibration on (PL-115); the channel ids are versioned (`.v2`) because
   Android keeps a channel's settings as first created, and the first ones had no vibration. Snooze asks how long first (`SnoozeActivity`, a dialog over whatever is on screen: 10 or 30

@@ -299,9 +299,9 @@ public class ShellPlugin extends Plugin {
     }
 
     /**
-     * Api 5: Android's notification settings for this app, where each channel (Reminders,
-     * Assignments and dibs, Shares, Comments and mentions) has its own sound, vibration and on or
-     * off. PL-115's "Manage on the phone".
+     * Api 5: Android's notification settings for this app, where each channel (Reminders, Constant
+     * reminders, Assignments and dibs, Shares, Comments and mentions) has its own sound, vibration
+     * and on or off. PL-115's "Manage on the phone".
      */
     @PluginMethod
     public void notificationSettings(PluginCall call) {
