@@ -70,7 +70,10 @@ app (ADR-0017 in the project notes). There is no second copy of the UI.
   phone at once; offline, the press waits in `Pending` and goes at the next check-in or start, with
   no second notification. A snooze on a server is the person's own: the server keeps it apart from
   the task (`reminder_snoozes`), so nobody else on the task gets it, and hands it to their next check
-  with the reminders ahead (`GET /api/reminders/snoozes` lists it for an open web app). Standalone, or Complete on a repeating task (only the app works out its
+  with the reminders ahead (`GET /api/reminders/snoozes` lists it for an open web app). It is
+  for the occurrence snoozed: once the task is done, trashed, moved to another date (a repeating
+  task completed moves to its next one) or left with no reminder, it goes from both lists, and the
+  next hand-over takes it off the phone's alarms. Standalone, or Complete on a repeating task (only the app works out its
   next date), the button opens the app and does it there (`app/native/NotificationOpen.tsx`). A tap
   opens the task.
   Reminders further out are handed over by the background check-in.

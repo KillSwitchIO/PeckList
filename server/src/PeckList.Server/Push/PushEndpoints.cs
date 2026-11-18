@@ -27,8 +27,12 @@ public sealed record PushUnsubscribe(string? Endpoint);
 /// </summary>
 public sealed record ReminderAct(string? TaskId, long First, string? Action, int? Minutes = null);
 
-/// <summary>A reminder the person snoozed (audit B3): it comes again for them at <paramref name="At"/> (ms since the epoch).</summary>
-public sealed record SnoozedReminder(string TaskId, long At);
+/// <summary>
+/// A reminder the person snoozed (audit B3): it comes again for them at <paramref name="At"/> (ms
+/// since the epoch), while the task is still on <paramref name="Occurrence"/>, the date it had when
+/// snoozed (null: any). A repeating task completed in the app moves on at once, before the server hears.
+/// </summary>
+public sealed record SnoozedReminder(string TaskId, long At, string? Occurrence = null);
 
 /// <summary>Web Push (spec: PL-061): the server's key, and this browser's subscription.</summary>
 public static class PushEndpoints
@@ -117,17 +121,29 @@ public static class PushEndpoints
             }
             if (request.Action == "snooze")
             {
+                // A press that waited (offline on the phone, or in a browser) for a reminder of an
+                // occurrence already done (a repeating task completed and moved on): no snooze, or
+                // it would come on the next occurrence (Dev 2's review of the 0.13.0-rc.2 fix). A
+                // snooze of a snooze of this occurrence is never earlier than its first reminder.
+                if (request.First > 0)
+                {
+                    var zone = await DeviceZones.ZoneForAsync(index, userId, store, settings, cancellation);
+                    if (ServerReminders.OccurrenceStart(found.Doc, zone) is { } start
+                        && request.First < (start - TimeSpan.FromMinutes(1)).ToUnixTimeMilliseconds()) return Results.NoContent();
+                }
                 // Up to a week: "tomorrow morning" from late at night is more than a day. On the
                 // minute, as a reminder's set time is, so the apps' keys for it agree.
                 var minutes = Math.Clamp(request.Minutes ?? SnoozeMinutes, 1, 7 * 24 * 60);
                 var later = now.AddMinutes(minutes);
-                await store.SnoozeAsync(userId, found.Id, later.AddTicks(-(later.UtcTicks % TimeSpan.TicksPerMinute)), cancellation);
+                await store.SnoozeAsync(userId, found.Id, later.AddTicks(-(later.UtcTicks % TimeSpan.TicksPerMinute)),
+                    ServerReminders.Occurrence(found.Doc), cancellation);
             }
             return Results.NoContent();
         }).Doc("Press a reminder's button with the app closed: dismiss, snooze (minutes, ten by default) or complete").Refuses(StatusCodes.Status400BadRequest).Missing();
 
         // The person's snoozes still to come (audit B3), for an open app to fire them itself: only
-        // their own, and only on tasks still open and theirs. A constant reminder's repeats count.
+        // their own, and only on tasks still theirs where the snooze holds (open, a reminder left,
+        // the same occurrence). A constant reminder's repeats count.
         api.MapGet("/reminders/snoozes", async (ClaimsPrincipal user, SharingState sharing, IPushStore store, TimeProvider time, CancellationToken cancellation) =>
         {
             var userId = user.UserId();
@@ -135,9 +151,9 @@ public static class PushEndpoints
             var now = time.GetUtcNow();
             var snoozes = await store.SnoozesAsync(now - ServerReminders.RepeatsLast, now + SnoozesAhead, userId, cancellation);
             return snoozes
-                .Where(each => index.LiveDocOf(each.TaskId, "tasks") is { } task && (string?)task["status"] == "open"
+                .Where(each => index.LiveDocOf(each.TaskId, "tasks") is { } task && ServerReminders.SnoozeHolds(task, each)
                     && ServerReminders.Recipients(task, index).Contains(userId))
-                .Select(each => new SnoozedReminder(each.TaskId, each.At.ToUnixTimeMilliseconds()))
+                .Select(each => new SnoozedReminder(each.TaskId, each.At.ToUnixTimeMilliseconds(), each.Occurrence))
                 .ToList();
         }).WithSummary("Your snoozed reminders still to come, for an open app to fire itself");
 

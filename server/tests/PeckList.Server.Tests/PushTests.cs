@@ -437,6 +437,103 @@ public sealed class PushTests(ServerFixture fixture) : IClassFixture<ServerFixtu
     }
 
     [Fact]
+    public async Task A_snooze_goes_once_its_task_is_done_moved_on_trashed_or_without_reminders()
+    {
+        // Ben, 0.13.0-rc.2: a snoozed reminder still came after the task was marked done. A
+        // repeating task stays open on its next date, so the snooze of the occurrence done came on.
+        using var server = Server();
+        var (ben, benId) = await SignIn(server, "ben-z");
+        JsonObject Task(string id, string? recurrence, string? zone = null) => Entity(id, benId, new JsonObject
+        {
+            ["listId"] = "ZZL",
+            ["title"] = id,
+            ["parentId"] = null,
+            ["status"] = "open",
+            ["assignees"] = new JsonObject(),
+            ["recurrence"] = recurrence,
+            ["schedule"] = new JsonObject { ["start"] = "2026-10-26T10:30", ["end"] = null, ["allDay"] = false, ["timeZone"] = zone },
+            ["reminders"] = new JsonArray(new JsonObject { ["before"] = 30 }),
+        });
+        // A later change of some fields, as another device or the app writes it.
+        static JsonObject Changed(JsonObject entity, JsonObject fields)
+        {
+            var next = entity.DeepClone().AsObject();
+            foreach (var (field, value) in fields)
+            {
+                next[field] = value?.DeepClone();
+                next["_hlc"]![field] = "2026-10-24T11:00:00.000Z-0000-dev1";
+            }
+            return next;
+        }
+        Task<HttpResponseMessage> Sync(params JsonObject[] entities) => ben.PostAsJsonAsync("/api/sync", new
+        {
+            schemaVersion = WorkspaceSchema.CurrentVersion,
+            cursor = (long?)null,
+            changes = entities.Select(each => (object)new { collection = (string)each["id"]! == "ZZL" ? "lists" : "tasks", entity = each }).ToArray(),
+        }, Token);
+        var moved = Task("ZR2", "FREQ=DAILY");
+        var unreminded = Task("ZO1", null);
+        var trashed = Task("ZO2", null);
+        (await Sync(Entity("ZZL", benId, new JsonObject { ["name"] = "Home", ["visibility"] = "private" }),
+            Task("ZR1", "FREQ=DAILY"), moved, unreminded, trashed, Task("ZK1", "FREQ=DAILY", "America/Chicago"))).EnsureSuccessStatusCode();
+        string[] all = ["ZR1", "ZR2", "ZO1", "ZO2", "ZK1"];
+        foreach (var id in all)
+        {
+            (await ben.PostAsJsonAsync("/api/reminders/act", new { taskId = id, first = 0L, action = "snooze", minutes = 60 }, Token)).EnsureSuccessStatusCode();
+        }
+        var snoozes = (await ben.GetFromJsonAsync<List<SnoozedReminder>>("/api/reminders/snoozes", Token))!;
+        Assert.Equal(all.Order(), snoozes.Select(each => each.TaskId).Order());
+        // Each names the occurrence it is for, so the app can drop it the moment the task moves on:
+        // a timed date with its zone as the moment in UTC (the app shows it on the viewer's clock),
+        // one with no zone as written.
+        Assert.All(snoozes.Where(each => each.TaskId != "ZK1"), each => Assert.Equal("2026-10-26T10:30", each.Occurrence));
+        Assert.Equal("2026-10-26T15:30Z", snoozes.Single(each => each.TaskId == "ZK1").Occurrence);
+        var at = snoozes.Single(each => each.TaskId == "ZK1").At;
+
+        // Complete on the Android notification: the repeating task moves to its next date on the server.
+        (await ben.PostAsJsonAsync("/api/reminders/act", new { taskId = "ZR1", first = 0L, action = "complete" }, Token)).EnsureSuccessStatusCode();
+        // Completed in the app (or on another device): the moved task comes by sync; so do the
+        // reminders taken off a task, and a task put in the trash.
+        var nextDate = new JsonObject { ["start"] = "2026-10-27T10:30", ["end"] = null, ["allDay"] = false, ["timeZone"] = null };
+        (await Sync(Changed(moved, new JsonObject { ["schedule"] = nextDate }),
+            Changed(unreminded, new JsonObject { ["reminders"] = new JsonArray() }),
+            Changed(trashed, new JsonObject { ["deletedAt"] = "2026-10-24T11:00:00.000Z" }))).EnsureSuccessStatusCode();
+
+        Assert.Equal(["ZK1"], (await ben.GetFromJsonAsync<List<SnoozedReminder>>("/api/reminders/snoozes", Token))!.Select(each => each.TaskId));
+        // The phone's next check-in takes the rest off its alarms, and no push comes for them.
+        var check = (await ben.GetFromJsonAsync<AppCheck>("/api/app/check", Token))!;
+        Assert.Equal([$"ZK1@{at}"], check.Reminders.Select(each => each.Tag));
+        await Pushed(server);
+        push.Sent.Clear();
+        var due = DateTimeOffset.FromUnixTimeMilliseconds(at);
+        await server.Services.GetRequiredService<ReminderSender>().SendDueAsync(due.AddMinutes(-2), due.AddMinutes(2), Token);
+        Assert.Equal([$"ZK1@{at}"], push.Sent.Select(sent => sent.Payload.Tag));
+
+        // A press that waited (offline) for the reminder of the occurrence done comes after the
+        // task moved on: no snooze, or it would come on the next occurrence (Dev 2's review).
+        var stale = ServerReminders.Instants(Task("ZR1", "FREQ=DAILY"), TimeZoneInfo.Local).First().First;
+        (await ben.PostAsJsonAsync("/api/reminders/act", new { taskId = "ZR1", first = stale.ToUnixTimeMilliseconds(), action = "snooze", minutes = 30 }, Token)).EnsureSuccessStatusCode();
+        Assert.DoesNotContain((await ben.GetFromJsonAsync<List<SnoozedReminder>>("/api/reminders/snoozes", Token))!, each => each.TaskId == "ZR1");
+        // The next occurrence's reminder snoozed, and a snooze of that snooze (its first: the
+        // snooze's own time, after the reminder), are that occurrence's: they hold.
+        var next = stale.AddDays(1);
+        foreach (var first in new[] { next, next.AddMinutes(10) })
+        {
+            (await ben.PostAsJsonAsync("/api/reminders/act", new { taskId = "ZR1", first = first.ToUnixTimeMilliseconds(), action = "snooze", minutes = 90 }, Token)).EnsureSuccessStatusCode();
+        }
+        var again = Assert.Single((await ben.GetFromJsonAsync<List<SnoozedReminder>>("/api/reminders/snoozes", Token))!, each => each.TaskId == "ZR1");
+        Assert.Equal("2026-10-27T10:30", again.Occurrence);
+
+        // A set time days before the date is this occurrence's reminder too: snoozed, it holds.
+        var early = Task("ZA1", "FREQ=DAILY");
+        early["reminders"] = new JsonArray(new JsonObject { ["at"] = "2026-10-20T08:00" }, new JsonObject { ["before"] = 30 });
+        (await Sync(early)).EnsureSuccessStatusCode();
+        var setTime = new DateTimeOffset(new DateTime(2026, 10, 20, 8, 0, 0), TimeZoneInfo.Local.GetUtcOffset(new DateTime(2026, 10, 20, 8, 0, 0)));
+        (await ben.PostAsJsonAsync("/api/reminders/act", new { taskId = "ZA1", first = setTime.ToUnixTimeMilliseconds(), action = "snooze", minutes = 30 }, Token)).EnsureSuccessStatusCode();
+        Assert.Contains((await ben.GetFromJsonAsync<List<SnoozedReminder>>("/api/reminders/snoozes", Token))!, each => each.TaskId == "ZA1");
+    }
+
+    [Fact]
     public async Task A_snooze_on_a_shared_task_is_only_for_the_person_who_snoozed()
     {
         using var server = Server();

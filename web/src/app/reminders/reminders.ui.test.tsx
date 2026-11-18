@@ -17,6 +17,7 @@ import { createMemoryStorage } from '../../adapters/memory-storage.ts';
 import { createSyncEngine } from '../sync/syncEngine.ts';
 import { createBrowserNotifier } from '../../adapters/browser-notifier.ts';
 import { setNotifier } from './notifier.ts';
+import { sameSnoozes } from '../../core/reminders.ts';
 
 function fakeNotifier(permission: NotificationPermissionState = 'granted') {
   const shown: AppNotification[] = [];
@@ -529,6 +530,16 @@ describe('snoozing a reminder (audit B3)', () => {
         ]),
       { timeout: 3000 },
     );
+  });
+
+  it('count as changed when only the occurrence is new (the next one snoozed to the same minute)', () => {
+    const before = [{ taskId: 'T1', at: 1_000, occurrence: '2026-10-26T15:30Z' }];
+    expect(sameSnoozes(before, [{ ...before[0]! }])).toBe(true);
+    expect(sameSnoozes(before, [{ ...before[0]!, occurrence: '2026-10-27T15:30Z' }])).toBe(false);
+    // From an older server, absent and null are the same.
+    expect(
+      sameSnoozes([{ taskId: 'T1', at: 1_000 }], [{ taskId: 'T1', at: 1_000, occurrence: null }]),
+    ).toBe(true);
   });
 
   it('in the Android app are not handed over before the list was ever had', async () => {
