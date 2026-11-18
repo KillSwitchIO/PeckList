@@ -15,7 +15,7 @@ import type { AccountDeletion } from '../../ports/sync.ts';
 import { t } from '../i18n/i18n.ts';
 import { PasswordField } from '../layout/PasswordField.tsx';
 import { ProblemAlert } from '../layout/ProblemAlert.tsx';
-import { isPlayBuild, PLAY_API, useShellInfo } from '../native/shell.ts';
+import { PLAY_API, useShellInfo } from '../native/shell.ts';
 import { leaveFor, rememberProvider } from '../sync/signInWith.ts';
 import { useSyncState } from '../sync/syncContext.ts';
 import { freshSignInUrl, rememberDeleted } from './deleteAccount.ts';
@@ -38,25 +38,21 @@ const BLOCKED = {
  * admin's, with the server's grace period and an admin's restore, asked for with fresh proof that
  * it is the person (their password, or a sign-in in the last 10 minutes). Afterwards they are
  * signed out, and the sign-in page says what happened. Not on servers too old to offer it.
- *
- * 0.12.1 shows it in the Google Play build only (Play's account deletion policy), so browsers, the
- * PWA and the foss app stay exactly as in 0.12.0; everyone gets it from 0.13.0.
  */
 export function DeleteAccountSection() {
-  const { shell, info } = useShellInfo();
-  const play = isPlayBuild(info);
   const api = useSyncState((state) =>
     state.phase === 'ready' && state.account?.authMode === 'local'
       ? state.transport.account
       : undefined,
   );
   const signOut = useSyncState((state) => state.signOut);
+  const { shell, info } = useShellInfo();
   const [params, setParams] = useSearchParams();
   const [offered, setOffered] = useState<AccountDeletion | null>(null);
   const [open, setOpen] = useState(false);
 
   useEffect(() => {
-    if (!play || !api?.deletion) return;
+    if (!api?.deletion) return;
     let live = true;
     api.deletion().then(
       (answer) => {
@@ -72,9 +68,9 @@ export function DeleteAccountSection() {
     };
     // Asked once per visit; the dialog asks again when it opens.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [api, play]);
+  }, [api]);
 
-  if (!play || !api?.deletion || !api.deleteAccount || !offered) return null;
+  if (!api?.deletion || !api.deleteAccount || !offered) return null;
   // The Android app needs a shell that takes a fresh sign-in through to its browser tab.
   const appCanSignIn = !shell || (info !== null && info.api >= PLAY_API);
   return (

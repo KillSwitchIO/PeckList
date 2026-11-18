@@ -1,17 +1,17 @@
 import { useEffect, useState } from 'react';
 import type { ExactAlarms } from '../../ports/nativeShell.ts';
-import { isPlayBuild, PLAY_API, useShellInfo } from './shell.ts';
+import { PLAY_API, useShellInfo } from './shell.ts';
 
 /**
  * Whether the Android app may set alarms for the exact minute (api 9), asked again whenever the
  * app comes back to the front (from Android's settings page, say). Null in a browser, on an older
- * shell, or while it answers. 0.12.1 asks only in the Google Play build, so the foss app stays as
- * in 0.12.0.
+ * shell, or while it answers. Any build: what counts is what Android reports, so a foss install
+ * that has USE_EXACT_ALARM answers allowed and is never asked.
  */
 export function useExactAlarms(): { state: ExactAlarms | null; allow: () => void } {
   const { shell, info } = useShellInfo();
   const [state, setState] = useState<ExactAlarms | null>(null);
-  const able = Boolean(shell?.exactAlarms && info && info.api >= PLAY_API && isPlayBuild(info));
+  const able = Boolean(shell?.exactAlarms && info && info.api >= PLAY_API);
   useEffect(() => {
     if (!able || !shell?.exactAlarms) return;
     let live = true;

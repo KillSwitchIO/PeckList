@@ -570,6 +570,41 @@ describe('passkeys (PL-123)', () => {
     await waitFor(() => expect(leaveFor).toHaveBeenCalledWith(handoff));
   });
 
+  it('in a browser, opens the page that asked for the sign-in (the delete dialog), and only its own', async () => {
+    const backend = new FakeBackend();
+    backend.passkeysOn = true;
+    backend.addAccount('sam', 'a long enough password');
+    backend.passkeys.set('cred-1', { username: 'sam', info: pixel });
+    fakeWebAuthn('cred-1');
+    const back = '/settings/account?delete=1';
+    window.history.replaceState(null, '', `/login?passkey=1&returnUrl=${encodeURIComponent(back)}`);
+    const { transport } = await serverApp(backend);
+    await userEvent.click(await screen.findByRole('button', { name: 'Sign in with a passkey' }));
+    await waitFor(() => expect(transport.session).toBe('sam'));
+    expect(window.location.pathname + window.location.search).toBe(back);
+
+    cleanup();
+    transport.session = null;
+    window.history.replaceState(
+      null,
+      '',
+      `/login?passkey=1&returnUrl=${encodeURIComponent('//evil.example/x')}`,
+    );
+    const again = await serverApp(backend);
+    await userEvent.click(await screen.findByRole('button', { name: 'Sign in with a passkey' }));
+    await waitFor(() => expect(again.transport.session).toBe('sam'));
+    expect(window.location.pathname).toBe('/');
+
+    // A tab in the path reads as "//evil.example": still signs in, and stays here.
+    cleanup();
+    again.transport.session = null;
+    window.history.replaceState(null, '', '/login?passkey=1&returnUrl=%2F%09%2Fevil.example');
+    const third = await serverApp(backend);
+    await userEvent.click(await screen.findByRole('button', { name: 'Sign in with a passkey' }));
+    await waitFor(() => expect(third.transport.session).toBe('sam'));
+    expect(window.location.origin + window.location.pathname).toBe(`${window.location.origin}/`);
+  });
+
   it('shows no problem when the browser refuses the autofill offer, and a password still works', async () => {
     const backend = new FakeBackend();
     backend.addAccount('sam', 'correct horse battery');

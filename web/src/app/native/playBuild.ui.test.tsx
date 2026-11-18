@@ -243,12 +243,23 @@ describe('exact reminders', () => {
   });
 
   it.each([
-    ['foss', () => new FakeShell(9, 'foss')],
-    // A foss app on Android 12-13 where the person took exact alarms away: 0.12.1 leaves it as 0.12.0.
-    [
-      'foss, even when Android could ask',
-      () => Object.assign(new FakeShell(9, 'foss'), { exact: { allowed: false, canAsk: true } }),
-    ],
+    ['play', 'play'],
+    // A foss app on Android 12-13 without USE_EXACT_ALARM, or where the person took it away.
+    ['foss', 'foss'],
+  ] as const)('%s, not allowed: the prompt shows', async (_name, flavor) => {
+    const shell = new FakeShell(9, flavor);
+    shell.exact = { allowed: false, canAsk: true };
+    await appAs(samsServer(), '/settings/notifications', shell);
+    const section = await screen.findByRole('region', { name: 'On this device' }, slow);
+    expect(
+      await within(section).findByRole('button', { name: 'Allow exact reminders' }),
+    ).toBeInTheDocument();
+  });
+
+  it.each([
+    ['play, allowed', () => new FakeShell(9, 'play')],
+    // A foss install with USE_EXACT_ALARM granted.
+    ['foss, allowed', () => new FakeShell(9, 'foss')],
     ['an older shell', () => new FakeShell(8)],
   ])('%s: no prompt', async (_name, make) => {
     const shell = make();
