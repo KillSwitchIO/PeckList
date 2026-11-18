@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- One quick pick on the snooze picker's Delay tab, with the time it snoozes until (SnoozeActivity). -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    style="@style/SnoozeRow">
+
+    <TextView
+        android:id="@+id/snooze_quick_label"
+        style="@style/SnoozeRowLabel" />
+
+    <TextView
+        android:id="@+id/snooze_quick_until"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:textAppearance="?android:attr/textAppearanceSmall"
+        android:textColor="?android:attr/textColorSecondary" />
+</LinearLayout>

@@ -33,6 +33,11 @@ final class Held {
     }
 
     static void add(Context context, String button, String taskId, int minutes) {
+        add(context, button, taskId, minutes, System.currentTimeMillis());
+    }
+
+    /** {@code at}: when it was pressed, which the app counts a snooze from. */
+    static void add(Context context, String button, String taskId, int minutes, long at) {
         synchronized (Held.class) {
             JSONArray all = load(context);
             try {
@@ -41,7 +46,7 @@ final class Held {
                     .put("action", button)
                     .put("taskId", taskId)
                     .put("minutes", minutes)
-                    .put("at", System.currentTimeMillis())
+                    .put("at", at)
                     .put("server", server == null ? JSONObject.NULL : server));
             } catch (JSONException error) {
                 throw new IllegalStateException(error);

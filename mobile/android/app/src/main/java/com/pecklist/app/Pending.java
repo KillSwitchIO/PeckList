@@ -26,16 +26,24 @@ final class Pending {
         final String taskId;
         final long first;
         final int minutes;
+        /** When it was pressed: a snooze counts from then (SnoozeTimes.left). */
+        final long at;
 
-        Press(String button, String taskId, long first, int minutes) {
+        Press(String button, String taskId, long first, int minutes, long at) {
             this.button = button;
             this.taskId = taskId;
             this.first = first;
             this.minutes = minutes;
+            this.at = at;
         }
     }
 
-    static synchronized void add(Context context, String button, String taskId, long first, int minutes) {
+    static void add(Context context, String button, String taskId, long first, int minutes) {
+        add(context, button, taskId, first, minutes, System.currentTimeMillis());
+    }
+
+    /** Added back after a failed try, still as of when it was pressed. */
+    static synchronized void add(Context context, String button, String taskId, long first, int minutes, long at) {
         JSONArray all = load(context);
         try {
             all.put(new JSONObject()
@@ -43,7 +51,7 @@ final class Pending {
                 .put("taskId", taskId)
                 .put("first", first)
                 .put("minutes", minutes)
-                .put("at", System.currentTimeMillis()));
+                .put("at", at));
         } catch (JSONException error) {
             throw new IllegalStateException(error);
         }
@@ -59,7 +67,8 @@ final class Pending {
         for (int i = 0; i < all.length(); i++) {
             JSONObject each = all.optJSONObject(i);
             if (each == null || each.optLong("at") < oldest) continue;
-            presses.add(new Press(each.optString("button"), each.optString("taskId"), each.optLong("first"), each.optInt("minutes", Reminders.SNOOZE_MINUTES)));
+            presses.add(new Press(each.optString("button"), each.optString("taskId"), each.optLong("first"),
+                each.optInt("minutes", Reminders.SNOOZE_MINUTES), each.optLong("at")));
         }
         return presses;
     }

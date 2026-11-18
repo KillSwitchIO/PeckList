@@ -3,14 +3,12 @@ package com.pecklist.app;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
-import android.text.format.DateFormat;
 import android.webkit.CookieManager;
 import com.getcapacitor.Logger;
 import java.io.OutputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
-import java.util.Date;
 import org.json.JSONObject;
 
 /**
@@ -48,8 +46,16 @@ public class ReminderReceiver extends BroadcastReceiver {
         }, "pecklist-reminder").start();
     }
 
-    /** Complete, or Snooze for {@code minutes}. Network: call off the main thread. */
+    /** Complete, or Snooze for {@code minutes}, pressed now. Network: call off the main thread. */
     static void press(Context context, String button, Reminders.Reminder reminder, int minutes) {
+        press(context, button, reminder, minutes, System.currentTimeMillis());
+    }
+
+    /**
+     * Complete, or Snooze for {@code minutes} from {@code pressedAt}: a slow network or a retry
+     * never moves when it comes back. Network: call off the main thread.
+     */
+    static void press(Context context, String button, Reminders.Reminder reminder, int minutes, long pressedAt) {
         // Gone from the screen at once, as TickTick does; it comes back only if this fails.
         Reminders.cancelShown(context, reminder.shown());
         // Done here at once, offline too: the server hears of it now or at the next check-in.
@@ -57,23 +63,26 @@ public class ReminderReceiver extends BroadcastReceiver {
             Reminders.dropTask(context, reminder.taskId());
         } else {
             Reminders.dropRepeats(context, reminder.tag());
-            Reminders.add(context, snoozed(context, reminder, minutes));
+            Reminders.add(context, snoozed(context, reminder, minutes, pressedAt));
         }
         if (ServerChoice.get(context) == null) {
-            Held.add(context, button, reminder.taskId(), minutes);
+            Held.add(context, button, reminder.taskId(), minutes, pressedAt);
             return;
         }
-        int status = act(context, button, reminder, minutes);
+        // The server counts from when it hears: tell it what is left of the snooze by then.
+        int send = Reminders.SNOOZE.equals(button)
+            ? Math.max(1, SnoozeTimes.left(minutes, pressedAt, System.currentTimeMillis())) : minutes;
+        int status = act(context, button, reminder, send);
         if (status == 204) return;
         if (status == 409) {
             // A server from before it moved repeating tasks itself: the app moves it.
-            Held.add(context, button, reminder.taskId(), minutes);
+            Held.add(context, button, reminder.taskId(), minutes, pressedAt);
             return;
         }
         Logger.info("PeckList", "Reminder " + button + ": the server answered " + status + "; trying again later");
         // Unreachable or signed out: later. Refused (the task is gone, or not theirs): nothing to do.
         if (status == 0 || status == 401 || status == 403 || status >= 500) {
-            Pending.add(context, button, reminder.taskId(), reminder.first(), minutes);
+            Pending.add(context, button, reminder.taskId(), reminder.first(), minutes, pressedAt);
         }
     }
 
@@ -81,23 +90,29 @@ public class ReminderReceiver extends BroadcastReceiver {
     static void retryPending(Context context) {
         boolean reachable = true;
         for (Pending.Press each : Pending.take(context)) {
+            // A snooze comes back when the person chose, however late the server hears of it; once
+            // that has passed, the phone has shown it again and there is nothing left to tell.
+            int minutes = Reminders.SNOOZE.equals(each.button)
+                ? SnoozeTimes.left(each.minutes, each.at, System.currentTimeMillis()) : each.minutes;
+            if (Reminders.SNOOZE.equals(each.button) && minutes == 0) continue;
             // Once the server cannot be reached, the rest wait too.
-            int status = reachable ? act(context, each.button, each.taskId, each.first, each.minutes) : 0;
+            int status = reachable ? act(context, each.button, each.taskId, each.first, minutes) : 0;
             if (status == 409) {
-                Held.add(context, each.button, each.taskId, each.minutes);
+                Held.add(context, each.button, each.taskId, minutes);
                 continue;
             }
             if (status == 0 || status == 401 || status == 403 || status >= 500) {
                 reachable = false;
-                Pending.add(context, each.button, each.taskId, each.first, each.minutes);
+                Pending.add(context, each.button, each.taskId, each.first, each.minutes, each.at);
             }
         }
     }
 
     /** The reminder Snooze leaves, until the server's own copy replaces it at the next check-in. */
-    private static Reminders.Reminder snoozed(Context context, Reminders.Reminder reminder, int minutes) {
-        long at = (System.currentTimeMillis() / 60_000L + minutes) * 60_000L;
-        String time = DateFormat.getTimeFormat(context).format(new Date(at));
+    private static Reminders.Reminder snoozed(Context context, Reminders.Reminder reminder, int minutes, long pressedAt) {
+        long at = SnoozeTimes.until(pressedAt, minutes);
+        // The day too when it is not today (a snooze until tomorrow, or a date picked).
+        String time = SnoozeActivity.when(context, at);
         return new Reminders.Reminder(reminder.taskId() + "@" + at, reminder.title,
             context.getString(R.string.reminder_body, time), at, reminder.url, false, reminder.repeats);
     }

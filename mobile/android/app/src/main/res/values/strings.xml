@@ -39,13 +39,28 @@
     <!-- A reminder's buttons and text (Reminders, ReminderReceiver); the web app words them the same. -->
     <string name="action_complete">Complete</string>
     <string name="action_snooze">Snooze</string>
-    <!-- The snooze picker (SnoozeActivity), like TickTick's. -->
-    <string name="snooze_title">Snooze until</string>
-    <string name="snooze_minutes">%1$d minutes</string>
-    <string name="snooze_hour">1 hour</string>
-    <string name="snooze_hours">%1$d hours</string>
+    <!-- The snooze picker (SnoozeActivity, PL-145): a Delay tab and a Date and time tab. -->
+    <string name="snooze_tab_delay">Delay</string>
+    <string name="snooze_tab_at">Date and time</string>
+    <plurals name="snooze_minutes">
+        <item quantity="one">%1$d minute</item>
+        <item quantity="other">%1$d minutes</item>
+    </plurals>
+    <plurals name="snooze_hours">
+        <item quantity="one">%1$d hour</item>
+        <item quantity="other">%1$d hours</item>
+    </plurals>
     <string name="snooze_tomorrow">Tomorrow at %1$s</string>
-    <string name="snooze_custom">Pick a time</string>
+    <string name="snooze_custom_label">Other</string>
+    <string-array name="snooze_units">
+        <item>minutes</item>
+        <item>hours</item>
+        <item>days</item>
+    </string-array>
+    <string name="snooze_time">Time</string>
+    <string name="snooze_passed">That time has passed.</string>
+    <string name="snooze_too_far">A snooze can be a week at most: pick a time before %1$s.</string>
+    <string name="snooze_limit">Up to a week ahead: until %1$s.</string>
     <string name="snooze_done">Snoozed until %1$s</string>
     <string name="reminder_body">Reminder for %1$s</string>
     <!-- Back with nothing left to go back to (MainActivity). -->
