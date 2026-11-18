@@ -53,8 +53,9 @@ public sealed record ReminderSnooze(string UserId, string TaskId, DateTimeOffset
 
 /// <summary>
 /// Reminders on the server (spec: PL-061), the same rules as the app (web/src/core/reminders.ts):
-/// minutes before the task's start (else its due date; an all-day date counts from 9:00), or a set
-/// local date-time; for its assignees, or its maker when nobody is assigned.
+/// minutes before the task's start (else its due date; a timed one on its own zone's clock, an all-day
+/// date from 9:00 where the person is), or a set local date-time where the person is; for its
+/// assignees, or its maker when nobody is assigned.
 /// </summary>
 /// <summary>One time a reminder fires: <paramref name="At"/>, for the reminder due at <paramref name="First"/>.</summary>
 public readonly record struct ReminderTime(DateTimeOffset At, DateTimeOffset First, bool Constant);
@@ -111,10 +112,7 @@ public static class ServerReminders
     /// </summary>
     public static DateTimeOffset? OccurrenceStart(JsonObject task, TimeZoneInfo personZone)
     {
-        if (task["reminders"] is not JsonArray reminders) return null;
-        var (dated, at) = Dated(task);
-        if (at is null || Local(at) is not { } local) return null;
-        var start = InZone(local, at.Length > 10 && OwnZone(dated!) is { } own ? own : personZone);
+        if (task["reminders"] is not JsonArray reminders || Start(task, personZone) is not { } start) return null;
         DateTimeOffset? fromDate = null, setTime = null;
         foreach (var reminder in reminders.OfType<JsonObject>())
         {
@@ -143,6 +141,20 @@ public static class ServerReminders
         Text(dated["timeZone"]) is { } name && TimeZoneInfo.TryFindSystemTimeZoneById(name, out var zone) ? zone : null;
 
     /// <summary>
+    /// The moment the task's reminders count from (<see cref="Dated"/>). A timed date is a moment
+    /// written on its own zone's clock (spec: PL-020), so it is read there, wherever the person is: a
+    /// task written in UTC and seen from Chicago reminds at the same moment for both, as the app
+    /// works it out. A whole day is the same date everywhere and reminds from 9:00 where the person
+    /// is; so does a time with no zone (or one this server does not know).
+    /// </summary>
+    private static DateTimeOffset? Start(JsonObject task, TimeZoneInfo personZone)
+    {
+        var (dated, at) = Dated(task);
+        if (at is null || Local(at) is not { } local) return null;
+        return InZone(local, at.Length > 10 && OwnZone(dated!) is { } own ? own : personZone);
+    }
+
+    /// <summary>
     /// Whether a snooze still comes back (Ben, 0.13.0-rc.2): the task is open, it still has a
     /// reminder, and it is on the occurrence that was snoozed. Completing a repeating task leaves it
     /// open on its next date, and that occurrence must not get the last one's snooze; nor does a task
@@ -159,17 +171,18 @@ public static class ServerReminders
     private static IEnumerable<DateTimeOffset> FirstInstants(JsonObject task, TimeZoneInfo zone)
     {
         if (task["reminders"] is not JsonArray reminders) yield break;
-        var anchor = Text(task["schedule"]?["start"]) ?? Text(task["due"]?["at"]);
+        var start = Start(task, zone);
         foreach (var reminder in reminders.OfType<JsonObject>())
         {
+            // A set time is on the person's own clock: it has no zone of its own, and the app reads
+            // it where it runs too.
             if (Text(reminder["at"]) is { } at)
             {
                 if (Local(at) is { } set) yield return InZone(set, zone);
             }
-            else if (reminder["before"] is JsonValue before && before.TryGetValue<int>(out var minutes) && anchor is not null
-                && Local(anchor) is { } start)
+            else if (reminder["before"] is JsonValue before && before.TryGetValue<int>(out var minutes) && start is { } from)
             {
-                yield return InZone(start, zone) - TimeSpan.FromMinutes(minutes);
+                yield return from - TimeSpan.FromMinutes(minutes);
             }
         }
     }

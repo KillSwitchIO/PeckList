@@ -459,7 +459,9 @@ in backups or exports; whoever runs the server can still read its database. It g
 account does. A reminder whose new time has already passed when you arrive somewhere later in the day
 comes at once; one that already went comes again at the new time if the task is still open. If two
 of your devices are in different zones, the server follows whichever told it last, so a reminder can
-come twice.
+come twice. What moves is a reminder at a set time, or on an all-day date: a task with a time keeps
+its moment (shown on your clock wherever you are), and so do reminders counted from that time, on
+every device.
 
 **New tasks**: what a new task starts with: a list (for tasks added outside a list), a priority, a
 date (none, today, tomorrow or in a week) with an optional time, reminders, the time all-day
