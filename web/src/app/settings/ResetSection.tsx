@@ -15,15 +15,18 @@ import { DEFAULT_PURGE_DAYS, purgeDaysOf } from '../../core/settings.ts';
 import { emptyTrash } from '../../core/trash.ts';
 import { t } from '../i18n/i18n.ts';
 import { useWorkspaceStore } from '../store/hooks.ts';
+import { useAccountApi, useStartOverOffer } from './deleteAccount.ts';
 import { purgePeriod } from './purgePeriod.ts';
 import { Section, SettingRow } from './settingsLayout.tsx';
 
 /**
  * Settings > Start over, last on the page: every list, task and tag that is mine goes to the Trash
  * at once (lists others share with me stay), as one undo; or, ticked, the Trash is emptied too,
- * which cannot be undone.
+ * which cannot be undone. Where the server offers Start over itself (PL-147, Settings > Account),
+ * that replaces this one.
  */
 export function ResetSection() {
+  const offer = useStartOverOffer(useAccountApi());
   const store = useWorkspaceStore();
   const [open, setOpen] = useState(false);
   const [purge, setPurge] = useState(false);
@@ -51,6 +54,8 @@ export function ResetSection() {
     close();
   };
 
+  // Still asking, or the server's own Start over is there instead.
+  if (offer !== null) return null;
   return (
     <Section title={t('settings.reset')}>
       <SettingRow label={t('settings.reset.action')} hint={t('settings.reset.hint')}>

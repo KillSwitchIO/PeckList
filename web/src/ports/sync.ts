@@ -334,6 +334,29 @@ export type AccountDeleteOutcome =
   /** Not from here: an admin viewing as them, or a server with no sign-in. */
   | { kind: 'refused' };
 
+/**
+ * What starting over asks for on this server (`GET /api/account/start-over`, PL-147): the proof
+ * (the password, or a sign-in in the last 10 minutes for an account without one), whether this
+ * session's sign-in is that recent, and why it cannot be done, if it cannot.
+ */
+export interface StartOverInfo {
+  proof: 'password' | 'sign-in';
+  signedInRecently: boolean;
+  blocked: 'not_while_impersonating' | 'no_sign_in' | null;
+}
+
+/** How starting over went: how much was erased, and how many shared lists went to someone else. */
+export type StartOverOutcome =
+  | { kind: 'started-over'; erased: number; handedOn: number }
+  | { kind: 'wrong-password' }
+  /** Too many wrong passwords, here or signing in: locked until then (ISO time). */
+  | { kind: 'locked'; until: string }
+  | { kind: 'sign-in-again' }
+  | { kind: 'too-many' }
+  | { kind: 'gone' }
+  /** Not from here: an admin viewing as them, or a server with no sign-in. */
+  | { kind: 'refused' };
+
 /** The signed-in user's own account (servers with accounts). */
 export interface AccountApi {
   signInMethods(): Promise<SignInMethods>;
@@ -374,6 +397,10 @@ export interface AccountApi {
   deletion?(): Promise<AccountDeletion | null>;
   /** Delete this account, with its password when the proof asked for is `password`. */
   deleteAccount?(password?: string): Promise<AccountDeleteOutcome>;
+  /** What starting over asks for here; null on a server too old to offer it. */
+  startOverInfo?(): Promise<StartOverInfo | null>;
+  /** Start over: erase this account's own data and keep the account (PL-147). */
+  startOver?(password?: string): Promise<StartOverOutcome>;
 }
 
 /** What an API key may do (R-FB-157). */

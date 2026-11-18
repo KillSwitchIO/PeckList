@@ -177,6 +177,16 @@ export class FakeBackend {
   readonly signedInRecently = new Map<string, boolean>();
   /** Accounts deleted by their owners, by username: when each goes for good. */
   readonly deleted = new Map<string, string>();
+  /** Whether the server offers Start over (PL-147); false: a server from before it. */
+  startOverOffered = true;
+  /** Each person's own epoch once they started over, by username (the server's epoch, then theirs). */
+  readonly personEpochs = new Map<string, string>();
+
+  /** The epoch one person's devices go by. */
+  epochFor(username: string): string | null {
+    const theirs = this.personEpochs.get(username);
+    return this.epoch && theirs ? `${this.epoch}.${theirs}` : this.epoch;
+  }
 
   passkeysOf(username: string): PasskeyInfo[] {
     return [...this.passkeys.values()]
@@ -483,6 +493,38 @@ export class FakeTransport implements SyncTransport {
       // Every session of theirs ends, this one too.
       this.session = null;
       return Promise.resolve({ kind: 'deleted' as const, removedAt });
+    },
+    startOverInfo: () => {
+      const found = this.current();
+      if (!found) return Promise.reject(new SyncFailure('signed-out', 'signed out'));
+      if (!this.backend.startOverOffered) return Promise.resolve(null);
+      const { proof, signedInRecently } = this.deletionOf(found);
+      return Promise.resolve({ proof, signedInRecently, blocked: null });
+    },
+    startOver: (password) => {
+      const found = this.current();
+      if (!found) return Promise.reject(new SyncFailure('signed-out', 'signed out'));
+      const { proof, signedInRecently } = this.deletionOf(found);
+      if (proof === 'password' && this.backend.lockedUntil)
+        return Promise.resolve({ kind: 'locked' as const, until: this.backend.lockedUntil });
+      if (proof === 'password' && password !== found.password)
+        return Promise.resolve({ kind: 'wrong-password' as const });
+      if (proof === 'sign-in' && !signedInRecently)
+        return Promise.resolve({ kind: 'sign-in-again' as const });
+      const erased = this.backend.server.eraseOwnedBy(found.account.id, [
+        'folders',
+        'lists',
+        'sections',
+        'tags',
+        'tasks',
+        'comments',
+        'attachments',
+        'savedFilters',
+        'listMembers',
+      ]);
+      const username = found.account.username;
+      this.backend.personEpochs.set(username, `again-${this.backend.personEpochs.size + 1}`);
+      return Promise.resolve({ kind: 'started-over' as const, erased, handedOn: 0 });
     },
     resendConfirmation: () => {
       const found = this.current();
@@ -829,7 +871,8 @@ export class FakeTransport implements SyncTransport {
       throw new SyncFailure('schema', 'schema mismatch', this.backend.schemaVersion);
     }
     // From a device that has not seen a restore yet: nothing written, the new epoch said (audit C6).
-    if (request.epoch && this.backend.epoch && request.epoch !== this.backend.epoch) {
+    const epoch = this.backend.epochFor(found.account.username);
+    if (request.epoch && epoch && request.epoch !== epoch) {
       return Promise.resolve({
         cursor: 0,
         changes: [],
@@ -837,7 +880,7 @@ export class FakeTransport implements SyncTransport {
         revoked: [],
         rejected: [],
         corrections: [],
-        epoch: this.backend.epoch,
+        epoch,
       });
     }
     // A copy, as over the wire.
@@ -863,7 +906,7 @@ export class FakeTransport implements SyncTransport {
     const serverTime = this.backend.serverTime;
     return Promise.resolve({
       ...response,
-      epoch: this.backend.epoch,
+      epoch,
       invalid,
       ...(serverTime === null ? {} : { serverTime: new Date(serverTime).toISOString() }),
     });

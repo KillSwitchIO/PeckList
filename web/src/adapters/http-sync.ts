@@ -3,6 +3,8 @@ import type {
   Account,
   AccountDeleteOutcome,
   AccountDeletion,
+  StartOverInfo,
+  StartOverOutcome,
   AccountEmail,
   PasskeyCeremony,
   PasskeyInfo,
@@ -512,6 +514,36 @@ export function createHttpSync(
         if (response.status === 423)
           return { kind: 'locked', until: (await errorOf(response)).until ?? '' };
         if (response.status === 409) return { kind: 'last-super-admin' };
+        if (response.status === 404) return { kind: 'gone' };
+        if (response.status === 429) return { kind: 'too-many' };
+        if (response.status === 403) {
+          const { error } = await errorOf(response);
+          return { kind: error === 'sign_in_again' ? 'sign-in-again' : 'refused' };
+        }
+        return fail(response);
+      },
+      async startOverInfo() {
+        const response = await call('/api/account/start-over');
+        // A server from before it: nothing to offer.
+        if (response.status === 404) return null;
+        if (!response.ok) return fail(response);
+        return (await response.json()) as StartOverInfo;
+      },
+      async startOver(password): Promise<StartOverOutcome> {
+        const response = await call('/api/account/start-over', {
+          method: 'POST',
+          body: { password: password ?? null },
+        });
+        if (response.ok) {
+          const { erased, handedOn } = (await response.json()) as {
+            erased: number;
+            handedOn: number;
+          };
+          return { kind: 'started-over', erased, handedOn };
+        }
+        if (response.status === 423)
+          return { kind: 'locked', until: (await errorOf(response)).until ?? '' };
+        if (response.status === 400) return { kind: 'wrong-password' };
         if (response.status === 404) return { kind: 'gone' };
         if (response.status === 429) return { kind: 'too-many' };
         if (response.status === 403) {

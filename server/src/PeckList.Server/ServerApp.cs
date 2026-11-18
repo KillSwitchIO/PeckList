@@ -142,6 +142,7 @@ public static partial class ServerApp
         builder.Services.AddHostedService<Audit.AuditRetention>();
         builder.Services.AddSupporterKeys();
         builder.Services.AddSingleton<AccountRemoval>();
+        builder.Services.AddSingleton<StartOver>();
         builder.Services.AddSingleton<Auth.RoleLeases>();
         builder.Services.AddSingleton<Auth.RoleLeaseCheck>();
         builder.Services.AddHostedService(provider => provider.GetRequiredService<Auth.RoleLeaseCheck>());
@@ -217,7 +218,7 @@ public static partial class ServerApp
                 AppSignIn: settings.AuthMode != AuthMode.None, Demo: Demo.Info(settings)))
             .WithSummary("What this server is: its version, data schema, time zone, file size limit, and whether sign-in and demo mode are on");
         app.MapAuth();
-        app.MapGroup("/api").RequireAuthorization().RequirePasswordChanged().EnsureProfiles().MapSync().MapFriends().MapAccount().MapAccountEmail().MapAccountPasskeys().MapAttachments().MapNotifications().MapHistory().MapPush().MapProviderPicture().MapAppCheck().MapUpdates().MapApiKeys().MapClientTelemetry().MapCrashReports().MapAccountSupporter();
+        app.MapGroup("/api").RequireAuthorization().RequirePasswordChanged().EnsureProfiles().MapSync().MapFriends().MapAccount().MapStartOver().MapAccountEmail().MapAccountPasskeys().MapAttachments().MapNotifications().MapHistory().MapPush().MapProviderPicture().MapAppCheck().MapUpdates().MapApiKeys().MapClientTelemetry().MapCrashReports().MapAccountSupporter();
         app.MapGroup("/api/v1").RequireAuthorization().RequirePasswordChanged().EnsureProfiles().MapTaskApi();
         app.MapCliSignIn();
         app.MapGroup("/api/admin").RequireAuthorization().RequirePasswordChanged().MapAdmin().MapAdminEmail().MapAdminPasskeys().MapSettings().MapBackups().MapLogging().MapAudit().MapStats().MapSetup().MapTelemetry().MapAdminCrashReports().MapAdminSupporter();

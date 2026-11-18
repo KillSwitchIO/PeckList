@@ -357,7 +357,7 @@ after the rest. `"quotes"` keep a phrase together, `-word` leaves out tasks with
 subjects stand in a list beside the one that is open; on a phone each opens as a page of its own.
 
 - **Account** (with a server): your photo, email, sign-in methods and linked accounts, passkeys and
-  API keys; in the Android app, the server too.
+  API keys, and, last, start over or delete your account; in the Android app, the server too.
 - **Appearance**: light, dark or system theme, and colors.
 - **Date and time**: your time zone, how dates show, 12 or 24-hour clock, the first day of the week,
   when a due date counts as soon, how long a task with only a start time shows on the calendar, and
@@ -384,6 +384,21 @@ download or upload attachments, notifications, and admin for admins), copy it on
 whenever you like. Each shows when it was made, when it expires and when it was last used. See
 [the HTTP API](../reference/http-api.md#signing-in-from-a-script).
 
+**Start over or delete your account** (on a server with accounts, last under **Settings > Account**),
+in the browser and in every app:
+
+- **Start over** deletes your tasks, lists, sections, tags, saved filters and comments from every
+  device you use, and keeps your account, its sign-in methods and your settings. A list you share goes
+  to the next person in it, you leave lists others share with you, and tasks you added to other
+  people's lists stay there without your comments. Download a copy first with the button in the
+  dialog if you may want it back: they can't be brought back in the app, not even by an admin. Type `start over` to confirm.
+- **Delete my account** turns your account off and signs you out everywhere. After the server's grace
+  period (7 days unless the admin changed it) it is removed for good with your tasks, lists, tags,
+  comments and files; until then an admin can restore it.
+
+Both ask you to show it is you: your password, or, for an account without one, a sign-in through your
+provider or passkey in the last 10 minutes. The dialog sends you to sign in and back.
+
 **Show the Closed group** (under Lists and tags) hides or shows the done and won't-do tasks
 under lists and views on this device; a long press (or right-click) on a **Closed** group's
 header hides it too. The **Completed** view and search always show them.
@@ -403,7 +418,8 @@ tasks from lists others own sit in their own group, and Empty trash leaves them.
 A task stays while one of its subtasks is open or has time left, and a completed subtask stays with a
 task that stays. Picking a shorter time asks first if it would erase anything right away.
 
-**Start over** (last on the page): **Delete all lists, tasks and tags** moves every list, task and tag
+**Start over** (last on the page, when you use PeckList without an account or on a server from before
+Start over moved to Settings > Account): **Delete all lists, tasks and tags** moves every list, task and tag
 of yours to the Trash at once (lists others share with you stay), and Undo brings them back. Tick
 **Also empty the Trash** to delete them, and everything already in the Trash, for good.
 

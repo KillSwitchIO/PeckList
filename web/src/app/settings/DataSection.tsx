@@ -1,18 +1,12 @@
 import { Alert, Button } from '@mui/material';
 import { useRef, useState } from 'react';
 import { parseJson } from '../../core/io.ts';
-import { serializeWorkspace } from '../../core/workspace.ts';
 import { t } from '../i18n/i18n.ts';
 import { useWorkspaceStore } from '../store/hooks.ts';
+import { downloadWorkspace } from './exportFile.ts';
 import { ExportDialog, ImportDialog } from './InterchangeDialogs.tsx';
 import { PurgeSetting } from './PurgeSetting.tsx';
 import { Section, SettingRow } from './settingsLayout.tsx';
-
-/** `pecklist-2026-10-23.json`, by this device's date. */
-function fileName(now = new Date()): string {
-  const pad = (n: number) => String(n).padStart(2, '0');
-  return `pecklist-${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}.json`;
-}
 
 /**
  * Settings > Your data (spec: local storage, export and import): download everything as one JSON
@@ -27,14 +21,7 @@ export function DataSection() {
 
   const download = () => {
     const workspace = store.getState().workspace;
-    if (!workspace) return;
-    const blob = new Blob([serializeWorkspace(workspace)], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = fileName();
-    link.click();
-    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    if (workspace) downloadWorkspace(workspace);
   };
 
   const bringIn = async (file: File) => {
