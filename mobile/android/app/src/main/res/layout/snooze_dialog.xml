@@ -1,0 +1,132 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  The snooze picker (SnoozeActivity): two tabs, Delay and Date and time. Both pages sit in one frame
+  and the hidden one is only invisible, so switching tabs never changes the dialog's size.
+-->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:paddingTop="8dp">
+
+    <LinearLayout
+        android:id="@+id/snooze_tabs"
+        android:layout_width="match_parent"
+        android:layout_height="48dp"
+        android:orientation="horizontal"
+        android:paddingStart="16dp"
+        android:paddingEnd="16dp">
+
+        <TextView
+            android:id="@+id/snooze_tab_delay"
+            style="@style/SnoozeTab"
+            android:text="@string/snooze_tab_delay" />
+
+        <TextView
+            android:id="@+id/snooze_tab_at"
+            style="@style/SnoozeTab"
+            android:text="@string/snooze_tab_at" />
+    </LinearLayout>
+
+    <!-- Scrolls when the screen is short (landscape, a large font): nothing is cut off. -->
+    <ScrollView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:fillViewport="true">
+
+    <FrameLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content">
+
+        <!-- Delay: a quick pick snoozes at once; a typed amount waits for Snooze. -->
+        <LinearLayout
+            android:id="@+id/snooze_page_delay"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:paddingTop="4dp">
+
+            <LinearLayout
+                android:id="@+id/snooze_quick"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical" />
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="56dp"
+                android:gravity="center_vertical"
+                android:orientation="horizontal"
+                android:paddingStart="24dp"
+                android:paddingEnd="20dp">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginEnd="12dp"
+                    android:text="@string/snooze_custom_label"
+                    android:textAppearance="?android:attr/textAppearanceMedium" />
+
+                <EditText
+                    android:id="@+id/snooze_amount"
+                    android:layout_width="72dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginEnd="8dp"
+                    android:gravity="center"
+                    android:imeOptions="actionDone"
+                    android:importantForAutofill="no"
+                    android:inputType="number"
+                    android:maxLength="5" />
+
+                <Spinner
+                    android:id="@+id/snooze_unit"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1" />
+            </LinearLayout>
+        </LinearLayout>
+
+        <!-- Date and time: a day on the calendar and a time; Snooze sends it (a week ahead at most). -->
+        <LinearLayout
+            android:id="@+id/snooze_page_at"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:paddingTop="4dp"
+            android:visibility="invisible">
+
+            <CalendarView
+                android:id="@+id/snooze_calendar"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="12dp"
+                android:layout_marginEnd="12dp" />
+
+            <LinearLayout
+                android:id="@+id/snooze_time_row"
+                style="@style/SnoozeRow">
+
+                <TextView
+                    style="@style/SnoozeRowLabel"
+                    android:text="@string/snooze_time" />
+
+                <TextView
+                    android:id="@+id/snooze_time"
+                    style="@style/SnoozeRowValue" />
+            </LinearLayout>
+
+            <!-- How far ahead a snooze can go, or why Snooze is off: the time has passed, or is more than a week away. -->
+            <TextView
+                android:id="@+id/snooze_at_problem"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:minLines="2"
+                android:paddingStart="24dp"
+                android:paddingTop="8dp"
+                android:paddingEnd="24dp"
+                android:textAppearance="?android:attr/textAppearanceSmall"
+                android:textColor="?android:attr/textColorSecondary" />
+        </LinearLayout>
+    </FrameLayout>
+    </ScrollView>
+</LinearLayout>

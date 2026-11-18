@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- A snooze picker tab's text: the accent when chosen (snooze_dialog.xml). -->
+<selector xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:state_selected="true" android:color="@color/notification_accent" />
+    <item android:color="?android:attr/textColorSecondary" />
+</selector>
