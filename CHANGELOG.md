@@ -4,6 +4,26 @@ All notable changes to PeckList. Each release adds its section from [Conventiona
 with `pnpm release`; the version follows [Semantic Versioning](https://semver.org/). Before 1.0.0 a
 minor release may break things; every break is listed under **Breaking changes** with what to do.
 
+## [0.13.0-rc.1] - 2026-11-18
+
+### Added
+
+- **web:** Delete my account and the privacy policy link for everyone
+- **web:** A Completed page with a heatmap, and Show completed on the calendar
+- **android:** Snooze until any time from the reminder, with a delay or a date
+- Start over, erasing your own data and keeping the account
+- **web:** Smart links in task notes and comments: numbers, addresses, emails, web pages
+
+### Fixed
+
+- **sharing:** An ended friendship stays ended; a friend link only sends a request
+- **release:** A feature after a patch release candidate makes the next minor
+
+### Documentation
+
+- Privacy policy and account deletion pages for Google Play
+- The Windows downloads are unsigned, and what Smart App Control does about it
+
 ## [0.12.1-rc.1] - 2026-11-16
 
 ### Fixed
