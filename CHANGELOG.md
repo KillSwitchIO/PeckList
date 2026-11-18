@@ -4,6 +4,14 @@ All notable changes to PeckList. Each release adds its section from [Conventiona
 with `pnpm release`; the version follows [Semantic Versioning](https://semver.org/). Before 1.0.0 a
 minor release may break things; every break is listed under **Breaking changes** with what to do.
 
+## [0.13.0-rc.2] - 2026-11-18
+
+### Fixed
+
+- **web:** A used smart link choice lets the next click open the menu again
+- **android:** The continuous reminder only vibrates when vibrate-only is chosen
+- A snoozed reminder stops once its task is done or moves on
+
 ## [0.13.0-rc.1] - 2026-11-18
 
 ### Added
