@@ -12,7 +12,7 @@ import {
 import { t } from '../i18n/i18n.ts';
 import { CategoryPage, type PageCategory } from '../layout/CategoryPage.tsx';
 import { ServerSection } from '../native/ServerSection.tsx';
-import { isPlayBuild, usePlayBuild, useShellInfo } from '../native/shell.ts';
+import { isPlayBuild, useShellInfo } from '../native/shell.ts';
 import { SupportSection } from '../support/SupportSection.tsx';
 import { useSupportVisible } from '../support/useSupportVisible.ts';
 import { PRIVACY_POLICY_URL } from '../legal.ts';
@@ -76,22 +76,18 @@ function TasksCategory() {
 }
 
 function DataCategory() {
-  // 0.12.1: the Google Play build only (Play asks for it in the app); everyone from 0.13.0.
-  const play = usePlayBuild();
   return (
     <Stack spacing={4}>
       <DataSection />
       <UsageSection />
-      {/* With or without an account or a server: it is the project's, not the server's. */}
-      {play && (
-        <Section title={t('privacy.title')}>
-          <ExternalLinkRow
-            href={PRIVACY_POLICY_URL}
-            label={t('privacy.policy')}
-            hint={t('privacy.policyHint')}
-          />
-        </Section>
-      )}
+      {/* Shown with or without an account or a server: it is the project's, not the server's. */}
+      <Section title={t('privacy.title')}>
+        <ExternalLinkRow
+          href={PRIVACY_POLICY_URL}
+          label={t('privacy.policy')}
+          hint={t('privacy.policyHint')}
+        />
+      </Section>
       <ResetSection />
     </Stack>
   );

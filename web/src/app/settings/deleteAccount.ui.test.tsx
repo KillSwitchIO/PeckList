@@ -15,20 +15,18 @@ vi.mock('../sync/signInWith.ts', async (importOriginal) => ({
   leaveFor,
 }));
 
-// 0.12.1 shows Delete my account and the privacy policy link in the Google Play build only, so
-// these run in it unless a test says otherwise; browsers, the PWA and foss stay as in 0.12.0.
+// These run in a browser unless a test says otherwise; since 0.13.0 every build shows both.
 beforeEach(() => {
   localStorage.clear();
   sessionStorage.clear();
   vi.unstubAllGlobals();
   leaveFor.mockReset();
   mockViewport('desktop');
-  setNativeShell(new FakeShell(9, 'play'));
 });
 
-/** Everywhere but the Google Play build: a browser (or the PWA), the foss app, an older app. */
-const notPlay = [
-  ['a browser', () => null],
+/** Every build: the Google Play app, the foss app and an older app (a browser is the default). */
+const apps = [
+  ['the Google Play app', () => new FakeShell(9, 'play')],
   ['the foss app', () => new FakeShell(9, 'foss')],
   ['an older app', () => new FakeShell(8)],
 ] as const;
@@ -209,27 +207,13 @@ describe('delete my account', () => {
     expect(leaveFor).not.toHaveBeenCalled();
   });
 
-  it.each(notPlay)('%s: no such section (0.12.1)', async (_name, shell) => {
+  it.each(apps)('%s shows it too', async (_name, shell) => {
     setNativeShell(shell());
     const backend = new FakeBackend();
     backend.addAccount('sam', 'a long enough password');
-    const transport = backend.device();
-    const asked = vi.spyOn(transport.account, 'deletion');
-    const store = testStore();
-    transport.session = 'sam';
-    const sync = createSyncEngine({
-      transport,
-      workspace: store,
-      storage: createMemoryStorage(),
-      debounceMs: 60_000,
-      intervalMs: 600_000,
-    });
-    await renderApp('/settings/account', store, sync);
-    await screen.findByRole('region', { name: 'Email' }, slow);
-    await new Promise((resolve) => setTimeout(resolve, 50));
-    expect(screen.queryByRole('region', { name: 'Delete my account' })).toBeNull();
-    // Not even asked: the server sees what it saw from 0.12.0.
-    expect(asked).not.toHaveBeenCalled();
+    await appAs(backend, 'sam');
+    const dialog = await openDialog();
+    expect(within(dialog).getByLabelText(/Your password/)).toBeInTheDocument();
   });
 
   it('a server from before self-delete shows no such section', async () => {
@@ -262,21 +246,20 @@ describe('the privacy policy', () => {
     ).toHaveAttribute('href', 'https://docs.pecklist.com/privacy-policy/');
   });
 
-  it.each(notPlay)('%s: not in Settings or on the sign-in page (0.12.1)', async (_name, shell) => {
+  it.each(apps)('%s: in Settings and on the sign-in page too', async (_name, shell) => {
     setNativeShell(shell());
     const backend = new FakeBackend();
     backend.addAccount('sam', 'a long enough password');
     await appAs(backend, 'sam', '/settings/data');
-    await screen.findByRole('region', { name: 'Start over' }, slow);
-    await new Promise((resolve) => setTimeout(resolve, 50));
-    expect(screen.queryByRole('region', { name: 'Privacy' })).toBeNull();
+    const section = await screen.findByRole('region', { name: 'Privacy' }, slow);
+    expect(
+      within(section).getByRole('link', { name: /PeckList privacy policy/ }),
+    ).toBeInTheDocument();
     cleanup();
 
     await appAs(new FakeBackend(), null, '/login');
-    const title = await screen.findByRole('heading', { name: 'Sign in to PeckList' }, slow);
-    await new Promise((resolve) => setTimeout(resolve, 50));
-    expect(screen.queryByRole('link', { name: 'PeckList privacy policy' })).toBeNull();
-    // Not even an empty footer under the card, so it sits where it did in 0.12.0.
-    expect(title.closest('.MuiPaper-root')?.parentElement?.children).toHaveLength(1);
+    expect(
+      await screen.findByRole('link', { name: 'PeckList privacy policy' }, slow),
+    ).toBeInTheDocument();
   });
 });

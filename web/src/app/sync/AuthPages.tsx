@@ -11,7 +11,7 @@ import { takeDeletedNotice } from '../settings/deleteAccount.ts';
 import { PasswordField } from '../layout/PasswordField.tsx';
 import { ProblemAlert } from '../layout/ProblemAlert.tsx';
 import { ConnectPage } from '../native/ConnectPage.tsx';
-import { nativeShell, usePlayBuild } from '../native/shell.ts';
+import { nativeShell } from '../native/shell.ts';
 import {
   leaveFor,
   mayContinueOnItsOwn,
@@ -151,11 +151,7 @@ function useSignInOptions(invite?: string): SignInOptions | null {
   return options;
 }
 
-/**
- * Under the sign-in and sign-up cards: the project's privacy policy, in a new tab. 0.12.1: the
- * Google Play build only (`privacyFooter`), so elsewhere the cards sit exactly as in 0.12.0;
- * everyone from 0.13.0.
- */
+/** Under the sign-in and sign-up cards: the project's privacy policy, in a new tab. */
 function PrivacyFooter() {
   return (
     <Link
@@ -349,6 +345,25 @@ function handoffAfterPasskey(): string | null {
 }
 
 /**
+ * Where the app opens after a passkey sign-in in the browser: the page that sent them to sign in
+ * (`returnUrl`, this server's own path only), such as the delete dialog after a fresh sign-in, or
+ * the start.
+ */
+function pageAfterPasskey(): string {
+  if (window.location.pathname !== '/login') return '/';
+  const returnUrl = new URLSearchParams(window.location.search).get('returnUrl') ?? '';
+  if (!returnUrl.startsWith('/')) return '/';
+  // Read as the browser will (tabs and backslashes and all): kept only if it stays on this server.
+  try {
+    const target = new URL(returnUrl, window.location.origin);
+    if (target.origin !== window.location.origin) return '/';
+    return target.pathname + target.search + target.hash;
+  } catch {
+    return '/';
+  }
+}
+
+/**
  * Signing in with a passkey (PL-123). In the Android app the WebView has no WebAuthn, so the
  * button is a link the app turns into its browser hand-off; elsewhere the browser asks at once,
  * and the username field offers passkeys in its autofill too.
@@ -364,7 +379,13 @@ function usePasskeySignIn(serverOffers: boolean, onProblem: (problem: string | n
   const finish = async (ceremony: string, credential: unknown) => {
     const next = handoffAfterPasskey();
     // The router starts once this page goes away: at the app, not at the sign-in page.
-    if (!next) window.history.replaceState(null, '', '/');
+    if (!next) {
+      try {
+        window.history.replaceState(null, '', pageAfterPasskey());
+      } catch {
+        window.history.replaceState(null, '', '/');
+      }
+    }
     const outcome = await signIn(ceremony, credential);
     if (outcome.kind === 'ok') {
       if (next) leaveFor(next);
@@ -439,7 +460,6 @@ function PasskeyButton({ busy, onClick }: { busy: boolean; onClick: () => void }
 
 function SignIn({ onSignUp, onForgot }: { onSignUp: () => void; onForgot: () => void }) {
   const signIn = useSyncState((state) => state.signIn);
-  const privacyFooter = usePlayBuild() ? <PrivacyFooter /> : undefined;
   // The Android app: maybe this is the wrong server (ADR-0017).
   const [connecting, setConnecting] = useState(false);
   const [username, setUsername] = useState('');
@@ -505,7 +525,7 @@ function SignIn({ onSignUp, onForgot }: { onSignUp: () => void; onForgot: () => 
   }
 
   return (
-    <CenteredCard title={t('auth.title')} subtitle={t('auth.subtitle')} footer={privacyFooter}>
+    <CenteredCard title={t('auth.title')} subtitle={t('auth.subtitle')} footer={<PrivacyFooter />}>
       {deleted && (
         <Alert severity="info" variant="outlined" sx={{ mb: 2.5 }}>
           {deleted}
@@ -586,7 +606,6 @@ const SIGN_UP_PROBLEMS: Record<
  */
 function SignUp({ invite, onSignIn }: { invite?: string; onSignIn: () => void }) {
   const signUp = useSyncState((state) => state.signUp);
-  const privacyFooter = usePlayBuild() ? <PrivacyFooter /> : undefined;
   const transport = useSyncState((state) => state.transport);
   const options = useSignInOptions(invite);
   const [username, setUsername] = useState('');
@@ -662,7 +681,7 @@ function SignUp({ invite, onSignIn }: { invite?: string; onSignIn: () => void })
   const { providers } = options;
   return (
     <CenteredCard
-      footer={privacyFooter}
+      footer={<PrivacyFooter />}
       title={t('auth.signUp.title')}
       subtitle={t(invite === undefined ? 'auth.signUp.subtitle' : 'auth.signUp.invited')}
     >
