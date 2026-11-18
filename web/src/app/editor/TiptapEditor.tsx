@@ -527,6 +527,9 @@ export default function TiptapEditor({
         target={smart}
         anchor={smart?.anchor ?? null}
         onClose={closeSmart}
+        // A choice used leaves the notes, so the next click on a link offers its choices again
+        // (QA 0.13.0): kept focus would make every later click "editing", placing the cursor only.
+        onChose={() => editor?.view.dom.blur()}
         onCopyFailed={() => {
           // No clipboard here: the text selected, for a copy by hand.
           if (editor && smart) {

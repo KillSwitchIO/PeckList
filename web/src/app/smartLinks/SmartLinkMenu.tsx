@@ -120,6 +120,7 @@ export function SmartLinkMenu({
   anchor,
   onClose,
   onCopyFailed,
+  onChose,
   inText = false,
 }: {
   target: SmartTarget | null;
@@ -127,6 +128,8 @@ export function SmartLinkMenu({
   onClose: () => void;
   /** Nothing could be copied (no clipboard here): select the text for a copy by hand. */
   onCopyFailed?: () => void;
+  /** A choice was used (opened, or copied): the person is done with the link, not editing. */
+  onChose?: () => void;
   /**
    * Over text being edited (the notes): a popover that leaves the focus and the selection in the
    * text, with no backdrop, closed by a click elsewhere or Escape, so typing and selecting go on.
@@ -183,6 +186,7 @@ export function SmartLinkMenu({
             onClick={() => {
               onClose();
               openOutside(choice.href);
+              onChose?.();
             }}
           >
             <ListItemIcon>{choice.icon}</ListItemIcon>
@@ -200,6 +204,7 @@ export function SmartLinkMenu({
           void copyText(target.text, near).then((ok) => {
             if (ok) {
               setCopiedFor(target);
+              onChose?.();
               return;
             }
             onClose();

@@ -176,6 +176,33 @@ describe('smart links in the notes', () => {
     expect(screen.queryByRole('menu')).toBeNull();
   });
 
+  it('after a choice is used, the next click on a link offers the choices again (QA 0.13.0)', async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, 'clipboard', { value: { writeText }, configurable: true });
+    const { box, editor } = await notes('Call 515-555-0123');
+    const phone = smart(box, 'phone');
+    // The click that opens the choices also puts the cursor (and the focus) in the notes.
+    click(editor, phone);
+    act(() => {
+      editor.view.focus();
+    });
+    await screen.findByRole('menu', { name: '515-555-0123' });
+    await userEvent.click(screen.getByRole('menuitem', { name: 'Copy' }));
+    expect(writeText).toHaveBeenCalledOnce();
+    expect(editor.view.hasFocus()).toBe(false);
+    await waitFor(() => expect(screen.queryByRole('menu')).toBeNull());
+
+    fireEvent.pointerDown(phone, { pointerType: 'mouse' });
+    click(editor, phone);
+    await screen.findByRole('menu', { name: '515-555-0123' });
+    act(() => {
+      editor.view.focus();
+    });
+    await userEvent.click(screen.getByRole('menuitem', { name: 'Text' }));
+    expect(opened).toEqual(['sms:5155550123']);
+    expect(editor.view.hasFocus()).toBe(false);
+  });
+
   it('a double click selects instead of offering the choices', async () => {
     const { box, editor } = await notes('Call 515-555-0123');
     const view = editor.view;
