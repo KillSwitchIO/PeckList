@@ -82,7 +82,9 @@ export function createCapacitorNotifier(channelName: string): Notifier | null {
         notifications: [toNative(notification, idOf(`now:${notification.tag}`))],
       });
     },
-    async scheduleAhead(notifications: ScheduledNotification[]) {
+    async scheduleAhead(notifications: ScheduledNotification[], options?: { keep?: boolean }) {
+      // Its hand-over replaces them all, which would take off what keep is for keeping.
+      if (options?.keep) return;
       wanted = notifications;
       if ((await refresh()) === 'granted') await handOver();
     },

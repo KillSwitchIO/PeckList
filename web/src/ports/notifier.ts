@@ -48,8 +48,13 @@ export interface Notifier {
   /**
    * Native apps only (ADR-0017): replace every notification scheduled ahead with these. The
    * system shows each at its time, even with the app closed, so the page does not show them.
+   * `keep`: add and change these only, taking nothing off (the person's snoozes could not be had,
+   * and the phone's own are set like any other); a notifier that cannot does nothing then.
    */
-  scheduleAhead?(notifications: ScheduledNotification[]): Promise<void>;
+  scheduleAhead?(
+    notifications: ScheduledNotification[],
+    options?: { keep?: boolean },
+  ): Promise<void>;
   /**
    * Native apps only: a tap on one of our notifications, with its address in the app, and the
    * button pressed when it is one the app must finish (offline, standalone, a repeating task).

@@ -30,6 +30,10 @@ const AHEAD_MS = 14 * 86_400_000;
 const AHEAD_MAX = 100;
 /** How long the workspace must stay still before the reminders ahead are handed over again. */
 const AHEAD_SETTLE_MS = 1_000;
+/** While the snooze list fails: asked again after 5 s, doubling to once a minute. */
+const SNOOZES_RETRY_MS = 5_000;
+const SNOOZES_RETRY_MAX_MS = 60_000;
+const retryDelay = (retry: number) => Math.min(SNOOZES_RETRY_MS * 2 ** retry, SNOOZES_RETRY_MAX_MS);
 const FIRED_KEY = 'pecklist.firedReminders';
 const HELD_KEY = 'pecklist.heldReminderPresses';
 /** A week on, a press the server never heard goes: the task has long been dealt with. */
@@ -279,7 +283,7 @@ export function ReminderScheduler({ now = Date.now }: { now?: () => number }) {
   useEffect(() => {
     if (!notifier().scheduleAhead) return;
     let live = true;
-    const handOver = (mine: readonly Snooze[]) => {
+    const handOver = (mine: readonly Snooze[], keepSet = false) => {
       if (!live) return;
       const at = now();
       const { acks } = engine.getState();
@@ -305,23 +309,32 @@ export function ReminderScheduler({ now = Date.now }: { now?: () => number }) {
           ),
           ...(isLocal(each.taskId) ? { local: true } : {}),
         })),
+        keepSet ? { keep: true } : undefined,
       );
     };
-    const handle = setTimeout(() => {
+    // Asked again while it fails, sooner than the next sync, so a whole list follows soon.
+    const ask = (server: RemindersApi, retry: number) =>
+      void server.snoozes().then(
+        (found) => {
+          handOver([...found, ...waiting]);
+          keep.current(found);
+        },
+        () => {
+          // Had before: the whole list, with the snoozes this page has. Never had (offline since
+          // the page opened, or the server failing that one request): a whole list without it
+          // would take the phone's own snoozes off its alarms, and none at all left a task
+          // synced into the open app without one until a reload (0.13.0-rc.2). So these are
+          // added, taking nothing off; the next whole list, or the phone's check-in, takes off
+          // what has gone.
+          if (retry === 0) handOver(snoozes, !had);
+          if (!live) return;
+          handle = setTimeout(() => ask(server, retry + 1), retryDelay(retry));
+        },
+      );
+    let handle = setTimeout(() => {
       // A snooze pressed on the phone a moment ago is on the server, not yet here: ask first.
       if (!reminders) handOver(snoozes);
-      else
-        void reminders.snoozes().then(
-          (found) => {
-            handOver([...found, ...waiting]);
-            keep.current(found);
-          },
-          // The list was never had (offline since the page opened): handing over without it
-          // would take the phone's own snoozes off its alarms. The phone keeps what it has.
-          () => {
-            if (had) handOver(snoozes);
-          },
-        );
+      else ask(reminders, 0);
     }, AHEAD_SETTLE_MS);
     return () => {
       live = false;

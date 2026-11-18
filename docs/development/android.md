@@ -73,7 +73,13 @@ app (ADR-0017 in the project notes). There is no second copy of the UI.
   with the reminders ahead (`GET /api/reminders/snoozes` lists it for an open web app). It is
   for the occurrence snoozed: once the task is done, trashed, moved to another date (a repeating
   task completed moves to its next one) or left with no reminder, it goes from both lists, and the
-  next hand-over takes it off the phone's alarms. Standalone, or Complete on a repeating task (only the app works out its
+  next hand-over takes it off the phone's alarms. The web app asks for that list before each
+  hand-over, because the phone's own snooze alarms are keyed like any reminder and a whole list
+  without them would take them off. Until the page has had the list once (the server not answering
+  for it), it hands over with `keep` (shell api 10): new and changed reminders are set and nothing
+  is taken off, so a task synced into the open app still gets its alarm at once; the next whole list,
+  or the check-in, takes off what has gone. An older shell gets nothing then, as before.
+  Standalone, or Complete on a repeating task (only the app works out its
   next date), the button opens the app and does it there (`app/native/NotificationOpen.tsx`). A tap
   opens the task.
   Reminders further out are handed over by the background check-in.

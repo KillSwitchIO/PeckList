@@ -11,6 +11,8 @@ import type {
 const REMINDERS_API = 3;
 /** The first shell api that shows news (an assignment, a share) with its own buttons, not as a reminder. */
 const NEWS_API = 4;
+/** The first shell api whose hand-over can keep what is set (`keep`), adding and changing only. */
+const KEEP_API = 10;
 
 type Display = { display: 'granted' | 'denied' | 'prompt' };
 
@@ -19,7 +21,7 @@ interface ShellReminders {
   info(): Promise<{ api: number }>;
   notificationPermission(): Promise<Display>;
   requestNotificationPermission(): Promise<Display>;
-  scheduleReminders(options: { reminders: ShellReminder[] }): Promise<void>;
+  scheduleReminders(options: { reminders: ShellReminder[]; keep?: boolean }): Promise<void>;
   showNotification(options: {
     tag: string;
     title: string;
@@ -139,10 +141,13 @@ export function createShellNotifier(older: () => Notifier | null): Notifier | nu
         url: notification.url,
       });
     },
-    async scheduleAhead(notifications: ScheduledNotification[]) {
+    async scheduleAhead(notifications: ScheduledNotification[], options) {
       const other = await fallback;
-      if (other) return other.scheduleAhead?.(notifications);
+      if (other) return other.scheduleAhead?.(notifications, options);
+      // An older shell would take keep for a whole list, and the phone's own snoozes with it.
+      if (options?.keep && api < KEEP_API) return;
       await plugin.scheduleReminders({
+        ...(options?.keep ? { keep: true } : {}),
         reminders: notifications.map((each) => ({
           key: each.tag,
           title: each.title,
