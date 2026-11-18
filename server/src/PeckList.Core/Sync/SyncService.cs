@@ -250,14 +250,26 @@ public sealed partial class SyncService(
     /// Changes the server makes itself (a profile, a friendship accepted from a link): merged like
     /// any change, with no permission check, access updated and everyone concerned told.
     /// </summary>
+    public Task<IReadOnlyList<StoredEntity>> WriteAsServerAsync(
+        string ownerId, IReadOnlyList<IncomingEntity> entities, CancellationToken cancellation = default) =>
+        WriteAsServerAsync(ownerId, _ => entities, cancellation);
+
+    /// <summary>
+    /// As <see cref="WriteAsServerAsync(string, IReadOnlyList{IncomingEntity}, CancellationToken)"/>,
+    /// with what to write decided from the sharing index under the same gate as every write: no
+    /// other change lands between looking and writing (one friend request per pair, say).
+    /// Nothing to write writes nothing.
+    /// </summary>
     public async Task<IReadOnlyList<StoredEntity>> WriteAsServerAsync(
-        string ownerId, IReadOnlyList<IncomingEntity> entities, CancellationToken cancellation = default)
+        string ownerId, Func<SharingIndex, IReadOnlyList<IncomingEntity>> decide, CancellationToken cancellation = default)
     {
         await sharing.Loaded.WaitAsync(cancellation);
         await sharing.Gate.WaitAsync(cancellation);
         try
         {
             var before = sharing.Index;
+            var entities = decide(before);
+            if (entities.Count == 0) return [];
             var after = before.Clone();
             var written = await store.WriteAsync(
                 ownerId,

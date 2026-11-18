@@ -271,6 +271,11 @@ export interface ProfilePreview {
   /** The viewer's own link. */
   self: boolean;
   friendship: 'accepted' | 'pending' | null;
+  /**
+   * What accepting their link does: `befriend`; `ask`, a request, since a friendship between the
+   * two ended (audit U5); or `asked`, nothing more, a request is waiting. Older servers send none.
+   */
+  link?: 'befriend' | 'ask' | 'asked';
 }
 
 /** How the signed-in account can sign in (`/api/account/sign-in`). */
@@ -472,6 +477,12 @@ export function waitText(error: TooManyRequests, t: (minutes: number) => string)
   return t(seconds === null ? 1 : Math.max(1, Math.ceil(seconds / 60)));
 }
 
+/**
+ * What opening a friend link did: `accepted`, friends now; `requested`, a request to the link's
+ * owner is waiting (after an ended friendship a link only asks).
+ */
+export type FriendLinkState = 'accepted' | 'requested';
+
 export interface FriendsApi {
   /**
    * This account's friend code and link; `rotate` makes a new one and retires the old. The link
@@ -480,8 +491,11 @@ export interface FriendsApi {
   code(rotate?: boolean): Promise<{ code: string; link: string | null }>;
   /** Who a link belongs to, or null for an unknown or retired code. Throws TooManyRequests. */
   preview(code: string): Promise<ProfilePreview | null>;
-  /** Accept a link: friends at once. Returns the friendship id, or null when the code leads nowhere. */
-  accept(code: string): Promise<string | null>;
+  /**
+   * Accept a link: friends at once, or, after a friendship between the two ended, a request to its
+   * owner. Null when the code leads nowhere.
+   */
+  accept(code: string): Promise<{ friendshipId: string; state: FriendLinkState } | null>;
   /** Someone by exact username or handle, or null. Throws TooManyRequests. */
   lookup(query: string): Promise<ProfilePreview | null>;
 }

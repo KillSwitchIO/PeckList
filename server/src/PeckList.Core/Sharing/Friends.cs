@@ -10,6 +10,11 @@ namespace PeckList.Core.Sharing;
 /// how long they have been here, and whether they are friends already.
 /// </summary>
 /// <param name="Friendship">"accepted", "pending", or null.</param>
+/// <param name="Link">
+/// What accepting this person's link would do (<see cref="FriendLinkPreviews"/>): "befriend",
+/// "ask" (a friendship between them ended, so it sends a request), or "asked" (a request is
+/// waiting already). Older servers send none: befriend.
+/// </param>
 public sealed record ProfilePreview(
     string UserId,
     string Username,
@@ -18,7 +23,35 @@ public sealed record ProfilePreview(
     string AvatarColor,
     DateTimeOffset MemberSince,
     bool Self,
-    string? Friendship);
+    string? Friendship,
+    string Link = FriendLinkPreviews.Befriend);
+
+/// <summary>What opening a friend link did (<see cref="Friends.AcceptLinkAsync"/>).</summary>
+/// <param name="FriendshipId">The friendship row it made, accepted, or found.</param>
+/// <param name="State">
+/// <see cref="FriendLinkStates.Accepted"/>: friends now. <see cref="FriendLinkStates.Requested"/>: a
+/// request to the link's owner is waiting.
+/// </param>
+public sealed record FriendLinkResult(string FriendshipId, string State);
+
+public static class FriendLinkStates
+{
+    public const string Accepted = "accepted";
+    public const string Requested = "requested";
+}
+
+/// <summary>What opening the link would do, for the page shown before (<see cref="ProfilePreview.Link"/>).</summary>
+public static class FriendLinkPreviews
+{
+    /// <summary>Make the two friends (or they are already).</summary>
+    public const string Befriend = "befriend";
+
+    /// <summary>Send the owner a request: a friendship between them ended.</summary>
+    public const string Ask = "ask";
+
+    /// <summary>Nothing more: a request from the viewer is waiting.</summary>
+    public const string Asked = "asked";
+}
 
 /// <summary>
 /// Friends: every account's profile entity, friend codes and links, accepting a link, and looking
@@ -96,17 +129,93 @@ public sealed class Friends(AccountService accounts, IAccountStore store, SyncSe
     }
 
     /// <summary>
-    /// Accept a friend link: the link's owner offered it, so the friendship starts accepted. An
-    /// earlier request or an ended friendship between them comes back as accepted.
+    /// Open a friend link. Between two people who were never friends and never turned a request
+    /// down, the owner offered it, so the friendship starts accepted (an earlier request between
+    /// them is accepted too).
+    /// <para>
+    /// Once a friendship or request between them has ended, ending it works as a block (audit U5):
+    /// a link, old or new, only ever asks. Opening it sends one request to the owner, as a request
+    /// by username would, and opening it again finds that request instead of accepting it or
+    /// sending another. A declined request is never overridden: opening a link afterwards sends one
+    /// new request, which the owner can decline again.
+    /// </para>
     /// </summary>
-    /// <returns>The friendship's id, or null when the code is unknown or the viewer's own.</returns>
-    public async Task<string?> AcceptLinkAsync(string viewerId, string code, CancellationToken cancellation = default)
+    /// <returns>What it did, or null when the code is unknown or the viewer's own.</returns>
+    public async Task<FriendLinkResult?> AcceptLinkAsync(string viewerId, string code, CancellationToken cancellation = default)
     {
         var owner = await accounts.FindByFriendCodeAsync(code, cancellation);
         var viewer = await store.FindByIdAsync(viewerId, cancellation);
         if (owner is null || owner.Disabled || viewer is null || owner.Id == viewerId) return null;
-        return await BefriendAsync(owner, viewer, null, cancellation);
+        await EnsureProfileAsync(owner, cancellation);
+        await EnsureProfileAsync(viewer, cancellation);
+
+        // Decided and written under the sharing gate, so two opens at once (or an open racing a
+        // device's request or an end) make one request and never revive an ended row.
+        FriendLinkResult? result = null;
+        await sync.WriteAsServerAsync(viewerId, index =>
+        {
+            var stamp = clock.Next();
+            var (plan, found) = Plan(index, owner.Id, viewerId);
+            switch (plan)
+            {
+                case LinkPlan.Friends:
+                    result = new FriendLinkResult(found!.Value.Id, FriendLinkStates.Accepted);
+                    return [];
+                case LinkPlan.Waiting:
+                    result = new FriendLinkResult(found!.Value.Id, FriendLinkStates.Requested);
+                    return [];
+                case LinkPlan.AcceptTheirs:
+                    // That very row, live and from the owner: accepted, as Accept under Requests would.
+                    var accepted = ServerEntities.Changed(found!.Value.Doc, stamp, new JsonObject { ["state"] = "accepted" });
+                    result = new FriendLinkResult(found.Value.Id, FriendLinkStates.Accepted);
+                    return [new IncomingEntity("friendships", accepted)];
+                case LinkPlan.Request:
+                    var fields = new JsonObject { ["userA"] = viewerId, ["userB"] = owner.Id, ["state"] = "pending" };
+                    var request = New(Ids.NewUlid(), viewerId, stamp, fields);
+                    result = new FriendLinkResult((string)request["id"]!, FriendLinkStates.Requested);
+                    return [new IncomingEntity("friendships", request)];
+                default:
+                    // A new row is the link owner's, as before; an earlier request keeps its owner.
+                    var made = index.FriendshipBetween(owner.Id, viewerId) is null;
+                    var doc = BefriendDoc(index, owner.Id, viewerId, null, stamp);
+                    result = new FriendLinkResult((string)doc["id"]!, FriendLinkStates.Accepted);
+                    return [made ? new IncomingEntity("friendships", doc) { Owner = owner.Id } : new IncomingEntity("friendships", doc)];
+            }
+        }, cancellation);
+        return result;
     }
+
+    private enum LinkPlan
+    {
+        /// <summary>Never ended between them: friends in one step, as before U5.</summary>
+        Befriend,
+        Friends,
+        AcceptTheirs,
+        Waiting,
+        Request,
+    }
+
+    /// <summary>
+    /// What opening <paramref name="ownerId"/>'s link does for <paramref name="viewerId"/>, and the
+    /// row it concerns. Once any row between them has ended (an ended friendship, a declined or
+    /// withdrawn request), the link only asks (audit U5).
+    /// </summary>
+    private static (LinkPlan Plan, (string Id, JsonObject Doc)? Row) Plan(SharingIndex index, string ownerId, string viewerId)
+    {
+        var rows = index.FriendshipRowsBetween(ownerId, viewerId);
+        var ended = rows.Where(row => row.Doc["deletedAt"] is not null).ToList();
+        if (ended.Count == 0) return (LinkPlan.Befriend, null);
+        var live = rows.Where(row => row.Doc["deletedAt"] is null).ToList();
+        if (live.FirstOrDefault(row => State(row.Doc) == "accepted") is { Id: not null } friends) return (LinkPlan.Friends, friends);
+        // The owner has asked the viewer already: opening the owner's link says yes to that.
+        if (live.FirstOrDefault(row => (string?)row.Doc["userA"] == ownerId) is { Id: not null } theirs) return (LinkPlan.AcceptTheirs, theirs);
+        // The viewer's request is waiting: one per pair, so nothing new to send or show the owner.
+        if (live.FirstOrDefault() is { Id: not null } waiting) return (LinkPlan.Waiting, waiting);
+        return (LinkPlan.Request, null);
+    }
+
+    private static string State(JsonObject doc) => (string?)doc["state"] ?? "pending";
+
 
     /// <summary>
     /// An admin makes two people friends (spec: Account management), as if one had accepted the
@@ -144,40 +253,51 @@ public sealed class Friends(AccountService accounts, IAccountStore store, SyncSe
     private async Task<string> BefriendAsync(Account owner, Account viewer, Account? admin, CancellationToken cancellation)
     {
         JsonNode? madeBy = admin is null ? null : new JsonObject { ["id"] = admin.Id, ["name"] = admin.Username };
-        var viewerId = viewer.Id;
         await EnsureProfileAsync(owner, cancellation);
         await EnsureProfileAsync(viewer, cancellation);
+        string id = "";
+        await sync.WriteAsServerAsync(owner.Id, index =>
+        {
+            var doc = BefriendDoc(index, owner.Id, viewer.Id, madeBy, clock.Next());
+            id = (string)doc["id"]!;
+            return [new IncomingEntity("friendships", doc)];
+        }, cancellation);
+        return id;
+    }
 
-        var stamp = clock.Next();
-        var existing = sharing.Index.FriendshipBetween(owner.Id, viewerId);
-        JsonObject doc;
-        if (existing is { } found)
+    /// <summary>The friendship between the two, accepted: the best row there is (revived if ended), else a new one.</summary>
+    private JsonObject BefriendDoc(SharingIndex index, string ownerId, string viewerId, JsonNode? madeBy, string stamp)
+    {
+        if (index.FriendshipBetween(ownerId, viewerId) is { } found)
         {
             // The rest stays; the stamped fields win.
-            doc = ServerEntities.Changed(found.Doc, stamp, new JsonObject { ["state"] = "accepted", ["deletedAt"] = null, ["madeBy"] = madeBy });
+            return ServerEntities.Changed(found.Doc, stamp,
+                new JsonObject { ["state"] = "accepted", ["deletedAt"] = null, ["madeBy"] = madeBy?.DeepClone() });
         }
-        else
+        var fields = new JsonObject
         {
-            var fields = new JsonObject
-            {
-                ["userA"] = owner.Id,
-                ["userB"] = viewerId,
-                ["state"] = "accepted",
-            };
-            if (madeBy is not null) fields["madeBy"] = madeBy;
-            doc = New(Ids.NewUlid(), viewerId, stamp, fields);
-        }
-        await sync.WriteAsServerAsync(owner.Id, [new IncomingEntity("friendships", doc)], cancellation);
-        return (string)doc["id"]!;
+            ["userA"] = ownerId,
+            ["userB"] = viewerId,
+            ["state"] = "accepted",
+        };
+        if (madeBy is not null) fields["madeBy"] = madeBy.DeepClone();
+        return New(Ids.NewUlid(), viewerId, stamp, fields);
     }
 
     private ProfilePreview Preview(string viewerId, Account account)
     {
-        var friendship = sharing.Index.FriendshipBetween(viewerId, account.Id);
+        var index = sharing.Index;
+        var friendship = index.FriendshipBetween(viewerId, account.Id);
         var state = friendship is { } found && found.Doc["deletedAt"] is null ? (string?)found.Doc["state"] : null;
+        var link = account.Id == viewerId ? FriendLinkPreviews.Befriend : Plan(index, account.Id, viewerId).Plan switch
+        {
+            LinkPlan.Request => FriendLinkPreviews.Ask,
+            LinkPlan.Waiting => FriendLinkPreviews.Asked,
+            _ => FriendLinkPreviews.Befriend,
+        };
         return new ProfilePreview(account.Id, account.Username, account.Username, HandleOf(account),
             AvatarColor(account.Id),
-            account.CreatedAt, account.Id == viewerId, state);
+            account.CreatedAt, account.Id == viewerId, state, link);
     }
 
     /// <summary>A whole entity from this server, every field stamped.</summary>

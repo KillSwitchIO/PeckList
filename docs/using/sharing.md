@@ -8,14 +8,19 @@ link are on the **Friends** page, in the account menu (the sync button).
 You share with friends, so start there:
 
 - **Your friend link**: copy it, or show its QR code for someone to scan with their phone. They
-  sign in, accept, and you are friends. **New link** stops the old one from working.
+  sign in, accept, and you are friends (unless you were friends before; see below). **New link**
+  stops the old one from working.
 - **Add a friend**: type their exact username and **Ask to be friends**. They accept or decline under
   **Requests**; you can take a request back while it waits.
 - **Unfriend** ends it. If they are on lists you own, or have tasks of yours assigned to them, it
   also offers to remove them from those, ticked by default. Leave it ticked and those disappear from
   their devices; untick it and the shares stay. Lists they own or that you only joined stay as they
-  are, and so does anything they reach through a group. Anyone with your friend link, including
-  someone you unfriended, can use it again to become friends, unless you press **New link**.
+  are, and so does anything they reach through a group.
+- **After a friendship ends**, by either of you or by an admin, a friend link no longer makes you
+  friends with that person. Opening your link, old or new, sends you a request instead, and you
+  decide under **Requests**. They can send one request at a time: opening the link again does
+  not send another. If you decline it, opening a link later sends a new request, never a
+  friendship. You can still send them a request yourself.
 
 An admin can also make two people friends, or end a friendship (**Admin > Users > Friends**). An
 admin ending it ends only the friendship: lists and tasks they share stay shared, and the owner

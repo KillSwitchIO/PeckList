@@ -503,6 +503,7 @@ describe('HTTP sync transport', () => {
       { status: 200, body: preview },
       { status: 404 },
       { status: 200, body: { friendshipId: 'F1' } },
+      { status: 200, body: { friendshipId: 'F2', state: 'requested' } },
       { status: 404 },
       { status: 200, body: preview },
       { status: 404 },
@@ -513,11 +514,12 @@ describe('HTTP sync transport', () => {
     expect(calls[1]!.init.method).toBe('POST');
     expect(await friends.preview('7QM4-K2XP')).toEqual(preview);
     expect(await friends.preview('gone')).toBeNull();
-    expect(await friends.accept('7QM4-K2XP')).toBe('F1');
+    expect(await friends.accept('7QM4-K2XP')).toEqual({ friendshipId: 'F1', state: 'accepted' });
+    expect(await friends.accept('7QM4-K2XP')).toEqual({ friendshipId: 'F2', state: 'requested' });
     expect(await friends.accept('gone')).toBeNull();
     expect((await friends.lookup('sam'))?.username).toBe('sam');
     expect(await friends.lookup('nobody')).toBeNull();
-    expect(calls[6]!.url).toBe('/api/users/lookup?q=sam');
+    expect(calls[7]!.url).toBe('/api/users/lookup?q=sam');
   });
 
   it('listens for changes over Server-Sent Events', () => {

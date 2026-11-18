@@ -21,6 +21,7 @@ import type {
   ApiKeyInfo,
   CliSignInProblem,
   CliSignInRequest,
+  FriendLinkState,
   SignInMethods,
   SignUpOutcome,
   SupporterRefusal,
@@ -573,7 +574,9 @@ export function createHttpSync(
         });
         if (response.status === 404) return null;
         if (!response.ok) return fail(response);
-        return ((await response.json()) as { friendshipId: string }).friendshipId;
+        const body = (await response.json()) as { friendshipId: string; state?: FriendLinkState };
+        // A server from before U5 sends no state: friends at once.
+        return { friendshipId: body.friendshipId, state: body.state ?? 'accepted' };
       },
       async lookup(query) {
         const response = await call(`/api/users/lookup?q=${encodeURIComponent(query)}`);

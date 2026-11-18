@@ -606,6 +606,7 @@ export const en = {
   'audit.type.impersonation.ended': 'Viewing as {actor} ended',
   'audit.type.sharing.friend-link-renewed': '{actor} made a new friend link',
   'audit.type.sharing.friend-added': '{actor} added a friend with a link',
+  'audit.type.sharing.friend-requested': '{actor} opened a friend link that sent a request',
   'audit.type.sharing.list-shared': '{actor} shared the list {target}',
   'audit.type.sharing.list-unshared': '{actor} made the list {target} private',
   'audit.type.sharing.member-added': '{actor} shared a list with {target}',
@@ -1562,7 +1563,7 @@ export const en = {
   'group.removeConfirm': 'Take {name} out of {group}?',
   'friends.yourLink': 'Your friend link',
   'friends.linkHint':
-    'Anyone who opens it and accepts becomes your friend. Make a new one to retire this one.',
+    'Anyone who opens it and accepts becomes your friend. Someone you are no longer friends with sends you a request instead. Make a new one to retire this one.',
   'friends.copy': 'Copy link',
   'friends.qr': 'QR code',
   'friends.qrOf': 'QR code for {link}',
@@ -1598,7 +1599,7 @@ export const en = {
   'friends.madeBy': 'Made by {name}',
   'friends.unfriendConfirm': 'Stop being friends with {name}?',
   'friends.unfriendLinkHint':
-    'Anyone with your friend link can use it again to become friends, unless you press New link.',
+    'After this, your friend link, old or new, only sends you a request from them.',
   'friends.unfriendShares': 'Also remove {name} from the lists and tasks you own',
   'friends.unfriendSharesHint':
     'Lists they own or that you only joined stay as they are, and so does anything they reach through a group.',
@@ -1614,6 +1615,8 @@ export const en = {
   'friendLink.self': 'This is your own friend link. Send it to someone you want to add.',
   'friendLink.already': 'You are already friends with {name}.',
   'friendLink.done': 'You and {name} are friends now.',
+  'friendLink.requested': 'Request sent. You become friends when {name} accepts.',
+  'friendLink.asks': 'This sends {name} a friend request. You become friends when they accept.',
   'friendLink.toFriends': 'See your friends',
   'cliSignIn.title': 'Sign in a terminal',
   'cliSignIn.intro': 'Type the code your terminal shows after pecklist login.',
