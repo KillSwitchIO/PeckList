@@ -114,8 +114,12 @@ export interface NativeShell {
   /** Api 2 and up (check info().api first). */
   backgroundCheck(): Promise<BackgroundCheck>;
   setBackgroundCheck(change: { enabled?: boolean; minutes?: number }): Promise<BackgroundCheck>;
-  /** Android's dialog to let the app run in the background; the state once it closes. */
-  allowBackground(): Promise<BackgroundCheck>;
+  /**
+   * Android's dialog to let the app run in the background; the state once it closes. `pressed`:
+   * the person pressed a button for it. The Google Play build opens its list of apps only then
+   * (from 0.13.0's shell); otherwise it answers with the state.
+   */
+  allowBackground(pressed?: boolean): Promise<BackgroundCheck>;
   /** Api 5: Android's notification settings for the app (each kind's sound and vibration). */
   notificationSettings(): Promise<void>;
   /**

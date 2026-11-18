@@ -171,6 +171,8 @@ export class FakeBackend {
   serverSupporterKey: SupporterKeyInfo | null = null;
   /** `ACCOUNT_DELETE_GRACE_DAYS`; null: a server from before self-delete. */
   deleteGraceDays: number | null = 7;
+  /** Locked by too many wrong passwords until then (ISO time): confirming one is refused. */
+  lockedUntil: string | null = null;
   /** Whether each session's sign-in counts as recent (the 10 minutes), by username. */
   readonly signedInRecently = new Map<string, boolean>();
   /** Accounts deleted by their owners, by username: when each goes for good. */
@@ -407,6 +409,8 @@ export class FakeTransport implements SyncTransport {
       if (!found) return Promise.reject(new SyncFailure('signed-out', 'signed out'));
       if (this.backend.passkeysOf(found.account.username).length === 0)
         return Promise.resolve('last-way-in' as const);
+      if (this.backend.lockedUntil)
+        return Promise.resolve({ kind: 'locked' as const, until: this.backend.lockedUntil });
       if (found.password !== current) return Promise.resolve('wrong-password' as const);
       found.password = '';
       return Promise.resolve('ok' as const);
@@ -465,6 +469,8 @@ export class FakeTransport implements SyncTransport {
       const deletion = this.deletionOf(found);
       if (deletion.blocked === 'last_super_admin')
         return Promise.resolve({ kind: 'last-super-admin' as const });
+      if (deletion.proof === 'password' && this.backend.lockedUntil)
+        return Promise.resolve({ kind: 'locked' as const, until: this.backend.lockedUntil });
       if (deletion.proof === 'password' && password !== found.password)
         return Promise.resolve({ kind: 'wrong-password' as const });
       if (deletion.proof === 'sign-in' && !deletion.signedInRecently)
@@ -805,6 +811,8 @@ export class FakeTransport implements SyncTransport {
     this.check();
     const found = this.current();
     if (!found) throw new SyncFailure('signed-out', 'signed out');
+    if (this.backend.lockedUntil)
+      return Promise.resolve({ kind: 'locked' as const, until: this.backend.lockedUntil });
     if (found.password !== current) return Promise.resolve({ kind: 'wrong-password' as const });
     if (next.length < 12) return Promise.resolve({ kind: 'too-short' as const });
     found.password = next;

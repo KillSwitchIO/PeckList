@@ -360,6 +360,27 @@ describe('HTTP sync transport', () => {
     expect((await http.changePassword('a', 'b')).kind).toBe('unchanged');
   });
 
+  it('reads a lock from too many wrong passwords when changing, removing it or deleting the account', async () => {
+    const until = '2026-11-18T03:30:00Z';
+    const { fetcher, calls } = fakeFetch(
+      { status: 423, body: { error: 'locked', until } },
+      { status: 423, body: { error: 'locked', until } },
+      { status: 423, body: { error: 'locked', until } },
+      { status: 400, body: { error: 'wrong_password' } },
+    );
+    const http = createHttpSync('', fetcher);
+    expect(await http.changePassword('a', 'b')).toEqual({ kind: 'locked', until });
+    expect(await http.account!.removePassword?.('a')).toEqual({ kind: 'locked', until });
+    expect(await http.account!.deleteAccount?.('a')).toEqual({ kind: 'locked', until });
+    expect(await http.account!.deleteAccount?.('a')).toEqual({ kind: 'wrong-password' });
+    expect(calls.map((call) => call.url)).toEqual([
+      '/auth/password',
+      '/api/account/password/remove',
+      '/api/account/delete',
+      '/api/account/delete',
+    ]);
+  });
+
   it('gives up on a request that never answers, and reads it as offline', async () => {
     vi.useFakeTimers();
     try {

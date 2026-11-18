@@ -21,6 +21,21 @@ public abstract record LoginResult
     public sealed record Locked(DateTimeOffset Until) : LoginResult;
 }
 
+/// <summary>
+/// A signed-in person giving their password again, before something that cannot be taken back.
+/// Wrong ones count toward the same lockout as signing in, so a session in someone else's hands
+/// cannot be used to guess it (security review of self-delete, Low 2).
+/// </summary>
+public abstract record PasswordCheck
+{
+    /// <summary>The account as it is now (its failed tries cleared).</summary>
+    public sealed record Right(Account Account) : PasswordCheck;
+
+    public sealed record Wrong : PasswordCheck;
+
+    public sealed record Locked(DateTimeOffset Until) : PasswordCheck;
+}
+
 public enum PasswordChange
 {
     Changed,
@@ -31,6 +46,9 @@ public enum PasswordChange
 
     /// <summary>A demo account's password is the one the banner shows (PL-117).</summary>
     DemoAccount,
+
+    /// <summary>Too many wrong passwords: locked like a sign-in (<see cref="Account.LockedUntil"/>).</summary>
+    Locked,
 }
 
 /// <summary>Logins, lockout, password changes and the first admin (spec: Accounts &amp; Admin).</summary>
@@ -100,15 +118,9 @@ public sealed class AccountService(IAccountStore store, IPasswordHasher hasher, 
 
         if (!hasher.Verify(account.PasswordHash, password, out var rehash))
         {
-            if (IsDemo(account)) return new LoginResult.Invalid();
-            var failures = account.FailedLogins + 1;
-            var locked = failures >= MaxFailedLogins;
-            await store.UpdateAsync(account with
-            {
-                FailedLogins = locked ? 0 : failures,
-                LockedUntil = locked ? now + LockoutTime : null,
-            }, cancellation);
-            return locked ? new LoginResult.Locked(now + LockoutTime) : new LoginResult.Invalid();
+            return await CountFailureAsync(account, now, cancellation) is { } until
+                ? new LoginResult.Locked(until)
+                : new LoginResult.Invalid();
         }
         var updated = account with
         {
@@ -120,15 +132,65 @@ public sealed class AccountService(IAccountStore store, IPasswordHasher hasher, 
         return new LoginResult.Success(updated);
     }
 
+    /// <summary>
+    /// A wrong password for the account, signing in or confirming: one more failed try, and at
+    /// <see cref="MaxFailedLogins"/> it is locked for <see cref="LockoutTime"/>. Returns when the lock
+    /// ends, or null. A demo account's password is public, so its wrong tries count for nothing.
+    /// </summary>
+    private async Task<DateTimeOffset?> CountFailureAsync(Account account, DateTimeOffset now, CancellationToken cancellation)
+    {
+        if (IsDemo(account)) return null;
+        var failures = account.FailedLogins + 1;
+        var locked = failures >= MaxFailedLogins;
+        await store.UpdateAsync(account with
+        {
+            FailedLogins = locked ? 0 : failures,
+            LockedUntil = locked ? now + LockoutTime : null,
+        }, cancellation);
+        return locked ? now + LockoutTime : null;
+    }
+
+    /// <summary>
+    /// Whether <paramref name="current"/> is the account's password, for a signed-in person
+    /// confirming it is them (deleting their account, changing or removing the password). Wrong
+    /// ones count toward the sign-in lockout, and while it is locked nothing is checked, not even
+    /// the right password. An account without a password is never right.
+    /// </summary>
+    public async Task<PasswordCheck> ConfirmPasswordAsync(Account account, string current, CancellationToken cancellation = default)
+    {
+        if (account.PasswordHash is null) return new PasswordCheck.Wrong();
+        var now = time.GetUtcNow();
+        if (account.LockedUntil > now) return new PasswordCheck.Locked(account.LockedUntil.Value);
+        // Too long to check: never hashed, and not counted, as at sign-in.
+        if (current.Length > MaxTriedPasswordLength) return new PasswordCheck.Wrong();
+        if (!hasher.Verify(account.PasswordHash, current, out _))
+        {
+            return await CountFailureAsync(account, now, cancellation) is { } until
+                ? new PasswordCheck.Locked(until)
+                : new PasswordCheck.Wrong();
+        }
+        if (account.FailedLogins == 0 && account.LockedUntil is null) return new PasswordCheck.Right(account);
+        var cleared = account with { FailedLogins = 0, LockedUntil = null };
+        await store.UpdateAsync(cleared, cancellation);
+        return new PasswordCheck.Right(cleared);
+    }
+
     /// <summary>Change a password. Success gives a new security stamp, ending the account's other sessions.</summary>
     public async Task<(PasswordChange Result, Account? Account)> ChangePasswordAsync(
         string id, string current, string next, CancellationToken cancellation = default)
     {
-        var account = await store.FindByIdAsync(id, cancellation) ?? throw new KeyNotFoundException($"no account {id}");
-        if (IsDemo(account)) return (PasswordChange.DemoAccount, null);
-        if (account.PasswordHash is null || current.Length > MaxTriedPasswordLength || !hasher.Verify(account.PasswordHash, current, out _))
+        var found = await store.FindByIdAsync(id, cancellation) ?? throw new KeyNotFoundException($"no account {id}");
+        if (IsDemo(found)) return (PasswordChange.DemoAccount, null);
+        Account account;
+        switch (await ConfirmPasswordAsync(found, current, cancellation))
         {
-            return (PasswordChange.WrongPassword, null);
+            case PasswordCheck.Right right:
+                account = right.Account;
+                break;
+            case PasswordCheck.Locked:
+                return (PasswordChange.Locked, await store.FindByIdAsync(id, cancellation));
+            default:
+                return (PasswordChange.WrongPassword, null);
         }
         if (next.Length < MinPasswordLength) return (PasswordChange.TooShort, null);
         if (next.Length > MaxNewPasswordLength) return (PasswordChange.TooLong, null);
@@ -345,14 +407,6 @@ public sealed class AccountService(IAccountStore store, IPasswordHasher hasher, 
     }
 
     /// <summary>
-    /// Whether <paramref name="current"/> is the account's password: a person confirming it is them
-    /// before something that cannot be taken back (deleting their own account). An account without a
-    /// password never matches.
-    /// </summary>
-    public bool PasswordMatches(Account account, string current) =>
-        account.PasswordHash is not null && current.Length <= MaxTriedPasswordLength && hasher.Verify(account.PasswordHash, current, out _);
-
-    /// <summary>
     /// The account's friend code, made on first use: 8 characters without look-alikes, shown as
     /// <c>7QM4-K2XP</c>. <paramref name="rotate"/> replaces it, so old links stop working.
     /// </summary>
@@ -499,11 +553,18 @@ public sealed class AccountService(IAccountStore store, IPasswordHasher hasher, 
     public async Task<(PasswordChange Result, Account? Account)> RemovePasswordAsync(
         string id, string current, CancellationToken cancellation = default)
     {
-        var account = await store.FindByIdAsync(id, cancellation) ?? throw new KeyNotFoundException($"no account {id}");
-        if (IsDemo(account)) return (PasswordChange.DemoAccount, null);
-        if (account.PasswordHash is null || current.Length > MaxTriedPasswordLength || !hasher.Verify(account.PasswordHash, current, out _))
+        var found = await store.FindByIdAsync(id, cancellation) ?? throw new KeyNotFoundException($"no account {id}");
+        if (IsDemo(found)) return (PasswordChange.DemoAccount, null);
+        Account account;
+        switch (await ConfirmPasswordAsync(found, current, cancellation))
         {
-            return (PasswordChange.WrongPassword, null);
+            case PasswordCheck.Right right:
+                account = right.Account;
+                break;
+            case PasswordCheck.Locked:
+                return (PasswordChange.Locked, await store.FindByIdAsync(id, cancellation));
+            default:
+                return (PasswordChange.WrongPassword, null);
         }
         var updated = account with { PasswordHash = null, MustChangePassword = false, SecurityStamp = Ids.NewUlid(time) };
         await store.UpdateAsync(updated, cancellation);

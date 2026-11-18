@@ -352,6 +352,8 @@ export function createHttpSync(
     async changePassword(current, next): Promise<PasswordOutcome> {
       const response = await call('/auth/password', { method: 'POST', body: { current, next } });
       if (response.ok) return { kind: 'ok', account: (await response.json()) as Account };
+      if (response.status === 423)
+        return { kind: 'locked', until: (await errorOf(response)).until ?? '' };
       if (response.status === 400) {
         const { error } = await errorOf(response);
         if (error === 'wrong_password') return { kind: 'wrong-password' };
@@ -485,6 +487,8 @@ export function createHttpSync(
         });
         if (response.status === 409) return 'last-way-in';
         if (response.status === 400) return 'wrong-password';
+        if (response.status === 423)
+          return { kind: 'locked', until: (await errorOf(response)).until ?? '' };
         if (!response.ok) return fail(response);
         return 'ok';
       },
@@ -505,6 +509,8 @@ export function createHttpSync(
           return { kind: 'deleted', removedAt };
         }
         if (response.status === 400) return { kind: 'wrong-password' };
+        if (response.status === 423)
+          return { kind: 'locked', until: (await errorOf(response)).until ?? '' };
         if (response.status === 409) return { kind: 'last-super-admin' };
         if (response.status === 404) return { kind: 'gone' };
         if (response.status === 429) return { kind: 'too-many' };

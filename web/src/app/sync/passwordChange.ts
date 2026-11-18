@@ -14,6 +14,15 @@ export function usePasswordDraft() {
 
 export type PasswordDraft = ReturnType<typeof usePasswordDraft>;
 
+/** "Too many tries" with when the lock ends, at sign-in or confirming a password. */
+export function lockedProblem(until: string): string {
+  const date = new Date(until);
+  const time = Number.isNaN(date.getTime())
+    ? until
+    : date.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
+  return t('auth.locked', { time });
+}
+
 /** What to tell the person when the server refused the change; null when it went through. */
 export function passwordProblem(outcome: PasswordOutcome): string | null {
   switch (outcome.kind) {
@@ -27,6 +36,8 @@ export function passwordProblem(outcome: PasswordOutcome): string | null {
       return t('auth.tooLong');
     case 'demo-account':
       return t('auth.demoAccount');
+    case 'locked':
+      return lockedProblem(outcome.until);
     default:
       return t('auth.unchanged');
   }

@@ -129,11 +129,14 @@ public static class AuthEndpoints
             return Results.Ok(new SignOutResult(next));
         }).Audited("auth.sign-out", targetRoute: null);
 
-        auth.MapPost("/password", async (PasswordRequest request, ClaimsPrincipal user, AccountService accounts, IMemoryCache cache, LiveSettings live, HttpContext context) =>
+        auth.MapPost("/password", async (PasswordRequest request, ClaimsPrincipal user, AccountService accounts, IMemoryCache cache, LiveSettings live,
+            LoginAttempts attempts, TimeProvider time, HttpContext context) =>
         {
             // Passwords are not used while LOCAL_LOGIN=disabled; none is checked or set.
             if (live.Current.LocalLoginDisabled) return LocalLoginDisabled(context);
+            if (PasswordProof.TooMany(attempts, user.Identity?.Name, context) is { } tooMany) return tooMany;
             var (result, account) = await accounts.ChangePasswordAsync(user.UserId(), request.Current ?? "", request.Next ?? "", context.RequestAborted);
+            if (result == PasswordChange.Locked) return PasswordProof.Locked(context, account?.LockedUntil, time);
             if (result != PasswordChange.Changed)
             {
                 var error = result switch

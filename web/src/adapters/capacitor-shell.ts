@@ -23,7 +23,7 @@ interface ShellPlugin {
   disconnect(): Promise<void>;
   backgroundCheck(): Promise<BackgroundCheck>;
   setBackgroundCheck(options: { enabled?: boolean; minutes?: number }): Promise<BackgroundCheck>;
-  allowBackground(): Promise<BackgroundCheck>;
+  allowBackground(options: { pressed: boolean }): Promise<BackgroundCheck>;
   notificationSettings(): Promise<void>;
   carry(options: { data: string; server: string }): Promise<void>;
   carried(): Promise<{ data?: string }>;
@@ -115,7 +115,7 @@ export function createCapacitorShell(): NativeShell | null {
     disconnect: () => plugin.disconnect(),
     backgroundCheck: () => plugin.backgroundCheck(),
     setBackgroundCheck: (change) => plugin.setBackgroundCheck(change),
-    allowBackground: () => plugin.allowBackground(),
+    allowBackground: (pressed) => plugin.allowBackground({ pressed: pressed === true }),
     notificationSettings: () => plugin.notificationSettings(),
     carry: (data, server) => plugin.carry({ data, server }),
     carried: async () => (await plugin.carried()).data ?? null,

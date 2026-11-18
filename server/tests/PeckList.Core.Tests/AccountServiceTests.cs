@@ -226,6 +226,62 @@ public sealed class AccountServiceTests
         Assert.IsType<LoginResult.Success>(await accounts.LoginAsync("admin", "a brand new password", Token));
     }
 
+    /// <summary>
+    /// Confirming the password (deleting the account, changing or removing the password) counts
+    /// wrong ones toward the same lockout as signing in, so a session in someone else's hands
+    /// cannot guess it (security review of self-delete, Low 2).
+    /// </summary>
+    [Fact]
+    public async Task Wrong_passwords_when_confirming_count_toward_the_sign_in_lockout()
+    {
+        await accounts.EnsureAdminAsync("correct horse battery", Token);
+        // Two wrong at sign-in, then wrong when deleting, changing and removing it.
+        await accounts.LoginAsync("admin", "wrong", Token);
+        await accounts.LoginAsync("admin", "wrong", Token);
+        Assert.IsType<PasswordCheck.Wrong>(await accounts.ConfirmPasswordAsync(Admin, "wrong", Token));
+        Assert.Equal(PasswordChange.WrongPassword, (await accounts.ChangePasswordAsync(Admin.Id, "wrong", "a brand new password", Token)).Result);
+        var (removal, locked) = await accounts.RemovePasswordAsync(Admin.Id, "wrong", Token);
+        Assert.Equal(PasswordChange.Locked, removal);
+        Assert.Equal(clock.Now + AccountService.LockoutTime, locked!.LockedUntil);
+
+        // Locked everywhere, the right password too, until it ends.
+        Assert.IsType<LoginResult.Locked>(await accounts.LoginAsync("admin", "correct horse battery", Token));
+        Assert.Equal(clock.Now + AccountService.LockoutTime,
+            Assert.IsType<PasswordCheck.Locked>(await accounts.ConfirmPasswordAsync(Admin, "correct horse battery", Token)).Until);
+        Assert.Equal(PasswordChange.Locked, (await accounts.ChangePasswordAsync(Admin.Id, "correct horse battery", "a brand new password", Token)).Result);
+        Assert.NotNull(Admin.PasswordHash);
+
+        clock.Now += AccountService.LockoutTime;
+        Assert.IsType<PasswordCheck.Right>(await accounts.ConfirmPasswordAsync(Admin, "correct horse battery", Token));
+    }
+
+    [Fact]
+    public async Task The_right_password_when_confirming_clears_earlier_failures()
+    {
+        await accounts.EnsureAdminAsync("correct horse battery", Token);
+        await accounts.LoginAsync("admin", "wrong", Token);
+        await accounts.ConfirmPasswordAsync(Admin, "wrong", Token);
+        Assert.Equal(2, Admin.FailedLogins);
+        var right = Assert.IsType<PasswordCheck.Right>(await accounts.ConfirmPasswordAsync(Admin, "correct horse battery", Token));
+        Assert.Equal(0, right.Account.FailedLogins);
+        Assert.Equal(0, Admin.FailedLogins);
+
+        // A change after the right password keeps the cleared count.
+        await accounts.ConfirmPasswordAsync(Admin, "wrong", Token);
+        Assert.Equal(PasswordChange.Changed, (await accounts.ChangePasswordAsync(Admin.Id, "correct horse battery", "a brand new password", Token)).Result);
+        Assert.Equal(0, Admin.FailedLogins);
+    }
+
+    [Fact]
+    public async Task Confirming_a_password_too_long_to_check_counts_for_nothing_and_is_never_hashed()
+    {
+        await accounts.EnsureAdminAsync("correct horse battery", Token);
+        var before = hasher.Verifications;
+        Assert.IsType<PasswordCheck.Wrong>(await accounts.ConfirmPasswordAsync(Admin, new string('x', AccountService.MaxTriedPasswordLength + 1), Token));
+        Assert.Equal(before, hasher.Verifications);
+        Assert.Equal(0, Admin.FailedLogins);
+    }
+
     [Fact]
     public async Task Reset_gives_a_new_password_to_change_and_unlocks()
     {

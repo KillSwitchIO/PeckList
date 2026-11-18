@@ -18,7 +18,7 @@ import {
   rememberedProvider,
   rememberProvider,
 } from './signInWith.ts';
-import { passwordProblem, usePasswordDraft } from './passwordChange.ts';
+import { lockedProblem, passwordProblem, usePasswordDraft } from './passwordChange.ts';
 import { PasswordChangeFields } from './PasswordChangeFields.tsx';
 import { useSyncState } from './syncContext.ts';
 import { autofillWorks, cancelled, createPasskey, getPasskey, passkeysWork } from './webauthn.ts';
@@ -82,14 +82,6 @@ export function AuthPages({ phase }: { phase: 'signed-out' | 'password-change' }
     );
   }
   return <SignIn onSignUp={() => go('/signup')} onForgot={() => go('/forgot')} />;
-}
-
-/** When a lock ends, as a time of day. */
-function untilTime(iso: string): string {
-  const date = new Date(iso);
-  return Number.isNaN(date.getTime())
-    ? iso
-    : date.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
 }
 
 /** Network trouble reads as "cannot reach the server"; anything else shows its message. */
@@ -500,8 +492,7 @@ function SignIn({ onSignUp, onForgot }: { onSignUp: () => void; onForgot: () => 
       rememberProvider(null);
       const outcome = await signIn(username, password);
       if (outcome.kind === 'invalid') setProblem(t('auth.invalid'));
-      else if (outcome.kind === 'locked')
-        setProblem(t('auth.locked', { time: untilTime(outcome.until) }));
+      else if (outcome.kind === 'locked') setProblem(lockedProblem(outcome.until));
       else if (outcome.kind === 'too-many') setProblem(t('auth.tooMany'));
       else if (outcome.kind === 'disabled') setProblem(t('auth.passwordsOff'));
     } catch (error) {

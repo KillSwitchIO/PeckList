@@ -17,6 +17,7 @@ import { t } from '../i18n/i18n.ts';
 import { PasswordField } from '../layout/PasswordField.tsx';
 import { ProblemAlert } from '../layout/ProblemAlert.tsx';
 import { nativeShell } from '../native/shell.ts';
+import { lockedProblem } from '../sync/passwordChange.ts';
 import { useSyncState } from '../sync/syncContext.ts';
 import { cancelled, createPasskey, passkeysWork } from '../sync/webauthn.ts';
 import { Section, SettingRow } from './settingsLayout.tsx';
@@ -229,7 +230,9 @@ function RemovePasswordDialog({
   onDone,
 }: {
   onClose: () => void;
-  onRemove: (current: string) => Promise<'ok' | 'wrong-password' | 'last-way-in'>;
+  onRemove: (
+    current: string,
+  ) => Promise<'ok' | 'wrong-password' | 'last-way-in' | { kind: 'locked'; until: string }>;
   onDone: () => void;
 }) {
   const [current, setCurrent] = useState('');
@@ -242,6 +245,7 @@ function RemovePasswordDialog({
     try {
       const answer = await onRemove(current);
       if (answer === 'ok') onDone();
+      else if (typeof answer === 'object') setProblem(lockedProblem(answer.until));
       else
         setProblem(
           t(

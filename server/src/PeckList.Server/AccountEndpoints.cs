@@ -87,8 +87,8 @@ public static class AccountEndpoints
         }).Doc<AccountDeletion>("What deleting your account means here: the days an admin can still restore it, and the proof it asks for").Missing();
 
         api.MapPost("/account/delete", async (AccountDeletionRequest request, ClaimsPrincipal user, IAccountStore store, AccountService accounts,
-            AccountRemoval removal, LiveSettings live, ServerSettings settings, IMemoryCache cache, TimeProvider time, HttpContext context,
-            CancellationToken cancellation) =>
+            AccountRemoval removal, LiveSettings live, ServerSettings settings, IMemoryCache cache, TimeProvider time, LoginAttempts attempts,
+            HttpContext context, CancellationToken cancellation) =>
         {
             // With AUTH_MODE=none there is one account and no sign-in to leave by.
             if (settings.AuthMode == AuthMode.None) return Refuse(StatusCodes.Status403Forbidden, "no_sign_in", "this server has no sign-in");
@@ -98,7 +98,14 @@ public static class AccountEndpoints
             context.Audit().On(account.Id, account.Username);
             if (ProofFor(account, live) == ProofPassword)
             {
-                if (!accounts.PasswordMatches(account, request.Password ?? "")) return Results.BadRequest(new AuthError("wrong_password"));
+                if (PasswordProof.TooMany(attempts, account.Username, context) is { } tooMany) return tooMany;
+                switch (await accounts.ConfirmPasswordAsync(account, request.Password ?? "", cancellation))
+                {
+                    case PasswordCheck.Locked locked:
+                        return PasswordProof.Locked(context, locked.Until, time);
+                    case PasswordCheck.Wrong:
+                        return Results.BadRequest(new AuthError("wrong_password"));
+                }
             }
             else if (!SignedInRecently(user, time))
             {
@@ -129,7 +136,7 @@ public static class AccountEndpoints
             }
             return Results.Ok(new UserDeleted(removedAt));
         }).Doc<UserDeleted>("Delete your own account, with your password or a sign-in in the last 10 minutes: an admin can restore it until removedAt")
-            .Refuses(StatusCodes.Status400BadRequest, StatusCodes.Status403Forbidden, StatusCodes.Status409Conflict).Missing()
+            .Refuses(StatusCodes.Status400BadRequest, StatusCodes.Status403Forbidden, StatusCodes.Status409Conflict, StatusCodes.Status423Locked).Missing()
             .RequireRateLimiting(AuthSetup.LoginRateLimit).Audited("account.deleted", targetRoute: null);
 
         return api;

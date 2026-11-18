@@ -78,6 +78,10 @@ final class BackgroundCheck {
         return power != null && power.isIgnoringBatteryOptimizations(context.getPackageName());
     }
 
+    static boolean asked(Context context) {
+        return prefs(context).getBoolean(ASKED, false);
+    }
+
     static void markAsked(Context context) {
         prefs(context).edit().putBoolean(ASKED, true).apply();
     }
@@ -90,6 +94,17 @@ final class BackgroundCheck {
     static Intent askToRunInBackground(Context context) {
         Intent intent = new Intent(batteryAction(Distribution.isPlay()));
         return Distribution.isPlay() ? intent : intent.setData(Uri.parse("package:" + context.getPackageName()));
+    }
+
+    /**
+     * Whether "let it run in the background" opens Android's settings. The foss build asks with
+     * Android's own dialog. The Google Play build has only the whole list of apps, which is no
+     * question to open unasked: only when the person pressed a button for it (the web app says so
+     * from 0.13.0). An older server's web app says nothing either way: its first ask is its
+     * first-run prompt, which gets the state instead, and every ask after that is the button.
+     */
+    static boolean opensSettings(boolean play, boolean pressed, boolean askedBefore) {
+        return !play || pressed || askedBefore;
     }
 
     /** The settings action that lets PeckList run in the background, in each build. */

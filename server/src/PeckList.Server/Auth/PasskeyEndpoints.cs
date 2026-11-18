@@ -361,7 +361,8 @@ public static class PasskeyEndpoints
 
         // With a passkey (or a provider), a person may do without a password.
         api.MapPost("/account/password/remove", async (PasswordRemoval request, ClaimsPrincipal user, AccountService accounts,
-            IAccountStore store, ExternalSignIn signIn, IMemoryCache cache, HttpContext context, CancellationToken cancellation) =>
+            IAccountStore store, ExternalSignIn signIn, IMemoryCache cache, LoginAttempts attempts, TimeProvider time, HttpContext context,
+            CancellationToken cancellation) =>
         {
             if (user.Impersonator() is not null) return Results.Json(new AuthError("not_while_impersonating"), statusCode: StatusCodes.Status403Forbidden);
             if (await store.FindByIdAsync(user.UserId(), cancellation) is not { PasswordHash: not null } account) return Results.Conflict(new AuthError("no_password"));
@@ -369,7 +370,9 @@ public static class PasskeyEndpoints
             {
                 return Results.Conflict(new AdminError("last_way_in", "add a passkey first"));
             }
+            if (PasswordProof.TooMany(attempts, account.Username, context) is { } tooMany) return tooMany;
             var (result, updated) = await accounts.RemovePasswordAsync(account.Id, request.Current ?? "", cancellation);
+            if (result == PasswordChange.Locked) return PasswordProof.Locked(context, updated?.LockedUntil, time);
             if (result != PasswordChange.Changed) return Results.BadRequest(new AuthError(result == PasswordChange.DemoAccount ? "demo_account" : "wrong_password"));
             // Password sessions elsewhere end (new stamp); this one carries on with a fresh cookie.
             AuthSetup.ForgetStamp(cache, updated!.Id);
@@ -377,7 +380,7 @@ public static class PasskeyEndpoints
             var principal = AuthSetup.Principal(updated, CookieAuthenticationDefaults.AuthenticationScheme, method);
             await context.SignInAsync(CookieAuthenticationDefaults.AuthenticationScheme, principal, new AuthenticationProperties { IsPersistent = true });
             return Results.NoContent();
-        }).Doc("Remove your password, keeping your passkeys (current is your password now)").Refuses(StatusCodes.Status400BadRequest, StatusCodes.Status409Conflict)
+        }).Doc("Remove your password, keeping your passkeys (current is your password now)").Refuses(StatusCodes.Status400BadRequest, StatusCodes.Status409Conflict, StatusCodes.Status423Locked)
             .RequireRateLimiting(AuthSetup.LoginRateLimit).Audited("account.password-removed", targetRoute: null);
 
         return api;

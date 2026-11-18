@@ -566,6 +566,16 @@
               }
             }
           },
+          "423": {
+            "description": "Locked",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Refusal"
+                }
+              }
+            }
+          },
           "404": {
             "description": "Not Found"
           },
@@ -994,6 +1004,16 @@
           },
           "409": {
             "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Refusal"
+                }
+              }
+            }
+          },
+          "423": {
+            "description": "Locked",
             "content": {
               "application/json": {
                 "schema": {
