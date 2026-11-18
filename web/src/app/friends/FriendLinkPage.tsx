@@ -1,7 +1,12 @@
 import { Alert, Box, Button, CircularProgress, Paper, Typography } from '@mui/material';
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router';
-import { TooManyRequests, waitText, type ProfilePreview } from '../../ports/sync.ts';
+import {
+  TooManyRequests,
+  waitText,
+  type FriendLinkState,
+  type ProfilePreview,
+} from '../../ports/sync.ts';
 import { t } from '../i18n/i18n.ts';
 import { Page } from '../layout/Page.tsx';
 import { useSyncState } from '../sync/syncContext.ts';
@@ -10,7 +15,8 @@ import { tooManyText } from './tooMany.ts';
 
 /**
  * `/f/<code>`: the confirmation screen a friend link opens (spec: Sharing & Permissions). It shows
- * who sent it before anything happens; Accept makes you friends at once.
+ * who sent it before anything happens; Accept makes you friends at once. After a friendship
+ * between the two ended, Accept only sends its owner a request (audit U5).
  */
 export function FriendLinkPage() {
   const { code = '' } = useParams();
@@ -20,7 +26,8 @@ export function FriendLinkPage() {
   const syncNow = useSyncState((state) => state.syncNow);
   const [preview, setPreview] = useState<ProfilePreview | null | undefined>(undefined);
   const [busy, setBusy] = useState<string | null>(null);
-  const [done, setDone] = useState(false);
+  const [done, setDone] = useState<FriendLinkState | null>(null);
+  const [sending, setSending] = useState(false);
 
   useEffect(() => {
     if (phase !== 'ready' || !friends) return;
@@ -69,7 +76,7 @@ export function FriendLinkPage() {
           <Avatar name={preview.displayName} color={preview.avatarColor} size={48} />
           <Box>
             <Typography variant="h6" component="p">
-              {preview.self
+              {preview.self || preview.link === 'ask' || preview.link === 'asked'
                 ? preview.displayName
                 : t('friendLink.wants', { name: preview.displayName })}
             </Typography>
@@ -80,36 +87,52 @@ export function FriendLinkPage() {
         </Box>
         {preview.self ? (
           <Typography color="text.secondary">{t('friendLink.self')}</Typography>
-        ) : done || preview.friendship === 'accepted' ? (
+        ) : done || preview.friendship === 'accepted' || preview.link === 'asked' ? (
           <Box sx={{ display: 'grid', gap: 2 }}>
             <Typography>
-              {done
-                ? t('friendLink.done', { name: preview.displayName })
-                : t('friendLink.already', { name: preview.displayName })}
+              {/* A request sent now, or one waiting already. */}
+              {done === 'requested' || (!done && preview.link === 'asked')
+                ? t('friendLink.requested', { name: preview.displayName })
+                : done
+                  ? t('friendLink.done', { name: preview.displayName })
+                  : t('friendLink.already', { name: preview.displayName })}
             </Typography>
             <Button variant="outlined" onClick={toFriends} sx={{ justifySelf: 'start' }}>
               {t('friendLink.toFriends')}
             </Button>
           </Box>
         ) : (
-          <Box sx={{ display: 'flex', gap: 1, justifyContent: 'flex-end' }}>
-            <Button onClick={toFriends}>{t('friendLink.decline')}</Button>
-            <Button
-              variant="contained"
-              disableElevation
-              onClick={() =>
-                void friends.accept(code).then((id) => {
-                  if (id) {
-                    setDone(true);
-                    void syncNow();
-                  } else {
-                    setPreview(null);
-                  }
-                })
-              }
-            >
-              {t('friendLink.accept')}
-            </Button>
+          <Box sx={{ display: 'grid', gap: 2 }}>
+            {preview.link === 'ask' && (
+              <Typography>{t('friendLink.asks', { name: preview.displayName })}</Typography>
+            )}
+            <Box sx={{ display: 'flex', gap: 1, justifyContent: 'flex-end' }}>
+              <Button onClick={toFriends}>
+                {preview.link === 'ask' ? t('common.cancel') : t('friendLink.decline')}
+              </Button>
+              <Button
+                variant="contained"
+                disableElevation
+                // One press, one request: no second while the first is on its way.
+                disabled={sending}
+                onClick={() => {
+                  setSending(true);
+                  void friends
+                    .accept(code)
+                    .then((result) => {
+                      if (result) {
+                        setDone(result.state);
+                        void syncNow();
+                      } else {
+                        setPreview(null);
+                      }
+                    })
+                    .finally(() => setSending(false));
+                }}
+              >
+                {preview.link === 'ask' ? t('friends.ask') : t('friendLink.accept')}
+              </Button>
+            </Box>
           </Box>
         )}
       </Paper>

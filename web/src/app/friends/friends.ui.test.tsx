@@ -235,7 +235,7 @@ describe('unfriending', () => {
       name: 'Also remove Sam from the lists and tasks you own',
     });
     expect(choice).toBeChecked();
-    expect(within(dialog).getByText(/unless you press New link/)).toBeInTheDocument();
+    expect(within(dialog).getByText(/old or new, only sends you a request/)).toBeInTheDocument();
     await userEvent.click(within(dialog).getByRole('button', { name: 'Unfriend' }));
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
     expect(stateOf(store)).toEqual({ friends: 0, members: 0, assigned: 0 });
@@ -267,6 +267,47 @@ describe('friend link', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Accept' }));
     expect(await screen.findByText('You and sam are friends now.')).toBeInTheDocument();
     expect(transport.accepted).toEqual(['SAM']);
+  });
+
+  it('says a request was sent when the link only asks, after an ended friendship (U5)', async () => {
+    const backend = new FakeBackend();
+    backend.addAccount('sam', 'sams own password');
+    backend.friendLinkState = 'requested';
+    await signedIn('/f/SAM', backend);
+    await userEvent.click(await screen.findByRole('button', { name: 'Accept' }));
+    expect(
+      await screen.findByText('Request sent. You become friends when sam accepts.'),
+    ).toBeInTheDocument();
+    expect(screen.queryByText('You and sam are friends now.')).toBeNull();
+  });
+
+  it('says before anything happens that the link only asks, after an ended friendship (U5)', async () => {
+    const backend = new FakeBackend();
+    backend.addAccount('sam', 'sams own password');
+    backend.friendLinkPreview = 'ask';
+    backend.friendLinkState = 'requested';
+    await signedIn('/f/SAM', backend);
+    expect(
+      await screen.findByText(
+        'This sends sam a friend request. You become friends when they accept.',
+      ),
+    ).toBeInTheDocument();
+    expect(screen.queryByText('sam wants to be friends')).toBeNull();
+    await userEvent.click(screen.getByRole('button', { name: 'Ask to be friends' }));
+    expect(
+      await screen.findByText('Request sent. You become friends when sam accepts.'),
+    ).toBeInTheDocument();
+  });
+
+  it('offers nothing to press when a request is waiting already (U5)', async () => {
+    const backend = new FakeBackend();
+    backend.addAccount('sam', 'sams own password');
+    backend.friendLinkPreview = 'asked';
+    await signedIn('/f/SAM', backend);
+    expect(
+      await screen.findByText('Request sent. You become friends when sam accepts.'),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Accept|Ask to be friends/ })).toBeNull();
   });
 
   it('explains a dead link and your own link', async () => {

@@ -239,15 +239,21 @@ public sealed partial class AdminTests(ServerFixture fixture) : IClassFixture<Se
         Assert.Equal(HttpStatusCode.NotFound, (await root.DeleteAsync($"/api/admin/friendships/{kimId}/{samId}", Token)).StatusCode);
         Assert.Equal(HttpStatusCode.NotFound, (await root.PostAsJsonAsync("/api/admin/friendships", new { userA = samId, userB = samId }, Token)).StatusCode);
 
-        // Made again by the two themselves: no admin's name on it any more.
+        // Made again by the two themselves: no admin's name on it any more. After the end, Kim's link
+        // only sends Kim a request (audit U5); Sam's link, opened by Kim, then says yes to it.
         var code = (await kim.GetFromJsonAsync<System.Text.Json.Nodes.JsonObject>("/api/friends/code", Token))!["code"]!.ToString();
         (await sam.PostAsync($"/api/friends/link/{code}", null, Token)).EnsureSuccessStatusCode();
+        var asked = await FriendshipOf(sam);
+        Assert.Equal("pending", (string?)asked["state"]);
+        Assert.Null(asked["madeBy"]);
+        var samsCode = (await sam.GetFromJsonAsync<System.Text.Json.Nodes.JsonObject>("/api/friends/code", Token))!["code"]!.ToString();
+        (await kim.PostAsync($"/api/friends/link/{samsCode}", null, Token)).EnsureSuccessStatusCode();
         var again = await FriendshipOf(sam);
-        Assert.Null(again["deletedAt"]);
+        Assert.Equal("accepted", (string?)again["state"]);
         Assert.Null(again["madeBy"]);
     }
 
-    /// <summary>The one friendship the account's devices hold, from a full pull.</summary>
+    /// <summary>The one live friendship the account's devices hold, from a full pull.</summary>
     private static async Task<System.Text.Json.Nodes.JsonObject> FriendshipOf(HttpClient client)
     {
         var pulled = await client.PostAsJsonAsync("/api/sync", new { schemaVersion = Core.WorkspaceSchema.CurrentVersion, cursor = (long?)null }, Token);
@@ -255,7 +261,7 @@ public sealed partial class AdminTests(ServerFixture fixture) : IClassFixture<Se
         return page["changes"]!.AsArray()
             .Where(change => (string?)change!["collection"] == "friendships")
             .Select(change => change!["entity"]!.AsObject())
-            .Single();
+            .Single(friendship => friendship["deletedAt"] is null);
     }
 
     private static async Task<HttpResponseMessage> Viewing(HttpClient client, string token, HttpMethod method, string path, object? body = null)

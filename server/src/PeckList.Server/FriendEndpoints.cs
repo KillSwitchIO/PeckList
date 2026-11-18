@@ -10,7 +10,12 @@ namespace PeckList.Server;
 /// <summary>A friend code, and its link when this server may make one (<see cref="ServerApp.LinkOrigin"/>).</summary>
 public sealed record FriendCode(string Code, string? Link);
 
-public sealed record FriendshipAccepted(string FriendshipId);
+/// <param name="FriendshipId">The friendship the link made, accepted, or found.</param>
+/// <param name="State">
+/// "accepted": friends now. "requested": a request to the link's owner is waiting (after an ended
+/// friendship a link only asks). Older servers send no state: friends now.
+/// </param>
+public sealed record FriendshipAccepted(string FriendshipId, string State);
 
 /// <summary>Friend codes and links, accepting a link, and looking someone up.</summary>
 public static class FriendEndpoints
@@ -32,12 +37,16 @@ public static class FriendEndpoints
             .Doc<ProfilePreview>("Who a friend code belongs to, before you accept it").Missing()
             .RequireRateLimiting(AuthSetup.AccountRateLimit);
 
-        api.MapPost("/friends/link/{code}", async (string code, ClaimsPrincipal user, Friends friends, Invites invites, CancellationToken cancellation) =>
+        api.MapPost("/friends/link/{code}", async (string code, ClaimsPrincipal user, Friends friends, Invites invites, HttpContext context, CancellationToken cancellation) =>
         {
-            if (await friends.AcceptLinkAsync(user.UserId(), code, cancellation) is not { } id) return Results.NotFound();
+            if (await friends.AcceptLinkAsync(user.UserId(), code, cancellation) is not { } result) return Results.NotFound();
+            // A link that only asks (audit U5): it sent a request, or one is waiting.
+            if (result.State == FriendLinkStates.Requested) context.Audit().Type = "sharing.friend-requested";
             await invites.SettleAsync(cancellation);
-            return Results.Ok(new FriendshipAccepted(id));
-        }).Doc<FriendshipAccepted>("Accept a friend code: you and its owner become friends").Missing()
+            return Results.Ok(new FriendshipAccepted(result.FriendshipId, result.State));
+        }).Doc<FriendshipAccepted>(
+                "Accept a friend code: you and its owner become friends. After a friendship between you ended, it sends them a request instead.")
+            .Missing()
             .RequireRateLimiting(AuthSetup.AccountRateLimit).Audited("sharing.friend-added", targetRoute: null);
 
         api.MapGet("/users/lookup", async (string q, ClaimsPrincipal user, Friends friends, CancellationToken cancellation) =>

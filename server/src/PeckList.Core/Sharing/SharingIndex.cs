@@ -419,6 +419,14 @@ public sealed class SharingIndex
             .OrderBy(each => each.Id, StringComparer.Ordinal)
             .Select(each => (each.Id, each.Doc))];
 
+    /// <summary>Every friendship row between two people, in either direction, ended ones too.</summary>
+    public IReadOnlyList<(string Id, JsonObject Doc)> FriendshipRowsBetween(string a, string b) =>
+        [.. Each(By.User, a)
+            .Where(each => each.Collection == "friendships"
+                && ((each.Get("userA") == a && each.Get("userB") == b) || (each.Get("userA") == b && each.Get("userB") == a)))
+            .OrderBy(each => each.Id, StringComparer.Ordinal)
+            .Select(each => (each.Id, each.Doc))];
+
     /// <summary>A user's live friendships (not ended): the other person and the state.</summary>
     public IReadOnlyList<(string Id, string Other, string State)> FriendshipsOf(string userId)
     {

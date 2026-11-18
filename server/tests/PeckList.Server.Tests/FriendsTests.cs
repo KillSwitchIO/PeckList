@@ -125,7 +125,9 @@ public sealed class FriendsTests(ServerFixture fixture) : IClassFixture<ServerFi
 
         var accepted = await sam.PostAsync($"/api/friends/link/{code.Code}", null, Token);
         Assert.Equal(HttpStatusCode.OK, accepted.StatusCode);
-        var friendshipId = (await accepted.Content.ReadFromJsonAsync<FriendshipAccepted>(Token))!.FriendshipId;
+        var answer = (await accepted.Content.ReadFromJsonAsync<FriendshipAccepted>(Token))!;
+        Assert.Equal("accepted", answer.State);
+        var friendshipId = answer.FriendshipId;
 
         // Both see the friendship and each other's profile.
         var benSees = await PullAll(ben);
@@ -163,28 +165,6 @@ public sealed class FriendsTests(ServerFixture fixture) : IClassFixture<ServerFi
         Assert.Equal(HttpStatusCode.NotFound, (await ben.GetAsync("/api/users/lookup?q=samantha4@elsewhere.example", Token)).StatusCode);
     }
 
-    [Fact]
-    public async Task An_ended_friendship_comes_back_through_the_link()
-    {
-        var (ben, _) = await SignIn("ben5");
-        var (sam, _) = await SignIn("sam5");
-        var code = (await ben.GetFromJsonAsync<FriendCode>("/api/friends/code", Token))!.Code;
-        var id = (await (await sam.PostAsync($"/api/friends/link/{code}", null, Token)).Content.ReadFromJsonAsync<FriendshipAccepted>(Token))!.FriendshipId;
-
-        // Sam ends it through sync.
-        var friendship = (await PullAll(sam))[id];
-        friendship["deletedAt"] = "2026-10-21T12:00:00.000Z";
-        friendship["_hlc"]!["deletedAt"] = $"{DateTimeOffset.UtcNow:yyyy-MM-dd'T'HH:mm:ss.fff'Z'}-0000-dev1";
-        (await sam.PostAsJsonAsync("/api/sync", new { schemaVersion = WorkspaceSchema.CurrentVersion, changes = new[] { new { collection = "friendships", entity = friendship } } }, Token)).EnsureSuccessStatusCode();
-        Assert.NotNull((await PullAll(ben))[id]["deletedAt"]);
-
-        await Task.Delay(1100, Token);
-        Assert.Equal(id, (await (await sam.PostAsync($"/api/friends/link/{code}", null, Token)).Content.ReadFromJsonAsync<FriendshipAccepted>(Token))!.FriendshipId);
-        var back = (await PullAll(ben))[id];
-        Assert.Null(back["deletedAt"]);
-        Assert.Equal("accepted", (string?)back["state"]);
-    }
-
     private static string Later(int seconds = 1) =>
         $"{DateTimeOffset.UtcNow.AddSeconds(seconds):yyyy-MM-dd'T'HH:mm:ss.fff'Z'}-0000-dev1";
 
@@ -212,6 +192,114 @@ public sealed class FriendsTests(ServerFixture fixture) : IClassFixture<ServerFi
     }
 
     private bool Know(string a, string b) => factory.Services.GetRequiredService<SharingState>().Index.Knows(a, b);
+
+    private async Task<FriendshipAccepted> OpenLink(HttpClient viewer, string code)
+    {
+        var answer = await viewer.PostAsync($"/api/friends/link/{code}", null, Token);
+        Assert.Equal(HttpStatusCode.OK, answer.StatusCode);
+        return (await answer.Content.ReadFromJsonAsync<FriendshipAccepted>(Token))!;
+    }
+
+    private static async Task<string> CodeOf(HttpClient client) =>
+        (await client.GetFromJsonAsync<FriendCode>("/api/friends/code", Token))!.Code;
+
+    private static async Task<string> NewCode(HttpClient client) =>
+        (await (await client.PostAsync("/api/friends/code", null, Token)).Content.ReadFromJsonAsync<FriendCode>(Token))!.Code;
+
+    /// <summary>The asked side turns a request down, as the app's Decline does: it ends the row.</summary>
+    private static async Task Decline(HttpClient asked, string id)
+    {
+        var row = (await PullAll(asked))[id];
+        row["deletedAt"] = $"{DateTimeOffset.UtcNow:yyyy-MM-dd'T'HH:mm:ss.fff'Z'}";
+        row["_hlc"]!["deletedAt"] = Later();
+        Assert.Empty(await Push(asked, row));
+    }
+
+    [Fact]
+    public async Task After_an_end_an_old_or_new_link_only_asks_and_asks_once()
+    {
+        var (ben, benId) = await SignIn("ben5");
+        var (sam, samId) = await SignIn("sam5");
+        var sharing = factory.Services.GetRequiredService<SharingState>();
+        var code = await CodeOf(ben);
+        var ended = await EndedFriendship(ben, sam, ben);
+
+        // Ben ended it: his old link no longer makes them friends; it asks him, and says so first.
+        Assert.Equal("ask", (await sam.GetFromJsonAsync<ProfilePreview>($"/api/friends/link/{code}", Token))!.Link);
+        var asked = await OpenLink(sam, code);
+        Assert.Equal("asked", (await sam.GetFromJsonAsync<ProfilePreview>($"/api/friends/link/{code}", Token))!.Link);
+        Assert.Equal("requested", asked.State);
+        Assert.NotEqual(ended, asked.FriendshipId);
+        Assert.False(Know(benId, samId));
+        var request = (await PullAll(ben))[asked.FriendshipId];
+        Assert.Equal(samId, (string?)request["userA"]);
+        Assert.Equal(benId, (string?)request["userB"]);
+        Assert.Equal("pending", (string?)request["state"]);
+        Assert.NotNull((await PullAll(ben))[ended]["deletedAt"]);
+
+        // Opening it again, or a link Ben makes later, neither accepts Sam's own request nor sends another.
+        Assert.Equal(asked, await OpenLink(sam, code));
+        Assert.Equal(asked, await OpenLink(sam, await NewCode(ben)));
+        Assert.Equal([asked.FriendshipId], sharing.Index.LiveFriendshipsBetween(benId, samId).Select(each => each.Id));
+        Assert.Equal("pending", (string?)(await PullAll(ben))[asked.FriendshipId]["state"]);
+        Assert.False(Know(benId, samId));
+
+        // Ben says yes in the app: friends again.
+        var row = (await PullAll(ben))[asked.FriendshipId];
+        row["state"] = "accepted";
+        row["_hlc"]!["state"] = Later();
+        Assert.Empty(await Push(ben, row));
+        Assert.True(Know(benId, samId));
+        Assert.Equal(new FriendshipAccepted(asked.FriendshipId, "accepted"), await OpenLink(sam, await CodeOf(ben)));
+    }
+
+    [Fact]
+    public async Task Links_opened_at_once_after_an_end_make_one_request()
+    {
+        var (ben, benId) = await SignIn("ben12");
+        var (sam, samId) = await SignIn("sam12");
+        var sharing = factory.Services.GetRequiredService<SharingState>();
+        var code = await CodeOf(ben);
+        await EndedFriendship(ben, sam, ben);
+
+        var opened = await Task.WhenAll(Enumerable.Range(0, 6).Select(_ => OpenLink(sam, code)));
+        Assert.Single(opened.Select(each => each.FriendshipId).Distinct());
+        Assert.All(opened, each => Assert.Equal("requested", each.State));
+        Assert.Single(sharing.Index.LiveFriendshipsBetween(benId, samId));
+        Assert.False(Know(benId, samId));
+    }
+
+    [Fact]
+    public async Task After_a_declined_request_a_link_sends_one_new_request_never_friendship()
+    {
+        var (ben, benId) = await SignIn("ben11");
+        var (sam, samId) = await SignIn("sam11");
+        var sharing = factory.Services.GetRequiredService<SharingState>();
+        var code = await CodeOf(ben);
+        await EndedFriendship(ben, sam, ben);
+
+        var asked = await OpenLink(sam, code);
+        Assert.Equal("requested", asked.State);
+        await Decline(ben, asked.FriendshipId);
+
+        // The decline stands: the link asks again, once, by the same link or a new one.
+        var again = await OpenLink(sam, code);
+        Assert.Equal("requested", again.State);
+        Assert.NotEqual(asked.FriendshipId, again.FriendshipId);
+        Assert.Equal(again, await OpenLink(sam, await NewCode(ben)));
+        Assert.Equal([again.FriendshipId], sharing.Index.LiveFriendshipsBetween(benId, samId).Select(each => each.Id));
+        // The declined row stays ended.
+        Assert.NotNull((await PullAll(ben))[asked.FriendshipId]["deletedAt"]);
+        Assert.False(Know(benId, samId));
+
+        // Declined again; then Ben asks Sam through Sam's link, and Sam opening Ben's link says yes to that.
+        await Decline(ben, again.FriendshipId);
+        var bensRequest = await OpenLink(ben, await CodeOf(sam));
+        Assert.Equal("requested", bensRequest.State);
+        Assert.Equal(new FriendshipAccepted(bensRequest.FriendshipId, "accepted"), await OpenLink(sam, await CodeOf(ben)));
+        Assert.True(Know(benId, samId));
+        Assert.Single(sharing.Index.LiveFriendshipsBetween(benId, samId));
+    }
 
     [Fact]
     public async Task After_an_end_and_a_new_request_the_live_friendship_is_the_one_used()

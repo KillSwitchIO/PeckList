@@ -15,6 +15,7 @@ import {
   type ChangeEvent,
   type AccountApi,
   type FileApi,
+  type FriendLinkState,
   type FriendsApi,
   type HistoryApi,
   type UpdatesApi,
@@ -83,6 +84,10 @@ export class FakeBackend {
   readonly invalid = new Map<string, 'invalid_change' | 'clock_drift'>();
   /** No PUBLIC_URL on a public name: friend codes come without a link (S16). */
   noLinks = false;
+  /** What opening a friend link answers: 'requested' after an ended friendship. */
+  friendLinkState: FriendLinkState = 'accepted';
+  /** What the link page is told the link does, after an ended friendship (U5). */
+  friendLinkPreview: 'ask' | 'asked' | undefined = undefined;
   /** Lookups and friend links answer 429 (audit S13), with this Retry-After; undefined: they don't. */
   tooManyLookups: number | null | undefined = undefined;
   /** The server's time sent with every sync (ms since epoch); null sends none. */
@@ -278,6 +283,7 @@ export class FakeTransport implements SyncTransport {
       memberSince: '2026-10-01T08:00:00.000Z',
       self: found.account.username === this.session,
       friendship: null,
+      ...(this.backend.friendLinkPreview ? { link: this.backend.friendLinkPreview } : {}),
     };
   }
 
@@ -701,7 +707,11 @@ export class FakeTransport implements SyncTransport {
     },
     accept: (code) => {
       this.accepted.push(code);
-      return Promise.resolve(this.backend.accounts.has(code.toLowerCase()) ? 'F-ACCEPTED' : null);
+      return Promise.resolve(
+        this.backend.accounts.has(code.toLowerCase())
+          ? { friendshipId: 'F-ACCEPTED', state: this.backend.friendLinkState }
+          : null,
+      );
     },
     lookup: (query) => {
       if (this.backend.tooManyLookups !== undefined) {

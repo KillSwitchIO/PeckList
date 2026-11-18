@@ -246,7 +246,7 @@
         "tags": [
           "Friends"
         ],
-        "summary": "Accept a friend code: you and its owner become friends",
+        "summary": "Accept a friend code: you and its owner become friends. After a friendship between you ended, it sends them a request instead.",
         "description": "API keys can't use this route: sign in to the web app instead.",
         "parameters": [
           {
@@ -9991,11 +9991,15 @@
       },
       "FriendshipAccepted": {
         "required": [
-          "friendshipId"
+          "friendshipId",
+          "state"
         ],
         "type": "object",
         "properties": {
           "friendshipId": {
+            "type": "string"
+          },
+          "state": {
             "type": "string"
           }
         }
@@ -11152,6 +11156,10 @@
               "null",
               "string"
             ]
+          },
+          "link": {
+            "type": "string",
+            "default": "befriend"
           }
         }
       },
