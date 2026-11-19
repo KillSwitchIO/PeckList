@@ -1,4 +1,5 @@
 using Dapper;
+using PeckList.Core.Push;
 using PeckList.Storage.Sql;
 
 namespace PeckList.Storage.Tests;
@@ -7,6 +8,47 @@ namespace PeckList.Storage.Tests;
 public abstract class MigrationContract
 {
     protected abstract Task<SqlDatabase> CreateAsync();
+
+    /// <summary>A new database with no schema at all.</summary>
+    protected abstract Task<SqlDatabase> CreateEmptyAsync();
+
+    [Fact]
+    public async Task A_database_from_0_13_0_rc_1_upgrades_through_0019_and_keeps_its_snoozes()
+    {
+        // QA, 0.13.0-rc.2: the upgrade in place was run on SQLite only. A database as rc.1 left it
+        // (migrations to 0018), with a pending snooze, then this version's migrations on it.
+        var token = TestContext.Current.CancellationToken;
+        var database = await CreateEmptyAsync();
+        var at = DateTimeOffset.UtcNow.AddMinutes(30);
+        at = at.AddTicks(-(at.UtcTicks % TimeSpan.TicksPerMillisecond));
+        await using (var connection = await database.OpenAsync(token))
+        {
+            await connection.ExecuteAsync("CREATE TABLE schema_migrations (version INTEGER PRIMARY KEY, applied_at TEXT NOT NULL)");
+            foreach (var (version, sql) in SqlMigrations.Load(database.GetType().Assembly).Where(each => each.Version <= 18))
+            {
+                await connection.ExecuteAsync(sql);
+                await connection.ExecuteAsync("INSERT INTO schema_migrations (version, applied_at) VALUES (@version, 'rc.1')", new { version });
+            }
+            // A snooze as rc.1 wrote it: no occurrence column yet.
+            await connection.ExecuteAsync("INSERT INTO reminder_snoozes (user_id, task_id, at) VALUES ('u1', 't1', @at)",
+                new { at = at.ToUnixTimeMilliseconds() });
+        }
+
+        await database.MigrateAsync(token);
+
+        await using (var connection = await database.OpenAsync(token))
+        {
+            Assert.True(await connection.ExecuteScalarAsync<int>("SELECT MAX(version) FROM schema_migrations") >= 19);
+        }
+        var store = new SqlPushStore(database, TimeProvider.System);
+        Assert.Equal(new ReminderSnooze("u1", "t1", at, null), Assert.Single(await store.SnoozesAsync(at.AddMinutes(-1), at.AddMinutes(1), cancellation: token)));
+        // Snoozed again to the same time on the new version: the row takes the occurrence; a new one keeps its own.
+        await store.SnoozeAsync("u1", "t1", at, "2026-11-19T10:00Z", token);
+        await store.SnoozeAsync("u1", "t2", at, "2026-11-19", token);
+        Assert.Equal(
+            [new ReminderSnooze("u1", "t1", at, "2026-11-19T10:00Z"), new ReminderSnooze("u1", "t2", at, "2026-11-19")],
+            await store.SnoozesAsync(at.AddMinutes(-1), at.AddMinutes(1), cancellation: token));
+    }
 
     [Fact]
     public async Task Migrating_twice_changes_nothing()
@@ -58,9 +100,13 @@ public abstract class MigrationContract
 public sealed class SqliteMigrationTests(SqliteFiles files) : MigrationContract, IClassFixture<SqliteFiles>
 {
     protected override Task<SqlDatabase> CreateAsync() => files.NewDatabaseAsync();
+
+    protected override Task<SqlDatabase> CreateEmptyAsync() => files.NewDatabaseAsync(migrate: false);
 }
 
 public sealed class PostgresMigrationTests(PostgresServer server) : MigrationContract, IClassFixture<PostgresServer>
 {
     protected override Task<SqlDatabase> CreateAsync() => server.NewDatabaseAsync();
+
+    protected override Task<SqlDatabase> CreateEmptyAsync() => server.NewDatabaseAsync(migrate: false);
 }
