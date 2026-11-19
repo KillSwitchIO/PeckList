@@ -16,10 +16,11 @@ public sealed class SqliteFiles : IDisposable
 {
     private readonly string folder = Directory.CreateTempSubdirectory("pecklist-sqlite-").FullName;
 
-    public async Task<SqlDatabase> NewDatabaseAsync()
+    /// <summary>A new database, migrated unless <paramref name="migrate"/> is false (left empty).</summary>
+    public async Task<SqlDatabase> NewDatabaseAsync(bool migrate = true)
     {
         var database = new SqliteDatabase(Path.Combine(folder, "nested", $"{Guid.NewGuid():N}.db"));
-        await database.MigrateAsync(TestContext.Current.CancellationToken);
+        if (migrate) await database.MigrateAsync(TestContext.Current.CancellationToken);
         return database;
     }
 
@@ -49,8 +50,11 @@ public sealed class PostgresServer : IAsyncLifetime
         if (container is not null) await container.DisposeAsync();
     }
 
-    /// <summary>A new, empty, migrated database (a unique name: a given server is shared by every test class).</summary>
-    public async Task<SqlDatabase> NewDatabaseAsync()
+    /// <summary>
+    /// A new database, migrated unless <paramref name="migrate"/> is false (left empty); a unique
+    /// name, since a given server is shared by every test class.
+    /// </summary>
+    public async Task<SqlDatabase> NewDatabaseAsync(bool migrate = true)
     {
         var server = container?.GetConnectionString() ?? Given!;
         var name = $"test_{Guid.NewGuid():N}";
@@ -62,7 +66,7 @@ public sealed class PostgresServer : IAsyncLifetime
         }
         var connection = new Npgsql.NpgsqlConnectionStringBuilder(server) { Database = name }.ToString();
         var database = new PostgresDatabase(connection);
-        await database.MigrateAsync(TestContext.Current.CancellationToken);
+        if (migrate) await database.MigrateAsync(TestContext.Current.CancellationToken);
         return database;
     }
 }
