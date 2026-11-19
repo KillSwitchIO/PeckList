@@ -37,13 +37,16 @@ beforeEach(() => {
 afterEach(() => vi.unstubAllGlobals());
 
 describe('long lists of closed tasks', () => {
+  // Rendering the rows is most of this test's time (seconds under coverage and a full parallel run,
+  // where 15 s ran out once): only 5 rows past the second step, enough for the last step to finish
+  // the list, and the time a heavy UI test gets.
   it('draw as they scroll near, keeping the whole height (R-FB-94)', async () => {
     const store = testStore();
     await renderApp('/completed', store);
     act(() =>
       store.getState().apply((ctx, ws) => {
         let next = ws;
-        for (let index = 0; index < 300; index += 1) {
+        for (let index = 0; index < 215; index += 1) {
           const made = createTask(ctx, next, {
             title: `Done ${index}`,
             listId: inboxList(next).id,
@@ -57,11 +60,11 @@ describe('long lists of closed tasks', () => {
     expect(rows()).toBe(60);
     // The rest of the list keeps its place, so the scroll bar is the whole list's.
     const spacer = document.querySelector<HTMLElement>('[aria-hidden][style*="height"]');
-    expect(spacer?.style.height).toBe(`${240 * 44}px`);
+    expect(spacer?.style.height).toBe(`${155 * 44}px`);
     act(() => FakeObserver.reach());
     expect(rows()).toBe(210);
     act(() => FakeObserver.reach());
-    expect(rows()).toBe(300);
+    expect(rows()).toBe(215);
     expect(document.querySelector('[aria-hidden][style*="height"]')).toBeNull();
-  });
+  }, 30_000);
 });
