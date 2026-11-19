@@ -82,8 +82,11 @@ app (ADR-0017 in the project notes). There is no second copy of the UI.
   asks `GET /api/app/check` with the WebView's session cookie and gets what is new since its last
   check (shares, assignments, mentions, worded as the push is) and the next two weeks of
   reminders. It sends the device's time zone (`zone`), which the server keeps as the person's device
-  zone, so a trip moves server reminders without the app being opened. `Reminders` shows the new ones in a "Shares, assignments and mentions" channel and
-  sets the reminders the same way the web app does, keyed alike (`taskId@first`, `#n` on a constant
+  zone, so a trip moves server reminders without the app being opened (set times and all-day dates;
+  a reminder counted from a timed date is worked out on that date's own zone's clock, by the server
+  as by the web app, so the check-in hands over the alarm the web app set). `Reminders` shows the
+  new ones in a "Shares, assignments and mentions" channel and sets the reminders the same way the
+  web app does, keyed alike (`taskId@first`, `#n` on a constant
   reminder's repeats), so a reminder changed on another device fires here and one set by both is
   one. While the app is on screen the web app owns both, and the check
   only moves its cursor (it sends `reminders=0`, so the server skips working them out); news the web app's own sync brings then goes through `showNotification`

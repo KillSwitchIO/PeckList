@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Net.Http.Json;
 using System.Security.Claims;
 using System.Text.Json.Nodes;
@@ -222,5 +223,62 @@ public sealed class DeviceZoneTests(ServerFixture fixture) : IClassFixture<Serve
         await sender.SendDueAsync(chicagoNine.AddMinutes(-1), chicagoNine.AddMinutes(1), Token);
         Assert.Equal(2, push.Sent.Count);
         Assert.Equal($"ZT1@{chicagoNine.ToUnixTimeMilliseconds()}", push.Sent[1].Payload.Tag);
+    }
+
+    [Fact]
+    public async Task A_task_written_in_another_zone_reminds_at_its_own_moment_on_the_check_in_the_push_and_a_snooze()
+    {
+        // QA, 0.13.0-rc.2: a task written in UTC got the right alarm on a Chicago phone from the web
+        // app, then the background check-in put it back 6 hours late, as the server read its 10:00 on
+        // Chicago's clock. A timed date is a moment on its own zone's clock (spec: PL-020).
+        using var server = Server();
+        var (ben, benId) = await SignIn(server, "ben-z7");
+        var chicago = TimeZoneInfo.FindSystemTimeZoneById("America/Chicago");
+        // To come, so the check-in (now to two weeks on) hands it over.
+        var soon = DateTimeOffset.UtcNow.AddDays(2);
+        var start = new DateTimeOffset(soon.Year, soon.Month, soon.Day, 10, 0, 0, TimeSpan.Zero);
+        static string Minute(DateTimeOffset at) => at.ToString("yyyy-MM-dd'T'HH:mm", CultureInfo.InvariantCulture);
+        static long Ms(DateTimeOffset at) => at.ToUnixTimeMilliseconds();
+        JsonObject Dated(string id, string start, bool allDay, string zone, int before) => Entity(id, benId, new JsonObject
+        {
+            ["listId"] = "ZL1",
+            ["title"] = id,
+            ["parentId"] = null,
+            ["status"] = "open",
+            ["assignees"] = new JsonObject(),
+            ["schedule"] = new JsonObject { ["start"] = start, ["end"] = null, ["allDay"] = allDay, ["timeZone"] = zone },
+            ["reminders"] = new JsonArray(new JsonObject { ["before"] = before }),
+        });
+        var tokyo = TimeZoneInfo.FindSystemTimeZoneById("Asia/Tokyo");
+        var day = start.AddDays(1).ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
+        await SyncAsync(ben, "America/Chicago",
+            ("lists", Entity("ZL1", benId, new JsonObject { ["name"] = "Home", ["visibility"] = "private" })),
+            ("tasks", Dated("ZU1", Minute(start), false, "UTC", 30)),
+            ("tasks", Dated("ZU2", Minute(TimeZoneInfo.ConvertTime(start, tokyo)), false, "Asia/Tokyo", 0)),
+            ("tasks", Dated("ZU3", day, true, "UTC", 0)));
+
+        // The check-in hands over the moment the app works out, under the same tag, so it replaces
+        // nothing and the alarm the app set stays.
+        var check = (await ben.GetFromJsonAsync<AppCheck>("/api/app/check?zone=America/Chicago", Token))!;
+        var early = start.AddMinutes(-30);
+        var utc = Assert.Single(check.Reminders, each => each.Tag.StartsWith("ZU1@", StringComparison.Ordinal));
+        Assert.Equal((Ms(early), $"ZU1@{Ms(early)}"), (utc.At, utc.Tag));
+        Assert.Equal(Ms(start), Assert.Single(check.Reminders, each => each.Tag.StartsWith("ZU2@", StringComparison.Ordinal)).At);
+        // A whole day is the same date everywhere and reminds from 9:00 where Ben is.
+        var nine = DateTime.ParseExact(day, "yyyy-MM-dd", CultureInfo.InvariantCulture).AddHours(9);
+        Assert.Equal(Ms(new DateTimeOffset(TimeZoneInfo.ConvertTimeToUtc(nine, chicago), TimeSpan.Zero)),
+            Assert.Single(check.Reminders, each => each.Tag.StartsWith("ZU3@", StringComparison.Ordinal)).At);
+
+        // The push goes then too.
+        var sender = server.Services.GetRequiredService<ReminderSender>();
+        await sender.SendDueAsync(early.AddMinutes(-1), early.AddMinutes(1), Token);
+        Assert.Equal($"ZU1@{Ms(early)}", Assert.Single(push.Sent).Payload.Tag);
+
+        // Snoozed from it: kept for this occurrence, its moment as the app keeps it, and handed over.
+        (await ben.PostAsJsonAsync("/api/reminders/act", new { taskId = "ZU1", first = Ms(early), action = "snooze", minutes = 30 }, Token)).EnsureSuccessStatusCode();
+        var snooze = Assert.Single((await ben.GetFromJsonAsync<List<SnoozedReminder>>("/api/reminders/snoozes", Token))!);
+        Assert.Equal(("ZU1", Minute(start) + "Z"), (snooze.TaskId, snooze.Occurrence));
+        Assert.Contains((await ben.GetFromJsonAsync<AppCheck>("/api/app/check?zone=America/Chicago", Token))!.Reminders,
+            each => each.Tag == $"ZU1@{snooze.At}");
     }
 }

@@ -211,6 +211,36 @@ describe('reminders', () => {
     const day = s.add('Day', { schedule: allDay, reminders: [{ before: 0 }] });
     expect(occurrenceOf(day)).toBe('2026-10-26');
   });
+
+  it("count from a timed date on its own zone's clock, wherever they are worked out (0.13.0-rc.2)", () => {
+    const s = setup();
+    // Written in UTC; worked out on Chicago's clock it reminded 6 hours late there (QA).
+    const utc = { start: '2026-10-26T15:30', end: null, allDay: false, timeZone: 'UTC' };
+    const task = s.add('Elsewhere', { schedule: utc, reminders: [{ before: 30 }] });
+    expect(reminderInstant(task, { before: 30 }, TZ)).toBe(at('2026-10-26T10:00'));
+    // Shown on Chicago's clock (localized), the same moment.
+    expect(reminderInstant(localized(task, TZ), { before: 30 }, TZ)).toBe(at('2026-10-26T10:00'));
+    const bill = s.add('Bill', {
+      due: { at: '2026-10-28T08:00', allDay: false, timeZone: 'Asia/Tokyo' },
+      reminders: [{ before: 0 }],
+    });
+    expect(reminderInstant(bill, { before: 0 }, TZ)).toBe(Date.parse('2026-10-27T23:00:00Z'));
+    // A zone this browser does not know: on the given clock, as the server reads one it does not know.
+    const odd = { ...task, schedule: { ...utc, timeZone: 'Nowhere/Atlantis' } };
+    expect(reminderInstant(odd, { before: 0 }, TZ)).toBe(at('2026-10-26T15:30'));
+    // A set time and a whole day stay on the given clock.
+    expect(reminderInstant(task, { at: '2026-10-26T07:00' }, TZ)).toBe(at('2026-10-26T07:00'));
+    const day = s.add('Day', {
+      schedule: { ...allDay, timeZone: 'UTC' },
+      reminders: [{ before: 0 }],
+    });
+    expect(reminderInstant(day, { before: 0 }, TZ)).toBe(at('2026-10-26T09:00'));
+    // The hand-over's tag carries that moment, as the server's check-in does, so one replaces the other.
+    const due = remindersBetween(s.ws, ME, at('2026-10-26T00:00'), at('2026-10-27T00:00'), TZ);
+    expect(due.find((each) => each.taskId === task.id)?.tag).toBe(
+      `${task.id}@${at('2026-10-26T10:00')}`,
+    );
+  });
 });
 
 describe('all-day reminders at a time of day', () => {

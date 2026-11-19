@@ -47,16 +47,40 @@ export function remindsAllDay(task: Task): boolean {
   return anchor !== null && timePart(anchor) === null;
 }
 
-/** When a reminder fires (ms since the epoch), or null when it has nothing to count from. */
+/** The date a task's reminders count from (its start, else its due date), with the zone it was written on. */
+function datedOf(task: Task): { at: string; zone: string | null | undefined } | null {
+  if (task.schedule?.start) return { at: task.schedule.start, zone: task.schedule.timeZone };
+  if (task.due?.at) return { at: task.due.at, zone: task.due.timeZone };
+  return null;
+}
+
+/**
+ * When a reminder fires (ms since the epoch), or null when it has nothing to count from. A timed
+ * date is a moment on its own zone's clock (PL-020), so a reminder counted from it is read there,
+ * as the server does for a push and the Android check-in: read on `timeZone` instead, a task
+ * written in UTC and seen from Chicago reminded 6 hours late there (0.13.0-rc.2). A whole day
+ * reminds from 9:00 on `timeZone`, and a set time is on `timeZone`'s clock, as the server reads
+ * both where the person is.
+ */
 export function reminderInstant(task: Task, reminder: Reminder, timeZone: string): number | null {
   if ('at' in reminder) {
     const time = timePart(reminder.at) ?? ALL_DAY_REMINDER_TIME;
     return Date.parse(instantOf(datePart(reminder.at), time, timeZone));
   }
-  const anchor = reminderAnchor(task);
-  if (!anchor) return null;
-  const time = timePart(anchor) ?? ALL_DAY_REMINDER_TIME;
-  return Date.parse(instantOf(datePart(anchor), time, timeZone)) - reminder.before * 60_000;
+  const dated = datedOf(task);
+  if (!dated) return null;
+  const time = timePart(dated.at);
+  const before = reminder.before * 60_000;
+  if (time !== null && dated.zone && dated.zone !== timeZone) {
+    try {
+      return Date.parse(instantOf(datePart(dated.at), time, dated.zone)) - before;
+    } catch {
+      // A zone this browser does not know: on `timeZone`, as the server reads one it does not know.
+    }
+  }
+  return (
+    Date.parse(instantOf(datePart(dated.at), time ?? ALL_DAY_REMINDER_TIME, timeZone)) - before
+  );
 }
 
 /**
@@ -150,11 +174,7 @@ export interface Snooze {
  * as a push or from the Android check-in, which use the server's own reading. Rare by design.
  */
 export function occurrenceOf(task: Task): string | null {
-  const dated = task.schedule?.start
-    ? { at: task.schedule.start, zone: task.schedule.timeZone }
-    : task.due?.at
-      ? { at: task.due.at, zone: task.due.timeZone }
-      : null;
+  const dated = datedOf(task);
   if (!dated) return null;
   const time = timePart(dated.at);
   if (time === null || !dated.zone) return dated.at;
