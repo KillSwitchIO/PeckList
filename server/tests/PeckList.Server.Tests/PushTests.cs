@@ -568,6 +568,8 @@ public sealed class PushTests(ServerFixture fixture) : IClassFixture<ServerFixtu
             new { collection = "tasks", entity = Task("ZS4", Minute(now.AddMinutes(20)), new JsonObject { ["before"] = 0 }, repeats: true) },
             // Repeating and still on the occurrence that reminded: nothing tells it from ZS4.
             new { collection = "tasks", entity = Task("ZS5", Minute(now.AddMinutes(-10)), new JsonObject { ["before"] = 0 }, repeats: true) },
+            // A rule left on a task whose date was cleared: no repeat, only a set time, so it holds.
+            new { collection = "tasks", entity = Task("ZS6", null, new JsonObject { ["at"] = Minute(now.AddDays(2)) }, repeats: true) },
         };
         (await ben.PostAsJsonAsync("/api/sync", new { schemaVersion = WorkspaceSchema.CurrentVersion, cursor = (long?)null, changes }, Token))
             .EnsureSuccessStatusCode();
@@ -575,10 +577,10 @@ public sealed class PushTests(ServerFixture fixture) : IClassFixture<ServerFixtu
         var store = server.Services.GetRequiredService<IPushStore>();
         var at = now.AddMinutes(30);
         at = at.AddTicks(-(at.UtcTicks % TimeSpan.TicksPerMinute));
-        foreach (var id in new[] { "ZS1", "ZS2", "ZS3", "ZS4", "ZS5" }) await store.SnoozeAsync(benId, id, at, null, Token);
+        foreach (var id in new[] { "ZS1", "ZS2", "ZS3", "ZS4", "ZS5", "ZS6" }) await store.SnoozeAsync(benId, id, at, null, Token);
 
         var listed = (await ben.GetFromJsonAsync<List<SnoozedReminder>>("/api/reminders/snoozes", Token))!;
-        Assert.Equal(["ZS1", "ZS3"], listed.Select(each => each.TaskId).Order().ToArray());
+        Assert.Equal(["ZS1", "ZS3", "ZS6"], listed.Select(each => each.TaskId).Order().ToArray());
         // The app is told the occurrence it holds for, so it drops it once the task moves on there.
         Assert.Equal(Minute(now.AddMinutes(-10)) + "Z", listed.Single(each => each.TaskId == "ZS1").Occurrence);
         Assert.Null(listed.Single(each => each.TaskId == "ZS3").Occurrence);
@@ -588,9 +590,10 @@ public sealed class PushTests(ServerFixture fixture) : IClassFixture<ServerFixtu
         Assert.Contains(check.Reminders, each => each.Tag == $"ZS1@{at.ToUnixTimeMilliseconds()}");
         Assert.DoesNotContain(check.Reminders, each => each.Tag == $"ZS2@{at.ToUnixTimeMilliseconds()}");
         Assert.DoesNotContain(check.Reminders, each => each.Tag == $"ZS4@{at.ToUnixTimeMilliseconds()}");
+        Assert.Contains(check.Reminders, each => each.Tag == $"ZS6@{at.ToUnixTimeMilliseconds()}");
         push.Sent.Clear();
         await server.Services.GetRequiredService<ReminderSender>().SendDueAsync(at.AddMinutes(-1), at.AddMinutes(1), Token);
-        Assert.Equal(["ZS1", "ZS3"], push.Sent.Select(each => each.Payload.Tag.Split('@')[0]).Order().ToArray());
+        Assert.Equal(["ZS1", "ZS3", "ZS6"], push.Sent.Select(each => each.Payload.Tag.Split('@')[0]).Order().ToArray());
     }
 
     [Fact]

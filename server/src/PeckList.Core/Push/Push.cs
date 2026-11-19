@@ -171,7 +171,7 @@ public static class ServerReminders
     /// pressed on a reminder that has come, so it is never earlier than that reminder, while a task
     /// moved to a later date reminds later. A task in a zone west of the person's that rc.1 reminded
     /// at the person's clock can lose such a snooze; its own reminder still comes. A task with no
-    /// date has no start, so its snooze holds.</item>
+    /// date has no start, so its snooze holds, a repeat rule left on it too.</item>
     /// </list>
     /// </para>
     /// </summary>
@@ -182,7 +182,11 @@ public static class ServerReminders
             ? occurrence == Occurrence(task)
             : !Repeats(task) && (OccurrenceStart(task, personZone) is not { } start || start <= snooze.At));
 
-    private static bool Repeats(JsonObject task) => Text(task["recurrence"]) is { Length: > 0 };
+    /// <summary>
+    /// Whether the task repeats: a rule and a date. A rule left on a task whose date was cleared does
+    /// nothing (the app repeats only from a date), so its snoozes hold as any undated task's.
+    /// </summary>
+    private static bool Repeats(JsonObject task) => Text(task["recurrence"]) is { Length: > 0 } && Dated(task).At is not null;
 
     /// <summary>
     /// The occurrence to tell an app a snooze is for: its own, or for one kept before it was (see
