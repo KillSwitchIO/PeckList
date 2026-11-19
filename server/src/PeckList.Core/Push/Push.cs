@@ -37,8 +37,12 @@ public interface IPushStore
     /// <summary>
     /// A person's reminder for a task, put off to <paramref name="at"/> for them alone (audit B3).
     /// <paramref name="occurrence"/>: the task's date it was snoozed on (<see cref="ServerReminders.Occurrence"/>).
+    /// <paramref name="first"/>: the reminder it was pressed on, by its first time (0.14.0; null when
+    /// the press named none). With one, it replaces that person's snooze of the same reminder (task,
+    /// occurrence and first), in one write: snoozed again before the last came back, both came.
     /// </summary>
-    Task SnoozeAsync(string userId, string taskId, DateTimeOffset at, string? occurrence, CancellationToken cancellation = default);
+    Task SnoozeAsync(
+        string userId, string taskId, DateTimeOffset at, string? occurrence, DateTimeOffset? first = null, CancellationToken cancellation = default);
 
     /// <summary>Everyone's snoozes due in (<paramref name="from"/>, <paramref name="to"/>], or only <paramref name="userId"/>'s.</summary>
     Task<IReadOnlyList<ReminderSnooze>> SnoozesAsync(DateTimeOffset from, DateTimeOffset to, string? userId = null, CancellationToken cancellation = default);
@@ -47,9 +51,11 @@ public interface IPushStore
 /// <summary>
 /// A reminder <paramref name="UserId"/> snoozed: it comes again for them at <paramref name="At"/>.
 /// <paramref name="Occurrence"/>: the task's date when it was snoozed, null on a snooze from before
-/// it was kept (or on a task with no date).
+/// it was kept (or on a task with no date). <paramref name="First"/>: the reminder it was pressed on,
+/// by its first time (the task's own, or an earlier snooze's), null from before 0.14.0 or a press that
+/// named none.
 /// </summary>
-public sealed record ReminderSnooze(string UserId, string TaskId, DateTimeOffset At, string? Occurrence = null);
+public sealed record ReminderSnooze(string UserId, string TaskId, DateTimeOffset At, string? Occurrence = null, DateTimeOffset? First = null);
 
 /// <summary>
 /// Reminders on the server (spec: PL-061), the same rules as the app (web/src/core/reminders.ts):
@@ -197,6 +203,38 @@ public static class ServerReminders
 
     /// <summary>How long after its first time a reminder's last repeat can come.</summary>
     public static readonly TimeSpan RepeatsLast = (ConstantTimes - 1) * ConstantEvery;
+
+    /// <summary>
+    /// How far ahead snoozes are read: one is at most a week (reminders/act clamps its minutes to 7
+    /// days; keep the two together), and a little more covers a constant reminder's repeats.
+    /// </summary>
+    public static readonly TimeSpan SnoozesAhead = TimeSpan.FromDays(8);
+
+    /// <summary>
+    /// Of the snoozes that hold (<see cref="SnoozeHolds"/>), those that come (0.14.0): of a person's
+    /// snoozes of one reminder (the same task and <see cref="ReminderSnooze.First"/>), the latest. A
+    /// new snooze replaces the one before it (<see cref="IPushStore.SnoozeAsync"/>), but two can be
+    /// left by a race. Snoozes that name no reminder each come, as before.
+    /// </summary>
+    public static IEnumerable<T> LatestPerReminder<T>(IEnumerable<T> holding, Func<T, ReminderSnooze> snooze)
+    {
+        var all = holding.ToList();
+        return all.Where(each => snooze(each).First is null)
+            .Concat(all.Where(each => snooze(each).First is not null)
+                .GroupBy(each => (snooze(each).UserId, snooze(each).TaskId, snooze(each).First))
+                .Select(group => group.MaxBy(each => snooze(each).At)!));
+    }
+
+    /// <summary>
+    /// The reminders a person's snoozes of a task put off (0.14.0): each the one it was pressed on,
+    /// by its first time (the task's own, early or not; or an earlier snooze, come back and snoozed
+    /// again), with that one's repeats. Any other reminder of the task still comes.
+    /// </summary>
+    public static HashSet<DateTimeOffset> Pressed(IEnumerable<ReminderSnooze> snoozes) =>
+        [.. snoozes.Where(each => each.First is not null).Select(each => each.First!.Value)];
+
+    /// <summary>Whether a time a reminder comes is put off by a snooze pressed on it (<see cref="Pressed"/>).</summary>
+    public static bool PutOff(ReminderTime time, IReadOnlySet<DateTimeOffset>? pressed) => pressed?.Contains(time.First) == true;
 
     private static IEnumerable<DateTimeOffset> FirstInstants(JsonObject task, TimeZoneInfo zone)
     {

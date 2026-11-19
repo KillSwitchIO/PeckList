@@ -11741,6 +11741,13 @@
               "null",
               "string"
             ]
+          },
+          "first": {
+            "type": [
+              "null",
+              "integer"
+            ],
+            "format": "int64"
           }
         }
       },

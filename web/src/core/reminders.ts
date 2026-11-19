@@ -161,6 +161,11 @@ export interface Snooze {
    * from an older server, and on a task with no date: any.
    */
   occurrence?: string | null;
+  /**
+   * The reminder it was pressed on, by its first time (0.14.0): the task's own, or an earlier
+   * snooze's. That one is put off by it. Absent from an older server, or a press that named none.
+   */
+  first?: number | null;
 }
 
 /**
@@ -201,12 +206,14 @@ export function snoozeHolds(task: Task, snooze: Snooze): boolean {
 export function sameSnoozes(a: readonly Snooze[], b: readonly Snooze[]): boolean {
   return (
     a.length === b.length &&
-    // The occurrence too: the next one snoozed to the same minute replaces the last (rc.2).
+    // The occurrence too: the next one snoozed to the same minute replaces the last (rc.2). And
+    // the reminder it was pressed on, which it puts off (0.14.0).
     a.every(
       (each, i) =>
         each.taskId === b[i]?.taskId &&
         each.at === b[i]?.at &&
-        (each.occurrence ?? null) === (b[i]?.occurrence ?? null),
+        (each.occurrence ?? null) === (b[i]?.occurrence ?? null) &&
+        (each.first ?? null) === (b[i]?.first ?? null),
     )
   );
 }
@@ -214,7 +221,10 @@ export function sameSnoozes(a: readonly Snooze[], b: readonly Snooze[]): boolean
 /**
  * My reminders that fire in [from, to), soonest first. `snoozes` (mine, from the server) come as
  * a reminder set for their time would, while the task is open and mine and the snooze holds
- * ({@link snoozeHolds}); one at a time the task already reminds at is that reminder.
+ * ({@link snoozeHolds}); one at a time the task already reminds at is that reminder. A snooze puts
+ * off the reminder it was pressed on (`first`: the task's own, or an earlier snooze come back), and
+ * of snoozes of one reminder only the latest comes (0.14.0, as on the server): a snooze made before
+ * its reminder came, or made again before the last came back, would otherwise ring twice.
  */
 export function remindersBetween(
   workspace: WorkspaceFile,
@@ -238,16 +248,30 @@ export function remindersBetween(
   };
   const mine = (task: Task | undefined): task is Task =>
     task !== undefined && isLive(task) && task.status === 'open' && remindsMe(workspace, task, me);
+  // The snoozes that come: of one reminder's, the latest; those that name none each.
+  const coming = new Map<string, { task: Task; snooze: Snooze }>();
+  snoozes.forEach((snooze, index) => {
+    const task = workspace.entities.tasks.find((each) => each.id === snooze.taskId);
+    if (!mine(task) || !snoozeHolds(task, snooze)) return;
+    const key = snooze.first == null ? `#${index}` : `${task.id}@${snooze.first}`;
+    const before = coming.get(key);
+    if (!before || snooze.at > before.snooze.at) coming.set(key, { task, snooze });
+  });
+  const pressed = new Map<Id, Set<number>>();
+  for (const { task, snooze } of coming.values()) {
+    if (snooze.first == null) continue;
+    pressed.set(task.id, (pressed.get(task.id) ?? new Set()).add(snooze.first));
+  }
+  const putOff = (task: Task, first: number) => pressed.get(task.id)?.has(first) === true;
   for (const task of workspace.entities.tasks) {
     if (!task.reminders?.length || !mine(task)) continue;
     for (const reminder of task.reminders) {
       const first = reminderInstant(task, reminder, timeZone);
-      if (first !== null) add(task, first);
+      if (first !== null && !putOff(task, first)) add(task, first);
     }
   }
-  for (const snooze of snoozes) {
-    const task = workspace.entities.tasks.find((each) => each.id === snooze.taskId);
-    if (mine(task) && snoozeHolds(task, snooze)) add(task, snooze.at);
+  for (const { task, snooze } of coming.values()) {
+    if (!putOff(task, snooze.at)) add(task, snooze.at);
   }
   return [...found.values()].sort((a, b) => a.at - b.at);
 }

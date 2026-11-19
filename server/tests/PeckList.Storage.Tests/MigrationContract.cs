@@ -43,11 +43,53 @@ public abstract class MigrationContract
         var store = new SqlPushStore(database, TimeProvider.System);
         Assert.Equal(new ReminderSnooze("u1", "t1", at, null), Assert.Single(await store.SnoozesAsync(at.AddMinutes(-1), at.AddMinutes(1), cancellation: token)));
         // Snoozed again to the same time on the new version: the row takes the occurrence; a new one keeps its own.
-        await store.SnoozeAsync("u1", "t1", at, "2026-11-19T10:00Z", token);
-        await store.SnoozeAsync("u1", "t2", at, "2026-11-19", token);
+        await store.SnoozeAsync("u1", "t1", at, "2026-11-19T10:00Z", cancellation: token);
+        await store.SnoozeAsync("u1", "t2", at, "2026-11-19", cancellation: token);
         Assert.Equal(
             [new ReminderSnooze("u1", "t1", at, "2026-11-19T10:00Z"), new ReminderSnooze("u1", "t2", at, "2026-11-19")],
             await store.SnoozesAsync(at.AddMinutes(-1), at.AddMinutes(1), cancellation: token));
+    }
+
+    [Fact]
+    public async Task A_database_from_0_13_0_rc_2_upgrades_through_0020_and_keeps_its_snoozes()
+    {
+        // 0.14.0 adds the reminder a snooze was pressed on (0020). A database as rc.2 left it
+        // (migrations to 0019), with a pending snooze on an occurrence, then this version's on it.
+        var token = TestContext.Current.CancellationToken;
+        var database = await CreateEmptyAsync();
+        var at = DateTimeOffset.UtcNow.AddMinutes(30);
+        at = at.AddTicks(-(at.UtcTicks % TimeSpan.TicksPerMillisecond));
+        const string occurrence = "2026-11-19T10:00Z";
+        await using (var connection = await database.OpenAsync(token))
+        {
+            await connection.ExecuteAsync("CREATE TABLE schema_migrations (version INTEGER PRIMARY KEY, applied_at TEXT NOT NULL)");
+            foreach (var (version, sql) in SqlMigrations.Load(database.GetType().Assembly).Where(each => each.Version <= 19))
+            {
+                await connection.ExecuteAsync(sql);
+                await connection.ExecuteAsync("INSERT INTO schema_migrations (version, applied_at) VALUES (@version, 'rc.2')", new { version });
+            }
+            await connection.ExecuteAsync("INSERT INTO reminder_snoozes (user_id, task_id, at, occurrence) VALUES ('u1', 't1', @at, @occurrence)",
+                new { at = at.ToUnixTimeMilliseconds(), occurrence });
+        }
+
+        await database.MigrateAsync(token);
+
+        await using (var connection = await database.OpenAsync(token))
+        {
+            Assert.True(await connection.ExecuteScalarAsync<int>("SELECT MAX(version) FROM schema_migrations") >= 20);
+        }
+        var store = new SqlPushStore(database, TimeProvider.System);
+        // rc.2's snooze names no reminder.
+        var kept = new ReminderSnooze("u1", "t1", at, occurrence);
+        Assert.Equal(kept, Assert.Single(await store.SnoozesAsync(at.AddMinutes(-1), at.AddMinutes(1), cancellation: token)));
+        // Snoozes pressed on a reminder on the new version: the second replaces the first, and leaves
+        // rc.2's, which named none.
+        var first = at.AddMinutes(-20);
+        await store.SnoozeAsync("u1", "t1", at.AddMinutes(5), occurrence, first, token);
+        await store.SnoozeAsync("u1", "t1", at.AddMinutes(10), occurrence, first, token);
+        Assert.Equal(
+            [kept, new ReminderSnooze("u1", "t1", at.AddMinutes(10), occurrence, first)],
+            await store.SnoozesAsync(at.AddMinutes(-1), at.AddMinutes(15), cancellation: token));
     }
 
     [Fact]

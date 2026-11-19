@@ -577,7 +577,7 @@ public sealed class PushTests(ServerFixture fixture) : IClassFixture<ServerFixtu
         var store = server.Services.GetRequiredService<IPushStore>();
         var at = now.AddMinutes(30);
         at = at.AddTicks(-(at.UtcTicks % TimeSpan.TicksPerMinute));
-        foreach (var id in new[] { "ZS1", "ZS2", "ZS3", "ZS4", "ZS5", "ZS6" }) await store.SnoozeAsync(benId, id, at, null, Token);
+        foreach (var id in new[] { "ZS1", "ZS2", "ZS3", "ZS4", "ZS5", "ZS6" }) await store.SnoozeAsync(benId, id, at, null, cancellation: Token);
 
         var listed = (await ben.GetFromJsonAsync<List<SnoozedReminder>>("/api/reminders/snoozes", Token))!;
         Assert.Equal(["ZS1", "ZS3", "ZS6"], listed.Select(each => each.TaskId).Order().ToArray());
@@ -594,6 +594,80 @@ public sealed class PushTests(ServerFixture fixture) : IClassFixture<ServerFixtu
         push.Sent.Clear();
         await server.Services.GetRequiredService<ReminderSender>().SendDueAsync(at.AddMinutes(-1), at.AddMinutes(1), Token);
         Assert.Equal(["ZS1", "ZS3", "ZS6"], push.Sent.Select(each => each.Payload.Tag.Split('@')[0]).Order().ToArray());
+    }
+
+    [Fact]
+    public async Task A_snooze_replaces_the_one_before_it_and_puts_off_only_the_reminder_it_was_pressed_on()
+    {
+        // QA, 0.14.0: through the API (the CLI, Home Assistant) a reminder snoozed before it came
+        // still came at its own time, and one snoozed again before the first came back came twice.
+        using var server = Server();
+        var (ben, benId) = await SignIn(server, "ben-zr");
+        var now = DateTimeOffset.UtcNow;
+        now = now.AddTicks(-(now.UtcTicks % TimeSpan.TicksPerMinute));
+        var due = now.AddMinutes(5);
+        var task = Entity("ZR1", benId, new JsonObject
+        {
+            ["listId"] = "ZRL",
+            ["title"] = "Pills",
+            ["parentId"] = null,
+            ["status"] = "open",
+            ["assignees"] = new JsonObject(),
+            ["due"] = new JsonObject { ["at"] = due.ToString("yyyy-MM-dd'T'HH:mm", CultureInfo.InvariantCulture), ["allDay"] = false, ["timeZone"] = "UTC" },
+            // At its time, a quarter of an hour after, and two hours after.
+            ["reminders"] = new JsonArray(new JsonObject { ["before"] = 0 }, new JsonObject { ["before"] = -15 }, new JsonObject { ["before"] = -120 }),
+        });
+        var changes = new object[]
+        {
+            new { collection = "lists", entity = Entity("ZRL", benId, new JsonObject { ["name"] = "Home", ["visibility"] = "private" }) },
+            new { collection = "tasks", entity = task },
+        };
+        (await ben.PostAsJsonAsync("/api/sync", new { schemaVersion = WorkspaceSchema.CurrentVersion, cursor = (long?)null, changes }, Token))
+            .EnsureSuccessStatusCode();
+
+        // Snoozed before it came, then again before that snooze came back.
+        var first = due.ToUnixTimeMilliseconds();
+        (await ben.PostAsJsonAsync("/api/reminders/act", new { taskId = "ZR1", first, action = "snooze", minutes = 10 }, Token)).EnsureSuccessStatusCode();
+        (await ben.PostAsJsonAsync("/api/reminders/act", new { taskId = "ZR1", first, action = "snooze", minutes = 30 }, Token)).EnsureSuccessStatusCode();
+        var snoozed = Assert.Single((await ben.GetFromJsonAsync<List<SnoozedReminder>>("/api/reminders/snoozes", Token))!);
+        var at = DateTimeOffset.FromUnixTimeMilliseconds(snoozed.At);
+        Assert.True(at >= now.AddMinutes(29) && at <= now.AddMinutes(31), $"snoozed to {at}");
+        Assert.Equal(first, snoozed.First);
+        var quarter = due.AddMinutes(15).ToUnixTimeMilliseconds();
+        var later = due.AddHours(2).ToUnixTimeMilliseconds();
+
+        // The check-in: the snooze, and the task's other reminders (the one due before the snooze
+        // too); not its own time, nor the first snooze.
+        string[] Tags(AppCheck check) =>
+            [.. check.Reminders.Where(each => each.Tag.StartsWith("ZR1@", StringComparison.Ordinal)).Select(each => each.Tag).Order(StringComparer.Ordinal)];
+        Assert.Equal(new[] { $"ZR1@{quarter}", $"ZR1@{snoozed.At}", $"ZR1@{later}" }.Order(StringComparer.Ordinal),
+            Tags((await ben.GetFromJsonAsync<AppCheck>("/api/app/check", Token))!));
+        // The sender agrees: nothing at its own time, the other reminder at its, the snooze at its.
+        push.Sent.Clear();
+        var sender = server.Services.GetRequiredService<ReminderSender>();
+        await sender.SendDueAsync(due.AddMinutes(-1), due.AddMinutes(1), Token);
+        Assert.Empty(push.Sent);
+        await sender.SendDueAsync(due.AddMinutes(14), due.AddMinutes(16), Token);
+        Assert.Equal([$"ZR1@{quarter}"], push.Sent.Select(each => each.Payload.Tag));
+
+        // The snooze come back and snoozed again (pressed here now, so for longer than it, to come
+        // after it): the new one puts it off, and the list, the check-in and the sender have the new
+        // one alone.
+        (await ben.PostAsJsonAsync("/api/reminders/act", new { taskId = "ZR1", first = snoozed.At, action = "snooze", minutes = 60 }, Token))
+            .EnsureSuccessStatusCode();
+        var again = Assert.Single((await ben.GetFromJsonAsync<List<SnoozedReminder>>("/api/reminders/snoozes", Token))!);
+        Assert.Equal(snoozed.At, again.First);
+        Assert.True(again.At > snoozed.At, $"snoozed again to {DateTimeOffset.FromUnixTimeMilliseconds(again.At)}");
+        var tags = Tags((await ben.GetFromJsonAsync<AppCheck>("/api/app/check", Token))!);
+        Assert.Contains($"ZR1@{again.At}", tags);
+        Assert.Contains($"ZR1@{later}", tags);
+        Assert.DoesNotContain($"ZR1@{snoozed.At}", tags);
+        push.Sent.Clear();
+        await sender.SendDueAsync(at.AddMinutes(-1), at.AddMinutes(1), Token);
+        Assert.Empty(push.Sent);
+        var againAt = DateTimeOffset.FromUnixTimeMilliseconds(again.At);
+        await sender.SendDueAsync(againAt.AddMinutes(-1), againAt.AddMinutes(1), Token);
+        Assert.Equal([$"ZR1@{again.At}"], push.Sent.Select(each => each.Payload.Tag));
     }
 
     [Fact]

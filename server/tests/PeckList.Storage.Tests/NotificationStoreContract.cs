@@ -104,10 +104,10 @@ public abstract class NotificationStoreContract : IAsyncLifetime
     [Fact]
     public async Task Keeps_each_persons_snoozes_until_a_week_after_they_are_due_or_their_account_goes()
     {
-        await Push.SnoozeAsync("ben", "T1", Monday.AddMinutes(10), null, Token);
-        await Push.SnoozeAsync("ben", "T1", Monday.AddMinutes(10), null, Token);
-        await Push.SnoozeAsync("ben", "T2", Monday.AddMinutes(30), null, Token);
-        await Push.SnoozeAsync("kim", "T1", Monday.AddMinutes(20), null, Token);
+        await Push.SnoozeAsync("ben", "T1", Monday.AddMinutes(10), null, cancellation: Token);
+        await Push.SnoozeAsync("ben", "T1", Monday.AddMinutes(10), null, cancellation: Token);
+        await Push.SnoozeAsync("ben", "T2", Monday.AddMinutes(30), null, cancellation: Token);
+        await Push.SnoozeAsync("kim", "T1", Monday.AddMinutes(20), null, cancellation: Token);
 
         Assert.Equal(
             [new ReminderSnooze("ben", "T1", Monday.AddMinutes(10)), new ReminderSnooze("kim", "T1", Monday.AddMinutes(20)), new ReminderSnooze("ben", "T2", Monday.AddMinutes(30))],
@@ -123,13 +123,43 @@ public abstract class NotificationStoreContract : IAsyncLifetime
     }
 
     [Fact]
+    public async Task A_snooze_replaces_the_persons_snooze_of_the_same_reminder()
+    {
+        // 0.14.0: snoozed again before the last came back, both came.
+        const string occurrence = "2026-10-26T10:30";
+        var first = Monday.AddMinutes(5);
+        await Push.SnoozeAsync("ben", "T1", Monday.AddMinutes(10), occurrence, first, Token);
+        await Push.SnoozeAsync("ben", "T1", Monday.AddMinutes(25), occurrence, first, Token);
+        // Another reminder of the task, another occurrence, task or person: each their own.
+        await Push.SnoozeAsync("ben", "T1", Monday.AddMinutes(20), occurrence, Monday.AddMinutes(6), Token);
+        await Push.SnoozeAsync("ben", "T1", Monday.AddMinutes(40), "2026-10-27T10:30", first, Token);
+        await Push.SnoozeAsync("ben", "T2", Monday.AddMinutes(12), occurrence, first, Token);
+        await Push.SnoozeAsync("kim", "T1", Monday.AddMinutes(14), occurrence, first, Token);
+        // Naming no reminder (as before 0.14.0): kept beside the rest, and replacing none.
+        await Push.SnoozeAsync("ben", "T1", Monday.AddMinutes(16), occurrence, cancellation: Token);
+        await Push.SnoozeAsync("ben", "T1", Monday.AddMinutes(18), occurrence, cancellation: Token);
+
+        Assert.Equal(
+            [
+                new ReminderSnooze("ben", "T2", Monday.AddMinutes(12), occurrence, first),
+                new ReminderSnooze("kim", "T1", Monday.AddMinutes(14), occurrence, first),
+                new ReminderSnooze("ben", "T1", Monday.AddMinutes(16), occurrence),
+                new ReminderSnooze("ben", "T1", Monday.AddMinutes(18), occurrence),
+                new ReminderSnooze("ben", "T1", Monday.AddMinutes(20), occurrence, Monday.AddMinutes(6)),
+                new ReminderSnooze("ben", "T1", Monday.AddMinutes(25), occurrence, first),
+                new ReminderSnooze("ben", "T1", Monday.AddMinutes(40), "2026-10-27T10:30", first),
+            ],
+            await Push.SnoozesAsync(Monday, Monday.AddHours(1), cancellation: Token));
+    }
+
+    [Fact]
     public async Task Keeps_the_occurrence_a_snooze_is_for_and_the_latest_on_the_same_time_snoozed_again()
     {
-        await Push.SnoozeAsync("ben", "T1", Monday.AddMinutes(10), "2026-10-26T10:30", Token);
+        await Push.SnoozeAsync("ben", "T1", Monday.AddMinutes(10), "2026-10-26T10:30", cancellation: Token);
         Assert.Equal([new ReminderSnooze("ben", "T1", Monday.AddMinutes(10), "2026-10-26T10:30")],
             await Push.SnoozesAsync(Monday, Monday.AddHours(1), cancellation: Token));
         // The same time on the next occurrence of a repeating task: that occurrence's now.
-        await Push.SnoozeAsync("ben", "T1", Monday.AddMinutes(10), "2026-10-27", Token);
+        await Push.SnoozeAsync("ben", "T1", Monday.AddMinutes(10), "2026-10-27", cancellation: Token);
         Assert.Equal([new ReminderSnooze("ben", "T1", Monday.AddMinutes(10), "2026-10-27")],
             await Push.SnoozesAsync(Monday, Monday.AddHours(1), cancellation: Token));
     }
