@@ -159,11 +159,37 @@ public static class ServerReminders
     /// reminder, and it is on the occurrence that was snoozed. Completing a repeating task leaves it
     /// open on its next date, and that occurrence must not get the last one's snooze; nor does a task
     /// moved to another date, or whose reminders were taken off.
+    /// <para>
+    /// A snooze with no occurrence (kept by 0.13.0-rc.1 and earlier, or on a task with no date)
+    /// cannot say which occurrence it was for (QA, rc.2 note c):
+    /// <list type="bullet">
+    /// <item>On a repeating task it never holds. Done since, the task's next occurrence can start
+    /// before the snooze comes (a daily 7:00 task snoozed to 9:00 tomorrow), and nothing kept tells
+    /// the two apart, so the snooze goes rather than come back on an occurrence it was not for.
+    /// Such rows are rc.1's, at most a week old.</item>
+    /// <item>Otherwise it holds while the task reminds no later than the snooze comes: a snooze is
+    /// pressed on a reminder that has come, so it is never earlier than that reminder, while a task
+    /// moved to a later date reminds later. A task in a zone west of the person's that rc.1 reminded
+    /// at the person's clock can lose such a snooze; its own reminder still comes. A task with no
+    /// date has no start, so its snooze holds.</item>
+    /// </list>
+    /// </para>
     /// </summary>
-    public static bool SnoozeHolds(JsonObject task, ReminderSnooze snooze) =>
+    public static bool SnoozeHolds(JsonObject task, ReminderSnooze snooze, TimeZoneInfo personZone) =>
         (string?)task["status"] == "open"
         && task["reminders"] is JsonArray { Count: > 0 }
-        && (snooze.Occurrence is null || snooze.Occurrence == Occurrence(task));
+        && (snooze.Occurrence is { } occurrence
+            ? occurrence == Occurrence(task)
+            : !Repeats(task) && (OccurrenceStart(task, personZone) is not { } start || start <= snooze.At));
+
+    private static bool Repeats(JsonObject task) => Text(task["recurrence"]) is { Length: > 0 };
+
+    /// <summary>
+    /// The occurrence to tell an app a snooze is for: its own, or for one kept before it was (see
+    /// <see cref="SnoozeHolds"/>) and still holding, the task's current one, so the app drops it
+    /// the moment the task moves on there.
+    /// </summary>
+    public static string? SnoozedOccurrence(JsonObject task, ReminderSnooze snooze) => snooze.Occurrence ?? Occurrence(task);
 
     /// <summary>How long after its first time a reminder's last repeat can come.</summary>
     public static readonly TimeSpan RepeatsLast = (ConstantTimes - 1) * ConstantEvery;

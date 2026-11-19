@@ -534,6 +534,66 @@ public sealed class PushTests(ServerFixture fixture) : IClassFixture<ServerFixtu
     }
 
     [Fact]
+    public async Task A_snooze_kept_before_its_occurrence_was_holds_only_while_the_task_has_not_moved_on()
+    {
+        // QA, 0.13.0-rc.2 note c: a snooze row made on rc.1 has no occurrence, and one for a
+        // repeating task done before the upgrade came once more. Such a row never holds on a
+        // repeating task (its next occurrence can start before the snooze comes: Dev 2's review),
+        // and otherwise holds while the task reminds no later than the snooze comes.
+        using var server = Server();
+        var (ben, benId) = await SignIn(server, "ben-zs");
+        var now = DateTimeOffset.UtcNow;
+        static string Minute(DateTimeOffset at) => at.ToString("yyyy-MM-dd'T'HH:mm", CultureInfo.InvariantCulture);
+        JsonObject Task(string id, string? due, JsonObject reminder, bool repeats = false) => Entity(id, benId, new JsonObject
+        {
+            ["listId"] = "ZSL",
+            ["title"] = id,
+            ["parentId"] = null,
+            ["status"] = "open",
+            ["assignees"] = new JsonObject(),
+            ["recurrence"] = repeats ? "FREQ=DAILY" : null,
+            ["due"] = due is null ? null : new JsonObject { ["at"] = due, ["allDay"] = false, ["timeZone"] = "UTC" },
+            ["reminders"] = new JsonArray(reminder),
+        });
+        var changes = new object[]
+        {
+            new { collection = "lists", entity = Entity("ZSL", benId, new JsonObject { ["name"] = "Home", ["visibility"] = "private" }) },
+            // Still on the date that reminded ten minutes ago.
+            new { collection = "tasks", entity = Task("ZS1", Minute(now.AddMinutes(-10)), new JsonObject { ["before"] = 0 }) },
+            // Moved to tomorrow since.
+            new { collection = "tasks", entity = Task("ZS2", Minute(now.AddDays(1)), new JsonObject { ["before"] = 0 }) },
+            // Only a set time, which no move changes.
+            new { collection = "tasks", entity = Task("ZS3", null, new JsonObject { ["at"] = Minute(now.AddDays(2)) }) },
+            // Repeating, done on rc.1, its next occurrence starting before the snooze comes.
+            new { collection = "tasks", entity = Task("ZS4", Minute(now.AddMinutes(20)), new JsonObject { ["before"] = 0 }, repeats: true) },
+            // Repeating and still on the occurrence that reminded: nothing tells it from ZS4.
+            new { collection = "tasks", entity = Task("ZS5", Minute(now.AddMinutes(-10)), new JsonObject { ["before"] = 0 }, repeats: true) },
+        };
+        (await ben.PostAsJsonAsync("/api/sync", new { schemaVersion = WorkspaceSchema.CurrentVersion, cursor = (long?)null, changes }, Token))
+            .EnsureSuccessStatusCode();
+        // Rows as rc.1 kept them: no occurrence.
+        var store = server.Services.GetRequiredService<IPushStore>();
+        var at = now.AddMinutes(30);
+        at = at.AddTicks(-(at.UtcTicks % TimeSpan.TicksPerMinute));
+        foreach (var id in new[] { "ZS1", "ZS2", "ZS3", "ZS4", "ZS5" }) await store.SnoozeAsync(benId, id, at, null, Token);
+
+        var listed = (await ben.GetFromJsonAsync<List<SnoozedReminder>>("/api/reminders/snoozes", Token))!;
+        Assert.Equal(["ZS1", "ZS3"], listed.Select(each => each.TaskId).Order().ToArray());
+        // The app is told the occurrence it holds for, so it drops it once the task moves on there.
+        Assert.Equal(Minute(now.AddMinutes(-10)) + "Z", listed.Single(each => each.TaskId == "ZS1").Occurrence);
+        Assert.Null(listed.Single(each => each.TaskId == "ZS3").Occurrence);
+
+        // The check-in and the sender agree.
+        var check = (await ben.GetFromJsonAsync<AppCheck>("/api/app/check", Token))!;
+        Assert.Contains(check.Reminders, each => each.Tag == $"ZS1@{at.ToUnixTimeMilliseconds()}");
+        Assert.DoesNotContain(check.Reminders, each => each.Tag == $"ZS2@{at.ToUnixTimeMilliseconds()}");
+        Assert.DoesNotContain(check.Reminders, each => each.Tag == $"ZS4@{at.ToUnixTimeMilliseconds()}");
+        push.Sent.Clear();
+        await server.Services.GetRequiredService<ReminderSender>().SendDueAsync(at.AddMinutes(-1), at.AddMinutes(1), Token);
+        Assert.Equal(["ZS1", "ZS3"], push.Sent.Select(each => each.Payload.Tag.Split('@')[0]).Order().ToArray());
+    }
+
+    [Fact]
     public async Task A_snooze_on_a_shared_task_is_only_for_the_person_who_snoozed()
     {
         using var server = Server();

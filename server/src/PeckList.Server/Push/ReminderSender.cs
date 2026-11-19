@@ -105,13 +105,13 @@ public sealed class ReminderSender(
         // Snoozes (audit B3): each for the one person who snoozed, while it holds and the task is theirs.
         foreach (var snooze in await store.SnoozesAsync(from - ServerReminders.RepeatsLast, to, cancellation: cancellation))
         {
-            if (index.LiveDocOf(snooze.TaskId, "tasks") is not { } task || !ServerReminders.SnoozeHolds(task, snooze)) continue;
-            if (!ServerReminders.Recipients(task, index).Contains(snooze.UserId)) continue;
+            if (index.LiveDocOf(snooze.TaskId, "tasks") is not { } task) continue;
             try
             {
+                var (zone, _) = ZonesOf(snooze.UserId);
+                if (!ServerReminders.SnoozeHolds(task, snooze, zone) || !ServerReminders.Recipients(task, index).Contains(snooze.UserId)) continue;
                 var mine = settings.GetValueOrDefault(snooze.UserId);
                 if (!NotificationSwitches.Allows(mine, NotificationKind.Reminder)) continue;
-                var (zone, _) = ZonesOf(snooze.UserId);
                 foreach (var time in ServerReminders.Snoozed(task, snooze.At))
                 {
                     if (time.At <= from || time.At > to) continue;
@@ -184,7 +184,7 @@ public sealed class ReminderSender(
         foreach (var snooze in snoozes ?? [])
         {
             if (snooze.UserId != userId || index.LiveDocOf(snooze.TaskId, "tasks") is not { } task) continue;
-            if (!ServerReminders.SnoozeHolds(task, snooze) || !ServerReminders.Recipients(task, index).Contains(userId)) continue;
+            if (!ServerReminders.SnoozeHolds(task, snooze, zone) || !ServerReminders.Recipients(task, index).Contains(userId)) continue;
             Add(snooze.TaskId, task, ServerReminders.Snoozed(task, snooze.At));
         }
         // A snooze at a time one of the task's reminders already has is that reminder.
