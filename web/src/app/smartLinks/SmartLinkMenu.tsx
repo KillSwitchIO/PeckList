@@ -10,7 +10,13 @@ import {
   Popper,
   useTheme,
 } from '@mui/material';
-import { useEffect, useState, type MouseEvent, type ReactNode } from 'react';
+import {
+  useEffect,
+  useState,
+  type KeyboardEvent as ReactKeyboardEvent,
+  type MouseEvent,
+  type ReactNode,
+} from 'react';
 import {
   appleMapsHref,
   googleMapsHref,
@@ -235,7 +241,7 @@ export function SmartLinkMenu({
         onClose={onClose}
         anchorReference="anchorPosition"
         anchorPosition={anchor ?? undefined}
-        slotProps={{ list: { dense: true, 'aria-label': item?.text } }}
+        slotProps={{ list: { dense: true, 'aria-label': item?.text, onKeyDownCapture: heldEnter } }}
       >
         {items}
       </Menu>
@@ -258,6 +264,7 @@ export function SmartLinkMenu({
           // On Windows the menu key also fires contextmenu as it comes up, by then on a choice:
           // without this the browser's own menu would open over these choices.
           onContextMenu={takeFocus ? (event) => event.preventDefault() : undefined}
+          onKeyDownCapture={heldEnter}
         >
           <MenuList
             dense
@@ -276,6 +283,17 @@ export function SmartLinkMenu({
       </ClickAwayListener>
     </Popper>
   );
+}
+
+/**
+ * An Enter held down that opened the choices: its repeats reach the first choice, which a menu item
+ * takes as a press (MUI's ButtonBase acts on an Enter keydown), so a slow press would "Call". Only a
+ * fresh Enter takes a choice.
+ */
+function heldEnter(event: ReactKeyboardEvent) {
+  if (event.key !== 'Enter' || !event.repeat) return;
+  event.preventDefault();
+  event.stopPropagation();
 }
 
 /** In the popover over the notes, a press keeps the focus (and the selection) in the text. */

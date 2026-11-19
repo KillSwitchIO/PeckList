@@ -393,6 +393,26 @@ describe('smart links in the notes from the keyboard', () => {
     expect(opened).toEqual([]);
   });
 
+  it('in notes that cannot be edited, an Enter held down opens the choices and takes none of them', async () => {
+    renderThemed(
+      <TiptapEditor label="Notes" value="Call 515-555-0123 now" readOnly onCommit={vi.fn()} />,
+    );
+    const button = await screen.findByRole('button', { name: 'Phone number: 515-555-0123' });
+    act(() => button.focus());
+    fireEvent.keyDown(button, { key: 'Enter' });
+    const call = await screen.findByRole('menuitem', { name: 'Call' });
+    await waitFor(() => expect(call).toHaveFocus());
+    // Its repeats reach the first choice: none taken, the choices still open.
+    fireEvent.keyDown(call, { key: 'Enter', repeat: true });
+    fireEvent.keyDown(call, { key: 'Enter', repeat: true });
+    fireEvent.keyUp(call, { key: 'Enter' });
+    expect(opened).toEqual([]);
+    expect(screen.getByRole('menuitem', { name: 'Call' })).toBeInTheDocument();
+    // A fresh Enter takes it.
+    fireEvent.keyDown(call, { key: 'Enter' });
+    expect(opened).toEqual(['tel:5155550123']);
+  });
+
   it('in notes that cannot be edited, an item with bold in it is still one button', async () => {
     renderThemed(
       <TiptapEditor label="Notes" value="Call 515-**555**-0123 now" readOnly onCommit={vi.fn()} />,
