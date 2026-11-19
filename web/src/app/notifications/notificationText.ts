@@ -32,6 +32,9 @@ export function notificationSentence(workspace: WorkspaceFile, item: Notificatio
   }
 }
 
+/** The task an acting button names, when it has one. */
+const task = (item: NotificationItem) => (item.taskId ? { taskId: item.taskId } : {});
+
 /** Where a notification leads, as the server's pushes word it: the task (at its comment), or the list. */
 export function notificationUrl(item: NotificationItem): string {
   if (!item.taskId) return `/lists/${item.listId ?? ''}`;
@@ -43,11 +46,12 @@ export function notificationUrl(item: NotificationItem): string {
 /**
  * A notification's buttons, left to right, the same as on the server's pushes: Reply and a thumbs
  * up on a comment (R-FB-106), Open task and Call dibs on a group's task (R-FB-107), Open task on
- * an assignment or a dibs call, Open list on a share.
+ * an assignment or a dibs call, Open list on a share. A thumbs up or dibs names its task: the
+ * press hands it over (the service worker's one-time name, or the Android app), never the url.
  */
 export function notificationActions(
   item: NotificationItem,
-): { action: string; title: string; url: string }[] {
+): { action: string; title: string; url: string; taskId?: string }[] {
   const url = notificationUrl(item);
   switch (item.kind) {
     case 'commented':
@@ -56,13 +60,13 @@ export function notificationActions(
       return item.commentId
         ? [
             { action: 'reply', title: t('notifications.reply'), url },
-            { action: 'like', title: '👍', url: `${url}&like=1` },
+            { action: 'like', title: '👍', url, ...task(item) },
           ]
         : [];
     case 'groupAssigned':
       return [
         { action: 'open', title: t('notifications.openTask'), url },
-        { action: 'dibs', title: t('notifications.callDibs'), url: `${url}&dibs=1` },
+        { action: 'dibs', title: t('notifications.callDibs'), url, ...task(item) },
       ];
     case 'assigned':
     case 'claimed':

@@ -13,8 +13,12 @@ namespace PeckList.Server.Push;
 
 /// <summary>What a push shows: the app's service worker turns it into a notification (public/sw-notifications.js).</summary>
 /// <param name="Sticky">A constant reminder: it stays on screen and buzzes again on each repeat.</param>
-/// <summary>A button on a notification: what it says and where in the app it leads.</summary>
-public sealed record PushAction(string Action, string Title, string Url);
+/// <summary>
+/// A button on a notification: what it says and where in the app it leads. A button that acts
+/// (thumbs up, Call dibs) names its task: the app acts on that, handed over by the service worker
+/// or the Android app, never on a flag in the address, which any link could carry.
+/// </summary>
+public sealed record PushAction(string Action, string Title, string Url, string? TaskId = null);
 
 /// <summary>
 /// What a push shows, and its buttons left to right: Reply and thumbs up for a comment, Open task

@@ -161,5 +161,16 @@ describe('the Android app with its own reminders', () => {
       ['/today?task=T1', { action: 'snooze', taskId: 'T1', minutes: 10 }],
     ]);
     expect(openedOf({ url: '/x', action: 'delete', taskId: 'T1' })).toEqual({ url: '/x' });
+    // A thumbs up or dibs names its own task; without one it only opens.
+    expect(openedOf({ url: '/x?task=T2', action: 'like', taskId: 'T1' })).toEqual({
+      url: '/x?task=T2',
+      action: { action: 'like', taskId: 'T1' },
+    });
+    expect(openedOf({ url: '/x', action: 'dibs', taskId: 'T1' })).toEqual({
+      url: '/x',
+      action: { action: 'dibs', taskId: 'T1' },
+    });
+    expect(openedOf({ url: '/x', action: 'like' })).toEqual({ url: '/x' });
+    expect(openedOf({ url: '/x', action: 'dibs', taskId: '' })).toEqual({ url: '/x' });
   });
 });
