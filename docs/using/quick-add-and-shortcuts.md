@@ -48,3 +48,8 @@ stay clear of the browser's own.
 | <kbd>Del</kbd>                               | Move to the trash                                |
 | <kbd>Alt</kbd>+<kbd>Up</kbd> / <kbd>Alt</kbd>+<kbd>Down</kbd>    | Move the task up or down                         |
 | <kbd>Alt</kbd>+<kbd>Right</kbd> / <kbd>Alt</kbd>+<kbd>Left</kbd> | Make it a subtask of the one above / take it out |
+
+In the notes, with the cursor on a link, phone number or address, <kbd>Alt</kbd>+<kbd>Enter</kbd>
+(or <kbd>Shift</kbd>+<kbd>F10</kbd>, or the menu key) offers its choices; <kbd>Esc</kbd> puts you back in
+the text. In notes you can only read, <kbd>Tab</kbd> reaches each one and <kbd>Enter</kbd> offers its
+choices, or opens a web link straight away.

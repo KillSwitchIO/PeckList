@@ -8,6 +8,7 @@ import type { Node as PMNode } from '@tiptap/pm/model';
 import { Plugin, PluginKey, type EditorState } from '@tiptap/pm/state';
 import { Decoration, DecorationSet } from '@tiptap/pm/view';
 import { findSmartLinks, type SmartKind } from '../../core/smartLinks.ts';
+import { t } from '../i18n/i18n.ts';
 
 /** What a decoration carries: the kind and the found text. */
 export interface SmartSpec {
@@ -49,13 +50,78 @@ function decorate(doc: PMNode): DecorationSet {
   return DecorationSet.create(doc, decorations);
 }
 
+/** What a smart item is called out loud: its kind and its text ("Phone number: 515-555-0123"). */
+export function smartItemName(item: SmartSpec): string {
+  return t('smartLinks.item', { kind: t(`smartLinks.kind.${item.kind}`), text: item.text });
+}
+
+/**
+ * In notes that cannot be edited there is no cursor to move onto an item, so each is a button the
+ * keyboard can reach (Tab) and a screen reader names; Enter or Space offers its choices
+ * (TiptapEditor). Notes being edited keep plain spans: a tab stop inside a text box would trap Tab.
+ */
+const asButtons = new WeakMap<DecorationSet, DecorationSet>();
+
+function buttons(set: DecorationSet, doc: PMNode): DecorationSet {
+  let made = asButtons.get(set);
+  if (!made) {
+    made = DecorationSet.create(
+      doc,
+      set.find().flatMap((each) => {
+        const spec = each.spec as SmartSpec;
+        // An inline decoration is drawn once per text node, so an item with bold in it would be
+        // several buttons. Only its first piece is the button, named for the whole item; the rest
+        // look the same and are left out of what a screen reader reads, as the name covers them.
+        const firstEnd = firstTextEnd(doc, each.from, each.to);
+        const plain = { class: 'smart-link', 'data-smart': spec.kind };
+        const pieces = [
+          Decoration.inline(
+            each.from,
+            firstEnd,
+            {
+              ...plain,
+              role: 'button',
+              tabindex: '0',
+              'aria-haspopup': 'menu',
+              'aria-label': smartItemName(spec),
+            },
+            spec,
+          ),
+        ];
+        if (firstEnd < each.to) {
+          pieces.push(
+            Decoration.inline(firstEnd, each.to, { ...plain, 'aria-hidden': 'true' }, spec),
+          );
+        }
+        return pieces;
+      }),
+    );
+    asButtons.set(set, made);
+  }
+  return made;
+}
+
+/** Where the first text node from `from` ends, within `to`. */
+function firstTextEnd(doc: PMNode, from: number, to: number): number {
+  let end = to;
+  let found = false;
+  doc.nodesBetween(from, to, (node, pos) => {
+    if (found) return false;
+    if (!node.isText) return true;
+    found = true;
+    end = Math.min(to, pos + node.nodeSize);
+    return false;
+  });
+  return end;
+}
+
 /** The smart item at a position in the document, if there is one. */
 export function smartItemAt(
   state: EditorState,
   pos: number,
 ): (SmartSpec & { from: number; to: number }) | null {
-  const set = smartLinksKey.getState(state);
-  const hit = set?.find(pos, pos + 1)[0] ?? set?.find(pos - 1, pos)[0];
+  // find(pos, pos) is what contains pos: either end of an item counts, one place outside does not.
+  const hit = smartLinksKey.getState(state)?.find(pos, pos)[0];
   if (!hit) return null;
   const spec = hit.spec as SmartSpec;
   return { kind: spec.kind, text: spec.text, from: hit.from, to: hit.to };
@@ -64,6 +130,7 @@ export function smartItemAt(
 export const SmartLinks = Extension.create({
   name: 'smartLinks',
   addProseMirrorPlugins() {
+    const editor = this.editor;
     return [
       new Plugin<DecorationSet>({
         key: smartLinksKey,
@@ -72,7 +139,10 @@ export const SmartLinks = Extension.create({
           apply: (tr, set) => (tr.docChanged ? decorate(tr.doc) : set),
         },
         props: {
-          decorations: (state) => smartLinksKey.getState(state),
+          decorations: (state) => {
+            const set = smartLinksKey.getState(state);
+            return set && !editor.isEditable ? buttons(set, state.doc) : set;
+          },
         },
       }),
     ];

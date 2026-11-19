@@ -16,7 +16,7 @@ import {
   Tooltip,
   useTheme,
 } from '@mui/material';
-import type { Editor } from '@tiptap/core';
+import { getMarkRange, type Editor } from '@tiptap/core';
 import { EditorContent, useEditor, useEditorState } from '@tiptap/react';
 import type { SuggestionProps } from '@tiptap/suggestion';
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
@@ -77,6 +77,46 @@ function smartAt(
   return smartItemAt(view.state, pos);
 }
 
+/** The keys that offer a smart item's choices from the keyboard: Alt+Enter, Shift+F10 or the menu key. */
+function opensChoices(event: KeyboardEvent): boolean {
+  if (event.ctrlKey || event.metaKey) return false;
+  return (
+    (event.key === 'Enter' && event.altKey) ||
+    (event.key === 'F10' && event.shiftKey) ||
+    event.key === 'ContextMenu'
+  );
+}
+
+/**
+ * The smart item or link under the cursor (PL-146): the cursor in it or at either end, or a
+ * selection inside it.
+ */
+function smartAtCaret(view: EditorView): (SmartTarget & { from: number; to: number }) | null {
+  const { from, to, $from } = view.state.selection;
+  const item = smartItemAt(view.state, from);
+  if (item) return from >= item.from && to <= item.to ? item : null;
+  const linkType = view.state.schema.marks.link;
+  // getMarkRange looks after the cursor, then before it, so either end of a link works ($from.marks()
+  // alone takes the text before, missing a link's start).
+  const range = linkType && getMarkRange($from, linkType);
+  if (!range || from < range.from || to > range.to) return null;
+  const link = view.state.doc.nodeAt(range.from)?.marks.find((mark) => mark.type === linkType);
+  const smart = link && linkAsSmart(String(link.attrs.href ?? ''));
+  if (!smart) return null;
+  return { ...smart, from: range.from, to: range.to };
+}
+
+/** Where the choices for an item open: just under its start (the notes' own box without layout). */
+function anchorAt(view: EditorView, pos: number): { top: number; left: number } {
+  try {
+    const at = view.coordsAtPos(pos);
+    return { top: at.bottom, left: at.left };
+  } catch {
+    const box = view.dom.getBoundingClientRect();
+    return { top: box.top, left: box.left };
+  }
+}
+
 const SLASH_ICONS: Record<SlashCommandId, ReactNode> = {
   heading1: <HeadingIcon fontSize="small" />,
   heading2: <HeadingIcon fontSize="small" />,
@@ -124,10 +164,23 @@ export default function TiptapEditor({
   const [bridge] = useState(createSlashMenuBridge);
   // The smart link whose choices are open (PL-146), where it is, and where the click was.
   const [smart, setSmart] = useState<
-    (SmartTarget & { from: number; to: number; anchor: { top: number; left: number } }) | null
+    | (SmartTarget & {
+        from: number;
+        to: number;
+        anchor: { top: number; left: number };
+        /** Opened from the keyboard: the choices take the focus. */
+        keys?: boolean;
+      })
+    | null
   >(null);
-  const closeSmart = useCallback(() => setSmart(null), []);
   const [longPress] = useState(createLongPress);
+  // Choices opened from the keyboard take the focus, and give it back when they close: to the text
+  // being edited, or to the item's button in notes that cannot be edited.
+  const smartFromKeys = useRef<{ back: HTMLElement | null } | null>(null);
+  // A read-only item Space went down on: its choices open on the keyup (handleDOMEvents).
+  const spaceOn = useRef<HTMLElement | null>(null);
+  // Read out when the cursor comes onto a smart item, with how to open its choices.
+  const [caretItem, setCaretItem] = useState('');
   // Whether the notes were being edited when the pointer went down on them: a tap or click then
   // only places the cursor, as on plain text (PL-146).
   const editingAtDown = useRef(false);
@@ -192,6 +245,14 @@ export default function TiptapEditor({
       // Escape leaves the notes (saving them); the next Escape closes the details. ProseMirror
       // would otherwise take it to select the parent block. An open slash menu closes first.
       handleKeyDown: (view, event) => {
+        // The choices for the smart item or link under the cursor, from the keyboard (PL-146).
+        if (opensChoices(event) && !slashRef.current) {
+          const item = smartAtCaret(view);
+          if (!item) return false;
+          smartFromKeys.current = { back: null };
+          setSmart({ ...item, anchor: anchorAt(view, item.from), keys: true });
+          return true;
+        }
         if (event.key !== 'Escape' || slashRef.current) return false;
         view.dom.blur();
         return true;
@@ -225,6 +286,31 @@ export default function TiptapEditor({
         return false;
       },
       handleDOMEvents: {
+        // In notes that cannot be edited each item is a button (smartLinksPlugin): Enter or Space
+        // on it offers its choices. Notes being edited take the keys in handleKeyDown.
+        keydown: (view, event) => {
+          if (view.editable) return false;
+          if (event.key !== 'Enter' && event.key !== ' ' && !opensChoices(event)) return false;
+          const button = smartButton(view, event.target);
+          if (!button || !smartItemAt(view.state, view.posAtDOM(button, 0))) return false;
+          event.preventDefault();
+          // Space offers them on its keyup, as a native button acts: offered on the keydown, the
+          // first choice has the focus by the keyup, and MUI's menu item takes a Space keyup as a
+          // press, so "Call" would dial at once (QA).
+          if (event.key === ' ') {
+            spaceOn.current = button;
+            return true;
+          }
+          return offerFromKeys(view, button);
+        },
+        keyup: (view, event) => {
+          if (view.editable || event.key !== ' ') return false;
+          const button = spaceOn.current;
+          spaceOn.current = null;
+          if (!button || smartButton(view, event.target) !== button) return false;
+          event.preventDefault();
+          return offerFromKeys(view, button);
+        },
         // A long press on a touch screen offers the choices (longPress.ts).
         pointerdown: (view, event) => {
           editingAtDown.current = view.hasFocus();
@@ -271,8 +357,52 @@ export default function TiptapEditor({
       // A box ticked without focus (no blur will follow): keep it now.
       if (!editor.isFocused) commit(editor);
     },
-    onBlur: ({ editor }) => commit(editor),
+    onBlur: ({ editor }) => {
+      setCaretItem('');
+      commit(editor);
+    },
+    // The cursor moved onto a smart item: say what it is and how to open its choices, once per
+    // arrival (typing inside it keeps the same words, so nothing is read out at each key).
+    onSelectionUpdate: ({ editor, transaction }) => {
+      if (transaction.docChanged) return;
+      const { selection } = editor.state;
+      const item =
+        editor.isFocused && selection.empty ? smartItemAt(editor.state, selection.from) : null;
+      setCaretItem(
+        item
+          ? t('smartLinks.atCaret', { kind: t(`smartLinks.kind.${item.kind}`), text: item.text })
+          : '',
+      );
+    },
   });
+  // The read-only item (a button, smartLinksPlugin) a key event is on, if it is one.
+  function smartButton(view: EditorView, target: EventTarget | null): HTMLElement | null {
+    const button = target instanceof Element ? target.closest('.smart-link') : null;
+    return button instanceof HTMLElement && view.dom.contains(button) ? button : null;
+  }
+  // A read-only item's choices from the keyboard, the focus back on it when they close.
+  function offerFromKeys(view: EditorView, button: HTMLElement): boolean {
+    const item = smartItemAt(view.state, view.posAtDOM(button, 0));
+    if (!item) return false;
+    const rect = button.getBoundingClientRect();
+    smartFromKeys.current = { back: button };
+    setSmart({ ...item, anchor: { top: rect.bottom, left: rect.left }, keys: true });
+    return true;
+  }
+  // The choices closed: back to where the keyboard was, if they were opened from it.
+  const closeSmart = useCallback(() => {
+    setSmart(null);
+    const from = smartFromKeys.current;
+    smartFromKeys.current = null;
+    if (!from) return;
+    if (from.back?.isConnected) from.back.focus();
+    else editor?.commands.focus();
+  }, [editor]);
+  // A click elsewhere put the focus where the person clicked: leave it there.
+  const clickAwaySmart = useCallback(() => {
+    smartFromKeys.current = null;
+    setSmart(null);
+  }, []);
 
   function commit(target: Editor) {
     if (!dirty.current) return;
@@ -522,14 +652,22 @@ export default function TiptapEditor({
     >
       {editor && expanded && !readOnly && <FormatToolbar editor={editor} />}
       <EditorContent editor={editor} className="content" />
+      <Box component="span" role="status" sx={visuallyHidden}>
+        {caretItem}
+      </Box>
       <SmartLinkMenu
         inText
         target={smart}
         anchor={smart?.anchor ?? null}
         onClose={closeSmart}
+        onClickAway={clickAwaySmart}
         // A choice used leaves the notes, so the next click on a link offers its choices again
         // (QA 0.13.0): kept focus would make every later click "editing", placing the cursor only.
-        onChose={() => editor?.view.dom.blur()}
+        // From the keyboard, the focus goes back to the text instead (closeSmart).
+        onChose={() => {
+          if (!smart?.keys) editor?.view.dom.blur();
+        }}
+        takeFocus={!!smart?.keys}
         onCopyFailed={() => {
           // No clipboard here: the text selected, for a copy by hand.
           if (editor && smart) {
@@ -769,3 +907,13 @@ function LinkField({ onDone }: { onDone: (href: string | null) => void }) {
     />
   );
 }
+
+/** Read out by a screen reader, not shown. */
+const visuallyHidden = {
+  position: 'absolute',
+  width: 1,
+  height: 1,
+  overflow: 'hidden',
+  clip: 'rect(0 0 0 0)',
+  whiteSpace: 'nowrap',
+} as const;
