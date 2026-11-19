@@ -4,9 +4,37 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
+import java.util.Arrays;
+import java.util.Collections;
 import org.junit.Test;
 
 public class BackgroundCheckTest {
+
+    private static Reminders.Reminder at(String key, long at, boolean local) {
+        return new Reminders.Reminder(key, "t", "b", at, "/today", false, false, local);
+    }
+
+    /**
+     * 0.14.0: a check-in a minute before the soonest of the server's reminders that leaves room, so a
+     * task done on another device takes it off first; not for a task the server does not have, a
+     * quiet copy, or one too near to check before.
+     */
+    @Test
+    public void aCheckInGoesAMinuteBeforeTheNextReminderTheServerSet() {
+        long now = 10_000_000L;
+        assertEquals(-1, BackgroundCheck.beforeAt(Collections.emptyList(), now));
+        assertEquals(now + 600_000 - BackgroundCheck.BEFORE_MS, BackgroundCheck.beforeAt(Arrays.asList(
+            at("LATER@1", now + 3_600_000, false),
+            at("SNOOZED@2", now + 600_000, false),
+            at("NEW@3", now + 300_000, true),
+            at("QUIET@4#quiet", now + 300_000, false),
+            at("NEAR@5", now + 70_000, false)), now));
+        // Only one too near, or none of the server's: none.
+        assertEquals(-1, BackgroundCheck.beforeAt(Arrays.asList(at("NEAR@5", now + 70_000, false), at("NEW@3", now + 300_000, true)), now));
+        // Just room enough.
+        assertEquals(now + BackgroundCheck.BEFORE_FLOOR_MS, BackgroundCheck.beforeAt(Collections.singletonList(
+            at("EDGE@6", now + BackgroundCheck.BEFORE_FLOOR_MS + BackgroundCheck.BEFORE_MS, false)), now));
+    }
 
     /** Audit E1: twice as long after each failure in a row, never past two hours, never under the interval. */
     @Test

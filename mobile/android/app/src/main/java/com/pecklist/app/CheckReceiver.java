@@ -14,9 +14,13 @@ public class CheckReceiver extends BroadcastReceiver {
 
     @Override
     public void onReceive(Context context, Intent intent) {
+        // The check-in before a reminder: the regular one keeps its time; with the app on screen
+        // the web app owns the reminders. Its hand-over sets the next one (Reminders.save).
+        boolean before = BackgroundCheck.BEFORE.equals(intent.getAction());
+        if (before && MainActivity.showing()) return;
         // The next one first, so a failed check never ends the chain.
-        BackgroundCheck.schedule(context);
-        if (!BackgroundCheck.ACTION.equals(intent.getAction())) {
+        if (!before) BackgroundCheck.schedule(context);
+        if (!before && !BackgroundCheck.ACTION.equals(intent.getAction())) {
             Reminders.restore(context);
             return;
         }
@@ -30,7 +34,7 @@ public class CheckReceiver extends BroadcastReceiver {
             } finally {
                 // Again, now that this one's outcome is known: stopped after a sign-out, or later
                 // after a failure (audit E1).
-                BackgroundCheck.schedule(app);
+                if (!before) BackgroundCheck.schedule(app);
                 pending.finish();
             }
         }, "pecklist-check").start();
