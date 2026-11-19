@@ -67,7 +67,7 @@ public static class StartOverEndpoints
             context.Audit().Detail = string.Create(CultureInfo.InvariantCulture, $"{done.Erased} things erased, {done.HandedOn} shared lists handed on");
             return Results.Ok(done);
         }).Doc<StartedOver>("Start over: erase your own tasks, lists, tags and comments and keep your account, with your password or a sign-in in the last 10 minutes")
-            .Refuses(StatusCodes.Status400BadRequest, StatusCodes.Status403Forbidden, StatusCodes.Status423Locked, StatusCodes.Status429TooManyRequests).Missing()
+            .Refuses(StatusCodes.Status400BadRequest, StatusCodes.Status403Forbidden, StatusCodes.Status423Locked).Missing()
             .RequireRateLimiting(AuthSetup.LoginRateLimit).Audited("account.started-over", targetRoute: null);
 
         return api;

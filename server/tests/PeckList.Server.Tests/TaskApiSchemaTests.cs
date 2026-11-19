@@ -1,6 +1,9 @@
 using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json.Nodes;
+using Microsoft.Extensions.DependencyInjection;
+using PeckList.Core.Storage;
+using PeckList.Core.Sync;
 using static PeckList.Server.Tests.TaskApiWorld;
 
 namespace PeckList.Server.Tests;
@@ -89,5 +92,36 @@ public sealed class TaskApiSchemaTests(ServerFixture fixture) : IClassFixture<Se
         // All of it reads back.
         var tasks = (await api.GetFromJsonAsync<JsonObject>("/api/v1/tasks?status=all", Token))!["items"]!.AsArray();
         Assert.True(tasks.Count >= 3, tasks.ToJsonString());
+    }
+
+    [Theory]
+    [MemberData(nameof(Databases), MemberType = typeof(TaskApiWorld))]
+    public async Task A_task_stored_with_notes_over_the_limit_can_still_be_changed_and_its_notes_are_cut_for_everyone(string kind)
+    {
+        using var world = await StartWithSchemaAsync(fixture, kind);
+        var ben = await world.PersonAsync("ben");
+        var api = await world.KeyAsync(ben, "tasks:read", "tasks:write");
+        var list = Id(await Expect(api, HttpMethod.Post, "/api/v1/lists", new { name = "Home" }, HttpStatusCode.Created));
+        var task = Id(await Expect(api, HttpMethod.Post, "/api/v1/tasks", new { title = "Read the manual", listId = list }, HttpStatusCode.Created));
+
+        // Notes kept before the limit (0.14.0): written as the server, past the schema check.
+        // An emoji straddles the limit, so the cut must not split it.
+        var longNotes = new string('a', Core.Api.ApiShapes.MaxStoredNotes - 1) + "\U0001F44D" + "tail";
+        var services = world.Server.Services;
+        var clock = services.GetRequiredService<ServerClock>();
+        await services.GetRequiredService<SyncService>().WriteAsServerAsync(ben.Id,
+            [new IncomingEntity("tasks", ServerEntities.Change(task, clock.Next(), new JsonObject { ["notes"] = longNotes }))], Token);
+        var store = services.GetRequiredService<IEntityStore>();
+        var before = (string)(await store.GetAsync(task, Token))!.Doc["_hlc"]!["notes"]!;
+
+        await Expect(api, HttpMethod.Patch, $"/api/v1/tasks/{task}", new { title = "Read the whole manual" }, HttpStatusCode.OK);
+        var stored = (await store.GetAsync(task, Token))!.Doc;
+        var notes = (string)stored["notes"]!;
+        Assert.Equal(new string('a', Core.Api.ApiShapes.MaxStoredNotes - 1), notes);
+        // A fresh clock: every device takes the cut copy over its long one.
+        Assert.True(string.CompareOrdinal((string)stored["_hlc"]!["notes"]!, before) > 0);
+        Assert.Equal("Read the whole manual", (string?)stored["title"]);
+
+        await Expect(api, HttpMethod.Post, $"/api/v1/tasks/{task}/complete", null, HttpStatusCode.OK);
     }
 }

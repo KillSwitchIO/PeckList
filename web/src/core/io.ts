@@ -2,6 +2,7 @@
 
 import type { SchemaValidator } from '../ports/validator.ts';
 import { capStoredBottomBar } from './bottomBar.ts';
+import { capStoredNotes } from './tasks.ts';
 import { messageOf } from './errors.ts';
 import {
   checkVersion,
@@ -54,7 +55,7 @@ export function openDocument(
         document: document as Record<string, unknown>,
       };
     case 'open': {
-      const repaired = capStoredBottomBar(document);
+      const repaired = capStoredNotes(capStoredBottomBar(document));
       const result = validator.validate(repaired);
       return result.valid
         ? { kind: 'ok', workspace: repaired as WorkspaceFile }

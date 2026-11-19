@@ -18,6 +18,11 @@ final class Pending {
     private static final String PREFS = "pecklist.pending";
     private static final String ALL = "all";
     private static final long KEEP_MS = 7L * 24 * 60 * 60 * 1000;
+    /**
+     * A snooze is kept before it is sent (ReminderReceiver.press), whose call waits up to its connect
+     * and read timeouts (10 s each). Pressed more recently than this, it may still be on its way.
+     */
+    static final long IN_FLIGHT_MS = 25_000;
 
     private Pending() {}
 
@@ -58,18 +63,48 @@ final class Pending {
         prefs(context).edit().putString(ALL, all.toString()).apply();
     }
 
-    /** All of them, oldest first, and none left: whatever still fails is added back. */
+    /** Take back one press kept before it was tried (a snooze), once the server has answered it. */
+    static synchronized void remove(Context context, String button, String taskId, long at) {
+        JSONArray all = load(context);
+        JSONArray kept = new JSONArray();
+        boolean removed = false;
+        for (int i = 0; i < all.length(); i++) {
+            JSONObject each = all.optJSONObject(i);
+            if (each == null) continue;
+            boolean same = button.equals(each.optString("button")) && taskId.equals(each.optString("taskId")) && each.optLong("at") == at;
+            if (same && !removed) removed = true;
+            else kept.put(each);
+        }
+        prefs(context).edit().putString(ALL, kept.toString()).apply();
+    }
+
+    /**
+     * A snooze its own press may still be sending (the app opened as the picker closed): left for
+     * the next try, so it is not sent twice at once, perhaps landing in two different minutes.
+     */
+    static boolean inFlight(String button, long at, long now) {
+        return Reminders.SNOOZE.equals(button) && now - at < IN_FLIGHT_MS;
+    }
+
+    /** All of them, oldest first, and none left but those still on their way: whatever still fails is added back. */
     static synchronized List<Press> take(Context context) {
         JSONArray all = load(context);
-        prefs(context).edit().remove(ALL).apply();
+        JSONArray left = new JSONArray();
         List<Press> presses = new ArrayList<>();
-        long oldest = System.currentTimeMillis() - KEEP_MS;
+        long now = System.currentTimeMillis();
+        long oldest = now - KEEP_MS;
         for (int i = 0; i < all.length(); i++) {
             JSONObject each = all.optJSONObject(i);
             if (each == null || each.optLong("at") < oldest) continue;
+            if (inFlight(each.optString("button"), each.optLong("at"), now)) {
+                left.put(each);
+                continue;
+            }
             presses.add(new Press(each.optString("button"), each.optString("taskId"), each.optLong("first"),
                 each.optInt("minutes", Reminders.SNOOZE_MINUTES), each.optLong("at")));
         }
+        if (left.length() == 0) prefs(context).edit().remove(ALL).apply();
+        else prefs(context).edit().putString(ALL, left.toString()).apply();
         return presses;
     }
 

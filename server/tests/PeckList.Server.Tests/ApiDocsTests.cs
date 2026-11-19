@@ -75,6 +75,24 @@ public sealed class ApiDocsTests(ServerFixture fixture) : IClassFixture<ServerFi
     }
 
     /// <summary>
+    /// The routes that take your password answer too many tries with a bare 429 and Retry-After (the
+    /// rate limit, or sign-in's per-name bucket), so none of them says the 429 carries a refusal.
+    /// </summary>
+    [Theory]
+    [InlineData("/api/account/delete")]
+    [InlineData("/api/account/start-over")]
+    [InlineData("/api/account/password/remove")]
+    public async Task A_password_route_says_its_429_has_no_body_and_says_to_wait(string path)
+    {
+        using var server = fixture.Factory(("DB_PATH", fixture.NewDbPath()));
+        var document = await Document(server.CreateClient());
+
+        var limited = document.GetProperty("paths").GetProperty(path).GetProperty("post").GetProperty("responses").GetProperty("429");
+        Assert.False(limited.TryGetProperty("content", out _));
+        Assert.Contains("Retry-After", limited.GetProperty("description").GetString());
+    }
+
+    /// <summary>
     /// Every operation says what it does and what it answers, so the generated client has a type
     /// for each, and every signed-in one says who may call it. A new route without Doc or
     /// Produces fails here rather than turning up as "200 any".

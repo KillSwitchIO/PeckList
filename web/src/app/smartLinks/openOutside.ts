@@ -8,9 +8,9 @@
 import {
   appleMapsHref,
   geoHref,
-  googleMapsHref,
   mailHref,
   openable,
+  openStreetMapHref,
   telHref,
   webHref,
   type SmartKind,
@@ -47,7 +47,8 @@ function apple(): boolean {
 /**
  * What a tap does on a touch screen, with no menu first (PL-146): open the page, write the email,
  * call, or show the address in the maps app (Android's own, Apple Maps on an iPhone or iPad, and
- * Google Maps on the web elsewhere).
+ * OpenStreetMap on the web elsewhere: no account or tracking, the kinder default for a self-hosted
+ * app; the long-press menu still offers Google Maps).
  */
 export function mainHref(kind: SmartKind, text: string): string {
   switch (kind) {
@@ -59,7 +60,7 @@ export function mainHref(kind: SmartKind, text: string): string {
       return telHref(text);
     case 'address':
       if (/Android/.test(navigator.userAgent)) return geoHref(text);
-      return apple() ? appleMapsHref(text) : googleMapsHref(text);
+      return apple() ? appleMapsHref(text) : openStreetMapHref(text);
   }
 }
 

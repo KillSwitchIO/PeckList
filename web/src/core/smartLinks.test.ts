@@ -60,6 +60,18 @@ describe('smart links: what is found', () => {
     ]);
     expect(found('10 Downing Street')).toEqual([['address', '10 Downing Street']]);
     expect(found('Drop off: 8 Oak Dr.')).toEqual([['address', '8 Oak Dr.']]);
+    // The same words as a street where it ends, or with a town or ZIP code.
+    expect(found('Meet at 12 Elm Court, then home')).toEqual([['address', '12 Elm Court']]);
+    expect(found('5 Lake Way 50131 by noon')).toEqual([['address', '5 Lake Way 50131']]);
+    expect(found('Pick up at\n9 Park Drive\nafter 5')).toEqual([['address', '9 Park Drive']]);
+    expect(found('12 Elm Court\r\nnext')).toEqual([['address', '12 Elm Court']]);
+    // The notes editor's hard break (Shift+Enter) reaches here as a NUL.
+    expect(found('9 Park Drive\u0000after 5')).toEqual([['address', '9 Park Drive']]);
+    expect(found('Meet at 12 Elm Court. Then home')).toEqual([['address', '12 Elm Court.']]);
+    expect(found('Meet at 12 Elm Court! Then home')).toEqual([['address', '12 Elm Court']]);
+    expect(found('12 Elm Court: gate code 4512')).toEqual([['address', '12 Elm Court']]);
+    expect(found('"12 Elm Court"')).toEqual([['address', '12 Elm Court']]);
+    expect(found('[12 Elm Court]')).toEqual([['address', '12 Elm Court']]);
   });
 
   it('keeps the town only when a state or ZIP code follows it', () => {
@@ -89,6 +101,11 @@ describe('smart links: what is left as text', () => {
     ['no street word', 'Buy 2 Big Macs'],
     ['a lowercase name', 'Ran 5 miles down the road'],
     ['a doctor', 'Take 3 Tylenol Dr said so'],
+    ['a drive that is no street', 'Move 2 Google Drive folders'],
+    ['a court that is no street', 'Read 3 Supreme Court cases'],
+    ['a way that is no street', 'Found 2 Better Way ideas today'],
+    ['a doctor ending a sentence', 'Take 3 Tylenol Dr. Smith said'],
+    ['a doctor before a colon', 'Ask 2 Senior Dr: no'],
     ['a bare domain', 'example.com is down'],
     ['www alone', 'www. is a prefix'],
     ['a handle', 'Ping @sam on chat'],

@@ -681,18 +681,11 @@
               }
             }
           },
-          "429": {
-            "description": "Too Many Requests",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Refusal"
-                }
-              }
-            }
-          },
           "404": {
             "description": "Not Found"
+          },
+          "429": {
+            "description": "Too many requests: wait as Retry-After says"
           },
           "401": {
             "description": "Not signed in, or the API key is not a working one"

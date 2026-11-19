@@ -209,7 +209,7 @@ export function createTask(
   for (const tag of tagIds) tags = setElement(ctx, tags, tag, true);
   const task = createEntity<Task>(ctx, {
     title: input.title.trim(),
-    notes: input.notes ?? '',
+    notes: clampNotes(input.notes ?? ''),
     listId,
     sectionId: null,
     parentId,
@@ -240,7 +240,46 @@ export function updateTask(
   patch: Patch<Task>,
 ): WorkspaceFile {
   const task = requireEntity(workspace, 'tasks', id);
-  return putEntity(workspace, 'tasks', updateEntity(ctx, task, patch));
+  const fitted =
+    typeof patch.notes === 'string' ? { ...patch, notes: clampNotes(patch.notes) } : patch;
+  return putEntity(workspace, 'tasks', updateEntity(ctx, task, fitted));
+}
+
+/**
+ * The longest notes a task keeps (the schema's maxLength): every app that shows the task reads all
+ * of them, links included, for everyone who opens it.
+ */
+export const MAX_NOTES_LENGTH = 100_000;
+
+/** Notes cut to {@link MAX_NOTES_LENGTH}, never splitting a pair of UTF-16 units (an emoji). */
+export function clampNotes(notes: string): string {
+  if (notes.length <= MAX_NOTES_LENGTH) return notes;
+  const last = notes.charCodeAt(MAX_NOTES_LENGTH - 1);
+  return notes.slice(0, last >= 0xd800 && last <= 0xdbff ? MAX_NOTES_LENGTH - 1 : MAX_NOTES_LENGTH);
+}
+
+/**
+ * Tasks with longer notes than the schema allows, cut so the data still opens: kept before the
+ * limit (0.14.0), or from a server that kept them. Anything else comes back as it was.
+ */
+export function capStoredNotes(document: unknown): unknown {
+  const entities = (document as { entities?: { tasks?: unknown } } | null)?.entities;
+  const tasks = entities?.tasks;
+  if (!Array.isArray(tasks)) return document;
+  const over = (each: unknown) => {
+    const notes = (each as { notes?: unknown } | null)?.notes;
+    return typeof notes === 'string' && notes.length > MAX_NOTES_LENGTH;
+  };
+  if (!tasks.some(over)) return document;
+  const capped = tasks.map((each: unknown) =>
+    over(each)
+      ? {
+          ...(each as Record<string, unknown>),
+          notes: clampNotes((each as { notes: string }).notes),
+        }
+      : each,
+  );
+  return { ...(document as Record<string, unknown>), entities: { ...entities, tasks: capped } };
 }
 
 /** Progress steps: 0 (none) to 100 percent, by 10. */
