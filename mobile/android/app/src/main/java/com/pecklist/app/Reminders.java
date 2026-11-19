@@ -363,7 +363,7 @@ final class Reminders {
             // A thumbs up or a dibs goes to the web app as an action, not only in the address, so
             // it can stop acting on an address alone (Security 2026-11-19, PL-146 like/dibs).
             String does = action.getString("action");
-            String task = action.has("taskId") ? action.getString("taskId") : taskOf(action.getString("url"));
+            String task = actionTask(action.isNull("taskId") ? null : action.optString("taskId"), action.getString("url"));
             if (("like".equals(does) || "dibs".equals(does)) && task != null) {
                 press.putExtra(EXTRA_ACTION, does).putExtra(EXTRA_TASK, task);
             }
@@ -388,6 +388,17 @@ final class Reminders {
     }
 
     private static final Pattern TASK_IN_URL = Pattern.compile("[?&]task=([A-Za-z0-9_-]{1,64})(&|$)");
+
+    /**
+     * A news button's task: the server's taskId when it has one of the right shape (a JSON null is
+     * none, not the task "null"), else the one in its address.
+     */
+    static String actionTask(String taskId, String url) {
+        if (taskId != null && TASK_ID.matcher(taskId).matches()) return taskId;
+        return taskOf(url);
+    }
+
+    private static final Pattern TASK_ID = Pattern.compile("[A-Za-z0-9_-]{1,64}");
 
     /** The task id in a page address ("?task=<id>"), or null. */
     static String taskOf(String url) {

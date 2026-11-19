@@ -8,4 +8,17 @@
     <!-- Launcher shortcut icons (Shortcuts): the app icon's green behind a white glyph. -->
     <color name="shortcut_background">#3C5436</color>
     <color name="shortcut_glyph">#FFFFFF</color>
+    <!-- Home-screen widgets (Widgets, PL-121). -->
+    <color name="widget_surface">#FAFAF7</color>
+    <color name="widget_on_surface">#1F2328</color>
+    <color name="widget_muted">#6B7078</color>
+    <color name="widget_accent">#3C5436</color>
+    <color name="widget_on_accent">#FFFFFF</color>
+    <color name="widget_inverse">#2E3135</color>
+    <color name="widget_on_inverse">#F2F2EF</color>
+    <color name="widget_inverse_action">#A8C99A</color>
+    <color name="widget_overdue">#C4544A</color>
+    <color name="widget_priority_high">#D9776B</color>
+    <color name="widget_priority_medium">#E3B068</color>
+    <color name="widget_priority_low">#8DAA9B</color>
 </resources>

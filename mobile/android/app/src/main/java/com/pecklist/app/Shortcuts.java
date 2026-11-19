@@ -37,7 +37,8 @@ final class Shortcuts {
      * The pages a shortcut may open. MainActivity is exported, so any app can send this intent:
      * only these, never an address of its choosing.
      */
-    private static final Pattern PAGES = Pattern.compile("^/(today(\\?add=1)?|search|lists/[A-Za-z0-9_-]{1,64})$");
+    private static final Pattern PAGES = Pattern.compile(
+        "^/(today(\\?(add=1|task=[A-Za-z0-9_-]{1,64}))?|search|lists/[A-Za-z0-9_-]{1,64})$");
 
     private Shortcuts() {}
 

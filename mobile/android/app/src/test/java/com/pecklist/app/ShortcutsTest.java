@@ -16,6 +16,7 @@ public class ShortcutsTest {
         assertEquals("/today", Shortcuts.pageOf(Shortcuts.ACTION, "pecklist-shortcut:/today"));
         assertEquals("/search", Shortcuts.pageOf(Shortcuts.ACTION, "pecklist-shortcut:/search"));
         assertEquals("/lists/01JLIST", Shortcuts.pageOf(Shortcuts.ACTION, "pecklist-shortcut:/lists/01JLIST"));
+        assertEquals("/today?task=01JTASK", Shortcuts.pageOf(Shortcuts.ACTION, "pecklist-shortcut:/today?task=01JTASK"));
     }
 
     /** Any app can send the intent (MainActivity is exported): only the known pages, never an address of its choosing. */
@@ -25,6 +26,8 @@ public class ShortcutsTest {
         assertNull(Shortcuts.pageOf(Shortcuts.ACTION, "pecklist-shortcut:/settings/account"));
         assertNull(Shortcuts.pageOf(Shortcuts.ACTION, "pecklist-shortcut:/lists/../admin"));
         assertNull(Shortcuts.pageOf(Shortcuts.ACTION, "pecklist-shortcut:/today?add=1&next=https://evil.example"));
+        assertNull(Shortcuts.pageOf(Shortcuts.ACTION, "pecklist-shortcut:/today?task=../admin"));
+        assertNull(Shortcuts.pageOf(Shortcuts.ACTION, "pecklist-shortcut:/today?task=a&add=1"));
         assertNull(Shortcuts.pageOf(Shortcuts.ACTION, "https://evil.example/today"));
         assertNull(Shortcuts.pageOf("android.intent.action.VIEW", "pecklist-shortcut:/today"));
         assertNull(Shortcuts.pageOf(Shortcuts.ACTION, null));

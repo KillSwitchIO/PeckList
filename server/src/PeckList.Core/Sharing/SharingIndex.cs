@@ -941,6 +941,8 @@ public sealed class SharingIndex
     // Permissions --------------------------------------------------------------------------------
 
     /// <summary>Whether the user may change the task: owner or editor on its list, assigned to it, or its creator when it has no list.</summary>
+    public bool MayEdit(string userId, string taskId) => MayEditTask(this, userId, taskId);
+
     private static bool MayEditTask(SharingIndex index, string userId, string taskId)
     {
         if (!index.byId.TryGetValue(taskId, out var task)) return false;

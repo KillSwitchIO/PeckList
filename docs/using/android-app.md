@@ -203,5 +203,20 @@ under **Compatibility**, and an app that is too old for the server is signed out
   **Today**, **Search** and **Change server**, and, where your launcher shows more than four, the
   list you opened last. Drag any of them to the home screen to keep it there.
 - Pull down at the top of a list to sync now.
+- Add widgets from your home screen's widget picker (long-press an empty spot, then
+  **Widgets**, then PeckList):
+  - **Today** lists today's tasks, overdue first. Tap a circle to complete a task, with a few
+    seconds to **Undo**; tap a task to open it, or **+** to add one. It is resizable.
+  - **Add task**, a round button, and **Add task bar**, a wide one, open Today with the add field
+    ready to type in.
+  - **Today's count** shows how many tasks are left for today, in red while any are overdue.
+
+  They follow your phone's colors and its light or dark mode on Android 12 and later. They move to
+  the next day at midnight on their own, and show what the app last saw: open the app to bring
+  them up to date after a change on another device. A task completed on a widget while offline
+  goes to the server once the phone is back online, as a reminder's **Complete** does. If the
+  server turns it down (in a list you can only view, say), the task shows again. After signing
+  out or changing server they ask you to open PeckList. Task titles show on the home screen, so
+  think twice before adding **Today** to a phone others use.
 - Back steps back through the app; on the first screen, press it twice to leave.
 - Everything else works as in the browser: [the tour](index.md).

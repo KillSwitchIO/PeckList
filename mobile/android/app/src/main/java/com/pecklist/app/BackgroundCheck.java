@@ -262,6 +262,7 @@ final class BackgroundCheck {
         if (cookie == null) return;
         // Presses made offline first, so the reminders that come back already reflect them.
         ReminderReceiver.retryPending(context);
+        Widgets.sendDue(context);
         String after = prefs(context).getString(CURSOR, null);
         // Read once: the answer's reminders are what this request asked for (audit P7).
         boolean showing = MainActivity.showing();
@@ -319,6 +320,7 @@ final class BackgroundCheck {
         }
         if (!showingNow) Reminders.showNew(context, answer.getJSONArray("notifications"));
         if (!answer.isNull("cursor")) prefs(context).edit().putString(CURSOR, answer.getString("cursor")).apply();
+        Widgets.redraw(context);
     }
 
     private static String read(InputStream stream) throws IOException {

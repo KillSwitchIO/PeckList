@@ -2,4 +2,17 @@
 <resources>
     <color name="launch_background">#1B1D1F</color>
     <color name="system_bars">#1B1D1F</color>
+    <!-- Home-screen widgets (Widgets, PL-121). -->
+    <color name="widget_surface">#1B1D1F</color>
+    <color name="widget_on_surface">#E6E6E3</color>
+    <color name="widget_muted">#A0A4AA</color>
+    <color name="widget_accent">#A8C99A</color>
+    <color name="widget_on_accent">#1B2A17</color>
+    <color name="widget_inverse">#E6E6E3</color>
+    <color name="widget_on_inverse">#1F2328</color>
+    <color name="widget_inverse_action">#3C5436</color>
+    <color name="widget_overdue">#E8837E</color>
+    <color name="widget_priority_high">#E8837E</color>
+    <color name="widget_priority_medium">#F0B072</color>
+    <color name="widget_priority_low">#8DAA9B</color>
 </resources>

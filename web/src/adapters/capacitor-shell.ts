@@ -13,6 +13,7 @@ import type {
   ShellCrash,
   ShellInfo,
   ShellUsage,
+  WidgetFeed,
 } from '../ports/nativeShell.ts';
 import type { ServerInfo } from '../ports/sync.ts';
 
@@ -39,6 +40,7 @@ interface ShellPlugin {
   openNotificationChannel(options: { kind: PhoneChannelKind }): Promise<void>;
   setShortcuts(options: { lists: ShortcutList[] }): Promise<void>;
   showKeyboard(): Promise<void>;
+  setWidgetTasks(feed: WidgetFeed): Promise<void>;
 }
 
 const CHANNEL_KINDS: PhoneChannelKind[] = [
@@ -167,5 +169,6 @@ export function createCapacitorShell(): NativeShell | null {
     setShortcuts: (lists) => plugin.setShortcuts({ lists }),
     // An older shell has none: the field is focused, a tap brings the keyboard.
     showKeyboard: () => plugin.showKeyboard().catch(() => undefined),
+    setWidgetTasks: (feed) => plugin.setWidgetTasks(feed),
   };
 }

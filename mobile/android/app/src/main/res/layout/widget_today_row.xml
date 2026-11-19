@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- One task on the Today widget (TodayWidgetService): checkbox, title, time or overdue date, list color. -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:id="@+id/row"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:gravity="center_vertical"
+    android:minHeight="44dp"
+    android:orientation="horizontal"
+    android:paddingStart="4dp"
+    android:paddingEnd="16dp">
+
+    <ImageView
+        android:id="@+id/row_check"
+        android:layout_width="44dp"
+        android:layout_height="44dp"
+        android:padding="11dp"
+        android:src="@drawable/ic_widget_check_none"
+        tools:ignore="ContentDescription" />
+
+    <LinearLayout
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_weight="1"
+        android:orientation="vertical">
+
+        <TextView
+            android:id="@+id/row_title"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:ellipsize="end"
+            android:maxLines="1"
+            android:textColor="@color/widget_on_surface"
+            android:textSize="15sp" />
+
+        <TextView
+            android:id="@+id/row_when"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:maxLines="1"
+            android:textColor="@color/widget_muted"
+            android:textSize="12sp" />
+
+        <!-- The same, overdue: a second view so its color stays a resource (light and dark). -->
+        <TextView
+            android:id="@+id/row_late"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:maxLines="1"
+            android:textColor="@color/widget_overdue"
+            android:textSize="12sp"
+            android:visibility="gone" />
+    </LinearLayout>
+
+    <ImageView
+        android:id="@+id/row_dot"
+        android:layout_width="10dp"
+        android:layout_height="10dp"
+        android:layout_marginStart="8dp"
+        android:importantForAccessibility="no"
+        android:src="@drawable/ic_widget_dot" />
+</LinearLayout>
