@@ -109,6 +109,17 @@ app (ADR-0017 in the project notes). There is no second copy of the UI.
   `notificationSettings` (shell api 5) opens Android's notification settings for the app, where
   each channel has its own sound and vibration; Settings > Notifications offers it as **Manage on
   the phone**.
+  **Channels** (`Channels.java`, PL-115): all five (`reminders.v2`, `constant.v1`,
+  `assignments.v2`, `shares.v2`, `comments.v2`, in two groups) are made at start, after a restart
+  and after an update, not when the first of a kind arrives, so the phone lists them all on a fresh
+  install. The Local Notifications plugin's unused `default` channel is dropped after each start.
+  An app cannot change a channel the person has touched, but it can read it:
+  `notificationChannels` (shell api 10) answers `{channels, changed}`, each kind's on or off and
+  the kinds switched on the phone since the last ask. The web app reads it at start and whenever it
+  comes back to the screen, and writes `changed` into the synced `settings.notifications`, so only
+  a change on the phone moves a switch, never a channel that was off all along.
+  `openNotificationChannel` (api 10) opens one kind's channel; on the phone, each switch in
+  Settings > Notifications opens it.
   **Tasks made without a server** (shell api 6, PL-070): the connect page hands the bundled
   build's workspace to `carry` (with the server it is for) before `connect`; the shell keeps it in
   app-private `carried.json` and gives it back through `carried` only while connected to that

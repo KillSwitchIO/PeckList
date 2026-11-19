@@ -5,6 +5,8 @@ import type {
   ExactAlarms,
   HeldPress,
   NativeShell,
+  PhoneChannelKind,
+  PhoneChannels,
   ServerCheck,
   ServerProblem,
   ShellCrash,
@@ -32,6 +34,36 @@ interface ShellPlugin {
   addListener(event: 'held', listener: () => void): Promise<PluginListenerHandle>;
   exactAlarms(): Promise<ExactAlarms>;
   allowExactAlarms(): Promise<ExactAlarms>;
+  notificationChannels(): Promise<Partial<PhoneChannels>>;
+  openNotificationChannel(options: { kind: PhoneChannelKind }): Promise<void>;
+}
+
+const CHANNEL_KINDS: PhoneChannelKind[] = [
+  'reminders',
+  'assignments',
+  'shares',
+  'comments',
+  'constant',
+];
+
+/** The channels the shell answered with, keeping only the kinds it knows and true or false values. */
+export function phoneChannels(answer: Partial<PhoneChannels> | null | undefined): PhoneChannels {
+  const pick = (from: unknown, kinds: PhoneChannelKind[]) => {
+    const out: Partial<Record<PhoneChannelKind, boolean>> = {};
+    if (from && typeof from === 'object')
+      for (const kind of kinds) {
+        const value = (from as Record<string, unknown>)[kind];
+        if (typeof value === 'boolean') out[kind] = value;
+      }
+    return out;
+  };
+  return {
+    channels: pick(answer?.channels, CHANNEL_KINDS),
+    changed: pick(
+      answer?.changed,
+      CHANNEL_KINDS.filter((kind) => kind !== 'constant'),
+    ) as PhoneChannels['changed'],
+  };
 }
 
 /** The presses the shell answered with, leaving out any it got wrong. */
@@ -127,5 +159,7 @@ export function createCapacitorShell(): NativeShell | null {
     },
     exactAlarms: () => plugin.exactAlarms(),
     allowExactAlarms: () => plugin.allowExactAlarms(),
+    notificationChannels: async () => phoneChannels(await plugin.notificationChannels()),
+    openNotificationChannel: (kind) => plugin.openNotificationChannel({ kind }),
   };
 }

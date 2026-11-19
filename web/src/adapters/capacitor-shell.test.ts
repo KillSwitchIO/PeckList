@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { heldPresses } from './capacitor-shell.ts';
+import { heldPresses, phoneChannels } from './capacitor-shell.ts';
 
 describe('heldPresses', () => {
   it('keeps the presses the shell answered with, and leaves out any it got wrong', () => {
@@ -10,5 +10,17 @@ describe('heldPresses', () => {
       }),
     ).toEqual([good]);
     expect(heldPresses({})).toEqual([]);
+  });
+});
+
+describe('phoneChannels', () => {
+  it('keeps the kinds the shell knows, and only true or false', () => {
+    expect(
+      phoneChannels({
+        channels: { reminders: true, constant: false, mystery: true, shares: 'yes' } as never,
+        changed: { comments: false, constant: true } as never,
+      }),
+    ).toEqual({ channels: { reminders: true, constant: false }, changed: { comments: false } });
+    expect(phoneChannels(null)).toEqual({ channels: {}, changed: {} });
   });
 });

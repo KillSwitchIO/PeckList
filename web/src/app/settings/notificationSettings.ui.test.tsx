@@ -5,8 +5,16 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createMemoryStorage } from '../../adapters/memory-storage.ts';
 import { createBrowserPush } from '../../adapters/browser-push.ts';
 import { inboxList } from '../../core/lists.ts';
+import { updateSettings } from '../../core/settings.ts';
 import { createTask } from '../../core/tasks.ts';
-import type { BackgroundCheck, HeldPress, NativeShell } from '../../ports/nativeShell.ts';
+import type {
+  BackgroundCheck,
+  HeldPress,
+  NativeShell,
+  PhoneChannelKind,
+  PhoneChannels,
+  SyncedChannelKind,
+} from '../../ports/nativeShell.ts';
 import type {
   BrowserPush,
   NotificationPermissionState,
@@ -224,6 +232,46 @@ class CheckingShell implements NativeShell {
   }
 }
 
+/**
+ * The Android shell at api 10, with its notification channels faked as the shell keeps them: each
+ * kind on or off on the phone, and only what was switched since the last read reported as changed.
+ */
+class ChannelShell extends CheckingShell {
+  channels: Record<PhoneChannelKind, boolean> = {
+    reminders: true,
+    constant: true,
+    assignments: true,
+    shares: true,
+    comments: true,
+  };
+  private seen: Partial<Record<PhoneChannelKind, boolean>> = {};
+  openedChannels: PhoneChannelKind[] = [];
+  constructor() {
+    super(10);
+  }
+  notificationChannels(): Promise<PhoneChannels> {
+    const changed: PhoneChannels['changed'] = {};
+    for (const kind of ['reminders', 'assignments', 'shares', 'comments'] as SyncedChannelKind[]) {
+      const before = this.seen[kind];
+      if (before !== undefined && before !== this.channels[kind])
+        changed[kind] = this.channels[kind];
+    }
+    this.seen = { ...this.channels };
+    return Promise.resolve({ channels: { ...this.channels }, changed });
+  }
+  openNotificationChannel(kind: PhoneChannelKind) {
+    this.openedChannels.push(kind);
+    return Promise.resolve();
+  }
+}
+
+/** The app back on screen, as from Android's settings. */
+function backOnScreen() {
+  act(() => {
+    document.dispatchEvent(new Event('visibilitychange'));
+  });
+}
+
 function fakeNotifier(start: NotificationPermissionState) {
   let permission = start;
   const fake: Notifier & { requests: number } = {
@@ -273,6 +321,114 @@ describe('notifications in the Android app', () => {
     const kinds = await screen.findByRole('region', { name: 'Tell me about' });
     await userEvent.click(within(kinds).getByRole('button', { name: 'Manage on the phone' }));
     expect(shell.opened).toBe(1);
+  });
+
+  it("show each kind as the phone's channel shows it, and open that channel (api 10)", async () => {
+    const shell = new ChannelShell();
+    shell.channels.comments = false;
+    setNativeShell(shell);
+    setNotifier(fakeNotifier('granted'));
+    const backend = new FakeBackend();
+    backend.addAccount('ben', 'correct horse battery');
+    const { store } = await signedIn('/settings/notifications', backend);
+    const kinds = await screen.findByRole('region', { name: 'Tell me about' });
+    const comments = await within(kinds).findByRole('switch', { name: 'Comments and mentions' });
+    await waitFor(() => expect(comments).not.toBeChecked());
+    expect(within(kinds).getByRole('switch', { name: 'Constant reminders' })).toBeChecked();
+    // Off on the phone: the switch opens its channel, where it is turned back on.
+    await userEvent.click(comments);
+    await userEvent.click(within(kinds).getByRole('switch', { name: 'Shared lists' }));
+    await userEvent.click(within(kinds).getByRole('switch', { name: 'Constant reminders' }));
+    expect(shell.openedChannels).toEqual(['comments', 'shares', 'constant']);
+    expect(store.getState().workspace!.entities.settings[0]!.notifications).toBeUndefined();
+  });
+
+  it('a kind switched on the phone is switched for every device', async () => {
+    const shell = new ChannelShell();
+    setNativeShell(shell);
+    setNotifier(fakeNotifier('granted'));
+    const backend = new FakeBackend();
+    backend.addAccount('ben', 'correct horse battery');
+    const { store } = await signedIn('/settings/notifications', backend);
+    const kinds = await screen.findByRole('region', { name: 'Tell me about' });
+    const comments = await within(kinds).findByRole('switch', { name: 'Comments and mentions' });
+    await waitFor(() => expect(comments).toBeChecked());
+    shell.channels.comments = false;
+    backOnScreen();
+    await waitFor(() =>
+      expect(store.getState().workspace!.entities.settings[0]!.notifications).toEqual({
+        comments: false,
+      }),
+    );
+    expect(comments).not.toBeChecked();
+    shell.channels.comments = true;
+    backOnScreen();
+    await waitFor(() =>
+      expect(store.getState().workspace!.entities.settings[0]!.notifications).toEqual({
+        comments: true,
+      }),
+    );
+    expect(comments).toBeChecked();
+  });
+
+  it('a channel off all along never turns off a kind turned on elsewhere', async () => {
+    const shell = new ChannelShell();
+    shell.channels.shares = false;
+    setNativeShell(shell);
+    setNotifier(fakeNotifier('granted'));
+    const backend = new FakeBackend();
+    backend.addAccount('ben', 'correct horse battery');
+    const { store } = await signedIn('/settings/notifications', backend);
+    await screen.findByRole('region', { name: 'Tell me about' });
+    backOnScreen();
+    backOnScreen();
+    await waitFor(() => expect(shell.openedChannels).toEqual([]));
+    expect(store.getState().workspace!.entities.settings[0]!.notifications).toBeUndefined();
+  });
+
+  it('on Android 7, with no channels, the switches turn kinds on and off here', async () => {
+    const shell = new ChannelShell();
+    shell.notificationChannels = () => Promise.resolve({ channels: {}, changed: {} });
+    setNativeShell(shell);
+    setNotifier(fakeNotifier('granted'));
+    const backend = new FakeBackend();
+    backend.addAccount('ben', 'correct horse battery');
+    const { store } = await signedIn('/settings/notifications', backend);
+    const kinds = await screen.findByRole('region', { name: 'Tell me about' });
+    const comments = await within(kinds).findByRole('switch', { name: 'Comments and mentions' });
+    await userEvent.click(comments);
+    await waitFor(() =>
+      expect(store.getState().workspace!.entities.settings[0]!.notifications).toEqual({
+        comments: false,
+      }),
+    );
+    expect(comments).not.toBeChecked();
+    expect(shell.openedChannels).toEqual([]);
+    expect(within(kinds).queryByRole('switch', { name: 'Constant reminders' })).toBeNull();
+  });
+
+  it('turning on a kind whose channel is on needs no trip to the phone settings', async () => {
+    const shell = new ChannelShell();
+    setNativeShell(shell);
+    setNotifier(fakeNotifier('granted'));
+    const backend = new FakeBackend();
+    backend.addAccount('ben', 'correct horse battery');
+    const { store } = await signedIn('/settings/notifications', backend);
+    act(() =>
+      store
+        .getState()
+        .apply((ctx, ws) => updateSettings(ctx, ws, { notifications: { shares: false } })),
+    );
+    const kinds = await screen.findByRole('region', { name: 'Tell me about' });
+    const shares = await within(kinds).findByRole('switch', { name: 'Shared lists' });
+    expect(shares).not.toBeChecked();
+    await userEvent.click(shares);
+    await waitFor(() =>
+      expect(store.getState().workspace!.entities.settings[0]!.notifications).toEqual({
+        shares: true,
+      }),
+    );
+    expect(shell.openedChannels).toEqual([]);
   });
 
   it('an older app (api 4 and below) has no such button', async () => {

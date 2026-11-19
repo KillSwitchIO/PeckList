@@ -1,8 +1,6 @@
 package com.pecklist.app;
 
 import android.app.AlarmManager;
-import android.app.NotificationChannel;
-import android.app.NotificationManager;
 import android.app.PendingIntent;
 import android.content.Context;
 import android.content.Intent;
@@ -34,8 +32,9 @@ final class Reminders {
 
     /**
      * Notification channels, one per kind so the phone's own settings can quiet any one of them
-     * (spec: PL-115). Versioned: Android keeps a channel's settings as first created, and the first
-     * ones had no vibration, so these replace them and the old two are deleted.
+     * (spec: PL-115), all made at start (Channels). Versioned: Android keeps a channel's settings as
+     * first created, and the first ones had no vibration, so these replace them and the old two are
+     * deleted.
      */
     static final String CHANNEL = "reminders.v2";
     static final String ASSIGNMENTS = "assignments.v2";
@@ -48,7 +47,6 @@ final class Reminders {
      * gives this channel on the phone is theirs to choose.
      */
     static final String CONSTANT = "constant.v1";
-    private static final String[] OLD_CHANNELS = { "reminders", "activity" };
 
     /** A constant reminder stops buzzing after this long (PL-115): a quiet copy replaces it. */
     static final long QUIET_AFTER_MS = 30 * 60 * 1000;
@@ -277,8 +275,7 @@ final class Reminders {
     static void show(Context context, Reminder reminder) {
         if (!NotificationManagerCompat.from(context).areNotificationsEnabled()) return;
         String channel = channelFor(reminder);
-        channel(context, channel, channel.equals(CONSTANT) ? R.string.channel_constant : R.string.channel_reminders,
-            NotificationManager.IMPORTANCE_HIGH);
+        Channels.ensure(context);
         boolean quiet = reminder.key.endsWith(QUIET);
         NotificationCompat.Builder built = base(context, channel, reminder.title, reminder.body)
             .setCategory(NotificationCompat.CATEGORY_REMINDER)
@@ -340,8 +337,7 @@ final class Reminders {
         throws JSONException {
         if (!NotificationManagerCompat.from(context).areNotificationsEnabled()) return;
         String channel = channelOf(kind);
-        channel(context, channel, channel.equals(SHARES) ? R.string.channel_shares
-            : channel.equals(COMMENTS) ? R.string.channel_comments : R.string.channel_assignments, NotificationManager.IMPORTANCE_DEFAULT);
+        Channels.ensure(context);
         int id = idOf("news:" + newsId);
         Intent intent = new Intent(context, MainActivity.class)
             .setAction("com.pecklist.app.OPEN." + id)
@@ -446,22 +442,6 @@ final class Reminders {
         AlarmManager alarms = (AlarmManager) context.getSystemService(Context.ALARM_SERVICE);
         if (alarms != null) alarms.cancel(wake);
         wake.cancel();
-    }
-
-    private static void channel(Context context, String id, int name, int importance) {
-        NotificationManager notifications = context.getSystemService(NotificationManager.class);
-        if (notifications == null) return;
-        for (String old : OLD_CHANNELS) {
-            if (notifications.getNotificationChannel(old) != null) notifications.deleteNotificationChannel(old);
-        }
-        if (notifications.getNotificationChannel(id) != null) return;
-        NotificationChannel made = new NotificationChannel(id, context.getString(name), importance);
-        // Vibration on from the start (PL-115); the person turns it off per channel on the phone.
-        made.enableVibration(true);
-        made.setVibrationPattern(new long[] { 0, 250, 150, 250 });
-        if (soundless(id)) made.setSound(null, null);
-        made.enableLights(true);
-        notifications.createNotificationChannel(made);
     }
 
     private static Map<String, Reminder> load(Context context) {

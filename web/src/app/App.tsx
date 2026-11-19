@@ -3,6 +3,7 @@ import { BrowserRouter } from 'react-router';
 import { BackgroundCheckPrompt } from './native/BackgroundCheck.tsx';
 import { NativeFirstRun } from './native/FirstRun.tsx';
 import { NotificationOpen } from './native/NotificationOpen.tsx';
+import { PhoneChannelSync } from './native/phoneChannels.ts';
 import { installBackHandler } from './native/back.ts';
 import { forgetServiceWorker, isBundledApp, nativeShell } from './native/shell.ts';
 import { AppProviders } from './providers.tsx';
@@ -46,6 +47,7 @@ export function App() {
           <NativeFirstRun />
           <NativeCrashOffer />
           <NotificationOpen />
+          <PhoneChannelSync />
           <BackgroundCheckPrompt />
         </BrowserRouter>
         {viewAs && <ViewAsBanner view={viewAs} />}

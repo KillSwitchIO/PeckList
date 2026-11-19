@@ -1,10 +1,11 @@
 import { Alert, Button, Switch } from '@mui/material';
-import { useEffect, useState } from 'react';
+import { Fragment, useEffect, useState } from 'react';
 import { updateSettings } from '../../core/settings.ts';
 import type { NotificationSwitches } from '../../core/types.ts';
 import { t } from '../i18n/i18n.ts';
 import { useApply, useWorkspace } from '../store/hooks.ts';
 import { BackgroundCheckSettings, CHECK_API } from '../native/BackgroundCheck.tsx';
+import { usePhoneChannels } from '../native/phoneChannels.ts';
 import { useShellInfo } from '../native/shell.ts';
 import type { NativeShell } from '../../ports/nativeShell.ts';
 import { browserPush } from '../reminders/notifier.ts';
@@ -126,6 +127,9 @@ const KINDS: { key: keyof NotificationSwitches; label: Key; hint?: Key }[] = [
 function NotificationKinds({ phone }: { phone?: NativeShell }) {
   const workspace = useWorkspace();
   const apply = useApply();
+  // On a phone at api 10, each kind is also its channel in Android's settings.
+  const read = usePhoneChannels();
+  const channels = phone?.openNotificationChannel ? read?.channels : undefined;
   const current = workspace.entities.settings[0]?.notifications ?? {};
   const set = (key: keyof NotificationSwitches, on: boolean) =>
     apply((ctx, ws) =>
@@ -133,16 +137,44 @@ function NotificationKinds({ phone }: { phone?: NativeShell }) {
         notifications: { ...(ws.entities.settings[0]?.notifications ?? {}), [key]: on },
       }),
     );
+  /**
+   * On the phone a kind is on when both its switch and its channel are. Its channel's page decides
+   * the rest, and what is switched there comes back here (usePhoneChannels); only turning on a kind
+   * whose channel is already on needs no trip there.
+   */
+  const turn = (key: keyof NotificationSwitches, on: boolean) => {
+    if (!channels || key === 'vibrate' || (on && channels[key] !== false)) set(key, on);
+    else void phone?.openNotificationChannel?.(key);
+  };
   return (
-    <Section title={t('notifications.kinds')} hint={t('notifications.kindsHint')}>
+    <Section
+      title={t('notifications.kinds')}
+      hint={t(channels ? 'notifications.kindsPhoneHint' : 'notifications.kindsHint')}
+    >
       {KINDS.map(({ key, label, hint }) => (
-        <SettingRow key={key} label={t(label)} {...(hint ? { hint: t(hint) } : {})}>
-          <Switch
-            checked={current[key] !== false}
-            onChange={(event) => set(key, event.target.checked)}
-            slotProps={{ input: { 'aria-label': t(label) } }}
-          />
-        </SettingRow>
+        <Fragment key={key}>
+          <SettingRow label={t(label)} {...(hint ? { hint: t(hint) } : {})}>
+            <Switch
+              checked={current[key] !== false && (key === 'vibrate' || channels?.[key] !== false)}
+              onChange={(event) => turn(key, event.target.checked)}
+              slotProps={{ input: { 'aria-label': t(label) } }}
+            />
+          </SettingRow>
+          {key === 'reminders' && channels && 'constant' in channels && (
+            // A phone-only channel under Reminders: its page is where it is switched.
+            <SettingRow
+              label={t('notifications.kindConstant')}
+              hint={t('notifications.kindConstantHint')}
+            >
+              <Switch
+                checked={current.reminders !== false && channels.constant !== false}
+                disabled={current.reminders === false}
+                onChange={() => void phone?.openNotificationChannel?.('constant')}
+                slotProps={{ input: { 'aria-label': t('notifications.kindConstant') } }}
+              />
+            </SettingRow>
+          )}
+        </Fragment>
       ))}
       {phone && (
         // Sound, vibration and on or off per kind are the phone's own channel settings.

@@ -305,6 +305,7 @@ public class ShellPlugin extends Plugin {
      */
     @PluginMethod
     public void notificationSettings(PluginCall call) {
+        Channels.ensure(getContext());
         Intent intent = new Intent(android.provider.Settings.ACTION_APP_NOTIFICATION_SETTINGS)
             .putExtra(android.provider.Settings.EXTRA_APP_PACKAGE, getContext().getPackageName())
             .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
@@ -317,6 +318,44 @@ public class ShellPlugin extends Plugin {
                 .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
         }
         call.resolve();
+    }
+
+    /**
+     * Api 10: each channel's on or off by kind ({channels: {reminders, constant, assignments, shares,
+     * comments}}), and the kinds switched on the phone since the last ask ({changed}), which the web
+     * app carries into its synced switches (PL-115). Asking takes the changes.
+     */
+    @PluginMethod
+    public void notificationChannels(PluginCall call) {
+        try {
+            call.resolve(JSObject.fromJSONObject(Channels.answer(getContext())));
+        } catch (JSONException error) {
+            call.reject(error.getMessage());
+        }
+    }
+
+    /**
+     * Api 10: one kind's channel in Android's settings ({kind}), where its on or off, sound and
+     * vibration are. An unknown kind, or Android before 8, gets the app's notification settings.
+     */
+    @PluginMethod
+    public void openNotificationChannel(PluginCall call) {
+        Channels.ensure(getContext());
+        String id = Channels.idOf(call.getString("kind", ""));
+        if (id == null || Build.VERSION.SDK_INT < Build.VERSION_CODES.O) {
+            notificationSettings(call);
+            return;
+        }
+        Intent intent = new Intent(android.provider.Settings.ACTION_CHANNEL_NOTIFICATION_SETTINGS)
+            .putExtra(android.provider.Settings.EXTRA_APP_PACKAGE, getContext().getPackageName())
+            .putExtra(android.provider.Settings.EXTRA_CHANNEL_ID, id)
+            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+        try {
+            getContext().startActivity(intent);
+            call.resolve();
+        } catch (ActivityNotFoundException missing) {
+            notificationSettings(call);
+        }
     }
 
     /** Where the tasks handed over on connecting wait (app-private storage). */

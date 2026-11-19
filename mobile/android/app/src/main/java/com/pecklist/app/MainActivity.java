@@ -55,6 +55,10 @@ public class MainActivity extends BridgeActivity {
             bridge.getWebView().setOverScrollMode(View.OVER_SCROLL_NEVER);
         }
         keepClearOfSystemBars();
+        // Every kind's channel from the start, so the phone's settings list them all (PL-115).
+        Channels.ensure(this);
+        // The plugins loaded in super.onCreate; one of them just made a channel nothing uses.
+        Channels.dropPluginDefault(this);
         // Force-stopping the app clears its alarms; opening it again sets the check-in again, and
         // one stopped after a sign-out (or slowed by failures) starts afresh.
         BackgroundCheck.resume(this);
