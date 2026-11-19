@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Launcher shortcut icon: A list (Shortcuts, res/xml/shortcuts.xml). -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="48dp"
+    android:height="48dp"
+    android:viewportWidth="48"
+    android:viewportHeight="48">
+    <path
+        android:pathData="M24,0a24,24 0 1 1 0,48a24,24 0 1 1 0,-48z"
+        android:fillColor="@color/shortcut_background" />
+    <group android:translateX="12" android:translateY="12">
+        <path
+            android:pathData="M10,6.5h10M10,12h10M10,17.5h10"
+            android:strokeColor="@color/shortcut_glyph"
+            android:strokeWidth="1.75"
+            android:strokeLineCap="round"
+            android:strokeLineJoin="round"
+            android:fillColor="#00000000" />
+        <path
+            android:pathData="M5,6.5h0.01M5,12h0.01M5,17.5h0.01"
+            android:strokeColor="@color/shortcut_glyph"
+            android:strokeWidth="2.6"
+            android:strokeLineCap="round"
+            android:strokeLineJoin="round"
+            android:fillColor="#00000000" />
+    </group>
+</vector>

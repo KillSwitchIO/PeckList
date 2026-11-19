@@ -21,6 +21,12 @@ export interface ShellInfo {
   distribution?: 'play' | 'foss';
 }
 
+/** A list for the launcher's long-press menu (api 11). */
+export interface ShortcutList {
+  id: string;
+  name: string;
+}
+
 /** A kind of notification with a channel of its own on the phone (PL-115); `constant` has no in-app switch. */
 export type PhoneChannelKind = 'reminders' | 'assignments' | 'shares' | 'comments' | 'constant';
 
@@ -158,4 +164,8 @@ export interface NativeShell {
   notificationChannels?(): Promise<PhoneChannels>;
   /** Api 10: one kind's channel in Android's settings (its on or off, sound and vibration). */
   openNotificationChannel?(kind: PhoneChannelKind): Promise<void>;
+  /** Api 11: the lists in the launcher's long-press menu from now on (the last opened first); none clears them. */
+  setShortcuts?(lists: ShortcutList[]): Promise<void>;
+  /** Api 11: the keyboard up for the field just focused (a WebView raises it only for a tap). */
+  showKeyboard?(): Promise<void>;
 }

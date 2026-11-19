@@ -1,14 +1,55 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Long-press the launcher icon: back to the connect page, whatever the server runs (MainActivity). -->
+<!--
+  Long-press the launcher icon (Shortcuts): add a task, Today, back to the connect page whatever the
+  server runs (MainActivity), and Search. Launchers show four and make room for the list opened last
+  (a dynamic shortcut) by leaving out the last of these, so Search goes, never Change server, which
+  works even when the server's web build will not load.
+-->
 <shortcuts xmlns:android="http://schemas.android.com/apk/res/android">
+    <shortcut
+        android:shortcutId="add-task"
+        android:enabled="true"
+        android:icon="@drawable/ic_shortcut_add"
+        android:shortcutShortLabel="@string/shortcut_add_short"
+        android:shortcutLongLabel="@string/shortcut_add_long">
+        <intent
+            android:action="com.pecklist.app.SHORTCUT"
+            android:data="pecklist-shortcut:/today?add=1"
+            android:targetPackage="com.pecklist.app"
+            android:targetClass="com.pecklist.app.MainActivity" />
+    </shortcut>
+    <shortcut
+        android:shortcutId="today"
+        android:enabled="true"
+        android:icon="@drawable/ic_shortcut_today"
+        android:shortcutShortLabel="@string/shortcut_today_short"
+        android:shortcutLongLabel="@string/shortcut_today_long">
+        <intent
+            android:action="com.pecklist.app.SHORTCUT"
+            android:data="pecklist-shortcut:/today"
+            android:targetPackage="com.pecklist.app"
+            android:targetClass="com.pecklist.app.MainActivity" />
+    </shortcut>
     <shortcut
         android:shortcutId="change-server"
         android:enabled="true"
-        android:icon="@mipmap/ic_launcher"
+        android:icon="@drawable/ic_shortcut_server"
         android:shortcutShortLabel="@string/shortcut_server_short"
         android:shortcutLongLabel="@string/shortcut_server_long">
         <intent
             android:action="com.pecklist.app.CHOOSE_SERVER"
+            android:targetPackage="com.pecklist.app"
+            android:targetClass="com.pecklist.app.MainActivity" />
+    </shortcut>
+    <shortcut
+        android:shortcutId="search"
+        android:enabled="true"
+        android:icon="@drawable/ic_shortcut_search"
+        android:shortcutShortLabel="@string/shortcut_search_short"
+        android:shortcutLongLabel="@string/shortcut_search_long">
+        <intent
+            android:action="com.pecklist.app.SHORTCUT"
+            android:data="pecklist-shortcut:/search"
             android:targetPackage="com.pecklist.app"
             android:targetClass="com.pecklist.app.MainActivity" />
     </shortcut>

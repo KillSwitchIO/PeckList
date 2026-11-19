@@ -120,6 +120,18 @@ app (ADR-0017 in the project notes). There is no second copy of the UI.
   a change on the phone moves a switch, never a channel that was off all along.
   `openNotificationChannel` (api 10) opens one kind's channel; on the phone, each switch in
   Settings > Notifications opens it.
+  **Launcher shortcuts** (`Shortcuts.java`, `res/xml/shortcuts.xml`): Add task, Today, Search and
+  Change server are static, four being what launchers show. Change server
+  (`MainActivity.CHOOSE_SERVER`) asks first while on a server (`Consent.toChangeServer`), since
+  any app can send it; the app's own (the offline page, the certificate question) carries the
+  token and goes. The first three are
+  `com.pecklist.app.SHORTCUT` intents with a `pecklist-shortcut:/page` address, which
+  `MainActivity` hands to the web app as a notification tap (`notificationOpen`, with the app's
+  token and nothing else the intent carried), once, and not when the app comes back from Recents. MainActivity is exported, so only `/today`,
+  `/today?add=1`, `/search` and `/lists/<id>` are accepted. `?add=1` focuses the page's add-task
+  field (`useAddFromAddress`). `setShortcuts` (shell api 11) takes the list opened last as a
+  dynamic shortcut ranked after the static ones (`web/src/app/native/listShortcuts.ts`); signing
+  out, another server or standalone clears it.
   **Tasks made without a server** (shell api 6, PL-070): the connect page hands the bundled
   build's workspace to `carry` (with the server it is for) before `connect`; the shell keeps it in
   app-private `carried.json` and gives it back through `carried` only while connected to that

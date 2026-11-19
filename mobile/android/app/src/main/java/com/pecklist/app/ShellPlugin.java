@@ -37,7 +37,7 @@ import java.util.concurrent.Executors;
 public class ShellPlugin extends Plugin {
 
     /** Bumped when a method is added; the web app checks it before calling a newer one. */
-    private static final int API = 10;
+    private static final int API = 11;
 
     static final String NOTIFICATIONS = "notifications";
 
@@ -189,6 +189,7 @@ public class ShellPlugin extends Plugin {
         if (installedCa) ServerChoice.agreeInstalledCa(getContext(), origin);
         ServerChoice.set(getContext(), origin);
         BackgroundCheck.forgetServer(getContext());
+        Shortcuts.clear(getContext());
         call.resolve();
         restart();
     }
@@ -209,6 +210,7 @@ public class ShellPlugin extends Plugin {
     private void leave(PluginCall call) {
         ServerChoice.chooseStandalone(getContext());
         BackgroundCheck.forgetServer(getContext());
+        Shortcuts.clear(getContext());
         ClientCert.forget(getContext());
         call.resolve();
         restart();
@@ -293,7 +295,7 @@ public class ShellPlugin extends Plugin {
     public void chooseServer(PluginCall call) {
         call.resolve();
         getActivity().runOnUiThread(() -> {
-            getActivity().setIntent(new Intent(getContext(), MainActivity.class).setAction(MainActivity.CHOOSE_SERVER));
+            getActivity().setIntent(MainActivity.chooseServer(getContext()));
             getActivity().recreate();
         });
     }
@@ -356,6 +358,40 @@ public class ShellPlugin extends Plugin {
         } catch (ActivityNotFoundException missing) {
             notificationSettings(call);
         }
+    }
+
+    /**
+     * Api 11: the lists the launcher's long-press menu offers ({lists: [{id, name}]}, the one
+     * opened last first); an empty list clears them, as after signing out (Shortcuts).
+     */
+    @PluginMethod
+    public void setShortcuts(PluginCall call) {
+        try {
+            Shortcuts.setLists(getContext(), call.getArray("lists", new com.getcapacitor.JSArray()));
+            call.resolve();
+        } catch (JSONException | RuntimeException error) {
+            call.reject("bad shortcuts: " + error.getMessage(), "invalid");
+        }
+    }
+
+    /**
+     * Api 11: the keyboard up for the field the page just focused. A WebView raises it only for a
+     * tap, so the Add task shortcut's focused field would wait for one otherwise.
+     */
+    @PluginMethod
+    public void showKeyboard(PluginCall call) {
+        android.webkit.WebView web = getBridge().getWebView();
+        android.app.Activity activity = getActivity();
+        if (activity == null) {
+            call.resolve();
+            return;
+        }
+        web.post(() -> {
+            web.requestFocus();
+            androidx.core.view.WindowCompat.getInsetsController(activity.getWindow(), web)
+                .show(androidx.core.view.WindowInsetsCompat.Type.ime());
+        });
+        call.resolve();
     }
 
     /** Where the tasks handed over on connecting wait (app-private storage). */

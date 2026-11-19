@@ -19,6 +19,10 @@
     <string name="confirm_disconnect_title">Use PeckList without a server?</string>
     <string name="confirm_disconnect_body">PeckList stops using %1$s. Your tasks stay on the server.</string>
     <string name="confirm_disconnect_yes">Disconnect</string>
+    <!-- The "Change server" shortcut, which any app can send (MainActivity). -->
+    <string name="confirm_change_title">Change server?</string>
+    <string name="confirm_change_body">PeckList stops using %1$s and opens the connect page. Your tasks stay on the server.</string>
+    <string name="confirm_change_yes">Change server</string>
 
     <!-- The chosen server is now vouched for by an authority installed on the phone (audit A2). -->
     <string name="installed_ca_title">Check this server\'s certificate</string>
@@ -73,7 +77,14 @@
     <string name="reminder_body">Reminder for %1$s</string>
     <!-- Back with nothing left to go back to (MainActivity). -->
     <string name="back_again">Press Back again to leave PeckList</string>
-    <!-- The launcher icon's long-press shortcut: back to the connect page, whatever the server runs. -->
+    <!-- The launcher icon's long-press shortcuts (Shortcuts, res/xml/shortcuts.xml). -->
+    <string name="shortcut_add_short">Add task</string>
+    <string name="shortcut_add_long">Add a task</string>
+    <string name="shortcut_today_short">Today</string>
+    <string name="shortcut_today_long">Today</string>
+    <string name="shortcut_search_short">Search</string>
+    <string name="shortcut_search_long">Search tasks</string>
+    <!-- Back to the connect page, whatever the server runs. -->
     <string name="shortcut_server_short">Change server</string>
     <string name="shortcut_server_long">Change server or use without one</string>
 </resources>
