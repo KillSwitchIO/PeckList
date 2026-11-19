@@ -173,4 +173,6 @@ export interface NativeShell {
   showKeyboard?(): Promise<void>;
   /** Api 12: the tasks the home-screen widgets show from now on; `signedOut` leaves them asking to open the app. */
   setWidgetTasks?(feed: WidgetFeed): Promise<void>;
+  /** Api 13: text for a new task handed to the app from outside (shared, selected, spoken), once; null when none. */
+  takeAddText?(): Promise<string | null>;
 }

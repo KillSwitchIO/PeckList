@@ -41,6 +41,7 @@ interface ShellPlugin {
   setShortcuts(options: { lists: ShortcutList[] }): Promise<void>;
   showKeyboard(): Promise<void>;
   setWidgetTasks(feed: WidgetFeed): Promise<void>;
+  takeAddText(): Promise<{ text?: unknown }>;
 }
 
 const CHANNEL_KINDS: PhoneChannelKind[] = [
@@ -170,5 +171,11 @@ export function createCapacitorShell(): NativeShell | null {
     // An older shell has none: the field is focused, a tap brings the keyboard.
     showKeyboard: () => plugin.showKeyboard().catch(() => undefined),
     setWidgetTasks: (feed) => plugin.setWidgetTasks(feed),
+    // An older shell has none (the call fails): nothing waiting.
+    takeAddText: () =>
+      plugin.takeAddText().then(
+        ({ text }) => (typeof text === 'string' && text.trim() ? text : null),
+        () => null,
+      ),
   };
 }

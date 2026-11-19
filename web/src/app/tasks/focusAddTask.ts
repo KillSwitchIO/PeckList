@@ -8,6 +8,20 @@ export function focusAddTask(): boolean {
   return true;
 }
 
+/** The event the add-task field takes a title from (`detail`: the text), for fillAddTask. */
+export const ADD_TEXT_EVENT = 'pecklist:add-text';
+
+/**
+ * Put `text` in the page's add-task field, to check and add (text from outside the app, PL-113);
+ * false when the page has none.
+ */
+export function fillAddTask(text: string): boolean {
+  const field = document.querySelector<HTMLElement>('[data-add-task]');
+  if (!field) return false;
+  field.dispatchEvent(new CustomEvent(ADD_TEXT_EVENT, { detail: text }));
+  return true;
+}
+
 /**
  * Open the new task screen of the page's add-task field (its expand button: a blank task, full
  * screen, with the page's defaults); false when the page has none.

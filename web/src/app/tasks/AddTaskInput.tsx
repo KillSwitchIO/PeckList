@@ -2,7 +2,7 @@ import RepeatRounded from '@mui/icons-material/RepeatRounded';
 import OpenInFullRounded from '@mui/icons-material/OpenInFullRounded';
 import AddRounded from '@mui/icons-material/AddRounded';
 import { Box, Chip, IconButton, InputBase, Tooltip } from '@mui/material';
-import { useState, type ReactElement } from 'react';
+import { useEffect, useRef, useState, type ReactElement } from 'react';
 import { localTimeZone, wallClock } from '../../core/dates.ts';
 import {
   createFromQuickAdd,
@@ -26,6 +26,7 @@ import { useApply, useStoreState, useWorkspace } from '../store/hooks.ts';
 import { newTaskAssignees } from './newTaskAssignees.ts';
 import { useTaskSelection } from './selection.ts';
 import { markDraft } from './drafts.ts';
+import { ADD_TEXT_EVENT } from './focusAddTask.ts';
 import { useSyncState } from '../sync/syncContext.ts';
 import { countUse } from '../telemetry/usage.ts';
 
@@ -114,6 +115,24 @@ export function AddTaskInput({
   const [title, setTitle] = useState('');
   const [parser, setParser] = useState<DateParser | null>(null);
   const [ignore, setIgnore] = useState<ReadonlySet<string>>(new Set());
+  const field = useRef<HTMLTextAreaElement | null>(null);
+  // A title from outside the app (shared, selected or spoken: fillAddTask), one line, to check and add.
+  useEffect(() => {
+    const input = field.current;
+    if (!input) return;
+    const take = (event: Event) => {
+      const text = (event as CustomEvent<unknown>).detail;
+      if (typeof text !== 'string') return;
+      const line = text.replace(/\s+/g, ' ').trim();
+      if (!line) return;
+      // Words being typed stay: any app can send text at any time, so it goes after them.
+      setTitle((typed) => (typed.trim() ? `${typed.trimEnd()} ${line}` : line));
+      setIgnore(new Set());
+      void loadParser().then(setParser);
+    };
+    input.addEventListener(ADD_TEXT_EVENT, take);
+    return () => input.removeEventListener(ADD_TEXT_EVENT, take);
+  }, []);
 
   // @ names the people the assignee picker offers (servers with accounts only).
   const people =
@@ -241,6 +260,7 @@ export function AddTaskInput({
             }}
             // Q (keyboard shortcuts) focuses the first one on the page.
             inputProps={{ 'aria-label': label, 'data-add-task': '' }}
+            inputRef={field}
             sx={{ color: 'text.primary', p: 0 }}
           />
           <Tooltip title={t('quickAdd.expand')}>

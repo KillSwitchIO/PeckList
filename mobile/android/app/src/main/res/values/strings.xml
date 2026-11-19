@@ -87,6 +87,14 @@
     <!-- Back to the connect page, whatever the server runs. -->
     <string name="shortcut_server_short">Change server</string>
     <string name="shortcut_server_long">Change server or use without one</string>
+    <!-- A new task from outside the app (AddTextActivity, AddTileService, PL-113). -->
+    <string name="add_text_label">Add to PeckList</string>
+    <string name="voice_prompt">What should PeckList add?</string>
+    <string name="tile_add">Add task</string>
+    <string name="shortcut_voice_short">Add by voice</string>
+    <string name="shortcut_voice_long">Add a task by voice</string>
+    <string name="widget_voice">Add a task by voice</string>
+
     <!-- Home-screen widgets (Widgets, PL-121): the picker's names and descriptions, then their text. -->
     <string name="widget_today_label">Today</string>
     <string name="widget_quick_add_label">Add task</string>
