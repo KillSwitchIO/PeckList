@@ -5,6 +5,7 @@ import { setCompletedAt, setTaskStatus } from '../../core/tasks.ts';
 import type { HeldPress } from '../../ports/nativeShell.ts';
 import type { NotificationAction } from '../../ports/notifier.ts';
 import { t } from '../i18n/i18n.ts';
+import { queueNotificationAction } from '../notifications/notificationActions.ts';
 import { localClock } from '../reminders/clock.ts';
 import { notifier } from '../reminders/notifier.ts';
 import { useApply, useStoreState } from '../store/hooks.ts';
@@ -69,10 +70,13 @@ function useHeldPresses(act: { current: ReturnType<typeof useApply> }) {
   }, [ready, act]);
 }
 
-function finish(
-  apply: ReturnType<typeof useApply>,
-  { action, taskId, minutes }: NotificationAction,
-) {
+function finish(apply: ReturnType<typeof useApply>, press: NotificationAction) {
+  // A thumbs up or dibs waits for its task (NotificationLinks does it once it is here).
+  if (!('minutes' in press)) {
+    queueNotificationAction({ kind: press.action, taskId: press.taskId });
+    return;
+  }
+  const { action, taskId, minutes } = press;
   if (action === 'complete') {
     apply(
       (ctx, ws) =>

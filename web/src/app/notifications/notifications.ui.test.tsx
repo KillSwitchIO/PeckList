@@ -161,7 +161,8 @@ describe('notifications', () => {
       url: `/today?task=${taskId}`,
       actions: [
         { action: 'open', title: 'Open task', url: `/today?task=${taskId}` },
-        { action: 'dibs', title: 'Call dibs', url: `/today?task=${taskId}&dibs=1` },
+        // Its task named for the press to hand over, not a flag in the address.
+        { action: 'dibs', title: 'Call dibs', url: `/today?task=${taskId}`, taskId },
       ],
     });
 

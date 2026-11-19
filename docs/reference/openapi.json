@@ -11172,6 +11172,12 @@
           },
           "url": {
             "type": "string"
+          },
+          "taskId": {
+            "type": [
+              "null",
+              "string"
+            ]
           }
         }
       },

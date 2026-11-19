@@ -29,7 +29,7 @@ interface ShellReminders {
     url: string;
     news?: boolean;
     category?: string;
-    actions?: { action: string; title: string; url: string }[];
+    actions?: { action: string; title: string; url: string; taskId?: string }[];
   }): Promise<void>;
   addListener(
     event: 'notificationOpen',
@@ -72,6 +72,13 @@ export function openedOf(event: {
   ) {
     const minutes = typeof event.minutes === 'number' && event.minutes > 0 ? event.minutes : 10;
     return { url: event.url, action: { action: event.action, taskId: event.taskId, minutes } };
+  }
+  // A thumbs up or dibs, from the press itself rather than a flag in the address (security review
+  // 2026-11-19); the shell vouches for it with its per-install token, in the same release.
+  if ((event.action === 'like' || event.action === 'dibs') && typeof event.taskId === 'string') {
+    return event.taskId
+      ? { url: event.url, action: { action: event.action, taskId: event.taskId } }
+      : { url: event.url };
   }
   return { url: event.url };
 }
@@ -130,7 +137,12 @@ export function createShellNotifier(older: () => Notifier | null): Notifier | nu
           category: notification.category ?? '',
           actions: (notification.actions ?? [])
             .filter((each) => each.url !== undefined)
-            .map((each) => ({ action: each.action, title: each.title, url: each.url ?? '/' })),
+            .map((each) => ({
+              action: each.action,
+              title: each.title,
+              url: each.url ?? '/',
+              ...(each.taskId ? { taskId: each.taskId } : {}),
+            })),
         });
         return;
       }

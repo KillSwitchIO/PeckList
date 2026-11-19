@@ -10,8 +10,11 @@ export interface AppNotification {
   url: string;
   /** Stays on screen until dismissed, and buzzes again when it comes back (a constant reminder) */
   sticky?: boolean;
-  /** Buttons on it (shown where the system has them); a press reaches the app as a message, or opens its url */
-  actions?: { action: string; title: string; url?: string }[];
+  /**
+   * Buttons on it (shown where the system has them); a press reaches the app as a message, or opens
+   * its url. A thumbs up or dibs names its task, which the press hands over (never the url).
+   */
+  actions?: { action: string; title: string; url?: string; taskId?: string }[];
   /** News from the server (an assignment, a share, a comment), not a reminder: no Complete or Snooze */
   kind?: 'reminder' | 'news';
   /** The news' kind as the server names it (assigned, shared, commented, ...): picks its channel on Android */
@@ -33,12 +36,13 @@ export interface ScheduledNotification extends AppNotification {
   local?: boolean;
 }
 
-/** A button on a reminder that finishes in the app (Android): close the task, or put it off. */
-export interface NotificationAction {
-  action: 'complete' | 'snooze';
-  taskId: string;
-  minutes: number;
-}
+/**
+ * A button that finishes in the app (Android): on a reminder, close the task or put it off; on a
+ * comment or a group's task, a thumbs up or dibs (R-FB-106, R-FB-107), for the press's own task.
+ */
+export type NotificationAction =
+  | { action: 'complete' | 'snooze'; taskId: string; minutes: number }
+  | { action: 'like' | 'dibs'; taskId: string };
 
 export interface Notifier {
   permission(): NotificationPermissionState;

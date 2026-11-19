@@ -42,16 +42,60 @@ self.addEventListener('notificationclick', (event) => {
   const pressed = (event.notification.data?.actions || []).find(
     (each) => each.action === event.action,
   );
-  const url = new URL(hereOnly(pressed?.url || event.notification.data?.url), self.location.origin)
-    .href;
+  const where = new URL(
+    hereOnly(pressed?.url || event.notification.data?.url),
+    self.location.origin,
+  );
   event.waitUntil(
-    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((windows) => {
-      const open = windows.find((each) => new URL(each.url).origin === self.location.origin);
-      if (open) return open.focus().then((focused) => (focused || open).navigate(url));
-      return self.clients.openWindow(url);
-    }),
+    handOver(pressed, where).then((url) =>
+      self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((windows) => {
+        const open = windows.find((each) => new URL(each.url).origin === self.location.origin);
+        if (open) return open.focus().then((focused) => (focused || open).navigate(url));
+        return self.clients.openWindow(url);
+      }),
+    ),
   );
 });
+
+// What the page does for a button that acts (thumbs up, Call dibs) waits here, under a one-time
+// random name the address carries (?act=), never in the address itself: a link from another site
+// could carry like=1, but it cannot write this origin's caches (security review 2026-11-19). The
+// page deletes the entry before acting on its own task, and only if it is under two minutes old
+// (NotificationLinks).
+const ACTIONS = 'pecklist-actions';
+
+function nonce() {
+  const bytes = crypto.getRandomValues(new Uint8Array(16));
+  return btoa(String.fromCharCode(...bytes))
+    .replace(/\+/g, '-')
+    .replace(/\//g, '_')
+    .replace(/=+$/, '');
+}
+
+function handOver(pressed, where) {
+  const acts = pressed && (pressed.action === 'like' || pressed.action === 'dibs');
+  if (!acts || typeof pressed.taskId !== 'string' || !pressed.taskId) {
+    return Promise.resolve(where.href);
+  }
+  const name = nonce();
+  const entry = JSON.stringify({ kind: pressed.action, taskId: pressed.taskId, at: Date.now() });
+  return caches
+    .open(ACTIONS)
+    .then((cache) =>
+      cache.put(
+        `/act/${name}`,
+        new Response(entry, { headers: { 'Content-Type': 'application/json' } }),
+      ),
+    )
+    .then(
+      () => {
+        where.searchParams.set('act', name);
+        return where.href;
+      },
+      // No caches here: the button just opens its task.
+      () => where.href,
+    );
+}
 
 // A push from the server (a reminder, an assignment, a mention): show it. The same tag as the
 // app's own reminder replaces it rather than showing twice.
