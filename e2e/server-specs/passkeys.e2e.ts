@@ -45,11 +45,7 @@ function forwardFromLocalhost(): Promise<{ origin: string; close: () => void }> 
 
 const button = (text: string) => $(`//button[normalize-space()='${text}']`);
 
-// Skipped for now: in CI the app stops at "Something went wrong" (workspace has no Inbox, thrown by
-// inboxList from the sidebar) when the spec opens /settings on the localhost forward, so "Add a
-// passkey" never shows. Seen in e2e-server-mr job 18032012999 (MR !365, artifacts kept); the app
-// fix comes after the 0.12.0 batch, then this skip goes. converge and unfriend still run.
-describe.skip('passkeys (PL-123)', function () {
+describe('passkeys (PL-123)', function () {
   let close = () => {};
   let authenticator = '';
   let origin = '';
@@ -157,7 +153,15 @@ describe.skip('passkeys (PL-123)', function () {
     await browser.url(`${origin}/today`);
     // "Account: admin" or "Your account", with any unread count after it.
     await $('button[aria-haspopup="menu"][aria-label*="ccount"]').click();
-    await $("//li[@role='menuitem'][normalize-space()='Sign out']").click();
+    // The menu says Log out (profile.logOut); run 3 of 15c looked for "Sign out" and never found it.
+    await $("//li[@role='menuitem'][normalize-space()='Log out']").click();
+    // Asked first only when something has not synced yet.
+    const anyway = button('Log out anyway');
+    const asked = await anyway.waitForExist({ timeout: 3_000 }).then(
+      () => true,
+      () => false,
+    );
+    if (asked) await anyway.click();
     const passkeyButton = button('Sign in with a passkey');
     await passkeyButton.waitForDisplayed({ timeout: 30_000 });
     await passkeyButton.click();
