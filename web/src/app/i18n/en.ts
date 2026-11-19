@@ -1756,6 +1756,11 @@ export const en = {
   'notifications.kindAssignments': 'Assignments and dibs',
   'notifications.kindShares': 'Shared lists',
   'notifications.kindComments': 'Comments and mentions',
+  'notifications.kindsPhoneHint':
+    'What reaches you as a notification, on every device. On this phone, a switch opens that kind in the phone’s notification settings, and turning a kind on or off there turns it on or off here too.',
+  'notifications.kindConstant': 'Constant reminders',
+  'notifications.kindConstantHint':
+    'Reminders that keep going until you act on them. Set on this phone only.',
   'notifications.vibrate': 'Vibrate',
   'notifications.onPhone': 'Sounds and vibration',
   'notifications.onPhoneHint':

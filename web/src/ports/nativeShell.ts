@@ -21,6 +21,21 @@ export interface ShellInfo {
   distribution?: 'play' | 'foss';
 }
 
+/** A kind of notification with a channel of its own on the phone (PL-115); `constant` has no in-app switch. */
+export type PhoneChannelKind = 'reminders' | 'assignments' | 'shares' | 'comments' | 'constant';
+
+/** The in-app switches (settings.notifications) a phone channel's on or off is carried into. */
+export type SyncedChannelKind = Exclude<PhoneChannelKind, 'constant'>;
+
+/**
+ * The phone's notification channels (api 10): each kind's on or off in Android's settings, and the
+ * kinds switched there since the last ask (asking takes them), for the synced switches.
+ */
+export interface PhoneChannels {
+  channels: Partial<Record<PhoneChannelKind, boolean>>;
+  changed: Partial<Record<SyncedChannelKind, boolean>>;
+}
+
 /**
  * Whether reminders can go off at the exact minute (api 9). `canAsk`: Android 12 and up has a page
  * to allow it and it is not allowed yet (the Play build on Android 14 and up, until the person says
@@ -139,4 +154,8 @@ export interface NativeShell {
   exactAlarms?(): Promise<ExactAlarms>;
   /** Api 9: Android's page to allow exact alarms; the state once it closes, or at once with nothing to ask. */
   allowExactAlarms?(): Promise<ExactAlarms>;
+  /** Api 10: each kind's channel on or off on the phone, and the kinds switched there since the last ask. */
+  notificationChannels?(): Promise<PhoneChannels>;
+  /** Api 10: one kind's channel in Android's settings (its on or off, sound and vibration). */
+  openNotificationChannel?(kind: PhoneChannelKind): Promise<void>;
 }

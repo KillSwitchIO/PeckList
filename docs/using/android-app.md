@@ -157,9 +157,15 @@ HTTP is the same: the yes you gave on the connect page is for that server only.
   mentions show as notifications, and reminders set on another device are set on the phone too.
   **Settings > Notifications** turns the check-in off or makes it less frequent (15, 30 or 60
   minutes).
-- Each kind of notification (reminders, constant reminders, assignments and dibs, shares, comments
-  and mentions) has its own sound, vibration and on or off switch in the phone's notification
-  settings. **Settings > Notifications > Manage on the phone** opens them.
+- Each kind of notification has its own category in the phone's notification settings for
+  PeckList, with its own sound, vibration and on or off switch, from the first start: **Reminders**
+  and **Constant reminders** under Reminders, and **Assignments and dibs**, **Shared lists** and
+  **Comments and mentions** under From other people. Recent Android versions fold categories that
+  have not sent anything yet under **Show unused categories**.
+- **Settings > Notifications** in the app follows the phone. Each switch there opens its category
+  in the phone's settings, and turning a kind off or on there turns it off or on in the app too,
+  for all your devices, once you come back to the app. **Manage on the phone** opens the whole
+  list.
 - A constant reminder keeps buzzing until you open it, dismiss it or press a button, and goes
   quiet after 30 minutes. It makes no sound unless you give **Constant reminders** one there.
 - After you sign in, the app asks to send notifications and to run in the background. Allow both,

@@ -21,6 +21,8 @@ public class CheckReceiver extends BroadcastReceiver {
         // The next one first, so a failed check never ends the chain.
         if (!before) BackgroundCheck.schedule(context);
         if (!before && !BackgroundCheck.ACTION.equals(intent.getAction())) {
+            // After an update: renamed or new channels show before the app is next opened (PL-115).
+            Channels.ensure(context);
             Reminders.restore(context);
             return;
         }
