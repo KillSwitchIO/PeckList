@@ -144,17 +144,23 @@ public static class PushEndpoints
         // The person's snoozes still to come (audit B3), for an open app to fire them itself: only
         // their own, and only on tasks still theirs where the snooze holds (open, a reminder left,
         // the same occurrence). A constant reminder's repeats count.
-        api.MapGet("/reminders/snoozes", async (ClaimsPrincipal user, SharingState sharing, IPushStore store, TimeProvider time, CancellationToken cancellation) =>
+        api.MapGet("/reminders/snoozes", async (
+            ClaimsPrincipal user, SharingState sharing, IPushStore store, TimeProvider time, Core.Configuration.ServerSettings settings,
+            CancellationToken cancellation) =>
         {
             var userId = user.UserId();
             var index = sharing.Index;
             var now = time.GetUtcNow();
             var snoozes = await store.SnoozesAsync(now - ServerReminders.RepeatsLast, now + SnoozesAhead, userId, cancellation);
-            return snoozes
-                .Where(each => index.LiveDocOf(each.TaskId, "tasks") is { } task && ServerReminders.SnoozeHolds(task, each)
-                    && ServerReminders.Recipients(task, index).Contains(userId))
-                .Select(each => new SnoozedReminder(each.TaskId, each.At.ToUnixTimeMilliseconds(), each.Occurrence))
-                .ToList();
+            var zone = await DeviceZones.ZoneForAsync(index, userId, store, settings, cancellation);
+            var found = new List<SnoozedReminder>();
+            foreach (var each in snoozes)
+            {
+                if (index.LiveDocOf(each.TaskId, "tasks") is not { } task || !ServerReminders.SnoozeHolds(task, each, zone)
+                    || !ServerReminders.Recipients(task, index).Contains(userId)) continue;
+                found.Add(new SnoozedReminder(each.TaskId, each.At.ToUnixTimeMilliseconds(), ServerReminders.SnoozedOccurrence(task, each)));
+            }
+            return found;
         }).WithSummary("Your snoozed reminders still to come, for an open app to fire itself");
 
         return api;
