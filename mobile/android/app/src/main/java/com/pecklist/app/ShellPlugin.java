@@ -664,6 +664,14 @@ public class ShellPlugin extends Plugin {
     private boolean opened(Intent intent) {
         String url = intent == null ? null : intent.getStringExtra(Reminders.EXTRA_URL);
         if (url == null || !url.startsWith("/")) return false;
+        if (!NotificationToken.carried(getContext(), intent)) {
+            // Not from this app (MainActivity is exported): the app opens as it would anyway, and
+            // nothing the intent asks for is done. A notification shown before this update has no
+            // token either, so it just opens the app, once.
+            Logger.info("PeckList", "Ignored a page to open that did not come from this app's notifications");
+            forget(intent);
+            return true;
+        }
         if (!firstPress(intent, url)) {
             intent.removeExtra(Reminders.EXTRA_URL);
             return true;
@@ -679,8 +687,17 @@ public class ShellPlugin extends Plugin {
         }
         // Handled: the same intent must not act again when the activity is recreated.
         intent.removeExtra(Reminders.EXTRA_URL);
+        intent.removeExtra(NotificationToken.EXTRA);
         notifyListeners("notificationOpen", event, true);
         return true;
+    }
+
+    /** Drops what a notification's intent asks for, so none of it is acted on later. */
+    private static void forget(Intent intent) {
+        for (String extra : new String[] { Reminders.EXTRA_URL, Reminders.EXTRA_ACTION, Reminders.EXTRA_TASK,
+            Reminders.EXTRA_MINUTES, Reminders.EXTRA_SHOWN, Reminders.EXTRA_PRESS, NotificationToken.EXTRA }) {
+            intent.removeExtra(extra);
+        }
     }
 
     /**
