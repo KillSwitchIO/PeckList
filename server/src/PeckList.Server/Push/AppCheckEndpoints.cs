@@ -80,7 +80,8 @@ public static class AppCheckEndpoints
             var now = time.GetUtcNow();
             // This check's own zone is the freshest word from the device.
             var device = DeviceZones.Valid(zone) ?? (settings.TimeZoneChosen ? null : await push.DeviceZoneAsync(me, cancellation));
-            var snoozes = await push.SnoozesAsync(now - ServerReminders.RepeatsLast, now + Ahead, me, cancellation);
+            // Past the window too: a snooze later than it still puts off a reminder in it (0.14.0).
+            var snoozes = await push.SnoozesAsync(now - ServerReminders.RepeatsLast, now + ServerReminders.SnoozesAhead, me, cancellation);
             var upcoming = ReminderSender.UpcomingFor(index, me, now, now + Ahead, device, settings.TimeZoneChosen, snoozes)
                 .Take(AheadMax)
                 .Select(each => new AppCheckReminder(each.Key, each.Title, each.Body, each.At.ToUnixTimeMilliseconds(), each.Url, each.Constant, each.Repeats))

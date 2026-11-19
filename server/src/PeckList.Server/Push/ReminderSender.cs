@@ -71,6 +71,24 @@ public sealed class ReminderSender(
                 && TimeZoneInfo.TryFindSystemTimeZoneById(name, out var was) ? was : null;
             return zones[userId] = (now, before);
         }
+        // Snoozes (audit B3) that hold, the latest per person and reminder (0.14.0), read ahead of this
+        // run: each puts off the reminder it was pressed on, even one due in this run.
+        var holding = new List<(ReminderSnooze Snooze, JsonObject Task)>();
+        foreach (var snooze in await store.SnoozesAsync(from - ServerReminders.RepeatsLast, to + ServerReminders.SnoozesAhead, cancellation: cancellation))
+        {
+            if (index.LiveDocOf(snooze.TaskId, "tasks") is not { } task) continue;
+            try
+            {
+                if (ServerReminders.SnoozeHolds(task, snooze, ZonesOf(snooze.UserId).Now)) holding.Add((snooze, task));
+            }
+            catch (Exception error) when (error is not OperationCanceledException)
+            {
+                Failed(error, snooze.TaskId, snooze.UserId);
+            }
+        }
+        holding = [.. ServerReminders.LatestPerReminder(holding, each => each.Snooze)];
+        var pressed = holding.GroupBy(each => (each.Snooze.UserId, each.Snooze.TaskId))
+            .ToDictionary(group => group.Key, group => ServerReminders.Pressed(group.Select(each => each.Snooze)));
         foreach (var (taskId, _, task) in index.LiveTasksWithReminders())
         {
             if (task["reminders"] is not JsonArray { Count: > 0 } || (string?)task["status"] != "open") continue;
@@ -85,9 +103,11 @@ public sealed class ReminderSender(
                     // Both zones give the same reminders in the same order, so the i-th is the same one.
                     var instants = ServerReminders.Instants(task, zone).ToList();
                     var earlier = before is null ? null : ServerReminders.Instants(task, before).ToList();
+                    var putOff = pressed.GetValueOrDefault((userId, taskId));
                     for (var i = 0; i < instants.Count; i++)
                     {
                         var (at, first, _) = instants[i];
+                        if (ServerReminders.PutOff(instants[i], putOff)) continue;
                         // When the zone moved later (flying east), a reminder can now be due before this run
                         // while in the old zone no run had sent it yet (its old time is in this run or after):
                         // it goes now rather than never. Its repeats keep their new times.
@@ -103,18 +123,19 @@ public sealed class ReminderSender(
             }
         }
         // Snoozes (audit B3): each for the one person who snoozed, while it holds and the task is theirs.
-        foreach (var snooze in await store.SnoozesAsync(from - ServerReminders.RepeatsLast, to, cancellation: cancellation))
+        foreach (var (snooze, task) in holding)
         {
-            if (index.LiveDocOf(snooze.TaskId, "tasks") is not { } task) continue;
             try
             {
                 var (zone, _) = ZonesOf(snooze.UserId);
-                if (!ServerReminders.SnoozeHolds(task, snooze, zone) || !ServerReminders.Recipients(task, index).Contains(snooze.UserId)) continue;
+                if (!ServerReminders.Recipients(task, index).Contains(snooze.UserId)) continue;
                 var mine = settings.GetValueOrDefault(snooze.UserId);
                 if (!NotificationSwitches.Allows(mine, NotificationKind.Reminder)) continue;
+                var putOff = pressed.GetValueOrDefault((snooze.UserId, snooze.TaskId));
                 foreach (var time in ServerReminders.Snoozed(task, snooze.At))
                 {
-                    if (time.At <= from || time.At > to) continue;
+                    // Come back and snoozed again: the later snooze puts this one off.
+                    if (time.At <= from || time.At > to || ServerReminders.PutOff(time, putOff)) continue;
                     await SendAsync(snooze.TaskId, task, snooze.UserId, time, zone, mine, to, cancellation);
                 }
             }
@@ -175,17 +196,29 @@ public sealed class ReminderSender(
         if (!NotificationSwitches.Allows(mine, NotificationKind.Reminder)) return [];
         var zone = ZoneOf(mine, deviceZone, serverZoneChosen);
         var found = new List<Upcoming>();
-        foreach (var (taskId, _, task) in index.LiveTasksWithReminders())
-        {
-            if (task["reminders"] is not JsonArray { Count: > 0 } || (string?)task["status"] != "open") continue;
-            if (!ServerReminders.Recipients(task, index).Contains(userId)) continue;
-            Add(taskId, task, ServerReminders.Instants(task, zone));
-        }
+        // The snoozes that come (0.14.0): those that hold, the latest per reminder. Each puts off the
+        // reminder it was pressed on, the task's own or an earlier snooze.
+        var holding = new List<(ReminderSnooze Snooze, JsonObject Task)>();
         foreach (var snooze in snoozes ?? [])
         {
             if (snooze.UserId != userId || index.LiveDocOf(snooze.TaskId, "tasks") is not { } task) continue;
             if (!ServerReminders.SnoozeHolds(task, snooze, zone) || !ServerReminders.Recipients(task, index).Contains(userId)) continue;
-            Add(snooze.TaskId, task, ServerReminders.Snoozed(task, snooze.At));
+            holding.Add((snooze, task));
+        }
+        holding = [.. ServerReminders.LatestPerReminder(holding, each => each.Snooze)];
+        var pressed = holding.GroupBy(each => each.Snooze.TaskId, StringComparer.Ordinal)
+            .ToDictionary(group => group.Key, group => ServerReminders.Pressed(group.Select(each => each.Snooze)), StringComparer.Ordinal);
+        foreach (var (taskId, _, task) in index.LiveTasksWithReminders())
+        {
+            if (task["reminders"] is not JsonArray { Count: > 0 } || (string?)task["status"] != "open") continue;
+            if (!ServerReminders.Recipients(task, index).Contains(userId)) continue;
+            var putOff = pressed.GetValueOrDefault(taskId);
+            Add(taskId, task, ServerReminders.Instants(task, zone).Where(time => !ServerReminders.PutOff(time, putOff)));
+        }
+        foreach (var (snooze, task) in holding)
+        {
+            var putOff = pressed.GetValueOrDefault(snooze.TaskId);
+            Add(snooze.TaskId, task, ServerReminders.Snoozed(task, snooze.At).Where(time => !ServerReminders.PutOff(time, putOff)));
         }
         // A snooze at a time one of the task's reminders already has is that reminder.
         return [.. found.DistinctBy(each => each.Key).OrderBy(each => each.At)];

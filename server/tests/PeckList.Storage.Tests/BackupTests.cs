@@ -145,7 +145,7 @@ public sealed class BackupTests(SqliteFiles files, PostgresServer postgres) : IC
         var push = new SqlPushStore(source, new Clock());
         await push.SetDeviceZoneAsync("01JBACCT000000000000000001", "Asia/Tokyo", Token);
         var due = DateTimeOffset.UnixEpoch.AddYears(60);
-        await push.SnoozeAsync("01JBACCT000000000000000001", "01JBTASK000000000000000001", due, null, Token);
+        await push.SnoozeAsync("01JBACCT000000000000000001", "01JBTASK000000000000000001", due, null, cancellation: Token);
 
         await ImportAsync(source, exported, replace: true);
         Assert.Equal(exported, await ExportAsync(source));

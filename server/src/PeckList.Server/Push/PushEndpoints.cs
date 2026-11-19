@@ -32,7 +32,7 @@ public sealed record ReminderAct(string? TaskId, long First, string? Action, int
 /// since the epoch), while the task is still on <paramref name="Occurrence"/>, the date it had when
 /// snoozed (null: any). A repeating task completed in the app moves on at once, before the server hears.
 /// </summary>
-public sealed record SnoozedReminder(string TaskId, long At, string? Occurrence = null);
+public sealed record SnoozedReminder(string TaskId, long At, string? Occurrence = null, long? First = null);
 
 /// <summary>Web Push (spec: PL-061): the server's key, and this browser's subscription.</summary>
 public static class PushEndpoints
@@ -135,8 +135,11 @@ public static class PushEndpoints
                 // minute, as a reminder's set time is, so the apps' keys for it agree.
                 var minutes = Math.Clamp(request.Minutes ?? SnoozeMinutes, 1, 7 * 24 * 60);
                 var later = now.AddMinutes(minutes);
+                // The reminder pressed, when named: the snooze puts off that one alone, and replaces
+                // the person's last snooze of it (0.14.0).
                 await store.SnoozeAsync(userId, found.Id, later.AddTicks(-(later.UtcTicks % TimeSpan.TicksPerMinute)),
-                    ServerReminders.Occurrence(found.Doc), cancellation);
+                    ServerReminders.Occurrence(found.Doc), request.First > 0 ? DateTimeOffset.FromUnixTimeMilliseconds(request.First) : null,
+                    cancellation);
             }
             return Results.NoContent();
         }).Doc("Press a reminder's button with the app closed: dismiss, snooze (minutes, ten by default) or complete").Refuses(StatusCodes.Status400BadRequest).Missing();
@@ -151,23 +154,30 @@ public static class PushEndpoints
             var userId = user.UserId();
             var index = sharing.Index;
             var now = time.GetUtcNow();
-            var snoozes = await store.SnoozesAsync(now - ServerReminders.RepeatsLast, now + SnoozesAhead, userId, cancellation);
+            var snoozes = await store.SnoozesAsync(now - ServerReminders.RepeatsLast, now + ServerReminders.SnoozesAhead, userId, cancellation);
             var zone = await DeviceZones.ZoneForAsync(index, userId, store, settings, cancellation);
-            var found = new List<SnoozedReminder>();
+            var holding = new List<(ReminderSnooze Snooze, JsonObject Task)>();
             foreach (var each in snoozes)
             {
                 if (index.LiveDocOf(each.TaskId, "tasks") is not { } task || !ServerReminders.SnoozeHolds(task, each, zone)
                     || !ServerReminders.Recipients(task, index).Contains(userId)) continue;
-                found.Add(new SnoozedReminder(each.TaskId, each.At.ToUnixTimeMilliseconds(), ServerReminders.SnoozedOccurrence(task, each)));
+                holding.Add((each, task));
             }
-            return found;
+            // The latest per reminder, and none a later snooze put off (0.14.0): come back and snoozed
+            // again. Each says the reminder it was pressed on, which the app does not fire then.
+            var coming = ServerReminders.LatestPerReminder(holding, each => each.Snooze).ToList();
+            var pressed = coming.GroupBy(each => each.Snooze.TaskId, StringComparer.Ordinal)
+                .ToDictionary(group => group.Key, group => ServerReminders.Pressed(group.Select(each => each.Snooze)), StringComparer.Ordinal);
+            return coming
+                .Where(each => !pressed[each.Snooze.TaskId].Contains(each.Snooze.At))
+                .OrderBy(each => each.Snooze.At)
+                .Select(each => new SnoozedReminder(each.Snooze.TaskId, each.Snooze.At.ToUnixTimeMilliseconds(),
+                    ServerReminders.SnoozedOccurrence(each.Task, each.Snooze), each.Snooze.First?.ToUnixTimeMilliseconds()))
+                .ToList();
         }).WithSummary("Your snoozed reminders still to come, for an open app to fire itself");
 
         return api;
     }
-
-    /// <summary>A snooze is at most a week; a little more covers a constant reminder's repeats.</summary>
-    private static readonly TimeSpan SnoozesAhead = TimeSpan.FromDays(8);
 
     /// <summary>How long Snooze puts a constant reminder off (the app's SNOOZE_MINUTES).</summary>
     public const int SnoozeMinutes = 10;

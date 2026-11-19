@@ -14,6 +14,7 @@ import {
   remindsMe,
   snoozeHolds,
   snoozeReminder,
+  type Snooze,
 } from './reminders.ts';
 import { localized } from './localized.ts';
 import { updateSettings } from './settings.ts';
@@ -130,6 +131,7 @@ describe('reminders', () => {
       TZ,
       snoozes,
     );
+    // Snoozes that name no reminder (an older server) each come, as before 0.14.0.
     expect(due.map((each) => [each.title, each.at, each.key])).toEqual([
       ['Pills', at('2026-10-26T10:30'), `${pills.id}@${at('2026-10-26T10:30')}`],
       ['Pills', at('2026-10-26T10:45'), `${pills.id}@${at('2026-10-26T10:45')}`],
@@ -152,6 +154,46 @@ describe('reminders', () => {
     expect(new Set(constant.map((each) => each.tag))).toEqual(
       new Set([`${pills.id}@${at('2026-10-26T10:45')}`]),
     );
+  });
+
+  it('let a snooze put off the reminder it was pressed on, and only the latest snooze of it come (0.14.0)', () => {
+    const s = setup();
+    // 10:30, a quarter of an hour after, and an hour after.
+    const pills = s.add('Pills', {
+      schedule: timed,
+      reminders: [{ before: 0 }, { before: -15 }, { before: -60 }],
+    });
+    const times = (snoozes: Snooze[]) =>
+      remindersBetween(s.ws, ME, at('2026-10-26T10:00'), at('2026-10-26T12:00'), TZ, snoozes).map(
+        (each) => each.at,
+      );
+    const ten30 = at('2026-10-26T10:30');
+    expect(times([])).toEqual([ten30, at('2026-10-26T10:45'), at('2026-10-26T11:30')]);
+    // 10:30 snoozed before it came (the API, the CLI, Home Assistant): 10:30 does not come; the
+    // 10:45 reminder, before the snooze, still does.
+    const to50 = { taskId: pills.id, at: at('2026-10-26T10:50'), first: ten30 };
+    expect(times([to50])).toEqual([
+      at('2026-10-26T10:45'),
+      at('2026-10-26T10:50'),
+      at('2026-10-26T11:30'),
+    ]);
+    // Snoozed again before the first came back (kept by a race): only the latest comes.
+    expect(times([to50, { ...to50, at: at('2026-10-26T10:55') }])).toEqual([
+      at('2026-10-26T10:45'),
+      at('2026-10-26T10:55'),
+      at('2026-10-26T11:30'),
+    ]);
+    // The snooze come back and snoozed again: the new one puts it off.
+    expect(times([to50, { taskId: pills.id, at: at('2026-10-26T11:05'), first: to50.at }])).toEqual(
+      [at('2026-10-26T10:45'), at('2026-10-26T11:05'), at('2026-10-26T11:30')],
+    );
+    // Naming no reminder: it comes beside the task's own, as before.
+    expect(times([{ taskId: pills.id, at: at('2026-10-26T10:50') }])).toEqual([
+      ten30,
+      at('2026-10-26T10:45'),
+      at('2026-10-26T10:50'),
+      at('2026-10-26T11:30'),
+    ]);
   });
 
   it('drop a snooze once the task is done, moved on to its next date, or has no reminder left (Ben, 0.13.0-rc.2)', () => {

@@ -140,7 +140,7 @@ export function ReminderScheduler({ now = Date.now }: { now?: () => number }) {
     () =>
       held.flatMap((each) =>
         each.user === me && each.snooze !== undefined
-          ? [{ taskId: each.press.taskId, at: each.snooze }]
+          ? [{ taskId: each.press.taskId, at: each.snooze, first: each.press.first }]
           : [],
       ),
     [held, me],
