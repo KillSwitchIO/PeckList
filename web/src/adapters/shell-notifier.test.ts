@@ -5,6 +5,7 @@ const shell = vi.hoisted(() => ({
   api: 3,
   display: 'granted' as string,
   scheduled: [] as unknown[][],
+  kept: [] as boolean[],
   shown: [] as unknown[],
   listener: null as null | ((event: unknown) => void),
 }));
@@ -15,8 +16,9 @@ vi.mock('@capacitor/core', () => ({
     info: () => Promise.resolve({ api: shell.api }),
     notificationPermission: () => Promise.resolve({ display: shell.display }),
     requestNotificationPermission: () => Promise.resolve({ display: 'granted' }),
-    scheduleReminders: ({ reminders }: { reminders: unknown[] }) => {
+    scheduleReminders: ({ reminders, keep }: { reminders: unknown[]; keep?: boolean }) => {
       shell.scheduled.push(reminders);
+      shell.kept.push(keep === true);
       return Promise.resolve();
     },
     showNotification: (options: unknown) => {
@@ -60,6 +62,7 @@ beforeEach(() => {
   shell.api = 3;
   shell.display = 'granted';
   shell.scheduled = [];
+  shell.kept = [];
   shell.shown = [];
   shell.listener = null;
 });
@@ -84,6 +87,24 @@ describe('the Android app with its own reminders', () => {
       ],
     ]);
     expect(handed).toEqual([]);
+  });
+
+  it('keeps what is set on shell api 10, and on an older shell hands over nothing rather than all', async () => {
+    shell.api = 10;
+    const { older } = olderShell();
+    const notifier = createShellNotifier(() => older)!;
+    await notifier.scheduleAhead?.([reminder], { keep: true });
+    await notifier.scheduleAhead?.([reminder]);
+    expect(shell.kept).toEqual([true, false]);
+
+    // An older shell would take it for a whole list, the phone's own snoozes going with it.
+    shell.api = 9;
+    shell.kept = [];
+    const before = createShellNotifier(() => older)!;
+    await before.scheduleAhead?.([reminder], { keep: true });
+    expect(shell.kept).toEqual([]);
+    await before.scheduleAhead?.([reminder]);
+    expect(shell.kept).toEqual([false]);
   });
 
   it('leaves them to Local Notifications in an older app', async () => {

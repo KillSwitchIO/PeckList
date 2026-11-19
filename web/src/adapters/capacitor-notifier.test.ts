@@ -61,6 +61,14 @@ describe('the Android notifier', () => {
     expect(handed[1]!.extra.url).toBe('/today?task=t1');
   });
 
+  it('leaves them all as they are when asked to keep what is set (it can only replace)', async () => {
+    const notifier = createCapacitorNotifier('Reminders')!;
+    plugin.pending = [{ id: idOf('snoozed') }];
+    await notifier.scheduleAhead!([reminder('new', 2_000)], { keep: true });
+    expect(plugin.cancelled).toEqual([]);
+    expect(plugin.scheduled).toEqual([]);
+  });
+
   it('schedules nothing without permission, and asks only when it has not been answered', async () => {
     plugin.display = 'denied';
     const notifier = createCapacitorNotifier('Reminders')!;

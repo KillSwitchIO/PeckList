@@ -169,19 +169,29 @@ final class Reminders {
         return all;
     }
 
-    /** Replace the reminders set ahead with these. */
     /**
      * The reminders to keep: {@code wanted}, this phone's own quiet copies, and, when
      * the list comes from the server (a check-in, {@code fromServer}), reminders the web app set for
      * tasks the server does not have yet (audit E2): the server cannot list those, and dropping them
-     * lost the reminder until the task synced. The web app's own list replaces everything.
+     * lost the reminder until the task synced. The web app's own list replaces everything, unless
+     * it says to {@code keep} what is set: then it only adds and changes.
      */
     static Map<String, Reminder> merge(Collection<Reminder> current, List<Reminder> wanted, boolean fromServer, long now) {
+        return merge(current, wanted, fromServer, false, now);
+    }
+
+    /**
+     * {@code keep} (shell api 10): the web app could not get the person's snoozes from the server,
+     * and this phone's own snooze alarms are keyed like any reminder, so it hands over what it has
+     * without taking anything off: a task synced into an open app gets its alarm at once. Its next
+     * whole list, or the next check-in, takes off what has gone.
+     */
+    static Map<String, Reminder> merge(Collection<Reminder> current, List<Reminder> wanted, boolean fromServer, boolean keep, long now) {
         Map<String, Reminder> next = new LinkedHashMap<>();
         for (Reminder old : current) {
             // The quiet copies this phone made for its constant reminders are its own to keep.
             if (old.key.endsWith(QUIET)) next.put(old.key, old);
-            else if (fromServer && old.local && old.at > now) next.put(old.key, old);
+            else if ((keep || fromServer && old.local) && old.at > now) next.put(old.key, old);
         }
         for (Reminder each : wanted) {
             // A constant reminder's repeats are for browsers; here the notification itself keeps
@@ -194,8 +204,13 @@ final class Reminders {
 
     /** Replace the reminders to come: from the web app (its whole list), or from a check-in ({@code fromServer}). */
     static synchronized void handOver(Context context, List<Reminder> wanted, boolean fromServer) {
+        handOver(context, wanted, fromServer, false);
+    }
+
+    /** As above; {@code keep}: add and change only, taking nothing off (see merge). */
+    static synchronized void handOver(Context context, List<Reminder> wanted, boolean fromServer, boolean keep) {
         migrateFromPlugin(context);
-        Map<String, Reminder> next = merge(load(context).values(), wanted, fromServer, System.currentTimeMillis());
+        Map<String, Reminder> next = merge(load(context).values(), wanted, fromServer, keep, System.currentTimeMillis());
         for (Reminder old : load(context).values()) {
             if (!next.containsKey(old.key)) cancelAlarm(context, old);
         }

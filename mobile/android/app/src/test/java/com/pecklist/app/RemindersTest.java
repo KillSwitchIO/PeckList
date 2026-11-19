@@ -87,4 +87,30 @@ public class RemindersTest {
             Collections.singletonList(at("OFFLINE@1", now + 60_000, false)), true, now);
         assertEquals(false, synced.get("OFFLINE@1").local);
     }
+
+    /**
+     * Api 10: the web app without the person's snoozes (the server did not answer for them) hands over
+     * with keep: a task synced in gets its alarm, a changed one is updated, and nothing set is taken
+     * off, this phone's own snooze least of all; past ones still go.
+     */
+    @Test
+    public void aHandOverThatKeepsOnlyAddsAndChanges() {
+        long now = 1_000_000L;
+        List<Reminders.Reminder> current = Arrays.asList(
+            at("PLAIN@1", now + 60_000, false),
+            at("SNOOZED@9", now + 600_000, false),
+            at("PAST@1", now - 60_000, false),
+            at("QUIET@1#quiet", now + 60_000, false));
+        List<Reminders.Reminder> wanted = Arrays.asList(
+            new Reminders.Reminder("PLAIN@1", "renamed", "b", now + 60_000, "/today", false, false),
+            at("SYNCED@2", now + 120_000, false));
+
+        Map<String, Reminders.Reminder> kept = Reminders.merge(current, wanted, false, true, now);
+        assertEquals(Arrays.asList("PLAIN@1", "SNOOZED@9", "QUIET@1#quiet", "SYNCED@2"), new java.util.ArrayList<>(kept.keySet()));
+        assertEquals("renamed", kept.get("PLAIN@1").title);
+
+        // Without keep, the web app's list replaces them, as before.
+        assertEquals(Arrays.asList("QUIET@1#quiet", "PLAIN@1", "SYNCED@2"),
+            new java.util.ArrayList<>(Reminders.merge(current, wanted, false, false, now).keySet()));
+    }
 }

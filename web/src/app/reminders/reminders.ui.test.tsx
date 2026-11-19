@@ -542,28 +542,31 @@ describe('snoozing a reminder (audit B3)', () => {
     ).toBe(true);
   });
 
-  it('in the Android app are not handed over before the list was ever had', async () => {
-    const handed: ScheduledNotification[][] = [];
+  it('in the Android app are added, taking nothing off, while the list was never had', async () => {
+    const handed: { titles: string[]; keep: boolean }[] = [];
     setNotifier({
       ...fakeNotifier(),
-      scheduleAhead: (notifications: ScheduledNotification[]) => {
-        handed.push(notifications);
+      scheduleAhead: (notifications: ScheduledNotification[], options?: { keep?: boolean }) => {
+        handed.push({ titles: notifications.map((each) => each.title), keep: !!options?.keep });
         return Promise.resolve();
       },
     });
-    // Offline for snoozes since the page opened: an empty list would take the phone's away.
+    // The server not answering for snoozes since the page opened (0.13.0-rc.2: a task synced into
+    // the open app got no alarm until a reload): a whole list would take the phone's own away.
     const { backend, store, sync } = await onServer((it) => {
       it.failSnoozes = true;
     });
     addTask(store, 'Call mum', inMinutes(120), [{ before: 0 }]);
     await act(() => sync.getState().syncNow());
-    await act(() => new Promise((resolve) => setTimeout(resolve, 1_500)));
-    expect(handed).toEqual([]);
-
-    backend.failSnoozes = false;
-    await act(() => sync.getState().syncNow());
-    await waitFor(() => expect(handed.at(-1)?.map((each) => each.title)).toEqual(['Call mum']), {
+    await waitFor(() => expect(handed.at(-1)).toEqual({ titles: ['Call mum'], keep: true }), {
       timeout: 3000,
     });
-  });
+    expect(handed.every((each) => each.keep)).toBe(true);
+
+    // Once it answers, the whole list again: asked again on its own (after 5 s), not at a sync.
+    backend.failSnoozes = false;
+    await waitFor(() => expect(handed.at(-1)).toEqual({ titles: ['Call mum'], keep: false }), {
+      timeout: 9000,
+    });
+  }, 30_000);
 });

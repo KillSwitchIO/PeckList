@@ -37,7 +37,7 @@ import java.util.concurrent.Executors;
 public class ShellPlugin extends Plugin {
 
     /** Bumped when a method is added; the web app checks it before calling a newer one. */
-    private static final int API = 9;
+    private static final int API = 10;
 
     static final String NOTIFICATIONS = "notifications";
 
@@ -559,11 +559,15 @@ public class ShellPlugin extends Plugin {
         return answer;
     }
 
-    /** Api 3: replace the reminders set ahead ({key, title, body, at, url, constant, repeats}); see Reminders. */
+    /**
+     * Api 3: replace the reminders set ahead ({key, title, body, at, url, constant, repeats}); see
+     * Reminders. Api 10: with {@code keep}, add and change them only, taking nothing off.
+     */
     @PluginMethod
     public void scheduleReminders(PluginCall call) {
         try {
-            Reminders.handOver(getContext(), Reminders.parse(call.getArray("reminders", new com.getcapacitor.JSArray())), false);
+            boolean keep = Boolean.TRUE.equals(call.getBoolean("keep", false));
+            Reminders.handOver(getContext(), Reminders.parse(call.getArray("reminders", new com.getcapacitor.JSArray())), false, keep);
             call.resolve();
         } catch (JSONException error) {
             call.reject("bad reminders: " + error.getMessage(), "invalid");
