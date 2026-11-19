@@ -88,10 +88,31 @@ public sealed class TaskWrites(
 
     // Pushing ----------------------------------------------------------------------------------
 
+    /// <summary>
+    /// A task stored with notes over the limit, from before it (0.14.0): every write carries the
+    /// stored notes along, which the schema check would refuse, so they are cut here, with a fresh
+    /// clock so every device takes the cut copy too, as the apps cut theirs.
+    /// </summary>
+    private void FitNotes(Batch batch)
+    {
+        foreach (var (collection, doc) in batch)
+        {
+            if (collection != "tasks" || ApiShapes.Text(doc, "notes") is not { Length: > ApiShapes.MaxStoredNotes } notes) continue;
+            doc["notes"] = ApiShapes.CapNotes(notes);
+            if (doc["_hlc"] is not JsonObject clocks)
+            {
+                clocks = new JsonObject();
+                doc["_hlc"] = clocks;
+            }
+            clocks["notes"] = Stamp(ApiShapes.Text(clocks, "notes"));
+        }
+    }
+
     /// <summary>Push the batch as the person; a problem when any of it was refused or invalid, else null.</summary>
     private async Task<IResult?> PushAsync(string userId, Batch batch, CancellationToken cancellation)
     {
         if (batch.Count == 0) return null;
+        FitNotes(batch);
         // Tag paths make their parents too: one request may not fill the workspace with them.
         if (batch.Count(each => each.Collection == "tags") > MaxNewTags)
         {

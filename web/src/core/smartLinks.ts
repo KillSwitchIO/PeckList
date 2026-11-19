@@ -77,6 +77,9 @@ const STREET_WORDS = [
   'Crescent',
   'Close',
 ];
+/** Street words that are everyday words too (see where addresses are found). */
+const AMBIGUOUS_STREET =
+  /^(?:dr|drive|court|ct|way|place|pl|close|square|sq|loop|circle|cir|trail|trl|terrace|ter)$/i;
 // Each as written (Main Street), lowercase (main street) or capitals (MAIN STREET).
 const STREET = STREET_WORDS.flatMap((word) => [word, word.toLowerCase(), word.toUpperCase()]).join(
   '|',
@@ -220,10 +223,25 @@ export function findSmartLinks(text: string): SmartLink[] {
     const before = text[from - 1];
     if (before !== undefined && !/[\s("'[]/u.test(before)) continue;
     if (/[\p{L}\p{N}_]/u.test(text[to] ?? '')) continue;
-    // "Dr" is also a doctor: "3 Tylenol Dr said" is no address. Taken as a street only when the
-    // text ends there or a line break, comma, semicolon or bracket follows.
-    if (/^dr$/i.test(m.groups?.['street'] ?? '') && /dr\.?$/i.test(m[0])) {
-      if (!/^(?:[ \t]*$|[ \t]*\n|[,;)])/u.test(text.slice(to))) continue;
+    // Words that are streets and everyday words too: "Dr" is a doctor ("3 Tylenol Dr said"),
+    // "Move 2 Google Drive folders" or "3 Supreme Court cases" are no addresses. Ending the match
+    // with no town or ZIP after them, they are taken as a street only when the text ends there, a
+    // line break follows (the notes editor's hard break is a NUL here), or a comma, semicolon,
+    // closing bracket or quote. Every word but Dr ("Dr. Smith") may also end a sentence: "Meet at
+    // 12 Elm Court. Then home", "... Court!", "... Court: gate code".
+    const street = m.groups?.['street'] ?? '';
+    if (AMBIGUOUS_STREET.test(street) && new RegExp(`${street}\\.?$`).test(m[0])) {
+      const rest = text.slice(to);
+      const line = rest.replace(/^[ \t]+/u, '');
+      const closed =
+        line === '' ||
+        /^\r?\n/u.test(line) ||
+        line.startsWith('\u0000') ||
+        /^[,;)\]"'”’]/u.test(rest);
+      const sentence =
+        !/^dr$/i.test(street) &&
+        (/^[.!?:](?:\s|$)/u.test(rest) || (m[0].endsWith('.') && /^(?:\s|$)/u.test(rest)));
+      if (!closed && !sentence) continue;
     }
     add('address', from, to);
   }

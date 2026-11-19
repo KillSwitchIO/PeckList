@@ -169,6 +169,20 @@ public static class ApiShapes
     public const int MaxPhoto = 80_000;
 
     /// <summary>
+    /// The longest notes a task keeps (the workspace schema's <c>maxLength</c>, 0.14.0), counted as
+    /// the apps count them (web/src/core/tasks.ts <c>MAX_NOTES_LENGTH</c>).
+    /// </summary>
+    public const int MaxStoredNotes = 100_000;
+
+    /// <summary>
+    /// Notes cut to <see cref="MaxStoredNotes"/>, never between the two halves of an emoji, as the apps
+    /// cut them (<c>clampNotes</c>), so every copy agrees; the same string when it fits.
+    /// </summary>
+    public static string CapNotes(string notes) =>
+        notes.Length <= MaxStoredNotes ? notes
+        : notes[..(char.IsHighSurrogate(notes[MaxStoredNotes - 1]) ? MaxStoredNotes - 1 : MaxStoredNotes)];
+
+    /// <summary>
     /// A profile's photo when it is a PNG, JPEG or WebP data URL of at most <see cref="MaxPhoto"/>
     /// characters, as the apps store it; anything else is null (writes are held to the same by the
     /// schema; this also covers data from before it).

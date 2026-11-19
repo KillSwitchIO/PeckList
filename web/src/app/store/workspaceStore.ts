@@ -20,6 +20,7 @@ import { COLLECTIONS, type WorkspaceFile } from '../../core/types.ts';
 import { revertChange } from '../../core/undo.ts';
 import { createWorkspace, emptyEntities } from '../../core/workspace.ts';
 import { keepValid } from '../../core/keepValid.ts';
+import { capStoredNotes } from '../../core/tasks.ts';
 import { repairText } from '../../core/wellFormed.ts';
 import type { IdGenerator } from '../../ports/ids.ts';
 import type { Journal } from '../../ports/journal.ts';
@@ -457,8 +458,11 @@ export function createWorkspaceStore(deps: StoreDependencies): WorkspaceStore {
         if (!workspace) return;
         // Data from elsewhere that this app cannot read stays out (or keeps its old version), so
         // one bad entity cannot stop the workspace from opening next time.
-        const merged = transform(workspace);
-        if (merged === workspace) return;
+        const transformed = transform(workspace);
+        if (transformed === workspace) return;
+        // Notes longer than the schema allows, from a server that kept them before the limit: cut
+        // here, so the task still shows (left out, it would vanish from this app).
+        const merged = capStoredNotes(transformed) as WorkspaceFile;
         const { workspace: next, skipped } = keepValid(workspace, merged, (document) =>
           deps.validator.validate(document),
         );

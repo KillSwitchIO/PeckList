@@ -69,21 +69,33 @@ public class ReminderReceiver extends BroadcastReceiver {
             Held.add(context, button, reminder.taskId(), minutes, pressedAt);
             return;
         }
+        // A snooze is kept before it is tried: the picker has closed by then, and if Android ends
+        // this process mid-call the next check-in still sends it (Dev 2's review of PL-145). Sent
+        // twice, it is the same snooze, counted from the press. Not a Complete: a second Complete
+        // of a repeating task would complete its next occurrence.
+        boolean keptFirst = Reminders.SNOOZE.equals(button);
+        if (keptFirst) Pending.add(context, button, reminder.taskId(), reminder.first(), minutes, pressedAt);
         // The server counts from when it hears: tell it what is left of the snooze by then.
         int send = Reminders.SNOOZE.equals(button)
             ? Math.max(1, SnoozeTimes.left(minutes, pressedAt, System.currentTimeMillis())) : minutes;
         int status = act(context, button, reminder, send);
+        boolean later = triesAgain(status);
+        if (keptFirst && !later) Pending.remove(context, button, reminder.taskId(), pressedAt);
         if (status == 204) return;
         if (status == 409) {
             // A server from before it moved repeating tasks itself: the app moves it.
             Held.add(context, button, reminder.taskId(), minutes, pressedAt);
             return;
         }
+        // Refused (the task is gone, or not theirs): nothing to do.
+        if (!later) return;
         Logger.info("PeckList", "Reminder " + button + ": the server answered " + status + "; trying again later");
-        // Unreachable or signed out: later. Refused (the task is gone, or not theirs): nothing to do.
-        if (status == 0 || status == 401 || status == 403 || status >= 500) {
-            Pending.add(context, button, reminder.taskId(), reminder.first(), minutes, pressedAt);
-        }
+        if (!keptFirst) Pending.add(context, button, reminder.taskId(), reminder.first(), minutes, pressedAt);
+    }
+
+    /** Whether a press the server answered so is sent again later: unreachable (0), signed out, too many requests, or failing. */
+    static boolean triesAgain(int status) {
+        return status == 0 || status == 401 || status == 403 || status == 429 || status >= 500;
     }
 
     /** Presses the server did not hear of yet, sent again. Network: call off the main thread. */
@@ -101,7 +113,7 @@ public class ReminderReceiver extends BroadcastReceiver {
                 Held.add(context, each.button, each.taskId, minutes);
                 continue;
             }
-            if (status == 0 || status == 401 || status == 403 || status >= 500) {
+            if (triesAgain(status)) {
                 reachable = false;
                 Pending.add(context, each.button, each.taskId, each.first, each.minutes, each.at);
             }

@@ -53,7 +53,8 @@ If the server's database user may not change the schema (`DB_MIGRATE_ON_START=fa
 1. Stop the new version.
 2. Move the new version's database aside, or point the old version at a new empty one. An older
    version refuses to start on a database a newer one has upgraded, because it would be running
-   old code on a schema it does not know.
+   old code on a schema it does not know. Versions before 0.8.0 predate that check and start on
+   it without a word, so never point one at an upgraded database.
 3. Restore the snapshot you took into the empty database (`pecklist import <file>`, run by the old
    version), or put back the database file you copied.
 4. Start the old version, and [open an issue](https://gitlab.com/killswitch10/pecklist/-/issues)

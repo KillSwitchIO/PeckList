@@ -479,7 +479,9 @@
           "type": "string"
         },
         "notes": {
-          "type": "string"
+          "description": "Markdown. At most 100,000 characters (0.14.0): every app that shows a task reads all of it, links included, so a shared task cannot make that unbounded work for everyone who opens it.",
+          "type": "string",
+          "maxLength": 100000
         },
         "listId": {
           "$ref": "#/$defs/id"
