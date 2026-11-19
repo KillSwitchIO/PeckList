@@ -17,6 +17,8 @@ import java.util.Collection;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
@@ -339,12 +341,12 @@ final class Reminders {
         String channel = channelOf(kind);
         Channels.ensure(context);
         int id = idOf("news:" + newsId);
-        Intent intent = new Intent(context, MainActivity.class)
+        Intent intent = NotificationToken.stamp(context, new Intent(context, MainActivity.class)
             .setAction("com.pecklist.app.OPEN." + id)
             .addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP)
             .putExtra(EXTRA_URL, url)
             .putExtra(EXTRA_SHOWN, id)
-            .putExtra(EXTRA_PRESS, Presses.newId());
+            .putExtra(EXTRA_PRESS, Presses.newId()));
         NotificationCompat.Builder built = base(context, channel, title, body)
             .setCategory(NotificationCompat.CATEGORY_SOCIAL)
             .setContentIntent(PendingIntent.getActivity(context, id, intent, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE));
@@ -352,12 +354,19 @@ final class Reminders {
         for (int a = 0; actions != null && a < actions.length(); a++) {
             JSONObject action = actions.getJSONObject(a);
             int code = idOf("news:" + newsId + ":" + action.getString("action"));
-            Intent press = new Intent(context, MainActivity.class)
+            Intent press = NotificationToken.stamp(context, new Intent(context, MainActivity.class)
                 .setAction("com.pecklist.app.OPEN." + code)
                 .addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP)
                 .putExtra(EXTRA_URL, action.getString("url"))
                 .putExtra(EXTRA_SHOWN, id)
-                .putExtra(EXTRA_PRESS, Presses.newId());
+                .putExtra(EXTRA_PRESS, Presses.newId()));
+            // A thumbs up or a dibs goes to the web app as an action, not only in the address, so
+            // it can stop acting on an address alone (Security 2026-11-19, PL-146 like/dibs).
+            String does = action.getString("action");
+            String task = action.has("taskId") ? action.getString("taskId") : taskOf(action.getString("url"));
+            if (("like".equals(does) || "dibs".equals(does)) && task != null) {
+                press.putExtra(EXTRA_ACTION, does).putExtra(EXTRA_TASK, task);
+            }
             built.addAction(0, action.getString("title"),
                 PendingIntent.getActivity(context, code, press, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE));
         }
@@ -378,15 +387,24 @@ final class Reminders {
             .setAutoCancel(true);
     }
 
+    private static final Pattern TASK_IN_URL = Pattern.compile("[?&]task=([A-Za-z0-9_-]{1,64})(&|$)");
+
+    /** The task id in a page address ("?task=<id>"), or null. */
+    static String taskOf(String url) {
+        if (url == null) return null;
+        Matcher found = TASK_IN_URL.matcher(url);
+        return found.find() ? found.group(1) : null;
+    }
+
     /** Opens the app on the reminder's task. */
     private static PendingIntent open(Context context, Reminder reminder) {
-        Intent intent = new Intent(context, MainActivity.class)
+        Intent intent = NotificationToken.stamp(context, new Intent(context, MainActivity.class)
             .setAction("com.pecklist.app.OPEN.")
             .setData(Uri.parse("pecklist-reminder://" + reminder.alarm()))
             .addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP)
             .putExtra(EXTRA_URL, reminder.url)
             .putExtra(EXTRA_SHOWN, reminder.shown())
-            .putExtra(EXTRA_PRESS, Presses.newId());
+            .putExtra(EXTRA_PRESS, Presses.newId()));
         return PendingIntent.getActivity(context, reminder.alarm(), intent, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
     }
 

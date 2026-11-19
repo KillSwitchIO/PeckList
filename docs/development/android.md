@@ -132,6 +132,14 @@ app (ADR-0017 in the project notes). There is no second copy of the UI.
   server answers 409 for a repeating task, the shell holds the press (`Held`, per server) and the
   web app takes it through `held` when the workspace loads, when it comes back on screen, and on
   the `held` event, completing as of the press time.
+  **Only the app's own notifications open a page**: `MainActivity` is exported (the launcher and
+  the sign-in returns need it), so any installed app could start it with `pecklist.url` and the
+  action extras. Every intent the shell builds to open a page carries a per-install token
+  (`NotificationToken`, 128 random bits in app-private storage, compared in constant time, never
+  logged or given to the web app); `ShellPlugin.opened` drops an intent without it, and the app
+  just opens. A notification shown before the update has no token and opens the app once. A news
+  notification's thumbs up and dibs buttons also send `like` or `dibs` with the task as the
+  `notificationOpen` action, so the web app need not act on an address alone.
 - **Icon and launch screen**: vector drawables drawn from `web/public/icon.svg` (adaptive icon
   with a monochrome layer for themed icons, and a legacy one for Android 7); the launch screen
   uses the web app's background colors, light and dark.
