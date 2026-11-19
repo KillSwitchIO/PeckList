@@ -28,4 +28,13 @@ final class Consent {
     static Answer toDisconnect(boolean onServer) {
         return onServer ? Answer.ASK : Answer.GO;
     }
+
+    /**
+     * The "Change server" action (MainActivity.CHOOSE_SERVER). Any app can send it, as the launcher
+     * shortcut does, so off a server it asks first; the app's own (the offline page, the
+     * certificate question) carries its token and goes.
+     */
+    static Answer toChangeServer(boolean onServer, boolean fromThisApp) {
+        return onServer && !fromThisApp ? Answer.ASK : Answer.GO;
+    }
 }

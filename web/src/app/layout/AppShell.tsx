@@ -26,6 +26,7 @@ import { SupporterReminder } from '../support/SupporterReminder.tsx';
 import { useSupporter } from '../support/useSupporter.ts';
 import { useSupportVisible } from '../support/useSupportVisible.ts';
 import { expandAddTask } from '../tasks/focusAddTask.ts';
+import { useAddFromAddress } from '../tasks/useAddFromAddress.ts';
 import { PullToRefresh } from '../sync/PullToRefresh.tsx';
 import { SyncNoticeToast } from '../sync/SyncNoticeToast.tsx';
 import { ReminderScheduler } from '../reminders/ReminderScheduler.tsx';
@@ -266,6 +267,8 @@ function AppFrame() {
   const { pathname } = useLocation();
   // Pages arrived at, for the empty views' mark: it plays once per arrival (R-FB-152).
   noteArrival(pathname);
+  // The Android app's Add task shortcut: /today?add=1 focuses the add-task field.
+  useAddFromAddress();
   const { selectedId, close, full, leaveFull } = useTaskSelection();
   const [headerSlot, setHeaderSlot] = useState<HTMLElement | null>(null);
   // Details in the large full-screen view instead of the side panel (resets with the task).

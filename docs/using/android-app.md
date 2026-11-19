@@ -94,7 +94,7 @@ The app asks where your server is, or runs on the phone alone:
 it. Either asks in the app's own dialog first (**Switch servers?**, **Use PeckList without a
 server?**), which a web page cannot answer, so a server that was taken over cannot move the app
 to a lookalike. Disconnecting leaves your tasks on the server. If a server will not let you in at all, long-press
-the PeckList icon on the home screen and pick **Change server**.
+the PeckList icon on the home screen, pick **Change server**, and confirm.
 
 ## Signing in through your browser
 
@@ -199,6 +199,9 @@ under **Compatibility**, and an app that is too old for the server is signed out
 
 ## Everyday use
 
+- Long-press the PeckList icon for **Add task** (Today, with the add field ready to type in),
+  **Today**, **Search** and **Change server**, and, where your launcher shows more than four, the
+  list you opened last. Drag any of them to the home screen to keep it there.
 - Pull down at the top of a list to sync now.
 - Back steps back through the app; on the first screen, press it twice to leave.
 - Everything else works as in the browser: [the tour](index.md).

@@ -25,6 +25,11 @@ public class MainActivity extends BridgeActivity {
     /** The launcher shortcut (res/xml/shortcuts.xml): back to the connect page, whatever the server runs. */
     static final String CHOOSE_SERVER = "com.pecklist.app.CHOOSE_SERVER";
 
+    /** The app's own Change server, which goes without asking (Consent.toChangeServer). In-process only. */
+    static Intent chooseServer(Context context) {
+        return NotificationToken.stamp(context, new Intent(context, MainActivity.class).setAction(CHOOSE_SERVER));
+    }
+
     /** A second Back within this long leaves the app. */
     private static final long BACK_AGAIN_MS = 2000;
 
@@ -40,7 +45,10 @@ public class MainActivity extends BridgeActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         ServerChoice.keepEarlierAgreements(this);
-        boolean choosing = leaveServerIfAsked(getIntent());
+        Consent.Answer leaving = leaveServerIfAsked(getIntent());
+        boolean choosing = leaving == Consent.Answer.GO;
+        // A long-press shortcut's page, for the web app once it loads (ShellPlugin.load).
+        Shortcuts.open(this, getIntent());
         registerPlugin(ShellPlugin.class);
         // A crash is kept for the next start, where the web app offers a report (PL-116).
         Usage.watchForCrashes(this);
@@ -53,6 +61,9 @@ public class MainActivity extends BridgeActivity {
             // No stretch when pulling past the top: it moved the bottom bar too. A pull syncs instead
             // (web/src/app/sync/PullToRefresh.tsx).
             bridge.getWebView().setOverScrollMode(View.OVER_SCROLL_NEVER);
+            // The WebView taking focus (showKeyboard, the window coming back) must not move the
+            // page's focus to its first control: the Add task shortcut's field lost it to Filter (QA).
+            bridge.getWebView().getSettings().setNeedInitialFocus(false);
         }
         keepClearOfSystemBars();
         // Every kind's channel from the start, so the phone's settings list them all (PL-115).
@@ -69,15 +80,23 @@ public class MainActivity extends BridgeActivity {
             }
         });
         if (choosing && bridge != null) bridge.getWebView().loadUrl(bridge.getLocalUrl() + "/connect");
+        if (leaving == Consent.Answer.ASK) askToChangeServer();
     }
 
     @Override
     protected void onNewIntent(Intent intent) {
         if (CHOOSE_SERVER.equals(intent.getAction())) {
+            // Ask before anything goes: recreating first would lose what the page holds (a title
+            // being typed, an open editor) even when the person then cancels.
+            if (changeServer(intent) == Consent.Answer.ASK) {
+                askToChangeServer();
+                return;
+            }
             setIntent(intent);
             recreate();
             return;
         }
+        Shortcuts.open(this, intent);
         super.onNewIntent(intent);
     }
 
@@ -113,7 +132,7 @@ public class MainActivity extends BridgeActivity {
                 recreate();
             })
             .setNegativeButton(R.string.offline_other, (dialog, which) -> {
-                setIntent(new Intent(this, MainActivity.class).setAction(CHOOSE_SERVER));
+                setIntent(chooseServer(this));
                 recreate();
             })
             .show();
@@ -123,14 +142,38 @@ public class MainActivity extends BridgeActivity {
      * The "Change server" shortcut: off the server, onto the app's own connect page. It works even
      * when the server's web build is too old for the app or will not load. Data on the server stays.
      */
-    private boolean leaveServerIfAsked(Intent intent) {
-        if (intent == null || !CHOOSE_SERVER.equals(intent.getAction())) return false;
+    private Consent.Answer leaveServerIfAsked(Intent intent) {
+        if (intent == null || !CHOOSE_SERVER.equals(intent.getAction())) return null;
+        Consent.Answer answer = changeServer(intent);
         setIntent(new Intent(this, MainActivity.class).setAction(Intent.ACTION_MAIN));
-        if (ServerChoice.get(this) != null) {
+        // Back from Recents after the process died: the launcher's intent again, asked about once already.
+        if ((intent.getFlags() & Intent.FLAG_ACTIVITY_LAUNCHED_FROM_HISTORY) != 0 && answer == Consent.Answer.ASK) return null;
+        if (answer == Consent.Answer.GO && ServerChoice.get(this) != null) {
             ServerChoice.clear(this);
             BackgroundCheck.forgetServer(this);
+            Shortcuts.clear(this);
         }
-        return true;
+        return answer;
+    }
+
+    /** Any app can send Change server (the launcher does): off a server, it asks first (Security 2026-11-19). */
+    private Consent.Answer changeServer(Intent intent) {
+        return Consent.toChangeServer(ServerChoice.get(this) != null, NotificationToken.carried(this, intent));
+    }
+
+    /** Change server from outside the app: on yes, as the app's own; on no, the server as it was. */
+    private void askToChangeServer() {
+        String server = ServerChoice.get(this);
+        if (server == null || isFinishing() || isDestroyed()) return;
+        new AlertDialog.Builder(this)
+            .setTitle(R.string.confirm_change_title)
+            .setMessage(getString(R.string.confirm_change_body, server.replaceFirst("^https?://", "")))
+            .setPositiveButton(R.string.confirm_change_yes, (dialog, which) -> {
+                setIntent(chooseServer(this));
+                recreate();
+            })
+            .setNegativeButton(android.R.string.cancel, null)
+            .show();
     }
 
     /**

@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Launcher shortcut icon: Today (Shortcuts, res/xml/shortcuts.xml). -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="48dp"
+    android:height="48dp"
+    android:viewportWidth="48"
+    android:viewportHeight="48">
+    <path
+        android:pathData="M24,0a24,24 0 1 1 0,48a24,24 0 1 1 0,-48z"
+        android:fillColor="@color/shortcut_background" />
+    <group android:translateX="12" android:translateY="12">
+        <path
+            android:pathData="M7,5h10a3,3 0 0 1 3,3v9a3,3 0 0 1 -3,3h-10a3,3 0 0 1 -3,-3v-9a3,3 0 0 1 3,-3z"
+            android:strokeColor="@color/shortcut_glyph"
+            android:strokeWidth="1.75"
+            android:strokeLineCap="round"
+            android:strokeLineJoin="round"
+            android:fillColor="#00000000" />
+        <path
+            android:pathData="M4,9.5h16M9,14.5l2,2 4,-4"
+            android:strokeColor="@color/shortcut_glyph"
+            android:strokeWidth="1.75"
+            android:strokeLineCap="round"
+            android:strokeLineJoin="round"
+            android:fillColor="#00000000" />
+    </group>
+</vector>

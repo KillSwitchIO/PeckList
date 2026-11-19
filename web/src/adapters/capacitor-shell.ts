@@ -8,6 +8,7 @@ import type {
   PhoneChannelKind,
   PhoneChannels,
   ServerCheck,
+  ShortcutList,
   ServerProblem,
   ShellCrash,
   ShellInfo,
@@ -36,6 +37,8 @@ interface ShellPlugin {
   allowExactAlarms(): Promise<ExactAlarms>;
   notificationChannels(): Promise<Partial<PhoneChannels>>;
   openNotificationChannel(options: { kind: PhoneChannelKind }): Promise<void>;
+  setShortcuts(options: { lists: ShortcutList[] }): Promise<void>;
+  showKeyboard(): Promise<void>;
 }
 
 const CHANNEL_KINDS: PhoneChannelKind[] = [
@@ -161,5 +164,8 @@ export function createCapacitorShell(): NativeShell | null {
     allowExactAlarms: () => plugin.allowExactAlarms(),
     notificationChannels: async () => phoneChannels(await plugin.notificationChannels()),
     openNotificationChannel: (kind) => plugin.openNotificationChannel({ kind }),
+    setShortcuts: (lists) => plugin.setShortcuts({ lists }),
+    // An older shell has none: the field is focused, a tap brings the keyboard.
+    showKeyboard: () => plugin.showKeyboard().catch(() => undefined),
   };
 }

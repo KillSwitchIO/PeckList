@@ -5,4 +5,7 @@
     <!-- Behind the status and navigation bars: the app's own background (MainActivity). -->
     <color name="system_bars">#FAFAF7</color>
     <color name="notification_accent">#5A8A4E</color>
+    <!-- Launcher shortcut icons (Shortcuts): the app icon's green behind a white glyph. -->
+    <color name="shortcut_background">#3C5436</color>
+    <color name="shortcut_glyph">#FFFFFF</color>
 </resources>
