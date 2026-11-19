@@ -911,8 +911,9 @@ function LinkField({ onDone }: { onDone: (href: string | null) => void }) {
 /** Read out by a screen reader, not shown. */
 const visuallyHidden = {
   position: 'absolute',
-  width: 1,
-  height: 1,
+  // Strings: as numbers MUI reads 1 as 100% (QA).
+  width: '1px',
+  height: '1px',
   overflow: 'hidden',
   clip: 'rect(0 0 0 0)',
   whiteSpace: 'nowrap',
