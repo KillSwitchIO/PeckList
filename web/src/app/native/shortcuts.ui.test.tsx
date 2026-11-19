@@ -1,4 +1,5 @@
 import { act, render, screen, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { createList, updateList } from '../../core/lists.ts';
@@ -9,6 +10,7 @@ import { AppProviders } from '../providers.tsx';
 import { AppRoutes } from '../routes.tsx';
 import { ListShortcuts, shortcutLists } from './listShortcuts.ts';
 import { setNativeShell } from './shell.ts';
+import { fillAddTask } from '../tasks/focusAddTask.ts';
 
 /** The shell at api 11, keeping each list hand-over for the launcher's long-press menu. */
 class ShortcutShell extends FakeShell {
@@ -32,6 +34,62 @@ describe('the Add task shortcut', () => {
   it('opens Today with the add-task field focused', async () => {
     await renderApp('/today?add=1');
     await waitFor(() => expect(document.activeElement).toHaveAttribute('data-add-task'));
+  });
+});
+
+/** The shell at api 13, with text handed to the app from outside (shared, selected or spoken). */
+class AddTextShell extends FakeShell {
+  taken = 0;
+  constructor(private text: string | null) {
+    super(13);
+  }
+  takeAddText() {
+    this.taken++;
+    const text = this.text;
+    this.text = null;
+    return Promise.resolve(text);
+  }
+}
+
+describe('text handed to the app from outside', () => {
+  it('waits in the add field, to check and add, and is added on Enter', async () => {
+    const shell = new AddTextShell('Call the vet');
+    setNativeShell(shell);
+    const { store } = await renderApp('/today?add=1');
+    const field = await screen.findByRole('textbox', { name: /Add task/ });
+    await waitFor(() => expect(field).toHaveValue('Call the vet'));
+    expect(field).toHaveFocus();
+    expect(
+      store.getState().workspace!.entities.tasks.some((task) => task.title === 'Call the vet'),
+    ).toBe(false);
+    await userEvent.keyboard('{Enter}');
+    await waitFor(() =>
+      expect(
+        store.getState().workspace!.entities.tasks.some((task) => task.title === 'Call the vet'),
+      ).toBe(true),
+    );
+    expect(shell.taken).toBe(1);
+  });
+
+  it('goes after words already typed, never over them', async () => {
+    const shell = new AddTextShell(null);
+    setNativeShell(shell);
+    await renderApp('/today');
+    const field = await screen.findByRole('textbox', { name: /Add task/ });
+    await userEvent.type(field, 'Call the ');
+    act(() => {
+      fillAddTask('vet');
+    });
+    await waitFor(() => expect(field).toHaveValue('Call the vet'));
+  });
+
+  it('leaves the field empty when nothing is waiting', async () => {
+    const shell = new AddTextShell(null);
+    setNativeShell(shell);
+    await renderApp('/today?add=1');
+    const field = await screen.findByRole('textbox', { name: /Add task/ });
+    await waitFor(() => expect(shell.taken).toBe(1));
+    expect(field).toHaveValue('');
   });
 });
 

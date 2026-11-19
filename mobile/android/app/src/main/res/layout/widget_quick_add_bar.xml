@@ -26,11 +26,23 @@
             tools:ignore="UseAppTint" />
 
         <TextView
-            android:layout_width="wrap_content"
+            android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_marginStart="12dp"
+            android:layout_weight="1"
             android:text="@string/widget_add"
             android:textColor="@color/widget_muted"
             android:textSize="16sp" />
+
+        <ImageView
+            android:id="@+id/widget_voice"
+            android:layout_width="44dp"
+            android:layout_height="44dp"
+            android:layout_marginEnd="-10dp"
+            android:contentDescription="@string/widget_voice"
+            android:padding="10dp"
+            android:src="@drawable/ic_tile_voice"
+            android:tint="@color/widget_accent"
+            tools:ignore="UseAppTint" />
     </LinearLayout>
 </FrameLayout>

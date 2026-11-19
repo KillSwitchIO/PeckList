@@ -1,9 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
   Long-press the launcher icon (Shortcuts): add a task, Today, back to the connect page whatever the
-  server runs (MainActivity), and Search. Launchers show four and make room for the list opened last
-  (a dynamic shortcut) by leaving out the last of these, so Search goes, never Change server, which
-  works even when the server's web build will not load.
+  server runs (MainActivity), add a task by voice (AddTextActivity), and Search. Launchers show four
+  and make room for the list opened last (a dynamic shortcut) by leaving out the last of these, so
+  Search and then Add by voice go, never Change server, which works even when the server's web build
+  will not load. The Quick Settings tile and the add-task bar widget also add by voice.
 -->
 <shortcuts xmlns:android="http://schemas.android.com/apk/res/android">
     <shortcut
@@ -40,6 +41,17 @@
             android:action="com.pecklist.app.CHOOSE_SERVER"
             android:targetPackage="com.pecklist.app"
             android:targetClass="com.pecklist.app.MainActivity" />
+    </shortcut>
+    <shortcut
+        android:shortcutId="voice"
+        android:enabled="true"
+        android:icon="@drawable/ic_shortcut_voice"
+        android:shortcutShortLabel="@string/shortcut_voice_short"
+        android:shortcutLongLabel="@string/shortcut_voice_long">
+        <intent
+            android:action="com.pecklist.app.VOICE_ADD"
+            android:targetPackage="com.pecklist.app"
+            android:targetClass="com.pecklist.app.AddTextActivity" />
     </shortcut>
     <shortcut
         android:shortcutId="search"

@@ -81,6 +81,50 @@
             </intent-filter>
         </receiver>
 
+        <!--
+          A new task from outside the app (PL-113): shared text, "Add to PeckList" on selected
+          text, the add-from-text intent, and speech (AddTextActivity). Exported, as sharing needs;
+          it only fills the add field, never adds on its own. Not noHistory: the speech recognizer
+          answers it.
+        -->
+        <activity
+            android:name=".AddTextActivity"
+            android:theme="@android:style/Theme.Translucent.NoTitleBar"
+            android:excludeFromRecents="true"
+            android:taskAffinity=""
+            android:label="@string/add_text_label"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.SEND" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="text/plain" />
+            </intent-filter>
+            <intent-filter android:label="@string/add_text_label">
+                <action android:name="android.intent.action.PROCESS_TEXT" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="text/plain" />
+            </intent-filter>
+            <intent-filter>
+                <action android:name="com.pecklist.app.ADD_TEXT" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+            <intent-filter>
+                <action android:name="com.pecklist.app.VOICE_ADD" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+        </activity>
+        <!-- The "Add task" Quick Settings tile: a task by voice (AddTileService). -->
+        <service
+            android:name=".AddTileService"
+            android:icon="@drawable/ic_tile_voice"
+            android:label="@string/tile_add"
+            android:permission="android.permission.BIND_QUICK_SETTINGS_TILE"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.service.quicksettings.action.QS_TILE" />
+            </intent-filter>
+        </service>
+
         <!-- Home-screen widgets (Widgets, PL-121): Today, quick add (1x1 and 4x1) and the count. -->
         <receiver
             android:name=".TodayWidget"

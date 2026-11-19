@@ -200,8 +200,22 @@ under **Compatibility**, and an app that is too old for the server is signed out
 ## Everyday use
 
 - Long-press the PeckList icon for **Add task** (Today, with the add field ready to type in),
-  **Today**, **Search** and **Change server**, and, where your launcher shows more than four, the
-  list you opened last. Drag any of them to the home screen to keep it there.
+  **Today**, **Change server**, **Add by voice** and **Search**, and the list you opened last.
+  Launchers show four, and the list takes the place of the last ones. Drag any of them to the home
+  screen to keep it there.
+- Add a task without opening the app first. Each of these opens Today with the words in the add
+  field, so you can check them, and dates and times in them work as when you type. Press Enter to
+  add it:
+  - **By voice**: the **Add by voice** shortcut, the microphone on the **Add task bar** widget, or
+    the **Add task** tile in Quick Settings (edit your tiles to put it there). It uses your phone's
+    own speech recognition. With none, the add field opens with the keyboard, which may have its
+    own microphone.
+  - **From another app**: share text to PeckList, or select text and pick **Add to PeckList**.
+  - **From an automation app** (Tasker, Automate and the like): send the intent
+    `com.pecklist.app.ADD_TEXT` to the package `com.pecklist.app` with the text in
+    `android.intent.extra.TEXT`.
+
+  Nothing is added until you press Enter, so another app can only fill in the field.
 - Pull down at the top of a list to sync now.
 - Add widgets from your home screen's widget picker (long-press an empty spot, then
   **Widgets**, then PeckList):

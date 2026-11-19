@@ -132,6 +132,17 @@ app (ADR-0017 in the project notes). There is no second copy of the UI.
   field (`useAddFromAddress`). `setShortcuts` (shell api 11) takes the list opened last as a
   dynamic shortcut ranked after the static ones (`web/src/app/native/listShortcuts.ts`); signing
   out, another server or standalone clears it.
+  **Adding from outside the app** (PL-113, `AddTextActivity`): an exported, unseen activity takes
+  shared text (`ACTION_SEND` text/plain), selected text (`ACTION_PROCESS_TEXT`, "Add to PeckList"),
+  the documented `com.pecklist.app.ADD_TEXT` intent (`EXTRA_TEXT`), and speech
+  (`com.pecklist.app.VOICE_ADD`: the long-press shortcut, the `AddTileService` Quick Settings tile,
+  the add-task bar widget's microphone) through `RecognizerIntent`, the phone's own recognizer, so
+  the foss build needs no Google Play services. The text is tidied (`AddText`: one line, no
+  control characters, at most 500 characters) and held in memory for two minutes; the activity
+  opens `/today?add=1` and the web app takes the text with `takeAddText` (shell api 13) into the add
+  field (`fillAddTask`). It is never added on its own. No assistant can create a task for a
+  non-Play app today (App Actions are closed to new apps, Gemini's AppFunctions is a private
+  preview).
   **Home-screen widgets** (PL-121, `Widgets.java`): Today (`TodayWidget`, a `RemoteViews` list
   from `TodayWidgetService`), quick add 1x1 and 4x1 (`QuickAddWidget`, `QuickAddBarWidget`) and
   the count (`CountWidget`). `setWidgetTasks` (shell api 12) takes `{asOf, tasks}` from

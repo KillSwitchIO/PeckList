@@ -37,7 +37,7 @@ import java.util.concurrent.Executors;
 public class ShellPlugin extends Plugin {
 
     /** Bumped when a method is added; the web app checks it before calling a newer one. */
-    private static final int API = 12;
+    private static final int API = 13;
 
     static final String NOTIFICATIONS = "notifications";
 
@@ -391,6 +391,19 @@ public class ShellPlugin extends Plugin {
     }
 
     /**
+     * Api 13: text for a new task from outside the app (shared, selected, sent or spoken;
+     * AddTextActivity), once, as {text}; none when there is nothing waiting. The add field shows it
+     * for the person to check and add.
+     */
+    @PluginMethod
+    public void takeAddText(PluginCall call) {
+        JSObject result = new JSObject();
+        String text = AddText.take(System.currentTimeMillis());
+        if (text != null) result.put("text", text);
+        call.resolve(result);
+    }
+
+    /**
      * Api 11: the keyboard up for the field the page just focused. A WebView raises it only for a
      * tap, so the Add task shortcut's focused field would wait for one otherwise.
      */
@@ -402,13 +415,34 @@ public class ShellPlugin extends Plugin {
             call.resolve();
             return;
         }
-        web.post(() -> {
+        Runnable show = () -> {
             web.requestFocus();
             androidx.core.view.WindowCompat.getInsetsController(activity.getWindow(), web)
                 .show(androidx.core.view.WindowInsetsCompat.Type.ime());
+        };
+        web.post(() -> {
+            if (web.hasWindowFocus()) {
+                show.run();
+                return;
+            }
+            // Coming back from the launcher, the window gets its focus a moment later, and asking
+            // for the keyboard before then does nothing (QA: a field already focused stayed without
+            // one). Ask once it has, within a few seconds, so a late focus raises no surprise keyboard.
+            android.view.ViewTreeObserver.OnWindowFocusChangeListener[] waiting =
+                new android.view.ViewTreeObserver.OnWindowFocusChangeListener[1];
+            waiting[0] = hasFocus -> {
+                if (!hasFocus) return;
+                web.getViewTreeObserver().removeOnWindowFocusChangeListener(waiting[0]);
+                show.run();
+            };
+            web.getViewTreeObserver().addOnWindowFocusChangeListener(waiting[0]);
+            web.postDelayed(() -> web.getViewTreeObserver().removeOnWindowFocusChangeListener(waiting[0]), KEYBOARD_WAIT_MS);
         });
         call.resolve();
     }
+
+    /** How long showKeyboard waits for the window's focus. */
+    private static final long KEYBOARD_WAIT_MS = 3000;
 
     /** Where the tasks handed over on connecting wait (app-private storage). */
     private static final String CARRIED = "carried.json";
