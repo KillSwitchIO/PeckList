@@ -139,8 +139,13 @@ describe('passkeys (PL-123)', function () {
     const naming = $('//h2[normalize-space()="Name this passkey"]');
     await naming.waitForDisplayed({ timeout: 15_000 });
     const name = $('//label[normalize-space()="Name"]/following::input[1]');
-    await name.clearValue();
-    await name.setValue('CI virtual key');
+    // The field comes filled in ("Passkey"). clearValue empties the box but not React's state, so
+    // the typing landed after it ("PasskeyCI virtual key", run of !404): select it and type over.
+    await name.click();
+    await browser.keys(['Control', 'a']);
+    await browser.keys('Backspace');
+    await name.addValue('CI virtual key');
+    await expect(name).toHaveValue('CI virtual key');
     await (await button('Save')).click();
     await $('button[aria-label="Remove CI virtual key"]').waitForDisplayed({ timeout: 15_000 });
 
@@ -162,12 +167,22 @@ describe('passkeys (PL-123)', function () {
       () => false,
     );
     if (asked) await anyway.click();
+    // The sign-in page offers the passkey in the username field's autofill (conditional UI), and
+    // this authenticator always agrees, so Chrome may sign in with it before the button is pressed
+    // (run of !406: signed in again on /today, the key used, no button in sight). Either way is a
+    // sign-in by the passkey alone: its count goes up, as only a passkey sign-in moves it.
+    const signCount = async () => (await browser.getCredentials(authenticator))[0]?.signCount ?? 0;
     const passkeyButton = button('Sign in with a passkey');
-    await passkeyButton.waitForDisplayed({ timeout: 30_000 });
-    await passkeyButton.click();
+    await browser.waitUntil(
+      async () => (await signCount()) > signedBefore || (await passkeyButton.isDisplayed()),
+      { timeout: 30_000, timeoutMsg: 'neither a passkey sign-in nor its button after Log out' },
+    );
+    if ((await signCount()) === signedBefore) await passkeyButton.click();
+    await browser.waitUntil(async () => (await signCount()) > signedBefore, {
+      timeout: 30_000,
+      timeoutMsg: 'the passkey was never used to sign in',
+    });
     await $('[data-add-task]').waitForDisplayed({ timeout: 30_000 });
-    const [used] = await browser.getCredentials(authenticator);
-    expect(used!.signCount).toBeGreaterThan(signedBefore);
 
     // Leave the shared server as it was: the passkey goes again.
     await browser.url(`${origin}/settings`);
