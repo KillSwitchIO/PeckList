@@ -119,13 +119,17 @@ export function SmartLinkMenu({
   target,
   anchor,
   onClose,
+  onClickAway = onClose,
   onCopyFailed,
   onChose,
   inText = false,
+  takeFocus = false,
 }: {
   target: SmartTarget | null;
   anchor: { top: number; left: number } | null;
   onClose: () => void;
+  /** Over text (inText), a click elsewhere closed it; onClose when not given. */
+  onClickAway?: () => void;
   /** Nothing could be copied (no clipboard here): select the text for a copy by hand. */
   onCopyFailed?: () => void;
   /** A choice was used (opened, or copied): the person is done with the link, not editing. */
@@ -135,6 +139,11 @@ export function SmartLinkMenu({
    * text, with no backdrop, closed by a click elsewhere or Escape, so typing and selecting go on.
    */
   inText?: boolean;
+  /**
+   * Opened from the keyboard (Alt+Enter in the notes): the popover's first choice takes the focus,
+   * so the arrow keys, Enter and Escape work in it; whoever opened it puts the focus back.
+   */
+  takeFocus?: boolean;
 }) {
   const theme = useTheme();
   // The last item shown stays in the menu while it fades out.
@@ -242,9 +251,25 @@ export function SmartLinkMenu({
       }
       sx={{ zIndex: theme.zIndex.modal + 1 }}
     >
-      <ClickAwayListener onClickAway={onClose}>
-        <Paper elevation={6} sx={{ borderRadius: 2 }}>
-          <MenuList dense aria-label={item?.text}>
+      <ClickAwayListener onClickAway={onClickAway}>
+        <Paper
+          elevation={6}
+          sx={{ borderRadius: 2 }}
+          // On Windows the menu key also fires contextmenu as it comes up, by then on a choice:
+          // without this the browser's own menu would open over these choices.
+          onContextMenu={takeFocus ? (event) => event.preventDefault() : undefined}
+        >
+          <MenuList
+            dense
+            aria-label={item?.text}
+            autoFocusItem={open && takeFocus}
+            onKeyDown={(event) => {
+              // Tab leaves the choices as a menu does: closed, the focus back where it was.
+              if (event.key !== 'Tab') return;
+              event.preventDefault();
+              onClose();
+            }}
+          >
             {items}
           </MenuList>
         </Paper>

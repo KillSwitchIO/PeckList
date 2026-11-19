@@ -163,7 +163,8 @@ their start; the due date is the deadline.
   dialer or maps. With a mouse a click offers the choices: **Call**, **Text** or **Copy** for a
   number, Google Maps, Apple Maps, OpenStreetMap or **Copy** for an address, **Email** or
   **Copy** for an email address, and **Open** or **Copy** for a web address. A long press offers
-  them anywhere; Ctrl or Cmd + click opens straight away. While you are typing in the notes, a
+  them anywhere; Ctrl or Cmd + click opens straight away. From the keyboard, put the cursor on one
+  and press Alt+Enter; a screen reader says what it is as the cursor arrives. While you are typing in the notes, a
   tap or click only puts the cursor there, so the text edits as before. They are found in the
   app itself and nothing is looked up anywhere; phone numbers need a country code
   (`+44 20 7946 0958`) or the North American shape (`(515) 555-0123`), and an address a house

@@ -249,6 +249,166 @@ describe('smart links in the notes', () => {
   });
 });
 
+// The choices from the keyboard, and a screen reader told about an item (0.14.0, from the PL-146
+// review): the notes keep plain text, so the cursor is the way onto an item.
+describe('smart links in the notes from the keyboard', () => {
+  /** The cursor at `pos` in notes that have the focus. */
+  function cursorAt(editor: Editor, pos: number) {
+    act(() => {
+      editor.view.focus();
+      editor.commands.setTextSelection(pos);
+    });
+  }
+
+  it('Alt+Enter with the cursor in a number offers its choices, focused, and Escape gives the notes the focus back', async () => {
+    const { box, editor } = await notes('Call 515-555-0123 now');
+    cursorAt(editor, 9);
+    fireEvent.keyDown(box, { key: 'Enter', altKey: true });
+    await screen.findByRole('menu', { name: '515-555-0123' });
+    await waitFor(() => expect(screen.getByRole('menuitem', { name: 'Call' })).toHaveFocus());
+    // Nothing typed into the notes.
+    expect(editor.getText()).toBe('Call 515-555-0123 now');
+    fireEvent.keyDown(document.activeElement!, { key: 'Escape' });
+    await waitFor(() => expect(screen.queryByRole('menu')).toBeNull());
+    await waitFor(() => expect(editor.isFocused).toBe(true));
+  });
+
+  it('a choice taken with Enter opens it and leaves the cursor in the notes', async () => {
+    const { box, editor } = await notes('Call 515-555-0123 now');
+    cursorAt(editor, 9);
+    fireEvent.keyDown(box, { key: 'Enter', altKey: true });
+    await waitFor(() => expect(screen.getByRole('menuitem', { name: 'Call' })).toHaveFocus());
+    fireEvent.keyDown(screen.getByRole('menuitem', { name: 'Text' }), { key: 'Enter' });
+    expect(opened).toEqual(['sms:5155550123']);
+    await waitFor(() => expect(screen.queryByRole('menu')).toBeNull());
+    await waitFor(() => expect(editor.isFocused).toBe(true));
+  });
+
+  it('Shift+F10 in a link offers its choices; Tab closes them', async () => {
+    const { box, editor } = await notes('See [docs](https://docs.example.com/a) first');
+    cursorAt(editor, 7);
+    fireEvent.keyDown(box, { key: 'F10', shiftKey: true });
+    await screen.findByRole('menu', { name: 'https://docs.example.com/a' });
+    await waitFor(() => expect(screen.getByRole('menuitem', { name: 'Open' })).toHaveFocus());
+    fireEvent.keyDown(document.activeElement!, { key: 'Tab' });
+    await waitFor(() => expect(screen.queryByRole('menu')).toBeNull());
+  });
+
+  it("a link's choices from its start", async () => {
+    const { box, editor } = await notes('See [docs](https://docs.example.com/a) first');
+    cursorAt(editor, 5);
+    fireEvent.keyDown(box, { key: 'Enter', altKey: true });
+    await screen.findByRole('menu', { name: 'https://docs.example.com/a' });
+  });
+
+  it("a link's choices from its end, with a number one place after it", async () => {
+    const { box, editor } = await notes('[docs](https://x.example.com) 515-555-0123');
+    cursorAt(editor, 5);
+    fireEvent.keyDown(box, { key: 'Enter', altKey: true });
+    await screen.findByRole('menu', { name: 'https://x.example.com' });
+  });
+
+  it('a click elsewhere closes the choices and leaves the focus where it went', async () => {
+    const { box, editor } = await notes('Call 515-555-0123 now');
+    const elsewhere = screen.getByRole('button', { name: 'Elsewhere' });
+    cursorAt(editor, 9);
+    fireEvent.keyDown(box, { key: 'Enter', altKey: true });
+    await waitFor(() => expect(screen.getByRole('menuitem', { name: 'Call' })).toHaveFocus());
+    // The button takes the focus on mousedown; the click-away comes after.
+    act(() => elsewhere.focus());
+    fireEvent.click(elsewhere);
+    await waitFor(() => expect(screen.queryByRole('menu')).toBeNull());
+    expect(elsewhere).toHaveFocus();
+    expect(editor.isFocused).toBe(false);
+  });
+
+  it("opened from the keyboard, the browser's own menu stays shut over the choices", async () => {
+    const { box, editor } = await notes('Call 515-555-0123 now');
+    cursorAt(editor, 9);
+    fireEvent.keyDown(box, { key: 'ContextMenu' });
+    const call = await screen.findByRole('menuitem', { name: 'Call' });
+    await waitFor(() => expect(call).toHaveFocus());
+    // fireEvent says false when the event was prevented.
+    expect(fireEvent.contextMenu(call)).toBe(false);
+  });
+
+  it('away from an item, the keys do nothing of their own, one place outside it too', async () => {
+    const { box, editor } = await notes('Call 515-555-0123 now');
+    for (const pos of [2, 5, 19]) {
+      cursorAt(editor, pos);
+      fireEvent.keyDown(box, { key: 'Enter', altKey: true });
+      fireEvent.keyDown(box, { key: 'ContextMenu' });
+      expect(screen.queryByRole('menu')).toBeNull();
+    }
+  });
+
+  it('says what an item is when the cursor comes onto it, and how to open its choices', async () => {
+    const { editor } = await notes('Call 515-555-0123 now');
+    const said = () => document.querySelector('[role="status"]')?.textContent;
+    cursorAt(editor, 2);
+    expect(said()).toBe('');
+    // One place before it and one after it is not on it.
+    cursorAt(editor, 5);
+    expect(said()).toBe('');
+    cursorAt(editor, 9);
+    expect(said()).toBe('Phone number: 515-555-0123. Alt+Enter for choices');
+    cursorAt(editor, 19);
+    expect(said()).toBe('');
+    // Either end of it is.
+    cursorAt(editor, 6);
+    expect(said()).toBe('Phone number: 515-555-0123. Alt+Enter for choices');
+    cursorAt(editor, 20);
+    expect(said()).toBe('');
+    cursorAt(editor, 18);
+    expect(said()).toBe('Phone number: 515-555-0123. Alt+Enter for choices');
+  });
+
+  it('in notes that cannot be edited, each item is a button: Enter offers its choices and Escape comes back to it', async () => {
+    renderThemed(
+      <TiptapEditor label="Notes" value="Call 515-555-0123 now" readOnly onCommit={vi.fn()} />,
+    );
+    const button = await screen.findByRole('button', { name: 'Phone number: 515-555-0123' });
+    expect(button).toHaveAttribute('tabindex', '0');
+    expect(button).toHaveAttribute('aria-haspopup', 'menu');
+    act(() => button.focus());
+    fireEvent.keyDown(button, { key: 'Enter' });
+    await waitFor(() => expect(screen.getByRole('menuitem', { name: 'Call' })).toHaveFocus());
+    fireEvent.keyDown(document.activeElement!, { key: 'Escape' });
+    await waitFor(() => expect(screen.queryByRole('menu')).toBeNull());
+    expect(button).toHaveFocus();
+  });
+
+  it('in notes that cannot be edited, Space offers the choices on its keyup and presses none of them', async () => {
+    renderThemed(
+      <TiptapEditor label="Notes" value="Call 515-555-0123 now" readOnly onCommit={vi.fn()} />,
+    );
+    const button = await screen.findByRole('button', { name: 'Phone number: 515-555-0123' });
+    act(() => button.focus());
+    // Down: nothing yet, and no page scroll.
+    expect(fireEvent.keyDown(button, { key: ' ' })).toBe(false);
+    expect(screen.queryByRole('menu')).toBeNull();
+    // Up: the choices, the first focused, none taken.
+    fireEvent.keyUp(button, { key: ' ' });
+    await waitFor(() => expect(screen.getByRole('menuitem', { name: 'Call' })).toHaveFocus());
+    expect(opened).toEqual([]);
+  });
+
+  it('in notes that cannot be edited, an item with bold in it is still one button', async () => {
+    renderThemed(
+      <TiptapEditor label="Notes" value="Call 515-**555**-0123 now" readOnly onCommit={vi.fn()} />,
+    );
+    const buttons = await screen.findAllByRole('button', { name: 'Phone number: 515-555-0123' });
+    expect(buttons).toHaveLength(1);
+    expect(document.querySelectorAll('[data-smart="phone"][tabindex]')).toHaveLength(1);
+  });
+
+  it('in notes being edited, items are no tab stops', async () => {
+    const { box } = await notes('Call 515-555-0123 now');
+    expect(smart(box, 'phone')).not.toHaveAttribute('tabindex');
+    expect(smart(box, 'phone')).not.toHaveAttribute('role');
+  });
+});
+
 describe('opening a smart link', () => {
   it('never opens an address notes may not open', () => {
     expect(openOutside('javascript:alert(1)')).toBe(false);
