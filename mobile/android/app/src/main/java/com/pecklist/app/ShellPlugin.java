@@ -37,7 +37,7 @@ import java.util.concurrent.Executors;
 public class ShellPlugin extends Plugin {
 
     /** Bumped when a method is added; the web app checks it before calling a newer one. */
-    private static final int API = 11;
+    private static final int API = 12;
 
     static final String NOTIFICATIONS = "notifications";
 
@@ -190,6 +190,7 @@ public class ShellPlugin extends Plugin {
         ServerChoice.set(getContext(), origin);
         BackgroundCheck.forgetServer(getContext());
         Shortcuts.clear(getContext());
+        Widgets.clear(getContext());
         call.resolve();
         restart();
     }
@@ -211,6 +212,7 @@ public class ShellPlugin extends Plugin {
         ServerChoice.chooseStandalone(getContext());
         BackgroundCheck.forgetServer(getContext());
         Shortcuts.clear(getContext());
+        Widgets.clear(getContext());
         ClientCert.forget(getContext());
         call.resolve();
         restart();
@@ -371,6 +373,20 @@ public class ShellPlugin extends Plugin {
             call.resolve();
         } catch (JSONException | RuntimeException error) {
             call.reject("bad shortcuts: " + error.getMessage(), "invalid");
+        }
+    }
+
+    /**
+     * Api 12: the tasks the home-screen widgets show ({asOf, tasks}, from the web app's
+     * widgetFeed); {signedOut: true} leaves them asking to open the app (Widgets).
+     */
+    @PluginMethod
+    public void setWidgetTasks(PluginCall call) {
+        try {
+            Widgets.setTasks(getContext(), call.getData());
+            call.resolve();
+        } catch (JSONException | RuntimeException error) {
+            call.reject("bad widget tasks: " + error.getMessage(), "invalid");
         }
     }
 
@@ -719,7 +735,10 @@ public class ShellPlugin extends Plugin {
         if (action != null) {
             event.put("action", action);
             event.put("taskId", intent.getStringExtra(Reminders.EXTRA_TASK));
-            event.put("minutes", intent.getIntExtra(Reminders.EXTRA_MINUTES, Reminders.SNOOZE_MINUTES));
+            // Minutes are for a reminder's buttons, not a like or a dibs.
+            if (Reminders.COMPLETE.equals(action) || Reminders.SNOOZE.equals(action)) {
+                event.put("minutes", intent.getIntExtra(Reminders.EXTRA_MINUTES, Reminders.SNOOZE_MINUTES));
+            }
         }
         // Handled: the same intent must not act again when the activity is recreated.
         intent.removeExtra(Reminders.EXTRA_URL);

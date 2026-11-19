@@ -87,8 +87,12 @@ public class ReminderReceiver extends BroadcastReceiver {
             Held.add(context, button, reminder.taskId(), minutes, pressedAt);
             return;
         }
-        // Refused (the task is gone, or not theirs): nothing to do.
-        if (!later) return;
+        // Refused (the task is gone, or not theirs): nothing to do, but a widget tick of it shows again.
+        if (!later) {
+            Logger.info("PeckList", "Reminder " + button + ": the server refused it (" + status + ")");
+            if (Reminders.COMPLETE.equals(button)) Widgets.refused(context, reminder.taskId());
+            return;
+        }
         Logger.info("PeckList", "Reminder " + button + ": the server answered " + status + "; trying again later");
         if (!keptFirst) Pending.add(context, button, reminder.taskId(), reminder.first(), minutes, pressedAt);
     }
@@ -116,6 +120,8 @@ public class ReminderReceiver extends BroadcastReceiver {
             if (triesAgain(status)) {
                 reachable = false;
                 Pending.add(context, each.button, each.taskId, each.first, each.minutes, each.at);
+            } else if (status != 204 && Reminders.COMPLETE.equals(each.button)) {
+                Widgets.refused(context, each.taskId);
             }
         }
     }

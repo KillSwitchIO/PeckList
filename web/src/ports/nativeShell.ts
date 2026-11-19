@@ -1,4 +1,5 @@
 import type { ServerInfo } from './sync.ts';
+import type { WidgetFeed } from '../core/widgetTasks.ts';
 
 /**
  * The Android app around the web app (ADR-0017), when there is one. It decides which server the
@@ -26,6 +27,8 @@ export interface ShortcutList {
   id: string;
   name: string;
 }
+
+export type { WidgetFeed };
 
 /** A kind of notification with a channel of its own on the phone (PL-115); `constant` has no in-app switch. */
 export type PhoneChannelKind = 'reminders' | 'assignments' | 'shares' | 'comments' | 'constant';
@@ -168,4 +171,6 @@ export interface NativeShell {
   setShortcuts?(lists: ShortcutList[]): Promise<void>;
   /** Api 11: the keyboard up for the field just focused (a WebView raises it only for a tap). */
   showKeyboard?(): Promise<void>;
+  /** Api 12: the tasks the home-screen widgets show from now on; `signedOut` leaves them asking to open the app. */
+  setWidgetTasks?(feed: WidgetFeed): Promise<void>;
 }

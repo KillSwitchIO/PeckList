@@ -4,7 +4,6 @@ import { visibleLists } from '../../core/lists.ts';
 import type { List } from '../../core/types.ts';
 import type { ShortcutList } from '../../ports/nativeShell.ts';
 import { useStoreState } from '../store/hooks.ts';
-import { useSyncState } from '../sync/syncContext.ts';
 import { nativeShell } from './shell.ts';
 
 /** The shell api with list shortcuts in the launcher's long-press menu. */
@@ -21,12 +20,20 @@ function lastList(): string | null {
   }
 }
 
-function remember(id: string | null): void {
+function remember(id: string): void {
   try {
-    if (id) localStorage.setItem(LAST_LIST, id);
-    else localStorage.removeItem(LAST_LIST);
+    localStorage.setItem(LAST_LIST, id);
   } catch {
     // No storage (a private window): the shortcut just follows this run.
+  }
+}
+
+/** Signed out (PhoneSignedOut): the list opened last is the account's, so it goes too. */
+export function forgetShortcutList(): void {
+  try {
+    localStorage.removeItem(LAST_LIST);
+  } catch {
+    // Nothing stored to forget.
   }
 }
 
@@ -38,12 +45,11 @@ export function shortcutLists(lists: List[], last: string | null): ShortcutList[
 
 /**
  * Keeps the Android launcher's list shortcut on the list opened last (shell api 11), renamed with
- * it, and gone once it is deleted or archived or the person signs out.
+ * it, and gone once it is deleted or archived. Signing out clears it too (PhoneSignedOut).
  */
 export function ListShortcuts() {
   const { pathname } = useLocation();
   const workspace = useStoreState((state) => state.workspace);
-  const phase = useSyncState((state) => state.phase);
   const [api, setApi] = useState(0);
   const sent = useRef<string | null>(null);
 
@@ -62,22 +68,17 @@ export function ListShortcuts() {
 
   useEffect(() => {
     const shell = nativeShell();
-    if (!shell?.setShortcuts || api < SHORTCUTS_API) return;
-    const signedOut = phase === 'signed-out';
-    if (signedOut) remember(null);
-    else {
-      if (!workspace) return;
-      // Only an id the shell takes (Shortcuts.java); nothing to decode, so a stray escape in a
-      // pasted address cannot throw here.
-      const opened = /^\/lists\/([A-Za-z0-9_-]{1,64})$/.exec(pathname)?.[1];
-      if (opened) remember(opened);
-    }
-    const lists = signedOut || !workspace ? [] : shortcutLists(visibleLists(workspace), lastList());
+    if (!shell?.setShortcuts || api < SHORTCUTS_API || !workspace) return;
+    // Only an id the shell takes (Shortcuts.java); nothing to decode, so a stray escape in a
+    // pasted address cannot throw here.
+    const opened = /^\/lists\/([A-Za-z0-9_-]{1,64})$/.exec(pathname)?.[1];
+    if (opened) remember(opened);
+    const lists = shortcutLists(visibleLists(workspace), lastList());
     const text = JSON.stringify(lists);
     if (text === sent.current) return;
     sent.current = text;
     shell.setShortcuts(lists).catch(() => undefined);
-  }, [pathname, workspace, phase, api]);
+  }, [pathname, workspace, api]);
 
   return null;
 }

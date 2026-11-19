@@ -152,6 +152,7 @@ public class MainActivity extends BridgeActivity {
             ServerChoice.clear(this);
             BackgroundCheck.forgetServer(this);
             Shortcuts.clear(this);
+            Widgets.clear(this);
         }
         return answer;
     }
@@ -203,7 +204,12 @@ public class MainActivity extends BridgeActivity {
         super.onResume();
         showing = true;
         Context app = getApplicationContext();
-        new Thread(() -> ReminderReceiver.retryPending(app), "pecklist-pending").start();
+        new Thread(() -> {
+            ReminderReceiver.retryPending(app);
+            // Widget ticks a stopped process never sent (Widgets.tick).
+            Widgets.sendDue(app);
+            Widgets.redraw(app);
+        }, "pecklist-pending").start();
     }
 
     @Override

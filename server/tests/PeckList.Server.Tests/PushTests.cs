@@ -737,6 +737,50 @@ public sealed class PushTests(ServerFixture fixture) : IClassFixture<ServerFixtu
     }
 
     [Fact]
+    public async Task Anyone_who_may_change_a_task_may_complete_it_but_only_its_reminder_people_snooze_it()
+    {
+        using var server = Server();
+        var (sam, samId) = await SignIn(server, "sam-w");
+        var (ben, benId) = await SignIn(server, "ben-w");
+        var (kim, kimId) = await SignIn(server, "kim-w");
+        await server.BefriendAsync(samId, benId);
+        await server.BefriendAsync(samId, kimId);
+        JsonObject Task(string id) => Entity(id, samId, new JsonObject
+        {
+            ["listId"] = "WL1",
+            ["title"] = id,
+            ["parentId"] = null,
+            ["status"] = "open",
+            ["assignees"] = new JsonObject(),
+            ["reminders"] = new JsonArray(),
+        });
+        (await sam.PostAsJsonAsync("/api/sync", new
+        {
+            schemaVersion = WorkspaceSchema.CurrentVersion,
+            cursor = (long?)null,
+            changes = new object[]
+            {
+                new { collection = "lists", entity = Entity("WL1", samId, new JsonObject { ["name"] = "Chores", ["visibility"] = "shared" }) },
+                new { collection = "listMembers", entity = Entity("WM1", samId, new JsonObject { ["listId"] = "WL1", ["principal"] = $"user:{benId}", ["role"] = "editor" }) },
+                new { collection = "listMembers", entity = Entity("WM2", samId, new JsonObject { ["listId"] = "WL1", ["principal"] = $"user:{kimId}", ["role"] = "viewer" }) },
+                new { collection = "tasks", entity = Task("WT1") },
+                new { collection = "tasks", entity = Task("WT2") },
+            },
+        }, Token)).EnsureSuccessStatusCode();
+        string? Status(string id) => (string?)server.Services.GetRequiredService<SharingState>().Index.LiveOf("tasks").Single(each => each.Id == id).Doc["status"];
+
+        // Sam made them and nobody is on them, so their reminders are Sam's; Ben may still change them.
+        Assert.Equal(HttpStatusCode.NoContent, (await ben.PostAsJsonAsync("/api/reminders/act", new { taskId = "WT1", first = 0L, action = "complete" }, Token)).StatusCode);
+        Assert.Equal("done", Status("WT1"));
+        // A reminder that is not his is not his to snooze or dismiss.
+        Assert.Equal(HttpStatusCode.NotFound, (await ben.PostAsJsonAsync("/api/reminders/act", new { taskId = "WT2", first = 0L, action = "snooze", minutes = 30 }, Token)).StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, (await ben.PostAsJsonAsync("/api/reminders/act", new { taskId = "WT2", first = 0L, action = "dismiss" }, Token)).StatusCode);
+        // Kim can only look.
+        Assert.Equal(HttpStatusCode.NotFound, (await kim.PostAsJsonAsync("/api/reminders/act", new { taskId = "WT2", first = 0L, action = "complete" }, Token)).StatusCode);
+        Assert.Equal("open", Status("WT2"));
+    }
+
+    [Fact]
     public async Task A_slow_push_service_does_not_hold_up_the_sync_that_notifies()
     {
         using var server = Server();

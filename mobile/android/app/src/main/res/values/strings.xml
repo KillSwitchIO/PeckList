@@ -87,4 +87,26 @@
     <!-- Back to the connect page, whatever the server runs. -->
     <string name="shortcut_server_short">Change server</string>
     <string name="shortcut_server_long">Change server or use without one</string>
+    <!-- Home-screen widgets (Widgets, PL-121): the picker's names and descriptions, then their text. -->
+    <string name="widget_today_label">Today</string>
+    <string name="widget_quick_add_label">Add task</string>
+    <string name="widget_quick_add_bar_label">Add task bar</string>
+    <string name="widget_count_label">Today\'s count</string>
+    <string name="widget_today_description">Today\'s tasks, ticked off right here</string>
+    <string name="widget_quick_add_description">Add a task in one tap</string>
+    <string name="widget_quick_add_bar_description">A bar to add a task in one tap</string>
+    <string name="widget_count_description">How many tasks are left for today</string>
+    <string name="widget_today_title">Today</string>
+    <string name="widget_today_empty">All pecked out.</string>
+    <string name="widget_signed_out">Open PeckList to see today\'s tasks.</string>
+    <string name="widget_done">Done: %1$s</string>
+    <string name="widget_undo">Undo</string>
+    <string name="widget_add">Add task</string>
+    <string name="widget_complete">Complete %1$s</string>
+    <string name="widget_count_today">today</string>
+    <string name="widget_count_sample" translatable="false">3</string>
+    <plurals name="widget_count_said">
+        <item quantity="one">%d task left today</item>
+        <item quantity="other">%d tasks left today</item>
+    </plurals>
 </resources>

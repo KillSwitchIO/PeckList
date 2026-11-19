@@ -34,4 +34,16 @@ public class ReminderReceiverTest {
         assertFalse(Pending.inFlight(Reminders.SNOOZE, now - Pending.IN_FLIGHT_MS, now));
         assertFalse(Pending.inFlight(Reminders.COMPLETE, now - 1_000, now));
     }
+
+    /** Sent again later: no network, signed out, too many at once, or the server's own trouble. */
+    @Test
+    public void unreachableOrSignedOutPressesAreSentAgain() {
+        for (int status : new int[] { 0, 401, 403, 429, 500, 502, 503 }) assertTrue(String.valueOf(status), ReminderReceiver.triesAgain(status));
+    }
+
+    /** Refused for good (the task is gone, or not theirs to change): not sent again, and a widget tick shows again. */
+    @Test
+    public void refusedPressesAreNotSentAgain() {
+        for (int status : new int[] { 400, 404, 410 }) assertFalse(String.valueOf(status), ReminderReceiver.triesAgain(status));
+    }
 }

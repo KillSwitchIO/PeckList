@@ -31,5 +31,10 @@ public class NotificationTokenTest {
         assertNull(Reminders.taskOf("/lists/L1?subtask=01JTASK"));
         assertNull(Reminders.taskOf("/lists/L1"));
         assertNull(Reminders.taskOf(null));
+        // A news button's own task first, if it has a proper one; a JSON null is none.
+        assertEquals("01JOWN", Reminders.actionTask("01JOWN", "/today?task=01JTASK"));
+        assertEquals("01JTASK", Reminders.actionTask(null, "/today?task=01JTASK"));
+        assertEquals("01JTASK", Reminders.actionTask("../admin", "/today?task=01JTASK"));
+        assertNull(Reminders.actionTask("", "/today"));
     }
 }

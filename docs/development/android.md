@@ -132,6 +132,26 @@ app (ADR-0017 in the project notes). There is no second copy of the UI.
   field (`useAddFromAddress`). `setShortcuts` (shell api 11) takes the list opened last as a
   dynamic shortcut ranked after the static ones (`web/src/app/native/listShortcuts.ts`); signing
   out, another server or standalone clears it.
+  **Home-screen widgets** (PL-121, `Widgets.java`): Today (`TodayWidget`, a `RemoteViews` list
+  from `TodayWidgetService`), quick add 1x1 and 4x1 (`QuickAddWidget`, `QuickAddBarWidget`) and
+  the count (`CountWidget`). `setWidgetTasks` (shell api 12) takes `{asOf, tasks}` from
+  `web/src/app/native/widgetFeed.ts`: today's and tomorrow's open tasks as Today places them
+  (`core/widgetTasks.ts`), each with the day it belongs to on `asOf` and on the day after, so
+  the widgets move on at midnight (an alarm at 00:01, and the clock and time zone broadcasts)
+  without the app. `WidgetStore` keeps them in app-private preferences; `WidgetTasks` picks what
+  shows, overdue first. A row's tap goes to `WidgetActionActivity`, which opens
+  `/today?task=<id>` (through the shortcut allowlist) or ticks the task: it hides at once with
+  Undo for four seconds, then goes as a reminder's Complete (`ReminderReceiver.press`), so offline
+  it waits in the Pending queue for the next check-in, and standalone in Held for the web app.
+  The server takes Complete from anyone who may change the task, not only the people its
+  reminders go to; a Complete it refuses for good (a 4xx other than 401, 403 and 429, such as a
+  view-only list) brings the row back (`Widgets.refused`). Undo goes to the non-exported
+  `WidgetUndoReceiver`, since the widget provider must be exported and any app could otherwise
+  take a tick back. Ticks a stopped process never sent go at the next start or check-in. Signing out
+  (`web/src/app/native/signedOut.ts`, beside the sign-in gate, which unmounts the app), another
+  server or standalone leaves them asking to open the app (`{signedOut: true}`, or cleared in the
+  shell). Colors are `widget_*`: PeckList Forest before Android 12, the
+  phone's own (`system_accent1_*`, `system_neutral*`) from 12, each with a night variant.
   **Tasks made without a server** (shell api 6, PL-070): the connect page hands the bundled
   build's workspace to `carry` (with the server it is for) before `connect`; the shell keeps it in
   app-private `carried.json` and gives it back through `carried` only while connected to that

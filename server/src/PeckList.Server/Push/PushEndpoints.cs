@@ -70,7 +70,7 @@ public static class PushEndpoints
         // B3: the task is not changed, so nobody else gets it). The task's other reminders come as
         // before. Complete (the Android app's notifications) closes the task and its open subtasks;
         // a repeating task moves to its next date as the app moves it (RepeatingTask), so the app
-        // need not open.
+        // need not open. Complete is also for anyone who may change the task (the Today widget).
         api.MapPost("/reminders/act", async (
             ReminderAct request, ClaimsPrincipal user, SharingState sharing, IPushStore store, SyncService sync,
             IEntityStore entities, ServerClock clock, TimeProvider time, Core.Configuration.ServerSettings settings, CancellationToken cancellation) =>
@@ -78,7 +78,12 @@ public static class PushEndpoints
             var userId = user.UserId();
             var index = sharing.Index;
             var found = (Id: request.TaskId ?? "", Doc: request.TaskId is null ? null : index.LiveDocOf(request.TaskId, "tasks"));
-            if (found.Doc is null || !ServerReminders.Recipients(found.Doc, index).Contains(userId)) return Results.NotFound();
+            if (found.Doc is null) return Results.NotFound();
+            // Dismiss and snooze are about a person's own reminder. Complete changes the task, so
+            // anyone who may change it in the app may: the Android Today widget ticks any task on
+            // Today, not only those whose reminders come to them (Dev 1's review of PL-121).
+            if (!ServerReminders.Recipients(found.Doc, index).Contains(userId)
+                && !(request.Action == "complete" && index.MayEdit(userId, found.Id))) return Results.NotFound();
             if (request.Action is not ("dismiss" or "snooze" or "complete")) return Results.BadRequest(new { error = "unknown_action" });
             // A reminder time, not any number (FromUnixTimeMilliseconds throws outside year 1 to 9999).
             if (request.First is < 0 or > 253_402_300_799_999) return Results.BadRequest(new { error = "invalid_time" });

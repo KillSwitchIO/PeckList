@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The 1x1 count widget (CountWidget). -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:id="@+id/widget_count_root"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@drawable/widget_background"
+    android:gravity="center"
+    android:orientation="vertical">
+
+    <TextView
+        android:id="@+id/widget_count_number"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        tools:text="3"
+        android:textColor="@color/widget_on_surface"
+        android:textSize="28sp"
+        android:textStyle="bold" />
+
+    <!-- The same, while any is overdue: a second view so its color stays a resource (light and dark). -->
+    <TextView
+        android:id="@+id/widget_count_late"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:textColor="@color/widget_overdue"
+        android:textSize="28sp"
+        android:textStyle="bold"
+        android:visibility="gone" />
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="@string/widget_count_today"
+        android:textColor="@color/widget_muted"
+        android:textSize="12sp" />
+</LinearLayout>

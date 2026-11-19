@@ -1,5 +1,6 @@
 import { useEffect, type ReactNode } from 'react';
 import { DemoBanner } from '../demo/DemoBanner.tsx';
+import { PhoneSignedOut } from '../native/signedOut.ts';
 import { useViewAs } from '../store/viewAs.ts';
 import { AuthPages } from './AuthPages.tsx';
 import { JoinQuestion } from './JoinQuestion.tsx';
@@ -23,6 +24,7 @@ export function SyncProvider({ engine, children }: { engine: SyncEngine; childre
     <SyncContext.Provider value={engine}>
       <AuthGate>{children}</AuthGate>
       <UsageCounting />
+      <PhoneSignedOut />
       {/* Over the sign-in pages and the app alike (PL-117). */}
       <DemoBanner />
     </SyncContext.Provider>
