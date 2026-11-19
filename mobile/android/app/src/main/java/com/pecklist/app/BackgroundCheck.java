@@ -18,6 +18,7 @@ import java.io.InputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
+import java.util.Collection;
 import java.util.List;
 import java.util.Locale;
 import java.util.TimeZone;
@@ -35,6 +36,21 @@ import org.json.JSONObject;
 final class BackgroundCheck {
 
     static final String ACTION = "com.pecklist.app.CHECK";
+    /**
+     * A check-in shortly before a reminder the server set (0.14.0): a task done on another device
+     * since the last check-in then takes its reminder off before it comes, a snooze above all, which
+     * can come sooner than the next regular check-in.
+     */
+    static final String BEFORE = "com.pecklist.app.CHECK_BEFORE";
+    /** How long before such a reminder that check-in goes. */
+    static final long BEFORE_MS = 60_000L;
+    /** None sooner than this from now: the reminder, or the regular check-in, is about as near. */
+    static final long BEFORE_FLOOR_MS = 20_000L;
+    /**
+     * Check-ins failed in a row from which it stops until one gets through: one blip should not take
+     * them all away, while a server that is down gets no extra request per reminder for long.
+     */
+    static final int BEFORE_STOPS_AFTER = 3;
     static final int[] CHOICES = {5, 15, 30, 60};
     static final int DEFAULT_MINUTES = 5;
 
@@ -167,6 +183,49 @@ final class BackgroundCheck {
         }
         long at = System.currentTimeMillis() + delayMinutes(minutes(context), prefs(context).getInt(FAILURES, 0)) * 60_000L;
         // Exact, and allowed while the phone is idle, when the app may set exact alarms (ExactAlarms).
+        if (ExactAlarms.allowed(context)) {
+            alarms.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, at, wake);
+        } else {
+            alarms.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, at, wake);
+        }
+    }
+
+    /**
+     * When the check-in before the next reminder goes (see {@link #BEFORE}): {@link #BEFORE_MS} ahead
+     * of the soonest reminder that leaves room for it, or -1 for none. Only the server's reminders
+     * count: a check-in keeps the ones for tasks the server does not have yet (local), and this
+     * phone's quiet copies of a constant reminder are its own.
+     */
+    static long beforeAt(Collection<Reminders.Reminder> reminders, long now) {
+        long soonest = -1;
+        for (Reminders.Reminder each : reminders) {
+            if (each.local || each.key.endsWith(Reminders.QUIET)) continue;
+            long at = each.at - BEFORE_MS;
+            if (at < now + BEFORE_FLOOR_MS) continue;
+            if (soonest < 0 || at < soonest) soonest = at;
+        }
+        return soonest;
+    }
+
+    /**
+     * Set the check-in before the next reminder (the reminders set ahead changed), or clear it: none
+     * to come, no server, the check-in off or stopped, or failing {@link #BEFORE_STOPS_AFTER} times in
+     * a row (then it would only fail again).
+     * Apart from the regular check-in, which keeps its own time.
+     */
+    static void scheduleBefore(Context context, Collection<Reminders.Reminder> reminders) {
+        AlarmManager alarms = (AlarmManager) context.getSystemService(Context.ALARM_SERVICE);
+        if (alarms == null) return;
+        PendingIntent wake = PendingIntent.getBroadcast(context, 1,
+            new Intent(context, CheckReceiver.class).setAction(BEFORE),
+            PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
+        SharedPreferences prefs = prefs(context);
+        long at = beforeAt(reminders, System.currentTimeMillis());
+        if (at < 0 || ServerChoice.get(context) == null || !enabled(context) || prefs.getBoolean(STOPPED, false)
+            || prefs.getInt(FAILURES, 0) >= BEFORE_STOPS_AFTER) {
+            alarms.cancel(wake);
+            return;
+        }
         if (ExactAlarms.allowed(context)) {
             alarms.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, at, wake);
         } else {

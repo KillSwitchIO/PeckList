@@ -204,10 +204,14 @@ final class Reminders {
         save(context, next);
     }
 
-    /** After a restart or an update, which clear alarms. */
+    /** After a restart or an update, which clear alarms: the check-in before the next one too. */
     static synchronized void restore(Context context) {
         long now = System.currentTimeMillis();
-        for (Reminder each : load(context).values()) if (each.at > now) setAlarm(context, each);
+        Map<String, Reminder> all = load(context);
+        for (Reminder each : all.values()) if (each.at > now) setAlarm(context, each);
+        // Nothing is saved here, which sets it otherwise; after a restart the reminders kept are the
+        // likeliest to have gone stale (Dev 2's review).
+        BackgroundCheck.scheduleBefore(context, all.values());
     }
 
     /** An alarm went off: show its reminder, once. */
@@ -464,6 +468,8 @@ final class Reminders {
             throw new IllegalStateException(error);
         }
         prefs(context).edit().putString(ALL, array.toString()).apply();
+        // Whatever changed them, the check-in before the next one moves with them.
+        BackgroundCheck.scheduleBefore(context, all.values());
     }
 
     /**

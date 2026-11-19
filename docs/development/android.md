@@ -95,7 +95,11 @@ app (ADR-0017 in the project notes). There is no second copy of the UI.
   optimization (`REQUEST_IGNORE_BATTERY_OPTIMIZATIONS`; the Play build opens the list of apps
   instead, see [Two builds](#two-builds)); without that, Android holds the alarm and the network
   while the phone is idle. Samsung phones also need PeckList in **Never sleeping apps**, which the
-  settings say.
+  settings say. Besides the regular check-in, one more goes a minute before each reminder the
+  server set (`CHECK_BEFORE`, set again whenever the reminders change and after a restart), so a
+  task done, moved or snoozed on another device takes that reminder off, or moves it, before it
+  comes. It skips reminders for tasks the server does not have yet and stops after three failed
+  check-ins in a row. In the Play build it is inexact like the rest, so Android may run it late.
   `notificationSettings` (shell api 5) opens Android's notification settings for the app, where
   each channel has its own sound and vibration; Settings > Notifications offers it as **Manage on
   the phone**.
