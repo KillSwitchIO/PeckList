@@ -168,6 +168,49 @@ public sealed class RoleEscalationTests(ServerFixture fixture) : IClassFixture<S
     }
 
     [Fact]
+    public async Task An_admin_cannot_put_an_admin_in_a_server_group_or_take_one_out()
+    {
+        // Manager, 2026-11-20: a server group's membership acts on the account (it gives or cuts access
+        // to lists shared with the group), so it takes the same super-admin guard as the rest.
+        using var server = Server();
+        var (admin, adaId) = await NewAccount(server, "ada", Role.Admin);
+        var (_, maxId) = await NewAccount(server, "max", Role.Admin);
+        var (_, samId) = await NewAccount(server, "sam", Role.User);
+        var superId = await SuperAdminId(server);
+        var root = await LogIn(server, "admin", AdminPassword);
+        var made = await root.PostAsJsonAsync("/api/admin/groups", new { name = "Family" }, Token);
+        var family = (await made.Content.ReadFromJsonAsync<AdminGroup>(Token))!;
+        async Task<string[]> Members() =>
+            (await root.GetFromJsonAsync<AdminGroup[]>("/api/admin/groups", Token))!.Single().Members.Select(each => each.AccountId).Order().ToArray();
+
+        foreach (var id in new[] { superId, maxId })
+        {
+            var refused = await admin.PutAsync($"/api/admin/groups/{family.Id}/members/{id}", null, Token);
+            Assert.Equal(HttpStatusCode.Forbidden, refused.StatusCode);
+            Assert.Equal("admins_only_by_super_admins", await ErrorOf(refused));
+        }
+        Assert.Empty(await Members());
+
+        // The super admin may; then the admin cannot take them out again.
+        foreach (var id in new[] { superId, maxId })
+        {
+            Assert.Equal(HttpStatusCode.NoContent, (await root.PutAsync($"/api/admin/groups/{family.Id}/members/{id}", null, Token)).StatusCode);
+            var refused = await admin.DeleteAsync($"/api/admin/groups/{family.Id}/members/{id}", Token);
+            Assert.Equal(HttpStatusCode.Forbidden, refused.StatusCode);
+            Assert.Equal("admins_only_by_super_admins", await ErrorOf(refused));
+        }
+        Assert.Equal(new[] { superId, maxId }.Order().ToArray(), await Members());
+
+        // Users, and the admin themself, stay the admin's to put in and take out; an unknown account is 404.
+        Assert.Equal(HttpStatusCode.NoContent, (await admin.PutAsync($"/api/admin/groups/{family.Id}/members/{samId}", null, Token)).StatusCode);
+        Assert.Equal(HttpStatusCode.NoContent, (await admin.PutAsync($"/api/admin/groups/{family.Id}/members/{adaId}", null, Token)).StatusCode);
+        Assert.Equal(HttpStatusCode.NoContent, (await admin.DeleteAsync($"/api/admin/groups/{family.Id}/members/{samId}", Token)).StatusCode);
+        Assert.Equal(HttpStatusCode.NoContent, (await admin.DeleteAsync($"/api/admin/groups/{family.Id}/members/{adaId}", Token)).StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, (await admin.PutAsync($"/api/admin/groups/{family.Id}/members/nobody", null, Token)).StatusCode);
+        Assert.Equal(HttpStatusCode.NoContent, (await root.DeleteAsync($"/api/admin/groups/{family.Id}/members/{superId}", Token)).StatusCode);
+    }
+
+    [Fact]
     public async Task An_admin_cannot_hand_over_an_admins_shares()
     {
         using var server = Server();
