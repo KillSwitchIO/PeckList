@@ -21,7 +21,7 @@ import { listName } from '../lists/listName.ts';
 import { useApply, useWorkspace } from '../store/hooks.ts';
 import { TaskReadOnly, useCanEditTask, useReadOnly } from './readOnly.ts';
 import { useTaskDrag } from './drag/dragContext.ts';
-import { useTwoLineRows } from '../layout/rowLayout.ts';
+import { useCompactRows, useTwoLineRows } from '../layout/rowLayout.ts';
 import { keyboardMove } from '../../core/taskDrag.ts';
 import { TagChips } from '../tags/TagChip.tsx';
 import { useTaskSelection } from './selection.ts';
@@ -213,8 +213,13 @@ function TaskRowContent({
   const progress = subtaskProgress(workspace, task.id);
   const tags = tagsOfTask(workspace, task);
   const assigned = assigneesOf(task).map((principal) => describePrincipal(workspace, principal));
-  // Two lines on phones and in narrow list columns (beside the details panel).
-  const twoLine = useTwoLineRows();
+  // Two lines on phones and in narrow list columns (beside the details panel), unless the view's
+  // rows are compact: then one line everywhere, and a narrow one keeps only the title, the small
+  // marks and the date.
+  const narrow = useTwoLineRows();
+  const compact = useCompactRows();
+  const twoLine = narrow && !compact;
+  const slim = compact && narrow;
   const { text: dateText } = useRowDate(task, dueFirst);
   const done = task.status !== 'open';
   const title = task.title || t('task.untitled');
@@ -311,8 +316,8 @@ function TaskRowContent({
           {t('task.subtasks', { done: progress.done, total: progress.total })}
         </Box>
       )}
-      {/* A subtask shown away from its parent names it. */}
-      {showParent && parent && (
+      {/* A subtask shown away from its parent names it (not on a narrow compact row: no room). */}
+      {showParent && parent && !slim && (
         <Box
           component="span"
           title={t('task.subtaskOf', { title: parent.title || t('task.untitled') })}
@@ -385,6 +390,7 @@ function TaskRowContent({
         color: done ? 'text.disabled' : 'text.primary',
         // Won't do reads as dropped, not finished.
         textDecoration: task.status === 'wontdo' ? 'line-through' : 'none',
+        ...(compact ? { fontSize: '0.875rem' } : {}),
         // Phones give the title the whole width and up to two lines.
         ...(twoLine
           ? {
@@ -444,11 +450,12 @@ function TaskRowContent({
           }}
           // A draggable row's own gesture covers the touch long-press (menu, or drag on moving).
           {...(gesture || !onHold ? {} : longPress)}
+          data-compact={compact ? '' : undefined}
           sx={{
             position: 'relative',
             display: 'flex',
             alignItems: twoLine ? 'flex-start' : 'center',
-            minHeight: 40,
+            minHeight: compact ? 32 : 40,
             pl: `${4 + depth * INDENT}px`,
             opacity: dimmed ? 0.4 : 1,
             // A held finger drags: no text selection or callout taking the hold over.
@@ -550,9 +557,9 @@ function TaskRowContent({
                   minWidth: 0,
                   display: 'flex',
                   alignItems: 'center',
-                  gap: 1.5,
-                  py: 1,
-                  pr: 1.5,
+                  gap: compact ? 1 : 1.5,
+                  py: compact ? 0.25 : 1,
+                  pr: slim ? 0.5 : 1.5,
                   textAlign: 'left',
                 }}
               >
@@ -567,17 +574,32 @@ function TaskRowContent({
                     typography: 'body2',
                   }}
                 >
-                  <TagChips tags={tags} max={2} wrap={false} />
+                  {!slim && <TagChips tags={tags} max={2} wrap={false} />}
                   {details}
                   {/* The Mess Drawer is "no list", so its tasks show none. */}
-                  {showsList && (
+                  {showsList && !slim && (
                     <Box component="span" sx={{ color: 'text.secondary' }}>
                       {listName(list, workspace)}
                     </Box>
                   )}
                 </Box>
               </ButtonBase>
-              <DateButton task={task} width={DATE_COLUMN} dueFirst={dueFirst} />
+              {slim ? (
+                // The short date, at the size it has under the title on a two-line row, off the edge.
+                <Box
+                  sx={{
+                    display: 'flex',
+                    alignSelf: 'stretch',
+                    flexShrink: 0,
+                    pr: 1.5,
+                    fontSize: '0.8125rem',
+                  }}
+                >
+                  <DateButton task={task} width="auto" compact dueFirst={dueFirst} />
+                </Box>
+              ) : (
+                <DateButton task={task} width={DATE_COLUMN} dueFirst={dueFirst} />
+              )}
             </>
           )}
           <TaskMenu task={task} anchor={menu} onClose={closeMenu} showOpen />

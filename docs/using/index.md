@@ -231,6 +231,13 @@ tasks stay last), low priority first, oldest first, or the groups in reverse. Ea
 keeps its own choice on this device, and the dots turn colored while it differs from the default;
 **Restore defaults** at the bottom of the menu goes back.
 
+Today's menu also has **Row size**: **Comfortable** (the usual rows) or **Compact**, one line per
+task with less space around it, so more of the day fits on the screen. On a phone a compact row
+keeps the title, the small marks (repeat, reminder, who it is assigned to, subtasks done) and the
+date, and leaves out the list, the tags and a subtask's parent. The order and the red date of an overdue task stay the same. Row size is
+saved with your settings, so it follows you to your other devices, and **Restore defaults** leaves
+it as it is.
+
 **Select** picks many tasks at once: each task's box becomes a circle to tap, and each group gets
 a circle that picks everything in it. The bar at the bottom (in place of the tabs on a phone) then
 completes, dates, moves, tags, prioritizes, pins or deletes them all together; one **Undo** puts

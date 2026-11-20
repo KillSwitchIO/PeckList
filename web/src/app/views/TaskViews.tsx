@@ -51,6 +51,8 @@ import {
   PostponeButton,
 } from './groups.tsx';
 import { SortGroupButton } from './SortGroupButton.tsx';
+import { useRowDensity } from './useRowDensity.ts';
+import { CompactRowsContext } from '../layout/rowLayout.ts';
 import { AgendaView } from './AgendaView.tsx';
 import { TaskDragProvider } from '../tasks/drag/TaskDrag.tsx';
 import { useNarrowed } from './useNarrowed.tsx';
@@ -120,6 +122,8 @@ function AddForToday({ today }: { today: string }) {
 export function TodayView() {
   const today = useToday();
   const view = useListView('view:today');
+  // Row size: Today's own for now (settings.compactViews), built to widen to other views.
+  const density = useRowDensity('view:today');
   const { workspace, button } = useNarrowed('today');
   const groups = todayGroups(workspace, today);
   // Pinned tasks with no date have no day to sit in, so they show in Pinned only.
@@ -135,35 +139,37 @@ export function TodayView() {
       actions={
         <>
           {button}
-          <SortGroupButton view={view} groupings={VIEW_GROUPINGS} />
+          <SortGroupButton view={view} groupings={VIEW_GROUPINGS} density={density} />
         </>
       }
     >
       <AddForToday today={today} />
-      {view.grouping === 'date' ? (
-        <>
-          {empty && <EmptyState title={t('empty.today')} hint={t('empty.today.hint')} />}
-          <PinnedGroup
-            tasks={pinnedFirst([...groups.overdue, ...groups.today, ...undated]).pinned}
+      <CompactRowsContext.Provider value={density.value === 'compact'}>
+        {view.grouping === 'date' ? (
+          <>
+            {empty && <EmptyState title={t('empty.today')} hint={t('empty.today.hint')} />}
+            <PinnedGroup
+              tasks={pinnedFirst([...groups.overdue, ...groups.today, ...undated]).pinned}
+              showList
+            />
+            <OverdueAndToday today={today} view={view} source={workspace} />
+            <CompletedGroup tasks={done} showList />
+          </>
+        ) : (
+          <GroupedTasks
+            tasks={[...groups.overdue, ...groups.today]}
+            closed={done}
+            grouping={view.grouping}
+            sort={view.sort}
+            reversed={view.sortReversed}
+            groupsReversed={view.groupReversed}
             showList
+            emptyTitle={t('empty.today')}
+            emptyWithClosed
+            pinnedOnly={undated}
           />
-          <OverdueAndToday today={today} view={view} source={workspace} />
-          <CompletedGroup tasks={done} showList />
-        </>
-      ) : (
-        <GroupedTasks
-          tasks={[...groups.overdue, ...groups.today]}
-          closed={done}
-          grouping={view.grouping}
-          sort={view.sort}
-          reversed={view.sortReversed}
-          groupsReversed={view.groupReversed}
-          showList
-          emptyTitle={t('empty.today')}
-          emptyWithClosed
-          pinnedOnly={undated}
-        />
-      )}
+        )}
+      </CompactRowsContext.Provider>
     </Page>
   );
 }

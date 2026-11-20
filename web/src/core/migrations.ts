@@ -3,7 +3,7 @@
 
 import { keyBetween } from './ordering.ts';
 
-export const CURRENT_SCHEMA_VERSION = 18;
+export const CURRENT_SCHEMA_VERSION = 19;
 
 export type Migration = (document: Record<string, unknown>) => Record<string, unknown>;
 
@@ -127,6 +127,9 @@ export const MIGRATIONS: MigrationRegistry = {
   // 18: settings may say how long deleted and won't-do tasks stay (purgeAfterDays). Optional
   // (missing: 30 days), so documents change only in version.
   18: (document) => document,
+  // 19: settings may list the views whose rows are compact (compactViews). Optional (missing:
+  // none), so documents change only in version.
+  19: (document) => document,
 };
 
 export type VersionCheck =

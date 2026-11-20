@@ -29,7 +29,7 @@ import { randomBytes } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 
-export const SCHEMA_VERSION = 18;
+export const SCHEMA_VERSION = 19;
 const NODE = 'drill';
 const ORIGIN = 'notification-drill';
 
