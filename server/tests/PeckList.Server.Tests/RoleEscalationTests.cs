@@ -180,4 +180,73 @@ public sealed class RoleEscalationTests(ServerFixture fixture) : IClassFixture<S
         var allowed = await admin.PostAsJsonAsync($"/api/admin/users/{samId}/hand-over", new { to = adaId }, Token);
         Assert.Equal(HttpStatusCode.OK, allowed.StatusCode);
     }
+
+    [Fact]
+    public async Task An_admin_cannot_hand_a_users_shares_to_another_admin()
+    {
+        // Security, 2026-11-20: the hand-over guarded whose shares they are, not who gets them.
+        using var server = Server();
+        var (admin, _) = await NewAccount(server, "ada", Role.Admin);
+        var (_, maxId) = await NewAccount(server, "max", Role.Admin);
+        var (_, samId) = await NewAccount(server, "sam", Role.User);
+        var (_, kimId) = await NewAccount(server, "kim", Role.User);
+        var superId = await SuperAdminId(server);
+        var root = await LogIn(server, "admin", AdminPassword);
+
+        foreach (var to in new[] { superId, maxId })
+        {
+            var refused = await admin.PostAsJsonAsync($"/api/admin/users/{samId}/hand-over", new { to }, Token);
+            Assert.Equal(HttpStatusCode.Forbidden, refused.StatusCode);
+            Assert.Equal("admins_only_by_super_admins", await ErrorOf(refused));
+        }
+        Assert.Equal(HttpStatusCode.OK, (await admin.PostAsJsonAsync($"/api/admin/users/{samId}/hand-over", new { to = kimId }, Token)).StatusCode);
+        Assert.Equal(HttpStatusCode.OK, (await root.PostAsJsonAsync($"/api/admin/users/{samId}/hand-over", new { to = superId }, Token)).StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, (await admin.PostAsJsonAsync($"/api/admin/users/{samId}/hand-over", new { to = "nobody" }, Token)).StatusCode);
+    }
+
+    [Fact]
+    public async Task An_admin_cannot_make_or_end_an_admins_friendships()
+    {
+        // PL-106: the friendship endpoints went around the super-admin guard every other action on an
+        // account goes through. A friendship touches both people, so either one being an admin counts.
+        using var server = Server();
+        var (admin, adaId) = await NewAccount(server, "ada", Role.Admin);
+        var (_, maxId) = await NewAccount(server, "max", Role.Admin);
+        var (_, samId) = await NewAccount(server, "sam", Role.User);
+        var (_, kimId) = await NewAccount(server, "kim", Role.User);
+        var superId = await SuperAdminId(server);
+        var root = await LogIn(server, "admin", AdminPassword);
+        async Task<AdminFriend[]> FriendsOf(string id) => (await root.GetFromJsonAsync<AdminFriend[]>($"/api/admin/users/{id}/friends", Token))!;
+
+        // Making: a super admin or another admin, as either person, and the admin themself with a super admin.
+        foreach (var (a, b) in new[] { (superId, samId), (samId, superId), (maxId, samId), (samId, maxId), (adaId, superId) })
+        {
+            var refused = await admin.PostAsJsonAsync("/api/admin/friendships", new { userA = a, userB = b }, Token);
+            Assert.Equal(HttpStatusCode.Forbidden, refused.StatusCode);
+            Assert.Equal("admins_only_by_super_admins", await ErrorOf(refused));
+        }
+        Assert.Empty(await FriendsOf(superId));
+        Assert.Empty(await FriendsOf(maxId));
+
+        // Ending: friendships a super admin made stay, whichever way round the admin names them.
+        Assert.Equal(HttpStatusCode.OK, (await root.PostAsJsonAsync("/api/admin/friendships", new { userA = superId, userB = samId }, Token)).StatusCode);
+        Assert.Equal(HttpStatusCode.OK, (await root.PostAsJsonAsync("/api/admin/friendships", new { userA = maxId, userB = kimId }, Token)).StatusCode);
+        foreach (var (a, b) in new[] { (superId, samId), (samId, superId), (maxId, kimId), (kimId, maxId) })
+        {
+            var refused = await admin.DeleteAsync($"/api/admin/friendships/{a}/{b}", Token);
+            Assert.Equal(HttpStatusCode.Forbidden, refused.StatusCode);
+            Assert.Equal("admins_only_by_super_admins", await ErrorOf(refused));
+        }
+        Assert.Equal([samId], (await FriendsOf(superId)).Select(friend => friend.UserId));
+        Assert.Equal([kimId], (await FriendsOf(maxId)).Select(friend => friend.UserId));
+
+        // Users stay the admin's to pair and part, and themself with a user; the super admin may do all of it.
+        Assert.Equal(HttpStatusCode.OK, (await admin.PostAsJsonAsync("/api/admin/friendships", new { userA = samId, userB = kimId }, Token)).StatusCode);
+        Assert.Equal(HttpStatusCode.NoContent, (await admin.DeleteAsync($"/api/admin/friendships/{kimId}/{samId}", Token)).StatusCode);
+        Assert.Equal(HttpStatusCode.OK, (await admin.PostAsJsonAsync("/api/admin/friendships", new { userA = adaId, userB = kimId }, Token)).StatusCode);
+        Assert.Equal(HttpStatusCode.NoContent, (await root.DeleteAsync($"/api/admin/friendships/{samId}/{superId}", Token)).StatusCode);
+        Assert.Equal(HttpStatusCode.NoContent, (await root.DeleteAsync($"/api/admin/friendships/{kimId}/{maxId}", Token)).StatusCode);
+        // An id with no account is still a 404, not a 403.
+        Assert.Equal(HttpStatusCode.NotFound, (await admin.PostAsJsonAsync("/api/admin/friendships", new { userA = samId, userB = "nobody" }, Token)).StatusCode);
+    }
 }

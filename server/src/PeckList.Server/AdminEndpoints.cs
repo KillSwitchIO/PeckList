@@ -474,6 +474,8 @@ public static class AdminEndpoints
             var first = await accounts.FindByIdAsync(request.UserA ?? "", cancellation);
             context.Audit().On(request.UserA, first?.Username).Detail =
                 $"with {(await accounts.FindByIdAsync(request.UserB ?? "", cancellation))?.Username ?? request.UserB}";
+            // Only a super admin pairs an admin or a super admin with someone (PL-106).
+            if (await RefusedForAdminsAsync(user, accounts, cancellation, request.UserA ?? "", request.UserB ?? "") is { } refused) return refused;
             var madeBy = await accounts.FindByIdAsync(user.UserId(), cancellation);
             if (await friends.MakeFriendsAsync(request.UserA ?? "", request.UserB ?? "", madeBy, cancellation) is not { } id) return Results.NotFound();
             await invites.SettleAsync(cancellation);
@@ -481,9 +483,12 @@ public static class AdminEndpoints
         }).Doc<FriendshipMade>("Make two people friends").Missing().RequirePermission(Permission.ManageUsers).Audited("admin.friends-made", targetRoute: null);
 
         admin.MapDelete("/friendships/{a}/{b}", async (
-            string a, string b, Friends friends, Invites invites, IAccountStore accounts, HttpContext context, CancellationToken cancellation) =>
+            string a, string b, ClaimsPrincipal user, Friends friends, Invites invites, IAccountStore accounts, HttpContext context,
+            CancellationToken cancellation) =>
         {
             context.Audit().Detail = $"with {(await accounts.FindByIdAsync(b, cancellation))?.Username ?? b}";
+            // Only a super admin ends an admin's or a super admin's friendship (PL-106).
+            if (await RefusedForAdminsAsync(user, accounts, cancellation, a, b) is { } refused) return refused;
             if (!await friends.EndFriendshipAsync(a, b, cancellation)) return Results.NotFound();
             await invites.SettleAsync(cancellation);
             return Results.NoContent();
@@ -503,6 +508,8 @@ public static class AdminEndpoints
             await OnAccountAsync(id, user, accounts, async _ =>
             {
                 if (request.To is null || await accounts.FindByIdAsync(request.To, cancellation) is not { } to) return Results.NotFound();
+                // Handing shares to someone acts on their account too: only a super admin hands them to an admin.
+                if (!MayActOn(to, user)) return AdminsOnlyBySuperAdmins();
                 var moved = await ownership.HandOverAsync(id, request.To, request.Ids, cancellation);
                 context.Audit().Detail = $"{moved} to {to.Username}";
                 return Results.Ok(new HandedOver(moved));
@@ -692,11 +699,29 @@ public static class AdminEndpoints
         string id, ClaimsPrincipal user, IAccountStore accounts, Func<Account, Task<IResult>> action, CancellationToken cancellation)
     {
         if (await accounts.FindByIdAsync(id, cancellation) is not { } account) return Results.NotFound();
-        if (account.Role != Role.User && account.Id != user.UserId() && !user.AccountRole().Can(Permission.ManageAdmins))
-        {
-            return Results.Json(new AdminError("admins_only_by_super_admins"), statusCode: StatusCodes.Status403Forbidden);
-        }
+        if (!MayActOn(account, user)) return AdminsOnlyBySuperAdmins();
         return await action(account);
+    }
+
+    /// <summary>Whether the caller may act on this account: anyone's own, a user's, and an admin's only for a super admin.</summary>
+    private static bool MayActOn(Account account, ClaimsPrincipal user) =>
+        account.Role == Role.User || account.Id == user.UserId() || user.AccountRole().Can(Permission.ManageAdmins);
+
+    private static IResult AdminsOnlyBySuperAdmins() =>
+        Results.Json(new AdminError("admins_only_by_super_admins"), statusCode: StatusCodes.Status403Forbidden);
+
+    /// <summary>
+    /// 403 when any of these accounts is an admin's the caller may not act on, else null. A friendship
+    /// an admin makes or ends touches both people, so both get the same check as any other action on an
+    /// account; an id with no account is left to the action's own 404.
+    /// </summary>
+    private static async Task<IResult?> RefusedForAdminsAsync(ClaimsPrincipal user, IAccountStore accounts, CancellationToken cancellation, params string[] ids)
+    {
+        foreach (var id in ids)
+        {
+            if (await accounts.FindByIdAsync(id, cancellation) is { } account && !MayActOn(account, user)) return AdminsOnlyBySuperAdmins();
+        }
+        return null;
     }
 
     /// <summary>Usernames by account id, for naming people in answers.</summary>
