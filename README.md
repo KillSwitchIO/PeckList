@@ -4,6 +4,8 @@
 [![release](https://gitlab.com/killswitch10/pecklist/-/badges/release.svg)](https://gitlab.com/killswitch10/pecklist/-/releases)
 [![license: AGPL-3.0-or-later](https://img.shields.io/badge/license-AGPL--3.0--or--later-blue)](LICENSE)
 [![docs](https://img.shields.io/badge/docs-docs.pecklist.com-5A8A4E)](https://docs.pecklist.com/)
+[![demo](https://img.shields.io/badge/demo-demo.pecklist.com-5A8A4E)](https://demo.pecklist.com/)
+[![Docker Hub](https://img.shields.io/badge/Docker%20Hub-hambone0%2Fpecklist-5A8A4E?logo=docker)](https://hub.docker.com/r/hambone0/pecklist)
 [![Android: Obtainium](https://img.shields.io/badge/Android-Obtainium-5A8A4E)](docs/using/android-app.md#install)
 [![ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/S6S7P3FVW)
 [![PayPal: donate](https://img.shields.io/badge/PayPal-donate-00457C?logo=paypal)](https://www.paypal.com/donate/?hosted_button_id=NF3EZPGC3NL86)
@@ -54,8 +56,10 @@ docker logs pecklist     # the first admin password, printed once
 ```
 
 Open <http://localhost:8080>, sign in as `admin` with that password, and choose a new one. The
-image is public: amd64 and arm64, tagged `latest`, a minor line (`0.3`) and each version (`0.3.0`).
-The same image is on Docker Hub as `hambone0/pecklist`. For real use, see the documentation:
+image is public, and the same image is on Docker Hub as
+[`hambone0/pecklist`](https://hub.docker.com/r/hambone0/pecklist): use either name. Both are amd64
+and arm64, tagged `latest`, a minor line (`0.13`) and each version (`0.13.0`). For real use, see
+the documentation:
 
 |           |                                                                                                                                                                                                                |
 | --------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -72,7 +76,8 @@ The same docs are published as a site from `main` (GitLab Pages).
 ## Downloads
 
 Each [release](https://gitlab.com/killswitch10/pecklist/-/releases) has the image
-(`registry.gitlab.com/killswitch10/pecklist:<version>`, amd64 and arm64), deb and rpm packages
+(`registry.gitlab.com/killswitch10/pecklist:<version>`, or `hambone0/pecklist:<version>` on Docker
+Hub, amd64 and arm64), deb and rpm packages
 of the server and the command line (x64, arm64), portable Linux and Windows downloads, the signed
 Android app (`pecklist-android-<version>.apk`, also
 through [Obtainium](docs/using/android-app.md#install)), and `SHA256SUMS`.

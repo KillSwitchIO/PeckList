@@ -34,7 +34,7 @@ built. For a particular release, take both files from its
 
 ## Images
 
-The image is signed by its digest, so every tag that points at it (the version, `0.2`, `latest`, and
+The image is signed by its digest, so every tag that points at it (the version, `0.13`, `latest`, and
 the copies on Docker Hub) carries the same signature:
 
 ```bash
@@ -42,6 +42,9 @@ cosign verify registry.gitlab.com/killswitch10/pecklist:latest \
   --certificate-identity https://gitlab.com/killswitch10/pecklist//.gitlab-ci.yml@refs/heads/main \
   --certificate-oidc-issuer https://gitlab.com
 ```
+
+For the Docker Hub copy, run the same command with `docker.io/hambone0/pecklist:latest` in place of
+the GitLab name.
 
 To pin what you checked, run the image by the digest cosign printed
 (`registry.gitlab.com/killswitch10/pecklist@sha256:...`) rather than by a tag, which can move.
