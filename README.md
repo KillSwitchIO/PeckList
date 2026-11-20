@@ -13,6 +13,10 @@ drag tasks onto, shared with the people you choose, on every device, online or n
 server keeps everyone's data, in SQLite or PostgreSQL, and runs as a Docker container or a native
 program on Linux and Windows.
 
+**Try it first:** [demo.pecklist.com](https://demo.pecklist.com) is a public server anyone can sign
+up on, reset every hour. The [quick start](#quick-start) below runs your own with one command, and
+the [changelog](#changelog) says what each release changed.
+
 <!-- The status line: at 1.0, replace this one line with "> **Status: 1.0.** Stable; see the [changelog](CHANGELOG.md)." -->
 
 > **Status: before 1.0.** In daily use, but a minor version may still change things: every change you need to act on is under **Breaking changes** in the [changelog](CHANGELOG.md). Keep backups.
@@ -72,6 +76,18 @@ Each [release](https://gitlab.com/killswitch10/pecklist/-/releases) has the imag
 of the server and the command line (x64, arm64), portable Linux and Windows downloads, the signed
 Android app (`pecklist-android-<version>.apk`, also
 through [Obtainium](docs/using/android-app.md#install)), and `SHA256SUMS`.
+
+## Changelog
+
+What each release changed, newest first, is in [CHANGELOG.md](CHANGELOG.md) and on the
+[releases page](https://gitlab.com/killswitch10/pecklist/-/releases). Before 1.0 a minor release
+(0.13 to 0.14) may change how something works: each such change is under **Breaking changes**
+in that release, with what to do, so read it before you [upgrade](docs/guides/upgrading.md). A
+patch release (0.13.0 to 0.13.1) only fixes things.
+
+A minor release comes as a release candidate first (`0.14.0-rc.1`, the `rc` image tag) for anyone
+who wants to try what comes next. `latest` and the minor tags (`0.13`) only move on a full
+release; all the tags are in [image tags](docs/install/docker.md#image-tags).
 
 ## Help and community
 
