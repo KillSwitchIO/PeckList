@@ -41,6 +41,8 @@ public abstract class ApiKeyStoreContract : IAsyncLifetime
         Assert.Null(found.LastUsedAt);
         Assert.Equal(["k2", "k1"], (await Keys.ListAsync("sam", Token)).Select(key => key.Id));
         Assert.Null(await Keys.FindAsync("nope", Token));
+        // Everyone's, oldest first, for a whole-server backup.
+        Assert.Equal(["k1", "k2", "k3"], (await Keys.AllAsync(Token)).Select(key => key.Id));
     }
 
     [Fact]

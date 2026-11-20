@@ -91,6 +91,45 @@ public sealed class BackupCenterTests(ServerFixture fixture) : IClassFixture<Ser
     }
 
     [Fact]
+    public async Task A_restore_keeps_the_backups_api_keys_drops_keys_made_since_and_keeps_revocations()
+    {
+        var db = fixture.NewDbPath();
+        var server = Server(db);
+        var admin = await LogIn(server, "admin", AdminPassword);
+        async Task<Auth.ApiKeyAuth.CreatedKey> Make(string name)
+        {
+            var made = await admin.PostAsJsonAsync("/api/account/api-keys", new { name, scopes = new[] { ApiScopes.TasksRead } }, Token);
+            made.EnsureSuccessStatusCode();
+            return (await made.Content.ReadFromJsonAsync<Auth.ApiKeyAuth.CreatedKey>(Token))!;
+        }
+        var before = (await Make("Home Assistant")).Token;
+        var leaked = await Make("Leaked later");
+        var backup = await ExportWith(admin);
+        // The file holds the key's hash, never the token.
+        Assert.Equal(["Home Assistant", "Leaked later"], backup["apiKeys"]!.AsArray().Select(key => (string?)key!["name"]).Order());
+        Assert.DoesNotContain(before, backup.ToJsonString());
+        var since = (await Make("Made after the backup")).Token;
+        // Revoked after the backup: it stays revoked when the backup comes back.
+        Assert.Equal(HttpStatusCode.NoContent, (await admin.DeleteAsync($"/api/account/api-keys/{leaked.Key.Id}", Token)).StatusCode);
+
+        using (server)
+        {
+            using var form = new MultipartFormDataContent { { new StringContent(backup.ToJsonString()), "file", "backup.json" } };
+            Assert.Equal(HttpStatusCode.Accepted, (await admin.PostAsync("/api/admin/restore", form, Token)).StatusCode);
+        }
+        using var restarted = Server(db);
+        async Task<HttpStatusCode> With(string token)
+        {
+            var client = restarted.CreateClient();
+            client.DefaultRequestHeaders.Authorization = new("Bearer", token);
+            return (await client.GetAsync("/api/v1/lists", Token)).StatusCode;
+        }
+        Assert.Equal(HttpStatusCode.OK, await With(before));
+        Assert.Equal(HttpStatusCode.Unauthorized, await With(since));
+        Assert.Equal(HttpStatusCode.Unauthorized, await With(leaked.Token));
+    }
+
+    [Fact]
     public async Task An_export_made_with_an_api_key_leaves_out_the_session_and_one_time_secrets()
     {
         var db = fixture.NewDbPath();

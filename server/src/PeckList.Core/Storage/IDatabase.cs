@@ -24,6 +24,9 @@ public interface IDatabase
     /// </summary>
     Task<IReadOnlyDictionary<string, long>> CountRowsAsync(CancellationToken cancellation = default);
 
-    /// <summary>Delete every entity, account and secret (import --replace).</summary>
+    /// <summary>
+    /// Delete every entity, account, secret and API key (import --replace, a whole-server restore):
+    /// what comes back is exactly the backup's, so a key made after it does not outlive it.
+    /// </summary>
     Task WipeAsync(CancellationToken cancellation = default);
 }

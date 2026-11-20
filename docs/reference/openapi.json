@@ -6991,7 +6991,7 @@
         "tags": [
           "Admin: export"
         ],
-        "summary": "The whole server as a backup file, made now (an API key's copy leaves out keys and secrets)",
+        "summary": "The whole server as a backup file, made now (an API key's copy leaves out server secrets such as the cookie keys)",
         "description": "Admin permission: ManageSecurity. An API key needs the admin scope.",
         "responses": {
           "200": {

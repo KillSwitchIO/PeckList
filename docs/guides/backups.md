@@ -9,7 +9,8 @@ those: with the defaults, a week of dailies and a month of weeklies.
 
 A snapshot is one gzip-compressed JSON file (`pecklist-YYYYMMDD-HHMMSS.json.gz`, about a tenth of
 the plain size) with everything: accounts (with password hashes), every task and list,
-sharing, and the keys that sign session cookies. **Treat
+sharing, passkeys, API keys (a hash of each, never the key itself), and the keys that sign session
+cookies. **Treat
 snapshots like the database itself**: anyone with one can read everyone's data.
 
 Snapshots are consistent: they are taken inside the database, not copied from a file in use.
@@ -30,6 +31,11 @@ change once written, so an incremental backup tool copies each one once.
   one person within it. A whole-server restore is applied at the next start, before anything loads,
   and the page offers the restart. Every device then starts over from the restored data at its
   next sync; changes a device made before it noticed are not written over the restored data.
+
+A whole-server restore brings back the backup's API keys: a key made after the backup stops
+working, and one revoked since stays revoked. A backup from before 0.14.0 holds no API keys, so the
+server has none after restoring it: make new ones under **Settings > API keys**. After restoring to
+recover from a break-in, review **Settings > API keys**.
 
 Downloading, exporting and restoring the whole server is for super admins: those files hold every
 password hash and the keys that sign sessions. Admins take backups, see the list, and export and

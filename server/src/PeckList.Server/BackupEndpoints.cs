@@ -78,7 +78,7 @@ public static class BackupEndpoints
             Attach(context, $"pecklist-{Stamp(time)}.json");
             await backup.ExportAsync(context.Response.Body, ServerApp.Version, context.RequestAborted,
                 user.ByKey() ? LeftOutByKey : (Func<string, string, bool>?)null);
-        }).DocFile("The whole server as a backup file, made now (an API key's copy leaves out keys and secrets)", "application/json").RequirePermission(Permission.ManageSecurity).Audited("backup.exported", targetRoute: null);
+        }).DocFile("The whole server as a backup file, made now (an API key's copy leaves out server secrets such as the cookie keys)", "application/json").RequirePermission(Permission.ManageSecurity).Audited("backup.exported", targetRoute: null);
 
         admin.MapGet("/users/{id}/export", async (
             string id, ClaimsPrincipal user, HttpContext context, UserBackups users, IAccountStore accounts, TimeProvider time) =>

@@ -318,8 +318,11 @@ public static class Cli
     {
         SqlDatabase database = provider == DbProvider.Postgres ? new PostgresDatabase(connection!) : new SqliteDatabase(path);
         if (migrate) await database.MigrateAsync();
+        // Every store the server's own backups carry, as the running server has them: without the
+        // passkeys and API keys, export, import and migrate-db would leave them behind.
         var backup = new BackupService(database, new SqlEntityStore(database), new SqlAccountStore(database),
-            new SqlServerGroupStore(database), new SqlIdentityStore(database), new SqlSecretStore(database), TimeProvider.System);
+            new SqlServerGroupStore(database), new SqlIdentityStore(database), new SqlSecretStore(database), TimeProvider.System,
+            new SqlPasskeyStore(database), new SqlApiKeyStore(database));
         return (database, backup);
     }
 

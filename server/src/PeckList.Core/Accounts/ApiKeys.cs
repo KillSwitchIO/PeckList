@@ -49,6 +49,9 @@ public interface IApiKeyStore
     /// <summary>A person's keys, newest first, revoked ones included.</summary>
     Task<IReadOnlyList<ApiKey>> ListAsync(string userId, CancellationToken cancellation = default);
 
+    /// <summary>Every key on the server, revoked ones included, oldest first: for a whole-server backup.</summary>
+    Task<IReadOnlyList<ApiKey>> AllAsync(CancellationToken cancellation = default);
+
     Task RevokeAsync(string id, DateTimeOffset at, CancellationToken cancellation = default);
 
     Task TouchAsync(string id, DateTimeOffset at, CancellationToken cancellation = default);

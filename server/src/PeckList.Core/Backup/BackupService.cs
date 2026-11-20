@@ -19,13 +19,14 @@ public sealed record BackupSummary(int Accounts, int Entities, long Cursor);
 /// <summary>
 /// The whole server as one JSON document (spec: Data Model &amp; Sync, "export, import and migrate-db
 /// go through the JSON format"): accounts with their password hashes, every entity with its owner
-/// and seq, the visibility index, the cursor, server groups and the server's own secrets (cookie keys). Restoring
-/// it gives an identical database, so sessions and device cursors keep working. Treat the file
-/// like the database: it holds password hashes.
+/// and seq, the visibility index, the cursor, server groups, API keys (their hashes) and the server's own
+/// secrets (cookie keys). Restoring it gives an identical database, so sessions, device cursors and API
+/// keys keep working, and nothing made after it survives (but a key revoked by then stays revoked). Treat the file like the database: it holds
+/// password hashes.
 /// </summary>
 public sealed class BackupService(
     IDatabase database, IEntityStore entities, IAccountStore accounts, IServerGroupStore groups, IIdentityStore identities,
-    ISecretStore secrets, TimeProvider time, IPasskeyStore? passkeys = null)
+    ISecretStore secrets, TimeProvider time, IPasskeyStore? passkeys = null, IApiKeyStore? apiKeys = null)
 {
     public const string Format = "pecklist-server-backup";
     /// <summary>What server backups were called before the rename (PL-127); still read.</summary>
@@ -191,6 +192,14 @@ public sealed class BackupService(
             json.WriteEndObject();
         }
         json.WriteEndArray();
+        // API keys (added in 0.14.0): only the hash of each secret, as stored. Older backups have no
+        // list, and restoring one leaves the server with no keys (the restore wipes them).
+        if (apiKeys is not null)
+        {
+            json.WriteStartArray("apiKeys");
+            foreach (var key in await apiKeys.AllAsync(cancellation)) WriteApiKey(json, key);
+            json.WriteEndArray();
+        }
 
         json.WriteStartArray("secrets");
         foreach (var (kind, name, value) in await secrets.AllAsync(cancellation))
@@ -219,9 +228,19 @@ public sealed class BackupService(
         var root = await ParseAsync(input, cancellation);
         Check(root);
         var shift = shiftDates ? SeedDates.DaysSince(root, DateOnly.FromDateTime(time.GetUtcNow().UtcDateTime)) : 0;
+        // Keys revoked by now stay revoked, whatever the backup says: one revoked because it leaked
+        // must not come back with an older backup (Security's review of the API keys change).
+        var revokedNow = new Dictionary<string, DateTimeOffset>(StringComparer.Ordinal);
         if (!await database.IsEmptyAsync(cancellation))
         {
             if (!replace) throw new BackupException("the database is not empty; import into a new one, or pass --replace to delete what is there first");
+            if (apiKeys is not null)
+            {
+                foreach (var key in await apiKeys.AllAsync(cancellation))
+                {
+                    if (key.RevokedAt is { } revoked) revokedNow[key.Id] = revoked;
+                }
+            }
             await database.WipeAsync(cancellation);
         }
 
@@ -313,6 +332,16 @@ public sealed class BackupService(
             }, cancellation);
         }
 
+        if (apiKeys is not null)
+        {
+            foreach (var node in OptionalArray(root, "apiKeys"))
+            {
+                var key = ReadApiKey(node.AsObject());
+                if (key.RevokedAt is null && revokedNow.TryGetValue(key.Id, out var revoked)) key = key with { RevokedAt = revoked };
+                await apiKeys.AddAsync(key, cancellation);
+            }
+        }
+
         foreach (var node in Array(root, "secrets"))
         {
             var item = node.AsObject();
@@ -395,6 +424,43 @@ public sealed class BackupService(
         CreatedAt = DateTimeOffset.Parse(Required(item, "createdAt"), CultureInfo.InvariantCulture),
         LastUsedAt = item["lastUsedAt"] is null ? null : DateTimeOffset.Parse(Required(item, "lastUsedAt"), CultureInfo.InvariantCulture),
     };
+
+    private static void WriteApiKey(Utf8JsonWriter json, ApiKey key)
+    {
+        static string When(DateTimeOffset at) => at.ToString("O", CultureInfo.InvariantCulture);
+        json.WriteStartObject();
+        json.WriteString("id", key.Id);
+        json.WriteString("userId", key.UserId);
+        json.WriteString("name", key.Name);
+        json.WriteString("secretHash", key.SecretHash);
+        json.WriteStartArray("scopes");
+        foreach (var scope in key.Scopes) json.WriteStringValue(scope);
+        json.WriteEndArray();
+        json.WriteString("createdAt", When(key.CreatedAt));
+        if (key.ExpiresAt is { } expires) json.WriteString("expiresAt", When(expires));
+        if (key.LastUsedAt is { } used) json.WriteString("lastUsedAt", When(used));
+        if (key.RevokedAt is { } revoked) json.WriteString("revokedAt", When(revoked));
+        json.WriteEndObject();
+    }
+
+    private static ApiKey ReadApiKey(JsonObject item)
+    {
+        DateTimeOffset? Maybe(string name) =>
+            item[name] is null ? null : DateTimeOffset.Parse(Required(item, name), CultureInfo.InvariantCulture);
+        return new ApiKey
+        {
+            Id = Required(item, "id"),
+            UserId = Required(item, "userId"),
+            Name = Required(item, "name"),
+            SecretHash = Required(item, "secretHash"),
+            Scopes = (item["scopes"] as JsonArray ?? throw new BackupException("an API key without \"scopes\""))
+                .Select(scope => (string?)scope ?? throw new BackupException("an empty API key scope")).ToList(),
+            CreatedAt = DateTimeOffset.Parse(Required(item, "createdAt"), CultureInfo.InvariantCulture),
+            ExpiresAt = Maybe("expiresAt"),
+            LastUsedAt = Maybe("lastUsedAt"),
+            RevokedAt = Maybe("revokedAt"),
+        };
+    }
 
     private static Account ReadAccount(JsonNode node)
     {
