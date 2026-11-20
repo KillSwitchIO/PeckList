@@ -521,8 +521,10 @@ public sealed class PushTests(ServerFixture fixture) : IClassFixture<ServerFixtu
         {
             (await ben.PostAsJsonAsync("/api/reminders/act", new { taskId = "ZR1", first = first.ToUnixTimeMilliseconds(), action = "snooze", minutes = 90 }, Token)).EnsureSuccessStatusCode();
         }
-        var again = Assert.Single((await ben.GetFromJsonAsync<List<SnoozedReminder>>("/api/reminders/snoozes", Token))!, each => each.TaskId == "ZR1");
-        Assert.Equal("2026-10-27T10:30", again.Occurrence);
+        // Both to the same minute, each its own row (0021): they shared one before.
+        var again = (await ben.GetFromJsonAsync<List<SnoozedReminder>>("/api/reminders/snoozes", Token))!.Where(each => each.TaskId == "ZR1").ToList();
+        Assert.Equal(2, again.Count);
+        Assert.All(again, each => Assert.Equal("2026-10-27T10:30", each.Occurrence));
 
         // A set time days before the date is this occurrence's reminder too: snoozed, it holds.
         var early = Task("ZA1", "FREQ=DAILY");

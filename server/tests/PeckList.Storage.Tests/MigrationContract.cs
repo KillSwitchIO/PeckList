@@ -93,6 +93,48 @@ public abstract class MigrationContract
     }
 
     [Fact]
+    public async Task A_database_from_0_13_0_upgrades_through_0021_and_keeps_its_snoozes()
+    {
+        // 0021 changes reminder_snoozes' key (SQLite makes the table again). A database as 0.13.0
+        // left it (migrations to 0020), with a snooze that names a reminder and one that does not.
+        var token = TestContext.Current.CancellationToken;
+        var database = await CreateEmptyAsync();
+        var at = DateTimeOffset.UtcNow.AddMinutes(30);
+        at = at.AddTicks(-(at.UtcTicks % TimeSpan.TicksPerMillisecond));
+        var first = at.AddMinutes(-20);
+        const string occurrence = "2026-11-19T10:00Z";
+        await using (var connection = await database.OpenAsync(token))
+        {
+            await connection.ExecuteAsync("CREATE TABLE schema_migrations (version INTEGER PRIMARY KEY, applied_at TEXT NOT NULL)");
+            foreach (var (version, sql) in SqlMigrations.Load(database.GetType().Assembly).Where(each => each.Version <= 20))
+            {
+                await connection.ExecuteAsync(sql);
+                await connection.ExecuteAsync("INSERT INTO schema_migrations (version, applied_at) VALUES (@version, '0.13.0')", new { version });
+            }
+            await connection.ExecuteAsync(
+                "INSERT INTO reminder_snoozes (user_id, task_id, at, occurrence, first_at) VALUES ('u1', 't1', @at, @occurrence, @first), ('u1', 't2', @at, @occurrence, NULL)",
+                new { at = at.ToUnixTimeMilliseconds(), occurrence, first = first.ToUnixTimeMilliseconds() });
+        }
+
+        await database.MigrateAsync(token);
+
+        await using (var connection = await database.OpenAsync(token))
+        {
+            Assert.True(await connection.ExecuteScalarAsync<int>("SELECT MAX(version) FROM schema_migrations") >= 21);
+        }
+        var store = new SqlPushStore(database, TimeProvider.System);
+        ReminderSnooze[] kept = [new("u1", "t1", at, occurrence, first), new("u1", "t2", at, occurrence)];
+        Assert.Equal(kept, await store.SnoozesAsync(at.AddMinutes(-1), at.AddMinutes(1), cancellation: token));
+        // Another reminder of t1 to the same minute: a row of its own, beside the one kept.
+        var other = at.AddMinutes(-10);
+        await store.SnoozeAsync("u1", "t1", at, occurrence, other, token);
+        static (string, long) Key(ReminderSnooze each) => (each.TaskId, each.First?.ToUnixTimeMilliseconds() ?? -1);
+        Assert.Equal(
+            kept.Append(new ReminderSnooze("u1", "t1", at, occurrence, other)).OrderBy(Key),
+            (await store.SnoozesAsync(at.AddMinutes(-1), at.AddMinutes(1), cancellation: token)).OrderBy(Key));
+    }
+
+    [Fact]
     public async Task Migrating_twice_changes_nothing()
     {
         var database = await CreateAsync();

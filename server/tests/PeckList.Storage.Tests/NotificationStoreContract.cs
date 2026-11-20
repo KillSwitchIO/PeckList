@@ -153,6 +153,29 @@ public abstract class NotificationStoreContract : IAsyncLifetime
     }
 
     [Fact]
+    public async Task Two_reminders_snoozed_to_the_same_minute_each_keep_their_own_snooze()
+    {
+        // 0.14.0 (0021): they shared a row, and the later press's reminder replaced the other's.
+        const string occurrence = "2026-10-26T10:30";
+        var at = Monday.AddMinutes(30);
+        await Push.SnoozeAsync("ben", "T1", at, occurrence, Monday.AddMinutes(5), Token);
+        await Push.SnoozeAsync("ben", "T1", at, occurrence, Monday.AddMinutes(10), Token);
+        // One that names no reminder, twice: its own row, once.
+        await Push.SnoozeAsync("ben", "T1", at, occurrence, cancellation: Token);
+        await Push.SnoozeAsync("ben", "T1", at, occurrence, cancellation: Token);
+        // The same reminder to the same minute on the next occurrence: its row, that occurrence's now.
+        await Push.SnoozeAsync("ben", "T1", at, "2026-10-27T10:30", Monday.AddMinutes(10), Token);
+
+        Assert.Equal(
+            [
+                new ReminderSnooze("ben", "T1", at, occurrence),
+                new ReminderSnooze("ben", "T1", at, occurrence, Monday.AddMinutes(5)),
+                new ReminderSnooze("ben", "T1", at, "2026-10-27T10:30", Monday.AddMinutes(10)),
+            ],
+            (await Push.SnoozesAsync(Monday, Monday.AddHours(1), cancellation: Token)).OrderBy(each => each.First));
+    }
+
+    [Fact]
     public async Task Keeps_the_occurrence_a_snooze_is_for_and_the_latest_on_the_same_time_snoozed_again()
     {
         await Push.SnoozeAsync("ben", "T1", Monday.AddMinutes(10), "2026-10-26T10:30", cancellation: Token);
