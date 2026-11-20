@@ -5,6 +5,7 @@ import android.content.Intent;
 import android.os.Bundle;
 import android.os.SystemClock;
 import android.view.View;
+import android.webkit.CookieManager;
 import android.webkit.WebView;
 import android.widget.Toast;
 import androidx.activity.OnBackPressedCallback;
@@ -215,6 +216,10 @@ public class MainActivity extends BridgeActivity {
     @Override
     public void onPause() {
         showing = false;
+        // Write the WebView's cookies to disk now: Android saves them on its own schedule, so the
+        // session from a sign-in a few seconds ago was lost when the app was stopped or killed
+        // before then, and the next start showed the sign-in page again.
+        CookieManager.getInstance().flush();
         super.onPause();
     }
 
