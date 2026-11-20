@@ -420,11 +420,7 @@ public class ShellPlugin extends Plugin {
             call.resolve();
             return;
         }
-        Runnable show = () -> {
-            web.requestFocus();
-            androidx.core.view.WindowCompat.getInsetsController(activity.getWindow(), web)
-                .show(androidx.core.view.WindowInsetsCompat.Type.ime());
-        };
+        Runnable show = () -> raiseKeyboard(activity, web, 0);
         web.post(() -> {
             if (web.hasWindowFocus()) {
                 show.run();
@@ -452,8 +448,43 @@ public class ShellPlugin extends Plugin {
         call.resolve();
     }
 
+    /**
+     * Ask for the keyboard, then look whether it came, and ask again a few times if not. Started
+     * from a home-screen widget with the field already focused, the first ask often went unanswered
+     * (QA: 4 of 7 warm widget-bar starts, against none from the long-press shortcut, which sends the
+     * same page). The window has its focus by then. The cause is not confirmed: the guess is that the
+     * keyboard is not yet connected to the field, which kept its focus throughout, so the ask lands
+     * on nothing; so a retry restarts the field's input connection first. It stops once the keyboard
+     * has shown, so one the person then puts away stays away, and after KEYBOARD_TRIES, so a page
+     * that moved on gets no late keyboard.
+     */
+    private static void raiseKeyboard(android.app.Activity activity, android.webkit.WebView web, int attempt) {
+        if (activity.isFinishing() || !web.isAttachedToWindow()) return;
+        androidx.core.view.WindowInsetsCompat insets = androidx.core.view.ViewCompat.getRootWindowInsets(web);
+        if (attempt > 0 && insets != null && insets.isVisible(androidx.core.view.WindowInsetsCompat.Type.ime())) return;
+        if (attempt >= KEYBOARD_TRIES) return;
+        if (web.hasWindowFocus()) {
+            web.requestFocus();
+            if (attempt > 0) {
+                android.view.inputmethod.InputMethodManager input =
+                    (android.view.inputmethod.InputMethodManager) activity.getSystemService(Context.INPUT_METHOD_SERVICE);
+                if (input != null) {
+                    input.restartInput(web);
+                    input.showSoftInput(web, 0);
+                }
+            }
+            androidx.core.view.WindowCompat.getInsetsController(activity.getWindow(), web)
+                .show(androidx.core.view.WindowInsetsCompat.Type.ime());
+        }
+        web.postDelayed(() -> raiseKeyboard(activity, web, attempt + 1), KEYBOARD_RETRY_MS);
+    }
+
     /** How long showKeyboard waits for the window's focus. */
     private static final long KEYBOARD_WAIT_MS = 3000;
+
+    /** How many times showKeyboard asks, and how far apart: about a second and a half in all. */
+    private static final int KEYBOARD_TRIES = 6;
+    private static final long KEYBOARD_RETRY_MS = 250;
 
     /** Where the tasks handed over on connecting wait (app-private storage). */
     private static final String CARRIED = "carried.json";
