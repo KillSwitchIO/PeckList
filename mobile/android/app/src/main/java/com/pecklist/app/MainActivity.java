@@ -16,6 +16,7 @@ import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowInsetsCompat;
 import com.getcapacitor.BridgeActivity;
 import com.getcapacitor.Logger;
+import com.getcapacitor.WebViewListener;
 
 /** The one screen: the web app in a WebView, on the chosen server or standalone (ADR-0017). */
 public class MainActivity extends BridgeActivity {
@@ -65,6 +66,15 @@ public class MainActivity extends BridgeActivity {
             // The WebView taking focus (showKeyboard, the window coming back) must not move the
             // page's focus to its first control: the Add task shortcut's field lost it to Filter (QA).
             bridge.getWebView().getSettings().setNeedInitialFocus(false);
+            // Each page the WebView finishes loading writes its cookies to disk: the page after a
+            // sign-in in the browser (the handoff redeem) or on the server's own pages carries the
+            // new session, and Android would otherwise save it on its own schedule.
+            bridge.addWebViewListener(new WebViewListener() {
+                @Override
+                public void onPageLoaded(WebView webView) {
+                    CookieManager.getInstance().flush();
+                }
+            });
         }
         keepClearOfSystemBars();
         // Every kind's channel from the start, so the phone's settings list them all (PL-115).

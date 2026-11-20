@@ -5,6 +5,7 @@ import { NativeFirstRun } from './native/FirstRun.tsx';
 import { NotificationOpen } from './native/NotificationOpen.tsx';
 import { ListShortcuts } from './native/listShortcuts.ts';
 import { PhoneChannelSync } from './native/phoneChannels.ts';
+import { SaveSignIn } from './native/saveSignIn.ts';
 import { WidgetFeed } from './native/widgetFeed.ts';
 import { installBackHandler } from './native/back.ts';
 import { forgetServiceWorker, isBundledApp, nativeShell } from './native/shell.ts';
@@ -52,6 +53,7 @@ export function App() {
           <PhoneChannelSync />
           <ListShortcuts />
           <WidgetFeed />
+          <SaveSignIn />
           <BackgroundCheckPrompt />
         </BrowserRouter>
         {viewAs && <ViewAsBanner view={viewAs} />}

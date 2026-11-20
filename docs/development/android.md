@@ -14,6 +14,10 @@ app (ADR-0017 in the project notes). There is no second copy of the UI.
 - **`PeckListShell` plugin** (`ShellPlugin.java`, used through `web/src/adapters/capacitor-shell.ts`):
   `info`, `checkServer`, `connect`, `disconnect`. The web build a server ships can be older or
   newer than the shell, so methods are only ever added and `info().api` says which exist.
+- **Keeping a sign-in**: Android writes the WebView's cookies to disk on its own schedule, so a
+  session only seconds old could be lost when the app was stopped. The shell writes them when the
+  app leaves the screen and after each page load, and the web app asks with `saveSignIn` (shell
+  api 14, `web/src/app/native/saveSignIn.ts`) as soon as an account is signed in.
 - **Linking a provider from Settings**: the browser tab is not signed in as the app is, so the
   plugin first asks for a one-time code with the app's own session (`POST /auth/app/link-start`),
   opens `/auth/app/link?code=...` in a Custom Tab, and the server sends the outcome to

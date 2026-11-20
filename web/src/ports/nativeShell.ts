@@ -175,4 +175,6 @@ export interface NativeShell {
   setWidgetTasks?(feed: WidgetFeed): Promise<void>;
   /** Api 13: text for a new task handed to the app from outside (shared, selected, spoken), once; null when none. */
   takeAddText?(): Promise<string | null>;
+  /** Api 14: the WebView's cookies written to disk now, so a sign-in just made survives the app being stopped. */
+  saveSignIn?(): Promise<void>;
 }
