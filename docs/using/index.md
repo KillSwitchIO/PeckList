@@ -71,7 +71,10 @@ clear them. Each task keeps its own time of day, and **Undo** puts them back.
 and saved filters, in any mix: a task shows when it is in one of the lists picked, has one of the
 tags picked (or a tag under one) and matches one of the saved filters picked; a kind with nothing
 picked lets everything through. Each of them keeps its own filter on this device, and the
-funnel is colored while one is on. **Clear** shows everything again.
+funnel is colored while one is on. **Clear** shows everything again. The Lists and Tags
+sections each have **Select all** and **Deselect all**: select all, then untick the few to leave
+out. Every tag picked shows only tasks that have a tag; **Deselect all** lets that kind through
+again. A saved filter's Lists and Tags have the same two.
 
 ### Completed
 

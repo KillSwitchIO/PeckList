@@ -1222,6 +1222,8 @@ export const en = {
   'filter.assignees': 'Assigned to',
   'filter.assignees.me': 'Me',
   'filter.assignees.none': 'Nobody',
+  'filter.selectAll': 'Select all',
+  'filter.deselectAll': 'Deselect all',
   'search.label': 'Search tasks',
   'search.placeholder': 'Search tasks, notes, lists, tags and comments',
   'search.prompt': 'Find any task',

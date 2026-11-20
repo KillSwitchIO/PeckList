@@ -2,9 +2,10 @@ import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { addDays, localTimeZone, todayIn } from '../../core/dates.ts';
-import { inboxList } from '../../core/lists.ts';
+import { createList, inboxList, visibleLists } from '../../core/lists.ts';
 import { createSavedFilter, DUE_CHOICES, filterOf } from '../../core/savedFilters.ts';
 import { setAssignee } from '../../core/sharing.ts';
+import { createTag } from '../../core/tags.ts';
 import { createTask, setTaskStatus } from '../../core/tasks.ts';
 import { mockViewport, renderApp, testStore } from '../../test/renderApp.tsx';
 
@@ -91,5 +92,43 @@ describe('saved filters', () => {
       states: ['dueSoon'],
       assignees: ['me'],
     });
+  });
+
+  it('picks all lists or tags at once, and lets them all go (Ben, 0.14.0)', async () => {
+    const store = testStore();
+    await renderApp('/today', store);
+    store.getState().apply((ctx, ws) => {
+      let next = createList(ctx, ws, { name: 'Work', color: '#A7C7E7' }).workspace;
+      next = createTag(ctx, next, 'home', '#A8DCC0').workspace;
+      next = createTag(ctx, next, 'errands', '#F0B072').workspace;
+      return createSavedFilter(ctx, next, 'Mine', {}).workspace;
+    });
+    const nav = screen.getAllByRole('navigation')[0]!;
+    await userEvent.click(await within(nav).findByRole('button', { name: /Mine/ }));
+    await userEvent.click(screen.getByRole('button', { name: 'View options' }));
+    await userEvent.click(await screen.findByRole('menuitem', { name: 'Edit filter' }));
+    const dialog = await screen.findByRole('dialog');
+    const lists = within(dialog).getByRole('button', { name: 'Select all: Lists' });
+    const noTags = within(dialog).getByRole('button', { name: 'Deselect all: Tags' });
+    expect(noTags).toHaveAttribute('aria-disabled', 'true');
+
+    await userEvent.click(lists);
+    expect(lists).toHaveAttribute('aria-disabled', 'true');
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Select all: Tags' }));
+    expect(within(dialog).getByRole('button', { name: 'home' })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    );
+    // Then all the tags let go again: an empty part narrows nothing, so it is left out.
+    await userEvent.click(noTags);
+    expect(within(dialog).getByRole('button', { name: 'errands' })).toHaveAttribute(
+      'aria-pressed',
+      'false',
+    );
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Save' }));
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    const workspace = store.getState().workspace!;
+    const all = visibleLists(workspace).map((list) => list.id);
+    expect(filterOf(workspace.entities.savedFilters[0]!)).toEqual({ lists: all });
   });
 });

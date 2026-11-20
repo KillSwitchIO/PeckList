@@ -23,6 +23,7 @@ import { visibleTags } from '../../core/tags.ts';
 import type { Id } from '../../core/types.ts';
 import { t } from '../i18n/i18n.ts';
 import { FilterIcon } from '../icons/icons.tsx';
+import { SelectAllPair } from '../filters/SelectAllPair.tsx';
 import { BottomSheet } from '../layout/BottomSheet.tsx';
 import { listName } from '../lists/listName.ts';
 import { useWorkspace } from '../store/hooks.ts';
@@ -48,18 +49,41 @@ export function NarrowButton({
       [kind]: has ? narrowing[kind].filter((each) => each !== id) : [...narrowing[kind], id],
     });
   };
+  // Lists and tags can be picked all at once and let go all at once (Ben, 0.14.0); letting go
+  // of all of a kind leaves it open, so everything shows again.
   const group = (
     kind: keyof Narrowing,
     title: string,
     items: { id: Id; name: string; color?: string }[],
+    allAtOnce = false,
   ) =>
     items.length > 0 && (
       <List
         dense
         aria-label={title}
         subheader={
-          <ListSubheader disableSticky sx={{ lineHeight: '32px', bgcolor: 'transparent' }}>
-            {title}
+          <ListSubheader
+            disableSticky
+            sx={{
+              lineHeight: '32px',
+              bgcolor: 'transparent',
+              display: 'flex',
+              alignItems: 'center',
+              pr: 1.75,
+            }}
+          >
+            <Box component="span" sx={{ flexGrow: 1, minWidth: 0 }}>
+              {title}
+            </Box>
+            {allAtOnce && (
+              <SelectAllPair
+                section={title}
+                total={items.length}
+                picked={items.filter((item) => narrowing[kind].includes(item.id)).length}
+                onAll={() => onChange({ ...narrowing, [kind]: items.map((item) => item.id) })}
+                onNone={() => onChange({ ...narrowing, [kind]: [] })}
+              />
+            )}
           </ListSubheader>
         }
       >
@@ -117,11 +141,13 @@ export function NarrowButton({
           name: listName(list, workspace),
           color: list.color,
         })),
+        true,
       )}
       {group(
         'tags',
         t('narrow.tags'),
         visibleTags(workspace).map((tag) => ({ id: tag.id, name: tag.name, color: tag.color })),
+        true,
       )}
       {group(
         'filters',
