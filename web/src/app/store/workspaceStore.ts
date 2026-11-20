@@ -137,6 +137,9 @@ export function createWorkspaceStore(deps: StoreDependencies): WorkspaceStore {
   let storedOwner: string | null = null;
   // Ids whose in-memory copy (or absence) must win over storage on the next save.
   const authoritative = new Set<string>();
+  // Counts each time the workspace in memory is replaced rather than changed (a join to an
+  // account, a start-over): a save that began before must not put its older copy back over it.
+  let replacements = 0;
   // The workspace as last read from or written to storage: what the journal is measured against.
   let saved: WorkspaceFile | null = null;
   // A stamp each save leaves in storage. While it is still the one this tab last read or wrote,
@@ -247,6 +250,7 @@ export function createWorkspaceStore(deps: StoreDependencies): WorkspaceStore {
       try {
         await withLock(async () => {
           const current = get().workspace ?? workspace;
+          const replacement = replacements;
           // Only another tab's save (a new stamp) needs reading back and merging.
           const stamp = await deps.storage.loadMeta(GENERATION);
           const stored =
@@ -259,7 +263,11 @@ export function createWorkspaceStore(deps: StoreDependencies): WorkspaceStore {
           deps.journal?.clear();
           authoritative.clear();
           storedOwner = merged.owner;
-          if (merged.owner !== current.owner) {
+          if (replacements !== replacement) {
+            // Replaced while this save waited on storage (QA 2026-11-20: a fresh browser's join
+            // was undone, and its starter inbox, profile and settings went out under the
+            // device's id): memory stays as it is, and the replacement has its own save.
+          } else if (merged.owner !== current.owner) {
             set({ workspace: merged, undoStack: [], lastUndoable: null });
           } else {
             // A change made while this save waited on storage is newer than `current`: keep it
@@ -479,6 +487,7 @@ export function createWorkspaceStore(deps: StoreDependencies): WorkspaceStore {
           }
         }
         if (next.owner !== workspace.owner) {
+          replacements += 1;
           ctx = makeContext(next.owner);
           // Undo entries belong to the old owner's data.
           set({ workspace: next, undoStack: [], lastUndoable: null });
@@ -513,6 +522,7 @@ export function createWorkspaceStore(deps: StoreDependencies): WorkspaceStore {
           timer = null;
         }
         dirty = false;
+        replacements += 1;
         advanceClock(workspace);
         ctx = makeContext(workspace.owner);
         set({ status: 'ready', workspace, undoStack: [], lastUndoable: null, problem: null });
