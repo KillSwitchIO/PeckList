@@ -19,14 +19,16 @@ public sealed record BackupSummary(int Accounts, int Entities, long Cursor);
 /// <summary>
 /// The whole server as one JSON document (spec: Data Model &amp; Sync, "export, import and migrate-db
 /// go through the JSON format"): accounts with their password hashes, every entity with its owner
-/// and seq, the visibility index, the cursor, server groups, API keys (their hashes) and the server's own
-/// secrets (cookie keys). Restoring it gives an identical database, so sessions, device cursors and API
-/// keys keep working, and nothing made after it survives (but a key revoked by then stays revoked). Treat the file like the database: it holds
-/// password hashes.
+/// and seq, the visibility index, the cursor, server groups, API keys (their hashes) and the
+/// server's own secrets (cookie keys). Restoring it gives an identical database, so sessions,
+/// device cursors and API keys keep working, and nothing made after it survives (but a key revoked
+/// or a passkey removed by then stays that way: <see cref="CredentialRevocation"/>). Treat the file
+/// like the database: it holds password hashes.
 /// </summary>
 public sealed class BackupService(
     IDatabase database, IEntityStore entities, IAccountStore accounts, IServerGroupStore groups, IIdentityStore identities,
-    ISecretStore secrets, TimeProvider time, IPasskeyStore? passkeys = null, IApiKeyStore? apiKeys = null)
+    ISecretStore secrets, TimeProvider time, IPasskeyStore? passkeys = null, IApiKeyStore? apiKeys = null,
+    ICredentialRevocationStore? revocations = null)
 {
     public const string Format = "pecklist-server-backup";
     /// <summary>What server backups were called before the rename (PL-127); still read.</summary>
@@ -200,6 +202,22 @@ public sealed class BackupService(
             foreach (var key in await apiKeys.AllAsync(cancellation)) WriteApiKey(json, key);
             json.WriteEndArray();
         }
+        // Keys revoked and passkeys removed, for good (0022): a restore onto a new server still keeps
+        // them out, even a key whose row was pruned before the backup.
+        if (revocations is not null)
+        {
+            json.WriteStartArray("credentialRevocations");
+            foreach (var revocation in await revocations.AllAsync(cancellation))
+            {
+                json.WriteStartObject();
+                json.WriteString("kind", revocation.Kind);
+                json.WriteString("id", revocation.Id);
+                json.WriteString("accountId", revocation.AccountId);
+                json.WriteString("revokedAt", revocation.RevokedAt.ToString("O", CultureInfo.InvariantCulture));
+                json.WriteEndObject();
+            }
+            json.WriteEndArray();
+        }
 
         json.WriteStartArray("secrets");
         foreach (var (kind, name, value) in await secrets.AllAsync(cancellation))
@@ -228,9 +246,13 @@ public sealed class BackupService(
         var root = await ParseAsync(input, cancellation);
         Check(root);
         var shift = shiftDates ? SeedDates.DaysSince(root, DateOnly.FromDateTime(time.GetUtcNow().UtcDateTime)) : 0;
-        // Keys revoked by now stay revoked, whatever the backup says: one revoked because it leaked
-        // must not come back with an older backup (Security's review of the API keys change).
-        var revokedNow = new Dictionary<string, DateTimeOffset>(StringComparer.Ordinal);
+        // Keys revoked and passkeys removed stay that way, whatever the backup says: one taken away
+        // because it leaked, or with a lost phone, must not come back with an older backup. What
+        // this server knows now (kept for good since 0022, and keys' own rows) and what the backup
+        // knows both count; the wipe leaves credential_revocations alone.
+        var revoked = new Dictionary<(string Kind, string Id), DateTimeOffset>();
+        void Revoked(string kind, string id, DateTimeOffset at) =>
+            revoked[(kind, id)] = revoked.TryGetValue((kind, id), out var known) && known < at ? known : at;
         if (!await database.IsEmptyAsync(cancellation))
         {
             if (!replace) throw new BackupException("the database is not empty; import into a new one, or pass --replace to delete what is there first");
@@ -238,10 +260,25 @@ public sealed class BackupService(
             {
                 foreach (var key in await apiKeys.AllAsync(cancellation))
                 {
-                    if (key.RevokedAt is { } revoked) revokedNow[key.Id] = revoked;
+                    if (key.RevokedAt is { } at) Revoked(CredentialRevocation.ApiKey, key.Id, at);
                 }
             }
+            if (revocations is not null)
+            {
+                foreach (var revocation in await revocations.AllAsync(cancellation)) Revoked(revocation.Kind, revocation.Id, revocation.RevokedAt);
+            }
             await database.WipeAsync(cancellation);
+        }
+        if (revocations is not null)
+        {
+            foreach (var node in OptionalArray(root, "credentialRevocations"))
+            {
+                var item = node.AsObject();
+                var revocation = new CredentialRevocation(Required(item, "kind"), Required(item, "id"), Required(item, "accountId"),
+                    DateTimeOffset.Parse(Required(item, "revokedAt"), CultureInfo.InvariantCulture));
+                await revocations.AddAsync(revocation, cancellation);
+                Revoked(revocation.Kind, revocation.Id, revocation.RevokedAt);
+            }
         }
 
         var accountList = Array(root, "accounts").Select(ReadAccount).ToList();
@@ -303,7 +340,11 @@ public sealed class BackupService(
         }
         if (passkeys is not null)
         {
-            foreach (var node in OptionalArray(root, "passkeys")) await passkeys.AddAsync(ReadPasskey(node.AsObject()), cancellation);
+            foreach (var node in OptionalArray(root, "passkeys"))
+            {
+                var passkey = ReadPasskey(node.AsObject());
+                if (!revoked.ContainsKey((CredentialRevocation.Passkey, passkey.Id))) await passkeys.AddAsync(passkey, cancellation);
+            }
         }
         foreach (var node in OptionalArray(root, "identityMappings"))
         {
@@ -337,7 +378,7 @@ public sealed class BackupService(
             foreach (var node in OptionalArray(root, "apiKeys"))
             {
                 var key = ReadApiKey(node.AsObject());
-                if (key.RevokedAt is null && revokedNow.TryGetValue(key.Id, out var revoked)) key = key with { RevokedAt = revoked };
+                if (key.RevokedAt is null && revoked.TryGetValue((CredentialRevocation.ApiKey, key.Id), out var at)) key = key with { RevokedAt = at };
                 await apiKeys.AddAsync(key, cancellation);
             }
         }

@@ -32,10 +32,13 @@ change once written, so an incremental backup tool copies each one once.
   and the page offers the restart. Every device then starts over from the restored data at its
   next sync; changes a device made before it noticed are not written over the restored data.
 
-A whole-server restore brings back the backup's API keys: a key made after the backup stops
-working, and one revoked since stays revoked. A backup from before 0.14.0 holds no API keys, so the
-server has none after restoring it: make new ones under **Settings > API keys**. After restoring to
-recover from a break-in, review **Settings > API keys**.
+A whole-server restore brings back the backup's API keys and passkeys: a key made after the backup
+stops working. A key revoked or a passkey removed since stays that way, even a key revoked so long
+ago that its row was cleared out. The server keeps a short record of every key revoked and passkey
+removed for this, and backups carry it, so it holds on a new server too. Passkeys removed before
+0.14.0 are not in that record. A backup from before 0.14.0 holds no API keys, so the server has
+none after restoring it: make new ones under **Settings > Account > API keys**. After restoring to
+recover from a break-in, review **API keys** and **Passkeys** under **Settings > Account**.
 
 Downloading, exporting and restoring the whole server is for super admins: those files hold every
 password hash and the keys that sign sessions. Admins take backups, see the list, and export and

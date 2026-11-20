@@ -48,9 +48,17 @@ public sealed class SqlApiKeyStore(SqlDatabase database) : IApiKeyStore
         return [.. rows.Select(row => row.ToKey())];
     }
 
-    public Task RevokeAsync(string id, DateTimeOffset at, CancellationToken cancellation = default) =>
-        WriteAsync("UPDATE api_keys SET revoked_at = @at WHERE id = @id AND revoked_at IS NULL",
-            new { id, at = at.ToUnixTimeMilliseconds() }, cancellation);
+    /// <summary>Also recorded in <c>credential_revocations</c> (0022), kept after the row is pruned.</summary>
+    public async Task RevokeAsync(string id, DateTimeOffset at, CancellationToken cancellation = default)
+    {
+        await using var connection = await database.OpenAsync(cancellation);
+        await using var transaction = await database.BeginWriteAsync(connection, cancellation);
+        var values = new { id, at = at.ToUnixTimeMilliseconds() };
+        await connection.ExecuteAsync(new CommandDefinition(
+            "UPDATE api_keys SET revoked_at = @at WHERE id = @id AND revoked_at IS NULL", values, transaction, cancellationToken: cancellation));
+        await connection.ExecuteAsync(new CommandDefinition(SqlCredentialRevocationStore.RecordApiKey, values, transaction, cancellationToken: cancellation));
+        await transaction.CommitAsync(cancellation);
+    }
 
     public Task TouchAsync(string id, DateTimeOffset at, CancellationToken cancellation = default) =>
         WriteAsync("UPDATE api_keys SET last_used_at = @at WHERE id = @id",

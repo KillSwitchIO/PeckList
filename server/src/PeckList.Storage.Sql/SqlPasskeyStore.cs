@@ -3,8 +3,11 @@ using PeckList.Core.Accounts;
 
 namespace PeckList.Storage.Sql;
 
-/// <summary>Passkeys in <c>passkeys</c> (PL-123); times as Unix milliseconds, flags as 0/1.</summary>
-public sealed class SqlPasskeyStore(SqlDatabase database) : IPasskeyStore
+/// <summary>
+/// Passkeys in <c>passkeys</c> (PL-123); times as Unix milliseconds, flags as 0/1. Removing one
+/// records it in <c>credential_revocations</c> (0022), so a restore does not bring it back.
+/// </summary>
+public sealed class SqlPasskeyStore(SqlDatabase database, TimeProvider? time = null) : IPasskeyStore
 {
     private const string Columns =
         "id, account_id AS accountId, name, public_key AS publicKey, sign_count AS signCount, transports, " +
@@ -57,9 +60,18 @@ public sealed class SqlPasskeyStore(SqlDatabase database) : IPasskeyStore
             "UPDATE passkeys SET name = @Name, sign_count = @SignCount, backed_up = @BackedUp, last_used_at = @LastUsedAt WHERE id = @Id",
             Row.From(passkey), cancellation) > 0;
 
-    public async Task<bool> DeleteAsync(string id, CancellationToken cancellation = default) =>
-        await WriteAsync("DELETE FROM passkeys WHERE id = @id", new { id }, cancellation) > 0;
+    public async Task<bool> DeleteAsync(string id, CancellationToken cancellation = default)
+    {
+        await using var connection = await database.OpenAsync(cancellation);
+        await using var transaction = await database.BeginWriteAsync(connection, cancellation);
+        var at = (time ?? TimeProvider.System).GetUtcNow().ToUnixTimeMilliseconds();
+        await connection.ExecuteAsync(new CommandDefinition(SqlCredentialRevocationStore.RecordPasskey, new { id, at }, transaction, cancellationToken: cancellation));
+        var changed = await connection.ExecuteAsync(new CommandDefinition("DELETE FROM passkeys WHERE id = @id", new { id }, transaction, cancellationToken: cancellation));
+        await transaction.CommitAsync(cancellation);
+        return changed > 0;
+    }
 
+    /// <summary>Not recorded: only an account removed for good loses them all, and its revocations go too.</summary>
     public Task<int> DeleteAllAsync(string accountId, CancellationToken cancellation = default) =>
         WriteAsync("DELETE FROM passkeys WHERE account_id = @accountId", new { accountId }, cancellation);
 

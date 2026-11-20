@@ -91,6 +91,32 @@ public sealed class BackupCenterTests(ServerFixture fixture) : IClassFixture<Ser
     }
 
     [Fact]
+    public async Task A_passkey_removed_after_the_backup_stays_removed_when_it_is_restored()
+    {
+        // A lost phone: an admin removes its passkey, then the server is restored from an older backup.
+        var db = fixture.NewDbPath();
+        var server = Server(db);
+        var admin = await LogIn(server, "admin", AdminPassword);
+        var adminId = (await server.Services.GetRequiredService<IAccountStore>().FindByUsernameAsync("admin", Token))!.Id;
+        var passkeys = server.Services.GetRequiredService<IPasskeyStore>();
+        foreach (var id in new[] { "lost-phone", "laptop" })
+        {
+            await passkeys.AddAsync(new Passkey { Id = id, AccountId = adminId, Name = id, PublicKey = $"public-{id}", CreatedAt = DateTimeOffset.UtcNow }, Token);
+        }
+        var backup = await ExportWith(admin);
+        Assert.Equal(HttpStatusCode.NoContent, (await admin.DeleteAsync($"/api/admin/users/{adminId}/passkeys/lost-phone", Token)).StatusCode);
+
+        using (server)
+        {
+            using var form = new MultipartFormDataContent { { new StringContent(backup.ToJsonString()), "file", "backup.json" } };
+            Assert.Equal(HttpStatusCode.Accepted, (await admin.PostAsync("/api/admin/restore", form, Token)).StatusCode);
+        }
+        using var restarted = Server(db);
+        await LogIn(restarted, "admin", AdminPassword);
+        Assert.Equal(["laptop"], (await restarted.Services.GetRequiredService<IPasskeyStore>().AllAsync(Token)).Select(each => each.Id));
+    }
+
+    [Fact]
     public async Task A_restore_keeps_the_backups_api_keys_drops_keys_made_since_and_keeps_revocations()
     {
         var db = fixture.NewDbPath();

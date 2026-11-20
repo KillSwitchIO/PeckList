@@ -70,6 +70,20 @@ public sealed class AccountDeletionTests(ServerFixture fixture) : IClassFixture<
         using var server = fixture.Factory(("ADMIN_PASSWORD", AdminPassword));
         var admin = await LogIn(server, "admin", AdminPassword);
         var (_, samId) = await NewUser(server, "sam");
+        var adminId = (await server.Services.GetRequiredService<IAccountStore>().FindByUsernameAsync("admin", Token))!.Id;
+        // A key each revoked and a passkey Sam removed (0022): Sam's records go with Sam, the admin's stay.
+        var keys = server.Services.GetRequiredService<IApiKeyStore>();
+        var passkeys = server.Services.GetRequiredService<IPasskeyStore>();
+        foreach (var (key, owner) in new[] { ("key-sam", samId), ("key-admin", adminId) })
+        {
+            await keys.AddAsync(new ApiKey
+            {
+                Id = key, UserId = owner, Name = key, SecretHash = new string('c', 64), Scopes = [ApiScopes.TasksRead], CreatedAt = DateTimeOffset.UtcNow,
+            }, Token);
+            await keys.RevokeAsync(key, DateTimeOffset.UtcNow, Token);
+        }
+        await passkeys.AddAsync(new Passkey { Id = "phone-sam", AccountId = samId, Name = "Phone", PublicKey = "public", CreatedAt = DateTimeOffset.UtcNow }, Token);
+        await passkeys.DeleteAsync("phone-sam", Token);
 
         // Only a deleted account can go now.
         Assert.Equal(HttpStatusCode.Conflict, (await admin.PostAsync($"/api/admin/users/{samId}/remove-now", null, Token)).StatusCode);
@@ -77,6 +91,7 @@ public sealed class AccountDeletionTests(ServerFixture fixture) : IClassFixture<
         Assert.Equal(HttpStatusCode.NoContent, (await admin.PostAsync($"/api/admin/users/{samId}/remove-now", null, Token)).StatusCode);
 
         Assert.Null(await server.Services.GetRequiredService<IAccountStore>().FindByIdAsync(samId, Token));
+        Assert.Equal(["key-admin"], (await server.Services.GetRequiredService<ICredentialRevocationStore>().AllAsync(Token)).Select(each => each.Id));
         Assert.Equal(HttpStatusCode.NotFound, (await admin.PostAsync($"/api/admin/users/{samId}/remove-now", null, Token)).StatusCode);
         // The name is free again.
         await NewUser(server, "sam");
