@@ -437,6 +437,74 @@ public sealed class PushTests(ServerFixture fixture) : IClassFixture<ServerFixtu
     }
 
     [Fact]
+    public async Task Complete_on_a_reminder_of_an_occurrence_already_gone_does_nothing()
+    {
+        // Dev 2's review of the web reminder's Complete: a notice left on another screen, or a
+        // press that waited offline, came after the task moved on, and completed the next
+        // occurrence too, a day skipped without a word.
+        using var server = Server();
+        var (ben, benId) = await SignIn(server, "ben-g");
+        JsonObject Task(string id, string? recurrence, string start) => Entity(id, benId, new JsonObject
+        {
+            ["listId"] = "GL1",
+            ["title"] = id,
+            ["parentId"] = null,
+            ["status"] = "open",
+            ["assignees"] = new JsonObject(),
+            ["recurrence"] = recurrence,
+            ["schedule"] = new JsonObject { ["start"] = start, ["end"] = null, ["allDay"] = false, ["timeZone"] = null },
+            ["reminders"] = new JsonArray(new JsonObject { ["before"] = 30 }),
+        });
+        var daily = Task("GR1", "FREQ=DAILY", "2026-10-26T10:30");
+        (await ben.PostAsJsonAsync("/api/sync", new
+        {
+            schemaVersion = WorkspaceSchema.CurrentVersion,
+            cursor = (long?)null,
+            changes = new object[]
+            {
+                new { collection = "lists", entity = Entity("GL1", benId, new JsonObject { ["name"] = "Home", ["visibility"] = "private" }) },
+                new { collection = "tasks", entity = daily },
+                // Put on a later date after Monday's reminder came.
+                new { collection = "tasks", entity = Task("GM1", null, "2026-10-28T10:30") },
+            },
+        }, Token)).EnsureSuccessStatusCode();
+        async Task<Dictionary<string, JsonObject>> Tasks()
+        {
+            var synced = await (await ben.PostAsJsonAsync("/api/sync", new
+            {
+                schemaVersion = WorkspaceSchema.CurrentVersion,
+                cursor = (long?)null,
+                changes = Array.Empty<object>(),
+            }, Token)).Content.ReadFromJsonAsync<JsonObject>(Token);
+            return synced!["changes"]!.AsArray().Select(each => each!["entity"]!.AsObject())
+                .Where(each => (string?)each["title"] is "GR1" or "GM1")
+                .GroupBy(each => (string)each["id"]!).ToDictionary(each => each.Key, each => each.Last());
+        }
+        Task<HttpResponseMessage> Complete(string id, DateTimeOffset first) =>
+            ben.PostAsJsonAsync("/api/reminders/act", new { taskId = id, first = first.ToUnixTimeMilliseconds(), action = "complete" }, Token);
+        var monday = ServerReminders.Instants(daily, TimeZoneInfo.Local).First().First;
+
+        // Monday's reminder: Monday is done, and the task moves to Tuesday.
+        (await Complete("GR1", monday)).EnsureSuccessStatusCode();
+        Assert.Equal("2026-10-27T10:30", (string?)(await Tasks())["GR1"]["schedule"]!["start"]);
+        // The same reminder pressed again (left up on another screen): calm, and Tuesday stays open.
+        Assert.Equal(HttpStatusCode.NoContent, (await Complete("GR1", monday)).StatusCode);
+        // Monday's reminder on a task moved to Wednesday: it stays open on Wednesday.
+        Assert.Equal(HttpStatusCode.NoContent, (await Complete("GM1", monday)).StatusCode);
+        var after = await Tasks();
+        Assert.Equal(("open", "2026-10-27T10:30"), ((string?)after["GR1"]["status"], (string?)after["GR1"]["schedule"]!["start"]));
+        Assert.Single(after.Values, each => (string?)each["title"] == "GR1" && (string?)each["status"] == "done");
+        Assert.Equal(("open", "2026-10-28T10:30"), ((string?)after["GM1"]["status"], (string?)after["GM1"]["schedule"]!["start"]));
+
+        // A reminder of Tuesday's (here one snoozed ten minutes from it) completes Tuesday.
+        (await Complete("GR1", monday.AddDays(1).AddMinutes(10))).EnsureSuccessStatusCode();
+        Assert.Equal("2026-10-28T10:30", (string?)(await Tasks())["GR1"]["schedule"]!["start"]);
+        // The Today widget's tick names no reminder: the task as it is.
+        (await ben.PostAsJsonAsync("/api/reminders/act", new { taskId = "GM1", first = 0L, action = "complete" }, Token)).EnsureSuccessStatusCode();
+        Assert.Equal("done", (string?)(await Tasks())["GM1"]["status"]);
+    }
+
+    [Fact]
     public async Task A_snooze_goes_once_its_task_is_done_moved_on_trashed_or_without_reminders()
     {
         // Ben, 0.13.0-rc.2: a snoozed reminder still came after the task was marked done. A

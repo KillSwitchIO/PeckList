@@ -71,6 +71,7 @@ public static class PushEndpoints
         // before. Complete (the Android app's notifications) closes the task and its open subtasks;
         // a repeating task moves to its next date as the app moves it (RepeatingTask), so the app
         // need not open. Complete is also for anyone who may change the task (the Today widget).
+        // Complete or Snooze on a reminder of an occurrence already gone does nothing.
         api.MapPost("/reminders/act", async (
             ReminderAct request, ClaimsPrincipal user, SharingState sharing, IPushStore store, SyncService sync,
             IEntityStore entities, ServerClock clock, TimeProvider time, Core.Configuration.ServerSettings settings, CancellationToken cancellation) =>
@@ -88,9 +89,25 @@ public static class PushEndpoints
             // A reminder time, not any number (FromUnixTimeMilliseconds throws outside year 1 to 9999).
             if (request.First is < 0 or > 253_402_300_799_999) return Results.BadRequest(new { error = "invalid_time" });
             var now = time.GetUtcNow();
+            // A press that waited (offline on the phone, or a notice left on another screen) for a
+            // reminder of an occurrence already gone: a repeating task completed and moved on, or a
+            // task put on a later date. A snooze of a snooze of this occurrence is never earlier
+            // than its first reminder. A press that names no reminder (first 0: the Today widget's
+            // tick) is about the task as it is.
+            async Task<bool> OccurrenceGone()
+            {
+                if (request.First <= 0) return false;
+                var zone = await DeviceZones.ZoneForAsync(index, userId, store, settings, cancellation);
+                return ServerReminders.OccurrenceStart(found.Doc, zone) is { } start
+                    && request.First < (start - TimeSpan.FromMinutes(1)).ToUnixTimeMilliseconds();
+            }
             if (request.Action == "complete")
             {
                 if ((string?)found.Doc["status"] != "open") return Results.NoContent();
+                // Gone: nothing, or it would complete the occurrence after it, a day skipped without
+                // a word (Dev 2's review of the web reminder's Complete). Calm, as for a done task:
+                // the phone has nothing to show.
+                if (await OccurrenceGone()) return Results.NoContent();
                 var completedAt = clock.Now();
                 var owner = (string?)found.Doc["createdBy"] ?? userId;
                 if ((string?)found.Doc["recurrence"] is { Length: > 0 }
@@ -126,16 +143,9 @@ public static class PushEndpoints
             }
             if (request.Action == "snooze")
             {
-                // A press that waited (offline on the phone, or in a browser) for a reminder of an
-                // occurrence already done (a repeating task completed and moved on): no snooze, or
-                // it would come on the next occurrence (Dev 2's review of the 0.13.0-rc.2 fix). A
-                // snooze of a snooze of this occurrence is never earlier than its first reminder.
-                if (request.First > 0)
-                {
-                    var zone = await DeviceZones.ZoneForAsync(index, userId, store, settings, cancellation);
-                    if (ServerReminders.OccurrenceStart(found.Doc, zone) is { } start
-                        && request.First < (start - TimeSpan.FromMinutes(1)).ToUnixTimeMilliseconds()) return Results.NoContent();
-                }
+                // Gone: no snooze, or it would come on the next occurrence (Dev 2's review of the
+                // 0.13.0-rc.2 fix).
+                if (await OccurrenceGone()) return Results.NoContent();
                 // Up to a week: "tomorrow morning" from late at night is more than a day. On the
                 // minute, as a reminder's set time is, so the apps' keys for it agree.
                 var minutes = Math.Clamp(request.Minutes ?? SnoozeMinutes, 1, 7 * 24 * 60);
