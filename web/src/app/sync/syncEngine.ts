@@ -161,6 +161,24 @@ export interface SyncMeta {
   epoch?: string | null;
   /** The device zone this device last told the server (it says it again only when it changes). */
   zone?: string | null;
+  /**
+   * The one full pull again (see {@link needsRepull}): 'pending' while it runs (a page closed
+   * partway carries on from the cursor), 'done' once caught up. Missing on a device synced by an
+   * older version, which stored the cursor before the data it covered.
+   */
+  repull?: 'pending' | 'done' | null;
+}
+
+/**
+ * Whether this device pulls everything once more. Before 0.14.0 the cursor was stored a moment
+ * before the data it covered, so a page closed (or an app killed) in that moment kept the cursor
+ * and lost those changes for good, with nothing on the device to say which (Dev 2, 2026-11-20). A
+ * device linked since writes 'done'; one synced before pulls from the start once, through the
+ * normal loop, which merges by field clocks like any pull: local edits not yet sent stay and go
+ * out, and deletions on the server arrive as deletions.
+ */
+export function needsRepull(meta: Pick<SyncMeta, 'account' | 'repull'>, readOnly = false): boolean {
+  return meta.account !== null && !readOnly && meta.repull !== 'done' && meta.repull !== 'pending';
 }
 
 export interface SyncEngineDependencies {
@@ -290,6 +308,7 @@ export function createSyncEngine(deps: SyncEngineDependencies): SyncEngine {
       acks: stored?.acks ?? {},
       epoch: stored?.epoch ?? null,
       zone: stored?.zone ?? null,
+      repull: stored?.repull ?? null,
     };
   };
 
@@ -349,7 +368,13 @@ export function createSyncEngine(deps: SyncEngineDependencies): SyncEngine {
       const { changes, cursor, epoch } = await pullAll();
       const fresh = createWorkspace(workspace.getState().context());
       await workspace.getState().reset(joinAccount(fresh, account.id, changes));
-      await saveMeta({ account: account.id, cursor, acks: acknowledge({}, changes), epoch });
+      await saveMeta({
+        account: account.id,
+        cursor,
+        acks: acknowledge({}, changes),
+        epoch,
+        repull: 'done',
+      });
     };
 
     /**
@@ -394,7 +419,14 @@ export function createSyncEngine(deps: SyncEngineDependencies): SyncEngine {
         // In storage before where the sync stands is (see saveTaken).
         await workspace.getState().flush();
       }
-      await saveMeta({ account: account.id, cursor, acks: acknowledge({}, changes), epoch });
+      // Everything was just pulled: no pull again needed (needsRepull).
+      await saveMeta({
+        account: account.id,
+        cursor,
+        acks: acknowledge({}, changes),
+        epoch,
+        repull: 'done',
+      });
     };
 
     const fail = (error: unknown) => {
@@ -535,6 +567,14 @@ export function createSyncEngine(deps: SyncEngineDependencies): SyncEngine {
         if (!account) return;
         await link(account);
         let meta = await loadMeta();
+        if (needsRepull(meta, deps.readOnly)) {
+          // Once, from the start: what a page closed too early lost comes back (needsRepull).
+          console.info('PeckList: pulling everything once more, to bring back any lost changes');
+          meta = { ...meta, cursor: 0, repull: 'pending' };
+          await saveMeta(meta);
+        }
+        // Caught up this time: the last page in, and nothing left to send.
+        let caughtUp = false;
         // Pages pulled but not taken in yet, and where the sync stands once they are.
         let held = null as { changes: SyncChange[]; since: number; meta: SyncMeta } | null;
         const takeInHeld = async () => {
@@ -583,6 +623,7 @@ export function createSyncEngine(deps: SyncEngineDependencies): SyncEngine {
             acks,
             epoch: response.epoch ?? meta.epoch ?? null,
             zone: report ?? meta.zone ?? null,
+            repull: meta.repull ?? null,
           };
           // Only data, and more to come: hold it (the first page always goes in at once, so the
           // lists fill straight away). Held pages skip the notices below; nothing they could raise
@@ -634,9 +675,16 @@ export function createSyncEngine(deps: SyncEngineDependencies): SyncEngine {
           }
           await saveTaken(next);
           meta = next;
-          if (!response.more && sentAll) break;
+          if (!response.more && sentAll) {
+            caughtUp = true;
+            break;
+          }
         }
         await takeInHeld();
+        if (caughtUp && meta.repull === 'pending') {
+          meta = { ...meta, repull: 'done' };
+          await saveMeta(meta);
+        }
       });
       set({ status: 'idle', lastSynced: now(), error: null });
       if (!closeEvents) openEvents();
