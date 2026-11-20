@@ -1,8 +1,11 @@
 # Run a demo server
 
 A demo server is a public PeckList anyone can try without installing anything: they sign up,
-or sign in to one of the pre-made accounts, and every night the server forgets it all and starts
-again from a seed. [`DEMO_MODE`](../configuration/reference.md#demo_mode) does the rest.
+or sign in to one of the pre-made accounts, and on a schedule the server forgets it all and starts
+again from a seed (every night at 04:00 in the example below).
+[`DEMO_MODE`](../configuration/reference.md#demo_mode) does the rest.
+
+The project's own demo, [demo.pecklist.com](https://demo.pecklist.com), starts over every hour.
 
 ## What demo mode does
 
