@@ -31,7 +31,13 @@ let clock = Date.UTC(2026, 9, 21, 9);
 async function device(
   backend: FakeBackend,
   node: string,
-  options: Partial<Pick<SyncEngineDependencies, 'readOnly' | 'phoneTasks' | 'deviceZone'>> = {},
+  {
+    saveDelayMs = 0,
+    ...options
+  }: Partial<Pick<SyncEngineDependencies, 'readOnly' | 'phoneTasks' | 'deviceZone'>> & {
+    /** How long the workspace waits before it saves itself (the app's is 400 ms). */
+    saveDelayMs?: number;
+  } = {},
 ) {
   const storage = createMemoryStorage();
   const store = createWorkspaceStore({
@@ -41,7 +47,7 @@ async function device(
     node,
     // Each device's clock moves on; a second apart per change.
     now: () => (clock += 1000),
-    saveDelayMs: 0,
+    saveDelayMs,
   });
   await store.getState().init();
   const transport = backend.device();
@@ -307,6 +313,87 @@ describe('sync engine', () => {
     pages = 0;
     await phone.engine.getState().syncNow();
     expect(pages).toBe(1);
+  });
+
+  it('stores where the sync stands only once the data it stands for is stored (2026-11-20)', async () => {
+    const backend = new FakeBackend();
+    const ben = backend.addAccount('ben', 'correct horse battery');
+    const laptop = await device(backend, 'laptop');
+    await laptop.engine.getState().start();
+    await laptop.engine.getState().signIn('ben', 'correct horse battery');
+    for (let index = 0; index < 12; index += 1) addTask(laptop.store, `Task ${index}`);
+    await laptop.engine.getState().syncNow();
+    backend.server.pageSize = 5;
+
+    // A phone whose workspace saves itself well after the sync: what storage holds each time the
+    // cursor is stored is what a page closed at that moment would come back to.
+    const phone = await device(backend, 'phone', { saveDelayMs: 60_000 });
+    const seen: { cursor: number; owner: string | undefined; tasks: Set<string> }[] = [];
+    const saveMeta = phone.storage.saveMeta.bind(phone.storage);
+    phone.storage.saveMeta = async (key, value) => {
+      const cursor = (value as { cursor?: number }).cursor ?? 0;
+      if (key === 'sync' && cursor > 0) {
+        const stored = (await phone.storage.load()) as WorkspaceFile | null;
+        seen.push({
+          cursor,
+          owner: stored?.owner,
+          tasks: new Set(stored?.entities.tasks.map((task) => task.id) ?? []),
+        });
+      }
+      return saveMeta(key, value);
+    };
+    await phone.engine.getState().start();
+    await phone.engine.getState().signIn('ben', 'correct horse battery');
+
+    expect(seen.length).toBeGreaterThan(0);
+    const rows = [...backend.server.rows.values()];
+    for (const { cursor, owner, tasks } of seen) {
+      expect(owner).toBe(ben.id);
+      const covered = rows.filter((row) => row.seq <= cursor && row.change.collection === 'tasks');
+      expect(covered.filter((row) => !tasks.has(row.change.entity.id))).toEqual([]);
+    }
+  });
+
+  it('links again a device whose sync state was stored without its data', async () => {
+    const backend = new FakeBackend();
+    const ben = backend.addAccount('ben', 'correct horse battery');
+    const laptop = await device(backend, 'laptop');
+    await laptop.engine.getState().start();
+    await laptop.engine.getState().signIn('ben', 'correct horse battery');
+    addTask(laptop.store, 'Mow');
+    await laptop.engine.getState().syncNow();
+
+    // As Dev 2's emulator was left: the cursor stored for the account, the workspace still the
+    // fresh device's own (its starter inbox, profile and settings, owned by nobody's account).
+    const phone = await device(backend, 'phone');
+    const latest = Math.max(...[...backend.server.rows.values()].map((row) => row.seq));
+    await phone.storage.saveMeta('sync', {
+      account: ben.id,
+      cursor: latest,
+      acks: {},
+      epoch: null,
+    });
+    // A task made on the phone while it was stuck, never synced: the relink must not lose it.
+    addTask(phone.store, 'Call the vet');
+    await phone.store.getState().flush();
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    try {
+      await phone.engine.getState().start();
+      await phone.engine.getState().signIn('ben', 'correct horse battery');
+      expect(warn).toHaveBeenCalledWith(
+        'PeckList: sync state stored without its data; linking this device again',
+        { cursor: latest },
+      );
+    } finally {
+      warn.mockRestore();
+    }
+    expect(phone.engine.getState().phase).toBe('ready');
+    expect(phone.store.getState().workspace!.owner).toBe(ben.id);
+    expect(titles(phone.store)).toEqual(['Call the vet', 'Mow']);
+    // Nothing of the starter workspace was sent and refused, and the phone's own task reached the server.
+    expect(phone.engine.getState().notice?.refused ?? 0).toBe(0);
+    await laptop.engine.getState().syncNow();
+    expect(titles(laptop.store)).toEqual(['Call the vet', 'Mow']);
   });
 
   it('pushes a big restore with each task and its comments in the same push (audit B5)', async () => {
