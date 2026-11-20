@@ -4,10 +4,10 @@
 
 import { isLive, putEntity } from './collections.ts';
 import { updateEntity, type OpContext } from './ops.ts';
-import { datePart, instantOf, timePart } from './dates.ts';
+import { datePart, instantOf, localDateTimeOf, timePart } from './dates.ts';
 import { groupMembersOf } from './groups.ts';
 import { assigneesOf } from './sharing.ts';
-import type { Id, Reminder, Task, WorkspaceFile } from './types.ts';
+import type { Id, LocalDateOrDateTime, Reminder, Task, WorkspaceFile } from './types.ts';
 
 /**
  * When an all-day task's reminders count from. Fixed, so a reminder keeps its time; the time new
@@ -139,6 +139,41 @@ export interface DueReminder {
   at: number;
   /** A constant reminder: it stays on screen */
   constant: boolean;
+  /**
+   * The task's own date, which the notification names (Ben, 0.14.0-rc.1: "the time of the event,
+   * not the time of the reminder"): null when it has none.
+   */
+  date: ReminderDate | null;
+}
+
+/**
+ * The date a task's reminders count from, as its notification names it: its start ("Starts 3:00
+ * PM"), else its due date ("Due 3:00 PM"). The current occurrence's, since a repeating task carries
+ * its next date. A timed date is on `timeZone`'s clock, where the app shows it (PL-020); a whole day
+ * is the same date everywhere.
+ */
+export interface ReminderDate {
+  kind: 'start' | 'due';
+  at: LocalDateOrDateTime;
+}
+
+/** The task's {@link ReminderDate}, or null when it has no date. */
+export function reminderDate(task: Task, timeZone: string): ReminderDate | null {
+  const dated = datedOf(task);
+  if (!dated) return null;
+  const kind = task.schedule?.start ? 'start' : 'due';
+  const time = timePart(dated.at);
+  if (time !== null && dated.zone && dated.zone !== timeZone) {
+    try {
+      return {
+        kind,
+        at: localDateTimeOf(instantOf(datePart(dated.at), time, dated.zone), timeZone),
+      };
+    } catch {
+      // A zone this browser does not know: as written, as reminderInstant reads it then.
+    }
+  }
+  return { kind, at: dated.at };
 }
 
 /**
@@ -273,7 +308,15 @@ export function remindersBetween(
       if (at < from || at >= to) continue;
       const tag = `${task.id}@${first}`;
       const key = again === 0 ? tag : `${tag}#${again}`;
-      found.set(key, { key, tag, taskId: task.id, title: task.title, at, constant });
+      found.set(key, {
+        key,
+        tag,
+        taskId: task.id,
+        title: task.title,
+        at,
+        constant,
+        date: reminderDate(task, timeZone),
+      });
     }
   };
   const mine = (task: Task | undefined): task is Task =>

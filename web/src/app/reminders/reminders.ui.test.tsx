@@ -17,6 +17,7 @@ import { createMemoryStorage } from '../../adapters/memory-storage.ts';
 import { createSyncEngine } from '../sync/syncEngine.ts';
 import { createBrowserNotifier } from '../../adapters/browser-notifier.ts';
 import { setNotifier } from './notifier.ts';
+import { formatTime } from '../format.ts';
 import { sameSnoozes } from '../../core/reminders.ts';
 
 function fakeNotifier(permission: NotificationPermissionState = 'granted') {
@@ -228,6 +229,21 @@ describe('reminders', () => {
     // Another change to the data looks again but does not fire it twice.
     addTask(store, 'Unrelated', inMinutes(300));
     expect(notifier.shown).toHaveLength(1);
+  });
+
+  it("name the task's own time, not the time the reminder comes (Ben, 0.14.0-rc.1)", async () => {
+    const notifier = fakeNotifier();
+    setNotifier(notifier);
+    const store = testStore();
+    await renderApp('/inbox', store);
+    // Starts in five minutes, reminded ten minutes before: the reminder came five minutes ago.
+    const start = inMinutes(5);
+    addTask(store, 'Take the pills', start, [{ before: 10 }]);
+    const [day, time] = start.split('T') as [string, string];
+    const today = todayIn(localTimeZone(), Date.now());
+    expect(notifier.shown.map((each) => each.body)).toEqual([
+      day === today ? `Starts ${formatTime(time)}` : `Starts tomorrow, ${formatTime(time)}`,
+    ]);
   });
 
   it('carry Complete, for their own task; a constant one adds Snooze and Dismiss after it', async () => {

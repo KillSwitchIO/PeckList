@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import { formatTime } from '../format.ts';
-import { minutesEarlyText, reminderLabel, reminderParts } from './reminderText.ts';
+import {
+  minutesEarlyText,
+  notificationBody,
+  reminderLabel,
+  reminderParts,
+} from './reminderText.ts';
 
 describe('reminder text', () => {
   it('says whole minutes, hours and days early as before', () => {
@@ -98,6 +103,59 @@ describe('reminder text', () => {
     expect(reminderParts({ before: -960 }, true, '2026-11-19')).toEqual({
       text: '1 day after',
       time: formatTime('01:00'),
+    });
+  });
+
+  describe('notification body (Ben, 0.14.0-rc.1: the time of the event, not of the reminder)', () => {
+    const TZ = 'America/Chicago';
+    // Shown at 5:00 AM on Thursday 2026-11-19, Chicago.
+    const shown = Date.parse('2026-11-19T11:00:00Z');
+
+    it('names the task time, today with no day', () => {
+      expect(notificationBody({ kind: 'due', at: '2026-11-19T15:00' }, shown, TZ)).toBe(
+        `Due ${formatTime('15:00')}`,
+      );
+      expect(notificationBody({ kind: 'start', at: '2026-11-19T15:00' }, shown, TZ)).toBe(
+        `Starts ${formatTime('15:00')}`,
+      );
+    });
+
+    it('says the day when it is not today, for a reminder days early or after', () => {
+      expect(notificationBody({ kind: 'due', at: '2026-11-20T06:00' }, shown, TZ)).toBe(
+        `Due tomorrow, ${formatTime('06:00')}`,
+      );
+      expect(notificationBody({ kind: 'due', at: '2026-11-18T06:00' }, shown, TZ)).toBe(
+        `Due yesterday, ${formatTime('06:00')}`,
+      );
+      expect(notificationBody({ kind: 'due', at: '2026-11-26T06:00' }, shown, TZ)).toBe(
+        `Due Thu, Nov 26, ${formatTime('06:00')}`,
+      );
+      expect(notificationBody({ kind: 'start', at: '2027-01-04T09:30' }, shown, TZ)).toBe(
+        `Starts Jan 4, 2027, ${formatTime('09:30')}`,
+      );
+    });
+
+    it('says only the day for a whole-day task', () => {
+      expect(notificationBody({ kind: 'due', at: '2026-11-19' }, shown, TZ)).toBe('Due today');
+      expect(notificationBody({ kind: 'due', at: '2026-11-20' }, shown, TZ)).toBe('Due tomorrow');
+      expect(notificationBody({ kind: 'start', at: '2026-11-23' }, shown, TZ)).toBe(
+        'Starts Mon, Nov 23',
+      );
+    });
+
+    it('reads today where the notification shows', () => {
+      // 11:30 PM Wednesday in Chicago is already Thursday in UTC.
+      const late = Date.parse('2026-11-19T05:30:00Z');
+      expect(notificationBody({ kind: 'due', at: '2026-11-19T06:00' }, late, TZ)).toBe(
+        `Due tomorrow, ${formatTime('06:00')}`,
+      );
+      expect(notificationBody({ kind: 'due', at: '2026-11-19T06:00' }, late, 'UTC')).toBe(
+        `Due ${formatTime('06:00')}`,
+      );
+    });
+
+    it('says Reminder for a task with no date', () => {
+      expect(notificationBody(null, shown, TZ)).toBe('Reminder');
     });
   });
 });

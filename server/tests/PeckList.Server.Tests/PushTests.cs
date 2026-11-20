@@ -183,7 +183,8 @@ public sealed class PushTests(ServerFixture fixture) : IClassFixture<ServerFixtu
 
         var (userId, payload) = Assert.Single(push.Sent);
         Assert.Equal(benId, userId);
-        Assert.Equal(("Dentist", "Reminder for 10:00 AM", "/today?task=RT1"), (payload.Title, payload.Body, payload.Url));
+        // The task's own time, not the reminder's (Ben, 0.14.0-rc.1): it starts at 10:30.
+        Assert.Equal(("Dentist", "Starts 10:30 AM", "/today?task=RT1"), (payload.Title, payload.Body, payload.Url));
         Assert.Equal($"RT1@{due.ToUnixTimeMilliseconds()}", payload.Tag);
         // Complete, naming its task for the app to act on (never a flag in the address).
         Assert.Equal(new PushAction("complete", "Complete", "/today", "RT1"), Assert.Single(payload.Actions!));
@@ -298,6 +299,55 @@ public sealed class PushTests(ServerFixture fixture) : IClassFixture<ServerFixtu
         }
     }
 
+    [Theory]
+    // Shown at 5:00 AM on Thursday 2026-11-19 in Chicago.
+    [InlineData("due", "2026-11-19T15:00", null, "Due 3:00 PM")]
+    [InlineData("schedule", "2026-11-19T15:00", null, "Starts 3:00 PM")]
+    [InlineData("due", "2026-11-19T15:00", "24h", "Due 15:00")]
+    [InlineData("due", "2026-11-20T06:00", null, "Due tomorrow, 6:00 AM")]
+    [InlineData("due", "2026-11-18T06:00", null, "Due yesterday, 6:00 AM")]
+    [InlineData("due", "2026-11-26T06:00", null, "Due Thu, Nov 26, 6:00 AM")]
+    [InlineData("schedule", "2027-01-04T09:30", null, "Starts Jan 4, 2027, 9:30 AM")]
+    [InlineData("due", "2026-11-19", null, "Due today")]
+    [InlineData("due", "2026-11-20", null, "Due tomorrow")]
+    [InlineData("schedule", "2026-11-23", null, "Starts Mon, Nov 23")]
+    public void A_reminder_names_the_task_time_not_its_own(string field, string at, string? clock, string expected)
+    {
+        // Ben (0.14.0-rc.1): "The reminder should say the time of the event not reminder for time of reminder".
+        var chicago = TimeZoneInfo.FindSystemTimeZoneById("America/Chicago");
+        var task = new JsonObject
+        {
+            ["reminders"] = new JsonArray(new JsonObject { ["before"] = 1440 }),
+            [field] = field == "due"
+                ? new JsonObject { ["at"] = at, ["allDay"] = at.Length == 10, ["timeZone"] = "America/Chicago" }
+                : new JsonObject { ["start"] = at, ["end"] = null, ["allDay"] = at.Length == 10, ["timeZone"] = "America/Chicago" },
+        };
+        var shown = new DateTimeOffset(2026, 11, 19, 11, 0, 0, TimeSpan.Zero);
+        var settings = clock is null ? null : new JsonObject { ["clockFormat"] = clock };
+        Assert.Equal(expected, ReminderSender.BodyOf(task, shown, chicago, settings));
+    }
+
+    [Fact]
+    public void A_reminder_names_the_task_time_on_the_person_clock_and_says_reminder_with_no_date()
+    {
+        var chicago = TimeZoneInfo.FindSystemTimeZoneById("America/Chicago");
+        var shown = new DateTimeOffset(2026, 11, 19, 11, 0, 0, TimeSpan.Zero);
+        // Written in Tokyo for 23:00 on the 19th: 8:00 AM that day in Chicago.
+        var tokyo = new JsonObject
+        {
+            ["due"] = new JsonObject { ["at"] = "2026-11-19T23:00", ["allDay"] = false, ["timeZone"] = "Asia/Tokyo" },
+        };
+        Assert.Equal("Due 8:00 AM", ReminderSender.BodyOf(tokyo, shown, chicago, null));
+        // The start before the due date, as the reminders count from it.
+        var both = new JsonObject
+        {
+            ["schedule"] = new JsonObject { ["start"] = "2026-11-19T13:00", ["end"] = null, ["allDay"] = false, ["timeZone"] = "America/Chicago" },
+            ["due"] = new JsonObject { ["at"] = "2026-11-21T17:00", ["allDay"] = false, ["timeZone"] = "America/Chicago" },
+        };
+        Assert.Equal("Starts 1:00 PM", ReminderSender.BodyOf(both, shown, chicago, null));
+        Assert.Equal("Reminder", ReminderSender.BodyOf(new JsonObject { ["title"] = "No date" }, shown, chicago, null));
+    }
+
     [Fact]
     public async Task The_app_check_gives_what_is_new_once_and_the_reminders_ahead()
     {
@@ -351,12 +401,13 @@ public sealed class PushTests(ServerFixture fixture) : IClassFixture<ServerFixtu
         var first = (await ben.GetFromJsonAsync<AppCheck>("/api/app/check?zone=America/Chicago", Token))!;
         Assert.Empty(first.Notifications);
         var reminder = first.Reminders[0];
-        Assert.Equal(($"KT1@{due.ToUnixTimeMilliseconds()}", "Call the plumber", "Reminder for 2:00 PM", "/today?task=KT1"),
+        // No date of its own, only a set time: nothing to name but that it is a reminder.
+        Assert.Equal(($"KT1@{due.ToUnixTimeMilliseconds()}", "Call the plumber", "Reminder", "/today?task=KT1"),
             (reminder.Tag, reminder.Title, reminder.Body, reminder.Url));
         var tag = $"KT2@{new DateTimeOffset(TimeZoneInfo.ConvertTimeToUtc(local.AddDays(1), chicago), TimeSpan.Zero).ToUnixTimeMilliseconds()}";
         Assert.Equal([tag, .. Enumerable.Range(1, ServerReminders.ConstantTimes - 1).Select(again => $"{tag}#{again}")],
             first.Reminders.Skip(1).Select(each => each.Tag));
-        Assert.All(first.Reminders.Skip(1), each => Assert.Equal("Reminder for 2:00 PM", each.Body));
+        Assert.All(first.Reminders.Skip(1), each => Assert.Equal("Reminder", each.Body));
 
         // A reminder's own notification is left to the alarm set ahead.
         await store.AddAsync([Note("shared"), Note("reminder")], Token);

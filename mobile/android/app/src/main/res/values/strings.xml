@@ -74,7 +74,8 @@
     <string name="snooze_too_far">A snooze can be a week at most: pick a time before %1$s.</string>
     <string name="snooze_limit">Up to a week ahead: until %1$s.</string>
     <string name="snooze_done">Snoozed until %1$s</string>
-    <string name="reminder_body">Reminder for %1$s</string>
+    <!-- A snoozed reminder's text when it comes back on another day (ReminderReceiver.snoozed). -->
+    <string name="reminder_undated">Reminder</string>
     <!-- Back with nothing left to go back to (MainActivity). -->
     <string name="back_again">Press Back again to leave PeckList</string>
     <!-- The launcher icon's long-press shortcuts (Shortcuts, res/xml/shortcuts.xml). -->
