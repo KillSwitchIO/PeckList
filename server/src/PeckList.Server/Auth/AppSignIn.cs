@@ -91,7 +91,7 @@ public static partial class AppSignIn
         // Step 2, the confirm button: a one-time code, and back to the app.
         auth.MapPost("/app/handoff", async (HttpContext context, ISecretStore secrets, IDataProtectionProvider protection, TimeProvider time) =>
         {
-            var form = await context.Request.ReadFormAsync(context.RequestAborted);
+            if (await context.Request.TryReadFormAsync(context.RequestAborted) is not { } form) return Results.BadRequest(new AuthError("invalid_request"));
             string challenge = form["challenge"].ToString(), scheme = form["scheme"].ToString();
             if (!ValidRequest(challenge, scheme) || !SameOriginGuard.Allows(context)) return Results.BadRequest(new AuthError("invalid_request"));
             var session = await context.AuthenticateAsync(CookieAuthenticationDefaults.AuthenticationScheme);
@@ -110,7 +110,7 @@ public static partial class AppSignIn
         // Step 3, in the app's WebView: the code and the verifier make a session there.
         auth.MapPost("/app/redeem", async (HttpContext context, ISecretStore secrets, IDataProtectionProvider protection, TimeProvider time) =>
         {
-            var form = await context.Request.ReadFormAsync(context.RequestAborted);
+            if (await context.Request.TryReadFormAsync(context.RequestAborted) is not { } form) return Results.BadRequest(new AuthError("invalid_request"));
             var handoff = await TakeAsync<Handoff>(secrets, protection, Kind, form["code"].ToString(), context.RequestAborted);
             var verifier = form["verifier"].ToString();
             if (handoff is null || handoff.Expires <= time.GetUtcNow() || verifier.Length < 43 || ChallengeOf(verifier) != handoff.Challenge)

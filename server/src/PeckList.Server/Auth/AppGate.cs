@@ -34,7 +34,7 @@ public static partial class AppSignIn
 
         auth.MapPost("/app/gate", async (HttpContext context, ILoggerFactory loggers) =>
         {
-            var form = await context.Request.ReadFormAsync(context.RequestAborted);
+            if (await context.Request.TryReadFormAsync(context.RequestAborted) is not { } form) return Results.BadRequest(new AuthError("invalid_request"));
             var key = form["key"].ToString();
             var scheme = form["scheme"].ToString();
             using var rsa = PublicKeyOf(key);

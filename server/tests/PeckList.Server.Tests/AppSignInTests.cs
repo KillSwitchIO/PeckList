@@ -221,6 +221,23 @@ public sealed class AppSignInTests(ServerFixture fixture) : IClassFixture<Server
         Assert.Equal(HttpStatusCode.Unauthorized, (await tab.GetAsync("/auth/me", Token)).StatusCode);
     }
 
+    [Theory]
+    [InlineData("/auth/app/handoff")]
+    [InlineData("/auth/app/redeem")]
+    [InlineData("/auth/app/gate")]
+    public async Task A_nul_in_a_sign_in_form_is_a_bad_request_not_a_crash(string path)
+    {
+        // Security C2 (2026-11-06): the form reader throws on a NUL, which went unhandled (a 500).
+        using var server = Server();
+        var browser = Browser(server);
+        var response = await browser.PostAsync(path, Form(
+            ("code", "a\0b"), ("verifier", "v\0"), ("challenge", "c\0"), ("scheme", Scheme + "\0"), ("key", "k\0"), ("returnUrl", "/\0")), Token);
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        // Nor is a body that is not a form (Security's re-read).
+        Assert.Equal(HttpStatusCode.BadRequest, (await browser.PostAsJsonAsync(path, new { code = "a" }, Token)).StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest, (await browser.PostAsync(path, null, Token)).StatusCode);
+    }
+
     private static FormUrlEncodedContent Form(params (string Key, string Value)[] fields) =>
         new(fields.Select(field => new KeyValuePair<string, string>(field.Key, field.Value)));
 
