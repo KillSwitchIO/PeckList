@@ -1463,6 +1463,7 @@ export const en = {
   'task.moreTitle': 'Comments and history',
   'editor.openFull': 'Full editor',
   'editor.fullTitle': 'Notes',
+  'editor.notesLimit': 'Notes keep up to {count} characters. The rest was not saved.',
   'editor.loadFailed': 'The editor could not load. Your notes are safe; reloading gets it.',
   'smartLinks.open': 'Open',
   'smartLinks.email': 'Email',
