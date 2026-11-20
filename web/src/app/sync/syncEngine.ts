@@ -711,9 +711,19 @@ export function createSyncEngine(deps: SyncEngineDependencies): SyncEngine {
         set({ phase: 'join-question', join: 'phone', account, status: 'idle' });
         return;
       }
-      // Never linked, and data on the device already: ask before it goes into this account.
+      // Never linked, and data on the device already: ask before it goes into this account. Not
+      // when the workspace is already this account's: joining (asked, or with nothing to ask) and
+      // starting over make the account its owner, and a page closed after that was stored but
+      // before where the sync stands was (link stores them in that order) left the account's own
+      // tasks looking like the device's (QA, 2026-11-20). The sync finishes the link: it pulls
+      // again and joins, which sends only what the server does not have yet.
       const current = workspace.getState().workspace;
-      if (current && hasOwnData(current) && (await loadMeta()).account === null) {
+      if (
+        current &&
+        current.owner !== account.id &&
+        hasOwnData(current) &&
+        (await loadMeta()).account === null
+      ) {
         set({ phase: 'join-question', join: 'device', account, status: 'idle' });
         return;
       }

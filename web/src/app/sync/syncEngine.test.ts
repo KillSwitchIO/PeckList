@@ -33,13 +33,15 @@ async function device(
   node: string,
   {
     saveDelayMs = 0,
+    storage = createMemoryStorage(),
     ...options
   }: Partial<Pick<SyncEngineDependencies, 'readOnly' | 'phoneTasks' | 'deviceZone'>> & {
     /** How long the workspace waits before it saves itself (the app's is 400 ms). */
     saveDelayMs?: number;
+    /** Another device's storage: the same device opened again, as after a reload. */
+    storage?: ReturnType<typeof createMemoryStorage>;
   } = {},
 ) {
-  const storage = createMemoryStorage();
   const store = createWorkspaceStore({
     storage,
     validator: createAjvValidator(),
@@ -352,6 +354,87 @@ describe('sync engine', () => {
       const covered = rows.filter((row) => row.seq <= cursor && row.change.collection === 'tasks');
       expect(covered.filter((row) => !tasks.has(row.change.entity.id))).toEqual([]);
     }
+  });
+
+  it('asks nothing about tasks that already belong to the account, after a reload mid-link', async () => {
+    const backend = new FakeBackend();
+    const ben = backend.addAccount('ben', 'correct horse battery');
+    const laptop = await device(backend, 'laptop');
+    await laptop.engine.getState().start();
+    await laptop.engine.getState().signIn('ben', 'correct horse battery');
+    addTask(laptop.store, 'Mow');
+    await laptop.engine.getState().syncNow();
+
+    const phone = await device(backend, 'phone');
+    await phone.engine.getState().start();
+    await phone.engine.getState().signIn('ben', 'correct horse battery');
+    expect(titles(phone.store)).toEqual(['Mow']);
+    // The page went after the joined workspace was stored and before where the sync stands was
+    // (QA, 2026-11-20): storage holds the account's own tasks, and no link.
+    phone.engine.getState().stop();
+    await phone.storage.saveMeta('sync', null);
+    const rows = backend.server.rows.size;
+
+    const again = await device(backend, 'phone', { storage: phone.storage });
+    expect(again.store.getState().workspace!.owner).toBe(ben.id);
+    await again.engine.getState().start();
+    await again.engine.getState().signIn('ben', 'correct horse battery');
+    expect(again.engine.getState().phase).toBe('ready');
+    expect(again.engine.getState().join).toBeNull();
+    expect(titles(again.store)).toEqual(['Mow']);
+    // The link is finished, and nothing the server has already was sent again.
+    expect(((await again.storage.loadMeta('sync')) as { account: string }).account).toBe(ben.id);
+    expect(backend.server.rows.size).toBe(rows);
+  });
+
+  it('sends the device own tasks once and asks nothing more, after a reload mid "add them" (Dev 2)', async () => {
+    const backend = new FakeBackend();
+    const ben = backend.addAccount('ben', 'correct horse battery');
+    const laptop = await device(backend, 'laptop');
+    await laptop.engine.getState().start();
+    await laptop.engine.getState().signIn('ben', 'correct horse battery');
+    addTask(laptop.store, 'Mow');
+    await laptop.engine.getState().syncNow();
+
+    const phone = await device(backend, 'phone');
+    addTask(phone.store, 'Call the vet');
+    await phone.engine.getState().start();
+    await phone.engine.getState().signIn('ben', 'correct horse battery');
+    expect(phone.engine.getState().phase).toBe('join-question');
+    // The page goes after the joined workspace is stored and before where the sync stands is.
+    const keep = phone.storage.saveMeta.bind(phone.storage);
+    const save = vi
+      .spyOn(phone.storage, 'saveMeta')
+      .mockImplementation((key, value) =>
+        key === 'sync' && (value as { account?: string } | null)?.account === ben.id
+          ? Promise.reject(new Error('the page went'))
+          : keep(key, value),
+      );
+    const error = vi.spyOn(console, 'error').mockImplementation(() => {});
+    try {
+      await phone.engine.getState().answerJoin(true);
+    } finally {
+      error.mockRestore();
+      save.mockRestore();
+    }
+    phone.engine.getState().stop();
+    expect(await phone.storage.loadMeta('sync')).toBeNull();
+    const sent = (title: string) =>
+      [...backend.server.rows.values()].filter(
+        (row) => (row.change.entity as { title?: string }).title === title,
+      ).length;
+    expect(sent('Call the vet')).toBe(0);
+
+    const again = await device(backend, 'phone', { storage: phone.storage });
+    expect(again.store.getState().workspace!.owner).toBe(ben.id);
+    await again.engine.getState().start();
+    await again.engine.getState().signIn('ben', 'correct horse battery');
+    expect(again.engine.getState().phase).toBe('ready');
+    expect(again.engine.getState().join).toBeNull();
+    expect(titles(again.store)).toEqual(['Call the vet', 'Mow']);
+    expect(sent('Call the vet')).toBe(1);
+    await laptop.engine.getState().syncNow();
+    expect(titles(laptop.store)).toEqual(['Call the vet', 'Mow']);
   });
 
   it('links again a device whose sync state was stored without its data', async () => {
