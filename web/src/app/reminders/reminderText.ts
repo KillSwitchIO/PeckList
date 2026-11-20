@@ -74,6 +74,16 @@ function dayAndTime(before: number, from: string): { text: string; time: string 
 }
 
 /**
+ * Whether a reminder half a day or more early, not a whole number of days, comes on an earlier day
+ * than the task: "1 day early (2:00 PM)" reads better than "16 hours early" on a 6:00 AM task (QA,
+ * 0.14.0). Shorter offsets keep their minutes and hours, and whole days stay "1 day early".
+ */
+function earlierDay(before: number, from: string): boolean {
+  const [h, m] = from.split(':').map(Number) as [number, number];
+  return before >= 720 && before % 1440 !== 0 && before > h * 60 + m;
+}
+
+/**
  * A reminder as words and the time of day it comes at: always for an all-day task; for a timed
  * one (its start time `startTime`) when it is set at a time of day rather than minutes or hours
  * early (Custom's Day and Week tabs, R-FB-91): days early, on the task's day, or after it, with
@@ -92,7 +102,7 @@ export function reminderParts(
   // Not a whole number of minutes or hours early (as the Minute and Hour tabs make): at a time.
   const atATime =
     before < 0 || (before % 1440 !== 0 && (before >= 1440 || (before > 60 && before % 60 !== 0)));
-  if (startTime && atATime) return dayAndTime(before, startTime);
+  if (startTime && (atATime || earlierDay(before, startTime))) return dayAndTime(before, startTime);
   return { text: minutesEarlyText(before) };
 }
 
