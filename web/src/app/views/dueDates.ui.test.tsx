@@ -1,6 +1,6 @@
 import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { addDays, localTimeZone, todayIn } from '../../core/dates.ts';
 import { inboxList } from '../../core/lists.ts';
 import { createTask } from '../../core/tasks.ts';
@@ -11,6 +11,14 @@ beforeEach(() => {
   localStorage.clear();
   vi.unstubAllGlobals();
   mockViewport('desktop');
+  // One fixed local noon (only Date is faked; timers run as usual): these tests work out "today"
+  // and render, so in the minute around local midnight the two could fall on different days
+  // (Upcoming's day 3 came out a day short once, in a pre-push run).
+  vi.useFakeTimers({ toFake: ['Date'], now: new Date(2026, 10, 18, 12, 0) });
+});
+
+afterEach(() => {
+  vi.useRealTimers();
 });
 
 const today = () => todayIn(localTimeZone(), Date.now());
