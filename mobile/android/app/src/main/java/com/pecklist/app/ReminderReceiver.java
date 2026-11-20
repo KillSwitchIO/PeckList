@@ -9,6 +9,8 @@ import java.io.OutputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
+import java.util.Calendar;
+import java.util.TimeZone;
 import org.json.JSONObject;
 
 /**
@@ -63,7 +65,8 @@ public class ReminderReceiver extends BroadcastReceiver {
             Reminders.dropTask(context, reminder.taskId());
         } else {
             Reminders.dropRepeats(context, reminder.tag());
-            Reminders.add(context, snoozed(context, reminder, minutes, pressedAt));
+            Reminders.add(context, snoozed(reminder, minutes, pressedAt, TimeZone.getDefault(),
+                context.getString(R.string.reminder_undated)));
         }
         if (ServerChoice.get(context) == null) {
             Held.add(context, button, reminder.taskId(), minutes, pressedAt);
@@ -126,13 +129,29 @@ public class ReminderReceiver extends BroadcastReceiver {
         }
     }
 
-    /** The reminder Snooze leaves, until the server's own copy replaces it at the next check-in. */
-    private static Reminders.Reminder snoozed(Context context, Reminders.Reminder reminder, int minutes, long pressedAt) {
+    /**
+     * The reminder Snooze leaves, until the server's own copy replaces it at the next check-in. Its
+     * text is the reminder's own: it names the task's time, which a snooze does not move, never the
+     * time the snooze comes back (Ben, 0.14.0-rc.1). That text says the day from when the reminder
+     * first came ("Due 3:00 PM" meant today then), so a snooze into another day says only
+     * {@code otherDay} ("Reminder") rather than a day that is no longer right (Dev 2's review).
+     */
+    static Reminders.Reminder snoozed(Reminders.Reminder reminder, int minutes, long pressedAt, TimeZone zone,
+            String otherDay) {
         long at = SnoozeTimes.until(pressedAt, minutes);
-        // The day too when it is not today (a snooze until tomorrow, or a date picked).
-        String time = SnoozeActivity.when(context, at);
-        return new Reminders.Reminder(reminder.taskId() + "@" + at, reminder.title,
-            context.getString(R.string.reminder_body, time), at, reminder.url, false, reminder.repeats);
+        String body = sameDay(reminder.at, at, zone) ? reminder.body : otherDay;
+        return new Reminders.Reminder(reminder.taskId() + "@" + at, reminder.title, body, at, reminder.url, false,
+            reminder.repeats);
+    }
+
+    /** Whether two moments fall on the same calendar day in {@code zone}. */
+    private static boolean sameDay(long a, long b, TimeZone zone) {
+        Calendar first = Calendar.getInstance(zone);
+        first.setTimeInMillis(a);
+        Calendar second = Calendar.getInstance(zone);
+        second.setTimeInMillis(b);
+        return first.get(Calendar.YEAR) == second.get(Calendar.YEAR)
+            && first.get(Calendar.DAY_OF_YEAR) == second.get(Calendar.DAY_OF_YEAR);
     }
 
     /** The server's answer: 204 when done, else why not (0: unreachable). Network: off the main thread. */

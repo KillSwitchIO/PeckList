@@ -137,6 +137,24 @@ public static class ServerReminders
         return setTime is { } earlier && earlier < first ? earlier : first;
     }
 
+    /// <summary>
+    /// The task's own date as its reminders name it (Ben, 0.14.0-rc.1: "the time of the event, not
+    /// the time of the reminder"): the date they count from (<see cref="Dated"/>), whether that is its
+    /// start, and its day and time where the person is. A timed date is the moment <see cref="Start"/>
+    /// reads, shown on the person's clock as the app shows it; a whole day has no time and is the same
+    /// date everywhere. The current occurrence's, since a repeating task carries its next date. Null
+    /// when the task has no date.
+    /// </summary>
+    public static (bool Starts, DateOnly Day, TimeOnly? Time)? TaskDate(JsonObject task, TimeZoneInfo personZone)
+    {
+        var (dated, at) = Dated(task);
+        if (at is null || Local(at) is not { } local) return null;
+        var starts = ReferenceEquals(dated, task["schedule"]);
+        if (at.Length <= 10) return (starts, DateOnly.FromDateTime(local), null);
+        var shown = TimeZoneInfo.ConvertTime(InZone(local, OwnZone(dated!) is { } own ? own : personZone), personZone).DateTime;
+        return (starts, DateOnly.FromDateTime(shown), TimeOnly.FromDateTime(shown));
+    }
+
     /// <summary>The date the task's reminders count from: its start, else its due date, with the object holding it.</summary>
     private static (JsonObject? Of, string? At) Dated(JsonObject task) =>
         task["schedule"] is JsonObject schedule && Text(schedule["start"]) is { } start ? (schedule, start)

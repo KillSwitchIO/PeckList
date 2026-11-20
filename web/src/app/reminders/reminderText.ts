@@ -1,7 +1,44 @@
-import { ALL_DAY_REMINDER_TIME } from '../../core/reminders.ts';
+import { addDays, datePart, timePart, todayIn } from '../../core/dates.ts';
+import { ALL_DAY_REMINDER_TIME, type ReminderDate } from '../../core/reminders.ts';
 import type { Reminder } from '../../core/types.ts';
-import { formatTime, formatWhen } from '../format.ts';
+import { formatDay, formatTime, formatWhen } from '../format.ts';
 import { t } from '../i18n/i18n.ts';
+
+/**
+ * A reminder notification's text: the task's own date and time, not the reminder's (Ben,
+ * 0.14.0-rc.1), with the day said from where the notification shows (`shownAt` on `timeZone`'s
+ * clock). "Due 3:00 PM" today; "Due tomorrow, 6:00 AM" and "Due Thu, Oct 22, 6:00 AM" (the
+ * person's date format) other days; "Due today" for a whole day. "Starts" when the reminders count
+ * from the task's start. "Reminder" for a task with no date.
+ */
+export function notificationBody(
+  date: ReminderDate | null,
+  shownAt: number,
+  timeZone: string,
+): string {
+  if (!date) return t('reminder.undated');
+  const today = todayIn(timeZone, shownAt);
+  const day = datePart(date.at);
+  const time = timePart(date.at);
+  const starts = date.kind === 'start';
+  if (time !== null && day === today) {
+    return t(starts ? 'reminder.starts.time' : 'reminder.due.time', { time: formatTime(time) });
+  }
+  const dayText =
+    day === today
+      ? t('reminder.day.today')
+      : day === addDays(today, 1)
+        ? t('reminder.day.tomorrow')
+        : day === addDays(today, -1)
+          ? t('reminder.day.yesterday')
+          : formatDay(day, today);
+  if (time === null)
+    return t(starts ? 'reminder.starts.day' : 'reminder.due.day', { day: dayText });
+  return t(starts ? 'reminder.starts.dayTime' : 'reminder.due.dayTime', {
+    day: dayText,
+    time: formatTime(time),
+  });
+}
 
 /** How many days, as TickTick says it: "On the day", "2 days early", "1 week early". */
 export function daysEarlyText(days: number): string {

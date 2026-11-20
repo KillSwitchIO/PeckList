@@ -10,7 +10,6 @@ import {
   type Snooze,
 } from '../../core/reminders.ts';
 import { localTimeZone } from '../../core/dates.ts';
-import { formatTime } from '../format.ts';
 import { t } from '../i18n/i18n.ts';
 import { useApply, useStoreState, useWorkspace } from '../store/hooks.ts';
 import { useSyncEngine, useSyncState } from '../sync/syncContext.ts';
@@ -18,7 +17,7 @@ import { notificationAllowed } from '../../core/notificationSwitches.ts';
 import { localClock } from './clock.ts';
 import { notifier } from './notifier.ts';
 import { logReminder } from './reminderLog.ts';
-import { dateTimeFormat } from '../../core/intl.ts';
+import { notificationBody } from './reminderText.ts';
 import type { ReminderPress, RemindersApi } from '../../ports/sync.ts';
 
 /** How late a reminder may still fire (the app was closed or asleep at the time). */
@@ -394,7 +393,7 @@ function notificationOf(due: DueReminder) {
   };
   return {
     title: due.title || t('task.untitled'),
-    body: t('reminder.body', { time: formatTime(clock(due.at)) }),
+    body: notificationBody(due.date, due.at, localTimeZone()),
     tag: due.tag,
     url: `/today?task=${due.taskId}`,
     ...(due.constant
@@ -410,14 +409,4 @@ function notificationOf(due: DueReminder) {
         }
       : { actions: [complete] }),
   };
-}
-
-/** "HH:mm" in the app's time zone for an instant. */
-function clock(at: number): string {
-  return dateTimeFormat('en-GB', {
-    timeZone: localTimeZone(),
-    hour: '2-digit',
-    minute: '2-digit',
-    hourCycle: 'h23',
-  }).format(at);
 }

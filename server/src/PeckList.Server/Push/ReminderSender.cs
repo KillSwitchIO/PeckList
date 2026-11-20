@@ -160,7 +160,7 @@ public sealed class ReminderSender(
         // Complete on every reminder (Ben, 2026-11-20): the service worker hands the press to the
         // app under a one-time name, and the app completes the task; a constant one adds Snooze and
         // Dismiss after it (sw-notifications.js).
-        var payload = new PushPayload(TitleOf(task), $"Reminder for {Clock(first, zone, mine)}", tag, $"/today?task={taskId}", constant,
+        var payload = new PushPayload(TitleOf(task), BodyOf(task, at, zone, mine), tag, $"/today?task={taskId}", constant,
             [new PushAction("complete", "Complete", "/today", taskId)]);
         if (at == first)
         {
@@ -237,7 +237,7 @@ public sealed class ReminderSender(
                 var tag = $"{taskId}@{first.ToUnixTimeMilliseconds()}";
                 var again = (int)((at - first) / ServerReminders.ConstantEvery);
                 found.Add(new Upcoming(again == 0 ? tag : $"{tag}#{again}", title,
-                    $"Reminder for {Clock(first, zone, mine)}", at, $"/today?task={taskId}", constant, repeats));
+                    BodyOf(task, at, zone, mine), at, $"/today?task={taskId}", constant, repeats));
             }
         }
     }
@@ -286,12 +286,28 @@ public sealed class ReminderSender(
         return TimeZoneInfo.Local;
     }
 
-    /// <summary>The time as the person's clock shows it: "9:30 AM", or "09:30" on a 24-hour clock.</summary>
-    private static string Clock(DateTimeOffset at, TimeZoneInfo zone, JsonObject? settings)
+    /// <summary>
+    /// A reminder's text: the task's own date and time, not the reminder's (Ben, 0.14.0-rc.1), with
+    /// the day said from where the reminder shows (<paramref name="shownAt"/> in the person's zone),
+    /// as the app words it: "Due 3:00 PM" today, "Due tomorrow, 6:00 AM", "Due Thu, Nov 26, 6:00 AM",
+    /// "Due today" for a whole day, "Starts ..." when the reminders count from the task's start, and
+    /// "Reminder" for a task with no date. The person's clock format; days in English, as the rest of
+    /// what the server sends.
+    /// </summary>
+    internal static string BodyOf(JsonObject task, DateTimeOffset shownAt, TimeZoneInfo zone, JsonObject? settings)
     {
-        var local = TimeZoneInfo.ConvertTime(at, zone);
-        return (string?)settings?["clockFormat"] == "24h"
-            ? local.ToString("HH:mm", CultureInfo.InvariantCulture)
-            : local.ToString("h:mm tt", CultureInfo.InvariantCulture);
+        if (ServerReminders.TaskDate(task, zone) is not { } found) return "Reminder";
+        var (starts, day, time) = found;
+        var word = starts ? "Starts" : "Due";
+        var today = DateOnly.FromDateTime(TimeZoneInfo.ConvertTime(shownAt, zone).DateTime);
+        var clock = time is { } at
+            ? at.ToString((string?)settings?["clockFormat"] == "24h" ? "HH:mm" : "h:mm tt", CultureInfo.InvariantCulture)
+            : null;
+        if (clock is not null && day == today) return $"{word} {clock}";
+        var dayText = day == today ? "today"
+            : day == today.AddDays(1) ? "tomorrow"
+            : day == today.AddDays(-1) ? "yesterday"
+            : day.ToString(day.Year == today.Year ? "ddd, MMM d" : "MMM d, yyyy", CultureInfo.InvariantCulture);
+        return clock is null ? $"{word} {dayText}" : $"{word} {dayText}, {clock}";
     }
 }

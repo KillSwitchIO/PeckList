@@ -383,4 +383,52 @@ describe('snoozing a reminder', () => {
       { at: '2026-10-26T10:40' },
     ]);
   });
+
+  it("carry the task's own date for the notification, not the reminder's time (Ben, 0.14.0-rc.1)", () => {
+    const s = setup();
+    // Due 6:00 tomorrow, reminded a day early: the notification names 6:00 on the 27th.
+    const bill = s.add('Bill', {
+      due: { at: '2026-10-27T06:00', allDay: false, timeZone: TZ },
+      reminders: [{ before: 1440 }],
+    });
+    const meeting = s.add('Meeting', { schedule: timed, reminders: [{ before: 30 }] });
+    const day = s.add('Bins', {
+      due: { at: '2026-10-26', allDay: true, timeZone: TZ },
+      reminders: [{ before: 0 }],
+    });
+    // Written in Tokyo at 23:00 on the 26th: 9:00 AM that day in Chicago, where it shows.
+    const call = s.add('Call', {
+      due: { at: '2026-10-26T23:00', allDay: false, timeZone: 'Asia/Tokyo' },
+      reminders: [{ before: 60 }],
+    });
+    const due = remindersBetween(s.ws, ME, at('2026-10-26T00:00'), at('2026-10-27T00:00'), TZ);
+    const dateOf = (id: string) => due.find((each) => each.taskId === id)?.date;
+    expect(dateOf(bill.id)).toEqual({ kind: 'due', at: '2026-10-27T06:00' });
+    expect(dateOf(meeting.id)).toEqual({ kind: 'start', at: '2026-10-26T10:30' });
+    expect(dateOf(day.id)).toEqual({ kind: 'due', at: '2026-10-26' });
+    expect(dateOf(call.id)).toEqual({ kind: 'due', at: '2026-10-26T09:00' });
+    // A snooze names the task's date too, not the time it comes back.
+    const snoozed = remindersBetween(s.ws, ME, at('2026-10-26T10:00'), at('2026-10-26T12:00'), TZ, [
+      { taskId: meeting.id, at: at('2026-10-26T11:15') },
+    ]);
+    expect(snoozed.find((each) => each.at === at('2026-10-26T11:15'))?.date).toEqual({
+      kind: 'start',
+      at: '2026-10-26T10:30',
+    });
+  });
+
+  it("name a repeating task's current occurrence", () => {
+    const s = setup();
+    const daily = s.add('Pills', {
+      schedule: timed,
+      recurrence: 'FREQ=DAILY',
+      reminders: [{ before: 1440 }],
+    });
+    s.ws = toggleTaskDone(s.ctx, s.ws, daily.id);
+    // Moved on to the 27th: its day-early reminder comes on the 26th and names the 27th.
+    const due = remindersBetween(s.ws, ME, at('2026-10-26T00:00'), at('2026-10-27T00:00'), TZ);
+    expect(due.map((each) => [each.at, each.date])).toEqual([
+      [at('2026-10-26T10:30'), { kind: 'start', at: '2026-10-27T10:30' }],
+    ]);
+  });
 });
