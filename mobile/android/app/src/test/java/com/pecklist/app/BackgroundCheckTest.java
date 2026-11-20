@@ -80,4 +80,51 @@ public class BackgroundCheckTest {
         assertFalse(BackgroundCheck.handsOverReminders(false, true));
         assertFalse(BackgroundCheck.handsOverReminders(true, true));
     }
+
+    /**
+     * QA's drill of 2026-11-20: with no check-in yet on this server, the first one (which shows
+     * nothing) waited for the regular interval, and news in between was taken as old. Leaving the
+     * screen checks in at once then, and only then: on, with a server, and no cursor kept.
+     */
+    @Test
+    public void leavingTheScreenChecksInOnlyWhenThereHasBeenNoCheckInYet() {
+        assertTrue(BackgroundCheck.checksInOnLeaving(null, "https://tasks.example", true));
+        assertFalse(BackgroundCheck.checksInOnLeaving("01JD0000000000000000000000", "https://tasks.example", true));
+        assertFalse(BackgroundCheck.checksInOnLeaving(null, null, true));
+        assertFalse(BackgroundCheck.checksInOnLeaving(null, "https://tasks.example", false));
+    }
+
+    /**
+     * Dev 1's review: the check-in as the app leaves can meet an old session's cookie right after a
+     * server is chosen; refused, it must not stop the regular ones (only a fresh start resumes them).
+     */
+    @Test
+    public void onlyARegularCheckInStopsWhenRefused() {
+        assertTrue(BackgroundCheck.stopsWhenRefused(false));
+        assertFalse(BackgroundCheck.stopsWhenRefused(true));
+    }
+
+    /** Two check-ins overlapping: the slower one's older cursor never takes the kept one back. */
+    @Test
+    public void theCursorOnlyMovesForward() {
+        String earlier = "01JD0000000000000000000000";
+        String later = "01JD0000010000000000000000";
+        assertTrue(BackgroundCheck.laterCursor(null, earlier));
+        assertTrue(BackgroundCheck.laterCursor(earlier, later));
+        assertFalse(BackgroundCheck.laterCursor(later, earlier));
+        assertFalse(BackgroundCheck.laterCursor(later, later));
+        // An old server's answer with none keeps what there is.
+        assertFalse(BackgroundCheck.laterCursor(earlier, null));
+    }
+
+    /** The drill's log line says what a lost notification would need: the first check, and what was left to the app. */
+    @Test
+    public void eachCheckInSaysWhatItAskedAfterAndWhatItDid() {
+        assertEquals("Background check: after none (first check, nothing shown), 0 new, next after C2",
+            BackgroundCheck.describe(null, 0, false, "C2"));
+        assertEquals("Background check: after C1, 2 new, shown, next after C2", BackgroundCheck.describe("C1", 2, false, "C2"));
+        assertEquals("Background check: after C1, 1 new, left to the app on screen, next after C2",
+            BackgroundCheck.describe("C1", 1, true, "C2"));
+        assertEquals("Background check: after C1, 0 new, next after C1", BackgroundCheck.describe("C1", 0, false, null));
+    }
 }
