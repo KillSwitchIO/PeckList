@@ -84,6 +84,36 @@ export function reminderInstant(task: Task, reminder: Reminder, timeZone: string
 }
 
 /**
+ * The first moment the task's current occurrence reminds (ms since the epoch): the earliest of its
+ * reminders counted from its date, or a set time before that. Null when none counts from its date
+ * (no date, or only set times, which do not move with it). The server's OccurrenceStart.
+ */
+export function occurrenceStart(task: Task, timeZone: string): number | null {
+  let fromDate: number | null = null;
+  let setTime: number | null = null;
+  for (const reminder of task.reminders ?? []) {
+    const when = reminderInstant(task, reminder, timeZone);
+    if (when === null || Number.isNaN(when)) continue;
+    if ('at' in reminder) setTime = setTime === null ? when : Math.min(setTime, when);
+    else fromDate = fromDate === null ? when : Math.min(fromDate, when);
+  }
+  if (fromDate === null) return null;
+  return setTime !== null && setTime < fromDate ? setTime : fromDate;
+}
+
+/**
+ * Whether a press of the reminder that first came at `first` is for an occurrence already gone (a
+ * repeating task completed and moved on, a task put on a later date): more than a minute before the
+ * current occurrence's first reminder, as the server reads it (Dev 2's review of the web reminder's
+ * Complete). `first` 0 names no reminder, so it is about the task as it is.
+ */
+export function occurrenceGone(task: Task, first: number, timeZone: string): boolean {
+  if (first <= 0) return false;
+  const start = occurrenceStart(task, timeZone);
+  return start !== null && first < start - 60_000;
+}
+
+/**
  * Whether a task's reminders are mine: I am assigned (myself or through a group I am in), or
  * nobody is and I made it. So a shared list does not ping everyone on it.
  */

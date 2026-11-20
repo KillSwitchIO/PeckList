@@ -1,6 +1,6 @@
 /**
  * What a notification's acting button asks of a task (R-FB-106, R-FB-107): a thumbs up on its
- * comment, or dibs on a group's task. It reaches the app only from a real press, never from the
+ * comment, dibs on a group's task, or Complete on a reminder (Ben, 2026-11-20). It reaches the app only from a real press, never from the
  * address alone, which a link from another site could carry (security review 2026-11-19):
  *
  * - a browser push: the service worker keeps it in Cache Storage under a one-time random name and
@@ -18,11 +18,16 @@ export const ACTIONS_CACHE = 'pecklist-actions';
 /** How long a press waits for its page: long enough for a cold start, short enough to go stale. */
 export const ACTION_TTL_MS = 2 * 60_000;
 
-export type NotificationActionKind = 'like' | 'dibs';
+export type NotificationActionKind = 'like' | 'dibs' | 'complete';
 
 export interface PendingNotificationAction {
   kind: NotificationActionKind;
   taskId: string;
+  /**
+   * A reminder's Complete: when that reminder first came (its tag's time), so a notice left up
+   * never completes a later occurrence (NotificationLinks). Absent: about the task as it is.
+   */
+  first?: number;
 }
 
 /** A one-time name as the service worker makes them: 128 random bits, base64url. */
@@ -30,10 +35,12 @@ const NONCE = /^[A-Za-z0-9_-]{22}$/;
 
 function entryOf(value: unknown): (PendingNotificationAction & { at: number }) | null {
   if (!value || typeof value !== 'object') return null;
-  const { kind, taskId, at } = value as Record<string, unknown>;
-  if ((kind !== 'like' && kind !== 'dibs') || typeof taskId !== 'string' || !taskId) return null;
+  const { kind, taskId, at, first } = value as Record<string, unknown>;
+  if (kind !== 'like' && kind !== 'dibs' && kind !== 'complete') return null;
+  if (typeof taskId !== 'string' || !taskId) return null;
   if (typeof at !== 'number' || !Number.isFinite(at)) return null;
-  return { kind, taskId, at };
+  const named = typeof first === 'number' && Number.isFinite(first) && first > 0;
+  return { kind, taskId, at, ...(named ? { first } : {}) };
 }
 
 async function read(response: Response | undefined) {
@@ -66,7 +73,11 @@ export async function takeNotificationAction(
     const entry = await read(await cache.match(key));
     if (!(await cache.delete(key))) return null;
     if (!entry || !fresh(entry.at)) return null;
-    return { kind: entry.kind, taskId: entry.taskId };
+    return {
+      kind: entry.kind,
+      taskId: entry.taskId,
+      ...(entry.first !== undefined ? { first: entry.first } : {}),
+    };
   } catch {
     return null;
   }

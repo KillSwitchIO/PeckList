@@ -10,7 +10,9 @@ import {
   reminderInstant,
   remindersBetween,
   remindsAllDay,
+  occurrenceGone,
   occurrenceOf,
+  occurrenceStart,
   remindsMe,
   snoozeHolds,
   snoozeReminder,
@@ -64,6 +66,34 @@ describe('reminders', () => {
     const loose = s.add('Loose', {});
     expect(reminderInstant(loose, { before: 5 }, TZ)).toBeNull();
     expect(reminderInstant(loose, { at: '2026-10-27T07:15' }, TZ)).toBe(at('2026-10-27T07:15'));
+  });
+
+  it("know a press for an occurrence already gone, as the server's OccurrenceStart does", () => {
+    // Dev 2's review of the web reminder's Complete: a notice left up must not close the next date.
+    const s = setup();
+    const daily = s.add('Pills', {
+      schedule: timed,
+      reminders: [{ before: 30 }, { before: 0 }],
+      recurrence: 'FREQ=DAILY',
+    });
+    // Its first reminder: 10:00 on the 26th.
+    expect(occurrenceStart(daily, TZ)).toBe(at('2026-10-26T10:00'));
+    expect(occurrenceGone(daily, at('2026-10-26T10:00'), TZ)).toBe(false);
+    expect(occurrenceGone(daily, at('2026-10-26T10:30'), TZ)).toBe(false);
+    // A minute's grace, as on the server.
+    expect(occurrenceGone(daily, at('2026-10-26T09:59'), TZ)).toBe(false);
+    expect(occurrenceGone(daily, at('2026-10-26T09:58'), TZ)).toBe(true);
+    // Moved on to the 27th: the 26th's reminders are for an occurrence gone.
+    const moved = { ...daily, schedule: { ...timed, start: '2026-10-27T10:30' } };
+    expect(occurrenceGone(moved, at('2026-10-26T10:30'), TZ)).toBe(true);
+    expect(occurrenceGone(moved, at('2026-10-27T10:00'), TZ)).toBe(false);
+    // A press that names no reminder (0) is about the task as it is.
+    expect(occurrenceGone(moved, 0, TZ)).toBe(false);
+    // An earlier set time counts; only set times, or no date: nothing to tell by.
+    const early = { ...moved, reminders: [{ before: 0 }, { at: '2026-10-27T07:00' }] };
+    expect(occurrenceStart(early, TZ)).toBe(at('2026-10-27T07:00'));
+    expect(occurrenceStart({ ...moved, reminders: [{ at: '2026-10-27T07:00' }] }, TZ)).toBeNull();
+    expect(occurrenceGone(s.add('Loose', { reminders: [{ before: 5 }] }), 1, TZ)).toBe(false);
   });
 
   it('use the due date when there is no start', () => {

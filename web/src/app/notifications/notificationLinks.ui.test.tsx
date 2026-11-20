@@ -4,10 +4,12 @@ import { BrowserRouter } from 'react-router';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { getEntity, putEntity } from '../../core/collections.ts';
 import { commentsOf } from '../../core/comments.ts';
+import { localTimeZone } from '../../core/dates.ts';
 import { inboxList } from '../../core/lists.ts';
 import { createEntity } from '../../core/ops.ts';
 import { assigneesOf, setAssignee } from '../../core/sharing.ts';
-import { createTask } from '../../core/tasks.ts';
+import { reminderInstant } from '../../core/reminders.ts';
+import { createTask, updateTask } from '../../core/tasks.ts';
 import type { GroupMember } from '../../core/types.ts';
 import { mockViewport, testStore } from '../../test/renderApp.tsx';
 import { openedOf } from '../../adapters/shell-notifier.ts';
@@ -69,10 +71,18 @@ function fakeCaches() {
   };
   let made = 0;
   /** What the service worker keeps for a press; its one-time name. */
-  const press = (kind: 'like' | 'dibs', taskId: string, at = Date.now()) => {
+  const press = (
+    kind: 'like' | 'dibs' | 'complete',
+    taskId: string,
+    at = Date.now(),
+    first?: number,
+  ) => {
     made += 1;
     const name = `${'n'.repeat(20)}${String(made).padStart(2, '0')}`;
-    entries().set(`/act/${name}`, JSON.stringify({ kind, taskId, at }));
+    entries().set(
+      `/act/${name}`,
+      JSON.stringify({ kind, taskId, at, ...(first !== undefined ? { first } : {}) }),
+    );
     return name;
   };
   return { press, entries };
@@ -257,5 +267,104 @@ describe('a notification button opening the app', () => {
     });
     expect(window.location.search).toContain(`task=${taskId}`);
     expect(window.location.search).not.toContain('act=');
+  });
+
+  it("a reminder's Complete completes its task once, and only from a real press", async () => {
+    // Ben (2026-11-20): "Web reminders should have a complete button".
+    const { press, entries } = fakeCaches();
+    const { store, taskId, otherId } = await appWithTask();
+    const status = (id: string) => getEntity(store.getState().workspace!, 'tasks', id)!.status;
+    // An address alone, as any link could carry, completes nothing.
+    goTo(`/today?complete=1&task=${taskId}&act=made-up`);
+    await waitFor(() => expect(window.location.search).not.toContain('act='));
+    await pause(300);
+    expect(status(taskId)).toBe('open');
+
+    const name = press('complete', taskId);
+    goTo(`/today?task=${otherId}&act=${name}`);
+    await waitFor(() => expect(status(taskId)).toBe('done'));
+    expect(status(otherId)).toBe('open');
+    expect(entries().size).toBe(0);
+    expect(await screen.findByText('Task completed')).toBeInTheDocument();
+    // The same name again (Back, a reload) does nothing; a done task is never opened again.
+    goTo(`/today?act=${name}`);
+    goTo(`/today?act=${press('complete', taskId)}`);
+    await waitFor(() => expect(window.location.search).not.toContain('act='));
+    await pause(300);
+    expect(status(taskId)).toBe('done');
+  });
+
+  it("a reminder's Complete left up from an occurrence already gone does nothing", async () => {
+    // Dev 2's review: ticked on the phone (it moved on), then Complete pressed on a notice here.
+    const { press } = fakeCaches();
+    const { store } = await appWithTask();
+    let id = '';
+    act(() =>
+      store.getState().apply((ctx, ws) => {
+        const made = createTask(ctx, ws, {
+          title: 'Take the pills',
+          listId: inboxList(ws).id,
+          schedule: {
+            start: '2026-11-20T10:30',
+            end: null,
+            allDay: false,
+            timeZone: localTimeZone(),
+          },
+          reminders: [{ before: 0 }],
+          recurrence: 'FREQ=DAILY',
+        });
+        id = made.task.id;
+        return made.workspace;
+      }),
+    );
+    const task = () => getEntity(store.getState().workspace!, 'tasks', id)!;
+    const thursday = reminderInstant(task(), { before: 0 }, localTimeZone())!;
+    // Ticked elsewhere: it is on Friday now.
+    act(() =>
+      store.getState().apply((ctx, ws) =>
+        updateTask(ctx, ws, id, {
+          schedule: { ...task().schedule!, start: '2026-11-21T10:30' },
+        }),
+      ),
+    );
+    goTo(`/today?act=${press('complete', id, Date.now(), thursday)}`);
+    await waitFor(() => expect(window.location.search).not.toContain('act='));
+    await pause(300);
+    expect(task().status).toBe('open');
+    expect(task().schedule!.start).toBe('2026-11-21T10:30');
+
+    // Friday's own reminder completes Friday (and moves it on to Saturday).
+    const friday = reminderInstant(task(), { before: 0 }, localTimeZone())!;
+    goTo(`/today?act=${press('complete', id, Date.now(), friday)}`);
+    await waitFor(() => expect(task().schedule!.start > '2026-11-21T10:30').toBe(true));
+  });
+
+  it("a reminder's Complete on a repeating task moves it to its next date", async () => {
+    const { press } = fakeCaches();
+    const { store } = await appWithTask();
+    let id = '';
+    act(() =>
+      store.getState().apply((ctx, ws) => {
+        const made = createTask(ctx, ws, {
+          title: 'Take the bins out',
+          listId: inboxList(ws).id,
+          schedule: { start: '2026-11-20', end: null, allDay: true, timeZone: localTimeZone() },
+          recurrence: 'FREQ=WEEKLY',
+        });
+        id = made.task.id;
+        return made.workspace;
+      }),
+    );
+    goTo(`/today?act=${press('complete', id)}`);
+    await waitFor(() => {
+      const task = getEntity(store.getState().workspace!, 'tasks', id)!;
+      // This occurrence closes as a copy, and the task itself moves on (as its checkbox does).
+      expect(task.status).toBe('open');
+      expect(task.schedule!.start > '2026-11-20').toBe(true);
+    });
+    const done = store
+      .getState()
+      .workspace!.entities.tasks.filter((each) => each.title === 'Take the bins out');
+    expect(done.map((each) => each.status).sort()).toEqual(['done', 'open']);
   });
 });

@@ -1,8 +1,11 @@
 import { useEffect, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router';
-import { getEntity } from '../../core/collections.ts';
+import { getEntity, isLive } from '../../core/collections.ts';
 import { addComment, canComment } from '../../core/comments.ts';
-import { canClaim, claimTask } from '../../core/sharing.ts';
+import { canClaim, canEditTask, claimTask } from '../../core/sharing.ts';
+import { localTimeZone } from '../../core/dates.ts';
+import { occurrenceGone } from '../../core/reminders.ts';
+import { setTaskStatus } from '../../core/tasks.ts';
 import { t } from '../i18n/i18n.ts';
 import { useApply, useStoreState, useWorkspace } from '../store/hooks.ts';
 import { useSyncState } from '../sync/syncContext.ts';
@@ -19,7 +22,7 @@ export const THUMBS_UP = '👍';
 
 /**
  * What a notification's button asks of a task (R-FB-106, R-FB-107): a thumbs up on its comment,
- * or dibs on a group's task. Done once, as soon as the task is here, and only for a real press
+ * dibs on a group's task, or a reminder's Complete (Ben, 2026-11-20). Done once, as soon as the task is here, and only for a real press
  * (notificationActions.ts): the service worker's one-time `?act=` name, or the Android app's
  * press. The task acted on is the press's own, never the address's `task`, which only decides what
  * opens. `like=1` and `dibs=1` in an address do nothing any more (a link from another site could
@@ -69,7 +72,7 @@ export function NotificationLinks() {
     if (ready.length === 0) return;
     // Off the list before acting, so a render the act causes never does it again.
     waiting.current = waiting.current.filter((each) => !ready.includes(each));
-    for (const { kind, taskId } of ready) {
+    for (const { kind, taskId, first } of ready) {
       const task = getEntity(workspace, 'tasks', taskId)!;
       if (kind === 'like' && canComment(workspace, me, task)) {
         apply(
@@ -79,6 +82,20 @@ export function NotificationLinks() {
       }
       if (kind === 'dibs' && canClaim(workspace, me, task)) {
         apply((ctx, ws) => claimTask(ctx, ws, task.id), t('notifications.calledDibs'));
+      }
+      // A reminder's Complete: as the task's own checkbox, so a repeating task moves to its next
+      // date. Only an open task, and only one I may change; never toggled back open. A reminder of
+      // an occurrence already gone (ticked on the phone, then pressed on a notice left up here)
+      // does nothing, or it would close the next date without a word (Dev 2's review), as the
+      // server does for the Android app's Complete.
+      if (
+        kind === 'complete' &&
+        isLive(task) &&
+        task.status === 'open' &&
+        canEditTask(workspace, me, task) &&
+        !occurrenceGone(task, first ?? 0, localTimeZone())
+      ) {
+        apply((ctx, ws) => setTaskStatus(ctx, ws, task.id, 'done'), t('undo.completed'));
       }
     }
     void syncNow();

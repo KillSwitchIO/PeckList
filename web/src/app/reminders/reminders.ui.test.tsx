@@ -4,7 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { localTimeZone, todayIn } from '../../core/dates.ts';
 import { inboxList } from '../../core/lists.ts';
 import { updateSettings } from '../../core/settings.ts';
-import { createTask } from '../../core/tasks.ts';
+import { createTask, updateTask } from '../../core/tasks.ts';
 import type { Reminder } from '../../core/types.ts';
 import type {
   AppNotification,
@@ -228,6 +228,39 @@ describe('reminders', () => {
     // Another change to the data looks again but does not fire it twice.
     addTask(store, 'Unrelated', inMinutes(300));
     expect(notifier.shown).toHaveLength(1);
+  });
+
+  it('carry Complete, for their own task; a constant one adds Snooze and Dismiss after it', async () => {
+    // Ben (2026-11-20): "Web reminders should have a complete button".
+    const notifier = fakeNotifier();
+    setNotifier(notifier);
+    const store = testStore();
+    await renderApp('/inbox', store);
+    const plain = addTask(store, 'Take the pills', inMinutes(5), [{ before: 10 }]);
+    let constant = '';
+    act(() =>
+      store.getState().apply((ctx, ws) => {
+        const made = createTask(ctx, ws, {
+          title: 'Water plants',
+          listId: inboxList(ws).id,
+          schedule: { start: inMinutes(5), end: null, allDay: false, timeZone: localTimeZone() },
+          reminders: [{ before: 10 }],
+        });
+        constant = made.task.id;
+        return updateTask(ctx, made.workspace, made.task.id, { constantReminder: true });
+      }),
+    );
+    const of = (title: string) => notifier.shown.find((each) => each.title === title)!;
+    expect(of('Take the pills').actions).toEqual([
+      { action: 'complete', title: 'Complete', url: '/today', taskId: plain },
+    ]);
+    expect(of('Take the pills').sticky).toBeUndefined();
+    expect(of('Water plants').sticky).toBe(true);
+    expect(of('Water plants').actions).toEqual([
+      { action: 'complete', title: 'Complete', url: '/today', taskId: constant },
+      { action: 'snooze', title: 'Snooze 10 min' },
+      { action: 'dismiss', title: 'Dismiss' },
+    ]);
   });
 
   it('in the Android app go to the system ahead of time, and the page shows none itself', async () => {

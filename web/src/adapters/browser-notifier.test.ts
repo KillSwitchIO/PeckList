@@ -47,7 +47,7 @@ describe('browser notifier', () => {
     const showNotification = vi.fn(() => Promise.resolve());
     vi.stubGlobal('navigator', {
       ...navigator,
-      serviceWorker: { getRegistration: () => Promise.resolve({ showNotification }) },
+      serviceWorker: { getRegistration: () => Promise.resolve({ active: {}, showNotification }) },
     });
     await createBrowserNotifier().show(note);
     expect(showNotification).toHaveBeenCalledWith(
@@ -62,6 +62,46 @@ describe('browser notifier', () => {
     });
     await createBrowserNotifier().show(note);
     expect(made.map((each) => each.title)).toEqual(['Dentist']);
+    // From the page, never with buttons: Chrome throws for them there, and reminders have one.
+    await createBrowserNotifier().show({
+      ...note,
+      actions: [{ action: 'complete', title: 'Complete', url: '/today', taskId: 't1' }],
+    });
+    expect(made).toHaveLength(2);
+    expect(made[1]!.options).not.toHaveProperty('actions');
+  });
+
+  it('waits for a worker still installing (a first visit with reminders due) rather than throw', async () => {
+    // QA's drill (2026-11-20): four unhandled "No active registration" errors on a first load.
+    stubNotification('granted');
+    const installing = vi.fn(() =>
+      Promise.reject(
+        new TypeError('No active registration available on the ServiceWorkerRegistration.'),
+      ),
+    );
+    const activeShow = vi.fn(() => Promise.resolve());
+    let activate: (registration: unknown) => void = () => undefined;
+    const ready = new Promise((resolve) => {
+      activate = resolve;
+    });
+    vi.stubGlobal('navigator', {
+      ...navigator,
+      serviceWorker: {
+        getRegistration: () => Promise.resolve({ active: null, showNotification: installing }),
+        ready,
+      },
+    });
+    const shown = createBrowserNotifier().show({ ...note, sticky: true });
+    await Promise.resolve();
+    expect(activeShow).not.toHaveBeenCalled();
+    activate({ active: {}, showNotification: activeShow });
+    await shown;
+    expect(installing).not.toHaveBeenCalled();
+    expect(activeShow).toHaveBeenCalledWith(
+      'Dentist',
+      // A constant reminder says so, for the worker's click (sw-notifications.js).
+      expect.objectContaining({ data: { url: note.url, sticky: true }, requireInteraction: true }),
+    );
   });
 
   it('shows nothing without permission', async () => {
