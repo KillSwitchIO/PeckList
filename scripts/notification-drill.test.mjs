@@ -97,3 +97,21 @@ test('update: stamps only the fields that changed', () => {
   assert.equal(changed._hlc.taskId, made._hlc.taskId);
   assert.equal(made.body, 'first');
 });
+
+test('update: a task the server wrote with an unstamped field still deletes (cleanup after Complete)', () => {
+  const c = ctx();
+  const made = task(c, { title: 'Drill', listId: '01M5T9HR6JS053ZMJNSMX4NNR4' });
+  // As the server writes a Complete pressed on the notification: done, and pinnedAt null with no clock.
+  const pressed = {
+    ...update(c, 'task', made, { status: 'done' }),
+    pinnedAt: null,
+  };
+  const gone = update(c, 'task', pressed, { deletedAt: '2026-01-01T00:00:02.000Z' });
+  assert.equal(gone.deletedAt, '2026-01-01T00:00:02.000Z');
+  assert.ok(gone._hlc.deletedAt > pressed._hlc.status);
+  // Left as it came: no clock is made up for a field the drill did not change.
+  assert.equal(gone.pinnedAt, null);
+  assert.equal('pinnedAt' in gone._hlc, false);
+  // What the drill makes itself is still held to a clock on every field.
+  assert.throws(() => check('task', pressed), /"pinnedAt" has no clock/);
+});

@@ -113,8 +113,11 @@ const SHAPES = {
  * The checks that matter for a device opening its data: every required field present, no field
  * the schema does not know (the app refuses a workspace with unevaluated properties), and the
  * identifying fields well formed. Throws with the problem; returns the entity otherwise.
+ *
+ * Every field has a clock, except those in `unclocked`: fields of an entity read back from the
+ * server that came without one, which the drill leaves as they are (see `update`).
  */
-export function check(def, entity) {
+export function check(def, entity, unclocked = new Set()) {
   const all = defs();
   const own = all[def];
   if (!own) throw new Error(`no schema definition "${def}"`);
@@ -137,7 +140,7 @@ export function check(def, entity) {
   bad('createdAt', SHAPES.dateTime, entity.createdAt);
   for (const [field, hlc] of Object.entries(entity._hlc)) bad(`_hlc.${field}`, SHAPES.hlc, hlc);
   for (const key of Object.keys(entity)) {
-    if (key !== 'id' && key !== '_hlc' && !(key in entity._hlc)) {
+    if (key !== 'id' && key !== '_hlc' && !(key in entity._hlc) && !unclocked.has(key)) {
       throw new Error(`${def} ${entity.id}: "${key}" has no clock`);
     }
   }
@@ -182,7 +185,13 @@ export function create(ctx, def, fields, id = ulid()) {
   return check(def, entity);
 }
 
-/** The entity with some fields changed, only those stamped anew. */
+/**
+ * The entity with some fields changed, only those stamped anew. The entity is usually one read
+ * back from the server, which may hold fields with no clock: a press on a notification (Complete,
+ * for one) is written by the server from its short copy of the task, which carries fields such as
+ * `pinnedAt` as null even where the task never had them, unstamped. Those stay as they came (a
+ * stamp now would claim a change the drill did not make); only the fields it changes get a clock.
+ */
 export function update(ctx, def, entity, patch) {
   const hlc = ctx.clock.tick();
   const next = { ...entity, _hlc: { ...entity._hlc } };
@@ -191,7 +200,10 @@ export function update(ctx, def, entity, patch) {
     next[key] = value;
     next._hlc[key] = hlc;
   }
-  return check(def, next);
+  const unclocked = new Set(
+    Object.keys(next).filter((key) => key !== 'id' && key !== '_hlc' && !(key in next._hlc)),
+  );
+  return check(def, next, unclocked);
 }
 
 export const member = (hlc, isIn = true) => ({ in: isIn, hlc });
