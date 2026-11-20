@@ -7,6 +7,7 @@ import SouthRounded from '@mui/icons-material/SouthRounded';
 import { Box, Divider, IconButton, ListSubheader, Menu, MenuItem, Tooltip } from '@mui/material';
 import { useState, type ReactNode } from 'react';
 import { LIST_SORTS, type ListGrouping } from '../../core/listView.ts';
+import type { RowDensity } from '../../core/settings.ts';
 import { t } from '../i18n/i18n.ts';
 import type { ListViewSettings } from '../lists/listGrouping.ts';
 import { useBulkSelect } from '../tasks/bulkSelect.ts';
@@ -42,13 +43,15 @@ const subheader = (key: string, text: string) => (
  * The view menu in a list's or a view's header, the three dots (spec: Views, sort and group
  * options; R-FB-55): Select to pick many tasks, List or Timeline where a list has both, then
  * group and sort, with Restore defaults to go back to how the view comes. Picking the chosen
- * grouping or sort again turns it around.
+ * grouping or sort again turns it around. Where a view offers it, Row size picks roomier or compact
+ * rows, a preference of its own that Restore defaults leaves alone.
  */
 export function SortGroupButton({
   view,
   groupings,
   fixed = [],
   layout,
+  density,
   extra,
 }: {
   view: ListViewSettings;
@@ -57,6 +60,8 @@ export function SortGroupButton({
   fixed?: readonly ListGrouping[];
   /** A list's List or Timeline, where it has both */
   layout?: { value: ListLayout; onChange: (next: ListLayout) => void };
+  /** Row size, where the view offers it (Today) */
+  density?: { value: RowDensity; onChange: (next: RowDensity) => void };
   /** More items at the end (a list's own: edit, share, archive, delete), given `close` */
   extra?: (close: () => void) => ReactNode[];
 }) {
@@ -96,6 +101,26 @@ export function SortGroupButton({
         >
           {t(`list.layout.${each}`)}
           {layout.value === each && <Picked turns={false} reversed={false} />}
+        </MenuItem>,
+      );
+    }
+  }
+  if (density && !timeline) {
+    if (items.length > 0) items.push(<Divider key="before-density" />);
+    items.push(subheader('density', t('list.density')));
+    for (const each of ['comfortable', 'compact'] as const) {
+      items.push(
+        <MenuItem
+          key={`density-${each}`}
+          dense
+          selected={density.value === each}
+          onClick={() => {
+            close();
+            density.onChange(each);
+          }}
+        >
+          {t(`list.density.${each}`)}
+          {density.value === each && <Picked turns={false} reversed={false} />}
         </MenuItem>,
       );
     }

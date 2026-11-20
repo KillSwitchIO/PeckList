@@ -195,6 +195,8 @@ export interface Settings extends BaseEntity {
   notifications?: NotificationSwitches;
   /** How long deleted, completed and won't-do tasks stay, in days (schema 18, PL-130); absent: 30 */
   purgeAfterDays?: number;
+  /** The views whose task rows are compact, one line each (schema 19): view ids such as view:today; absent: none */
+  compactViews?: string[];
 }
 
 /** Each absent switch is on. The Notifications page lists every kind regardless. */

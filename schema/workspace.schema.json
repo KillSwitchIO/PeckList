@@ -8,7 +8,7 @@
   "additionalProperties": false,
   "properties": {
     "schemaVersion": {
-      "const": 18
+      "const": 19
     },
     "app": {
       "type": "object",
@@ -852,6 +852,12 @@
         "purgeAfterDays": {
           "description": "How long deleted, completed and won't-do tasks stay, in days; months count 30 days and a year 365 (schema 18). Absent: 30.",
           "enum": [7, 15, 30, 60, 90, 120, 150, 180, 210, 240, 270, 300, 330, 365]
+        },
+        "compactViews": {
+          "description": "Views whose task rows show compact, one line each with less space (schema 19): view ids such as view:today. Absent or not listed: the roomier rows.",
+          "type": "array",
+          "maxItems": 100,
+          "items": { "type": "string", "minLength": 1, "maxLength": 64 }
         },
         "notifications": {
           "description": "Which kinds of notification reach this person, and whether they vibrate (schema 17, PL-115). Absent, or an absent field: on. The Notifications page lists every kind regardless.",

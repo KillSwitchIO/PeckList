@@ -54,3 +54,25 @@ export const DEFAULT_PURGE_DAYS = 30;
 export function purgeDaysOf(workspace: WorkspaceFile): number {
   return workspace.entities.settings[0]?.purgeAfterDays ?? DEFAULT_PURGE_DAYS;
 }
+
+/** How a view's task rows sit: the roomier rows, or compact, one line each (schema 19). */
+export type RowDensity = 'comfortable' | 'compact';
+
+/** Whether this person shows a view's rows compact (`view:today` and the like). */
+export function rowDensityOf(workspace: WorkspaceFile, viewId: string): RowDensity {
+  return workspace.entities.settings[0]?.compactViews?.includes(viewId) ? 'compact' : 'comfortable';
+}
+
+/** Show a view's rows compact or not; the others listed keep their order. */
+export function setRowDensity(
+  ctx: OpContext,
+  workspace: WorkspaceFile,
+  viewId: string,
+  density: RowDensity,
+): WorkspaceFile {
+  const settings = workspace.entities.settings[0];
+  if (!settings || rowDensityOf(workspace, viewId) === density) return workspace;
+  const others = (settings.compactViews ?? []).filter((each) => each !== viewId);
+  const next = density === 'compact' ? [...others, viewId] : others;
+  return putEntity(workspace, 'settings', updateEntity(ctx, settings, { compactViews: next }));
+}

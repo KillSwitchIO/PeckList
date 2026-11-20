@@ -22,3 +22,11 @@ export function useNarrow(element: HTMLElement | null): boolean {
   }, [element]);
   return narrow;
 }
+
+/**
+ * Compact rows (a view's Row size, settings.compactViews): one line each with less space, the title
+ * cut short where it does not fit, on phones too. Views that offer it provide it.
+ */
+export const CompactRowsContext = createContext(false);
+
+export const useCompactRows = () => useContext(CompactRowsContext);
