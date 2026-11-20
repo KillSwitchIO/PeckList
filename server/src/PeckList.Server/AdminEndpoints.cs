@@ -649,24 +649,33 @@ public static class AdminEndpoints
         })
             .Doc("Delete a server group").Missing().RequirePermission(Permission.ManageGroups).ProjectsServerGroups().Audited("admin.group-deleted", "id", AuditTarget.Group);
 
-        // Members added by hand; ones from an identity provider come and go with its sign-ins.
-        admin.MapPut("/groups/{id}/members/{accountId}", (
-            string id, string accountId, ServerGroupService groups, IServerGroupStore store, HttpContext context, CancellationToken cancellation) =>
-            GroupResult(async () =>
+        // Members added by hand; ones from an identity provider come and go with its sign-ins. Putting
+        // someone in a group or taking them out acts on their account, so only a super admin does it to
+        // an admin or a super admin (it can give or cut access to lists shared with the group; Manager,
+        // 2026-11-20, for Ben to confirm).
+        admin.MapPut("/groups/{id}/members/{accountId}", async (
+            string id, string accountId, ClaimsPrincipal user, IAccountStore accounts, ServerGroupService groups, IServerGroupStore store,
+            HttpContext context, CancellationToken cancellation) =>
+        {
+            context.Audit().Detail = (await store.FindAsync(id, cancellation))?.Name ?? id;
+            return await OnAccountAsync(accountId, user, accounts, _ => GroupResult(async () =>
             {
-                context.Audit().Detail = (await store.FindAsync(id, cancellation))?.Name ?? id;
                 await groups.SetManualMemberAsync(id, accountId, member: true, cancellation);
                 return Results.NoContent();
-            })).Doc("Add someone to a server group by hand").Missing().RequirePermission(Permission.ManageGroups).ProjectsServerGroups().Audited("admin.group-member-added", "accountId");
+            }), cancellation);
+        }).Doc("Add someone to a server group by hand").Missing().RequirePermission(Permission.ManageGroups).ProjectsServerGroups().Audited("admin.group-member-added", "accountId");
 
-        admin.MapDelete("/groups/{id}/members/{accountId}", (
-            string id, string accountId, ServerGroupService groups, IServerGroupStore store, HttpContext context, CancellationToken cancellation) =>
-            GroupResult(async () =>
+        admin.MapDelete("/groups/{id}/members/{accountId}", async (
+            string id, string accountId, ClaimsPrincipal user, IAccountStore accounts, ServerGroupService groups, IServerGroupStore store,
+            HttpContext context, CancellationToken cancellation) =>
+        {
+            context.Audit().Detail = (await store.FindAsync(id, cancellation))?.Name ?? id;
+            return await OnAccountAsync(accountId, user, accounts, _ => GroupResult(async () =>
             {
-                context.Audit().Detail = (await store.FindAsync(id, cancellation))?.Name ?? id;
                 await groups.SetManualMemberAsync(id, accountId, member: false, cancellation);
                 return Results.NoContent();
-            })).Doc("Take someone out of a server group").Missing().RequirePermission(Permission.ManageGroups).ProjectsServerGroups().Audited("admin.group-member-removed", "accountId");
+            }), cancellation);
+        }).Doc("Take someone out of a server group").Missing().RequirePermission(Permission.ManageGroups).ProjectsServerGroups().Audited("admin.group-member-removed", "accountId");
 
         return admin;
     }
