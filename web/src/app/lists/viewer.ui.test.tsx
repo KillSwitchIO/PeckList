@@ -2,7 +2,7 @@ import { screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { putEntity } from '../../core/collections.ts';
-import { createList } from '../../core/lists.ts';
+import { createList, inboxList } from '../../core/lists.ts';
 import { createEntity } from '../../core/ops.ts';
 import { createTask } from '../../core/tasks.ts';
 import type { Role } from '../../core/sharing.ts';
@@ -67,6 +67,26 @@ describe('a list I can only view', () => {
     expect(within(details).queryByRole('button', { name: 'Delete task' })).toBeNull();
     expect(within(details).queryByRole('button', { name: 'Task actions' })).toBeNull();
     expect(within(details).queryByRole('textbox', { name: 'Add subtask' })).toBeNull();
+  });
+
+  it('is not offered as a list to move my own task to', async () => {
+    const store = await samsList('viewer');
+    store
+      .getState()
+      .apply(
+        (ctx, ws) =>
+          createTask(ctx, ws, { title: 'Water plants', listId: inboxList(ws).id }).workspace,
+      );
+    await userEvent.click(
+      within(screen.getAllByRole('navigation')[0]!).getByRole('button', { name: /^Mess Drawer/ }),
+    );
+    await userEvent.click(await screen.findByRole('button', { name: 'Open Water plants' }));
+    const details = await screen.findByRole('region', { name: 'Task details' });
+    await userEvent.click(within(details).getByRole('button', { name: 'List: Mess Drawer' }));
+    const menu = await screen.findByRole('menu');
+    // Picking it did nothing and the task stayed put (QA): it is not there to pick.
+    expect(within(menu).getByRole('menuitem', { name: 'Mess Drawer' })).toBeInTheDocument();
+    expect(within(menu).queryByRole('menuitem', { name: 'Garden' })).toBeNull();
   });
 
   it('editors change tasks but not the list', async () => {

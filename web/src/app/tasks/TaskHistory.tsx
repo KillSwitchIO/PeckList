@@ -88,8 +88,13 @@ export function TaskHistory({ task }: { task: Task }) {
   const [entries, setEntries] = useState<HistoryEntry[] | null>(null);
   const [failed, setFailed] = useState(false);
 
+  // Not on the server yet (it has acknowledged nothing of this task): no history to ask for. It
+  // answered 404 as the new-task form opened (QA). The sync that takes it there asks again.
+  const unsaved = useSyncState((state) => !(task.id in state.acks));
+  const shown = unsaved ? [] : entries;
+
   useEffect(() => {
-    if (!api || !ready) return;
+    if (!api || !ready || unsaved) return;
     let current = true;
     api.task(task.id).then(
       (found) => {
@@ -104,7 +109,7 @@ export function TaskHistory({ task }: { task: Task }) {
     return () => {
       current = false;
     };
-  }, [api, ready, synced, task.id]);
+  }, [api, ready, synced, task.id, unsaved]);
 
   const zone = localTimeZone();
   const note = (text: string) => (
@@ -119,14 +124,14 @@ export function TaskHistory({ task }: { task: Task }) {
       </Typography>
       {!api ? (
         note(t('history.standalone'))
-      ) : entries === null ? (
+      ) : shown === null ? (
         failed && note(t('history.offline'))
-      ) : entries.length === 0 ? (
+      ) : shown.length === 0 ? (
         note(t('history.empty'))
       ) : (
         // A timeline: each change's icon in a circle on a line running down the left.
         <Box component="ul" sx={{ listStyle: 'none', m: 0, p: 0, pl: 0.5 }}>
-          {entries.map((entry) => {
+          {shown.map((entry) => {
             const actor =
               entry.actorId === me
                 ? t('history.you')

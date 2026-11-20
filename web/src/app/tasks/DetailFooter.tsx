@@ -21,7 +21,7 @@ import { t } from '../i18n/i18n.ts';
 import { CheckIcon, ChevronUpIcon, FlagIcon, TrayIcon } from '../icons/icons.tsx';
 import { listName } from '../lists/listName.ts';
 import { ListMark as ListIconOrDot } from '../lists/ListMark.tsx';
-import { canMoveTask } from '../../core/sharing.ts';
+import { canEditList, canMoveTask } from '../../core/sharing.ts';
 import { useApply, useStoreState, useWorkspace } from '../store/hooks.ts';
 import { useReadOnly } from './readOnly.ts';
 import { TaskTagPills } from '../tags/TaskTags.tsx';
@@ -83,6 +83,10 @@ function ListPicker({ task }: { task: Task }) {
   const lists = visibleLists(workspace);
   const list = lists.find((each) => each.id === task.listId);
   const current = list ? listName(list, workspace) : '';
+  // Only lists the task can go to: one shared with me to view only would ignore the pick (QA).
+  const choices = lists.filter(
+    (each) => each.id === task.listId || canEditList(workspace, me, each.id),
+  );
   const move = (listId: string) => {
     setAnchor(null);
     if (listId !== task.listId) apply((ctx, ws) => moveTask(ctx, ws, task.id, { listId }));
@@ -135,7 +139,7 @@ function ListPicker({ task }: { task: Task }) {
         {...UPWARD}
         slotProps={{ paper: { sx: { maxHeight: 420, minWidth: 220 } } }}
       >
-        {lists.map((each) => (
+        {choices.map((each) => (
           <MenuItem key={each.id} selected={each.id === task.listId} onClick={() => move(each.id)}>
             <ListItemIcon>
               <ListMark list={each} />

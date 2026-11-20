@@ -481,6 +481,24 @@ describe('notifications', () => {
     expect(lines[1]).toMatch(/^Someone created this task/);
   });
 
+  it('a new task asks for no history until a sync has taken it to the server', async () => {
+    const backend = new FakeBackend();
+    backend.addAccount('ben', 'correct horse battery');
+    const { store, sync, transport } = await signedIn('/inbox', backend);
+    await settled(sync);
+    const asked = vi.spyOn(transport.history, 'task');
+    // The quick add bar's expand: the new task's form opens before any sync (it answered 404, QA).
+    await userEvent.click(screen.getByRole('button', { name: 'Expand into the task form' }));
+    const form = await screen.findByRole('dialog');
+    const history = await within(form).findByRole('region', { name: 'History' });
+    const id = store.getState().workspace!.entities.tasks.find((task) => task.title === '')!.id;
+    expect(await within(history).findByText('No changes yet')).toBeInTheDocument();
+    expect(asked).not.toHaveBeenCalledWith(id);
+    // Synced: now the server has it, so its history is asked for.
+    await act(() => sync.getState().syncNow());
+    await waitFor(() => expect(asked).toHaveBeenCalledWith(id));
+  });
+
   it('a phone pulls up from the bottom bar to the comments and history (R-FB-109)', async () => {
     mockViewport('phone');
     const store = testStore();
