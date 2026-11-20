@@ -36,9 +36,13 @@ A whole-server restore brings back the backup's API keys and passkeys: a key mad
 stops working. A key revoked or a passkey removed since stays that way, even a key revoked so long
 ago that its row was cleared out. The server keeps a short record of every key revoked and passkey
 removed for this, and backups carry it, so it holds on a new server too. Passkeys removed before
-0.14.0 are not in that record. A backup from before 0.14.0 holds no API keys, so the server has
-none after restoring it: make new ones under **Settings > Account > API keys**. After restoring to
-recover from a break-in, review **API keys** and **Passkeys** under **Settings > Account**.
+0.14.0 are not in that record. Restoring an account that was removed for good brings back its
+credentials as the backup had them, so a key revoked or a passkey removed after that backup was
+taken works again: a whole-server restore brings back its API keys and passkeys, a one-person
+restore its passkeys only. A backup from before 0.14.0 holds no API keys, so the server has none
+after restoring it: make new ones under **Settings > Account > API keys**.
+After restoring to recover from a break-in, review **API keys** and **Passkeys** under
+**Settings > Account**.
 
 Downloading, exporting and restoring the whole server is for super admins: those files hold every
 password hash and the keys that sign sessions. Admins take backups, see the list, and export and
@@ -87,7 +91,8 @@ docker exec pecklist pecklist import --user /data/full-backup.json sam # Sam's p
 ```
 
 Restart after `import --user`. The admin page does the same under **Admin > Users > Export their
-data** and **Admin > Backups**.
+data** and **Admin > Backups**. A one-person export holds the person's passkeys but never their API
+keys, so restoring one leaves their keys as they are now.
 
 ## Restoring onto a new machine
 
