@@ -59,6 +59,28 @@ describe('reminder text', () => {
     });
   });
 
+  it('says half a day or more early on an earlier day as that day and its time (QA, 0.14.0)', () => {
+    // Custom Day "1 day early" at 2:00 PM on a 6:00 AM task is 16 whole hours early.
+    expect(reminderLabel({ before: 960 }, false, '2026-11-19', '06:00')).toBe(
+      `1 day early (${formatTime('14:00')})`,
+    );
+    expect(reminderParts({ before: 720 }, false, '2026-11-19', '06:00')).toEqual({
+      text: '1 day early',
+      time: formatTime('18:00'),
+    });
+    // The same hours on the task's own day stay hours.
+    expect(reminderParts({ before: 960 }, false, '2026-11-19', '18:00')).toEqual({
+      text: '16 hours early',
+    });
+    // Short offsets past midnight stay words, and whole days stay "1 day early".
+    expect(reminderParts({ before: 120 }, false, '2026-11-19', '01:00')).toEqual({
+      text: '2 hours early',
+    });
+    expect(reminderParts({ before: 1440 }, false, '2026-11-19', '06:00')).toEqual({
+      text: '1 day early',
+    });
+  });
+
   it('with no start to count from, says after in hours and minutes', () => {
     expect(reminderLabel({ before: -538 }, false, '')).toBe('8 hours 58 minutes after');
   });
