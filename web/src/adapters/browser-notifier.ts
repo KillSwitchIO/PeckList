@@ -16,24 +16,35 @@ export function createBrowserNotifier(): Notifier {
     },
     async show({ title, body, tag, url, sticky = false, actions, vibrate }: AppNotification) {
       if (!supported() || Notification.permission !== 'granted') return;
-      const options = {
+      const plain = {
         body,
         tag,
-        // A button with a place of its own: the service worker's click handler reads it here.
-        data: actions?.some((each) => each.url) ? { url, actions } : { url },
+        // A button with a place of its own: the service worker's click handler reads it here. So
+        // does sticky: where the browser shows no buttons, a click is the Dismiss as well.
+        data: {
+          url,
+          ...(actions?.some((each) => each.url) ? { actions } : {}),
+          ...(sticky ? { sticky: true } : {}),
+        },
         icon: '/icon.svg',
         badge: '/icon.svg',
         ...(sticky ? { requireInteraction: true, renotify: true } : {}),
         // Honored by Android browsers, ignored elsewhere (PL-115).
         ...(vibrate === false ? {} : { vibrate: [250, 150, 250] }),
-        ...(actions?.length ? { actions } : {}),
       };
-      const registration = await navigator.serviceWorker?.getRegistration?.();
+      const options = actions?.length ? { ...plain, actions } : plain;
+      const worker = navigator.serviceWorker;
+      const registration = await worker?.getRegistration?.();
       if (registration) {
-        await registration.showNotification(title, options);
+        // A first visit: the worker is still installing, and showNotification throws "No active
+        // registration" until it is active (QA's drill, 2026-11-20, with reminders already due).
+        const ready = registration.active ? registration : await worker!.ready;
+        await ready.showNotification(title, options);
         return;
       }
-      const shown = new Notification(title, options);
+      // From the page itself (no worker yet: a first visit, a dev server), without buttons: Chrome
+      // throws for actions on a notification no worker shows, and every reminder has one now.
+      const shown = new Notification(title, plain);
       shown.onclick = () => {
         window.focus();
         window.location.assign(url);

@@ -157,7 +157,11 @@ public sealed class ReminderSender(
         var tag = $"{taskId}@{first.ToUnixTimeMilliseconds()}";
         var sent = at == first ? tag : $"{tag}#{at.ToUnixTimeMilliseconds()}";
         if (!await store.MarkReminderSentAsync($"{userId}|{sent}", now, cancellation)) return;
-        var payload = new PushPayload(TitleOf(task), $"Reminder for {Clock(first, zone, mine)}", tag, $"/today?task={taskId}", constant);
+        // Complete on every reminder (Ben, 2026-11-20): the service worker hands the press to the
+        // app under a one-time name, and the app completes the task; a constant one adds Snooze and
+        // Dismiss after it (sw-notifications.js).
+        var payload = new PushPayload(TitleOf(task), $"Reminder for {Clock(first, zone, mine)}", tag, $"/today?task={taskId}", constant,
+            [new PushAction("complete", "Complete", "/today", taskId)]);
         if (at == first)
         {
             var made = new Notification

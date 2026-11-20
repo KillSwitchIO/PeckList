@@ -384,6 +384,14 @@ async function tellAgain(
 const NO_SNOOZES: readonly Snooze[] = [];
 
 function notificationOf(due: DueReminder) {
+  // Complete on every reminder (Ben, 2026-11-20): the service worker hands the press to the app
+  // under a one-time name, as a thumbs up, and the app completes the task (NotificationLinks).
+  const complete = {
+    action: 'complete',
+    title: t('reminder.complete'),
+    url: '/today',
+    taskId: due.taskId,
+  };
   return {
     title: due.title || t('task.untitled'),
     body: t('reminder.body', { time: formatTime(clock(due.at)) }),
@@ -392,12 +400,15 @@ function notificationOf(due: DueReminder) {
     ...(due.constant
       ? {
           sticky: true,
+          // Left to right; a browser with room for two (Chrome) shows Complete and Snooze, and a
+          // click on the reminder is its Dismiss there (sw-notifications.js).
           actions: [
-            { action: 'dismiss', title: t('reminder.dismiss') },
+            complete,
             { action: 'snooze', title: t('reminder.snooze', { minutes: SNOOZE_MINUTES }) },
+            { action: 'dismiss', title: t('reminder.dismiss') },
           ],
         }
-      : {}),
+      : { actions: [complete] }),
   };
 }
 

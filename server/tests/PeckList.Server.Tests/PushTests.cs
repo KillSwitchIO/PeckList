@@ -185,6 +185,8 @@ public sealed class PushTests(ServerFixture fixture) : IClassFixture<ServerFixtu
         Assert.Equal(benId, userId);
         Assert.Equal(("Dentist", "Reminder for 10:00 AM", "/today?task=RT1"), (payload.Title, payload.Body, payload.Url));
         Assert.Equal($"RT1@{due.ToUnixTimeMilliseconds()}", payload.Tag);
+        // Complete, naming its task for the app to act on (never a flag in the address).
+        Assert.Equal(new PushAction("complete", "Complete", "/today", "RT1"), Assert.Single(payload.Actions!));
         var feed = (await ben.GetFromJsonAsync<NotificationFeed>("/api/notifications", Token))!;
         var reminder = Assert.Single(feed.Items);
         Assert.Equal(("reminder", "RT1", due), (reminder.Kind, reminder.TaskId, reminder.At));
@@ -227,6 +229,7 @@ public sealed class PushTests(ServerFixture fixture) : IClassFixture<ServerFixtu
 
         Assert.Equal(3, push.Sent.Count);
         Assert.All(push.Sent, sent => Assert.True(sent.Payload.Sticky));
+        Assert.All(push.Sent, sent => Assert.Equal("complete", Assert.Single(sent.Payload.Actions!).Action));
         Assert.Single(push.Sent.Select(sent => sent.Payload.Tag).Distinct());
         var feed = (await ben.GetFromJsonAsync<NotificationFeed>("/api/notifications", Token))!;
         Assert.Single(feed.Items);

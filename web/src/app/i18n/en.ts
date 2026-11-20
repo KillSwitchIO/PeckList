@@ -2050,6 +2050,7 @@ export const en = {
   'reminder.remindAt': 'Remind at {time} on {date}',
   'reminder.expired': 'The reminder has expired.',
   'reminder.ok': 'OK',
+  'reminder.complete': 'Complete',
   'reminder.dismiss': 'Dismiss',
   'reminder.snooze': 'Snooze {minutes} min',
   'reminder.snoozed': 'Reminder snoozed {minutes} minutes',
