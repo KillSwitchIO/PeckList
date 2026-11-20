@@ -214,7 +214,8 @@ silently widens a query.
 
 ### Making and changing tasks
 
-`POST /api/v1/tasks` needs a `title`. Everything else is optional: `notes`, `listId` (left out:
+`POST /api/v1/tasks` needs a `title`. Everything else is optional: `notes` (Markdown, at most
+100,000 characters, as in the apps), `listId` (left out:
 your default list for new tasks, else your inbox; an account that has never opened the app has no
 inbox yet, so it gets a `400` on `listId` until it names one), `sectionId`, `parentId` (a subtask goes in its
 parent's list and starts with its tags), `priority`, `schedule`, `due`, `tags`, `assignees`,

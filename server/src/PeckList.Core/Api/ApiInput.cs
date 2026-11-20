@@ -40,7 +40,11 @@ public sealed partial class TaskInput
     private void Fail(string field, string message) => Errors[field] = [message];
 
     public const int MaxTitle = 1000;
-    public const int MaxNotes = 80000;
+    /// <summary>
+    /// The workspace schema's limit on a task's notes, which the apps keep too (0.14.0): the API
+    /// took only 80,000 while the apps kept 100,000.
+    /// </summary>
+    public const int MaxNotes = ApiShapes.MaxStoredNotes;
     public const int MaxTags = 100;
     public const int MaxInterval = 999;
 
