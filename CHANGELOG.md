@@ -4,6 +4,48 @@ All notable changes to PeckList. Each release adds its section from [Conventiona
 with `pnpm release`; the version follows [Semantic Versioning](https://semver.org/). Before 1.0.0 a
 minor release may break things; every break is listed under **Breaking changes** with what to do.
 
+## [0.13.0] - 2026-11-20
+
+### Added
+
+- **web:** Delete my account and the privacy policy link for everyone
+- **web:** A Completed page with a heatmap, and Show completed on the calendar
+- **android:** Snooze until any time from the reminder, with a delay or a date
+- Start over, erasing your own data and keeping the account
+- **web:** Smart links in task notes and comments: numbers, addresses, emails, web pages
+- **android:** A check-in a minute before each reminder the server set
+- **android:** Every notification kind is its own channel from the start
+- **android:** Add task, Today, Search and the last list on a long press
+- **android:** Home-screen widgets for today, quick add and the count
+- **android:** Add a task by voice, from shared or selected text, or by intent
+
+### Fixed
+
+- **play:** Delete my account in the Play app, with a fresh sign-in
+- **play:** A Play build that meets Google Play's policies
+- **play:** The Play build hides payment links and asks for exact reminders
+- **support:** PayPal joins Ko-fi as a way to donate
+- **sharing:** An ended friendship stays ended; a friend link only sends a request
+- **release:** A feature after a patch release candidate makes the next minor
+- **web:** A used smart link choice lets the next click open the menu again
+- **android:** The continuous reminder only vibrates when vibrate-only is chosen
+- A snoozed reminder stops once its task is done or moves on
+- A reminder counts from a timed date on the date's own zone's clock
+- A snooze kept before rc.2 stops once its task has moved on
+- A repeat rule left on a task with no date keeps its snoozes
+- **web:** Smart links in the notes from the keyboard and a screen reader
+- After-rc.2 follow-ups: notes cap, OpenStreetMap tap, snooze Pending-first
+- A snooze puts off the reminder it was pressed on, once
+- **android:** A task synced into the open app gets its alarm at once
+- **web:** A held Enter on a smart item takes none of its choices
+- **android:** Only the app's own notifications open a page or act
+- A thumbs up or dibs only from a real notification press
+
+### Documentation
+
+- Privacy policy and account deletion pages for Google Play
+- The Windows downloads are unsigned, and what Smart App Control does about it
+
 ## [0.13.0-rc.3] - 2026-11-20
 
 ### Added
