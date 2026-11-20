@@ -26,7 +26,8 @@ public interface IDatabase
 
     /// <summary>
     /// Delete every entity, account, secret and API key (import --replace, a whole-server restore):
-    /// what comes back is exactly the backup's, so a key made after it does not outlive it.
+    /// what comes back is exactly the backup's, so a key made after it does not outlive it. The kept
+    /// credential revocations (0022) stay, so a revoked key or removed passkey stays out.
     /// </summary>
     Task WipeAsync(CancellationToken cancellation = default);
 }

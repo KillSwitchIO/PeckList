@@ -32,6 +32,7 @@ public sealed class AccountRemoval(
     Core.History.ITaskHistoryStore history,
     Core.Accounts.IApiKeyStore apiKeys,
     Core.Accounts.IPasskeyStore passkeys,
+    Core.Accounts.ICredentialRevocationStore revocations,
     Core.Push.IPushStore push,
     Core.Supporters.SupporterKeys supporterKeys,
     ISecretStore secrets,
@@ -138,6 +139,8 @@ public sealed class AccountRemoval(
         await history.ForgetActorAsync(account.Id, cancellation);
         await apiKeys.DeleteForUserAsync(account.Id, cancellation);
         await passkeys.DeleteAllAsync(account.Id, cancellation);
+        // The record of keys they revoked and passkeys they removed (0022): nothing left to keep out.
+        await revocations.DeleteForAccountAsync(account.Id, cancellation);
         // Their own sync epoch, if they ever started over (PL-147).
         await secrets.DeleteAsync(ServerEpoch.PersonKind, account.Id, cancellation);
         await push.RemoveUserAsync(account.Id, cancellation);

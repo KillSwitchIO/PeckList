@@ -155,7 +155,7 @@ public sealed class CliTests : IDisposable
     }
 
     [Fact]
-    public async Task Export_import_and_migrate_db_carry_passkeys_and_api_keys()
+    public async Task Export_import_and_migrate_db_carry_passkeys_api_keys_and_revocations()
     {
         var token = TestContext.Current.CancellationToken;
         var settings = Settings();
@@ -179,12 +179,16 @@ public sealed class CliTests : IDisposable
             Scopes = [Core.Accounts.ApiScopes.TasksRead],
             CreatedAt = DateTimeOffset.UnixEpoch.AddYears(56),
         }, token);
+        // A removed passkey's record (0022) goes along too.
+        var lost = new Core.Accounts.CredentialRevocation(Core.Accounts.CredentialRevocation.Passkey, "lost-phone", admin.Id, DateTimeOffset.UnixEpoch.AddYears(56));
+        await new PeckList.Storage.Sql.SqlCredentialRevocationStore(database).AddAsync(lost, token);
 
         async Task Carried(string db)
         {
             var moved = new PeckList.Storage.Sqlite.SqliteDatabase(Path.Combine(folder, db));
             Assert.Equal(["credential-1"], (await new PeckList.Storage.Sql.SqlPasskeyStore(moved).AllAsync(token)).Select(each => each.Id));
             Assert.Equal(["key-1"], (await new PeckList.Storage.Sql.SqlApiKeyStore(moved).AllAsync(token)).Select(each => each.Id));
+            Assert.Equal([lost], await new PeckList.Storage.Sql.SqlCredentialRevocationStore(moved).AllAsync(token));
         }
 
         var file = Path.Combine(folder, "backup.json");

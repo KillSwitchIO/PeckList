@@ -28,6 +28,7 @@ public static class Storage
         services.AddSingleton<Core.History.ITaskHistoryStore, SqlTaskHistoryStore>();
         services.AddSingleton<Core.Accounts.IApiKeyStore, SqlApiKeyStore>();
         services.AddSingleton<IPasskeyStore, SqlPasskeyStore>();
+        services.AddSingleton<Core.Accounts.ICredentialRevocationStore, SqlCredentialRevocationStore>();
         services.AddSingleton<Core.Push.IPushStore, SqlPushStore>();
         services.AddSingleton<Core.Stats.IStatsSource, SqlStatsSource>();
         services.AddSingleton<Core.Telemetry.ITelemetrySource, SqlTelemetrySource>();

@@ -1,4 +1,5 @@
 using Dapper;
+using PeckList.Core.Accounts;
 using PeckList.Core.Push;
 using PeckList.Storage.Sql;
 
@@ -132,6 +133,35 @@ public abstract class MigrationContract
         Assert.Equal(
             kept.Append(new ReminderSnooze("u1", "t1", at, occurrence, other)).OrderBy(Key),
             (await store.SnoozesAsync(at.AddMinutes(-1), at.AddMinutes(1), cancellation: token)).OrderBy(Key));
+    }
+
+    [Fact]
+    public async Task A_database_from_before_0022_records_its_revoked_keys()
+    {
+        // 0022 keeps revocations for good. Keys revoked before it say so in their own rows until
+        // they are pruned, so the migration copies those in; open keys are not revocations.
+        var token = TestContext.Current.CancellationToken;
+        var database = await CreateEmptyAsync();
+        await using (var connection = await database.OpenAsync(token))
+        {
+            await connection.ExecuteAsync("CREATE TABLE schema_migrations (version INTEGER PRIMARY KEY, applied_at TEXT NOT NULL)");
+            foreach (var (version, sql) in SqlMigrations.Load(database.GetType().Assembly).Where(each => each.Version <= 21))
+            {
+                await connection.ExecuteAsync(sql);
+                await connection.ExecuteAsync("INSERT INTO schema_migrations (version, applied_at) VALUES (@version, '0.14.0-rc.1')", new { version });
+            }
+            await connection.ExecuteAsync(
+                """
+                INSERT INTO api_keys (id, user_id, name, secret_hash, scopes, created_at, revoked_at)
+                VALUES ('k-revoked', 'u1', 'leaked', 'h1', 'tasks:read', 1000, 5000), ('k-open', 'u1', 'fine', 'h2', 'tasks:read', 1000, NULL)
+                """);
+        }
+
+        await database.MigrateAsync(token);
+
+        Assert.Equal(
+            [new CredentialRevocation(CredentialRevocation.ApiKey, "k-revoked", "u1", DateTimeOffset.FromUnixTimeMilliseconds(5000))],
+            await new SqlCredentialRevocationStore(database).AllAsync(token));
     }
 
     [Fact]

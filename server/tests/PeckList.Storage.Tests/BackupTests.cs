@@ -20,7 +20,7 @@ public sealed class BackupTests(SqliteFiles files, PostgresServer postgres) : IC
 
     private static BackupService Backup(SqlDatabase database) =>
         new(database, new SqlEntityStore(database), new SqlAccountStore(database), new SqlServerGroupStore(database), new SqlIdentityStore(database), new SqlSecretStore(database), new Clock(),
-            new SqlPasskeyStore(database), new SqlApiKeyStore(database));
+            new SqlPasskeyStore(database), new SqlApiKeyStore(database), new SqlCredentialRevocationStore(database));
 
     private static ApiKey Key(string id, string user, int day) => new()
     {
@@ -101,6 +101,18 @@ public sealed class BackupTests(SqliteFiles files, PostgresServer postgres) : IC
         }, Token);
         await keys.AddAsync(Key("K2", "01JBACCT000000000000000002", 1), Token);
         await keys.RevokeAsync("K2", new DateTimeOffset(2026, 10, 15, 8, 0, 0, TimeSpan.Zero), Token);
+        var passkeys = new SqlPasskeyStore(database);
+        foreach (var (id, account) in new[] { ("P1", "01JBACCT000000000000000001"), ("P2", "01JBACCT000000000000000002") })
+        {
+            await passkeys.AddAsync(new Passkey
+            {
+                Id = id,
+                AccountId = account,
+                Name = $"phone {id}",
+                PublicKey = $"public-{id}",
+                CreatedAt = new DateTimeOffset(2026, 10, 12, 8, 0, 0, TimeSpan.Zero),
+            }, Token);
+        }
     }
 
     private static async Task<string> ExportAsync(SqlDatabase database)
@@ -203,6 +215,64 @@ public sealed class BackupTests(SqliteFiles files, PostgresServer postgres) : IC
         Assert.Equal(leaked, (await keys.FindAsync("K1", Token))!.RevokedAt);
         // K2 was revoked in the backup already and keeps the backup's time.
         Assert.Equal(new DateTimeOffset(2026, 10, 15, 8, 0, 0, TimeSpan.Zero), (await keys.FindAsync("K2", Token))!.RevokedAt);
+    }
+
+    [Fact]
+    public async Task A_passkey_removed_before_the_restore_stays_removed()
+    {
+        // A lost phone's passkey is removed after the backup; restoring the backup, after corruption
+        // say, must not let that phone sign in again.
+        var source = await files.NewDatabaseAsync();
+        await FillAsync(source);
+        var exported = await ExportAsync(source);
+        var passkeys = new SqlPasskeyStore(source);
+        Assert.True(await passkeys.DeleteAsync("P1", Token));
+
+        await ImportAsync(source, exported, replace: true);
+
+        Assert.Equal(["P2"], (await passkeys.AllAsync(Token)).Select(each => each.Id));
+    }
+
+    [Fact]
+    public async Task A_key_pruned_before_the_restore_stays_revoked()
+    {
+        // Revoked after the backup, then pruned a week later: its row is gone, the record is not.
+        var source = await files.NewDatabaseAsync();
+        await FillAsync(source);
+        var exported = await ExportAsync(source);
+        var keys = new SqlApiKeyStore(source);
+        var leaked = new DateTimeOffset(2026, 10, 21, 8, 0, 0, TimeSpan.Zero);
+        await keys.RevokeAsync("K1", leaked, Token);
+        await keys.PruneRevokedAsync(leaked.AddDays(30), Token);
+        Assert.Null(await keys.FindAsync("K1", Token));
+
+        await ImportAsync(source, exported, replace: true);
+
+        Assert.Equal(leaked, (await keys.FindAsync("K1", Token))!.RevokedAt);
+    }
+
+    [Fact]
+    public async Task Revocations_travel_in_the_backup_to_a_new_server()
+    {
+        var source = await files.NewDatabaseAsync();
+        await FillAsync(source);
+        var older = await ExportAsync(source);
+        var leaked = new DateTimeOffset(2026, 10, 21, 8, 0, 0, TimeSpan.Zero);
+        await new SqlApiKeyStore(source).RevokeAsync("K1", leaked, Token);
+        await new SqlApiKeyStore(source).PruneRevokedAsync(leaked.AddDays(30), Token);
+        Assert.True(await new SqlPasskeyStore(source).DeleteAsync("P1", Token));
+        var newer = await ExportAsync(source);
+        // The newer backup lists what was taken away, though K1's row and P1 are no longer in it.
+        var listed = JsonNode.Parse(newer)!["credentialRevocations"]!.AsArray()
+            .Select(each => ((string?)each!["kind"], (string?)each["id"])).Order().ToList();
+        Assert.Equal([("apiKey", "K1"), ("apiKey", "K2"), ("passkey", "P1")], listed);
+
+        // Moved to a new server, which then has the older backup restored over it: still kept out.
+        var target = await files.NewDatabaseAsync();
+        await ImportAsync(target, newer);
+        await ImportAsync(target, older, replace: true);
+        Assert.Equal(leaked, (await new SqlApiKeyStore(target).FindAsync("K1", Token))!.RevokedAt);
+        Assert.Equal(["P2"], (await new SqlPasskeyStore(target).AllAsync(Token)).Select(each => each.Id));
     }
 
     [Fact]
