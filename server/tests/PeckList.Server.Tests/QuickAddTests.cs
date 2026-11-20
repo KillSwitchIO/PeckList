@@ -53,6 +53,22 @@ public sealed class QuickAddTests
     [Fact]
     public void Has_the_shared_cases() => Assert.True(Fixture["cases"]!.AsArray().Count > 80);
 
+    [Fact]
+    public async Task Reads_todays_own_date_as_this_year_after_noon()
+    {
+        // Dev 2, 0.14.0: at 21:58 Chicago, "nov 19" came back as 2027-11-19 (a date with no time
+        // counts as noon, so it was already past). The reference is the person's wall clock.
+        var evening = Context() with { Reference = new DateTime(2026, 11, 19, 21, 58, 0) };
+        async Task<string?> DateOf(string text)
+        {
+            var parsed = await Reader.ReadAsync(text, evening, Token);
+            return parsed.Schedule?.Start.Date ?? parsed.Due?.Date;
+        }
+        Assert.Equal("2026-11-19", await DateOf("Probe nov 19"));
+        Assert.Equal("2026-11-19", await DateOf("Probe nov 19 at 9pm"));
+        Assert.Equal("2027-11-18", await DateOf("Probe nov 18"));
+    }
+
     [Theory]
     [MemberData(nameof(Cases))]
     public async Task Reads_the_line_as_the_app_does(string text)
