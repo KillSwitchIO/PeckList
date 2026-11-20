@@ -399,6 +399,13 @@ describe('notifications', () => {
     await userEvent.click(reply!);
     expect(await screen.findByRole('region', { name: 'Task details' })).toBeInTheDocument();
     expect(new URL(window.location.href).searchParams.get('comment') ?? commentId).toBe(commentId);
+    // Reply puts the cursor in the comment box (QA's drill of 2026-11-20), then leaves the address,
+    // so Back or a reload does not take the focus again.
+    const box = await screen.findByRole('textbox', { name: /^Add a comment/ });
+    await waitFor(() => expect(box).toHaveFocus());
+    await waitFor(() =>
+      expect(new URL(window.location.href).searchParams.has('reply')).toBe(false),
+    );
   });
 
   it('a double tap on the thumbs up leaves one', async () => {

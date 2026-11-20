@@ -61,11 +61,11 @@ export function NotificationsPage() {
   }, [unread, read]);
 
   const sentence = (item: NotificationItem): string => notificationSentence(workspace, item);
-  const go = (item: NotificationItem) => {
+  const go = (item: NotificationItem, reply = false) => {
     if (!item.read) read([item.id]);
     if (item.taskId && getEntity(workspace, 'tasks', item.taskId)) {
-      // A comment's: its comments open, scrolled to it (R-FB-106).
-      open(item.taskId, item.commentId ? { comment: item.commentId } : undefined);
+      // A comment's: its comments open, scrolled to it (R-FB-106); Reply puts the cursor in the box.
+      open(item.taskId, item.commentId ? { comment: item.commentId, reply } : undefined);
     } else if (item.listId) void navigate(`/lists/${item.listId}`);
   };
 
@@ -77,7 +77,7 @@ export function NotificationsPage() {
       item.kind === 'commented' || item.kind === 'commentEdited' || item.kind === 'mentioned';
     if (about && item.commentId && canComment(workspace, me, task)) {
       return [
-        <Button key="reply" size="small" onClick={() => go(item)}>
+        <Button key="reply" size="small" onClick={() => go(item, true)}>
           {t('notifications.reply')}
         </Button>,
         <Button

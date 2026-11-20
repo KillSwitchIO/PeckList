@@ -141,13 +141,14 @@ public static class NotificationText
     /// scrolled to it) and thumbs up for a comment (R-FB-106); Open task and Call dibs for a task
     /// assigned to a group (R-FB-107). The app does the thumbs up and the dibs on opening, from the
     /// button's TaskId as the service worker or the Android app hands it over, never from a flag in
-    /// the address, which a link from anywhere could carry (security review 2026-11-19).
+    /// the address, which a link from anywhere could carry (security review 2026-11-19). Reply's
+    /// reply=1 is a flag in the address, and may be: it only puts the cursor in the comment box.
     /// </summary>
     public static IReadOnlyList<Push.PushAction> ActionsOf(Notification each, string url) => each.Kind switch
     {
         NotificationKind.Commented or NotificationKind.CommentEdited or NotificationKind.Mentioned
             when each.CommentId is not null =>
-            [new("reply", "Reply", url), new("like", "\U0001F44D", url, each.TaskId)],
+            [new("reply", "Reply", url + "&reply=1"), new("like", "\U0001F44D", url, each.TaskId)],
         NotificationKind.GroupAssigned => [new("open", "Open task", url), new("dibs", "Call dibs", url, each.TaskId)],
         // A tap opens it too, but a button says so (drill of 2026-10-29).
         NotificationKind.Assigned or NotificationKind.Claimed => [new("open", "Open task", url)],

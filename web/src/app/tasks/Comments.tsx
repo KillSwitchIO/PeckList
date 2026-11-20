@@ -13,7 +13,7 @@ import {
   Typography,
 } from '@mui/material';
 import { useEffect, useRef, useState, type KeyboardEvent, type ReactNode } from 'react';
-import { useSearchParams } from 'react-router';
+import { useLocation, useSearchParams } from 'react-router';
 import { localDateTimeOf, localTimeZone } from '../../core/dates.ts';
 import {
   addComment,
@@ -35,6 +35,7 @@ import { Avatar } from '../friends/Avatar.tsx';
 import { useToday } from '../hooks/useToday.ts';
 import { t } from '../i18n/i18n.ts';
 import { MoreIcon } from '../icons/icons.tsx';
+import { nativeShell } from '../native/shell.ts';
 import { SmartText } from '../smartLinks/SmartText.tsx';
 import { useApply, useStoreState, useWorkspace } from '../store/hooks.ts';
 
@@ -108,6 +109,11 @@ function groupNames(members: readonly User[]): string {
   return more > 0 ? `${shown.join(' ')} +${more}` : shown.join(' ');
 }
 
+/** How a Reply's focus is taken: every so often, until it has held a few times, or given up. */
+const FOCUS_EVERY_MS = 50;
+const FOCUS_HELD_BEATS = 3;
+const FOCUS_WAIT_MS = 3000;
+
 /**
  * Where a comment is written: a growing text field that posts on Ctrl+Enter (or the send button),
  * suggesting the people on the task, and their groups, after an @.
@@ -119,6 +125,8 @@ function Composer({
   submitLabel,
   onSubmit,
   onCancel,
+  takeFocus = false,
+  onFocused,
 }: {
   initial?: string;
   people: User[];
@@ -126,11 +134,41 @@ function Composer({
   submitLabel: string;
   onSubmit: (body: string) => void;
   onCancel?: () => void;
+  /** Take the focus, with the keyboard up in the Android app (a notification's Reply). */
+  takeFocus?: boolean;
+  /** Called once it has the focus, or has stopped trying. */
+  onFocused?: () => void;
 }) {
   const [text, setText] = useState(initial);
   const [caret, setCaret] = useState(initial.length);
   const [pick, setPick] = useState(0);
   const field = useRef<HTMLTextAreaElement>(null);
+  const focused = useRef(onFocused);
+  useEffect(() => {
+    focused.current = onFocused;
+  });
+  // The sheets opening over each other (the task, then on a phone its comments) each take the
+  // focus for themselves as they open: it is taken again until it stays a few beats, as the Add
+  // task shortcut's field does (useAddFromAddress). Then the keyboard, as a tap would bring it.
+  useEffect(() => {
+    if (!takeFocus) return;
+    const started = Date.now();
+    let held = 0;
+    const timer = setInterval(() => {
+      const input = field.current;
+      if (input && document.activeElement !== input) {
+        input.focus();
+        held = 0;
+      } else if (input) {
+        held += 1;
+      }
+      if (held < FOCUS_HELD_BEATS && Date.now() - started < FOCUS_WAIT_MS) return;
+      clearInterval(timer);
+      if (input && document.activeElement === input) void nativeShell()?.showKeyboard?.();
+      focused.current?.();
+    }, FOCUS_EVERY_MS);
+    return () => clearInterval(timer);
+  }, [takeFocus]);
   const workspace = useWorkspace();
   const typing = mentionAt(text, caret);
   const query = typing?.query.toLowerCase() ?? '';
@@ -410,8 +448,22 @@ export function Comments({ task }: { task: Task }) {
   const comments = commentsOf(workspace, task.id);
   const allowed = canComment(workspace, me, task);
   // A notification's Reply (or a tap on it) opens the comments scrolled to its comment (R-FB-106).
-  const [params] = useSearchParams();
+  const [params, setParams] = useSearchParams();
+  const location = useLocation();
   const pointed = params.get('comment');
+  // Reply (`reply=1`): the box takes the focus, then the address lets it go, so Back or a reload
+  // does not take it again. Only a focus, so an address from anywhere may carry it.
+  const replying = allowed && params.get('reply') === '1';
+  const replied = () =>
+    setParams(
+      (current) => {
+        const next = new URLSearchParams(current);
+        next.delete('reply');
+        return next;
+      },
+      // The history entry's own state too: closing the task still goes back over it (selection.ts).
+      { replace: true, state: location.state as unknown },
+    );
   const here = pointed !== null && comments.some((comment) => comment.id === pointed);
   useEffect(() => {
     if (!here) return;
@@ -445,6 +497,8 @@ export function Comments({ task }: { task: Task }) {
           label={t('comments.add')}
           submitLabel={t('comments.post')}
           onSubmit={(body) => apply((ctx, ws) => addComment(ctx, ws, task.id, body).workspace)}
+          takeFocus={replying}
+          onFocused={replied}
         />
       )}
     </Box>
