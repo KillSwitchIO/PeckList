@@ -44,6 +44,10 @@ the JSON entry, so every field is queryable:
 **Elasticsearch**: entries use ECS names (`@timestamp`, `log.level`, `log.logger`, `trace.id`,
 `user.id`, `http.request.id`). The default index lands in the built-in `logs-*-*` data stream, so
 Kibana's Discover and Logs show them without a mapping. OpenSearch creates the index on first write.
+Elasticsearch 8 serves https with its own CA out of the box: mount its `http_ca.crt` and set
+`SSL_CERT_FILE` to it, or PeckList keeps serving but logs that shipping fails. Other outbound https
+keeps working: the image's own CAs still load from `/etc/ssl/certs`, so there is no need to merge
+files. Setting `SSL_CERT_DIR` as well would drop them.
 
 **Graylog**: add a GELF input (UDP, TCP or HTTP) on port 12201. Fields arrive as `_category`,
 `_request_id`, `_trace_id`, `_user_id`, and the message's own values as `_prop_<name>`.
