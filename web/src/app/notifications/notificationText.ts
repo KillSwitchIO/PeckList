@@ -59,7 +59,8 @@ export function notificationActions(
     case 'mentioned':
       return item.commentId
         ? [
-            { action: 'reply', title: t('notifications.reply'), url },
+            // Reply puts the cursor in the comment box; a tap only opens (R-FB-106).
+            { action: 'reply', title: t('notifications.reply'), url: `${url}&reply=1` },
             { action: 'like', title: '👍', url, ...task(item) },
           ]
         : [];

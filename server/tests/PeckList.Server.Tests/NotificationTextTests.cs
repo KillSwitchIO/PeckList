@@ -20,8 +20,9 @@ public class NotificationTextTests
         var comment = NotificationText.ActionsOf(Of(NotificationKind.Commented, "C1"), "/today?task=T1&comment=C1");
         // The thumbs up and the dibs name their task; the address only opens it (no like=1 or
         // dibs=1, which the app no longer takes from an address: security review 2026-11-19).
+        // Reply's reply=1 only puts the cursor in the comment box.
         Assert.Equal(
-            [("reply", "/today?task=T1&comment=C1", (string?)null), ("like", "/today?task=T1&comment=C1", "T1")],
+            [("reply", "/today?task=T1&comment=C1&reply=1", (string?)null), ("like", "/today?task=T1&comment=C1", "T1")],
             comment.Select(each => (each.Action, each.Url, each.TaskId)));
 
         var group = NotificationText.ActionsOf(Of(NotificationKind.GroupAssigned), "/today?task=T1");
