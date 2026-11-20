@@ -1,4 +1,5 @@
 import {
+  Autocomplete,
   Box,
   Button,
   Dialog,
@@ -14,6 +15,7 @@ import {
   TextField,
   Tooltip,
   Typography,
+  createFilterOptions,
 } from '@mui/material';
 import { useState } from 'react';
 import { useNavigate } from 'react-router';
@@ -41,6 +43,19 @@ import { listName } from './listName.ts';
 
 const ROLES: Role[] = ['editor', 'viewer', 'owner'];
 
+interface Choice {
+  principal: string;
+  name: string;
+  /** A friend's username, which the box also matches on. */
+  handle?: string;
+}
+
+// The friend box matches what is typed anywhere in a name or a username, ignoring case. Only
+// the part of a username before its server counts, or one letter would match every friend.
+const matchChoices = createFilterOptions<Choice>({
+  stringify: (choice) => `${choice.name} ${choice.handle?.split('@')[0] ?? ''}`,
+});
+
 /**
  * Who a list is shared with (spec: Sharing & Permissions, Lists). Its owner adds friends in a
  * role, changes roles, removes people or makes it private again; anyone else may leave.
@@ -52,6 +67,7 @@ export function ShareDialog({ list, onClose }: { list: List; onClose: () => void
   const syncNow = useSyncState((state) => state.syncNow);
   const me = useStoreState((state) => state.context().userId);
   const [adding, setAdding] = useState('');
+  const [typed, setTyped] = useState('');
   const [role, setRole] = useState<Role>('editor');
   const [confirm, setConfirm] = useState<'private' | 'leave' | null>(null);
 
@@ -69,10 +85,11 @@ export function ShareDialog({ list, onClose }: { list: List; onClose: () => void
   const groups = activeGroupsOf(workspace, me).filter(
     (group) => !memberPrincipals.has(`group:${group.id}`),
   );
-  const choices = [
+  const choices: Choice[] = [
     ...friends.map((friend) => ({
       principal: `user:${friend.userId}`,
       name: nameOf(friend.user, friend.userId),
+      ...(friend.user?.handle ? { handle: friend.user.handle } : {}),
     })),
     ...groups.map((group) => ({
       principal: `group:${group.id}`,
@@ -213,20 +230,39 @@ export function ShareDialog({ list, onClose }: { list: List; onClose: () => void
                 </Typography>
               ) : (
                 <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, alignItems: 'flex-end' }}>
-                  <TextField
-                    select
+                  {/* Type to narrow by name or username. */}
+                  <Autocomplete
                     size="small"
-                    label={t('share.add')}
-                    value={adding}
-                    onChange={(event) => setAdding(event.target.value)}
+                    autoHighlight
+                    options={choices}
+                    value={choices.find((choice) => choice.principal === adding) ?? null}
+                    inputValue={typed}
+                    onInputChange={(_, next) => setTyped(next)}
+                    onChange={(_, next) => setAdding(next?.principal ?? '')}
+                    getOptionLabel={(choice) => choice.name}
+                    // Two friends may share a name, so options are keyed by who they are.
+                    getOptionKey={(choice) => choice.principal}
+                    isOptionEqualToValue={(one, other) => one.principal === other.principal}
+                    renderOption={({ key, ...props }, choice) => (
+                      <li key={key} {...props}>
+                        <ListItemText
+                          primary={choice.name}
+                          // The username tells same-named friends apart, as on the Friends page.
+                          secondary={
+                            choice.handle &&
+                            choice.handle.toLowerCase() !== choice.name.toLowerCase()
+                              ? choice.handle
+                              : undefined
+                          }
+                          sx={{ my: 0 }}
+                        />
+                      </li>
+                    )}
+                    filterOptions={matchChoices}
+                    noOptionsText={t('share.noMatch')}
                     sx={{ flex: '1 1 12rem' }}
-                  >
-                    {choices.map((choice) => (
-                      <MenuItem key={choice.principal} value={choice.principal}>
-                        {choice.name}
-                      </MenuItem>
-                    ))}
-                  </TextField>
+                    renderInput={(params) => <TextField {...params} label={t('share.add')} />}
+                  />
                   <TextField
                     select
                     size="small"
@@ -249,6 +285,7 @@ export function ShareDialog({ list, onClose }: { list: List; onClose: () => void
                     onClick={() => {
                       change((ctx, ws) => shareList(ctx, ws, list.id, adding, role));
                       setAdding('');
+                      setTyped('');
                     }}
                   >
                     {t('share.addButton')}
