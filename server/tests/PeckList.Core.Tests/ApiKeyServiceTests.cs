@@ -18,6 +18,9 @@ public sealed class MemoryApiKeyStore : IApiKeyStore
     public Task<IReadOnlyList<ApiKey>> ListAsync(string userId, CancellationToken cancellation = default) =>
         Task.FromResult<IReadOnlyList<ApiKey>>([.. ById.Values.Where(key => key.UserId == userId).OrderByDescending(key => key.CreatedAt)]);
 
+    public Task<IReadOnlyList<ApiKey>> AllAsync(CancellationToken cancellation = default) =>
+        Task.FromResult<IReadOnlyList<ApiKey>>([.. ById.Values.OrderBy(key => key.CreatedAt).ThenBy(key => key.Id, StringComparer.Ordinal)]);
+
     public Task RevokeAsync(string id, DateTimeOffset at, CancellationToken cancellation = default)
     {
         ById[id] = ById[id] with { RevokedAt = ById[id].RevokedAt ?? at };

@@ -19,9 +19,20 @@ public sealed class BackupTests(SqliteFiles files, PostgresServer postgres) : IC
     }
 
     private static BackupService Backup(SqlDatabase database) =>
-        new(database, new SqlEntityStore(database), new SqlAccountStore(database), new SqlServerGroupStore(database), new SqlIdentityStore(database), new SqlSecretStore(database), new Clock());
+        new(database, new SqlEntityStore(database), new SqlAccountStore(database), new SqlServerGroupStore(database), new SqlIdentityStore(database), new SqlSecretStore(database), new Clock(),
+            new SqlPasskeyStore(database), new SqlApiKeyStore(database));
 
-    /// <summary>Two users, some tasks (one rewritten, one deleted), a group, a linked identity, a waiting sign-in, a secret.</summary>
+    private static ApiKey Key(string id, string user, int day) => new()
+    {
+        Id = id,
+        UserId = user,
+        Name = $"key {id}",
+        SecretHash = new string((char)('a' + day), 64),
+        Scopes = [ApiScopes.TasksRead, ApiScopes.TasksWrite],
+        CreatedAt = new DateTimeOffset(2026, 10, 10 + day, 8, 0, 0, TimeSpan.Zero),
+    };
+
+    /// <summary>Two users, some tasks (one rewritten, one deleted), a group, a linked identity, a waiting sign-in, a secret, API keys.</summary>
     private static async Task FillAsync(SqlDatabase database)
     {
         var accounts = new SqlAccountStore(database);
@@ -82,6 +93,14 @@ public sealed class BackupTests(SqliteFiles files, PostgresServer postgres) : IC
             FirstSeen = new DateTimeOffset(2026, 10, 5, 8, 0, 0, TimeSpan.Zero),
             LastSeen = new DateTimeOffset(2026, 10, 5, 8, 0, 0, TimeSpan.Zero),
         }, Token);
+        var keys = new SqlApiKeyStore(database);
+        await keys.AddAsync(Key("K1", "01JBACCT000000000000000001", 0) with
+        {
+            ExpiresAt = new DateTimeOffset(2027, 1, 1, 0, 0, 0, TimeSpan.Zero),
+            LastUsedAt = new DateTimeOffset(2026, 10, 20, 9, 30, 0, TimeSpan.Zero),
+        }, Token);
+        await keys.AddAsync(Key("K2", "01JBACCT000000000000000002", 1), Token);
+        await keys.RevokeAsync("K2", new DateTimeOffset(2026, 10, 15, 8, 0, 0, TimeSpan.Zero), Token);
     }
 
     private static async Task<string> ExportAsync(SqlDatabase database)
@@ -151,6 +170,51 @@ public sealed class BackupTests(SqliteFiles files, PostgresServer postgres) : IC
         Assert.Equal(exported, await ExportAsync(source));
         Assert.Null(await push.DeviceZoneAsync("01JBACCT000000000000000001", Token));
         Assert.Empty(await push.SnoozesAsync(due.AddDays(-1), due.AddDays(1), cancellation: Token));
+    }
+
+    [Fact]
+    public async Task API_keys_come_back_as_they_were_and_none_made_since_survive()
+    {
+        var source = await files.NewDatabaseAsync();
+        await FillAsync(source);
+        var exported = await ExportAsync(source);
+        // Only the hash of each secret is in the file, as the database keeps it.
+        var listed = JsonNode.Parse(exported)!["apiKeys"]!.AsArray();
+        Assert.Equal(["K1", "K2"], listed.Select(key => (string?)key!["id"]));
+        Assert.Equal(new string('a', 64), (string?)listed[0]!["secretHash"]);
+
+        // On a new server: the same keys, revoked still revoked, so a script's key keeps working.
+        var target = await files.NewDatabaseAsync();
+        await ImportAsync(target, exported);
+        var moved = new SqlApiKeyStore(target);
+        var k1 = await moved.FindAsync("K1", Token);
+        Assert.Equal((new DateTimeOffset(2027, 1, 1, 0, 0, 0, TimeSpan.Zero), new DateTimeOffset(2026, 10, 20, 9, 30, 0, TimeSpan.Zero)), (k1!.ExpiresAt, k1.LastUsedAt));
+        Assert.Equal([ApiScopes.TasksRead, ApiScopes.TasksWrite], k1.Scopes);
+        Assert.NotNull((await moved.FindAsync("K2", Token))!.RevokedAt);
+
+        // Restored in place: a key made after the backup, perhaps by whoever the restore is meant to
+        // shut out, is gone, and one revoked since (it leaked, say) stays revoked, from when it was.
+        var keys = new SqlApiKeyStore(source);
+        await keys.AddAsync(Key("K3", "01JBACCT000000000000000001", 5), Token);
+        var leaked = new DateTimeOffset(2026, 10, 21, 8, 0, 0, TimeSpan.Zero);
+        await keys.RevokeAsync("K1", leaked, Token);
+        await ImportAsync(source, exported, replace: true);
+        Assert.Equal(["K1", "K2"], (await keys.AllAsync(Token)).Select(key => key.Id));
+        Assert.Equal(leaked, (await keys.FindAsync("K1", Token))!.RevokedAt);
+        // K2 was revoked in the backup already and keeps the backup's time.
+        Assert.Equal(new DateTimeOffset(2026, 10, 15, 8, 0, 0, TimeSpan.Zero), (await keys.FindAsync("K2", Token))!.RevokedAt);
+    }
+
+    [Fact]
+    public async Task A_backup_from_before_API_keys_restores_with_none()
+    {
+        var source = await files.NewDatabaseAsync();
+        await FillAsync(source);
+        var old = JsonNode.Parse(await ExportAsync(source))!.AsObject();
+        old.Remove("apiKeys");
+
+        await ImportAsync(source, old.ToJsonString(), replace: true);
+        Assert.Empty(await new SqlApiKeyStore(source).AllAsync(Token));
     }
 
     [Fact]

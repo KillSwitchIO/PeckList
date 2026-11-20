@@ -40,6 +40,14 @@ public sealed class SqlApiKeyStore(SqlDatabase database) : IApiKeyStore
         return [.. rows.Select(row => row.ToKey())];
     }
 
+    public async Task<IReadOnlyList<ApiKey>> AllAsync(CancellationToken cancellation = default)
+    {
+        await using var connection = await database.OpenAsync(cancellation);
+        var rows = await connection.QueryAsync<Row>(new CommandDefinition(
+            $"SELECT {Columns} FROM api_keys ORDER BY created_at, id", cancellationToken: cancellation));
+        return [.. rows.Select(row => row.ToKey())];
+    }
+
     public Task RevokeAsync(string id, DateTimeOffset at, CancellationToken cancellation = default) =>
         WriteAsync("UPDATE api_keys SET revoked_at = @at WHERE id = @id AND revoked_at IS NULL",
             new { id, at = at.ToUnixTimeMilliseconds() }, cancellation);

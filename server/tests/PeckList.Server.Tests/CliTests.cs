@@ -154,6 +154,47 @@ public sealed class CliTests : IDisposable
         Assert.Contains("Imported 1 accounts", restored.Output);
     }
 
+    [Fact]
+    public async Task Export_import_and_migrate_db_carry_passkeys_and_api_keys()
+    {
+        var token = TestContext.Current.CancellationToken;
+        var settings = Settings();
+        await MakeAdminAsync(settings);
+        var database = new PeckList.Storage.Sqlite.SqliteDatabase(settings.DbPath);
+        var admin = await new PeckList.Storage.Sql.SqlAccountStore(database).FindByUsernameAsync("admin", token);
+        await new PeckList.Storage.Sql.SqlPasskeyStore(database).AddAsync(new Core.Accounts.Passkey
+        {
+            Id = "credential-1",
+            AccountId = admin!.Id,
+            Name = "Laptop",
+            PublicKey = "public-key",
+            CreatedAt = DateTimeOffset.UnixEpoch.AddYears(56),
+        }, token);
+        await new PeckList.Storage.Sql.SqlApiKeyStore(database).AddAsync(new Core.Accounts.ApiKey
+        {
+            Id = "key-1",
+            UserId = admin.Id,
+            Name = "Home Assistant",
+            SecretHash = new string('b', 64),
+            Scopes = [Core.Accounts.ApiScopes.TasksRead],
+            CreatedAt = DateTimeOffset.UnixEpoch.AddYears(56),
+        }, token);
+
+        async Task Carried(string db)
+        {
+            var moved = new PeckList.Storage.Sqlite.SqliteDatabase(Path.Combine(folder, db));
+            Assert.Equal(["credential-1"], (await new PeckList.Storage.Sql.SqlPasskeyStore(moved).AllAsync(token)).Select(each => each.Id));
+            Assert.Equal(["key-1"], (await new PeckList.Storage.Sql.SqlApiKeyStore(moved).AllAsync(token)).Select(each => each.Id));
+        }
+
+        var file = Path.Combine(folder, "backup.json");
+        Assert.Equal(0, (await Run(settings, "export", file)).Code);
+        Assert.Equal(0, (await Run(Settings("other.db"), "import", file)).Code);
+        await Carried("other.db");
+        Assert.Equal(0, (await Run(settings, "migrate-db", "--to", "sqlite", "--path", Path.Combine(folder, "third.db"))).Code);
+        await Carried("third.db");
+    }
+
     private static async Task<Core.Accounts.AccountService> MakeAdminAsync(ServerSettings settings)
     {
         var database = new PeckList.Storage.Sqlite.SqliteDatabase(settings.DbPath);
