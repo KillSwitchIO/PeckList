@@ -22,7 +22,9 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Locale;
 import java.util.TimeZone;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.UnaryOperator;
+import org.json.JSONArray;
 import org.json.JSONObject;
 
 /**
@@ -150,6 +152,63 @@ final class BackgroundCheck {
     }
 
     /**
+     * Whether leaving the screen should check in at once: not yet once for this server (installed,
+     * cleared, or a server just chosen). The first check-in only notes where things stand, so news
+     * between leaving the screen and the first regular one (up to its interval later) was taken as
+     * old and never shown (QA's notification drill of 2026-11-20). Checked in as the app leaves,
+     * the server's own clock sets the start, and everything after it is news.
+     */
+    static boolean checksInOnLeaving(String cursor, String server, boolean enabled) {
+        return cursor == null && server != null && enabled;
+    }
+
+    private static final AtomicBoolean firstCheckRunning = new AtomicBoolean(false);
+
+    /** As the app leaves the screen: the first check-in for this server, now (see checksInOnLeaving). */
+    static void checkInOnLeaving(Context context) {
+        if (!checksInOnLeaving(prefs(context).getString(CURSOR, null), ServerChoice.get(context), enabled(context))) return;
+        // One at a time: leaving and coming back quickly starts no second one alongside.
+        if (!firstCheckRunning.compareAndSet(false, true)) return;
+        Context app = context.getApplicationContext();
+        new Thread(() -> {
+            try {
+                run(app, true);
+            } catch (Exception error) {
+                // The regular check-in starts it later, as before.
+                Logger.warn("PeckList: first background check failed: " + error);
+            } finally {
+                firstCheckRunning.set(false);
+            }
+        }, "pecklist-first-check").start();
+    }
+
+    /**
+     * Whether an answer's cursor replaces the one kept: only a later one. Two check-ins can overlap
+     * (the regular one and the one before a reminder), and the slower one's older cursor would bring
+     * back what the other showed (a dismissed notification would come again).
+     */
+    static boolean laterCursor(String kept, String answered) {
+        return answered != null && (kept == null || answered.compareTo(kept) > 0);
+    }
+
+    private static synchronized void keepCursor(Context context, String answered) {
+        if (laterCursor(prefs(context).getString(CURSOR, null), answered)) {
+            prefs(context).edit().putString(CURSOR, answered).commit();
+        }
+    }
+
+    /**
+     * One line per check-in, for the next drill: what it asked after (none: the first, which shows
+     * nothing), how many were new, whether they were left to the app on screen, and where it goes
+     * on from. The ids are the server's notification ids, nothing about their content.
+     */
+    static String describe(String after, int fresh, boolean leftToApp, String cursor) {
+        return "Background check: after " + (after == null ? "none (first check, nothing shown)" : after)
+            + ", " + fresh + " new" + (fresh > 0 && leftToApp ? ", left to the app on screen" : fresh > 0 ? ", shown" : "")
+            + ", next after " + (cursor == null ? after : cursor);
+    }
+
+    /**
      * Minutes to the next check-in (audit E1): the chosen interval, twice as long after each failure
      * in a row, at most MAX_BACKOFF_MINUTES (never shorter than the interval itself).
      */
@@ -255,6 +314,20 @@ final class BackgroundCheck {
 
     /** One check-in. Network: call off the main thread. Signed out or offline, it waits for the next. */
     static void run(Context context) throws Exception {
+        run(context, false);
+    }
+
+    /**
+     * Whether a refused check-in (401, 403) stops them until the app runs again. Not the one as the
+     * app leaves: right after a server is chosen, the WebView may still hold an old session's cookie
+     * while the person signs in (in the browser, which also leaves the screen), and that sign-in
+     * comes back without a fresh start, which alone would set them going again (Dev 1's review).
+     */
+    static boolean stopsWhenRefused(boolean leaving) {
+        return !leaving;
+    }
+
+    private static void run(Context context, boolean leaving) throws Exception {
         String server = ServerChoice.get(context);
         if (server == null || !enabled(context)) return;
         CookieManager cookies = CookieManager.getInstance();
@@ -284,6 +357,10 @@ final class BackgroundCheck {
                 throw error;
             }
             if (status == 401 || status == 403) {
+                if (!stopsWhenRefused(leaving)) {
+                    Logger.info("PeckList", "Background check: not signed in yet (" + status + "); the regular check-in goes on");
+                    return;
+                }
                 // The session is over: stop until the app is opened again.
                 Logger.info("PeckList", "Background check: signed out (" + status + "); stopped until the app runs");
                 prefs(context).edit().putBoolean(STOPPED, true).apply();
@@ -318,8 +395,11 @@ final class BackgroundCheck {
         if (handsOverReminders(showing, showingNow)) {
             Reminders.handOver(context, Reminders.parse(answer.getJSONArray("reminders")), true);
         }
-        if (!showingNow) Reminders.showNew(context, answer.getJSONArray("notifications"));
-        if (!answer.isNull("cursor")) prefs(context).edit().putString(CURSOR, answer.getString("cursor")).apply();
+        JSONArray fresh = answer.getJSONArray("notifications");
+        if (!showingNow) Reminders.showNew(context, fresh);
+        String cursor = answer.isNull("cursor") ? null : answer.getString("cursor");
+        keepCursor(context, cursor);
+        Logger.info("PeckList", describe(after, fresh.length(), showingNow, cursor));
         Widgets.redraw(context);
     }
 

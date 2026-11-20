@@ -220,6 +220,8 @@ public class MainActivity extends BridgeActivity {
         // session from a sign-in a few seconds ago was lost when the app was stopped or killed
         // before then, and the next start showed the sign-in page again.
         CookieManager.getInstance().flush();
+        // Never checked in on this server yet: once now, so what comes from here on is news.
+        BackgroundCheck.checkInOnLeaving(this);
         super.onPause();
     }
 
