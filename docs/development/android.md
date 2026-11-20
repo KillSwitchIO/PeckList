@@ -100,7 +100,9 @@ app (ADR-0017 in the project notes). There is no second copy of the UI.
   never show one piece of news twice. Once signed in, the app asks once to notify and to run without battery
   optimization (`REQUEST_IGNORE_BATTERY_OPTIMIZATIONS`; the Play build opens the list of apps
   instead, see [Two builds](#two-builds)); without that, Android holds the alarm and the network
-  while the phone is idle. Samsung phones also need PeckList in **Never sleeping apps**, which the
+  while the phone is idle. A start that came with `?add=1` (the Add task shortcut, a widget, voice
+  or shared text) leaves that ask for the next start: a system dialog takes the window's focus and,
+  with it, the keyboard the person opened the app for. Samsung phones also need PeckList in **Never sleeping apps**, which the
   settings say. Besides the regular check-in, one more goes a minute before each reminder the
   server set (`CHECK_BEFORE`, set again whenever the reminders change and after a restart), so a
   task done, moved or snoozed on another device takes that reminder off, or moves it, before it

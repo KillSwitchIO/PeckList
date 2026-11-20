@@ -169,7 +169,9 @@ HTTP is the same: the yes you gave on the connect page is for that server only.
 - A constant reminder keeps buzzing until you open it, dismiss it or press a button, and goes
   quiet after 30 minutes. It makes no sound unless you give **Constant reminders** one there.
 - After you sign in, the app asks to send notifications and to run in the background. Allow both,
-  or reminders and check-ins come late or not at all.
+  or reminders and check-ins come late or not at all. When the app was opened to add a task (the
+  Add task shortcut, a widget, voice or shared text), it asks the next time instead, so the
+  keyboard stays up.
 - On a Samsung phone, also add PeckList to **Never sleeping apps** (Settings > Battery >
   Background usage limits). Other brands have similar battery savers; see
   [dontkillmyapp.com](https://dontkillmyapp.com/) for yours.

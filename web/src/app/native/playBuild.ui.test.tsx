@@ -13,6 +13,7 @@ import { AppRoutes } from '../routes.tsx';
 import { createSyncEngine } from '../sync/syncEngine.ts';
 import { BackgroundCheckPrompt } from './BackgroundCheck.tsx';
 import { setNativeShell } from './shell.ts';
+import { forgetAddFromOutside } from '../tasks/addFromOutside.ts';
 
 // The Google Play build (shell api 9, `distribution: 'play'`) follows Play's rules: no way to pay
 // or donate, no update notice of its own, battery optimization turned off by hand from the list
@@ -28,6 +29,7 @@ const browserNotifier = notifier();
 afterEach(() => {
   setNativeShell(null);
   setNotifier(browserNotifier);
+  forgetAddFromOutside();
 });
 
 const slow = { timeout: 10_000 };
@@ -138,7 +140,7 @@ describe("the app's own update notice", () => {
 });
 
 /** Signed in, with the prompt App.tsx shows once after signing in. */
-async function withFirstPrompt(shell: FakeShell) {
+async function withFirstPrompt(shell: FakeShell, start = '/today') {
   setNativeShell(shell);
   const asked: Notifier & { requests: number } = {
     requests: 0,
@@ -162,7 +164,7 @@ async function withFirstPrompt(shell: FakeShell) {
   });
   render(
     <AppProviders store={store} sync={sync}>
-      <MemoryRouter initialEntries={['/today']}>
+      <MemoryRouter initialEntries={[start]}>
         <AppRoutes />
         <BackgroundCheckPrompt />
       </MemoryRouter>
@@ -178,6 +180,18 @@ describe('running in the background', () => {
     const asked = await withFirstPrompt(shell);
     await waitFor(() => expect(shell.batteryOpened).toBe(1));
     expect(asked.requests).toBe(1);
+  });
+
+  it('a start that came to add a task (the shortcut, a widget) asks for neither: they wait for the next start', async () => {
+    const shell = new FakeShell(9, 'foss');
+    const asked = await withFirstPrompt(shell, '/today?add=1');
+    await waitFor(
+      () => expect(screen.getByRole('textbox', { name: 'Add task' })).toHaveFocus(),
+      slow,
+    );
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(asked.requests).toBe(0);
+    expect(shell.batteryOpened).toBe(0);
   });
 
   it('play: after signing in, notifications only; the list of apps never opens unasked', async () => {
