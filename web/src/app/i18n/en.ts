@@ -2146,6 +2146,7 @@ export const en = {
   'share.group': 'Group',
   'share.groupOption': '{name} (group)',
   'share.addButton': 'Add',
+  'share.noMatch': 'No friend or group by that name',
   'share.noFriends': 'Add friends first: they can be shared with once they accept.',
   'share.allIn': 'All your friends are on this list.',
   'share.makePrivate': 'Make private',
