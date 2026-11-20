@@ -291,8 +291,9 @@ public sealed class ReminderSender(
     /// the day said from where the reminder shows (<paramref name="shownAt"/> in the person's zone),
     /// as the app words it: "Due 3:00 PM" today, "Due tomorrow, 6:00 AM", "Due Thu, Nov 26, 6:00 AM",
     /// "Due today" for a whole day, "Starts ..." when the reminders count from the task's start, and
-    /// "Reminder" for a task with no date. The person's clock format; days in English, as the rest of
-    /// what the server sends.
+    /// "Reminder" for a task with no date. The person's clock format, and their date format (Settings
+    /// &gt; Dates, <see cref="DatePattern"/>) for a day further off, as the app does; days in English,
+    /// as the rest of what the server sends.
     /// </summary>
     internal static string BodyOf(JsonObject task, DateTimeOffset shownAt, TimeZoneInfo zone, JsonObject? settings)
     {
@@ -307,6 +308,7 @@ public sealed class ReminderSender(
         var dayText = day == today ? "today"
             : day == today.AddDays(1) ? "tomorrow"
             : day == today.AddDays(-1) ? "yesterday"
+            : DatePattern.Of((string?)settings?["dateFormat"]) is { } pattern ? DatePattern.Format(day, pattern)
             : day.ToString(day.Year == today.Year ? "ddd, MMM d" : "MMM d, yyyy", CultureInfo.InvariantCulture);
         return clock is null ? $"{word} {dayText}" : $"{word} {dayText}, {clock}";
     }

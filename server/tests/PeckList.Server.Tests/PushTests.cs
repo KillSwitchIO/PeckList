@@ -327,6 +327,28 @@ public sealed class PushTests(ServerFixture fixture) : IClassFixture<ServerFixtu
         Assert.Equal(expected, ReminderSender.BodyOf(task, shown, chicago, settings));
     }
 
+    [Theory]
+    // Shown at 5:00 AM on Thursday 2026-11-19 in Chicago, for someone whose dates read 26/11/2026.
+    [InlineData("2026-11-26T06:00", "DD/MM/YYYY", "Due 26/11/2026, 6:00 AM")]
+    [InlineData("2026-11-26", "DD/MM/YYYY", "Due 26/11/2026")]
+    [InlineData("2027-01-04T09:30", "[the] D MMMM", "Due the 4 January, 9:30 AM")]
+    // Today, tomorrow and yesterday are words whatever the pattern, as in the app.
+    [InlineData("2026-11-20T06:00", "DD/MM/YYYY", "Due tomorrow, 6:00 AM")]
+    [InlineData("2026-11-19T15:00", "DD/MM/YYYY", "Due 3:00 PM")]
+    // The automatic style, or a pattern that cannot be used: the app's own default.
+    [InlineData("2026-11-26T06:00", "auto", "Due Thu, Nov 26, 6:00 AM")]
+    [InlineData("2026-11-26T06:00", "[no date]", "Due Thu, Nov 26, 6:00 AM")]
+    public void A_reminder_says_a_day_further_off_in_the_person_date_format(string at, string dateFormat, string expected)
+    {
+        var chicago = TimeZoneInfo.FindSystemTimeZoneById("America/Chicago");
+        var task = new JsonObject
+        {
+            ["due"] = new JsonObject { ["at"] = at, ["allDay"] = at.Length == 10, ["timeZone"] = "America/Chicago" },
+        };
+        var shown = new DateTimeOffset(2026, 11, 19, 11, 0, 0, TimeSpan.Zero);
+        Assert.Equal(expected, ReminderSender.BodyOf(task, shown, chicago, new JsonObject { ["dateFormat"] = dateFormat }));
+    }
+
     [Fact]
     public void A_reminder_names_the_task_time_on_the_person_clock_and_says_reminder_with_no_date()
     {

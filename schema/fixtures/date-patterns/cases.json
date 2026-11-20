@@ -1,0 +1,82 @@
+{
+  "description": "Dates in the patterns people type under Settings > Dates (settings' dateFormat). The web app's formatDatePattern and the server's DatePattern (reminder text) read them the same: tokens from ISO 8601 and moment.js in either case where that is not ambiguous, [bracketed] text as is, anything else too; names in English. A pattern needs at least one part of a date and at most 40 characters.",
+  "format": [
+    {
+      "date": "2026-03-05",
+      "pattern": "YYYY-MM-DD",
+      "text": "2026-03-05"
+    },
+    {
+      "date": "2026-03-05",
+      "pattern": "YYYYMMdd",
+      "text": "20260305"
+    },
+    {
+      "date": "2026-03-05",
+      "pattern": "yyyy/M/d",
+      "text": "2026/3/5"
+    },
+    {
+      "date": "2026-03-05",
+      "pattern": "DD.MM.YY",
+      "text": "05.03.26"
+    },
+    {
+      "date": "2026-03-05",
+      "pattern": "dddd, MMMM D",
+      "text": "Thursday, March 5"
+    },
+    {
+      "date": "2026-03-05",
+      "pattern": "ddd D MMM YYYY",
+      "text": "Thu 5 Mar 2026"
+    },
+    {
+      "date": "2026-03-05",
+      "pattern": "[Week of] MMM D",
+      "text": "Week of Mar 5"
+    },
+    {
+      "date": "2026-03-05",
+      "pattern": "EEE, d MMM",
+      "text": "Thu, 5 Mar"
+    },
+    {
+      "date": "2026-11-26",
+      "pattern": "MM/DD/YYYY",
+      "text": "11/26/2026"
+    },
+    {
+      "date": "2026-11-26",
+      "pattern": "DD/MM/YYYY",
+      "text": "26/11/2026"
+    },
+    {
+      "date": "2026-11-26",
+      "pattern": "MMM D, YYYY",
+      "text": "Nov 26, 2026"
+    },
+    {
+      "date": "2026-11-26",
+      "pattern": "D MMM YYYY",
+      "text": "26 Nov 2026"
+    },
+    {
+      "date": "2026-11-26",
+      "pattern": "ddd, MMM D",
+      "text": "Thu, Nov 26"
+    },
+    {
+      "date": "2027-12-31",
+      "pattern": "EEEE D MMMM YY",
+      "text": "Friday 31 December 27"
+    },
+    {
+      "date": "2027-01-04",
+      "pattern": "[Due] D.M.",
+      "text": "Due 4.1."
+    }
+  ],
+  "valid": ["YYYYMMDD", "D", "[on] dddd", "MMM"],
+  "invalid": ["", "[just text]", "---", "YYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYY"]
+}
