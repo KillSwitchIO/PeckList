@@ -50,7 +50,7 @@ import { SidebarTags } from '../tags/SidebarTags.tsx';
 import { useTaskSelection } from '../tasks/selection.ts';
 import { focusRow } from '../tasks/detailFocus.ts';
 import { TaskDetail } from '../tasks/TaskDetail.tsx';
-import { settleDraft } from '../tasks/drafts.ts';
+import { isBlankDraft, settleDraft } from '../tasks/drafts.ts';
 import { UndoToast } from '../tasks/UndoToast.tsx';
 import { ProfileButton } from './ProfileButton.tsx';
 import { APP_VERSION_LABEL, CHANGELOG_URL } from './appVersion.ts';
@@ -336,6 +336,12 @@ function AppFrame() {
   }, [hasSections, apply]);
 
   // A blank task from the quick add bar's expand button goes again once it is closed still empty.
+  const blankDraft = useStoreState((state) => {
+    const task = selectedId
+      ? state.workspace?.entities.tasks.find((each) => each.id === selectedId)
+      : undefined;
+    return task !== undefined && isBlankDraft(task);
+  });
   const shownTask = useRef(selectedId);
   useEffect(() => {
     const previous = shownTask.current;
@@ -498,8 +504,9 @@ function AppFrame() {
           onClose={(event, reason) => {
             if (handledInside(event, reason)) return;
             // A phone has no smaller view to fall back to: closing the full view closes the task
-            // (R-FB-110).
-            if (isPhone) {
+            // (R-FB-110). Nor does a new task still empty: Escape or a click outside closes it like
+            // x does, so it goes again instead of staying as an "Untitled task" (QA).
+            if (isPhone || blankDraft) {
               close();
               return;
             }

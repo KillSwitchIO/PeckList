@@ -143,18 +143,25 @@ describe('task details', () => {
     expect(count()).toBe(1);
     // While its form is open the blank task stays out of the list behind it (R-FB-93).
     expect(screen.queryByRole('button', { name: 'Open Untitled task', hidden: true })).toBeNull();
+    const blanks = () =>
+      store
+        .getState()
+        .workspace!.entities.tasks.filter((task) => task.title === '' && task.deletedAt === null);
+    // One Escape closes it, as x does: not back to the side panel, where it stayed behind (QA).
     await userEvent.keyboard('{Escape}');
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
-    await userEvent.keyboard('{Escape}');
-    await waitFor(() => expect(screen.queryByRole('region', { name: 'Task details' })).toBeNull());
-    await waitFor(() =>
-      expect(
-        store
-          .getState()
-          .workspace!.entities.tasks.filter((task) => task.title === '' && task.deletedAt === null),
-      ).toHaveLength(0),
-    );
+    expect(screen.queryByRole('region', { name: 'Task details' })).toBeNull();
+    await waitFor(() => expect(blanks()).toHaveLength(0));
     expect(screen.queryByRole('button', { name: /^Open $/ })).toBeNull();
+
+    // A click outside the form does the same.
+    await userEvent.click(screen.getByRole('button', { name: 'Expand into the task form' }));
+    await screen.findByRole('dialog');
+    expect(blanks()).toHaveLength(1);
+    await userEvent.click(document.querySelector('.MuiBackdrop-root')!);
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    expect(screen.queryByRole('region', { name: 'Task details' })).toBeNull();
+    await waitFor(() => expect(blanks()).toHaveLength(0));
   });
 
   it('on a tablet the first Escape leaves the notes and the second closes the details', async () => {
