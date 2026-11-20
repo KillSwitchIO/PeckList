@@ -29,6 +29,7 @@ import { CollapseIcon, DueIcon, ExpandIcon } from '../icons/icons.tsx';
 import { useLongPress } from '../hooks/useLongPress.ts';
 import { CompleteCheckbox } from './CompleteCheckbox.tsx';
 import { isBlankDraft } from './drafts.ts';
+import { keyboardOpen } from './detailFocus.ts';
 import { completionInstant } from './completion.ts';
 import { DetailFooter } from './DetailFooter.tsx';
 import { ParentTrail, SubtaskEditor } from './Subtasks.tsx';
@@ -199,6 +200,7 @@ export function TaskDetail({
   const me = useStoreState((state) => state.context().userId);
   const attach = useAttachFiles(task && isLive(task) ? task : undefined);
   const [dropping, setDropping] = useState(false);
+  const [byKeyboard] = useState(() => keyboardOpen(taskId));
 
   if (!task || !isLive(task)) {
     return (
@@ -383,8 +385,9 @@ export function TaskDetail({
               label={t('task.title')}
               value={task.title}
               readOnly={readOnly}
-              // A new task (the + button, the add bar's expand): type its title straight away.
-              autoFocus={isBlankDraft(task)}
+              // A new task (the + button, the add bar's expand): type its title straight away. Opened
+              // from its row by Enter: the keyboard comes here too, not to the page (detailFocus.ts).
+              autoFocus={isBlankDraft(task) || byKeyboard}
               onCommit={(title) =>
                 apply((ctx, ws) => {
                   // Saved on the way out: the task may be gone by then (deleted, or out of sync).
