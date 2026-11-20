@@ -145,8 +145,12 @@ public sealed class SharingPlanTests
         index.Apply(Entity("lists", "L1", "UA", new JsonObject { ["name"] = "Home", ["visibility"] = "private", ["color"] = "#fff" }));
 
         var task = index.DocOf("T1")!;
-        Assert.Equal(["assignees", "createdBy", "deletedAt", "id", "listId", "parentId", "pinnedAt", "recurrence", "reminders", "schedule", "status", "title"],
+        // Kept fields with no value are left out, not null: the server writes presses from this
+        // copy, and a null here used to land in the stored task unstamped (pinnedAt, 2026-11-20).
+        Assert.Equal(["assignees", "id", "listId", "reminders", "schedule", "status", "title"],
             task.Select(pair => pair.Key).Order());
+        Assert.Null(task["pinnedAt"]);
+        Assert.Null(task["deletedAt"]);
         Assert.Equal(("Mow", 30), ((string?)task["title"], (int?)task["reminders"]![0]!["before"]));
         Assert.Null(index.DocOf("T2")!["reminders"]);
         Assert.Equal("#fff", (string?)index.DocOf("L1")!["color"]);
