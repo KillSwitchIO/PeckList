@@ -36,7 +36,12 @@ import java.util.concurrent.Executors;
 )
 public class ShellPlugin extends Plugin {
 
-    /** Bumped when a method is added; the web app checks it before calling a newer one. */
+    /**
+     * Bumped when a method is added; the web app checks it before calling a newer one. Since 0.13.0:
+     * 10 brought both notification channels and scheduleReminders' keep (they shipped together in
+     * 0.14.0, so a shell at 10 has both), 11 setShortcuts and showKeyboard, 12 setWidgetTasks, 13
+     * takeAddText. The next method is 14.
+     */
     private static final int API = 13;
 
     static final String NOTIFICATIONS = "notifications";
@@ -428,15 +433,21 @@ public class ShellPlugin extends Plugin {
             // Coming back from the launcher, the window gets its focus a moment later, and asking
             // for the keyboard before then does nothing (QA: a field already focused stayed without
             // one). Ask once it has, within a few seconds, so a late focus raises no surprise keyboard.
+            // The observer it was added to is the one it comes off: the view's own can be a new one
+            // by then (the activity recreated), and a dead observer throws on removal (Dev 1).
+            android.view.ViewTreeObserver observer = web.getViewTreeObserver();
             android.view.ViewTreeObserver.OnWindowFocusChangeListener[] waiting =
                 new android.view.ViewTreeObserver.OnWindowFocusChangeListener[1];
+            Runnable stop = () -> {
+                if (observer.isAlive()) observer.removeOnWindowFocusChangeListener(waiting[0]);
+            };
             waiting[0] = hasFocus -> {
                 if (!hasFocus) return;
-                web.getViewTreeObserver().removeOnWindowFocusChangeListener(waiting[0]);
+                stop.run();
                 show.run();
             };
-            web.getViewTreeObserver().addOnWindowFocusChangeListener(waiting[0]);
-            web.postDelayed(() -> web.getViewTreeObserver().removeOnWindowFocusChangeListener(waiting[0]), KEYBOARD_WAIT_MS);
+            observer.addOnWindowFocusChangeListener(waiting[0]);
+            web.postDelayed(stop, KEYBOARD_WAIT_MS);
         });
         call.resolve();
     }

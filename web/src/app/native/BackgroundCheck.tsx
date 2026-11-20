@@ -6,6 +6,7 @@ import { notifier } from '../reminders/notifier.ts';
 import { Section, SettingRow } from '../settings/settingsLayout.tsx';
 import { useSyncState } from '../sync/syncContext.ts';
 import { ExactRemindersPrompt } from './ExactReminders.tsx';
+import { addedFromOutside } from '../tasks/addFromOutside.ts';
 import { isPlayBuild, useShellInfo } from './shell.ts';
 
 /** The first shell api with the background check-in. */
@@ -128,7 +129,9 @@ export function BackgroundCheckPrompt() {
     let live = true;
     void (async () => {
       const state = await shell.backgroundCheck();
-      if (!live || state.asked || !state.enabled) return;
+      // A start that came to add a task (the shortcut, a widget, voice, shared text) is for typing:
+      // Android's dialogs would take the keyboard away, so they wait for the next start.
+      if (!live || state.asked || !state.enabled || addedFromOutside()) return;
       await notifier().request();
       if (live && !play) await shell.allowBackground();
     })().catch(() => undefined);

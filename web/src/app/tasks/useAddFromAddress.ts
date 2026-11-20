@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react';
 import { useLocation, useNavigate } from 'react-router';
 import type { NativeShell } from '../../ports/nativeShell.ts';
 import { nativeShell } from '../native/shell.ts';
+import { noteAddFromOutside } from './addFromOutside.ts';
 import { fillAddTask, focusAddTask } from './focusAddTask.ts';
 
 /** The shell api that hands over text from outside the app (takeAddText). */
@@ -26,6 +27,8 @@ export function useAddFromAddress(): void {
   const adding = new URLSearchParams(location.search).get('add') === '1';
   useEffect(() => {
     if (!adding) return;
+    // Android's asks wait for another start: this one is for typing (addFromOutside.ts).
+    noteAddFromOutside();
     const started = Date.now();
     const timer = setInterval(() => {
       const focused = focusAddTask();
