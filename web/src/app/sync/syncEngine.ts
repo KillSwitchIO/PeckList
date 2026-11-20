@@ -298,6 +298,16 @@ export function createSyncEngine(deps: SyncEngineDependencies): SyncEngine {
     return storage.saveMeta(META, meta);
   };
 
+  /**
+   * Where the sync stands, once what it took in is in storage. Taking data in only changes the
+   * workspace in memory, which saves itself a moment later; stored first, a page closed in that
+   * moment came back with the cursor past data it never kept, and no later sync asked for it again.
+   */
+  const saveTaken = async (meta: SyncMeta) => {
+    await workspace.getState().flush();
+    await saveMeta(meta);
+  };
+
   const absorb = (
     transform: (local: WorkspaceFile) => WorkspaceFile,
     authoritative?: readonly string[],
@@ -348,10 +358,24 @@ export function createSyncEngine(deps: SyncEngineDependencies): SyncEngine {
      */
     const link = async (account: Account) => {
       const meta = await loadMeta();
-      if (meta.account === account.id) return;
+      const before = workspace.getState().workspace;
+      // Linked: the stored state names the account and the workspace is the account's (joining
+      // gives it the account as owner, and so does starting over).
+      if (meta.account === account.id && (!before || before.owner === account.id)) return;
       await workspace.getState().flush();
       if (!workspace.getState().workspace) return;
-      if (meta.account !== null) {
+      let linked = meta.account;
+      if (linked === account.id) {
+        // Where the sync stood was stored, but the data it stood for never was: the page went
+        // between the two (Dev 2's emulator, 2026-11-20: cursor 992, the device's own starter
+        // inbox, profile and settings pushed and refused, then nothing left). Link again from the
+        // start, as the first time.
+        console.warn('PeckList: sync state stored without its data; linking this device again', {
+          cursor: meta.cursor,
+        });
+        linked = null;
+      }
+      if (linked !== null) {
         // Someone else's data must not mix into this account.
         await startOver(account);
         return;
@@ -367,6 +391,8 @@ export function createSyncEngine(deps: SyncEngineDependencies): SyncEngine {
           );
       } else {
         absorb((local) => joinAccount(local, account.id, changes));
+        // In storage before where the sync stands is (see saveTaken).
+        await workspace.getState().flush();
       }
       await saveMeta({ account: account.id, cursor, acks: acknowledge({}, changes), epoch });
     };
@@ -516,7 +542,7 @@ export function createSyncEngine(deps: SyncEngineDependencies): SyncEngine {
           const { changes, meta: after } = held;
           held = null;
           absorb((local) => mergeRemote(local, changes, []));
-          await saveMeta(after);
+          await saveTaken(after);
         };
         for (let round = 0; round < MAX_ROUNDS; round += 1) {
           await workspace.getState().flush();
@@ -606,7 +632,7 @@ export function createSyncEngine(deps: SyncEngineDependencies): SyncEngine {
           if (refused > 0 || lost.length > 0 || setAside > 0 || clock) {
             tell({ refused, lostLists: lost, setAside, clock });
           }
-          await saveMeta(next);
+          await saveTaken(next);
           meta = next;
           if (!response.more && sentAll) break;
         }
