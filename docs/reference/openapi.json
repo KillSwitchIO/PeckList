@@ -9047,7 +9047,8 @@
             "type": [
               "null",
               "string"
-            ]
+            ],
+            "description": "Markdown, at most 100,000 characters."
           },
           "listId": {
             "type": [

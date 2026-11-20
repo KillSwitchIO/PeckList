@@ -26,7 +26,7 @@ public sealed record ApiDueInput(
 public sealed record ApiTaskInput(
     [property: Description("Your own id for a new task, a ULID (makes a retry safe); on create only.")] string? Id = null,
     string? Title = null,
-    string? Notes = null,
+    [property: Description("Markdown, at most 100,000 characters.")] string? Notes = null,
     string? ListId = null,
     string? SectionId = null,
     string? ParentId = null,

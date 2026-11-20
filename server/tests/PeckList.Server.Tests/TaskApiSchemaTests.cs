@@ -96,6 +96,32 @@ public sealed class TaskApiSchemaTests(ServerFixture fixture) : IClassFixture<Se
 
     [Theory]
     [MemberData(nameof(Databases), MemberType = typeof(TaskApiWorld))]
+    public async Task Notes_are_taken_up_to_the_workspace_schemas_limit_and_refused_past_it(string kind)
+    {
+        // One limit, the schema's (0.14.0): the API refused notes over 80,000 characters while the
+        // apps kept 100,000, so a task written in the app could not be edited through the CLI.
+        using var embedded = typeof(Api.ApiTaskInput).Assembly.GetManifestResourceStream("workspace.schema.json")!;
+        var limit = (int)JsonNode.Parse(embedded)!["$defs"]!["task"]!["properties"]!["notes"]!["maxLength"]!;
+        Assert.Equal(Core.Api.TaskInput.MaxNotes, limit);
+        Assert.Equal(Core.Api.ApiShapes.MaxStoredNotes, limit);
+
+        using var world = await StartWithSchemaAsync(fixture, kind);
+        var ben = await world.PersonAsync("ben");
+        var api = await world.KeyAsync(ben, "tasks:read", "tasks:write");
+        var list = Id(await Expect(api, HttpMethod.Post, "/api/v1/lists", new { name = "Home" }, HttpStatusCode.Created));
+        var made = await Expect(api, HttpMethod.Post, "/api/v1/tasks",
+            new { title = "Read the manual", listId = list, notes = new string('a', limit) }, HttpStatusCode.Created);
+        Assert.Equal(limit, ((string)made["notes"]!).Length);
+
+        var refused = await Expect(api, HttpMethod.Patch, $"/api/v1/tasks/{Id(made)}",
+            new { notes = new string('b', limit + 1) }, HttpStatusCode.BadRequest);
+        Assert.Equal($"at most {limit} characters", (string?)refused["errors"]!["notes"]![0]);
+        var kept = await Expect(api, HttpMethod.Get, $"/api/v1/tasks/{Id(made)}", null, HttpStatusCode.OK);
+        Assert.Equal(new string('a', limit), (string?)kept["notes"]);
+    }
+
+    [Theory]
+    [MemberData(nameof(Databases), MemberType = typeof(TaskApiWorld))]
     public async Task A_task_stored_with_notes_over_the_limit_can_still_be_changed_and_its_notes_are_cut_for_everyone(string kind)
     {
         using var world = await StartWithSchemaAsync(fixture, kind);
