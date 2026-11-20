@@ -264,6 +264,92 @@ describe('a device joining an account', () => {
     await b.getState().reloadFromStorage();
     expect(b.getState().workspace!.owner).toBe('01JBACCT000000000000000001');
   });
+
+  /**
+   * A store whose storage can be held open, like a busy IndexedDB: while `held.on`, a save stops
+   * at its first read, and `held.entered` settles once it is there.
+   */
+  async function heldStore() {
+    const memory = createMemoryStorage();
+    let entered: () => void = () => undefined;
+    const held = {
+      on: false,
+      entered: Promise.resolve(),
+      release: (): void => undefined,
+      hold() {
+        held.on = true;
+        held.entered = new Promise<void>((resolve) => (entered = resolve));
+      },
+    };
+    const storage: StorageAdapter = {
+      ...memory,
+      loadMeta: async (key) => {
+        if (held.on) {
+          held.on = false;
+          entered();
+          await new Promise<void>((resolve) => (held.release = resolve));
+        }
+        return memory.loadMeta(key);
+      },
+    };
+    // One save at a time, as the browser's 'pecklist-save' lock does.
+    let queue: Promise<unknown> = Promise.resolve();
+    const store = createWorkspaceStore({
+      storage,
+      validator,
+      ids: createUlidGenerator(),
+      node: 'tabA',
+      saveDelayMs: 100,
+      withLock: <T>(run: () => Promise<T>) => {
+        const next = queue.then(run);
+        queue = next.catch(() => undefined);
+        return next;
+      },
+    });
+    await store.getState().init();
+    return { store, memory, held };
+  }
+
+  it('keeps the account copy when the join lands while a save waits on storage', async () => {
+    // QA, 2026-11-20: a fresh browser changed a setting as it linked; the save that change
+    // started put the device's own copy back over the joined one, and the next push sent its
+    // starter inbox, profile and settings under the device's id: "did not accept 3 of your changes".
+    const account = '01JBACCT000000000000000001';
+    const { store, memory, held } = await heldStore();
+    addTask(store, 'Mow');
+    held.hold();
+    const saving = store.getState().flush();
+    await held.entered;
+    store.getState().absorb((ws) => rekeyOwner(ws, account));
+    held.release();
+    await saving;
+    const ws = store.getState().workspace!;
+    expect(ws.owner).toBe(account);
+    expect(ws.entities.users.map((user) => user.id)).toEqual([account]);
+    expect(ws.entities.settings.map((settings) => settings.userId)).toEqual([account]);
+    expect(store.getState().context().userId).toBe(account);
+    await store.getState().flush();
+    expect(((await memory.load()) as { owner: string }).owner).toBe(account);
+  });
+
+  it('keeps a start-over when it lands while a save waits on storage', async () => {
+    const { store, memory, held } = await heldStore();
+    addTask(store, 'Mow');
+    held.hold();
+    const saving = store.getState().flush();
+    await held.entered;
+    // The account's data from the server, without what this device had.
+    const before = store.getState().workspace!;
+    const fresh = { ...before, entities: { ...before.entities, tasks: [] } };
+    const resetting = store.getState().reset(fresh);
+    held.release();
+    await Promise.all([saving, resetting]);
+    expect(store.getState().workspace!.entities.tasks).toEqual([]);
+    await vi.advanceTimersByTimeAsync(150);
+    expect(((await memory.load()) as { entities: { tasks: unknown[] } }).entities.tasks).toEqual(
+      [],
+    );
+  });
 });
 
 describe('upgrading stored data', () => {
