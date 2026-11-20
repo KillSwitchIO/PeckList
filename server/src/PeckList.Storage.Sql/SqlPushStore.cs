@@ -98,14 +98,16 @@ public sealed class SqlPushStore(SqlDatabase database, TimeProvider time) : IPus
                     + " AND COALESCE(occurrence, '') = COALESCE(@occurrence, '')",
                 parameters, transaction, cancellationToken: cancellation));
         }
-        // The same time snoozed again holds the latest occurrence (a repeating task snoozed to the
-        // same minute on its next date) and reminder. The key is (user, task, at), so two reminders
-        // of one task snoozed to the same minute share a row: the later press's first wins (null if
-        // it named none), and the other reminder, if pressed early, also comes at its own time. Rare;
-        // a key with first_at in it would need another migration.
+        // One row per person, task, time and reminder (0021): two reminders of one task snoozed to
+        // the same minute each keep their own, and one that names none has its own too. The same
+        // time snoozed again holds the latest occurrence (a repeating task snoozed to the same minute
+        // on its next date).
         await connection.ExecuteAsync(new CommandDefinition(
             "INSERT INTO reminder_snoozes (user_id, task_id, at, occurrence, first_at) VALUES (@userId, @taskId, @at, @occurrence, @first)"
-                + " ON CONFLICT (user_id, task_id, at) DO UPDATE SET occurrence = excluded.occurrence, first_at = excluded.first_at",
+                + (first is null
+                    ? " ON CONFLICT (user_id, task_id, at) WHERE first_at IS NULL"
+                    : " ON CONFLICT (user_id, task_id, at, first_at) WHERE first_at IS NOT NULL")
+                + " DO UPDATE SET occurrence = excluded.occurrence",
             parameters, transaction, cancellationToken: cancellation));
         await transaction.CommitAsync(cancellation);
     }
