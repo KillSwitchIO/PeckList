@@ -19,7 +19,7 @@ import {
   useMediaQuery,
   useTheme,
 } from '@mui/material';
-import { Suspense, useEffect, useRef, useState } from 'react';
+import { Suspense, useCallback, useEffect, useRef, useState } from 'react';
 import { Outlet, useLocation, useNavigate } from 'react-router';
 import { t } from '../i18n/i18n.ts';
 import { SupporterReminder } from '../support/SupporterReminder.tsx';
@@ -48,6 +48,7 @@ import { useDetailWidth } from './useDetailWidth.ts';
 import { SidebarLists } from '../lists/SidebarLists.tsx';
 import { SidebarTags } from '../tags/SidebarTags.tsx';
 import { useTaskSelection } from '../tasks/selection.ts';
+import { focusRow } from '../tasks/detailFocus.ts';
 import { TaskDetail } from '../tasks/TaskDetail.tsx';
 import { settleDraft } from '../tasks/drafts.ts';
 import { UndoToast } from '../tasks/UndoToast.tsx';
@@ -269,7 +270,20 @@ function AppFrame() {
   noteArrival(pathname);
   // The Android app's Add task shortcut: /today?add=1 focuses the add-task field.
   useAddFromAddress();
-  const { selectedId, close, full, leaveFull } = useTaskSelection();
+  const { selectedId, close: closeTask, full, leaveFull } = useTaskSelection();
+  // Closing the details (Escape, x, the sheet's swipe) puts the keyboard back on the task's row,
+  // once the page has drawn without them (detailFocus.ts).
+  const returnTo = useRef<string | null>(null);
+  const close = useCallback(() => {
+    returnTo.current = selectedId;
+    closeTask();
+  }, [selectedId, closeTask]);
+  useEffect(() => {
+    if (selectedId !== null) return;
+    const taskId = returnTo.current;
+    returnTo.current = null;
+    if (taskId) focusRow(taskId);
+  }, [selectedId]);
   const [headerSlot, setHeaderSlot] = useState<HTMLElement | null>(null);
   // Details in the large full-screen view instead of the side panel (resets with the task).
   const [expandedId, setExpandedId] = useState<string | null>(null);

@@ -34,6 +34,7 @@ import { SwipeRow } from './SwipeRow.tsx';
 import { useRowDate } from './rowDate.ts';
 import { MoveToListDialog, TaskMenu, type TaskMenuAnchor } from './TaskMenu.tsx';
 import { isBlankDraft } from './drafts.ts';
+import { openedFromRow } from './detailFocus.ts';
 import { occurrenceOf } from '../../core/occurrences.ts';
 import { OccurrenceRow } from '../repeat/OccurrenceRow.tsx';
 import { deleteAsking } from '../repeat/repeatActions.ts';
@@ -350,7 +351,15 @@ function TaskRowContent({
     (showParent && parent !== undefined) ||
     showsList;
   const openButton = {
-    onClick: () => (select ? select.onToggle() : open(task.id)),
+    onClick: (event: React.MouseEvent) => {
+      if (select) {
+        select.onToggle();
+        return;
+      }
+      // Enter or Space: the details title takes the keyboard (detailFocus.ts).
+      openedFromRow(task.id, event.detail === 0);
+      open(task.id);
+    },
     ...(gesture ?? {}),
     ...(dragging
       ? {

@@ -78,4 +78,34 @@ describe('keyboard shortcuts', () => {
     expect(task('Mow').deletedAt).not.toBeNull();
     expect(await screen.findByText('Task deleted')).toBeInTheDocument();
   });
+
+  it('Enter on a row takes the keyboard into the details, and closing gives the row it back', async () => {
+    // QA's keyboard pass (2026-11-20): it fell to the page both ways, on every engine.
+    await inboxWith('Mow', 'Rake');
+    const mow = screen.getByRole('button', { name: 'Open Mow' });
+    mow.focus();
+    await userEvent.keyboard('{Enter}');
+    const details = await screen.findByRole('region', { name: 'Task details' });
+    const title = within(details).getByRole('textbox', { name: 'Title' });
+    await waitFor(() => expect(title).toHaveFocus());
+    await userEvent.keyboard('{Escape}');
+    await waitFor(() => expect(screen.queryByRole('region', { name: 'Task details' })).toBeNull());
+    expect(screen.getByRole('button', { name: 'Open Mow' })).toHaveFocus();
+
+    // Space opens it too; the close button gives the row back as well.
+    await userEvent.keyboard(' ');
+    const again = await screen.findByRole('region', { name: 'Task details' });
+    await waitFor(() =>
+      expect(within(again).getByRole('textbox', { name: 'Title' })).toHaveFocus(),
+    );
+    await userEvent.click(within(again).getAllByRole('button', { name: 'Close' })[0]!);
+    await waitFor(() => expect(screen.queryByRole('region', { name: 'Task details' })).toBeNull());
+    expect(screen.getByRole('button', { name: 'Open Mow' })).toHaveFocus();
+
+    // A pointer leaves the keyboard alone: on a phone a focused title brings the keyboard up.
+    await userEvent.click(screen.getByRole('button', { name: 'Open Rake' }));
+    const rake = await screen.findByRole('region', { name: 'Task details' });
+    await new Promise((resolve) => setTimeout(resolve, 150));
+    expect(within(rake).getByRole('textbox', { name: 'Title' })).not.toHaveFocus();
+  });
 });
