@@ -1,21 +1,25 @@
 # Docker
 
-PeckList ships as one image that serves both the web app and the API.
+PeckList ships as one image that serves both the web app and the API. It is on two registries,
+the same image on each, so use whichever you like:
 
 ```text
 registry.gitlab.com/killswitch10/pecklist
+docker.io/hambone0/pecklist
 ```
+
+The examples here use the first; put `hambone0/pecklist` in its place for Docker Hub.
 
 ## Image tags
 
 | Tag           | What it is                                                                                     |
 | ------------- | ---------------------------------------------------------------------------------------------- |
 | `latest`      | The newest full release, never a pre-release.                                                  |
-| `0.2`         | The newest `0.2.x` release: fixes, never a breaking change. Recommended for automatic updates. |
-| `0.2.1`       | Exactly that release.                                                                          |
+| `0.13`        | The newest `0.13.x` release: fixes, never a breaking change. Recommended for automatic updates. |
+| `0.13.0`      | Exactly that release.                                                                          |
 | `rc`          | The newest release candidate (`beta` and `alpha` likewise). To try what comes next.             |
 | `edge`        | The current `main` branch, built on every merge. For testing; not for data you care about.     |
-| `sha-abc1234` | One `main` commit.                                                                             |
+| `sha-abc1234` | One `main` commit (GitLab's registry only).                                                    |
 
 Every image runs on `linux/amd64` and `linux/arm64` (a Raspberry Pi 4 or 5 with a 64-bit OS works).
 Release images are signed: [verifying downloads and images](verifying.md) shows the `cosign verify`

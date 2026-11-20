@@ -8,6 +8,8 @@ docker run -d --name pecklist -p 8080:8080 -v pecklist-data:/data -v pecklist-fi
 docker logs pecklist
 ```
 
+The same image is on Docker Hub as `hambone0/pecklist:latest`, if you would rather pull it from there.
+
 The log shows a box like this, once:
 
 ```text
