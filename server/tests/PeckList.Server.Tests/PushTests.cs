@@ -426,6 +426,15 @@ public sealed class PushTests(ServerFixture fixture) : IClassFixture<ServerFixtu
         // stored copy, so the rest stays (audit P1).
         Assert.All(["AT1", "AT2", "AT3", "AT4"], id => Assert.Equal($"notes of {id}", (string?)tasks[id]["notes"]));
         Assert.True((bool?)tasks["AT3"]["tags"]!["TG1"]!["in"]);
+        // Nor does the in-memory copy add fields of its own: every field written has a clock. It
+        // used to put pinnedAt in as null, unstamped, on tasks that never had one (the drill's
+        // cleanup refused them, 2026-11-20).
+        Assert.All(tasks.Values, task =>
+        {
+            Assert.False(task.ContainsKey("pinnedAt"), $"{task["id"]} gained pinnedAt");
+            var clocks = task["_hlc"]!.AsObject();
+            Assert.DoesNotContain(task, pair => pair.Key is not ("id" or "_hlc") && !clocks.ContainsKey(pair.Key));
+        });
         // Snoozed an hour for Ben: the task keeps its own reminders, and the app's next check sets it.
         Assert.Single(tasks["AT3"]["reminders"]!.AsArray());
         var check = (await ben.GetFromJsonAsync<AppCheck>("/api/app/check", Token))!;

@@ -61,7 +61,11 @@ public sealed class SharingIndex
 
         /// <summary>
         /// The document: the stored one, or for the rest one made from the kept fields (a fresh
-        /// copy each time, so callers may change it).
+        /// copy each time, so callers may change it). A kept field with no text is left out rather
+        /// than set to null: the server writes notification presses from this copy, merged onto
+        /// the stored one, and a null here with no clock became a field the task never had
+        /// (pinnedAt, unstamped; found by the notification drill's cleanup, 2026-11-20). Read
+        /// through the indexer, left out and null are the same.
         /// </summary>
         public JsonObject Doc
         {
@@ -70,7 +74,10 @@ public sealed class SharingIndex
                 if (Whole is not null) return Whole;
                 var doc = new JsonObject { ["id"] = Id };
                 var names = Read.GetValueOrDefault(Collection) ?? Plain;
-                for (var at = 0; at < names.Length; at++) doc[names[at]] = Fields[at];
+                for (var at = 0; at < names.Length; at++)
+                {
+                    if (Fields[at] is { } text) doc[names[at]] = text;
+                }
                 if (Collection == "tasks")
                 {
                     var assignees = new JsonObject();
