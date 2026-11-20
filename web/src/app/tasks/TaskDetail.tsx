@@ -22,7 +22,7 @@ import { useSearchParams } from 'react-router';
 import { getEntity, isLive } from '../../core/collections.ts';
 import { datePart, daysBetween, localDateTimeOf, localTimeZone } from '../../core/dates.ts';
 import { dateState } from '../../core/queries.ts';
-import { setCompletedAt, updateTask } from '../../core/tasks.ts';
+import { MAX_NOTES_LENGTH, setCompletedAt, updateTask } from '../../core/tasks.ts';
 import { DateProperty } from '../dates/DateProperty.tsx';
 import { NotesEditor } from '../editor/NotesEditor.tsx';
 import { CollapseIcon, DueIcon, ExpandIcon } from '../icons/icons.tsx';
@@ -455,6 +455,7 @@ export function TaskDetail({
               placeholder={t('task.notesPlaceholder')}
               value={task.notes}
               readOnly={readOnly}
+              maxLength={MAX_NOTES_LENGTH}
               onCommit={(notes) => apply((ctx, ws) => updateTask(ctx, ws, task.id, { notes }))}
             />
           )}
