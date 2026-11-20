@@ -1075,3 +1075,160 @@ describe('sync engine', () => {
     expect(second.engine.getState().status).toBe('server-behind');
   });
 });
+
+describe('the one full pull again (needsRepull)', () => {
+  type Device = Awaited<ReturnType<typeof device>>;
+
+  /** The phone as an older version left it: no repull mark, and `workspace` as what it kept. */
+  async function asOlderVersionLeftIt(phone: Device, workspace: WorkspaceFile) {
+    await phone.store.getState().reset(workspace);
+    const meta = (await phone.storage.loadMeta('sync')) as Record<string, unknown>;
+    delete meta.repull;
+    await phone.storage.saveMeta('sync', meta);
+  }
+
+  /** The cursor of each sync request this device sends from now on. */
+  function cursorsSent(phone: Device): (number | null)[] {
+    const sent: (number | null)[] = [];
+    const sync = phone.transport.sync.bind(phone.transport);
+    phone.transport.sync = (request) => {
+      sent.push(request.cursor);
+      return sync(request);
+    };
+    return sent;
+  }
+
+  const repullOf = async (phone: Device) =>
+    ((await phone.storage.loadMeta('sync')) as { repull?: string | null }).repull;
+
+  async function laptopAndPhone() {
+    const backend = new FakeBackend();
+    backend.addAccount('ben', 'correct horse battery');
+    const laptop = await device(backend, 'laptop');
+    await laptop.engine.getState().start();
+    await laptop.engine.getState().signIn('ben', 'correct horse battery');
+    addTask(laptop.store, 'Mow');
+    await laptop.engine.getState().syncNow();
+    const phone = await device(backend, 'phone');
+    await phone.engine.getState().start();
+    await phone.engine.getState().signIn('ben', 'correct horse battery');
+    return { backend, laptop, phone };
+  }
+
+  it('a device linked now never pulls everything again', async () => {
+    const { laptop, phone } = await laptopAndPhone();
+    expect(await repullOf(phone)).toBe('done');
+    const sent = cursorsSent(phone);
+    addTask(laptop.store, 'Rake');
+    await laptop.engine.getState().syncNow();
+    await phone.engine.getState().syncNow();
+    await phone.engine.getState().syncNow();
+    expect(sent.length).toBeGreaterThan(0);
+    expect(sent).not.toContain(0);
+    expect(titles(phone.store)).toEqual(['Mow', 'Rake']);
+  });
+
+  it('brings back what an older version lost after a regular pull (2026-11-20)', async () => {
+    const { laptop, phone } = await laptopAndPhone();
+    const kept = phone.store.getState().workspace!;
+    addTask(laptop.store, 'Late');
+    await laptop.engine.getState().syncNow();
+    await phone.engine.getState().syncNow();
+    expect(titles(phone.store)).toEqual(['Late', 'Mow']);
+    // The page with "Late" was taken in, the cursor stored, and the app closed before the data
+    // was: the cursor is past it, the device does not have it.
+    await asOlderVersionLeftIt(phone, kept);
+    expect(titles(phone.store)).toEqual(['Mow']);
+
+    const sent = cursorsSent(phone);
+    await phone.engine.getState().syncNow();
+    expect(sent[0]).toBe(0);
+    expect(titles(phone.store)).toEqual(['Late', 'Mow']);
+    expect(await repullOf(phone)).toBe('done');
+    // Once only.
+    await phone.engine.getState().syncNow();
+    expect(sent.filter((cursor) => cursor === 0)).toHaveLength(1);
+  });
+
+  it('keeps and sends what the device changed but had not sent yet', async () => {
+    const { backend, laptop, phone } = await laptopAndPhone();
+    const kept = phone.store.getState().workspace!;
+    addTask(laptop.store, 'Late');
+    await laptop.engine.getState().syncNow();
+    await phone.engine.getState().syncNow();
+    await asOlderVersionLeftIt(phone, kept);
+    // Changed here, not sent yet: a new task, and a title edit to one the server has.
+    addTask(phone.store, 'Mine');
+    const mow = phone.store
+      .getState()
+      .workspace!.entities.tasks.find((task) => task.title === 'Mow')!;
+    phone.store
+      .getState()
+      .apply((ctx, ws) => updateTask(ctx, ws, mow.id, { title: 'Mow the lawn' }));
+
+    await phone.engine.getState().syncNow();
+    expect(titles(phone.store)).toEqual(['Late', 'Mine', 'Mow the lawn']);
+    const onServer = [...backend.server.rows.values()]
+      .filter((row) => row.change.collection === 'tasks')
+      .map((row) => (row.change.entity as unknown as { title: string }).title);
+    expect(onServer).toEqual(expect.arrayContaining(['Mine', 'Mow the lawn', 'Late']));
+    expect(onServer).not.toContain('Mow');
+  });
+
+  it('keeps what the server deleted deleted', async () => {
+    const { laptop, phone } = await laptopAndPhone();
+    const gone = addTask(laptop.store, 'Gone');
+    await laptop.engine.getState().syncNow();
+    await phone.engine.getState().syncNow();
+    const kept = phone.store.getState().workspace!;
+    expect(titles(phone.store)).toEqual(['Gone', 'Mow']);
+    // Deleted on the laptop; the phone took the deletion in and lost it again. A second task
+    // made and deleted there, which the phone never had at all.
+    const never = addTask(laptop.store, 'Never');
+    laptop.store.getState().apply((ctx, ws) => deleteTask(ctx, deleteTask(ctx, ws, gone), never));
+    await laptop.engine.getState().syncNow();
+    await phone.engine.getState().syncNow();
+    expect(titles(phone.store)).toEqual(['Mow']);
+    await asOlderVersionLeftIt(phone, kept);
+    expect(titles(phone.store)).toEqual(['Gone', 'Mow']);
+
+    await phone.engine.getState().syncNow();
+    expect(titles(phone.store)).toEqual(['Mow']);
+    const tasks = phone.store.getState().workspace!.entities.tasks;
+    expect(tasks.find((task) => task.id === gone)?.deletedAt).not.toBeNull();
+    expect(tasks.find((task) => task.id === never)?.deletedAt ?? 'absent').not.toBeNull();
+  });
+
+  it('carries on from where a pull stopped partway, not from the start', async () => {
+    const { backend, laptop, phone } = await laptopAndPhone();
+    const kept = phone.store.getState().workspace!;
+    for (let index = 0; index < 12; index += 1) addTask(laptop.store, `Box ${index}`);
+    await laptop.engine.getState().syncNow();
+    await phone.engine.getState().syncNow();
+    await asOlderVersionLeftIt(phone, kept);
+    backend.server.pageSize = 5;
+
+    // The connection goes after the first page of the pull again.
+    const sent = cursorsSent(phone);
+    const sync = phone.transport.sync.bind(phone.transport);
+    let calls = 0;
+    phone.transport.sync = (request) => {
+      calls += 1;
+      if (calls === 2) phone.transport.offline = true;
+      return sync(request);
+    };
+    await phone.engine.getState().syncNow();
+    const stopped = (await phone.storage.loadMeta('sync')) as { cursor: number; repull: string };
+    expect(sent[0]).toBe(0);
+    expect(stopped.repull).toBe('pending');
+    expect(stopped.cursor).toBeGreaterThan(0);
+
+    phone.transport.offline = false;
+    sent.length = 0;
+    await phone.engine.getState().syncNow();
+    expect(sent[0]).toBe(stopped.cursor);
+    expect(sent).not.toContain(0);
+    expect(titles(phone.store)).toHaveLength(13);
+    expect(await repullOf(phone)).toBe('done');
+  });
+});
