@@ -39,6 +39,7 @@ import { FlagIcon } from '../icons/icons.tsx';
 import { listName } from '../lists/listName.ts';
 import { useStoreState, useWorkspace } from '../store/hooks.ts';
 import { TagChip } from '../tags/TagChip.tsx';
+import { SelectAllPair } from './SelectAllPair.tsx';
 
 const PRIORITIES: Priority[] = [3, 2, 1, 0];
 const PRIORITY_KEY = { 0: 'none', 1: 'low', 2: 'medium', 3: 'high' } as const;
@@ -51,12 +52,26 @@ function toggle<T>(values: T[], value: T): T[] {
   return values.includes(value) ? values.filter((each) => each !== value) : [...values, value];
 }
 
-function Part({ label, children }: { label: string; children: ReactNode }) {
+function Part({
+  label,
+  action,
+  children,
+}: {
+  label: string;
+  /** Beside the label, on its right: Select all and Deselect all. */
+  action?: ReactNode;
+  children: ReactNode;
+}) {
   return (
     <Box>
-      <Typography variant="caption" color="text.secondary" component="div" sx={{ mb: 0.75 }}>
-        {label}
-      </Typography>
+      <Box
+        sx={{ display: 'flex', alignItems: 'center', mb: 0.75, minHeight: action ? 24 : undefined }}
+      >
+        <Typography variant="caption" color="text.secondary" component="div">
+          {label}
+        </Typography>
+        {action}
+      </Box>
       {children}
     </Box>
   );
@@ -98,6 +113,8 @@ export function FilterDialog({
       .filter((view) => view.mine?.state === 'active')
       .map((view) => ({ value: `group:${view.group.id}`, label: view.group.name })),
   ];
+  const allLists = visibleLists(workspace).map((list) => list.id);
+  const allTags = tagTree(workspace).map(({ tag }) => tag.id);
   const valid = name.trim() !== '';
 
   const save = () => {
@@ -132,7 +149,18 @@ export function FilterDialog({
               autoFocus
               onChange={(event) => setName(event.target.value)}
             />
-            <Part label={t('filter.lists')}>
+            <Part
+              label={t('filter.lists')}
+              action={
+                <SelectAllPair
+                  section={t('narrow.lists')}
+                  total={allLists.length}
+                  picked={allLists.filter((id) => lists.includes(id)).length}
+                  onAll={() => setLists(allLists)}
+                  onNone={() => setLists([])}
+                />
+              }
+            >
               <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.75 }}>
                 {visibleLists(workspace).map((list) => (
                   <Chip
@@ -147,7 +175,20 @@ export function FilterDialog({
                 ))}
               </Box>
             </Part>
-            <Part label={t('filter.tags')}>
+            <Part
+              label={t('filter.tags')}
+              action={
+                allTags.length > 0 && (
+                  <SelectAllPair
+                    section={t('narrow.tags')}
+                    total={allTags.length}
+                    picked={allTags.filter((id) => tags.includes(id)).length}
+                    onAll={() => setTags(allTags)}
+                    onNone={() => setTags([])}
+                  />
+                )
+              }
+            >
               <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.75 }}>
                 {tagTree(workspace).length === 0 && (
                   <Typography variant="body2" color="text.disabled">

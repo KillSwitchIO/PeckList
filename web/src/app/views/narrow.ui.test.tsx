@@ -79,4 +79,63 @@ describe('filtering Today, Upcoming and the calendar', () => {
     expect(shown('Water plants')).toBeInTheDocument();
     expect(localStorage.getItem('pecklist.narrow.today')).toBeNull();
   });
+
+  it('selects all and deselects all lists and tags at once (Ben, 0.14.0)', async () => {
+    await seeded('/today');
+    const open = async () => {
+      await userEvent.click(screen.getByRole('button', { name: /^Filter/ }));
+      return screen.findByRole('dialog', { name: 'Show only' });
+    };
+    // The rows sit behind the open panel (aria-hidden while it is open).
+    const behind = (title: string) =>
+      screen.queryByRole('button', { name: `Open ${title}`, hidden: true });
+    let panel = await open();
+    const checked = (kind: string) =>
+      within(within(panel).getByRole('list', { name: kind }))
+        .getAllByRole('menuitemcheckbox')
+        .map((item) => item.getAttribute('aria-checked'));
+    // Nothing picked yet: Deselect all has nothing to do. Saved filters get neither.
+    expect(within(panel).getByRole('button', { name: 'Deselect all: Lists' })).toHaveAttribute(
+      'aria-disabled',
+      'true',
+    );
+    expect(within(panel).queryByRole('button', { name: 'Select all: Saved filters' })).toBeNull();
+
+    await userEvent.click(within(panel).getByRole('button', { name: 'Select all: Lists' }));
+    expect(checked('Lists')).toEqual(['true', 'true']);
+    expect(within(panel).getByRole('button', { name: 'Select all: Lists' })).toHaveAttribute(
+      'aria-disabled',
+      'true',
+    );
+    // Every list picked lets every task through.
+    expect(behind('Water plants')).toBeInTheDocument();
+    expect(behind('Team lunch')).toBeInTheDocument();
+
+    // Every tag picked: tasks with any of them, so the untagged one goes.
+    await userEvent.click(within(panel).getByRole('button', { name: 'Select all: Tags' }));
+    expect(checked('Tags')).toEqual(['true']);
+    expect(behind('Team lunch')).toBeNull();
+    expect(behind('Ship report')).toBeInTheDocument();
+
+    // Deselect all leaves the kind open again, as before anything was picked.
+    await userEvent.click(within(panel).getByRole('button', { name: 'Deselect all: Tags' }));
+    expect(checked('Tags')).toEqual(['false']);
+    expect(behind('Team lunch')).toBeInTheDocument();
+    await userEvent.click(within(panel).getByRole('button', { name: 'Deselect all: Lists' }));
+    expect(checked('Lists')).toEqual(['false', 'false']);
+    expect(screen.getByRole('button', { name: 'Filter', hidden: true })).toBeInTheDocument();
+    fireEvent.keyDown(panel, { key: 'Escape' });
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+
+    // From the keyboard: the buttons take Tab and Enter.
+    panel = await open();
+    const all = within(panel).getByRole('button', { name: 'Select all: Lists' });
+    all.focus();
+    await userEvent.keyboard('{Enter}');
+    expect(checked('Lists')).toEqual(['true', 'true']);
+    await userEvent.tab();
+    expect(within(panel).getByRole('button', { name: 'Deselect all: Lists' })).toHaveFocus();
+    await userEvent.keyboard('{Enter}');
+    expect(checked('Lists')).toEqual(['false', 'false']);
+  });
 });
