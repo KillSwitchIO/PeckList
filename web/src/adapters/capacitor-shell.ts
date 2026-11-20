@@ -42,6 +42,7 @@ interface ShellPlugin {
   showKeyboard(): Promise<void>;
   setWidgetTasks(feed: WidgetFeed): Promise<void>;
   takeAddText(): Promise<{ text?: unknown }>;
+  saveSignIn(): Promise<void>;
 }
 
 const CHANNEL_KINDS: PhoneChannelKind[] = [
@@ -177,5 +178,6 @@ export function createCapacitorShell(): NativeShell | null {
         ({ text }) => (typeof text === 'string' && text.trim() ? text : null),
         () => null,
       ),
+    saveSignIn: () => plugin.saveSignIn(),
   };
 }

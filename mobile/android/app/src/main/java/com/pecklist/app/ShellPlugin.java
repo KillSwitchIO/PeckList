@@ -40,9 +40,9 @@ public class ShellPlugin extends Plugin {
      * Bumped when a method is added; the web app checks it before calling a newer one. Since 0.13.0:
      * 10 brought both notification channels and scheduleReminders' keep (they shipped together in
      * 0.14.0, so a shell at 10 has both), 11 setShortcuts and showKeyboard, 12 setWidgetTasks, 13
-     * takeAddText. The next method is 14.
+     * takeAddText, 14 saveSignIn. The next method is 15.
      */
-    private static final int API = 13;
+    private static final int API = 14;
 
     static final String NOTIFICATIONS = "notifications";
 
@@ -406,6 +406,17 @@ public class ShellPlugin extends Plugin {
         String text = AddText.take(System.currentTimeMillis());
         if (text != null) result.put("text", text);
         call.resolve(result);
+    }
+
+    /**
+     * Api 14: the WebView's cookies written to disk now. The web app asks as soon as an account is
+     * signed in (web/src/app/native/saveSignIn.ts): Android saves them on its own schedule, so a
+     * sign-in only seconds old was lost when the app was stopped before then.
+     */
+    @PluginMethod
+    public void saveSignIn(PluginCall call) {
+        android.webkit.CookieManager.getInstance().flush();
+        call.resolve();
     }
 
     /**
