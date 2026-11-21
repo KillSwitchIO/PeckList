@@ -518,6 +518,7 @@ pecklist tasks <command> [options]
 | [`tasks show`](#tasks-show) | Show everything about one task: its list, dates, reminders, repeat, people, checklist, subtasks and notes. |
 | [`tasks edit`](#tasks-edit) | Change a task: only what you name changes. |
 | [`tasks done`](#tasks-done) | Close a task. A repeating one moves on to its next date, as in the app. |
+| [`tasks snooze`](#tasks-snooze) | Put off one of a task's reminders for you, as Snooze in the app. The task itself is not changed. |
 | [`tasks reopen`](#tasks-reopen) | Open a closed task again. |
 | [`tasks delete`](#tasks-delete) (`tasks rm`) | Move a task to the trash. tasks restore brings it back. |
 | [`tasks restore`](#tasks-restore) | Bring a task back from the trash. |
@@ -653,6 +654,26 @@ pecklist tasks done ID [--wontdo] [-j]
 ```bash
 pecklist tasks done 01HX...
 pecklist tasks done 01HX... --wontdo
+```
+
+### `tasks snooze`
+
+Put off one of a task's reminders for you, as Snooze in the app. The task itself is not changed.
+
+```text
+pecklist tasks snooze ID [--minutes N] [-j]
+```
+
+It snoozes the reminder that came last, or the next one if none has come yet; snoozing again moves that snooze. Your apps hear of it and remind you again then. Tasks assigned to someone else remind them, so only they can snooze those.
+
+| Option | What it does |
+| --- | --- |
+| `--minutes N` | How many minutes to put it off: 1 to 10080 (a week). Ten if left out. |
+| `-j`, `--json` | Print the API's JSON: one thing as an object, a list of things as `{"items": [...]}`. |
+
+```bash
+pecklist tasks snooze 01HX...
+pecklist tasks snooze 01HX... --minutes 60
 ```
 
 ### `tasks reopen`

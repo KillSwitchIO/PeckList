@@ -294,7 +294,11 @@ public sealed partial class CliCommandTests(ServerFixture fixture) : IClassFixtu
     {
         using var world = await StartAsync(fixture, Sqlite);
         var ben = await world.PersonAsync("ben");
-        await PushAsync(ben, List("IN", "Inbox", inbox: true), List("L1", "Home"));
+        // A task of Ben's with a reminder, for tasks snooze.
+        var reminded = Task("R1", "L1", "Pills", due: "2030-01-01T09:00");
+        reminded.Item2["createdBy"] = ben.Id;
+        reminded.Item2["reminders"] = new JsonArray(new JsonObject { ["before"] = 0 });
+        await PushAsync(ben, List("IN", "Inbox", inbox: true), List("L1", "Home"), reminded);
         var store = new MemoryTokenStore();
         Assert.Equal(0, (await Run(world, store, await KeyTokenAsync(ben.Session, "tasks:write"), "login", "--server", Server, "--token")).Code);
 
@@ -325,6 +329,8 @@ public sealed partial class CliCommandTests(ServerFixture fixture) : IClassFixtu
         Assert.Equal(0, (await Run(world, store, null, "tasks", "rm", id)).Code);
         Assert.Equal(id, (string?)(await JsonOf("tasks", "restore", id, "-j"))["id"]);
         tested.Add("tasks restore");
+        Assert.Equal("R1", (string?)(await JsonOf("tasks", "snooze", "R1", "--minutes", "15", "-j"))["taskId"]);
+        tested.Add("tasks snooze");
         Listed(await JsonOf("lists", "list", "-j"));
         tested.Add("lists list");
         Assert.Equal("Garden", (string?)(await JsonOf("lists", "add", "Garden", "-j"))["name"]);

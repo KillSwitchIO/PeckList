@@ -208,6 +208,33 @@ public sealed class TaskListTests
         Assert.DoesNotContain(api.Requests, request => request.StartsWith("GET /api/v1/tasks", StringComparison.Ordinal));
     }
 
+    // Snooze ---------------------------------------------------------------------------------------
+
+    [Fact]
+    public async Task Snooze_puts_off_a_reminder_for_the_minutes_given_and_says_until_when()
+    {
+        var api = Api();
+        api.Answers[$"POST api/v1/tasks/{Roses}/snooze"] = $$"""{"taskId":"{{Roses}}","at":"2026-11-12T10:30:00Z","first":"2026-11-12T09:00:00Z"}""";
+        var snoozed = await Cli.RunAtAsync(api, await SignedInAsync(), Now, null, "tasks", "snooze", Roses, "--minutes", "90");
+        Assert.True(snoozed.Code == 0, snoozed.Err);
+        Assert.Equal("Snoozed until 2026-11-12 10:30\n", snoozed.Out);
+        Assert.Contains($"POST /api/v1/tasks/{Roses}/snooze", api.Requests);
+
+        var json = await Cli.RunAtAsync(api, await SignedInAsync(), Now, null, "tasks", "snooze", Roses, "--json");
+        Assert.True(json.Code == 0, json.Err);
+        Assert.Contains("\"first\"", json.Out);
+
+        // Minutes out of range are refused before anything is sent.
+        api.Requests.Clear();
+        foreach (var minutes in new[] { "0", "10081", "ten", "-5" })
+        {
+            var refused = await Cli.RunAtAsync(api, await SignedInAsync(), Now, null, "tasks", "snooze", Roses, "--minutes", minutes);
+            Assert.Equal(ClientCli.BadUsage, refused.Code);
+            Assert.Contains("--minutes is 1 to 10080", refused.Err);
+        }
+        Assert.Empty(api.Requests);
+    }
+
     // Short ids and show ---------------------------------------------------------------------------
 
     [Fact]
@@ -233,6 +260,7 @@ public sealed class TaskListTests
         [
             ["tasks", "done", "ZZZZ"], ["tasks", "done", "ZZZZ", "--wontdo"], ["tasks", "rm", "ZZZZ"], ["tasks", "delete", "ZZZZ"],
             ["tasks", "edit", "ZZZZ", "-T", "New"], ["tasks", "reopen", "ZZZZ"], ["tasks", "restore", "ZZZZ"], ["tasks", "show", "ZZZZ"],
+            ["tasks", "snooze", "ZZZZ"],
         ];
         foreach (var line in commands)
         {

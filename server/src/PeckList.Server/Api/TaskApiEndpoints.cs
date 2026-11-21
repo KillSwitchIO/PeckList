@@ -183,6 +183,9 @@ public static class TaskApiEndpoints
             }, optional: true)).Write<ApiCompleteInput, CompleteResult>("Close a task; a repeating one moves on to its next date, answered as next");
         v1.MapPost("/tasks/{id}/reopen", (string id, ClaimsPrincipal user, TaskWrites writes, CancellationToken cancellation) =>
             writes.ReopenAsync(user.UserId(), id, cancellation)).Write<ApiTask>("Open a closed task again");
+        v1.MapPost("/tasks/{id}/snooze", (string id, HttpContext context, ClaimsPrincipal user, TaskWrites writes, CancellationToken cancellation) =>
+            WithBody(context, body => writes.SnoozeAsync(user.UserId(), id, body, cancellation), optional: true))
+            .Write<ApiSnoozeInput, ApiSnooze>("Put off one of the task's reminders for you, as the app's Snooze (the task is not changed); answered with when it comes again");
         v1.MapDelete("/tasks/{id}", (string id, ClaimsPrincipal user, TaskWrites writes, CancellationToken cancellation) =>
             writes.DeleteAsync(user.UserId(), id, cancellation)).Write("Delete a task and its subtasks (restore brings them back)");
         v1.MapPost("/tasks/{id}/restore", (string id, ClaimsPrincipal user, TaskWrites writes, CancellationToken cancellation) =>
@@ -222,7 +225,7 @@ public static class TaskApiEndpoints
     private static RouteHandlerBuilder Write<TBody, T>(this RouteHandlerBuilder route, string summary, int status = StatusCodes.Status200OK) where TBody : notnull
     {
         // Described, not enforced: Accepts would also make routing match on the Content-Type.
-        route.WithMetadata(new ApiDocs.Body(typeof(TBody), Optional: typeof(TBody) == typeof(ApiCompleteInput))).Write<T>(summary, status);
+        route.WithMetadata(new ApiDocs.Body(typeof(TBody), Optional: typeof(TBody) == typeof(ApiCompleteInput) || typeof(TBody) == typeof(ApiSnoozeInput))).Write<T>(summary, status);
         // A create with an id that exists already answers 200 with it.
         if (status == StatusCodes.Status201Created) route.Produces<T>();
         return route;

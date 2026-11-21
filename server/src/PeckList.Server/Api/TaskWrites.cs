@@ -658,6 +658,94 @@ public sealed class TaskWrites(
     private static IEnumerable<string> Clocks(JsonObject doc) =>
         (doc["_hlc"] as JsonObject)?.Select(pair => pair.Value is JsonValue value && value.TryGetValue<string>(out var text) ? text : null).OfType<string>() ?? [];
 
+    /// <summary>
+    /// Puts off one of the task's reminders for the caller alone (PL-119, for Home Assistant and the
+    /// CLI), by the rules the apps' Snooze keeps (<see cref="ReminderSnoozes"/>): the task is not
+    /// changed, it comes again for them <c>minutes</c> from now, a new snooze of the same reminder
+    /// replaces the last, and their apps hear of it (<c>/api/reminders/snoozes</c>). Only for someone
+    /// the task's reminders come to, on an open task with a reminder.
+    /// </summary>
+    public async Task<IResult> SnoozeAsync(string userId, string id, JsonObject body, CancellationToken cancellation)
+    {
+        var unknown = body.Select(pair => pair.Key).FirstOrDefault(key => key is not ("minutes" or "first"));
+        if (unknown is not null) return ApiProblems.Invalid($"'{unknown}' is not a field here");
+        var minutes = ReminderSnoozes.DefaultMinutes;
+        if (body["minutes"] is not null
+            && (body["minutes"] is not JsonValue given || !given.TryGetValue(out minutes) || minutes is < 1 or > ReminderSnoozes.MaxMinutes))
+        {
+            return BadField("minutes", $"must be a whole number from 1 to {ReminderSnoozes.MaxMinutes}");
+        }
+        DateTimeOffset? named = null;
+        if (body["first"] is not null)
+        {
+            if (body["first"] is not JsonValue value || !value.TryGetValue<string>(out var text) || ParseInstant(text) is not { } instant)
+            {
+                return BadField("first", "must be an ISO 8601 instant with its offset, such as 2026-11-21T15:00:00Z");
+            }
+            named = instant;
+        }
+
+        await sharing.Loaded.WaitAsync(cancellation);
+        var index = sharing.Index;
+        if (await queries.FindAsync(userId, "tasks", id, cancellation) is not { } stored || stored.Doc["deletedAt"] is JsonValue
+            || index.LiveDocOf(id, "tasks") is not { } task)
+        {
+            return ApiProblems.NotFound("task", id);
+        }
+        if ((ApiShapes.Text(task, "status") ?? "open") != "open")
+        {
+            return ApiProblems.Result(StatusCodes.Status409Conflict, "closed", "the task is closed, so its reminders don't come");
+        }
+        if (!ServerReminders.Recipients(task, index).Contains(userId))
+        {
+            return ApiProblems.Result(StatusCodes.Status409Conflict, "not_reminded", "this task's reminders come to the people it is assigned to, not to you");
+        }
+        var zone = await DeviceZones.ZoneForAsync(index, userId, push, settings, cancellation);
+        var now = time.GetUtcNow();
+        var reminders = ServerReminders.FirstInstants(task, zone).Distinct().ToList();
+        var mine = (await ReminderSnoozes.ComingAsync(userId, index, push, zone, now, cancellation))
+            .Select(each => each.Snooze).Where(each => each.TaskId == id).ToList();
+        DateTimeOffset? first;
+        if (named is { } pressed)
+        {
+            // One of its own reminders, or a snooze of yours (come back, or still to come) snoozed again.
+            if (!reminders.Contains(pressed) && !mine.Any(each => each.At == pressed))
+            {
+                return BadField("first", "is not when one of this task's reminders is due, nor a snooze of yours");
+            }
+            first = pressed;
+        }
+        // A snooze of yours still to come, or just come back with its repeats running: this one
+        // replaces it, as pressing it again would.
+        else if (mine.Count > 0) first = mine.MaxBy(each => each.At)!.First;
+        else if (reminders.Count == 0)
+        {
+            return ApiProblems.Result(StatusCodes.Status409Conflict, "no_reminder", "the task has no reminder to snooze");
+        }
+        else
+        {
+            // The reminder that came last, else the next one due.
+            var came = reminders.Where(each => each <= now).ToList();
+            first = came.Count > 0 ? came.Max() : reminders.Min();
+        }
+        var comes = await ReminderSnoozes.SnoozeAsync(push, userId, id, task, first, minutes, now, cancellation);
+        return Results.Ok(new ApiSnooze(id, Instant(comes), first is { } shown ? Instant(shown) : null));
+    }
+
+    private static IResult BadField(string field, string message) =>
+        ApiProblems.Invalid($"{field} {message}", new Dictionary<string, string[]> { [field] = [message] });
+
+    private static string Instant(DateTimeOffset at) =>
+        at.UtcDateTime.ToString("yyyy-MM-dd'T'HH:mm:ss'Z'", System.Globalization.CultureInfo.InvariantCulture);
+
+    /// <summary>An ISO 8601 instant that says its offset (Z or +hh:mm); none without one, which would be read on the server's clock.</summary>
+    private static DateTimeOffset? ParseInstant(string text) =>
+        text.Length <= 40
+        && System.Text.RegularExpressions.Regex.IsMatch(text, @"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2}(\.\d{1,7})?)?(Z|[+-]\d{2}:\d{2})$")
+        && DateTimeOffset.TryParse(text, System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.None, out var parsed)
+            ? parsed
+            : null;
+
     public async Task<IResult> ReopenAsync(string userId, string id, CancellationToken cancellation)
     {
         await sharing.Loaded.WaitAsync(cancellation);
@@ -811,3 +899,10 @@ public sealed class TaskWrites(
 
 /// <summary>What complete answers: the closed task, and the next one when it repeats (else null).</summary>
 public sealed record CompleteResult(ApiTask Completed, ApiTask? Next);
+
+/// <summary>
+/// What snooze answers (PL-119): when the reminder comes again for you (<paramref name="At"/>), and
+/// which one it puts off, by when it was first due (<paramref name="First"/>; null when a snooze kept
+/// before reminders were named is the one replaced). Both are UTC instants.
+/// </summary>
+public sealed record ApiSnooze(string TaskId, string At, string? First);

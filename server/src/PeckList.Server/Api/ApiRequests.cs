@@ -52,6 +52,11 @@ public sealed record ApiQuickAddInput(
 /// <summary>How the task was closed.</summary>
 public sealed record ApiCompleteInput([property: Description("done (the default) or wontdo.")] string? Status = null);
 
+/// <summary>Which of the task's reminders to put off, and for how long (PL-119).</summary>
+public sealed record ApiSnoozeInput(
+    [property: Description("1 to 10080 (a week); left out, 10.")] int? Minutes = null,
+    [property: Description("The reminder to put off, by when it was first due (an ISO 8601 instant, as `first` answers it). Left out: a snooze of yours on this task still to come (or just come back, its repeats still running), else its reminder that came last, else the next one due.")] string? First = null);
+
 /// <summary>A list to make (name required) or rename.</summary>
 public sealed record ApiListInput(string? Id = null, string? Name = null, [property: Description("#RRGGBB.")] string? Color = null);
 

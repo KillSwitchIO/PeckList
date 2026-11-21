@@ -14,6 +14,7 @@ _pecklist_canon() {
         'tasks show') printf '%s\n' 'tasks show' ;;
         'tasks edit') printf '%s\n' 'tasks edit' ;;
         'tasks done') printf '%s\n' 'tasks done' ;;
+        'tasks snooze') printf '%s\n' 'tasks snooze' ;;
         'tasks reopen') printf '%s\n' 'tasks reopen' ;;
         'tasks delete'|'tasks rm') printf '%s\n' 'tasks delete' ;;
         'tasks restore') printf '%s\n' 'tasks restore' ;;
@@ -50,7 +51,7 @@ _pecklist_canon() {
 _pecklist_children() {
     case "$1" in
         '') printf '%s\n' login logout whoami tasks lists sections tags people admin oidc snapshot export config completion help add ;;
-        'tasks') printf '%s\n' list ls add show edit done reopen delete rm restore ;;
+        'tasks') printf '%s\n' list ls add show edit done snooze reopen delete rm restore ;;
         'lists') printf '%s\n' list add rename ;;
         'sections') printf '%s\n' list add rename ;;
         'tags') printf '%s\n' list ;;
@@ -80,6 +81,7 @@ _pecklist_options() {
         'tasks show') printf '%s\n' -j --json -h --help --server --profile --api-key --insecure-http ;;
         'tasks edit') printf '%s\n' -T --title -n --notes -l --list -s --section -p --priority -d --due --start -t --tag --repeat --progress -j --json -h --help --server --profile --api-key --insecure-http ;;
         'tasks done') printf '%s\n' --wontdo -j --json -h --help --server --profile --api-key --insecure-http ;;
+        'tasks snooze') printf '%s\n' --minutes -j --json -h --help --server --profile --api-key --insecure-http ;;
         'tasks reopen') printf '%s\n' -j --json -h --help --server --profile --api-key --insecure-http ;;
         'tasks delete') printf '%s\n' -h --help --server --profile --api-key --insecure-http ;;
         'tasks restore') printf '%s\n' -j --json -h --help --server --profile --api-key --insecure-http ;;
@@ -108,7 +110,7 @@ _pecklist_options() {
 
 _pecklist_valued() {
     case "$1" in
-        -l|--list|-s|--section|-t|--tag|-d|--due|-p|--priority|-T|--title|-n|--notes|--start|--repeat|--progress|--status|--due-before|--due-after|-u|--assigned|-S|--search|-o|--sort|--limit|--color|--user|--server|--profile|--api-key) return 0 ;;
+        -l|--list|-s|--section|-t|--tag|-d|--due|-p|--priority|-T|--title|-n|--notes|--start|--repeat|--progress|--status|--due-before|--due-after|-u|--assigned|-S|--search|-o|--sort|--limit|--minutes|--color|--user|--server|--profile|--api-key) return 0 ;;
     esac
     return 1
 }

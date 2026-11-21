@@ -105,6 +105,7 @@ internal static class CommandTable
         new("--limit", null, "N", "Show at most N tasks."),
         new("--wide", 'w', null, "More columns: start and due apart, who it is assigned to, how it repeats, progress, created and changed, and the whole id."),
         new("--wontdo", null, null, "Close it as won't do."),
+        new("--minutes", null, "N", "How many minutes to put it off: 1 to 10080 (a week). Ten if left out."),
         new("--plain", null, null, "Take the text as the title as it is, without reading dates or tags."),
         new("--color", null, "#RRGGBB", "The list's colour."),
         new("--user", null, "USER", "Only this account's data."),
@@ -241,6 +242,16 @@ internal static class CommandTable
         {
             Arguments = [Id],
             Options = Use("--wontdo", "--json"),
+        },
+        new("tasks snooze", "Put off one of a task's reminders for you, as Snooze in the app. The task itself is not changed.",
+        [
+            "pecklist tasks snooze 01HX...",
+            "pecklist tasks snooze 01HX... --minutes 60",
+        ])
+        {
+            Arguments = [Id],
+            Options = Use("--minutes", "--json"),
+            Details = "It snoozes the reminder that came last, or the next one if none has come yet; snoozing again moves that snooze. Your apps hear of it and remind you again then. Tasks assigned to someone else remind them, so only they can snooze those.",
         },
         new("tasks reopen", "Open a closed task again.",
         [
