@@ -85,13 +85,20 @@ public static class ApiDocs
         {
             lines.Add($"Admin permission: {permission.Permission}.");
         }
-        var scope = Auth.ApiKeyAuth.ScopeFor(method, new PathString("/" + relativePath));
+        var path = new PathString("/" + relativePath);
+        var scope = Auth.ApiKeyAuth.ScopeFor(method, path);
         lines.Add(scope switch
         {
             null => "API keys can't use this route: sign in to the web app instead.",
             Auth.ApiKeyAuth.AnyScope => "Any working API key may use this route.",
             _ => $"An API key needs the {scope} scope.",
         });
+        // The sync route's own check: a pull is tasks:read, but a request that pushes changes is
+        // refused without tasks:write (SyncEndpoints).
+        if (path.Equals("/api/sync") && scope == PeckList.Core.Accounts.ApiScopes.TasksRead)
+        {
+            lines.Add($"Pushing changes also needs {PeckList.Core.Accounts.ApiScopes.TasksWrite}.");
+        }
         return string.Join(' ', lines);
     }
 
@@ -187,7 +194,14 @@ public static class ApiDocs
             options.AddOperationTransformer(async (operation, context, cancellation) =>
             {
                 var description = context.Description;
-                if (Access(description.ActionDescriptor.EndpointMetadata, description.HttpMethod ?? "GET", description.RelativePath ?? "") is not { } access) return;
+                if (Access(description.ActionDescriptor.EndpointMetadata, description.HttpMethod ?? "GET", description.RelativePath ?? "") is not { } access)
+                {
+                    // An open route (the server's info, a command line sign-in) takes no key: an empty
+                    // security list overrides the document's, so Swagger UI sends none and a client
+                    // made from the document asks for none.
+                    operation.Security = new List<OpenApiSecurityRequirement>();
+                    return;
+                }
                 operation.Description = string.IsNullOrEmpty(operation.Description) ? access : $"{operation.Description}\n\n{access}";
                 operation.Responses ??= new OpenApiResponses();
                 operation.Responses.TryAdd("401", new OpenApiResponse { Description = "Not signed in, or the API key is not a working one" });

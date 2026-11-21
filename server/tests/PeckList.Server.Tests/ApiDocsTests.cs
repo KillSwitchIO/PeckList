@@ -1,5 +1,8 @@
 using System.Net;
+using System.Net.Http.Headers;
+using System.Net.Http.Json;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using Microsoft.Extensions.DependencyInjection;
 using PeckList.Core.Configuration;
 
@@ -217,6 +220,117 @@ public sealed class ApiDocsTests(ServerFixture fixture) : IClassFixture<ServerFi
             if (File.Exists(Path.Combine(folder.FullName, "docs", "reference", "http-api.md"))) return folder.FullName;
         }
         throw new InvalidOperationException("the repository root (with docs/reference/http-api.md) was not found above " + AppContext.BaseDirectory);
+    }
+
+    /// <summary>
+    /// The main routes are in the document, each with how it is called: the open ones take no key
+    /// (an empty security list over the document's), the rest the API key, with the scope it needs.
+    /// </summary>
+    [Fact]
+    public async Task The_main_routes_are_listed_with_how_each_is_called()
+    {
+        using var server = fixture.Factory(("DB_PATH", fixture.NewDbPath()));
+        var document = await Document(server.CreateClient());
+        var paths = document.GetProperty("paths");
+
+        (string Method, string Path, string Access)[] main =
+        [
+            ("get", "/api/v1/tasks", "needs the tasks:read scope"),
+            ("post", "/api/v1/tasks", "needs the tasks:write scope"),
+            ("get", "/api/v1/tasks/{id}", "needs the tasks:read scope"),
+            ("patch", "/api/v1/tasks/{id}", "needs the tasks:write scope"),
+            ("delete", "/api/v1/tasks/{id}", "needs the tasks:write scope"),
+            ("get", "/api/v1/lists", "needs the tasks:read scope"),
+            ("post", "/api/v1/lists", "needs the tasks:write scope"),
+            ("get", "/api/v1/me", "Any working API key may use this route"),
+            ("post", "/api/sync", "needs the tasks:read scope. Pushing changes also needs tasks:write."),
+            ("get", "/api/notifications", "needs the notifications scope"),
+            ("get", "/api/admin/users", "needs the admin scope"),
+            ("get", "/api/account/passkeys", "API keys can't use this route"),
+        ];
+        foreach (var (method, path, access) in main)
+        {
+            Assert.True(paths.TryGetProperty(path, out var item), $"{path} is missing");
+            Assert.True(item.TryGetProperty(method, out var operation), $"{method} {path} is missing");
+            Assert.Contains(access, operation.GetProperty("description").GetString());
+            // No security of its own: the document's, the API key, applies.
+            Assert.False(operation.TryGetProperty("security", out _), $"{method} {path} overrides the document's security");
+        }
+        var required = document.GetProperty("security").EnumerateArray().Single();
+        Assert.True(required.TryGetProperty(ApiDocs.KeyScheme, out _));
+
+        // The open routes say they take nothing, and they are the only ones: a route that checks
+        // who is calling inside its handler, with no authorize metadata, would show up here as open.
+        var open = new List<string>();
+        foreach (var path in paths.EnumerateObject())
+        {
+            foreach (var operation in path.Value.EnumerateObject())
+            {
+                if (operation.Value.TryGetProperty("security", out var security) && security.GetArrayLength() == 0)
+                {
+                    open.Add($"{operation.Name} {path.Name}");
+                }
+            }
+        }
+        Assert.Equal(["get /api/info", "post /api/v1/cli/sign-in", "post /api/v1/cli/sign-in/poll"], open.Order());
+    }
+
+    /// <summary>
+    /// The page's Try it out sends the key it was given (Authorize) as a Bearer header, from a browser
+    /// that may also be signed in to this server. The key decides, never the session beside it: a
+    /// key without tasks:write is refused a push there exactly as from a script.
+    /// </summary>
+    [Fact]
+    public async Task A_key_without_tasks_write_is_refused_a_push_from_the_page_as_from_anywhere()
+    {
+        const string password = "correct horse battery";
+        using var server = fixture.Factory(("ADMIN_PASSWORD", password), ("DB_PATH", fixture.NewDbPath()));
+        var browser = server.CreateClient();
+        (await browser.PostAsJsonAsync("/auth/login", new { username = "admin", password }, Token)).EnsureSuccessStatusCode();
+        var made = await browser.PostAsJsonAsync("/api/account/api-keys",
+            new { name = "Read only", scopes = new[] { "tasks:read" }, expiresAt = DateTimeOffset.UtcNow.AddDays(30) }, Token);
+        made.EnsureSuccessStatusCode();
+        var key = (await made.Content.ReadFromJsonAsync<Auth.ApiKeyAuth.CreatedKey>(Token))!.Token;
+
+        var origin = browser.BaseAddress!.GetLeftPart(UriPartial.Authority);
+        HttpRequestMessage FromThePage(HttpMethod method, string path, object? body, string? bearer)
+        {
+            var request = new HttpRequestMessage(method, path) { Content = body is null ? null : JsonContent.Create(body) };
+            if (bearer is not null) request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", bearer);
+            request.Headers.Referrer = new Uri($"{origin}{ApiDocs.PagePath}/index.html");
+            request.Headers.Add("Origin", origin);
+            return request;
+        }
+        const string clock = "2026-11-21T10:00:00.000Z-0000-dev1";
+        object Push() => new
+        {
+            schemaVersion = Core.WorkspaceSchema.CurrentVersion,
+            cursor = (long?)null,
+            changes = new[]
+            {
+                new
+                {
+                    collection = "tags",
+                    entity = new JsonObject
+                    {
+                        ["id"] = "01JBTAG0000000000000000009", ["name"] = "docs", ["color"] = "#A7C7E7", ["order"] = "a0", ["deletedAt"] = null,
+                        ["_hlc"] = new JsonObject { ["name"] = clock, ["color"] = clock, ["order"] = clock, ["deletedAt"] = clock },
+                    },
+                },
+            },
+        };
+
+        // From the page, signed in: the key is read-only, so its writes are refused and its reads work.
+        Assert.Equal(HttpStatusCode.Forbidden, (await browser.SendAsync(FromThePage(HttpMethod.Post, "/api/v1/tasks", new { title = "From the docs" }, key), Token)).StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, (await browser.SendAsync(FromThePage(HttpMethod.Post, "/api/sync", Push(), key), Token)).StatusCode);
+        Assert.Equal(HttpStatusCode.OK, (await browser.SendAsync(FromThePage(HttpMethod.Get, "/api/v1/tasks", null, key), Token)).StatusCode);
+        // The same from anywhere, with no session at all.
+        var script = server.CreateClient();
+        Assert.Equal(HttpStatusCode.Forbidden, (await script.SendAsync(FromThePage(HttpMethod.Post, "/api/v1/tasks", new { title = "From a script" }, key), Token)).StatusCode);
+        // A key that isn't one is refused too, never passed over for the session beside it.
+        Assert.Equal(HttpStatusCode.Unauthorized, (await browser.SendAsync(FromThePage(HttpMethod.Post, "/api/sync", Push(), "pl_nope_nothing"), Token)).StatusCode);
+        // The session alone may push: it was the key that refused.
+        Assert.Equal(HttpStatusCode.OK, (await browser.SendAsync(FromThePage(HttpMethod.Post, "/api/sync", Push(), null), Token)).StatusCode);
     }
 
     [Fact]
