@@ -54,6 +54,9 @@ public class TodayWidget extends AppWidgetProvider {
             views.setRemoteAdapter(R.id.widget_list, rows);
             views.setEmptyView(R.id.widget_list, R.id.widget_empty);
             views.setTextViewText(R.id.widget_empty, context.getString(has ? R.string.widget_today_empty : R.string.widget_signed_out));
+            views.setTextViewText(R.id.widget_title_text, context.getString(R.string.widget_today_title));
+            views.setContentDescription(R.id.widget_add, context.getString(R.string.widget_add));
+            views.setTextViewText(R.id.widget_undo, context.getString(R.string.widget_undo));
             views.setTextViewText(R.id.widget_count, String.valueOf(open));
             views.setViewVisibility(R.id.widget_count, open > 0 ? View.VISIBLE : View.GONE);
             views.setOnClickPendingIntent(R.id.widget_title, Widgets.page(context, "/today"));

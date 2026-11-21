@@ -29,6 +29,7 @@ public class CountWidget extends AppWidgetProvider {
             views.setContentDescription(R.id.widget_count_root,
                 has ? context.getResources().getQuantityString(R.plurals.widget_count_said, count[0], count[0])
                     : context.getString(R.string.widget_signed_out));
+            views.setTextViewText(R.id.widget_count_caption, context.getString(R.string.widget_count_today));
             views.setOnClickPendingIntent(R.id.widget_count_root, Widgets.page(context, "/today"));
             manager.updateAppWidget(id, views);
         }

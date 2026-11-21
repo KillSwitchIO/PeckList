@@ -4,15 +4,8 @@ import { act, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { updateSettings } from '../../core/settings.ts';
-import { registerLanguage, setLocale } from '../i18n/i18n.ts';
+import { setLocale } from '../i18n/i18n.ts';
 import { mockViewport, renderApp, testStore } from '../../test/renderApp.tsx';
-
-// A German catalog of a few strings: the rest falls back to English.
-registerLanguage('de', async () => ({
-  'settings.language': 'Sprache',
-  'settings.category.dates': 'Sprache und Zeit',
-  'nav.today': 'Heute',
-}));
 
 beforeEach(() => {
   localStorage.clear();
@@ -26,12 +19,14 @@ afterEach(async () => {
 });
 
 const subject = (name: RegExp) =>
-  within(screen.getByRole('navigation', { name: 'Settings' })).getByRole('link', { name });
+  within(screen.getByRole('navigation', { name: /^(Settings|Einstellungen)$/ })).getByRole('link', {
+    name,
+  });
 
 const languageSelect = () => screen.findByRole('combobox', { name: /^(Language|Sprache)$/ });
 
 describe('settings: language', () => {
-  it('lists automatic first, then each language in its own name', async () => {
+  it('lists automatic first, then each language in its own name, drafts marked', async () => {
     await renderApp('/settings/dates', testStore());
     expect(await screen.findByRole('region', { name: 'Language' })).toBeInTheDocument();
     expect(subject(/^Language and time/)).toBeInTheDocument();
@@ -39,10 +34,13 @@ describe('settings: language', () => {
     expect(select).toHaveTextContent('Automatic (English)');
     await userEvent.click(select);
     const options = within(screen.getByRole('listbox')).getAllByRole('option');
+    const note = 'Machine translated, so some words may be off';
     expect(options.map((option) => option.textContent)).toEqual([
       'Automatic (English)',
       'English',
-      'Deutsch',
+      `Deutsch${note}`,
+      `Español${note}`,
+      `Français${note}`,
     ]);
   });
 
@@ -51,7 +49,7 @@ describe('settings: language', () => {
     await renderApp('/settings/dates', store);
     await userEvent.click(await languageSelect());
     await userEvent.click(
-      within(screen.getByRole('listbox')).getByRole('option', { name: 'Deutsch' }),
+      within(screen.getByRole('listbox')).getByRole('option', { name: /^Deutsch/ }),
     );
 
     expect(store.getState().workspace!.entities.settings[0]!.language).toBe('de');
@@ -63,7 +61,7 @@ describe('settings: language', () => {
 
     await userEvent.click(await languageSelect());
     await userEvent.click(
-      within(screen.getByRole('listbox')).getByRole('option', { name: 'Automatic (English)' }),
+      within(screen.getByRole('listbox')).getByRole('option', { name: 'Automatisch (English)' }),
     );
     expect(store.getState().workspace!.entities.settings[0]!.language).toBeNull();
     expect(await screen.findByRole('region', { name: 'Language' })).toBeInTheDocument();
@@ -81,10 +79,25 @@ describe('settings: language', () => {
   });
 
   it('automatic takes the first browser language there is a catalog for', async () => {
-    vi.stubGlobal('navigator', { ...navigator, languages: ['fr-CA', 'de-AT', 'en'] });
+    vi.stubGlobal('navigator', { ...navigator, languages: ['pt-BR', 'de-AT', 'en'] });
     await renderApp('/settings/dates', testStore());
     await waitFor(() => expect(document.documentElement.lang).toBe('de'));
     expect(await screen.findByRole('region', { name: 'Sprache' })).toBeInTheDocument();
-    expect(await languageSelect()).toHaveTextContent('Automatic (Deutsch)');
+    expect(await languageSelect()).toHaveTextContent('Automatisch (Deutsch)');
+  });
+
+  it('each draft speaks its language through the whole page', async () => {
+    for (const [language, today] of [
+      ['es', 'Hoy'],
+      ['fr', 'Aujourd’hui'],
+    ] as const) {
+      const store = testStore();
+      const { unmount } = await renderApp('/today', store);
+      act(() => store.getState().apply((ctx, ws) => updateSettings(ctx, ws, { language })));
+      expect(await screen.findByRole('heading', { name: today })).toBeInTheDocument();
+      expect(document.documentElement.lang).toBe(language);
+      unmount();
+      await setLocale('en');
+    }
   });
 });

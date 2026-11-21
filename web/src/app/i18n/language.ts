@@ -12,8 +12,11 @@ import {
 
 const DEVICE_KEY = 'pecklist.language';
 
-/** Languages whose catalog a machine drafted and no person has checked yet. */
-export const MACHINE_TRANSLATED: ReadonlySet<string> = new Set<string>();
+/**
+ * Languages whose catalog a machine drafted and no person has checked yet: the picker says so.
+ * Remove one once a person has reviewed it (Weblate, PL-148 piece 9).
+ */
+export const MACHINE_TRANSLATED: ReadonlySet<string> = new Set<string>(['de', 'es', 'fr']);
 
 /**
  * The browser's languages, most wanted first. Only real tags: a webview or a stand-in navigator
@@ -72,6 +75,11 @@ export async function applyLanguageChoice(choice: string | null, limit?: number)
 /** What the page shows now, as one value: the catalog and the date locale. */
 export function shownLanguage(): string {
   return `${currentLanguage()}|${intlLocale() ?? ''}`;
+}
+
+/** The catalog part of a shownLanguage() value. */
+export function catalogOf(shown: string): string {
+  return shown.split('|')[0]!;
 }
 
 /** A language's name in itself, as a picker lists it: "Deutsch", "Português (Brasil)". */

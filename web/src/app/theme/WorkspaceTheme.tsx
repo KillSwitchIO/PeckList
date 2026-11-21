@@ -4,7 +4,7 @@ import { effectivePalette, paletteTint } from '../../core/paletteSettings.ts';
 import { updateSettings } from '../../core/settings.ts';
 import { useApply, useWorkspace } from '../store/hooks.ts';
 import { setDisplayPreferences } from '../format.ts';
-import { applyLanguageChoice, shownLanguage } from '../i18n/language.ts';
+import { applyLanguageChoice, catalogOf, shownLanguage } from '../i18n/language.ts';
 import { createAppTheme } from './theme.ts';
 import {
   nextThemeMode,
@@ -33,21 +33,6 @@ export function WorkspaceTheme({ children }: { children: ReactNode }) {
   const overrides = effectivePalette(workspace);
   const key = JSON.stringify(overrides);
   const tint = paletteTint(workspace);
-  // A new theme object when the clock changes too, so everything showing a time renders again.
-  const theme = useMemo(
-    () => ({
-      ...createAppTheme(resolved, JSON.parse(key) as Record<string, string>, tint),
-      display,
-    }),
-    [resolved, key, tint, display],
-  );
-  // A light or dark choice made in this browser before settings synced comes along, once.
-  useEffect(() => {
-    const picked = takeBrowserMode();
-    if (picked) apply((ctx, ws) => updateSettings(ctx, ws, { themeMode: picked }));
-  }, [apply]);
-  // The next start paints with this mode before the workspace has loaded.
-  useEffect(() => rememberThemeMode(mode), [mode]);
   // The language picked in Settings, synced (PL-148), or automatic. Once its catalog is in, the
   // app below renders again from the top, so no string or date is left in the old language: a
   // change of language is rare and deliberate, and the stores and the address outlive it.
@@ -62,6 +47,22 @@ export function WorkspaceTheme({ children }: { children: ReactNode }) {
       live = false;
     };
   }, [choice]);
+  const catalog = catalogOf(shown);
+  // A new theme object when the clock changes too, so everything showing a time renders again.
+  const theme = useMemo(
+    () => ({
+      ...createAppTheme(resolved, JSON.parse(key) as Record<string, string>, tint, catalog),
+      display,
+    }),
+    [resolved, key, tint, display, catalog],
+  );
+  // A light or dark choice made in this browser before settings synced comes along, once.
+  useEffect(() => {
+    const picked = takeBrowserMode();
+    if (picked) apply((ctx, ws) => updateSettings(ctx, ws, { themeMode: picked }));
+  }, [apply]);
+  // The next start paints with this mode before the workspace has loaded.
+  useEffect(() => rememberThemeMode(mode), [mode]);
 
   const value = useMemo<ThemeModeValue>(() => {
     const setMode = (next: ThemeModeValue['mode']) =>

@@ -15,6 +15,9 @@ public class QuickAddBarWidget extends AppWidgetProvider {
         for (int id : ids) {
             RemoteViews views = new RemoteViews(context.getPackageName(), R.layout.widget_quick_add_bar);
             views.setOnClickPendingIntent(R.id.widget_quick_add, Widgets.page(context, "/today?add=1"));
+            Widgets.say(context, views);
+            views.setTextViewText(R.id.widget_add_label, context.getString(R.string.widget_add));
+            views.setContentDescription(R.id.widget_voice, context.getString(R.string.widget_voice));
             Intent voice = new Intent(AddTextActivity.ACTION_VOICE, null, context, AddTextActivity.class)
                 .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
             views.setOnClickPendingIntent(R.id.widget_voice,

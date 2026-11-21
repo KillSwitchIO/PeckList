@@ -51,7 +51,9 @@ export function PropertyRow({
       {!inline && (
         <Typography
           color="text.secondary"
-          sx={{ width: compact ? 'auto' : 84, flexShrink: 0, textAlign: 'left' }}
+          // At least 84px so values line up; a longer label (German "Erinnerungen") takes its room
+          // instead of running into the value (PL-148).
+          sx={{ minWidth: compact ? 0 : 84, flexShrink: 0, textAlign: 'left' }}
         >
           {label}
         </Typography>
