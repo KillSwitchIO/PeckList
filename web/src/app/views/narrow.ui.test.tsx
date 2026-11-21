@@ -11,6 +11,7 @@ import { mockViewport, renderApp, testStore } from '../../test/renderApp.tsx';
 beforeEach(() => {
   localStorage.clear();
   vi.unstubAllGlobals();
+  vi.restoreAllMocks();
   mockViewport('desktop');
 });
 
@@ -137,5 +138,36 @@ describe('filtering Today, Upcoming and the calendar', () => {
     expect(within(panel).getByRole('button', { name: 'Deselect all: Lists' })).toHaveFocus();
     await userEvent.keyboard('{Enter}');
     expect(checked('Lists')).toEqual(['false', 'false']);
+  });
+
+  it('shows no tooltip under the funnel when the panel closes and focus comes back (QA, rc.1)', async () => {
+    // Chrome counts focus that a key brought back as visible, and MUI opens a tooltip on visible
+    // focus; jsdom never matches :focus-visible, so stand in for Chrome on that one selector.
+    const matches = Element.prototype.matches;
+    vi.spyOn(Element.prototype, 'matches').mockImplementation(function (
+      this: Element,
+      selector: string,
+    ) {
+      return selector === ':focus-visible'
+        ? this === document.activeElement
+        : matches.call(this, selector);
+    });
+    await seeded('/inbox');
+    const funnel = screen.getByRole('button', { name: /^Filter/ });
+    funnel.focus();
+    await userEvent.keyboard('{Enter}');
+    const panel = await screen.findByRole('dialog', { name: 'Show only' });
+    await userEvent.click(
+      within(within(panel).getByRole('list', { name: 'Tags' })).getByRole('menuitemcheckbox', {
+        name: 'urgent',
+      }),
+    );
+    await userEvent.keyboard('{Escape}');
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    // Focus is back on the funnel, as it should be, but its tooltip stays shut: it covered the
+    // Add task bar under it until focus moved on.
+    expect(screen.getByRole('button', { name: 'Filter (on)' })).toHaveFocus();
+    await new Promise((resolve) => setTimeout(resolve, 400));
+    expect(screen.queryByRole('tooltip')).toBeNull();
   });
 });
