@@ -18,7 +18,7 @@ import type {
   ServerSettingsView,
   TelemetryView,
 } from '../../ports/admin.ts';
-import type { MessageKey } from '../i18n/en.ts';
+import type { MessageKey } from '../i18n/i18n.ts';
 import { t } from '../i18n/i18n.ts';
 import { ChevronRightIcon } from '../icons/icons.tsx';
 import { ProblemAlert } from '../layout/ProblemAlert.tsx';

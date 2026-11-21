@@ -4,7 +4,7 @@ import { localDateTimeOf, localTimeZone } from '../../core/dates.ts';
 import type { AdminApi, AuditEntry, AuditKind, AuditQuery } from '../../ports/admin.ts';
 import { formatWhen } from '../format.ts';
 import { useToday } from '../hooks/useToday.ts';
-import type { MessageKey } from '../i18n/en.ts';
+import type { MessageKey } from '../i18n/i18n.ts';
 import { t } from '../i18n/i18n.ts';
 import { describe, deviceName } from './auditText.ts';
 

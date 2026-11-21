@@ -1,5 +1,5 @@
 import type { AuditEntry } from '../../ports/admin.ts';
-import type { MessageKey } from '../i18n/en.ts';
+import type { MessageKey } from '../i18n/i18n.ts';
 import { t } from '../i18n/i18n.ts';
 
 /** "Firefox on Windows" from a User-Agent; the agent's first word when it is not a browser. */

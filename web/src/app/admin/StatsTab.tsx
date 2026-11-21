@@ -14,7 +14,7 @@ import type { AdminApi } from '../../ports/admin.ts';
 import type { UserStats } from '../../ports/stats.ts';
 import { formatBytes, formatWhen } from '../format.ts';
 import { useToday } from '../hooks/useToday.ts';
-import type { MessageKey } from '../i18n/en.ts';
+import type { MessageKey } from '../i18n/i18n.ts';
 import { t } from '../i18n/i18n.ts';
 import { MonthBars, StatCard } from './statsParts.tsx';
 import { useLoaded } from './useAdmin.ts';
