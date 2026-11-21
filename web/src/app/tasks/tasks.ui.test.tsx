@@ -1,6 +1,7 @@
 import { fireEvent, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { addAttachment } from '../../core/attachments.ts';
 import { putEntity } from '../../core/collections.ts';
 import { addDays, localTimeZone, todayIn, weekday } from '../../core/dates.ts';
 import { inboxList } from '../../core/lists.ts';
@@ -218,6 +219,85 @@ describe('task details', () => {
     expect(
       await within(files).findByRole('listitem', { name: 'quote.pdf, 5 B' }),
     ).toBeInTheDocument();
+  });
+
+  it('renames a file from its menu, keeping the extension unless it is edited, with undo', async () => {
+    const store = testStore();
+    await renderApp('/inbox', store);
+    await addTasks('Fix the gate');
+    await userEvent.click(screen.getByRole('button', { name: 'Open Fix the gate' }));
+    const details = await screen.findByRole('region', { name: 'Task details' });
+    await userEvent.upload(within(details).getByTestId('attach-input'), [
+      new File(['quote'], 'quote.pdf', { type: 'application/pdf' }),
+    ]);
+    const files = await within(details).findByRole('region', { name: 'Files' });
+    fireEvent.contextMenu(await within(files).findByRole('listitem', { name: 'quote.pdf, 5 B' }));
+    await userEvent.click(await screen.findByRole('menuitem', { name: 'Rename' }));
+
+    const dialog = await screen.findByRole('dialog', { name: 'Rename file' });
+    const name = within(dialog).getByRole<HTMLInputElement>('textbox', { name: 'Name' });
+    await waitFor(() => expect(name).toHaveFocus());
+    // The name before its extension is selected, so typing keeps ".pdf".
+    expect([name.selectionStart, name.selectionEnd]).toEqual([0, 5]);
+    await userEvent.keyboard('estimate');
+    expect(name).toHaveValue('estimate.pdf');
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Save' }));
+
+    expect(
+      await within(files).findByRole('listitem', { name: 'estimate.pdf, 5 B' }),
+    ).toBeInTheDocument();
+    const stored = store.getState().workspace!.entities.attachments;
+    expect(stored.map((each) => each.name)).toEqual(['estimate.pdf']);
+    await userEvent.click(await screen.findByRole('button', { name: 'Undo' }));
+    expect(
+      await within(files).findByRole('listitem', { name: 'quote.pdf, 5 B' }),
+    ).toBeInTheDocument();
+  });
+
+  it("offers a list's owner Remove but not Rename on a file someone else added", async () => {
+    const store = testStore();
+    await store.getState().init();
+    store.getState().apply((ctx, ws) => {
+      const made = createTask(ctx, ws, { title: 'Paint the fence', listId: inboxList(ws).id });
+      // Added by a friend on this shared task: the owner may remove it, only they rename it.
+      const friend = { ...ctx, userId: '01JBFR1END0000000000000001' };
+      return addAttachment(friend, made.workspace, {
+        taskId: made.task.id,
+        name: 'colors.png',
+        size: 5,
+        mime: 'image/png',
+        sha256: '7706c3c94d5f9b598a2bc7385eb7c51aba74f4eed2aa467bfcb2c611a0897fa2',
+      }).workspace;
+    });
+    await store.getState().flush();
+    await renderApp('/inbox', store);
+    await userEvent.click(await screen.findByRole('button', { name: 'Open Paint the fence' }));
+    const details = await screen.findByRole('region', { name: 'Task details' });
+    const files = await within(details).findByRole('region', { name: 'Files' });
+    fireEvent.contextMenu(within(files).getByRole('listitem', { name: 'colors.png, 5 B' }));
+    expect(await screen.findByRole('menuitem', { name: 'Remove' })).toBeInTheDocument();
+    expect(screen.queryByRole('menuitem', { name: 'Rename' })).toBeNull();
+    // A right-click inside the open menu stays with the menu, not the tile behind it.
+    fireEvent.contextMenu(screen.getByRole('menuitem', { name: 'Remove' }));
+    expect(screen.getAllByRole('menu')).toHaveLength(1);
+  });
+
+  it("opens a file's menu on a touch only by the long press, not the touch's contextmenu too", async () => {
+    const store = testStore();
+    await renderApp('/inbox', store);
+    await addTasks('Fix the gate');
+    await userEvent.click(screen.getByRole('button', { name: 'Open Fix the gate' }));
+    const details = await screen.findByRole('region', { name: 'Task details' });
+    await userEvent.upload(within(details).getByTestId('attach-input'), [
+      new File(['quote'], 'quote.pdf', { type: 'application/pdf' }),
+    ]);
+    const files = await within(details).findByRole('region', { name: 'Files' });
+    const tile = await within(files).findByRole('listitem', { name: 'quote.pdf, 5 B' });
+    // A short touch: the long press never fires, and the touch's own contextmenu is left alone.
+    fireEvent.pointerDown(tile, { pointerType: 'touch', clientX: 10, clientY: 10 });
+    fireEvent.pointerUp(tile, { pointerType: 'touch' });
+    fireEvent.contextMenu(tile);
+    expect(screen.queryByRole('menu')).toBeNull();
   });
 
   it('pins a task to the top of its list and of All, and completing it unpins it', async () => {

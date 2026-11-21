@@ -10,11 +10,12 @@ import {
   Typography,
 } from '@mui/material';
 import { submitOnShiftEnter } from '../hooks/keys.ts';
-import { useState, type ReactNode } from 'react';
+import { useRef, useState, type ReactNode } from 'react';
 import { buildPalette } from '../../core/palette.ts';
 import type { List } from '../../core/types.ts';
 import { ColorPicker } from '../colors/ColorPicker.tsx';
 import { IconPicker } from './IconPicker.tsx';
+import { stemOf } from '../../core/attachments.ts';
 import { t } from '../i18n/i18n.ts';
 
 const LIGHT = buildPalette('light');
@@ -86,13 +87,17 @@ export function ListDialog({
   );
 }
 
-/** One-field dialog for names (sections). */
+/**
+ * One-field dialog for names (sections, groups, files). `fileName` selects the name before its
+ * extension when the field first takes focus, so the extension stays unless it is edited.
+ */
 export function NameDialog({
   open,
   title,
   label,
   initial = '',
   submitLabel,
+  fileName = false,
   onClose,
   onSubmit,
 }: {
@@ -101,10 +106,12 @@ export function NameDialog({
   label: string;
   initial?: string;
   submitLabel: string;
+  fileName?: boolean;
   onClose: () => void;
   onSubmit: (name: string) => void;
 }) {
   const [name, setName] = useState(initial);
+  const selected = useRef(false);
   return (
     <Dialog open={open} onClose={onClose} fullWidth maxWidth="xs">
       <form
@@ -122,6 +129,12 @@ export function NameDialog({
             autoFocus
             fullWidth
             sx={{ mt: 1 }}
+            onFocus={(event) => {
+              if (!fileName || selected.current) return;
+              selected.current = true;
+              const input = event.target as HTMLInputElement;
+              input.setSelectionRange(...stemOf(input.value));
+            }}
             onChange={(event) => setName(event.target.value)}
           />
         </DialogContent>

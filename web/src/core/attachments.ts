@@ -77,6 +77,15 @@ export function removeAttachment(ctx: OpContext, workspace: WorkspaceFile, id: I
   return putEntity(workspace, 'attachments', softDelete(ctx, attachment));
 }
 
+/**
+ * The part of a file name before its extension ("hinge" of "hinge.png"), as [start, end] to select:
+ * typing then keeps the extension. A name with no extension, or a leading dot only, is all of it.
+ */
+export function stemOf(name: string): [number, number] {
+  const dot = name.lastIndexOf('.');
+  return [0, dot > 0 ? dot : name.length];
+}
+
 /** Pictures the app shows itself (the server serves the same types inline). */
 export function isPicture(mime: string): boolean {
   return ['image/png', 'image/jpeg', 'image/gif', 'image/webp', 'image/avif'].includes(mime);

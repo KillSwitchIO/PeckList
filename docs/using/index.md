@@ -182,7 +182,9 @@ their start; the due date is the deadline.
 - **Assigned**: a task you add to a shared list starts assigned to you.
 - **Files**: the paperclip at the top of a task's details attaches files, or drop them on the
   details. Pictures show as thumbnails and open large; other files download. Everyone who sees the
-  task sees its files; whoever added one, or the list's owner, removes it. Files sync through the
+  task sees its files; whoever added one, or the list's owner, removes it. Whoever added a file
+  renames it from its menu (right-click it, or press and hold on a phone); the name before the
+  extension is selected, so the extension stays unless you change it. Files sync through the
   server (up to `ATTACHMENT_MAX_MB`, 25 MB by default); a larger one is refused before it is added.
 - **Complete**: the circle on the left, or <kbd>Space</kbd>. **Won't do** is in the task's menu.
 - **Move**: drag it up or down (on a phone, hold it a moment first); the task rides along under
