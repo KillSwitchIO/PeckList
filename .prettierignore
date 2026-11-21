@@ -14,6 +14,8 @@ website/build
 website/.docusaurus
 # Built from web/src by scripts/build-quick-add.mjs.
 server/src/PeckList.Server/Api/quickadd.js
+# The F-Droid recipe goes to fdroiddata as it is: `fdroid rewritemeta` owns its formatting.
+fastlane/fdroid
 # Native Android project: Gradle and Android Studio own its formatting.
 mobile/android
 # Written by the server test that checks it against the document the server makes (PL-118).
