@@ -254,7 +254,11 @@ public static class ServerReminders
     /// <summary>Whether a time a reminder comes is put off by a snooze pressed on it (<see cref="Pressed"/>).</summary>
     public static bool PutOff(ReminderTime time, IReadOnlySet<DateTimeOffset>? pressed) => pressed?.Contains(time.First) == true;
 
-    private static IEnumerable<DateTimeOffset> FirstInstants(JsonObject task, TimeZoneInfo zone)
+    /// <summary>
+    /// When each of the task's reminders of its current occurrence is first due, in the person's
+    /// zone (a constant reminder's repeats left out): what a snooze names as the reminder it puts off.
+    /// </summary>
+    public static IEnumerable<DateTimeOffset> FirstInstants(JsonObject task, TimeZoneInfo zone)
     {
         if (task["reminders"] is not JsonArray reminders) yield break;
         var start = Start(task, zone);

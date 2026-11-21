@@ -562,6 +562,20 @@ public static partial class ClientCli
                     if (closed?["next"] is JsonObject next) await Say($"Next: {When(next) ?? "repeats"}");
                     return Done;
                 }
+                case "snooze":
+                {
+                    var body = new JsonObject();
+                    if (args.Value("--minutes") is { } minutesText)
+                    {
+                        body["minutes"] = int.TryParse(minutesText, NumberStyles.None, CultureInfo.InvariantCulture, out var minutes) && minutes is >= 1 and <= 10080
+                            ? minutes
+                            : throw Usage("--minutes is 1 to 10080 (a week)");
+                    }
+                    var snoozed = await remote.SendAsync(HttpMethod.Post, $"api/v1/tasks/{await TaskIdAsync(remote)}/snooze", body, cancellation);
+                    if (Json) await PrintJson(snoozed);
+                    else await Say($"Snoozed until {TaskView.Local(Text(snoozed, "at"), io.Zone)}");
+                    return Done;
+                }
                 case "reopen":
                 {
                     var task = await remote.SendAsync(HttpMethod.Post, $"api/v1/tasks/{await TaskIdAsync(remote)}/reopen", null, cancellation);

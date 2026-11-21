@@ -14,6 +14,7 @@ _pecklist_canon() {
         'tasks show') print -rl -- 'tasks show' ;;
         'tasks edit') print -rl -- 'tasks edit' ;;
         'tasks done') print -rl -- 'tasks done' ;;
+        'tasks snooze') print -rl -- 'tasks snooze' ;;
         'tasks reopen') print -rl -- 'tasks reopen' ;;
         'tasks delete'|'tasks rm') print -rl -- 'tasks delete' ;;
         'tasks restore') print -rl -- 'tasks restore' ;;
@@ -50,7 +51,7 @@ _pecklist_canon() {
 _pecklist_children() {
     case "$1" in
         '') print -rl -- login logout whoami tasks lists sections tags people admin oidc snapshot export config completion help add ;;
-        'tasks') print -rl -- list ls add show edit done reopen delete rm restore ;;
+        'tasks') print -rl -- list ls add show edit done snooze reopen delete rm restore ;;
         'lists') print -rl -- list add rename ;;
         'sections') print -rl -- list add rename ;;
         'tags') print -rl -- list ;;
@@ -80,6 +81,7 @@ _pecklist_options() {
         'tasks show') print -rl -- -j --json -h --help --server --profile --api-key --insecure-http ;;
         'tasks edit') print -rl -- -T --title -n --notes -l --list -s --section -p --priority -d --due --start -t --tag --repeat --progress -j --json -h --help --server --profile --api-key --insecure-http ;;
         'tasks done') print -rl -- --wontdo -j --json -h --help --server --profile --api-key --insecure-http ;;
+        'tasks snooze') print -rl -- --minutes -j --json -h --help --server --profile --api-key --insecure-http ;;
         'tasks reopen') print -rl -- -j --json -h --help --server --profile --api-key --insecure-http ;;
         'tasks delete') print -rl -- -h --help --server --profile --api-key --insecure-http ;;
         'tasks restore') print -rl -- -j --json -h --help --server --profile --api-key --insecure-http ;;
@@ -108,7 +110,7 @@ _pecklist_options() {
 
 _pecklist_valued() {
     case "$1" in
-        -l|--list|-s|--section|-t|--tag|-d|--due|-p|--priority|-T|--title|-n|--notes|--start|--repeat|--progress|--status|--due-before|--due-after|-u|--assigned|-S|--search|-o|--sort|--limit|--color|--user|--server|--profile|--api-key) return 0 ;;
+        -l|--list|-s|--section|-t|--tag|-d|--due|-p|--priority|-T|--title|-n|--notes|--start|--repeat|--progress|--status|--due-before|--due-after|-u|--assigned|-S|--search|-o|--sort|--limit|--minutes|--color|--user|--server|--profile|--api-key) return 0 ;;
     esac
     return 1
 }
@@ -140,7 +142,7 @@ _pecklist_describe() {
         '')
             reply=('login:Sign in: approve a code in the browser, or save an API key. Never a password.' 'logout:Revoke this CLI'\''s key on the server and forget it here.' 'whoami:The server, the account, its role and the key'\''s permissions.' 'tasks:List, add, change and close tasks.' 'lists:Your lists.' 'sections:The sections in a list.' 'tags:Your tags.' 'people:Who tasks can be assigned to.' 'admin:Accounts, through the admin API (sign in with --admin).' 'oidc:Single sign-on accounts, through the admin API.' 'snapshot:Take a snapshot on the server now.' 'export:Download a full backup, or one account'\''s data, to a file or standard output.' 'config:The server'\''s settings, through the admin API.' 'completion:Print the shell completion script for bash, zsh, fish or powershell.' 'help:Show help for a command.' 'add:Same as tasks add.') ;;
         'tasks')
-            reply=('list:List tasks with their status, date, priority, list and tags; filter by list, tag, status, due date, priority, person and words.' 'ls:Same as tasks list.' 'add:Add a task, reading dates, #tags, ^list, !priority, @person and "every ..." as the app'\''s quick add does.' 'show:Show everything about one task: its list, dates, reminders, repeat, people, checklist, subtasks and notes.' 'edit:Change a task: only what you name changes.' 'done:Close a task. A repeating one moves on to its next date, as in the app.' 'reopen:Open a closed task again.' 'delete:Move a task to the trash. tasks restore brings it back.' 'rm:Same as tasks delete.' 'restore:Bring a task back from the trash.') ;;
+            reply=('list:List tasks with their status, date, priority, list and tags; filter by list, tag, status, due date, priority, person and words.' 'ls:Same as tasks list.' 'add:Add a task, reading dates, #tags, ^list, !priority, @person and "every ..." as the app'\''s quick add does.' 'show:Show everything about one task: its list, dates, reminders, repeat, people, checklist, subtasks and notes.' 'edit:Change a task: only what you name changes.' 'done:Close a task. A repeating one moves on to its next date, as in the app.' 'snooze:Put off one of a task'\''s reminders for you, as Snooze in the app. The task itself is not changed.' 'reopen:Open a closed task again.' 'delete:Move a task to the trash. tasks restore brings it back.' 'rm:Same as tasks delete.' 'restore:Bring a task back from the trash.') ;;
         'lists')
             reply=('list:Show your lists.' 'add:Make a list.' 'rename:Rename a list.') ;;
         'sections')

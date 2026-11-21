@@ -74,6 +74,7 @@ Every error is a problem document (`application/problem+json`) with a stable `co
 | 404    | `not_found`                 | Nothing with that id that you can see                                |
 | 409    | `conflict`                  | The change cannot be made as asked (a subtask in another list, nested too deep) |
 | 409    | `id_taken`                  | The id you sent is used by something else                            |
+| 409    | `not_reminded`, `closed`, `no_reminder` | A snooze of a reminder that isn't yours, on a closed task, or on a task without one |
 | 413    | `too_large`                 | The body is over 1 MB                                                |
 | 429    | `rate_limited`              | Too many requests: wait as the `Retry-After` header says             |
 | 503    | `starting`                  | The server is starting up                                            |
@@ -107,6 +108,7 @@ and sessions together. Past that it gets `429` with `Retry-After`.
 | `PATCH /api/v1/tasks/{id}`         | Change a task's fields                                             |
 | `POST /api/v1/tasks/{id}/complete` | Close a task: optional `{"status": "wontdo"}` (default `done`)     |
 | `POST /api/v1/tasks/{id}/reopen`   | Open a closed task again                                           |
+| `POST /api/v1/tasks/{id}/snooze`   | Put off one of the task's reminders for you (below)                |
 | `DELETE /api/v1/tasks/{id}`        | Delete a task with its subtasks; answers `204`                     |
 | `POST /api/v1/tasks/{id}/restore`  | Bring a deleted task back, with what went with it                  |
 | `GET /api/v1/changes`              | What changed since a cursor (below)                                |
@@ -234,6 +236,30 @@ locking or `If-Match`; the last change to each field wins, as between the apps.
 Closing a repeating task keeps a closed copy for the history and moves the task to its next date.
 `/complete` then answers both: `{"completed": ..., "next": ...}`, with `next` null for a task that
 doesn't repeat (or has run out).
+
+### Snoozing a reminder
+
+`POST /api/v1/tasks/{id}/snooze` puts off one of the task's reminders for you, as **Snooze** on a
+reminder in the apps does: the task itself is not changed, the reminder comes again for you alone,
+and your apps hear of it. The body is optional:
+
+| Field     |                                                                                     |
+| --------- | ----------------------------------------------------------------------------------- |
+| `minutes` | How long from now, 1 to 10080 (a week); left out, 10                                |
+| `first`   | Which reminder, by when it was first due (an instant with its offset, such as `2026-11-21T15:00:00Z`) |
+
+Left out, `first` is a snooze of yours on the task still to come (or just come back, its repeats
+still running), else its reminder that came last,
+else the next one due. A new snooze of the same reminder replaces the one before, so snoozing again
+never leaves two. It answers `{"taskId": ..., "at": "2026-11-21T15:40:00Z", "first": "2026-11-21T15:00:00Z"}`:
+when it comes again, and which reminder it put off. Send that `first` back to snooze the same
+reminder later. The answer's `first` is `null` only when the snooze it replaced was made before
+version 0.14, which did not record the reminder.
+
+Only someone the task's reminders come to may snooze it (its assignees, or its maker when nobody is
+assigned); anyone else gets `409` with `not_reminded`. A closed task is `409` with `closed`, a task
+without a reminder `409` with `no_reminder`, and a `first` that is not one of its reminders (nor a
+snooze of yours) a `400`.
 
 ### Quick add
 

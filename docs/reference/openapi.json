@@ -3926,6 +3926,116 @@
         }
       }
     },
+    "/api/v1/tasks/{id}/snooze": {
+      "post": {
+        "tags": [
+          "v1: tasks"
+        ],
+        "summary": "Put off one of the task's reminders for you, as the app's Snooze (the task is not changed); answered with when it comes again",
+        "description": "An API key needs the tasks:write scope.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ApiSnoozeInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiSnooze"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Payload Too Large",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too Many Requests",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/tasks/{id}/restore": {
       "post": {
         "tags": [
@@ -8783,6 +8893,48 @@
               "null",
               "string"
             ]
+          }
+        }
+      },
+      "ApiSnooze": {
+        "required": [
+          "taskId",
+          "at",
+          "first"
+        ],
+        "type": "object",
+        "properties": {
+          "taskId": {
+            "type": "string"
+          },
+          "at": {
+            "type": "string"
+          },
+          "first": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
+      "ApiSnoozeInput": {
+        "type": "object",
+        "properties": {
+          "minutes": {
+            "type": [
+              "null",
+              "integer"
+            ],
+            "description": "1 to 10080 (a week); left out, 10.",
+            "format": "int32"
+          },
+          "first": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "description": "The reminder to put off, by when it was first due (an ISO 8601 instant, as `first` answers it). Left out: a snooze of yours on this task still to come (or just come back, its repeats still running), else its reminder that came last, else the next one due."
           }
         }
       },

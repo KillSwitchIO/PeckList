@@ -15,6 +15,7 @@ Register-ArgumentCompleter -Native -CommandName pecklist, pecklist.exe -ScriptBl
         'tasks show' = 'tasks show'
         'tasks edit' = 'tasks edit'
         'tasks done' = 'tasks done'
+        'tasks snooze' = 'tasks snooze'
         'tasks reopen' = 'tasks reopen'
         'tasks delete' = 'tasks delete'
         'tasks rm' = 'tasks delete'
@@ -49,7 +50,7 @@ Register-ArgumentCompleter -Native -CommandName pecklist, pecklist.exe -ScriptBl
     }
     $children = @{
         '' = @('login', 'logout', 'whoami', 'tasks', 'lists', 'sections', 'tags', 'people', 'admin', 'oidc', 'snapshot', 'export', 'config', 'completion', 'help', 'add')
-        'tasks' = @('list', 'ls', 'add', 'show', 'edit', 'done', 'reopen', 'delete', 'rm', 'restore')
+        'tasks' = @('list', 'ls', 'add', 'show', 'edit', 'done', 'snooze', 'reopen', 'delete', 'rm', 'restore')
         'lists' = @('list', 'add', 'rename')
         'sections' = @('list', 'add', 'rename')
         'tags' = @('list')
@@ -76,6 +77,7 @@ Register-ArgumentCompleter -Native -CommandName pecklist, pecklist.exe -ScriptBl
         'tasks show' = @('-j', '--json', '-h', '--help', '--server', '--profile', '--api-key', '--insecure-http')
         'tasks edit' = @('-T', '--title', '-n', '--notes', '-l', '--list', '-s', '--section', '-p', '--priority', '-d', '--due', '--start', '-t', '--tag', '--repeat', '--progress', '-j', '--json', '-h', '--help', '--server', '--profile', '--api-key', '--insecure-http')
         'tasks done' = @('--wontdo', '-j', '--json', '-h', '--help', '--server', '--profile', '--api-key', '--insecure-http')
+        'tasks snooze' = @('--minutes', '-j', '--json', '-h', '--help', '--server', '--profile', '--api-key', '--insecure-http')
         'tasks reopen' = @('-j', '--json', '-h', '--help', '--server', '--profile', '--api-key', '--insecure-http')
         'tasks delete' = @('-h', '--help', '--server', '--profile', '--api-key', '--insecure-http')
         'tasks restore' = @('-j', '--json', '-h', '--help', '--server', '--profile', '--api-key', '--insecure-http')
@@ -100,7 +102,7 @@ Register-ArgumentCompleter -Native -CommandName pecklist, pecklist.exe -ScriptBl
         'completion' = @('-h', '--help', '--server', '--profile', '--api-key', '--insecure-http')
         'help' = @('-h', '--help', '--server', '--profile', '--api-key', '--insecure-http')
     }
-    $valued = @('-l', '--list', '-s', '--section', '-t', '--tag', '-d', '--due', '-p', '--priority', '-T', '--title', '-n', '--notes', '--start', '--repeat', '--progress', '--status', '--due-before', '--due-after', '-u', '--assigned', '-S', '--search', '-o', '--sort', '--limit', '--color', '--user', '--server', '--profile', '--api-key')
+    $valued = @('-l', '--list', '-s', '--section', '-t', '--tag', '-d', '--due', '-p', '--priority', '-T', '--title', '-n', '--notes', '--start', '--repeat', '--progress', '--status', '--due-before', '--due-after', '-u', '--assigned', '-S', '--search', '-o', '--sort', '--limit', '--minutes', '--color', '--user', '--server', '--profile', '--api-key')
     $values = @{
         '-p' = @('none', 'low', 'medium', 'high')
         '--priority' = @('none', 'low', 'medium', 'high')

@@ -22,6 +22,8 @@ function __pecklist_canon
             echo 'tasks edit'
         case 'tasks done'
             echo 'tasks done'
+        case 'tasks snooze'
+            echo 'tasks snooze'
         case 'tasks reopen'
             echo 'tasks reopen'
         case 'tasks delete' 'tasks rm'
@@ -87,7 +89,7 @@ end
 
 function __pecklist_valued
     switch $argv[1]
-        case '-l' '--list' '-s' '--section' '-t' '--tag' '-d' '--due' '-p' '--priority' '-T' '--title' '-n' '--notes' '--start' '--repeat' '--progress' '--status' '--due-before' '--due-after' '-u' '--assigned' '-S' '--search' '-o' '--sort' '--limit' '--color' '--user' '--server' '--profile' '--api-key'
+        case '-l' '--list' '-s' '--section' '-t' '--tag' '-d' '--due' '-p' '--priority' '-T' '--title' '-n' '--notes' '--start' '--repeat' '--progress' '--status' '--due-before' '--due-after' '-u' '--assigned' '-S' '--search' '-o' '--sort' '--limit' '--minutes' '--color' '--user' '--server' '--profile' '--api-key'
             return 0
     end
     return 1
@@ -220,6 +222,8 @@ complete -c pecklist -n '__pecklist_at \'tasks\'' -a 'edit' -d 'Change a task: o
 complete -c pecklist -n '__pecklist_help_at \'tasks\'' -a 'edit' -d 'Change a task: only what you name changes.'
 complete -c pecklist -n '__pecklist_at \'tasks\'' -a 'done' -d 'Close a task. A repeating one moves on to its next date, as in the app.'
 complete -c pecklist -n '__pecklist_help_at \'tasks\'' -a 'done' -d 'Close a task. A repeating one moves on to its next date, as in the app.'
+complete -c pecklist -n '__pecklist_at \'tasks\'' -a 'snooze' -d 'Put off one of a task\'s reminders for you, as Snooze in the app. The task itself is not changed.'
+complete -c pecklist -n '__pecklist_help_at \'tasks\'' -a 'snooze' -d 'Put off one of a task\'s reminders for you, as Snooze in the app. The task itself is not changed.'
 complete -c pecklist -n '__pecklist_at \'tasks\'' -a 'reopen' -d 'Open a closed task again.'
 complete -c pecklist -n '__pecklist_help_at \'tasks\'' -a 'reopen' -d 'Open a closed task again.'
 complete -c pecklist -n '__pecklist_at \'tasks\'' -a 'delete' -d 'Move a task to the trash. tasks restore brings it back.'
@@ -298,6 +302,8 @@ complete -c pecklist -n '__pecklist_in \'tasks edit\'' -l progress -x -d 'Progre
 complete -c pecklist -n '__pecklist_in \'tasks edit\'' -s j -l json -d 'Print the API\'s JSON: one thing as an object, a list of things as `{"items": [...]}`.'
 complete -c pecklist -n '__pecklist_in \'tasks done\'' -l wontdo -d 'Close it as won\'t do.'
 complete -c pecklist -n '__pecklist_in \'tasks done\'' -s j -l json -d 'Print the API\'s JSON: one thing as an object, a list of things as `{"items": [...]}`.'
+complete -c pecklist -n '__pecklist_in \'tasks snooze\'' -l minutes -x -d 'How many minutes to put it off: 1 to 10080 (a week). Ten if left out.'
+complete -c pecklist -n '__pecklist_in \'tasks snooze\'' -s j -l json -d 'Print the API\'s JSON: one thing as an object, a list of things as `{"items": [...]}`.'
 complete -c pecklist -n '__pecklist_in \'tasks reopen\'' -s j -l json -d 'Print the API\'s JSON: one thing as an object, a list of things as `{"items": [...]}`.'
 complete -c pecklist -n '__pecklist_in \'tasks restore\'' -s j -l json -d 'Print the API\'s JSON: one thing as an object, a list of things as `{"items": [...]}`.'
 complete -c pecklist -n '__pecklist_in \'lists list\'' -s a -l all -d 'Archived lists too.'
