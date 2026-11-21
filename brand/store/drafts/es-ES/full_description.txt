@@ -1,0 +1,50 @@
+PeckList es una app de tareas para ti y para las personas con las que compartes un hogar, un viaje o un proyecto. Tus listas viven en un servidor que gestionas tú, cada dispositivo guarda una copia completa y la app funciona sin conexión: los cambios se sincronizan en segundos en cuanto vuelve a estar en línea.
+
+<b>Necesitas un servidor de PeckList.</b> La app se conecta a uno: gestiona el tuyo con Docker, paquetes de Linux o Windows (es software libre, AGPL-3.0), o usa uno que alguien gestione por ti. También puedes usar la app solo en este dispositivo, sin cuenta y sin sincronización. Para probarla antes, regístrate en el servidor de demostración en demo.pecklist.com, que se reinicia periódicamente.
+
+<b>Organiza tu día</b>
+<ul>
+<li>Hoy, Próximas y un calendario por año, mes o unos pocos días</li>
+<li>Añadido rápido que lee fechas, horas, repeticiones, etiquetas y personas de lo que escribes</li>
+<li>Listas, subtareas, etiquetas, prioridades, fechas de inicio y de vencimiento</li>
+<li>Tareas repetidas que pasan a su siguiente fecha al completarlas</li>
+<li>Un tamaño de fila compacto para un Hoy largo, y 30 paletas de color en claro u oscuro</li>
+</ul>
+
+<b>Recordatorios que llegan</b>
+<ul>
+<li>Los recordatorios llegan a tiempo con la app cerrada</li>
+<li>Completar y Posponer directamente en la notificación</li>
+<li>Recordatorios constantes para las tareas importantes: siguen sonando hasta que actúas</li>
+</ul>
+
+<b>Repartid el trabajo</b>
+<ul>
+<li>Comparte una lista con amigos y grupos, que pueden verla o editarla</li>
+<li>Asigna una tarea a alguien, o deja que los miembros de un grupo se la pidan</li>
+<li>Comentarios con @menciones y archivos en cualquier tarea</li>
+<li>Una notificación cuando alguien comparte una lista, te asigna una tarea o te menciona</li>
+</ul>
+
+<b>En tu móvil</b>
+<ul>
+<li>Widgets: Hoy, el número de tareas de hoy y botones para añadir tareas</li>
+<li>Añade una tarea por voz, desde un icono de Ajustes rápidos o compartiendo texto desde otra app</li>
+<li>Mantén pulsado el icono para Añadir tarea, Hoy y Buscar</li>
+<li>Sigue el modo claro u oscuro de tu móvil, con un icono temático desde Android 13</li>
+</ul>
+
+<b>Trae tus tareas</b>
+<ul>
+<li>Importación desde TickTick y Todoist</li>
+<li>Importación y exportación de iCalendar</li>
+<li>Una API de tareas con claves de API, para scripts, Home Assistant y Obsidian</li>
+</ul>
+
+<b>Inicia sesión a tu manera</b>
+El inicio de sesión ocurre en tu propio navegador, así que las llaves de acceso y el inicio de sesión único con tu propio proveedor de identidad funcionan.
+
+<b>Privacidad</b>
+La app solo habla con el servidor al que la conectas. Si se cierra por un error, te ofrece enviar un informe de fallo que puedes leer antes; va a través de tu servidor al proyecto, sin nombres de tareas ni datos personales. Puedes desactivar los informes en todos tus dispositivos, y quien administra un servidor puede desactivarlos para todos.
+
+Documentación: docs.pecklist.com

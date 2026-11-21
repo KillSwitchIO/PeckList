@@ -1,0 +1,41 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="500" viewBox="0 0 1024 500">
+  <!-- PeckList's Play Store feature graphic: the 46c wireframe bird heading its list (web/public/icon.svg),
+       on PeckList Forest, with the name. Play crops nothing here, but keeps the middle clear of overlays. -->
+  <defs>
+    <radialGradient id="glow" cx="30%" cy="45%" r="75%">
+      <stop offset="0" stop-color="#4A6643"/>
+      <stop offset="1" stop-color="#2F442A"/>
+    </radialGradient>
+  </defs>
+  <rect width="1024" height="500" fill="url(#glow)"/>
+  <!-- The icon's drawing without its rounded square, 6.4 times its 64-unit size. -->
+  <g transform="translate(70 62) scale(6.4)">
+    <g transform="translate(4.9 -0.2) scale(0.52)" fill="none" stroke="#ECEFEC" stroke-width="1.5" stroke-linejoin="round">
+      <polygon points="6,42 16,36 22,44"/>
+      <polygon points="16,36 26,27 30,35"/>
+      <polygon points="16,36 30,35 22,44"/>
+      <polygon points="26,27 34,17 30,35"/>
+      <polygon points="34,17 42,12 41,20"/>
+      <polygon points="42,12 49,16 41,20"/>
+      <polygon points="34,17 41,20 30,35"/>
+      <polygon points="41,20 49,21 46,27"/>
+      <polygon points="41,20 46,27 30,35"/>
+      <polygon points="46,27 46,36 30,35"/>
+      <polygon points="46,36 36,45 30,35"/>
+      <polygon points="36,45 22,44 30,35"/>
+      <polygon fill="#A6ADA4" points="49,16 58,19 49,21"/>
+      <circle fill="#FFFFFF" stroke="none" cx="44" cy="17" r="1.6"/>
+    </g>
+    <rect x="39" y="13" width="16" height="4" rx="2" fill="#A6ADA4"/>
+    <rect x="14" y="28" width="10" height="10" rx="3" fill="#A6ADA4"/>
+    <path d="M16.5 33l2 2 3.5-4" fill="none" stroke="#3C5436" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    <rect x="28" y="31" width="18" height="4" rx="2" fill="#A6ADA4"/>
+    <rect x="14" y="42" width="10" height="10" rx="3" fill="none" stroke="#A6ADA4" stroke-width="2"/>
+    <rect x="28" y="45" width="14" height="4" rx="2" fill="#A6ADA4" opacity=".7"/>
+  </g>
+  <g font-family="'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif" fill="#ECEFEC">
+    <text x="500" y="232" font-size="96" font-weight="600" letter-spacing="-1">PeckList</text>
+    <text x="504" y="290" font-size="30" fill="#D3DAD1">Tasks for you and your household,</text>
+    <text x="504" y="332" font-size="30" fill="#D3DAD1">on a server you run yourself</text>
+  </g>
+</svg>
