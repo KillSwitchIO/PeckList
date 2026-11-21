@@ -27,22 +27,9 @@ import { newTaskAssignees } from './newTaskAssignees.ts';
 import { useTaskSelection } from './selection.ts';
 import { markDraft } from './drafts.ts';
 import { ADD_TEXT_EVENT } from './focusAddTask.ts';
+import { loadQuickAddParser } from './quickAddParser.ts';
 import { useSyncState } from '../sync/syncContext.ts';
 import { countUse } from '../telemetry/usage.ts';
-
-// The date parser loads on first use, keeping it out of the app's first load, in the language the
-// app speaks (with English, PL-148).
-const parsers = new Map<string, Promise<DateParser>>();
-function loadParser(language: string): Promise<DateParser> {
-  let parser = parsers.get(language);
-  if (!parser) {
-    parser = import('../../adapters/chrono-locales.ts').then((module) =>
-      module.loadDateParser(language),
-    );
-    parsers.set(language, parser);
-  }
-  return parser;
-}
 
 const asValue = (moment: ParsedMoment) =>
   moment.time ? `${moment.date}T${moment.time}` : moment.date;
@@ -123,7 +110,12 @@ export function AddTaskInput({
   const [reader, setReader] = useState<{ language: string; parser: DateParser } | null>(null);
   const readWords = () => {
     const wanted = currentLanguage();
-    void loadParser(wanted).then((parser) => setReader({ language: wanted, parser }));
+    // Not fetched (no network, no service worker): the words stay as typed, and the next focus
+    // tries again.
+    loadQuickAddParser(wanted).then(
+      (parser) => setReader({ language: wanted, parser }),
+      () => undefined,
+    );
   };
   // A language picked while the field is in use: its parser takes over.
   useEffect(() => {

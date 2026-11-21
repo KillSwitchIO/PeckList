@@ -5,23 +5,38 @@ import { quickAddLanguage } from '../core/quickAddWords.ts';
 import type { DateParser } from '../ports/dateParser.ts';
 import { createChronoDateParser, type ChronoLocale } from './chrono-date-parser.ts';
 
-const LOADERS: Readonly<Record<string, () => Promise<ChronoLocale['casual']>>> = {
-  de: () => import('chrono-node/de').then((module) => module.casual),
-  es: () => import('chrono-node/es').then((module) => module.casual),
-  fr: () => import('chrono-node/fr').then((module) => module.casual),
+type LocaleModule = { casual: ChronoLocale['casual'] };
+
+const LOADERS: Readonly<Record<string, () => Promise<LocaleModule>>> = {
+  de: () => import('chrono-node/de'),
+  es: () => import('chrono-node/es'),
+  fr: () => import('chrono-node/fr'),
 };
+
+/** How a caller fetches a split-off part, and again when it fails (the app's importAgain); by default, once. */
+export type Fetch = <T>(load: () => Promise<T>) => Promise<T>;
 
 /**
  * A date parser for `language` (its base: "de-AT" reads German), English alone for one quick add
- * doesn't read. A locale that fails to load gives the English parser, as before PL-148.
+ * doesn't read. `complete` is false when the language's own chrono failed to load and the parser
+ * reads English only: the caller should not keep that one, and ask again later (PL-148, offline).
  */
-export async function loadDateParser(language: string): Promise<DateParser> {
+export async function loadLocaleDateParser(
+  language: string,
+  fetch: Fetch = (load) => load(),
+): Promise<{ parser: DateParser; complete: boolean }> {
   const base = quickAddLanguage(language);
   const load = LOADERS[base];
-  if (!load) return createChronoDateParser();
+  if (!load) return { parser: createChronoDateParser(), complete: true };
   try {
-    return createChronoDateParser({ language: base, casual: await load() });
+    const { casual } = await fetch(load);
+    return { parser: createChronoDateParser({ language: base, casual }), complete: true };
   } catch {
-    return createChronoDateParser();
+    return { parser: createChronoDateParser(), complete: false };
   }
+}
+
+/** {@link loadLocaleDateParser}'s parser alone: a locale that fails to load gives English, as before PL-148. */
+export async function loadDateParser(language: string): Promise<DateParser> {
+  return (await loadLocaleDateParser(language)).parser;
 }

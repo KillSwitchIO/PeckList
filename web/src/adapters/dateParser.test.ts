@@ -4,7 +4,7 @@ import * as fr from 'chrono-node/fr';
 import { describe, expect, it } from 'vitest';
 import type { DateParser } from '../ports/dateParser.ts';
 import { createChronoDateParser } from './chrono-date-parser.ts';
-import { loadDateParser } from './chrono-locales.ts';
+import { loadDateParser, loadLocaleDateParser } from './chrono-locales.ts';
 import { describeDateParserContract } from './dateParser.contract.ts';
 
 const german = createChronoDateParser({ language: 'de', casual: de.casual });
@@ -128,6 +128,19 @@ describe('loadDateParser', () => {
     const portuguese = await loadDateParser('pt');
     expect(portuguese.find('amanhã', REFERENCE)).toEqual([]);
     expect(portuguese.find('tomorrow', REFERENCE)[0]!.start.date).toBe('2026-10-22');
+  });
+});
+describe('loadLocaleDateParser', () => {
+  it('says when the language’s own chrono did not load, and reads English then', async () => {
+    const failed = await loadLocaleDateParser('de', () =>
+      Promise.reject(new TypeError('Failed to fetch dynamically imported module')),
+    );
+    expect(failed.complete).toBe(false);
+    const now = new Date(2026, 10, 21, 10, 0);
+    expect(failed.parser.find('Arzt morgen', now)).toHaveLength(0);
+    expect(failed.parser.find('Doctor tomorrow', now)).toHaveLength(1);
+    expect((await loadLocaleDateParser('de')).complete).toBe(true);
+    expect((await loadLocaleDateParser('en')).complete).toBe(true);
   });
 });
 
