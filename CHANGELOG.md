@@ -4,6 +4,50 @@ All notable changes to PeckList. Each release adds its section from [Conventiona
 with `pnpm release`; the version follows [Semantic Versioning](https://semver.org/). Before 1.0.0 a
 minor release may break things; every break is listed under **Breaking changes** with what to do.
 
+## [0.15.0-rc.1] - 2026-11-21
+
+### Added
+
+- **web:** JSON catalogs, ICU messages and lazy languages (PL-148)
+- **keys:** Supporter keys from BTCPay as well as Paddle (PL-112)
+- **web:** One ICU message per count-dependent string (PL-148)
+- **web:** Rename a file from its tile's menu (PL-051)
+- **web:** A saved filter keeps its grouping and sort, synced (PL-015)
+- **web:** Pick several tasks in the calendar and move them together (PL-093)
+- **web:** Pick the language PeckList speaks (PL-148)
+- **android:** The app's own text follows the picked language (PL-148)
+- **api:** Snooze a task's reminder with a key (PL-119)
+- German, Spanish and French machine drafts (PL-148)
+- **server:** Server text in the person's language (PL-148 piece 5)
+- **web:** Duplicate a task or a list (PL-139)
+- **server:** German, Spanish and French server text drafts (PL-148)
+- **android:** Pick what a Today widget shows (PL-121)
+- Quick add reads the picked language as well as English (PL-148)
+- **web:** About PeckList, with the source of the running build
+- Task and list templates (PL-140)
+
+### Fixed
+
+- **api:** Open routes say they take no key; PL-118's tests
+- **web:** The calendar's Days title fits on narrow phones (PL-093)
+- **android:** A crash report is a short summary, not the raw trace (PL-116)
+- **web:** A click on a Days task's grip leaves its time alone
+- **web:** A phone's Days title names another year short (PL-093)
+- **web:** Picking a row's date on a phone sets it, not opens the task
+- **server:** Push contact is mailto when PUBLIC_URL is http
+- **web:** Quick add reads dates with no network and no service worker
+- **web:** Row shortcuts work beside the details drawer
+- **server:** The app's sign-in comes back over plain http
+
+### Documentation
+
+- **logging:** Elasticsearch 8's certificate names its host name (PL-083)
+- **development:** The browser tests' command and weekly job (PL-002)
+- **readme:** Both image names in full in the quick start, and the demo
+- **store:** Store listing drafts and assets in brand/store
+- **store:** The store listing moves into fastlane
+- Languages in the user guide, translating in CONTRIBUTING (PL-148)
+
 ## [0.14.0] - 2026-11-21
 
 ### Added
