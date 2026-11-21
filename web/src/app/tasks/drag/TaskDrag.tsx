@@ -32,6 +32,7 @@ import {
   DragContext,
   type DragApi,
 } from './dragContext.ts';
+import { ownEvent } from '../../hooks/ownEvent.ts';
 
 const START_PX = DRAG_START_PX;
 const HOLD_MS = DRAG_HOLD_MS;
@@ -445,7 +446,8 @@ export function TaskDragProvider({
       dimmed: active?.hidden ?? EMPTY,
       gesture: (task, depth, onMenu) => ({
         onPointerDown: (event) => {
-          if (event.button !== 0 || active) return;
+          // A press in a popup the row opened (its date picker) never drags the row.
+          if (event.button !== 0 || active || !ownEvent(event)) return;
           const startX = event.clientX;
           const startY = event.clientY;
           const source = event.currentTarget;

@@ -48,6 +48,7 @@ import { TaskMenu, type TaskMenuAnchor } from './TaskMenu.tsx';
 import { PriorityCheckbox } from './TaskRow.tsx';
 import { useTaskSelection } from './selection.ts';
 import { claimTouchesRef } from '../dnd/claimTouch.ts';
+import { ownEvent } from '../hooks/ownEvent.ts';
 
 const inputId = (id: string) => `subtask-input-${id}`;
 const ADD_INPUT = 'subtask-input-new';
@@ -233,6 +234,8 @@ function SubtaskLine({
     <TaskReadOnly value={readOnly}>
       <Box
         onContextMenu={(event) => {
+          // A right click in the row's date picker is the picker's.
+          if (!ownEvent(event)) return;
           event.preventDefault();
           setMenu({ position: { top: event.clientY, left: event.clientX } });
         }}
