@@ -163,7 +163,10 @@ export function NarrowButton({
 
   return (
     <>
-      <Tooltip title={label}>
+      {/* Not on focus: closing the panel hands focus back here, and the tooltip then sat over
+          the row under the header (the Add task bar) until focus moved on (QA, rc.1). The other
+          header buttons with a menu do the same. */}
+      <Tooltip title={label} disableFocusListener>
         <IconButton
           aria-label={label}
           aria-haspopup="dialog"
