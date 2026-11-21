@@ -54,6 +54,15 @@ final class Widgets {
         redraw(context);
     }
 
+    /**
+     * The quick-add button's spoken label, set here rather than in the layout: the launcher inflates a
+     * widget's layout in the phone's language, so only text set from code follows the app's own
+     * language (PL-148).
+     */
+    static void say(Context context, android.widget.RemoteViews views) {
+        views.setContentDescription(R.id.widget_quick_add, context.getString(R.string.widget_add));
+    }
+
     /** Every widget drawn again from the store. */
     static void redraw(Context context) {
         AppWidgetManager manager = AppWidgetManager.getInstance(context);

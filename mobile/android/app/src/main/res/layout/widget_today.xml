@@ -31,7 +31,7 @@
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="@string/widget_today_title"
+                android:id="@+id/widget_title_text"
                 android:textColor="@color/widget_on_surface"
                 android:textSize="17sp"
                 android:textStyle="bold" />
@@ -49,7 +49,6 @@
             android:id="@+id/widget_add"
             android:layout_width="44dp"
             android:layout_height="44dp"
-            android:contentDescription="@string/widget_add"
             android:padding="10dp"
             android:src="@drawable/ic_widget_add"
             android:tint="@color/widget_accent"
@@ -76,7 +75,6 @@
             android:layout_height="match_parent"
             android:gravity="center"
             android:padding="16dp"
-            android:text="@string/widget_today_empty"
             android:textColor="@color/widget_muted"
             android:textSize="14sp" />
     </FrameLayout>
@@ -110,7 +108,6 @@
             android:gravity="center"
             android:paddingStart="14dp"
             android:paddingEnd="14dp"
-            android:text="@string/widget_undo"
             android:textColor="@color/widget_inverse_action"
             android:textSize="14sp"
             android:textStyle="bold" />

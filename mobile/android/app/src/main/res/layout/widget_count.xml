@@ -31,7 +31,7 @@
     <TextView
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="@string/widget_count_today"
+        android:id="@+id/widget_count_caption"
         android:textColor="@color/widget_muted"
         android:textSize="12sp" />
 </LinearLayout>

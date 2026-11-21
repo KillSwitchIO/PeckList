@@ -17,6 +17,7 @@ public class QuickAddWidget extends AppWidgetProvider {
         for (int id : ids) {
             RemoteViews views = new RemoteViews(context.getPackageName(), layout);
             views.setOnClickPendingIntent(R.id.widget_quick_add, Widgets.page(context, "/today?add=1"));
+            Widgets.say(context, views);
             manager.updateAppWidget(id, views);
         }
     }

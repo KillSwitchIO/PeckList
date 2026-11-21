@@ -1,0 +1,103 @@
+<?xml version='1.0' encoding='utf-8'?>
+<!-- Spanish, machine translated (PL-148): a person has not checked it yet. -->
+<resources>
+    <string name="offline_title">No se puede conectar con tu servidor</string>
+    <string name="offline_body">PeckList no pudo conectar con %1$s. Revisa tu conexión o si el servidor está en marcha.</string>
+    <string name="offline_retry">Reintentar</string>
+    <string name="offline_other">Usar otro servidor</string>
+
+    <string name="confirm_connect_title">¿Cambiar de servidor?</string>
+    <string name="confirm_connect_body">PeckList usará %1$s a partir de ahora.</string>
+    <string name="confirm_connect_plain">Usa http sin cifrar, así que cualquiera en la red puede leer lo que se envía.</string>
+    <string name="confirm_connect_installed_ca">Su certificado proviene de una autoridad instalada en este teléfono, en la que PeckList confiará para este servidor.</string>
+    <string name="confirm_connect_yes">Cambiar</string>
+    <string name="confirm_disconnect_title">¿Usar PeckList sin servidor?</string>
+    <string name="confirm_disconnect_body">PeckList deja de usar %1$s. Tus tareas se quedan en el servidor.</string>
+    <string name="confirm_disconnect_yes">Desconectar</string>
+    <string name="confirm_change_title">¿Cambiar de servidor?</string>
+    <string name="confirm_change_body">PeckList deja de usar %1$s y abre la página de conexión. Tus tareas se quedan en el servidor.</string>
+    <string name="confirm_change_yes">Cambiar de servidor</string>
+
+    <string name="installed_ca_title">Revisa el certificado de este servidor</string>
+    <string name="installed_ca_body">%1$s ahora usa un certificado de una autoridad instalada en este teléfono, no de una en la que Android confíe de forma predeterminada. Alguien podría estar leyendo lo que envía PeckList. Confía en ella solo si instalaste esa autoridad para este servidor.</string>
+    <string name="installed_ca_trust">Confiar</string>
+    <string name="gate_title">Inicia sesión para llegar a tu servidor</string>
+    <string name="gate_body">%1$s te pide iniciar sesión antes de que PeckList se abra. Inicia sesión en tu navegador y luego vuelve aquí.</string>
+    <string name="gate_sign_in">Iniciar sesión</string>
+    <string name="gate_here">Iniciar sesión aquí</string>
+    <string name="gate_link_hint">¿Usas Pangolin? Pega en su lugar un enlace compartido de este servidor:</string>
+    <string name="gate_link_use">Usar el enlace</string>
+    <string name="channel_reminders">Recordatorios</string>
+    <string name="channel_constant">Recordatorios insistentes</string>
+    <string name="channel_assignments">Asignaciones y reservas</string>
+    <string name="channel_shares">Listas compartidas</string>
+    <string name="channel_comments">Comentarios y menciones</string>
+    <string name="channel_reminders_about">Suena el recordatorio de una tarea</string>
+    <string name="channel_constant_about">Recordatorios que siguen sonando hasta que respondas, durante un máximo de 30 minutos</string>
+    <string name="channel_assignments_about">Una tarea asignada a ti o a tu grupo, y una tarea que alguien se ha reservado</string>
+    <string name="channel_shares_about">Una lista compartida contigo</string>
+    <string name="channel_comments_about">Comentarios nuevos y editados en tus tareas, y menciones tuyas</string>
+    <string name="channel_group_reminders">Recordatorios</string>
+    <string name="channel_group_people">De otras personas</string>
+    <string name="action_complete">Completar</string>
+    <string name="action_snooze">Posponer</string>
+    <string name="snooze_tab_delay">Retraso</string>
+    <string name="snooze_tab_at">Fecha y hora</string>
+    <plurals name="snooze_minutes">
+        <item quantity="one">%1$d minuto</item>
+        <item quantity="other">%1$d minutos</item>
+    </plurals>
+    <plurals name="snooze_hours">
+        <item quantity="one">%1$d hora</item>
+        <item quantity="other">%1$d horas</item>
+    </plurals>
+    <string name="snooze_tomorrow">Mañana a las %1$s</string>
+    <string name="snooze_custom_label">Otro</string>
+    <string-array name="snooze_units">
+        <item>minutos</item>
+        <item>horas</item>
+        <item>días</item>
+    </string-array>
+    <string name="snooze_time">Hora</string>
+    <string name="snooze_passed">Esa hora ya pasó.</string>
+    <string name="snooze_too_far">Se puede posponer una semana como máximo: elige una hora antes de %1$s.</string>
+    <string name="snooze_limit">Hasta una semana: hasta %1$s.</string>
+    <string name="snooze_done">Pospuesto hasta %1$s</string>
+    <string name="reminder_undated">Recordatorio</string>
+    <string name="back_again">Pulsa Atrás otra vez para salir de PeckList</string>
+    <string name="shortcut_add_short">Añadir tarea</string>
+    <string name="shortcut_add_long">Añadir una tarea</string>
+    <string name="shortcut_today_short">Hoy</string>
+    <string name="shortcut_today_long">Hoy</string>
+    <string name="shortcut_search_short">Buscar</string>
+    <string name="shortcut_search_long">Buscar tareas</string>
+    <string name="shortcut_server_short">Cambiar servidor</string>
+    <string name="shortcut_server_long">Cambiar de servidor o usar sin servidor</string>
+    <string name="add_text_label">Añadir a PeckList</string>
+    <string name="voice_prompt">¿Qué debe añadir PeckList?</string>
+    <string name="tile_add">Añadir tarea</string>
+    <string name="shortcut_voice_short">Añadir por voz</string>
+    <string name="shortcut_voice_long">Añadir una tarea por voz</string>
+    <string name="widget_voice">Añadir una tarea por voz</string>
+
+    <string name="widget_today_label">Hoy</string>
+    <string name="widget_quick_add_label">Añadir tarea</string>
+    <string name="widget_quick_add_bar_label">Barra para añadir</string>
+    <string name="widget_count_label">Recuento de hoy</string>
+    <string name="widget_today_description">Las tareas de hoy, para marcarlas aquí mismo</string>
+    <string name="widget_quick_add_description">Añade una tarea con un toque</string>
+    <string name="widget_quick_add_bar_description">Una barra para añadir una tarea con un toque</string>
+    <string name="widget_count_description">Cuántas tareas quedan para hoy</string>
+    <string name="widget_today_title">Hoy</string>
+    <string name="widget_today_empty">Todo picoteado.</string>
+    <string name="widget_signed_out">Abre PeckList para ver las tareas de hoy.</string>
+    <string name="widget_done">Hecho: %1$s</string>
+    <string name="widget_undo">Deshacer</string>
+    <string name="widget_add">Añadir tarea</string>
+    <string name="widget_complete">Completar %1$s</string>
+    <string name="widget_count_today">hoy</string>
+    <plurals name="widget_count_said">
+        <item quantity="one">Queda %d tarea hoy</item>
+        <item quantity="other">Quedan %d tareas hoy</item>
+    </plurals>
+</resources>
