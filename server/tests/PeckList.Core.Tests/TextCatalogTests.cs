@@ -134,14 +134,17 @@ public sealed partial class ServerCatalogTests
             .ToDictionary(name => name, object? (_) => 2, StringComparer.Ordinal);
 
     [Fact]
-    public void The_embedded_catalog_is_english_and_every_message_reads()
+    public void The_embedded_catalogs_start_with_english_and_every_message_reads_in_each()
     {
-        Assert.Equal(["en"], JsonTextCatalog.Embedded.Languages);
+        Assert.Equal("en", JsonTextCatalog.Embedded.Languages[0]);
         Assert.True(English.Count > 30);
-        foreach (var (key, message) in English)
+        foreach (var language in JsonTextCatalog.Embedded.Languages)
         {
-            var text = JsonTextCatalog.Embedded.Text("en", key, SampleArgs(message));
-            Assert.False(text.Contains('{') || text.Contains('}') || text.Contains('#'), $"{key}: {text}");
+            foreach (var (key, message) in English)
+            {
+                var text = JsonTextCatalog.Embedded.Text(language, key, SampleArgs(message));
+                Assert.False(text.Contains('{') || text.Contains('}') || text.Contains('#'), $"{language} {key}: {text}");
+            }
         }
     }
 
