@@ -1,37 +1,82 @@
 import CloseRounded from '@mui/icons-material/CloseRounded';
 import InsertDriveFileOutlined from '@mui/icons-material/InsertDriveFileOutlined';
-import { Alert, Box, ButtonBase, Dialog, IconButton, Tooltip, Typography } from '@mui/material';
-import { useState } from 'react';
+import {
+  Alert,
+  Box,
+  ButtonBase,
+  Dialog,
+  IconButton,
+  Menu,
+  MenuItem,
+  Tooltip,
+  Typography,
+} from '@mui/material';
+import { useRef, useState, type MouseEvent, type PointerEvent } from 'react';
 import {
   attachmentsOf,
   canChangeAttachment,
   isPicture,
   removeAttachment,
+  renameAttachment,
 } from '../../core/attachments.ts';
 import type { Attachment, Task } from '../../core/types.ts';
 import { formatBytes } from '../format.ts';
+import { useLongPress } from '../hooks/useLongPress.ts';
 import { t } from '../i18n/i18n.ts';
+import { NameDialog } from '../lists/ListDialog.tsx';
 import { useApply, useStoreState, useWorkspace } from '../store/hooks.ts';
 import { useSyncState } from '../sync/syncContext.ts';
 import { loadFile, useFileUrl } from './fileStore.ts';
 
-/** A file's tile: a picture's thumbnail, or an icon with the name and size. */
+/**
+ * A file's tile: a picture's thumbnail, or an icon with the name and size. Its menu (right-click,
+ * a long press, or the keyboard's menu key) renames or removes it, as far as the person may.
+ */
 function FileTile({
   attachment,
   onOpen,
+  onRename,
   onRemove,
 }: {
   attachment: Attachment;
   onOpen: () => void;
+  onRename: (() => void) | null;
   onRemove: (() => void) | null;
 }) {
   const picture = isPicture(attachment.mime);
   const url = useFileUrl(attachment.sha256, attachment.mime, picture, true);
+  const [menu, setMenu] = useState<{ top: number; left: number } | null>(null);
+  const longPress = useLongPress((position) => setMenu(position));
+  // A touch's own contextmenu after the long press would open the menu a second time (as TaskRow).
+  const pointerKind = useRef('mouse');
+  const hasMenu = onRename !== null || onRemove !== null;
   // A picture still loading keeps a plain tile, so nothing jumps when it arrives.
   const loading = picture && url === null;
   const label = `${attachment.name}, ${formatBytes(attachment.size)}`;
+  const choose = (action: () => void) => {
+    setMenu(null);
+    action();
+  };
   return (
-    <Box role="listitem" aria-label={label} sx={{ position: 'relative' }}>
+    <Box
+      role="listitem"
+      aria-label={label}
+      sx={{ position: 'relative' }}
+      {...(hasMenu
+        ? {
+            ...longPress,
+            onPointerDown: (event: PointerEvent) => {
+              pointerKind.current = event.pointerType;
+              longPress.onPointerDown(event);
+            },
+            onContextMenu: (event: MouseEvent) => {
+              event.preventDefault();
+              if (pointerKind.current === 'touch' || pointerKind.current === 'pen') return;
+              setMenu({ top: event.clientY, left: event.clientX });
+            },
+          }
+        : {})}
+    >
       <ButtonBase
         onClick={onOpen}
         aria-label={t('files.open', { name: attachment.name })}
@@ -103,6 +148,20 @@ function FileTile({
           </IconButton>
         </Tooltip>
       )}
+      <Menu
+        open={menu !== null}
+        onClose={() => setMenu(null)}
+        anchorReference="anchorPosition"
+        anchorPosition={menu ?? undefined}
+        // Its events bubble through React to the tile: a right-click on the menu must not move it.
+        onContextMenu={(event) => {
+          event.preventDefault();
+          event.stopPropagation();
+        }}
+      >
+        {onRename && <MenuItem onClick={() => choose(onRename)}>{t('common.rename')}</MenuItem>}
+        {onRemove && <MenuItem onClick={() => choose(onRemove)}>{t('files.remove')}</MenuItem>}
+      </Menu>
     </Box>
   );
 }
@@ -141,6 +200,7 @@ export function AttachmentList({
   const blobs = useSyncState((state) => state.blobs);
   const files = useSyncState((state) => state.transport.files);
   const [viewing, setViewing] = useState<Attachment | null>(null);
+  const [renaming, setRenaming] = useState<Attachment | null>(null);
   const [missing, setMissing] = useState<string | null>(null);
   const list = attachmentsOf(workspace, task.id);
   if (list.length === 0 && !problem) return null;
@@ -179,24 +239,47 @@ export function AttachmentList({
         </Alert>
       )}
       <Box role="list" sx={{ display: 'flex', flexWrap: 'wrap', gap: 1.5, pt: 1 }}>
-        {list.map((attachment) => (
-          <FileTile
-            key={attachment.id}
-            attachment={attachment}
-            onOpen={() => void open(attachment)}
-            onRemove={
-              canChangeAttachment(workspace, me, attachment).remove
-                ? () =>
-                    apply(
-                      (ctx, ws) => removeAttachment(ctx, ws, attachment.id),
-                      t('undo.fileRemoved'),
-                    )
-                : null
-            }
-          />
-        ))}
+        {list.map((attachment) => {
+          // Who added a file renames it; they, or the list's owner, remove it (as the server).
+          const may = canChangeAttachment(workspace, me, attachment);
+          return (
+            <FileTile
+              key={attachment.id}
+              attachment={attachment}
+              onOpen={() => void open(attachment)}
+              onRename={may.rename ? () => setRenaming(attachment) : null}
+              onRemove={
+                may.remove
+                  ? () =>
+                      apply(
+                        (ctx, ws) => removeAttachment(ctx, ws, attachment.id),
+                        t('undo.fileRemoved'),
+                      )
+                  : null
+              }
+            />
+          );
+        })}
       </Box>
       {viewing && <PictureView attachment={viewing} onClose={() => setViewing(null)} />}
+      {renaming && (
+        <NameDialog
+          open
+          fileName
+          title={t('files.renameTitle')}
+          label={t('files.name')}
+          initial={renaming.name}
+          submitLabel={t('common.save')}
+          onClose={() => setRenaming(null)}
+          onSubmit={(name) => {
+            const id = renaming.id;
+            setRenaming(null);
+            if (name !== renaming.name) {
+              apply((ctx, ws) => renameAttachment(ctx, ws, id, name), t('undo.fileRenamed'));
+            }
+          }}
+        />
+      )}
     </Box>
   );
 }
