@@ -72,6 +72,19 @@ android {
             if (!stampedVersion) versionNameSuffix = '-dev'
         }
     }
+    androidResources {
+        // Settings > Apps > PeckList > Language on Android 13 and later lists each language there
+        // are strings for (res/values-*), English first (res/resources.properties). PL-148.
+        generateLocaleConfig = true
+    }
+    // Run by test:android. Text meant for people goes in strings.xml, and a translation keeps its
+    // string's placeholders and has no string English lacks. A string not translated yet is fine:
+    // it shows in English.
+    lint {
+        error 'HardcodedText', 'ExtraTranslation', 'StringFormatMatches', 'StringFormatInvalid', 'StringFormatCount'
+        warning 'MissingTranslation'
+        checkOnly 'HardcodedText', 'ExtraTranslation', 'StringFormatMatches', 'StringFormatInvalid', 'StringFormatCount', 'MissingTranslation'
+    }
     buildFeatures {
         // BuildConfig.FLAVOR: which build this is (Distribution).
         buildConfig = true

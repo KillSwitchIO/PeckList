@@ -127,6 +127,12 @@ final class Channels {
         made = true;
     }
 
+    /** Every channel and group named again, in the app's language now (Languages, PL-148). */
+    static void renamed(Context context) {
+        made = false;
+        ensure(context);
+    }
+
     /**
      * The Local Notifications plugin makes a "Default" channel each time it loads (with the
      * activity), which the phone then lists under Other though nothing is ever sent to it: the shell

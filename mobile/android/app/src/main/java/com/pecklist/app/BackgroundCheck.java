@@ -349,6 +349,9 @@ final class BackgroundCheck {
             connection.setReadTimeout(TIMEOUT_MS);
             connection.setRequestProperty("Cookie", cookie);
             connection.setRequestProperty("Accept", "application/json");
+            // The reminders' text in the app's language: the server follows settings.language, and
+            // this for automatic (PL-148).
+            connection.setRequestProperty("Accept-Language", Languages.acceptLanguage(context));
             int status;
             try {
                 status = connection.getResponseCode();
