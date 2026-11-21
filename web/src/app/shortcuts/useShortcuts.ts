@@ -4,7 +4,7 @@ import { getEntity, isLive } from '../../core/collections.ts';
 import { canEditTask } from '../../core/sharing.ts';
 import { toggleTaskDone } from '../../core/tasks.ts';
 import { deleteAsking } from '../repeat/repeatActions.ts';
-import { popupOpen, typing } from '../hooks/keys.ts';
+import { typing } from '../hooks/keys.ts';
 import { t } from '../i18n/i18n.ts';
 import { useWorkspaceStore } from '../store/hooks.ts';
 import { duplicate } from '../tasks/duplicateActions.ts';
@@ -18,6 +18,31 @@ const SEQUENCE_MS = 1200;
 
 /** Task rows on the page, in order (their open buttons carry `data-task-row`). */
 const taskRows = () => [...document.querySelectorAll<HTMLElement>('main [data-task-row]')];
+
+/**
+ * The details drawer of a mid-size screen (AppShell). It is a modal, but it shows the task the row
+ * shortcuts act on, so J, K, Space, Delete and the rest keep working while it is open (QA, Edge and
+ * Firefox, 2026-11-21: below 1200 px they did nothing).
+ */
+const TASK_DRAWER = '[data-task-drawer]';
+
+/** Whether a dialog, menu, popover or sheet is open, the details drawer aside (see keys.ts). */
+const popupOpen = () =>
+  document.querySelector(`.MuiModal-root:not(.MuiModal-hidden):not(${TASK_DRAWER})`) !== null;
+
+/** Controls that Space or Delete belong to when focused. */
+const CONTROL =
+  'button, a[href], input, textarea, select, [contenteditable], [role="button"], [role="checkbox"], [role="switch"], [role="menuitem"], [role="tab"], [role="option"], [role="radio"], [role="slider"], [role="combobox"], [role="link"], [role="menuitemcheckbox"], [role="menuitemradio"], [role="spinbutton"], [role="textbox"], [role="searchbox"], [role="treeitem"], [role="gridcell"]';
+
+/**
+ * Whether Space and Delete act on the open task with this focused: nothing, a task row's own
+ * button, or the details drawer itself (it takes focus when it opens), not a control inside it.
+ */
+function actsOnTask(focused: Element | null): boolean {
+  if (!(focused instanceof HTMLElement) || focused === document.body) return true;
+  if (focused.hasAttribute('data-task-row')) return true;
+  return focused.closest(TASK_DRAWER) !== null && focused.closest(CONTROL) === null;
+}
 
 /**
  * The app's keyboard shortcuts (see shortcuts.ts). Returns whether the "?" list is open, and ways
@@ -111,15 +136,7 @@ export function useShortcuts(): { helpOpen: boolean; openHelp: () => void; close
       const key = event.key.toLowerCase();
       // Space and Delete act on the open task, except where they belong to a focused control
       // (a button's Space presses it); a task row's own button is fine.
-      const focused = document.activeElement;
-      if (
-        (key === ' ' || key === 'delete') &&
-        focused instanceof HTMLElement &&
-        focused !== document.body &&
-        !focused.hasAttribute('data-task-row')
-      ) {
-        return;
-      }
+      if ((key === ' ' || key === 'delete') && !actsOnTask(document.activeElement)) return;
       const now = Date.now();
       const earlier =
         pending.current && now - pending.current.at < SEQUENCE_MS ? pending.current : null;

@@ -79,6 +79,40 @@ describe('keyboard shortcuts', () => {
     expect(await screen.findByText('Task deleted')).toBeInTheDocument();
   });
 
+  it('beside the details drawer of a mid-size screen, the row shortcuts still work', async () => {
+    // QA (Edge and Firefox, 2026-11-21): below 1200 px the details open as a drawer that takes
+    // focus, and J, Space and Delete did nothing there.
+    mockViewport('tablet');
+    const { task } = await inboxWith('Mow', 'Rake', 'Weed');
+    const shown = () =>
+      within(screen.getByRole('region', { name: 'Task details' })).getByRole('textbox', {
+        name: 'Title',
+      });
+    await userEvent.keyboard('j');
+    await waitFor(() => expect(shown()).toHaveValue('Mow'));
+    await userEvent.keyboard('j');
+    await waitFor(() => expect(shown()).toHaveValue('Rake'));
+
+    await userEvent.keyboard(' ');
+    expect(task('Rake').status).toBe('done');
+    await userEvent.keyboard(' ');
+    expect(task('Rake').status).toBe('open');
+
+    // Typed in the drawer's own fields, they stay text.
+    const title = shown();
+    title.focus();
+    await userEvent.keyboard('{End} j{Delete}');
+    expect(title).toHaveValue('Rake j');
+    expect(task('Rake').status).toBe('open');
+    expect(task('Rake').deletedAt ?? null).toBeNull();
+    expect(shown()).toHaveValue('Rake j');
+
+    // Off the field, Delete trashes the open task again.
+    (document.activeElement as HTMLElement).blur();
+    await userEvent.keyboard('{Delete}');
+    await waitFor(() => expect(task('Rake j').deletedAt).not.toBeNull());
+  });
+
   it('Enter on a row takes the keyboard into the details, and closing gives the row it back', async () => {
     // QA's keyboard pass (2026-11-20): it fell to the page both ways, on every engine.
     await inboxWith('Mow', 'Rake');
