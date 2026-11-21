@@ -166,7 +166,16 @@ app (ADR-0017 in the project notes). There is no second copy of the UI.
   (`core/widgetTasks.ts`), each with the day it belongs to on `asOf` and on the day after, so
   the widgets move on at midnight (an alarm at 00:01, and the clock and time zone broadcasts)
   without the app. `WidgetStore` keeps them in app-private preferences; `WidgetTasks` picks what
-  shows, overdue first. A row's tap goes to `WidgetActionActivity`, which opens
+  shows, overdue first. The feed also carries `upcoming` (the ids from tomorrow through a day past
+  Upcoming's week, so it moves on at midnight too), `views` (each list, then each saved filter,
+  with its ids in the app's order, at most 30 each and 50 lists and filters in all) and `more` (the tasks those name that `tasks`
+  lacks); repeating tasks' projected dates stay out. A Today widget shows Today, Upcoming, a list
+  or a saved filter: `WidgetConfigureActivity` asks when it is placed and on Reconfigure
+  (`widgetFeatures="reconfigurable"`, Android 12 and later), and `WidgetStore` keeps each widget's
+  choice in its own preferences, so signing out leaves it. The activity is exported (launchers
+  start it) and changes only a Today widget of this app's. A list or filter the hand-over no
+  longer has leaves the widget saying so, and a tap on that opens the activity. `WidgetViews`
+  holds the keys (`today`, `upcoming`, `list:<id>`, `filter:<id>`) and the page each opens. A row's tap goes to `WidgetActionActivity`, which opens
   `/today?task=<id>` (through the shortcut allowlist) or ticks the task: it hides at once with
   Undo for four seconds, then goes as a reminder's Complete (`ReminderReceiver.press`), so offline
   it waits in the Pending queue for the next check-in, and standalone in Held for the web app.

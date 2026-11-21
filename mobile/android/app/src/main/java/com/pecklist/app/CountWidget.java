@@ -16,9 +16,9 @@ public class CountWidget extends AppWidgetProvider {
     }
 
     static void draw(Context context, AppWidgetManager manager, int[] ids) {
-        boolean has = WidgetStore.has(context);
-        int[] count = WidgetTasks.count(WidgetStore.tasks(context), WidgetStore.asOf(context), Widgets.today(),
-            WidgetStore.hidden(context));
+        WidgetStore.Feed feed = WidgetStore.read(context);
+        boolean has = feed.has;
+        int[] count = WidgetTasks.count(feed.tasks, feed.asOf, Widgets.today(), feed.hidden);
         for (int id : ids) {
             RemoteViews views = new RemoteViews(context.getPackageName(), R.layout.widget_count);
             // Nothing handed over yet (signed out, or never opened): a dash, not a reassuring 0.

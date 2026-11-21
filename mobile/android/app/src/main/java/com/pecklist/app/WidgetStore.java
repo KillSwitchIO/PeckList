@@ -3,9 +3,11 @@ package com.pecklist.app;
 import android.content.Context;
 import android.content.SharedPreferences;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import org.json.JSONArray;
 import org.json.JSONException;
@@ -24,6 +26,8 @@ final class WidgetStore {
     static final long DONE_KEPT_MS = 24 * 60 * 60 * 1000L;
 
     private static final String PREFS = "pecklist.widget";
+    /** Each Today widget's choice (WidgetViews), kept apart so signing out leaves it. */
+    private static final String CHOICES = "pecklist.widget.choices";
     private static final String FEED = "feed";
     private static final String TICKED = "ticked";
     private static final String DONE = "done";
@@ -43,11 +47,16 @@ final class WidgetStore {
         }
     }
 
-    /** The web app's hand-over: {asOf, tasks}. A done task the hand-over no longer has is let go. */
+    /**
+     * The web app's hand-over: {asOf, tasks, upcoming, views, more}. A done task the hand-over no
+     * longer has is let go.
+     */
     static synchronized void save(Context context, JSONObject feed) throws JSONException {
         Set<String> handed = new HashSet<>();
-        JSONArray tasks = feed.optJSONArray("tasks");
-        for (int i = 0; tasks != null && i < tasks.length(); i++) handed.add(tasks.getJSONObject(i).optString("id"));
+        for (String list : new String[] { "tasks", "more" }) {
+            JSONArray tasks = feed.optJSONArray(list);
+            for (int i = 0; tasks != null && i < tasks.length(); i++) handed.add(tasks.getJSONObject(i).optString("id"));
+        }
         JSONObject done = object(context, DONE);
         long now = System.currentTimeMillis();
         for (Iterator<String> ids = done.keys(); ids.hasNext();) {
@@ -57,24 +66,85 @@ final class WidgetStore {
         prefs(context).edit().putString(FEED, feed.toString()).putString(DONE, done.toString()).apply();
     }
 
-    /** Whether there is a hand-over at all (none: never opened, or signed out). */
-    static boolean has(Context context) {
-        return prefs(context).contains(FEED);
+    /** One reading of the hand-over, so a draw parses it once however many widgets it draws. */
+    static final class Feed {
+        final boolean has;
+        final String asOf;
+        final List<WidgetTasks.Task> tasks;
+        final Map<String, WidgetTasks.Task> all;
+        final List<String> upcoming;
+        final boolean handsOverViews;
+        final List<WidgetViews.View> views;
+        final Set<String> hidden;
+
+        private Feed(Context context) {
+            JSONObject feed = object(context, FEED);
+            // Whether there is a hand-over at all (none: never opened, or signed out).
+            has = prefs(context).contains(FEED);
+            asOf = feed.optString("asOf", null);
+            // Today's tasks (and tomorrow's): what Today and the count widget pick from.
+            tasks = tasksOf(feed.optJSONArray("tasks"));
+            all = new HashMap<>();
+            for (WidgetTasks.Task each : tasks) all.put(each.id, each);
+            for (WidgetTasks.Task each : tasksOf(feed.optJSONArray("more"))) all.put(each.id, each);
+            upcoming = idsOf(feed.optJSONArray("upcoming"));
+            handsOverViews = feed.has("views");
+            views = viewsOf(feed.optJSONArray("views"));
+            hidden = WidgetStore.hidden(context);
+        }
     }
 
-    static String asOf(Context context) {
-        return object(context, FEED).optString("asOf", null);
+    static Feed read(Context context) {
+        return new Feed(context);
     }
 
-    static List<WidgetTasks.Task> tasks(Context context) {
+    /** The lists, then the saved filters, a widget can show (handed over by a web app from PL-121's configuration on). */
+    private static List<WidgetViews.View> viewsOf(JSONArray handed) {
+        List<WidgetViews.View> views = new ArrayList<>();
+        for (int i = 0; handed != null && i < handed.length(); i++) {
+            JSONObject each = handed.optJSONObject(i);
+            if (each == null || !WidgetViews.isListOrFilter(each.optString("key")) || !WidgetViews.valid(each.optString("key"))) continue;
+            views.add(new WidgetViews.View(each.optString("key"), each.optString("kind", "list"), each.optString("name"),
+                each.optString("color", ""), idsOf(each.optJSONArray("ids"))));
+        }
+        return views;
+    }
+
+    /** What a Today widget shows: its own choice, or Today. */
+    static String choice(Context context, int widgetId) {
+        String key = context.getSharedPreferences(CHOICES, Context.MODE_PRIVATE).getString(String.valueOf(widgetId), null);
+        return WidgetViews.valid(key) ? key : WidgetViews.TODAY;
+    }
+
+    static void choose(Context context, int widgetId, String key) {
+        if (!WidgetViews.valid(key)) return;
+        context.getSharedPreferences(CHOICES, Context.MODE_PRIVATE).edit().putString(String.valueOf(widgetId), key).apply();
+    }
+
+    /** Widgets taken off the home screen: their choices go too. */
+    static void forget(Context context, int[] widgetIds) {
+        SharedPreferences.Editor edit = context.getSharedPreferences(CHOICES, Context.MODE_PRIVATE).edit();
+        for (int id : widgetIds) edit.remove(String.valueOf(id));
+        edit.apply();
+    }
+
+    private static List<WidgetTasks.Task> tasksOf(JSONArray tasks) {
         List<WidgetTasks.Task> all = new ArrayList<>();
-        JSONArray tasks = object(context, FEED).optJSONArray("tasks");
         for (int i = 0; tasks != null && i < tasks.length(); i++) {
             JSONObject each = tasks.optJSONObject(i);
             if (each == null || !WidgetTasks.safeId(each.optString("id"))) continue;
             all.add(new WidgetTasks.Task(each.optString("id"), each.optString("title"), each.optString("on", null),
                 each.optString("next", null), each.has("time") ? each.optString("time") : null,
                 each.optInt("priority", 0), each.optString("color", "")));
+        }
+        return all;
+    }
+
+    private static List<String> idsOf(JSONArray ids) {
+        List<String> all = new ArrayList<>();
+        for (int i = 0; ids != null && i < ids.length(); i++) {
+            String id = ids.optString(i, null);
+            if (WidgetTasks.safeId(id)) all.add(id);
         }
         return all;
     }

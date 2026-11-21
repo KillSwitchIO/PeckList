@@ -11,4 +11,6 @@
     android:initialLayout="@layout/widget_today"
     android:previewLayout="@layout/widget_today"
     android:description="@string/widget_today_description"
+    android:configure="com.pecklist.app.WidgetConfigureActivity"
+    android:widgetFeatures="reconfigurable"
     android:widgetCategory="home_screen" />

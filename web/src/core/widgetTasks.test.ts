@@ -1,9 +1,15 @@
 import { describe, expect, it } from 'vitest';
 import { testContext } from '../test/fixtures.ts';
 import { createList, inboxList } from './lists.ts';
+import { createSavedFilter } from './savedFilters.ts';
 import { createTask, toggleTaskDone } from './tasks.ts';
 import type { Schedule, WorkspaceFile } from './types.ts';
-import { WIDGET_TASK_LIMIT, widgetFeed } from './widgetTasks.ts';
+import {
+  WIDGET_TASK_LIMIT,
+  WIDGET_VIEW_LIMIT,
+  WIDGET_VIEWS_LIMIT,
+  widgetFeed,
+} from './widgetTasks.ts';
 import { createWorkspace } from './workspace.ts';
 
 const TZ = 'America/Chicago';
@@ -79,5 +85,69 @@ describe('widgetFeed', () => {
     const s = setup();
     for (let i = 0; i < WIDGET_TASK_LIMIT + 5; i++) s.add(`Task ${i}`, { schedule: at(TODAY) });
     expect(widgetFeed(s.ws, TODAY).tasks).toHaveLength(WIDGET_TASK_LIMIT);
+  });
+
+  describe('for a widget set to another view (PL-121)', () => {
+    it("hands over Upcoming's tasks through a day past its week, without repeats' projections", () => {
+      const s = setup();
+      s.add('Today', { schedule: at(TODAY) });
+      const tomorrow = s.add('Tomorrow', { schedule: at('2026-11-20') });
+      const week = s.add('In a week', { schedule: at('2026-11-26') });
+      const past = s.add('A day past the week', { schedule: at('2026-11-27') });
+      s.add('Too far', { schedule: at('2026-11-28') });
+      const weekly = s.add('Weekly', { schedule: at('2026-11-21'), recurrence: 'FREQ=DAILY' });
+      const feed = widgetFeed(s.ws, TODAY);
+      expect(feed.upcoming).toEqual([tomorrow.id, weekly.id, week.id, past.id]);
+      // Tomorrow's is in `tasks` already; the rest come in `more` (with the Inbox's), once each.
+      const more = feed.more!.map((task) => task.id);
+      expect(more).toEqual(expect.arrayContaining([weekly.id, week.id, past.id]));
+      expect(more).not.toContain(tomorrow.id);
+      expect(new Set(more).size).toBe(more.length);
+    });
+
+    it('lists every list, the Inbox first, then the saved filters, each with its tasks in order', () => {
+      const s = setup();
+      const garden = createList(s.ctx, s.ws, { name: 'Garden', color: '#5A8A4E' });
+      s.ws = garden.workspace;
+      const weed = s.add('Weed', { listId: garden.list.id });
+      const water = s.add('Water', { listId: garden.list.id, priority: 3 });
+      const call = s.add('Call the plumber');
+      const saved = createSavedFilter(s.ctx, s.ws, 'Urgent', { priorities: [3] });
+      s.ws = saved.workspace;
+      const feed = widgetFeed(s.ws, TODAY);
+      expect(feed.views!.map(({ key, kind, name, ids }) => ({ key, kind, name, ids }))).toEqual([
+        {
+          key: `list:${inboxList(s.ws).id}`,
+          kind: 'inbox',
+          name: inboxList(s.ws).name,
+          ids: [call.id],
+        },
+        { key: `list:${garden.list.id}`, kind: 'list', name: 'Garden', ids: [weed.id, water.id] },
+        { key: `filter:${saved.filter.id}`, kind: 'filter', name: 'Urgent', ids: [water.id] },
+      ]);
+      expect(feed.views![1]!.color).toBe('#5A8A4E');
+      // An undated task has no day at all.
+      const handed = feed.more!.find((task) => task.id === weed.id)!;
+      expect(handed).toMatchObject({ title: 'Weed', priority: 0, color: '#5A8A4E' });
+      expect(handed.on).toBeUndefined();
+      expect(handed.next).toBeUndefined();
+    });
+
+    it(`keeps at most ${WIDGET_VIEW_LIMIT} tasks a view`, () => {
+      const s = setup();
+      for (let i = 0; i < WIDGET_VIEW_LIMIT + 5; i++) s.add(`Task ${i}`);
+      expect(widgetFeed(s.ws, TODAY).views![0]!.ids).toHaveLength(WIDGET_VIEW_LIMIT);
+    });
+
+    it(`offers at most ${WIDGET_VIEWS_LIMIT} lists and filters, the lists first`, () => {
+      const s = setup();
+      for (let i = 0; i < WIDGET_VIEWS_LIMIT; i++) {
+        s.ws = createList(s.ctx, s.ws, { name: `List ${i}`, color: '#5A8A4E' }).workspace;
+      }
+      s.ws = createSavedFilter(s.ctx, s.ws, 'Urgent', { priorities: [3] }).workspace;
+      const views = widgetFeed(s.ws, TODAY).views!;
+      expect(views).toHaveLength(WIDGET_VIEWS_LIMIT);
+      expect(views.every((view) => view.kind !== 'filter')).toBe(true);
+    });
   });
 });

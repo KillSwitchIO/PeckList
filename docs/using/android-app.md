@@ -222,7 +222,12 @@ under **Compatibility**, and an app that is too old for the server is signed out
 - Add widgets from your home screen's widget picker (long-press an empty spot, then
   **Widgets**, then PeckList):
   - **Today** lists today's tasks, overdue first. Tap a circle to complete a task, with a few
-    seconds to **Undo**; tap a task to open it, or **+** to add one. It is resizable.
+    seconds to **Undo**; tap a task to open it, or **+** to add one. It is resizable. When you
+    place it, pick what it shows: **Today**, **Upcoming** (the next seven days), one of your lists
+    or a saved filter. Each Today widget keeps its own choice, so you can have one for Today and
+    another for your shopping list. To change it on Android 12 and later, long-press the widget
+    and choose **Reconfigure**. If its list or filter is deleted, the widget says so; tap it to
+    pick another. Lists and filters appear in the choice once the app has been opened.
   - **Add task**, a round button, and **Add task bar**, a wide one, open Today with the add field
     ready to type in.
   - **Today's count** shows how many tasks are left for today, in red while any are overdue.

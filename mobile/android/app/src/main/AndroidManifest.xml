@@ -53,6 +53,20 @@
 
         </activity>
 
+        <!-- What a Today widget shows, asked when it is placed and on Reconfigure (WidgetConfigureActivity).
+             Exported: the launcher starts it; it only changes a Today widget of ours. -->
+        <activity
+            android:name=".WidgetConfigureActivity"
+            android:theme="@style/AppTheme.WidgetConfigure"
+            android:excludeFromRecents="true"
+            android:taskAffinity=""
+            android:noHistory="true"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_CONFIGURE" />
+            </intent-filter>
+        </activity>
+
         <!-- Snooze's "until when?" dialog, on its own so the app does not open (SnoozeActivity). -->
         <activity
             android:name=".SnoozeActivity"
