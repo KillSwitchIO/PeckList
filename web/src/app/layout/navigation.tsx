@@ -7,7 +7,7 @@ import SearchRounded from '@mui/icons-material/SearchRounded';
 import TaskAltRounded from '@mui/icons-material/TaskAltRounded';
 import type { ReactElement } from 'react';
 import type { MessageKey } from '../i18n/i18n.ts';
-import { AssignedIcon, DueIcon, PeopleIcon } from '../icons/icons.tsx';
+import { AssignedIcon, DueIcon, PeopleIcon, TemplateIcon } from '../icons/icons.tsx';
 import { TodayIcon } from '../icons/TodayIcon.tsx';
 
 export interface NavItem {
@@ -28,6 +28,8 @@ export const SIDEBAR_ITEMS: NavItem[] = [
   { path: '/trash', label: 'nav.trash', icon: <DeleteOutlineRounded /> },
   // A view like the others, so it can be moved and hidden in the sidebar (R-FB-112).
   { path: '/search', label: 'nav.search', icon: <SearchRounded /> },
+  // Saved tasks and lists to make again (PL-140): a page of its own, like the views.
+  { path: '/templates', label: 'nav.templates', icon: <TemplateIcon /> },
 ];
 
 /** Views that need a server with accounts (core/sidebar.ts SHARED_VIEWS). */

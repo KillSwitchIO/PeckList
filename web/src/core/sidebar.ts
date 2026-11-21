@@ -19,6 +19,7 @@ export const BUILT_IN_VIEWS = [
   'completed',
   'trash',
   'search',
+  'templates',
 ] as const;
 
 /** Views that need a server with accounts; the sidebar offers them only then. */
@@ -36,6 +37,7 @@ export function defaultSidebar(): SidebarLayout {
       'search',
       GROUP,
       'completed',
+      'templates',
       'trash',
     ],
     hidden: [],

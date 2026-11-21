@@ -466,6 +466,17 @@ export function FilterIcon(props: SvgIconProps) {
   );
 }
 
+/** Templates: a page laid out ahead, a header band and a side column. */
+export function TemplateIcon(props: SvgIconProps) {
+  return (
+    <PeckIcon {...props}>
+      <rect x="4.5" y="4.5" width="15" height="15" rx="2" />
+      <path d="M4.5 9.5h15" />
+      <path d="M9.5 9.5v10" />
+    </PeckIcon>
+  );
+}
+
 /** Sort and group: rows getting shorter beside an up-and-down arrow. */
 export function SortGroupIcon(props: SvgIconProps) {
   return (

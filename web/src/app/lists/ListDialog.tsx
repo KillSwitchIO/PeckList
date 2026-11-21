@@ -1,6 +1,7 @@
 import {
   Box,
   Button,
+  Chip,
   Dialog,
   DialogActions,
   DialogContent,
@@ -12,7 +13,10 @@ import {
 import { submitOnShiftEnter } from '../hooks/keys.ts';
 import { useRef, useState, type ReactNode } from 'react';
 import { buildPalette } from '../../core/palette.ts';
-import type { List } from '../../core/types.ts';
+import { listBody, templatesOf } from '../../core/templates.ts';
+import type { List, Template } from '../../core/types.ts';
+import { useWorkspace } from '../store/hooks.ts';
+import { TemplatePicker } from '../templates/TemplatePicker.tsx';
 import { ColorPicker } from '../colors/ColorPicker.tsx';
 import { IconPicker } from './IconPicker.tsx';
 import { stemOf } from '../../core/attachments.ts';
@@ -24,6 +28,8 @@ export interface ListFormValue {
   name: string;
   color: string;
   icon: string | null;
+  /** A new list made from this list template (PL-140): its tasks come too */
+  templateId?: string;
 }
 
 export function ListDialog({
@@ -40,7 +46,21 @@ export function ListDialog({
   const [name, setName] = useState(list?.name ?? '');
   const [color, setColor] = useState(list?.color ?? LIGHT.pastels.sky.fill);
   const [icon, setIcon] = useState<string | null>(list?.icon ?? null);
+  const [template, setTemplate] = useState<Template | null>(null);
+  const [picking, setPicking] = useState<HTMLElement | null>(null);
+  // A new list can start from a list template: its look fills the form, its tasks come on Create.
+  const workspace = useWorkspace();
+  const offerTemplates = !list && templatesOf(workspace, 'list').length > 0;
   const valid = name.trim().length > 0;
+  const pick = (picked: Template) => {
+    setPicking(null);
+    const body = listBody(picked);
+    if (!body) return;
+    setTemplate(picked);
+    setName(body.name || picked.name);
+    setColor(body.color);
+    setIcon(body.icon);
+  };
 
   return (
     <Dialog open={open} onClose={onClose} fullWidth maxWidth="xs">
@@ -48,7 +68,14 @@ export function ListDialog({
         onKeyDown={submitOnShiftEnter}
         onSubmit={(event) => {
           event.preventDefault();
-          if (valid) onSubmit({ name: name.trim(), color, icon });
+          if (valid) {
+            onSubmit({
+              name: name.trim(),
+              color,
+              icon,
+              ...(template ? { templateId: template.id } : {}),
+            });
+          }
         }}
       >
         <DialogTitle>{list ? t('list.edit') : t('list.new')}</DialogTitle>
@@ -77,12 +104,36 @@ export function ListDialog({
           </Stack>
         </DialogContent>
         <DialogActions>
+          {offerTemplates && (
+            <Box sx={{ flexGrow: 1, minWidth: 0, display: 'flex' }}>
+              {template ? (
+                <Chip
+                  size="small"
+                  label={t('templates.fromNamed', { name: template.name })}
+                  onDelete={() => setTemplate(null)}
+                  sx={{ maxWidth: '100%' }}
+                />
+              ) : (
+                <Button aria-haspopup="dialog" onClick={(event) => setPicking(event.currentTarget)}>
+                  {t('templates.fromTemplate')}
+                </Button>
+              )}
+            </Box>
+          )}
           <Button onClick={onClose}>{t('common.cancel')}</Button>
           <Button type="submit" variant="contained" disabled={!valid}>
             {list ? t('common.save') : t('common.create')}
           </Button>
         </DialogActions>
       </form>
+      {picking && (
+        <TemplatePicker
+          kind="list"
+          anchor={picking}
+          onClose={() => setPicking(null)}
+          onPick={pick}
+        />
+      )}
     </Dialog>
   );
 }

@@ -14,10 +14,11 @@
 | **Completed**                           | What got done: a heatmap, totals, and closed tasks by day.            |
 | **Trash**                               | Deleted tasks and lists, restorable for 30 days unless you change it. |
 | **Search**                              | Finds tasks by their words, ranked best first (see below).            |
+| **Templates**                           | Tasks and lists you saved to make again (see below).                  |
 | **Lists**, **Tags**, **Filters**        | Your own lists, nested tags, and saved filters.                       |
 
 Views show how many open tasks they hold, as lists do, and Completed how many closed tasks it lists
-(Calendar, Trash and Search show none); so do lists and tags pinned among them. The Today icon shows today's date, and turns over at midnight.
+(Calendar, Trash, Search and Templates show none); so do lists and tags pinned among them. The Today icon shows today's date, and turns over at midnight.
 
 **Edit sidebar** pins, hides and moves views, Search included. While editing, drag a row by its
 grip on the left; a swipe anywhere else scrolls. The menu button at the top left folds the sidebar away
@@ -292,6 +293,30 @@ showed in (tasks outside a section first), and the section names go.
 Tags nest with `/`: `home/garden`. A task tagged `home/garden` also shows under `home`. Pick colors
 in a tag's menu; subtasks inherit their parent's tags.
 
+## Templates
+
+A template is a task, or a whole list, saved to make again: a packing list, a weekly clean, a
+project checklist. It never shows in your views, counts, search or reminders until you use it.
+
+- **Save one:** **Save as template** in a task's menu or a list's menu asks for a name. It keeps
+  the title, notes, priority, tags, reminders, repeat and open subtasks (a list keeps its color,
+  icon and open tasks). Dates become days from today: a task due Friday, saved on Monday, is "due
+  in 4 days". Done subtasks, the people on it, files and comments aren't kept. A date already past
+  moves up to the day it's used, and the others keep their distance from it.
+- **Use a task template:** the template button in an add field (it shows once you have one) opens
+  your templates, most used first, with a search. The words you typed become the title, the task
+  lands where the field adds, and it opens full screen to finish. In the calendar, the day you
+  added to is the day its dates count from; a template with no dates goes on that day.
+- **Use a list template:** **From template** in the new list dialog fills in the name, color and
+  icon, which you can change, and Create makes the list with its tasks.
+- **Templates page:** **Templates** in the sidebar (on a phone, under **More**) holds task templates
+  and list templates. Tap one to edit it, where dates read as days from the day it's used; **Use**
+  makes it now; its menu renames, duplicates or deletes it; drag the grip to reorder. **New
+  template** starts an empty one. Undo takes back a use or a delete.
+
+Templates are yours alone: they sync to your devices, but aren't shared with the people on your
+lists. They go into backups and the full export.
+
 ## Calendar
 
 Three views, switched at the top right:
@@ -435,7 +460,7 @@ whenever you like. Each shows when it was made, when it expires and when it was 
 **Start over or delete your account** (on a server with accounts, last under **Settings > Account**),
 in the browser and in every app:
 
-- **Start over** deletes your tasks, lists, sections, tags, saved filters and comments from every
+- **Start over** deletes your tasks, lists, sections, tags, saved filters, templates and comments from every
   device you use, and keeps your account, its sign-in methods and your settings. A list you share goes
   to the next person in it, you leave lists others share with you, and tasks you added to other
   people's lists stay there without your comments. Download a copy first with the button in the

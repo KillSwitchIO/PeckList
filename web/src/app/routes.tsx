@@ -36,6 +36,7 @@ import {
   ApiKeysPage,
   CliSignInPage,
   StatsPage,
+  TemplatesPage,
 } from './lazyPages.ts';
 
 function NotFound() {
@@ -100,6 +101,7 @@ export function AppRoutes() {
           <Route path="/calendar" element={<CalendarPage />} />
           <Route path="/day/:date" element={<DayView />} />
           <Route path="/search" element={<SearchView />} />
+          <Route path="/templates" element={<TemplatesPage />} />
           <Route path="/settings" element={<SettingsPage />} />
           <Route path="/settings/lists" element={<ManageListsPage />} />
           <Route path="/settings/api-keys" element={<ApiKeysPage />} />

@@ -246,7 +246,16 @@ function handledInside(event: unknown, reason: string): boolean {
 /** Pages without tasks to add, where the phone's + button stays away. */
 // Due dates has no add field, and its bulk bar sits where the button would; on More it
 // covered the rows being edited.
-const NO_ADD_BUTTON = ['/settings', '/admin', '/friends', '/f/', '/search', '/due', '/more'];
+const NO_ADD_BUTTON = [
+  '/settings',
+  '/admin',
+  '/friends',
+  '/f/',
+  '/search',
+  '/due',
+  '/more',
+  '/templates',
+];
 
 /**
  * Responsive frame: permanent sidebar on desktop, temporary drawer on tablet,

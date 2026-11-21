@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 20,
+  "schemaVersion": 21,
   "app": {
     "name": "punchlist",
     "version": "0.1.0"
@@ -655,6 +655,43 @@
           "size": "2026-10-20T16:31:00.000Z-0000-dev1",
           "mime": "2026-10-20T16:31:00.000Z-0000-dev1",
           "sha256": "2026-10-20T16:31:00.000Z-0000-dev1"
+        }
+      }
+    ],
+    "templates": [
+      {
+        "id": "01DEV1000000000000000000T1",
+        "createdAt": "2026-10-20T16:32:00.000Z",
+        "createdBy": "01TESTMEMBER00000000000001",
+        "deletedAt": null,
+        "origin": "local",
+        "name": "Weekly clean",
+        "kind": "task",
+        "order": "V",
+        "body": {
+          "title": "Clean the house",
+          "notes": "",
+          "priority": 1,
+          "tags": [],
+          "start": { "inDays": 6, "time": "10:00" },
+          "end": null,
+          "due": null,
+          "reminders": [{ "before": 15 }],
+          "recurrence": "FREQ=WEEKLY",
+          "constantReminder": false,
+          "subtasks": []
+        },
+        "uses": 2,
+        "_hlc": {
+          "createdAt": "2026-10-20T16:32:00.000Z-0000-dev1",
+          "createdBy": "2026-10-20T16:32:00.000Z-0000-dev1",
+          "deletedAt": "2026-10-20T16:32:00.000Z-0000-dev1",
+          "origin": "2026-10-20T16:32:00.000Z-0000-dev1",
+          "name": "2026-10-20T16:32:00.000Z-0000-dev1",
+          "kind": "2026-10-20T16:32:00.000Z-0000-dev1",
+          "order": "2026-10-20T16:32:00.000Z-0000-dev1",
+          "body": "2026-10-20T16:32:00.000Z-0000-dev1",
+          "uses": "2026-10-20T16:32:00.000Z-0000-dev1"
         }
       }
     ]

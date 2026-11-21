@@ -158,6 +158,50 @@ export interface SavedFilter extends BaseEntity {
   order: OrderKey;
 }
 
+/** A day in a template: so many days from the day it is used, at a time ("HH:mm") or all day (null). */
+export interface TemplateDate {
+  inDays: number;
+  time: string | null;
+}
+
+export type TemplateReminder = { before: number } | { at: TemplateDate };
+
+/** A task as a template makes it (PL-140): what Save as template keeps, dates relative. */
+export interface TemplateTask {
+  title: string;
+  notes: string;
+  priority: Priority;
+  /** Tag ids; one deleted since is skipped when the template is used */
+  tags: Id[];
+  start: TemplateDate | null;
+  /** The end of a timed or multi-day start, relative too */
+  end: TemplateDate | null;
+  due: TemplateDate | null;
+  reminders: TemplateReminder[];
+  recurrence: string | null;
+  constantReminder: boolean;
+  subtasks: TemplateTask[];
+}
+
+/** A list as a template makes it: its look and its tasks. */
+export interface TemplateList {
+  name: string;
+  color: string;
+  icon: string | null;
+  tasks: TemplateTask[];
+}
+
+/** A saved task or list to make again (schema 21, PL-140); personal. */
+export interface Template extends BaseEntity {
+  name: string;
+  kind: 'task' | 'list';
+  order: OrderKey;
+  /** A TemplateTask or a TemplateList, by kind; read through core/templates.ts, which checks it */
+  body: Record<string, unknown>;
+  /** How many times it was used: most used first in the picker */
+  uses?: number;
+}
+
 export interface SidebarLayout {
   /** Every view once, plus the `@group` marker: views after it sit in the collapsible group. */
   order: string[];
@@ -265,6 +309,7 @@ export interface EntityMap {
   settings: Settings;
   comments: Comment;
   attachments: Attachment;
+  templates: Template;
 }
 
 export type CollectionName = keyof EntityMap;
@@ -286,6 +331,7 @@ export const COLLECTIONS: readonly CollectionName[] = [
   'settings',
   'comments',
   'attachments',
+  'templates',
 ];
 
 /** Fields that merge per element instead of as a whole value */
@@ -304,6 +350,7 @@ export const ELEMENT_SET_FIELDS: { readonly [K in CollectionName]: readonly stri
   settings: [],
   comments: [],
   attachments: [],
+  templates: [],
 };
 
 export interface WorkspaceFile {

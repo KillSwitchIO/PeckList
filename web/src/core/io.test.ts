@@ -85,12 +85,13 @@ describe('upgradeDocument', () => {
     for (const task of legacy.entities.tasks) delete task.progress;
     const result = upgradeDocument(legacy as unknown as Record<string, unknown>, validator);
     // The sidebar migration wrote the views of its day; views added since (Due dates) join when
-    // the sidebar is shown (normalizeSidebar), not in the stored layout (Search too, R-FB-112).
+    // the sidebar is shown (normalizeSidebar), not in the stored layout (Search too, R-FB-112,
+    // and Templates, PL-140).
     const expected = structuredClone(workspace);
     const sidebar = expected.entities.settings[0]!.sidebar;
     expected.entities.settings[0]!.sidebar = {
       ...sidebar,
-      order: sidebar.order.filter((id) => id !== 'due' && id !== 'search'),
+      order: sidebar.order.filter((id) => !['due', 'search', 'templates'].includes(id)),
     };
     expect(result).toEqual({ kind: 'ok', workspace: expected });
   });
