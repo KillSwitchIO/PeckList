@@ -18,3 +18,5 @@ server/src/PeckList.Server/Api/quickadd.js
 mobile/android
 # Written by the server test that checks it against the document the server makes (PL-118).
 docs/reference/openapi.json
+# Made by scripts/notices.mjs, and checked against what it makes.
+THIRD-PARTY-NOTICES.md

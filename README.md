@@ -122,7 +122,8 @@ requests on GitHub.
 Copyright (C) 2026 Ben Dimit. PeckList is free software under the
 [GNU Affero General Public License, version 3 or later](LICENSE): use it, host it, change it and
 share it, for any purpose. If you run a modified version for other people over a network, offer
-them its source under the same license.
+them its source under the same license. The third-party software PeckList is built with is listed,
+by license, in [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md) (and [NOTICE](NOTICE)).
 
 Organizations that cannot work under the AGPL can buy a
 [commercial license](COMMERCIAL-LICENSE.md). Contributions are accepted under the terms in
