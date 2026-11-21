@@ -30,7 +30,7 @@ PeckList est une app de tâches pour vous et les personnes avec qui vous partage
 <ul>
 <li>Widgets : Aujourd'hui, le nombre de tâches du jour et des boutons pour ajouter une tâche</li>
 <li>Ajoutez une tâche à la voix, depuis une tuile des Réglages rapides ou en partageant du texte depuis une autre app</li>
-<li>Appui long sur l'icône pour Ajouter une tâche, Aujourd'hui et Rechercher</li>
+<li>Appui long sur l'icône pour Ajouter une tâche, Aujourd'hui et la dernière liste ouverte</li>
 <li>Suit le mode clair ou sombre de votre téléphone, avec une icône thématique à partir d'Android 13</li>
 </ul>
 

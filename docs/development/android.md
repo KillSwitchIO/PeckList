@@ -396,8 +396,11 @@ folders and with nothing stamped the second time, and compare the two files: the
 identical.
 
 The store listing is in `fastlane/metadata/android/en-US/` at the top of the repository: the
-title, the short description (80 characters at most), the full description (4,000), the icon and
-the phone screenshots (1170×2532, the demo seed signed in as `demo-sam`).
+title, the short description (80 characters at most), the full description (4,000), the icon, the
+feature graphic, and the phone (1080×2160) and tablet (2560×1600) screenshots, taken with the demo
+seed signed in as `demo-sam`. `de-DE/`, `es-ES/` and `fr-FR/` beside it hold machine-translated
+descriptions that no person has checked yet (`MACHINE_TRANSLATED.md`). How the images were made,
+and the desktop screenshots for the website, are in `brand/store/`.
 
 ## Trying it against a local server
 
