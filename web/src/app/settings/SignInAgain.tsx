@@ -1,5 +1,5 @@
 import { Alert, Box, Button, DialogContentText } from '@mui/material';
-import type { MessageKey } from '../i18n/en.ts';
+import type { MessageKey } from '../i18n/i18n.ts';
 import { t } from '../i18n/i18n.ts';
 import { leaveFor } from '../sync/signInWith.ts';
 import type { WayBack } from './deleteAccount.ts';

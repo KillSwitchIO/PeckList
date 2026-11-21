@@ -70,7 +70,7 @@ new object, which is how saves, the journal and the sync engine tell what moved.
 
 ### Habits
 
-- **Every string people see goes through `t()`** with a key in `app/i18n/en.ts`
+- **Every string people see goes through `t()`** with a key in `app/i18n/locales/en.json`
   (`'admin.link.subject'`: area, then the thing). Sentence case. No em dashes anywhere, in
   strings or docs; a plain dash or a new sentence instead.
 - **Icons** are PeckList's own, in `app/icons/icons.tsx` (24 x 24, 1.75 round strokes, no fills,

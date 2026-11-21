@@ -3,7 +3,7 @@ import { Alert, Box, Button, Divider, Link, TextField, Typography } from '@mui/m
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { messageOf } from '../../core/errors.ts';
 import { SyncFailure, type SignInOptions, type SignUpOutcome } from '../../ports/sync.ts';
-import type { MessageKey } from '../i18n/en.ts';
+import type { MessageKey } from '../i18n/i18n.ts';
 import { t } from '../i18n/i18n.ts';
 import { CenteredCard } from '../layout/CenteredCard.tsx';
 import { PRIVACY_POLICY_URL } from '../legal.ts';

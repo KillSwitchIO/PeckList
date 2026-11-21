@@ -1,7 +1,7 @@
 import { Box, Button, Link, ToggleButton, ToggleButtonGroup, Typography } from '@mui/material';
 import { useState } from 'react';
 import type { AdminApi, LogOutput } from '../../ports/admin.ts';
-import type { MessageKey } from '../i18n/en.ts';
+import type { MessageKey } from '../i18n/i18n.ts';
 import { t } from '../i18n/i18n.ts';
 import { AuditView } from './AuditView.tsx';
 import { SETTINGS_ON } from './settingsGroups.ts';

@@ -34,6 +34,7 @@
     "ajv": "8.20.0",
     "chrono-node": "2.10.3",
     "idb": "8.0.4",
+    "intl-messageformat": "12.1.4",
     "minisearch": "7.2.0",
     "qrcode-generator": "1.5.2",
     "react": "19.3.1",
