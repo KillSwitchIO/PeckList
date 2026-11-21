@@ -770,6 +770,16 @@ export function KeyIcon(props: SvgIconProps) {
   );
 }
 
+/** About: an i in a circle. */
+export function InfoIcon(props: SvgIconProps) {
+  return (
+    <PeckIcon {...props}>
+      <circle cx="12" cy="12" r="8.5" />
+      <path d="M12 11v5.5M12 7.6v.1" />
+    </PeckIcon>
+  );
+}
+
 /** Supporting the project: a heart. */
 export function HeartIcon(props: SvgIconProps) {
   return (

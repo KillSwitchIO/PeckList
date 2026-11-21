@@ -109,7 +109,11 @@ describe('delete my account', () => {
         /Your account is deleted\. An admin of this server can restore it until .*2026/,
       ),
     ).toBeInTheDocument();
-    // The project's privacy policy is on the sign-in page.
+    // The project's privacy policy and its source (the AGPL's offer) are on the sign-in page.
+    expect(screen.getByRole('link', { name: 'Source code' })).toHaveAttribute(
+      'href',
+      'https://gitlab.com/killswitch10/pecklist',
+    );
     expect(screen.getByRole('link', { name: 'PeckList privacy policy' })).toHaveAttribute(
       'href',
       'https://docs.pecklist.com/privacy-policy/',

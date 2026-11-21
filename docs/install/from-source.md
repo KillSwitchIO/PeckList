@@ -36,5 +36,12 @@ scripts/package.sh 0.0.0-local osx-arm64     # writes dist/pecklist-server-osx-a
 docker build -t pecklist:local .
 ```
 
+## Running a modified version
+
+PeckList is under the AGPL: if you change it and others use your server, offer them your source.
+Settings > About PeckList links PeckList's own source; to link yours instead, set
+`PECKLIST_SOURCE_URL` when you build the web app (`PECKLIST_SOURCE_URL=https://... pnpm build`), or
+pass `--build-arg SOURCE_URL=https://...` to `docker build`.
+
 Developing on PeckList itself (tests, dev servers, conventions): see
 [developing](../development/index.md).

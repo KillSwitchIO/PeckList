@@ -24,7 +24,10 @@ COPY schema schema
 COPY web web
 ARG VERSION
 ARG REVISION
-RUN PECKLIST_VERSION="$VERSION" PECKLIST_REVISION="$REVISION" pnpm --filter @pecklist/web build
+# A modified build's own source address for Settings > About (docs/install/from-source.md).
+ARG SOURCE_URL
+RUN PECKLIST_VERSION="$VERSION" PECKLIST_REVISION="$REVISION" PECKLIST_SOURCE_URL="$SOURCE_URL" \
+    pnpm --filter @pecklist/web build
 # The demo server's seed (PL-117), made by this version's own code so its schema always matches.
 # A fixed day keeps the build reproducible; `pecklist import --shift-dates` moves it to today.
 COPY scripts/demo-seed.mts scripts/

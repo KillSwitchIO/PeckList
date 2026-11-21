@@ -6,6 +6,7 @@ import { SyncFailure, type SignInOptions, type SignUpOutcome } from '../../ports
 import type { MessageKey } from '../i18n/i18n.ts';
 import { t } from '../i18n/i18n.ts';
 import { CenteredCard } from '../layout/CenteredCard.tsx';
+import { APP_SOURCE_URL } from '../layout/appVersion.ts';
 import { PRIVACY_POLICY_URL } from '../legal.ts';
 import { takeDeletedNotice } from '../settings/deleteAccount.ts';
 import { PasswordField } from '../layout/PasswordField.tsx';
@@ -143,18 +144,32 @@ function useSignInOptions(invite?: string): SignInOptions | null {
   return options;
 }
 
-/** Under the sign-in and sign-up cards: the project's privacy policy, in a new tab. */
+/**
+ * Under the sign-in and sign-up cards, in new tabs: the project's privacy policy, and its source
+ * (the AGPL's offer, for anyone who reaches a server, the demo's visitors included).
+ */
 function PrivacyFooter() {
   return (
-    <Link
-      href={PRIVACY_POLICY_URL}
-      target="_blank"
-      rel="noreferrer"
-      variant="caption"
-      color="text.secondary"
-    >
-      {t('privacy.policy')}
-    </Link>
+    <Box sx={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', columnGap: 2 }}>
+      <Link
+        href={PRIVACY_POLICY_URL}
+        target="_blank"
+        rel="noreferrer"
+        variant="caption"
+        color="text.secondary"
+      >
+        {t('privacy.policy')}
+      </Link>
+      <Link
+        href={APP_SOURCE_URL}
+        target="_blank"
+        rel="noreferrer"
+        variant="caption"
+        color="text.secondary"
+      >
+        {t('about.source')}
+      </Link>
+    </Box>
   );
 }
 

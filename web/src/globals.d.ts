@@ -2,6 +2,8 @@
 declare const __APP_VERSION__: string;
 /** The commit it was built from (7 characters), or empty. */
 declare const __APP_REVISION__: string;
+/** A modified build's own source address (PECKLIST_SOURCE_URL), or empty for PeckList's. */
+declare const __APP_SOURCE_URL__: string;
 
 /** The workspace schema's validator, compiled at build time (workspace-validator.ts). */
 declare module 'virtual:workspace-validator' {

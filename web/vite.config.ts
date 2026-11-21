@@ -13,11 +13,14 @@ import { precompress } from './precompress.ts';
 const stamped = process.env.PECKLIST_VERSION;
 const version = stamped && !stamped.startsWith('0.0.0') ? stamped : pkg.version;
 const revision = (process.env.PECKLIST_REVISION ?? '').slice(0, 7);
+// Where a modified build's source is (the AGPL's offer, Settings > About): a fork sets its own.
+const sourceUrl = process.env.PECKLIST_SOURCE_URL ?? '';
 
 export default defineConfig({
   define: {
     __APP_VERSION__: JSON.stringify(version),
     __APP_REVISION__: JSON.stringify(/^[0-9a-f]{7}$/.test(revision) ? revision : ''),
+    __APP_SOURCE_URL__: JSON.stringify(/^https?:\/\/\S+$/.test(sourceUrl) ? sourceUrl : ''),
   },
   // Vite's default 5173 often falls inside a port range Windows reserves for Hyper-V/WSL.
   server: {
