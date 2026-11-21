@@ -14,6 +14,7 @@ import { AppProviders } from './providers.tsx';
 import { UpdatePrompt } from './pwa/UpdatePrompt.tsx';
 import { preloadEditor } from './editor/preloadEditor.ts';
 import { preloadPages } from './lazyPages.ts';
+import { preloadQuickAddParser } from './tasks/quickAddParser.ts';
 import { loadSymbolCatalog } from './lists/listSymbols.ts';
 import { AppRoutes } from './routes.tsx';
 import { CrashBoundary, NativeCrashOffer } from './telemetry/CrashBoundary.tsx';
@@ -36,7 +37,13 @@ export function App() {
         : setTimeout(work, 2000);
     // Only ahead of time: what fails here is fetched again when it is wanted.
     later(() => {
-      for (const fetchAhead of [preloadEditor, preloadPages, loadSymbolCatalog]) {
+      // Quick add's date parser too, so it reads dates offline on a page without a service worker.
+      for (const fetchAhead of [
+        preloadEditor,
+        preloadPages,
+        loadSymbolCatalog,
+        preloadQuickAddParser,
+      ]) {
         fetchAhead().catch(() => undefined);
       }
     });
