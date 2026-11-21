@@ -8,7 +8,8 @@ import { dateTimeFormat } from '../../core/intl.ts';
  * Days across a new year name it once, at the end ("Dec 28 - Jan 3, 2027").
  * The year view is always just its year. `narrow`, for the phone's row of buttons: a month in
  * another year is "Sep 2027", as there is no room for "September 2027", and days across two months
- * leave the year off ("Dec 28 - Jan 3"), since cutting the title would lose the end date.
+ * leave the year off ("Dec 28 - Jan 3"), since cutting the title would lose the end date. One day
+ * is "Wed, Oct 22", or "Oct 22, 2027" in another year. The date picker's label keeps them whole.
  */
 export function calendarTitle(
   mode: 'month' | 'days' | 'year',
@@ -30,7 +31,14 @@ export function calendarTitle(
   }
   if (count <= 1) {
     const year = date.slice(0, 4) === thisYear ? undefined : 'numeric';
-    return format(date, { weekday: 'long', month: 'short', day: 'numeric', year });
+    if (!narrow) return format(date, { weekday: 'long', month: 'short', day: 'numeric', year });
+    // A phone's row has room for "Wed, May 20", or "May 20, 2027" in another year.
+    return format(
+      date,
+      year
+        ? { month: 'short', day: 'numeric', year }
+        : { weekday: 'short', month: 'short', day: 'numeric' },
+    );
   }
   const first = date;
   const last = addDays(first, count - 1);

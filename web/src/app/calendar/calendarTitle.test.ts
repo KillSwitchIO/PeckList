@@ -34,6 +34,11 @@ describe('calendar title', () => {
     expect(calendarTitle('days', '2026-12-28', 7, '2027-01-02', 'en-US')).toBe('Dec 28 - Jan 3');
   });
 
+  it('shortens one day on a narrow screen: the short weekday, or the year in place of it', () => {
+    expect(calendarTitle('days', '2026-10-22', 1, TODAY, 'en-US', true)).toBe('Thu, Oct 22');
+    expect(calendarTitle('days', '2027-01-04', 1, TODAY, 'en-US', true)).toBe('Jan 4, 2027');
+  });
+
   it('keeps both ends of days across two months on a narrow screen, not the year', () => {
     expect(calendarTitle('days', '2026-12-28', 7, TODAY, 'en-US', true)).toBe('Dec 28 - Jan 3');
     expect(calendarTitle('days', '2027-01-28', 7, TODAY, 'en-US', true)).toBe('Jan 28 - Feb 3');

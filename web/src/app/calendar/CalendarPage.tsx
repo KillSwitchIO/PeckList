@@ -382,6 +382,10 @@ export function CalendarPage() {
     setPrefs({ mode: 'month' });
   };
 
+  // The arrows a little tighter on a phone (room for the title), 26 px; today's circle stays a
+  // 24 px target (WCAG 2.2's least), its room taken from Year/Month/Days instead.
+  const arrowSx = { p: { xs: '3px', sm: '5px' } } as const;
+  const todaySx = { p: { xs: '6px', sm: '5px' } } as const;
   const titleDate = mode === 'month' ? `${view?.month ?? today.slice(0, 7)}-01` : date;
   const title = calendarTitle(mode, titleDate, prefs.days, today, undefined, narrow);
   // A phone's short title can leave the year off days; their label keeps it.
@@ -430,8 +434,9 @@ export function CalendarPage() {
         {/* One row that never wraps, so nothing moves as the title changes length. Laid out as
             Upcoming's (R-FB-72): the title (a date picker) left, the arrows round the today icon
             at the right, the dial and Year/Month/Days between (Year has no dial, and the title
-            just takes its room). */}
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: { xs: 0.25, sm: 0.5 }, mb: 1 }}>
+            just takes its room). On a phone the arrows, the gaps and the title's own arrow are a
+            little tighter, always, so the longest Days title ("Apr 29 - May 10") fits at 360 px. */}
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: { xs: 0.125, sm: 0.5 }, mb: 1 }}>
           <Typography
             component="h2"
             aria-live="polite"
@@ -447,12 +452,13 @@ export function CalendarPage() {
               endIcon={<ChevronDownIcon fontSize="small" />}
               sx={{
                 ...dateHeading,
-                px: 0.5,
+                px: { xs: 0.25, sm: 0.5 },
                 minWidth: 0,
                 maxWidth: '100%',
                 justifyContent: 'flex-start',
                 '& > span:first-of-type': { overflow: 'hidden', textOverflow: 'ellipsis' },
-                '& .MuiButton-endIcon': { ml: { xs: 0.25, sm: 1 } },
+                '& .MuiButton-endIcon': { ml: { xs: 0, sm: 1 } },
+                [theme.breakpoints.down('sm')]: { '& .MuiButton-endIcon svg': { fontSize: 16 } },
               }}
             >
               <Box component="span" sx={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>
@@ -524,35 +530,50 @@ export function CalendarPage() {
             <ToggleButton
               value="year"
               aria-label={t('calendar.year')}
-              sx={{ px: narrow ? 0.5 : phone ? 0.75 : 1.5 }}
+              sx={{ px: narrow ? '3px' : phone ? 0.75 : 1.5 }}
             >
               {phone ? <YearViewIcon fontSize="small" /> : t('calendar.year')}
             </ToggleButton>
             <ToggleButton
               value="month"
               aria-label={t('calendar.month')}
-              sx={{ px: narrow ? 0.5 : phone ? 0.75 : 1.5 }}
+              sx={{ px: narrow ? '3px' : phone ? 0.75 : 1.5 }}
             >
               {phone ? <MonthViewIcon fontSize="small" /> : t('calendar.month')}
             </ToggleButton>
             <ToggleButton
               value="days"
               aria-label={t('calendar.days')}
-              sx={{ px: narrow ? 0.5 : phone ? 0.75 : 1.5 }}
+              sx={{ px: narrow ? '3px' : phone ? 0.75 : 1.5 }}
             >
               {phone ? <DaysViewIcon fontSize="small" /> : t('calendar.days')}
             </ToggleButton>
           </ToggleButtonGroup>
-          <IconButton size="small" aria-label={t('calendar.previous')} onClick={() => step(-1)}>
+          <IconButton
+            size="small"
+            aria-label={t('calendar.previous')}
+            onClick={() => step(-1)}
+            sx={arrowSx}
+          >
             <ChevronLeftIcon fontSize="small" />
           </IconButton>
           <Tooltip title={t('calendar.goToday')}>
-            <IconButton size="small" onClick={goToday} aria-label={t('calendar.goToday')}>
+            <IconButton
+              size="small"
+              onClick={goToday}
+              aria-label={t('calendar.goToday')}
+              sx={todaySx}
+            >
               {/* The plain circle the date pickers use (R-FB-87). */}
               <RadioButtonUncheckedRounded sx={{ fontSize: 12 }} />
             </IconButton>
           </Tooltip>
-          <IconButton size="small" aria-label={t('calendar.next')} onClick={() => step(1)}>
+          <IconButton
+            size="small"
+            aria-label={t('calendar.next')}
+            onClick={() => step(1)}
+            sx={arrowSx}
+          >
             <ChevronRightIcon fontSize="small" />
           </IconButton>
         </Box>
