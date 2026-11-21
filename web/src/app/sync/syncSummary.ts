@@ -1,11 +1,12 @@
 import { t } from '../i18n/i18n.ts';
 import type { SyncState } from './syncEngine.ts';
+import { intlLocale } from '../../core/intl.ts';
 
 /** "just now", "3 minutes ago", ... */
 function ago(time: number, now = Date.now()): string {
   const seconds = Math.round((time - now) / 1000);
   if (seconds > -45) return t('sync.justNow');
-  const format = new Intl.RelativeTimeFormat(undefined, { numeric: 'auto' });
+  const format = new Intl.RelativeTimeFormat(intlLocale(), { numeric: 'auto' });
   if (seconds > -3600) return format.format(Math.round(seconds / 60), 'minute');
   if (seconds > -86400) return format.format(Math.round(seconds / 3600), 'hour');
   return format.format(Math.round(seconds / 86400), 'day');

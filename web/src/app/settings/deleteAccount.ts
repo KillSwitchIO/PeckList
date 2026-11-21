@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import type { AccountApi, StartOverInfo } from '../../ports/sync.ts';
 import { t } from '../i18n/i18n.ts';
 import { useSyncState } from '../sync/syncContext.ts';
+import { intlLocale } from '../../core/intl.ts';
 
 /** This account's own API, on a server with accounts; undefined anywhere else. */
 export function useAccountApi(): AccountApi | undefined {
@@ -39,7 +40,7 @@ const KEY = 'pecklist.accountDeleted';
 
 /** Remember, for the sign-in page, that the account was deleted and until when it can be restored. */
 export function rememberDeleted(removedAt: string, graceDays: number): void {
-  const date = new Date(removedAt).toLocaleDateString(undefined, { dateStyle: 'long' });
+  const date = new Date(removedAt).toLocaleDateString(intlLocale(), { dateStyle: 'long' });
   const text =
     graceDays > 0 && !Number.isNaN(Date.parse(removedAt))
       ? t('deleteAccount.doneGrace', { date })

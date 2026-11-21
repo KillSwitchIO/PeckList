@@ -32,6 +32,7 @@ import { describeInvite, inviteReach } from './inviteText.ts';
 import { SetupCard } from './SetupCard.tsx';
 import { ViewAsDialog } from './ViewAsDialog.tsx';
 import { refusalText, useIsSuperAdmin, useLoaded } from './useAdmin.ts';
+import { intlLocale } from '../../core/intl.ts';
 
 const ROLES: AccountRole[] = ['user', 'admin', 'superadmin'];
 
@@ -43,7 +44,7 @@ function groupsOf(user: AdminUser, serverGroups: Map<string, string>): string[] 
 /** "Nov 23", with the year when it is another year. */
 function shortDate(at: string): string {
   const date = new Date(at);
-  return date.toLocaleDateString(undefined, {
+  return date.toLocaleDateString(intlLocale(), {
     month: 'short',
     day: 'numeric',
     ...(date.getFullYear() !== new Date().getFullYear() ? { year: 'numeric' } : {}),
@@ -53,7 +54,7 @@ function shortDate(at: string): string {
 /** One line under the name: role, how they sign in, and anything that needs attention. */
 function describe(user: AdminUser): string {
   if (user.removedAt) {
-    const day = new Date(user.removedAt).toLocaleDateString(undefined, {
+    const day = new Date(user.removedAt).toLocaleDateString(intlLocale(), {
       month: 'short',
       day: 'numeric',
     });

@@ -3,6 +3,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { addDays, daysBetween } from '../../core/dates.ts';
 import { t } from '../i18n/i18n.ts';
 import { dayTitle } from './dayLabels.ts';
+import { localeDateFormat } from '../../core/intl.ts';
 
 /** Weeks the strip reaches either side of this one. */
 const WEEKS_BACK = 104;
@@ -13,7 +14,7 @@ const SETTLE_MS = 140;
 /** A mouse drag this far is a swipe (not a click on a day). */
 const DRAG_PX = 6;
 
-const weekdayShort = new Intl.DateTimeFormat(undefined, { weekday: 'short', timeZone: 'UTC' });
+const weekdayShort = localeDateFormat({ weekday: 'short', timeZone: 'UTC' });
 
 /**
  * Upcoming's week strip (spec: R-FB-47): one week a page, swiped sideways with a finger, a

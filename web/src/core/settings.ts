@@ -19,6 +19,7 @@ export type SettingsPatch = Partial<
     | 'allDayReminderTime'
     | 'notifications'
     | 'purgeAfterDays'
+    | 'language'
   >
 >;
 

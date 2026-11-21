@@ -8,8 +8,9 @@ import { useWorkspace } from '../store/hooks.ts';
 import { AddTaskInput } from '../tasks/AddTaskInput.tsx';
 import { PropertySheet } from '../tasks/PropertyRow.tsx';
 import { ItemLine } from './ItemLine.tsx';
+import { localeDateFormat } from '../../core/intl.ts';
 
-const longDay = new Intl.DateTimeFormat(undefined, {
+const longDay = localeDateFormat({
   weekday: 'long',
   month: 'long',
   day: 'numeric',

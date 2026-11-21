@@ -10,6 +10,7 @@ import { t } from '../i18n/i18n.ts';
 import { rowRule } from './calendarLook.ts';
 import { ItemLine } from './ItemLine.tsx';
 import { besideScrolling, scrolling } from './scrollbars.ts';
+import { localeDateFormat } from '../../core/intl.ts';
 
 /** Weeks either side of today the month view scrolls through. */
 const SPAN_WEEKS = 520;
@@ -26,12 +27,12 @@ export interface MonthViewInfo {
   month: string;
 }
 
-const shortMonthDay = new Intl.DateTimeFormat(undefined, {
+const shortMonthDay = localeDateFormat({
   month: 'short',
   day: 'numeric',
   timeZone: 'UTC',
 });
-const weekdayShort = new Intl.DateTimeFormat(undefined, { weekday: 'short', timeZone: 'UTC' });
+const weekdayShort = localeDateFormat({ weekday: 'short', timeZone: 'UTC' });
 const at = (day: string) => new Date(`${day}T12:00:00Z`);
 
 interface DayCellProps {

@@ -13,12 +13,13 @@ import {
 } from '../icons/icons.tsx';
 import { useWorkspace } from '../store/hooks.ts';
 import { weekdayInitials, monthTitle } from './miniCalendarText.ts';
+import { localeDateFormat } from '../../core/intl.ts';
 
 /** What the grid shows: days, the months of a year, or twelve years. */
 type Level = 'days' | 'months' | 'years';
 
-const monthShort = new Intl.DateTimeFormat(undefined, { month: 'short', timeZone: 'UTC' });
-const monthLong = new Intl.DateTimeFormat(undefined, { month: 'long', timeZone: 'UTC' });
+const monthShort = localeDateFormat({ month: 'short', timeZone: 'UTC' });
+const monthLong = localeDateFormat({ month: 'long', timeZone: 'UTC' });
 
 /** The first day of the week holding `date`, starting on `weekStart` (0 Sunday). */
 function weekOf(date: string, weekStart: number): string {

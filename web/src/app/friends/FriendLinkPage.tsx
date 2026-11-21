@@ -12,6 +12,7 @@ import { Page } from '../layout/Page.tsx';
 import { useSyncState } from '../sync/syncContext.ts';
 import { Avatar } from './Avatar.tsx';
 import { tooManyText } from './tooMany.ts';
+import { intlLocale } from '../../core/intl.ts';
 
 /**
  * `/f/<code>`: the confirmation screen a friend link opens (spec: Sharing & Permissions). It shows
@@ -66,7 +67,7 @@ export function FriendLinkPage() {
       </Alert>
     );
   } else {
-    const since = new Date(preview.memberSince).toLocaleDateString(undefined, {
+    const since = new Date(preview.memberSince).toLocaleDateString(intlLocale(), {
       year: 'numeric',
       month: 'long',
     });
