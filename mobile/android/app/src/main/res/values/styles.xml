@@ -26,6 +26,9 @@
         <item name="colorAccent">@color/notification_accent</item>
     </style>
 
+    <!-- The Today widget's configuration: only its dialog shows, over the home screen (WidgetConfigureActivity). -->
+    <style name="AppTheme.WidgetConfigure" parent="AppTheme.Snooze" />
+
     <!-- The snooze picker's two tabs (snooze_dialog.xml): the chosen one in the accent, underlined. -->
     <style name="SnoozeTab">
         <item name="android:layout_width">0dp</item>

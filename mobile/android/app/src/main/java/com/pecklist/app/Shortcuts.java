@@ -38,7 +38,8 @@ final class Shortcuts {
      * only these, never an address of its choosing.
      */
     private static final Pattern PAGES = Pattern.compile(
-        "^/(today(\\?(add=1|task=[A-Za-z0-9_-]{1,64}))?|search|lists/[A-Za-z0-9_-]{1,64})$");
+        "^/(today(\\?(add=1|task=[A-Za-z0-9_-]{1,64}))?|search|(upcoming|inbox)(\\?add=1)?"
+            + "|(lists|filters)/[A-Za-z0-9_-]{1,64}(\\?add=1)?)$");
 
     private Shortcuts() {}
 
@@ -75,7 +76,8 @@ final class Shortcuts {
         if (page.startsWith("/today?add")) return "add-task";
         if (page.equals("/today")) return "today";
         if (page.equals("/search")) return "search";
-        if (page.startsWith("/lists/")) return LIST_PREFIX + page.substring("/lists/".length());
+        // A list's own shortcut, not a widget's add bar on that list.
+        if (page.startsWith("/lists/") && !page.contains("?")) return LIST_PREFIX + page.substring("/lists/".length());
         return null;
     }
 

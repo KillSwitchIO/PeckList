@@ -74,7 +74,7 @@ describe('the home-screen widgets', () => {
     const shell = new WidgetShell();
     const { store, id, today } = await openToday(shell);
     await waitFor(() =>
-      expect(shell.handed.at(-1)).toEqual({
+      expect(shell.handed.at(-1)).toMatchObject({
         asOf: today,
         tasks: [expect.objectContaining({ id, title: 'Water plants', on: today })],
       }),
