@@ -4,6 +4,19 @@ All notable changes to PeckList. Each release adds its section from [Conventiona
 with `pnpm release`; the version follows [Semantic Versioning](https://semver.org/). Before 1.0.0 a
 minor release may break things; every break is listed under **Breaking changes** with what to do.
 
+## [0.14.0-rc.2] - 2026-11-21
+
+### Added
+
+- **web:** The filter funnel on Due dates, All, Search and four more
+
+### Fixed
+
+- Reminders name the task's time, not the time they come
+- **server:** Reminder text says dates in the person's date format
+- **web:** A save that waited on storage no longer undoes a join
+- **web:** No tooltip left under the filter funnel after its panel closes
+
 ## [0.14.0-rc.1] - 2026-11-20
 
 ### Added
