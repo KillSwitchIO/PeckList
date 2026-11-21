@@ -116,6 +116,7 @@ public static partial class ServerApp
         builder.Services.AddSingleton<Auth.ProviderPhoto>();
         builder.Services.AddSingleton<VapidKeys>();
         builder.Services.AddSingleton<IPushSender, PushSender>();
+        builder.Services.AddHostedService<PushContactCheck>();
         builder.Services.AddSingleton<PeckList.Core.Mail.IMailSender, Mail.SmtpMailSender>();
         builder.Services.AddSingleton<ReminderSender>();
         builder.Services.AddHostedService(provider => provider.GetRequiredService<ReminderSender>());

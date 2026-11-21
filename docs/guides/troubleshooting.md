@@ -115,6 +115,8 @@ The debug dump's `about.json` shows the zone the server uses.
 Turn on **Settings > Notifications > Notify me when PeckList is closed** on each device. Then check:
 
 - **HTTPS**: browsers only take pushes from a site served over HTTPS (`PUBLIC_URL` with `https://`).
+  With an `http://` address, pushes give push services the `SMTP_FROM` address as the contact,
+  or a placeholder without one, and the log warns about it at startup.
 - **Getting out**: the server sends pushes to the browsers' push services (Google's, Mozilla's,
   Apple's), so it needs to reach the internet over HTTPS; a firewall that blocks outgoing traffic
   stops them. The log says "A push to one of ...'s devices failed" when one does not go through.
