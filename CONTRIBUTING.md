@@ -31,6 +31,9 @@ permissive license than the one the project ships with:
   sign-off records that you wrote the change or have the right to submit it under these terms, in
   the sense of the [Developer Certificate of Origin](https://developercertificate.org/), and that
   you agree to the grant above. If your employer owns your work, make sure they allow it.
+  A merge request from a fork fails its `signoff` job until every commit carries a sign-off whose
+  email is the commit author's: `git commit --amend -s` fixes the last commit, and
+  `git rebase --signoff <base>` all of them, with the base the job prints (or `upstream/main`).
 - Third-party code and assets come with a compatible license (MIT, BSD, ISC, Apache-2.0 and the
   like) and keep their notices. GPL-only or noncommercial-only material cannot be merged.
 

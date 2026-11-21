@@ -1508,6 +1508,23 @@ release:
   rules:
     - *legacy-tag
 
+# --- sign-off --------------------------------------------------------------------------------
+
+# A merge request from a fork passes only when each of its commits is signed off by its author
+# (CONTRIBUTING.md, "License and contributions"). Ben's and the agents' branches are in this
+# project, so their merge requests skip it. scripts/check-signoff.mjs
+signoff:
+  image: $NODE_IMAGE
+  stage: check
+  needs: []
+  timeout: 5m
+  variables:
+    GIT_DEPTH: 0
+  script:
+    - node scripts/check-signoff.mjs
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event" && $CI_MERGE_REQUEST_SOURCE_PROJECT_ID != $CI_MERGE_REQUEST_PROJECT_ID
+
 # --- approve ---------------------------------------------------------------------------------
 
 # A merge request passes only once APPROVERS has approved it (GitLab Free has the Approve button
