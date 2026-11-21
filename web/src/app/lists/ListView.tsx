@@ -82,13 +82,7 @@ function ListMenu({
     <>
       {canShare && !shareInMenu && (
         <Tooltip
-          title={
-            shared === 0
-              ? t('share.button')
-              : shared === 1
-                ? t('share.sharedOne')
-                : t('share.sharedMany', { count: shared })
-          }
+          title={shared === 0 ? t('share.button') : t('share.shared', { count: shared })}
           disableFocusListener
         >
           <IconButton

@@ -42,11 +42,9 @@ export function resetWording(demo: DemoInfo): {
     };
   }
   const every =
-    minutes === 60
-      ? t('demo.everyHour')
-      : minutes % 60 === 0
-        ? t('demo.everyHours', { count: minutes / 60 })
-        : t('demo.everyMinutes', { count: minutes });
+    minutes % 60 === 0
+      ? t('demo.everyHours', { count: minutes / 60 })
+      : t('demo.everyMinutes', { count: minutes });
   return {
     banner: t('demo.bannerEvery', { every }),
     short: t('demo.bannerShortEvery', { every }),

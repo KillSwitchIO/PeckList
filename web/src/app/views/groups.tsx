@@ -117,9 +117,7 @@ function postponedLabel(tasks: readonly Task[], today: string): string {
   }
   const day = dayOf(later[0]!.date);
   if (all) return t('undo.postponedTo', { day });
-  return later.length === 1
-    ? t('undo.postponedOne', { title: later[0]!.task.title, day })
-    : t('undo.postponedSome', { count: later.length, day });
+  return t('undo.postponedRepeating', { count: later.length, title: later[0]!.task.title, day });
 }
 
 /**

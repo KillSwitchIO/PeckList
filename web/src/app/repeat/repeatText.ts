@@ -48,10 +48,10 @@ function cadence(rule: Recurrence): string {
   const n = rule.interval;
   switch (rule.freq) {
     case 'DAILY':
-      return n === 1 ? t('repeat.daily') : t('repeat.everyDays', { n });
+      return t('repeat.everyDays', { n });
     case 'WEEKLY': {
       if (n === 1 && isWeekdays(rule.byDay)) return t('repeat.weekdays');
-      const base = n === 1 ? t('repeat.weekly') : t('repeat.everyWeeks', { n });
+      const base = t('repeat.everyWeeks', { n });
       if (!rule.byDay?.length) return base;
       const sorted = [...rule.byDay].sort((a, b) => ((a.weekday + 6) % 7) - ((b.weekday + 6) % 7));
       const short = sorted.length > 1;
@@ -61,7 +61,7 @@ function cadence(rule: Recurrence): string {
       });
     }
     case 'MONTHLY': {
-      const base = n === 1 ? t('repeat.monthly') : t('repeat.everyMonths', { n });
+      const base = t('repeat.everyMonths', { n });
       const day = rule.byMonthDay?.[0];
       if (day === -1) return t('repeat.on', { base, when: t('repeat.lastDay') });
       if (day) return t('repeat.on', { base, when: t('repeat.dayN', { day }) });
@@ -70,7 +70,7 @@ function cadence(rule: Recurrence): string {
       return base;
     }
     case 'YEARLY': {
-      const base = n === 1 ? t('repeat.yearly') : t('repeat.everyYears', { n });
+      const base = t('repeat.everyYears', { n });
       const month = rule.byMonth?.[0];
       const day = rule.byMonthDay?.[0];
       return month && day && day > 0 ? t('repeat.on', { base, when: monthDay(month, day) }) : base;
@@ -89,7 +89,7 @@ export function repeatLabel(text: string | null, today: string): string {
   const parts = [cadence(rule)];
   if (rule.fromCompletion) parts.push(t('repeat.afterDone'));
   if (rule.count !== undefined) {
-    parts.push(rule.count === 1 ? t('repeat.lastTime') : t('repeat.timesLeft', { n: rule.count }));
+    parts.push(t('repeat.timesLeft', { n: rule.count }));
   }
   if (rule.until) parts.push(t('repeat.until', { date: formatDay(rule.until, today) }));
   return parts.join(', ');

@@ -53,14 +53,14 @@ test('fails an apostrophe that quotes a parameter in an ICU message, not in a pl
 test('fails a translation with other parameters, other kinds, or a key English lacks', () => {
   const english = {
     'tag.preview': 'Will be saved as {path}',
-    'tasks.showMore': '{count, plural, one {Show # more} other {Show # more}}',
+    'share.kind': '{kind, select, list {A list} other {Something}}',
     'nav.today': 'Today',
   };
   const errors = compareCatalog(
     english,
     {
       'tag.preview': 'Wird als {pfad} gespeichert',
-      'tasks.showMore': '{count} weitere zeigen',
+      'share.kind': 'Eine {kind}',
       'nav.today': 'Heute',
       'nav.gone': 'Weg',
     },
@@ -69,8 +69,30 @@ test('fails a translation with other parameters, other kinds, or a key English l
   );
   assert.deepEqual(errors, [
     'tag.preview: takes {pfad}, English takes {path}',
-    'tasks.showMore: takes {count}, English takes {count, plural}',
+    'share.kind: takes {kind}, English takes {kind, select}',
     'nav.gone: not in English any more',
+  ]);
+});
+
+test('lets a count change shape between plain and plural, and nothing else', () => {
+  const english = {
+    'tasks.showMore': 'Show {count} more',
+    'bulk.changed': '{count, plural, one {# task changed} other {# tasks changed}}',
+    'tag.preview': 'Will be saved as {path}',
+    'undo.postponedTo': 'Moved to {day}',
+  };
+  const translated = {
+    // Polish needs forms where English has none; Japanese has none where English has two.
+    'tasks.showMore':
+      '{count, plural, one {Pokaż # więcej} few {Pokaż # więcej} many {Pokaż # więcej} other {Pokaż # więcej}}',
+    'bulk.changed': '{count}件のタスクを変更しました',
+    // A name is not a count: a plural or select over it is refused.
+    'tag.preview': '{path, select, other {Zapisane jako {path}}}',
+    'undo.postponedTo': '{day, plural, other {Przeniesiono na {day}}}',
+  };
+  assert.deepEqual(compareCatalog(english, translated, 'pl', IntlMessageFormat), [
+    'tag.preview: takes {path, select}, English takes {path}',
+    'undo.postponedTo: takes {day, plural}, English takes {day}',
   ]);
 });
 

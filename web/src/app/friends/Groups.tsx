@@ -141,11 +141,7 @@ export function Groups({ title }: { title: string }) {
                     primary={view.group.name}
                     secondary={[
                       isServerGroup(view.group) ? t('group.server') : null,
-                      active === 1
-                        ? t('group.oneMember')
-                        : Math.max(active, 1) === 1
-                          ? t('group.membersOne')
-                          : t('group.members', { count: active }),
+                      t('group.members', { count: Math.max(active, 1) }),
                     ]
                       .filter(Boolean)
                       .join(' · ')}

@@ -466,9 +466,7 @@ export function CalendarPage() {
               value={prefs.days}
               onChange={(days) => setPrefs({ days })}
               label={t('calendar.daysShown')}
-              caption={(count) =>
-                count === 1 ? t('calendar.oneDay') : t('calendar.dayCount', { count })
-              }
+              caption={(count) => t('calendar.dayCount', { count })}
             />
           )}
           {mode === 'month' && (

@@ -233,9 +233,7 @@ export function CompletedView() {
           ))}
           {inTrash > 0 && (
             <Typography color="text.secondary" sx={{ px: 1, pt: 1 }}>
-              {inTrash === 1
-                ? t('completed.inTrashOne')
-                : t('completed.inTrashMany', { count: inTrash })}
+              {t('completed.inTrash', { count: inTrash })}
             </Typography>
           )}
           {spacer}

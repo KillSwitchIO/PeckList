@@ -62,12 +62,7 @@ export function PhoneTaskMore({
     if (bar.current) return attach(bar.current, () => true);
   }, [attach]);
   const comments = commentsOf(workspace, task.id).length;
-  const label =
-    comments === 0
-      ? t('task.moreNoComments')
-      : comments === 1
-        ? t('task.moreOneComment')
-        : t('task.moreComments', { count: comments });
+  const label = t('task.moreComments', { count: comments });
   return (
     <>
       <ButtonBase

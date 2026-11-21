@@ -56,14 +56,8 @@ function dayLabel(day: string, today: string, count: number, counting: YearCount
     timeZone: 'UTC',
   }).format(at(day));
   const name = day === today ? `${t('date.today')}, ${date}` : date;
-  if (counting === 'done') {
-    if (count === 0) return t('completed.dayNone', { day: name });
-    if (count === 1) return t('completed.dayOne', { day: name });
-    return t('completed.dayMany', { day: name, count });
-  }
-  if (count === 0) return t('calendar.yearDayFree', { day: name });
-  if (count === 1) return t('calendar.yearDayOne', { day: name });
-  return t('calendar.yearDayMany', { day: name, count });
+  if (counting === 'done') return t('completed.day', { day: name, count });
+  return t('calendar.yearDay', { day: name, count });
 }
 
 interface MonthBlockProps {
