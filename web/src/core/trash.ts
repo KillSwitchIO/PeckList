@@ -287,7 +287,7 @@ function purgeOlderThan(ctx: OpContext, workspace: WorkspaceFile, cutoff: string
       sections.map((section) => updateEntity(ctx, section, { name: '', deletedAt: PURGED_AT })),
     );
   }
-  // Tags, folders and saved filters are personal, so only their maker has them to erase.
+  // Tags, folders, saved filters and templates are personal, so only their maker has them to erase.
   const tags = workspace.entities.tags.filter(myOwn);
   if (tags.length > 0) {
     next = putEntities(
@@ -311,6 +311,17 @@ function purgeOlderThan(ctx: OpContext, workspace: WorkspaceFile, cutoff: string
       'savedFilters',
       filters.map((filter) =>
         updateEntity(ctx, filter, { name: '', query: {}, deletedAt: PURGED_AT }),
+      ),
+    );
+  }
+  // Templates are personal too (PL-140).
+  const templates = workspace.entities.templates.filter(myOwn);
+  if (templates.length > 0) {
+    next = putEntities(
+      next,
+      'templates',
+      templates.map((template) =>
+        updateEntity(ctx, template, { name: '', body: {}, deletedAt: PURGED_AT }),
       ),
     );
   }

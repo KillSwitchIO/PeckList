@@ -3,7 +3,7 @@ import OpenInFullRounded from '@mui/icons-material/OpenInFullRounded';
 import AddRounded from '@mui/icons-material/AddRounded';
 import { Box, Chip, IconButton, InputBase, Tooltip } from '@mui/material';
 import { useEffect, useRef, useState, type ReactElement } from 'react';
-import { localTimeZone, wallClock } from '../../core/dates.ts';
+import { datePart, localTimeZone, wallClock } from '../../core/dates.ts';
 import {
   createFromQuickAdd,
   parseQuickAdd,
@@ -14,14 +14,23 @@ import { findInbox } from '../../core/lists.ts';
 import { withNewTaskDefaults } from '../../core/newTaskDefaults.ts';
 import { assigneeCandidates } from '../../core/sharing.ts';
 import { createTask, type TaskInput } from '../../core/tasks.ts';
-import type { Task, WorkspaceFile } from '../../core/types.ts';
+import { templatesOf, fromTaskTemplate } from '../../core/templates.ts';
+import type { Task, Template, WorkspaceFile } from '../../core/types.ts';
 import type { DateParser, ParsedMoment } from '../../ports/dateParser.ts';
 import { formatSpan, formatWhen } from '../format.ts';
 import { useToday } from '../hooks/useToday.ts';
 import { currentLanguage, t } from '../i18n/i18n.ts';
 import { repeatLabel } from '../repeat/repeatText.ts';
-import { AssignedIcon, CalendarIcon, CloseIcon, DueIcon, FlagIcon } from '../icons/icons.tsx';
+import {
+  AssignedIcon,
+  CalendarIcon,
+  CloseIcon,
+  DueIcon,
+  FlagIcon,
+  TemplateIcon,
+} from '../icons/icons.tsx';
 import { listName } from '../lists/listName.ts';
+import { TemplatePicker } from '../templates/TemplatePicker.tsx';
 import { useApply, useStoreState, useWorkspace } from '../store/hooks.ts';
 import { newTaskAssignees } from './newTaskAssignees.ts';
 import { useTaskSelection } from './selection.ts';
@@ -123,6 +132,7 @@ export function AddTaskInput({
   });
   const parser = reader?.language === language ? reader.parser : null;
   const [ignore, setIgnore] = useState<ReadonlySet<string>>(new Set());
+  const [picking, setPicking] = useState<HTMLElement | null>(null);
   const field = useRef<HTMLTextAreaElement | null>(null);
   // A title from outside the app (shared, selected or spoken: fillAddTask), one line, to check and add.
   useEffect(() => {
@@ -160,15 +170,16 @@ export function AddTaskInput({
       : null;
   const quick = parsed !== null && parsed.tokens.length > 0 && parsed.title !== '';
 
+  // Settings > New tasks fill what the place says nothing about; quick add's words win over both.
+  const placed = (ws: WorkspaceFile) =>
+    withNewTaskDefaults(ws, defaults, { today, timeZone: localTimeZone(), inList });
+
   /** Make the task from what is typed; returns its id. `blank` allows an empty title. */
   const make = (blank = false): string | null => {
     const trimmed = title.trim();
     if (!trimmed && !blank) return null;
     let id: string | null = null;
     const accounts = phase === 'ready' && authMode === 'local';
-    // Settings > New tasks fill what the place says nothing about; quick add's words win over both.
-    const placed = (ws: WorkspaceFile) =>
-      withNewTaskDefaults(ws, defaults, { today, timeZone: localTimeZone(), inList });
     const withAssignee = (ws: WorkspaceFile, base: Omit<TaskInput, 'title'>, listId: string) => ({
       ...base,
       assignees: base.assignees ?? newTaskAssignees(ws, listId, me, accounts),
@@ -216,6 +227,41 @@ export function AddTaskInput({
     if (!id) return;
     if (title.trim() === '') markDraft(id);
     open(id, { full: true });
+  };
+
+  // A task template (PL-140): made in this place's list, its dates counted from the place's day
+  // (the calendar's) or today; the words typed so far become its title. Opened full screen.
+  const hasTemplates = templatesOf(workspace, 'task').length > 0;
+  const fromTemplate = (template: Template) => {
+    setPicking(null);
+    let id: string | null = null;
+    apply((ctx, ws) => {
+      const base = placed(ws);
+      const accounts = phase === 'ready' && authMode === 'local';
+      const made = fromTaskTemplate(
+        ctx,
+        ws,
+        template.id,
+        {
+          listId: base.listId,
+          parentId: base.parentId ?? null,
+          // The words typed, less what quick add read from them ("tomorrow 9am"): the template
+          // has its own dates.
+          title: quick ? parsed.title : title.trim(),
+          schedule: base.schedule ?? null,
+          assignees: base.assignees ?? newTaskAssignees(ws, base.listId, me, accounts),
+        },
+        {
+          day: base.schedule ? datePart(base.schedule.start) : today,
+          timeZone: localTimeZone(),
+        },
+      );
+      id = made.taskId;
+      return made.workspace;
+    }, t('undo.templateUsed'));
+    setTitle('');
+    setIgnore(new Set());
+    if (id) open(id, { full: true });
   };
 
   const names = {
@@ -284,7 +330,28 @@ export function AddTaskInput({
               <OpenInFullRounded sx={{ fontSize: 16 }} />
             </IconButton>
           </Tooltip>
+          {hasTemplates && (
+            <Tooltip title={t('templates.fromTemplate')}>
+              <IconButton
+                size="small"
+                aria-label={t('templates.fromTemplate')}
+                aria-haspopup="dialog"
+                onClick={(event) => setPicking(event.currentTarget)}
+                sx={{ color: 'text.secondary', flexShrink: 0, my: -0.25, ml: -0.75 }}
+              >
+                <TemplateIcon sx={{ fontSize: 16 }} />
+              </IconButton>
+            </Tooltip>
+          )}
         </Box>
+        {picking && (
+          <TemplatePicker
+            kind="task"
+            anchor={picking}
+            onClose={() => setPicking(null)}
+            onPick={fromTemplate}
+          />
+        )}
         {quick && (
           <Box
             role="list"

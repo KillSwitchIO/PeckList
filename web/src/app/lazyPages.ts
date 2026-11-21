@@ -47,6 +47,9 @@ export const NotificationsPage = lazyPage(() =>
     (m) => m.NotificationsPage,
   ),
 );
+export const TemplatesPage = lazyPage(() =>
+  importAgain(() => import('./templates/TemplatesPage.tsx')).then((m) => m.TemplatesPage),
+);
 export const ConnectPage = lazyPage(() =>
   importAgain(() => import('./native/ConnectPage.tsx')).then((m) => m.ConnectPage),
 );
@@ -65,6 +68,7 @@ export function preloadPages(): Promise<unknown> {
       StatsPage,
       AdminPage,
       NotificationsPage,
+      TemplatesPage,
       ConnectPage,
     ].map((page) => page.preload()),
   );

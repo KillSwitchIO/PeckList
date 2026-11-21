@@ -3,7 +3,7 @@
 
 import { keyBetween } from './ordering.ts';
 
-export const CURRENT_SCHEMA_VERSION = 20;
+export const CURRENT_SCHEMA_VERSION = 21;
 
 export type Migration = (document: Record<string, unknown>) => Record<string, unknown>;
 
@@ -133,6 +133,13 @@ export const MIGRATIONS: MigrationRegistry = {
   // 20: settings may name the language the app speaks (language, PL-148). Optional (missing or
   // null: automatic), so documents change only in version.
   20: (document) => document,
+  // 21: templates, a new collection of saved tasks and lists to make again (PL-140; empty to
+  // start with).
+  21: (document) => {
+    const entities = document.entities as Record<string, unknown[]> | undefined;
+    if (!entities) return document;
+    return { ...document, entities: { ...entities, templates: entities.templates ?? [] } };
+  },
 };
 
 export type VersionCheck =

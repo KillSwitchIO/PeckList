@@ -52,6 +52,7 @@ describe('sidebar layout', () => {
       GROUP,
       'all',
       'completed',
+      'templates',
       'trash',
     ]);
     expect(moveInOrder(order, 'trash', 0)[0]).toBe('trash');

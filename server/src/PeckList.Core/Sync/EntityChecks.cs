@@ -28,7 +28,7 @@ public sealed class WorkspaceEntityValidator(JsonNode schema) : IEntityValidator
         ["users"] = "user", ["folders"] = "folder", ["lists"] = "list", ["sections"] = "section", ["tags"] = "tag",
         ["tasks"] = "task", ["groups"] = "group", ["groupMembers"] = "groupMember", ["listMembers"] = "listMember",
         ["friendships"] = "friendship", ["savedFilters"] = "savedFilter", ["settings"] = "settings",
-        ["comments"] = "comment", ["attachments"] = "attachment",
+        ["comments"] = "comment", ["attachments"] = "attachment", ["templates"] = "template",
     };
 
     private readonly JsonSchemaSubset validator = new(schema);

@@ -47,7 +47,8 @@ import { useApply, useStoreState, useWorkspace } from '../store/hooks.ts';
 import { useReadOnly } from './readOnly.ts';
 import { localTimeZone } from '../../core/dates.ts';
 import { DatePickerPanel } from '../dates/DatePickerPanel.tsx';
-import { CalendarCheckIcon, ReopenIcon, WontDoIcon } from '../icons/icons.tsx';
+import { CalendarCheckIcon, ReopenIcon, TemplateIcon, WontDoIcon } from '../icons/icons.tsx';
+import { SaveTemplateDialog } from '../templates/SaveTemplateDialog.tsx';
 import { completionInstant } from './completion.ts';
 import { ProgressRing } from './ProgressRing.tsx';
 import { deleteAsking } from '../repeat/repeatActions.ts';
@@ -253,6 +254,7 @@ export function TaskMenu({
   const { selectedId, on, open, close } = useTaskSelection();
   const [nesting, setNesting] = useState(false);
   const [moving, setMoving] = useState(false);
+  const [savingTemplate, setSavingTemplate] = useState(false);
   const today = useToday();
   const [completing, setCompleting] = useState(false);
   // The slider moves the ring as it is dragged and saves when let go.
@@ -388,6 +390,13 @@ export function TaskMenu({
           </ListItemIcon>
           {t('task.duplicate')}
         </MenuItem>
+        {/* A copy of its shape to make again later (PL-140): anyone who sees the task may keep one. */}
+        <MenuItem onClick={run(() => setSavingTemplate(true))}>
+          <ListItemIcon>
+            <TemplateIcon fontSize="small" />
+          </ListItemIcon>
+          {t('templates.saveAs')}
+        </MenuItem>
         {movable && (
           <MenuItem onClick={run(() => setMoving(true))}>
             <ListItemIcon>
@@ -430,6 +439,13 @@ export function TaskMenu({
       </Menu>
       {nesting && <NestUnderDialog task={task} onClose={() => setNesting(false)} />}
       {moving && <MoveToListDialog task={task} onClose={() => setMoving(false)} />}
+      {savingTemplate && (
+        <SaveTemplateDialog
+          source={{ kind: 'task', taskId: task.id }}
+          name={task.title}
+          onClose={() => setSavingTemplate(false)}
+        />
+      )}
       {/* Completing on a chosen date asks for the date first. */}
       <Dialog
         open={completing}

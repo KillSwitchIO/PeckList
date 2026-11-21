@@ -527,6 +527,7 @@ export class FakeTransport implements SyncTransport {
         'attachments',
         'savedFilters',
         'listMembers',
+        'templates',
       ]);
       const username = found.account.username;
       this.backend.personEpochs.set(username, `again-${this.backend.personEpochs.size + 1}`);

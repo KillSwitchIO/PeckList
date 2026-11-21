@@ -50,7 +50,8 @@ import { TimelineView } from './TimelineView.tsx';
 import { ConfirmDialog, ListDialog } from './ListDialog.tsx';
 import { ShareDialog } from './ShareDialog.tsx';
 import { listMembersOf, myRole, type Role } from '../../core/sharing.ts';
-import { ShareIcon } from '../icons/icons.tsx';
+import { ShareIcon, TemplateIcon } from '../icons/icons.tsx';
+import { SaveTemplateDialog } from '../templates/SaveTemplateDialog.tsx';
 import { useSyncState } from '../sync/syncContext.ts';
 import { listName } from './listName.ts';
 
@@ -68,7 +69,7 @@ function ListMenu({
 }) {
   const apply = useApply();
   const navigate = useNavigate();
-  const [dialog, setDialog] = useState<'edit' | 'delete' | 'share' | null>(null);
+  const [dialog, setDialog] = useState<'edit' | 'delete' | 'share' | 'template' | null>(null);
   const workspace = useWorkspace();
   const phase = useSyncState((state) => state.phase);
   const authMode = useSyncState((state) => state.account?.authMode);
@@ -154,6 +155,19 @@ function ListMenu({
                 {t('list.duplicate')}
               </MenuItem>
             ),
+            // Its look and open tasks, to make a new list from later (PL-140).
+            !list.isInbox && (
+              <MenuItem
+                key="template"
+                onClick={() => {
+                  close();
+                  setDialog('template');
+                }}
+              >
+                <TemplateIcon fontSize="small" sx={{ mr: 1 }} />
+                {t('templates.saveAs')}
+              </MenuItem>
+            ),
             menu && (
               <MenuItem
                 key="archive"
@@ -194,6 +208,13 @@ function ListMenu({
         }
       />
       {dialog === 'share' && <ShareDialog list={list} onClose={() => setDialog(null)} />}
+      {dialog === 'template' && (
+        <SaveTemplateDialog
+          source={{ kind: 'list', listId: list.id }}
+          name={listName(list, workspace)}
+          onClose={() => setDialog(null)}
+        />
+      )}
       {dialog === 'edit' && (
         <ListDialog
           open

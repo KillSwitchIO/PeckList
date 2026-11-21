@@ -68,7 +68,7 @@ public static class TelemetryRows
     public static readonly IReadOnlySet<string> Collections = new HashSet<string>(StringComparer.Ordinal)
     {
         "users", "folders", "lists", "sections", "tags", "tasks", "groups", "groupMembers", "listMembers", "friendships",
-        "savedFilters", "settings", "comments", "attachments",
+        "savedFilters", "settings", "comments", "attachments", "templates",
     };
 
     /// <summary>The server's own tables, by the name the report gives them.</summary>

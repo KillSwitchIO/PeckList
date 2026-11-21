@@ -3,18 +3,13 @@ import ArchiveOutlined from '@mui/icons-material/ArchiveOutlined';
 import UnarchiveOutlined from '@mui/icons-material/UnarchiveOutlined';
 import { Box, Button, ButtonBase, IconButton, Stack, Tooltip, Typography } from '@mui/material';
 import { useRef, useState, type ReactNode } from 'react';
-import {
-  createList,
-  deleteList,
-  reorderLists,
-  updateList,
-  visibleLists,
-} from '../../core/lists.ts';
+import { deleteList, reorderLists, updateList, visibleLists } from '../../core/lists.ts';
 import { describePrincipal, listMembersOf, listOwner, myRole } from '../../core/sharing.ts';
 import { moveInOrder, pinnedListId, pinnedTagId, togglePinned } from '../../core/sidebar.ts';
 import { createTag, deleteTag, leafName, tagTree, updateTag } from '../../core/tags.ts';
 import type { List, Tag } from '../../core/types.ts';
 import { AvatarStack } from '../friends/AvatarStack.tsx';
+import { useToday } from '../hooks/useToday.ts';
 import { t } from '../i18n/i18n.ts';
 import { DeleteIcon, ShareIcon } from '../icons/icons.tsx';
 import { Page } from '../layout/Page.tsx';
@@ -26,6 +21,7 @@ import { useSortableRows } from '../layout/useSortableRows.ts';
 import { ConfirmDialog, ListDialog } from '../lists/ListDialog.tsx';
 import { ListMark } from '../lists/ListMark.tsx';
 import { listName } from '../lists/listName.ts';
+import { makeList } from '../lists/newList.ts';
 import { ShareDialog } from '../lists/ShareDialog.tsx';
 import { useApply, useStoreState, useWorkspace } from '../store/hooks.ts';
 import { useSyncState } from '../sync/syncContext.ts';
@@ -134,6 +130,7 @@ export function ManageListsPage() {
 function ManageLists() {
   const workspace = useWorkspace();
   const apply = useApply();
+  const today = useToday();
   const me = useStoreState((state) => state.context().userId);
   const phase = useSyncState((state) => state.phase);
   const authMode = useSyncState((state) => state.account?.authMode);
@@ -386,7 +383,7 @@ function ManageLists() {
           open
           onClose={close}
           onSubmit={(value) => {
-            apply((ctx, ws) => createList(ctx, ws, value).workspace);
+            apply((ctx, ws) => makeList(ctx, ws, value, today).workspace);
             close();
           }}
         />

@@ -8,7 +8,7 @@
   "additionalProperties": false,
   "properties": {
     "schemaVersion": {
-      "const": 20
+      "const": 21
     },
     "app": {
       "type": "object",
@@ -46,7 +46,8 @@
         "savedFilters",
         "settings",
         "comments",
-        "attachments"
+        "attachments",
+        "templates"
       ],
       "additionalProperties": false,
       "properties": {
@@ -114,6 +115,12 @@
           "type": "array",
           "items": {
             "$ref": "#/$defs/savedFilter"
+          }
+        },
+        "templates": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/template"
           }
         },
         "settings": {
@@ -750,6 +757,37 @@
         },
         "order": {
           "$ref": "#/$defs/orderKey"
+        }
+      },
+      "unevaluatedProperties": false
+    },
+    "template": {
+      "description": "A saved task or list to make again (schema 21, PL-140); personal. body is the shape of what it makes, with dates relative to the day it is used.",
+      "type": "object",
+      "allOf": [
+        {
+          "$ref": "#/$defs/base"
+        }
+      ],
+      "required": ["name", "kind", "order", "body"],
+      "properties": {
+        "name": {
+          "type": "string",
+          "maxLength": 200
+        },
+        "kind": {
+          "enum": ["task", "list"]
+        },
+        "order": {
+          "$ref": "#/$defs/orderKey"
+        },
+        "body": {
+          "type": "object"
+        },
+        "uses": {
+          "description": "How many times it was used, for most used first",
+          "type": "integer",
+          "minimum": 0
         }
       },
       "unevaluatedProperties": false

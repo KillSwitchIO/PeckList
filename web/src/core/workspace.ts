@@ -24,6 +24,7 @@ export function emptyEntities(): Entities {
     settings: [],
     comments: [],
     attachments: [],
+    templates: [],
   };
 }
 

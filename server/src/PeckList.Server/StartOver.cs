@@ -35,6 +35,7 @@ public sealed class StartOver(
     private static readonly HashSet<string> Erased = new(StringComparer.Ordinal)
     {
         "folders", "lists", "sections", "tags", "tasks", "comments", "attachments", "savedFilters", "listMembers",
+        "templates",
     };
 
     // One at a time: two devices pressing it at once would hand on and erase twice over.

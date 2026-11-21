@@ -12,11 +12,12 @@ import {
 import { useState } from 'react';
 import { useLocation } from 'react-router';
 import { getEntity } from '../../core/collections.ts';
-import { createList, visibleLists } from '../../core/lists.ts';
+import { visibleLists } from '../../core/lists.ts';
 import { openCounts } from '../../core/queries.ts';
 import { moveInOrder, pinnedListId, togglePinned } from '../../core/sidebar.ts';
 import type { List as ListEntity } from '../../core/types.ts';
 import { useCollapsedSet } from '../hooks/useCollapsedSet.ts';
+import { useToday } from '../hooks/useToday.ts';
 import { t } from '../i18n/i18n.ts';
 import { editingRowSx, useSidebarEdit } from '../layout/sidebarEditContext.ts';
 import { BarButton } from '../layout/BarButton.tsx';
@@ -25,6 +26,7 @@ import { SectionHeader } from '../layout/SectionHeader.tsx';
 import { useSortableRows } from '../layout/useSortableRows.ts';
 import { useApply, useWorkspace } from '../store/hooks.ts';
 import { ListDialog } from './ListDialog.tsx';
+import { makeList } from './newList.ts';
 import { listName } from './listName.ts';
 import { ListMark } from './ListMark.tsx';
 import { SortHandle } from '../layout/SortHandle.tsx';
@@ -33,6 +35,7 @@ import { SortHandle } from '../layout/SortHandle.tsx';
 export function SidebarLists({ onNavigate }: { onNavigate: (path: string) => void }) {
   const workspace = useWorkspace();
   const apply = useApply();
+  const today = useToday();
   const { pathname } = useLocation();
   const edit = useSidebarEdit();
   const { editing } = edit;
@@ -182,8 +185,8 @@ export function SidebarLists({ onNavigate }: { onNavigate: (path: string) => voi
           onSubmit={(value) => {
             let id = '';
             apply((ctx, ws) => {
-              const result = createList(ctx, ws, value);
-              id = result.list.id;
+              const result = makeList(ctx, ws, value, today);
+              id = result.listId;
               return result.workspace;
             });
             setCreating(false);

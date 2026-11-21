@@ -192,7 +192,7 @@ public sealed class SharingIndex
         ["sections"] = ["deletedAt", "createdBy", "listId", "name"],
     };
 
-    /// <summary>What other collections (tags, folders, saved filters) keep.</summary>
+    /// <summary>What other collections (tags, folders, saved filters, templates) keep.</summary>
     private static readonly string[] Plain = ["deletedAt", "createdBy", "name"];
 
     /// <summary>Fields whose values repeat (kept once each).</summary>
@@ -668,7 +668,7 @@ public sealed class SharingIndex
                 viewers.UnionWith(Acquaintances(entity.Id));
                 break;
             default:
-                // tags, folders, saved filters, settings: personal.
+                // tags, folders, saved filters, templates, settings: personal.
                 viewers.Add(entity.Owner);
                 break;
         }
