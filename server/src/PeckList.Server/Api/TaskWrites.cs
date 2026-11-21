@@ -6,6 +6,7 @@ using PeckList.Core.Push;
 using PeckList.Core.Sharing;
 using PeckList.Core.Storage;
 using PeckList.Core.Sync;
+using PeckList.Core.Text;
 using PeckList.Server.Push;
 
 namespace PeckList.Server.Api;
@@ -474,7 +475,11 @@ public sealed class TaskWrites(
         return people;
     }
 
-    /// <summary>What quick add may name: the person's lists (inbox first, then in order), tags and people, and their wall clock.</summary>
+    /// <summary>
+    /// What quick add may name: the person's lists (inbox first, then in order), tags and people, their
+    /// wall clock, and the language they picked in Settings (PL-148), which quick add reads besides
+    /// English. Automatic reads English alone: the API has no browser to ask.
+    /// </summary>
     private async Task<QuickAddContext> QuickContextAsync(string userId, string zone, CancellationToken cancellation)
     {
         static bool Flag(JsonObject doc, string field) => doc[field] is JsonValue value && value.TryGetValue<bool>(out var flag) && flag;
@@ -501,7 +506,8 @@ public sealed class TaskWrites(
             .ToList();
 
         var now = TimeZoneInfo.ConvertTime(time.GetUtcNow(), TimeZoneInfo.FindSystemTimeZoneById(zone));
-        return new QuickAddContext(lists, tags, people, now.DateTime);
+        var language = TextLanguage.Picked(ReminderSender.SettingsOf(sharing.Index, userId));
+        return new QuickAddContext(lists, tags, people, now.DateTime, language);
     }
 
     private static void FillZone(JsonObject fields, string? zone)

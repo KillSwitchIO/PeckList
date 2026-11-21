@@ -18,7 +18,7 @@ import type { Task, WorkspaceFile } from '../../core/types.ts';
 import type { DateParser, ParsedMoment } from '../../ports/dateParser.ts';
 import { formatSpan, formatWhen } from '../format.ts';
 import { useToday } from '../hooks/useToday.ts';
-import { t } from '../i18n/i18n.ts';
+import { currentLanguage, t } from '../i18n/i18n.ts';
 import { repeatLabel } from '../repeat/repeatText.ts';
 import { AssignedIcon, CalendarIcon, CloseIcon, DueIcon, FlagIcon } from '../icons/icons.tsx';
 import { listName } from '../lists/listName.ts';
@@ -30,13 +30,18 @@ import { ADD_TEXT_EVENT } from './focusAddTask.ts';
 import { useSyncState } from '../sync/syncContext.ts';
 import { countUse } from '../telemetry/usage.ts';
 
-// The date parser loads on first use, keeping it out of the app's first load.
-let parserPromise: Promise<DateParser> | null = null;
-function loadParser(): Promise<DateParser> {
-  parserPromise ??= import('../../adapters/chrono-date-parser.ts').then((module) =>
-    module.createChronoDateParser(),
-  );
-  return parserPromise;
+// The date parser loads on first use, keeping it out of the app's first load, in the language the
+// app speaks (with English, PL-148).
+const parsers = new Map<string, Promise<DateParser>>();
+function loadParser(language: string): Promise<DateParser> {
+  let parser = parsers.get(language);
+  if (!parser) {
+    parser = import('../../adapters/chrono-locales.ts').then((module) =>
+      module.loadDateParser(language),
+    );
+    parsers.set(language, parser);
+  }
+  return parser;
 }
 
 const asValue = (moment: ParsedMoment) =>
@@ -113,7 +118,18 @@ export function AddTaskInput({
   const phase = useSyncState((state) => state.phase);
   const authMode = useSyncState((state) => state.account?.authMode);
   const [title, setTitle] = useState('');
-  const [parser, setParser] = useState<DateParser | null>(null);
+  // Quick add reads its words and dates in the app's language as well as English (PL-148).
+  const language = currentLanguage();
+  const [reader, setReader] = useState<{ language: string; parser: DateParser } | null>(null);
+  const readWords = () => {
+    const wanted = currentLanguage();
+    void loadParser(wanted).then((parser) => setReader({ language: wanted, parser }));
+  };
+  // A language picked while the field is in use: its parser takes over.
+  useEffect(() => {
+    if (reader && reader.language !== language) readWords();
+  });
+  const parser = reader?.language === language ? reader.parser : null;
   const [ignore, setIgnore] = useState<ReadonlySet<string>>(new Set());
   const field = useRef<HTMLTextAreaElement | null>(null);
   // A title from outside the app (shared, selected or spoken: fillAddTask), one line, to check and add.
@@ -128,7 +144,7 @@ export function AddTaskInput({
       // Words being typed stay: any app can send text at any time, so it goes after them.
       setTitle((typed) => (typed.trim() ? `${typed.trimEnd()} ${line}` : line));
       setIgnore(new Set());
-      void loadParser().then(setParser);
+      readWords();
     };
     input.addEventListener(ADD_TEXT_EVENT, take);
     return () => input.removeEventListener(ADD_TEXT_EVENT, take);
@@ -147,6 +163,7 @@ export function AddTaskInput({
           reference: wallClock(localTimeZone(), new Date()),
           people,
           ignore,
+          language,
         })
       : null;
   const quick = parsed !== null && parsed.tokens.length > 0 && parsed.title !== '';
@@ -246,7 +263,7 @@ export function AddTaskInput({
             placeholder={label}
             value={title}
             autoFocus={autoFocus}
-            onFocus={() => void loadParser().then(setParser)}
+            onFocus={readWords}
             // A title is one line: a pasted line break becomes a space.
             onChange={(event) => setTitle(event.target.value.replace(/\s*[\r\n]+\s*/g, ' '))}
             onKeyDown={(event) => {

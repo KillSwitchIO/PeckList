@@ -527,6 +527,7 @@ the app's language also shows in the phone's **Settings > Apps > PeckList > Lang
 shortcuts on a long press of the app's icon are drawn by the launcher, in the phone's own language.
 
 A language marked **Machine translated** was drafted by a machine and has not been checked by a
-person yet, so some words may be off. A few things stay in English for now: the words quick add
-understands (such as "due fri" or "9pm") and the names of other apps' menus in the import help.
+person yet, so some words may be off. Quick add reads Deutsch, Español and Français as well as
+English (see [Quick add](quick-add-and-shortcuts.md#in-your-language)). The names of other apps'
+menus in the import help stay in English for now.
 Want to help translate, or fix a word? See Translations in the project's contributing guide.

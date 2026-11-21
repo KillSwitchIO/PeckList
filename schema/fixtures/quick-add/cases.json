@@ -1,5 +1,5 @@
 {
-  "description": "Quick add (PL-022) read the same in the app and on the server (PL-137). Each case is one line of text and what it becomes: the title left over, the tokens recognised (where they sit), the start and end, the due date, priority, list, tags (an existing one by id, a new one by name), assignees and the repeat rule. The web suite runs these through parseQuickAdd with chrono; the server suite through its C# port. The reference is the person's wall clock: Wednesday 2026-10-21 10:00. Only forms both sides read belong here; a phrase only chrono knows stays in the title on the server.",
+  "description": "Quick add (PL-022) read the same in the app and on the server (PL-137). Each case is one line of text and what it becomes: the title left over, the tokens recognised (where they sit), the start and end, the due date, priority, list, tags (an existing one by id, a new one by name), assignees and the repeat rule. The web suite runs these through parseQuickAdd with chrono; the server suite through its C# port. The reference is the person's wall clock: Wednesday 2026-10-21 10:00. Only forms both sides read belong here; a phrase only chrono knows stays in the title on the server. A case with a language (de, es, fr) is read in that language and in English, as for someone who picked it (PL-148); the others in English alone.",
   "reference": "2026-10-21T10:00",
   "lists": [
     {
@@ -2746,6 +2746,619 @@
       "tags": [],
       "assignees": [],
       "recurrence": "FREQ=DAILY;INTERVAL=2"
+    },
+    {
+      "text": "Arzt morgen 15 Uhr",
+      "language": "de",
+      "title": "Arzt",
+      "tokens": [
+        {
+          "kind": "date",
+          "start": 5,
+          "end": 18,
+          "text": "morgen 15 Uhr"
+        }
+      ],
+      "schedule": {
+        "start": {
+          "date": "2026-10-22",
+          "time": "15:00"
+        },
+        "end": null
+      },
+      "due": null,
+      "priority": null,
+      "listId": null,
+      "tags": [],
+      "assignees": [],
+      "recurrence": null
+    },
+    {
+      "text": "Müll rausbringen jeden Montag",
+      "language": "de",
+      "title": "Müll rausbringen",
+      "tokens": [
+        {
+          "kind": "repeat",
+          "start": 17,
+          "end": 29,
+          "text": "jeden Montag"
+        }
+      ],
+      "schedule": {
+        "start": {
+          "date": "2026-10-26",
+          "time": null
+        },
+        "end": null
+      },
+      "due": null,
+      "priority": null,
+      "listId": null,
+      "tags": [],
+      "assignees": [],
+      "recurrence": "FREQ=WEEKLY;BYDAY=MO"
+    },
+    {
+      "text": "Bericht fällig am Freitag",
+      "language": "de",
+      "title": "Bericht",
+      "tokens": [
+        {
+          "kind": "due",
+          "start": 8,
+          "end": 25,
+          "text": "fällig am Freitag"
+        }
+      ],
+      "schedule": null,
+      "due": {
+        "date": "2026-10-23",
+        "time": null
+      },
+      "priority": null,
+      "listId": null,
+      "tags": [],
+      "assignees": [],
+      "recurrence": null
+    },
+    {
+      "text": "Urlaub Montag bis Freitag",
+      "language": "de",
+      "title": "Urlaub",
+      "tokens": [
+        {
+          "kind": "date",
+          "start": 7,
+          "end": 25,
+          "text": "Montag bis Freitag"
+        }
+      ],
+      "schedule": {
+        "start": {
+          "date": "2026-10-26",
+          "time": null
+        },
+        "end": {
+          "date": "2026-10-30",
+          "time": null
+        }
+      },
+      "due": null,
+      "priority": null,
+      "listId": null,
+      "tags": [],
+      "assignees": [],
+      "recurrence": null
+    },
+    {
+      "text": "Zahnarzt übermorgen 9:30 !hoch",
+      "language": "de",
+      "title": "Zahnarzt",
+      "tokens": [
+        {
+          "kind": "date",
+          "start": 9,
+          "end": 24,
+          "text": "übermorgen 9:30"
+        },
+        {
+          "kind": "priority",
+          "start": 25,
+          "end": 30,
+          "text": "!hoch"
+        }
+      ],
+      "schedule": {
+        "start": {
+          "date": "2026-10-23",
+          "time": "09:30"
+        },
+        "end": null
+      },
+      "due": null,
+      "priority": 3,
+      "listId": null,
+      "tags": [],
+      "assignees": [],
+      "recurrence": null
+    },
+    {
+      "text": "Meeting jeden zweiten Dienstag",
+      "language": "de",
+      "title": "Meeting",
+      "tokens": [
+        {
+          "kind": "repeat",
+          "start": 8,
+          "end": 30,
+          "text": "jeden zweiten Dienstag"
+        }
+      ],
+      "schedule": {
+        "start": {
+          "date": "2026-10-27",
+          "time": null
+        },
+        "end": null
+      },
+      "due": null,
+      "priority": null,
+      "listId": null,
+      "tags": [],
+      "assignees": [],
+      "recurrence": "FREQ=WEEKLY;INTERVAL=2;BYDAY=TU"
+    },
+    {
+      "text": "Hecke schneiden alle 2 Wochen am Montag ^garden #errands",
+      "language": "de",
+      "title": "Hecke schneiden",
+      "tokens": [
+        {
+          "kind": "repeat",
+          "start": 16,
+          "end": 39,
+          "text": "alle 2 Wochen am Montag"
+        },
+        {
+          "kind": "list",
+          "start": 40,
+          "end": 47,
+          "text": "^garden"
+        },
+        {
+          "kind": "tag",
+          "start": 48,
+          "end": 56,
+          "text": "#errands"
+        }
+      ],
+      "schedule": {
+        "start": {
+          "date": "2026-10-26",
+          "time": null
+        },
+        "end": null
+      },
+      "due": null,
+      "priority": null,
+      "listId": "L1",
+      "tags": [
+        {
+          "id": "G2",
+          "name": "errands"
+        }
+      ],
+      "assignees": [],
+      "recurrence": "FREQ=WEEKLY;INTERVAL=2;BYDAY=MO"
+    },
+    {
+      "text": "Call the bank tomorrow 3pm !high",
+      "language": "de",
+      "title": "Call the bank",
+      "tokens": [
+        {
+          "kind": "date",
+          "start": 14,
+          "end": 26,
+          "text": "tomorrow 3pm"
+        },
+        {
+          "kind": "priority",
+          "start": 27,
+          "end": 32,
+          "text": "!high"
+        }
+      ],
+      "schedule": {
+        "start": {
+          "date": "2026-10-22",
+          "time": "15:00"
+        },
+        "end": null
+      },
+      "due": null,
+      "priority": 3,
+      "listId": null,
+      "tags": [],
+      "assignees": [],
+      "recurrence": null
+    },
+    {
+      "text": "Médico mañana a las 3",
+      "language": "es",
+      "title": "Médico",
+      "tokens": [
+        {
+          "kind": "date",
+          "start": 7,
+          "end": 21,
+          "text": "mañana a las 3"
+        }
+      ],
+      "schedule": {
+        "start": {
+          "date": "2026-10-22",
+          "time": "03:00"
+        },
+        "end": null
+      },
+      "due": null,
+      "priority": null,
+      "listId": null,
+      "tags": [],
+      "assignees": [],
+      "recurrence": null
+    },
+    {
+      "text": "Médico mañana a las 3 de la tarde",
+      "language": "es",
+      "title": "Médico",
+      "tokens": [
+        {
+          "kind": "date",
+          "start": 7,
+          "end": 33,
+          "text": "mañana a las 3 de la tarde"
+        }
+      ],
+      "schedule": {
+        "start": {
+          "date": "2026-10-22",
+          "time": "15:00"
+        },
+        "end": null
+      },
+      "due": null,
+      "priority": null,
+      "listId": null,
+      "tags": [],
+      "assignees": [],
+      "recurrence": null
+    },
+    {
+      "text": "Basura todos los lunes",
+      "language": "es",
+      "title": "Basura",
+      "tokens": [
+        {
+          "kind": "repeat",
+          "start": 7,
+          "end": 22,
+          "text": "todos los lunes"
+        }
+      ],
+      "schedule": {
+        "start": {
+          "date": "2026-10-26",
+          "time": null
+        },
+        "end": null
+      },
+      "due": null,
+      "priority": null,
+      "listId": null,
+      "tags": [],
+      "assignees": [],
+      "recurrence": "FREQ=WEEKLY;BYDAY=MO"
+    },
+    {
+      "text": "Informe vence el viernes",
+      "language": "es",
+      "title": "Informe",
+      "tokens": [
+        {
+          "kind": "due",
+          "start": 8,
+          "end": 24,
+          "text": "vence el viernes"
+        }
+      ],
+      "schedule": null,
+      "due": {
+        "date": "2026-10-23",
+        "time": null
+      },
+      "priority": null,
+      "listId": null,
+      "tags": [],
+      "assignees": [],
+      "recurrence": null
+    },
+    {
+      "text": "Vacaciones del lunes al viernes",
+      "language": "es",
+      "title": "Vacaciones",
+      "tokens": [
+        {
+          "kind": "date",
+          "start": 11,
+          "end": 31,
+          "text": "del lunes al viernes"
+        }
+      ],
+      "schedule": {
+        "start": {
+          "date": "2026-10-26",
+          "time": null
+        },
+        "end": {
+          "date": "2026-10-30",
+          "time": null
+        }
+      },
+      "due": null,
+      "priority": null,
+      "listId": null,
+      "tags": [],
+      "assignees": [],
+      "recurrence": null
+    },
+    {
+      "text": "Dentista pasado mañana a las 10 !alta",
+      "language": "es",
+      "title": "Dentista",
+      "tokens": [
+        {
+          "kind": "date",
+          "start": 9,
+          "end": 31,
+          "text": "pasado mañana a las 10"
+        },
+        {
+          "kind": "priority",
+          "start": 32,
+          "end": 37,
+          "text": "!alta"
+        }
+      ],
+      "schedule": {
+        "start": {
+          "date": "2026-10-23",
+          "time": "10:00"
+        },
+        "end": null
+      },
+      "due": null,
+      "priority": 3,
+      "listId": null,
+      "tags": [],
+      "assignees": [],
+      "recurrence": null
+    },
+    {
+      "text": "Gimnasio todos los martes y jueves",
+      "language": "es",
+      "title": "Gimnasio",
+      "tokens": [
+        {
+          "kind": "repeat",
+          "start": 9,
+          "end": 34,
+          "text": "todos los martes y jueves"
+        }
+      ],
+      "schedule": {
+        "start": {
+          "date": "2026-10-22",
+          "time": null
+        },
+        "end": null
+      },
+      "due": null,
+      "priority": null,
+      "listId": null,
+      "tags": [],
+      "assignees": [],
+      "recurrence": "FREQ=WEEKLY;BYDAY=TU,TH"
+    },
+    {
+      "text": "Médecin demain 15h",
+      "language": "fr",
+      "title": "Médecin",
+      "tokens": [
+        {
+          "kind": "date",
+          "start": 8,
+          "end": 18,
+          "text": "demain 15h"
+        }
+      ],
+      "schedule": {
+        "start": {
+          "date": "2026-10-22",
+          "time": "15:00"
+        },
+        "end": null
+      },
+      "due": null,
+      "priority": null,
+      "listId": null,
+      "tags": [],
+      "assignees": [],
+      "recurrence": null
+    },
+    {
+      "text": "Poubelles tous les lundis",
+      "language": "fr",
+      "title": "Poubelles",
+      "tokens": [
+        {
+          "kind": "repeat",
+          "start": 10,
+          "end": 25,
+          "text": "tous les lundis"
+        }
+      ],
+      "schedule": {
+        "start": {
+          "date": "2026-10-26",
+          "time": null
+        },
+        "end": null
+      },
+      "due": null,
+      "priority": null,
+      "listId": null,
+      "tags": [],
+      "assignees": [],
+      "recurrence": "FREQ=WEEKLY;BYDAY=MO"
+    },
+    {
+      "text": "Rapport échéance vendredi",
+      "language": "fr",
+      "title": "Rapport",
+      "tokens": [
+        {
+          "kind": "due",
+          "start": 8,
+          "end": 25,
+          "text": "échéance vendredi"
+        }
+      ],
+      "schedule": null,
+      "due": {
+        "date": "2026-10-23",
+        "time": null
+      },
+      "priority": null,
+      "listId": null,
+      "tags": [],
+      "assignees": [],
+      "recurrence": null
+    },
+    {
+      "text": "Vacances du lundi au vendredi",
+      "language": "fr",
+      "title": "Vacances",
+      "tokens": [
+        {
+          "kind": "date",
+          "start": 9,
+          "end": 29,
+          "text": "du lundi au vendredi"
+        }
+      ],
+      "schedule": {
+        "start": {
+          "date": "2026-10-26",
+          "time": null
+        },
+        "end": {
+          "date": "2026-10-30",
+          "time": null
+        }
+      },
+      "due": null,
+      "priority": null,
+      "listId": null,
+      "tags": [],
+      "assignees": [],
+      "recurrence": null
+    },
+    {
+      "text": "Dentiste après-demain 9h !haute",
+      "language": "fr",
+      "title": "Dentiste",
+      "tokens": [
+        {
+          "kind": "date",
+          "start": 9,
+          "end": 24,
+          "text": "après-demain 9h"
+        },
+        {
+          "kind": "priority",
+          "start": 25,
+          "end": 31,
+          "text": "!haute"
+        }
+      ],
+      "schedule": {
+        "start": {
+          "date": "2026-10-23",
+          "time": "09:00"
+        },
+        "end": null
+      },
+      "due": null,
+      "priority": 3,
+      "listId": null,
+      "tags": [],
+      "assignees": [],
+      "recurrence": null
+    },
+    {
+      "text": "Réunion toutes les deux semaines",
+      "language": "fr",
+      "title": "Réunion",
+      "tokens": [
+        {
+          "kind": "repeat",
+          "start": 8,
+          "end": 32,
+          "text": "toutes les deux semaines"
+        }
+      ],
+      "schedule": {
+        "start": {
+          "date": "2026-10-21",
+          "time": null
+        },
+        "end": null
+      },
+      "due": null,
+      "priority": null,
+      "listId": null,
+      "tags": [],
+      "assignees": [],
+      "recurrence": "FREQ=WEEKLY;INTERVAL=2"
+    },
+    {
+      "text": "Facture le 12 décembre",
+      "language": "fr",
+      "title": "Facture",
+      "tokens": [
+        {
+          "kind": "date",
+          "start": 8,
+          "end": 22,
+          "text": "le 12 décembre"
+        }
+      ],
+      "schedule": {
+        "start": {
+          "date": "2026-12-12",
+          "time": null
+        },
+        "end": null
+      },
+      "due": null,
+      "priority": null,
+      "listId": null,
+      "tags": [],
+      "assignees": [],
+      "recurrence": null
     }
   ]
 }

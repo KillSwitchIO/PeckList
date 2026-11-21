@@ -12,8 +12,11 @@ public sealed record QuickPerson(string Principal, string Name, string? Handle);
 /// <summary>A list <c>^</c> can name, in the order the app shows them (the inbox first).</summary>
 public sealed record QuickList(string Id, string Name, bool IsInbox = false);
 
-/// <summary>What quick add has to go on: the person's lists, tags and people, and their wall clock now.</summary>
-public sealed record QuickAddContext(IReadOnlyList<QuickList> Lists, IReadOnlyList<(string Id, string Name)> Tags, IReadOnlyList<QuickPerson> People, DateTime Reference);
+/// <summary>
+/// What quick add has to go on: the person's lists, tags and people, their wall clock now, and the
+/// language they picked (PL-148: its words and dates are read as well as English's; null reads English).
+/// </summary>
+public sealed record QuickAddContext(IReadOnlyList<QuickList> Lists, IReadOnlyList<(string Id, string Name)> Tags, IReadOnlyList<QuickPerson> People, DateTime Reference, string? Language = null);
 
 /// <summary>A local day and, when the text gave one, a time (<c>HH:mm</c>).</summary>
 public sealed record QuickMoment(string Date, string? Time)

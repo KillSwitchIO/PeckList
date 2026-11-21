@@ -1,6 +1,13 @@
-// English only: the whole library with every locale is several times larger.
-import * as chrono from 'chrono-node/en';
-import type { ParsedComponents } from 'chrono-node';
+// English always; another language's chrono comes in only when the app speaks it (chrono-locales.ts),
+// since the whole library with every locale is several times larger.
+import * as english from 'chrono-node/en';
+import type {
+  Chrono,
+  ParsedComponents,
+  ParsedResult,
+  Parser,
+  ParsingComponents,
+} from 'chrono-node';
 import type { DateMatch, DateParser, ParsedMoment } from '../ports/dateParser.ts';
 
 const two = (n: number) => String(n).padStart(2, '0');
@@ -35,21 +42,222 @@ function moment(component: ParsedComponents, back: number): ParsedMoment {
   return { date, time };
 }
 
-/** The DateParser port on chrono-node (English, casual: "tomorrow", "next fri", "in 3 days"). */
-export function createChronoDateParser(): DateParser {
+/** A language's chrono, as `chrono-node/de` and the others export it. */
+export interface ChronoLocale {
+  language: string;
+  casual: Chrono;
+}
+
+/** What chrono misses in a language, as regular expression sources. */
+interface Mending {
+  /** "the day after tomorrow", which chrono reads as tomorrow alone */
+  dayAfterTomorrow?: string;
+  /** A word just before a date that belongs to it ("el viernes", "le 12 décembre") */
+  lead?: string;
+  /** The words joining the two days of a range ("lunes al viernes", "Montag bis Freitag"); a dash always does */
+  join?: string;
+  /** Words after a time: afternoon or evening ("a las 3 de la tarde"), morning, or the hour's own word ("à 15 heures") */
+  after?: { pm: string; am: string; word?: string };
+}
+
+const MENDING: Readonly<Record<string, Mending>> = {
+  de: { lead: 'vom|von', join: 'bis' },
+  es: {
+    dayAfterTomorrow: String.raw`pasado\s+ma[ñn]ana`,
+    lead: 'el|del|de|a',
+    join: String.raw`al|a|hasta(?:\s+el)?`,
+    after: {
+      pm: String.raw`de\s+la\s+(?:tarde|noche)`,
+      am: String.raw`de\s+la\s+(?:ma[ñn]ana|madrugada)`,
+    },
+  },
+  fr: {
+    dayAfterTomorrow: String.raw`apr[eè]s[-\s]?demain`,
+    lead: 'le|du',
+    join: String.raw`au|jusqu'au`,
+    after: {
+      pm: String.raw`de\s+l['’]apr[eè]s-midi|du\s+soir`,
+      am: String.raw`du\s+matin`,
+      word: 'heures?',
+    },
+  },
+};
+
+/** "pasado mañana": two days on from the reference, as chrono's own "mañana" is one. */
+function dayAfterTomorrow(source: string): Parser {
+  return {
+    pattern: () => new RegExp(String.raw`(^|\s)(${source})(?=$|[\s,.;!?])`, 'i'),
+    extract: (context, match) => {
+      const day = new Date(context.refDate);
+      day.setDate(day.getDate() + 2);
+      return context.createParsingResult(match.index! + match[1]!.length, match[2]!, {
+        year: day.getFullYear(),
+        month: day.getMonth() + 1,
+        day: day.getDate(),
+      });
+    },
+  };
+}
+
+/** One date chrono found, as this adapter works on it. */
+interface Found {
+  index: number;
+  text: string;
+  start: ParsedComponents;
+  end: ParsedComponents | undefined;
+}
+
+const found = (result: ParsedResult): Found => ({
+  index: result.index,
+  text: result.text,
+  start: result.start,
+  end: result.end,
+});
+
+const dayOf = (component: ParsedComponents) =>
+  component.get('year')! * 10_000 + component.get('month')! * 100 + component.get('day')!;
+
+const timed = (each: Found) =>
+  each.start.isCertain('hour') || (each.end?.isCertain('hour') ?? false);
+
+/** A language's chrono, mended where it falls short (MENDING). */
+function ownReader(locale: ChronoLocale) {
+  const mending = MENDING[locale.language] ?? {};
+  const chrono = locale.casual.clone();
+  if (mending.dayAfterTomorrow) chrono.parsers.unshift(dayAfterTomorrow(mending.dayAfterTomorrow));
+  const words = mending.join ? `|\\s+(?:${mending.join})\\s+` : '';
+  const between = new RegExp(String.raw`^(?:\s*[-–]\s*${words})$`, 'i');
+  const joins = new RegExp(String.raw`\s*[-–]\s*${words}`, 'gi');
+  const lead = mending.lead ? new RegExp(String.raw`(^|\s)(?:${mending.lead})\s+$`, 'i') : null;
+  const after = mending.after
+    ? new RegExp(
+        String.raw`^\s+(?:(${mending.after.pm})|(${mending.after.am})` +
+          (mending.after.word ? `|(?:${mending.after.word})` : '') +
+          String.raw`)(?=$|[\s,.;!?])`,
+        'i',
+      )
+    : null;
+
+  /** The first date in `text` after `after`'s day: the end of a range. */
+  const endAfter = (text: string, after: ParsedComponents): ParsedComponents | undefined => {
+    const from = new Date(after.get('year')!, after.get('month')! - 1, after.get('day')!, 12);
+    const next = chrono.parse(text, from, { forwardDate: true })[0];
+    return next && !next.end && dayOf(next.start) > dayOf(after) ? next.start : undefined;
+  };
+
+  return (text: string, reference: Date): Found[] => {
+    const mended: Found[] = [];
+    for (const each of chrono.parse(text, reference, { forwardDate: true }).map(found)) {
+      const previous = mended.at(-1);
+      // "del lunes al viernes": two days with a range word between them are one range.
+      if (
+        previous &&
+        !previous.end &&
+        !each.end &&
+        !timed(previous) &&
+        !timed(each) &&
+        between.test(` ${text.slice(previous.index + previous.text.length, each.index)} `)
+      ) {
+        const end = endAfter(each.text, previous.start);
+        if (end) {
+          previous.text = text.slice(previous.index, each.index + each.text.length);
+          previous.end = end;
+          continue;
+        }
+      }
+      // "Montag bis Freitag": chrono gives both ends the first day, so the second is read again.
+      if (each.end && !timed(each) && dayOf(each.end) === dayOf(each.start)) {
+        const last = [...each.text.matchAll(joins)].at(-1);
+        if (last) {
+          const end = endAfter(each.text.slice(last.index + last[0].length), each.start);
+          if (end) each.end = end;
+        }
+      }
+      mended.push(each);
+    }
+    // "a las 3 de la tarde" is 15:00, and its words go with the time; chrono reads "tarde" (or
+    // "mañana", tomorrow) on its own, which this time now takes in.
+    for (let at = 0; after && at < mended.length; at++) {
+      const each = mended[at]!;
+      if (each.end || !each.start.isCertain('hour')) continue;
+      const said = after.exec(text.slice(each.index + each.text.length));
+      if (!said) continue;
+      const hour = each.start.get('hour')!;
+      const start = each.start as ParsingComponents;
+      if (said[1] && hour < 12) start.assign('hour', hour + 12);
+      if (said[2] && hour === 12) start.assign('hour', 0);
+      each.text += said[0];
+      const end = each.index + each.text.length;
+      while (mended[at + 1] && mended[at + 1]!.index < end) mended.splice(at + 1, 1);
+    }
+    // "el viernes", "le 12 décembre": the article goes with the date, out of the title.
+    if (lead) {
+      for (const each of mended) {
+        const before = lead.exec(text.slice(0, each.index));
+        if (!before) continue;
+        const at = before.index + before[1]!.length;
+        each.text = text.slice(at, each.index + each.text.length);
+        each.index = at;
+      }
+    }
+    return mended;
+  };
+}
+
+const englishReader = (text: string, reference: Date): Found[] =>
+  english.casual.parse(text, reference, { forwardDate: true }).map(found);
+
+/**
+ * Both readings together: of two dates that overlap the longer wins, so a German line reads
+ * "morgen 15 Uhr" and still "tomorrow 3pm", where German chrono sees only "3pm". On a tie the one
+ * that names its day wins ("oct 1" is October 1st, not Spanish chrono's October 2001), then the
+ * language's own ("12/11" is the 12th of November in Spanish).
+ */
+function together(own: Found[], other: Found[]): Found[] {
+  const named = (each: Found) => (each.start.isCertain('day') ? 1 : 0);
+  const ranked = [
+    ...own.map((each, rank) => ({ each, rank })),
+    ...other.map((each, rank) => ({ each, rank: own.length + rank })),
+  ].sort(
+    (a, b) =>
+      b.each.text.length - a.each.text.length || named(b.each) - named(a.each) || a.rank - b.rank,
+  );
+  const kept: Found[] = [];
+  for (const { each } of ranked) {
+    const end = each.index + each.text.length;
+    if (kept.some((taken) => each.index < taken.index + taken.text.length && taken.index < end)) {
+      continue;
+    }
+    kept.push(each);
+  }
+  return kept.sort((a, b) => a.index - b.index);
+}
+
+/**
+ * The DateParser port on chrono-node, casual: "tomorrow", "next fri", "in 3 days". With a locale,
+ * its own words as well ("morgen 15 Uhr", "mañana a las 3", "demain 15h"), English still read.
+ */
+export function createChronoDateParser(locale?: ChronoLocale): DateParser {
+  const own = locale && locale.language !== 'en' ? ownReader(locale) : null;
+  const join = locale ? MENDING[locale.language]?.join : undefined;
+  // A match ending in a range word that joined nothing is not a date, so its words stay in the
+  // title: chrono-es takes "de 3 a" in "Clase de 3 a 5", and English "3 a" as 3 a.m. (Dev 1).
+  const dangling = join ? new RegExp(String.raw`\s(?:${join})$`, 'i') : null;
   return {
     find(text, reference) {
-      return chrono.casual
-        .parse(text, reference, { forwardDate: true })
-        .map((result): DateMatch => {
-          const back = yearsBack(result.start, result.end, reference);
-          return {
-            index: result.index,
-            length: result.text.length,
-            start: moment(result.start, back),
-            end: result.end ? moment(result.end, back) : null,
-          };
-        });
+      const read = englishReader(text, reference);
+      const dates = (own ? together(own(text, reference), read) : read).filter(
+        (each) => !dangling?.test(each.text),
+      );
+      return dates.map((each): DateMatch => {
+        const back = yearsBack(each.start, each.end, reference);
+        return {
+          index: each.index,
+          length: each.text.length,
+          start: moment(each.start, back),
+          end: each.end ? moment(each.end, back) : null,
+        };
+      });
     },
   };
 }
