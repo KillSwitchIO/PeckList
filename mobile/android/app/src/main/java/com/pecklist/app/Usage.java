@@ -9,8 +9,6 @@ import android.os.Build;
 import android.os.PowerManager;
 import androidx.core.app.NotificationManagerCompat;
 import java.io.InputStream;
-import java.io.PrintWriter;
-import java.io.StringWriter;
 import java.nio.charset.StandardCharsets;
 import java.util.Iterator;
 import java.util.List;
@@ -29,6 +27,14 @@ final class Usage {
     private static final String CRASH = "crash";
     private static final String EXITS_SEEN = "exits-seen";
     private static final int MAX_STACK = 8 * 1024;
+    /**
+     * How much of a native crash's tombstone is read to find its crashing thread (read, never sent).
+     * Threads come late in the tombstone, after the memory maps; if the crashing thread's entry falls
+     * past this, the report has the signal and abort message but no frames.
+     */
+    private static final int MAX_TOMBSTONE = 1024 * 1024;
+    /** How much of an ANR's trace is read; the main thread comes first. */
+    private static final int MAX_ANR_TRACE = 64 * 1024;
 
     private Usage() {}
 
@@ -83,21 +89,28 @@ final class Usage {
             .put("battery", battery ? "on" : "off");
     }
 
-    /** Keep a Java crash for the next start (the app goes down right after). */
-    static void watchForCrashes(Context context) {
+    private static boolean watching;
+
+    /**
+     * Keep a Java crash for the next start (the app goes down right after). Once per process: an
+     * activity made again (or the debug trigger) would otherwise wrap the handler in itself.
+     */
+    static synchronized void watchForCrashes(Context context) {
+        if (watching) return;
+        watching = true;
         Context app = context.getApplicationContext();
         Thread.UncaughtExceptionHandler before = Thread.getDefaultUncaughtExceptionHandler();
         Thread.setDefaultUncaughtExceptionHandler((thread, error) -> {
             try {
-                StringWriter stack = new StringWriter();
-                error.printStackTrace(new PrintWriter(stack));
+                // As printStackTrace, but each message cut down to a short line (CrashText.java).
                 JSONObject crash = new JSONObject()
                     .put("kind", error.getClass().getSimpleName())
-                    .put("stack", cut(stack.toString()));
+                    .put("stack", cut(CrashText.java(error)));
                 // commit, not apply: the process ends next.
                 prefs(app).edit().putString(CRASH, crash.toString()).commit();
-            } catch (Exception ignored) {
-                // Keeping the report must never stand in the way of the crash itself.
+            } catch (Throwable ignored) {
+                // Keeping the report must never stand in the way of the crash itself (an
+                // OutOfMemoryError while writing it included): the system's handler still runs.
             }
             if (before != null) before.uncaughtException(thread, error);
         });
@@ -128,14 +141,23 @@ final class Usage {
             int reason = exit.getReason();
             if (reason != ApplicationExitInfo.REASON_ANR && reason != ApplicationExitInfo.REASON_CRASH_NATIVE) continue;
             try {
-                String trace = "";
+                boolean anr = reason == ApplicationExitInfo.REASON_ANR;
+                // Never the trace as it comes: a native crash's is a protobuf tombstone with the
+                // build fingerprint, registers and memory, an ANR's starts with a device header.
+                // CrashText keeps where the app broke and nothing about the phone.
+                String where = "";
                 try (InputStream in = exit.getTraceInputStream()) {
-                    if (in != null) trace = new String(readSome(in), StandardCharsets.UTF_8);
+                    if (in != null) {
+                        byte[] trace = readSome(in, anr ? MAX_ANR_TRACE : MAX_TOMBSTONE);
+                        where = anr ? CrashText.anr(new String(trace, StandardCharsets.UTF_8)) : CrashText.tombstone(trace);
+                    }
                 }
-                String description = exit.getDescription() == null ? "" : exit.getDescription();
+                if (where.isEmpty() && !anr) where = "signal " + exit.getStatus();
+                // The system's own words, but free text all the same: cut down like a message.
+                String description = exit.getDescription() == null ? "" : CrashText.brief(exit.getDescription(), CrashText.ABORT);
                 return new JSONObject()
-                    .put("kind", reason == ApplicationExitInfo.REASON_ANR ? "ANR" : "NativeCrash")
-                    .put("stack", cut(description + "\n" + trace));
+                    .put("kind", anr ? "ANR" : "NativeCrash")
+                    .put("stack", cut(description.isEmpty() ? where : description + "\n" + where));
             } catch (Exception ignored) {
                 return null;
             }
@@ -143,8 +165,8 @@ final class Usage {
         return null;
     }
 
-    private static byte[] readSome(InputStream in) throws java.io.IOException {
-        byte[] buffer = new byte[MAX_STACK];
+    private static byte[] readSome(InputStream in, int max) throws java.io.IOException {
+        byte[] buffer = new byte[max];
         int total = 0;
         for (int read; total < buffer.length && (read = in.read(buffer, total, buffer.length - total)) != -1; ) total += read;
         return java.util.Arrays.copyOf(buffer, total);

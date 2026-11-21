@@ -395,6 +395,26 @@ From the emulator, the computer is `10.0.2.2`, so a server published on port 808
 `10.0.2.2:8080` on the connect page (it warns about plain HTTP). For provider sign-in, the
 provider must be reachable at the same address from the server and from the emulator.
 
+## Making it crash (debug builds)
+
+A debug build answers an adb broadcast that makes it go down the way a real fault would, so the
+crash report offered on the next start (**PeckList closed unexpectedly**) can be checked for each
+kind. Release builds have no such receiver (it lives in `src/debug`), and it takes the `DUMP`
+permission, which adb's shell holds and an installed app cannot get.
+
+```bash
+adb shell am broadcast -n com.pecklist.app/.DebugCrash -a com.pecklist.app.DEBUG_CRASH -e kind java
+adb shell am broadcast -n com.pecklist.app/.DebugCrash -a com.pecklist.app.DEBUG_CRASH -e kind native
+adb shell am broadcast -n com.pecklist.app/.DebugCrash -a com.pecklist.app.DEBUG_CRASH -e kind anr
+```
+
+`java` throws on the main thread (the app's own handler keeps it), `native` sends the app SIGABRT
+(Android 12 and later record a tombstone), and `anr` blocks the main thread for 90 seconds: tap the
+app while it hangs, or wait out the broadcast's minute, and the system records an ANR. Open the app
+again to see the offer. The report for a native crash or an ANR is written by `CrashText`: the
+signal, the abort message and the top 16 frames of the crashing thread (an ANR: the main thread),
+each file by its base name, never the tombstone or the trace as Android hands them over.
+
 ## Notification drill
 
 `scripts/notification-drill.mjs` makes every kind of notification happen for one person from the

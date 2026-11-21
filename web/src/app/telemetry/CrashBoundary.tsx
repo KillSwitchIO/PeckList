@@ -182,6 +182,8 @@ export function CrashOffer({
                 bgcolor: 'action.hover',
                 borderRadius: 1,
                 whiteSpace: 'pre-wrap',
+                // A long unbroken line (a frame, an id) wraps rather than widening the dialog.
+                overflowWrap: 'anywhere',
               }}
             >
               {JSON.stringify(report, null, 2)}
@@ -206,6 +208,11 @@ export function CrashOffer({
         <Alert severity="warning" variant="outlined">
           {t('crash.failed')}
         </Alert>
+      )}
+      {sent === 'kept' && (
+        <Typography variant="body2" color="text.secondary">
+          {t('crash.notSent')}
+        </Typography>
       )}
     </>
   );

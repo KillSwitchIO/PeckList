@@ -624,6 +624,7 @@
   "crash.never": "Never send",
   "crash.sent": "Sent. Thank you.",
   "crash.failed": "It could not go just now.",
+  "crash.notSent": "Not sent.",
   "settings.passkeys": "Passkeys",
   "settings.passkeys.hint": "Sign in with your fingerprint, face or screen lock instead of a password.",
   "settings.passkeys.add": "Add a passkey",
