@@ -22,6 +22,8 @@ import { useBulkSelect } from '../tasks/bulkSelect.ts';
 const GUTTER = 44;
 /** How long a finger holds a task still before its big time grips show. */
 const HOLD_MS = 450;
+/** How far a grip must be pulled before it changes the time (a click is not a pull). */
+const RESIZE_SLOP_PX = 4;
 /** All-day lines a day shows before "+N" (the row grows when opened). */
 const ALL_DAY_ROWS = 3;
 const weekdayShort = localeDateFormat({ weekday: 'short', timeZone: 'UTC' });
@@ -247,16 +249,24 @@ export function DaysView({
   ) => {
     event.stopPropagation();
     event.preventDefault();
-    const column = (event.currentTarget as HTMLElement).closest<HTMLElement>('[data-cal-slots]')!;
     const id = event.pointerId;
+    // Only a pull counts: a click on the grip (no movement) leaves the time alone, where the
+    // snap to 15 minutes used to move the edge by itself.
+    const originY = event.clientY;
+    let pulled = false;
+    // The edge moves as far as the hand does, from where it took hold: grabbing the grip a few
+    // px off the edge does not make it jump there first.
     const place = (y: number) => {
-      const minutes = snap(minutesAt(column, y));
+      const edgeAt = edge === 'bottom' ? block.bottom : block.top;
+      const minutes = snap(edgeAt + ((y - originY) / hourHeight) * 60);
       return edge === 'bottom'
         ? { top: block.top, bottom: Math.max(block.top + 15, Math.min(1440, minutes)) }
         : { top: Math.min(block.bottom - 15, Math.max(0, minutes)), bottom: block.bottom };
     };
     const move = (next: PointerEvent) => {
       if (next.pointerId !== id) return;
+      if (!pulled && Math.abs(next.clientY - originY) <= RESIZE_SLOP_PX) return;
+      pulled = true;
       setResizing({ id: block.item.id, ...place(next.clientY) });
     };
     const up = (next: PointerEvent) => {
@@ -264,8 +274,10 @@ export function DaysView({
       window.removeEventListener('pointermove', move);
       window.removeEventListener('pointerup', up);
       window.removeEventListener('pointercancel', cancel);
-      const placed = place(next.clientY);
       setResizing(null);
+      // A pull whose moves never came (coalesced, or a quick flick) still counts by its distance.
+      if (!pulled && Math.abs(next.clientY - originY) <= RESIZE_SLOP_PX) return;
+      const placed = place(next.clientY);
       if (edge === 'bottom' && placed.bottom !== block.bottom) {
         onResize(block.item, block.item.start, atMinutes(day, placed.bottom));
       }

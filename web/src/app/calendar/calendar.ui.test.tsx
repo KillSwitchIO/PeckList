@@ -325,6 +325,36 @@ describe('calendar', () => {
     });
   });
 
+  it('leaves a task alone when its grip is clicked without a pull (QA, PL-093)', async () => {
+    localStorage.setItem(
+      'pecklist.calendar',
+      JSON.stringify({ mode: 'days', days: 1, hourHeight: 48 }),
+    );
+    const { today, task, standup } = await calendarWith();
+    const block = await screen.findByRole('button', { name: /Standup/ });
+    const bottom = block.querySelector('[data-cal-grip="bottom"]')!;
+    // 10 px above the end snaps to 9:45: before, a click there cut 15 minutes off.
+    const y = 10 * 48 - 10;
+    fireEvent.pointerDown(bottom, { clientX: 10, clientY: y, button: 0, pointerId: 41 });
+    fireEvent.pointerUp(window, { clientX: 10, clientY: y, pointerId: 41 });
+    // A wobble of a couple of pixels is still not a pull.
+    fireEvent.pointerDown(bottom, { clientX: 10, clientY: y, button: 0, pointerId: 42 });
+    fireEvent.pointerMove(window, { clientX: 10, clientY: y + 2, pointerId: 42 });
+    fireEvent.pointerUp(window, { clientX: 10, clientY: y + 2, pointerId: 42 });
+    expect(task(standup).schedule).toMatchObject({
+      start: `${today}T09:00`,
+      end: `${today}T10:00`,
+    });
+    // A real pull from there moves the end by as much as the hand moved (half an hour), not to
+    // the quarter the pointer started on; and it counts even when no move event came.
+    fireEvent.pointerDown(bottom, { clientX: 10, clientY: y, button: 0, pointerId: 43 });
+    fireEvent.pointerUp(window, { clientX: 10, clientY: y + 24, pointerId: 43 });
+    expect(task(standup).schedule).toMatchObject({
+      start: `${today}T09:00`,
+      end: `${today}T10:30`,
+    });
+  });
+
   it('picks tasks with Shift-click and moves them together by the same offset (PL-093)', async () => {
     localStorage.setItem(
       'pecklist.calendar',
