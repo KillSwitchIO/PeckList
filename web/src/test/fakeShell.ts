@@ -24,6 +24,10 @@ export class FakeShell implements NativeShell {
   allowsExact = true;
   batteryOpened = 0;
   exactOpened = 0;
+  /** The app that installed this one (`info().installer`); undefined: an older shell's answer. */
+  installer: string | null | undefined = undefined;
+  /** The app that asked for the install (`info().installRequestedBy`); undefined: not sent. */
+  installRequestedBy: string | null | undefined = undefined;
 
   constructor(
     public api = 9,
@@ -37,6 +41,10 @@ export class FakeShell implements NativeShell {
       server: 'https://tasks.example.com',
       version: this.version,
       ...(this.distribution ? { distribution: this.distribution } : {}),
+      ...(this.installer === undefined ? {} : { installer: this.installer }),
+      ...(this.installRequestedBy === undefined
+        ? {}
+        : { installRequestedBy: this.installRequestedBy }),
     });
   }
   checkServer() {

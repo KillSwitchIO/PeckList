@@ -199,6 +199,10 @@ out through its [update check](privacy.md#the-update-check); Obtainium also tell
 all, since the app runs your server's copy of PeckList. When one does, the release notes say so
 under **Compatibility**, and an app that is too old for the server is signed out until it updates.
 
+An app installed from F-Droid (or Droid-ify, Neo Store, or F-Droid Basic) shows no box about the
+app itself, since F-Droid updates it, a few days after the release page. A box about your server
+still shows.
+
 ## Everyday use
 
 - Long-press the PeckList icon for **Add task** (Today, with the add field ready to type in),

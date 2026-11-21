@@ -20,6 +20,17 @@ export interface ShellInfo {
    * payment links, battery and exact alarms by hand), or `foss`. Absent (an older shell): foss.
    */
   distribution?: 'play' | 'foss';
+  /**
+   * The package that installed the app, as Android recorded it: an app store (`org.fdroid.fdroid`),
+   * the system's installer for a downloaded APK, or null when Android doesn't say. Absent: an
+   * older shell. Not tied to an api level: it is part of the answer, not a method.
+   */
+  installer?: string | null;
+  /**
+   * The app that asked for the install (Android 11 and later): differs from `installer` when a store
+   * handed the APK to the system's installer, which is then the installer. Absent: an older shell.
+   */
+  installRequestedBy?: string | null;
 }
 
 /** A list for the launcher's long-press menu (api 11). */

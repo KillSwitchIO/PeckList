@@ -27,6 +27,33 @@ export function isPlayBuild(info: ShellInfo | null): boolean {
   return info?.distribution === 'play';
 }
 
+/**
+ * The F-Droid clients, which update the apps they installed themselves: F-Droid, F-Droid Basic,
+ * F-Droid's privileged extension (which does the installing for F-Droid on some phones), Droid-ify
+ * and Neo Store. IzzyOnDroid's repository is used through these same clients.
+ */
+export const FDROID_CLIENTS: ReadonlySet<string> = new Set([
+  'org.fdroid.fdroid',
+  'org.fdroid.basic',
+  'org.fdroid.fdroid.privileged',
+  'com.looker.droidify',
+  'com.machiav3lli.fdroid',
+]);
+
+/**
+ * Whether a store keeps this app up to date, so it shows no update notice of its own: Google Play
+ * for the Play build, or the F-Droid client that installed it, whether it installed it itself or
+ * asked the system's installer to (then it is `installRequestedBy`). F-Droid publishes a release
+ * some days after the release page, and the notice would point there in the meantime. A
+ * downloaded APK, adb, Obtainium, a browser or an older shell (neither field): no.
+ */
+export function storeUpdates(info: ShellInfo | null): boolean {
+  if (isPlayBuild(info)) return true;
+  return [info?.installer, info?.installRequestedBy].some(
+    (app) => app != null && FDROID_CLIENTS.has(app),
+  );
+}
+
 /** The host (and port) an address names, read as the shell reads it: https when none is typed. */
 export function hostOf(address: string): string | null {
   const text = address.trim();
