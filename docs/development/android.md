@@ -18,6 +18,16 @@ app (ADR-0017 in the project notes). There is no second copy of the UI.
   session only seconds old could be lost when the app was stopped. The shell writes them when the
   app leaves the screen and after each page load, and the web app asks with `saveSignIn` (shell
   api 14, `web/src/app/native/saveSignIn.ts`) as soon as an account is signed in.
+- **Language**: the app's own text (notification actions, channel names, widgets, dialogs) is in
+  `res/values/strings.xml`, with a `res/values-<language>/strings.xml` per translation. The web app
+  hands the language picked in Settings to the shell with `setLanguage` (shell api 15,
+  `web/src/app/native/nativeLanguage.ts`); automatic leaves the phone's languages. On Android 13
+  and later that is the app's language in the system (Settings > Apps > PeckList > Language lists
+  every language there are strings for, generated at build time); below 13 `PeckListApp` switches
+  the app's resources itself (`Languages.java`). `pnpm test:android` runs Android lint, which fails
+  on text written into a layout instead of `strings.xml`, on a translation of a string
+  English lacks, and on a translation whose placeholders differ. A string not translated yet shows
+  in English.
 - **Linking a provider from Settings**: the browser tab is not signed in as the app is, so the
   plugin first asks for a one-time code with the app's own session (`POST /auth/app/link-start`),
   opens `/auth/app/link?code=...` in a Custom Tab, and the server sends the outcome to

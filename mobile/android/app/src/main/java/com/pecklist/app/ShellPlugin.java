@@ -40,9 +40,9 @@ public class ShellPlugin extends Plugin {
      * Bumped when a method is added; the web app checks it before calling a newer one. Since 0.13.0:
      * 10 brought both notification channels and scheduleReminders' keep (they shipped together in
      * 0.14.0, so a shell at 10 has both), 11 setShortcuts and showKeyboard, 12 setWidgetTasks, 13
-     * takeAddText, 14 saveSignIn. The next method is 15.
+     * takeAddText, 14 saveSignIn, 15 setLanguage. The next method is 16.
      */
-    private static final int API = 14;
+    private static final int API = 15;
 
     static final String NOTIFICATIONS = "notifications";
 
@@ -417,6 +417,20 @@ public class ShellPlugin extends Plugin {
     public void saveSignIn(PluginCall call) {
         android.webkit.CookieManager.getInstance().flush();
         call.resolve();
+    }
+
+    /**
+     * Api 15: the language picked in the app's Settings, for the phone's own text too (notification
+     * actions and channels, widgets); null or none is automatic, the phone's languages (PL-148,
+     * web/src/app/native/nativeLanguage.ts). Resolves once it is switched.
+     */
+    @PluginMethod
+    public void setLanguage(PluginCall call) {
+        String tag = Languages.tagOf(call.getString("language"));
+        new android.os.Handler(android.os.Looper.getMainLooper()).post(() -> {
+            Languages.change(getContext(), tag);
+            call.resolve();
+        });
     }
 
     /**

@@ -177,4 +177,6 @@ export interface NativeShell {
   takeAddText?(): Promise<string | null>;
   /** Api 14: the WebView's cookies written to disk now, so a sign-in just made survives the app being stopped. */
   saveSignIn?(): Promise<void>;
+  /** Api 15: the language picked in Settings for the phone's own text too (notifications, widgets); null: the phone's. */
+  setLanguage?(language: string | null): Promise<void>;
 }

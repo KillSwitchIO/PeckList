@@ -9,7 +9,7 @@
     "build:web": "pnpm --filter @pecklist/web build",
     "sync": "cap sync android",
     "apk": "pnpm build:web && cap sync android && node scripts/gradle.mjs assembleFossDebug",
-    "test:android": "node scripts/gradle.mjs testFossDebugUnitTest testPlayDebugUnitTest",
+    "test:android": "node scripts/gradle.mjs testFossDebugUnitTest testPlayDebugUnitTest :app:lintFossDebug",
     "typecheck": "tsc --noEmit -p tsconfig.json"
   },
   "dependencies": {

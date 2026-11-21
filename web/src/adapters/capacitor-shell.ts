@@ -43,6 +43,7 @@ interface ShellPlugin {
   setWidgetTasks(feed: WidgetFeed): Promise<void>;
   takeAddText(): Promise<{ text?: unknown }>;
   saveSignIn(): Promise<void>;
+  setLanguage(options: { language: string | null }): Promise<void>;
 }
 
 const CHANNEL_KINDS: PhoneChannelKind[] = [
@@ -179,5 +180,6 @@ export function createCapacitorShell(): NativeShell | null {
         () => null,
       ),
     saveSignIn: () => plugin.saveSignIn(),
+    setLanguage: (language) => plugin.setLanguage({ language }),
   };
 }
