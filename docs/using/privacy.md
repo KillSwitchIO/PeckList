@@ -106,7 +106,12 @@ reports**, for all your devices.
 
 A report holds the app's version and channel, the device's kind (as above), the error's kind, its
 fingerprint and the stack: where in the app's code it broke, with every web address, query,
-email and long id taken out, on your device and again on the server. It goes through your server,
+email and long id taken out, on your device and again on the server. For an Android crash in
+native code or a freeze, the stack is a short summary the app writes itself: the signal (or that
+it froze), the abort message if the code left one, and the top frames of the thread that broke,
+each file by its name alone. The phone's build, its registers and memory, and the other threads
+are left out. The abort message and a Java error's message are free text the code wrote, so each
+is cut to one short line with file paths taken out. It goes through your server,
 which adds its random install id; if the project's collector cannot be reached, the server keeps
 the report and tries again within the hour.
 

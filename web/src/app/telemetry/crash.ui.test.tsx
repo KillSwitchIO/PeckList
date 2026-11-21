@@ -69,12 +69,25 @@ describe('crash reports (PL-116)', () => {
     expect(backend.crashes.map((each: CrashReportDraft) => each.kind)).toEqual(['TypeError']);
   });
 
+  it("Don't send sends nothing and says so, and leaves the choice as it was", async () => {
+    const backend = new FakeBackend();
+    backend.addAccount('sam', 'a long enough password');
+    backend.crashReportsOn = true;
+    app(backend);
+    await userEvent.click(await screen.findByRole('button', { name: "Don't send" }));
+    expect(await screen.findByText('Not sent.')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Send' })).toBeNull();
+    expect(backend.crashes).toEqual([]);
+    expect(backend.crashChoice.get('sam')).not.toBe('never');
+  });
+
   it('Never send asks no more and turns usage sharing off; Always send sends without asking', async () => {
     const backend = new FakeBackend();
     backend.addAccount('sam', 'a long enough password');
     backend.crashReportsOn = true;
     const first = app(backend);
     await userEvent.click(await screen.findByRole('button', { name: 'Never send' }));
+    expect(await screen.findByText('Not sent.')).toBeInTheDocument();
     await waitFor(() => expect(backend.crashChoice.get('sam')).toBe('never'));
     expect(backend.shareUsage.get('sam')).toBe(false);
     expect(backend.crashes).toEqual([]);

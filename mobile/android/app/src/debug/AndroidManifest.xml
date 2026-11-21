@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Debug builds only (PL-116): a way for QA to make the app crash or stop answering, so the crash
+  report offered on the next start can be checked for each kind. Release builds have no such
+  receiver. DUMP is a permission adb's shell holds and an installed app cannot get, so only adb
+  reaches it:
+
+    adb shell am broadcast -n com.pecklist.app/.DebugCrash -a com.pecklist.app.DEBUG_CRASH -e kind java
+
+  with the kind java, anr or native.
+-->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <application>
+        <receiver
+            android:name=".DebugCrash"
+            android:exported="true"
+            android:permission="android.permission.DUMP">
+            <intent-filter>
+                <action android:name="com.pecklist.app.DEBUG_CRASH" />
+            </intent-filter>
+        </receiver>
+    </application>
+</manifest>
