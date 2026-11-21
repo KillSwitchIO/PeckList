@@ -6,7 +6,7 @@ import { putEntity } from '../../core/collections.ts';
 import { addDays, localTimeZone, todayIn, weekday } from '../../core/dates.ts';
 import { inboxList } from '../../core/lists.ts';
 import { createEntity, updateEntity } from '../../core/ops.ts';
-import { createTask } from '../../core/tasks.ts';
+import { createTask, deleteTask } from '../../core/tasks.ts';
 import type { Section } from '../../core/types.ts';
 import { mockViewport, renderApp, testStore } from '../../test/renderApp.tsx';
 
@@ -571,6 +571,18 @@ describe('task details', () => {
     expect(screen.getByText('This task no longer exists.')).toBeInTheDocument();
     await userEvent.click(screen.getByRole('button', { name: 'Close' }));
     expect(screen.queryByText('This task no longer exists.')).not.toBeInTheDocument();
+  });
+
+  it('stays open to say so when a task it shows is deleted elsewhere', async () => {
+    // Only a task made and opened here closes on its own when Undo takes it (PL-140 follow-up).
+    const store = testStore();
+    await renderApp('/inbox', store);
+    await addTasks('Paint');
+    await userEvent.click(screen.getByRole('button', { name: 'Open Paint' }));
+    await screen.findByRole('region', { name: 'Task details' });
+    const paint = store.getState().workspace!.entities.tasks.find((each) => each.title === 'Paint');
+    store.getState().apply((ctx, ws) => deleteTask(ctx, ws, paint!.id));
+    expect(await screen.findByText('This task no longer exists.')).toBeInTheDocument();
   });
 
   it('opens as a drawer on tablets', async () => {

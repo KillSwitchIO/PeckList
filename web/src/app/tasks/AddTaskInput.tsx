@@ -35,6 +35,7 @@ import { useApply, useStoreState, useWorkspace } from '../store/hooks.ts';
 import { newTaskAssignees } from './newTaskAssignees.ts';
 import { useTaskSelection } from './selection.ts';
 import { markDraft } from './drafts.ts';
+import { openingMade } from './detailFocus.ts';
 import { ADD_TEXT_EVENT } from './focusAddTask.ts';
 import { loadQuickAddParser } from './quickAddParser.ts';
 import { useSyncState } from '../sync/syncContext.ts';
@@ -261,7 +262,10 @@ export function AddTaskInput({
     }, t('undo.templateUsed'));
     setTitle('');
     setIgnore(new Set());
-    if (id) open(id, { full: true });
+    if (id) {
+      openingMade(id);
+      open(id, { full: true });
+    }
   };
 
   const names = {

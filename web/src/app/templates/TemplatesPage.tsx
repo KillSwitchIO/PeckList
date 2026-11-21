@@ -38,6 +38,7 @@ import { Page } from '../layout/Page.tsx';
 import { SortHandle } from '../layout/SortHandle.tsx';
 import { useSortableRows } from '../layout/useSortableRows.ts';
 import { ConfirmDialog, NameDialog } from '../lists/ListDialog.tsx';
+import { openingMade } from '../tasks/detailFocus.ts';
 import { Section } from '../settings/settingsLayout.tsx';
 import { useApply, useWorkspace } from '../store/hooks.ts';
 import { useTaskSelection } from '../tasks/selection.ts';
@@ -91,7 +92,10 @@ export function TemplatesPage() {
       id = made.taskId;
       return made.workspace;
     }, t('undo.templateUsed'));
-    if (id) open(id, { full: true });
+    if (id) {
+      openingMade(id);
+      open(id, { full: true });
+    }
   };
 
   const actions = {

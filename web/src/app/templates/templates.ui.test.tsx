@@ -68,6 +68,32 @@ describe('templates (PL-140)', () => {
     await waitFor(() => expect(tasks(store.getState().workspace!)).toHaveLength(0));
   });
 
+  it('close the task they opened when Undo takes it back', async () => {
+    const store = testStore();
+    await renderApp('/templates', store);
+    store
+      .getState()
+      .apply(
+        (ctx, ws) =>
+          createTemplate(ctx, ws, { name: 'Trip', kind: 'task', body: blankTask('Pack') })
+            .workspace,
+      );
+    const group = await screen.findByRole('list', { name: 'Tasks' });
+    await userEvent.click(within(group).getByRole('button', { name: 'Use' }));
+    expect(await screen.findByDisplayValue('Pack')).toBeInTheDocument();
+
+    // Undo with the task still open full screen: the view closes, back to the templates, instead
+    // of staying up to say the task no longer exists. The toast is drawn above the full view for a
+    // pointer, while the view, a modal, hides it from the accessibility tree: hence `hidden`.
+    await userEvent.click(screen.getByRole('button', { name: 'Undo', hidden: true }));
+    await waitFor(() => expect(tasks(store.getState().workspace!)).toHaveLength(0));
+    await waitFor(() => expect(screen.queryByDisplayValue('Pack')).toBeNull());
+    expect(screen.queryByText('This task no longer exists.')).toBeNull();
+    // Back on the templates page once the view has gone.
+    const back = await screen.findByRole('list', { name: 'Tasks' });
+    expect(within(back).getByText('Trip')).toBeInTheDocument();
+  });
+
   it('are offered in quick add, with the words typed so far as the title', async () => {
     const store = testStore();
     await renderApp('/inbox', store);

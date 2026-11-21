@@ -29,6 +29,26 @@ let copied: { taskId: string; at: number } | null = null;
 /** `taskId` is a copy about to open: its title takes the keyboard, all selected. */
 export function openingCopy(taskId: string): void {
   copied = { taskId, at: Date.now() };
+  openingMade(taskId);
+}
+
+/**
+ * The task this device just made and is opening at once (a copy from Duplicate, a task from a
+ * template's Use, PL-140), and when. Its details read this as they open and keep it for that one
+ * opening: Undo then takes the task away while they are open, and they close instead of saying it
+ * no longer exists (Dev 1's PL-140 review). The same task opened again later, or a task gone any
+ * other way (an old link, deleted on another device), still says so.
+ */
+let made: { taskId: string; at: number } | null = null;
+
+/** `taskId` was just made here and is about to open. */
+export function openingMade(taskId: string): void {
+  made = { taskId, at: Date.now() };
+}
+
+/** Whether the details of `taskId`, opening now, are of a task just made here. */
+export function freshlyMade(taskId: string): boolean {
+  return made?.taskId === taskId && Date.now() - made.at < FRESH_MS;
 }
 
 /** Whether the details of `taskId`, opening now, are a copy just made. */
