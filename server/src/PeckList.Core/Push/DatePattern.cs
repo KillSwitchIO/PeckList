@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Text.RegularExpressions;
+using PeckList.Core.Text;
 
 namespace PeckList.Core.Push;
 
@@ -8,7 +9,8 @@ namespace PeckList.Core.Push;
 /// the app shows it (web/src/core/dateFormat.ts, kept the same): the tokens people know from ISO 8601
 /// and moment.js, in either case where that is not ambiguous. YYYY 2026, YY 26, MMMM October, MMM Oct,
 /// MM 10, M 10, DD 05, D 5, dddd Monday, ddd Mon; text in [brackets] shows as is, anything else (- / .
-/// , spaces) too. Names in English, as the rest of what the server sends.
+/// , spaces) too. Month and day names come from the server's catalog (PL-148: <c>date.month.1</c>,
+/// <c>date.weekdayShort.0</c>...), in the language of the <see cref="Words"/> given, English by default.
 /// </summary>
 public static partial class DatePattern
 {
@@ -29,20 +31,20 @@ public static partial class DatePattern
     /// <summary>The person's pattern from their settings, or null for the automatic style (or none, or one that cannot be used).</summary>
     public static string? Of(string? dateFormat) => dateFormat is not null && dateFormat != Auto && IsPattern(dateFormat) ? dateFormat : null;
 
-    /// <summary><paramref name="date"/> in <paramref name="pattern"/>.</summary>
-    public static string Format(DateOnly date, string pattern)
+    /// <summary><paramref name="date"/> in <paramref name="pattern"/>, names in <paramref name="words"/>' language.</summary>
+    public static string Format(DateOnly date, string pattern, Words? words = null)
     {
-        var names = CultureInfo.InvariantCulture.DateTimeFormat;
+        words ??= Words.English;
         return Tokens().Replace(pattern, match => match.Value switch
         {
             "YYYY" or "yyyy" => date.Year.ToString(CultureInfo.InvariantCulture),
             "YY" or "yy" => (date.Year % 100).ToString("00", CultureInfo.InvariantCulture),
-            "MMMM" => names.GetMonthName(date.Month),
-            "MMM" => names.GetAbbreviatedMonthName(date.Month),
+            "MMMM" => words[$"date.month.{date.Month}"],
+            "MMM" => words[$"date.monthShort.{date.Month}"],
             "MM" => date.Month.ToString("00", CultureInfo.InvariantCulture),
             "M" => date.Month.ToString(CultureInfo.InvariantCulture),
-            "dddd" or "EEEE" => names.GetDayName(date.DayOfWeek),
-            "ddd" or "EEE" => names.GetAbbreviatedDayName(date.DayOfWeek),
+            "dddd" or "EEEE" => words[$"date.weekday.{(int)date.DayOfWeek}"],
+            "ddd" or "EEE" => words[$"date.weekdayShort.{(int)date.DayOfWeek}"],
             "DD" or "dd" => date.Day.ToString("00", CultureInfo.InvariantCulture),
             "D" or "d" => date.Day.ToString(CultureInfo.InvariantCulture),
             // [literal text]

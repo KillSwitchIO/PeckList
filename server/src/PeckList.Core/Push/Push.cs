@@ -4,8 +4,12 @@ using PeckList.Core.Sharing;
 
 namespace PeckList.Core.Push;
 
-/// <summary>A browser's Web Push subscription (spec: PL-061): where to send, and its keys.</summary>
-public sealed record PushSubscription(string UserId, string Endpoint, string P256dh, string Auth);
+/// <summary>
+/// A browser's Web Push subscription (spec: PL-061): where to send, and its keys.
+/// <paramref name="Languages"/>: the languages the browser asked for when it subscribed (its
+/// Accept-Language, PL-148), "de-DE,de,en"; null from before they were kept.
+/// </summary>
+public sealed record PushSubscription(string UserId, string Endpoint, string P256dh, string Auth, string? Languages = null);
 
 public interface IPushStore
 {

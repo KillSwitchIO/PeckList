@@ -4,6 +4,7 @@ using PeckList.Core;
 using PeckList.Core.Accounts;
 using PeckList.Core.Notifications;
 using PeckList.Core.Sharing;
+using PeckList.Core.Text;
 using PeckList.Server.Auth;
 
 namespace PeckList.Server;
@@ -55,7 +56,7 @@ public static class NotificationEndpoints
 /// </summary>
 public sealed class NotificationRecorder(
     INotificationStore store, IAccountStore accounts, SharingState sharing, Push.IPushSender push, BackgroundQueue background, TimeProvider time,
-    Core.Sync.IChangeNotifier notifier)
+    Core.Sync.IChangeNotifier notifier, Text.ServerWords words)
     : INotificationSink
 {
     public async Task ChangedAsync(string userId, IReadOnlyList<NotableChange> changes, CancellationToken cancellation = default)
@@ -89,13 +90,21 @@ public sealed class NotificationRecorder(
         // And to their devices, with names: the push is encrypted for each browser. The words are
         // settled now; sending waits for no one's sync (audit B2), so a slow push service slows nobody.
         var actor = (await accounts.FindByIdAsync(userId, cancellation))?.Username;
-        var pushes = new List<(string UserId, Push.PushPayload Payload)>();
+        var pushes = new List<(string UserId, Func<string?, Push.PushPayload> Payload)>();
         foreach (var each in found)
         {
             // Switched off in their settings: recorded in the feed, but not pushed (PL-115).
-            if (!NotificationSwitches.Allows(Push.ReminderSender.SettingsOf(sharing.Index, each.UserId), each.Kind)) continue;
-            var (body, url) = NotificationText.Of(each, actor, sharing.Index);
-            pushes.Add((each.UserId, new Push.PushPayload("PeckList", body, each.Id, url, Actions: NotificationText.ActionsOf(each, url))));
+            var settings = Push.ReminderSender.SettingsOf(sharing.Index, each.UserId);
+            if (!NotificationSwitches.Allows(settings, each.Kind)) continue;
+            // The task's and list's names as they are now, not when the job runs (a rename or a
+            // delete in between would show); the wording waits for each device's language (PL-148).
+            var names = NotificationText.NamesOf(each, sharing.Index);
+            pushes.Add((each.UserId, languages =>
+            {
+                var said = TextLanguage.For(words.Catalog, settings, AcceptLanguage.Split(languages));
+                var (body, url) = NotificationText.Of(each, actor, names, said);
+                return new Push.PushPayload("PeckList", body, each.Id, url, Actions: NotificationText.ActionsOf(each, url, said));
+            }));
         }
         // One job each: one person's browser that never answers costs only them their push.
         foreach (var (to, payload) in pushes)
@@ -105,26 +114,42 @@ public sealed class NotificationRecorder(
     }
 }
 
-/// <summary>What a notification says and where it leads: in a push, and in the Android app's background check.</summary>
+/// <summary>
+/// What a notification says and where it leads: in a push, and in the Android app's background
+/// check. In <c>words</c>' language (PL-148), English when not given.
+/// </summary>
 public static class NotificationText
 {
-    public static (string Body, string Url) Of(Notification each, string? actorName, SharingIndex index)
+    /// <summary>The names a notification shows: its task's title and its list's name, null when there is none.</summary>
+    public sealed record Names(string? Task, string? List);
+
+    /// <summary>The task's and list's names in <paramref name="index"/> now.</summary>
+    public static Names NamesOf(Notification each, SharingIndex index)
     {
-        var actor = actorName ?? "Someone";
-        string Name(string? id, string field, string fallback) =>
+        string? Name(string? id, string field) =>
             id is not null && index.DocOf(id)?[field] is JsonValue value && value.TryGetValue<string>(out var text) && text.Length > 0
                 ? text
-                : fallback;
-        var task = Name(each.TaskId, "title", "a task");
+                : null;
+        return new Names(Name(each.TaskId, "title"), Name(each.ListId, "name"));
+    }
+
+    public static (string Body, string Url) Of(Notification each, string? actorName, SharingIndex index, Words? words = null) =>
+        Of(each, actorName, NamesOf(each, index), words);
+
+    public static (string Body, string Url) Of(Notification each, string? actorName, Names names, Words? words = null)
+    {
+        words ??= Words.English;
+        var actor = actorName ?? words["notify.someone"];
+        var task = names.Task ?? words["notify.aTask"];
         var body = each.Kind switch
         {
-            NotificationKind.Assigned => $"{actor} assigned you {task}",
-            NotificationKind.Shared => $"{actor} shared {Name(each.ListId, "name", "a list")} with you",
-            NotificationKind.Mentioned => $"{actor} mentioned you in {task}",
-            NotificationKind.Commented => $"{actor} commented on {task}",
-            NotificationKind.CommentEdited => $"{actor} edited a comment on {task}",
-            NotificationKind.GroupAssigned => $"{actor} assigned {task} to your group",
-            NotificationKind.Claimed => $"{actor} called dibs on {task}",
+            NotificationKind.Assigned => words.Get("notify.assigned", ("actor", actor), ("task", task)),
+            NotificationKind.Shared => words.Get("notify.shared", ("actor", actor), ("list", names.List ?? words["notify.aList"])),
+            NotificationKind.Mentioned => words.Get("notify.mentioned", ("actor", actor), ("task", task)),
+            NotificationKind.Commented => words.Get("notify.commented", ("actor", actor), ("task", task)),
+            NotificationKind.CommentEdited => words.Get("notify.commentEdited", ("actor", actor), ("task", task)),
+            NotificationKind.GroupAssigned => words.Get("notify.groupAssigned", ("actor", actor), ("task", task)),
+            NotificationKind.Claimed => words.Get("notify.claimed", ("actor", actor), ("task", task)),
             _ => task,
         };
         // A comment opens with the comments shown and scrolled to it (R-FB-106).
@@ -144,17 +169,21 @@ public static class NotificationText
     /// the address, which a link from anywhere could carry (security review 2026-11-19). Reply's
     /// reply=1 is a flag in the address, and may be: it only puts the cursor in the comment box.
     /// </summary>
-    public static IReadOnlyList<Push.PushAction> ActionsOf(Notification each, string url) => each.Kind switch
+    public static IReadOnlyList<Push.PushAction> ActionsOf(Notification each, string url, Words? words = null)
     {
-        NotificationKind.Commented or NotificationKind.CommentEdited or NotificationKind.Mentioned
-            when each.CommentId is not null =>
-            [new("reply", "Reply", url + "&reply=1"), new("like", "\U0001F44D", url, each.TaskId)],
-        NotificationKind.GroupAssigned => [new("open", "Open task", url), new("dibs", "Call dibs", url, each.TaskId)],
-        // A tap opens it too, but a button says so (drill of 2026-10-29).
-        NotificationKind.Assigned or NotificationKind.Claimed => [new("open", "Open task", url)],
-        NotificationKind.Shared => [new("open", "Open list", url)],
-        _ => [],
-    };
+        words ??= Words.English;
+        return each.Kind switch
+        {
+            NotificationKind.Commented or NotificationKind.CommentEdited or NotificationKind.Mentioned
+                when each.CommentId is not null =>
+                [new("reply", words["notify.reply"], url + "&reply=1"), new("like", "\U0001F44D", url, each.TaskId)],
+            NotificationKind.GroupAssigned => [new("open", words["notify.openTask"], url), new("dibs", words["notify.callDibs"], url, each.TaskId)],
+            // A tap opens it too, but a button says so (drill of 2026-10-29).
+            NotificationKind.Assigned or NotificationKind.Claimed => [new("open", words["notify.openTask"], url)],
+            NotificationKind.Shared => [new("open", words["notify.openList"], url)],
+            _ => [],
+        };
+    }
 }
 
 /// <summary>Clears notifications older than 90 days, once a day.</summary>

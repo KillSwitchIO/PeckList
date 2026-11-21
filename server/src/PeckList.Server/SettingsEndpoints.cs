@@ -121,19 +121,19 @@ public static class SettingsEndpoints
 
         // Send test email (PL-122): with the settings as they apply now (a save applies at once),
         // to the address given; the mail server's own answer comes back in words when it fails.
-        admin.MapPost("/mail/test", async (TestMailRequest request, IMailSender mail, LiveSettings live, CancellationToken cancellation) =>
+        admin.MapPost("/mail/test", async (TestMailRequest request, IMailSender mail, LiveSettings live, ClaimsPrincipal user, Text.ServerWords serverWords,
+            HttpRequest http, CancellationToken cancellation) =>
         {
             if (!mail.Configured) return Results.Conflict(new AdminError("mail_not_set_up", "Pick a provider or set SMTP_HOST, and SMTP_FROM, first."));
             if (string.IsNullOrWhiteSpace(request.To) || !request.To.Contains('@'))
             {
                 return Results.BadRequest(new AdminError("invalid_address", "Give an email address to send the test to."));
             }
-            var server = live.Current.PublicUrl?.Host ?? "your server";
+            // In the admin's language (PL-148).
+            var words = serverWords.For(user.UserId(), http);
             try
             {
-                await mail.SendAsync(new OutgoingMail(request.To.Trim(), $"Test email from PeckList on {server}",
-                    $"This is a test email from PeckList on {server}. Email works: password reset links and invites can go out." + Environment.NewLine),
-                    cancellation);
+                await mail.SendAsync(MailTemplates.Test(request.To.Trim(), Auth.EmailEndpoints.ServerName(live, words), words), cancellation);
                 return Results.NoContent();
             }
             catch (MailException error)

@@ -62,6 +62,9 @@ public static partial class ServerApp
         builder.Services.AddPeckListAuth(settings, loaded.Layers.Cipher);
         builder.Services.AddSingleton<IChangeNotifier, InProcessChangeNotifier>();
         builder.Services.AddSingleton<PeckList.Core.Sharing.SharingState>();
+        // The server's text (PL-148): the embedded catalogs, and each person's language.
+        builder.Services.AddSingleton<PeckList.Core.Text.ITextCatalog>(PeckList.Core.Text.JsonTextCatalog.Embedded);
+        builder.Services.AddSingleton<Text.ServerWords>();
         builder.Services.AddSingleton<ServerClock>();
         builder.Services.AddSingleton(provider => new PeckList.Core.Sharing.Friends(
             provider.GetRequiredService<PeckList.Core.Accounts.AccountService>(),

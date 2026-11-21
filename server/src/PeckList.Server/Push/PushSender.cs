@@ -32,6 +32,13 @@ public sealed record PushPayload(
 public interface IPushSender
 {
     Task SendAsync(string userId, PushPayload payload, CancellationToken cancellation = default);
+
+    /// <summary>
+    /// A push worded for each device (PL-148): <paramref name="payloadFor"/> gets the languages the
+    /// device's browser asked for when it subscribed (null when unknown).
+    /// </summary>
+    Task SendAsync(string userId, Func<string?, PushPayload> payloadFor, CancellationToken cancellation = default) =>
+        SendAsync(userId, payloadFor(null), cancellation);
 }
 
 /// <summary>
@@ -80,7 +87,10 @@ public sealed class PushSender(
 {
     private static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web);
 
-    public async Task SendAsync(string userId, PushPayload payload, CancellationToken cancellation = default)
+    public Task SendAsync(string userId, PushPayload payload, CancellationToken cancellation = default) =>
+        SendAsync(userId, _ => payload, cancellation);
+
+    public async Task SendAsync(string userId, Func<string?, PushPayload> payloadFor, CancellationToken cancellation = default)
     {
         // A demo server sends nothing anywhere (PL-117); reminders still show on the device itself.
         if (settings.DemoMode) return;
@@ -95,13 +105,19 @@ public sealed class PushSender(
                 Subject = settings.PublicUrl is { } url ? url.GetLeftPart(UriPartial.Authority) : "mailto:pecklist@localhost",
             },
         };
-        var message = new PushMessage(JsonSerializer.Serialize(payload, Json))
-        {
-            TimeToLive = 24 * 3600,
-            Urgency = PushMessageUrgency.High,
-        };
+        // One message per set of languages: most people's devices share theirs.
+        var messages = new Dictionary<string, PushMessage>(StringComparer.Ordinal);
         foreach (var subscription in subscriptions)
         {
+            var languages = subscription.Languages ?? "";
+            if (!messages.TryGetValue(languages, out var message))
+            {
+                message = messages[languages] = new PushMessage(JsonSerializer.Serialize(payloadFor(subscription.Languages), Json))
+                {
+                    TimeToLive = 24 * 3600,
+                    Urgency = PushMessageUrgency.High,
+                };
+            }
             var target = new WebPushSubscription { Endpoint = subscription.Endpoint };
             target.SetKey(PushEncryptionKeyName.P256DH, subscription.P256dh);
             target.SetKey(PushEncryptionKeyName.Auth, subscription.Auth);

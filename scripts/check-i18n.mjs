@@ -9,7 +9,8 @@
 //      plural where a language needs forms, plural to plain where it has none;
 //   3. a translation has no key English no longer has;
 //   4. every English key is used in the source: a literal ('nav.today') anywhere in the code, or
-//      the prefix of a key built at run time (`audit.outcome.${x}`, 'serverSettings.' + key);
+//      the prefix of a key built at run time (`audit.outcome.${x}`, 'serverSettings.' + key,
+//      and in C# $"date.month.{n}");
 //   5. how much of each language is translated (a report: a missing key shows English).
 // Exits 1 on any error from 1 to 4.
 import { readFileSync, readdirSync, statSync } from 'node:fs';
@@ -19,14 +20,26 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const ROOT = fileURLToPath(new URL('..', import.meta.url));
 
-/** The catalogs, each with the source folders its keys are used from. */
+/**
+ * The catalogs, each with the source folders its keys are used from and which files there count
+ * (TypeScript unless `files` says otherwise).
+ */
 export const CATALOGS = [
   {
     name: 'web',
     folder: 'web/src/app/i18n/locales',
     sources: ['web/src'],
   },
+  {
+    // The server's own words: pushes, the Android check-in and emails (PL-148 piece 5).
+    name: 'server',
+    folder: 'server/src/PeckList.Core/Text/locales',
+    sources: ['server/src'],
+    files: /\.cs$/,
+  },
 ];
+
+const TYPESCRIPT = /\.(ts|tsx|mts)$/;
 
 // Messages with one of these arguments are read as ICU; the rest only fill {name}, the way the
 // web's ICU adapter does (web/src/adapters/icu-message-format.ts).
@@ -136,12 +149,14 @@ export function compareCatalog(english, translated, locale, IntlMessageFormat) {
   return errors;
 }
 
-function sourceFiles(folder, found = []) {
+const SKIPPED_FOLDERS = new Set(['node_modules', 'locales', 'bin', 'obj']);
+
+function sourceFiles(folder, files = TYPESCRIPT, found = []) {
   for (const name of readdirSync(folder)) {
     const path = join(folder, name);
     if (statSync(path).isDirectory()) {
-      if (name !== 'node_modules' && name !== 'locales') sourceFiles(path, found);
-    } else if (/\.(ts|tsx|mts)$/.test(name) && !/\.test\.tsx?$/.test(name)) {
+      if (!SKIPPED_FOLDERS.has(name)) sourceFiles(path, files, found);
+    } else if (files.test(name) && !/\.test\.tsx?$/.test(name)) {
       found.push(path);
     }
   }
@@ -150,7 +165,8 @@ function sourceFiles(folder, found = []) {
 
 /**
  * The keys the source code uses: every quoted literal that looks like a key, and the prefixes of
- * keys built at run time (a template literal or a concatenation that starts with "area.").
+ * keys built at run time (a template literal, a C# interpolated string or a concatenation that
+ * starts with "area.").
  */
 export function usedKeys(sources) {
   const literals = new Set();
@@ -159,6 +175,8 @@ export function usedKeys(sources) {
     for (const match of text.matchAll(/(['"`])([A-Za-z][\w-]*(?:\.[\w-]+)+)\1/g))
       literals.add(match[2]);
     for (const match of text.matchAll(/`([A-Za-z][\w-]*(?:\.[\w-]+)*\.)\$\{/g))
+      prefixes.add(match[1]);
+    for (const match of text.matchAll(/\$"([A-Za-z][\w-]*(?:\.[\w-]+)*\.)\{/g))
       prefixes.add(match[1]);
     for (const match of text.matchAll(/(['"])([A-Za-z][\w-]*(?:\.[\w-]+)*\.)\1\s*\+/g))
       prefixes.add(match[2]);
@@ -193,7 +211,7 @@ export async function check({ root = ROOT, catalogs = CATALOGS, log = console.lo
     }
 
     const texts = catalog.sources.flatMap((source) =>
-      sourceFiles(join(root, source)).map((file) => readFileSync(file, 'utf8')),
+      sourceFiles(join(root, source), catalog.files).map((file) => readFileSync(file, 'utf8')),
     );
     const used = usedKeys(texts);
     for (const key of unusedKeys(english, used))
