@@ -6,7 +6,8 @@
   "scripts": {
     "test": "wdio run ./wdio.conf.ts",
     "typecheck": "tsc --noEmit",
-    "test:server": "wdio run ./wdio.server.conf.ts"
+    "test:server": "wdio run ./wdio.server.conf.ts",
+    "test:android": "wdio run ./wdio.android.conf.ts"
   },
   "devDependencies": {
     "@types/mocha": "10.0.10",

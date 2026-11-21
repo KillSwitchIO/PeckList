@@ -1,0 +1,6 @@
+# Publishes Appium and the server on the host's loopback, for poking at a running stack from
+# outside (an Appium inspector, curl). Not used by pnpm e2e:android or CI.
+#   docker compose -f e2e/android/compose.yml -f e2e/android/compose.ports.yml up -d
+services:
+  emulator:
+    ports: ['127.0.0.1:4723:4723', '127.0.0.1:6190:8080']

@@ -726,7 +726,54 @@ android-apk:
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
       when: manual
       allow_failure: true
+    # For android-e2e's weekly run (before main's rule, since the weekly run is on main).
+    - if: $CI_PIPELINE_SOURCE == "schedule"
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+      when: manual
+      allow_failure: true
+    - if: $CI_PIPELINE_SOURCE == "web"
+      when: manual
+      allow_failure: true
+
+# The Android app's end-to-end tests (e2e/android/run.sh, PL-070): android-apk's debug APK on an
+# emulator with Appium, against main's server image (:edge), weekly and by hand on merge requests
+# that touch the app or the tests. It runs the stack on the runner's own Docker (the emulator needs
+# /dev/kvm), one at a time, and always removes its containers, volumes and images. With less than
+# 12 GB free it skips (exit 77), shown as a warning, not a failure.
+android-e2e:
+  image: $DOCKER_IMAGE
+  stage: build
+  needs:
+    - job: android-apk
+      artifacts: true
+  timeout: 60m
+  resource_group: android-e2e
+  interruptible: false
+  variables:
+    PECKLIST_OWNER: ci-$CI_JOB_ID
+    PECKLIST_IMAGE: $IMAGE:edge
+  allow_failure:
+    exit_codes: [77]
+  before_script:
+    - echo "$CI_REGISTRY_PASSWORD" | docker login "$CI_REGISTRY" -u "$CI_REGISTRY_USER" --password-stdin
+  script:
+    - export E2E_APK="$(ls pecklist-android-*-debug.apk | head -n 1)"
+    - sh e2e/android/run.sh
+  artifacts:
+    when: on_failure
+    paths: [e2e/screenshots]
+    expire_in: 7 days
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "schedule"
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+      changes:
+        - mobile/**/*
+        - e2e/android/**/*
+        - e2e/android-specs/**/*
+        - e2e/wdio.android.conf.ts
+        - e2e/android/emulator.Dockerfile
+        - scripts/ci/android-sdk.sh
+        - scripts/ci/android-emulator.sh
       when: manual
       allow_failure: true
     - if: $CI_PIPELINE_SOURCE == "web"
