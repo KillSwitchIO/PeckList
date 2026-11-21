@@ -23,6 +23,19 @@ export function keyboardOpen(taskId: string): boolean {
   return keyboardOpened?.taskId === taskId && Date.now() - keyboardOpened.at < FRESH_MS;
 }
 
+/** The copy just made by Duplicate (PL-139), and when: it opens with its title selected. */
+let copied: { taskId: string; at: number } | null = null;
+
+/** `taskId` is a copy about to open: its title takes the keyboard, all selected. */
+export function openingCopy(taskId: string): void {
+  copied = { taskId, at: Date.now() };
+}
+
+/** Whether the details of `taskId`, opening now, are a copy just made. */
+export function freshCopy(taskId: string): boolean {
+  return copied?.taskId === taskId && Date.now() - copied.at < FRESH_MS;
+}
+
 /** How long the row is followed after the details close, while the list settles. */
 export const SETTLE_MS = 800;
 

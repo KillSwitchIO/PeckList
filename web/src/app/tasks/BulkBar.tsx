@@ -1,8 +1,10 @@
 import CheckRounded from '@mui/icons-material/CheckRounded';
 import CloseRounded from '@mui/icons-material/CloseRounded';
+import ContentCopyRounded from '@mui/icons-material/ContentCopyRounded';
 import DeleteOutlineRounded from '@mui/icons-material/DeleteOutlineRounded';
 import DriveFileMoveOutlined from '@mui/icons-material/DriveFileMoveOutlined';
 import LocalOfferOutlined from '@mui/icons-material/LocalOfferOutlined';
+import MoreHorizRounded from '@mui/icons-material/MoreHorizRounded';
 import {
   Box,
   Button,
@@ -34,7 +36,7 @@ import {
 import { localTimeZone } from '../../core/dates.ts';
 import { visibleLists } from '../../core/lists.ts';
 import { getEntity } from '../../core/collections.ts';
-import { canEditList, canMoveTask } from '../../core/sharing.ts';
+import { canEditList, canEditTask, canMoveTask } from '../../core/sharing.ts';
 import { visibleTags } from '../../core/tags.ts';
 import type { Priority } from '../../core/types.ts';
 import { DatePickerPanel } from '../dates/DatePickerPanel.tsx';
@@ -44,6 +46,7 @@ import { CalendarIcon, FlagIcon, PinIcon } from '../icons/icons.tsx';
 import { listName } from '../lists/listName.ts';
 import { useApply, useStoreState, useWorkspace } from '../store/hooks.ts';
 import { useBulkSelect } from './bulkSelect.ts';
+import { duplicate } from './duplicateActions.ts';
 import { PropertySheet } from './PropertyRow.tsx';
 
 const PRIORITIES: Priority[] = [3, 2, 1, 0];
@@ -51,8 +54,9 @@ const PRIORITY_KEY = { 0: 'none', 1: 'low', 2: 'medium', 3: 'high' } as const;
 
 /**
  * The actions for the picked tasks (spec: R-FB-55), in place of the bottom tabs on a phone and
- * floating at the bottom elsewhere, like TickTick's: complete, date, move, tag, priority, pin and
- * delete. Each acts on every picked task, can be undone, and ends picking.
+ * floating at the bottom elsewhere, like TickTick's: complete, date, move, tag, priority and
+ * delete, then More for pin and duplicate (PL-139). Each acts on every picked task, can be undone,
+ * and ends picking.
  */
 export function BulkBar({ phone }: { phone: boolean }) {
   const bulk = useBulkSelect();
@@ -65,6 +69,7 @@ export function BulkBar({ phone }: { phone: boolean }) {
   const [tagAnchor, setTagAnchor] = useState<HTMLElement | null>(null);
   const [priorityAnchor, setPriorityAnchor] = useState<HTMLElement | null>(null);
   const [moving, setMoving] = useState(false);
+  const [moreAnchor, setMoreAnchor] = useState<HTMLElement | null>(null);
   if (!bulk?.selecting) return null;
   const live = new Set(
     workspace.entities.tasks.filter((task) => !task.deletedAt).map((task) => task.id),
@@ -75,6 +80,11 @@ export function BulkBar({ phone }: { phone: boolean }) {
   const movable = ids.every((id) => {
     const task = getEntity(workspace, 'tasks', id);
     return !task || canMoveTask(workspace, me, task);
+  });
+  // A copy goes in the same list: only the picked ones on lists I can add to (PL-139).
+  const copyable = ids.filter((id) => {
+    const task = getEntity(workspace, 'tasks', id);
+    return task !== undefined && canEditTask(workspace, me, task);
   });
   // Everything the page shows (R-FB-124): Select all, then Deselect all once it is all picked.
   const onPage = [...bulk.rows].filter((id) => live.has(id));
@@ -189,17 +199,43 @@ export function BulkBar({ phone }: { phone: boolean }) {
           )}
           {action(t('bulk.tag'), <LocalOfferOutlined />, setTagAnchor)}
           {action(t('bulk.priority'), <FlagIcon />, setPriorityAnchor)}
-          {action(t('bulk.pin'), <PinIcon />, () =>
-            run((ctx, ws) => togglePinOnTasks(ctx, ws, ids), changed),
-          )}
           {action(
             t('bulk.delete'),
             <DeleteOutlineRounded />,
             () => run((ctx, ws) => deleteTasks(ctx, ws, ids), changed),
             'error.main',
           )}
+          {/* The rarer ones, so a phone's bar keeps to seven buttons (PL-139). */}
+          {action(t('bulk.more'), <MoreHorizRounded />, setMoreAnchor)}
         </Box>
       </Paper>
+
+      <Menu anchorEl={moreAnchor} open={moreAnchor !== null} onClose={() => setMoreAnchor(null)}>
+        <MenuItem
+          onClick={() => {
+            setMoreAnchor(null);
+            run((ctx, ws) => togglePinOnTasks(ctx, ws, ids), changed);
+          }}
+        >
+          <ListItemIcon>
+            <PinIcon fontSize="small" />
+          </ListItemIcon>
+          {t('bulk.pin')}
+        </MenuItem>
+        <MenuItem
+          disabled={copyable.length === 0}
+          onClick={() => {
+            setMoreAnchor(null);
+            duplicate(apply, workspace, copyable);
+            bulk.stop();
+          }}
+        >
+          <ListItemIcon>
+            <ContentCopyRounded fontSize="small" />
+          </ListItemIcon>
+          {t('bulk.duplicate')}
+        </MenuItem>
+      </Menu>
 
       <PropertySheet label={t('bulk.date')} anchor={dateAnchor} onClose={() => setDateAnchor(null)}>
         {dateAnchor && (

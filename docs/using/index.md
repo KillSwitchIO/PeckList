@@ -2,19 +2,19 @@
 
 ## The sidebar
 
-| View                                    | Shows                                                            |
-| --------------------------------------- | ---------------------------------------------------------------- |
-| **Today**                               | Tasks that start today or earlier and are still open.            |
-| **Upcoming**                            | A week strip, then every coming day, each with its own add.      |
-| **Due dates**                           | Tasks with a deadline, by when; select many to move their dates. |
-| **Mess Drawer**                         | Tasks not yet put in a list: the place quick ideas land.         |
-| **All**                                 | Every open task.                                                 |
-| **Calendar**                            | Month, 1 to 14 days, and a year at a glance.                     |
-| **Assigned to me** / **Shared with me** | Tasks others gave you, and lists shared with you.                |
-| **Completed**                           | What got done: a heatmap, totals, and closed tasks by day.       |
+| View                                    | Shows                                                                 |
+| --------------------------------------- | --------------------------------------------------------------------- |
+| **Today**                               | Tasks that start today or earlier and are still open.                 |
+| **Upcoming**                            | A week strip, then every coming day, each with its own add.           |
+| **Due dates**                           | Tasks with a deadline, by when; select many to move their dates.      |
+| **Mess Drawer**                         | Tasks not yet put in a list: the place quick ideas land.              |
+| **All**                                 | Every open task.                                                      |
+| **Calendar**                            | Month, 1 to 14 days, and a year at a glance.                          |
+| **Assigned to me** / **Shared with me** | Tasks others gave you, and lists shared with you.                     |
+| **Completed**                           | What got done: a heatmap, totals, and closed tasks by day.            |
 | **Trash**                               | Deleted tasks and lists, restorable for 30 days unless you change it. |
-| **Search**                              | Finds tasks by their words, ranked best first (see below).       |
-| **Lists**, **Tags**, **Filters**        | Your own lists, nested tags, and saved filters.                  |
+| **Search**                              | Finds tasks by their words, ranked best first (see below).            |
+| **Lists**, **Tags**, **Filters**        | Your own lists, nested tags, and saved filters.                       |
 
 Views show how many open tasks they hold, as lists do, and Completed how many closed tasks it lists
 (Calendar, Trash and Search show none); so do lists and tags pinned among them. The Today icon shows today's date, and turns over at midnight.
@@ -205,6 +205,12 @@ their start; the due date is the deadline.
 - **Pin**: **Pin to the top** in a task's menu (its **...** in the details) puts it in a **Pinned**
   group at the top of every view it shows in, and it stays in its own group too. Completing it
   lets go of the pin.
+- **Duplicate**: **Duplicate** in a task's menu (or <kbd>D</kbd> on the open task) puts a copy
+  right below it and opens it with the title selected, so typing renames it. The copy has the
+  task's notes, priority, tags, dates, reminders, repeat, the people on it, its files and its
+  subtasks (all open again), but not its comments, history, pin or progress. **Undo** takes it
+  back. The people on it aren't told again: copying isn't a new assignment. The files are the same
+  files, not new ones, so a copy you make from a shared list keeps them after you leave that list.
 - **Swipe** (phones and tablets, like TickTick): swipe a task right to complete it (or reopen a
   closed one); a short swipe left shows **Date**, **Move** and **Delete**, and a full one opens
   the task's date. **Settings > Tasks > Swipe actions** shows each side on a sample task and changes its
@@ -232,13 +238,15 @@ their start; the due date is the deadline.
 Lists hold tasks. The three dots next to a list's name open its view menu: **Select**, the view
 (**List** or **Timeline**), grouping (by date, priority or tag, or **None** for the list's own
 order, the one you drag tasks in) and sorting, and, for its owner, editing, archiving or deleting
-the list. The built-in views (Today, Upcoming, All, Assigned to me, Shared with me) and every tag
-and saved filter have the same menu, plus **List** to group by list. Picking the chosen grouping or
-sort again turns it around (an arrow shows which way it runs): Z to A, latest date first (undated
-tasks stay last), low priority first, oldest first, or the groups in reverse. Each list and view
-keeps its own choice on this device; a saved filter keeps its choice with the filter, so it is the
-same on all your devices. The dots turn colored while it differs from the default;
-**Restore defaults** at the bottom of the menu goes back.
+the list. **Duplicate list** makes a new private list of your own with the same color and icon and
+copies of its open tasks (their subtasks all open again, done ones too), and takes you to it;
+**Undo** brings you back. The built-in views (Today, Upcoming, All, Assigned to me, Shared with me)
+and every tag and saved filter have the same menu, plus **List** to group by list. Picking the
+chosen grouping or sort again turns it around (an arrow shows which way it runs): Z to A, latest
+date first (undated tasks stay last), low priority first, oldest first, or the groups in reverse.
+Each list and view keeps its own choice on this device; a saved filter keeps its choice with the
+filter, so it is the same on all your devices. The dots turn colored while it differs from the
+default; **Restore defaults** at the bottom of the menu goes back.
 
 Today's menu also has **Row size**: **Comfortable** (the usual rows) or **Compact**, one line per
 task with less space around it, so more of the day fits on the screen. On a phone a compact row
@@ -249,8 +257,9 @@ it as it is.
 
 **Select** picks many tasks at once: each task's box becomes a circle to tap, and each group gets
 a circle that picks everything in it. The bar at the bottom (in place of the tabs on a phone) then
-completes, dates, moves, tags, prioritizes, pins or deletes them all together; one **Undo** puts
-them back, and the cross stops selecting. **Select all** in the bar picks every task shown, then
+completes, dates, moves, tags, prioritizes or deletes them all together, and its **More** button
+pins or duplicates them (each copy below its own); one **Undo** puts them back, and the cross
+stops selecting. **Select all** in the bar picks every task shown, then
 turns into **Deselect all**.
 
 **Timeline** shows a list's dated tasks as bars across their days, with today marked. Drag a bar

@@ -1,6 +1,7 @@
 import { isPinned, setPinned } from '../../core/tasks.ts';
 import { PinIcon, PinOffIcon } from '../icons/icons.tsx';
 import AccountTreeOutlined from '@mui/icons-material/AccountTreeOutlined';
+import ContentCopyRounded from '@mui/icons-material/ContentCopyRounded';
 import DeleteOutlineRounded from '@mui/icons-material/DeleteOutlineRounded';
 import DriveFileMoveOutlined from '@mui/icons-material/DriveFileMoveOutlined';
 import LinkOffRounded from '@mui/icons-material/LinkOffRounded';
@@ -51,6 +52,7 @@ import { completionInstant } from './completion.ts';
 import { ProgressRing } from './ProgressRing.tsx';
 import { deleteAsking } from '../repeat/repeatActions.ts';
 import { useTaskSelection } from './selection.ts';
+import { duplicate } from './duplicateActions.ts';
 
 const MAX_RESULTS = 50;
 
@@ -380,6 +382,12 @@ export function TaskMenu({
           </Typography>
         </Box>
         <Divider />
+        <MenuItem onClick={run(() => duplicate(apply, workspace, [task.id], open))}>
+          <ListItemIcon>
+            <ContentCopyRounded fontSize="small" />
+          </ListItemIcon>
+          {t('task.duplicate')}
+        </MenuItem>
         {movable && (
           <MenuItem onClick={run(() => setMoving(true))}>
             <ListItemIcon>

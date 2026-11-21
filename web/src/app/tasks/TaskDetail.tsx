@@ -29,7 +29,7 @@ import { CollapseIcon, DueIcon, ExpandIcon } from '../icons/icons.tsx';
 import { useLongPress } from '../hooks/useLongPress.ts';
 import { CompleteCheckbox } from './CompleteCheckbox.tsx';
 import { isBlankDraft } from './drafts.ts';
-import { keyboardOpen } from './detailFocus.ts';
+import { freshCopy, keyboardOpen } from './detailFocus.ts';
 import { completionInstant } from './completion.ts';
 import { DetailFooter } from './DetailFooter.tsx';
 import { ParentTrail, SubtaskEditor } from './Subtasks.tsx';
@@ -64,6 +64,7 @@ function CommitField({
   onCommit,
   readOnly = false,
   autoFocus = false,
+  selectAll = false,
 }: {
   label: string;
   value: string;
@@ -71,6 +72,8 @@ function CommitField({
   readOnly?: boolean;
   /** A new task: ready to type its title */
   autoFocus?: boolean;
+  /** With autoFocus, the text comes selected (a copy's title, ready to rename) */
+  selectAll?: boolean;
 }) {
   const [draft, setDraft] = useState(value);
   const [synced, setSynced] = useState(value);
@@ -79,9 +82,12 @@ function CommitField({
   const field = useRef<HTMLTextAreaElement | null>(null);
   useEffect(() => {
     if (!autoFocus) return;
-    const timer = setTimeout(() => field.current?.focus(), 80);
+    const timer = setTimeout(() => {
+      field.current?.focus();
+      if (selectAll) field.current?.select();
+    }, 80);
     return () => clearTimeout(timer);
-  }, [autoFocus]);
+  }, [autoFocus, selectAll]);
   // Take outside changes (undo, another tab) without an effect.
   if (value !== synced) {
     setSynced(value);
@@ -201,6 +207,8 @@ export function TaskDetail({
   const attach = useAttachFiles(task && isLive(task) ? task : undefined);
   const [dropping, setDropping] = useState(false);
   const [byKeyboard] = useState(() => keyboardOpen(taskId));
+  // A copy just made by Duplicate: its title selected, so typing renames it (PL-139).
+  const [asCopy] = useState(() => freshCopy(taskId));
 
   if (!task || !isLive(task)) {
     return (
@@ -387,7 +395,8 @@ export function TaskDetail({
               readOnly={readOnly}
               // A new task (the + button, the add bar's expand): type its title straight away. Opened
               // from its row by Enter: the keyboard comes here too, not to the page (detailFocus.ts).
-              autoFocus={isBlankDraft(task) || byKeyboard}
+              autoFocus={isBlankDraft(task) || byKeyboard || asCopy}
+              selectAll={asCopy}
               onCommit={(title) =>
                 apply((ctx, ws) => {
                   // Saved on the way out: the task may be gone by then (deleted, or out of sync).

@@ -1,4 +1,5 @@
 import ArchiveRounded from '@mui/icons-material/ArchiveRounded';
+import ContentCopyRounded from '@mui/icons-material/ContentCopyRounded';
 import UnarchiveRounded from '@mui/icons-material/UnarchiveRounded';
 import DeleteOutlineRounded from '@mui/icons-material/DeleteOutlineRounded';
 import EditRounded from '@mui/icons-material/EditRounded';
@@ -13,8 +14,9 @@ import {
   useTheme,
 } from '@mui/material';
 import { useState } from 'react';
-import { useNavigate, useParams } from 'react-router';
+import { Navigate, useNavigate, useParams } from 'react-router';
 import { getEntity, isLive } from '../../core/collections.ts';
+import { duplicateList } from '../../core/duplicate.ts';
 import { deleteList, findInbox, updateList } from '../../core/lists.ts';
 import { filterClosedTasks } from '../../core/filters.ts';
 import { listTasks } from '../../core/queries.ts';
@@ -34,6 +36,7 @@ import { AddTaskInput } from '../tasks/AddTaskInput.tsx';
 import { TaskDragProvider } from '../tasks/drag/TaskDrag.tsx';
 import { TaskTree } from '../tasks/TaskTree.tsx';
 import { EmptyState } from '../views/EmptyState.tsx';
+import { listCopiedFrom, madeListCopy } from './listCopies.ts';
 import { GroupSection } from '../views/GroupSection.tsx';
 import { CompletedGroup, DateGroupedTasks, PinnedGroup } from '../views/groups.tsx';
 import { groupZone } from '../views/dragZones.ts';
@@ -123,6 +126,32 @@ function ListMenu({
               >
                 <EditRounded fontSize="small" sx={{ mr: 1 }} />
                 {t('list.edit')}
+              </MenuItem>
+            ),
+            // Anyone who sees a list may copy it into a private list of their own (PL-139).
+            !list.isInbox && (
+              <MenuItem
+                key="duplicate"
+                onClick={() => {
+                  close();
+                  // Set inside the operation: apply runs it once, before it returns.
+                  let made = '';
+                  apply((ctx, ws) => {
+                    const copy = duplicateList(
+                      ctx,
+                      ws,
+                      list.id,
+                      t('list.copyName', { name: listName(list, workspace) }),
+                    );
+                    made = copy.list.id;
+                    madeListCopy(made, list.id);
+                    return copy.workspace;
+                  }, t('undo.listDuplicated'));
+                  if (made) void navigate(`/lists/${made}`);
+                }}
+              >
+                <ContentCopyRounded fontSize="small" sx={{ mr: 1 }} />
+                {t('list.duplicate')}
               </MenuItem>
             ),
             menu && (
@@ -376,6 +405,10 @@ export function ListView() {
   const { listId } = useParams();
   const list = listId ? getEntity(workspace, 'lists', listId) : undefined;
   if (!list || !isLive(list)) {
+    // A copy just undone goes back to the list it was made from.
+    const from = listId ? listCopiedFrom(listId) : undefined;
+    const original = from ? getEntity(workspace, 'lists', from) : undefined;
+    if (original && isLive(original)) return <Navigate replace to={`/lists/${original.id}`} />;
     return (
       <Page title={t('nav.lists')}>
         <EmptyState title={t('list.notFound')} />
