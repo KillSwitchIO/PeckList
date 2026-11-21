@@ -29,7 +29,7 @@ describe('t', () => {
   });
 
   it('keeps a parameter that was not given', () => {
-    expect(t('empty.comingSoon')).toBe('This view arrives in milestone {milestone}.');
+    expect(t('calendar.openMonth')).toBe('Open {month}');
   });
 });
 

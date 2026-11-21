@@ -28,6 +28,7 @@
     "check:docs": "node scripts/check-docs.mjs",
     "build:quick-add": "node scripts/build-quick-add.mjs",
     "check:quick-add": "node scripts/build-quick-add.mjs --check",
+    "check:i18n": "node scripts/check-i18n.mjs",
     "test:scripts": "node --test \"scripts/*.test.mjs\""
   },
   "simple-git-hooks": {

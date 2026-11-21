@@ -215,7 +215,7 @@ function DiscoSign() {
         ),
       }}
     >
-      🪩 DISCO
+      {t('fun.discoSign')}
     </Box>
   );
 }

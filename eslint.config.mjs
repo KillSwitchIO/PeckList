@@ -3,6 +3,7 @@ import globals from 'globals';
 import reactHooks from 'eslint-plugin-react-hooks';
 import reactRefresh from 'eslint-plugin-react-refresh';
 import tseslint from 'typescript-eslint';
+import { noLiteralUiText } from './scripts/eslint-no-literal-ui-text.mjs';
 
 export default tseslint.config(
   {
@@ -35,6 +36,14 @@ export default tseslint.config(
       ...reactHooks.configs.recommended.rules,
       'react-refresh/only-export-components': ['warn', { allowConstantExport: true }],
     },
+  },
+  {
+    // Text people see goes through t() so it can be translated (PL-148). Tests, contract suites,
+    // the demo workspace's sample tasks and the developer pages are not translated.
+    files: ['web/src/app/**/*.tsx'],
+    ignores: ['web/src/**/*.test.tsx', 'web/src/**/*.contract.tsx'],
+    plugins: { pecklist: { rules: { 'no-literal-ui-text': noLiteralUiText } } },
+    rules: { 'pecklist/no-literal-ui-text': 'error' },
   },
   {
     // Ports and adapters: the domain core stays free of UI libraries and adapters.

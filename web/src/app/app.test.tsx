@@ -332,8 +332,8 @@ describe('navigation helpers', () => {
 describe('i18n', () => {
   it('interpolates parameters and falls back to English', () => {
     setLocale('fr-FR');
-    expect(t('empty.comingSoon', { milestone: '0.3' })).toBe('This view arrives in milestone 0.3.');
-    expect(t('empty.comingSoon')).toBe('This view arrives in milestone {milestone}.');
+    expect(t('calendar.openMonth', { month: 'May' })).toBe('Open May');
+    expect(t('calendar.openMonth')).toBe('Open {month}');
     setLocale('en');
   });
 });
