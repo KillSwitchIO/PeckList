@@ -209,6 +209,7 @@ lint:
     - pnpm check:docs
     - pnpm check:quick-add
     - pnpm check:i18n
+    - pnpm check:notices
     - pnpm test:scripts
   rules:
     - *not-on-release-branch
