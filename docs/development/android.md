@@ -385,7 +385,10 @@ base64 -w0 pecklist-release.p12   # the value of ANDROID_KEYSTORE_BASE64
 F-Droid builds each release tag from source and ships our own signed APK when its build matches
 ours byte for byte apart from the signature (a reproducible build). Its recipe builds the foss
 flavor (`gradle: [foss]`) and sets nothing else but the revision, so what a release APK holds must
-come from the tagged files alone:
+come from the tagged files alone. The draft recipe for the fdroiddata repository is
+`fastlane/fdroid/com.pecklist.app.yml`: it installs a pinned Node 24 and picks the buildserver's
+JDK 21, then runs `pnpm install`, the web build and `cap sync` in its `build:` step, before
+F-Droid's Gradle step.
 
 - **The version** from `version.properties`, as above. The release job stamps the same version.
 - **No build-specific data**: the release build leaves out the commit hash (`vcsInfo`) and
@@ -402,7 +405,30 @@ come from the tagged files alone:
 
 To check a change keeps the build reproducible, build the release APK unsigned twice, in different
 folders and with nothing stamped the second time, and compare the two files: they must be
-identical.
+identical. To check a release the way F-Droid does, build its tag unsigned in a clean container
+(a fresh clone, `pnpm install --frozen-lockfile`, the web build with `PECKLIST_REVISION` set to the
+commit, `cap sync android`, then `assembleFossRelease`) and copy the release's signature onto it:
+
+```sh
+apksigcopier copy pecklist-android-<version>.apk app-foss-release-unsigned.apk signed.apk
+sha256sum signed.apk pecklist-android-<version>.apk   # the two must match
+```
+
+The recipe can also be run through F-Droid's own tooling, as fdroiddata's CI runs it, in the
+`registry.gitlab.com/fdroid/fdroidserver:buildserver-trixie` image with
+`fdroid build --test --on-server com.pecklist.app:<version code>`.
+
+What F-Droid's reviewers may ask about, none of which should block inclusion:
+
+- **Tracking**: the app sends nothing on its own. The daily usage report and the update check are
+  the server's ([Privacy and telemetry](../using/privacy.md)), on by default and off with a
+  setting, and the "this device only" mode has no server at all. A reviewer may still weigh the
+  server's report when choosing anti-feature labels for the listing.
+- **The update notice**: the foss build shows "a newer version is out" with a link to the release
+  page when the server reports one. An F-Droid install sees it for the days before F-Droid
+  publishes the same release. It is a notice, not an updater: nothing is downloaded.
+- **Links out**: the donation links (Ko-fi, PayPal), the supporter key page, and the "open in maps"
+  choices, one of which is Google Maps. A supporter key unlocks nothing.
 
 The store listing is in `fastlane/metadata/android/en-US/` at the top of the repository: the
 title, the short description (80 characters at most), the full description (4,000), the icon, the

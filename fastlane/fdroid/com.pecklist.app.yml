@@ -1,0 +1,51 @@
+Categories:
+  - Calendar & Agenda
+  - Task
+License: AGPL-3.0-or-later
+WebSite: https://pecklist.com
+SourceCode: https://gitlab.com/killswitch10/pecklist
+IssueTracker: https://gitlab.com/killswitch10/pecklist/-/issues
+Translation: https://gitlab.com/killswitch10/pecklist/-/tree/main/web/src/app/i18n
+Changelog: https://gitlab.com/killswitch10/pecklist/-/blob/main/CHANGELOG.md
+Donate: https://ko-fi.com/S6S7P3FVW
+
+AutoName: PeckList
+
+RepoType: git
+Repo: https://gitlab.com/killswitch10/pecklist.git
+Binaries: 
+  https://gitlab.com/api/v4/projects/87938160/packages/generic/pecklist/%v/pecklist-android-%v.apk
+
+Builds:
+  - versionName: 0.14.0
+    versionCode: 1400999
+    commit: v0.14.0+20261121
+    subdir: mobile/android/app
+    sudo:
+      - apt-get update
+      - update-alternatives --set java /usr/lib/jvm/java-21-openjdk-amd64/bin/java
+      - curl -Lo /tmp/node.tar.gz https://nodejs.org/dist/v24.22.3/node-v24.22.3-linux-x64.tar.gz
+      - echo "061ec3e3062115705b56b51fa9cc330ab50d34b6969387d4e4b1a50c6809acc2  /tmp/node.tar.gz"
+        | sha256sum -c -
+      - tar xzf /tmp/node.tar.gz -C /usr/local --strip-components=1 --no-same-owner
+      - corepack enable
+    gradle:
+      - foss
+    scandelete:
+      - schema/fixtures/imports/
+    build:
+      - cd ../../..
+      - export JAVA_HOME=/usr/lib/jvm/java-21-openjdk-amd64
+      - export COREPACK_ENABLE_DOWNLOAD_PROMPT=0
+      - pnpm install --frozen-lockfile
+      - PECKLIST_REVISION=$(git rev-parse HEAD) pnpm --filter @pecklist/web build
+      - cd mobile
+      - pnpm exec cap sync android
+
+AllowedAPKSigningKeys: 18c8c5ceee2e8c5ddd2ebee67af8b6aae5880c65652d0c56818515884f3bbdca
+
+AutoUpdateMode: Version
+UpdateCheckMode: Tags ^v[0-9]+\.[0-9]+\.[0-9]+\+[0-9]+$
+UpdateCheckData: mobile/android/app/version.properties|versionCode=(\d+)|.|versionName=(.+)
+CurrentVersion: 0.14.0
+CurrentVersionCode: 1400999
