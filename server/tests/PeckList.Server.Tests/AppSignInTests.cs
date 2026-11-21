@@ -259,6 +259,77 @@ public sealed class AppSignInTests(ServerFixture fixture) : IClassFixture<Server
         Assert.Equal(("kim", "fake"), (me!.Username, me.Provider));
     }
 
+    /// <summary>What an Android WebView adds to its requests: its app's package name.</summary>
+    private static readonly (string, string) WebView = ("X-Requested-With", "com.pecklist.app");
+
+    private static HttpRequestMessage RedeemRequest(Uri appLink, string verifier, params (string Name, string Value)[] headers)
+    {
+        var request = new HttpRequestMessage(HttpMethod.Post, "/auth/app/redeem")
+        {
+            Content = Form(("code", CodeOf(appLink)), ("verifier", verifier)),
+        };
+        foreach (var (name, value) in headers) request.Headers.Add(name, value);
+        return request;
+    }
+
+    /// <summary>
+    /// To a server over plain http the app's WebView posts the redeem with no Sec-Fetch-Site (sent
+    /// only to secure origins) and Origin: null (a navigation no page started), and the same-origin
+    /// guard (audit S11) refused it: the app came back from the browser to a cross_site page
+    /// (Appium, 2026-11-21). That path alone takes Origin: null now, with the X-Requested-With the
+    /// WebView adds (a page's form cannot), and the code and its verifier still decide.
+    /// </summary>
+    [Fact]
+    public async Task The_redeem_over_plain_http_comes_with_origin_null_and_still_needs_its_code_and_verifier()
+    {
+        using var server = Server();
+        var verifier = NewVerifier();
+        var appLink = await ConfirmInBrowser(Browser(server), AppSignIn.ChallengeOf(verifier));
+        var app = Browser(server);
+        using (var redeem = RedeemRequest(appLink, verifier, ("Origin", "null"), WebView))
+        {
+            var redeemed = await app.SendAsync(redeem, Token);
+            Assert.Equal(HttpStatusCode.Redirect, redeemed.StatusCode);
+            Assert.Equal("/today", redeemed.Headers.Location!.ToString());
+        }
+        Assert.Equal("kim", (await app.GetFromJsonAsync<Me>("/auth/me", Token))!.Username);
+
+        // Without the right verifier, or with a code already used, nobody is signed in.
+        var other = NewVerifier();
+        var otherLink = await ConfirmInBrowser(Browser(server), AppSignIn.ChallengeOf(other));
+        var stranger = Browser(server);
+        foreach (var (link, proof) in new[] { (otherLink, NewVerifier()), (otherLink, other), (appLink, verifier) })
+        {
+            using var attempt = RedeemRequest(link, proof, ("Origin", "null"), WebView);
+            var refused = await stranger.SendAsync(attempt, Token);
+            Assert.Equal("/login?error=app_sign_in_failed", refused.Headers.Location!.ToString());
+        }
+        Assert.Equal(HttpStatusCode.Unauthorized, (await stranger.GetAsync("/auth/me", Token)).StatusCode);
+    }
+
+    /// <summary>
+    /// Only Origin: null with no Sec-Fetch-Site and a WebView's X-Requested-With gets through, and
+    /// only on the redeem. Another site's form (Origin: null under no-referrer) has no such header.
+    /// </summary>
+    [Theory]
+    [InlineData("/auth/app/redeem", "Origin", "https://evil.example", "com.pecklist.app")]
+    [InlineData("/auth/app/redeem", "Sec-Fetch-Site", "cross-site", "com.pecklist.app")]
+    [InlineData("/auth/app/redeem", "Origin", "null", "")]
+    [InlineData("/auth/app/redeem", "Origin", "null", "XMLHttpRequest")]
+    [InlineData("/auth/app/handoff", "Origin", "null", "com.pecklist.app")]
+    [InlineData("/auth/app/link-start", "Origin", "null", "com.pecklist.app")]
+    [InlineData("/auth/login", "Origin", "null", "com.pecklist.app")]
+    public async Task Any_other_cross_site_change_is_still_refused(string path, string header, string value, string requestedWith)
+    {
+        using var server = Server();
+        using var request = new HttpRequestMessage(HttpMethod.Post, path) { Content = Form(("code", "x"), ("verifier", "y")) };
+        request.Headers.Add(header, value);
+        if (requestedWith.Length > 0) request.Headers.Add("X-Requested-With", requestedWith);
+        var refused = await Browser(server).SendAsync(request, Token);
+        Assert.Equal(HttpStatusCode.Forbidden, refused.StatusCode);
+        Assert.Equal("cross_site", (await refused.Content.ReadFromJsonAsync<AuthError>(Token))!.Error);
+    }
+
     /// <summary>
     /// The Android app's id is its URL scheme. It moved from com.killswitch10.pecklist to
     /// com.pecklist.app (a new app beside the old one), and both stay in use until people move over.
