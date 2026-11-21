@@ -17,6 +17,7 @@ import { TimeLabel } from './TimeLabel.tsx';
 import { MAX_HOUR, MIN_HOUR } from './calendarPrefs.ts';
 import { besideScrolling, scrolling } from './scrollbars.ts';
 import { dateTimeFormat } from '../../core/intl.ts';
+import { useBulkSelect } from '../tasks/bulkSelect.ts';
 
 const GUTTER = 44;
 /** How long a finger holds a task still before its big time grips show. */
@@ -68,6 +69,7 @@ export function DaysView({
   onSlot,
   onPage,
   onGrab,
+  coveredBelow = 0,
   onResize,
   preview = null,
   dropDay = null,
@@ -84,6 +86,8 @@ export function DaysView({
   onSlot: (day: string, minutes: number, anchor: HTMLElement) => void;
   onPage: (direction: 1 | -1) => void;
   onGrab: (event: React.PointerEvent<HTMLElement>, item: CalendarItem, grabMinutes: number) => void;
+  /** How much more of the screen's bottom a bar covers just now (the bulk bar on a phone) */
+  coveredBelow?: number;
   /** A task's edge was dragged: its new start and end */
   onResize: (item: CalendarItem, start: string, end: string) => void;
   /** Where a task being dragged would land: drawn as an outline with its times */
@@ -110,6 +114,17 @@ export function DaysView({
   // A task held still for a moment (touch): its time is up for change with big grips, easy to hit
   // even on a short task, until a tap elsewhere.
   const [editing, setEditing] = useState<string | null>(null);
+  const bulk = useBulkSelect();
+  const picked = bulk?.selecting ? bulk.picked : null;
+  // A held task with its grips stays in sight, above the bulk bar that comes up with them on a
+  // phone (PL-093); again once the calendar has made room for the bar.
+  useEffect(() => {
+    if (!editing) return;
+    const held = [...document.querySelectorAll<HTMLElement>('[data-cal-item]')].find(
+      (each) => each.dataset.calItem === editing,
+    );
+    held?.scrollIntoView?.({ block: 'nearest' });
+  }, [editing, coveredBelow]);
   const held = useRef<string | null>(null);
   const [resizing, setResizing] = useState<{ id: string; top: number; bottom: number } | null>(
     null,
@@ -480,6 +495,11 @@ export function DaysView({
                       role="button"
                       tabIndex={0}
                       data-cal-item={block.item.id}
+                      data-picked={picked?.has(block.item.taskId) ? '' : undefined}
+                      // Room for the big grips, which stand 14 px past each end, when it is
+                      // scrolled into sight.
+                      style={{ scrollMarginTop: 16, scrollMarginBottom: 16 }}
+                      aria-pressed={picked ? picked.has(block.item.taskId) : undefined}
                       aria-label={`${startText ? formatTime(startText) : ''} ${block.item.title}`}
                       onClick={(event) => {
                         event.stopPropagation();
@@ -564,7 +584,10 @@ export function DaysView({
                             ? (theme) => `0 0 0 2px ${theme.palette.primary.main}`
                             : resizing?.id === block.item.id
                               ? 3
-                              : 0,
+                              : picked?.has(block.item.taskId)
+                                ? // Picked to act on together (PL-093): a ring inside it.
+                                  (theme) => `inset 0 0 0 2px ${theme.palette.primary.main}`
+                                : 0,
                         zIndex: editing === block.item.id ? 2 : undefined,
                         // A swipe on a task scrolls; a finger held on it first moves it (R-FB-99).
                         touchAction: 'pan-y',

@@ -313,6 +313,14 @@ move can be undone. In Days, pull the grip at a task's top or bottom edge to cha
 starts or ends; on a phone, hold a task still for a moment to get big grips above and below it
 (easy to hit on a short task), and tap elsewhere when done. While you drag or stretch a task,
 a label above it shows its start (and end) time, and a dashed outline shows where it will land.
+
+To move several tasks at once, pick them: Shift-click a task (on a phone, hold it still for a
+moment and let go), then click or tap the others; a picked task has a ring, and clicking it again
+lets it go. Drag any picked task and the rest go along by the same amount (two tasks at 9:00 and
+11:00, one dragged to Thursday at 2 PM, land at 2 PM and 4 PM that day), each keeping its own
+length; all-day tasks move by the same number of days. That is one change to undo. While tasks
+are picked, the bar at the bottom has the same actions as in a list (complete, date, move, tag,
+priority, pin, delete); its x stops picking.
 Phones show no scrollbars in the calendar: swipe to scroll. Drag tasks from **Unscheduled** (on a
 phone, the calendar-with-a-cross button at the top) onto a day (all day) or a time. A task dropped
 on a month day keeps its time. Each device remembers the view, days, weeks and hour height.

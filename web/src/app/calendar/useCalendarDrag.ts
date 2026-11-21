@@ -38,12 +38,14 @@ const HOLD_MS = 350;
  * Dragging tasks onto days and times (spec: PL-093). A mouse drags as soon as it moves a few
  * pixels. A finger holds the task for a moment first, so a swipe anywhere, tasks included,
  * scrolls the calendar (R-FB-99). While dragging, `ghost` follows the pointer with where it would
- * land; letting go there calls `onDrop` (a task held and let go without moving stays put). A click
- * right after a drag is swallowed, so dropping does not also open the task.
+ * land; letting go there calls `onDrop`. A task held and let go without moving stays put, and
+ * `onHold` gets it (it picks the task: PL-093). A click right after a drag is swallowed, so
+ * dropping does not also open the task.
  */
 export function useCalendarDrag(
   onDrop: (payload: DragPayload, target: DropTarget) => void,
   onStart?: () => void,
+  onHold?: (payload: DragPayload) => void,
 ) {
   const [ghost, setGhost] = useState<{
     x: number;
@@ -56,9 +58,11 @@ export function useCalendarDrag(
   } | null>(null);
   const drop = useRef(onDrop);
   const start = useRef(onStart);
+  const hold = useRef(onHold);
   useEffect(() => {
     drop.current = onDrop;
     start.current = onStart;
+    hold.current = onHold;
   });
   const cleanup = useRef<(() => void) | null>(null);
   useEffect(() => () => cleanup.current?.(), []);
@@ -109,6 +113,7 @@ export function useCalendarDrag(
       if (dragging) {
         const target = travelled ? targetAt(next.clientX, next.clientY, payload.grabMinutes) : null;
         if (target) drop.current(payload, target);
+        else if (!travelled) hold.current?.(payload);
         // The click that follows a drop is not a click on the task.
         const swallow = (click: MouseEvent) => {
           click.stopPropagation();
@@ -120,7 +125,7 @@ export function useCalendarDrag(
       finish();
     };
     // Once a finger holds a task, moving it must not scroll the page.
-    const hold = (touchEvent: TouchEvent) => {
+    const pin = (touchEvent: TouchEvent) => {
       if (dragging) touchEvent.preventDefault();
     };
     const finish = () => {
@@ -128,14 +133,14 @@ export function useCalendarDrag(
       window.removeEventListener('pointermove', move);
       window.removeEventListener('pointerup', up);
       window.removeEventListener('pointercancel', finish);
-      document.removeEventListener('touchmove', hold);
+      document.removeEventListener('touchmove', pin);
       cleanup.current = null;
       setGhost(null);
     };
     window.addEventListener('pointermove', move);
     window.addEventListener('pointerup', up);
     window.addEventListener('pointercancel', finish);
-    document.addEventListener('touchmove', hold, { passive: false });
+    document.addEventListener('touchmove', pin, { passive: false });
     if (touch) timer = setTimeout(() => lift(origin.x, origin.y), HOLD_MS);
     cleanup.current = finish;
   };

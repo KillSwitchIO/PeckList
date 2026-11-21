@@ -3,6 +3,8 @@ import { buildPalette, type ModePalette } from '../../core/palette.ts';
 
 /** The rounding of everything that floats: popovers, menus, dialogs, bottom sheets (px). */
 export const POPUP_RADIUS = 18;
+/** The phone's bottom tabs; pages and floating buttons leave room for them. */
+export const BOTTOM_TABS_HEIGHT = 52;
 
 declare module '@mui/material/styles' {
   interface Theme {
@@ -73,7 +75,7 @@ export function createAppTheme(
           root: {
             backgroundColor: p.surfaceVariant,
             borderTop: `1px solid ${p.outline}`,
-            height: 52,
+            height: BOTTOM_TABS_HEIGHT,
           },
         },
       },

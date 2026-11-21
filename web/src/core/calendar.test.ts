@@ -1,6 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import { testContext } from '../test/fixtures.ts';
-import { calendarItems, droppedSchedule, placedSchedule, unscheduledTasks } from './calendar.ts';
+import {
+  calendarItems,
+  droppedSchedule,
+  placedSchedule,
+  shiftedSchedule,
+  unscheduledTasks,
+} from './calendar.ts';
 import { inboxList } from './lists.ts';
 import { createTask, deleteTask, toggleTaskDone } from './tasks.ts';
 import type { Schedule, WorkspaceFile } from './types.ts';
@@ -178,5 +184,56 @@ describe('dragging on the calendar', () => {
     t.add('Waiting');
     t.add('Planned', { schedule: on('2026-10-22') });
     expect(unscheduledTasks(t.ws).map((task) => task.title)).toEqual(['Waiting']);
+  });
+});
+
+describe('moving picked tasks together (PL-093)', () => {
+  const zone = 'America/Chicago';
+  const timed = (start: string, end: string | null = null) => ({
+    start,
+    end,
+    allDay: false,
+    timeZone: zone,
+  });
+  const allDay = (start: string, end: string | null = null) => ({
+    start,
+    end,
+    allDay: true,
+    timeZone: zone,
+  });
+
+  it('moves timed tasks by the minutes the dragged one moved, keeping their length', () => {
+    const from = timed('2027-05-17T09:00');
+    const to = timed('2027-05-20T14:00');
+    expect(shiftedSchedule(timed('2027-05-17T11:00', '2027-05-17T12:30'), from, to)).toEqual(
+      timed('2027-05-20T16:00', '2027-05-20T17:30'),
+    );
+    // Past midnight it carries into the next day.
+    expect(shiftedSchedule(timed('2027-05-17T19:00'), from, to)).toEqual(timed('2027-05-21T00:00'));
+  });
+
+  it('moves all-day tasks, and every task when the dragged one changed kind, by days', () => {
+    const from = timed('2027-05-17T09:00');
+    const to = timed('2027-05-20T14:00');
+    expect(shiftedSchedule(allDay('2027-05-18', '2027-05-19'), from, to)).toEqual(
+      allDay('2027-05-21', '2027-05-22'),
+    );
+    // Dropped on the all-day row: the others keep their own times, three days on.
+    const toAllDay = allDay('2027-05-20');
+    expect(shiftedSchedule(timed('2027-05-17T11:00'), from, toAllDay)).toEqual(
+      timed('2027-05-20T11:00'),
+    );
+    // Back a week.
+    expect(
+      shiftedSchedule(allDay('2027-05-18'), allDay('2027-05-17'), allDay('2027-05-10')),
+    ).toEqual(allDay('2027-05-11'));
+  });
+
+  it('keeps each task its own time zone', () => {
+    const other = { ...timed('2027-05-17T10:00'), timeZone: 'Europe/Berlin' };
+    expect(shiftedSchedule(other, timed('2027-05-17T09:00'), timed('2027-05-17T09:30'))).toEqual({
+      ...timed('2027-05-17T10:30'),
+      timeZone: 'Europe/Berlin',
+    });
   });
 });

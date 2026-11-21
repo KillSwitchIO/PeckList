@@ -2,7 +2,7 @@
 // Pure: the CalendarView port draws these items and reports moves in the same terms.
 
 import { isLive } from './collections.ts';
-import { addDays, datePart, joinDateTime, timePart } from './dates.ts';
+import { addDays, datePart, daysBetween, joinDateTime, timePart } from './dates.ts';
 import { inLiveList } from './filters.ts';
 import { occurrenceOf, projectOccurrences } from './occurrences.ts';
 import type { Id, LocalDateOrDateTime, Priority, Schedule, Task, WorkspaceFile } from './types.ts';
@@ -146,6 +146,26 @@ export function placedSchedule(
     end = minutes > 0 ? addMinutes(start, minutes) : null;
   }
   return { start, end, allDay: false, timeZone };
+}
+
+/**
+ * Where another picked task goes when one of them is dragged from `from` to `to` (PL-093): by the
+ * same offset. A timed task moves by the minutes the dragged one moved while it stayed timed, else
+ * by its days; an all-day task by its days. Each keeps its own length, kind and time zone (two
+ * tasks at 9:00 and 11:00, one dragged to Thursday 14:00, land at 14:00 and 16:00 there).
+ */
+export function shiftedSchedule(current: Schedule, from: Schedule, to: Schedule): Schedule {
+  const days = daysBetween(datePart(from.start), datePart(to.start));
+  const bothTimed =
+    !from.allDay && !to.allDay && timePart(from.start) !== null && timePart(to.start) !== null;
+  const minutes = bothTimed
+    ? (Date.parse(`${to.start}:00Z`) - Date.parse(`${from.start}:00Z`)) / 60_000
+    : days * 1440;
+  const move = (value: LocalDateOrDateTime) =>
+    timePart(value) !== null && !current.allDay
+      ? addMinutes(value, minutes)
+      : addDays(datePart(value), days);
+  return { ...current, start: move(current.start), end: current.end ? move(current.end) : null };
 }
 
 /** The schedule an unscheduled task gets when dropped on the calendar. */

@@ -325,6 +325,87 @@ describe('calendar', () => {
     });
   });
 
+  it('picks tasks with Shift-click and moves them together by the same offset (PL-093)', async () => {
+    localStorage.setItem(
+      'pecklist.calendar',
+      JSON.stringify({ mode: 'days', days: 1, hourHeight: 48 }),
+    );
+    const { store, today, zone, task, standup } = await calendarWith();
+    let review = '';
+    store.getState().apply((ctx, ws) => {
+      const made = createTask(ctx, ws, {
+        title: 'Review',
+        listId: inboxList(ws).id,
+        schedule: { start: `${today}T11:00`, end: `${today}T11:30`, allDay: false, timeZone: zone },
+      });
+      review = made.task.id;
+      return made.workspace;
+    });
+    const block = (name: RegExp) => screen.findByRole('button', { name });
+
+    // Shift-click picks instead of opening; then a plain click picks the next one.
+    fireEvent.click(await block(/Standup/), { shiftKey: true });
+    const bar = await screen.findByRole('toolbar', { name: 'Picked tasks' });
+    expect(await block(/Standup/)).toHaveAttribute('aria-pressed', 'true');
+    expect(await block(/Review/)).toHaveAttribute('aria-pressed', 'false');
+    expect(screen.queryByRole('textbox', { name: /title/i })).toBeNull();
+    fireEvent.click(await block(/Review/));
+    expect(await block(/Review/)).toHaveAttribute('aria-pressed', 'true');
+    expect(within(bar).getByText('2 selected')).toBeInTheDocument();
+
+    // Standup dragged from 9:00 to 2 PM: Review goes along, 11:00 to 4 PM, each its own length.
+    const column = document.querySelector(`[data-cal-slots="${today}"]`)!;
+    fireEvent.pointerDown(await block(/Standup/), {
+      clientX: 10,
+      clientY: 9 * 48,
+      button: 0,
+      pointerType: 'mouse',
+      pointerId: 21,
+    });
+    pointAt(column);
+    fireEvent.pointerMove(window, { clientX: 10, clientY: 14 * 48, pointerId: 21 });
+    fireEvent.pointerUp(window, { clientX: 10, clientY: 14 * 48, pointerId: 21 });
+    expect(task(standup).schedule).toMatchObject({
+      start: `${today}T14:00`,
+      end: `${today}T15:00`,
+    });
+    expect(task(review).schedule).toMatchObject({
+      start: `${today}T16:00`,
+      end: `${today}T16:30`,
+    });
+    // One change to undo for both, and it says so.
+    expect(await screen.findByText('2 tasks changed')).toBeInTheDocument();
+    await userEvent.click(await screen.findByRole('button', { name: 'Undo' }));
+    await waitFor(() => expect(task(review).schedule).toMatchObject({ start: `${today}T11:00` }));
+    expect(task(standup).schedule).toMatchObject({ start: `${today}T09:00` });
+
+    // Clicking a picked task lets it go; Stop selecting ends it, and a click opens again.
+    fireEvent.click(await block(/Review/));
+    expect(await block(/Review/)).toHaveAttribute('aria-pressed', 'false');
+    await userEvent.click(within(bar).getByRole('button', { name: 'Stop selecting' }));
+    await waitFor(() => expect(screen.queryByRole('toolbar', { name: 'Picked tasks' })).toBeNull());
+    expect(await block(/Review/)).not.toHaveAttribute('aria-pressed');
+  });
+
+  it('picks a task held by a finger and let go without moving (PL-093)', async () => {
+    const { task, today, dentist } = await calendarWith();
+    const month = await screen.findByRole('grid', { name: 'Month' });
+    const line = () =>
+      within(within(month).getByRole('gridcell', { name: 'Today' })).getByRole('button', {
+        name: 'Dentist',
+      });
+    const touch = { pointerType: 'touch', pointerId: 9 };
+    fireEvent.pointerDown(line(), { clientX: 10, clientY: 10, button: 0, ...touch });
+    await act(() => new Promise((resolve) => setTimeout(resolve, 400)));
+    fireEvent.pointerUp(window, { clientX: 10, clientY: 10, ...touch });
+    fireEvent.click(line());
+    expect(await screen.findByRole('toolbar', { name: 'Picked tasks' })).toBeInTheDocument();
+    expect(line()).toHaveAttribute('aria-pressed', 'true');
+    // It stayed where it was, and did not open.
+    expect(task(dentist).schedule).toMatchObject({ start: today });
+    expect(screen.queryByRole('textbox', { name: /title/i })).toBeNull();
+  });
+
   it('shows the times a task would get while it is stretched or dragged', async () => {
     localStorage.setItem(
       'pecklist.calendar',

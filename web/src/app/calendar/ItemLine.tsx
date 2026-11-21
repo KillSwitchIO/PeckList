@@ -7,6 +7,7 @@ import { timePart } from '../../core/dates.ts';
 import { formatTime } from '../format.ts';
 import { t } from '../i18n/i18n.ts';
 import { DueIcon } from '../icons/icons.tsx';
+import { useBulkSelect } from '../tasks/bulkSelect.ts';
 
 const PRIORITY_KEY = { 1: 'low', 2: 'medium', 3: 'high' } as const;
 
@@ -40,6 +41,8 @@ const Line = styled(ButtonBase)(({ theme }) => ({
   // A repeating task's date to come: there, but not yet the task's own.
   '&[data-occurrence]': { opacity: 0.6 },
   '&:hover': { backgroundColor: theme.palette.action.hover },
+  // Picked to act on together (PL-093): a ring inside, so nothing beside it moves.
+  '&[data-picked]': { boxShadow: `inset 0 0 0 2px ${theme.palette.primary.main}` },
   '& .item-due': { fontSize: 12, flexShrink: 0 },
   '& .item-priority': {
     width: 6,
@@ -73,6 +76,8 @@ export function ItemLine({
   dense?: boolean;
 }) {
   const theme = useTheme();
+  const bulk = useBulkSelect();
+  const picked = bulk?.selecting ? bulk.picked.has(item.taskId) : undefined;
   const due = item.kind === 'due';
   const time = !item.allDay && !continuesFrom(item, day) ? timePart(item.start) : null;
   const label = due ? t('calendar.dueFlag', { title: item.title }) : item.title;
@@ -87,6 +92,8 @@ export function ItemLine({
       data-all-day={flag(item.allDay)}
       data-movable={flag(item.movable)}
       data-occurrence={flag(Boolean(item.occurrence))}
+      data-picked={flag(picked === true)}
+      aria-pressed={picked}
       style={
         {
           '--item-color': item.color,
