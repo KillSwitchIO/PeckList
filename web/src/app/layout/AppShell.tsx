@@ -61,6 +61,7 @@ import { useAppliedTimeZone } from './useAppliedTimeZone.ts';
 import { activeItem, SIDEBAR_ITEMS } from './navigation.tsx';
 import { useBottomTabs } from './bottomTabs.tsx';
 import { BulkBar } from '../tasks/BulkBar.tsx';
+import { BOTTOM_TABS_HEIGHT } from '../theme/theme.ts';
 import { ProviderPhotoSync } from '../friends/ProviderPhotoSync.tsx';
 import { BulkSelectProvider } from '../tasks/BulkSelectProvider.tsx';
 import { useBulkSelect } from '../tasks/bulkSelect.ts';
@@ -570,7 +571,9 @@ function AppFrame() {
               sx={{
                 position: 'fixed',
                 right: isDesktop && detail ? `calc(${asideWidth} + 24px)` : isPhone ? 16 : 24,
-                bottom: isPhone ? 'calc(52px + 16px + env(safe-area-inset-bottom))' : 24,
+                bottom: isPhone
+                  ? `calc(${BOTTOM_TABS_HEIGHT + 16}px + env(safe-area-inset-bottom))`
+                  : 24,
                 zIndex: (theme) => theme.zIndex.appBar,
               }}
             >
@@ -579,7 +582,7 @@ function AppFrame() {
           )}
 
         {/* On a phone, above the bottom navigation and the + button. */}
-        <UndoToast bottomOffset={isPhone ? 52 + 72 : 0} wideBottomOffset={72} />
+        <UndoToast bottomOffset={isPhone ? BOTTOM_TABS_HEIGHT + 72 : 0} wideBottomOffset={72} />
         <SyncNoticeToast />
         <PullToRefresh />
         <ReminderScheduler />

@@ -125,6 +125,8 @@ export function BulkBar({ phone }: { phone: boolean }) {
       <Paper
         role="toolbar"
         aria-label={t('bulk.bar')}
+        // Measured by a page that has to keep clear of it (the calendar, PL-093).
+        data-bulk-bar=""
         elevation={phone ? 0 : 8}
         square={phone}
         sx={{

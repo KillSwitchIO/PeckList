@@ -15,12 +15,13 @@ import {
   useMediaQuery,
   useTheme,
 } from '@mui/material';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router';
 import {
   calendarItems,
   droppedSchedule,
   placedSchedule,
+  shiftedSchedule,
   unscheduledTasks,
   type CalendarItem,
 } from '../../core/calendar.ts';
@@ -43,7 +44,7 @@ import {
 import { findInbox } from '../../core/lists.ts';
 import { canEditTask } from '../../core/sharing.ts';
 import { createTask, updateTask } from '../../core/tasks.ts';
-import type { Schedule, WorkspaceFile } from '../../core/types.ts';
+import type { Schedule, Task, WorkspaceFile } from '../../core/types.ts';
 import { useToday } from '../hooks/useToday.ts';
 import { MonthPickerPopover } from '../dates/MonthPickerPopover.tsx';
 import { weekStart as preferredWeekStart } from '../format.ts';
@@ -59,6 +60,7 @@ import { t } from '../i18n/i18n.ts';
 import { BottomSheet } from '../layout/BottomSheet.tsx';
 import { Page } from '../layout/Page.tsx';
 import { useApply, useStoreState, useWorkspace } from '../store/hooks.ts';
+import { useBulkSelect } from '../tasks/bulkSelect.ts';
 import { markDraft } from '../tasks/drafts.ts';
 import { useTaskSelection } from '../tasks/selection.ts';
 import { calendarTitle } from './calendarTitle.ts';
@@ -81,6 +83,7 @@ import type { YearStay } from './yearLayout.ts';
 import { YearView, type YearHeat } from './YearView.tsx';
 import { doneByDay, doneScale } from '../../core/completions.ts';
 import { useNarrowed } from '../views/useNarrowed.tsx';
+import { BOTTOM_TABS_HEIGHT } from '../theme/theme.ts';
 
 /** How many unscheduled tasks show at first (and more on asking). */
 const UNSCHEDULED_PAGE = 100;
@@ -170,6 +173,48 @@ export function CalendarPage() {
   const apply = useApply();
   const me = useStoreState((state) => state.context().userId);
   const { open } = useTaskSelection();
+  // Picking tasks to act on together (PL-093): the lists' bulk bar, with Shift-click or a held
+  // finger to start, then a tap or click on a task to pick it or let it go.
+  const bulk = useBulkSelect();
+  const shiftClick = useRef(false);
+  // On a phone the bulk bar takes the bottom tabs' place but stands taller: in Days the calendar
+  // ends at its top while picking, so a held task's grips are never under it. Only the strip the
+  // bar covers changes; nothing in sight moves. Not in Month or Year, whose rows are laid out
+  // from the calendar's height and would all move (they have no grips to keep clear).
+  const [barCover, setBarCover] = useState(0);
+  const selecting = bulk?.selecting ?? false;
+  useEffect(() => {
+    let observer: ResizeObserver | null = null;
+    let frame = 0;
+    const watch = (bar: HTMLElement | null) => {
+      setBarCover(bar ? Math.max(0, bar.offsetHeight - BOTTOM_TABS_HEIGHT) : 0);
+      if (!bar || typeof ResizeObserver === 'undefined') return;
+      observer = new ResizeObserver(() =>
+        setBarCover(Math.max(0, bar.offsetHeight - BOTTOM_TABS_HEIGHT)),
+      );
+      observer.observe(bar);
+    };
+    const find = () => document.querySelector<HTMLElement>('[data-bulk-bar]');
+    if (!selecting) watch(null);
+    // The bar mounts with this render; should it come a frame later, look again then.
+    else if (find()) watch(find());
+    else frame = requestAnimationFrame(() => watch(find()));
+    return () => {
+      cancelAnimationFrame(frame);
+      observer?.disconnect();
+    };
+  }, [selecting]);
+  const pick = (id: string, on: boolean) => {
+    if (!bulk) return;
+    if (bulk.selecting) bulk.toggle([id], on);
+    else if (on) bulk.start([id]);
+  };
+  const openOrPick = (id: string, occurrence?: string) => {
+    const shift = shiftClick.current;
+    shiftClick.current = false;
+    if (bulk && (bulk.selecting || shift)) pick(id, !(bulk.selecting && bulk.picked.has(id)));
+    else open(id, occurrence ? { on: occurrence } : undefined);
+  };
   const zone = localTimeZone();
   const today = useToday(zone);
   const settings = workspace.entities.settings[0];
@@ -202,6 +247,8 @@ export function CalendarPage() {
     }
   }
   const mode: CalendarMode = prefs.mode;
+  // The bulk bar's extra height kept clear in Days only (see barCover).
+  const cover = mode === 'days' ? barCover : 0;
 
   // What the month view shows, and the wider window items are worked out for.
   const [view, setView] = useState<MonthViewInfo | null>(null);
@@ -271,29 +318,72 @@ export function CalendarPage() {
   // Undoable like a move in a list (R-FB-100).
   const schedule = (taskId: string, next: Schedule, label = t('undo.moved')) =>
     apply((ctx, ws) => updateTask(ctx, ws, taskId, { schedule: next }), label);
+  /** The schedule a task dropped at `place` gets. */
+  const placed = (task: Task, place: DropTarget): Schedule => {
+    if (!task.schedule) {
+      const time = place.minutes === null ? null : atMinutes(place.day, place.minutes).slice(11);
+      return droppedSchedule(place.day, time, zone);
+    }
+    // On the month a timed task keeps its time; the Days view's all-day row makes it all day.
+    const time = timePart(task.schedule.start);
+    const placement =
+      place.minutes !== null
+        ? { start: atMinutes(place.day, place.minutes), end: null, allDay: false }
+        : mode === 'month' && time && !task.schedule.allDay
+          ? { start: `${place.day}T${time}`, end: null, allDay: false }
+          : { start: place.day, end: null, allDay: true };
+    return placedSchedule(task.schedule, placement, zone);
+  };
+  /** The other picked tasks that go along when `task` is dragged. */
+  const alongWith = (task: Task) =>
+    bulk?.selecting && bulk.picked.has(task.id)
+      ? [...bulk.picked].filter((id) => id !== task.id)
+      : [];
   const drag = useCalendarDrag(
     (payload: DragPayload, place: DropTarget) => {
       const task = workspace.entities.tasks.find((each) => each.id === payload.taskId);
       if (!task) return;
-      if (!task.schedule) {
-        const time = place.minutes === null ? null : atMinutes(place.day, place.minutes).slice(11);
-        schedule(task.id, droppedSchedule(place.day, time, zone));
+      const next = placed(task, place);
+      const from = task.schedule;
+      const others = alongWith(task);
+      if (!from || others.length === 0) {
+        schedule(task.id, next);
         return;
       }
-      // On the month a timed task keeps its time; the Days view's all-day row makes it all day.
-      const time = timePart(task.schedule.start);
-      const placement =
-        place.minutes !== null
-          ? { start: atMinutes(place.day, place.minutes), end: null, allDay: false }
-          : mode === 'month' && time && !task.schedule.allDay
-            ? { start: `${place.day}T${time}`, end: null, allDay: false }
-            : { start: place.day, end: null, allDay: true };
-      schedule(task.id, placedSchedule(task.schedule, placement, zone));
+      // The picked ones move with it by the same offset, as one change to undo (PL-093).
+      // The ones that can go, worked out first: the Undo label says how many moved.
+      const going = others.flatMap((id) => {
+        const other = workspace.entities.tasks.find((each) => each.id === id);
+        return other?.schedule && !other.deletedAt && canEditTask(workspace, me, other)
+          ? [{ id, schedule: shiftedSchedule(other.schedule, from, next) }]
+          : [];
+      });
+      apply(
+        (ctx, ws) =>
+          going.reduce(
+            (after, each) => updateTask(ctx, after, each.id, { schedule: each.schedule }),
+            updateTask(ctx, ws, task.id, { schedule: next }),
+          ),
+        t('bulk.changed', { count: going.length + 1 }),
+      );
     },
     () => setDrawer(false),
+    (payload) => pick(payload.taskId, true),
   );
-  const grabItem = (event: React.PointerEvent<HTMLElement>, item: CalendarItem, grabMinutes = 0) =>
-    drag.begin(event, { taskId: item.taskId, title: item.title, grabMinutes });
+  const grabItem = (
+    event: React.PointerEvent<HTMLElement>,
+    item: CalendarItem,
+    grabMinutes = 0,
+  ) => {
+    // Dragging a picked task takes the others along: its label says how many.
+    const task = workspace.entities.tasks.find((each) => each.id === item.taskId);
+    const more = task ? alongWith(task).length : 0;
+    drag.begin(event, {
+      taskId: item.taskId,
+      title: more > 0 ? `${item.title} +${more}` : item.title,
+      grabMinutes,
+    });
+  };
 
   // A task dragged onto a whole day (any day on the month, the all-day row in Days): that day is
   // outlined, so it is plain where it lands (R-FB-78).
@@ -426,7 +516,7 @@ export function CalendarPage() {
           display: 'flex',
           flexDirection: 'column',
           // What the bars and the page's padding take: more on a phone, with its tabs below.
-          height: narrow ? 'calc(100dvh - 153px)' : 'calc(100dvh - 140px)',
+          height: narrow ? `calc(100dvh - ${153 + cover}px)` : 'calc(100dvh - 140px)',
           // Year scrolls for itself and has no end, so the page around it never needs to.
           minHeight: inYear ? 0 : 420,
         }}
@@ -587,6 +677,10 @@ export function CalendarPage() {
         />
         <Box sx={{ display: 'flex', flexGrow: 1, minHeight: 0, gap: 1 }}>
           <Box
+            // A click with Shift on a task picks it (PL-093); seen here before the task's own.
+            onClickCapture={(event) => {
+              shiftClick.current = event.shiftKey;
+            }}
             sx={{
               flexGrow: 1,
               minWidth: 0,
@@ -618,7 +712,7 @@ export function CalendarPage() {
                 target={target}
                 byDay={byDay}
                 onView={setView}
-                onOpenTask={(id, on) => open(id, on ? { on } : undefined)}
+                onOpenTask={openOrPick}
                 onOpenDay={(day, anchor) => setPopup({ day, time: null, anchor })}
                 onRange={(first, last, point) => setRange({ first, last, ...point })}
                 rangeOpen={range !== null}
@@ -634,13 +728,14 @@ export function CalendarPage() {
                 byDay={byDay}
                 hourHeight={prefs.hourHeight}
                 onHourHeight={(hourHeight) => setPrefs({ hourHeight })}
-                onOpenTask={(id, on) => open(id, on ? { on } : undefined)}
+                onOpenTask={openOrPick}
                 onOpenDay={(day, anchor) => setPopup({ day, time: null, anchor })}
                 onSlot={(day, minutes, anchor) =>
                   setPopup({ day, time: atMinutes(day, minutes).slice(11), anchor })
                 }
                 onPage={step}
                 onGrab={grabItem}
+                coveredBelow={cover}
                 preview={preview}
                 dropDay={dropDay}
                 onResize={(item, start, end) => {
