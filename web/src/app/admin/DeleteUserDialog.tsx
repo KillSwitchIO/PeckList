@@ -49,7 +49,7 @@ export function DeleteUserDialog({
         </DialogContentText>
         {shared !== null && shared > 0 && (
           <DialogContentText>
-            {t(shared === 1 ? 'admin.users.deleteSharedOne' : 'admin.users.deleteShared', {
+            {t('admin.users.deleteShared', {
               name: user.username,
               count: shared,
             })}

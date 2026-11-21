@@ -144,9 +144,7 @@ export function InviteDialog({
                 <MenuItem key={each ?? 'any'} value={each ?? 'any'}>
                   {each === null
                     ? t('admin.invites.anyNumber')
-                    : t(each === 1 ? 'admin.invites.onePerson' : 'admin.invites.people', {
-                        count: each,
-                      })}
+                    : t('admin.invites.people', { count: each })}
                 </MenuItem>
               ))}
             </TextField>

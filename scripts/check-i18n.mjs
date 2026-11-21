@@ -5,7 +5,8 @@
 //   1. every message is valid ICU MessageFormat, every plural or select has `other`, and no
 //      apostrophe turns a parameter into plain text (ICU reads l'{name} as the text "{name}");
 //   2. each translation uses the same parameters as its English message, of the same kind
-//      ({name}, plural, select, number...);
+//      ({name}, plural, select, number...), except that a count may change shape: plain to
+//      plural where a language needs forms, plural to plain where it has none;
 //   3. a translation has no key English no longer has;
 //   4. every English key is used in the source: a literal ('nav.today') anywhere in the code, or
 //      the prefix of a key built at run time (`audit.outcome.${x}`, 'serverSettings.' + key);
@@ -90,6 +91,27 @@ const describe = (params) =>
     .sort()
     .join(' ') || 'none';
 
+// Counts may change shape between languages: a plain English number ("Show {count} more") may
+// get plural forms where a language needs them, and an English plural may be a plain number in a
+// language without plurals ("{count}件"). A parameter only becomes a plural when it is a count
+// (English uses it as one, or its name says so), since a plural over a name breaks at run time.
+// Select, date and time keep their kind.
+const NUMERIC = new Set(['text', 'plural', 'selectordinal', 'number']);
+const COUNT_NAMES =
+  /^(count|n|number|total|done|max|days|hours|minutes|weeks|months|years|left|seconds)$/;
+
+/** Whether a translation takes the parameters English does, each of a kind that can stand for it. */
+export function sameParameters(mine, source) {
+  if (mine.size !== source.size) return false;
+  for (const [name, kind] of source) {
+    const theirs = mine.get(name);
+    if (theirs === kind) continue;
+    if (!NUMERIC.has(kind) || !NUMERIC.has(theirs)) return false;
+    if (kind === 'text' && !COUNT_NAMES.test(name)) return false;
+  }
+  return true;
+}
+
 /** Errors in one translation against English: bad ICU, other parameters, keys English lacks. */
 export function compareCatalog(english, translated, locale, IntlMessageFormat) {
   const errors = [];
@@ -105,7 +127,7 @@ export function compareCatalog(english, translated, locale, IntlMessageFormat) {
     }
     const source = parameters(english[key], 'en', IntlMessageFormat);
     if (source.error) continue; // reported with English itself
-    if (describe(mine.params) !== describe(source.params)) {
+    if (!sameParameters(mine.params, source.params)) {
       errors.push(
         `${key}: takes ${describe(mine.params)}, English takes ${describe(source.params)}`,
       );

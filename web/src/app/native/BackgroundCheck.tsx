@@ -65,7 +65,9 @@ export function BackgroundCheckSettings({ shell }: { shell: NativeShell }) {
         >
           {state.choices.map((minutes) => (
             <MenuItem key={minutes} value={minutes}>
-              {minutes === 60 ? t('settings.oneHour') : t('settings.minutes', { minutes })}
+              {minutes === 60
+                ? t('settings.hours', { hours: 1 })
+                : t('settings.minutes', { minutes })}
             </MenuItem>
           ))}
         </TextField>

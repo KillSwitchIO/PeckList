@@ -63,11 +63,7 @@ export function DateTimeSection() {
         >
           {DUE_SOON_CHOICES.map((days) => (
             <MenuItem key={days} value={days}>
-              {days === 0
-                ? t('settings.dueSoon.off')
-                : days === 1
-                  ? t('settings.dueSoon.one')
-                  : t('settings.dueSoon.days', { days })}
+              {days === 0 ? t('settings.dueSoon.off') : t('settings.dueSoon.days', { days })}
             </MenuItem>
           ))}
         </TextField>
@@ -84,9 +80,7 @@ export function DateTimeSection() {
             <MenuItem key={minutes} value={minutes}>
               {minutes < 60
                 ? t('settings.minutes', { minutes })
-                : minutes === 60
-                  ? t('settings.oneHour')
-                  : t('settings.hours', { hours: minutes / 60 })}
+                : t('settings.hours', { hours: minutes / 60 })}
             </MenuItem>
           ))}
         </TextField>

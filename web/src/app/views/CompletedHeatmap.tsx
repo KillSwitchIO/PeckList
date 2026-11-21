@@ -13,9 +13,7 @@ const monthShort = new Intl.DateTimeFormat(undefined, { month: 'short', timeZone
 /** A day's name and count, for the screen reader and the tooltip. */
 function heatDayLabel(day: string, today: string, count: number): string {
   const name = formatDay(day, today);
-  if (count === 0) return t('completed.dayNone', { day: name });
-  if (count === 1) return t('completed.dayOne', { day: name });
-  return t('completed.dayMany', { day: name, count });
+  return t('completed.day', { day: name, count });
 }
 
 // One style for the whole grid; each day only says what it is on data attributes (as the year

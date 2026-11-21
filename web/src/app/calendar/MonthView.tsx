@@ -108,9 +108,7 @@ const DayCell = memo(function DayCell({
           <span
             className="cal-day-done"
             role="img"
-            aria-label={
-              done === 1 ? t('calendar.doneOne') : t('calendar.doneMany', { count: done })
-            }
+            aria-label={t('calendar.done', { count: done })}
           >
             <CheckRounded aria-hidden />
             {done}

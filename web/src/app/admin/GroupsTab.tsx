@@ -212,9 +212,7 @@ export function GroupsTab({ api }: { api: AdminApi }) {
             <Typography>{group.name}</Typography>
             <Typography variant="caption" color="text.secondary">
               {[
-                group.members.length === 1
-                  ? t('admin.groups.countOne')
-                  : t('admin.groups.count', { count: group.members.length }),
+                t('admin.groups.count', { count: group.members.length }),
                 ...(group.offeredForSharing ? [t('admin.groups.offeredShort')] : []),
               ].join(' · ')}
             </Typography>

@@ -122,8 +122,7 @@ export function AccountEndSection() {
       {done && (
         <Alert severity="success" variant="outlined" sx={{ my: 1.5 }} onClose={() => setDone(null)}>
           {t('startOver.done')}
-          {done.handedOn === 1 && ` ${t('startOver.handedOne')}`}
-          {done.handedOn > 1 && ` ${t('startOver.handedMany', { count: done.handedOn })}`}
+          {done.handedOn > 0 && ` ${t('startOver.handed', { count: done.handedOn })}`}
         </Alert>
       )}
       {offersDelete && (
@@ -236,9 +235,7 @@ function DeleteDialog({
       ? null
       : deletion.graceDays === 0
         ? t('deleteAccount.whatNow')
-        : deletion.graceDays === 1
-          ? t('deleteAccount.whatGraceOne')
-          : t('deleteAccount.whatGrace', { days: deletion.graceDays });
+        : t('deleteAccount.whatGrace', { days: deletion.graceDays });
 
   return (
     <Dialog open onClose={busy ? undefined : onClose} maxWidth="xs" fullWidth>

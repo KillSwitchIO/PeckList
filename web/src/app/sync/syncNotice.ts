@@ -6,41 +6,21 @@ export function noticeText(notice: SyncNotice): string {
   const parts: string[] = [];
   const [first, ...others] = notice.lostLists;
   if (first !== undefined) {
-    parts.push(
-      others.length === 0
-        ? t('sync.notice.lostList', { name: first })
-        : t('sync.notice.lostLists', { name: first, count: others.length }),
-    );
+    parts.push(t('sync.notice.lostLists', { name: first, count: others.length }));
   }
   if (notice.refused > 0) {
-    parts.push(
-      notice.refused === 1
-        ? t('sync.notice.refusedOne')
-        : t('sync.notice.refused', { count: notice.refused }),
-    );
+    parts.push(t('sync.notice.refused', { count: notice.refused }));
   }
   const [file, ...moreFiles] = notice.filesKept ?? [];
   if (file !== undefined) {
-    parts.push(
-      moreFiles.length === 0
-        ? t('sync.notice.fileKept', { name: file })
-        : t('sync.notice.filesKept', { name: file, count: moreFiles.length }),
-    );
+    parts.push(t('sync.notice.filesKept', { name: file, count: moreFiles.length }));
   }
   const [waits, ...moreWaiting] = notice.filesWaiting ?? [];
   if (waits !== undefined) {
-    parts.push(
-      moreWaiting.length === 0
-        ? t('sync.notice.fileWaiting', { name: waits })
-        : t('sync.notice.filesWaiting', { name: waits, count: moreWaiting.length }),
-    );
+    parts.push(t('sync.notice.filesWaiting', { name: waits, count: moreWaiting.length }));
   }
   if (notice.setAside) {
-    parts.push(
-      notice.setAside === 1
-        ? t('sync.notice.setAsideOne')
-        : t('sync.notice.setAside', { count: notice.setAside }),
-    );
+    parts.push(t('sync.notice.setAside', { count: notice.setAside }));
   }
   if (notice.clock) {
     parts.push(t(notice.clock === 'ahead' ? 'sync.notice.clockAhead' : 'sync.notice.clockBehind'));

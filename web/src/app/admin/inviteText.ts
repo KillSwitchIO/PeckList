@@ -22,8 +22,6 @@ export function inviteReach(invite: AdminInvite): string {
   const who =
     invite.maxUses === null
       ? t('admin.invites.anyNumber').toLowerCase()
-      : t(invite.maxUses === 1 ? 'admin.invites.onePerson' : 'admin.invites.people', {
-          count: invite.maxUses,
-        });
+      : t('admin.invites.people', { count: invite.maxUses });
   return t('admin.invites.reach', { who, date: day(invite.expires) });
 }

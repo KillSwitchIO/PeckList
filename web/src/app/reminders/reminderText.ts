@@ -45,14 +45,14 @@ export function daysEarlyText(days: number): string {
   if (days === 0) return t('reminder.onTheDay');
   if (days % 7 === 0) {
     const weeks = days / 7;
-    return weeks === 1 ? t('reminder.weekEarly') : t('reminder.weeksEarly', { weeks });
+    return t('reminder.weeksEarly', { weeks });
   }
-  return days === 1 ? t('reminder.dayEarly') : t('reminder.daysEarly', { days });
+  return t('reminder.daysEarly', { days });
 }
 
 /** Days after the task's day, for a reminder that comes later than the task. */
 function daysAfterText(days: number): string {
-  return days === 1 ? t('reminder.dayAfter') : t('reminder.daysAfter', { days });
+  return t('reminder.daysAfter', { days });
 }
 
 /** A length of time in whole units: "1 day 2 hours", "8 hours 58 minutes". */
@@ -61,13 +61,9 @@ function spanText(total: number): string {
   const hours = Math.floor((total % 1440) / 60);
   const minutes = total % 60;
   return [
-    days === 0 ? '' : days === 1 ? t('reminder.span.day') : t('reminder.span.days', { days }),
-    hours === 0 ? '' : hours === 1 ? t('reminder.span.hour') : t('reminder.span.hours', { hours }),
-    minutes === 0
-      ? ''
-      : minutes === 1
-        ? t('reminder.span.minute')
-        : t('reminder.span.minutes', { minutes }),
+    days === 0 ? '' : t('reminder.span.days', { days }),
+    hours === 0 ? '' : t('reminder.span.hours', { hours }),
+    minutes === 0 ? '' : t('reminder.span.minutes', { minutes }),
   ]
     .filter(Boolean)
     .join(' ');
@@ -83,15 +79,10 @@ export function minutesEarlyText(minutes: number): string {
   if (minutes < 0) return t('reminder.spanAfter', { span: spanText(-minutes) });
   if (minutes % 1440 === 0) {
     const days = minutes / 1440;
-    return days === 1 ? t('reminder.dayEarly') : t('reminder.daysEarly', { days });
+    return t('reminder.daysEarly', { days });
   }
-  if (minutes % 60 === 0) {
-    const hours = minutes / 60;
-    return hours === 1 ? t('reminder.hourEarly') : t('reminder.hoursEarly', { hours });
-  }
-  if (minutes < 60) {
-    return minutes === 1 ? t('reminder.minuteEarly') : t('reminder.minutesEarly', { minutes });
-  }
+  if (minutes % 60 === 0) return t('reminder.hoursEarly', { hours: minutes / 60 });
+  if (minutes < 60) return t('reminder.minutesEarly', { minutes });
   return t('reminder.spanEarly', { span: spanText(minutes) });
 }
 
