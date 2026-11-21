@@ -64,9 +64,6 @@ public static class PaddleSignature
     }
 }
 
-/// <summary>What a paid order asks for: its transaction, the customer to email, when it was bought and the keys of each kind.</summary>
-public sealed record PaidOrder(string TransactionId, string? CustomerId, DateOnly Purchased, int PersonKeys, int ServerKeys);
-
 /// <summary>Reads Paddle's <c>transaction.completed</c> notification (developer.paddle.com, "transaction.completed").</summary>
 public static class PaddleEvents
 {
@@ -74,7 +71,7 @@ public static class PaddleEvents
     /// The supporter keys a notification asks for, or null when it asks for none: another event, or
     /// an order with none of the supporter prices (a different product).
     /// </summary>
-    public static PaidOrder? Read(JsonElement notification, KeySettings settings)
+    public static PaidOrder? Read(JsonElement notification, KeySettings.PaddleSettings settings)
     {
         if (notification.ValueKind != JsonValueKind.Object) return null;
         if (!notification.TryGetProperty("event_type", out var type) || type.GetString() != "transaction.completed") return null;
@@ -98,7 +95,7 @@ public static class PaddleEvents
 
         var when = Time(data, "billed_at") ?? Time(notification, "occurred_at") ?? DateTimeOffset.UtcNow;
         var customer = data.TryGetProperty("customer_id", out var c) && c.ValueKind == JsonValueKind.String ? c.GetString() : null;
-        return new PaidOrder(transactionId, customer, DateOnly.FromDateTime(when.UtcDateTime), person, server);
+        return new PaidOrder(PaddleSource.Name, transactionId, customer, DateOnly.FromDateTime(when.UtcDateTime), person, server);
     }
 
     private static DateTimeOffset? Time(JsonElement parent, string name) =>
@@ -108,28 +105,40 @@ public static class PaddleEvents
             : null;
 }
 
-/// <summary>Who to email a customer's keys to.</summary>
-public interface ICustomerEmails
-{
-    /// <summary>The customer's email, or null when Paddle has none for them.</summary>
-    Task<string?> EmailOfAsync(string customerId, CancellationToken cancellation);
-}
-
 /// <summary>
-/// Paddle's customers API: <c>GET /customers/{id}</c> (needs an API key with <c>customer.read</c>),
-/// <c>data.email</c>. The email is fetched when a mail goes out and never stored here.
+/// Paddle as an order source: <c>transaction.completed</c> notifications signed with
+/// <c>Paddle-Signature</c>, and the customers API (<c>GET /customers/{id}</c>, an API key with
+/// <c>customer.read</c>, <c>data.email</c>) for who to email. The email is fetched when a mail goes
+/// out and never stored here; the order's contact is Paddle's customer id.
 /// </summary>
-public sealed class PaddleCustomers(HttpClient http, KeySettings settings) : ICustomerEmails
+public sealed class PaddleSource(IHttpClientFactory clients, KeySettings.PaddleSettings settings) : IOrderSource
 {
-    public async Task<string?> EmailOfAsync(string customerId, CancellationToken cancellation)
+    public const string Name = "paddle";
+
+    public string Provider => Name;
+
+    public string SignatureHeader => "Paddle-Signature";
+
+    public bool IsSigned(string? signature, ReadOnlySpan<byte> body, DateTimeOffset now) =>
+        PaddleSignature.IsValid(signature, body, settings.WebhookSecret, now);
+
+    public Task<PaidOrder?> ReadAsync(ReadOnlyMemory<byte> body, CancellationToken cancellation)
     {
-        using var request = new HttpRequestMessage(HttpMethod.Get, $"{settings.PaddleApi}/customers/{Uri.EscapeDataString(customerId)}");
-        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", settings.PaddleApiKey);
-        using var response = await http.SendAsync(request, cancellation);
+        using var document = JsonDocument.Parse(body);
+        return Task.FromResult(PaddleEvents.Read(document.RootElement, settings));
+    }
+
+    public async Task<string?> EmailOfAsync(string contact, CancellationToken cancellation)
+    {
+        using var request = new HttpRequestMessage(HttpMethod.Get, $"{settings.Api}/customers/{Uri.EscapeDataString(contact)}");
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", settings.ApiKey);
+        using var response = await clients.CreateClient(Name).SendAsync(request, cancellation);
         response.EnsureSuccessStatusCode();
         using var document = await JsonDocument.ParseAsync(await response.Content.ReadAsStreamAsync(cancellation), cancellationToken: cancellation);
         return document.RootElement.TryGetProperty("data", out var data) && data.TryGetProperty("email", out var email) ? email.GetString() : null;
     }
+
+    public bool IsOrderId(string orderId) => orderId.Length <= 64 && orderId.StartsWith("txn_", StringComparison.Ordinal);
 }
 
 /// <summary>Signs supporter keys with the service's private key: the only place one is made.</summary>

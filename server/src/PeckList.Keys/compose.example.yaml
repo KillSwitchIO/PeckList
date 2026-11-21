@@ -6,6 +6,8 @@
 #     docker compose run --rm -v keys-secrets:/secrets pecklist-keys generate-signing-key /secrets/signing-key
 #   (it prints only the public half). The other secrets are files on the host, readable by the
 #   image's user (uid 1654).
+# - Paddle (card) and BTCPay (Bitcoin) are each optional; keep the one(s) you sell through, and drop
+#   the other's settings and secrets. At least one must be set up.
 # - Pin the image by its sha- tag or digest rather than edge.
 services:
   pecklist-keys:
@@ -15,9 +17,22 @@ services:
     tmpfs:
       - /tmp
     environment:
+      # Paddle
       PADDLE_ENVIRONMENT: sandbox
       PADDLE_PRICE_PERSON: pri_replace_me
       PADDLE_PRICE_SERVER: pri_replace_me_too
+      PADDLE_WEBHOOK_SECRET_FILE: /run/secrets/paddle_webhook_secret
+      PADDLE_API_KEY_FILE: /run/secrets/paddle_api_key
+      # BTCPay Server: the store, its Point of Sale item codes, and each key's price
+      BTCPAY_URL: https://btcpay.example.com
+      BTCPAY_STORE_ID: replace_me
+      BTCPAY_ITEM_PERSON: supporter-person
+      BTCPAY_ITEM_SERVER: supporter-server
+      BTCPAY_CURRENCY: USD
+      BTCPAY_PRICE_PERSON: '5'
+      BTCPAY_PRICE_SERVER: '25'
+      BTCPAY_WEBHOOK_SECRET_FILE: /run/secrets/btcpay_webhook_secret
+      BTCPAY_API_KEY_FILE: /run/secrets/btcpay_api_key
       KEYS_SITE_ORIGIN: https://pecklist.com
       # The network the proxy reaches it on (or the tunnel agent, when the proxy runs on another
       # machine), so rate limits count each caller. Only that and this service join it.
@@ -26,12 +41,12 @@ services:
       SMTP_USER: keys@example.com
       SMTP_FROM: PeckList <keys@example.com>
       KEYS_SIGNING_KEY_FILE: /secrets/signing-key
-      PADDLE_WEBHOOK_SECRET_FILE: /run/secrets/paddle_webhook_secret
-      PADDLE_API_KEY_FILE: /run/secrets/paddle_api_key
       SMTP_PASSWORD_FILE: /run/secrets/smtp_password
     secrets:
       - paddle_webhook_secret
       - paddle_api_key
+      - btcpay_webhook_secret
+      - btcpay_api_key
       - smtp_password
     volumes:
       - keys-data:/data
@@ -55,6 +70,10 @@ secrets:
     file: ./secrets/paddle-webhook-secret
   paddle_api_key:
     file: ./secrets/paddle-api-key
+  btcpay_webhook_secret:
+    file: ./secrets/btcpay-webhook-secret
+  btcpay_api_key:
+    file: ./secrets/btcpay-api-key
   smtp_password:
     file: ./secrets/smtp-password
 

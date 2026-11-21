@@ -65,12 +65,12 @@ public sealed class SmtpKeyMailer(KeySettings settings) : IKeyMailer
 }
 
 /// <summary>
-/// Emails issued keys, off the webhook's back (Paddle wants an answer within seconds): at once
+/// Emails issued keys, off the webhook's back (providers want an answer within seconds): at once
 /// when an order comes in, and every few minutes for any that failed, up to <see cref="MaxTries"/>.
-/// The buyer's email is asked of Paddle each time and never kept. Should mail fail for good, the
-/// website's thank-you page still shows the keys for a week, and support can look them up.
+/// The buyer's email is asked of the order's provider each time and never kept. Should mail fail for
+/// good, the website's thank-you page still shows the keys for a week, and support can look them up.
 /// </summary>
-public sealed class KeyMailing(KeyStore store, ICustomerEmails customers, IKeyMailer mailer, TimeProvider time, ILogger<KeyMailing> logger) : BackgroundService
+public sealed class KeyMailing(KeyStore store, OrderSources sources, IKeyMailer mailer, TimeProvider time, ILogger<KeyMailing> logger) : BackgroundService
 {
     public const int MaxTries = 100;
     private static readonly TimeSpan RetryEvery = TimeSpan.FromMinutes(3);
@@ -115,7 +115,7 @@ public sealed class KeyMailing(KeyStore store, ICustomerEmails customers, IKeyMa
 
     private async Task SendRoundAsync(CancellationToken cancellation)
     {
-        IReadOnlyList<(string TransactionId, string? CustomerId, int Tries)> waiting;
+        IReadOnlyList<UnmailedOrder> waiting;
         try
         {
             waiting = await store.UnmailedAsync(MaxTries);
@@ -125,26 +125,28 @@ public sealed class KeyMailing(KeyStore store, ICustomerEmails customers, IKeyMa
             logger.LogError(error, "Could not read the keys waiting to be emailed");
             return;
         }
-        foreach (var (transactionId, customerId, tries) in waiting)
+        foreach (var (provider, orderId, contact, tries) in waiting)
         {
             try
             {
-                var email = customerId is null ? null : await customers.EmailOfAsync(customerId, cancellation);
+                var source = sources[provider];
+                if (source is null) logger.LogWarning("Order {Provider} {Order} is from a provider this service is no longer set up for", provider, orderId);
+                var email = contact is null || source is null ? null : await source.EmailOfAsync(contact, cancellation);
                 if (email is null)
                 {
-                    logger.LogWarning("Order {Transaction} has no customer email to send its keys to", transactionId);
-                    await store.MarkTriedAsync(transactionId, MaxTries);
+                    logger.LogWarning("Order {Provider} {Order} has no customer email to send its keys to", provider, orderId);
+                    await store.MarkTriedAsync(provider, orderId, MaxTries);
                     continue;
                 }
-                await mailer.SendAsync(email, await store.ForAsync(transactionId), cancellation);
-                await store.MarkMailedAsync(transactionId, time.GetUtcNow());
-                logger.LogInformation("Emailed the keys of order {Transaction}", transactionId);
+                await mailer.SendAsync(email, await store.ForAsync(provider, orderId), cancellation);
+                await store.MarkMailedAsync(provider, orderId, time.GetUtcNow());
+                logger.LogInformation("Emailed the keys of order {Provider} {Order}", provider, orderId);
             }
             catch (Exception error) when (error is not OperationCanceledException)
             {
-                await store.MarkTriedAsync(transactionId, MaxTries);
+                await store.MarkTriedAsync(provider, orderId, MaxTries);
                 var level = tries + 1 >= MaxTries ? LogLevel.Error : LogLevel.Warning;
-                logger.Log(level, "Emailing the keys of order {Transaction} failed (try {Try} of {Max}): {Error}", transactionId, tries + 1, MaxTries, Describe(error));
+                logger.Log(level, "Emailing the keys of order {Provider} {Order} failed (try {Try} of {Max}): {Error}", provider, orderId, tries + 1, MaxTries, Describe(error));
             }
         }
     }

@@ -20,12 +20,15 @@ covers its costs:
 [![ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/S6S7P3FVW)
 [![PayPal: donate](https://img.shields.io/badge/PayPal-donate-00457C?logo=paypal)](https://www.paypal.com/donate/?hosted_button_id=NF3EZPGC3NL86)
 
-Or use the tip panel on [pecklist.com/support](https://pecklist.com/support/). The app has the same
-link under **Settings > Support PeckList**, or from the heart beside the version in the sidebar.
+Or use the tip panel on [pecklist.com/support](https://pecklist.com/support/), which also takes
+Bitcoin. The app has the same link under **Settings > Support PeckList**, or from the heart beside
+the version in the sidebar. Donations, however they are given, are just donations: they don't come
+with a key.
 
 ### Supporter keys
 
-A supporter key is a one-time thank-you, bought on [pecklist.com/support](https://pecklist.com/support/).
+A supporter key is a one-time thank-you, bought on [pecklist.com/support](https://pecklist.com/support/),
+by card or in Bitcoin.
 **It unlocks nothing**: every feature works without one, on every server, and nothing in PeckList
 ever stops working for want of a key. A key only says thank you, fills in the heart in the sidebar
 and hides the support reminder.

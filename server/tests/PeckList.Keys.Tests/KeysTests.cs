@@ -66,11 +66,8 @@ public sealed class KeyServiceTests : IDisposable
     private const string Secret = "pdl_ntfset_test_secret";
     private static CancellationToken Token => TestContext.Current.CancellationToken;
 
-    private sealed class Customers : ICustomerEmails
-    {
-        public Task<string?> EmailOfAsync(string customerId, CancellationToken cancellation) =>
-            Task.FromResult<string?>(customerId == "ctm_none" ? null : $"{customerId}@example.com");
-    }
+    private const string ApiKey = "pdl_sdbx_apikey_test";
+    private readonly FakePaddle paddle = new(Secret, ApiKey);
 
     private sealed class Mailer : IKeyMailer
     {
@@ -113,7 +110,8 @@ public sealed class KeyServiceTests : IDisposable
         new WebApplicationFactory<Program>().WithWebHostBuilder(host => host
             .UseSetting("KEYS_SIGNING_KEY_FILE", File("signing", Convert.ToBase64String(signing.Export(KeyBlobFormat.RawPrivateKey)))
             ).UseSetting("PADDLE_WEBHOOK_SECRET_FILE", File("webhook", Secret))
-            .UseSetting("PADDLE_API_KEY_FILE", File("api", "pdl_sdbx_apikey_test"))
+            .UseSetting("PADDLE_API_KEY_FILE", File("api", ApiKey))
+            .UseSetting("PADDLE_API_URL", FakePaddle.Api)
             .UseSetting("PADDLE_PRICE_PERSON", "pri_person")
             .UseSetting("PADDLE_PRICE_SERVER", "pri_server_a, pri_server_b")
             .UseSetting("KEYS_DB", Path.Combine(folder, "keys.db"))
@@ -121,26 +119,15 @@ public sealed class KeyServiceTests : IDisposable
             .UseSetting("SMTP_FROM", "keys@example.com")
             .ConfigureTestServices(services =>
             {
-                services.AddSingleton<ICustomerEmails>(new Customers());
+                services.AddHttpClient(PaddleSource.Name).ConfigurePrimaryHttpMessageHandler(paddle.Handler);
                 services.AddSingleton<IKeyMailer>(mailer);
             }));
 
-    private static string Completed(string transaction, string customer = "ctm_buyer", params (string Price, int Quantity)[] items) =>
-        JsonSerializer.Serialize(new
-        {
-            event_id = "evt_01",
-            event_type = "transaction.completed",
-            occurred_at = "2026-11-12T08:00:00.000Z",
-            notification_id = "ntf_01",
-            data = new
-            {
-                id = transaction,
-                status = "completed",
-                customer_id = customer,
-                billed_at = "2026-11-11T23:30:00.000Z",
-                items = items.Select(item => new { price = new { id = item.Price }, quantity = item.Quantity }),
-            },
-        });
+    private string Completed(string transaction, string customer = "ctm_buyer", params (string Price, int Quantity)[] items)
+    {
+        paddle.Customers[customer] = customer == "ctm_none" ? null : $"{customer}@example.com";
+        return FakePaddle.Completed(transaction, customer, items);
+    }
 
     private static async Task<HttpResponseMessage> Deliver(HttpClient client, string body, string secret = Secret)
     {
@@ -196,7 +183,7 @@ public sealed class KeyServiceTests : IDisposable
         await server.Services.GetRequiredService<KeyMailing>().SendWaitingAsync(Token);
 
         Assert.Single(mailer.Sent);
-        Assert.Single(await server.Services.GetRequiredService<KeyStore>().ForAsync("txn_02"));
+        Assert.Single(await server.Services.GetRequiredService<KeyStore>().ForAsync("paddle", "txn_02"));
     }
 
     [Fact]
@@ -206,7 +193,7 @@ public sealed class KeyServiceTests : IDisposable
         using var client = server.CreateClient();
         Assert.Equal(HttpStatusCode.Unauthorized, (await Deliver(client, Completed("txn_03", "ctm_buyer", ("pri_person", 1)), "wrong")).StatusCode);
         Assert.Equal(HttpStatusCode.Unauthorized, (await client.PostAsync("/api/public/paddle/webhook", new StringContent("{}"), Token)).StatusCode);
-        Assert.Empty(await server.Services.GetRequiredService<KeyStore>().ForAsync("txn_03"));
+        Assert.Empty(await server.Services.GetRequiredService<KeyStore>().ForAsync("paddle", "txn_03"));
     }
 
     [Fact]
@@ -217,8 +204,8 @@ public sealed class KeyServiceTests : IDisposable
         Assert.Equal(HttpStatusCode.OK, (await Deliver(client, Completed("txn_04", "ctm_buyer", ("pri_something_else", 1)))).StatusCode);
         Assert.Equal(HttpStatusCode.OK, (await Deliver(client, """{"event_type":"transaction.created","data":{"id":"txn_05"}}""")).StatusCode);
         Assert.Equal(HttpStatusCode.BadRequest, (await Deliver(client, "not json")).StatusCode);
-        Assert.Empty(await server.Services.GetRequiredService<KeyStore>().ForAsync("txn_04"));
-        Assert.Empty(await server.Services.GetRequiredService<KeyStore>().ForAsync("txn_05"));
+        Assert.Empty(await server.Services.GetRequiredService<KeyStore>().ForAsync("paddle", "txn_04"));
+        Assert.Empty(await server.Services.GetRequiredService<KeyStore>().ForAsync("paddle", "txn_05"));
     }
 
     [Fact]
@@ -255,7 +242,7 @@ public sealed class KeyServiceTests : IDisposable
         mailer.Fail = false;
         var mail = Assert.Single(await MailsAsync(server, 1));
         Assert.Equal("ctm_later@example.com", mail.To);
-        Assert.NotNull((await server.Services.GetRequiredService<KeyStore>().ForAsync("txn_07"))[0].EmailedAt);
+        Assert.NotNull((await server.Services.GetRequiredService<KeyStore>().ForAsync("paddle", "txn_07"))[0].EmailedAt);
 
         // The database holds the order's id and keys, nothing about the buyer: the customer id goes
         // once the mail is out.
@@ -272,7 +259,7 @@ public sealed class KeyServiceTests : IDisposable
         await using var connection = new Microsoft.Data.Sqlite.SqliteConnection($"Data Source={Path.Combine(folder, "keys.db")};Pooling=False");
         await connection.OpenAsync(Token);
         await using var command = connection.CreateCommand();
-        command.CommandText = "SELECT COUNT(*) FROM issued_keys WHERE customer_id IS NOT NULL";
+        command.CommandText = "SELECT COUNT(*) FROM issued_keys WHERE contact IS NOT NULL";
         return (long)(await command.ExecuteScalarAsync(Token))!;
     }
 
@@ -287,7 +274,7 @@ public sealed class KeyServiceTests : IDisposable
         Assert.Equal(1, await CustomerIdsAsync());
 
         // The last try: nothing will ask Paddle about this order again.
-        await server.Services.GetRequiredService<KeyStore>().MarkTriedAsync("txn_08", maxTries: 2);
+        await server.Services.GetRequiredService<KeyStore>().MarkTriedAsync("paddle", "txn_08", maxTries: 2);
         Assert.Equal(0, await CustomerIdsAsync());
     }
 
@@ -390,8 +377,59 @@ public sealed class KeyServiceTests : IDisposable
     public void A_missing_setting_is_named()
     {
         var config = new Microsoft.Extensions.Configuration.ConfigurationBuilder()
-            .AddInMemoryCollection(new Dictionary<string, string?> { ["PADDLE_ENVIRONMENT"] = "sandbox" }).Build();
+            .AddInMemoryCollection(new Dictionary<string, string?> { ["PADDLE_WEBHOOK_SECRET_FILE"] = File("webhook-only", Secret) }).Build();
         var error = Assert.Throws<KeySettingsException>(() => KeySettings.From(config));
         Assert.Contains("PADDLE_PRICE_PERSON", error.Message);
     }
+
+    [Fact]
+    public void Paddle_btcpay_or_both_must_be_set_up_and_each_is_whole()
+    {
+        var none = Assert.Throws<KeySettingsException>(() => KeySettings.From(new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?>
+        {
+            ["KEYS_SIGNING_KEY_FILE"] = File("signing-none", "x"), ["SMTP_HOST"] = "mail.example.com", ["SMTP_FROM"] = "keys@example.com",
+        }).Build()));
+        Assert.Contains("Paddle", none.Message);
+        Assert.Contains("BTCPay", none.Message);
+
+        (string, string)[] btcpay =
+        [
+            ("BTCPAY_URL", "https://btcpay.example.com/"), ("BTCPAY_STORE_ID", "Store1"), ("BTCPAY_WEBHOOK_SECRET_FILE", File("bwh", "s")),
+            ("BTCPAY_API_KEY_FILE", File("bapi", "k")), ("BTCPAY_ITEM_PERSON", "supporter-person"), ("BTCPAY_ITEM_SERVER", "supporter-server"),
+            ("BTCPAY_CURRENCY", "usd"), ("BTCPAY_PRICE_PERSON", "5"), ("BTCPAY_PRICE_SERVER", "25.00"),
+        ];
+        var both = KeySettings.From(Settings(btcpay));
+        Assert.NotNull(both.Paddle);
+        Assert.Equal("https://btcpay.example.com", both.BtcPay!.Url);
+        Assert.Equal(("USD", 5m, 25m), (both.BtcPay.Currency, both.BtcPay.PersonPrice, both.BtcPay.ServerPrice));
+
+        Assert.Contains("BTCPAY_PRICE_SERVER", Assert.Throws<KeySettingsException>(() => KeySettings.From(Settings([.. btcpay, ("BTCPAY_PRICE_SERVER", "free")]))).Message);
+        Assert.Contains("share", Assert.Throws<KeySettingsException>(() => KeySettings.From(Settings([.. btcpay, ("BTCPAY_ITEM_SERVER", "supporter-person")]))).Message);
+        Assert.Contains("BTCPAY_STORE_ID", Assert.Throws<KeySettingsException>(() => KeySettings.From(Settings([.. btcpay.Where(each => each.Item1 != "BTCPAY_STORE_ID")]))).Message);
+        Assert.Equal("https://paddle.test", KeySettings.From(Settings(("PADDLE_API_URL", "https://paddle.test/"))).Paddle!.Api);
+
+        Assert.Empty(both.CleartextApis());
+        Assert.Equal(["PADDLE_API_URL", "BTCPAY_URL"], KeySettings.From(Settings(
+            [.. btcpay, ("PADDLE_API_URL", "http://paddle.example.com"), ("BTCPAY_URL", "http://198.51.100.7:23001")])).CleartextApis());
+        Assert.Empty(KeySettings.From(Settings([.. btcpay, ("BTCPAY_URL", "http://btcpay:49392")])).CleartextApis());
+    }
+
+    [Theory]
+    [InlineData("http://btcpay.example.com", true)]
+    [InlineData("http://198.51.100.7:23001", true)]
+    [InlineData("http://172.32.0.1", true)]
+    [InlineData("http://[2001:db8::5]", true)]
+    [InlineData("https://btcpay.example.com", false)]
+    [InlineData("http://btcpay:49392", false)]
+    [InlineData("http://localhost:23001", false)]
+    [InlineData("http://127.0.0.1", false)]
+    [InlineData("http://[::1]:8080", false)]
+    [InlineData("http://10.0.0.5", false)]
+    [InlineData("http://172.20.0.3", false)]
+    [InlineData("http://192.168.1.10", false)]
+    [InlineData("http://100.101.102.103", false)]
+    [InlineData("http://[fd12:3456::5]", false)]
+    [InlineData("http://btcpay.home.arpa", false)]
+    public void An_api_key_goes_out_in_clear_only_over_http_beyond_this_machine_and_private_networks(string address, bool inClear) =>
+        Assert.Equal(inClear, KeySettings.SendsKeyInClear(address));
 }

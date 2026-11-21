@@ -3,8 +3,9 @@ using Microsoft.AspNetCore.HttpOverrides;
 using NSec.Cryptography;
 using PeckList.Keys;
 
-// The supporter key service (PL-112): Paddle tells it an order is paid, it signs a supporter key
-// for each one bought and emails them; the website's thank-you page can show them too. Settings are
+// The supporter key service (PL-112): a payment provider (Paddle, BTCPay Server) tells it an order
+// is paid, it signs a supporter key for each one bought and emails them; the website's thank-you
+// page can show them too. Settings are
 // in KeySettings.cs. Two commands run once and exit:
 //   pecklist-keys generate-signing-key <file>   makes the private key in <file> (never printed) and
 //                                               prints the public half for PeckList to ship
@@ -12,8 +13,8 @@ using PeckList.Keys;
 //   pecklist-keys healthcheck                   exits 0 when the running service answers its health
 //                                               check (the image has no shell or curl for Docker's)
 //
-// Routes: what the internet may reach is under /api/public/ (Paddle's webhook and the thank-you
-// lookup); /api/private/ (the health check) is for the project's own network only.
+// Routes: what the internet may reach is under /api/public/ (each provider's webhook and the
+// thank-you lookup); /api/private/ (the health check) is for the project's own network only.
 
 if (args is ["generate-signing-key", var target])
 {
@@ -44,7 +45,19 @@ builder.Services.AddSingleton(settings);
 builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddSingleton(_ => new KeyIssuer(SigningKeys.Import(settings.SigningKey)));
 builder.Services.AddSingleton<KeyStore>();
-builder.Services.AddHttpClient<ICustomerEmails, PaddleCustomers>(http => http.Timeout = TimeSpan.FromSeconds(20));
+// The order sources set up (KeySettings): Paddle, BTCPay Server, or both.
+if (settings.Paddle is { } paddle)
+{
+    builder.Services.AddHttpClient(PaddleSource.Name, http => http.Timeout = TimeSpan.FromSeconds(20));
+    builder.Services.AddSingleton<IOrderSource>(provider => new PaddleSource(provider.GetRequiredService<IHttpClientFactory>(), paddle));
+}
+if (settings.BtcPay is { } btcpay)
+{
+    builder.Services.AddHttpClient(BtcPaySource.Name, http => http.Timeout = TimeSpan.FromSeconds(20));
+    builder.Services.AddSingleton<IOrderSource>(provider => new BtcPaySource(
+        provider.GetRequiredService<IHttpClientFactory>(), btcpay, provider.GetRequiredService<ILogger<BtcPaySource>>()));
+}
+builder.Services.AddSingleton<OrderSources>();
 builder.Services.AddSingleton<IKeyMailer, SmtpKeyMailer>();
 builder.Services.AddSingleton<KeyMailing>();
 builder.Services.AddHostedService(provider => provider.GetRequiredService<KeyMailing>());
@@ -75,6 +88,11 @@ builder.WebHost.ConfigureKestrel(kestrel => kestrel.Limits.MaxRequestBodySize = 
 builder.Logging.AddFilter("Microsoft.AspNetCore", LogLevel.Warning);
 
 var app = builder.Build();
+foreach (var setting in settings.CleartextApis())
+{
+    app.Logger.LogWarning(
+        "{Setting} is plain http to a host outside this machine and its private networks, so the API key crosses the network unencrypted; use https", setting);
+}
 await app.Services.GetRequiredService<KeyStore>().MigrateAsync();
 if (settings.TrustedProxies.Count > 0) app.UseForwardedHeaders();
 app.UseCors();
@@ -82,52 +100,65 @@ app.UseRateLimiter();
 
 app.MapGet("/api/private/healthz", () => Results.Text("ok"));
 
-// Paddle's notification. Anything properly signed gets a 200, keys or not, so Paddle stops
-// retrying; only a bad signature or a broken body is refused.
+// Each provider's notification. Anything properly signed gets a 200, keys or not, so the provider
+// stops retrying; a bad signature or a broken body is refused, and a provider that has to be asked
+// about the order and cannot be reached gets a 503, so it sends the notification again.
 var refusals = new RefusalLog(TimeSpan.FromMinutes(1));
-app.MapPost("/api/public/paddle/webhook", async (HttpRequest request, KeyStore store, KeyIssuer issuer, KeyMailing mailing, TimeProvider time,
-    ILogger<KeyStore> logger, CancellationToken cancellation) =>
+foreach (var source in app.Services.GetRequiredService<OrderSources>().All)
 {
-    using var buffer = new MemoryStream();
-    await request.Body.CopyToAsync(buffer, cancellation);
-    var body = buffer.ToArray();
-    if (!PaddleSignature.IsValid(request.Headers["Paddle-Signature"], body, settings.WebhookSecret, time.GetUtcNow()))
+    app.MapPost($"/api/public/{source.Provider}/webhook", async (HttpRequest request, KeyStore store, KeyIssuer issuer, KeyMailing mailing, TimeProvider time,
+        ILogger<KeyStore> logger, CancellationToken cancellation) =>
     {
-        if (refusals.Add(time.GetUtcNow()) is var count and > 0)
+        using var buffer = new MemoryStream();
+        await request.Body.CopyToAsync(buffer, cancellation);
+        var body = buffer.ToArray();
+        if (!source.IsSigned(request.Headers[source.SignatureHeader], body, time.GetUtcNow()))
         {
-            logger.LogWarning("Refused {Count} webhook calls with a missing or wrong Paddle-Signature (one warning a minute at most)", count);
+            if (refusals.Add(time.GetUtcNow()) is var count and > 0)
+            {
+                logger.LogWarning("Refused {Count} webhook calls with a missing or wrong signature (one warning a minute at most); the last was for {Provider}", count, source.Provider);
+            }
+            return Results.Unauthorized();
         }
-        return Results.Unauthorized();
-    }
-    PaidOrder? order;
-    try
-    {
-        using var document = JsonDocument.Parse(body);
-        order = PaddleEvents.Read(document.RootElement, settings);
-    }
-    catch (JsonException)
-    {
-        return Results.BadRequest();
-    }
-    if (order is null) return Results.Ok();
-    var keys = await store.IssueAsync(order, issuer, time.GetUtcNow(), cancellation);
-    logger.LogInformation("Order {Transaction}: {Count} supporter keys", order.TransactionId, keys.Count);
-    mailing.Nudge();
-    return Results.Ok();
-}).RequireRateLimiting("webhook");
+        PaidOrder? order;
+        try
+        {
+            order = await source.ReadAsync(body, cancellation);
+        }
+        catch (JsonException)
+        {
+            return Results.BadRequest();
+        }
+        catch (OrderSourceUnavailableException error)
+        {
+            logger.LogWarning("A {Provider} notification could not be checked: {Error}", source.Provider, error.Message);
+            return Results.StatusCode(StatusCodes.Status503ServiceUnavailable);
+        }
+        if (order is null) return Results.Ok();
+        var keys = await store.IssueAsync(order, issuer, time.GetUtcNow(), cancellation);
+        logger.LogInformation("Order {Provider} {Order}: {Count} supporter keys", order.Provider, order.OrderId, keys.Count);
+        mailing.Nudge();
+        return Results.Ok();
+    }).RequireRateLimiting("webhook");
+}
 
-// The website's thank-you page, given the transaction id Paddle hands its success page: the
-// order's keys for a week after they were made, so a lost email isn't a dead end. No proxy or CDN
-// may keep an answer: it can hold keys.
-app.MapGet("/api/public/thanks/{transactionId}", async (string transactionId, KeyStore store, TimeProvider time, HttpResponse response) =>
+// The website's thank-you page, given the order id the provider hands its success page (Paddle's
+// transaction id, the BTCPay invoice id): the order's keys for a week after they were made, so a
+// lost email isn't a dead end. No proxy or CDN may keep an answer: it can hold keys.
+static async Task<IResult> Thanks(string provider, string orderId, OrderSources sources, KeyStore store, TimeProvider time, HttpResponse response)
 {
     response.Headers.CacheControl = "no-store";
-    if (transactionId.Length > 64 || !transactionId.StartsWith("txn_", StringComparison.Ordinal)) return Results.NotFound();
-    var keys = await store.ForAsync(transactionId);
+    if (sources[provider] is not { } source || !source.IsOrderId(orderId)) return Results.NotFound();
+    var keys = await store.ForAsync(provider, orderId);
     if (keys.Count == 0) return Results.Json(new { pending = true }, statusCode: StatusCodes.Status202Accepted);
     if (time.GetUtcNow() - keys[0].IssuedAt > TimeSpan.FromDays(7)) return Results.NotFound();
     return Results.Ok(new { keys = keys.Select(key => new { kind = key.Kind == PeckList.Core.Supporters.SupporterKind.Person ? "person" : "server", key = key.Key }) });
-}).RequireCors("site").RequireRateLimiting("thanks");
+}
+app.MapGet("/api/public/thanks/{provider}/{orderId}", (string provider, string orderId, OrderSources sources, KeyStore store, TimeProvider time, HttpResponse response) =>
+    Thanks(provider, orderId, sources, store, time, response)).RequireCors("site").RequireRateLimiting("thanks");
+// Before BTCPay the page asked with Paddle's transaction id alone; that address keeps working.
+app.MapGet("/api/public/thanks/{transactionId}", (string transactionId, OrderSources sources, KeyStore store, TimeProvider time, HttpResponse response) =>
+    Thanks(PaddleSource.Name, transactionId, sources, store, time, response)).RequireCors("site").RequireRateLimiting("thanks");
 
 app.Run();
 return 0;
