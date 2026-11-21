@@ -30,7 +30,7 @@ PeckList ist eine Aufgaben-App für dich und die Menschen, mit denen du ein Zuha
 <ul>
 <li>Widgets: Heute, die Anzahl für heute und Schaltflächen zum Hinzufügen</li>
 <li>Füge eine Aufgabe per Sprache hinzu, über eine Schnelleinstellungs-Kachel oder indem du Text aus einer anderen App teilst</li>
-<li>Lange auf das Symbol drücken für Aufgabe hinzufügen, Heute und Suche</li>
+<li>Lange auf das Symbol drücken für Aufgabe hinzufügen, Heute und die zuletzt geöffnete Liste</li>
 <li>Folgt dem hellen oder dunklen Modus deines Handys, mit einem Design-Symbol ab Android 13</li>
 </ul>
 
