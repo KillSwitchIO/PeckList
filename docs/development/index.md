@@ -33,6 +33,7 @@ pnpm install           # also installs the git hooks
 pnpm dev               # http://localhost:6173, standalone (no server)
 pnpm test              # unit and component tests (Vitest)
 pnpm test:coverage     # with the coverage safety net
+pnpm test:browser      # the *.browser.test files in headless Chrome and Firefox (real IndexedDB and layout)
 pnpm lint && pnpm typecheck
 pnpm build && pnpm e2e # end-to-end, against a production build
 # two devices through a real server (any running image, its ADMIN_PASSWORD given):
