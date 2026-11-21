@@ -76,7 +76,7 @@ new object, which is how saves, the journal and the sync engine tell what moved.
   (`{count, plural, one {# task} other {# tasks}}`). The lint rule `pecklist/no-literal-ui-text`
   flags text left in JSX, and `pnpm check:i18n` fails on invalid ICU, a translation whose
   parameters differ from English, and English keys nothing uses (delete a key with the code that
-  used it).
+  used it). Translating and adding a language: Translations in `CONTRIBUTING.md`.
 - **Icons** are PeckList's own, in `app/icons/icons.tsx` (24 x 24, 1.75 round strokes, no fills,
   `currentColor`). Draw a new one there rather than reach for a Material icon, and swap Material
   icons for ours as a screen is reworked.

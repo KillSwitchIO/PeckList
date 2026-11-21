@@ -505,3 +505,28 @@ date (none, today, tomorrow or in a week) with an optional time, reminders, the 
 reminders come at, and on a server whether tasks you add to shared lists start assigned to you.
 Times are shown on your clock (Settings > Language and time > Clock) and set with the same wheels as a task's date. Where you add a task still wins: in a list it goes to
 that list, in Today or on a day it gets that date, and what you type in quick add wins over both.
+
+### Language
+
+PeckList speaks English, German (Deutsch), Spanish (Español) and French (Français). Pick one under
+**Settings > Language and time > Language**:
+
+- **Automatic** (the first choice) follows each device: the first of the browser's or phone's
+  languages PeckList has, else English. The choice names what it gives on this device, such as
+  "Automatic (Deutsch)".
+- **A language you pick** follows you to every device you sign in on, and the device remembers it,
+  so the next start opens in it straight away.
+
+Day and month names, the order of dates and sorting by title follow the language too; the 12 or
+24-hour clock is your choice under **Clock**. With a server, the emails it sends and the reminders
+and notifications it pushes are in your language as well. With automatic, each push follows the device it goes to, and
+an email follows the browser that asked for it. An invite is written in the language of the admin
+who sends it. In the Android app the phone's own parts follow as well:
+notification buttons and channel names, the widgets and the snooze picker. On Android 13 and later
+the app's language also shows in the phone's **Settings > Apps > PeckList > Language**. The
+shortcuts on a long press of the app's icon are drawn by the launcher, in the phone's own language.
+
+A language marked **Machine translated** was drafted by a machine and has not been checked by a
+person yet, so some words may be off. A few things stay in English for now: the words quick add
+understands (such as "due fri" or "9pm") and the names of other apps' menus in the import help.
+Want to help translate, or fix a word? See Translations in the project's contributing guide.

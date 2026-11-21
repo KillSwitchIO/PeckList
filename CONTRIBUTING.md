@@ -83,6 +83,46 @@ The documentation site lives in `docs/` (Docusaurus, built from `website/`; see 
 - A CLI change: for the server's maintenance commands, run `node scripts/check-docs.mjs --write` to refresh the usage text and describe the command in `docs/reference/cli.md`. The client commands come from `server/src/PeckList.Client/CommandTable.cs`: after changing it, run `PECKLIST_WRITE_GENERATED=1 dotnet test tests/PeckList.Client.Tests --filter CommandTableTests` in `server/` to refresh their docs section and completion scripts.
 - An HTTP API change: refresh the committed OpenAPI document with `PECKLIST_WRITE_GENERATED=1 dotnet test tests/PeckList.Server.Tests --filter FullyQualifiedName~The_committed_document` in `server/`, and commit `docs/reference/openapi.json`.
 
+## Translations
+
+PeckList's text lives in three catalogs, each with English as the source:
+
+| Part                                          | English                                              | A translation                              |
+| --------------------------------------------- | ---------------------------------------------------- | ------------------------------------------ |
+| Web app                                       | `web/src/app/i18n/locales/en.json`                   | `<tag>.json` beside it, loaded when picked |
+| Server (emails, pushes, the Android check-in) | `server/src/PeckList.Core/Text/locales/en.json`      | `<tag>.json` beside it, embedded at build  |
+| Android app                                   | `mobile/android/app/src/main/res/values/strings.xml` | `res/values-<tag>/strings.xml`             |
+
+The web and server catalogs are flat JSON in ICU MessageFormat: `{name}` fills a parameter,
+`{count, plural, one {# task} other {# tasks}}` picks the form the language's plural rules ask for,
+and `select` picks by a value. Keys ending in `Pattern` in the server catalog are date patterns
+(`YYYY`, `MMMM`, `MMM`, `D`, `dddd`, `ddd`, literal text in `[brackets]`): reorder the tokens and
+leave them as they are.
+
+When translating:
+
+- Keep every `{parameter}` and the plural or select structure; translate only the words. Use the
+  plural categories your language has (`one`, `few`, `many`, `other`), and keep any `=0` or `=1`.
+- A plain `'` before `{` starts quoting in ICU and breaks the message: use the typographic `’`.
+- Sentence case, no em dashes, short labels on buttons and in the sidebar, product names as they are.
+- A key may be left out: it shows in English until it is translated.
+
+To add a language:
+
+1. Copy each catalog to the new tag (`pt-BR.json`, `values-pt-rBR`) and translate it.
+2. Add MUI's locale object for it to `MUI_LOCALES` in `web/src/app/theme/theme.ts`.
+3. While no person has checked a machine draft, list it in `MACHINE_TRANSLATED`
+   (`web/src/app/i18n/language.ts`), so the picker says so. Remove it once someone has.
+
+The checks run in CI. `pnpm check:i18n` fails on invalid ICU, on a translation whose parameters
+differ from English, on a translated key English no longer has, and on English keys nothing uses;
+it also reports each language's coverage. A count may change shape between languages (a plain
+number in English, a plural in yours) only for parameters named like counts (`count`, `days`,
+`hours` and so on, in `COUNT_NAMES` in `scripts/check-i18n.mjs`); add a name there when a new one
+needs it. The lint rule `pecklist/no-literal-ui-text` flags text left in JSX, and Android lint
+(`pnpm --filter @pecklist/mobile test:android`) fails on text written into a layout, a translation
+of a string English lacks, and placeholders that differ.
+
 ## Releases
 
 See [releasing](docs/development/releasing.md). The changelog is generated from the commits, so write commit summaries for the people who will read it.
