@@ -1,3 +1,4 @@
+import * as de from 'chrono-node/de';
 import { describe, expect, it } from 'vitest';
 import { createChronoDateParser } from '../adapters/chrono-date-parser.ts';
 import { testContext } from '../test/fixtures.ts';
@@ -186,5 +187,73 @@ describe('quick add', () => {
     const tag = made.workspace.entities.tags.find((each) => each.name === 'fall')!;
     expect(Object.keys(task.tags)).toEqual([tag.id]);
     expect(assigneesOf(task)).toEqual([]);
+  });
+});
+
+describe('quick add in the app language (PL-148)', () => {
+  const german = createChronoDateParser({ language: 'de', casual: de.casual });
+  const read = (text: string, language?: string) => {
+    const { context } = world();
+    return parseQuickAdd(
+      text,
+      context({ parser: language === 'de' ? german : parser, ...(language ? { language } : {}) }),
+    );
+  };
+
+  it('reads the priority words of the language, and English ones as well', () => {
+    expect(read('Steuern !hoch', 'de')).toMatchObject({ title: 'Steuern', priority: 3 });
+    expect(read('Steuern !niedrig', 'de').priority).toBe(1);
+    expect(read('Steuern !high', 'de').priority).toBe(3);
+    expect(read('Impuestos !alta', 'es').priority).toBe(3);
+    expect(read('Impôts !basse', 'fr').priority).toBe(1);
+  });
+
+  it("leaves another language's words alone", () => {
+    expect(read('Steuern !hoch')).toMatchObject({ title: 'Steuern !hoch', priority: null });
+    expect(read('Steuern jeden Montag')).toMatchObject({
+      title: 'Steuern jeden Montag',
+      recurrence: null,
+    });
+    // A tag's own language part is dropped: "de-AT" reads German, "pt" English alone.
+    expect(read('Steuern !hoch', 'de-AT').priority).toBe(3);
+    expect(read('Impostos !alta', 'pt').priority).toBeNull();
+  });
+
+  it('reads every kind of repeat in each language', () => {
+    const rule = (text: string, language: string) => read(text, language).recurrence;
+    expect(rule('Gießen jeden Tag', 'de')).toBe('FREQ=DAILY');
+    expect(rule('Gießen alle 3 Tage', 'de')).toBe('FREQ=DAILY;INTERVAL=3');
+    expect(rule('Steuer jedes Jahr', 'de')).toBe('FREQ=YEARLY');
+    expect(rule('Standup jeden Werktag', 'de')).toBe('FREQ=WEEKLY;BYDAY=MO,TU,WE,TH,FR');
+    expect(rule('Sport jeden Mo und Do', 'de')).toBe('FREQ=WEEKLY;BYDAY=MO,TH');
+    expect(rule('Plan alle zwei Wochen am Montag', 'de')).toBe('FREQ=WEEKLY;INTERVAL=2;BYDAY=MO');
+    expect(rule('Regar cada día', 'es')).toBe('FREQ=DAILY');
+    expect(rule('Pagar cada mes', 'es')).toBe('FREQ=MONTHLY');
+    expect(rule('Standup todos los días laborables', 'es')).toBe(
+      'FREQ=WEEKLY;BYDAY=MO,TU,WE,TH,FR',
+    );
+    expect(rule('Plan cada 2 semanas el lunes', 'es')).toBe('FREQ=WEEKLY;INTERVAL=2;BYDAY=MO');
+    expect(rule('Arroser tous les 2 jours', 'fr')).toBe('FREQ=DAILY;INTERVAL=2');
+    expect(rule('Loyer chaque mois', 'fr')).toBe('FREQ=MONTHLY');
+    expect(rule('Standup tous les jours ouvrables', 'fr')).toBe('FREQ=WEEKLY;BYDAY=MO,TU,WE,TH,FR');
+    expect(rule('Sport chaque mardi et jeudi', 'fr')).toBe('FREQ=WEEKLY;BYDAY=TU,TH');
+    // English is read in every language.
+    expect(rule('Joggen every other day', 'de')).toBe('FREQ=DAILY;INTERVAL=2');
+  });
+
+  it('keeps a word that only starts like a repeat in the title', () => {
+    expect(read('Alle Fenster putzen', 'de')).toMatchObject({
+      title: 'Alle Fenster putzen',
+      recurrence: null,
+    });
+  });
+
+  it('reads the due words of the language', () => {
+    expect(read('Bericht bis Freitag', 'de')).toMatchObject({
+      title: 'Bericht',
+      due: { date: '2026-10-23', time: null },
+      schedule: null,
+    });
+    expect(read('Report due fri', 'de').due).toEqual({ date: '2026-10-23', time: null });
   });
 });

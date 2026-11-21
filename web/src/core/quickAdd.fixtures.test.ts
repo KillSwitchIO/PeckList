@@ -2,6 +2,9 @@
 // exactly as the server's task API does (PL-137). The server's QuickAddTests read the same file.
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
+import * as de from 'chrono-node/de';
+import * as es from 'chrono-node/es';
+import * as fr from 'chrono-node/fr';
 import { describe, expect, it } from 'vitest';
 import { createChronoDateParser } from '../adapters/chrono-date-parser.ts';
 import { parseQuickAdd } from './quickAdd.ts';
@@ -45,7 +48,13 @@ const people = fixture.people.map((person) => ({
   user: person.handle ? { handle: person.handle } : null,
 })) as unknown as AssigneeOption[];
 
-const parser = createChronoDateParser();
+// Each case in its language (PL-148), English when it names none, as the server's bundle reads it.
+const parsers = {
+  en: createChronoDateParser(),
+  de: createChronoDateParser({ language: 'de', casual: de.casual }),
+  es: createChronoDateParser({ language: 'es', casual: es.casual }),
+  fr: createChronoDateParser({ language: 'fr', casual: fr.casual }),
+};
 
 describe('quick add, as the server reads it (PL-137)', () => {
   it('has the shared cases', () => {
@@ -53,8 +62,12 @@ describe('quick add, as the server reads it (PL-137)', () => {
   });
 
   it.each(fixture.cases.map((each) => [each.text, each] as const))('%s', (text, expected) => {
-    const parsed = parseQuickAdd(text, { workspace, parser, reference, people });
-    const want = Object.fromEntries(Object.entries(expected).filter(([key]) => key !== 'text'));
+    const language = (expected.language as keyof typeof parsers | undefined) ?? 'en';
+    const parser = parsers[language];
+    const parsed = parseQuickAdd(text, { workspace, parser, reference, people, language });
+    const want = Object.fromEntries(
+      Object.entries(expected).filter(([key]) => key !== 'text' && key !== 'language'),
+    );
     expect({
       title: parsed.title,
       tokens: parsed.tokens.map(({ kind, start, end, text: piece }) => ({

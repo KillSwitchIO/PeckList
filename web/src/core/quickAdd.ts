@@ -1,10 +1,17 @@
 // Quick add (spec: PL-022, R-ENTRY-01): one line of text becomes a task. Dates and times
 // ("tomorrow 3pm", "fri 9-11am") set the start; "due ..." sets the due date; #tag, ^list,
 // !priority and @person pick those, and "every ..." makes it repeat. Everything recognised comes back as tokens (for the chips
-// shown while typing) and is taken out of the title.
+// shown while typing) and is taken out of the title. The words are read in the app's language and
+// in English (quickAddWords.ts, PL-148); the DateParser reads dates in the same pair.
 
 import { addDays, weekday } from './dates.ts';
 import { visibleLists } from './lists.ts';
+import {
+  quickAddLanguage,
+  quickAddWords,
+  type QuickAddWords,
+  type RepeatGrammar,
+} from './quickAddWords.ts';
 import { formatRule, type Recurrence } from './recurrence.ts';
 import { createTag, leafName, normalizeTagName, visibleTags } from './tags.ts';
 import { createTask, type TaskInput } from './tasks.ts';
@@ -46,22 +53,12 @@ export interface QuickAddContext {
   people?: readonly AssigneeOption[];
   /** Token texts the user turned back into plain words (clicked a chip off) */
   ignore?: ReadonlySet<string>;
+  /**
+   * The language to read the words in besides English ("de", "es", "fr"); English when absent or
+   * not one quick add reads. The parser should read dates in the same language.
+   */
+  language?: string;
 }
-
-const PRIORITY_WORDS: Record<string, Priority> = {
-  high: 3,
-  h: 3,
-  '1': 3,
-  medium: 2,
-  med: 2,
-  m: 2,
-  '2': 2,
-  low: 1,
-  l: 1,
-  '3': 1,
-  none: 0,
-  '0': 0,
-};
 
 const compact = (text: string) => text.toLowerCase().replace(/[\s_-]+/g, '');
 
@@ -77,39 +74,73 @@ function sigilWords(text: string, sigil: string): { start: number; end: number; 
 }
 
 const UNIT_FREQ = { day: 'DAILY', week: 'WEEKLY', month: 'MONTHLY', year: 'YEARLY' } as const;
-const DAY_NAMES = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
-const DAY_WORD = String.raw`(?:sun|mon|tues?|wed(?:nes)?|thu(?:rs?)?|fri|sat(?:ur)?)(?:day)?s?`;
-const DAY_LIST = String.raw`${DAY_WORD}(?:(?:\s*,\s*|\s*,?\s+(?:and|&)\s+)${DAY_WORD})*`;
-const REPEAT = new RegExp(
-  String.raw`(^|\s)every\s+(?:(other)\s+|(\d{1,3})\s+)?` +
-    String.raw`(weekdays?|weeks?\s+(?:on\s+)?${DAY_LIST}|(?:day|week|month|year)s?|${DAY_LIST})` +
-    String.raw`(?=$|[\s,.;!?])`,
-  'i',
-);
+
+/** One language's "every ..." as regular expressions, built once. */
+interface RepeatReader {
+  pattern: RegExp;
+  weekdays: RegExp;
+  units: [Recurrence['freq'], RegExp][];
+  weekLead: RegExp;
+  split: RegExp;
+  days: RegExp[];
+}
+
+const whole = (source: string) => new RegExp(`^(?:${source})$`, 'i');
+const readers = new Map<RepeatGrammar, RepeatReader>();
+
+function repeatReader(grammar: RepeatGrammar): RepeatReader {
+  const known = readers.get(grammar);
+  if (known) return known;
+  const { every, other, units, weekdays, days, and, on } = grammar;
+  const day = `(?:${days.join('|')})`;
+  const dayList = String.raw`${day}(?:(?:\s*,\s*|\s*,?\s+(?:${and})\s+)${day})*`;
+  const unit = `(?:${Object.values(units).join('|')})`;
+  const reader: RepeatReader = {
+    pattern: new RegExp(
+      String.raw`(^|\s)(?:${every})\s+(?:(${other})\s+|(\d{1,3})\s+)?` +
+        String.raw`((?:${weekdays})|(?:${units.week})\s+(?:(?:${on})\s+)?${dayList}|${unit}|${dayList})` +
+        String.raw`(?=$|[\s,.;!?])`,
+      'i',
+    ),
+    weekdays: whole(weekdays),
+    units: (Object.keys(UNIT_FREQ) as (keyof typeof UNIT_FREQ)[]).map((key) => [
+      UNIT_FREQ[key],
+      whole(units[key]),
+    ]),
+    weekLead: new RegExp(String.raw`^(?:${units.week})\s+(?:(?:${on})\s+)?`, 'i'),
+    split: new RegExp(String.raw`\s*,\s*|\s+(?:${and})\s+|\s+`, 'i'),
+    days: days.map(whole),
+  };
+  readers.set(grammar, reader);
+  return reader;
+}
 
 /**
  * "every day", "every 3 weeks", "every other monday", "every mon, wed and fri", "every weekday",
  * and weeks with their days: "every 2 weeks tue" (as Todoist writes it), "every 3 weeks on monday".
+ * The same in each language: "jeden zweiten Tag", "cada 2 semanas el lunes", "tous les lundis".
  */
-function findRepeat(text: string): { start: number; end: number; rule: Recurrence } | null {
-  const match = REPEAT.exec(text);
+function findRepeatIn(
+  text: string,
+  grammar: RepeatGrammar,
+): { start: number; end: number; rule: Recurrence } | null {
+  const reader = repeatReader(grammar);
+  const match = reader.pattern.exec(text);
   if (!match) return null;
   const interval = match[2] ? 2 : match[3] ? Number(match[3]) : 1;
   if (interval < 1) return null;
-  const what = match[4]!.toLowerCase();
+  const what = match[4]!;
   const start = match.index + match[1]!.length;
   const end = match.index + match[0].length;
-  if (/^weekdays?$/.test(what)) {
+  if (reader.weekdays.test(what)) {
     const byDay = [1, 2, 3, 4, 5].map((day) => ({ weekday: day }));
     return { start, end, rule: { freq: 'WEEKLY', interval, byDay } };
   }
-  const unit = /^(day|week|month|year)s?$/.exec(what);
-  if (unit) {
-    return { start, end, rule: { freq: UNIT_FREQ[unit[1] as keyof typeof UNIT_FREQ], interval } };
-  }
-  const dayList = what.replace(/^weeks?\s+(?:on\s+)?/, '');
-  const days = [...new Set(dayList.split(/\s*,\s*|\s+(?:and|&)\s+|\s+/).filter(Boolean))]
-    .map((word) => DAY_NAMES.indexOf(word.slice(0, 3)))
+  const unit = reader.units.find(([, pattern]) => pattern.test(what));
+  if (unit) return { start, end, rule: { freq: unit[0], interval } };
+  const dayList = what.replace(reader.weekLead, '');
+  const days = [...new Set(dayList.split(reader.split).filter(Boolean))]
+    .map((word) => reader.days.findIndex((pattern) => pattern.test(word)))
     .filter((day) => day >= 0);
   if (!days.length) return null;
   return {
@@ -117,6 +148,38 @@ function findRepeat(text: string): { start: number; end: number; rule: Recurrenc
     end,
     rule: { freq: 'WEEKLY', interval, byDay: [...new Set(days)].map((day) => ({ weekday: day })) },
   };
+}
+
+/** The first "every ..." in the language's words, else in English's. */
+function findRepeat(text: string, words: readonly QuickAddWords[]) {
+  for (const each of words) {
+    const found = findRepeatIn(text, each.repeat);
+    if (found) return found;
+  }
+  return null;
+}
+
+/** !word in the language's words, else English's. */
+function priorityOf(word: string, words: readonly QuickAddWords[]): Priority | undefined {
+  const key = word.toLowerCase();
+  for (const each of words) {
+    if (Object.prototype.hasOwnProperty.call(each.priority, key)) return each.priority[key];
+  }
+  return undefined;
+}
+
+/** "due fri", "due by friday", "fällig am Freitag": the words before a date that make it due. */
+const dueLeads = new Map<string, RegExp>();
+function dueLead(language: string, words: readonly QuickAddWords[]): RegExp {
+  let lead = dueLeads.get(language);
+  if (!lead) {
+    lead = new RegExp(
+      String.raw`(^|\s)(${words.map((each) => `(?:${each.due})`).join('|')})\s+$`,
+      'i',
+    );
+    dueLeads.set(language, lead);
+  }
+  return lead;
 }
 
 /** The local date of `reference`. */
@@ -213,6 +276,8 @@ function personFinder(people: readonly AssigneeOption[]) {
 
 export function parseQuickAdd(text: string, context: QuickAddContext): QuickAdd {
   const { workspace, ignore = new Set<string>() } = context;
+  const language = quickAddLanguage(context.language);
+  const words = quickAddWords(language);
   const tokens: Token[] = [];
   const take = (kind: TokenKind, start: number, end: number) => {
     const piece = text.slice(start, end);
@@ -223,7 +288,7 @@ export function parseQuickAdd(text: string, context: QuickAddContext): QuickAdd 
 
   let priority: Priority | null = null;
   for (const { start, end, word } of sigilWords(text, '!')) {
-    const value = PRIORITY_WORDS[word.toLowerCase()];
+    const value = priorityOf(word, words);
     if (value !== undefined && priority === null && take('priority', start, end)) priority = value;
   }
 
@@ -259,7 +324,7 @@ export function parseQuickAdd(text: string, context: QuickAddContext): QuickAdd 
 
   // "every ...", before the dates so "every monday" is not just next Monday.
   let rule: Recurrence | null = null;
-  const repeat = findRepeat(text);
+  const repeat = findRepeat(text, words);
   if (repeat && !tokens.some((token) => token.start < repeat.end && repeat.start < token.end)) {
     if (take('repeat', repeat.start, repeat.end)) rule = repeat.rule;
   }
@@ -275,7 +340,7 @@ export function parseQuickAdd(text: string, context: QuickAddContext): QuickAdd 
   for (const match of context.parser.find(masked, context.reference)) {
     // "due fri", "due by friday": the word belongs to the token.
     const before = masked.slice(0, match.index);
-    const lead = /(^|\s)(due(\s+(by|on))?)\s+$/i.exec(before);
+    const lead = dueLead(language, words).exec(before);
     if (lead && due === null) {
       const start = lead.index + lead[1]!.length;
       if (take('due', start, match.index + match.length)) due = match.start;

@@ -25,6 +25,24 @@ list Home.
 
 Without `^list`, the task goes to the list you are in (or the Mess Drawer from a view).
 
+### In your language
+
+When PeckList speaks Deutsch, Español or Français (Settings > Language), quick add reads that
+language's words as well as English's, so `tomorrow 3pm` and `!high` still work.
+
+| Write                | Deutsch                                         | Español                                              | Français                                            |
+| -------------------- | ----------------------------------------------- | ---------------------------------------------------- | --------------------------------------------------- |
+| A date or time       | `morgen 15 Uhr`, `übermorgen`, `am Freitag`, `Montag bis Freitag` | `mañana a las 15:00`, `pasado mañana`, `el viernes`, `del lunes al viernes` | `demain 15h`, `après-demain`, `vendredi`, `du lundi au vendredi` |
+| A due date           | `fällig am Freitag`, `bis Freitag`              | `vence el viernes`, `antes del viernes`              | `échéance vendredi`, `avant le vendredi`            |
+| How it repeats       | `jeden Tag`, `alle 3 Tage`, `jeden zweiten Montag`, `jeden Werktag`, `jeden Mo und Do`, `alle 2 Wochen am Montag` | `cada día`, `cada 3 días`, `cada dos semanas`, `todos los días laborables`, `todos los martes y jueves` | `chaque jour`, `tous les 3 jours`, `toutes les deux semaines`, `tous les jours ouvrables`, `chaque mardi et jeudi` |
+| Priority             | `!hoch`, `!mittel`, `!niedrig`, `!keine`        | `!alta`, `!media`, `!baja`, `!ninguna`               | `!haute`, `!moyenne`, `!basse`, `!aucune`           |
+| A bare hour (as in English) | `3 Uhr` is 03:00; `15 Uhr` or `3 Uhr nachmittags` is 15:00 | `a las 3` is 03:00; `a las 15:00` or `a las 3 de la tarde` is 15:00 | `3h` is 03:00; `15h` or `3h de l'après-midi` is 15:00 |
+
+An hour is read as written in every language, as `tomorrow at 3` is 03:00 in English: write the
+afternoon as 15:00, or with its word (`nachmittags`, `de la tarde`, `de l'après-midi`). Tags, lists and people are names, so `#`,
+`^` and `@` work the same in every language. Quick add through the task API reads the language
+picked in Settings; with automatic, it reads English.
+
 ## Keyboard shortcuts
 
 Press <kbd>?</kbd> anywhere for this list. Shortcuts are plain keys, never fire while you type, and

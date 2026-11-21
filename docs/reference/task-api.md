@@ -275,7 +275,9 @@ curl -H 'Authorization: Bearer pl_...' -H 'Content-Type: application/json' \
 Dates and times set the start (`due friday` sets the due date instead), `#tag` adds a tag (new
 ones are made), `^list` picks a list by name, `!high`, `!med`, `!low` set the priority, `@name`
 assigns someone you may assign, and `every ...` makes it repeat. See
-[Quick add and shortcuts](../using/quick-add-and-shortcuts.md) for the whole grammar.
+[Quick add and shortcuts](../using/quick-add-and-shortcuts.md) for the whole grammar. When you
+have picked Deutsch, Español or Français under Settings > Language, the line is read in that
+language as well as in English (`morgen 15 Uhr !hoch jeden Montag`); with automatic, in English.
 
 The body takes `text` (at most 1000 characters) and optionally `id`, `listId` (used when the text
 names no list; needed, as for a create, by an account with no inbox yet) and `timeZone` (the zone the dates are read in; left out, your account's). It

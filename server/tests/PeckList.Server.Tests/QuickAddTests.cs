@@ -37,14 +37,19 @@ public sealed class QuickAddTests
         return data;
     }
 
-    private static QuickAddContext Context()
+    /// <summary>A case's language (PL-148), absent for English.</summary>
+    private static string? LanguageOf(string text) =>
+        (string?)Fixture["cases"]!.AsArray().First(each => (string)each!["text"]! == text)!["language"];
+
+    private static QuickAddContext Context(string? language = null)
     {
         var reference = DateTime.ParseExact((string)Fixture["reference"]!, "yyyy-MM-dd'T'HH:mm", CultureInfo.InvariantCulture);
         return new QuickAddContext(
             [.. Fixture["lists"]!.AsArray().Select(list => new QuickList((string)list!["id"]!, (string)list["name"]!, (bool?)list["isInbox"] ?? false))],
             [.. Fixture["tags"]!.AsArray().Select(tag => ((string)tag!["id"]!, (string)tag["name"]!))],
             [.. Fixture["people"]!.AsArray().Select(person => new QuickPerson((string)person!["principal"]!, (string)person["name"]!, (string?)person["handle"]))],
-            reference);
+            reference,
+            language);
     }
 
     private static JsonNode? Moment(QuickMoment? moment) =>
@@ -75,7 +80,8 @@ public sealed class QuickAddTests
     {
         var expected = (JsonObject)Fixture["cases"]!.AsArray().First(each => (string)each!["text"]! == text)!.DeepClone();
         expected.Remove("text");
-        var parsed = await Reader.ReadAsync(text, Context(), Token);
+        expected.Remove("language");
+        var parsed = await Reader.ReadAsync(text, Context(LanguageOf(text)), Token);
         var actual = new JsonObject
         {
             ["title"] = parsed.Title,
@@ -115,17 +121,18 @@ public sealed class QuickAddTests
         // still more than twice that, so a grammar change that makes readings much heavier shows here.
         var limits = new JsQuickAddLimits();
         var engine = new JsQuickAdd(Generous).NewEngine();
-        long Run(string text)
+        long Run(string text, string? language)
         {
             engine.Constraints.Reset();
-            engine.Invoke("quickAdd", JsQuickAdd.Input(text, Context()));
+            engine.Invoke("quickAdd", JsQuickAdd.Input(text, Context(language)));
             return JsQuickAdd.StatementsRun(engine);
         }
-        var lines = Fixture["cases"]!.AsArray().Select(each => (string)each!["text"]!)
-            .Append(string.Concat(Enumerable.Repeat("Water the plants and ", 48))[..(IQuickAddReader.MaxText - 40)] + " tomorrow 9am #garden !high every week");
-        foreach (var line in lines)
+        var lines = Fixture["cases"]!.AsArray().Select(each => ((string)each!["text"]!, (string?)each["language"]))
+            .Append((string.Concat(Enumerable.Repeat("Water the plants and ", 48))[..(IQuickAddReader.MaxText - 40)] + " tomorrow 9am #garden !high every week", null))
+            .Append((string.Concat(Enumerable.Repeat("Die Pflanzen gießen und ", 41))[..(IQuickAddReader.MaxText - 40)] + " morgen 9 Uhr #garten !hoch jede Woche", "de"));
+        foreach (var (line, language) in lines)
         {
-            var used = Run(line);
+            var used = Run(line, language);
             Assert.True(used > 0, line);
             Assert.True(used < limits.Statements / 10, $"{line}: {used} statements");
         }

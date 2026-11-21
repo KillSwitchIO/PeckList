@@ -213,6 +213,7 @@ public sealed class JsQuickAdd(JsQuickAddLimits limits, ILogger? logger = null) 
         ["lists"] = new JsonArray([.. context.Lists.Select(list => (JsonNode)new JsonObject { ["id"] = list.Id, ["name"] = list.Name, ["isInbox"] = list.IsInbox })]),
         ["tags"] = new JsonArray([.. context.Tags.Select(tag => (JsonNode)new JsonObject { ["id"] = tag.Id, ["name"] = tag.Name })]),
         ["people"] = new JsonArray([.. context.People.Select(person => (JsonNode)new JsonObject { ["principal"] = person.Principal, ["name"] = person.Name, ["handle"] = person.Handle })]),
+        ["language"] = context.Language,
     }.ToJsonString();
 
     public async Task<QuickAddResult> ReadAsync(string text, QuickAddContext context, CancellationToken cancellation = default)

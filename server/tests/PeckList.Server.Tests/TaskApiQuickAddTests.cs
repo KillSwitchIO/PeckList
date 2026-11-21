@@ -104,6 +104,42 @@ public sealed class TaskApiQuickAddTests(ServerFixture fixture) : IClassFixture<
 
     [Theory]
     [MemberData(nameof(Databases), MemberType = typeof(TaskApiWorld))]
+    public async Task The_line_is_read_in_the_language_the_person_picked_and_in_English(string kind)
+    {
+        var (world, ben, _) = await Start(fixture, kind);
+        using var __ = world;
+
+        // Automatic (no language picked): English alone, so German words stay in the title.
+        var plain = await Expect(ben.Session, new { text = "Arzt !hoch", listId = "L1" }, HttpStatusCode.Created);
+        Assert.Equal("Arzt !hoch", (string?)plain["task"]!["title"]);
+
+        // Settings > Language: Deutsch (PL-148).
+        await PushAsync(ben, ("settings", Entity("S1", new JsonObject
+        {
+            ["userId"] = ben.Id,
+            ["themeMode"] = "system",
+            ["palette"] = new JsonObject(),
+            ["pointEventMinutes"] = 30,
+            ["dueSoonDays"] = 2,
+            ["sidebar"] = new JsonObject { ["order"] = new JsonArray(), ["hidden"] = new JsonArray(), ["groupOpen"] = false },
+            ["language"] = "de",
+        })));
+        var german = await Expect(ben.Session, new { text = "Arzt morgen 15 Uhr !hoch jeden Montag", listId = "L1" }, HttpStatusCode.Created);
+        var task = german["task"]!;
+        Assert.Equal("Arzt", (string?)task["title"]);
+        Assert.Equal(3, (int?)task["priority"]);
+        Assert.Equal("FREQ=WEEKLY;BYDAY=MO", (string?)task["recurrence"]);
+        Assert.EndsWith("T15:00", (string?)task["schedule"]!["start"]);
+        Assert.Equal(["date", "priority", "repeat"], german["tokens"]!.AsArray().Select(token => (string)token!["kind"]!).Order());
+
+        // English is still read.
+        var english = await Expect(ben.Session, new { text = "Call the bank !high every day", listId = "L1" }, HttpStatusCode.Created);
+        Assert.Equal("Call the bank", (string?)english["task"]!["title"]);
+        Assert.Equal("FREQ=DAILY", (string?)english["task"]!["recurrence"]);
+    }
+
+    [Theory]
+    [MemberData(nameof(Databases), MemberType = typeof(TaskApiWorld))]
     public async Task Someone_you_cannot_assign_stays_in_the_title_and_bad_input_is_refused(string kind)
     {
         var (world, ben, _) = await Start(fixture, kind);

@@ -4,11 +4,17 @@
 //
 // One call: JSON in, JSON out.
 //   in:  { text, reference: "2026-11-09T14:30" (the person's wall clock), lists: [{ id, name, isInbox }],
-//          tags: [{ id, name }], people: [{ principal, name, handle }] }
+//          tags: [{ id, name }], people: [{ principal, name, handle }],
+//          language: "de" (optional: the person's picked language; English is always read too) }
 //   out: { title, tokens, schedule, due, priority, listId, tags, assignees, recurrence }
 
+import * as german from 'chrono-node/de';
+import * as spanish from 'chrono-node/es';
+import * as french from 'chrono-node/fr';
 import { createChronoDateParser } from './chrono-date-parser.ts';
 import { parseQuickAdd } from '../core/quickAdd.ts';
+import { quickAddLanguage } from '../core/quickAddWords.ts';
+import type { DateParser } from '../ports/dateParser.ts';
 import type { AssigneeOption } from '../core/sharing.ts';
 import type { WorkspaceFile } from '../core/types.ts';
 
@@ -18,9 +24,21 @@ interface Request {
   lists: { id: string; name: string; isInbox: boolean }[];
   tags: { id: string; name: string }[];
   people: { principal: string; name: string; handle: string | null }[];
+  language?: string | null;
 }
 
-const parser = createChronoDateParser();
+// Every language's parser is in the bundle (PL-148), each made the first time it is wanted.
+const LOCALES = { de: german.casual, es: spanish.casual, fr: french.casual } as const;
+const parsers = new Map<string, DateParser>();
+function parserFor(language: string): DateParser {
+  let parser = parsers.get(language);
+  if (!parser) {
+    const casual = LOCALES[language as keyof typeof LOCALES];
+    parser = casual ? createChronoDateParser({ language, casual }) : createChronoDateParser();
+    parsers.set(language, parser);
+  }
+  return parser;
+}
 
 function quickAdd(input: string): string {
   const request = JSON.parse(input) as Request;
@@ -49,7 +67,14 @@ function quickAdd(input: string): string {
     color: '#000000',
     user: person.handle ? { handle: person.handle } : null,
   })) as unknown as AssigneeOption[];
-  const parsed = parseQuickAdd(request.text, { workspace, parser, reference, people });
+  const language = quickAddLanguage(request.language ?? undefined);
+  const parsed = parseQuickAdd(request.text, {
+    workspace,
+    parser: parserFor(language),
+    reference,
+    people,
+    language,
+  });
   return JSON.stringify({
     title: parsed.title,
     tokens: parsed.tokens.map(({ kind, start, end, text }) => ({ kind, start, end, text })),
