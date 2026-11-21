@@ -127,6 +127,70 @@ describe("the app's own update notice", () => {
     expect(screen.queryByRole('status', { name: 'Update available' })).toBeNull();
   });
 
+  /** The foss build at 0.2.7, installed by the given app (at the request of another). */
+  function fossFrom(installer: string | null, requestedBy?: string | null) {
+    const shell = new FakeShell(9, 'foss', '0.2.7');
+    shell.installer = installer;
+    shell.installRequestedBy = requestedBy;
+    return shell;
+  }
+
+  it('foss that F-Droid had the system installer install: still F-Droid updates it, so no notice', async () => {
+    await appAs(
+      behind(),
+      '/today',
+      fossFrom('com.google.android.packageinstaller', 'org.fdroid.fdroid'),
+    );
+    await screen.findByRole('button', { name: /^Account: / }, slow);
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(screen.queryByRole('status', { name: 'Update available' })).toBeNull();
+  });
+
+  it('foss a browser had the system installer install: the app is told it is behind', async () => {
+    await appAs(
+      behind(),
+      '/today',
+      fossFrom('com.google.android.packageinstaller', 'org.mozilla.firefox'),
+    );
+    const notice = await screen.findByRole('status', { name: 'Update available' }, slow);
+    expect(
+      within(notice).getByText('PeckList 0.2.8 is out. This app is 0.2.7.'),
+    ).toBeInTheDocument();
+  });
+
+  it.each(['org.fdroid.fdroid', 'org.fdroid.basic', 'com.looker.droidify'])(
+    'foss installed by an F-Droid client (%s): it updates the app, so no notice',
+    async (client) => {
+      await appAs(behind(), '/today', fossFrom(client));
+      await screen.findByRole('button', { name: /^Account: / }, slow);
+      await new Promise((resolve) => setTimeout(resolve, 50));
+      expect(screen.queryByRole('status', { name: 'Update available' })).toBeNull();
+    },
+  );
+
+  it.each([
+    ['a downloaded APK', 'com.google.android.packageinstaller'],
+    ['adb', 'com.android.shell'],
+    ['Android not saying', null],
+  ])('foss from %s: the app is told it is behind', async (_how, installer) => {
+    await appAs(behind(), '/today', fossFrom(installer));
+    const notice = await screen.findByRole('status', { name: 'Update available' }, slow);
+    expect(
+      within(notice).getByText('PeckList 0.2.8 is out. This app is 0.2.7.'),
+    ).toBeInTheDocument();
+  });
+
+  it("installed by F-Droid: the server's line stays", async () => {
+    const backend = behind();
+    backend.serverVersion = '0.2.7';
+    await appAs(backend, '/today', fossFrom('org.fdroid.fdroid'));
+    const notice = await screen.findByRole('status', { name: 'Update available' }, slow);
+    expect(
+      within(notice).getByText('PeckList 0.2.8 is out. This server runs 0.2.7.'),
+    ).toBeInTheDocument();
+    expect(within(notice).queryByText(/This app is/)).toBeNull();
+  });
+
   it("play: the server's line stays", async () => {
     const backend = behind();
     backend.serverVersion = '0.2.7';

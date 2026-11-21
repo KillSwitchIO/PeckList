@@ -119,6 +119,29 @@ export function shellPluginName(): 'PeckListShell' | 'PunchlistShell' | null {
   return Capacitor.isPluginAvailable('PunchlistShell') ? 'PunchlistShell' : null;
 }
 
+/** The shell's info() answer, kept to what the web app knows. */
+export function shellInfo(answer: ShellInfo): ShellInfo {
+  const { distribution, installer, installRequestedBy, ...rest } = answer;
+  return {
+    ...rest,
+    server: answer.server ?? null,
+    // Only the two names it knows; anything else (or nothing, an older shell) is foss.
+    ...(distribution === 'play' || distribution === 'foss' ? { distribution } : {}),
+    // A package name or null; an older shell sends none, and stays without.
+    ...packageField('installer', installer),
+    ...packageField('installRequestedBy', installRequestedBy),
+  };
+}
+
+/** A package name or null under its key; nothing when an older shell sent none. */
+function packageField<K extends 'installer' | 'installRequestedBy'>(
+  key: K,
+  value: unknown,
+): Partial<Record<K, string | null>> {
+  if (value === undefined) return {};
+  return { [key]: typeof value === 'string' ? value : null } as Partial<Record<K, string | null>>;
+}
+
 /** The Android shell, through Capacitor; null in a browser or a shell without the plugin. */
 export function createCapacitorShell(): NativeShell | null {
   const name = shellPluginName();
@@ -126,14 +149,7 @@ export function createCapacitorShell(): NativeShell | null {
   const plugin = registerPlugin<ShellPlugin>(name);
   return {
     async info() {
-      const answer = await plugin.info();
-      const { distribution, ...rest } = answer;
-      return {
-        ...rest,
-        server: answer.server ?? null,
-        // Only the two names it knows; anything else (or nothing, an older shell) is foss.
-        ...(distribution === 'play' || distribution === 'foss' ? { distribution } : {}),
-      };
+      return shellInfo(await plugin.info());
     },
     async checkServer(address): Promise<ServerCheck> {
       try {

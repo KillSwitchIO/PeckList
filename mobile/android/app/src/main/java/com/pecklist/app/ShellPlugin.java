@@ -103,6 +103,13 @@ public class ShellPlugin extends Plugin {
         // Api 9: which build (Distribution), so the web app follows Google Play's rules in the Play one. Api 9
         // also passes fresh=1 on from a provider's sign-in to the hand-off (NativeSignIn).
         result.put("distribution", Distribution.NAME);
+        // Which app installed this one (Installer): an F-Droid client updates the app itself, so the
+        // web app shows no update notice of its own. An answer, not a method, so no new api level;
+        // an older shell leaves it out.
+        String installer = Installer.of(getContext());
+        result.put("installer", installer == null ? JSONObject.NULL : installer);
+        String requestedBy = Installer.requestedBy(getContext());
+        result.put("installRequestedBy", requestedBy == null ? JSONObject.NULL : requestedBy);
         call.resolve(result);
     }
 

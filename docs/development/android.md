@@ -253,7 +253,14 @@ What changes in the Play build:
 - **Payment links.** The web app comes from whichever server the app is on, so it is told which
   build it runs in: `info().distribution` (shell api 9) is `play` or `foss`, and a web app hides
   the donation and supporter key links and the app's own update notice in the Play build. When the
-  signal is missing (a browser, an older shell) it behaves as foss. A server older than this does
+  signal is missing (a browser, an older shell) it behaves as foss. `info().installer` is the
+  package that installed the app (`getInstallSourceInfo`, before Android 11
+  `getInstallerPackageName`), or null, and `info().installRequestedBy` the app that asked for the
+  install (Android 11 and later: a store that hands the APK to the system's installer is only
+  this one). When either is an F-Droid client (`FDROID_CLIENTS` in
+  `web/src/app/native/shell.ts`), the update notice leaves out the app's line as in the Play build.
+  It is part of `info()`'s answer, not a method, so it has no api level: an older shell leaves it
+  out. A server older than this does
   not know to ask, so `ShellWebViewClient` is the backstop: in the Play build it opens no link to,
   and loads nothing (not even in a frame) from, the sites in `PaymentLinks` (every site in `web/src/app/support/links.ts`, and
   `pecklist.com/support`) and quietly does nothing instead. `PaymentLinksTest` reads the web app's
@@ -425,8 +432,9 @@ What F-Droid's reviewers may ask about, none of which should block inclusion:
   setting, and the "this device only" mode has no server at all. A reviewer may still weigh the
   server's report when choosing anti-feature labels for the listing.
 - **The update notice**: the foss build shows "a newer version is out" with a link to the release
-  page when the server reports one. An F-Droid install sees it for the days before F-Droid
-  publishes the same release. It is a notice, not an updater: nothing is downloaded.
+  page when the server reports one, but not when an F-Droid client installed the app
+  (`info().installer`, above), so an F-Droid install never points away from F-Droid. It is a
+  notice, not an updater: nothing is downloaded.
 - **Links out**: the donation links (Ko-fi, PayPal), the supporter key page, and the "open in maps"
   choices, one of which is Google Maps. A supporter key unlocks nothing.
 
