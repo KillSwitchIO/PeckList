@@ -7,6 +7,7 @@ import {
   ChecklistIcon,
   DataIcon,
   HeartIcon,
+  InfoIcon,
   PaletteIcon,
 } from '../icons/icons.tsx';
 import { t } from '../i18n/i18n.ts';
@@ -18,6 +19,7 @@ import { useSupportVisible } from '../support/useSupportVisible.ts';
 import { PRIVACY_POLICY_URL } from '../legal.ts';
 import { useSyncState } from '../sync/syncContext.ts';
 import { setHideCompleted, useHideCompleted } from '../views/completedPrefs.ts';
+import { AboutSection } from './AboutSection.tsx';
 import { AppearanceSection } from './AppearanceSection.tsx';
 import { DataSection } from './DataSection.tsx';
 import { DateTimeSection } from './DateTimeSection.tsx';
@@ -162,6 +164,13 @@ export function SettingsPage() {
       hint: t('settings.category.dataHint'),
       icon: <DataIcon />,
       content: () => <DataCategory />,
+    },
+    {
+      id: 'about',
+      label: t('about.title'),
+      hint: t('settings.category.aboutHint'),
+      icon: <InfoIcon />,
+      content: () => <AboutSection />,
     },
     // Left out rather than hidden: a hidden subject's address would still open it.
     ...(supportVisible

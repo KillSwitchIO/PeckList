@@ -629,6 +629,7 @@ describe('lists and sections', () => {
     expect(within(nav).getByRole('button', { name: /Home\s*1/ })).toBeInTheDocument();
   });
 
+  // The emoji picker renders hundreds of buttons: about 8 s alone with coverage, so twice that under a full parallel run.
   it('gives a list an icon, shown where its color dot was', async () => {
     await renderApp('/today');
     await userEvent.click(screen.getByRole('button', { name: 'New list' }));
@@ -664,7 +665,7 @@ describe('lists and sections', () => {
     await waitFor(() =>
       expect(within(nav).getByRole('button', { name: /^Groceries/ })).not.toHaveTextContent('🥕'),
     );
-  });
+  }, 30_000);
 
   it('gives a list a line icon in its color instead of an emoji', async () => {
     await renderApp('/today');
@@ -679,7 +680,7 @@ describe('lists and sections', () => {
     expect(row.querySelector('svg[data-testid="WorkOutlineRoundedIcon"]')).not.toBeNull();
     // The stored name is never shown as text.
     expect(row).not.toHaveTextContent('symbol:');
-  });
+  }, 30_000);
 
   it('has no sections: ones in old data fold into their list, in the order they showed', async () => {
     const store = testStore();

@@ -2218,5 +2218,15 @@
   "undo.postponedTo": "Moved to {day}",
   "undo.postponedRepeating": "{count, plural, =1 {Moved to today, and {title} to {day}} other {Moved to today, and # repeating tasks to {day}}}",
   "undo.postponedSpread": "{count, plural, one {Moved to today, and # repeating task to its next date this week} other {Moved to today, and # repeating tasks to their next dates this week}}",
-  "undo.postponedSpreadAll": "{count, plural, one {Moved # repeating task to its next date this week} other {Moved # repeating tasks to their next dates this week}}"
+  "undo.postponedSpreadAll": "{count, plural, one {Moved # repeating task to its next date this week} other {Moved # repeating tasks to their next dates this week}}",
+  "about.title": "About PeckList",
+  "about.hint": "PeckList is free software: you may use, study, change and share it under the GNU AGPL-3.0-or-later.",
+  "about.webVersion": "Web app version",
+  "about.appVersion": "App version",
+  "about.source": "Source code",
+  "about.sourceHint": "The source of the version this server runs.",
+  "about.license": "License",
+  "about.licenseHint": "GNU Affero General Public License, version 3 or later",
+  "about.changelog": "What's new in each version",
+  "settings.category.aboutHint": "Version, source code and license"
 }

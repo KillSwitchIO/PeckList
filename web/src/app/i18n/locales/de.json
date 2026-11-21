@@ -2209,5 +2209,15 @@
   "undo.postponedTo": "Auf {day} verschoben",
   "undo.postponedRepeating": "{count, plural, =1 {Auf heute verschoben und {title} auf {day}} other {Auf heute verschoben und # wiederkehrende Aufgaben auf {day}}}",
   "undo.postponedSpread": "{count, plural, one {Auf heute verschoben und # wiederkehrende Aufgabe auf ihren nächsten Termin diese Woche} other {Auf heute verschoben und # wiederkehrende Aufgaben auf ihre nächsten Termine diese Woche}}",
-  "undo.postponedSpreadAll": "{count, plural, one {# wiederkehrende Aufgabe auf ihren nächsten Termin diese Woche verschoben} other {# wiederkehrende Aufgaben auf ihre nächsten Termine diese Woche verschoben}}"
+  "undo.postponedSpreadAll": "{count, plural, one {# wiederkehrende Aufgabe auf ihren nächsten Termin diese Woche verschoben} other {# wiederkehrende Aufgaben auf ihre nächsten Termine diese Woche verschoben}}",
+  "about.title": "Über PeckList",
+  "about.hint": "PeckList ist freie Software: Sie dürfen sie unter der GNU AGPL-3.0-or-later nutzen, untersuchen, ändern und weitergeben.",
+  "about.webVersion": "Version der Web-App",
+  "about.appVersion": "App-Version",
+  "about.source": "Quellcode",
+  "about.sourceHint": "Der Quellcode der Version, die dieser Server ausführt.",
+  "about.license": "Lizenz",
+  "about.licenseHint": "GNU Affero General Public License, Version 3 oder neuer",
+  "about.changelog": "Neuigkeiten jeder Version",
+  "settings.category.aboutHint": "Version, Quellcode und Lizenz"
 }

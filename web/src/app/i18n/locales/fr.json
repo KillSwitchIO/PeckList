@@ -2209,5 +2209,15 @@
   "undo.postponedTo": "Reporté à {day}",
   "undo.postponedRepeating": "{count, plural, =1 {Reporté à aujourd’hui, et {title} à {day}} other {Reporté à aujourd’hui, et # tâches récurrentes à {day}}}",
   "undo.postponedSpread": "{count, plural, one {Reporté à aujourd’hui, et # tâche récurrente à sa prochaine date cette semaine} other {Reporté à aujourd’hui, et # tâches récurrentes à leurs prochaines dates cette semaine}}",
-  "undo.postponedSpreadAll": "{count, plural, one {# tâche récurrente reportée à sa prochaine date cette semaine} other {# tâches récurrentes reportées à leurs prochaines dates cette semaine}}"
+  "undo.postponedSpreadAll": "{count, plural, one {# tâche récurrente reportée à sa prochaine date cette semaine} other {# tâches récurrentes reportées à leurs prochaines dates cette semaine}}",
+  "about.title": "À propos de PeckList",
+  "about.hint": "PeckList est un logiciel libre : vous pouvez l’utiliser, l’étudier, le modifier et le partager sous la GNU AGPL-3.0-or-later.",
+  "about.webVersion": "Version de l’application web",
+  "about.appVersion": "Version de l’application",
+  "about.source": "Code source",
+  "about.sourceHint": "Le code source de la version que ce serveur exécute.",
+  "about.license": "Licence",
+  "about.licenseHint": "GNU Affero General Public License, version 3 ou ultérieure",
+  "about.changelog": "Nouveautés de chaque version",
+  "settings.category.aboutHint": "Version, code source et licence"
 }
