@@ -26,7 +26,7 @@ import {
 import { addDays } from '../../core/dates.ts';
 import { postponeTarget, postponeTo } from '../../core/tasks.ts';
 import { formatDay } from '../format.ts';
-import type { Task } from '../../core/types.ts';
+import type { Task, WorkspaceFile } from '../../core/types.ts';
 import { useToday } from '../hooks/useToday.ts';
 import { t } from '../i18n/i18n.ts';
 import { useApply, useWorkspace } from '../store/hooks.ts';
@@ -194,6 +194,7 @@ export function DateGroupedTasks({
   sort = 'manual',
   reversed = false,
   groupsReversed = false,
+  source,
 }: {
   filter: TaskFilter;
   showList?: boolean;
@@ -204,8 +205,11 @@ export function DateGroupedTasks({
   reversed?: boolean;
   /** The date groups the other way round (No date and Later first) */
   groupsReversed?: boolean;
+  /** The tasks to draw from, when the view narrows them (its filter); else the whole workspace */
+  source?: WorkspaceFile;
 }) {
-  const workspace = useWorkspace();
+  const whole = useWorkspace();
+  const workspace = source ?? whole;
   const today = useToday();
   const { pinned, rest } = pinnedFirst(filterTasks(workspace, filter, today));
   const groups = inOrder(groupByDate(workspace, rest, today), groupsReversed);
@@ -330,18 +334,23 @@ export function FilteredTasks({
   view,
   showList = false,
   emptyTitle,
+  source,
 }: {
   filter: TaskFilter;
   view: ListViewSettings;
   showList?: boolean;
   emptyTitle: string;
+  /** The tasks to draw from, when the view narrows them (its filter); else the whole workspace */
+  source?: WorkspaceFile;
 }) {
-  const workspace = useWorkspace();
+  const whole = useWorkspace();
+  const workspace = source ?? whole;
   const today = useToday();
   if (view.grouping === 'date') {
     return (
       <DateGroupedTasks
         filter={filter}
+        {...(source ? { source } : {})}
         showList={showList}
         emptyTitle={emptyTitle}
         sort={view.sort}

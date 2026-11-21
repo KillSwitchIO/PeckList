@@ -2200,6 +2200,8 @@ export const en = {
   'narrow.title': 'Show only',
   'narrow.hint':
     'Pick any lists, tags and saved filters. Tasks show when they match one of each kind picked.',
+  'narrow.hintNoLists':
+    'Pick any tags and saved filters. Tasks show when they match one of each kind picked.',
   'narrow.clear': 'Clear',
   'narrow.lists': 'Lists',
   'narrow.tags': 'Tags',

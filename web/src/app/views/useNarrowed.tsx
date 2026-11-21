@@ -6,13 +6,24 @@ import { useWorkspace } from '../store/hooks.ts';
 import { NarrowButton } from './NarrowButton.tsx';
 
 // What each view is narrowed to, kept on this device like the other view choices.
-export type NarrowView = 'today' | 'upcoming' | 'calendar' | 'completed';
+export type NarrowView =
+  | 'today'
+  | 'upcoming'
+  | 'calendar'
+  | 'completed'
+  | 'due'
+  | 'search'
+  | 'all'
+  | 'assigned'
+  | 'shared'
+  | 'inbox';
 
 const keyOf = (view: NarrowView) => `pecklist.narrow.${view}`;
 const listeners = new Set<() => void>();
 const memory = new Map<string, string | null>();
 
-function readRaw(view: NarrowView): string | null {
+function readRaw(view: NarrowView | null): string | null {
+  if (view === null) return null;
   try {
     return localStorage.getItem(keyOf(view));
   } catch {
@@ -54,9 +65,14 @@ function subscribe(listener: () => void) {
 
 /**
  * A view's narrowing (spec: R-FB-53): the workspace with only the tasks it lets through, for the
- * view's queries, and the button that sets it.
+ * view's queries, and the button that sets it. No view (a list other than the Mess Drawer): the
+ * workspace as it is, and no button. `lists: false` for a view that is one list already (the Mess
+ * Drawer): picking lists there would be no choice at all.
  */
-export function useNarrowed(view: NarrowView): {
+export function useNarrowed(
+  view: NarrowView | null,
+  { lists = true }: { lists?: boolean } = {},
+): {
   workspace: WorkspaceFile;
   narrowed: boolean;
   button: React.ReactNode;
@@ -76,6 +92,8 @@ export function useNarrowed(view: NarrowView): {
   return {
     workspace: narrowed,
     narrowed: isNarrowed(narrowing),
-    button: <NarrowButton narrowing={narrowing} onChange={(next) => save(view, next)} />,
+    button: view !== null && (
+      <NarrowButton narrowing={narrowing} lists={lists} onChange={(next) => save(view, next)} />
+    ),
   };
 }

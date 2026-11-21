@@ -218,13 +218,28 @@ export function UpcomingView() {
   );
 }
 
-/** All: no filter at all. Every open task in date groups, then Completed. */
+/** All: no filter of its own (the funnel can narrow it). Every open task in date groups, then Completed. */
 export function AllView() {
   const view = useListView('view:all');
+  const { workspace, button } = useNarrowed('all');
   return (
-    <Page title={t('nav.all')} actions={<SortGroupButton view={view} groupings={VIEW_GROUPINGS} />}>
+    <Page
+      title={t('nav.all')}
+      actions={
+        <>
+          {button}
+          <SortGroupButton view={view} groupings={VIEW_GROUPINGS} />
+        </>
+      }
+    >
       <AddToInbox />
-      <FilteredTasks filter={ALL_TASKS} view={view} showList emptyTitle={t('all.empty')} />
+      <FilteredTasks
+        filter={ALL_TASKS}
+        view={view}
+        source={workspace}
+        showList
+        emptyTitle={t('all.empty')}
+      />
     </Page>
   );
 }
@@ -233,14 +248,21 @@ export function AllView() {
 export function AssignedView() {
   const me = useStoreState((state) => state.context().userId);
   const view = useListView('view:assigned');
+  const { workspace, button } = useNarrowed('assigned');
   return (
     <Page
       title={t('nav.assigned')}
-      actions={<SortGroupButton view={view} groupings={VIEW_GROUPINGS} />}
+      actions={
+        <>
+          {button}
+          <SortGroupButton view={view} groupings={VIEW_GROUPINGS} />
+        </>
+      }
     >
       <FilteredTasks
         filter={{ assignedTo: me }}
         view={view}
+        source={workspace}
         showList
         emptyTitle={t('assigned.empty')}
       />
@@ -252,14 +274,21 @@ export function AssignedView() {
 export function SharedView() {
   const me = useStoreState((state) => state.context().userId);
   const view = useListView('view:shared');
+  const { workspace, button } = useNarrowed('shared');
   return (
     <Page
       title={t('nav.shared')}
-      actions={<SortGroupButton view={view} groupings={VIEW_GROUPINGS} />}
+      actions={
+        <>
+          {button}
+          <SortGroupButton view={view} groupings={VIEW_GROUPINGS} />
+        </>
+      }
     >
       <FilteredTasks
         filter={{ sharedWith: me }}
         view={view}
+        source={workspace}
         showList
         emptyTitle={t('shared.empty')}
       />

@@ -41,6 +41,7 @@ import { pinnedFirst } from '../../core/tasks.ts';
 import { useToday } from '../hooks/useToday.ts';
 import { useListView, type ListViewSettings } from './listGrouping.ts';
 import { SortGroupButton, type ListLayout } from '../views/SortGroupButton.tsx';
+import { useNarrowed } from '../views/useNarrowed.tsx';
 import { useListLayout } from './listLayout.ts';
 import { TimelineView } from './TimelineView.tsx';
 import { ConfirmDialog, ListDialog } from './ListDialog.tsx';
@@ -199,7 +200,9 @@ function ListMenu({
 }
 
 export function ListContents({ list }: { list: List }) {
-  const workspace = useWorkspace();
+  // The Mess Drawer takes the funnel (Ben, 0.14.0), with no Lists to pick in a view that is one
+  // list; other lists show all their tasks.
+  const { workspace, button } = useNarrowed(list.isInbox ? 'inbox' : null, { lists: false });
   const apply = useApply();
   const today = useToday();
   const me = useStoreState((state) => state.context().userId);
@@ -258,12 +261,15 @@ export function ListContents({ list }: { list: List }) {
   );
   const [layoutValue, setLayout] = useListLayout(list.id);
   const actions = (
-    <ListMenu
-      list={list}
-      role={role}
-      view={view}
-      layout={{ value: layoutValue, onChange: setLayout }}
-    />
+    <>
+      {button}
+      <ListMenu
+        list={list}
+        role={role}
+        view={view}
+        layout={{ value: layoutValue, onChange: setLayout }}
+      />
+    </>
   );
 
   if (layoutValue === 'timeline') {
@@ -286,6 +292,7 @@ export function ListContents({ list }: { list: List }) {
         {header}
         <DateGroupedTasks
           filter={filter}
+          source={workspace}
           emptyTitle={t('list.empty')}
           sort={sort}
           reversed={view.sortReversed}

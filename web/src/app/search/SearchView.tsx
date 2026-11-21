@@ -6,7 +6,7 @@ import { searchTasks, type Range, type SearchHit } from '../../core/search.ts';
 import { t } from '../i18n/i18n.ts';
 import { eggFor, hatch } from '../fun/eggs.ts';
 import { Page } from '../layout/Page.tsx';
-import { useWorkspace } from '../store/hooks.ts';
+import { useNarrowed } from '../views/useNarrowed.tsx';
 import { TaskRow } from '../tasks/TaskRow.tsx';
 import { EmptyState } from '../views/EmptyState.tsx';
 import { GroupSection } from '../views/GroupSection.tsx';
@@ -80,7 +80,8 @@ function ResultRows({ hits, label }: { hits: SearchHit[]; label?: string }) {
  * the address (`/search?q=`), so back and forward and reloads keep it.
  */
 export function SearchView() {
-  const workspace = useWorkspace();
+  // The funnel narrows the results (Ben, 0.14.0).
+  const { workspace, button } = useNarrowed('search');
   const [params, setParams] = useSearchParams();
   const inAddress = params.get('q') ?? '';
   // The field answers every key at once; only it re-renders while typing. Once typing pauses the
@@ -132,7 +133,7 @@ export function SearchView() {
   const closed = hits.filter((hit) => hit.task.status !== 'open');
 
   return (
-    <Page title={t('nav.search')}>
+    <Page title={t('nav.search')} actions={button}>
       <Box
         sx={{
           display: 'flex',
