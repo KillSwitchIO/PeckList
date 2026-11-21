@@ -6,7 +6,7 @@ The pipeline is in [`.gitlab-ci.yml`](https://gitlab.com/killswitch10/pecklist/-
 
 | Pipeline              | Jobs                                                                                                                                                                                                                                                                                                                                              |
 | --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Merge request         | `lint` (lint, format and typecheck at once, then versions, docs coverage, script tests), `web-test`, `server-test`, `e2e`, `docs`, `container-image` (amd64 only, built, not pushed). `ci-images` first when a tool image's inputs changed. `approval` last ([approval](#approval)).                                                                                                      |
+| Merge request         | `lint` (lint, format and typecheck at once, then versions, docs coverage, script tests), `web-test`, `server-test`, `e2e`, `docs`, `container-image` (amd64 only, built, not pushed). `ci-images` first when a tool image's inputs changed. `signoff` when it comes from a fork ([sign-off](#sign-off)). `approval` last ([approval](#approval)).                                                                                                      |
 | `main` | No test suites: a merge must be up to date, so its tree is the tree its merge request passed, and `verify-tested` checks that before anything is built. Then the `:edge` and `:sha-<commit>` images for amd64 and arm64 (version `<next patch>-edge.<commit>`, [releasing](releasing.md#versions)), `:edge` copied to Docker Hub as `hambone0/pecklist:edge` (`dockerhub-image`; no `sha-` names there), two devices syncing through that image (`e2e-server`), the test server updated to it (`deploy-test`), the docs site (`pages`) and the docs in the wiki (`wiki`). By hand: `web-build`, `packages`, `android-release`, `android-apk`. |
 | A release commit on `main` | The same as `main`, with the image stamped exactly `X.Y.Z`, plus `web-dist`, `packages`, `android-release`, `upload-downloads` (which signs `SHA256SUMS`) and `sign-image` ([signatures](releasing.md#signatures)), and the `cut-release` button ([releasing](releasing.md)). |
 | `release/*` merge request | `release-guard`, `docs`, `approval`. No test suites: the guard fails on anything but the version, the changelog and the docs copy. |
@@ -37,6 +37,22 @@ every test suite in that pipeline.
 | `promote-image`   | The tag has no release, or the image is stamped with another version or commit.                               | Nothing was published under those names. Use `cut-release` instead of pushing a tag by hand.                                              |
 | `dockerhub-image` | Docker Hub did not take the image (it is down, or the login failed), or a tag there has another digest. | Nothing waits on it: the release and `deploy-prod` go on. Retry it later, which copies the same bytes. A failed login means `DOCKERHUB_TOKEN` needs renewing. |
 | A timeout in a suite | The job ran out of time, usually because the runner is busy. It says nothing about the code.               | Retry it. Only a run that finished counts as a test result.                                                                               |
+
+## Sign-off
+
+A merge request from a fork also runs `signoff` (`scripts/check-signoff.mjs`): it fails unless every
+commit in the merge request, merges aside, has a `Signed-off-by:` line with the commit author's
+email, as [CONTRIBUTING](https://gitlab.com/killswitch10/pecklist/-/blob/main/CONTRIBUTING.md) asks.
+Merge requests from branches of the project itself skip it.
+
+It is a convenience, not a gate a fork can't get past. Any pipeline for a fork's merge request takes
+`.gitlab-ci.yml` and `scripts/` from the fork's branch, even one started in this project, so a fork
+can edit the job or the script and go green. So:
+
+- Trust a green `signoff` only when the merge request touches neither `scripts/check-signoff.mjs`
+  nor `.gitlab-ci.yml`. Otherwise read the `Signed-off-by` lines in its commit list.
+- Start a pipeline in this project for a fork's merge request only after reading the whole change:
+  it runs the fork's code on this project's runners, with its unprotected CI/CD variables.
 
 ## Approval
 
