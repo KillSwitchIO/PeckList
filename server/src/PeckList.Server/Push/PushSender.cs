@@ -1,5 +1,6 @@
 using System.Buffers.Text;
 using System.Net;
+using System.Net.Mail;
 using System.Security.Cryptography;
 using System.Text.Json;
 using Lib.Net.Http.WebPush;
@@ -83,15 +84,31 @@ public sealed class VapidKeys(ISecretStore secrets)
 /// is dropped; other failures are logged and the push is skipped.
 /// </summary>
 public sealed class PushSender(
-    IPushStore store, VapidKeys vapid, IHttpClientFactory http, ServerSettings settings, ILogger<PushSender> logger) : IPushSender
+    IPushStore store, VapidKeys vapid, IHttpClientFactory http, LiveSettings live, ILogger<PushSender> logger) : IPushSender
 {
     private static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web);
+
+    /// <summary>The contact when there is no https address and no mail address to give.</summary>
+    public const string PlaceholderContact = "mailto:pecklist@example.com";
+
+    /// <summary>
+    /// Who push services may contact about this server (the VAPID subject). It must be an https: or
+    /// a mailto: address: Apple's and Mozilla's services refuse an http: one, so every push failed
+    /// with an http <c>PUBLIC_URL</c>. Apple's also refuses a localhost one, so an https address on
+    /// a loopback host counts as none. Then it is the address mail comes from (<c>SMTP_FROM</c>),
+    /// else a placeholder.
+    /// </summary>
+    public static string Contact(ServerSettings settings) =>
+        settings.PublicUrl is { IsLoopback: false } url && url.Scheme == Uri.UriSchemeHttps ? url.GetLeftPart(UriPartial.Authority)
+        : settings.Mail?.From is { Length: > 0 } from && MailAddress.TryCreate(from, out var address) ? $"mailto:{address.Address}"
+        : PlaceholderContact;
 
     public Task SendAsync(string userId, PushPayload payload, CancellationToken cancellation = default) =>
         SendAsync(userId, _ => payload, cancellation);
 
     public async Task SendAsync(string userId, Func<string?, PushPayload> payloadFor, CancellationToken cancellation = default)
     {
+        var settings = live.Current;
         // A demo server sends nothing anywhere (PL-117); reminders still show on the device itself.
         if (settings.DemoMode) return;
         var subscriptions = await store.ForUserAsync(userId, cancellation);
@@ -101,8 +118,8 @@ public sealed class PushSender(
         {
             DefaultAuthentication = new VapidAuthentication(publicKey, privateKey)
             {
-                // Push services ask who to contact about the sender: this server's address.
-                Subject = settings.PublicUrl is { } url ? url.GetLeftPart(UriPartial.Authority) : "mailto:pecklist@localhost",
+                // Push services ask who to contact about the sender (live: SMTP_FROM can change).
+                Subject = Contact(settings),
             },
         };
         // One message per set of languages: most people's devices share theirs.

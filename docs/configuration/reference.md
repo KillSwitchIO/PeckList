@@ -22,7 +22,9 @@ server is reachable from the internet: set `PUBLIC_URL` to its `https://<name>.t
 for any public server. On any other address, login links and invites ask for `PUBLIC_URL`, a friend
 code comes without its link, and signing out of a provider stays on the
 provider's page. Handles carry its host too (`sam@tasks.example.com`): after
-you change it, the next start updates everyone's. **Default:** none. **Where:** any.
+you change it, the next start updates everyone's. Push notifications give an `https://` address to
+the push services as the contact; with an `http://` one, a `localhost` one or none, they give the
+`SMTP_FROM` address, or a placeholder. **Default:** none. **Where:** any.
 
 ### `ACCOUNT_DELETE_GRACE_DAYS`
 
