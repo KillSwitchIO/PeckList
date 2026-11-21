@@ -236,6 +236,10 @@ still shows.
     ready to type in.
   - **Today's count** shows how many tasks are left for today, in red while any are overdue.
 
+  ![Placing a Today widget: the choice of Today, Upcoming, each list and each saved filter](../assets/screenshots/android-widget-picker.png)
+
+  ![A Today widget on the home screen, set to the Groceries list](../assets/screenshots/android-widget-list.png)
+
   They follow your phone's colors and its light or dark mode on Android 12 and later. They move to
   the next day at midnight on their own, and show what the app last saw: open the app to bring
   them up to date after a change on another device. A task completed on a widget while offline
