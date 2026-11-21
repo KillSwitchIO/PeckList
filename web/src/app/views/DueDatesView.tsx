@@ -8,7 +8,8 @@ import { DatePickerPanel } from '../dates/DatePickerPanel.tsx';
 import { useToday } from '../hooks/useToday.ts';
 import { t, type MessageKey } from '../i18n/i18n.ts';
 import { Page } from '../layout/Page.tsx';
-import { useApply, useWorkspace } from '../store/hooks.ts';
+import { useApply } from '../store/hooks.ts';
+import { useNarrowed } from './useNarrowed.tsx';
 import { PropertySheet } from '../tasks/PropertyRow.tsx';
 import { TaskRow } from '../tasks/TaskRow.tsx';
 import { EmptyState } from './EmptyState.tsx';
@@ -28,7 +29,7 @@ const GROUP_TITLE: Record<DueGroupKey, MessageKey> = {
  * date is its due date and edits in place.
  */
 export function DueDatesView() {
-  const workspace = useWorkspace();
+  const { workspace, button } = useNarrowed('due');
   const today = useToday();
   const apply = useApply();
   const groups = dueGroups(workspace, today);
@@ -63,15 +64,18 @@ export function DueDatesView() {
     <Page
       title={t('nav.due')}
       actions={
-        groups.length > 0 && (
-          <Button
-            size="small"
-            aria-pressed={selecting}
-            onClick={() => (selecting ? stop() : setSelecting(true))}
-          >
-            {selecting ? t('common.done') : t('due.select')}
-          </Button>
-        )
+        <>
+          {button}
+          {groups.length > 0 && (
+            <Button
+              size="small"
+              aria-pressed={selecting}
+              onClick={() => (selecting ? stop() : setSelecting(true))}
+            >
+              {selecting ? t('common.done') : t('due.select')}
+            </Button>
+          )}
+        </>
       }
     >
       {groups.length === 0 && <EmptyState title={t('due.empty')} hint={t('due.empty.hint')} />}

@@ -30,9 +30,12 @@ import { useWorkspace } from '../store/hooks.ts';
 
 export function NarrowButton({
   narrowing,
+  lists = true,
   onChange,
 }: {
   narrowing: Narrowing;
+  /** Offer lists to pick: not in a view that is one list already (the Mess Drawer). */
+  lists?: boolean;
   onChange: (next: Narrowing) => void;
 }) {
   const workspace = useWorkspace();
@@ -131,18 +134,19 @@ export function NarrowButton({
         </Button>
       </Box>
       <Typography variant="caption" color="text.secondary" component="p" sx={{ px: 2 }}>
-        {t('narrow.hint')}
+        {t(lists ? 'narrow.hint' : 'narrow.hintNoLists')}
       </Typography>
-      {group(
-        'lists',
-        t('narrow.lists'),
-        visibleLists(workspace).map((list) => ({
-          id: list.id,
-          name: listName(list, workspace),
-          color: list.color,
-        })),
-        true,
-      )}
+      {lists &&
+        group(
+          'lists',
+          t('narrow.lists'),
+          visibleLists(workspace).map((list) => ({
+            id: list.id,
+            name: listName(list, workspace),
+            color: list.color,
+          })),
+          true,
+        )}
       {group(
         'tags',
         t('narrow.tags'),

@@ -1,6 +1,6 @@
-// Narrowing a view (spec: R-FB-53): Today, Upcoming and the calendar can show just some lists,
-// tags and saved filters, in any mix. Within each kind, any one picked will do (OR); across kinds,
-// all must hold (AND). Nothing picked in a kind leaves that kind open.
+// Narrowing a view (spec: R-FB-53): Today, Upcoming, the calendar and the other task views can
+// show just some lists, tags and saved filters, in any mix. Within each kind, any one picked will
+// do (OR); across kinds, all must hold (AND). Nothing picked in a kind leaves that kind open.
 
 import { compileFilter } from './filters.ts';
 import { filterOf } from './savedFilters.ts';

@@ -67,10 +67,12 @@ changes it in place. **Select** (or hold a row on a phone), pick tasks or a whol
 **Select all**, then move them all to **Today**, **Tomorrow**, **Next week** or a date you pick, or
 clear them. Each task keeps its own time of day, and **Undo** puts them back.
 
-**Filter** (the funnel at the top of Today, Upcoming, Completed and the Calendar) shows only some lists, tags
+**Filter** (the funnel at the top of Today, Upcoming, Due dates, All, Assigned to me, Shared with me,
+Completed, the Calendar, Search and the Mess Drawer) shows only some lists, tags
 and saved filters, in any mix: a task shows when it is in one of the lists picked, has one of the
 tags picked (or a tag under one) and matches one of the saved filters picked; a kind with nothing
-picked lets everything through. Each of them keeps its own filter on this device, and the
+picked lets everything through. In Search it narrows the results. The Mess Drawer is one list
+already, so its funnel has no Lists section. Each view keeps its own filter on this device, and the
 funnel is colored while one is on. **Clear** shows everything again. The Lists and Tags
 sections each have **Select all** and **Deselect all**: select all, then untick the few to leave
 out. Every tag picked shows only tasks that have a tag; **Deselect all** lets that kind through
