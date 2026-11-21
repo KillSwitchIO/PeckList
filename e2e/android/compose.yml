@@ -1,0 +1,64 @@
+# The Android end-to-end stack (pnpm e2e:android, or the android-e2e CI job):
+# - emulator: Android 16 headless plus Appium on :4723 (e2e/android/emulator.Dockerfile). Needs /dev/kvm.
+# - server: the PeckList image under test, in the emulator's network, so the app reaches it at
+#   http://10.0.2.2:8080 (the emulator's name for its host).
+# - provider: a mock OpenID Connect provider for the browser hand-off, in the same network at
+#   localhost:8091, which the emulator also sees as localhost:8091 through adb reverse. No real
+#   accounts: its sign-in form takes any user name.
+# - specs: the WebdriverIO runner (specs.Dockerfile), in the same network, so it reaches Appium at
+#   127.0.0.1:4723 and the server at 127.0.0.1:8080 (profile "specs": run, not kept up).
+# Nothing is published on the host. compose.ports.yml adds Appium and the server on 127.0.0.1 for
+# poking at a running stack from outside.
+name: pecklist-android-e2e
+services:
+  emulator:
+    image: ${EMULATOR_IMAGE:-pecklist-android-emulator:local}
+    devices: [/dev/kvm]
+    environment:
+      EMULATOR_CORES: ${EMULATOR_CORES:-4}
+    # The SDK, system image and AVD, installed on the first start (emulator.Dockerfile).
+    volumes: ['android-sdk:/opt/android-sdk']
+    labels: { pecklist.owner: '${PECKLIST_OWNER:-e2e}' }
+    healthcheck:
+      test: ['CMD', 'curl', '-sf', 'http://127.0.0.1:4723/status']
+      interval: 5s
+      retries: 90
+      # The first start downloads the SDK before booting.
+      start_period: 20m
+  server:
+    image: ${PECKLIST_IMAGE:-pecklist:local}
+    network_mode: service:emulator
+    depends_on: [emulator]
+    environment:
+      ADMIN_PASSWORD: ${E2E_ADMIN_PASSWORD:-e2e-admin-password}
+      TELEMETRY: 'false'
+      PUBLIC_URL: http://10.0.2.2:8080
+      REGISTRATION: open
+      OIDC_PROVIDERS: mock
+      OIDC_MOCK_AUTHORITY: http://localhost:8091/default
+      OIDC_MOCK_CLIENT_ID: pecklist
+      OIDC_MOCK_DISPLAY_NAME: Test provider
+      OIDC_MOCK_AUTO_CREATE: 'true'
+    labels: { pecklist.owner: '${PECKLIST_OWNER:-e2e}' }
+  provider:
+    image: ghcr.io/navikt/mock-oauth2-server:6.1.4
+    network_mode: service:emulator
+    depends_on: [emulator]
+    environment:
+      SERVER_PORT: '8091'
+      JSON_CONFIG: '{"interactiveLogin": true}'
+    labels: { pecklist.owner: '${PECKLIST_OWNER:-e2e}' }
+  specs:
+    image: ${SPECS_IMAGE:-pecklist-android-specs:local}
+    profiles: [specs]
+    network_mode: service:emulator
+    depends_on:
+      emulator: { condition: service_healthy }
+    environment:
+      E2E_APPIUM_HOST: 127.0.0.1
+      E2E_SERVER_URL: http://127.0.0.1:8080
+      E2E_ADMIN_PASSWORD: ${E2E_ADMIN_PASSWORD:-e2e-admin-password}
+    labels: { pecklist.owner: '${PECKLIST_OWNER:-e2e}' }
+volumes:
+  android-sdk:
+    labels: { pecklist.owner: '${PECKLIST_OWNER:-e2e}' }

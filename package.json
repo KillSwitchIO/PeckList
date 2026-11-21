@@ -16,6 +16,7 @@
     "test:browser": "pnpm --filter @pecklist/web test:browser",
     "e2e": "pnpm --filter @pecklist/e2e test",
     "e2e:server": "pnpm --filter @pecklist/e2e test:server",
+    "e2e:android": "sh e2e/android/run.sh",
     "lint": "eslint .",
     "typecheck": "pnpm -r typecheck",
     "format": "prettier --write .",

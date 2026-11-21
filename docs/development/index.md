@@ -41,6 +41,8 @@ E2E_BASE_URL=http://localhost:6183 E2E_ADMIN_PASSWORD=... pnpm e2e:server
 # the web client's own code (store, sync engine, HTTP) as several people against a real server:
 # friends, groups, sharing, hand-over, account removal, refusals, concurrent edits
 PECKLIST_URL=http://localhost:6183 PECKLIST_ADMIN_PASSWORD=... pnpm --filter @pecklist/web exec vitest run src/integration
+# the Android app on an emulator (Docker with /dev/kvm; see the Android page):
+E2E_APK=mobile/android/app/build/outputs/apk/foss/debug/app-foss-debug.apk pnpm e2e:android
 ```
 
 The `src/integration` tests are skipped unless `PECKLIST_URL` is set. Run them against a fresh

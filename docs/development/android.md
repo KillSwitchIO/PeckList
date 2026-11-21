@@ -451,6 +451,46 @@ From the emulator, the computer is `10.0.2.2`, so a server published on port 808
 `10.0.2.2:8080` on the connect page (it warns about plain HTTP). For provider sign-in, the
 provider must be reachable at the same address from the server and from the emulator.
 
+## End-to-end tests
+
+`e2e/android-specs/` drives the foss debug APK on an Android 16 emulator through Appium's
+UiAutomator2 driver, against a real server. One account per run, in order: connect over plain
+HTTP and sign up, quick add with a date read from the words, set a date in the picker, complete
+and undo, complete a task from its reminder's notification, open a list a friend shared, and sign
+in through a provider in the browser and come back signed in. The app's WebView shows its page as
+native widgets, so the specs find buttons by their text and fields by their hint; no Chrome driver
+is involved.
+
+```bash
+pnpm --filter @pecklist/mobile apk     # the debug APK
+docker build -t pecklist:local .       # the server to test against, or set PECKLIST_IMAGE
+E2E_APK=mobile/android/app/build/outputs/apk/foss/debug/app-foss-debug.apk pnpm e2e:android
+```
+
+`e2e/android/run.sh` builds the emulator image (`e2e/android/emulator.Dockerfile`: a JDK and
+Appium) and the specs' runner, brings up `e2e/android/compose.yml` (the emulator with Appium, the
+server, and a mock OpenID Connect provider whose sign-in form takes any name), runs the specs
+inside that network, and always takes it all down again. The emulator installs the Android SDK and
+system image (about 8 GB) into a volume on its first start, so removing the volume frees all of
+it; in the image, those layers stayed behind in Docker's build cache. `E2E_KEEP=1` keeps the
+images and the SDK's volume for the next run; the phone itself is wiped at every start either way.
+It needs Docker with `/dev/kvm`: Linux, or WSL 2 with nested virtualization. With less than 12 GB
+free (`E2E_MIN_FREE_GB`) or no `/dev/kvm` it skips with exit code 77. A failed test leaves a
+screenshot and the screen's element tree in `e2e/screenshots/`.
+
+Each run without `E2E_KEEP` downloads those 8 GB again from Google (`dl.google.com`), CI's
+included. When a run fails, the script prints the emulator's log before it cleans up: a slow or
+failing download shows there, before the emulator's boot.
+
+To poke at a running stack, `e2e/android/compose.ports.yml` publishes Appium on `127.0.0.1:4723`
+and the server on `127.0.0.1:6190`, and the specs run from the host against them with
+`pnpm --filter @pecklist/e2e test:android` (`E2E_APP` is the APK's path inside the emulator
+container).
+
+In CI, `android-e2e` runs the same script on `android-apk`'s APK against `:edge`, weekly and by
+hand on merge requests that change the app or these tests, one at a time, on a runner whose host
+has `/dev/kvm` ([CI](ci.md)).
+
 ## Making it crash (debug builds)
 
 A debug build answers an adb broadcast that makes it go down the way a real fault would, so the
