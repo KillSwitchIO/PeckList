@@ -23,7 +23,8 @@
               }
             }
           }
-        }
+        },
+        "security": []
       }
     },
     "/api/sync": {
@@ -32,7 +33,7 @@
           "Sync"
         ],
         "summary": "Internal: the apps' sync",
-        "description": "The protocol the PeckList apps sync with: whole entities with per-field clocks. It is internal and changes with the apps; scripts and other tools use the task API under /api/v1, which is versioned.\n\nAn API key needs the tasks:read scope.",
+        "description": "The protocol the PeckList apps sync with: whole entities with per-field clocks. It is internal and changes with the apps; scripts and other tools use the task API under /api/v1, which is versioned.\n\nAn API key needs the tasks:read scope. Pushing changes also needs tasks:write.",
         "requestBody": {
           "content": {
             "application/json": {
@@ -4190,7 +4191,8 @@
               }
             }
           }
-        }
+        },
+        "security": []
       },
       "delete": {
         "tags": [
@@ -4291,7 +4293,8 @@
               }
             }
           }
-        }
+        },
+        "security": []
       }
     },
     "/api/v1/cli/lookup": {
