@@ -38,7 +38,7 @@ import { PropertyRow, PropertySheet } from '../tasks/PropertyRow.tsx';
 import { useReadOnly } from '../tasks/readOnly.ts';
 import { notifier } from './notifier.ts';
 import { daysEarlyText, minutesEarlyText, reminderLabel, reminderParts } from './reminderText.ts';
-import { dateTimeFormat } from '../../core/intl.ts';
+import { dateTimeFormat, localeDateFormat } from '../../core/intl.ts';
 
 /**
  * The quick choices for an all-day task: days early, all at the person's time (TickTick's list),
@@ -59,7 +59,7 @@ const CHOICES: Record<CustomTab, readonly number[]> = {
 };
 const byDays = (tab: CustomTab) => tab === 'day' || tab === 'week';
 
-const dateText = new Intl.DateTimeFormat(undefined, {
+const dateText = localeDateFormat({
   month: 'short',
   day: 'numeric',
   year: 'numeric',

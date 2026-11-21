@@ -489,7 +489,7 @@ describe('settings: changing the theme', () => {
 });
 
 describe('settings by subject (PL-128)', () => {
-  const SUBJECTS = ['Appearance', 'Date and time', 'Tasks', 'Your data'];
+  const SUBJECTS = ['Appearance', 'Language and time', 'Tasks', 'Your data'];
 
   it('on a wide screen opens the first subject beside the list, and each has an address', async () => {
     await renderApp('/settings');
@@ -518,8 +518,8 @@ describe('settings by subject (PL-128)', () => {
     const nav = await screen.findByRole('navigation', { name: 'Settings' });
     expect(screen.queryByRole('group', { name: 'Theme' })).toBeNull();
 
-    await userEvent.click(within(nav).getByRole('link', { name: /^Date and time/ }));
-    expect(await screen.findByRole('heading', { name: 'Date and time' })).toBeInTheDocument();
+    await userEvent.click(within(nav).getByRole('link', { name: /^Language and time/ }));
+    expect(await screen.findByRole('heading', { name: 'Language and time' })).toBeInTheDocument();
     expect(await screen.findByRole('combobox', { name: 'Due soon' })).toBeInTheDocument();
     expect(screen.queryByRole('navigation', { name: 'Settings' })).toBeNull();
 

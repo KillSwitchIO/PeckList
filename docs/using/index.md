@@ -119,7 +119,7 @@ their start; the due date is the deadline.
   the title on its own line, with the list and tags under it and the date at the right.
 - **Reminders**: in a task's details, **Reminders** opens a list like TickTick's: tick any of
   **On time**, 5 or 30 minutes, an hour or a day early (an all-day task: **On the day**, 1, 2 or 3
-  days or a week early, each at 9:00 or the time set in **Settings > Date and time > All-day reminder
+  days or a week early, each at 9:00 or the time set in **Settings > Language and time > All-day reminder
   time**), or **None**. **Custom** makes your own: the **Day** or **Week** tab picks how many days
   or weeks early and the wheels the time of day (60 days early at 4:00 PM, say); a timed task also
   has **Minute** and **Hour** tabs for minutes or hours early. It shows when the reminder will come, or that the time has passed. **Constant reminder** keeps a reminder
@@ -398,7 +398,7 @@ subjects stand in a list beside the one that is open; on a phone each opens as a
 - **Account** (with a server): your photo, email, sign-in methods and linked accounts, passkeys and
   API keys, and, last, start over or delete your account; in the Android app, the server too.
 - **Appearance**: light, dark or system theme, and colors.
-- **Date and time**: your time zone, how dates show, 12 or 24-hour clock, the first day of the week,
+- **Language and time**: the language PeckList speaks (automatic follows each device, or pick one and it follows you to every device; languages a machine translated say so), your time zone, how dates show, 12 or 24-hour clock, the first day of the week,
   when a due date counts as soon, how long a task with only a start time shows on the calendar, and
   when all-day reminders come.
 - **Tasks**: **Lists and tags**, the Closed group, what a new task starts with, and swipe actions.
@@ -494,5 +494,5 @@ every device.
 **New tasks**: what a new task starts with: a list (for tasks added outside a list), a priority, a
 date (none, today, tomorrow or in a week) with an optional time, reminders, the time all-day
 reminders come at, and on a server whether tasks you add to shared lists start assigned to you.
-Times are shown on your clock (Settings > Date and time > Clock) and set with the same wheels as a task's date. Where you add a task still wins: in a list it goes to
+Times are shown on your clock (Settings > Language and time > Clock) and set with the same wheels as a task's date. Where you add a task still wins: in a list it goes to
 that list, in Today or on a day it gets that date, and what you type in quick add wins over both.

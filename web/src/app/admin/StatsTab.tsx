@@ -18,6 +18,7 @@ import type { MessageKey } from '../i18n/i18n.ts';
 import { t } from '../i18n/i18n.ts';
 import { MonthBars, StatCard } from './statsParts.tsx';
 import { useLoaded } from './useAdmin.ts';
+import { intlLocale } from '../../core/intl.ts';
 
 type Column = keyof Pick<
   UserStats,
@@ -62,7 +63,7 @@ export function StatsTab({ api }: { api: AdminApi }) {
     if (key === 'storageBytes') return formatBytes(person.storageBytes);
     if (key === 'lastActive') return when(person.lastActive);
     if (key === 'username') return person.username;
-    return person[key].toLocaleString();
+    return person[key].toLocaleString(intlLocale());
   };
   const people = [...data.people].sort((a, b) => {
     const x = a[sort.by] ?? '';
@@ -72,12 +73,12 @@ export function StatsTab({ api }: { api: AdminApi }) {
     return sort.down ? -order : order;
   });
   const cards: [MessageKey, string][] = [
-    ['stats.users', data.users.toLocaleString()],
-    ['stats.open', data.openTasks.toLocaleString()],
-    ['stats.closed', data.closedTasks.toLocaleString()],
-    ['stats.closedThisMonth', data.closedThisMonth.toLocaleString()],
-    ['stats.lists', data.lists.toLocaleString()],
-    ['stats.sharedLists', data.sharedLists.toLocaleString()],
+    ['stats.users', data.users.toLocaleString(intlLocale())],
+    ['stats.open', data.openTasks.toLocaleString(intlLocale())],
+    ['stats.closed', data.closedTasks.toLocaleString(intlLocale())],
+    ['stats.closedThisMonth', data.closedThisMonth.toLocaleString(intlLocale())],
+    ['stats.lists', data.lists.toLocaleString(intlLocale())],
+    ['stats.sharedLists', data.sharedLists.toLocaleString(intlLocale())],
     ['stats.storage', formatBytes(data.storageBytes)],
   ];
   return (

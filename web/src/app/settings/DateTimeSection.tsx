@@ -13,7 +13,7 @@ import { DateFormatSetting } from './DateFormatSetting.tsx';
 import { Section, SettingRow } from './settingsLayout.tsx';
 import { TimeZoneSetting } from './TimeZoneSetting.tsx';
 
-/** Settings > Date and time: how dates read, and when they count as near. */
+/** Settings > Language and time > Dates: how dates read, and when they count as near. */
 export function DateTimeSection() {
   const workspace = useWorkspace();
   const apply = useApply();

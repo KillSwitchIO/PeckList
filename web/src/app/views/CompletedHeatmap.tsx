@@ -5,10 +5,11 @@ import { doneScale, heatColumns } from '../../core/completions.ts';
 import { heatShades } from '../../core/palette.ts';
 import { formatDay } from '../format.ts';
 import { t } from '../i18n/i18n.ts';
+import { localeDateFormat } from '../../core/intl.ts';
 
 const CELL = 12;
 const GAP = 3;
-const monthShort = new Intl.DateTimeFormat(undefined, { month: 'short', timeZone: 'UTC' });
+const monthShort = localeDateFormat({ month: 'short', timeZone: 'UTC' });
 
 /** A day's name and count, for the screen reader and the tooltip. */
 function heatDayLabel(day: string, today: string, count: number): string {

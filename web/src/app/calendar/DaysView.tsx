@@ -16,7 +16,7 @@ import { ItemLine } from './ItemLine.tsx';
 import { TimeLabel } from './TimeLabel.tsx';
 import { MAX_HOUR, MIN_HOUR } from './calendarPrefs.ts';
 import { besideScrolling, scrolling } from './scrollbars.ts';
-import { dateTimeFormat } from '../../core/intl.ts';
+import { dateTimeFormat, localeDateFormat } from '../../core/intl.ts';
 import { useBulkSelect } from '../tasks/bulkSelect.ts';
 
 const GUTTER = 44;
@@ -24,9 +24,9 @@ const GUTTER = 44;
 const HOLD_MS = 450;
 /** All-day lines a day shows before "+N" (the row grows when opened). */
 const ALL_DAY_ROWS = 3;
-const weekdayShort = new Intl.DateTimeFormat(undefined, { weekday: 'short', timeZone: 'UTC' });
+const weekdayShort = localeDateFormat({ weekday: 'short', timeZone: 'UTC' });
 const at = (day: string) => new Date(`${day}T12:00:00Z`);
-const shortMonthDay = new Intl.DateTimeFormat(undefined, {
+const shortMonthDay = localeDateFormat({
   month: 'short',
   day: 'numeric',
   timeZone: 'UTC',

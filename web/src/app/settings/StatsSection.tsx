@@ -6,6 +6,7 @@ import { t } from '../i18n/i18n.ts';
 import { Page } from '../layout/Page.tsx';
 import { useSyncState } from '../sync/syncContext.ts';
 import { EmptyState } from '../views/EmptyState.tsx';
+import { intlLocale } from '../../core/intl.ts';
 
 /**
  * "Your stats" (spec: Server stats, PL-084), from the profile menu: the same numbers an admin sees
@@ -58,7 +59,7 @@ export function StatsPage() {
         }}
       >
         {cards.map(([label, value]) => (
-          <StatCard key={label} label={label} value={value.toLocaleString()} />
+          <StatCard key={label} label={label} value={value.toLocaleString(intlLocale())} />
         ))}
       </Box>
       <Box sx={{ px: 1 }}>

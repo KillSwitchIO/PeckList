@@ -197,6 +197,11 @@ export interface Settings extends BaseEntity {
   purgeAfterDays?: number;
   /** The views whose task rows are compact, one line each (schema 19): view ids such as view:today; absent: none */
   compactViews?: string[];
+  /**
+   * The language the app speaks, a BCP 47 tag such as de or pt-BR (schema 20, PL-148); null or
+   * absent: automatic, the browser's or phone's own
+   */
+  language?: string | null;
 }
 
 /** Each absent switch is on. The Notifications page lists every kind regardless. */

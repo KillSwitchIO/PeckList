@@ -21,6 +21,7 @@ import { setHideCompleted, useHideCompleted } from '../views/completedPrefs.ts';
 import { AppearanceSection } from './AppearanceSection.tsx';
 import { DataSection } from './DataSection.tsx';
 import { DateTimeSection } from './DateTimeSection.tsx';
+import { LanguageSection } from './LanguageSection.tsx';
 import { AccountEndSection } from './AccountEndSection.tsx';
 import { EmailSection } from './EmailSection.tsx';
 import { NewTaskSection } from './NewTaskSection.tsx';
@@ -128,7 +129,13 @@ export function SettingsPage() {
       label: t('settings.category.dates'),
       hint: t('settings.category.datesHint'),
       icon: <CalendarIcon />,
-      content: () => <DateTimeSection />,
+      // One list of rows: both parts have no heading, so a gap between them read as a hole (QA).
+      content: () => (
+        <>
+          <LanguageSection />
+          <DateTimeSection />
+        </>
+      ),
     },
     {
       id: 'tasks',

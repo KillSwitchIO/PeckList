@@ -22,6 +22,7 @@ import { TaskTree } from '../tasks/TaskTree.tsx';
 import { GroupSection } from '../views/GroupSection.tsx';
 import { monthTitle } from '../layout/miniCalendarText.ts';
 import { DAY_WIDTHS, useTimelinePrefs } from './listLayout.ts';
+import { localeDateFormat } from '../../core/intl.ts';
 
 const ROW = 34;
 const HEADER = 44;
@@ -32,7 +33,7 @@ const MOVE_PX = 5;
 /** A finger holds a bar this long to pick it up; moving sooner scrolls (as the calendar). */
 const HOLD_MS = 350;
 
-const weekdayNarrow = new Intl.DateTimeFormat(undefined, { weekday: 'narrow', timeZone: 'UTC' });
+const weekdayNarrow = localeDateFormat({ weekday: 'narrow', timeZone: 'UTC' });
 const at = (day: string) => new Date(`${day}T12:00:00Z`);
 
 /**

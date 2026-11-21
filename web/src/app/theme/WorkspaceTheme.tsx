@@ -1,9 +1,10 @@
 import { CssBaseline, ThemeProvider, useMediaQuery } from '@mui/material';
-import { useEffect, useMemo, type ReactNode } from 'react';
+import { Fragment, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { effectivePalette, paletteTint } from '../../core/paletteSettings.ts';
 import { updateSettings } from '../../core/settings.ts';
 import { useApply, useWorkspace } from '../store/hooks.ts';
 import { setDisplayPreferences } from '../format.ts';
+import { applyLanguageChoice, shownLanguage } from '../i18n/language.ts';
 import { createAppTheme } from './theme.ts';
 import {
   nextThemeMode,
@@ -47,6 +48,20 @@ export function WorkspaceTheme({ children }: { children: ReactNode }) {
   }, [apply]);
   // The next start paints with this mode before the workspace has loaded.
   useEffect(() => rememberThemeMode(mode), [mode]);
+  // The language picked in Settings, synced (PL-148), or automatic. Once its catalog is in, the
+  // app below renders again from the top, so no string or date is left in the old language: a
+  // change of language is rare and deliberate, and the stores and the address outlive it.
+  const choice = settings?.language ?? null;
+  const [shown, setShown] = useState(shownLanguage);
+  useEffect(() => {
+    let live = true;
+    void applyLanguageChoice(choice).then(() => {
+      if (live) setShown(shownLanguage());
+    });
+    return () => {
+      live = false;
+    };
+  }, [choice]);
 
   const value = useMemo<ThemeModeValue>(() => {
     const setMode = (next: ThemeModeValue['mode']) =>
@@ -60,7 +75,7 @@ export function WorkspaceTheme({ children }: { children: ReactNode }) {
         {/* The page itself (background, text, scrollbars) follows this theme too, not only the
             components: without it the page kept the mode it opened with until a reload. */}
         <CssBaseline enableColorScheme />
-        {children}
+        <Fragment key={shown}>{children}</Fragment>
       </ThemeProvider>
     </ThemeModeContext.Provider>
   );

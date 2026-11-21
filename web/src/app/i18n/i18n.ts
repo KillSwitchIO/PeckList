@@ -75,6 +75,8 @@ function activate(language: string, catalog: Catalog) {
   const changed = language !== activeLanguage;
   activeLanguage = language;
   active = catalog;
+  // Screen readers, spell checks and hyphenation read the page's language from here.
+  if (typeof document !== 'undefined') document.documentElement.lang = language;
   if (changed) for (const listener of listeners) listener(language);
 }
 

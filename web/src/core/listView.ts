@@ -5,6 +5,7 @@ import { datePart } from './dates.ts';
 import { members } from './ops.ts';
 import { compareByOrder, compareOrderKeys } from './ordering.ts';
 import type { Id, Priority, Task, WorkspaceFile } from './types.ts';
+import { collator } from './intl.ts';
 
 /**
  * `none` is the list's own order, the one tasks are dragged in. (Sections were dropped: PL-011.)
@@ -57,7 +58,7 @@ const byDate = (a: Task, b: Task) => {
   const right = sortDate(b) ?? '9999-99-99';
   return left === right ? 0 : left < right ? -1 : 1;
 };
-const titles = new Intl.Collator(undefined, { sensitivity: 'base', numeric: true });
+const titles = () => collator({ sensitivity: 'base', numeric: true });
 
 /**
  * The tasks in the chosen order (a new array). Ties keep the list's own order. `reversed` turns
@@ -68,7 +69,7 @@ export function sortTasks(tasks: readonly Task[], sort: ListSort, reversed = fal
     manual: [byOrder],
     date: [byDate, byPriority, byOrder],
     priority: [byPriority, byDate, byOrder],
-    title: [(a: Task, b: Task) => titles.compare(a.title, b.title), byOrder],
+    title: [(a: Task, b: Task) => titles().compare(a.title, b.title), byOrder],
     // Newest first.
     created: [(a: Task, b: Task) => b.createdAt.localeCompare(a.createdAt), byOrder],
   }[sort];

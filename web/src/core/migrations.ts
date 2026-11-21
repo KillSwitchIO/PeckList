@@ -3,7 +3,7 @@
 
 import { keyBetween } from './ordering.ts';
 
-export const CURRENT_SCHEMA_VERSION = 19;
+export const CURRENT_SCHEMA_VERSION = 20;
 
 export type Migration = (document: Record<string, unknown>) => Record<string, unknown>;
 
@@ -130,6 +130,9 @@ export const MIGRATIONS: MigrationRegistry = {
   // 19: settings may list the views whose rows are compact (compactViews). Optional (missing:
   // none), so documents change only in version.
   19: (document) => document,
+  // 20: settings may name the language the app speaks (language, PL-148). Optional (missing or
+  // null: automatic), so documents change only in version.
+  20: (document) => document,
 };
 
 export type VersionCheck =

@@ -18,6 +18,7 @@ import { t } from '../i18n/i18n.ts';
 import { lazyAgain } from '../lazyAgain.tsx';
 import { LoadBoundary } from '../layout/LoadBoundary.tsx';
 import { preloadEditor } from './preloadEditor.ts';
+import { intlLocale } from '../../core/intl.ts';
 
 // The editor library loads on first use, keeping it out of the app's first load; the app fetches
 // it ahead once idle (preloadEditor), so opening a task does not wait for it. One that could not
@@ -91,7 +92,7 @@ export function NotesEditor(props: RichTextEditorProps & { title?: string; maxLe
   };
   const limit =
     cut && maxLength !== undefined && !editor.readOnly
-      ? t('editor.notesLimit', { count: maxLength.toLocaleString() })
+      ? t('editor.notesLimit', { count: maxLength.toLocaleString(intlLocale()) })
       : null;
   return (
     <Box sx={{ position: 'relative' }}>

@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import type { PasswordOutcome } from '../../ports/sync.ts';
 import { t } from '../i18n/i18n.ts';
+import { intlLocale } from '../../core/intl.ts';
 
 /** What a password change asks for: the current password, the new one, and the new one again. */
 export function usePasswordDraft() {
@@ -19,7 +20,7 @@ export function lockedProblem(until: string): string {
   const date = new Date(until);
   const time = Number.isNaN(date.getTime())
     ? until
-    : date.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
+    : date.toLocaleTimeString(intlLocale(), { hour: 'numeric', minute: '2-digit' });
   return t('auth.locked', { time });
 }
 
