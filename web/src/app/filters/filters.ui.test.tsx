@@ -3,7 +3,13 @@ import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { addDays, localTimeZone, todayIn } from '../../core/dates.ts';
 import { createList, inboxList, visibleLists } from '../../core/lists.ts';
-import { createSavedFilter, DUE_CHOICES, filterOf } from '../../core/savedFilters.ts';
+import {
+  createSavedFilter,
+  DUE_CHOICES,
+  filterOf,
+  setSavedFilterView,
+  viewOf,
+} from '../../core/savedFilters.ts';
 import { setAssignee } from '../../core/sharing.ts';
 import { createTag } from '../../core/tags.ts';
 import { createTask, setTaskStatus } from '../../core/tasks.ts';
@@ -130,5 +136,77 @@ describe('saved filters', () => {
     const workspace = store.getState().workspace!;
     const all = visibleLists(workspace).map((list) => list.id);
     expect(filterOf(workspace.entities.savedFilters[0]!)).toEqual({ lists: all });
+  });
+
+  it('keep their grouping with the filter, so it syncs (PL-015)', async () => {
+    const store = testStore();
+    await store.getState().init();
+    let filterId = '';
+    store.getState().apply((ctx, ws) => {
+      const listId = inboxList(ws).id;
+      let next = createTask(ctx, ws, { title: 'Mop', listId, priority: 1 }).workspace;
+      next = createTask(ctx, next, { title: 'Fix the gate', listId, priority: 3 }).workspace;
+      const made = createSavedFilter(ctx, next, 'Chores', {});
+      filterId = made.filter.id;
+      return made.workspace;
+    });
+    await store.getState().flush();
+    // A choice this browser kept before still shows, until the next pick moves it to the filter.
+    localStorage.setItem(
+      'pecklist.listGrouping',
+      JSON.stringify({ [`filter:${filterId}`]: { group: 'none' } }),
+    );
+    await renderApp(`/filters/${filterId}`, store);
+    await screen.findByRole('button', { name: 'Open Mop' });
+    await userEvent.click(screen.getByRole('button', { name: 'View options' }));
+    expect(await screen.findByRole('menuitem', { name: 'Group by none' })).toHaveClass(
+      'Mui-selected',
+    );
+
+    await userEvent.click(screen.getByRole('menuitem', { name: 'Group by priority' }));
+    const saved = () => store.getState().workspace!.entities.savedFilters[0]!;
+    await waitFor(() => expect(viewOf(saved())).toEqual({ group: 'priority' }));
+    expect(localStorage.getItem('pecklist.listGrouping')).toBe('{}');
+    expect(await screen.findByRole('heading', { level: 2, name: /^High/ })).toBeInTheDocument();
+
+    // Another device picks: this one follows.
+    store
+      .getState()
+      .apply((ctx, ws) => setSavedFilterView(ctx, ws, filterId, { group: 'none', sort: 'title' }));
+    await waitFor(() =>
+      expect(screen.queryByRole('heading', { level: 2, name: /^High/ })).toBeNull(),
+    );
+    const titles = screen
+      .getAllByRole('button', { name: /^Open / })
+      .map((row) => row.getAttribute('aria-label'));
+    expect(titles).toEqual(['Open Fix the gate', 'Open Mop']);
+  });
+
+  it("drop this browser's old grouping once another device stores one (PL-015)", async () => {
+    const store = testStore();
+    await store.getState().init();
+    let filterId = '';
+    store.getState().apply((ctx, ws) => {
+      const next = createTask(ctx, ws, { title: 'Mop', listId: inboxList(ws).id }).workspace;
+      const made = createSavedFilter(ctx, next, 'Chores', {});
+      filterId = made.filter.id;
+      return made.workspace;
+    });
+    await store.getState().flush();
+    localStorage.setItem(
+      'pecklist.listGrouping',
+      JSON.stringify({ [`filter:${filterId}`]: { group: 'none' } }),
+    );
+    await renderApp(`/filters/${filterId}`, store);
+    await screen.findByRole('button', { name: 'Open Mop' });
+    // Another device picks, then restores the defaults: this one goes back to by date, not to
+    // its own old choice.
+    store.getState().apply((ctx, ws) => setSavedFilterView(ctx, ws, filterId, { group: 'tag' }));
+    await waitFor(() => expect(localStorage.getItem('pecklist.listGrouping')).toBe('{}'));
+    store.getState().apply((ctx, ws) => setSavedFilterView(ctx, ws, filterId, {}));
+    await userEvent.click(screen.getByRole('button', { name: 'View options' }));
+    expect(await screen.findByRole('menuitem', { name: 'Group by date' })).toHaveClass(
+      'Mui-selected',
+    );
   });
 });

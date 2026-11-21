@@ -11,7 +11,9 @@ import {
   deleteSavedFilter,
   filterOf,
   savedFiltersOf,
+  setSavedFilterView,
   updateSavedFilter,
+  viewOf,
 } from './savedFilters.ts';
 import { createTask, setTaskStatus } from './tasks.ts';
 import { filterClosedTasks } from './filters.ts';
@@ -86,5 +88,42 @@ describe('saved filters', () => {
       'finished',
     ]);
     expect(filterClosedTasks(ws, { ...DUE_CHOICES.overdue, closed: false }, TODAY)).toEqual([]);
+  });
+
+  it('keeps its grouping and sort with it, apart from its conditions (PL-015)', () => {
+    const ctx = testContext();
+    let ws = createWorkspace(ctx);
+    const made = createSavedFilter(ctx, ws, 'High', { priorities: [3] });
+    ws = made.workspace;
+    const saved = () => ws.entities.savedFilters[0]!;
+    expect(viewOf(saved())).toEqual({});
+
+    ws = setSavedFilterView(ctx, ws, made.filter.id, { group: 'priority', sort: 'title' });
+    expect(viewOf(saved())).toEqual({ group: 'priority', sort: 'title' });
+    // The conditions don't see it, and the same choice again writes nothing.
+    expect(filterOf(saved())).toEqual({ priorities: [3] });
+    expect(setSavedFilterView(ctx, ws, made.filter.id, { group: 'priority', sort: 'title' })).toBe(
+      ws,
+    );
+
+    // Editing the conditions keeps it.
+    ws = updateSavedFilter(ctx, ws, made.filter.id, 'High', { priorities: [2, 3] });
+    expect(viewOf(saved())).toEqual({ group: 'priority', sort: 'title' });
+    expect(filterOf(saved())).toEqual({ priorities: [2, 3] });
+
+    // Back to the defaults stores nothing at all.
+    ws = setSavedFilterView(ctx, ws, made.filter.id, {});
+    expect(saved().query).toEqual({ priorities: [2, 3] });
+  });
+
+  it('reads only the known parts of a stored grouping and sort', () => {
+    const ctx = testContext();
+    const made = createSavedFilter(ctx, createWorkspace(ctx), 'Odd', {});
+    const odd = {
+      ...made.filter,
+      query: { view: { group: 'colour', sort: 'title', groupReversed: 'yes', sortReversed: true } },
+    };
+    expect(viewOf(odd)).toEqual({ sort: 'title', sortReversed: true });
+    expect(viewOf({ ...made.filter, query: { view: 'priority' } })).toEqual({});
   });
 });

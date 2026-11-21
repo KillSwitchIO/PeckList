@@ -2,6 +2,7 @@
 
 import { isLive, putEntity, requireEntity } from './collections.ts';
 import type { TaskFilter } from './filters.ts';
+import { cleanViewChoice, type ViewChoice } from './listView.ts';
 import { createEntity, softDelete, updateEntity, type OpContext } from './ops.ts';
 import { compareOrderKeys, keyBetween } from './ordering.ts';
 import type { Id, SavedFilter, WorkspaceFile } from './types.ts';
@@ -13,9 +14,44 @@ export function savedFiltersOf(workspace: WorkspaceFile): SavedFilter[] {
     .sort((a, b) => compareOrderKeys(a.order, b.order));
 }
 
-/** A saved filter's conditions. */
+/**
+ * A saved filter's conditions. `query` also holds `view`, the filter's grouping and sort (PL-015):
+ * kept there so it syncs without a schema change, and an older app just doesn't read it.
+ */
 export function filterOf(saved: SavedFilter): TaskFilter {
-  return saved.query as TaskFilter;
+  return withoutView(saved.query) as TaskFilter;
+}
+
+/** How a saved filter's tasks are grouped and sorted, as someone last picked it on any device. */
+export function viewOf(saved: SavedFilter): ViewChoice {
+  return cleanViewChoice(saved.query.view);
+}
+
+function withoutView(query: Record<string, unknown>): Record<string, unknown> {
+  return Object.fromEntries(Object.entries(query).filter(([key]) => key !== 'view'));
+}
+
+/** The query with this view choice, or with none when it is the defaults. */
+function withView(query: Record<string, unknown>, view: ViewChoice): Record<string, unknown> {
+  const rest = withoutView(query);
+  return Object.keys(view).length === 0 ? rest : { ...rest, view };
+}
+
+/** Stores a saved filter's grouping and sort; the same choice again changes nothing. */
+export function setSavedFilterView(
+  ctx: OpContext,
+  workspace: WorkspaceFile,
+  id: Id,
+  view: ViewChoice,
+): WorkspaceFile {
+  const saved = requireEntity(workspace, 'savedFilters', id);
+  const next = cleanViewChoice(view);
+  if (JSON.stringify(next) === JSON.stringify(viewOf(saved))) return workspace;
+  return putEntity(
+    workspace,
+    'savedFilters',
+    updateEntity(ctx, saved, { query: withView(saved.query, next) }),
+  );
 }
 
 export function createSavedFilter(
@@ -44,7 +80,8 @@ export function updateSavedFilter(
   return putEntity(
     workspace,
     'savedFilters',
-    updateEntity(ctx, saved, { name: name.trim(), query: { ...filter } }),
+    // Editing the conditions keeps the grouping and sort.
+    updateEntity(ctx, saved, { name: name.trim(), query: withView({ ...filter }, viewOf(saved)) }),
   );
 }
 

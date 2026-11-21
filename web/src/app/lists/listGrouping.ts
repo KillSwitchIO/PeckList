@@ -1,24 +1,17 @@
-import { useState } from 'react';
-import type { ListGrouping, ListSort } from '../../core/listView.ts';
+import { useEffect, useState } from 'react';
+import type { ListGrouping, ListSort, ViewChoice } from '../../core/listView.ts';
 
 export type { ListGrouping, ListSort } from '../../core/listView.ts';
 
-interface ListViewChoice {
-  group?: ListGrouping;
-  sort?: ListSort;
-  /** Picked again: the other way round */
-  groupReversed?: boolean;
-  sortReversed?: boolean;
-}
-
 const KEY = 'pecklist.listGrouping';
 
-// How each list is grouped and sorted is a per-browser view choice for now. It moves into the
-// view's filter settings with saved filters (PL-015), so it syncs.
-function load(): Record<string, ListViewChoice> {
+// How a list or a built-in view is grouped and sorted is a per-browser choice for now (a list's
+// would need a schema change to sync). A saved filter's is stored with the filter and syncs
+// (PL-015): see `SyncedViewChoice`.
+function load(): Record<string, ViewChoice> {
   try {
     const raw = localStorage.getItem(KEY);
-    const stored = raw ? (JSON.parse(raw) as Record<string, ListViewChoice | string>) : {};
+    const stored = raw ? (JSON.parse(raw) as Record<string, ViewChoice | string>) : {};
     // Older choices were just the grouping; grouping by section became the list's own order.
     return Object.fromEntries(
       Object.entries(stored).map(([id, value]) => {
@@ -30,7 +23,7 @@ function load(): Record<string, ListViewChoice> {
         };
         const group =
           choice.group === 'section' ? 'none' : (choice.group as ListGrouping | undefined);
-        const kept: ListViewChoice = {};
+        const kept: ViewChoice = {};
         if (group) kept.group = group;
         if (choice.sort) kept.sort = choice.sort;
         if (choice.groupReversed) kept.groupReversed = true;
@@ -41,6 +34,31 @@ function load(): Record<string, ListViewChoice> {
   } catch {
     return {};
   }
+}
+
+/** Keeps `id`'s choice in this browser, or forgets it (`null`, or the defaults). */
+function store(id: string, next: ViewChoice | null) {
+  try {
+    const others = Object.entries(load()).filter(([key]) => key !== id);
+    const kept =
+      next === null ||
+      (next.group === undefined &&
+        next.sort === undefined &&
+        !next.groupReversed &&
+        !next.sortReversed)
+        ? []
+        : [[id, next]];
+    localStorage.setItem(KEY, JSON.stringify(Object.fromEntries([...others, ...kept])));
+  } catch {
+    // storage unavailable; keep the in-memory choice only
+  }
+}
+
+/** A view whose choice is stored with it and syncs (a saved filter), instead of in this browser. */
+export interface SyncedViewChoice {
+  /** The stored choice; `{}` until someone picks. */
+  choice: ViewChoice;
+  save: (next: ViewChoice) => void;
 }
 
 export interface ListViewSettings {
@@ -62,30 +80,36 @@ export interface ListViewSettings {
 
 /**
  * A list's or a view's grouping and sort, by its id (a list id, or `view:today` and the like): by
- * date and the own order until the person picks.
+ * date and the own order until the person picks. With `synced` the choice is the view's own stored
+ * one; a choice this browser kept from before still shows until the next pick moves it there.
  */
-export function useListView(id: string): ListViewSettings {
+export function useListView(id: string, synced?: SyncedViewChoice): ListViewSettings {
   // Kept with its id: a page that moves to another list or filter reads that one's choice.
-  const [held, setHeld] = useState<{ id: string; choice: ListViewChoice }>(() => ({
+  const [held, setHeld] = useState<{ id: string; choice: ViewChoice }>(() => ({
     id,
     choice: load()[id] ?? {},
   }));
-  const picked = held.id === id ? held.choice : (load()[id] ?? {});
-  const save = (next: ListViewChoice) => {
-    setHeld({ id, choice: next });
-    try {
-      const others = Object.entries(load()).filter(([key]) => key !== id);
-      const kept =
-        next.group === undefined &&
-        next.sort === undefined &&
-        !next.groupReversed &&
-        !next.sortReversed
-          ? []
-          : [[id, next]];
-      localStorage.setItem(KEY, JSON.stringify(Object.fromEntries([...others, ...kept])));
-    } catch {
-      // storage unavailable; keep the in-memory choice only
+  const local = held.id === id ? held.choice : (load()[id] ?? {});
+  const stored = synced && Object.keys(synced.choice).length > 0 ? synced.choice : null;
+  const picked = stored ?? local;
+  // Once the view has a stored choice, this browser's old one is done with: otherwise it would
+  // come back when someone restores the defaults on another device.
+  const hasStored = stored !== null;
+  if (hasStored && held.id === id && Object.keys(held.choice).length > 0) {
+    setHeld({ id, choice: {} });
+  }
+  useEffect(() => {
+    if (hasStored && load()[id]) store(id, null);
+  }, [hasStored, id]);
+  const save = (next: ViewChoice) => {
+    if (synced) {
+      synced.save(next);
+      setHeld({ id, choice: {} });
+      store(id, null);
+      return;
     }
+    setHeld({ id, choice: next });
+    store(id, next);
   };
   const grouping = picked.group ?? 'date';
   const sort = picked.sort ?? 'manual';
