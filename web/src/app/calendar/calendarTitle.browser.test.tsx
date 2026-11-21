@@ -16,12 +16,21 @@ afterEach(() => {
   document.body.style.width = '';
 });
 
-// The widest two-month titles, a month boundary in a short run, and one day.
+// The widest two-month titles, a month boundary in a short run, and one day, this year; then the
+// widest in another year: within one month a phone writes the year short (Ben, 2026-11-21), and
+// across two months it leaves the year off, as main did.
+const YEAR = new Date().getFullYear();
+const NEXT = YEAR + 1;
+const SHORT = String(NEXT).slice(2);
 const DAYS: [string, number, RegExp][] = [
-  ['2026-04-29', 12, /^Apr 29 - May 10$/],
-  ['2026-11-28', 14, /^Nov 28 - Dec 11$/],
-  ['2026-10-31', 3, /^Oct 31 - Nov 2$/],
-  ['2026-05-20', 1, /^(Wed, May 20|May 20, 2026)$/],
+  [`${YEAR}-04-29`, 12, /^Apr 29 - May 10$/],
+  [`${YEAR}-11-28`, 14, /^Nov 28 - Dec 11$/],
+  [`${YEAR}-10-31`, 3, /^Oct 31 - Nov 2$/],
+  [`${YEAR}-05-20`, 1, /^\w{3}, May 20$/],
+  [`${NEXT}-05-24`, 3, new RegExp(`^May 24 - 26 ’${SHORT}$`)],
+  [`${NEXT}-01-18`, 12, new RegExp(`^Jan 18 - 29 ’${SHORT}$`)],
+  [`${NEXT}-04-29`, 12, /^Apr 29 - May 10$/],
+  [`${NEXT}-11-28`, 14, /^Nov 28 - Dec 11$/],
 ];
 
 async function titleAt(date: string, days: number) {
