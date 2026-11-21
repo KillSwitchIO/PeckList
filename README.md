@@ -49,17 +49,20 @@ Productivity (including what they do better): [why PeckList](docs/about/why.md) 
 
 ## Quick start
 
+To look around before running anything, sign up on [demo.pecklist.com](https://demo.pecklist.com).
+To run your own:
+
 ```bash
 docker run -d --name pecklist -p 8080:8080 -v pecklist-data:/data -v pecklist-files:/files \
-  registry.gitlab.com/killswitch10/pecklist:latest
+  registry.gitlab.com/killswitch10/pecklist:latest    # or docker.io/hambone0/pecklist:latest
 docker logs pecklist     # the first admin password, printed once
 ```
 
-Open <http://localhost:8080>, sign in as `admin` with that password, and choose a new one. The
-image is public, and the same image is on Docker Hub as
-[`hambone0/pecklist`](https://hub.docker.com/r/hambone0/pecklist): use either name. Both are amd64
-and arm64, tagged `latest`, a minor line (`0.13`) and each version (`0.13.0`). For real use, see
-the documentation:
+Open <http://localhost:8080>, sign in as `admin` with that password, and choose a new one. The image is public
+under two names, the same image on each: `registry.gitlab.com/killswitch10/pecklist` on GitLab,
+and [`docker.io/hambone0/pecklist`](https://hub.docker.com/r/hambone0/pecklist) on Docker Hub.
+Both are amd64 and arm64, tagged `latest`, a minor line (`0.14`) and each version (`0.14.0`). For
+real use, see the documentation:
 
 |           |                                                                                                                                                                                                                |
 | --------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
