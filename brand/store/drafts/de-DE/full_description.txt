@@ -1,0 +1,50 @@
+PeckList ist eine Aufgaben-App für dich und die Menschen, mit denen du ein Zuhause, eine Reise oder ein Projekt teilst. Deine Listen liegen auf einem Server, den du selbst betreibst, jedes Gerät hat eine vollständige Kopie, und die App funktioniert offline: Änderungen werden innerhalb von Sekunden abgeglichen, sobald sie wieder online ist.
+
+<b>Du brauchst einen PeckList-Server.</b> Die App verbindet sich mit einem: Betreibe deinen eigenen mit Docker, Linux-Paketen oder Windows (es ist freie Software, AGPL-3.0), oder nutze einen, den jemand für dich betreibt. Du kannst die App auch nur auf diesem Gerät nutzen, ohne Konto und ohne Abgleich. Zum Ausprobieren registrierst du dich auf dem Demo-Server unter demo.pecklist.com, der regelmäßig neu startet.
+
+<b>Plane deinen Tag</b>
+<ul>
+<li>Heute, Demnächst und ein Kalender nach Jahr, Monat oder einigen Tagen</li>
+<li>Schnelles Hinzufügen, das Datum, Uhrzeit, Wiederholungen, Tags und Personen aus deiner Eingabe liest</li>
+<li>Listen, Unteraufgaben, Tags, Prioritäten, Start- und Fälligkeitsdaten</li>
+<li>Wiederkehrende Aufgaben, die beim Erledigen zu ihrem nächsten Datum springen</li>
+<li>Eine kompakte Zeilengröße für einen langen Heute-Tag und 30 Farbpaletten in Hell oder Dunkel</li>
+</ul>
+
+<b>Erinnerungen, die ankommen</b>
+<ul>
+<li>Erinnerungen kommen pünktlich, auch wenn die App geschlossen ist</li>
+<li>Erledigen und Schlummern direkt in der Benachrichtigung</li>
+<li>Dauerhafte Erinnerungen für die wichtigen Aufgaben: Sie melden sich weiter, bis du handelst</li>
+</ul>
+
+<b>Teilt euch die Arbeit</b>
+<ul>
+<li>Teile eine Liste mit Freunden und Gruppen, die sie ansehen oder bearbeiten können</li>
+<li>Weise jemandem eine Aufgabe zu, oder lass die Mitglieder einer Gruppe sie sich schnappen</li>
+<li>Kommentare mit @Erwähnungen und Dateien an jeder Aufgabe</li>
+<li>Eine Benachrichtigung, wenn jemand eine Liste teilt, dir eine Aufgabe zuweist oder dich erwähnt</li>
+</ul>
+
+<b>Auf deinem Handy</b>
+<ul>
+<li>Widgets: Heute, die Anzahl für heute und Schaltflächen zum Hinzufügen</li>
+<li>Füge eine Aufgabe per Sprache hinzu, über eine Schnelleinstellungs-Kachel oder indem du Text aus einer anderen App teilst</li>
+<li>Lange auf das Symbol drücken für Aufgabe hinzufügen, Heute und Suche</li>
+<li>Folgt dem hellen oder dunklen Modus deines Handys, mit einem Design-Symbol ab Android 13</li>
+</ul>
+
+<b>Nimm deine Aufgaben mit</b>
+<ul>
+<li>Import aus TickTick und Todoist</li>
+<li>iCalendar-Import und -Export</li>
+<li>Eine Aufgaben-API mit API-Schlüsseln, für Skripte, Home Assistant und Obsidian</li>
+</ul>
+
+<b>Melde dich an, wie du willst</b>
+Die Anmeldung läuft in deinem eigenen Browser, daher funktionieren Passkeys und Single Sign-on über deinen eigenen Identitätsanbieter.
+
+<b>Datenschutz</b>
+Die App spricht nur mit dem Server, mit dem du sie verbindest. Stürzt sie ab, bietet sie an, einen Absturzbericht zu senden, den du vorher lesen kannst; er geht über deinen Server an das Projekt, ohne Aufgabennamen oder persönliche Angaben. Du kannst Berichte für alle deine Geräte ausschalten, und ein Server-Admin kann sie für alle ausschalten.
+
+Dokumentation: docs.pecklist.com
