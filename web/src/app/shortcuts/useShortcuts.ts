@@ -7,6 +7,7 @@ import { deleteAsking } from '../repeat/repeatActions.ts';
 import { popupOpen, typing } from '../hooks/keys.ts';
 import { t } from '../i18n/i18n.ts';
 import { useWorkspaceStore } from '../store/hooks.ts';
+import { duplicate } from '../tasks/duplicateActions.ts';
 import { focusAddTask } from '../tasks/focusAddTask.ts';
 import { useTaskSelection } from '../tasks/selection.ts';
 import { matchShortcut, type ShortcutAction } from './shortcuts.ts';
@@ -90,6 +91,10 @@ export function useShortcuts(): { helpOpen: boolean; openHelp: () => void; close
             (ctx, ws) => toggleTaskDone(ctx, ws, task.id),
             task.status === 'open' ? t('undo.completed') : t('undo.reopened'),
           );
+          return true;
+        case 'duplicate':
+          if (!editable) return false;
+          duplicate(state.apply, workspace!, [task.id], openTask);
           return true;
         case 'delete':
           if (!editable) return false;

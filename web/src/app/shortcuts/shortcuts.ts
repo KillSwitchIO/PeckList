@@ -12,6 +12,7 @@ export type ShortcutAction =
   | { kind: 'previous' }
   | { kind: 'edit' }
   | { kind: 'complete' }
+  | { kind: 'duplicate' }
   | { kind: 'delete' }
   | { kind: 'help' };
 
@@ -123,6 +124,13 @@ export const SHORTCUTS: readonly Shortcut[] = [
     description: 'shortcut.complete',
     group: 'task',
     action: { kind: 'complete' },
+  },
+  {
+    keys: ['d'],
+    label: 'D',
+    description: 'shortcut.duplicate',
+    group: 'task',
+    action: { kind: 'duplicate' },
   },
   {
     keys: ['delete'],

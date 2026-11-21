@@ -45,6 +45,7 @@ stay clear of the browser's own.
 | <kbd>J</kbd> / <kbd>K</kbd>                            | Next / previous task                             |
 | <kbd>E</kbd>                                    | Edit the title                                   |
 | <kbd>Space</kbd>                                | Complete or reopen                               |
+| <kbd>D</kbd>                                    | Duplicate the task                               |
 | <kbd>Del</kbd>                               | Move to the trash                                |
 | <kbd>Alt</kbd>+<kbd>Up</kbd> / <kbd>Alt</kbd>+<kbd>Down</kbd>    | Move the task up or down                         |
 | <kbd>Alt</kbd>+<kbd>Right</kbd> / <kbd>Alt</kbd>+<kbd>Left</kbd> | Make it a subtask of the one above / take it out |

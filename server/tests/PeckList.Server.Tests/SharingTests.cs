@@ -120,6 +120,45 @@ public sealed class SharingTests(ServerFixture fixture) : IClassFixture<ServerFi
         Assert.Empty((await sam.NotificationsAsync()).Items);
     }
 
+    /// <summary>
+    /// A copy (Duplicate, PL-139) keeps its original's assignments as they were stamped, before it
+    /// was made: nobody is told again (Ben, 2026-11-21). A task made with people on it stamps them
+    /// as it is made, and they hear of it.
+    /// </summary>
+    [Fact]
+    public async Task A_copy_brings_its_people_along_without_telling_them_again()
+    {
+        var ben = await SignIn("ben-c");
+        var sam = await SignIn("sam-c");
+        await Befriend(ben, sam);
+        await ben.SyncAsync(List("CL1", "shared"), Member("CM1", "CL1", sam.UserId, "editor"));
+        static (string, JsonObject) Made(string id, string title, string createdAt, string assignedAt, string sam)
+        {
+            var task = Task(id, "CL1", title, sam);
+            task.Item2["createdAt"] = createdAt;
+            task.Item2["_hlc"]!["createdAt"] = task.Item2["_hlc"]!["title"]!.DeepClone();
+            task.Item2["assignees"]![$"user:{sam}"]!["hlc"] = assignedAt;
+            return task;
+        }
+        // The copy: made now, Sam assigned on the original an hour before.
+        await ben.SyncAsync(Made("CT1", "Mow (copy)", "2026-10-21T12:00:00.000Z", "2026-10-21T11:00:00.000Z-0000-dev1", sam.UserId));
+        // A new task with Sam on it from the start: stamped as it was made.
+        await ben.SyncAsync(Made("CT2", "Rake", "2026-10-21T12:00:00.000Z", "2026-10-21T12:00:00.004Z-0001-dev1", sam.UserId));
+        // Within the minute is no copy: a device whose stamps lag its createdAt a little still tells.
+        await ben.SyncAsync(Made("CT3", "Weed", "2026-10-21T12:00:00.000Z", "2026-10-21T11:59:30.000Z-0000-dev1", sam.UserId));
+
+        var feed = await sam.NotificationsAsync();
+        Assert.Equal(["CT2", "CT3"], feed.Items.Where(each => each.Kind == "assigned").Select(each => each.TaskId).Order(StringComparer.Ordinal));
+        // Assigning someone new on the copy later still tells them.
+        var later = Made("CT1", "Mow (copy)", "2026-10-21T12:00:00.000Z", "2026-10-21T11:00:00.000Z-0000-dev1", sam.UserId);
+        var lee = await SignIn("lee-c");
+        await Befriend(ben, lee);
+        await ben.SyncAsync(Member("CM2", "CL1", lee.UserId, "editor"));
+        later.Item2["assignees"]![$"user:{lee.UserId}"] = new JsonObject { ["in"] = true, ["hlc"] = "2026-10-21T12:05:00.000Z-0000-dev1" };
+        await ben.SyncAsync(later);
+        Assert.Contains((await lee.NotificationsAsync()).Items, each => each.Kind == "assigned" && each.TaskId == "CT1");
+    }
+
     [Fact]
     public async Task An_at_mention_notifies_people_who_can_see_the_task_only()
     {

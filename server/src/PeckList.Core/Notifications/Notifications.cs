@@ -231,9 +231,18 @@ public static partial class NotificationRules
     }
 
     /// <summary>
+    /// How much older than its new task an assignment must be stamped to count as carried over.
+    /// A task made with people on it stamps them in the same moment as itself (milliseconds apart,
+    /// on the device's own clock), so a minute leaves room for nothing but a copy.
+    /// </summary>
+    private static readonly TimeSpan CarriedOver = TimeSpan.FromMinutes(1);
+
+    /// <summary>
     /// A task newly assigned to a person tells them; newly assigned to a group, its members
     /// (R-FB-107); a group's task taken by one of them (dibs: the group out, they in) tells the
-    /// rest of the group (R-FB-108).
+    /// rest of the group (R-FB-108). A copy (Duplicate, PL-139) tells no one: it keeps its
+    /// original's assignments as they were stamped, before the copy was made (Ben, 2026-11-21:
+    /// a copy's people are not notified).
     /// </summary>
     private static IEnumerable<Found> Assignments(string actorId, NotableChange change, SharingIndex index)
     {
@@ -250,7 +259,8 @@ public static partial class NotificationRules
         var before = In(change.Before);
         var after = In(change.After);
         var listId = Field(change.After, "listId");
-        var added = after.Where(principal => !before.Contains(principal)).ToList();
+        var carried = change.Before is null ? Carried(change.After) : [];
+        var added = after.Where(principal => !before.Contains(principal) && !carried.Contains(principal)).ToList();
         var direct = added.Where(principal => !principal.StartsWith("group:", StringComparison.Ordinal))
             .SelectMany(index.PeopleOf)
             .Select(user => new Found(user, NotificationKind.Assigned, change.Id, listId, null));
@@ -263,6 +273,27 @@ public static partial class NotificationRules
                 .Select(user => new Found(user, NotificationKind.Claimed, change.Id, listId, null))
             : [];
         return direct.Concat(group).Concat(claimed);
+    }
+
+    /// <summary>
+    /// The assignments a new task brought along from another (a copy's): stamped more than
+    /// <see cref="CarriedOver"/> before the task was made. A task without a readable
+    /// <c>createdAt</c>, or a stamp that can't be read, carries nothing over.
+    /// </summary>
+    private static HashSet<string> Carried(JsonObject task)
+    {
+        var carried = new HashSet<string>(StringComparer.Ordinal);
+        if (task["assignees"] is not JsonObject assignees
+            || !DateTimeOffset.TryParse(Field(task, "createdAt"), CultureInfo.InvariantCulture,
+                DateTimeStyles.AssumeUniversal, out var made)) return carried;
+        foreach (var (principal, state) in assignees)
+        {
+            if (Field(state as JsonObject, "hlc") is { } stamp && Sync.Hlc.IsValid(stamp) && Sync.Hlc.WallTime(stamp) < made - CarriedOver)
+            {
+                carried.Add(principal);
+            }
+        }
+        return carried;
     }
 
     /// <summary>Everyone who can see the comment's task hears of it (R-FB-106).</summary>
