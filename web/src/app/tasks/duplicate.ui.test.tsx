@@ -2,7 +2,7 @@ import { fireEvent, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { createList, inboxList } from '../../core/lists.ts';
-import { createTask } from '../../core/tasks.ts';
+import { createTask, deleteTask } from '../../core/tasks.ts';
 import { mockViewport, renderApp, testStore } from '../../test/renderApp.tsx';
 
 beforeEach(() => {
@@ -53,6 +53,35 @@ describe('duplicating a task (PL-139)', () => {
     // A title edit has no Undo of its own: Undo takes the whole copy back.
     await userEvent.click(screen.getByRole('button', { name: 'Undo' }));
     await waitFor(() => expect(rows()).toEqual(['Mow', 'Rake']));
+    // And the copy's details close with it, rather than saying it no longer exists.
+    await waitFor(() => expect(screen.queryByRole('region', { name: 'Task details' })).toBeNull());
+    expect(screen.queryByText('This task no longer exists.')).toBeNull();
+  });
+
+  it('a copy opened again later says it is gone when deleted elsewhere', async () => {
+    // Closing only on Undo is for the opening that made the copy, not every later one.
+    const { store, rows } = await inboxWith('Mow');
+    fireEvent.contextMenu(screen.getByRole('button', { name: 'Open Mow' }));
+    await userEvent.click(await screen.findByRole('menuitem', { name: 'Duplicate' }));
+    await waitFor(() => expect(rows()).toEqual(['Mow', 'Mow']));
+    await screen.findByRole('region', { name: 'Task details' });
+    await userEvent.keyboard('{Escape}');
+    await waitFor(() => expect(screen.queryByRole('region', { name: 'Task details' })).toBeNull());
+
+    // Some time later, the copy opened from its row, then deleted on another device.
+    const later = vi.spyOn(Date, 'now').mockReturnValue(Date.now() + 5_000);
+    try {
+      const copy = store
+        .getState()
+        .workspace!.entities.tasks.filter((each) => each.title === 'Mow')
+        .at(-1)!;
+      await userEvent.click(screen.getAllByRole('button', { name: 'Open Mow' })[1]!);
+      await screen.findByRole('region', { name: 'Task details' });
+      store.getState().apply((ctx, ws) => deleteTask(ctx, ws, copy.id));
+      expect(await screen.findByText('This task no longer exists.')).toBeInTheDocument();
+    } finally {
+      later.mockRestore();
+    }
   });
 
   it('D duplicates the open task', async () => {

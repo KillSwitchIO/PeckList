@@ -29,7 +29,7 @@ import { CollapseIcon, DueIcon, ExpandIcon } from '../icons/icons.tsx';
 import { useLongPress } from '../hooks/useLongPress.ts';
 import { CompleteCheckbox } from './CompleteCheckbox.tsx';
 import { isBlankDraft } from './drafts.ts';
-import { freshCopy, keyboardOpen } from './detailFocus.ts';
+import { freshCopy, freshlyMade, keyboardOpen } from './detailFocus.ts';
 import { completionInstant } from './completion.ts';
 import { DetailFooter } from './DetailFooter.tsx';
 import { ParentTrail, SubtaskEditor } from './Subtasks.tsx';
@@ -209,7 +209,15 @@ export function TaskDetail({
   const [byKeyboard] = useState(() => keyboardOpen(taskId));
   // A copy just made by Duplicate: its title selected, so typing renames it (PL-139).
   const [asCopy] = useState(() => freshCopy(taskId));
+  // A task just made here and opened at once (Duplicate, a template's Use), for this opening only:
+  // when Undo takes it away, the details close, as there was never a task to say is gone.
+  const [madeNow] = useState(() => freshlyMade(taskId));
+  const undone = (!task || !isLive(task)) && madeNow;
+  useEffect(() => {
+    if (undone) onClose();
+  }, [undone, onClose]);
 
+  if (undone) return null;
   if (!task || !isLive(task)) {
     return (
       <Box sx={{ p: 2 }}>
