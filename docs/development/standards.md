@@ -72,7 +72,11 @@ new object, which is how saves, the journal and the sync engine tell what moved.
 
 - **Every string people see goes through `t()`** with a key in `app/i18n/locales/en.json`
   (`'admin.link.subject'`: area, then the thing). Sentence case. No em dashes anywhere, in
-  strings or docs; a plain dash or a new sentence instead.
+  strings or docs; a plain dash or a new sentence instead. Plurals use ICU
+  (`{count, plural, one {# task} other {# tasks}}`). The lint rule `pecklist/no-literal-ui-text`
+  flags text left in JSX, and `pnpm check:i18n` fails on invalid ICU, a translation whose
+  parameters differ from English, and English keys nothing uses (delete a key with the code that
+  used it).
 - **Icons** are PeckList's own, in `app/icons/icons.tsx` (24 x 24, 1.75 round strokes, no fills,
   `currentColor`). Draw a new one there rather than reach for a Material icon, and swap Material
   icons for ours as a screen is reworked.

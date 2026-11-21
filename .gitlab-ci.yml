@@ -208,6 +208,7 @@ lint:
     - pnpm check:version
     - pnpm check:docs
     - pnpm check:quick-add
+    - pnpm check:i18n
     - pnpm test:scripts
   rules:
     - *not-on-release-branch
