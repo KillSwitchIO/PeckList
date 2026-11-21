@@ -499,6 +499,73 @@ describe('task details', () => {
     expect(screen.queryByRole('region', { name: 'Task details' })).toBeNull();
   });
 
+  // Ben, 0.14.0: on a phone, picking a day opened the task and the date was not set. The picker
+  // is a portal inside the row's details, which open the task when tapped, and React passes the
+  // picker's taps up to them.
+  it('on a phone, picking a row date sets it and does not open the task', async () => {
+    mockViewport('phone');
+    const store = testStore();
+    await renderApp('/inbox', store);
+    const today = todayIn(localTimeZone(), Date.now());
+    store.getState().apply(
+      (ctx, ws) =>
+        createTask(ctx, ws, {
+          title: 'Paint',
+          listId: inboxList(ws).id,
+          schedule: { start: today, end: null, allDay: true, timeZone: localTimeZone() },
+        }).workspace,
+    );
+    const row = (await screen.findByRole('button', { name: 'Open Paint' })).parentElement!;
+    await userEvent.click(within(row).getByTestId('task-date'));
+    const sheet = await screen.findByRole('dialog', { name: 'Start date' });
+    // A day in the month shown, two days off.
+    const other = addDays(today, Number(today.slice(8)) > 25 ? -2 : 2);
+    const label = new Intl.DateTimeFormat('en-US', {
+      weekday: 'long',
+      month: 'long',
+      day: 'numeric',
+      year: 'numeric',
+      timeZone: 'UTC',
+    }).format(new Date(`${other}T12:00:00Z`));
+    await userEvent.click(within(sheet).getByRole('gridcell', { name: label }));
+    expect(screen.queryByRole('region', { name: 'Task details' })).toBeNull();
+    await userEvent.click(within(sheet).getByRole('button', { name: 'OK' }));
+    await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Start date' })).toBeNull());
+    const task = store.getState().workspace!.entities.tasks.find((each) => each.title === 'Paint')!;
+    expect(task.schedule?.start).toBe(other);
+    expect(screen.queryByRole('region', { name: 'Task details' })).toBeNull();
+    expect(window.location.search).not.toContain('task=');
+
+    // A quick pick, and a tap outside the sheet: neither opens the task either.
+    const startOf = () =>
+      store.getState().workspace!.entities.tasks.find((each) => each.title === 'Paint')!.schedule
+        ?.start;
+    const again = async () => {
+      const at = (await screen.findByRole('button', { name: 'Open Paint' })).parentElement!;
+      await userEvent.click(within(at).getByTestId('task-date'));
+      return screen.findByRole('dialog', { name: 'Start date' });
+    };
+    await userEvent.click(within(await again()).getByRole('button', { name: 'Tomorrow' }));
+    await waitFor(() => expect(startOf()).toBe(addDays(today, 1)));
+    expect(screen.queryByRole('region', { name: 'Task details' })).toBeNull();
+    await again();
+    await userEvent.click(document.querySelector('.MuiBackdrop-root')!);
+    await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Start date' })).toBeNull());
+    expect(startOf()).toBe(addDays(today, 1));
+    expect(screen.queryByRole('region', { name: 'Task details' })).toBeNull();
+    expect(window.location.search).not.toContain('task=');
+  });
+
+  it("a right click in a row's date picker is the picker's, not the row's", async () => {
+    await renderApp('/inbox');
+    await addTasks('Paint');
+    const row = screen.getByRole('button', { name: 'Open Paint' }).parentElement!;
+    await userEvent.click(within(row).getByRole('button', { name: 'Add date' }));
+    const sheet = await screen.findByRole('dialog', { name: 'Start date' });
+    fireEvent.contextMenu(within(sheet).getByRole('button', { name: 'Tomorrow' }));
+    expect(screen.queryByRole('menuitem', { name: "Won't do" })).toBeNull();
+  });
+
   it('explains when the opened task no longer exists', async () => {
     await renderApp('/inbox?task=01NOPE00000000000000000000');
     expect(screen.getByText('This task no longer exists.')).toBeInTheDocument();

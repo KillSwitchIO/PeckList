@@ -3,6 +3,7 @@ import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { swipeLook } from './swipeLook.tsx';
 import { useSwipePrefs, type SwipeAction } from './swipePrefs.ts';
 import { DRAG_HOLD_MS, DRAG_START_PX } from './drag/dragContext.ts';
+import { ownEvent } from '../hooks/ownEvent.ts';
 
 /** Width of each button a short swipe shows. */
 const ACTION = 60;
@@ -89,7 +90,7 @@ export function SwipeRow({
     const element = root.current;
     if (!element) return;
     // A popup the row opened (its menu) is a portal, but its events still reach here: not a swipe.
-    if (!element.contains(event.target as Node)) return;
+    if (!ownEvent(event)) return;
     const width = element.clientWidth || 360;
     setRowWidth(width);
     const id = event.pointerId;

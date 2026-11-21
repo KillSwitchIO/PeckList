@@ -4,7 +4,7 @@
 // compact one first on the line under the title, and show none for an undated task.
 
 import { Box, ButtonBase } from '@mui/material';
-import { useState, type MouseEvent } from 'react';
+import { useState, type MouseEvent, type SyntheticEvent } from 'react';
 import { localDateTimeOf, localTimeZone } from '../../core/dates.ts';
 import { setCompletedAt, updateTask } from '../../core/tasks.ts';
 import { scheduleAsking } from '../repeat/repeatActions.ts';
@@ -98,21 +98,28 @@ export function TaskDateSheet({
 }) {
   const today = useToday();
   const { which, label, value, save } = useRowDateEditor(task, dueFirst, series);
+  // The sheet is a portal, but React passes its clicks up to whatever holds the date button: a
+  // phone row's details, which open the task (0.14.0: a picked day opened it, unsaved). A click in
+  // the sheet stops here, for every place a date button sits. Presses stay free (the sheet's own
+  // swipe listens on the document); the row's press handlers skip them (ownEvent).
+  const stop = (event: SyntheticEvent) => event.stopPropagation();
   return (
-    <PropertySheet label={label} anchor={anchor} onClose={onClose}>
-      {anchor && (
-        <DatePickerPanel
-          value={value}
-          today={today}
-          allowRange={which === 'start'}
-          onApply={(next) => {
-            onClose();
-            save(next);
-          }}
-          onCancel={onClose}
-        />
-      )}
-    </PropertySheet>
+    <Box component="span" onClick={stop} onContextMenu={stop} sx={{ display: 'contents' }}>
+      <PropertySheet label={label} anchor={anchor} onClose={onClose}>
+        {anchor && (
+          <DatePickerPanel
+            value={value}
+            today={today}
+            allowRange={which === 'start'}
+            onApply={(next) => {
+              onClose();
+              save(next);
+            }}
+            onCancel={onClose}
+          />
+        )}
+      </PropertySheet>
+    </Box>
   );
 }
 

@@ -1,4 +1,5 @@
 import { useRef, type PointerEvent } from 'react';
+import { ownEvent } from './ownEvent.ts';
 
 const DELAY_MS = 500;
 const SLOP_PX = 8;
@@ -38,7 +39,8 @@ export function useLongPress(onLongPress: (point: { top: number; left: number })
   };
   return {
     onPointerDown: (event: PointerEvent) => {
-      if (event.pointerType !== 'touch') return;
+      // A hold in a popup the element opened (a row's date picker) is not a hold on the element.
+      if (event.pointerType !== 'touch' || !ownEvent(event)) return;
       fired.current = false;
       start.current = { x: event.clientX, y: event.clientY };
       const point = { top: event.clientY, left: event.clientX };

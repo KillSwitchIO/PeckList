@@ -14,6 +14,7 @@ import { assigneesOf, describePrincipal } from '../../core/sharing.ts';
 import { tagsOfTask } from '../../core/tags.ts';
 import { isPinned, setPinned, setTaskStatus, toggleTaskDone } from '../../core/tasks.ts';
 import type { Priority, Task } from '../../core/types.ts';
+import { ownEvent } from '../hooks/ownEvent.ts';
 import { useLongPress } from '../hooks/useLongPress.ts';
 import { t } from '../i18n/i18n.ts';
 import { AvatarStack } from '../friends/AvatarStack.tsx';
@@ -453,6 +454,8 @@ function TaskRowContent({
             pointerKind.current = event.pointerType;
           }}
           onContextMenu={(event) => {
+            // A right click in a popup the row opened (its date picker) is the popup's.
+            if (!ownEvent(event)) return;
             event.preventDefault();
             if (pointerKind.current === 'touch' || pointerKind.current === 'pen') return;
             setMenu({ position: { top: event.clientY, left: event.clientX } });
@@ -531,8 +534,14 @@ function TaskRowContent({
                 {hasDetails && (
                   <Box
                     data-testid="task-meta"
-                    // Tapping the details opens the task too (the title button is the one to focus).
-                    onClick={() => (select ? select.onToggle() : open(task.id))}
+                    // Tapping the details opens the task too (the title button is the one to focus),
+                    // but not a tap in the date picker opened from them (0.14.0: it opened the task
+                    // and the date was not set).
+                    onClick={(event) => {
+                      if (!ownEvent(event)) return;
+                      if (select) select.onToggle();
+                      else open(task.id);
+                    }}
                     sx={{
                       display: 'flex',
                       alignItems: 'center',
