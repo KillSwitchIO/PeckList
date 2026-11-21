@@ -541,6 +541,8 @@ function AppFrame() {
           <Drawer
             anchor="right"
             open={detail !== null && !expanded}
+            // The row shortcuts keep working while it's open beside the list (useShortcuts).
+            data-task-drawer=""
             onClose={(event, reason) => {
               if (!handledInside(event, reason)) close();
             }}
